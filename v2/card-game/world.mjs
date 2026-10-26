@@ -1947,6 +1947,13 @@ export function play(
     }
   }
   refreshStalledPrograms(next);
+  for (const [id, allowance] of Object.entries(
+    next.sharedMigration?.inventoryAllowances || {},
+  )) {
+    const count = Math.min(allowance, carried(next, id).length);
+    if (count <= 3) delete next.sharedMigration.inventoryAllowances[id];
+    else next.sharedMigration.inventoryAllowances[id] = count;
+  }
   validateWorld(next);
   return { ok: true, state: next };
 }
@@ -2054,6 +2061,35 @@ export function validateWorld(s) {
     s.revision < s.turn
   )
     fail();
+  if (s.sharedMigration !== undefined) {
+    const m = s.sharedMigration;
+    if (
+      !sharedEnabled(s) ||
+      !m ||
+      m.version !== 1 ||
+      Object.keys(m).some(
+        (key) =>
+          !["version", "legacyTurn", "uses", "inventoryAllowances"].includes(
+            key,
+          ),
+      ) ||
+      !Number.isSafeInteger(m.legacyTurn) ||
+      m.legacyTurn < 0 ||
+      m.legacyTurn > 4294967295 ||
+      !Array.isArray(m.uses) ||
+      m.uses.length !== 8 ||
+      m.uses.some((n) => !Number.isInteger(n) || n < 0 || n > 2147483647) ||
+      (m.inventoryAllowances !== undefined &&
+        (!m.inventoryAllowances ||
+          Array.isArray(m.inventoryAllowances) ||
+          typeof m.inventoryAllowances !== "object" ||
+          Object.entries(m.inventoryAllowances).some(
+            ([id, n]) =>
+              !humanAvatar(id) || !Number.isInteger(n) || n < 4 || n > 8,
+          )))
+    )
+      fail();
+  }
   if (s.playerActorId !== undefined && !humanAvatar(s.playerActorId)) fail();
   for (const field of ["controlledActors", "presentActors"]) {
     if (
@@ -2289,7 +2325,11 @@ export function validateWorld(s) {
     )
       fail();
   }
-  for (const actor of actorIds) if (carried(s, actor).length > 3) fail();
+  for (const actor of actorIds) {
+    const allowance = s.sharedMigration?.inventoryAllowances?.[actor];
+    const count = carried(s, actor).length;
+    if (count > (allowance || 3) || (allowance && allowance !== count)) fail();
+  }
   const lamp = s.items.lamp,
     oil = s.items.oil,
     bell = s.items.bell;

@@ -242,6 +242,127 @@ describe("the full world shared by human avatars", () => {
     expect(result.ok).toBe(true);
     expect(result.world.actors.mara.place).toBe(world.actors.mara.place);
   });
+  it("migrates older carried belongings, lamp state and room dialogue", () => {
+    const legacy = {
+      version: 1,
+      claimed: Array(8).fill(1),
+      present: [1, 0, 0, 0, 0, 0, 0, 0],
+      places: [0, 2, 3, 4, 5, 6, 7, 8],
+      holders: Array(8).fill(0),
+      uses: [3, 0, 0, 0, 0, 0, 0, 0],
+      turn: 40,
+    };
+    const scene = {
+      play: "legacy-scene-1",
+      actor: 0,
+      room: 0,
+      turn: 32,
+      starts_at: 1000,
+      until_at: 8000,
+      lines: [
+        { speaker: "Vale", text: "Keep this light close." },
+        { speaker: "Black pond", text: "A ripple catches the glow." },
+      ],
+    };
+    const result = dispatchShared({
+      op: "migrate",
+      legacy,
+      legacyScenes: [scene],
+    });
+    expect(result.world.items.lamp.lit).toBe(true);
+    expect(result.world.items.lamp.fuel).toBeGreaterThan(0);
+    expect(result.world.sharedMigration.inventoryAllowances).toEqual({
+      vale: 8,
+    });
+    expect(result.world.sharedMigration.uses).toEqual(legacy.uses);
+    expect(result.legacyScenes[0]).toMatchObject({
+      play: scene.play,
+      room: "pond",
+      actor: "vale",
+      starts_at: 1000,
+      until_at: 8000,
+    });
+    expect(
+      result.legacyScenes[0].lines.map(({ speaker, text }) => ({
+        speaker,
+        text,
+      })),
+    ).toEqual(scene.lines);
+    expect(
+      result.legacyScenes[0].lines.every((line) =>
+        result.world.log.some(
+          (e) => e.seq === line.seq && e.text === line.text,
+        ),
+      ),
+    ).toBe(true);
+    let world = result.world;
+    for (let count = 8; count > 3; count--) {
+      const view = ask(world, "view", "vale", { present: ["vale"] });
+      expect(view.actions.some((a) => a.kind === "take")).toBe(false);
+      world = ask(world, "play", "vale", {
+        present: ["vale"],
+        action: view.actions.find((a) => a.kind === "drop"),
+      }).world;
+      expect(world.sharedMigration.inventoryAllowances.vale).toBe(
+        count > 4 ? count - 1 : undefined,
+      );
+    }
+    const dark = dispatchShared({
+      op: "migrate",
+      legacy: { ...legacy, uses: [2, 0, 0, 0, 0, 0, 0, 0] },
+    });
+    expect(dark.world.items.lamp.lit).toBe(false);
+    expect(() =>
+      dispatchShared({
+        op: "migrate",
+        legacy,
+        legacyScenes: Array(81).fill(scene),
+      }),
+    ).toThrow();
+  });
+  it("accepts migration allowances only from server migration, with exact bounded counts", () => {
+    const legacy = {
+      version: 1,
+      claimed: Array(8).fill(1),
+      present: [1, 0, 0, 0, 0, 0, 0, 0],
+      places: [0, 2, 3, 4, 5, 6, 7, 8],
+      holders: Array(8).fill(0),
+      uses: Array(8).fill(0),
+      turn: 40,
+    };
+    const result = dispatchShared({ op: "migrate", legacy });
+    expect(() =>
+      dispatchShared({ op: "create", save: JSON.stringify(result.world) }),
+    ).toThrow();
+    for (const allowance of [
+      { vale: 9 },
+      { vale: 7 },
+      { moth: 8 },
+      { vale: 3 },
+    ]) {
+      const tampered = structuredClone(result.world);
+      tampered.sharedMigration.inventoryAllowances = allowance;
+      expect(() => ask(tampered, "validate")).toThrow();
+    }
+    const imported = shared();
+    imported.controlledActors = ["constructor"];
+    imported.presentActors = ["constructor"];
+    imported.claimed = Array(8).fill(1);
+    imported.present = Array(8).fill(1);
+    imported.sharedMigration = { version: 1, inventoryAllowances: { vale: 8 } };
+    const clean = dispatchShared({
+      op: "create",
+      save: JSON.stringify(imported),
+    }).world;
+    for (const field of [
+      "controlledActors",
+      "presentActors",
+      "claimed",
+      "present",
+      "sharedMigration",
+    ])
+      expect(clean[field]).toBeUndefined();
+  });
   it("reserves an avatar before entering a full room", () => {
     const world = shared();
     for (const id of ["vale", "mara", "ash", "nell", "tavi"])
