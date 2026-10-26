@@ -53,3 +53,8 @@ construction/living-world sequence is
 
 [Runtime Maintenance](runtime-maintenance.md) preserves the extraction sequence
 and connection reuse proposals that the shared card table will need.
+
+[Reflected Shore Worldpack Migration](reflected-shore-worldpack-migration.md)
+preserves the six-pack art research, four-of-each content selection, proposed
+Shore crossings, and bounded delivery slices. Integration follows multiplayer
+testing and the creator's art approval.

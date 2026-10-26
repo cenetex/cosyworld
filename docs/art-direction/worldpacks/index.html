@@ -1,0 +1,773 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>World style sheets · Lonely Forest</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        margin: 0;
+        background: #e9e5dd;
+        color: #242923;
+        font:
+          16px/1.55 system-ui,
+          sans-serif;
+      }
+      a {
+        color: #285445;
+        text-underline-offset: 4px;
+      }
+      main {
+        max-width: 1260px;
+        margin: auto;
+        padding: 50px 30px;
+      }
+      .intro {
+        max-width: 820px;
+        margin-bottom: 26px;
+      }
+      .eyebrow {
+        font-size: 11px;
+        font-weight: 750;
+        letter-spacing: 2px;
+        margin: 0 0 10px;
+        color: #687362;
+      }
+      h1,
+      h2 {
+        font-family: Georgia, serif;
+        font-weight: 500;
+        letter-spacing: -1.2px;
+        line-height: 1.1;
+        margin: 0;
+      }
+      h1 {
+        font-size: 52px;
+      }
+      h2 {
+        font-size: 40px;
+      }
+      .intro > p:last-child {
+        font-size: 18px;
+        color: #586050;
+        margin: 20px 0;
+      }
+      .topnav {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin: 28px 0 38px;
+      }
+      .topnav a {
+        background: #f8f6ef;
+        border: 1px solid #c9ccbd;
+        border-radius: 30px;
+        padding: 9px 19px;
+        text-decoration: none;
+        font-size: 14px;
+      }
+      .sheet {
+        background: #faf8f1;
+        border: 1px solid #d4d4c8;
+        box-shadow: 0 12px 32px #262a2010;
+        border-radius: 14px;
+        overflow: hidden;
+        margin: 0 0 42px;
+        scroll-margin-top: 20px;
+      }
+      .sheet-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 24px;
+        padding: 30px 32px;
+      }
+      .tagline {
+        margin: 9px 0 0;
+        color: #67705d;
+        font-size: 16px;
+      }
+      .model {
+        font:
+          12px/1.4 ui-monospace,
+          monospace;
+        border: 1px solid #cbd1c1;
+        border-radius: 8px;
+        padding: 10px 14px;
+        white-space: nowrap;
+      }
+      .gallery {
+        display: grid;
+        grid-template-columns: 2.65fr 1fr;
+        gap: 2px;
+        background: #d8d9cc;
+      }
+      figure {
+        margin: 0;
+        background: #eeede4;
+      }
+      figure img {
+        display: block;
+        width: 100%;
+        height: auto;
+        aspect-ratio: 16/9;
+        object-fit: contain;
+      }
+      figure:nth-child(2) img {
+        aspect-ratio: 2/3;
+      }
+      figcaption {
+        padding: 9px 14px;
+        font-size: 10px;
+        letter-spacing: 1.4px;
+        color: #5d6757;
+        background: #eeede4;
+      }
+      .sheet-body {
+        padding: 24px 32px 28px;
+      }
+      .style {
+        margin: 0 0 20px;
+        max-width: 950px;
+        font-size: 17px;
+      }
+      .palette {
+        display: flex;
+        gap: 10px;
+        list-style: none;
+        padding: 0;
+        margin: 0 0 24px;
+        flex-wrap: wrap;
+      }
+      .palette li {
+        min-width: 90px;
+        flex: 1;
+        max-width: 150px;
+        font-size: 11px;
+      }
+      .palette span {
+        display: block;
+        height: 24px;
+        border: 1px solid #0001;
+        border-radius: 3px;
+        margin-bottom: 5px;
+      }
+      .palette b,
+      .palette code {
+        display: block;
+      }
+      .palette code {
+        font-size: 10px;
+        color: #666f5f;
+      }
+      .rules {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 24px;
+      }
+      h3 {
+        font-size: 13px;
+        margin: 0 0 7px;
+      }
+      .rules p {
+        font-size: 12px;
+        line-height: 1.55;
+        margin: 0 0 8px;
+      }
+      .muted {
+        color: #67705f;
+      }
+      .review {
+        font-size: 12px;
+        margin: 18px 0 0;
+        padding: 12px 14px;
+        background: #e8ecdf;
+        border-left: 3px solid #7d8e64;
+        border-radius: 0 5px 5px 0;
+      }
+      details {
+        margin-top: 18px;
+        border-top: 1px solid #dbdfd1;
+        padding-top: 16px;
+        font-size: 13px;
+      }
+      summary {
+        cursor: pointer;
+        font-weight: 650;
+      }
+      pre {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        background: #eeeee5;
+        padding: 14px;
+        border-radius: 6px;
+        font-size: 12px;
+      }
+      footer {
+        font-size: 13px;
+        color: #65705b;
+        padding: 0 4px 30px;
+      }
+      a:focus-visible,
+      summary:focus-visible {
+        outline: 3px solid #796ac1;
+        outline-offset: 4px;
+      }
+      @media (max-width: 700px) {
+        main {
+          padding: 28px 14px;
+        }
+        h1 {
+          font-size: 37px;
+        }
+        h2 {
+          font-size: 30px;
+        }
+        .sheet-head {
+          padding: 22px;
+          display: block;
+        }
+        .model {
+          display: inline-block;
+          margin-top: 16px;
+        }
+        .gallery {
+          grid-template-columns: 1fr;
+        }
+        .gallery figure:nth-child(2) img {
+          max-height: 430px;
+          object-fit: contain;
+        }
+        .sheet-body {
+          padding: 22px;
+        }
+        .rules {
+          grid-template-columns: 1fr;
+          gap: 12px;
+        }
+        .palette li {
+          min-width: 65px;
+        }
+        .sheet {
+          margin-bottom: 26px;
+        }
+      }
+      @media print {
+        body {
+          background: white;
+        }
+        main {
+          padding: 0;
+          max-width: none;
+        }
+        .intro,
+        .topnav,
+        footer,
+        details {
+          display: none;
+        }
+        .sheet {
+          break-after: page;
+          box-shadow: none;
+          margin: 0;
+          border: 0;
+        }
+        .sheet-head {
+          padding: 16px;
+        }
+        .sheet-body {
+          padding: 16px;
+        }
+        .sheet-head h2 {
+          font-size: 30px;
+        }
+        .rules p,
+        .review {
+          font-size: 10px;
+        }
+        .palette {
+          margin-bottom: 12px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="intro">
+        <p class="eyebrow">LONELY FOREST / ART DIRECTION / 26 OCTOBER 2026</p>
+        <h1>World style sheets</h1>
+        <p>
+          Three chosen models. A shared way to describe backgrounds and avatars.
+          These raw model samples and reusable rules are ready for your review.
+        </p>
+      </div>
+      <nav class="topnav" aria-label="Worlds">
+        <a href="#lonely-forest">01 Lonely Forest</a
+        ><a href="#holy-land">02 Holy Land</a
+        ><a href="#project89">03 Project 89</a
+        ><a href="../assets/visual-language.png"
+          >Creator’s forest reference ↗</a
+        >
+      </nav>
+      <article class="sheet" id="lonely-forest">
+        <header class="sheet-head">
+          <div>
+            <p class="eyebrow">WORLD 01 / STYLE REVIEW</p>
+            <h2>Lonely Forest</h2>
+            <p class="tagline">A warm home inside an endless dream</p>
+          </div>
+          <a class="model" href="https://replicate.com/immanencer/mirquo"
+            >immanencer/mirquo ↗</a
+          >
+        </header>
+        <div class="gallery">
+          <figure>
+            <img
+              src="samples/lonely-forest-background.webp"
+              alt="Lonely Forest background generated with immanencer/mirquo"
+            />
+            <figcaption>BACKGROUND · 16:9 · RAW MODEL SAMPLE</figcaption>
+          </figure>
+          <figure>
+            <img
+              src="samples/lonely-forest-avatar.webp"
+              alt="Lonely Forest avatar style sample"
+            />
+            <figcaption>AVATAR · 2:3 · RAW MODEL SAMPLE</figcaption>
+          </figure>
+        </div>
+        <div class="sheet-body">
+          <p class="style">
+            Whimsical fantasy storybook illustration, expressive anime faces,
+            painted surfaces, tactile bark and cloth, warm home within an
+            endless dream.
+          </p>
+          <ul class="palette">
+            <li>
+              <span style="background: #f2e7d2"></span><b>Warm paper</b
+              ><code>#F2E7D2</code>
+            </li>
+            <li>
+              <span style="background: #e6ad60"></span><b>Hearth honey</b
+              ><code>#E6AD60</code>
+            </li>
+            <li>
+              <span style="background: #71513c"></span><b>Worn oak</b
+              ><code>#71513C</code>
+            </li>
+            <li>
+              <span style="background: #617755"></span><b>Moss</b
+              ><code>#617755</code>
+            </li>
+            <li>
+              <span style="background: #243653"></span><b>Night indigo</b
+              ><code>#243653</code>
+            </li>
+            <li>
+              <span style="background: #9566d6"></span><b>Dream violet</b
+              ><code>#9566D6</code>
+            </li>
+            <li>
+              <span style="background: #73d9cb"></span><b>Star mint</b
+              ><code>#73D9CB</code>
+            </li>
+          </ul>
+          <div class="rules">
+            <div>
+              <h3>Background</h3>
+              <p>
+                Wide establishing view, clear landmark, three depth layers, open
+                foreground for characters.
+              </p>
+              <p class="muted">
+                Keep the blue cottage, round window and broad living oak
+                recognizable. Show one clear dream opening.
+              </p>
+            </div>
+            <div>
+              <h3>Avatar</h3>
+              <p>
+                One complete full-body figure occupies about 70 percent of the
+                frame. Leave room around ears, hands, tail and shoes.
+              </p>
+              <p class="muted">
+                Use the approved character reference for face, species, fur,
+                hair, clothes and carried objects. This Rati sample tests the
+                supplied mousefolk proposal.
+              </p>
+            </div>
+            <div>
+              <h3>Materials &amp; light</h3>
+              <p>
+                weathered blue timber, knotted oak, moss, wool, glazed clay.
+              </p>
+              <p class="muted">
+                Warm windows and lamps illuminate real surfaces. Indigo distance
+                holds small violet and mint dream openings.
+              </p>
+            </div>
+          </div>
+          <p class="review">
+            <strong>For review.</strong> Mirquo gives the samples bold outlines
+            and cool, bright shade. Review Rati against the adult mousefolk
+            reference. Bring the canopy dream, evening light, and clean image
+            edges into the final art pass.
+          </p>
+          <details>
+            <summary>Reusable prompts and exact model settings</summary>
+            <p>
+              <a href="lonely-forest.json">Open the style sheet JSON</a> ·
+              <a href="samples/receipts.json">Generation receipts</a>
+            </p>
+            <p>Trigger: <code>MRQ</code></p>
+            <h4>Shared style</h4>
+            <pre>
+Whimsical fantasy storybook illustration, expressive anime faces, painted surfaces, tactile bark and cloth, warm home within an endless dream.</pre
+            >
+            <h4>Background template</h4>
+            <pre>
+MRQ. {style_block} {authored_place_description} {composition} {lighting}</pre
+            >
+            <h4>Sample prompt</h4>
+            <pre>
+MRQ, whimsical fantasy storybook environment, painted surfaces, tactile bark and wood. A huge ancient spreading oak shelters a small blue timber cottage with round window, slate roof and warm amber windows. Moss, garden paths and damp stones fill the open foreground. One violet and mint opening in the upper canopy holds a smaller oak and cottage. Blue-hour indigo distance, hearth honey, oak brown, moss green. Wide landscape, clear oak and cottage silhouettes, three layers of depth, environment only, unmarked surfaces, purely pictorial art.</pre
+            >
+            <h4>Avatar template</h4>
+            <pre>
+MRQ. {style_block} {approved_identity_description} {authored_action} {composition} {lighting}</pre
+            >
+            <h4>Sample prompt</h4>
+            <pre>
+MRQ. Full-length portrait of a mature adult woman cottage host, thirty years old, tall adult figure with natural seven-head proportions, long dark wavy hair, rounded mouse ears, subtle mousefolk face, small tail. Blue knitted scarf, ochre linen dress, cream apron, sturdy brown shoes. She holds a plain ceramic teacup. Capable warm expression, small expressive eyes, softly painted cottage doorway, warm hearth light, indigo shade. Painterly fantasy anime with fine cloth texture. One complete figure with space around shoes and ears. No text, letters, signatures, logos, watermark or border.</pre
+            >
+            <h4>Pinned model revision</h4>
+            <pre>
+dac6bb69d1a52b01a48302cb155aa9510866c734bfba94aa4c771c0afb49079f</pre
+            >
+            <h4>Native input defaults</h4>
+            <pre>
+{
+  &quot;model&quot;: &quot;dev&quot;,
+  &quot;num_outputs&quot;: 1,
+  &quot;num_inference_steps&quot;: 28,
+  &quot;go_fast&quot;: false,
+  &quot;megapixels&quot;: &quot;1&quot;,
+  &quot;output_format&quot;: &quot;webp&quot;,
+  &quot;output_quality&quot;: 92,
+  &quot;disable_safety_checker&quot;: false,
+  &quot;guidance_scale&quot;: 3,
+  &quot;lora_scale&quot;: 1
+}</pre
+            >
+          </details>
+        </div>
+      </article>
+      <article class="sheet" id="holy-land">
+        <header class="sheet-head">
+          <div>
+            <p class="eyebrow">WORLD 02 / STYLE REVIEW</p>
+            <h2>Holy Land</h2>
+            <p class="tagline">A journey in pigment and paper</p>
+          </div>
+          <a class="model" href="https://replicate.com/ratimics/b43l"
+            >ratimics/b43l ↗</a
+          >
+        </header>
+        <div class="gallery">
+          <figure>
+            <img
+              src="samples/holy-land-background.webp"
+              alt="Holy Land background generated with ratimics/b43l"
+            />
+            <figcaption>BACKGROUND · 16:9 · RAW MODEL SAMPLE</figcaption>
+          </figure>
+          <figure>
+            <img
+              src="samples/holy-land-avatar.webp"
+              alt="Holy Land avatar style sample"
+            />
+            <figcaption>AVATAR · 2:3 · RAW MODEL SAMPLE</figcaption>
+          </figure>
+        </div>
+        <div class="sheet-body">
+          <p class="style">
+            Rough unfinished watercolor; heavy pigment, broken washes, blooms,
+            searching pencil, raw paper.
+          </p>
+          <ul class="palette">
+            <li>
+              <span style="background: #f2e8d4"></span><b>Chalk</b
+              ><code>#F2E8D4</code>
+            </li>
+            <li>
+              <span style="background: #bf914b"></span><b>Ochre</b
+              ><code>#BF914B</code>
+            </li>
+            <li>
+              <span style="background: #7c8260"></span><b>Olive</b
+              ><code>#7C8260</code>
+            </li>
+            <li>
+              <span style="background: #b76d4c"></span><b>Clay</b
+              ><code>#B76D4C</code>
+            </li>
+            <li>
+              <span style="background: #8ca8b8"></span><b>Lake</b
+              ><code>#8CA8B8</code>
+            </li>
+          </ul>
+          <div class="rules">
+            <div>
+              <h3>Background</h3>
+              <p>
+                A clear place and road, low limestone buildings, olive terraces,
+                open room for characters.
+              </p>
+              <p class="muted">
+                Use the authored place. Use period-grounded materials and
+                buildings.
+              </p>
+            </div>
+            <div>
+              <h3>Avatar</h3>
+              <p>
+                A single clear person already mid-journey, useful object in
+                hand, room around the figure.
+              </p>
+              <p class="muted">
+                Use the authored role and the approved face, clothes and
+                personal objects. Peter&#x27;s linen and wool are proposed
+                visual details.
+              </p>
+            </div>
+            <div>
+              <h3>Materials &amp; light</h3>
+              <p>limestone, clay, linen, wool, weathered wood, flax cord.</p>
+              <p class="muted">
+                Natural sun and soft shade. Rough paper supplies the brightest
+                light.
+              </p>
+            </div>
+          </div>
+          <p class="review">
+            <strong>For review.</strong> B43L gives the samples open paper, flat
+            colour and simple drawn shapes. Review how much rough pigment and
+            detail the finished world should carry.
+          </p>
+          <details>
+            <summary>Reusable prompts and exact model settings</summary>
+            <p>
+              <a href="holy-land.json">Open the style sheet JSON</a> ·
+              <a href="samples/receipts.json">Generation receipts</a>
+            </p>
+            <p>Trigger: <code>B43L</code></p>
+            <h4>Shared style</h4>
+            <pre>
+Rough unfinished watercolor; heavy pigment, broken washes, blooms, searching pencil, raw paper.</pre
+            >
+            <h4>Background template</h4>
+            <pre>
+B43L. {style_block}
+{place}, {title}, already mid-journey. {concrete_place_sentence}</pre
+            >
+            <h4>Sample prompt</h4>
+            <pre>
+B43L. Rough unfinished watercolor; heavy pigment, broken washes, blooms, searching pencil, raw paper.
+Bethlehem, Town of the Nativity, already mid-journey. Low flat-roofed limestone homes gather along a Judean ridge; silver olive leaves shade empty courtyard lanes in the evening wind.</pre
+            >
+            <h4>Avatar template</h4>
+            <pre>
+B43L. {style_block}
+{name}, {title}, already mid-journey. {identity_action_clothing_sentence}</pre
+            >
+            <h4>Sample prompt</h4>
+            <pre>
+B43L. Rough unfinished watercolor; heavy pigment, broken washes, blooms, searching pencil, raw paper.
+Simon Peter, Fisherman Learning Steadiness, already mid-journey. A Galilean fisherman in a linen tunic and wool mantle holds mended flax net cord beside his boat, ready to help.</pre
+            >
+            <h4>Pinned model revision</h4>
+            <pre>
+2846199bda89a44676dc5da00bd02faa3f5183b1c1d3e124c966d656874f141f</pre
+            >
+            <h4>Native input defaults</h4>
+            <pre>
+{
+  &quot;model&quot;: &quot;dev&quot;,
+  &quot;num_outputs&quot;: 1,
+  &quot;num_inference_steps&quot;: 28,
+  &quot;go_fast&quot;: false,
+  &quot;megapixels&quot;: &quot;1&quot;,
+  &quot;output_format&quot;: &quot;webp&quot;,
+  &quot;output_quality&quot;: 92,
+  &quot;disable_safety_checker&quot;: false,
+  &quot;guidance_scale&quot;: 4.5,
+  &quot;lora_scale&quot;: 1.25
+}</pre
+            >
+          </details>
+        </div>
+      </article>
+      <article class="sheet" id="project89">
+        <header class="sheet-head">
+          <div>
+            <p class="eyebrow">WORLD 03 / STYLE REVIEW</p>
+            <h2>Project 89</h2>
+            <p class="tagline">Soft colour in a hidden machine world</p>
+          </div>
+          <a class="model" href="https://replicate.com/ratimics/project89"
+            >ratimics/project89 ↗</a
+          >
+        </header>
+        <div class="gallery">
+          <figure>
+            <img
+              src="samples/project89-background.webp"
+              alt="Project 89 background generated with ratimics/project89"
+            />
+            <figcaption>BACKGROUND · 16:9 · RAW MODEL SAMPLE</figcaption>
+          </figure>
+          <figure>
+            <img
+              src="samples/project89-avatar.webp"
+              alt="Project 89 avatar style sample"
+            />
+            <figcaption>AVATAR · 2:3 · RAW MODEL SAMPLE</figcaption>
+          </figure>
+        </div>
+        <div class="sheet-body">
+          <p class="style">
+            softly washed watercolor anime illustration, clean expressive anime
+            linework, soft cel-painted forms under translucent watercolor
+            glazing, muted rose-lavender, deep teal and warm coral-amber
+            palette, diffuse bloom, gentle paper grain, slightly faded midtones,
+            crisp focal silhouette
+          </p>
+          <ul class="palette">
+            <li>
+              <span style="background: #c2a8bc"></span><b>Rose</b
+              ><code>#C2A8BC</code>
+            </li>
+            <li>
+              <span style="background: #234c55"></span><b>Teal</b
+              ><code>#234C55</code>
+            </li>
+            <li>
+              <span style="background: #df9677"></span><b>Coral</b
+              ><code>#DF9677</code>
+            </li>
+            <li>
+              <span style="background: #e5dad0"></span><b>Paper</b
+              ><code>#E5DAD0</code>
+            </li>
+          </ul>
+          <div class="rules">
+            <div>
+              <h3>Background</h3>
+              <p>
+                Empty architecture, plain unmarked surfaces, clear landmark and
+                room for game overlays.
+              </p>
+              <p class="muted">
+                Use authored place facts. Add shared fixtures only after the
+                matching world event and image approval.
+              </p>
+            </div>
+            <div>
+              <h3>Avatar</h3>
+              <p>
+                One authored character with full-body silhouette and room around
+                hands and feet. Proxim8 identities start from a square approved
+                master.
+              </p>
+              <p class="muted">
+                For Proxim8, use its approved NFT identity as the single image
+                input, aspect 1:1, prompt_strength 0.45. Preserve face, hair,
+                eyes, headset, clothes and collection traits. Mara is a proposed
+                visual study of an authored quartermaster.
+              </p>
+            </div>
+            <div>
+              <h3>Materials &amp; light</h3>
+              <p>
+                worn concrete, black glass, repaired metal, practical fabric.
+              </p>
+              <p class="muted">
+                Diffuse coral lamps, teal shade and gentle bloom. Keep the
+                central shape clear.
+              </p>
+            </div>
+          </div>
+          <p class="review">
+            <strong>For review.</strong> Project89 gives the samples clear anime
+            shapes, teal shade and coral light. The wall and clothing marks need
+            a cleanup pass. Mara’s appearance is a proposed identity.
+          </p>
+          <details>
+            <summary>Reusable prompts and exact model settings</summary>
+            <p>
+              <a href="project89.json">Open the style sheet JSON</a> ·
+              <a href="samples/receipts.json">Generation receipts</a>
+            </p>
+            <p>Trigger: <code>P89, anime style,</code></p>
+            <h4>Shared style</h4>
+            <pre>
+softly washed watercolor anime illustration, clean expressive anime linework, soft cel-painted forms under translucent watercolor glazing, muted rose-lavender, deep teal and warm coral-amber palette, diffuse bloom, gentle paper grain, slightly faded midtones, crisp focal silhouette</pre
+            >
+            <h4>Background template</h4>
+            <pre>
+P89, anime style, {authored_place_description}, {style_block}, {composition}</pre
+            >
+            <h4>Sample prompt</h4>
+            <pre>
+P89, anime style, Threshold Interface, an empty low circular chamber with black glass floor, teal relay arches and warm coral lamps, plain unmarked walls, calm useful architecture, clear depth. Softly washed watercolor anime illustration, clean expressive anime linework, soft cel-painted forms under translucent watercolor glazing, muted rose-lavender, deep teal and warm coral-amber palette, diffuse bloom, gentle paper grain, slightly faded midtones, crisp focal silhouette. Environment only, empty walkways, simple light bands, plain blank architectural surfaces.</pre
+            >
+            <h4>Avatar template</h4>
+            <pre>
+P89, anime style, {approved_identity_description}, {authored_action}, {style_block}, {composition}</pre
+            >
+            <h4>Sample prompt</h4>
+            <pre>
+P89, anime style, proposed portrait of Mara Quell, an adult woman quartermaster in practical teal repair clothes, thoughtful kind expression, short dark hair, worn blank jacket, work trousers and boots, holding a small plain supply case, standing in a simple softly lit safehouse doorway. One complete full-body figure centered with generous padding. Softly washed watercolor anime illustration, clean expressive anime linework, soft cel-painted forms under translucent watercolor glazing, muted rose-lavender, deep teal and warm coral-amber palette, diffuse bloom, gentle paper grain, slightly faded midtones, crisp focal silhouette. Plain unmarked clothes and props.</pre
+            >
+            <h4>Pinned model revision</h4>
+            <pre>
+95f3d0eb7bdceb1262a2824c1a623e01b1902b71420013e6bc7b760e9f9255d6</pre
+            >
+            <h4>Native input defaults</h4>
+            <pre>
+{
+  &quot;model&quot;: &quot;dev&quot;,
+  &quot;num_outputs&quot;: 1,
+  &quot;num_inference_steps&quot;: 28,
+  &quot;go_fast&quot;: false,
+  &quot;megapixels&quot;: &quot;1&quot;,
+  &quot;output_format&quot;: &quot;webp&quot;,
+  &quot;output_quality&quot;: 80,
+  &quot;disable_safety_checker&quot;: false,
+  &quot;guidance_scale&quot;: 3,
+  &quot;lora_scale&quot;: 1
+}</pre
+            >
+          </details>
+        </div>
+      </article>
+      <footer>
+        Model choice: selected by the creator. Style sheets and sample
+        identities: awaiting approval.<br /><a href="README.md"
+          >Read the full guide</a
+        >
+        · <a href="samples/receipts.json">View generation records</a>
+        <p>
+          Elysium, Lantern Keeper, and Hoppycat keep their earlier concept
+          directions for review.
+        </p>
+      </footer>
+    </main>
+  </body>
+</html>

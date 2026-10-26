@@ -1,0 +1,717 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Six worlds · art review</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        margin: 0;
+        background: #e9e6df;
+        color: #232822;
+        font:
+          16px/1.5 system-ui,
+          sans-serif;
+      }
+      main {
+        max-width: 1500px;
+        margin: auto;
+        padding: 44px 30px;
+      }
+      h1,
+      h2 {
+        font-family: Georgia, serif;
+        font-weight: 500;
+        line-height: 1.1;
+        letter-spacing: -1px;
+        margin: 0;
+      }
+      h1 {
+        font-size: 48px;
+      }
+      h2 {
+        font-size: 33px;
+      }
+      .intro > p {
+        max-width: 800px;
+        color: #68715f;
+      }
+      .eyebrow,
+      .number {
+        font-size: 10px;
+        font-weight: 750;
+        letter-spacing: 2px;
+        color: #6e785f;
+      }
+      .number {
+        margin: 0 0 8px;
+      }
+      .intro {
+        margin-bottom: 22px;
+      }
+      nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 9px;
+        margin: 26px 0 34px;
+      }
+      nav a {
+        border: 1px solid #c6cdbc;
+        background: #f8f7ef;
+        border-radius: 22px;
+        padding: 9px 15px;
+        font-size: 12px;
+        text-decoration: none;
+      }
+      a {
+        color: #33543d;
+      }
+      article {
+        background: #faf8f2;
+        border: 1px solid #cdd2c2;
+        border-radius: 12px;
+        overflow: hidden;
+        margin-bottom: 34px;
+        scroll-margin-top: 18px;
+        box-shadow: 0 10px 24px #2833210b;
+      }
+      article header {
+        padding: 24px 26px;
+        display: flex;
+        justify-content: space-between;
+        gap: 20px;
+        align-items: center;
+      }
+      .style {
+        font-size: 12px;
+        color: #667357;
+        margin: 0;
+      }
+      .trio {
+        display: grid;
+        grid-template-columns: 1.7778fr 0.6667fr 1fr;
+        gap: 3px;
+        background: #d4d8cc;
+      }
+      figure {
+        margin: 0;
+        background: #f5f3eb;
+        min-width: 0;
+      }
+      figure > a {
+        display: block;
+        aspect-ratio: 16/9;
+        background: #e9e7df;
+      }
+      .avatar > a {
+        aspect-ratio: 2/3;
+      }
+      .item > a {
+        aspect-ratio: 1;
+      }
+      img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        display: block;
+      }
+      figcaption {
+        padding: 12px 16px;
+      }
+      figcaption span {
+        display: block;
+        font-size: 9px;
+        font-weight: 750;
+        letter-spacing: 1.6px;
+        color: #6c785e;
+        margin-bottom: 3px;
+      }
+      figcaption strong {
+        display: block;
+        font:
+          18px/1.25 Georgia,
+          serif;
+      }
+      details {
+        padding: 0 16px 12px;
+        font-size: 11px;
+      }
+      summary {
+        cursor: pointer;
+        color: #5c7053;
+      }
+      pre {
+        font:
+          11px/1.55 ui-monospace,
+          monospace;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+      .status {
+        font-size: 10px;
+        color: #6a765f;
+        padding: 10px 26px;
+        margin: 0;
+        border-top: 1px solid #e1e3d8;
+      }
+      footer {
+        font-size: 12px;
+        color: #637056;
+        margin: 28px 0;
+      }
+      a:focus-visible,
+      summary:focus-visible {
+        outline: 3px solid #7e72b3;
+        outline-offset: 3px;
+      }
+      @media (max-width: 760px) {
+        main {
+          padding: 28px 14px;
+        }
+        h1 {
+          font-size: 35px;
+        }
+        h2 {
+          font-size: 28px;
+        }
+        article header {
+          display: block;
+          padding: 20px;
+        }
+        .style {
+          margin-top: 12px;
+        }
+        .trio {
+          grid-template-columns: 1fr;
+        }
+        .avatar > a {
+          height: 440px;
+          aspect-ratio: auto;
+        }
+        .item > a {
+          max-height: 440px;
+          aspect-ratio: 1;
+        }
+        .number {
+          font-size: 9px;
+        }
+        nav a {
+          font-size: 11px;
+          padding: 7px 12px;
+        }
+        figure > a {
+          width: 100%;
+        }
+      }
+      @media print {
+        main {
+          padding: 0;
+        }
+        body {
+          background: white;
+        }
+        .intro,
+        nav,
+        footer,
+        details {
+          display: none;
+        }
+        article {
+          break-after: page;
+          border: 0;
+          box-shadow: none;
+          margin: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="intro">
+        <p class="eyebrow">LONELY FOREST / V1 ART REVIEW</p>
+        <h1>Six worlds, eighteen studies</h1>
+        <p>
+          One location, one avatar, and one item from each pack. Open any image
+          at full size. Each set carries its source and exact prompts.
+        </p>
+      </div>
+      <nav aria-label="World packs">
+        <a href="#lonely-forest">01 Lonely Forest</a
+        ><a href="#holy-land">02 Holy Land</a
+        ><a href="#project89">03 Project 89</a
+        ><a href="#hoppycat">04 Hoppycat</a
+        ><a href="#lantern-keeper">05 The Lantern Keeper</a
+        ><a href="#elysium">06 Elysium</a>
+      </nav>
+      <article id="lonely-forest">
+        <header>
+          <div>
+            <p class="number">01 / SIX WORLD PACKS</p>
+            <h2>Lonely Forest</h2>
+          </div>
+          <p class="style">Mirquo · dark storybook forest</p>
+        </header>
+        <div class="trio">
+          <figure class="location">
+            <a
+              href="lonely-forest-location.webp"
+              target="_blank"
+              rel="noopener"
+              aria-label="Open Old Oak Tree full size"
+              ><img
+                src="lonely-forest-location.webp"
+                alt="Old Oak Tree, location art for Lonely Forest"
+            /></a>
+            <figcaption>
+              <span>LOCATION</span><strong>Old Oak Tree</strong>
+            </figcaption>
+            <details>
+              <summary>Prompt &amp; source</summary>
+              <p>immanencer/mirquo</p>
+              <pre>
+MRQ. Ancient living oak with a huge spreading crown above a tiny worn blue cottage, amber round window and slate roof. Nightfall, dark indigo forest, mossy roots, damp stone path. One oval opening among the branches reveals a violet star sky containing another tiny oak and warm cottage. Whimsical painted fantasy storybook, rich bark texture, readable shapes, honey light, moss, indigo and small mint glints. Wide empty landscape. No text, letters, signatures, logos, watermark, border or people.</pre
+              >
+            </details>
+          </figure>
+          <figure class="avatar">
+            <a
+              href="lonely-forest-avatar.webp"
+              target="_blank"
+              rel="noopener"
+              aria-label="Open Skull full size"
+              ><img
+                src="lonely-forest-avatar.webp"
+                alt="Skull, avatar art for Lonely Forest"
+            /></a>
+            <figcaption><span>AVATAR</span><strong>Skull</strong></figcaption>
+            <details>
+              <summary>Prompt &amp; source</summary>
+              <p>immanencer/mirquo</p>
+              <pre>
+MRQ. Skull, a large living charcoal-grey wolf with a silver muzzle, deep chest, heavy tail and quiet attentive amber eyes. Exactly one wolf rests on four grounded paws beside a blue cottage at dusk, full body and complete tail visible, generous edge padding. Natural wolf anatomy, patient watchful personality. Painted fantasy storybook, expressive restrained animal face, finely painted fur, warm amber window light against indigo and moss. No text, letters, signature, watermark, clothes, skull mask or human anatomy.</pre
+              >
+            </details>
+          </figure>
+          <figure class="item">
+            <a
+              href="lonely-forest-item.webp"
+              target="_blank"
+              rel="noopener"
+              aria-label="Open Wolfprint Charm full size"
+              ><img
+                src="lonely-forest-item.webp"
+                alt="Wolfprint Charm, item art for Lonely Forest"
+            /></a>
+            <figcaption>
+              <span>ITEM</span><strong>Wolfprint Charm</strong>
+            </figcaption>
+            <details>
+              <summary>Prompt &amp; source</summary>
+              <p>immanencer/mirquo</p>
+              <pre>
+MRQ. One small cool iron charm engraved with a single careful wolf pawprint, a simple loop for a bracelet cord. Clear complete object centered on a mossy stone, generous padding, soft forest dusk backdrop. Painted fantasy storybook, tactile dark iron, fine worn edges, warm amber glint against indigo and moss. Object-only still life. No text, letters, signature, watermark, characters, animals or extra objects.</pre
+              >
+            </details>
+          </figure>
+        </div>
+        <p class="status">Art proposal · awaiting your review</p>
+      </article>
+      <article id="holy-land">
+        <header>
+          <div>
+            <p class="number">02 / SIX WORLD PACKS</p>
+            <h2>Holy Land</h2>
+          </div>
+          <p class="style">B43L · watercolor and open paper</p>
+        </header>
+        <div class="trio">
+          <figure class="location">
+            <a
+              href="holy-land-location.webp"
+              target="_blank"
+              rel="noopener"
+              aria-label="Open Sea of Galilee Shore full size"
+              ><img
+                src="holy-land-location.webp"
+                alt="Sea of Galilee Shore, location art for Holy Land"
+            /></a>
+            <figcaption>
+              <span>LOCATION</span><strong>Sea of Galilee Shore</strong>
+            </figcaption>
+            <details>
+              <summary>Prompt &amp; source</summary>
+              <p>ratimics/b43l</p>
+              <pre>
+B43L. Rough unfinished watercolor; heavy pigment, broken washes, blooms, searching pencil, raw paper.
+Sea of Galilee Shore, already mid-journey. Wind-creased freshwater widens beneath blue hills; flax nets dry on shore stones beside small wooden fishing boats. Empty pebbled beach, quiet early light.</pre
+              >
+            </details>
+          </figure>
+          <figure class="avatar">
+            <a
+              href="holy-land-avatar.webp"
+              target="_blank"
+              rel="noopener"
+              aria-label="Open Simon Peter full size"
+              ><img
+                src="holy-land-avatar.webp"
+                alt="Simon Peter, avatar art for Holy Land"
+            /></a>
+            <figcaption>
+              <span>AVATAR</span><strong>Simon Peter</strong>
+            </figcaption>
+            <details>
+              <summary>Prompt &amp; source</summary>
+              <p>ratimics/b43l</p>
+              <pre>
+B43L. Rough unfinished watercolor; heavy pigment, broken washes, blooms, searching pencil, raw paper.
+Simon Peter, already mid-journey. A mature Galilean fisherman with dark beard, plain linen tunic, wool mantle and leather sandals holds flax fishing cord. One complete figure, calm attentive face, lake-blue shadow.</pre
+              >
+            </details>
+          </figure>
+          <figure class="item">
+            <a
+              href="holy-land-item.webp"
+              target="_blank"
+              rel="noopener"
+              aria-label="Open Mended Net Cord full size"
+              ><img
+                src="holy-land-item.webp"
+                alt="Mended Net Cord, item art for Holy Land"
+            /></a>
+            <figcaption>
+              <span>ITEM</span><strong>Mended Net Cord</strong>
+            </figcaption>
+            <details>
+              <summary>Prompt &amp; source</summary>
+              <p>ratimics/b43l</p>
+              <pre>
+B43L. Rough watercolor on cream paper, strong pigment and pencil. One neatly coiled length of pale flax rope, lying flat as five concentric loops. A small repaired knot sits on the loose end. Close view of the complete rope coil, simple centered still life, visible twisted fibers. No people, symbols, lettering or border.</pre
+              >
+            </details>
+          </figure>
+        </div>
+        <p class="status">Art proposal · awaiting your review</p>
+      </article>
+      <article id="project89">
+        <header>
+          <div>
+            <p class="number">03 / SIX WORLD PACKS</p>
+            <h2>Project 89</h2>
+          </div>
+          <p class="style">Project89 · teal and coral anime</p>
+        </header>
+        <div class="trio">
+          <figure class="location">
+            <a
+              href="project89-location.webp"
+              target="_blank"
+              rel="noopener"
+              aria-label="Open Threshold Interface full size"
+              ><img
+                src="project89-location.webp"
+                alt="Threshold Interface, location art for Project 89"
+            /></a>
+            <figcaption>
+              <span>LOCATION</span><strong>Threshold Interface</strong>
+            </figcaption>
+            <details>
+              <summary>Prompt &amp; source</summary>
+              <p>ratimics/project89</p>
+              <pre>
+P89, anime style, empty low circular chamber with a glossy black glass floor, simple teal arches and coral light strips. All walls are continuous plain concrete surfaces, all fixtures have blank faces. Softly washed watercolor anime illustration, clean anime linework, soft cel forms, translucent watercolor, muted rose-lavender, deep teal, coral-amber, gentle paper grain, faded midtones, crisp focal silhouette. Wide environment. No people, signs, posters, screens, control panels, labels, letters, glyphs, logos, watermark or signatures.</pre
+              >
+            </details>
+          </figure>
+          <figure class="avatar">
+            <a
+              href="project89-avatar.webp"
+              target="_blank"
+              rel="noopener"
+              aria-label="Open Mara Quell full size"
+              ><img
+                src="project89-avatar.webp"
+                alt="Mara Quell, avatar art for Project 89"
+            /></a>
+            <figcaption>
+              <span>AVATAR</span><strong>Mara Quell</strong>
+            </figcaption>
+            <details>
+              <summary>Prompt &amp; source</summary>
+              <p>ratimics/project89</p>
+              <pre>
+P89, anime style, Mara Quell proposed character portrait, adult woman quartermaster with short dark bob, thoughtful expression, plain teal work jacket and trousers, boots, holding one plain small supply case. Exactly one full-body figure with generous padding against a simple soft rose-lavender wash. Softly washed watercolor anime, clean expressive linework, translucent watercolor over cel-painted forms, deep teal and coral-amber, diffuse bloom, gentle paper grain. Blank fabric and plain case. No lettering, badges, logos, signs, labels, watermark or signatures.</pre
+              >
+            </details>
+          </figure>
+          <figure class="item">
+            <a
+              href="project89-item.webp"
+              target="_blank"
+              rel="noopener"
+              aria-label="Open Memory Lantern full size"
+              ><img
+                src="project89-item.webp"
+                alt="Memory Lantern, item art for Project 89"
+            /></a>
+            <figcaption>
+              <span>ITEM</span><strong>Memory Lantern</strong>
+            </figcaption>
+            <details>
+              <summary>Prompt &amp; source</summary>
+              <p>ratimics/project89</p>
+              <pre>
+P89, anime style, one Memory Lantern: a compact shielded hand-held viewer with a sturdy dark-teal metal shell, small handle and recessed coral-lit glass viewing window. Plain repaired metal surfaces, centered complete object on simple rose-lavender ground. Softly washed watercolor anime, clean expressive linework, translucent watercolor over cel forms, deep teal, coral-amber, gentle paper grain. Object-only study. No text, logos, symbols, screens with writing, labels, people, hands, watermark or signatures.</pre
+              >
+            </details>
+          </figure>
+        </div>
+        <p class="status">Art proposal · awaiting your review</p>
+      </article>
+      <article id="hoppycat">
+        <header>
+          <div>
+            <p class="number">04 / SIX WORLD PACKS</p>
+            <h2>Hoppycat</h2>
+          </div>
+          <p class="style">Painted storybook · established references</p>
+        </header>
+        <div class="trio">
+          <figure class="location">
+            <a
+              href="hoppycat-location.png"
+              target="_blank"
+              rel="noopener"
+              aria-label="Open Halfway Tea Garden full size"
+              ><img
+                src="hoppycat-location.png"
+                alt="Halfway Tea Garden, location art for Hoppycat"
+            /></a>
+            <figcaption>
+              <span>LOCATION</span><strong>Halfway Tea Garden</strong>
+            </figcaption>
+            <details>
+              <summary>Prompt &amp; source</summary>
+              <p>Built-in image tool</p>
+              <pre>
+Use case: stylized-concept. Asset: worldpack art approval sample. A fresh wide 16:9 environment illustration of Halfway Tea Garden. Follow the supplied approved setting reference: round tea table and chairs, kettle-shaped tree houses, scarlet thread paths, brass lanterns, mossy stone, delicate star-map glints in cobalt dusk. Richly painted anime storybook, fine brush texture, jewel cobalt and forest green, amber warm windows. Clear inviting path in foreground and readable gathering place. Environment only. Reference is visual identity and style, generate a fresh composition. Single full-bleed art, no labels, text, borders, logos or watermark.</pre
+              >
+            </details>
+          </figure>
+          <figure class="avatar">
+            <a
+              href="hoppycat-avatar.png"
+              target="_blank"
+              rel="noopener"
+              aria-label="Open Hoppy Cat full size"
+              ><img
+                src="hoppycat-avatar.png"
+                alt="Hoppy Cat, avatar art for Hoppycat"
+            /></a>
+            <figcaption>
+              <span>AVATAR</span><strong>Hoppy Cat</strong>
+            </figcaption>
+            <details>
+              <summary>Prompt &amp; source</summary>
+              <p>Built-in image tool</p>
+              <pre>
+Use case: stylized-concept. Asset: worldpack art approval sample. A fresh vertical 2:3 avatar illustration of Hoppy Cat, using the supplied approved portrait as exact identity reference. Preserve long vivid green hair, green eyes, freckles, face and natural anime proportions, cobalt hoodie, cuffed dark blue jeans, blue high-top sneakers, brown cross-body satchel, microphone in right hand. One full body, all shoes and hair visible, generous padding, friendly curious smile, standing in softly painted tea-garden dusk. Rich painted anime storybook, jewel cobalt and forest green, amber lantern light, fine hand-painted texture. Plain unmarked materials. Single art image without text, labels, borders, logos or watermark.</pre
+              >
+            </details>
+          </figure>
+          <figure class="item">
+            <a
+              href="hoppycat-item.png"
+              target="_blank"
+              rel="noopener"
+              aria-label="Open Halfway Cup full size"
+              ><img
+                src="hoppycat-item.png"
+                alt="Halfway Cup, item art for Hoppycat"
+            /></a>
+            <figcaption>
+              <span>ITEM</span><strong>Halfway Cup</strong>
+            </figcaption>
+            <details>
+              <summary>Prompt &amp; source</summary>
+              <p>Built-in image tool</p>
+              <pre>
+Use case: stylized-concept. Asset: worldpack art approval sample. A fresh square item illustration of the Halfway Cup using the supplied approved object as exact design and style reference. One brass-and-clear-glass bubble-tea cup, amber tea with tapioca pearls, two handles deliberately set at different heights, cobalt collar, lid and reusable metal straw. Keep both handles fully readable and generous padding. One complete object on mossy stone with softly painted blue-green tea garden backdrop. Rich painterly anime-storybook finish, amber light, tactile brass, clear glass. Single full-bleed artwork, no labels, text, borders, hands, faces, logos or watermark.</pre
+              >
+            </details>
+          </figure>
+        </div>
+        <p class="status">Art proposal · awaiting your review</p>
+      </article>
+      <article id="lantern-keeper">
+        <header>
+          <div>
+            <p class="number">05 / SIX WORLD PACKS</p>
+            <h2>The Lantern Keeper</h2>
+          </div>
+          <p class="style">Amber woodcut · proposed direction</p>
+        </header>
+        <div class="trio">
+          <figure class="location">
+            <a
+              href="lantern-keeper-location.png"
+              target="_blank"
+              rel="noopener"
+              aria-label="Open Mothwood Path full size"
+              ><img
+                src="lantern-keeper-location.png"
+                alt="Mothwood Path, location art for The Lantern Keeper"
+            /></a>
+            <figcaption>
+              <span>LOCATION</span><strong>Mothwood Path</strong>
+            </figcaption>
+            <details>
+              <summary>Prompt &amp; source</summary>
+              <p>Built-in image tool</p>
+              <pre>
+Use case: stylized-concept. Asset: worldpack art approval sample. Use the supplied board only as a visual style and world reference. Make one wide 16:9 single scene of Mothwood Path: root-broken woodland road, tall black pines, cold dark iron lamp cages covered in pale moths, slanting rain, low roadside inn with one amber window, distant round stone beacon tower with a dark lens. The roadside lamps are extinguished; the inn provides the small pool of warmth. Bold woodcut and scratchboard, visible carved strokes, strong ink shapes and fine ivory hatching, ink black, midnight blue, muted moss and amber. Clear walkable foreground and strong depth. Single environment art with no characters, text, title, border, panels or watermark.</pre
+              >
+            </details>
+          </figure>
+          <figure class="avatar">
+            <a
+              href="lantern-keeper-avatar.png"
+              target="_blank"
+              rel="noopener"
+              aria-label="Open Pip Thistle full size"
+              ><img
+                src="lantern-keeper-avatar.png"
+                alt="Pip Thistle, avatar art for The Lantern Keeper"
+            /></a>
+            <figcaption>
+              <span>AVATAR</span><strong>Pip Thistle</strong>
+            </figcaption>
+            <details>
+              <summary>Prompt &amp; source</summary>
+              <p>Built-in image tool</p>
+              <pre>
+Use case: stylized-concept. Asset: worldpack art approval sample. Use the supplied board as character and woodcut-style reference. Make one vertical 2:3 full-body avatar study of Pip Thistle, the thumb-sized fey lamp-sprite seen in the middle right panel: short tousled dark hair, sharp expressive face, practical woodland clothes and moss-green scarf, two soot-dark wings, tiny pin sword held as a pointer. Pip stands on a wet twig beside a large pale moth to make the tiny scale clear. Full figure and wings visible, generous space. Bright opinionated expression, gentle folk-horror mood. Bold carved woodcut and scratchboard, ivory hatching, midnight-blue black ink, restrained moss and amber light. One character art image, no text, title, border, panels, logos or watermark.</pre
+              >
+            </details>
+          </figure>
+          <figure class="item">
+            <a
+              href="lantern-keeper-item.png"
+              target="_blank"
+              rel="noopener"
+              aria-label="Open Mothglass Lens full size"
+              ><img
+                src="lantern-keeper-item.png"
+                alt="Mothglass Lens, item art for The Lantern Keeper"
+            /></a>
+            <figcaption>
+              <span>ITEM</span><strong>Mothglass Lens</strong>
+            </figcaption>
+            <details>
+              <summary>Prompt &amp; source</summary>
+              <p>Built-in image tool</p>
+              <pre>
+Use case: stylized-concept. Asset: worldpack art approval sample. Use the supplied board solely as the woodcut style and object reference. One square single-object study of the Mothglass Lens, a palm-sized circular convex lens in a worn brass rim. Through the glass show one faint pale moth-like trace of a past light. Rest the lens on wet dark wood, clear complete silhouette with generous padding. Bold hand-carved woodcut and scratchboard, ivory hatching, midnight-black ink, muted moss, small amber glints on brass. Intimate curious mood. Only the lens, no other tools. Full-bleed object art, no text, border, panels, labels, hands, logo or watermark.</pre
+              >
+            </details>
+          </figure>
+        </div>
+        <p class="status">Art proposal · awaiting your review</p>
+      </article>
+      <article id="elysium">
+        <header>
+          <div>
+            <p class="number">06 / SIX WORLD PACKS</p>
+            <h2>Elysium</h2>
+          </div>
+          <p class="style">Silver and gold in the void · proposed direction</p>
+        </header>
+        <div class="trio">
+          <figure class="location">
+            <a
+              href="elysium-location.png"
+              target="_blank"
+              rel="noopener"
+              aria-label="Open Void 001 full size"
+              ><img
+                src="elysium-location.png"
+                alt="Void 001, location art for Elysium"
+            /></a>
+            <figcaption>
+              <span>LOCATION</span><strong>Void 001</strong>
+            </figcaption>
+            <details>
+              <summary>Prompt &amp; source</summary>
+              <p>Built-in image tool</p>
+              <pre>
+Use case: stylized-concept. Asset: worldpack art approval sample. Use the supplied board solely as art-style reference. One wide 16:9 environment image of Void 001, a small bare stone node suspended in immense quiet darkness. Sparse distant nodes connected by thin curving golden filaments, a gentle golden spiral implied by their arrangement, broad calm black areas, an open stone foreground for a future avatar. Fine silver etching and charcoal on black paper, restrained gold leaf, beautiful engraved detail with strong readable forms. Quiet curious intimate scale. Environment only, single full-bleed artwork without characters, buildings, labels, title, borders, panels, logos or watermark.</pre
+              >
+            </details>
+          </figure>
+          <figure class="avatar">
+            <a
+              href="elysium-avatar.png"
+              target="_blank"
+              rel="noopener"
+              aria-label="Open Void 001 resident full size"
+              ><img
+                src="elysium-avatar.png"
+                alt="Void 001 resident, avatar art for Elysium"
+            /></a>
+            <figcaption>
+              <span>AVATAR</span><strong>Void 001 resident</strong>
+            </figcaption>
+            <details>
+              <summary>Prompt &amp; source</summary>
+              <p>Built-in image tool</p>
+              <pre>
+Use case: stylized-concept. Asset: worldpack art approval sample. Use the supplied board as the proposed Elysium avatar design and style reference. One vertical 2:3 full-body portrait of Void 001&#x27;s resident, a slender abstract silver humanoid with a softly faceted quiet face, flowing sculpted robe-like contours, fine engraved lines and one small warm golden filament at the chest. This is an original proposed appearance for a model-bound resident. Calm listening pose, open relaxed hands, complete silhouette with edge padding on deep black paper. Fine silver etching, soft charcoal, restrained old gold, intimate mysterious mood. Single character image, no lettering, branding, labels, panels, border, logos or watermark.</pre
+              >
+            </details>
+          </figure>
+          <figure class="item">
+            <a
+              href="elysium-item.png"
+              target="_blank"
+              rel="noopener"
+              aria-label="Open Void Wayfinder full size"
+              ><img
+                src="elysium-item.png"
+                alt="Void Wayfinder, item art for Elysium"
+            /></a>
+            <figcaption>
+              <span>ITEM</span><strong>Void Wayfinder</strong>
+            </figcaption>
+            <details>
+              <summary>Prompt &amp; source</summary>
+              <p>Built-in image tool</p>
+              <pre>
+Use case: stylized-concept. Asset: worldpack art approval sample. Use the supplied board solely as Elysium&#x27;s engraved black-silver-gold visual reference. One square item portrait of the Void Wayfinder: a compact dark compass whose single pale filament leans toward a discovered path. Matte obsidian housing, delicate silver engraved geometry, one hair-thin gold arc suspended just above it. One complete hand-sized object in three-quarter view, centered with generous padding, broad calm black background. Fine silver etching and charcoal on deep black paper, restrained gold leaf, clear silhouette, quiet wonder. A compass-like circular navigation tool. Single art image without text, numbered dial, labels, borders, panels, hands, logos or watermark.</pre
+              >
+            </details>
+          </figure>
+        </div>
+        <p class="status">Art proposal · awaiting your review</p>
+      </article>
+      <footer>
+        Lonely Forest, Holy Land, and Project89 use the selected Replicate
+        models. Hoppycat, Lantern Keeper, and Elysium use the built-in image
+        tool with their style references.
+        <p>
+          These are raw review samples. Small generated marks and character
+          details remain part of the art review.
+        </p>
+        <a href="manifest.json">Sample list</a> ·
+        <a href="replicate-receipts.json">Replicate records</a> ·
+        <a href="builtin-receipts.json">Built-in prompts and references</a> ·
+        <a href="../index.html">Style sheets</a>
+      </footer>
+    </main>
+  </body>
+</html>
