@@ -17,7 +17,8 @@ import {
 } from "../v2/card-game/situations.mjs";
 import { generateProgram, alternatives } from "../v2/card-game/quests.mjs";
 import { places, things } from "../v2/card-game/world.mjs";
-import { humanAvatarIds } from "../v2/card-game/human-cast.mjs";
+import { humanAvatarIds, humanAvatars } from "../v2/card-game/human-cast.mjs";
+import { availableCards } from "../v2/card-game/cards.mjs";
 
 const shared = () =>
   dispatchShared({
@@ -40,6 +41,63 @@ const ask = (world, op, actor = "vale", extra = {}) =>
   });
 
 describe("the full world shared by human avatars", () => {
+  it.each(humanAvatars.filter((a) => a.id !== "vale"))(
+    "$name starts with an item on the floor and opens the pond by carrying it",
+    (avatar) => {
+      let world = shared();
+      let view = ask(world, "view", avatar.id);
+      expect(world.items[avatar.item.id].holder).toBe(avatar.home.id);
+      expect(availableCards(view.world)).toContain(avatar.item.id);
+      expect(availableCards(view.world)).not.toContain("pond");
+      expect(view.exits).not.toContain("pond");
+      const take = view.actions.find(
+        (a) => a.kind === "take" && a.item === avatar.item.id,
+      );
+      world = ask(world, "play", avatar.id, { action: take }).world;
+      view = ask(world, "view", avatar.id);
+      expect(availableCards(view.world)).toContain("pond");
+      const move = view.actions.find(
+        (a) => a.kind === "move" && a.target === "pond",
+      );
+      expect(move).toBeDefined();
+      const drop = view.actions.find(
+        (a) => a.kind === "drop" && a.item === avatar.item.id,
+      );
+      world = ask(world, "play", avatar.id, { action: drop }).world;
+      view = ask(JSON.parse(encodeSave(world)), "view", avatar.id);
+      expect(world.items[avatar.item.id].holder).toBe(avatar.home.id);
+      expect(availableCards(view.world)).not.toContain("pond");
+      expect(view.exits).not.toContain("pond");
+      expect(ask(world, "play", avatar.id, { action: move }).ok).toBe(false);
+    },
+  );
+  it("places unused home items on the floor when an earlier local save is shared", () => {
+    const old = createWorld();
+    for (const avatar of humanAvatars.filter((a) => a.id !== "vale"))
+      old.items[avatar.item.id].holder = avatar.id;
+    const world = dispatchShared({ op: "create", save: encodeSave(old) }).world;
+    for (const avatar of humanAvatars.filter((a) => a.id !== "vale"))
+      expect(world.items[avatar.item.id].holder).toBe(avatar.home.id);
+  });
+  it("upgrades unused homes while preserving claimed avatars and existing item history", () => {
+    const old = shared();
+    for (const avatar of humanAvatars.filter((a) => a.id !== "vale"))
+      old.items[avatar.item.id].holder = avatar.id;
+    const result = ask(old, "upgrade", "vale", {
+      from: "full-card-world/2",
+      claimed: ["vale", "mara"],
+      present: ["vale", "mara"],
+    });
+    expect(result.world.items.mask.holder).toBe("mara");
+    expect(
+      result.world.items[humanAvatars.find((a) => a.id === "ash").item.id]
+        .holder,
+    ).toBe(humanAvatars.find((a) => a.id === "ash").home.id);
+    expect(result.world.turn).toBe(old.turn);
+    expect(result.world.revision).toBe(old.revision + 1);
+    expect(result.world.log).toEqual(old.log);
+    expect(result.world.actors).toEqual(old.actors);
+  });
   it("imports the exact opening, fuel, progress, memory and life state", () => {
     let world = enableMotives(createWorld({ opening: true }), {
       questPrograms: true,
@@ -60,10 +118,13 @@ describe("the full world shared by human avatars", () => {
     }).world;
     const { sharedVersion, ...original } = imported;
     expect(sharedVersion).toBe(1);
+    for (const avatar of humanAvatars.filter((a) => a.id !== "vale"))
+      world.items[avatar.item.id].holder = avatar.home.id;
     expect(original).toEqual(world);
   });
   it("moves the selected human and preserves every other human's position", () => {
     const world = shared();
+    world.items.mask.holder = "mara";
     const before = Object.fromEntries(
       humanAvatarIds.map((id) => [id, world.actors[id].place]),
     );
@@ -81,6 +142,7 @@ describe("the full world shared by human avatars", () => {
   });
   it("hides full human rooms and rejects queued travel after the fourth arrival", () => {
     const world = shared();
+    world.items.mask.holder = "mara";
     for (const id of ["vale", "ash", "nell", "tavi"])
       world.actors[id].place = "pond";
     const view = ask(world, "view", "mara");
@@ -99,6 +161,7 @@ describe("the full world shared by human avatars", () => {
   });
   it("opens a home through a nearby belonging and closes it when its carrier leaves", () => {
     const world = shared();
+    world.items.mask.holder = "mara";
     world.actors.vale.place = "pond";
     world.actors.mara.place = "pond";
     expect(ask(world, "view").exits).toContain("theatre");
@@ -183,6 +246,7 @@ describe("the full world shared by human avatars", () => {
   });
   it("keeps absent humans and their belongings out of plays and new quest candidates", () => {
     const world = shared();
+    world.items.mask.holder = "mara";
     world.actors.mara.place = "pond";
     world.actors.vale.place = "pond";
     const view = ask(world, "view", "vale", { present: ["vale"] });
@@ -222,6 +286,7 @@ describe("the full world shared by human avatars", () => {
   });
   it("rejects actor impersonation and extra actor keys before play", () => {
     const world = shared();
+    world.items.mask.holder = "mara";
     expect(() => ask(world, "view", "__proto__")).toThrow();
     expect(() =>
       ask(world, "view", "vale", { claimed: ["vale", "constructor"] }),

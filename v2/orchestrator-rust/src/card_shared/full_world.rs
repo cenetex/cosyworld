@@ -77,18 +77,31 @@ impl World {
     // authored rules. AI text is appended by the authored speech reducer.
     pub fn apply(&mut self, command: &Value) -> Result<Value> {
         if command["op"] == "upgrade" {
-            if self.version != engine::LEGACY_VERSION
-                || command["from"] != engine::LEGACY_VERSION
-                || command["to"] != engine::VERSION
-            {
+            let target = command["to"]
+                .as_str()
+                .ok_or("Choose a saved rules upgrade.")?;
+            let allowed = (self.version == engine::LEGACY_VERSION
+                && [engine::PREVIOUS_VERSION, engine::VERSION].contains(&target))
+                || (self.version == engine::PREVIOUS_VERSION && target == engine::VERSION);
+            if command["from"] != self.version || !allowed {
                 return Err("This world's rules upgrade needs its original version.".into());
             }
-            let result = engine::reduce(self.request("upgrade", 0))?;
+            let mut request = self.request("upgrade", 0);
+            request["from"] = json!(self.version);
+            request["to"] = json!(target);
+            // A saved /2 -> /3 event keeps the released /3 transformation.
+            let result = engine::reduce_version(target, request)?;
             self.game = result["world"].clone();
-            self.version = engine::VERSION.into();
+            self.version = target.into();
             return Ok(result);
         }
-        if self.version != engine::VERSION && self.version != engine::LEGACY_VERSION {
+        if ![
+            engine::VERSION,
+            engine::PREVIOUS_VERSION,
+            engine::LEGACY_VERSION,
+        ]
+        .contains(&self.version.as_str())
+        {
             return Err("This world's rules need a saved migration.".into());
         }
         let a = actor_index(command["actor"].as_str().ok_or("Choose an avatar.")?)?;

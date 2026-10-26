@@ -9,9 +9,10 @@ Mirror attic, Pip, the keeper, Badger, mounted story packs, and their rules belo
 to this same world. Each account claims one of eight human avatars. Each room
 holds four present humans. Residents can share a room with those humans.
 
-The seven new humans start in their homes with their signature items. Each home
-leads to the existing Black pond. Its item reveals the entrance when it rests at
-the pond or is carried by a present human there. Full destination cards disappear
+The seven new humans start in their homes with their signature items on the floor.
+Picking up the item opens the path to Black pond. Putting it down closes that
+path. At the pond, the item reveals the home's entrance when it rests there or
+is carried by a present human. Full destination cards disappear
 from the hand. The server checks room space again when a play reaches its turn.
 
 The existing Play buttons add an action to the room queue. A room holds four
@@ -58,6 +59,17 @@ store. Each action is checked against the current world as it executes. Unique
 play keys make retries safe. Removing a checkpoint rebuilds the world from its
 seed and recorded operations.
 
+Rule version 3 introduced the home-item floor start and opened the home-to-pond
+path when the item is carried in the home. Released versions 2 and 3 stay frozen
+for replay. Historical version 2-to-3 upgrade records still use version 3's exact
+transformation. Current version 4 includes the pickup rules and collected quests.
+
+Loading an earlier world first replays its accepted history with the recorded
+rule versions, then records one upgrade from its latest version to version 4.
+A direct version 2-to-4 upgrade settles unused items in unclaimed homes on the
+floor. A version 3-to-4 upgrade preserves all existing item positions. Each
+upgrade advances the view revision and preserves the world turn and conversation.
+
 Earlier shared invitations keep their IDs and account claims. Their first full
 world load records an explicit migration seed. It maps the old rooms and items
 onto the full game and keeps the old counters as migration evidence. Existing
@@ -93,11 +105,11 @@ The station and attic are sanctuaries. Human rest counts that person's own
 turns in a shared world. Resident rest counts world rounds. A pending quest
 can finish while another remains active, preserving the chosen focus.
 
-The `/2` shared interpreter remains frozen in `engine-v2.js`. Loading a `/2`
-world first replays its history with those rules. It then appends one explicit
-`upgrade` command to `/3`, which migrates the saved life state. New commands
-use `engine-v3.js`. The same path works with a checkpoint or with the seed and
-journal alone. The bundle builder updates `/3` and keeps `/2` as replay history.
+The shared interpreters in `engine-v2.js` and `engine-v3.js` retain their released
+bytes. New commands use `engine-v4.js`, which includes the saved life migration.
+Replay works with a checkpoint or with the seed and journal alone, including
+histories that already upgraded from version 2 to version 3. The bundle builder
+updates version 4 and keeps both earlier interpreters as replay history.
 
 ## Shared words
 
