@@ -35,7 +35,7 @@ try {
       window.addEventListener("DOMContentLoaded", () => {
         new MutationObserver(() => {
           const quest = document.querySelector(
-            '#hand .card-frame[data-raised="true"] [data-fulfilled="true"]',
+            '#unveil-dialog[open][data-direction="fulfill"] [data-fulfilled="true"]',
           );
           if (quest && !window.fulfilled.includes(quest.dataset.quest))
             window.fulfilled.push(quest.dataset.quest);
