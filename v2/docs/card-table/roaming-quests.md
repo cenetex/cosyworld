@@ -1,0 +1,56 @@
+# Quest journeys
+
+An avatar with `roamingQuest: "latest-completion"` follows the latest meaningful
+quest completion. The bard uses this capability. His new home is the harbor.
+Existing saves keep his recorded position. An untouched older spawn can take
+its authored path from Argolid Road to the harbor on a resolved turn.
+
+The destination comes from the completion receipt's saved location and sequence.
+Human, AI, avatar-held, item-held and place-held quests all use that ledger.
+The receipt keeps the site even when an actor or item later moves. Same-turn
+completions have distinct sequence numbers. An unknown old site stays unknown;
+an unknown author stays unnamed.
+
+The avatar holds an ordinary shared journey card. Each resolved world turn
+allows one legal travel action, including while the avatar is away from the
+player. The route uses the same doors, item conditions and transport state as
+player movement. A ship completes its current crossing when a newer quest
+changes the destination. Arrival completes the journey card; the avatar stays
+at that site until a later meaningful completion.
+
+## Routes and help
+
+Saved route knowledge starts with the avatar's home region. Visible exits and
+witnessed travel add edges. A route edge records knowledge of a path; its current
+travel conditions determine whether that path is open. When a destination lies
+beyond the known map, the avatar can explore a known frontier one step at a time.
+
+A blocked edge produces a shared passage card at that place. Missing directions
+produce a card held by the traveler. The same cause and edge reuse one card.
+People can join these cards through **Help**. A present helper can share known
+routes, carry an object that opens a door, or bring a vessel through the ordinary
+travel rules. Eligible AI helpers use the same legal choices. The card's saved
+cause links it to the original completion.
+
+## Retention and replay
+
+A new destination supersedes the older unfinished journey and its help cards.
+Other quests keep their focus and progress. Superseded cards keep their identity.
+The shared registry retains cards joined by other people. Its transient-history
+API keeps the latest 32 finished owner-only cards and removes their references
+together when it prunes them. A separate 32-entry journey index keeps the recent
+names and outcomes. These limits leave room for future journeys.
+
+Journey and help completions retain their causal family. The destination query
+excludes that family, including helper completions. This keeps arrival and help
+from creating another destination by themselves.
+
+Shared rules version 7 adds this behavior. Versions 2 through 6 retain their own
+bundles for journal replay. Recorded upgrades use their recorded target reducer.
+After historical replay, the current upgrade installs the journey state and
+route knowledge while preserving items, claims, quest records and conversation.
+Checkpoints and seed-only journal replay follow the same path.
+
+The song continues to use earned authored verses. Known human and AI authors
+keep their names; unknown authors use “an earlier traveler.” The speech validator
+checks the latest earned couplet against the authored text.

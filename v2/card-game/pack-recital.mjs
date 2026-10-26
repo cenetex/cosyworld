@@ -61,10 +61,29 @@ export function recitalPoem(world, pack, through = Infinity) {
 export function recitalFacts(world, packs, actor) {
   const pack = packs.find((p) => p.recital?.actor === actor);
   if (!pack) return [];
+  const name = (id) =>
+    humanAvatar(id)?.name ||
+    forest.people[id]?.name ||
+    forest.places[id]?.name ||
+    packs.find((p) => p.avatars?.[id])?.avatars[id].name ||
+    packs.find((p) => p.places?.[id])?.places[id].name ||
+    "an earlier traveler";
+  const journey = world.roamingQuests?.[actor];
+  const travel = journey?.target
+    ? [
+        `Your journey follows the recorded quest site at ${name(journey.target.locationId)}. Its author was ${name(journey.target.actorId)}.`,
+        journey.blocked
+          ? `You need ${journey.blocked.kind === "directions" ? "directions" : "passage"} from ${name(journey.blocked.from)} to ${name(journey.blocked.to)}.`
+          : world.actors[actor].place === journey.target.locationId
+            ? "You have arrived. Stay here until another quest is completed."
+            : "Take an ordinary open route toward that place.",
+      ]
+    : [];
   const visit = recitalVisit(world, pack);
-  if (!visit) return [];
+  if (!visit) return travel;
   const poem = recitalPoem(world, pack, visit);
   return [
+    ...travel,
     `Your song is ${poem.title}. These are the traveler's earned words, in order. Sing a couplet when addressed; keep the whole journey in mind.`,
     ...poem.stanzas.map((s, i) => {
       const traveler = world.packs[pack.id].recitals[s.id].actor;

@@ -9,6 +9,7 @@ import {
   focusQuest,
   retireQuest,
   clearQuestFocus,
+  pruneTransientQuestHistory,
 } from "./shared-quests.mjs";
 
 export const JOURNEY_HISTORY_LIMIT = 32;
@@ -71,13 +72,12 @@ function archiveFamily(world, actor, state) {
     (q) =>
       familyKinds.includes(q.cause?.kind) &&
       q.cause.rootId === rootId &&
-      (q.subjectActor === actor ||
-        q.program?.steps?.some((h) => h.passage?.actor === actor)),
+      q.familyActor === actor,
   )) {
     if (unfinished(q)) retireQuest(world, q.key);
     state.history.push({
       key: q.key,
-      name: q.program.name,
+      name: q.program?.name || "A past journey",
       cause: clone(q.cause),
       createdTurn: q.createdTurn,
       completedTurn: q.completedTurn,
@@ -86,6 +86,7 @@ function archiveFamily(world, actor, state) {
     clearQuestFocus(world, q.key);
   }
   state.history = state.history.slice(-JOURNEY_HISTORY_LIMIT);
+  pruneTransientQuestHistory(world, actor);
 }
 export function refreshRoamingQuest(world, actor, api) {
   const state = world.roamingQuests[actor];
@@ -97,6 +98,7 @@ export function refreshRoamingQuest(world, actor, api) {
   state.blocked = null;
   const quest = addQuestRecord(world, {
     holder: { kind: "avatar", id: actor },
+    transientActor: actor,
     subjectActor: actor,
     cause: { kind: "journey", rootId: latest.id },
     program: {
@@ -124,6 +126,8 @@ function finish(world, quest, actor) {
     participants: quest.participants,
     cause: quest.cause,
   });
+  if (quest.familyActor)
+    pruneTransientQuestHistory(world, quest.familyActor, quest.key);
 }
 export function roamingHelpMet(world, hand, api) {
   const help = hand.passage;
@@ -153,6 +157,7 @@ function requestHelp(world, actor, state, from, to, kind, api) {
           ? { kind: "avatar", id: actor }
           : { kind: "place", id: from },
       cause,
+      transientActor: actor,
       program: {
         id: `help:${actor}:${world.quests.next}`,
         name:
@@ -256,6 +261,14 @@ export function settleRoamingArrival(world, actor, api) {
   rememberRoutes(world, actor, api.visibleEdges(world.actors[actor].place));
   const state = world.roamingQuests?.[actor];
   if (state?.target?.locationId === world.actors[actor].place) {
+    for (const q of questRecords(world))
+      if (
+        q.familyActor === actor &&
+        q.cause?.kind === "help" &&
+        q.cause.rootId === state.target.id &&
+        unfinished(q)
+      )
+        retireQuest(world, q.key);
     finish(world, questRecord(world, state.questKey), actor);
     state.blocked = null;
     api.arrive(actor);

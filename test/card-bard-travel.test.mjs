@@ -1,3 +1,6 @@
+import { openingFixture } from "./helpers/greek-opening.mjs";
+import { packDefinition } from "../v2/card-game/pack-registry.mjs";
+import { recitalFacts, validRecitals } from "../v2/card-game/pack-recital.mjs";
 import { describe, it, expect } from "vitest";
 import {
   createWorld,
@@ -228,5 +231,55 @@ describe("ordinary bard travel", () => {
     expect(s.actors[singer].place).toBe("greek-harbor");
     // A ship's committed destination remains fixed while someone is aboard.
     expect(s.roamingQuests[singer].history.length).toBeGreaterThan(0);
+  });
+  it("retains a joined helper's compact card through more than32 retargets and reload", () => {
+    let s = createWorld();
+    s.actors[singer].place = "pond";
+    s.actors.vale.place = "pond";
+    complete(s, "greek-well");
+    s = act(s);
+    const key = s.roamingQuests[singer].blocked.questKey;
+    s = act(s, "join-quest", { questKey: key });
+    expect(s.quests.records[key].participants).toContain("vale");
+    for (let n = 0; n < 40; n++) {
+      complete(s, n % 2 ? "pond" : "station");
+      s = act(s);
+    }
+    const loaded = decodeSave(encodeSave(s));
+    expect(loaded.quests.records[key].retired.reason).toBe("superseded");
+    expect(loaded.quests.records[key].participants).toContain("vale");
+    expect(loaded.quests.records[key].familyActor).toBe(singer);
+    expect(loaded.roamingQuests[singer].history).toHaveLength(32);
+    expect(
+      Object.values(loaded.quests.records).filter(
+        (q) =>
+          q.transientActor === singer &&
+          (q.completedTurn !== null || q.retired),
+      ).length,
+    ).toBeLessThanOrEqual(32);
+  });
+  it("keeps a known AI verse author through save reload and uses truthful song facts", () => {
+    const s = openingFixture("refusal").closed;
+    const pack = packDefinition("greek-drama");
+    const record = s.packs[pack.id].recitals["greek-decline-burial"];
+    record.actor = "keeper";
+    record.visit = s.turn;
+    expect(validRecitals(s, pack)).toBe(true);
+    const loaded = decodeSave(encodeSave(s));
+    expect(
+      recitalFacts(loaded, [pack], singer).some(
+        (fact) =>
+          fact.includes("The keeper:") &&
+          fact.includes("I told her I would turn away."),
+      ),
+    ).toBe(true);
+    record.actor = null;
+    expect(
+      recitalFacts(s, [pack], singer).some(
+        (fact) =>
+          fact.includes("an earlier traveler:") &&
+          fact.includes("I told her I would turn away."),
+      ),
+    ).toBe(true);
   });
 });

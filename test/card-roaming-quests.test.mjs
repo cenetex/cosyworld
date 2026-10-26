@@ -196,4 +196,14 @@ describe("saved roaming quests", () => {
     rememberRoutes(saved, "singer", [["a", "b"]]);
     expect(saved.routeKnowledge).toEqual(f.world.routeKnowledge);
   });
+  it("keeps an unknown author truthful in the saved journey purpose", () => {
+    const f = fixture();
+    f.complete("b", null);
+    f.step();
+    const q = f.world.quests.records[f.world.roamingQuests.singer.questKey];
+    expect(q.program.purpose).toBe(
+      "Reach the recorded site of an earlier completed quest.",
+    );
+    expect(f.world.roamingQuests.singer.target.actorId).toBeNull();
+  });
 });
