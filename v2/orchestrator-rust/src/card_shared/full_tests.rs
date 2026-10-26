@@ -438,3 +438,85 @@ fn unchanged_snapshots_leave_the_checkpoint_and_journal_untouched() {
     assert_eq!(first["queue"].as_array().unwrap().len(), 0);
     assert_eq!(queued["queue"].as_array().unwrap().len(), 1);
 }
+
+#[test]
+fn v2_history_upgrades_once_and_replays_with_either_checkpoint_path() {
+    for keep_checkpoint in [true, false] {
+        let (_path, c, id) = fixture();
+        c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+        c.execute("DELETE FROM card_full_log", []).unwrap();
+        let result =
+            engine::reduce_version(engine::LEGACY_VERSION, json!({"op":"create"})).unwrap();
+        let mut old = World {
+            version: engine::LEGACY_VERSION.into(),
+            game: result["world"].clone(),
+            claimed: [0; 8],
+            present: [0; 8],
+        };
+        old.game["turn"] = json!(2);
+        old.game["revision"] = json!(2);
+        old.game["life"]["actors"]["vale"]["experiences"] = json!([
+            {"kind":"care","key":"care:lamp:oil:station","turn":1,"points":2}
+        ]);
+        full_store::seed(&c, &id, &old, "old-full-world", now()).unwrap();
+        for a in 0..8 {
+            full_store::commit(
+                &c,
+                &id,
+                &mut old,
+                json!({"op":"claim","actor":actor_id(a)}),
+                now(),
+            )
+            .unwrap();
+        }
+        full_store::commit(
+            &c,
+            &id,
+            &mut old,
+            json!({"op":"enter","actor":"vale"}),
+            now(),
+        )
+        .unwrap();
+        let wait = old.project(0).unwrap()["actions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|a| a["kind"] == "wait")
+            .unwrap()
+            .clone();
+        full_store::commit(
+            &c,
+            &id,
+            &mut old,
+            json!({"op":"play","actor":"vale","action":wait}),
+            now(),
+        )
+        .unwrap();
+        if !keep_checkpoint {
+            c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+        }
+        let upgraded = full_store::world(&c, &id, now()).unwrap();
+        assert_eq!(upgraded.version, engine::VERSION);
+        assert_eq!(upgraded.claimed, [1; 8]);
+        assert_eq!(upgraded.present, old.present);
+        assert_eq!(upgraded.game["actors"], old.game["actors"]);
+        assert_eq!(upgraded.game["items"], old.game["items"]);
+        assert_eq!(upgraded.game["log"], old.game["log"]);
+        assert_eq!(upgraded.game["life"]["version"], 2);
+        assert_eq!(
+            upgraded.game["life"]["actors"]["vale"]["experiences"][0],
+            json!({"kind":"care","turn":1,"other":null,"item":"lamp","place":"station"})
+        );
+        assert_eq!(full_store::world(&c, &id, now()).unwrap(), upgraded);
+        c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+        assert_eq!(full_store::world(&c, &id, now()).unwrap(), upgraded);
+        let upgrades: i64 = c
+            .query_row(
+                "SELECT count(*) FROM card_full_log WHERE json_extract(command,'$.op')='upgrade'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(upgrades, 1);
+    }
+}

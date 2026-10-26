@@ -7819,7 +7819,11 @@
       return value - (recent.includes(item2) ? 3 : 0) - active.filter((p) => p.generated?.item === item2).length * 4;
     };
     const item = candidates.sort((a, b) => score(b) - score(a))[0];
-    if (!item) return generateProgram(s, actor, places2, things2, { independent, solo: true });
+    if (!item)
+      return generateProgram(s, actor, places2, things2, {
+        independent,
+        solo: true
+      });
     const owner2 = ownerOf(s, item);
     const others = actors2.filter((id) => id !== actor);
     const partner = s.actors[owner2] && owner2 !== actor ? owner2 : others[(progress.program + actors2.indexOf(actor)) % others.length];
@@ -7893,7 +7897,7 @@
   }
   var QUEST_LIMIT = 8;
   var HISTORY_LIMIT = 24;
-  var COLLECTION_LIMIT = 4096;
+  var COLLECTION_LIMIT = 256;
   var questKey = (actor, serial) => `${actor}:quest:${serial}`;
   var collectionOf = (s, actor) => lifeOf(s, actor)?.collection;
   var activeRecord = (s, actor) => {
@@ -7947,17 +7951,20 @@
       archive: [],
       earned: completed + progress.step,
       archivedCompleted: progress.program,
+      authoredThrough: Math.min(progress.program, programsFor(s, actor).length),
       collectedThrough: s.turn
     };
     if (program) {
       const card = addQuest(s, actor, program, life.origin || null);
       card.step = progress.step;
+      if (!program.generated) life.collection.authoredThrough += 1;
       if (life.phase === "active") life.collection.active = card.key;
     }
   }
   function addQuest(s, actor, program, origin = null) {
     const c = collectionOf(s, actor);
-    if (c.cards.filter((q) => q.completedTurn === null).length >= QUEST_LIMIT || c.cards.length + c.archive.length >= COLLECTION_LIMIT) return null;
+    if (c.cards.filter((q) => q.completedTurn === null).length >= QUEST_LIMIT || c.cards.length + c.archive.length >= COLLECTION_LIMIT)
+      return null;
     const card = {
       key: questKey(actor, c.next++),
       program: structuredClone(program),
@@ -8008,10 +8015,12 @@
             name: old.program.name,
             purpose: old.program.purpose || "",
             steps: [],
-            ...old.program.generated ? { generated: {
-              situation: old.program.generated.situation,
-              ...old.program.generated.solo ? { solo: true } : {}
-            } } : {}
+            ...old.program.generated ? {
+              generated: {
+                situation: old.program.generated.situation,
+                ...old.program.generated.solo ? { solo: true } : {}
+              }
+            } : {}
           },
           totalSteps: old.program.steps.length,
           step: old.step,
@@ -8036,14 +8045,14 @@
     p.step = 0;
     delete p.current;
     let pending = c.cards.filter((q) => q.completedTurn === null);
-    const authored = programsFor(s, actor)[p.program];
-    if (authored && !c.cards.some((q) => q.program.id === authored.id))
-      addQuest(s, actor, authored);
+    const authored = programsFor(s, actor)[c.authoredThrough];
+    if (authored && addQuest(s, actor, authored)) c.authoredThrough += 1;
     pending = c.cards.filter((q) => q.completedTurn === null);
     if (!pending.length && life.phase === "active") {
       const program = generateProgram(structuredClone(s), actor, places2, things2);
       addQuest(s, actor, program, life.origin || null);
       pending = c.cards.filter((q) => q.completedTurn === null);
+      if (!pending.length) life.phase = "seeking";
     }
     if (life.phase === "active" && pending.length) {
       if (controlledByHuman(s, actor)) {
@@ -8424,7 +8433,13 @@
     if (!hasQuestPrograms(s)) return;
     for (const actor of knownActors(s).filter((id) => !isPackActor(id))) {
       const collection = lifeOf(s, actor)?.collection;
-      const cards = collection ? collection.cards.filter((q) => q.completedTurn === null) : [{ key: null, program: programFor(s, actor), step: s.actors[actor].progress.step }];
+      const cards = collection ? collection.cards.filter((q) => q.completedTurn === null) : [
+        {
+          key: null,
+          program: programFor(s, actor),
+          step: s.actors[actor].progress.step
+        }
+      ];
       for (const card of cards) {
         const key = card.key ? `${actor}/${card.key}` : actor;
         const target = alternatives(card.program?.steps[card.step]).find(
@@ -8567,7 +8582,8 @@
       const progress = s.actors[actor].progress;
       const collection = lifeOf(s, actor)?.collection;
       const card = collection?.cards.find((q) => q.key === evidence.questKey);
-      if (card && (card.completedTurn !== null || card.lastProgressTurn === s.turn || card.step !== evidence.step)) continue;
+      if (card && (card.completedTurn !== null || card.lastProgressTurn === s.turn || card.step !== evidence.step))
+        continue;
       const source = card?.program || programFor(s, actor);
       const programIndex = progress.program;
       const program = source.generated ? {
@@ -8583,7 +8599,9 @@
       if (collection) recordQuestProgress(s, actor, complete, card.key);
       else progress.step += 1;
       if (complete) {
-        finishPersonalQuest(s, actor, program, sanctuaries, { rest: wasActive || !collection?.active });
+        finishPersonalQuest(s, actor, program, sanctuaries, {
+          rest: wasActive || !collection?.active
+        });
         const effect = evidence.target.consequence;
         const consequenceKey = effect && JSON.stringify([effect, effect.kind === "trust" ? actor : null]);
         if (effect && !consequences.has(consequenceKey)) {
@@ -8594,14 +8612,27 @@
         if (program.generated) {
           if (!collection) progress.completedHands += program.steps.length;
           if (program.generated.item)
-            progress.recent = [...progress.recent || [], program.generated.item].slice(-4);
-          progress.recentKinds = [...progress.recentKinds || [], program.generated.situation || "bargain"].slice(-4);
+            progress.recent = [
+              ...progress.recent || [],
+              program.generated.item
+            ].slice(-4);
+          progress.recentKinds = [
+            ...progress.recentKinds || [],
+            program.generated.situation || "bargain"
+          ].slice(-4);
           if (wasActive) delete progress.current;
         }
         progress.program += 1;
         if (wasActive) progress.step = 0;
       }
-      receipts.push({ actor, program, step, programIndex, complete, ...evidence });
+      receipts.push({
+        actor,
+        program,
+        step,
+        programIndex,
+        complete,
+        ...evidence
+      });
     }
     ensurePrograms(s);
     for (const {
@@ -9682,7 +9713,13 @@
         );
       }
     }
-    for (const actor2 of settleLife(next, knownActors(next).filter((id) => !controlledByHuman(next, id) || id === exact.actor), sanctuaries)) {
+    for (const actor2 of settleLife(
+      next,
+      knownActors(next).filter(
+        (id) => !controlledByHuman(next, id) || id === exact.actor
+      ),
+      sanctuaries
+    )) {
       ensurePrograms(next);
       const origin = purposeOrigin(next, actor2);
       if (!programFor(next, actor2)) continue;
@@ -9709,6 +9746,11 @@
   }
   function validHand(h, actor) {
     return h && Array.isArray(h.items) && h.items.length <= 3 && new Set(h.items).size === h.items.length && h.items.every((id) => ids.includes(id)) && (h.location === null || Object.hasOwn(places, h.location)) && Array.isArray(h.avatars) && h.avatars.length <= 2 && new Set(h.avatars).size === h.avatars.length && h.avatars.every((id) => actorIds.includes(id) && id !== actor) && (h.conditions === void 0 || Array.isArray(h.conditions) && h.conditions.length <= 3 && h.conditions.every((c) => validCondition(c, actor))) && (h.consequence === void 0 || validConsequence(h.consequence, actor));
+  }
+  function validQuestOrigin(s, origin) {
+    return origin === null || origin && Object.keys(origin).every(
+      (key) => ["kind", "turn", "other", "item", "place"].includes(key)
+    ) && experienceKinds.includes(origin.kind) && Number.isSafeInteger(origin.turn) && origin.turn >= 0 && origin.turn <= s.turn && (origin.other === null || actorIds.includes(origin.other)) && (origin.item === null || ids.includes(origin.item)) && (origin.place === null || Object.hasOwn(places, origin.place));
   }
   function validProgram(p, actor, s) {
     if (!p || !actorIds.includes(actor) || typeof p.id !== "string" || p.id.length > 80 || !p.id.length || typeof p.name !== "string" || p.name.length > 100 || !p.name.length || !Array.isArray(p.steps) || !p.steps.length || p.steps.length > 12)
@@ -9817,8 +9859,10 @@
       if (collection) {
         const cards = collection.cards;
         const archive = collection.archive;
-        if (!Array.isArray(cards) || cards.length > 32 || !Array.isArray(archive) || cards.length + archive.length > 4096 || archive.some((q) => !q || typeof q.key !== "string" || !q.key.startsWith(`${id}:quest:`) || q.key.length > 80 || !q.program || typeof q.program.id !== "string" || typeof q.program.name !== "string" || q.program.name.length > 120 || typeof q.program.purpose !== "string" || q.program.purpose.length > 240 || !Array.isArray(q.program.steps) || q.program.steps.length !== 0 || !Number.isInteger(q.totalSteps) || q.totalSteps < 1 || q.totalSteps > 32 || q.step !== q.totalSteps || !Number.isSafeInteger(q.createdTurn) || q.createdTurn < 0 || !Number.isSafeInteger(q.completedTurn) || q.completedTurn < q.createdTurn || q.completedTurn > s.turn) || new Set([...cards, ...archive].map((q) => q.key)).size !== cards.length + archive.length || !Number.isSafeInteger(collection.next) || collection.next < cards.length + archive.length || !Number.isSafeInteger(collection.earned) || collection.earned < 0 || collection.earned > s.turn * 8 || !Number.isSafeInteger(collection.archivedCompleted) || collection.archivedCompleted < 0 || !Number.isSafeInteger(collection.collectedThrough) || collection.collectedThrough < 0 || collection.collectedThrough > s.turn || new Set(cards.map((q) => q.key)).size !== cards.length || cards.filter((q) => q.completedTurn === null).length > 8 || cards.some(
-          (q) => !q || typeof q.key !== "string" || !q.key.startsWith(`${id}:quest:`) || q.key.length > 80 || !validProgram(q.program, id, s) || !Number.isInteger(q.step) || q.step < 0 || !Number.isSafeInteger(q.createdTurn) || q.createdTurn < 0 || q.createdTurn > s.turn || (q.completedTurn === null ? q.step >= q.program.steps.length : !Number.isSafeInteger(q.completedTurn) || q.completedTurn < q.createdTurn || q.completedTurn > s.turn || q.step !== q.program.steps.length)
+        if (!Array.isArray(cards) || cards.length > 32 || !Array.isArray(archive) || cards.length + archive.length > 256 || archive.some(
+          (q) => !q || typeof q.key !== "string" || !q.key.startsWith(`${id}:quest:`) || q.key.length > 80 || !validQuestOrigin(s, q.origin) || !q.program || typeof q.program.id !== "string" || typeof q.program.name !== "string" || q.program.name.length > 120 || typeof q.program.purpose !== "string" || q.program.purpose.length > 240 || !Array.isArray(q.program.steps) || q.program.steps.length !== 0 || !Number.isInteger(q.totalSteps) || q.totalSteps < 1 || q.totalSteps > 32 || q.step !== q.totalSteps || !Number.isSafeInteger(q.createdTurn) || q.createdTurn < 0 || !Number.isSafeInteger(q.completedTurn) || q.completedTurn < q.createdTurn || q.completedTurn > s.turn
+        ) || new Set([...cards, ...archive].map((q) => q.key)).size !== cards.length + archive.length || !Number.isSafeInteger(collection.next) || collection.next < cards.length + archive.length || !Number.isSafeInteger(collection.earned) || collection.earned < 0 || collection.earned > s.turn * 8 || !Number.isSafeInteger(collection.archivedCompleted) || collection.archivedCompleted < 0 || !Number.isSafeInteger(collection.authoredThrough) || collection.authoredThrough < 0 || collection.authoredThrough > programs.length || !Number.isSafeInteger(collection.collectedThrough) || collection.collectedThrough < 0 || collection.collectedThrough > s.turn || new Set(cards.map((q) => q.key)).size !== cards.length || cards.filter((q) => q.completedTurn === null).length > 8 || cards.some(
+          (q) => !q || typeof q.key !== "string" || !q.key.startsWith(`${id}:quest:`) || q.key.length > 80 || !validQuestOrigin(s, q.origin) || q.lastProgressTurn !== void 0 && (!Number.isSafeInteger(q.lastProgressTurn) || q.lastProgressTurn < q.createdTurn || q.lastProgressTurn > s.turn) || !validProgram(q.program, id, s) || !Number.isInteger(q.step) || q.step < 0 || !Number.isSafeInteger(q.createdTurn) || q.createdTurn < 0 || q.createdTurn > s.turn || (q.completedTurn === null ? q.step >= q.program.steps.length : !Number.isSafeInteger(q.completedTurn) || q.completedTurn < q.createdTurn || q.completedTurn > s.turn || q.step !== q.program.steps.length)
         ) || collection.archivedCompleted + archive.length + cards.filter((q) => q.completedTurn !== null).length !== progress.program || collection.active !== null && !cards.some(
           (q) => q.key === collection.active && q.completedTurn === null && q.step === progress.step
         ) || collection.active === null && progress.step !== 0 || !Array.isArray(progress.marks) || progress.marks.length !== Math.min(32, collection.earned) || progress.marks.some(
@@ -10229,7 +10273,21 @@
       entities: ids3.map((id) => {
         const kind = profiles[id].kind;
         const continuity = kind === "location" || id === currentActor(world) ? packSceneFacts(world, location) : [];
-        const facts = [...packFacts(world, id), ...continuity].filter((fact, index, all) => all.indexOf(fact) === index).slice(-4);
+        const quests = kind === "avatar" ? actorQuests(world, id) : [];
+        const activeQuest = quests.find((quest) => quest.status === "active");
+        const pendingQuests = quests.filter(
+          (quest) => quest.status === "pending"
+        );
+        const questFacts = [
+          ...activeQuest ? [`My active purpose is ${activeQuest.program.name}.`] : [],
+          ...pendingQuests.length ? [
+            `I also want to pursue ${pendingQuests.map((quest) => quest.program.name).join("; ")}.`
+          ] : []
+        ];
+        const facts = [
+          ...questFacts,
+          ...[...packFacts(world, id), ...continuity].filter((fact, index, all) => all.indexOf(fact) === index).slice(-4)
+        ];
         let desire = null;
         if (kind === "avatar") {
           if (hasTemperament(id)) {
@@ -10242,7 +10300,7 @@
             const giving = id === played.actorId ? played.itemId : played.receiveId;
             const receiving = id === played.actorId ? played.receiveId : played.itemId;
             const other = id === played.actorId ? played.targetId : played.actorId;
-            facts.push(
+            facts.unshift(
               `Your completed exchange: you gave ${nameOf(giving)} to ${nameOf(other)} and received ${nameOf(receiving)} from them. The item you gained was ${nameOf(receiving)}.`
             );
           }
@@ -10251,7 +10309,9 @@
           );
           if (quietFact && mindsNoise(id)) facts.push(quietFact);
           if (played?.verb === "accompany" && [played.actorId, played.targetId].includes(id))
-            facts[0] += ` ${nameOf(played.targetId)} ${played.accepted ? "agreed to" : "declined"} ${nameOf(played.actorId)}'s invitation to ${nameOf(played.destinationId)}. This is the recorded answer for this play.`;
+            facts.unshift(
+              `${nameOf(played.targetId)} ${played.accepted ? "agreed to" : "declined"} ${nameOf(played.actorId)}'s invitation to ${nameOf(played.destinationId)}. This is the recorded answer for this play.`
+            );
           const company = Object.keys(world.actors).filter(
             (other) => other !== id && known.includes(other) && entityActive(world, other) && world.actors[other].place === world.actors[id].place
           );
@@ -10340,7 +10400,7 @@
         );
         return {
           id,
-          facts: facts.slice(0, 8).map((text) => text.slice(0, 240)),
+          facts: facts.slice(0, 16).map((text) => text.slice(0, 240)),
           desire,
           memories: speechMemories(world.memories[id], {
             expressions: !beforeFirstLight

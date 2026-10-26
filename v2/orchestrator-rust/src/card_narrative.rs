@@ -402,7 +402,7 @@ fn valid(context: &Context) -> bool {
             .is_none_or(|id| kind(id, "item") && ids.contains(id.as_str()))
         && context.entities.iter().all(|e| {
             profiles().get(&e.id).is_some()
-                && e.facts.len() <= 8
+                && e.facts.len() <= 16
                 && e.facts.iter().all(|s| bounded(s, 240))
                 && e.previous.as_ref().is_none_or(|s| bounded(s, 400))
                 && e.inner_life.as_ref().is_none_or(|life| {
@@ -1092,6 +1092,7 @@ fn idiolect(entity: &Entity) -> String {
         text.push_str("\n\n");
         text.push_str(persona);
     }
+    text.push_str("\n\nMy next reply is one or two short sentences in my own voice. I speak only my next words. My voice samples show my style; the current scene supplies my facts.");
     text
 }
 
@@ -1325,15 +1326,36 @@ fn transcript(context: &Context, entity: &Entity, part: Part) -> String {
             lines.push("I'm saying goodbye to those staying.".into());
         }
     }
-    let mut out = vec![scene, String::new(), lines.join("\n"), String::new()];
+    let mut out = vec!["My voice samples:".to_string()];
     for line in voice_lines(context, id) {
         out.push(format!("{own}: {line}"));
     }
+    out.extend([
+        String::new(),
+        "Current scene:".to_string(),
+        scene,
+        String::new(),
+        lines.join("\n"),
+        String::new(),
+    ]);
     for line in &context.conversation {
         out.push(format!("{}: {}", name(&line.actor_id), line.text));
     }
     out.push(cue(&own, part));
     out.join("\n")
+}
+
+/// A rejected reply gets fresh wording grounded in the scene. Removing the
+/// style examples on retry helps small models leave copied examples behind.
+fn attempt_transcript(context: &Context, entity: &Entity, part: Part, attempt: u8) -> String {
+    let prompt = transcript(context, entity, part);
+    if attempt == 0 {
+        return prompt;
+    }
+    let current = prompt
+        .split_once("Current scene:\n")
+        .map_or(prompt.as_str(), |(_, scene)| scene);
+    format!("My next words are fresh and describe this moment.\n\nCurrent scene:\n{current}")
 }
 
 /// The transcript tag the reply continues from.
@@ -1471,7 +1493,6 @@ async fn speak(
                 })
         });
     let system = idiolect(entity);
-    let user = transcript(context, entity, part);
     let mut check = Check::new(context, entity, part);
     if part == Part::Line {
         check.limit = settings.line_limit;
@@ -1487,7 +1508,7 @@ async fn speak(
                 &own
             };
             let system = &system;
-            let user = &user;
+            let user = attempt_transcript(context, entity, part, attempt);
             let check = &check;
             async move {
                 let request = ChatCompletionRequest {
@@ -1495,7 +1516,7 @@ async fn speak(
                     prompt_version: "card-voice-v2",
                     capability: ModelCapability::WorldContent,
                     system,
-                    user,
+                    user: &user,
                     temperature: 1.0 - 0.1 * f64::from(attempt),
                     max_tokens: if part == Part::Persona { 160 } else { 96 },
                     timeout,
@@ -2575,7 +2596,7 @@ mod tests {
         assert!(!vale.contains("The keeper"));
         let pond = transcript(&c, &c.entities[1], Part::Line);
         assert!(pond.contains("Vale has just come from Empty station, alone."));
-        assert!(pond.starts_with("Black pond. Present: Vale, Pip."));
+        assert!(pond.contains("Current scene:\nBlack pond. Present: Vale, Pip."));
         assert!(pond.ends_with("\nBlack pond:"));
         let o = c.outcome.as_mut().unwrap();
         o.avatars[0]
@@ -3032,6 +3053,15 @@ mod tests {
         assert_eq!(tries.load(std::sync::atomic::Ordering::SeqCst), 2);
         assert_ne!(result["entries"][0]["text"], "The lamp burns now.");
         assert!(transcript(&c, &c.entities[0], Part::Line).contains("unlit"));
+        let requests = seen.lock().unwrap();
+        let vale: Vec<_> = requests
+            .iter()
+            .filter_map(|request| request["messages"][1]["content"].as_str())
+            .filter(|text| text.ends_with("Vale:"))
+            .collect();
+        assert!(vale[0].contains("My voice samples:"));
+        assert!(!vale[1].contains("My voice samples:"));
+        assert!(vale[1].contains("unlit"));
         server.abort();
     }
 

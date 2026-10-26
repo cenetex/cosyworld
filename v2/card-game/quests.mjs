@@ -266,7 +266,11 @@ export function generateProgram(
     );
   };
   const item = candidates.sort((a, b) => score(b) - score(a))[0];
-  if (!item) return generateProgram(s, actor, places, things, {independent, solo: true});
+  if (!item)
+    return generateProgram(s, actor, places, things, {
+      independent,
+      solo: true,
+    });
   const owner = ownerOf(s, item);
   const others = actors.filter((id) => id !== actor);
   const partner =
@@ -372,7 +376,7 @@ export function generateProgram(
 
 const QUEST_LIMIT = 8;
 const HISTORY_LIMIT = 24;
-const COLLECTION_LIMIT = 4096;
+const COLLECTION_LIMIT = 256;
 const questKey = (actor, serial) => `${actor}:quest:${serial}`;
 const collectionOf = (s, actor) => lifeOf(s, actor)?.collection;
 const activeRecord = (s, actor) => {
@@ -447,18 +451,23 @@ export function installQuestCollection(s, actor) {
     archive: [],
     earned: completed + progress.step,
     archivedCompleted: progress.program,
+    authoredThrough: Math.min(progress.program, programsFor(s, actor).length),
     collectedThrough: s.turn,
   };
   if (program) {
     const card = addQuest(s, actor, program, life.origin || null);
     card.step = progress.step;
+    if (!program.generated) life.collection.authoredThrough += 1;
     if (life.phase === "active") life.collection.active = card.key;
   }
 }
 function addQuest(s, actor, program, origin = null) {
   const c = collectionOf(s, actor);
-  if (c.cards.filter((q) => q.completedTurn === null).length >= QUEST_LIMIT ||
-      c.cards.length + c.archive.length >= COLLECTION_LIMIT) return null;
+  if (
+    c.cards.filter((q) => q.completedTurn === null).length >= QUEST_LIMIT ||
+    c.cards.length + c.archive.length >= COLLECTION_LIMIT
+  )
+    return null;
   const card = {
     key: questKey(actor, c.next++),
     program: structuredClone(program),
@@ -486,7 +495,12 @@ export function pursueQuest(s, actor, key) {
   s.actors[actor].progress.current = currentProgram(s, actor, card);
   return true;
 }
-export function recordQuestProgress(s, actor, complete, key = activeQuestKey(s, actor)) {
+export function recordQuestProgress(
+  s,
+  actor,
+  complete,
+  key = activeQuestKey(s, actor),
+) {
   const c = collectionOf(s, actor),
     card = c?.cards.find((q) => q.key === key);
   if (!card) return;
@@ -505,10 +519,20 @@ export function recordQuestProgress(s, actor, complete, key = activeQuestKey(s, 
       c.cards.splice(c.cards.indexOf(old), 1);
       c.archive.push({
         key: old.key,
-        program: {id: old.program.id, name: old.program.name,
-          purpose: old.program.purpose || "", steps: [],
-          ...(old.program.generated ? {generated: {situation: old.program.generated.situation,
-            ...(old.program.generated.solo ? {solo: true} : {})}} : {})},
+        program: {
+          id: old.program.id,
+          name: old.program.name,
+          purpose: old.program.purpose || "",
+          steps: [],
+          ...(old.program.generated
+            ? {
+                generated: {
+                  situation: old.program.generated.situation,
+                  ...(old.program.generated.solo ? { solo: true } : {}),
+                },
+              }
+            : {}),
+        },
         totalSteps: old.program.steps.length,
         step: old.step,
         origin: old.origin,
@@ -533,14 +557,14 @@ export function ensureCollectedQuest(s, actor, places, things) {
   p.step = 0;
   delete p.current;
   let pending = c.cards.filter((q) => q.completedTurn === null);
-  const authored = programsFor(s, actor)[p.program];
-  if (authored && !c.cards.some((q) => q.program.id === authored.id))
-    addQuest(s, actor, authored);
+  const authored = programsFor(s, actor)[c.authoredThrough];
+  if (authored && addQuest(s, actor, authored)) c.authoredThrough += 1;
   pending = c.cards.filter((q) => q.completedTurn === null);
   if (!pending.length && life.phase === "active") {
     const program = generateProgram(structuredClone(s), actor, places, things);
     addQuest(s, actor, program, life.origin || null);
     pending = c.cards.filter((q) => q.completedTurn === null);
+    if (!pending.length) life.phase = "seeking";
   }
   if (life.phase === "active" && pending.length) {
     if (controlledByHuman(s, actor)) {

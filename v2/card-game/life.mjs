@@ -517,7 +517,13 @@ export function settleLife(
 function fitsMilestone(milestone, program) {
   return !!milestone?.includes(program.generated?.situation);
 }
-export function finishPersonalQuest(s, actor, program, sanctuaries = null, {rest = true} = {}) {
+export function finishPersonalQuest(
+  s,
+  actor,
+  program,
+  sanctuaries = null,
+  { rest = true } = {},
+) {
   const life = lifeOf(s, actor);
   if (!life) return;
   const next = life.hope.steps[life.milestones.length];
