@@ -5,6 +5,10 @@ import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
 import { installQuestCollection, programsFor } from "../card-game/quests.mjs";
+import {
+  registerPersonalQuest,
+  collectionCards,
+} from "../card-game/shared-quests.mjs";
 import { questCards, questCardId } from "../card-game/quest-cards.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
 
@@ -14,7 +18,7 @@ function fixture() {
   for (const actor of ["vale", "moth"]) {
     installQuestCollection(world, actor);
     const collection = world.life.actors[actor].collection;
-    collection.cards.push({
+    const record = registerPersonalQuest(world, actor, {
       key: `${actor}:quest:${collection.next++}`,
       program: structuredClone(programsFor(world, actor)[1]),
       step: 0,
@@ -28,6 +32,7 @@ function fixture() {
       createdTurn: world.turn,
       completedTurn: null,
     });
+    collection.cards.push(record.key);
   }
   return world;
 }
@@ -136,15 +141,9 @@ try {
       (key) => JSON.parse(localStorage.getItem(key)),
       key,
     );
-    assert(
-      saved.life.actors.vale.collection.cards.some(
-        (q) => q.key === player[0].key,
-      ),
-    );
+    assert(saved.life.actors.vale.collection.cards.includes(player[0].key));
     assert.equal(
-      saved.life.actors.vale.collection.cards.find(
-        (q) => q.key === player[1].key,
-      ).step,
+      collectionCards(saved, "vale").find((q) => q.key === player[1].key).step,
       0,
     );
     assert.deepEqual(errors, []);
