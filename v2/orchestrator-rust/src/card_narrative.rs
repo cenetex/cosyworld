@@ -150,7 +150,11 @@ fn base_profiles() -> &'static Value {
             if human["id"] == "vale" { continue; }
             for (entry, kind) in [(human, "avatar"), (&human["home"], "location"), (&human["item"], "item")] {
                 if let Some(id) = entry["id"].as_str() {
-                    map.insert(id.into(), json!({"kind":kind,"name":entry["name"],"persona":entry.get("text").or_else(||entry.get("effect")),"pack":"shared-homes"}));
+                    let mut profile = json!({"kind":kind,"name":entry["name"],"persona":entry.get("text").or_else(||entry.get("effect")),"pack":"shared-homes"});
+                    if kind == "avatar" {
+                        profile["voice"] = json!("Speak briefly about this shared moment. The player chooses this avatar's actions.");
+                    }
+                    map.insert(id.into(), profile);
                 }
             }
         }
@@ -2996,6 +3000,7 @@ mod tests {
         assert_eq!(baker["model"], "test-entity-model");
         c = context();
         c.entities[0].id = "mara".into();
+        assert!(idiolect(&c.entities[0]).contains("The player chooses this avatar's actions."));
         c.speakers[0] = "mara".into();
         seen.lock().unwrap().clear();
         let result = shared_lines(
