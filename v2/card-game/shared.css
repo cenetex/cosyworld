@@ -71,6 +71,12 @@ body .dialogue > .movement-caption {
   grid-column: 1;
 }
 body
+  .dialogue:has(.shared-play-queue:not(:empty)):has(#movement-caption[hidden])
+  > .speech-row {
+  grid-row: 1 / span 2;
+  align-self: center;
+}
+body
   .dialogue:has(.shared-play-queue:not(:empty)):has(#speech-row[hidden]):has(
     #movement-caption[hidden]
   ) {
@@ -105,7 +111,7 @@ button.shared-play-avatar:focus-visible {
   box-shadow: 0 0 0 2px #dfc38d66;
 }
 .shared-play-avatar img {
-  --shown: calc(var(--figure-height, 1) * var(--portrait-crop, 0.3));
+  --shown: calc(var(--figure-height, 1) * var(--portrait-crop, 0.3) * 0.6);
   position: absolute;
   width: auto;
   max-width: none;
