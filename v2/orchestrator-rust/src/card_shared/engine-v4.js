@@ -759,7 +759,7 @@
             name: "The Wine-Dark Harbor",
             text: "Worn steps climb from the stone landing toward the town.",
             exits: ["greek-courtyard", "greek-athens", "greek-argolid-road"],
-            backdrop: "assets/greek-drama/harbor-day.webp",
+            backdrop: "assets/greek-drama/harbor-open-berth.webp",
             persona: "Worn steps climb from the stone landing toward the town."
           },
           "greek-courtyard": {
@@ -4749,6 +4749,7 @@
             travelLabel: "Board",
             scenery: {
               open: "The ship waits against the stone landing.",
+              backdrop: "assets/greek-drama/harbor-ship-at-berth.webp",
               cardName: "Greek ship",
               cardArt: "assets/greek-drama/ship-card.webp"
             }
@@ -5488,11 +5489,12 @@
             "open",
             "closed",
             "overlay",
+            "backdrop",
             "cardArt",
             "cardName"
           ]) && [c.scenery.open, c.scenery.closed, c.scenery.cardName].every(
             (t) => t === void 0 || textOk(t, 400)
-          ) && [c.scenery.overlay, c.scenery.cardArt].every(
+          ) && [c.scenery.overlay, c.scenery.backdrop, c.scenery.cardArt].every(
             (p) => p === void 0 || mediaPathOk(pack.id, p)
           ),
           `${name} scenery needs open and/or closed text`
@@ -6036,6 +6038,7 @@
         ...Object.values(pack.items || {}).map((i) => i.art),
         ...pack.crossings.flatMap((c) => [
           c.scenery?.overlay,
+          c.scenery?.backdrop,
           c.scenery?.cardArt
         ]),
         ...Object.values(pack.avatars).flatMap((a) => [
@@ -9826,9 +9829,13 @@
   }
 
   // v2/card-game/scene.mjs
-  var backdrop = (id) => packPlaces[id] ? `./${packPlaces[id].backdrop}` : `./assets/${id}.png`;
+  function backdrop(id, world = null) {
+    const variant = world?.actors && visibleCrossing(world, id)?.scenery.backdrop;
+    const file = variant || packPlaces[id]?.backdrop;
+    return file ? `./${file}` : `./assets/${id}.png`;
+  }
   var visibleCrossing = (world, place) => crossings.find(
-    (c) => c.from === place && c.scenery?.overlay && crossingOpen(world, c, senses)
+    (c) => c.from === place && (c.scenery?.overlay || c.scenery?.backdrop) && crossingOpen(world, c, senses)
   );
   var locationVariant = (world, id) => visibleCrossing(world, id)?.id || "base";
   var locationOverlay = (world, id) => {
@@ -9896,7 +9903,7 @@
     const previous = line ? lines.findLast((e) => e.index < line.index && e.index >= start) || null : null;
     return {
       locationId: world.actors[currentActor(world)].place,
-      background: backdrop(world.actors[currentActor(world)].place),
+      background: backdrop(world.actors[currentActor(world)].place, world),
       variant: locationVariant(world, world.actors[currentActor(world)].place),
       overlay: locationOverlay(world, world.actors[currentActor(world)].place),
       visitStart: start,

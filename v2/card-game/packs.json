@@ -295,7 +295,7 @@
           "name": "The Wine-Dark Harbor",
           "text": "Worn steps climb from the stone landing toward the town.",
           "exits": ["greek-courtyard", "greek-athens", "greek-argolid-road"],
-          "backdrop": "assets/greek-drama/harbor-day.webp",
+          "backdrop": "assets/greek-drama/harbor-open-berth.webp",
           "persona": "Worn steps climb from the stone landing toward the town."
         },
         "greek-courtyard": {
@@ -4285,6 +4285,7 @@
           "travelLabel": "Board",
           "scenery": {
             "open": "The ship waits against the stone landing.",
+            "backdrop": "assets/greek-drama/harbor-ship-at-berth.webp",
             "cardName": "Greek ship",
             "cardArt": "assets/greek-drama/ship-card.webp"
           }

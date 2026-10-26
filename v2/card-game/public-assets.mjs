@@ -9,6 +9,7 @@ const files = [
   "shared.css",
   "shared-cast.json",
   "human-cast.mjs",
+  "assets/greek-drama/harbor-day.webp",
   "assets/shared/places/pond.png",
   "assets/shared/characters/vale.png",
   "assets/shared/places/station.png",

@@ -8,7 +8,9 @@ import {
   legalActions,
   play,
   encodeSave,
+  decodeSave,
 } from "../card-game/world.mjs";
+import { summonTransport } from "../card-game/pack-transport.mjs";
 import { packDefinition } from "../card-game/pack-registry.mjs";
 const output = new URL("../../output/theban-scenery/", import.meta.url);
 await mkdir(output, { recursive: true });
@@ -162,6 +164,39 @@ try {
       assert.equal((await state()).packs["greek-drama"].scope, "opening");
       await use("lamp");
       await shot("harbor");
+      const harborSave = await page.evaluate(
+        (key) => localStorage.getItem(key),
+        key,
+      );
+      for (const [dock, file] of [
+        ["pond", "harbor-open-berth.webp"],
+        ["greek-harbor", "harbor-ship-at-berth.webp"],
+      ]) {
+        const harborState = decodeSave(harborSave);
+        summonTransport(harborState, "greek-ship", dock);
+        await page.evaluate(
+          ({ key, save }) => localStorage.setItem(key, save),
+          {
+            key,
+            save: encodeSave(harborState),
+          },
+        );
+        await page.reload();
+        await card("greek-harbor").waitFor({ state: "attached" });
+        assert(
+          (await page.locator("#backdrop").getAttribute("src")).endsWith(file),
+        );
+        assert(
+          (
+            await card("greek-harbor").locator(".art img").getAttribute("src")
+          ).endsWith(file),
+        );
+        assert.equal(
+          await card("greek-ship").count(),
+          dock === "greek-harbor" ? 1 : 0,
+        );
+        await shot(file.replace(".webp", ""));
+      }
       const visited = new Set(["greek-ship", "greek-harbor"]);
       for (const id of [
         "greek-courtyard",

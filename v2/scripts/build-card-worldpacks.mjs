@@ -95,6 +95,7 @@ for (const pack of packs) {
     ...Object.values(pack.items || {}).map((i) => i.art),
     ...(pack.crossings || []).flatMap((c) => [
       c.scenery?.overlay,
+      c.scenery?.backdrop,
       c.scenery?.cardArt,
     ]),
     ...Object.values(pack.avatars || {}).flatMap((a) => [

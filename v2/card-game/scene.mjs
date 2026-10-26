@@ -16,8 +16,11 @@ import { packPlaces, packPeople } from "./pack-registry.mjs";
 import { variantOf, crossingOpen } from "./pack-rules.mjs";
 
 // Pack art lives in the pack's own asset folder and is named by its data.
-export const backdrop = (id) =>
-  packPlaces[id] ? `./${packPlaces[id].backdrop}` : `./assets/${id}.png`;
+export function backdrop(id, world = null) {
+  const variant = world?.actors && visibleCrossing(world, id)?.scenery.backdrop;
+  const file = variant || packPlaces[id]?.backdrop;
+  return file ? `./${file}` : `./assets/${id}.png`;
+}
 export function portrait(id, facing = null, world = null) {
   const human = humanAvatar(id);
   if (human && id !== "vale") return `./${human.image}`;
@@ -32,7 +35,9 @@ export function portrait(id, facing = null, world = null) {
 const visibleCrossing = (world, place) =>
   crossings.find(
     (c) =>
-      c.from === place && c.scenery?.overlay && crossingOpen(world, c, senses),
+      c.from === place &&
+      (c.scenery?.overlay || c.scenery?.backdrop) &&
+      crossingOpen(world, c, senses),
   );
 export const locationVariant = (world, id) =>
   visibleCrossing(world, id)?.id || "base";
@@ -468,7 +473,7 @@ export function currentScene(
     : null;
   return {
     locationId: world.actors[currentActor(world)].place,
-    background: backdrop(world.actors[currentActor(world)].place),
+    background: backdrop(world.actors[currentActor(world)].place, world),
     variant: locationVariant(world, world.actors[currentActor(world)].place),
     overlay: locationOverlay(world, world.actors[currentActor(world)].place),
     visitStart: start,
@@ -504,7 +509,7 @@ export function sceneScript(world) {
     locations: Object.entries(places).map(([id, p]) => ({
       id,
       name: p.name,
-      background: backdrop(id),
+      background: backdrop(id, world),
       variant: locationVariant(world, id),
       overlay: locationOverlay(world, id),
     })),

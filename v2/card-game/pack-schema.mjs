@@ -1028,13 +1028,14 @@ export function packProblems(pack, hub, mountedPlaces = []) {
           "open",
           "closed",
           "overlay",
+          "backdrop",
           "cardArt",
           "cardName",
         ]) &&
           [c.scenery.open, c.scenery.closed, c.scenery.cardName].every(
             (t) => t === undefined || textOk(t, 400),
           ) &&
-          [c.scenery.overlay, c.scenery.cardArt].every(
+          [c.scenery.overlay, c.scenery.backdrop, c.scenery.cardArt].every(
             (p) => p === undefined || mediaPathOk(pack.id, p),
           ),
         `${name} scenery needs open and/or closed text`,
