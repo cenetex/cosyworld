@@ -208,7 +208,10 @@ try {
         discoveries: window.discoveries,
         flights: window.flights,
       }));
-      assert.equal(events.discoveries[0].id, "pond");
+      assert.equal(
+        events.discoveries.filter((event) => event.id !== "player-quest")[0].id,
+        "pond",
+      );
       assert(
         events.discoveries.findIndex((e) => e.id === "moth") <
           events.discoveries.findIndex((e) => e.id === "cloth"),

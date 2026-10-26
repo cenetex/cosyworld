@@ -24,6 +24,7 @@ const files = [
   "cards.mjs",
   "motives.mjs",
   "quests.mjs",
+  "quest-cards.mjs",
   "situations.mjs",
   "memory.mjs",
   "narrative.mjs",

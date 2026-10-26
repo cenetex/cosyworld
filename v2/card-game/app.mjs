@@ -16,6 +16,8 @@ import {
   nameOf,
   createWorld,
   covered,
+  shining,
+  itemPlace,
   rootHolder,
   play,
   encodeSave,
@@ -44,6 +46,12 @@ import {
   cardObservation,
 } from "./cards.mjs";
 import { knownActors } from "./quests.mjs";
+import {
+  QUEST_CARD,
+  playerQuest,
+  fulfilledPlayerQuest,
+  questHand,
+} from "./quest-cards.mjs";
 const $ = (id) => document.getElementById(id);
 const tableName = new URLSearchParams(window.location.search).get("table");
 const SAVE_KEY =
@@ -136,6 +144,39 @@ function loadSeen(reset = false) {
   rememberCards();
 }
 loadSeen();
+const QUEST_SEEN_KEY = `${SAVE_KEY}.quests`;
+let questSeen = new Set(),
+  questRead = new Set(),
+  completedQuest = null,
+  questNoticeRunning = false,
+  questMotion = null;
+function loadQuestSeen(reset = false) {
+  let saved;
+  try {
+    saved = reset ? null : JSON.parse(localStorage.getItem(QUEST_SEEN_KEY));
+  } catch {}
+  const keys = (value) =>
+    Array.isArray(value)
+      ? value.filter((key) => typeof key === "string").slice(-256)
+      : [];
+  questSeen = new Set(keys(saved?.seen));
+  questRead = new Set(keys(saved?.read));
+  completedQuest = null;
+  rememberQuests();
+}
+function rememberQuests() {
+  try {
+    localStorage.setItem(
+      QUEST_SEEN_KEY,
+      JSON.stringify({
+        seen: [...questSeen].slice(-256),
+        read: [...questRead].slice(-256),
+      }),
+    );
+  } catch {}
+}
+const shownQuest = () => completedQuest || playerQuest(world);
+loadQuestSeen();
 function save() {
   if (saveBlocked) return;
   try {
@@ -152,6 +193,7 @@ let storyStatus = "ready",
   renderedHand = "",
   renderedHandRevision = null,
   renderedHandPlace = null,
+  renderedQuest = null,
   actionPanelMotion = null,
   speechKey = null,
   speechGlyphs = [],
@@ -216,7 +258,8 @@ function updateCardCooldown() {
     "#hand button, #card-actions button",
   )) {
     button.disabled = saveBlocked || cardsCooling;
-    if (button.dataset.card) button.draggable = !button.disabled;
+    if (button.dataset.card)
+      button.draggable = !button.disabled && button.dataset.card !== QUEST_CARD;
   }
 }
 const exchange = createExchange({
@@ -254,7 +297,7 @@ const exchange = createExchange({
   },
   busy: (value) => {
     clearTimeout(handTimer);
-    cardsCooling = value || discoveryPending;
+    cardsCooling = value || discoveryPending || questNoticeRunning;
     updateCardCooldown();
     if (value && storyStatus === "pending")
       handTimer = setTimeout(releaseHand, HAND_WAIT);
@@ -263,6 +306,7 @@ const exchange = createExchange({
       pendingCast = null;
       pendingSpeaker = null;
       renderScene();
+      queueMicrotask(showQuestNotice);
     }
   },
 });
@@ -370,6 +414,7 @@ function pauseSpeech() {
   for (const animation of [
     ...$("cast").getAnimations({ subtree: true }),
     ...$("speech-row").getAnimations(),
+    ...(questMotion ? [questMotion] : []),
   ]) {
     if (paused) animation.pause();
     else if (animation.playState === "paused") animation.play();
@@ -491,11 +536,18 @@ $("story-retry").onclick = () => narrator.retry();
 function choose(id) {
   if (saveBlocked || cardsCooling) return;
   fresh.delete(id);
-  selected = selected.includes(id)
-    ? selected.filter((cardId) => cardId !== id)
-    : selected.length >= 2
-      ? [id]
-      : [...selected, id];
+  if (id === QUEST_CARD) {
+    questRead.add(shownQuest().key);
+    rememberQuests();
+    selected = selected.includes(id) ? [] : [id];
+  } else {
+    selected = selected.filter((cardId) => cardId !== QUEST_CARD);
+    selected = selected.includes(id)
+      ? selected.filter((cardId) => cardId !== id)
+      : selected.length >= 2
+        ? [id]
+        : [...selected, id];
+  }
   selectionRevision = world.revision;
   render();
   $("hand")
@@ -542,6 +594,7 @@ function commitAction(action, revision) {
   exchange.cancel();
   storyStatus = speak ? "pending" : "ready";
   const from = world.actors.vale.place;
+  completedQuest = fulfilledPlayerQuest(world, result.state);
   world = result.state;
   music.setRoom(world.actors.vale.place);
   music.setStarted(world.turn > 0);
@@ -581,10 +634,11 @@ function commitAction(action, revision) {
   else {
     const version = trip;
     void prepareScene().then(() => {
-      if (version !== trip || exchange.active) return;
+      if (version !== trip || exchange.active || questNoticeRunning) return;
       cardsCooling = false;
       updateCardCooldown();
       renderScene();
+      void showQuestNotice();
     });
   }
 }
@@ -601,6 +655,10 @@ let covering = false,
   revealTravel = () => {};
 function cancelTravel() {
   trip++;
+  questMotion?.cancel();
+  questMotion = null;
+  questNoticeRunning = false;
+  completedQuest = null;
   cancelDiscovery();
   covering = false;
   revealTravel();
@@ -711,7 +769,9 @@ async function takeDiscovered() {
   const id = shown.dataset.card;
   let target = $("hand").querySelector(`[data-card="${id}"]`);
   if (target?.closest(".card-frame").hidden) {
-    target = $("hand").querySelector(`[data-card="${rootHolder(world, id)}"]`);
+    target = $("hand").querySelector(
+      `[data-card="${id === QUEST_CARD ? "vale" : rootHolder(world, id)}"]`,
+    );
   }
   if (target && !reducedMotion.matches) {
     const hand = $("hand"),
@@ -757,6 +817,118 @@ $("unveil-dialog").addEventListener("cancel", (event) => {
   event.preventDefault();
   void takeDiscovered();
 });
+async function showDiscovered(id, version, announcement) {
+  const shown = card(id);
+  shown.hidden = false;
+  shown.removeAttribute("data-holder");
+  shown.dataset.raised = "false";
+  shown
+    .querySelectorAll(".held-preview, .quest-preview, .sr-only")
+    .forEach((el) => el.remove());
+  const face = shown.querySelector(".card"),
+    display = node("span", undefined, face.className);
+  for (const attr of face.attributes)
+    if (attr.name.startsWith("data-"))
+      display.setAttribute(attr.name, attr.value);
+  display.append(...face.childNodes);
+  face.replaceWith(display);
+  shown
+    .querySelectorAll("[id]")
+    .forEach((element) => element.removeAttribute("id"));
+  if (id === QUEST_CARD)
+    display.querySelector(".quest-mark").textContent = "New quest";
+  await waitForScene(
+    [...shown.querySelectorAll("img")].map((img) => img.decode()),
+    1500,
+  );
+  if (version !== trip) return;
+  const dialog = $("unveil-dialog"),
+    button = $("unveil-take");
+  button.dataset.card = id;
+  button.setAttribute(
+    "aria-label",
+    `${announcement} ${id === QUEST_CARD ? shownQuest().purpose + " " : ""}Add to hand.`,
+  );
+  button.replaceChildren(shown);
+  dialog.dataset.phase = "reveal";
+  const finished = new Promise((resolve) => {
+    endDiscovery = resolve;
+  });
+  dialog.showModal();
+  $("discovery-announcement").textContent = announcement;
+  pauseSpeech();
+  armDiscovery(reducedMotion.matches ? 900 : id === QUEST_CARD ? 2200 : 1400);
+  await finished;
+}
+async function showQuestNotice() {
+  const quest = shownQuest();
+  if (
+    saveBlocked ||
+    !quest ||
+    questNoticeRunning ||
+    exchange.active ||
+    discoveryPending ||
+    (!completedQuest && questSeen.has(quest.key))
+  )
+    return;
+  const version = trip;
+  questNoticeRunning = true;
+  cardsCooling = true;
+  updateCardCooldown();
+  try {
+    await prepareStage();
+    while (
+      version === trip &&
+      (document.hidden || document.querySelector("dialog[open]"))
+    ) {
+      await new Promise((resolve) => {
+        wakeDiscovery = resolve;
+      });
+      wakeDiscovery = null;
+    }
+    if (version !== trip) return;
+    if (completedQuest) {
+      // The fulfilled card gets a short moment in the hand, then folds into Vale.
+      expandedHolders.add("vale");
+      selected = [QUEST_CARD];
+      render();
+      revealHandCard(QUEST_CARD);
+      $("discovery-announcement").textContent = `${quest.title}. Fulfilled.`;
+      const frame = $("hand")
+        .querySelector(`[data-card="${QUEST_CARD}"]`)
+        .closest(".card-frame");
+      questMotion = frame.animate({ opacity: [1, 1] }, { duration: 2200 });
+      pauseSpeech();
+      await questMotion.finished.catch(() => {});
+      if (version !== trip) return;
+      if (!reducedMotion.matches) {
+        questMotion = frame.animate(
+          { opacity: [1, 0], translate: ["0 0", "-24px 8px"] },
+          { duration: 260 },
+        );
+        pauseSpeech();
+        await questMotion.finished.catch(() => {});
+      }
+      if (version !== trip) return;
+      completedQuest = null;
+      selected = [];
+      expandedHolders.clear();
+      render();
+    } else {
+      questSeen.add(quest.key);
+      rememberQuests();
+      await showDiscovered(QUEST_CARD, version, `New quest. ${quest.title}.`);
+    }
+  } finally {
+    if (version === trip) {
+      questMotion = null;
+      questNoticeRunning = false;
+      cardsCooling = exchange.active || discoveryPending;
+      render();
+      queueMicrotask(showQuestNotice);
+    }
+  }
+}
 async function unveilNew() {
   if (saveBlocked) return;
   const rank = { avatar: 0, item: 1, location: 2 };
@@ -783,50 +955,16 @@ async function unveilNew() {
         wakeDiscovery = null;
       }
       if (version !== trip) return;
-      const shown = card(id);
-      shown.hidden = false;
-      shown.removeAttribute("data-holder");
-      shown.dataset.raised = "false";
-      shown
-        .querySelectorAll(".held-preview, .sr-only")
-        .forEach((el) => el.remove());
-      const face = shown.querySelector(".card"),
-        display = node("span", undefined, face.className);
-      for (const attr of face.attributes)
-        if (attr.name.startsWith("data-"))
-          display.setAttribute(attr.name, attr.value);
-      display.append(...face.childNodes);
-      face.replaceWith(display);
-      await waitForScene(
-        [...shown.querySelectorAll("img")].map((img) => img.decode()),
-        1500,
-      );
-      if (version !== trip) return;
-      const dialog = $("unveil-dialog"),
-        button = $("unveil-take");
-      button.dataset.card = id;
-      button.setAttribute(
-        "aria-label",
-        `${nameOf(id)} discovered. Add to hand.`,
-      );
-      button.replaceChildren(shown);
-      dialog.dataset.phase = "reveal";
-      const finished = new Promise((resolve) => {
-        endDiscovery = resolve;
-      });
-      dialog.showModal();
-      $("discovery-announcement").textContent = `${nameOf(id)} discovered.`;
-      pauseSpeech();
-      armDiscovery(reducedMotion.matches ? 700 : 1400);
-      await finished;
+      await showDiscovered(id, version, `${nameOf(id)} discovered.`);
     }
   } finally {
     if (version === trip) {
       discoveryPending = false;
-      if (!exchange.active) {
+      if (!exchange.active && !questNoticeRunning) {
         cardsCooling = false;
         updateCardCooldown();
         renderScene();
+        queueMicrotask(showQuestNotice);
       }
     }
   }
@@ -893,9 +1031,13 @@ function renderActions(animate = false) {
     fromHeight = panel.getBoundingClientRect().height;
   actionPanelMotion?.cancel();
   actionPanelMotion = null;
-  const { actions, hint } = cardActions(world, selected);
+  const quest = selected.includes(QUEST_CARD) ? shownQuest() : null;
+  const { actions, hint } = quest
+    ? { actions: [], hint: quest.purpose }
+    : cardActions(world, selected);
+  const selectionName = quest ? quest.title : selected.map(nameOf).join(" + ");
   $("selection-name").textContent = selected.length
-    ? selected.map(nameOf).join(" + ")
+    ? selectionName
     : "Card actions";
   panel.hidden = !actions.length;
   document.querySelector(".play-dock").dataset.selected = String(
@@ -940,14 +1082,17 @@ function renderActions(animate = false) {
     }
   }
   $("play-readout").textContent = selected.length
-    ? `${selected.map(nameOf).join(" + ")}. ${actions.map(playLabel).join(". ") || hint}`
+    ? `${selectionName}. ${actions.map(playLabel).join(". ") || hint}`
     : "";
 }
 function updateCardSelection(frame) {
   const button = frame.querySelector(".card"),
     id = button.dataset.card,
     raised = selected.includes(id),
-    label = raised ? playLabel(cardPlay(world, selected).action) : "",
+    label =
+      raised && id !== QUEST_CARD
+        ? playLabel(cardPlay(world, selected).action)
+        : "",
     held = people[id]
       ? availableCards(world).filter(
           (item) => things[item] && rootHolder(world, item) === id,
@@ -955,10 +1100,17 @@ function updateCardSelection(frame) {
       : [];
   frame.dataset.raised = String(raised);
   button.setAttribute("aria-pressed", String(raised));
-  button.classList.toggle("new", fresh.has(id));
+  button.classList.toggle(
+    "new",
+    id === QUEST_CARD ? !questRead.has(shownQuest().key) : fresh.has(id),
+  );
+  if (id === QUEST_CARD) {
+    frame.hidden = !expandedHolders.has("vale");
+    return;
+  }
   if (frame.dataset.holder)
     frame.hidden = !expandedHolders.has(frame.dataset.holder);
-  if (held.length) {
+  if (held.length || (id === "vale" && shownQuest())) {
     frame.dataset.expanded = String(expandedHolders.has(id));
     button.setAttribute("aria-expanded", String(expandedHolders.has(id)));
   }
@@ -979,7 +1131,45 @@ function moveHandPart(key, element, frames) {
     })
     .catch(() => {});
 }
+function questCard() {
+  const quest = shownQuest(),
+    raised = selected.includes(QUEST_CARD);
+  const frame = node("div", undefined, "card-frame quest-frame");
+  frame.dataset.holder = "vale";
+  frame.dataset.raised = String(raised);
+  frame.hidden = !expandedHolders.has("vale");
+  const face = node("button", undefined, "card quest");
+  face.type = "button";
+  face.dataset.card = QUEST_CARD;
+  face.dataset.quest = quest.key;
+  face.dataset.fulfilled = String(Boolean(completedQuest));
+  face.classList.toggle("new", !questRead.has(quest.key));
+  face.setAttribute("aria-pressed", String(raised));
+  face.setAttribute(
+    "aria-label",
+    `${quest.title}, Vale's quest${completedQuest ? ", fulfilled" : ""}`,
+  );
+  face.setAttribute("aria-describedby", "card-detail-player-quest");
+  const graphic = node("span", undefined, "art");
+  const img = node("img");
+  img.src = `./assets/${quest.art}-card.png`;
+  img.alt = "";
+  img.draggable = false;
+  graphic.append(img);
+  const detail = node("span", quest.purpose, "quest-purpose");
+  detail.id = "card-detail-player-quest";
+  face.append(
+    graphic,
+    node("span", completedQuest ? "Fulfilled" : "Quest", "quest-mark"),
+    node("span", quest.title, "name"),
+    detail,
+  );
+  face.onclick = () => choose(QUEST_CARD);
+  frame.append(face);
+  return frame;
+}
 function card(id) {
+  if (id === QUEST_CARD) return questCard();
   const type = cardType(id),
     base = places[id] || people[id] || things[id],
     crossingFace = type === "location" ? travelCard(world, id) : null,
@@ -1092,7 +1282,7 @@ function card(id) {
     const held = availableCards(world).filter(
       (item) => things[item] && rootHolder(world, item) === id,
     );
-    if (held.length) {
+    if (held.length || (id === "vale" && shownQuest())) {
       frame.dataset.inventory = String(held.length);
       frame.dataset.expanded = String(expandedHolders.has(id));
       el.setAttribute("aria-expanded", String(expandedHolders.has(id)));
@@ -1105,6 +1295,12 @@ function card(id) {
         frame.prepend(preview);
       }
     }
+    if (id === "vale" && shownQuest()) {
+      const preview = node("span", undefined, "quest-preview");
+      preview.setAttribute("aria-hidden", "true");
+      frame.prepend(preview);
+      observation.textContent += ` Quest: ${shownQuest().title}.`;
+    }
   }
   return frame;
 }
@@ -1112,6 +1308,10 @@ function renderStage(locationId) {
   const pack = packOf(locationId);
   const stage = packPlaces[locationId]?.stage;
   document.body.dataset.world = pack?.id || "shore";
+  document.body.dataset.place = locationId;
+  document.body.dataset.lamplit = String(
+    shining(world) && itemPlace(world, "lamp") === locationId,
+  );
   document.body.dataset.stage = stage ? "resident" : "cast";
   document.querySelector(".brand span").textContent =
     pack?.name || "The reflected shore";
@@ -1480,7 +1680,13 @@ function render() {
   for (const id of selected) {
     if (people[id]) expandedHolders.add(id);
   }
+  const questKey = JSON.stringify([
+    shownQuest(),
+    Boolean(completedQuest),
+    [...questRead],
+  ]);
   const handKey = JSON.stringify([
+    questKey,
     world.revision,
     selected,
     [...expandedHolders],
@@ -1488,7 +1694,10 @@ function render() {
     saveBlocked,
   ]);
   if (handKey !== renderedHand) {
-    const sameWorld = renderedHand && renderedHandRevision === world.revision,
+    const sameWorld =
+        renderedHand &&
+        renderedHandRevision === world.revision &&
+        renderedQuest === questKey,
       samePlace = renderedHand && renderedHandPlace === world.actors.vale.place,
       animate = samePlace && !reducedMotion.matches,
       before = new Map();
@@ -1505,11 +1714,12 @@ function render() {
     for (const motion of handMotions.values()) motion.cancel();
     handMotions.clear();
     renderedHand = handKey;
+    renderedQuest = questKey;
     renderedHandRevision = world.revision;
     renderedHandPlace = world.actors.vale.place;
     if (sameWorld)
       for (const frame of $("hand").children) updateCardSelection(frame);
-    else $("hand").replaceChildren(...availableCards(world).map(card));
+    else $("hand").replaceChildren(...questHand(world, shownQuest()).map(card));
     $("hand").scrollLeft = samePlace ? scroll : 0;
     renderActions(animate);
     if (animate)
@@ -1757,6 +1967,7 @@ $("confirm-reset").onclick = () => {
     personalQuests: true,
   });
   loadSeen(true);
+  loadQuestSeen(true);
   completedSpeech.clear();
   reviewing = false;
   renderedHand = "";
@@ -1768,7 +1979,7 @@ $("confirm-reset").onclick = () => {
   notice("");
   save();
   $("reset-dialog").close();
-  render();
+  resumeScene();
 };
 window.addEventListener("storage", (event) => {
   if (event.key !== SAVE_KEY || !event.newValue) return;
@@ -1785,6 +1996,7 @@ window.addEventListener("storage", (event) => {
       personalQuests: true,
     });
     loadSeen();
+    loadQuestSeen();
     renderedHand = "";
     lineSeq = null;
     selected = [];
@@ -1819,6 +2031,7 @@ function resumeScene() {
     exchange.load(line ? [line] : []);
   } else {
     render();
+    void showQuestNotice();
   }
 }
 resumeScene();
