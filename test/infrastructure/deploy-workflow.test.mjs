@@ -327,6 +327,21 @@ describe("deploy workflow", () => {
     );
   });
 
+  it("keeps missed-deploy issues limited to commits production still lacks (#1044)", () => {
+    const outcome = job("deploy-outcome", "github-release");
+    // A main-push run superseded by a version tag on the same commit defers
+    // to the tag run instead of filing a false alarm.
+    expect(outcome).toContain('if [ "$GITHUB_REF" = refs/heads/main ]; then');
+    expect(outcome).toContain('select(.commit.sha == \\"${GITHUB_SHA}\\")');
+    // Only a deploy that reached both apps closes older issues, and only for
+    // commits it contains.
+    const close = outcome.slice(outcome.indexOf("Close tracking issues this deploy superseded"));
+    expect(close).toContain("needs.primary-fly.result == 'success' &&");
+    expect(close).toContain("needs.lonelyforest-fly.result == 'success'");
+    expect(close).toContain('compare/${sha}...${GITHUB_SHA}');
+    expect(close).toContain('[ "$status" = ahead ] || [ "$status" = identical ]');
+  });
+
   it("allows the primary ownership feed one scheduled refresh before failing readiness", () => {
     const primaryFly = job("primary-fly", "lonelyforest-image");
     expect(primaryFly).toContain("for attempt in {1..13}");

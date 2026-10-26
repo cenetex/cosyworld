@@ -1925,6 +1925,19 @@ async function runWorldLoop(spec) {
           && inspection.compaction.action_journal_floor_seq <= durableJournalHead,
         `${spec.label} did not compact behind its production checkpoint: ${JSON.stringify(inspection.compaction)}`,
       );
+      // The rewrite below ages only the snapshot. A journal record past its
+      // cursor would replay current content onto a legacy world, so a graceful
+      // stop must leave the final checkpoint at the journal head.
+      const finalCheckpoint = JSON.parse(
+        await readFile(resolve(tempDir, "snapshot.json"), "utf8"),
+      );
+      assert(
+        Number(finalCheckpoint.action_journal_seq) === durableJournalHead,
+        `${spec.label} committed past its final shutdown checkpoint: ${JSON.stringify({
+          checkpoint: finalCheckpoint.action_journal_seq,
+          journalHead: durableJournalHead,
+        })}`,
+      );
       await rewriteElysiumCheckpointAsProductionLegacy(
         tempDir,
         spec.legacyGeneratedCheckpoint,
