@@ -2454,7 +2454,7 @@ function adoptShared(value) {
     const from = world.actors[currentActor(world)].place;
     const next = sharedWorld(value);
     const alreadyOpen = Boolean(sharedWorldKey);
-    queueQuestCompletions(world, next);
+    if (alreadyOpen) queueQuestCompletions(world, next);
     world = next;
     sharedWorldKey = key;
     selected = selected.filter((id) =>

@@ -1115,6 +1115,10 @@ body .line-controls button {
 
 /* A discovery uses the scene for a moment, then joins the hand. */
 .unveil[open] {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  z-index: 8;
   --reveal-height: min(310px, 52dvh);
   display: block;
   width: calc(var(--reveal-height) * 0.7);

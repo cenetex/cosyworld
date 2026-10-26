@@ -204,7 +204,23 @@ try {
         await page.locator("#hand").getAttribute("data-cooling"),
         "true",
       );
-      await page.waitForTimeout(350);
+      await page.waitForFunction(() => {
+        const dialog = document.querySelector("#unveil-dialog");
+        return (
+          dialog.dataset.direction === "fulfill" &&
+          dialog.dataset.phase === "reveal"
+        );
+      });
+      const completedBounds = await page
+        .locator("#unveil-dialog")
+        .boundingBox();
+      assert(
+        Math.abs(completedBounds.x + completedBounds.width / 2 - width / 2) < 2,
+      );
+      assert(
+        Math.abs(completedBounds.y + completedBounds.height / 2 - height / 2) <
+          2,
+      );
       assert.equal(
         await page
           .locator('#unveil-take [data-fulfilled="true"]')
