@@ -110,6 +110,13 @@ describe("shared room dialogue clock", () => {
     expect(clock.now(next, 9000, "pond", false)).toBe(7300);
     expect(clock.now(state, 9100, "station", false)).toBe(9100);
   });
+  it("joins an older room scene at the current time after paused travel", () => {
+    const clock = createSharedPlaybackClock();
+    clock.now(state, 1200, "pond", true);
+    expect(clock.now(state, 13200, "pond", true)).toBe(1200);
+    expect(clock.now(state, 13200, "station", true)).toBe(13200);
+    expect(clock.now(state, 14000, "station", false)).toBe(13200);
+  });
   it("reads only the current room's scene", () => {
     expect(sharedLiveLine(state, 1100, "station").speaker).toBe("Keeper");
     expect(sharedLiveLine(state, 1100, "attic")).toBeNull();

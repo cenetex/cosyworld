@@ -489,15 +489,23 @@ export function renderSharedQueue(
 // A viewer can pause to read a card while the room keeps its common clock.
 export function createSharedPlaybackClock() {
   let sceneKey = null,
+    roomKey = null,
     delay = 0,
     pausedAt = null;
   return {
     reset() {
       sceneKey = null;
+      roomKey = null;
       delay = 0;
       pausedAt = null;
     },
     now(state, now, room, paused) {
+      if (room !== roomKey) {
+        roomKey = room;
+        sceneKey = null;
+        delay = 0;
+        pausedAt = null;
+      }
       const scene = state.history?.find(
         (entry) => entry.room === room && entry.lines?.length,
       );
