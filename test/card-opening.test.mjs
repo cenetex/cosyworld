@@ -52,7 +52,7 @@ describe("the first light in the attic", () => {
     const s = fresh();
     expect(s.actors.vale.place).toBe("attic");
     expect(s.items.lamp).toMatchObject({ holder: "vale", lit: false, fuel: 8 });
-    expect(availableCards(s)).toEqual(["vale", "lamp", "attic"]);
+    expect(availableCards(s)).toEqual(["attic", "vale", "lamp"]);
     expect(sceneCast(s)).toEqual(["vale", null]);
     expect(exits(s, "attic")).toEqual([]);
     expect(exits(s, "station")).toEqual(["pond"]);

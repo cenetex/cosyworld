@@ -137,6 +137,8 @@ try {
             ),
             speech: Boolean(document.querySelector("#dialogue-text .revealed")),
             cooling: document.querySelector("#hand").dataset.cooling,
+            handStart: document.querySelector("#hand").scrollLeft,
+            firstCard: document.querySelector("#hand .card").dataset.card,
           });
           requestAnimationFrame(sample);
         }
@@ -190,6 +192,12 @@ try {
       const firstSpeech = captured.frames.find((f) => f.speech);
       report.firstPond = firstPond;
       report.firstSpeech = firstSpeech;
+      assert.equal(firstPond.firstCard, "pond");
+      assert.equal(
+        firstPond.handStart,
+        0,
+        "Travel starts the hand at the new place.",
+      );
       if (motion !== "reduce") {
         assert(
           firstPond.opacity >= 0.99,

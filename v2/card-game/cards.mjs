@@ -27,10 +27,10 @@ export function availableCards(world) {
       .filter((id) => world.items[id].holder === holder)
       .flatMap((id) => [id, ...after(id)]);
   return [
-    ...cast.flatMap((id) => [id, ...after(id)]),
-    ...after(here),
-    ...exits(world, here, "vale"),
     here,
+    ...after(here),
+    ...cast.flatMap((id) => [id, ...after(id)]),
+    ...exits(world, here, "vale"),
   ];
 }
 export function cardType(id) {
