@@ -405,5 +405,13 @@ a painted transparent layer over the unchanged pond and a card crop from
 that same scene. Both worlds now share Forest’s crossing implementation and
 one compiled `packs.json`. Weather/night alternates remain unfinished.
 
+Boarding keeps the ship at its departure shore so other players can join.
+The first passenger to disembark moves it to the arrival shore. Passengers
+still aboard can step off there. A new boarding starts the return leg, so a
+passenger can stay aboard through several trips. A lamp recall waits until
+the ship is empty. Older occupied saves retain their destination and regain
+the departure dock. Shared rules version 5 records this change; older journal
+actions replay with their original rules.
+
 See the Greek pack README and `test/card-theban-release.test.mjs`; the scene
 journey is `v2/scripts/smoke-card-theban-scenery.mjs`.

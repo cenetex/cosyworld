@@ -388,6 +388,9 @@ describe("Greek story quest cards", () => {
     let world = move(courtyard("opening"), GATE);
     const original = story(world, 1);
     world = walk(world, COURTYARD, HARBOR, "pond");
+    expect(() => encodeSave(world)).not.toThrow();
+    // Companions can advance a hand on the shared crossing. Stage the resting
+    // boundary with its required zero step before checking the learned story.
     world.life.actors.vale.phase = "seeking";
     delete world.life.actors.vale.restAt;
     delete world.life.actors.vale.origin;

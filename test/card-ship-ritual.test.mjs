@@ -255,6 +255,7 @@ test("boarding and disembarking move the ship between shores", () => {
   let s = summon(pond());
   s = act(s, "move", null, "greek-ship");
   assert.equal(shipSignalPhase(s), 0);
+  assert.equal(s.transports["greek-ship"].dock, "pond");
   assert.deepEqual(
     availableCards(s).filter((id) =>
       ["pond", "greek-harbor", "greek-ship"].includes(id),
@@ -388,7 +389,8 @@ test("a recall waits for the last passenger to finish the current trip", () => {
   s.actors.moth.place = "greek-ship";
   s.actors.keeper.place = "greek-ship";
   s.transports["greek-ship"] = {
-    dock: null,
+    version: 2,
+    dock: "pond",
     destination: "greek-harbor",
     recall: null,
   };
@@ -396,7 +398,7 @@ test("a recall waits for the last passenger to finish the current trip", () => {
   assert.equal(s.transports["greek-ship"].destination, "greek-harbor");
   s.actors.moth.place = "greek-harbor";
   moveTransport(s, "greek-ship", "greek-harbor");
-  assert.equal(s.transports["greek-ship"].dock, null);
+  assert.equal(s.transports["greek-ship"].dock, "greek-harbor");
   assert.deepEqual(reload(s).transports, s.transports);
   s.actors.keeper.place = "greek-harbor";
   moveTransport(s, "greek-ship", "greek-harbor");
@@ -430,7 +432,7 @@ test("a trusted companion can board and disembark with Vale", () => {
   assert.deepEqual(reload(s), s);
 });
 
-test("saved ship state names one dock or one occupied trip", () => {
+test("saved ship state names a dock and a valid occupied leg", () => {
   for (const change of [
     (s) => {
       s.transports["greek-ship"].dock = "station";
@@ -450,11 +452,60 @@ test("saved ship state names one dock or one occupied trip", () => {
     (s) => {
       s.transports.extra = { dock: "pond" };
     },
+    (s) => {
+      s.transports["greek-ship"].version = 99;
+    },
   ]) {
     const s = pond();
     change(s);
     assert.throws(() => validateWorld(s));
     assert.throws(() => decodeSave(JSON.stringify(s)));
+  }
+});
+
+test("older occupied ship saves keep their destination and regain the departure dock", () => {
+  for (const destination of ["pond", "greek-harbor"]) {
+    const old = pond();
+    old.actors.vale.place = "greek-ship";
+    old.transports["greek-ship"] = { dock: null, destination, recall: "pond" };
+    const upgraded = decodeSave(JSON.stringify(old));
+    assert.deepEqual(upgraded.transports["greek-ship"], {
+      version: 2,
+      dock: destination === "pond" ? "greek-harbor" : "pond",
+      destination,
+      recall: "pond",
+    });
+    assert.deepEqual(upgraded.actors, old.actors);
+    assert.deepEqual(upgraded.items, old.items);
+    assert.deepEqual(upgraded.log, old.log);
+    assert.deepEqual(reload(upgraded), upgraded);
+  }
+});
+
+test("legacy ship validation runs before the boarding migration", () => {
+  for (const change of [
+    (s) => {
+      s.transports["greek-ship"].destination = "station";
+    },
+    (s) => {
+      s.transports["greek-ship"].dock = "pond";
+    },
+    (s) => {
+      s.transports["greek-ship"].recall = "station";
+    },
+    (s) => {
+      s.actors.vale.place = "pond";
+    },
+  ]) {
+    const old = pond();
+    old.actors.vale.place = "greek-ship";
+    old.transports["greek-ship"] = {
+      dock: null,
+      destination: "greek-harbor",
+      recall: null,
+    };
+    change(old);
+    assert.throws(() => decodeSave(JSON.stringify(old)));
   }
 });
 

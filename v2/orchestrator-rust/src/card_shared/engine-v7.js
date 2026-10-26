@@ -6251,7 +6251,12 @@
   function installTransports(s) {
     s.transports ??= {};
     for (const [id, t] of Object.entries(transports))
-      s.transports[id] ??= { dock: t.at, destination: null, recall: null };
+      s.transports[id] ??= {
+        version: 2,
+        dock: t.at,
+        destination: null,
+        recall: null
+      };
   }
   function summonTransport(s, id, dock) {
     const state = s.transports[id];
@@ -6263,13 +6268,15 @@
       const state = s.transports[id];
       if (to === t.place && state.dock === from) {
         state.destination = t.docks.find((dock) => dock !== from);
-        state.dock = null;
-      } else if (from === t.place && !passengers(s, id).length) {
-        Object.assign(state, {
-          dock: state.recall || to,
-          destination: null,
-          recall: null
-        });
+      } else if (from === t.place && t.docks.includes(to)) {
+        state.dock = to;
+        if (!passengers(s, id).length) {
+          Object.assign(state, {
+            dock: state.recall || to,
+            destination: null,
+            recall: null
+          });
+        }
       }
     }
   }
@@ -6277,7 +6284,7 @@
     const found = Object.entries(transports).find(([, t2]) => t2.place === place);
     if (!found) return [];
     const [id, t] = found, state = s.transports[id];
-    const destination = state.destination || (previous === state.dock ? t.docks.find((dock) => dock !== previous) : null);
+    const destination = previous === state.dock ? t.docks.find((dock) => dock !== previous) : state.destination;
     return destination ? [destination] : [];
   }
   function transportCrossing(s, from, to) {
@@ -6305,9 +6312,9 @@
       return false;
     return Object.entries(transports).every(([id, t]) => {
       const state = saved[id];
-      if (!state || Object.keys(state).sort().join() !== "destination,dock,recall")
+      if (!state || Object.keys(state).sort().join() !== "destination,dock,recall,version" || state.version !== 2 || !t.docks.includes(state.dock))
         return false;
-      return passengers(s, id).length ? state.dock === null && t.docks.includes(state.destination) && (state.recall === null || t.docks.includes(state.recall)) : t.docks.includes(state.dock) && state.destination === null && state.recall === null;
+      return passengers(s, id).length ? t.docks.includes(state.destination) && (state.recall === null || t.docks.includes(state.recall)) : t.docks.includes(state.dock) && state.destination === null && state.recall === null;
     });
   }
 
@@ -9506,12 +9513,27 @@
       upgradeTransportSave(s);
       installPacks2(s);
     }
-    if (s?.schema === 7) upgradeRecitals(s, packDefinitions);
+    if (s?.schema === 7) {
+      upgradeBoardingSave(s);
+      upgradeRecitals(s, packDefinitions);
+    }
     migrateLife(s, profileOf);
     if (Object.values(s.life?.actors || {}).some((life) => life.collection))
       installSharedQuestRegistry(s);
     if (s?.schema === 7) publishQuestCompletions(s, syncStoryQuests(s));
     return s;
+  }
+  function upgradeBoardingSave(s) {
+    for (const [id, transport] of Object.entries(transports)) {
+      const state = s.transports?.[id];
+      if (!state || state.version !== void 0) continue;
+      const occupied = passengers(s, id).length > 0;
+      const valid = Object.keys(state).sort().join() === "destination,dock,recall" && (occupied ? state.dock === null && transport.docks.includes(state.destination) && (state.recall === null || transport.docks.includes(state.recall)) : transport.docks.includes(state.dock) && state.destination === null && state.recall === null);
+      if (!valid) throw new Error("This save has an invalid ship record.");
+      if (occupied)
+        state.dock = transport.docks.find((dock) => dock !== state.destination);
+      state.version = 2;
+    }
   }
   function upgradeTransportSave(s) {
     const pack = s.packs?.["greek-drama"];
