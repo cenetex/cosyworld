@@ -34,6 +34,7 @@ import {
   play,
   encodeSave,
   decodeSave,
+  legalActions,
 } from "./world.mjs";
 import { packPlaces, packOf } from "./pack-registry.mjs";
 import { variantOf } from "./pack-rules.mjs";
@@ -64,6 +65,10 @@ import {
   playerQuest,
   fulfilledPlayerQuest,
   questHand,
+  questCards,
+  questForCard,
+  questCardId,
+  isQuestCard,
 } from "./quest-cards.mjs";
 const $ = (id) => document.getElementById(id);
 const tableName = new URLSearchParams(window.location.search).get("table");
@@ -86,6 +91,7 @@ let world = sharedSession
       }),
   selected = [],
   expandedHolders = new Set(),
+  expandedQuestHolders = new Set(),
   saveBlocked = false,
   lineSeq = null,
   selectionRevision = 0,
@@ -314,7 +320,7 @@ function updateCardCooldown() {
             (entry) => entry.actor === currentActor(world),
           )));
     if (button.dataset.card)
-      button.draggable = !button.disabled && button.dataset.card !== QUEST_CARD;
+      button.draggable = !button.disabled && !isQuestCard(button.dataset.card);
   }
   if (playQueue.pending) queueMicrotask(() => playQueue.flush());
 }
@@ -612,12 +618,21 @@ function choose(id) {
   if (selectionBlocked()) return;
   playQueue.clear();
   fresh.delete(id);
-  if (id === QUEST_CARD) {
-    questRead.add(shownQuest().key);
+  if (isQuestCard(id)) {
+    const quest = questForCard(world, id, shownQuest());
+    if (!quest) return;
+    questRead.add(quest.key);
     rememberQuests();
-    selected = selected.includes(id) ? [] : [id];
+    if (selected.includes(id)) {
+      selected = [];
+      expandedQuestHolders.delete(quest.actor);
+    } else {
+      selected = [id];
+      expandedQuestHolders.add(quest.actor);
+    }
   } else {
-    selected = selected.filter((cardId) => cardId !== QUEST_CARD);
+    expandedQuestHolders.clear();
+    selected = selected.filter((cardId) => !isQuestCard(cardId));
     selected = selected.includes(id)
       ? selected.filter((cardId) => cardId !== id)
       : selected.length >= 2
@@ -1115,9 +1130,21 @@ function renderActions(animate = false) {
     fromHeight = panel.getBoundingClientRect().height;
   actionPanelMotion?.cancel();
   actionPanelMotion = null;
-  const quest = selected.includes(QUEST_CARD) ? shownQuest() : null;
+  const quest =
+    selected.length === 1
+      ? questForCard(world, selected[0], shownQuest())
+      : null;
   const { actions, hint } = quest
-    ? { actions: [], hint: quest.purpose }
+    ? {
+        actions:
+          quest.actor === currentActor(world) && quest.status === "pending"
+            ? legalActions(world).filter(
+                (action) =>
+                  action.kind === "pursue" && action.questKey === quest.key,
+              )
+            : [],
+        hint: [quest.purpose, quest.origin].filter(Boolean).join(" "),
+      }
     : cardActions(world, selected);
   const selectionName = quest ? quest.title : selected.map(nameOf).join(" + ");
   $("selection-name").textContent = selected.length
@@ -1197,7 +1224,7 @@ function updateCardSelection(frame) {
     id = button.dataset.card,
     raised = selected.includes(id),
     label =
-      raised && id !== QUEST_CARD
+      raised && !isQuestCard(id)
         ? playLabel(cardPlay(world, selected).action)
         : "",
     held = people[id]
@@ -1209,15 +1236,29 @@ function updateCardSelection(frame) {
   button.setAttribute("aria-pressed", String(raised));
   button.classList.toggle(
     "new",
-    id === QUEST_CARD ? !questRead.has(shownQuest().key) : fresh.has(id),
+    isQuestCard(id)
+      ? !questRead.has(questForCard(world, id, shownQuest())?.key)
+      : fresh.has(id),
   );
-  if (id === QUEST_CARD) {
-    frame.hidden = !expandedHolders.has(currentActor(world));
+  if (isQuestCard(id)) {
+    const quest = questForCard(world, id, shownQuest());
+    frame.hidden = !quest || !expandedHolders.has(quest.actor);
+    frame.dataset.stacked = String(
+      Number(frame.dataset.stackIndex) > 0 &&
+        !expandedQuestHolders.has(quest?.actor),
+    );
+    frame.style.zIndex = String(
+      raised
+        ? 100
+        : Number(frame.dataset.stackCount) -
+            Number(frame.dataset.stackIndex) +
+            1,
+    );
     return;
   }
   if (frame.dataset.holder)
     frame.hidden = !expandedHolders.has(frame.dataset.holder);
-  if (held.length || (id === currentActor(world) && shownQuest())) {
+  if (held.length || (people[id] && questCards(world, id).length)) {
     frame.dataset.expanded = String(expandedHolders.has(id));
     button.setAttribute("aria-expanded", String(expandedHolders.has(id)));
   }
@@ -1227,8 +1268,10 @@ function updateCardSelection(frame) {
     (held.length
       ? ` Carries ${held.map(nameOf).join(", ")}. Select to show these cards.`
       : "") +
-    (id === currentActor(world) && shownQuest()
-      ? ` Quest: ${shownQuest().title}.`
+    (people[id] && questCards(world, id).length
+      ? ` Quests: ${questCards(world, id)
+          .map((quest) => quest.title)
+          .join(", ")}.`
       : "");
 }
 const handMotions = new Map();
@@ -1241,45 +1284,71 @@ function moveHandPart(key, element, frames) {
     })
     .catch(() => {});
 }
-function questCard() {
-  const quest = shownQuest(),
-    raised = selected.includes(QUEST_CARD);
+function questCard(id) {
+  const quest = questForCard(world, id, shownQuest()),
+    raised = selected.includes(id),
+    records = questCards(world, quest.actor),
+    notice = quest.actor === currentActor(world) ? shownQuest() : null,
+    deck = (
+      notice
+        ? [notice, ...records.filter((item) => item.key !== notice.key)]
+        : records
+    ).map((item) => questCardId(world, item, shownQuest())),
+    index = deck.indexOf(id);
   const frame = node("div", undefined, "card-frame quest-frame");
-  frame.dataset.holder = currentActor(world);
+  frame.dataset.holder = quest.actor;
   frame.dataset.raised = String(raised);
-  frame.hidden = !expandedHolders.has(currentActor(world));
+  frame.dataset.stackIndex = String(index);
+  frame.dataset.stackCount = String(deck.length);
+  frame.dataset.stacked = String(
+    index > 0 && !expandedQuestHolders.has(quest.actor),
+  );
+  frame.style.zIndex = String(raised ? 100 : deck.length - index + 1);
+  frame.hidden = !expandedHolders.has(quest.actor);
   const face = node("button", undefined, "card quest");
   face.type = "button";
-  face.dataset.card = QUEST_CARD;
+  face.dataset.card = id;
   face.dataset.quest = quest.key;
-  face.dataset.fulfilled = String(Boolean(completedQuests.length));
+  face.dataset.questStatus = quest.status;
+  face.dataset.fulfilled = String(quest.status === "fulfilled");
   face.classList.toggle("new", !questRead.has(quest.key));
   face.setAttribute("aria-pressed", String(raised));
   face.setAttribute(
     "aria-label",
-    `${quest.title}, Vale's quest${completedQuests.length ? ", fulfilled" : ""}`,
+    `${quest.title}, ${nameOf(quest.actor)}'s quest, ${quest.status}`,
   );
-  face.setAttribute("aria-describedby", "card-detail-player-quest");
+  const detailId = `card-detail-${encodeURIComponent(id)}`;
+  face.setAttribute("aria-describedby", detailId);
   const graphic = node("span", undefined, "art");
   const img = node("img");
   img.src = `./assets/${quest.art}-card.png`;
   img.alt = "";
   img.draggable = false;
   graphic.append(img);
-  const detail = node("span", quest.purpose, "quest-purpose");
-  detail.id = "card-detail-player-quest";
+  const detail = node(
+    "span",
+    [quest.purpose, quest.origin].filter(Boolean).join(" "),
+    "quest-purpose",
+  );
+  detail.id = detailId;
   face.append(
     graphic,
-    node("span", completedQuests.length ? "Fulfilled" : "Quest", "quest-mark"),
+    node(
+      "span",
+      { active: "Active quest", pending: "Quest", fulfilled: "Fulfilled" }[
+        quest.status
+      ],
+      "quest-mark",
+    ),
     node("span", quest.title, "name"),
     detail,
   );
-  face.onclick = () => choose(QUEST_CARD);
+  face.onclick = () => choose(id);
   frame.append(face);
   return frame;
 }
 function card(id) {
-  if (id === QUEST_CARD) return questCard();
+  if (isQuestCard(id)) return questCard(id);
   const type = cardType(id),
     base = places[id] || people[id] || things[id],
     crossingFace = type === "location" ? travelCard(world, id) : null,
@@ -1388,7 +1457,7 @@ function card(id) {
     const held = availableCards(world).filter(
       (item) => things[item] && rootHolder(world, item) === id,
     );
-    if (held.length || (id === currentActor(world) && shownQuest())) {
+    if (held.length || (people[id] && questCards(world, id).length)) {
       frame.dataset.inventory = String(held.length);
       frame.dataset.expanded = String(expandedHolders.has(id));
       el.setAttribute("aria-expanded", String(expandedHolders.has(id)));
@@ -1402,12 +1471,15 @@ function card(id) {
         frame.prepend(preview);
       }
     }
-    if (id === currentActor(world) && shownQuest()) {
+    const deck = questCards(world, id);
+    for (let index = Math.min(deck.length, 3) - 1; index >= 0; index--) {
       const preview = node("span", undefined, "quest-preview");
+      preview.style.setProperty("--quest-offset", String(index));
       preview.setAttribute("aria-hidden", "true");
       frame.prepend(preview);
-      observation.textContent += ` Quest: ${shownQuest().title}.`;
     }
+    if (deck.length)
+      observation.textContent += ` Quests: ${deck.map((quest) => quest.title).join(", ")}.`;
   }
   return frame;
 }
@@ -1809,6 +1881,7 @@ function render() {
     shownQuest(),
     Boolean(completedQuests.length),
     [...questRead],
+    [...expandedQuestHolders],
   ]);
   const handKey = JSON.stringify([
     questKey,
@@ -2278,8 +2351,10 @@ function adoptShared(value) {
       completedQuests.push(fulfilled);
     world = next;
     sharedWorldKey = key;
-    selected = selected.filter(
-      (id) => id === QUEST_CARD || availableCards(world).includes(id),
+    selected = selected.filter((id) =>
+      isQuestCard(id)
+        ? Boolean(questForCard(world, id, shownQuest()))
+        : availableCards(world).includes(id),
     );
     selectionRevision = world.revision;
     renderedHand = "";
