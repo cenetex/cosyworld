@@ -862,19 +862,23 @@ function cancelDiscovery() {
   endDiscovery = null;
   discoveryFlying = false;
 }
+function discoveryPaused() {
+  return (
+    document.hidden ||
+    [...document.querySelectorAll("dialog[open]")].some(
+      (dialog) => dialog.id !== "unveil-dialog",
+    )
+  );
+}
 function armDiscovery(delay) {
   clearTimeout(discoveryTimer);
   discoveryRemaining = delay;
   discoveryDue = performance.now() + delay;
-  discoveryTimer = document.hidden ? null : setTimeout(takeDiscovered, delay);
+  discoveryTimer = discoveryPaused() ? null : setTimeout(takeDiscovered, delay);
 }
 function pauseDiscovery() {
   if (!$("unveil-dialog").open) return;
-  const paused =
-    document.hidden ||
-    [...document.querySelectorAll("dialog[open]")].some(
-      (dialog) => dialog.id !== "unveil-dialog",
-    );
+  const paused = discoveryPaused();
   if (paused && discoveryTimer !== null) {
     discoveryRemaining = Math.max(0, discoveryDue - performance.now());
     clearTimeout(discoveryTimer);
