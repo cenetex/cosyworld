@@ -143,7 +143,7 @@ try {
       const s = await state();
       assert.ok(
         s.items.lamp.fuel >= 6,
-        "the return was provisioned at the harbor",
+        "the lamp has enough oil for the signal",
       );
       if (!(await state()).items.lamp.lit) await playCard("lamp");
       for (let i = 0; i < 2; i++) {
@@ -156,11 +156,8 @@ try {
       const before = await state();
       const boarding =
         before.actors.vale.place === "pond" && id === "greek-harbor";
-      if (before.actors.vale.place === "greek-harbor" && id === "pond") {
-        if (before.items.lamp.lit) await playCard("lamp");
-        while ((await state()).items.lamp.fuel < 7) await pair("oil", "lamp");
-      }
-      if (boarding) await signalShip();
+      if (boarding && before.transports["greek-ship"].dock !== "pond")
+        await signalShip();
       if (
         boarding ||
         (before.actors.vale.place === "greek-harbor" && id === "pond")
@@ -309,8 +306,7 @@ try {
     assert.equal(rootHolder(current, evidence), "vale");
 
     // A second tab's committed journey uses the same migration and UI rebuild.
-    // Reopen the crossing through a real card play, not a forged state edit.
-    await signalShip();
+    // The returned ship is already waiting for another trip.
     current = await state();
     const updated = commit(
       commit(current, "move", "greek-ship"),
