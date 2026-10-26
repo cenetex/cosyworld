@@ -51,6 +51,7 @@ pub(super) fn world(c: &Connection, id: &str, now: i64) -> Result<World> {
         ),
         None => (0, None),
     };
+    let checkpoint_seq = seq;
     let mut q = c
         .prepare("SELECT seq,command FROM card_full_log WHERE world=? AND seq>? ORDER BY seq")
         .map_err(sql_error)?;
@@ -79,7 +80,7 @@ pub(super) fn world(c: &Connection, id: &str, now: i64) -> Result<World> {
         if w.version != engine::VERSION {
             return Err("This world's rules need a saved migration.".into());
         }
-        if seq > 0 {
+        if seq > checkpoint_seq {
             checkpoint(c, id, &w, seq)?;
         }
         return Ok(w);
@@ -238,16 +239,20 @@ pub(super) fn snapshot(c: &Connection, id: &str, user: &str, now: i64) -> Result
         json!({"id":id,"version":w.version,"actor":actor_id(a),"claimed":w.claimed,"present":w.present,"world":projected["world"],"actions":projected["actions"],"exits":projected["exits"],"queue":if here{queue}else{vec![]},"history":history,"nudge":nudge.filter(|a|*a<8).map(actor_id),"now":now,"notice":notice}),
     )
 }
+pub(super) struct PlayRequest<'a> {
+    pub action: Value,
+    pub key: &'a str,
+}
 pub(super) fn enqueue(
     c: &Connection,
     id: &str,
     user: &str,
     w: &World,
     a: usize,
-    action: Value,
-    key: &str,
+    play: PlayRequest<'_>,
     now: i64,
 ) -> Result<()> {
+    let PlayRequest { action, key } = play;
     let command = json!({"op":"play","actor":actor_id(a),"action":action});
     let text = command.to_string();
     let old: Option<(String, String, String)> = c

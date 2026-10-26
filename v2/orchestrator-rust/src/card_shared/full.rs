@@ -250,7 +250,18 @@ pub(super) fn run(
                 {
                     return Err("Play a card for your claimed avatar.".into());
                 }
-                store::enqueue(c, id, u, &w, a, b.action.clone(), &b.key, time)?;
+                store::enqueue(
+                    c,
+                    id,
+                    u,
+                    &w,
+                    a,
+                    store::PlayRequest {
+                        action: b.action.clone(),
+                        key: &b.key,
+                    },
+                    time,
+                )?;
                 c.execute(
                     "UPDATE card_members SET seen=? WHERE world=? AND actor=?",
                     params![time, id, a],
