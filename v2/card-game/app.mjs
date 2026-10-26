@@ -1548,6 +1548,7 @@ function renderScene() {
   $("cast").dataset.layout = staging.layout;
   $("cast").dataset.count = String(staging.actors.length);
   $("cast").dataset.shared = String(Boolean(sharedSession));
+  $("cast").style.setProperty("--cast-count", String(staging.actors.length));
   const castKey = JSON.stringify(staging.actors.map(({ id }) => id));
   if (castKey !== renderedCast) {
     renderedCast = castKey;

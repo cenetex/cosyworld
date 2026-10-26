@@ -227,8 +227,8 @@ export function sceneStaging(
     ? currentActor(world)
     : ids[0];
   const order = [focal, ...ids.filter((id) => id !== focal)].filter(Boolean);
-  // Completed plays keep the two most recent people in front. Repeated plays
-  // by one person keep the other person's place until someone else acts.
+  // Recent players take more space. Fibonacci areas make the change in height
+  // gentle, and repeated plays by one person keep the others in order.
   const recent = world.controlledActors
     ? [
         ...new Set([
@@ -244,20 +244,22 @@ export function sceneStaging(
             )
             .map((e) => e.actorId),
           ...ids.filter((id) => world.controlledActors.includes(id)),
+          ...ids,
         ]),
-      ].slice(0, 2)
+      ]
     : [];
-  const front = ids.filter((id) => recent.includes(id));
-  const back = ids.filter((id) => !recent.includes(id));
+  const front = ids.filter((id) => recent.slice(0, 2).includes(id));
+  const back = ids.filter((id) => !front.includes(id));
+  const size = (id) => Math.sqrt([13, 8, 5, 3, 2, 1][recent.indexOf(id)] / 13);
   const positions = world.controlledActors
     ? order.map((id) =>
-        recent.includes(id)
-          ? [front.length === 1 ? 50 : 30 + front.indexOf(id) * 40, 1, 0]
+        front.includes(id)
+          ? [front.length === 1 ? 50 : 30 + front.indexOf(id) * 40, size(id), 0]
           : [
               back.length === 1
                 ? 15
                 : 10 + (back.indexOf(id) * 80) / (back.length - 1),
-              0.5,
+              size(id),
               10,
             ],
       )
@@ -371,7 +373,7 @@ export function sceneStaging(
               ? "departing"
               : "present",
         depth: world.controlledActors
-          ? recent.includes(id)
+          ? front.includes(id)
             ? "foreground"
             : "back"
           : ["foreground", "middle", "back"][Math.min(index, 2)],

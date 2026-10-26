@@ -274,18 +274,15 @@ describe("JRPG scenes", () => {
     });
     expect(stage.actors.find((a) => a.id === "vale").flip).toBe(true);
   });
-  it("brings the two latest shared players forward across repeated plays and review", () => {
+  it("sizes shared players by recent plays with a Fibonacci falloff and history review", () => {
     const s = gathered();
     const cast = ["vale", "mara", "ash", "nell", "keeper"];
     s.controlledActors = ["vale", "mara", "ash", "nell"];
     s.presentActors = [...s.controlledActors];
     for (const id of cast) s.actors[id].place = "station";
     const stage = (extra = {}) => sceneStaging(s, { cast, ...extra });
-    const large = (value) =>
-      value.actors
-        .filter((a) => a.scale === 1)
-        .map((a) => a.id)
-        .sort();
+    const ranked = (value) =>
+      value.actors.toSorted((a, b) => b.scale - a.scale).map((a) => a.id);
     dialogue(s, "vale", { kind: "action", verb: "wait" });
     dialogue(s, "mara", { kind: "action", verb: "wait" });
     const earlier = s.log.length - 1;
@@ -295,23 +292,23 @@ describe("JRPG scenes", () => {
     dialogue(s, "keeper", { kind: "action", verb: "wait" });
     dialogue(s, "vale", { generated: true });
     const current = stage();
-    expect(large(current)).toEqual(["ash", "mara"]);
+    expect(ranked(current)).toEqual(["ash", "mara", "vale", "nell", "keeper"]);
     expect(
-      current.actors.filter((a) => a.scale < 1).map((a) => a.scale),
-    ).toEqual([0.5, 0.5, 0.5]);
-    expect(large(stage({ through: earlier }))).toEqual(["ash", "mara"]);
-    expect(large(stage({ through: earlier, review: true }))).toEqual([
-      "mara",
-      "vale",
-    ]);
+      current.actors
+        .map((a) => Math.round(a.scale ** 2 * 13))
+        .sort((a, b) => b - a),
+    ).toEqual([13, 8, 5, 3, 2]);
+    expect(ranked(stage({ through: earlier }))).toEqual(ranked(current));
+    expect(
+      ranked(stage({ through: earlier, review: true })).slice(0, 2),
+    ).toEqual(["mara", "vale"]);
     s.playerActorId = "nell";
-    expect(large(stage())).toEqual(["ash", "mara"]);
+    expect(ranked(stage())).toEqual(ranked(current));
     dialogue(s, "nell", { kind: "action", verb: "wait" });
-    expect(large(stage())).toEqual(["ash", "nell"]);
-    expect(large(stage({ cast: cast.filter((id) => id !== "ash") }))).toEqual([
-      "mara",
-      "nell",
-    ]);
+    expect(ranked(stage()).slice(0, 3)).toEqual(["nell", "ash", "mara"]);
+    expect(
+      ranked(stage({ cast: cast.filter((id) => id !== "ash") })).slice(0, 2),
+    ).toEqual(["nell", "mara"]);
   });
   it("lets the two smaller actors face each other for their own trade", () => {
     const s = gathered();

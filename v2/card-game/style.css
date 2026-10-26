@@ -971,6 +971,18 @@ body .cast[data-count] {
     top: 54px;
     width: 98%;
   }
+  body .cast[data-shared="true"]:not([data-count="1"]):not([data-count="2"]) {
+    --bust-drop: clamp(0%, calc((var(--cast-count) - 2) * 12%), 42%);
+  }
+  body
+    .cast[data-shared="true"]:not([data-count="1"]):not([data-count="2"])
+    .portrait[data-depth="foreground"] {
+    bottom: calc(100% - var(--stage-size) - var(--bust-drop));
+  }
+  body .cast[data-shared="true"] .portrait[data-depth="back"] {
+    left: calc(10% + var(--stage-x) * 0.8);
+    bottom: calc(86% - var(--stage-size));
+  }
   body .dialogue {
     bottom: calc(var(--dock-height) + 2px);
     padding: 8px 12px;

@@ -122,7 +122,8 @@ async function expectStage(page, recent) {
         figures.some((figure) => figure.dataset.avatar === id),
       ) &&
       figures.every((figure) => {
-        const scale = ids.includes(figure.dataset.avatar) ? 1 : 0.5;
+        const rank = ids.indexOf(figure.dataset.avatar);
+        const scale = Math.sqrt([13, 8, 5, 3, 2, 1][rank] / 13);
         return (
           Math.abs(figure.getBoundingClientRect().height / height - scale) <
           0.01
@@ -130,6 +131,21 @@ async function expectStage(page, recent) {
       })
     );
   }, recent);
+  if (page.viewportSize().width < 700) {
+    const rows = await page
+      .locator('#cast .portrait[aria-hidden="false"]')
+      .evaluateAll((figures) =>
+        figures.map((figure) => ({
+          front: figure.dataset.depth === "foreground",
+          top: figure.getBoundingClientRect().top,
+        })),
+      );
+    assert(
+      Math.min(...rows.filter((row) => row.front).map((row) => row.top)) >
+        Math.max(...rows.filter((row) => !row.front).map((row) => row.top)),
+      "the larger busts sit below the smaller figures on phones",
+    );
+  }
 }
 const names = ["vale", "mara", "ash", "nell", "tavi", "rue", "orin", "ada"];
 let seed = enableMotives(createWorld({ opening: true }), {
@@ -530,7 +546,7 @@ try {
   await until(() => waitingReplies.length > 0, "first queued speech starts");
   assert.equal((await snapshot(vale)).queue.length, 4);
   for (const page of [vale, mara]) {
-    await expectStage(page, ["vale", "nell"]);
+    await expectStage(page, ["nell", "ash", "mara", "vale", "moth"]);
     await page.locator("#shared-queue .shared-play-avatar").nth(3).waitFor();
     await page.waitForFunction(() =>
       [...document.querySelectorAll("#shared-queue img")].every(
@@ -598,7 +614,7 @@ try {
   await Promise.all([vale, mara].map(expectSharedReveal));
   await Promise.all([vale, mara, nell].map(idle));
   for (const page of [vale, mara]) {
-    await expectStage(page, ["mara", "nell"]);
+    await expectStage(page, ["nell", "mara", "vale", "ash", "moth"]);
     await page.screenshot({
       path: join(
         output,
