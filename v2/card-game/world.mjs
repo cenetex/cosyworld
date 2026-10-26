@@ -1517,6 +1517,7 @@ function perform(s, a, capture = () => {}, round = null) {
       locationId: here,
       verb: a.kind,
       questKey: a.questKey,
+      targetId: questRecord(s, a.questKey).holder.id,
     });
     return;
   }

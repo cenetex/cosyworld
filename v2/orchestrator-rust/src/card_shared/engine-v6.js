@@ -8367,7 +8367,7 @@
     );
     return [...personal, ...joined].map((card) => ({
       ...card,
-      status: card.holder ? questStatus(s, card) : card.status || (card.completedTurn !== null ? "fulfilled" : card.key === c?.active ? "active" : "pending")
+      status: card.holder ? card.completedTurn !== null || card.retired ? questStatus(s, card) : s.quests.focus[actor] === card.key ? "active" : "pending" : card.status || (card.completedTurn !== null ? "fulfilled" : card.key === c?.active ? "active" : "pending")
     })).sort(
       (a, b) => ({ active: 0, pending: 1, fulfilled: 2, superseded: 3 })[a.status] - { active: 0, pending: 1, fulfilled: 2, superseded: 3 }[b.status]
     );
@@ -9767,7 +9767,8 @@
         actorId: a.actor,
         locationId: here,
         verb: a.kind,
-        questKey: a.questKey
+        questKey: a.questKey,
+        targetId: questRecord(s, a.questKey).holder.id
       });
       return;
     }
@@ -10788,6 +10789,7 @@
     const played = events.findLast(
       (entry) => entry.kind === "action" && entry.actorId === currentActor(world)
     );
+    const quest = played?.questKey && questRecord(world, played.questKey);
     const here = world.actors[currentActor(world)].place;
     const known = knownActors(world);
     const actorIds2 = [
@@ -10817,7 +10819,17 @@
         item: played?.itemId || null,
         receive: played?.receiveId || null,
         destination: played?.destinationId || null,
-        accepted: played?.accepted ?? null
+        accepted: played?.accepted ?? null,
+        ...quest ? {
+          quest: {
+            key: quest.key,
+            title: quest.program.name,
+            holder: {
+              kind: world.actors[played.targetId] ? "avatar" : world.items[played.targetId] ? "item" : "place",
+              id: played.targetId
+            }
+          }
+        } : {}
       },
       avatars: actorIds2.map((id) => {
         const actor = world.actors[id];

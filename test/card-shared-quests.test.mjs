@@ -1,4 +1,10 @@
-import { questCards, questCardId } from "../v2/card-game/quest-cards.mjs";
+import {
+  questCards,
+  questCardId,
+  questHand,
+  questForCard,
+} from "../v2/card-game/quest-cards.mjs";
+import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import { actorQuests } from "../v2/card-game/quests.mjs";
 import {
   createWorld,
@@ -35,6 +41,69 @@ const program = {
 const add = (s, holder = { kind: "avatar", id: "vale" }, extra = {}) =>
   addQuestRecord(s, { holder, program, ...extra });
 describe("shared quest records", () => {
+  it("shows one saved progress record under its item and participant with independent focus", () => {
+    const s = enableMotives(createWorld(), {
+      questPrograms: true,
+      personalQuests: true,
+    });
+    s.actors.moth.place = "station";
+    const q = add(
+      s,
+      { kind: "item", id: "lamp" },
+      { participants: ["vale", "moth"] },
+    );
+    focusQuest(s, "vale", q.key);
+    const own = questCards(s, "vale").find((card) => card.key === q.key);
+    const held = questCards(s, "lamp").find((card) => card.key === q.key);
+    const other = questCards(s, "moth").find((card) => card.key === q.key);
+    expect(own.focused).toBe(true);
+    expect(held.focused).toBe(false);
+    expect(other.focused).toBe(false);
+    const ids = [own, held].map((card) => questCardId(s, card));
+    expect(new Set(ids).size).toBe(2);
+    for (const id of ids) {
+      expect(questHand(s)).toContain(id);
+      expect(questForCard(s, id).key).toBe(q.key);
+    }
+    const restored = decodeSave(encodeSave(s));
+    const move = legalActions(restored).find(
+      (a) => a.kind === "move" && a.target === "pond",
+    );
+    const result = play(restored, move);
+    expect(result.ok).toBe(true);
+    const after = decodeSave(encodeSave(result.state));
+    expect(questRecord(after, q.key).step).toBe(1);
+    expect(
+      Object.values(after.quests.records).filter(
+        (record) => record.key === q.key,
+      ),
+    ).toHaveLength(1);
+    for (const holder of ["vale", "moth", "lamp"])
+      expect(
+        questCards(after, holder).find((card) => card.key === q.key),
+      ).toMatchObject({
+        step: 1,
+        status: "fulfilled",
+        focused: false,
+      });
+  });
+  it("retains set-aside cards in their place and participant views", () => {
+    const s = enableMotives(createWorld(), {
+      questPrograms: true,
+      personalQuests: true,
+    });
+    const q = add(
+      s,
+      { kind: "place", id: "station" },
+      { participants: ["vale"] },
+    );
+    retireQuest(s, q.key, { reason: "superseded" });
+    const after = decodeSave(encodeSave(s));
+    for (const holder of ["vale", "station"])
+      expect(
+        questCards(after, holder).find((card) => card.key === q.key),
+      ).toMatchObject({ status: "superseded", focused: false });
+  });
   it("moves personal records into one registry with stable IDs and personal reward credit", () => {
     const s = fresh(),
       old = { key: "vale:quest:4", program, step: 0, completedTurn: null };
@@ -133,6 +202,15 @@ describe("shared quest legal plays", () => {
       },
     });
     s = act(s, "join-quest", q.key);
+    expect(narrativeContext(s).outcome.card).toMatchObject({
+      kind: "join-quest",
+      target: "station",
+      quest: {
+        key: q.key,
+        title: "Make room for company",
+        holder: { kind: "place", id: "station" },
+      },
+    });
     expect(questRecord(s, q.key).step).toBe(1);
     expect(questRecord(s, q.key).completedTurn).toBe(s.turn);
     expect(questRecord(s, q.key).completion).toMatchObject({
@@ -180,6 +258,11 @@ describe("shared quest legal plays", () => {
     expect(action).toBeTruthy();
     s = play(s, action).state;
     expect(questRecord(s, q.key).holder).toEqual({ kind: "item", id: "lamp" });
+    expect(narrativeContext(s).outcome.card).toMatchObject({
+      kind: "share-quest",
+      target: "lamp",
+      quest: { key: q.key, holder: { kind: "item", id: "lamp" } },
+    });
     expect(questRecords(s).filter((r) => r.key === q.key)).toHaveLength(1);
   });
 });

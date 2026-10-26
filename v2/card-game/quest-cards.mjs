@@ -1,8 +1,9 @@
 import { packDefinition } from "./pack-registry.mjs";
 import { recitalPoem } from "./pack-recital.mjs";
+import { questRecords, questStatus } from "./shared-quests.mjs";
 import { actorQuests } from "./quests.mjs";
 import { availableCards } from "./cards.mjs";
-import { rootHolder, things, people, currentActor } from "./world.mjs";
+import { rootHolder, things, people, places, currentActor } from "./world.mjs";
 
 export const QUEST_CARD = "player-quest";
 
@@ -152,7 +153,12 @@ export const isQuestCard = (id) =>
   (typeof id === "string" && id.startsWith("quest-card:"));
 
 function personalQuestCards(world, actor = currentActor(world)) {
-  return actorQuests(world, actor).map((record) => {
+  const collected = actorQuests(world, actor);
+  const keys = new Set(collected.map((record) => record.key));
+  const held = questRecords(world).filter(
+    (record) => record.holder.id === actor && !keys.has(record.key),
+  );
+  return [...collected, ...held].map((record) => {
     const program = record.program;
     const [title, purpose, art] =
       authored[program.id] ||
@@ -168,13 +174,29 @@ function personalQuestCards(world, actor = currentActor(world)) {
             program.purpose || "Something worth pursuing.",
             "cloth",
           ]);
+    const status = record.status || questStatus(world, record);
+    const focused = record.holder
+      ? world.quests.focus[actor] === record.key
+      : status === "active";
     return {
       key: record.key,
       actor,
       title,
       purpose,
-      art,
-      status: record.status,
+      art: program.art || art,
+      holder: record.holder || { kind: "avatar", id: actor },
+      participants: record.participants || [actor],
+      focused,
+      status: ["fulfilled", "superseded"].includes(status)
+        ? status
+        : focused
+          ? "active"
+          : "pending",
+      completion: {
+        declined: "Declined",
+        reported: "Reported",
+        shared: "Shared",
+      }[record.completion?.outcome],
       step: record.step,
       steps: record.totalSteps ?? program.steps?.length ?? 0,
     };
@@ -208,6 +230,7 @@ export function questCards(world, actor = currentActor(world)) {
     ...personal.filter((quest) => quest.status === "pending"),
     ...stories.filter((quest) => quest.status === "pending"),
     ...personal.filter((quest) => quest.status === "fulfilled"),
+    ...personal.filter((quest) => quest.status === "superseded"),
     ...stories.filter((quest) => quest.status === "fulfilled"),
   ];
 }
@@ -255,7 +278,8 @@ export function questForCard(world, id, notice = null) {
   } catch {
     return null;
   }
-  if (!world.actors[actor]) return null;
+  if (!world.actors[actor] && !world.items[actor] && !places[actor])
+    return null;
   return (
     questCards(world, actor).find(
       (quest) => questCardId(world, quest, notice) === id,
@@ -264,22 +288,32 @@ export function questForCard(world, id, notice = null) {
 }
 
 export function questHand(world, notice = null) {
-  const cards = availableCards(world);
-  for (let index = 0; index < cards.length; index++) {
-    const actor = cards[index];
-    if (!people[actor]) continue;
-    let deck = questCards(world, actor);
+  const visible = availableCards(world),
+    cards = [];
+  const appendQuests = (holder) => {
+    const deck = questCards(world, holder);
     if (
-      actor === currentActor(world) &&
+      holder === currentActor(world) &&
       notice &&
       !deck.some((quest) => quest.key === notice.key)
     )
       deck.push(notice);
-    let end = index + 1;
-    while (things[cards[end]] && rootHolder(world, cards[end]) === actor) end++;
-    const ids = deck.map((quest) => questCardId(world, quest, notice));
-    cards.splice(end, 0, ...ids);
-    index = end + ids.length - 1;
+    cards.push(...deck.map((quest) => questCardId(world, quest, notice)));
+  };
+  for (let index = 0; index < visible.length; index++) {
+    const holder = visible[index];
+    cards.push(holder);
+    if (people[holder]) {
+      while (
+        things[visible[index + 1]] &&
+        rootHolder(world, visible[index + 1]) === holder
+      ) {
+        const item = visible[++index];
+        cards.push(item);
+        appendQuests(item);
+      }
+    }
+    appendQuests(holder);
   }
   return cards;
 }

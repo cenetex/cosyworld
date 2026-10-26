@@ -1159,15 +1159,14 @@ function renderActions(animate = false) {
       : null;
   const { actions, hint } = quest
     ? {
-        actions:
-          quest.actor === currentActor(world) &&
-          quest.status === "pending" &&
-          !quest.story
-            ? legalActions(world).filter(
-                (action) =>
-                  action.kind === "pursue" && action.questKey === quest.key,
-              )
-            : [],
+        actions: ["pending", "active"].includes(quest.status)
+          ? legalActions(world).filter(
+              (action) =>
+                action.questKey === quest.key &&
+                ["pursue", "join-quest", "share-quest"].includes(action.kind) &&
+                (action.kind !== "pursue" || !quest.focused),
+            )
+          : [],
         hint: quest.purpose,
       }
     : cardActions(world, selected);
@@ -1283,7 +1282,7 @@ function updateCardSelection(frame) {
   }
   if (frame.dataset.holder)
     frame.hidden = !expandedHolders.has(frame.dataset.holder);
-  if (held.length || (people[id] && questCards(world, id).length)) {
+  if (held.length || questCards(world, id).length) {
     frame.dataset.expanded = String(expandedHolders.has(id));
     button.setAttribute("aria-expanded", String(expandedHolders.has(id)));
   }
@@ -1293,7 +1292,7 @@ function updateCardSelection(frame) {
     (held.length
       ? ` Carries ${held.map(nameOf).join(", ")}. Select to show these cards.`
       : "") +
-    (people[id] && questCards(world, id).length
+    (questCards(world, id).length
       ? ` Quests: ${questCards(world, id)
           .map((quest) => quest.title)
           .join(", ")}.`
@@ -1336,7 +1335,7 @@ function questCard(id) {
   face.setAttribute("aria-pressed", String(raised));
   face.setAttribute(
     "aria-label",
-    `${quest.title}, ${nameOf(quest.actor)}'s quest, ${quest.status === "fulfilled" ? quest.completion || "Fulfilled" : quest.status}`,
+    `${quest.title}, ${nameOf(quest.actor)}'s quest, ${quest.status === "fulfilled" ? quest.completion || "Fulfilled" : quest.status === "superseded" ? "Set aside" : quest.status}`,
   );
   const detailId = `card-detail-${encodeURIComponent(id)}`;
   if (!quest.singleLine) face.setAttribute("aria-describedby", detailId);
@@ -1353,7 +1352,8 @@ function questCard(id) {
     node(
       "span",
       {
-        active: "Active quest",
+        active: quest.focused ? "Active quest" : "Quest",
+        superseded: "Set aside",
         pending: "Quest",
         fulfilled: quest.completion || "Fulfilled",
       }[quest.status],
@@ -1472,11 +1472,11 @@ function card(id) {
     frame.hidden = !expandedHolders.has(holder);
     el.setAttribute("aria-label", `${def.name}, carried by ${nameOf(holder)}`);
   }
-  if (people[id]) {
+  if (people[id] || questCards(world, id).length) {
     const held = availableCards(world).filter(
-      (item) => things[item] && rootHolder(world, item) === id,
+      (item) => people[id] && things[item] && rootHolder(world, item) === id,
     );
-    if (held.length || (people[id] && questCards(world, id).length)) {
+    if (held.length || questCards(world, id).length) {
       frame.dataset.inventory = String(held.length);
       frame.dataset.expanded = String(expandedHolders.has(id));
       el.setAttribute("aria-expanded", String(expandedHolders.has(id)));
@@ -1920,7 +1920,7 @@ function render() {
     world.actors[currentActor(world)].place,
   );
   for (const id of selected) {
-    if (people[id]) expandedHolders.add(id);
+    if (people[id] || questCards(world, id).length) expandedHolders.add(id);
   }
   const questKey = JSON.stringify([
     shownQuests(),
