@@ -196,6 +196,36 @@ async function dismissDiscoveries(page) {
     await delay(180);
   }
 }
+async function expectSharedReveal(page) {
+  await page.waitForFunction(() => {
+    const text = document.getElementById("dialogue-text");
+    const letters = text.querySelectorAll(".speech-letter");
+    const shown = text.querySelectorAll(".speech-letter.revealed").length;
+    return (
+      text.textContent === "There is room for a little company." &&
+      shown > 0 &&
+      shown < letters.length
+    );
+  });
+}
+async function catchUpWithArrow(page) {
+  await page.locator("#previous-line").click();
+  for (let step = 0; step < 200; step++) {
+    if (
+      (await page
+        .locator("#dialogue-advance")
+        .getAttribute("data-revealing")) === "true"
+    )
+      await page.locator("#dialogue-advance").click();
+    if (await page.locator("#next-line").isDisabled()) break;
+    await page.locator("#next-line").click();
+  }
+  assert(
+    await page.locator("#next-line").isDisabled(),
+    "arrows reach the latest line",
+  );
+  assert.equal(await page.locator("#return-live").count(), 0);
+}
 try {
   start();
   await ready();
@@ -204,6 +234,15 @@ try {
     const context = await browser.newContext({
       viewport:
         i === 1 ? { width: 390, height: 844 } : { width: 1440, height: 900 },
+    });
+    await context.addInitScript(() => {
+      window.sharedSpeechNotes = 0;
+      const audio = window.AudioContext || window.webkitAudioContext;
+      const original = audio.prototype.createOscillator;
+      audio.prototype.createOscillator = function (...args) {
+        window.sharedSpeechNotes++;
+        return original.apply(this, args);
+      };
     });
     if (i === 0)
       await context.addInitScript(
@@ -297,11 +336,20 @@ try {
   const requestStart = requests.length;
   await vale.locator('#hand [data-card="moth"]').click();
   await vale.getByRole("button", { name: "Talk", exact: true }).click();
+  await expectSharedReveal(vale);
+  await vale.screenshot({
+    path: join(output, "shared-dialogue-reveal.png"),
+    fullPage: true,
+  });
   await until(
     async () => (await snapshot(vale)).world.turn > seed.turn,
     "the original Talk button submits a shared play",
   );
   await idle(vale);
+  assert(
+    (await vale.evaluate(() => window.sharedSpeechNotes)) > 0,
+    "shared speech plays voice syllables as its letters appear",
+  );
   assert(
     requests.length > requestStart,
     "the shared NPC conversation reaches the provider",
@@ -433,6 +481,10 @@ try {
     409,
   );
   assert.equal((await snapshot(vale)).world.revision, beforeForgery);
+  for (const page of [vale, mara]) await catchUpWithArrow(page);
+  const notesBefore = await Promise.all(
+    [vale, mara].map((page) => page.evaluate(() => window.sharedSpeechNotes)),
+  );
   holdReplies = true;
   const queued = [];
   for (const page of [vale, mara, ash, nell]) {
@@ -462,7 +514,14 @@ try {
   assert.equal((await snapshot(vale)).queue.length, 3);
   holdReplies = false;
   for (const resolve of waitingReplies.splice(0)) resolve();
+  await Promise.all([vale, mara].map(expectSharedReveal));
   await Promise.all([vale, mara, nell].map(idle));
+  for (const [index, page] of [vale, mara].entries())
+    assert(
+      (await page.evaluate(() => window.sharedSpeechNotes)) >
+        notesBefore[index],
+      "the next shared exchange animates and sounds after arrow-only catch-up",
+    );
   const first = await snapshot(vale),
     other = await snapshot(mara);
   assert.equal(first.history[0].lines.length, 2);

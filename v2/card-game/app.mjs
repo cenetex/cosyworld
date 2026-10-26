@@ -1704,7 +1704,7 @@ function renderScene() {
   if (text) {
     const key = JSON.stringify([scene.line.seq, speaker, text, replay]);
     reveal.show(key, text, speaker, {
-      instant: Boolean(sharedSession) || completedSpeech.has(key),
+      instant: completedSpeech.has(key),
     });
   } else {
     reveal.cancel();
@@ -1716,7 +1716,6 @@ function renderScene() {
   $("previous-line").disabled = cardsCooling || at <= 0;
   updateSpeechControls(reveal.complete);
   $("previous-line").onclick = () => {
-    if (sharedSession) $("return-live").hidden = false;
     reviewing = true;
     lineSeq = spokenLines[at - 1].seq;
     renderScene();
@@ -1731,10 +1730,10 @@ function renderScene() {
       exchange.advance();
       return;
     }
-    reviewing = true;
-    if (sharedSession) $("return-live").hidden = false;
     if (nextSceneSeq !== null) lineSeq = nextSceneSeq;
     else replay++;
+    // Reading through the latest shared line rejoins the room's live clock.
+    reviewing = !sharedSession || lineSeq !== spokenLines.at(-1)?.seq;
     renderScene();
   };
   $("dialogue-advance").onclick = advance;
@@ -2230,7 +2229,6 @@ async function submitSharedPlay(action) {
     selected = [];
     expandedHolders.clear();
     reviewing = false;
-    $("return-live").hidden = true;
     notice("Your play is at the table.");
   } catch (error) {
     notice(error.message);
@@ -2253,7 +2251,8 @@ function syncSharedLine() {
         ? entry.seq === live.seq
         : entry.text === live.text && entry.speaker === live.speaker),
   );
-  if (!entry) return;
+  // A reader can advance ahead of the clock. Keep that line until it catches up.
+  if (!entry || (lineSeq !== null && entry.seq < lineSeq)) return;
   const key = `${room}:${entry.seq}`;
   if (key === sharedLineKey) return;
   sharedLineKey = key;
@@ -2320,12 +2319,6 @@ installSharedControls({
     return encodeSave(world);
   },
   notice,
-  onLive: () => {
-    reviewing = false;
-    sharedLineKey = "";
-    $("return-live").hidden = true;
-    syncSharedLine();
-  },
 });
 if (sharedSession) {
   world = sharedWorld(sharedSession.state);

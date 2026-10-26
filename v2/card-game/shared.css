@@ -62,8 +62,7 @@
   align-items: center;
   gap: 6px;
 }
-.shared-play-queue button,
-#return-live {
+.shared-play-queue button {
   padding: 4px 8px;
   font-size: 12px;
 }

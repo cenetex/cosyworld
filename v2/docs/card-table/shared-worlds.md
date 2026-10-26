@@ -84,6 +84,11 @@ addressed. Other plays can include a room detail. The server records the lines
 and their reading times so people in the room see the same exchange. The
 conversation panel shows the current room's history.
 
+Shared lines reveal letter by letter with the same voice sounds as solo play.
+The line arrows review the conversation. Reaching its latest line resumes live
+playback. Readers who advance early keep their place while the shared clock
+catches up. The voice setting and reduced-motion setting apply to shared play.
+
 The approved OpenRouter request contains fictional profiles, scene facts,
 visible people and belongings, and the completed play. Passkey and account data
 stay with the account service. Provider errors leave the completed action saved

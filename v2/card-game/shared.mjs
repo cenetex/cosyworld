@@ -324,13 +324,7 @@ export async function connectSharedWorld(id) {
     play: (action) => command({ op: "play", key: crypto.randomUUID(), action }),
   };
 }
-export function installSharedControls({
-  session,
-  saveSlot,
-  getSave,
-  notice,
-  onLive,
-}) {
+export function installSharedControls({ session, saveSlot, getSave, notice }) {
   ensureSharedStyle();
   const linkedWorld = () => {
     try {
@@ -385,10 +379,6 @@ export function installSharedControls({
   queue.id = "shared-queue";
   queue.setAttribute("aria-label", "Plays at the table");
   document.querySelector(".play-dock").prepend(queue);
-  const live = button("Return to live", onLive);
-  live.id = "return-live";
-  live.hidden = true;
-  document.querySelector(".dialogue-heading").append(live);
   $("new-game").hidden = true;
   const saveCopy = [...$("menu-dialog").querySelectorAll("p")].find((p) =>
     p.textContent.includes("Your game saves"),
