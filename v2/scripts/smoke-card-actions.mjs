@@ -134,15 +134,33 @@ try {
       button.click();
       const immediate = frame.getBoundingClientRect().top,
         same = button === document.querySelector('#hand [data-card="vale"]');
-      await new Promise((resolve) => setTimeout(resolve, 70));
+      const motions = document
+          .querySelector(".play-dock")
+          .getAnimations({ subtree: true }),
+        clocks = motions
+          .filter((motion) =>
+            motion.effect.target.matches("#hand, .action-panel"),
+          )
+          .map((motion) => ({
+            target: motion.effect.target.id || motion.effect.target.className,
+            state: motion.playState,
+            duration: motion.effect.getTiming().duration,
+          }));
+      // Seek the actual animations so a busy worker cannot miss their midpoint.
+      for (const motion of motions) motion.pause();
+      await Promise.all(motions.map((motion) => motion.ready));
+      for (const motion of motions)
+        motion.currentTime = Number(motion.effect.getTiming().duration) / 2;
       const during = frame.getBoundingClientRect().top;
-      await new Promise((resolve) => setTimeout(resolve, 220));
+      for (const motion of motions) motion.finish();
+      await Promise.all(motions.map((motion) => motion.finished));
       return {
         start,
         immediate,
         during,
         end: frame.getBoundingClientRect().top,
         same,
+        clocks,
       };
     });
     assert.equal(
@@ -150,8 +168,22 @@ try {
       true,
       "selection keeps the card and its focus mounted",
     );
-    if (width === 320) assert(Math.abs(movement.immediate - movement.end) < 1);
-    else {
+    if (width === 320) {
+      assert(Math.abs(movement.immediate - movement.end) < 1);
+      assert.deepEqual(
+        movement.clocks,
+        [],
+        "reduced motion applies the final dock layout",
+      );
+    } else {
+      assert.deepEqual(
+        movement.clocks.sort((a, b) => a.target.localeCompare(b.target)),
+        [
+          { target: "action-panel", state: "running", duration: 220 },
+          { target: "hand", state: "running", duration: 220 },
+        ],
+        "the hand and action row both animate for 220 ms",
+      );
       assert(
         Math.abs(movement.immediate - movement.start) < 1,
         "selection starts at the current position",
