@@ -2510,6 +2510,15 @@ mod tests {
     }
 
     #[test]
+    fn accepts_a_player_choosing_a_collected_quest() {
+        let mut outcome = solo_departure();
+        outcome.card.kind = "pursue".into();
+        outcome.card.target = None;
+        outcome.card.destination = None;
+        assert!(valid_outcome(&outcome));
+    }
+
+    #[test]
     fn accepts_resolved_answers_from_personal_interests() {
         let mut o = solo_departure();
         o.card.kind = "ask".into();
