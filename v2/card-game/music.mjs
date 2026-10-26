@@ -1,3 +1,5 @@
+import { packPlaces } from "./pack-registry.mjs";
+
 export const roomTracks = {
   attic: [
     { file: "attic-1.mp3", title: "Music Box Waltz" },
@@ -11,6 +13,11 @@ export const roomTracks = {
     { file: "station-1.mp3", title: "Wheels on the Track" },
     { file: "station-2.mp3", title: "Faint Hope" },
   ],
+  ...Object.fromEntries(
+    Object.entries(packPlaces)
+      .filter(([, place]) => place.music)
+      .map(([id, place]) => [id, place.music]),
+  ),
 };
 
 // Keep the outgoing source until its gain reaches silence, then fade in the

@@ -2,6 +2,9 @@ import { selectCard } from "./card-browser-helpers.mjs";
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
+import { roomTracks } from "../card-game/music.mjs";
+import { createWorld, encodeSave, play } from "../card-game/world.mjs";
+import { cardPlay } from "../card-game/cards.mjs";
 
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -85,16 +88,16 @@ try {
   async function checkPair(room) {
     for (const number of [1, 2]) {
       await page.waitForFunction(
-        ({ room, number }) => {
+        (file) => {
           const audio = document.querySelector("#room-music");
           return (
-            audio.src.endsWith(`${room}-${number}.mp3`) &&
+            audio.src.endsWith(file) &&
             audio.currentTime > 0 &&
             !audio.paused &&
             Number.isFinite(audio.duration)
           );
         },
-        { room, number },
+        roomTracks[room][number - 1].file,
       );
       await fullVolume();
       const duration = await page.locator("#room-music").evaluate((audio) => {
@@ -109,9 +112,8 @@ try {
       }, volume);
     }
     await page.waitForFunction(
-      (room) =>
-        document.querySelector("#room-music").src.endsWith(`${room}-1.mp3`),
-      room,
+      (file) => document.querySelector("#room-music").src.endsWith(file),
+      roomTracks[room][0].file,
     );
   }
   await checkPair("attic");
@@ -138,9 +140,8 @@ try {
       return level > 0.01 && level < volume - 0.02;
     }, volume);
     await page.waitForFunction(
-      (room) =>
-        document.querySelector("#room-music").src.endsWith(`${room}-1.mp3`),
-      room,
+      (file) => document.querySelector("#room-music").src.endsWith(file),
+      roomTracks[room][0].file,
     );
     await checkPair(room);
   }
@@ -198,9 +199,54 @@ try {
   await page.locator("#music-toggle").click();
   await fullVolume();
   await page.screenshot({ path: "output/music/shore-room-mobile.png" });
+
+  // Complete the authored signal, then use the real Board and Disembark cards.
+  let ship = createWorld({ opening: true });
+  ship.opening.crossed = true;
+  ship.opening.met.moth = 0;
+  ship.locations.attic.anchored = true;
+  ship.actors.vale.place = "pond";
+  ship.actors.moth.place = ship.actors.keeper.place = "station";
+  ship.items.lamp.holder = ship.items.cloth.holder = "vale";
+  ship.items.lamp.lit = true;
+  ship.items.lamp.fuel = 12;
+  for (const cards of [
+    ["cloth", "lamp"],
+    ["cloth"],
+    ["cloth", "lamp"],
+    ["cloth"],
+  ]) {
+    const result = play(ship, cardPlay(ship, cards).action);
+    assert(result.ok, result.error);
+    ship = result.state;
+  }
+  await page.evaluate((save) => {
+    localStorage.setItem("cosyworld.reflected-shore.v1.music-smoke", save);
+  }, encodeSave(ship));
+  await page.reload();
+  await takeUnveiled();
+  await page.locator("#menu-button").click();
+  await fullVolume();
+  assert.equal(await page.locator("#music-volume").inputValue(), "18");
+  await page.locator('[data-close="menu-dialog"]').click();
+  await travel("greek-ship");
+  console.log("Both ship tracks played");
+  await playCard("greek-harbor");
+  await page.waitForFunction(
+    () => document.querySelector("#room-music").paused,
+  );
+  await playCard("greek-ship");
+  await checkPair("greek-ship");
+  await travel("pond");
+  assert(
+    await page.evaluate(() =>
+      window.musicStops.every(({ level }) => level < 0.003),
+    ),
+    "Ship boarding and disembarking change music after the fade",
+  );
   assert.deepEqual(errors, []);
   console.log(
-    "Room music: all six MP3s played with fades at track endings, room changes, and pause/resume; saved controls and mobile menu passed.",
+    "Room music: all eight MP3s played with fades at track endings, room changes, and pause/resume; ship round trip, saved controls and mobile menu passed.",
   );
 } finally {
   await browser.close();

@@ -269,6 +269,11 @@ card offers Disembark. Boarding saves the destination; disembarking the last
 passenger parks the ship there. The same saved ship serves every actor.
 An optional place `art` supplies its card face separately from its backdrop.
 
+An optional place `music` supplies an ordered playlist of `{file, title}`
+records. Each file is an MP3 in `assets/music/`. The room music player uses
+the same saved volume and one-second fades for pack locations. Tracks repeat
+in order while the player stays in that place.
+
 A transport signal uses `opens: null`. Completion summons the transport to
 that crossing's `from` dock. The dock remains saved through waits, reloads,
 lamp changes, and later sound. If passengers are aboard, the recall waits

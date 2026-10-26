@@ -117,6 +117,23 @@ describe("world packs on the card table", () => {
     }
   });
 
+  it("validates pack music filenames and titles", () => {
+    const pack = forest();
+    pack.places.clearing.music = [
+      { file: "forest-song.mp3", title: "Forest song" },
+    ];
+    expect(packProblems(pack, hub)).toEqual([]);
+    for (const playlist of [
+      [],
+      null,
+      [{ file: "../forest-song.mp3", title: "Forest song" }],
+      [{ file: "forest-song.mp3", title: "" }],
+    ]) {
+      pack.places.clearing.music = playlist;
+      expect(packProblems(pack, hub).join("\n")).toMatch(/music/);
+    }
+  });
+
   it("validates transport docks, routes, and signal conditions", () => {
     const greek = () =>
       structuredClone(packDefinitions.find((p) => p.id === "greek-drama"));

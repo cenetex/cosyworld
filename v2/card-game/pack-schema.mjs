@@ -323,6 +323,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "exits",
         "backdrop",
         "art",
+        "music",
         "stage",
         "requires",
       ]),
@@ -340,6 +341,20 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     );
     media(p.backdrop, `place ${id} backdrop`);
     if (p.art !== undefined) media(p.art, `place ${id} art`);
+    if (p.music !== undefined)
+      check(
+        Array.isArray(p.music) &&
+          p.music.length > 0 &&
+          p.music.length <= 16 &&
+          p.music.every(
+            (track) =>
+              keysOk(track, ["file", "title"]) &&
+              typeof track.file === "string" &&
+              /^[a-z0-9][a-z0-9-]*\.mp3$/.test(track.file) &&
+              textOk(track.title, 120),
+          ),
+        `place ${id} music needs 1–16 MP3 filenames and titles`,
+      );
     if (p.stage !== undefined)
       check(
         keysOk(p.stage, ["alt", "resident", "sprite"]) &&

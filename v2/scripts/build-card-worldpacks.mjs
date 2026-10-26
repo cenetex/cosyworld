@@ -84,9 +84,14 @@ for (const pack of packs) {
       problems.push(`${pack.id}: ${id} is also defined by ${seen.get(id)}`);
     seen.set(id, pack.id);
   }
-  // Media must exist and match its PNG, SVG or WebP extension, since the table serves it verbatim.
+  // Media must exist and match its extension, since the table serves it verbatim.
   const media = [
     ...Object.values(pack.places || {}).flatMap((p) => [p.backdrop, p.art]),
+    ...Object.values(pack.places || {}).flatMap((p) =>
+      (Array.isArray(p.music) ? p.music : []).map(
+        (track) => `assets/music/${track?.file}`,
+      ),
+    ),
     ...Object.values(pack.items || {}).map((i) => i.art),
     ...(pack.crossings || []).flatMap((c) => [
       c.scenery?.overlay,
@@ -108,7 +113,9 @@ for (const pack of packs) {
         : file.endsWith(".webp")
           ? bytes.toString("ascii", 0, 4) === "RIFF" &&
             bytes.toString("ascii", 8, 12) === "WEBP"
-          : file.endsWith(".svg") && /<svg\s/.test(bytes.toString("utf8")))
+          : file.endsWith(".mp3")
+            ? bytes.toString("ascii", 0, 3) === "ID3"
+            : file.endsWith(".svg") && /<svg\s/.test(bytes.toString("utf8")))
     )
       problems.push(`${pack.id}: missing or invalid media ${file}`);
   }

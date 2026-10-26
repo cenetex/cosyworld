@@ -106,6 +106,28 @@ function player({ fallback = false } = {}) {
 }
 
 describe("room music fades", () => {
+  it("plays the pack playlist aboard and fades out at the destination", async () => {
+    const { audio, music, begin, ended, changed, level } = player();
+    await begin("pond");
+    music.setRoom("greek-ship");
+    expect(audio.src).toMatch(/pond-1\.mp3$/);
+    await advance(2000);
+    expect(audio.src).toMatch(/ship-1\.mp3$/);
+    expect(changed.mock.lastCall[0].title).toBe("Wine, Black Sea");
+    ended();
+    await advance(1000);
+    expect(audio.src).toMatch(/ship-2\.mp3$/);
+    expect(changed.mock.lastCall[0].title).toBe("Wine-Dark");
+    music.setRoom("greek-harbor");
+    await advance(1000);
+    expect(level()).toBe(0);
+    expect(audio.paused).toBe(true);
+    music.setRoom("greek-ship");
+    await advance(1000);
+    expect(audio.src).toMatch(/ship-2\.mp3$/);
+    expect(audio.paused).toBe(false);
+  });
+
   it("waits for the first play in each new game and keeps the music setting", async () => {
     const { audio, music, changed } = player();
     music.setStarted(false);
