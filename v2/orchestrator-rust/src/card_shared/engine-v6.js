@@ -6616,6 +6616,23 @@
       "greek-petition-burial"
     ].includes(event.choiceId);
   };
+  function storyActors(world, definition) {
+    const events = (world.log || []).filter(
+      (event) => related(definition, event)
+    );
+    const discovery = (world.log || []).filter(
+      (event) => event.kind === "action" && event.turn === definition.createdTurn && (event.packId === "greek-drama" || event.cast?.includes(definition.holder.id) || definition.holder.kind === "place" && event.locationId === definition.holder.id)
+    ).sort((a, b) => a.seq - b.seq)[0];
+    if (discovery) events.push(discovery);
+    const knownAuthor = world.packs?.["greek-drama"]?.recitals?.[definition.choiceId]?.actor;
+    return [
+      ...new Set(
+        [...events.map((event) => event.actorId), knownAuthor].filter(
+          (id) => world.actors[id]
+        )
+      )
+    ].sort();
+  }
   function syncStoryQuests(world, actorId = null) {
     const definitions = storyDefinitions(world, true);
     if (!definitions.length) return [];
@@ -6650,9 +6667,8 @@
       const events = (world.log || []).filter(
         (event2) => related(definition, event2)
       );
-      const recorded = events.map((event2) => event2.actorId).filter((id) => world.actors[id]);
+      const recorded = storyActors(world, definition);
       const knownAuthor = state.recitals?.[definition.choiceId]?.actor;
-      if (world.actors[knownAuthor]) recorded.push(knownAuthor);
       if (created && actorId && world.actors[actorId] && definition.createdTurn === world.turn)
         recorded.push(actorId);
       quest.participants = [

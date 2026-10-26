@@ -18,11 +18,15 @@ import {
 } from "../v2/card-game/world.mjs";
 import {
   questCards,
+  questHand,
+  storyQuests,
+  activeQuests,
   questCardId,
   questForCard,
   STORY_QUEST_CARDS,
 } from "../v2/card-game/quest-cards.mjs";
 import { questRecord } from "../v2/card-game/shared-quests.mjs";
+import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 const key = (index) => `greek-drama:${STORY_QUEST_CARDS[index]}`;
 const act = (world, match) => {
   const action = legalActions(world).find(match);
@@ -32,6 +36,96 @@ const act = (world, match) => {
   return result.state;
 };
 describe("authored shared story cards", () => {
+  it("keeps remote players' collections separate from visible holder cards", () => {
+    let world = dispatchShared({
+      op: "create",
+      save: encodeSave(openingFixture("refusal").waterOffer),
+    }).world;
+    const request = (op, actor, extra = {}) =>
+      dispatchShared({
+        world,
+        op,
+        actor,
+        claimed: ["vale", "mara"],
+        present: ["vale", "mara"],
+        ...extra,
+      });
+    let mara = request("view", "mara");
+    expect(mara.ok).toBe(true);
+    expect(mara.world.actors.mara.place).not.toMatch(/^greek-/);
+    const ownStories = (state) =>
+      questCards(state, "mara").filter((q) => q.story);
+    expect(ownStories(mara.world)).toEqual([]);
+    expect(storyQuests(mara.world)).toEqual([]);
+    expect(activeQuests(mara.world).filter((q) => q.story)).toEqual([]);
+    expect(
+      questHand(mara.world).some((id) => questForCard(mara.world, id)?.story),
+    ).toBe(false);
+    expect(
+      mara.actions.some(
+        (a) => a.kind === "join-quest" && a.questKey === key(0),
+      ),
+    ).toBe(false);
+    // Reaching the holder exposes its card. Reading it leaves the collection alone.
+    world.actors.mara.place = "greek-courtyard";
+    mara = request("view", "mara");
+    expect(ownStories(mara.world)).toEqual([]);
+    const holder = questCards(mara.world, "greek-baker").find(
+      (q) => q.key === key(0),
+    );
+    expect(questHand(mara.world)).toContain(questCardId(mara.world, holder));
+    const join = mara.actions.find(
+      (a) => a.kind === "join-quest" && a.questKey === key(0),
+    );
+    expect(join).toBeTruthy();
+    const joined = request("play", "mara", { action: join });
+    expect(joined.ok).toBe(true);
+    world = decodeSave(encodeSave(joined.world));
+    mara = request("view", "mara");
+    expect(ownStories(mara.world).map((q) => q.key)).toEqual([key(0)]);
+    expect(questRecord(world, key(0)).participants).toContain("mara");
+  });
+  it("migrates global Greek history using recorded authors and leaves unknown players unassigned", () => {
+    const old = structuredClone(openingFixture("refusal").closed);
+    for (const life of Object.values(old.life.actors)) {
+      if (!life.collection) continue;
+      for (const field of ["cards", "archive"])
+        life.collection[field] = life.collection[field].map((id) =>
+          (() => {
+            const record = structuredClone(old.quests.records[id]);
+            delete record.completion;
+            delete record.terminalRevision;
+            return record;
+          })(),
+        );
+    }
+    delete old.quests;
+    delete old.questCompletions;
+    old.sharedVersion = 1;
+    old.controlledActors = ["vale", "mara"];
+    old.presentActors = ["vale", "mara"];
+    old.playerActorId = "mara";
+    expect(storyQuests(old)).toEqual([]);
+    const restored = decodeSave(JSON.stringify(old));
+    expect(questCards(restored, "mara").filter((q) => q.story)).toEqual([]);
+    expect(questCards(restored, "vale").filter((q) => q.story)).toHaveLength(3);
+    for (const id of [key(0), key(1), key(2)]) {
+      expect(questRecord(restored, id).participants).toEqual(["vale"]);
+      expect(questRecord(restored, id).completion.actorId).toBe("vale");
+    }
+    old.log = [];
+    for (const record of Object.values(old.packs["greek-drama"].recitals))
+      record.actor = null;
+    const unknown = decodeSave(JSON.stringify(old));
+    expect(storyQuests(unknown)).toEqual([]);
+    for (const id of [key(0), key(1), key(2)]) {
+      expect(questRecord(unknown, id).participants).toEqual([]);
+      expect(questRecord(unknown, id).completion.actorId).toBe(null);
+    }
+    expect(
+      questCards(unknown, "greek-baker").some((q) => q.key === key(0)),
+    ).toBe(true);
+  });
   it("keeps named actors and literal story text separate from the acting role", () => {
     const world = openingFixture("refusal").waterOffer;
     world.items["greek-water-jar"].holder = "mara";
@@ -159,7 +253,11 @@ describe("authored shared story cards", () => {
     }
     delete old.quests;
     delete old.questCompletions;
-    old.log = old.log.filter((event) => event.packId !== "greek-drama");
+    old.log = old.log.filter(
+      (event) =>
+        event.packId !== "greek-drama" &&
+        !event.locationId?.startsWith("greek-"),
+    );
     for (const receipt of Object.values(old.packs["greek-drama"].recitals))
       receipt.actor = null;
     const restored = decodeSave(JSON.stringify(old));
