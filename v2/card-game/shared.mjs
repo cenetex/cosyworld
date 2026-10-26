@@ -264,7 +264,8 @@ export async function connectSharedWorld(id) {
     listener = () => {},
     report = () => {},
     inFlight = false,
-    stopped = false;
+    stopped = false,
+    connectionError = null;
   let offset = initial.now - Date.now(),
     heartbeat = Date.now();
   const adopt = (next) => {
@@ -284,8 +285,13 @@ export async function connectSharedWorld(id) {
         await command({ op: "heartbeat" });
         heartbeat = Date.now();
       } else adopt(await request(`/card-game/shared/worlds/${id}`));
+      if (connectionError) {
+        report("", connectionError);
+        connectionError = null;
+      }
     } catch (error) {
-      report(error.message);
+      connectionError = error.message;
+      report(connectionError);
     } finally {
       inFlight = false;
     }
