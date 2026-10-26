@@ -1225,6 +1225,14 @@ fn known(context: &Context) -> BTreeSet<String> {
     .concat()
     .into_iter()
     .chain(context.entities.iter().flat_map(|e| e.facts.iter()))
+    .chain(
+        context
+            .entities
+            .iter()
+            .filter_map(|e| e.poem.as_ref())
+            .flat_map(|poem| poem.stanzas.iter())
+            .flat_map(|stanza| stanza.lines.iter()),
+    )
     .map(String::as_str)
     .collect::<Vec<_>>()
     .join(" ");
@@ -1897,7 +1905,7 @@ impl<'a> Check<'a> {
                 .conversation
                 .iter()
                 .any(|line| words(&line.text).concat() == key);
-        if repeats {
+        if repeats && !recital::earned_quote(&kept, self.entity.poem.as_ref()) {
             return Err("repeat");
         }
         // A character speaks as "I"; a line that names its speaker in the
@@ -2201,6 +2209,7 @@ mod tests {
     fn earned_poem_is_context_for_free_speech_and_keeps_its_authored_data() {
         let c = bard_context();
         let check = Check::new(&c, &c.entities[3], Part::Line);
+        assert!(!idiolect(&c.entities[3]).contains("sing an earned couplet"));
         for words in [
             EARNED_VERSE,
             "I hear a hard choice in those lines.",
@@ -2231,6 +2240,32 @@ mod tests {
             altered.entities[3].poem.as_ref(),
             altered.turn
         ));
+    }
+
+    #[test]
+    fn full_poem_context_keeps_more_than_eight_stanzas_and_240_characters() {
+        let packs: Value =
+            serde_json::from_str(include_str!("../../card-game/packs.json")).unwrap();
+        let recital = &packs["packs"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|pack| pack["id"] == "greek-drama")
+            .unwrap()["recital"];
+        let verses = recital["verses"].as_array().unwrap();
+        let stanzas: Vec<_> = verses.iter().enumerate().map(|(i,verse)| json!({
+            "id":verse["choice"],"turn":i+1,"authorId":"vale","authorName":"Vale","lines":verse["lines"]
+        })).collect();
+        let poem: recital::Poem = serde_json::from_value(json!({"title":recital["title"],"stanzas":stanzas,"newLines":verses.last().unwrap()["lines"]})).unwrap();
+        assert!(poem.stanzas.len() > 8);
+        assert!(recital::valid("greek-rhapsode", Some(&poem), 100));
+        let prompt = recital::prompt_lines(&poem).join("\n");
+        assert!(prompt.len() > 240);
+        for stanza in &poem.stanzas {
+            for line in &stanza.lines {
+                assert!(prompt.contains(line));
+            }
+        }
     }
 
     #[tokio::test]
@@ -2319,6 +2354,57 @@ mod tests {
             .as_str()
             .unwrap()
             .contains(EARNED_VERSE)));
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn repeated_talk_accepts_a_voluntary_earned_quote_locally_and_shared() {
+        let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
+        let provider = plain_provider(seen.clone(), |_, stem| {
+            if stem == format!("{}:", name("greek-rhapsode")) {
+                EARNED_VERSE.into()
+            } else {
+                "I am listening again.".into()
+            }
+        });
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            axum::serve(listener, provider).await.unwrap();
+        });
+        let mut value = serde_json::to_value(bard_context()).unwrap();
+        value["entities"][3]["previous"] = json!(EARNED_VERSE);
+        value["conversation"] = json!([{"actorId":"greek-rhapsode","text":EARNED_VERSE}]);
+        let c: Context = serde_json::from_value(value).unwrap();
+        let ids = vec!["vale".into(), "greek-rhapsode".into()];
+        let published = Mutex::new(Vec::new());
+        let emit = |text: &str| {
+            published.lock().unwrap().push(text.to_string());
+            true
+        };
+        let local = complete_selected(
+            &test_config(address),
+            &c,
+            &BTreeMap::new(),
+            &VoiceSettings::hosted(),
+            &ids,
+            false,
+            Some(&emit),
+        )
+        .await
+        .unwrap();
+        assert_eq!(local["entries"][1]["text"], EARNED_VERSE);
+        assert!(published.lock().unwrap().join(" ").contains(EARNED_VERSE));
+        let shared = shared_lines(
+            &test_config(address),
+            &serde_json::to_value(&c).unwrap(),
+            &ids,
+            &BTreeMap::new(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(shared["entries"][1]["text"], EARNED_VERSE);
+        assert_eq!(seen.lock().unwrap().len(), 4);
         server.abort();
     }
 
