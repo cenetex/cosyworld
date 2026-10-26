@@ -11,10 +11,13 @@ await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const output = new URL(`../../output/card-voice-${type}/`, import.meta.url);
 await mkdir(output, { recursive: true });
 try {
-  for (const width of [1440, 390]) {
+  for (const width of [1440, 390, 320]) {
     const page = await browser.newPage({
-      viewport: { width, height: width === 390 ? 844 : 900 },
-      reducedMotion: "reduce",
+      viewport: {
+        width,
+        height: width === 320 ? 568 : width === 390 ? 844 : 900,
+      },
+      reducedMotion: width === 320 ? "reduce" : "no-preference",
     });
     page.setDefaultTimeout(20000);
     const key = `cosyworld.reflected-shore.v1.voice-${width}`,
@@ -43,6 +46,8 @@ try {
         });
       });
     });
+    const reaction = (kind) =>
+      `My reaction to ${kind}. The room holds a little warmth. I wonder who has passed through that mirror, and whether they left a light burning for someone to find their way home.`;
     const response = (input) => ({
       revision: input.revision,
       model: "voice-fixture",
@@ -50,7 +55,7 @@ try {
         id,
         text:
           id === "vale"
-            ? `My reaction to ${input.outcome.card.kind}.`
+            ? reaction(input.outcome.card.kind)
             : "There is time to look around.",
       })),
     });
@@ -101,8 +106,40 @@ try {
             line.turn === world.turn &&
             line.actorId === "vale" &&
             line.kind === "dialogue" &&
-            line.text === `My reaction to ${kind}.`,
+            line.text === reaction(kind),
         ),
+      );
+      const frame = await page.evaluate(() => {
+        const stage = document.querySelector("#stage"),
+          dialogue = document
+            .querySelector(".dialogue")
+            .getBoundingClientRect(),
+          portrait = document
+            .querySelector("#speaker-portrait")
+            .getBoundingClientRect();
+        return {
+          scrollX: stage.scrollLeft,
+          scrollY: stage.scrollTop,
+          left: dialogue.left,
+          right: dialogue.right,
+          portraitLeft: portrait.left,
+          portraitRight: portrait.right,
+        };
+      });
+      assert.equal(
+        frame.scrollX,
+        0,
+        `${kind} keeps the scene fixed horizontally`,
+      );
+      assert.equal(
+        frame.scrollY,
+        0,
+        `${kind} keeps the scene fixed vertically`,
+      );
+      assert(frame.left >= 0 && frame.right <= width, "Dialogue stays in view");
+      assert(
+        frame.portraitLeft >= frame.left && frame.portraitRight <= frame.right,
+        "The speaker stays beside the text",
       );
     };
     try {
@@ -155,12 +192,35 @@ try {
         key,
       );
       assert(
-        !saved.log.some((line) => line.text === "My reaction to light."),
+        !saved.log.some((line) => line.text === reaction("light")),
         "Stale dialogue stays out of the current turn",
       );
       await playCards("wait", ["attic"]);
       await playCards("drop", ["lamp", "attic"]);
       await playCards("take", ["lamp"]);
+      if (width === 390) {
+        // A quick first Light reply also crosses the discovery and quest cues.
+        await page.locator("#menu-button").click();
+        await page.locator("#new-game").click();
+        await page.locator("#confirm-reset").click();
+        await finish();
+        await playCards("light", ["lamp"]);
+      }
+      if (width < 700) {
+        await page.locator("#dialogue-advance").focus();
+        await page.keyboard.press("End");
+        assert(
+          await page
+            .locator("#dialogue-text")
+            .evaluate((text) => text.scrollTop > 0),
+          "A long reply still scrolls inside the dialogue",
+        );
+        assert.equal(
+          await page.locator("#stage").evaluate((stage) => stage.scrollLeft),
+          0,
+        );
+        await page.keyboard.press("Home");
+      }
       await page.screenshot({
         path: new URL(`vale-${width}.png`, output).pathname,
       });

@@ -130,7 +130,8 @@ main {
   min-height: 0;
   flex: 1;
   isolation: isolate;
-  overflow: hidden;
+  /* Keep focus and reply scrolling inside the dialogue, with the scene fixed. */
+  overflow: clip;
   background: #232330;
   container-type: size;
 }
