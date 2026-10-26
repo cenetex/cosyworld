@@ -18,6 +18,7 @@ const files = [
   "pack-rules.mjs",
   "legacy-saves.mjs",
   "packs.json",
+  "forest.json",
   "app.mjs",
   "world.mjs",
   "scene.mjs",

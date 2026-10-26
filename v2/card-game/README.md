@@ -3,7 +3,9 @@
 ## Shipping engine
 
 `world.mjs` owns the card game's state, legal actions, resident turns, and save
-format. `app.mjs` uses it in the browser. The modules beside it provide quests,
+format. `forest.json` holds the forest catalog, starting state, and authored
+quests for the station and attic openings. `createWorld()` copies that data
+for each game. `app.mjs` uses the engine in the browser. The modules beside it provide quests,
 motives, life, memory, pack rules, and presentation. Both the local server and
 the Rust asset server publish this same game.
 
