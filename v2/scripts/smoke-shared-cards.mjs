@@ -314,7 +314,7 @@ try {
       (await import("/card-game/shared-auth.mjs")).passkey(true),
     );
   }
-  const [vale, mara, ash, nell, tavi] = pages;
+  const [vale, mara, ash, nell, tavi, rue] = pages;
   await vale.reload();
   await dismissDiscoveries(vale);
   await vale.locator("#shared-worlds-button").click();
@@ -420,11 +420,51 @@ try {
     assert.equal(home.actor, names[i]);
     assert.equal(home.world.items[avatar.item.id].holder, avatar.home.id);
     assert(
-      !home.exits.includes("pond"),
-      "new avatars start with a closed pond path",
+      !home.exits.includes(avatar.home.connection || "pond"),
+      "new avatars start with a closed home path",
     );
   }
   assert.equal((await snapshot(vale)).claimed.filter(Boolean).length, 8);
+  const ownAvatarFirst = async (page) => {
+    const state = await snapshot(page);
+    const ids = await page
+      .locator("#hand .card")
+      .evaluateAll((cards) => cards.map((card) => card.dataset.card));
+    assert.equal(
+      ids.find((id) => state.world.actors[id]),
+      state.actor,
+      "the player's own avatar leads the avatar groups",
+    );
+  };
+  await perform(rue, "take", undefined, "routes");
+  assert(await actionFor(rue, "move", "station"));
+  assert(!(await actionFor(rue, "move", "pond")));
+  const earlierCarriageExit = await actionFor(rue, "move", "station");
+  await perform(rue, "drop", "train", "routes");
+  await rue.reload();
+  await rue.locator('#hand [data-card="routes"]').waitFor();
+  await dismissDiscoveries(rue);
+  assert(!(await actionFor(rue, "move", "station")));
+  assert.equal(
+    (
+      await api(rue, {
+        op: "play",
+        key: crypto.randomUUID(),
+        action: earlierCarriageExit,
+      })
+    ).status,
+    409,
+  );
+  await perform(rue, "take", undefined, "routes");
+  await perform(rue, "move", "station");
+  assert.equal((await snapshot(rue)).world.actors.rue.place, "station");
+  await ownAvatarFirst(rue);
+  await rue.reload();
+  await rue.locator('#hand [data-card="rue"]').waitFor();
+  await dismissDiscoveries(rue);
+  assert(await actionFor(rue, "move", "train"));
+  await perform(rue, "move", "train");
+
   await dismissDiscoveries(mara);
   await mara.locator('#hand [data-card="mask"]').waitFor();
   assert.equal(await mara.locator('#hand [data-card="pond"]').count(), 0);
@@ -493,6 +533,7 @@ try {
   await mara.setViewportSize({ width: 390, height: 844 });
   await perform(mara, "take", undefined, "mask");
   await perform(mara, "move", "pond");
+  await ownAvatarFirst(mara);
   await perform(vale, "light", undefined, "lamp");
   await perform(mara, "move", "attic");
   assert.equal(

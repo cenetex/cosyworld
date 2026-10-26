@@ -158,9 +158,10 @@ and show a scene error. Per-person and shared play budgets bound usage.
 | Orin | Game-tile bridge | Games pavilion |
 | Ada | Open seam | Sail loft |
 
-A future Paris journey can depart from the existing station. Rue's carriage can
-arrive there for boarding. Its route board reveals the door to her home at the
-pond while that item is present there.
+A future Paris journey can depart from the existing station. Rue's carriage opens from
+the station while her route board is present there. Carrying the board inside
+the carriage opens the way back to the station. The saved crossing IDs stay
+stable across the version 5 upgrade; earlier journals retain their pond route.
 
 ## Art
 

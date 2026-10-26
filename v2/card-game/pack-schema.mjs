@@ -1087,11 +1087,14 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     );
   }
 
+  // The base world owns travel between its hub places. A pack may attach
+  // different rooms to different points in that connected hub.
   // Every pack place is reachable from the entry, the entry is reachable from
   // the hub, and some pack place has a crossing back to the hub.
   const reached = new Set([pack.entry]);
   for (const id of reached)
     for (const to of [
+      ...(hub.places.includes(id) ? hub.places : []),
       ...(places[id]?.exits || []),
       ...Object.values(pack.transports || {})
         .filter((t) => Array.isArray(t.docks) && t.docks.includes(id))

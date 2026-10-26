@@ -67,48 +67,87 @@ fn home_action(w: &World, actor: usize, kind: &str) -> Value {
 }
 #[test]
 fn home_item_pickup_and_drop_control_authoritative_travel_and_replay() {
-    let (_path, mut c, id) = fixture();
-    claim(&mut c, &id, 1);
-    let mut w = full_store::world(&c, &id, now()).unwrap();
-    assert_eq!(w.game["items"]["mask"]["holder"], "theatre");
-    assert!(!w.project(1).unwrap()["exits"]
-        .as_array()
-        .unwrap()
-        .contains(&json!("pond")));
-    let take = home_action(&w, 1, "take");
-    full_store::commit(
-        &c,
-        &id,
-        &mut w,
-        json!({"op":"play","actor":"mara","action":take}),
-        now(),
-    )
-    .unwrap();
-    let travel = home_action(&w, 1, "move");
-    assert_eq!(travel["target"], "pond");
-    let put_down = home_action(&w, 1, "drop");
-    full_store::commit(
-        &c,
-        &id,
-        &mut w,
-        json!({"op":"play","actor":"mara","action":put_down}),
-        now(),
-    )
-    .unwrap();
-    let before = w.clone();
-    assert!(w
-        .apply(&json!({"op":"play","actor":"mara","action":travel}))
+    for (actor, index, item, home, destination) in [
+        ("mara", 1, "mask", "theatre", "pond"),
+        ("rue", 5, "routes", "train", "station"),
+    ] {
+        let (_path, mut c, id) = fixture();
+        claim(&mut c, &id, index);
+        let mut w = full_store::world(&c, &id, now()).unwrap();
+        assert_eq!(w.game["items"][item]["holder"], home);
+        assert!(!w.project(index).unwrap()["exits"]
+            .as_array()
+            .unwrap()
+            .contains(&json!(destination)));
+        let take = home_action(&w, index, "take");
+        full_store::commit(
+            &c,
+            &id,
+            &mut w,
+            json!({"op":"play","actor":actor,"action":take}),
+            now(),
+        )
+        .unwrap();
+        let travel = home_action(&w, index, "move");
+        assert_eq!(travel["target"], destination);
+        let put_down = home_action(&w, index, "drop");
+        full_store::commit(
+            &c,
+            &id,
+            &mut w,
+            json!({"op":"play","actor":actor,"action":put_down}),
+            now(),
+        )
+        .unwrap();
+        let before = w.clone();
+        assert!(w
+            .apply(&json!({"op":"play","actor":actor,"action":travel}))
+            .is_err());
+        assert_eq!(w, before);
+        assert!(full::run(
+            &c,
+            &id,
+            &format!("user{index}"),
+            &body("upgrade", None),
+            now()
+        )
         .is_err());
-    assert_eq!(w, before);
-    assert!(full::run(&c, &id, "user1", &body("upgrade", None), now()).is_err());
-    c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
-    let replayed = full_store::world(&c, &id, now()).unwrap();
-    assert_eq!(replayed, before);
-    assert!(!replayed.project(1).unwrap()["exits"]
-        .as_array()
-        .unwrap()
-        .contains(&json!("pond")));
+        c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+        let replayed = full_store::world(&c, &id, now()).unwrap();
+        assert_eq!(replayed, before);
+        assert!(!replayed.project(index).unwrap()["exits"]
+            .as_array()
+            .unwrap()
+            .contains(&json!(destination)));
+        let take = home_action(&w, index, "take");
+        full_store::commit(
+            &c,
+            &id,
+            &mut w,
+            json!({"op":"play","actor":actor,"action":take}),
+            now(),
+        )
+        .unwrap();
+        let travel = home_action(&w, index, "move");
+        assert_eq!(travel["target"], destination);
+        full_store::commit(
+            &c,
+            &id,
+            &mut w,
+            json!({"op":"play","actor":actor,"action":travel}),
+            now(),
+        )
+        .unwrap();
+        assert_eq!(w.game["actors"][actor]["place"], destination);
+        assert!(w.project(index).unwrap()["exits"]
+            .as_array()
+            .unwrap()
+            .contains(&json!(home)));
+        c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+        assert_eq!(full_store::world(&c, &id, now()).unwrap(), w);
+    }
 }
+
 #[test]
 fn earlier_home_travel_replays_before_one_recorded_rules_upgrade() {
     let path = std::env::temp_dir().join(format!(
@@ -1202,5 +1241,90 @@ fn pruned_shared_recital_keeps_unknown_author_through_upgrade_and_replay() {
         );
         c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
         assert_eq!(full_store::world(&c, &id, now()).unwrap(), upgraded);
+    }
+}
+
+#[test]
+fn released_carriage_route_replays_before_the_station_connection_upgrade() {
+    for keep_checkpoint in [true, false] {
+        let (_file, c, id) = fixture();
+        c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+        c.execute("DELETE FROM card_full_log", []).unwrap();
+        let result =
+            engine::reduce_version(engine::FOURTH_VERSION, json!({"op":"create"})).unwrap();
+        let mut w = World {
+            version: engine::FOURTH_VERSION.into(),
+            game: result["world"].clone(),
+            claimed: [0; 8],
+            present: [0; 8],
+        };
+        full_store::seed(&c, &id, &w, "released-carriage", now()).unwrap();
+        for op in ["claim", "enter"] {
+            full_store::commit(&c, &id, &mut w, json!({"op":op,"actor":"rue"}), now()).unwrap();
+        }
+        for kind in ["take", "move"] {
+            let action = home_action(&w, 5, kind);
+            if kind == "move" {
+                assert_eq!(action["target"], "pond");
+            }
+            full_store::commit(
+                &c,
+                &id,
+                &mut w,
+                json!({"op":"play","actor":"rue","action":action}),
+                now(),
+            )
+            .unwrap();
+        }
+        let earlier = w.clone();
+        if !keep_checkpoint {
+            c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+        }
+        w = full_store::world(&c, &id, now()).unwrap();
+        for key in ["actors", "items", "log", "crossings"] {
+            assert_eq!(w.game[key], earlier.game[key]);
+        }
+        assert_eq!(w.version, engine::VERSION);
+        assert!(!w.project(5).unwrap()["exits"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("train")));
+        let action = w.project(5).unwrap()["actions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|a| a["kind"] == "move" && a["target"] == "station")
+            .unwrap()
+            .clone();
+        full_store::commit(
+            &c,
+            &id,
+            &mut w,
+            json!({"op":"play","actor":"rue","action":action}),
+            now(),
+        )
+        .unwrap();
+        assert!(w.project(5).unwrap()["exits"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("train")));
+        let action = w.project(5).unwrap()["actions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|a| a["kind"] == "move" && a["target"] == "train")
+            .unwrap()
+            .clone();
+        full_store::commit(
+            &c,
+            &id,
+            &mut w,
+            json!({"op":"play","actor":"rue","action":action}),
+            now(),
+        )
+        .unwrap();
+        assert_eq!(w.game["actors"]["rue"]["place"], "train");
+        c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+        assert_eq!(full_store::world(&c, &id, now()).unwrap(), w);
     }
 }

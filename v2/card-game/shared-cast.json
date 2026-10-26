@@ -74,7 +74,7 @@
       "home": {
         "id": "belfry",
         "name": "Sunken belfry",
-        "text": "The great bell hangs in a dry chamber. Fish drift beyond windows filled with the pond’s blue water.",
+        "text": "The great bell hangs in a dry chamber. Fish drift beyond windows filled with the pond\u2019s blue water.",
         "image": "assets/shared/places/belfry.png",
         "entrance": {
           "name": "Diving bell",
@@ -153,8 +153,10 @@
         "image": "assets/shared/places/train.png",
         "entrance": {
           "name": "Carriage door",
-          "text": "The route board opens a carriage door beside the water. Morning shines through the far window."
-        }
+          "text": "The route board opens a carriage door at the station. Morning shines through the far window."
+        },
+        "connection": "station",
+        "returnTravel": "back to the station"
       },
       "image": "assets/shared/characters/rue.png"
     },
