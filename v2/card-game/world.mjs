@@ -1819,6 +1819,7 @@ function roamingAPI(s) {
     itemPlace: (id) => itemPlace(s, id),
     route: (from, to, actor) => routeBetween(s, from, to, actor),
     initialEdges: initialRouteEdges,
+    active: (place) => entityActive(s, place),
     visibleEdges: visibleRouteEdges,
     witnessedEdges: (actor) => witnessedRouteEdges(s, actor),
     exits: (from, actor, previous = null) => exits(s, from, actor, previous),

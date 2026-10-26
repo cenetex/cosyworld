@@ -243,7 +243,7 @@ function entityEnabled(world, id) {
   if (!pack.release || state.scope === "full") return true;
   if (pack.recital?.actor === id)
     return (
-      (!!recitalVisit(world, pack) || !!world.roamingQuests?.[id]?.target) &&
+      (roamingQuestActor(id) || !!recitalVisit(world, pack)) &&
       entityEnabled(world, world.actors[id].place)
     );
   return [pack.release.places, pack.release.avatars, pack.release.items].some(
@@ -509,7 +509,8 @@ export function validatePackStates(world) {
     for (const [id, actor] of Object.entries(pack.avatars))
       if (
         !entityEnabled(world, id) &&
-        (world.actors[id]?.place !== actor.place ||
+        ((world.actors[id]?.place !== actor.place &&
+          !actor.previousHomes?.includes(world.actors[id]?.place)) ||
           world.actors[id]?.crossed !== 0 ||
           world.actors[id]?.lastTalk !== -9 ||
           owns(state.met, id))

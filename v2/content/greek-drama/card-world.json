@@ -633,8 +633,9 @@
     "greek-rhapsode": {
       "name": "The Bard",
       "text": "He keeps the words of the journey in a song.",
-      "place": "greek-argolid-road",
-      "home": "greek-argolid-road",
+      "place": "greek-harbor",
+      "home": "greek-harbor",
+      "previousHomes": ["greek-argolid-road"],
       "values": {
         "greek-provisions": 2
       },

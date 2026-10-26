@@ -1,4 +1,5 @@
 import { controlledByHuman, humanAvatar } from "./human-cast.mjs";
+import forest from "./forest.json" with { type: "json" };
 
 // Pack-authored songs grow from durable choices. A completed deed brings the
 // singer to that player's next room; ordinary turns leave the visit pending.
@@ -67,7 +68,7 @@ export function recitalFacts(world, packs, actor) {
     `Your song is ${poem.title}. These are the traveler's earned words, in order. Sing a couplet when addressed; keep the whole journey in mind.`,
     ...poem.stanzas.map((s, i) => {
       const traveler = world.packs[pack.id].recitals[s.id].actor;
-      return `Verse ${i + 1}, ${humanAvatar(traveler)?.name || "an earlier traveler"}: ${s.lines.join(" ")}`;
+      return `Verse ${i + 1}, ${humanAvatar(traveler)?.name || forest.people[traveler]?.name || packs.find((p) => p.avatars?.[traveler])?.avatars[traveler].name || "an earlier traveler"}: ${s.lines.join(" ")}`;
     }),
   ];
 }
@@ -94,7 +95,7 @@ export function validRecitals(world, pack) {
     return (
       r &&
       Object.keys(r).sort().join() === "actor,visit" &&
-      (r.actor === null || humanAvatar(r.actor)) &&
+      (r.actor === null || Object.hasOwn(world.actors, r.actor)) &&
       (r.visit === null ||
         (v.summons &&
           Number.isSafeInteger(r.visit) &&
@@ -118,7 +119,9 @@ export function upgradeRecitals(world, packs) {
         (e) => e.choiceId === v.choice && e.packId === pack.id,
       );
       state.recitals[v.choice] = {
-        actor: humanAvatar(event?.actorId) ? event.actorId : null,
+        actor: Object.hasOwn(world.actors, event?.actorId)
+          ? event.actorId
+          : null,
         visit: null,
       };
     }

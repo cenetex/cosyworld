@@ -407,6 +407,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "place",
         "travels",
         "roamingQuest",
+        "previousHomes",
         "standoffs",
         "persona",
         "voice",
@@ -435,6 +436,14 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         (a.roamingQuest === undefined ||
           (a.roamingQuest === "latest-completion" && a.travels !== false)),
       `avatar ${id} may only set travels or standoffs to false`,
+    );
+    check(
+      a.previousHomes === undefined ||
+        (a.roamingQuest &&
+          Array.isArray(a.previousHomes) &&
+          a.previousHomes.length <= 8 &&
+          a.previousHomes.every((p) => owns(places, p))),
+      `avatar ${id} previous homes need authored places`,
     );
     check(
       keysOk(a.tastes, ["likes", "sore", "reason", "noise"]) &&

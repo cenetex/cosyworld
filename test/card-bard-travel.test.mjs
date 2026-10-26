@@ -51,9 +51,40 @@ function shared() {
   return s;
 }
 describe("ordinary bard travel", () => {
+  it("starts at the active harbor and preserves an introduced bard's saved place", () => {
+    const fresh = createWorld();
+    expect(fresh.actors[singer].place).toBe("greek-harbor");
+    const old = createWorld();
+    old.packs["greek-drama"].scope = "full";
+    old.actors[singer].place = "greek-argolid-road";
+    old.actors[singer].lastTalk = 0;
+    delete old.roamingQuests;
+    delete old.routeKnowledge;
+    const loaded = decodeSave(JSON.stringify(old));
+    expect(loaded.actors[singer].place).toBe("greek-argolid-road");
+    expect(loaded.actors[singer].lastTalk).toBe(0);
+  });
+  it("keeps an untouched old spawn through migration and explores its authored exit", () => {
+    const old = createWorld();
+    old.actors[singer].place = "greek-argolid-road";
+    delete old.roamingQuests;
+    delete old.routeKnowledge;
+    complete(old, "station");
+    let s = decodeSave(JSON.stringify(old));
+    expect(s.actors[singer].place).toBe("greek-argolid-road");
+    s = act(s);
+    expect(s.actors[singer].place).toBe("greek-harbor");
+    expect(s.roamingQuests[singer].target.locationId).toBe("station");
+    expect(
+      Object.values(s.quests.records).some(
+        (q) => q.program.steps[0]?.passage?.kind === "directions",
+      ),
+    ).toBe(true);
+  });
   it("takes one legal offscreen step each turn and stays at an exact AI completion site", () => {
     let s = createWorld();
     s.actors.vale.place = "attic";
+    s.actors[singer].place = "greek-argolid-road";
     const receipt = complete(s, "greek-well", "keeper", {
       kind: "item",
       id: "bell",
@@ -149,7 +180,9 @@ describe("ordinary bard travel", () => {
     ]);
     complete(s, "greek-well");
     s = act(s);
-    const q = s.roamingQuests[singer].blocked.questKey;
+    const q = Object.values(s.quests.records).find(
+      (q) => q.program.steps[0]?.passage?.kind === "directions",
+    ).key;
     // Give the helper a local turn next to the request.
     s.actors.keeper.place = "pond";
     expect(plan(s, "keeper").action).toMatchObject({
@@ -170,8 +203,10 @@ describe("ordinary bard travel", () => {
     s.routeKnowledge[singer] = [];
     complete(s, "greek-well");
     s = act(s);
-    const q = s.roamingQuests[singer].blocked.questKey;
-    expect(s.roamingQuests[singer].blocked.kind).toBe("directions");
+    const q = Object.values(s.quests.records).find(
+      (q) => q.program.steps[0]?.passage?.kind === "directions",
+    ).key;
+    expect(s.quests.records[q].holder).toEqual({ kind: "avatar", id: singer });
     joinQuest(s, "vale", q);
     // A helper's witnessed route is durable route knowledge.
     rememberRoutes(s, "vale", [

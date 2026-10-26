@@ -141,14 +141,17 @@ function requestHelp(world, actor, state, from, to, kind, api) {
       q.cause?.kind === "help" &&
       q.cause.rootId === cause.rootId &&
       q.program.steps[0]?.passage?.actor === actor &&
-      q.program.steps[0].passage.from === from &&
+      (kind === "directions" || q.program.steps[0].passage.from === from) &&
       q.program.steps[0].passage.to === to &&
       q.program.steps[0].passage.kind === kind,
   );
   const record =
     old ||
     addQuestRecord(world, {
-      holder: { kind: "place", id: from },
+      holder:
+        kind === "directions"
+          ? { kind: "avatar", id: actor }
+          : { kind: "place", id: from },
       cause,
       program: {
         id: `help:${actor}:${world.quests.next}`,
@@ -161,7 +164,7 @@ function requestHelp(world, actor, state, from, to, kind, api) {
           {
             items: [],
             avatars: [],
-            location: from,
+            location: kind === "directions" ? null : from,
             passage: { actor, from, to, kind },
           },
         ],
@@ -219,10 +222,25 @@ export function roamingPlan(world, actor, api) {
     target,
     (from, to, previous) => api.exits(from, actor, previous).includes(to),
   );
-  const path = openPath || knownRoute(world, actor, here, target);
+  let path = openPath || knownRoute(world, actor, here, target);
   if (!path) {
     requestHelp(world, actor, state, here, target, "directions", api);
-    return null;
+    const edges = world.routeKnowledge[actor] || [];
+    const frontiers = [...new Set(edges.map(([, to]) => to))].filter(
+      (to) =>
+        to !== here && api.active?.(to) && !edges.some(([from]) => from === to),
+    );
+    // An older dormant spawn can leave by an authored open exit. Otherwise
+    // explore only the boundary of its known map, one legal step at a time.
+    if (api.active && !api.active(here))
+      frontiers.push(...api.exits(here, actor));
+    path = frontiers
+      .map((to) => knownRoute(world, actor, here, to))
+      .filter(Boolean)
+      .sort(
+        (a, b) => a.length - b.length || a.at(-1).localeCompare(b.at(-1)),
+      )[0];
+    if (!path) return null;
   }
   const action = api
     .actions(actor)
@@ -319,7 +337,13 @@ export function roamingHelpPlan(world, actor, api) {
     )
       continue;
     const joined = q.participants.includes(actor);
-    if (!joined && q.holder.id !== here) continue;
+    if (
+      !joined &&
+      (q.holder.kind === "avatar"
+        ? world.actors[q.holder.id]?.place
+        : q.holder.id) !== here
+    )
+      continue;
     let action = null;
     if (help.kind === "directions") {
       const knowledge = {

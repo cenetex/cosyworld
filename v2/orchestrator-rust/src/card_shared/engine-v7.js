@@ -403,10 +403,10 @@
     const cause = { kind: "help", rootId: state.target.id };
     const key = `${kind}:${from}>${to}`;
     const old = questRecords(world).find(
-      (q) => unfinished2(q) && q.cause?.kind === "help" && q.cause.rootId === cause.rootId && q.program.steps[0]?.passage?.actor === actor && q.program.steps[0].passage.from === from && q.program.steps[0].passage.to === to && q.program.steps[0].passage.kind === kind
+      (q) => unfinished2(q) && q.cause?.kind === "help" && q.cause.rootId === cause.rootId && q.program.steps[0]?.passage?.actor === actor && (kind === "directions" || q.program.steps[0].passage.from === from) && q.program.steps[0].passage.to === to && q.program.steps[0].passage.kind === kind
     );
     const record3 = old || addQuestRecord(world, {
-      holder: { kind: "place", id: from },
+      holder: kind === "directions" ? { kind: "avatar", id: actor } : { kind: "place", id: from },
       cause,
       program: {
         id: `help:${actor}:${world.quests.next}`,
@@ -416,7 +416,7 @@
           {
             items: [],
             avatars: [],
-            location: from,
+            location: kind === "directions" ? null : from,
             passage: { actor, from, to, kind }
           }
         ]
@@ -464,10 +464,19 @@
       target,
       (from, to, previous) => api.exits(from, actor, previous).includes(to)
     );
-    const path = openPath || knownRoute(world, actor, here, target);
+    let path = openPath || knownRoute(world, actor, here, target);
     if (!path) {
       requestHelp(world, actor, state, here, target, "directions", api);
-      return null;
+      const edges = world.routeKnowledge[actor] || [];
+      const frontiers = [...new Set(edges.map(([, to]) => to))].filter(
+        (to) => to !== here && api.active?.(to) && !edges.some(([from]) => from === to)
+      );
+      if (api.active && !api.active(here))
+        frontiers.push(...api.exits(here, actor));
+      path = frontiers.map((to) => knownRoute(world, actor, here, to)).filter(Boolean).sort(
+        (a, b) => a.length - b.length || a.at(-1).localeCompare(b.at(-1))
+      )[0];
+      if (!path) return null;
     }
     const action = api.actions(actor).find((a) => a.kind === "move" && a.target === path[1]);
     if (!action) {
@@ -513,7 +522,8 @@
       if (!unfinished2(q) || q.cause?.kind !== "help" || !help || help.actor === actor)
         continue;
       const joined = q.participants.includes(actor);
-      if (!joined && q.holder.id !== here) continue;
+      if (!joined && (q.holder.kind === "avatar" ? world.actors[q.holder.id]?.place : q.holder.id) !== here)
+        continue;
       let action = null;
       if (help.kind === "directions") {
         const knowledge = {
@@ -1518,7 +1528,7 @@
       `Your song is ${poem.title}. These are the traveler's earned words, in order. Sing a couplet when addressed; keep the whole journey in mind.`,
       ...poem.stanzas.map((s, i) => {
         const traveler = world.packs[pack.id].recitals[s.id].actor;
-        return `Verse ${i + 1}, ${humanAvatar(traveler)?.name || "an earlier traveler"}: ${s.lines.join(" ")}`;
+        return `Verse ${i + 1}, ${humanAvatar(traveler)?.name || forest_default.people[traveler]?.name || packs.find((p) => p.avatars?.[traveler])?.avatars[traveler].name || "an earlier traveler"}: ${s.lines.join(" ")}`;
       })
     ];
   }
@@ -1533,7 +1543,7 @@
     if (Object.keys(records).length !== verses.length) return false;
     return verses.every((v) => {
       const r = records[v.choice];
-      return r && Object.keys(r).sort().join() === "actor,visit" && (r.actor === null || humanAvatar(r.actor)) && (r.visit === null || v.summons && Number.isSafeInteger(r.visit) && r.visit >= state.receipts[v.choice] && r.visit <= world.turn);
+      return r && Object.keys(r).sort().join() === "actor,visit" && (r.actor === null || Object.hasOwn(world.actors, r.actor)) && (r.visit === null || v.summons && Number.isSafeInteger(r.visit) && r.visit >= state.receipts[v.choice] && r.visit <= world.turn);
     });
   }
   function upgradeRecitals(world, packs) {
@@ -1547,7 +1557,7 @@
           (e) => e.choiceId === v.choice && e.packId === pack.id
         );
         state.recitals[v.choice] = {
-          actor: humanAvatar(event?.actorId) ? event.actorId : null,
+          actor: Object.hasOwn(world.actors, event?.actorId) ? event.actorId : null,
           visit: null
         };
       }
@@ -2461,8 +2471,9 @@
           "greek-rhapsode": {
             name: "The Bard",
             text: "He keeps the words of the journey in a song.",
-            place: "greek-argolid-road",
-            home: "greek-argolid-road",
+            place: "greek-harbor",
+            home: "greek-harbor",
+            previousHomes: ["greek-argolid-road"],
             values: {
               "greek-provisions": 2
             },
@@ -6147,6 +6158,7 @@
           "place",
           "travels",
           "roamingQuest",
+          "previousHomes",
           "standoffs",
           "persona",
           "voice",
@@ -6169,6 +6181,10 @@
       check(
         [a.travels, a.standoffs].every((v) => v === void 0 || v === false) && (a.roamingQuest === void 0 || a.roamingQuest === "latest-completion" && a.travels !== false),
         `avatar ${id} may only set travels or standoffs to false`
+      );
+      check(
+        a.previousHomes === void 0 || a.roamingQuest && Array.isArray(a.previousHomes) && a.previousHomes.length <= 8 && a.previousHomes.every((p) => owns(places2, p)),
+        `avatar ${id} previous homes need authored places`
       );
       check(
         keysOk(a.tastes, ["likes", "sore", "reason", "noise"]) && textOk(a.tastes?.likes, 120) && textOk(a.tastes?.sore, 120) && textOk(a.tastes?.reason, 240) && (a.tastes?.noise === void 0 || templateOk(a.tastes.noise, 240, ["actor"])),
@@ -7176,7 +7192,7 @@
     if (!state || !conditionsMet(world, e.packId, e.requires)) return false;
     if (!pack.release || state.scope === "full") return true;
     if (pack.recital?.actor === id)
-      return (!!recitalVisit(world, pack) || !!world.roamingQuests?.[id]?.target) && entityEnabled(world, world.actors[id].place);
+      return (roamingQuestActor(id) || !!recitalVisit(world, pack)) && entityEnabled(world, world.actors[id].place);
     return [pack.release.places, pack.release.avatars, pack.release.items].some(
       (ids3) => ids3.includes(id)
     );
@@ -7336,7 +7352,7 @@
       if (!equals(choices, state.choices) || !equals(flags, state.flags))
         return false;
       for (const [id, actor] of Object.entries(pack.avatars))
-        if (!entityEnabled(world, id) && (world.actors[id]?.place !== actor.place || world.actors[id]?.crossed !== 0 || world.actors[id]?.lastTalk !== -9 || owns2(state.met, id)))
+        if (!entityEnabled(world, id) && (world.actors[id]?.place !== actor.place && !actor.previousHomes?.includes(world.actors[id]?.place) || world.actors[id]?.crossed !== 0 || world.actors[id]?.lastTalk !== -9 || owns2(state.met, id)))
           return false;
       for (const [id, item] of Object.entries(pack.items || {}))
         if (!entityEnabled(world, id) && (world.items[id]?.holder !== item.holder || world.items[id]?.history?.length !== 0))
@@ -10406,6 +10422,7 @@
       itemPlace: (id) => itemPlace2(s, id),
       route: (from, to, actor) => routeBetween(s, from, to, actor),
       initialEdges: initialRouteEdges,
+      active: (place) => entityActive(s, place),
       visibleEdges: visibleRouteEdges,
       witnessedEdges: (actor) => witnessedRouteEdges(s, actor),
       exits: (from, actor, previous = null) => exits(s, from, actor, previous),
