@@ -41,7 +41,7 @@ Then run every row that matches the change:
 | Surface | Required checks |
 | --- | --- |
 | Markdown-only docs | inspect links/commands; `npm run check:version` |
-| Card table (`v2/card-game/`) | `npm test`; `npm run play:cards` and play the changed path at desktop and phone width; a new public file is listed in `serve.mjs`, `card_game.rs`, and `smoke-deployed-card-game.mjs` |
+| Card table (`v2/card-game/`) | `npm test`; `npm run play:cards` and play the changed path at desktop and phone width; a new public file joins `public-assets.mjs`; run `npm run v2:card:assets:build` and commit the generated Rust asset module |
 | Cross-surface tests (`test/`) | `npm test` |
 | Pack/content/compiler | `npm run v2:worldpack` |
 | C kernel or ABI | `npm run v2:kernel`; `npm run v2:rust:test` |

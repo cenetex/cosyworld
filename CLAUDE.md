@@ -59,9 +59,10 @@ client, not the server. Retired prototypes leave the tree, and any idea worth
 keeping moves into `docs/backlog/` first.
 
 - `v2/card-game/`: the card table prototype: a client-only deterministic model,
-  UI, text client, art (`assets/PROVENANCE.md`), and a dev server. A new
-  public file must be listed in `serve.mjs`, `orchestrator-rust/src/card_game.rs`,
-  and `scripts/smoke-deployed-card-game.mjs`.
+  UI, text client, art (`assets/PROVENANCE.md`), and a dev server.
+  `public-assets.mjs` owns the public file list. After adding a public file, run
+  `npm run v2:card:assets:build` and commit the generated Rust asset module.
+  Pack media and room tracks join the list through their existing registries.
 - `v2/core-c/`: deterministic rules kernel, public ABI, and C tests.
 - `v2/orchestrator-rust/`: Axum server, C bridge, journal/replay, snapshots,
   browser client, SSE, authentication, moderation, AI, and projections.

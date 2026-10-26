@@ -19,6 +19,20 @@ keeps the useful ideas from the retired standalone engine, with its source
 revision for reference. Existing player saves use `world.mjs` and
 `legacy-saves.mjs`; keep their migrations with changes to the save format.
 
+## Public assets
+
+`public-assets.mjs` defines the public files and their content types. It includes
+room music and pack media from their registries. The local server and release
+smoke read that list. Generate the Rust server's embedded list with:
+
+```sh
+npm run v2:card:assets:build
+```
+
+Commit `v2/orchestrator-rust/src/card_assets.rs` with each asset-list change.
+`npm run v2:card:pack:build` rebuilds both pack data and the Rust asset list.
+`npm run v2:card:pack:check` checks both during CI and release gates.
+
 ## Image-first presentation
 
 Card faces contain the illustration and a small name. Tapping a card toggles
