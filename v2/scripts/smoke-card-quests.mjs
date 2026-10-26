@@ -33,12 +33,19 @@ try {
         JSON.stringify({ enabled: false }),
       );
       window.questReveals = [];
+      window.questMotions = [];
       window.addEventListener("DOMContentLoaded", () => {
         new MutationObserver(() => {
           const dialog = document.querySelector("#unveil-dialog");
+          if (dialog?.open && dialog.dataset.direction === "fulfill") {
+            const phase = dialog.dataset.phase;
+            if (window.questMotions.at(-1) !== phase)
+              window.questMotions.push(phase);
+          }
           if (
             dialog?.open &&
             dialog.dataset.phase === "reveal" &&
+            dialog.dataset.direction !== "fulfill" &&
             dialog.querySelector(".card[data-quest]")
           ) {
             const id = dialog.querySelector(".card").dataset.quest;
@@ -183,9 +190,7 @@ try {
         let i = 0;
         i < 20 &&
         !(await page
-          .locator(
-            '#hand .card-frame[data-raised="true"] [data-fulfilled="true"]',
-          )
+          .locator('#unveil-dialog[open] [data-fulfilled="true"]')
           .count());
         i++
       ) {
@@ -193,7 +198,7 @@ try {
         await page.waitForTimeout(60);
       }
       await page.waitForSelector(
-        '#hand .card-frame[data-raised="true"] [data-fulfilled="true"]',
+        '#unveil-dialog[open] [data-fulfilled="true"]',
       );
       assert.equal(
         await page.locator("#hand").getAttribute("data-cooling"),
@@ -201,9 +206,9 @@ try {
       );
       await page.waitForTimeout(350);
       assert.equal(
-        await card("player-quest").evaluate(
-          (card) => getComputedStyle(card).opacity,
-        ),
+        await page
+          .locator('#unveil-take [data-fulfilled="true"]')
+          .evaluate((card) => getComputedStyle(card).opacity),
         "1",
       );
       await page.screenshot({
@@ -213,7 +218,9 @@ try {
         await page.locator("#menu-button").click();
         await page.waitForTimeout(2500);
         assert.equal(
-          await card("player-quest").count(),
+          await page
+            .locator('#unveil-dialog[open] [data-fulfilled="true"]')
+            .count(),
           1,
           "Menu pauses completion",
         );
@@ -221,6 +228,11 @@ try {
       }
       await ready();
       assert.equal(await card("player-quest").count(), 0);
+      assert.equal(
+        await page.evaluate(() => window.questMotions.includes("outward")),
+        width !== 320,
+        "completion uses the discovery flight in reverse with full motion",
+      );
       // Resume a later purpose with an unfinished line. The new card waits for it.
       const nextQuestKey = await page.evaluate(async (key) => {
         const { ensureCollectedQuest, pursueQuest } = await import(
