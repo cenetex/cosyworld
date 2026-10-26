@@ -387,7 +387,7 @@ try {
   await until(
     async () =>
       (await vale.locator("#dialogue-text").textContent()).includes(
-        "A ripple reaches the shore.",
+        "quiet breaths.",
       ),
     "the shared room detail stays visible",
   );
