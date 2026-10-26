@@ -1,6 +1,6 @@
 # Shared worlds
 
-Open **Share a world** on the card table. Sign in with a passkey, create a world,
+Open **Share** on the card table. Sign in with a passkey, create a world,
 choose an avatar, and copy its share link. Each world holds eight avatar claims.
 Each account claims one avatar per world. Each room holds four present people.
 An invitation grants access to the avatar picker. Claims persist until released.
