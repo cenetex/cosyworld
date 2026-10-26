@@ -1,3 +1,4 @@
+import { arriveRecitals } from "./pack-recital.mjs";
 import {
   currentActor,
   humanAvatar,
@@ -1510,6 +1511,10 @@ function perform(s, a, capture = () => {}, round = null) {
     default:
       throw new Error("Unknown act.");
   }
+  const recitals =
+    here !== s.actors[a.actor].place
+      ? arriveRecitals(s, packDefinitions, a.actor)
+      : [];
   meetCast(s);
   // Record the completed physical act while its shared use is still agreed.
   // Reactions can change who is willing to share on the following play.
@@ -1533,6 +1538,18 @@ function perform(s, a, capture = () => {}, round = null) {
       : {}),
     ...(a.kind === "attack" ? { locationId: here } : {}),
   });
+  for (const visit of recitals)
+    addLog(
+      s,
+      "World",
+      `${nameOf(visit.actorId)} waits here with a song of ${who}'s journey.`,
+      {
+        ...visit,
+        kind: "narration",
+        verb: "move",
+        witnesses: [a.actor, visit.actorId],
+      },
+    );
   if (arrival) {
     const { text: arrivalText, ...details } = arrival;
     addLog(s, "World", arrivalText, details);

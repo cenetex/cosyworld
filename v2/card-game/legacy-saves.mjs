@@ -1,7 +1,8 @@
 import { newProgress, questPrograms } from "./quests.mjs";
 import { migrateMemories, newMemories, rememberEvent } from "./memory.mjs";
 import { migrateLife } from "./life.mjs";
-import { isPackActor } from "./pack-registry.mjs";
+import { upgradeRecitals } from "./pack-recital.mjs";
+import { isPackActor, packDefinitions } from "./pack-registry.mjs";
 
 // Upgrade historical records before the world validates the current save.
 // World-owned helpers keep pack installation and generated quests on the same
@@ -85,6 +86,7 @@ export function upgradeSave(
     // A pack mounted after this save was written joins it fresh.
     installPacks(s);
   }
+  if (s?.schema === 7) upgradeRecitals(s, packDefinitions);
   migrateLife(s, profileOf);
   return s;
 }
@@ -147,7 +149,10 @@ export function upgradeSteamClockSave(s) {
       current = [...allowed, "sounds", "scope"];
     const keys =
       old && typeof old === "object" ? Object.keys(old).sort().join() : "";
-    if (keys === current.sort().join()) {
+    if (
+      keys === current.sort().join() ||
+      keys === [...current, "recitals"].sort().join()
+    ) {
       if (s.locations?.pond?.shipSignal !== undefined)
         throw new Error("Conflicting legacy lamp signal.");
       return;

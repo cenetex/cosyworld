@@ -9,13 +9,18 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub(super) const VERSION: &str = "full-card-world/4";
+pub(super) const VERSION: &str = "full-card-world/5";
 pub(super) const PREVIOUS_VERSION: &str = "full-card-world/3";
 pub(super) const LEGACY_VERSION: &str = "full-card-world/2";
-const SOURCE: &str = include_str!("engine-v4.js");
+pub(super) const FOURTH_VERSION: &str = "full-card-world/4";
+const SOURCE: &str = include_str!("engine-v5.js");
+const FOURTH_SOURCE: &str = include_str!("engine-v4.js");
 // Released rule bundles retain the exact semantics of their journal entries.
 const PREVIOUS_SOURCE: &str = include_str!("engine-v3.js");
 const LEGACY_SOURCE: &str = include_str!("engine-v2.js");
+pub(super) fn historical(version: &str) -> bool {
+    matches!(version, LEGACY_VERSION | PREVIOUS_VERSION | FOURTH_VERSION)
+}
 const MAX_BYTES: usize = 4 * 1024 * 1024;
 const CACHE_ENTRIES: usize = 32;
 const CACHE_BYTES: usize = 4 * 1024 * 1024;
@@ -59,6 +64,7 @@ pub(super) fn reduce_version(version: &str, request: Value) -> Result<Value> {
     let source = match version {
         VERSION => SOURCE,
         PREVIOUS_VERSION => PREVIOUS_SOURCE,
+        FOURTH_VERSION => FOURTH_SOURCE,
         LEGACY_VERSION => LEGACY_SOURCE,
         _ => return Err("This world needs a supported rules version.".into()),
     };

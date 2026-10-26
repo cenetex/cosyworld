@@ -77,7 +77,7 @@ pub(super) fn world(c: &Connection, id: &str, now: i64) -> Result<World> {
         seq = s;
     }
     if let Some(mut w) = state {
-        if w.version == engine::LEGACY_VERSION || w.version == engine::PREVIOUS_VERSION {
+        if engine::historical(&w.version) {
             let from = w.version.clone();
             commit(
                 c,

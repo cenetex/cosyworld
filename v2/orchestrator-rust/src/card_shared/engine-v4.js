@@ -358,6 +358,94 @@
     ])
   );
 
+  // v2/card-game/pack-recital.mjs
+  function recordRecital(world, pack, choice, actor) {
+    if (pack.recital?.verses.some((v) => v.choice === choice))
+      world.packs[pack.id].recitals[choice] = { actor, visit: null };
+  }
+  function arriveRecitals(world, packs, actor) {
+    if (!controlledByHuman(world, actor)) return [];
+    const arrivals = [];
+    for (const pack of packs) {
+      if (!pack.recital) continue;
+      const records = world.packs[pack.id].recitals;
+      const pending = pack.recital.verses.filter(
+        (v) => v.summons && records[v.choice]?.actor === actor && records[v.choice].visit === null
+      );
+      if (!pending.length) continue;
+      const singer = pack.recital.actor;
+      const from = world.actors[singer].place;
+      const to = world.actors[actor].place;
+      for (const verse of pending) records[verse.choice].visit = world.turn;
+      world.actors[singer].place = to;
+      arrivals.push({ actorId: singer, fromLocationId: from, locationId: to });
+    }
+    return arrivals;
+  }
+  function recitalVisit(world, pack) {
+    return Math.max(
+      0,
+      ...Object.values(world.packs?.[pack.id]?.recitals || {}).map(
+        (r) => r.visit || 0
+      )
+    );
+  }
+  function recitalPoem(world, pack, through = Infinity) {
+    const receipts = world.packs?.[pack.id]?.receipts || {};
+    const stanzas = (pack.recital?.verses || []).filter((v) => receipts[v.choice] && receipts[v.choice] <= through).sort((a, b) => receipts[a.choice] - receipts[b.choice]).map((v) => ({
+      id: v.choice,
+      turn: receipts[v.choice],
+      questId: v.quest,
+      lines: v.after && receipts[v.after.choice] < receipts[v.choice] ? v.after.lines : v.lines
+    }));
+    return { title: pack.recital?.title, stanzas };
+  }
+  function recitalFacts(world, packs, actor) {
+    const pack = packs.find((p) => p.recital?.actor === actor);
+    if (!pack) return [];
+    const visit = recitalVisit(world, pack);
+    if (!visit) return [];
+    const poem = recitalPoem(world, pack, visit - 1);
+    return [
+      `Your song is ${poem.title}. These are the traveler's earned words, in order. Sing a couplet when addressed; keep the whole journey in mind.`,
+      ...poem.stanzas.map((s, i) => {
+        const traveler = world.packs[pack.id].recitals[s.id].actor;
+        return `Verse ${i + 1}, ${humanAvatar(traveler).name}: ${s.lines.join(" ")}`;
+      })
+    ];
+  }
+  function validRecitals(world, pack) {
+    if (!pack.recital) return true;
+    const state = world.packs[pack.id], records = state.recitals;
+    if (!records || typeof records !== "object" || Array.isArray(records) || !state.receipts || typeof state.receipts !== "object" || Array.isArray(state.receipts))
+      return false;
+    const verses = pack.recital.verses.filter(
+      (v) => Object.hasOwn(state.receipts, v.choice)
+    );
+    if (Object.keys(records).length !== verses.length) return false;
+    return verses.every((v) => {
+      const r = records[v.choice];
+      return r && Object.keys(r).sort().join() === "actor,visit" && humanAvatar(r.actor) && (r.visit === null || v.summons && Number.isSafeInteger(r.visit) && r.visit > state.receipts[v.choice] && r.visit <= world.turn);
+    });
+  }
+  function upgradeRecitals(world, packs) {
+    for (const pack of packs) {
+      const state = world.packs?.[pack.id];
+      if (!pack.recital || !state || state.recitals !== void 0) continue;
+      state.recitals = {};
+      for (const v of pack.recital.verses) {
+        if (!Object.hasOwn(state.receipts || {}, v.choice)) continue;
+        const event = world.log?.find(
+          (e) => e.choiceId === v.choice && e.packId === pack.id
+        );
+        state.recitals[v.choice] = {
+          actor: event?.actorId || currentActor(world),
+          visit: null
+        };
+      }
+    }
+  }
+
   // v2/card-game/shared-rules.mjs
   var command = Object.freeze({
     claim: 1,
@@ -1268,21 +1356,23 @@
             }
           },
           "greek-rhapsode": {
-            name: "The Argolid Singer",
-            text: "He carries three accounts of a household's return. Each gives a different place to hear Electra.",
+            name: "The Bard",
+            text: "He keeps the words of the journey in a song.",
             place: "greek-argolid-road",
             home: "greek-argolid-road",
             values: {
               "greek-provisions": 2
             },
-            persona: "A singer who distinguishes the tomb account, palace account, and farmhouse account. Ask which testimony the traveler will pursue. Do not merge their events or claim any killing has occurred in this world.",
-            voice: "A singer who distinguishes the tomb account, palace account, and farmhouse account. Ask which testimony the traveler will pursue. Do not merge their events or claim any killing has occurred in this world.",
+            persona: "A wandering bard who carries the traveler's growing poem. His recorded verses are the traveler's words, sung in their voice. Speak in spare, vivid epic verse. When addressed, sing an earned couplet and connect it to the conversation. Keep each choice and its consequences as recorded. He also knows the separate tomb, palace, and farmhouse accounts of Electra when those places are open.",
+            voice: "A wandering bard who carries the traveler's growing poem. His recorded verses are the traveler's words, sung in their voice. Speak in spare, vivid epic verse. When addressed, sing an earned couplet and connect it to the conversation. Keep each choice and its consequences as recorded. He also knows the separate tomb, palace, and farmhouse accounts of Electra when those places are open.",
             portrait: "assets/greek-drama/chthonic-singer.png",
             tastes: {
               likes: "specific testimony, a patient audience",
               sore: "three incompatible accounts flattened into one",
-              reason: "He carries three accounts of a household's return. Each gives a different place to hear Electra."
-            }
+              reason: "He waits with a verse of the journey."
+            },
+            travels: false,
+            standoffs: false
           },
           "greek-market-neighbor": {
             name: "The Agora Neighbor",
@@ -2178,6 +2268,37 @@
               {
                 kind: "set_flag",
                 key: "greek-concession-public",
+                value: true
+              }
+            ]
+          },
+          {
+            id: "greek-courtyard-permitted-burial",
+            subject: "greek-baker",
+            at: "greek-courtyard",
+            label: "Tell Dione about the grave",
+            text: "Vale tells Dione that the permitted burial is complete. She hears that the brother now lies beneath the earth.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-theban-response",
+                value: "concession"
+              },
+              {
+                kind: "flag",
+                key: "greek-concession-public",
+                value: true
+              },
+              {
+                kind: "flag",
+                key: "greek-burial-performed",
+                value: true
+              }
+            ],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "greek-permitted-burial-public",
                 value: true
               }
             ]
@@ -4413,7 +4534,8 @@
             "greek-guard",
             "greek-baker",
             "greek-elder",
-            "greek-shipmaster"
+            "greek-shipmaster",
+            "greek-rhapsode"
           ],
           items: [
             "greek-water-jar",
@@ -4438,8 +4560,121 @@
             "greek-report-plan",
             "greek-courtyard-burial",
             "greek-courtyard-concession",
+            "greek-courtyard-permitted-burial",
             "greek-courtyard-refusal",
             "greek-courtyard-exposure"
+          ]
+        },
+        recital: {
+          actor: "greek-rhapsode",
+          title: "Before the Burial",
+          verses: [
+            {
+              choice: "greek-return-water-jar",
+              quest: "story-quest-greek-table",
+              lines: [
+                "I set the water by her hands.",
+                "She kept a loaf of bread for me."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-petition-burial",
+              quest: "story-quest-greek-burial",
+              lines: [
+                "Creon has granted this one grave.",
+                "Her brother waits for earth."
+              ],
+              summons: false
+            },
+            {
+              choice: "greek-perform-burial",
+              quest: "story-quest-greek-burial",
+              lines: [
+                "I laid her brother in the earth.",
+                "The king's words crossed the wind."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-perform-permitted-burial",
+              quest: "story-quest-greek-burial",
+              lines: [
+                "Creon gave leave for this one grave.",
+                "I laid her brother in the earth."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-decline-burial",
+              quest: "story-quest-greek-burial",
+              lines: [
+                "I told her I would turn away.",
+                "Her brother waited by the wall."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-report-plan",
+              quest: "story-quest-greek-burial",
+              lines: [
+                "I gave the guard the hidden plan.",
+                "He held it with the king's command."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-courtyard-burial",
+              quest: "story-quest-greek-courtyard",
+              lines: [
+                "I spoke of earth beside her table.",
+                "Dione heard me through."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-courtyard-concession",
+              quest: "story-quest-greek-courtyard",
+              lines: [
+                "I spoke the promise of a grave.",
+                "His body waited in the sun."
+              ],
+              summons: true,
+              after: {
+                choice: "greek-perform-permitted-burial",
+                lines: [
+                  "I told her of the king's consent.",
+                  "She heard the leave that he had given."
+                ]
+              }
+            },
+            {
+              choice: "greek-courtyard-refusal",
+              quest: "story-quest-greek-courtyard",
+              lines: [
+                "I told her how I turned away.",
+                "She kept a place beside her table."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-courtyard-exposure",
+              quest: "story-quest-greek-courtyard",
+              lines: [
+                "I told her what the guard had heard.",
+                "My words lay open on the table."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-courtyard-permitted-burial",
+              quest: "story-quest-greek-courtyard",
+              lines: [
+                "The grave I promised holds him now.",
+                "I brought that word to Dione."
+              ],
+              summons: true
+            }
           ]
         },
         bridge: {
@@ -4565,8 +4800,8 @@
   var textOk = (v, max = 1200) => typeof v === "string" && v.trim().length > 0 && v.length <= max && !/[\u0000-\u001f]/.test(v);
   var intOk = (v, min, max) => Number.isInteger(v) && v >= min && v <= max;
   var keysOk = (o, allowed) => record(o) && Object.keys(o).every((k) => allowed.includes(k));
-  var templateOk = (v, max, names2) => textOk(v, max) && !/[{}]/.test(
-    v.replace(/\{([a-z]+)\}/g, (m, name) => names2.includes(name) ? "" : m)
+  var templateOk = (v, max, names3) => textOk(v, max) && !/[{}]/.test(
+    v.replace(/\{([a-z]+)\}/g, (m, name) => names3.includes(name) ? "" : m)
   );
   function observationProblems(definitions, catalog) {
     if (definitions === void 0) return [];
@@ -4631,7 +4866,8 @@
         "release",
         "sources",
         "observations",
-        "transports"
+        "transports",
+        "recital"
       ]),
       "has an unknown top-level field"
     );
@@ -4714,8 +4950,8 @@
     if (problems2.length) return problems2;
     const places2 = record(pack.places) ? pack.places : {};
     const avatars = record(pack.avatars) ? pack.avatars : {};
-    const items2 = pack.items === void 0 ? {} : pack.items;
-    check(record(items2), "items must be a map");
+    const items3 = pack.items === void 0 ? {} : pack.items;
+    check(record(items3), "items must be a map");
     const fixtures = pack.fixtures === void 0 ? {} : pack.fixtures;
     check(record(places2) && Object.keys(places2).length > 0, "needs places");
     check(record(avatars), "avatars must be a map");
@@ -4724,7 +4960,7 @@
       ...Object.keys(places2),
       ...Object.keys(avatars),
       ...Object.keys(fixtures),
-      ...Object.keys(items2)
+      ...Object.keys(items3)
     ];
     const hubIds = [
       ...hub2?.places || [],
@@ -4887,9 +5123,9 @@
       "bridge values map pack avatars to hub item values from 0 to 20"
     );
     const anyPlace = (id) => owns(places2, id) || hub2?.places?.includes(id);
-    const entity = (id) => owns(places2, id) || owns(avatars, id) || owns(items2, id) || hubIds.includes(id);
+    const entity = (id) => owns(places2, id) || owns(avatars, id) || owns(items3, id) || hubIds.includes(id);
     const pattern = (p, what) => check(
-      keysOk(p, ["verb", "item", "target", "from"]) && SIGNAL_VERBS.includes(p?.verb) && (p.item === void 0 || hub2?.items?.includes(p.item) || owns(items2, p.item)) && (p.target === void 0 || entity(p.target)) && (p.from === void 0 || entity(p.from)),
+      keysOk(p, ["verb", "item", "target", "from"]) && SIGNAL_VERBS.includes(p?.verb) && (p.item === void 0 || hub2?.items?.includes(p.item) || owns(items3, p.item)) && (p.target === void 0 || entity(p.target)) && (p.from === void 0 || entity(p.from)),
       `${what} must match a known verb with hub items or entities`
     );
     const condition2 = (c, what, depth = 0) => {
@@ -4900,7 +5136,7 @@
             ok = keysOk(c, ["kind", "at"]) && Array.isArray(c.at) && c.at.length > 0 && c.at.length <= 4 && new Set(c.at).size === c.at.length && c.at.every((p) => anyPlace(p) || mountedPlaces.includes(p));
             break;
           case "light":
-            ok = keysOk(c, ["kind", "item", "at", "uncovered"]) && (hub2.items.includes(c.item) || owns(items2, c.item)) && Array.isArray(c.at) && c.at.length > 0 && c.at.length <= 4 && c.at.every((p) => anyPlace(p) || mountedPlaces.includes(p)) && (c.uncovered === void 0 || typeof c.uncovered === "boolean");
+            ok = keysOk(c, ["kind", "item", "at", "uncovered"]) && (hub2.items.includes(c.item) || owns(items3, c.item)) && Array.isArray(c.at) && c.at.length > 0 && c.at.length <= 4 && c.at.every((p) => anyPlace(p) || mountedPlaces.includes(p)) && (c.uncovered === void 0 || typeof c.uncovered === "boolean");
             break;
           case "not":
             ok = keysOk(c, ["kind", "condition"]) && depth < 2 && condition2(c.condition, what, depth + 1);
@@ -4915,16 +5151,16 @@
             ok = keysOk(c, ["kind", "key", "value"]) && idOk(c.key) && typeof c.value === "boolean";
             break;
           case "holding":
-            ok = keysOk(c, ["kind", "item", "actor"]) && owns(items2, c.item) && (c.actor === hub2.player || owns(avatars, c.actor));
+            ok = keysOk(c, ["kind", "item", "actor"]) && owns(items3, c.item) && (c.actor === hub2.player || owns(avatars, c.actor));
             break;
           case "shared_world":
             ok = keysOk(c, ["kind"]);
             break;
           case "item_near":
-            ok = keysOk(c, ["kind", "item", "place"]) && owns(items2, c.item) && anyPlace(c.place);
+            ok = keysOk(c, ["kind", "item", "place"]) && owns(items3, c.item) && anyPlace(c.place);
             break;
           case "item_at":
-            ok = keysOk(c, ["kind", "item", "place"]) && owns(items2, c.item) && owns(places2, c.place);
+            ok = keysOk(c, ["kind", "item", "place"]) && owns(items3, c.item) && owns(places2, c.place);
             break;
           case "met":
             ok = keysOk(c, ["kind", "actor"]) && owns(avatars, c.actor);
@@ -4973,20 +5209,20 @@
       if (a.values !== void 0)
         check(
           record(a.values) && Object.entries(a.values).every(
-            ([item, n]) => owns(items2, item) && intOk(n, 0, 20)
+            ([item, n]) => owns(items3, item) && intOk(n, 0, 20)
           ),
           `avatar ${id} values are invalid`
         );
       if (a.desire !== void 0) {
         const d = a.desire;
         check(
-          keysOk(d, ["items", "location", "avatars", "requires"]) && Array.isArray(d.items) && d.items.length <= 3 && d.items.every((i) => owns(items2, i)) && Array.isArray(d.avatars) && d.avatars.length <= 2 && d.avatars.every((i) => owns(avatars, i) || i === hub2.player) && (d.location === null || owns(places2, d.location)),
+          keysOk(d, ["items", "location", "avatars", "requires"]) && Array.isArray(d.items) && d.items.length <= 3 && d.items.every((i) => owns(items3, i)) && Array.isArray(d.avatars) && d.avatars.length <= 2 && d.avatars.every((i) => owns(avatars, i) || i === hub2.player) && (d.location === null || owns(places2, d.location)),
           `avatar ${id} desire is invalid`
         );
         requirements(d.requires, `avatar ${id} desire requires`);
       }
     }
-    for (const [id, i] of Object.entries(items2)) {
+    for (const [id, i] of Object.entries(items3)) {
       check(
         keysOk(i, ["name", "text", "persona", "holder", "art", "requires"]) && textOk(i.name, 120) && textOk(i.text) && textOk(i.persona) && (owns(places2, i.holder) || owns(avatars, i.holder)),
         `item ${id} is invalid`
@@ -5036,7 +5272,7 @@
           flags.add(e.key);
         }
         if (e.kind === "place_item")
-          valid = keysOk(e, ["kind", "item", "place"]) && owns(items2, e.item) && e.place === c.at && (c.requires || []).some(
+          valid = keysOk(e, ["kind", "item", "place"]) && owns(items3, e.item) && e.place === c.at && (c.requires || []).some(
             (r) => r.kind === "holding" && r.item === e.item && r.actor === hub2.player
           );
         check(valid, `choice ${c.id} effect is unsupported or lacks custody`);
@@ -5056,7 +5292,7 @@
     [
       ...Object.values(places2),
       ...Object.values(avatars),
-      ...Object.values(items2),
+      ...Object.values(items3),
       ...routes,
       ...choices
     ].forEach((e) => {
@@ -5069,6 +5305,22 @@
         idOk(g.key) && new Set(g.options).size === g.options.length && g.options.every((o) => writes.get(g.key)?.has(o)) && writes.get(g.key)?.size === g.options.length,
         "continuity options must match authored commitments"
       );
+    if (pack.recital !== void 0) {
+      const r = pack.recital;
+      check(
+        keysOk(r, ["actor", "title", "verses"]) && owns(avatars, r?.actor) && avatars[r.actor].travels === false && avatars[r.actor].standoffs === false && textOk(r.title, 80) && Array.isArray(r.verses) && r.verses.length > 0 && r.verses.length <= 64,
+        "recital needs a stationary singer, a title and up to 64 verses"
+      );
+      const seen = /* @__PURE__ */ new Set();
+      const linesOk = (lines) => Array.isArray(lines) && lines.length === 2 && lines.every((line) => textOk(line, 90));
+      for (const v of Array.isArray(r?.verses) ? r.verses : []) {
+        check(
+          keysOk(v, ["choice", "quest", "lines", "summons", "after"]) && choiceIds.has(v?.choice) && !seen.has(v.choice) && idOk(v.quest) && linesOk(v.lines) && typeof v.summons === "boolean" && (v.after === void 0 || keysOk(v.after, ["choice", "lines"]) && choiceIds.has(v.after.choice) && v.after.choice !== v.choice && linesOk(v.after.lines)),
+          "recital verse needs a unique choice, quest, couplet and summons flag; after may select an earlier deed"
+        );
+        seen.add(v?.choice);
+      }
+    }
     if (problems2.length) return problems2;
     const combinations = groups.reduce(
       (states, g) => states.flatMap(
@@ -5102,7 +5354,7 @@
       for (const [key, all] of [
         ["places", places2],
         ["avatars", avatars],
-        ["items", items2]
+        ["items", items3]
       ])
         check(
           new Set(r[key]).size === r[key].length && r[key].every((id) => owns(all, id)),
@@ -5115,12 +5367,12 @@
       );
       for (const id of r.avatars)
         check(
-          r.places.includes(avatars[id]?.place),
+          r.places.includes(avatars[id]?.place) || pack.recital?.actor === id,
           "release avatar is outside its places"
         );
       for (const id of r.items)
         check(
-          [...r.places, ...r.avatars].includes(items2[id]?.holder),
+          [...r.places, ...r.avatars].includes(items3[id]?.holder),
           "release item has an unavailable holder"
         );
       for (const c of choices.filter((c2) => r.choices.includes(c2.id)))
@@ -5372,6 +5624,7 @@
   var newCrossingState = (c) => c.signal ? { discovered: false, phase: 0, until: 0 } : { discovered: false };
   var newPackRecord = (pack) => ({
     revision: pack.revision,
+    ...pack.recital ? { recitals: {} } : {},
     ...pack.choices ? {
       choices: {},
       flags: {},
@@ -5625,7 +5878,8 @@
           "flags",
           "receipts",
           "met",
-          "scope"
+          "scope",
+          ...pack.recital ? ["recitals"] : []
         ] : ["revision", "sounds"]
       ) || record3.revision !== pack.revision || !exactKeys(
         record3.sounds,
@@ -5717,12 +5971,12 @@
     ...packFixtures
   };
   var packEntity = (id) => owns2(entities, id) ? entities[id] : null;
-  function validatePackLinks(places2, actors2, items2) {
+  function validatePackLinks(places2, actors3, items3) {
     for (const pack of packDefinitions)
       for (const [kind, catalog] of [
         ["places", places2],
-        ["avatars", actors2],
-        ["items", items2]
+        ["avatars", actors3],
+        ["items", items3]
       ])
         for (const id of Object.keys(pack[kind] || {}))
           if (catalog[id]?.packId !== pack.id)
@@ -5759,7 +6013,6 @@
         likes: a.tastes.likes,
         sore: a.tastes.sore,
         home: a.place,
-        quests: !!humanAvatar(id),
         values: Object.fromEntries(
           [...hub.items, ...Object.keys(packThings)].map((item) => [
             item,
@@ -5815,6 +6068,7 @@
     const pack = packDefinition(e.packId), state = packState(world, e.packId);
     if (!state || !conditionsMet(world, e.packId, e.requires)) return false;
     if (!pack.release || state.scope === "full") return true;
+    if (pack.recital?.actor === id && !recitalVisit(world, pack)) return false;
     return [pack.release.places, pack.release.avatars, pack.release.items].some(
       (ids3) => ids3.includes(id)
     );
@@ -5884,6 +6138,7 @@
       }
     }
     state.receipts[choice.id] = world.turn;
+    recordRecital(world, pack, choice.id, action.actor);
     return choice;
   }
   function packFacts(world, id) {
@@ -5923,7 +6178,16 @@
     for (const pack of packDefinitions) {
       if (!pack.choices) continue;
       const state = world.packs[pack.id];
-      if (!record2(state) || state.revision !== pack.revision || !["opening", "full"].includes(state.scope) || Object.keys(state).sort().join() !== ["revision", "sounds", "choices", "flags", "receipts", "met", "scope"].sort().join() || ![state.choices, state.flags, state.receipts, state.met].every(record2) || Object.entries(state.met).some(
+      if (!record2(state) || !validRecitals(world, pack) || state.revision !== pack.revision || !["opening", "full"].includes(state.scope) || Object.keys(state).sort().join() !== [
+        "revision",
+        "sounds",
+        "choices",
+        "flags",
+        "receipts",
+        "met",
+        "scope",
+        ...pack.recital ? ["recitals"] : []
+      ].sort().join() || ![state.choices, state.flags, state.receipts, state.met].every(record2) || Object.entries(state.met).some(
         ([id, turn]) => !owns2(pack.avatars, id) || !conditionsMet(world, pack.id, pack.avatars[id]?.requires) || world.opening && !sharedEnabled(world) && world.opening.met?.[id] !== turn || !Number.isSafeInteger(turn) || turn < 0 || turn > world.turn
       ))
         return false;
@@ -6026,15 +6290,15 @@
   }
   var validConsequence = (c, actor) => c && (["anchor", "oil", "hush"].includes(c.kind) || c.kind === "trust" && [...humanAvatarIds, "moth", "keeper"].includes(c.avatar) && c.avatar !== actor);
   function requiredItems(s, actor, target) {
-    const items2 = [...target.items];
+    const items3 = [...target.items];
     for (const c of target.conditions || []) {
       if (conditionMet2(s, c)) continue;
-      items2.push(c.item);
-      if (c.kind === "covered") items2.push("cloth");
+      items3.push(c.item);
+      if (c.kind === "covered") items3.push("cloth");
       if (c.kind === "lit" && s.items.lamp.fuel === 0)
-        items2.push(s.items.oil.doses ? "oil" : "bell");
+        items3.push(s.items.oil.doses ? "oil" : "bell");
     }
-    return [...new Set(items2)];
+    return [...new Set(items3)];
   }
   function situationPrograms(s, actor, base, api) {
     const {
@@ -6158,7 +6422,7 @@
           )
         );
     }
-    if (reachable.includes("station") && caretakers.length > 0 && canGet("lamp") && (!own("lamp") || mayGive("lamp")) && (s.items.lamp.fuel > 0 || s.items.oil.doses > 0 && canGet("oil"))) {
+    if (reachable.includes("station") && canGet("lamp") && (!own("lamp") || mayGive("lamp")) && (s.items.lamp.fuel > 0 || s.items.oil.doses > 0 && canGet("oil"))) {
       choices.push(
         make(
           "gathering",
@@ -6188,6 +6452,600 @@
       );
     }
     return choices;
+  }
+
+  // v2/card-game/life.mjs
+  var INSPIRATION_MAX = 5;
+  var REST_TURNS = 3;
+  var actors = [...humanAvatarIds, "moth", "keeper"];
+  var items = ["lamp", "oil", "bell", "cloth", ...Object.keys(packThings)];
+  var names = {
+    vale: "Vale",
+    moth: "Pip",
+    keeper: "The keeper",
+    ...Object.fromEntries(
+      Object.entries(packPeople).map(([id, a]) => [id, a.name])
+    )
+  };
+  var itemNames = {
+    ...Object.fromEntries(
+      Object.entries(packThings).map(([id, item]) => [id, item.name])
+    ),
+    lamp: "Lamp",
+    oil: "Oil flask",
+    bell: "Bell",
+    cloth: "Black cloth"
+  };
+  var hopes = {
+    ...humanHopes,
+    vale: {
+      title: "Make the shore a place to belong",
+      keeps: { lamp: "Keep a light ready for shared journeys." },
+      milestones: [
+        { title: "Return a kindness", kinds: ["delivery"] },
+        { title: "Gather in warm light", kinds: ["gathering"] },
+        { title: "Care for the shore", kinds: ["answer", "crossing"] }
+      ]
+    },
+    moth: {
+      title: "Find a warm home with company",
+      keeps: {
+        lamp: "Its warmth makes this place feel like home.",
+        cloth: "Keep the familiar cloth close for comfort."
+      },
+      milestones: [
+        { title: "Share a warm evening", kinds: ["gathering"] },
+        { title: "Care for a friend", kinds: ["delivery"] },
+        {
+          title: "Help the shore feel safe",
+          kinds: ["answer", "crossing"],
+          effects: ["hush", "anchor"]
+        }
+      ]
+    },
+    keeper: {
+      title: "Make a quiet refuge for visitors",
+      keeps: {
+        bell: "Keep the bell safe for the quiet hours.",
+        oil: "Save oil for visitors who need light."
+      },
+      milestones: [
+        { title: "Prepare a quiet shore", kinds: ["answer"], effects: ["hush"] },
+        { title: "Provide for a visitor", kinds: ["delivery"] },
+        { title: "Welcome a gathering", kinds: ["gathering"] }
+      ]
+    }
+  };
+  var lifeOf = (s, actor) => s.life?.actors?.[actor];
+  var questActive = (s, actor) => !isPackActor(actor) && (!lifeOf(s, actor) || lifeOf(s, actor).phase === "active");
+  var hopeHints = {
+    vale: [
+      "Give a useful gift or tend a friend's light.",
+      "Talk together beside a lit lamp.",
+      "Complete a quest that opens or cares for a place."
+    ],
+    moth: [
+      "Talk with a friend beside a lit lamp.",
+      "Give a useful gift or tend a friend's light.",
+      "Complete a quest that quiets or anchors the shore."
+    ],
+    keeper: [
+      "Complete a quest that quiets the pond.",
+      "Give a useful gift or tend a visitor's light.",
+      "Talk with a visitor beside a lit lamp."
+    ]
+  };
+  function hopeProgress(s, actor) {
+    const done = lifeOf(s, actor)?.milestones.length || 0;
+    return {
+      done,
+      total: hopes[actor].milestones.length,
+      next: hopes[actor].milestones[done]?.title || "A hope fulfilled",
+      hint: (hopeHints[actor] || [
+        "Share a useful belonging.",
+        "Spend time together.",
+        "Explore a place with company."
+      ])[done] || "Keep caring for the home you made."
+    };
+  }
+  function earnHope(s, actor, kind, target = null) {
+    const life = lifeOf(s, actor);
+    if (!life || life.milestones.at(-1) === s.turn) return;
+    const next = hopes[actor].milestones[life.milestones.length];
+    if (fitsMilestone(next, { generated: { situation: kind }, steps: [] }, target))
+      life.milestones.push(s.turn);
+  }
+  function installHumanLife(s) {
+    if (!s.life?.actors) return;
+    for (const id of humanAvatarIds)
+      s.life.actors[id] ??= {
+        phase: "active",
+        inspiration: 0,
+        restUntil: 0,
+        experiences: [],
+        attachments: {},
+        company: {},
+        milestones: []
+      };
+  }
+  function enablePersonalQuests(s) {
+    if (s.life === void 0)
+      s.life = {
+        version: 1,
+        actors: Object.fromEntries(
+          actors.map((id) => [
+            id,
+            {
+              phase: "active",
+              inspiration: 0,
+              restUntil: 0,
+              experiences: [],
+              attachments: {},
+              company: {},
+              milestones: []
+            }
+          ])
+        )
+      };
+    return s;
+  }
+  function keepReason(s, actor, item) {
+    const life = lifeOf(s, actor);
+    if (!life || rootOwner(s, item) !== actor) return null;
+    const attachment = life.attachments[item];
+    return attachment ? `A gift from ${names[attachment.from] || packNames[attachment.from]}, kept since turn ${attachment.turn}.` : hopes[actor].keeps[item] || null;
+  }
+  function attachmentValue(s, actor, item) {
+    if (!keepReason(s, actor, item)) return 0;
+    return lifeOf(s, actor).attachments[item] ? 4 : 2;
+  }
+  function stayingWith(s, actor) {
+    const life = lifeOf(s, actor);
+    if (!life) return null;
+    return Object.keys(life.company).find(
+      (other) => life.company[other] >= s.turn && s.actors[other].place === s.actors[actor].place && !(s.motives?.grievances[actor] || []).some((g) => g.other === other)
+    ) || null;
+  }
+  function lifeFacts(s, actor) {
+    const life = lifeOf(s, actor);
+    if (!life) return [];
+    const hope = hopes[actor], next = hope.milestones[life.milestones.length];
+    return [
+      `Long-term hope: ${hope.title}.`,
+      next ? `Next milestone: ${next.title}. ${hopeProgress(s, actor).hint}` : `This hope is fulfilled; keep caring for it.`,
+      life.phase === "active" ? "Pursuing a personal quest." : life.phase === "content" ? "Enjoying the last achievement before finding a new purpose." : `Inspiration: ${life.inspiration}/${INSPIRATION_MAX}. Useful trades, talks, help and shared journeys grow a new purpose.`,
+      ...items.filter((item) => keepReason(s, actor, item)).map(
+        (item) => `${itemNames[item] || packNames[item]}: ${keepReason(s, actor, item)}`
+      ),
+      ...stayingWith(s, actor) ? [
+        `Staying to spend time with ${names[stayingWith(s, actor)] || packNames[stayingWith(s, actor)]}.`
+      ] : []
+    ];
+  }
+  function recordLifeAction(s, a, accepted, usefulGift = false) {
+    if (!s.life) return;
+    const participant = (id) => actors.includes(id) && (!s.opening || s.opening.met[id] !== void 0 || s.controlledActors?.includes(id));
+    const social = ["give", "trade", "talk"].includes(a.kind) || ["ask", "accompany"].includes(a.kind) && accepted;
+    if (social && s.actors[a.target]) {
+      for (const [id, other] of [
+        [a.actor, a.target],
+        [a.target, a.actor]
+      ]) {
+        if (!participant(id)) continue;
+        lifeOf(s, id).company[other] = s.turn + REST_TURNS;
+      }
+    }
+    if (a.kind === "give" && participant(a.target))
+      lifeOf(s, a.target).attachments[a.item] = { from: a.actor, turn: s.turn };
+    for (const id of actors)
+      for (const item of Object.keys(lifeOf(s, id).attachments))
+        if (rootOwner(s, item) !== id) delete lifeOf(s, id).attachments[item];
+    let kind, points = 1;
+    if (a.kind === "give" && usefulGift) {
+      kind = "help";
+      points = 2;
+    } else if (a.kind === "trade") kind = "trade";
+    else if (a.kind === "talk") kind = "talk";
+    else if (a.kind === "accompany" && accepted) kind = "journey";
+    else if (a.kind === "refill") {
+      kind = "care";
+      points = 2;
+    }
+    if (!kind) return;
+    const participants = [
+      .../* @__PURE__ */ new Set([a.actor, ...social ? [a.target] : []])
+    ].filter(participant);
+    if (a.kind === "give" && usefulGift || a.kind === "refill" && actors.some(
+      (id) => id !== a.actor && participant(id) && s.actors[id].place === s.actors[a.actor].place && questItemAvailable(s, id, "lamp")
+    ))
+      earnHope(s, a.actor, "delivery");
+    if (a.kind === "talk" && s.actors[a.target] && s.actors[a.target].place === s.actors[a.actor].place && conditionMet2(s, { kind: "lit" }) && participants.every((id) => questItemAvailable(s, id, "lamp")))
+      for (const id of participants) earnHope(s, id, "gathering");
+    for (const id of participants) {
+      const life = lifeOf(s, id);
+      const other = id === a.actor ? a.target : a.actor;
+      const pair = [a.item, a.receive].filter(Boolean).sort().join("+");
+      const key = `${kind}:${other || "self"}:${pair}:${a.destination || s.actors[id].place}`;
+      if (life.experiences.some((e) => e.key === key && s.turn - e.turn < 6))
+        continue;
+      const earned = life.experiences.filter((e) => e.turn === s.turn).reduce((n, e) => n + e.points, 0);
+      const award = Math.min(points, 2 - earned);
+      if (award <= 0) continue;
+      life.experiences = [
+        ...life.experiences,
+        { key, kind, turn: s.turn, points: award }
+      ].slice(-16);
+      if (life.phase === "seeking")
+        life.inspiration = Math.min(INSPIRATION_MAX, life.inspiration + award);
+    }
+  }
+  function fitsMilestone(milestone, program, target = null) {
+    if (!milestone?.kinds.includes(program.generated?.situation)) return false;
+    if (!milestone.effects) return true;
+    const targets = target ? [target] : program.steps.flatMap((step) => step.any || [step]);
+    return targets.some((h) => milestone.effects.includes(h.consequence?.kind));
+  }
+  function finishPersonalQuest(s, actor, program, target = null) {
+    const life = lifeOf(s, actor);
+    if (!life) return;
+    const next = hopes[actor].milestones[life.milestones.length];
+    if (fitsMilestone(next, program, target) && life.milestones.at(-1) !== s.turn)
+      life.milestones.push(s.turn);
+    life.phase = "content";
+    life.inspiration = 0;
+    life.restUntil = s.turn + REST_TURNS;
+  }
+  function personalQuestRank(s, actor, program) {
+    const life = lifeOf(s, actor);
+    if (!life) return 0;
+    const kind = program.generated?.situation;
+    const milestone = hopes[actor].milestones[life.milestones.length];
+    const last = life.experiences.at(-1)?.kind;
+    const affinity = {
+      help: "delivery",
+      talk: "gathering",
+      journey: "crossing",
+      care: "gathering",
+      trade: "bargain"
+    }[last];
+    return (fitsMilestone(milestone, program) ? -100 : 0) + (kind === affinity ? -8 : 0);
+  }
+  function validLife(s) {
+    if (s.life === void 0) return true;
+    const l = s.life;
+    const whole2 = (n, max) => Number.isSafeInteger(n) && n >= 0 && n <= max;
+    return l?.version === 1 && s.motives?.questPrograms === true && Object.keys(l.actors || {}).sort().join() === actors.slice().sort().join() && actors.every((id) => {
+      const p = l.actors[id];
+      return p && ["active", "content", "seeking"].includes(p.phase) && whole2(p.inspiration, INSPIRATION_MAX) && whole2(p.restUntil, s.turn + REST_TURNS) && (p.phase === "seeking" || p.inspiration === 0) && Array.isArray(p.milestones) && p.milestones.length <= 3 && p.milestones.every(
+        (turn, i) => whole2(turn, s.turn) && turn > (p.milestones[i - 1] ?? 0)
+      ) && p.attachments && Object.keys(p.attachments).length <= items.length && Object.entries(p.attachments).every(
+        ([item, a]) => items.includes(item) && a && [...actors, ...packActorIds].includes(a.from) && a.from !== id && whole2(a.turn, s.turn)
+      ) && p.company && Object.keys(p.company).length <= 3 + Object.keys(packPeople).length && Object.entries(p.company).every(
+        ([other, until]) => [...actors, ...packActorIds].includes(other) && other !== id && whole2(until, s.turn + REST_TURNS)
+      ) && Array.isArray(p.experiences) && p.experiences.length <= 16 && p.experiences.every(
+        (e) => e && typeof e.key === "string" && e.key.length <= 400 && ["help", "trade", "talk", "journey", "care"].includes(e.kind) && whole2(e.turn, s.turn) && [1, 2].includes(e.points)
+      );
+    });
+  }
+
+  // v2/card-game/motives.mjs
+  var tastes = {
+    vale: {
+      likes: "Interesting routes and a decent bargain",
+      sore: "Changed terms",
+      home: "attic",
+      values: { lamp: 8, oil: 5, bell: 5, cloth: 4 }
+    },
+    moth: {
+      likes: "Warm light and a splendid waistcoat",
+      sore: "Someone spoiling the light",
+      home: "pond",
+      values: { lamp: 12, oil: 3, bell: 1, cloth: 6 }
+    },
+    keeper: {
+      likes: "Quiet hours and properly returned things",
+      sore: "Unnecessary ringing",
+      home: "station",
+      values: { lamp: 3, oil: 8, bell: 10, cloth: 6 }
+    },
+    ...packTastes
+  };
+  var actors2 = Object.keys(tastes);
+  var items2 = ["lamp", "oil", "bell", "cloth", ...Object.keys(packThings)];
+  var names2 = {
+    ...packNames,
+    vale: "Vale",
+    moth: "Pip",
+    keeper: "The Keeper",
+    lamp: "Lamp",
+    oil: "Oil flask",
+    bell: "Bell",
+    cloth: "Black cloth"
+  };
+  var hasMotives = (s) => s.motives?.version === 1;
+  var hasQuestPrograms = (s) => !hasMotives(s) || s.motives.questPrograms === true;
+  function enableMotives(s, { questPrograms: questPrograms2 = false, personalQuests = false } = {}) {
+    if (!s.motives)
+      s.motives = {
+        version: 1,
+        grievances: Object.fromEntries(actors2.map((id) => [id, []]))
+      };
+    if (questPrograms2 || personalQuests) s.motives.questPrograms = true;
+    if (personalQuests) enablePersonalQuests(s);
+    return s;
+  }
+  function owner(s, item) {
+    const holder = s.items[item].holder;
+    return items2.includes(holder) ? s.items[holder].holder : holder;
+  }
+  var placeOf = (s, item) => s.actors[owner(s, item)]?.place || owner(s, item);
+  function resentment(s, actor, other) {
+    return Math.min(
+      3,
+      (s.motives?.grievances[actor] || []).filter((g) => g.other === other).reduce((n, g) => n + g.weight, 0)
+    );
+  }
+  function valueOf(s, actor, item) {
+    let value = tastes[actor]?.values[item] ?? 1;
+    if (item === "lamp" && !s.items.lamp.fuel) value -= 5;
+    if (item === "oil") {
+      if (!s.items.oil.doses) return 1;
+      if (owner(s, "lamp") === actor && s.items.lamp.fuel <= 2) value += 9;
+    }
+    if (item === "bell" && !s.items.oil.doses && s.items.lamp.fuel === 0)
+      value += 12;
+    if (item === "cloth" && actor === "keeper" && s.items.bell.ringing)
+      value += 9;
+    return Math.max(1, value) + attachmentValue(s, actor, item);
+  }
+  function bundleValue(s, actor, item) {
+    return valueOf(s, actor, item) + (s.items.cloth.holder === item ? valueOf(s, actor, "cloth") : 0);
+  }
+  function tradeDecision(s, requester, give, receive) {
+    const seller = owner(s, receive);
+    const premium = resentment(s, seller, requester) * 2;
+    const favour = Math.min(2, s.actors[seller].trust[requester] || 0);
+    const accepted = bundleValue(s, seller, give) >= bundleValue(s, seller, receive) + (lifeOf(s, seller) ? 0 : 1) + premium - favour;
+    return {
+      accepted,
+      reason: premium ? `${names2[seller]} wants a better offer after ${names2[requester]}'s recent behaviour.` : `${names2[seller]} values ${names2[give]} against ${names2[receive]}.`
+    };
+  }
+  function giftDecision(s, giver, item, recipient) {
+    const annoyed = resentment(s, giver, recipient);
+    const spare = bundleValue(s, giver, item) <= 3;
+    const favour = s.actors[giver].trust[recipient] > 0 && bundleValue(s, giver, item) <= 6;
+    return {
+      accepted: !annoyed && !keepReason(s, giver, item) && (spare || favour),
+      reason: annoyed ? `${names2[giver]} is still annoyed with ${names2[recipient]}.` : keepReason(s, giver, item) || `${names2[giver]} wants to keep the ${names2[item]}.`
+    };
+  }
+  function interest(s, actor) {
+    if (hasTemperament(actor))
+      return {
+        items: [],
+        location: tastes[actor].home,
+        avatars: [],
+        text: variantOf(s, actor).want,
+        reason: packPeople[actor].tastes.reason
+      };
+    const resident = packPeople[actor];
+    if (resident) {
+      const wish = resident.desire, active = wish && conditionsMet(s, resident.packId, wish.requires);
+      return {
+        items: active ? wish.items.filter(
+          (id) => entityActive(s, id) && owner(s, id) !== actor
+        ) : [],
+        location: packOf(actor)?.recital?.actor === actor ? s.actors[actor].place : active ? wish.location : resident.home || resident.place,
+        avatars: active ? wish.avatars.filter((id) => entityActive(s, id)) : [],
+        text: resident.tastes.likes,
+        reason: resident.tastes.reason
+      };
+    }
+    const domainItems = items2.filter((id) => !packThings[id]);
+    const held = domainItems.filter((id) => owner(s, id) === actor);
+    let item = domainItems.slice().sort((a, b) => valueOf(s, actor, b) - valueOf(s, actor, a)).find((id) => !held.includes(id));
+    const home = tastes[actor].home;
+    const annoyed = (s.motives?.grievances[actor] || []).filter(
+      (g) => resentment(s, actor, g.other) > 0 && s.actors[g.other].place === s.actors[actor].place
+    ).at(-1);
+    if (annoyed)
+      return {
+        items: [],
+        location: s.actors[actor].place === home ? home === "attic" ? "station" : "attic" : home,
+        avatars: [],
+        text: `Some space from ${names2[annoyed.other]}`,
+        reason: annoyed.reason
+      };
+    if (actor === "moth" && held.includes("lamp")) {
+      item = s.items.lamp.fuel <= 2 ? s.items.oil.doses ? "oil" : "bell" : null;
+    }
+    if (actor === "keeper" && held.includes("bell"))
+      item = s.items.bell.ringing && !held.includes("cloth") ? "cloth" : null;
+    const company = stayingWith(s, actor);
+    if (company)
+      return {
+        items: item && placeOf(s, item) === s.actors[actor].place ? [item] : [],
+        location: s.actors[actor].place,
+        avatars: [company],
+        text: `Time with ${names2[company]}`,
+        reason: "Stay together after a shared moment"
+      };
+    if (lifeOf(s, actor)?.phase === "content")
+      return {
+        items: [],
+        location: s.actors[actor].place,
+        avatars: [],
+        text: "Enjoying what we achieved",
+        reason: "Take time to enjoy the last quest"
+      };
+    if (item && actors2.includes(owner(s, item)) && owner(s, item) !== actor) {
+      const holder = owner(s, item);
+      const refusal = s.log.findLast(
+        (e) => e.verb === "ask" && e.actorId === actor && e.targetId === holder && e.itemId === item && e.accepted === false
+      );
+      if (resentment(s, holder, actor) || refusal && s.turn - refusal.turn < 8)
+        return {
+          items: [item],
+          location: home,
+          avatars: [],
+          text: `Still wants the ${names2[item]}`,
+          reason: `${names2[holder]} wants to keep it. ${names2[actor]} will wait at ${home === "pond" ? "the pond" : home === "attic" ? "the attic" : "the station"} for a better opening.`
+        };
+    }
+    return {
+      items: item ? [item] : [],
+      location: item ? placeOf(s, item) : home,
+      avatars: [],
+      text: item ? `Interested in the ${names2[item]}` : actor === "moth" ? "A warm spot by the pond" : actor === "keeper" ? "A quiet station" : "An interesting route",
+      reason: tastes[actor].likes
+    };
+  }
+  function socialTravel(s, requester, companion, destination) {
+    const grudge = resentment(s, companion, requester);
+    const want = interest(s, companion);
+    if (grudge)
+      return {
+        accepted: false,
+        reason: `${names2[companion]} wants space after ${names2[requester]}'s recent behaviour.`
+      };
+    const carriedWant = want.items.some((id) => owner(s, id) === requester);
+    if (destination === want.location || carriedWant)
+      return {
+        accepted: true,
+        reason: carriedWant ? `Stay near the wanted ${names2[want.items.find((id) => owner(s, id) === requester)]}.` : want.reason
+      };
+    if (s.actors[companion].trust[requester] > 0)
+      return {
+        accepted: true,
+        favor: true,
+        reason: `Repay a favour to ${names2[requester]}.`
+      };
+    return {
+      accepted: false,
+      reason: `${names2[companion]} would rather pursue ${want.text.toLowerCase()}.`
+    };
+  }
+  function recordReaction(s, a, witnesses, accepted) {
+    if (!hasMotives(s)) return;
+    const add = (id, reason, kind) => {
+      if (id === a.actor || !witnesses.includes(id)) return;
+      const list = s.motives.grievances[id];
+      const prior = list.find((g) => g.other === a.actor && g.kind === kind);
+      if (prior) {
+        prior.weight = Math.min(3, prior.weight + 1);
+        prior.turn = s.turn;
+        list.splice(list.indexOf(prior), 1);
+        list.push(prior);
+      } else list.push({ other: a.actor, kind, reason, turn: s.turn, weight: 1 });
+      s.motives.grievances[id] = list.slice(-6);
+    };
+    if (a.kind === "ring") {
+      for (const [id, resident] of Object.entries(packPeople))
+        if (resident.tastes.noise)
+          add(
+            id,
+            resident.tastes.noise.replace("{actor}", names2[a.actor]),
+            "noise"
+          );
+    }
+    if (a.kind === "ring")
+      add(
+        "keeper",
+        `${names2[a.actor]} rang the bell during a perfectly good quiet moment.`,
+        "noise"
+      );
+    if (a.kind === "snuff" || a.kind === "cover" && a.target === "lamp")
+      add("moth", `${names2[a.actor]} spoiled Pip's light.`, "light");
+    if (a.kind === "threaten" || a.kind === "attack")
+      add(a.target, `${names2[a.actor]} picked a fight.`, "threat");
+    if (a.kind === "ask" && !accepted && s.log.some(
+      (e) => e.verb === "ask" && e.actorId === a.actor && e.targetId === a.target && e.itemId === a.item && s.turn - e.turn <= 6
+    ))
+      add(
+        a.target,
+        `${names2[a.actor]} kept asking for the same belongings.`,
+        "pestering"
+      );
+    if (a.kind === "give") {
+      s.motives.grievances[a.target] = s.motives.grievances[a.target].map((g) => g.other === a.actor ? { ...g, weight: g.weight - 1 } : g).filter((g) => g.weight > 0);
+      s.actors[a.target].trust[a.actor] = Math.min(
+        3,
+        s.actors[a.target].trust[a.actor] + 1
+      );
+    }
+  }
+  function motiveFacts(s, actor, limit = 6) {
+    return [
+      tastes[actor].likes,
+      `Current interest: ${interest(s, actor).text}.`,
+      ...lifeOf(s, actor) ? [
+        lifeFacts(s, actor).slice(0, 3).join(" ").slice(0, 240),
+        lifeFacts(s, actor).slice(3).join(" ").slice(0, 240)
+      ].filter(Boolean) : [],
+      ...(s.motives?.grievances[actor] || []).slice(-limit).reverse().map((g) => `Remembered grievance: ${g.reason}`)
+    ];
+  }
+  function validMotives(s) {
+    if (s.motives === void 0) return true;
+    const m = s.motives;
+    return m?.version === 1 && (m.questPrograms === void 0 || typeof m.questPrograms === "boolean") && Object.keys(m.grievances || {}).sort().join() === actors2.slice().sort().join() && actors2.every(
+      (id) => Array.isArray(m.grievances[id]) && m.grievances[id].length <= 6 && m.grievances[id].every(
+        (g) => actors2.includes(g.other) && g.other !== id && ["noise", "light", "threat", "pestering"].includes(g.kind) && typeof g.reason === "string" && g.reason.length <= 180 && Number.isSafeInteger(g.turn) && g.turn >= 0 && g.turn <= s.turn && Number.isInteger(g.weight) && g.weight >= 1 && g.weight <= 3
+      )
+    );
+  }
+  function socialPlan(s, actor, actions, api) {
+    const here = s.actors[actor].place, want = interest(s, actor);
+    const recent = s.log.filter(
+      (e) => e.actorId === actor && e.kind === "action" && s.turn - e.turn <= 4
+    );
+    const conflict = api.standoffFor(s, actor);
+    const score = (a) => {
+      if (s.peaceUntil[actor] > s.turn) return a.kind === "wait" ? 100 : -100;
+      if (conflict) {
+        if (a.kind === "attack" && conflict.struck[api.opponentOf(conflict, actor)])
+          return 80;
+        if (a.kind === "guard" && !conflict.answered) return 70;
+        if (a.kind === "move") return 60;
+      }
+      let n = -30;
+      if (a.kind === "wait")
+        n = stayingWith(s, actor) || lifeOf(s, actor)?.phase === "content" ? 20 : 0;
+      if (a.kind === "take") n = valueOf(s, actor, a.item) * 2;
+      if (a.kind === "trade")
+        n = (bundleValue(s, actor, a.receive) - bundleValue(s, actor, a.item)) * 3;
+      if (a.kind === "ask")
+        n = api.willingToGive(s, a.target, a.item, actor) ? valueOf(s, actor, a.item) * 2 : want.items.includes(a.item) ? 5 : -5;
+      if (a.kind === "move" && !a.item) {
+        const target = want.location;
+        const path = api.routeBetween(s, here, target, actor);
+        n = path?.[1] === a.target ? want.items.length ? 18 : 35 : -15;
+      }
+      if (a.kind === "light" && actor === "moth") n = 45;
+      if (a.kind === "refill" && actor !== "keeper" && s.items.lamp.fuel <= 2)
+        n = 40;
+      if (a.kind === "ring" && here === "pond" && !s.items.oil.doses) n = 50;
+      if (a.kind === "cover" && a.target === "bell" && actor === "keeper" && s.items.bell.ringing)
+        n = 45;
+      if (a.kind === "take" && a.item === "cloth" && s.items.cloth.holder === "lamp" && actor === "moth")
+        n = 40;
+      if (a.kind === "snuff" && actor === "keeper" && s.items.lamp.lit && s.items.lamp.fuel <= 2)
+        n = 25;
+      if (a.kind === "talk" && s.turn - s.actors[actor].lastTalk >= 4) n = 2;
+      if (lifeOf(s, actor) && a.kind === "talk" && s.turn - s.actors[actor].lastTalk >= 4)
+        n = 24;
+      if (lifeOf(s, actor) && a.kind === "move" && (stayingWith(s, actor) || lifeOf(s, actor).phase === "content"))
+        n -= 50;
+      if (a.kind === "drop")
+        n = api.carried(s, actor).length >= 3 && valueOf(s, actor, a.item) <= 3 ? 10 : -30;
+      n -= recent.filter(
+        (e) => e.verb === a.kind && e.itemId === a.item && e.targetId === a.target
+      ).length * 12;
+      return n;
+    };
+    const action = actions.map((action2, index) => ({ action: action2, index, score: score(action2) })).sort((a, b) => b.score - a.score || a.index - b.index)[0].action;
+    return { action, reason: want.reason + ". " + want.text + "." };
   }
 
   // v2/card-game/entity-profiles.json
@@ -6331,727 +7189,10 @@
     });
   }
 
-  // v2/card-game/life.mjs
-  var LIFE_VERSION = 2;
-  var REST_TURNS = 3;
-  var STALL_TURNS = 6;
-  var EXPERIENCE_LIMIT = 16;
-  var weight = { help: 3, gift: 3, journey: 3, care: 2, talk: 1, trade: 1 };
-  var experienceKinds = Object.keys(weight);
-  var affinity = {
-    help: "delivery",
-    gift: "delivery",
-    talk: "gathering",
-    journey: "crossing",
-    care: "gathering",
-    trade: "bargain"
-  };
-  var hopeSteps = [["delivery"], ["gathering"], ["answer", "crossing"]];
-  var situations = new Set(hopeSteps.flat());
-  var lifeOf = (s, actor) => s.life?.actors?.[actor];
-  var questActive = (s, actor) => !isPackActor(actor) && (!lifeOf(s, actor) || lifeOf(s, actor).phase === "active");
-  function nameIn(s, id) {
-    return s.actors?.[id]?.name || s.items?.[id]?.name || s.places?.[id]?.name || profiles[id]?.name || (typeof id === "string" ? id[0].toUpperCase() + id.slice(1) : "someone");
-  }
-  var inline = (s, id) => nameIn(s, id).replace(/^The /, "the ");
-  var possessive = (s, id) => `${inline(s, id)}'s`;
-  var capital = (text) => text[0].toUpperCase() + text.slice(1);
-  function hash(text) {
-    let h = 0;
-    for (const c of text) h = Math.imul(h, 31) + c.charCodeAt(0) >>> 0;
-    return h;
-  }
-  function generateHope(s, actor, profile = null) {
-    const values = profile?.values || {};
-    const item = Object.keys(values).filter((id) => s.items?.[id]).sort((a, b) => values[b] - values[a] || (a < b ? -1 : 1))[0] || null;
-    const shift = (hash(actor) + 2) % hopeSteps.length;
-    return {
-      place: profile?.home || s.actors[actor].place,
-      item,
-      steps: hopeSteps.map((_, i) => hopeSteps[(i + shift) % hopeSteps.length])
-    };
-  }
-  var hopeText = {
-    delivery: {
-      title: (p) => `Look after friends at ${p}`,
-      wish: (p) => `I want to look after my friends at ${p}.`,
-      step: "Bring a friend what they need",
-      next: "Next I'd like to bring a friend what they need."
-    },
-    gathering: {
-      title: (p) => `Make ${p} a place to gather`,
-      wish: (p) => `I want ${p} to be a place where we gather.`,
-      step: "Gather with company",
-      next: "Next I'd like to gather with company."
-    },
-    answer: {
-      title: (p) => `Keep ${p} calm and safe`,
-      wish: (p) => `I want ${p} to feel calm and safe.`,
-      step: "Settle a trouble nearby",
-      next: "Next I'd like to settle a trouble nearby."
-    }
-  };
-  var lead = (step) => hopeText[step[0]];
-  function hopeOf(s, actor) {
-    const life = lifeOf(s, actor);
-    if (!life) return null;
-    const place = nameIn(s, life.hope.place);
-    return {
-      ...life.hope,
-      title: lead(life.hope.steps[0]).title(place),
-      wish: lead(life.hope.steps[0]).wish(place),
-      milestones: life.hope.steps.map((kinds) => ({
-        kinds,
-        title: lead(kinds).step,
-        next: lead(kinds).next
-      }))
-    };
-  }
-  function newLife(s, actor, profile) {
-    return {
-      phase: "active",
-      finished: 0,
-      restLeft: 0,
-      quiet: 0,
-      experiences: [],
-      attachments: {},
-      company: {},
-      milestones: [],
-      hope: generateHope(s, actor, profile)
-    };
-  }
-  function installHumanLife(s, profileOf = () => null) {
-    if (!s.life?.actors) return;
-    for (const id of humanAvatarIds) {
-      if (!s.actors[id] || s.life.actors[id]) continue;
-      s.life.actors[id] = s.life.version === 1 ? {
-        phase: "active",
-        inspiration: 0,
-        restUntil: 0,
-        experiences: [],
-        attachments: {},
-        company: {},
-        milestones: []
-      } : newLife(s, id, profileOf(id));
-    }
-  }
-  function enablePersonalQuests(s, profileOf = () => null) {
-    if (s.life === void 0)
-      s.life = {
-        version: LIFE_VERSION,
-        actors: Object.fromEntries(
-          Object.keys(s.actors).filter((id) => profileOf(id)?.quests !== false).map((id) => [id, newLife(s, id, profileOf(id))])
-        )
-      };
-    return s;
-  }
-  function migrateLife(s, profileOf = () => null) {
-    if (s?.life?.version !== 1 || !s.life.actors) return s;
-    for (const [id, old] of Object.entries(s.life.actors)) {
-      if (!old || typeof old !== "object" || !s.actors?.[id]) continue;
-      const restUntil = Number.isSafeInteger(old.restUntil) ? old.restUntil : 0;
-      const finished = Math.max(0, restUntil - REST_TURNS);
-      let experiences = (Array.isArray(old.experiences) ? old.experiences : []).filter((e) => e && typeof e.key === "string").map((e) => {
-        const [, other, pair, place] = e.key.split(":");
-        return {
-          kind: e.kind,
-          turn: e.turn,
-          other: e.kind === "care" ? null : other && other !== "self" ? other : null,
-          item: e.kind === "care" && s.items?.[other] ? other : pair ? pair.split("+")[0] : null,
-          place: place || null
-        };
-      });
-      if (old.phase === "seeking" && !old.inspiration)
-        experiences = experiences.filter((e) => e.turn <= finished);
-      s.life.actors[id] = {
-        phase: old.phase,
-        finished: Math.min(finished, s.turn),
-        restLeft: old.phase === "content" ? Math.max(0, Math.min(REST_TURNS, restUntil - s.turn)) : 0,
-        quiet: 0,
-        experiences,
-        attachments: old.attachments,
-        company: old.company,
-        milestones: old.milestones,
-        hope: generateHope(s, id, profileOf(id))
-      };
-    }
-    s.life.version = LIFE_VERSION;
-    return s;
-  }
-  function sparkOf(s, actor) {
-    const life = lifeOf(s, actor);
-    if (!life || life.phase === "active") return null;
-    return life.experiences.filter((e) => e.turn > life.finished).reduce(
-      (best, e) => !best || weight[e.kind] > weight[best.kind] ? e : best,
-      null
-    ) || null;
-  }
-  function originOf(s, actor) {
-    const life = lifeOf(s, actor);
-    return life?.phase === "active" ? life.origin || null : null;
-  }
-  function sparkPhrase(s, e) {
-    const other = e.other ? inline(s, e.other) : "a friend";
-    switch (e.kind) {
-      case "gift":
-        return `${e.other ? possessive(s, e.other) : "a"} gift`;
-      case "help":
-        return `helping ${other}`;
-      case "talk":
-        return `talking with ${other}`;
-      case "journey":
-        return e.place ? `the walk to ${nameIn(s, e.place)} with ${other}` : `the walk with ${other}`;
-      case "care":
-        return e.item ? `tending the ${nameIn(s, e.item)}` : "tending things";
-      default:
-        return `the bargain with ${other}`;
-    }
-  }
-  function purposeOrigin(s, actor) {
-    const e = originOf(s, actor);
-    return e ? sparkPhrase(s, e) : null;
-  }
-  function keepReason(s, actor, item) {
-    const life = lifeOf(s, actor);
-    if (!life || rootOwner(s, item) !== actor) return null;
-    const attachment = life.attachments[item];
-    if (attachment)
-      return `A gift from ${nameIn(s, attachment.from)}, kept since turn ${attachment.turn}.`;
-    return life.hope.item === item ? `${possessive(s, actor)} favourite.` : null;
-  }
-  function pendingQuestValue(s, actor, item) {
-    const life = lifeOf(s, actor);
-    const pending = life?.collection?.cards.filter(
-      (q) => q.completedTurn === null && q.key !== life.collection.active
-    ) || [];
-    return Math.min(
-      3,
-      pending.filter(
-        (q) => q.program.steps.slice(q.step).some(
-          (step) => (step.any || [step]).some((h) => h.items.includes(item))
-        )
-      ).length
-    );
-  }
-  function attachmentValue(s, actor, item) {
-    if (!keepReason(s, actor, item)) return 0;
-    return lifeOf(s, actor).attachments[item] ? 4 : 2;
-  }
-  function stayingWith(s, actor) {
-    const life = lifeOf(s, actor);
-    if (!life) return null;
-    return Object.keys(life.company).find(
-      (other) => life.company[other] >= s.turn && s.actors[other]?.place === s.actors[actor].place && !(s.motives?.grievances[actor] || []).some((g) => g.other === other)
-    ) || null;
-  }
-  function lifeFacts(s, actor) {
-    const life = lifeOf(s, actor);
-    if (!life) return [];
-    const hope = hopeOf(s, actor), next = hope.milestones[life.milestones.length], spark = sparkOf(s, actor), origin = purposeOrigin(s, actor);
-    const moment = life.phase === "active" ? origin ? `I know what I want to do now. It started with ${origin}.` : "I know what I want to do now." : life.phase === "returning" ? life.restAt === life.hope.place ? "I want to go home and rest." : `I want to go to ${nameIn(s, life.restAt)} and rest.` : life.phase === "content" ? spark ? `I'm resting after my last quest. I keep thinking about ${sparkPhrase(s, spark)}.` : "I'm resting after my last quest." : spark ? `I keep thinking about ${sparkPhrase(s, spark)}.` : "I'm restless. I'm waiting for something worth doing.";
-    const held = Object.keys(s.items).filter(
-      (item) => keepReason(s, actor, item)
-    );
-    const company = stayingWith(s, actor);
-    return [
-      hope.wish,
-      next ? next.next : "I've done what I hoped. I still look after it.",
-      moment,
-      ...held.map(
-        (item) => life.attachments[item] ? `${capital(inline(s, life.attachments[item].from))} gave me this ${nameIn(s, item)}. I'm keeping it.` : `The ${nameIn(s, item)} is my favourite. I keep it close.`
-      ),
-      ...company ? [`I'm staying with ${inline(s, company)} for a while.`] : []
-    ];
-  }
-  function earnHope(s, actor, kind) {
-    const life = lifeOf(s, actor);
-    if (!life || life.milestones.at(-1) === s.turn) return;
-    if (life.hope.steps[life.milestones.length]?.includes(kind))
-      life.milestones.push(s.turn);
-  }
-  var shiningLights = (s) => Object.keys(s.items).filter(
-    (id) => s.items[id].lit === true && (s.items[id].fuel ?? 1) > 0 && !Object.values(s.items).some((other) => other.holder === id)
-  );
-  function recordLifeAction(s, a, accepted, usefulGift = false) {
-    if (!s.life) return;
-    const participant = (id) => lifeOf(s, id) !== void 0 && (!s.opening || s.opening.met[id] !== void 0 || s.controlledActors?.includes(id));
-    const social = ["give", "trade", "talk"].includes(a.kind) || ["ask", "accompany"].includes(a.kind) && accepted;
-    if (social && s.actors[a.target]) {
-      for (const [id, other] of [
-        [a.actor, a.target],
-        [a.target, a.actor]
-      ]) {
-        if (!participant(id)) continue;
-        lifeOf(s, id).company[other] = s.turn + REST_TURNS;
-      }
-    }
-    if (a.kind === "give" && participant(a.target))
-      lifeOf(s, a.target).attachments[a.item] = { from: a.actor, turn: s.turn };
-    for (const id of Object.keys(s.life.actors))
-      for (const item of Object.keys(lifeOf(s, id).attachments))
-        if (rootOwner(s, item) !== id) delete lifeOf(s, id).attachments[item];
-    const kindFor = (id) => {
-      if (a.kind === "give" && usefulGift)
-        return id === a.actor ? "help" : "gift";
-      if (a.kind === "trade") return "trade";
-      if (a.kind === "talk") return "talk";
-      if (a.kind === "accompany" && accepted) return "journey";
-      if (a.kind === "refill") return "care";
-      return null;
-    };
-    const participants = [
-      .../* @__PURE__ */ new Set([a.actor, ...social && s.actors[a.target] ? [a.target] : []])
-    ].filter(participant);
-    if (a.kind === "give" && usefulGift || a.kind === "refill" && Object.keys(s.life.actors).some(
-      (id) => id !== a.actor && participant(id) && s.actors[id].place === s.actors[a.actor].place && questItemAvailable(s, id, a.target)
-    ))
-      earnHope(s, a.actor, "delivery");
-    if (a.kind === "talk" && s.actors[a.target] && s.actors[a.target].place === s.actors[a.actor].place && shiningLights(s).some(
-      (item) => participants.every((id) => questItemAvailable(s, id, item))
-    ))
-      for (const id of participants) earnHope(s, id, "gathering");
-    for (const id of participants) {
-      const kind = kindFor(id);
-      if (!kind) continue;
-      const life = lifeOf(s, id);
-      const other = social ? id === a.actor ? a.target : a.actor : null;
-      const item = kind === "care" ? s.items[a.target] ? a.target : a.item : a.item || null;
-      const e = {
-        kind,
-        turn: s.turn,
-        other: other || null,
-        item: item && s.items[item] ? item : null,
-        place: a.destination || s.actors[id].place
-      };
-      const last = life.experiences.at(-1);
-      const same = last && ["kind", "other", "item", "place"].every((k) => last[k] === e[k]);
-      life.experiences = same ? [...life.experiences.slice(0, -1), e] : [...life.experiences, e].slice(-EXPERIENCE_LIMIT);
-    }
-  }
-  var atSanctuary = (s, actor, sanctuaries2) => !sanctuaries2?.length || sanctuaries2.includes(s.actors[actor].place);
-  function restPlaceFor(s, actor, sanctuaries2) {
-    const home = lifeOf(s, actor).hope.place;
-    return sanctuaries2.includes(home) ? home : sanctuaries2[0];
-  }
-  function startRest(s, actor, sanctuaries2) {
-    const life = lifeOf(s, actor);
-    if (atSanctuary(s, actor, sanctuaries2)) {
-      life.phase = "content";
-      delete life.restAt;
-    } else {
-      life.phase = "returning";
-      life.restAt = restPlaceFor(s, actor, sanctuaries2);
-    }
-  }
-  function settleLife(s, ids3 = Object.keys(s.life?.actors || {}), sanctuaries2 = null) {
-    const ready = [];
-    for (const id of ids3) {
-      const life = lifeOf(s, id);
-      if (!life || life.finished === s.turn) continue;
-      if (life.phase === "returning" || life.phase === "content")
-        startRest(s, id, sanctuaries2);
-      if (life.phase === "content") {
-        life.restLeft = Math.max(0, life.restLeft - 1);
-        if (life.restLeft === 0) {
-          life.phase = "seeking";
-          life.quiet = 0;
-        }
-      }
-      if (life.phase !== "seeking") continue;
-      const spark = sparkOf(s, id);
-      life.quiet = Math.min(STALL_TURNS + 1, life.quiet + 1);
-      if (spark || life.quiet > STALL_TURNS) {
-        life.phase = "active";
-        life.quiet = 0;
-        if (spark) life.origin = spark;
-        else delete life.origin;
-        ready.push(id);
-      }
-    }
-    return ready;
-  }
-  function fitsMilestone(milestone, program) {
-    return !!milestone?.includes(program.generated?.situation);
-  }
-  function finishPersonalQuest(s, actor, program, sanctuaries2 = null, { rest = true } = {}) {
-    const life = lifeOf(s, actor);
-    if (!life) return;
-    const next = life.hope.steps[life.milestones.length];
-    if (fitsMilestone(next, program) && life.milestones.at(-1) !== s.turn)
-      life.milestones.push(s.turn);
-    if (!rest) return;
-    delete life.origin;
-    life.finished = s.turn;
-    life.restLeft = REST_TURNS;
-    life.quiet = 0;
-    startRest(s, actor, sanctuaries2);
-  }
-  function personalQuestRank(s, actor, program) {
-    const life = lifeOf(s, actor);
-    if (!life) return 0;
-    const kind = program.generated?.situation;
-    const milestone = life.hope.steps[life.milestones.length];
-    const shaping = life.origin || sparkOf(s, actor) || life.experiences.at(-1);
-    return (fitsMilestone(milestone, program) ? -100 : 0) + (kind === affinity[shaping?.kind] ? -8 : 0);
-  }
-  function validLife(s, placeIds = null) {
-    if (s.life === void 0) return true;
-    const l = s.life;
-    const whole2 = (n, max) => Number.isSafeInteger(n) && n >= 0 && n <= max;
-    const actorIds2 = Object.keys(s.actors || {});
-    const itemIds = Object.keys(s.items || {});
-    const place = (p) => typeof p === "string" && p.length > 0 && p.length <= 40 && (!placeIds || placeIds.includes(p));
-    const validExperience = (e) => e && Object.keys(e).every(
-      (k) => ["kind", "turn", "other", "item", "place"].includes(k)
-    ) && experienceKinds.includes(e.kind) && whole2(e.turn, s.turn) && (e.other === null || actorIds2.includes(e.other)) && (e.item === null || itemIds.includes(e.item)) && (e.place === null || place(e.place));
-    return l?.version === LIFE_VERSION && s.motives?.questPrograms === true && l.actors && typeof l.actors === "object" && Object.keys(l.actors).every((id) => {
-      const p = l.actors[id];
-      const steps = p?.hope?.steps;
-      return actorIds2.includes(id) && p && ["active", "returning", "content", "seeking"].includes(p.phase) && !("inspiration" in p) && !("restUntil" in p) && whole2(p.finished, s.turn) && whole2(p.restLeft, REST_TURNS) && whole2(p.quiet, STALL_TURNS + 1) && (p.phase === "returning" ? place(p.restAt) : p.restAt === void 0) && p.hope && place(p.hope.place) && (p.hope.item === null || itemIds.includes(p.hope.item)) && Array.isArray(steps) && steps.length === hopeSteps.length && steps.every(
-        (kinds) => Array.isArray(kinds) && kinds.length > 0 && kinds.every((k) => situations.has(k))
-      ) && (p.origin === void 0 || p.phase === "active" && validExperience(p.origin)) && Array.isArray(p.milestones) && p.milestones.length <= steps.length && p.milestones.every(
-        (turn, i) => whole2(turn, s.turn) && turn > (p.milestones[i - 1] ?? 0)
-      ) && p.attachments && Object.entries(p.attachments).every(
-        ([item, a]) => itemIds.includes(item) && a && actorIds2.includes(a.from) && a.from !== id && whole2(a.turn, s.turn)
-      ) && p.company && Object.entries(p.company).every(
-        ([other, until]) => actorIds2.includes(other) && other !== id && whole2(until, s.turn + REST_TURNS)
-      ) && Array.isArray(p.experiences) && p.experiences.length <= EXPERIENCE_LIMIT && p.experiences.every(validExperience);
-    });
-  }
-
-  // v2/card-game/motives.mjs
-  var tastes = {
-    vale: {
-      likes: "Interesting routes and a decent bargain",
-      sore: "Changed terms",
-      home: "attic",
-      values: { lamp: 8, oil: 5, bell: 5, cloth: 4 }
-    },
-    moth: {
-      likes: "Warm light and a splendid waistcoat",
-      sore: "Someone spoiling the light",
-      home: "pond",
-      values: { lamp: 12, oil: 3, bell: 1, cloth: 6 }
-    },
-    keeper: {
-      likes: "Quiet hours and properly returned things",
-      sore: "Unnecessary ringing",
-      home: "station",
-      values: { lamp: 3, oil: 8, bell: 10, cloth: 6 }
-    },
-    ...packTastes
-  };
-  var actors = Object.keys(tastes);
-  var items = ["lamp", "oil", "bell", "cloth", ...Object.keys(packThings)];
-  var names = {
-    ...packNames,
-    vale: "Vale",
-    moth: "Pip",
-    keeper: "The Keeper",
-    lamp: "Lamp",
-    oil: "Oil flask",
-    bell: "Bell",
-    cloth: "Black cloth"
-  };
-  var hasMotives = (s) => s.motives?.version === 1;
-  var hasQuestPrograms = (s) => !hasMotives(s) || s.motives.questPrograms === true;
-  function enableMotives(s, { questPrograms: questPrograms2 = false, personalQuests = false } = {}) {
-    if (!s.motives)
-      s.motives = {
-        version: 1,
-        grievances: Object.fromEntries(actors.map((id) => [id, []]))
-      };
-    if (questPrograms2 || personalQuests) s.motives.questPrograms = true;
-    if (personalQuests) enablePersonalQuests(s, (id) => tastes[id]);
-    return s;
-  }
-  function owner(s, item) {
-    const holder = s.items[item].holder;
-    return items.includes(holder) ? s.items[holder].holder : holder;
-  }
-  var placeOf = (s, item) => s.actors[owner(s, item)]?.place || owner(s, item);
-  function resentment(s, actor, other) {
-    return Math.min(
-      3,
-      (s.motives?.grievances[actor] || []).filter((g) => g.other === other).reduce((n, g) => n + g.weight, 0)
-    );
-  }
-  function valueOf(s, actor, item) {
-    let value = tastes[actor]?.values[item] ?? 1;
-    if (item === "lamp" && !s.items.lamp.fuel) value -= 5;
-    if (item === "oil") {
-      if (!s.items.oil.doses) return 1;
-      if (owner(s, "lamp") === actor && s.items.lamp.fuel <= 2) value += 9;
-    }
-    if (item === "bell" && !s.items.oil.doses && s.items.lamp.fuel === 0)
-      value += 12;
-    if (item === "cloth" && actor === "keeper" && s.items.bell.ringing)
-      value += 9;
-    return Math.max(1, value) + attachmentValue(s, actor, item) + pendingQuestValue(s, actor, item);
-  }
-  function bundleValue(s, actor, item) {
-    return valueOf(s, actor, item) + (s.items.cloth.holder === item ? valueOf(s, actor, "cloth") : 0);
-  }
-  function tradeDecision(s, requester, give, receive) {
-    const seller = owner(s, receive);
-    const premium = resentment(s, seller, requester) * 2;
-    const favour = Math.min(2, s.actors[seller].trust[requester] || 0);
-    const accepted = bundleValue(s, seller, give) >= bundleValue(s, seller, receive) + (lifeOf(s, seller) ? 0 : 1) + premium - favour;
-    return {
-      accepted,
-      reason: premium ? `${names[seller]} wants a better offer after ${names[requester]}'s recent behaviour.` : `${names[seller]} values ${names[give]} against ${names[receive]}.`
-    };
-  }
-  function giftDecision(s, giver, item, recipient) {
-    const annoyed = resentment(s, giver, recipient);
-    const spare = bundleValue(s, giver, item) <= 3;
-    const favour = s.actors[giver].trust[recipient] > 0 && bundleValue(s, giver, item) <= 6;
-    return {
-      accepted: !annoyed && !keepReason(s, giver, item) && (spare || favour),
-      reason: annoyed ? `${names[giver]} is still annoyed with ${names[recipient]}.` : keepReason(s, giver, item) || `${names[giver]} wants to keep the ${names[item]}.`
-    };
-  }
-  function interest(s, actor) {
-    if (hasTemperament(actor))
-      return {
-        items: [],
-        location: tastes[actor].home,
-        avatars: [],
-        text: variantOf(s, actor).want,
-        reason: packPeople[actor].tastes.reason
-      };
-    const resident = packPeople[actor];
-    if (resident) {
-      const wish = resident.desire, active = wish && conditionsMet(s, resident.packId, wish.requires);
-      return {
-        items: active ? wish.items.filter(
-          (id) => entityActive(s, id) && owner(s, id) !== actor
-        ) : [],
-        location: active ? wish.location : resident.home || resident.place,
-        avatars: active ? wish.avatars.filter((id) => entityActive(s, id)) : [],
-        text: resident.tastes.likes,
-        reason: resident.tastes.reason
-      };
-    }
-    const domainItems = items.filter((id) => !packThings[id]);
-    const held = domainItems.filter((id) => owner(s, id) === actor);
-    let item = domainItems.slice().sort((a, b) => valueOf(s, actor, b) - valueOf(s, actor, a)).find((id) => !held.includes(id));
-    const home = tastes[actor].home;
-    const annoyed = (s.motives?.grievances[actor] || []).filter(
-      (g) => resentment(s, actor, g.other) > 0 && s.actors[g.other].place === s.actors[actor].place
-    ).at(-1);
-    if (annoyed)
-      return {
-        items: [],
-        location: s.actors[actor].place === home ? home === "attic" ? "station" : "attic" : home,
-        avatars: [],
-        text: `Some space from ${names[annoyed.other]}`,
-        reason: annoyed.reason
-      };
-    if (actor === "moth" && held.includes("lamp")) {
-      item = s.items.lamp.fuel <= 2 ? s.items.oil.doses ? "oil" : "bell" : null;
-    }
-    if (actor === "keeper" && held.includes("bell"))
-      item = s.items.bell.ringing && !held.includes("cloth") ? "cloth" : null;
-    if (lifeOf(s, actor)?.phase === "returning")
-      return {
-        items: [],
-        location: lifeOf(s, actor).restAt,
-        avatars: [],
-        text: `Rest at ${nameIn(s, lifeOf(s, actor).restAt)}`,
-        reason: "Rest in a sanctuary after the last quest"
-      };
-    const company = stayingWith(s, actor);
-    if (company)
-      return {
-        items: item && placeOf(s, item) === s.actors[actor].place ? [item] : [],
-        location: s.actors[actor].place,
-        avatars: [company],
-        text: `Time with ${names[company]}`,
-        reason: "Stay together after a shared moment"
-      };
-    if (lifeOf(s, actor)?.phase === "content")
-      return {
-        items: [],
-        location: s.actors[actor].place,
-        avatars: [],
-        text: "Content after the last quest",
-        reason: "Take time to enjoy the last quest"
-      };
-    if (item && actors.includes(owner(s, item)) && owner(s, item) !== actor) {
-      const holder = owner(s, item);
-      const refusal = s.log.findLast(
-        (e) => e.verb === "ask" && e.actorId === actor && e.targetId === holder && e.itemId === item && e.accepted === false
-      );
-      if (resentment(s, holder, actor) || refusal && s.turn - refusal.turn < 8)
-        return {
-          items: [item],
-          location: home,
-          avatars: [],
-          text: `Still wants the ${names[item]}`,
-          reason: `${names[holder]} wants to keep it. ${names[actor]} will wait at ${home === "pond" ? "the pond" : home === "attic" ? "the attic" : "the station"} for a better opening.`
-        };
-    }
-    return {
-      items: item ? [item] : [],
-      location: item ? placeOf(s, item) : home,
-      avatars: [],
-      text: item ? `Interested in the ${names[item]}` : actor === "moth" ? "A warm spot by the pond" : actor === "keeper" ? "A quiet station" : "An interesting route",
-      reason: tastes[actor].likes
-    };
-  }
-  function socialTravel(s, requester, companion, destination) {
-    const grudge = resentment(s, companion, requester);
-    const want = interest(s, companion);
-    if (grudge)
-      return {
-        accepted: false,
-        reason: `${names[companion]} wants space after ${names[requester]}'s recent behaviour.`
-      };
-    const carriedWant = want.items.some((id) => owner(s, id) === requester);
-    if (destination === want.location || carriedWant)
-      return {
-        accepted: true,
-        reason: carriedWant ? `Stay near the wanted ${names[want.items.find((id) => owner(s, id) === requester)]}.` : want.reason
-      };
-    if (s.actors[companion].trust[requester] > 0)
-      return {
-        accepted: true,
-        favor: true,
-        reason: `Repay a favour to ${names[requester]}.`
-      };
-    return {
-      accepted: false,
-      reason: `${names[companion]} would rather pursue ${want.text.toLowerCase()}.`
-    };
-  }
-  function recordReaction(s, a, witnesses, accepted) {
-    if (!hasMotives(s)) return;
-    const add = (id, reason, kind) => {
-      if (id === a.actor || !witnesses.includes(id)) return;
-      const list = s.motives.grievances[id];
-      const prior = list.find((g) => g.other === a.actor && g.kind === kind);
-      if (prior) {
-        prior.weight = Math.min(3, prior.weight + 1);
-        prior.turn = s.turn;
-        list.splice(list.indexOf(prior), 1);
-        list.push(prior);
-      } else list.push({ other: a.actor, kind, reason, turn: s.turn, weight: 1 });
-      s.motives.grievances[id] = list.slice(-6);
-    };
-    if (a.kind === "ring") {
-      for (const [id, resident] of Object.entries(packPeople))
-        if (resident.tastes.noise)
-          add(
-            id,
-            resident.tastes.noise.replace("{actor}", names[a.actor]),
-            "noise"
-          );
-    }
-    if (a.kind === "ring")
-      add(
-        "keeper",
-        `${names[a.actor]} rang the bell during a perfectly good quiet moment.`,
-        "noise"
-      );
-    if (a.kind === "snuff" || a.kind === "cover" && a.target === "lamp")
-      add("moth", `${names[a.actor]} spoiled Pip's light.`, "light");
-    if (a.kind === "threaten" || a.kind === "attack")
-      add(a.target, `${names[a.actor]} picked a fight.`, "threat");
-    if (a.kind === "ask" && !accepted && s.log.some(
-      (e) => e.verb === "ask" && e.actorId === a.actor && e.targetId === a.target && e.itemId === a.item && s.turn - e.turn <= 6
-    ))
-      add(
-        a.target,
-        `${names[a.actor]} kept asking for the same belongings.`,
-        "pestering"
-      );
-    if (a.kind === "give") {
-      s.motives.grievances[a.target] = s.motives.grievances[a.target].map((g) => g.other === a.actor ? { ...g, weight: g.weight - 1 } : g).filter((g) => g.weight > 0);
-      s.actors[a.target].trust[a.actor] = Math.min(
-        3,
-        s.actors[a.target].trust[a.actor] + 1
-      );
-    }
-  }
-  function motiveFacts(s, actor, limit = 6) {
-    return [
-      tastes[actor].likes,
-      `Current interest: ${interest(s, actor).text}.`,
-      ...lifeOf(s, actor) ? [
-        lifeFacts(s, actor).slice(0, 3).join(" ").slice(0, 240),
-        lifeFacts(s, actor).slice(3).join(" ").slice(0, 240)
-      ].filter(Boolean) : [],
-      ...(s.motives?.grievances[actor] || []).slice(-limit).reverse().map((g) => `Remembered grievance: ${g.reason}`)
-    ];
-  }
-  function validMotives(s) {
-    if (s.motives === void 0) return true;
-    const m = s.motives;
-    return m?.version === 1 && (m.questPrograms === void 0 || typeof m.questPrograms === "boolean") && Object.keys(m.grievances || {}).sort().join() === actors.slice().sort().join() && actors.every(
-      (id) => Array.isArray(m.grievances[id]) && m.grievances[id].length <= 6 && m.grievances[id].every(
-        (g) => actors.includes(g.other) && g.other !== id && ["noise", "light", "threat", "pestering"].includes(g.kind) && typeof g.reason === "string" && g.reason.length <= 180 && Number.isSafeInteger(g.turn) && g.turn >= 0 && g.turn <= s.turn && Number.isInteger(g.weight) && g.weight >= 1 && g.weight <= 3
-      )
-    );
-  }
-  function socialPlan(s, actor, actions, api) {
-    const here = s.actors[actor].place, want = interest(s, actor);
-    const recent = s.log.filter(
-      (e) => e.actorId === actor && e.kind === "action" && s.turn - e.turn <= 4
-    );
-    const conflict = api.standoffFor(s, actor);
-    const score = (a) => {
-      if (s.peaceUntil[actor] > s.turn) return a.kind === "wait" ? 100 : -100;
-      if (conflict) {
-        if (a.kind === "attack" && conflict.struck[api.opponentOf(conflict, actor)])
-          return 80;
-        if (a.kind === "guard" && !conflict.answered) return 70;
-        if (a.kind === "move") return 60;
-      }
-      let n = -30;
-      if (a.kind === "wait")
-        n = stayingWith(s, actor) || lifeOf(s, actor)?.phase === "content" ? 20 : 0;
-      if (a.kind === "take") n = valueOf(s, actor, a.item) * 2;
-      if (a.kind === "trade")
-        n = (bundleValue(s, actor, a.receive) - bundleValue(s, actor, a.item)) * 3;
-      if (a.kind === "ask")
-        n = api.willingToGive(s, a.target, a.item, actor) ? valueOf(s, actor, a.item) * 2 : want.items.includes(a.item) ? 5 : -5;
-      if (a.kind === "move" && !a.item) {
-        const target = want.location;
-        const path = api.routeBetween(s, here, target, actor);
-        n = path?.[1] === a.target ? want.items.length ? 18 : 35 : -15;
-      }
-      if (a.kind === "light" && actor === "moth") n = 45;
-      if (a.kind === "refill" && actor !== "keeper" && s.items.lamp.fuel <= 2)
-        n = 40;
-      if (a.kind === "ring" && here === "pond" && !s.items.oil.doses) n = 50;
-      if (a.kind === "cover" && a.target === "bell" && actor === "keeper" && s.items.bell.ringing)
-        n = 45;
-      if (a.kind === "take" && a.item === "cloth" && s.items.cloth.holder === "lamp" && actor === "moth")
-        n = 40;
-      if (a.kind === "snuff" && actor === "keeper" && s.items.lamp.lit && s.items.lamp.fuel <= 2)
-        n = 25;
-      if (a.kind === "talk" && s.turn - s.actors[actor].lastTalk >= 4) n = 2;
-      if (lifeOf(s, actor) && a.kind === "talk" && s.turn - s.actors[actor].lastTalk >= 4)
-        n = 24;
-      if (lifeOf(s, actor) && a.kind === "move" && lifeOf(s, actor).phase !== "returning" && (stayingWith(s, actor) || lifeOf(s, actor).phase === "content"))
-        n -= 50;
-      if (a.kind === "drop")
-        n = api.carried(s, actor).length >= 3 && valueOf(s, actor, a.item) <= 3 ? 10 : -30;
-      n -= recent.filter(
-        (e) => e.verb === a.kind && e.itemId === a.item && e.targetId === a.target
-      ).length * 12;
-      return n;
-    };
-    const action = actions.map((action2, index) => ({ action: action2, index, score: score(action2) })).sort((a, b) => b.score - a.score || a.index - b.index)[0].action;
-    return { action, reason: want.reason + ". " + want.text + "." };
-  }
-
   // v2/card-game/forest.json
   var forest_default = {
     places: {
       station: {
-        sanctuary: true,
         name: "Empty station",
         text: "The timetable lists years that have yet to happen. Stairs lead to the attic; a path leads to the pond.",
         exits: [
@@ -7060,7 +7201,6 @@
         ]
       },
       attic: {
-        sanctuary: true,
         name: "Mirror attic",
         text: "A tall mirror reflects a black shore. The stairs lead to the station.",
         exits: [
@@ -7591,7 +7731,7 @@
   };
 
   // v2/card-game/quests.mjs
-  var hold = (...items2) => ({ items: items2 });
+  var hold = (...items3) => ({ items: items3 });
   var at = (location) => ({ location });
   var withAvatars = (...avatars) => ({ avatars });
   function hand(...parts) {
@@ -7619,12 +7759,12 @@
     if (!any.length) throw new Error("Choose at least one target hand.");
     return { any: structuredClone(any) };
   }
-  var meet = (items2, avatar, locations) => either(
+  var meet = (items3, avatar, locations) => either(
     ...locations.map(
-      (location) => hand(hold(...items2), at(location), withAvatars(avatar))
+      (location) => hand(hold(...items3), at(location), withAvatars(avatar))
     )
   );
-  var carryTo = (items2, location) => hand(hold(...items2), at(location));
+  var carryTo = (items3, location) => hand(hold(...items3), at(location));
   var questPrograms = { ...forest_default.questPrograms, ...humanQuestPrograms };
   var openingPrograms = {
     ...forest_default.openingPrograms,
@@ -7649,7 +7789,7 @@
     )
   };
   var newProgress = () => ({ program: 0, step: 0, marks: [] });
-  var savedProgramFor = (s, actor) => collectionOf(s, actor) ? currentProgram(s, actor, activeRecord(s, actor)) : rawProgram(s, actor);
+  var savedProgramFor = (s, actor) => programsFor(s, actor)[s.actors[actor].progress.program] || s.actors[actor].progress.current || null;
   var programFor = (s, actor) => questActive(s, actor) ? savedProgramFor(s, actor) : null;
   var targetsFor = (s, actor) => hasQuestPrograms(s) && !isPackActor(actor) ? alternatives(programFor(s, actor)?.steps[s.actors[actor].progress.step]) : [interest(s, actor)];
   var ownerOf = (s, item) => {
@@ -7674,7 +7814,7 @@
   var levelOf = (s, actor) => 1 + s.actors[actor].progress.program;
   function generateProgram(s, actor, places2, things2, { independent = false, solo = false } = {}) {
     const progress = s.actors[actor].progress;
-    const actors2 = knownActors(s).filter((id) => !isPackActor(id)), ids3 = Object.keys(s.items).filter((id) => entityActive(s, id));
+    const actors3 = knownActors(s).filter((id) => !isPackActor(id)), ids3 = Object.keys(s.items).filter((id) => entityActive(s, id));
     const here = s.actors[actor].place;
     const traversed = [here];
     for (let i = 0; i < traversed.length; i++)
@@ -7690,17 +7830,17 @@
     const needed2 = (owner3, item2) => bundle2(item2).some(
       (id) => requiredItems(s, owner3, desireFor(s, owner3)).includes(id)
     );
-    const wantedElsewhere = (item2) => !controlledByHuman(s, actor) && actors2.some((other) => other !== actor && needed2(other, item2));
+    const wantedElsewhere = (item2) => !controlledByHuman(s, actor) && actors3.some((other) => other !== actor && needed2(other, item2));
     const held = ids3.filter(
       (id) => ownerOf(s, id) === actor && !wantedElsewhere(id)
     );
     const available = (item2) => {
       const owner3 = ownerOf(s, item2);
-      return (!s.actors[owner3] || actors2.includes(owner3)) && (!independent || !controlledByHuman(s, owner3)) && reachable.includes(placeOf2(item2)) && (!s.actors[owner3] || owner3 === actor || !needed2(owner3, item2));
+      return (!s.actors[owner3] || actors3.includes(owner3)) && (!independent || !controlledByHuman(s, owner3)) && reachable.includes(placeOf2(item2)) && (!s.actors[owner3] || owner3 === actor || !needed2(owner3, item2));
     };
     if (solo) {
       const away = reachable.filter((id) => id !== here);
-      const destination2 = away[(progress.program + actors2.indexOf(actor)) % away.length] || here;
+      const destination2 = away[(progress.program + actors3.indexOf(actor)) % away.length] || here;
       return {
         id: `generated-${actor}-${progress.program + 1}`,
         name: "An errand alone",
@@ -7715,7 +7855,7 @@
         }
       };
     }
-    const rotation = (progress.program + actors2.indexOf(actor)) % ids3.length;
+    const rotation = (progress.program + actors3.indexOf(actor)) % ids3.length;
     const rotated = [...ids3.slice(rotation), ...ids3.slice(0, rotation)];
     const candidates = rotated.filter((id) => {
       const owner3 = ownerOf(s, id);
@@ -7730,11 +7870,11 @@
     if (!candidates.length)
       candidates.push(
         ...rotated.filter(
-          (id) => (!s.actors[ownerOf(s, id)] || actors2.includes(ownerOf(s, id))) && !s.items[s.items[id].holder] && (!independent || !controlledByHuman(s, ownerOf(s, id))) && reachable.includes(placeOf2(id))
+          (id) => (!s.actors[ownerOf(s, id)] || actors3.includes(ownerOf(s, id))) && !s.items[s.items[id].holder] && (!independent || !controlledByHuman(s, ownerOf(s, id))) && reachable.includes(placeOf2(id))
         )
       );
     const recent = progress.recent || [];
-    const active = actors2.filter((id) => id !== actor).map((id) => programFor(s, id)).filter(Boolean);
+    const active = actors3.filter((id) => id !== actor).map((id) => programFor(s, id)).filter(Boolean);
     const score = (item2) => {
       const owner3 = ownerOf(s, item2);
       let value = owner3 === actor ? 0 : s.actors[owner3] ? 6 : 4;
@@ -7744,18 +7884,15 @@
     };
     const item = candidates.sort((a, b) => score(b) - score(a))[0];
     if (!item)
-      return generateProgram(s, actor, places2, things2, {
-        independent,
-        solo: true
-      });
+      throw new Error("The world needs an available item for a new quest.");
     const owner2 = ownerOf(s, item);
-    const others = actors2.filter((id) => id !== actor);
-    const partner = s.actors[owner2] && owner2 !== actor ? owner2 : others[(progress.program + actors2.indexOf(actor)) % others.length];
+    const others = actors3.filter((id) => id !== actor);
+    const partner = s.actors[owner2] && owner2 !== actor ? owner2 : others[(progress.program + actors3.indexOf(actor)) % others.length];
     const payment = owner2 !== actor && s.actors[owner2] ? requiredItems(s, owner2, desireFor(s, owner2)).find(
       (id) => ownerOf(s, id) !== owner2 && id !== item && available(id)
     ) : null;
     const destinations = reachable.filter((id) => id !== placeOf2(item));
-    const destination = destinations[(progress.program + actors2.indexOf(actor)) % destinations.length] || here;
+    const destination = destinations[(progress.program + actors3.indexOf(actor)) % destinations.length] || here;
     const extra = levelOf(s, actor) >= 5 ? held.find(
       (id) => id !== item && id !== payment && !bundle2(item).includes(id)
     ) : null;
@@ -7812,219 +7949,29 @@
     ) + (recent.includes(p.generated.item) ? 2 : 0);
     const chosen = choices.sort((a, b) => rank(a) - rank(b))[0] || base;
     if (lifeOf(s, actor)) {
-      chosen.purpose = `${hopeOf(s, actor).title}. ${chosen.purpose || "Take a step toward this hope."}`.slice(
+      const milestone = hopes[actor].milestones[lifeOf(s, actor).milestones.length];
+      if (milestone?.effects && milestone.kinds.includes(chosen.generated.situation)) {
+        chosen.steps = chosen.steps.map((step) => {
+          const outcomes = step.any?.filter(
+            (h) => milestone.effects.includes(h.consequence?.kind)
+          );
+          if (outcomes?.length && outcomes.length < step.any.length) {
+            chosen.name = milestone.title;
+            chosen.purpose = "Wrap the bell at Black pond with company to make the shore a quiet refuge.";
+          }
+          return outcomes?.length ? { any: outcomes } : step;
+        });
+      }
+      chosen.purpose = `${hopes[actor].title}. ${chosen.purpose || "Take a step toward this hope."}`.slice(
         0,
         240
       );
     }
     return chosen;
   }
-  var QUEST_LIMIT = 8;
-  var HISTORY_LIMIT = 24;
-  var COLLECTION_LIMIT = 256;
-  var questKey = (actor, serial) => `${actor}:quest:${serial}`;
-  var collectionOf = (s, actor) => lifeOf(s, actor)?.collection;
-  var activeRecord = (s, actor) => {
-    const c = collectionOf(s, actor);
-    return c?.cards.find((card) => card.key === c.active) || null;
-  };
-  var rawProgram = (s, actor) => programsFor(s, actor)[s.actors[actor].progress.program] || s.actors[actor].progress.current || null;
-  function currentProgram(s, actor, card) {
-    if (!card) return null;
-    const p = card.program;
-    return p.generated ? {
-      ...p,
-      id: `generated-${actor}-${levelOf(s, actor)}`,
-      generated: { ...p.generated, level: levelOf(s, actor) }
-    } : p;
-  }
-  function actorQuests(s, actor) {
-    const c = collectionOf(s, actor);
-    if (!c) {
-      const program = rawProgram(s, actor);
-      return program ? [
-        {
-          key: questKey(actor, 0),
-          program,
-          step: s.actors[actor].progress.step,
-          status: questActive(s, actor) ? "active" : "pending",
-          origin: lifeOf(s, actor)?.origin || null,
-          createdTurn: program.generated?.turn || 0,
-          completedTurn: null
-        }
-      ] : [];
-    }
-    return [...c.cards, ...c.archive || []].map((card) => ({
-      ...card,
-      status: card.completedTurn !== null ? "fulfilled" : card.key === c.active ? "active" : "pending"
-    })).sort(
-      (a, b) => ({ active: 0, pending: 1, fulfilled: 2 })[a.status] - { active: 0, pending: 1, fulfilled: 2 }[b.status]
-    );
-  }
-  var activeQuestKey = (s, actor) => actorQuests(s, actor).find((q) => q.status === "active")?.key || null;
-  function installQuestCollection(s, actor) {
-    const life = lifeOf(s, actor);
-    if (!life || life.collection) return;
-    const program = rawProgram(s, actor);
-    const progress = s.actors[actor].progress;
-    const completed = progress.completedHands ?? programsFor(s, actor).slice(0, progress.program).reduce((n, p) => n + p.steps.length, 0);
-    life.collection = {
-      next: 0,
-      active: null,
-      cards: [],
-      archive: [],
-      earned: completed + progress.step,
-      archivedCompleted: progress.program,
-      authoredThrough: Math.min(progress.program, programsFor(s, actor).length),
-      collectedThrough: s.turn
-    };
-    if (program) {
-      const card = addQuest(s, actor, program, life.origin || null);
-      card.step = progress.step;
-      if (!program.generated) life.collection.authoredThrough += 1;
-      if (life.phase === "active") life.collection.active = card.key;
-    }
-  }
-  function addQuest(s, actor, program, origin = null) {
-    const c = collectionOf(s, actor);
-    if (c.cards.filter((q) => q.completedTurn === null).length >= QUEST_LIMIT || c.cards.length + c.archive.length >= COLLECTION_LIMIT)
-      return null;
-    const card = {
-      key: questKey(actor, c.next++),
-      program: structuredClone(program),
-      step: 0,
-      origin: origin ? structuredClone(origin) : null,
-      createdTurn: s.turn,
-      completedTurn: null
-    };
-    c.cards.push(card);
-    return card;
-  }
-  function pursueQuest(s, actor, key) {
-    const c = collectionOf(s, actor);
-    const card = c?.cards.find((q) => q.key === key && q.completedTurn === null);
-    if (!card) return false;
-    c.active = key;
-    const life = lifeOf(s, actor);
-    life.phase = "active";
-    life.restLeft = 0;
-    life.quiet = 0;
-    delete life.restAt;
-    if (card.origin) life.origin = structuredClone(card.origin);
-    else delete life.origin;
-    s.actors[actor].progress.step = card.step;
-    s.actors[actor].progress.current = currentProgram(s, actor, card);
-    return true;
-  }
-  function recordQuestProgress(s, actor, complete, key = activeQuestKey(s, actor)) {
-    const c = collectionOf(s, actor), card = c?.cards.find((q) => q.key === key);
-    if (!card) return;
-    if (card.lastProgressTurn === s.turn) return;
-    card.step += 1;
-    card.lastProgressTurn = s.turn;
-    c.earned += 1;
-    if (complete) {
-      card.completedTurn = s.turn;
-      if (c.active === key) c.active = null;
-      const completed = c.cards.filter((q) => q.completedTurn !== null);
-      for (const old of completed.slice(
-        0,
-        Math.max(0, completed.length - HISTORY_LIMIT)
-      )) {
-        c.cards.splice(c.cards.indexOf(old), 1);
-        c.archive.push({
-          key: old.key,
-          program: {
-            id: old.program.id,
-            name: old.program.name,
-            purpose: old.program.purpose || "",
-            steps: [],
-            ...old.program.generated ? {
-              generated: {
-                situation: old.program.generated.situation,
-                ...old.program.generated.solo ? { solo: true } : {}
-              }
-            } : {}
-          },
-          totalSteps: old.program.steps.length,
-          step: old.step,
-          origin: old.origin,
-          createdTurn: old.createdTurn,
-          completedTurn: old.completedTurn,
-          lastProgressTurn: old.lastProgressTurn
-        });
-      }
-    }
-  }
-  function ensureCollectedQuest(s, actor, places2, things2) {
-    const life = lifeOf(s, actor), c = collectionOf(s, actor);
-    if (!c) return false;
-    const p = s.actors[actor].progress;
-    if (c.active) {
-      const card = activeRecord(s, actor);
-      s.actors[actor].progress.step = card.step;
-      s.actors[actor].progress.current = currentProgram(s, actor, card);
-      return true;
-    }
-    p.step = 0;
-    delete p.current;
-    let pending = c.cards.filter((q) => q.completedTurn === null);
-    const authored = programsFor(s, actor)[c.authoredThrough];
-    if (authored && addQuest(s, actor, authored)) c.authoredThrough += 1;
-    pending = c.cards.filter((q) => q.completedTurn === null);
-    if (!pending.length && life.phase === "active") {
-      const program = generateProgram(structuredClone(s), actor, places2, things2);
-      addQuest(s, actor, program, life.origin || null);
-      pending = c.cards.filter((q) => q.completedTurn === null);
-      if (!pending.length) life.phase = "seeking";
-    }
-    if (life.phase === "active" && pending.length) {
-      if (controlledByHuman(s, actor)) {
-        life.phase = "seeking";
-        delete life.origin;
-      } else {
-        const rank = (q) => {
-          const targets = alternatives(q.program.steps[q.step]);
-          return Math.min(
-            ...targets.map(
-              (h) => (h.location && h.location !== s.actors[actor].place ? 3 : 0) + h.items.filter((id) => !questItemAvailable(s, actor, id)).length * 4 + h.avatars.filter(
-                (id) => s.actors[id].place !== (h.location || s.actors[actor].place)
-              ).length * 2
-            )
-          ) + personalQuestRank(s, actor, q.program) / 100;
-        };
-        pending.sort(
-          (a, b) => rank(a) - rank(b) || a.createdTurn - b.createdTurn
-        );
-        pursueQuest(s, actor, pending[0].key);
-      }
-    }
-    return true;
-  }
-  function collectExperienceQuests(s, actor, places2, things2) {
-    const life = lifeOf(s, actor), c = collectionOf(s, actor);
-    if (!c) return;
-    const experiences = life.experiences.filter(
-      (e) => e.turn > c.collectedThrough
-    );
-    c.collectedThrough = s.turn;
-    for (const experience of experiences) {
-      if (c.cards.filter((q) => q.completedTurn === null).length >= QUEST_LIMIT)
-        break;
-      const probe = structuredClone(s);
-      lifeOf(probe, actor).origin = experience;
-      const program = generateProgram(probe, actor, places2, things2);
-      const signature = JSON.stringify(program.steps);
-      if (c.cards.some(
-        (q) => q.completedTurn === null && JSON.stringify(q.program.steps) === signature
-      ))
-        continue;
-      addQuest(s, actor, program, experience);
-    }
-  }
 
   // v2/card-game/legacy-saves.mjs
-  function upgradeSave(s, { actorIds: actorIds2, ensurePrograms: ensurePrograms2, installPacks: installPacks2, profileOf }) {
+  function upgradeSave(s, { actorIds: actorIds2, ensurePrograms: ensurePrograms2, installPacks: installPacks2 }) {
     if (s?.schema === 1 && s.actors && typeof s.actors === "object") {
       s.schema = 2;
       for (const actor of Object.values(s.actors)) {
@@ -8080,7 +8027,7 @@
       upgradeTransportSave(s);
       installPacks2(s);
     }
-    migrateLife(s, profileOf);
+    if (s?.schema === 7) upgradeRecitals(s, packDefinitions);
     return s;
   }
   function upgradeTransportSave(s) {
@@ -8131,7 +8078,7 @@
     if (old !== void 0) {
       const allowed = ["revision", "choices", "flags", "receipts", "met"], current = [...allowed, "sounds", "scope"];
       const keys = old && typeof old === "object" ? Object.keys(old).sort().join() : "";
-      if (keys === current.sort().join()) {
+      if (keys === current.sort().join() || keys === [...current, "recitals"].sort().join()) {
         if (s.locations?.pond?.shipSignal !== void 0)
           throw new Error("Conflicting legacy lamp signal.");
         return;
@@ -8152,9 +8099,6 @@
 
   // v2/card-game/world.mjs
   var places = { ...forest_default.places, ...packPlaces };
-  var sanctuaries = Object.keys(places).filter(
-    (id) => places[id].sanctuary === true
-  );
   var people = { ...forest_default.people, ...packPeople };
   var things = { ...packThings, ...forest_default.things };
   validatePackLinks(places, people, things);
@@ -8223,7 +8167,7 @@
           if (other !== id) actor.trust[other] ??= 0;
       for (const id of Object.keys(pack.places)) s.memories[id] ??= fresh[id];
     }
-    installHumanLife(s, (id) => tastes[id]);
+    installHumanLife(s);
   }
   function rootHolder(s, id) {
     let holder = s.items[id].holder;
@@ -8293,7 +8237,7 @@
   var hasSpace = (s, actor, id) => carried(s, actor).length + (rootHolder(s, id) === actor ? 0 : loadOf(s, id)) <= 3;
   function handStatus(s, actor, hand2 = desireFor(s, actor)) {
     const held = carried(s, actor), here = s.actors[actor].place;
-    const items2 = hand2.items.map((id) => ({
+    const items3 = hand2.items.map((id) => ({
       id,
       met: questItemAvailable(s, actor, id),
       ...!held.includes(id) && questItemAvailable(s, actor, id) ? { sharedBy: rootHolder(s, id) } : {}
@@ -8311,11 +8255,11 @@
       met: conditionMet2(s, c)
     }));
     return {
-      items: items2,
+      items: items3,
       location,
       avatars,
       conditions,
-      met: items2.every((e) => e.met) && location.met && avatars.every((e) => e.met) && conditions.every((e) => e.met)
+      met: items3.every((e) => e.met) && location.met && avatars.every((e) => e.met) && conditions.every((e) => e.met)
     };
   }
   function handText(hand2) {
@@ -8356,49 +8300,34 @@
   function captureHands(s, met) {
     if (!hasQuestPrograms(s)) return;
     for (const actor of knownActors(s).filter((id) => !isPackActor(id))) {
-      const collection = lifeOf(s, actor)?.collection;
-      const cards = collection ? collection.cards.filter((q) => q.completedTurn === null) : [
-        {
-          key: null,
-          program: programFor(s, actor),
-          step: s.actors[actor].progress.step
-        }
-      ];
-      for (const card of cards) {
-        const key = card.key ? `${actor}/${card.key}` : actor;
-        const target = alternatives(card.program?.steps[card.step]).find(
-          (h) => handStatus(s, actor, h).met
-        );
-        if (!met.has(key) && target) {
-          met.set(key, {
-            actor,
-            questKey: card.key,
-            step: card.step,
-            target: structuredClone(target),
-            fulfillment: {
-              items: [...target.items],
-              location: s.actors[actor].place,
-              // Include the actual required participants, even before Vale meets
-              // them. Keep nearby witnesses within the receipt's two-person bound.
-              avatars: [
-                .../* @__PURE__ */ new Set([
-                  ...target.avatars,
-                  ...actorIds.filter(
-                    (id) => id !== actor && entityActive(s, id) && s.actors[id].place === s.actors[actor].place
-                  )
-                ])
-              ].slice(0, 2).sort((a, b) => actorIds.indexOf(a) - actorIds.indexOf(b)),
-              ...(target.conditions || []).length ? { conditions: handStatus(s, actor, target).conditions } : {}
-            }
-          });
-        }
+      const target = targetsFor(s, actor).find(
+        (h) => handStatus(s, actor, h).met
+      );
+      if (!met.has(actor) && target) {
+        met.set(actor, {
+          target: structuredClone(target),
+          fulfillment: {
+            items: [...target.items],
+            location: s.actors[actor].place,
+            // Include the actual required participants, even before Vale meets
+            // them. Keep nearby witnesses within the receipt's two-person bound.
+            avatars: [
+              .../* @__PURE__ */ new Set([
+                ...target.avatars,
+                ...actorIds.filter(
+                  (id) => id !== actor && entityActive(s, id) && s.actors[id].place === s.actors[actor].place
+                )
+              ])
+            ].slice(0, 2).sort((a, b) => actorIds.indexOf(a) - actorIds.indexOf(b)),
+            ...(target.conditions || []).length ? { conditions: handStatus(s, actor, target).conditions } : {}
+          }
+        });
       }
     }
   }
   function ensurePrograms(s) {
     for (const actor of actorIds.filter((id) => !isPackActor(id))) {
       const p = s.actors[actor].progress;
-      if (ensureCollectedQuest(s, actor, programPlaces(s), things)) continue;
       if (p.program >= programsFor(s, actor).length && !p.current) {
         p.completedHands ??= programsFor(s, actor).reduce(
           (n, program) => n + program.steps.length,
@@ -8422,7 +8351,6 @@
       (id) => !controlledByHuman(s, id) && !isPackActor(id)
     )) {
       const p = s.actors[actor].progress, current = programFor(s, actor);
-      if (lifeOf(s, actor)?.collection) continue;
       if (!current?.generated || s.turn - Math.max(current.generated.turn, p.marks.at(-1) || 0) < 12)
         continue;
       const fresh = generateProgram(
@@ -8500,54 +8428,29 @@
   function advancePrograms(s, met) {
     if (!hasQuestPrograms(s)) return;
     const receipts = [];
-    const consequences = /* @__PURE__ */ new Set();
-    for (const evidence of met.values()) {
-      const actor = evidence.actor;
-      const progress = s.actors[actor].progress;
-      const collection = lifeOf(s, actor)?.collection;
-      const card = collection?.cards.find((q) => q.key === evidence.questKey);
-      if (card && (card.completedTurn !== null || card.lastProgressTurn === s.turn || card.step !== evidence.step))
-        continue;
-      const source = card?.program || programFor(s, actor);
-      const programIndex = progress.program;
-      const program = source.generated ? {
-        ...source,
-        id: `generated-${actor}-${programIndex + 1}`,
-        generated: { ...source.generated, level: programIndex + 1 }
-      } : source;
-      const step = card ? card.step : progress.step;
-      const complete = step + 1 === program.steps.length;
-      const wasActive = !collection || collection.active === card.key;
+    for (const [actor, evidence] of met) {
+      const progress = s.actors[actor].progress, program = programFor(s, actor), step = progress.step, programIndex = progress.program;
       progress.marks.push(s.turn);
       progress.marks = progress.marks.slice(-32);
-      if (collection) recordQuestProgress(s, actor, complete, card.key);
-      else progress.step += 1;
+      progress.step += 1;
+      const complete = progress.step === program.steps.length;
       if (complete) {
-        finishPersonalQuest(s, actor, program, sanctuaries, {
-          rest: wasActive || !collection?.active
-        });
-        const effect = evidence.target.consequence;
-        const consequenceKey = effect && JSON.stringify([effect, effect.kind === "trust" ? actor : null]);
-        if (effect && !consequences.has(consequenceKey)) {
-          applyConsequence(s, actor, evidence.target);
-          consequences.add(consequenceKey);
-        }
-        if (collection) progress.completedHands = collection.earned;
+        finishPersonalQuest(s, actor, program, evidence.target);
+        applyConsequence(s, actor, evidence.target);
         if (program.generated) {
-          if (!collection) progress.completedHands += program.steps.length;
+          progress.completedHands += program.steps.length;
           if (program.generated.item)
-            progress.recent = [
-              ...progress.recent || [],
-              program.generated.item
-            ].slice(-4);
+            progress.recent = [...progress.recent, program.generated.item].slice(
+              -4
+            );
           progress.recentKinds = [
             ...progress.recentKinds || [],
             program.generated.situation || "bargain"
           ].slice(-4);
-          if (wasActive) delete progress.current;
+          delete progress.current;
         }
         progress.program += 1;
-        if (wasActive) progress.step = 0;
+        progress.step = 0;
       }
       receipts.push({
         actor,
@@ -8566,26 +8469,24 @@
       programIndex,
       complete,
       target,
-      fulfillment,
-      questKey: questKey2
+      fulfillment
     } of receipts) {
       let text = `${nameOf(actor)} completes hand ${step + 1}/${program.steps.length} of ${program.name}.`;
-      if (complete) text += ` Level ${programIndex + 2}.`;
+      if (complete) text += ` Level ${levelOf(s, actor)}.`;
       const life = lifeOf(s, actor);
       if (complete && life?.milestones.at(-1) === s.turn)
-        text += ` Hope milestone: ${hopeOf(s, actor).milestones[life.milestones.length - 1].title}.`;
-      text += questActive(s, actor) ? ` Next: ${handText(desireFor(s, actor))}.` : lifeOf(s, actor)?.phase === "returning" ? ` Next: rest at ${nameOf(lifeOf(s, actor).restAt)}.` : " Time to rest and enjoy it.";
+        text += ` Hope milestone: ${hopes[actor].milestones[life.milestones.length - 1].title}.`;
+      text += questActive(s, actor) ? ` Next: ${handText(desireFor(s, actor))}.` : " Take time to enjoy this. Helpful actions will grow a new purpose.";
       addLog(s, "World", text, {
         kind: "quest",
         actorId: actor,
         programId: program.id,
         program: structuredClone(program),
         programIndex,
-        ...questKey2 ? { questKey: questKey2 } : {},
         target,
         fulfillment,
         step,
-        level: programIndex + 1 + Number(complete)
+        level: levelOf(s, actor)
       });
     }
   }
@@ -8766,19 +8667,6 @@
     const out = [
       offer("wait", actor, null, null, `${nameOf(actor)} waits one turn.`, [])
     ];
-    for (const quest of actorQuests(s, actor).filter(
-      (q) => q.status === "pending"
-    )) {
-      out.push({
-        kind: "pursue",
-        actor,
-        questKey: quest.key,
-        key: `pursue:${actor}:${quest.key}`,
-        label: "Pursue",
-        text: `${nameOf(actor)} chooses ${quest.program.name}.`,
-        parts: []
-      });
-    }
     for (const to of exits(s, here, actor)) {
       const through = !baseExits(s, here).includes(to);
       const crossing = crossingBetween(here, to, s);
@@ -9074,11 +8962,6 @@
       if (a.actor === conflict.defender) conflict.answered = true;
     }
     if (a.kind === "wait") return;
-    if (a.kind === "pursue") {
-      pursueQuest(s, a.actor, a.questKey);
-      addLog(s, "World", a.text, { actorId: a.actor, locationId: here });
-      return;
-    }
     const holder = holderBefore(s, a);
     const usefulGift = a.kind === "give" && (valueOf(s, a.target, a.item) >= 5 || needed(s, a.target, a.item));
     let text = a.text;
@@ -9265,6 +9148,7 @@
       default:
         throw new Error("Unknown act.");
     }
+    const recitals = here !== s.actors[a.actor].place ? arriveRecitals(s, packDefinitions, a.actor) : [];
     meetCast(s);
     capture();
     recordReaction(s, a, witnesses, requestAccepted);
@@ -9284,6 +9168,18 @@
       ...invitation ? { destinationId: a.destination, accepted: invitation.accepted } : {},
       ...a.kind === "attack" ? { locationId: here } : {}
     });
+    for (const visit of recitals)
+      addLog(
+        s,
+        "World",
+        `${nameOf(visit.actorId)} waits here with a song of ${who}'s journey.`,
+        {
+          ...visit,
+          kind: "narration",
+          verb: "move",
+          witnesses: [a.actor, visit.actorId]
+        }
+      );
     if (arrival) {
       const { text: arrivalText, ...details } = arrival;
       addLog(s, "World", arrivalText, details);
@@ -9554,19 +9450,22 @@
       };
     const next = structuredClone(s);
     if (actor !== "vale" || s.playerActorId) next.playerActorId = actor;
-    for (const id of actorIds) installQuestCollection(next, id);
     const previousHopes = Object.fromEntries(
       knownActors(s).map((id) => [id, lifeOf(s, id)?.milestones.length || 0])
     );
     const round = beginRound(s, sensesFor(s));
     next.turn += 1;
     next.revision += 1;
+    for (const actor2 of knownActors(next)) {
+      const life = lifeOf(next, actor2);
+      if (life?.phase === "content" && next.turn > life.restUntil)
+        life.phase = "seeking";
+    }
     const reflectionSource = next.actors[actor].place;
     const wasOpen = reflectionOpen(next, reflectionSource);
     if (exact.kind === "wait")
       addLog(next, "World", `${nameOf(actor)} waits. The cast takes a turn.`);
     const met = /* @__PURE__ */ new Map();
-    if (exact.kind === "pursue") pursueQuest(next, actor, exact.questKey);
     captureHands(next, met);
     const active = knownActors(next);
     const respondent = perform(next, exact, () => captureHands(next, met), round);
@@ -9627,36 +9526,28 @@
     advancePrograms(next, met);
     for (const actor2 of knownActors(next)) {
       const life = lifeOf(next, actor2);
-      if (life && life.milestones.length > (previousHopes[actor2] || 0)) {
-        const hope = hopeOf(next, actor2);
+      if (life && life.milestones.length > (previousHopes[actor2] || 0))
         addLog(
           next,
           "World",
-          `${nameOf(actor2)} reaches a hope milestone: ${hope.milestones[life.milestones.length - 1].title}. Hope ${life.milestones.length}/${hope.milestones.length}.`,
+          `${nameOf(actor2)} reaches a hope milestone: ${hopes[actor2].milestones[life.milestones.length - 1].title}. Hope ${life.milestones.length}/3.`,
           { actorId: actor2 }
+        );
+    }
+    for (const actor2 of knownActors(next)) {
+      const life = lifeOf(next, actor2);
+      if (life?.phase === "seeking" && life.inspiration >= INSPIRATION_MAX) {
+        life.phase = "active";
+        life.inspiration = 0;
+        ensurePrograms(next);
+        addLog(
+          next,
+          "World",
+          `${nameOf(actor2)} finds a new purpose: ${programFor(next, actor2).name}. Hope: ${hopes[actor2].title}.`,
+          { actorId: actor2, questPlan: structuredClone(programFor(next, actor2)) }
         );
       }
     }
-    for (const actor2 of settleLife(
-      next,
-      knownActors(next).filter(
-        (id) => !controlledByHuman(next, id) || id === exact.actor
-      ),
-      sanctuaries
-    )) {
-      ensurePrograms(next);
-      const origin = purposeOrigin(next, actor2);
-      if (!programFor(next, actor2)) continue;
-      addLog(
-        next,
-        "World",
-        `${nameOf(actor2)} finds a new purpose: ${programFor(next, actor2).name}.${origin ? ` It began with ${origin}.` : ""}`,
-        { actorId: actor2, questPlan: structuredClone(programFor(next, actor2)) }
-      );
-    }
-    for (const id of knownActors(next))
-      collectExperienceQuests(next, id, programPlaces(next), things);
-    ensurePrograms(next);
     refreshStalledPrograms(next);
     for (const [id, allowance] of Object.entries(
       next.sharedMigration?.inventoryAllowances || {}
@@ -9671,11 +9562,6 @@
   function validHand(h, actor) {
     return h && Array.isArray(h.items) && h.items.length <= 3 && new Set(h.items).size === h.items.length && h.items.every((id) => ids.includes(id)) && (h.location === null || Object.hasOwn(places, h.location)) && Array.isArray(h.avatars) && h.avatars.length <= 2 && new Set(h.avatars).size === h.avatars.length && h.avatars.every((id) => actorIds.includes(id) && id !== actor) && (h.conditions === void 0 || Array.isArray(h.conditions) && h.conditions.length <= 3 && h.conditions.every((c) => validCondition(c, actor))) && (h.consequence === void 0 || validConsequence(h.consequence, actor));
   }
-  function validQuestOrigin(s, origin) {
-    return origin === null || origin && Object.keys(origin).every(
-      (key) => ["kind", "turn", "other", "item", "place"].includes(key)
-    ) && experienceKinds.includes(origin.kind) && Number.isSafeInteger(origin.turn) && origin.turn >= 0 && origin.turn <= s.turn && (origin.other === null || actorIds.includes(origin.other)) && (origin.item === null || ids.includes(origin.item)) && (origin.place === null || Object.hasOwn(places, origin.place));
-  }
   function validProgram(p, actor, s) {
     if (!p || !actorIds.includes(actor) || typeof p.id !== "string" || p.id.length > 80 || !p.id.length || typeof p.name !== "string" || p.name.length > 100 || !p.name.length || !Array.isArray(p.steps) || !p.steps.length || p.steps.length > 12)
       return false;
@@ -9688,7 +9574,7 @@
     }
     if (p.generated) {
       const g = p.generated;
-      if (!Number.isSafeInteger(g.turn) || g.turn < 0 || g.turn > s.turn || !Number.isSafeInteger(g.level) || g.level < (lifeOf(s, actor)?.collection ? 1 : 3) || g.level > s.turn * (lifeOf(s, actor)?.collection ? 8 : 1) + 1 || ![...actorIds, ...Object.keys(places)].includes(g.owner) || (g.solo === void 0 ? !ids.includes(g.item) || !actorIds.includes(g.partner) || g.partner === actor : g.solo !== true || g.owner !== actor || g.partner !== null || g.item !== null && !ids.includes(g.item)))
+      if (!Number.isSafeInteger(g.turn) || g.turn < 0 || g.turn > s.turn || !Number.isSafeInteger(g.level) || g.level < 3 || g.level > s.turn + 1 || ![...actorIds, ...Object.keys(places)].includes(g.owner) || (g.solo === void 0 ? !ids.includes(g.item) || !actorIds.includes(g.partner) || g.partner === actor : g.solo !== true || g.owner !== actor || g.partner !== null || g.item !== null && !ids.includes(g.item)))
         return false;
     }
     return true;
@@ -9736,8 +9622,7 @@
     if (Object.keys(s.actors || {}).sort().join() !== actorIds.slice().sort().join() || Object.keys(s.items || {}).sort().join() !== ids.slice().sort().join())
       fail();
     if (!validPackState(s, sensesFor(s))) fail();
-    if (!validMemories(s) || !validMotives(s) || !validLife(s, Object.keys(places)))
-      fail();
+    if (!validMemories(s) || !validMotives(s) || !validLife(s)) fail();
     if (!s.locations || typeof s.locations.attic?.anchored !== "boolean" || ![null, "call", "hush"].includes(s.locations.pond?.answer))
       fail();
     if (!s.peaceUntil || Object.keys(s.peaceUntil).sort().join() !== actorIds.slice().sort().join() || Object.values(s.peaceUntil).some(
@@ -9773,28 +9658,12 @@
         continue;
       }
       const progress = a.progress, programs = programsFor(s, id);
-      if (!progress || !Number.isSafeInteger(progress.program) || progress.program < 0 || progress.program > s.turn * (lifeOf(s, id)?.collection ? 8 : 1) || !Number.isInteger(progress.step) || progress.step < 0)
+      if (!progress || !Number.isSafeInteger(progress.program) || progress.program < 0 || progress.program > s.turn || !Number.isInteger(progress.step) || progress.step < 0)
         fail();
       const program = savedProgramFor(s, id);
       const resting = !questActive(s, id) && progress.step === 0;
       if (!program && !resting || program && (!validProgram(program, id, s) || progress.step >= program.steps.length) || !questActive(s, id) && !resting)
         fail();
-      const collection = lifeOf(s, id)?.collection;
-      if (collection) {
-        const cards = collection.cards;
-        const archive = collection.archive;
-        if (!Array.isArray(cards) || cards.length > 32 || !Array.isArray(archive) || cards.length + archive.length > 256 || archive.some(
-          (q) => !q || typeof q.key !== "string" || !q.key.startsWith(`${id}:quest:`) || q.key.length > 80 || !validQuestOrigin(s, q.origin) || !q.program || typeof q.program.id !== "string" || typeof q.program.name !== "string" || q.program.name.length > 120 || typeof q.program.purpose !== "string" || q.program.purpose.length > 240 || !Array.isArray(q.program.steps) || q.program.steps.length !== 0 || !Number.isInteger(q.totalSteps) || q.totalSteps < 1 || q.totalSteps > 32 || q.step !== q.totalSteps || !Number.isSafeInteger(q.createdTurn) || q.createdTurn < 0 || !Number.isSafeInteger(q.completedTurn) || q.completedTurn < q.createdTurn || q.completedTurn > s.turn
-        ) || new Set([...cards, ...archive].map((q) => q.key)).size !== cards.length + archive.length || !Number.isSafeInteger(collection.next) || collection.next < cards.length + archive.length || !Number.isSafeInteger(collection.earned) || collection.earned < 0 || collection.earned > s.turn * 8 || !Number.isSafeInteger(collection.archivedCompleted) || collection.archivedCompleted < 0 || !Number.isSafeInteger(collection.authoredThrough) || collection.authoredThrough < 0 || collection.authoredThrough > programs.length || !Number.isSafeInteger(collection.collectedThrough) || collection.collectedThrough < 0 || collection.collectedThrough > s.turn || new Set(cards.map((q) => q.key)).size !== cards.length || cards.filter((q) => q.completedTurn === null).length > 8 || cards.some(
-          (q) => !q || typeof q.key !== "string" || !q.key.startsWith(`${id}:quest:`) || q.key.length > 80 || !validQuestOrigin(s, q.origin) || q.lastProgressTurn !== void 0 && (!Number.isSafeInteger(q.lastProgressTurn) || q.lastProgressTurn < q.createdTurn || q.lastProgressTurn > s.turn) || !validProgram(q.program, id, s) || !Number.isInteger(q.step) || q.step < 0 || !Number.isSafeInteger(q.createdTurn) || q.createdTurn < 0 || q.createdTurn > s.turn || (q.completedTurn === null ? q.step >= q.program.steps.length : !Number.isSafeInteger(q.completedTurn) || q.completedTurn < q.createdTurn || q.completedTurn > s.turn || q.step !== q.program.steps.length)
-        ) || collection.archivedCompleted + archive.length + cards.filter((q) => q.completedTurn !== null).length !== progress.program || collection.active !== null && !cards.some(
-          (q) => q.key === collection.active && q.completedTurn === null && q.step === progress.step
-        ) || collection.active === null && progress.step !== 0 || !Array.isArray(progress.marks) || progress.marks.length !== Math.min(32, collection.earned) || progress.marks.some(
-          (turn, i) => !Number.isSafeInteger(turn) || turn < 1 || turn > s.turn || i > 0 && turn < progress.marks[i - 1]
-        ))
-          fail();
-        continue;
-      }
       let completed = programs.slice(0, progress.program).reduce((n, p) => n + p.steps.length, 0);
       if (progress.program >= programs.length) {
         if (!Number.isSafeInteger(progress.completedHands) || progress.completedHands < completed + (progress.program - programs.length) || progress.completedHands > completed + 12 * (progress.program - programs.length) || program && (program.id !== `generated-${id}-${levelOf(s, id)}` || program.generated?.level !== levelOf(s, id)) || !Array.isArray(progress.recent) || progress.recent.length > 4 || progress.recent.some((item) => !ids.includes(item)))
@@ -9952,12 +9821,7 @@
   }
   function decodeSave(text) {
     const s = JSON.parse(text);
-    upgradeSave(s, {
-      actorIds,
-      ensurePrograms,
-      installPacks,
-      profileOf: (id) => tastes[id]
-    });
+    upgradeSave(s, { actorIds, ensurePrograms, installPacks });
     return validateWorld(s);
   }
 
@@ -10308,7 +10172,7 @@
         );
         return {
           id,
-          facts: facts.slice(0, 8).map((text) => text.slice(0, 240)),
+          facts: [...recitalFacts(world, packDefinitions, id), ...facts].slice(0, 8).map((text) => text.slice(0, 240)),
           desire,
           memories: speechMemories(world.memories[id], {
             expressions: !beforeFirstLight
@@ -10417,8 +10281,7 @@
     const world = load(request);
     const actor = request.actor || "vale";
     if (request.op === "upgrade") {
-      if (request.from === "full-card-world/2")
-        settleHomeItems(world, world.controlledActors);
+      settleHomeItems(world, world.controlledActors);
       world.revision += 1;
       validateWorld(world);
       return response(world);

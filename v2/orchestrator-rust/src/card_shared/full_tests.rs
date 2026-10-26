@@ -195,6 +195,158 @@ fn earlier_home_travel_replays_before_one_recorded_rules_upgrade() {
     assert_eq!(upgrades, 1);
 }
 #[test]
+fn full_world_bard_visit_and_song_replay_from_the_journal() {
+    let path = std::env::temp_dir().join(format!("bard-world-{}.sqlite", crate::random_hex(12)));
+    let c = store::open(&path).unwrap();
+    full_store::schema(&c).unwrap();
+    let id = "d".repeat(48);
+    store::create(&c, &id, "owner", now()).unwrap();
+    let mut w = World::create(None).unwrap();
+    // Set the Theban scene, then use real choices through the C interpreter.
+    w.game.as_object_mut().unwrap().remove("opening");
+    w.game["crossings"]["pond-greek-harbor"]["discovered"] = json!(true);
+    w.game["actors"]["vale"]["place"] = json!("greek-courtyard");
+    w.game["items"]["greek-water-jar"]["holder"] = json!("vale");
+    full_store::seed(&c, &id, &w, "bard-test", now()).unwrap();
+    for op in ["claim", "enter"] {
+        full_store::commit(&c, &id, &mut w, json!({"op":op,"actor":"vale"}), now()).unwrap();
+    }
+    for (field, value) in [
+        ("choiceId", "greek-return-water-jar"),
+        ("kind", "wait"),
+        ("target", "greek-well"),
+        ("target", "greek-rhapsode"),
+    ] {
+        let view = w.project(0).unwrap();
+        let action = view["actions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|a| a[field] == value && (value != "greek-rhapsode" || a["kind"] == "talk"))
+            .unwrap()
+            .clone();
+        let result = full_store::commit(
+            &c,
+            &id,
+            &mut w,
+            json!({"op":"play","actor":"vale","action":action}),
+            now(),
+        )
+        .unwrap();
+        if value == "wait" {
+            assert_eq!(
+                w.game["actors"]["greek-rhapsode"]["place"],
+                "greek-argolid-road"
+            );
+        }
+        if value == "greek-rhapsode" {
+            assert_eq!(w.game["actors"]["greek-rhapsode"]["place"], "greek-well");
+            let facts = result["context"]["entities"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|e| e["id"] == "greek-rhapsode")
+                .unwrap()["facts"]
+                .to_string();
+            assert!(facts.contains("I set the water by her hands."));
+            assert!(facts.contains("She kept a loaf of bread for me."));
+        }
+    }
+    drop(c);
+    let c = store::open(&path).unwrap();
+    assert_eq!(full_store::world(&c, &id, now()).unwrap(), w);
+    c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+    assert_eq!(full_store::world(&c, &id, now()).unwrap(), w);
+}
+#[test]
+fn earlier_completed_quests_gain_a_pending_bard_visit_after_recorded_upgrade() {
+    for version in [engine::LEGACY_VERSION, "full-card-world/3"] {
+        let path =
+            std::env::temp_dir().join(format!("bard-upgrade-{}.sqlite", crate::random_hex(12)));
+        let c = store::open(&path).unwrap();
+        full_store::schema(&c).unwrap();
+        let id = "e".repeat(48);
+        store::create(&c, &id, "owner", now()).unwrap();
+        let old = engine::reduce_version(version, json!({"op":"create"})).unwrap();
+        let mut w = World {
+            version: version.into(),
+            game: old["world"].clone(),
+            claimed: [0; 8],
+            present: [0; 8],
+        };
+        w.game.as_object_mut().unwrap().remove("opening");
+        w.game["crossings"]["pond-greek-harbor"]["discovered"] = json!(true);
+        w.game["actors"]["vale"]["place"] = json!("greek-courtyard");
+        w.game["items"]["greek-water-jar"]["holder"] = json!("vale");
+        full_store::seed(&c, &id, &w, "earlier-song", now()).unwrap();
+        for op in ["claim", "enter"] {
+            full_store::commit(&c, &id, &mut w, json!({"op":op,"actor":"vale"}), now()).unwrap();
+        }
+        let view = w.project(0).unwrap();
+        let action = view["actions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|a| a["choiceId"] == "greek-return-water-jar")
+            .unwrap()
+            .clone();
+        full_store::commit(
+            &c,
+            &id,
+            &mut w,
+            json!({"op":"play","actor":"vale","action":action}),
+            now(),
+        )
+        .unwrap();
+        if version == engine::LEGACY_VERSION {
+            // A previously recorded 2 -> 3 upgrade still replays as it did then.
+            full_store::commit(
+                &c,
+                &id,
+                &mut w,
+                json!({"op":"upgrade","from":version,"to":"full-card-world/3"}),
+                now(),
+            )
+            .unwrap();
+        }
+        let previous = w.game.clone();
+        let mut upgraded = full_store::world(&c, &id, now()).unwrap();
+        assert_eq!(upgraded.version, engine::VERSION);
+        assert_eq!(upgraded.game["actors"], previous["actors"]);
+        assert_eq!(upgraded.game["log"], previous["log"]);
+        assert_eq!(
+            upgraded.game["packs"]["greek-drama"]["receipts"],
+            previous["packs"]["greek-drama"]["receipts"]
+        );
+        assert_eq!(
+            upgraded.game["packs"]["greek-drama"]["recitals"]["greek-return-water-jar"],
+            json!({"actor":"vale","visit":null})
+        );
+        let view = upgraded.project(0).unwrap();
+        let action = view["actions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|a| a["kind"] == "move" && a["target"] == "greek-well")
+            .unwrap()
+            .clone();
+        full_store::commit(
+            &c,
+            &id,
+            &mut upgraded,
+            json!({"op":"play","actor":"vale","action":action}),
+            now(),
+        )
+        .unwrap();
+        assert_eq!(
+            upgraded.game["actors"]["greek-rhapsode"]["place"],
+            "greek-well"
+        );
+        c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+        assert_eq!(full_store::world(&c, &id, now()).unwrap(), upgraded);
+    }
+}
+#[test]
 fn full_world_c_guard_counts_humans_in_arbitrary_existing_rooms() {
     let mut w = World::create(None).unwrap();
     for a in 0..8 {
@@ -579,7 +731,11 @@ fn unchanged_snapshots_leave_the_checkpoint_and_journal_untouched() {
 
 #[test]
 fn old_rule_history_upgrades_once_and_replays_with_either_checkpoint_path() {
-    for version in [engine::LEGACY_VERSION, engine::PREVIOUS_VERSION] {
+    for version in [
+        engine::LEGACY_VERSION,
+        engine::PREVIOUS_VERSION,
+        engine::FOURTH_VERSION,
+    ] {
         for keep_checkpoint in [true, false] {
             let (_path, c, id) = fixture();
             c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
@@ -859,5 +1015,117 @@ fn version_three_upgrade_keeps_released_untouched_belongings() {
         assert_eq!(upgraded.claimed, old.claimed);
         c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
         assert_eq!(full_store::world(&c, &id, now()).unwrap(), upgraded);
+    }
+}
+
+#[test]
+fn released_greek_upgrades_and_recitals_replay_before_collected_quests() {
+    for path in [
+        vec![engine::LEGACY_VERSION, engine::FOURTH_VERSION],
+        vec![engine::PREVIOUS_VERSION, engine::FOURTH_VERSION],
+        vec![
+            engine::LEGACY_VERSION,
+            engine::PREVIOUS_VERSION,
+            engine::FOURTH_VERSION,
+        ],
+    ] {
+        for keep_checkpoint in [true, false] {
+            let (_file, c, id) = fixture();
+            c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+            c.execute("DELETE FROM card_full_log", []).unwrap();
+            let result = engine::reduce_version(path[0], json!({"op":"create"})).unwrap();
+            let mut w = World {
+                version: path[0].into(),
+                game: result["world"].clone(),
+                claimed: [0; 8],
+                present: [0; 8],
+            };
+            w.game.as_object_mut().unwrap().remove("opening");
+            w.game["crossings"]["pond-greek-harbor"]["discovered"] = json!(true);
+            w.game["actors"]["vale"]["place"] = json!("greek-courtyard");
+            w.game["items"]["greek-water-jar"]["holder"] = json!("vale");
+            full_store::seed(&c, &id, &w, "released-greek", now()).unwrap();
+            for op in ["claim", "enter"] {
+                full_store::commit(&c, &id, &mut w, json!({"op":op,"actor":"vale"}), now())
+                    .unwrap();
+            }
+            let action = w.project(0).unwrap()["actions"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|a| a["choiceId"] == "greek-return-water-jar")
+                .unwrap()
+                .clone();
+            full_store::commit(
+                &c,
+                &id,
+                &mut w,
+                json!({"op":"play","actor":"vale","action":action}),
+                now(),
+            )
+            .unwrap();
+            for target in &path[1..] {
+                let from = w.version.clone();
+                full_store::commit(
+                    &c,
+                    &id,
+                    &mut w,
+                    json!({"op":"upgrade","from":from,"to":target}),
+                    now(),
+                )
+                .unwrap();
+            }
+            let action = w.project(0).unwrap()["actions"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|a| a["kind"] == "move" && a["target"] == "greek-well")
+                .unwrap()
+                .clone();
+            full_store::commit(
+                &c,
+                &id,
+                &mut w,
+                json!({"op":"play","actor":"vale","action":action}),
+                now(),
+            )
+            .unwrap();
+            assert_eq!(w.game["actors"]["greek-rhapsode"]["place"], "greek-well");
+            full_store::commit(&c, &id, &mut w, json!({"op":"speech","actor":"vale","room":"greek-well","lines":[{"actorId":"vale","text":"The well is quiet today."},{"actorId":null,"entityId":"greek-well","text":"Water shines in the shade."}]}), now()).unwrap();
+            let previous = w.clone();
+            if !keep_checkpoint {
+                c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+            }
+            w = full_store::world(&c, &id, now()).unwrap();
+            assert_eq!(w.version, engine::VERSION);
+            for key in ["actors", "items", "log", "packs", "turn"] {
+                assert_eq!(w.game[key], previous.game[key], "Preserve {key}");
+            }
+            assert_eq!(
+                w.game["revision"].as_u64().unwrap(),
+                previous.game["revision"].as_u64().unwrap() + 1
+            );
+            assert!(w.game["life"]["actors"]["vale"]["collection"].is_object());
+            let action = w.project(0).unwrap()["actions"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|a| a["kind"] == "wait")
+                .unwrap()
+                .clone();
+            full_store::commit(
+                &c,
+                &id,
+                &mut w,
+                json!({"op":"play","actor":"vale","action":action}),
+                now(),
+            )
+            .unwrap();
+            full_store::commit(&c, &id, &mut w, json!({"op":"speech","actor":"vale","room":"greek-well","lines":[{"actorId":"vale","text":"I remember the bread we shared."},{"actorId":"greek-rhapsode","text":"The song keeps that day."}]}), now()).unwrap();
+            c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+            assert_eq!(full_store::world(&c, &id, now()).unwrap(), w);
+            let upgrades: usize = c.query_row("SELECT count(*) FROM card_full_log WHERE json_extract(command,'$.op')='upgrade'", [], |r| r.get(0)).unwrap();
+            assert_eq!(upgrades, path.len());
+        }
     }
 }

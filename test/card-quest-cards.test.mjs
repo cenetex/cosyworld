@@ -1,3 +1,4 @@
+import { openingFixture } from "./helpers/greek-opening.mjs";
 import { describe, expect, it } from "vitest";
 import {
   createWorld,
@@ -5,11 +6,15 @@ import {
   legalActions,
   encodeSave,
   decodeSave,
+  places,
+  things,
 } from "../v2/card-game/world.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
 import {
   actorQuests,
   installQuestCollection,
+  ensureCollectedQuest,
+  pursueQuest,
 } from "../v2/card-game/quests.mjs";
 import {
   QUEST_CARD,
@@ -20,6 +25,8 @@ import {
   questCardId,
   questForCard,
   isQuestCard,
+  STORY_QUEST_CARDS,
+  fulfilledQuests,
 } from "../v2/card-game/quest-cards.mjs";
 const fresh = (opening = true) =>
   enableMotives(createWorld({ opening }), {
@@ -157,4 +164,68 @@ describe("collected quest cards", () => {
     ])
       expect(questForCard(world, id)).toBeNull();
   });
+});
+
+describe("Greek cards in the collected stack", () => {
+  it("keeps active personal focus above story cards and retains completed labels and art", () => {
+    for (const branch of ["burial", "concession", "refusal", "exposure"]) {
+      const world = openingFixture(branch).closed;
+      ensureCollectedQuest(world, "vale", places, things);
+      const pending = world.life.actors.vale.collection.cards.find(
+        (q) => q.completedTurn === null,
+      );
+      expect(pursueQuest(world, "vale", pending.key)).toBe(true);
+      const cards = questCards(world);
+      expect(cards[0].key).toBe(playerQuest(world).key);
+      const story = cards.find((q) => q.id === STORY_QUEST_CARDS[1]);
+      expect(story).toMatchObject({
+        status: "fulfilled",
+        singleLine: true,
+        art: "greek-funeral-cloth",
+        completion:
+          { refusal: "Declined", exposure: "Reported" }[branch] || "Fulfilled",
+      });
+      const hand = questHand(world);
+      expect(hand.indexOf(QUEST_CARD)).toBeLessThan(hand.indexOf(story.id));
+      expect(questForCard(world, story.id)).toEqual(story);
+      world.log = [];
+      expect(questCards(decodeSave(encodeSave(world)))).toEqual(cards);
+    }
+  });
+  it("retains the first courtyard report when a second report is collected", () => {
+    const states = openingFixture("concession");
+    const original = questCards(states.permissionShared).find(
+      (q) => q.id === STORY_QUEST_CARDS[2],
+    );
+    const cards = questCards(states.closed);
+    const first = cards.find((q) => q.key === original.key);
+    const second = cards.find((q) => q.key === original.key + ":grave");
+    expect(first).toMatchObject({
+      status: "fulfilled",
+      completion: "Shared",
+      art: original.art,
+    });
+    expect(second).toMatchObject({ status: "fulfilled", completion: "Shared" });
+    expect(questCardId(states.closed, first)).not.toBe(
+      questCardId(states.closed, second),
+    );
+    expect(
+      questForCard(states.closed, questCardId(states.closed, first)),
+    ).toEqual(first);
+    expect(questCards(decodeSave(encodeSave(states.closed)))).toEqual(cards);
+  });
+});
+
+it("announces the first courtyard completion when the next report opens in the same turn", () => {
+  const states = openingFixture("concession", { reportFirst: false });
+  const before = states.buried;
+  const after = states.permissionShared;
+  const firstKey = "greek-drama:" + STORY_QUEST_CARDS[2];
+  expect(fulfilledQuests(before, after)).toContainEqual(
+    expect.objectContaining({
+      key: firstKey,
+      status: "fulfilled",
+      completion: "Shared",
+    }),
+  );
 });

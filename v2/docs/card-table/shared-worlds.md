@@ -60,15 +60,17 @@ play keys make retries safe. Removing a checkpoint rebuilds the world from its
 seed and recorded operations.
 
 Rule version 3 introduced the home-item floor start and opened the home-to-pond
-path when the item is carried in the home. Released versions 2 and 3 stay frozen
-for replay. Historical version 2-to-3 upgrade records still use version 3's exact
-transformation. Current version 4 includes the pickup rules and collected quests.
+path when the item is carried in the home. Version 4 added Greek story cards
+and saved bard visits. Released versions 2, 3, and 4 stay frozen for replay.
+Recorded upgrades use the exact interpreter named by their target version.
+Current version 5 combines those rules with collected personal quests.
 
 Loading an earlier world first replays its accepted history with the recorded
-rule versions, then records one upgrade from its latest version to version 4.
-A direct version 2-to-4 upgrade settles unused items in unclaimed homes on the
-floor. A version 3-to-4 upgrade preserves all existing item positions. Each
+rule versions, then records one upgrade from its latest version to version 5.
+A direct version 2-to-5 upgrade settles unused items in unclaimed homes on the
+floor. Upgrades from versions 3 and 4 preserve existing item positions. Each
 upgrade advances the view revision and preserves the world turn and conversation.
+The normal save migration adds collections and any missing recital records.
 
 Earlier shared invitations keep their IDs and account claims. Their first full
 world load records an explicit migration seed. It maps the old rooms and items
@@ -105,11 +107,16 @@ The station and attic are sanctuaries. Human rest counts that person's own
 turns in a shared world. Resident rest counts world rounds. A pending quest
 can finish while another remains active, preserving the chosen focus.
 
-The shared interpreters in `engine-v2.js` and `engine-v3.js` retain their released
-bytes. New commands use `engine-v4.js`, which includes the saved life migration.
-Replay works with a checkpoint or with the seed and journal alone, including
-histories that already upgraded from version 2 to version 3. The bundle builder
-updates version 4 and keeps both earlier interpreters as replay history.
+The shared interpreters in `engine-v2.js`, `engine-v3.js`, and `engine-v4.js`
+retain their released bytes. New commands use `engine-v5.js`. Replay works
+with a checkpoint or with the seed and journal alone, including histories with
+recorded 2-to-3, 2-to-4, and 3-to-4 upgrades. The bundle builder updates version 5.
+
+Greek story cards join the same visible stack beneath the active personal
+quest. Their saved pack receipts preserve the one-line text, art, and completion
+labels. Completed cards remain in the collection; the first courtyard report
+stays there when a later report adds another card. Story choices continue to
+use the pack's ordinary actions.
 
 ## Shared words
 
