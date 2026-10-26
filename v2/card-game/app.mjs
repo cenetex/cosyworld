@@ -269,7 +269,7 @@ const playQueue = createPlayQueue({
         ? `Queued: ${playLabel(pending.action)}. Select a card to change it.`
         : "",
     );
-    queueMicrotask(() => renderActions());
+    renderActions();
   },
 });
 function updateCardCooldown() {
