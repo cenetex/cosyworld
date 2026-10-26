@@ -122,7 +122,7 @@ describe("the temporary ringing path to Forest Clearing", () => {
     expect(availableCards(s)).not.toContain("clearing");
   });
 
-  it("retains the solo crossing rule for NPCs and accompany requests", () => {
+  it("keeps independent NPC crossing gated while a player can invite company", () => {
     let s = open();
     s.actors.moth.place = "pond";
     for (const actor of ["moth", "keeper", "badger"]) {
@@ -133,21 +133,16 @@ describe("the temporary ringing path to Forest Clearing", () => {
         ),
       ).toBe(false);
     }
-    expect(
-      legalActions(s).some(
-        (a) => a.kind === "accompany" && a.destination === "clearing",
-      ),
-    ).toBe(false);
-    const forged = {
-      kind: "accompany",
-      actor: "vale",
-      target: "moth",
-      destination: "clearing",
-      key: "accompany:vale:moth:clearing",
-    };
-    expect(play(s, forged).ok).toBe(false);
+    const invitation = legalActions(s).find(
+      (a) =>
+        a.kind === "accompany" &&
+        a.target === "moth" &&
+        a.destination === "clearing",
+    );
+    expect(invitation).toBeDefined();
     for (let i = 0; i < 3; i++) s = act(s, "wait");
-    expect(play(s, forged).ok).toBe(false);
+    expect(play(s, invitation).ok).toBe(false);
+    expect(s.invitedPlaces).toBeUndefined();
   });
 
   it("removes the route when an autonomous carrier leaves with the still-ringing bell", () => {

@@ -1,4 +1,5 @@
 import { controlledByHuman, humanAvatar } from "./human-cast.mjs";
+import forest from "./forest.json" with { type: "json" };
 
 // Pack-authored songs grow from durable choices. A completed deed brings the
 // singer to that player's next room; ordinary turns leave the visit pending.
@@ -11,7 +12,8 @@ export function arriveRecitals(world, packs, actor) {
   if (!controlledByHuman(world, actor)) return [];
   const arrivals = [];
   for (const pack of packs) {
-    if (!pack.recital) continue;
+    if (!pack.recital || pack.avatars[pack.recital.actor]?.roamingQuest)
+      continue;
     const records = world.packs[pack.id].recitals;
     const pending = pack.recital.verses.filter(
       (v) =>
@@ -59,16 +61,25 @@ export function recitalPoem(world, pack, through = Infinity) {
 export function recitalFacts(world, packs, actor) {
   const pack = packs.find((p) => p.recital?.actor === actor);
   if (!pack) return [];
-  const visit = recitalVisit(world, pack);
-  if (!visit) return [];
-  const poem = recitalPoem(world, pack, visit - 1);
-  return [
-    `Your song is ${poem.title}. These are the traveler's earned words, in order. Sing a couplet when addressed; keep the whole journey in mind.`,
-    ...poem.stanzas.map((s, i) => {
-      const traveler = world.packs[pack.id].recitals[s.id].actor;
-      return `Verse ${i + 1}, ${humanAvatar(traveler)?.name || "an earlier traveler"}: ${s.lines.join(" ")}`;
-    }),
-  ];
+  const name = (id) =>
+    humanAvatar(id)?.name ||
+    forest.people[id]?.name ||
+    forest.places[id]?.name ||
+    packs.find((p) => p.avatars?.[id])?.avatars[id].name ||
+    packs.find((p) => p.places?.[id])?.places[id].name ||
+    "an earlier traveler";
+  const journey = world.roamingQuests?.[actor];
+  const travel = journey?.target
+    ? [
+        `Your journey follows the recorded quest site at ${name(journey.target.locationId)}. Its author was ${name(journey.target.actorId)}.`,
+        journey.blocked
+          ? `You need ${journey.blocked.kind === "directions" ? "directions" : "passage"} from ${name(journey.blocked.from)} to ${name(journey.blocked.to)}.`
+          : world.actors[actor].place === journey.target.locationId
+            ? "You have arrived. Stay here until another quest is completed."
+            : "Take an ordinary open route toward that place.",
+      ]
+    : [];
+  return travel;
 }
 
 export function validRecitals(world, pack) {
@@ -93,11 +104,11 @@ export function validRecitals(world, pack) {
     return (
       r &&
       Object.keys(r).sort().join() === "actor,visit" &&
-      (r.actor === null || humanAvatar(r.actor)) &&
+      (r.actor === null || Object.hasOwn(world.actors, r.actor)) &&
       (r.visit === null ||
         (v.summons &&
           Number.isSafeInteger(r.visit) &&
-          r.visit > state.receipts[v.choice] &&
+          r.visit >= state.receipts[v.choice] &&
           r.visit <= world.turn))
     );
   });
@@ -117,9 +128,22 @@ export function upgradeRecitals(world, packs) {
         (e) => e.choiceId === v.choice && e.packId === pack.id,
       );
       state.recitals[v.choice] = {
-        actor: humanAvatar(event?.actorId) ? event.actorId : null,
+        actor: Object.hasOwn(world.actors, event?.actorId)
+          ? event.actorId
+          : null,
         visit: null,
       };
+    }
+  }
+}
+
+export function arriveRoamingRecitals(world, packs, actor) {
+  for (const pack of packs.filter((p) => p.recital?.actor === actor)) {
+    const state = world.packs[pack.id];
+    for (const verse of pack.recital.verses) {
+      const record = state.recitals[verse.choice];
+      if (verse.summons && record && record.visit === null)
+        record.visit = world.turn;
     }
   }
 }
@@ -135,7 +159,11 @@ export function recitalContext(world, packs, actor) {
       id: stanza.id,
       turn: stanza.turn,
       authorId,
-      authorName: humanAvatar(authorId)?.name || "an earlier traveler",
+      authorName:
+        humanAvatar(authorId)?.name ||
+        forest.people[authorId]?.name ||
+        packs.find((p) => p.avatars?.[authorId])?.avatars[authorId].name ||
+        "an earlier traveler",
       lines: [...stanza.lines],
     };
   });

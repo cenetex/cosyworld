@@ -106,7 +106,7 @@ describe("the bell crossing to the Steam Clock", () => {
       legalActions(heard).some(
         (a) => a.kind === "accompany" && a.destination === "clearing",
       ),
-    ).toBe(false);
+    ).toBe(true);
     expect(decodeSave(encodeSave(heard))).toEqual(heard);
     const next = reach(heard);
     expect(next.actors.vale.place).toBe("clearing");

@@ -101,6 +101,8 @@ describe("authored shared story cards", () => {
     }
     delete old.quests;
     delete old.questCompletions;
+    delete old.roamingQuests;
+    delete old.routeKnowledge;
     old.sharedVersion = 1;
     old.controlledActors = ["vale", "mara"];
     old.presentActors = ["vale", "mara"];
@@ -253,6 +255,8 @@ describe("authored shared story cards", () => {
     }
     delete old.quests;
     delete old.questCompletions;
+    delete old.roamingQuests;
+    delete old.routeKnowledge;
     old.log = old.log.filter(
       (event) =>
         event.packId !== "greek-drama" &&

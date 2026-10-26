@@ -1,5 +1,20 @@
 import { syncStoryQuests, validStoryQuest } from "./story-quests.mjs";
 import {
+  installRoamingQuests,
+  roamingPlan,
+  roamingHelpPlan,
+  settleRoamingArrival,
+  roamingHelpMet,
+  validRoamingQuests,
+} from "./roaming-quests.mjs";
+import {
+  roamingActors,
+  authoredRouteEdges,
+  initialRouteEdges,
+  visibleRouteEdges,
+  witnessedRouteEdges,
+} from "./roaming-routes.mjs";
+import {
   collectionCards,
   installSharedQuestRegistry,
   questRecord,
@@ -17,7 +32,7 @@ import {
   publishQuestCompletions,
   validQuestCompletions,
 } from "./quest-completions.mjs";
-import { arriveRecitals } from "./pack-recital.mjs";
+import { arriveRecitals, arriveRoamingRecitals } from "./pack-recital.mjs";
 import {
   currentActor,
   humanAvatar,
@@ -111,6 +126,7 @@ import {
   packDefinitions,
   isPackActor,
   staysPut,
+  roamingQuestActor,
   avoidsStandoffs,
 } from "./pack-registry.mjs";
 import {
@@ -182,6 +198,7 @@ export function createWorld({ opening = false, packScopes = {} } = {}) {
       throw new Error("Unknown content scope.");
     world.packs[id].scope = scope;
   }
+  installRoamingQuests(world, roamingActors, roamingAPI(world));
   rememberEvent(world, world.log[0]);
   return world;
 }
@@ -223,6 +240,7 @@ function installPacks(s) {
     for (const id of Object.keys(pack.places)) s.memories[id] ??= fresh[id];
   }
   installHumanLife(s, (id) => tastes[id]);
+  installRoamingQuests(s, roamingActors, roamingAPI(s));
 }
 export function rootHolder(s, id) {
   let holder = s.items[id].holder;
@@ -293,7 +311,7 @@ export function exits(s, place, actor = null, previous = null) {
   ].filter(
     (to) =>
       entityActive(s, to) &&
-      actorCanVisit(actor, to) &&
+      actorCanVisit(actor, to, s) &&
       humanRoomAvailable(s, actor, to),
   );
 }
@@ -315,7 +333,12 @@ function meetCast(s) {
   if (!s.opening || (player !== "vale" && !s.opening.crossed)) return;
   if (player === "vale" && s.actors.vale.place === "pond")
     s.opening.crossed = true;
-  if (!s.opening.crossed) return;
+  if (!s.opening.crossed) {
+    for (const id of roamingActors)
+      if (entityActive(s, id) && s.actors[id].place === s.actors[player].place)
+        s.opening.met[id] ??= s.turn;
+    return;
+  }
   for (const id of actorIds)
     if (
       entityActive(s, id) &&
@@ -366,7 +389,8 @@ export function handStatus(s, actor, hand = desireFor(s, actor)) {
       items.every((e) => e.met) &&
       location.met &&
       avatars.every((e) => e.met) &&
-      conditions.every((e) => e.met),
+      conditions.every((e) => e.met) &&
+      roamingHelpMet(s, hand, roamingAPI(s)),
   };
 }
 export function handText(hand) {
@@ -984,9 +1008,20 @@ function settleStandoffs(s) {
   }
 }
 // A joint trip follows the invited avatar's current target hands.
-export function accompanyDecision(s, actor, companion, destination) {
+export function accompanyDecision(
+  s,
+  actor,
+  companion,
+  destination,
+  routeApproved = false,
+) {
   const here = s.actors[companion].place;
-  if (!actorCanVisit(companion, destination))
+  const invited =
+    controlledByHuman(s, actor) &&
+    !controlledByHuman(s, companion) &&
+    s.actors[actor].place === here &&
+    (routeApproved || exits(s, here, actor).includes(destination));
+  if (!invited && !actorCanVisit(companion, destination, s))
     return {
       accepted: false,
       reason: "Their commitments keep them in this part of the world.",
@@ -1133,7 +1168,11 @@ function sharedQuestActions(s, actor) {
 }
 
 export function legalActions(s, actor = currentActor(s)) {
-  if (!s.actors[actor] || !entityActive(s, actor)) return [];
+  if (
+    !s.actors[actor] ||
+    (!entityActive(s, actor) && !roamingQuestActor(actor))
+  )
+    return [];
   const here = s.actors[actor].place;
   const out = [
     offer("wait", actor, null, null, `${nameOf(actor)} waits one turn.`, []),
@@ -1158,11 +1197,10 @@ export function legalActions(s, actor = currentActor(s)) {
     const way = through
       ? ` ${crossing?.travel || "through the reflection"}`
       : "";
-    // A crossing open only to the player keeps company out; so does a
-    // resident who never leaves home.
+    // A human can invite a willing resident along their open route.
     for (const other of knownActors(s).filter(
       (id) =>
-        crossing?.travelers !== "player" &&
+        (crossing?.travelers !== "player" || controlledByHuman(s, actor)) &&
         id !== actor &&
         !controlledByHuman(s, id) &&
         !staysPut(id) &&
@@ -1479,17 +1517,22 @@ export function matchingActions(s, selected, actor = currentActor(s)) {
       a.cards.length === set.length && set.every((id) => a.cards.includes(id)),
   );
 }
-function travel(s, actor, destination) {
-  const from = s.actors[actor].place;
+function travelParty(s, actors, destination) {
+  const from = s.actors[actors[0]].place;
   const through = !baseExits(s, from).includes(destination);
-  if (through) s.actors[actor].crossed += 1;
+  // The legal action approves the whole party before any carried key moves.
   markCrossed(s, from, destination);
-  s.actors[actor].place = destination;
+  for (const actor of actors) {
+    if (through) s.actors[actor].crossed += 1;
+    s.actors[actor].place = destination;
+    for (const id of carried(s, actor))
+      remember(s, id, `${nameOf(actor)} carried it to ${nameOf(destination)}.`);
+  }
   moveTransport(s, from, destination);
-  for (const id of carried(s, actor))
-    remember(s, id, `${nameOf(actor)} carried it to ${nameOf(destination)}.`);
   return through;
 }
+const travel = (s, actor, destination) => travelParty(s, [actor], destination);
+
 function perform(s, a, capture = () => {}, round = null) {
   const who = nameOf(a.actor);
   const firstCrossing = actorIds.every((id) => s.actors[id].crossed === 0);
@@ -1547,12 +1590,15 @@ function perform(s, a, capture = () => {}, round = null) {
         if (respondentConflict.defender === a.target)
           respondentConflict.answered = true;
       }
-      invitation = accompanyDecision(s, a.actor, a.target, a.destination);
+      invitation = accompanyDecision(s, a.actor, a.target, a.destination, true);
       if (invitation.favor) s.actors[a.target].trust[a.actor] -= 1;
       s.actors[a.actor].lastTalk = s.turn;
       if (invitation.accepted) {
-        const through = travel(s, a.actor, a.destination);
-        travel(s, a.target, a.destination);
+        const visits = (s.invitedPlaces ??= {});
+        visits[a.target] = [
+          ...new Set([...(visits[a.target] || []), a.destination]),
+        ].sort();
+        const through = travelParty(s, [a.actor, a.target], a.destination);
         text += ` ${nameOf(a.target)} agrees. ${invitation.reason} They travel together.`;
         if (through && firstCrossing)
           text += " Something on the far shore turns its head.";
@@ -1787,6 +1833,30 @@ function perform(s, a, capture = () => {}, round = null) {
   // Answering the request is the invited avatar's action for this round.
   return invitation ? a.target : null;
 }
+
+function roamingAPI(s) {
+  return {
+    nameOf: (id) => (id ? nameOf(id) : "a traveler"),
+    crossing: (from, to) => crossingBetween(from, to, s),
+    itemPlace: (id) => itemPlace(s, id),
+    route: (from, to, actor) => routeBetween(s, from, to, actor),
+    initialEdges: initialRouteEdges,
+    active: (place) => entityActive(s, place),
+    visibleEdges: visibleRouteEdges,
+    witnessedEdges: (actor) => witnessedRouteEdges(s, actor),
+    exits: (from, actor, previous = null) => exits(s, from, actor, previous),
+    actions: (actor) => legalActions(s, actor),
+    transportExit: (actor) => {
+      const destinations = transportExits(s, s.actors[actor].place);
+      return legalActions(s, actor).find(
+        (a) => a.kind === "move" && destinations.includes(a.target),
+      );
+    },
+    present: (actor) => !controlledByHuman(s, actor) || humanPresent(s, actor),
+    arrive: (actor) => arriveRoamingRecitals(s, packDefinitions, actor),
+  };
+}
+
 // Routes use the exits available to the actor who is planning the trip.
 function routeBetween(s, from, target, actor = null) {
   const queue = [[from]],
@@ -1808,6 +1878,8 @@ function toward(s, actor, target) {
   );
 }
 export function plan(s, actor = currentActor(s)) {
+  const help = !staysPut(actor) && roamingHelpPlan(s, actor, roamingAPI(s));
+  if (help) return help;
   // A resident who never leaves home keeps to it.
   if (staysPut(actor))
     return {
@@ -2182,6 +2254,7 @@ export function play(
     ...active.filter(
       (id) =>
         isPackActor(id) &&
+        !roamingQuestActor(id) &&
         entityActive(next, id) &&
         next.actors[id].place === next.actors[actor].place,
     ),
@@ -2246,6 +2319,15 @@ export function play(
     ...advancePrograms(next, met),
     ...syncStoryQuests(next, exact.actor),
   ]);
+  installRoamingQuests(next, roamingActors, roamingAPI(next));
+  for (const id of roamingActors) {
+    if (controlledByHuman(next, id)) continue;
+    if (id === respondent) next.roamingQuests[id].lastActedTurn = next.turn;
+    const action = roamingPlan(next, id, roamingAPI(next));
+    if (action) perform(next, action, () => {}, round);
+    settleRoamingArrival(next, id, roamingAPI(next));
+  }
+
   for (const actor of knownActors(next)) {
     const life = lifeOf(next, actor);
     if (life && life.milestones.length > (previousHopes[actor] || 0)) {
@@ -2305,7 +2387,13 @@ function validHand(h, actor) {
       (Array.isArray(h.conditions) &&
         h.conditions.length <= 3 &&
         h.conditions.every((c) => validCondition(c, actor)))) &&
-    (h.consequence === undefined || validConsequence(h.consequence, actor))
+    (h.consequence === undefined || validConsequence(h.consequence, actor)) &&
+    (h.passage === undefined ||
+      (h.passage &&
+        roamingActors.includes(h.passage.actor) &&
+        ["directions", "passage"].includes(h.passage.kind) &&
+        Object.hasOwn(places, h.passage.from) &&
+        Object.hasOwn(places, h.passage.to)))
   );
 }
 function validQuestOrigin(s, origin) {
@@ -2484,7 +2572,9 @@ export function validateWorld(s) {
         o.met.moth === undefined) ||
       (!o.crossed &&
         (s.actors?.vale?.place !== "attic" ||
-          Object.keys(o.met).length !== 1)) ||
+          Object.keys(o.met).some(
+            (id) => id !== "vale" && !roamingActors.includes(id),
+          ))) ||
       (o.crossed && (!s.locations?.attic.anchored || o.met.moth === undefined))
     )
       fail();
@@ -2498,7 +2588,31 @@ export function validateWorld(s) {
       .join() !== ids.slice().sort().join()
   )
     fail();
+  if (
+    s.invitedPlaces !== undefined &&
+    (!s.invitedPlaces ||
+      typeof s.invitedPlaces !== "object" ||
+      Array.isArray(s.invitedPlaces) ||
+      Object.entries(s.invitedPlaces).some(
+        ([actor, visits]) =>
+          !actorIds.includes(actor) ||
+          !Array.isArray(visits) ||
+          visits.length > Object.keys(places).length ||
+          new Set(visits).size !== visits.length ||
+          visits.some((place) => !Object.hasOwn(places, place)),
+      ))
+  )
+    fail();
   if (!validPackState(s, sensesFor(s))) fail();
+  if (
+    !validRoamingQuests(
+      s,
+      roamingActors,
+      Object.keys(places),
+      authoredRouteEdges(),
+    )
+  )
+    fail();
   if (
     !validMemories(s) ||
     !validMotives(s) ||
@@ -2578,7 +2692,7 @@ export function validateWorld(s) {
       fail();
     if (
       !Object.hasOwn(places, a.place) ||
-      !actorCanVisit(id, a.place) ||
+      !actorCanVisit(id, a.place, s) ||
       (entityActive(s, id) && !entityActive(s, a.place)) ||
       !Number.isSafeInteger(a.crossed) ||
       a.crossed < 0 ||

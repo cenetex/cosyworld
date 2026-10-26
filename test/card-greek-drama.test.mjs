@@ -74,7 +74,10 @@ function move(world, target) {
   const boarding = world.actors.vale.place === "pond" && target === HARBOR;
   if (world.actors.vale.place === HARBOR && target === "pond") {
     if (world.items.lamp.lit) world = act(world, "snuff", { item: "lamp" });
-    while (world.items.lamp.fuel < 7)
+    while (
+      world.items.lamp.fuel < 7 &&
+      legalActions(world).some((a) => a.kind === "refill")
+    )
       world = act(world, "refill", { item: "oil" });
     if (rootHolder(world, "cloth") !== "vale")
       world = act(world, "take", { item: "cloth" });
@@ -198,7 +201,10 @@ describe("the Wine-Dark Sea crossing", () => {
     expect(world.memories.moth.landmarks).toContainEqual(remembered);
     expect(rootHolder(world, "lamp")).toBe("vale");
     expect(world.items.cloth.holder).toBe("bell");
-    expect(move(world, HARBOR).actors.vale.place).toBe(HARBOR);
+    expect(world.transports["greek-ship"]).toMatchObject({
+      dock: "pond",
+      destination: null,
+    });
   });
 
   it("adds the pack once to an earlier shore save without overwriting its progress", () => {
@@ -268,7 +274,11 @@ describe("the Wine-Dark Sea crossing", () => {
     expect(rejected).toMatchObject({ ok: false, state: shore });
     expect(encodeSave(shore)).toBe(before);
     const context = narrativeContext(shore);
-    expect(context.speakers.every((id) => !id.startsWith("greek-"))).toBe(true);
+    expect(
+      context.speakers.every(
+        (id) => !id.startsWith("greek-") || id === "greek-rhapsode",
+      ),
+    ).toBe(true);
     expect(context.entities.some((e) => e.id === "greek-antigone")).toBe(false);
     expect(availableCards(shore)).not.toContain("greek-antigone");
   });
@@ -703,6 +713,8 @@ describe("incompatible histories become playable branches", () => {
     "offers a separate %s Atreid history without opening the other two",
     (branch, destination, evidence, response) => {
       let world = move(harbor(), "greek-argolid-road");
+      // This branch fixture begins with the bard at the meeting site.
+      world.actors["greek-rhapsode"].place = "greek-argolid-road";
       const options = legalActions(world).filter((a) =>
         a.choiceId?.startsWith("greek-atreid-"),
       );
