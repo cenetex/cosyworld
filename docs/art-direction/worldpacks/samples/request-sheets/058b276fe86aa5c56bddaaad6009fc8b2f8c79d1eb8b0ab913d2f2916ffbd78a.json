@@ -1,0 +1,93 @@
+{
+  "slug": "holy-land",
+  "id": "holyland.b43l/1",
+  "name": "Holy Land",
+  "worldpack_ids": [
+    "cosyworld.the-holy-land"
+  ],
+  "model": {
+    "name": "ratimics/b43l",
+    "revision": "2846199bda89a44676dc5da00bd02faa3f5183b1c1d3e124c966d656874f141f",
+    "url": "https://replicate.com/ratimics/b43l",
+    "defaults": {
+      "model": "dev",
+      "num_outputs": 1,
+      "num_inference_steps": 28,
+      "go_fast": false,
+      "megapixels": "1",
+      "output_format": "webp",
+      "output_quality": 92,
+      "disable_safety_checker": false,
+      "guidance_scale": 4.5,
+      "lora_scale": 1.25
+    },
+    "provider": "replicate",
+    "invocation": "pinned_version",
+    "schema_checked_at": "2026-10-26"
+  },
+  "trigger": "B43L",
+  "style_block": "Rough unfinished watercolor; heavy pigment, broken washes, blooms, searching pencil, raw paper.",
+  "palette": [
+    [
+      "Chalk",
+      "#F2E8D4"
+    ],
+    [
+      "Ochre",
+      "#BF914B"
+    ],
+    [
+      "Olive",
+      "#7C8260"
+    ],
+    [
+      "Clay",
+      "#B76D4C"
+    ],
+    [
+      "Lake",
+      "#8CA8B8"
+    ]
+  ],
+  "materials": [
+    "limestone",
+    "clay",
+    "linen",
+    "wool",
+    "weathered wood",
+    "flax cord"
+  ],
+  "lighting": "Natural sun and soft shade. Rough paper supplies the brightest light.",
+  "references": [],
+  "source_paths": [
+    "v2/scripts/generate-holy-land-art.mjs",
+    "v2/content/the-holy-land/locations.json",
+    "v2/content/the-holy-land/actors.json",
+    "v2/content/the-holy-land/assets/cards/prompts.json"
+  ],
+  "subjects": {
+    "background": {
+      "aspect_ratio": "16:9",
+      "composition": "A clear place and road, low limestone buildings, olive terraces, open room for characters.",
+      "identity_policy": "Use the authored place. Use period-grounded materials and buildings.",
+      "prompt_template": "B43L. {style_block}\n{place}, {title}, already mid-journey. {concrete_place_sentence}",
+      "sample_seed": 26102603,
+      "sample_prompt": "B43L. Rough unfinished watercolor; heavy pigment, broken washes, blooms, searching pencil, raw paper.\nBethlehem, Town of the Nativity, already mid-journey. Low flat-roofed limestone homes gather along a Judean ridge; silver olive leaves shade empty courtyard lanes in the evening wind."
+    },
+    "avatar": {
+      "aspect_ratio": "2:3",
+      "composition": "A single clear person already mid-journey, useful object in hand, room around the figure.",
+      "identity_policy": "Use the authored role and the approved face, clothes and personal objects. Peter's linen and wool are proposed visual details.",
+      "prompt_template": "B43L. {style_block}\n{name}, {title}, already mid-journey. {identity_action_clothing_sentence}",
+      "sample_seed": 26102604,
+      "sample_prompt": "B43L. Rough unfinished watercolor; heavy pigment, broken washes, blooms, searching pencil, raw paper.\nSimon Peter, Fisherman Learning Steadiness, already mid-journey. A Galilean fisherman in a linen tunic and wool mantle holds mended flax net cord beside his boat, ready to help."
+    }
+  },
+  "schema_version": 1,
+  "approval": {
+    "model_choice": "user_selected",
+    "style_sheet": "pending",
+    "samples": "pending"
+  },
+  "purpose": "Reusable art direction for future backgrounds and avatars; review edition."
+}

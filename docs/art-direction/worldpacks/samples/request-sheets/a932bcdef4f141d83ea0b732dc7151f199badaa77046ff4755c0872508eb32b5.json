@@ -1,0 +1,87 @@
+{
+  "slug": "project89",
+  "id": "project89.washed-anime/1",
+  "name": "Project 89",
+  "worldpack_ids": [
+    "cosyworld.project89-operation-liberation"
+  ],
+  "model": {
+    "name": "ratimics/project89",
+    "revision": "95f3d0eb7bdceb1262a2824c1a623e01b1902b71420013e6bc7b760e9f9255d6",
+    "url": "https://replicate.com/ratimics/project89",
+    "defaults": {
+      "model": "dev",
+      "num_outputs": 1,
+      "num_inference_steps": 28,
+      "go_fast": false,
+      "megapixels": "1",
+      "output_format": "webp",
+      "output_quality": 80,
+      "disable_safety_checker": false,
+      "guidance_scale": 3,
+      "lora_scale": 1
+    },
+    "provider": "replicate",
+    "invocation": "pinned_version",
+    "schema_checked_at": "2026-10-26"
+  },
+  "trigger": "P89, anime style,",
+  "style_block": "softly washed watercolor anime illustration, clean expressive anime linework, soft cel-painted forms under translucent watercolor glazing, muted rose-lavender, deep teal and warm coral-amber palette, diffuse bloom, gentle paper grain, slightly faded midtones, crisp focal silhouette",
+  "palette": [
+    [
+      "Rose",
+      "#C2A8BC"
+    ],
+    [
+      "Teal",
+      "#234C55"
+    ],
+    [
+      "Coral",
+      "#DF9677"
+    ],
+    [
+      "Paper",
+      "#E5DAD0"
+    ]
+  ],
+  "materials": [
+    "worn concrete",
+    "black glass",
+    "repaired metal",
+    "practical fabric"
+  ],
+  "lighting": "Diffuse coral lamps, teal shade and gentle bloom. Keep the central shape clear.",
+  "references": [],
+  "source_paths": [
+    "v2/docs/project-89-art-direction.md",
+    "v2/media/recipes.json",
+    "v2/content/project89-operation-liberation/locations.json",
+    "v2/content/project89-operation-liberation/actors.json"
+  ],
+  "subjects": {
+    "background": {
+      "aspect_ratio": "16:9",
+      "composition": "Empty architecture, plain unmarked surfaces, clear landmark and room for game overlays.",
+      "identity_policy": "Use authored place facts. Add shared fixtures only after the matching world event and image approval.",
+      "prompt_template": "P89, anime style, {authored_place_description}, {style_block}, {composition}",
+      "sample_seed": 26102605,
+      "sample_prompt": "P89, anime style, Threshold Interface, an empty low circular chamber with black glass floor, teal relay arches and warm coral lamps, plain unmarked walls, calm useful architecture, clear depth. Softly washed watercolor anime illustration, clean expressive anime linework, soft cel-painted forms under translucent watercolor glazing, muted rose-lavender, deep teal and warm coral-amber palette, diffuse bloom, gentle paper grain, slightly faded midtones, crisp focal silhouette. Environment only, empty walkways, simple light bands, plain blank architectural surfaces."
+    },
+    "avatar": {
+      "aspect_ratio": "2:3",
+      "composition": "One authored character with full-body silhouette and room around hands and feet. Proxim8 identities start from a square approved master.",
+      "identity_policy": "For Proxim8, use its approved NFT identity as the single image input, aspect 1:1, prompt_strength 0.45. Preserve face, hair, eyes, headset, clothes and collection traits. Mara is a proposed visual study of an authored quartermaster.",
+      "prompt_template": "P89, anime style, {approved_identity_description}, {authored_action}, {style_block}, {composition}",
+      "sample_seed": 26102606,
+      "sample_prompt": "P89, anime style, proposed portrait of Mara Quell, an adult woman quartermaster in practical teal repair clothes, thoughtful kind expression, short dark hair, worn blank jacket, work trousers and boots, holding a small plain supply case, standing in a simple softly lit safehouse doorway. One complete full-body figure centered with generous padding. Softly washed watercolor anime illustration, clean expressive anime linework, soft cel-painted forms under translucent watercolor glazing, muted rose-lavender, deep teal and warm coral-amber palette, diffuse bloom, gentle paper grain, slightly faded midtones, crisp focal silhouette. Plain unmarked clothes and props."
+    }
+  },
+  "schema_version": 1,
+  "approval": {
+    "model_choice": "user_selected",
+    "style_sheet": "pending",
+    "samples": "pending"
+  },
+  "purpose": "Reusable art direction for future backgrounds and avatars; review edition."
+}

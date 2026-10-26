@@ -16,6 +16,8 @@ are proposals for this edition.
   wider world, the nested dreams, and ways home.
 - [Image prompts](image-prompts.md): the full prompts for the two concept
   images, generated with the built-in image tool.
+- [World style sheets](worldpacks/README.md): the selected Mirquo, B43L, and
+  Project89 models, fresh background and avatar samples, and reusable art rules.
 
 ![CosyWorld visual language sheet](assets/visual-language.png)
 
