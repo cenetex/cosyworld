@@ -1886,7 +1886,7 @@
               {
                 kind: "holding",
                 item: "greek-water-jar",
-                actor: "vale"
+                role: "actor"
               }
             ],
             effects: [
@@ -1900,7 +1900,8 @@
                 key: "greek-water-returned",
                 value: true
               }
-            ]
+            ],
+            textTemplate: "{actor} sets the filled jar beside Dione's table. She puts a loaf aside for the traveler."
           },
           {
             id: "greek-hear-decree",
@@ -1915,7 +1916,8 @@
                 key: "greek-decree-known",
                 value: true
               }
-            ]
+            ],
+            textTemplate: "The guard reads the burial prohibition aloud. {actor} now knows what the order forbids."
           },
           {
             id: "greek-gather-witness",
@@ -1953,7 +1955,7 @@
               {
                 kind: "holding",
                 item: "greek-shovel",
-                actor: "vale"
+                role: "actor"
               },
               {
                 kind: "choice_unset",
@@ -1971,7 +1973,8 @@
                 key: "greek-grave-prepared",
                 value: true
               }
-            ]
+            ],
+            textTemplate: "{actor} digs beside the fallen brother and leaves the shovel at the prepared ground."
           },
           {
             id: "greek-perform-burial",
@@ -1993,12 +1996,12 @@
               {
                 kind: "holding",
                 item: "greek-funeral-cloth",
-                actor: "vale"
+                role: "actor"
               },
               {
                 kind: "holding",
                 item: "greek-oil-flask",
-                actor: "vale"
+                role: "actor"
               },
               {
                 kind: "choice_unset",
@@ -2027,7 +2030,8 @@
                 value: true
               }
             ],
-            summary: "The brother was buried. The decree remains in force, and the household must answer for the defiance."
+            summary: "The brother was buried. The decree remains in force, and the household must answer for the defiance.",
+            textTemplate: "{actor} lays out the cloth and oil at the prepared grave. The brother receives a burial despite the standing prohibition."
           },
           {
             id: "greek-petition-burial",
@@ -2049,12 +2053,12 @@
               {
                 kind: "holding",
                 item: "greek-decree",
-                actor: "vale"
+                role: "actor"
               },
               {
                 kind: "holding",
                 item: "greek-household-token",
-                actor: "vale"
+                role: "actor"
               },
               {
                 kind: "choice_unset",
@@ -2078,7 +2082,8 @@
                 value: true
               }
             ],
-            summary: "Creon granted a witnessed exception for the family to arrange a lawful burial. The petition itself did not perform the rite."
+            summary: "Creon granted a witnessed exception for the family to arrange a lawful burial. The petition itself did not perform the rite.",
+            textTemplate: "{actor} presents the decree and household token with the elder's support. Creon grants a public exception for burial under witness."
           },
           {
             id: "greek-prepare-permitted-burial",
@@ -2100,7 +2105,7 @@
               {
                 kind: "holding",
                 item: "greek-shovel",
-                actor: "vale"
+                role: "actor"
               }
             ],
             effects: [
@@ -2114,7 +2119,8 @@
                 key: "greek-grave-prepared",
                 value: true
               }
-            ]
+            ],
+            textTemplate: "{actor} digs beside the fallen brother under the public exception and leaves the shovel at the prepared ground."
           },
           {
             id: "greek-perform-permitted-burial",
@@ -2141,12 +2147,12 @@
               {
                 kind: "holding",
                 item: "greek-funeral-cloth",
-                actor: "vale"
+                role: "actor"
               },
               {
                 kind: "holding",
                 item: "greek-oil-flask",
-                actor: "vale"
+                role: "actor"
               }
             ],
             effects: [
@@ -2165,7 +2171,8 @@
                 key: "greek-burial-performed",
                 value: true
               }
-            ]
+            ],
+            textTemplate: "{actor} lays out the cloth and oil at the prepared grave. The brother receives a burial under the witnessed exception."
           },
           {
             id: "greek-decline-burial",
@@ -2190,7 +2197,8 @@
                 key: "greek-theban-response",
                 value: "refusal"
               }
-            ]
+            ],
+            textTemplate: "{actor} declines to help with the burial. Antigone knows the answer; no burial or punishment has occurred through this choice."
           },
           {
             id: "greek-report-plan",
@@ -2220,7 +2228,8 @@
                 key: "greek-guard-warned",
                 value: true
               }
-            ]
+            ],
+            textTemplate: "{actor} tells the guard that the household intends to seek a burial. The guard records the warning; he has witnessed no burial."
           },
           {
             id: "greek-courtyard-burial",
@@ -2241,7 +2250,8 @@
                 key: "greek-burial-public",
                 value: true
               }
-            ]
+            ],
+            textTemplate: "{actor} reports the burial at the common table. Dione and the neighbors now know who helped."
           },
           {
             id: "greek-courtyard-concession",
@@ -2262,7 +2272,8 @@
                 key: "greek-concession-public",
                 value: true
               }
-            ]
+            ],
+            textTemplate: "{actor} tells Dione about the witnessed exception. She records that permission was given for the family\u2019s burial rite."
           },
           {
             id: "greek-courtyard-permitted-burial",
@@ -2293,7 +2304,8 @@
                 key: "greek-permitted-burial-public",
                 value: true
               }
-            ]
+            ],
+            textTemplate: "{actor} tells Dione that the permitted burial is complete. She hears that the brother now lies beneath the earth."
           },
           {
             id: "greek-courtyard-refusal",
@@ -2314,7 +2326,8 @@
                 key: "greek-refusal-public",
                 value: true
               }
-            ]
+            ],
+            textTemplate: "{actor} returns to the table after declining. Dione leaves a place available; the household dispute remains unresolved."
           },
           {
             id: "greek-courtyard-exposure",
@@ -2335,7 +2348,8 @@
                 key: "greek-exposure-public",
                 value: true
               }
-            ]
+            ],
+            textTemplate: "{actor} tells Dione about the warning given to the guard. She asks that further claims name their witnesses."
           },
           {
             id: "greek-helen-egypt",
@@ -2356,7 +2370,8 @@
                 value: "egypt"
               }
             ],
-            summary: "The Egyptian account governs Helen's whereabouts and testimony. The Trojan account remains an alternative story."
+            summary: "The Egyptian account governs Helen's whereabouts and testimony. The Trojan account remains an alternative story.",
+            textTemplate: "{actor} commits to the Egyptian account: Helen remained with Proteus while a phantom went to Troy. Myrto opens the passage to the tomb."
           },
           {
             id: "greek-helen-troy",
@@ -2377,7 +2392,8 @@
                 value: "troy"
               }
             ],
-            summary: "The Trojan account governs Helen's whereabouts and testimony. No phantom has been established in this history."
+            summary: "The Trojan account governs Helen's whereabouts and testimony. No phantom has been established in this history.",
+            textTemplate: "{actor} commits to the Trojan account: Helen returns from Troy. Myrto opens the passage to the homecoming beach."
           },
           {
             id: "greek-hear-helen-egypt",
@@ -2398,7 +2414,8 @@
                 key: "greek-helen-heard-egypt",
                 value: true
               }
-            ]
+            ],
+            textTemplate: "{actor} hears Helen give her own account and keeps its source separate from earlier reports."
           },
           {
             id: "greek-helen-egypt-passage",
@@ -2420,12 +2437,12 @@
               {
                 kind: "holding",
                 item: "greek-egypt-testimony",
-                actor: "vale"
+                role: "actor"
               },
               {
                 kind: "holding",
                 item: "greek-provisions",
-                actor: "vale"
+                role: "actor"
               },
               {
                 kind: "choice_unset",
@@ -2453,7 +2470,8 @@
                 key: "greek-helen-passage-agreed",
                 value: true
               }
-            ]
+            ],
+            textTemplate: "{actor} deposits provisions and the witness tablet beside the boat. Helen accepts a witnessed passage agreement."
           },
           {
             id: "greek-helen-egypt-shelter",
@@ -2475,7 +2493,7 @@
               {
                 kind: "holding",
                 item: "greek-egypt-testimony",
-                actor: "vale"
+                role: "actor"
               },
               {
                 kind: "choice_unset",
@@ -2498,7 +2516,8 @@
                 key: "greek-helen-shelter-requested",
                 value: true
               }
-            ]
+            ],
+            textTemplate: "{actor} records Helen's request to remain under protection while the competing claims are heard."
           },
           {
             id: "greek-hear-helen-troy",
@@ -2519,7 +2538,8 @@
                 key: "greek-helen-heard-troy",
                 value: true
               }
-            ]
+            ],
+            textTemplate: "{actor} hears Helen give her own account and keeps its source separate from earlier reports."
           },
           {
             id: "greek-helen-troy-passage",
@@ -2541,12 +2561,12 @@
               {
                 kind: "holding",
                 item: "greek-troy-testimony",
-                actor: "vale"
+                role: "actor"
               },
               {
                 kind: "holding",
                 item: "greek-provisions",
-                actor: "vale"
+                role: "actor"
               },
               {
                 kind: "choice_unset",
@@ -2574,7 +2594,8 @@
                 key: "greek-helen-passage-agreed",
                 value: true
               }
-            ]
+            ],
+            textTemplate: "{actor} deposits provisions and the witness tablet beside the boat. Helen accepts a witnessed passage agreement."
           },
           {
             id: "greek-helen-troy-shelter",
@@ -2596,7 +2617,7 @@
               {
                 kind: "holding",
                 item: "greek-troy-testimony",
-                actor: "vale"
+                role: "actor"
               },
               {
                 kind: "choice_unset",
@@ -2619,7 +2640,8 @@
                 key: "greek-helen-shelter-requested",
                 value: true
               }
-            ]
+            ],
+            textTemplate: "{actor} records Helen's request to remain under protection while the competing claims are heard."
           },
           {
             id: "greek-atreid-aeschylus",
@@ -2640,7 +2662,8 @@
                 value: "aeschylus"
               }
             ],
-            summary: "The Aeschylus account governs the Atreid household, beginning at Agamemnon\u2019s tomb. The other accounts remain alternative stories."
+            summary: "The Aeschylus account governs the Atreid household, beginning at Agamemnon\u2019s tomb. The other accounts remain alternative stories.",
+            textTemplate: "{actor} follows the Aeschylus account. The singer points out the road to Agamemnon's Tomb."
           },
           {
             id: "greek-hear-electra-aeschylus",
@@ -2661,7 +2684,8 @@
                 key: "greek-atreid-heard-aeschylus",
                 value: true
               }
-            ]
+            ],
+            textTemplate: "{actor} hears Electra name the household\u2019s losses before asking for a commitment."
           },
           {
             id: "greek-atreid-aeschylus-hearing",
@@ -2683,7 +2707,7 @@
               {
                 kind: "holding",
                 item: "greek-tomb-testimony",
-                actor: "vale"
+                role: "actor"
               },
               {
                 kind: "choice_unset",
@@ -2706,7 +2730,8 @@
                 key: "greek-atreid-hearing-promised",
                 value: true
               }
-            ]
+            ],
+            textTemplate: "{actor} deposits the witness tablet and agrees to carry the household's claim to a public hearing. No killing is authorized or recorded."
           },
           {
             id: "greek-atreid-aeschylus-refusal",
@@ -2728,7 +2753,7 @@
               {
                 kind: "holding",
                 item: "greek-tomb-testimony",
-                actor: "vale"
+                role: "actor"
               },
               {
                 kind: "choice_unset",
@@ -2751,7 +2776,8 @@
                 key: "greek-atreid-refusal-recorded",
                 value: true
               }
-            ]
+            ],
+            textTemplate: "{actor} refuses to promise revenge while keeping the household\u2019s testimony on record. Electra knows the answer."
           },
           {
             id: "greek-atreid-sophocles",
@@ -2772,7 +2798,8 @@
                 value: "sophocles"
               }
             ],
-            summary: "The Sophocles account governs the Atreid household, beginning at the Mycenaean palace. The other accounts remain alternative stories."
+            summary: "The Sophocles account governs the Atreid household, beginning at the Mycenaean palace. The other accounts remain alternative stories.",
+            textTemplate: "{actor} follows the Sophocles account. The singer points out the road to Mycenaean Palace."
           },
           {
             id: "greek-hear-electra-sophocles",
@@ -2793,7 +2820,8 @@
                 key: "greek-atreid-heard-sophocles",
                 value: true
               }
-            ]
+            ],
+            textTemplate: "{actor} hears Electra name the household\u2019s losses before asking for a commitment."
           },
           {
             id: "greek-atreid-sophocles-hearing",
@@ -2815,7 +2843,7 @@
               {
                 kind: "holding",
                 item: "greek-palace-testimony",
-                actor: "vale"
+                role: "actor"
               },
               {
                 kind: "choice_unset",
@@ -2838,7 +2866,8 @@
                 key: "greek-atreid-hearing-promised",
                 value: true
               }
-            ]
+            ],
+            textTemplate: "{actor} deposits the witness tablet and agrees to carry the household's claim to a public hearing. No killing is authorized or recorded."
           },
           {
             id: "greek-atreid-sophocles-refusal",
@@ -2860,7 +2889,7 @@
               {
                 kind: "holding",
                 item: "greek-palace-testimony",
-                actor: "vale"
+                role: "actor"
               },
               {
                 kind: "choice_unset",
@@ -2883,7 +2912,8 @@
                 key: "greek-atreid-refusal-recorded",
                 value: true
               }
-            ]
+            ],
+            textTemplate: "{actor} refuses to promise revenge while keeping the household\u2019s testimony on record. Electra knows the answer."
           },
           {
             id: "greek-atreid-euripides",
@@ -2904,7 +2934,8 @@
                 value: "euripides"
               }
             ],
-            summary: "The Euripides account governs the Atreid household, beginning at the Argive farmhouse. The other accounts remain alternative stories."
+            summary: "The Euripides account governs the Atreid household, beginning at the Argive farmhouse. The other accounts remain alternative stories.",
+            textTemplate: "{actor} follows the Euripides account. The singer points out the road to The Argive Farmhouse."
           },
           {
             id: "greek-hear-electra-euripides",
@@ -2925,7 +2956,8 @@
                 key: "greek-atreid-heard-euripides",
                 value: true
               }
-            ]
+            ],
+            textTemplate: "{actor} hears Electra name the household\u2019s losses before asking for a commitment."
           },
           {
             id: "greek-atreid-euripides-hearing",
@@ -2947,7 +2979,7 @@
               {
                 kind: "holding",
                 item: "greek-farm-testimony",
-                actor: "vale"
+                role: "actor"
               },
               {
                 kind: "choice_unset",
@@ -2970,7 +3002,8 @@
                 key: "greek-atreid-hearing-promised",
                 value: true
               }
-            ]
+            ],
+            textTemplate: "{actor} deposits the witness tablet and agrees to carry the household's claim to a public hearing. No killing is authorized or recorded."
           },
           {
             id: "greek-atreid-euripides-refusal",
@@ -2992,7 +3025,7 @@
               {
                 kind: "holding",
                 item: "greek-farm-testimony",
-                actor: "vale"
+                role: "actor"
               },
               {
                 kind: "choice_unset",
@@ -3015,7 +3048,8 @@
                 key: "greek-atreid-refusal-recorded",
                 value: true
               }
-            ]
+            ],
+            textTemplate: "{actor} refuses to promise revenge while keeping the household\u2019s testimony on record. Electra knows the answer."
           },
           {
             id: "greek-inquire-aeschylus-persians",
@@ -3031,7 +3065,8 @@
                 value: true
               }
             ],
-            workId: "aeschylus-persians"
+            workId: "aeschylus-persians",
+            textTemplate: "{actor} opens an inquiry into the account told in Persians. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-aeschylus-seven-against-thebes",
@@ -3047,7 +3082,8 @@
                 value: true
               }
             ],
-            workId: "aeschylus-seven-against-thebes"
+            workId: "aeschylus-seven-against-thebes",
+            textTemplate: "{actor} opens an inquiry into the account told in Seven Against Thebes. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-aeschylus-suppliant-women",
@@ -3063,7 +3099,8 @@
                 value: true
               }
             ],
-            workId: "aeschylus-suppliant-women"
+            workId: "aeschylus-suppliant-women",
+            textTemplate: "{actor} opens an inquiry into the account told in Suppliant Women. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-aeschylus-prometheus-bound",
@@ -3079,7 +3116,8 @@
                 value: true
               }
             ],
-            workId: "aeschylus-prometheus-bound"
+            workId: "aeschylus-prometheus-bound",
+            textTemplate: "{actor} opens an inquiry into the account told in Prometheus Bound. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-aeschylus-agamemnon",
@@ -3101,7 +3139,8 @@
                 value: true
               }
             ],
-            workId: "aeschylus-agamemnon"
+            workId: "aeschylus-agamemnon",
+            textTemplate: "{actor} opens an inquiry into the account told in Agamemnon. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-aeschylus-libation-bearers",
@@ -3123,7 +3162,8 @@
                 value: true
               }
             ],
-            workId: "aeschylus-libation-bearers"
+            workId: "aeschylus-libation-bearers",
+            textTemplate: "{actor} opens an inquiry into the account told in Libation Bearers. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-aeschylus-eumenides",
@@ -3139,7 +3179,8 @@
                 value: true
               }
             ],
-            workId: "aeschylus-eumenides"
+            workId: "aeschylus-eumenides",
+            textTemplate: "{actor} opens an inquiry into the account told in Eumenides. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-sophocles-ajax",
@@ -3155,7 +3196,8 @@
                 value: true
               }
             ],
-            workId: "sophocles-ajax"
+            workId: "sophocles-ajax",
+            textTemplate: "{actor} opens an inquiry into the account told in Ajax. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-sophocles-antigone",
@@ -3171,7 +3213,8 @@
                 value: true
               }
             ],
-            workId: "sophocles-antigone"
+            workId: "sophocles-antigone",
+            textTemplate: "{actor} opens an inquiry into the account told in Antigone. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-sophocles-women-of-trachis",
@@ -3187,7 +3230,8 @@
                 value: true
               }
             ],
-            workId: "sophocles-women-of-trachis"
+            workId: "sophocles-women-of-trachis",
+            textTemplate: "{actor} opens an inquiry into the account told in Women of Trachis. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-sophocles-oedipus-tyrannus",
@@ -3203,7 +3247,8 @@
                 value: true
               }
             ],
-            workId: "sophocles-oedipus-tyrannus"
+            workId: "sophocles-oedipus-tyrannus",
+            textTemplate: "{actor} opens an inquiry into the account told in Oedipus Tyrannus. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-sophocles-electra",
@@ -3225,7 +3270,8 @@
                 value: true
               }
             ],
-            workId: "sophocles-electra"
+            workId: "sophocles-electra",
+            textTemplate: "{actor} opens an inquiry into the account told in Electra. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-sophocles-philoctetes",
@@ -3241,7 +3287,8 @@
                 value: true
               }
             ],
-            workId: "sophocles-philoctetes"
+            workId: "sophocles-philoctetes",
+            textTemplate: "{actor} opens an inquiry into the account told in Philoctetes. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-sophocles-oedipus-at-colonus",
@@ -3257,7 +3304,8 @@
                 value: true
               }
             ],
-            workId: "sophocles-oedipus-at-colonus"
+            workId: "sophocles-oedipus-at-colonus",
+            textTemplate: "{actor} opens an inquiry into the account told in Oedipus at Colonus. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-euripides-alcestis",
@@ -3273,7 +3321,8 @@
                 value: true
               }
             ],
-            workId: "euripides-alcestis"
+            workId: "euripides-alcestis",
+            textTemplate: "{actor} opens an inquiry into the account told in Alcestis. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-euripides-medea",
@@ -3289,7 +3338,8 @@
                 value: true
               }
             ],
-            workId: "euripides-medea"
+            workId: "euripides-medea",
+            textTemplate: "{actor} opens an inquiry into the account told in Medea. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-euripides-children-of-heracles",
@@ -3305,7 +3355,8 @@
                 value: true
               }
             ],
-            workId: "euripides-children-of-heracles"
+            workId: "euripides-children-of-heracles",
+            textTemplate: "{actor} opens an inquiry into the account told in Children of Heracles. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-euripides-hippolytus",
@@ -3321,7 +3372,8 @@
                 value: true
               }
             ],
-            workId: "euripides-hippolytus"
+            workId: "euripides-hippolytus",
+            textTemplate: "{actor} opens an inquiry into the account told in Hippolytus. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-euripides-andromache",
@@ -3337,7 +3389,8 @@
                 value: true
               }
             ],
-            workId: "euripides-andromache"
+            workId: "euripides-andromache",
+            textTemplate: "{actor} opens an inquiry into the account told in Andromache. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-euripides-hecuba",
@@ -3353,7 +3406,8 @@
                 value: true
               }
             ],
-            workId: "euripides-hecuba"
+            workId: "euripides-hecuba",
+            textTemplate: "{actor} opens an inquiry into the account told in Hecuba. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-euripides-suppliant-women",
@@ -3369,7 +3423,8 @@
                 value: true
               }
             ],
-            workId: "euripides-suppliant-women"
+            workId: "euripides-suppliant-women",
+            textTemplate: "{actor} opens an inquiry into the account told in Suppliant Women. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-euripides-electra",
@@ -3391,7 +3446,8 @@
                 value: true
               }
             ],
-            workId: "euripides-electra"
+            workId: "euripides-electra",
+            textTemplate: "{actor} opens an inquiry into the account told in Electra. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-euripides-heracles",
@@ -3407,7 +3463,8 @@
                 value: true
               }
             ],
-            workId: "euripides-heracles"
+            workId: "euripides-heracles",
+            textTemplate: "{actor} opens an inquiry into the account told in Heracles. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-euripides-trojan-women",
@@ -3423,7 +3480,8 @@
                 value: true
               }
             ],
-            workId: "euripides-trojan-women"
+            workId: "euripides-trojan-women",
+            textTemplate: "{actor} opens an inquiry into the account told in Trojan Women. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-euripides-iphigenia-in-tauris",
@@ -3439,7 +3497,8 @@
                 value: true
               }
             ],
-            workId: "euripides-iphigenia-in-tauris"
+            workId: "euripides-iphigenia-in-tauris",
+            textTemplate: "{actor} opens an inquiry into the account told in Iphigenia in Tauris. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-euripides-ion",
@@ -3455,7 +3514,8 @@
                 value: true
               }
             ],
-            workId: "euripides-ion"
+            workId: "euripides-ion",
+            textTemplate: "{actor} opens an inquiry into the account told in Ion. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-euripides-helen",
@@ -3477,7 +3537,8 @@
                 value: true
               }
             ],
-            workId: "euripides-helen"
+            workId: "euripides-helen",
+            textTemplate: "{actor} opens an inquiry into the account told in Helen. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-euripides-phoenician-women",
@@ -3493,7 +3554,8 @@
                 value: true
               }
             ],
-            workId: "euripides-phoenician-women"
+            workId: "euripides-phoenician-women",
+            textTemplate: "{actor} opens an inquiry into the account told in Phoenician Women. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-euripides-orestes",
@@ -3515,7 +3577,8 @@
                 value: true
               }
             ],
-            workId: "euripides-orestes"
+            workId: "euripides-orestes",
+            textTemplate: "{actor} opens an inquiry into the account told in Orestes. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-euripides-bacchae",
@@ -3531,7 +3594,8 @@
                 value: true
               }
             ],
-            workId: "euripides-bacchae"
+            workId: "euripides-bacchae",
+            textTemplate: "{actor} opens an inquiry into the account told in Bacchae. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-euripides-iphigenia-at-aulis",
@@ -3547,7 +3611,8 @@
                 value: true
               }
             ],
-            workId: "euripides-iphigenia-at-aulis"
+            workId: "euripides-iphigenia-at-aulis",
+            textTemplate: "{actor} opens an inquiry into the account told in Iphigenia at Aulis. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-euripides-rhesus",
@@ -3563,7 +3628,8 @@
                 value: true
               }
             ],
-            workId: "euripides-rhesus"
+            workId: "euripides-rhesus",
+            textTemplate: "{actor} opens an inquiry into the account told in Rhesus. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-euripides-cyclops",
@@ -3579,7 +3645,8 @@
                 value: true
               }
             ],
-            workId: "euripides-cyclops"
+            workId: "euripides-cyclops",
+            textTemplate: "{actor} opens an inquiry into the account told in Cyclops. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-aristophanes-acharnians",
@@ -3595,7 +3662,8 @@
                 value: true
               }
             ],
-            workId: "aristophanes-acharnians"
+            workId: "aristophanes-acharnians",
+            textTemplate: "{actor} opens an inquiry into the account told in Acharnians. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-aristophanes-knights",
@@ -3611,7 +3679,8 @@
                 value: true
               }
             ],
-            workId: "aristophanes-knights"
+            workId: "aristophanes-knights",
+            textTemplate: "{actor} opens an inquiry into the account told in Knights. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-aristophanes-clouds",
@@ -3627,7 +3696,8 @@
                 value: true
               }
             ],
-            workId: "aristophanes-clouds"
+            workId: "aristophanes-clouds",
+            textTemplate: "{actor} opens an inquiry into the account told in Clouds. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-aristophanes-wasps",
@@ -3643,7 +3713,8 @@
                 value: true
               }
             ],
-            workId: "aristophanes-wasps"
+            workId: "aristophanes-wasps",
+            textTemplate: "{actor} opens an inquiry into the account told in Wasps. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-aristophanes-peace",
@@ -3659,7 +3730,8 @@
                 value: true
               }
             ],
-            workId: "aristophanes-peace"
+            workId: "aristophanes-peace",
+            textTemplate: "{actor} opens an inquiry into the account told in Peace. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-aristophanes-birds",
@@ -3675,7 +3747,8 @@
                 value: true
               }
             ],
-            workId: "aristophanes-birds"
+            workId: "aristophanes-birds",
+            textTemplate: "{actor} opens an inquiry into the account told in Birds. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-aristophanes-lysistrata",
@@ -3691,7 +3764,8 @@
                 value: true
               }
             ],
-            workId: "aristophanes-lysistrata"
+            workId: "aristophanes-lysistrata",
+            textTemplate: "{actor} opens an inquiry into the account told in Lysistrata. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-aristophanes-women-at-the-thesmophoria",
@@ -3707,7 +3781,8 @@
                 value: true
               }
             ],
-            workId: "aristophanes-women-at-the-thesmophoria"
+            workId: "aristophanes-women-at-the-thesmophoria",
+            textTemplate: "{actor} opens an inquiry into the account told in Women at the Thesmophoria. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-aristophanes-frogs",
@@ -3723,7 +3798,8 @@
                 value: true
               }
             ],
-            workId: "aristophanes-frogs"
+            workId: "aristophanes-frogs",
+            textTemplate: "{actor} opens an inquiry into the account told in Frogs. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-aristophanes-assemblywomen",
@@ -3739,7 +3815,8 @@
                 value: true
               }
             ],
-            workId: "aristophanes-assemblywomen"
+            workId: "aristophanes-assemblywomen",
+            textTemplate: "{actor} opens an inquiry into the account told in Assemblywomen. The question is recorded; its reported events have not been enacted."
           },
           {
             id: "greek-inquire-aristophanes-wealth",
@@ -3755,7 +3832,8 @@
                 value: true
               }
             ],
-            workId: "aristophanes-wealth"
+            workId: "aristophanes-wealth",
+            textTemplate: "{actor} opens an inquiry into the account told in Wealth. The question is recorded; its reported events have not been enacted."
           }
         ],
         works: [
@@ -5143,7 +5221,7 @@
             ok = keysOk(c, ["kind", "key", "value"]) && idOk(c.key) && typeof c.value === "boolean";
             break;
           case "holding":
-            ok = keysOk(c, ["kind", "item", "actor"]) && owns(items2, c.item) && (c.actor === hub2.player || owns(avatars, c.actor));
+            ok = keysOk(c, ["kind", "item", "actor", "role"]) && owns(items2, c.item) && (c.role === void 0 ? c.actor === hub2.player || owns(avatars, c.actor) : c.role === "actor" && c.actor === void 0);
             break;
           case "shared_world":
             ok = keysOk(c, ["kind"]);
@@ -5243,11 +5321,12 @@
           "at",
           "label",
           "text",
+          "textTemplate",
           "summary",
           "requires",
           "effects",
           "workId"
-        ]) && idOk(c.id) && !choiceIds.has(c.id) && own.includes(c.subject) && owns(places2, c.at) && textOk(c.label, 120) && textOk(c.text, 600) && (c.summary === void 0 || textOk(c.summary, 600)),
+        ]) && idOk(c.id) && !choiceIds.has(c.id) && own.includes(c.subject) && owns(places2, c.at) && textOk(c.label, 120) && textOk(c.text, 600) && (c.textTemplate === void 0 || templateOk(c.textTemplate, 600, ["actor"])) && (c.summary === void 0 || textOk(c.summary, 600)),
         `choice ${c.id} is invalid`
       );
       choiceIds.add(c.id);
@@ -5265,7 +5344,7 @@
         }
         if (e.kind === "place_item")
           valid = keysOk(e, ["kind", "item", "place"]) && owns(items2, e.item) && e.place === c.at && (c.requires || []).some(
-            (r) => r.kind === "holding" && r.item === e.item && r.actor === hub2.player
+            (r) => r.kind === "holding" && r.item === e.item && (r.role === "actor" || r.actor === hub2.player)
           );
         check(valid, `choice ${c.id} effect is unsupported or lacks custody`);
       }
@@ -5645,7 +5724,7 @@
     }
     return s.actors[holder]?.place || holder;
   }
-  function conditionMet(s, c, senses2, packId = null) {
+  function conditionMet(s, c, senses2, packId = null, actor = null) {
     const state = s.packs?.[packId];
     switch (c.kind) {
       case "sound":
@@ -5655,7 +5734,7 @@
           entityActive(s, c.item) && s.items[c.item]?.lit && s.items[c.item]?.fuel > 0 && c.at.includes(objectPlace(s, c.item)) && (!c.uncovered || !Object.values(s.items).some((i) => i.holder === c.item))
         );
       case "not":
-        return !conditionMet(s, c.condition, senses2, packId);
+        return !conditionMet(s, c.condition, senses2, packId, actor);
       case "choice":
         return state?.choices?.[c.key] === c.value;
       case "choice_unset":
@@ -5663,7 +5742,7 @@
       case "flag":
         return (state?.flags?.[c.key] ?? false) === c.value;
       case "holding":
-        return s.items[c.item]?.holder === c.actor;
+        return s.items[c.item]?.holder === (c.role === "actor" ? actor : c.actor);
       case "shared_world":
         return sharedEnabled(s);
       case "item_near": {
@@ -6040,8 +6119,16 @@
     )
   ].filter(Boolean);
   var packState = (world, id) => world.packs?.[id];
-  function conditionsMet(world, packId, conditions = []) {
-    return Boolean(world.packs?.[packId]) && conditions.every((c) => conditionMet(world, c, null, packId));
+  function conditionsMet(world, packId, conditions = [], actor = null) {
+    return Boolean(world.packs?.[packId]) && conditions.every(
+      (condition2) => conditionMet(world, condition2, null, packId, actor)
+    );
+  }
+  function choiceText(choice, actor) {
+    return choice.textTemplate === void 0 ? choice.text : choice.textTemplate.replaceAll(
+      "{actor}",
+      humanAvatar(actor)?.name || packPeople[actor]?.name || "An earlier traveler"
+    );
   }
   function entityActive(world, id) {
     if (world.items?.[id]) {
@@ -6089,13 +6176,7 @@
   }
   function choiceFeasible(world, pack, choice, actor) {
     const state = packState(world, pack.id);
-    if (!state || owns2(state.receipts, choice.id) || pack.release && state.scope !== "full" && !pack.release.choices.includes(choice.id) || world.actors[actor]?.place !== choice.at || !entityActive(world, choice.subject) || !conditionsMet(
-      world,
-      pack.id,
-      choice.requires.map(
-        (condition2) => condition2.kind === "holding" && condition2.actor === "vale" ? { ...condition2, actor } : condition2
-      )
-    ))
+    if (!state || owns2(state.receipts, choice.id) || pack.release && state.scope !== "full" && !pack.release.choices.includes(choice.id) || world.actors[actor]?.place !== choice.at || !entityActive(world, choice.subject) || !conditionsMet(world, pack.id, choice.requires, actor))
       return false;
     const subject = choice.subject;
     if (world.actors[subject] && world.actors[subject].place !== choice.at)
@@ -6117,10 +6198,7 @@
         packId: pack.id,
         choiceId: c.id,
         label: c.label,
-        text: c.text.replace(
-          /\bVale\b/g,
-          humanAvatar(actor)?.name || packPeople[actor]?.name || actor
-        ),
+        text: choiceText(c, actor),
         key: `choose:${actor}:${pack.id}:${c.id}`,
         cards: [c.subject]
       }))
@@ -6136,13 +6214,22 @@
       if (e.kind === "set_flag") state.flags[e.key] = e.value;
       if (e.kind === "place_item") {
         world.items[e.item].holder = e.place;
-        world.items[e.item].history.push(choice.text.slice(0, 400));
+        world.items[e.item].history.push(
+          choiceText(choice, action.actor).slice(0, 400)
+        );
         world.items[e.item].history = world.items[e.item].history.slice(-12);
       }
     }
     state.receipts[choice.id] = world.turn;
     recordRecital(world, pack, choice.id, action.actor);
     return choice;
+  }
+  function committedChoiceText(world, pack, choice) {
+    if (choice.summary) return choice.summary;
+    const actor = world.log?.find(
+      (entry) => entry.packId === pack.id && entry.choiceId === choice.id
+    )?.actorId || world.packs[pack.id].recitals?.[choice.id]?.actor || null;
+    return choiceText(choice, actor);
   }
   function packFacts(world, id) {
     const e = packEntity(id);
@@ -6151,7 +6238,7 @@
     if (!state) return [];
     return (pack.choices || []).filter(
       (c) => owns2(state.receipts, c.id) && (c.subject === id || c.at === id || c.effects.some((effect) => effect.item === id))
-    ).sort((a, b) => state.receipts[a.id] - state.receipts[b.id]).slice(-3).map((c) => (c.summary || c.text).slice(0, 240));
+    ).sort((a, b) => state.receipts[a.id] - state.receipts[b.id]).slice(-3).map((c) => committedChoiceText(world, pack, c).slice(0, 240));
   }
   function packSceneFacts(world, location) {
     const e = packEntity(location);
@@ -6171,8 +6258,10 @@
     );
     const local = committed.filter((c) => c.at === location && !canon.includes(c)).sort((a, b) => state.receipts[a.id] - state.receipts[b.id]).slice(-2);
     return [
-      ...canon.map((c) => `Established account: ${c.summary || c.text}`),
-      ...local.map((c) => c.summary || c.text)
+      ...canon.map(
+        (c) => `Established account: ${committedChoiceText(world, pack, c)}`
+      ),
+      ...local.map((c) => committedChoiceText(world, pack, c))
     ].map((text) => text.slice(0, 240));
   }
   function validatePackStates(world) {

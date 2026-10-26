@@ -1,3 +1,12 @@
+import {
+  conditionsMet,
+  packFacts,
+  choiceText,
+  packDefinition,
+  hub,
+  packPlaces,
+} from "../v2/card-game/pack-registry.mjs";
+import { packProblems } from "../v2/card-game/pack-schema.mjs";
 import { describe, it, expect } from "vitest";
 import { openingFixture } from "./helpers/greek-opening.mjs";
 import {
@@ -23,6 +32,45 @@ const act = (world, match) => {
   return result.state;
 };
 describe("authored shared story cards", () => {
+  it("keeps named actors and literal story text separate from the acting role", () => {
+    const world = openingFixture("refusal").waterOffer;
+    world.items["greek-water-jar"].holder = "mara";
+    const literal = { kind: "holding", item: "greek-water-jar", actor: "vale" };
+    const role = { kind: "holding", item: "greek-water-jar", role: "actor" };
+    expect(conditionsMet(world, "greek-drama", [literal], "mara")).toBe(false);
+    expect(conditionsMet(world, "greek-drama", [role], "mara")).toBe(true);
+    world.items["greek-water-jar"].holder = "vale";
+    expect(conditionsMet(world, "greek-drama", [literal], "mara")).toBe(true);
+    expect(choiceText({ text: "Vale waits beside Mara." }, "mara")).toBe(
+      "Vale waits beside Mara.",
+    );
+    expect(
+      choiceText(
+        {
+          text: "A note arrives.",
+          textTemplate: "{actor} carries a note from Vale.",
+        },
+        "mara",
+      ),
+    ).toBe("Mara carries a note from Vale.");
+    for (const change of [
+      (c) => {
+        c.requires[0].role = "unknown";
+      },
+      (c) => {
+        c.requires[0].actor = "vale";
+      },
+      (c) => {
+        c.textTemplate = "{unknown} arrives.";
+      },
+    ]) {
+      const pack = structuredClone(packDefinition("greek-drama"));
+      change(pack.choices.find((c) => c.id === "greek-return-water-jar"));
+      expect(
+        packProblems(pack, hub, Object.keys(packPlaces)).length,
+      ).toBeGreaterThan(0);
+    }
+  });
   it("keeps holder and participant views on one record with exact terminal sites", () => {
     const world = openingFixture("refusal").closed;
     for (const [index, holder, outcome, site] of [
@@ -76,6 +124,11 @@ describe("authored shared story cards", () => {
     world = act(world, (a) => a.kind === "join-quest" && a.questKey === key(0));
     expect(questRecord(world, key(0)).participants).toEqual(["mara", "vale"]);
     world = act(world, (a) => a.choiceId === "greek-return-water-jar");
+    expect(
+      world.log.find((event) => event.choiceId === "greek-return-water-jar")
+        .text,
+    ).toMatch(/^Mara sets/);
+    expect(packFacts(world, "greek-baker").join(" ")).toContain("Mara sets");
     expect(questRecord(world, key(0)).completion).toMatchObject({
       actorId: "mara",
       locationId: "greek-courtyard",

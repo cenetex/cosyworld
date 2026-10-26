@@ -51,6 +51,9 @@ try {
           if (window.discoveries.at(-1)?.id === id) return;
           window.discoveries.push({
             id,
+            isQuest: Boolean(
+              document.querySelector("#unveil-take [data-quest]"),
+            ),
             travel: Number(
               getComputedStyle(document.querySelector("#travel")).opacity,
             ),
@@ -209,7 +212,7 @@ try {
         flights: window.flights,
       }));
       assert.equal(
-        events.discoveries.filter((event) => event.id !== "player-quest")[0].id,
+        events.discoveries.filter((event) => !event.isQuest)[0].id,
         "pond",
       );
       assert(
@@ -221,8 +224,9 @@ try {
           (e) =>
             e.cooling === "true" &&
             e.travel <= 0.01 &&
-            (e.id === "player-quest" || e.speech === 0),
+            (e.isQuest || e.speech === 0),
         ),
+        `Reveal state at ${width}px (${motion}): ${JSON.stringify(events.discoveries)}`,
       );
       if (motion === "reduce") assert.equal(events.flights.length, 0);
       else {

@@ -215,12 +215,25 @@ export const packMediaFiles = [
 ].filter(Boolean);
 
 export const packState = (world, id) => world.packs?.[id];
-export function conditionsMet(world, packId, conditions = []) {
+export function conditionsMet(world, packId, conditions = [], actor = null) {
   return (
     Boolean(world.packs?.[packId]) &&
-    conditions.every((c) => evaluateCondition(world, c, null, packId))
+    conditions.every((condition) =>
+      evaluateCondition(world, condition, null, packId, actor),
+    )
   );
 }
+export function choiceText(choice, actor) {
+  return choice.textTemplate === undefined
+    ? choice.text
+    : choice.textTemplate.replaceAll(
+        "{actor}",
+        humanAvatar(actor)?.name ||
+          packPeople[actor]?.name ||
+          "An earlier traveler",
+      );
+}
+
 export function entityActive(world, id) {
   if (world.items?.[id]) {
     let holder = world.items[id].holder;
@@ -296,15 +309,7 @@ function choiceFeasible(world, pack, choice, actor) {
       !pack.release.choices.includes(choice.id)) ||
     world.actors[actor]?.place !== choice.at ||
     !entityActive(world, choice.subject) ||
-    !conditionsMet(
-      world,
-      pack.id,
-      choice.requires.map((condition) =>
-        condition.kind === "holding" && condition.actor === "vale"
-          ? { ...condition, actor }
-          : condition,
-      ),
-    )
+    !conditionsMet(world, pack.id, choice.requires, actor)
   )
     return false;
   const subject = choice.subject;
@@ -336,10 +341,7 @@ export function packChoices(world, actor = "vale") {
         packId: pack.id,
         choiceId: c.id,
         label: c.label,
-        text: c.text.replace(
-          /\bVale\b/g,
-          humanAvatar(actor)?.name || packPeople[actor]?.name || actor,
-        ),
+        text: choiceText(c, actor),
         key: `choose:${actor}:${pack.id}:${c.id}`,
         cards: [c.subject],
       })),
@@ -356,7 +358,9 @@ export function applyPackChoice(world, action) {
     if (e.kind === "set_flag") state.flags[e.key] = e.value;
     if (e.kind === "place_item") {
       world.items[e.item].holder = e.place;
-      world.items[e.item].history.push(choice.text.slice(0, 400));
+      world.items[e.item].history.push(
+        choiceText(choice, action.actor).slice(0, 400),
+      );
       world.items[e.item].history = world.items[e.item].history.slice(-12);
     }
   }
@@ -364,6 +368,17 @@ export function applyPackChoice(world, action) {
   recordRecital(world, pack, choice.id, action.actor);
   return choice;
 }
+function committedChoiceText(world, pack, choice) {
+  if (choice.summary) return choice.summary;
+  const actor =
+    world.log?.find(
+      (entry) => entry.packId === pack.id && entry.choiceId === choice.id,
+    )?.actorId ||
+    world.packs[pack.id].recitals?.[choice.id]?.actor ||
+    null;
+  return choiceText(choice, actor);
+}
+
 export function packFacts(world, id) {
   const e = packEntity(id);
   if (!e) return [];
@@ -380,7 +395,7 @@ export function packFacts(world, id) {
     )
     .sort((a, b) => state.receipts[a.id] - state.receipts[b.id])
     .slice(-3)
-    .map((c) => (c.summary || c.text).slice(0, 240));
+    .map((c) => committedChoiceText(world, pack, c).slice(0, 240));
 }
 export function packSceneFacts(world, location) {
   const e = packEntity(location);
@@ -406,8 +421,10 @@ export function packSceneFacts(world, location) {
     .sort((a, b) => state.receipts[a.id] - state.receipts[b.id])
     .slice(-2);
   return [
-    ...canon.map((c) => `Established account: ${c.summary || c.text}`),
-    ...local.map((c) => c.summary || c.text),
+    ...canon.map(
+      (c) => `Established account: ${committedChoiceText(world, pack, c)}`,
+    ),
+    ...local.map((c) => committedChoiceText(world, pack, c)),
   ].map((text) => text.slice(0, 240));
 }
 export function validatePackStates(world) {
