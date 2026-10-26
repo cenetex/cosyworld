@@ -119,6 +119,11 @@ try {
     assert.equal(await page.locator(".dialogue").isVisible(), true);
     assert.equal(await retry.isVisible(), true);
     assert.match(await page.textContent("#story-status"), /503/);
+    await page.waitForFunction(
+      () => document.querySelector("#hand").dataset.cooling === "false",
+      null,
+      { timeout: 6_000 },
+    );
     assert.equal(
       await page.locator("#hand").getAttribute("data-cooling"),
       "false",
