@@ -118,14 +118,21 @@ describe("room music fades", () => {
     await advance(1000);
     expect(audio.src).toMatch(/ship-2\.mp3$/);
     expect(changed.mock.lastCall[0].title).toBe("Wine-Dark");
+    ended();
+    await advance(1000);
+    expect(audio.src).toMatch(/ship-3\.mp3$/);
+    expect(changed.mock.lastCall[0].title).toBe("Wine-Dark-2");
     music.setRoom("greek-harbor");
     await advance(1000);
     expect(level()).toBe(0);
     expect(audio.paused).toBe(true);
     music.setRoom("greek-ship");
     await advance(1000);
-    expect(audio.src).toMatch(/ship-2\.mp3$/);
+    expect(audio.src).toMatch(/ship-3\.mp3$/);
     expect(audio.paused).toBe(false);
+    ended();
+    await advance(1000);
+    expect(audio.src).toMatch(/ship-1\.mp3$/);
   });
 
   it("waits for the first play in each new game and keeps the music setting", async () => {

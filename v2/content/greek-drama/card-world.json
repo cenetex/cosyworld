@@ -458,7 +458,8 @@
       "art": "assets/greek-drama/ship-card.webp",
       "music": [
         { "file": "ship-1.mp3", "title": "Wine, Black Sea" },
-        { "file": "ship-2.mp3", "title": "Wine-Dark" }
+        { "file": "ship-2.mp3", "title": "Wine-Dark" },
+        { "file": "ship-3.mp3", "title": "Wine-Dark-2" }
       ]
     }
   },

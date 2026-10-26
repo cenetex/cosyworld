@@ -214,6 +214,7 @@ mod tests {
             "assets/music/station-2.mp3",
             "assets/music/ship-1.mp3",
             "assets/music/ship-2.mp3",
+            "assets/music/ship-3.mp3",
             "entity-profiles.json",
             "assets/lamp-card.png",
             "assets/oil-card.png",

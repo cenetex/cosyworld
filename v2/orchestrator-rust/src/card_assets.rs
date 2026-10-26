@@ -366,6 +366,10 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "audio/mpeg",
             include_bytes!("../../card-game/assets/music/ship-2.mp3"),
         ),
+        "assets/music/ship-3.mp3" => (
+            "audio/mpeg",
+            include_bytes!("../../card-game/assets/music/ship-3.mp3"),
+        ),
         "entity-profiles.json" => (
             "application/json; charset=utf-8",
             include_bytes!("../../card-game/entity-profiles.json"),

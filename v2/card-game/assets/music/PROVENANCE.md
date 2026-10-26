@@ -14,7 +14,7 @@ The six original MP3 files below preserve the supplied audio bytes. Quiet Night 
 
 ## Aboard the ship — October 26, 2026
 
-The project owner supplied both ship tracks. They play in order in the ship
+The project owner supplied all three ship tracks. They play in order in the ship
 place, using its world-pack playlist and the existing music controls.
 
 The supplied M4A containers hold Opus audio. FFmpeg 7.1, from the temporary
@@ -25,3 +25,4 @@ The full stereo audio remains at 48 kHz. Track titles are retained.
 | --- | --- | --- | --- | --- |
 | ship-1.mp3 | Wine, Black Sea.m4a | 4:37 | `8529ae0df2f293d9602156549fab2b6630a7a3ad510c84d313b3e019de74df80` | `fbe7b5ce3b1dedc447f7ebdfbcb4dcbf33e66588b206fd8693ae7c3f0f26c535` |
 | ship-2.mp3 | Wine-Dark.m4a | 4:53 | `20be9e7c7793e4dff65f3638ea9556961fe2f693fc372d764b28770f53fc7ce7` | `41cd2d1e6015c3a4cdd5605016fd8caa52f3359fedbb0b2326c63cef96b6073d` |
+| ship-3.mp3 | Wine-Dark-2.m4a | 4:42 | `818a9a2f9f1b4bf7ab45666ebfb03db1e907317454922f0913b91d164cc80b25` | `0f43865d54bf6037b5874c2f48df9e8e5167c4fb7941ac89f5369a683b9f81a8` |

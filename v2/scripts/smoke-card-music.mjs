@@ -85,27 +85,27 @@ try {
     );
   await fullVolume();
 
-  async function checkPair(room) {
-    for (const number of [1, 2]) {
-      await page.waitForFunction(
-        (file) => {
-          const audio = document.querySelector("#room-music");
-          return (
-            audio.src.endsWith(file) &&
-            audio.currentTime > 0 &&
-            !audio.paused &&
-            Number.isFinite(audio.duration)
-          );
-        },
-        roomTracks[room][number - 1].file,
-      );
+  async function checkPlaylist(room) {
+    for (const [index, track] of roomTracks[room].entries()) {
+      await page.waitForFunction((file) => {
+        const audio = document.querySelector("#room-music");
+        return (
+          audio.src.endsWith(file) &&
+          audio.currentTime > 0 &&
+          !audio.paused &&
+          Number.isFinite(audio.duration)
+        );
+      }, track.file);
       await fullVolume();
       const duration = await page.locator("#room-music").evaluate((audio) => {
         const duration = audio.duration;
         audio.currentTime = duration - 1.25;
         return duration;
       });
-      assert(duration > 30, `${room} track ${number} has a decoded duration`);
+      assert(
+        duration > 30,
+        `${room} track ${index + 1} has a decoded duration`,
+      );
       await page.waitForFunction((volume) => {
         const level = window.musicGain.gain.value;
         return level > 0.01 && level < volume - 0.02;
@@ -116,7 +116,7 @@ try {
       roomTracks[room][0].file,
     );
   }
-  await checkPair("attic");
+  await checkPlaylist("attic");
   console.log("Attic tracks played");
   await page.locator("#music-volume").evaluate((input) => {
     input.value = "18";
@@ -143,7 +143,7 @@ try {
       (file) => document.querySelector("#room-music").src.endsWith(file),
       roomTracks[room][0].file,
     );
-    await checkPair(room);
+    await checkPlaylist(room);
   }
   // Playing the pond goes there.
   await travel("pond");
@@ -230,13 +230,13 @@ try {
   assert.equal(await page.locator("#music-volume").inputValue(), "18");
   await page.locator('[data-close="menu-dialog"]').click();
   await travel("greek-ship");
-  console.log("Both ship tracks played");
+  console.log("All ship tracks played");
   await playCard("greek-harbor");
   await page.waitForFunction(
     () => document.querySelector("#room-music").paused,
   );
   await playCard("greek-ship");
-  await checkPair("greek-ship");
+  await checkPlaylist("greek-ship");
   await travel("pond");
   assert(
     await page.evaluate(() =>
@@ -246,7 +246,7 @@ try {
   );
   assert.deepEqual(errors, []);
   console.log(
-    "Room music: all eight MP3s played with fades at track endings, room changes, and pause/resume; ship round trip, saved controls and mobile menu passed.",
+    "Room music: all nine MP3s played with fades at track endings, room changes, and pause/resume; ship round trip, saved controls and mobile menu passed.",
   );
 } finally {
   await browser.close();
