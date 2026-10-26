@@ -341,6 +341,15 @@ try {
     path: join(output, "shared-dialogue-reveal.png"),
     fullPage: true,
   });
+  await vale.locator("#dialogue-advance").click();
+  await vale.locator("#next-line").click();
+  const advancedText = await vale.locator("#dialogue-text").textContent();
+  await delay(500);
+  assert.equal(
+    await vale.locator("#dialogue-text").textContent(),
+    advancedText,
+    "an early arrow keeps the next line while the shared clock catches up",
+  );
   await until(
     async () => (await snapshot(vale)).world.turn > seed.turn,
     "the original Talk button submits a shared play",
