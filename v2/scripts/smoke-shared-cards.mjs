@@ -362,6 +362,8 @@ try {
   await idle(mara);
   await mara.locator('#hand [data-card="pond"]').waitFor();
   const earlierTravel = await actionFor(mara, "move", "pond");
+  await mara.locator('#hand [data-card="mara"]').click();
+  await mara.locator('#hand [data-card="mara"]').click();
   await mara.locator('#hand [data-card="mask"]').click();
   await mara.locator('#hand [data-card="theatre"]').click();
   await mara.getByRole("button", { name: "Put down", exact: true }).click();
