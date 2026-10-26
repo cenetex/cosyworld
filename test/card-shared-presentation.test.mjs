@@ -10,6 +10,7 @@ import {
 } from "../v2/card-game/scene.mjs";
 function shared() {
   const world = createWorld();
+  world.sharedVersion = 1;
   world.controlledActors = ["vale", "mara", "ash", "nell", "tavi"];
   world.presentActors = [...world.controlledActors];
   world.playerActorId = "mara";
