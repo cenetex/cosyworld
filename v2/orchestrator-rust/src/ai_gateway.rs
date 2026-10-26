@@ -441,7 +441,7 @@ impl AiConfig {
         }))
     }
 
-    fn pin_model(
+    pub(crate) fn pin_model(
         &self,
         capability: ModelCapability,
     ) -> Result<PinnedModelSelection, RegistryError> {
@@ -1365,14 +1365,6 @@ pub(crate) async fn request_chat_completion(
     request: ChatCompletionRequest<'_>,
 ) -> Result<AiCompletion, AiGatewayError> {
     request_chat_completion_progress(config, request, None).await
-}
-
-pub(crate) async fn request_chat_completion_stream(
-    config: &AiConfig,
-    request: ChatCompletionRequest<'_>,
-    on_delta: &(dyn Fn(&str) -> bool + Send + Sync),
-) -> Result<AiCompletion, AiGatewayError> {
-    request_chat_completion_progress(config, request, Some(on_delta)).await
 }
 
 async fn request_chat_completion_progress(
