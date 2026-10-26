@@ -507,6 +507,55 @@ try {
   }
   await until(() => waitingReplies.length > 0, "first queued speech starts");
   assert.equal((await snapshot(vale)).queue.length, 4);
+  for (const page of [vale, mara]) {
+    await page.locator("#shared-queue .shared-play-avatar").nth(3).waitFor();
+    await page.waitForFunction(() =>
+      [...document.querySelectorAll("#shared-queue img")].every(
+        (image) => image.complete && image.naturalWidth > 0,
+      ),
+    );
+    const layout = await page.evaluate(() => {
+      const queue = document.getElementById("shared-queue");
+      const text = document
+        .getElementById("dialogue-text")
+        .getBoundingClientRect();
+      return {
+        textRight: text.right,
+        label: queue.innerText,
+        faces: [...queue.querySelectorAll(".shared-play-avatar")].map(
+          (face) => {
+            const rect = face.getBoundingClientRect();
+            return {
+              left: rect.left,
+              top: rect.top,
+              width: rect.width,
+              height: rect.height,
+              radius: getComputedStyle(face).borderRadius,
+            };
+          },
+        ),
+      };
+    });
+    assert.equal(layout.label.trim(), "", "the queue uses profile pictures");
+    assert.equal(layout.faces.length, 4);
+    for (const [index, face] of layout.faces.entries()) {
+      assert(
+        face.left > layout.textRight,
+        "queue faces sit to the right of the text",
+      );
+      assert.equal(face.width, 28);
+      assert.equal(face.height, 28);
+      assert.equal(face.radius, "50%");
+      if (index) assert(face.top > layout.faces[index - 1].top);
+    }
+    await page.screenshot({
+      path: join(
+        output,
+        page === vale ? "shared-queue-desktop.png" : "shared-queue-phone.png",
+      ),
+      fullPage: true,
+    });
+  }
   assert.equal(
     (await api(vale, { ...queued[0], key: crypto.randomUUID() })).status,
     409,
@@ -516,11 +565,11 @@ try {
     200,
     "repeated play key is idempotent",
   );
-  assert.equal(
-    (await api(ash, { op: "cancel", key: queued[2].key })).status,
-    200,
+  await ash.locator('#shared-queue button[data-actor="ash"]').click();
+  await until(
+    async () => (await snapshot(vale)).queue.length === 3,
+    "a waiting player withdraws through their profile circle",
   );
-  assert.equal((await snapshot(vale)).queue.length, 3);
   holdReplies = false;
   for (const resolve of waitingReplies.splice(0)) resolve();
   await Promise.all([vale, mara].map(expectSharedReveal));

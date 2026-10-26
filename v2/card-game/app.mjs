@@ -1109,6 +1109,13 @@ function frameFigure(img) {
   if (img.complete && img.naturalWidth) measure();
   else img.addEventListener("load", measure, { once: true });
 }
+function sharedQueuePortrait(actor) {
+  const image = node("img");
+  image.src = portrait(actor, null, world);
+  image.alt = "";
+  frameFigure(image);
+  return image;
+}
 function renderActions(animate = false) {
   const row = $("card-actions"),
     panel = document.querySelector(".action-panel"),
@@ -1696,7 +1703,8 @@ function renderScene() {
   const hasSpeech = Boolean(
     text || storyStatus !== "ready" || exchange.preparing,
   );
-  document.querySelector(".dialogue").hidden = !hasSpeech && !movement;
+  document.querySelector(".dialogue").hidden =
+    !hasSpeech && !movement && !sharedSession?.state.queue?.length;
   $("speech-row").hidden = !hasSpeech;
   document.querySelector(".line-controls").hidden = !text;
   $("dialogue-advance").hidden = !text;
@@ -1873,7 +1881,7 @@ function render() {
   updateHandScroll();
   renderScene();
   renderLog();
-  if (sharedSession) renderSharedQueue(sharedSession);
+  if (sharedSession) renderSharedQueue(sharedSession, sharedQueuePortrait);
   updateCardCooldown();
   if (focused) {
     const frame = $("hand")
@@ -2298,7 +2306,7 @@ function adoptShared(value) {
       });
     } else render();
   } else {
-    renderSharedQueue(sharedSession);
+    renderSharedQueue(sharedSession, sharedQueuePortrait);
     renderActions();
     renderScene();
   }

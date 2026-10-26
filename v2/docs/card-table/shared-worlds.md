@@ -88,6 +88,9 @@ Shared lines reveal letter by letter with the same voice sounds as solo play.
 The line arrows review the conversation. Reaching its latest line resumes live
 playback. Readers who advance early keep their place while the shared clock
 catches up. The voice setting and reduced-motion setting apply to shared play.
+Queued plays appear as small profile circles beside the dialogue. Their order
+runs from top to bottom. A player can select their waiting circle to withdraw
+their play; hover text and screen-reader labels name the player and queue state.
 
 The approved OpenRouter request contains fictional profiles, scene facts,
 visible people and belongings, and the completed play. Passkey and account data
