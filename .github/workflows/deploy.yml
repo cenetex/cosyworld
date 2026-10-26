@@ -540,12 +540,45 @@ jobs:
           Production may still be serving the previous release. Investigate before merging further changes that require a deploy.
           BODY
           )
+          # A version tag on this commit runs its own deploy, which owns the
+          # outcome. The main-push run it supersedes is not a missed deploy.
+          if [ "$GITHUB_REF" = refs/heads/main ]; then
+            tag="$(gh api "repos/${GH_REPO}/tags" --paginate \
+              --jq ".[] | select(.commit.sha == \"${GITHUB_SHA}\") | select(.name | startswith(\"v\")) | .name" \
+              | head -n 1)"
+            if [ -n "$tag" ]; then
+              echo "Release ${tag} deploys ${GITHUB_SHA:0:7}; its run reports the outcome."
+              exit 0
+            fi
+          fi
           existing="$(gh issue list --state open --search "${title} in:title" --json number --jq 'length')"
           if [ "${existing:-0}" -eq 0 ]; then
             gh issue create --title "$title" --body "$body"
           else
             echo "A tracking issue for ${GITHUB_SHA:0:7} already exists."
           fi
+
+      # Both apps now serve this commit, so every older missed deploy it
+      # contains has reached production. Open issues should mean "still missing".
+      - name: Close tracking issues this deploy superseded
+        if: >-
+          needs.primary-fly.result == 'success' &&
+          needs.lonelyforest-fly.result == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh issue list --state open --search "Production did not deploy in:title" \
+            --json number,title --jq '.[] | "\(.number) \(.title)"' |
+          while read -r number title; do
+            sha="${title##* }"
+            case "$sha" in *[!0-9a-f]* | "") continue ;; esac
+            status="$(gh api "repos/${GH_REPO}/compare/${sha}...${GITHUB_SHA}" --jq .status 2>/dev/null || true)"
+            if [ "$status" = ahead ] || [ "$status" = identical ]; then
+              gh issue close "$number" --reason completed \
+                --comment "Superseded: ${GITHUB_SHA:0:7} contains ${sha} and deployed to both apps in ${GITHUB_SERVER_URL}/${GH_REPO}/actions/runs/${GITHUB_RUN_ID}."
+            fi
+          done
 
   github-release:
     name: Create GitHub release
