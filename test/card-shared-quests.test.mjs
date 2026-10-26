@@ -1,4 +1,10 @@
-import { questCards, questCardId } from "../v2/card-game/quest-cards.mjs";
+import {
+  questCards,
+  questCardId,
+  questHand,
+  questForCard,
+} from "../v2/card-game/quest-cards.mjs";
+import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import { actorQuests } from "../v2/card-game/quests.mjs";
 import {
   createWorld,
@@ -8,7 +14,10 @@ import {
   decodeSave,
 } from "../v2/card-game/world.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
-import { latestQuestCompletion } from "../v2/card-game/quest-completions.mjs";
+import {
+  latestQuestCompletion,
+  recordQuestCompletion,
+} from "../v2/card-game/quest-completions.mjs";
 import { describe, it, expect } from "vitest";
 import {
   installSharedQuestRegistry,
@@ -35,6 +44,69 @@ const program = {
 const add = (s, holder = { kind: "avatar", id: "vale" }, extra = {}) =>
   addQuestRecord(s, { holder, program, ...extra });
 describe("shared quest records", () => {
+  it("shows one saved progress record under its item and participant with independent focus", () => {
+    const s = enableMotives(createWorld(), {
+      questPrograms: true,
+      personalQuests: true,
+    });
+    s.actors.moth.place = "station";
+    const q = add(
+      s,
+      { kind: "item", id: "lamp" },
+      { participants: ["vale", "moth"] },
+    );
+    focusQuest(s, "vale", q.key);
+    const own = questCards(s, "vale").find((card) => card.key === q.key);
+    const held = questCards(s, "lamp").find((card) => card.key === q.key);
+    const other = questCards(s, "moth").find((card) => card.key === q.key);
+    expect(own.focused).toBe(true);
+    expect(held.focused).toBe(false);
+    expect(other.focused).toBe(false);
+    const ids = [own, held].map((card) => questCardId(s, card));
+    expect(new Set(ids).size).toBe(2);
+    for (const id of ids) {
+      expect(questHand(s)).toContain(id);
+      expect(questForCard(s, id).key).toBe(q.key);
+    }
+    const restored = decodeSave(encodeSave(s));
+    const move = legalActions(restored).find(
+      (a) => a.kind === "move" && a.target === "pond",
+    );
+    const result = play(restored, move);
+    expect(result.ok).toBe(true);
+    const after = decodeSave(encodeSave(result.state));
+    expect(questRecord(after, q.key).step).toBe(1);
+    expect(
+      Object.values(after.quests.records).filter(
+        (record) => record.key === q.key,
+      ),
+    ).toHaveLength(1);
+    for (const holder of ["vale", "moth", "lamp"])
+      expect(
+        questCards(after, holder).find((card) => card.key === q.key),
+      ).toMatchObject({
+        step: 1,
+        status: "fulfilled",
+        focused: false,
+      });
+  });
+  it("retains set-aside cards in their place and participant views", () => {
+    const s = enableMotives(createWorld(), {
+      questPrograms: true,
+      personalQuests: true,
+    });
+    const q = add(
+      s,
+      { kind: "place", id: "station" },
+      { participants: ["vale"] },
+    );
+    retireQuest(s, q.key, { reason: "superseded" });
+    const after = decodeSave(encodeSave(s));
+    for (const holder of ["vale", "station"])
+      expect(
+        questCards(after, holder).find((card) => card.key === q.key),
+      ).toMatchObject({ status: "superseded", focused: false });
+  });
   it("moves personal records into one registry with stable IDs and personal reward credit", () => {
     const s = fresh(),
       old = { key: "vale:quest:4", program, step: 0, completedTurn: null };
@@ -93,6 +165,82 @@ describe("shared quest records", () => {
     expect(questStatus(s, journey)).toBe("superseded");
     expect(questRecord(s, unrelated.key)).toBe(unrelated);
   });
+  it("keeps transient travel bounded beyond256 retargets while retaining a joined helper card", () => {
+    const s = enableMotives(createWorld(), { personalQuests: true });
+    const make = () =>
+      add(
+        s,
+        { kind: "avatar", id: "keeper" },
+        {
+          transientActor: "keeper",
+          cause: { kind: "journey", rootId: "story:terminal:1" },
+        },
+      );
+    const joined = make();
+    focusQuest(s, "keeper", joined.key);
+    expect(joinQuest(s, "vale", joined.key)).toBe(true);
+    expect(joined.transientActor).toBeUndefined();
+    expect(joined.familyActor).toBe("keeper");
+    retireQuest(s, joined.key);
+    const old = make();
+    recordQuestCompletion(s, old, {
+      outcome: "retired",
+      actorId: "keeper",
+      locationId: "station",
+    });
+    retireQuest(s, old.key);
+    for (let n = 0; n < 300; n++) {
+      s.turn = s.revision = n + 1;
+      const q = make();
+      expect(q).toBeTruthy();
+      expect(focusQuest(s, "keeper", q.key)).toBe(true);
+      expect(retireQuest(s, q.key)).toBe(true);
+    }
+    expect(questRecords(s).filter((q) => q.transientActor)).toHaveLength(32);
+    expect(questRecord(s, old.key)).toBeNull();
+    expect(s.questCompletions.recent[0].questKey).toBe(old.key);
+    const restored = decodeSave(encodeSave(s));
+    expect(
+      questCards(restored, "vale").find((q) => q.key === joined.key),
+    ).toMatchObject({ status: "superseded" });
+    expect(questRecord(restored, joined.key).compacted).toBe(true);
+    expect(
+      add(
+        restored,
+        { kind: "avatar", id: "keeper" },
+        {
+          transientActor: "keeper",
+          cause: { kind: "journey", rootId: "new:terminal:1" },
+        },
+      ),
+    ).toBeTruthy();
+  });
+  it("keeps ordinary gifts legal when retained helper cards reach capacity", () => {
+    const s = enableMotives(createWorld(), { personalQuests: true });
+    s.actors.moth.place = "station";
+    s.items.lamp.holder = "vale";
+    for (let n = 0; n < 256; n++) {
+      const q = add(s);
+      retireQuest(s, q.key);
+    }
+    const journey = add(
+      s,
+      { kind: "avatar", id: "keeper" },
+      {
+        transientActor: "keeper",
+        cause: { kind: "journey", rootId: "source:terminal:1" },
+      },
+    );
+    expect(journey).toBeTruthy();
+    expect(joinQuest(s, "vale", journey.key)).toBe(false);
+    const give = legalActions(s).find(
+      (a) => a.kind === "give" && a.item === "lamp" && a.target === "moth",
+    );
+    expect(give).toBeTruthy();
+    const result = play(s, give);
+    expect(result.ok).toBe(true);
+    expect(result.state.items.lamp.holder).toBe("moth");
+  });
   it("bounds old journey records and keeps new stable keys available", () => {
     const s = fresh();
     for (let i = 0; i < 80; i++) {
@@ -133,6 +281,15 @@ describe("shared quest legal plays", () => {
       },
     });
     s = act(s, "join-quest", q.key);
+    expect(narrativeContext(s).outcome.card).toMatchObject({
+      kind: "join-quest",
+      target: "station",
+      quest: {
+        key: q.key,
+        title: "Make room for company",
+        holder: { kind: "place", id: "station" },
+      },
+    });
     expect(questRecord(s, q.key).step).toBe(1);
     expect(questRecord(s, q.key).completedTurn).toBe(s.turn);
     expect(questRecord(s, q.key).completion).toMatchObject({
@@ -180,6 +337,11 @@ describe("shared quest legal plays", () => {
     expect(action).toBeTruthy();
     s = play(s, action).state;
     expect(questRecord(s, q.key).holder).toEqual({ kind: "item", id: "lamp" });
+    expect(narrativeContext(s).outcome.card).toMatchObject({
+      kind: "share-quest",
+      target: "lamp",
+      quest: { key: q.key, holder: { kind: "item", id: "lamp" } },
+    });
     expect(questRecords(s).filter((r) => r.key === q.key)).toHaveLength(1);
   });
 });

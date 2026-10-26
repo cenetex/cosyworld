@@ -327,6 +327,21 @@ struct CardOutcome {
     receive: Option<String>,
     destination: Option<String>,
     accepted: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    quest: Option<QuestOutcome>,
+}
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct QuestOutcome {
+    key: String,
+    title: String,
+    holder: QuestHolder,
+}
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct QuestHolder {
+    kind: String,
+    id: String,
 }
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -487,6 +502,8 @@ fn valid_outcome(outcome: &TurnOutcome) -> bool {
             | "attack"
             | "choose"
             | "pursue"
+            | "join-quest"
+            | "share-quest"
     ) && card
         .target
         .as_ref()
@@ -513,6 +530,23 @@ fn valid_outcome(outcome: &TurnOutcome) -> bool {
                 && card.item.is_some()
         } else {
             card.accepted.is_none() && card.destination.is_none()
+        }
+        && match &card.quest {
+            Some(quest) => {
+                ["pursue", "join-quest", "share-quest"].contains(&card.kind.as_str())
+                    && bounded(&quest.key, 160)
+                    && bounded(&quest.title, 240)
+                    && match quest.holder.kind.as_str() {
+                        "avatar" => kind(&quest.holder.id, "avatar"),
+                        "item" => kind(&quest.holder.id, "item"),
+                        "place" => kind(&quest.holder.id, "location"),
+                        _ => false,
+                    }
+                    && card.target.as_deref() == Some(quest.holder.id.as_str())
+                    && card.item.is_none()
+                    && card.receive.is_none()
+            }
+            None => !["join-quest", "share-quest"].contains(&card.kind.as_str()),
         }
         && avatars.contains("vale")
         && (1..=8).contains(&outcome.avatars.len())
@@ -2146,6 +2180,62 @@ mod tests {
         c.events = vec!["Wait.".into(); 9];
         assert!(!valid(&c));
     }
+    #[tokio::test]
+    async fn route_accepts_shared_quest_plays_and_checks_holder_facts() {
+        let provider = Router::new().route("/chat/completions", post(|Json(body): Json<Value>| async move {
+            let content = if body["response_format"]["type"] == "json_object" {
+                json!({"entries":[
+                    {"id":"vale","text":"I can help carry this forward."},
+                    {"id":"station","text":"A warm patch marks the bench."},
+                    {"id":"lamp","text":"Soot marks the worn handle."},
+                    {"id":"moth","text":"We could meet beside the water."}
+                ]}).to_string()
+            } else {
+                "I can help carry this forward.".to_owned()
+            };
+            Json(json!({"model":"test-entity-model","choices":[{"message":{"content":content},"finish_reason":"stop"}]}))
+        }));
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            axum::serve(listener, provider).await.unwrap();
+        });
+        let app = router::<()>(Arc::new(Some(test_config(address))));
+        for action in ["join-quest", "share-quest"] {
+            let mut c = context();
+            let mut outcome = serde_json::to_value(solo_departure()).unwrap();
+            outcome["card"] = json!({"kind":action,"target":"station","item":null,"receive":null,"destination":null,"accepted":null,
+                "quest":{"key":"world:quest:0","title":"Meet by the water","holder":{"kind":"place","id":"station"}}});
+            c.outcome = Some(serde_json::from_value(outcome).unwrap());
+            c.action = Some("Vale offers help with a wish held by the station.".into());
+            assert!(valid(&c));
+            let response = app.clone().oneshot(request(&c)).await.unwrap();
+            assert_eq!(response.status(), StatusCode::OK, "{action}");
+            let bytes = to_bytes(response.into_body(), 64 * 1024).await.unwrap();
+            let body: Value = serde_json::from_slice(&bytes).unwrap();
+            assert_eq!(body["entries"].as_array().unwrap().len(), 4);
+            c.outcome
+                .as_mut()
+                .unwrap()
+                .card
+                .quest
+                .as_mut()
+                .unwrap()
+                .holder
+                .kind = "item".into();
+            assert_eq!(
+                app.clone().oneshot(request(&c)).await.unwrap().status(),
+                StatusCode::BAD_REQUEST
+            );
+            c.outcome.as_mut().unwrap().card.quest = None;
+            assert_eq!(
+                app.clone().oneshot(request(&c)).await.unwrap().status(),
+                StatusCode::BAD_REQUEST
+            );
+        }
+        server.abort();
+    }
+
     #[tokio::test]
     async fn route_uses_personas_desires_and_memories_with_the_configured_model() {
         let provider = Router::new().route("/chat/completions", post(|Json(body): Json<Value>| async move {

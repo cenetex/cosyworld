@@ -451,7 +451,11 @@ export function actorQuests(s, actor) {
     .map((card) => ({
       ...card,
       status: card.holder
-        ? questStatus(s, card)
+        ? card.completedTurn !== null || card.retired
+          ? questStatus(s, card)
+          : s.quests.focus[actor] === card.key
+            ? "active"
+            : "pending"
         : card.status ||
           (card.completedTurn !== null
             ? "fulfilled"

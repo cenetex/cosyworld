@@ -3,6 +3,8 @@
   // v2/card-game/shared-quests.mjs
   var SHARED_QUEST_VERSION = 1;
   var QUEST_RECORD_LIMIT = 4096;
+  var SHARED_QUEST_COLLECTION_LIMIT = 256;
+  var TRANSIENT_QUEST_HISTORY_LIMIT = 32;
   var historyLimit = 24;
   var sameHolder = (a, b) => a?.kind === b?.kind && a?.id === b?.id;
   var unfinished = (q) => q.completedTurn === null && !q.retired;
@@ -47,9 +49,16 @@
     registry.records[card.key] = card;
     return card;
   }
-  function joinQuest(world, actor, key) {
+  function canJoinQuest(world, actor, key) {
     const quest = questRecord(world, key);
     if (!world.actors?.[actor] || !quest || !unfinished(quest)) return false;
+    return !quest.transientActor || actor === quest.transientActor || questRecords(world).filter((q) => q.mode === "shared" && !q.transientActor).length < SHARED_QUEST_COLLECTION_LIMIT;
+  }
+  function joinQuest(world, actor, key) {
+    if (!canJoinQuest(world, actor, key)) return false;
+    const quest = questRecord(world, key);
+    if (quest.transientActor && actor !== quest.transientActor)
+      delete quest.transientActor;
     quest.participants = [.../* @__PURE__ */ new Set([...quest.participants, actor])].sort();
     return true;
   }
@@ -64,15 +73,16 @@
   function shareQuest(world, key, holder) {
     const quest = questRecord(world, key);
     if (!quest || !unfinished(quest)) return false;
+    if (holder.kind === "avatar" && !joinQuest(world, holder.id, key))
+      return false;
     quest.holder = structuredClone(holder);
-    if (holder.kind === "avatar") joinQuest(world, holder.id, key);
     return true;
   }
   function clearQuestFocus(world, key) {
     for (const [actor, focused] of Object.entries(world.quests?.focus || {}))
       if (focused === key) delete world.quests.focus[actor];
   }
-  function pruneSharedQuestHistory(world, holder) {
+  function pruneSharedQuestHistory(world, holder, preserveKey = null) {
     const finished = questsHeldBy(world, holder).filter((q) => q.mode === "shared" && !unfinished(q)).sort(
       (a, b) => (a.completedTurn ?? a.retired.turn) - (b.completedTurn ?? b.retired.turn) || a.key.localeCompare(b.key)
     );
@@ -91,6 +101,40 @@
         steps: []
       };
       quest.compacted = true;
+    }
+    for (const owner2 of new Set(
+      questRecords(world).map((q) => q.transientActor).filter(Boolean)
+    ))
+      pruneTransientQuestHistory(world, owner2, preserveKey);
+  }
+  function pruneTransientQuestHistory(world, actor, preserveKey = null) {
+    const records = questRecords(world).filter(
+      (q) => q.transientActor === actor && !unfinished(q)
+    );
+    const protectedByOthers = (q) => q.participants.some((id) => id !== actor) || Object.entries(world.quests.focus).some(
+      ([id, key]) => id !== actor && key === q.key
+    ) || Object.entries(world.life?.actors || {}).some(
+      ([id, life]) => id !== actor && ["cards", "archive"].some(
+        (field) => life.collection?.[field]?.includes(q.key)
+      )
+    );
+    for (const q of records.filter(protectedByOthers)) delete q.transientActor;
+    const disposable = records.filter((q) => q.transientActor === actor).sort(
+      (a, b) => (a.completedTurn ?? a.retired.turn) - (b.completedTurn ?? b.retired.turn) || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0)
+    );
+    let excess = disposable.length - TRANSIENT_QUEST_HISTORY_LIMIT;
+    for (const q of disposable) {
+      if (excess <= 0) break;
+      if (q.key === preserveKey) continue;
+      if (world.quests.focus[actor] === q.key) delete world.quests.focus[actor];
+      const collection = world.life?.actors?.[actor]?.collection;
+      if (collection) {
+        for (const field of ["cards", "archive"])
+          collection[field] = collection[field].filter((key) => key !== q.key);
+        if (collection.active === q.key) collection.active = null;
+      }
+      delete world.quests.records[q.key];
+      excess--;
     }
   }
   function validSharedQuestRegistry(world, { actors: actors2, items: items2, places: places2, program, origin }) {
@@ -114,7 +158,7 @@
     for (const [key, q] of Object.entries(registry.records)) {
       if (!q || typeof q !== "object" || key !== q.key || key.length < 1 || key.length > 160 || ["__proto__", "constructor", "prototype"].includes(key) || !["personal", "shared"].includes(q.mode) || !q.holder || !["avatar", "item", "place"].includes(q.holder.kind) || !{ avatar: actors2, item: items2, place: places2 }[q.holder.kind].includes(
         q.holder.id
-      ) || !(q.subjectActor === null || actors2.includes(q.subjectActor)) || !(q.rewardActor === null || actors2.includes(q.rewardActor)) || !Array.isArray(q.participants) || q.participants.length > actors2.length || !q.participants.every(
+      ) || q.familyActor !== void 0 && !actors2.includes(q.familyActor) || q.transientActor !== void 0 && (q.mode !== "shared" || !actors2.includes(q.transientActor) || q.familyActor !== q.transientActor || !["journey", "help"].includes(q.cause?.kind) || !Array.isArray(q.participants) || q.participants.length !== 1 || q.participants[0] !== q.transientActor) || !(q.subjectActor === null || actors2.includes(q.subjectActor)) || !(q.rewardActor === null || actors2.includes(q.rewardActor)) || !Array.isArray(q.participants) || q.participants.length > actors2.length || !q.participants.every(
         (id, i) => actors2.includes(id) && (i === 0 || q.participants[i - 1] < id)
       ) || !Number.isSafeInteger(q.createdTurn) || q.createdTurn < 0 || q.createdTurn > world.turn || !Number.isSafeInteger(q.step) || q.step < 0 || q.lastProgressTurn !== void 0 && (!Number.isSafeInteger(q.lastProgressTurn) || q.lastProgressTurn < q.createdTurn || q.lastProgressTurn > world.turn) || q.cause !== null && (!q.cause || !["quest", "journey", "help"].includes(q.cause.kind) || typeof q.cause.rootId !== "string" || q.cause.rootId.length < 1 || q.cause.rootId.length > 200))
         return false;
@@ -8367,7 +8411,7 @@
     );
     return [...personal, ...joined].map((card) => ({
       ...card,
-      status: card.holder ? questStatus(s, card) : card.status || (card.completedTurn !== null ? "fulfilled" : card.key === c?.active ? "active" : "pending")
+      status: card.holder ? card.completedTurn !== null || card.retired ? questStatus(s, card) : s.quests.focus[actor] === card.key ? "active" : "pending" : card.status || (card.completedTurn !== null ? "fulfilled" : card.key === c?.active ? "active" : "pending")
     })).sort(
       (a, b) => ({ active: 0, pending: 1, fulfilled: 2, superseded: 3 })[a.status] - { active: 0, pending: 1, fulfilled: 2, superseded: 3 }[b.status]
     );
@@ -9116,7 +9160,7 @@
             participants: evidence.fulfillment.participants,
             outcome: "fulfilled"
           });
-          pruneSharedQuestHistory(s, quest.holder);
+          pruneSharedQuestHistory(s, quest.holder, quest.key);
         }
         continue;
       }
@@ -9410,7 +9454,7 @@
     for (const quest of questRecords(s)) {
       if (quest.completedTurn !== null || quest.retired || !visibleQuest(s, actor, quest))
         continue;
-      if (!quest.participants.includes(actor))
+      if (!quest.participants.includes(actor) && canJoinQuest(s, actor, quest.key))
         actions.push({
           kind: "join-quest",
           actor,
@@ -9430,6 +9474,7 @@
       ];
       for (const to of targets) {
         if (to.kind === holder.kind && to.id === holder.id) continue;
+        if (to.kind === "avatar" && !canJoinQuest(s, to.id, quest.key)) continue;
         actions.push({
           kind: "share-quest",
           actor,
@@ -9767,7 +9812,8 @@
         actorId: a.actor,
         locationId: here,
         verb: a.kind,
-        questKey: a.questKey
+        questKey: a.questKey,
+        targetId: questRecord(s, a.questKey).holder.id
       });
       return;
     }
@@ -10788,6 +10834,7 @@
     const played = events.findLast(
       (entry) => entry.kind === "action" && entry.actorId === currentActor(world)
     );
+    const quest = played?.questKey && questRecord(world, played.questKey);
     const here = world.actors[currentActor(world)].place;
     const known = knownActors(world);
     const actorIds2 = [
@@ -10817,7 +10864,17 @@
         item: played?.itemId || null,
         receive: played?.receiveId || null,
         destination: played?.destinationId || null,
-        accepted: played?.accepted ?? null
+        accepted: played?.accepted ?? null,
+        ...quest ? {
+          quest: {
+            key: quest.key,
+            title: quest.program.name,
+            holder: {
+              kind: world.actors[played.targetId] ? "avatar" : world.items[played.targetId] ? "item" : "place",
+              id: played.targetId
+            }
+          }
+        } : {}
       },
       avatars: actorIds2.map((id) => {
         const actor = world.actors[id];

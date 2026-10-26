@@ -39,8 +39,7 @@ try {
           if (
             dialog?.open &&
             dialog.dataset.phase === "reveal" &&
-            document.querySelector("#unveil-take").dataset.card ===
-              "player-quest"
+            dialog.querySelector(".card[data-quest]")
           ) {
             const id = dialog.querySelector(".card").dataset.quest;
             if (window.questReveals.at(-1) !== id) window.questReveals.push(id);
@@ -228,13 +227,15 @@ try {
           "/quests.mjs"
         );
         const { places, things } = await import("/world.mjs");
+        const { collectionCards } = await import("/shared-quests.mjs");
         const world = JSON.parse(localStorage.getItem(key));
         world.life.actors.vale.phase = "active";
         ensureCollectedQuest(world, "vale", places, things);
-        const next = world.life.actors.vale.collection.cards.find(
+        const next = collectionCards(world, "vale").find(
           (quest) => quest.program.id === "along-the-shore",
         );
-        pursueQuest(world, "vale", next.key);
+        if (!pursueQuest(world, "vale", next.key))
+          throw new Error("The collected quest must accept focus.");
         world.eventSeq++;
         world.log.push({
           seq: world.eventSeq,

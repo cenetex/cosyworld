@@ -1,3 +1,4 @@
+import { questRecord } from "./shared-quests.mjs";
 import { recitalFacts } from "./pack-recital.mjs";
 import { hasMotives, motiveFacts, tastes } from "./motives.mjs";
 import { sceneChanges } from "./scene.mjs";
@@ -60,6 +61,7 @@ export function turnOutcome(world) {
   const played = events.findLast(
     (entry) => entry.kind === "action" && entry.actorId === currentActor(world),
   );
+  const quest = played?.questKey && questRecord(world, played.questKey);
   const here = world.actors[currentActor(world)].place;
   const known = knownActors(world);
   // The original table has a small, fixed cast. Packs can contain a whole
@@ -98,6 +100,22 @@ export function turnOutcome(world) {
       receive: played?.receiveId || null,
       destination: played?.destinationId || null,
       accepted: played?.accepted ?? null,
+      ...(quest
+        ? {
+            quest: {
+              key: quest.key,
+              title: quest.program.name,
+              holder: {
+                kind: world.actors[played.targetId]
+                  ? "avatar"
+                  : world.items[played.targetId]
+                    ? "item"
+                    : "place",
+                id: played.targetId,
+              },
+            },
+          }
+        : {}),
     },
     avatars: actorIds.map((id) => {
       const actor = world.actors[id];
