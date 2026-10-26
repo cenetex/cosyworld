@@ -440,6 +440,14 @@ try {
     "the source browser save remains available",
   );
   for (const [i, page] of [vale, mara].entries()) {
+    await until(
+      async () =>
+        (await page.locator("#backdrop").getAttribute("src"))?.endsWith(
+          `assets/${i ? "station" : "pond"}.png`,
+        ),
+      "reconnected game finishes rendering",
+    );
+    await page.locator("#shared-worlds-button").waitFor({ state: "visible" });
     await dismissDiscoveries(page);
     await page.screenshot({
       path: join(output, `same-world-${i ? "phone" : "desktop"}.png`),
