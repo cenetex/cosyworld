@@ -5,6 +5,14 @@ export const humanAvatars = roster.avatars;
 const avatarName = (id) => humanAvatars.find((a) => a.id === id)?.name || id;
 const $ = (id) => document.getElementById(id);
 let modal;
+function ensureSharedStyle() {
+  if (document.getElementById("shared-table-style")) return;
+  const style = document.createElement("link");
+  style.id = "shared-table-style";
+  style.rel = "stylesheet";
+  style.href = "/card-game/shared.css";
+  document.head.append(style);
+}
 function node(tag, text, className) {
   const element = document.createElement(tag);
   if (text !== undefined) element.textContent = text;
@@ -37,10 +45,7 @@ function showError(error) {
 }
 function panel(title, description, closable = true) {
   if (!modal) {
-    const style = node("link");
-    style.rel = "stylesheet";
-    style.href = "/card-game/shared.css";
-    document.head.append(style);
+    ensureSharedStyle();
     modal = node("dialog", undefined, "shared-lobby");
     modal.id = "shared-lobby";
     document.body.append(modal);
@@ -129,6 +134,7 @@ export async function openWorlds() {
   }, false);
 }
 export async function connectSharedWorld(id) {
+  ensureSharedStyle();
   let value;
   const initial = await new Promise((resolve) => {
     const enter = async () => {
@@ -230,10 +236,17 @@ export async function connectSharedWorld(id) {
       inFlight = false;
     }
   };
-  const timer = setInterval(sync, 1000);
+  let timer = setInterval(sync, 1000);
   window.addEventListener("pagehide", () => {
     stopped = true;
     clearInterval(timer);
+  });
+  window.addEventListener("pageshow", (event) => {
+    if (!event.persisted) return;
+    stopped = false;
+    heartbeat = 0;
+    timer = setInterval(sync, 1000);
+    void sync();
   });
   return {
     id,

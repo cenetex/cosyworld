@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { sharedLiveLine } from "../v2/card-game/shared.mjs";
-import {
-  createWorld,
-  currentActor,
-  people,
-  humanAvatarIds,
-} from "../v2/card-game/world.mjs";
+import { createWorld, currentActor } from "../v2/card-game/world.mjs";
 import { availableCards } from "../v2/card-game/cards.mjs";
 import {
   currentScene,
@@ -13,12 +8,6 @@ import {
   sceneStaging,
   portrait,
 } from "../v2/card-game/scene.mjs";
-import {
-  playerQuest,
-  questHand,
-  QUEST_CARD,
-} from "../v2/card-game/quest-cards.mjs";
-
 function shared() {
   const world = createWorld();
   world.controlledActors = ["vale", "mara", "ash", "nell", "tavi"];
