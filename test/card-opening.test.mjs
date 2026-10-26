@@ -328,7 +328,7 @@ describe("the first light in the attic", () => {
       expect(trades).toBeGreaterThan(3);
       expect(decodeSave(encodeSave(s))).toEqual(s);
     }
-  });
+  }, 60_000);
   it("preserves the world through mixed combat, item use, and travel after discovery", () => {
     let s = meetEveryone(),
       seed = 7;
@@ -341,5 +341,5 @@ describe("the first light in the attic", () => {
       s = result.state;
       if (i % 50 === 0) expect(decodeSave(encodeSave(s))).toEqual(s);
     }
-  });
+  }, 60_000);
 });

@@ -223,9 +223,18 @@ try {
       await ready();
       assert.equal(await card("player-quest").count(), 0);
       // Resume a later purpose with an unfinished line. The new card waits for it.
-      await page.evaluate((key) => {
+      const nextQuestKey = await page.evaluate(async (key) => {
+        const { ensureCollectedQuest, pursueQuest } = await import(
+          "/quests.mjs"
+        );
+        const { places, things } = await import("/world.mjs");
         const world = JSON.parse(localStorage.getItem(key));
         world.life.actors.vale.phase = "active";
+        ensureCollectedQuest(world, "vale", places, things);
+        const next = world.life.actors.vale.collection.cards.find(
+          (quest) => quest.program.id === "along-the-shore",
+        );
+        pursueQuest(world, "vale", next.key);
         world.eventSeq++;
         world.log.push({
           seq: world.eventSeq,
@@ -240,12 +249,13 @@ try {
         const value = JSON.stringify(world);
         localStorage.setItem(key, value);
         dispatchEvent(new StorageEvent("storage", { key, newValue: value }));
+        return next.key;
       }, key);
       await page.waitForSelector("#dialogue-text .speech-letter");
       assert.equal(await page.locator("#unveil-dialog[open]").count(), 0);
       await finish();
       assert.deepEqual(await page.evaluate(() => window.questReveals), [
-        "vale:1:along-the-shore:authored",
+        nextQuestKey,
       ]);
       await selectCard(page, "pond");
       await page.locator('#card-actions [data-action="move"]').click();

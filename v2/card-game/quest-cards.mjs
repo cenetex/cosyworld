@@ -1,6 +1,6 @@
-import { programFor } from "./quests.mjs";
+import { actorQuests } from "./quests.mjs";
 import { availableCards } from "./cards.mjs";
-import { rootHolder, things, currentActor } from "./world.mjs";
+import { rootHolder, things, people, currentActor, nameOf } from "./world.mjs";
 
 export const QUEST_CARD = "player-quest";
 
@@ -55,51 +55,113 @@ const situations = {
   ],
 };
 
+// Stable collection keys belong to the save; card IDs only identify the view.
+export const isQuestCard = (id) =>
+  id === QUEST_CARD || (typeof id === "string" && id.startsWith("quest-card:"));
+
+function originText(origin) {
+  if (!origin) return "";
+  const other = origin.other ? nameOf(origin.other) : "a friend";
+  return (
+    {
+      gift: `It began with a gift from ${other}.`,
+      help: `It began with helping ${other}.`,
+      talk: `It began with a conversation with ${other}.`,
+      journey: `It began with a shared journey${origin.place ? ` to ${nameOf(origin.place)}` : ""}.`,
+      care: "It began with a little care.",
+      trade: `It began with an exchange with ${other}.`,
+    }[origin.kind] || ""
+  );
+}
+
+export function questCards(world, actor = currentActor(world)) {
+  return actorQuests(world, actor).map((record) => {
+    const program = record.program;
+    const [title, purpose, art] =
+      authored[program.id] ||
+      situations[program.generated?.situation] ||
+      (program.generated?.solo
+        ? [
+            "A moment of my own",
+            "There is room here for a small discovery.",
+            "lamp",
+          ]
+        : [
+            program.name || "A wish",
+            program.purpose || "Something worth pursuing.",
+            "cloth",
+          ]);
+    return {
+      key: record.key,
+      actor,
+      title,
+      purpose,
+      art,
+      status: record.status,
+      origin: originText(record.origin),
+      step: record.step,
+      steps: record.totalSteps ?? program.steps?.length ?? 0,
+    };
+  });
+}
+
 export function playerQuest(world) {
-  const program = programFor(world, currentActor(world));
-  if (!program) return null;
-  const [title, purpose, art] =
-    authored[program.id] ||
-    situations[program.generated?.situation] ||
-    (program.generated?.solo
-      ? [
-          "A moment of my own",
-          "There is room here for a small discovery.",
-          "lamp",
-        ]
-      : situations.bargain);
-  return {
-    key: `${currentActor(world)}:${world.actors[currentActor(world)].progress.program}:${program.id}:${program.generated?.turn ?? "authored"}`,
-    title,
-    purpose,
-    art,
-  };
+  return questCards(world).find((quest) => quest.status === "active") || null;
 }
 
 export function fulfilledPlayerQuest(before, after) {
-  const quest = playerQuest(before);
-  if (!quest || quest.key === playerQuest(after)?.key) return null;
-  const receipt = after.log.find(
-    (entry) =>
-      entry.seq > (before.eventSeq || 0) &&
-      entry.kind === "quest" &&
-      entry.actorId === currentActor(before) &&
-      entry.programIndex ===
-        before.actors[currentActor(before)].progress.program &&
-      entry.step + 1 === entry.program?.steps.length,
+  const previous = new Map(
+    questCards(before).map((quest) => [quest.key, quest]),
   );
-  return receipt ? quest : null;
+  const fulfilled = questCards(after).find(
+    (quest) =>
+      quest.status === "fulfilled" &&
+      previous.has(quest.key) &&
+      previous.get(quest.key).status !== "fulfilled",
+  );
+  return fulfilled || null;
 }
 
-export function questHand(world, quest) {
-  const cards = availableCards(world);
-  if (!quest) return cards;
-  let index = cards.indexOf(currentActor(world)) + 1;
-  while (
-    things[cards[index]] &&
-    rootHolder(world, cards[index]) === currentActor(world)
+export function questCardId(world, quest, notice = null) {
+  if (
+    quest.actor === currentActor(world) &&
+    quest.key === (notice || playerQuest(world))?.key
   )
-    index++;
-  cards.splice(index, 0, QUEST_CARD);
+    return QUEST_CARD;
+  return `quest-card:${encodeURIComponent(quest.actor)}:${encodeURIComponent(quest.key)}`;
+}
+
+export function questForCard(world, id, notice = null) {
+  if (id === QUEST_CARD) return notice || playerQuest(world);
+  if (!isQuestCard(id)) return null;
+  const [, encodedActor] = id.split(":");
+  let actor;
+  try {
+    actor = decodeURIComponent(encodedActor);
+  } catch {
+    return null;
+  }
+  if (!world.actors[actor]) return null;
+  return (
+    questCards(world, actor).find(
+      (quest) => questCardId(world, quest, notice) === id,
+    ) || null
+  );
+}
+
+export function questHand(world, notice = null) {
+  const cards = availableCards(world);
+  for (let index = 0; index < cards.length; index++) {
+    const actor = cards[index];
+    if (!people[actor]) continue;
+    let deck = questCards(world, actor);
+    if (actor === currentActor(world) && notice)
+      deck = [notice, ...deck.filter((quest) => quest.key !== notice.key)];
+    let end = index + 1;
+    while (things[cards[end]] && rootHolder(world, cards[end]) === actor) end++;
+    const ids = deck.map((quest) => questCardId(world, quest, notice));
+    cards.splice(end, 0, ...ids);
+    index = end + ids.length - 1;
+  }
   return cards;
 }
