@@ -80,7 +80,7 @@ body
   .dialogue:has(.shared-portraits):has(#movement-caption[hidden])
   > .speech-row {
   grid-row: 1 / span 2;
-  align-self: center;
+  align-self: start;
 }
 body
   .dialogue:has(.shared-portraits):has(#speech-row[hidden]):has(
