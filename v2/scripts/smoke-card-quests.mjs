@@ -179,6 +179,12 @@ try {
         "true",
       );
       await page.waitForTimeout(350);
+      assert.equal(
+        await card("player-quest").evaluate(
+          (card) => getComputedStyle(card).opacity,
+        ),
+        "1",
+      );
       await page.screenshot({
         path: new URL(`fulfilled-${width}.png`, output).pathname,
       });

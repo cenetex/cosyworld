@@ -1205,6 +1205,7 @@ body .unveil .card.quest .name {
   color: #f6e2b6;
 }
 body .card.quest[data-fulfilled="true"] {
+  opacity: 1;
   box-shadow:
     inset 0 0 0 4px #0d131c,
     inset 0 0 0 5px #d6be8988,
