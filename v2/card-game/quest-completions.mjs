@@ -59,6 +59,21 @@ export function recordQuestCompletion(world, quest, details) {
   return receipt;
 }
 
+export function publishQuestCompletions(world, completions) {
+  const ordered = completions
+    .slice()
+    .sort(
+      (a, b) =>
+        a.capturedSeq - b.capturedSeq ||
+        (a.questKey < b.questKey ? -1 : a.questKey > b.questKey ? 1 : 0),
+    );
+  for (const receipt of ordered)
+    recordQuestCompletion(world, world.quests.records[receipt.questKey], {
+      ...receipt,
+      eventSeq: receipt.capturedSeq,
+    });
+}
+
 export function questCompletions(world) {
   return (world.questCompletions?.recent || []).map(copy);
 }

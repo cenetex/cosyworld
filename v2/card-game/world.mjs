@@ -1,3 +1,4 @@
+import { syncStoryQuests, validStoryQuest } from "./story-quests.mjs";
 import {
   installRoamingQuests,
   roamingPlan,
@@ -28,7 +29,7 @@ import {
   validSharedQuestRegistry,
 } from "./shared-quests.mjs";
 import {
-  recordQuestCompletion,
+  publishQuestCompletions,
   validQuestCompletions,
 } from "./quest-completions.mjs";
 import { arriveRecitals, arriveRoamingRecitals } from "./pack-recital.mjs";
@@ -678,7 +679,7 @@ function applyConsequence(s, actor, target) {
   });
 }
 function advancePrograms(s, met) {
-  if (!hasQuestPrograms(s)) return;
+  if (!hasQuestPrograms(s)) return [];
   const receipts = [],
     completions = [];
   const consequences = new Set();
@@ -865,16 +866,7 @@ function advancePrograms(s, met) {
         });
     }
   }
-  completions.sort(
-    (a, b) =>
-      a.capturedSeq - b.capturedSeq ||
-      (a.questKey < b.questKey ? -1 : a.questKey > b.questKey ? 1 : 0),
-  );
-  for (const receipt of completions)
-    recordQuestCompletion(s, questRecord(s, receipt.questKey), {
-      ...receipt,
-      eventSeq: receipt.capturedSeq,
-    });
+  return completions;
 }
 export function addLog(s, speaker, text, detail = {}) {
   const actorId =
@@ -1122,6 +1114,7 @@ function sharedQuestActions(s, actor) {
         text: `${nameOf(actor)} joins ${quest.program.name}.`,
         parts: [],
       });
+    if (quest.mode === "story") continue;
     const holder = quest.holder;
     const canShare =
       holder.kind === "avatar"
@@ -2299,7 +2292,10 @@ export function play(
           : "The attic mirror's path to the pond closes.",
       { locationId: reflectionSource },
     );
-  advancePrograms(next, met);
+  publishQuestCompletions(next, [
+    ...advancePrograms(next, met),
+    ...syncStoryQuests(next, exact.actor),
+  ]);
   installRoamingQuests(next, roamingActors, roamingAPI(next));
   for (const id of roamingActors) {
     if (controlledByHuman(next, id)) continue;
@@ -2308,6 +2304,7 @@ export function play(
     if (action) perform(next, action, () => {}, round);
     settleRoamingArrival(next, id, roamingAPI(next));
   }
+
   for (const actor of knownActors(next)) {
     const life = lifeOf(next, actor);
     if (life && life.milestones.length > (previousHopes[actor] || 0)) {
@@ -2484,6 +2481,7 @@ export function validateWorld(s) {
       places: Object.keys(places),
       program: (p, actor) => validProgram(p, actor, s, true),
       origin: (value) => validQuestOrigin(s, value),
+      story: (quest) => validStoryQuest(s, quest),
     }) ||
     !validQuestCompletions(s, actorIds, Object.keys(places))
   )

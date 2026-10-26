@@ -7,66 +7,18 @@ import { rootHolder, things, people, places, currentActor } from "./world.mjs";
 
 export const QUEST_CARD = "player-quest";
 
-export const STORY_QUEST_CARDS = [
-  "story-quest-greek-table",
-  "story-quest-greek-burial",
-  "story-quest-greek-courtyard",
-];
+export { STORY_QUEST_CARDS } from "./story-quests.mjs";
+import { STORY_QUEST_CARDS, storyDefinitions } from "./story-quests.mjs";
 
 export function openingPoem(world) {
   return recitalPoem(world, packDefinition("greek-drama"));
 }
 
-const storyLines = [
-  "A place beside the bread.",
-  "Her brother waits for earth.",
-  "What words will you bring home?",
-];
-
-// Card lines stay short and steady; saved choices determine their completion.
 export function storyQuests(world) {
-  const state = world.packs?.["greek-drama"];
-  if (!state) return [];
-  const flags = state.flags || {},
-    met = state.met || {},
-    response = state.choices?.["greek-theban-response"],
-    buried = flags["greek-burial-performed"] === true,
-    returned = flags["greek-water-returned"] === true,
-    publicOutcome = flags[`greek-${response}-public`] === true,
-    graveReturn = response === "concession" && buried && publicOutcome,
-    graveShared = flags["greek-permitted-burial-public"] === true;
-  const card = (index, art, resolved, completion = "Fulfilled") => ({
-    id: STORY_QUEST_CARDS[index],
-    key: `greek-drama:${STORY_QUEST_CARDS[index]}${index === 2 && graveReturn ? ":grave" : ""}`,
-    title: storyLines[index],
-    purpose: storyLines[index],
-    singleLine: true,
-    story: true,
+  return storyDefinitions(world).map((quest) => ({
+    ...quest,
     actor: currentActor(world),
-    status: resolved ? "fulfilled" : "pending",
-    art,
-    resolved,
-    completion,
-  });
-  const quests = [];
-  if (Object.hasOwn(met, "greek-baker") || returned)
-    quests.push(card(0, "greek-water-jar", returned));
-  if (
-    Object.hasOwn(met, "greek-antigone") ||
-    flags["greek-decree-known"] ||
-    response ||
-    buried
-  ) {
-    const completion = { refusal: "Declined", exposure: "Reported" }[response];
-    quests.push(
-      card(1, "greek-funeral-cloth", buried || Boolean(completion), completion),
-    );
-  }
-  if (response) {
-    const resolved = publicOutcome && (!graveReturn || graveShared);
-    quests.push(card(2, "greek-bread", resolved, "Shared"));
-  }
-  return quests;
+  }));
 }
 
 export function activeQuests(world) {
@@ -158,72 +110,78 @@ function personalQuestCards(world, actor = currentActor(world)) {
   const held = questRecords(world).filter(
     (record) => record.holder.id === actor && !keys.has(record.key),
   );
-  return [...collected, ...held].map((record) => {
-    const program = record.program;
-    const [title, purpose, art] =
-      authored[program.id] ||
-      situations[program.generated?.situation] ||
-      (program.generated?.solo
-        ? [
-            "A moment of my own",
-            "There is room here for a small discovery.",
-            "lamp",
-          ]
-        : [
-            program.name || "A wish",
-            program.purpose || "Something worth pursuing.",
-            "cloth",
-          ]);
-    const status = record.status || questStatus(world, record);
-    const focused = record.holder
-      ? world.quests.focus[actor] === record.key
-      : status === "active";
-    return {
-      key: record.key,
-      actor,
-      title,
-      purpose,
-      art: program.art || art,
-      holder: record.holder || { kind: "avatar", id: actor },
-      participants: record.participants || [actor],
-      focused,
-      status: ["fulfilled", "superseded"].includes(status)
-        ? status
-        : focused
-          ? "active"
-          : "pending",
-      completion: {
-        declined: "Declined",
-        reported: "Reported",
-        shared: "Shared",
-      }[record.completion?.outcome],
-      step: record.step,
-      steps: record.totalSteps ?? program.steps?.length ?? 0,
-    };
-  });
+  return [...collected, ...held]
+    .filter((record) => record.mode !== "story")
+    .map((record) => {
+      const program = record.program;
+      const [title, purpose, art] =
+        authored[program.id] ||
+        situations[program.generated?.situation] ||
+        (program.generated?.solo
+          ? [
+              "A moment of my own",
+              "There is room here for a small discovery.",
+              "lamp",
+            ]
+          : [
+              program.name || "A wish",
+              program.purpose || "Something worth pursuing.",
+              "cloth",
+            ]);
+      const status = record.status || questStatus(world, record);
+      const focused = record.holder
+        ? world.quests.focus[actor] === record.key
+        : status === "active";
+      return {
+        key: record.key,
+        actor,
+        title,
+        purpose,
+        art: program.art || art,
+        holder: record.holder || { kind: "avatar", id: actor },
+        participants: record.participants || [actor],
+        focused,
+        status: ["fulfilled", "superseded"].includes(status)
+          ? status
+          : focused
+            ? "active"
+            : "pending",
+        completion: {
+          declined: "Declined",
+          reported: "Reported",
+          shared: "Shared",
+        }[record.completion?.outcome],
+        step: record.step,
+        steps: record.totalSteps ?? program.steps?.length ?? 0,
+      };
+    });
 }
 
 // Pack receipts retain story cards through reload and log pruning. A second
 // courtyard report has its own identity while the first stays in the collection.
 export function questCards(world, actor = currentActor(world)) {
   const personal = personalQuestCards(world, actor);
-  const stories =
-    actor === currentActor(world)
-      ? storyQuests(world).map((quest) => ({
-          ...quest,
-          actor,
-          status: quest.resolved ? "fulfilled" : "pending",
-          story: true,
-        }))
-      : [];
-  const grave = stories.find((quest) => quest.key.endsWith(":grave"));
-  if (grave)
-    stories.push({
-      ...grave,
-      id: undefined,
-      key: grave.key.slice(0, -6),
-      resolved: true,
-      status: "fulfilled",
+  const stories = storyDefinitions(world, true)
+    .filter((definition) => {
+      const record = world.quests?.records[definition.key];
+      return record
+        ? record.holder.id === actor || record.participants.includes(actor)
+        : actor === currentActor(world);
+    })
+    .map((definition) => {
+      const record = world.quests?.records[definition.key];
+      return {
+        ...definition,
+        actor,
+        id:
+          actor === currentActor(world) && !definition.historical
+            ? definition.id
+            : undefined,
+        participants: record?.participants || [],
+        focused: world.quests?.focus[actor] === definition.key,
+        step: record?.step ?? Number(definition.resolved),
+        steps: 1,
+      };
     });
   return [
     ...personal.filter((quest) => quest.status === "active"),

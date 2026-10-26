@@ -180,6 +180,10 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/shared-quests.mjs"),
         ),
+        "story-quests.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/story-quests.mjs"),
+        ),
         "quest-completions.mjs" => (
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/quest-completions.mjs"),
