@@ -2,14 +2,29 @@
   "schemaVersion": 1,
   "hub": {
     "player": "vale",
-    "places": ["station", "attic", "pond"],
-    "avatars": ["vale", "moth", "keeper"],
-    "items": ["lamp", "oil", "bell", "cloth"],
+    "places": [
+      "station",
+      "attic",
+      "pond"
+    ],
+    "avatars": [
+      "vale",
+      "moth",
+      "keeper"
+    ],
+    "items": [
+      "lamp",
+      "oil",
+      "bell",
+      "cloth"
+    ],
     "observations": [
       {
         "id": "lamp-flame",
         "entity": "lamp",
-        "subjects": ["lamp"],
+        "subjects": [
+          "lamp"
+        ],
         "source": {
           "kind": "item_flag",
           "field": "lit"
@@ -52,7 +67,9 @@
       {
         "id": "lamp-cover",
         "entity": "lamp",
-        "subjects": ["lamp"],
+        "subjects": [
+          "lamp"
+        ],
         "source": {
           "kind": "covered"
         },
@@ -60,12 +77,18 @@
           "true": {
             "fact": "The Lamp is covered. Its flame state is recorded separately.",
             "legacyToken": "covered",
-            "claims": ["is covered"]
+            "claims": [
+              "is covered"
+            ]
           },
           "false": {
             "fact": "The Lamp is uncovered.",
             "legacyToken": "uncovered",
-            "claims": ["is uncovered", "is not covered", "isn't covered"]
+            "claims": [
+              "is uncovered",
+              "is not covered",
+              "isn't covered"
+            ]
           }
         }
       }
@@ -161,7 +184,10 @@
         {
           "id": "badger-awake",
           "entity": "badger",
-          "subjects": ["badger", "grumpy badger"],
+          "subjects": [
+            "badger",
+            "grumpy badger"
+          ],
           "source": {
             "kind": "actor_flag",
             "field": "awake"
@@ -169,7 +195,11 @@
           "values": {
             "true": {
               "fact": "Badger is awake now.",
-              "claims": ["is awake", "is not asleep", "isn't asleep"]
+              "claims": [
+                "is awake",
+                "is not asleep",
+                "isn't asleep"
+              ]
             },
             "false": {
               "fact": "Badger is asleep now.",
@@ -228,7 +258,9 @@
           "requires": [
             {
               "kind": "sound",
-              "at": ["pond"]
+              "at": [
+                "pond"
+              ]
             }
           ],
           "closed": "The reflected clearing fades from the pond."
@@ -242,7 +274,10 @@
           "requires": [
             {
               "kind": "sound",
-              "at": ["pond", "clearing"]
+              "at": [
+                "pond",
+                "clearing"
+              ]
             }
           ],
           "scenery": {
@@ -269,12 +304,19 @@
         "groups": [
           {
             "key": "greek-helen-account",
-            "options": ["egypt", "troy"],
+            "options": [
+              "egypt",
+              "troy"
+            ],
             "initial": "uncommitted"
           },
           {
             "key": "greek-atreid-account",
-            "options": ["aeschylus", "sophocles", "euripides"],
+            "options": [
+              "aeschylus",
+              "sophocles",
+              "euripides"
+            ],
             "initial": "uncommitted"
           }
         ]
@@ -294,7 +336,11 @@
         "greek-harbor": {
           "name": "The Wine-Dark Harbor",
           "text": "Worn steps climb from the stone landing toward the town.",
-          "exits": ["greek-courtyard", "greek-athens", "greek-argolid-road"],
+          "exits": [
+            "greek-courtyard",
+            "greek-athens",
+            "greek-argolid-road"
+          ],
           "backdrop": "assets/greek-drama/harbor-day.webp",
           "persona": "Worn steps climb from the stone landing toward the town."
         },
@@ -313,14 +359,20 @@
         "greek-well": {
           "name": "Theban Market Well",
           "text": "Water jars stand beside the well. Neighbors lower their voices when palace servants pass.",
-          "exits": ["greek-courtyard", "greek-palace", "greek-gate"],
+          "exits": [
+            "greek-courtyard",
+            "greek-palace",
+            "greek-gate"
+          ],
           "backdrop": "assets/greek-drama/market-well-day.webp",
           "persona": "Water jars stand beside the well. Neighbors lower their voices when palace servants pass."
         },
         "greek-palace": {
           "name": "Theban Palace Forecourt",
           "text": "The king receives petitions beneath a painted portico. A space beside the door is kept for public orders.",
-          "exits": ["greek-well"],
+          "exits": [
+            "greek-well"
+          ],
           "backdrop": "assets/greek-drama/palace-day.webp",
           "persona": "The king receives petitions beneath a painted portico. A space beside the door is kept for public orders."
         },
@@ -339,28 +391,38 @@
         "greek-battlefield": {
           "name": "The Exposed Battlefield",
           "text": "Broken spear shafts lie in the dust. A strip of earth outside the city is set apart for the fallen brother.",
-          "exits": ["greek-gate"],
+          "exits": [
+            "greek-gate"
+          ],
           "backdrop": "assets/greek-drama/burial-ground-dusk.webp",
           "persona": "Broken spear shafts lie in the dust. A strip of earth outside the city is set apart for the fallen brother."
         },
         "greek-sanctuary": {
           "name": "The Hillside Sanctuary",
           "text": "Olive trees shade a small altar. A stone basin stands beneath its roof.",
-          "exits": ["greek-courtyard", "greek-cithaeron"],
+          "exits": [
+            "greek-courtyard",
+            "greek-cithaeron"
+          ],
           "backdrop": "assets/greek-drama/sanctuary-dawn.webp",
           "persona": "Olive trees shade a small altar. A stone basin stands beneath its roof."
         },
         "greek-cithaeron": {
           "name": "Cithaeron Slopes",
           "text": "Goat paths cross the wooded slope. A distant drum carries between the trees.",
-          "exits": ["greek-sanctuary"],
+          "exits": [
+            "greek-sanctuary"
+          ],
           "backdrop": "assets/greek-drama/grove.svg",
           "persona": "Goat paths cross the wooded slope. A distant drum carries between the trees."
         },
         "greek-aulis": {
           "name": "Aulis Anchorage",
           "text": "The ships lie motionless beside the shore. Soldiers wait outside the command tents.",
-          "exits": ["greek-gate", "greek-greek-camp"],
+          "exits": [
+            "greek-gate",
+            "greek-greek-camp"
+          ],
           "backdrop": "assets/greek-drama/harbor.svg",
           "persona": "The ships lie motionless beside the shore. Soldiers wait outside the command tents."
         },
@@ -388,49 +450,65 @@
         "greek-piraeus": {
           "name": "Piraeus Quays",
           "text": "Cargo baskets stand beside moored ships. Crews compare the cost of taking another passenger.",
-          "exits": ["greek-athens", "greek-tauris", "greek-sicily"],
+          "exits": [
+            "greek-athens",
+            "greek-tauris",
+            "greek-sicily"
+          ],
           "backdrop": "assets/greek-drama/harbor.svg",
           "persona": "Cargo baskets stand beside moored ships. Crews compare the cost of taking another passenger."
         },
         "greek-assembly": {
           "name": "The Assembly Hill",
           "text": "Stone benches face the speaker's platform. Citizens gather beside a list of proposals.",
-          "exits": ["greek-athens"],
+          "exits": [
+            "greek-athens"
+          ],
           "backdrop": "assets/greek-drama/palace.svg",
           "persona": "Stone benches face the speaker's platform. Citizens gather beside a list of proposals."
         },
         "greek-acropolis": {
           "name": "Acropolis Treasury",
           "text": "A barred door separates the treasury from the courtyard. Women keep watch on the steps.",
-          "exits": ["greek-athens"],
+          "exits": [
+            "greek-athens"
+          ],
           "backdrop": "assets/greek-drama/palace.svg",
           "persona": "A barred door separates the treasury from the courtyard. Women keep watch on the steps."
         },
         "greek-demos-house": {
           "name": "House of Demos",
           "text": "Serving dishes crowd a kitchen table. Two servants quarrel over who will carry dinner inside.",
-          "exits": ["greek-athens"],
+          "exits": [
+            "greek-athens"
+          ],
           "backdrop": "assets/greek-drama/courtyard.svg",
           "persona": "Serving dishes crowd a kitchen table. Two servants quarrel over who will carry dinner inside."
         },
         "greek-thinkery": {
           "name": "The Thinkery",
           "text": "Writing tablets lie beside a narrow bed. A student practices both sides of an argument.",
-          "exits": ["greek-athens"],
+          "exits": [
+            "greek-athens"
+          ],
           "backdrop": "assets/greek-drama/courtyard.svg",
           "persona": "Writing tablets lie beside a narrow bed. A student practices both sides of an argument."
         },
         "greek-jury-house": {
           "name": "The Juror's House",
           "text": "A jury token hangs beside the door. The household has arranged a small court in the yard.",
-          "exits": ["greek-athens"],
+          "exits": [
+            "greek-athens"
+          ],
           "backdrop": "assets/greek-drama/courtyard.svg",
           "persona": "A jury token hangs beside the door. The household has arranged a small court in the yard."
         },
         "greek-festival": {
           "name": "The Women's Festival",
           "text": "Garlands mark the sanctuary entrance. The women at the door check each arriving guest.",
-          "exits": ["greek-athens"],
+          "exits": [
+            "greek-athens"
+          ],
           "backdrop": "assets/greek-drama/grove.svg",
           "persona": "Garlands mark the sanctuary entrance. The women at the door check each arriving guest."
         },
@@ -449,42 +527,57 @@
         "greek-acharnae": {
           "name": "Acharnae Market",
           "text": "Charcoal baskets line the lane. A farmer has marked a separate trading ground with stones.",
-          "exits": ["greek-attic-farm"],
+          "exits": [
+            "greek-attic-farm"
+          ],
           "backdrop": "assets/greek-drama/courtyard.svg",
           "persona": "Charcoal baskets line the lane. A farmer has marked a separate trading ground with stones."
         },
         "greek-colonus": {
           "name": "Colonus Grove",
           "text": "A low boundary surrounds the grove. Travelers stop before crossing the sacred ground.",
-          "exits": ["greek-athens", "greek-underworld"],
+          "exits": [
+            "greek-athens",
+            "greek-underworld"
+          ],
           "backdrop": "assets/greek-drama/grove.svg",
           "persona": "A low boundary surrounds the grove. Travelers stop before crossing the sacred ground."
         },
         "greek-eleusis": {
           "name": "Eleusinian Sanctuary",
           "text": "Mothers wait on the steps of Demeter's shrine. Empty burial cloths lie folded beside them.",
-          "exits": ["greek-athens"],
+          "exits": [
+            "greek-athens"
+          ],
           "backdrop": "assets/greek-drama/grove.svg",
           "persona": "Mothers wait on the steps of Demeter's shrine. Empty burial cloths lie folded beside them."
         },
         "greek-marathon": {
           "name": "Marathon Altar",
           "text": "Children shelter around Zeus's altar. Their companions watch the road for a herald.",
-          "exits": ["greek-athens"],
+          "exits": [
+            "greek-athens"
+          ],
           "backdrop": "assets/greek-drama/grove.svg",
           "persona": "Children shelter around Zeus's altar. Their companions watch the road for a herald."
         },
         "greek-argolid-road": {
           "name": "The Argolid Crossroads",
           "text": "Three roads leave a shaded meeting place. A singer asks which household's testimony should guide the journey.",
-          "exits": ["greek-harbor", "greek-argos-sanctuary", "greek-corinth"],
+          "exits": [
+            "greek-harbor",
+            "greek-argos-sanctuary",
+            "greek-corinth"
+          ],
           "backdrop": "assets/greek-drama/grove.svg",
           "persona": "Three roads leave a shaded meeting place. A singer asks which household's testimony should guide the journey."
         },
         "greek-argos-sanctuary": {
           "name": "Argive Shore Sanctuary",
           "text": "Suppliant branches rest beside a coastal altar. A lookout watches an approaching ship.",
-          "exits": ["greek-argolid-road"],
+          "exits": [
+            "greek-argolid-road"
+          ],
           "backdrop": "assets/greek-drama/harbor.svg",
           "persona": "Suppliant branches rest beside a coastal altar. A lookout watches an approaching ship."
         },
@@ -547,49 +640,68 @@
         "greek-corinth": {
           "name": "Corinthian Courtyard",
           "text": "A rented household opens onto the harbor road. Bundles stand ready beside the door.",
-          "exits": ["greek-argolid-road", "greek-troezen"],
+          "exits": [
+            "greek-argolid-road",
+            "greek-troezen"
+          ],
           "backdrop": "assets/greek-drama/courtyard.svg",
           "persona": "A rented household opens onto the harbor road. Bundles stand ready beside the door."
         },
         "greek-troezen": {
           "name": "Troezen Palace",
           "text": "Two shrines flank the palace approach. A hunting party has left its equipment under the portico.",
-          "exits": ["greek-corinth"],
+          "exits": [
+            "greek-corinth"
+          ],
           "backdrop": "assets/greek-drama/palace.svg",
           "persona": "Two shrines flank the palace approach. A hunting party has left its equipment under the portico."
         },
         "greek-delphi": {
           "name": "Delphic Temple",
           "text": "Travelers queue beneath Apollo's columns. An attendant sweeps leaves from the sanctuary steps.",
-          "exits": ["greek-athens", "greek-trachis"],
+          "exits": [
+            "greek-athens",
+            "greek-trachis"
+          ],
           "backdrop": "assets/greek-drama/palace.svg",
           "persona": "Travelers queue beneath Apollo's columns. An attendant sweeps leaves from the sanctuary steps."
         },
         "greek-trachis": {
           "name": "House at Trachis",
           "text": "A messenger's sandals dry beside the doorway. A folded garment waits on a workbench.",
-          "exits": ["greek-delphi", "greek-oeta", "greek-pherae"],
+          "exits": [
+            "greek-delphi",
+            "greek-oeta",
+            "greek-pherae"
+          ],
           "backdrop": "assets/greek-drama/courtyard.svg",
           "persona": "A messenger's sandals dry beside the doorway. A folded garment waits on a workbench."
         },
         "greek-oeta": {
           "name": "The Oeta Road",
           "text": "A steep road climbs above the trees. Bearers have set a litter beside a level patch of stone.",
-          "exits": ["greek-trachis"],
+          "exits": [
+            "greek-trachis"
+          ],
           "backdrop": "assets/greek-drama/grove.svg",
           "persona": "A steep road climbs above the trees. Bearers have set a litter beside a level patch of stone."
         },
         "greek-pherae": {
           "name": "Palace of Pherae",
           "text": "Guests arrive at a house in mourning. A servant hesitates before opening the inner door.",
-          "exits": ["greek-trachis", "greek-thetis"],
+          "exits": [
+            "greek-trachis",
+            "greek-thetis"
+          ],
           "backdrop": "assets/greek-drama/palace.svg",
           "persona": "Guests arrive at a house in mourning. A servant hesitates before opening the inner door."
         },
         "greek-thetis": {
           "name": "Thetis's Sanctuary",
           "text": "The sanctuary stands beside a great household. A woman has taken refuge near the altar.",
-          "exits": ["greek-pherae"],
+          "exits": [
+            "greek-pherae"
+          ],
           "backdrop": "assets/greek-drama/grove.svg",
           "persona": "The sanctuary stands beside a great household. A woman has taken refuge near the altar."
         },
@@ -608,14 +720,20 @@
         "greek-greek-camp": {
           "name": "The Greek Camp at Troy",
           "text": "Ships cover the beach below the tents. Soldiers argue over honor, supplies, and the next order.",
-          "exits": ["greek-aulis", "greek-troy", "greek-lemnos"],
+          "exits": [
+            "greek-aulis",
+            "greek-troy",
+            "greek-lemnos"
+          ],
           "backdrop": "assets/greek-drama/harbor.svg",
           "persona": "Ships cover the beach below the tents. Soldiers argue over honor, supplies, and the next order."
         },
         "greek-trojan-camp": {
           "name": "The Trojan Night Camp",
           "text": "Watch fires mark the edge of the camp. A newly arrived ally waits for a guide.",
-          "exits": ["greek-troy"],
+          "exits": [
+            "greek-troy"
+          ],
           "backdrop": "assets/greek-drama/grove.svg",
           "persona": "Watch fires mark the edge of the camp. A newly arrived ally waits for a guide."
         },
@@ -636,14 +754,18 @@
         "greek-lemnos": {
           "name": "The Lemnian Cave",
           "text": "A rough bed lies inside the cave. Footprints lead toward a bow wrapped against the salt air.",
-          "exits": ["greek-greek-camp"],
+          "exits": [
+            "greek-greek-camp"
+          ],
           "backdrop": "assets/greek-drama/sea.svg",
           "persona": "A rough bed lies inside the cave. Footprints lead toward a bow wrapped against the salt air."
         },
         "greek-thrace": {
           "name": "The Thracian Shore",
           "text": "A fleet waits beyond the breakers. Captive households search among the new arrivals.",
-          "exits": ["greek-troy"],
+          "exits": [
+            "greek-troy"
+          ],
           "backdrop": "assets/greek-drama/sea.svg",
           "persona": "A fleet waits beyond the breakers. Captive households search among the new arrivals."
         },
@@ -664,49 +786,64 @@
         "greek-tauris": {
           "name": "The Taurian Temple",
           "text": "A walled temple overlooks the landing place. An attendant counts the people brought ashore.",
-          "exits": ["greek-piraeus"],
+          "exits": [
+            "greek-piraeus"
+          ],
           "backdrop": "assets/greek-drama/palace.svg",
           "persona": "A walled temple overlooks the landing place. An attendant counts the people brought ashore."
         },
         "greek-sicily": {
           "name": "The Sicilian Cave",
           "text": "Sheep crowd a stone enclosure beside the cave. Wine jars stand beyond the shepherds' reach.",
-          "exits": ["greek-piraeus"],
+          "exits": [
+            "greek-piraeus"
+          ],
           "backdrop": "assets/greek-drama/grove.svg",
           "persona": "Sheep crowd a stone enclosure beside the cave. Wine jars stand beyond the shepherds' reach."
         },
         "greek-susa": {
           "name": "The Court at Susa",
           "text": "Officials wait beside the royal tomb. The last dispatch from the fleet lies unopened.",
-          "exits": ["greek-troy", "greek-scythian-crag"],
+          "exits": [
+            "greek-troy",
+            "greek-scythian-crag"
+          ],
           "backdrop": "assets/greek-drama/palace.svg",
           "persona": "Officials wait beside the royal tomb. The last dispatch from the fleet lies unopened."
         },
         "greek-scythian-crag": {
           "name": "The Scythian Crag",
           "text": "Iron bonds fix a figure to the rock. A narrow ledge allows visitors to approach.",
-          "exits": ["greek-susa"],
+          "exits": [
+            "greek-susa"
+          ],
           "backdrop": "assets/greek-drama/grove.svg",
           "persona": "Iron bonds fix a figure to the rock. A narrow ledge allows visitors to approach."
         },
         "greek-divine-heights": {
           "name": "The Divine Heights",
           "text": "A steep stair ends above the clouds. Broken farming tools have been carried to the landing.",
-          "exits": ["greek-attic-farm"],
+          "exits": [
+            "greek-attic-farm"
+          ],
           "backdrop": "assets/greek-drama/sea.svg",
           "persona": "A steep stair ends above the clouds. Broken farming tools have been carried to the landing."
         },
         "greek-bird-wilderness": {
           "name": "The Hoopoe's Thicket",
           "text": "A nest hangs above a rocky clearing. Two travelers have laid out a basket, a pot, and a plan for a city.",
-          "exits": ["greek-attic-farm"],
+          "exits": [
+            "greek-attic-farm"
+          ],
           "backdrop": "assets/greek-drama/grove.svg",
           "persona": "A nest hangs above a rocky clearing. Two travelers have laid out a basket, a pot, and a plan for a city."
         },
         "greek-underworld": {
           "name": "The Underworld Landing",
           "text": "A ferry rests beside dark water. The keeper of the landing asks the purpose of each crossing.",
-          "exits": ["greek-colonus"],
+          "exits": [
+            "greek-colonus"
+          ],
           "backdrop": "assets/greek-drama/harbor.svg",
           "persona": "A ferry rests beside dark water. The keeper of the landing asks the purpose of each crossing."
         },
@@ -753,7 +890,10 @@
           "voice": "A determined sister. Speak directly about a brother's burial and the practical help at hand. Know only public facts and witnessed acts; never predict the play's ending.",
           "portrait": "assets/greek-drama/chthonic-antigone.png",
           "desire": {
-            "items": ["greek-funeral-cloth", "greek-oil-flask"],
+            "items": [
+              "greek-funeral-cloth",
+              "greek-oil-flask"
+            ],
             "location": "greek-battlefield",
             "avatars": [],
             "requires": [
@@ -896,7 +1036,9 @@
           "text": "He keeps the words of the journey in a song.",
           "place": "greek-harbor",
           "home": "greek-harbor",
-          "previousHomes": ["greek-argolid-road"],
+          "previousHomes": [
+            "greek-argolid-road"
+          ],
           "values": {
             "greek-provisions": 2
           },
@@ -3387,10 +3529,14 @@
           "author": "Aeschylus",
           "title": "Persians",
           "era": "imperial-aftermath",
-          "placeIds": ["greek-susa"],
+          "placeIds": [
+            "greek-susa"
+          ],
           "premise": "A messenger's account of defeat must reach the grieving court without losing its source.",
           "status": "situated-hook",
-          "hookChoiceIds": ["greek-inquire-aeschylus-persians"],
+          "hookChoiceIds": [
+            "greek-inquire-aeschylus-persians"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Aeschylus",
@@ -3403,10 +3549,14 @@
           "author": "Aeschylus",
           "title": "Seven Against Thebes",
           "era": "theban-war",
-          "placeIds": ["greek-gate"],
+          "placeIds": [
+            "greek-gate"
+          ],
           "premise": "The city's defenders must answer rival claims to command while households seek protection.",
           "status": "situated-hook",
-          "hookChoiceIds": ["greek-inquire-aeschylus-seven-against-thebes"],
+          "hookChoiceIds": [
+            "greek-inquire-aeschylus-seven-against-thebes"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Aeschylus",
@@ -3419,10 +3569,14 @@
           "author": "Aeschylus",
           "title": "Suppliant Women",
           "era": "heroic-households",
-          "placeIds": ["greek-argos-sanctuary"],
+          "placeIds": [
+            "greek-argos-sanctuary"
+          ],
           "premise": "The Danaids seek protection against forced marriage, and the receiving city must decide what protection entails.",
           "status": "situated-hook",
-          "hookChoiceIds": ["greek-inquire-aeschylus-suppliant-women"],
+          "hookChoiceIds": [
+            "greek-inquire-aeschylus-suppliant-women"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Aeschylus",
@@ -3435,10 +3589,14 @@
           "author": "Aeschylus",
           "title": "Prometheus Bound",
           "era": "divine-frontier",
-          "placeIds": ["greek-scythian-crag"],
+          "placeIds": [
+            "greek-scythian-crag"
+          ],
           "premise": "A punished benefactor can be approached, but neither prophecy nor release follows from a visitor's words alone.",
           "status": "situated-hook",
-          "hookChoiceIds": ["greek-inquire-aeschylus-prometheus-bound"],
+          "hookChoiceIds": [
+            "greek-inquire-aeschylus-prometheus-bound"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Aeschylus",
@@ -3451,10 +3609,14 @@
           "author": "Aeschylus",
           "title": "Agamemnon",
           "era": "homecomings",
-          "placeIds": ["greek-argos-palace"],
+          "placeIds": [
+            "greek-argos-palace"
+          ],
           "premise": "A returning commander enters a household divided by the costs of the expedition.",
           "status": "situated-hook",
-          "hookChoiceIds": ["greek-inquire-aeschylus-agamemnon"],
+          "hookChoiceIds": [
+            "greek-inquire-aeschylus-agamemnon"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Aeschylus",
@@ -3471,10 +3633,14 @@
           "author": "Aeschylus",
           "title": "Libation Bearers",
           "era": "homecomings",
-          "placeIds": ["greek-argos-tomb"],
+          "placeIds": [
+            "greek-argos-tomb"
+          ],
           "premise": "A meeting at a tomb raises claims of kinship and a demand for revenge.",
           "status": "branching-episode",
-          "hookChoiceIds": ["greek-inquire-aeschylus-libation-bearers"],
+          "hookChoiceIds": [
+            "greek-inquire-aeschylus-libation-bearers"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Aeschylus",
@@ -3491,10 +3657,14 @@
           "author": "Aeschylus",
           "title": "Eumenides",
           "era": "homecomings",
-          "placeIds": ["greek-delphi"],
+          "placeIds": [
+            "greek-delphi"
+          ],
           "premise": "Sanctuary and public judgment offer different answers to a pursuing claim of vengeance.",
           "status": "situated-hook",
-          "hookChoiceIds": ["greek-inquire-aeschylus-eumenides"],
+          "hookChoiceIds": [
+            "greek-inquire-aeschylus-eumenides"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Aeschylus",
@@ -3507,10 +3677,14 @@
           "author": "Sophocles",
           "title": "Ajax",
           "era": "trojan-war",
-          "placeIds": ["greek-greek-camp"],
+          "placeIds": [
+            "greek-greek-camp"
+          ],
           "premise": "Military honor, isolation, and the treatment of the dead divide the camp.",
           "status": "situated-hook",
-          "hookChoiceIds": ["greek-inquire-sophocles-ajax"],
+          "hookChoiceIds": [
+            "greek-inquire-sophocles-ajax"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Sophocles",
@@ -3523,10 +3697,14 @@
           "author": "Sophocles",
           "title": "Antigone",
           "era": "theban-aftermath",
-          "placeIds": ["greek-gate"],
+          "placeIds": [
+            "greek-gate"
+          ],
           "premise": "A sister seeks burial for the brother whom a public decree leaves exposed.",
           "status": "opening-episode",
-          "hookChoiceIds": ["greek-inquire-sophocles-antigone"],
+          "hookChoiceIds": [
+            "greek-inquire-sophocles-antigone"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Sophocles",
@@ -3539,10 +3717,14 @@
           "author": "Sophocles",
           "title": "Women of Trachis",
           "era": "heroic-households",
-          "placeIds": ["greek-trachis"],
+          "placeIds": [
+            "greek-trachis"
+          ],
           "premise": "A household prepares a gift without agreeing about its history or effects.",
           "status": "situated-hook",
-          "hookChoiceIds": ["greek-inquire-sophocles-women-of-trachis"],
+          "hookChoiceIds": [
+            "greek-inquire-sophocles-women-of-trachis"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Sophocles",
@@ -3555,10 +3737,14 @@
           "author": "Sophocles",
           "title": "Oedipus Tyrannus",
           "era": "theban-households",
-          "placeIds": ["greek-palace"],
+          "placeIds": [
+            "greek-palace"
+          ],
           "premise": "An inquiry into a public disaster turns toward the ruler's own origins.",
           "status": "situated-hook",
-          "hookChoiceIds": ["greek-inquire-sophocles-oedipus-tyrannus"],
+          "hookChoiceIds": [
+            "greek-inquire-sophocles-oedipus-tyrannus"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Sophocles",
@@ -3571,10 +3757,14 @@
           "author": "Sophocles",
           "title": "Electra",
           "era": "homecomings",
-          "placeIds": ["greek-mycenae-palace"],
+          "placeIds": [
+            "greek-mycenae-palace"
+          ],
           "premise": "An excluded daughter demands an answer to her father's murder from the palace approach.",
           "status": "branching-episode",
-          "hookChoiceIds": ["greek-inquire-sophocles-electra"],
+          "hookChoiceIds": [
+            "greek-inquire-sophocles-electra"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Sophocles",
@@ -3591,10 +3781,14 @@
           "author": "Sophocles",
           "title": "Philoctetes",
           "era": "trojan-war",
-          "placeIds": ["greek-lemnos"],
+          "placeIds": [
+            "greek-lemnos"
+          ],
           "premise": "An army needs the help of a man it abandoned, and the request need not be honest.",
           "status": "situated-hook",
-          "hookChoiceIds": ["greek-inquire-sophocles-philoctetes"],
+          "hookChoiceIds": [
+            "greek-inquire-sophocles-philoctetes"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Sophocles",
@@ -3607,10 +3801,14 @@
           "author": "Sophocles",
           "title": "Oedipus at Colonus",
           "era": "theban-exile",
-          "placeIds": ["greek-colonus"],
+          "placeIds": [
+            "greek-colonus"
+          ],
           "premise": "An old exile seeks a resting place while rival powers contest his presence.",
           "status": "situated-hook",
-          "hookChoiceIds": ["greek-inquire-sophocles-oedipus-at-colonus"],
+          "hookChoiceIds": [
+            "greek-inquire-sophocles-oedipus-at-colonus"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Sophocles",
@@ -3623,10 +3821,14 @@
           "author": "Euripides",
           "title": "Alcestis",
           "era": "heroic-households",
-          "placeIds": ["greek-pherae"],
+          "placeIds": [
+            "greek-pherae"
+          ],
           "premise": "Hospitality continues in a household mourning the person who paid for another's life.",
           "status": "situated-hook",
-          "hookChoiceIds": ["greek-inquire-euripides-alcestis"],
+          "hookChoiceIds": [
+            "greek-inquire-euripides-alcestis"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Euripides",
@@ -3639,10 +3841,14 @@
           "author": "Euripides",
           "title": "Medea",
           "era": "heroic-households",
-          "placeIds": ["greek-corinth"],
+          "placeIds": [
+            "greek-corinth"
+          ],
           "premise": "A betrayed foreign household faces expulsion while its members seek time, refuge, and a response.",
           "status": "situated-hook",
-          "hookChoiceIds": ["greek-inquire-euripides-medea"],
+          "hookChoiceIds": [
+            "greek-inquire-euripides-medea"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Euripides",
@@ -3655,10 +3861,14 @@
           "author": "Euripides",
           "title": "Children of Heracles",
           "era": "heroic-aftermath",
-          "placeIds": ["greek-marathon"],
+          "placeIds": [
+            "greek-marathon"
+          ],
           "premise": "Pursued children seek protection at Zeus's altar against a powerful ruler's demands.",
           "status": "situated-hook",
-          "hookChoiceIds": ["greek-inquire-euripides-children-of-heracles"],
+          "hookChoiceIds": [
+            "greek-inquire-euripides-children-of-heracles"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Euripides",
@@ -3671,10 +3881,14 @@
           "author": "Euripides",
           "title": "Hippolytus",
           "era": "heroic-households",
-          "placeIds": ["greek-troezen"],
+          "placeIds": [
+            "greek-troezen"
+          ],
           "premise": "A household confronts desire, shame, an accusation, and a father's power to punish.",
           "status": "situated-hook",
-          "hookChoiceIds": ["greek-inquire-euripides-hippolytus"],
+          "hookChoiceIds": [
+            "greek-inquire-euripides-hippolytus"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Euripides",
@@ -3687,10 +3901,14 @@
           "author": "Euripides",
           "title": "Andromache",
           "era": "homecomings",
-          "placeIds": ["greek-thetis"],
+          "placeIds": [
+            "greek-thetis"
+          ],
           "premise": "A captive mother and her child seek protection inside a hostile dynastic household.",
           "status": "situated-hook",
-          "hookChoiceIds": ["greek-inquire-euripides-andromache"],
+          "hookChoiceIds": [
+            "greek-inquire-euripides-andromache"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Euripides",
@@ -3703,10 +3921,14 @@
           "author": "Euripides",
           "title": "Hecuba",
           "era": "trojan-aftermath",
-          "placeIds": ["greek-thrace"],
+          "placeIds": [
+            "greek-thrace"
+          ],
           "premise": "A captive queen searches for reliable news of her children and a betrayed trust.",
           "status": "situated-hook",
-          "hookChoiceIds": ["greek-inquire-euripides-hecuba"],
+          "hookChoiceIds": [
+            "greek-inquire-euripides-hecuba"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Euripides",
@@ -3719,10 +3941,14 @@
           "author": "Euripides",
           "title": "Suppliant Women",
           "era": "theban-aftermath",
-          "placeIds": ["greek-eleusis"],
+          "placeIds": [
+            "greek-eleusis"
+          ],
           "premise": "Bereaved mothers seek help recovering their sons' remains from a defeated expedition.",
           "status": "situated-hook",
-          "hookChoiceIds": ["greek-inquire-euripides-suppliant-women"],
+          "hookChoiceIds": [
+            "greek-inquire-euripides-suppliant-women"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Euripides",
@@ -3735,10 +3961,14 @@
           "author": "Euripides",
           "title": "Electra",
           "era": "homecomings",
-          "placeIds": ["greek-argive-farm"],
+          "placeIds": [
+            "greek-argive-farm"
+          ],
           "premise": "The revenge claim is heard in a poor household beyond the royal city.",
           "status": "branching-episode",
-          "hookChoiceIds": ["greek-inquire-euripides-electra"],
+          "hookChoiceIds": [
+            "greek-inquire-euripides-electra"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Euripides",
@@ -3755,10 +3985,14 @@
           "author": "Euripides",
           "title": "Heracles",
           "era": "heroic-households",
-          "placeIds": ["greek-courtyard"],
+          "placeIds": [
+            "greek-courtyard"
+          ],
           "premise": "A household needs protection from tyranny and support after destructive divine interference.",
           "status": "situated-hook",
-          "hookChoiceIds": ["greek-inquire-euripides-heracles"],
+          "hookChoiceIds": [
+            "greek-inquire-euripides-heracles"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Euripides",
@@ -3771,10 +4005,14 @@
           "author": "Euripides",
           "title": "Trojan Women",
           "era": "trojan-aftermath",
-          "placeIds": ["greek-troy"],
+          "placeIds": [
+            "greek-troy"
+          ],
           "premise": "The conquered community struggles to preserve lives and relationships before dispersal.",
           "status": "situated-hook",
-          "hookChoiceIds": ["greek-inquire-euripides-trojan-women"],
+          "hookChoiceIds": [
+            "greek-inquire-euripides-trojan-women"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Euripides",
@@ -3787,10 +4025,14 @@
           "author": "Euripides",
           "title": "Iphigenia in Tauris",
           "era": "homecomings",
-          "placeIds": ["greek-tauris"],
+          "placeIds": [
+            "greek-tauris"
+          ],
           "premise": "A ritual killing rule threatens travelers whose identities may change the priestess's obligations.",
           "status": "situated-hook",
-          "hookChoiceIds": ["greek-inquire-euripides-iphigenia-in-tauris"],
+          "hookChoiceIds": [
+            "greek-inquire-euripides-iphigenia-in-tauris"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Euripides",
@@ -3803,10 +4045,14 @@
           "author": "Euripides",
           "title": "Ion",
           "era": "heroic-households",
-          "placeIds": ["greek-delphi"],
+          "placeIds": [
+            "greek-delphi"
+          ],
           "premise": "Competing claims to a young attendant's parentage meet inside Apollo's sanctuary.",
           "status": "situated-hook",
-          "hookChoiceIds": ["greek-inquire-euripides-ion"],
+          "hookChoiceIds": [
+            "greek-inquire-euripides-ion"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Euripides",
@@ -3819,10 +4065,14 @@
           "author": "Euripides",
           "title": "Helen",
           "era": "homecomings",
-          "placeIds": ["greek-egypt-tomb"],
+          "placeIds": [
+            "greek-egypt-tomb"
+          ],
           "premise": "Helen's testimony distinguishes her own life from the phantom blamed for the war.",
           "status": "branching-episode",
-          "hookChoiceIds": ["greek-inquire-euripides-helen"],
+          "hookChoiceIds": [
+            "greek-inquire-euripides-helen"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Euripides",
@@ -3839,10 +4089,14 @@
           "author": "Euripides",
           "title": "Phoenician Women",
           "era": "theban-war",
-          "placeIds": ["greek-palace"],
+          "placeIds": [
+            "greek-palace"
+          ],
           "premise": "A divided family tries to act while rival brothers bring armed claims to the city.",
           "status": "situated-hook",
-          "hookChoiceIds": ["greek-inquire-euripides-phoenician-women"],
+          "hookChoiceIds": [
+            "greek-inquire-euripides-phoenician-women"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Euripides",
@@ -3855,10 +4109,14 @@
           "author": "Euripides",
           "title": "Orestes",
           "era": "homecomings",
-          "placeIds": ["greek-argos-palace"],
+          "placeIds": [
+            "greek-argos-palace"
+          ],
           "premise": "A household facing judgment after matricide considers further desperate action.",
           "status": "situated-hook",
-          "hookChoiceIds": ["greek-inquire-euripides-orestes"],
+          "hookChoiceIds": [
+            "greek-inquire-euripides-orestes"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Euripides",
@@ -3875,10 +4133,14 @@
           "author": "Euripides",
           "title": "Bacchae",
           "era": "early-thebes",
-          "placeIds": ["greek-cithaeron"],
+          "placeIds": [
+            "greek-cithaeron"
+          ],
           "premise": "Suppressed worship and a ruler's surveillance bring human authority against a disguised god.",
           "status": "situated-hook",
-          "hookChoiceIds": ["greek-inquire-euripides-bacchae"],
+          "hookChoiceIds": [
+            "greek-inquire-euripides-bacchae"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Euripides",
@@ -3891,10 +4153,14 @@
           "author": "Euripides",
           "title": "Iphigenia at Aulis",
           "era": "trojan-departure",
-          "placeIds": ["greek-aulis"],
+          "placeIds": [
+            "greek-aulis"
+          ],
           "premise": "Commanders and soldiers press for a sacrifice that a father has the power to resist.",
           "status": "situated-hook",
-          "hookChoiceIds": ["greek-inquire-euripides-iphigenia-at-aulis"],
+          "hookChoiceIds": [
+            "greek-inquire-euripides-iphigenia-at-aulis"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Euripides",
@@ -3907,10 +4173,14 @@
           "author": "Euripides",
           "title": "Rhesus",
           "era": "trojan-war",
-          "placeIds": ["greek-trojan-camp"],
+          "placeIds": [
+            "greek-trojan-camp"
+          ],
           "premise": "An ally arrives at night while infiltrators and uncertain reports cross the camp.",
           "status": "situated-hook",
-          "hookChoiceIds": ["greek-inquire-euripides-rhesus"],
+          "hookChoiceIds": [
+            "greek-inquire-euripides-rhesus"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Euripides",
@@ -3923,10 +4193,14 @@
           "author": "Euripides",
           "title": "Cyclops",
           "era": "homecomings",
-          "placeIds": ["greek-sicily"],
+          "placeIds": [
+            "greek-sicily"
+          ],
           "premise": "Captive satyrs and stranded travelers seek a way past a predatory host.",
           "status": "situated-hook",
-          "hookChoiceIds": ["greek-inquire-euripides-cyclops"],
+          "hookChoiceIds": [
+            "greek-inquire-euripides-cyclops"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Euripides",
@@ -3939,10 +4213,14 @@
           "author": "Aristophanes",
           "title": "Acharnians",
           "era": "civic-athens",
-          "placeIds": ["greek-acharnae"],
+          "placeIds": [
+            "greek-acharnae"
+          ],
           "premise": "A farmer's separate peace creates a market inside a community still at war.",
           "status": "situated-hook",
-          "hookChoiceIds": ["greek-inquire-aristophanes-acharnians"],
+          "hookChoiceIds": [
+            "greek-inquire-aristophanes-acharnians"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Aristophanes",
@@ -3955,10 +4233,14 @@
           "author": "Aristophanes",
           "title": "Knights",
           "era": "civic-athens",
-          "placeIds": ["greek-demos-house"],
+          "placeIds": [
+            "greek-demos-house"
+          ],
           "premise": "Rival household servants compete to flatter and exploit the person who holds political power.",
           "status": "situated-hook",
-          "hookChoiceIds": ["greek-inquire-aristophanes-knights"],
+          "hookChoiceIds": [
+            "greek-inquire-aristophanes-knights"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Aristophanes",
@@ -3971,10 +4253,14 @@
           "author": "Aristophanes",
           "title": "Clouds",
           "era": "civic-athens",
-          "placeIds": ["greek-thinkery"],
+          "placeIds": [
+            "greek-thinkery"
+          ],
           "premise": "A debtor seeks an education that may overturn the balance of authority in his own family.",
           "status": "situated-hook",
-          "hookChoiceIds": ["greek-inquire-aristophanes-clouds"],
+          "hookChoiceIds": [
+            "greek-inquire-aristophanes-clouds"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Aristophanes",
@@ -3987,10 +4273,14 @@
           "author": "Aristophanes",
           "title": "Wasps",
           "era": "civic-athens",
-          "placeIds": ["greek-jury-house"],
+          "placeIds": [
+            "greek-jury-house"
+          ],
           "premise": "A juror's pleasure and income collide with his household's attempt to restrain him.",
           "status": "situated-hook",
-          "hookChoiceIds": ["greek-inquire-aristophanes-wasps"],
+          "hookChoiceIds": [
+            "greek-inquire-aristophanes-wasps"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Aristophanes",
@@ -4003,10 +4293,14 @@
           "author": "Aristophanes",
           "title": "Peace",
           "era": "civic-athens",
-          "placeIds": ["greek-divine-heights"],
+          "placeIds": [
+            "greek-divine-heights"
+          ],
           "premise": "A farmer seeks peace while trades built on war face losing their customers.",
           "status": "situated-hook",
-          "hookChoiceIds": ["greek-inquire-aristophanes-peace"],
+          "hookChoiceIds": [
+            "greek-inquire-aristophanes-peace"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Aristophanes",
@@ -4019,10 +4313,14 @@
           "author": "Aristophanes",
           "title": "Birds",
           "era": "civic-athens",
-          "placeIds": ["greek-bird-wilderness"],
+          "placeIds": [
+            "greek-bird-wilderness"
+          ],
           "premise": "A refuge from civic life could become a new power controlling passage between gods and mortals.",
           "status": "situated-hook",
-          "hookChoiceIds": ["greek-inquire-aristophanes-birds"],
+          "hookChoiceIds": [
+            "greek-inquire-aristophanes-birds"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Aristophanes",
@@ -4035,10 +4333,14 @@
           "author": "Aristophanes",
           "title": "Lysistrata",
           "era": "civic-athens",
-          "placeIds": ["greek-acropolis"],
+          "placeIds": [
+            "greek-acropolis"
+          ],
           "premise": "A coalition uses control of the treasury and intimacy to put pressure on the war.",
           "status": "situated-hook",
-          "hookChoiceIds": ["greek-inquire-aristophanes-lysistrata"],
+          "hookChoiceIds": [
+            "greek-inquire-aristophanes-lysistrata"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Aristophanes",
@@ -4051,7 +4353,9 @@
           "author": "Aristophanes",
           "title": "Women at the Thesmophoria",
           "era": "civic-athens",
-          "placeIds": ["greek-festival"],
+          "placeIds": [
+            "greek-festival"
+          ],
           "premise": "Women contest a playwright's portrayal while a disguised visitor risks exposure.",
           "status": "situated-hook",
           "hookChoiceIds": [
@@ -4069,10 +4373,14 @@
           "author": "Aristophanes",
           "title": "Frogs",
           "era": "civic-athens",
-          "placeIds": ["greek-underworld"],
+          "placeIds": [
+            "greek-underworld"
+          ],
           "premise": "A divine visitor seeks a poet whose art can answer the city's troubles.",
           "status": "situated-hook",
-          "hookChoiceIds": ["greek-inquire-aristophanes-frogs"],
+          "hookChoiceIds": [
+            "greek-inquire-aristophanes-frogs"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Aristophanes",
@@ -4085,10 +4393,14 @@
           "author": "Aristophanes",
           "title": "Assemblywomen",
           "era": "civic-athens",
-          "placeIds": ["greek-assembly"],
+          "placeIds": [
+            "greek-assembly"
+          ],
           "premise": "A political takeover promises shared property and leaves households to work through its consequences.",
           "status": "situated-hook",
-          "hookChoiceIds": ["greek-inquire-aristophanes-assemblywomen"],
+          "hookChoiceIds": [
+            "greek-inquire-aristophanes-assemblywomen"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Aristophanes",
@@ -4101,10 +4413,14 @@
           "author": "Aristophanes",
           "title": "Wealth",
           "era": "civic-athens",
-          "placeIds": ["greek-attic-farm"],
+          "placeIds": [
+            "greek-attic-farm"
+          ],
           "premise": "Restoring Wealth's sight would change who receives prosperity and who benefits from the old distribution.",
           "status": "situated-hook",
-          "hookChoiceIds": ["greek-inquire-aristophanes-wealth"],
+          "hookChoiceIds": [
+            "greek-inquire-aristophanes-wealth"
+          ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Aristophanes",
@@ -4183,6 +4499,32 @@
       "recital": {
         "actor": "greek-rhapsode",
         "title": "Before the Burial",
+        "claims": [
+          {
+            "phrases": [
+              "laid her brother in the earth",
+              "buried her brother",
+              "buried him",
+              "his body lies in the grave"
+            ],
+            "anyChoices": [
+              "greek-perform-burial",
+              "greek-perform-permitted-burial"
+            ]
+          },
+          {
+            "phrases": [
+              "creon gave leave",
+              "creon has granted",
+              "creon granted permission",
+              "the king gave permission"
+            ],
+            "anyChoices": [
+              "greek-petition-burial",
+              "greek-perform-permitted-burial"
+            ]
+          }
+        ],
         "verses": [
           {
             "choice": "greek-return-water-jar",
@@ -4333,13 +4675,18 @@
               {
                 "kind": "light",
                 "item": "lamp",
-                "at": ["pond"]
+                "at": [
+                  "pond"
+                ]
               },
               {
                 "kind": "not",
                 "condition": {
                   "kind": "sound",
-                  "at": ["pond", "clearing"]
+                  "at": [
+                    "pond",
+                    "clearing"
+                  ]
                 }
               }
             ]
@@ -4372,7 +4719,10 @@
       "transports": {
         "greek-ship": {
           "place": "greek-ship",
-          "docks": ["pond", "greek-harbor"],
+          "docks": [
+            "pond",
+            "greek-harbor"
+          ],
           "at": "greek-harbor"
         }
       }

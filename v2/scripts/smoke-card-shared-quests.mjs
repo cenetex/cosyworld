@@ -6,6 +6,8 @@ import { createWorld, encodeSave, decodeSave } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
 import { addQuestRecord } from "../card-game/shared-quests.mjs";
 import { questCards, questCardId } from "../card-game/quest-cards.mjs";
+import { openingFixture } from "../../test/helpers/greek-opening.mjs";
+import { dispatchShared } from "../card-game/shared-world.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
 
 const output = new URL("../../output/card-shared-quests/", import.meta.url);
@@ -141,6 +143,71 @@ try {
     });
     assert.deepEqual(errors, []);
     await page.close();
+    const travelled = dispatchShared({
+      op: "create",
+      save: encodeSave(openingFixture("refusal").waterOffer),
+    }).world;
+    const remote = dispatchShared({
+      world: travelled,
+      op: "view",
+      actor: "mara",
+      claimed: ["vale", "mara"],
+      present: ["vale", "mara"],
+    }).world;
+    const remoteTable = `remote-quest-${width}`;
+    const remoteKey = `cosyworld.reflected-shore.v1.${remoteTable}`;
+    const remotePage = await browser.newPage({
+      viewport: { width, height },
+      reducedMotion: "reduce",
+    });
+    await remotePage.addInitScript(
+      ({ key, save }) => {
+        localStorage.setItem(key, save);
+        localStorage.setItem("cosyworld.dialogue.sound", "off");
+        localStorage.setItem(
+          "cosyworld.room-music",
+          JSON.stringify({ enabled: false }),
+        );
+      },
+      { key: remoteKey, save: encodeSave(remote) },
+    );
+    await remotePage.route("**/card-game/text", (route) => {
+      const input = route.request().postDataJSON();
+      return route.fulfill({
+        json: {
+          revision: input.revision,
+          model: "shared-quest-smoke",
+          entries: input.entities.map((e) => ({
+            id: e.id,
+            text: "I am here at home.",
+          })),
+        },
+      });
+    });
+    await remotePage.goto(
+      `http://127.0.0.1:${server.address().port}/?table=${remoteTable}`,
+    );
+    await remotePage.locator('#hand [data-card="mara"]').waitFor();
+    assert.equal(
+      await remotePage.locator('#hand [data-quest^="greek-drama:"]').count(),
+      0,
+    );
+    assert.equal(
+      await remotePage
+        .locator('#hand [data-card^="story-quest-greek-"]')
+        .count(),
+      0,
+    );
+    assert.equal(
+      await remotePage
+        .locator('#card-actions [data-action="join-quest"]')
+        .count(),
+      0,
+    );
+    await remotePage.screenshot({
+      path: new URL(`mara-home-${width}.png`, output).pathname,
+    });
+    await remotePage.close();
   }
   console.log(
     "Shared holder cards, Help, Share, reload and one completion passed at desktop and phone widths.",

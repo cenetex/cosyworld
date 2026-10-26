@@ -229,6 +229,9 @@ describe("the opening poem", () => {
       (p) => (p.recital.verses[0].choice = "missing"),
       (p) => (p.recital.verses[0].lines = ["one"]),
       (p) => (p.recital.actor = "missing"),
+      (p) => (p.recital.claims[0].anyChoices = ["missing"]),
+      (p) => (p.recital.claims[0].phrases = []),
+      (p) => (p.recital.claims[0].phrases = ["x".repeat(161)]),
     ]) {
       const p = structuredClone(packDefinition("greek-drama"));
       change(p);
