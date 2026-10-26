@@ -1448,8 +1448,8 @@ fn bard_passage_help_uses_authoritative_home_and_ship_actions_and_replays() {
         let mut w = World::create(None).unwrap();
         w.game.as_object_mut().unwrap().remove("opening");
         // Keep this passage fixture separate from unrelated shore quests.
-        w.game["actors"]["moth"]["place"] = json!("station");
-        w.game["actors"]["keeper"]["place"] = json!("station");
+        w.game["actors"]["moth"]["place"] = json!("greek-battlefield");
+        w.game["actors"]["keeper"]["place"] = json!("greek-battlefield");
         let start = if sea { "greek-harbor" } else { "theatre" };
         w.game["actors"]["vale"]["place"] = json!(if sea { "pond" } else { "theatre" });
         w.game["actors"]["greek-rhapsode"]["place"] = json!(start);
