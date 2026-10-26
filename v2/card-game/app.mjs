@@ -497,6 +497,9 @@ function choose(id) {
       : [...selected, id];
   selectionRevision = world.revision;
   render();
+  $("hand")
+    .querySelector(`[data-card="${id}"]`)
+    ?.focus({ preventScroll: true });
   revealHandCard(id, Boolean(people[id]));
 }
 function commit(cards, revision) {

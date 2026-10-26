@@ -1,15 +1,21 @@
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
-import { chromium } from "playwright";
+import { chromium, webkit } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
 
-const output = new URL("../../output/card-actions/", import.meta.url);
+const browserName = process.env.CARD_BROWSER || "chromium";
+const browserType = { chromium, webkit }[browserName];
+assert(browserType, `Unknown CARD_BROWSER: ${browserName}`);
+const output = new URL(
+  `../../output/card-actions${browserName === "chromium" ? "" : `-${browserName}`}/`,
+  import.meta.url,
+);
 await mkdir(output, { recursive: true });
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-const browser = await chromium.launch({ headless: true });
+const browser = await browserType.launch({ headless: true });
 const meeting = () => {
   const s = createWorld();
   s.actors.moth.place = s.actors.keeper.place = "station";
@@ -25,7 +31,7 @@ try {
   ]) {
     const page = await browser.newPage({
       viewport: { width, height },
-      reducedMotion: "reduce",
+      reducedMotion: width === 320 ? "reduce" : "no-preference",
       hasTouch: width < 700,
     });
     const errors = [];
@@ -121,9 +127,6 @@ try {
       true,
       "the hand fits the viewport, including short landscape screens",
     );
-    await page.emulateMedia({
-      reducedMotion: width === 320 ? "reduce" : "no-preference",
-    });
     const movement = await page.evaluate(async () => {
       const button = document.querySelector('#hand [data-card="vale"]'),
         frame = button.closest(".card-frame"),
@@ -185,7 +188,18 @@ try {
       false,
       "quick reversals finish with the action row closed",
     );
+    // Wait for the existing media-query listeners as well as the new CSS.
+    // WebKit can deliver the change after emulateMedia has returned.
+    await page.evaluate(() => {
+      const query = matchMedia("(prefers-reduced-motion: reduce)");
+      window.motionPreferenceReady = query.matches
+        ? Promise.resolve()
+        : new Promise((resolve) =>
+            query.addEventListener("change", resolve, { once: true }),
+          );
+    });
     await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.evaluate(() => window.motionPreferenceReady);
     await page.keyboard.press("Escape");
     const remote = meeting();
     remote.items.lamp.holder = "keeper";
@@ -249,6 +263,11 @@ try {
     await selectCard(page, "moth");
     await selectCard(page, "vale");
     assert.deepEqual(await labels(), ["Threaten Pip for Black cloth"]);
+    assert.equal(
+      await page.evaluate(() => document.activeElement.dataset.card),
+      "vale",
+      "a card tap leaves keyboard focus on that card",
+    );
     await page.keyboard.press("Tab");
     assert.equal(
       await page.evaluate(() => document.activeElement.dataset.action),
@@ -279,7 +298,7 @@ try {
     assert.equal((await state()).turn, 1);
     assert.deepEqual(errors, []);
     console.log(
-      `Actions, item stacks, trade, standoff, story choices and keyboard passed at ${width}px.`,
+      `Actions, item stacks, trade, standoff, story choices and keyboard passed in ${browserName} at ${width}px.`,
     );
     await page.close();
   }
