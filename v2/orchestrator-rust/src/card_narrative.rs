@@ -23,6 +23,8 @@ use tokio_stream::{wrappers::UnboundedReceiverStream, StreamExt};
 
 #[path = "card_narrative/observations.rs"]
 mod observations;
+#[path = "card_narrative/recital.rs"]
+pub(crate) mod recital;
 
 const SYSTEM: &str = r#"Write short expressions for a whimsical cosmic horror card world. Use plain English and each entity's persona. Follow the profile's setting and register when they differ from the default tone. Return one JSON object with an entries array of {id,text}, covering every ID in requested_ids exactly once, including avatars outside scene.speakers. Order requested speakers by scene.speakers, then add the other requested IDs. Every entry belongs to requested_ids; other scene entities supply context. The other avatar entries are reflections kept on their cards. Each text has one clear purpose, in one or two sentences of about 12 to 35 words.
 
@@ -51,7 +53,7 @@ Use each supplied profile's voice, persona, tastes and values. Characters have t
 STAGING
 direction.vale_intent gives the performance of the chosen action. When Vale is a scene speaker, convey that intent in natural speech to the person involved. direction.setting names the current scene and everyone present after the turn. Anchor scenery in that place. direction.journeys is the exact movement record expressed in plain words for every avatar. Apply it to ALL entries, including the location and items. Separate solo trips to the same place are separate arrivals, even on the same turn. Shared arrival language applies to the named companions of a single trip. People already present can greet arrivals. Use these journey facts when describing footsteps, reflections, a group, or a greeting.
 
-Items and locations receive third-person sensory descriptions grounded in their recorded state, use and witnessed history. Translate game statistics into physical details and motives; keep numerical status, levels and quest program steps in game data. Use the supplied entities. Card plays decide what happens; generated words express the result. Return only JSON."#;
+Items and locations receive third-person sensory descriptions grounded in their recorded state, use and witnessed history. Translate game statistics into physical details and motives; keep numerical status, levels and quest program steps in game data. Use the supplied entities. Card plays decide what happens; generated words express the result. When direction.recital is present, copy its text exactly into the entry for its id. This is a recitation of earned words. Keep the other entries in their own voices. Return only JSON."#;
 const PER_MINUTE: RateLimit = RateLimit {
     max_hits: 30,
     window: Duration::from_secs(60),
@@ -611,6 +613,7 @@ fn direction(context: &Context) -> Value {
 fn prompt(context: &Context) -> String {
     let mut direction = direction(context);
     direction["observations_now"] = observations::facts(context);
+    direction["recital"] = recital::instruction(&serde_json::to_value(context).expect("scene"));
     json!({"scene": context, "direction": direction, "requested_ids": context.entities.iter().map(|e| &e.id).collect::<Vec<_>>(), "personas": context.entities.iter().map(|e| json!({"id": e.id, "profile": profiles()[&e.id]})).collect::<Vec<_>>()}).to_string()
 }
 fn response_json(text: &str) -> &str {
@@ -636,6 +639,11 @@ fn parse(text: &str, context: &Context) -> Option<Vec<Entry>> {
                 && e.reflection.is_none()
                 && e.model.is_none()
                 && observations::consistent(&e.text, context)
+                && recital::consistent(
+                    &serde_json::to_value(context).expect("scene"),
+                    &e.id,
+                    &e.text,
+                )
         }))
     .then_some(result.entries)
 }
@@ -784,7 +792,7 @@ async fn complete_shared(
     let format = json!({"type": "json_object"});
     let request = ChatCompletionRequest {
         feature: "card_entity_text",
-        prompt_version: "card-entity-text-v12",
+        prompt_version: "card-entity-text-v13",
         capability: ModelCapability::WorldContent,
         system: SYSTEM,
         user: &user,
@@ -874,7 +882,10 @@ fn character_prompt(context: &Context, ids: &[String]) -> String {
     input["response_example"] = json!({"entries": context.entities.iter()
         .filter(|e| ids.contains(&e.id))
         .map(|e| {
-            let mut entry = json!({"id": e.id, "text": "Write this character's words for the resolved scene."});
+            let words = recital::required(&serde_json::to_value(context).expect("scene"))
+                .filter(|(id,_)| id == &e.id).map(|(_,text)|text)
+                .unwrap_or_else(|| "Write this character's words for the resolved scene.".into());
+            let mut entry = json!({"id": e.id, "text": words});
             let (reflect, dream) = reflection_due(context, e);
             if reflect {
                 entry["reflection"] = json!({"thought": "Write a private thought.", "persona": "Write the current persona."});
@@ -947,6 +958,13 @@ fn validate_character_entries(
     for entry in &mut generated.entries {
         if !bounded(&entry.text, 400) {
             return Err("text_bounds");
+        }
+        if !recital::consistent(
+            &serde_json::to_value(context).expect("scene"),
+            &entry.id,
+            &entry.text,
+        ) {
+            return Err("earned_verse");
         }
         if !observations::consistent(&entry.text, context) {
             return Err("observable_state");
@@ -1041,11 +1059,12 @@ async fn complete_characters(
             for attempt in 0..2 {
             let request = ChatCompletionRequest {
                 feature: "card_character_text",
-                prompt_version: "card-character-text-v2",
+                prompt_version: "card-character-text-v3",
                 capability: ModelCapability::WorldContent,
                 system,
                 user: &user,
-                temperature: 0.8,
+                temperature: if recital::required(&serde_json::to_value(context).expect("scene"))
+                    .is_some_and(|(id,_)| ids.contains(&id)) { 0.0 } else { 0.8 },
                 max_tokens: 900,
                 timeout: Duration::from_secs(12),
                 max_attempts: 1,
@@ -1070,6 +1089,9 @@ async fn complete_characters(
                     tracing::warn!(stage = "validation", reason, attempt, model = %completion.resolved_model_id, entities = ?ids, "Card dialogue needs repair");
                     let mut input: Value = serde_json::from_str(&user).expect("character prompt");
                     input["repair"] = json!({"reason": reason, "instruction": "Write a fresh response using the exact response_example keys and IDs. Replace each example value with original words grounded in this scene. Include every requested reflection field, including dream when shown."});
+                    if reason == "earned_verse" {
+                        input["repair"]["instruction"] = json!("Copy direction.recital.text exactly into the entry for direction.recital.id. These are the earned words of the song. Preserve the required reflection fields.");
+                    }
                     if reason == "observable_state" {
                         input["repair"]["instruction"] = json!("Write a fresh response grounded in direction.observations_now. Those facts describe the final state after every event this turn. Keep present-tense claims consistent with them. Preserve the required IDs and reflection fields.");
                     }
@@ -1155,6 +1177,82 @@ mod tests {
                 {"id":"bell","holder":"keeper","location":"attic"}
             ]
         })).unwrap()
+    }
+
+    fn bard_context() -> Context {
+        let mut value = serde_json::to_value(context()).unwrap();
+        value["speakers"] = json!(["vale", "greek-rhapsode"]);
+        value["outcome"] = serde_json::to_value(solo_departure()).unwrap();
+        value["outcome"]["card"]["kind"] = json!("talk");
+        value["outcome"]["card"]["target"] = json!("greek-rhapsode");
+        value["entities"][3]["id"] = json!("greek-rhapsode");
+        value["entities"][3]["facts"] =
+            json!(["Verse 1, Vale: I told her I would turn away. Her brother waited by the wall."]);
+        value["entities"][3]["memories"] = json!([]);
+        serde_json::from_value(value).unwrap()
+    }
+
+    #[tokio::test]
+    async fn invented_bard_verse_is_repaired_before_publication() {
+        let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
+        let captured = seen.clone();
+        let provider = Router::new().route("/chat/completions", post(move |Json(body): Json<Value>| {
+            let captured = captured.clone();
+            async move {
+                let input: Value = serde_json::from_str(body["messages"][1]["content"].as_str().unwrap()).unwrap();
+                captured.lock().unwrap().push(input.clone());
+                let repaired = input["repair"]["reason"] == "earned_verse";
+                let entries: Vec<_> = input["requested_ids"].as_array().unwrap().iter().map(|id| {
+                    let text = if id == "greek-rhapsode" {
+                        if repaired { input["direction"]["recital"]["text"].as_str().unwrap() }
+                        else { "The dark keeps every name the waves release." }
+                    } else { "I hear you." };
+                    json!({"id":id,"text":text})
+                }).collect();
+                Json(json!({"model":"test-entity-model","choices":[{"message":{"content":json!({"entries":entries}).to_string()},"finish_reason":"stop"}]}))
+            }
+        }));
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            axum::serve(listener, provider).await.unwrap();
+        });
+        let c = bard_context();
+        let models = [("vale".into(), "test-entity-model".into())]
+            .into_iter()
+            .collect();
+        let published = Mutex::new(Vec::new());
+        let emit = |text: &str| {
+            published.lock().unwrap().push(text.to_string());
+            true
+        };
+        let result = complete_characters(&test_config(address), &c, &models, Some(&emit))
+            .await
+            .unwrap();
+        let bard = result["entries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|e| e["id"] == "greek-rhapsode")
+            .unwrap();
+        assert_eq!(
+            bard["text"],
+            "I told her I would turn away. Her brother waited by the wall."
+        );
+        let output = published.lock().unwrap().join(" ");
+        assert!(!output.contains("The dark keeps"));
+        assert!(output.contains("I told her I would turn away."));
+        assert_eq!(
+            seen.lock()
+                .unwrap()
+                .iter()
+                .filter(|p| p["repair"]["reason"] == "earned_verse")
+                .count(),
+            1
+        );
+        let invalid = json!({"entries":c.entities.iter().map(|e|json!({"id":e.id,"text":"An invented sea poem."})).collect::<Vec<_>>()});
+        assert!(parse(&invalid.to_string(), &c).is_none());
+        server.abort();
     }
 
     #[test]
