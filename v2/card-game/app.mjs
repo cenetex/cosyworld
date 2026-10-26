@@ -939,7 +939,11 @@ async function takeDiscovered() {
       await animation.finished.catch(() => {});
       animation.cancel();
     }
-  } else await flyCard(shown, discoveryAnchor(shown.dataset.card));
+  } else
+    await flyCard(
+      shown,
+      discoveryAnchor(shown.dataset.card, shown.dataset.owner),
+    );
   if (version !== trip || done !== endDiscovery) return;
   dialog.close();
   shown.replaceChildren();
@@ -958,8 +962,10 @@ $("unveil-dialog").addEventListener("cancel", (event) => {
 });
 async function showDiscovered(id, version, announcement, fulfilled = false) {
   const shown = card(id);
+  const revealedQuest = isQuestCard(id) ? shownQuest(id) : null;
   shown.hidden = false;
   shown.removeAttribute("data-holder");
+  shown.removeAttribute("data-stacked");
   shown.dataset.raised = "false";
   shown
     .querySelectorAll(".held-preview, .quest-preview, .sr-only")
@@ -974,7 +980,7 @@ async function showDiscovered(id, version, announcement, fulfilled = false) {
   shown
     .querySelectorAll("[id]")
     .forEach((element) => element.removeAttribute("id"));
-  if (isQuestCard(id) && !fulfilled)
+  if (revealedQuest && !fulfilled)
     display.querySelector(".quest-mark").textContent = "New quest";
   await waitForScene(
     [...shown.querySelectorAll("img")].map((img) => img.decode()),
@@ -993,13 +999,18 @@ async function showDiscovered(id, version, announcement, fulfilled = false) {
   const dialog = $("unveil-dialog"),
     button = $("unveil-take");
   button.dataset.card = id;
+  button.dataset.owner = revealedQuest?.actor || "";
   button.setAttribute(
     "aria-label",
-    `${announcement} ${isQuestCard(id) ? shownQuest(id).purpose + " " : ""}${fulfilled ? "Keep in quest history." : "Add to hand."}`,
+    `${announcement} ${revealedQuest ? revealedQuest.purpose + " " : ""}${fulfilled ? "Keep in quest history." : "Add to hand."}`,
   );
   button.replaceChildren(shown);
   dialog.dataset.phase = "reveal";
   dialog.dataset.direction = fulfilled ? "fulfill" : "discover";
+  dialog.setAttribute(
+    "aria-label",
+    fulfilled ? "Quest fulfilled" : "New card discovered",
+  );
   const finished = new Promise((resolve) => {
     endDiscovery = resolve;
   });
@@ -1007,13 +1018,13 @@ async function showDiscovered(id, version, announcement, fulfilled = false) {
   else dialog.showModal();
   if (fulfilled) {
     discoveryFlying = true;
-    await flyCard(button, discoveryAnchor(id, shownQuest(id)?.actor), true);
+    await flyCard(button, discoveryAnchor(id, revealedQuest?.actor), true);
     if (version !== trip) return;
     discoveryFlying = false;
     dialog.dataset.phase = "reveal";
   }
-  if (isQuestCard(id)) {
-    questSeen.add(shownQuest(id).key);
+  if (revealedQuest) {
+    questSeen.add(revealedQuest.key);
     rememberQuests();
   }
   $("discovery-announcement").textContent = announcement;

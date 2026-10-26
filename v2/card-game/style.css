@@ -1159,6 +1159,7 @@ body .unveil .card-frame {
 }
 body .unveil .card {
   display: block;
+  transform: none;
   opacity: 1;
   box-shadow: 0 0 35px #e5c78b55;
 }

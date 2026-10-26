@@ -212,14 +212,16 @@ try {
         );
       });
       const completedBounds = await page
-        .locator("#unveil-dialog")
+        .locator("#unveil-take .card")
         .boundingBox();
       assert(
         Math.abs(completedBounds.x + completedBounds.width / 2 - width / 2) < 2,
+        JSON.stringify({ width, height, completedBounds }),
       );
       assert(
         Math.abs(completedBounds.y + completedBounds.height / 2 - height / 2) <
           2,
+        JSON.stringify({ width, height, completedBounds }),
       );
       assert.equal(
         await page
