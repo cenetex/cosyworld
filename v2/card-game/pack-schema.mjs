@@ -885,7 +885,12 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     }
     check(
       pack.coverage?.works === seen.size &&
-        JSON.stringify(counts) === JSON.stringify(pack.coverage?.authors),
+        record(pack.coverage?.authors) &&
+        Object.keys(counts).length ===
+          Object.keys(pack.coverage.authors).length &&
+        Object.entries(counts).every(
+          ([id, n]) => pack.coverage.authors[id] === n,
+        ),
       "repertoire counts disagree",
     );
   }

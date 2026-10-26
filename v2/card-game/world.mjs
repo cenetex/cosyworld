@@ -2016,6 +2016,23 @@ function validProgram(p, actor, s) {
   }
   return true;
 }
+// JSON hosts may reorder object keys. Save equality follows values and array order.
+function sameValue(a, b) {
+  if (a === b) return true;
+  if (
+    !a ||
+    !b ||
+    typeof a !== "object" ||
+    typeof b !== "object" ||
+    Array.isArray(a) !== Array.isArray(b)
+  )
+    return false;
+  const keys = Object.keys(a);
+  return (
+    keys.length === Object.keys(b).length &&
+    keys.every((key) => Object.hasOwn(b, key) && sameValue(a[key], b[key]))
+  );
+}
 export function validateWorld(s) {
   const fail = () => {
     throw new Error(
@@ -2164,7 +2181,7 @@ export function validateWorld(s) {
       fail();
     // Pack residents follow their own interests, never authored programs.
     if (isPackActor(id)) {
-      if (JSON.stringify(a.progress) !== JSON.stringify(newProgress())) fail();
+      if (!sameValue(a.progress, newProgress())) fail();
       continue;
     }
     const progress = a.progress,
@@ -2450,7 +2467,7 @@ export function validateWorld(s) {
         target = e.target || options[0];
       if (
         !validHand(target, e.actorId) ||
-        !options.some((h) => JSON.stringify(h) === JSON.stringify(target))
+        !options.some((h) => sameValue(h, target))
       )
         fail();
       if (e.fulfillment !== undefined) {
@@ -2475,8 +2492,10 @@ export function validateWorld(s) {
           fail();
         if (
           target.conditions?.length &&
-          JSON.stringify(seen.conditions) !==
-            JSON.stringify(target.conditions.map((c) => ({ ...c, met: true })))
+          !sameValue(
+            seen.conditions,
+            target.conditions.map((c) => ({ ...c, met: true })),
+          )
         )
           fail();
       }
