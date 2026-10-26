@@ -1367,14 +1367,6 @@ pub(crate) async fn request_chat_completion(
     request_chat_completion_progress(config, request, None).await
 }
 
-pub(crate) async fn request_chat_completion_stream(
-    config: &AiConfig,
-    request: ChatCompletionRequest<'_>,
-    on_delta: &(dyn Fn(&str) -> bool + Send + Sync),
-) -> Result<AiCompletion, AiGatewayError> {
-    request_chat_completion_progress(config, request, Some(on_delta)).await
-}
-
 async fn request_chat_completion_progress(
     config: &AiConfig,
     request: ChatCompletionRequest<'_>,

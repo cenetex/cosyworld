@@ -293,7 +293,8 @@ entry in the operator registry. The narrator keeps `COSYWORLD_CARD_TEXT_MODEL`.
 Assignments depend on the character ID, so they survive turns, saves, reloads,
 restarts and changes in who is present. Operators can change an assignment by
 editing the map and its registry entry together. Hosts with the character map
-unset use the shared narrator route for local development.
+unset use the default world-content model for each voice. Mounted pack avatars
+inherit that default unless their ID has an explicit model assignment.
 
 Each avatar call receives the public scene plus that avatar's own witnessed
 memories, current persona, thoughts and dreams. Other avatars' inner lives stay
@@ -305,8 +306,7 @@ A character can reflect after a new witnessed event. The first reflection is
 available after the first turn; later reflections are at least six turns apart.
 A reflection supplies a thought and an evolved persona. The first reflection
 also supplies a symbolic dream or daydream; later dreams are at least twelve
-turns apart. Sleeping and waking state still comes from game facts. The model
-writes these fields in the same call as the character's speech.
+turns apart. Sleeping and waking state still comes from game facts. Each field has its own brief completion. Public lines enter the queue first.
 
 The browser saves the current persona and the latest four thoughts and four
 dreams per avatar beside the existing witnessed memories and landmarks.
@@ -315,11 +315,27 @@ start with their authored personas and gain inner lives as play continues.
 Dreams and thoughts are marked as private impressions. They are separate from
 witnessed events and public conversation.
 
-The scene remains one publication unit. Provider calls have a twelve-second
-limit and the complete group has a fourteen-second limit. Each avatar gets one
-call and the narrator gets one call, for at most five calls per scene. The
-existing scene admission, concurrency and retry limits still apply. Provider
-failure, incomplete output or invalid reflection keeps the last saved scene.
+Each voice receives a short first-person transcript and completes one plain-text
+line. Optional `idiolect` and `lines` profile fields supply style and examples;
+existing pack `persona` and `voice` fields remain supported. The server checks
+visible state, including lamp state, before accepting each line. Supplied quest
+facts remain part of the transcript.
+
+Hosted calls have a twelve-second limit and the scene has a twenty-two-second
+limit, with eight calls in flight. Replies are collected as they complete, then
+published in scene order. Local play can publish completed lines once at least
+one requested speaker succeeds. Omitted cards keep their saved words. Shared
+play requires both selected voices and journals the committed text through the
+existing shared dialogue event. Shared speech uses the same transcript and
+visible-state checks; reflections belong to local play.
+
+For local Ollama play, pull a model and run `npm run play:cards:local`.
+`COSYWORLD_LOCAL_MODEL` defaults to `gemma3:4b`; `OLLAMA_URL` and
+`COSYWORLD_CARD_LOCAL_PORT` select the server and table port. The local profile
+allows ninety seconds per call and four minutes per scene, with one call in
+flight. `COSYWORLD_CARD_TEXT_PROFILE=local` selects this profile on another
+server. The served page receives the matching wait budget. Operators can set
+`COSYWORLD_CARD_STORY_BUDGET_MS` for a separately served card page.
 
 ## Seven-place painted opening
 

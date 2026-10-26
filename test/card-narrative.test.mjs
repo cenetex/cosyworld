@@ -245,6 +245,29 @@ describe("entity memories and model text", () => {
     expect(() => applyGeneratedText(world, context, duplicate)).toThrow();
   });
 
+  it("keeps omitted cards unchanged and publishes only supplied speakers", () => {
+    const world = act(createWorld(), "wait");
+    const context = narrativeContext(world);
+    const reply = response(context);
+    const silent = context.speakers.at(-1);
+    expect(context.speakers.length).toBeGreaterThan(1);
+    reply.omitted = [silent];
+    reply.entries = reply.entries.filter((entry) => entry.id !== silent);
+    const next = applyGeneratedText(world, context, reply);
+    expect(next.memories[silent].text).toEqual(world.memories[silent].text);
+    expect(
+      next.log
+        .slice(world.log.length)
+        .some((e) => e.generated && e.entityId === silent),
+    ).toBe(false);
+    const empty = response(context);
+    empty.omitted = [...context.speakers];
+    empty.entries = empty.entries.filter(
+      (entry) => !empty.omitted.includes(entry.id),
+    );
+    expect(() => applyGeneratedText(world, context, empty)).toThrow();
+  });
+
   it("coalesces fast plays and keeps reset worlds clear of late replies", async () => {
     let world = act(createWorld(), "wait");
     const requests = [],

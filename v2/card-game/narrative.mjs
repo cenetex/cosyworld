@@ -499,10 +499,16 @@ export function applyGeneratedText(world, context, response) {
     return null;
   const ids = context.entities.map((entity) => entity.id);
   const entries = response.entries;
+  const omitted = response.omitted ?? [];
+  const spoke = (id) => entries.some((entry) => entry?.id === id);
   if (
     !Array.isArray(entries) ||
-    entries.length !== ids.length ||
-    new Set(entries.map((entry) => entry?.id)).size !== ids.length ||
+    !Array.isArray(omitted) ||
+    entries.length + omitted.length !== ids.length ||
+    new Set([...entries.map((entry) => entry?.id), ...omitted]).size !==
+      ids.length ||
+    omitted.some((id) => !ids.includes(id)) ||
+    (context.speakers.length > 0 && !context.speakers.some(spoke)) ||
     entries.some(
       (entry) =>
         !ids.includes(entry?.id) ||
@@ -584,7 +590,7 @@ export function applyGeneratedText(world, context, response) {
     context.location,
     context.focus,
     ...context.speakers,
-  ].filter(Boolean)) {
+  ].filter((id) => id && !omitted.includes(id))) {
     const text = next.memories[id].text;
     const avatar = profiles[id].kind === "avatar";
     const movement = changes.find((change) => change.actorId === id);
@@ -757,6 +763,10 @@ export function createNarrator({
   started = () => {},
   request = requestNarrative,
   preview = () => {},
+  budget = Number(
+    globalThis.document?.querySelector('meta[name="cosy-story-budget-ms"]')
+      ?.content,
+  ) || 30_000,
 }) {
   let ticket = 0,
     pending = null,
@@ -764,7 +774,7 @@ export function createNarrator({
     running = false,
     controller;
   async function write(context, version, signal) {
-    const deadline = Date.now() + 30_000;
+    const deadline = Date.now() + Math.max(30_000, Math.min(budget, 1_900_000));
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const response = await boundedRequest(
