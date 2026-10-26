@@ -15,9 +15,10 @@ const provider = createServer(async (req, res) => {
   for await (const chunk of req) body += chunk;
   const input = JSON.parse(body || "{}");
   requests.push(input);
+  const scene = JSON.parse(input.messages.at(-1).content);
   const content = JSON.stringify({
     lines: [
-      { speaker: "actor", text: "There is room for a little company." },
+      { speaker: scene.speaker.name, text: "There is room for a little company." },
       { speaker: "scene", text: "A ripple reaches the shore." },
     ],
   });
