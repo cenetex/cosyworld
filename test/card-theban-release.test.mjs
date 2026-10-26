@@ -189,7 +189,7 @@ describe("the Theban release and its ship", () => {
         "utf8",
       ),
     );
-    expect(packMediaFiles.filter((f) => f.endsWith(".webp"))).toHaveLength(9);
+    expect(packMediaFiles.filter((f) => f.endsWith(".webp"))).toHaveLength(10);
     for (const image of p.assets) {
       const bytes = readFileSync(
         new URL(

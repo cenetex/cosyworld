@@ -1492,7 +1492,8 @@ function card(id) {
       ? packMedia(id, "art") || `./assets/${id}-card.png`
       : type === "avatar"
         ? portrait(id, null, world)
-        : crossingFace?.art || packMedia(id, "art") || backdrop(id);
+        : crossingFace?.art ||
+          (packPlaces[id]?.art ? packMedia(id, "art") : backdrop(id, world));
   img.alt = "";
   img.draggable = false;
   if (type === "avatar") frameFigure(img);
@@ -1624,7 +1625,7 @@ function renderStage(locationId) {
     picture.dataset.place = locationId;
     const canvas = node("div", undefined, "stage-canvas");
     const background = node("img", undefined, "backdrop");
-    background.src = backdrop(locationId);
+    background.src = backdrop(locationId, world);
     background.alt = stage.alt;
     const sprite = node("img", undefined, "stage-resident");
     sprite.id = "resident-sprite";
@@ -1875,7 +1876,7 @@ function renderScene() {
       image.src = people[portraitId]
         ? portrait(portraitId, null, world)
         : places[portraitId]
-          ? backdrop(portraitId)
+          ? backdrop(portraitId, world)
           : packMedia(portraitId, "art") || `./assets/${portraitId}-card.png`;
       portraitBox.dataset.kind = people[portraitId] ? "avatar" : "scene";
       if (people[portraitId]) frameFigure(image);

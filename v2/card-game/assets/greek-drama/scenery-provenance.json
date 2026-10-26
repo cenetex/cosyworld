@@ -234,6 +234,34 @@
         941
       ],
       "processing": "Generated with built-in image_gen; encoded as WebP at quality 94."
+    },
+    {
+      "place": "greek-harbor",
+      "file": "harbor-open-berth.webp",
+      "generated": "2026-10-26",
+      "sourceName": "exec-ed027361-720c-43b3-a881-97ce05a04854.png",
+      "generationId": "exec-ed027361-720c-43b3-a881-97ce05a04854",
+      "sourceSha256": "f65ac24ffb2a45b726fb1b752c97c55e188c7d654cde16aad9ab2295537095ca",
+      "sha256": "c389d9f8c137134a51789d6145e18b48feea3d266ccfd4e8329f0ee0969ddd75",
+      "size": [
+        1672,
+        941
+      ],
+      "processing": "Generated with built-in image_gen; full frame encoded as WebP at quality 94."
+    },
+    {
+      "place": "greek-harbor",
+      "file": "harbor-ship-at-berth.webp",
+      "generated": "2026-10-26",
+      "sourceName": "exec-e5585b26-1833-41b0-9a26-70d307664754.png",
+      "generationId": "exec-e5585b26-1833-41b0-9a26-70d307664754",
+      "sourceSha256": "8a6d5e0e201c698e24359831b88af566b6690836953df6f2c6c7382e05ad1da8",
+      "sha256": "f71d5f64371f50b37059f0929db3489b0f808696494c64078ad5fbe958e1f1d0",
+      "size": [
+        1672,
+        941
+      ],
+      "processing": "Generated with built-in image_gen; full frame encoded as WebP at quality 94."
     }
   ],
   "regeneration": {
