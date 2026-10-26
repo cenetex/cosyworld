@@ -90,11 +90,17 @@ export function worldLink(id) {
   url.searchParams.set("world", id);
   return url.href;
 }
-async function showLink(id) {
+async function showLink(id, offerContinue = false) {
   const box = panel(
     "Invite someone",
     "This link opens this world, with its places, people, belongings, and progress.",
   );
+  if (offerContinue)
+    box.append(
+      button("Continue shared world", () => {
+        location.href = worldLink(id);
+      }),
+    );
   const field = node("input");
   field.id = "invite-url";
   field.readOnly = true;
@@ -264,9 +270,25 @@ export async function connectSharedWorld(id) {
     play: (action) => command({ op: "play", key: crypto.randomUUID(), action }),
   };
 }
-export function installSharedControls({ session, getSave, notice, onLive }) {
+export function installSharedControls({
+  session,
+  saveSlot,
+  getSave,
+  notice,
+  onLive,
+}) {
+  ensureSharedStyle();
+  const linkedWorld = () => {
+    try {
+      return saveSlot ? localStorage.getItem(`${saveSlot}.shared`) : null;
+    } catch {
+      return null;
+    }
+  };
   const share = button("Share", async () => {
     if (session) return showLink(session.id);
+    const linked = linkedWorld();
+    if (linked) return showLink(linked, true);
     await authenticate(async () => {
       const box = panel(
         "Share this world",
@@ -277,6 +299,10 @@ export function installSharedControls({ session, getSave, notice, onLive }) {
           const created = await request("/card-game/shared/worlds", {
             save: getSave(),
           });
+          try {
+            if (saveSlot)
+              localStorage.setItem(`${saveSlot}.shared`, created.id);
+          } catch {}
           location.href = worldLink(created.id);
         }),
       );
@@ -284,11 +310,23 @@ export function installSharedControls({ session, getSave, notice, onLive }) {
   });
   share.id = "shared-worlds-button";
   document.querySelector(".top-actions").prepend(share);
-  if (!session) return;
-  const worlds = button("Worlds", () => {
+  const worlds = button("Worlds", async () => {
+    if (session) await session.command({ op: "leave" });
     location.href = "/?shared=1";
   });
+  worlds.id = "owned-worlds-button";
   document.querySelector(".top-actions").prepend(worlds);
+  if (!session) {
+    if (linkedWorld()) {
+      const resume = button("Continue shared world", () => {
+        location.href = worldLink(linkedWorld());
+      });
+      resume.id = "continue-shared-world";
+      resume.className = "shared-resume";
+      document.querySelector(".play-dock").prepend(resume);
+    }
+    return;
+  }
   const queue = node("div", undefined, "shared-play-queue");
   queue.id = "shared-queue";
   queue.setAttribute("aria-label", "Plays at the table");

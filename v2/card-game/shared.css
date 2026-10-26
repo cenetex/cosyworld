@@ -81,3 +81,19 @@
     padding-inline: 8px;
   }
 }
+
+.shared-resume {
+  display: block;
+  margin: 4px auto 8px;
+  padding: 6px 12px;
+  font-size: 13px;
+}
+@media (max-width: 480px) {
+  .topbar .brand {
+    display: none;
+  }
+  .topbar .top-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
