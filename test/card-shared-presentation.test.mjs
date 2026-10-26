@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sharedLiveLine } from "../v2/card-game/shared.mjs";
+import { sharedLiveLine, sharedSpeechState } from "../v2/card-game/shared.mjs";
 import { createWorld, currentActor } from "../v2/card-game/world.mjs";
 import { availableCards } from "../v2/card-game/cards.mjs";
 import {
@@ -81,5 +81,44 @@ describe("shared room dialogue clock", () => {
   it("reads only the current room's scene", () => {
     expect(sharedLiveLine(state, 1100, "station").speaker).toBe("Keeper");
     expect(sharedLiveLine(state, 1100, "attic")).toBeNull();
+  });
+});
+
+describe("shared speech recovery", () => {
+  const failed = {
+    play: "play1",
+    actor: "vale",
+    room: "pond",
+    turn: 4,
+    error: "busy",
+  };
+  const state = {
+    actor: "vale",
+    world: { turn: 4 },
+    queue: [],
+    history: [failed],
+  };
+  it("offers the actor a server retry for the saved play", () => {
+    expect(sharedSpeechState(state, "pond")).toEqual({
+      status: "retry",
+      retryKey: "play1",
+    });
+  });
+  it("keeps recovery tied to the room, actor, turn and queue", () => {
+    expect(sharedSpeechState(state, "station").status).toBe("ready");
+    expect(
+      sharedSpeechState({ ...state, actor: "mara" }, "pond").retryKey,
+    ).toBeNull();
+    expect(
+      sharedSpeechState({ ...state, world: { turn: 5 } }, "pond").retryKey,
+    ).toBeNull();
+    expect(
+      sharedSpeechState({ ...state, queue: [{ status: "waiting" }] }, "pond")
+        .retryKey,
+    ).toBeNull();
+    expect(
+      sharedSpeechState({ ...state, queue: [{ status: "working" }] }, "pond")
+        .status,
+    ).toBe("pending");
   });
 });

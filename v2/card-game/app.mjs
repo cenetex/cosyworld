@@ -3,6 +3,7 @@ import {
   installSharedControls,
   renderSharedQueue,
   sharedLiveLine,
+  sharedSpeechState,
   humanAvatars,
 } from "./shared.mjs";
 import { enableMotives } from "./motives.mjs";
@@ -588,7 +589,21 @@ const narrator = createNarrator({
     renderScene();
   },
 });
-$("story-retry").onclick = () => narrator.retry();
+$("story-retry").onclick = async () => {
+  if (!sharedSession) return narrator.retry();
+  const room = world.actors[currentActor(world)].place;
+  const { retryKey } = sharedSpeechState(sharedSession.state, room);
+  if (!retryKey) return;
+  $("story-retry").disabled = true;
+  try {
+    await sharedSession.command({ op: "retry", key: retryKey });
+  } catch (error) {
+    notice(error.message);
+  } finally {
+    $("story-retry").disabled = false;
+    renderScene();
+  }
+};
 function choose(id) {
   if (selectionBlocked()) return;
   playQueue.clear();
@@ -1613,12 +1628,19 @@ function renderScene() {
   const movement = reviewing || !cardsCooling ? "" : movementCaption(world);
   $("movement-caption").textContent = movement;
   $("movement-caption").hidden = !movement;
+  const sharedSpeech = sharedSession
+    ? sharedSpeechState(sharedSession.state, scene.locationId)
+    : null;
+  if (sharedSpeech) storyStatus = sharedSpeech.status;
   $("story-status").hidden = storyStatus === "ready" && !exchange.preparing;
   $("story-status").textContent =
     storyStatus === "retry"
-      ? `${storyError} Retry this scene or keep playing.`
+      ? sharedSession
+        ? "Your play is saved. Speech is taking a moment. You can keep playing."
+        : `${storyError} Retry this scene or keep playing.`
       : "···";
-  $("story-retry").hidden = storyStatus !== "retry";
+  $("story-retry").hidden =
+    storyStatus !== "retry" || (sharedSession && !sharedSpeech.retryKey);
   $("story-status").setAttribute(
     "aria-label",
     storyStatus === "retry"
@@ -2261,6 +2283,7 @@ function adoptShared(value) {
   } else {
     renderSharedQueue(sharedSession);
     renderActions();
+    renderScene();
   }
   if (value.notice) notice(value.notice);
   const nudge = value.nudge

@@ -120,6 +120,7 @@ export async function openWorlds() {
     const box = panel(
       "Your worlds",
       "Continue with your saved avatar, or open a friend's world link.",
+      false,
     );
     for (const entry of result.worlds)
       box.append(
@@ -136,6 +137,10 @@ export async function openWorlds() {
       button("Return to my game", () => {
         location.href = "/";
       }),
+      button("Sign out", async () => {
+        await request("/auth/logout", {});
+        location.reload();
+      }),
     );
   }, false);
 }
@@ -150,7 +155,7 @@ export async function connectSharedWorld(id) {
         op: "enter",
       });
       const index = humanAvatars.findIndex((a) => a.id === value.actor);
-      if (value.present?.[index] === 0) {
+      if (value.present && !value.present[index]) {
         const box = panel(
           "A place will open shortly",
           "Your room has four people. Your avatar and belongings are saved.",
@@ -347,6 +352,26 @@ export function installSharedControls({
       await passkey(true);
       notice("Your extra passkey is ready.");
     }),
+    button("Leave this room", async () => {
+      await session.command({ op: "leave" });
+      location.href = "/?shared=1";
+    }),
+    button("Release this avatar", () => {
+      $("menu-dialog").close();
+      const box = panel(
+        "Release your avatar?",
+        "Their belongings and story will stay in this world. Someone else can then claim this avatar.",
+      );
+      box.append(
+        button("Keep my avatar", () => modal.close()),
+        button("Release avatar", () => session.command({ op: "release" })),
+      );
+    }),
+    button("Sign out", async () => {
+      await session.command({ op: "leave" });
+      await request("/auth/logout", {});
+      location.href = "/?shared=1";
+    }),
   );
 }
 export function renderSharedQueue(session) {
@@ -379,4 +404,18 @@ export function sharedLiveLine(state, now, room) {
     if (elapsed < 0) return line;
   }
   return scene.lines.at(-1);
+}
+
+export function sharedSpeechState(state, room) {
+  const working = state.queue?.some((entry) => entry.status === "working");
+  if (working) return { status: "pending", retryKey: null };
+  const scene = state.history?.find((entry) => entry.room === room);
+  if (!scene?.error) return { status: "ready", retryKey: null };
+  const retryKey =
+    scene.actor === state.actor &&
+    scene.turn === state.world?.turn &&
+    !state.queue?.length
+      ? scene.play
+      : null;
+  return { status: "retry", retryKey };
 }
