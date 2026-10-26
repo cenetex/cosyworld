@@ -26,7 +26,6 @@ globalThis.discoveryProbe = {
     globalThis.discoverySettled[key] = false;
     prepareScene().then(() => { globalThis.discoverySettled[key] = true; });
   },
-  cancel: () => cancelTravel(),
 };
 `;
 try {
@@ -198,17 +197,24 @@ try {
     await publish((state) => {
       state.items.bell.holder = "station";
     });
-    await page.evaluate(() => {
-      window.discoveryProbe.wait("cancelled");
-      window.discoveryProbe.cancel();
-      document.querySelector("#history-dialog").close();
+    await page.evaluate(() => window.discoveryProbe.wait("cancelled"));
+    await publish((state) => {
+      state.actors.vale.place = "pond";
     });
+    await page.evaluate(() =>
+      document.querySelector("#history-dialog").close(),
+    );
     await page.waitForFunction(() => window.discoverySettled.cancelled);
     assert.equal(await page.locator("#unveil-dialog[open]").count(), 0);
+    assert.equal(
+      await page.evaluate(() => window.discoveryProbe.state().pending),
+      false,
+      "a shared room change clears the cancelled discovery state",
+    );
     await publish((state) => {
       state.items.oil.holder = "attic";
       state.items.bell.holder = "attic";
-      state.items.cloth.holder = "station";
+      state.items.cloth.holder = "pond";
     });
     await reveal("cloth");
     await page.evaluate(() => window.discoveryProbe.wait("newTrip"));
