@@ -90,7 +90,7 @@ try {
   browser = await chromium.launch({ headless: true });
   const pages = [],
     errors = [];
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 8; i++) {
     const context = await browser.newContext({
       viewport:
         i === 1 ? { width: 390, height: 844 } : { width: 1440, height: 900 },
@@ -130,9 +130,15 @@ try {
     .getByRole("button", { name: "Create a shared world", exact: true })
     .click();
   await vale.getByRole("heading", { name: "Choose your avatar" }).waitFor();
-  await vale.screenshot({
+  const artworkReady = (page) =>
+    page.waitForFunction(() =>
+      [...document.images].every(
+        (image) => image.complete && image.naturalWidth > 0,
+      ),
+    );
+  await artworkReady(vale);
+  await vale.locator(".shared-picker").screenshot({
     path: join(output, "avatar-picker.png"),
-    fullPage: true,
   });
   const world = new URL(vale.url()).searchParams.get("world");
   assert(world);
@@ -153,11 +159,16 @@ try {
       },
       { world, body },
     );
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 8; i++) {
     if (i) await pages[i].goto(origin + "/?world=" + world);
     await pages[i].locator(".shared-choice").nth(i).click();
     await pages[i].locator("#shared-scene").waitFor({ state: "visible" });
     assert.equal((await api(pages[i])).body.actor, i);
+    await artworkReady(pages[i]);
+    await pages[i].screenshot({
+      path: join(output, `home-${i}.png`),
+      fullPage: true,
+    });
   }
   const play = (page, kind, item = -1, target = -1) =>
     api(page, { op: "play", kind, item, target, key: crypto.randomUUID() });
@@ -197,6 +208,22 @@ try {
   const before = (await api(vale)).body.history[0];
   assert.deepEqual((await api(mara)).body.history[0], before);
   assert.equal(before.lines.length, 2);
+  await until(
+    async () => (await vale.locator(".shared-person").count()) === 4,
+    "all four people appear",
+  );
+  await artworkReady(vale);
+  await artworkReady(mara);
+  await vale
+    .getByRole("button", { name: "Empty station, location", exact: true })
+    .click();
+  assert.match(
+    await vale.locator("#shared-actions").innerText(),
+    /lamp lights a stone arch/,
+  );
+  await vale
+    .getByRole("button", { name: "Empty station, location", exact: true })
+    .click();
   await vale.screenshot({
     path: join(output, "shared-desktop.png"),
     fullPage: true,
@@ -241,7 +268,7 @@ try {
     ),
   );
   console.log(
-    "Shared cards: five real passkey sessions, claim restore, four-person capacity, hidden full-room cards, shared two-line speech, custody, disappearing entrance, nudge, desktop and phone passed.",
+    "Shared cards: eight real passkey sessions, eight homes, claim restore, four-person capacity, hidden full-room cards, shared two-line speech, custody, named entrances, disappearing entrance, nudge, desktop and phone passed.",
   );
 } catch (error) {
   if (browser)

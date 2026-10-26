@@ -11,9 +11,106 @@ const assets = new Map([
   ["/shared-rules.mjs", ["shared-rules.mjs", "text/javascript"]],
   ["/shared.css", ["shared.css", "text/css"]],
   ["/shared-cast.json", ["shared-cast.json", "application/json"]],
-  ["/assets/shared-cast.png", ["assets/shared-cast.png", "image/png"]],
-  ["/assets/shared-places.png", ["assets/shared-places.png", "image/png"]],
-  ["/assets/shared-items.png", ["assets/shared-items.png", "image/png"]],
+  [
+    "/assets/shared/places/pond.png",
+    ["assets/shared/places/pond.png", "image/png"],
+  ],
+  [
+    "/assets/shared/characters/vale.png",
+    ["assets/shared/characters/vale.png", "image/png"],
+  ],
+  [
+    "/assets/shared/places/station.png",
+    ["assets/shared/places/station.png", "image/png"],
+  ],
+  [
+    "/assets/shared/items/lamp.png",
+    ["assets/shared/items/lamp.png", "image/png"],
+  ],
+  [
+    "/assets/shared/characters/mara.png",
+    ["assets/shared/characters/mara.png", "image/png"],
+  ],
+  [
+    "/assets/shared/places/theatre.png",
+    ["assets/shared/places/theatre.png", "image/png"],
+  ],
+  [
+    "/assets/shared/items/mask.png",
+    ["assets/shared/items/mask.png", "image/png"],
+  ],
+  [
+    "/assets/shared/characters/ash.png",
+    ["assets/shared/characters/ash.png", "image/png"],
+  ],
+  [
+    "/assets/shared/places/belfry.png",
+    ["assets/shared/places/belfry.png", "image/png"],
+  ],
+  [
+    "/assets/shared/items/float.png",
+    ["assets/shared/items/float.png", "image/png"],
+  ],
+  [
+    "/assets/shared/characters/nell.png",
+    ["assets/shared/characters/nell.png", "image/png"],
+  ],
+  [
+    "/assets/shared/places/glasshouse.png",
+    ["assets/shared/places/glasshouse.png", "image/png"],
+  ],
+  [
+    "/assets/shared/items/can.png",
+    ["assets/shared/items/can.png", "image/png"],
+  ],
+  [
+    "/assets/shared/characters/tavi.png",
+    ["assets/shared/characters/tavi.png", "image/png"],
+  ],
+  [
+    "/assets/shared/places/hill.png",
+    ["assets/shared/places/hill.png", "image/png"],
+  ],
+  [
+    "/assets/shared/items/kite.png",
+    ["assets/shared/items/kite.png", "image/png"],
+  ],
+  [
+    "/assets/shared/characters/rue.png",
+    ["assets/shared/characters/rue.png", "image/png"],
+  ],
+  [
+    "/assets/shared/places/train.png",
+    ["assets/shared/places/train.png", "image/png"],
+  ],
+  [
+    "/assets/shared/items/routes.png",
+    ["assets/shared/items/routes.png", "image/png"],
+  ],
+  [
+    "/assets/shared/characters/orin.png",
+    ["assets/shared/characters/orin.png", "image/png"],
+  ],
+  [
+    "/assets/shared/places/pavilion.png",
+    ["assets/shared/places/pavilion.png", "image/png"],
+  ],
+  [
+    "/assets/shared/items/board.png",
+    ["assets/shared/items/board.png", "image/png"],
+  ],
+  [
+    "/assets/shared/characters/ada.png",
+    ["assets/shared/characters/ada.png", "image/png"],
+  ],
+  [
+    "/assets/shared/places/loft.png",
+    ["assets/shared/places/loft.png", "image/png"],
+  ],
+  [
+    "/assets/shared/items/shears.png",
+    ["assets/shared/items/shears.png", "image/png"],
+  ],
 
   ["/", ["index.html", "text/html"]],
   ["/index.html", ["index.html", "text/html"]],

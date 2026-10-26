@@ -5,7 +5,8 @@ if (shared.has("world") || shared.get("shared") === "1") {
   await import("./app.mjs");
   const button = document.createElement("button");
   button.id = "shared-worlds-button";
-  button.textContent = "Share a world";
+  button.textContent = "Share";
+  button.setAttribute("aria-label", "Share a world");
   button.onclick = () => {
     location.href = "/?shared=1";
   };

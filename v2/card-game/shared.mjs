@@ -76,11 +76,9 @@ async function guard(action) {
 function portrait(index) {
   const box = node("span", undefined, "shared-portrait");
   const img = node("img");
-  img.src = "/card-game/assets/shared-cast.png";
+  img.src = `/card-game/${avatars[index].image}`;
   img.alt = "";
-  const sprite = avatars[index].sprite;
-  img.style.left = `${-(sprite % 4) * 100}%`;
-  img.style.top = `${-Math.floor(sprite / 4) * 119.07}%`;
+  img.decoding = "async";
   box.append(img);
   return box;
 }
@@ -263,10 +261,7 @@ function render() {
     renderKey = key;
     el("shared-place").textContent = places[p].name;
     const backdrop = el("shared-backdrop");
-    backdrop.style.backgroundImage = `url('/card-game/assets/${p === 0 ? "pond" : "shared-places"}.png')`;
-    backdrop.className = p > 0 ? "shared-place-atlas" : "";
-    backdrop.dataset.tile = p > 0 ? String(p - 1) : "";
-    fitBackdrop();
+    backdrop.style.backgroundImage = `url('/card-game/${places[p].image}')`;
     const cast = el("shared-cast");
     cast.replaceChildren();
     for (let i = 0; i < 8; i++)
@@ -316,39 +311,26 @@ function card(type, index) {
   b.setAttribute("aria-label", `${name}, ${type}`);
   if (type === "avatar") b.append(portrait(index));
   else if (type === "item") {
-    const art = node("span", undefined, "shared-object-art");
-    art.style.backgroundPosition = `${((index % 4) * 100) / 3}% ${Math.floor(index / 4) * 100}%`;
+    const art = node("img", undefined, "shared-object-art");
+    art.src = `/card-game/${avatars[index].item.image}`;
+    art.alt = "";
+    art.decoding = "async";
     b.append(art);
   } else {
     const art = node("span", undefined, "shared-place-art");
-    if (index === 0)
-      art.style.backgroundImage = `url('/card-game/assets/${index === 0 ? "pond" : "station"}.png')`;
-    else {
-      art.classList.add("shared-place-atlas");
-      art.style.backgroundPosition = `${(((index - 1) % 4) * 100) / 3}% ${Math.floor((index - 1) / 4) * 100}%`;
-    }
+    art.style.backgroundImage = `url('/card-game/${places[index].image}')`;
     b.append(art);
   }
   b.append(node("span", name, "shared-card-name"));
+  if (type === "location" && w.places[a] === 0 && index !== 0) {
+    b.append(node("span", places[index].entrance.name, "shared-entrance-name"));
+    b.title = places[index].entrance.text;
+  }
   if (type === "avatar" && index === a) b.dataset.you = "true";
   if (type === "location" && index === w.places[a])
     b.setAttribute("aria-label", `${name}, current place`);
   return b;
 }
-function fitBackdrop() {
-  const backdrop = el("shared-backdrop");
-  if (backdrop.dataset.tile === "" || backdrop.dataset.tile === undefined) {
-    backdrop.style.backgroundSize = "cover";
-    backdrop.style.backgroundPosition = "center";
-    return;
-  }
-  const slot = Number(backdrop.dataset.tile);
-  const { width, height } = backdrop.getBoundingClientRect();
-  const side = Math.max(width, height);
-  backdrop.style.backgroundSize = `${side * 4}px ${side * 2}px`;
-  backdrop.style.backgroundPosition = `${(width - side) / 2 - (slot % 4) * side}px ${(height - side) / 2 - Math.floor(slot / 4) * side}px`;
-}
-new ResizeObserver(fitBackdrop).observe(el("shared-backdrop"));
 function renderHand() {
   const w = state.world,
     a = state.actor,
@@ -412,9 +394,13 @@ function renderActions() {
     state.exits.includes(destination) &&
     item === undefined &&
     person === undefined
-  )
+  ) {
+    if (p === 0)
+      actions.append(
+        node("span", places[destination].entrance.text, "shared-help"),
+      );
     play("Travel", 5, -1, destination);
-  else if (item !== undefined) {
+  } else if (item !== undefined) {
     if (w.holders[item] === a) {
       if (person !== undefined) play("Give", 8, item, person);
       else {

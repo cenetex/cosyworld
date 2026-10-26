@@ -62,7 +62,7 @@
   padding: 30px max(20px, calc((100vw - 1000px) / 2));
   background:
     linear-gradient(#14151deb, #14151df2),
-    url("/card-game/assets/pond.png") center/cover;
+    url("/card-game/assets/shared/places/pond.png") center/cover;
 }
 #shared-lobby h1 {
   font:
@@ -131,15 +131,21 @@
 .shared-portrait {
   display: block;
   position: relative;
-  overflow: hidden;
-  aspect-ratio: 384/430;
+  aspect-ratio: 2/3;
   flex: none;
 }
 .shared-portrait img {
-  position: absolute;
-  max-width: none !important;
-  width: 400% !important;
-  height: auto !important;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center bottom;
+}
+.shared-choice .shared-portrait {
+  height: 270px;
+  width: 100%;
+  padding: 12px 6px 0;
+  background: radial-gradient(ellipse at 50% 70%, #5c504333, transparent 70%);
 }
 .shared-world-list {
   display: grid;
@@ -167,11 +173,7 @@
   inset: 0;
   background-size: cover;
   background-position: center;
-  opacity: 0.66;
-}
-.shared-place-atlas {
-  background-image: url("/card-game/assets/shared-places.png");
-  background-size: 400% 200%;
+  opacity: 0.9;
 }
 #shared-place {
   position: relative;
@@ -193,7 +195,7 @@
 }
 .shared-person {
   height: 100%;
-  max-height: 350px;
+  max-height: 430px;
   max-width: 22%;
   display: flex;
   flex-direction: column;
@@ -202,10 +204,9 @@
   min-width: 0;
 }
 .shared-person .shared-portrait {
-  width: min(190px, 18vw);
-  max-height: calc(100% - 26px);
-  border-radius: 55% 55% 10px 10px;
-  box-shadow: 0 8px 30px #0008;
+  width: min(230px, 21vw);
+  height: calc(100% - 26px);
+  filter: drop-shadow(0 8px 7px #0007);
 }
 .shared-person > span:last-child {
   padding: 4px 8px;
@@ -298,6 +299,13 @@
   padding: 8px 5px;
   min-height: 34px;
 }
+.shared-entrance-name {
+  display: block;
+  padding: 0 4px 7px;
+  color: #c8bfae;
+  font-size: 10px;
+  line-height: 1.2;
+}
 .shared-card .shared-portrait {
   width: 100%;
   height: 118px;
@@ -311,8 +319,12 @@
   background-position: center;
 }
 .shared-object-art {
-  background-image: url("/card-game/assets/shared-items.png");
-  background-size: 400% 200%;
+  object-fit: contain;
+  padding: 8px;
+  background: radial-gradient(ellipse, #62533b22, transparent 75%);
+}
+.shared-card .shared-portrait {
+  padding: 4px 8px 0;
 }
 #shared-actions {
   display: flex;
@@ -464,5 +476,11 @@
 @media (prefers-reduced-motion: reduce) {
   .shared-card {
     transition: none;
+  }
+}
+
+@media (max-width: 700px) {
+  .shared-choice .shared-portrait {
+    height: 220px;
   }
 }

@@ -37,23 +37,43 @@ The new tables are additive. The single-player entry retains its saved game.
 Version tags deploy the shared entry to lonelyforest.com through the existing
 release workflow.
 
+## Entrances and future journeys
+
+Each signature item reveals a distinct entrance at Black pond:
+
+| Person | Entrance         | Home                   |
+| ------ | ---------------- | ---------------------- |
+| Vale   | Lit arch         | Empty station          |
+| Mara   | Parted curtains  | Paper theatre          |
+| Ash    | Diving bell      | Sunken belfry          |
+| Nell   | Growing gate     | Wild glasshouse        |
+| Tavi   | Wind path        | Wind hill              |
+| Rue    | Carriage door    | Between-hours carriage |
+| Orin   | Game-tile bridge | Games pavilion         |
+| Ada    | Open seam        | Sail loft              |
+
+Entrance cards show the destination and the entrance name. Selecting one describes
+how it appears. Item presence and the four-person room limit still control access.
+
+A future Paris journey can depart from Vale's existing station. Rue's carriage is
+her home between journeys; her route board could bring it alongside the station
+for boarding. This release keeps that connection as a design direction. A later
+journey needs its own destination, boarding rules, and shared arrival event.
+
 ## Art
 
-The built-in image generation tool created the sheets in `v2/card-game/assets/`.
-The cast is Vale in black and Mara, Ash, Nell, Tavi, Rue, Orin, Ada in rainbow
-order. The cast atlas uses Mara/Vale/Ash/Nell above Tavi/Rue/Orin/Ada. The place
-and item atlases use Vale/Mara/Ash/Nell above Tavi/Rue/Orin/Ada.
+The built-in image generation tool created 25 individual paintings under
+`v2/card-game/assets/shared/`: eight transparent people, eight transparent items,
+and nine wide room scenes. Full prompts and source IDs are in `art-prompts.json`.
 
-The revised place prompt calls for eight equal square panels in a 4-by-2 sheet,
-quiet watercolor and gouache, natural wood, stone, paper and mist, with a small
-complementary accent in each room. Vale's station is ivory; Mara's theatre sage;
-Ash's belfry dusty blue; Nell's glasshouse violet; Tavi's hill brick red; Rue's
-train apricot; Orin's pavilion ochre; Ada's sail loft pale yellow-green.
+Vale wears black. Mara, Ash, Nell, Tavi, Rue, Orin, and Ada follow rainbow order.
+Rue has close-cropped dark hair and a crisp blue coat. Orin is tall and wiry, with
+auburn hair, spectacles, and an indigo waistcoat. Ada has white hair and a wooden
+wheelchair; Ash has a broad build and a grey beard.
 
-The item prompt calls for eight centered, readable, hand-painted objects on ivory
-paper: black railway lamp, red theatre mask, orange diving float, yellow watering
-can, green signal kite, blue route board, indigo game board, violet sewing shears.
-
-Source image IDs: cast `385b3536-dfb2-4525-8d46-c70b683fa6d4`, places
-`f77ac620-de5c-4743-af6e-07fb5b54cb95`, items
-`0e9a8022-fcf1-49d7-9afd-63f47307fead`.
+Each home uses natural wood, stone, paper, and mist, with a quiet complementary
+accent: ivory, sage, dusty blue, violet, brick red, apricot, ochre, and yellow-green.
+The station has an empty clock; the theatre unfolds from paper; the belfry holds
+a dry room underwater; the glasshouse shelters a signal cabin; the hill rises
+above the clouds; the carriage has morning and night windows; the pavilion has
+folding panels; the loft has an unfinished sail that opens to the sky.

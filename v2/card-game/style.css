@@ -96,6 +96,15 @@ button:focus-visible {
 .top-actions button {
   font-size: 12px;
 }
+@media (max-width: 380px) {
+  .topbar .brand {
+    display: none;
+  }
+  .topbar .top-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
 .music-controls {
   display: flex;
   align-items: center;
