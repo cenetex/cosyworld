@@ -29,9 +29,12 @@ const provider = createServer(async (req, res) => {
   requests.push(input);
   if (holdReplies) await new Promise((resolve) => waitingReplies.push(resolve));
   if (failReplies) {
-    res.writeHead(503, { "Content-Type": "application/json" });
+    res.writeHead(200, { "Content-Type": "application/json" });
     res.end(
-      JSON.stringify({ error: { message: "Words need another attempt." } }),
+      JSON.stringify({
+        model: input.model,
+        choices: [{ message: { content: "" }, finish_reason: "stop" }],
+      }),
     );
     return;
   }
