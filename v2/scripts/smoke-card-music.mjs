@@ -32,6 +32,11 @@ try {
   });
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
+  // Exercise the toolbar while the chosen game module is still loading.
+  await page.route("**/card-game/app.mjs", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await route.continue();
+  });
   await page.route("**/card-game/text", (route) =>
     route.fulfill({
       status: 503,

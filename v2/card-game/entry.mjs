@@ -12,3 +12,4 @@ if (shared.has("world") || shared.get("shared") === "1") {
   };
   document.querySelector(".top-actions")?.prepend(button);
 }
+document.body.inert = false;
