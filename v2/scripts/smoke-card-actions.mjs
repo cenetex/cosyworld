@@ -22,6 +22,52 @@ const meeting = () => {
   s.items.lamp.holder = "vale";
   return s;
 };
+async function measureHand(page, selector) {
+  return page.evaluate(async (selector) => {
+    const button = document.querySelector('#hand [data-card="vale"]'),
+      start = button.closest(".card-frame").getBoundingClientRect().top,
+      nameStart = button.querySelector(".name").getBoundingClientRect().top;
+    document.querySelector(selector).click();
+    const current = document.querySelector('#hand [data-card="vale"]'),
+      frame = current.closest(".card-frame"),
+      immediate = frame.getBoundingClientRect().top,
+      nameImmediate = current
+        .querySelector(".name")
+        .getBoundingClientRect().top,
+      same = button === current;
+    const motions = document
+        .querySelector(".play-dock")
+        .getAnimations({ subtree: true }),
+      clocks = motions
+        .filter((motion) =>
+          motion.effect.target.matches("#hand, .action-panel"),
+        )
+        .map((motion) => ({
+          target: motion.effect.target.id || motion.effect.target.className,
+          state: motion.playState,
+          duration: motion.effect.getTiming().duration,
+        }));
+    // Seek the actual animations so a busy worker cannot miss their midpoint.
+    for (const motion of motions) motion.pause();
+    await Promise.all(motions.map((motion) => motion.ready));
+    for (const motion of motions)
+      motion.currentTime = Number(motion.effect.getTiming().duration) / 2;
+    const during = frame.getBoundingClientRect().top;
+    for (const motion of motions) motion.finish();
+    await Promise.all(motions.map((motion) => motion.finished));
+    return {
+      start,
+      immediate,
+      during,
+      end: frame.getBoundingClientRect().top,
+      same,
+      clocks,
+      nameStart,
+      nameImmediate,
+    };
+  }, selector);
+}
+
 try {
   for (const [width, height] of [
     [1440, 900],
@@ -127,42 +173,7 @@ try {
       true,
       "the hand fits the viewport, including short landscape screens",
     );
-    const movement = await page.evaluate(async () => {
-      const button = document.querySelector('#hand [data-card="vale"]'),
-        frame = button.closest(".card-frame"),
-        start = frame.getBoundingClientRect().top;
-      button.click();
-      const immediate = frame.getBoundingClientRect().top,
-        same = button === document.querySelector('#hand [data-card="vale"]');
-      const motions = document
-          .querySelector(".play-dock")
-          .getAnimations({ subtree: true }),
-        clocks = motions
-          .filter((motion) =>
-            motion.effect.target.matches("#hand, .action-panel"),
-          )
-          .map((motion) => ({
-            target: motion.effect.target.id || motion.effect.target.className,
-            state: motion.playState,
-            duration: motion.effect.getTiming().duration,
-          }));
-      // Seek the actual animations so a busy worker cannot miss their midpoint.
-      for (const motion of motions) motion.pause();
-      await Promise.all(motions.map((motion) => motion.ready));
-      for (const motion of motions)
-        motion.currentTime = Number(motion.effect.getTiming().duration) / 2;
-      const during = frame.getBoundingClientRect().top;
-      for (const motion of motions) motion.finish();
-      await Promise.all(motions.map((motion) => motion.finished));
-      return {
-        start,
-        immediate,
-        during,
-        end: frame.getBoundingClientRect().top,
-        same,
-        clocks,
-      };
-    });
+    const movement = await measureHand(page, '#hand [data-card="vale"]');
     assert.equal(
       movement.same,
       true,
@@ -193,6 +204,42 @@ try {
         "the card passes through an intermediate position",
       );
     }
+    const lowering = await measureHand(
+      page,
+      '#card-actions [data-action="wait"]',
+    );
+    assert.equal(
+      lowering.same,
+      false,
+      "a committed play refreshes the card contents and handlers",
+    );
+    if (width === 320) assert(Math.abs(lowering.immediate - lowering.end) < 1);
+    else {
+      assert(
+        Math.abs(lowering.immediate - lowering.start) < 1,
+        "a committed play lowers the hand from its current position",
+      );
+      assert(
+        Math.abs(lowering.nameImmediate - lowering.nameStart) < 1,
+        "the refreshed card name starts in the same position",
+      );
+      assert(
+        lowering.during > lowering.start && lowering.during < lowering.end,
+        "the hand passes through its lowering midpoint",
+      );
+      assert.deepEqual(
+        lowering.clocks.sort((a, b) => a.target.localeCompare(b.target)),
+        [
+          { target: "action-panel", state: "running", duration: 220 },
+          { target: "hand", state: "running", duration: 220 },
+        ],
+      );
+    }
+    await ready();
+    assert.equal((await state()).turn, 1);
+    assert.equal(await page.locator(".action-panel").isVisible(), false);
+    await load(meeting());
+    await selectCard(page, "vale");
     await selectCard(page, "lamp");
     for (const dialog of ["menu", "history"]) {
       await page.locator(`#${dialog}-button`).click();

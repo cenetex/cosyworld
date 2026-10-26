@@ -791,7 +791,6 @@ body .card .name {
   white-space: normal;
   text-wrap: balance;
   text-shadow: 0 2px 5px #000;
-  transition: bottom 220ms ease-out;
 }
 body .card[data-lit="true"] .art {
   background: radial-gradient(ellipse at 50% 60%, #e0a94a66, #151b24 76%);

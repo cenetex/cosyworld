@@ -151,6 +151,7 @@ let storyStatus = "ready",
   renderedCast = "",
   renderedHand = "",
   renderedHandRevision = null,
+  renderedHandPlace = null,
   actionPanelMotion = null,
   speechKey = null,
   speechGlyphs = [],
@@ -770,7 +771,6 @@ async function unveilNew() {
   rememberCards();
   discoveryPending = true;
   cardsCooling = true;
-  renderedHand = "";
   render();
   const version = trip;
   try {
@@ -970,6 +970,15 @@ function updateCardSelection(frame) {
       : "");
 }
 const handMotions = new Map();
+function moveHandPart(key, element, frames) {
+  const motion = element.animate(frames, { duration: 220, easing: "ease-out" });
+  handMotions.set(key, motion);
+  motion.finished
+    .then(() => {
+      if (handMotions.get(key) === motion) handMotions.delete(key);
+    })
+    .catch(() => {});
+}
 function card(id) {
   const type = cardType(id),
     base = places[id] || people[id] || things[id],
@@ -1475,23 +1484,29 @@ function render() {
     world.revision,
     selected,
     [...expandedHolders],
+    [...fresh],
     saveBlocked,
   ]);
   if (handKey !== renderedHand) {
     const sameWorld = renderedHand && renderedHandRevision === world.revision,
-      animate = sameWorld && !reducedMotion.matches,
+      samePlace = renderedHand && renderedHandPlace === world.actors.vale.place,
+      animate = samePlace && !reducedMotion.matches,
       before = new Map();
     if (animate)
       for (const frame of $("hand").children)
-        if (!frame.hidden)
-          before.set(
-            frame.querySelector(".card").dataset.card,
-            frame.getBoundingClientRect(),
-          );
+        if (!frame.hidden) {
+          const rect = frame.getBoundingClientRect();
+          before.set(frame.querySelector(".card").dataset.card, {
+            left: rect.left,
+            top: rect.top,
+            nameBottom: getComputedStyle(frame.querySelector(".name")).bottom,
+          });
+        }
     for (const motion of handMotions.values()) motion.cancel();
     handMotions.clear();
     renderedHand = handKey;
     renderedHandRevision = world.revision;
+    renderedHandPlace = world.actors.vale.place;
     if (sameWorld)
       for (const frame of $("hand").children) updateCardSelection(frame);
     else $("hand").replaceChildren(...availableCards(world).map(card));
@@ -1504,21 +1519,19 @@ function render() {
           previous = before.get(id) || before.get(frame.dataset.holder);
         if (!previous) continue;
         const next = frame.getBoundingClientRect(),
-          dx = previous.left - next.left;
-        if (Math.abs(dx) < 1 && before.has(id)) continue;
-        const motion = frame.animate(
-          {
-            translate: [`${dx}px 0`, "0 0"],
+          dx = previous.left - next.left,
+          dy = previous.top - next.top;
+        if (Math.abs(dx) >= 1 || Math.abs(dy) >= 1 || !before.has(id))
+          moveHandPart(`frame:${id}`, frame, {
+            translate: [`${dx}px ${dy}px`, "0 0"],
             opacity: [before.has(id) ? 1 : 0.3, 1],
-          },
-          { duration: 220, easing: "ease-out" },
-        );
-        handMotions.set(id, motion);
-        motion.finished
-          .then(() => {
-            if (handMotions.get(id) === motion) handMotions.delete(id);
-          })
-          .catch(() => {});
+          });
+        const name = frame.querySelector(".name"),
+          nameBottom = getComputedStyle(name).bottom;
+        if (before.has(id) && previous.nameBottom !== nameBottom)
+          moveHandPart(`name:${id}`, name, {
+            bottom: [previous.nameBottom, nameBottom],
+          });
       }
   }
   updateHandScroll();
