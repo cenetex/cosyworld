@@ -14,6 +14,8 @@ import {
   applyGeneratedText,
   createNarrator,
 } from "../v2/card-game/narrative.mjs";
+import { enableMotives } from "../v2/card-game/motives.mjs";
+import { actorQuests } from "../v2/card-game/quests.mjs";
 import { profiles } from "../v2/card-game/memory.mjs";
 import { sceneScript, currentScene } from "../v2/card-game/scene.mjs";
 
@@ -38,6 +40,28 @@ const response = (context) => ({
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe("entity memories and model text", () => {
+  it("grounds active and competing purposes in the collected quests", () => {
+    const world = enableMotives(createWorld(), {
+      questPrograms: true,
+      personalQuests: true,
+    });
+    const context = narrativeContext(world);
+    for (const entity of context.entities.filter(
+      (entry) => world.actors[entry.id],
+    )) {
+      const quests = actorQuests(world, entity.id);
+      const active = quests.find((quest) => quest.status === "active");
+      if (active)
+        expect(entity.facts[0]).toBe(
+          `My active purpose is ${active.program.name}.`,
+        );
+      for (const pending of quests.filter(
+        (quest) => quest.status === "pending",
+      ))
+        expect(entity.facts.join(" ")).toContain(pending.program.name);
+    }
+  });
+
   it("sends the final lamp state after refilling, lighting, covering and running dry", () => {
     let world = createWorld();
     world.actors.vale.place = "pond";
@@ -131,7 +155,7 @@ describe("entity memories and model text", () => {
     expect(vale.facts.join(" ")).toContain(
       "Wants Oil flask, currently with The keeper",
     );
-    expect(context.entities.every((e) => e.facts.length <= 8)).toBe(true);
+    expect(context.entities.every((e) => e.facts.length <= 16)).toBe(true);
     const next = applyGeneratedText(world, context, response(context));
     expect(next.actors).toEqual(world.actors);
     expect(next.items).toEqual(world.items);
@@ -211,7 +235,7 @@ describe("entity memories and model text", () => {
     });
     expect(
       context.entities.every(
-        (e) => e.facts.length <= 8 && e.facts.every((f) => f.length <= 240),
+        (e) => e.facts.length <= 16 && e.facts.every((f) => f.length <= 240),
       ),
     ).toBe(true);
   });
@@ -788,7 +812,7 @@ describe("witnessed departures and conversation continuity", () => {
     expect(
       context.entities.every(
         (e) =>
-          e.facts.length <= 8 && e.facts.every((fact) => fact.length <= 240),
+          e.facts.length <= 16 && e.facts.every((fact) => fact.length <= 240),
       ),
     ).toBe(true);
   });

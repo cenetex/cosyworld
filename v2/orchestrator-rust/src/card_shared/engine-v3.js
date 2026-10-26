@@ -10273,7 +10273,21 @@
       entities: ids3.map((id) => {
         const kind = profiles[id].kind;
         const continuity = kind === "location" || id === currentActor(world) ? packSceneFacts(world, location) : [];
-        const facts = [...packFacts(world, id), ...continuity].filter((fact, index, all) => all.indexOf(fact) === index).slice(-4);
+        const quests = kind === "avatar" ? actorQuests(world, id) : [];
+        const activeQuest = quests.find((quest) => quest.status === "active");
+        const pendingQuests = quests.filter(
+          (quest) => quest.status === "pending"
+        );
+        const questFacts = [
+          ...activeQuest ? [`My active purpose is ${activeQuest.program.name}.`] : [],
+          ...pendingQuests.length ? [
+            `I also want to pursue ${pendingQuests.map((quest) => quest.program.name).join("; ")}.`
+          ] : []
+        ];
+        const facts = [
+          ...questFacts,
+          ...[...packFacts(world, id), ...continuity].filter((fact, index, all) => all.indexOf(fact) === index).slice(-4)
+        ];
         let desire = null;
         if (kind === "avatar") {
           if (hasTemperament(id)) {
@@ -10286,7 +10300,7 @@
             const giving = id === played.actorId ? played.itemId : played.receiveId;
             const receiving = id === played.actorId ? played.receiveId : played.itemId;
             const other = id === played.actorId ? played.targetId : played.actorId;
-            facts.push(
+            facts.unshift(
               `Your completed exchange: you gave ${nameOf(giving)} to ${nameOf(other)} and received ${nameOf(receiving)} from them. The item you gained was ${nameOf(receiving)}.`
             );
           }
@@ -10295,7 +10309,9 @@
           );
           if (quietFact && mindsNoise(id)) facts.push(quietFact);
           if (played?.verb === "accompany" && [played.actorId, played.targetId].includes(id))
-            facts[0] += ` ${nameOf(played.targetId)} ${played.accepted ? "agreed to" : "declined"} ${nameOf(played.actorId)}'s invitation to ${nameOf(played.destinationId)}. This is the recorded answer for this play.`;
+            facts.push(
+              `${nameOf(played.targetId)} ${played.accepted ? "agreed to" : "declined"} ${nameOf(played.actorId)}'s invitation to ${nameOf(played.destinationId)}. This is the recorded answer for this play.`
+            );
           const company = Object.keys(world.actors).filter(
             (other) => other !== id && known.includes(other) && entityActive(world, other) && world.actors[other].place === world.actors[id].place
           );
@@ -10384,7 +10400,7 @@
         );
         return {
           id,
-          facts: facts.slice(0, 8).map((text) => text.slice(0, 240)),
+          facts: facts.slice(0, 16).map((text) => text.slice(0, 240)),
           desire,
           memories: speechMemories(world.memories[id], {
             expressions: !beforeFirstLight
