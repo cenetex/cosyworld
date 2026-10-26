@@ -23,6 +23,17 @@ import {
 } from "../v2/card-game/narrative.mjs";
 import { conditionsMet } from "../v2/card-game/pack-registry.mjs";
 
+import {
+  activeQuests,
+  storyQuests,
+  fulfilledQuests,
+  questHand,
+  QUEST_CARD,
+  STORY_QUEST_CARDS,
+} from "../v2/card-game/quest-cards.mjs";
+
+const story = (world, index) =>
+  storyQuests(world).find((q) => q.id === STORY_QUEST_CARDS[index]);
 const PACK = "greek-drama";
 const HARBOR = "greek-harbor";
 const COURTYARD = "greek-courtyard";
@@ -101,9 +112,9 @@ function choose(world, choiceId) {
   return result.state;
 }
 
-function pond() {
+function pond(scope = "full") {
   let world = enableMotives(
-    createWorld({ opening: true, packScopes: { "greek-drama": "full" } }),
+    createWorld({ opening: true, packScopes: { "greek-drama": scope } }),
     {
       questPrograms: true,
       personalQuests: true,
@@ -117,8 +128,8 @@ function pond() {
   return world;
 }
 
-const harbor = () => move(pond(), HARBOR);
-const courtyard = () => move(harbor(), COURTYARD);
+const harbor = (scope) => move(pond(scope), HARBOR);
+const courtyard = (scope) => move(harbor(scope), COURTYARD);
 const reload = (world) => decodeSave(encodeSave(world));
 
 describe("the Wine-Dark Sea crossing", () => {
@@ -249,6 +260,114 @@ describe("the Wine-Dark Sea crossing", () => {
   });
 });
 
+describe("Greek story quest cards", () => {
+  it("introduces each request through its people and keeps the forest quest alongside it", () => {
+    const shore = pond("opening");
+    expect(storyQuests(shore)).toEqual([]);
+    const landing = harbor("opening");
+    expect(storyQuests(landing)).toEqual([]);
+    let world = move(landing, COURTYARD);
+    expect(story(world, 0)).toMatchObject({
+      title: "A place at the table",
+      resolved: false,
+    });
+    expect(story(world, 1)).toBeUndefined();
+    world = move(world, GATE);
+    expect(story(world, 1)).toMatchObject({
+      title: "Before the burial",
+      resolved: false,
+    });
+    expect(story(world, 2)).toBeUndefined();
+    // A personal purpose and two story requests can share the same hand.
+    world.life.actors.vale.phase = "active";
+    world.life.actors.vale.inspiration = 0;
+    const before = encodeSave(world);
+    expect(questHand(world)).toEqual(
+      expect.arrayContaining([
+        QUEST_CARD,
+        STORY_QUEST_CARDS[0],
+        STORY_QUEST_CARDS[1],
+      ]),
+    );
+    expect(activeQuests(world)).toHaveLength(3);
+    expect(encodeSave(world)).toBe(before);
+    expect(storyQuests(reload(world))).toEqual(storyQuests(world));
+    expect(stateOf(world).scope).toBe("opening");
+    expect(exits(world, HARBOR, "vale")).not.toContain("greek-argolid-road");
+  });
+
+  it("finishes the water card through the return action and keeps it finished after reload", () => {
+    let world = courtyard("opening");
+    const original = story(world, 0);
+    world = take(move(world, WELL), "greek-water-jar");
+    expect(story(world, 0)).toEqual(original);
+    world = move(world, COURTYARD);
+    const before = world;
+    world = choose(world, "greek-return-water-jar");
+    expect(fulfilledQuests(before, world)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: STORY_QUEST_CARDS[0],
+          completion: "Fulfilled",
+        }),
+      ]),
+    );
+    expect(questHand(world)).not.toContain(STORY_QUEST_CARDS[0]);
+    expect(story(reload(world), 0)).toMatchObject({
+      key: original.key,
+      resolved: true,
+    });
+    expect(fulfilledQuests(world, reload(world))).toEqual([]);
+  });
+
+  it.each([
+    ["greek-decline-burial", "refusal", "Declined"],
+    ["greek-report-plan", "exposure", "Reported"],
+  ])(
+    "closes %s with its own outcome and introduces the return to Dione",
+    (choice, outcome, completion) => {
+      const before = choose(
+        move(courtyard("opening"), GATE),
+        "greek-hear-decree",
+      );
+      let world = choose(before, choice);
+      expect(fulfilledQuests(before, world)).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: STORY_QUEST_CARDS[1], completion }),
+        ]),
+      );
+      expect(story(world, 2)).toMatchObject({
+        title: "What the courtyard knows",
+        resolved: false,
+      });
+      expect(story(world, 1).purpose).not.toMatch(/rests beneath/);
+      world = move(world, COURTYARD);
+      const returning = world;
+      world = choose(world, `greek-courtyard-${outcome}`);
+      expect(fulfilledQuests(returning, world)).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: STORY_QUEST_CARDS[2],
+            completion: "Shared",
+          }),
+        ]),
+      );
+      expect(questHand(reload(world))).not.toContain(STORY_QUEST_CARDS[2]);
+      expect(fulfilledQuests(world, act(world, "wait"))).toEqual([]);
+    },
+  );
+
+  it("keeps a learned request through a trip home and the rest between personal quests", () => {
+    let world = move(courtyard("opening"), GATE);
+    const original = story(world, 1);
+    world = walk(world, COURTYARD, HARBOR, "pond");
+    world.life.actors.vale.phase = "seeking";
+    expect(story(world, 1)).toEqual(original);
+    expect(questHand(world)).toContain(STORY_QUEST_CARDS[1]);
+    expect(storyQuests(reload(world))).toEqual(storyQuests(world));
+  });
+});
+
 describe("Before the Burial", () => {
   it("makes the ordinary water errand change custody and access to bread", () => {
     let world = courtyard();
@@ -291,7 +410,17 @@ describe("Before the Burial", () => {
       (a) => a.choiceId === "greek-perform-burial",
     );
     expect(action).toBeTruthy();
+    const beforeBurial = world;
     world = choose(world, "greek-perform-burial");
+    expect(fulfilledQuests(beforeBurial, world)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: STORY_QUEST_CARDS[1],
+          completion: "Fulfilled",
+        }),
+      ]),
+    );
+    expect(story(world, 2)?.resolved).toBe(false);
     expect(stateOf(world).choices["greek-theban-response"]).toBe("burial");
     expect(desireFor(world, "greek-antigone").items).toEqual([]);
     for (const item of ["greek-oil-flask", "greek-funeral-cloth"])
@@ -326,7 +455,19 @@ describe("Before the Burial", () => {
     world = choose(walk(world, COURTYARD, GATE), "greek-hear-decree");
     world = choose(move(world, WELL), "greek-gather-witness");
     world = take(move(world, PALACE), "greek-decree");
+    const beforePetition = world;
     world = choose(world, "greek-petition-burial");
+    expect(
+      fulfilledQuests(beforePetition, world).some(
+        (q) => q.id === STORY_QUEST_CARDS[1],
+      ),
+    ).toBe(false);
+    expect(story(world, 1)).toMatchObject({
+      key: story(beforePetition, 1).key,
+      resolved: false,
+    });
+    expect(story(world, 1).purpose).toContain("still awaits");
+    expect(story(world, 2)?.resolved).toBe(false);
     expect(stateOf(world).choices["greek-theban-response"]).toBe("concession");
     expect(stateOf(world).receipts["greek-perform-burial"]).toBeUndefined();
     expect(reload(world)).toEqual(world);
@@ -342,10 +483,18 @@ describe("Before the Burial", () => {
       target: SANCTUARY,
     });
     world = take(world, "greek-funeral-cloth");
-    world = choose(
-      walk(world, COURTYARD, GATE, BATTLEFIELD),
-      "greek-perform-permitted-burial",
+    world = walk(world, COURTYARD, GATE, BATTLEFIELD);
+    const beforeRite = world;
+    world = choose(world, "greek-perform-permitted-burial");
+    expect(fulfilledQuests(beforeRite, world)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: STORY_QUEST_CARDS[1],
+          completion: "Fulfilled",
+        }),
+      ]),
     );
+    expect(story(world, 1).purpose).toContain("witnessed exception");
     expect(stateOf(world).flags["greek-burial-performed"]).toBe(true);
     expect(stateOf(world).choices["greek-theban-response"]).toBe("concession");
     expect(stateOf(world).receipts["greek-perform-burial"]).toBeUndefined();

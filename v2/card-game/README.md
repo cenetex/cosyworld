@@ -109,6 +109,23 @@ cross-tab updates. Its deterministic speech fixture tests the UI; the
 narrative contract smoke separately sends real Greek request contexts
 through Rust validation without a paid model call.
 
+## Greek story cards
+
+Three story cards follow the saved Theban outcomes. Meeting Dione reveals
+**A place at the table**; returning her water jar fulfills it. Meeting Antigone
+or hearing the decree reveals **Before the burial**. Burial fulfills that
+card. A public exception changes its purpose to arranging the permitted rite.
+Refusal closes it as **Declined**, and warning the guard closes it as **Reported**.
+Each decision reveals **What the courtyard knows**; telling Dione closes it
+as **Shared**.
+
+Story cards sit with the player's belongings beside the personal quest.
+Each has its own art, selection, first reveal, and closing moment. They stay
+with the traveler through a trip home and the rest between personal quests.
+Existing saves derive cards from their recorded meetings, choices, and flags.
+Completed stories remain complete after reload. The opening release remains
+focused on Thebes; the wider repertoire is the next content stage.
+
 ## Personal quests and lasting hopes
 
 The browser enables `personalQuests` alongside motives. The first quest gives
