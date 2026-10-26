@@ -268,6 +268,11 @@ try {
         );
         if (!pursueQuest(world, "vale", next.key))
           throw new Error("The collected quest must accept focus.");
+        // The other tab collected this card before its local discovery was seen.
+        const seenKey = `${key}.quests`;
+        const seen = JSON.parse(localStorage.getItem(seenKey));
+        seen.seen = seen.seen.filter((quest) => quest !== next.key);
+        localStorage.setItem(seenKey, JSON.stringify(seen));
         world.eventSeq++;
         world.log.push({
           seq: world.eventSeq,
@@ -286,6 +291,11 @@ try {
       }, key);
       await page.waitForSelector("#dialogue-text .speech-letter");
       assert.equal(await page.locator("#unveil-dialog[open]").count(), 0);
+      await finish();
+      await page.waitForFunction(
+        (key) => window.questReveals.includes(key),
+        nextQuestKey,
+      );
       await finish();
       assert.deepEqual(await page.evaluate(() => window.questReveals), [
         nextQuestKey,
