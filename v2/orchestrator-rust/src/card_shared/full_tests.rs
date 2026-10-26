@@ -172,11 +172,45 @@ fn legacy_invitation_migrates_claims_and_items_once() {
         params![id, now()],
     )
     .unwrap();
+    let memory = json!({"play":"old-shared-scene","actor":0,"room":0,"turn":1,"action":"Vale waits.","lines":[{"speaker":"Vale","text":"I remember the light on the water."},{"speaker":"Pond","text":"The reeds move softly."}],"starts_at":1234,"until_at":8234,"error":null});
+    c.execute(
+        "INSERT INTO card_scenes(world,room,play,content) VALUES(?,0,'old-shared-scene',?)",
+        params![id, memory.to_string()],
+    )
+    .unwrap();
     let w = full_store::world(&c, &id, now()).unwrap();
     assert_eq!(w.claimed[0], 1);
     assert_eq!(w.game["items"]["lamp"]["holder"], "vale");
     assert!(w.game["actors"]["moth"].is_object());
     assert_eq!(full_store::world(&c, &id, now()).unwrap(), w);
+    let preserved: String = c
+        .query_row(
+            "SELECT content FROM card_full_scenes WHERE world=? AND play='old-shared-scene'",
+            [&id],
+            |r| r.get(0),
+        )
+        .unwrap();
+    let preserved: Value = serde_json::from_str(&preserved).unwrap();
+    assert_eq!(preserved["room"], "pond");
+    assert_eq!(preserved["starts_at"], 1234);
+    assert_eq!(preserved["until_at"], 8234);
+    assert_eq!(preserved["lines"][0]["text"], memory["lines"][0]["text"]);
+    assert!(w.game["log"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|line| line["text"] == memory["lines"][0]["text"]
+            && line["seq"] == preserved["lines"][0]["seq"]));
+    c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+    assert_eq!(full_store::world(&c, &id, now()).unwrap(), w);
+    let scenes: i32 = c
+        .query_row(
+            "SELECT count(*) FROM card_full_scenes WHERE world=?",
+            [&id],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(scenes, 1);
     let count: i32 = c
         .query_row(
             "SELECT count(*) FROM card_full_log WHERE world=?",
@@ -253,6 +287,7 @@ fn shared_speech_retry_reuses_committed_play_without_another_turn() {
     tx.commit().unwrap();
     let app = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
     let work = full::take_work(&app, &id).unwrap().unwrap();
+    let stale_attempt = work.clone();
     full::finish_work(
         &app,
         &id,
@@ -269,6 +304,21 @@ fn shared_speech_retry_reuses_committed_play_without_another_turn() {
     full::run(&tx, &id, "user0", &retry, now()).unwrap();
     tx.commit().unwrap();
     let work = full::take_work(&app, &id).unwrap().unwrap();
+    full::finish_work(
+        &app,
+        &id,
+        stale_attempt,
+        Err("An earlier attempt finished late.".into()),
+    )
+    .unwrap();
+    let status: String = c
+        .query_row(
+            "SELECT status FROM card_full_plays WHERE id=?",
+            [&retry.key],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(status, "working");
     assert_eq!(
         full_store::world(&c, &id, now()).unwrap().game,
         committed.game
