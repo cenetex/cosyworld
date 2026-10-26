@@ -3919,6 +3919,29 @@
   "recital": {
     "actor": "greek-rhapsode",
     "title": "Before the Burial",
+    "claims": [
+      {
+        "phrases": [
+          "laid her brother in the earth",
+          "buried her brother",
+          "buried him",
+          "his body lies in the grave"
+        ],
+        "anyChoices": ["greek-perform-burial", "greek-perform-permitted-burial"]
+      },
+      {
+        "phrases": [
+          "creon gave leave",
+          "creon has granted",
+          "creon granted permission",
+          "the king gave permission"
+        ],
+        "anyChoices": [
+          "greek-petition-burial",
+          "greek-perform-permitted-burial"
+        ]
+      }
+    ],
     "verses": [
       {
         "choice": "greek-return-water-jar",

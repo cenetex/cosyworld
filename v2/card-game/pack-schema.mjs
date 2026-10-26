@@ -792,7 +792,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
   if (pack.recital !== undefined) {
     const r = pack.recital;
     check(
-      keysOk(r, ["actor", "title", "verses"]) &&
+      keysOk(r, ["actor", "title", "verses", "claims"]) &&
         owns(avatars, r?.actor) &&
         avatars[r.actor].travels === false &&
         avatars[r.actor].standoffs === false &&
@@ -823,6 +823,28 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "recital verse needs a unique choice, quest, couplet and summons flag; after may select an earlier deed",
       );
       seen.add(v?.choice);
+    }
+    if (r.claims !== undefined) {
+      check(
+        Array.isArray(r.claims) &&
+          r.claims.length <= 16 &&
+          r.claims.every(
+            (claim) =>
+              keysOk(claim, ["phrases", "anyChoices"]) &&
+              Array.isArray(claim.phrases) &&
+              claim.phrases.length > 0 &&
+              claim.phrases.length <= 16 &&
+              claim.phrases.every(
+                (phrase) =>
+                  textOk(phrase, 160) && phrase === phrase.toLowerCase(),
+              ) &&
+              Array.isArray(claim.anyChoices) &&
+              claim.anyChoices.length > 0 &&
+              claim.anyChoices.length <= 64 &&
+              claim.anyChoices.every((choice) => seen.has(choice)),
+          ),
+        "recital claims need bounded phrases and supporting verse choices",
+      );
     }
   }
   if (problems.length) return problems;
