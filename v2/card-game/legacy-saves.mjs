@@ -1,11 +1,15 @@
 import { newProgress, questPrograms } from "./quests.mjs";
 import { migrateMemories, newMemories, rememberEvent } from "./memory.mjs";
+import { migrateLife } from "./life.mjs";
 import { isPackActor } from "./pack-registry.mjs";
 
 // Upgrade historical records before the world validates the current save.
 // World-owned helpers keep pack installation and generated quests on the same
 // path as a new game, while this module owns the schema order.
-export function upgradeSave(s, { actorIds, ensurePrograms, installPacks }) {
+export function upgradeSave(
+  s,
+  { actorIds, ensurePrograms, installPacks, profileOf },
+) {
   if (s?.schema === 1 && s.actors && typeof s.actors === "object") {
     s.schema = 2;
     for (const actor of Object.values(s.actors)) {
@@ -81,6 +85,7 @@ export function upgradeSave(s, { actorIds, ensurePrograms, installPacks }) {
     // A pack mounted after this save was written joins it fresh.
     installPacks(s);
   }
+  migrateLife(s, profileOf);
   return s;
 }
 

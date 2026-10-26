@@ -76,7 +76,19 @@ impl World {
     // Every journal command is reduced through the same C guard and C-hosted
     // authored rules. AI text is appended by the authored speech reducer.
     pub fn apply(&mut self, command: &Value) -> Result<Value> {
-        if self.version != engine::VERSION {
+        if command["op"] == "upgrade" {
+            if self.version != engine::LEGACY_VERSION
+                || command["from"] != engine::LEGACY_VERSION
+                || command["to"] != engine::VERSION
+            {
+                return Err("This world's rules upgrade needs its original version.".into());
+            }
+            let result = engine::reduce(self.request("upgrade", 0))?;
+            self.game = result["world"].clone();
+            self.version = engine::VERSION.into();
+            return Ok(result);
+        }
+        if self.version != engine::VERSION && self.version != engine::LEGACY_VERSION {
             return Err("This world's rules need a saved migration.".into());
         }
         let a = actor_index(command["actor"].as_str().ok_or("Choose an avatar.")?)?;
@@ -84,7 +96,7 @@ impl World {
         let mut next = self.clone();
         let (kind, result) = match op {
             "claim" => {
-                let result = engine::reduce(self.request("join", a))?;
+                let result = engine::reduce_version(&self.version, self.request("join", a))?;
                 next.game = result["world"].clone();
                 next.claimed[a] = 1;
                 (1, result)
@@ -105,7 +117,7 @@ impl World {
             "play" => {
                 let mut request = self.request("play", a);
                 request["action"] = command["action"].clone();
-                let result = engine::reduce(request)?;
+                let result = engine::reduce_version(&self.version, request)?;
                 next.game = result["world"].clone();
                 (11, result)
             }
@@ -114,7 +126,7 @@ impl World {
                 request["lines"] = command["lines"].clone();
                 request["room"] = command["room"].clone();
                 request["entries"] = command["entries"].clone();
-                let result = engine::reduce(request)?;
+                let result = engine::reduce_version(&self.version, request)?;
                 next.game = result["world"].clone();
                 // Committed text can finish after its speaker disconnects.
                 self.guard(&next, 12, a)?;
@@ -128,6 +140,6 @@ impl World {
         Ok(result)
     }
     pub fn project(&self, a: usize) -> Result<Value> {
-        engine::reduce(self.request("view", a))
+        engine::reduce_version(&self.version, self.request("view", a))
     }
 }

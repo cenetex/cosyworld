@@ -9,8 +9,10 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub(super) const VERSION: &str = "full-card-world/2";
-const SOURCE: &str = include_str!("engine-v2.js");
+pub(super) const VERSION: &str = "full-card-world/3";
+pub(super) const LEGACY_VERSION: &str = "full-card-world/2";
+const SOURCE: &str = include_str!("engine-v3.js");
+const LEGACY_SOURCE: &str = include_str!("engine-v2.js");
 const MAX_BYTES: usize = 4 * 1024 * 1024;
 const CACHE_ENTRIES: usize = 32;
 const CACHE_BYTES: usize = 4 * 1024 * 1024;
@@ -48,15 +50,27 @@ fn views() -> &'static Mutex<Views> {
 }
 
 pub(super) fn reduce(request: Value) -> Result<Value> {
+    reduce_version(VERSION, request)
+}
+pub(super) fn reduce_version(version: &str, request: Value) -> Result<Value> {
+    let source = match version {
+        VERSION => SOURCE,
+        LEGACY_VERSION => LEGACY_SOURCE,
+        _ => return Err("This world needs a supported rules version.".into()),
+    };
     let view = request["op"] == "view";
     let input = serde_json::to_string(&request).map_err(|_| "Choose a saved world.".to_string())?;
     if input.len() > MAX_BYTES {
         return Err("This saved world is too large to share.".into());
     }
+    let cache_key = format!("{version}:{input}");
     // A projection is pure for its exact world, actor, claims and presence.
     // Keep only successful serialized projections. Commands always run in C.
     if view {
-        let cached = views().lock().ok().and_then(|mut cache| cache.get(&input));
+        let cached = views()
+            .lock()
+            .ok()
+            .and_then(|mut cache| cache.get(&cache_key));
         if let Some(output) = cached {
             return serde_json::from_str(&output)
                 .map_err(|_| "The shared-world rules need attention.".to_string());
@@ -71,7 +85,7 @@ pub(super) fn reduce(request: Value) -> Result<Value> {
     let output = context.with(|ctx| -> Result<String> {
         ctx.eval::<(), _>("globalThis.structuredClone = value => JSON.parse(JSON.stringify(value)); globalThis.Date = undefined; Math.random = () => { throw new Error('Randomness must come from the saved world.'); };")
             .map_err(engine_error)?;
-        ctx.eval::<(), _>(SOURCE).map_err(|error| {
+        ctx.eval::<(), _>(source).map_err(|error| {
             tracing::error!(error=%error, exception=?ctx.catch(), "shared rules failed to load");
             "The shared-world rules need attention.".to_string()
         })?;
@@ -96,7 +110,7 @@ pub(super) fn reduce(request: Value) -> Result<Value> {
     }
     if view {
         if let Ok(mut cache) = views().lock() {
-            cache.put(input, output);
+            cache.put(cache_key, output);
         }
     }
     Ok(value)
