@@ -1079,9 +1079,10 @@ fn idiolect(entity: &Entity) -> String {
         .map(str::to_owned)
         .unwrap_or_else(|| {
             format!(
-                "I am {}.\n{}",
+                "I am {}.\n{}\n{}",
                 name(&entity.id),
-                profile["persona"].as_str().unwrap_or_default()
+                profile["persona"].as_str().unwrap_or_default(),
+                profile["voice"].as_str().unwrap_or_default()
             )
         });
     if let Some(persona) = entity
@@ -3095,6 +3096,9 @@ mod tests {
         c.entities[1].id = c.location.clone();
         c.entities[3].id = "greek-baker".into();
         c.speakers[1] = "greek-baker".into();
+        assert!(
+            idiolect(&c.entities[3]).contains(profiles()["greek-baker"]["voice"].as_str().unwrap())
+        );
         assert!(valid(&c));
         let result = complete(
             &test_config(address),
