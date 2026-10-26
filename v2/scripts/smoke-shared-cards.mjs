@@ -25,15 +25,11 @@ const provider = createServer(async (req, res) => {
   const input = JSON.parse(body || "{}");
   requests.push(input);
   if (holdReplies) await new Promise((resolve) => waitingReplies.push(resolve));
-  const scene = JSON.parse(input.messages.at(-1).content);
-  const content = JSON.stringify({
-    entries: scene.requested_ids.map((id, index) => ({
-      id,
-      text: index
-        ? "A ripple reaches the shore."
-        : "There is room for a little company.",
-    })),
-  });
+  const transcript = input.messages.at(-1).content;
+  assert.equal(typeof transcript, "string");
+  assert.match(transcript, /Current scene:/u);
+  assert.match(transcript.trim(), /:$/u);
+  const content = `I pause for ${requests.length} quiet breaths.`;
   res.writeHead(200, { "Content-Type": "application/json" });
   res.end(
     JSON.stringify({
