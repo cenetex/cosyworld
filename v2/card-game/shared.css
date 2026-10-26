@@ -98,6 +98,10 @@ body
   border-radius: 50%;
   background: #252832;
 }
+.shared-play-avatar[data-return-live="true"] {
+  border-color: #dfc38d;
+  box-shadow: 0 0 0 2px #dfc38d26;
+}
 .shared-play-avatar[data-status="working"] {
   border-color: #dfc38d;
   box-shadow: 0 0 0 2px #dfc38d26;

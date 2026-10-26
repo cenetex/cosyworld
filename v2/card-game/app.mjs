@@ -135,6 +135,8 @@ function node(tag, text, className) {
   return el;
 }
 function notice(text) {
+  // Saved speech failures use the small dialogue retry control.
+  if (/^(The|Your) play is saved\./.test(text)) return;
   $("notice").textContent = text;
   $("notice").hidden = !text;
 }
@@ -233,7 +235,7 @@ function save() {
   }
 }
 let storyStatus = "ready",
-  storyError = "",
+  storyRetrying = false,
   renderedCast = "",
   renderedHand = "",
   renderedHandRevision = null,
@@ -607,26 +609,34 @@ const narrator = createNarrator({
     exchange.load(lines);
     render();
   },
-  status: (value, error) => {
+  status: (value) => {
     storyStatus = value;
-    storyError = error?.message || "Dialogue is unavailable.";
     if (value === "pending" && !exchange.active) exchange.begin();
     if (value === "retry") exchange.cancel();
     renderScene();
   },
 });
 $("story-retry").onclick = async () => {
-  if (!sharedSession) return narrator.retry();
+  if (storyRetrying) return;
   const room = world.actors[currentActor(world)].place;
-  const { retryKey } = sharedSpeechState(sharedSession.state, room);
-  if (!retryKey) return;
-  $("story-retry").disabled = true;
+  const retryKey = sharedSession
+    ? sharedSpeechState(sharedSession.state, room).retryKey
+    : null;
+  if (sharedSession && !retryKey) return;
+  const retryRevision = world.revision;
+  const retryTrip = trip;
+  storyRetrying = true;
+  notice("");
+  renderScene();
   try {
-    await sharedSession.command({ op: "retry", key: retryKey });
-  } catch (error) {
-    notice(error.message);
+    if (sharedSession)
+      await sharedSession.command({ op: "retry", key: retryKey });
+    else await narrator.retry();
+  } catch {
+    if (world.revision === retryRevision && trip === retryTrip)
+      storyStatus = "retry";
   } finally {
-    $("story-retry").disabled = false;
+    storyRetrying = false;
     renderScene();
   }
 };
@@ -1571,6 +1581,14 @@ function leaveFigure(figure, remove = false) {
     });
   exits.set(figure, task);
 }
+function returnToLive() {
+  reviewing = false;
+  lineSeq = null;
+  sharedLineKey = "";
+  syncSharedLine();
+  renderScene();
+  if (!$("dialogue-advance").hidden) $("dialogue-advance").focus();
+}
 function renderScene() {
   // Every path to this renderer keeps the source visible until the veil covers it.
   if (covering) return;
@@ -1739,21 +1757,17 @@ function renderScene() {
     ? sharedSpeechState(sharedSession.state, scene.locationId)
     : null;
   if (sharedSpeech) storyStatus = sharedSpeech.status;
-  $("story-status").hidden = storyStatus === "ready" && !exchange.preparing;
-  $("story-status").textContent =
-    storyStatus === "retry"
-      ? sharedSession
-        ? "Your play is saved. Speech is taking a moment. You can keep playing."
-        : `${storyError} Retry this scene or keep playing.`
-      : "···";
-  $("story-retry").hidden =
-    storyStatus !== "retry" || (sharedSession && !sharedSpeech.retryKey);
-  $("story-status").setAttribute(
-    "aria-label",
-    storyStatus === "retry"
-      ? $("story-status").textContent
-      : "New words are on the way",
-  );
+  const wordsFailed = storyStatus === "retry";
+  const canRetryWords = !sharedSession || Boolean(sharedSpeech.retryKey);
+  $("story-status").hidden =
+    wordsFailed || (storyStatus === "ready" && !exchange.preparing);
+  $("story-status").textContent = "…";
+  $("story-status").setAttribute("aria-label", "Preparing dialogue");
+  const retryWords = $("story-retry");
+  retryWords.hidden = !wordsFailed;
+  retryWords.disabled = storyRetrying || !canRetryWords;
+  retryWords.title = canRetryWords ? "Retry dialogue" : "Waiting for dialogue";
+  retryWords.setAttribute("aria-label", retryWords.title);
   const portraitId = spoken
     ? scene.line.entityId || scene.line.actorId || scene.locationId
     : pendingSpeaker;
@@ -1864,13 +1878,28 @@ function renderScene() {
       liveButton.dataset.actor = actor;
       liveButton.replaceChildren(sharedQueuePortrait(actor));
     }
-    liveButton.onclick = () => {
-      reviewing = false;
-      lineSeq = null;
-      sharedLineKey = "";
-      syncSharedLine();
-      renderScene();
-    };
+    const live = sharedLiveLine(
+      sharedSession.state,
+      sharedSession.now(),
+      scene.locationId,
+    );
+    const matchesLive =
+      !live ||
+      (live.seq
+        ? scene.line?.seq === live.seq
+        : scene.line?.text === live.text &&
+          scene.line?.speaker === live.speaker);
+    const mergedPortrait = Boolean(
+      sharedSession.state.queue?.some((entry) => entry.actor === actor),
+    );
+    liveButton.hidden = mergedPortrait;
+    liveButton.dataset.returnLive = "true";
+    liveButton.onclick = returnToLive;
+    renderSharedQueue(sharedSession, sharedQueuePortrait, {
+      liveActor: mergedPortrait ? actor : null,
+      needsLive: reviewing || !matchesLive,
+      onLive: returnToLive,
+    });
   }
 }
 let renderedLog = [];
@@ -1995,7 +2024,6 @@ function render() {
   updateHandScroll();
   renderScene();
   renderLog();
-  if (sharedSession) renderSharedQueue(sharedSession, sharedQueuePortrait);
   updateCardCooldown();
   if (focused) {
     const frame = $("hand")
@@ -2415,7 +2443,6 @@ function adoptShared(value) {
       });
     } else render();
   } else {
-    renderSharedQueue(sharedSession, sharedQueuePortrait);
     renderActions();
     renderScene();
   }

@@ -110,15 +110,26 @@ try {
     const person = page.locator('#hand [data-card="moth"]');
     await person.click();
     await page.locator("#card-actions .card-primary").click();
-    await page.waitForFunction(() =>
-      document
-        .querySelector("#story-status")
-        .textContent.includes("Retry this scene"),
+    await page.waitForFunction(
+      () => !document.querySelector("#story-retry").hidden,
+    );
+    await page.waitForFunction(
+      () => document.querySelector("#hand").dataset.cooling === "false",
+      null,
+      { timeout: 6000 },
     );
     assert.equal(requests.length, 2);
     assert.equal(await page.locator(".dialogue").isVisible(), true);
     assert.equal(await retry.isVisible(), true);
-    assert.match(await page.textContent("#story-status"), /503/);
+    assert.equal(await page.locator("#story-status").isVisible(), false);
+    assert.equal(await retry.innerText(), "↻");
+    assert.equal(await retry.getAttribute("aria-label"), "Retry dialogue");
+    const retryBounds = await retry.boundingBox();
+    assert(retryBounds.width <= 32 && retryBounds.height <= 32);
+    assert.doesNotMatch(
+      await page.locator(".dialogue").innerText(),
+      /503|Retry this scene/,
+    );
     assert.equal(
       await page.locator("#hand").getAttribute("data-cooling"),
       "false",
@@ -146,7 +157,11 @@ try {
     await page.waitForFunction(
       () => !document.querySelector("#story-retry").hidden,
     );
-    assert.match(await page.textContent("#story-status"), /incomplete/);
+    assert.equal(await page.locator("#story-status").isVisible(), false);
+    assert.doesNotMatch(
+      await page.locator(".dialogue").innerText(),
+      /incomplete|Retry this scene/,
+    );
     const failed = await state();
     assert.equal(failed.turn, before.turn + 1);
     assert.equal(

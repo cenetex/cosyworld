@@ -317,7 +317,24 @@ main {
 }
 #story-status {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 14px;
+}
+body .dialogue-heading #story-retry {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+}
+body .dialogue-heading #story-retry:hover,
+body .dialogue-heading #story-retry:focus-visible {
+  color: var(--ink);
 }
 @keyframes speech-blink {
   50% {

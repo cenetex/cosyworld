@@ -418,11 +418,21 @@ export function installSharedControls({ session, saveSlot, getSave, notice }) {
   );
 }
 let renderedQueue = "";
-export function renderSharedQueue(session, portraitFor) {
+export function renderSharedQueue(
+  session,
+  portraitFor,
+  { liveActor = null, needsLive = false, onLive = null } = {},
+) {
   const { state } = session;
   const queue = $("shared-queue");
   if (!queue) return;
-  const key = JSON.stringify([state.actor, state.present, state.queue]);
+  const key = JSON.stringify([
+    state.actor,
+    state.present,
+    state.queue,
+    liveActor,
+    needsLive,
+  ]);
   if (key === renderedQueue) return;
   renderedQueue = key;
   queue.replaceChildren();
@@ -439,19 +449,35 @@ export function renderSharedQueue(session, portraitFor) {
     );
     roomStatus.append(waiting);
   }
-  for (const entry of state.queue || []) {
+  const entries = state.queue || [];
+  const liveEntry = entries.find((entry) => entry.actor === liveActor);
+  const ordered = liveEntry
+    ? [liveEntry, ...entries.filter((entry) => entry.id !== liveEntry.id)]
+    : entries;
+  for (const entry of ordered) {
     const canWithdraw =
       entry.actor === state.actor && entry.status === "waiting";
+    const returnsLive = entry.actor === liveActor && needsLive && onLive;
     const label = `${avatarName(entry.actor)} · ${entry.status === "waiting" ? "next" : entry.status === "working" ? "playing" : "reading"}`;
-    const face = canWithdraw
-      ? button("", () => session.command({ op: "cancel", key: entry.id }))
-      : node("span");
+    const face = returnsLive
+      ? button("", onLive)
+      : canWithdraw
+        ? button("", () => session.command({ op: "cancel", key: entry.id }))
+        : node("span");
     face.className = "shared-play-avatar";
     face.dataset.actor = entry.actor;
     face.dataset.status = entry.status;
-    face.title = canWithdraw ? `${label} · Withdraw your play` : label;
+    face.title = returnsLive
+      ? "Return to live dialogue · " + avatarName(entry.actor)
+      : canWithdraw
+        ? label + " · Withdraw your play"
+        : label;
     face.setAttribute("aria-label", face.title);
-    if (!canWithdraw) face.setAttribute("role", "img");
+    if (returnsLive) {
+      face.dataset.returnLive = "true";
+      face.dataset.live = "false";
+    }
+    if (!canWithdraw && !returnsLive) face.setAttribute("role", "img");
     face.append(portraitFor(entry.actor));
     const row = node("li");
     row.append(face);

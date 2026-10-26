@@ -20,6 +20,7 @@ await mkdir(output, { recursive: true });
 const requests = [];
 const replies = new Map();
 let holdReplies = false;
+let failReplies = false;
 const waitingReplies = [];
 const provider = createServer(async (req, res) => {
   let body = "";
@@ -27,6 +28,13 @@ const provider = createServer(async (req, res) => {
   const input = JSON.parse(body || "{}");
   requests.push(input);
   if (holdReplies) await new Promise((resolve) => waitingReplies.push(resolve));
+  if (failReplies) {
+    res.writeHead(503, { "Content-Type": "application/json" });
+    res.end(
+      JSON.stringify({ error: { message: "Words need another attempt." } }),
+    );
+    return;
+  }
   const transcript = input.messages.at(-1).content;
   assert.equal(typeof transcript, "string");
   assert.match(transcript, /Current scene:/u);
@@ -235,9 +243,11 @@ async function dismissDiscoveries(page) {
 async function expectSharedReveal(page, requestStart) {
   let expected;
   await until(() => {
-    const human = requests.slice(requestStart).find((request) =>
-      request.messages.at(-1).content.trim().endsWith("\nVale:"),
-    );
+    const human = requests
+      .slice(requestStart)
+      .find((request) =>
+        request.messages.at(-1).content.trim().endsWith("\nVale:"),
+      );
     expected = replies.get(human);
     return typeof expected === "string";
   }, "the selected human receives its plain fixture reply");
@@ -245,11 +255,7 @@ async function expectSharedReveal(page, requestStart) {
     const text = document.getElementById("dialogue-text");
     const letters = text.querySelectorAll(".speech-letter");
     const shown = text.querySelectorAll(".speech-letter.revealed").length;
-    return (
-      text.textContent === expected &&
-      shown > 0 &&
-      shown < letters.length
-    );
+    return text.textContent === expected && shown > 0 && shown < letters.length;
   }, expected);
 }
 async function catchUpWithArrow(page) {
@@ -276,7 +282,7 @@ async function catchUpWithPortrait(page) {
   const live = page.getByRole("button", { name: /^Return to live dialogue/ });
   assert.equal(await live.getAttribute("data-live"), "false");
   await page.waitForFunction(() => {
-    const image = document.querySelector("#live-line img");
+    const image = document.querySelector('[data-return-live="true"] img');
     return image?.complete && image.naturalWidth > 0;
   });
   const face = await live.boundingBox();
@@ -624,6 +630,24 @@ try {
       () => document.getElementById("live-line").dataset.actor === "mara",
     );
     await page.locator("#shared-queue .shared-play-avatar").nth(3).waitFor();
+    assert.equal(await page.locator("#live-line").isVisible(), false);
+    assert.equal(
+      await page
+        .locator("#shared-queue .shared-play-avatar")
+        .first()
+        .getAttribute("data-actor"),
+      "mara",
+      "the live portrait is first in the queue",
+    );
+    await page.locator("#previous-line").click();
+    const returnLive = page.getByRole("button", {
+      name: /^Return to live dialogue/,
+    });
+    assert.equal(await returnLive.count(), 1);
+    assert.equal(await returnLive.getAttribute("data-actor"), "mara");
+    assert.equal(await returnLive.getAttribute("data-return-live"), "true");
+    await returnLive.click();
+    assert(await page.locator("#next-line").isDisabled());
     await page.waitForFunction(() =>
       [...document.querySelectorAll("#shared-queue img")].every(
         (image) => image.complete && image.naturalWidth > 0,
@@ -841,6 +865,47 @@ try {
       path: join(output, `same-world-${i ? "phone" : "desktop"}.png`),
       fullPage: true,
     });
+  }
+  for (const width of [1440, 390]) {
+    await vale.setViewportSize({ width, height: 900 });
+    failReplies = true;
+    const command = {
+      op: "play",
+      key: crypto.randomUUID(),
+      action: await actionFor(vale, "wait"),
+    };
+    assert.equal((await api(vale, command)).status, 200);
+    await until(
+      async () => (await snapshot(vale)).history[0]?.error,
+      "shared speech failure is saved",
+    );
+    const retry = vale.getByRole("button", {
+      name: "Retry dialogue",
+      exact: true,
+    });
+    await retry.waitFor({ state: "visible" });
+    assert.equal(await vale.locator("#story-status").isVisible(), false);
+    assert.equal(await retry.innerText(), "↻");
+    const bounds = await retry.boundingBox();
+    assert(bounds.width <= 32 && bounds.height <= 32);
+    assert.doesNotMatch(
+      await vale.locator("#notice").innerText(),
+      /play is saved|503/i,
+    );
+    const before = (await snapshot(vale)).world;
+    failReplies = false;
+    await retry.click();
+    await until(
+      async () =>
+        !(await snapshot(vale)).history[0]?.error &&
+        !(await snapshot(vale)).queue.length,
+      "shared retry finishes",
+    );
+    const after = (await snapshot(vale)).world;
+    assert.equal(after.turn, before.turn);
+    assert.equal(after.revision, before.revision);
+    assert.deepEqual(after.items, before.items);
+    await until(async () => !(await retry.isVisible()), "retry icon clears");
   }
   assert.deepEqual(errors, []);
   console.log(
