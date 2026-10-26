@@ -3342,6 +3342,18 @@ mod tests {
         assert_eq!(result["model"], "card-voices-v1");
         let requests = seen.lock().unwrap().clone();
         assert_eq!(requests.len(), 6);
+        let prompts: Vec<_> = requests
+            .iter()
+            .filter(|body| stem_of(body) == "Pip:")
+            .map(|body| body["messages"][1]["content"].as_str().unwrap())
+            .collect();
+        assert!(prompts[0].starts_with("My voice samples:"));
+        let facts = prompts[0].split_once("Current scene:\n").unwrap().1;
+        for retry in &prompts[1..] {
+            assert!(!retry.contains("My voice samples:"));
+            assert_eq!(retry.split_once("Current scene:\n").unwrap().1, facts);
+            assert!(retry.ends_with("Pip:"));
+        }
         let pip: Vec<_> = requests
             .iter()
             .filter(|body| stem_of(body) == "Pip:")
