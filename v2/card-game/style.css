@@ -191,6 +191,7 @@ main {
   z-index: 1;
 }
 .portrait-body {
+  position: relative;
   width: 100%;
   height: 100%;
   transform-origin: 50% 99%;
@@ -211,6 +212,79 @@ main {
 }
 .portrait img[data-flip="true"] {
   transform: scaleX(-1);
+}
+/* Hand positions follow the original 2:3 character artwork. The prop shares
+   the body's movement and scales with it at every viewport size. */
+.portrait {
+  --hand-x: 83%;
+  --hand-y: 32.5%;
+  --held-offset: -100%;
+}
+.portrait[data-avatar="mara"] {
+  --hand-x: 91%;
+  --hand-y: 28%;
+}
+.portrait[data-avatar="ash"] {
+  --hand-x: 90%;
+  --hand-y: 38%;
+}
+.portrait[data-avatar="nell"] {
+  --hand-x: 88%;
+  --hand-y: 41%;
+}
+.portrait[data-avatar="tavi"] {
+  --hand-x: 92%;
+  --hand-y: 20%;
+  --held-offset: -20%;
+}
+.portrait[data-avatar="rue"] {
+  --hand-x: 83%;
+  --hand-y: 24%;
+  --held-offset: -50%;
+}
+.portrait[data-avatar="orin"] {
+  --hand-x: 51%;
+  --hand-y: 24%;
+  --held-offset: -50%;
+}
+.portrait[data-avatar="ada"] {
+  --hand-x: 88%;
+  --hand-y: 22%;
+  --held-offset: -15%;
+}
+.portrait-held-item {
+  position: absolute;
+  left: var(--hand-x);
+  top: var(--hand-y);
+  width: 30%;
+  aspect-ratio: 1;
+  transform: translate(-50%, var(--held-offset));
+  pointer-events: none;
+}
+.portrait[data-flip="true"] .portrait-held-item {
+  left: calc(100% - var(--hand-x));
+}
+.portrait-held-item img {
+  position: absolute;
+  inset: 0;
+  object-position: center bottom;
+  filter: drop-shadow(0 2px 3px #08091390);
+}
+.portrait-held-item[data-lit="true"] > img:first-child {
+  filter: drop-shadow(0 0 7px #e0a94a99);
+}
+.portrait-held-item[data-lit="false"] > img:first-child {
+  filter: saturate(0.35) brightness(0.48);
+}
+.portrait-held-item[data-covered="true"] > img:first-child {
+  opacity: 0.35;
+}
+.portrait-held-item .object-cover {
+  filter: brightness(0.65);
+}
+.portrait-held-item[data-ringing="true"] > img:first-child {
+  animation: sounding 0.5s ease-in-out infinite alternate;
+  transform-origin: 50% 20%;
 }
 .dialogue {
   position: absolute;

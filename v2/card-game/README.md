@@ -42,6 +42,11 @@ by items lying there, avatars with their carried items, and travel destinations.
 Arrival starts the hand at the new current place. Selection keeps its scroll position.
 Selection, cancellation,
 drag pairing and keyboard navigation spend no turn; only a committed play does.
+The latest selected carried item appears in the player's avatar hand.
+The preview follows the figure's facing and movement and shows the item's light,
+ringing, and covering. Lowering that card returns to the other selected item;
+clearing the selection clears the preview. Giving or dropping the item clears it
+as soon as custody changes.
 
 No card face or hover text exposes quest checklists, levels, hope fractions,
 Inspiration, fuel arithmetic, ringing deadlines, or ritual phases. Each newly

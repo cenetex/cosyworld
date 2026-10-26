@@ -45,6 +45,7 @@ import {
   sceneChanges,
   movementCaption,
   sceneStaging,
+  selectedHandItem,
   portrait,
   backdrop,
   locationOverlay,
@@ -1507,6 +1508,44 @@ function leaveFigure(figure, remove = false) {
     });
   exits.set(figure, task);
 }
+function renderHeldItem(figure, actor, itemId) {
+  let preview = figure.querySelector(".portrait-held-item");
+  figure.dataset.flip = String(actor.flip);
+  figure.setAttribute(
+    "aria-label",
+    itemId ? `${nameOf(actor.id)} holds ${nameOf(itemId)}` : nameOf(actor.id),
+  );
+  if (!itemId) {
+    preview?.remove();
+    return;
+  }
+  if (!preview) {
+    preview = node("span", undefined, "portrait-held-item");
+    preview.setAttribute("aria-hidden", "true");
+    figure.querySelector(".portrait-body").append(preview);
+  }
+  const item = world.items[itemId];
+  const covering = Object.keys(world.items).find(
+    (id) => world.items[id].holder === itemId,
+  );
+  const key = JSON.stringify([itemId, covering]);
+  if (preview.dataset.key !== key) {
+    const images = [itemId, covering].filter(Boolean).map((id, index) => {
+      const image = node("img", undefined, index ? "object-cover" : "");
+      image.src = packMedia(id, "art") || `./assets/${id}-card.png`;
+      image.alt = "";
+      image.draggable = false;
+      return image;
+    });
+    preview.replaceChildren(...images);
+    preview.dataset.key = key;
+  }
+  preview.dataset.item = itemId;
+  preview.dataset.lit = String(item.lit ?? "");
+  preview.dataset.covered = String(Boolean(covering));
+  preview.dataset.ringing = String(item.ringing > 0 && !covering);
+}
+
 function renderScene() {
   // Every path to this renderer keeps the source visible until the veil covers it.
   if (covering) return;
@@ -1552,6 +1591,7 @@ function renderScene() {
   $("cast").dataset.shared = String(Boolean(sharedSession));
   $("cast").style.setProperty("--cast-count", String(staging.actors.length));
   const castKey = JSON.stringify(staging.actors.map(({ id }) => id));
+  const handItem = selectedHandItem(world, selected);
   if (castKey !== renderedCast) {
     renderedCast = castKey;
     const existing = new Map(
@@ -1597,6 +1637,7 @@ function renderScene() {
     const image = figure.querySelector("img");
     if (image.getAttribute("src") !== actor.cutout) image.src = actor.cutout;
     image.dataset.flip = String(actor.flip);
+    renderHeldItem(figure, actor, id === currentActor(world) ? handItem : null);
     figure.classList.toggle(
       "active",
       scene.activeSpeaker === id && !resolvedBeat,
