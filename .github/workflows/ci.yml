@@ -292,6 +292,7 @@ jobs:
           node v2/scripts/smoke-card-movement.mjs
           node v2/scripts/smoke-card-quests.mjs
           node v2/scripts/smoke-card-quest-collection.mjs
+          node v2/scripts/smoke-card-bard-travel.mjs
           node v2/scripts/smoke-card-shared-quests.mjs
           node v2/scripts/smoke-card-voice.mjs
 

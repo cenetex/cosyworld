@@ -95,7 +95,9 @@ export const knownActors = (s) =>
   ].filter(
     (id) =>
       entityActive(s, id) &&
-      (!isPackActor(id) || packDiscovered(s, packOf(id).id)),
+      (!isPackActor(id) ||
+        packDiscovered(s, packOf(id).id) ||
+        s.packs?.[packOf(id).id]?.met?.[id] !== undefined),
   );
 export const programsFor = (s, actor) =>
   (s.opening ? openingPrograms : questPrograms)[actor] || [];
@@ -193,7 +195,7 @@ export function generateProgram(
     ])
       if (
         entityActive(s, next) &&
-        actorCanVisit(actor, next) &&
+        actorCanVisit(actor, next, s) &&
         !traversed.includes(next)
       )
         traversed.push(next);
@@ -230,7 +232,7 @@ export function generateProgram(
   };
   // A long stall ends with an errand the actor can finish alone. It keeps only
   // items no one else wants, so its spares become free to give.
-  if (solo) {
+  if (solo || !actors.some((id) => id !== actor)) {
     const away = reachable.filter((id) => id !== here);
     const destination =
       away[(progress.program + actors.indexOf(actor)) % away.length] || here;

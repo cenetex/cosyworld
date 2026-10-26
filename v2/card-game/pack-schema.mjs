@@ -406,6 +406,8 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "text",
         "place",
         "travels",
+        "roamingQuest",
+        "previousHomes",
         "standoffs",
         "persona",
         "voice",
@@ -430,8 +432,18 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       `avatar ${id} needs a name, text, persona, voice and a home place in this pack`,
     );
     check(
-      [a.travels, a.standoffs].every((v) => v === undefined || v === false),
+      [a.travels, a.standoffs].every((v) => v === undefined || v === false) &&
+        (a.roamingQuest === undefined ||
+          (a.roamingQuest === "latest-completion" && a.travels !== false)),
       `avatar ${id} may only set travels or standoffs to false`,
+    );
+    check(
+      a.previousHomes === undefined ||
+        (a.roamingQuest &&
+          Array.isArray(a.previousHomes) &&
+          a.previousHomes.length <= 8 &&
+          a.previousHomes.every((p) => owns(places, p))),
+      `avatar ${id} previous homes need authored places`,
     );
     check(
       keysOk(a.tastes, ["likes", "sore", "reason", "noise"]) &&
@@ -794,13 +806,14 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     check(
       keysOk(r, ["actor", "title", "verses", "claims"]) &&
         owns(avatars, r?.actor) &&
-        avatars[r.actor].travels === false &&
+        (avatars[r.actor].travels === false ||
+          avatars[r.actor].roamingQuest === "latest-completion") &&
         avatars[r.actor].standoffs === false &&
         textOk(r.title, 80) &&
         Array.isArray(r.verses) &&
         r.verses.length > 0 &&
         r.verses.length <= 64,
-      "recital needs a stationary singer, a title and up to 64 verses",
+      "recital needs a singer, a title and up to 64 verses",
     );
     const seen = new Set();
     const linesOk = (lines) =>

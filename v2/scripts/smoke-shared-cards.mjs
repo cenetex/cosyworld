@@ -913,8 +913,14 @@ try {
     );
     const after = (await snapshot(vale)).world;
     assert.equal(after.turn, before.turn);
-    assert.equal(after.revision, before.revision);
+    assert.equal(
+      after.revision,
+      before.revision + 1,
+      "one shared speech commit",
+    );
     assert.deepEqual(after.items, before.items);
+    assert.deepEqual(after.actors, before.actors);
+    assert.deepEqual(after.quests, before.quests);
     await until(async () => !(await retry.isVisible()), "retry icon clears");
   }
   assert.deepEqual(errors, []);
