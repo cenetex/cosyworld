@@ -13,6 +13,7 @@ import {
 } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
 import { humanAvatars } from "../card-game/human-cast.mjs";
+import { roamingActors } from "../card-game/roaming-routes.mjs";
 
 const dir = await mkdtemp(join(tmpdir(), "shared-full-world-smoke-"));
 const output = resolve("output/shared-cards");
@@ -119,6 +120,15 @@ async function until(test, label, rounds = 200, interval = 250) {
 const ready = () =>
   until(async () => (await fetch(origin + "/health")).ok, "server starts");
 async function expectStage(page, recent) {
+  const state = await snapshot(page);
+  const room = state.world.actors[state.actor].place;
+  recent = [
+    ...recent,
+    ...roamingActors.filter(
+      (actor) =>
+        state.world.actors[actor].place === room && !recent.includes(actor),
+    ),
+  ];
   await page.waitForFunction((ids) => {
     const cast = document.getElementById("cast");
     const figures = [
@@ -126,7 +136,7 @@ async function expectStage(page, recent) {
     ];
     const height = cast.getBoundingClientRect().height;
     return (
-      figures.length >= 4 &&
+      figures.length === ids.length &&
       ids.every((id) =>
         figures.some((figure) => figure.dataset.avatar === id),
       ) &&
