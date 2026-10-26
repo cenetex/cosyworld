@@ -99,6 +99,7 @@ function importClientSave(save) {
 export function dispatchShared(request) {
   if (!request || typeof request !== "object")
     throw new Error("Choose a world operation.");
+  if (request.op === "upgrade") return response(load(request));
   if (request.op === "create") {
     const world =
       request.save == null

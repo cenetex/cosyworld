@@ -251,6 +251,7 @@ export function situationPrograms(s, actor, base, api) {
   }
   if (
     reachable.includes("station") &&
+    caretakers.length > 0 &&
     canGet("lamp") &&
     (!own("lamp") || mayGive("lamp")) &&
     (s.items.lamp.fuel > 0 || (s.items.oil.doses > 0 && canGet("oil")))
