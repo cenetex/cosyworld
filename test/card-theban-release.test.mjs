@@ -106,7 +106,16 @@ describe("the Theban release and its ship", () => {
     expect(after.packs[pack.id].scope).toBe("full");
     for (const key of ["choices", "flags", "receipts", "met"])
       expect(after.packs[pack.id][key]).toEqual(before.packs[pack.id][key]);
-    expect(after.items).toEqual(before.items);
+    expect(
+      Object.fromEntries(
+        Object.keys(before.items).map((id) => [id, after.items[id]]),
+      ),
+    ).toEqual(before.items);
+    expect(
+      Object.keys(after.items)
+        .filter((id) => !Object.hasOwn(before.items, id))
+        .sort(),
+    ).toEqual(["board", "can", "float", "kite", "mask", "routes", "shears"]);
     expect(after.memories).toMatchObject(before.memories);
     expect(after.log).toEqual(before.log);
     expect(after.actors.vale.place).toBe("greek-egypt-tomb");

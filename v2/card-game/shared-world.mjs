@@ -1,0 +1,337 @@
+// One pure adapter for the browser model and the server's C-backed JS runtime.
+// The host supplies authenticated claims and presence on every operation.
+import {
+  createWorld,
+  decodeSave,
+  validateWorld,
+  legalActions,
+  matchingActions,
+  play,
+  exits,
+  addLog,
+  nameOf,
+  places,
+  people,
+  carried,
+} from "./world.mjs";
+import {
+  humanAvatars,
+  humanAvatar,
+  humanAvatarIds,
+  roomHumanCount,
+} from "./human-cast.mjs";
+import { profiles } from "./memory.mjs";
+import { enableMotives } from "./motives.mjs";
+import { narrativeContext } from "./narrative.mjs";
+import { currentScene } from "./scene.mjs";
+
+function ids(value, fallback = []) {
+  const result = value === undefined ? fallback : value;
+  if (
+    !Array.isArray(result) ||
+    result.length > 8 ||
+    new Set(result).size !== result.length ||
+    result.some((id) => !humanAvatar(id))
+  )
+    throw new Error("Choose valid human avatars.");
+  return [...result];
+}
+function contextual(world, request) {
+  const actor = request.actor || "vale";
+  if (!humanAvatar(actor)) throw new Error("Choose a human avatar.");
+  const claimed = ids(request.claimed, world.controlledActors || ["vale"]);
+  const present = ids(request.present, world.presentActors || claimed);
+  if (present.some((id) => !claimed.includes(id)))
+    throw new Error("A present avatar needs a claim.");
+  world.playerActorId = actor;
+  world.controlledActors = claimed;
+  world.presentActors = present;
+  return world;
+}
+function stored(world) {
+  const result = structuredClone(world);
+  // These fields describe the current request, not the saved simulation.
+  delete result.playerActorId;
+  delete result.controlledActors;
+  delete result.presentActors;
+  return result;
+}
+function load(request) {
+  if (!request.world || typeof request.world !== "object")
+    throw new Error("Load a saved world first.");
+  const world = contextual(structuredClone(request.world), request);
+  return decodeSave(JSON.stringify(world));
+}
+function response(world, extra = {}) {
+  return { ok: true, world: stored(world), ...extra };
+}
+function enableShared(world) {
+  world.sharedVersion = 1;
+  return world;
+}
+function view(world, actor) {
+  return {
+    actor,
+    room: world.actors[actor].place,
+    actions: legalActions(world, actor),
+    exits: exits(world, world.actors[actor].place, actor),
+    scene: currentScene(world),
+    profiles,
+  };
+}
+function importClientSave(save) {
+  const raw =
+    typeof save === "string" ? JSON.parse(save) : structuredClone(save);
+  if (!raw || typeof raw !== "object" || Array.isArray(raw))
+    throw new Error("Choose a saved world.");
+  // Server migration evidence and account presence are supplied by the host.
+  for (const key of [
+    "sharedMigration",
+    "playerActorId",
+    "controlledActors",
+    "presentActors",
+    "claimed",
+    "present",
+  ])
+    delete raw[key];
+  return decodeSave(JSON.stringify(raw));
+}
+export function dispatchShared(request) {
+  if (!request || typeof request !== "object")
+    throw new Error("Choose a world operation.");
+  if (request.op === "create") {
+    const world =
+      request.save == null
+        ? enableMotives(createWorld({ opening: true }), {
+            questPrograms: true,
+            personalQuests: true,
+          })
+        : importClientSave(request.save);
+    enableShared(world);
+    delete world.playerActorId;
+    delete world.controlledActors;
+    delete world.presentActors;
+    contextual(world, {
+      ...request,
+      actor: request.actor || "vale",
+      claimed: ["vale"],
+      present: ["vale"],
+    });
+    validateWorld(world);
+    return response(world, view(world, request.actor || "vale"));
+  }
+  if (request.op === "migrate") return migrate(request);
+  const world = load(request);
+  const actor = request.actor || "vale";
+  if (request.op === "validate") return response(world);
+  if (request.op === "join") {
+    if (!world.controlledActors.includes(actor))
+      world.controlledActors.push(actor);
+    enableShared(world);
+    validateWorld(world);
+    return response(world, view(world, actor));
+  }
+  if (request.op === "view")
+    return { ...response(world, view(world, actor)), world };
+  if (request.op === "context")
+    return response(world, {
+      context: narrativeContext(world, request.action || null),
+    });
+  if (request.op === "play") {
+    if (
+      !world.controlledActors.includes(actor) ||
+      !world.presentActors.includes(actor)
+    )
+      return {
+        ok: false,
+        world: stored(world),
+        error: "Enter this world with your avatar first.",
+      };
+    const candidates = request.selectedIds
+      ? matchingActions(world, request.selectedIds, actor)
+      : [];
+    const action =
+      typeof request.action === "string"
+        ? { key: request.action }
+        : request.action || (candidates.length === 1 ? candidates[0] : null);
+    const before = world.eventSeq;
+    const result = play(
+      world,
+      action,
+      request.revision ?? world.revision,
+      actor,
+    );
+    if (!result.ok)
+      return { ok: false, world: stored(world), error: result.error };
+    return response(result.state, {
+      events: result.state.log.filter((entry) => entry.seq > before),
+      context: narrativeContext(result.state, action),
+      ...view(result.state, actor),
+    });
+  }
+  if (request.op === "speech") {
+    if (!Array.isArray(request.lines) || request.lines.length !== 2)
+      throw new Error("An exchange needs two lines.");
+    const room = request.room || world.actors[actor].place;
+    if (!places[room]) throw new Error("Choose a real room.");
+    const lines = [];
+    for (const line of request.lines) {
+      const scenic = line.actorId == null && line.entityId === room;
+      const speaker = scenic
+        ? null
+        : line.actorId ||
+          (people[line.entityId] ? line.entityId : null) ||
+          Object.keys(people).find((id) => people[id].name === line.speaker) ||
+          (people[line.speaker] ? line.speaker : null);
+      if (
+        (!scenic &&
+          (!speaker ||
+            world.actors[speaker].place !== room ||
+            (humanAvatar(speaker) &&
+              !world.presentActors.includes(speaker) &&
+              !(
+                speaker === actor && world.controlledActors.includes(speaker)
+              )))) ||
+        typeof line.text !== "string" ||
+        !line.text.trim() ||
+        line.text.length > 600 ||
+        /[\u0000-\u001f\u007f]/u.test(line.text)
+      )
+        throw new Error(
+          "Each line needs a present speaker or the room, and clear text.",
+        );
+      addLog(world, scenic ? nameOf(room) : nameOf(speaker), line.text.trim(), {
+        generated: true,
+        kind: scenic ? "narration" : "dialogue",
+        actorId: speaker,
+        entityId: scenic ? room : speaker,
+        locationId: room,
+      });
+      lines.push(world.log.at(-1));
+    }
+    world.revision += 1;
+    validateWorld(world);
+    return response(world, { lines });
+  }
+  throw new Error("Choose a supported world operation.");
+}
+function migrate(request) {
+  const legacy = request.legacy;
+  if (
+    !legacy ||
+    legacy.version !== 1 ||
+    !["claimed", "present", "places", "holders", "uses"].every(
+      (key) => Array.isArray(legacy[key]) && legacy[key].length === 8,
+    )
+  )
+    throw new Error("This older shared world has an invalid save.");
+  const world = enableShared(
+    enableMotives(createWorld(), { questPrograms: true, personalQuests: true }),
+  );
+  const rooms = ["pond", ...humanAvatars.map((a) => a.home.id)];
+  for (const [index, avatar] of humanAvatars.entries()) {
+    const p = legacy.places[index],
+      holder = legacy.holders[index];
+    if (
+      !Number.isInteger(p) ||
+      p < 0 ||
+      p >= rooms.length ||
+      !Number.isInteger(holder) ||
+      holder < -1 ||
+      holder > 16
+    )
+      throw new Error("This older shared world has an invalid location.");
+    world.actors[avatar.id].place = rooms[p];
+    if (holder >= 0)
+      world.items[avatar.item.id].holder =
+        holder < 8 ? humanAvatars[holder].id : rooms[holder - 8];
+  }
+  // The old counter measured different rules. Keep it as migration evidence;
+  // the full world's clock and quest receipts start on their normal rules.
+  world.sharedMigration = {
+    version: 1,
+    legacyTurn: legacy.turn || 0,
+    uses: [...legacy.uses],
+  };
+  world.sharedMigration.inventoryAllowances = Object.fromEntries(
+    humanAvatarIds
+      .map((id) => [id, carried(world, id).length])
+      .filter(([, count]) => count > 3),
+  );
+  world.items.lamp.lit = legacy.uses[0] % 2 === 1;
+  if (world.items.lamp.lit)
+    world.items.lamp.fuel = Math.max(1, world.items.lamp.fuel);
+  const claimed = humanAvatarIds.filter((id, i) => legacy.claimed[i]);
+  const present = humanAvatarIds.filter(
+    (id, i) => legacy.present[i] && legacy.claimed[i],
+  );
+  contextual(world, { ...request, claimed, present });
+  const legacyScenes = migrateScenes(world, request.legacyScenes || [], rooms);
+  validateWorld(world);
+  return response(world, { legacyScenes });
+}
+
+function migrateScenes(world, scenes, rooms) {
+  if (!Array.isArray(scenes) || scenes.length > 80)
+    throw new Error("Choose up to eighty saved exchanges.");
+  return scenes.map((scene) => {
+    if (
+      !scene ||
+      typeof scene.play !== "string" ||
+      !scene.play.length ||
+      scene.play.length > 80 ||
+      !Number.isInteger(scene.room) ||
+      !rooms[scene.room] ||
+      !Array.isArray(scene.lines) ||
+      scene.lines.length > 2 ||
+      ![scene.starts_at, scene.until_at].every(
+        (n) => Number.isSafeInteger(n) && n >= 0,
+      ) ||
+      scene.until_at < scene.starts_at
+    )
+      throw new Error("A saved exchange needs its place, words and time.");
+    const room = rooms[scene.room];
+    const actor = Number.isInteger(scene.actor)
+      ? humanAvatars[scene.actor]?.id
+      : humanAvatar(scene.actor)?.id;
+    const lines = scene.lines.map((line) => {
+      if (
+        typeof line.speaker !== "string" ||
+        line.speaker.length > 40 ||
+        typeof line.text !== "string" ||
+        !line.text.length ||
+        line.text.length > 600 ||
+        /[\u0000-\u001f\u007f]/u.test(line.text)
+      )
+        throw new Error("A saved line needs a speaker and clear text.");
+      const speaker =
+        humanAvatars.find((a) => a.name === line.speaker)?.id ||
+        (line.speaker === "actor" ? actor : null);
+      addLog(world, line.speaker, line.text, {
+        generated: true,
+        kind: speaker ? "dialogue" : "narration",
+        actorId: speaker || null,
+        entityId: speaker || room,
+        locationId: room,
+        migration: {
+          play: scene.play,
+          turn: scene.turn ?? null,
+          starts_at: scene.starts_at,
+          until_at: scene.until_at,
+        },
+      });
+      return world.log.at(-1);
+    });
+    return {
+      play: scene.play,
+      actor: actor || null,
+      room,
+      turn: scene.turn ?? null,
+      lines,
+      starts_at: scene.starts_at,
+      until_at: scene.until_at,
+      error: typeof scene.error === "string" ? scene.error.slice(0, 240) : null,
+      migrated: true,
+    };
+  });
+}

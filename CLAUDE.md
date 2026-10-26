@@ -14,14 +14,17 @@ table at `/`
 named Lonely Forest worlds keep their own pages. Game work belongs under `v2/`. See
 `docs/decisions/0015-a-generated-world-seen-through-cards.md`.
 
-The card table is still a prototype that runs in the browser. Its rules,
-residents, and quest generator are a deterministic JavaScript model (`world.mjs`, `quests.mjs`, `cards.mjs`,
-`scene.mjs`). Each browser's localStorage save is the only record of that table.
-Its first site (lamp, oil, cloth, bell, and the attic–pond path) is generated
-scaffolding, not design to extend. The table has no server state, accounts,
-currency, or rewards. The Rust binary serves its files (`card_game.rs`), and
-`POST /card-game/text` (`card_narrative.rs`) writes its descriptions and
-dialogue; that text never changes state.
+The card table uses the deterministic JavaScript model in `world.mjs` and its
+rule modules. A local game saves in the browser. **Share** imports that current
+save into the authenticated shared-world service. Friends use the same card
+screen, authored map, residents, items, quests, and rules.
+
+Shared actions run on the server in a bounded QuickJS C interpreter. The Rust
+service embeds a generated bundle of the shipping rule modules, owns IO and the
+append-only action journal, and uses a C session guard for actor authority,
+presence, and room capacity. The browser submits action choices; the server
+commits results. Keep this boundary explicit when changing rules. See
+`v2/docs/card-table/shared-worlds.md`.
 
 New card rules land in the shipping `v2/card-game/world.mjs` model and its
 adjacent modules, with tests in `test/card-*.test.mjs`. Earlier standalone
@@ -30,7 +33,9 @@ Rules stay general: no rule names a specific entity, and new content comes from
 generators and pack data.
 A rule may stay client-only while it affects one browser's table. Anything
 shared, multiplayer, persisted on the server, or reward-bearing crosses the C
-kernel and the journal first, with parity tests against the JS model. The plan
+authority boundary and journal first. Shared card rules use the bounded C
+interpreter with the same authored model; native rules use the C kernel. Test
+replay and client/server agreement at the actual boundary. The plan
 is `docs/backlog/generated-world-core.md`.
 
 The shared runtime keeps its own authority split:
@@ -57,11 +62,13 @@ clients follow the contract those surfaces use; when they disagree, fix the
 client, not the server. Retired prototypes leave the tree, and any idea worth
 keeping moves into `docs/backlog/` first.
 
-- `v2/card-game/`: the card table prototype: a client-only deterministic model,
+- `v2/card-game/`: the deterministic model for local and shared card games,
   UI, text client, art (`assets/PROVENANCE.md`), and a dev server.
   `public-assets.mjs` owns the public file list. After adding a public file, run
   `npm run v2:card:assets:build` and commit the generated Rust asset module.
   Pack media and room tracks join the list through their existing registries.
+  Rule changes also require `npm run v2:card:shared:build`; commit the generated
+  server bundle and keep its check mode in the release gate.
 - `v2/core-c/`: deterministic rules kernel, public ABI, and C tests.
 - `v2/orchestrator-rust/`: Axum server, C bridge, journal/replay, snapshots,
   browser client, SSE, authentication, moderation, AI, and projections.
@@ -129,13 +136,12 @@ base branch or whose crate version has drifted.
 
 ## Non-negotiable invariants
 
-These govern the shared runtime and any state that leaves a single browser. The
-client-only card table is exempt from the world, kernel, journal, and session
-rules only while it holds no shared, server-persisted, or reward-bearing state.
-It must stay deterministic.
+These govern the shared runtime and any state that leaves a single browser.
+Local card games keep their deterministic browser save. Shared card games use
+the server C interpreter, session guard, and journal described above.
 
-- There is one shared authoritative world per runtime, not a private chat state.
-- Deterministic world mutations cross the C kernel boundary.
+- Each shared world has one authoritative state for everyone who joins it.
+- Shared mutations cross the C authority boundary.
 - Accepted actions and their deterministic seeds are append-only and replayable.
 - New persistent state must survive journal replay and snapshot round trips.
 - Claim keys make every reward, spend, mint, and one-shot effect idempotent.

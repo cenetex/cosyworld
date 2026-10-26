@@ -1,3 +1,9 @@
+import {
+  currentActor,
+  controlledByHuman,
+  humanPresent,
+  sharedEnabled,
+} from "./human-cast.mjs";
 // General rules over world-pack data: crossings and their signals, fixtures
 // that sound, and residents with a temperament. No rule here names a pack,
 // place, resident or hub object; the compiled packs supply every name.
@@ -15,6 +21,7 @@ import {
   fixturesAt,
   isPackPlace,
   validatePackStates,
+  entityActive,
 } from "./pack-registry.mjs";
 
 import {
@@ -76,7 +83,8 @@ export function conditionMet(s, c, senses, packId = null) {
       return !!senses && c.at.some((place) => soundAt(s, place, senses));
     case "light":
       return Boolean(
-        s.items[c.item]?.lit &&
+        entityActive(s, c.item) &&
+          s.items[c.item]?.lit &&
           s.items[c.item]?.fuel > 0 &&
           c.at.includes(objectPlace(s, c.item)) &&
           (!c.uncovered ||
@@ -92,6 +100,20 @@ export function conditionMet(s, c, senses, packId = null) {
       return (state?.flags?.[c.key] ?? false) === c.value;
     case "holding":
       return s.items[c.item]?.holder === c.actor;
+    case "shared_world":
+      return sharedEnabled(s);
+    case "item_near": {
+      let holder = s.items[c.item]?.holder;
+      const seen = new Set([c.item]);
+      while (s.items[holder] && !seen.has(holder)) {
+        seen.add(holder);
+        holder = s.items[holder].holder;
+      }
+      return (
+        (!controlledByHuman(s, holder) || humanPresent(s, holder)) &&
+        objectPlace(s, c.item) === c.place
+      );
+    }
     case "item_at":
       return s.items[c.item]?.holder === c.place;
     case "met":
@@ -117,7 +139,9 @@ export const crossingBetween = (from, to, s = null) =>
   crossings.find((c) => !c.transport && c.from === from && c.to === to) ||
   null;
 export const mayCross = (c, actor, senses) =>
-  c.travelers === "any" || actor === senses.player;
+  c.travelers === "any" ||
+  actor === senses.player ||
+  senses.humanActors?.includes(actor);
 
 /** Places reachable by crossing from `place` now, for this actor. */
 export const crossingExits = (s, place, actor, senses) =>
@@ -397,7 +421,10 @@ export function validPackState(s, senses) {
       ((state.until > 0 ||
         (c.signal.opens === null && state.phase === c.signal.steps.length)) &&
         !state.discovered) ||
-      (state.phase > 0 && s.actors[senses.player]?.place !== c.from)
+      (state.phase > 0 &&
+        !(senses.humanActors || [senses.player]).some(
+          (id) => s.actors[id]?.place === c.from,
+        ))
     )
       return false;
   }

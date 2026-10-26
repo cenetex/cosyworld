@@ -68,6 +68,7 @@ describe("world packs on the card table", () => {
     expect(packDefinitions.map((p) => p.id)).toEqual([
       "badger-forest",
       "greek-drama",
+      "shared-homes",
     ]);
   });
 

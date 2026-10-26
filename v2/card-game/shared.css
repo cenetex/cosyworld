@@ -1,505 +1,118 @@
-.shared-table {
-  height: 100dvh;
-  overflow: hidden;
-  background: #11131a;
-  color: #f1e8d5;
-}
-.shared-top {
-  min-height: 64px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 22px;
-  background: #14151d;
-  z-index: 5;
-  flex: none;
-}
-.shared-top nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.shared-top button {
-  font-size: 13px;
-  padding: 6px 10px;
-}
-.shared-brand {
-  color: inherit;
-  text-decoration: none;
-  letter-spacing: 0.14em;
-  font-size: 12px;
-}
-.shared-brand span {
-  font-family: Georgia, serif;
-  letter-spacing: 0;
-  margin-left: 12px;
-  font-size: 18px;
-  color: #c8bfae;
-}
-#shared-notice {
-  position: absolute;
-  top: 70px;
-  left: 50%;
-  transform: translateX(-50%);
-  max-width: min(90vw, 640px);
-  padding: 12px 18px;
-  background: #282a35;
-  border: 1px solid #746447;
-  border-radius: 8px;
-  z-index: 30;
-  font-size: 14px;
-}
-#shared-main {
-  min-height: 0;
-  flex: 1;
-  position: relative;
-  display: block;
-}
-#shared-lobby {
-  height: 100%;
+.shared-lobby {
+  width: min(960px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
   overflow: auto;
-  padding: 30px max(20px, calc((100vw - 1000px) / 2));
-  background:
-    linear-gradient(#14151deb, #14151df2),
-    url("/card-game/assets/shared/places/pond.png") center/cover;
 }
-#shared-lobby h1 {
-  font:
-    normal 36px Georgia,
-    serif;
-  margin: 10px 0;
+.shared-lobby > button {
+  margin: 8px 8px 8px 0;
 }
-#shared-lobby > p {
-  color: #c8c2b6;
-  max-width: 650px;
+.shared-lobby > p {
   line-height: 1.6;
 }
-.shared-kicker {
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  font-size: 11px;
-}
-.shared-entry-actions {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin: 22px 0;
+.shared-lobby input {
+  width: 100%;
+  padding: 12px;
+  color: inherit;
+  background: #191a22;
+  border: 1px solid #67606b;
+  border-radius: 6px;
 }
 .shared-picker {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 18px;
-  margin: 26px 0 40px;
+  gap: 12px;
+  margin: 20px 0;
 }
 .shared-choice {
-  padding: 0 0 14px;
   display: flex;
   flex-direction: column;
-  align-items: stretch;
-  gap: 4px;
-  overflow: hidden;
-  border: 1px solid #514c4c;
-  border-bottom: 4px solid var(--avatar-colour, #514c4c);
-  border-radius: 12px;
-  background: #20212b;
-  text-align: left;
+  align-items: center;
+  gap: 6px;
+  padding: 12px;
+  text-align: center;
 }
-.shared-choice strong,
-.shared-choice > span:not(.shared-portrait),
-.shared-choice small {
-  padding: 0 12px;
+.shared-choice img {
+  width: 100%;
+  height: 170px;
+  object-fit: contain;
 }
 .shared-choice strong {
-  font:
-    normal 22px Georgia,
-    serif;
-  margin-top: 8px;
+  font-size: 20px;
+  font-family: Georgia, serif;
 }
 .shared-choice small {
-  font-size: 12px;
-  line-height: 1.5;
-  color: #cac3b8;
-  min-height: 3em;
+  line-height: 1.4;
 }
 .shared-choice:disabled {
   opacity: 0.45;
 }
-.shared-choice:hover {
-  border-color: #dfc38d;
-}
-.shared-portrait {
-  display: block;
-  position: relative;
-  aspect-ratio: 2/3;
-  flex: none;
-}
-.shared-portrait img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  object-position: center bottom;
-}
-.shared-choice .shared-portrait {
-  height: 270px;
-  width: 100%;
-  padding: 12px 6px 0;
-  background: radial-gradient(ellipse at 50% 70%, #5c504333, transparent 70%);
-}
-.shared-world-list {
-  display: grid;
-  gap: 12px;
-  max-width: 600px;
-  margin: 24px 0;
-}
-.shared-world-list button {
-  text-align: left;
-  padding: 18px;
-}
-#shared-scene {
-  height: 100%;
-  position: relative;
+.shared-play-queue {
   display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  font-size: 13px;
+  padding: 6px 12px;
 }
-#shared-scene[hidden],
-#shared-lobby[hidden] {
+.shared-play-queue:empty {
   display: none;
 }
-#shared-backdrop {
-  position: absolute;
-  inset: 0;
-  background-size: cover;
-  background-position: center;
-  opacity: 0.9;
-}
-#shared-place {
-  position: relative;
-  margin: 22px 24px;
-  font:
-    normal 26px Georgia,
-    serif;
-  text-shadow: 0 2px 8px #000;
-}
-#shared-cast {
-  position: relative;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  gap: 20px;
-  flex: 1;
-  min-height: 0;
-  padding: 0 15px;
-}
-.shared-person {
-  height: 100%;
-  max-height: 430px;
-  max-width: 22%;
-  display: flex;
-  flex-direction: column;
+.shared-play-queue > span {
+  display: inline-flex;
   align-items: center;
-  justify-content: flex-end;
-  min-width: 0;
+  gap: 6px;
 }
-.shared-person .shared-portrait {
-  width: min(230px, 21vw);
-  height: calc(100% - 26px);
-  filter: drop-shadow(0 8px 7px #0007);
-}
-.shared-person > span:last-child {
+.shared-play-queue button,
+#return-live {
   padding: 4px 8px;
-  border-radius: 8px;
-  background: #16171cdb;
-  font:
-    16px Georgia,
-    serif;
-}
-.shared-dialogue {
-  position: relative;
-  align-self: center;
-  flex: none;
-  background: #171a24ee;
-  border: 1px solid #67606a;
-  border-radius: 8px;
-  width: min(760px, 92%);
-  margin: 12px 0 0;
-  padding: 12px 18px;
-  min-height: 86px;
-}
-.shared-dialogue strong {
-  font-family: Georgia, serif;
-  color: #dfc38d;
-}
-.shared-dialogue p {
-  margin: 5px 0;
-  font:
-    17px/1.5 Georgia,
-    serif;
-}
-#shared-queue {
-  position: relative;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px;
-  min-height: 32px;
-  flex: none;
-  padding: 6px;
-  align-items: center;
-}
-#shared-queue > span {
-  background: #181b25e8;
-  padding: 4px 9px;
-  border-radius: 20px;
   font-size: 12px;
 }
-#shared-queue button {
-  font-size: 11px;
-  min-height: 24px;
-  padding: 2px 6px;
-  margin-left: 5px;
-}
-.shared-dock {
-  position: relative;
-  flex: none;
-  background: linear-gradient(transparent, #10131a);
-  padding: 4px 10px 10px;
-}
-#shared-hand {
-  display: flex;
-  gap: 10px;
-  justify-content: flex-start;
-  overflow-x: auto;
-  padding: 12px max(8px, calc((100vw - 900px) / 2));
-  align-items: flex-end;
-  scrollbar-width: thin;
-}
-.shared-card {
-  display: block;
-  padding: 0;
-  overflow: hidden;
-  width: 112px;
-  min-width: 112px;
-  border: 1px solid #766a54;
-  border-radius: 10px;
-  background: #22232c;
-  transition: transform 0.15s;
-}
-.shared-card[aria-pressed="true"] {
-  transform: translateY(-8px);
-  outline: 2px solid #e0bf7c;
-}
-.shared-card-name {
-  display: block;
-  font:
-    14px/1.2 Georgia,
-    serif;
-  padding: 8px 5px;
-  min-height: 34px;
-}
-.shared-entrance-name {
-  display: block;
-  padding: 0 4px 7px;
-  color: #c8bfae;
-  font-size: 10px;
-  line-height: 1.2;
-}
-.shared-card .shared-portrait {
-  width: 100%;
-  height: 118px;
-}
-.shared-object-art,
-.shared-place-art {
-  display: block;
-  width: 100%;
-  height: 118px;
-  background-size: cover;
-  background-position: center;
-}
-.shared-object-art {
-  object-fit: contain;
-  padding: 8px;
-  background: radial-gradient(ellipse, #62533b22, transparent 75%);
-}
-.shared-card .shared-portrait {
-  padding: 4px 8px 0;
-}
-#shared-actions {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  min-height: 48px;
-}
-.shared-help {
-  font-size: 12px;
-  color: #cbc3b5;
-}
-.shared-heading {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-}
-#shared-menu > button {
-  display: block;
-  margin: 12px 0;
-}
-#shared-menu p {
-  max-width: 520px;
-  line-height: 1.6;
-}
-#shared-history {
-  max-width: 680px;
-}
-#shared-messages p {
-  line-height: 1.6;
-}
-.shared-result {
-  color: #b9ad97;
-  font-size: 13px;
-  border-top: 1px solid #45414b;
-  padding-top: 12px;
-}
-#invite-url {
-  width: 100%;
-  margin: 12px 0;
-  padding: 12px;
-  background: #171922;
-  color: #eee;
-  border: 1px solid #777;
-}
-@media (max-width: 700px) {
-  .shared-brand span {
-    display: none;
-  }
-  .shared-top {
-    padding: 8px 10px;
-    gap: 6px;
-  }
-  .shared-top button {
-    font-size: 11px;
-    padding: 5px 7px;
-  }
+@media (max-width: 600px) {
   .shared-picker {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
   }
-  #shared-lobby h1 {
-    font-size: 28px;
+  .shared-choice img {
+    height: 140px;
   }
-  #shared-place {
-    font-size: 21px;
-    margin: 12px 16px;
+  .top-actions {
+    gap: 4px;
   }
-  #shared-cast {
-    gap: 7px;
-  }
-  .shared-person .shared-portrait {
-    width: 21vw;
-  }
-  .shared-person > span:last-child {
-    font-size: 12px;
-  }
-  .shared-dialogue {
-    padding: 9px 12px;
-    min-height: 80px;
-  }
-  .shared-dialogue p {
-    font-size: 15px;
-  }
-  .shared-card {
-    width: 86px;
-    min-width: 86px;
-  }
-  .shared-card .shared-portrait,
-  .shared-object-art,
-  .shared-place-art {
-    height: 94px;
-  }
-  .shared-card-name {
-    font-size: 12px;
-    min-height: 33px;
-  }
-  #shared-hand {
-    padding: 10px 4px;
-    gap: 8px;
-  }
-  #shared-actions button {
-    font-size: 13px;
-    padding: 6px 10px;
-  }
-  #shared-queue {
-    font-size: 11px;
-  }
-}
-@media (max-height: 580px) {
-  .shared-top {
-    min-height: 52px;
-    padding: 4px 10px;
-  }
-  #shared-scene {
-    overflow-y: auto;
-  }
-  #shared-place {
-    margin: 4px 14px;
-    font-size: 19px;
-  }
-  #shared-cast {
-    position: absolute;
-    top: 20px;
-    right: 16px;
-    height: 100px;
-    opacity: 0.65;
-  }
-  .shared-dialogue {
-    margin-top: auto;
-    min-height: 60px;
-    padding: 8px 12px;
-  }
-  .shared-dialogue p {
-    font-size: 14px;
-  }
-  .shared-card .shared-portrait,
-  .shared-object-art,
-  .shared-place-art {
-    height: 65px;
-  }
-  .shared-card {
-    width: 85px;
-    min-width: 85px;
-  }
-  #shared-hand {
-    padding-top: 10px;
-    padding-bottom: 4px;
-  }
-  #shared-actions {
-    min-height: 40px;
-    flex-wrap: nowrap;
-  }
-  #shared-actions .shared-help {
-    flex: 1;
-    min-width: 0;
-    max-height: 40px;
-    overflow-y: auto;
-    line-height: 1.3;
-  }
-  #shared-queue {
-    min-height: 24px;
-    padding: 3px;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .shared-card {
-    transition: none;
+  .top-actions button {
+    padding-inline: 8px;
   }
 }
 
+.shared-resume {
+  display: block;
+  margin: 4px auto 8px;
+  padding: 6px 12px;
+  font-size: 13px;
+}
+@media (max-width: 480px) {
+  .topbar .brand {
+    display: none;
+  }
+  .topbar .top-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+#notice {
+  position: fixed;
+  z-index: 11;
+  top: 64px;
+  inset-inline: 16px;
+  width: fit-content;
+  max-width: calc(100vw - 32px);
+  margin-inline: auto;
+  border-radius: 6px;
+  background: #332c20f2;
+  box-shadow: 0 4px 18px #0006;
+  pointer-events: none;
+}
 @media (max-width: 700px) {
-  .shared-choice .shared-portrait {
-    height: 220px;
+  #notice {
+    top: 56px;
   }
 }

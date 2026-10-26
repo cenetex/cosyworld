@@ -1,4 +1,12 @@
+mod engine;
+mod full;
+mod full_speech;
+mod full_store;
+#[cfg(test)]
+mod full_tests;
+mod full_world;
 mod kernel;
+#[cfg(test)]
 mod speech;
 mod store;
 #[cfg(test)]
@@ -6,14 +14,15 @@ mod tests;
 
 use crate::AppState;
 use axum::{
-    extract::{DefaultBodyLimit, Path, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
-    routing::{get, post},
     Json, Router,
 };
+#[cfg(test)]
 use kernel::Action;
+#[cfg(test)]
 use rusqlite::{params, OptionalExtension, TransactionBehavior};
+#[cfg(test)]
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::{
@@ -38,12 +47,9 @@ fn capacity() -> &'static Arc<tokio::sync::Semaphore> {
     CAP.get_or_init(|| Arc::new(tokio::sync::Semaphore::new(2)))
 }
 pub(super) fn router() -> Router<AppState> {
-    Router::new()
-        .route("/card-game/shared/worlds", get(list).post(create))
-        .route("/card-game/shared/worlds/{id}", get(view))
-        .route("/card-game/shared/worlds/{id}/command", post(command))
-        .layer(DefaultBodyLimit::max(4096))
+    full::router()
 }
+
 fn reply(r: Result<Value>) -> Response {
     let (status, body) = match r {
         Ok(v) => (StatusCode::OK, v),
@@ -129,41 +135,7 @@ fn valid_id(id: &str) -> Result<()> {
         Err("Open the complete world invitation.".into())
     }
 }
-async fn list(State(state): State<AppState>, h: HeaderMap) -> Response {
-    reply((|| {
-        let u = user(&state, &h, false)?;
-        store::list(&db(&state)?, &u)
-    })())
-}
-async fn create(State(state): State<AppState>, h: HeaderMap) -> Response {
-    reply((|| {
-        let u = user(&state, &h, true)?;
-        admit(&u)?;
-        let mut c = db(&state)?;
-        let tx = c
-            .transaction_with_behavior(TransactionBehavior::Immediate)
-            .map_err(sql_error)?;
-        let id = crate::random_hex(24);
-        store::create(&tx, &id, &u, now())?;
-        tx.commit().map_err(sql_error)?;
-        Ok(json!({"id":id}))
-    })())
-}
-async fn view(State(state): State<AppState>, Path(id): Path<String>, h: HeaderMap) -> Response {
-    let result = (|| {
-        valid_id(&id)?;
-        let u = user(&state, &h, false)?;
-        let mut c = db(&state)?;
-        let tx = c.transaction().map_err(sql_error)?;
-        let value = store::snapshot(&tx, &id, &u, now())?;
-        tx.commit().map_err(sql_error)?;
-        Ok(value)
-    })();
-    if result.as_ref().is_ok_and(|v: &Value| !v["actor"].is_null()) {
-        kick(state, id);
-    }
-    reply(result)
-}
+#[cfg(test)]
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Command {
@@ -179,32 +151,11 @@ struct Command {
     #[serde(default)]
     key: String,
 }
+#[cfg(test)]
 fn minus_one() -> i32 {
     -1
 }
-async fn command(
-    State(state): State<AppState>,
-    Path(id): Path<String>,
-    h: HeaderMap,
-    Json(body): Json<Command>,
-) -> Response {
-    let result = (|| {
-        valid_id(&id)?;
-        let u = user(&state, &h, true)?;
-        admit(&u)?;
-        let mut c = db(&state)?;
-        let tx = c
-            .transaction_with_behavior(TransactionBehavior::Immediate)
-            .map_err(sql_error)?;
-        let result = run_command(&tx, &id, &u, &body, now())?;
-        tx.commit().map_err(sql_error)?;
-        Ok(result)
-    })();
-    if result.is_ok() {
-        kick(state, id);
-    }
-    reply(result)
-}
+#[cfg(test)]
 fn run_command(
     c: &rusqlite::Connection,
     id: &str,
@@ -349,12 +300,13 @@ fn run_command(
     }
     store::snapshot(c, id, u, time)
 }
+#[cfg(test)]
 struct Work {
     id: String,
     room: i32,
-    actor: i32,
     context: Value,
 }
+#[cfg(test)]
 fn take_work(state: &AppState, id: &str) -> Result<Option<Work>> {
     let mut c = db(state)?;
     let tx = c
@@ -415,13 +367,13 @@ fn take_work(state: &AppState, id: &str) -> Result<Option<Work>> {
         return Ok(Some(Work {
             id: key,
             room: destination,
-            actor: a,
             context,
         }));
     }
     tx.commit().map_err(sql_error)?;
     Ok(None)
 }
+#[cfg(test)]
 fn describe(a: Action, w: &kernel::World) -> String {
     let cast = &cast()["avatars"];
     let name = cast[a.actor as usize]["name"].as_str().unwrap();
@@ -454,6 +406,7 @@ fn describe(a: Action, w: &kernel::World) -> String {
         _ => format!("{name} takes a quiet moment."),
     }
 }
+#[cfg(test)]
 fn place_name(p: i32) -> String {
     if p == 0 {
         cast()["hub"]["name"].as_str().unwrap().into()
@@ -464,23 +417,7 @@ fn place_name(p: i32) -> String {
             .into()
     }
 }
-fn kick(state: AppState, id: String) {
-    let Ok(permit) = capacity().clone().try_acquire_owned() else {
-        return;
-    };
-    tokio::spawn(async move {
-        let _permit = permit;
-        // Each request can wake a worker. SQLite claims the next play before
-        // inference and prevents simultaneous workers from taking one room.
-        while let Ok(Some(work)) = take_work(&state, &id) {
-            let lines = speech::generate(&state, work.actor, &work.context).await;
-            if let Err(error) = finish_work(&state, &id, work, lines) {
-                tracing::warn!(error=%error,"shared card publication failed");
-                break;
-            }
-        }
-    });
-}
+#[cfg(test)]
 fn finish_work(state: &AppState, id: &str, work: Work, lines: Result<Value>) -> Result<()> {
     let mut c = db(state)?;
     let tx = c

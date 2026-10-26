@@ -1,3 +1,4 @@
+import { humanAvatarIds, humanHopes } from "./human-cast.mjs";
 import { packPeople, packThings, isPackActor } from "./pack-registry.mjs";
 // Personal quests grow from shared actions. This state belongs to the save.
 import { rootOwner, questItemAvailable, conditionMet } from "./situations.mjs";
@@ -5,7 +6,7 @@ import { packActorIds, packNames } from "./pack-registry.mjs";
 
 export const INSPIRATION_MAX = 5;
 export const REST_TURNS = 3;
-const actors = ["vale", "moth", "keeper"];
+const actors = [...humanAvatarIds, "moth", "keeper"];
 const items = ["lamp", "oil", "bell", "cloth", ...Object.keys(packThings)];
 const names = {
   vale: "Vale",
@@ -25,6 +26,7 @@ const itemNames = {
   cloth: "Black cloth",
 };
 export const hopes = {
+  ...humanHopes,
   vale: {
     title: "Make the shore a place to belong",
     keeps: { lamp: "Keep a light ready for shared journeys." },
@@ -91,7 +93,12 @@ export function hopeProgress(s, actor) {
     done,
     total: hopes[actor].milestones.length,
     next: hopes[actor].milestones[done]?.title || "A hope fulfilled",
-    hint: hopeHints[actor][done] || "Keep caring for the home you made.",
+    hint:
+      (hopeHints[actor] || [
+        "Share a useful belonging.",
+        "Spend time together.",
+        "Explore a place with company.",
+      ])[done] || "Keep caring for the home you made.",
   };
 }
 export function recentInspiration(s, actor) {
@@ -116,6 +123,19 @@ function earnHope(s, actor, kind, target = null) {
     life.milestones.push(s.turn);
 }
 
+export function installHumanLife(s) {
+  if (!s.life?.actors) return;
+  for (const id of humanAvatarIds)
+    s.life.actors[id] ??= {
+      phase: "active",
+      inspiration: 0,
+      restUntil: 0,
+      experiences: [],
+      attachments: {},
+      company: {},
+      milestones: [],
+    };
+}
 export function enablePersonalQuests(s) {
   if (s.life === undefined)
     s.life = {
@@ -179,7 +199,10 @@ export function lifeFacts(s, actor) {
         : `Inspiration: ${life.inspiration}/${INSPIRATION_MAX}. Useful trades, talks, help and shared journeys grow a new purpose.`,
     ...items
       .filter((item) => keepReason(s, actor, item))
-      .map((item) => `${itemNames[item]}: ${keepReason(s, actor, item)}`),
+      .map(
+        (item) =>
+          `${itemNames[item] || packNames[item]}: ${keepReason(s, actor, item)}`,
+      ),
     ...(stayingWith(s, actor)
       ? [
           `Staying to spend time with ${names[stayingWith(s, actor)] || packNames[stayingWith(s, actor)]}.`,
@@ -193,7 +216,10 @@ export function lifeFacts(s, actor) {
 export function recordLifeAction(s, a, accepted, usefulGift = false) {
   if (!s.life) return;
   const participant = (id) =>
-    actors.includes(id) && (!s.opening || s.opening.met[id] !== undefined);
+    actors.includes(id) &&
+    (!s.opening ||
+      s.opening.met[id] !== undefined ||
+      s.controlledActors?.includes(id));
   const social =
     ["give", "trade", "talk"].includes(a.kind) ||
     (["ask", "accompany"].includes(a.kind) && accepted);

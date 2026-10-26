@@ -1,3 +1,20 @@
+import {
+  currentActor,
+  humanAvatar,
+  humanAvatarIds,
+  controlledByHuman,
+  humanPresent,
+  sharedEnabled,
+  humanRoomAvailable,
+} from "./human-cast.mjs";
+export {
+  currentActor,
+  humanAvatar,
+  humanAvatarIds,
+  controlledByHuman,
+  humanPresent,
+  roomHumanCount,
+} from "./human-cast.mjs";
 export {
   newTable,
   applyTable,
@@ -16,11 +33,7 @@ import {
   recordReaction,
   validMotives,
 } from "./motives.mjs";
-import {
-  newMemories,
-  rememberEvent,
-  validMemories,
-} from "./memory.mjs";
+import { newMemories, rememberEvent, validMemories } from "./memory.mjs";
 import {
   programsFor,
   knownActors,
@@ -43,6 +56,7 @@ import {
   finishPersonalQuest,
   validLife,
   INSPIRATION_MAX,
+  installHumanLife,
   hopes,
 } from "./life.mjs";
 import {
@@ -176,6 +190,7 @@ function installPacks(s) {
         if (other !== id) actor.trust[other] ??= 0;
     for (const id of Object.keys(pack.places)) s.memories[id] ??= fresh[id];
   }
+  installHumanLife(s);
 }
 export function rootHolder(s, id) {
   let holder = s.items[id].holder;
@@ -193,7 +208,10 @@ export const carried = (s, actor) =>
   ids.filter((id) => rootHolder(s, id) === actor);
 export const covered = (s, id) => s.items.cloth.holder === id;
 export const shining = (s) =>
-  s.items.lamp.lit && s.items.lamp.fuel > 0 && !covered(s, "lamp");
+  entityActive(s, "lamp") &&
+  s.items.lamp.lit &&
+  s.items.lamp.fuel > 0 &&
+  !covered(s, "lamp");
 export const reflectionOpen = (s, from = itemPlace(s, "lamp")) =>
   // Light at either end opens the mirror in both directions.
   ["attic", "pond"].includes(from) &&
@@ -202,10 +220,16 @@ export const reflectionOpen = (s, from = itemPlace(s, "lamp")) =>
 // The bell is the shore's sound source: heard where it rests while it rings
 // uncovered. Packs add their own sounding fixtures through pack-rules.mjs.
 const baseSoundAt = (s, place) =>
+  entityActive(s, "bell") &&
   s.items.bell.ringing > 0 &&
   !covered(s, "bell") &&
   itemPlace(s, "bell") === place;
 export const senses = { player: "vale", baseSoundAt, nameOf };
+export const sensesFor = (s) => ({
+  ...senses,
+  player: currentActor(s),
+  ...(s.controlledActors ? { humanActors: s.controlledActors } : {}),
+});
 const baseExits = (s, place) =>
   s.opening
     ? places[place].exits.filter((to) => ![place, to].includes("attic"))
@@ -219,7 +243,7 @@ export const placeText = (s, place) =>
       : s.opening && place === "station"
         ? "The timetable lists years that have yet to happen. A path leads along the shore to the pond."
         : places[place].text,
-    ...crossingScenery(s, place, senses),
+    ...crossingScenery(s, place, sensesFor(s)),
   ].join(" ");
 export function exits(s, place, actor = null, previous = null) {
   return [
@@ -230,11 +254,16 @@ export function exits(s, place, actor = null, previous = null) {
         : reflectionOpen(s, place) && place === "pond"
           ? ["attic"]
           : []),
-      ...crossingExits(s, place, actor, senses),
+      ...crossingExits(s, place, actor, sensesFor(s)),
       ...transportExits(s, place, previous),
       ...packExits(s, place, actor),
     ]),
-  ].filter((to) => entityActive(s, to) && actorCanVisit(actor, to));
+  ].filter(
+    (to) =>
+      entityActive(s, to) &&
+      actorCanVisit(actor, to) &&
+      humanRoomAvailable(s, actor, to),
+  );
 }
 
 const programPlaces = (s) =>
@@ -247,15 +276,18 @@ const programPlaces = (s) =>
       )
     : places;
 function meetCast(s) {
+  const player = currentActor(s);
   for (const [id, a] of Object.entries(packPeople))
-    if (entityActive(s, id) && s.actors[id].place === s.actors.vale.place)
+    if (entityActive(s, id) && s.actors[id].place === s.actors[player].place)
       s.packs[a.packId].met && (s.packs[a.packId].met[id] ??= s.turn);
-  if (!s.opening) return;
-  if (s.actors.vale.place === "pond") s.opening.crossed = true;
+  if (!s.opening || (player !== "vale" && !s.opening.crossed)) return;
+  if (player === "vale" && s.actors.vale.place === "pond")
+    s.opening.crossed = true;
+  if (!s.opening.crossed) return;
   for (const id of actorIds)
     if (
       entityActive(s, id) &&
-      s.actors[id].place === s.actors.vale.place &&
+      s.actors[id].place === s.actors[player].place &&
       s.opening.met[id] === undefined
     )
       s.opening.met[id] = s.turn;
@@ -327,7 +359,7 @@ const needed = (s, actor, item) =>
   );
 const accepts = (s, actor, item) =>
   (hasMotives(s) && valueOf(s, actor, item) >= 2) ||
-  actor === "vale" ||
+  controlledByHuman(s, actor) ||
   bundle(s, item).some(
     (id) =>
       requiredItems(s, actor, desireFor(s, actor)).includes(id) &&
@@ -343,12 +375,12 @@ export function willingToGive(s, owner, item, recipient = null) {
     return false;
   if (!hasQuestPrograms(s) || lifeOf(s, owner))
     return (
-      owner !== "vale" &&
+      !controlledByHuman(s, owner) &&
       recipient !== null &&
       giftDecision(s, owner, item, recipient).accepted
     );
   return (
-    owner !== "vale" &&
+    !controlledByHuman(s, owner) &&
     !needed(s, owner, item) &&
     (handStatus(s, owner).items.every((e) => e.met) ||
       (recipient && s.actors[owner].trust[recipient] > 0) ||
@@ -362,7 +394,7 @@ export function canTrade(s, actor, give, receive) {
     !actorIds.includes(other) ||
     !knownActors(s).includes(other) ||
     other === actor ||
-    other === "vale" ||
+    controlledByHuman(s, other) ||
     s.actors[actor].place !== s.actors[other].place
   )
     return false;
@@ -461,7 +493,7 @@ function ensurePrograms(s) {
 function refreshStalledPrograms(s) {
   if (!hasQuestPrograms(s)) return;
   for (const actor of knownActors(s).filter(
-    (id) => id !== "vale" && !isPackActor(id),
+    (id) => !controlledByHuman(s, id) && !isPackActor(id),
   )) {
     const p = s.actors[actor].progress,
       current = programFor(s, actor);
@@ -618,7 +650,8 @@ function advancePrograms(s, met) {
 export function addLog(s, speaker, text, detail = {}) {
   const actorId =
     detail.actorId ?? actorIds.find((id) => nameOf(id) === speaker) ?? null;
-  const locationId = detail.locationId || s.actors[actorId || "vale"].place;
+  const locationId =
+    detail.locationId || s.actors[actorId || currentActor(s)].place;
   if (s.eventSeq === undefined) {
     s.log.forEach((entry, index) => {
       entry.seq = index + 1;
@@ -649,7 +682,7 @@ export function addLog(s, speaker, text, detail = {}) {
   const entry = s.log.at(-1);
   if (
     !entry.generated &&
-    entry.actorId === "vale" &&
+    entry.actorId === currentActor(s) &&
     entry.fromLocationId &&
     entry.fromLocationId !== entry.locationId &&
     (entry.verb === "move" || (entry.verb === "accompany" && entry.accepted))
@@ -827,7 +860,7 @@ export function accompanyDecision(s, actor, companion, destination) {
   };
 }
 
-export function legalActions(s, actor = "vale") {
+export function legalActions(s, actor = currentActor(s)) {
   if (!s.actors[actor] || !entityActive(s, actor)) return [];
   const here = s.actors[actor].place;
   const out = [
@@ -845,6 +878,7 @@ export function legalActions(s, actor = "vale") {
       (id) =>
         crossing?.travelers !== "player" &&
         id !== actor &&
+        !controlledByHuman(s, id) &&
         !staysPut(id) &&
         s.actors[id].place === here,
     )) {
@@ -919,6 +953,7 @@ export function legalActions(s, actor = "vale") {
         ),
       );
     } else if (
+      !(sharedEnabled(s) && controlledByHuman(s, other)) &&
       !avoidsStandoffs(other) &&
       !conflict &&
       !standoffFor(s, other) &&
@@ -1030,6 +1065,21 @@ export function legalActions(s, actor = "vale") {
       );
     }
     if (!canUse(s, actor, id)) continue;
+    const belonging = humanAvatarIds
+      .map(humanAvatar)
+      .find((a) => a.id !== "vale" && a.item.id === id);
+    if (belonging) {
+      const use = offer(
+        "use",
+        actor,
+        id,
+        null,
+        `${nameOf(actor)} ${belonging.item.effect}.`,
+        [id],
+      );
+      use.label = belonging.item.verb;
+      out.push(use);
+    }
     if (id === "lamp") {
       if (item.lit)
         out.push(
@@ -1124,7 +1174,7 @@ export function legalActions(s, actor = "vale") {
       action.key += ":" + receive;
       out.push(action);
     }
-  out.push(...fixtureOffers(s, actor, senses), ...packChoices(s, actor));
+  out.push(...fixtureOffers(s, actor, sensesFor(s)), ...packChoices(s, actor));
   for (const action of out) {
     if (action.kind === "take" && things[s.items[action.item]?.holder])
       action.label = "Uncover";
@@ -1135,10 +1185,10 @@ export function legalActions(s, actor = "vale") {
   }
   return out;
 }
-export function matchingActions(s, selected) {
-  const set = [...new Set(selected)].filter((id) => id !== "vale");
+export function matchingActions(s, selected, actor = currentActor(s)) {
+  const set = [...new Set(selected)].filter((id) => id !== actor);
   if (!set.length) return [];
-  return legalActions(s).filter(
+  return legalActions(s, actor).filter(
     (a) =>
       a.cards.length === set.length && set.every((id) => a.cards.includes(id)),
   );
@@ -1180,6 +1230,9 @@ function perform(s, a, capture = () => {}, round = null) {
     arrival = null,
     invitation = null;
   switch (a.kind) {
+    case "use":
+      remember(s, a.item, a.text);
+      break;
     case "choose":
       applyPackChoice(s, a);
       break;
@@ -1404,7 +1457,7 @@ function perform(s, a, capture = () => {}, round = null) {
   settleStandoffs(s);
   // Resolved plays, and only those, can advance a crossing's signal.
   if (round)
-    noteAct(s, a, here, holder, round, senses, (line, locationId) =>
+    noteAct(s, a, here, holder, round, sensesFor(s), (line, locationId) =>
       addLog(s, "World", line, { locationId }),
     );
   // Answering the request is the invited avatar's action for this round.
@@ -1430,7 +1483,7 @@ function toward(s, actor, target) {
     (a) => a.kind === "move" && a.target === route?.[1],
   );
 }
-export function plan(s, actor = "vale") {
+export function plan(s, actor = currentActor(s)) {
   // A resident who never leaves home keeps to it.
   if (staysPut(actor))
     return {
@@ -1661,7 +1714,9 @@ export function plan(s, actor = "vale") {
   if (missing.length) {
     // Stay while Vale is here holding a wanted item; the player may hand it over.
     const offered = missing.some(
-      (id) => rootHolder(s, id) === "vale" && s.actors.vale.place === here,
+      (id) =>
+        controlledByHuman(s, rootHolder(s, id)) &&
+        s.actors[rootHolder(s, id)].place === here,
     );
     const waiting = !offered && waitingHere(actorIds);
     return waiting ? goMeet(waiting) : idle(reason);
@@ -1748,14 +1803,19 @@ export function plan(s, actor = "vale") {
           .join(" and ")} at ${nameOf(here)}.`,
   );
 }
-export function play(s, action, expectedRevision = s.revision) {
+export function play(
+  s,
+  action,
+  expectedRevision = s.revision,
+  actor = currentActor(s),
+) {
   if (expectedRevision !== s.revision)
     return {
       ok: false,
       state: s,
       error: "The world changed. Choose a current play.",
     };
-  const exact = legalActions(s).find((a) => a.key === action?.key);
+  const exact = legalActions(s, actor).find((a) => a.key === action?.key);
   if (!exact)
     return {
       ok: false,
@@ -1763,11 +1823,12 @@ export function play(s, action, expectedRevision = s.revision) {
       error: "That play has changed. Check the cards and choose again.",
     };
   const next = structuredClone(s);
+  if (actor !== "vale" || s.playerActorId) next.playerActorId = actor;
   const previousHopes = Object.fromEntries(
     knownActors(s).map((id) => [id, lifeOf(s, id)?.milestones.length || 0]),
   );
   // Crossings open before the play decide whether a signal refreshes them.
-  const round = beginRound(s, senses);
+  const round = beginRound(s, sensesFor(s));
   next.turn += 1;
   next.revision += 1;
   for (const actor of knownActors(next)) {
@@ -1775,16 +1836,16 @@ export function play(s, action, expectedRevision = s.revision) {
     if (life?.phase === "content" && next.turn > life.restUntil)
       life.phase = "seeking";
   }
-  const reflectionSource = next.actors.vale.place;
+  const reflectionSource = next.actors[actor].place;
   const wasOpen = reflectionOpen(next, reflectionSource);
   if (exact.kind === "wait")
-    addLog(next, "World", "Vale waits. The cast takes a turn.");
+    addLog(next, "World", `${nameOf(actor)} waits. The cast takes a turn.`);
   const met = new Map();
   captureHands(next, met);
   const active = knownActors(next);
   const respondent = perform(next, exact, () => captureHands(next, met), round);
   // Waiting quietly beside a resident calms it.
-  if (exact.kind === "wait") calm(next, next.actors.vale.place, "vale");
+  if (exact.kind === "wait") calm(next, next.actors[actor].place, actor);
   captureHands(next, met);
   if (
     next.opening &&
@@ -1801,11 +1862,16 @@ export function play(s, action, expectedRevision = s.revision) {
       (id) =>
         isPackActor(id) &&
         entityActive(next, id) &&
-        next.actors[id].place === next.actors.vale.place,
+        next.actors[id].place === next.actors[actor].place,
     ),
   ];
   for (const actor of residents) {
-    if (actor === respondent || !active.includes(actor)) continue;
+    if (
+      actor === respondent ||
+      !active.includes(actor) ||
+      controlledByHuman(next, actor)
+    )
+      continue;
     perform(
       next,
       plan(next, actor).action,
@@ -1838,7 +1904,7 @@ export function play(s, action, expectedRevision = s.revision) {
   if (!rings.length)
     next.items.bell.ringing = Math.max(0, next.items.bell.ringing - 1);
   // Break unfinished signals and narrate crossings that opened or closed.
-  endRound(next, round, senses, (line, locationId) =>
+  endRound(next, round, sensesFor(next), (line, locationId) =>
     addLog(next, "World", line, { locationId }),
   );
   const isOpen = reflectionOpen(next, reflectionSource);
@@ -1881,6 +1947,13 @@ export function play(s, action, expectedRevision = s.revision) {
     }
   }
   refreshStalledPrograms(next);
+  for (const [id, allowance] of Object.entries(
+    next.sharedMigration?.inventoryAllowances || {},
+  )) {
+    const count = Math.min(allowance, carried(next, id).length);
+    if (count <= 3) delete next.sharedMigration.inventoryAllowances[id];
+    else next.sharedMigration.inventoryAllowances[id] = count;
+  }
   validateWorld(next);
   return { ok: true, state: next };
 }
@@ -1956,6 +2029,23 @@ function validProgram(p, actor, s) {
   }
   return true;
 }
+// JSON hosts may reorder object keys. Save equality follows values and array order.
+function sameValue(a, b) {
+  if (a === b) return true;
+  if (
+    !a ||
+    !b ||
+    typeof a !== "object" ||
+    typeof b !== "object" ||
+    Array.isArray(a) !== Array.isArray(b)
+  )
+    return false;
+  const keys = Object.keys(a);
+  return (
+    keys.length === Object.keys(b).length &&
+    keys.every((key) => Object.hasOwn(b, key) && sameValue(a[key], b[key]))
+  );
+}
 export function validateWorld(s) {
   const fail = () => {
     throw new Error(
@@ -1971,6 +2061,52 @@ export function validateWorld(s) {
     s.revision < s.turn
   )
     fail();
+  if (s.sharedMigration !== undefined) {
+    const m = s.sharedMigration;
+    if (
+      !sharedEnabled(s) ||
+      !m ||
+      m.version !== 1 ||
+      Object.keys(m).some(
+        (key) =>
+          !["version", "legacyTurn", "uses", "inventoryAllowances"].includes(
+            key,
+          ),
+      ) ||
+      !Number.isSafeInteger(m.legacyTurn) ||
+      m.legacyTurn < 0 ||
+      m.legacyTurn > 4294967295 ||
+      !Array.isArray(m.uses) ||
+      m.uses.length !== 8 ||
+      m.uses.some((n) => !Number.isInteger(n) || n < 0 || n > 2147483647) ||
+      (m.inventoryAllowances !== undefined &&
+        (!m.inventoryAllowances ||
+          Array.isArray(m.inventoryAllowances) ||
+          typeof m.inventoryAllowances !== "object" ||
+          Object.entries(m.inventoryAllowances).some(
+            ([id, n]) =>
+              !humanAvatar(id) || !Number.isInteger(n) || n < 4 || n > 8,
+          )))
+    )
+      fail();
+  }
+  if (s.playerActorId !== undefined && !humanAvatar(s.playerActorId)) fail();
+  for (const field of ["controlledActors", "presentActors"]) {
+    if (
+      s[field] !== undefined &&
+      (!Array.isArray(s[field]) ||
+        s[field].length > 8 ||
+        new Set(s[field]).size !== s[field].length ||
+        s[field].some((id) => !humanAvatar(id)))
+    )
+      fail();
+  }
+  if (
+    s.presentActors &&
+    (!s.controlledActors ||
+      s.presentActors.some((id) => !s.controlledActors.includes(id)))
+  )
+    fail();
   if (s.opening !== undefined) {
     const o = s.opening;
     if (
@@ -1983,7 +2119,9 @@ export function validateWorld(s) {
       Object.values(o.met).some(
         (turn) => !Number.isSafeInteger(turn) || turn < 0 || turn > s.turn,
       ) ||
-      (o.met.keeper !== undefined && o.met.moth === undefined) ||
+      (!sharedEnabled(s) &&
+        o.met.keeper !== undefined &&
+        o.met.moth === undefined) ||
       (!o.crossed &&
         (s.actors?.vale?.place !== "attic" ||
           Object.keys(o.met).length !== 1)) ||
@@ -2000,7 +2138,7 @@ export function validateWorld(s) {
       .join() !== ids.slice().sort().join()
   )
     fail();
-  if (!validPackState(s, senses)) fail();
+  if (!validPackState(s, sensesFor(s))) fail();
   if (!validMemories(s) || !validMotives(s) || !validLife(s)) fail();
   if (
     !s.locations ||
@@ -2085,7 +2223,7 @@ export function validateWorld(s) {
       fail();
     // Pack residents follow their own interests, never authored programs.
     if (isPackActor(id)) {
-      if (JSON.stringify(a.progress) !== JSON.stringify(newProgress())) fail();
+      if (!sameValue(a.progress, newProgress())) fail();
       continue;
     }
     const progress = a.progress,
@@ -2187,7 +2325,11 @@ export function validateWorld(s) {
     )
       fail();
   }
-  for (const actor of actorIds) if (carried(s, actor).length > 3) fail();
+  for (const actor of actorIds) {
+    const allowance = s.sharedMigration?.inventoryAllowances?.[actor];
+    const count = carried(s, actor).length;
+    if (count > (allowance || 3) || (allowance && allowance !== count)) fail();
+  }
   const lamp = s.items.lamp,
     oil = s.items.oil,
     bell = s.items.bell;
@@ -2267,6 +2409,7 @@ export function validateWorld(s) {
     "wait",
     "trade",
     "choose",
+    "use",
   ];
   for (const e of s.log) {
     if (e.seq !== undefined) {
@@ -2315,7 +2458,7 @@ export function validateWorld(s) {
         choice = pack?.choices.find((c) => c.id === e.choiceId);
       if (
         !choice ||
-        e.actorId !== "vale" ||
+        !humanAvatar(e.actorId) ||
         e.targetId !== choice.subject ||
         e.locationId !== choice.at ||
         s.packs[e.packId].receipts[e.choiceId] !== e.turn
@@ -2370,7 +2513,7 @@ export function validateWorld(s) {
         target = e.target || options[0];
       if (
         !validHand(target, e.actorId) ||
-        !options.some((h) => JSON.stringify(h) === JSON.stringify(target))
+        !options.some((h) => sameValue(h, target))
       )
         fail();
       if (e.fulfillment !== undefined) {
@@ -2395,8 +2538,10 @@ export function validateWorld(s) {
           fail();
         if (
           target.conditions?.length &&
-          JSON.stringify(seen.conditions) !==
-            JSON.stringify(target.conditions.map((c) => ({ ...c, met: true })))
+          !sameValue(
+            seen.conditions,
+            target.conditions.map((c) => ({ ...c, met: true })),
+          )
         )
           fail();
       }

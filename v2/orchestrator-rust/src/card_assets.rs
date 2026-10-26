@@ -24,6 +24,10 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "application/json",
             include_bytes!("../../card-game/shared-cast.json"),
         ),
+        "human-cast.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/human-cast.mjs"),
+        ),
         "assets/shared/places/pond.png" => (
             "image/png",
             include_bytes!("../../card-game/assets/shared/places/pond.png"),
