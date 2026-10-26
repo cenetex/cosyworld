@@ -2254,7 +2254,10 @@ mod tests {
                     let tries = {
                         let mut seen = captured.lock().unwrap();
                         seen.push(body.clone());
-                        seen.iter().filter(|b| b["messages"] == body["messages"]).count()
+                        seen.iter().filter(|b| {
+                            b["messages"][1]["content"].as_str().and_then(|text| text.lines().last())
+                                == body["messages"][1]["content"].as_str().and_then(|text| text.lines().last())
+                        }).count()
                     };
                     now.fetch_sub(1, SeqCst);
                     let user = body["messages"][1]["content"].as_str().unwrap();
@@ -2629,6 +2632,15 @@ mod tests {
         assert!(valid_outcome(&o));
         o.avatars.push(solo_departure().avatars.remove(0));
         assert!(!valid_outcome(&o));
+    }
+
+    #[test]
+    fn accepts_a_player_choosing_a_collected_quest() {
+        let mut outcome = solo_departure();
+        outcome.card.kind = "pursue".into();
+        outcome.card.target = None;
+        outcome.card.destination = None;
+        assert!(valid_outcome(&outcome));
     }
 
     #[test]
