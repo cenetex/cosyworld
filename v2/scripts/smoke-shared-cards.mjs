@@ -260,6 +260,28 @@ async function catchUpWithArrow(page) {
   );
   assert.equal(await page.locator("#return-live").count(), 0);
 }
+async function catchUpWithPortrait(page) {
+  const latest = await page.locator("#dialogue-text").textContent();
+  await page.locator("#previous-line").click();
+  const live = page.getByRole("button", { name: /^Return to live dialogue/ });
+  assert.equal(await live.getAttribute("data-live"), "false");
+  await page.waitForFunction(() => {
+    const image = document.querySelector("#live-line img");
+    return image?.complete && image.naturalWidth > 0;
+  });
+  const face = await live.boundingBox();
+  const arrow = await page.locator("#next-line").boundingBox();
+  assert(
+    face.x >= arrow.x + arrow.width,
+    "the live portrait follows the arrows",
+  );
+  assert.equal(face.width, 28);
+  assert.equal(face.height, 28);
+  await live.click();
+  assert.equal(await live.getAttribute("data-live"), "true");
+  assert.equal(await page.locator("#dialogue-text").textContent(), latest);
+  assert(await page.locator("#next-line").isDisabled());
+}
 try {
   start();
   await ready();
@@ -565,7 +587,10 @@ try {
     409,
   );
   assert.equal((await snapshot(vale)).world.revision, beforeForgery);
-  for (const page of [vale, mara]) await catchUpWithArrow(page);
+  for (const page of [vale, mara]) {
+    await catchUpWithArrow(page);
+    await catchUpWithPortrait(page);
+  }
   const notesBefore = await Promise.all(
     [vale, mara].map((page) => page.evaluate(() => window.sharedSpeechNotes)),
   );
@@ -584,6 +609,9 @@ try {
   assert.equal((await snapshot(vale)).queue.length, 4);
   for (const page of [vale, mara]) {
     await expectStage(page, ["nell", "ash", "mara", "vale", "moth"]);
+    await page.waitForFunction(
+      () => document.getElementById("live-line").dataset.actor === "mara",
+    );
     await page.locator("#shared-queue .shared-play-avatar").nth(3).waitFor();
     await page.waitForFunction(() =>
       [...document.querySelectorAll("#shared-queue img")].every(

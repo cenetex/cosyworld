@@ -105,6 +105,16 @@ body
 .shared-play-avatar[data-status="reading"] {
   border-color: #d8cbb3;
 }
+body .line-controls .shared-play-avatar {
+  min-width: 28px;
+  margin-left: 4px;
+  padding: 0;
+  border-color: #dfc38d;
+  background: #252832;
+}
+body .line-controls .shared-play-avatar[data-live="false"] {
+  box-shadow: 0 0 0 2px #dfc38d40;
+}
 button.shared-play-avatar:hover,
 button.shared-play-avatar:focus-visible {
   border-color: #f6e1b4;

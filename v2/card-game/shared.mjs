@@ -471,6 +471,21 @@ export function sharedLiveLine(state, now, room) {
   return scene.lines.at(-1);
 }
 
+export function sharedNextActor(state, now, room) {
+  const queued =
+    state.queue?.find((entry) => entry.status === "waiting") ||
+    state.queue?.find((entry) => entry.status === "working");
+  if (queued) return queued.actor;
+  const scene = state.history?.find(
+    (entry) => entry.room === room && entry.lines?.length,
+  );
+  const live = sharedLiveLine(state, now, room);
+  const next = scene?.lines
+    .slice(scene.lines.indexOf(live) + 1)
+    .find((line) => line.actorId);
+  return next?.actorId || live?.actorId || scene?.actor || state.actor;
+}
+
 export function sharedSpeechState(state, room) {
   const working = state.queue?.some((entry) => entry.status === "working");
   if (working) return { status: "pending", retryKey: null };
