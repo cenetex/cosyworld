@@ -861,7 +861,15 @@ async function showDiscovered(id, version, announcement) {
   }
   $("discovery-announcement").textContent = announcement;
   pauseSpeech();
-  armDiscovery(reducedMotion.matches ? 900 : id === QUEST_CARD ? 2200 : 1400);
+  armDiscovery(
+    id === QUEST_CARD
+      ? reducedMotion.matches
+        ? 900
+        : 2200
+      : reducedMotion.matches
+        ? 700
+        : 1400,
+  );
   await finished;
 }
 async function showQuestNotice() {

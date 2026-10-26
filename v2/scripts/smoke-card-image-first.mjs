@@ -96,8 +96,11 @@ try {
       page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
     const card = (id) => page.locator(`#hand [data-card="${id}"]`);
     async function ready() {
-      for (let i = 0; i < 150; i++) {
-        if (await page.locator("#dialogue-advance").isVisible())
+      const deadline = Date.now() + 20000;
+      while (Date.now() < deadline) {
+        if (await page.locator("#unveil-dialog[open]").count())
+          await page.keyboard.press("Escape");
+        else if (await page.locator("#dialogue-advance").isVisible())
           await page.locator("#dialogue-advance").click();
         if (
           (await page.locator("#hand").getAttribute("data-cooling")) === "false"
@@ -105,7 +108,13 @@ try {
           return;
         await page.waitForTimeout(30);
       }
-      throw Error("hand remained busy");
+      const waiting = await page.evaluate(() => ({
+        cooling: document.querySelector("#hand").dataset.cooling,
+        reveal: document.querySelector("#unveil-take").dataset.card,
+        speaker: document.querySelector("#speaker-name")?.textContent,
+        text: document.querySelector("#dialogue-text").textContent,
+      }));
+      throw Error(`hand remained busy: ${JSON.stringify(waiting)}`);
     }
     async function cards(...ids) {
       await ready();
