@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { sharedLiveLine, sharedSpeechState } from "../v2/card-game/shared.mjs";
+import {
+  sharedLiveLine,
+  sharedSpeechState,
+  hasSharedPlace,
+} from "../v2/card-game/shared.mjs";
 import { createWorld, currentActor } from "../v2/card-game/world.mjs";
 import { availableCards } from "../v2/card-game/cards.mjs";
 import {
@@ -169,4 +173,10 @@ describe("shared room detail lines", () => {
     expect(isSceneText(lines[1], false)).toBe(false);
     expect(isSceneText({ ...lines[1], generated: false }, true)).toBe(false);
   });
+});
+
+it("holds play controls while a returning avatar waits for a room place", () => {
+  expect(hasSharedPlace({ actor: "vale", present: [1, 0] })).toBe(true);
+  expect(hasSharedPlace({ actor: "mara", present: [1, 0] })).toBe(false);
+  expect(hasSharedPlace({ actor: null })).toBe(false);
 });
