@@ -2,64 +2,12 @@ import http from "node:http";
 import { once } from "node:events";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { roomTracks } from "./music.mjs";
-import { packMediaFiles } from "./pack-registry.mjs";
+import { publicAssets } from "./public-assets.mjs";
 
-const assets = new Map([
-  ["/", ["index.html", "text/html"]],
-  ["/index.html", ["index.html", "text/html"]],
-  ["/style.css", ["style.css", "text/css"]],
-  ["/entry.mjs", ["entry.mjs", "text/javascript"]],
-  ["/awakening.css", ["awakening.css", "text/css"]],
-  ["/app.mjs", ["app.mjs", "text/javascript"]],
-  ["/world.mjs", ["world.mjs", "text/javascript"]],
-  ["/scene.mjs", ["scene.mjs", "text/javascript"]],
-  ["/cards.mjs", ["cards.mjs", "text/javascript"]],
-  ["/lessons.mjs", ["lessons.mjs", "text/javascript"]],
-  ["/motives.mjs", ["motives.mjs", "text/javascript"]],
-  ["/life.mjs", ["life.mjs", "text/javascript"]],
-  ["/quests.mjs", ["quests.mjs", "text/javascript"]],
-  ["/quest-cards.mjs", ["quest-cards.mjs", "text/javascript"]],
-  ["/situations.mjs", ["situations.mjs", "text/javascript"]],
-  ["/memory.mjs", ["memory.mjs", "text/javascript"]],
-  ["/narrative.mjs", ["narrative.mjs", "text/javascript"]],
-  ["/dialogue.mjs", ["dialogue.mjs", "text/javascript"]],
-  ["/pack-schema.mjs", ["pack-schema.mjs", "text/javascript"]],
-  ["/pack-registry.mjs", ["pack-registry.mjs", "text/javascript"]],
-  ["/pack-rules.mjs", ["pack-rules.mjs", "text/javascript"]],
-  ["/legacy-saves.mjs", ["legacy-saves.mjs", "text/javascript"]],
-  ["/packs.json", ["packs.json", "application/json"]],
-  ["/music.mjs", ["music.mjs", "text/javascript"]],
-  ...Object.values(roomTracks)
-    .flat()
-    .map(({ file }) => [
-      `/assets/music/${file}`,
-      [`assets/music/${file}`, "audio/mpeg"],
-    ]),
-  ["/entity-profiles.json", ["entity-profiles.json", "application/json"]],
-  ...["lamp", "oil", "bell", "cloth"].map((id) => [
-    `/assets/${id}-card.png`,
-    [`assets/${id}-card.png`, "image/png"],
-  ]),
-  ...["lamp", "oil", "bell", "cloth"].map((id) => [
-    `/assets/${id}-card.jpg`,
-    [`assets/${id}-card.jpg`, "image/jpeg"],
-  ]),
-  ...["station", "attic", "pond", "vale", "moth", "keeper", "keeper-right"].map(
-    (id) => [`/assets/${id}.png`, [`assets/${id}.png`, "image/png"]],
-  ),
-  ...packMediaFiles.map((file) => [
-    `/${file}`,
-    [
-      file,
-      file.endsWith(".svg")
-        ? "image/svg+xml"
-        : file.endsWith(".webp")
-          ? "image/webp"
-          : "image/png",
-    ],
-  ]),
-]);
+const assets = new Map(
+  publicAssets.map(({ file, contentType }) => [`/${file}`, [file, contentType]]),
+);
+assets.set("/", assets.get("/index.html"));
 export function createServer() {
   return http.createServer(async (req, res) => {
     const pathname = new URL(req.url, "http://localhost").pathname;
@@ -134,8 +82,7 @@ export function createServer() {
     try {
       const body = await readFile(new URL(asset[0], import.meta.url));
       const headers = {
-        "Content-Type":
-          asset[1] === "audio/mpeg" ? asset[1] : `${asset[1]}; charset=utf-8`,
+        "Content-Type": asset[1],
         "Cache-Control": "no-store",
         "X-Content-Type-Options": "nosniff",
         "Content-Security-Policy":
