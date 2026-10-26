@@ -265,10 +265,8 @@ function render() {
     const backdrop = el("shared-backdrop");
     backdrop.style.backgroundImage = `url('/card-game/assets/${p === 0 ? "pond" : "shared-places"}.png')`;
     backdrop.className = p > 0 ? "shared-place-atlas" : "";
-    if (p > 0) {
-      const slot = p - 1;
-      backdrop.style.backgroundPosition = `${((slot % 4) * 100) / 3}% ${Math.floor(slot / 4) * 100}%`;
-    } else backdrop.style.backgroundPosition = "center";
+    backdrop.dataset.tile = p > 0 ? String(p - 1) : "";
+    fitBackdrop();
     const cast = el("shared-cast");
     cast.replaceChildren();
     for (let i = 0; i < 8; i++)
@@ -337,6 +335,20 @@ function card(type, index) {
     b.setAttribute("aria-label", `${name}, current place`);
   return b;
 }
+function fitBackdrop() {
+  const backdrop = el("shared-backdrop");
+  if (backdrop.dataset.tile === "" || backdrop.dataset.tile === undefined) {
+    backdrop.style.backgroundSize = "cover";
+    backdrop.style.backgroundPosition = "center";
+    return;
+  }
+  const slot = Number(backdrop.dataset.tile);
+  const { width, height } = backdrop.getBoundingClientRect();
+  const side = Math.max(width, height);
+  backdrop.style.backgroundSize = `${side * 4}px ${side * 2}px`;
+  backdrop.style.backgroundPosition = `${(width - side) / 2 - (slot % 4) * side}px ${(height - side) / 2 - Math.floor(slot / 4) * side}px`;
+}
+new ResizeObserver(fitBackdrop).observe(el("shared-backdrop"));
 function renderHand() {
   const w = state.world,
     a = state.actor,

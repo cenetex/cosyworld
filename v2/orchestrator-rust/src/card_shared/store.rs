@@ -10,6 +10,9 @@ pub(super) fn open(path: &Path) -> Result<Connection> {
     c.execute_batch("
       CREATE TABLE IF NOT EXISTS card_tables(id TEXT PRIMARY KEY, owner TEXT NOT NULL, created INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS card_members(world TEXT NOT NULL, actor INTEGER NOT NULL, user TEXT NOT NULL, seen INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(world,actor), UNIQUE(world,user));
+      CREATE TABLE IF NOT EXISTS card_checkpoints(world TEXT PRIMARY KEY, seq INTEGER NOT NULL, state TEXT NOT NULL);
+      CREATE INDEX IF NOT EXISTS card_tables_owner ON card_tables(owner);
+      CREATE INDEX IF NOT EXISTS card_members_user ON card_members(user);
       CREATE TABLE IF NOT EXISTS card_log(seq INTEGER PRIMARY KEY AUTOINCREMENT, world TEXT NOT NULL, command TEXT NOT NULL, at INTEGER NOT NULL);
       CREATE INDEX IF NOT EXISTS card_log_world ON card_log(world,seq);
       CREATE TABLE IF NOT EXISTS card_plays(id TEXT PRIMARY KEY, world TEXT NOT NULL, actor INTEGER NOT NULL, user TEXT NOT NULL, room INTEGER NOT NULL, command TEXT NOT NULL, status TEXT NOT NULL, created INTEGER NOT NULL, until_at INTEGER NOT NULL DEFAULT 0, result TEXT NOT NULL DEFAULT '{}');
@@ -43,11 +46,24 @@ pub(super) fn exists(c: &Connection, id: &str) -> Result<()> {
 }
 pub(super) fn world(c: &Connection, id: &str) -> Result<World> {
     exists(c, id)?;
-    let mut w = World::new();
-    let mut q = c
-        .prepare("SELECT command FROM card_log WHERE world=? ORDER BY seq")
+    let checkpoint: Option<(i64, String)> = c
+        .query_row(
+            "SELECT seq,state FROM card_checkpoints WHERE world=?",
+            [id],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .optional()
         .map_err(err)?;
-    let rows = q.query_map([id], |r| r.get::<_, String>(0)).map_err(err)?;
+    let (seq, mut w) = match checkpoint {
+        Some((seq, text)) => (seq, serde_json::from_str::<World>(&text).map_err(err)?),
+        None => (0, World::new()),
+    };
+    let mut q = c
+        .prepare("SELECT command FROM card_log WHERE world=? AND seq>? ORDER BY seq")
+        .map_err(err)?;
+    let rows = q
+        .query_map(params![id, seq], |r| r.get::<_, String>(0))
+        .map_err(err)?;
     for row in rows {
         let a: Action = serde_json::from_str(&row.map_err(err)?).map_err(err)?;
         w.apply(a)
@@ -62,6 +78,9 @@ pub(super) fn commit(c: &Connection, id: &str, w: &mut World, a: Action, now: i6
         params![id, serde_json::to_string(&a).map_err(err)?, now],
     )
     .map_err(err)?;
+    // Cache the C result in the same transaction as its replayable command.
+    let seq = c.last_insert_rowid();
+    c.execute("INSERT INTO card_checkpoints(world,seq,state) VALUES(?,?,?) ON CONFLICT(world) DO UPDATE SET seq=excluded.seq,state=excluded.state", params![id,seq,serde_json::to_string(w).map_err(err)?]).map_err(err)?;
     Ok(())
 }
 pub(super) fn member(c: &Connection, id: &str, user: &str) -> Result<Option<i32>> {

@@ -20,7 +20,7 @@ Presence has a 60-second reconnect grace; the avatar claim remains saved.
 
 `card_table.c` owns claims, presence, room capacity, routes, and item custody.
 Rust serializes commands in SQLite transactions beside the existing event store.
-The journal rebuilds the world after restart. Queue requests have unique keys.
+A saved checkpoint keeps reads small. The journal rebuilds the same world when the checkpoint is removed. Queue requests have unique keys.
 A worker records the action before requesting speech. An expired worker leaves
 the action saved and records a visible speech error. Shared scene timestamps let
 all visitors read the same two lines. Conversation history is local to the room.

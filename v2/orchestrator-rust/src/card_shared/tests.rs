@@ -55,6 +55,8 @@ fn eight_claims_and_one_avatar_per_account_survive_reopen() {
     let c = store::open(&path).unwrap();
     assert_eq!(expected, store::world(&c, &id).unwrap());
     assert_eq!(store::member(&c, &id, "user7").unwrap(), Some(7));
+    c.execute("DELETE FROM card_checkpoints", []).unwrap();
+    assert_eq!(expected, store::world(&c, &id).unwrap());
 }
 #[test]
 fn claim_race_has_one_winner() {
@@ -275,7 +277,7 @@ async fn shared_routes_require_an_account_cookie() {
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
 }
 #[test]
-fn worker_revalidates_stale_commands_and_recovery_keeps_committed_play() {
+fn recovery_keeps_committed_play_and_hides_private_state() {
     let (path, mut c, id) = fixture();
     run(&mut c, &id, "u", &command_for("claim", 0), now()).unwrap();
     let mut body = command_for("play", 0);
@@ -295,4 +297,87 @@ fn worker_revalidates_stale_commands_and_recovery_keeps_committed_play() {
     assert!(take_work(&state, &id).unwrap().is_none());
     let snap = store::snapshot(&c, &id, "u", now()).unwrap();
     assert!(snap["history"][0]["error"].is_string());
+    assert!(snap["history"][0].get("world").is_none());
+}
+
+#[test]
+fn queued_item_race_rechecks_custody_and_commits_once() {
+    let (path, mut c, id) = fixture();
+    for a in 0..2 {
+        run(
+            &mut c,
+            &id,
+            &format!("u{a}"),
+            &command_for("claim", a),
+            now(),
+        )
+        .unwrap();
+    }
+    let tx = c
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .unwrap();
+    let mut w = store::world(&tx, &id).unwrap();
+    for a in 0..2 {
+        store::commit(
+            &tx,
+            &id,
+            &mut w,
+            Action {
+                kind: 5,
+                actor: a,
+                item: -1,
+                target: 0,
+            },
+            now(),
+        )
+        .unwrap();
+    }
+    store::commit(
+        &tx,
+        &id,
+        &mut w,
+        Action {
+            kind: 7,
+            actor: 0,
+            item: 0,
+            target: -1,
+        },
+        now(),
+    )
+    .unwrap();
+    let turn = w.turn;
+    for a in 0..2 {
+        store::enqueue(
+            &tx,
+            &id,
+            &format!("u{a}"),
+            &w,
+            Action {
+                kind: 6,
+                actor: a,
+                item: 0,
+                target: -1,
+            },
+            &format!("item-race-000000{a}"),
+            now() + i64::from(a),
+        )
+        .unwrap();
+    }
+    tx.commit().unwrap();
+    let state = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
+    let work = take_work(&state, &id).unwrap().unwrap();
+    assert!(take_work(&state, &id).unwrap().is_none());
+    finish_work(&state,&id,work,Ok(json!([{"speaker":"Vale","text":"A little light."},{"speaker":"The shore","text":"The water glints."}]))).unwrap();
+    c.execute(
+        "UPDATE card_plays SET until_at=0 WHERE status='playing'",
+        [],
+    )
+    .unwrap();
+    assert!(take_work(&state, &id).unwrap().is_none());
+    let after = store::world(&c, &id).unwrap();
+    assert_eq!(after.turn, turn + 1);
+    assert_eq!(after.holders[0], 0);
+    let view = store::snapshot(&c, &id, "u1", now()).unwrap();
+    assert!(view["notice"].as_str().unwrap().contains("item has moved"));
+    assert_eq!(view["history"].as_array().unwrap().len(), 1);
 }

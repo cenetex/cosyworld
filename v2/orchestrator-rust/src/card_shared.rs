@@ -90,6 +90,30 @@ fn user(state: &AppState, h: &HeaderMap, mutation: bool) -> Result<String> {
         .map_err(sql_error)?
         .ok_or_else(|| "Sign in with your passkey.".into())
 }
+fn admit(user: &str) -> Result<()> {
+    use crate::rate_limit::{RateLimit, RateLimiter};
+    use std::{
+        sync::Mutex,
+        time::{Duration, Instant},
+    };
+    static LIMITS: OnceLock<Mutex<RateLimiter>> = OnceLock::new();
+    let mut limits = LIMITS
+        .get_or_init(|| Mutex::new(RateLimiter::default()))
+        .lock()
+        .map_err(sql_error)?;
+    if limits.allow(
+        format!("shared:{user}"),
+        RateLimit {
+            max_hits: 120,
+            window: Duration::from_secs(60),
+        },
+        Instant::now(),
+    ) {
+        Ok(())
+    } else {
+        Err("Give the table a moment, then try again.".into())
+    }
+}
 fn db(state: &AppState) -> Result<rusqlite::Connection> {
     store::open(
         state
@@ -114,6 +138,7 @@ async fn list(State(state): State<AppState>, h: HeaderMap) -> Response {
 async fn create(State(state): State<AppState>, h: HeaderMap) -> Response {
     reply((|| {
         let u = user(&state, &h, true)?;
+        admit(&u)?;
         let mut c = db(&state)?;
         let tx = c
             .transaction_with_behavior(TransactionBehavior::Immediate)
@@ -166,6 +191,7 @@ async fn command(
     let result = (|| {
         valid_id(&id)?;
         let u = user(&state, &h, true)?;
+        admit(&u)?;
         let mut c = db(&state)?;
         let tx = c
             .transaction_with_behavior(TransactionBehavior::Immediate)
@@ -446,11 +472,7 @@ fn kick(state: AppState, id: String) {
         let _permit = permit;
         // Each request can wake a worker. SQLite claims the next play before
         // inference and prevents simultaneous workers from taking one room.
-        loop {
-            let work = match take_work(&state, &id) {
-                Ok(Some(w)) => w,
-                _ => break,
-            };
+        while let Ok(Some(work)) = take_work(&state, &id) {
             let lines = speech::generate(&state, work.actor, &work.context).await;
             if let Err(error) = finish_work(&state, &id, work, lines) {
                 tracing::warn!(error=%error,"shared card publication failed");

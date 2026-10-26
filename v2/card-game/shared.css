@@ -171,7 +171,7 @@
 }
 .shared-place-atlas {
   background-image: url("/card-game/assets/shared-places.png");
-  background-size: 400% 200% !important;
+  background-size: 400% 200%;
 }
 #shared-place {
   position: relative;
