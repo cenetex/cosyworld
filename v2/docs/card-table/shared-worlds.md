@@ -68,6 +68,37 @@ exchanges with their original text and times. An avatar carrying more than the
 current limit keeps those items. That allowance shrinks as items are put down;
 new pickups and gifts use the normal limit.
 
+## Collected quests
+
+Each personal quest has a stable card key, its own steps, and the experience
+that led to it. The active card guides the next action. Other pending cards add
+bounded weight to an NPC's item choices. The player chooses a focus with the
+ordinary `pursue` action; NPCs choose from their circumstances and memories.
+Switching preserves the progress on every card.
+
+Each round captures all matching cards before applying their consequences.
+Each card advances by at most one step in that round. A shared world effect
+runs once for matching completions, while each card keeps its own receipt.
+The receipt includes the card key, step, turn, and witnessed hand.
+
+An avatar can hold eight unfinished cards. Matching suggestions coalesce.
+The collection keeps up to 256 identities; new suggestions pause at that limit.
+The latest 24 fulfilled cards keep their complete programs. Older fulfilled
+cards keep their key, title, purpose, art kind, origin, completion turn, and
+step count in an archive deck. Older saves keep their prior completion count
+as migration evidence when the original card identity is unavailable.
+
+Completing the active quest begins a rest at a place marked `sanctuary: true`.
+The station and attic are sanctuaries. Human rest counts that person's own
+turns in a shared world. Resident rest counts world rounds. A pending quest
+can finish while another remains active, preserving the chosen focus.
+
+The `/2` shared interpreter remains frozen in `engine-v2.js`. Loading a `/2`
+world first replays its history with those rules. It then appends one explicit
+`upgrade` command to `/3`, which migrates the saved life state. New commands
+use `engine-v3.js`. The same path works with a checkpoint or with the seed and
+journal alone. The bundle builder updates `/3` and keeps `/2` as replay history.
+
 ## Shared words
 
 The server records the action before requesting speech. Each play receives one
