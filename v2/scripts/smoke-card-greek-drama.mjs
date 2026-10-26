@@ -312,7 +312,11 @@ try {
     // Reopen the crossing through a real card play, not a forged state edit.
     await signalShip();
     current = await state();
-    const updated = commit(current, "move", "greek-harbor");
+    const updated = commit(
+      commit(current, "move", "greek-ship"),
+      "move",
+      "greek-harbor",
+    );
     await page.evaluate(
       ({ key, value }) => {
         localStorage.setItem(key, value);
