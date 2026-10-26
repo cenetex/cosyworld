@@ -1,0 +1,212 @@
+{
+  "version": 1,
+  "title": "The reflected shore",
+  "hub": {
+    "id": "pond",
+    "name": "Black pond",
+    "text": "A doorframe stands in the still water. Its reflection holds a window from somewhere else.",
+    "image": "assets/shared/places/pond.png"
+  },
+  "avatars": [
+    {
+      "id": "vale",
+      "name": "Vale",
+      "title": "The Lamplighter",
+      "pleasure": "Find a route and a decent bargain.",
+      "text": "A traveller with empty pockets and a sharp eye for interesting routes and a decent bargain. Curious, blunt, and vain about spotting an opportunity.",
+      "item": {
+        "id": "lamp",
+        "name": "Lamp",
+        "verb": "Light / put out",
+        "effect": "tends the lamp's flame",
+        "image": "assets/shared/items/lamp.png"
+      },
+      "home": {
+        "id": "station",
+        "name": "Empty station",
+        "text": "The empty clock hangs above rails that vanish into pale mist. An ivory bench waits beside the pond door.",
+        "image": "assets/shared/places/station.png",
+        "entrance": {
+          "name": "Lit arch",
+          "text": "The lamp lights a stone arch. Pale rails lead through it to the empty station."
+        }
+      },
+      "image": "assets/shared/characters/vale.png"
+    },
+    {
+      "id": "mara",
+      "name": "Mara",
+      "title": "The Understudy",
+      "pleasure": "Try a role and start a little scene.",
+      "text": "A witty performer who improvises with whoever arrives. She wants to stage the station's unfinished play and eagerly promises everyone a part.",
+      "item": {
+        "id": "mask",
+        "name": "Theatre mask",
+        "verb": "Perform",
+        "effect": "offers a short performance with the mask",
+        "image": "assets/shared/items/mask.png"
+      },
+      "home": {
+        "id": "theatre",
+        "name": "Paper theatre",
+        "text": "A theatre unfolds from thick paper pages. Sage curtains open onto a forest cut from an unfinished story.",
+        "image": "assets/shared/places/theatre.png",
+        "entrance": {
+          "name": "Parted curtains",
+          "text": "The mask hangs between sage curtains. Their folds open onto the paper theatre."
+        }
+      },
+      "image": "assets/shared/characters/mara.png"
+    },
+    {
+      "id": "ash",
+      "name": "Ash",
+      "title": "The Diver",
+      "pleasure": "Look beneath the surface.",
+      "text": "A sturdy pond explorer with dry humour and patient hands. He wants to recover the sunken station bell. Each find makes the next difficult recovery tempting.",
+      "item": {
+        "id": "float",
+        "name": "Diving float",
+        "verb": "Sound the water",
+        "effect": "tests the water with the float's sounding line",
+        "image": "assets/shared/items/float.png"
+      },
+      "home": {
+        "id": "belfry",
+        "name": "Sunken belfry",
+        "text": "The great bell hangs in a dry chamber. Fish drift beyond windows filled with the pond’s blue water.",
+        "image": "assets/shared/places/belfry.png",
+        "entrance": {
+          "name": "Diving bell",
+          "text": "The float draws a diving bell to the shore. Its open hatch leads into the dry belfry."
+        }
+      },
+      "image": "assets/shared/characters/ash.png"
+    },
+    {
+      "id": "nell",
+      "name": "Nell",
+      "title": "The Grafter",
+      "pleasure": "Grow something surprising.",
+      "text": "A bold gardener who experiments in unused places. She wants a garden across the platform. Shared space gives others a say in her plans.",
+      "item": {
+        "id": "can",
+        "name": "Watering can",
+        "verb": "Tend",
+        "effect": "waters a small patch of living green",
+        "image": "assets/shared/items/can.png"
+      },
+      "home": {
+        "id": "glasshouse",
+        "name": "Wild glasshouse",
+        "text": "Glass panes shelter an old signal cabin. A grafted tree grows above seed drawers and violet flowers.",
+        "image": "assets/shared/places/glasshouse.png",
+        "entrance": {
+          "name": "Growing gate",
+          "text": "Water touches the shore. A gate of new shoots opens into the glasshouse."
+        }
+      },
+      "image": "assets/shared/characters/nell.png"
+    },
+    {
+      "id": "tavi",
+      "name": "Tavi",
+      "title": "The Kite Runner",
+      "pleasure": "Try an idea and send a signal.",
+      "text": "A quick, playful inventor who sends signals across the shore. They want to catch the wind that arrives before the train. Every experiment invites help.",
+      "item": {
+        "id": "kite",
+        "name": "Signal kite",
+        "verb": "Fly",
+        "effect": "raises the signal kite to test the air",
+        "image": "assets/shared/items/kite.png"
+      },
+      "home": {
+        "id": "hill",
+        "name": "Wind hill",
+        "text": "Ribbons on the wind-bent tree point in different directions. Clouds drift below the clear hilltop.",
+        "image": "assets/shared/places/hill.png",
+        "entrance": {
+          "name": "Wind path",
+          "text": "The kite pulls a ribbon of path into the air. It curls up to the clear hilltop."
+        }
+      },
+      "image": "assets/shared/characters/tavi.png"
+    },
+    {
+      "id": "rue",
+      "name": "Rue",
+      "title": "The Conductor",
+      "pleasure": "Arrange an unlikely journey.",
+      "text": "A brisk organiser with dry wit and a gift for useful exceptions. She wants the first departure in years and sometimes promises a destination before finding the route.",
+      "item": {
+        "id": "routes",
+        "name": "Route board",
+        "verb": "Plan a journey",
+        "effect": "unfolds the route board and considers a journey",
+        "image": "assets/shared/items/routes.png"
+      },
+      "home": {
+        "id": "train",
+        "name": "Between-hours carriage",
+        "text": "Morning fills one window and stars fill the other. The open balcony faces a quiet silver horizon.",
+        "image": "assets/shared/places/train.png",
+        "entrance": {
+          "name": "Carriage door",
+          "text": "The route board opens a carriage door beside the water. Morning shines through the far window."
+        }
+      },
+      "image": "assets/shared/characters/rue.png"
+    },
+    {
+      "id": "orin",
+      "name": "Orin",
+      "title": "The Game Maker",
+      "pleasure": "Invite someone into a friendly game.",
+      "text": "A warm, eager player who loves friendly contests and elaborate rules. He wants a game everyone can enjoy. His delight carries him toward extravagant wagers.",
+      "item": {
+        "id": "board",
+        "name": "Game board",
+        "verb": "Set up a game",
+        "effect": "sets out the board and offers a friendly game",
+        "image": "assets/shared/items/board.png"
+      },
+      "home": {
+        "id": "pavilion",
+        "name": "Games pavilion",
+        "text": "Canvas shades a room of folding panels and mismatched stools. The worn floor suggests a game still being invented.",
+        "image": "assets/shared/places/pavilion.png",
+        "entrance": {
+          "name": "Game-tile bridge",
+          "text": "The board unfolds a short bridge of game tiles. It leads across the water to the pavilion."
+        }
+      },
+      "image": "assets/shared/characters/orin.png"
+    },
+    {
+      "id": "ada",
+      "name": "Ada",
+      "title": "The Unpicker",
+      "pleasure": "Find the seam and make a new possibility.",
+      "text": "A brisk, mischievous craftswoman with a hand-powered chair. She wants to turn the old curtain into a sail. She weighs keeping a story against giving its cloth another use.",
+      "item": {
+        "id": "shears",
+        "name": "Sewing shears",
+        "verb": "Unpick",
+        "effect": "examines a loose seam and works a thread free",
+        "image": "assets/shared/items/shears.png"
+      },
+      "home": {
+        "id": "loft",
+        "name": "Sail loft",
+        "text": "A vast unfinished sail curves above the wide workshop floor. A pale green seam opens to the sky.",
+        "image": "assets/shared/places/loft.png",
+        "entrance": {
+          "name": "Open seam",
+          "text": "The shears find a seam in the air. It parts like cloth and opens into the sail loft."
+        }
+      },
+      "image": "assets/shared/characters/ada.png"
+    }
+  ]
+}

@@ -4,6 +4,126 @@
 #[inline(never)]
 pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
     let asset: (&str, &[u8]) = match path {
+        "shared.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/shared.mjs"),
+        ),
+        "shared-auth.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/shared-auth.mjs"),
+        ),
+        "shared-rules.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/shared-rules.mjs"),
+        ),
+        "shared.css" => (
+            "text/css; charset=utf-8",
+            include_bytes!("../../card-game/shared.css"),
+        ),
+        "shared-cast.json" => (
+            "application/json",
+            include_bytes!("../../card-game/shared-cast.json"),
+        ),
+        "assets/shared/places/pond.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/shared/places/pond.png"),
+        ),
+        "assets/shared/characters/vale.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/shared/characters/vale.png"),
+        ),
+        "assets/shared/places/station.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/shared/places/station.png"),
+        ),
+        "assets/shared/items/lamp.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/shared/items/lamp.png"),
+        ),
+        "assets/shared/characters/mara.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/shared/characters/mara.png"),
+        ),
+        "assets/shared/places/theatre.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/shared/places/theatre.png"),
+        ),
+        "assets/shared/items/mask.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/shared/items/mask.png"),
+        ),
+        "assets/shared/characters/ash.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/shared/characters/ash.png"),
+        ),
+        "assets/shared/places/belfry.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/shared/places/belfry.png"),
+        ),
+        "assets/shared/items/float.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/shared/items/float.png"),
+        ),
+        "assets/shared/characters/nell.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/shared/characters/nell.png"),
+        ),
+        "assets/shared/places/glasshouse.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/shared/places/glasshouse.png"),
+        ),
+        "assets/shared/items/can.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/shared/items/can.png"),
+        ),
+        "assets/shared/characters/tavi.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/shared/characters/tavi.png"),
+        ),
+        "assets/shared/places/hill.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/shared/places/hill.png"),
+        ),
+        "assets/shared/items/kite.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/shared/items/kite.png"),
+        ),
+        "assets/shared/characters/rue.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/shared/characters/rue.png"),
+        ),
+        "assets/shared/places/train.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/shared/places/train.png"),
+        ),
+        "assets/shared/items/routes.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/shared/items/routes.png"),
+        ),
+        "assets/shared/characters/orin.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/shared/characters/orin.png"),
+        ),
+        "assets/shared/places/pavilion.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/shared/places/pavilion.png"),
+        ),
+        "assets/shared/items/board.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/shared/items/board.png"),
+        ),
+        "assets/shared/characters/ada.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/shared/characters/ada.png"),
+        ),
+        "assets/shared/places/loft.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/shared/places/loft.png"),
+        ),
+        "assets/shared/items/shears.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/shared/items/shears.png"),
+        ),
         "index.html" => (
             "text/html; charset=utf-8",
             include_bytes!("../../card-game/index.html"),

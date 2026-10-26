@@ -475,4 +475,6 @@
 #
 # 59470 -> 59471: one `mod` line for ai_decisions.rs, the decision-model client
 # and its pack policy. The client, draws, policy, and tests live in the module.
-59471
+# 59471 -> 59472: one module line for the shared card table. Rules, storage,
+# routes and tests live in card_shared and the C kernel.
+59472

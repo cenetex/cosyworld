@@ -260,6 +260,10 @@ jobs:
       - name: Run fresh-seed browser gate
         run: npm run v2:browser:check
 
+      - name: Check shared card worlds with real passkeys
+        if: matrix.mode == 'baseline'
+        run: node v2/scripts/smoke-shared-cards.mjs
+
       - name: Check the Steam Clock opening
         if: matrix.mode == 'baseline'
         run: node v2/scripts/check-card-awakening.mjs

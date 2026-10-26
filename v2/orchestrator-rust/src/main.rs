@@ -25,6 +25,7 @@ mod avatar_reflections;
 mod avatar_rescue;
 #[cfg(test)]
 mod beliefs_tests;
+mod card_shared;
 // The closed-vocabulary Calling Forge and event-derived Bond scripting.
 // Its candidate/proposal entry points power the client surface in a follow-up;
 // `is_calling_forge_statement` is wired into the authoritative calling path.
