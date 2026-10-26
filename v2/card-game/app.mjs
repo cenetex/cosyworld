@@ -2329,7 +2329,10 @@ installSharedControls({
 });
 if (sharedSession) {
   world = sharedWorld(sharedSession.state);
-  sharedSession.subscribe(adoptShared, notice);
+  sharedSession.subscribe(adoptShared, (message, recoveredFrom) => {
+    if (!recoveredFrom || $("notice").textContent === recoveredFrom)
+      notice(message);
+  });
   adoptShared(sharedSession.state);
   setInterval(syncSharedLine, 200);
 }
