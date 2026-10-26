@@ -5,7 +5,7 @@ import {
 } from "./human-cast.mjs";
 // Target hands can ask for an item's use or its place in someone else's hand.
 // These conditions use the same items and card plays as the rest of the world.
-import { isPackActor, entityActive } from "./pack-registry.mjs";
+import { isPackActor, entityActive, packThings } from "./pack-registry.mjs";
 export const condition = (kind, item, extra = {}) => ({
   conditions: [{ kind, item, ...extra }],
 });
@@ -43,12 +43,17 @@ export function conditionMet(s, c) {
   switch (c.kind) {
     case "lit":
       return (
+        entityActive(s, "lamp") &&
         s.items.lamp.lit &&
         s.items.lamp.fuel > 0 &&
         s.items.cloth.holder !== "lamp"
       );
     case "ringing":
-      return s.items.bell.ringing > 0 && s.items.cloth.holder !== "bell";
+      return (
+        entityActive(s, "bell") &&
+        s.items.bell.ringing > 0 &&
+        s.items.cloth.holder !== "bell"
+      );
     case "covered":
       return s.items.cloth.holder === c.item;
     case "heldBy":
@@ -72,7 +77,9 @@ export function validCondition(c, actor) {
       (c.kind === "ringing" && c.item === "bell") ||
       (c.kind === "covered" && ["lamp", "bell"].includes(c.item)) ||
       (c.kind === "heldBy" &&
-        ["lamp", "oil", "bell", "cloth"].includes(c.item) &&
+        ["lamp", "oil", "bell", "cloth", ...Object.keys(packThings)].includes(
+          c.item,
+        ) &&
         [...humanAvatarIds, "moth", "keeper"].includes(c.avatar) &&
         c.avatar !== actor))
   );

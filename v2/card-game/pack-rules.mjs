@@ -21,6 +21,7 @@ import {
   fixturesAt,
   isPackPlace,
   validatePackStates,
+  entityActive,
 } from "./pack-registry.mjs";
 
 import {
@@ -82,7 +83,8 @@ export function conditionMet(s, c, senses, packId = null) {
       return !!senses && c.at.some((place) => soundAt(s, place, senses));
     case "light":
       return Boolean(
-        s.items[c.item]?.lit &&
+        entityActive(s, c.item) &&
+          s.items[c.item]?.lit &&
           s.items[c.item]?.fuel > 0 &&
           c.at.includes(objectPlace(s, c.item)) &&
           (!c.uncovered ||
