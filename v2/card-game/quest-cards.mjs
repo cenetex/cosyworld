@@ -8,17 +8,20 @@ import { rootHolder, things, people, places, currentActor } from "./world.mjs";
 export const QUEST_CARD = "player-quest";
 
 export { STORY_QUEST_CARDS } from "./story-quests.mjs";
-import { STORY_QUEST_CARDS, storyDefinitions } from "./story-quests.mjs";
+import {
+  STORY_QUEST_CARDS,
+  storyDefinitions,
+  storyActors,
+} from "./story-quests.mjs";
 
 export function openingPoem(world) {
   return recitalPoem(world, packDefinition("greek-drama"));
 }
 
 export function storyQuests(world) {
-  return storyDefinitions(world).map((quest) => ({
-    ...quest,
-    actor: currentActor(world),
-  }));
+  return storyQuestCards(world, currentActor(world)).filter(
+    (quest) => !quest.historical,
+  );
 }
 
 export function activeQuests(world) {
@@ -157,16 +160,14 @@ function personalQuestCards(world, actor = currentActor(world)) {
     });
 }
 
-// Pack receipts retain story cards through reload and log pruning. A second
-// courtyard report has its own identity while the first stays in the collection.
-export function questCards(world, actor = currentActor(world)) {
-  const personal = personalQuestCards(world, actor);
-  const stories = storyDefinitions(world, true)
+function storyQuestCards(world, actor) {
+  return storyDefinitions(world, true)
     .filter((definition) => {
       const record = world.quests?.records[definition.key];
       return record
         ? record.holder.id === actor || record.participants.includes(actor)
-        : actor === currentActor(world);
+        : definition.holder.id === actor ||
+            storyActors(world, definition).includes(actor);
     })
     .map((definition) => {
       const record = world.quests?.records[definition.key];
@@ -177,12 +178,19 @@ export function questCards(world, actor = currentActor(world)) {
           actor === currentActor(world) && !definition.historical
             ? definition.id
             : undefined,
-        participants: record?.participants || [],
+        participants: record?.participants || storyActors(world, definition),
         focused: world.quests?.focus[actor] === definition.key,
         step: record?.step ?? Number(definition.resolved),
         steps: 1,
       };
     });
+}
+
+// Pack receipts retain story cards through reload and log pruning. A second
+// courtyard report has its own identity while the first stays in the collection.
+export function questCards(world, actor = currentActor(world)) {
+  const personal = personalQuestCards(world, actor);
+  const stories = storyQuestCards(world, actor);
   return [
     ...personal.filter((quest) => quest.status === "active"),
     ...personal.filter((quest) => quest.status === "pending"),
