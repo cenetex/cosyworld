@@ -324,6 +324,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "backdrop",
         "art",
         "music",
+        "musicMode",
         "stage",
         "requires",
       ]),
@@ -354,6 +355,12 @@ export function packProblems(pack, hub, mountedPlaces = []) {
               textOk(track.title, 120),
           ),
         `place ${id} music needs 1–16 MP3 filenames and titles`,
+      );
+    if (p.musicMode !== undefined)
+      check(
+        p.music !== undefined &&
+          ["sequence", "random-per-visit"].includes(p.musicMode),
+        `place ${id} musicMode needs a playlist and sequence or random-per-visit`,
       );
     if (p.stage !== undefined)
       check(

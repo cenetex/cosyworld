@@ -459,8 +459,10 @@
       "music": [
         { "file": "ship-1.mp3", "title": "Wine, Black Sea" },
         { "file": "ship-2.mp3", "title": "Wine-Dark" },
-        { "file": "ship-3.mp3", "title": "Wine-Dark-2" }
-      ]
+        { "file": "ship-3.mp3", "title": "Wine-Dark-2" },
+        { "file": "ship-4.mp3", "title": "Wine-Dark-3" }
+      ],
+      "musicMode": "random-per-visit"
     }
   },
   "avatars": {

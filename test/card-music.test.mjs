@@ -8,7 +8,7 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 const advance = (ms) => vi.advanceTimersByTimeAsync(ms);
 
-function player({ fallback = false } = {}) {
+function player({ fallback = false, random = () => 0 } = {}) {
   let from = 0,
     to = 0,
     start = 0,
@@ -75,6 +75,7 @@ function player({ fallback = false } = {}) {
   const changed = vi.fn();
   const music = createRoomMusic({
     audio,
+    random,
     changed,
     now: clock,
     makeContext: () => {
@@ -106,33 +107,63 @@ function player({ fallback = false } = {}) {
 }
 
 describe("room music fades", () => {
-  it("plays the pack playlist aboard and fades out at the destination", async () => {
-    const { audio, music, begin, ended, changed, level } = player();
+  it("keeps one randomly chosen song for a crossing and chooses again on boarding", async () => {
+    const random = vi.fn().mockReturnValueOnce(0.6).mockReturnValueOnce(0.9);
+    const { audio, music, begin, ended, changed, level } = player({ random });
     await begin("pond");
     music.setRoom("greek-ship");
     expect(audio.src).toMatch(/pond-1\.mp3$/);
     await advance(2000);
-    expect(audio.src).toMatch(/ship-1\.mp3$/);
-    expect(changed.mock.lastCall[0].title).toBe("Wine, Black Sea");
-    ended();
+    expect(audio.src).toMatch(/ship-3\.mp3$/);
+    expect(changed.mock.lastCall[0].title).toBe("Wine-Dark-2");
+    music.setRoom("greek-ship");
+    music.setEnabled(false);
     await advance(1000);
-    expect(audio.src).toMatch(/ship-2\.mp3$/);
-    expect(changed.mock.lastCall[0].title).toBe("Wine-Dark");
+    music.setEnabled(true);
+    music.setHidden(true);
+    await advance(1000);
+    music.setHidden(false);
+    await advance(1000);
+    audio.currentTime = audio.duration;
     ended();
     await advance(1000);
     expect(audio.src).toMatch(/ship-3\.mp3$/);
-    expect(changed.mock.lastCall[0].title).toBe("Wine-Dark-2");
+    expect(audio.currentTime).toBe(0);
+    expect(random).toHaveBeenCalledTimes(1);
     music.setRoom("greek-harbor");
     await advance(1000);
     expect(level()).toBe(0);
     expect(audio.paused).toBe(true);
     music.setRoom("greek-ship");
     await advance(1000);
-    expect(audio.src).toMatch(/ship-3\.mp3$/);
+    expect(audio.src).toMatch(/ship-4\.mp3$/);
+    expect(changed.mock.lastCall[0].title).toBe("Wine-Dark-3");
     expect(audio.paused).toBe(false);
-    ended();
-    await advance(1000);
-    expect(audio.src).toMatch(/ship-1\.mp3$/);
+    expect(random).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    [0, "ship-1.mp3"],
+    [0.25, "ship-2.mp3"],
+    [0.5, "ship-3.mp3"],
+    [0.999, "ship-4.mp3"],
+  ])("can choose %s as %s for a crossing", async (choice, file) => {
+    const { audio, begin } = player({ random: () => choice });
+    await begin("greek-ship");
+    expect(audio.src.endsWith(file)).toBe(true);
+  });
+
+  it("restarts a repeated song when boarding again during the outgoing fade", async () => {
+    const { audio, music, begin } = player({ random: () => 0.3 });
+    await begin("greek-ship");
+    audio.currentTime = 60;
+    music.setRoom("greek-harbor");
+    await advance(200);
+    music.setRoom("greek-ship");
+    await advance(2000);
+    expect(audio.src).toMatch(/ship-2\.mp3$/);
+    expect(audio.currentTime).toBe(0);
+    expect(audio.paused).toBe(false);
   });
 
   it("waits for the first play in each new game and keeps the music setting", async () => {

@@ -274,6 +274,10 @@ records. Each file is an MP3 in `assets/music/`. The room music player uses
 the same saved volume and one-second fades for pack locations. Tracks repeat
 in order while the player stays in that place.
 
+`musicMode: "random-per-visit"` chooses one track whenever the player enters
+the place. That track repeats for the visit. Card plays, pause, and volume
+changes keep the same choice. The ship uses this mode for each crossing.
+
 A transport signal uses `opens: null`. Completion summons the transport to
 that crossing's `from` dock. The dock remains saved through waits, reloads,
 lamp changes, and later sound. If passengers are aboard, the recall waits

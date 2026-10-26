@@ -122,7 +122,13 @@ describe("world packs on the card table", () => {
     pack.places.clearing.music = [
       { file: "forest-song.mp3", title: "Forest song" },
     ];
+    pack.places.clearing.musicMode = "random-per-visit";
     expect(packProblems(pack, hub)).toEqual([]);
+    pack.places.clearing.musicMode = "shuffle";
+    expect(packProblems(pack, hub).join("\n")).toMatch(/musicMode/);
+    pack.places.clearing.musicMode = "random-per-visit";
+    delete pack.places.clearing.music;
+    expect(packProblems(pack, hub).join("\n")).toMatch(/musicMode/);
     for (const playlist of [
       [],
       null,

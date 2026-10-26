@@ -126,7 +126,7 @@ try {
   await fullVolume();
   await page.locator('[data-close="menu-dialog"]').click();
 
-  async function travel(room, card = room) {
+  async function travel(room, card = room, check = () => checkPlaylist(room)) {
     await fullVolume();
     const oldSource = await page.locator("#room-music").getAttribute("src");
     await playCard(card);
@@ -140,10 +140,13 @@ try {
       return level > 0.01 && level < volume - 0.02;
     }, volume);
     await page.waitForFunction(
-      (file) => document.querySelector("#room-music").src.endsWith(file),
-      roomTracks[room][0].file,
+      (tracks) =>
+        tracks.some(({ file }) =>
+          document.querySelector("#room-music").src.endsWith(file),
+        ),
+      roomTracks[room],
     );
-    await checkPlaylist(room);
+    await check();
   }
   // Playing the pond goes there.
   await travel("pond");
@@ -229,15 +232,68 @@ try {
   await fullVolume();
   assert.equal(await page.locator("#music-volume").inputValue(), "18");
   await page.locator('[data-close="menu-dialog"]').click();
-  await travel("greek-ship");
-  console.log("All ship tracks played");
+
+  async function checkCrossingSong() {
+    await page.waitForFunction((tracks) => {
+      const audio = document.querySelector("#room-music");
+      return (
+        tracks.some(({ file }) => audio.src.endsWith(file)) &&
+        audio.currentTime > 0 &&
+        !audio.paused &&
+        Number.isFinite(audio.duration)
+      );
+    }, roomTracks["greek-ship"]);
+    await fullVolume();
+    const source = await page.locator("#room-music").getAttribute("src");
+    await page.locator("#room-music").evaluate((audio) => {
+      audio.currentTime = audio.duration - 1.25;
+    });
+    await page.waitForFunction((volume) => {
+      const level = window.musicGain.gain.value;
+      return level > 0.01 && level < volume - 0.02;
+    }, volume);
+    await page.waitForFunction((source) => {
+      const audio = document.querySelector("#room-music");
+      return (
+        audio.getAttribute("src") === source &&
+        audio.currentTime < 2 &&
+        !audio.paused
+      );
+    }, source);
+    await fullVolume();
+    await playCard("greek-ship");
+    await fullVolume();
+    assert.equal(await page.locator("#room-music").getAttribute("src"), source);
+  }
+  await travel("greek-ship", "greek-ship", checkCrossingSong);
   await playCard("greek-harbor");
   await page.waitForFunction(
     () => document.querySelector("#room-music").paused,
   );
   await playCard("greek-ship");
-  await checkPlaylist("greek-ship");
+  await checkCrossingSong();
   await travel("pond");
+  // Check decoding for every candidate, including songs chance did not select.
+  const decoded = await page.evaluate(async (tracks) => {
+    const results = [];
+    for (const { file } of tracks) {
+      const probe = new Audio(`/card-game/assets/music/${file}`);
+      probe.muted = true;
+      try {
+        await probe.play();
+        results.push({ file, duration: probe.duration });
+      } finally {
+        probe.pause();
+        probe.removeAttribute("src");
+        probe.load();
+      }
+    }
+    return results;
+  }, roomTracks["greek-ship"]);
+  assert.equal(decoded.length, 4);
+  assert(
+    decoded.every(({ duration }) => Number.isFinite(duration) && duration > 30),
+  );
   assert(
     await page.evaluate(() =>
       window.musicStops.every(({ level }) => level < 0.003),
@@ -246,7 +302,7 @@ try {
   );
   assert.deepEqual(errors, []);
   console.log(
-    "Room music: all nine MP3s played with fades at track endings, room changes, and pause/resume; ship round trip, saved controls and mobile menu passed.",
+    "Room music: all ten MP3s decoded; each crossing kept one random ship song through its ending and card plays. Fades, return music, saved controls and mobile menu passed.",
   );
 } finally {
   await browser.close();

@@ -28,6 +28,7 @@ export function createRoomMusic({
   makeContext = () =>
     new (globalThis.AudioContext || globalThis.webkitAudioContext)(),
   now = () => performance.now() / 1000,
+  random = Math.random,
 }) {
   const fadeSeconds = 1;
   let room = null,
@@ -97,6 +98,8 @@ export function createRoomMusic({
   function track() {
     return roomTracks[room]?.[positions.get(room) || 0];
   }
+  const randomPerVisit = () =>
+    packPlaces[room]?.musicMode === "random-per-visit";
   function wanted() {
     return (
       started &&
@@ -210,7 +213,8 @@ export function createRoomMusic({
   audio.addEventListener("ended", () => {
     if (loadedFile === track()?.file) {
       failures = 0;
-      advance();
+      if (randomPerVisit()) audio.currentTime = 0;
+      else advance();
     }
     // A track can end while travel is waiting for its fade to finish.
     sync();
@@ -243,6 +247,11 @@ export function createRoomMusic({
       if (room === value) return;
       room = value;
       failures = 0;
+      if (randomPerVisit()) {
+        positions.set(room, Math.floor(random() * roomTracks[room].length));
+        // Each visit starts its chosen song afresh, even when it repeats.
+        loadedFile = null;
+      }
       sync();
     },
     unlock() {
