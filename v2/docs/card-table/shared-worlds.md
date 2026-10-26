@@ -9,9 +9,10 @@ Mirror attic, Pip, the keeper, Badger, mounted story packs, and their rules belo
 to this same world. Each account claims one of eight human avatars. Each room
 holds four present humans. Residents can share a room with those humans.
 
-The seven new humans start in their homes with their signature items. Each home
-leads to the existing Black pond. Its item reveals the entrance when it rests at
-the pond or is carried by a present human there. Full destination cards disappear
+The seven new humans start in their homes with their signature items on the floor.
+Picking up the item opens the path to Black pond. Putting it down closes that
+path. At the pond, the item reveals the home's entrance when it rests there or
+is carried by a present human. Full destination cards disappear
 from the hand. The server checks room space again when a play reaches its turn.
 
 The existing Play buttons add an action to the room queue. A room holds four
@@ -57,6 +58,13 @@ Full worlds use an append-only journal and a checkpoint in the existing SQLite
 store. Each action is checked against the current world as it executes. Unique
 play keys make retries safe. Removing a checkpoint rebuilds the world from its
 seed and recorded operations.
+
+Rule version 3 gives home items their floor start and gates the home-to-pond path
+on carrying the item in the home. Version 2 stays frozen for replay. Loading an
+earlier world first replays its accepted actions with version 2, then records one
+upgrade to version 3. Claimed avatars keep their item positions and progress;
+unused items in unclaimed homes settle on the floor. The upgrade advances the
+view revision while preserving the world turn and conversation.
 
 Earlier shared invitations keep their IDs and account claims. Their first full
 world load records an explicit migration seed. It maps the old rooms and items

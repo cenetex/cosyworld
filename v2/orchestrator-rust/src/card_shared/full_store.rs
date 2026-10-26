@@ -76,11 +76,18 @@ pub(super) fn world(c: &Connection, id: &str, now: i64) -> Result<World> {
         }
         seq = s;
     }
-    if let Some(w) = state {
-        if w.version != engine::VERSION {
+    if let Some(mut w) = state {
+        if w.version == engine::PREVIOUS_VERSION {
+            commit(
+                c,
+                id,
+                &mut w,
+                json!({"op":"upgrade","from":engine::PREVIOUS_VERSION,"to":engine::VERSION}),
+                now,
+            )?;
+        } else if w.version != engine::VERSION {
             return Err("This world's rules need a saved migration.".into());
-        }
-        if seq > checkpoint_seq {
+        } else if seq > checkpoint_seq {
             checkpoint(c, id, &w, seq)?;
         }
         return Ok(w);

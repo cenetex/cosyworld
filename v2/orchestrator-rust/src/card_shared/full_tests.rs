@@ -56,6 +56,144 @@ fn full_world_has_existing_residents_and_packs_and_replays_from_seed() {
     c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
     assert_eq!(full_store::world(&c, &id, now()).unwrap(), before);
 }
+fn home_action(w: &World, actor: usize, kind: &str) -> Value {
+    w.project(actor).unwrap()["actions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|a| a["kind"] == kind)
+        .unwrap()
+        .clone()
+}
+#[test]
+fn home_item_pickup_and_drop_control_authoritative_travel_and_replay() {
+    let (_path, mut c, id) = fixture();
+    claim(&mut c, &id, 1);
+    let mut w = full_store::world(&c, &id, now()).unwrap();
+    assert_eq!(w.game["items"]["mask"]["holder"], "theatre");
+    assert!(!w.project(1).unwrap()["exits"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("pond")));
+    let take = home_action(&w, 1, "take");
+    full_store::commit(
+        &c,
+        &id,
+        &mut w,
+        json!({"op":"play","actor":"mara","action":take}),
+        now(),
+    )
+    .unwrap();
+    let travel = home_action(&w, 1, "move");
+    assert_eq!(travel["target"], "pond");
+    let put_down = home_action(&w, 1, "drop");
+    full_store::commit(
+        &c,
+        &id,
+        &mut w,
+        json!({"op":"play","actor":"mara","action":put_down}),
+        now(),
+    )
+    .unwrap();
+    let before = w.clone();
+    assert!(w
+        .apply(&json!({"op":"play","actor":"mara","action":travel}))
+        .is_err());
+    assert_eq!(w, before);
+    assert!(full::run(&c, &id, "user1", &body("upgrade", None), now()).is_err());
+    c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+    let replayed = full_store::world(&c, &id, now()).unwrap();
+    assert_eq!(replayed, before);
+    assert!(!replayed.project(1).unwrap()["exits"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("pond")));
+}
+#[test]
+fn earlier_home_travel_replays_before_one_recorded_rules_upgrade() {
+    let path = std::env::temp_dir().join(format!(
+        "home-rules-upgrade-{}.sqlite",
+        crate::random_hex(12)
+    ));
+    let c = store::open(&path).unwrap();
+    full_store::schema(&c).unwrap();
+    let id = "d".repeat(48);
+    store::create(&c, &id, "owner", now()).unwrap();
+    let result = engine::reduce_version(engine::PREVIOUS_VERSION, json!({"op":"create"})).unwrap();
+    let mut old = World {
+        version: engine::PREVIOUS_VERSION.into(),
+        game: result["world"].clone(),
+        claimed: [0; 8],
+        present: [0; 8],
+    };
+    full_store::seed(&c, &id, &old, "previous-rules", now()).unwrap();
+    for a in [1, 2] {
+        for op in ["claim", "enter"] {
+            full_store::commit(
+                &c,
+                &id,
+                &mut old,
+                json!({"op":op,"actor":actor_id(a)}),
+                now(),
+            )
+            .unwrap();
+        }
+        let action = home_action(&old, a, "drop");
+        full_store::commit(
+            &c,
+            &id,
+            &mut old,
+            json!({"op":"play","actor":actor_id(a),"action":action}),
+            now(),
+        )
+        .unwrap();
+    }
+    // Version 2 accepted this trip after Ash left the item on the home floor.
+    let action = home_action(&old, 2, "move");
+    full_store::commit(
+        &c,
+        &id,
+        &mut old,
+        json!({"op":"play","actor":"ash","action":action}),
+        now(),
+    )
+    .unwrap();
+    assert_eq!(old.game["actors"]["ash"]["place"], "pond");
+    assert!(old.project(1).unwrap()["exits"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("pond")));
+    let upgraded = full_store::world(&c, &id, now()).unwrap();
+    assert_eq!(upgraded.version, engine::VERSION);
+    assert_eq!(upgraded.game["turn"], old.game["turn"]);
+    assert_eq!(
+        upgraded.game["revision"].as_u64(),
+        old.game["revision"].as_u64().map(|n| n + 1)
+    );
+    assert_eq!(upgraded.game["actors"], old.game["actors"]);
+    assert_eq!(upgraded.game["log"], old.game["log"]);
+    assert_eq!(upgraded.game["items"]["mask"], old.game["items"]["mask"]);
+    assert_eq!(upgraded.claimed, old.claimed);
+    assert_eq!(upgraded.present, old.present);
+    assert!(!upgraded.project(1).unwrap()["exits"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("pond")));
+    let nell_item = cast()["avatars"][3]["item"]["id"].as_str().unwrap();
+    let nell_home = cast()["avatars"][3]["home"]["id"].as_str().unwrap();
+    assert_eq!(upgraded.game["items"][nell_item]["holder"], nell_home);
+    assert_eq!(full_store::world(&c, &id, now()).unwrap(), upgraded);
+    drop(c);
+    let c = store::open(&path).unwrap();
+    full_store::schema(&c).unwrap();
+    c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+    assert_eq!(full_store::world(&c, &id, now()).unwrap(), upgraded);
+    let upgrades: i64 = c.query_row(
+        "SELECT count(*) FROM card_full_log WHERE world=? AND json_extract(command,'$.op')='upgrade'",
+        [&id], |r| r.get(0),
+    ).unwrap();
+    assert_eq!(upgrades, 1);
+}
 #[test]
 fn full_world_c_guard_counts_humans_in_arbitrary_existing_rooms() {
     let mut w = World::create(None).unwrap();
