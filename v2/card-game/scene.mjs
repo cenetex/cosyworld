@@ -193,6 +193,7 @@ export function sceneStaging(
       ? speakerId(line)
       : null,
     review = false,
+    sharedPlays = [],
   } = {},
 ) {
   const selected = [...new Set([currentActor(world), activeSpeaker, ...cast])]
@@ -232,16 +233,25 @@ export function sceneStaging(
   const recent = world.controlledActors
     ? [
         ...new Set([
-          ...(review ? history : world.log)
-            .toReversed()
+          ...[
+            ...(review ? history : world.log)
+              .toReversed()
+              .filter((e) => e.kind === "action" && !e.generated),
+            // The shared record also identifies quiet plays such as Wait.
+            ...sharedPlays.map((play) => ({
+              actorId: play.actor,
+              locationId: play.room,
+              turn: play.turn,
+            })),
+          ]
             .filter(
               (e) =>
-                e.kind === "action" &&
-                !e.generated &&
                 e.locationId === locationId &&
                 ids.includes(e.actorId) &&
-                world.controlledActors.includes(e.actorId),
+                world.controlledActors.includes(e.actorId) &&
+                (!review || e.turn <= (history.at(-1)?.turn ?? world.turn)),
             )
+            .toSorted((a, b) => b.turn - a.turn)
             .map((e) => e.actorId),
           ...ids.filter((id) => world.controlledActors.includes(id)),
           ...ids,

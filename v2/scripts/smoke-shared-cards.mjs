@@ -594,6 +594,28 @@ try {
       ),
       fullPage: true,
     });
+    if (page === mara) {
+      await page.setViewportSize({ width: 390, height: 640 });
+      await expectStage(page, ["nell", "ash", "mara", "vale", "moth"]);
+      await page.waitForFunction(() => {
+        const dialogueTop = document
+          .querySelector(".dialogue")
+          .getBoundingClientRect().top;
+        return [
+          ...document.querySelectorAll(
+            '#cast .portrait[data-depth="foreground"]',
+          ),
+        ].every((figure) => {
+          const rect = figure.getBoundingClientRect();
+          return rect.top + rect.height * 0.25 < dialogueTop;
+        });
+      });
+      await page.screenshot({
+        path: join(output, "shared-stage-short-phone.png"),
+        fullPage: true,
+      });
+      await page.setViewportSize({ width: 390, height: 844 });
+    }
   }
   assert.equal(
     (await api(vale, { ...queued[0], key: crypto.randomUUID() })).status,
@@ -753,6 +775,17 @@ try {
       page.url(),
       await page.locator("body").innerText(),
     );
+    if (index < 2)
+      console.error(
+        "Stage:",
+        await page.locator("#cast .portrait").evaluateAll((figures) =>
+          figures.map((figure) => ({
+            actor: figure.dataset.avatar,
+            size: figure.style.getPropertyValue("--stage-size"),
+            depth: figure.dataset.depth,
+          })),
+        ),
+      );
     await page.screenshot({
       path: join(output, `failure-${names[index]}.png`),
       fullPage: true,

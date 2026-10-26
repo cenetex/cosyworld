@@ -304,6 +304,23 @@ describe("JRPG scenes", () => {
     ).toEqual(["mara", "vale"]);
     s.playerActorId = "nell";
     expect(ranked(stage())).toEqual(ranked(current));
+    s.turn++;
+    dialogue(s, null, {
+      kind: "narration",
+      text: "Nell waits. The cast takes a turn.",
+    });
+    const sharedPlays = [{ actor: "nell", room: "station", turn: s.turn }];
+    expect(ranked(stage({ sharedPlays })).slice(0, 3)).toEqual([
+      "nell",
+      "ash",
+      "mara",
+    ]);
+    expect(
+      ranked(stage({ sharedPlays, through: earlier, review: true })).slice(
+        0,
+        2,
+      ),
+    ).toEqual(["mara", "vale"]);
     dialogue(s, "nell", { kind: "action", verb: "wait" });
     expect(ranked(stage()).slice(0, 3)).toEqual(["nell", "ash", "mara"]);
     expect(

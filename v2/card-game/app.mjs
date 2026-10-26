@@ -1544,6 +1544,7 @@ function renderScene() {
     line: resolvedBeat ? null : scene.line,
     activeSpeaker: resolvedBeat ? null : scene.activeSpeaker,
     review: reviewing && !resolvedBeat,
+    sharedPlays: sharedSession?.state.history,
   });
   $("cast").dataset.layout = staging.layout;
   $("cast").dataset.count = String(staging.actors.length);

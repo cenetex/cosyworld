@@ -972,7 +972,11 @@ body .cast[data-count] {
     width: 98%;
   }
   body .cast[data-shared="true"]:not([data-count="1"]):not([data-count="2"]) {
-    --bust-drop: clamp(0%, calc((var(--cast-count) - 2) * 12%), 42%);
+    --bust-drop: clamp(
+      0%,
+      min(calc((var(--cast-count) - 2) * 12%), calc(100% - 380px)),
+      42%
+    );
   }
   body
     .cast[data-shared="true"]:not([data-count="1"]):not([data-count="2"])
