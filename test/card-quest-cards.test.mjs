@@ -7,7 +7,10 @@ import {
   decodeSave,
 } from "../v2/card-game/world.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
-import { actorQuests } from "../v2/card-game/quests.mjs";
+import {
+  actorQuests,
+  installQuestCollection,
+} from "../v2/card-game/quests.mjs";
 import {
   QUEST_CARD,
   playerQuest,
@@ -32,6 +35,7 @@ const act = (world, kind) => {
   return result.state;
 };
 function collect(world, actor, status = "pending") {
+  installQuestCollection(world, actor);
   const collection = world.life.actors[actor].collection;
   const source = collection.cards[0];
   const record = {

@@ -33,6 +33,18 @@ Commit `v2/orchestrator-rust/src/card_assets.rs` with each asset-list change.
 `npm run v2:card:pack:build` rebuilds both pack data and the Rust asset list.
 `npm run v2:card:pack:check` checks both during CI and release gates.
 
+## Collected quest cards
+
+Each avatar keeps a collection of quest cards after their carried items. The
+active quest sits on top. Select it to spread the collection, then select a
+card to read its purpose and origin. A player's pending cards offer **Pursue**.
+That action changes the active quest through the usual local or shared turn.
+Browsing cards is free. Residents expose their own collections for reading.
+Fulfilled cards remain at the bottom as part of the avatar's history.
+
+Run `node v2/scripts/smoke-card-quest-collection.mjs` to check the stack,
+browsing, focus changes, and resident cards at desktop and phone sizes.
+
 ## Image-first presentation
 
 Card faces contain the illustration and a small name. Tapping a card toggles
