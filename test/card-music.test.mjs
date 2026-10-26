@@ -131,11 +131,12 @@ describe("room music fades", () => {
     expect(audio.currentTime).toBe(0);
     expect(random).toHaveBeenCalledTimes(1);
     music.setRoom("greek-harbor");
-    await advance(1000);
-    expect(level()).toBe(0);
-    expect(audio.paused).toBe(true);
+    await advance(2000);
+    expect(audio.src).toMatch(/greek-harbor\.mp3$/);
+    expect(level()).toBe(0.3);
+    expect(audio.paused).toBe(false);
     music.setRoom("greek-ship");
-    await advance(1000);
+    await advance(2000);
     expect(audio.src).toMatch(/ship-4\.mp3$/);
     expect(changed.mock.lastCall[0].title).toBe("Wine-Dark-3");
     expect(audio.paused).toBe(false);

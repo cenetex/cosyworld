@@ -28,3 +28,17 @@ The full stereo audio remains at 48 kHz. Track titles are retained.
 | ship-2.mp3 | Wine-Dark.m4a | 4:53 | `20be9e7c7793e4dff65f3638ea9556961fe2f693fc372d764b28770f53fc7ce7` | `41cd2d1e6015c3a4cdd5605016fd8caa52f3359fedbb0b2326c63cef96b6073d` |
 | ship-3.mp3 | Wine-Dark-2.m4a | 4:42 | `818a9a2f9f1b4bf7ab45666ebfb03db1e907317454922f0913b91d164cc80b25` | `0f43865d54bf6037b5874c2f48df9e8e5167c4fb7941ac89f5369a683b9f81a8` |
 | ship-4.mp3 | Wine-Dark-3.m4a | 4:24 | `dca4390bfd286a2a33de3fef9593ee06ff9eaafe89dce6f82fc73c7153c5e74f` | `f74258754cb967ab5fe837477b621690dbaee5a3b6f821e6ef3f24c89791e3dc` |
+
+## Wine Dark Sea
+
+Created in the owner's Suno account on 2026-10-26 at their request. The owner selected the harbor, courtyard, and market well for the three remaining downloads. These MP3 files preserve the downloaded bytes.
+
+The location instrumentals cover the [shared theme](https://suno.com/song/fe7add97-34b2-482e-bac7-5a832acf7cff), which covers the owner's first [Wine, Black Sea](https://suno.com/song/7ee96f67-106d-47d6-b38f-aabecd40e81d). The [Wine Dark Sea playlist](https://suno.com/playlist/c283a789-e09f-4146-9971-905a371fbfea) also holds the shared theme and the ship, palace, gate, and sanctuary arrangements.
+
+Shared direction: instrumental lo-fi, worn cassette warmth, soft rounded bass, a sparse mix, gentle volume, small pitch drifts, patient repetition, and space for conversation. Each arrangement carries the shared melody in its own style.
+
+| File                | Suno source                                                                           | Style                     | SHA-256                                                            |
+| ------------------- | ------------------------------------------------------------------------------------- | ------------------------- | ------------------------------------------------------------------ |
+| greek-harbor.mp3    | [02 - Wine-Dark Harbor](https://suno.com/song/d79f77c7-daf8-49ad-aff6-4e90db70dd5d)   | Faded coastal city pop    | `f57d529d1724b22683e2cc7ed6ce3750ef0c131a617c06b3e3f88f9f1a81732e` |
+| greek-courtyard.mp3 | [03 - Theban Courtyard](https://suno.com/song/d87e74ce-4596-4b09-afec-73e05feb83f2)   | Cassette living-room jazz | `60ac8870acb7c3cc71aff040bddd623b2b07a7413bf72390063fdedac1176722` |
+| greek-well.mp3      | [04 - Theban Market Well](https://suno.com/song/fbbbd0cc-99ec-48f1-90a1-1be2f99bba5d) | Lo-fi supermarket bossa   | `c2f409b2afbe5df1a929c11b0c273db892f03cfe6e0ed57e5b10923c67a6cedb` |

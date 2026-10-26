@@ -1,6 +1,15 @@
 import { packPlaces } from "./pack-registry.mjs";
 
 export const roomTracks = {
+  "greek-harbor": [
+    { file: "greek-harbor.mp3", title: "Wine Dark Sea — Wine-Dark Harbor" },
+  ],
+  "greek-courtyard": [
+    { file: "greek-courtyard.mp3", title: "Wine Dark Sea — Theban Courtyard" },
+  ],
+  "greek-well": [
+    { file: "greek-well.mp3", title: "Wine Dark Sea — Theban Market Well" },
+  ],
   attic: [
     { file: "attic-1.mp3", title: "Music Box Waltz" },
     { file: "attic-2.mp3", title: "Music Box Waltz II" },

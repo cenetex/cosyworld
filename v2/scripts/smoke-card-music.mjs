@@ -266,14 +266,11 @@ try {
     assert.equal(await page.locator("#room-music").getAttribute("src"), source);
   }
   await travel("greek-ship", "greek-ship", checkCrossingSong);
-  await playCard("greek-harbor");
-  await page.waitForFunction(
-    () => document.querySelector("#room-music").paused,
-  );
-  await playCard("greek-ship");
-  await checkCrossingSong();
+  await travel("greek-harbor");
+  await travel("greek-ship", "greek-ship", checkCrossingSong);
   await travel("pond");
   // Check decoding for every candidate, including songs chance did not select.
+  const tracks = Object.values(roomTracks).flat();
   const decoded = await page.evaluate(async (tracks) => {
     const results = [];
     for (const { file } of tracks) {
@@ -289,8 +286,8 @@ try {
       }
     }
     return results;
-  }, roomTracks["greek-ship"]);
-  assert.equal(decoded.length, 4);
+  }, tracks);
+  assert.equal(decoded.length, tracks.length);
   assert(
     decoded.every(({ duration }) => Number.isFinite(duration) && duration > 30),
   );
@@ -302,7 +299,7 @@ try {
   );
   assert.deepEqual(errors, []);
   console.log(
-    "Room music: all ten MP3s decoded; each crossing kept one random ship song through its ending and card plays. Fades, return music, saved controls and mobile menu passed.",
+    `Room music: all ${tracks.length} MP3s decoded; each crossing kept one random ship song through its ending and card plays. Fades, harbor and return music, saved controls and mobile menu passed.`,
   );
 } finally {
   await browser.close();
