@@ -284,15 +284,15 @@ fn full_world_bard_visit_and_song_replay_from_the_journal() {
                 w.game["actors"]["greek-rhapsode"]["place"],
                 "greek-courtyard"
             );
-            let facts = result["context"]["entities"]
+            let poem = result["context"]["entities"]
                 .as_array()
                 .unwrap()
                 .iter()
                 .find(|e| e["id"] == "greek-rhapsode")
-                .unwrap()["facts"]
+                .unwrap()["poem"]
                 .to_string();
-            assert!(facts.contains("I set the water by her hands."));
-            assert!(facts.contains("She kept a loaf of bread for me."));
+            assert!(poem.contains("I set the water by her hands."));
+            assert!(poem.contains("She kept a loaf of bread for me."));
         }
     }
     drop(c);

@@ -79,17 +79,7 @@ export function recitalFacts(world, packs, actor) {
             : "Take an ordinary open route toward that place.",
       ]
     : [];
-  const visit = recitalVisit(world, pack);
-  if (!visit) return travel;
-  const poem = recitalPoem(world, pack, visit);
-  return [
-    ...travel,
-    `Your song is ${poem.title}. These are the traveler's earned words, in order. Sing a couplet when addressed; keep the whole journey in mind.`,
-    ...poem.stanzas.map((s, i) => {
-      const traveler = world.packs[pack.id].recitals[s.id].actor;
-      return `Verse ${i + 1}, ${humanAvatar(traveler)?.name || forest.people[traveler]?.name || packs.find((p) => p.avatars?.[traveler])?.avatars[traveler].name || "an earlier traveler"}: ${s.lines.join(" ")}`;
-    }),
-  ];
+  return travel;
 }
 
 export function validRecitals(world, pack) {
@@ -156,4 +146,33 @@ export function arriveRoamingRecitals(world, packs, actor) {
         record.visit = world.turn;
     }
   }
+}
+
+// The complete earned poem is separate from the short scene facts.
+export function recitalContext(world, packs, actor) {
+  const pack = packs.find((p) => p.recital?.actor === actor);
+  if (!pack) return null;
+  const poem = recitalPoem(world, pack);
+  const stanzas = poem.stanzas.map((stanza) => {
+    const authorId = world.packs[pack.id].recitals[stanza.id]?.actor ?? null;
+    return {
+      id: stanza.id,
+      turn: stanza.turn,
+      authorId,
+      authorName:
+        humanAvatar(authorId)?.name ||
+        forest.people[authorId]?.name ||
+        packs.find((p) => p.avatars?.[authorId])?.avatars[authorId].name ||
+        "an earlier traveler",
+      lines: [...stanza.lines],
+    };
+  });
+  const latest = Math.max(0, ...stanzas.map((stanza) => stanza.turn));
+  return {
+    title: poem.title,
+    stanzas,
+    newLines: stanzas
+      .filter((stanza) => stanza.turn === latest)
+      .flatMap((stanza) => stanza.lines),
+  };
 }

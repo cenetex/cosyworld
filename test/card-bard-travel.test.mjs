@@ -2,7 +2,10 @@ import { generateProgram } from "../v2/card-game/quests.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
 import { openingFixture } from "./helpers/greek-opening.mjs";
 import { packDefinition } from "../v2/card-game/pack-registry.mjs";
-import { recitalFacts, validRecitals } from "../v2/card-game/pack-recital.mjs";
+import {
+  recitalContext,
+  validRecitals,
+} from "../v2/card-game/pack-recital.mjs";
 import { describe, it, expect } from "vitest";
 import {
   createWorld,
@@ -307,19 +310,15 @@ describe("ordinary bard travel", () => {
     expect(validRecitals(s, pack)).toBe(true);
     const loaded = decodeSave(encodeSave(s));
     expect(
-      recitalFacts(loaded, [pack], singer).some(
-        (fact) =>
-          fact.includes("The keeper:") &&
-          fact.includes("I told her I would turn away."),
+      recitalContext(loaded, [pack], singer).stanzas.find(
+        (v) => v.id === "greek-decline-burial",
       ),
-    ).toBe(true);
+    ).toMatchObject({ authorId: "keeper", authorName: "The keeper" });
     record.actor = null;
     expect(
-      recitalFacts(s, [pack], singer).some(
-        (fact) =>
-          fact.includes("an earlier traveler:") &&
-          fact.includes("I told her I would turn away."),
+      recitalContext(s, [pack], singer).stanzas.find(
+        (v) => v.id === "greek-decline-burial",
       ),
-    ).toBe(true);
+    ).toMatchObject({ authorId: null, authorName: "an earlier traveler" });
   });
 });

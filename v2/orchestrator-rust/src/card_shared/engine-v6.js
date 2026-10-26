@@ -407,20 +407,6 @@
     }));
     return { title: pack.recital?.title, stanzas };
   }
-  function recitalFacts(world, packs, actor) {
-    const pack = packs.find((p) => p.recital?.actor === actor);
-    if (!pack) return [];
-    const visit = recitalVisit(world, pack);
-    if (!visit) return [];
-    const poem = recitalPoem(world, pack, visit - 1);
-    return [
-      `Your song is ${poem.title}. These are the traveler's earned words, in order. Sing a couplet when addressed; keep the whole journey in mind.`,
-      ...poem.stanzas.map((s, i) => {
-        const traveler = world.packs[pack.id].recitals[s.id].actor;
-        return `Verse ${i + 1}, ${humanAvatar(traveler)?.name || "an earlier traveler"}: ${s.lines.join(" ")}`;
-      })
-    ];
-  }
   function validRecitals(world, pack) {
     if (!pack.recital) return true;
     const state = world.packs[pack.id], records = state.recitals;
@@ -451,6 +437,27 @@
         };
       }
     }
+  }
+  function recitalContext(world, packs, actor) {
+    const pack = packs.find((p) => p.recital?.actor === actor);
+    if (!pack) return null;
+    const poem = recitalPoem(world, pack);
+    const stanzas = poem.stanzas.map((stanza) => {
+      const authorId = world.packs[pack.id].recitals[stanza.id]?.actor ?? null;
+      return {
+        id: stanza.id,
+        turn: stanza.turn,
+        authorId,
+        authorName: humanAvatar(authorId)?.name || "an earlier traveler",
+        lines: [...stanza.lines]
+      };
+    });
+    const latest = Math.max(0, ...stanzas.map((stanza) => stanza.turn));
+    return {
+      title: poem.title,
+      stanzas,
+      newLines: stanzas.filter((stanza) => stanza.turn === latest).flatMap((stanza) => stanza.lines)
+    };
   }
 
   // v2/card-game/packs.json
@@ -11471,7 +11478,8 @@
         );
         return {
           id,
-          facts: [...recitalFacts(world, packDefinitions, id), ...facts].slice(0, 16).map((text) => text.slice(0, 240)),
+          poem: recitalContext(world, packDefinitions, id),
+          facts: facts.slice(0, 16).map((text) => text.slice(0, 240)),
           desire,
           memories: speechMemories(world.memories[id], {
             expressions: !beforeFirstLight

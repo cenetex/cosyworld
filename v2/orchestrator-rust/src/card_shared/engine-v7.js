@@ -964,17 +964,7 @@
       `Your journey follows the recorded quest site at ${name(journey.target.locationId)}. Its author was ${name(journey.target.actorId)}.`,
       journey.blocked ? `You need ${journey.blocked.kind === "directions" ? "directions" : "passage"} from ${name(journey.blocked.from)} to ${name(journey.blocked.to)}.` : world.actors[actor].place === journey.target.locationId ? "You have arrived. Stay here until another quest is completed." : "Take an ordinary open route toward that place."
     ] : [];
-    const visit = recitalVisit(world, pack);
-    if (!visit) return travel2;
-    const poem = recitalPoem(world, pack, visit);
-    return [
-      ...travel2,
-      `Your song is ${poem.title}. These are the traveler's earned words, in order. Sing a couplet when addressed; keep the whole journey in mind.`,
-      ...poem.stanzas.map((s, i) => {
-        const traveler = world.packs[pack.id].recitals[s.id].actor;
-        return `Verse ${i + 1}, ${humanAvatar(traveler)?.name || forest_default.people[traveler]?.name || packs.find((p) => p.avatars?.[traveler])?.avatars[traveler].name || "an earlier traveler"}: ${s.lines.join(" ")}`;
-      })
-    ];
+    return travel2;
   }
   function validRecitals(world, pack) {
     if (!pack.recital) return true;
@@ -1016,6 +1006,27 @@
           record3.visit = world.turn;
       }
     }
+  }
+  function recitalContext(world, packs, actor) {
+    const pack = packs.find((p) => p.recital?.actor === actor);
+    if (!pack) return null;
+    const poem = recitalPoem(world, pack);
+    const stanzas = poem.stanzas.map((stanza) => {
+      const authorId = world.packs[pack.id].recitals[stanza.id]?.actor ?? null;
+      return {
+        id: stanza.id,
+        turn: stanza.turn,
+        authorId,
+        authorName: humanAvatar(authorId)?.name || forest_default.people[authorId]?.name || packs.find((p) => p.avatars?.[authorId])?.avatars[authorId].name || "an earlier traveler",
+        lines: [...stanza.lines]
+      };
+    });
+    const latest = Math.max(0, ...stanzas.map((stanza) => stanza.turn));
+    return {
+      title: poem.title,
+      stanzas,
+      newLines: stanzas.filter((stanza) => stanza.turn === latest).flatMap((stanza) => stanza.lines)
+    };
   }
 
   // v2/card-game/packs.json
@@ -11833,6 +11844,7 @@
           ] : []
         ];
         const facts = [
+          ...recitalFacts(world, packDefinitions, id),
           ...questFacts,
           ...[...packFacts(world, id), ...continuity].filter((fact, index, all) => all.indexOf(fact) === index).slice(-4)
         ];
@@ -11948,7 +11960,8 @@
         );
         return {
           id,
-          facts: [...recitalFacts(world, packDefinitions, id), ...facts].slice(0, 16).map((text) => text.slice(0, 240)),
+          poem: recitalContext(world, packDefinitions, id),
+          facts: facts.slice(0, 16).map((text) => text.slice(0, 240)),
           desire,
           memories: speechMemories(world.memories[id], {
             expressions: !beforeFirstLight
