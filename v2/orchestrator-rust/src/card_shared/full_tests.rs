@@ -1060,6 +1060,8 @@ fn version_three_upgrade_keeps_released_untouched_belongings() {
 #[test]
 fn released_greek_upgrades_and_recitals_replay_before_collected_quests() {
     for path in [
+        vec![engine::FIFTH_VERSION],
+        vec![engine::FOURTH_VERSION, engine::FIFTH_VERSION],
         vec![engine::LEGACY_VERSION, engine::FOURTH_VERSION],
         vec![engine::PREVIOUS_VERSION, engine::FOURTH_VERSION],
         vec![
@@ -1145,6 +1147,13 @@ fn released_greek_upgrades_and_recitals_replay_before_collected_quests() {
                 previous.game["revision"].as_u64().unwrap() + 1
             );
             assert!(w.game["life"]["actors"]["vale"]["collection"].is_object());
+            for key in w.game["life"]["actors"]["vale"]["collection"]["cards"]
+                .as_array()
+                .unwrap()
+            {
+                let key = key.as_str().unwrap();
+                assert_eq!(w.game["quests"]["records"][key]["key"], key);
+            }
             let action = w.project(0).unwrap()["actions"]
                 .as_array()
                 .unwrap()

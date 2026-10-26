@@ -483,6 +483,7 @@ function captureHands(s, met) {
         met.set(key, {
           actor,
           questKey: card.key,
+          capturedSeq: s.eventSeq || 0,
           step: card.step,
           target: structuredClone(target),
           fulfillment: {
@@ -529,6 +530,7 @@ function captureHands(s, met) {
         actor,
         questKey: quest.key,
         shared: true,
+        capturedSeq: s.eventSeq || 0,
         step: quest.step,
         target: structuredClone(target),
         fulfillment: {
@@ -657,9 +659,19 @@ function applyConsequence(s, actor, target) {
 }
 function advancePrograms(s, met) {
   if (!hasQuestPrograms(s)) return;
-  const receipts = [];
+  const receipts = [],
+    completions = [];
   const consequences = new Set();
-  for (const evidence of met.values()) {
+  const captured = [...met.values()].sort(
+    (a, b) =>
+      a.capturedSeq - b.capturedSeq ||
+      ((a.questKey || a.actor) < (b.questKey || b.actor)
+        ? -1
+        : (a.questKey || a.actor) > (b.questKey || b.actor)
+          ? 1
+          : 0),
+  );
+  for (const evidence of captured) {
     const actor = evidence.actor;
     if (evidence.shared) {
       const quest = questRecord(s, evidence.questKey);
@@ -704,7 +716,9 @@ function advancePrograms(s, met) {
         },
       );
       if (complete) {
-        recordQuestCompletion(s, quest, {
+        completions.push({
+          questKey: quest.key,
+          capturedSeq: evidence.capturedSeq,
           actorId: actor,
           locationId: evidence.fulfillment.location,
           participants: evidence.fulfillment.participants,
@@ -794,6 +808,7 @@ function advancePrograms(s, met) {
     target,
     fulfillment,
     questKey,
+    capturedSeq,
   } of receipts) {
     let text = `${nameOf(actor)} completes hand ${step + 1}/${program.steps.length} of ${program.name}.`;
     if (complete) text += ` Level ${programIndex + 2}.`;
@@ -820,7 +835,9 @@ function advancePrograms(s, met) {
     if (complete && questKey) {
       const quest = questRecord(s, questKey);
       if (quest)
-        recordQuestCompletion(s, quest, {
+        completions.push({
+          questKey,
+          capturedSeq,
           actorId: actor,
           locationId: fulfillment.location,
           participants: [actor, ...target.avatars],
@@ -828,6 +845,16 @@ function advancePrograms(s, met) {
         });
     }
   }
+  completions.sort(
+    (a, b) =>
+      a.capturedSeq - b.capturedSeq ||
+      (a.questKey < b.questKey ? -1 : a.questKey > b.questKey ? 1 : 0),
+  );
+  for (const receipt of completions)
+    recordQuestCompletion(s, questRecord(s, receipt.questKey), {
+      ...receipt,
+      eventSeq: receipt.capturedSeq,
+    });
 }
 export function addLog(s, speaker, text, detail = {}) {
   const actorId =

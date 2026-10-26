@@ -80,16 +80,18 @@ impl World {
             let target = command["to"]
                 .as_str()
                 .ok_or("Choose a saved rules upgrade.")?;
-            let allowed = (self.version == engine::LEGACY_VERSION
-                && [
-                    engine::PREVIOUS_VERSION,
-                    engine::FOURTH_VERSION,
-                    engine::VERSION,
-                ]
-                .contains(&target))
-                || (self.version == engine::PREVIOUS_VERSION
-                    && [engine::FOURTH_VERSION, engine::VERSION].contains(&target))
-                || (self.version == engine::FOURTH_VERSION && target == engine::VERSION);
+            let versions = [
+                engine::LEGACY_VERSION,
+                engine::PREVIOUS_VERSION,
+                engine::FOURTH_VERSION,
+                engine::FIFTH_VERSION,
+                engine::VERSION,
+            ];
+            let allowed = versions
+                .iter()
+                .position(|v| *v == self.version)
+                .zip(versions.iter().position(|v| *v == target))
+                .is_some_and(|(from, to)| from < to);
             if command["from"] != self.version || !allowed {
                 return Err("This world's rules upgrade needs its original version.".into());
             }
@@ -107,6 +109,7 @@ impl World {
             engine::PREVIOUS_VERSION,
             engine::LEGACY_VERSION,
             engine::FOURTH_VERSION,
+            engine::FIFTH_VERSION,
         ]
         .contains(&self.version.as_str())
         {

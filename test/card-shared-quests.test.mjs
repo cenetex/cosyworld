@@ -249,3 +249,40 @@ it("pauses shared suggestions at retained capacity", () => {
   expect(add(s)).toBeNull();
   expect(questRecords(s)).toHaveLength(256);
 });
+
+it("publishes the same completion order when a JSON host reorders registry keys", () => {
+  const s = enableMotives(createWorld(), { personalQuests: true });
+  s.actors.keeper.place = "station";
+  s.actors.moth.place = "pond";
+  for (const [key, actor, place] of [
+    ["world:quest:10", "keeper", "station"],
+    ["world:quest:2", "moth", "pond"],
+  ]) {
+    addQuestRecord(s, {
+      key,
+      holder: { kind: "avatar", id: actor },
+      subjectActor: actor,
+      program: {
+        id: key,
+        name: "Watch this place",
+        steps: [{ items: [], avatars: [], location: place }],
+      },
+    });
+  }
+  const reordered = JSON.parse(JSON.stringify(s));
+  reordered.quests.records = Object.fromEntries(
+    Object.entries(reordered.quests.records).reverse(),
+  );
+  const action = legalActions(s).find((a) => a.kind === "wait");
+  const a = play(s, action).state,
+    b = play(reordered, action).state;
+  expect(a.questCompletions).toEqual(b.questCompletions);
+  const events = a.questCompletions.recent.map((r) => r.eventSeq);
+  expect(events).toEqual([...events].sort((a, b) => a - b));
+  expect(
+    a.questCompletions.recent
+      .filter((r) => r.questKey.startsWith("world:quest:"))
+      .map((r) => r.questKey),
+  ).toEqual(["world:quest:10", "world:quest:2"]);
+  expect(latestQuestCompletion(a)).toEqual(latestQuestCompletion(b));
+});

@@ -9,17 +9,22 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub(super) const VERSION: &str = "full-card-world/5";
+pub(super) const VERSION: &str = "full-card-world/6";
+pub(super) const FIFTH_VERSION: &str = "full-card-world/5";
 pub(super) const PREVIOUS_VERSION: &str = "full-card-world/3";
 pub(super) const LEGACY_VERSION: &str = "full-card-world/2";
 pub(super) const FOURTH_VERSION: &str = "full-card-world/4";
-const SOURCE: &str = include_str!("engine-v5.js");
+const SOURCE: &str = include_str!("engine-v6.js");
+const FIFTH_SOURCE: &str = include_str!("engine-v5.js");
 const FOURTH_SOURCE: &str = include_str!("engine-v4.js");
 // Released rule bundles retain the exact semantics of their journal entries.
 const PREVIOUS_SOURCE: &str = include_str!("engine-v3.js");
 const LEGACY_SOURCE: &str = include_str!("engine-v2.js");
 pub(super) fn historical(version: &str) -> bool {
-    matches!(version, LEGACY_VERSION | PREVIOUS_VERSION | FOURTH_VERSION)
+    matches!(
+        version,
+        LEGACY_VERSION | PREVIOUS_VERSION | FOURTH_VERSION | FIFTH_VERSION
+    )
 }
 const MAX_BYTES: usize = 4 * 1024 * 1024;
 const CACHE_ENTRIES: usize = 32;
@@ -65,6 +70,7 @@ pub(super) fn reduce_version(version: &str, request: Value) -> Result<Value> {
         VERSION => SOURCE,
         PREVIOUS_VERSION => PREVIOUS_SOURCE,
         FOURTH_VERSION => FOURTH_SOURCE,
+        FIFTH_VERSION => FIFTH_SOURCE,
         LEGACY_VERSION => LEGACY_SOURCE,
         _ => return Err("This world needs a supported rules version.".into()),
     };
