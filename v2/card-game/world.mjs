@@ -1,3 +1,4 @@
+export { newTable, applyTable, canVisit, itemPlace } from "./shared-rules.mjs";
 import {
   hasMotives,
   hasQuestPrograms,

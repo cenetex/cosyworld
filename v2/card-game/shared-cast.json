@@ -1,0 +1,163 @@
+{
+  "version": 1,
+  "title": "The reflected shore",
+  "hub": {
+    "id": "pond",
+    "name": "Black pond",
+    "text": "The shore holds the reflections of places brought here by its visitors."
+  },
+  "avatars": [
+    {
+      "id": "vale",
+      "name": "Vale",
+      "title": "The Lamplighter",
+      "sprite": 1,
+      "pleasure": "Find a route and a decent bargain.",
+      "text": "A traveller with empty pockets and a sharp eye for interesting routes and a decent bargain. Curious, blunt, and vain about spotting an opportunity.",
+      "item": {
+        "id": "lamp",
+        "name": "Lamp",
+        "verb": "Light / put out",
+        "effect": "tends the lamp's flame"
+      },
+      "home": {
+        "id": "station",
+        "name": "Empty station",
+        "text": "The timetable lists years that have yet to happen."
+      }
+    },
+    {
+      "id": "mara",
+      "name": "Mara",
+      "title": "The Understudy",
+      "sprite": 0,
+      "pleasure": "Try a role and start a little scene.",
+      "text": "A witty performer who improvises with whoever arrives. She wants to stage the station's unfinished play and eagerly promises everyone a part.",
+      "item": {
+        "id": "mask",
+        "name": "Theatre mask",
+        "verb": "Perform",
+        "effect": "offers a short performance with the mask"
+      },
+      "home": {
+        "id": "theatre",
+        "name": "Paper theatre",
+        "text": "Painted paper wings surround a stage. An unfinished script waits in the footlights."
+      }
+    },
+    {
+      "id": "ash",
+      "name": "Ash",
+      "title": "The Diver",
+      "sprite": 2,
+      "pleasure": "Look beneath the surface.",
+      "text": "A sturdy pond explorer with dry humour and patient hands. He wants to recover the sunken station bell. Each find makes the next difficult recovery tempting.",
+      "item": {
+        "id": "float",
+        "name": "Diving float",
+        "verb": "Sound the water",
+        "effect": "tests the water with the float's sounding line"
+      },
+      "home": {
+        "id": "belfry",
+        "name": "Sunken belfry",
+        "text": "A glassy passage descends into a drowned bell tower. The great bell rests below pale windows."
+      }
+    },
+    {
+      "id": "nell",
+      "name": "Nell",
+      "title": "The Grafter",
+      "sprite": 3,
+      "pleasure": "Grow something surprising.",
+      "text": "A bold gardener who experiments in unused places. She wants a garden across the platform. Shared space gives others a say in her plans.",
+      "item": {
+        "id": "can",
+        "name": "Watering can",
+        "verb": "Tend",
+        "effect": "waters a small patch of living green"
+      },
+      "home": {
+        "id": "glasshouse",
+        "name": "Wild glasshouse",
+        "text": "Beans climb the broken roof. Old seed trays hold plants with unfamiliar leaves."
+      }
+    },
+    {
+      "id": "tavi",
+      "name": "Tavi",
+      "title": "The Kite Runner",
+      "sprite": 4,
+      "pleasure": "Try an idea and send a signal.",
+      "text": "A quick, playful inventor who sends signals across the shore. They want to catch the wind that arrives before the train. Every experiment invites help.",
+      "item": {
+        "id": "kite",
+        "name": "Signal kite",
+        "verb": "Fly",
+        "effect": "raises the signal kite to test the air"
+      },
+      "home": {
+        "id": "hill",
+        "name": "Wind hill",
+        "text": "Ribbons mark old wind paths above the shore. Distant lights answer from the mist."
+      }
+    },
+    {
+      "id": "rue",
+      "name": "Rue",
+      "title": "The Conductor",
+      "sprite": 5,
+      "pleasure": "Arrange an unlikely journey.",
+      "text": "A brisk organiser with dry wit and a gift for useful exceptions. She wants the first departure in years and sometimes promises a destination before finding the route.",
+      "item": {
+        "id": "routes",
+        "name": "Route board",
+        "verb": "Plan a journey",
+        "effect": "unfolds the route board and considers a journey"
+      },
+      "home": {
+        "id": "train",
+        "name": "Waiting train",
+        "text": "Warm windows line a patient train. Its carriages hold seats for journeys still being arranged."
+      }
+    },
+    {
+      "id": "orin",
+      "name": "Orin",
+      "title": "The Game Maker",
+      "sprite": 6,
+      "pleasure": "Invite someone into a friendly game.",
+      "text": "A warm, eager player who loves friendly contests and elaborate rules. He wants a game everyone can enjoy. His delight carries him toward extravagant wagers.",
+      "item": {
+        "id": "board",
+        "name": "Game board",
+        "verb": "Set up a game",
+        "effect": "sets out the board and offers a friendly game"
+      },
+      "home": {
+        "id": "pavilion",
+        "name": "Games pavilion",
+        "text": "Round tables stand beneath bright awnings. Pieces wait beside games whose rules are still being invented."
+      }
+    },
+    {
+      "id": "ada",
+      "name": "Ada",
+      "title": "The Unpicker",
+      "sprite": 7,
+      "pleasure": "Find the seam and make a new possibility.",
+      "text": "A brisk, mischievous craftswoman with a hand-powered chair. She wants to turn the old curtain into a sail. She weighs keeping a story against giving its cloth another use.",
+      "item": {
+        "id": "shears",
+        "name": "Sewing shears",
+        "verb": "Unpick",
+        "effect": "examines a loose seam and works a thread free"
+      },
+      "home": {
+        "id": "loft",
+        "name": "Sail loft",
+        "text": "Wide ramps lead to an airy loft. Cloth, cord and half-finished sails catch the light."
+      }
+    }
+  ]
+}

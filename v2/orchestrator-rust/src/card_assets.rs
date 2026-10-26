@@ -6,6 +6,36 @@
 #[inline(never)]
 pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
     let asset: (&str, &[u8]) = match path {
+        "shared.mjs" => (
+            "text/javascript",
+            include_bytes!("../../card-game/shared.mjs"),
+        ),
+        "shared-auth.mjs" => (
+            "text/javascript",
+            include_bytes!("../../card-game/shared-auth.mjs"),
+        ),
+        "shared-rules.mjs" => (
+            "text/javascript",
+            include_bytes!("../../card-game/shared-rules.mjs"),
+        ),
+        "shared.css" => ("text/css", include_bytes!("../../card-game/shared.css")),
+        "shared-cast.json" => (
+            "application/json",
+            include_bytes!("../../card-game/shared-cast.json"),
+        ),
+        "assets/shared-cast.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/shared-cast.png"),
+        ),
+        "assets/shared-places.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/shared-places.png"),
+        ),
+        "assets/shared-items.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/shared-items.png"),
+        ),
+
         "index.html" => (
             "text/html; charset=utf-8",
             include_bytes!("../../card-game/index.html"),

@@ -9,6 +9,15 @@ const { version } = JSON.parse(
   await readFile(new URL("../../package.json", import.meta.url)),
 );
 const files = [
+  "shared.mjs",
+  "shared-auth.mjs",
+  "shared-rules.mjs",
+  "shared.css",
+  "shared-cast.json",
+  "assets/shared-cast.png",
+  "assets/shared-places.png",
+  "assets/shared-items.png",
+
   "index.html",
   "style.css",
   "entry.mjs",

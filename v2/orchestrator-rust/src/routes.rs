@@ -119,6 +119,7 @@ fn app_router_with_dependencies(
 ) -> Router {
     let request_log_context = RequestLogContext::from_state(&state);
     Router::new()
+        .merge(crate::card_shared::router())
         .merge(card_game::router(
             std::env::var("COSYWORLD_PRIMARY_GAME").as_deref() == Ok("cards"),
         ))

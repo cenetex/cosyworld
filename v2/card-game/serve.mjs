@@ -6,6 +6,15 @@ import { roomTracks } from "./music.mjs";
 import { packMediaFiles } from "./pack-registry.mjs";
 
 const assets = new Map([
+  ["/shared.mjs", ["shared.mjs", "text/javascript"]],
+  ["/shared-auth.mjs", ["shared-auth.mjs", "text/javascript"]],
+  ["/shared-rules.mjs", ["shared-rules.mjs", "text/javascript"]],
+  ["/shared.css", ["shared.css", "text/css"]],
+  ["/shared-cast.json", ["shared-cast.json", "application/json"]],
+  ["/assets/shared-cast.png", ["assets/shared-cast.png", "image/png"]],
+  ["/assets/shared-places.png", ["assets/shared-places.png", "image/png"]],
+  ["/assets/shared-items.png", ["assets/shared-items.png", "image/png"]],
+
   ["/", ["index.html", "text/html"]],
   ["/index.html", ["index.html", "text/html"]],
   ["/style.css", ["style.css", "text/css"]],
