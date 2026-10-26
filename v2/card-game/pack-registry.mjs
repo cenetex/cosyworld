@@ -1,6 +1,14 @@
 // The compiled world packs mounted on the card table, indexed for the engine.
 // Packs supply data only; pack-rules.mjs applies the general rules they name.
 import compiled from "./packs.json" with { type: "json" };
+import {
+  humanHomePack,
+  humanAvatar,
+  humanAvatarIds,
+  controlledByHuman,
+  humanPresent,
+  sharedEnabled,
+} from "./human-cast.mjs";
 import { packProblems, observationProblems } from "./pack-schema.mjs";
 import { conditionMet as evaluateCondition } from "./pack-rules.mjs";
 const owns = (o, key) =>
@@ -72,7 +80,10 @@ export function observableStates(world, entityIds, definitions = observations) {
 }
 
 export const hub = compiled.hub;
-export const packDefinitions = compiled.packs;
+export const packDefinitions = [
+  ...compiled.packs,
+  validatePackDefinition(humanHomePack),
+];
 export const packDefinition = (id) =>
   packDefinitions.find((p) => p.id === id) || null;
 
@@ -124,7 +135,8 @@ export const crossings = packDefinitions.flatMap((pack) =>
   pack.crossings.map((c) => ({ ...c, packId: pack.id })),
 );
 
-export const isPackActor = (id) => Object.hasOwn(packPeople, id);
+export const isPackActor = (id) =>
+  Object.hasOwn(packPeople, id) && !humanAvatar(id);
 export const isPackPlace = (id) => Object.hasOwn(packPlaces, id);
 export const packOf = (id) => packDefinition(entities[id]?.packId);
 export const resident = (id) => packPeople[id] || null;
@@ -206,6 +218,19 @@ export function conditionsMet(world, packId, conditions = []) {
   );
 }
 export function entityActive(world, id) {
+  if (world.items?.[id]) {
+    let holder = world.items[id].holder;
+    const seen = new Set([id]);
+    while (world.items[holder] && !seen.has(holder)) {
+      seen.add(holder);
+      holder = world.items[holder].holder;
+    }
+    if (humanAvatar(holder) && !humanPresent(world, holder)) return false;
+  }
+  if (humanAvatar(id) && !humanPresent(world, id)) return false;
+  return entityEnabled(world, id);
+}
+function entityEnabled(world, id) {
   const e = packEntity(id);
   if (!e) return true;
   const pack = packDefinition(e.packId),
@@ -223,7 +248,7 @@ export function packExits(world, place, actor = null) {
         (r) =>
           r.from === place &&
           conditionsMet(world, pack.id, r.requires) &&
-          (actor === "vale" ||
+          (humanAvatarIds.includes(actor) ||
             (owns(pack.places, r.from) && owns(pack.places, r.to))),
       )
       .map((r) => r.to),
@@ -233,7 +258,7 @@ export function packExits(world, place, actor = null) {
   );
 }
 export function actorCanVisit(actor, place) {
-  if (!actor || actor === "vale") return true;
+  if (!actor || humanAvatarIds.includes(actor)) return true;
   const a = packPeople[actor],
     destination = packPlaces[place];
   if (a ? destination?.packId === a.packId : !destination) return true;
@@ -280,7 +305,7 @@ function choiceFeasible(world, pack, choice, actor) {
   );
 }
 export function packChoices(world, actor = "vale") {
-  if (actor !== "vale") return [];
+  if (!controlledByHuman(world, actor)) return [];
   return packDefinitions.flatMap((pack) =>
     (pack.choices || [])
       .filter((c) => choiceFeasible(world, pack, c, actor))
@@ -388,7 +413,9 @@ export function validatePackStates(world) {
         ([id, turn]) =>
           !owns(pack.avatars, id) ||
           !conditionsMet(world, pack.id, pack.avatars[id]?.requires) ||
-          (world.opening && world.opening.met?.[id] !== turn) ||
+          (world.opening &&
+            !sharedEnabled(world) &&
+            world.opening.met?.[id] !== turn) ||
           !Number.isSafeInteger(turn) ||
           turn < 0 ||
           turn > world.turn,
@@ -397,6 +424,7 @@ export function validatePackStates(world) {
       return false;
     if (
       world.opening &&
+      !sharedEnabled(world) &&
       Object.keys(world.opening.met || {}).some(
         (id) => owns(pack.avatars, id) && !owns(state.met, id),
       )
@@ -458,7 +486,7 @@ export function validatePackStates(world) {
       return false;
     for (const [id, actor] of Object.entries(pack.avatars))
       if (
-        !entityActive(world, id) &&
+        !entityEnabled(world, id) &&
         (world.actors[id]?.place !== actor.place ||
           world.actors[id]?.crossed !== 0 ||
           world.actors[id]?.lastTalk !== -9 ||
@@ -467,7 +495,7 @@ export function validatePackStates(world) {
         return false;
     for (const [id, item] of Object.entries(pack.items || {}))
       if (
-        !entityActive(world, id) &&
+        !entityEnabled(world, id) &&
         (world.items[id]?.holder !== item.holder ||
           world.items[id]?.history?.length !== 0)
       )

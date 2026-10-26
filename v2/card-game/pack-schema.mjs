@@ -27,6 +27,8 @@ export const CONDITION_KINDS = [
   "flag",
   "holding",
   "item_at",
+  "item_near",
+  "shared_world",
   "met",
 ];
 export const TRAVELERS = ["player", "any"];
@@ -113,7 +115,10 @@ export function observationProblems(definitions, catalog) {
 // Media lives in the pack's own folder under the card table's assets.
 export const mediaPathOk = (pack, path) =>
   typeof path === "string" &&
-  new RegExp(`^assets/${pack}/[a-z0-9-]+\\.(?:png|svg|webp)$`).test(path);
+  (new RegExp(`^assets/${pack}/[a-z0-9-]+\\.(?:png|svg|webp)$`).test(path) ||
+    /^assets\/shared\/(characters|places|items)\/[a-z0-9-]+\.(png|webp)$/.test(
+      path,
+    ));
 
 /**
  * Validate one compiled pack (source plus bridge) against the hub it joins.
@@ -578,6 +583,15 @@ export function packProblems(pack, hub, mountedPlaces = []) {
             owns(items, c.item) &&
             (c.actor === hub.player || owns(avatars, c.actor));
           break;
+        case "shared_world":
+          ok = keysOk(c, ["kind"]);
+          break;
+        case "item_near":
+          ok =
+            keysOk(c, ["kind", "item", "place"]) &&
+            owns(items, c.item) &&
+            anyPlace(c.place);
+          break;
         case "item_at":
           ok =
             keysOk(c, ["kind", "item", "place"]) &&
@@ -610,6 +624,8 @@ export function packProblems(pack, hub, mountedPlaces = []) {
               "flag",
               "holding",
               "item_at",
+              "item_near",
+              "shared_world",
               "met",
             ].includes(c.kind),
           `${what} must use persistent state conditions`,
@@ -1039,6 +1055,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         .filter((t) => Array.isArray(t.docks) && t.docks.includes(id))
         .map((t) => t.place),
       ...routes.filter((r) => r.from === id).map((r) => r.to),
+      ...crossings.filter((c) => c.from === id).map((c) => c.to),
     ])
       reached.add(to);
   check(

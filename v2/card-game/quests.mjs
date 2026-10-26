@@ -1,3 +1,10 @@
+import {
+  humanQuestPrograms,
+  humanAvatar,
+  humanAvatarIds,
+  controlledByHuman,
+  sharedEnabled,
+} from "./human-cast.mjs";
 import forest from "./forest.json" with { type: "json" };
 import { hasQuestPrograms, interest } from "./motives.mjs";
 import { questActive, lifeOf, personalQuestRank, hopes } from "./life.mjs";
@@ -62,11 +69,19 @@ export const meet = (items, avatar, locations) =>
   );
 export const carryTo = (items, location) => hand(hold(...items), at(location));
 
-export const questPrograms = forest.questPrograms;
-export const openingPrograms = forest.openingPrograms;
+export const questPrograms = { ...forest.questPrograms, ...humanQuestPrograms };
+export const openingPrograms = {
+  ...forest.openingPrograms,
+  ...humanQuestPrograms,
+};
 // A pack's residents become known once the player has found a way in.
 export const knownActors = (s) =>
-  Object.keys(s.opening?.met || s.actors).filter(
+  [
+    ...new Set([
+      ...Object.keys(sharedEnabled(s) ? s.actors : s.opening?.met || s.actors),
+      ...(s.controlledActors || []),
+    ]),
+  ].filter(
     (id) =>
       entityActive(s, id) &&
       (!isPackActor(id) || packDiscovered(s, packOf(id).id)),
@@ -145,7 +160,7 @@ export function generateProgram(
 ) {
   const progress = s.actors[actor].progress;
   const actors = knownActors(s).filter((id) => !isPackActor(id)),
-    ids = Object.keys(s.items);
+    ids = Object.keys(s.items).filter((id) => entityActive(s, id));
   const here = s.actors[actor].place;
   const traversed = [here];
   for (let i = 0; i < traversed.length; i++)
@@ -161,7 +176,9 @@ export function generateProgram(
         traversed.push(next);
   // Travel through added regions can lead home, but shore programs must not
   // ask a resident to attend a meeting outside that resident's domain.
-  const reachable = traversed.filter((id) => !packPlaces[id]);
+  const reachable = traversed
+    .filter((id) => (sharedEnabled(s) && humanAvatar(actor)) || !packPlaces[id])
+    .slice(0, 6);
   const placeOf = (item) =>
     s.actors[ownerOf(s, item)]?.place || ownerOf(s, item);
   const bundle = (item) =>
@@ -174,7 +191,7 @@ export function generateProgram(
   // avatar wants now. It can then trade or give that item, so wants cannot
   // lock each other out. Vale keeps carried items.
   const wantedElsewhere = (item) =>
-    actor !== "vale" &&
+    !controlledByHuman(s, actor) &&
     actors.some((other) => other !== actor && needed(other, item));
   const held = ids.filter(
     (id) => ownerOf(s, id) === actor && !wantedElsewhere(id),
@@ -183,7 +200,7 @@ export function generateProgram(
     const owner = ownerOf(s, item);
     return (
       (!s.actors[owner] || actors.includes(owner)) &&
-      (!independent || owner !== "vale") &&
+      (!independent || !controlledByHuman(s, owner)) &&
       reachable.includes(placeOf(item)) &&
       (!s.actors[owner] || owner === actor || !needed(owner, item))
     );
@@ -226,7 +243,7 @@ export function generateProgram(
         (id) =>
           (!s.actors[ownerOf(s, id)] || actors.includes(ownerOf(s, id))) &&
           !s.items[s.items[id].holder] &&
-          (!independent || ownerOf(s, id) !== "vale") &&
+          (!independent || !controlledByHuman(s, ownerOf(s, id))) &&
           reachable.includes(placeOf(id)),
       ),
     );
@@ -240,7 +257,7 @@ export function generateProgram(
     let value = owner === actor ? 0 : s.actors[owner] ? 6 : 4;
     // Bring Vale into new bargains regularly. A stalled cast goal can then
     // choose items held by the cast, leaving the player's response voluntary.
-    if (actor !== "vale" && owner === "vale")
+    if (!controlledByHuman(s, actor) && controlledByHuman(s, owner))
       value = progress.program % 3 === 0 ? 10 : -2;
     return (
       value -
@@ -284,7 +301,7 @@ export function generateProgram(
   const base = {
     id: `generated-${actor}-${progress.program + 1}`,
     name: payment
-      ? `A trade with ${partner === "moth" ? "Pip" : partner === "keeper" ? "the keeper" : "Vale"}`
+      ? `A trade with ${humanAvatar(partner)?.name || (partner === "moth" ? "Pip" : "the keeper")}`
       : `${things[item].name} journey`,
     steps: sequence(
       gathering,
@@ -308,13 +325,14 @@ export function generateProgram(
     name: (id) =>
       things[id]?.name ||
       places[id]?.name ||
-      { vale: "Vale", moth: "Pip", keeper: "the keeper" }[id],
+      { vale: "Vale", moth: "Pip", keeper: "the keeper" }[id] ||
+      humanAvatar(id)?.name,
   });
   const preferences = {
     vale: ["crossing", "answer", "delivery", "gathering", "bargain"],
     moth: ["delivery", "gathering", "crossing", "answer", "bargain"],
     keeper: ["answer", "delivery", "crossing", "gathering", "bargain"],
-  }[actor];
+  }[actor] || ["delivery", "gathering", "crossing", "answer", "bargain"];
   catalog.push({
     ...base,
     purpose: `Make a bargain for the ${things[item].name}, then choose where to carry it and whom to meet.`,

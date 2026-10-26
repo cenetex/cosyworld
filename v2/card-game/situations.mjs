@@ -1,6 +1,11 @@
+import {
+  humanAvatarIds,
+  controlledByHuman,
+  humanPresent,
+} from "./human-cast.mjs";
 // Target hands can ask for an item's use or its place in someone else's hand.
 // These conditions use the same items and card plays as the rest of the world.
-import { isPackActor } from "./pack-registry.mjs";
+import { isPackActor, entityActive } from "./pack-registry.mjs";
 export const condition = (kind, item, extra = {}) => ({
   conditions: [{ kind, item, ...extra }],
 });
@@ -22,7 +27,10 @@ export function questItemAvailable(s, actor, item) {
   return Boolean(
     s.life &&
       s.actors[owner] &&
-      (!s.opening || s.opening.met[owner] !== undefined) &&
+      (!controlledByHuman(s, owner) || humanPresent(s, owner)) &&
+      (!s.opening ||
+        s.opening.met[owner] !== undefined ||
+        s.controlledActors?.includes(owner)) &&
       s.actors[owner].place === s.actors[actor].place &&
       ![actor, owner].some((id) =>
         (s.motives?.grievances[id] || []).some(
@@ -65,7 +73,7 @@ export function validCondition(c, actor) {
       (c.kind === "covered" && ["lamp", "bell"].includes(c.item)) ||
       (c.kind === "heldBy" &&
         ["lamp", "oil", "bell", "cloth"].includes(c.item) &&
-        ["vale", "moth", "keeper"].includes(c.avatar) &&
+        [...humanAvatarIds, "moth", "keeper"].includes(c.avatar) &&
         c.avatar !== actor))
   );
 }
@@ -73,7 +81,7 @@ export const validConsequence = (c, actor) =>
   c &&
   (["anchor", "oil", "hush"].includes(c.kind) ||
     (c.kind === "trust" &&
-      ["vale", "moth", "keeper"].includes(c.avatar) &&
+      [...humanAvatarIds, "moth", "keeper"].includes(c.avatar) &&
       c.avatar !== actor));
 export function requiredItems(s, actor, target) {
   const items = [...target.items];
@@ -184,12 +192,19 @@ export function situationPrograms(s, actor, base, api) {
         ),
       );
   }
-  const others = Object.keys(s.actors).filter(
-    (id) => id !== actor && !isPackActor(id),
-  );
+  const others = Object.keys(s.actors)
+    .filter((id) => id !== actor && !isPackActor(id) && entityActive(s, id))
+    .sort(
+      (a, b) =>
+        Number(s.actors[b].place === s.actors[actor].place) -
+        Number(s.actors[a].place === s.actors[actor].place),
+    )
+    .slice(0, 2);
   // Vale chooses handovers through card plays. Residents can arrange care
   // between themselves while a player decides whether to take an offer.
-  const caretakers = others.filter((id) => actor === "vale" || id !== "vale");
+  const caretakers = others.filter(
+    (id) => controlledByHuman(s, actor) || !controlledByHuman(s, id),
+  );
   const deliveries = caretakers.flatMap((avatar) =>
     needed(avatar)
       .filter((item) => own(item) && mayGive(item))

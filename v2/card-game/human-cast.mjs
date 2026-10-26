@@ -1,0 +1,152 @@
+import cast from "./shared-cast.json" with { type: "json" };
+
+export const humanAvatars = cast.avatars;
+export const humanAvatarIds = humanAvatars.map((a) => a.id);
+export const humanAvatar = (id) =>
+  humanAvatars.find((a) => a.id === id) || null;
+export const currentActor = (world) => world.playerActorId || "vale";
+export const controlledByHuman = (world, id) =>
+  world.controlledActors ? world.controlledActors.includes(id) : id === "vale";
+export const humanPresent = (world, id) =>
+  controlledByHuman(world, id) &&
+  (!world.presentActors || world.presentActors.includes(id));
+export const sharedEnabled = (world) => world.sharedVersion === 1;
+export const roomHumanCount = (world, place) =>
+  humanAvatarIds.filter(
+    (id) => humanPresent(world, id) && world.actors[id]?.place === place,
+  ).length;
+export const humanRoomAvailable = (world, actor, place, count = 1) =>
+  !sharedEnabled(world) ||
+  !controlledByHuman(world, actor) ||
+  world.actors[actor]?.place === place ||
+  roomHumanCount(world, place) + count <= 4;
+
+// These seven homes join the existing pond. Vale, the station, the attic,
+// the pond and the lamp keep their original definitions and behavior.
+const visitors = humanAvatars.filter((a) => a.id !== "vale");
+export const humanHomePack = {
+  schemaVersion: 1,
+  id: "shared-homes",
+  packId: "cosyworld.shared-homes",
+  revision: 1,
+  name: "Homes beside the shore",
+  description:
+    "Seven visitors bring their belongings and homes to the existing shore.",
+  entry: visitors[0].home.id,
+  bridge: {
+    id: "shared-homes-shore",
+    description:
+      "A visitor's belonging at the pond opens the way to their home.",
+  },
+  choices: [],
+  places: Object.fromEntries(
+    visitors.map((a) => [
+      a.home.id,
+      {
+        name: a.home.name,
+        text: a.home.text,
+        persona: a.home.text,
+        requires: [{ kind: "shared_world" }],
+        exits: [],
+        backdrop: a.home.image,
+      },
+    ]),
+  ),
+  avatars: Object.fromEntries(
+    visitors.map((a) => [
+      a.id,
+      {
+        name: a.name,
+        text: a.text,
+        place: a.home.id,
+        home: a.home.id,
+        persona: a.text,
+        voice:
+          "Speak briefly about this shared moment. The player chooses this avatar's actions.",
+        requires: [{ kind: "shared_world" }],
+        portrait: a.image,
+        standoffs: false,
+        tastes: {
+          likes: a.pleasure,
+          sore: "Someone deciding for them",
+          reason: a.pleasure,
+        },
+        values: { [a.item.id]: 8 },
+      },
+    ]),
+  ),
+  items: Object.fromEntries(
+    visitors.map((a) => [
+      a.item.id,
+      {
+        name: a.item.name,
+        text: `${a.item.verb}. ${a.home.entrance.text}`,
+        requires: [{ kind: "shared_world" }],
+        persona: `${a.item.name}. ${a.item.effect}.`,
+        holder: a.id,
+        art: a.item.image,
+      },
+    ]),
+  ),
+  crossings: visitors.flatMap((a) => [
+    {
+      id: `pond-${a.home.id}`,
+      from: "pond",
+      to: a.home.id,
+      travelers: "player",
+      requires: [
+        { kind: "shared_world" },
+        { kind: "item_near", item: a.item.id, place: "pond" },
+      ],
+      travel: `through ${a.home.entrance.name.toLowerCase()}`,
+      scenery: { open: a.home.entrance.text, cardArt: a.home.image },
+    },
+    {
+      id: `${a.home.id}-pond`,
+      from: a.home.id,
+      to: "pond",
+      travelers: "player",
+      requires: [{ kind: "shared_world" }],
+      travel: "back to the shore",
+    },
+  ]),
+};
+
+export const humanQuestPrograms = Object.fromEntries(
+  visitors.map((a) => [
+    a.id,
+    [
+      {
+        id: `${a.id}-first-visit`,
+        name: "A first visit",
+        purpose: a.pleasure,
+        steps: [{ items: [a.item.id], location: "pond", avatars: [] }],
+      },
+      {
+        id: `${a.id}-station-visit`,
+        name: "A visit to the station",
+        purpose: a.pleasure,
+        steps: [{ items: [a.item.id], location: "station", avatars: [] }],
+      },
+    ],
+  ]),
+);
+export const humanHopes = Object.fromEntries(
+  visitors.map((a) => [
+    a.id,
+    {
+      title: a.pleasure,
+      keeps: {
+        [a.item.id]: `Keep the ${a.item.name} ready for shared moments.`,
+      },
+      milestones: [
+        { title: "Share a useful belonging", kinds: ["delivery", "bargain"] },
+        { title: "Spend time together", kinds: ["gathering"] },
+        {
+          title: "Make a way through the world",
+          kinds: ["crossing", "answer"],
+        },
+      ],
+    },
+  ]),
+);
