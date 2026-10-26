@@ -486,6 +486,43 @@ export function renderSharedQueue(
     queue.append(row);
   }
 }
+// A viewer can pause to read a card while the room keeps its common clock.
+export function createSharedPlaybackClock() {
+  let sceneKey = null,
+    delay = 0,
+    pausedAt = null;
+  return {
+    reset() {
+      sceneKey = null;
+      delay = 0;
+      pausedAt = null;
+    },
+    now(state, now, room, paused) {
+      const scene = state.history?.find(
+        (entry) => entry.room === room && entry.lines?.length,
+      );
+      const key = scene
+        ? `${room}:${scene.starts_at}:${scene.play || ""}`
+        : room;
+      if (key !== sceneKey) {
+        sceneKey = key;
+        delay = 0;
+        if (pausedAt !== null && scene)
+          pausedAt = Math.max(pausedAt, scene.starts_at);
+      }
+      if (paused) {
+        pausedAt ??= now;
+        return pausedAt - delay;
+      }
+      if (pausedAt !== null) {
+        delay += Math.max(0, now - pausedAt);
+        pausedAt = null;
+      }
+      return now - delay;
+    },
+  };
+}
+
 export function sharedLiveLine(state, now, room) {
   const scene = (state.history || []).find(
     (entry) => entry.room === room && entry.lines?.length,

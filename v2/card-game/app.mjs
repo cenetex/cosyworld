@@ -1,5 +1,6 @@
 import {
   connectSharedWorld,
+  createSharedPlaybackClock,
   installSharedControls,
   renderSharedQueue,
   sharedLiveLine,
@@ -76,6 +77,7 @@ const sharedWorldId = new URLSearchParams(location.search).get("world");
 const sharedSession = sharedWorldId
   ? await connectSharedWorld(sharedWorldId)
   : null;
+const sharedPlayback = createSharedPlaybackClock();
 const SAVE_KEY =
   "cosyworld.reflected-shore.v1" +
   (sharedSession
@@ -517,6 +519,13 @@ function pauseSpeech() {
   pauseDiscovery();
   const paused =
     document.hidden || Boolean(document.querySelector("dialog[open]"));
+  if (sharedSession)
+    sharedPlayback.now(
+      sharedSession.state,
+      sharedSession.now(),
+      world.actors[currentActor(world)].place,
+      paused,
+    );
   reveal.pause(paused);
   exchange.pause(paused);
   for (const animation of [
@@ -1666,6 +1675,7 @@ function leaveFigure(figure, remove = false) {
   exits.set(figure, task);
 }
 function returnToLive() {
+  sharedPlayback.reset();
   reviewing = false;
   lineSeq = null;
   sharedLineKey = "";
@@ -2454,6 +2464,7 @@ async function submitSharedPlay(action) {
     )
   )
     return;
+  sharedPlayback.reset();
   sharedSending = true;
   renderActions();
   try {
@@ -2473,7 +2484,13 @@ async function submitSharedPlay(action) {
 function syncSharedLine() {
   if (!sharedSession || reviewing || covering) return;
   const room = world.actors[currentActor(world)].place;
-  const live = sharedLiveLine(sharedSession.state, sharedSession.now(), room);
+  const playbackTime = sharedPlayback.now(
+    sharedSession.state,
+    sharedSession.now(),
+    room,
+    document.hidden || Boolean(document.querySelector("dialog[open]")),
+  );
+  const live = sharedLiveLine(sharedSession.state, playbackTime, room);
   if (!live) return;
   const entry = world.log.findLast(
     (entry) =>

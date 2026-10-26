@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   sharedLiveLine,
+  createSharedPlaybackClock,
   sharedNextActor,
   sharedSpeechState,
   hasSharedPlace,
@@ -84,6 +85,30 @@ describe("shared room dialogue clock", () => {
     expect(sharedLiveLine(state, 1100, "pond")).toEqual(first);
     expect(sharedLiveLine(state, 4600, "pond")).toEqual(second);
     expect(sharedLiveLine(state, 90000, "pond")).toEqual(second);
+  });
+  it("keeps a viewer's line while a card pauses their reading clock", () => {
+    const clock = createSharedPlaybackClock();
+    expect(clock.now(state, 1200, "pond", true)).toBe(1200);
+    expect(clock.now(state, 13200, "pond", true)).toBe(1200);
+    const resumed = clock.now(state, 13200, "pond", false);
+    expect(sharedLiveLine(state, resumed, "pond")).toEqual(first);
+    expect(sharedLiveLine(state, 13200, "pond")).toEqual(second);
+    expect(
+      sharedLiveLine(state, clock.now(state, 16600, "pond", false), "pond"),
+    ).toEqual(second);
+    clock.reset();
+    expect(clock.now(state, 17000, "pond", false)).toBe(17000);
+  });
+  it("starts a newly committed scene at its own paused reading time", () => {
+    const clock = createSharedPlaybackClock();
+    clock.now({ history: [] }, 900, "pond", true);
+    expect(clock.now(state, 6000, "pond", true)).toBe(1000);
+    expect(clock.now(state, 6000, "pond", false)).toBe(1000);
+    const next = { history: [{ ...state.history[0], starts_at: 7000 }] };
+    expect(clock.now(next, 7200, "pond", false)).toBe(7200);
+    expect(clock.now(next, 7300, "pond", true)).toBe(7300);
+    expect(clock.now(next, 9000, "pond", false)).toBe(7300);
+    expect(clock.now(state, 9100, "station", false)).toBe(9100);
   });
   it("reads only the current room's scene", () => {
     expect(sharedLiveLine(state, 1100, "station").speaker).toBe("Keeper");

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { createWorld } from "../card-game/world.mjs";
+import { createWorld, addLog } from "../card-game/world.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { questCards } from "../card-game/quest-cards.mjs";
 
@@ -63,10 +63,13 @@ try {
         const key =
           "cosyworld.reflected-shore.v1.shared.discovery-fixture.vale";
         localStorage.setItem(key + ".seen", JSON.stringify(seen));
-        localStorage.setItem(
-          key + ".quests",
-          JSON.stringify({ seen: quests, read: quests }),
-        );
+        if (!sessionStorage.getItem("quests-seeded")) {
+          localStorage.setItem(
+            key + ".quests",
+            JSON.stringify({ seen: quests, read: quests }),
+          );
+          sessionStorage.setItem("quests-seeded", "true");
+        }
         localStorage.setItem("cosyworld.dialogue.sound", "off");
         localStorage.setItem(
           "cosyworld.room-music",
@@ -226,6 +229,75 @@ try {
     assert.equal(
       await page.evaluate(() => window.discoveryProbe.state().pending),
       false,
+    );
+    // A quest presentation holds this viewer's reading clock while the room
+    // clock advances. Speech keeps its first line when the card closes.
+    await page.evaluate(() => {
+      const key =
+        "cosyworld.reflected-shore.v1.shared.discovery-fixture.vale.quests";
+      localStorage.setItem(key, JSON.stringify({ seen: [], read: [] }));
+    });
+    await page.reload();
+    await page.waitForFunction(() => Boolean(window.discoveryProbe));
+    await publish(() => {});
+    await page.waitForFunction(
+      () =>
+        document.querySelector("#unveil-dialog").open &&
+        document
+          .querySelector("#unveil-take")
+          .getAttribute("aria-label")
+          ?.startsWith("New quest."),
+    );
+    await page.evaluate(() => {
+      document.querySelector("#history-dialog").showModal();
+      document.dispatchEvent(new Event("shared-dialog-change"));
+    });
+    const first =
+      "I can hear the pond while this new quest finds its place in my hand.";
+    const second = "I will wait here beside the water.";
+    const startsAt = Math.max(Date.now(), snapshot.now + 1);
+    const lines = [
+      ["vale", "Vale", first],
+      ["moth", "Pip", second],
+    ].map(([actorId, speaker, text]) => {
+      addLog(snapshot.world, speaker, text, {
+        generated: true,
+        kind: "dialogue",
+        actorId,
+        entityId: actorId,
+        locationId: "pond",
+      });
+      return snapshot.world.log.at(-1);
+    });
+    snapshot.history = [
+      { room: "pond", actor: "vale", starts_at: startsAt, lines },
+    ];
+    snapshot.now = startsAt;
+    await publish(() => {});
+    // Move the authoritative room clock past both lines while the card is held.
+    snapshot.now += 12000;
+    await page.evaluate(() => window.discoveryProbe.sync());
+    await page.waitForTimeout(250);
+    await page.evaluate(() =>
+      document.querySelector("#history-dialog").close(),
+    );
+    await dismiss();
+    await page.waitForFunction(
+      ({ first, reduced }) => {
+        const text = document.querySelector("#dialogue-text");
+        const shown = text.querySelectorAll(".speech-letter.revealed").length;
+        const total = text.querySelectorAll(".speech-letter").length;
+        return (
+          text.textContent === first && shown > 0 && (reduced || shown < total)
+        );
+      },
+      { first, reduced: width === 390 },
+    );
+    await page.locator("#live-line").click();
+    await page.waitForFunction(
+      (second) =>
+        document.querySelector("#dialogue-text").textContent === second,
+      second,
     );
     assert.deepEqual(errors, []);
     console.log(

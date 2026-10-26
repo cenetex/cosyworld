@@ -21,6 +21,11 @@ Waiting plays can be withdrawn. Nudge asks a present human for attention. People
 can sit quietly while the scene runs. Presence has a 60-second reconnect grace;
 the avatar claim remains saved.
 
+A card presentation or open dialog pauses that viewer's speech clock. Closing
+it resumes the same line. The live portrait follows the room's common clock;
+selecting it catches up immediately. A new play or scene starts a fresh reading
+clock for that viewer.
+
 Each accepted play advances the existing world clock. Lamp fuel, temporary
 sounds, and crossing sequences keep their current turn rules for everyone.
 
@@ -150,16 +155,16 @@ and show a scene error. Per-person and shared play budgets bound usage.
 
 ## Entrances and future journeys
 
-| Person | Entrance | Home |
-| ------ | -------- | ---- |
-| Vale | Existing shore and mirror paths | Empty station and Mirror attic |
-| Mara | Parted curtains | Paper theatre |
-| Ash | Diving bell | Sunken belfry |
-| Nell | Growing gate | Wild glasshouse |
-| Tavi | Wind path | Wind hill |
-| Rue | Carriage door | Between-hours carriage |
-| Orin | Game-tile bridge | Games pavilion |
-| Ada | Open seam | Sail loft |
+| Person | Entrance                        | Home                           |
+| ------ | ------------------------------- | ------------------------------ |
+| Vale   | Existing shore and mirror paths | Empty station and Mirror attic |
+| Mara   | Parted curtains                 | Paper theatre                  |
+| Ash    | Diving bell                     | Sunken belfry                  |
+| Nell   | Growing gate                    | Wild glasshouse                |
+| Tavi   | Wind path                       | Wind hill                      |
+| Rue    | Carriage door                   | Between-hours carriage         |
+| Orin   | Game-tile bridge                | Games pavilion                 |
+| Ada    | Open seam                       | Sail loft                      |
 
 A future Paris journey can depart from the existing station. Rue's carriage opens from
 the station while her route board is present there. Carrying the board inside
