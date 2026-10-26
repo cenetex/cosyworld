@@ -86,6 +86,7 @@ const merge = (field) =>
     ),
   );
 export const packPlaces = merge("places");
+export const transports = merge("transports");
 export const packPeople = merge("avatars");
 export const packFixtures = merge("fixtures");
 export const packThings = merge("items");
@@ -183,7 +184,7 @@ export const packNames = Object.fromEntries(
 export const packMediaFiles = [
   ...new Set(
     packDefinitions.flatMap((pack) => [
-      ...Object.values(pack.places).map((p) => p.backdrop),
+      ...Object.values(pack.places).flatMap((p) => [p.backdrop, p.art]),
       ...Object.values(pack.items || {}).map((i) => i.art),
       ...pack.crossings.flatMap((c) => [
         c.scenery?.overlay,
@@ -235,7 +236,19 @@ export function actorCanVisit(actor, place) {
   if (!actor || actor === "vale") return true;
   const a = packPeople[actor],
     destination = packPlaces[place];
-  return a ? destination?.packId === a.packId : !destination;
+  if (a ? destination?.packId === a.packId : !destination) return true;
+  const home = a?.packId ?? null,
+    target = destination?.packId ?? null;
+  return Object.entries(transports).some(([id, t]) => {
+    const domains = t.docks.map((dock) => packPlaces[dock]?.packId ?? null);
+    return (
+      domains.includes(home) &&
+      domains.includes(target) &&
+      crossings
+        .filter((c) => c.transport === id)
+        .every((c) => c.travelers === "any")
+    );
+  });
 }
 function choiceFeasible(world, pack, choice, actor) {
   const state = packState(world, pack.id);

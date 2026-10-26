@@ -1215,7 +1215,7 @@ function card(id) {
       ? packMedia(id, "art") || `./assets/${id}-card.png`
       : type === "avatar"
         ? portrait(id, null, world)
-        : crossingFace?.art || backdrop(id);
+        : crossingFace?.art || packMedia(id, "art") || backdrop(id);
   img.alt = "";
   img.draggable = false;
   if (type === "avatar") frameFigure(img);

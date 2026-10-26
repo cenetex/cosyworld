@@ -117,6 +117,42 @@ describe("world packs on the card table", () => {
     }
   });
 
+  it("validates transport docks, routes, and start conditions", () => {
+    const greek = () =>
+      structuredClone(packDefinitions.find((p) => p.id === "greek-drama"));
+    expect(packProblems(greek(), hub, Object.keys(packPlaces))).toEqual([]);
+    for (const mutate of [
+      (p) => {
+        p.transports["greek-ship"].docks = ["pond", "station"];
+      },
+      (p) => {
+        p.transports["greek-ship"].docks = 7;
+      },
+      (p) => {
+        p.transports["greek-ship"].at = "station";
+      },
+      (p) => {
+        p.crossings[0].transport = "unknown";
+      },
+      (p) => {
+        p.crossings[0].signal.start = [{ kind: "magic" }];
+      },
+      (p) => {
+        p.crossings[0].signal.opens = 3;
+      },
+      (p) => {
+        p.places["greek-ship"].exits = ["greek-harbor"];
+      },
+    ]) {
+      const p = greek();
+      mutate(p);
+      expect(
+        packProblems(p, hub, Object.keys(packPlaces)).length,
+        String(mutate),
+      ).toBeGreaterThan(0);
+    }
+  });
+
   it("keeps every pack id out of the engine's rules", () => {
     // The only module that may name a pack's ids is the schema 6 upgrade.
     const ids = [
@@ -139,6 +175,7 @@ describe("world packs on the card table", () => {
       "memory.mjs",
       "dialogue.mjs",
       "pack-rules.mjs",
+      "pack-transport.mjs",
       "pack-registry.mjs",
       "pack-schema.mjs",
     ]) {

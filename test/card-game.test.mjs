@@ -258,6 +258,7 @@ describe("the reflected shore card game", () => {
         "pack-schema.mjs",
         "pack-registry.mjs",
         "pack-rules.mjs",
+        "pack-transport.mjs",
         "legacy-saves.mjs",
         "packs.json",
       ]) {
@@ -314,8 +315,8 @@ describe("the reflected shore card game", () => {
       "utf8",
     );
     const commit = app.slice(
-      app.indexOf("function commitAction("),
-      app.indexOf("\nfunction ", app.indexOf("function commitAction(") + 1),
+      app.indexOf("function performAction("),
+      app.indexOf("\nfunction ", app.indexOf("function performAction(") + 1),
     );
     const accepted = commit.indexOf("world = result.state;");
     expect(accepted).toBeGreaterThan(0);

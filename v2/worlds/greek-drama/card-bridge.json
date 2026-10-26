@@ -2,13 +2,13 @@
   "schemaVersion": 1,
   "id": "shore-greek-drama",
   "pack": "greek-drama",
-  "description": "A ship crosses from the quiet pond to the Wine-Dark Harbor; its appearance is the only answer to the lamp signal.",
+  "description": "A ship travels between Black pond and the Wine-Dark Harbor. The lamp signal calls it to the pond.",
   "crossings": [
     {
       "id": "pond-greek-harbor",
       "from": "pond",
       "to": "greek-harbor",
-      "travelers": "player",
+      "travelers": "any",
       "travel": "aboard the ship",
       "travelLabel": "Board",
       "signal": {
@@ -27,21 +27,11 @@
             "verb": "cover",
             "item": "cloth",
             "target": "lamp"
-          },
-          {
-            "verb": "take",
-            "item": "cloth",
-            "from": "lamp"
           }
         ],
         "consecutive": false,
         "opens": null,
         "while": [
-          {
-            "kind": "light",
-            "item": "lamp",
-            "at": ["pond"]
-          },
           {
             "kind": "not",
             "condition": {
@@ -49,37 +39,45 @@
               "at": ["pond", "clearing"]
             }
           }
+        ],
+        "start": [
+          {
+            "kind": "light",
+            "item": "lamp",
+            "at": ["pond"]
+          }
         ]
       },
-      "requires": [
-        {
-          "kind": "light",
-          "item": "lamp",
-          "at": ["pond"],
-          "uncovered": true
-        },
-        {
-          "kind": "not",
-          "condition": {
-            "kind": "sound",
-            "at": ["pond", "clearing"]
-          }
-        }
-      ],
+      "requires": [],
       "scenery": {
         "open": "A ship waits on the black water.",
         "overlay": "assets/greek-drama/pond-ship-overlay.png",
         "cardName": "Greek ship",
         "cardArt": "assets/greek-drama/ship-card.webp"
-      }
+      },
+      "transport": "greek-ship"
     },
     {
       "id": "greek-harbor-pond",
       "from": "greek-harbor",
       "to": "pond",
-      "travelers": "player",
+      "travelers": "any",
       "travel": "back across the black water",
-      "requires": []
+      "requires": [],
+      "transport": "greek-ship",
+      "travelLabel": "Board",
+      "scenery": {
+        "open": "The ship waits against the stone landing.",
+        "cardName": "Greek ship",
+        "cardArt": "assets/greek-drama/ship-card.webp"
+      }
     }
-  ]
+  ],
+  "transports": {
+    "greek-ship": {
+      "place": "greek-ship",
+      "docks": ["pond", "greek-harbor"],
+      "at": "greek-harbor"
+    }
+  }
 }

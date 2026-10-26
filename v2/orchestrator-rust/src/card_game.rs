@@ -203,6 +203,7 @@ mod tests {
             "pack-schema.mjs",
             "pack-registry.mjs",
             "pack-rules.mjs",
+            "pack-transport.mjs",
             "legacy-saves.mjs",
             "packs.json",
             "assets/music/attic-1.mp3",

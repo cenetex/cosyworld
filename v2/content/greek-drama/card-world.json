@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "greek-drama",
   "packId": "cosyworld.greek-drama",
-  "revision": 1,
+  "revision": 2,
   "name": "The Wine-Dark Sea",
   "description": "Courtyards, cities, and sea roads where a household's decision can change a city.",
   "tone": "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -37,10 +37,10 @@
   "places": {
     "greek-harbor": {
       "name": "The Wine-Dark Harbor",
-      "text": "A ship rests against the stone landing. Worn steps climb toward the town.",
+      "text": "Worn steps climb from the stone landing toward the town.",
       "exits": ["greek-courtyard", "greek-athens", "greek-argolid-road"],
       "backdrop": "assets/greek-drama/harbor-day.webp",
-      "persona": "A ship rests against the stone landing. Worn steps climb toward the town."
+      "persona": "Worn steps climb from the stone landing toward the town."
     },
     "greek-courtyard": {
       "name": "Theban Courtyard",
@@ -448,6 +448,14 @@
       "exits": ["greek-colonus"],
       "backdrop": "assets/greek-drama/harbor.svg",
       "persona": "A ferry rests beside dark water. The keeper of the landing asks the purpose of each crossing."
+    },
+    "greek-ship": {
+      "name": "Greek ship",
+      "text": "Dark water passes beneath the hull. The ship carries its passengers to the opposite shore.",
+      "persona": "Aboard a ship crossing between Black pond and the Wine-Dark Harbor. Passengers remain aboard until they disembark at the destination.",
+      "exits": [],
+      "backdrop": "assets/greek-drama/sea.svg",
+      "art": "assets/greek-drama/ship-card.webp"
     }
   },
   "avatars": {
@@ -3737,7 +3745,8 @@
       "greek-gate",
       "greek-battlefield",
       "greek-palace",
-      "greek-sanctuary"
+      "greek-sanctuary",
+      "greek-ship"
     ],
     "avatars": [
       "greek-antigone",

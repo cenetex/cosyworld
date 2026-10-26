@@ -44,7 +44,7 @@ const packs = (table.packs || []).map((id) => {
     ...joins
   } = bridge;
   const unknown = Object.keys(joins).filter(
-    (key) => !["values", "crossings"].includes(key),
+    (key) => !["values", "crossings", "transports"].includes(key),
   );
   if (unknown.length)
     problems.push(`${id}: bridge has unknown fields ${unknown.join(", ")}`);
@@ -76,6 +76,7 @@ for (const pack of packs) {
     ...Object.keys(pack.fixtures || {}),
     ...Object.keys(pack.items || {}),
     ...(pack.crossings || []).map((c) => `crossing:${c.id}`),
+    ...Object.keys(pack.transports || {}).map((id) => `transport:${id}`),
     // One crossing per direction between two places, across every pack.
     ...(pack.crossings || []).map((c) => `route:${c.from}->${c.to}`),
   ]) {
@@ -85,7 +86,7 @@ for (const pack of packs) {
   }
   // Media must exist and match its PNG, SVG or WebP extension, since the table serves it verbatim.
   const media = [
-    ...Object.values(pack.places || {}).map((p) => p.backdrop),
+    ...Object.values(pack.places || {}).flatMap((p) => [p.backdrop, p.art]),
     ...Object.values(pack.items || {}).map((i) => i.art),
     ...(pack.crossings || []).flatMap((c) => [
       c.scenery?.overlay,

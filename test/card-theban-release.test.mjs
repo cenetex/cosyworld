@@ -54,12 +54,12 @@ const reachable = (s) => {
       if (to.startsWith("greek-")) seen.add(to);
   return [...seen].sort();
 };
-describe("the seven-place Theban release", () => {
-  it("opens exactly seven places, not the catalogue", () => {
+describe("the Theban release and its ship", () => {
+  it("opens seven shore places and the ship", () => {
     const s = createWorld();
     expect(s.packs[pack.id].scope).toBe("opening");
     expect(reachable(s)).toEqual([...pack.release.places].sort());
-    expect(reachable(s)).toHaveLength(7);
+    expect(reachable(s)).toHaveLength(8);
     expect(entityActive(s, "greek-athens")).toBe(false);
     expect(entityActive(s, "greek-rhapsode")).toBe(false);
   });
@@ -76,7 +76,7 @@ describe("the seven-place Theban release", () => {
       ).toBe(false);
     }
     expect(pack.works).toHaveLength(44);
-    expect(Object.keys(pack.places)).toHaveLength(49);
+    expect(Object.keys(pack.places)).toHaveLength(50);
   });
   it("preserves opening scope through reloads", () => {
     let s = createWorld();
@@ -85,14 +85,19 @@ describe("the seven-place Theban release", () => {
   });
   it("keeps a route from every opening place back to the pond", () => {
     const s = createWorld();
-    for (const start of pack.release.places) {
+    for (const start of pack.release.places.filter(
+      (id) => id !== "greek-ship",
+    )) {
       const seen = new Set([start]);
       for (const id of seen)
         for (const to of exits(s, id, "vale"))
           if (pack.release.places.includes(to)) seen.add(to);
       expect(seen.has(pack.entry)).toBe(true);
     }
-    expect(exits(s, pack.entry, "vale")).toContain("pond");
+    expect(exits(s, pack.entry, "vale")).toContain("greek-ship");
+    s.actors.vale.place = pack.entry;
+    const aboard = act(s, "move", { target: "greek-ship" });
+    expect(exits(aboard, "greek-ship", "vale")).toEqual(["pond"]);
   });
   it("retains genuine schema-6 branches, evidence, memories and wider geography", () => {
     const before = legacy("egypt"),
@@ -102,7 +107,7 @@ describe("the seven-place Theban release", () => {
     for (const key of ["choices", "flags", "receipts", "met"])
       expect(after.packs[pack.id][key]).toEqual(before.packs[pack.id][key]);
     expect(after.items).toEqual(before.items);
-    expect(after.memories).toEqual(before.memories);
+    expect(after.memories).toMatchObject(before.memories);
     expect(after.log).toEqual(before.log);
     expect(after.actors.vale.place).toBe("greek-egypt-tomb");
     expect(after.items["greek-egypt-testimony"].holder).toBe("vale");
@@ -115,13 +120,12 @@ describe("the seven-place Theban release", () => {
     expect(s.crossings["pond-greek-harbor"].phase).toBe(2);
     expect(locationOverlay(s, "pond")).toBeNull();
     s = act(s, "cover", { item: "cloth", target: "lamp" });
-    expect(locationOverlay(s, "pond")).toBeNull();
-    s = act(s, "take", { item: "cloth" });
     expect(locationOverlay(s, "pond")).toMatch(/pond-ship-overlay\.png$/);
-    expect(travelCard(s, "greek-harbor")).toMatchObject({
+    expect(travelCard(s, "greek-ship")).toMatchObject({
       name: "Greek ship",
       art: "./assets/greek-drama/ship-card.webp",
     });
+    s = act(s, "move", { target: "greek-ship" });
     s = act(s, "move", { target: "greek-harbor" });
     expect(s.actors.vale.place).toBe("greek-harbor");
   });
@@ -143,7 +147,9 @@ describe("the seven-place Theban release", () => {
     expect(() => encodeSave(changed)).toThrow();
   });
   it("uses seven distinct painted backdrops", () => {
-    const images = pack.release.places.map(backdrop);
+    const images = pack.release.places
+      .filter((id) => id !== "greek-ship")
+      .map(backdrop);
     expect(new Set(images).size).toBe(7);
     expect(images.every((p) => p.endsWith(".webp"))).toBe(true);
     for (const image of images) {

@@ -1,4 +1,35 @@
 // Explicit migrations of historical pre-pack records, never runtime gate rules.
+export function upgradeTransportSave(s) {
+  const pack = s.packs?.["greek-drama"];
+  if (pack?.revision !== 1) return;
+  const signal = s.crossings?.["pond-greek-harbor"];
+  if (
+    signal &&
+    (!Number.isInteger(signal.phase) || signal.phase < 0 || signal.phase > 4)
+  )
+    throw new Error("Invalid legacy lamp signal.");
+  if (s.transports?.["greek-ship"] !== undefined)
+    throw new Error("Conflicting legacy ship record.");
+  s.transports ??= {};
+  s.transports["greek-ship"] = {
+    dock: signal?.phase >= 3 ? "pond" : "greek-harbor",
+    destination: null,
+    recall: null,
+  };
+  if (signal) {
+    signal.phase = Math.min(signal.phase, 3);
+    if (signal.phase === 3) signal.discovered = true;
+  }
+  if (s.memories)
+    s.memories["greek-ship"] ??= {
+      events: [],
+      landmarks: [],
+      text: null,
+      turn: null,
+    };
+  pack.revision = 2;
+}
+
 export function upgradeSteamClockSave(s) {
   const clock = s.steamClock;
   delete s.steamClock;

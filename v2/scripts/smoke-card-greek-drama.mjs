@@ -150,7 +150,7 @@ try {
         await pair("cloth", "lamp");
         await playCard("cloth");
       }
-      assert.equal((await state()).crossings["pond-greek-harbor"].phase, 4);
+      assert.equal((await state()).crossings["pond-greek-harbor"].phase, 3);
     };
     const travel = async (id) => {
       const before = await state();
@@ -161,6 +161,11 @@ try {
         while ((await state()).items.lamp.fuel < 7) await pair("oil", "lamp");
       }
       if (boarding) await signalShip();
+      if (
+        boarding ||
+        (before.actors.vale.place === "greek-harbor" && id === "pond")
+      )
+        await playCard("greek-ship");
       await playCard(id);
       assert.equal((await state()).actors.vale.place, id, `travel to ${id}`);
       assert.equal(await page.textContent("#place-title"), places[id].name);

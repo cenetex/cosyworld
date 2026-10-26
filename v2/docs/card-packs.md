@@ -167,8 +167,8 @@ When a save is loaded, any mounted pack missing from it is installed fresh:
 its residents join with neutral trust and empty memories, and the shore's
 items, positions and history are untouched. A changed pack needs a revision
 bump and a deliberate migration; never drop saved state to make it load.
-`legacy-saves.mjs` holds the one migration that names pack ids, from the
-schema 6 `steamClock` record.
+`legacy-saves.mjs` holds migrations that name pack ids, including the
+schema 6 `steamClock` record and the Greek ship in pack revision 2.
 
 ## Rules the engine keeps
 
@@ -254,3 +254,35 @@ wording a pack declares; the final-state facts guide other wording. Conflicting
 character replies receive one rewrite attempt. A second conflict uses the
 existing retry UI. Publication follows validation. The Lamp and Badger provide
 item and avatar examples of the same path.
+
+### Transport and a remembered signal start
+
+A bridge can declare `transports`. Each named transport supplies `place` (a
+pack place with an empty static exit list), two `docks`, and `at` (its first
+dock). A crossing in each direction names it with `transport`. `travelers`
+controls who can board. `any` lets hub avatars and residents of that pack
+travel between both shores.
+
+The ship place uses the existing place cards. At a dock, the ship card offers
+Board. Aboard, the hand contains the ship and the destination. The destination
+card offers Disembark. Boarding saves the destination; disembarking the last
+passenger parks the ship there. The same saved ship serves every actor.
+An optional place `art` supplies its card face separately from its backdrop.
+
+A transport signal uses `opens: null`. Completion summons the transport to
+that crossing's `from` dock. The dock remains saved through waits, reloads,
+lamp changes, and later sound. If passengers are aboard, the recall waits
+until the last passenger finishes the current trip. Then the empty ship
+travels to the requested dock.
+
+`signal.start` contains conditions checked before the first counted play.
+`signal.while` contains conditions maintained through the sequence. The
+Greek bridge checks for a burning lamp at the start and quiet throughout
+cover → uncover → cover. Fuel can run out after the first cover; the saved
+progress remains. Each completed signal recalls the ship to Black pond.
+
+Saves include `transports`, keyed by transport id, with `dock`, `destination`,
+and `recall`. A parked ship has one dock. An occupied ship has one destination
+and may have a pending recall. Save validation checks these against the pack
+and its passengers. Greek revision 1 saves retain partial signals and gain
+a ship at the pond when their old sequence already includes the final cover.

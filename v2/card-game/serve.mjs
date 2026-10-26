@@ -26,6 +26,7 @@ const assets = new Map([
   ["/dialogue.mjs", ["dialogue.mjs", "text/javascript"]],
   ["/pack-schema.mjs", ["pack-schema.mjs", "text/javascript"]],
   ["/pack-registry.mjs", ["pack-registry.mjs", "text/javascript"]],
+  ["/pack-transport.mjs", ["pack-transport.mjs", "text/javascript"]],
   ["/pack-rules.mjs", ["pack-rules.mjs", "text/javascript"]],
   ["/legacy-saves.mjs", ["legacy-saves.mjs", "text/javascript"]],
   ["/packs.json", ["packs.json", "application/json"]],

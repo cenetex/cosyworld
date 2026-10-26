@@ -162,6 +162,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       "release",
       "sources",
       "observations",
+      "transports",
     ]),
     "has an unknown top-level field",
   );
@@ -187,6 +188,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     ["avatars", true, 128],
     ["items", false, 128],
     ["fixtures", false, 32],
+    ["transports", false, 8],
   ]) {
     const map = pack[key];
     if (map === undefined && !required) continue;
@@ -320,6 +322,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "persona",
         "exits",
         "backdrop",
+        "art",
         "stage",
         "requires",
       ]),
@@ -336,6 +339,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       `place ${id} exits must name other places in this pack`,
     );
     media(p.backdrop, `place ${id} backdrop`);
+    if (p.art !== undefined) media(p.art, `place ${id} art`);
     if (p.stage !== undefined)
       check(
         keysOk(p.stage, ["alt", "resident", "sprite"]) &&
@@ -808,6 +812,9 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     for (const id of reachable)
       for (const to of [
         ...places[id].exits,
+        ...Object.values(pack.transports || {})
+          .filter((t) => Array.isArray(t.docks) && t.docks.includes(id))
+          .map((t) => t.place),
         ...routes.filter((r) => r.from === id).map((r) => r.to),
       ].filter((id) => r.places.includes(id)))
         reachable.add(to);
@@ -849,6 +856,43 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     Array.isArray(pack.crossings) && crossings.length > 0,
     "bridge needs crossings",
   );
+  const transportPlaces = new Set();
+  for (const [id, t] of Object.entries(pack.transports || {})) {
+    const valid = check(
+      idOk(id) &&
+        keysOk(t, ["place", "docks", "at"]) &&
+        owns(places, t.place) &&
+        !transportPlaces.has(t.place) &&
+        places[t.place]?.exits.length === 0 &&
+        Array.isArray(t.docks) &&
+        t.docks.length === 2 &&
+        new Set(t.docks).size === 2 &&
+        t.docks.every((p) => anyPlace(p) && p !== t.place) &&
+        t.docks.includes(t.at),
+      `transport ${id} needs its own place, two docks and an initial dock`,
+    );
+    if (!valid) continue;
+    transportPlaces.add(t.place);
+    check(
+      crossings.filter((c) => c.transport === id).length === 2 &&
+        (t.docks || []).every((from) =>
+          crossings.some(
+            (c) =>
+              c.transport === id &&
+              c.from === from &&
+              t.docks.includes(c.to) &&
+              c.to !== from,
+          ),
+        ),
+      `transport ${id} needs a crossing in each direction`,
+    );
+    check(
+      !(pack.routes || []).some(
+        (r) => r.from === t.place || r.to === t.place,
+      ) && !Object.values(places).some((p) => p.exits.includes(t.place)),
+      `transport ${id} uses its dock routes`,
+    );
+  }
   const crossingIds = new Set();
   for (const c of crossings) {
     const name = `crossing ${c?.id}`;
@@ -865,12 +909,21 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "opened",
         "closed",
         "travelLabel",
+        "transport",
       ]) &&
         idOk(c.id) &&
         !crossingIds.has(c.id),
       `${name} needs a distinct id and only known fields`,
     );
     crossingIds.add(c?.id);
+    if (c.transport !== undefined)
+      check(
+        owns(pack.transports, c.transport) &&
+          Array.isArray(pack.transports[c.transport].docks) &&
+          pack.transports[c.transport].docks.includes(c.from) &&
+          pack.transports[c.transport].docks?.includes(c.to),
+        `${name} has an invalid transport`,
+      );
     check(
       anyPlace(c?.from) &&
         anyPlace(c?.to) &&
@@ -920,6 +973,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "echo",
         "complete",
         "while",
+        "start",
       ]) &&
         Array.isArray(s.steps) &&
         s.steps.length >= 1 &&
@@ -929,6 +983,9 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         (s.complete === undefined || textOk(s.complete, 400)),
       `${name} signal needs 1–8 steps, consecutive, opens (1–9 turns) and complete text`,
     );
+    requirements(s.start, `${name} signal start`, false);
+    if (c.transport)
+      check(s.opens === null, `${name} transport signal must have opens null`);
     requirements(s.while, `${name} signal while`, false);
     for (const [i, step] of (s.steps || []).entries())
       pattern(step, `${name} step ${i + 1}`);
@@ -958,6 +1015,9 @@ export function packProblems(pack, hub, mountedPlaces = []) {
   for (const id of reached)
     for (const to of [
       ...(places[id]?.exits || []),
+      ...Object.values(pack.transports || {})
+        .filter((t) => Array.isArray(t.docks) && t.docks.includes(id))
+        .map((t) => t.place),
       ...routes.filter((r) => r.from === id).map((r) => r.to),
     ])
       reached.add(to);

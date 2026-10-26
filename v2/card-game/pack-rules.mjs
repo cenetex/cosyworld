@@ -11,10 +11,17 @@ import {
   packPeople,
   packFixtures,
   crossings,
+  transports,
   fixturesAt,
   isPackPlace,
   validatePackStates,
 } from "./pack-registry.mjs";
+
+import {
+  summonTransport,
+  validTransports,
+  transportCrossing,
+} from "./pack-transport.mjs";
 
 const fill = (template, values) =>
   template.replace(/\{(\w+)\}/g, (_, key) => values[key] ?? "");
@@ -101,11 +108,14 @@ const windowOpen = (s, c) =>
     ? crossingState(s, c.id)?.phase === c.signal.steps.length
     : s.turn < (crossingState(s, c.id)?.until ?? 0));
 export const crossingOpen = (s, c, senses) =>
-  windowOpen(s, c) &&
-  signalReady(s, c, senses) &&
+  (c.transport
+    ? s.transports[c.transport]?.dock === c.from
+    : windowOpen(s, c) && signalReady(s, c, senses)) &&
   c.requires.every((r) => conditionMet(s, r, senses, c.packId));
-export const crossingBetween = (from, to) =>
-  crossings.find((c) => c.from === from && c.to === to) || null;
+export const crossingBetween = (from, to, s = null) =>
+  (s && transportCrossing(s, from, to)) ||
+  crossings.find((c) => !c.transport && c.from === from && c.to === to) ||
+  null;
 export const mayCross = (c, actor, senses) =>
   c.travelers === "any" || actor === senses.player;
 
@@ -118,7 +128,7 @@ export const crossingExits = (s, place, actor, senses) =>
         mayCross(c, actor, senses) &&
         crossingOpen(s, c, senses),
     )
-    .map((c) => c.to);
+    .map((c) => (c.transport ? transports[c.transport].place : c.to));
 
 /** A pack is known once the player has found a way into it. */
 export const packDiscovered = (s, packId) =>
@@ -129,7 +139,7 @@ export const packDiscovered = (s, packId) =>
       crossingState(s, c.id)?.discovered,
   );
 export function markCrossed(s, from, to) {
-  const c = crossingBetween(from, to);
+  const c = crossingBetween(from, to, s);
   if (c && crossingState(s, c.id)) s.crossings[c.id].discovered = true;
 }
 /** Extra place text from crossings that start here (open or closed). */
@@ -161,6 +171,14 @@ export const beginRound = (s, senses) => ({
   ),
   ready: Object.fromEntries(
     crossings.map((c) => [c.id, signalReady(s, c, senses)]),
+  ),
+  start: Object.fromEntries(
+    crossings.map((c) => [
+      c.id,
+      (c.signal?.start || []).every((r) =>
+        conditionMet(s, r, senses, c.packId),
+      ),
+    ]),
   ),
   advanced: new Set(),
 });
@@ -203,10 +221,12 @@ export function noteAct(s, a, place, holder, round, senses, log) {
       if (signal.steps.some((p) => matches(p, a, holder))) state.phase = 0;
       if (!matches(signal.steps[0], a, holder)) continue;
     }
+    if (state.phase === 0 && !round.start[c.id]) continue;
     state.phase += 1;
     round.advanced.add(c.id);
     if (state.phase === signal.steps.length) {
       state.discovered = true;
+      if (c.transport) summonTransport(s, c.transport, c.from);
       if (signal.opens !== null) {
         state.phase = 0;
         state.until = s.turn + signal.opens;
@@ -354,6 +374,7 @@ const whole = (n, max) => Number.isSafeInteger(n) && n >= 0 && n <= max;
 /** Saved crossing, pack and resident state agree with the mounted packs. */
 export function validPackState(s, senses) {
   if (
+    !validTransports(s) ||
     !exactKeys(
       s.crossings,
       crossings.map((c) => c.id),

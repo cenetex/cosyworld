@@ -71,7 +71,7 @@ function ringClock(s) {
   return act(s, "ring", "clearing", null);
 }
 
-test("the ship requires a lit fueled uncovered lamp physically at the pond", () => {
+test("the arrived ship stays available across lamp states", () => {
   const base = pond();
   assert(greekShipPresent(base));
   for (const change of [
@@ -86,23 +86,23 @@ test("the ship requires a lit fueled uncovered lamp physically at the pond", () 
   ]) {
     const s = structuredClone(base);
     change(s);
-    assert(!greekShipPresent(s));
-    assert(!availableCards(s).includes("greek-harbor"));
+    assert(greekShipPresent(s));
+    assert(availableCards(s).includes("greek-ship"));
   }
 });
-test("lamp custody by another resident still follows their real location", () => {
+test("the arrived ship stays at its dock when the lamp changes hands", () => {
   const s = pond();
   s.items.lamp.holder = "moth";
   assert(greekShipPresent(s));
   s.actors.moth.place = "station";
-  assert(!greekShipPresent(s));
+  assert(greekShipPresent(s));
 });
-test("audible bells remove the ship; distant bells do not", () => {
+test("the arrived ship stays through nearby and distant bells", () => {
   for (const holder of ["pond", "clearing"]) {
     const s = pond();
     s.items.bell.holder = holder;
     s.items.bell.ringing = 2;
-    assert(!greekShipPresent(s));
+    assert(greekShipPresent(s));
   }
   const s = pond();
   s.items.bell.holder = "station";
@@ -110,7 +110,7 @@ test("audible bells remove the ship; distant bells do not", () => {
   assert(greekShipPresent(s));
   s.crossings["pond-clearing"].discovered = true;
   s.packs["badger-forest"].sounds["steam-clock"] = s.turn + 2;
-  assert(!greekShipPresent(s));
+  assert(greekShipPresent(s));
 });
 test("ship scene variant, overlay and travel card always agree", () => {
   for (const lit of [true, false])
@@ -126,7 +126,7 @@ test("ship scene variant, overlay and travel card always agree", () => {
             s.items.bell.ringing = ringing;
             if (covered) s.items.cloth.holder = "lamp";
             const visible = greekShipPresent(s);
-            assert.equal(availableCards(s).includes("greek-harbor"), visible);
+            assert.equal(availableCards(s).includes("greek-ship"), visible);
             assert.equal(
               locationVariant(s, "pond") === "pond-greek-harbor",
               visible,
@@ -146,23 +146,25 @@ test("ship variant never leaks into another location", () => {
     assert.equal(locationOverlay(s, id), null);
   }
 });
-test("a previously selected ship offer cannot bypass extinguished light", () => {
+test("a previously selected ship offer is rechecked against its dock", () => {
   const s = pond();
   const a = legalActions(s).find(
-    (a) => a.kind === "move" && a.target === "greek-harbor",
+    (a) => a.kind === "move" && a.target === "greek-ship",
   );
   assert.equal(playLabel(a), "Board");
-  s.items.lamp.lit = false;
+  s.transports["greek-ship"].dock = "greek-harbor";
   assert.equal(play(s, a).ok, false);
 });
 test("return from Greece remains available without the entry lamp", () => {
   let s = pond();
+  s = act(s, "move", "greek-ship", null);
   s = act(s, "move", "greek-harbor", null);
   s.items.lamp.lit = false;
-  assert(exits(s, "greek-harbor", "vale").includes("pond"));
+  assert(exits(s, "greek-harbor", "vale").includes("greek-ship"));
+  s = act(s, "move", "greek-ship", null);
   s = act(s, "move", "pond", null);
   assert.equal(s.actors.vale.place, "pond");
-  assert(!greekShipPresent(s));
+  assert(greekShipPresent(s));
 });
 test("inspection cannot advance a bell window or reroll the ship", () => {
   const s = ringClock(clearing());

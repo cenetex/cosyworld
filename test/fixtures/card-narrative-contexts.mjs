@@ -65,7 +65,8 @@ export function narrativeContractCases() {
   const firstFlash = playCard(firstCover, "take", "cloth");
   const secondCover = playCard(firstFlash, "cover", "cloth", "lamp");
   const ship = playCard(secondCover, "take", "cloth");
-  const harbor = playCard(ship, "move", null, "greek-harbor");
+  const aboard = playCard(ship, "move", null, "greek-ship");
+  const harbor = playCard(aboard, "move", null, "greek-harbor");
   const courtyard = playCard(harbor, "move", null, "greek-courtyard");
   const gate = playCard(courtyard, "move", null, "greek-gate");
   const choose = (world, choiceId) => {
