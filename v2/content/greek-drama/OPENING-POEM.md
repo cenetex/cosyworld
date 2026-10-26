@@ -55,7 +55,9 @@ verse later in the song. Each branch keeps its own outcome and report.
 
 The bard receives the full earned poem as context, with the newest lines marked
 separately. He chooses his own words and may quote, paraphrase, or reflect on
-the poem. Authored stanza text and attribution remain saved; ordinary story,
+the poem. Authored `recital.claims` links factual phrases to the earned choices
+that support them. The same speech check reads this metadata for every pack.
+Authored stanza text and attribution remain saved; ordinary story,
 observation, and custody checks ground his spoken response.
 
 The pack save adds a `recitals` record beside its existing receipts. Each
