@@ -254,6 +254,7 @@ fn full_world_bard_visit_and_song_replay_from_the_journal() {
         ("choiceId", "greek-return-water-jar"),
         ("kind", "wait"),
         ("target", "greek-well"),
+        ("target", "greek-courtyard"),
         ("target", "greek-rhapsode"),
     ] {
         let view = w.project(0).unwrap();
@@ -275,11 +276,14 @@ fn full_world_bard_visit_and_song_replay_from_the_journal() {
         if value == "wait" {
             assert_eq!(
                 w.game["actors"]["greek-rhapsode"]["place"],
-                "greek-argolid-road"
+                "greek-courtyard"
             );
         }
         if value == "greek-rhapsode" {
-            assert_eq!(w.game["actors"]["greek-rhapsode"]["place"], "greek-well");
+            assert_eq!(
+                w.game["actors"]["greek-rhapsode"]["place"],
+                "greek-courtyard"
+            );
             let facts = result["context"]["entities"]
                 .as_array()
                 .unwrap()
@@ -379,7 +383,24 @@ fn earlier_completed_quests_gain_a_pending_bard_visit_after_recorded_upgrade() {
         .unwrap();
         assert_eq!(
             upgraded.game["actors"]["greek-rhapsode"]["place"],
-            "greek-well"
+            "greek-harbor"
+        );
+        let action = home_action(&upgraded, 0, "wait");
+        full_store::commit(
+            &c,
+            &id,
+            &mut upgraded,
+            json!({"op":"play","actor":"vale","action":action}),
+            now(),
+        )
+        .unwrap();
+        assert_eq!(
+            upgraded.game["actors"]["greek-rhapsode"]["place"],
+            "greek-courtyard"
+        );
+        assert_eq!(
+            upgraded.game["roamingQuests"]["greek-rhapsode"]["target"]["locationId"],
+            "greek-courtyard"
         );
         c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
         assert_eq!(full_store::world(&c, &id, now()).unwrap(), upgraded);
@@ -1353,9 +1374,8 @@ fn shared_quest_receipts_drive_bard_travel_after_version_seven_upgrade_and_repla
         };
         w.game.as_object_mut().unwrap().remove("opening");
         w.game["actors"]["vale"]["place"] = json!("station");
-        w.game["actors"]["greek-rhapsode"]["place"] = json!("greek-harbor");
         let receipt = json!({"id":"world:quest:0:terminal:1","seq":1,"eventSeq":0,"turn":0,"questKey":"world:quest:0","terminalRevision":1,"actorId":"keeper","locationId":"greek-well","participants":["keeper"],"outcome":"fulfilled","cause":null});
-        w.game["quests"]["next"] = json!(1);
+        w.game["quests"] = json!({"version":1,"next":1,"records":{},"focus":{}});
         w.game["quests"]["records"]["world:quest:0"] = json!({
           "key":"world:quest:0","mode":"shared","holder":{"kind":"item","id":"bell"},
           "subjectActor":null,"rewardActor":null,"participants":["keeper"],
@@ -1395,7 +1415,12 @@ fn shared_quest_receipts_drive_bard_travel_after_version_seven_upgrade_and_repla
             assert_eq!(w.game[key], previous.game[key], "Preserve {key}");
         }
         assert_eq!(w.claimed, previous.claimed);
-        for destination in ["greek-courtyard", "greek-well", "greek-well"] {
+        for destination in [
+            "greek-harbor",
+            "greek-courtyard",
+            "greek-well",
+            "greek-well",
+        ] {
             let action = home_action(&w, 0, "wait");
             full_store::commit(
                 &c,
@@ -1429,7 +1454,7 @@ fn bard_passage_help_uses_authoritative_home_and_ship_actions_and_replays() {
         w.game["items"]["lamp"]["holder"] = json!("vale");
         w.game["transports"]["greek-ship"]["dock"] = json!("pond");
         let receipt = json!({"id":"world:quest:0:terminal:1","seq":1,"eventSeq":0,"turn":0,"questKey":"world:quest:0","terminalRevision":1,"actorId":"keeper","locationId":"pond","participants":["keeper"],"outcome":"fulfilled","cause":null});
-        w.game["quests"]["next"] = json!(1);
+        w.game["quests"] = json!({"version":1,"next":1,"records":{},"focus":{}});
         w.game["quests"]["records"]["world:quest:0"] = json!({
           "key":"world:quest:0","mode":"shared","holder":{"kind":"place","id":"pond"},
           "subjectActor":null,"rewardActor":null,"participants":["keeper"],
