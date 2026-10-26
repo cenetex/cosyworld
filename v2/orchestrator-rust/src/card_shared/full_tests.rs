@@ -510,6 +510,46 @@ fn v2_history_upgrades_once_and_replays_with_either_checkpoint_path() {
         assert_eq!(full_store::world(&c, &id, now()).unwrap(), upgraded);
         c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
         assert_eq!(full_store::world(&c, &id, now()).unwrap(), upgraded);
+        let mut continued = upgraded.clone();
+        let wait = continued.project(0).unwrap()["actions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|action| action["kind"] == "wait")
+            .unwrap()
+            .clone();
+        full_store::commit(
+            &c,
+            &id,
+            &mut continued,
+            json!({"op":"play","actor":"vale","action":wait}),
+            now(),
+        )
+        .unwrap();
+        let room = continued.room(0).unwrap().to_string();
+        full_store::commit(
+            &c,
+            &id,
+            &mut continued,
+            json!({"op":"speech","actor":"vale","room":room,"lines":[
+                {"actorId":"vale","text":"I have time to choose my next step."},
+                {"actorId":null,"entityId":room,"text":"A small light rests by the wall."}
+            ]}),
+            now(),
+        )
+        .unwrap();
+        assert_eq!(
+            continued.game["turn"].as_u64().unwrap(),
+            upgraded.game["turn"].as_u64().unwrap() + 1
+        );
+        assert!(continued.game["life"]["actors"]["vale"]["collection"].is_object());
+        assert!(continued.game["log"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|entry| entry["text"] == "I have time to choose my next step."));
+        c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+        assert_eq!(full_store::world(&c, &id, now()).unwrap(), continued);
         let upgrades: i64 = c
             .query_row(
                 "SELECT count(*) FROM card_full_log WHERE json_extract(command,'$.op')='upgrade'",
