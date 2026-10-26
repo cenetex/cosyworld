@@ -52,7 +52,7 @@ try {
     [320, 568, "reduce"],
     [390, 844, "no-preference"],
   ]) {
-    for (const kind of ["ask", "talk", "light"]) {
+    for (const kind of ["ask", "talk", "light", "wait"]) {
       const page = await browser.newPage({
         viewport: { width, height },
         reducedMotion: motion,
@@ -91,162 +91,136 @@ try {
         await page.waitForFunction(
           () => document.querySelector("#hand").dataset.cooling === "false",
         );
-        const id = { ask: "cloth", talk: "keeper", light: "lamp" }[kind];
+        const id = {
+          ask: "cloth",
+          talk: "keeper",
+          light: "lamp",
+          wait: "pond",
+        }[kind];
         await selectCard(page, id);
-        const requested =
-          kind === "light" ? null : page.waitForRequest("**/card-game/text");
+        const requested = page.waitForRequest("**/card-game/text");
         const start = performance.now();
         await page.locator("#card-actions .card-primary").click();
-        if (kind === "light") {
-          const world = await state();
-          const here = world.actors.vale.place;
-          assert.equal(world.items.lamp.lit, true);
-          assert.equal(world.actors.moth.place, "station");
-          assert.equal(world.actors.keeper.place, "station");
-          if (motion !== "reduce") {
-            assert.equal(
-              await page.locator("#movement-caption").isVisible(),
-              true,
-            );
-            assert.match(
-              await page.locator("#movement-caption").innerText(),
-              /Pip leaves for Empty station/,
-            );
-            assert.equal(await card("vale").isDisabled(), true);
-            assert.equal(
-              await page.locator("#cast [data-removing]").count(),
-              2,
-            );
-            await page.waitForTimeout(350);
-            const opacity = await page
-              .locator('#cast [data-avatar="moth"]')
-              .evaluate((el) => Number(getComputedStyle(el).opacity));
-            assert(opacity > 0 && opacity < 1, "Pip leaves gradually");
-          }
-          await page.waitForFunction(
-            () => document.querySelector("#hand").dataset.cooling === "false",
+        await requested;
+        report.pendingSpeaker = await page.locator("#speaker").innerText();
+        report.pendingMs = Math.round(performance.now() - start);
+        assert.equal(report.pendingSpeaker, "Vale");
+        assert.equal(
+          await page.locator("#speaker-portrait").getAttribute("data-entity"),
+          "vale",
+        );
+        assert.equal(await page.locator("#dialogue-text").textContent(), "");
+        assert.equal(request.input.speakers[0], "vale");
+        assert.equal(await card("vale").isDisabled(), true);
+        await page.screenshot({
+          path: new URL(`${kind}-pending-${width}.png`, output).pathname,
+        });
+        // A slow request releases the hand; completed words take it back.
+        await page.waitForFunction(
+          () => document.querySelector("#hand").dataset.cooling === "false",
+        );
+        assert.equal(await page.locator("#speaker").innerText(), "Vale");
+        await request.route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            revision: request.input.revision,
+            model: "dialogue-timing-fixture",
+            entries: request.input.entities.map(({ id }) => ({
+              id,
+              text: `${nameOf(id)} has a full reply. ${"There is time to hear every word. ".repeat(10)}`,
+            })),
+          }),
+        });
+        await page.waitForFunction(() =>
+          document
+            .querySelector("#dialogue-text")
+            .textContent.startsWith("Vale has a full reply."),
+        );
+        assert.equal(await card("vale").isDisabled(), true);
+        await page.waitForTimeout(2800);
+        assert.equal(await card("vale").isDisabled(), true);
+        const layout = await page.evaluate(() => {
+          const portrait = document
+            .querySelector("#speaker-portrait")
+            .getBoundingClientRect();
+          const text = document
+            .querySelector("#dialogue-text")
+            .getBoundingClientRect();
+          const style = getComputedStyle(
+            document.querySelector("#dialogue-text"),
           );
-          const cast = await page
-            .locator("#cast [data-avatar]")
-            .evaluateAll((nodes) => nodes.map((node) => node.dataset.avatar));
-          assert.deepEqual(cast, ["vale"]);
-          assert(cast.every((id) => world.actors[id].place === here));
-          assert.equal(await card("moth").count(), 0);
-          assert.equal(await card("keeper").count(), 0);
-          assert.equal(request, undefined);
-        } else {
-          await requested;
-          report.pendingSpeaker = await page.locator("#speaker").innerText();
-          report.pendingMs = Math.round(performance.now() - start);
-          assert.equal(report.pendingSpeaker, "Vale");
+          return {
+            portraitRight: portrait.right,
+            textLeft: text.left,
+            lines: text.height / parseFloat(style.lineHeight),
+            font: parseFloat(style.fontSize),
+          };
+        });
+        assert(layout.portraitRight < layout.textLeft);
+        assert(layout.lines >= 2.95 && layout.lines <= 3.05);
+        assert(layout.font >= 15);
+        await page.locator("#dialogue-advance").focus();
+        if (motion !== "reduce")
+          await page.locator("#dialogue-advance").click();
+        await page.locator("#dialogue-advance").press("Home");
+        await page.locator("#dialogue-advance").press("ArrowDown");
+        assert(
+          await page
+            .locator("#dialogue-text")
+            .evaluate((el) => el.scrollTop > 0),
+          "Keyboard scroll reads the full speech",
+        );
+        await page.screenshot({
+          path: new URL(`speech-${width}-${motion}.png`, output).pathname,
+        });
+        const spoken = [];
+        for (const [i, speaker] of request.input.speakers.entries()) {
+          spoken.push(await page.locator("#speaker").innerText());
+          assert.equal(spoken.at(-1), nameOf(speaker));
           assert.equal(
             await page.locator("#speaker-portrait").getAttribute("data-entity"),
-            "vale",
+            speaker,
           );
-          assert.equal(await page.locator("#dialogue-text").textContent(), "");
-          assert.equal(request.input.speakers[0], "vale");
-          assert.equal(await card("vale").isDisabled(), true);
-          await page.screenshot({
-            path: new URL(`${kind}-pending-${width}.png`, output).pathname,
-          });
-          // A slow request releases the hand; completed words take it back.
-          await page.waitForFunction(
-            () => document.querySelector("#hand").dataset.cooling === "false",
-          );
-          assert.equal(await page.locator("#speaker").innerText(), "Vale");
-          await request.route.fulfill({
-            status: 200,
-            contentType: "application/json",
-            body: JSON.stringify({
-              revision: request.input.revision,
-              model: "dialogue-timing-fixture",
-              entries: request.input.entities.map(({ id }) => ({
-                id,
-                text: `${nameOf(id)} has a full reply. ${"There is time to hear every word. ".repeat(10)}`,
-              })),
-            }),
-          });
-          await page.waitForFunction(() =>
-            document
-              .querySelector("#dialogue-text")
-              .textContent.startsWith("Vale has a full reply."),
-          );
-          assert.equal(await card("vale").isDisabled(), true);
-          await page.waitForTimeout(2800);
-          assert.equal(await card("vale").isDisabled(), true);
-          const layout = await page.evaluate(() => {
-            const portrait = document
-              .querySelector("#speaker-portrait")
-              .getBoundingClientRect();
-            const text = document
-              .querySelector("#dialogue-text")
-              .getBoundingClientRect();
-            const style = getComputedStyle(
-              document.querySelector("#dialogue-text"),
-            );
-            return {
-              portraitRight: portrait.right,
-              textLeft: text.left,
-              lines: text.height / parseFloat(style.lineHeight),
-              font: parseFloat(style.fontSize),
-            };
-          });
-          assert(layout.portraitRight < layout.textLeft);
-          assert(layout.lines >= 2.95 && layout.lines <= 3.05);
-          assert(layout.font >= 15);
-          await page.locator("#dialogue-advance").focus();
-          if (motion !== "reduce")
+          if (
+            (await page
+              .locator("#dialogue-advance")
+              .getAttribute("data-revealing")) === "true"
+          )
             await page.locator("#dialogue-advance").click();
-          await page.locator("#dialogue-advance").press("Home");
-          await page.locator("#dialogue-advance").press("ArrowDown");
-          assert(
-            await page
-              .locator("#dialogue-text")
-              .evaluate((el) => el.scrollTop > 0),
-            "Keyboard scroll reads the full speech",
-          );
-          await page.screenshot({
-            path: new URL(`speech-${width}-${motion}.png`, output).pathname,
-          });
-          const spoken = [];
-          for (const [i, speaker] of request.input.speakers.entries()) {
-            spoken.push(await page.locator("#speaker").innerText());
-            assert.equal(spoken.at(-1), nameOf(speaker));
-            assert.equal(
-              await page
-                .locator("#speaker-portrait")
-                .getAttribute("data-entity"),
-              speaker,
-            );
-            if (
-              (await page
-                .locator("#dialogue-advance")
-                .getAttribute("data-revealing")) === "true"
-            )
-              await page.locator("#dialogue-advance").click();
-            assert.equal(await card("vale").isDisabled(), true);
-            await page.locator("#dialogue-advance").click();
-            if (i < request.input.speakers.length - 1) {
-              if (motion !== "reduce") {
-                assert.equal(
-                  await page.locator("#speaker").innerText(),
-                  nameOf(speaker),
-                );
-                assert.equal(await card("vale").isDisabled(), true);
-              }
-              await page.waitForFunction(
-                (name) =>
-                  document.querySelector("#speaker").textContent === name,
-                nameOf(request.input.speakers[i + 1]),
+          assert.equal(await card("vale").isDisabled(), true);
+          await page.locator("#dialogue-advance").click();
+          if (i < request.input.speakers.length - 1) {
+            if (motion !== "reduce") {
+              assert.equal(
+                await page.locator("#speaker").innerText(),
+                nameOf(speaker),
               );
+              assert.equal(await card("vale").isDisabled(), true);
             }
+            await page.waitForFunction(
+              (name) => document.querySelector("#speaker").textContent === name,
+              nameOf(request.input.speakers[i + 1]),
+            );
           }
-          await page.waitForFunction(
-            () => document.querySelector("#hand").dataset.cooling === "false",
-          );
-          assert.equal(await card("vale").isDisabled(), false);
-          report.spoken = spoken;
-          report.finishedMs = Math.round(performance.now() - start);
+        }
+        await page.waitForFunction(
+          () => document.querySelector("#hand").dataset.cooling === "false",
+        );
+        assert.equal(await card("vale").isDisabled(), false);
+        report.spoken = spoken;
+        report.finishedMs = Math.round(performance.now() - start);
+        if (kind === "light") {
+          const world = await state();
+          assert.equal(world.items.lamp.lit, true);
+          const cast = await page
+            .locator('#cast [data-avatar][aria-hidden="false"]')
+            .evaluateAll((nodes) => nodes.map((node) => node.dataset.avatar));
+          assert.deepEqual(cast, ["vale"]);
+          assert.equal(await card("moth").count(), 0);
+          assert.equal(await card("keeper").count(), 0);
+          assert.equal(world.actors.moth.place, "station");
+          assert.equal(world.actors.keeper.place, "station");
         }
         assert.deepEqual(errors, []);
         report.passed = true;

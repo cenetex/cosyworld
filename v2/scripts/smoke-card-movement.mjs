@@ -184,7 +184,16 @@ try {
         );
         assert.equal(await page.locator("#cast .entering").count(), 0);
         assert.equal(await card("vale").isDisabled(), false);
-        assert.equal(await page.locator("#dialogue-text").textContent(), "");
+        assert.match(
+          await page.locator("#dialogue-text").textContent(),
+          /It's cold up here/,
+        );
+        assert.equal(
+          saved.log.filter(
+            (line) => line.kind === "dialogue" && line.actorId === "vale",
+          ).length,
+          1,
+        );
         assert.deepEqual(report.errors, []);
         report.passed = true;
         continue;

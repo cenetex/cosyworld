@@ -112,7 +112,8 @@ try {
     assert.equal(departed.items.lamp.lit, true);
     assert.equal(await card("attic").count(), 0);
     assert.equal(await card("pond").locator(".name").innerText(), "Black pond");
-    assert.equal(requests.length, 0);
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].speakers[0], "vale");
     assert.deepEqual(
       departed.log
         .filter(
@@ -120,7 +121,7 @@ try {
             e.turn === departed.turn && e.generated && e.kind === "dialogue",
         )
         .map((e) => e.actorId),
-      [],
+      requests[0].speakers,
     );
     await page.reload();
     await ready();
@@ -164,7 +165,7 @@ try {
     assert.equal((await state()).actors.vale.place, "pond");
     assert.deepEqual(errors, []);
     console.log(
-      `Mirror access in both directions, quiet departure, reload and relighting passed at ${width}px.`,
+      `Mirror access in both directions, spoken departure, reload and relighting passed at ${width}px.`,
     );
     await page.close();
   }

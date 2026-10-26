@@ -275,7 +275,12 @@ try {
         await page.locator("#backdrop").getAttribute("alt"),
         /flash|signal|twice|cover/i,
       );
-      assert.equal(requests.length, 0, "cloth manipulations remain silent");
+      assert.equal(
+        requests.length,
+        2,
+        "each cloth play receives a spoken reaction",
+      );
+      assert(requests.every((request) => request.speakers[0] === "vale"));
       await page.reload();
       await card("cloth").waitFor({ state: "attached" });
       assert.equal(
@@ -377,7 +382,7 @@ try {
         artFraction: geometry.art / geometry.card,
         errors,
         failed,
-        ritual: "four actions, silent; reload; ship and boarding agree",
+        ritual: "four spoken actions; reload; ship and boarding agree",
         navigation:
           "overflow, wheel, keyboard, cancel, selection, boarding, travel, reload",
       });

@@ -15,6 +15,7 @@ import {
   things,
   nameOf,
   createWorld,
+  addLog,
   covered,
   shining,
   itemPlace,
@@ -147,7 +148,7 @@ loadSeen();
 const QUEST_SEEN_KEY = `${SAVE_KEY}.quests`;
 let questSeen = new Set(),
   questRead = new Set(),
-  completedQuest = null,
+  completedQuests = [],
   questNoticeRunning = false,
   questMotion = null;
 function loadQuestSeen(reset = false) {
@@ -161,7 +162,7 @@ function loadQuestSeen(reset = false) {
       : [];
   questSeen = new Set(keys(saved?.seen));
   questRead = new Set(keys(saved?.read));
-  completedQuest = null;
+  completedQuests = [];
   rememberQuests();
 }
 function rememberQuests() {
@@ -175,7 +176,7 @@ function rememberQuests() {
     );
   } catch {}
 }
-const shownQuest = () => completedQuest || playerQuest(world);
+const shownQuest = () => completedQuests[0] || playerQuest(world);
 loadQuestSeen();
 function save() {
   if (saveBlocked) return;
@@ -577,24 +578,16 @@ function commitAction(action, revision) {
   reveal.finish();
   speechSounds.stop();
   cancelTravel();
-  // Manipulating an object needs no automatic speech or tutorial recap.
-  const speak = [
-    "talk",
-    "ask",
-    "give",
-    "trade",
-    "accompany",
-    "threaten",
-    "attack",
-    "choose",
-    "move",
-    "ring",
-  ].includes(action.kind);
   narrator.invalidate();
   exchange.cancel();
-  storyStatus = speak ? "pending" : "ready";
+  storyStatus = "pending";
   const from = world.actors.vale.place;
-  completedQuest = fulfilledPlayerQuest(world, result.state);
+  const fulfilled = fulfilledPlayerQuest(world, result.state);
+  if (
+    fulfilled &&
+    !completedQuests.some((quest) => quest.key === fulfilled.key)
+  )
+    completedQuests.push(fulfilled);
   world = result.state;
   music.setRoom(world.actors.vale.place);
   music.setStarted(world.turn > 0);
@@ -616,9 +609,8 @@ function commitAction(action, revision) {
         .map((change) => change.actorId),
     ]),
   ];
-  pendingCast = speak ? sceneCast(world, world.log.length - 1, visible) : null;
-  if (speak) exchange.begin();
-  else cardsCooling = true;
+  pendingCast = sceneCast(world, world.log.length - 1, visible);
+  exchange.begin();
   selected = [];
   expandedHolders.clear();
   lineSeq = null;
@@ -630,17 +622,7 @@ function commitAction(action, revision) {
     render();
   }
   discoveryDone = unveilNew();
-  if (speak) narrator.changed(action);
-  else {
-    const version = trip;
-    void prepareScene().then(() => {
-      if (version !== trip || exchange.active || questNoticeRunning) return;
-      cardsCooling = false;
-      updateCardCooldown();
-      renderScene();
-      void showQuestNotice();
-    });
-  }
+  narrator.changed(action);
 }
 
 // Moving between places dips the scene to dark with the destination's name,
@@ -658,7 +640,6 @@ function cancelTravel() {
   questMotion?.cancel();
   questMotion = null;
   questNoticeRunning = false;
-  completedQuest = null;
   cancelDiscovery();
   covering = false;
   revealTravel();
@@ -880,7 +861,7 @@ async function showQuestNotice() {
     questNoticeRunning ||
     exchange.active ||
     discoveryPending ||
-    (!completedQuest && questSeen.has(quest.key))
+    (!completedQuests.length && questSeen.has(quest.key))
   )
     return;
   const version = trip;
@@ -899,7 +880,7 @@ async function showQuestNotice() {
       wakeDiscovery = null;
     }
     if (version !== trip) return;
-    if (completedQuest) {
+    if (completedQuests.length) {
       // The fulfilled card gets a short moment in the hand, then folds into Vale.
       expandedHolders.add("vale");
       selected = [QUEST_CARD];
@@ -922,7 +903,7 @@ async function showQuestNotice() {
         await questMotion.finished.catch(() => {});
       }
       if (version !== trip) return;
-      completedQuest = null;
+      completedQuests.shift();
       selected = [];
       expandedHolders.clear();
       render();
@@ -1153,12 +1134,12 @@ function questCard() {
   face.type = "button";
   face.dataset.card = QUEST_CARD;
   face.dataset.quest = quest.key;
-  face.dataset.fulfilled = String(Boolean(completedQuest));
+  face.dataset.fulfilled = String(Boolean(completedQuests.length));
   face.classList.toggle("new", !questRead.has(quest.key));
   face.setAttribute("aria-pressed", String(raised));
   face.setAttribute(
     "aria-label",
-    `${quest.title}, Vale's quest${completedQuest ? ", fulfilled" : ""}`,
+    `${quest.title}, Vale's quest${completedQuests.length ? ", fulfilled" : ""}`,
   );
   face.setAttribute("aria-describedby", "card-detail-player-quest");
   const graphic = node("span", undefined, "art");
@@ -1171,7 +1152,7 @@ function questCard() {
   detail.id = "card-detail-player-quest";
   face.append(
     graphic,
-    node("span", completedQuest ? "Fulfilled" : "Quest", "quest-mark"),
+    node("span", completedQuests.length ? "Fulfilled" : "Quest", "quest-mark"),
     node("span", quest.title, "name"),
     detail,
   );
@@ -1694,7 +1675,7 @@ function render() {
   }
   const questKey = JSON.stringify([
     shownQuest(),
-    Boolean(completedQuest),
+    Boolean(completedQuests.length),
     [...questRead],
   ]);
   const handKey = JSON.stringify([
@@ -2035,6 +2016,20 @@ function hasCurrentWords() {
   );
 }
 function resumeScene() {
+  if (!saveBlocked && world.opening && world.turn === 0 && !hasCurrentWords()) {
+    addLog(
+      world,
+      "Vale",
+      "It's cold up here. I wonder how long this room has been waiting.",
+      {
+        actorId: "vale",
+        entityId: "vale",
+        kind: "dialogue",
+        generated: true,
+      },
+    );
+    save();
+  }
   if (!saveBlocked && hasCurrentWords()) {
     const line = currentScene(world).line;
     lineSeq = null;

@@ -90,6 +90,13 @@ try {
       await page.goto(
         `http://127.0.0.1:${server.address().port}/?table=quests-${width}`,
       );
+      await page.waitForSelector("#dialogue-text .speech-letter");
+      assert.equal(await page.locator("#speaker").innerText(), "Vale");
+      assert.match(
+        await page.locator("#dialogue-text").textContent(),
+        /It's cold up here/,
+      );
+      assert.equal(await page.locator("#unveil-dialog[open]").count(), 0);
       await page.waitForSelector("#unveil-dialog[open] [data-quest]");
       assert.equal(
         await page.locator("#unveil-take").getAttribute("data-card"),
@@ -171,6 +178,21 @@ try {
         "true",
       );
       await page.keyboard.press("Escape");
+      await page.waitForSelector("#dialogue-text .speech-letter");
+      assert.equal(await page.locator("#speaker").innerText(), "Vale");
+      for (
+        let i = 0;
+        i < 20 &&
+        !(await page
+          .locator(
+            '#hand .card-frame[data-raised="true"] [data-fulfilled="true"]',
+          )
+          .count());
+        i++
+      ) {
+        await page.locator("#dialogue-advance").click();
+        await page.waitForTimeout(60);
+      }
       await page.waitForSelector(
         '#hand .card-frame[data-raised="true"] [data-fulfilled="true"]',
       );
