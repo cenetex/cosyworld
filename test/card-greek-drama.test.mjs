@@ -447,6 +447,18 @@ describe("Before the Burial", () => {
     expect(stateOf(world).choices["greek-theban-response"]).toBe("burial");
     expect(stateOf(world).receipts["greek-perform-burial"]).toBe(receipt);
     expect(world.items["greek-shovel"].holder).toBe(BATTLEFIELD);
+    world = walk(world, GATE, COURTYARD);
+    const beforeSharing = world;
+    world = choose(world, "greek-courtyard-burial");
+    expect(fulfilledQuests(beforeSharing, world)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: STORY_QUEST_CARDS[2],
+          completion: "Shared",
+        }),
+      ]),
+    );
+    expect(story(reload(world), 2)?.resolved).toBe(true);
   });
 
   it("allows a witnessed petition to produce a different public outcome", () => {
@@ -473,6 +485,19 @@ describe("Before the Burial", () => {
     expect(reload(world)).toEqual(world);
     world = walk(world, WELL, COURTYARD, HARBOR, "pond");
     expect(stateOf(world).choices["greek-theban-response"]).toBe("concession");
+    world = walk(world, HARBOR, COURTYARD);
+    const beforeSharing = world;
+    world = choose(world, "greek-courtyard-concession");
+    expect(fulfilledQuests(beforeSharing, world)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: STORY_QUEST_CARDS[2],
+          completion: "Shared",
+        }),
+      ]),
+    );
+    expect(story(world, 1)?.resolved).toBe(false);
+    world = walk(world, HARBOR, "pond");
     // Permission must change what can actually be done on the next visit.
     world = take(walk(world, HARBOR, COURTYARD, GATE), "greek-shovel");
     world = choose(move(world, BATTLEFIELD), "greek-prepare-permitted-burial");

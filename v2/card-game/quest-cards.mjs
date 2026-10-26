@@ -75,11 +75,11 @@ export function storyQuests(world) {
         buried
           ? response === "concession"
             ? "The brother rests beneath the earth, under the witnessed exception."
-            : "The brother rests beneath the earth. The household now faces the decree."
+            : "Her brother has been buried. The household now faces the decree."
           : ending?.[0] ||
               (response === "concession"
                 ? "Permission has been given. The brother still awaits the burial rite."
-                : "Antigone asks for care for her brother. The city's decree stands between grief and burial."),
+                : "Antigone asks for her brother's burial. The city's decree stands in her way."),
         "greek-funeral-cloth",
         buried || Boolean(ending),
         ending?.[1] || "Fulfilled",
