@@ -127,6 +127,7 @@ async function load() {
   } else await renderWorlds();
 }
 function baseLobby() {
+  renderKey = "";
   el("shared-lobby").hidden = false;
   el("shared-scene").hidden = true;
   el("share").hidden = !worldId;
@@ -197,6 +198,10 @@ async function renderWorlds() {
   );
 }
 function renderPicker() {
+  const scroll = el("shared-lobby").scrollTop;
+  const focus = [
+    ...document.querySelectorAll(".shared-picker .shared-choice"),
+  ].indexOf(document.activeElement);
   const lobby = baseLobby();
   lobby.append(
     node("p", "The reflected shore", "shared-kicker"),
@@ -225,10 +230,16 @@ function renderPicker() {
     grid.append(b);
   }
   lobby.append(grid);
+  lobby.scrollTop = scroll;
+  if (focus >= 0 && !grid.children[focus].disabled)
+    grid.children[focus].focus({ preventScroll: true });
 }
 function render() {
   if (state.actor === null) {
+    const key = JSON.stringify(["picker", worldId, state.claimed]);
+    if (renderKey === key) return;
     renderPicker();
+    renderKey = key;
     return;
   }
   const a = state.actor,

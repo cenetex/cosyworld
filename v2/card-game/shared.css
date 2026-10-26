@@ -437,8 +437,15 @@
   }
 }
 @media (max-height: 580px) {
+  .shared-top {
+    min-height: 52px;
+    padding: 4px 10px;
+  }
+  #shared-scene {
+    overflow-y: auto;
+  }
   #shared-place {
-    margin: 6px 14px;
+    margin: 4px 14px;
     font-size: 19px;
   }
   #shared-cast {
@@ -471,6 +478,18 @@
   }
   #shared-actions {
     min-height: 40px;
+    flex-wrap: nowrap;
+  }
+  #shared-actions .shared-help {
+    flex: 1;
+    min-width: 0;
+    max-height: 40px;
+    overflow-y: auto;
+    line-height: 1.3;
+  }
+  #shared-queue {
+    min-height: 24px;
+    padding: 3px;
   }
 }
 @media (prefers-reduced-motion: reduce) {

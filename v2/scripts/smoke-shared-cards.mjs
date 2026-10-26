@@ -144,6 +144,30 @@ try {
     });
   };
   await artworkReady(vale);
+  const picker = await vale.locator(".shared-picker").elementHandle();
+  await vale.locator(".shared-choice").first().focus();
+  const refresh = await vale.waitForResponse(
+    (response) =>
+      response.url().includes("/card-game/shared/worlds/") &&
+      response.request().method() === "GET",
+  );
+  await refresh.finished();
+  await vale.evaluate(
+    () =>
+      new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      ),
+  );
+  assert(
+    await picker.evaluate((element) => element.isConnected),
+    "an unchanged picker keeps its cards and focus",
+  );
+  assert(
+    await vale
+      .locator(".shared-choice")
+      .first()
+      .evaluate((element) => element === document.activeElement),
+  );
   await vale.locator(".shared-picker").screenshot({
     path: join(output, "avatar-picker.png"),
   });
@@ -217,6 +241,25 @@ try {
   const before = (await api(vale)).body.history[0];
   assert.deepEqual((await api(mara)).body.history[0], before);
   assert.equal(before.lines.length, 2);
+  await vale.setViewportSize({ width: 667, height: 375 });
+  await vale
+    .getByRole("button", { name: "Empty station, location", exact: true })
+    .click();
+  await vale.screenshot({
+    path: join(output, "shared-landscape-entrance.png"),
+    fullPage: true,
+  });
+  const travelRect = await vale
+    .getByRole("button", { name: "Travel", exact: true })
+    .boundingBox();
+  assert(
+    travelRect.y + travelRect.height <= 375,
+    "Travel fits the short screen",
+  );
+  await vale
+    .getByRole("button", { name: "Empty station, location", exact: true })
+    .click();
+  await vale.setViewportSize({ width: 1440, height: 900 });
   await until(
     async () => (await vale.locator(".shared-person").count()) === 4,
     "all four people appear",
