@@ -81,7 +81,11 @@ impl World {
             let allowed = engine::historical(&self.version)
                 && command["from"] == self.version
                 && (to == engine::VERSION
-                    || (self.version == engine::PREVIOUS_VERSION && to == "full-card-world/3"));
+                    || (self.version == engine::PREVIOUS_VERSION && to == "full-card-world/3")
+                    || (matches!(
+                        self.version.as_str(),
+                        engine::PREVIOUS_VERSION | "full-card-world/3"
+                    ) && to == "full-card-world/4"));
             if !allowed {
                 return Err("This world's rules need a saved migration.".into());
             }

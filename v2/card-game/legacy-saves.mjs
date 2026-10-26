@@ -1,7 +1,8 @@
 import { newProgress, questPrograms } from "./quests.mjs";
 import { migrateMemories, newMemories, rememberEvent } from "./memory.mjs";
 import { upgradeRecitals } from "./pack-recital.mjs";
-import { isPackActor, packDefinitions } from "./pack-registry.mjs";
+import { isPackActor, packDefinitions, transports } from "./pack-registry.mjs";
+import { passengers } from "./pack-transport.mjs";
 
 // Upgrade historical records before the world validates the current save.
 // World-owned helpers keep pack installation and generated quests on the same
@@ -82,8 +83,34 @@ export function upgradeSave(s, { actorIds, ensurePrograms, installPacks }) {
     // A pack mounted after this save was written joins it fresh.
     installPacks(s);
   }
-  if (s?.schema === 7) upgradeRecitals(s, packDefinitions);
+  if (s?.schema === 7) {
+    upgradeBoardingSave(s);
+    upgradeRecitals(s, packDefinitions);
+  }
   return s;
+}
+
+// Earlier occupied ships used a null dock. Keep their saved destination and
+// restore the departure shore so companions can join the same trip.
+function upgradeBoardingSave(s) {
+  for (const [id, transport] of Object.entries(transports)) {
+    const state = s.transports?.[id];
+    if (!state || state.version !== undefined) continue;
+    const occupied = passengers(s, id).length > 0;
+    const valid =
+      Object.keys(state).sort().join() === "destination,dock,recall" &&
+      (occupied
+        ? state.dock === null &&
+          transport.docks.includes(state.destination) &&
+          (state.recall === null || transport.docks.includes(state.recall))
+        : transport.docks.includes(state.dock) &&
+          state.destination === null &&
+          state.recall === null);
+    if (!valid) throw new Error("This save has an invalid ship record.");
+    if (occupied)
+      state.dock = transport.docks.find((dock) => dock !== state.destination);
+    state.version = 2;
+  }
 }
 
 // Explicit migrations of historical pre-pack records, never runtime gate rules.

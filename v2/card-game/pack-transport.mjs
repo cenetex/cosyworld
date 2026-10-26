@@ -6,7 +6,12 @@ export const passengers = (s, id) =>
 export function installTransports(s) {
   s.transports ??= {};
   for (const [id, t] of Object.entries(transports))
-    s.transports[id] ??= { dock: t.at, destination: null, recall: null };
+    s.transports[id] ??= {
+      version: 2,
+      dock: t.at,
+      destination: null,
+      recall: null,
+    };
 }
 
 export function summonTransport(s, id, dock) {
@@ -15,20 +20,23 @@ export function summonTransport(s, id, dock) {
   else Object.assign(state, { dock, destination: null, recall: null });
 }
 
-// The destination remains fixed while passengers are aboard. A recall waits
-// for the last passenger to step ashore, then moves the empty vessel.
+// Boarding starts a leg while the ship stays at its departure dock. The first
+// passenger ashore moves the dock; later boarders can start the return leg with
+// riders still aboard. A recall waits until the vessel is empty.
 export function moveTransport(s, from, to) {
   for (const [id, t] of Object.entries(transports)) {
     const state = s.transports[id];
     if (to === t.place && state.dock === from) {
       state.destination = t.docks.find((dock) => dock !== from);
-      state.dock = null;
-    } else if (from === t.place && !passengers(s, id).length) {
-      Object.assign(state, {
-        dock: state.recall || to,
-        destination: null,
-        recall: null,
-      });
+    } else if (from === t.place && t.docks.includes(to)) {
+      state.dock = to;
+      if (!passengers(s, id).length) {
+        Object.assign(state, {
+          dock: state.recall || to,
+          destination: null,
+          recall: null,
+        });
+      }
     }
   }
 }
@@ -41,10 +49,9 @@ export function transportExits(s, place, previous = null) {
   const [id, t] = found,
     state = s.transports[id];
   const destination =
-    state.destination ||
-    (previous === state.dock
+    previous === state.dock
       ? t.docks.find((dock) => dock !== previous)
-      : null);
+      : state.destination;
   return destination ? [destination] : [];
 }
 
@@ -84,12 +91,13 @@ export function validTransports(s) {
     const state = saved[id];
     if (
       !state ||
-      Object.keys(state).sort().join() !== "destination,dock,recall"
+      Object.keys(state).sort().join() !== "destination,dock,recall,version" ||
+      state.version !== 2 ||
+      !t.docks.includes(state.dock)
     )
       return false;
     return passengers(s, id).length
-      ? state.dock === null &&
-          t.docks.includes(state.destination) &&
+      ? t.docks.includes(state.destination) &&
           (state.recall === null || t.docks.includes(state.recall))
       : t.docks.includes(state.dock) &&
           state.destination === null &&

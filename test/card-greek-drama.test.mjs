@@ -361,7 +361,13 @@ describe("Greek story quest cards", () => {
     let world = move(courtyard("opening"), GATE);
     const original = story(world, 1);
     world = walk(world, COURTYARD, HARBOR, "pond");
+    expect(() => encodeSave(world)).not.toThrow();
+    // Companions can advance a hand on the shared crossing. Stage the resting
+    // boundary with its required zero step before checking the learned story.
     world.life.actors.vale.phase = "seeking";
+    const progress = world.actors.vale.progress;
+    progress.marks.splice(-progress.step, progress.step);
+    world.actors.vale.progress.step = 0;
     expect(story(world, 1)).toEqual(original);
     expect(questHand(world)).toContain(STORY_QUEST_CARDS[1]);
     expect(storyQuests(reload(world))).toEqual(storyQuests(world));
