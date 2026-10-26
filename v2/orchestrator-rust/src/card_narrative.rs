@@ -1047,6 +1047,7 @@ fn idiolect(entity: &Entity) -> String {
         text.push_str("\n\n");
         text.push_str(persona);
     }
+    text.push_str("\n\nMy next reply is one or two short sentences in my own voice. I speak only my next words. My voice samples show my style; the current scene supplies my facts.");
     text
 }
 
@@ -1280,10 +1281,18 @@ fn transcript(context: &Context, entity: &Entity, part: Part) -> String {
             lines.push("I'm saying goodbye to those staying.".into());
         }
     }
-    let mut out = vec![scene, String::new(), lines.join("\n"), String::new()];
+    let mut out = vec!["My voice samples:".to_string()];
     for line in voice_lines(context, id) {
         out.push(format!("{own}: {line}"));
     }
+    out.extend([
+        String::new(),
+        "Current scene:".to_string(),
+        scene,
+        String::new(),
+        lines.join("\n"),
+        String::new(),
+    ]);
     for line in &context.conversation {
         out.push(format!("{}: {}", name(&line.actor_id), line.text));
     }
