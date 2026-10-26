@@ -126,6 +126,20 @@ addressed. Other plays can include a room detail. The server records the lines
 and their reading times so people in the room see the same exchange. The
 conversation panel shows the current room's history.
 
+Shared lines reveal letter by letter with the same voice sounds as solo play.
+The line arrows review the conversation. Reaching its latest line resumes live
+playback. Readers who advance early keep their place while the shared clock
+catches up. The voice setting and reduced-motion setting apply to shared play.
+Figures shrink in order of their most recent completed play in the room. Their
+areas follow the Fibonacci steps 13, 8, 5, 3, 2, 1, so their heights change gently.
+The two most recent players stand in front. On phones, they move lower into a
+bust view as more people enter. Smaller figures sit higher behind them.
+Repeated plays by one person keep the others in order. Changes move smoothly;
+reviewing older words uses the plays up to that point in the conversation.
+Queued plays appear as small profile circles beside the dialogue. Their order
+runs from top to bottom. A player can select their waiting circle to withdraw
+their play; hover text and screen-reader labels name the player and queue state.
+
 The approved OpenRouter request contains fictional profiles, scene facts,
 visible people and belongings, and the completed play. Passkey and account data
 stay with the account service. Provider errors leave the completed action saved
@@ -144,9 +158,10 @@ and show a scene error. Per-person and shared play budgets bound usage.
 | Orin | Game-tile bridge | Games pavilion |
 | Ada | Open seam | Sail loft |
 
-A future Paris journey can depart from the existing station. Rue's carriage can
-arrive there for boarding. Its route board reveals the door to her home at the
-pond while that item is present there.
+A future Paris journey can depart from the existing station. Rue's carriage opens from
+the station while her route board is present there. Carrying the board inside
+the carriage opens the way back to the station. The saved crossing IDs stay
+stable across the version 5 upgrade; earlier journals retain their pond route.
 
 ## Art
 

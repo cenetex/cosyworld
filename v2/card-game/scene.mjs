@@ -193,6 +193,7 @@ export function sceneStaging(
       ? speakerId(line)
       : null,
     review = false,
+    sharedPlays = [],
   } = {},
 ) {
   const selected = [...new Set([currentActor(world), activeSpeaker, ...cast])]
@@ -227,8 +228,52 @@ export function sceneStaging(
     ? currentActor(world)
     : ids[0];
   const order = [focal, ...ids.filter((id) => id !== focal)].filter(Boolean);
-  const positions =
-    order.length > 3
+  // Recent players take more space. Fibonacci areas make the change in height
+  // gentle, and repeated plays by one person keep the others in order.
+  const recent = world.controlledActors
+    ? [
+        ...new Set([
+          ...[
+            ...(review ? history : world.log)
+              .toReversed()
+              .filter((e) => e.kind === "action" && !e.generated),
+            // The shared record also identifies quiet plays such as Wait.
+            ...sharedPlays.map((play) => ({
+              actorId: play.actor,
+              locationId: play.room,
+              turn: play.turn,
+            })),
+          ]
+            .filter(
+              (e) =>
+                e.locationId === locationId &&
+                ids.includes(e.actorId) &&
+                world.controlledActors.includes(e.actorId) &&
+                (!review || e.turn <= (history.at(-1)?.turn ?? world.turn)),
+            )
+            .toSorted((a, b) => b.turn - a.turn)
+            .map((e) => e.actorId),
+          ...ids.filter((id) => world.controlledActors.includes(id)),
+          ...ids,
+        ]),
+      ]
+    : [];
+  const front = ids.filter((id) => recent.slice(0, 2).includes(id));
+  const back = ids.filter((id) => !front.includes(id));
+  const size = (id) => Math.sqrt([13, 8, 5, 3, 2, 1][recent.indexOf(id)] / 13);
+  const positions = world.controlledActors
+    ? order.map((id) =>
+        front.includes(id)
+          ? [front.length === 1 ? 50 : 30 + front.indexOf(id) * 40, size(id), 0]
+          : [
+              back.length === 1
+                ? 15
+                : 10 + (back.indexOf(id) * 80) / (back.length - 1),
+              size(id),
+              10,
+            ],
+      )
+    : order.length > 3
       ? order.map((_, i) => [
           14 + (i * 72) / (order.length - 1),
           i === 0 ? 0.85 : 0.7,
@@ -337,7 +382,11 @@ export function sceneStaging(
             : line?.actorId === id && line.departureTo
               ? "departing"
               : "present",
-        depth: ["foreground", "middle", "back"][Math.min(index, 2)],
+        depth: world.controlledActors
+          ? front.includes(id)
+            ? "foreground"
+            : "back"
+          : ["foreground", "middle", "back"][Math.min(index, 2)],
         x: at.get(id),
         scale: positions[index][1],
         floor: positions[index][2],

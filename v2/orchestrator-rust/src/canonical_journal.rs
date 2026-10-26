@@ -626,12 +626,19 @@ pub(super) fn prepare_partition_leases_for_region(
     ttl_ms: u64,
 ) -> io::Result<BTreeMap<String, AuthorityLease>> {
     let mut existing = BTreeMap::new();
+    // A command may run for a while between this preflight and its commit, and
+    // the commit refuses an expired lease. Reusing a lease with only a sliver
+    // left turned slow commands into spurious 503s, so renew once less than
+    // half the TTL remains. That keeps preflight read-only for most commands.
+    let renew_before_ms = now_ms.saturating_add(ttl_ms / 2);
     for partition_key in partition_keys {
         let Some(lease) =
-            current_partition_lease(path, world_id, world_epoch, partition_key, now_ms)?
+            current_partition_lease(path, world_id, world_epoch, partition_key, now_ms)?.filter(
+                |lease| lease.owner_id != owner_id || lease.lease_expires_at_ms > renew_before_ms,
+            )
         else {
-            // An absent or expired lease needs a fenced acquisition. Once
-            // acquired, the world transaction renews it on every command.
+            // An absent, expired, or nearly expired own lease needs a fenced
+            // acquisition. The world transaction renews it on every command.
             return acquire_partition_leases_for_region(
                 path,
                 world_id,
@@ -1586,6 +1593,25 @@ pub(super) fn read_canonical_invite(
         },
     )
     .transpose()
+}
+
+/// Expires every lease this owner still holds so the next boot, whose owner id
+/// is new, can take its rooms at once instead of waiting out the TTL. Takeover
+/// still bumps the fencing epoch, so any straggling commit of ours is refused.
+pub(super) fn release_owner_partition_leases(
+    path: &Path,
+    world_id: &str,
+    owner_id: &str,
+    now_ms: u64,
+) -> io::Result<usize> {
+    let conn = open_canonical_store(path)?;
+    conn.execute(
+        "UPDATE canonical_partition_leases
+         SET lease_expires_at_ms = ?3, updated_at_ms = ?3
+         WHERE world_id = ?1 AND owner_id = ?2 AND lease_expires_at_ms > ?3",
+        params![world_id, owner_id, as_i64(now_ms)?],
+    )
+    .map_err(sqlite_error)
 }
 
 pub(super) fn validate_and_renew_partition_lease(
@@ -2652,6 +2678,123 @@ mod tests {
         );
 
         drop(inspector);
+        let _ = fs::remove_file(PathBuf::from(format!("{}-wal", path.display())));
+        let _ = fs::remove_file(PathBuf::from(format!("{}-shm", path.display())));
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn nearly_expired_local_lease_preflight_renews_without_refencing() {
+        let path = temp_db("lease-preflight-renew");
+        initialize(&path);
+        let world_id = "world://test";
+        let world_epoch = 1;
+        let store_id = "store:test";
+        let region_id = "region:test";
+        let owner_id = "owner:test";
+        let ttl_ms = 1_000;
+        ensure_canonical_store_identity(&path, world_id, world_epoch, store_id, 1).unwrap();
+        ensure_region_authority(&path, world_id, world_epoch, region_id, 1).unwrap();
+        let partitions = BTreeSet::from(["room:test".to_string()]);
+        let acquired = acquire_partition_leases_for_region(
+            &path,
+            world_id,
+            world_epoch,
+            store_id,
+            region_id,
+            &partitions,
+            owner_id,
+            10,
+            ttl_ms,
+        )
+        .unwrap();
+        let acquired = &acquired["room:test"];
+
+        // 100 ms left: a command started now would outlive the lease before
+        // its commit could renew it.
+        let prepared = prepare_partition_leases_for_region(
+            &path,
+            world_id,
+            world_epoch,
+            store_id,
+            region_id,
+            &partitions,
+            owner_id,
+            910,
+            ttl_ms,
+        )
+        .unwrap();
+        let prepared = &prepared["room:test"];
+
+        assert_eq!(prepared.owner_id, acquired.owner_id);
+        assert_eq!(
+            prepared.fencing_epoch, acquired.fencing_epoch,
+            "renewing our own lease must not fence our in-flight commits"
+        );
+        assert_eq!(prepared.lease_expires_at_ms, 910 + ttl_ms);
+        let conn = open_event_store(&path).unwrap();
+        let stored = validate_and_renew_partition_lease(&conn, prepared, 1_500, ttl_ms)
+            .expect("the commit after a slow command still holds the renewed lease");
+        assert_eq!(stored.fencing_epoch, acquired.fencing_epoch);
+
+        drop(conn);
+        let _ = fs::remove_file(PathBuf::from(format!("{}-wal", path.display())));
+        let _ = fs::remove_file(PathBuf::from(format!("{}-shm", path.display())));
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn released_leases_pass_to_the_next_boot_and_fence_the_old_owner() {
+        let path = temp_db("lease-release");
+        initialize(&path);
+        let world_id = "world://test";
+        let world_epoch = 1;
+        let store_id = "store:test";
+        let region_id = "region:test";
+        let ttl_ms = 30_000;
+        ensure_canonical_store_identity(&path, world_id, world_epoch, store_id, 1).unwrap();
+        ensure_region_authority(&path, world_id, world_epoch, region_id, 1).unwrap();
+        let partitions = BTreeSet::from(["room:a".to_string(), "room:b".to_string()]);
+        let acquire = |owner_id: &str, now_ms: u64| {
+            acquire_partition_leases_for_region(
+                &path,
+                world_id,
+                world_epoch,
+                store_id,
+                region_id,
+                &partitions,
+                owner_id,
+                now_ms,
+                ttl_ms,
+            )
+        };
+        let old = acquire("owner:old-boot", 10).unwrap();
+        assert!(
+            acquire("owner:new-boot", 20).is_err(),
+            "a live lease blocks the next boot until it is released"
+        );
+
+        assert_eq!(
+            release_owner_partition_leases(&path, world_id, "owner:old-boot", 30).unwrap(),
+            2
+        );
+        assert_eq!(
+            release_owner_partition_leases(&path, world_id, "owner:old-boot", 31).unwrap(),
+            0,
+            "releasing twice is a no-op"
+        );
+
+        let new = acquire("owner:new-boot", 40).expect("released rooms pass on at once");
+        for (partition_key, lease) in &new {
+            assert_eq!(lease.fencing_epoch, old[partition_key].fencing_epoch + 1);
+        }
+        let conn = open_event_store(&path).unwrap();
+        assert!(
+            validate_and_renew_partition_lease(&conn, &old["room:a"], 50, ttl_ms).is_err(),
+            "a straggling commit from the released owner is fenced"
+        );
+
+        drop(conn);
         let _ = fs::remove_file(PathBuf::from(format!("{}-wal", path.display())));
         let _ = fs::remove_file(PathBuf::from(format!("{}-shm", path.display())));
         let _ = fs::remove_file(path);

@@ -156,8 +156,10 @@
           image: "assets/shared/places/train.png",
           entrance: {
             name: "Carriage door",
-            text: "The route board opens a carriage door beside the water. Morning shines through the far window."
-          }
+            text: "The route board opens a carriage door at the station. Morning shines through the far window."
+          },
+          connection: "station",
+          returnTravel: "back to the station"
         },
         image: "assets/shared/characters/rue.png"
       },
@@ -237,7 +239,7 @@
     entry: visitors[0].home.id,
     bridge: {
       id: "shared-homes-shore",
-      description: "A visitor's belonging at the pond opens the way to their home."
+      description: "A visitor's belonging opens the way to their home."
     },
     choices: [],
     places: Object.fromEntries(
@@ -291,13 +293,18 @@
     ),
     crossings: visitors.flatMap((a) => [
       {
+        // Crossing IDs stay stable in earlier saves and recorded actions.
         id: `pond-${a.home.id}`,
-        from: "pond",
+        from: a.home.connection || "pond",
         to: a.home.id,
         travelers: "player",
         requires: [
           { kind: "shared_world" },
-          { kind: "item_near", item: a.item.id, place: "pond" }
+          {
+            kind: "item_near",
+            item: a.item.id,
+            place: a.home.connection || "pond"
+          }
         ],
         travel: `through ${a.home.entrance.name.toLowerCase()}`,
         scenery: { open: a.home.entrance.text, cardArt: a.home.image }
@@ -305,7 +312,7 @@
       {
         id: `${a.home.id}-pond`,
         from: a.home.id,
-        to: "pond",
+        to: a.home.connection || "pond",
         travelers: "player",
         requires: [
           { kind: "shared_world" },
@@ -315,7 +322,7 @@
             condition: { kind: "item_at", item: a.item.id, place: a.home.id }
           }
         ],
-        travel: "back to the shore"
+        travel: a.home.returnTravel || "back to the shore"
       }
     ])
   };
@@ -5532,6 +5539,7 @@
     const reached = /* @__PURE__ */ new Set([pack.entry]);
     for (const id of reached)
       for (const to of [
+        ...hub2.places.includes(id) ? hub2.places : [],
         ...places2[id]?.exits || [],
         ...Object.values(pack.transports || {}).filter((t) => Array.isArray(t.docks) && t.docks.includes(id)).map((t) => t.place),
         ...routes.filter((r) => r.from === id).map((r) => r.to),
