@@ -40,20 +40,41 @@ const bard = "greek-rhapsode";
 const facts = (world) =>
   narrativeContext(world).entities.find((e) => e.id === bard)?.facts || [];
 
-const poem = (world) => narrativeContext(world).entities.find((e) => e.id === bard)?.poem;
-const poemText = (world) => poem(world)?.stanzas.flatMap((stanza) => stanza.lines).join(" ") || "";
+const poem = (world) =>
+  narrativeContext(world).entities.find((e) => e.id === bard)?.poem;
+const poemText = (world) =>
+  poem(world)
+    ?.stanzas.flatMap((stanza) => stanza.lines)
+    .join(" ") || "";
 
 describe("the opening poem", () => {
   it("keeps long earned poems outside the ordinary fact limits", () => {
-    const verses = Array.from({length:12}, (_, i) => ({choice:`verse-${i}`,lines:[`I remember the path we took on journey ${i}.`, "The shore still holds the marks we left behind."]}));
-    const pack = {id:"long-poem",recital:{actor:bard,title:"A long journey",verses}};
-    const world = {packs:{"long-poem":{
-      receipts:Object.fromEntries(verses.map((v,i)=>[v.choice,i+1])),
-      recitals:Object.fromEntries(verses.map(v=>[v.choice,{actor:"vale",visit:null}])),
-    }}};
-    const context = recitalContext(world,[pack],bard);
+    const verses = Array.from({ length: 12 }, (_, i) => ({
+      choice: `verse-${i}`,
+      lines: [
+        `I remember the path we took on journey ${i}.`,
+        "The shore still holds the marks we left behind.",
+      ],
+    }));
+    const pack = {
+      id: "long-poem",
+      recital: { actor: bard, title: "A long journey", verses },
+    };
+    const world = {
+      packs: {
+        "long-poem": {
+          receipts: Object.fromEntries(verses.map((v, i) => [v.choice, i + 1])),
+          recitals: Object.fromEntries(
+            verses.map((v) => [v.choice, { actor: "vale", visit: null }]),
+          ),
+        },
+      },
+    };
+    const context = recitalContext(world, [pack], bard);
     expect(context.stanzas).toHaveLength(12);
-    expect(context.stanzas.flatMap(stanza=>stanza.lines).join(" ").length).toBeGreaterThan(240);
+    expect(
+      context.stanzas.flatMap((stanza) => stanza.lines).join(" ").length,
+    ).toBeGreaterThan(240);
     expect(context.stanzas[0].lines).toEqual(verses[0].lines);
     expect(context.newLines).toEqual(verses.at(-1).lines);
   });
@@ -102,8 +123,9 @@ describe("the opening poem", () => {
       const context = narrativeContext(talked);
       expect(context.speakers).toContain(bard);
       const song = facts(talked);
-      expect(poem(talked).stanzas.map((stanza) => stanza.lines.join(" ")))
-        .toEqual(stanzas(s.closed).map((stanza) => stanza.lines.join(" ")));
+      expect(
+        poem(talked).stanzas.map((stanza) => stanza.lines.join(" ")),
+      ).toEqual(stanzas(s.closed).map((stanza) => stanza.lines.join(" ")));
       expect(poem(talked).newLines).toEqual(stanzas(s.closed).at(-1).lines);
       expect(poem(reload(talked))).toEqual(poem(talked));
       expect(song.length).toBeLessThanOrEqual(16);
@@ -116,12 +138,8 @@ describe("the opening poem", () => {
 
   it("keeps the whole earned poem available while a visit is pending", () => {
     const s = openingFixture("refusal");
-    expect(poemText(s.returning)).toContain(
-      "I told her I would turn away.",
-    );
-    expect(poemText(s.closed)).toContain(
-      "I told her how I turned away.",
-    );
+    expect(poemText(s.returning)).toContain("I told her I would turn away.");
+    expect(poemText(s.closed)).toContain("I told her how I turned away.");
     const next = act(s.closed, "move", "greek-harbor");
     expect(poemText(act(next, "talk", bard))).toContain(
       "I told her how I turned away.",
@@ -191,9 +209,9 @@ describe("the opening poem", () => {
       ),
     });
     expect(again.world).toEqual(arrived.world);
-    expect(
-      poemText({ ...arrived.world, playerActorId: "vale" }),
-    ).toContain("I set the water by her hands.");
+    expect(poemText({ ...arrived.world, playerActorId: "vale" })).toContain(
+      "I set the water by her hands.",
+    );
   });
 
   it("validates authored recital choices and bounded couplets", () => {
@@ -201,6 +219,9 @@ describe("the opening poem", () => {
       (p) => (p.recital.verses[0].choice = "missing"),
       (p) => (p.recital.verses[0].lines = ["one"]),
       (p) => (p.recital.actor = "missing"),
+      (p) => (p.recital.claims[0].anyChoices = ["missing"]),
+      (p) => (p.recital.claims[0].phrases = []),
+      (p) => (p.recital.claims[0].phrases = ["x".repeat(161)]),
     ]) {
       const p = structuredClone(packDefinition("greek-drama"));
       change(p);

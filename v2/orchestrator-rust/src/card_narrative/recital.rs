@@ -21,19 +21,23 @@ pub(super) struct Stanza {
     pub lines: Vec<String>,
 }
 
-// Authored poem data remains exact. The voice's response uses the ordinary
-// speech checks and can reflect on any part of this context.
-pub(super) fn valid(actor: &str, poem: Option<&Poem>, turn: u64) -> bool {
-    let Some(poem) = poem else { return true };
+fn authored_recital(actor: &str) -> Option<&'static Value> {
     static PACKS: OnceLock<Value> = OnceLock::new();
     let packs = PACKS.get_or_init(|| {
         serde_json::from_str(include_str!("../../../card-game/packs.json")).expect("card packs")
     });
-    let Some(recital) = packs["packs"]
-        .as_array()
-        .and_then(|packs| packs.iter().find(|pack| pack["recital"]["actor"] == actor))
+    packs["packs"]
+        .as_array()?
+        .iter()
+        .find(|pack| pack["recital"]["actor"] == actor)
         .map(|pack| &pack["recital"])
-    else {
+}
+
+// Authored poem data remains exact. The voice's response uses the ordinary
+// speech checks and can reflect on any part of this context.
+pub(super) fn valid(actor: &str, poem: Option<&Poem>, turn: u64) -> bool {
+    let Some(poem) = poem else { return true };
+    let Some(recital) = authored_recital(actor) else {
         return false;
     };
     let Some(verses) = recital["verses"].as_array() else {
@@ -103,18 +107,12 @@ pub(super) fn earned_quote(text: &str, poem: Option<&Poem>) -> bool {
         })
 }
 
-pub(super) fn consistent(text: &str, poem: Option<&Poem>) -> bool {
+pub(super) fn consistent(text: &str, actor: &str, poem: Option<&Poem>) -> bool {
     let Some(poem) = poem else { return true };
-    let has = |id: &str| poem.stanzas.iter().any(|stanza| stanza.id == id);
-    let greek_story = poem
-        .stanzas
-        .iter()
-        .any(|stanza| stanza.id.starts_with("greek-"));
-    if !greek_story {
+    let Some(claims) = authored_recital(actor).and_then(|recital| recital["claims"].as_array())
+    else {
         return true;
-    }
-    let buried = has("greek-perform-burial") || has("greek-perform-permitted-burial");
-    let permitted = has("greek-petition-burial") || has("greek-perform-permitted-burial");
+    };
     text.split_inclusive(['.', '!', '?', ';']).all(|sentence| {
         let lower = sentence.to_lowercase().replace('\u{2019}', "'");
         if sentence.trim_end().ends_with('?')
@@ -126,22 +124,20 @@ pub(super) fn consistent(text: &str, poem: Option<&Poem>) -> bool {
         {
             return true;
         }
-        let burial_claim = [
-            "laid her brother in the earth",
-            "buried her brother",
-            "buried him",
-            "his body lies in the grave",
-        ]
-        .iter()
-        .any(|claim| lower.contains(claim));
-        let permission_claim = [
-            "creon gave leave",
-            "creon has granted",
-            "creon granted permission",
-            "the king gave permission",
-        ]
-        .iter()
-        .any(|claim| lower.contains(claim));
-        (buried || !burial_claim) && (permitted || !permission_claim)
+        claims.iter().all(|claim| {
+            let stated = claim["phrases"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(Value::as_str)
+                .any(|phrase| lower.contains(phrase));
+            let earned = claim["anyChoices"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(Value::as_str)
+                .any(|choice| poem.stanzas.iter().any(|stanza| stanza.id == choice));
+            !stated || earned
+        })
     })
 }
