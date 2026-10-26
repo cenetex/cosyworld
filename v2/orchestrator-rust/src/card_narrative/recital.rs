@@ -85,6 +85,24 @@ pub(super) fn prompt_lines(poem: &Poem) -> Vec<String> {
     lines
 }
 
+// Quoting an earned line again is a valid choice during another conversation.
+pub(super) fn earned_quote(text: &str, poem: Option<&Poem>) -> bool {
+    let Some(poem) = poem else { return false };
+    let key = |value: &str| {
+        value
+            .chars()
+            .filter(|c| c.is_alphanumeric())
+            .flat_map(char::to_lowercase)
+            .collect::<String>()
+    };
+    let text = key(text);
+    !text.is_empty()
+        && poem.stanzas.iter().any(|stanza| {
+            stanza.lines.iter().any(|line| key(line) == text)
+                || key(&stanza.lines.join(" ")) == text
+        })
+}
+
 pub(super) fn consistent(text: &str, poem: Option<&Poem>) -> bool {
     let Some(poem) = poem else { return true };
     let has = |id: &str| poem.stanzas.iter().any(|stanza| stanza.id == id);
