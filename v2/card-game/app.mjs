@@ -3,6 +3,7 @@ import {
   installSharedControls,
   renderSharedQueue,
   sharedLiveLine,
+  sharedNextActor,
   sharedSpeechState,
   hasSharedPlace,
   humanAvatars,
@@ -1848,6 +1849,29 @@ function renderScene() {
     }
   };
   $("next-line").onclick = advance;
+  const liveButton = $("live-line");
+  liveButton.hidden = !sharedSession;
+  if (sharedSession) {
+    const actor = sharedNextActor(
+      sharedSession.state,
+      sharedSession.now(),
+      scene.locationId,
+    );
+    liveButton.dataset.live = String(!reviewing);
+    liveButton.title = `Return to live dialogue · ${nameOf(actor)}`;
+    liveButton.setAttribute("aria-label", liveButton.title);
+    if (liveButton.dataset.actor !== actor) {
+      liveButton.dataset.actor = actor;
+      liveButton.replaceChildren(sharedQueuePortrait(actor));
+    }
+    liveButton.onclick = () => {
+      reviewing = false;
+      lineSeq = null;
+      sharedLineKey = "";
+      syncSharedLine();
+      renderScene();
+    };
+  }
 }
 let renderedLog = [];
 function renderLog() {
