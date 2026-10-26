@@ -91,4 +91,41 @@ describe("durable quest completion receipts", () => {
     s.questCompletions.recent[1].participants.push("missing");
     expect(validQuestCompletions(s, ["keeper"], ["station"])).toBe(false);
   });
+  it("keeps the latest pointer consistent with retained receipt facts", () => {
+    const s = world();
+    finish(s, "a");
+    finish(s, "b");
+    const valid = () =>
+      validQuestCompletions(s, ["keeper"], ["station", "pond"]);
+    const latest = structuredClone(s.questCompletions.latest);
+    s.questCompletions.latest = null;
+    expect(valid()).toBe(false);
+    s.questCompletions.latest = latest;
+    s.questCompletions.latest.locationId = "pond";
+    expect(valid()).toBe(false);
+    s.questCompletions.latest = structuredClone(s.questCompletions.recent[0]);
+    expect(valid()).toBe(false);
+  });
+  it("returns a copy and checks retained canonical completion facts", () => {
+    const s = world(),
+      q = { key: "a" };
+    s.quests = { records: { a: q } };
+    recordQuestCompletion(s, q, { actorId: "keeper", locationId: "station" });
+    latestQuestCompletion(s).locationId = "pond";
+    expect(latestQuestCompletion(s).locationId).toBe("station");
+    q.completion.locationId = "pond";
+    expect(validQuestCompletions(s, ["keeper"], ["station", "pond"])).toBe(
+      false,
+    );
+  });
+  it("keeps retired goals in history while selecting meaningful outcomes", () => {
+    const s = world(),
+      first = finish(s, "story");
+    finish(s, "old-goal", { outcome: "superseded" });
+    finish(s, "retired-goal", { outcome: "retired" });
+    expect(questCompletions(s)).toHaveLength(3);
+    expect(latestQuestCompletion(s)).toEqual(first);
+    expect(() => finish(s, "invalid", { outcome: "arbitrary" })).toThrow();
+    expect(validQuestCompletions(s, ["keeper"], ["station"])).toBe(true);
+  });
 });

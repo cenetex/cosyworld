@@ -2,11 +2,26 @@
 // The recent index is bounded; each quest also retains its own final receipt.
 export const COMPLETION_HISTORY_LIMIT = 256;
 const indirect = new Set(["journey", "help"]);
-const meaningful = (receipt) => !indirect.has(receipt.cause?.kind);
+export const STORY_COMPLETION_OUTCOMES = [
+  "fulfilled",
+  "declined",
+  "reported",
+  "shared",
+];
+const outcomes = new Set([
+  ...STORY_COMPLETION_OUTCOMES,
+  "retired",
+  "superseded",
+]);
+const meaningful = (receipt) =>
+  STORY_COMPLETION_OUTCOMES.includes(receipt.outcome) &&
+  !indirect.has(receipt.cause?.kind);
 const copy = (value) => structuredClone(value);
 
 export function recordQuestCompletion(world, quest, details) {
   if (quest.completion) return quest.completion;
+  if (!outcomes.has(details.outcome || "fulfilled"))
+    throw new Error("Choose an authored quest outcome.");
   const ledger = (world.questCompletions ??= {
     next: 1,
     recent: [],
@@ -59,16 +74,17 @@ export function latestQuestCompletion(
   const ledger = world.questCompletions;
   if (!ledger) return null;
   const records = [...ledger.recent, ...(ledger.latest ? [ledger.latest] : [])];
-  return (
+  const latest =
     records
       .filter(
         (r) =>
           r.seq > afterSeq &&
+          STORY_COMPLETION_OUTCOMES.includes(r.outcome) &&
           (!requireLocation || r.locationId !== null) &&
           !excludeCauseKinds.includes(r.cause?.kind),
       )
-      .sort((a, b) => b.seq - a.seq)[0] || null
-  );
+      .sort((a, b) => b.seq - a.seq)[0] || null;
+  return latest ? copy(latest) : null;
 }
 
 export function validQuestCompletions(world, actors, places) {
@@ -105,9 +121,7 @@ export function validQuestCompletions(world, actors, places) {
       (id, i) => actors.includes(id) && (i === 0 || r.participants[i - 1] < id),
     ) &&
     (r.actorId === null || r.participants.includes(r.actorId)) &&
-    typeof r.outcome === "string" &&
-    r.outcome.length > 0 &&
-    r.outcome.length <= 40 &&
+    outcomes.has(r.outcome) &&
     (r.cause === null ||
       (r.cause &&
         ["quest", "journey", "help"].includes(r.cause.kind) &&
@@ -121,14 +135,44 @@ export function validQuestCompletions(world, actors, places) {
     new Set(ledger.recent.map((r) => r.id)).size !== ledger.recent.length
   )
     return false;
-  return (
-    ledger.latest === null ||
-    (valid(ledger.latest) &&
-      meaningful(ledger.latest) &&
-      ledger.latest.locationId !== null &&
-      !ledger.recent.some(
-        (r) =>
-          meaningful(r) && r.locationId !== null && r.seq > ledger.latest.seq,
-      ))
+  const eligible = ledger.recent.filter(
+    (r) => meaningful(r) && r.locationId !== null,
   );
+  if (eligible.length && ledger.latest === null) return false;
+  if (
+    ledger.latest !== null &&
+    (!valid(ledger.latest) ||
+      !meaningful(ledger.latest) ||
+      ledger.latest.locationId === null ||
+      eligible.some((r) => r.seq > ledger.latest.seq))
+  )
+    return false;
+  if (
+    ledger.latest &&
+    ledger.recent.some(
+      (r) =>
+        (r.id === ledger.latest.id || r.seq === ledger.latest.seq) &&
+        JSON.stringify(r) !== JSON.stringify(ledger.latest),
+    )
+  )
+    return false;
+  for (const quest of Object.values(world.quests?.records || {})) {
+    if (!quest.completion) continue;
+    const receipt = quest.completion;
+    if (
+      !valid(receipt) ||
+      receipt.questKey !== quest.key ||
+      receipt.terminalRevision !== quest.terminalRevision
+    )
+      return false;
+    if (
+      [...ledger.recent, ...(ledger.latest ? [ledger.latest] : [])].some(
+        (r) =>
+          (r.id === receipt.id || r.seq === receipt.seq) &&
+          JSON.stringify(r) !== JSON.stringify(receipt),
+      )
+    )
+      return false;
+  }
+  return true;
 }
