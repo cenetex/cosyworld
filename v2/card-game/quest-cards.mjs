@@ -1,6 +1,6 @@
 import { actorQuests } from "./quests.mjs";
 import { availableCards } from "./cards.mjs";
-import { rootHolder, things, people, currentActor, nameOf } from "./world.mjs";
+import { rootHolder, things, people, currentActor } from "./world.mjs";
 
 export const QUEST_CARD = "player-quest";
 
@@ -59,21 +59,6 @@ const situations = {
 export const isQuestCard = (id) =>
   id === QUEST_CARD || (typeof id === "string" && id.startsWith("quest-card:"));
 
-function originText(origin) {
-  if (!origin) return "";
-  const other = origin.other ? nameOf(origin.other) : "a friend";
-  return (
-    {
-      gift: `It began with a gift from ${other}.`,
-      help: `It began with helping ${other}.`,
-      talk: `It began with a conversation with ${other}.`,
-      journey: `It began with a shared journey${origin.place ? ` to ${nameOf(origin.place)}` : ""}.`,
-      care: "It began with a little care.",
-      trade: `It began with an exchange with ${other}.`,
-    }[origin.kind] || ""
-  );
-}
-
 export function questCards(world, actor = currentActor(world)) {
   return actorQuests(world, actor).map((record) => {
     const program = record.program;
@@ -98,7 +83,6 @@ export function questCards(world, actor = currentActor(world)) {
       purpose,
       art,
       status: record.status,
-      origin: originText(record.origin),
       step: record.step,
       steps: record.totalSteps ?? program.steps?.length ?? 0,
     };
