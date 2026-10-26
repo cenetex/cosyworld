@@ -1337,3 +1337,79 @@ fn released_carriage_route_replays_before_the_station_connection_upgrade() {
         assert_eq!(full_store::world(&c, &id, now()).unwrap(), w);
     }
 }
+
+#[test]
+fn shared_quest_receipts_drive_bard_travel_after_version_seven_upgrade_and_replay() {
+    for keep_checkpoint in [true, false] {
+        let (_file, c, id) = fixture();
+        c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+        c.execute("DELETE FROM card_full_log", []).unwrap();
+        let result = engine::reduce_version(engine::SIXTH_VERSION, json!({"op":"create"})).unwrap();
+        let mut w = World {
+            version: engine::SIXTH_VERSION.into(),
+            game: result["world"].clone(),
+            claimed: [0; 8],
+            present: [0; 8],
+        };
+        w.game.as_object_mut().unwrap().remove("opening");
+        w.game["actors"]["vale"]["place"] = json!("station");
+        w.game["actors"]["greek-rhapsode"]["place"] = json!("greek-harbor");
+        let receipt = json!({"id":"world:quest:0:terminal:1","seq":1,"eventSeq":0,"turn":0,"questKey":"world:quest:0","terminalRevision":1,"actorId":"keeper","locationId":"greek-well","participants":["keeper"],"outcome":"fulfilled","cause":null});
+        w.game["quests"]["next"] = json!(1);
+        w.game["quests"]["records"]["world:quest:0"] = json!({
+          "key":"world:quest:0","mode":"shared","holder":{"kind":"item","id":"bell"},
+          "subjectActor":null,"rewardActor":null,"participants":["keeper"],
+          "program":{"id":"well-deed","name":"A deed at the well","steps":[{"items":[],"avatars":[],"location":"greek-well"}]},
+          "step":1,"origin":null,"createdTurn":0,"completedTurn":0,"cause":null,"terminalRevision":1,"completion":receipt
+        });
+        w.game["questCompletions"] = json!({"next":2,"recent":[receipt],"latest":receipt});
+        full_store::seed(&c, &id, &w, "released-shared-quest", now()).unwrap();
+        for op in ["claim", "enter"] {
+            full_store::commit(&c, &id, &mut w, json!({"op":op,"actor":"vale"}), now()).unwrap();
+        }
+        let action = home_action(&w, 0, "wait");
+        full_store::commit(
+            &c,
+            &id,
+            &mut w,
+            json!({"op":"play","actor":"vale","action":action}),
+            now(),
+        )
+        .unwrap();
+        full_store::commit(&c, &id, &mut w, json!({"op":"speech","actor":"vale","room":"station","lines":[{"actorId":"vale","text":"I remember the well."},{"actorId":null,"entityId":"station","text":"The platform is quiet."}]}), now()).unwrap();
+        let previous = w.clone();
+        if !keep_checkpoint {
+            c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+        }
+        w = full_store::world(&c, &id, now()).unwrap();
+        assert_eq!(w.version, engine::VERSION);
+        for key in [
+            "actors",
+            "items",
+            "questCompletions",
+            "quests",
+            "log",
+            "packs",
+            "turn",
+        ] {
+            assert_eq!(w.game[key], previous.game[key], "Preserve {key}");
+        }
+        assert_eq!(w.claimed, previous.claimed);
+        for destination in ["greek-courtyard", "greek-well", "greek-well"] {
+            let action = home_action(&w, 0, "wait");
+            full_store::commit(
+                &c,
+                &id,
+                &mut w,
+                json!({"op":"play","actor":"vale","action":action}),
+                now(),
+            )
+            .unwrap();
+            assert_eq!(w.game["actors"]["greek-rhapsode"]["place"], destination);
+            assert_eq!(w.game["roamingQuests"]["greek-rhapsode"]["target"], receipt);
+        }
+        full_store::commit(&c, &id, &mut w, json!({"op":"speech","actor":"vale","room":"station","lines":[{"actorId":"vale","text":"The journey continues."},{"actorId":null,"entityId":"station","text":"A breeze crosses the platform."}]}), now()).unwrap();
+        c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+        assert_eq!(full_store::world(&c, &id, now()).unwrap(), w);
+    }
+}
