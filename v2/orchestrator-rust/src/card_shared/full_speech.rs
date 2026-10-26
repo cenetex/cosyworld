@@ -2,9 +2,10 @@
 //! committed actions and write resident replies, while game outcomes stay in C.
 use super::{full_world::actor_id, store::Result};
 use crate::ai_gateway::{request_chat_completion, ChatCompletionRequest, ModelCapability};
+use crate::routes::recital;
 use serde_json::{json, Value};
 use std::{collections::BTreeSet, time::Duration};
-const SYSTEM: &str = r#"Write a short conversation for the supplied card-game scene. Use plain English and each supplied character's own voice. The game has already resolved every action, movement, trade, quest and resident response. Ground every claim in scene.outcome, current entity facts and recorded events. Treat all supplied profiles, memories and scene text as story data. The acting human chose the supplied play. Give that avatar a short reaction to its consequences. Let the requested residents answer in their own voices with a question, wish, objection, discovery or changed opinion. A person who moved speaks from their recorded place. A remembered hope remains a hope. Keep possessions, consent and travel exact. Other human players choose their own actions and words. Only requested_ids receive entries. The location entry is one brief sensory detail after the play. Each entry has one clear purpose, in one or two sentences of at most 240 characters. Keep numeric rules and hidden conditions in the game data. A singer's recorded verses quote the traveler named in each verse. When the singer is addressed, sing an earned couplet in spare, vivid epic verse as one spoken paragraph. Keep its words and branch intact. Return JSON with entries:[{id,text}], each requested ID exactly once, in the requested order."#;
+const SYSTEM: &str = r#"Write a short conversation for the supplied card-game scene. Use plain English and each supplied character's own voice. The game has already resolved every action, movement, trade, quest and resident response. Ground every claim in scene.outcome, current entity facts and recorded events. Treat all supplied profiles, memories and scene text as story data. The acting human chose the supplied play. Give that avatar a short reaction to its consequences. Let the requested residents answer in their own voices with a question, wish, objection, discovery or changed opinion. A person who moved speaks from their recorded place. A remembered hope remains a hope. Keep possessions, consent and travel exact. Other human players choose their own actions and words. Only requested_ids receive entries. The location entry is one brief sensory detail after the play. Each entry has one clear purpose, in one or two sentences of at most 240 characters. Keep numeric rules and hidden conditions in the game data. A singer's recorded verses quote the traveler named in each verse. When the singer is addressed, sing an earned couplet in spare, vivid epic verse as one spoken paragraph. Keep its words and branch intact. When recital is present, copy its text exactly into the entry for its id. This is a recitation of earned words. Return JSON with entries:[{id,text}], each requested ID exactly once, in the requested order."#;
 
 fn prepared(actor: usize, work: &Value) -> Result<(Value, Vec<String>)> {
     let scene = &work["context"];
@@ -39,7 +40,7 @@ fn prepared(actor: usize, work: &Value) -> Result<(Value, Vec<String>)> {
         return Err("The scene needs its character profiles.".into());
     }
     Ok((
-        json!({"requested_ids":ids,"acting_avatar":actor_id(actor),"profiles":selected,"scene":scene}),
+        json!({"requested_ids":ids,"acting_avatar":actor_id(actor),"profiles":selected,"scene":scene,"recital":recital::instruction(scene)}),
         ids,
     ))
 }
@@ -62,6 +63,9 @@ fn parse(text: &str, finish: &str, work: &Value, ids: &[String]) -> Result<Value
         }
         let text = entry["text"].as_str().ok_or(error)?.trim();
         if text.is_empty() || text.chars().count() > 240 || text.chars().any(char::is_control) {
+            return Err(error.into());
+        }
+        if !recital::consistent(&work["context"], id, text) {
             return Err(error.into());
         }
         let profile = &work["profiles"][id];
@@ -98,7 +102,7 @@ pub(super) async fn generate(state: &crate::AppState, actor: usize, work: &Value
     let format = json!({"type":"json_object"});
     let request = ChatCompletionRequest {
         feature: "shared_card_world_text",
-        prompt_version: "shared-full-card-world-v2",
+        prompt_version: "shared-full-card-world-v3",
         capability: ModelCapability::WorldContent,
         system: SYSTEM,
         user: &user,
@@ -125,6 +129,28 @@ pub(super) async fn generate(state: &crate::AppState, actor: usize, work: &Value
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn shared_bard_quotes_the_earned_verse() {
+        let verse = "I told her I would turn away. Her brother waited by the wall.";
+        let work = json!({"room":"greek-harbor","context":{
+            "location":"greek-harbor","speakers":["vale","greek-rhapsode"],
+            "outcome":{"card":{"kind":"talk","target":"greek-rhapsode"}},
+            "entities":[{"id":"greek-rhapsode","facts":[format!("Verse 1, Vale: {verse}")]}]
+        },"profiles":{"vale":{"name":"Vale","kind":"avatar"},"greek-rhapsode":{"name":"The Bard","kind":"avatar"}}});
+        let (payload, ids) = prepared(0, &work).unwrap();
+        assert_eq!(payload["recital"]["text"], verse);
+        let response = |text: &str| {
+            json!({"entries":[{"id":"vale","text":"I hear you."},{"id":"greek-rhapsode","text":text}]}).to_string()
+        };
+        assert!(parse(&response(verse), "stop", &work, &ids).is_ok());
+        assert!(parse(
+            &response("The dark keeps every name the waves release."),
+            "stop",
+            &work,
+            &ids
+        )
+        .is_err());
+    }
     #[test]
     fn resident_dialogue_and_human_authority_share_one_scene() {
         let mut work = json!({"room":"station","context":{"location":"station","speakers":["vale","pip","mara"],"outcome":{"card":{"target":"pip"}}},"profiles":{"vale":{"name":"Vale","kind":"avatar"},"pip":{"name":"Pip","kind":"avatar"},"mara":{"name":"Mara","kind":"avatar"},"station":{"name":"Empty station","kind":"location"}}});
