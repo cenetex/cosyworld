@@ -4582,6 +4582,32 @@
         recital: {
           actor: "greek-rhapsode",
           title: "Before the Burial",
+          claims: [
+            {
+              phrases: [
+                "laid her brother in the earth",
+                "buried her brother",
+                "buried him",
+                "his body lies in the grave"
+              ],
+              anyChoices: [
+                "greek-perform-burial",
+                "greek-perform-permitted-burial"
+              ]
+            },
+            {
+              phrases: [
+                "creon gave leave",
+                "creon has granted",
+                "creon granted permission",
+                "the king gave permission"
+              ],
+              anyChoices: [
+                "greek-petition-burial",
+                "greek-perform-permitted-burial"
+              ]
+            }
+          ],
           verses: [
             {
               choice: "greek-return-water-jar",
@@ -5322,7 +5348,7 @@
     if (pack.recital !== void 0) {
       const r = pack.recital;
       check(
-        keysOk(r, ["actor", "title", "verses"]) && owns(avatars, r?.actor) && avatars[r.actor].travels === false && avatars[r.actor].standoffs === false && textOk(r.title, 80) && Array.isArray(r.verses) && r.verses.length > 0 && r.verses.length <= 64,
+        keysOk(r, ["actor", "title", "verses", "claims"]) && owns(avatars, r?.actor) && avatars[r.actor].travels === false && avatars[r.actor].standoffs === false && textOk(r.title, 80) && Array.isArray(r.verses) && r.verses.length > 0 && r.verses.length <= 64,
         "recital needs a stationary singer, a title and up to 64 verses"
       );
       const seen = /* @__PURE__ */ new Set();
@@ -5333,6 +5359,16 @@
           "recital verse needs a unique choice, quest, couplet and summons flag; after may select an earlier deed"
         );
         seen.add(v?.choice);
+      }
+      if (r.claims !== void 0) {
+        check(
+          Array.isArray(r.claims) && r.claims.length <= 16 && r.claims.every(
+            (claim) => keysOk(claim, ["phrases", "anyChoices"]) && Array.isArray(claim.phrases) && claim.phrases.length > 0 && claim.phrases.length <= 16 && claim.phrases.every(
+              (phrase) => textOk(phrase, 160) && phrase === phrase.toLowerCase()
+            ) && Array.isArray(claim.anyChoices) && claim.anyChoices.length > 0 && claim.anyChoices.length <= 64 && claim.anyChoices.every((choice) => seen.has(choice))
+          ),
+          "recital claims need bounded phrases and supporting verse choices"
+        );
       }
     }
     if (problems2.length) return problems2;

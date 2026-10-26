@@ -1854,7 +1854,7 @@ impl<'a> Check<'a> {
         if !custody::consistent(&kept, self.context, &self.entity.id) {
             return Err("custody");
         }
-        if !recital::consistent(&kept, self.entity.poem.as_ref()) {
+        if !recital::consistent(&kept, &self.entity.id, self.entity.poem.as_ref()) {
             return Err("story_outcome");
         }
         let lower = kept.to_lowercase();
@@ -2244,6 +2244,66 @@ mod tests {
             altered.entities[3].poem.as_ref(),
             altered.turn
         ));
+    }
+
+    #[test]
+    fn authored_claims_follow_earned_burial_permission_refusal_and_exposure() {
+        let packs: Value =
+            serde_json::from_str(include_str!("../../card-game/packs.json")).unwrap();
+        let recital = &packs["packs"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|pack| pack["id"] == "greek-drama")
+            .unwrap()["recital"];
+        for (choice, buried, permitted) in [
+            ("greek-perform-burial", true, false),
+            ("greek-petition-burial", false, true),
+            ("greek-perform-permitted-burial", true, true),
+            ("greek-decline-burial", false, false),
+            ("greek-report-plan", false, false),
+        ] {
+            let verse = recital["verses"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|verse| verse["choice"] == choice)
+                .unwrap();
+            let mut c = bard_context();
+            c.entities[3].poem = Some(
+                serde_json::from_value(json!({
+                    "title":recital["title"], "stanzas":[{"id":choice,"turn":1,
+                        "authorId":"vale","authorName":"Vale","lines":verse["lines"]}],
+                    "newLines":verse["lines"]
+                }))
+                .unwrap(),
+            );
+            assert!(valid(&c));
+            let check = Check::new(&c, &c.entities[3], Part::Line);
+            assert_eq!(
+                check.clean("I buried her brother.", true).is_ok(),
+                buried,
+                "{choice}"
+            );
+            assert_eq!(
+                check
+                    .clean("Creon gave leave for this one grave.", true)
+                    .is_ok(),
+                permitted,
+                "{choice}"
+            );
+            assert!(check
+                .clean("I wonder what that choice will mean tomorrow.", true)
+                .is_ok());
+            let earned = verse["lines"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|line| line.as_str().unwrap())
+                .collect::<Vec<_>>()
+                .join(" ");
+            assert_eq!(check.clean(&earned, true), Ok(earned.clone()), "{choice}");
+        }
     }
 
     #[test]

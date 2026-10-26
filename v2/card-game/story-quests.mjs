@@ -142,6 +142,35 @@ const related = (definition, event) => {
   ].includes(event.choiceId);
 };
 
+// Saved action authors identify who discovered or contributed to a story card.
+// A viewer and a global meeting flag carry no personal participation evidence.
+export function storyActors(world, definition) {
+  const events = (world.log || []).filter((event) =>
+    related(definition, event),
+  );
+  const discovery = (world.log || [])
+    .filter(
+      (event) =>
+        event.kind === "action" &&
+        event.turn === definition.createdTurn &&
+        (event.packId === "greek-drama" ||
+          event.cast?.includes(definition.holder.id) ||
+          (definition.holder.kind === "place" &&
+            event.locationId === definition.holder.id)),
+    )
+    .sort((a, b) => a.seq - b.seq)[0];
+  if (discovery) events.push(discovery);
+  const knownAuthor =
+    world.packs?.["greek-drama"]?.recitals?.[definition.choiceId]?.actor;
+  return [
+    ...new Set(
+      [...events.map((event) => event.actorId), knownAuthor].filter(
+        (id) => world.actors[id],
+      ),
+    ),
+  ].sort();
+}
+
 // Authored choices own their outcome. The registry retains the card and its people.
 // Migration keeps unknown old actors and sites unknown when the event was pruned.
 export function syncStoryQuests(world, actorId = null) {
@@ -179,11 +208,8 @@ export function syncStoryQuests(world, actorId = null) {
     const events = (world.log || []).filter((event) =>
       related(definition, event),
     );
-    const recorded = events
-      .map((event) => event.actorId)
-      .filter((id) => world.actors[id]);
+    const recorded = storyActors(world, definition);
     const knownAuthor = state.recitals?.[definition.choiceId]?.actor;
-    if (world.actors[knownAuthor]) recorded.push(knownAuthor);
     if (
       created &&
       actorId &&
