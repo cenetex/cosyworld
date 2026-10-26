@@ -1,7 +1,7 @@
 import { selectCard } from "./card-browser-helpers.mjs";
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
-import { chromium } from "playwright";
+import { chromium, webkit } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import {
   addLog,
@@ -41,9 +41,13 @@ function fixture(kind) {
 
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-const output = new URL("../../output/dialogue-timing/", import.meta.url);
+const type = process.env.CARD_BROWSER || "chromium";
+const output = new URL(
+  `../../output/dialogue-timing${type === "chromium" ? "" : `-${type}`}/`,
+  import.meta.url,
+);
 await mkdir(output, { recursive: true });
-const browser = await chromium.launch({ headless: true });
+const browser = await { chromium, webkit }[type].launch({ headless: true });
 const results = [];
 try {
   for (const [width, height, motion] of [
@@ -64,7 +68,7 @@ try {
       page.on("pageerror", (error) => errors.push(error.message));
       await page.addInitScript(
         ({ key, save }) => {
-          localStorage.setItem(key, save);
+          if (!localStorage.getItem(key)) localStorage.setItem(key, save);
           localStorage.setItem("cosyworld.dialogue.sound", "off");
         },
         { key, save: encodeSave(fixture(kind)) },
@@ -110,6 +114,11 @@ try {
           "vale",
         );
         assert.equal(await page.locator("#dialogue-text").textContent(), "");
+        assert.equal(
+          await page.locator("#prior-text").textContent(),
+          "The last conversation has ended.",
+        );
+        assert.equal(await page.locator("#prior-response").isVisible(), true);
         assert.equal(request.input.speakers[0], "vale");
         assert.equal(await card("vale").isDisabled(), true);
         await page.screenshot({
@@ -120,6 +129,43 @@ try {
           () => document.querySelector("#hand").dataset.cooling === "false",
         );
         assert.equal(await page.locator("#speaker").innerText(), "Vale");
+        if (kind === "ask" && width === 390 && motion === "reduce") {
+          await request.route.fulfill({ status: 422, body: "Invalid scene" });
+          await page.locator("#story-retry").waitFor({ state: "visible" });
+          assert.equal(
+            await page.locator("#prior-text").textContent(),
+            "The last conversation has ended.",
+            "The last reply stays through a failed request",
+          );
+          const retried = page.waitForRequest("**/card-game/text");
+          await page.locator("#story-retry").click();
+          await retried;
+        }
+        const departure = (id) =>
+          request.input.outcome.avatars.find(
+            (avatar) =>
+              avatar.id === id &&
+              avatar.travel?.from === request.input.location &&
+              avatar.travel.to !== request.input.location,
+          );
+        const reply = (id) =>
+          departure(id)
+            ? `I'm heading to ${nameOf(departure(id).travel.to)}. I want a quiet moment to myself.`
+            : `${nameOf(id)} has a full reply. ${"There is time to hear every word. ".repeat(10)}`.trim();
+        if (kind === "light") {
+          assert.equal(
+            await page.locator("#movement-caption").isVisible(),
+            false,
+          );
+          for (const id of ["moth", "keeper"])
+            assert.equal(
+              await page
+                .locator(`#cast [data-avatar="${id}"]`)
+                .getAttribute("aria-hidden"),
+              "false",
+              "A departing avatar waits for their own words",
+            );
+        }
         await request.route.fulfill({
           status: 200,
           contentType: "application/json",
@@ -128,7 +174,7 @@ try {
             model: "dialogue-timing-fixture",
             entries: request.input.entities.map(({ id }) => ({
               id,
-              text: `${nameOf(id)} has a full reply. ${"There is time to hear every word. ".repeat(10)}`,
+              text: reply(id),
             })),
           }),
         });
@@ -150,16 +196,25 @@ try {
           const style = getComputedStyle(
             document.querySelector("#dialogue-text"),
           );
+          const prior = document.querySelector("#prior-response");
+          const priorStyle = getComputedStyle(prior);
           return {
             portraitRight: portrait.right,
             textLeft: text.left,
             lines: text.height / parseFloat(style.lineHeight),
             font: parseFloat(style.fontSize),
+            priorFont: parseFloat(priorStyle.fontSize),
+            priorLines: prior.clientHeight / parseFloat(priorStyle.lineHeight),
+            stageLeft: document.querySelector("#stage").scrollLeft,
           };
         });
         assert(layout.portraitRight < layout.textLeft);
         assert(layout.lines >= 2.95 && layout.lines <= 3.05);
         assert(layout.font >= 15);
+        assert(layout.priorFont < layout.font);
+        assert(layout.priorLines > 0 && layout.priorLines <= 2.05);
+        assert.equal(layout.stageLeft, 0);
+        report.layout = layout;
         await page.locator("#dialogue-advance").focus();
         if (motion !== "reduce")
           await page.locator("#dialogue-advance").click();
@@ -182,6 +237,20 @@ try {
             await page.locator("#speaker-portrait").getAttribute("data-entity"),
             speaker,
           );
+          assert.equal(
+            await page.locator("#prior-text").textContent(),
+            i
+              ? reply(request.input.speakers[i - 1])
+              : "The last conversation has ended.",
+          );
+          if (departure(speaker))
+            assert.equal(
+              await page
+                .locator(`#cast [data-avatar="${speaker}"]`)
+                .getAttribute("aria-hidden"),
+              "false",
+              "The avatar stays through their farewell",
+            );
           if (
             (await page
               .locator("#dialogue-advance")
@@ -202,6 +271,14 @@ try {
               (name) => document.querySelector("#speaker").textContent === name,
               nameOf(request.input.speakers[i + 1]),
             );
+            if (departure(speaker))
+              assert.equal(
+                await page
+                  .locator(`#cast [data-avatar="${speaker}"]`)
+                  .getAttribute("aria-hidden"),
+                "true",
+                "The visible exit follows the farewell",
+              );
           }
         }
         await page.waitForFunction(
@@ -221,6 +298,36 @@ try {
           assert.equal(await card("keeper").count(), 0);
           assert.equal(world.actors.moth.place, "station");
           assert.equal(world.actors.keeper.place, "station");
+          await page.screenshot({
+            path: new URL(`farewells-${width}-${motion}.png`, output).pathname,
+          });
+          if (width === 390 && motion === "reduce") {
+            await page.reload();
+            await page.waitForFunction(
+              () => document.querySelector("#previous-line").disabled === false,
+            );
+            assert.deepEqual(await state(), world);
+            assert.equal(
+              await page.locator("#prior-text").textContent(),
+              reply("moth"),
+            );
+            await page.locator("#previous-line").click();
+            assert.equal(
+              await page.locator("#speaker").innerText(),
+              nameOf("moth"),
+            );
+            assert.equal(
+              await page.locator("#prior-text").textContent(),
+              reply("vale"),
+            );
+            assert.equal(
+              await page
+                .locator('#cast [data-avatar="moth"][aria-hidden="false"]')
+                .count(),
+              0,
+              "Review keeps the current cast",
+            );
+          }
         }
         assert.deepEqual(errors, []);
         report.passed = true;

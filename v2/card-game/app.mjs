@@ -1558,6 +1558,21 @@ function renderScene() {
     }
   }
   const text = spoken ? scene.line.text : "";
+  const previous =
+    spoken || exchange.preparing
+      ? scene.previous
+      : scene.lines.findLast(
+          (entry) =>
+            entry.kind === "dialogue" && entry.index >= scene.visitStart,
+        ) || null;
+  const prior = $("prior-response");
+  prior.hidden = !previous;
+  $("prior-speaker").textContent = previous ? `${previous.speaker}:` : "";
+  if ($("prior-text").textContent !== (previous?.text || "")) {
+    $("prior-text").textContent = previous?.text || "";
+    prior.scrollTop = 0;
+  }
+  prior.tabIndex = prior.scrollHeight > prior.clientHeight ? 0 : -1;
   const speaker =
     scene.line?.entityId || scene.line?.actorId || scene.locationId;
   const spokenLines = scene.lines.filter((entry) => entry.kind === "dialogue");
@@ -1571,7 +1586,8 @@ function renderScene() {
   const hasSpeech = Boolean(
     text || storyStatus !== "ready" || exchange.preparing,
   );
-  document.querySelector(".dialogue").hidden = !hasSpeech && !movement;
+  document.querySelector(".dialogue").hidden =
+    !hasSpeech && !movement && !previous;
   $("speech-row").hidden = !hasSpeech;
   document.querySelector(".line-controls").hidden = !text;
   $("dialogue-advance").hidden = !text;

@@ -980,6 +980,21 @@ body .cast[data-count] {
 }
 
 /* The speech box follows the line length; long replies scroll. */
+.prior-response {
+  font:
+    13px/1.35 Georgia,
+    serif;
+  color: #c7c1b4;
+  max-height: 2.7em;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  margin-bottom: 6px;
+}
+.prior-response strong {
+  font-weight: normal;
+  color: #d6c7a4;
+}
 .speech-row {
   display: grid;
   grid-template-columns: 44px minmax(0, 1fr);

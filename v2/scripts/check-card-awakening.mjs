@@ -166,6 +166,8 @@ try {
   assert.equal(await page.evaluate(() => document.body.scrollWidth), 390);
   const compact = await page.evaluate(() => {
     const dialog = document.querySelector(".dialogue").getBoundingClientRect();
+    const prior = document.querySelector("#prior-response");
+    const priorStyle = getComputedStyle(prior);
     const card = document
       .querySelector('#hand [data-card="vale"]')
       .getBoundingClientRect();
@@ -174,6 +176,8 @@ try {
       .getBoundingClientRect();
     return {
       dialogHeight: dialog.height,
+      priorHeight: prior.getBoundingClientRect().height,
+      priorGap: prior.hidden ? 0 : parseFloat(priorStyle.marginBottom),
       gap: card.top - dialog.bottom,
       visibleCard: (innerHeight - card.top) / card.height,
       labelBottom: label.bottom,
@@ -181,7 +185,14 @@ try {
       actionsHidden: document.querySelector(".action-panel").hidden,
     };
   });
-  assert(compact.dialogHeight <= 80, "A short reply fits its words");
+  assert(
+    compact.dialogHeight - compact.priorHeight - compact.priorGap <= 80,
+    "A short reply fits its words",
+  );
+  assert(
+    compact.priorHeight <= 36,
+    "The previous reply uses at most two small lines",
+  );
   assert(compact.gap <= 16, "Cards sit close to the speech box");
   assert(
     compact.visibleCard >= 0.72 && compact.visibleCard <= 0.78,

@@ -75,15 +75,15 @@ describe("JRPG scenes", () => {
     );
   });
 
-  it("explains a quiet departure and clears it on the following turn", () => {
+  it("leaves a departure to the avatar's own farewell", () => {
     const s = gathered();
     s.items.lamp.holder = "moth";
     s.items.lamp.lit = true;
     const left = act(s, "wait");
-    expect(movementCaption(left)).toContain("Pip leaves for Black pond.");
-    expect(movementCaption(act(left, "wait"))).not.toContain(
-      "Pip leaves for Black pond.",
-    );
+    expect(left.actors.moth.place).toBe("pond");
+    expect(narrativeContext(left).speakers).toContain("moth");
+    expect(movementCaption(left)).toBe("");
+    expect(movementCaption(act(left, "wait"))).toBe("");
   });
 
   it("starts a fresh scene on return and keeps earlier visits available for replay", () => {
@@ -139,6 +139,29 @@ describe("JRPG scenes", () => {
     expect(held.line.text).toBe(old.text);
     expect(held.line.index).not.toBe(old.index);
     expect(currentScene(s).line.turn).toBe(96);
+  });
+  it("keeps the last spoken line during preparation and skips scene descriptions", () => {
+    const s = gathered();
+    dialogue(s, "vale", { generated: true, text: "Will you stay?" });
+    const first = currentScene(s).line;
+    dialogue(s, "station", { generated: true, kind: "description" });
+    s.turn++;
+    expect(currentScene(s, null, { hold: true })).toMatchObject({
+      line: null,
+      previous: first,
+    });
+    dialogue(s, "moth", {
+      generated: true,
+      departureTo: "pond",
+      text: "I'm heading to the pond. I want to see what the light finds there.",
+    });
+    // Prepared replies become visible when their spoken turn starts.
+    expect(currentScene(s, null, { hold: true }).previous).toEqual(first);
+    expect(currentScene(s).previous).toEqual(first);
+    expect(currentScene(s, first.index).previous).toBeNull();
+    const farewell = currentScene(s).line;
+    dialogue(s, "keeper", { generated: true, text: "Mind the water, Pip." });
+    expect(currentScene(s).previous).toEqual(farewell);
   });
 
   it("holds new words until the entrance is ready while keeping a chosen earlier reply", () => {

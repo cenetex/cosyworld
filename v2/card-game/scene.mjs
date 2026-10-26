@@ -85,7 +85,7 @@ export function sceneChanges(world) {
     }));
 }
 
-// Show physical movement as soon as the scene appears, while words are prepared.
+// Arrivals orient the player. Departing avatars speak before their exit.
 export function movementCaption(world) {
   const here = world.actors.vale.place;
   const arrival = world.log.findLast(
@@ -118,13 +118,14 @@ export function movementCaption(world) {
         arrival.targetId === id
       )
         return `${who} travels with Vale.`;
-      if (change?.leaving) return `${who} leaves for ${nameOf(change.to)}.`;
+      if (change?.leaving) return null;
       if (change)
         return change.from === arrival?.fromLocationId
           ? `${who} follows from ${nameOf(change.from)}.`
           : `${who} arrives from ${nameOf(change.from)}.`;
       return `${who} is waiting here.`;
     })
+    .filter(Boolean)
     .join(" ");
 }
 
@@ -398,9 +399,13 @@ export function currentScene(
   const start = visitStart(world, chosen?.index);
   const line =
     chosen || (!hold && lines.findLast((e) => e.index >= start)) || null;
-  const previous = line
-    ? lines.findLast((e) => e.index < line.index && e.index >= start) || null
-    : null;
+  const previous =
+    lines.findLast(
+      (e) =>
+        e.kind === "dialogue" &&
+        e.index >= start &&
+        (line ? e.index < line.index : !hold || e.turn < world.turn),
+    ) || null;
   return {
     locationId: world.actors.vale.place,
     background: backdrop(world.actors.vale.place),

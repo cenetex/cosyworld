@@ -148,6 +148,7 @@ try {
       );
       await page.waitForSelector("#dialogue-text .speech-letter");
       assert.equal(await page.locator("#speaker").innerText(), "Vale");
+      assert.equal(await page.locator("#prior-response").isVisible(), false);
       assert.match(
         await page.locator("#dialogue-text").textContent(),
         /It's cold up here/,
@@ -173,6 +174,10 @@ try {
       assert(heldLight);
       assert.equal(await page.locator("#speaker").innerText(), "Vale");
       assert.equal(await page.locator("#dialogue-text").textContent(), "");
+      assert.match(
+        await page.locator("#prior-text").textContent(),
+        /It's cold up here/,
+      );
       await playCards("snuff", ["lamp"]);
       assert.deepEqual(
         await page.evaluate(() => window.fulfilled),
@@ -204,6 +209,7 @@ try {
         await page.locator("#new-game").click();
         await page.locator("#confirm-reset").click();
         await finish();
+        assert.equal(await page.locator("#prior-response").isVisible(), false);
         await playCards("light", ["lamp"]);
       }
       if (width < 700) {

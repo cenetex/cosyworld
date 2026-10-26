@@ -34,12 +34,12 @@ Use visible facts and witnessed events as knowledge. A new effect becomes known 
 SPEECH
 Sleeping avatars receive a short third-person sleeping description for their card. Their speech begins after the recorded wake event. Awake avatars speak in first person to the other scene.speakers. Only scene.speakers take spoken turns. Other avatar entries are quiet reflections on their cards, not replies in the scene. A lone departing speaker addresses those staying behind; other lone speakers reflect on the recorded scene. Vale is the player avatar. When Vale is in scene.speakers, give Vale one spoken reaction to the actual play, followed by the other speakers' direct responses. When Vale is absent from scene.speakers, let the departing avatars speak for themselves without a Vale farewell or departure recap. The card and scene already show the action: let speech carry its human meaning, such as relief, a sharp question, gratitude, a boundary, a warning, or a changed opinion. For a wait play, respond to one thing witnessed this turn. For a talk play, ask about the chosen avatar's motive or answer their preceding line. An accompany card supplies Vale's invitation, its destination, and the recorded agreement or refusal. An accepted request moved both avatars; a declined request left them at the source. On an ordinary move, keep Vale's recorded travel companions exact. For item plays, let the response follow the recorded result and final ownership. For combat, the chosen card sets Vale's intent: threatening applies pressure, attacking commits to the fight, and guarding holds a defensive stance. Vale owns that choice in their spoken line. Apologies, remorse, surrender, forgiveness and promises of peace require a later player choice that supports them. Other avatars may object, bargain, retaliate or leave in their own voices. Previous dialogue supplies history; the current choice sets the current intent. I and my refer to that entry's avatar; you and your refer to the person addressed. Address each speaker by their own name and match each item to its actual holder.
 
-A departing avatar speaks from the threshold of their recorded source. Name the actual destination and reason for going. For a solo departure, say that you are going ahead or leaving on your own. When Vale stays behind, any wish for Vale's company is a hope or invitation for later: 'I'm going ahead to the pond with the lamp. I hope you'll join me there.' Shared travel wording belongs to the companions recorded on that trip. A desired companion who stayed behind remains a desired companion. An arriving avatar greets the people at their destination. Past promises can be acknowledged as hopes; only a recorded card result establishes acceptance, a trade, or a shared trip.
+When an action waits for a speaker, that speaker explains their intent first. When the result is already visible, they react to it. The avatars in direction.departures are about to leave the scene. Each gives a short first-person farewell from the threshold of their recorded source, naming the actual destination and a reason grounded in their motives or the turn's events. Their visible exit follows their own line. Earlier speakers address them as still present; later speakers may react to their absence. For a solo departure, say that you are going ahead or leaving on your own. When Vale stays behind, any wish for Vale's company is a hope or invitation for later: 'I'm going ahead to the pond with the lamp. I hope you'll join me there.' Shared travel wording belongs to the companions recorded on that trip. A desired companion who stayed behind remains a desired companion. An arriving avatar greets the people at their destination. Past promises can be acknowledged as hopes; only a recorded card result establishes acceptance, a trade, or a shared trip.
 
 Answer the preceding speaker when relevant, while keeping the current result clear. Offers concern items the speaker holds and something they still need. Express possible future actions as questions or conditional offers. Keep repeated offers brief. Let personality shape tone and imagery around the recorded action. Keep concrete movement, company, ownership, paths and outcomes exact.
 
 FRESH LINES
-The player has just watched the card and its result. Never narrate the play back: no line describes handing over, taking, trading, lighting, travelling or waiting as news, and no speaker announces what they or Vale just did. Begin after the action. Each spoken line does one of these: reacts to a consequence (a cost, a relief, a new debt or a changed opinion), reveals something new about the speaker or the place, or pushes against another speaker's want. Across the speakers, include at least one reveal or one point of friction. Do not reuse the wording, offer or question of a line in scene.conversation.
+Departure farewells express intent before the visible exit. For the other resolved plays, the player has just watched the card and its result. Never narrate the play back: no line describes handing over, taking, trading, lighting, travelling or waiting as news, and no speaker announces what they or Vale just did. Begin after the action. Each spoken line does one of these: expresses the departing speaker's choice, reacts to a consequence (a cost, a relief, a new debt or a changed opinion), reveals something new about the speaker or the place, or pushes against another speaker's want. Across the speakers, include at least one reveal or one point of friction. Do not reuse the wording, offer or question of a line in scene.conversation.
 A complaint needs a recorded cause: a remembered grievance in the speaker's facts or an event in scene.events. A disliked thing in a persona is a taste, not something that happened. When no recorded event made a noise, spoiled a light or threatened someone, no one complains about it, including a noise someone nearly made or might make.
 
 VOICE AND MEMORY
@@ -548,7 +548,7 @@ fn valid_outcome(outcome: &TurnOutcome) -> bool {
 // The model can then keep a character's style while following the player's play.
 fn direction(context: &Context) -> Value {
     let Some(outcome) = &context.outcome else {
-        return json!({"vale_intent": context.action, "journeys": []});
+        return json!({"vale_intent": context.action, "journeys": [], "departures": []});
     };
     let name = |id: &str| profiles()[id]["name"].as_str().unwrap_or(id).to_string();
     let target = outcome.card.target.as_deref().map(name).unwrap_or_default();
@@ -595,11 +595,27 @@ fn direction(context: &Context) -> Value {
         .map(|avatar| name(&avatar.id))
         .collect::<Vec<_>>()
         .join(", ");
+    let departures: Vec<_> = context
+        .speakers
+        .iter()
+        .filter_map(|id| {
+            let avatar = outcome.avatars.iter().find(|avatar| &avatar.id == id)?;
+            let trip = avatar.travel.as_ref()?;
+            (trip.from == context.location && trip.to != context.location).then(|| {
+                json!({
+                    "id": id,
+                    "from": name(&trip.from),
+                    "to": name(&trip.to),
+                    "companions": trip.companions.iter().map(|id| name(id)).collect::<Vec<_>>()
+                })
+            })
+        })
+        .collect();
     let setting = format!(
         "The scene is {}. Present after this turn: {present}.",
         name(&context.location)
     );
-    json!({"vale_intent": intent, "setting": setting, "journeys": journeys})
+    json!({"vale_intent": intent, "setting": setting, "journeys": journeys, "departures": departures})
 }
 
 fn prompt(context: &Context) -> String {
@@ -1172,6 +1188,42 @@ mod tests {
         // A persona's dislike is not an event: complaints need a recorded cause.
         assert!(SYSTEM.contains("A complaint needs a recorded cause"));
         assert!(SYSTEM.contains("a noise someone nearly made"));
+    }
+
+    #[test]
+    fn departure_intent_comes_from_witnessed_travel_in_speaker_order() {
+        let mut c = context();
+        c.outcome = Some(solo_departure());
+        let p: Value = serde_json::from_str(&prompt(&c)).unwrap();
+        assert_eq!(
+            p["direction"]["departures"],
+            json!([{
+                "id": "moth", "from": "Empty station", "to": "Black pond", "companions": []
+            }])
+        );
+        // A mover elsewhere in the world stays outside this scene's farewells.
+        c.speakers.push("keeper".into());
+        c.outcome.as_mut().unwrap().avatars[2].location = "pond".into();
+        c.outcome.as_mut().unwrap().avatars[2].travel = Some(Travel {
+            from: "attic".into(),
+            to: "pond".into(),
+            companions: vec![],
+        });
+        assert_eq!(direction(&c)["departures"], p["direction"]["departures"]);
+        // Two people leaving get their own cue in the spoken order.
+        c.outcome.as_mut().unwrap().avatars[2]
+            .travel
+            .as_mut()
+            .unwrap()
+            .from = "station".into();
+        c.speakers = vec!["vale".into(), "keeper".into(), "moth".into()];
+        let d = direction(&c);
+        assert_eq!(d["departures"][0]["id"], "keeper");
+        assert_eq!(d["departures"][1]["id"], "moth");
+        c.speakers = vec!["vale".into()];
+        assert_eq!(direction(&c)["departures"], json!([]));
+        c.outcome = None;
+        assert_eq!(direction(&c)["departures"], json!([]));
     }
 
     #[test]
@@ -1778,6 +1830,7 @@ mod tests {
             d["setting"],
             "The scene is Black pond. Present after this turn: Vale, Pip."
         );
+        assert_eq!(d["departures"], json!([]));
         assert_eq!(
             d["journeys"][0],
             "Vale travelled alone from Empty station to Black pond. This was a separate trip."
