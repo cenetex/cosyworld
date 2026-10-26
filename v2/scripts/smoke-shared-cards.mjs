@@ -130,12 +130,19 @@ try {
     .getByRole("button", { name: "Create a shared world", exact: true })
     .click();
   await vale.getByRole("heading", { name: "Choose your avatar" }).waitFor();
-  const artworkReady = (page) =>
-    page.waitForFunction(() =>
+  const artworkReady = async (page) => {
+    await page.waitForFunction(() =>
       [...document.images].every(
         (image) => image.complete && image.naturalWidth > 0,
       ),
     );
+    await page.evaluate(async () => {
+      await Promise.all([...document.images].map((image) => image.decode()));
+      await new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      );
+    });
+  };
   await artworkReady(vale);
   await vale.locator(".shared-picker").screenshot({
     path: join(output, "avatar-picker.png"),
@@ -164,6 +171,8 @@ try {
     await pages[i].locator(".shared-choice").nth(i).click();
     await pages[i].locator("#shared-scene").waitFor({ state: "visible" });
     assert.equal((await api(pages[i])).body.actor, i);
+  }
+  for (let i = 0; i < 8; i++) {
     await artworkReady(pages[i]);
     await pages[i].screenshot({
       path: join(output, `home-${i}.png`),
