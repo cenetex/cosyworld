@@ -109,6 +109,44 @@ async function until(test, label, rounds = 200, interval = 250) {
 }
 const ready = () =>
   until(async () => (await fetch(origin + "/health")).ok, "server starts");
+async function expectStage(page, recent) {
+  await page.waitForFunction((ids) => {
+    const cast = document.getElementById("cast");
+    const figures = [
+      ...cast.querySelectorAll('.portrait[aria-hidden="false"]'),
+    ];
+    const height = cast.getBoundingClientRect().height;
+    return (
+      figures.length >= 4 &&
+      ids.every((id) =>
+        figures.some((figure) => figure.dataset.avatar === id),
+      ) &&
+      figures.every((figure) => {
+        const rank = ids.indexOf(figure.dataset.avatar);
+        const scale = Math.sqrt([13, 8, 5, 3, 2, 1][rank] / 13);
+        return (
+          Math.abs(figure.getBoundingClientRect().height / height - scale) <
+          0.01
+        );
+      })
+    );
+  }, recent);
+  if (page.viewportSize().width < 700) {
+    const rows = await page
+      .locator('#cast .portrait[aria-hidden="false"]')
+      .evaluateAll((figures) =>
+        figures.map((figure) => ({
+          front: figure.dataset.depth === "foreground",
+          top: figure.getBoundingClientRect().top,
+        })),
+      );
+    assert(
+      Math.min(...rows.filter((row) => row.front).map((row) => row.top)) >
+        Math.max(...rows.filter((row) => !row.front).map((row) => row.top)),
+      "the larger busts sit below the smaller figures on phones",
+    );
+  }
+}
 const names = ["vale", "mara", "ash", "nell", "tavi", "rue", "orin", "ada"];
 let seed = enableMotives(createWorld({ opening: true }), {
   questPrograms: true,
@@ -196,6 +234,36 @@ async function dismissDiscoveries(page) {
     await delay(180);
   }
 }
+async function expectSharedReveal(page) {
+  await page.waitForFunction(() => {
+    const text = document.getElementById("dialogue-text");
+    const letters = text.querySelectorAll(".speech-letter");
+    const shown = text.querySelectorAll(".speech-letter.revealed").length;
+    return (
+      text.textContent === "There is room for a little company." &&
+      shown > 0 &&
+      shown < letters.length
+    );
+  });
+}
+async function catchUpWithArrow(page) {
+  await page.locator("#previous-line").click();
+  for (let step = 0; step < 200; step++) {
+    if (
+      (await page
+        .locator("#dialogue-advance")
+        .getAttribute("data-revealing")) === "true"
+    )
+      await page.locator("#dialogue-advance").click();
+    if (await page.locator("#next-line").isDisabled()) break;
+    await page.locator("#next-line").click();
+  }
+  assert(
+    await page.locator("#next-line").isDisabled(),
+    "arrows reach the latest line",
+  );
+  assert.equal(await page.locator("#return-live").count(), 0);
+}
 try {
   start();
   await ready();
@@ -204,6 +272,15 @@ try {
     const context = await browser.newContext({
       viewport:
         i === 1 ? { width: 390, height: 844 } : { width: 1440, height: 900 },
+    });
+    await context.addInitScript(() => {
+      window.sharedSpeechNotes = 0;
+      const audio = window.AudioContext || window.webkitAudioContext;
+      const original = audio.prototype.createOscillator;
+      audio.prototype.createOscillator = function (...args) {
+        window.sharedSpeechNotes++;
+        return original.apply(this, args);
+      };
     });
     if (i === 0)
       await context.addInitScript(
@@ -297,11 +374,29 @@ try {
   const requestStart = requests.length;
   await vale.locator('#hand [data-card="moth"]').click();
   await vale.getByRole("button", { name: "Talk", exact: true }).click();
+  await expectSharedReveal(vale);
+  await vale.screenshot({
+    path: join(output, "shared-dialogue-reveal.png"),
+    fullPage: true,
+  });
+  await vale.locator("#dialogue-advance").click();
+  await vale.locator("#next-line").click();
+  const advancedText = await vale.locator("#dialogue-text").textContent();
+  await delay(500);
+  assert.equal(
+    await vale.locator("#dialogue-text").textContent(),
+    advancedText,
+    "an early arrow keeps the next line while the shared clock catches up",
+  );
   await until(
     async () => (await snapshot(vale)).world.turn > seed.turn,
     "the original Talk button submits a shared play",
   );
   await idle(vale);
+  assert(
+    (await vale.evaluate(() => window.sharedSpeechNotes)) > 0,
+    "shared speech plays voice syllables as its letters appear",
+  );
   assert(
     requests.length > requestStart,
     "the shared NPC conversation reaches the provider",
@@ -433,6 +528,10 @@ try {
     409,
   );
   assert.equal((await snapshot(vale)).world.revision, beforeForgery);
+  for (const page of [vale, mara]) await catchUpWithArrow(page);
+  const notesBefore = await Promise.all(
+    [vale, mara].map((page) => page.evaluate(() => window.sharedSpeechNotes)),
+  );
   holdReplies = true;
   const queued = [];
   for (const page of [vale, mara, ash, nell]) {
@@ -446,6 +545,78 @@ try {
   }
   await until(() => waitingReplies.length > 0, "first queued speech starts");
   assert.equal((await snapshot(vale)).queue.length, 4);
+  for (const page of [vale, mara]) {
+    await expectStage(page, ["nell", "ash", "mara", "vale", "moth"]);
+    await page.locator("#shared-queue .shared-play-avatar").nth(3).waitFor();
+    await page.waitForFunction(() =>
+      [...document.querySelectorAll("#shared-queue img")].every(
+        (image) => image.complete && image.naturalWidth > 0,
+      ),
+    );
+    const layout = await page.evaluate(() => {
+      const queue = document.getElementById("shared-queue");
+      const text = document
+        .getElementById("dialogue-text")
+        .getBoundingClientRect();
+      return {
+        textRight: text.right,
+        label: queue.innerText,
+        faces: [...queue.querySelectorAll(".shared-play-avatar")].map(
+          (face) => {
+            const rect = face.getBoundingClientRect();
+            return {
+              left: rect.left,
+              top: rect.top,
+              width: rect.width,
+              height: rect.height,
+              radius: getComputedStyle(face).borderRadius,
+            };
+          },
+        ),
+      };
+    });
+    assert.equal(layout.label.trim(), "", "the queue uses profile pictures");
+    assert.equal(layout.faces.length, 4);
+    for (const [index, face] of layout.faces.entries()) {
+      assert(
+        face.left > layout.textRight,
+        "queue faces sit to the right of the text",
+      );
+      assert.equal(face.width, 28);
+      assert.equal(face.height, 28);
+      assert.equal(face.radius, "50%");
+      if (index) assert(face.top > layout.faces[index - 1].top);
+    }
+    await page.screenshot({
+      path: join(
+        output,
+        page === vale ? "shared-queue-desktop.png" : "shared-queue-phone.png",
+      ),
+      fullPage: true,
+    });
+    if (page === mara) {
+      await page.setViewportSize({ width: 390, height: 640 });
+      await expectStage(page, ["nell", "ash", "mara", "vale", "moth"]);
+      await page.waitForFunction(() => {
+        const dialogueTop = document
+          .querySelector(".dialogue")
+          .getBoundingClientRect().top;
+        return [
+          ...document.querySelectorAll(
+            '#cast .portrait[data-depth="foreground"]',
+          ),
+        ].every((figure) => {
+          const rect = figure.getBoundingClientRect();
+          return rect.top + rect.height * 0.25 < dialogueTop;
+        });
+      });
+      await page.screenshot({
+        path: join(output, "shared-stage-short-phone.png"),
+        fullPage: true,
+      });
+      await page.setViewportSize({ width: 390, height: 844 });
+    }
+  }
   assert.equal(
     (await api(vale, { ...queued[0], key: crypto.randomUUID() })).status,
     409,
@@ -455,14 +626,31 @@ try {
     200,
     "repeated play key is idempotent",
   );
-  assert.equal(
-    (await api(ash, { op: "cancel", key: queued[2].key })).status,
-    200,
+  await ash.locator('#shared-queue button[data-actor="ash"]').click();
+  await until(
+    async () => (await snapshot(vale)).queue.length === 3,
+    "a waiting player withdraws through their profile circle",
   );
-  assert.equal((await snapshot(vale)).queue.length, 3);
   holdReplies = false;
   for (const resolve of waitingReplies.splice(0)) resolve();
+  await Promise.all([vale, mara].map(expectSharedReveal));
   await Promise.all([vale, mara, nell].map(idle));
+  for (const page of [vale, mara]) {
+    await expectStage(page, ["nell", "mara", "vale", "ash", "moth"]);
+    await page.screenshot({
+      path: join(
+        output,
+        page === vale ? "shared-stage-desktop.png" : "shared-stage-phone.png",
+      ),
+      fullPage: true,
+    });
+  }
+  for (const [index, page] of [vale, mara].entries())
+    assert(
+      (await page.evaluate(() => window.sharedSpeechNotes)) >
+        notesBefore[index],
+      "the next shared exchange animates and sounds after arrow-only catch-up",
+    );
   const first = await snapshot(vale),
     other = await snapshot(mara);
   assert.equal(first.history[0].lines.length, 2);
@@ -587,6 +775,17 @@ try {
       page.url(),
       await page.locator("body").innerText(),
     );
+    if (index < 2)
+      console.error(
+        "Stage:",
+        await page.locator("#cast .portrait").evaluateAll((figures) =>
+          figures.map((figure) => ({
+            actor: figure.dataset.avatar,
+            size: figure.style.getPropertyValue("--stage-size"),
+            depth: figure.dataset.depth,
+          })),
+        ),
+      );
     await page.screenshot({
       path: join(output, `failure-${names[index]}.png`),
       fullPage: true,

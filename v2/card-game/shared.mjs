@@ -324,13 +324,7 @@ export async function connectSharedWorld(id) {
     play: (action) => command({ op: "play", key: crypto.randomUUID(), action }),
   };
 }
-export function installSharedControls({
-  session,
-  saveSlot,
-  getSave,
-  notice,
-  onLive,
-}) {
+export function installSharedControls({ session, saveSlot, getSave, notice }) {
   ensureSharedStyle();
   const linkedWorld = () => {
     try {
@@ -381,14 +375,14 @@ export function installSharedControls({
     }
     return;
   }
-  const queue = node("div", undefined, "shared-play-queue");
+  const queue = node("ol", undefined, "shared-play-queue");
   queue.id = "shared-queue";
   queue.setAttribute("aria-label", "Plays at the table");
-  document.querySelector(".play-dock").prepend(queue);
-  const live = button("Return to live", onLive);
-  live.id = "return-live";
-  live.hidden = true;
-  document.querySelector(".dialogue-heading").append(live);
+  document.querySelector(".dialogue").append(queue);
+  const roomStatus = node("div", undefined, "shared-room-status");
+  roomStatus.id = "shared-room-status";
+  roomStatus.hidden = true;
+  document.querySelector(".play-dock").prepend(roomStatus);
   $("new-game").hidden = true;
   const saveCopy = [...$("menu-dialog").querySelectorAll("p")].find((p) =>
     p.textContent.includes("Your game saves"),
@@ -423,11 +417,18 @@ export function installSharedControls({
     }),
   );
 }
-export function renderSharedQueue(session) {
+let renderedQueue = "";
+export function renderSharedQueue(session, portraitFor) {
   const { state } = session;
   const queue = $("shared-queue");
   if (!queue) return;
+  const key = JSON.stringify([state.actor, state.present, state.queue]);
+  if (key === renderedQueue) return;
+  renderedQueue = key;
   queue.replaceChildren();
+  const roomStatus = $("shared-room-status");
+  roomStatus.replaceChildren();
+  roomStatus.hidden = hasSharedPlace(state);
   if (!hasSharedPlace(state)) {
     const waiting = node(
       "span",
@@ -436,19 +437,24 @@ export function renderSharedQueue(session) {
     waiting.append(
       button("Check for a place", () => session.command({ op: "enter" })),
     );
-    queue.append(waiting);
+    roomStatus.append(waiting);
   }
   for (const entry of state.queue || []) {
-    const row = node(
-      "span",
-      `${avatarName(entry.actor)} · ${entry.status === "waiting" ? "next" : entry.status === "working" ? "playing" : "reading"}`,
-    );
-    if (entry.actor === state.actor && entry.status === "waiting")
-      row.append(
-        button("Withdraw", () =>
-          session.command({ op: "cancel", key: entry.id }),
-        ),
-      );
+    const canWithdraw =
+      entry.actor === state.actor && entry.status === "waiting";
+    const label = `${avatarName(entry.actor)} · ${entry.status === "waiting" ? "next" : entry.status === "working" ? "playing" : "reading"}`;
+    const face = canWithdraw
+      ? button("", () => session.command({ op: "cancel", key: entry.id }))
+      : node("span");
+    face.className = "shared-play-avatar";
+    face.dataset.actor = entry.actor;
+    face.dataset.status = entry.status;
+    face.title = canWithdraw ? `${label} · Withdraw your play` : label;
+    face.setAttribute("aria-label", face.title);
+    if (!canWithdraw) face.setAttribute("role", "img");
+    face.append(portraitFor(entry.actor));
+    const row = node("li");
+    row.append(face);
     queue.append(row);
   }
 }

@@ -424,10 +424,13 @@ h2 {
   .cast {
     inset: 65px 4% 235px;
   }
-  .cast[data-count="3"] .portrait[data-depth="foreground"] {
+  .cast:not([data-shared="true"])[data-count="3"]
+    .portrait[data-depth="foreground"] {
     left: 19%;
   }
-  .cast[data-count="3"][data-layout="foreground-right"]
+  .cast:not(
+      [data-shared="true"]
+    )[data-count="3"][data-layout="foreground-right"]
     .portrait[data-depth="foreground"] {
     left: 81%;
   }
@@ -971,6 +974,22 @@ body .cast[data-count] {
   body .cast {
     top: 54px;
     width: 98%;
+  }
+  body .cast[data-shared="true"]:not([data-count="1"]):not([data-count="2"]) {
+    --bust-drop: clamp(
+      0%,
+      min(calc((var(--cast-count) - 2) * 12%), calc(100% - 380px)),
+      42%
+    );
+  }
+  body
+    .cast[data-shared="true"]:not([data-count="1"]):not([data-count="2"])
+    .portrait[data-depth="foreground"] {
+    bottom: calc(100% - var(--stage-size) - var(--bust-drop));
+  }
+  body .cast[data-shared="true"] .portrait[data-depth="back"] {
+    left: calc(10% + var(--stage-x) * 0.8);
+    bottom: calc(86% - var(--stage-size));
   }
   body .dialogue {
     bottom: calc(var(--dock-height) + 2px);
