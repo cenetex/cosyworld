@@ -111,13 +111,17 @@ through Rust validation without a paid model call.
 
 ## Greek story cards
 
-Three story cards follow the saved Theban outcomes. Meeting Dione reveals
-**A place at the table**; returning her water jar fulfills it. Meeting Antigone
-or hearing the decree reveals **Before the burial**. Burial fulfills that
-card. A public exception changes its purpose to arranging the permitted rite.
-Refusal closes it as **Declined**, and warning the guard closes it as **Reported**.
-Each decision reveals **What the courtyard knows**; telling Dione closes it
-as **Shared**.
+Three story cards follow the saved Theban outcomes. Each shows one line:
+**A place beside the bread.**, **Her brother waits for earth.**, and
+**What words will you bring home?** Their completion labels follow the
+chosen outcome: **Fulfilled**, **Declined**, **Reported**, or **Shared**.
+
+The Bard appears in the next room the player enters after a quest ends.
+His conversation context holds the earned poem in order. Talking to him
+invites an earned couplet. Permission, burial, refusal, and warning each
+keep their own verses. A later permitted burial opens the return to Dione
+again. The [exact copy list](../content/greek-drama/OPENING-POEM.md) records
+every verse and the three card lines.
 
 Story cards sit with the player's belongings beside the personal quest.
 Each has its own art, selection, first reveal, and closing moment. They stay

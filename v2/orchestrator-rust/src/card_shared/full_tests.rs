@@ -64,7 +64,9 @@ fn full_world_bard_visit_and_song_replay_from_the_journal() {
     let id = "d".repeat(48);
     store::create(&c, &id, "owner", now()).unwrap();
     let mut w = World::create(None).unwrap();
-    // Set the opening scene, then use real choices through the C interpreter.
+    // Set the Theban scene, then use real choices through the C interpreter.
+    w.game.as_object_mut().unwrap().remove("opening");
+    w.game["crossings"]["pond-greek-harbor"]["discovered"] = json!(true);
     w.game["actors"]["vale"]["place"] = json!("greek-courtyard");
     w.game["items"]["greek-water-jar"]["holder"] = json!("vale");
     full_store::seed(&c, &id, &w, "bard-test", now()).unwrap();
