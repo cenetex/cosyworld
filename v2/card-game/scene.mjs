@@ -551,3 +551,11 @@ export function witnessed(entry, actor = "vale") {
   if (entry.kind === "action") return Boolean(entry.witnesses?.includes(actor));
   return Boolean(entry.cast?.includes(actor));
 }
+
+export function isSceneText(entry, shared = false) {
+  return Boolean(
+    entry &&
+      (entry.kind === "dialogue" ||
+        (shared && entry.generated === true && entry.kind === "narration")),
+  );
+}

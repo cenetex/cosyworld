@@ -38,6 +38,7 @@ import { packPlaces, packOf } from "./pack-registry.mjs";
 import { variantOf } from "./pack-rules.mjs";
 import {
   currentScene,
+  isSceneText,
   sceneCast,
   sceneChanges,
   movementCaption,
@@ -1618,7 +1619,7 @@ function renderScene() {
     }
   });
   const spoken =
-    scene.line?.kind === "dialogue" &&
+    isSceneText(scene.line, Boolean(sharedSession)) &&
     (sharedSession || reviewing || scene.line.turn === world.turn);
   $("speaker").textContent = spoken
     ? scene.line.speaker
@@ -1670,7 +1671,9 @@ function renderScene() {
   const text = spoken ? scene.line.text : "";
   const speaker =
     scene.line?.entityId || scene.line?.actorId || scene.locationId;
-  const spokenLines = scene.lines.filter((entry) => entry.kind === "dialogue");
+  const spokenLines = scene.lines.filter((entry) =>
+    isSceneText(entry, Boolean(sharedSession)),
+  );
   const at = spokenLines.findIndex(
     (entry) => entry.index === scene.line?.index,
   );
@@ -1745,11 +1748,10 @@ let renderedLog = [];
 function renderLog() {
   const box = $("messages");
   const atEnd = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
-  // Only spoken lines belong in this optional conversation record.
-  // Rule receipts and hidden counters stay in the save, not on the screen.
+  // Shared rooms include generated room details in their conversation record.
   const conversation = world.log.filter(
     (entry) =>
-      entry.kind === "dialogue" &&
+      isSceneText(entry, Boolean(sharedSession)) &&
       entry.generated === true &&
       (!sharedSession ||
         entry.locationId === world.actors[currentActor(world)].place),
@@ -2046,7 +2048,11 @@ $("export-script").onclick = () => {
       [
         JSON.stringify(
           world.log
-            .filter((e) => e.kind === "dialogue" && e.generated === true)
+            .filter(
+              (entry) =>
+                isSceneText(entry, Boolean(sharedSession)) &&
+                entry.generated === true,
+            )
             .map(({ speaker, text }) => ({ speaker, text })),
           null,
           2,

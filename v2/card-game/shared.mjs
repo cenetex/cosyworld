@@ -181,11 +181,18 @@ export async function connectSharedWorld(id) {
       const picker = node("div", undefined, "shared-picker");
       humanAvatars.forEach((avatar, index) => {
         const card = button("", async () => {
-          await request(`/card-game/shared/worlds/${id}/command`, {
-            op: "claim",
-            avatar: avatar.id,
-          });
-          await enter();
+          try {
+            await request(`/card-game/shared/worlds/${id}/command`, {
+              op: "claim",
+              avatar: avatar.id,
+            });
+            await enter();
+          } catch (error) {
+            value = await request(`/card-game/shared/worlds/${id}`);
+            if (value.actor) return enter();
+            choose();
+            showError(error);
+          }
         });
         card.className = "shared-choice";
         card.disabled = Boolean(value.claimed[index]);
@@ -203,6 +210,7 @@ export async function connectSharedWorld(id) {
       });
       box.append(
         picker,
+        button("Refresh avatars", enter),
         button("Your worlds", () => {
           location.href = "/?shared=1";
         }),
