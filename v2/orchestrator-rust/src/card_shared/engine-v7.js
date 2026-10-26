@@ -10625,7 +10625,7 @@
     const set = [...new Set(selected)].filter((id) => id !== actor);
     if (!set.length) return [];
     return legalActions(s, actor).filter(
-      (a) => a.cards.length === set.length && set.every((id) => a.cards.includes(id))
+      (a) => Array.isArray(a.cards) && a.cards.length === set.length && set.every((id) => a.cards.includes(id))
     );
   }
   function travelParty(s, actors2, destination) {

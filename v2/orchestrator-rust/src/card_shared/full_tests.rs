@@ -1618,3 +1618,43 @@ fn invited_carriage_trip_preserves_agreement_visited_places_and_replays() {
         assert!(closed.game["invitedPlaces"].is_null());
     }
 }
+
+#[test]
+fn embedded_selected_cards_match_with_personal_and_shared_quest_offers() {
+    let mut w = World::create(None).unwrap();
+    for op in ["claim", "enter"] {
+        w.apply(&json!({"op":op,"actor":"vale"})).unwrap();
+    }
+    for (kind, target) in [("light", None), ("move", Some("pond"))] {
+        let action = w.project(0).unwrap()["actions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|a| a["kind"] == kind && target.is_none_or(|to| a["target"] == to))
+            .unwrap()
+            .clone();
+        w.apply(&json!({"op":"play","actor":"vale","action":action}))
+            .unwrap();
+    }
+    w.game["items"]["cloth"]["holder"] = json!("vale");
+    let view = w.project(0).unwrap();
+    let actions = view["actions"].as_array().unwrap();
+    for kind in ["pursue", "share-quest", "join-quest"] {
+        assert!(actions
+            .iter()
+            .any(|a| a["kind"] == kind && a["cards"].is_null()));
+    }
+    let cover = actions
+        .iter()
+        .find(|a| a["kind"] == "cover")
+        .unwrap()
+        .clone();
+    let mut selected = w.request("play", 0);
+    selected["selectedIds"] = json!(["vale", "cloth", "lamp", "cloth"]);
+    let actual = engine::reduce(selected).unwrap();
+    assert_eq!(actual["ok"], true);
+    w.apply(&json!({"op":"play","actor":"vale","action":cover}))
+        .unwrap();
+    assert_eq!(actual["world"], w.game);
+    assert_eq!(w.game["items"]["cloth"]["holder"], "lamp");
+}
