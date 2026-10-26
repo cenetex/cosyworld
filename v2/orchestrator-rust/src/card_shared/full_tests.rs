@@ -284,15 +284,28 @@ fn full_world_bard_visit_and_song_replay_from_the_journal() {
                 w.game["actors"]["greek-rhapsode"]["place"],
                 "greek-courtyard"
             );
-            let poem = result["context"]["entities"]
+            let bard = result["context"]["entities"]
                 .as_array()
                 .unwrap()
                 .iter()
                 .find(|e| e["id"] == "greek-rhapsode")
-                .unwrap()["poem"]
-                .to_string();
-            assert!(poem.contains("I set the water by her hands."));
-            assert!(poem.contains("She kept a loaf of bread for me."));
+                .unwrap();
+            let stanza = bard["poem"]["stanzas"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|stanza| stanza["id"] == "greek-return-water-jar")
+                .unwrap();
+            assert_eq!(stanza["authorId"], "vale");
+            assert_eq!(stanza["authorName"], "Vale");
+            assert_eq!(
+                stanza["lines"],
+                json!([
+                    "I set the water by her hands.",
+                    "She kept a loaf of bread for me."
+                ])
+            );
+            assert_eq!(bard["poem"]["newLines"], stanza["lines"]);
         }
     }
     drop(c);
