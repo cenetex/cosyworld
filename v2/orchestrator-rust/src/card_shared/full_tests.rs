@@ -1190,7 +1190,42 @@ fn released_greek_upgrades_and_recitals_replay_before_collected_quests() {
                 now(),
             )
             .unwrap();
-            full_store::commit(&c, &id, &mut w, json!({"op":"speech","actor":"vale","room":"greek-well","lines":[{"actorId":"vale","text":"I remember the bread we shared."},{"actorId":"greek-rhapsode","text":"The song keeps that day."}]}), now()).unwrap();
+            assert_eq!(
+                w.game["actors"]["greek-rhapsode"]["place"],
+                "greek-courtyard"
+            );
+            let action = w.project(0).unwrap()["actions"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|a| a["kind"] == "move" && a["target"] == "greek-courtyard")
+                .unwrap()
+                .clone();
+            let result = full_store::commit(
+                &c,
+                &id,
+                &mut w,
+                json!({"op":"play","actor":"vale","action":action}),
+                now(),
+            )
+            .unwrap();
+            let poem = result["context"]["entities"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|e| e["id"] == "greek-rhapsode")
+                .unwrap()["poem"]
+                .clone();
+            assert!(poem["stanzas"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|s| s["id"] == "greek-return-water-jar"));
+            assert_eq!(
+                w.game["packs"]["greek-drama"]["receipts"],
+                previous.game["packs"]["greek-drama"]["receipts"]
+            );
+            full_store::commit(&c, &id, &mut w, json!({"op":"speech","actor":"vale","room":"greek-courtyard","lines":[{"actorId":"vale","text":"I remember the bread we shared."},{"actorId":"greek-rhapsode","text":"The song keeps that day."}]}), now()).unwrap();
             c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
             assert_eq!(full_store::world(&c, &id, now()).unwrap(), w);
             let upgrades: usize = c.query_row("SELECT count(*) FROM card_full_log WHERE json_extract(command,'$.op')='upgrade'", [], |r| r.get(0)).unwrap();
