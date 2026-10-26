@@ -207,6 +207,12 @@ Media can be PNG, SVG or WebP under the owning pack folder and is checked
 against actual file signatures and both server allowlists.
 
 Packs can own items, internal conditional routes, and typed choices.
+A choice can require custody from its acting avatar with
+`{"kind":"holding","item":"pack-item","role":"actor"}`. The command actor
+supplies this role. A condition with an explicit `actor` keeps that named
+character as its subject. Choices can supply `textTemplate` with `{actor}`
+for the acting avatar's name; ordinary `text` remains literal.
+
 Effects remain choose, set_flag and custody-checked place_item. Canonical
 person identities prevent incompatible embodiments being active together.
 Ordered receipts recompute saved choices/flags on loading.

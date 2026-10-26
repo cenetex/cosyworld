@@ -580,9 +580,11 @@ export function packProblems(pack, hub, mountedPlaces = []) {
           break;
         case "holding":
           ok =
-            keysOk(c, ["kind", "item", "actor"]) &&
+            keysOk(c, ["kind", "item", "actor", "role"]) &&
             owns(items, c.item) &&
-            (c.actor === hub.player || owns(avatars, c.actor));
+            (c.role === undefined
+              ? c.actor === hub.player || owns(avatars, c.actor)
+              : c.role === "actor" && c.actor === undefined);
           break;
         case "shared_world":
           ok = keysOk(c, ["kind"]);
@@ -708,6 +710,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "at",
         "label",
         "text",
+        "textTemplate",
         "summary",
         "requires",
         "effects",
@@ -719,6 +722,8 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         owns(places, c.at) &&
         textOk(c.label, 120) &&
         textOk(c.text, 600) &&
+        (c.textTemplate === undefined ||
+          templateOk(c.textTemplate, 600, ["actor"])) &&
         (c.summary === undefined || textOk(c.summary, 600)),
       `choice ${c.id} is invalid`,
     );
@@ -748,7 +753,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
             (r) =>
               r.kind === "holding" &&
               r.item === e.item &&
-              r.actor === hub.player,
+              (r.role === "actor" || r.actor === hub.player),
           );
       check(valid, `choice ${c.id} effect is unsupported or lacks custody`);
     }
