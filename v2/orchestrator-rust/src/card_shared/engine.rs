@@ -9,8 +9,15 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub(super) const VERSION: &str = "full-card-world/2";
-const SOURCE: &str = include_str!("engine-v2.js");
+pub(super) const VERSION: &str = "full-card-world/4";
+pub(super) const PREVIOUS_VERSION: &str = "full-card-world/2";
+const SOURCE: &str = include_str!("engine-v4.js");
+// Earlier actions replay with the exact rules that accepted them.
+const PREVIOUS_SOURCE: &str = include_str!("engine-v2.js");
+const THIRD_SOURCE: &str = include_str!("engine-v3.js");
+pub(super) fn historical(version: &str) -> bool {
+    matches!(version, PREVIOUS_VERSION | "full-card-world/3")
+}
 const MAX_BYTES: usize = 4 * 1024 * 1024;
 const CACHE_ENTRIES: usize = 32;
 const CACHE_BYTES: usize = 4 * 1024 * 1024;
@@ -48,7 +55,16 @@ fn views() -> &'static Mutex<Views> {
 }
 
 pub(super) fn reduce(request: Value) -> Result<Value> {
-    let view = request["op"] == "view";
+    reduce_version(VERSION, request)
+}
+pub(super) fn reduce_version(version: &str, request: Value) -> Result<Value> {
+    let source = match version {
+        VERSION => SOURCE,
+        PREVIOUS_VERSION => PREVIOUS_SOURCE,
+        "full-card-world/3" => THIRD_SOURCE,
+        _ => return Err("This world's rules need a saved migration.".into()),
+    };
+    let view = request["op"] == "view" && version == VERSION;
     let input = serde_json::to_string(&request).map_err(|_| "Choose a saved world.".to_string())?;
     if input.len() > MAX_BYTES {
         return Err("This saved world is too large to share.".into());
@@ -71,7 +87,7 @@ pub(super) fn reduce(request: Value) -> Result<Value> {
     let output = context.with(|ctx| -> Result<String> {
         ctx.eval::<(), _>("globalThis.structuredClone = value => JSON.parse(JSON.stringify(value)); globalThis.Date = undefined; Math.random = () => { throw new Error('Randomness must come from the saved world.'); };")
             .map_err(engine_error)?;
-        ctx.eval::<(), _>(SOURCE).map_err(|error| {
+        ctx.eval::<(), _>(source).map_err(|error| {
             tracing::error!(error=%error, exception=?ctx.catch(), "shared rules failed to load");
             "The shared-world rules need attention.".to_string()
         })?;

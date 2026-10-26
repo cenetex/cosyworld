@@ -350,94 +350,6 @@
     ])
   );
 
-  // v2/card-game/pack-recital.mjs
-  function recordRecital(world, pack, choice, actor) {
-    if (pack.recital?.verses.some((v) => v.choice === choice))
-      world.packs[pack.id].recitals[choice] = { actor, visit: null };
-  }
-  function arriveRecitals(world, packs, actor) {
-    if (!controlledByHuman(world, actor)) return [];
-    const arrivals = [];
-    for (const pack of packs) {
-      if (!pack.recital) continue;
-      const records = world.packs[pack.id].recitals;
-      const pending = pack.recital.verses.filter(
-        (v) => v.summons && records[v.choice]?.actor === actor && records[v.choice].visit === null
-      );
-      if (!pending.length) continue;
-      const singer = pack.recital.actor;
-      const from = world.actors[singer].place;
-      const to = world.actors[actor].place;
-      for (const verse of pending) records[verse.choice].visit = world.turn;
-      world.actors[singer].place = to;
-      arrivals.push({ actorId: singer, fromLocationId: from, locationId: to });
-    }
-    return arrivals;
-  }
-  function recitalVisit(world, pack) {
-    return Math.max(
-      0,
-      ...Object.values(world.packs?.[pack.id]?.recitals || {}).map(
-        (r) => r.visit || 0
-      )
-    );
-  }
-  function recitalPoem(world, pack, through = Infinity) {
-    const receipts = world.packs?.[pack.id]?.receipts || {};
-    const stanzas = (pack.recital?.verses || []).filter((v) => receipts[v.choice] && receipts[v.choice] <= through).sort((a, b) => receipts[a.choice] - receipts[b.choice]).map((v) => ({
-      id: v.choice,
-      turn: receipts[v.choice],
-      questId: v.quest,
-      lines: v.after && receipts[v.after.choice] < receipts[v.choice] ? v.after.lines : v.lines
-    }));
-    return { title: pack.recital?.title, stanzas };
-  }
-  function recitalFacts(world, packs, actor) {
-    const pack = packs.find((p) => p.recital?.actor === actor);
-    if (!pack) return [];
-    const visit = recitalVisit(world, pack);
-    if (!visit) return [];
-    const poem = recitalPoem(world, pack, visit - 1);
-    return [
-      `Your song is ${poem.title}. These are the traveler's earned words, in order. Sing a couplet when addressed; keep the whole journey in mind.`,
-      ...poem.stanzas.map((s, i) => {
-        const traveler = world.packs[pack.id].recitals[s.id].actor;
-        return `Verse ${i + 1}, ${humanAvatar(traveler).name}: ${s.lines.join("\n")}`;
-      })
-    ];
-  }
-  function validRecitals(world, pack) {
-    if (!pack.recital) return true;
-    const state = world.packs[pack.id], records = state.recitals;
-    if (!records || typeof records !== "object" || Array.isArray(records) || !state.receipts || typeof state.receipts !== "object" || Array.isArray(state.receipts))
-      return false;
-    const verses = pack.recital.verses.filter(
-      (v) => Object.hasOwn(state.receipts, v.choice)
-    );
-    if (Object.keys(records).length !== verses.length) return false;
-    return verses.every((v) => {
-      const r = records[v.choice];
-      return r && Object.keys(r).sort().join() === "actor,visit" && humanAvatar(r.actor) && (r.visit === null || v.summons && Number.isSafeInteger(r.visit) && r.visit > state.receipts[v.choice] && r.visit <= world.turn);
-    });
-  }
-  function upgradeRecitals(world, packs) {
-    for (const pack of packs) {
-      const state = world.packs?.[pack.id];
-      if (!pack.recital || !state || state.recitals !== void 0) continue;
-      state.recitals = {};
-      for (const v of pack.recital.verses) {
-        if (!Object.hasOwn(state.receipts || {}, v.choice)) continue;
-        const event = world.log?.find(
-          (e) => e.choiceId === v.choice && e.packId === pack.id
-        );
-        state.recitals[v.choice] = {
-          actor: event?.actorId || currentActor(world),
-          visit: null
-        };
-      }
-    }
-  }
-
   // v2/card-game/shared-rules.mjs
   var command = Object.freeze({
     claim: 1,
@@ -1348,23 +1260,21 @@
             }
           },
           "greek-rhapsode": {
-            name: "The Bard",
-            text: "He keeps the words of the journey in a song.",
+            name: "The Argolid Singer",
+            text: "He carries three accounts of a household's return. Each gives a different place to hear Electra.",
             place: "greek-argolid-road",
             home: "greek-argolid-road",
             values: {
               "greek-provisions": 2
             },
-            persona: "A wandering bard who carries the traveler's growing poem. His recorded verses are the traveler's words, sung in their voice. Speak in spare, vivid epic verse. When addressed, sing an earned couplet and connect it to the conversation. Keep each choice and its consequences as recorded. He also knows the separate tomb, palace, and farmhouse accounts of Electra when those places are open.",
-            voice: "A wandering bard who carries the traveler's growing poem. His recorded verses are the traveler's words, sung in their voice. Speak in spare, vivid epic verse. When addressed, sing an earned couplet and connect it to the conversation. Keep each choice and its consequences as recorded. He also knows the separate tomb, palace, and farmhouse accounts of Electra when those places are open.",
+            persona: "A singer who distinguishes the tomb account, palace account, and farmhouse account. Ask which testimony the traveler will pursue. Do not merge their events or claim any killing has occurred in this world.",
+            voice: "A singer who distinguishes the tomb account, palace account, and farmhouse account. Ask which testimony the traveler will pursue. Do not merge their events or claim any killing has occurred in this world.",
             portrait: "assets/greek-drama/chthonic-singer.png",
             tastes: {
               likes: "specific testimony, a patient audience",
               sore: "three incompatible accounts flattened into one",
-              reason: "He waits with a verse of the journey."
-            },
-            travels: false,
-            standoffs: false
+              reason: "He carries three accounts of a household's return. Each gives a different place to hear Electra."
+            }
           },
           "greek-market-neighbor": {
             name: "The Agora Neighbor",
@@ -2260,37 +2170,6 @@
               {
                 kind: "set_flag",
                 key: "greek-concession-public",
-                value: true
-              }
-            ]
-          },
-          {
-            id: "greek-courtyard-permitted-burial",
-            subject: "greek-baker",
-            at: "greek-courtyard",
-            label: "Tell Dione about the grave",
-            text: "Vale tells Dione that the permitted burial is complete. She hears that the brother now lies beneath the earth.",
-            requires: [
-              {
-                kind: "choice",
-                key: "greek-theban-response",
-                value: "concession"
-              },
-              {
-                kind: "flag",
-                key: "greek-concession-public",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-burial-performed",
-                value: true
-              }
-            ],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-permitted-burial-public",
                 value: true
               }
             ]
@@ -4526,8 +4405,7 @@
             "greek-guard",
             "greek-baker",
             "greek-elder",
-            "greek-shipmaster",
-            "greek-rhapsode"
+            "greek-shipmaster"
           ],
           items: [
             "greek-water-jar",
@@ -4552,121 +4430,8 @@
             "greek-report-plan",
             "greek-courtyard-burial",
             "greek-courtyard-concession",
-            "greek-courtyard-permitted-burial",
             "greek-courtyard-refusal",
             "greek-courtyard-exposure"
-          ]
-        },
-        recital: {
-          actor: "greek-rhapsode",
-          title: "Before the Burial",
-          verses: [
-            {
-              choice: "greek-return-water-jar",
-              quest: "story-quest-greek-table",
-              lines: [
-                "I set the water by her hands.",
-                "She kept a loaf of bread for me."
-              ],
-              summons: true
-            },
-            {
-              choice: "greek-petition-burial",
-              quest: "story-quest-greek-burial",
-              lines: [
-                "Creon has granted this one grave.",
-                "Her brother waits for earth."
-              ],
-              summons: false
-            },
-            {
-              choice: "greek-perform-burial",
-              quest: "story-quest-greek-burial",
-              lines: [
-                "I laid her brother in the earth.",
-                "The king's words crossed the wind."
-              ],
-              summons: true
-            },
-            {
-              choice: "greek-perform-permitted-burial",
-              quest: "story-quest-greek-burial",
-              lines: [
-                "Creon gave leave for this one grave.",
-                "I laid her brother in the earth."
-              ],
-              summons: true
-            },
-            {
-              choice: "greek-decline-burial",
-              quest: "story-quest-greek-burial",
-              lines: [
-                "I told her I would turn away.",
-                "Her brother waited by the wall."
-              ],
-              summons: true
-            },
-            {
-              choice: "greek-report-plan",
-              quest: "story-quest-greek-burial",
-              lines: [
-                "I gave the guard the hidden plan.",
-                "He held it with the king's command."
-              ],
-              summons: true
-            },
-            {
-              choice: "greek-courtyard-burial",
-              quest: "story-quest-greek-courtyard",
-              lines: [
-                "I spoke of earth beside her table.",
-                "Dione heard me through."
-              ],
-              summons: true
-            },
-            {
-              choice: "greek-courtyard-concession",
-              quest: "story-quest-greek-courtyard",
-              lines: [
-                "I spoke the promise of a grave.",
-                "His body waited in the sun."
-              ],
-              summons: true,
-              after: {
-                choice: "greek-perform-permitted-burial",
-                lines: [
-                  "I told her of the king's consent.",
-                  "She heard the leave that he had given."
-                ]
-              }
-            },
-            {
-              choice: "greek-courtyard-refusal",
-              quest: "story-quest-greek-courtyard",
-              lines: [
-                "I told her how I turned away.",
-                "She kept a place beside her table."
-              ],
-              summons: true
-            },
-            {
-              choice: "greek-courtyard-exposure",
-              quest: "story-quest-greek-courtyard",
-              lines: [
-                "I told her what the guard had heard.",
-                "My words lay open on the table."
-              ],
-              summons: true
-            },
-            {
-              choice: "greek-courtyard-permitted-burial",
-              quest: "story-quest-greek-courtyard",
-              lines: [
-                "The grave I promised holds him now.",
-                "I brought that word to Dione."
-              ],
-              summons: true
-            }
           ]
         },
         bridge: {
@@ -4858,8 +4623,7 @@
         "release",
         "sources",
         "observations",
-        "transports",
-        "recital"
+        "transports"
       ]),
       "has an unknown top-level field"
     );
@@ -5297,22 +5061,6 @@
         idOk(g.key) && new Set(g.options).size === g.options.length && g.options.every((o) => writes.get(g.key)?.has(o)) && writes.get(g.key)?.size === g.options.length,
         "continuity options must match authored commitments"
       );
-    if (pack.recital !== void 0) {
-      const r = pack.recital;
-      check(
-        keysOk(r, ["actor", "title", "verses"]) && owns(avatars, r?.actor) && avatars[r.actor].travels === false && avatars[r.actor].standoffs === false && textOk(r.title, 80) && Array.isArray(r.verses) && r.verses.length > 0 && r.verses.length <= 64,
-        "recital needs a stationary singer, a title and up to 64 verses"
-      );
-      const seen = /* @__PURE__ */ new Set();
-      const linesOk = (lines) => Array.isArray(lines) && lines.length === 2 && lines.every((line) => textOk(line, 90));
-      for (const v of Array.isArray(r?.verses) ? r.verses : []) {
-        check(
-          keysOk(v, ["choice", "quest", "lines", "summons", "after"]) && choiceIds.has(v?.choice) && !seen.has(v.choice) && idOk(v.quest) && linesOk(v.lines) && typeof v.summons === "boolean" && (v.after === void 0 || keysOk(v.after, ["choice", "lines"]) && choiceIds.has(v.after.choice) && v.after.choice !== v.choice && linesOk(v.after.lines)),
-          "recital verse needs a unique choice, quest, couplet and summons flag; after may select an earlier deed"
-        );
-        seen.add(v?.choice);
-      }
-    }
     if (problems2.length) return problems2;
     const combinations = groups.reduce(
       (states, g) => states.flatMap(
@@ -5359,7 +5107,7 @@
       );
       for (const id of r.avatars)
         check(
-          r.places.includes(avatars[id]?.place) || pack.recital?.actor === id,
+          r.places.includes(avatars[id]?.place),
           "release avatar is outside its places"
         );
       for (const id of r.items)
@@ -5616,7 +5364,6 @@
   var newCrossingState = (c) => c.signal ? { discovered: false, phase: 0, until: 0 } : { discovered: false };
   var newPackRecord = (pack) => ({
     revision: pack.revision,
-    ...pack.recital ? { recitals: {} } : {},
     ...pack.choices ? {
       choices: {},
       flags: {},
@@ -5870,8 +5617,7 @@
           "flags",
           "receipts",
           "met",
-          "scope",
-          ...pack.recital ? ["recitals"] : []
+          "scope"
         ] : ["revision", "sounds"]
       ) || record3.revision !== pack.revision || !exactKeys(
         record3.sounds,
@@ -6060,7 +5806,6 @@
     const pack = packDefinition(e.packId), state = packState(world, e.packId);
     if (!state || !conditionsMet(world, e.packId, e.requires)) return false;
     if (!pack.release || state.scope === "full") return true;
-    if (pack.recital?.actor === id && !recitalVisit(world, pack)) return false;
     return [pack.release.places, pack.release.avatars, pack.release.items].some(
       (ids3) => ids3.includes(id)
     );
@@ -6130,7 +5875,6 @@
       }
     }
     state.receipts[choice.id] = world.turn;
-    recordRecital(world, pack, choice.id, action.actor);
     return choice;
   }
   function packFacts(world, id) {
@@ -6170,16 +5914,7 @@
     for (const pack of packDefinitions) {
       if (!pack.choices) continue;
       const state = world.packs[pack.id];
-      if (!record2(state) || !validRecitals(world, pack) || state.revision !== pack.revision || !["opening", "full"].includes(state.scope) || Object.keys(state).sort().join() !== [
-        "revision",
-        "sounds",
-        "choices",
-        "flags",
-        "receipts",
-        "met",
-        "scope",
-        ...pack.recital ? ["recitals"] : []
-      ].sort().join() || ![state.choices, state.flags, state.receipts, state.met].every(record2) || Object.entries(state.met).some(
+      if (!record2(state) || state.revision !== pack.revision || !["opening", "full"].includes(state.scope) || Object.keys(state).sort().join() !== ["revision", "sounds", "choices", "flags", "receipts", "met", "scope"].sort().join() || ![state.choices, state.flags, state.receipts, state.met].every(record2) || Object.entries(state.met).some(
         ([id, turn]) => !owns2(pack.avatars, id) || !conditionsMet(world, pack.id, pack.avatars[id]?.requires) || world.opening && !sharedEnabled(world) && world.opening.met?.[id] !== turn || !Number.isSafeInteger(turn) || turn < 0 || turn > world.turn
       ))
         return false;
@@ -6828,7 +6563,7 @@
         items: active ? wish.items.filter(
           (id) => entityActive(s, id) && owner(s, id) !== actor
         ) : [],
-        location: packOf(actor)?.recital?.actor === actor ? s.actors[actor].place : active ? wish.location : resident.home || resident.place,
+        location: active ? wish.location : resident.home || resident.place,
         avatars: active ? wish.avatars.filter((id) => entityActive(s, id)) : [],
         text: resident.tastes.likes,
         reason: resident.tastes.reason
@@ -8019,7 +7754,6 @@
       upgradeTransportSave(s);
       installPacks2(s);
     }
-    if (s?.schema === 7) upgradeRecitals(s, packDefinitions);
     return s;
   }
   function upgradeTransportSave(s) {
@@ -8070,7 +7804,7 @@
     if (old !== void 0) {
       const allowed = ["revision", "choices", "flags", "receipts", "met"], current = [...allowed, "sounds", "scope"];
       const keys = old && typeof old === "object" ? Object.keys(old).sort().join() : "";
-      if (keys === current.sort().join() || keys === [...current, "recitals"].sort().join()) {
+      if (keys === current.sort().join()) {
         if (s.locations?.pond?.shipSignal !== void 0)
           throw new Error("Conflicting legacy lamp signal.");
         return;
@@ -9140,7 +8874,6 @@
       default:
         throw new Error("Unknown act.");
     }
-    const recitals = here !== s.actors[a.actor].place ? arriveRecitals(s, packDefinitions, a.actor) : [];
     meetCast(s);
     capture();
     recordReaction(s, a, witnesses, requestAccepted);
@@ -9160,18 +8893,6 @@
       ...invitation ? { destinationId: a.destination, accepted: invitation.accepted } : {},
       ...a.kind === "attack" ? { locationId: here } : {}
     });
-    for (const visit of recitals)
-      addLog(
-        s,
-        "World",
-        `${nameOf(visit.actorId)} waits here with a song of ${who}'s journey.`,
-        {
-          ...visit,
-          kind: "narration",
-          verb: "move",
-          witnesses: [a.actor, visit.actorId]
-        }
-      );
     if (arrival) {
       const { text: arrivalText, ...details } = arrival;
       addLog(s, "World", arrivalText, details);
@@ -10164,7 +9885,7 @@
         );
         return {
           id,
-          facts: [...recitalFacts(world, packDefinitions, id), ...facts].slice(0, 8).map((text) => text.slice(0, 240)),
+          facts: facts.slice(0, 8).map((text) => text.slice(0, 240)),
           desire,
           memories: speechMemories(world.memories[id], {
             expressions: !beforeFirstLight
