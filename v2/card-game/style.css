@@ -595,7 +595,6 @@ h2 {
 .hand[aria-busy="true"] .card,
 #card-actions[aria-busy="true"] button {
   opacity: 0.7;
-  cursor: wait;
 }
 .hand[aria-busy="true"] .card:hover {
   transform: none;
