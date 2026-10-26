@@ -66,7 +66,7 @@ export function recitalFacts(world, packs, actor) {
     `Your song is ${poem.title}. These are the traveler's earned words, in order. Sing a couplet when addressed; keep the whole journey in mind.`,
     ...poem.stanzas.map((s, i) => {
       const traveler = world.packs[pack.id].recitals[s.id].actor;
-      return `Verse ${i + 1}, ${humanAvatar(traveler).name}: ${s.lines.join("\n")}`;
+      return `Verse ${i + 1}, ${humanAvatar(traveler).name}: ${s.lines.join(" ")}`;
     }),
   ];
 }

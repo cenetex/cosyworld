@@ -65,7 +65,7 @@ describe("the opening poem", () => {
     expect(entityActive(next, bard)).toBe(true);
     expect(next.actors[bard].place).toBe("greek-well");
     expect(facts(act(next, "talk", bard)).join("\n")).toContain(
-      lines(s.water).join("\n"),
+      lines(s.water).join(" "),
     );
     const away = act(reload(next), "move", "greek-palace");
     expect(away.actors[bard].place).toBe("greek-well");
@@ -88,9 +88,11 @@ describe("the opening poem", () => {
         song
           .filter((f) => f.startsWith("Verse "))
           .map((f) => f.split(": ").slice(1).join(": ")),
-      ).toEqual(stanzas(s.closed).map((s) => s.lines.join("\n")));
+      ).toEqual(stanzas(s.closed).map((s) => s.lines.join(" ")));
       expect(song.length).toBeLessThanOrEqual(8);
-      expect(song.every((f) => f.length <= 240)).toBe(true);
+      expect(
+        song.every((f) => f.length <= 240 && !/[\u0000-\u001f\u007f]/u.test(f)),
+      ).toBe(true);
       expect(facts(reload(talked))).toEqual(song);
     },
   );

@@ -125,7 +125,7 @@ export async function checkOpeningPoem(browser, origin) {
         await page.locator(`[data-choice="${choice}"]`).click();
         await settle();
         const expected = openingPoem(fixtures.closed).stanzas.map((s) =>
-          s.lines.join("\n"),
+          s.lines.join(" "),
         );
         // Finishing the report preserves the pending visit through reload.
         await page.reload();
@@ -141,6 +141,11 @@ export async function checkOpeningPoem(browser, origin) {
           await selectCard(page, "greek-rhapsode", { touch: width < 700 });
           await page.locator('#card-actions [data-action="talk"]').click();
           await settle();
+          assert.equal(
+            await page.locator("#story-retry").isVisible(),
+            false,
+            "The bard response is accepted",
+          );
           const input = requests.at(-1);
           assert.ok(input.speakers.includes("greek-rhapsode"));
           const facts = input.entities.find(
