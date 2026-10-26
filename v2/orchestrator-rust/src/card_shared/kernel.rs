@@ -24,6 +24,7 @@ pub(super) struct Action {
 extern "C" {
     fn ct_init(world: *mut World);
     fn ct_apply(world: *mut World, action: Action) -> i32;
+    #[cfg(test)]
     fn ct_can_visit(world: *const World, actor: i32, place: i32) -> i32;
 }
 impl World {
@@ -56,6 +57,7 @@ impl World {
             _ => Err("That person has moved. Choose someone here.".into()),
         }
     }
+    #[cfg(test)]
     pub fn exits(&self, a: i32) -> Vec<i32> {
         (0..9)
             .filter(|p| unsafe { ct_can_visit(self, a, *p) } == 1)

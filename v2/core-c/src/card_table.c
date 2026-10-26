@@ -74,3 +74,41 @@ int32_t ct_apply(ct_world *w,ct_action c) {
   }
   w->turn++; return CT_OK;
 }
+
+int32_t ct_shared_guard(const ct_shared_session *before,
+                        const ct_shared_session *after,
+                        int32_t kind, int32_t actor_id) {
+  if(!before || !after || !avatar(actor_id)) return CT_INVALID;
+  for(int i=0;i<CT_AVATARS;i++) {
+    if((after->claimed[i]!=0 && after->claimed[i]!=1) ||
+       (after->present[i]!=0 && after->present[i]!=1) ||
+       (after->present[i] && !after->claimed[i]) ||
+       !memchr(after->rooms[i],0,CT_ROOM_ID_BYTES) || !after->rooms[i][0])
+      return CT_INVALID;
+    if(i!=actor_id && (before->claimed[i]!=after->claimed[i] ||
+                      before->present[i]!=after->present[i])) return CT_INVALID;
+  }
+  int a=actor_id;
+  if(kind==CT_CLAIM) {
+    if(before->claimed[a]) return CT_CLAIMED;
+    if(after->claimed[a]!=1 || after->present[a]!=before->present[a]) return CT_INVALID;
+  } else if(kind==CT_RELEASE) {
+    if(!before->claimed[a] || after->claimed[a] || after->present[a]) return CT_INVALID;
+  } else if(kind==CT_ENTER) {
+    if(!before->claimed[a] || after->claimed[a]!=1 || after->present[a]!=1) return CT_ABSENT;
+  } else if(kind==CT_LEAVE) {
+    if(after->claimed[a]!=before->claimed[a] || after->present[a]) return CT_INVALID;
+  } else if(kind==CT_WAIT || kind==CT_SHARED_TEXT) {
+    if(memcmp(before->claimed,after->claimed,sizeof(before->claimed)) ||
+       memcmp(before->present,after->present,sizeof(before->present))) return CT_INVALID;
+    if(kind==CT_WAIT && (!before->claimed[a] || !before->present[a])) return CT_ABSENT;
+  } else return CT_INVALID;
+  for(int i=0;i<CT_AVATARS;i++) {
+    if(!after->present[i]) continue;
+    int occupants=0;
+    for(int j=0;j<CT_AVATARS;j++)
+      occupants += after->present[j] && strcmp(after->rooms[i],after->rooms[j])==0;
+    if(occupants>CT_ROOM_LIMIT) return CT_FULL;
+  }
+  return CT_OK;
+}

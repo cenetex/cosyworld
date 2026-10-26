@@ -1,0 +1,133 @@
+use super::{cast, engine, store::Result};
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub(super) struct World {
+    pub version: String,
+    pub game: Value,
+    pub claimed: [i32; 8],
+    pub present: [i32; 8],
+}
+#[repr(C)]
+struct Session {
+    claimed: [i32; 8],
+    present: [i32; 8],
+    rooms: [[u8; 128]; 8],
+}
+extern "C" {
+    fn ct_shared_guard(before: *const Session, after: *const Session, kind: i32, actor: i32)
+        -> i32;
+}
+pub(super) fn actor_id(a: usize) -> &'static str {
+    cast()["avatars"][a]["id"].as_str().expect("cast ID")
+}
+pub(super) fn actor_index(id: &str) -> Result<usize> {
+    (0..8)
+        .find(|a| actor_id(*a) == id)
+        .ok_or_else(|| "Choose one of the eight avatars.".into())
+}
+impl World {
+    pub fn create(save: Option<&str>) -> Result<Self> {
+        let result = engine::reduce(json!({"op":"create","save":save}))?;
+        Ok(Self {
+            version: engine::VERSION.into(),
+            game: result["world"].clone(),
+            claimed: [0; 8],
+            present: [0; 8],
+        })
+    }
+    pub fn room(&self, a: usize) -> Result<&str> {
+        self.game["actors"][actor_id(a)]["place"]
+            .as_str()
+            .ok_or_else(|| "The avatar's place needs attention.".into())
+    }
+    pub fn request(&self, op: &str, a: usize) -> Value {
+        json!({"op":op,"world":self.game,"actor":actor_id(a),
+          "claimed":(0..8).filter(|i|self.claimed[*i]==1).map(actor_id).collect::<Vec<_>>(),
+          "present":(0..8).filter(|i|self.present[*i]==1).map(actor_id).collect::<Vec<_>>()})
+    }
+    fn session(&self) -> Result<Session> {
+        let mut s = Session {
+            claimed: self.claimed,
+            present: self.present,
+            rooms: [[0; 128]; 8],
+        };
+        for a in 0..8 {
+            let room = self.room(a)?;
+            if room.is_empty() || room.len() >= 128 || room.bytes().any(|b| b == 0) {
+                return Err("The place ID needs attention.".into());
+            }
+            s.rooms[a][..room.len()].copy_from_slice(room.as_bytes());
+        }
+        Ok(s)
+    }
+    fn guard(&self, next: &Self, kind: i32, a: usize) -> Result<()> {
+        let code = unsafe { ct_shared_guard(&self.session()?, &next.session()?, kind, a as i32) };
+        match code {
+            0 => Ok(()),
+            2 => Err("That avatar has just been claimed.".into()),
+            3 => Err("Enter the room before playing.".into()),
+            4 => Err("The room filled just now. Wait for a place.".into()),
+            _ => Err("Choose an available play.".into()),
+        }
+    }
+    // Every journal command is reduced through the same C guard and C-hosted
+    // authored rules. AI text is appended by the authored speech reducer.
+    pub fn apply(&mut self, command: &Value) -> Result<Value> {
+        if self.version != engine::VERSION {
+            return Err("This world's rules need a saved migration.".into());
+        }
+        let a = actor_index(command["actor"].as_str().ok_or("Choose an avatar.")?)?;
+        let op = command["op"].as_str().ok_or("Choose an action.")?;
+        let mut next = self.clone();
+        let (kind, result) = match op {
+            "claim" => {
+                let result = engine::reduce(self.request("join", a))?;
+                next.game = result["world"].clone();
+                next.claimed[a] = 1;
+                (1, result)
+            }
+            "release" => {
+                next.claimed[a] = 0;
+                next.present[a] = 0;
+                (2, json!({}))
+            }
+            "enter" => {
+                next.present[a] = 1;
+                (3, json!({}))
+            }
+            "leave" => {
+                next.present[a] = 0;
+                (4, json!({}))
+            }
+            "play" => {
+                let mut request = self.request("play", a);
+                request["action"] = command["action"].clone();
+                let result = engine::reduce(request)?;
+                next.game = result["world"].clone();
+                (11, result)
+            }
+            "speech" => {
+                let mut request = self.request("speech", a);
+                request["lines"] = command["lines"].clone();
+                request["room"] = command["room"].clone();
+                request["entries"] = command["entries"].clone();
+                let result = engine::reduce(request)?;
+                next.game = result["world"].clone();
+                // Committed text can finish after its speaker disconnects.
+                self.guard(&next, 12, a)?;
+                *self = next;
+                return Ok(result);
+            }
+            _ => return Err("Choose an available play.".into()),
+        };
+        self.guard(&next, kind, a)?;
+        *self = next;
+        Ok(result)
+    }
+    pub fn project(&self, a: usize) -> Result<Value> {
+        engine::reduce(self.request("view", a))
+    }
+}

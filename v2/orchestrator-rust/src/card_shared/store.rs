@@ -71,6 +71,7 @@ pub(super) fn world(c: &Connection, id: &str) -> Result<World> {
     }
     Ok(w)
 }
+#[cfg(test)]
 pub(super) fn commit(c: &Connection, id: &str, w: &mut World, a: Action, now: i64) -> Result<()> {
     w.apply(a)?;
     c.execute(
@@ -92,6 +93,7 @@ pub(super) fn member(c: &Connection, id: &str, user: &str) -> Result<Option<i32>
     .optional()
     .map_err(err)
 }
+#[cfg(test)]
 pub(super) fn expire(c: &Connection, id: &str, w: &mut World, now: i64) -> Result<()> {
     let mut q = c
         .prepare("SELECT actor FROM card_members WHERE world=? AND seen<?")
@@ -179,6 +181,7 @@ pub(super) fn list(c: &Connection, user: &str) -> Result<Value> {
     let rows=q.query_map(params![user,user,user],|r|Ok(json!({"id":r.get::<_,String>(0)?,"actor":r.get::<_,Option<i32>>(1)?,"claimed":r.get::<_,i32>(2)?}))).map_err(err)?.collect::<std::result::Result<Vec<_>,_>>().map_err(err)?;
     Ok(json!({"worlds":rows}))
 }
+#[cfg(test)]
 pub(super) fn snapshot(c: &Connection, id: &str, user: &str, now: i64) -> Result<Value> {
     let w = world(c, id)?;
     let actor = member(c, id, user)?;
@@ -236,6 +239,7 @@ pub(super) fn snapshot(c: &Connection, id: &str, user: &str, now: i64) -> Result
         json!({"id":id,"actor":a,"world":view,"exits":if here{w.exits(a)}else{vec![]},"queue":if here{queue}else{vec![]},"history":history,"nudge":nudge,"notice":recent.and_then(|s|serde_json::from_str::<Value>(&s).ok()).and_then(|v|v["error"].as_str().map(str::to_string)),"now":now}),
     )
 }
+#[cfg(test)]
 pub(super) fn enqueue(
     c: &Connection,
     id: &str,
