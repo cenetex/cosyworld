@@ -32,6 +32,7 @@ import {
   socialPlan,
   recordReaction,
   validMotives,
+  tastes,
 } from "./motives.mjs";
 import { newMemories, rememberEvent, validMemories } from "./memory.mjs";
 import {
@@ -46,6 +47,12 @@ import {
   alternatives,
   generateProgram,
   sequence,
+  actorQuests,
+  installQuestCollection,
+  ensureCollectedQuest,
+  collectExperienceQuests,
+  pursueQuest,
+  recordQuestProgress,
 } from "./quests.mjs";
 import {
   lifeOf,
@@ -55,9 +62,10 @@ import {
   recordLifeAction,
   finishPersonalQuest,
   validLife,
-  INSPIRATION_MAX,
   installHumanLife,
-  hopes,
+  hopeOf,
+  settleLife,
+  purposeOrigin,
 } from "./life.mjs";
 import {
   conditionMet,
@@ -115,6 +123,9 @@ import forest from "./forest.json" with { type: "json" };
 
 // Authored forest data and mounted packs share the same rule path.
 export const places = { ...forest.places, ...packPlaces };
+export const sanctuaries = Object.keys(places).filter(
+  (id) => places[id].sanctuary === true,
+);
 export const people = { ...forest.people, ...packPeople };
 export const things = { ...packThings, ...forest.things };
 validatePackLinks(places, people, things);
@@ -190,7 +201,7 @@ function installPacks(s) {
         if (other !== id) actor.trust[other] ??= 0;
     for (const id of Object.keys(pack.places)) s.memories[id] ??= fresh[id];
   }
-  installHumanLife(s);
+  installHumanLife(s, (id) => tastes[id]);
 }
 export function rootHolder(s, id) {
   let holder = s.items[id].holder;
@@ -430,15 +441,22 @@ export function tradeOffers(s, actor) {
   );
 }
 // Capture each fulfilled hand before another actor can leave or move an item.
-// Program changes happen after the round, so every actor pursues one step per turn.
+// Each collected card captures at most one step per round, before consequences run.
 function captureHands(s, met) {
   if (!hasQuestPrograms(s)) return;
   for (const actor of knownActors(s).filter((id) => !isPackActor(id))) {
-    const target = targetsFor(s, actor).find(
+    const collection = lifeOf(s, actor)?.collection;
+    const cards = collection
+      ? collection.cards.filter((q) => q.completedTurn === null)
+      : [{key: null, program: programFor(s, actor), step: s.actors[actor].progress.step}];
+    for (const card of cards) {
+    const key = card.key ? `${actor}/${card.key}` : actor;
+    const target = alternatives(card.program?.steps[card.step]).find(
       (h) => handStatus(s, actor, h).met,
     );
-    if (!met.has(actor) && target) {
-      met.set(actor, {
+    if (!met.has(key) && target) {
+      met.set(key, {
+        actor, questKey: card.key, step: card.step,
         target: structuredClone(target),
         fulfillment: {
           items: [...target.items],
@@ -464,6 +482,7 @@ function captureHands(s, met) {
         },
       });
     }
+    }
   }
 }
 // Each new program reads the programs chosen before it in the same round, so two
@@ -471,6 +490,7 @@ function captureHands(s, met) {
 function ensurePrograms(s) {
   for (const actor of actorIds.filter((id) => !isPackActor(id))) {
     const p = s.actors[actor].progress;
+    if (ensureCollectedQuest(s, actor, programPlaces(s), things)) continue;
     if (p.program >= programsFor(s, actor).length && !p.current) {
       p.completedHands ??= programsFor(s, actor).reduce(
         (n, program) => n + program.steps.length,
@@ -497,6 +517,7 @@ function refreshStalledPrograms(s) {
   )) {
     const p = s.actors[actor].progress,
       current = programFor(s, actor);
+    if (lifeOf(s, actor)?.collection) continue;
     if (
       !current?.generated ||
       s.turn - Math.max(current.generated.turn, p.marks.at(-1) || 0) < 12
@@ -580,41 +601,45 @@ function applyConsequence(s, actor, target) {
 function advancePrograms(s, met) {
   if (!hasQuestPrograms(s)) return;
   const receipts = [];
-  for (const [actor, evidence] of met) {
-    const progress = s.actors[actor].progress,
-      program = programFor(s, actor),
-      step = progress.step,
-      programIndex = progress.program;
+  const consequences = new Set();
+  for (const evidence of met.values()) {
+    const actor = evidence.actor;
+    const progress = s.actors[actor].progress;
+    const collection = lifeOf(s, actor)?.collection;
+    const card = collection?.cards.find((q) => q.key === evidence.questKey);
+    if (card && (card.completedTurn !== null || card.lastProgressTurn === s.turn || card.step !== evidence.step)) continue;
+    const source = card?.program || programFor(s, actor);
+    const programIndex = progress.program;
+    const program = source.generated ? {...source,
+      id: `generated-${actor}-${programIndex + 1}`,
+      generated: {...source.generated, level: programIndex + 1}} : source;
+    const step = card ? card.step : progress.step;
+    const complete = step + 1 === program.steps.length;
+    const wasActive = !collection || collection.active === card.key;
     progress.marks.push(s.turn);
     progress.marks = progress.marks.slice(-32);
-    progress.step += 1;
-    const complete = progress.step === program.steps.length;
+    if (collection) recordQuestProgress(s, actor, complete, card.key);
+    else progress.step += 1;
     if (complete) {
-      finishPersonalQuest(s, actor, program, evidence.target);
-      applyConsequence(s, actor, evidence.target);
+      finishPersonalQuest(s, actor, program, sanctuaries, {rest: wasActive || !collection?.active});
+      const effect = evidence.target.consequence;
+      const consequenceKey = effect && JSON.stringify([effect, effect.kind === "trust" ? actor : null]);
+      if (effect && !consequences.has(consequenceKey)) {
+        applyConsequence(s, actor, evidence.target);
+        consequences.add(consequenceKey);
+      }
+      if (collection) progress.completedHands = collection.earned;
       if (program.generated) {
-        progress.completedHands += program.steps.length;
+        if (!collection) progress.completedHands += program.steps.length;
         if (program.generated.item)
-          progress.recent = [...progress.recent, program.generated.item].slice(
-            -4,
-          );
-        progress.recentKinds = [
-          ...(progress.recentKinds || []),
-          program.generated.situation || "bargain",
-        ].slice(-4);
-        delete progress.current;
+          progress.recent = [...(progress.recent || []), program.generated.item].slice(-4);
+        progress.recentKinds = [...(progress.recentKinds || []), program.generated.situation || "bargain"].slice(-4);
+        if (wasActive) delete progress.current;
       }
       progress.program += 1;
-      progress.step = 0;
+      if (wasActive) progress.step = 0;
     }
-    receipts.push({
-      actor,
-      program,
-      step,
-      programIndex,
-      complete,
-      ...evidence,
-    });
+    receipts.push({actor, program, step, programIndex, complete, ...evidence});
   }
   ensurePrograms(s);
   for (const {
@@ -625,25 +650,29 @@ function advancePrograms(s, met) {
     complete,
     target,
     fulfillment,
+    questKey,
   } of receipts) {
     let text = `${nameOf(actor)} completes hand ${step + 1}/${program.steps.length} of ${program.name}.`;
-    if (complete) text += ` Level ${levelOf(s, actor)}.`;
+    if (complete) text += ` Level ${programIndex + 2}.`;
     const life = lifeOf(s, actor);
     if (complete && life?.milestones.at(-1) === s.turn)
-      text += ` Hope milestone: ${hopes[actor].milestones[life.milestones.length - 1].title}.`;
+      text += ` Hope milestone: ${hopeOf(s, actor).milestones[life.milestones.length - 1].title}.`;
     text += questActive(s, actor)
       ? ` Next: ${handText(desireFor(s, actor))}.`
-      : " Take time to enjoy this. Helpful actions will grow a new purpose.";
+      : lifeOf(s, actor)?.phase === "returning"
+        ? ` Next: rest at ${nameOf(lifeOf(s, actor).restAt)}.`
+        : " Time to rest and enjoy it.";
     addLog(s, "World", text, {
       kind: "quest",
       actorId: actor,
       programId: program.id,
       program: structuredClone(program),
       programIndex,
+      ...(questKey ? {questKey} : {}),
       target,
       fulfillment,
       step,
-      level: levelOf(s, actor),
+      level: programIndex + 1 + Number(complete),
     });
   }
 }
@@ -866,6 +895,19 @@ export function legalActions(s, actor = currentActor(s)) {
   const out = [
     offer("wait", actor, null, null, `${nameOf(actor)} waits one turn.`, []),
   ];
+  for (const quest of actorQuests(s, actor).filter(
+    (q) => q.status === "pending",
+  )) {
+    out.push({
+      kind: "pursue",
+      actor,
+      questKey: quest.key,
+      key: `pursue:${actor}:${quest.key}`,
+      label: "Pursue",
+      text: `${nameOf(actor)} chooses ${quest.program.name}.`,
+      parts: [],
+    });
+  }
   for (const to of exits(s, here, actor)) {
     const through = !baseExits(s, here).includes(to);
     const crossing = crossingBetween(here, to, s);
@@ -1220,6 +1262,11 @@ function perform(s, a, capture = () => {}, round = null) {
     if (a.actor === conflict.defender) conflict.answered = true;
   }
   if (a.kind === "wait") return;
+  if (a.kind === "pursue") {
+    pursueQuest(s, a.actor, a.questKey);
+    addLog(s, "World", a.text, { actorId: a.actor, locationId: here });
+    return;
+  }
   const holder = holderBefore(s, a);
   const usefulGift =
     a.kind === "give" &&
@@ -1824,6 +1871,7 @@ export function play(
     };
   const next = structuredClone(s);
   if (actor !== "vale" || s.playerActorId) next.playerActorId = actor;
+  for (const id of actorIds) installQuestCollection(next, id);
   const previousHopes = Object.fromEntries(
     knownActors(s).map((id) => [id, lifeOf(s, id)?.milestones.length || 0]),
   );
@@ -1831,16 +1879,12 @@ export function play(
   const round = beginRound(s, sensesFor(s));
   next.turn += 1;
   next.revision += 1;
-  for (const actor of knownActors(next)) {
-    const life = lifeOf(next, actor);
-    if (life?.phase === "content" && next.turn > life.restUntil)
-      life.phase = "seeking";
-  }
   const reflectionSource = next.actors[actor].place;
   const wasOpen = reflectionOpen(next, reflectionSource);
   if (exact.kind === "wait")
     addLog(next, "World", `${nameOf(actor)} waits. The cast takes a turn.`);
   const met = new Map();
+  if (exact.kind === "pursue") pursueQuest(next, actor, exact.questKey);
   captureHands(next, met);
   const active = knownActors(next);
   const respondent = perform(next, exact, () => captureHands(next, met), round);
@@ -1924,28 +1968,30 @@ export function play(
   advancePrograms(next, met);
   for (const actor of knownActors(next)) {
     const life = lifeOf(next, actor);
-    if (life && life.milestones.length > (previousHopes[actor] || 0))
+    if (life && life.milestones.length > (previousHopes[actor] || 0)) {
+      const hope = hopeOf(next, actor);
       addLog(
         next,
         "World",
-        `${nameOf(actor)} reaches a hope milestone: ${hopes[actor].milestones[life.milestones.length - 1].title}. Hope ${life.milestones.length}/3.`,
+        `${nameOf(actor)} reaches a hope milestone: ${hope.milestones[life.milestones.length - 1].title}. Hope ${life.milestones.length}/${hope.milestones.length}.`,
         { actorId: actor },
-      );
-  }
-  for (const actor of knownActors(next)) {
-    const life = lifeOf(next, actor);
-    if (life?.phase === "seeking" && life.inspiration >= INSPIRATION_MAX) {
-      life.phase = "active";
-      life.inspiration = 0;
-      ensurePrograms(next);
-      addLog(
-        next,
-        "World",
-        `${nameOf(actor)} finds a new purpose: ${programFor(next, actor).name}. Hope: ${hopes[actor].title}.`,
-        { actorId: actor, questPlan: structuredClone(programFor(next, actor)) },
       );
     }
   }
+  for (const actor of settleLife(next, knownActors(next).filter((id) => !controlledByHuman(next, id) || id === exact.actor), sanctuaries)) {
+    ensurePrograms(next);
+    const origin = purposeOrigin(next, actor);
+    if (!programFor(next, actor)) continue;
+    addLog(
+      next,
+      "World",
+      `${nameOf(actor)} finds a new purpose: ${programFor(next, actor).name}.${origin ? ` It began with ${origin}.` : ""}`,
+      { actorId: actor, questPlan: structuredClone(programFor(next, actor)) },
+    );
+  }
+  for (const id of knownActors(next))
+    collectExperienceQuests(next, id, programPlaces(next), things);
+  ensurePrograms(next);
   refreshStalledPrograms(next);
   for (const [id, allowance] of Object.entries(
     next.sharedMigration?.inventoryAllowances || {},
@@ -2013,8 +2059,8 @@ function validProgram(p, actor, s) {
       g.turn < 0 ||
       g.turn > s.turn ||
       !Number.isSafeInteger(g.level) ||
-      g.level < 3 ||
-      g.level > s.turn + 1 ||
+      g.level < (lifeOf(s, actor)?.collection ? 1 : 3) ||
+      g.level > s.turn * (lifeOf(s, actor)?.collection ? 8 : 1) + 1 ||
       ![...actorIds, ...Object.keys(places)].includes(g.owner) ||
       (g.solo === undefined
         ? !ids.includes(g.item) ||
@@ -2139,7 +2185,12 @@ export function validateWorld(s) {
   )
     fail();
   if (!validPackState(s, sensesFor(s))) fail();
-  if (!validMemories(s) || !validMotives(s) || !validLife(s)) fail();
+  if (
+    !validMemories(s) ||
+    !validMotives(s) ||
+    !validLife(s, Object.keys(places))
+  )
+    fail();
   if (
     !s.locations ||
     typeof s.locations.attic?.anchored !== "boolean" ||
@@ -2232,7 +2283,7 @@ export function validateWorld(s) {
       !progress ||
       !Number.isSafeInteger(progress.program) ||
       progress.program < 0 ||
-      progress.program > s.turn ||
+      progress.program > s.turn * (lifeOf(s, id)?.collection ? 8 : 1) ||
       !Number.isInteger(progress.step) ||
       progress.step < 0
     )
@@ -2247,6 +2298,79 @@ export function validateWorld(s) {
       (!questActive(s, id) && !resting)
     )
       fail();
+    const collection = lifeOf(s, id)?.collection;
+    if (collection) {
+      const cards = collection.cards;
+      const archive = collection.archive;
+      if (
+        !Array.isArray(cards) ||
+        cards.length > 32 ||
+        !Array.isArray(archive) ||
+        cards.length + archive.length > 4096 ||
+        archive.some((q) => !q || typeof q.key !== "string" || !q.key.startsWith(`${id}:quest:`) ||
+          q.key.length > 80 || !q.program || typeof q.program.id !== "string" ||
+          typeof q.program.name !== "string" || q.program.name.length > 120 ||
+          typeof q.program.purpose !== "string" || q.program.purpose.length > 240 ||
+          !Array.isArray(q.program.steps) || q.program.steps.length !== 0 ||
+          !Number.isInteger(q.totalSteps) || q.totalSteps < 1 || q.totalSteps > 32 ||
+          q.step !== q.totalSteps || !Number.isSafeInteger(q.createdTurn) || q.createdTurn < 0 ||
+          !Number.isSafeInteger(q.completedTurn) || q.completedTurn < q.createdTurn || q.completedTurn > s.turn) ||
+        new Set([...cards, ...archive].map((q) => q.key)).size !== cards.length + archive.length ||
+        !Number.isSafeInteger(collection.next) ||
+        collection.next < cards.length + archive.length ||
+        !Number.isSafeInteger(collection.earned) ||
+        collection.earned < 0 ||
+        collection.earned > s.turn * 8 ||
+        !Number.isSafeInteger(collection.archivedCompleted) ||
+        collection.archivedCompleted < 0 ||
+        !Number.isSafeInteger(collection.collectedThrough) ||
+        collection.collectedThrough < 0 ||
+        collection.collectedThrough > s.turn ||
+        new Set(cards.map((q) => q.key)).size !== cards.length ||
+        cards.filter((q) => q.completedTurn === null).length > 8 ||
+        cards.some(
+          (q) =>
+            !q ||
+            typeof q.key !== "string" ||
+            !q.key.startsWith(`${id}:quest:`) ||
+            q.key.length > 80 ||
+            !validProgram(q.program, id, s) ||
+            !Number.isInteger(q.step) ||
+            q.step < 0 ||
+            !Number.isSafeInteger(q.createdTurn) ||
+            q.createdTurn < 0 ||
+            q.createdTurn > s.turn ||
+            (q.completedTurn === null
+              ? q.step >= q.program.steps.length
+              : !Number.isSafeInteger(q.completedTurn) ||
+                q.completedTurn < q.createdTurn ||
+                q.completedTurn > s.turn ||
+                q.step !== q.program.steps.length),
+        ) ||
+        collection.archivedCompleted + archive.length +
+          cards.filter((q) => q.completedTurn !== null).length !==
+          progress.program ||
+        (collection.active !== null &&
+          !cards.some(
+            (q) =>
+              q.key === collection.active &&
+              q.completedTurn === null &&
+              q.step === progress.step,
+          )) ||
+        (collection.active === null && progress.step !== 0) ||
+        !Array.isArray(progress.marks) ||
+        progress.marks.length !== Math.min(32, collection.earned) ||
+        progress.marks.some(
+          (turn, i) =>
+            !Number.isSafeInteger(turn) ||
+            turn < 1 ||
+            turn > s.turn ||
+            (i > 0 && turn < progress.marks[i - 1]),
+        )
+      )
+        fail();
+      continue;
+    }
     let completed = programs
       .slice(0, progress.program)
       .reduce((n, p) => n + p.steps.length, 0);
@@ -2580,6 +2704,11 @@ export function validateWorld(s) {
 export const encodeSave = (s) => JSON.stringify(validateWorld(s));
 export function decodeSave(text) {
   const s = JSON.parse(text);
-  upgradeSave(s, { actorIds, ensurePrograms, installPacks });
+  upgradeSave(s, {
+    actorIds,
+    ensurePrograms,
+    installPacks,
+    profileOf: (id) => tastes[id],
+  });
   return validateWorld(s);
 }

@@ -2,9 +2,11 @@ import {
   enablePersonalQuests,
   lifeOf,
   attachmentValue,
+  pendingQuestValue,
   keepReason,
   stayingWith,
   lifeFacts,
+  nameIn,
 } from "./life.mjs";
 import {
   packTastes,
@@ -63,7 +65,7 @@ export function enableMotives(
       grievances: Object.fromEntries(actors.map((id) => [id, []])),
     };
   if (questPrograms || personalQuests) s.motives.questPrograms = true;
-  if (personalQuests) enablePersonalQuests(s);
+  if (personalQuests) enablePersonalQuests(s, (id) => tastes[id]);
   return s;
 }
 export function owner(s, item) {
@@ -90,7 +92,11 @@ export function valueOf(s, actor, item) {
     value += 12;
   if (item === "cloth" && actor === "keeper" && s.items.bell.ringing)
     value += 9;
-  return Math.max(1, value) + attachmentValue(s, actor, item);
+  return (
+    Math.max(1, value) +
+    attachmentValue(s, actor, item) +
+    pendingQuestValue(s, actor, item)
+  );
 }
 export function bundleValue(s, actor, item) {
   return (
@@ -186,6 +192,14 @@ export function interest(s, actor) {
   }
   if (actor === "keeper" && held.includes("bell"))
     item = s.items.bell.ringing && !held.includes("cloth") ? "cloth" : null;
+  if (lifeOf(s, actor)?.phase === "returning")
+    return {
+      items: [],
+      location: lifeOf(s, actor).restAt,
+      avatars: [],
+      text: `Rest at ${nameIn(s, lifeOf(s, actor).restAt)}`,
+      reason: "Rest in a sanctuary after the last quest",
+    };
   const company = stayingWith(s, actor);
   if (company)
     return {
@@ -200,7 +214,7 @@ export function interest(s, actor) {
       items: [],
       location: s.actors[actor].place,
       avatars: [],
-      text: "Enjoying what we achieved",
+      text: "Content after the last quest",
       reason: "Take time to enjoy the last quest",
     };
   if (item && actors.includes(owner(s, item)) && owner(s, item) !== actor) {
@@ -443,6 +457,7 @@ export function socialPlan(s, actor, actions, api) {
     if (
       lifeOf(s, actor) &&
       a.kind === "move" &&
+      lifeOf(s, actor).phase !== "returning" &&
       (stayingWith(s, actor) || lifeOf(s, actor).phase === "content")
     )
       n -= 50;

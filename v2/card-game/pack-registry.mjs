@@ -173,6 +173,7 @@ export const packTastes = Object.fromEntries(
       likes: a.tastes.likes,
       sore: a.tastes.sore,
       home: a.place,
+      quests: !!humanAvatar(id),
       values: Object.fromEntries(
         [...hub.items, ...Object.keys(packThings)].map((item) => [
           item,

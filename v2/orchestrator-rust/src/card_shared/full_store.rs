@@ -76,7 +76,17 @@ pub(super) fn world(c: &Connection, id: &str, now: i64) -> Result<World> {
         }
         seq = s;
     }
-    if let Some(w) = state {
+    if let Some(mut w) = state {
+        if w.version == engine::LEGACY_VERSION {
+            commit(
+                c,
+                id,
+                &mut w,
+                json!({"op":"upgrade", "from":engine::LEGACY_VERSION, "to":engine::VERSION}),
+                now,
+            )?;
+            return Ok(w);
+        }
         if w.version != engine::VERSION {
             return Err("This world's rules need a saved migration.".into());
         }
