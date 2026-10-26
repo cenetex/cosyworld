@@ -7,7 +7,39 @@ CosyWorld's core is a world players live in, built from general rules and
 generators and seen through the card table. This document plans how the card
 prototype becomes that core and then moves into the shared runtime.
 
-## Starting facts
+## Shipping code and earlier experiments
+
+The shipping card game uses `v2/card-game/world.mjs` and its adjacent quest,
+motive, life, memory, and pack modules. Both public sites serve that engine.
+Implement each accepted idea there, with tests against the same modules the
+browser imports. Keep the current saves and authored pack behavior as the
+starting point for each change.
+
+The standalone engine formerly in `v2/card-game/core/` was a separate
+experiment. Only its six test suites imported it. Its `seeds/shore.json`
+fixture described that experiment's world. The local server's asset list and
+the Rust `card_assets.rs` list served the shipping engine. The standalone
+engine, fixture, and their tests have been retired together.
+
+Its final source is available at
+[revision c3436c75](https://github.com/cenetex/cosyworld/tree/c3436c75/v2/card-game/core).
+These ideas remain candidates for the shipping game:
+
+| Area | Idea to carry forward | Evidence needed in the shipping game |
+| --- | --- | --- |
+| General worlds | Entity registries and seed data | Several seeds keep legal actions, item custody, and valid saves |
+| Growth | Promised items and places, claimed through quests | Stable IDs, bounded growth, and one reward per claim |
+| Levels | Rising XP thresholds and credit for new work | Each completed step pays once across reloads |
+| Shared play | Player roles, accepted offers, and local resident turns | Server authority, fair turns, consent, and journal replay |
+| Discovery | Per-avatar knowledge, clues, and dated sightings | Visibility and shared news agree with recorded events |
+| Reliability | Mixed-action simulations and repeatable saves | Long runs preserve custody, progress, and exact replay |
+
+The shipping tests already cover long mixed-action runs, save round trips,
+resident progress, opening saves, and pack migrations. Extend those tests as
+features move into the game. Shared play and server state follow the kernel
+and journal plan below.
+
+## Starting facts (historical survey)
 
 The prototype (`v2/card-game/`, surveyed 2026-10-18 at 1.0.226):
 
