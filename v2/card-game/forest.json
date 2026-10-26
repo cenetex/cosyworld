@@ -1,0 +1,539 @@
+{
+  "places": {
+    "station": {
+      "name": "Empty station",
+      "text": "The timetable lists years that have yet to happen. Stairs lead to the attic; a path leads to the pond.",
+      "exits": [
+        "attic",
+        "pond"
+      ]
+    },
+    "attic": {
+      "name": "Mirror attic",
+      "text": "A tall mirror reflects a black shore. The stairs lead to the station.",
+      "exits": [
+        "station"
+      ]
+    },
+    "pond": {
+      "name": "Black pond",
+      "text": "Something vast breathes beneath the reflection. A path leads to the station.",
+      "exits": [
+        "station"
+      ]
+    }
+  },
+  "people": {
+    "vale": {
+      "name": "Vale",
+      "text": "Your avatar. A traveller with a coat full of empty pockets."
+    },
+    "moth": {
+      "name": "Pip",
+      "text": "A moth in a borrowed waistcoat. Seeks a lamp and a witness at the pond."
+    },
+    "keeper": {
+      "name": "The keeper",
+      "text": "A tall figure with a clock for a face. Seeks a bell and a witness in the attic."
+    }
+  },
+  "things": {
+    "lamp": {
+      "name": "Lamp",
+      "text": "An oil lamp with soot-darkened glass. Burns one fuel each turn, even under a cloth."
+    },
+    "oil": {
+      "name": "Oil flask",
+      "text": "Each dose adds four fuel to the lamp, up to twelve."
+    },
+    "bell": {
+      "name": "Bell",
+      "text": "A hand bell with a worn handle. Rings for three turns. Its ring carries far over still water. The Black cloth stops its sound."
+    },
+    "cloth": {
+      "name": "Black cloth",
+      "text": "Cover the lamp to block its light, or the bell to stop its sound. Travels with the covered object."
+    }
+  },
+  "questPrograms": {
+    "vale": [
+      {
+        "id": "borrowed-light",
+        "name": "Borrowed light",
+        "steps": [
+          {
+            "items": [
+              "lamp"
+            ],
+            "location": "station",
+            "avatars": [
+              "moth"
+            ]
+          },
+          {
+            "items": [
+              "oil"
+            ],
+            "location": "attic",
+            "avatars": [
+              "keeper"
+            ]
+          },
+          {
+            "items": [
+              "cloth"
+            ],
+            "location": "pond",
+            "avatars": [
+              "moth"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "the-bell-below",
+        "name": "The bell below",
+        "steps": [
+          {
+            "items": [
+              "bell"
+            ],
+            "location": "pond",
+            "avatars": [
+              "keeper"
+            ]
+          },
+          {
+            "items": [
+              "lamp",
+              "bell"
+            ],
+            "location": "station",
+            "avatars": [
+              "moth"
+            ]
+          }
+        ]
+      }
+    ],
+    "moth": [
+      {
+        "id": "a-light-and-a-witness",
+        "name": "A light and a witness",
+        "steps": [
+          {
+            "items": [
+              "lamp"
+            ],
+            "location": "pond",
+            "avatars": [
+              "vale"
+            ]
+          },
+          {
+            "items": [
+              "oil"
+            ],
+            "location": "attic",
+            "avatars": [
+              "keeper"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "a-veil-for-the-eye",
+        "name": "A veil for the eye",
+        "steps": [
+          {
+            "items": [
+              "cloth"
+            ],
+            "location": "pond",
+            "avatars": [
+              "vale"
+            ]
+          },
+          {
+            "items": [
+              "lamp"
+            ],
+            "location": "station",
+            "avatars": [
+              "keeper"
+            ]
+          }
+        ]
+      }
+    ],
+    "keeper": [
+      {
+        "id": "the-quiet-hour",
+        "name": "The quiet hour",
+        "steps": [
+          {
+            "items": [
+              "bell"
+            ],
+            "location": "attic",
+            "avatars": [
+              "vale"
+            ]
+          },
+          {
+            "items": [
+              "cloth"
+            ],
+            "location": "attic",
+            "avatars": [
+              "moth"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "the-hour-below",
+        "name": "The hour below",
+        "steps": [
+          {
+            "items": [
+              "bell"
+            ],
+            "location": "pond",
+            "avatars": [
+              "vale"
+            ]
+          },
+          {
+            "items": [
+              "oil"
+            ],
+            "location": "station",
+            "avatars": [
+              "moth"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "openingPrograms": {
+    "vale": [
+      {
+        "id": "first-light",
+        "name": "Light the lamp",
+        "purpose": "Bring light to the attic.",
+        "steps": [
+          {
+            "items": [
+              "lamp"
+            ],
+            "location": "attic",
+            "avatars": [],
+            "conditions": [
+              {
+                "kind": "lit",
+                "item": "lamp"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "along-the-shore",
+        "name": "Along the shore",
+        "purpose": "Meet the moth by the water, then carry the lamp along the path to the station.",
+        "steps": [
+          {
+            "items": [
+              "lamp"
+            ],
+            "location": "pond",
+            "avatars": [
+              "moth"
+            ]
+          },
+          {
+            "items": [
+              "lamp"
+            ],
+            "location": "station",
+            "avatars": []
+          }
+        ]
+      }
+    ],
+    "moth": [
+      {
+        "id": "a-light-and-a-witness",
+        "name": "A light and a witness",
+        "steps": [
+          {
+            "items": [
+              "lamp"
+            ],
+            "location": "pond",
+            "avatars": [
+              "vale"
+            ]
+          },
+          {
+            "items": [
+              "oil"
+            ],
+            "location": "station",
+            "avatars": [
+              "keeper"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "a-veil-for-the-eye",
+        "name": "A veil for the eye",
+        "steps": [
+          {
+            "items": [
+              "cloth"
+            ],
+            "location": "pond",
+            "avatars": [
+              "vale"
+            ]
+          },
+          {
+            "items": [
+              "lamp"
+            ],
+            "location": "station",
+            "avatars": [
+              "keeper"
+            ]
+          }
+        ]
+      }
+    ],
+    "keeper": [
+      {
+        "id": "the-quiet-hour",
+        "name": "The quiet hour",
+        "steps": [
+          {
+            "items": [
+              "bell"
+            ],
+            "location": "station",
+            "avatars": [
+              "vale"
+            ]
+          },
+          {
+            "items": [
+              "cloth"
+            ],
+            "location": "pond",
+            "avatars": [
+              "moth"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "the-hour-below",
+        "name": "The hour below",
+        "steps": [
+          {
+            "items": [
+              "bell"
+            ],
+            "location": "pond",
+            "avatars": [
+              "vale"
+            ]
+          },
+          {
+            "items": [
+              "oil"
+            ],
+            "location": "station",
+            "avatars": [
+              "moth"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "restingHands": {
+    "vale": {
+      "items": [],
+      "location": null,
+      "avatars": []
+    },
+    "moth": {
+      "items": [],
+      "location": "pond",
+      "avatars": []
+    },
+    "keeper": {
+      "items": [],
+      "location": "attic",
+      "avatars": []
+    }
+  },
+  "initialState": {
+    "locations": {
+      "attic": {
+        "anchored": false
+      },
+      "pond": {
+        "answer": null
+      }
+    },
+    "standoffs": [],
+    "peaceUntil": {
+      "vale": 0,
+      "moth": 0,
+      "keeper": 0
+    },
+    "actors": {
+      "vale": {
+        "place": "station",
+        "progress": {
+          "program": 0,
+          "step": 0,
+          "marks": []
+        },
+        "crossed": 0,
+        "lastTalk": -9,
+        "trust": {
+          "moth": 0,
+          "keeper": 0
+        }
+      },
+      "moth": {
+        "place": "pond",
+        "progress": {
+          "program": 0,
+          "step": 0,
+          "marks": []
+        },
+        "crossed": 0,
+        "lastTalk": -9,
+        "trust": {
+          "vale": 0,
+          "keeper": 0
+        }
+      },
+      "keeper": {
+        "place": "attic",
+        "progress": {
+          "program": 0,
+          "step": 0,
+          "marks": []
+        },
+        "crossed": 0,
+        "lastTalk": -9,
+        "trust": {
+          "vale": 0,
+          "moth": 0
+        }
+      }
+    },
+    "items": {
+      "lamp": {
+        "holder": "station",
+        "fuel": 8,
+        "lit": false,
+        "history": []
+      },
+      "oil": {
+        "holder": "keeper",
+        "doses": 3,
+        "history": []
+      },
+      "bell": {
+        "holder": "station",
+        "ringing": 0,
+        "history": []
+      },
+      "cloth": {
+        "holder": "moth",
+        "history": []
+      }
+    },
+    "log": [
+      {
+        "seq": 1,
+        "turn": 0,
+        "kind": "narration",
+        "actorId": null,
+        "locationId": "station",
+        "cast": [
+          "vale"
+        ],
+        "items": [
+          {
+            "id": "lamp",
+            "holder": "station",
+            "fuel": 8,
+            "lit": false
+          },
+          {
+            "id": "bell",
+            "holder": "station",
+            "ringing": 0
+          }
+        ],
+        "light": false,
+        "speaker": "World",
+        "text": "Vale arrives at the empty station. Pip carries a black cloth. The keeper holds the oil. Each wants something ... different. Under the pond, a presence is listening."
+      }
+    ]
+  },
+  "opening": {
+    "discovery": {
+      "version": 1,
+      "crossed": false,
+      "met": {
+        "vale": 0
+      }
+    },
+    "actors": {
+      "vale": {
+        "place": "attic"
+      },
+      "keeper": {
+        "place": "station"
+      }
+    },
+    "items": {
+      "lamp": {
+        "holder": "vale"
+      }
+    },
+    "log": [
+      {
+        "seq": 1,
+        "turn": 0,
+        "kind": "narration",
+        "actorId": null,
+        "locationId": "attic",
+        "cast": [
+          "vale"
+        ],
+        "items": [
+          {
+            "id": "lamp",
+            "holder": "vale",
+            "fuel": 8,
+            "lit": false
+          }
+        ],
+        "light": false,
+        "speaker": "World",
+        "text": "Vale stands alone in Mirror attic, holding an unlit lamp. A tall mirror reflects a black shore."
+      }
+    ]
+  }
+}

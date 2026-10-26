@@ -260,6 +260,7 @@ describe("the reflected shore card game", () => {
         "pack-rules.mjs",
         "pack-transport.mjs",
         "legacy-saves.mjs",
+        "forest.json",
         "packs.json",
       ]) {
         expect((await fetch(`${url}/card-game/${file}`)).status).toBe(200);

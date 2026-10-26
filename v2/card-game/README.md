@@ -3,7 +3,9 @@
 ## Shipping engine
 
 `world.mjs` owns the card game's state, legal actions, resident turns, and save
-format. `app.mjs` uses it in the browser. The modules beside it provide quests,
+format. `forest.json` holds the forest catalog, starting state, and authored
+quests for the station and attic openings. `createWorld()` copies that data
+for each game. `app.mjs` uses the engine in the browser. The modules beside it provide quests,
 motives, life, memory, pack rules, and presentation. Both the local server and
 the Rust asset server publish this same game.
 
@@ -16,6 +18,20 @@ Build new game rules in these shipping modules and check them through
 keeps the useful ideas from the retired standalone engine, with its source
 revision for reference. Existing player saves use `world.mjs` and
 `legacy-saves.mjs`; keep their migrations with changes to the save format.
+
+## Public assets
+
+`public-assets.mjs` defines the public files and their content types. It includes
+room music and pack media from their registries. The local server and release
+smoke read that list. Generate the Rust server's embedded list with:
+
+```sh
+npm run v2:card:assets:build
+```
+
+Commit `v2/orchestrator-rust/src/card_assets.rs` with each asset-list change.
+`npm run v2:card:pack:build` rebuilds both pack data and the Rust asset list.
+`npm run v2:card:pack:check` checks both during CI and release gates.
 
 ## Image-first presentation
 
@@ -204,7 +220,7 @@ travel order, held items, reload, cancellation, and reduced motion.
 
 The next program introduces company at the pond, then leads Vale to the station and the keeper. Each cast member joins the simulation when Vale first meets them and takes their first autonomous action on the following turn. Their introduction, quest progress, and route rules survive a reload. The menu and speech request use the discovered cast. The Light play records the fulfilled hand and revealed path in the attic. The later Travel play records the trip to the pond, so the scene and dialogue follow each card’s result.
 
-Existing saves keep their station start, original routes, authored programs, and earned progress. The core's `createWorld()` remains the legacy fixture; the browser explicitly chooses the new opening for fresh tables and New game.
+Existing saves keep their station start, original routes, authored programs, and earned progress. `createWorld()` retains the station start for existing fixtures; the browser chooses the attic opening for fresh tables and New game.
 
 ## Shore experiment
 

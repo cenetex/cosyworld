@@ -41,7 +41,7 @@ Then run every row that matches the change:
 | Surface | Required checks |
 | --- | --- |
 | Markdown-only docs | inspect links/commands; `npm run check:version` |
-| Card table (`v2/card-game/`) | `npm test`; `npm run play:cards` and play the changed path at desktop and phone width; a new public file is listed in `serve.mjs`, `card_game.rs`, and `smoke-deployed-card-game.mjs` |
+| Card table (`v2/card-game/`) | `npm test`; `npm run play:cards` and play the changed path at desktop and phone width; a new public file joins `public-assets.mjs`; run `npm run v2:card:assets:build` and commit the generated Rust asset module |
 | Cross-surface tests (`test/`) | `npm test` |
 | Pack/content/compiler | `npm run v2:worldpack` |
 | C kernel or ABI | `npm run v2:kernel`; `npm run v2:rust:test` |
@@ -49,8 +49,9 @@ Then run every row that matches the change:
 | Browser, HTTP, persistence, or multiplayer | `npm run v2:check` |
 | Broad V2 or release change | `npm run check:local` and the relevant build |
 
-CI is the final cross-platform authority and runs Node 20, stable Rust,
-`npm run lint`, `npm run check`, a Rust build, and the web build. A local suite
+CI is the final cross-platform authority. It uses Node 24 and stable Rust
+for lint, tests, content, kernel, Rust builds, browser and composition smokes,
+and guide checks. A local suite
 that opens ephemeral HTTP listeners may fail inside a restricted sandbox with
 `listen EPERM`; rerun it where loopback binding is permitted rather than
 changing application behavior.
@@ -74,8 +75,8 @@ changing application behavior.
 
 ## Known traps
 
-- V2 is canonical. Do not implement new gameplay in the legacy Node companion
-  just because its service graph is easier to navigate.
+- Build gameplay in the shipping modules under `v2/`. Use the card-game guide
+  for the browser model, forest data, save upgrades, and public assets.
 - `v2/orchestrator-rust/src/main.rs` is very large. Use exact searches and narrow
   reads; do not mix opportunistic refactoring into a feature fix.
 - `v2/content/official/**` is compiled output. Editing it without the owning
