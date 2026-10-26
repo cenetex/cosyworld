@@ -6,6 +6,7 @@ import {
   focusedQuest,
   focusQuest,
   joinQuest,
+  canJoinQuest,
   shareQuest,
   clearQuestFocus,
   pruneSharedQuestHistory,
@@ -724,7 +725,7 @@ function advancePrograms(s, met) {
           participants: evidence.fulfillment.participants,
           outcome: "fulfilled",
         });
-        pruneSharedQuestHistory(s, quest.holder);
+        pruneSharedQuestHistory(s, quest.holder, quest.key);
       }
       continue;
     }
@@ -1089,7 +1090,10 @@ function sharedQuestActions(s, actor) {
       !visibleQuest(s, actor, quest)
     )
       continue;
-    if (!quest.participants.includes(actor))
+    if (
+      !quest.participants.includes(actor) &&
+      canJoinQuest(s, actor, quest.key)
+    )
       actions.push({
         kind: "join-quest",
         actor,
@@ -1116,6 +1120,7 @@ function sharedQuestActions(s, actor) {
     ];
     for (const to of targets) {
       if (to.kind === holder.kind && to.id === holder.id) continue;
+      if (to.kind === "avatar" && !canJoinQuest(s, to.id, quest.key)) continue;
       actions.push({
         kind: "share-quest",
         actor,

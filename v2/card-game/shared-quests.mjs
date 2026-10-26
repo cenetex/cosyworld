@@ -3,6 +3,7 @@ export const SHARED_QUEST_VERSION = 1;
 export const QUEST_RECORD_LIMIT = 4096;
 export const SHARED_QUEST_PENDING_LIMIT = 8;
 export const SHARED_QUEST_COLLECTION_LIMIT = 256;
+export const TRANSIENT_QUEST_HISTORY_LIMIT = 32;
 const historyLimit = 24;
 const sameHolder = (a, b) => a?.kind === b?.kind && a?.id === b?.id;
 const unfinished = (q) => q.completedTurn === null && !q.retired;
@@ -72,14 +73,17 @@ export function addQuestRecord(
     cause = null,
     origin = null,
     key = null,
+    transientActor = null,
   },
 ) {
   const registry = installSharedQuestRegistry(world);
+  if (transientActor) pruneTransientQuestHistory(world, transientActor);
   const records = questRecords(world);
   if (
     records.length >= QUEST_RECORD_LIMIT ||
-    records.filter((q) => q.mode === "shared").length >=
-      SHARED_QUEST_COLLECTION_LIMIT ||
+    (!transientActor &&
+      records.filter((q) => q.mode === "shared" && !q.transientActor).length >=
+        SHARED_QUEST_COLLECTION_LIMIT) ||
     records.filter(
       (q) =>
         q.mode === "shared" && unfinished(q) && sameHolder(q.holder, holder),
@@ -91,7 +95,8 @@ export function addQuestRecord(
   const members = [
     ...new Set([
       ...participants,
-      ...(holder.kind === "avatar" ? [holder.id] : []),
+      ...(transientActor ? [transientActor] : []),
+      ...(holder.kind === "avatar" && !transientActor ? [holder.id] : []),
     ]),
   ].sort();
   const record = {
@@ -107,14 +112,27 @@ export function addQuestRecord(
     createdTurn: world.turn,
     completedTurn: null,
     cause: cause ? structuredClone(cause) : null,
+    ...(transientActor ? { transientActor, familyActor: transientActor } : {}),
   };
   registry.records[questKey] = record;
   return record;
 }
 
-export function joinQuest(world, actor, key) {
+export function canJoinQuest(world, actor, key) {
   const quest = questRecord(world, key);
   if (!world.actors?.[actor] || !quest || !unfinished(quest)) return false;
+  return (
+    !quest.transientActor ||
+    actor === quest.transientActor ||
+    questRecords(world).filter((q) => q.mode === "shared" && !q.transientActor)
+      .length < SHARED_QUEST_COLLECTION_LIMIT
+  );
+}
+export function joinQuest(world, actor, key) {
+  if (!canJoinQuest(world, actor, key)) return false;
+  const quest = questRecord(world, key);
+  if (quest.transientActor && actor !== quest.transientActor)
+    delete quest.transientActor;
   quest.participants = [...new Set([...quest.participants, actor])].sort();
   return true;
 }
@@ -140,8 +158,9 @@ export const questStatus = (world, quest) =>
 export function shareQuest(world, key, holder) {
   const quest = questRecord(world, key);
   if (!quest || !unfinished(quest)) return false;
+  if (holder.kind === "avatar" && !joinQuest(world, holder.id, key))
+    return false;
   quest.holder = structuredClone(holder);
-  if (holder.kind === "avatar") joinQuest(world, holder.id, key);
   return true;
 }
 
@@ -163,11 +182,11 @@ export function retireQuest(
     cause: structuredClone(cause || quest.cause),
   };
   clearQuestFocus(world, key);
-  pruneSharedQuestHistory(world, quest.holder);
+  pruneSharedQuestHistory(world, quest.holder, quest.key);
   return true;
 }
 
-export function pruneSharedQuestHistory(world, holder) {
+export function pruneSharedQuestHistory(world, holder, preserveKey = null) {
   const finished = questsHeldBy(world, holder)
     .filter((q) => q.mode === "shared" && !unfinished(q))
     .sort(
@@ -191,8 +210,55 @@ export function pruneSharedQuestHistory(world, holder) {
     };
     quest.compacted = true;
   }
+  for (const owner of new Set(
+    questRecords(world)
+      .map((q) => q.transientActor)
+      .filter(Boolean),
+  ))
+    pruneTransientQuestHistory(world, owner, preserveKey);
 }
 
+// A transient owner's short travel history can retire without removing a helper's card.
+export function pruneTransientQuestHistory(world, actor, preserveKey = null) {
+  const records = questRecords(world).filter(
+    (q) => q.transientActor === actor && !unfinished(q),
+  );
+  const protectedByOthers = (q) =>
+    q.participants.some((id) => id !== actor) ||
+    Object.entries(world.quests.focus).some(
+      ([id, key]) => id !== actor && key === q.key,
+    ) ||
+    Object.entries(world.life?.actors || {}).some(
+      ([id, life]) =>
+        id !== actor &&
+        ["cards", "archive"].some((field) =>
+          life.collection?.[field]?.includes(q.key),
+        ),
+    );
+  for (const q of records.filter(protectedByOthers)) delete q.transientActor;
+  const disposable = records
+    .filter((q) => q.transientActor === actor)
+    .sort(
+      (a, b) =>
+        (a.completedTurn ?? a.retired.turn) -
+          (b.completedTurn ?? b.retired.turn) ||
+        (a.key < b.key ? -1 : a.key > b.key ? 1 : 0),
+    );
+  let excess = disposable.length - TRANSIENT_QUEST_HISTORY_LIMIT;
+  for (const q of disposable) {
+    if (excess <= 0) break;
+    if (q.key === preserveKey) continue;
+    if (world.quests.focus[actor] === q.key) delete world.quests.focus[actor];
+    const collection = world.life?.actors?.[actor]?.collection;
+    if (collection) {
+      for (const field of ["cards", "archive"])
+        collection[field] = collection[field].filter((key) => key !== q.key);
+      if (collection.active === q.key) collection.active = null;
+    }
+    delete world.quests.records[q.key];
+    excess--;
+  }
+}
 export function validSharedQuestRegistry(
   world,
   { actors, items, places, program, origin },
@@ -247,6 +313,15 @@ export function validSharedQuestRegistry(
       !{ avatar: actors, item: items, place: places }[q.holder.kind].includes(
         q.holder.id,
       ) ||
+      (q.familyActor !== undefined && !actors.includes(q.familyActor)) ||
+      (q.transientActor !== undefined &&
+        (q.mode !== "shared" ||
+          !actors.includes(q.transientActor) ||
+          q.familyActor !== q.transientActor ||
+          !["journey", "help"].includes(q.cause?.kind) ||
+          !Array.isArray(q.participants) ||
+          q.participants.length !== 1 ||
+          q.participants[0] !== q.transientActor)) ||
       !(q.subjectActor === null || actors.includes(q.subjectActor)) ||
       !(q.rewardActor === null || actors.includes(q.rewardActor)) ||
       !Array.isArray(q.participants) ||

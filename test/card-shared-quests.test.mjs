@@ -14,7 +14,10 @@ import {
   decodeSave,
 } from "../v2/card-game/world.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
-import { latestQuestCompletion } from "../v2/card-game/quest-completions.mjs";
+import {
+  latestQuestCompletion,
+  recordQuestCompletion,
+} from "../v2/card-game/quest-completions.mjs";
 import { describe, it, expect } from "vitest";
 import {
   installSharedQuestRegistry,
@@ -161,6 +164,82 @@ describe("shared quest records", () => {
     expect(journey.retired.cause.rootId).toBe("source:terminal:1");
     expect(questStatus(s, journey)).toBe("superseded");
     expect(questRecord(s, unrelated.key)).toBe(unrelated);
+  });
+  it("keeps transient travel bounded beyond256 retargets while retaining a joined helper card", () => {
+    const s = enableMotives(createWorld(), { personalQuests: true });
+    const make = () =>
+      add(
+        s,
+        { kind: "avatar", id: "keeper" },
+        {
+          transientActor: "keeper",
+          cause: { kind: "journey", rootId: "story:terminal:1" },
+        },
+      );
+    const joined = make();
+    focusQuest(s, "keeper", joined.key);
+    expect(joinQuest(s, "vale", joined.key)).toBe(true);
+    expect(joined.transientActor).toBeUndefined();
+    expect(joined.familyActor).toBe("keeper");
+    retireQuest(s, joined.key);
+    const old = make();
+    recordQuestCompletion(s, old, {
+      outcome: "retired",
+      actorId: "keeper",
+      locationId: "station",
+    });
+    retireQuest(s, old.key);
+    for (let n = 0; n < 300; n++) {
+      s.turn = s.revision = n + 1;
+      const q = make();
+      expect(q).toBeTruthy();
+      expect(focusQuest(s, "keeper", q.key)).toBe(true);
+      expect(retireQuest(s, q.key)).toBe(true);
+    }
+    expect(questRecords(s).filter((q) => q.transientActor)).toHaveLength(32);
+    expect(questRecord(s, old.key)).toBeNull();
+    expect(s.questCompletions.recent[0].questKey).toBe(old.key);
+    const restored = decodeSave(encodeSave(s));
+    expect(
+      questCards(restored, "vale").find((q) => q.key === joined.key),
+    ).toMatchObject({ status: "superseded" });
+    expect(questRecord(restored, joined.key).compacted).toBe(true);
+    expect(
+      add(
+        restored,
+        { kind: "avatar", id: "keeper" },
+        {
+          transientActor: "keeper",
+          cause: { kind: "journey", rootId: "new:terminal:1" },
+        },
+      ),
+    ).toBeTruthy();
+  });
+  it("keeps ordinary gifts legal when retained helper cards reach capacity", () => {
+    const s = enableMotives(createWorld(), { personalQuests: true });
+    s.actors.moth.place = "station";
+    s.items.lamp.holder = "vale";
+    for (let n = 0; n < 256; n++) {
+      const q = add(s);
+      retireQuest(s, q.key);
+    }
+    const journey = add(
+      s,
+      { kind: "avatar", id: "keeper" },
+      {
+        transientActor: "keeper",
+        cause: { kind: "journey", rootId: "source:terminal:1" },
+      },
+    );
+    expect(journey).toBeTruthy();
+    expect(joinQuest(s, "vale", journey.key)).toBe(false);
+    const give = legalActions(s).find(
+      (a) => a.kind === "give" && a.item === "lamp" && a.target === "moth",
+    );
+    expect(give).toBeTruthy();
+    const result = play(s, give);
+    expect(result.ok).toBe(true);
+    expect(result.state.items.lamp.holder).toBe("moth");
   });
   it("bounds old journey records and keeps new stable keys available", () => {
     const s = fresh();
