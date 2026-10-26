@@ -2461,7 +2461,7 @@ mod tests {
         assert!(!vale.contains("The keeper"));
         let pond = transcript(&c, &c.entities[1], Part::Line);
         assert!(pond.contains("Vale has just come from Empty station, alone."));
-        assert!(pond.starts_with("Black pond. Present: Vale, Pip."));
+        assert!(pond.contains("Current scene:\nBlack pond. Present: Vale, Pip."));
         assert!(pond.ends_with("\nBlack pond:"));
         let o = c.outcome.as_mut().unwrap();
         o.avatars[0]
