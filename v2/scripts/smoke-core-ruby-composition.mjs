@@ -797,6 +797,10 @@ async function main() {
     });
     const worldSeqBeforeRestart = homeroom.world_seq;
 
+    // This checkpoint restart tests pack state, so finish the current actor
+    // jobs before stopping. A live job lease lasts two minutes; interrupting
+    // it here would make the later 30-second migration drain wait on that lease.
+    await waitForActorJobs(eventDbPath);
     await stopServer(first.proc);
     first = null;
     second = await startServer(tempDir, coreRubyRegistryPath, snapshotPath);
