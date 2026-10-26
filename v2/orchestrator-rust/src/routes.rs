@@ -13,7 +13,7 @@ use tracing::Instrument;
 use super::*;
 
 #[path = "card_game.rs"]
-mod card_game;
+pub(crate) mod card_game;
 pub(crate) use card_game::recital;
 
 // Keep command work bounded without making routine player and resident activity

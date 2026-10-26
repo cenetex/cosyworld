@@ -18,6 +18,7 @@ const dir = await mkdtemp(join(tmpdir(), "shared-full-world-smoke-"));
 const output = resolve("output/shared-cards");
 await mkdir(output, { recursive: true });
 const requests = [];
+const replies = new Map();
 let holdReplies = false;
 const waitingReplies = [];
 const provider = createServer(async (req, res) => {
@@ -26,15 +27,12 @@ const provider = createServer(async (req, res) => {
   const input = JSON.parse(body || "{}");
   requests.push(input);
   if (holdReplies) await new Promise((resolve) => waitingReplies.push(resolve));
-  const scene = JSON.parse(input.messages.at(-1).content);
-  const content = JSON.stringify({
-    entries: scene.requested_ids.map((id, index) => ({
-      id,
-      text: index
-        ? "A ripple reaches the shore."
-        : "There is room for a little company.",
-    })),
-  });
+  const transcript = input.messages.at(-1).content;
+  assert.equal(typeof transcript, "string");
+  assert.match(transcript, /Current scene:/u);
+  assert.match(transcript.trim(), /:$/u);
+  const content = `I pause for ${requests.length} quiet breaths.`;
+  replies.set(input, content);
   res.writeHead(200, { "Content-Type": "application/json" });
   res.end(
     JSON.stringify({
@@ -234,17 +232,25 @@ async function dismissDiscoveries(page) {
     await delay(180);
   }
 }
-async function expectSharedReveal(page) {
-  await page.waitForFunction(() => {
+async function expectSharedReveal(page, requestStart) {
+  let expected;
+  await until(() => {
+    const human = requests.slice(requestStart).find((request) =>
+      request.messages.at(-1).content.trim().endsWith("\nVale:"),
+    );
+    expected = replies.get(human);
+    return typeof expected === "string";
+  }, "the selected human receives its plain fixture reply");
+  await page.waitForFunction((expected) => {
     const text = document.getElementById("dialogue-text");
     const letters = text.querySelectorAll(".speech-letter");
     const shown = text.querySelectorAll(".speech-letter.revealed").length;
     return (
-      text.textContent === "There is room for a little company." &&
+      text.textContent === expected &&
       shown > 0 &&
       shown < letters.length
     );
-  });
+  }, expected);
 }
 async function catchUpWithArrow(page) {
   await page.locator("#previous-line").click();
@@ -396,7 +402,7 @@ try {
   const requestStart = requests.length;
   await vale.locator('#hand [data-card="moth"]').click();
   await vale.getByRole("button", { name: "Talk", exact: true }).click();
-  await expectSharedReveal(vale);
+  await expectSharedReveal(vale, requestStart);
   await vale.screenshot({
     path: join(output, "shared-dialogue-reveal.png"),
     fullPage: true,
@@ -598,6 +604,7 @@ try {
   const notesBefore = await Promise.all(
     [vale, mara].map((page) => page.evaluate(() => window.sharedSpeechNotes)),
   );
+  const queueRequestStart = requests.length;
   holdReplies = true;
   const queued = [];
   for (const page of [vale, mara, ash, nell]) {
@@ -702,7 +709,9 @@ try {
   );
   holdReplies = false;
   for (const resolve of waitingReplies.splice(0)) resolve();
-  await Promise.all([vale, mara].map(expectSharedReveal));
+  await Promise.all(
+    [vale, mara].map((page) => expectSharedReveal(page, queueRequestStart)),
+  );
   await Promise.all([vale, mara, nell].map(idle));
   for (const page of [vale, mara]) {
     await expectStage(page, ["nell", "mara", "vale", "ash", "moth"]);
@@ -731,7 +740,7 @@ try {
   await until(
     async () =>
       (await vale.locator("#dialogue-text").textContent()).includes(
-        "A ripple reaches the shore.",
+        "quiet breaths.",
       ),
     "the shared room detail stays visible",
   );

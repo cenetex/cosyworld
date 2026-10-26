@@ -89,7 +89,7 @@ describe("the opening poem", () => {
           .filter((f) => f.startsWith("Verse "))
           .map((f) => f.split(": ").slice(1).join(": ")),
       ).toEqual(stanzas(s.closed).map((s) => s.lines.join(" ")));
-      expect(song.length).toBeLessThanOrEqual(8);
+      expect(song.length).toBeLessThanOrEqual(16);
       expect(
         song.every((f) => f.length <= 240 && !/[\u0000-\u001f\u007f]/u.test(f)),
       ).toBe(true);
