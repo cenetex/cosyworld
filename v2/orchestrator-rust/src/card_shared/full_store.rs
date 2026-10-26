@@ -77,12 +77,13 @@ pub(super) fn world(c: &Connection, id: &str, now: i64) -> Result<World> {
         seq = s;
     }
     if let Some(mut w) = state {
-        if w.version == engine::PREVIOUS_VERSION {
+        if engine::historical(&w.version) {
+            let from = w.version.clone();
             commit(
                 c,
                 id,
                 &mut w,
-                json!({"op":"upgrade","from":engine::PREVIOUS_VERSION,"to":engine::VERSION}),
+                json!({"op":"upgrade","from":from,"to":engine::VERSION}),
                 now,
             )?;
         } else if w.version != engine::VERSION {

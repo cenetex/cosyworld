@@ -1,3 +1,4 @@
+import { recordRecital, recitalVisit, validRecitals } from "./pack-recital.mjs";
 // The compiled world packs mounted on the card table, indexed for the engine.
 // Packs supply data only; pack-rules.mjs applies the general rules they name.
 import compiled from "./packs.json" with { type: "json" };
@@ -237,6 +238,7 @@ function entityEnabled(world, id) {
     state = packState(world, e.packId);
   if (!state || !conditionsMet(world, e.packId, e.requires)) return false;
   if (!pack.release || state.scope === "full") return true;
+  if (pack.recital?.actor === id && !recitalVisit(world, pack)) return false;
   return [pack.release.places, pack.release.avatars, pack.release.items].some(
     (ids) => ids.includes(id),
   );
@@ -339,6 +341,7 @@ export function applyPackChoice(world, action) {
     }
   }
   state.receipts[choice.id] = world.turn;
+  recordRecital(world, pack, choice.id, action.actor);
   return choice;
 }
 export function packFacts(world, id) {
@@ -402,10 +405,20 @@ export function validatePackStates(world) {
     const state = world.packs[pack.id];
     if (
       !record(state) ||
+      !validRecitals(world, pack) ||
       state.revision !== pack.revision ||
       !["opening", "full"].includes(state.scope) ||
       Object.keys(state).sort().join() !==
-        ["revision", "sounds", "choices", "flags", "receipts", "met", "scope"]
+        [
+          "revision",
+          "sounds",
+          "choices",
+          "flags",
+          "receipts",
+          "met",
+          "scope",
+          ...(pack.recital ? ["recitals"] : []),
+        ]
           .sort()
           .join() ||
       ![state.choices, state.flags, state.receipts, state.met].every(record) ||

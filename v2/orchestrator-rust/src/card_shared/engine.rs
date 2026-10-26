@@ -9,11 +9,15 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub(super) const VERSION: &str = "full-card-world/3";
+pub(super) const VERSION: &str = "full-card-world/4";
 pub(super) const PREVIOUS_VERSION: &str = "full-card-world/2";
-const SOURCE: &str = include_str!("engine-v3.js");
+const SOURCE: &str = include_str!("engine-v4.js");
 // Earlier actions replay with the exact rules that accepted them.
 const PREVIOUS_SOURCE: &str = include_str!("engine-v2.js");
+const THIRD_SOURCE: &str = include_str!("engine-v3.js");
+pub(super) fn historical(version: &str) -> bool {
+    matches!(version, PREVIOUS_VERSION | "full-card-world/3")
+}
 const MAX_BYTES: usize = 4 * 1024 * 1024;
 const CACHE_ENTRIES: usize = 32;
 const CACHE_BYTES: usize = 4 * 1024 * 1024;
@@ -57,6 +61,7 @@ pub(super) fn reduce_version(version: &str, request: Value) -> Result<Value> {
     let source = match version {
         VERSION => SOURCE,
         PREVIOUS_VERSION => PREVIOUS_SOURCE,
+        "full-card-world/3" => THIRD_SOURCE,
         _ => return Err("This world's rules need a saved migration.".into()),
     };
     let view = request["op"] == "view" && version == VERSION;
