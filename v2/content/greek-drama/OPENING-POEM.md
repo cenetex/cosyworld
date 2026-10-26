@@ -53,6 +53,11 @@ The song follows the durable choice receipts. An early permission report
 keeps its words after a later burial. Returning the water late places its
 verse later in the song. Each branch keeps its own outcome and report.
 
+When addressed, the bard recites the latest earned couplet exactly. The
+speech service checks his reply against the authored verse in his scene
+facts. Each character request can repair a reply that changes those words.
+Both local and shared speech pass this check before players hear the verse.
+
 The pack save adds a `recitals` record beside its existing receipts. Each
 verse records the acting human and, for a completed quest, the turn of the
 bard's visit. Older saves receive pending visits for their earned deeds.
