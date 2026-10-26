@@ -50,6 +50,126 @@ try {
     [1440, 900],
     [390, 844],
   ]) {
+    // A fresh bard follows a real completed quest through every ordinary step.
+    {
+      const world = enableMotives(createWorld(), { personalQuests: true });
+      world.actors.vale.place = "greek-gate";
+      assert.equal(world.actors[singer].place, "greek-harbor");
+      const key = `cosyworld.reflected-shore.v1.bard-route-${width}`;
+      const page = await browser.newPage({
+        viewport: { width, height },
+        reducedMotion: "reduce",
+      });
+      const requests = [],
+        errors = [];
+      page.on("pageerror", (e) => errors.push(e.message));
+      await page.addInitScript(
+        ({ key, save }) => {
+          if (!localStorage.getItem(key)) localStorage.setItem(key, save);
+          localStorage.setItem("cosyworld.dialogue.sound", "off");
+          localStorage.setItem(
+            "cosyworld.room-music",
+            JSON.stringify({ enabled: false }),
+          );
+        },
+        { key, save: encodeSave(world) },
+      );
+      await page.route("**/card-game/text", (route) => {
+        const input = route.request().postDataJSON();
+        requests.push(input);
+        return route.fulfill({
+          json: {
+            revision: input.revision,
+            model: "bard-route-smoke",
+            entries: input.entities.map(({ id, facts }) => ({
+              id,
+              text:
+                id === singer
+                  ? facts
+                      .findLast((f) => f.startsWith("Verse "))
+                      ?.split(": ")
+                      .slice(1)
+                      .join(": ") || "I am ready for the next journey."
+                  : "The words remain with us.",
+            })),
+          },
+        });
+      });
+      const saved = () =>
+        page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
+      const settle = async () => {
+        for (let i = 0; i < 180; i++) {
+          if (await page.locator("#unveil-dialog[open]").count())
+            await page.keyboard.press("Escape");
+          else if (await page.locator("#dialogue-advance").isVisible())
+            await page.locator("#dialogue-advance").click();
+          await page.waitForTimeout(60);
+          if (
+            (await page.locator("#hand").getAttribute("data-cooling")) ===
+              "false" &&
+            (await page.locator("#card-actions").getAttribute("aria-busy")) ===
+              "false"
+          )
+            return;
+        }
+        throw Error("Bard journey stayed busy");
+      };
+      const reachTurn = async (turn) => {
+        await page.waitForFunction(
+          ({ key, turn }) =>
+            JSON.parse(localStorage.getItem(key)).turn === turn,
+          { key, turn },
+        );
+        await settle();
+      };
+      await page.goto(
+        `http://127.0.0.1:${server.address().port}/?table=bard-route-${width}`,
+      );
+      await settle();
+      await selectCard(page, "greek-guard");
+      await page.locator('[data-choice="greek-hear-decree"]').click();
+      await reachTurn(1);
+      assert.equal((await saved()).actors[singer].place, "greek-harbor");
+      await selectCard(page, "greek-antigone");
+      await page.locator('[data-choice="greek-decline-burial"]').click();
+      await reachTurn(2);
+      let state = await saved();
+      assert.equal(state.actors[singer].place, "greek-courtyard");
+      assert.equal(state.roamingQuests[singer].target.locationId, "greek-gate");
+      assert.equal(
+        state.packs["greek-drama"].recitals["greek-decline-burial"].visit,
+        null,
+      );
+      await selectCard(page, "vale");
+      await page.locator('#card-actions [data-action="wait"]').click();
+      await reachTurn(3);
+      state = await saved();
+      assert.equal(state.actors[singer].place, "greek-gate");
+      assert.equal(
+        state.packs["greek-drama"].recitals["greek-decline-burial"].visit,
+        3,
+      );
+      await selectCard(page, singer);
+      await page.locator('#card-actions [data-action="talk"]').click();
+      await reachTurn(4);
+      assert.equal(await page.locator("#story-retry").isVisible(), false);
+      const verse = requests
+        .at(-1)
+        .entities.find((e) => e.id === singer)
+        ?.facts.findLast((f) => f.startsWith("Verse "));
+      assert.equal(
+        verse,
+        "Verse 1, Vale: I told her I would turn away. Her brother waited by the wall.",
+      );
+      await page.screenshot({
+        path: new URL(`legal-arrival-${width}.png`, output).pathname,
+      });
+      await page.reload();
+      await page.waitForSelector(`#hand [data-card="${singer}"]`);
+      assert.equal((await saved()).actors[singer].place, "greek-gate");
+      assert.deepEqual(errors, []);
+      await page.close();
+    }
     const world = fixture();
     const helpKey = world.roamingQuests[singer].blocked.questKey;
     const helpCard = questCards(world, "theatre").find(

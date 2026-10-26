@@ -95,7 +95,9 @@ export const knownActors = (s) =>
   ].filter(
     (id) =>
       entityActive(s, id) &&
-      (!isPackActor(id) || packDiscovered(s, packOf(id).id)),
+      (!isPackActor(id) ||
+        packDiscovered(s, packOf(id).id) ||
+        s.packs?.[packOf(id).id]?.met?.[id] !== undefined),
   );
 export const programsFor = (s, actor) =>
   (s.opening ? openingPrograms : questPrograms)[actor] || [];

@@ -61,7 +61,8 @@ describe("the Theban release and its ship", () => {
     expect(reachable(s)).toEqual([...pack.release.places].sort());
     expect(reachable(s)).toHaveLength(8);
     expect(entityActive(s, "greek-athens")).toBe(false);
-    expect(entityActive(s, "greek-rhapsode")).toBe(false);
+    expect(entityActive(s, "greek-rhapsode")).toBe(true);
+    expect(s.actors["greek-rhapsode"].place).toBe("greek-harbor");
   });
   it("withholds empty inquiries and later branch menus without deleting source works", () => {
     const s = createWorld();
@@ -154,7 +155,7 @@ describe("the Theban release and its ship", () => {
     s.packs[pack.id].scope = "everything";
     expect(() => encodeSave(s)).toThrow();
     const changed = createWorld();
-    changed.actors["greek-rhapsode"].place = "greek-harbor";
+    changed.actors["greek-helen-egypt"].place = "greek-harbor";
     expect(() => encodeSave(changed)).toThrow();
   });
   it("uses seven distinct painted backdrops", () => {

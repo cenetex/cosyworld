@@ -333,7 +333,12 @@ function meetCast(s) {
   if (!s.opening || (player !== "vale" && !s.opening.crossed)) return;
   if (player === "vale" && s.actors.vale.place === "pond")
     s.opening.crossed = true;
-  if (!s.opening.crossed) return;
+  if (!s.opening.crossed) {
+    for (const id of roamingActors)
+      if (entityActive(s, id) && s.actors[id].place === s.actors[player].place)
+        s.opening.met[id] ??= s.turn;
+    return;
+  }
   for (const id of actorIds)
     if (
       entityActive(s, id) &&
@@ -2549,7 +2554,9 @@ export function validateWorld(s) {
         o.met.moth === undefined) ||
       (!o.crossed &&
         (s.actors?.vale?.place !== "attic" ||
-          Object.keys(o.met).length !== 1)) ||
+          Object.keys(o.met).some(
+            (id) => id !== "vale" && !roamingActors.includes(id),
+          ))) ||
       (o.crossed && (!s.locations?.attic.anchored || o.met.moth === undefined))
     )
       fail();

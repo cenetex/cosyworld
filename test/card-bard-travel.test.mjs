@@ -1,3 +1,4 @@
+import { enableMotives } from "../v2/card-game/motives.mjs";
 import { openingFixture } from "./helpers/greek-opening.mjs";
 import { packDefinition } from "../v2/card-game/pack-registry.mjs";
 import { recitalFacts, validRecitals } from "../v2/card-game/pack-recital.mjs";
@@ -83,6 +84,39 @@ describe("ordinary bard travel", () => {
         (q) => q.program.steps[0]?.passage?.kind === "directions",
       ),
     ).toBe(true);
+  });
+  it("records a real first-light visit and a later blocked attic passage", () => {
+    let s = enableMotives(createWorld({ opening: true }), {
+      personalQuests: true,
+    });
+    s = act(s, "light", { item: "lamp" });
+    s = act(s);
+    s = act(s);
+    expect(s.actors[singer].place).toBe("attic");
+    expect(s.opening.met[singer]).toBe(3);
+    expect(s.packs["greek-drama"].met[singer]).toBe(3);
+    expect(
+      legalActions(s).some((a) => a.kind === "talk" && a.target === singer),
+    ).toBe(true);
+    for (const target of [
+      "pond",
+      "greek-ship",
+      "greek-harbor",
+      "greek-courtyard",
+      "greek-gate",
+    ])
+      s = act(s, "move", { target });
+    s = act(s, "choose", { choiceId: "greek-hear-decree" });
+    s = act(s, "choose", { choiceId: "greek-decline-burial" });
+    expect(s.actors[singer].place).toBe("attic");
+    expect(s.roamingQuests[singer].target.locationId).toBe("greek-gate");
+    expect(s.roamingQuests[singer].blocked).toMatchObject({
+      kind: "passage",
+      from: "attic",
+      to: "pond",
+    });
+    expect(exits(s, "attic", singer)).not.toContain("pond");
+    expect(decodeSave(encodeSave(s))).toEqual(s);
   });
   it("takes one legal offscreen step each turn and stays at an exact AI completion site", () => {
     let s = createWorld();

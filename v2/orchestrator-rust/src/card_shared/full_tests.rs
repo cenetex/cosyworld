@@ -1413,3 +1413,77 @@ fn shared_quest_receipts_drive_bard_travel_after_version_seven_upgrade_and_repla
         assert_eq!(full_store::world(&c, &id, now()).unwrap(), w);
     }
 }
+
+#[test]
+fn bard_passage_help_uses_authoritative_home_and_ship_actions_and_replays() {
+    for sea in [false, true] {
+        let (_file, c, id) = fixture();
+        c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+        c.execute("DELETE FROM card_full_log", []).unwrap();
+        let mut w = World::create(None).unwrap();
+        w.game.as_object_mut().unwrap().remove("opening");
+        let start = if sea { "greek-harbor" } else { "theatre" };
+        w.game["actors"]["vale"]["place"] = json!(if sea { "pond" } else { "theatre" });
+        w.game["actors"]["greek-rhapsode"]["place"] = json!(start);
+        w.game["items"]["mask"]["holder"] = json!("theatre");
+        w.game["items"]["lamp"]["holder"] = json!("vale");
+        w.game["transports"]["greek-ship"]["dock"] = json!("pond");
+        let receipt = json!({"id":"world:quest:0:terminal:1","seq":1,"eventSeq":0,"turn":0,"questKey":"world:quest:0","terminalRevision":1,"actorId":"keeper","locationId":"pond","participants":["keeper"],"outcome":"fulfilled","cause":null});
+        w.game["quests"]["next"] = json!(1);
+        w.game["quests"]["records"]["world:quest:0"] = json!({
+          "key":"world:quest:0","mode":"shared","holder":{"kind":"place","id":"pond"},
+          "subjectActor":null,"rewardActor":null,"participants":["keeper"],
+          "program":{"id":"shore-deed","name":"A deed at the shore","steps":[{"items":[],"avatars":[],"location":"pond"}]},
+          "step":1,"origin":null,"createdTurn":0,"completedTurn":0,"cause":null,"terminalRevision":1,"completion":receipt
+        });
+        w.game["questCompletions"] = json!({"next":2,"recent":[receipt],"latest":receipt});
+        full_store::seed(&c, &id, &w, "blocked-bard-passage", now()).unwrap();
+        for op in ["claim", "enter"] {
+            full_store::commit(&c, &id, &mut w, json!({"op":op,"actor":"vale"}), now()).unwrap();
+        }
+        let play = |w: &mut World, kind: &str, field: &str, value: &str| {
+            let action = w.project(0).unwrap()["actions"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|a| a["kind"] == kind && (field.is_empty() || a[field] == value))
+                .unwrap_or_else(|| panic!("Missing {kind} {field} {value}"))
+                .clone();
+            full_store::commit(
+                &c,
+                &id,
+                w,
+                json!({"op":"play","actor":"vale","action":action}),
+                now(),
+            )
+            .unwrap();
+        };
+        play(&mut w, "wait", "", "");
+        assert_eq!(w.game["actors"]["greek-rhapsode"]["place"], start);
+        let help = w.game["roamingQuests"]["greek-rhapsode"]["blocked"]["questKey"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        play(&mut w, "wait", "", "");
+        assert_eq!(
+            w.game["roamingQuests"]["greek-rhapsode"]["blocked"]["questKey"],
+            help
+        );
+        if sea {
+            play(&mut w, "move", "target", "greek-ship");
+            play(&mut w, "move", "target", "greek-harbor");
+            assert_eq!(w.game["actors"]["greek-rhapsode"]["place"], "greek-ship");
+            play(&mut w, "wait", "", "");
+        } else {
+            play(&mut w, "join-quest", "questKey", &help);
+            play(&mut w, "take", "item", "mask");
+        }
+        assert_eq!(w.game["actors"]["greek-rhapsode"]["place"], "pond");
+        assert_eq!(w.game["roamingQuests"]["greek-rhapsode"]["target"], receipt);
+        let arrived = w.clone();
+        c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+        assert_eq!(full_store::world(&c, &id, now()).unwrap(), arrived);
+        play(&mut w, "wait", "", "");
+        assert_eq!(w.game["actors"]["greek-rhapsode"]["place"], "pond");
+    }
+}
