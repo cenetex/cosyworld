@@ -849,6 +849,7 @@ body .card-frame[hidden] {
 .action-panel {
   pointer-events: auto;
   text-align: center;
+  overflow: clip;
 }
 #card-actions {
   display: flex;
@@ -969,15 +970,11 @@ body .cast[data-count] {
     --card-width: 128px;
     --dock-height: 144px;
   }
-  body {
-    overflow-y: auto;
-    min-height: 570px;
-  }
-  main {
-    min-height: 570px;
-  }
-  body .stage {
-    min-height: 570px;
+}
+@media (max-height: 440px) {
+  :root {
+    --card-height: 140px;
+    --card-width: 112px;
   }
 }
 
