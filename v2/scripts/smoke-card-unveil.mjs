@@ -38,6 +38,8 @@ try {
         if (this.id === "unveil-take")
           window.flights.push({
             id: this.dataset.card,
+            direction:
+              document.querySelector("#unveil-dialog").dataset.direction,
             frames: args[0],
             duration: args[1].duration,
           });
@@ -46,7 +48,12 @@ try {
       window.addEventListener("DOMContentLoaded", () => {
         new MutationObserver(() => {
           const dialog = document.querySelector("#unveil-dialog");
-          if (!dialog?.open || dialog.dataset.phase !== "reveal") return;
+          if (
+            !dialog?.open ||
+            dialog.dataset.phase !== "reveal" ||
+            dialog.dataset.direction === "fulfill"
+          )
+            return;
           const id = document.querySelector("#unveil-take").dataset.card;
           if (window.discoveries.at(-1)?.id === id) return;
           window.discoveries.push({
@@ -233,9 +240,9 @@ try {
         assert(events.flights.some((f) => f.id === "pond"));
         assert(events.flights.some((f) => f.id === "cloth"));
         assert(
-          events.flights.every(
-            (f) => f.frames[1].transform !== "translate(0, 0) scale(1)",
-          ),
+          events.flights
+            .filter((f) => f.direction !== "fulfill")
+            .every((f) => f.frames[1].transform !== "translate(0, 0) scale(1)"),
         );
       }
       const saved = await state();

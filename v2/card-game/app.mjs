@@ -153,7 +153,8 @@ try {
 const SEEN_KEY = `${SAVE_KEY}.seen`;
 let encountered = new Set(),
   discoveryDone = Promise.resolve(),
-  discoveryPending = false;
+  discoveryPending = false,
+  queuedDiscoveries = 0;
 const fresh = new Set();
 function rememberCards() {
   try {
@@ -179,7 +180,8 @@ const QUEST_SEEN_KEY = `${SAVE_KEY}.quests`;
 let questSeen = new Set(),
   questRead = new Set(),
   completedQuests = [],
-  questNoticeRunning = false;
+  questNoticeRunning = false,
+  questNoticeDone = Promise.resolve();
 function loadQuestSeen(reset = false) {
   let saved;
   try {
@@ -885,12 +887,18 @@ function pauseDiscovery() {
 }
 document.addEventListener("visibilitychange", pauseDiscovery);
 function discoveryAnchor(id, holder) {
-  let target = $("hand").querySelector(`[data-card="${id}"]`);
-  if (!target || target.closest(".card-frame").hidden)
-    target = $("hand").querySelector(
-      `[data-card="${holder || (isQuestCard(id) ? shownQuest(id)?.actor : rootHolder(world, id))}"]`,
-    );
-  return target;
+  const find = (key) => $("hand").querySelector(`[data-card="${key}"]`);
+  let target = find(id) || find(holder);
+  const visited = new Set();
+  while (target) {
+    const frame = target.closest(".card-frame");
+    if (!frame.hidden && frame.dataset.stacked !== "true") return target;
+    const owner = frame.dataset.holder || holder || rootHolder(world, id);
+    if (!owner || visited.has(owner)) break;
+    visited.add(owner);
+    target = find(owner);
+  }
+  return null;
 }
 async function flyCard(shown, target, outward = false) {
   if (!target || reducedMotion.matches) return;
@@ -1040,7 +1048,12 @@ async function showDiscovered(id, version, announcement, fulfilled = false) {
   );
   await finished;
 }
-async function showQuestNotice() {
+function showQuestNotice() {
+  if (questNoticeRunning) return questNoticeDone;
+  questNoticeDone = presentQuestNotice();
+  return questNoticeDone;
+}
+async function presentQuestNotice() {
   const quest =
     completedQuests[0] ||
     shownQuests().find(
@@ -1050,6 +1063,7 @@ async function showQuestNotice() {
     saveBlocked ||
     !quest ||
     questNoticeRunning ||
+    queuedDiscoveries > 0 ||
     exchange.active ||
     discoveryPending ||
     (!completedQuests.length && questSeen.has(quest.key))
@@ -1101,6 +1115,25 @@ async function showQuestNotice() {
     }
   }
 }
+function queueDiscoveries() {
+  const version = trip;
+  const previous = discoveryDone;
+  queuedDiscoveries++;
+  const scheduled = previous
+    .catch(() => {})
+    .then(async () => {
+      try {
+        await questNoticeDone;
+        if (version === trip) await unveilNew();
+      } finally {
+        queuedDiscoveries--;
+        if (scheduled === discoveryDone && version === trip)
+          queueMicrotask(showQuestNotice);
+      }
+    });
+  discoveryDone = scheduled;
+}
+
 async function unveilNew() {
   if (saveBlocked) return;
   const rank = { avatar: 0, item: 1, location: 2 };
@@ -2491,8 +2524,7 @@ function adoptShared(value) {
       });
     } else render();
     if (alreadyOpen) {
-      discoveryDone = unveilNew();
-      void discoveryDone.then(showQuestNotice);
+      queueDiscoveries();
     }
   } else {
     renderActions();
