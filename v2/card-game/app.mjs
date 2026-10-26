@@ -3,6 +3,7 @@ import {
   installSharedControls,
   renderSharedQueue,
   sharedLiveLine,
+  sharedNextActor,
   sharedSpeechState,
   hasSharedPlace,
   humanAvatars,
@@ -1117,6 +1118,13 @@ function frameFigure(img) {
   if (img.complete && img.naturalWidth) measure();
   else img.addEventListener("load", measure, { once: true });
 }
+function sharedQueuePortrait(actor) {
+  const image = node("img");
+  image.src = portrait(actor, null, world);
+  image.alt = "";
+  frameFigure(image);
+  return image;
+}
 function renderActions(animate = false) {
   const row = $("card-actions"),
     panel = document.querySelector(".action-panel"),
@@ -1537,9 +1545,12 @@ function renderScene() {
     line: resolvedBeat ? null : scene.line,
     activeSpeaker: resolvedBeat ? null : scene.activeSpeaker,
     review: reviewing && !resolvedBeat,
+    sharedPlays: sharedSession?.state.history,
   });
   $("cast").dataset.layout = staging.layout;
   $("cast").dataset.count = String(staging.actors.length);
+  $("cast").dataset.shared = String(Boolean(sharedSession));
+  $("cast").style.setProperty("--cast-count", String(staging.actors.length));
   const castKey = JSON.stringify(staging.actors.map(({ id }) => id));
   if (castKey !== renderedCast) {
     renderedCast = castKey;
@@ -1715,7 +1726,8 @@ function renderScene() {
   const hasSpeech = Boolean(
     text || storyStatus !== "ready" || exchange.preparing,
   );
-  document.querySelector(".dialogue").hidden = !hasSpeech && !movement;
+  document.querySelector(".dialogue").hidden =
+    !hasSpeech && !movement && !sharedSession?.state.queue?.length;
   $("speech-row").hidden = !hasSpeech;
   document.querySelector(".line-controls").hidden = !text;
   $("dialogue-advance").hidden = !text;
@@ -1723,7 +1735,7 @@ function renderScene() {
   if (text) {
     const key = JSON.stringify([scene.line.seq, speaker, text, replay]);
     reveal.show(key, text, speaker, {
-      instant: Boolean(sharedSession) || completedSpeech.has(key),
+      instant: completedSpeech.has(key),
     });
   } else {
     reveal.cancel();
@@ -1735,7 +1747,6 @@ function renderScene() {
   $("previous-line").disabled = cardsCooling || at <= 0;
   updateSpeechControls(reveal.complete);
   $("previous-line").onclick = () => {
-    if (sharedSession) $("return-live").hidden = false;
     reviewing = true;
     lineSeq = spokenLines[at - 1].seq;
     renderScene();
@@ -1750,10 +1761,10 @@ function renderScene() {
       exchange.advance();
       return;
     }
-    reviewing = true;
-    if (sharedSession) $("return-live").hidden = false;
     if (nextSceneSeq !== null) lineSeq = nextSceneSeq;
     else replay++;
+    // Reading through the latest shared line rejoins the room's live clock.
+    reviewing = !sharedSession || lineSeq !== spokenLines.at(-1)?.seq;
     renderScene();
   };
   $("dialogue-advance").onclick = advance;
@@ -1774,6 +1785,29 @@ function renderScene() {
     }
   };
   $("next-line").onclick = advance;
+  const liveButton = $("live-line");
+  liveButton.hidden = !sharedSession;
+  if (sharedSession) {
+    const actor = sharedNextActor(
+      sharedSession.state,
+      sharedSession.now(),
+      scene.locationId,
+    );
+    liveButton.dataset.live = String(!reviewing);
+    liveButton.title = `Return to live dialogue · ${nameOf(actor)}`;
+    liveButton.setAttribute("aria-label", liveButton.title);
+    if (liveButton.dataset.actor !== actor) {
+      liveButton.dataset.actor = actor;
+      liveButton.replaceChildren(sharedQueuePortrait(actor));
+    }
+    liveButton.onclick = () => {
+      reviewing = false;
+      lineSeq = null;
+      sharedLineKey = "";
+      syncSharedLine();
+      renderScene();
+    };
+  }
 }
 let renderedLog = [];
 function renderLog() {
@@ -1894,7 +1928,7 @@ function render() {
   updateHandScroll();
   renderScene();
   renderLog();
-  if (sharedSession) renderSharedQueue(sharedSession);
+  if (sharedSession) renderSharedQueue(sharedSession, sharedQueuePortrait);
   updateCardCooldown();
   if (focused) {
     const frame = $("hand")
@@ -2250,7 +2284,6 @@ async function submitSharedPlay(action) {
     selected = [];
     expandedHolders.clear();
     reviewing = false;
-    $("return-live").hidden = true;
     notice("Your play is at the table.");
   } catch (error) {
     notice(error.message);
@@ -2273,7 +2306,8 @@ function syncSharedLine() {
         ? entry.seq === live.seq
         : entry.text === live.text && entry.speaker === live.speaker),
   );
-  if (!entry) return;
+  // A reader can advance ahead of the clock. Keep that line until it catches up.
+  if (!entry || (lineSeq !== null && entry.seq < lineSeq)) return;
   const key = `${room}:${entry.seq}`;
   if (key === sharedLineKey) return;
   sharedLineKey = key;
@@ -2316,7 +2350,7 @@ function adoptShared(value) {
       });
     } else render();
   } else {
-    renderSharedQueue(sharedSession);
+    renderSharedQueue(sharedSession, sharedQueuePortrait);
     renderActions();
     renderScene();
   }
@@ -2337,12 +2371,6 @@ installSharedControls({
     return encodeSave(world);
   },
   notice,
-  onLive: () => {
-    reviewing = false;
-    sharedLineKey = "";
-    $("return-live").hidden = true;
-    syncSharedLine();
-  },
 });
 if (sharedSession) {
   world = sharedWorld(sharedSession.state);

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   sharedLiveLine,
+  sharedNextActor,
   sharedSpeechState,
   hasSharedPlace,
 } from "../v2/card-game/shared.mjs";
@@ -88,6 +89,39 @@ describe("shared room dialogue clock", () => {
     expect(sharedLiveLine(state, 1100, "station").speaker).toBe("Keeper");
     expect(sharedLiveLine(state, 1100, "attic")).toBeNull();
   });
+});
+
+it("puts the next player's face on the live control and keeps a face while quiet", () => {
+  const state = {
+    actor: "vale",
+    queue: [
+      { actor: "vale", status: "playing" },
+      { actor: "mara", status: "waiting" },
+    ],
+    history: [
+      {
+        actor: "vale",
+        room: "pond",
+        starts_at: 1000,
+        lines: [
+          { actorId: "vale", text: "Here is a light." },
+          { actorId: "moth", text: "Let me see." },
+        ],
+      },
+    ],
+  };
+  expect(sharedNextActor(state, 1100, "pond")).toBe("mara");
+  state.queue = [{ actor: "nell", status: "working" }];
+  expect(sharedNextActor(state, 1100, "pond")).toBe("nell");
+  state.queue = [];
+  expect(sharedNextActor(state, 1100, "pond")).toBe("moth");
+  expect(sharedNextActor(state, 90000, "pond")).toBe("moth");
+  state.history[0].lines[1] = {
+    actorId: null,
+    text: "A ripple reaches the shore.",
+  };
+  expect(sharedNextActor(state, 90000, "pond")).toBe("vale");
+  expect(sharedNextActor(state, 90000, "station")).toBe("vale");
 });
 
 describe("shared speech recovery", () => {
