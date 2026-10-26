@@ -1514,7 +1514,9 @@ export function matchingActions(s, selected, actor = currentActor(s)) {
   if (!set.length) return [];
   return legalActions(s, actor).filter(
     (a) =>
-      a.cards.length === set.length && set.every((id) => a.cards.includes(id)),
+      Array.isArray(a.cards) &&
+      a.cards.length === set.length &&
+      set.every((id) => a.cards.includes(id)),
   );
 }
 function travelParty(s, actors, destination) {

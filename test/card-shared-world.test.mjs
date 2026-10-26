@@ -46,6 +46,37 @@ const ask = (world, op, actor = "vale", extra = {}) =>
   });
 
 describe("the full world shared by human avatars", () => {
+  it("matches selected item cards while personal and shared quest actions are offered", () => {
+    let world = dispatchShared({ op: "create" }).world;
+    for (const [kind, target] of [
+      ["light", null],
+      ["move", "pond"],
+    ]) {
+      const action = ask(world, "view").actions.find(
+        (a) => a.kind === kind && (!target || a.target === target),
+      );
+      world = ask(world, "play", "vale", { action }).world;
+    }
+    world.items.cloth.holder = "vale";
+    const actions = ask(world, "view").actions;
+    for (const kind of ["pursue", "share-quest", "join-quest"])
+      expect(actions.some((a) => a.kind === kind && !a.cards)).toBe(true);
+    const cover = actions.find((a) => a.kind === "cover");
+    expect(cover).toBeDefined();
+    const selected = ask(world, "play", "vale", {
+      selectedIds: ["vale", "cloth", "lamp", "cloth"],
+    });
+    const explicit = ask(world, "play", "vale", { action: cover });
+    expect(selected.ok).toBe(true);
+    expect(selected.world).toEqual(explicit.world);
+    expect(selected.world.items.cloth.holder).toBe("lamp");
+    const invalid = ask(world, "play", "vale", {
+      selectedIds: ["cloth", "lamp", "pond"],
+    });
+    expect(invalid.ok).toBe(false);
+    expect(invalid.world.revision).toBe(world.revision);
+    expect(invalid.world.items.cloth.holder).toBe("vale");
+  });
   it.each(humanAvatars.filter((a) => a.id !== "vale"))(
     "$name starts with an item on the floor and opens the home path by carrying it",
     (avatar) => {
