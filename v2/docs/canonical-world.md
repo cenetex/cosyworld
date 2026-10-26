@@ -133,7 +133,11 @@ mutation); the commit transaction validates the exact owner and fencing epoch,
 renews unexpired leases, and acquires every additional affected room (for
 example both sides of a move). The global event cursor is a separate atomic
 compare-and-set, so different room owners cannot allocate conflicting history.
-Lease takeover only occurs after expiry and increments the fencing epoch. A
+A preflight that finds less than half the TTL left on its own lease renews it
+first, giving that command a fresh lease window. Graceful shutdown writes the
+final snapshot, expires this owner's leases so the next boot takes its rooms at
+once, and holds the runtime until exit so no later commit escapes the
+checkpoint. Lease takeover only occurs after expiry and increments the fencing epoch. A
 stale owner, an expired owner, a discontinuous world cursor, or an entity
 compare-and-set failure aborts the whole transaction and reloads the committed
 journal. The optional `COSYWORLD_CANONICAL_LEASE_TTL_MS` setting accepts
