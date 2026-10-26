@@ -329,6 +329,24 @@ play requires both selected voices and journals the committed text through the
 existing shared dialogue event. Shared speech uses the same transcript and
 visible-state checks; reflections belong to local play.
 
+Optional voice tiers are enabled with exact model IDs in
+`COSYWORLD_CARD_REFLECTION_MODEL` and `COSYWORLD_CARD_ESCALATION_MODEL`.
+Both settings start unset. The reflection tier writes an avatar's lasting
+persona in local play. Public speech, thoughts, and dreams use the character's
+own model. The escalation tier gets one cooler attempt after the selected
+model's attempts fail validation or time out. All tier models must qualify for
+world content in the current registry and data policy. Equal selected models,
+including two IDs for the same concrete model, share the original attempts.
+
+An enabled escalation receives a reserved part of the scene's remaining time:
+half the remaining time, up to one call timeout. Earlier attempts share the
+rest. A voice starting at the beginning of the hosted twenty-two-second scene
+therefore has about 5.5 seconds for each of its two own attempts and eleven
+seconds for escalation. Queue waits use the same deadline. Every returned line
+and reflection passes the same checks before it can enter the saved world.
+The browser retains the avatar's public model attribution beside its private
+persona, thoughts, and dreams across reloads.
+
 For local Ollama play, pull a model and run `npm run play:cards:local`.
 `COSYWORLD_LOCAL_MODEL` defaults to `gemma3:4b`; `OLLAMA_URL` and
 `COSYWORLD_CARD_LOCAL_PORT` select the server and table port. The local profile

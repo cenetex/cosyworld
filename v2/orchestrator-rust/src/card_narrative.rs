@@ -701,6 +701,21 @@ async fn complete_selected(
     reflections: bool,
     on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
 ) -> Result<Value, Response> {
+    for model in [&settings.reflection_model, &settings.escalation_model]
+        .into_iter()
+        .flatten()
+    {
+        if let Err(failure) =
+            tier_config(config, Some(model)).pin_model(ModelCapability::WorldContent)
+        {
+            tracing::warn!(feature = "card_voice", model, %failure, "card voice tier needs an eligible model");
+            return Err(error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "Character voice tiers are waiting for eligible model settings.",
+            ));
+        }
+    }
+    let deadline = tokio::time::Instant::now() + settings.scene_timeout;
     let mut calls: Vec<_> = voiced.iter().map(|id| (id.clone(), Part::Line)).collect();
     for id in voiced {
         let entity = entity(context, id);
@@ -714,7 +729,16 @@ async fn complete_selected(
         }
     }
     let jobs = calls.into_iter().map(|(id, part)| async move {
-        let result = speak(config, context, character_models, settings, &id, part).await;
+        let result = speak(
+            config,
+            context,
+            character_models,
+            settings,
+            deadline,
+            &id,
+            part,
+        )
+        .await;
         (id, part, result)
     });
     let mut results = futures_util::StreamExt::buffer_unordered(
@@ -724,7 +748,7 @@ async fn complete_selected(
     let mut lines: BTreeMap<String, (String, String)> = BTreeMap::new();
     let mut private: BTreeMap<(String, Part), String> = BTreeMap::new();
     let mut failed_reflection = BTreeSet::new();
-    let collected = tokio::time::timeout(settings.scene_timeout, async {
+    let collected = tokio::time::timeout_at(deadline, async {
         while let Some((id, part, result)) = futures_util::StreamExt::next(&mut results).await {
             match (part, result) {
                 (Part::Line, Ok((text, model))) => {
@@ -886,6 +910,8 @@ struct VoiceSettings {
     parallel: usize,
     attempts: u8,
     line_limit: usize,
+    reflection_model: Option<String>,
+    escalation_model: Option<String>,
 }
 
 impl VoiceSettings {
@@ -896,6 +922,8 @@ impl VoiceSettings {
             parallel: 8,
             attempts: 2,
             line_limit: 400,
+            reflection_model: None,
+            escalation_model: None,
         }
     }
 
@@ -906,6 +934,8 @@ impl VoiceSettings {
             parallel: 1,
             attempts: 2,
             line_limit: 400,
+            reflection_model: None,
+            escalation_model: None,
         }
     }
 
@@ -944,6 +974,21 @@ impl VoiceSettings {
         if let Some(attempts) = number("COSYWORLD_CARD_TEXT_ATTEMPTS", 3)? {
             settings.attempts = attempts as u8;
         }
+        // A tier is an exact model ID, bounded like the character map's.
+        let model = |name: &str| -> Result<Option<String>, String> {
+            get(name)
+                .filter(|value| !value.trim().is_empty())
+                .map(|value| {
+                    (bounded(&value, 160) && value.trim() == value)
+                        .then_some(value)
+                        .ok_or_else(|| {
+                            format!("{name} must be an exact model ID of at most 160 characters")
+                        })
+                })
+                .transpose()
+        };
+        settings.reflection_model = model("COSYWORLD_CARD_REFLECTION_MODEL")?;
+        settings.escalation_model = model("COSYWORLD_CARD_ESCALATION_MODEL")?;
         if settings.call_timeout > settings.scene_timeout {
             return Err(
                 "COSYWORLD_CARD_TEXT_CALL_TIMEOUT_SECS must not exceed the scene timeout".into(),
@@ -1327,87 +1372,165 @@ fn leaving(context: &Context, id: &str) -> bool {
     })
 }
 
-/// One voiced call, with one regeneration, returning validated text and the
-/// model. A second rejection leaves the entity silent; nothing is invented.
+/// Select a configured tier through the same registry and policy as every
+/// world-content request.
+fn tier_config(config: &AiConfig, model: Option<&str>) -> AiConfig {
+    let mut config = config.clone();
+    if let Some(model) = model {
+        config
+            .capability_models
+            .insert(ModelCapability::WorldContent, model.into());
+        config.reasoning_effort = config
+            .pin_model(ModelCapability::WorldContent)
+            .ok()
+            .filter(|selection| selection.candidate().supported_parameters().reasoning)
+            .map(|_| "none".to_string());
+    }
+    config
+}
+
+/// Reserve time for an escalation before running the voice's own attempts.
+/// The timeout includes gateway readiness and queue waits as well as HTTP.
+async fn voice_attempts<T, F, Fut>(
+    settings: &VoiceSettings,
+    deadline: tokio::time::Instant,
+    escalate: bool,
+    mut request: F,
+) -> Result<T, ()>
+where
+    F: FnMut(bool, u8, Duration) -> Fut,
+    Fut: std::future::Future<Output = Result<T, ()>>,
+{
+    let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+    let reserve = if escalate {
+        settings.call_timeout.min(remaining / 2)
+    } else {
+        Duration::ZERO
+    };
+    let own_deadline = deadline - reserve;
+    let own_attempts = settings.attempts.max(1);
+    for attempt in 0..own_attempts + u8::from(escalate) {
+        let escalation = attempt == own_attempts;
+        let until = if escalation { deadline } else { own_deadline };
+        let now = tokio::time::Instant::now();
+        let remaining = until.saturating_duration_since(now);
+        let budget = if escalate && !escalation {
+            remaining / u32::from(own_attempts - attempt)
+        } else {
+            remaining
+        }
+        .min(settings.call_timeout);
+        if budget.is_zero() {
+            continue;
+        }
+        if let Ok(Ok(result)) =
+            tokio::time::timeout_at(now + budget, request(escalation, attempt, budget)).await
+        {
+            return Ok(result);
+        }
+    }
+    Err(())
+}
+
+/// Generate a validated part on its selected model, then use the optional
+/// escalation model once when the earlier attempts need more help.
 async fn speak(
     config: &AiConfig,
     context: &Context,
     character_models: &BTreeMap<String, String>,
     settings: &VoiceSettings,
+    deadline: tokio::time::Instant,
     id: &str,
     part: Part,
 ) -> Result<(String, String), ()> {
     let entity = entity(context, id);
-    let mut config = config.clone();
-    if let Some(model) = character_models.get(id) {
-        config
-            .capability_models
-            .insert(ModelCapability::WorldContent, model.clone());
-        // Keep the short speech budget for output on models that accept
-        // reasoning control. Other models use their native request shape.
-        config.reasoning_effort = config
-            .registry
-            .as_deref()
-            .and_then(|registry| {
-                registry
-                    .pin(
-                        ModelCapability::WorldContent,
-                        Some(model),
-                        config.data_policy_mode,
-                    )
-                    .ok()
-            })
-            .filter(|selection| selection.candidate().supported_parameters().reasoning)
-            .map(|_| "none".to_string());
-    }
+    let own_model = (part == Part::Persona)
+        .then_some(settings.reflection_model.as_deref())
+        .flatten()
+        .or_else(|| character_models.get(id).map(String::as_str));
+    let own = tier_config(config, own_model);
+    let selected = own
+        .pin_model(ModelCapability::WorldContent)
+        .map_err(|_| ())?;
+    let escalation = settings
+        .escalation_model
+        .as_deref()
+        .map(|model| tier_config(config, Some(model)))
+        .filter(|candidate| {
+            candidate
+                .pin_model(ModelCapability::WorldContent)
+                .is_ok_and(|other| {
+                    selected.requested_model_id() != other.requested_model_id()
+                        && match (
+                            selected.candidate().concrete_model(),
+                            other.candidate().concrete_model(),
+                        ) {
+                            (Some(left), Some(right)) => left != right,
+                            _ => true,
+                        }
+                })
+        });
     let system = idiolect(entity);
     let user = transcript(context, entity, part);
     let mut check = Check::new(context, entity, part);
     if part == Part::Line {
         check.limit = settings.line_limit;
     }
-    for attempt in 0..settings.attempts.max(1) {
-        let request = ChatCompletionRequest {
-            feature: "card_voice",
-            prompt_version: "card-voice-v2",
-            capability: ModelCapability::WorldContent,
-            system: &system,
-            user: &user,
-            // Hot sampling keeps small models varied; a retry cools slightly.
-            temperature: 1.0 - 0.1 * f64::from(attempt),
-            max_tokens: if part == Part::Persona { 160 } else { 96 },
-            timeout: settings.call_timeout,
-            max_attempts: 1,
-            referer: "https://cosyworld.fly.dev",
-            response_format: None,
-            room_id: None,
-        };
-        let completion = match request_chat_completion(&config, request).await {
-            Ok(completion) => completion,
-            Err(error) => {
-                tracing::info!(
-                    feature = "card_voice",
-                    entity = id,
-                    reason = "provider",
-                    failure = error.code(),
-                    "card voice rejected"
-                );
-                continue;
+    voice_attempts(
+        settings,
+        deadline,
+        escalation.is_some(),
+        |escalated, attempt, timeout| {
+            let config = if escalated {
+                escalation.as_ref().unwrap()
+            } else {
+                &own
+            };
+            let system = &system;
+            let user = &user;
+            let check = &check;
+            async move {
+                let request = ChatCompletionRequest {
+                    feature: "card_voice",
+                    prompt_version: "card-voice-v2",
+                    capability: ModelCapability::WorldContent,
+                    system,
+                    user,
+                    temperature: 1.0 - 0.1 * f64::from(attempt),
+                    max_tokens: if part == Part::Persona { 160 } else { 96 },
+                    timeout,
+                    max_attempts: 1,
+                    referer: "https://cosyworld.fly.dev",
+                    response_format: None,
+                    room_id: None,
+                };
+                let completion =
+                    request_chat_completion(config, request)
+                        .await
+                        .map_err(|error| {
+                            tracing::info!(
+                                feature = "card_voice",
+                                entity = id,
+                                reason = "provider",
+                                failure = error.code(),
+                                "card voice rejected"
+                            );
+                        })?;
+                check
+                    .clean(&completion.text, completion.finish_reason != "length")
+                    .map(|text| (text, completion.resolved_model_id))
+                    .map_err(|reason| {
+                        tracing::info!(
+                            feature = "card_voice",
+                            entity = id,
+                            reason,
+                            "card voice rejected"
+                        );
+                    })
             }
-        };
-        match check.clean(&completion.text, completion.finish_reason != "length") {
-            Ok(text) => return Ok((text, completion.resolved_model_id)),
-            Err(reason) => {
-                tracing::info!(
-                    feature = "card_voice",
-                    entity = id,
-                    reason,
-                    "card voice rejected"
-                )
-            }
-        }
-    }
-    Err(())
+        },
+    )
+    .await
 }
 
 /// Phrases that belong to an assistant, not to anyone at this table. The
@@ -2967,6 +3090,540 @@ mod tests {
             let user = request["messages"][1]["content"].as_str().unwrap();
             assert!(user.ends_with("Mara:") || user.ends_with("Pip:"));
         }
+        server.abort();
+    }
+    /// Serves a mock provider on a loopback port.
+    async fn serve(provider: Router) -> (SocketAddr, tokio::task::JoinHandle<()>) {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            axum::serve(listener, provider).await.unwrap();
+        });
+        (address, server)
+    }
+
+    fn cast_models() -> BTreeMap<String, String> {
+        [
+            ("vale", "vale-model"),
+            ("moth", "moth-model"),
+            ("keeper", "keeper-model"),
+            ("badger", "badger-model"),
+        ]
+        .into_iter()
+        .map(|(id, m)| (id.into(), m.into()))
+        .collect()
+    }
+
+    /// A test configuration whose registry declares the cast models, the
+    /// entity model and the given tier models for world content; `true`
+    /// marks a tier model that thinks by default. The table's own
+    /// world-content model is pinned as `COSYWORLD_CARD_TEXT_MODEL` pins it.
+    fn tiered_config(address: SocketAddr, tiers: &[(&str, bool)]) -> AiConfig {
+        let mut config = test_config(address);
+        config
+            .capability_models
+            .insert(ModelCapability::WorldContent, "test-entity-model".into());
+        let declared: Vec<_> = cast_models()
+            .into_values()
+            .chain(["test-entity-model".to_string()])
+            .map(|id| (id, false))
+            .chain(tiers.iter().map(|(id, reasoning)| (id.to_string(), *reasoning)))
+            .map(|(id, reasoning)| json!({
+                "requested_model_id":id,"provider":"openrouter","concrete_model":{"model_id":id},
+                "input_modalities":["text"],"output_modalities":["text"],
+                "supported_parameters":{"json_mode":true,"structured_output":true,"reasoning":reasoning},
+                "capabilities":["world_content"],"prompt_adapter":{"id":"openai-chat","version":"1"}
+            }))
+            .collect();
+        config.registry = Some(Arc::new(
+            crate::ai_gateway::CapabilityRegistrySnapshot::from_json(
+                &json!({"schema_version":1,"snapshot_version":"tier-test","declared":declared,"discovered":[]})
+                    .to_string(),
+            )
+            .unwrap(),
+        ));
+        config
+    }
+
+    async fn scene(app: &Router, context: &Context) -> (StatusCode, Value) {
+        let response = app.clone().oneshot(request(context)).await.unwrap();
+        let status = response.status();
+        let bytes = to_bytes(response.into_body(), 64 * 1024).await.unwrap();
+        (status, serde_json::from_slice(&bytes).unwrap())
+    }
+
+    /// The cue a captured request ends with, such as `Pip:`.
+    fn stem_of(body: &Value) -> String {
+        body["messages"][1]["content"]
+            .as_str()
+            .unwrap()
+            .lines()
+            .last()
+            .unwrap()
+            .to_string()
+    }
+
+    fn models_for(requests: &[Value], stem: &str) -> Vec<String> {
+        requests
+            .iter()
+            .filter(|body| stem_of(body) == stem)
+            .map(|body| body["model"].as_str().unwrap().to_string())
+            .collect()
+    }
+
+    #[tokio::test]
+    async fn personas_run_on_the_reflection_model_while_lines_keep_their_own() {
+        let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
+        let provider = plain_provider(seen.clone(), |body, stem| {
+            let user = body["messages"][1]["content"].as_str().unwrap();
+            if stem.ends_with(", who I am now:")
+                && user.contains("Mute persona")
+                && body["model"] != "escalation-model"
+            {
+                return String::new();
+            }
+            stem_reply(stem)
+        });
+        let (address, server) = serve(provider).await;
+        let config = Arc::new(Some(tiered_config(
+            address,
+            &[("reflection-model", true), ("escalation-model", false)],
+        )));
+        let reflective = VoiceSettings {
+            reflection_model: Some("reflection-model".into()),
+            ..VoiceSettings::hosted()
+        };
+        let mut c = context();
+        c.entities[0].memories.push(Memory {
+            turn: 1,
+            kind: "event".into(),
+            text: "Vale received a gift.".into(),
+        });
+        let persona = "I am still proud, but I am learning to accept help.";
+        // With a character map and without one, only the persona moves.
+        for (models, line_model) in [
+            (cast_models(), "vale-model"),
+            (BTreeMap::new(), "test-entity-model"),
+        ] {
+            seen.lock().unwrap().clear();
+            let app = router_with_models::<()>(config.clone(), Ok(models), Ok(reflective.clone()));
+            let (status, result) = scene(&app, &c).await;
+            assert_eq!(status, StatusCode::OK);
+            assert_eq!(result["entries"][0]["id"], "vale");
+            assert_eq!(result["entries"][0]["model"], line_model);
+            assert_eq!(result["entries"][0]["reflection"]["persona"], persona);
+            assert_eq!(
+                result["entries"][0]["reflection"]["thought"],
+                "I felt welcome."
+            );
+            let requests = seen.lock().unwrap().clone();
+            assert_eq!(requests.len(), 7);
+            assert_eq!(models_for(&requests, "Vale:"), [line_model]);
+            assert_eq!(models_for(&requests, "Vale, to myself:"), [line_model]);
+            assert_eq!(
+                models_for(&requests, "Vale, last night's dream:"),
+                [line_model]
+            );
+            assert_eq!(
+                models_for(&requests, "Vale, who I am now:"),
+                ["reflection-model"]
+            );
+            for body in &requests {
+                // The reflection model thinks by default; the route turns
+                // that off there and leaves the other requests as they were.
+                if body["model"] == "reflection-model" {
+                    assert_eq!(body["reasoning"]["effort"], "none");
+                } else {
+                    assert!(body.get("reasoning").is_none(), "{}", stem_of(body));
+                }
+            }
+        }
+        // A persona that already ran on the escalation model is not sent
+        // there again: two attempts, then silence for the reflection alone.
+        c.entities[0].facts.push("Mute persona.".into());
+        let same = VoiceSettings {
+            escalation_model: Some("reflection-model".into()),
+            ..reflective.clone()
+        };
+        seen.lock().unwrap().clear();
+        let app = router_with_models::<()>(config.clone(), Ok(cast_models()), Ok(same));
+        let (status, result) = scene(&app, &c).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(result["entries"][0]["model"], "vale-model");
+        assert!(result["entries"][0].get("reflection").is_none());
+        assert_eq!(result["omitted"], json!([]));
+        let requests = seen.lock().unwrap().clone();
+        assert_eq!(requests.len(), 8);
+        assert_eq!(
+            models_for(&requests, "Vale, who I am now:"),
+            ["reflection-model", "reflection-model"]
+        );
+        // A different escalation model gets the persona's one more attempt.
+        let bigger = VoiceSettings {
+            escalation_model: Some("escalation-model".into()),
+            ..reflective
+        };
+        seen.lock().unwrap().clear();
+        let app = router_with_models::<()>(config, Ok(cast_models()), Ok(bigger));
+        let (status, result) = scene(&app, &c).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(result["entries"][0]["model"], "vale-model");
+        assert_eq!(result["entries"][0]["reflection"]["persona"], persona);
+        let requests = seen.lock().unwrap().clone();
+        assert_eq!(requests.len(), 9);
+        assert_eq!(
+            models_for(&requests, "Vale, who I am now:"),
+            ["reflection-model", "reflection-model", "escalation-model"]
+        );
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn escalation_gives_a_failed_line_one_cooler_attempt_on_the_bigger_model() {
+        let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
+        let provider = plain_provider(seen.clone(), |body, stem| {
+            if stem == "Pip:" && body["model"] != "escalation-model" {
+                return String::new();
+            }
+            stem_reply(stem)
+        });
+        let (address, server) = serve(provider).await;
+        let app = router_with_models::<()>(
+            Arc::new(Some(tiered_config(address, &[("escalation-model", false)]))),
+            Ok(cast_models()),
+            Ok(VoiceSettings {
+                escalation_model: Some("escalation-model".into()),
+                ..VoiceSettings::hosted()
+            }),
+        );
+        let (status, result) = scene(&app, &context()).await;
+        assert_eq!(status, StatusCode::OK);
+        let entries = result["entries"].as_array().unwrap();
+        assert_eq!(entries.len(), 4);
+        assert_eq!(result["omitted"], json!([]));
+        assert_eq!(entries[0]["model"], "vale-model");
+        assert_eq!(entries[1]["id"], "moth");
+        assert_eq!(entries[1]["model"], "escalation-model");
+        assert_eq!(
+            entries[1]["text"],
+            "I remember the kindness beside the lamp."
+        );
+        // Mixed models leave the scene under the shared label.
+        assert_eq!(result["model"], "card-voices-v1");
+        let requests = seen.lock().unwrap().clone();
+        assert_eq!(requests.len(), 6);
+        let pip: Vec<_> = requests
+            .iter()
+            .filter(|body| stem_of(body) == "Pip:")
+            .map(|body| {
+                (
+                    body["model"].as_str().unwrap().to_string(),
+                    body["temperature"].as_f64().unwrap(),
+                )
+            })
+            .collect();
+        assert_eq!(pip.len(), 3);
+        for ((model, temperature), (expected, cooled)) in pip.iter().zip([
+            ("moth-model", 1.0),
+            ("moth-model", 0.9),
+            ("escalation-model", 0.8),
+        ]) {
+            assert_eq!(model, expected);
+            assert!(
+                (temperature - cooled).abs() < 1e-9,
+                "{model}: {temperature}"
+            );
+        }
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn escalation_that_also_fails_leaves_the_voice_silent_and_publishes_the_rest() {
+        let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
+        let provider = plain_provider(seen.clone(), |_, stem| {
+            if stem == "Empty station:" {
+                String::new()
+            } else {
+                stem_reply(stem)
+            }
+        });
+        let (address, server) = serve(provider).await;
+        let config = tiered_config(address, &[("escalation-model", false)]);
+        let settings = VoiceSettings {
+            escalation_model: Some("escalation-model".into()),
+            ..VoiceSettings::hosted()
+        };
+        let app = router_with_models::<()>(
+            Arc::new(Some(config.clone())),
+            Ok(cast_models()),
+            Ok(settings.clone()),
+        );
+        let (status, result) = scene(&app, &context()).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(result["omitted"], json!(["station"]));
+        let ids: Vec<_> = result["entries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|e| e["id"].as_str().unwrap())
+            .collect();
+        assert_eq!(ids, ["vale", "moth", "lamp"]);
+        let requests = seen.lock().unwrap().clone();
+        assert_eq!(requests.len(), 6);
+        assert_eq!(
+            models_for(&requests, "Empty station:"),
+            ["test-entity-model", "test-entity-model", "escalation-model"]
+        );
+        // When the table's own world-content model is the escalation model,
+        // scenery that fails on it is not sent there a third time.
+        let mut pinned = config;
+        pinned
+            .capability_models
+            .insert(ModelCapability::WorldContent, "escalation-model".into());
+        seen.lock().unwrap().clear();
+        let app = router_with_models::<()>(Arc::new(Some(pinned)), Ok(cast_models()), Ok(settings));
+        let (status, result) = scene(&app, &context()).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(result["omitted"], json!(["station"]));
+        let requests = seen.lock().unwrap().clone();
+        assert_eq!(requests.len(), 5);
+        assert_eq!(
+            models_for(&requests, "Empty station:"),
+            ["escalation-model", "escalation-model"]
+        );
+        server.abort();
+    }
+
+    #[test]
+    fn voice_tiers_take_exact_model_ids_or_stay_unset() {
+        let lookup = |pairs: Vec<(&'static str, String)>| {
+            move |name: &str| {
+                pairs
+                    .iter()
+                    .find(|(key, _)| *key == name)
+                    .map(|(_, value)| value.clone())
+            }
+        };
+        let blank = VoiceSettings::from_lookup(lookup(vec![
+            ("COSYWORLD_CARD_REFLECTION_MODEL", "   ".into()),
+            ("COSYWORLD_CARD_ESCALATION_MODEL", String::new()),
+        ]))
+        .unwrap();
+        assert_eq!(blank, VoiceSettings::hosted());
+        let tiered = VoiceSettings::from_lookup(lookup(vec![
+            ("COSYWORLD_CARD_TEXT_PROFILE", "local".into()),
+            (
+                "COSYWORLD_CARD_REFLECTION_MODEL",
+                "openai/gpt-6-luna".into(),
+            ),
+            (
+                "COSYWORLD_CARD_ESCALATION_MODEL",
+                "google/gemma-4-31b-it".into(),
+            ),
+        ]))
+        .unwrap();
+        assert_eq!(
+            tiered.reflection_model.as_deref(),
+            Some("openai/gpt-6-luna")
+        );
+        assert_eq!(
+            tiered.escalation_model.as_deref(),
+            Some("google/gemma-4-31b-it")
+        );
+        assert_eq!(
+            VoiceSettings {
+                reflection_model: None,
+                escalation_model: None,
+                ..tiered
+            },
+            VoiceSettings::local()
+        );
+        for name in [
+            "COSYWORLD_CARD_REFLECTION_MODEL",
+            "COSYWORLD_CARD_ESCALATION_MODEL",
+        ] {
+            for bad in [
+                " openai/gpt-6-luna".to_string(),
+                "openai/gpt-6-luna ".into(),
+                "openai/gpt-6-luna\n".into(),
+                "a".repeat(161),
+                "openai/gpt\u{7}6-luna".into(),
+            ] {
+                let error = VoiceSettings::from_lookup(lookup(vec![(name, bad.clone())]))
+                    .expect_err(&format!("{name}={bad:?}"));
+                assert!(error.starts_with(name), "{error}");
+            }
+        }
+    }
+    #[tokio::test(start_paused = true)]
+    async fn slow_attempts_leave_time_for_escalation_inside_the_scene() {
+        let settings = VoiceSettings::hosted();
+        let started = tokio::time::Instant::now();
+        let deadline = started + settings.scene_timeout;
+        let mut seen = Vec::new();
+        let result = voice_attempts(&settings, deadline, true, |escalated, attempt, budget| {
+            seen.push((
+                escalated,
+                attempt,
+                tokio::time::Instant::now() - started,
+                budget,
+            ));
+            async move {
+                if escalated {
+                    tokio::time::sleep(Duration::from_secs(10)).await;
+                    Ok("recovered")
+                } else {
+                    // Includes a gateway future waiting for readiness or a slot.
+                    std::future::pending::<Result<&str, ()>>().await
+                }
+            }
+        })
+        .await;
+        assert_eq!(result, Ok("recovered"));
+        assert_eq!(seen.len(), 3);
+        assert_eq!(
+            seen[0],
+            (false, 0, Duration::ZERO, Duration::from_millis(5500))
+        );
+        assert!(seen[1].2 >= Duration::from_millis(5500));
+        assert!(seen[2].0);
+        assert!(seen[2].2 >= Duration::from_secs(11));
+        assert!(tokio::time::Instant::now() < deadline);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn queued_voice_shares_the_original_scene_deadline() {
+        let settings = VoiceSettings::hosted();
+        let started = tokio::time::Instant::now();
+        let deadline = started + settings.scene_timeout;
+        tokio::time::sleep(Duration::from_secs(14)).await;
+        let mut seen = Vec::new();
+        let result = voice_attempts(&settings, deadline, true, |escalated, _, budget| {
+            seen.push((escalated, tokio::time::Instant::now() - started, budget));
+            async move {
+                if escalated {
+                    tokio::time::sleep(Duration::from_secs(3)).await;
+                    Ok(())
+                } else {
+                    std::future::pending::<Result<(), ()>>().await
+                }
+            }
+        })
+        .await;
+        assert_eq!(result, Ok(()));
+        assert_eq!(seen.len(), 3);
+        assert!(seen[0].2 <= Duration::from_secs(2));
+        assert!(seen[2].0);
+        assert!(seen[2].1 >= Duration::from_secs(18));
+        assert!(tokio::time::Instant::now() < deadline);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn exhausted_scene_cancels_escalation_and_starts_no_later_calls() {
+        let settings = VoiceSettings::hosted();
+        let deadline = tokio::time::Instant::now() + settings.scene_timeout;
+        let mut seen = 0;
+        let result = voice_attempts(&settings, deadline, true, |_, _, _| {
+            seen += 1;
+            std::future::pending::<Result<(), ()>>()
+        })
+        .await;
+        assert_eq!(result, Err(()));
+        assert_eq!(seen, 3);
+        assert!(tokio::time::Instant::now() >= deadline);
+        let result = voice_attempts(&settings, deadline, true, |_, _, _| {
+            panic!("expired scenes have no request budget");
+            #[allow(unreachable_code)]
+            std::future::ready(Ok::<(), ()>(()))
+        })
+        .await;
+        assert_eq!(result, Err(()));
+    }
+
+    #[tokio::test]
+    async fn default_model_and_equal_concrete_models_skip_escalation() {
+        let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
+        let (address, server) = serve(plain_provider(seen.clone(), |_, _| String::new())).await;
+        for explicit in [false, true] {
+            let mut config = tiered_config(address, &[]);
+            config.model = "test-entity-model".into();
+            if !explicit {
+                config.capability_models.clear();
+            }
+            let settings = VoiceSettings {
+                escalation_model: Some("test-entity-model".into()),
+                ..VoiceSettings::hosted()
+            };
+            seen.lock().unwrap().clear();
+            let app =
+                router_with_models::<()>(Arc::new(Some(config)), Ok(BTreeMap::new()), Ok(settings));
+            let (status, _) = scene(&app, &context()).await;
+            assert_eq!(status, StatusCode::BAD_GATEWAY);
+            assert_eq!(models_for(&seen.lock().unwrap(), "Vale:").len(), 2);
+        }
+        // Two exact registry IDs can refer to one concrete model.
+        let mut config = tiered_config(address, &[]);
+        config.registry = Some(Arc::new(crate::ai_gateway::CapabilityRegistrySnapshot::from_json(
+            &json!({"schema_version":1,"snapshot_version":"same-concrete-test","declared":
+                (["test-entity-model", "alternate-name"].map(|id| json!({
+                    "requested_model_id":id,"provider":"openrouter",
+                    "concrete_model":{"model_id":"test-entity-model"},
+                    "input_modalities":["text"],"output_modalities":["text"],
+                    "capabilities":["world_content"],"prompt_adapter":{"id":"openai-chat","version":"1"}
+                }))), "discovered":[]}).to_string()).unwrap()));
+        seen.lock().unwrap().clear();
+        let app = router_with_models::<()>(
+            Arc::new(Some(config)),
+            Ok(BTreeMap::new()),
+            Ok(VoiceSettings {
+                escalation_model: Some("alternate-name".into()),
+                ..VoiceSettings::hosted()
+            }),
+        );
+        let (status, _) = scene(&app, &context()).await;
+        assert_eq!(status, StatusCode::BAD_GATEWAY);
+        assert_eq!(
+            models_for(&seen.lock().unwrap(), "Vale:"),
+            ["test-entity-model", "test-entity-model"]
+        );
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn unqualified_tiers_and_selected_models_fail_before_provider_calls() {
+        let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
+        let (address, server) =
+            serve(plain_provider(seen.clone(), |_, stem| stem_reply(stem))).await;
+        for reflection in [false, true] {
+            let settings = VoiceSettings {
+                reflection_model: reflection.then(|| "missing-model".into()),
+                escalation_model: (!reflection).then(|| "missing-model".into()),
+                ..VoiceSettings::hosted()
+            };
+            let app = router_with_models::<()>(
+                Arc::new(Some(tiered_config(address, &[]))),
+                Ok(cast_models()),
+                Ok(settings),
+            );
+            assert_eq!(
+                scene(&app, &context()).await.0,
+                StatusCode::SERVICE_UNAVAILABLE
+            );
+        }
+        let mut config = tiered_config(address, &[("escalation-model", false)]);
+        config
+            .capability_models
+            .insert(ModelCapability::WorldContent, "missing-model".into());
+        let app = router_with_models::<()>(
+            Arc::new(Some(config)),
+            Ok(BTreeMap::new()),
+            Ok(VoiceSettings {
+                escalation_model: Some("escalation-model".into()),
+                ..VoiceSettings::hosted()
+            }),
+        );
+        assert_eq!(scene(&app, &context()).await.0, StatusCode::BAD_GATEWAY);
+        assert!(seen.lock().unwrap().is_empty());
         server.abort();
     }
 }

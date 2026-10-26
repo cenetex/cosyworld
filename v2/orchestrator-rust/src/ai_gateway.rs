@@ -441,7 +441,7 @@ impl AiConfig {
         }))
     }
 
-    fn pin_model(
+    pub(crate) fn pin_model(
         &self,
         capability: ModelCapability,
     ) -> Result<PinnedModelSelection, RegistryError> {
