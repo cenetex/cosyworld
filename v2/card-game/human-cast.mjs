@@ -83,6 +83,7 @@ export const humanHomePack = {
         text: `${a.item.verb}. ${a.home.entrance.text}`,
         requires: [{ kind: "shared_world" }],
         persona: `${a.item.name}. ${a.item.effect}.`,
+        // Keep the local-save seed stable; sharing settles unused items at home.
         holder: a.id,
         art: a.item.image,
       },
@@ -106,7 +107,14 @@ export const humanHomePack = {
       from: a.home.id,
       to: "pond",
       travelers: "player",
-      requires: [{ kind: "shared_world" }],
+      requires: [
+        { kind: "shared_world" },
+        { kind: "item_near", item: a.item.id, place: a.home.id },
+        {
+          kind: "not",
+          condition: { kind: "item_at", item: a.item.id, place: a.home.id },
+        },
+      ],
       travel: "back to the shore",
     },
   ]),
