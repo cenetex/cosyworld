@@ -178,6 +178,7 @@ try {
         await page.locator("#hand").getAttribute("data-cooling"),
         "true",
       );
+      await page.waitForTimeout(350);
       await page.screenshot({
         path: new URL(`fulfilled-${width}.png`, output).pathname,
       });

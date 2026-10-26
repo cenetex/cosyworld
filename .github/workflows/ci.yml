@@ -312,6 +312,8 @@ jobs:
             output/dialogue-timing/*.json
             output/movement/*.png
             output/movement/*.json
+            output/card-quests-chromium/*.png
+            output/card-quests-chromium/*.json
           if-no-files-found: ignore
           retention-days: 7
 

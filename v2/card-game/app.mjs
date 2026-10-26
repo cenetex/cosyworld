@@ -855,6 +855,10 @@ async function showDiscovered(id, version, announcement) {
     endDiscovery = resolve;
   });
   dialog.showModal();
+  if (id === QUEST_CARD) {
+    questSeen.add(shownQuest().key);
+    rememberQuests();
+  }
   $("discovery-announcement").textContent = announcement;
   pauseSpeech();
   armDiscovery(reducedMotion.matches ? 900 : id === QUEST_CARD ? 2200 : 1400);
@@ -915,8 +919,6 @@ async function showQuestNotice() {
       expandedHolders.clear();
       render();
     } else {
-      questSeen.add(quest.key);
-      rememberQuests();
       await showDiscovered(QUEST_CARD, version, `New quest. ${quest.title}.`);
     }
   } finally {
@@ -1119,7 +1121,8 @@ function updateCardSelection(frame) {
     (label ? ` ${label}.` : "") +
     (held.length
       ? ` Carries ${held.map(nameOf).join(", ")}. Select to show these cards.`
-      : "");
+      : "") +
+    (id === "vale" && shownQuest() ? ` Quest: ${shownQuest().title}.` : "");
 }
 const handMotions = new Map();
 function moveHandPart(key, element, frames) {
@@ -1286,7 +1289,8 @@ function card(id) {
       frame.dataset.inventory = String(held.length);
       frame.dataset.expanded = String(expandedHolders.has(id));
       el.setAttribute("aria-expanded", String(expandedHolders.has(id)));
-      observation.textContent += ` Carries ${held.map(nameOf).join(", ")}. Select to show these cards.`;
+      if (held.length)
+        observation.textContent += ` Carries ${held.map(nameOf).join(", ")}. Select to show these cards.`;
       for (const item of held.slice(0, 2)) {
         const preview = node("img", undefined, "held-preview");
         preview.src = packMedia(item, "art") || `./assets/${item}-card.png`;

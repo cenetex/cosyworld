@@ -157,6 +157,11 @@ try {
         await page.locator("#menu-button").click();
         await page.locator("#new-game").click();
         await page.locator("#confirm-reset").click();
+        await page.waitForSelector("#unveil-dialog[open] [data-quest]");
+        await page.keyboard.press("Escape");
+        await page.waitForFunction(
+          () => document.querySelector("#hand").dataset.cooling === "false",
+        );
         await page.waitForTimeout(2000);
         await page.evaluate(() => {
           window.movementCheck.active = false;
