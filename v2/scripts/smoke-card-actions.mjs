@@ -21,6 +21,7 @@ try {
     [1440, 900],
     [390, 844],
     [320, 568],
+    [667, 375],
   ]) {
     const page = await browser.newPage({
       viewport: { width, height },
@@ -113,6 +114,98 @@ try {
     await card("vale").waitFor();
     await ready();
     const before = await state();
+    assert.equal(
+      await page.evaluate(
+        () => document.documentElement.scrollHeight <= innerHeight + 1,
+      ),
+      true,
+      "the hand fits the viewport, including short landscape screens",
+    );
+    await page.emulateMedia({
+      reducedMotion: width === 320 ? "reduce" : "no-preference",
+    });
+    const movement = await page.evaluate(async () => {
+      const button = document.querySelector('#hand [data-card="vale"]'),
+        frame = button.closest(".card-frame"),
+        start = frame.getBoundingClientRect().top;
+      button.click();
+      const immediate = frame.getBoundingClientRect().top,
+        same = button === document.querySelector('#hand [data-card="vale"]');
+      await new Promise((resolve) => setTimeout(resolve, 70));
+      const during = frame.getBoundingClientRect().top;
+      await new Promise((resolve) => setTimeout(resolve, 220));
+      return {
+        start,
+        immediate,
+        during,
+        end: frame.getBoundingClientRect().top,
+        same,
+      };
+    });
+    assert.equal(
+      movement.same,
+      true,
+      "selection keeps the card and its focus mounted",
+    );
+    if (width === 320) assert(Math.abs(movement.immediate - movement.end) < 1);
+    else {
+      assert(
+        Math.abs(movement.immediate - movement.start) < 1,
+        "selection starts at the current position",
+      );
+      assert(
+        movement.during < movement.start && movement.during > movement.end,
+        "the card passes through an intermediate position",
+      );
+    }
+    await selectCard(page, "lamp");
+    for (const dialog of ["menu", "history"]) {
+      await page.locator(`#${dialog}-button`).click();
+      await page.keyboard.press("Escape");
+      assert.equal(
+        await page.locator('#hand [aria-pressed="true"]').count(),
+        2,
+        `${dialog} preserves the selected pair`,
+      );
+      assert.equal(await card("lamp").isVisible(), true);
+    }
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(250);
+    await page.evaluate(async () => {
+      const button = document.querySelector('#hand [data-card="vale"]');
+      for (let i = 0; i < 6; i++) {
+        button.click();
+        await new Promise((resolve) => setTimeout(resolve, 30));
+      }
+    });
+    await page.waitForTimeout(250);
+    assert.equal(await card("vale").getAttribute("aria-pressed"), "false");
+    assert.equal(
+      await page.locator(".action-panel").isVisible(),
+      false,
+      "quick reversals finish with the action row closed",
+    );
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.keyboard.press("Escape");
+    const remote = meeting();
+    remote.items.lamp.holder = "keeper";
+    await page.evaluate(
+      ({ key, save }) => {
+        localStorage.setItem(key, save);
+        window.dispatchEvent(
+          new StorageEvent("storage", { key, newValue: save }),
+        );
+      },
+      { key, save: encodeSave(remote) },
+    );
+    await ready();
+    await selectCard(page, "keeper");
+    assert.equal(
+      await card("lamp").isVisible(),
+      true,
+      "a storage update refreshes the holder even at the same world revision",
+    );
+    await load(meeting());
     assert.equal(await card("lamp").isVisible(), false);
     assert.equal(await card("cloth").isVisible(), false);
     assert.equal(await card("bell").isVisible(), true);

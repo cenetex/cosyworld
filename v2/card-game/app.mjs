@@ -150,6 +150,8 @@ let storyStatus = "ready",
   storyError = "",
   renderedCast = "",
   renderedHand = "",
+  renderedHandRevision = null,
+  actionPanelMotion = null,
   speechKey = null,
   speechGlyphs = [],
   shownLetters = 0,
@@ -355,6 +357,8 @@ reducedMotion.addEventListener("change", () => {
   if (reducedMotion.matches) {
     reveal.finish();
     speechSounds.stop();
+    actionPanelMotion?.finish();
+    for (const motion of handMotions.values()) motion.finish();
   }
 });
 function pauseSpeech() {
@@ -493,13 +497,7 @@ function choose(id) {
       : [...selected, id];
   selectionRevision = world.revision;
   render();
-  $("hand")
-    .querySelector(`[data-card="${id}"]`)
-    ?.closest(".card-frame")
-    ?.scrollIntoView({
-      block: "nearest",
-      inline: people[id] ? "start" : "nearest",
-    });
+  revealHandCard(id, Boolean(people[id]));
 }
 function commit(cards, revision) {
   if (saveBlocked || cardsCooling) return;
@@ -886,13 +884,17 @@ function frameFigure(img) {
   if (img.complete && img.naturalWidth) measure();
   else img.addEventListener("load", measure, { once: true });
 }
-function renderActions() {
-  const row = $("card-actions");
+function renderActions(animate = false) {
+  const row = $("card-actions"),
+    panel = document.querySelector(".action-panel"),
+    fromHeight = panel.getBoundingClientRect().height;
+  actionPanelMotion?.cancel();
+  actionPanelMotion = null;
   const { actions, hint } = cardActions(world, selected);
   $("selection-name").textContent = selected.length
     ? selected.map(nameOf).join(" + ")
     : "Card actions";
-  document.querySelector(".action-panel").hidden = !actions.length;
+  panel.hidden = !actions.length;
   document.querySelector(".play-dock").dataset.selected = String(
     selected.length > 0,
   );
@@ -916,10 +918,55 @@ function renderActions() {
       return button;
     }),
   );
+  if (animate) {
+    const toHeight = panel.getBoundingClientRect().height;
+    if (Math.abs(fromHeight - toHeight) > 1) {
+      panel.hidden = false;
+      const motion = panel.animate(
+        { height: [`${fromHeight}px`, `${toHeight}px`] },
+        { duration: 220, easing: "ease-out" },
+      );
+      actionPanelMotion = motion;
+      motion.finished
+        .then(() => {
+          if (actionPanelMotion !== motion) return;
+          actionPanelMotion = null;
+          panel.hidden = !row.children.length;
+        })
+        .catch(() => {});
+    }
+  }
   $("play-readout").textContent = selected.length
     ? `${selected.map(nameOf).join(" + ")}. ${actions.map(playLabel).join(". ") || hint}`
     : "";
 }
+function updateCardSelection(frame) {
+  const button = frame.querySelector(".card"),
+    id = button.dataset.card,
+    raised = selected.includes(id),
+    label = raised ? playLabel(cardPlay(world, selected).action) : "",
+    held = people[id]
+      ? availableCards(world).filter(
+          (item) => things[item] && rootHolder(world, item) === id,
+        )
+      : [];
+  frame.dataset.raised = String(raised);
+  button.setAttribute("aria-pressed", String(raised));
+  button.classList.toggle("new", fresh.has(id));
+  if (frame.dataset.holder)
+    frame.hidden = !expandedHolders.has(frame.dataset.holder);
+  if (held.length) {
+    frame.dataset.expanded = String(expandedHolders.has(id));
+    button.setAttribute("aria-expanded", String(expandedHolders.has(id)));
+  }
+  button.querySelector(".sr-only").textContent =
+    cardObservation(world, id) +
+    (label ? ` ${label}.` : "") +
+    (held.length
+      ? ` Carries ${held.map(nameOf).join(", ")}. Select to show these cards.`
+      : "");
+}
+const handMotions = new Map();
 function card(id) {
   const type = cardType(id),
     base = places[id] || people[id] || things[id],
@@ -1428,10 +1475,48 @@ function render() {
     saveBlocked,
   ]);
   if (handKey !== renderedHand) {
+    const sameWorld = renderedHand && renderedHandRevision === world.revision,
+      animate = sameWorld && !reducedMotion.matches,
+      before = new Map();
+    if (animate)
+      for (const frame of $("hand").children)
+        if (!frame.hidden)
+          before.set(
+            frame.querySelector(".card").dataset.card,
+            frame.getBoundingClientRect(),
+          );
+    for (const motion of handMotions.values()) motion.cancel();
+    handMotions.clear();
     renderedHand = handKey;
-    $("hand").replaceChildren(...availableCards(world).map(card));
+    renderedHandRevision = world.revision;
+    if (sameWorld)
+      for (const frame of $("hand").children) updateCardSelection(frame);
+    else $("hand").replaceChildren(...availableCards(world).map(card));
     $("hand").scrollLeft = scroll;
-    renderActions();
+    renderActions(animate);
+    if (animate)
+      for (const frame of $("hand").children) {
+        if (frame.hidden) continue;
+        const id = frame.querySelector(".card").dataset.card,
+          previous = before.get(id) || before.get(frame.dataset.holder);
+        if (!previous) continue;
+        const next = frame.getBoundingClientRect(),
+          dx = previous.left - next.left;
+        if (Math.abs(dx) < 1 && before.has(id)) continue;
+        const motion = frame.animate(
+          {
+            translate: [`${dx}px 0`, "0 0"],
+            opacity: [before.has(id) ? 1 : 0.3, 1],
+          },
+          { duration: 220, easing: "ease-out" },
+        );
+        handMotions.set(id, motion);
+        motion.finished
+          .then(() => {
+            if (handMotions.get(id) === motion) handMotions.delete(id);
+          })
+          .catch(() => {});
+      }
   }
   updateHandScroll();
   renderScene();
@@ -1461,6 +1546,25 @@ function updateHandScroll() {
   $("hand-prev").hidden = $("hand-next").hidden = !over;
   $("hand-prev").disabled = atStart;
   $("hand-next").disabled = atEnd;
+}
+function revealHandCard(id, alignStart = false) {
+  const hand = $("hand"),
+    frame = hand.querySelector(`[data-card="${id}"]`)?.closest(".card-frame");
+  if (!frame || frame.hidden) return;
+  const left = frame.offsetLeft - hand.offsetLeft,
+    right = left + frame.offsetWidth,
+    visibleLeft = hand.scrollLeft + 16,
+    visibleRight = hand.scrollLeft + hand.clientWidth - 16;
+  const target =
+    alignStart || left < visibleLeft
+      ? left - 16
+      : right > visibleRight
+        ? right - hand.clientWidth + 16
+        : hand.scrollLeft;
+  hand.scrollTo({
+    left: target,
+    behavior: reducedMotion.matches ? "instant" : "smooth",
+  });
 }
 function scrollHand(direction) {
   const hand = $("hand");
@@ -1516,7 +1620,7 @@ $("hand").addEventListener("keydown", (e) => {
   if (at < 0 || !next) return;
   e.preventDefault();
   next.focus({ preventScroll: true });
-  next.scrollIntoView({ block: "nearest", inline: "nearest" });
+  revealHandCard(next.dataset.card);
 });
 $("card-actions").addEventListener("keydown", (e) => {
   if (
@@ -1549,7 +1653,11 @@ $("stage").addEventListener("drop", (e) => {
   if (cards.length) commit(cards, selectionRevision);
 });
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && (selected.length || expandedHolders.size)) {
+  if (
+    e.key === "Escape" &&
+    !document.querySelector("dialog[open]") &&
+    (selected.length || expandedHolders.size)
+  ) {
     selected = [];
     expandedHolders.clear();
     render();
@@ -1561,6 +1669,7 @@ document.addEventListener("click", (e) => {
     !e.target.closest(".play-dock") &&
     !e.target.closest(".card-frame") &&
     !e.target.closest("dialog") &&
+    !e.target.closest(".topbar") &&
     !e.target.closest(".dialogue")
   ) {
     selected = [];

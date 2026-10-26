@@ -791,6 +791,7 @@ body .card .name {
   white-space: normal;
   text-wrap: balance;
   text-shadow: 0 2px 5px #000;
+  transition: bottom 220ms ease-out;
 }
 body .card[data-lit="true"] .art {
   background: radial-gradient(ellipse at 50% 60%, #e0a94a66, #151b24 76%);
@@ -849,6 +850,7 @@ body .card-frame[hidden] {
 .action-panel {
   pointer-events: auto;
   text-align: center;
+  overflow: clip;
 }
 #card-actions {
   display: flex;
@@ -969,15 +971,11 @@ body .cast[data-count] {
     --card-width: 128px;
     --dock-height: 144px;
   }
-  body {
-    overflow-y: auto;
-    min-height: 570px;
-  }
-  main {
-    min-height: 570px;
-  }
-  body .stage {
-    min-height: 570px;
+}
+@media (max-height: 440px) {
+  :root {
+    --card-height: 140px;
+    --card-width: 112px;
   }
 }
 
