@@ -14,10 +14,10 @@ Companion documents:
 
 ## System Shape
 
-CosyWorld V2 is the canonical runtime. Its core is one shared world grown from general rules and generators. Players see it through the card table in `v2/card-game/`, which is still a client-only prototype: a deterministic JavaScript model with localStorage saves, served by `card_game.rs`, with AI text from `card_narrative.rs`. It does not yet use the layers below. The shared runtime is a deliberately layered system where authority narrows as you go down:
+CosyWorld V2 is the canonical runtime. Its core is one shared world grown from general rules and generators. Players see it through the card table in `v2/card-game/`. Local games use browser saves. Share imports the current save into the shared card service and keeps the same world and interface. Shared actions run the authored JavaScript model in a bounded QuickJS C interpreter, with C session guards and a Rust-owned journal. See `v2/docs/card-table/shared-worlds.md` for this explicit authority boundary. The shared runtime is a deliberately layered system where authority narrows as you go down:
 
 ```
-Card table     v2/card-game (client-only JS model, localStorage; served at / in production)
+Card table     v2/card-game (same authored model for local and shared games; served at /)
 Clients        browser card-hand shell (index.html, /classic in production) · terminal CLI (v2/cli) · smoke/ops scripts
                │  HTTP + SSE, actor_session / wallet_session
 Rust           orchestrator (v2/orchestrator-rust): routes, SSE fanout, sessions, rate limits,
@@ -46,7 +46,7 @@ The legacy Node service (`src/`) has been removed.
 
 These are the engineering enforcement of the PRD's pillars. Code review holds this line. They govern the shared runtime and any state that leaves a single browser. The client-only card table is exempt from invariants 1, 4, 6, and 7 only while it holds no shared, server-persisted, or reward-bearing state; its rules must stay deterministic, and AI may write only its text.
 
-1. **All meaningful world mutation passes through the C kernel.** Rust may store, project, schedule, moderate, and call AI; it may not decide whether movement, speech emission, item transfer, evolution, combat, or checks succeed. Projection state (clocks, tags, bonds, ledgers) may lag the kernel but never contradict it.
+1. **All meaningful shared world mutation passes through C authority.** Shared card rules execute in the bounded QuickJS C interpreter with C session guards. Native world rules use the C kernel. Rust may store, project, schedule, moderate, and call AI; it may not decide whether movement, speech emission, item transfer, evolution, combat, or checks succeed. Projection state (clocks, tags, bonds, ledgers) may lag the kernel but never contradict it.
 2. **World time is played time.** Clocks, fronts, resident mechanical behavior,
    encounter resets, and seasons advance only from committed player turns. A
    committed scene card may arm one wall-clock-delayed room speech heartbeat;
@@ -86,7 +86,7 @@ The card table comes first. The numbered priorities below serve the shared runti
 - **Make the prototype general.** Entity registries in world state, the site as seed data, the scripted layer removed, any avatar as a player, and property tests over random seeds. This is phase 1 of `docs/backlog/generated-world-core.md`.
 - **Grow the world through quests.** Places make items when their quests are met, doorway steps of avatar quests open places, and long-abandoned players become residents. Every reward is promised first so other quests can require it, and claim keys and a level-based budget bound growth. Keep the world live: every avatar progresses within a bounded number of plays.
 - **Give it gates.** Run `writing-register.mjs` over `v2/card-game/` copy. Add a browser smoke for single cards, pairs, dragging, reload, and phone width to `./v2/mvp.sh check`.
-- **Then port.** A golden trace of the general rules, then kernel actions that create entities, consented exchange, kernel quests, and growth tables in packs. No multiplayer or reward-bearing card feature ships before its rules cross the kernel.
+- **Then port.** A golden trace of the general rules, then kernel actions that create entities, consented exchange, kernel quests, and growth tables in packs. Shared card features run the same authored rules on the server in bounded C QuickJS and record each operation in the journal. Native or reward-bearing features require their authoritative C boundary and replay tests.
 
 Priorities 1–3 are the foundation the shared runtime builds on.
 

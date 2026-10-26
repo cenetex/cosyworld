@@ -25,11 +25,14 @@ const provider = createServer(async (req, res) => {
   const input = JSON.parse(body || "{}");
   requests.push(input);
   if (holdReplies) await new Promise((resolve) => waitingReplies.push(resolve));
+  const scene = JSON.parse(input.messages.at(-1).content);
   const content = JSON.stringify({
-    lines: [
-      { speaker: "actor", text: "There is room for a little company." },
-      { speaker: "scene", text: "A ripple reaches the shore." },
-    ],
+    entries: scene.requested_ids.map((id, index) => ({
+      id,
+      text: index
+        ? "A ripple reaches the shore."
+        : "There is room for a little company.",
+    })),
   });
   res.writeHead(200, { "Content-Type": "application/json" });
   res.end(
@@ -276,6 +279,14 @@ try {
     await vale.locator('#hand [data-card="station"]').count(),
     "the original station remains connected",
   );
+  await dismissDiscoveries(vale);
+  const requestStart = requests.length;
+  await vale.locator('#hand [data-card="moth"]').click();
+  await vale.getByRole("button", { name: "Talk", exact: true }).click();
+  await until(async () => (await snapshot(vale)).world.turn > seed.turn, "the original Talk button submits a shared play");
+  await idle(vale);
+  assert(requests.length > requestStart, "the shared NPC conversation reaches the provider");
+  assert.deepEqual((await snapshot(vale)).history[0].lines.map((line) => line.actorId), ["vale", "moth"]);
   for (let i = 1; i < 8; i++) {
     await pages[i].goto(`${origin}/?world=${worldId}`);
     await pages[i].locator(`.shared-choice[data-avatar="${names[i]}"]`).click();
@@ -342,12 +353,6 @@ try {
   holdReplies = false;
   for (const resolve of waitingReplies.splice(0)) resolve();
   await Promise.all([vale, mara, nell].map(idle));
-  const requestStart = requests.length;
-  await perform(vale, "talk", "moth");
-  assert(
-    requests.length > requestStart,
-    "the shared NPC conversation reaches the provider",
-  );
   const first = await snapshot(vale),
     other = await snapshot(mara);
   assert.equal(first.history[0].lines.length, 2);
@@ -356,6 +361,7 @@ try {
     other.history[0],
     "people in the room receive one shared exchange",
   );
+  await until(async () => (await vale.locator("#dialogue-text").textContent()).includes("A ripple reaches the shore."), "the shared room detail stays visible");
   assert.equal((await api(vale, { op: "nudge", target: "mara" })).status, 200);
   await until(
     async () => (await snapshot(mara)).nudge === "vale",

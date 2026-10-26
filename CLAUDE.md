@@ -14,14 +14,17 @@ table at `/`
 named Lonely Forest worlds keep their own pages. Game work belongs under `v2/`. See
 `docs/decisions/0015-a-generated-world-seen-through-cards.md`.
 
-The card table is still a prototype that runs in the browser. Its rules,
-residents, and quest generator are a deterministic JavaScript model (`world.mjs`, `quests.mjs`, `cards.mjs`,
-`scene.mjs`). Each browser's localStorage save is the only record of that table.
-Its first site (lamp, oil, cloth, bell, and the attic–pond path) is generated
-scaffolding, not design to extend. The table has no server state, accounts,
-currency, or rewards. The Rust binary serves its files (`card_game.rs`), and
-`POST /card-game/text` (`card_narrative.rs`) writes its descriptions and
-dialogue; that text never changes state.
+The card table uses the deterministic JavaScript model in `world.mjs` and its
+rule modules. A local game saves in the browser. **Share** imports that current
+save into the authenticated shared-world service. Friends use the same card
+screen, authored map, residents, items, quests, and rules.
+
+Shared actions run on the server in a bounded QuickJS C interpreter. The Rust
+service embeds a generated bundle of the shipping rule modules, owns IO and the
+append-only action journal, and uses a C session guard for actor authority,
+presence, and room capacity. The browser submits action choices; the server
+commits results. Keep this boundary explicit when changing rules. See
+`v2/docs/card-table/shared-worlds.md`.
 
 New card rules land in the shipping `v2/card-game/world.mjs` model and its
 adjacent modules, with tests in `test/card-*.test.mjs`. Earlier standalone
@@ -30,7 +33,9 @@ Rules stay general: no rule names a specific entity, and new content comes from
 generators and pack data.
 A rule may stay client-only while it affects one browser's table. Anything
 shared, multiplayer, persisted on the server, or reward-bearing crosses the C
-kernel and the journal first, with parity tests against the JS model. The plan
+authority boundary and journal first. Shared card rules use the bounded C
+interpreter with the same authored model; native rules use the C kernel. Test
+replay and client/server agreement at the actual boundary. The plan
 is `docs/backlog/generated-world-core.md`.
 
 The shared runtime keeps its own authority split:

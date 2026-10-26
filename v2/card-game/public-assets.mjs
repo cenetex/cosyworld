@@ -8,6 +8,7 @@ const files = [
   "shared-rules.mjs",
   "shared.css",
   "shared-cast.json",
+  "human-cast.mjs",
   "assets/shared/places/pond.png",
   "assets/shared/characters/vale.png",
   "assets/shared/places/station.png",
@@ -88,8 +89,9 @@ const files = [
     "testimony",
     "water-jar",
   ].map((id) => `assets/greek-drama/${id}.svg`),
-  ...packMediaFiles,
 ];
+// A mounted pack can reuse an image already published by the card table.
+for (const file of packMediaFiles) if (!files.includes(file)) files.push(file);
 const types = {
   html: "text/html; charset=utf-8",
   css: "text/css; charset=utf-8",
