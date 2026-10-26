@@ -9853,23 +9853,27 @@
             text += ` ${nameOf(a.target)} drops the ${nameOf(dropped)}.`;
           }
           const retreat = exits(s, here, a.target)[0];
-          markCrossed(s, here, retreat);
-          s.actors[a.target].place = retreat;
-          moveTransport(s, here, retreat);
-          for (const id of carried(s, a.target))
-            remember(
-              s,
-              id,
-              `${nameOf(a.target)} retreated to ${nameOf(retreat)} with it.`
-            );
-          text += ` ${nameOf(a.target)} retreats to ${nameOf(retreat)}. The standoff ends.`;
+          if (retreat) {
+            markCrossed(s, here, retreat);
+            s.actors[a.target].place = retreat;
+            moveTransport(s, here, retreat);
+            for (const id of carried(s, a.target))
+              remember(
+                s,
+                id,
+                `${nameOf(a.target)} retreated to ${nameOf(retreat)} with it.`
+              );
+            text += ` ${nameOf(a.target)} retreats to ${nameOf(retreat)}. The standoff ends.`;
+            arrival = {
+              text: `${nameOf(a.target)} arrives at ${nameOf(retreat)} after yielding to ${who}.`,
+              actorId: a.target,
+              locationId: retreat,
+              fromLocationId: here
+            };
+          } else {
+            text += ` ${nameOf(a.target)} yields here. The standoff ends.`;
+          }
           closeStandoff(s, conflict);
-          arrival = {
-            text: `${nameOf(a.target)} arrives at ${nameOf(retreat)} after yielding to ${who}.`,
-            actorId: a.target,
-            locationId: retreat,
-            fromLocationId: here
-          };
         }
         break;
       }
