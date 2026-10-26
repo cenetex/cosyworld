@@ -1,3 +1,9 @@
+import {
+  collectionCards,
+  registerPersonalQuest,
+  focusQuest,
+  clearQuestFocus,
+} from "../v2/card-game/shared-quests.mjs";
 import { describe, expect, it } from "vitest";
 import {
   addLog,
@@ -288,7 +294,7 @@ describe("Greek story quest cards", () => {
     expect(story(world, 2)).toBeUndefined();
     // A personal purpose and two story requests can share the same hand.
     ensureCollectedQuest(world, "vale", places, things);
-    const pending = world.life.actors.vale.collection.cards.find(
+    const pending = collectionCards(world, "vale").find(
       (q) => q.completedTurn === null,
     );
     expect(pursueQuest(world, "vale", pending.key)).toBe(true);

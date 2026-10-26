@@ -1,3 +1,9 @@
+import {
+  collectionCards,
+  registerPersonalQuest,
+  focusQuest,
+  clearQuestFocus,
+} from "../v2/card-game/shared-quests.mjs";
 import { openingFixture } from "./helpers/greek-opening.mjs";
 import { describe, expect, it } from "vitest";
 import {
@@ -44,7 +50,7 @@ const act = (world, kind) => {
 function collect(world, actor, status = "pending") {
   installQuestCollection(world, actor);
   const collection = world.life.actors[actor].collection;
-  const source = collection.cards[0];
+  const source = collectionCards(world, actor)[0];
   const record = {
     ...structuredClone(source),
     key: `${actor}:quest:${collection.next++}`,
@@ -58,8 +64,12 @@ function collect(world, actor, status = "pending") {
       turn: world.turn,
     },
   };
-  collection.cards.push(record);
-  if (status === "active") collection.active = record.key;
+  registerPersonalQuest(world, actor, record);
+  collection.cards.push(record.key);
+  if (status === "active") {
+    collection.active = record.key;
+    focusQuest(world, actor, record.key);
+  }
   return record;
 }
 describe("collected quest cards", () => {
@@ -135,7 +145,7 @@ describe("collected quest cards", () => {
     const world = fresh();
     const pending = collect(world, "vale");
     const old = playerQuest(world);
-    world.life.actors.vale.collection.active = pending.key;
+    pursueQuest(world, "vale", pending.key);
     const deck = questCards(world);
     expect(deck[0].key).toBe(pending.key);
     expect(deck.find((q) => q.key === old.key)).toMatchObject({
@@ -171,7 +181,7 @@ describe("Greek cards in the collected stack", () => {
     for (const branch of ["burial", "concession", "refusal", "exposure"]) {
       const world = openingFixture(branch).closed;
       ensureCollectedQuest(world, "vale", places, things);
-      const pending = world.life.actors.vale.collection.cards.find(
+      const pending = collectionCards(world, "vale").find(
         (q) => q.completedTurn === null,
       );
       expect(pursueQuest(world, "vale", pending.key)).toBe(true);

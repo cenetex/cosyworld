@@ -1,3 +1,4 @@
+import { collectionCards, focusedQuest } from "./shared-quests.mjs";
 // Personal quests grow from shared actions. This state belongs to the save.
 // No rule here names an avatar, item or place: hopes come from profile data
 // and purposes from recorded experiences, so any generated world gets both.
@@ -27,9 +28,19 @@ const hopeSteps = [["delivery"], ["gathering"], ["answer", "crossing"]];
 const situations = new Set(hopeSteps.flat());
 
 export const lifeOf = (s, actor) => s.life?.actors?.[actor];
-export const questActive = (s, actor) =>
-  !isPackActor(actor) &&
-  (!lifeOf(s, actor) || lifeOf(s, actor).phase === "active");
+export const questActive = (s, actor) => {
+  const focused = focusedQuest(s, actor);
+  return (
+    Boolean(
+      focused &&
+        (focused.mode === "shared" || focused.subjectActor !== actor) &&
+        focused.completedTurn === null &&
+        !focused.retired,
+    ) ||
+    (!isPackActor(actor) &&
+      (!lifeOf(s, actor) || lifeOf(s, actor).phase === "active"))
+  );
+};
 
 export function nameIn(s, id) {
   return (
@@ -279,7 +290,7 @@ export function keepReason(s, actor, item) {
 export function pendingQuestValue(s, actor, item) {
   const life = lifeOf(s, actor);
   const pending =
-    life?.collection?.cards.filter(
+    collectionCards(s, actor).filter(
       (q) => q.completedTurn === null && q.key !== life.collection.active,
     ) || [];
   return Math.min(

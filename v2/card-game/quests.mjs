@@ -1,4 +1,15 @@
 import {
+  collectionCards,
+  installSharedQuestRegistry,
+  registerPersonalQuest,
+  questRecord,
+  questRecords,
+  focusedQuest,
+  focusQuest,
+  questStatus,
+  clearQuestFocus,
+} from "./shared-quests.mjs";
+import {
   humanQuestPrograms,
   humanAvatar,
   humanAvatarIds,
@@ -102,12 +113,24 @@ export const savedProgramFor = (s, actor) =>
   collectionOf(s, actor)
     ? currentProgram(s, actor, activeRecord(s, actor))
     : rawProgram(s, actor);
-export const programFor = (s, actor) =>
-  questActive(s, actor) ? savedProgramFor(s, actor) : null;
-export const targetsFor = (s, actor) =>
-  hasQuestPrograms(s) && !isPackActor(actor)
+export const programFor = (s, actor) => {
+  const focused = focusedQuest(s, actor);
+  if (focused && focused.completedTurn === null && !focused.retired)
+    return focused.mode === "personal" && focused.subjectActor === actor
+      ? questActive(s, actor)
+        ? currentProgram(s, actor, focused)
+        : null
+      : focused.program;
+  return questActive(s, actor) ? savedProgramFor(s, actor) : null;
+};
+export const targetsFor = (s, actor) => {
+  const focused = focusedQuest(s, actor);
+  if (focused && focused.completedTurn === null && !focused.retired)
+    return alternatives(focused.program.steps[focused.step]);
+  return hasQuestPrograms(s) && !isPackActor(actor)
     ? alternatives(programFor(s, actor)?.steps[s.actors[actor].progress.step])
     : [interest(s, actor)];
+};
 const ownerOf = (s, item) => {
   let owner = s.items[item].holder;
   const seen = new Set([item]);
@@ -381,7 +404,10 @@ const questKey = (actor, serial) => `${actor}:quest:${serial}`;
 const collectionOf = (s, actor) => lifeOf(s, actor)?.collection;
 const activeRecord = (s, actor) => {
   const c = collectionOf(s, actor);
-  return c?.cards.find((card) => card.key === c.active) || null;
+  return (
+    (c && collectionCards(s, actor).find((card) => card.key === c.active)) ||
+    null
+  );
 };
 const rawProgram = (s, actor) =>
   programsFor(s, actor)[s.actors[actor].progress.program] ||
@@ -416,11 +442,20 @@ export function actorQuests(s, actor) {
         ]
       : [];
   }
-  return [...c.cards, ...(c.archive || [])]
+  const personal = [
+    ...collectionCards(s, actor),
+    ...collectionCards(s, actor, true),
+  ];
+  const keys = new Set(personal.map((q) => q.key));
+  const joined = questRecords(s).filter(
+    (q) => q.participants.includes(actor) && !keys.has(q.key),
+  );
+  return [...personal, ...joined]
     .map((card) => ({
       ...card,
-      status:
-        card.completedTurn !== null
+      status: s.quests
+        ? questStatus(s, card)
+        : card.completedTurn !== null
           ? "fulfilled"
           : card.key === c.active
             ? "active"
@@ -428,15 +463,19 @@ export function actorQuests(s, actor) {
     }))
     .sort(
       (a, b) =>
-        ({ active: 0, pending: 1, fulfilled: 2 })[a.status] -
-        { active: 0, pending: 1, fulfilled: 2 }[b.status],
+        ({ active: 0, pending: 1, fulfilled: 2, superseded: 3 })[a.status] -
+        { active: 0, pending: 1, fulfilled: 2, superseded: 3 }[b.status],
     );
 }
 export const activeQuestKey = (s, actor) =>
   actorQuests(s, actor).find((q) => q.status === "active")?.key || null;
 export function installQuestCollection(s, actor) {
   const life = lifeOf(s, actor);
-  if (!life || life.collection) return;
+  if (!life) return;
+  if (life.collection) {
+    installSharedQuestRegistry(s);
+    return;
+  }
   const program = rawProgram(s, actor);
   const progress = s.actors[actor].progress;
   const completed =
@@ -458,14 +497,19 @@ export function installQuestCollection(s, actor) {
     const card = addQuest(s, actor, program, life.origin || null);
     card.step = progress.step;
     if (!program.generated) life.collection.authoredThrough += 1;
-    if (life.phase === "active") life.collection.active = card.key;
+    if (life.phase === "active") {
+      life.collection.active = card.key;
+      focusQuest(s, actor, card.key);
+    }
   }
 }
 function addQuest(s, actor, program, origin = null) {
   const c = collectionOf(s, actor);
   if (
-    c.cards.filter((q) => q.completedTurn === null).length >= QUEST_LIMIT ||
-    c.cards.length + c.archive.length >= COLLECTION_LIMIT
+    collectionCards(s, actor).filter((q) => q.completedTurn === null).length >=
+      QUEST_LIMIT ||
+    collectionCards(s, actor).length + collectionCards(s, actor, true).length >=
+      COLLECTION_LIMIT
   )
     return null;
   const card = {
@@ -476,14 +520,23 @@ function addQuest(s, actor, program, origin = null) {
     createdTurn: s.turn,
     completedTurn: null,
   };
-  c.cards.push(card);
+  registerPersonalQuest(s, actor, card);
+  c.cards.push(card.key);
   return card;
 }
 export function pursueQuest(s, actor, key) {
   const c = collectionOf(s, actor);
-  const card = c?.cards.find((q) => q.key === key && q.completedTurn === null);
+  const candidate = questRecord(s, key);
+  if (candidate && candidate.subjectActor !== actor)
+    return focusQuest(s, actor, key);
+  const card =
+    c &&
+    collectionCards(s, actor).find(
+      (q) => q.key === key && q.completedTurn === null,
+    );
   if (!card) return false;
   c.active = key;
+  focusQuest(s, actor, key);
   const life = lifeOf(s, actor);
   life.phase = "active";
   life.restLeft = 0;
@@ -502,7 +555,7 @@ export function recordQuestProgress(
   key = activeQuestKey(s, actor),
 ) {
   const c = collectionOf(s, actor),
-    card = c?.cards.find((q) => q.key === key);
+    card = c && collectionCards(s, actor).find((q) => q.key === key);
   if (!card) return;
   if (card.lastProgressTurn === s.turn) return;
   card.step += 1;
@@ -510,15 +563,19 @@ export function recordQuestProgress(
   c.earned += 1;
   if (complete) {
     card.completedTurn = s.turn;
+    clearQuestFocus(s, key);
     if (c.active === key) c.active = null;
-    const completed = c.cards.filter((q) => q.completedTurn !== null);
+    const completed = collectionCards(s, actor).filter(
+      (q) => q.completedTurn !== null,
+    );
     for (const old of completed.slice(
       0,
       Math.max(0, completed.length - HISTORY_LIMIT),
     )) {
-      c.cards.splice(c.cards.indexOf(old), 1);
-      c.archive.push({
-        key: old.key,
+      c.cards.splice(c.cards.indexOf(old.key), 1);
+      c.archive.push(old.key);
+      s.quests.records[old.key] = {
+        ...old,
         program: {
           id: old.program.id,
           name: old.program.name,
@@ -539,7 +596,7 @@ export function recordQuestProgress(
         createdTurn: old.createdTurn,
         completedTurn: old.completedTurn,
         lastProgressTurn: old.lastProgressTurn,
-      });
+      };
     }
   }
 }
@@ -556,14 +613,16 @@ export function ensureCollectedQuest(s, actor, places, things) {
   }
   p.step = 0;
   delete p.current;
-  let pending = c.cards.filter((q) => q.completedTurn === null);
+  let pending = collectionCards(s, actor).filter(
+    (q) => q.completedTurn === null,
+  );
   const authored = programsFor(s, actor)[c.authoredThrough];
   if (authored && addQuest(s, actor, authored)) c.authoredThrough += 1;
-  pending = c.cards.filter((q) => q.completedTurn === null);
+  pending = collectionCards(s, actor).filter((q) => q.completedTurn === null);
   if (!pending.length && life.phase === "active") {
     const program = generateProgram(structuredClone(s), actor, places, things);
     addQuest(s, actor, program, life.origin || null);
-    pending = c.cards.filter((q) => q.completedTurn === null);
+    pending = collectionCards(s, actor).filter((q) => q.completedTurn === null);
     if (!pending.length) life.phase = "seeking";
   }
   if (life.phase === "active" && pending.length) {
@@ -609,14 +668,17 @@ export function collectExperienceQuests(s, actor, places, things) {
   );
   c.collectedThrough = s.turn;
   for (const experience of experiences) {
-    if (c.cards.filter((q) => q.completedTurn === null).length >= QUEST_LIMIT)
+    if (
+      collectionCards(s, actor).filter((q) => q.completedTurn === null)
+        .length >= QUEST_LIMIT
+    )
       break;
     const probe = structuredClone(s);
     lifeOf(probe, actor).origin = experience;
     const program = generateProgram(probe, actor, places, things);
     const signature = JSON.stringify(program.steps);
     if (
-      c.cards.some(
+      collectionCards(s, actor).some(
         (q) =>
           q.completedTurn === null &&
           JSON.stringify(q.program.steps) === signature,

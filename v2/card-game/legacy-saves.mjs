@@ -1,3 +1,4 @@
+import { installSharedQuestRegistry } from "./shared-quests.mjs";
 import { newProgress, questPrograms } from "./quests.mjs";
 import { migrateMemories, newMemories, rememberEvent } from "./memory.mjs";
 import { migrateLife } from "./life.mjs";
@@ -88,6 +89,8 @@ export function upgradeSave(
   }
   if (s?.schema === 7) upgradeRecitals(s, packDefinitions);
   migrateLife(s, profileOf);
+  if (Object.values(s.life?.actors || {}).some((life) => life.collection))
+    installSharedQuestRegistry(s);
   return s;
 }
 

@@ -1,3 +1,9 @@
+import {
+  collectionCards,
+  registerPersonalQuest,
+  focusQuest,
+  clearQuestFocus,
+} from "../v2/card-game/shared-quests.mjs";
 import { describe, it, expect } from "vitest";
 import {
   createWorld,
@@ -24,16 +30,23 @@ const fresh = () => enableMotives(createWorld(), { personalQuests: true });
 function deck(world, actor, programs) {
   installQuestCollection(world, actor);
   const collection = lifeOf(world, actor).collection;
-  collection.cards = programs.map((program, serial) => ({
-    key: `${actor}:quest:${serial}`,
-    program,
-    step: 0,
-    origin: null,
-    createdTurn: world.turn,
-    completedTurn: null,
-  }));
+  for (const q of collectionCards(world, actor))
+    delete world.quests.records[q.key];
+  delete world.quests.focus[actor];
+  collection.cards = programs.map(
+    (program, serial) =>
+      registerPersonalQuest(world, actor, {
+        key: `${actor}:quest:${serial}`,
+        program,
+        step: 0,
+        origin: null,
+        createdTurn: world.turn,
+        completedTurn: null,
+      }).key,
+  );
   collection.next = programs.length;
-  collection.active = collection.cards[0]?.key || null;
+  collection.active = collection.cards[0] || null;
+  if (collection.active) focusQuest(world, actor, collection.active);
   return collection;
 }
 const program = (id, steps) => ({ id, name: id, steps });
@@ -90,7 +103,7 @@ describe("collected personal quests", () => {
       program("A journey", [hand(at("station")), hand(at("pond"))]),
       program("A visit", [hand(at("attic"))]),
     ]);
-    c.cards[1].origin = {
+    collectionCards(world, "vale")[1].origin = {
       kind: "talk",
       turn: 0,
       other: "keeper",
@@ -124,20 +137,22 @@ describe("collected personal quests", () => {
     for (let i = 0; i < 25; i++) {
       world.turn += 1;
       const key = `vale:quest:${i}`;
-      c.cards.push({
-        key,
-        program: program(`Memory ${i}`, [hand(at("station"))]),
-        step: 0,
-        origin: {
-          kind: "journey",
-          turn: 0,
-          other: null,
-          item: null,
-          place: "station",
-        },
-        createdTurn: 0,
-        completedTurn: null,
-      });
+      c.cards.push(
+        registerPersonalQuest(world, "vale", {
+          key,
+          program: program(`Memory ${i}`, [hand(at("station"))]),
+          step: 0,
+          origin: {
+            kind: "journey",
+            turn: 0,
+            other: null,
+            item: null,
+            place: "station",
+          },
+          createdTurn: 0,
+          completedTurn: null,
+        }).key,
+      );
       c.next += 1;
       c.active = key;
       recordQuestProgress(world, "vale", true, key);
@@ -183,6 +198,7 @@ describe("collected personal quests", () => {
     for (const actor of ["vale", "mara"]) {
       world.actors[actor].place = "station";
       const c = deck(world, actor, [program("Later", [hand(at("pond"))])]);
+      clearQuestFocus(world, c.active);
       c.active = null;
       Object.assign(lifeOf(world, actor), { phase: "content", restLeft: 3 });
     }

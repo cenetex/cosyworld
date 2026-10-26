@@ -1,3 +1,19 @@
+import {
+  collectionCards,
+  installSharedQuestRegistry,
+  questRecord,
+  questRecords,
+  focusedQuest,
+  focusQuest,
+  joinQuest,
+  shareQuest,
+  clearQuestFocus,
+  pruneSharedQuestHistory,
+} from "./shared-quests.mjs";
+import {
+  recordQuestCompletion,
+  validQuestCompletions,
+} from "./quest-completions.mjs";
 import { arriveRecitals } from "./pack-recital.mjs";
 import {
   currentActor,
@@ -449,7 +465,7 @@ function captureHands(s, met) {
   for (const actor of knownActors(s).filter((id) => !isPackActor(id))) {
     const collection = lifeOf(s, actor)?.collection;
     const cards = collection
-      ? collection.cards.filter((q) => q.completedTurn === null)
+      ? collectionCards(s, actor).filter((q) => q.completedTurn === null)
       : [
           {
             key: null,
@@ -616,7 +632,9 @@ function advancePrograms(s, met) {
     const actor = evidence.actor;
     const progress = s.actors[actor].progress;
     const collection = lifeOf(s, actor)?.collection;
-    const card = collection?.cards.find((q) => q.key === evidence.questKey);
+    const card =
+      collection &&
+      collectionCards(s, actor).find((q) => q.key === evidence.questKey);
     if (
       card &&
       (card.completedTurn !== null ||
@@ -2375,8 +2393,8 @@ export function validateWorld(s) {
       fail();
     const collection = lifeOf(s, id)?.collection;
     if (collection) {
-      const cards = collection.cards;
-      const archive = collection.archive;
+      const cards = collectionCards(s, id);
+      const archive = collectionCards(s, id, true);
       if (
         !Array.isArray(cards) ||
         cards.length > 32 ||
