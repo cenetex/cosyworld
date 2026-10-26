@@ -1,116 +1,80 @@
 # CosyWorld Deployment Guide
 
----
+## Sites and releases
 
-## Runtime Roles
+| Site | Purpose | Release path |
+| --- | --- | --- |
+| [cosyworld.fly.dev](https://cosyworld.fly.dev/) | Testing | Game changes on `main` deploy automatically after the checks pass |
+| [lonelyforest.com](https://lonelyforest.com/) | Production | Deliberate versioned releases |
 
-CosyWorld 2.0 is the canonical player runtime. Deploy the V2 orchestrator in `v2/orchestrator-rust` as the game service and route player traffic to it. The root `Dockerfile` and `fly.toml` build and run this V2 runtime.
+The [Deploy workflow](../../.github/workflows/deploy.yml) owns releases.
+A `v*` tag deploys both apps. A manual run selects `primary` for the testing
+site, `lonelyforest` for production, or `both`. Each app has its own token,
+image, compatibility checks, volume backup, and readiness checks.
 
-The Node service remains the companion service for admin pages, auth, integrations, AI/provider configuration, migration utilities, and legacy experiments. If it is exposed, configure it with `COSYWORLD_V2_PUBLIC_URL` so its launch bridge can point at the deployed V2 world service.
+The root [Dockerfile](../../Dockerfile) builds the Rust service.
+[fly.toml](../../fly.toml) configures the testing app;
+[fly.lonelyforest.toml](../../fly.lonelyforest.toml) configures production.
+Both serve the card game at `/`. The card game's current saves live in the
+player's browser. The Rust service supplies game files and generated dialogue.
+The shared world at `/classic` uses SQLite on the mounted `/data` volume.
+Lonely Forest's named worlds have their own processes and data paths; see the
+[production runbook](lonelyforest-fly.md).
 
-The official product has one canonical world. A process, AWS task, Fly machine,
-region, or room owner is capacity infrastructure and must not create a separate
-player history. The current SQLite deployment is intentionally one production
-task. Identity, durable journal, fencing, routing, presence fan-out, invite
-rendezvous, and the pinned two-process convergence harness are complete. Before
-increasing instance count, pass the hot-room migration and failover gates in
-[`../../v2/docs/canonical-world.md`](../../v2/docs/canonical-world.md). Never put
-multiple isolated SQLite saves behind a load balancer.
+## Local setup
 
-Local defaults:
+Use Node.js 24 or newer. Install dependencies and start the card game:
 
-```bash
+```sh
+npm ci
+npm run play:cards
+```
+
+Open <http://127.0.0.1:4177/>. The
+[card game guide](../../v2/card-game/README.md#local-play) describes the Rust
+text-service connection used for generated dialogue.
+
+For the shared runtime, use a Rust toolchain, a C compiler, Python 3,
+`screen`, and `lsof`, then run:
+
+```sh
 npm run dev
+npm run v2:status
+npm run v2:stop
 ```
 
-This starts the V2 browser MVP. To run the legacy Node service explicitly:
+`npm run check` runs the main code and content gate. `npm run check:local`
+adds the local runtime and browser checks. The full local setup also needs the
+Rust `wasm32-unknown-unknown` target and the pinned SRD source described in the
+[rules reference guide](../../reference-library/rpg-systems/README.md).
 
-```bash
-npm run dev:node
-```
+## Runtime settings
 
-Use `npm run check` for the fast CI gate and `npm run check:local` for the full local V2 browser smoke.
+The Fly files and tenant manifest hold each app's runtime settings. Provision
+secret values through Fly's secret store for the selected app.
 
-Production routing should make the V2 orchestrator the public game entrypoint. If the Node web service is also exposed, its root page should be treated as a launch bridge, and the old Node chat prototype should remain under `/legacy/cosyworld`.
+- `COSYWORLD_DEPLOY_PROFILE=production` enables the deployed runtime checks.
+- `COSYWORLD_MODERATION_TOKEN` protects moderation operations.
+- `COSYWORLD_V2_EVENT_DB_PATH` names the SQLite journal;
+  `COSYWORLD_V2_SNAPSHOT_PATH` names its snapshot file.
+- `COSYWORLD_PROCESS_ID` names the process. The compatibility setting
+  `COSYWORLD_V2_SHARD_ID`, when present, must match it.
+- `COSYWORLD_WEBAUTHN_RP_ID`, `COSYWORLD_WEBAUTHN_ORIGIN`, and optional
+  `COSYWORLD_WEBAUTHN_EXTRA_ORIGINS` define domain-scoped passkeys for the
+  shared runtime.
+- `OPENROUTER_API_KEY` supplies the configured text provider. Image generation
+  uses the configured Replicate credentials. See the
+  [runtime guide](../../v2/README.md) for provider settings.
+- The optional linked-avatar adapter uses
+  `COSYWORLD_AVATAR_OWNERSHIP_FEED_URL` and
+  `COSYWORLD_AVATAR_OWNERSHIP_FEED_BEARER`.
 
-### V2-Only Player Deployment
+The Rust service opens and upgrades its journal during startup. Keep each
+world's journal, snapshots, and generated assets together on its assigned
+volume path. The [canonical-world guide](../../v2/docs/canonical-world.md)
+describes the checks needed before adding writers or routing capacity.
 
-Use this when the public app is just the game:
-
-```bash
-fly deploy
-```
-
-Before the production machine boots, set the required secrets:
-
-```bash
-fly secrets set COSYWORLD_AVATAR_OWNERSHIP_FEED_BEARER=...
-fly secrets set COSYWORLD_MODERATION_TOKEN=...
-```
-
-The Fly config runs with `COSYWORLD_DEPLOY_PROFILE=production`, persistent
-`/data` storage, and the SQLite event journal. The protected linked-avatar feed
-is optional; ordinary play boots without it.
-
-Production log retention, incident queries, alerts, credential rotation, and
-the cross-app ingestion smoke are documented in
-[`production-logs.md`](production-logs.md).
-
-Passkey authentication also requires an exact WebAuthn relying-party configuration. The RP ID is the deployment hostname without a scheme; the origin is the public HTTPS origin:
-
-```bash
-COSYWORLD_WEBAUTHN_RP_ID=play.example.com
-COSYWORLD_WEBAUTHN_ORIGIN=https://play.example.com
-COSYWORLD_WEBAUTHN_EXTRA_ORIGINS=https://www.play.example.com
-```
-
-Passkeys are domain-scoped. Deployments on unrelated hostnames do not share passkeys even if they share application code.
-
-### Node Companion + V2 Game Deployment
-
-Use this when the Node admin/integration service is also public. Deploy V2 as the game service, then set the Node service to discover it:
-
-```bash
-COSYWORLD_V2_PUBLIC_URL=https://play.example.com
-COSYWORLD_V2_GAME_URL=https://play.example.com
-```
-
-The Node endpoint `GET /api/runtime` returns the active V2 URLs, and the launch bridge reads that endpoint before linking players to V2.
-
----
-
-## Environment Variables
-
-Create a `.env` file with:
-
-- **Core:** `NODE_ENV`, `API_URL`, `PUBLIC_URL`, `COSYWORLD_V2_PUBLIC_URL`
-- **Database:** `DATA_BACKEND=sqlite`, `SQLITE_DB_PATH`
-- **AI:** `OPENROUTER_API_TOKEN`, `REPLICATE_API_TOKEN`, `GOOGLE_AI_API_KEY`
-- **Storage:** `S3_API_ENDPOINT`, `S3_API_KEY`, `S3_API_SECRET`, `CLOUDFRONT_DOMAIN`
-- **Discord:** `DISCORD_BOT_TOKEN`
-- **Performance:** `MEMORY_CACHE_SIZE`, `MAX_CONCURRENT_REQUESTS`
-- **V2 Production:** `COSYWORLD_DEPLOY_PROFILE=production`, `COSYWORLD_MODERATION_TOKEN`, and optional `COSYWORLD_AVATAR_OWNERSHIP_FEED_URL` plus `COSYWORLD_AVATAR_OWNERSHIP_FEED_BEARER` for linked-avatar discovery.
-- **V2 Passkeys:** `COSYWORLD_WEBAUTHN_RP_ID`, `COSYWORLD_WEBAUTHN_ORIGIN`, and optional comma-separated `COSYWORLD_WEBAUTHN_EXTRA_ORIGINS`. Production refuses to boot without the RP ID and origin.
-- **V2 Process Label:** `COSYWORLD_PROCESS_ID` is the unique replaceable process
-  label shown in `/meta`. `COSYWORLD_V2_SHARD_ID` remains a matching legacy
-  alias during migration. Neither may be used as a world, room, actor,
-  invitation, claim, or save namespace.
-- **V2 Capacity Routing:** `COSYWORLD_CANONICAL_ROUTE_URL` and
-  `COSYWORLD_CANONICAL_ROUTER_TOKEN` are optional but must be set together. The
-  URL must target that exact process rather than the shared player load
-  balancer; the token must be a secret of at least 16 characters. Keep both
-  unset while AWS/Fly remains at one task/machine.
-
----
-
-## Database Setup
-
-- SQLite is the default deployment backend.
-- For Fly, mount `/data` and set `SQLITE_DB_PATH=/data/cosyworld.sqlite`.
-- Run `npm run deploy:setup-db` to apply SQLite schema migrations.
-- MongoDB can be selected explicitly with `DATA_BACKEND=mongo` for migration or compatibility deployments.
-
-### Retiring legacy item materialization
+## Historical item receipts
 
 The item collectible bridge is an archived, read-only compatibility surface.
 There is no materialize or return mutation route.
@@ -147,51 +111,20 @@ outcome.
 No player return request is accepted. Do not remove this audit state until a
 separate retention policy explicitly authorizes deletion.
 
----
 
-## Server Requirements
+## Recover the testing app
 
-- Node.js 18+ LTS
-- 4+ CPU cores, 8GB+ RAM, 50GB+ SSD
-- Set memory limit:
-```bash
-NODE_OPTIONS="--max-old-space-size=4096"
-```
+When the testing app's live `/meta` is unavailable, use a committed capture
+of its last observed bundle identity with the normal deployment guard.
 
----
+1. Read the identity from the app or its volume. An internal request can work
+   while Fly is waiting for readiness:
 
-## Production Setup
+   ```sh
+   fly ssh console --app cosyworld -C "curl -s http://127.0.0.1:3000/meta"
+   ```
 
-- Use **Nginx** as reverse proxy
-- Use **systemd** for service management
-- Example configs in `/config/`
-
----
-
-## Rate Limits
-
-- AI calls: 5 per avatar/min
-- Image gen: 2 per avatar/hour
-- Avatar creation: 3 per user/day
-
----
-
-## Recovery when the primary app is already unavailable
-
-The pre-deploy bundle gate reads the live `/meta` and fails closed, which is
-correct for a stale-checkout deploy but deadlocks the case that matters most:
-`cosyworld.fly.dev` is unreachable *because* it needs the deploy. That blocked
-recovery twice — the failed v557 release on 2026-08-05 and again on 2026-08-07,
-a ~2.5 day outage.
-
-Do not bypass the guard and do not blank a persisted bundle hash.
-
-1. Obtain the app's persisted identity from the running process or its volume.
-   The orchestrator serves `/meta` internally even while the Fly proxy has
-   removed the machine from rotation, so
-   `fly ssh console --app cosyworld -C "curl -s http://127.0.0.1:3000/meta"`
-   usually still works. Never infer the hash from the candidate image.
-2. Store a capture with this exact shape and review it with the recovery change:
+2. Save the observed identity in a committed capture:
 
    ```json
    {
@@ -202,56 +135,30 @@ Do not bypass the guard and do not blank a persisted bundle hash.
    }
    ```
 
-   `source` may instead be `operator-capture`, but it must still contain the
-   unmodified observed `/meta` identity and a reviewable timestamp. The capture
-   must be committed: the guard refuses an untracked file or any path outside
-   the checkout.
-3. Run `Deploy` via `workflow_dispatch` with `target: primary` and
-   `primary_recovery_capture` set to the committed capture path. The guard
-   records the capture path, source, and time, then applies the normal
-   exact/declaration comparison — a genuine mismatch still fails closed.
-4. Preserve the workflow log and capture with the incident record, then verify
-   `/meta` after recovery before the next release.
+   Replace the example time and hash with the observed values. A saved public
+   response may use `operator-capture` as its source. Keep the capture inside
+   the checkout so it can be reviewed with the recovery change.
 
-If GitHub Actions itself is unavailable, the same two steps the workflow runs
-can be performed directly, and they keep the rollback snapshot:
+3. Run `Deploy` manually with `target: primary` and
+   `primary_recovery_capture` set to that committed path. The normal bundle
+   comparison and volume backup still apply.
+4. Verify `/health` and `/meta` after recovery and keep the workflow log.
 
-```sh
-bash scripts/backup-fly-v2.sh cosyworld primary
-flyctl deploy --remote-only --config fly.toml --strategy rolling
-```
+For production tenant recovery, follow the
+[Lonely Forest runbook](lonelyforest-fly.md#recovery-when-a-tenant-is-already-unavailable).
 
-The backup command waits up to ten minutes for the exact requested snapshot to
-reach `created`. Do not bypass it when Fly reports a slow `waiting` or `running`
-snapshot; a timeout leaves the current Machine untouched and blocks deployment.
+## Monitoring and backups
 
----
+The [Fly health workflow](../../.github/workflows/fly-health.yml) checks both
+apps every 15 minutes. It checks memory exits, storage budgets, and volume
+headroom. Volume checks report at 70% usage. Fly grows the volumes at 80% in
+1 GB steps up to 5 GB; the deployment guard checks usage against 85%.
 
-## Monitoring
+Every deployment requests a volume snapshot and waits for that exact snapshot
+to reach `created`. The default wait is ten minutes. The workflow log records
+the snapshot ID. Recovery keeps one active writer for each world's journal.
 
-- V2 health endpoints: `/health`, `/meta`
-- Node companion runtime discovery: `/api/runtime`
-- Logs: platform logs or `/logs/` for legacy Node deployments
-- Fly volume headroom: the scheduled `Volume headroom` GitHub Actions workflow
-  checks both production `/data` mounts every 15 minutes and fails at 70% used.
-  The mounts auto-extend at 80% in 1 GB increments, capped at 5 GB; the deploy
-  gate remains a separate fail-closed check at 85%.
-
----
-
-## Backups
-
-- SQLite database file backups daily
-- `.env` backups
-- Automate with cron
-
----
-
-## Scaling Tips
-
-- Attach a persistent volume for SQLite and keep exactly one production task.
-- Hot-room handoff and regional failover are covered by the #130 chaos harness,
-  but multiple production instances still require exact per-task routes and a
-  successful release-specific operator drill. A load balancer alone is unsafe.
-- Redis cache
-- Containerize with Docker/Kubernetes
+Use `/health` for readiness and persistence, `/health/live` for process
+liveness, and `/meta` for version and bundle identity. The
+[production logs guide](production-logs.md) covers retained logs, incident
+queries, and the cross-app ingestion check.

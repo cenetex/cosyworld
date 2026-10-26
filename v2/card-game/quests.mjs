@@ -1,3 +1,4 @@
+import forest from "./forest.json" with { type: "json" };
 import { hasQuestPrograms, interest } from "./motives.mjs";
 import { questActive, lifeOf, personalQuestRank, hopes } from "./life.mjs";
 import {
@@ -61,105 +62,8 @@ export const meet = (items, avatar, locations) =>
   );
 export const carryTo = (items, location) => hand(hold(...items), at(location));
 
-export const questPrograms = {
-  vale: [
-    {
-      id: "borrowed-light",
-      name: "Borrowed light",
-      steps: [
-        { items: ["lamp"], location: "station", avatars: ["moth"] },
-        { items: ["oil"], location: "attic", avatars: ["keeper"] },
-        { items: ["cloth"], location: "pond", avatars: ["moth"] },
-      ],
-    },
-    {
-      id: "the-bell-below",
-      name: "The bell below",
-      steps: [
-        { items: ["bell"], location: "pond", avatars: ["keeper"] },
-        { items: ["lamp", "bell"], location: "station", avatars: ["moth"] },
-      ],
-    },
-  ],
-  moth: [
-    {
-      id: "a-light-and-a-witness",
-      name: "A light and a witness",
-      steps: [
-        { items: ["lamp"], location: "pond", avatars: ["vale"] },
-        { items: ["oil"], location: "attic", avatars: ["keeper"] },
-      ],
-    },
-    {
-      id: "a-veil-for-the-eye",
-      name: "A veil for the eye",
-      steps: [
-        { items: ["cloth"], location: "pond", avatars: ["vale"] },
-        { items: ["lamp"], location: "station", avatars: ["keeper"] },
-      ],
-    },
-  ],
-  keeper: [
-    {
-      id: "the-quiet-hour",
-      name: "The quiet hour",
-      steps: [
-        { items: ["bell"], location: "attic", avatars: ["vale"] },
-        { items: ["cloth"], location: "attic", avatars: ["moth"] },
-      ],
-    },
-    {
-      id: "the-hour-below",
-      name: "The hour below",
-      steps: [
-        { items: ["bell"], location: "pond", avatars: ["vale"] },
-        { items: ["oil"], location: "station", avatars: ["moth"] },
-      ],
-    },
-  ],
-};
-// New tables discover the cast through the mirror and the shore. Older saves
-// keep their authored programs and the progress earned against those hands.
-export const openingPrograms = {
-  vale: [
-    {
-      id: "first-light",
-      name: "Light the lamp",
-      purpose: "Bring light to the attic.",
-      steps: [hand(hold("lamp"), at("attic"), condition("lit", "lamp"))],
-    },
-    {
-      id: "along-the-shore",
-      name: "Along the shore",
-      purpose:
-        "Meet the moth by the water, then carry the lamp along the path to the station.",
-      steps: [
-        hand(hold("lamp"), at("pond"), withAvatars("moth")),
-        hand(hold("lamp"), at("station")),
-      ],
-    },
-  ],
-  moth: [
-    {
-      ...questPrograms.moth[0],
-      steps: [
-        hand(hold("lamp"), at("pond"), withAvatars("vale")),
-        hand(hold("oil"), at("station"), withAvatars("keeper")),
-      ],
-    },
-    questPrograms.moth[1],
-  ],
-  keeper: [
-    {
-      ...questPrograms.keeper[0],
-      steps: [
-        hand(hold("bell"), at("station"), withAvatars("vale")),
-        hand(hold("cloth"), at("pond"), withAvatars("moth")),
-      ],
-    },
-    questPrograms.keeper[1],
-  ],
-};
+export const questPrograms = forest.questPrograms;
+export const openingPrograms = forest.openingPrograms;
 // A pack's residents become known once the player has found a way in.
 export const knownActors = (s) =>
   Object.keys(s.opening?.met || s.actors).filter(
@@ -170,9 +74,7 @@ export const knownActors = (s) =>
 export const programsFor = (s, actor) =>
   (s.opening ? openingPrograms : questPrograms)[actor] || [];
 export const restingHands = {
-  vale: { items: [], location: null, avatars: [] },
-  moth: { items: [], location: "pond", avatars: [] },
-  keeper: { items: [], location: "attic", avatars: [] },
+  ...forest.restingHands,
   ...Object.fromEntries(
     Object.entries(packPeople).map(([id, a]) => [
       id,

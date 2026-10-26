@@ -259,7 +259,12 @@ The server listens on `127.0.0.1:3102` by default.
 
 ## Deploy
 
-The repository root `Dockerfile` builds the V2 release binary and runs `cosyworld-orchestrator`. The root `fly.toml` points at that Dockerfile, mounts `/data`, and runs the orchestrator on port `3000`.
+The repository root `Dockerfile` builds the Rust service. `fly.toml` runs the
+`cosyworld.fly.dev` testing site, which receives game changes from `main`
+automatically. `fly.lonelyforest.toml` runs `lonelyforest.com`, which receives
+deliberate versioned releases. Both serve the card game at `/` and the shared
+runtime at `/classic`. See the [deployment guide](../docs/deployment/07-deployment.md)
+for release inputs, backups, and recovery.
 
 ### Shutdown contract
 
@@ -280,21 +285,13 @@ records report timing, signal count, forced drains, and notified or remaining
 streams. Clients must treat a closed stream or a draining `503` as a reconnect
 boundary and reuse the same `intent_id` when retrying a command.
 
-The production Fly profile requires moderation and the event store. Configure
-the protected avatar feed only when linked-avatar discovery is enabled:
+The deployed profile uses moderation, a SQLite event store, and domain-scoped
+passkeys. Store each app's credentials in its Fly secret store. The optional
+linked-avatar feed has its own URL and bearer token. The
+[Lonely Forest runbook](../docs/deployment/lonelyforest-fly.md) lists production
+secrets and tenant paths.
 
-```sh
-fly secrets set COSYWORLD_PROCESS_ID=public-1
-# During migration the old alias may remain, but must match:
-fly secrets set COSYWORLD_V2_SHARD_ID=public-1
-fly secrets set COSYWORLD_AVATAR_OWNERSHIP_FEED_BEARER=...
-fly secrets set COSYWORLD_MODERATION_TOKEN=...
-fly deploy
-```
-
-If the Node companion service is also deployed, set `COSYWORLD_V2_PUBLIC_URL` there so `/api/runtime` and the launch bridge point at this V2 service.
-
-Override it with:
+Choose the local listen address with:
 
 ```sh
 COSYWORLD_V2_ADDR=127.0.0.1:3200 cargo run

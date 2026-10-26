@@ -2,170 +2,12 @@ import http from "node:http";
 import { once } from "node:events";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { roomTracks } from "./music.mjs";
-import { packMediaFiles } from "./pack-registry.mjs";
+import { publicAssets } from "./public-assets.mjs";
 
-const assets = new Map([
-  ["/shared.mjs", ["shared.mjs", "text/javascript"]],
-  ["/shared-auth.mjs", ["shared-auth.mjs", "text/javascript"]],
-  ["/shared-rules.mjs", ["shared-rules.mjs", "text/javascript"]],
-  ["/shared.css", ["shared.css", "text/css"]],
-  ["/shared-cast.json", ["shared-cast.json", "application/json"]],
-  [
-    "/assets/shared/places/pond.png",
-    ["assets/shared/places/pond.png", "image/png"],
-  ],
-  [
-    "/assets/shared/characters/vale.png",
-    ["assets/shared/characters/vale.png", "image/png"],
-  ],
-  [
-    "/assets/shared/places/station.png",
-    ["assets/shared/places/station.png", "image/png"],
-  ],
-  [
-    "/assets/shared/items/lamp.png",
-    ["assets/shared/items/lamp.png", "image/png"],
-  ],
-  [
-    "/assets/shared/characters/mara.png",
-    ["assets/shared/characters/mara.png", "image/png"],
-  ],
-  [
-    "/assets/shared/places/theatre.png",
-    ["assets/shared/places/theatre.png", "image/png"],
-  ],
-  [
-    "/assets/shared/items/mask.png",
-    ["assets/shared/items/mask.png", "image/png"],
-  ],
-  [
-    "/assets/shared/characters/ash.png",
-    ["assets/shared/characters/ash.png", "image/png"],
-  ],
-  [
-    "/assets/shared/places/belfry.png",
-    ["assets/shared/places/belfry.png", "image/png"],
-  ],
-  [
-    "/assets/shared/items/float.png",
-    ["assets/shared/items/float.png", "image/png"],
-  ],
-  [
-    "/assets/shared/characters/nell.png",
-    ["assets/shared/characters/nell.png", "image/png"],
-  ],
-  [
-    "/assets/shared/places/glasshouse.png",
-    ["assets/shared/places/glasshouse.png", "image/png"],
-  ],
-  [
-    "/assets/shared/items/can.png",
-    ["assets/shared/items/can.png", "image/png"],
-  ],
-  [
-    "/assets/shared/characters/tavi.png",
-    ["assets/shared/characters/tavi.png", "image/png"],
-  ],
-  [
-    "/assets/shared/places/hill.png",
-    ["assets/shared/places/hill.png", "image/png"],
-  ],
-  [
-    "/assets/shared/items/kite.png",
-    ["assets/shared/items/kite.png", "image/png"],
-  ],
-  [
-    "/assets/shared/characters/rue.png",
-    ["assets/shared/characters/rue.png", "image/png"],
-  ],
-  [
-    "/assets/shared/places/train.png",
-    ["assets/shared/places/train.png", "image/png"],
-  ],
-  [
-    "/assets/shared/items/routes.png",
-    ["assets/shared/items/routes.png", "image/png"],
-  ],
-  [
-    "/assets/shared/characters/orin.png",
-    ["assets/shared/characters/orin.png", "image/png"],
-  ],
-  [
-    "/assets/shared/places/pavilion.png",
-    ["assets/shared/places/pavilion.png", "image/png"],
-  ],
-  [
-    "/assets/shared/items/board.png",
-    ["assets/shared/items/board.png", "image/png"],
-  ],
-  [
-    "/assets/shared/characters/ada.png",
-    ["assets/shared/characters/ada.png", "image/png"],
-  ],
-  [
-    "/assets/shared/places/loft.png",
-    ["assets/shared/places/loft.png", "image/png"],
-  ],
-  [
-    "/assets/shared/items/shears.png",
-    ["assets/shared/items/shears.png", "image/png"],
-  ],
-
-  ["/", ["index.html", "text/html"]],
-  ["/index.html", ["index.html", "text/html"]],
-  ["/style.css", ["style.css", "text/css"]],
-  ["/entry.mjs", ["entry.mjs", "text/javascript"]],
-  ["/awakening.css", ["awakening.css", "text/css"]],
-  ["/app.mjs", ["app.mjs", "text/javascript"]],
-  ["/world.mjs", ["world.mjs", "text/javascript"]],
-  ["/scene.mjs", ["scene.mjs", "text/javascript"]],
-  ["/cards.mjs", ["cards.mjs", "text/javascript"]],
-  ["/lessons.mjs", ["lessons.mjs", "text/javascript"]],
-  ["/motives.mjs", ["motives.mjs", "text/javascript"]],
-  ["/life.mjs", ["life.mjs", "text/javascript"]],
-  ["/quests.mjs", ["quests.mjs", "text/javascript"]],
-  ["/quest-cards.mjs", ["quest-cards.mjs", "text/javascript"]],
-  ["/situations.mjs", ["situations.mjs", "text/javascript"]],
-  ["/memory.mjs", ["memory.mjs", "text/javascript"]],
-  ["/narrative.mjs", ["narrative.mjs", "text/javascript"]],
-  ["/dialogue.mjs", ["dialogue.mjs", "text/javascript"]],
-  ["/pack-schema.mjs", ["pack-schema.mjs", "text/javascript"]],
-  ["/pack-registry.mjs", ["pack-registry.mjs", "text/javascript"]],
-  ["/pack-rules.mjs", ["pack-rules.mjs", "text/javascript"]],
-  ["/legacy-saves.mjs", ["legacy-saves.mjs", "text/javascript"]],
-  ["/packs.json", ["packs.json", "application/json"]],
-  ["/music.mjs", ["music.mjs", "text/javascript"]],
-  ...Object.values(roomTracks)
-    .flat()
-    .map(({ file }) => [
-      `/assets/music/${file}`,
-      [`assets/music/${file}`, "audio/mpeg"],
-    ]),
-  ["/entity-profiles.json", ["entity-profiles.json", "application/json"]],
-  ...["lamp", "oil", "bell", "cloth"].map((id) => [
-    `/assets/${id}-card.png`,
-    [`assets/${id}-card.png`, "image/png"],
-  ]),
-  ...["lamp", "oil", "bell", "cloth"].map((id) => [
-    `/assets/${id}-card.jpg`,
-    [`assets/${id}-card.jpg`, "image/jpeg"],
-  ]),
-  ...["station", "attic", "pond", "vale", "moth", "keeper", "keeper-right"].map(
-    (id) => [`/assets/${id}.png`, [`assets/${id}.png`, "image/png"]],
-  ),
-  ...packMediaFiles.map((file) => [
-    `/${file}`,
-    [
-      file,
-      file.endsWith(".svg")
-        ? "image/svg+xml"
-        : file.endsWith(".webp")
-          ? "image/webp"
-          : "image/png",
-    ],
-  ]),
-]);
+const assets = new Map(
+  publicAssets.map(({ file, contentType }) => [`/${file}`, [file, contentType]]),
+);
+assets.set("/", assets.get("/index.html"));
 export function createServer() {
   return http.createServer(async (req, res) => {
     const pathname = new URL(req.url, "http://localhost").pathname;
@@ -240,8 +82,7 @@ export function createServer() {
     try {
       const body = await readFile(new URL(asset[0], import.meta.url));
       const headers = {
-        "Content-Type":
-          asset[1] === "audio/mpeg" ? asset[1] : `${asset[1]}; charset=utf-8`,
+        "Content-Type": asset[1],
         "Cache-Control": "no-store",
         "X-Content-Type-Options": "nosniff",
         "Content-Security-Policy":
