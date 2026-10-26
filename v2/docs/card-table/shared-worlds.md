@@ -63,13 +63,18 @@ world load records an explicit migration seed. It maps the old rooms and items
 onto the full game and keeps the old counters as migration evidence. Existing
 single-player saves continue through the normal save upgrader.
 
+Migration preserves each held item, the lamp's state, and up to 80 saved
+exchanges with their original text and times. An avatar carrying more than the
+current limit keeps those items. That allowance shrinks as items are put down;
+new pickups and gifts use the normal limit.
+
 ## Shared words
 
 The server records the action before requesting speech. Each play receives one
 shared two-line exchange. A conversation can include the resident who was
 addressed. Other plays can include a room detail. The server records the lines
-and their reading times so people in the room see the same exchange. History is
-local to the room.
+and their reading times so people in the room see the same exchange. The
+conversation panel shows the current room's history.
 
 The approved OpenRouter request contains fictional profiles, scene facts,
 visible people and belongings, and the completed play. Passkey and account data

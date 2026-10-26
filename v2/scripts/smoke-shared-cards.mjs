@@ -448,6 +448,20 @@ try {
       "reconnected game finishes rendering",
     );
     await page.locator("#shared-worlds-button").waitFor({ state: "visible" });
+    await until(
+      async () =>
+        await page
+          .locator("#backdrop")
+          .evaluate((img) => img.complete && img.naturalWidth > 0),
+      "reconnected room art loads",
+    );
+    await until(
+      async () =>
+        !(await page.locator("#notice").textContent()).includes(
+          "Failed to fetch",
+        ),
+      "connection notice clears after recovery",
+    );
     await dismissDiscoveries(page);
     await page.screenshot({
       path: join(output, `same-world-${i ? "phone" : "desktop"}.png`),
