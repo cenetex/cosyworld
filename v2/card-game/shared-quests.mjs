@@ -7,7 +7,10 @@ const sameHolder = (a, b) => a?.kind === b?.kind && a?.id === b?.id;
 const unfinished = (q) => q.completedTurn === null && !q.retired;
 export const questRecords = (world) =>
   Object.values(world.quests?.records || {});
-export const questRecord = (world, key) => world.quests?.records?.[key] || null;
+export const questRecord = (world, key) =>
+  world.quests?.records && Object.hasOwn(world.quests.records, key)
+    ? world.quests.records[key]
+    : null;
 export const collectionCards = (world, actor, archived = false) =>
   (
     world.life?.actors?.[actor]?.collection?.[archived ? "archive" : "cards"] ||
@@ -176,4 +179,121 @@ export function pruneSharedQuestHistory(world, holder) {
     clearQuestFocus(world, quest.key);
     delete world.quests.records[quest.key];
   }
+}
+
+export function validSharedQuestRegistry(
+  world,
+  { actors, items, places, program, origin },
+) {
+  const registry = world.quests;
+  if (!registry) return true;
+  if (
+    registry.version !== SHARED_QUEST_VERSION ||
+    !Number.isSafeInteger(registry.next) ||
+    registry.next < 0 ||
+    !registry.records ||
+    Array.isArray(registry.records) ||
+    typeof registry.records !== "object" ||
+    !registry.focus ||
+    Array.isArray(registry.focus) ||
+    typeof registry.focus !== "object" ||
+    Object.keys(registry.records).length > QUEST_RECORD_LIMIT
+  )
+    return false;
+  const personalKeys = [];
+  for (const [actor, life] of Object.entries(world.life?.actors || {})) {
+    const c = life.collection;
+    if (!c) continue;
+    if (!Array.isArray(c.cards) || !Array.isArray(c.archive)) return false;
+    for (const key of [...c.cards, ...c.archive]) {
+      const q =
+        typeof key === "string" &&
+        Object.hasOwn(registry.records, key) &&
+        registry.records[key];
+      if (
+        !q ||
+        q.mode !== "personal" ||
+        q.subjectActor !== actor ||
+        q.rewardActor !== actor
+      )
+        return false;
+      personalKeys.push(key);
+    }
+  }
+  if (new Set(personalKeys).size !== personalKeys.length) return false;
+  for (const [key, q] of Object.entries(registry.records)) {
+    if (
+      !q ||
+      typeof q !== "object" ||
+      key !== q.key ||
+      key.length < 1 ||
+      key.length > 160 ||
+      ["__proto__", "constructor", "prototype"].includes(key) ||
+      !["personal", "shared"].includes(q.mode) ||
+      !q.holder ||
+      !["avatar", "item", "place"].includes(q.holder.kind) ||
+      !{ avatar: actors, item: items, place: places }[q.holder.kind].includes(
+        q.holder.id,
+      ) ||
+      !(q.subjectActor === null || actors.includes(q.subjectActor)) ||
+      !(q.rewardActor === null || actors.includes(q.rewardActor)) ||
+      !Array.isArray(q.participants) ||
+      q.participants.length > actors.length ||
+      !q.participants.every(
+        (id, i) =>
+          actors.includes(id) && (i === 0 || q.participants[i - 1] < id),
+      ) ||
+      !Number.isSafeInteger(q.createdTurn) ||
+      q.createdTurn < 0 ||
+      q.createdTurn > world.turn ||
+      !Number.isSafeInteger(q.step) ||
+      q.step < 0 ||
+      (q.lastProgressTurn !== undefined &&
+        (!Number.isSafeInteger(q.lastProgressTurn) ||
+          q.lastProgressTurn < q.createdTurn ||
+          q.lastProgressTurn > world.turn)) ||
+      (q.cause !== null &&
+        (!q.cause ||
+          !["quest", "journey", "help"].includes(q.cause.kind) ||
+          typeof q.cause.rootId !== "string" ||
+          q.cause.rootId.length < 1 ||
+          q.cause.rootId.length > 200))
+    )
+      return false;
+    if (q.mode === "personal") {
+      if (!personalKeys.includes(key) || q.subjectActor === null || q.retired)
+        return false;
+    } else {
+      if (
+        q.rewardActor !== null ||
+        !program(q.program, q.subjectActor) ||
+        !origin(q.origin) ||
+        (q.completedTurn === null
+          ? q.step >= q.program.steps.length
+          : !Number.isSafeInteger(q.completedTurn) ||
+            q.completedTurn < q.createdTurn ||
+            q.completedTurn > world.turn ||
+            q.step !== q.program.steps.length)
+      )
+        return false;
+      if (
+        q.retired &&
+        (q.completedTurn !== null ||
+          q.retired.reason !== "superseded" ||
+          !Number.isSafeInteger(q.retired.turn) ||
+          q.retired.turn < q.createdTurn ||
+          q.retired.turn > world.turn)
+      )
+        return false;
+    }
+  }
+  return Object.entries(registry.focus).every(([actor, key]) => {
+    const q = questRecord(world, key);
+    return (
+      actors.includes(actor) &&
+      q &&
+      unfinished(q) &&
+      q.participants.includes(actor)
+    );
+  });
 }

@@ -9,6 +9,7 @@ import {
   shareQuest,
   clearQuestFocus,
   pruneSharedQuestHistory,
+  validSharedQuestRegistry,
 } from "./shared-quests.mjs";
 import {
   recordQuestCompletion,
@@ -2290,10 +2291,10 @@ function validQuestOrigin(s, origin) {
       (origin.place === null || Object.hasOwn(places, origin.place)))
   );
 }
-function validProgram(p, actor, s) {
+function validProgram(p, actor, s, shared = false) {
   if (
     !p ||
-    !actorIds.includes(actor) ||
+    (!shared && !actorIds.includes(actor)) ||
     typeof p.id !== "string" ||
     p.id.length > 80 ||
     !p.id.length ||
@@ -2373,6 +2374,17 @@ export function validateWorld(s) {
     s.turn < 0 ||
     !Number.isSafeInteger(s.revision) ||
     s.revision < s.turn
+  )
+    fail();
+  if (
+    !validSharedQuestRegistry(s, {
+      actors: actorIds,
+      items: ids,
+      places: Object.keys(places),
+      program: (p, actor) => validProgram(p, actor, s, true),
+      origin: (value) => validQuestOrigin(s, value),
+    }) ||
+    !validQuestCompletions(s, actorIds, Object.keys(places))
   )
     fail();
   if (s.sharedMigration !== undefined) {
