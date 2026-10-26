@@ -4,6 +4,7 @@ import { createWorld, currentActor } from "../v2/card-game/world.mjs";
 import { availableCards } from "../v2/card-game/cards.mjs";
 import {
   currentScene,
+  isSceneText,
   sceneCast,
   sceneStaging,
   portrait,
@@ -121,5 +122,51 @@ describe("shared speech recovery", () => {
       sharedSpeechState({ ...state, queue: [{ status: "working" }] }, "pond")
         .status,
     ).toBe("pending");
+  });
+});
+
+describe("shared room detail lines", () => {
+  it("shows the timed switch from speech to a room detail and keeps both in review", () => {
+    const world = shared();
+    const lines = [
+      {
+        seq: 100,
+        kind: "dialogue",
+        generated: true,
+        actorId: "mara",
+        speaker: "Mara",
+        text: "The water is still.",
+        locationId: "station",
+        turn: world.turn,
+      },
+      {
+        seq: 101,
+        kind: "narration",
+        generated: true,
+        entityId: "station",
+        speaker: "The station",
+        text: "A leaf turns beside the platform.",
+        locationId: "station",
+        turn: world.turn,
+      },
+    ];
+    world.log.push(...lines);
+    const state = { history: [{ room: "station", starts_at: 1000, lines }] };
+    for (const [time, expected] of [
+      [1100, lines[0]],
+      [4600, lines[1]],
+    ]) {
+      const live = sharedLiveLine(state, time, "station");
+      const scene = currentScene(world, null, { seq: live.seq, review: true });
+      expect(scene.line.text).toBe(expected.text);
+      expect(isSceneText(scene.line, true)).toBe(true);
+      expect(
+        scene.lines
+          .filter((entry) => isSceneText(entry, true))
+          .map((entry) => entry.seq),
+      ).toEqual([100, 101]);
+    }
+    expect(isSceneText(lines[1], false)).toBe(false);
+    expect(isSceneText({ ...lines[1], generated: false }, true)).toBe(false);
   });
 });
