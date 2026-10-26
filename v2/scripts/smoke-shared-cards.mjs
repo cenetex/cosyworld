@@ -604,6 +604,7 @@ try {
   const notesBefore = await Promise.all(
     [vale, mara].map((page) => page.evaluate(() => window.sharedSpeechNotes)),
   );
+  const queueRequestStart = requests.length;
   holdReplies = true;
   const queued = [];
   for (const page of [vale, mara, ash, nell]) {
@@ -708,7 +709,9 @@ try {
   );
   holdReplies = false;
   for (const resolve of waitingReplies.splice(0)) resolve();
-  await Promise.all([vale, mara].map(expectSharedReveal));
+  await Promise.all(
+    [vale, mara].map((page) => expectSharedReveal(page, queueRequestStart)),
+  );
   await Promise.all([vale, mara, nell].map(idle));
   for (const page of [vale, mara]) {
     await expectStage(page, ["nell", "mara", "vale", "ash", "moth"]);
