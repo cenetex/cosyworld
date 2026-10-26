@@ -106,6 +106,8 @@ describe("authored shared story cards", () => {
     }
     delete old.quests;
     delete old.questCompletions;
+    delete old.roamingQuests;
+    delete old.routeKnowledge;
     old.log = old.log.filter((event) => event.packId !== "greek-drama");
     for (const receipt of Object.values(old.packs["greek-drama"].recitals))
       receipt.actor = null;

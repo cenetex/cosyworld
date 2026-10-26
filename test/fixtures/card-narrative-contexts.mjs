@@ -110,7 +110,7 @@ export function narrativeContractCases() {
   ];
   for (const branch of ["burial", "concession", "refusal", "exposure"]) {
     const earned = openingFixture(branch).closed;
-    const arrival = playCard(earned, "move", null, "greek-harbor");
+    const arrival = playCard(earned, "wait");
     worlds.push([`${branch} bard arrival`, arrival]);
     worlds.push([
       `${branch} bard conversation`,

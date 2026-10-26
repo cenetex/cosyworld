@@ -1,3 +1,5 @@
+import { latestQuestCompletion } from "../v2/card-game/quest-completions.mjs";
+import { recitalFacts } from "../v2/card-game/pack-recital.mjs";
 import { describe, it, expect } from "vitest";
 import {
   decodeSave,
@@ -56,21 +58,18 @@ describe("the opening poem", () => {
         }
   });
 
-  it("introduces the bard on the next journey, then lets him wait there", () => {
+  it("reaches the completed quest site and stays when the player leaves", () => {
     const s = openingFixture("refusal");
-    expect(entityActive(s.water, bard)).toBe(false);
+    expect(s.water.actors[bard].place).toBe("greek-courtyard");
     const waiting = act(reload(s.water), "wait");
-    expect(entityActive(waiting, bard)).toBe(false);
-    const next = act(reload(waiting), "move", "greek-well");
-    expect(entityActive(next, bard)).toBe(true);
-    expect(next.actors[bard].place).toBe("greek-well");
-    expect(facts(act(next, "talk", bard)).join("\n")).toContain(
+    expect(waiting.actors[bard].place).toBe("greek-courtyard");
+    expect(facts(act(waiting, "talk", bard)).join("\n")).toContain(
       lines(s.water).join(" "),
     );
-    const away = act(reload(next), "move", "greek-palace");
-    expect(away.actors[bard].place).toBe("greek-well");
+    const away = act(reload(waiting), "move", "greek-well");
+    expect(away.actors[bard].place).toBe("greek-courtyard");
     expect(away.packs["greek-drama"].recitals).toEqual(
-      next.packs["greek-drama"].recitals,
+      waiting.packs["greek-drama"].recitals,
     );
   });
 
@@ -78,8 +77,8 @@ describe("the opening poem", () => {
     "carries the whole %s poem into a later conversation",
     (branch) => {
       const s = openingFixture(branch);
-      const next = act(reload(s.closed), "move", "greek-harbor");
-      expect(next.actors[bard].place).toBe("greek-harbor");
+      const next = act(reload(s.closed), "wait");
+      expect(next.actors[bard].place).toBe("greek-courtyard");
       const talked = act(reload(next), "talk", bard);
       const context = narrativeContext(talked);
       expect(context.speakers).toContain(bard);
@@ -97,16 +96,15 @@ describe("the opening poem", () => {
     },
   );
 
-  it("keeps a newly earned report pending until the next room", () => {
+  it("adds the report when the bard reaches its saved site in the same turn", () => {
     const s = openingFixture("refusal");
-    expect(facts(s.returning).join("\n")).toContain(
-      "I told her I would turn away.",
-    );
-    expect(facts(s.closed).join("\n")).not.toContain(
-      "I told her how I turned away.",
-    );
-    const next = act(s.closed, "move", "greek-harbor");
-    expect(facts(act(next, "talk", bard)).join("\n")).toContain(
+    expect(
+      recitalFacts(s.returning, [packDefinition("greek-drama")], bard).join(
+        "\n",
+      ),
+    ).toContain("I told her I would turn away.");
+    expect(s.closed.actors[bard].place).toBe("greek-courtyard");
+    expect(facts(act(s.closed, "talk", bard)).join("\n")).toContain(
       "I told her how I turned away.",
     );
   });
@@ -121,10 +119,14 @@ describe("the opening poem", () => {
     expect(
       upgraded.packs["greek-drama"].recitals["greek-return-water-jar"],
     ).toEqual({ actor: null, visit: null });
-    expect(entityActive(act(upgraded, "move", "greek-well"), bard)).toBe(false);
+    expect(
+      act(upgraded, "move", "greek-well").packs["greek-drama"].recitals[
+        "greek-return-water-jar"
+      ].actor,
+    ).toBeNull();
     for (const value of [
-      { actor: "greek-baker", visit: null },
-      { actor: "vale", visit: s.water.turn },
+      { actor: "missing-traveler", visit: null },
+      { actor: "vale", visit: -1 },
       { actor: "vale", visit: s.water.turn + 1 },
     ]) {
       const forged = structuredClone(s.water);
@@ -133,7 +135,7 @@ describe("the opening poem", () => {
     }
   });
 
-  it("ties a pending shared visit to the human who completed the quest", () => {
+  it("follows the latest shared completion and retains each verse author", () => {
     const imported = dispatchShared({
       op: "create",
       save: encodeSave(openingFixture("refusal").water),
@@ -159,7 +161,9 @@ describe("the opening poem", () => {
       ),
     });
     expect(moved.ok).toBe(true);
-    expect(entityActive(moved.world, bard)).toBe(false);
+    expect(moved.world.roamingQuests[bard].target).toEqual(
+      latestQuestCompletion(moved.world),
+    );
     const view = request(moved.world, "view", "vale");
     const arrived = request(moved.world, "play", "vale", {
       action: view.actions.find(
@@ -167,7 +171,9 @@ describe("the opening poem", () => {
       ),
     });
     expect(arrived.ok).toBe(true);
-    expect(arrived.world.actors[bard].place).toBe("greek-well");
+    expect(arrived.world.roamingQuests[bard].target).toEqual(
+      latestQuestCompletion(arrived.world),
+    );
     const again = request(moved.world, "play", "vale", {
       action: view.actions.find(
         (a) => a.kind === "move" && a.target === "greek-well",
@@ -175,7 +181,9 @@ describe("the opening poem", () => {
     });
     expect(again.world).toEqual(arrived.world);
     expect(
-      facts({ ...arrived.world, playerActorId: "vale" }).join("\n"),
+      recitalFacts(arrived.world, [packDefinition("greek-drama")], bard).join(
+        "\n",
+      ),
     ).toContain("I set the water by her hands.");
   });
 
@@ -356,7 +364,9 @@ it("keeps a pruned shared deed's author unknown when Vale loads Mara's saved dee
       (a) => a.kind === "move" && a.target === "greek-courtyard",
     ),
   }).world;
-  expect(entityActive(moved, bard)).toBe(false);
+  expect(
+    moved.packs["greek-drama"].recitals["greek-decline-burial"].actor,
+  ).toBeNull();
   const playAsVale = (match) => {
     const view = request(moved, "view", "vale");
     const result = request(moved, "play", "vale", {
@@ -366,7 +376,7 @@ it("keeps a pruned shared deed's author unknown when Vale loads Mara's saved dee
     moved = result.world;
   };
   playAsVale((a) => a.choiceId === "greek-courtyard-refusal");
-  playAsVale((a) => a.kind === "move" && a.target === "greek-harbor");
+  playAsVale((a) => a.kind === "wait");
   expect(entityActive(moved, bard)).toBe(true);
   expect(facts(moved).find((f) => f.startsWith("Verse 1,"))).toBe(
     "Verse 1, an earlier traveler: I told her I would turn away. Her brother waited by the wall.",
