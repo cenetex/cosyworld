@@ -5,9 +5,18 @@ import {
   legalActions,
   encodeSave,
   validateWorld,
+  reflectionOpen,
+  sensesFor,
 } from "../v2/card-game/world.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
+import { soundAt } from "../v2/card-game/pack-rules.mjs";
+import {
+  validCondition,
+  questItemAvailable,
+} from "../v2/card-game/situations.mjs";
+import { generateProgram, alternatives } from "../v2/card-game/quests.mjs";
+import { places, things } from "../v2/card-game/world.mjs";
 import { humanAvatarIds } from "../v2/card-game/human-cast.mjs";
 
 const shared = () =>
@@ -147,6 +156,91 @@ describe("the full world shared by human avatars", () => {
       world = result.world;
     }
     expect(ask(reorder(world), "validate").ok).toBe(true);
+  });
+  it("applies light and sound presence to carried objects while floor and NPC objects remain", () => {
+    const world = shared();
+    world.actors.vale.place = "pond";
+    world.items.lamp.holder = "vale";
+    world.items.lamp.lit = true;
+    world.items.bell.holder = "vale";
+    world.items.bell.ringing = 3;
+    world.items.oil.holder = "station";
+    world.actors.mara.place = "pond";
+    let visible = ask(world, "view", "mara", { present: ["mara"] }).world;
+    expect(reflectionOpen(visible, "pond")).toBe(false);
+    expect(soundAt(visible, "pond", sensesFor(visible))).toBe(false);
+    visible = ask(world, "view", "mara", { present: ["mara", "vale"] }).world;
+    expect(reflectionOpen(visible, "pond")).toBe(true);
+    expect(soundAt(visible, "pond", sensesFor(visible))).toBe(true);
+    for (const holder of ["pond", "moth"]) {
+      world.items.lamp.holder = holder;
+      world.items.bell.holder = holder;
+      world.actors.moth.place = "pond";
+      visible = ask(world, "view", "mara", { present: ["mara"] }).world;
+      expect(reflectionOpen(visible, "pond")).toBe(true);
+      expect(soundAt(visible, "pond", sensesFor(visible))).toBe(true);
+    }
+  });
+  it("keeps absent humans and their belongings out of plays and new quest candidates", () => {
+    const world = shared();
+    world.actors.mara.place = "pond";
+    world.actors.vale.place = "pond";
+    const view = ask(world, "view", "vale", { present: ["vale"] });
+    expect(
+      view.actions.some(
+        (a) => a.cards.includes("mara") || a.cards.includes("mask"),
+      ),
+    ).toBe(false);
+    expect(questItemAvailable(view.world, "vale", "mask")).toBe(false);
+    const program = generateProgram(view.world, "vale", places, things);
+    expect(
+      program.steps
+        .flatMap(alternatives)
+        .some((h) => h.items.includes("mask") || h.avatars.includes("mara")),
+    ).toBe(false);
+    const all = ask(world, "view").world;
+    for (const npc of ["moth", "keeper"]) {
+      const actions = legalActions(all, npc);
+      expect(
+        actions.some(
+          (a) => a.kind === "accompany" && humanAvatarIds.includes(a.target),
+        ),
+      ).toBe(false);
+      expect(actions.some((a) => a.kind === "take" && a.item === "mask")).toBe(
+        false,
+      );
+    }
+    expect(
+      validCondition({ kind: "heldBy", item: "mask", avatar: "mara" }, "vale"),
+    ).toBe(true);
+    expect(
+      validCondition(
+        { kind: "heldBy", item: "unknown", avatar: "mara" },
+        "vale",
+      ),
+    ).toBe(false);
+  });
+  it("rejects actor impersonation and extra actor keys before play", () => {
+    const world = shared();
+    expect(() => ask(world, "view", "__proto__")).toThrow();
+    expect(() =>
+      ask(world, "view", "vale", { claimed: ["vale", "constructor"] }),
+    ).toThrow();
+    const mara = ask(world, "view", "mara");
+    const foreign = mara.actions.find((a) => a.kind === "move");
+    expect(ask(world, "play", "vale", { action: foreign }).ok).toBe(false);
+    const extra = JSON.parse(JSON.stringify(world));
+    Object.defineProperty(extra.actors, "__proto__", {
+      value: structuredClone(extra.actors.vale),
+      enumerable: true,
+    });
+    expect(() => ask(extra, "validate")).toThrow();
+    const own = ask(world, "view", "vale").actions[0];
+    const result = ask(world, "play", "vale", {
+      action: { ...own, actor: "mara", target: "theatre" },
+    });
+    expect(result.ok).toBe(true);
+    expect(result.world.actors.mara.place).toBe(world.actors.mara.place);
   });
   it("reserves an avatar before entering a full room", () => {
     const world = shared();

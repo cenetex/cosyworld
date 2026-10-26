@@ -199,7 +199,10 @@ export function lifeFacts(s, actor) {
         : `Inspiration: ${life.inspiration}/${INSPIRATION_MAX}. Useful trades, talks, help and shared journeys grow a new purpose.`,
     ...items
       .filter((item) => keepReason(s, actor, item))
-      .map((item) => `${itemNames[item]}: ${keepReason(s, actor, item)}`),
+      .map(
+        (item) =>
+          `${itemNames[item] || packNames[item]}: ${keepReason(s, actor, item)}`,
+      ),
     ...(stayingWith(s, actor)
       ? [
           `Staying to spend time with ${names[stayingWith(s, actor)] || packNames[stayingWith(s, actor)]}.`,

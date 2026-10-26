@@ -208,7 +208,10 @@ export const carried = (s, actor) =>
   ids.filter((id) => rootHolder(s, id) === actor);
 export const covered = (s, id) => s.items.cloth.holder === id;
 export const shining = (s) =>
-  s.items.lamp.lit && s.items.lamp.fuel > 0 && !covered(s, "lamp");
+  entityActive(s, "lamp") &&
+  s.items.lamp.lit &&
+  s.items.lamp.fuel > 0 &&
+  !covered(s, "lamp");
 export const reflectionOpen = (s, from = itemPlace(s, "lamp")) =>
   // Light at either end opens the mirror in both directions.
   ["attic", "pond"].includes(from) &&
@@ -217,6 +220,7 @@ export const reflectionOpen = (s, from = itemPlace(s, "lamp")) =>
 // The bell is the shore's sound source: heard where it rests while it rings
 // uncovered. Packs add their own sounding fixtures through pack-rules.mjs.
 const baseSoundAt = (s, place) =>
+  entityActive(s, "bell") &&
   s.items.bell.ringing > 0 &&
   !covered(s, "bell") &&
   itemPlace(s, "bell") === place;
@@ -1710,7 +1714,9 @@ export function plan(s, actor = currentActor(s)) {
   if (missing.length) {
     // Stay while Vale is here holding a wanted item; the player may hand it over.
     const offered = missing.some(
-      (id) => rootHolder(s, id) === "vale" && s.actors.vale.place === here,
+      (id) =>
+        controlledByHuman(s, rootHolder(s, id)) &&
+        s.actors[rootHolder(s, id)].place === here,
     );
     const waiting = !offered && waitingHere(actorIds);
     return waiting ? goMeet(waiting) : idle(reason);
