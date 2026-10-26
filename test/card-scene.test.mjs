@@ -274,6 +274,45 @@ describe("JRPG scenes", () => {
     });
     expect(stage.actors.find((a) => a.id === "vale").flip).toBe(true);
   });
+  it("brings the two latest shared players forward across repeated plays and review", () => {
+    const s = gathered();
+    const cast = ["vale", "mara", "ash", "nell", "keeper"];
+    s.controlledActors = ["vale", "mara", "ash", "nell"];
+    s.presentActors = [...s.controlledActors];
+    for (const id of cast) s.actors[id].place = "station";
+    const stage = (extra = {}) => sceneStaging(s, { cast, ...extra });
+    const large = (value) =>
+      value.actors
+        .filter((a) => a.scale === 1)
+        .map((a) => a.id)
+        .sort();
+    dialogue(s, "vale", { kind: "action", verb: "wait" });
+    dialogue(s, "mara", { kind: "action", verb: "wait" });
+    const earlier = s.log.length - 1;
+    dialogue(s, "ash", { kind: "action", verb: "wait" });
+    dialogue(s, "ash", { kind: "action", verb: "wait" });
+    dialogue(s, "nell", { kind: "action", locationId: "pond" });
+    dialogue(s, "keeper", { kind: "action", verb: "wait" });
+    dialogue(s, "vale", { generated: true });
+    const current = stage();
+    expect(large(current)).toEqual(["ash", "mara"]);
+    expect(
+      current.actors.filter((a) => a.scale < 1).map((a) => a.scale),
+    ).toEqual([0.5, 0.5, 0.5]);
+    expect(large(stage({ through: earlier }))).toEqual(["ash", "mara"]);
+    expect(large(stage({ through: earlier, review: true }))).toEqual([
+      "mara",
+      "vale",
+    ]);
+    s.playerActorId = "nell";
+    expect(large(stage())).toEqual(["ash", "mara"]);
+    dialogue(s, "nell", { kind: "action", verb: "wait" });
+    expect(large(stage())).toEqual(["ash", "nell"]);
+    expect(large(stage({ cast: cast.filter((id) => id !== "ash") }))).toEqual([
+      "mara",
+      "nell",
+    ]);
+  });
   it("lets the two smaller actors face each other for their own trade", () => {
     const s = gathered();
     dialogue(s, "moth", { kind: "action", verb: "trade", targetId: "keeper" });

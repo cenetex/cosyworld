@@ -424,10 +424,13 @@ h2 {
   .cast {
     inset: 65px 4% 235px;
   }
-  .cast[data-count="3"] .portrait[data-depth="foreground"] {
+  .cast:not([data-shared="true"])[data-count="3"]
+    .portrait[data-depth="foreground"] {
     left: 19%;
   }
-  .cast[data-count="3"][data-layout="foreground-right"]
+  .cast:not(
+      [data-shared="true"]
+    )[data-count="3"][data-layout="foreground-right"]
     .portrait[data-depth="foreground"] {
     left: 81%;
   }

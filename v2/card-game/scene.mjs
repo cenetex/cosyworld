@@ -227,8 +227,41 @@ export function sceneStaging(
     ? currentActor(world)
     : ids[0];
   const order = [focal, ...ids.filter((id) => id !== focal)].filter(Boolean);
-  const positions =
-    order.length > 3
+  // Completed plays keep the two most recent people in front. Repeated plays
+  // by one person keep the other person's place until someone else acts.
+  const recent = world.controlledActors
+    ? [
+        ...new Set([
+          ...(review ? history : world.log)
+            .toReversed()
+            .filter(
+              (e) =>
+                e.kind === "action" &&
+                !e.generated &&
+                e.locationId === locationId &&
+                ids.includes(e.actorId) &&
+                world.controlledActors.includes(e.actorId),
+            )
+            .map((e) => e.actorId),
+          ...ids.filter((id) => world.controlledActors.includes(id)),
+        ]),
+      ].slice(0, 2)
+    : [];
+  const front = ids.filter((id) => recent.includes(id));
+  const back = ids.filter((id) => !recent.includes(id));
+  const positions = world.controlledActors
+    ? order.map((id) =>
+        recent.includes(id)
+          ? [front.length === 1 ? 50 : 30 + front.indexOf(id) * 40, 1, 0]
+          : [
+              back.length === 1
+                ? 15
+                : 10 + (back.indexOf(id) * 80) / (back.length - 1),
+              0.5,
+              10,
+            ],
+      )
+    : order.length > 3
       ? order.map((_, i) => [
           14 + (i * 72) / (order.length - 1),
           i === 0 ? 0.85 : 0.7,
@@ -337,7 +370,11 @@ export function sceneStaging(
             : line?.actorId === id && line.departureTo
               ? "departing"
               : "present",
-        depth: ["foreground", "middle", "back"][Math.min(index, 2)],
+        depth: world.controlledActors
+          ? recent.includes(id)
+            ? "foreground"
+            : "back"
+          : ["foreground", "middle", "back"][Math.min(index, 2)],
         x: at.get(id),
         scale: positions[index][1],
         floor: positions[index][2],

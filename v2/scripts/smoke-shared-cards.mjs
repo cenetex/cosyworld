@@ -109,6 +109,28 @@ async function until(test, label, rounds = 200, interval = 250) {
 }
 const ready = () =>
   until(async () => (await fetch(origin + "/health")).ok, "server starts");
+async function expectStage(page, recent) {
+  await page.waitForFunction((ids) => {
+    const cast = document.getElementById("cast");
+    const figures = [
+      ...cast.querySelectorAll('.portrait[aria-hidden="false"]'),
+    ];
+    const height = cast.getBoundingClientRect().height;
+    return (
+      figures.length >= 4 &&
+      ids.every((id) =>
+        figures.some((figure) => figure.dataset.avatar === id),
+      ) &&
+      figures.every((figure) => {
+        const scale = ids.includes(figure.dataset.avatar) ? 1 : 0.5;
+        return (
+          Math.abs(figure.getBoundingClientRect().height / height - scale) <
+          0.01
+        );
+      })
+    );
+  }, recent);
+}
 const names = ["vale", "mara", "ash", "nell", "tavi", "rue", "orin", "ada"];
 let seed = enableMotives(createWorld({ opening: true }), {
   questPrograms: true,
@@ -508,6 +530,7 @@ try {
   await until(() => waitingReplies.length > 0, "first queued speech starts");
   assert.equal((await snapshot(vale)).queue.length, 4);
   for (const page of [vale, mara]) {
+    await expectStage(page, ["vale", "nell"]);
     await page.locator("#shared-queue .shared-play-avatar").nth(3).waitFor();
     await page.waitForFunction(() =>
       [...document.querySelectorAll("#shared-queue img")].every(
@@ -574,6 +597,16 @@ try {
   for (const resolve of waitingReplies.splice(0)) resolve();
   await Promise.all([vale, mara].map(expectSharedReveal));
   await Promise.all([vale, mara, nell].map(idle));
+  for (const page of [vale, mara]) {
+    await expectStage(page, ["mara", "nell"]);
+    await page.screenshot({
+      path: join(
+        output,
+        page === vale ? "shared-stage-desktop.png" : "shared-stage-phone.png",
+      ),
+      fullPage: true,
+    });
+  }
   for (const [index, page] of [vale, mara].entries())
     assert(
       (await page.evaluate(() => window.sharedSpeechNotes)) >
