@@ -129,6 +129,10 @@ try {
         window.movementCheck.active = true;
         function sample() {
           if (!window.movementCheck.active) return;
+          const hand = document.querySelector("#hand"),
+            firstCard = hand.querySelector(".card"),
+            bounds = hand.getBoundingClientRect(),
+            first = firstCard.getBoundingClientRect();
           window.movementCheck.frames.push({
             at: performance.now(),
             backdrop: document.querySelector("#backdrop").getAttribute("src"),
@@ -137,8 +141,10 @@ try {
             ),
             speech: Boolean(document.querySelector("#dialogue-text .revealed")),
             cooling: document.querySelector("#hand").dataset.cooling,
-            handStart: document.querySelector("#hand").scrollLeft,
-            firstCard: document.querySelector("#hand .card").dataset.card,
+            handStart: hand.scrollLeft,
+            firstCard: firstCard.dataset.card,
+            firstCardVisible:
+              first.left >= bounds.left - 1 && first.right <= bounds.right + 1,
           });
           requestAnimationFrame(sample);
         }
@@ -194,9 +200,9 @@ try {
       report.firstSpeech = firstSpeech;
       assert.equal(firstPond.firstCard, "pond");
       assert.equal(
-        firstPond.handStart,
-        0,
-        "Travel starts the hand at the new place.",
+        firstPond.firstCardVisible,
+        true,
+        "Travel brings the new current place fully into view.",
       );
       if (motion !== "reduce") {
         assert(
