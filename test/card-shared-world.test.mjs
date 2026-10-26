@@ -125,6 +125,29 @@ describe("the full world shared by human avatars", () => {
     expect(result.lines[1].seq).toBe(result.lines[0].seq + 1);
     expect(result.world.log.slice(-2)).toEqual(result.lines);
   });
+  it("restores reordered JSON keys through the server bridge", () => {
+    const reorder = (value) =>
+      Array.isArray(value)
+        ? value.map(reorder)
+        : value && typeof value === "object"
+          ? Object.fromEntries(
+              Object.keys(value)
+                .sort()
+                .map((key) => [key, reorder(value[key])]),
+            )
+          : value;
+    let world = shared();
+    for (let i = 0; i < 16; i++) {
+      const actor = humanAvatarIds[i % humanAvatarIds.length];
+      const view = ask(reorder(world), "view", actor);
+      const action =
+        view.actions.find((a) => a.kind === "move") || view.actions[0];
+      const result = ask(reorder(world), "play", actor, { action });
+      expect(result.ok).toBe(true);
+      world = result.world;
+    }
+    expect(ask(reorder(world), "validate").ok).toBe(true);
+  });
   it("reserves an avatar before entering a full room", () => {
     const world = shared();
     for (const id of ["vale", "mara", "ash", "nell", "tavi"])
