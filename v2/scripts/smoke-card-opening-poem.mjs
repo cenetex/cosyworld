@@ -140,6 +140,17 @@ export async function checkOpeningPoem(browser, origin) {
         const expected = openingPoem(fixtures.closed).stanzas.map((s) =>
           s.lines.join(" "),
         );
+        // The longer burial route leaves one ordinary step before arrival.
+        for (let step = 0; step < 4; step++) {
+          const arrived = await page.evaluate((key) => {
+            const s = JSON.parse(localStorage.getItem(key));
+            return s.actors["greek-rhapsode"].place === s.actors.vale.place;
+          }, key);
+          if (arrived) break;
+          await selectCard(page, "vale", { touch: width < 700 });
+          await page.locator('#card-actions [data-action="wait"]').click();
+          await settle();
+        }
         // Poem-only fixtures preserve arrival at the report site through reload.
         await page.reload();
         await settle();

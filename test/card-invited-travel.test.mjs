@@ -55,6 +55,40 @@ describe("invited companion travel", () => {
     expect(s.actors.moth.place).toBe("station");
     expect(s.invitedPlaces).toBeUndefined();
   });
+  it("boards and lands a whole invited party through one saved ship trip", () => {
+    let s = carriage();
+    s.actors.rue.place = s.actors.moth.place = "pond";
+    s.items.lamp.holder = "rue";
+    s.actors.moth.trust.rue = 2;
+    s.transports["greek-ship"].dock = "pond";
+    for (const destination of ["greek-ship", "greek-harbor"]) {
+      const action = legalActions(s, "rue").find(
+        (a) =>
+          a.kind === "accompany" &&
+          a.target === "moth" &&
+          a.destination === destination,
+      );
+      expect(action).toBeDefined();
+      s = play(s, action, s.revision, "rue").state;
+      expect(s.actors.rue.place).toBe(destination);
+      expect(s.actors.moth.place).toBe(destination);
+      expect(decodeSave(encodeSave(s))).toEqual(s);
+      if (destination === "greek-ship")
+        expect(s.transports["greek-ship"]).toEqual({
+          dock: null,
+          destination: "greek-harbor",
+          recall: null,
+        });
+    }
+    expect(s.transports["greek-ship"]).toEqual({
+      dock: "greek-harbor",
+      destination: null,
+      recall: null,
+    });
+    expect(s.actors.rue.crossed).toBe(2);
+    expect(s.actors.moth.crossed).toBe(2);
+    expect(s.invitedPlaces.moth).toEqual(["greek-harbor", "greek-ship"]);
+  });
   it("requires the current token route, room capacity and human authority", () => {
     const start = carriage(),
       action = invite(start);
