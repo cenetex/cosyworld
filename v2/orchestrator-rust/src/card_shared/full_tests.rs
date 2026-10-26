@@ -47,7 +47,7 @@ fn full_world_has_existing_residents_and_packs_and_replays_from_seed() {
     let before = full_store::world(&c, &id, now()).unwrap();
     assert!(before.game["actors"]["moth"].is_object());
     assert!(before.game["actors"]["keeper"].is_object());
-    assert!(before.game["packs"].as_object().unwrap().len() > 0);
+    assert!(!before.game["packs"].as_object().unwrap().is_empty());
     assert_eq!(before.claimed, [1; 8]);
     drop(c);
     let c = store::open(&path).unwrap();
@@ -357,4 +357,84 @@ fn existing_save_progress_and_inventory_are_preserved_on_share() {
     assert_eq!(imported.game["actors"], w.game["actors"]);
     assert_eq!(imported.claimed, [0; 8]);
     assert_eq!(imported.present, [0; 8]);
+}
+
+#[test]
+fn cached_views_follow_actor_claim_presence_and_committed_turn_changes() {
+    let mut w = World::create(None).unwrap();
+    w.apply(&json!({"op":"claim","actor":"vale"})).unwrap();
+    w.apply(&json!({"op":"enter","actor":"vale"})).unwrap();
+    let first = w.project(0).unwrap();
+    assert_eq!(w.project(0).unwrap(), first);
+    w.apply(&json!({"op":"claim","actor":"mara"})).unwrap();
+    w.apply(&json!({"op":"enter","actor":"mara"})).unwrap();
+    let claimed = w.project(0).unwrap();
+    assert!(claimed["world"]["controlledActors"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("mara")));
+    assert!(claimed["world"]["presentActors"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("mara")));
+    assert_eq!(w.project(1).unwrap()["world"]["playerActorId"], "mara");
+    assert_eq!(w.project(0).unwrap()["world"]["playerActorId"], "vale");
+    w.apply(&json!({"op":"leave","actor":"mara"})).unwrap();
+    let absent = w.project(0).unwrap();
+    assert!(!absent["world"]["presentActors"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("mara")));
+    let action = absent["actions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|a| a["kind"] == "wait")
+        .unwrap()
+        .clone();
+    w.apply(&json!({"op":"play","actor":"vale","action":action}))
+        .unwrap();
+    let after = w.project(0).unwrap();
+    assert_eq!(
+        after["world"]["turn"].as_u64().unwrap(),
+        first["world"]["turn"].as_u64().unwrap() + 1
+    );
+    assert_eq!(w.project(0).unwrap(), after);
+    w.apply(&json!({"op":"release","actor":"mara"})).unwrap();
+    assert!(!w.project(0).unwrap()["world"]["controlledActors"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("mara")));
+}
+
+#[test]
+fn unchanged_snapshots_leave_the_checkpoint_and_journal_untouched() {
+    let (_path, mut c, id) = fixture();
+    claim(&mut c, &id, 0);
+    let before: i64 = c
+        .query_row("SELECT total_changes()", [], |r| r.get(0))
+        .unwrap();
+    let first = full_store::snapshot(&c, &id, "user0", 1234).unwrap();
+    let second = full_store::snapshot(&c, &id, "user0", 2234).unwrap();
+    let after: i64 = c
+        .query_row("SELECT total_changes()", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(before, after);
+    assert_eq!(first["world"], second["world"]);
+    assert_eq!(second["now"], 2234);
+    assert_eq!(first["now"], 1234);
+    let mut play = body("play", None);
+    play.key = "fresh-queue-cached-view".into();
+    play.action = first["actions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|a| a["kind"] == "wait")
+        .unwrap()
+        .clone();
+    full::run(&c, &id, "user0", &play, now()).unwrap();
+    let queued = full_store::snapshot(&c, &id, "user0", now()).unwrap();
+    assert_eq!(queued["world"], first["world"]);
+    assert_eq!(first["queue"].as_array().unwrap().len(), 0);
+    assert_eq!(queued["queue"].as_array().unwrap().len(), 1);
 }
