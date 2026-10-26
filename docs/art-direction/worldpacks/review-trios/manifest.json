@@ -1,0 +1,192 @@
+{
+  "schema_version": 1,
+  "approval": "pending",
+  "worlds": [
+    {
+      "world": "lonely-forest",
+      "name": "Lonely Forest",
+      "style": "Mirquo \u00b7 dark storybook forest",
+      "samples": [
+        {
+          "kind": "location",
+          "name": "Old Oak Tree",
+          "source_id": "40",
+          "filename": "lonely-forest-location.webp",
+          "sha256": "43ec629c488f2d177e228a1a26a1517f3cc755f6746844e70b1b25638a1fd116",
+          "provider": "replicate"
+        },
+        {
+          "kind": "avatar",
+          "name": "Skull",
+          "source_id": "1003",
+          "filename": "lonely-forest-avatar.webp",
+          "sha256": "74ca4984818630fddf03e045f930c128555ddd2c7b0666ed5d674df1bdb5a974",
+          "provider": "replicate"
+        },
+        {
+          "kind": "item",
+          "name": "Wolfprint Charm",
+          "source_id": "2003",
+          "filename": "lonely-forest-item.webp",
+          "sha256": "8cde6495b560992a673dad93217327265116f39f476e305655b907cc286c822f",
+          "provider": "replicate"
+        }
+      ]
+    },
+    {
+      "world": "holy-land",
+      "name": "Holy Land",
+      "style": "B43L \u00b7 watercolor and open paper",
+      "samples": [
+        {
+          "kind": "location",
+          "name": "Sea of Galilee Shore",
+          "source_id": "705",
+          "filename": "holy-land-location.webp",
+          "sha256": "afa0fd99762049a35a2ebe66d28e0a1f9598e87139a5f4d9c0670e70dde1296d",
+          "provider": "replicate"
+        },
+        {
+          "kind": "avatar",
+          "name": "Simon Peter",
+          "source_id": "7002",
+          "filename": "holy-land-avatar.webp",
+          "sha256": "4e861497041ca03e51ed97cb3223956d7d82a101f5ed2aee07bb799484f784ac",
+          "provider": "replicate"
+        },
+        {
+          "kind": "item",
+          "name": "Mended Net Cord",
+          "source_id": "7201",
+          "filename": "holy-land-item.webp",
+          "sha256": "5d411789a341a24c051ccec282dd59eef75e46de0a723bc3baafb46e2c8fbd2b",
+          "provider": "replicate"
+        }
+      ]
+    },
+    {
+      "world": "project89",
+      "name": "Project 89",
+      "style": "Project89 \u00b7 teal and coral anime",
+      "samples": [
+        {
+          "kind": "location",
+          "name": "Threshold Interface",
+          "source_id": "8900",
+          "filename": "project89-location.webp",
+          "sha256": "fff1134adb1ab62b1217de3c6ec95b99da2bbb0d7897d397730238f23442bf4f",
+          "provider": "replicate"
+        },
+        {
+          "kind": "avatar",
+          "name": "Mara Quell",
+          "source_id": "8951",
+          "filename": "project89-avatar.webp",
+          "sha256": "3e7234398e35ff6e8eb1539131fcfdac4b8e71cc64a60a553ffc6132af030d6d",
+          "provider": "replicate"
+        },
+        {
+          "kind": "item",
+          "name": "Memory Lantern",
+          "source_id": "8972",
+          "filename": "project89-item.webp",
+          "sha256": "75903e8ab68a2464f6f60befc51852d56373a78364f50c194fe97e041f20be32",
+          "provider": "replicate"
+        }
+      ]
+    },
+    {
+      "world": "hoppycat",
+      "name": "Hoppycat",
+      "style": "Painted storybook \u00b7 established references",
+      "samples": [
+        {
+          "kind": "location",
+          "name": "Halfway Tea Garden",
+          "source_id": "770000",
+          "filename": "hoppycat-location.png",
+          "sha256": "60e85ed3af324fa142a872f633c3a9e55dbda5fff24b4863b54797174a612e70",
+          "provider": "builtin-imagegen"
+        },
+        {
+          "kind": "avatar",
+          "name": "Hoppy Cat",
+          "source_id": "771008",
+          "filename": "hoppycat-avatar.png",
+          "sha256": "181ba7a20d236a86ca593c1caac79042ce1c2ea092884c7dfbb0534324ca2b8a",
+          "provider": "builtin-imagegen"
+        },
+        {
+          "kind": "item",
+          "name": "Halfway Cup",
+          "source_id": "772008",
+          "filename": "hoppycat-item.png",
+          "sha256": "ec596439c597999fd975aeb5b11116141a71c9fc20de19d683813d902b2f184f",
+          "provider": "builtin-imagegen"
+        }
+      ]
+    },
+    {
+      "world": "lantern-keeper",
+      "name": "The Lantern Keeper",
+      "style": "Amber woodcut \u00b7 proposed direction",
+      "samples": [
+        {
+          "kind": "location",
+          "name": "Mothwood Path",
+          "source_id": "801",
+          "filename": "lantern-keeper-location.png",
+          "sha256": "27094ce401f4cf32ee12a6df1bd4d4b2416224def280316e9ff791602b14fe5d",
+          "provider": "builtin-imagegen"
+        },
+        {
+          "kind": "avatar",
+          "name": "Pip Thistle",
+          "source_id": "8302",
+          "filename": "lantern-keeper-avatar.png",
+          "sha256": "a466dc7112bb816ea2da045a8d87482d8c8a69e28a8fd15f5963888eccfc65c6",
+          "provider": "builtin-imagegen"
+        },
+        {
+          "kind": "item",
+          "name": "Mothglass Lens",
+          "source_id": "8402",
+          "filename": "lantern-keeper-item.png",
+          "sha256": "eafc8c73a4a3b7a507ce5aae70e3bf20915ec5d7f7dfd59ba3bbad442c5835ec",
+          "provider": "builtin-imagegen"
+        }
+      ]
+    },
+    {
+      "world": "elysium",
+      "name": "Elysium",
+      "style": "Silver and gold in the void \u00b7 proposed direction",
+      "samples": [
+        {
+          "kind": "location",
+          "name": "Void 001",
+          "source_id": "652000",
+          "filename": "elysium-location.png",
+          "sha256": "26c998c0fe62a50ba4083c6e595963427232171748a01bf510db5d7c712aee80",
+          "provider": "builtin-imagegen"
+        },
+        {
+          "kind": "avatar",
+          "name": "Void 001 resident",
+          "source_id": "289553007952",
+          "filename": "elysium-avatar.png",
+          "sha256": "38c687d81af8394a00baa3fd88abea7cdb0bc0c9124b68b8a886e47d49d579d8",
+          "provider": "builtin-imagegen"
+        },
+        {
+          "kind": "item",
+          "name": "Void Wayfinder",
+          "source_id": "void_wayfinder",
+          "filename": "elysium-item.png",
+          "sha256": "889c4d4cd1f937feb4465bc37d140872ce772d540422e446b34d6156840ce2b3",
+          "provider": "builtin-imagegen"
+        }
+      ]
+    }
+  ]
+}

@@ -8,6 +8,13 @@ prompts, and exact model settings. The samples await visual approval.
 Open [the visual sheets](index.html) in a browser. The JSON files hold the same
 rules in a form that a future generator can read.
 
+The [six-pack art review](review-trios/index.html) shows one location, one avatar,
+and one item from every pack. Its 18 selected images have full-size links and
+saved prompts. Lonely Forest, Holy Land, and Project89 use the selected native
+Replicate models. Hoppycat, Lantern Keeper, and Elysium use the built-in image
+tool with the existing identity art and proposed style boards. Each sample
+awaits approval.
+
 | World         | Style source                                                   | Sheet                                    |
 | ------------- | -------------------------------------------------------------- | ---------------------------------------- |
 | Lonely Forest | [immanencer/mirquo](https://replicate.com/immanencer/mirquo)   | [lonely-forest.json](lonely-forest.json) |
