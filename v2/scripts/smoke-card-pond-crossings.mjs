@@ -111,27 +111,22 @@ try {
       await ready();
     };
     const signal = async ({ reloadHalfway = false } = {}) => {
-      assert.equal(await card("greek-harbor").count(), 0);
-      for (let i = 0; i < 2; i++) {
-        await pair("cloth", "lamp");
-        assert.equal(
-          (await state()).crossings["pond-greek-harbor"].phase,
-          2 * i + 1,
-        );
-        assert.equal(await card("greek-harbor").count(), 0);
-        await use("cloth");
-        assert.equal(
-          (await state()).crossings["pond-greek-harbor"].phase,
-          2 * i + 2,
-        );
-        assert.equal(await card("greek-harbor").count(), i === 1 ? 1 : 0);
-        if (i === 0 && reloadHalfway) {
-          await page.reload();
-          await ready();
-          assert.equal((await state()).crossings["pond-greek-harbor"].phase, 2);
-          assert.equal(await card("greek-harbor").count(), 0);
-        }
+      assert.equal(await card("greek-ship").count(), 0);
+      await pair("cloth", "lamp");
+      assert.equal((await state()).crossings["pond-greek-harbor"].phase, 1);
+      await use("cloth");
+      assert.equal((await state()).crossings["pond-greek-harbor"].phase, 2);
+      if (reloadHalfway) {
+        await page.reload();
+        await ready();
+        assert.equal((await state()).crossings["pond-greek-harbor"].phase, 2);
       }
+      assert.equal(await card("greek-ship").count(), 0);
+      await pair("cloth", "lamp");
+      assert.equal((await state()).crossings["pond-greek-harbor"].phase, 3);
+      assert.equal(await card("greek-ship").count(), 0);
+      await use("cloth");
+      assert.equal(await card("greek-ship").count(), 1);
     };
     const load = async (save) => {
       await page.evaluate(({ key, save }) => localStorage.setItem(key, save), {
@@ -193,7 +188,7 @@ try {
     assert.equal((await state()).actors.vale.place, "pond");
     await load(fixture("pond", true));
     await signal({ reloadHalfway: true });
-    assert.equal(await card("greek-harbor").count(), 1);
+    assert.equal(await card("greek-ship").count(), 1);
     assert.equal(
       await page.locator("#backdrop").getAttribute("data-location-variant"),
       "pond-greek-harbor",
@@ -201,21 +196,17 @@ try {
     assert.equal(await page.locator("#location-overlay").isVisible(), true);
     await shot("pond-ship");
     await use("bell");
-    assert.equal(await card("greek-harbor").count(), 0);
-    assert.equal(await page.locator("#location-overlay").isVisible(), false);
+    assert.equal(await card("greek-ship").count(), 1);
+    assert.equal(await page.locator("#location-overlay").isVisible(), true);
     await shot("pond-ringing");
     for (let i = 0; i < 3; i++) await use("pond");
-    assert.equal(await card("greek-harbor").count(), 0);
-    assert.equal((await state()).crossings["pond-greek-harbor"].phase, 0);
-    assert.equal(await page.locator("#location-overlay").isVisible(), false);
-    // Silence alone does not summon it again. Perform a real ritual before
-    // checking cross-tab invalidation in a fresh provisioned fixture.
+    assert.equal(await card("greek-ship").count(), 1);
     await load(fixture("pond", true));
     await signal();
     // A genuine cross-tab save update invalidates the selected boarding offer.
-    await selectCard(page, "greek-harbor");
+    await selectCard(page, "greek-ship");
     s = await state();
-    s.items.lamp.lit = false;
+    s.transports["greek-ship"].dock = "greek-harbor";
     s.revision++;
     await page.evaluate(
       ({ key, value }) => {
@@ -227,20 +218,33 @@ try {
       { key, value: encodeSave(s) },
     );
     await ready();
-    assert.equal(await card("greek-harbor").count(), 0);
+    assert.equal(await card("greek-ship").count(), 0);
     assert.equal(await page.locator("#location-overlay").isVisible(), false);
     assert.equal((await state()).actors.vale.place, "pond");
     await load(fixture("pond", true));
     await signal({ reloadHalfway: true });
+    await use("greek-ship");
+    assert.equal((await state()).actors.vale.place, "greek-ship");
+    assert.equal(await card("greek-harbor").count(), 1);
+    assert.equal(await card("pond").count(), 0);
+    assert.match(
+      await page.locator("#backdrop").getAttribute("src"),
+      /ship-deck\.webp$/,
+    );
+    await shot("aboard-ship");
+    await page.reload();
+    await ready();
+    assert.equal((await state()).actors.vale.place, "greek-ship");
     await use("greek-harbor");
     assert.equal((await state()).actors.vale.place, "greek-harbor");
     for (let i = 0; i < 12; i++) await use("greek-harbor");
     assert.equal((await state()).items.lamp.lit, false);
+    await use("greek-ship");
     await use("pond");
     assert.equal((await state()).actors.vale.place, "pond");
-    assert.equal(await card("greek-harbor").count(), 0);
-    assert.equal(await page.locator("#location-overlay:visible").count(), 0);
-    await shot("pond-no-ship");
+    assert.equal(await card("greek-ship").count(), 1);
+    assert.equal(await page.locator("#location-overlay:visible").count(), 1);
+    await shot("pond-returned-ship");
     assert.deepEqual(errors, []);
     assert.deepEqual(failedAssets, []);
     results.push({

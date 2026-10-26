@@ -10,7 +10,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { packProblems } from "../card-game/pack-schema.mjs";
+import {
+  packProblems,
+  observationProblems,
+} from "../card-game/pack-schema.mjs";
 
 const v2 = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const output = path.join(v2, "card-game/packs.json");
@@ -19,6 +22,7 @@ const check = process.argv.includes("--check");
 
 const table = read("worlds/card-table.json");
 const problems = [];
+problems.push(...observationProblems(table.hub?.observations, table.hub));
 if (
   table.schemaVersion !== 1 ||
   !Array.isArray(table.packs) ||
@@ -40,7 +44,7 @@ const packs = (table.packs || []).map((id) => {
     ...joins
   } = bridge;
   const unknown = Object.keys(joins).filter(
-    (key) => !["values", "crossings"].includes(key),
+    (key) => !["values", "crossings", "transports"].includes(key),
   );
   if (unknown.length)
     problems.push(`${id}: bridge has unknown fields ${unknown.join(", ")}`);
@@ -52,7 +56,13 @@ const packs = (table.packs || []).map((id) => {
 });
 
 const seen = new Map();
+const observationIds = new Set((table.hub.observations || []).map((d) => d.id));
 for (const pack of packs) {
+  for (const d of pack.observations || []) {
+    if (observationIds.has(d.id))
+      problems.push(`duplicate observation ${d.id}`);
+    observationIds.add(d.id);
+  }
   problems.push(
     ...packProblems(
       pack,
@@ -66,6 +76,7 @@ for (const pack of packs) {
     ...Object.keys(pack.fixtures || {}),
     ...Object.keys(pack.items || {}),
     ...(pack.crossings || []).map((c) => `crossing:${c.id}`),
+    ...Object.keys(pack.transports || {}).map((id) => `transport:${id}`),
     // One crossing per direction between two places, across every pack.
     ...(pack.crossings || []).map((c) => `route:${c.from}->${c.to}`),
   ]) {
@@ -73,9 +84,14 @@ for (const pack of packs) {
       problems.push(`${pack.id}: ${id} is also defined by ${seen.get(id)}`);
     seen.set(id, pack.id);
   }
-  // Media must exist and match its PNG, SVG or WebP extension, since the table serves it verbatim.
+  // Media must exist and match its extension, since the table serves it verbatim.
   const media = [
-    ...Object.values(pack.places || {}).map((p) => p.backdrop),
+    ...Object.values(pack.places || {}).flatMap((p) => [p.backdrop, p.art]),
+    ...Object.values(pack.places || {}).flatMap((p) =>
+      (Array.isArray(p.music) ? p.music : []).map(
+        (track) => `assets/music/${track?.file}`,
+      ),
+    ),
     ...Object.values(pack.items || {}).map((i) => i.art),
     ...(pack.crossings || []).flatMap((c) => [
       c.scenery?.overlay,
@@ -97,7 +113,9 @@ for (const pack of packs) {
         : file.endsWith(".webp")
           ? bytes.toString("ascii", 0, 4) === "RIFF" &&
             bytes.toString("ascii", 8, 12) === "WEBP"
-          : file.endsWith(".svg") && /<svg\s/.test(bytes.toString("utf8")))
+          : file.endsWith(".mp3")
+            ? bytes.toString("ascii", 0, 3) === "ID3"
+            : file.endsWith(".svg") && /<svg\s/.test(bytes.toString("utf8")))
     )
       problems.push(`${pack.id}: missing or invalid media ${file}`);
   }

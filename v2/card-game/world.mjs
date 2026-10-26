@@ -85,6 +85,11 @@ import {
   calm,
   validPackState,
 } from "./pack-rules.mjs";
+import {
+  installTransports,
+  moveTransport,
+  transportExits,
+} from "./pack-transport.mjs";
 import { upgradeSave } from "./legacy-saves.mjs";
 import forest from "./forest.json" with { type: "json" };
 
@@ -131,6 +136,7 @@ export function createWorld({ opening = false, packScopes = {} } = {}) {
 // Mount every pack missing from this save: its crossings, its state, and its
 // residents with fresh relationships. Earlier saves keep their own history.
 function installPacks(s) {
+  installTransports(s);
   s.crossings ??= {};
   s.packs ??= {};
   const fresh = newMemories();
@@ -209,7 +215,7 @@ export const placeText = (s, place) =>
         : places[place].text,
     ...crossingScenery(s, place, senses),
   ].join(" ");
-export function exits(s, place, actor = null) {
+export function exits(s, place, actor = null, previous = null) {
   return [
     ...new Set([
       ...baseExits(s, place),
@@ -219,6 +225,7 @@ export function exits(s, place, actor = null) {
           ? ["attic"]
           : []),
       ...crossingExits(s, place, actor, senses),
+      ...transportExits(s, place, previous),
       ...packExits(s, place, actor),
     ]),
   ].filter((to) => entityActive(s, to) && actorCanVisit(actor, to));
@@ -822,7 +829,7 @@ export function legalActions(s, actor = "vale") {
   ];
   for (const to of exits(s, here, actor)) {
     const through = !baseExits(s, here).includes(to);
-    const crossing = crossingBetween(here, to);
+    const crossing = crossingBetween(here, to, s);
     const way = through
       ? ` ${crossing?.travel || "through the reflection"}`
       : "";
@@ -853,7 +860,9 @@ export function legalActions(s, actor = "vale") {
         actor,
         null,
         to,
-        `${nameOf(actor)} goes to ${nameOf(to)}${way}.`,
+        crossing?.transport
+          ? `${nameOf(actor)} ${crossing.travelLabel === "Board" ? "boards" : "disembarks at"} ${nameOf(to)}.`
+          : `${nameOf(actor)} goes to ${nameOf(to)}${way}.`,
         [to],
       ),
     );
@@ -864,7 +873,9 @@ export function legalActions(s, actor = "vale") {
           actor,
           id,
           to,
-          `${nameOf(actor)} carries the ${nameOf(id)} to ${nameOf(to)}${way}.`,
+          crossing?.transport
+            ? `${nameOf(actor)} carries the ${nameOf(id)} ${crossing.travelLabel === "Board" ? "aboard" : "ashore at"} ${nameOf(to)}.`
+            : `${nameOf(actor)} carries the ${nameOf(id)} to ${nameOf(to)}${way}.`,
           [id, to],
         ),
       );
@@ -1112,7 +1123,7 @@ export function legalActions(s, actor = "vale") {
     if (action.kind === "take" && things[s.items[action.item]?.holder])
       action.label = "Uncover";
     if (action.kind === "move") {
-      const crossing = crossingBetween(here, action.target);
+      const crossing = crossingBetween(here, action.target, s);
       if (crossing?.travelLabel) action.label = crossing.travelLabel;
     }
   }
@@ -1132,6 +1143,7 @@ function travel(s, actor, destination) {
   if (through) s.actors[actor].crossed += 1;
   markCrossed(s, from, destination);
   s.actors[actor].place = destination;
+  moveTransport(s, from, destination);
   for (const id of carried(s, actor))
     remember(s, id, `${nameOf(actor)} carried it to ${nameOf(destination)}.`);
   return through;
@@ -1234,7 +1246,9 @@ function perform(s, a, capture = () => {}, round = null) {
           text += ` ${nameOf(a.target)} drops the ${nameOf(dropped)}.`;
         }
         const retreat = exits(s, here, a.target)[0];
+        markCrossed(s, here, retreat);
         s.actors[a.target].place = retreat;
+        moveTransport(s, here, retreat);
         for (const id of carried(s, a.target))
           remember(
             s,
@@ -1397,7 +1411,7 @@ function routeBetween(s, from, target, actor = null) {
   while (queue.length) {
     const route = queue.shift();
     if (route.at(-1) === target) return route;
-    for (const next of exits(s, route.at(-1), actor))
+    for (const next of exits(s, route.at(-1), actor, route.at(-2)))
       if (!visited.has(next)) {
         visited.add(next);
         queue.push([...route, next]);

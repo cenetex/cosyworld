@@ -67,6 +67,7 @@ export function upgradeSave(s, { actorIds, ensurePrograms, installPacks }) {
   if (s?.schema === 6) {
     // Schema 7 moved the Steam Clock into the world-pack state.
     upgradeSteamClockSave(s);
+    upgradeTransportSave(s);
     s.schema = 7;
     installPacks(s);
   } else if (
@@ -75,13 +76,42 @@ export function upgradeSave(s, { actorIds, ensurePrograms, installPacks }) {
     typeof s.packs === "object" &&
     s.crossings &&
     typeof s.crossings === "object"
-  )
+  ) {
+    upgradeTransportSave(s);
     // A pack mounted after this save was written joins it fresh.
     installPacks(s);
+  }
   return s;
 }
 
 // Explicit migrations of historical pre-pack records, never runtime gate rules.
+export function upgradeTransportSave(s) {
+  const pack = s.packs?.["greek-drama"];
+  if (pack?.revision !== 1) return;
+  const signal = s.crossings?.["pond-greek-harbor"];
+  if (
+    signal &&
+    (!Number.isInteger(signal.phase) || signal.phase < 0 || signal.phase > 4)
+  )
+    throw new Error("Invalid legacy lamp signal.");
+  if (s.transports?.["greek-ship"] !== undefined)
+    throw new Error("Conflicting legacy ship record.");
+  s.transports ??= {};
+  s.transports["greek-ship"] = {
+    dock: signal?.phase === 4 ? "pond" : "greek-harbor",
+    destination: null,
+    recall: null,
+  };
+  if (s.memories)
+    s.memories["greek-ship"] ??= {
+      events: [],
+      landmarks: [],
+      text: null,
+      turn: null,
+    };
+  pack.revision = 2;
+}
+
 export function upgradeSteamClockSave(s) {
   const clock = s.steamClock;
   delete s.steamClock;

@@ -51,6 +51,65 @@ const templateOk = (v, max, names) =>
     v.replace(/\{([a-z]+)\}/g, (m, name) => (names.includes(name) ? "" : m)),
   );
 
+// Packs name observable states and the direct claims that describe each value.
+export function observationProblems(definitions, catalog) {
+  if (definitions === undefined) return [];
+  if (!Array.isArray(definitions) || definitions.length > 32)
+    return ["observations must be a list of at most 32 states"];
+  const seen = new Set();
+  return definitions.flatMap((d) => {
+    const source = d?.source;
+    const collection = source?.kind === "actor_flag" ? "avatars" : "items";
+    const valid =
+      keysOk(d, ["id", "entity", "subjects", "source", "values", "note"]) &&
+      idOk(d.id) &&
+      !seen.has(d.id) &&
+      catalog[collection]?.includes(d.entity) &&
+      Array.isArray(d.subjects) &&
+      d.subjects.length > 0 &&
+      d.subjects.length <= 4 &&
+      d.subjects.every(
+        (s) =>
+          typeof s === "string" &&
+          /^[a-z]+(?: [a-z]+)*$/.test(s) &&
+          s.length <= 80,
+      ) &&
+      keysOk(source, ["kind", "field"]) &&
+      ["item_flag", "item_positive", "actor_flag", "covered"].includes(
+        source.kind,
+      ) &&
+      (source.kind === "covered"
+        ? source.field === undefined
+        : idOk(source.field)) &&
+      keysOk(d.values, ["true", "false"]) &&
+      ["true", "false"].every((key) => {
+        const v = d.values[key];
+        return (
+          keysOk(v, ["fact", "claims", "legacyToken"]) &&
+          textOk(v.fact, 240) &&
+          Array.isArray(v.claims) &&
+          v.claims.length > 0 &&
+          v.claims.length <= 16 &&
+          v.claims.every(
+            (s) =>
+              typeof s === "string" &&
+              /^[a-z']+(?: [a-z']+)*$/.test(s) &&
+              s.length <= 80,
+          ) &&
+          (v.legacyToken === undefined || /^[a-z]+$/.test(v.legacyToken))
+        );
+      }) &&
+      !d.values.true.claims.some((claim) =>
+        d.values.false.claims.includes(claim),
+      ) &&
+      (d.values.true.legacyToken === undefined ||
+        d.values.true.legacyToken !== d.values.false.legacyToken) &&
+      (d.note === undefined || textOk(d.note, 300));
+    seen.add(d?.id);
+    return valid ? [] : [`invalid observation ${d?.id || "definition"}`];
+  });
+}
+
 // Media lives in the pack's own folder under the card table's assets.
 export const mediaPathOk = (pack, path) =>
   typeof path === "string" &&
@@ -102,8 +161,16 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       "coverage",
       "release",
       "sources",
+      "observations",
+      "transports",
     ]),
     "has an unknown top-level field",
+  );
+  problems.push(
+    ...observationProblems(pack.observations, {
+      items: Object.keys(pack.items || {}),
+      avatars: Object.keys(pack.avatars || {}),
+    }),
   );
   check(
     textOk(pack.name, 80) && textOk(pack.description, 400),
@@ -121,6 +188,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     ["avatars", true, 128],
     ["items", false, 128],
     ["fixtures", false, 32],
+    ["transports", false, 8],
   ]) {
     const map = pack[key];
     if (map === undefined && !required) continue;
@@ -254,6 +322,9 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "persona",
         "exits",
         "backdrop",
+        "art",
+        "music",
+        "musicMode",
         "stage",
         "requires",
       ]),
@@ -270,6 +341,27 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       `place ${id} exits must name other places in this pack`,
     );
     media(p.backdrop, `place ${id} backdrop`);
+    if (p.art !== undefined) media(p.art, `place ${id} art`);
+    if (p.music !== undefined)
+      check(
+        Array.isArray(p.music) &&
+          p.music.length > 0 &&
+          p.music.length <= 16 &&
+          p.music.every(
+            (track) =>
+              keysOk(track, ["file", "title"]) &&
+              typeof track.file === "string" &&
+              /^[a-z0-9][a-z0-9-]*\.mp3$/.test(track.file) &&
+              textOk(track.title, 120),
+          ),
+        `place ${id} music needs 1–16 MP3 filenames and titles`,
+      );
+    if (p.musicMode !== undefined)
+      check(
+        p.music !== undefined &&
+          ["sequence", "random-per-visit"].includes(p.musicMode),
+        `place ${id} musicMode needs a playlist and sequence or random-per-visit`,
+      );
     if (p.stage !== undefined)
       check(
         keysOk(p.stage, ["alt", "resident", "sprite"]) &&
@@ -742,6 +834,9 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     for (const id of reachable)
       for (const to of [
         ...places[id].exits,
+        ...Object.values(pack.transports || {})
+          .filter((t) => Array.isArray(t.docks) && t.docks.includes(id))
+          .map((t) => t.place),
         ...routes.filter((r) => r.from === id).map((r) => r.to),
       ].filter((id) => r.places.includes(id)))
         reachable.add(to);
@@ -783,6 +878,43 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     Array.isArray(pack.crossings) && crossings.length > 0,
     "bridge needs crossings",
   );
+  const transportPlaces = new Set();
+  for (const [id, t] of Object.entries(pack.transports || {})) {
+    const valid = check(
+      idOk(id) &&
+        keysOk(t, ["place", "docks", "at"]) &&
+        owns(places, t.place) &&
+        !transportPlaces.has(t.place) &&
+        places[t.place]?.exits.length === 0 &&
+        Array.isArray(t.docks) &&
+        t.docks.length === 2 &&
+        new Set(t.docks).size === 2 &&
+        t.docks.every((p) => anyPlace(p) && p !== t.place) &&
+        t.docks.includes(t.at),
+      `transport ${id} needs its own place, two docks and an initial dock`,
+    );
+    if (!valid) continue;
+    transportPlaces.add(t.place);
+    check(
+      crossings.filter((c) => c.transport === id).length === 2 &&
+        (t.docks || []).every((from) =>
+          crossings.some(
+            (c) =>
+              c.transport === id &&
+              c.from === from &&
+              t.docks.includes(c.to) &&
+              c.to !== from,
+          ),
+        ),
+      `transport ${id} needs a crossing in each direction`,
+    );
+    check(
+      !(pack.routes || []).some(
+        (r) => r.from === t.place || r.to === t.place,
+      ) && !Object.values(places).some((p) => p.exits.includes(t.place)),
+      `transport ${id} uses its dock routes`,
+    );
+  }
   const crossingIds = new Set();
   for (const c of crossings) {
     const name = `crossing ${c?.id}`;
@@ -799,12 +931,21 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "opened",
         "closed",
         "travelLabel",
+        "transport",
       ]) &&
         idOk(c.id) &&
         !crossingIds.has(c.id),
       `${name} needs a distinct id and only known fields`,
     );
     crossingIds.add(c?.id);
+    if (c.transport !== undefined)
+      check(
+        owns(pack.transports, c.transport) &&
+          Array.isArray(pack.transports[c.transport].docks) &&
+          pack.transports[c.transport].docks.includes(c.from) &&
+          pack.transports[c.transport].docks?.includes(c.to),
+        `${name} has an invalid transport`,
+      );
     check(
       anyPlace(c?.from) &&
         anyPlace(c?.to) &&
@@ -863,6 +1004,8 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         (s.complete === undefined || textOk(s.complete, 400)),
       `${name} signal needs 1–8 steps, consecutive, opens (1–9 turns) and complete text`,
     );
+    if (c.transport)
+      check(s.opens === null, `${name} transport signal must have opens null`);
     requirements(s.while, `${name} signal while`, false);
     for (const [i, step] of (s.steps || []).entries())
       pattern(step, `${name} step ${i + 1}`);
@@ -892,6 +1035,9 @@ export function packProblems(pack, hub, mountedPlaces = []) {
   for (const id of reached)
     for (const to of [
       ...(places[id]?.exits || []),
+      ...Object.values(pack.transports || {})
+        .filter((t) => Array.isArray(t.docks) && t.docks.includes(id))
+        .map((t) => t.place),
       ...routes.filter((r) => r.from === id).map((r) => r.to),
     ])
       reached.add(to);

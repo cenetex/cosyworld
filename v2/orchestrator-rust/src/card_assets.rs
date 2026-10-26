@@ -84,6 +84,10 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/pack-rules.mjs"),
         ),
+        "pack-transport.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/pack-transport.mjs"),
+        ),
         "legacy-saves.mjs" => (
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/legacy-saves.mjs"),
@@ -139,6 +143,22 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
         "assets/music/station-2.mp3" => (
             "audio/mpeg",
             include_bytes!("../../card-game/assets/music/station-2.mp3"),
+        ),
+        "assets/music/ship-1.mp3" => (
+            "audio/mpeg",
+            include_bytes!("../../card-game/assets/music/ship-1.mp3"),
+        ),
+        "assets/music/ship-2.mp3" => (
+            "audio/mpeg",
+            include_bytes!("../../card-game/assets/music/ship-2.mp3"),
+        ),
+        "assets/music/ship-3.mp3" => (
+            "audio/mpeg",
+            include_bytes!("../../card-game/assets/music/ship-3.mp3"),
+        ),
+        "assets/music/ship-4.mp3" => (
+            "audio/mpeg",
+            include_bytes!("../../card-game/assets/music/ship-4.mp3"),
         ),
         "assets/lamp-card.png" => (
             "image/png",
@@ -324,6 +344,14 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "image/svg+xml",
             include_bytes!("../../card-game/assets/greek-drama/sea.svg"),
         ),
+        "assets/greek-drama/ship-deck.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/ship-deck.webp"),
+        ),
+        "assets/greek-drama/ship-card.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/ship-card.webp"),
+        ),
         "assets/greek-drama/water-jar.png" => (
             "image/png",
             include_bytes!("../../card-game/assets/greek-drama/water-jar.png"),
@@ -363,10 +391,6 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
         "assets/greek-drama/pond-ship-overlay.png" => (
             "image/png",
             include_bytes!("../../card-game/assets/greek-drama/pond-ship-overlay.png"),
-        ),
-        "assets/greek-drama/ship-card.webp" => (
-            "image/webp",
-            include_bytes!("../../card-game/assets/greek-drama/ship-card.webp"),
         ),
         "assets/greek-drama/chthonic-antigone.png" => (
             "image/png",

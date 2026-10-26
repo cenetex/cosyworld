@@ -65,6 +65,11 @@ function move(world, target) {
     }
     if (nested) world = act(world, "cover", { item: "cloth", target: "bell" });
   }
+  if (
+    (world.actors.vale.place === "pond" && target === HARBOR) ||
+    (world.actors.vale.place === HARBOR && target === "pond")
+  )
+    world = act(world, "move", { target: "greek-ship" });
   expect(exits(world, world.actors.vale.place, "vale")).toContain(target);
   expect(availableCards(world)).toContain(target);
   const action = cardPlay(world, [target]).action;

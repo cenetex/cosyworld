@@ -6,6 +6,7 @@ import {
   createTextReveal,
   createSpeechSounds,
   createExchange,
+  createPlayQueue,
   waitForScene,
 } from "./dialogue.mjs";
 import {
@@ -251,17 +252,38 @@ async function prepareScene() {
   await prepareStage();
   await discoveryDone;
 }
+function selectionBlocked() {
+  return saveBlocked || covering || discoveryPending || questNoticeRunning;
+}
+const playQueue = createPlayQueue({
+  ready: () =>
+    !cardsCooling &&
+    reveal.complete &&
+    !selectionBlocked() &&
+    !document.hidden &&
+    !document.querySelector("dialog[open]"),
+  play: performAction,
+  changed: (pending) => {
+    notice(
+      pending
+        ? `Queued: ${playLabel(pending.action)}. Select a card to change it.`
+        : "",
+    );
+    renderActions();
+  },
+});
 function updateCardCooldown() {
   $("hand").dataset.cooling = String(cardsCooling);
-  $("hand").setAttribute("aria-busy", String(cardsCooling));
-  $("card-actions").setAttribute("aria-busy", String(cardsCooling));
+  $("hand").setAttribute("aria-busy", String(selectionBlocked()));
+  $("card-actions").setAttribute("aria-busy", String(selectionBlocked()));
   for (const button of document.querySelectorAll(
     "#hand button, #card-actions button",
   )) {
-    button.disabled = saveBlocked || cardsCooling;
+    button.disabled = selectionBlocked();
     if (button.dataset.card)
       button.draggable = !button.disabled && button.dataset.card !== QUEST_CARD;
   }
+  if (playQueue.pending) queueMicrotask(() => playQueue.flush());
 }
 const exchange = createExchange({
   prepare: prepareScene,
@@ -396,6 +418,7 @@ const reveal = createTextReveal({
         completedSpeech.delete(completedSpeech.values().next().value);
       if (shownSceneLine)
         exchange.revealed(shownSceneLine.seq, value.text, value.instant);
+      queueMicrotask(() => playQueue.flush());
     }
   },
 });
@@ -421,7 +444,10 @@ function pauseSpeech() {
     else if (animation.playState === "paused") animation.play();
   }
   if (paused) speechSounds.stop();
-  else wakeDiscovery?.();
+  else {
+    wakeDiscovery?.();
+    queueMicrotask(() => playQueue.flush());
+  }
 }
 document.addEventListener("visibilitychange", pauseSpeech);
 document.addEventListener("pointerdown", () => speechSounds.unlock(), {
@@ -535,7 +561,8 @@ const narrator = createNarrator({
 });
 $("story-retry").onclick = () => narrator.retry();
 function choose(id) {
-  if (saveBlocked || cardsCooling) return;
+  if (selectionBlocked()) return;
+  playQueue.clear();
   fresh.delete(id);
   if (id === QUEST_CARD) {
     questRead.add(shownQuest().key);
@@ -557,7 +584,7 @@ function choose(id) {
   revealHandCard(id, Boolean(people[id]));
 }
 function commit(cards, revision) {
-  if (saveBlocked || cardsCooling) return;
+  if (selectionBlocked()) return;
   const resolved = cardPlay(world, cards);
   if (!resolved.action) {
     $("play-readout").textContent = "That cannot be used here.";
@@ -566,7 +593,12 @@ function commit(cards, revision) {
   commitAction(resolved.action, revision);
 }
 function commitAction(action, revision) {
-  if (saveBlocked || cardsCooling) return;
+  if (selectionBlocked()) return;
+  if (playQueue.pending?.action.key === action.key) playQueue.clear();
+  else playQueue.submit(action, revision);
+}
+function performAction(action, revision) {
+  if (saveBlocked) return;
   const result = play(world, action, revision);
   if (!result.ok) {
     notice(result.error);
@@ -1037,15 +1069,17 @@ function renderActions(animate = false) {
   const revision = world.revision;
   row.replaceChildren(
     ...actions.map((action, index) => {
+      const queued = playQueue.pending?.action.key === action.key;
       const button = node(
         "button",
-        playLabel(action),
+        queued ? `Queued: ${playLabel(action)}` : playLabel(action),
         index === 0 ? "card-primary" : "card-action",
       );
       button.type = "button";
       button.dataset.action = action.kind;
       button.title = action.text;
-      button.disabled = saveBlocked || cardsCooling;
+      button.disabled = selectionBlocked();
+      button.setAttribute("aria-pressed", String(queued));
       if (action.choiceId) {
         button.dataset.choice = action.choiceId;
         button.dataset.pack = action.packId;
@@ -1172,7 +1206,7 @@ function card(id) {
   el.type = "button";
   el.classList.toggle("new", fresh.has(id));
   el.dataset.card = id;
-  el.disabled = saveBlocked || cardsCooling;
+  el.disabled = selectionBlocked();
   el.setAttribute("aria-pressed", String(raised));
   el.setAttribute("aria-label", `${def.name}, ${type}`);
   el.setAttribute("aria-describedby", `card-detail-${id}`);
@@ -1183,7 +1217,7 @@ function card(id) {
       ? packMedia(id, "art") || `./assets/${id}-card.png`
       : type === "avatar"
         ? portrait(id, null, world)
-        : crossingFace?.art || backdrop(id);
+        : crossingFace?.art || packMedia(id, "art") || backdrop(id);
   img.alt = "";
   img.draggable = false;
   if (type === "avatar") frameFigure(img);
@@ -1223,7 +1257,7 @@ function card(id) {
   el.addEventListener("click", () => choose(id));
   el.draggable = !el.disabled;
   el.addEventListener("dragstart", (e) => {
-    if (cardsCooling || saveBlocked) {
+    if (selectionBlocked()) {
       e.preventDefault();
       return;
     }
@@ -1248,12 +1282,8 @@ function card(id) {
   el.addEventListener("drop", (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (
-      !cardsCooling &&
-      !saveBlocked &&
-      dragging.length &&
-      !dragging.includes(id)
-    ) {
+    if (!selectionBlocked() && dragging.length && !dragging.includes(id)) {
+      playQueue.clear();
       selected = [dragging[0], id];
       selectionRevision = world.revision;
       render();
@@ -1877,6 +1907,7 @@ document.addEventListener("keydown", (e) => {
     !document.querySelector("dialog[open]") &&
     (selected.length || expandedHolders.size)
   ) {
+    playQueue.clear();
     selected = [];
     expandedHolders.clear();
     render();
@@ -1885,12 +1916,17 @@ document.addEventListener("keydown", (e) => {
 document.addEventListener("click", (e) => {
   if (
     (selected.length || expandedHolders.size) &&
-    !e.target.closest(".play-dock") &&
-    !e.target.closest(".card-frame") &&
-    !e.target.closest("dialog") &&
-    !e.target.closest(".topbar") &&
-    !e.target.closest(".dialogue")
+    !e
+      .composedPath()
+      .some(
+        (element) =>
+          element instanceof Element &&
+          element.matches(
+            ".play-dock, .card-frame, dialog, .topbar, .dialogue",
+          ),
+      )
   ) {
+    playQueue.clear();
     selected = [];
     expandedHolders.clear();
     render();
@@ -1943,6 +1979,7 @@ $("new-game").onclick = () => {
 };
 $("cancel-reset").onclick = () => $("reset-dialog").close();
 $("confirm-reset").onclick = () => {
+  playQueue.clear();
   // Archive the outgoing save: starting fresh must be reversible, because
   // a confirm click is not enough consent to destroy a whole run.
   try {
@@ -1976,6 +2013,7 @@ $("confirm-reset").onclick = () => {
 };
 window.addEventListener("storage", (event) => {
   if (event.key !== SAVE_KEY || !event.newValue) return;
+  playQueue.clear();
   cancelTravel();
   narrator.invalidate();
   exchange.cancel();

@@ -137,29 +137,32 @@ try {
       );
       await card("cloth").waitFor({ state: "attached" });
       await shot("pond-empty");
-      assert.equal(await card("greek-harbor").count(), 0);
+      assert.equal(await card("greek-ship").count(), 0);
       await use("cloth", "lamp");
       await use("cloth");
       await page.reload();
       await card("cloth").waitFor({ state: "attached" });
-      assert.equal(await card("greek-harbor").count(), 0);
+      assert.equal(await card("greek-ship").count(), 0);
       await use("cloth", "lamp");
       await use("cloth");
       assert.equal(
-        await card("greek-harbor").locator(".name").innerText(),
+        await card("greek-ship").locator(".name").innerText(),
         "Greek ship",
       );
       assert(
         (
-          await card("greek-harbor").locator(".art img").getAttribute("src")
+          await card("greek-ship").locator(".art img").getAttribute("src")
         ).endsWith("ship-card.webp"),
       );
       await shot("pond-ship");
+      await use("greek-ship");
+      assert.equal((await state()).actors.vale.place, "greek-ship");
+      await shot("aboard-ship");
       await use("greek-harbor");
       assert.equal((await state()).packs["greek-drama"].scope, "opening");
       await use("lamp");
       await shot("harbor");
-      const visited = new Set(["greek-harbor"]);
+      const visited = new Set(["greek-ship", "greek-harbor"]);
       for (const id of [
         "greek-courtyard",
         "greek-well",
@@ -200,10 +203,12 @@ try {
         packDefinition("greek-drama").release.places.length,
       );
       await page.reload();
-      await card("pond").waitFor({ state: "attached" });
+      await card("greek-ship").waitFor({ state: "attached" });
+      await use("greek-ship");
       await use("pond");
       assert.equal((await state()).actors.vale.place, "pond");
       assert.equal(await card("greek-harbor").count(), 0);
+      assert.equal(await card("greek-ship").count(), 1);
       await shot("return");
       assert.deepEqual(errors, []);
       assert.deepEqual(failed, []);

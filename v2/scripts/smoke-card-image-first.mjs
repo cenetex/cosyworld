@@ -263,10 +263,10 @@ try {
       await cards("cloth", "lamp");
       assert.equal((await state()).crossings["pond-greek-harbor"].phase, 1);
       assert.equal(await card("lamp").getAttribute("data-covered"), "true");
-      assert.equal(await card("greek-harbor").count(), 0);
+      assert.equal(await card("greek-ship").count(), 0);
       await cards("cloth");
       assert.equal((await state()).crossings["pond-greek-harbor"].phase, 2);
-      assert.equal(await card("greek-harbor").count(), 0);
+      assert.equal(await card("greek-ship").count(), 0);
       assert.doesNotMatch(
         await page.locator("body").innerText(),
         /inspiration|[12] of two|first flash|once more|ritual|fuel|turns left|ring again/i,
@@ -291,7 +291,7 @@ try {
       await cards("cloth", "lamp");
       await cards("cloth");
       assert.equal((await state()).crossings["pond-greek-harbor"].phase, 4);
-      await card("greek-harbor").waitFor({ state: "attached" });
+      await card("greek-ship").waitFor({ state: "attached" });
       await art();
       assert.equal(
         await page.locator("#backdrop").getAttribute("data-location-variant"),
@@ -303,7 +303,7 @@ try {
         "ship discovery does not open a modal",
       );
 
-      await selectCard(page, "greek-harbor");
+      await selectCard(page, "greek-ship");
       await art();
       await page.screenshot({
         path: new URL(`pond-${width}.png`, output).pathname,
@@ -328,9 +328,12 @@ try {
         /inspiration|ring.*twice|cloth.*lamp|ritual|milestones|quest|points/i,
       );
       await page.locator('[data-close="menu-dialog"]').click();
-      await selectCard(page, "greek-harbor");
+      await selectCard(page, "greek-ship");
       await page.locator(".card-primary").click();
       await ready();
+      assert.equal((await state()).actors.vale.place, "greek-ship");
+      assert.equal(await card("pond").count(), 0);
+      await cards("greek-harbor");
       assert.equal((await state()).actors.vale.place, "greek-harbor");
       assert.equal((await state()).items.lamp.holder, "vale");
       await cards("greek-courtyard");
