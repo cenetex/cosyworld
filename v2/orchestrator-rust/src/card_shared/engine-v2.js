@@ -9262,6 +9262,13 @@
       }
     }
     refreshStalledPrograms(next);
+    for (const [id, allowance] of Object.entries(
+      next.sharedMigration?.inventoryAllowances || {}
+    )) {
+      const count = Math.min(allowance, carried(next, id).length);
+      if (count <= 3) delete next.sharedMigration.inventoryAllowances[id];
+      else next.sharedMigration.inventoryAllowances[id] = count;
+    }
     validateWorld(next);
     return { ok: true, state: next };
   }
@@ -9300,6 +9307,17 @@
     };
     if (!s || s.schema !== 7 || !Number.isSafeInteger(s.turn) || s.turn < 0 || !Number.isSafeInteger(s.revision) || s.revision < s.turn)
       fail();
+    if (s.sharedMigration !== void 0) {
+      const m = s.sharedMigration;
+      if (!sharedEnabled(s) || !m || m.version !== 1 || Object.keys(m).some(
+        (key) => !["version", "legacyTurn", "uses", "inventoryAllowances"].includes(
+          key
+        )
+      ) || !Number.isSafeInteger(m.legacyTurn) || m.legacyTurn < 0 || m.legacyTurn > 4294967295 || !Array.isArray(m.uses) || m.uses.length !== 8 || m.uses.some((n) => !Number.isInteger(n) || n < 0 || n > 2147483647) || m.inventoryAllowances !== void 0 && (!m.inventoryAllowances || Array.isArray(m.inventoryAllowances) || typeof m.inventoryAllowances !== "object" || Object.entries(m.inventoryAllowances).some(
+        ([id, n]) => !humanAvatar(id) || !Number.isInteger(n) || n < 4 || n > 8
+      )))
+        fail();
+    }
     if (s.playerActorId !== void 0 && !humanAvatar(s.playerActorId)) fail();
     for (const field of ["controlledActors", "presentActors"]) {
       if (s[field] !== void 0 && (!Array.isArray(s[field]) || s[field].length > 8 || new Set(s[field]).size !== s[field].length || s[field].some((id) => !humanAvatar(id))))
@@ -9394,7 +9412,11 @@
       if (!Array.isArray(item.history) || item.history.length > 12 || item.history.some((t) => typeof t !== "string" || t.length > 400))
         fail();
     }
-    for (const actor of actorIds) if (carried(s, actor).length > 3) fail();
+    for (const actor of actorIds) {
+      const allowance = s.sharedMigration?.inventoryAllowances?.[actor];
+      const count = carried(s, actor).length;
+      if (count > (allowance || 3) || allowance && allowance !== count) fail();
+    }
     const lamp = s.items.lamp, oil = s.items.oil, bell = s.items.bell;
     if (!Number.isInteger(lamp.fuel) || lamp.fuel < 0 || lamp.fuel > 12 || typeof lamp.lit !== "boolean" || lamp.lit && lamp.fuel === 0)
       fail();
@@ -9924,6 +9946,21 @@
       profiles
     };
   }
+  function importClientSave(save) {
+    const raw = typeof save === "string" ? JSON.parse(save) : structuredClone(save);
+    if (!raw || typeof raw !== "object" || Array.isArray(raw))
+      throw new Error("Choose a saved world.");
+    for (const key of [
+      "sharedMigration",
+      "playerActorId",
+      "controlledActors",
+      "presentActors",
+      "claimed",
+      "present"
+    ])
+      delete raw[key];
+    return decodeSave(JSON.stringify(raw));
+  }
   function dispatchShared(request) {
     if (!request || typeof request !== "object")
       throw new Error("Choose a world operation.");
@@ -9931,9 +9968,7 @@
       const world2 = request.save == null ? enableMotives(createWorld({ opening: true }), {
         questPrograms: true,
         personalQuests: true
-      }) : decodeSave(
-        typeof request.save === "string" ? request.save : JSON.stringify(request.save)
-      );
+      }) : importClientSave(request.save);
       enableShared(world2);
       delete world2.playerActorId;
       delete world2.controlledActors;
@@ -10039,13 +10074,62 @@
       legacyTurn: legacy.turn || 0,
       uses: [...legacy.uses]
     };
+    world.sharedMigration.inventoryAllowances = Object.fromEntries(
+      humanAvatarIds.map((id) => [id, carried(world, id).length]).filter(([, count]) => count > 3)
+    );
+    world.items.lamp.lit = legacy.uses[0] % 2 === 1;
+    if (world.items.lamp.lit)
+      world.items.lamp.fuel = Math.max(1, world.items.lamp.fuel);
     const claimed = humanAvatarIds.filter((id, i) => legacy.claimed[i]);
     const present = humanAvatarIds.filter(
       (id, i) => legacy.present[i] && legacy.claimed[i]
     );
     contextual(world, { ...request, claimed, present });
+    const legacyScenes = migrateScenes(world, request.legacyScenes || [], rooms);
     validateWorld(world);
-    return response(world);
+    return response(world, { legacyScenes });
+  }
+  function migrateScenes(world, scenes, rooms) {
+    if (!Array.isArray(scenes) || scenes.length > 80)
+      throw new Error("Choose up to eighty saved exchanges.");
+    return scenes.map((scene) => {
+      if (!scene || typeof scene.play !== "string" || !scene.play.length || scene.play.length > 80 || !Number.isInteger(scene.room) || !rooms[scene.room] || !Array.isArray(scene.lines) || scene.lines.length > 2 || ![scene.starts_at, scene.until_at].every(
+        (n) => Number.isSafeInteger(n) && n >= 0
+      ) || scene.until_at < scene.starts_at)
+        throw new Error("A saved exchange needs its place, words and time.");
+      const room = rooms[scene.room];
+      const actor = Number.isInteger(scene.actor) ? humanAvatars[scene.actor]?.id : humanAvatar(scene.actor)?.id;
+      const lines = scene.lines.map((line) => {
+        if (typeof line.speaker !== "string" || line.speaker.length > 40 || typeof line.text !== "string" || !line.text.length || line.text.length > 600 || /[\u0000-\u001f\u007f]/u.test(line.text))
+          throw new Error("A saved line needs a speaker and clear text.");
+        const speaker = humanAvatars.find((a) => a.name === line.speaker)?.id || (line.speaker === "actor" ? actor : null);
+        addLog(world, line.speaker, line.text, {
+          generated: true,
+          kind: speaker ? "dialogue" : "narration",
+          actorId: speaker || null,
+          entityId: speaker || room,
+          locationId: room,
+          migration: {
+            play: scene.play,
+            turn: scene.turn ?? null,
+            starts_at: scene.starts_at,
+            until_at: scene.until_at
+          }
+        });
+        return world.log.at(-1);
+      });
+      return {
+        play: scene.play,
+        actor: actor || null,
+        room,
+        turn: scene.turn ?? null,
+        lines,
+        starts_at: scene.starts_at,
+        until_at: scene.until_at,
+        error: typeof scene.error === "string" ? scene.error.slice(0, 240) : null,
+        migrated: true
+      };
+    });
   }
 
   // v2/card-game/shared-world-entry.mjs

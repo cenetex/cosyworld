@@ -312,11 +312,13 @@ pub(super) fn run(
     }
     store::snapshot(c, id, u, time)
 }
+#[derive(Clone)]
 pub(super) struct Work {
     pub id: String,
     pub room: String,
     pub actor: usize,
     pub context: Value,
+    attempt: i32,
 }
 pub(super) fn take_work(state: &AppState, id: &str) -> Result<Option<Work>> {
     let mut c = db(state)?;
@@ -335,7 +337,7 @@ pub(super) fn take_work(state: &AppState, id: &str) -> Result<Option<Work>> {
         return Ok(None);
     }
     let rows = {
-        let mut q=tx.prepare("SELECT id,actor,room,command,user,status,narrative FROM card_full_plays WHERE world=? AND status IN ('waiting','retry') ORDER BY created,id LIMIT 32").map_err(sql_error)?;
+        let mut q=tx.prepare("SELECT id,actor,room,command,user,status,narrative,retries FROM card_full_plays WHERE world=? AND status IN ('waiting','retry') ORDER BY created,id LIMIT 32").map_err(sql_error)?;
         let rows = q
             .query_map([id], |r| {
                 Ok((
@@ -346,6 +348,7 @@ pub(super) fn take_work(state: &AppState, id: &str) -> Result<Option<Work>> {
                     r.get::<_, String>(4)?,
                     r.get::<_, String>(5)?,
                     r.get::<_, String>(6)?,
+                    r.get::<_, i32>(7)?,
                 ))
             })
             .map_err(sql_error)?
@@ -353,7 +356,7 @@ pub(super) fn take_work(state: &AppState, id: &str) -> Result<Option<Work>> {
             .map_err(sql_error)?;
         rows
     };
-    for (key, a, room, text, u, status, narrative) in rows {
+    for (key, a, room, text, u, status, narrative, attempt) in rows {
         let retry = status == "retry";
         let prior: Value = serde_json::from_str(&narrative).map_err(sql_error)?;
         let action: Value = serde_json::from_str(&text).map_err(sql_error)?;
@@ -400,6 +403,7 @@ pub(super) fn take_work(state: &AppState, id: &str) -> Result<Option<Work>> {
             room: destination,
             actor: a,
             context,
+            attempt,
         }));
     }
     tx.commit().map_err(sql_error)?;
@@ -440,14 +444,14 @@ pub(super) fn finish_work(
     let tx = c
         .transaction_with_behavior(TransactionBehavior::Immediate)
         .map_err(sql_error)?;
-    let status: String = tx
+    let (status, attempt): (String, i32) = tx
         .query_row(
-            "SELECT status FROM card_full_plays WHERE id=?",
+            "SELECT status,retries FROM card_full_plays WHERE id=?",
             [&work.id],
-            |r| r.get(0),
+            |r| Ok((r.get(0)?, r.get(1)?)),
         )
         .map_err(sql_error)?;
-    if status != "working" {
+    if status != "working" || attempt != work.attempt {
         return Ok(());
     }
     let time = now();
