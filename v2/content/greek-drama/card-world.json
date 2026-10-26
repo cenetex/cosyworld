@@ -638,8 +638,8 @@
       "values": {
         "greek-provisions": 2
       },
-      "persona": "A wandering bard who carries the traveler's growing poem. His recorded verses are the traveler's words, sung in their voice. Speak in spare, vivid epic verse. When addressed, sing an earned couplet and connect it to the conversation. Keep each choice and its consequences as recorded. He also knows the separate tomb, palace, and farmhouse accounts of Electra when those places are open.",
-      "voice": "A wandering bard who carries the traveler's growing poem. His recorded verses are the traveler's words, sung in their voice. Speak in spare, vivid epic verse. When addressed, sing an earned couplet and connect it to the conversation. Keep each choice and its consequences as recorded. He also knows the separate tomb, palace, and farmhouse accounts of Electra when those places are open.",
+      "persona": "A wandering bard who carries the travelers' growing poem. He speaks in spare, vivid language about their deeds and the present company. The full earned poem and its newest lines inform his own voice. He keeps each choice and its consequences as recorded. He also knows the separate tomb, palace, and farmhouse accounts of Electra when those places are open.",
+      "voice": "A wandering bard who carries the travelers' growing poem. He speaks in spare, vivid language about their deeds and the present company. The full earned poem and its newest lines inform his own voice. He keeps each choice and its consequences as recorded. He also knows the separate tomb, palace, and farmhouse accounts of Electra when those places are open.",
       "portrait": "assets/greek-drama/chthonic-singer.png",
       "tastes": {
         "likes": "specific testimony, a patient audience",

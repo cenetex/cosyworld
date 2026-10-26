@@ -29,6 +29,15 @@ pub(super) fn facts(context: &Context, speaker: &str) -> Vec<String> {
     }
     for item in &outcome.items {
         if let Some(owner) = holder(outcome, &item.id) {
+            let relevant = context
+                .entities
+                .iter()
+                .any(|entity| entity.id == item.id || entity.id == owner)
+                || outcome.card.item.as_deref() == Some(&item.id)
+                || outcome.card.receive.as_deref() == Some(&item.id);
+            if !relevant {
+                continue;
+            }
             facts.push(format!(
                 "Final custody: {} — {}. Location: {}.",
                 name(&item.id),

@@ -22,9 +22,9 @@ On that player's next journey, he waits in the destination room. He stays
 there until another completed quest brings him to a later destination.
 Waiting, talking, and reloading preserve a pending visit.
 
-His conversation context carries the whole earned poem through his latest
-visit. Each verse names the traveler whose deed earned it. The bard sings
-an earned couplet when addressed. His voice uses spare, vivid epic verse.
+His conversation context carries the whole earned poem, including verses
+earned while he travels. Each verse names the traveler whose deed earned it.
+He speaks in his own voice and can quote an earned verse again when it fits.
 
 Permission earns a verse while the burial quest remains open. Reporting
 permission completes the return quest. A later burial opens that return
@@ -53,10 +53,10 @@ The song follows the durable choice receipts. An early permission report
 keeps its words after a later burial. Returning the water late places its
 verse later in the song. Each branch keeps its own outcome and report.
 
-When addressed, the bard recites the latest earned couplet exactly. The
-speech service checks his reply against the authored verse in his scene
-facts. Each character request can repair a reply that changes those words.
-Both local and shared speech pass this check before players hear the verse.
+The bard receives the full earned poem as context, with the newest lines marked
+separately. He chooses his own words and may quote, paraphrase, or reflect on
+the poem. Authored stanza text and attribution remain saved; ordinary story,
+observation, and custody checks ground his spoken response.
 
 The pack save adds a `recitals` record beside its existing receipts. Each
 verse records the acting human and, for a completed quest, the turn of the
