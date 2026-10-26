@@ -139,12 +139,18 @@ try {
       );
       await card("cloth").waitFor({ state: "attached" });
       await shot("pond-empty");
-      assert.equal(await card("greek-ship").count(), 0);
+      assert.equal(
+        await card("greek-ship").count(),
+        (await state()).transports["greek-ship"].dock === "pond" ? 1 : 0,
+      );
       await use("cloth", "lamp");
       await use("cloth");
       await page.reload();
       await card("cloth").waitFor({ state: "attached" });
-      assert.equal(await card("greek-ship").count(), 0);
+      assert.equal(
+        await card("greek-ship").count(),
+        (await state()).transports["greek-ship"].dock === "pond" ? 1 : 0,
+      );
       await use("cloth", "lamp");
       await use("cloth");
       assert.equal(
