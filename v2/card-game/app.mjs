@@ -258,6 +258,7 @@ function selectionBlocked() {
 const playQueue = createPlayQueue({
   ready: () =>
     !cardsCooling &&
+    reveal.complete &&
     !selectionBlocked() &&
     !document.hidden &&
     !document.querySelector("dialog[open]"),
@@ -417,6 +418,7 @@ const reveal = createTextReveal({
         completedSpeech.delete(completedSpeech.values().next().value);
       if (shownSceneLine)
         exchange.revealed(shownSceneLine.seq, value.text, value.instant);
+      queueMicrotask(() => playQueue.flush());
     }
   },
 });
@@ -1914,11 +1916,15 @@ document.addEventListener("keydown", (e) => {
 document.addEventListener("click", (e) => {
   if (
     (selected.length || expandedHolders.size) &&
-    !e.target.closest(".play-dock") &&
-    !e.target.closest(".card-frame") &&
-    !e.target.closest("dialog") &&
-    !e.target.closest(".topbar") &&
-    !e.target.closest(".dialogue")
+    !e
+      .composedPath()
+      .some(
+        (element) =>
+          element instanceof Element &&
+          element.matches(
+            ".play-dock, .card-frame, dialog, .topbar, .dialogue",
+          ),
+      )
   ) {
     playQueue.clear();
     selected = [];

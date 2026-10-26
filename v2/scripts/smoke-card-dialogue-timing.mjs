@@ -102,6 +102,12 @@ try {
         const start = performance.now();
         await page.locator("#card-actions .card-primary").click();
         await requested;
+        // A newly revealed location completes its discovery before pairing.
+        await page.waitForFunction(
+          () =>
+            document.querySelector("#hand").getAttribute("aria-busy") ===
+            "false",
+        );
         report.pendingSpeaker = await page.locator("#speaker").innerText();
         report.pendingMs = Math.round(performance.now() - start);
         assert.equal(report.pendingSpeaker, "Vale");
@@ -175,6 +181,7 @@ try {
           path: new URL(`speech-${width}-${motion}.png`, output).pathname,
         });
         const spoken = [];
+        let queuedTurn = null;
         for (const [i, speaker] of request.input.speakers.entries()) {
           spoken.push(await page.locator("#speaker").innerText());
           assert.equal(spoken.at(-1), nameOf(speaker));
@@ -189,6 +196,16 @@ try {
           )
             await page.locator("#dialogue-advance").click();
           assert.equal(await card("vale").isDisabled(), false);
+          if (kind === "wait" && i === request.input.speakers.length - 1) {
+            queuedTurn = (await state()).turn;
+            await selectCard(page, "vale");
+            await page.locator("#card-actions .card-primary").click();
+            assert.equal(
+              await page.locator("#card-actions .card-primary").innerText(),
+              "Queued: Wait",
+            );
+            assert.equal((await state()).turn, queuedTurn);
+          }
           await page.locator("#dialogue-advance").click();
           if (i < request.input.speakers.length - 1) {
             if (motion !== "reduce") {
@@ -208,6 +225,8 @@ try {
           () => document.querySelector("#hand").dataset.cooling === "false",
         );
         assert.equal(await card("vale").isDisabled(), false);
+        if (queuedTurn !== null)
+          assert.equal((await state()).turn, queuedTurn + 1);
         report.spoken = spoken;
         report.finishedMs = Math.round(performance.now() - start);
         if (kind === "light") {
@@ -225,7 +244,7 @@ try {
         assert.deepEqual(errors, []);
         report.passed = true;
       } catch (error) {
-        report.error = error.message;
+        report.error = error.stack;
         await page.screenshot({
           path: new URL(`${kind}-failure-${width}.png`, output).pathname,
         });
