@@ -141,6 +141,8 @@ export const isPackActor = (id) =>
 export const isPackPlace = (id) => Object.hasOwn(packPlaces, id);
 export const packOf = (id) => packDefinition(entities[id]?.packId);
 export const resident = (id) => packPeople[id] || null;
+export const roamingQuestActor = (id) =>
+  packPeople[id]?.roamingQuest === "latest-completion";
 export const staysPut = (id) => packPeople[id]?.travels === false;
 export const avoidsStandoffs = (id) => packPeople[id]?.standoffs === false;
 export const fixturesAt = (place) =>
@@ -239,7 +241,11 @@ function entityEnabled(world, id) {
     state = packState(world, e.packId);
   if (!state || !conditionsMet(world, e.packId, e.requires)) return false;
   if (!pack.release || state.scope === "full") return true;
-  if (pack.recital?.actor === id && !recitalVisit(world, pack)) return false;
+  if (pack.recital?.actor === id)
+    return (
+      (!!recitalVisit(world, pack) || !!world.roamingQuests?.[id]?.target) &&
+      entityEnabled(world, world.actors[id].place)
+    );
   return [pack.release.places, pack.release.avatars, pack.release.items].some(
     (ids) => ids.includes(id),
   );
@@ -252,6 +258,7 @@ export function packExits(world, place, actor = null) {
           r.from === place &&
           conditionsMet(world, pack.id, r.requires) &&
           (humanAvatarIds.includes(actor) ||
+            roamingQuestActor(actor) ||
             (owns(pack.places, r.from) && owns(pack.places, r.to))),
       )
       .map((r) => r.to),
@@ -261,7 +268,8 @@ export function packExits(world, place, actor = null) {
   );
 }
 export function actorCanVisit(actor, place) {
-  if (!actor || humanAvatarIds.includes(actor)) return true;
+  if (!actor || humanAvatarIds.includes(actor) || roamingQuestActor(actor))
+    return true;
   const a = packPeople[actor],
     destination = packPlaces[place];
   if (a ? destination?.packId === a.packId : !destination) return true;

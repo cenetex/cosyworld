@@ -11,7 +11,8 @@ export function arriveRecitals(world, packs, actor) {
   if (!controlledByHuman(world, actor)) return [];
   const arrivals = [];
   for (const pack of packs) {
-    if (!pack.recital) continue;
+    if (!pack.recital || pack.avatars[pack.recital.actor]?.roamingQuest)
+      continue;
     const records = world.packs[pack.id].recitals;
     const pending = pack.recital.verses.filter(
       (v) =>
@@ -61,7 +62,7 @@ export function recitalFacts(world, packs, actor) {
   if (!pack) return [];
   const visit = recitalVisit(world, pack);
   if (!visit) return [];
-  const poem = recitalPoem(world, pack, visit - 1);
+  const poem = recitalPoem(world, pack, visit);
   return [
     `Your song is ${poem.title}. These are the traveler's earned words, in order. Sing a couplet when addressed; keep the whole journey in mind.`,
     ...poem.stanzas.map((s, i) => {
@@ -97,7 +98,7 @@ export function validRecitals(world, pack) {
       (r.visit === null ||
         (v.summons &&
           Number.isSafeInteger(r.visit) &&
-          r.visit > state.receipts[v.choice] &&
+          r.visit >= state.receipts[v.choice] &&
           r.visit <= world.turn))
     );
   });
@@ -120,6 +121,17 @@ export function upgradeRecitals(world, packs) {
         actor: humanAvatar(event?.actorId) ? event.actorId : null,
         visit: null,
       };
+    }
+  }
+}
+
+export function arriveRoamingRecitals(world, packs, actor) {
+  for (const pack of packs.filter((p) => p.recital?.actor === actor)) {
+    const state = world.packs[pack.id];
+    for (const verse of pack.recital.verses) {
+      const record = state.recitals[verse.choice];
+      if (verse.summons && record && record.visit === null)
+        record.visit = world.turn;
     }
   }
 }

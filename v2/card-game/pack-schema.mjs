@@ -406,6 +406,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "text",
         "place",
         "travels",
+        "roamingQuest",
         "standoffs",
         "persona",
         "voice",
@@ -430,7 +431,9 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       `avatar ${id} needs a name, text, persona, voice and a home place in this pack`,
     );
     check(
-      [a.travels, a.standoffs].every((v) => v === undefined || v === false),
+      [a.travels, a.standoffs].every((v) => v === undefined || v === false) &&
+        (a.roamingQuest === undefined ||
+          (a.roamingQuest === "latest-completion" && a.travels !== false)),
       `avatar ${id} may only set travels or standoffs to false`,
     );
     check(
@@ -789,13 +792,14 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     check(
       keysOk(r, ["actor", "title", "verses"]) &&
         owns(avatars, r?.actor) &&
-        avatars[r.actor].travels === false &&
+        (avatars[r.actor].travels === false ||
+          avatars[r.actor].roamingQuest === "latest-completion") &&
         avatars[r.actor].standoffs === false &&
         textOk(r.title, 80) &&
         Array.isArray(r.verses) &&
         r.verses.length > 0 &&
         r.verses.length <= 64,
-      "recital needs a stationary singer, a title and up to 64 verses",
+      "recital needs a singer, a title and up to 64 verses",
     );
     const seen = new Set();
     const linesOk = (lines) =>

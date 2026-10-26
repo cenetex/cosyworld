@@ -22,6 +22,7 @@ import {
   isPackPlace,
   validatePackStates,
   entityActive,
+  roamingQuestActor,
 } from "./pack-registry.mjs";
 
 import {
@@ -142,6 +143,7 @@ export const crossingBetween = (from, to, s = null) =>
 export const mayCross = (c, actor, senses) =>
   c.travelers === "any" ||
   actor === senses.player ||
+  roamingQuestActor(actor) ||
   senses.humanActors?.includes(actor);
 
 /** Places reachable by crossing from `place` now, for this actor. */
