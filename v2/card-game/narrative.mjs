@@ -1,4 +1,4 @@
-import { recitalFacts } from "./pack-recital.mjs";
+import { recitalContext } from "./pack-recital.mjs";
 import { hasMotives, motiveFacts, tastes } from "./motives.mjs";
 import { sceneChanges } from "./scene.mjs";
 import { profiles, validInnerLife } from "./memory.mjs";
@@ -455,7 +455,8 @@ export function narrativeContext(world, action = null) {
       );
       return {
         id,
-        facts: [...recitalFacts(world, packDefinitions, id), ...facts]
+        poem: recitalContext(world, packDefinitions, id),
+        facts: facts
           .slice(0, 16)
           .map((text) => text.slice(0, 240)),
         desire,

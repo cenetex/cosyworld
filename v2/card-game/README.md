@@ -352,10 +352,11 @@ Each voice receives a short first-person transcript and completes one plain-text
 line. Optional `idiolect` and `lines` profile fields supply style and examples;
 existing pack `persona` and `voice` fields remain supported. The server checks
 visible state, including lamp state, before accepting each line. Supplied quest
-facts remain part of the transcript. When a singer recites earned verses, the
-reply must match the latest earned couplet exactly. The same check applies to
-local and shared speech. A rejected recital retries with the exact words; a
-repeat performance of that couplet remains valid.
+facts remain part of the transcript. A bard receives the complete earned poem
+as structured context, with the newest lines marked separately. The poem data
+keeps its authored words and attribution. The bard speaks in its own voice and
+may quote, paraphrase, or comment on that context. Ordinary factual, custody,
+observation, and speech checks apply to local and shared replies.
 
 Hosted calls have a twelve-second limit and the scene has a twenty-two-second
 limit, with eight calls in flight. Replies are collected as they complete, then
