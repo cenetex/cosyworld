@@ -1143,7 +1143,7 @@ function renderActions(animate = false) {
                   action.kind === "pursue" && action.questKey === quest.key,
               )
             : [],
-        hint: [quest.purpose, quest.origin].filter(Boolean).join(" "),
+        hint: quest.purpose,
       }
     : cardActions(world, selected);
   const selectionName = quest ? quest.title : selected.map(nameOf).join(" + ");
@@ -1325,11 +1325,7 @@ function questCard(id) {
   img.alt = "";
   img.draggable = false;
   graphic.append(img);
-  const detail = node(
-    "span",
-    [quest.purpose, quest.origin].filter(Boolean).join(" "),
-    "quest-purpose",
-  );
+  const detail = node("span", quest.purpose, "quest-purpose");
   detail.id = detailId;
   face.append(
     graphic,

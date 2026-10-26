@@ -37,7 +37,7 @@ Commit `v2/orchestrator-rust/src/card_assets.rs` with each asset-list change.
 
 Each avatar keeps a collection of quest cards after their carried items. The
 active quest sits on top. Select it to spread the collection, then select a
-card to read its purpose and origin. A player's pending cards offer **Pursue**.
+card to read its purpose. A player's pending cards offer **Pursue**.
 That action changes the active quest through the usual local or shared turn.
 Browsing cards is free. Residents expose their own collections for reading.
 Fulfilled cards remain at the bottom as part of the avatar's history.

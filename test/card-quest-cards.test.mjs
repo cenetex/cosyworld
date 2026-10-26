@@ -138,13 +138,12 @@ describe("collected quest cards", () => {
     expect(fulfilledPlayerQuest(fresh(), world)).toBeNull();
     expect(new Set(questHand(world).filter(isQuestCard)).size).toBe(2);
   });
-  it("uses the selected human's collection and names the source experience", () => {
+  it("uses the selected human's collection", () => {
     const world = fresh(false);
     world.playerActorId = "mara";
     const pending = collect(world, "mara");
     expect(playerQuest(world).actor).toBe("mara");
     const card = questCards(world).find((quest) => quest.key === pending.key);
-    expect(card.origin).toBe("It began with a gift from Vale.");
     expect(questForCard(world, questCardId(world, card))).toEqual(card);
     expect(actorQuests(world, "vale")[0].key).not.toBe(playerQuest(world).key);
   });
