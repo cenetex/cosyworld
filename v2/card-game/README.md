@@ -220,7 +220,7 @@ travel order, held items, reload, cancellation, and reduced motion.
 
 The next program introduces company at the pond, then leads Vale to the station and the keeper. Each cast member joins the simulation when Vale first meets them and takes their first autonomous action on the following turn. Their introduction, quest progress, and route rules survive a reload. The menu and speech request use the discovered cast. The Light play records the fulfilled hand and revealed path in the attic. The later Travel play records the trip to the pond, so the scene and dialogue follow each card’s result.
 
-Existing saves keep their station start, original routes, authored programs, and earned progress. The core's `createWorld()` remains the legacy fixture; the browser explicitly chooses the new opening for fresh tables and New game.
+Existing saves keep their station start, original routes, authored programs, and earned progress. `createWorld()` retains the station start for existing fixtures; the browser chooses the attic opening for fresh tables and New game.
 
 ## Shore experiment
 
