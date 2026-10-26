@@ -2340,10 +2340,8 @@ async function submitSharedPlay(action) {
     sharedSession.state.queue?.some(
       (entry) => entry.actor === currentActor(world),
     )
-  ) {
-    notice("Your play is at the table.");
+  )
     return;
-  }
   sharedSending = true;
   renderActions();
   try {
@@ -2351,7 +2349,7 @@ async function submitSharedPlay(action) {
     selected = [];
     expandedHolders.clear();
     reviewing = false;
-    notice("Your play is at the table.");
+    notice("");
   } catch (error) {
     notice(error.message);
   } finally {
