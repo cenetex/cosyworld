@@ -69,6 +69,18 @@ function enableShared(world) {
   world.sharedVersion = 1;
   return world;
 }
+function settleHomeItems(world, claimed = []) {
+  for (const avatar of humanAvatars.filter((a) => a.id !== "vale")) {
+    const item = world.items[avatar.item.id];
+    if (
+      !claimed.includes(avatar.id) &&
+      world.actors[avatar.id].place === avatar.home.id &&
+      item.holder === avatar.id &&
+      item.history.length === 0
+    )
+      item.holder = avatar.home.id;
+  }
+}
 function view(world, actor) {
   return {
     actor,
@@ -107,6 +119,7 @@ export function dispatchShared(request) {
             personalQuests: true,
           })
         : importClientSave(request.save);
+    if (!world.sharedVersion) settleHomeItems(world);
     enableShared(world);
     delete world.playerActorId;
     delete world.controlledActors;
@@ -123,6 +136,12 @@ export function dispatchShared(request) {
   if (request.op === "migrate") return migrate(request);
   const world = load(request);
   const actor = request.actor || "vale";
+  if (request.op === "upgrade") {
+    settleHomeItems(world, world.controlledActors);
+    world.revision += 1;
+    validateWorld(world);
+    return response(world);
+  }
   if (request.op === "validate") return response(world);
   if (request.op === "join") {
     if (!world.controlledActors.includes(actor))
