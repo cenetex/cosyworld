@@ -144,8 +144,13 @@ describe("the opening poem", () => {
         present: ["vale", "mara"],
         ...extra,
       });
-    const other = request(imported, "view", "mara");
-    const moved = request(imported, "play", "mara", {
+    const home = request(imported, "view", "mara");
+    const picked = request(imported, "play", "mara", {
+      action: home.actions.find((a) => a.kind === "take" && a.item === "mask"),
+    });
+    expect(picked.ok).toBe(true);
+    const other = request(picked.world, "view", "mara");
+    const moved = request(picked.world, "play", "mara", {
       action: other.actions.find(
         (a) => a.kind === "move" && a.target === "pond",
       ),

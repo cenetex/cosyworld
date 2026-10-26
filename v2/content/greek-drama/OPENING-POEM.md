@@ -59,6 +59,10 @@ bard's visit. Older saves receive pending visits for their earned deeds.
 Available choice logs identify the original human; older trimmed logs use
 the saved player. The existing story choices, items, and flags are preserved.
 
+Shared worlds use rule version 4. Versions 2 and 3 keep their original
+bundles for older journal entries. A recorded upgrade adds the pending
+visits while preserving the earlier deeds and conversations.
+
 Both local and shared games use the same rule. Shared visits belong to the
 human who completed the quest. The shared journal replays the arrival and
 its poem context. The world validates each visit against its earned choice.
