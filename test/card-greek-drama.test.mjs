@@ -268,13 +268,13 @@ describe("Greek story quest cards", () => {
     expect(storyQuests(landing)).toEqual([]);
     let world = move(landing, COURTYARD);
     expect(story(world, 0)).toMatchObject({
-      title: "A place at the table",
+      title: "A place beside the bread.",
       resolved: false,
     });
     expect(story(world, 1)).toBeUndefined();
     world = move(world, GATE);
     expect(story(world, 1)).toMatchObject({
-      title: "Before the burial",
+      title: "Her brother waits for earth.",
       resolved: false,
     });
     expect(story(world, 2)).toBeUndefined();
@@ -337,7 +337,7 @@ describe("Greek story quest cards", () => {
         ]),
       );
       expect(story(world, 2)).toMatchObject({
-        title: "What the courtyard knows",
+        title: "What words will you bring home?",
         resolved: false,
       });
       expect(story(world, 1).purpose).not.toMatch(/rests beneath/);
@@ -519,7 +519,7 @@ describe("Before the Burial", () => {
         }),
       ]),
     );
-    expect(story(world, 1).purpose).toContain("Creon gave leave");
+    expect(story(world, 1).purpose).toBe("Her brother waits for earth.");
     expect(stateOf(world).flags["greek-burial-performed"]).toBe(true);
     expect(stateOf(world).choices["greek-theban-response"]).toBe("concession");
     expect(stateOf(world).receipts["greek-perform-burial"]).toBeUndefined();

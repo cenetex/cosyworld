@@ -229,7 +229,7 @@
     },
     "greek-argos-palace": {
       "name": "Argive Palace",
-      "text": "A bronze door opens onto the royal court. Wax tablets list the household’s dead and absent members.",
+      "text": "A bronze door opens onto the royal court. Wax tablets list the household\u2019s dead and absent members.",
       "exits": [],
       "backdrop": "assets/greek-drama/palace.svg",
       "requires": [
@@ -239,7 +239,7 @@
           "value": "aeschylus"
         }
       ],
-      "persona": "A bronze door opens onto the royal court. Wax tablets list the household’s dead and absent members."
+      "persona": "A bronze door opens onto the royal court. Wax tablets list the household\u2019s dead and absent members."
     },
     "greek-argos-tomb": {
       "name": "Agamemnon's Tomb",
@@ -457,10 +457,22 @@
       "backdrop": "assets/greek-drama/ship-deck.webp",
       "art": "assets/greek-drama/ship-card.webp",
       "music": [
-        { "file": "ship-1.mp3", "title": "Wine, Black Sea" },
-        { "file": "ship-2.mp3", "title": "Wine-Dark" },
-        { "file": "ship-3.mp3", "title": "Wine-Dark-2" },
-        { "file": "ship-4.mp3", "title": "Wine-Dark-3" }
+        {
+          "file": "ship-1.mp3",
+          "title": "Wine, Black Sea"
+        },
+        {
+          "file": "ship-2.mp3",
+          "title": "Wine-Dark"
+        },
+        {
+          "file": "ship-3.mp3",
+          "title": "Wine-Dark-2"
+        },
+        {
+          "file": "ship-4.mp3",
+          "title": "Wine-Dark-3"
+        }
       ],
       "musicMode": "random-per-visit"
     }
@@ -619,21 +631,23 @@
       }
     },
     "greek-rhapsode": {
-      "name": "The Argolid Singer",
-      "text": "He carries three accounts of a household's return. Each gives a different place to hear Electra.",
+      "name": "The Bard",
+      "text": "He keeps the words of the journey in a song.",
       "place": "greek-argolid-road",
       "home": "greek-argolid-road",
       "values": {
         "greek-provisions": 2
       },
-      "persona": "A singer who distinguishes the tomb account, palace account, and farmhouse account. Ask which testimony the traveler will pursue. Do not merge their events or claim any killing has occurred in this world.",
-      "voice": "A singer who distinguishes the tomb account, palace account, and farmhouse account. Ask which testimony the traveler will pursue. Do not merge their events or claim any killing has occurred in this world.",
+      "persona": "A wandering bard who carries the traveler's growing poem. His recorded verses are the traveler's words, sung in their voice. Speak in spare, vivid epic verse. When addressed, sing an earned couplet and connect it to the conversation. Keep each choice and its consequences as recorded. He also knows the separate tomb, palace, and farmhouse accounts of Electra when those places are open.",
+      "voice": "A wandering bard who carries the traveler's growing poem. His recorded verses are the traveler's words, sung in their voice. Speak in spare, vivid epic verse. When addressed, sing an earned couplet and connect it to the conversation. Keep each choice and its consequences as recorded. He also knows the separate tomb, palace, and farmhouse accounts of Electra when those places are open.",
       "portrait": "assets/greek-drama/chthonic-singer.png",
       "tastes": {
         "likes": "specific testimony, a patient audience",
         "sore": "three incompatible accounts flattened into one",
-        "reason": "He carries three accounts of a household's return. Each gives a different place to hear Electra."
-      }
+        "reason": "He waits with a verse of the journey."
+      },
+      "travels": false,
+      "standoffs": false
     },
     "greek-market-neighbor": {
       "name": "The Agora Neighbor",
@@ -1517,7 +1531,7 @@
       "subject": "greek-baker",
       "at": "greek-courtyard",
       "label": "Share the public exception",
-      "text": "Vale tells Dione about the witnessed exception. She records that permission was given for the family’s burial rite.",
+      "text": "Vale tells Dione about the witnessed exception. She records that permission was given for the family\u2019s burial rite.",
       "requires": [
         {
           "kind": "choice",
@@ -1894,7 +1908,7 @@
       "id": "greek-atreid-aeschylus",
       "subject": "greek-rhapsode",
       "at": "greek-argolid-road",
-      "label": "Follow the tomb account · Aeschylus",
+      "label": "Follow the tomb account \u00b7 Aeschylus",
       "text": "Vale follows the Aeschylus account. The singer points out the road to Agamemnon's Tomb.",
       "requires": [
         {
@@ -1909,14 +1923,14 @@
           "value": "aeschylus"
         }
       ],
-      "summary": "The Aeschylus account governs the Atreid household, beginning at Agamemnon’s tomb. The other accounts remain alternative stories."
+      "summary": "The Aeschylus account governs the Atreid household, beginning at Agamemnon\u2019s tomb. The other accounts remain alternative stories."
     },
     {
       "id": "greek-hear-electra-aeschylus",
       "subject": "greek-electra-aeschylus",
       "at": "greek-argos-tomb",
       "label": "Hear the household's testimony",
-      "text": "Vale hears Electra name the household’s losses before asking for a commitment.",
+      "text": "Vale hears Electra name the household\u2019s losses before asking for a commitment.",
       "requires": [
         {
           "kind": "choice",
@@ -1982,7 +1996,7 @@
       "subject": "greek-electra-aeschylus",
       "at": "greek-argos-tomb",
       "label": "Refuse the revenge commitment",
-      "text": "Vale refuses to promise revenge while keeping the household’s testimony on record. Electra knows the answer.",
+      "text": "Vale refuses to promise revenge while keeping the household\u2019s testimony on record. Electra knows the answer.",
       "requires": [
         {
           "kind": "choice",
@@ -2026,7 +2040,7 @@
       "id": "greek-atreid-sophocles",
       "subject": "greek-rhapsode",
       "at": "greek-argolid-road",
-      "label": "Follow the palace account · Sophocles",
+      "label": "Follow the palace account \u00b7 Sophocles",
       "text": "Vale follows the Sophocles account. The singer points out the road to Mycenaean Palace.",
       "requires": [
         {
@@ -2048,7 +2062,7 @@
       "subject": "greek-electra-sophocles",
       "at": "greek-mycenae-palace",
       "label": "Hear the household's testimony",
-      "text": "Vale hears Electra name the household’s losses before asking for a commitment.",
+      "text": "Vale hears Electra name the household\u2019s losses before asking for a commitment.",
       "requires": [
         {
           "kind": "choice",
@@ -2114,7 +2128,7 @@
       "subject": "greek-electra-sophocles",
       "at": "greek-mycenae-palace",
       "label": "Refuse the revenge commitment",
-      "text": "Vale refuses to promise revenge while keeping the household’s testimony on record. Electra knows the answer.",
+      "text": "Vale refuses to promise revenge while keeping the household\u2019s testimony on record. Electra knows the answer.",
       "requires": [
         {
           "kind": "choice",
@@ -2158,7 +2172,7 @@
       "id": "greek-atreid-euripides",
       "subject": "greek-rhapsode",
       "at": "greek-argolid-road",
-      "label": "Follow the farmhouse account · Euripides",
+      "label": "Follow the farmhouse account \u00b7 Euripides",
       "text": "Vale follows the Euripides account. The singer points out the road to The Argive Farmhouse.",
       "requires": [
         {
@@ -2180,7 +2194,7 @@
       "subject": "greek-electra-euripides",
       "at": "greek-argive-farm",
       "label": "Hear the household's testimony",
-      "text": "Vale hears Electra name the household’s losses before asking for a commitment.",
+      "text": "Vale hears Electra name the household\u2019s losses before asking for a commitment.",
       "requires": [
         {
           "kind": "choice",
@@ -2246,7 +2260,7 @@
       "subject": "greek-electra-euripides",
       "at": "greek-argive-farm",
       "label": "Refuse the revenge commitment",
-      "text": "Vale refuses to promise revenge while keeping the household’s testimony on record. Electra knows the answer.",
+      "text": "Vale refuses to promise revenge while keeping the household\u2019s testimony on record. Electra knows the answer.",
       "requires": [
         {
           "kind": "choice",
@@ -3793,7 +3807,8 @@
       "greek-guard",
       "greek-baker",
       "greek-elder",
-      "greek-shipmaster"
+      "greek-shipmaster",
+      "greek-rhapsode"
     ],
     "items": [
       "greek-water-jar",
@@ -3821,6 +3836,118 @@
       "greek-courtyard-permitted-burial",
       "greek-courtyard-refusal",
       "greek-courtyard-exposure"
+    ]
+  },
+  "recital": {
+    "actor": "greek-rhapsode",
+    "title": "Before the Burial",
+    "verses": [
+      {
+        "choice": "greek-return-water-jar",
+        "quest": "story-quest-greek-table",
+        "lines": [
+          "I set the water by her hands.",
+          "She kept a loaf of bread for me."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-petition-burial",
+        "quest": "story-quest-greek-burial",
+        "lines": [
+          "Creon has granted this one grave.",
+          "Her brother waits for earth."
+        ],
+        "summons": false
+      },
+      {
+        "choice": "greek-perform-burial",
+        "quest": "story-quest-greek-burial",
+        "lines": [
+          "I laid her brother in the earth.",
+          "The king's words crossed the wind."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-perform-permitted-burial",
+        "quest": "story-quest-greek-burial",
+        "lines": [
+          "Creon gave leave for this one grave.",
+          "I laid her brother in the earth."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-decline-burial",
+        "quest": "story-quest-greek-burial",
+        "lines": [
+          "I told her I would turn away.",
+          "Her brother waited by the wall."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-report-plan",
+        "quest": "story-quest-greek-burial",
+        "lines": [
+          "I gave the guard the hidden plan.",
+          "He held it with the king's command."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-courtyard-burial",
+        "quest": "story-quest-greek-courtyard",
+        "lines": [
+          "I spoke of earth beside her table.",
+          "Dione heard me through."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-courtyard-concession",
+        "quest": "story-quest-greek-courtyard",
+        "lines": [
+          "I spoke the promise of a grave.",
+          "His body waited in the sun."
+        ],
+        "summons": true,
+        "after": {
+          "choice": "greek-perform-permitted-burial",
+          "lines": [
+            "I told her of the king's consent.",
+            "She heard the leave that he had given."
+          ]
+        }
+      },
+      {
+        "choice": "greek-courtyard-refusal",
+        "quest": "story-quest-greek-courtyard",
+        "lines": [
+          "I told her how I turned away.",
+          "She kept a place beside her table."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-courtyard-exposure",
+        "quest": "story-quest-greek-courtyard",
+        "lines": [
+          "I told her what the guard had heard.",
+          "My words lay open on the table."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-courtyard-permitted-burial",
+        "quest": "story-quest-greek-courtyard",
+        "lines": [
+          "The grave I promised holds him now.",
+          "I brought that word to Dione."
+        ],
+        "summons": true
+      }
     ]
   }
 }

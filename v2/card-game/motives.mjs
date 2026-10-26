@@ -10,6 +10,7 @@ import {
   packTastes,
   packNames,
   packPeople,
+  packOf,
   packThings,
   conditionsMet,
   entityActive,
@@ -148,7 +149,12 @@ export function interest(s, actor) {
             (id) => entityActive(s, id) && owner(s, id) !== actor,
           )
         : [],
-      location: active ? wish.location : resident.home || resident.place,
+      location:
+        packOf(actor)?.recital?.actor === actor
+          ? s.actors[actor].place
+          : active
+            ? wish.location
+            : resident.home || resident.place,
       avatars: active ? wish.avatars.filter((id) => entityActive(s, id)) : [],
       text: resident.tastes.likes,
       reason: resident.tastes.reason,

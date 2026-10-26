@@ -26,7 +26,8 @@ export async function checkOpeningPoem(browser, origin) {
         reducedMotion: "reduce",
         hasTouch: width < 700,
       });
-      const errors = [];
+      const errors = [],
+        requests = [];
       page.on("pageerror", (e) => errors.push(e.message));
       try {
         await page.addInitScript(
@@ -54,13 +55,21 @@ export async function checkOpeningPoem(browser, origin) {
         );
         await page.route("**/card-game/text", (route) => {
           const input = route.request().postDataJSON();
+          requests.push(input);
           return route.fulfill({
             json: {
               revision: input.revision,
               model: "poem-fixture",
-              entries: input.entities.map(({ id }) => ({
+              entries: input.entities.map(({ id, facts }) => ({
                 id,
-                text: "Dione hears the account.",
+                text:
+                  id === "greek-rhapsode"
+                    ? facts
+                        .findLast((f) => f.startsWith("Verse "))
+                        ?.split(": ")
+                        .slice(1)
+                        .join(": ") || "I have a song for you."
+                    : "Dione hears the account.",
               })),
             },
           });
@@ -87,20 +96,21 @@ export async function checkOpeningPoem(browser, origin) {
           await page.evaluate(
             () => document.documentElement.scrollWidth <= innerWidth + 1,
           ),
-          "The poem toolbar fits the screen",
+          "The toolbar fits the screen",
         );
-        // The return card remains a short couplet at the smallest width.
+        // The quest face has one line, including when it is selected.
         await selectCard(page, "story-quest-greek-courtyard", {
           touch: width < 700,
         });
         const face = page.locator(
           '#hand [data-card="story-quest-greek-courtyard"]',
         );
+        assert.equal(await face.locator(".quest-purpose").count(), 0);
         assert.equal(
-          (await face.locator(".quest-purpose").textContent()).split("\n")
-            .length,
-          2,
+          await face.locator(".name").textContent(),
+          "What words will you bring home?",
         );
+        assert.equal(await page.locator("#poem-button").count(), 0);
         assert.ok(
           await face.evaluate((el) => el.scrollHeight <= el.clientHeight + 1),
         );
@@ -117,39 +127,42 @@ export async function checkOpeningPoem(browser, origin) {
         const expected = openingPoem(fixtures.closed).stanzas.map((s) =>
           s.lines.join("\n"),
         );
-        const readPoem = async () => {
-          await page.locator("#poem-button").click();
-          await page.locator("#poem-dialog[open]").waitFor();
-          assert.deepEqual(
-            await page.locator("#poem-verses p").allTextContents(),
-            expected,
-          );
-          assert.ok(
-            await page
-              .locator("#poem-dialog")
-              .evaluate(
-                (el) =>
-                  el.scrollWidth <= el.clientWidth + 1 &&
-                  el.getBoundingClientRect().right <= innerWidth,
-              ),
-          );
-        };
-        await readPoem();
-        await page.screenshot({
-          path: new URL(`${branch}-poem-${width}.png`, output).pathname,
-        });
-        await page.locator('[data-close="poem-dialog"]').click();
+        // Finishing the report preserves the pending visit through reload.
         await page.reload();
         await settle();
-        await readPoem();
-        await page.locator('[data-close="poem-dialog"]').click();
         await selectCard(page, "greek-harbor", { touch: width < 700 });
         await page.locator('#card-actions [data-action="move"]').click();
         await settle();
-        await readPoem();
+        assert.equal(
+          await page.locator('#hand [data-card="greek-rhapsode"]').count(),
+          1,
+        );
+        const speak = async () => {
+          await selectCard(page, "greek-rhapsode", { touch: width < 700 });
+          await page.locator('#card-actions [data-action="talk"]').click();
+          await settle();
+          const input = requests.at(-1);
+          assert.ok(input.speakers.includes("greek-rhapsode"));
+          const facts = input.entities.find(
+            (e) => e.id === "greek-rhapsode",
+          ).facts;
+          assert.deepEqual(
+            facts
+              .filter((f) => f.startsWith("Verse "))
+              .map((f) => f.split(": ").slice(1).join(": ")),
+            expected,
+          );
+        };
+        await speak();
+        await page.screenshot({
+          path: new URL(`${branch}-bard-${width}.png`, output).pathname,
+        });
+        await page.reload();
+        await settle();
+        await speak();
         assert.deepEqual(errors, []);
         console.log(
-          `Opening poem: ${branch}, ${width}px, card fit, return, reload, and travel passed.`,
+          `Opening poem: ${branch}, ${width}px, single-line card, next-room bard, full song context, talk, and reload passed.`,
         );
       } finally {
         await page.close();

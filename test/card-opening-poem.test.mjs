@@ -12,14 +12,176 @@ import {
   STORY_QUEST_CARDS,
 } from "../v2/card-game/quest-cards.mjs";
 import { openingFixture } from "./helpers/greek-opening.mjs";
+import { narrativeContext } from "../v2/card-game/narrative.mjs";
+import {
+  entityActive,
+  packDefinition,
+} from "../v2/card-game/pack-registry.mjs";
+import { packProblems } from "../v2/card-game/pack-schema.mjs";
+import { hub } from "../v2/card-game/pack-registry.mjs";
+import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 
 const stanzas = (world) => openingPoem(world).stanzas;
 const lines = (world) => stanzas(world).flatMap((s) => s.lines);
 const reload = (world) => decodeSave(encodeSave(world));
 const courtyard = (world) =>
   storyQuests(world).find((q) => q.id === STORY_QUEST_CARDS[2]);
+const act = (world, kind, target) => {
+  const action = legalActions(world).find(
+    (a) => a.kind === kind && (!target || a.target === target),
+  );
+  expect(action).toBeTruthy();
+  const result = play(world, action);
+  expect(result.ok, result.error).toBe(true);
+  return result.state;
+};
+const bard = "greek-rhapsode";
+const facts = (world) =>
+  narrativeContext(world).entities.find((e) => e.id === bard)?.facts || [];
 
 describe("the opening poem", () => {
+  it("keeps each card to the same single line across every branch", () => {
+    for (const branch of ["burial", "concession", "refusal", "exposure"])
+      for (const world of Object.values(openingFixture(branch)))
+        for (const quest of storyQuests(world)) {
+          expect(quest.singleLine).toBe(true);
+          expect(quest.title).toBe(
+            [
+              "A place beside the bread.",
+              "Her brother waits for earth.",
+              "What words will you bring home?",
+            ][STORY_QUEST_CARDS.indexOf(quest.id)],
+          );
+          expect(quest.purpose).toBe(quest.title);
+        }
+  });
+
+  it("introduces the bard on the next journey, then lets him wait there", () => {
+    const s = openingFixture("refusal");
+    expect(entityActive(s.water, bard)).toBe(false);
+    const waiting = act(reload(s.water), "wait");
+    expect(entityActive(waiting, bard)).toBe(false);
+    const next = act(reload(waiting), "move", "greek-well");
+    expect(entityActive(next, bard)).toBe(true);
+    expect(next.actors[bard].place).toBe("greek-well");
+    expect(facts(act(next, "talk", bard)).join("\n")).toContain(
+      lines(s.water).join("\n"),
+    );
+    const away = act(reload(next), "move", "greek-palace");
+    expect(away.actors[bard].place).toBe("greek-well");
+    expect(away.packs["greek-drama"].recitals).toEqual(
+      next.packs["greek-drama"].recitals,
+    );
+  });
+
+  it.each(["burial", "concession", "refusal", "exposure"])(
+    "carries the whole %s poem into a later conversation",
+    (branch) => {
+      const s = openingFixture(branch);
+      const next = act(reload(s.closed), "move", "greek-harbor");
+      expect(next.actors[bard].place).toBe("greek-harbor");
+      const talked = act(reload(next), "talk", bard);
+      const context = narrativeContext(talked);
+      expect(context.speakers).toContain(bard);
+      const song = facts(talked);
+      expect(
+        song
+          .filter((f) => f.startsWith("Verse "))
+          .map((f) => f.split(": ").slice(1).join(": ")),
+      ).toEqual(stanzas(s.closed).map((s) => s.lines.join("\n")));
+      expect(song.length).toBeLessThanOrEqual(8);
+      expect(song.every((f) => f.length <= 240)).toBe(true);
+      expect(facts(reload(talked))).toEqual(song);
+    },
+  );
+
+  it("keeps a newly earned report pending until the next room", () => {
+    const s = openingFixture("refusal");
+    expect(facts(s.returning).join("\n")).toContain(
+      "I told her I would turn away.",
+    );
+    expect(facts(s.closed).join("\n")).not.toContain(
+      "I told her how I turned away.",
+    );
+    const next = act(s.closed, "move", "greek-harbor");
+    expect(facts(act(next, "talk", bard)).join("\n")).toContain(
+      "I told her how I turned away.",
+    );
+  });
+
+  it("upgrades an older completed save and rejects invented visit records", () => {
+    const s = openingFixture("refusal");
+    const old = structuredClone(s.water);
+    delete old.packs["greek-drama"].recitals;
+    old.log = [];
+    const upgraded = decodeSave(JSON.stringify(old));
+    expect(stanzas(upgraded)).toEqual(stanzas(s.water));
+    expect(act(upgraded, "move", "greek-well").actors[bard].place).toBe(
+      "greek-well",
+    );
+    for (const value of [
+      { actor: "greek-baker", visit: null },
+      { actor: "vale", visit: s.water.turn },
+      { actor: "vale", visit: s.water.turn + 1 },
+    ]) {
+      const forged = structuredClone(s.water);
+      forged.packs["greek-drama"].recitals["greek-return-water-jar"] = value;
+      expect(() => reload(forged)).toThrow(/fresh start/);
+    }
+  });
+
+  it("ties a pending shared visit to the human who completed the quest", () => {
+    const imported = dispatchShared({
+      op: "create",
+      save: encodeSave(openingFixture("refusal").water),
+    }).world;
+    const request = (world, op, actor, extra = {}) =>
+      dispatchShared({
+        world,
+        op,
+        actor,
+        claimed: ["vale", "mara"],
+        present: ["vale", "mara"],
+        ...extra,
+      });
+    const other = request(imported, "view", "mara");
+    const moved = request(imported, "play", "mara", {
+      action: other.actions.find(
+        (a) => a.kind === "move" && a.target === "pond",
+      ),
+    });
+    expect(moved.ok).toBe(true);
+    expect(entityActive(moved.world, bard)).toBe(false);
+    const view = request(moved.world, "view", "vale");
+    const arrived = request(moved.world, "play", "vale", {
+      action: view.actions.find(
+        (a) => a.kind === "move" && a.target === "greek-well",
+      ),
+    });
+    expect(arrived.ok).toBe(true);
+    expect(arrived.world.actors[bard].place).toBe("greek-well");
+    const again = request(moved.world, "play", "vale", {
+      action: view.actions.find(
+        (a) => a.kind === "move" && a.target === "greek-well",
+      ),
+    });
+    expect(again.world).toEqual(arrived.world);
+    expect(
+      facts({ ...arrived.world, playerActorId: "vale" }).join("\n"),
+    ).toContain("I set the water by her hands.");
+  });
+
+  it("validates authored recital choices and bounded couplets", () => {
+    for (const change of [
+      (p) => (p.recital.verses[0].choice = "missing"),
+      (p) => (p.recital.verses[0].lines = ["one"]),
+      (p) => (p.recital.actor = "missing"),
+    ]) {
+      const p = structuredClone(packDefinition("greek-drama"));
+      change(p);
+      expect(packProblems(p, hub).join(" ")).toMatch(/recital/);
+    }
+  });
   it.each([
     ["burial", "greek-perform-burial", "I laid her brother in the earth."],
     ["refusal", "greek-decline-burial", "I told her I would turn away."],

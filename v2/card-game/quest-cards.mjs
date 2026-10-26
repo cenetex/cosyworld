@@ -1,3 +1,5 @@
+import { packDefinition } from "./pack-registry.mjs";
+import { recitalPoem } from "./pack-recital.mjs";
 import { programFor } from "./quests.mjs";
 import { availableCards } from "./cards.mjs";
 import { rootHolder, things, currentActor } from "./world.mjs";
@@ -11,75 +13,17 @@ export const STORY_QUEST_CARDS = [
 export const isQuestCard = (id) =>
   id === QUEST_CARD || STORY_QUEST_CARDS.includes(id);
 
-// Version-one verses are selected from committed choices, in their saved order.
-// Keep these earned lines stable when adding later chapters to the poem.
-const verses = {
-  water: "I set the water by her hands.\nShe kept a loaf of bread for me.",
-  permission: "Creon has granted this one grave.\nHer brother waits for earth.",
-  burial:
-    "I laid her brother in the earth.\nThe king's words crossed the wind.",
-  permittedBurial:
-    "Creon gave leave for this one grave.\nI laid her brother in the earth.",
-  refusal: "I told her I would turn away.\nHer brother waited by the wall.",
-  exposure:
-    "I gave the guard the hidden plan.\nHe held it with the king's command.",
-  courtyardBurial:
-    "I spoke of earth beside her table.\nDione heard me through.",
-  courtyardPermission:
-    "I spoke the promise of a grave.\nHis body waited in the sun.",
-  courtyardPermissionAfterBurial:
-    "I told her of the king's consent.\nShe heard the leave that he had given.",
-  courtyardRefusal:
-    "I told her how I turned away.\nShe kept a place beside her table.",
-  courtyardExposure:
-    "I told her what the guard had heard.\nMy words lay open on the table.",
-  courtyardGrave:
-    "The grave I promised holds him now.\nI brought that word to Dione.",
-};
-const storyTitles = [
-  "A place at the table",
-  "Before the burial",
-  "What the courtyard knows",
-];
-const poemEvents = {
-  "greek-return-water-jar": [0, "water"],
-  "greek-petition-burial": [1, "permission"],
-  "greek-perform-burial": [1, "burial"],
-  "greek-perform-permitted-burial": [1, "permittedBurial"],
-  "greek-decline-burial": [1, "refusal"],
-  "greek-report-plan": [1, "exposure"],
-  "greek-courtyard-burial": [2, "courtyardBurial"],
-  "greek-courtyard-concession": [2, "courtyardPermission"],
-  "greek-courtyard-refusal": [2, "courtyardRefusal"],
-  "greek-courtyard-exposure": [2, "courtyardExposure"],
-  "greek-courtyard-permitted-burial": [2, "courtyardGrave"],
-};
-
 export function openingPoem(world) {
-  const receipts = world.packs?.["greek-drama"]?.receipts || {};
-  const stanzas = Object.entries(receipts)
-    .filter(([id]) => Object.hasOwn(poemEvents, id))
-    .sort((a, b) => a[1] - b[1])
-    .map(([id, turn]) => {
-      const [index, verse] = poemEvents[id];
-      // A later rite cannot rewrite what Dione heard on an earlier visit.
-      const key =
-        verse === "courtyardPermission" &&
-        receipts["greek-perform-permitted-burial"] < turn
-          ? "courtyardPermissionAfterBurial"
-          : verse;
-      return {
-        id,
-        turn,
-        questId: STORY_QUEST_CARDS[index],
-        title: storyTitles[index],
-        lines: verses[key].split("\n"),
-      };
-    });
-  return { title: "Before the Burial", stanzas };
+  return recitalPoem(world, packDefinition("greek-drama"));
 }
 
-// Cards and the poem share the same words and the same saved choice receipts.
+const storyLines = [
+  "A place beside the bread.",
+  "Her brother waits for earth.",
+  "What words will you bring home?",
+];
+
+// Card lines stay short and steady; saved choices determine their completion.
 export function storyQuests(world) {
   const state = world.packs?.["greek-drama"];
   if (!state) return [];
@@ -91,32 +35,19 @@ export function storyQuests(world) {
     publicOutcome = flags[`greek-${response}-public`] === true,
     graveReturn = response === "concession" && buried && publicOutcome,
     graveShared = flags["greek-permitted-burial-public"] === true;
-  const earned = openingPoem(world).stanzas;
-  const lastVerse = (index) =>
-    earned
-      .findLast((stanza) => stanza.questId === STORY_QUEST_CARDS[index])
-      ?.lines.join("\n");
-  const card = (index, purpose, art, resolved, completion = "Fulfilled") => ({
+  const card = (index, art, resolved, completion = "Fulfilled") => ({
     id: STORY_QUEST_CARDS[index],
     key: `greek-drama:${STORY_QUEST_CARDS[index]}${index === 2 && graveReturn ? ":grave" : ""}`,
-    title: storyTitles[index],
-    purpose,
+    title: storyLines[index],
+    purpose: storyLines[index],
+    singleLine: true,
     art,
     resolved,
     completion,
   });
   const quests = [];
   if (Object.hasOwn(met, "greek-baker") || returned)
-    quests.push(
-      card(
-        0,
-        returned
-          ? lastVerse(0)
-          : "A jar of water for her hands.\nA place beside her bread.",
-        "greek-water-jar",
-        returned,
-      ),
-    );
+    quests.push(card(0, "greek-water-jar", returned));
   if (
     Object.hasOwn(met, "greek-antigone") ||
     flags["greek-decree-known"] ||
@@ -125,31 +56,12 @@ export function storyQuests(world) {
   ) {
     const completion = { refusal: "Declined", exposure: "Reported" }[response];
     quests.push(
-      card(
-        1,
-        lastVerse(1) ||
-          "Antigone stands beyond the gate.\nHer brother waits for earth.",
-        "greek-funeral-cloth",
-        buried || Boolean(completion),
-        completion,
-      ),
+      card(1, "greek-funeral-cloth", buried || Boolean(completion), completion),
     );
   }
   if (response) {
     const resolved = publicOutcome && (!graveReturn || graveShared);
-    quests.push(
-      card(
-        2,
-        resolved
-          ? lastVerse(2)
-          : graveReturn
-            ? "Her brother rests beneath the earth.\nDione waits to hear of him."
-            : "Dione keeps a place for me.\nWhat shall I bring beside the bread?",
-        "greek-bread",
-        resolved,
-        "Shared",
-      ),
-    );
+    quests.push(card(2, "greek-bread", resolved, "Shared"));
   }
   return quests;
 }

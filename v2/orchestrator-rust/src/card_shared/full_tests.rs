@@ -57,6 +57,68 @@ fn full_world_has_existing_residents_and_packs_and_replays_from_seed() {
     assert_eq!(full_store::world(&c, &id, now()).unwrap(), before);
 }
 #[test]
+fn full_world_bard_visit_and_song_replay_from_the_journal() {
+    let path = std::env::temp_dir().join(format!("bard-world-{}.sqlite", crate::random_hex(12)));
+    let c = store::open(&path).unwrap();
+    full_store::schema(&c).unwrap();
+    let id = "d".repeat(48);
+    store::create(&c, &id, "owner", now()).unwrap();
+    let mut w = World::create(None).unwrap();
+    // Set the opening scene, then use real choices through the C interpreter.
+    w.game["actors"]["vale"]["place"] = json!("greek-courtyard");
+    w.game["items"]["greek-water-jar"]["holder"] = json!("vale");
+    full_store::seed(&c, &id, &w, "bard-test", now()).unwrap();
+    for op in ["claim", "enter"] {
+        full_store::commit(&c, &id, &mut w, json!({"op":op,"actor":"vale"}), now()).unwrap();
+    }
+    for (field, value) in [
+        ("choiceId", "greek-return-water-jar"),
+        ("kind", "wait"),
+        ("target", "greek-well"),
+        ("target", "greek-rhapsode"),
+    ] {
+        let view = w.project(0).unwrap();
+        let action = view["actions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|a| a[field] == value && (value != "greek-rhapsode" || a["kind"] == "talk"))
+            .unwrap()
+            .clone();
+        let result = full_store::commit(
+            &c,
+            &id,
+            &mut w,
+            json!({"op":"play","actor":"vale","action":action}),
+            now(),
+        )
+        .unwrap();
+        if value == "wait" {
+            assert_eq!(
+                w.game["actors"]["greek-rhapsode"]["place"],
+                "greek-argolid-road"
+            );
+        }
+        if value == "greek-rhapsode" {
+            assert_eq!(w.game["actors"]["greek-rhapsode"]["place"], "greek-well");
+            let facts = result["context"]["entities"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|e| e["id"] == "greek-rhapsode")
+                .unwrap()["facts"]
+                .to_string();
+            assert!(facts.contains("I set the water by her hands."));
+            assert!(facts.contains("She kept a loaf of bread for me."));
+        }
+    }
+    drop(c);
+    let c = store::open(&path).unwrap();
+    assert_eq!(full_store::world(&c, &id, now()).unwrap(), w);
+    c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+    assert_eq!(full_store::world(&c, &id, now()).unwrap(), w);
+}
+#[test]
 fn full_world_c_guard_counts_humans_in_arbitrary_existing_rooms() {
     let mut w = World::create(None).unwrap();
     for a in 0..8 {

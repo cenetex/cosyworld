@@ -1,3 +1,4 @@
+import { openingFixture } from "../helpers/greek-opening.mjs";
 import {
   createWorld,
   legalActions,
@@ -107,6 +108,15 @@ export function narrativeContractCases() {
     ["Helen in Egypt", helen],
     ["reload Greek history", decodeSave(encodeSave(helen))],
   ];
+  for (const branch of ["burial", "concession", "refusal", "exposure"]) {
+    const earned = openingFixture(branch).closed;
+    const arrival = playCard(earned, "move", null, "greek-harbor");
+    worlds.push([`${branch} bard arrival`, arrival]);
+    worlds.push([
+      `${branch} bard conversation`,
+      playCard(arrival, "talk", null, "greek-rhapsode"),
+    ]);
+  }
   return worlds.map(([name, world]) => ({
     name,
     world,

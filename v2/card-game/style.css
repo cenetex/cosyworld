@@ -1193,22 +1193,6 @@ body .card.quest .name {
     serif;
   text-wrap: balance;
 }
-.poem-verses {
-  padding: 12px 4px 8px;
-}
-dialog .poem-stanza {
-  margin: 0 0 1.5em;
-  white-space: pre-line;
-  font:
-    18px/1.65 Georgia,
-    serif;
-  color: #f0dfbd;
-}
-@media (max-width: 440px) {
-  dialog .poem-stanza {
-    font-size: 16px;
-  }
-}
 body .card.quest[aria-pressed="true"],
 body .unveil .card.quest {
   padding: 25px 13px 14px;

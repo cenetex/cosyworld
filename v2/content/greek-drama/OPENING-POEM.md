@@ -1,76 +1,69 @@
-# Before the Burial: exact card and poem text
+# Before the Burial: cards and the bard
 
-This is the full copy list for the opening implementation. It contains all
-15 card faces and the one verse that appears only in the collected poem.
-The lines are authored in `v2/card-game/quest-cards.mjs`. Saved choices select
-them. The earlier design proposal supplies the direction; this list records
-the exact implemented wording, including the added return after burial.
+## Exact quest card text
 
-Each card face has a title and two lines. Its completion label is shown
-during its closing moment. The **Poem** button appears after the first earned
-verse. It opens the earned verses in the order the deeds happened.
+Each card shows its art, a small Quest or completion label, and one line.
+The same line remains through each branch and its closing moment.
 
-## A place at the table
+| Quest  | Exact line                      |
+| ------ | ------------------------------- |
+| Water  | A place beside the bread.       |
+| Burial | Her brother waits for earth.    |
+| Return | What words will you bring home? |
 
-| When | Exact card text |
-| --- | --- |
-| Dione has been met; her jar is still due | A jar of water for her hands.<br>A place beside her bread. |
-| Her jar has been returned | I set the water by her hands.<br>She kept a loaf of bread for me. |
+Card lines live in `v2/card-game/quest-cards.mjs`. The poem lives in the
+Greek pack's `recital` descriptor in `card-world.json`.
 
-Returning the jar earns the second pair of lines. Completion label: **Fulfilled**.
+## Meeting the bard
 
-## Before the burial
+The existing singer becomes **The Bard**, with his existing portrait. A
+completed quest leaves a visit pending for the player who completed it.
+On that player's next journey, he waits in the destination room. He stays
+there until another completed quest brings him to a later destination.
+Waiting, talking, and reloading preserve a pending visit.
 
-| When | Exact card text |
-| --- | --- |
-| Antigone has been met or the decree heard; the choice is open | Antigone stands beyond the gate.<br>Her brother waits for earth. |
-| Creon grants permission; the rite remains open | Creon has granted this one grave.<br>Her brother waits for earth. |
-| Burial in defiance has happened | I laid her brother in the earth.<br>The king's words crossed the wind. |
-| Burial under permission has happened | Creon gave leave for this one grave.<br>I laid her brother in the earth. |
-| The traveler declines Antigone's request | I told her I would turn away.<br>Her brother waited by the wall. |
-| The traveler reports the plan to the guard | I gave the guard the hidden plan.<br>He held it with the king's command. |
+His conversation context carries the whole earned poem through his latest
+visit. Each verse names the traveler whose deed earned it. The bard sings
+an earned couplet when addressed. His voice uses spare, vivid epic verse.
 
-Each committed response earns its own pair of lines. Permission earns a
-verse while the burial card stays open. The later rite adds a second verse.
-Completion labels: **Fulfilled**, **Declined**, or **Reported**, matching the
-chosen result.
+Permission earns a verse while the burial quest remains open. Reporting
+permission completes the return quest. A later burial opens that return
+again, with the same card line, so Dione can hear about the finished grave.
 
-## What the courtyard knows
+## Exact verses
 
-| When | Exact card text |
-| --- | --- |
-| A response has been chosen; Dione is waiting for its first report | Dione keeps a place for me.<br>What shall I bring beside the bread? |
-| The burial in defiance has been reported | I spoke of earth beside her table.<br>Dione heard me through. |
-| Permission has been reported before the burial | I spoke the promise of a grave.<br>His body waited in the sun. |
-| Permission has been reported and the burial has happened; Dione is waiting for the grave report | Her brother rests beneath the earth.<br>Dione waits to hear of him. |
-| The completed permitted burial has been reported | The grave I promised holds him now.<br>I brought that word to Dione. |
-| Withdrawal has been reported | I told her how I turned away.<br>She kept a place beside her table. |
-| The guard's warning has been reported | I told her what the guard had heard.<br>My words lay open on the table. |
+| Earned deed                     | Couplet                                                                     |
+| ------------------------------- | --------------------------------------------------------------------------- |
+| Return the water                | I set the water by her hands.<br>She kept a loaf of bread for me.           |
+| Receive permission              | Creon has granted this one grave.<br>Her brother waits for earth.           |
+| Bury in defiance                | I laid her brother in the earth.<br>The king's words crossed the wind.      |
+| Bury with permission            | Creon gave leave for this one grave.<br>I laid her brother in the earth.    |
+| Decline the burial              | I told her I would turn away.<br>Her brother waited by the wall.            |
+| Tell the guard                  | I gave the guard the hidden plan.<br>He held it with the king's command.    |
+| Report the burial               | I spoke of earth beside her table.<br>Dione heard me through.               |
+| Report permission before burial | I spoke the promise of a grave.<br>His body waited in the sun.              |
+| Report permission after burial  | I told her of the king's consent.<br>She heard the leave that he had given. |
+| Report the refusal              | I told her how I turned away.<br>She kept a place beside her table.         |
+| Report the warning              | I told her what the guard had heard.<br>My words lay open on the table.     |
+| Report the permitted burial     | The grave I promised holds him now.<br>I brought that word to Dione.        |
 
-Completion label: **Shared**. The fourth row is new wording added during
-implementation. It introduces the final report to Dione. The matching
-action is **Tell Dione about the grave**.
+## Saved history
 
-If permission is first reported after the rite, the poem earns this pair:
+The song follows the durable choice receipts. An early permission report
+keeps its words after a later burial. Returning the water late places its
+verse later in the song. Each branch keeps its own outcome and report.
 
-> I told her of the king's consent.\
-> She heard the leave that he had given.
+The pack save adds a `recitals` record beside its existing receipts. Each
+verse records the acting human and, for a completed quest, the turn of the
+bard's visit. Older saves receive pending visits for their earned deeds.
+Available choice logs identify the original human; older trimmed logs use
+the saved player. The existing story choices, items, and flags are preserved.
 
-The card then uses the fourth row until the traveler reports the completed
-burial. This keeps the permission report and the grave report distinct.
+Both local and shared games use the same rule. Shared visits belong to the
+human who completed the quest. The shared journal replays the arrival and
+its poem context. The world validates each visit against its earned choice.
 
-## Order and saved history
-
-- Returning water late puts its verse later in the poem.
-- An early permission report keeps its original wording after the burial.
-- A later rite adds a verse and reopens the return card with its grave text.
-- Each report earns its verse once. Reload, rest, and travel preserve it.
-- Older saves use the same choice receipts. A completed permitted burial
-  with permission already shared opens the new grave report.
-- Verse order follows the durable choice receipts. Conversation history can
-  grow or be trimmed while the poem keeps its earned lines.
-
-The permission route can therefore read: water, permission, permission
-report, burial, grave report. It can also read: water, permission, burial,
-permission report, grave report. The other three branches each keep their
-own response and public-return verses.
+The opening tests cover all four branches, both permission-report orders,
+late water, pending visits, reload, log pruning, shared play, and journal
+replay. Browser checks cover the single-line face and talking to the bard
+at desktop, phone, small-phone, and landscape sizes.
