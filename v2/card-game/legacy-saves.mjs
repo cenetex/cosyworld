@@ -1,3 +1,86 @@
+import { newProgress, questPrograms } from "./quests.mjs";
+import { migrateMemories, newMemories, rememberEvent } from "./memory.mjs";
+import { isPackActor } from "./pack-registry.mjs";
+
+// Upgrade historical records before the world validates the current save.
+// World-owned helpers keep pack installation and generated quests on the same
+// path as a new game, while this module owns the schema order.
+export function upgradeSave(s, { actorIds, ensurePrograms, installPacks }) {
+  if (s?.schema === 1 && s.actors && typeof s.actors === "object") {
+    s.schema = 2;
+    for (const actor of Object.values(s.actors)) {
+      if (actor && typeof actor === "object") {
+        actor.progress = newProgress();
+        delete actor.aim;
+      }
+    }
+  }
+  if (s?.schema === 2) {
+    for (const [id, actor] of Object.entries(s.actors || {})) {
+      if (isPackActor(id)) continue;
+      const p = actor?.progress,
+        programs = questPrograms[id];
+      if (
+        !programs ||
+        !p ||
+        !Number.isInteger(p.program) ||
+        p.program < 0 ||
+        p.program > programs.length ||
+        !Number.isInteger(p.step) ||
+        p.step < 0 ||
+        (p.program === programs.length
+          ? p.step !== 0
+          : p.step >= programs[p.program].steps.length)
+      )
+        throw new Error("This save has an invalid quest step.");
+    }
+    s.schema = 3;
+    ensurePrograms(s);
+  }
+  if (s?.schema === 3) {
+    s.schema = 4;
+    if (s.eventSeq === undefined && Array.isArray(s.log)) {
+      s.log.forEach((entry, index) => {
+        entry.seq = index + 1;
+      });
+      s.eventSeq = s.log.length;
+    }
+    if (Array.isArray(s.log)) migrateMemories(s);
+  }
+  if (s?.schema === 4) {
+    s.schema = 5;
+    s.standoffs = [];
+    s.peaceUntil = Object.fromEntries(actorIds.map((id) => [id, 0]));
+  }
+  if (s?.schema === 5) {
+    s.schema = 6;
+    s.locations = { attic: { anchored: false }, pond: { answer: null } };
+    for (const [id, actor] of Object.entries(s.actors || {}))
+      actor.trust = Object.fromEntries(
+        actorIds.filter((other) => other !== id).map((other) => [other, 0]),
+      );
+    const remembered = { ...s, memories: newMemories() };
+    for (const entry of s.log || []) rememberEvent(remembered, entry);
+    for (const [id, memory] of Object.entries(s.memories || {}))
+      memory.landmarks = remembered.memories[id]?.landmarks || [];
+  }
+  if (s?.schema === 6) {
+    // Schema 7 moved the Steam Clock into the world-pack state.
+    upgradeSteamClockSave(s);
+    s.schema = 7;
+    installPacks(s);
+  } else if (
+    s?.schema === 7 &&
+    s.packs &&
+    typeof s.packs === "object" &&
+    s.crossings &&
+    typeof s.crossings === "object"
+  )
+    // A pack mounted after this save was written joins it fresh.
+    installPacks(s);
+  return s;
+}
+
 // Explicit migrations of historical pre-pack records, never runtime gate rules.
 export function upgradeSteamClockSave(s) {
   const clock = s.steamClock;
