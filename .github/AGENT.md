@@ -49,8 +49,9 @@ Then run every row that matches the change:
 | Browser, HTTP, persistence, or multiplayer | `npm run v2:check` |
 | Broad V2 or release change | `npm run check:local` and the relevant build |
 
-CI is the final cross-platform authority and runs Node 20, stable Rust,
-`npm run lint`, `npm run check`, a Rust build, and the web build. A local suite
+CI is the final cross-platform authority. It uses Node 24 and stable Rust
+for lint, tests, content, kernel, Rust builds, browser and composition smokes,
+and guide checks. A local suite
 that opens ephemeral HTTP listeners may fail inside a restricted sandbox with
 `listen EPERM`; rerun it where loopback binding is permitted rather than
 changing application behavior.
@@ -74,8 +75,8 @@ changing application behavior.
 
 ## Known traps
 
-- V2 is canonical. Do not implement new gameplay in the legacy Node companion
-  just because its service graph is easier to navigate.
+- Build gameplay in the shipping modules under `v2/`. Use the card-game guide
+  for the browser model, forest data, save upgrades, and public assets.
 - `v2/orchestrator-rust/src/main.rs` is very large. Use exact searches and narrow
   reads; do not mix opportunistic refactoring into a feature fix.
 - `v2/content/official/**` is compiled output. Editing it without the owning

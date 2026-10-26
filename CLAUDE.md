@@ -11,8 +11,7 @@ from general rules and deterministic generators rather than scripted quests.
 Players see it through the card table in `v2/card-game/`. Both Fly apps serve the
 table at `/`
 (`COSYWORLD_PRIMARY_GAME=cards`). The shared-world MUD runs at `/classic`, and
-named Lonely Forest worlds keep their own pages. The former Node companion under
-`src/` has been removed. All work belongs under `v2/`. See
+named Lonely Forest worlds keep their own pages. Game work belongs under `v2/`. See
 `docs/decisions/0015-a-generated-world-seen-through-cards.md`.
 
 The card table is still a prototype that runs in the browser. Its rules,
@@ -75,7 +74,7 @@ keeping moves into `docs/backlog/` first.
 - `v2/cli/`: terminal client for `/classic`; it plays the same dealt offers
   and command envelope as the browser, and CI smokes a card play.
 - `test/`: cross-surface Vitest coverage.
-- `.github/workflows/`: CI, dual-app production Fly deployment, and tagged
+- `.github/workflows/`: CI, automatic test-site deployment, production releases, and tagged
   GitHub release notes.
 - `ENG.md`: current engineering invariants and priorities.
 - `v2/README.md`: runtime behavior, endpoints, configuration, and operations.
@@ -88,7 +87,7 @@ focused module when one owns the behavior (`account_auth`, `ai_gateway`,
 
 ## Set up, run, and verify
 
-CI uses Node 20 and stable Rust. Install JavaScript dependencies with `npm ci`.
+CI uses Node 24 and stable Rust. Install JavaScript dependencies with `npm ci`.
 The full V2 check also needs a C compiler and the Rust `wasm32-unknown-unknown`
 target.
 
@@ -116,8 +115,8 @@ git diff --check
 ```
 
 Before opening a PR, run the authoritative gate for the affected surface. For
-most V2 changes that is `npm run check:local`; CI runs `npm run check`, the Rust
-release build, lint, and the web build. UI or end-to-end changes also require
+most V2 changes that is `npm run check:local`; CI runs Node, content, kernel, and Rust checks, plus browser, composition,
+and guide checks. UI or end-to-end changes also require
 `npm run v2:check`, which exercises production-profile, browser, terminal, and
 visual smoke paths. Local HTTP tests may require permission to bind loopback
 ports; `listen EPERM` from a restricted sandbox is not a test assertion.
