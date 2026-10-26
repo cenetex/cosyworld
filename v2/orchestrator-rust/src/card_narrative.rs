@@ -2981,19 +2981,7 @@ mod tests {
     }
     #[tokio::test]
     async fn route_accepts_shared_quest_plays_and_checks_holder_facts() {
-        let provider = Router::new().route("/chat/completions", post(|Json(body): Json<Value>| async move {
-            let content = if body["response_format"]["type"] == "json_object" {
-                json!({"entries":[
-                    {"id":"vale","text":"I can help carry this forward."},
-                    {"id":"station","text":"A warm patch marks the bench."},
-                    {"id":"lamp","text":"Soot marks the worn handle."},
-                    {"id":"moth","text":"We could meet beside the water."}
-                ]}).to_string()
-            } else {
-                "I can help carry this forward.".to_owned()
-            };
-            Json(json!({"model":"test-entity-model","choices":[{"message":{"content":content},"finish_reason":"stop"}]}))
-        }));
+        let provider = plain_provider(Arc::new(Mutex::new(Vec::new())), |_, stem| stem_reply(stem));
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
         let server = tokio::spawn(async move {
