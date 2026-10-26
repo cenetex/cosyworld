@@ -266,8 +266,7 @@ export function generateProgram(
     );
   };
   const item = candidates.sort((a, b) => score(b) - score(a))[0];
-  if (!item)
-    throw new Error("The world needs an available item for a new quest.");
+  if (!item) return generateProgram(s, actor, places, things, {independent, solo: true});
   const owner = ownerOf(s, item);
   const others = actors.filter((id) => id !== actor);
   const partner =
@@ -487,15 +486,17 @@ export function pursueQuest(s, actor, key) {
   s.actors[actor].progress.current = currentProgram(s, actor, card);
   return true;
 }
-export function recordQuestProgress(s, actor, complete) {
+export function recordQuestProgress(s, actor, complete, key = activeQuestKey(s, actor)) {
   const c = collectionOf(s, actor),
-    card = activeRecord(s, actor);
+    card = c?.cards.find((q) => q.key === key);
   if (!card) return;
-  card.step = s.actors[actor].progress.step;
+  if (card.lastProgressTurn === s.turn) return;
+  card.step += 1;
+  card.lastProgressTurn = s.turn;
   c.earned += 1;
   if (complete) {
     card.completedTurn = s.turn;
-    c.active = null;
+    if (c.active === key) c.active = null;
     const completed = c.cards.filter((q) => q.completedTurn !== null);
     for (const old of completed.slice(
       0,
@@ -513,6 +514,7 @@ export function recordQuestProgress(s, actor, complete) {
         origin: old.origin,
         createdTurn: old.createdTurn,
         completedTurn: old.completedTurn,
+        lastProgressTurn: old.lastProgressTurn,
       });
     }
   }
@@ -522,7 +524,12 @@ export function ensureCollectedQuest(s, actor, places, things) {
     c = collectionOf(s, actor);
   if (!c) return false;
   const p = s.actors[actor].progress;
-  if (c.active) return true;
+  if (c.active) {
+    const card = activeRecord(s, actor);
+    s.actors[actor].progress.step = card.step;
+    s.actors[actor].progress.current = currentProgram(s, actor, card);
+    return true;
+  }
   p.step = 0;
   delete p.current;
   let pending = c.cards.filter((q) => q.completedTurn === null);

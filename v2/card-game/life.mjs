@@ -517,12 +517,13 @@ export function settleLife(
 function fitsMilestone(milestone, program) {
   return !!milestone?.includes(program.generated?.situation);
 }
-export function finishPersonalQuest(s, actor, program, sanctuaries = null) {
+export function finishPersonalQuest(s, actor, program, sanctuaries = null, {rest = true} = {}) {
   const life = lifeOf(s, actor);
   if (!life) return;
   const next = life.hope.steps[life.milestones.length];
   if (fitsMilestone(next, program) && life.milestones.at(-1) !== s.turn)
     life.milestones.push(s.turn);
+  if (!rest) return;
   delete life.origin;
   life.finished = s.turn;
   life.restLeft = REST_TURNS;
