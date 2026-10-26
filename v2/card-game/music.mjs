@@ -1,3 +1,5 @@
+import { packPlaces } from "./pack-registry.mjs";
+
 export const roomTracks = {
   "greek-harbor": [
     { file: "greek-harbor.mp3", title: "Wine Dark Sea — Wine-Dark Harbor" },
@@ -20,6 +22,11 @@ export const roomTracks = {
     { file: "station-1.mp3", title: "Wheels on the Track" },
     { file: "station-2.mp3", title: "Faint Hope" },
   ],
+  ...Object.fromEntries(
+    Object.entries(packPlaces)
+      .filter(([, place]) => place.music)
+      .map(([id, place]) => [id, place.music]),
+  ),
 };
 
 // Keep the outgoing source until its gain reaches silence, then fade in the
@@ -30,6 +37,7 @@ export function createRoomMusic({
   makeContext = () =>
     new (globalThis.AudioContext || globalThis.webkitAudioContext)(),
   now = () => performance.now() / 1000,
+  random = Math.random,
 }) {
   const fadeSeconds = 1;
   let room = null,
@@ -99,6 +107,8 @@ export function createRoomMusic({
   function track() {
     return roomTracks[room]?.[positions.get(room) || 0];
   }
+  const randomPerVisit = () =>
+    packPlaces[room]?.musicMode === "random-per-visit";
   function wanted() {
     return (
       started &&
@@ -212,7 +222,8 @@ export function createRoomMusic({
   audio.addEventListener("ended", () => {
     if (loadedFile === track()?.file) {
       failures = 0;
-      advance();
+      if (randomPerVisit()) audio.currentTime = 0;
+      else advance();
     }
     // A track can end while travel is waiting for its fade to finish.
     sync();
@@ -245,6 +256,11 @@ export function createRoomMusic({
       if (room === value) return;
       room = value;
       failures = 0;
+      if (randomPerVisit()) {
+        positions.set(room, Math.floor(random() * roomTracks[room].length));
+        // Each visit starts its chosen song afresh, even when it repeats.
+        loadedFile = null;
+      }
       sync();
     },
     unlock() {

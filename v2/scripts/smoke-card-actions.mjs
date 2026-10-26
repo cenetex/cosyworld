@@ -323,9 +323,10 @@ try {
     assert.deepEqual(await state(), before);
     await shot("trade");
     await page.locator("#card-actions button").click();
-    assert.equal(await card("vale").isDisabled(), true);
+    assert.equal(await card("vale").isDisabled(), false);
     await card("vale").dispatchEvent("click");
-    assert.equal(await page.locator('.card[aria-pressed="true"]').count(), 0);
+    assert.equal(await page.locator('.card[aria-pressed="true"]').count(), 1);
+    await card("vale").dispatchEvent("click");
     await ready();
     assert.equal((await state()).turn, before.turn + 1);
     assert.equal((await state()).items.cloth.holder, "vale");

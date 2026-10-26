@@ -182,7 +182,7 @@ export function waitForScene(tasks, timeoutMs = 8000) {
 }
 
 // A turn owns its exchange until every reply has had a readable beat.
-// Existing dialogue controls can advance it; cards become ready at the end.
+// Card selection stays available; the next committed play waits for this beat.
 export function createExchange({
   show,
   prepare,
@@ -322,6 +322,34 @@ export function createExchange({
     },
     get hasNext() {
       return active && index >= 0 && index < lines.length - 1;
+    },
+  };
+}
+
+// Keep one explicit next play. The world checks its revision when it runs.
+export function createPlayQueue({ ready, play, changed = () => {} }) {
+  let pending = null;
+  function clear() {
+    if (!pending) return;
+    pending = null;
+    changed(null);
+  }
+  function flush() {
+    if (!pending || !ready()) return false;
+    const next = pending;
+    clear();
+    play(next.action, next.revision);
+    return true;
+  }
+  return {
+    submit(action, revision) {
+      pending = { action, revision };
+      if (!flush()) changed(pending);
+    },
+    flush,
+    clear,
+    get pending() {
+      return pending;
     },
   };
 }

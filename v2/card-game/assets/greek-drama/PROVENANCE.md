@@ -89,3 +89,13 @@ The eight generated outputs are stored as WebP at quality 94. Full prompts
 are in [scenery-prompts.json](scenery-prompts.json). Source names, generation
 IDs, dimensions, current checksums and the archive's prior records are in
 [scenery-provenance.json](scenery-provenance.json).
+
+## Aboard the ship — October 26, 2026
+
+The built-in `image_gen` tool created `ship-deck.webp` for the ship's aboard
+location. The painting shows an open wooden deck, a square sail, quiet water,
+and lantern light. The existing ship card and harbor painting guided its style.
+
+The 1672 × 941 output was encoded as WebP at quality 94. The full prompt is in
+[scenery-prompts.json](scenery-prompts.json). The source name, generation ID,
+dimensions and checksums are in [scenery-provenance.json](scenery-provenance.json).

@@ -1,7 +1,7 @@
 // The compiled world packs mounted on the card table, indexed for the engine.
 // Packs supply data only; pack-rules.mjs applies the general rules they name.
 import compiled from "./packs.json" with { type: "json" };
-import { packProblems } from "./pack-schema.mjs";
+import { packProblems, observationProblems } from "./pack-schema.mjs";
 import { conditionMet as evaluateCondition } from "./pack-rules.mjs";
 const owns = (o, key) =>
   typeof key === "string" && !!o && Object.hasOwn(o, key);
@@ -32,6 +32,45 @@ const problems =
 if (problems.length)
   throw new Error(`Invalid card world packs: ${problems.join("; ")}`);
 
+const observations = [
+  ...(compiled.hub.observations || []),
+  ...compiled.packs.flatMap((pack) => pack.observations || []),
+];
+if (
+  observationProblems(compiled.hub.observations, compiled.hub).length ||
+  new Set(observations.map((d) => d.id)).size !== observations.length
+)
+  throw new Error("Invalid card world observations.");
+
+export function observableStates(world, entityIds, definitions = observations) {
+  const visible = new Set(entityIds);
+  return definitions
+    .filter((d) => visible.has(d.entity))
+    .flatMap((d) => {
+      const source = d.source;
+      const entity =
+        source.kind === "actor_flag"
+          ? world.actors[d.entity]
+          : world.items[d.entity];
+      if (!entity) return [];
+      const raw = Object.hasOwn(entity, source.field)
+        ? entity[source.field]
+        : undefined;
+      const value =
+        source.kind === "covered"
+          ? Object.values(world.items).some((item) => item.holder === d.entity)
+          : source.kind === "item_positive"
+            ? typeof raw === "number"
+              ? raw > 0
+              : null
+            : typeof raw === "boolean"
+              ? raw
+              : null;
+      return value === null ? [] : [{ id: d.id, value }];
+    })
+    .slice(0, 32);
+}
+
 export const hub = compiled.hub;
 export const packDefinitions = compiled.packs;
 export const packDefinition = (id) =>
@@ -47,6 +86,7 @@ const merge = (field) =>
     ),
   );
 export const packPlaces = merge("places");
+export const transports = merge("transports");
 export const packPeople = merge("avatars");
 export const packFixtures = merge("fixtures");
 export const packThings = merge("items");
@@ -144,7 +184,7 @@ export const packNames = Object.fromEntries(
 export const packMediaFiles = [
   ...new Set(
     packDefinitions.flatMap((pack) => [
-      ...Object.values(pack.places).map((p) => p.backdrop),
+      ...Object.values(pack.places).flatMap((p) => [p.backdrop, p.art]),
       ...Object.values(pack.items || {}).map((i) => i.art),
       ...pack.crossings.flatMap((c) => [
         c.scenery?.overlay,
@@ -196,7 +236,19 @@ export function actorCanVisit(actor, place) {
   if (!actor || actor === "vale") return true;
   const a = packPeople[actor],
     destination = packPlaces[place];
-  return a ? destination?.packId === a.packId : !destination;
+  if (a ? destination?.packId === a.packId : !destination) return true;
+  const home = a?.packId ?? null,
+    target = destination?.packId ?? null;
+  return Object.entries(transports).some(([id, t]) => {
+    const domains = t.docks.map((dock) => packPlaces[dock]?.packId ?? null);
+    return (
+      domains.includes(home) &&
+      domains.includes(target) &&
+      crossings
+        .filter((c) => c.transport === id)
+        .every((c) => c.travelers === "any")
+    );
+  });
 }
 function choiceFeasible(world, pack, choice, actor) {
   const state = packState(world, pack.id);

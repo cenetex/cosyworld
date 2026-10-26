@@ -6,6 +6,7 @@ import {
   packEntity,
   packFacts,
   packSceneFacts,
+  observableStates,
 } from "./pack-registry.mjs";
 import {
   addLog,
@@ -130,6 +131,7 @@ export function turnOutcome(world) {
       holder: world.items[id].holder,
       location: itemPlace(world, id),
     })),
+    observations: observableStates(world, [...actorIds, ...relevantItems]),
   };
 }
 

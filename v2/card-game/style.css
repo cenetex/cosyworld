@@ -601,12 +601,11 @@ h2 {
   opacity: 0;
   translate: var(--exit-x) 0;
 }
-.hand[data-cooling="true"] .card,
+.hand[aria-busy="true"] .card,
 #card-actions[aria-busy="true"] button {
   opacity: 0.7;
-  cursor: wait;
 }
-.hand[data-cooling="true"] .card:hover {
+.hand[aria-busy="true"] .card:hover {
   transform: none;
 }
 

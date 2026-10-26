@@ -167,8 +167,8 @@ When a save is loaded, any mounted pack missing from it is installed fresh:
 its residents join with neutral trust and empty memories, and the shore's
 items, positions and history are untouched. A changed pack needs a revision
 bump and a deliberate migration; never drop saved state to make it load.
-`legacy-saves.mjs` holds the one migration that names pack ids, from the
-schema 6 `steamClock` record.
+`legacy-saves.mjs` holds migrations that name pack ids, including the
+schema 6 `steamClock` record and the Greek ship in pack revision 2.
 
 ## Rules the engine keeps
 
@@ -214,3 +214,84 @@ Ordered receipts recompute saved choices/flags on loading.
 An optional `release` lists opening places, avatars, items and choices.
 Fresh saves use opening scope; migrated old Greek games retain full scope.
 This is release composition, not a new player progression meter or UI mode.
+
+## Observable states in dialogue
+
+A pack can add `observations` to its `card-world.json`. The hub uses the same
+field in `card-table.json`. Each definition names an entity, a state source,
+and the meaning of its two boolean values. The compiler validates these
+records and includes them in `packs.json` for both the browser and the server.
+
+```json
+{
+  "id": "gate-open",
+  "entity": "iron-gate",
+  "subjects": ["iron gate"],
+  "source": { "kind": "item_flag", "field": "open" },
+  "values": {
+    "true": { "fact": "The iron gate is open.", "claims": ["is open"] },
+    "false": { "fact": "The iron gate is closed.", "claims": ["is closed"] }
+  }
+}
+```
+
+The source reads an existing runtime field. `item_flag` and `actor_flag` read
+booleans. `item_positive` checks whether a number is greater than zero.
+`covered` checks whether another item rests on the named item. The pack's
+existing rules own changes to those fields.
+
+The browser records observations after the whole turn, including autonomous
+actions and resource use. It includes states for the entities in the resolved
+outcome. The server supplies the authored facts as `direction.observations_now`.
+An optional `note` explains how an action relates to the state. For existing
+browser tabs, an optional `legacyToken` reads an exact semicolon-separated
+field from the older entity facts.
+
+The shared checker compares direct present-tense statements against the pack's
+`subjects` and `claims`. It chooses the longest matching phrase. It preserves
+questions, wishes and recalled speech. This bounded phrase check covers the
+wording a pack declares; the final-state facts guide other wording. Conflicting
+character replies receive one rewrite attempt. A second conflict uses the
+existing retry UI. Publication follows validation. The Lamp and Badger provide
+item and avatar examples of the same path.
+
+### Transport and lamp signals
+
+A bridge can declare `transports`. Each named transport supplies `place` (a
+pack place with an empty static exit list), two `docks`, and `at` (its first
+dock). A crossing in each direction names it with `transport`. `travelers`
+controls who can board. `any` lets hub avatars and residents of that pack
+travel between both shores.
+
+The ship place uses the existing place cards. At a dock, the ship card offers
+Board. Aboard, the hand contains the ship and the destination. The destination
+card offers Disembark. Boarding saves the destination; disembarking the last
+passenger parks the ship there. The same saved ship serves every actor.
+An optional place `art` supplies its card face separately from its backdrop.
+
+An optional place `music` supplies an ordered playlist of `{file, title}`
+records. Each file is an MP3 in `assets/music/`. The room music player uses
+the same saved volume and one-second fades for pack locations. Tracks repeat
+in order while the player stays in that place.
+
+`musicMode: "random-per-visit"` chooses one track whenever the player enters
+the place. That track repeats for the visit. Card plays, pause, and volume
+changes keep the same choice. The ship uses this mode for each crossing.
+
+A transport signal uses `opens: null`. Completion summons the transport to
+that crossing's `from` dock. The dock remains saved through waits, reloads,
+lamp changes, and later sound. If passengers are aboard, the recall waits
+until the last passenger finishes the current trip. Then the empty ship
+travels to the requested dock.
+
+`signal.while` contains conditions maintained through the sequence. The
+Greek bridge requires a burning lamp and quiet throughout
+cover → uncover → cover → uncover. The lamp needs enough oil for all four
+plays. Each completed signal recalls the ship to Black pond. The ship keeps
+waiting after the lamp goes out.
+
+Saves include `transports`, keyed by transport id, with `dock`, `destination`,
+and `recall`. A parked ship has one dock. An occupied ship has one destination
+and may have a pending recall. Save validation checks these against the pack
+and its passengers. Greek revision 1 saves retain partial signals and gain
+a ship at the pond when their old sequence includes the second uncover.

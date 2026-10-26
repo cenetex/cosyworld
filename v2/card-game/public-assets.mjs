@@ -53,6 +53,7 @@ const files = [
   "pack-schema.mjs",
   "pack-registry.mjs",
   "pack-rules.mjs",
+  "pack-transport.mjs",
   "legacy-saves.mjs",
   "forest.json",
   "packs.json",

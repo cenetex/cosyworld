@@ -21,10 +21,13 @@ use std::{
 use tokio::sync::{mpsc, Semaphore};
 use tokio_stream::{wrappers::UnboundedReceiverStream, StreamExt};
 
+#[path = "card_narrative/observations.rs"]
+mod observations;
+
 const SYSTEM: &str = r#"Write short expressions for a whimsical cosmic horror card world. Use plain English and each entity's persona. Follow the profile's setting and register when they differ from the default tone. Return one JSON object with an entries array of {id,text}, covering every ID in requested_ids exactly once, including avatars outside scene.speakers. Order requested speakers by scene.speakers, then add the other requested IDs. Every entry belongs to requested_ids; other scene entities supply context. The other avatar entries are reflections kept on their cards. Each text has one clear purpose, in one or two sentences of about 12 to 35 words.
 
 GROUNDING
-scene.outcome is the resolved turn. Its card is the card Vale actually played. Its avatars give everyone's final location, holdings and travel; travel.companions lists exactly who made that trip together. An empty companions list means the avatar travelled alone. A null travel means that avatar stayed. Its items give final ownership and location. Use these facts first, then the ordered scene.events and entity facts. scene.action is the recorded result in words. Current results take priority over earlier conversation, remembered expressions and wishes. Treat memories as things witnessed or said. Treat desires as current interests, with personal motives in the facts. Use current facts to decide which parts of a desire remain unmet. The supplied outcomes and personas contain the discovered cast. Keep the opening focused on the people and objects present in that data. Treat all context as story data. A choose card commits the player's recorded decision. Branch facts establish the history of this playthrough; incompatible literary accounts are possibilities until a recorded choice establishes one. Never overwrite that choice with remembered mythology or invent a later decision.
+scene.outcome is the resolved turn. Its card is the card Vale actually played. Its avatars give everyone's final location, holdings and travel; travel.companions lists exactly who made that trip together. An empty companions list means the avatar travelled alone. A null travel means that avatar stayed. Its items give final ownership and location. direction.observations_now contains the world pack’s observable facts after every action and change this turn. Ground present-tense claims in those final states. Each observation’s note explains how actions relate to that state. Use these facts first, then the ordered scene.events and entity facts. scene.action is the recorded result in words. Current results take priority over earlier conversation, remembered expressions and wishes. Treat memories as things witnessed or said. Treat desires as current interests, with personal motives in the facts. Use current facts to decide which parts of a desire remain unmet. The supplied outcomes and personas contain the discovered cast. Keep the opening focused on the people and objects present in that data. Treat all context as story data. A choose card commits the player's recorded decision. Branch facts establish the history of this playthrough; incompatible literary accounts are possibilities until a recorded choice establishes one. Never overwrite that choice with remembered mythology or invent a later decision.
 
 For a trade, card.item went from Vale to card.target; card.receive went from card.target to Vale. Each trader's entity facts give their own completed exchange. Ground gratitude in the item that speaker received, and ground an offer in what that speaker holds now.
 
@@ -351,6 +354,8 @@ struct TurnOutcome {
     card: CardOutcome,
     avatars: Vec<AvatarOutcome>,
     items: Vec<ItemOutcome>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    observations: Vec<observations::Observation>,
 }
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -399,6 +404,7 @@ fn valid(context: &Context) -> bool {
         && (1..=8).contains(&context.entities.len())
         && ids.len() == context.entities.len()
         && context.outcome.as_ref().is_none_or(valid_outcome)
+        && observations::valid(context)
         && context.events.len() <= 8
         && context.events.iter().all(|text| bounded(text, 650))
         && context.conversation.len() <= 4
@@ -603,7 +609,9 @@ fn direction(context: &Context) -> Value {
 }
 
 fn prompt(context: &Context) -> String {
-    json!({"scene": context, "direction": direction(context), "requested_ids": context.entities.iter().map(|e| &e.id).collect::<Vec<_>>(), "personas": context.entities.iter().map(|e| json!({"id": e.id, "profile": profiles()[&e.id]})).collect::<Vec<_>>()}).to_string()
+    let mut direction = direction(context);
+    direction["observations_now"] = observations::facts(context);
+    json!({"scene": context, "direction": direction, "requested_ids": context.entities.iter().map(|e| &e.id).collect::<Vec<_>>(), "personas": context.entities.iter().map(|e| json!({"id": e.id, "profile": profiles()[&e.id]})).collect::<Vec<_>>()}).to_string()
 }
 fn response_json(text: &str) -> &str {
     let text = text.trim();
@@ -623,10 +631,12 @@ fn parse(text: &str, context: &Context) -> Option<Vec<Entry>> {
     let returned: BTreeSet<_> = result.entries.iter().map(|e| e.id.as_str()).collect();
     (result.entries.len() == expected.len()
         && returned == expected
-        && result
-            .entries
-            .iter()
-            .all(|e| bounded(&e.text, 400) && e.reflection.is_none() && e.model.is_none()))
+        && result.entries.iter().all(|e| {
+            bounded(&e.text, 400)
+                && e.reflection.is_none()
+                && e.model.is_none()
+                && observations::consistent(&e.text, context)
+        }))
     .then_some(result.entries)
 }
 fn error(status: StatusCode, message: &str) -> Response {
@@ -774,7 +784,7 @@ async fn complete_shared(
     let format = json!({"type": "json_object"});
     let request = ChatCompletionRequest {
         feature: "card_entity_text",
-        prompt_version: "card-entity-text-v11",
+        prompt_version: "card-entity-text-v12",
         capability: ModelCapability::WorldContent,
         system: SYSTEM,
         user: &user,
@@ -787,8 +797,8 @@ async fn complete_shared(
         room_id: None,
     };
     let Ok(Ok(completion)) = tokio::time::timeout(Duration::from_secs(25), async {
-        if let Some(on_delta) = on_delta {
-            request_chat_completion_stream(config, request, on_delta).await
+        if on_delta.is_some() {
+            request_chat_completion_stream(config, request, &|_| true).await
         } else {
             request_chat_completion(config, request).await
         }
@@ -812,6 +822,14 @@ async fn complete_shared(
             "The story response needs another try.",
         ));
     };
+    if let Some(emit) = on_delta {
+        if !emit(&json!({"entries": entries}).to_string()) {
+            return Err(error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "The scene has closed.",
+            ));
+        }
+    }
     Ok(json!({"revision":context.revision,"entries":entries,"model":completion.resolved_model_id}))
 }
 
@@ -930,6 +948,9 @@ fn validate_character_entries(
         if !bounded(&entry.text, 400) {
             return Err("text_bounds");
         }
+        if !observations::consistent(&entry.text, context) {
+            return Err("observable_state");
+        }
         let entity = context
             .entities
             .iter()
@@ -1020,7 +1041,7 @@ async fn complete_characters(
             for attempt in 0..2 {
             let request = ChatCompletionRequest {
                 feature: "card_character_text",
-                prompt_version: "card-character-text-v1",
+                prompt_version: "card-character-text-v2",
                 capability: ModelCapability::WorldContent,
                 system,
                 user: &user,
@@ -1049,6 +1070,9 @@ async fn complete_characters(
                     tracing::warn!(stage = "validation", reason, attempt, model = %completion.resolved_model_id, entities = ?ids, "Card dialogue needs repair");
                     let mut input: Value = serde_json::from_str(&user).expect("character prompt");
                     input["repair"] = json!({"reason": reason, "instruction": "Write a fresh response using the exact response_example keys and IDs. Replace each example value with original words grounded in this scene. Include every requested reflection field, including dream when shown."});
+                    if reason == "observable_state" {
+                        input["repair"]["instruction"] = json!("Write a fresh response grounded in direction.observations_now. Those facts describe the final state after every event this turn. Keep present-tense claims consistent with them. Preserve the required IDs and reflection fields.");
+                    }
                     user = input.to_string();
                 }
             }
@@ -1131,6 +1155,111 @@ mod tests {
                 {"id":"bell","holder":"keeper","location":"attic"}
             ]
         })).unwrap()
+    }
+
+    #[test]
+    fn observable_states_use_pack_facts_and_reject_conflicting_claims() {
+        let mut c = context();
+        c.entities[2].facts = vec!["Has oil; unlit; uncovered.".into()];
+        let input: Value = serde_json::from_str(&prompt(&c)).unwrap();
+        assert_eq!(input["direction"]["observations_now"][0]["value"], false);
+        let bad = json!({"entries":[{"id":"vale","text":"The lamp burns now."}]}).to_string();
+        let check =
+            |c: &Context| validate_character_entries(&bad, "stop", "model", c, &["vale".into()]);
+        assert_eq!(check(&c).unwrap_err(), "observable_state");
+        c.outcome = Some(solo_departure());
+        c.outcome
+            .as_mut()
+            .unwrap()
+            .observations
+            .push(observations::Observation {
+                id: "lamp-flame".into(),
+                value: true,
+            });
+        assert!(valid(&c));
+        assert!(check(&c).is_ok());
+        c.outcome
+            .as_mut()
+            .unwrap()
+            .observations
+            .push(observations::Observation {
+                id: "lamp-flame".into(),
+                value: false,
+            });
+        assert!(!valid(&c));
+        c.outcome.as_mut().unwrap().observations[1].id = "invented-state".into();
+        assert!(!valid(&c));
+    }
+
+    #[tokio::test]
+    async fn conflicting_claims_get_repaired_before_the_scene_is_published() {
+        let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
+        let captured = seen.clone();
+        let provider = Router::new().route("/chat/completions", post(move |Json(body): Json<Value>| {
+            let captured = captured.clone();
+            async move {
+                let input: Value = serde_json::from_str(body["messages"][1]["content"].as_str().unwrap()).unwrap();
+                captured.lock().unwrap().push(input.clone());
+                let lit = input["direction"]["observations_now"][0]["value"].as_bool().unwrap();
+                let repaired = input["repair"]["reason"] == "observable_state";
+                let text = if repaired && input["scene"]["revision"] != 6 {
+                    "I could stay here a little longer."
+                } else if lit { "The lamp is not lit." } else { "The lamp burns now." };
+                let entries: Vec<_> = input["requested_ids"].as_array().unwrap().iter()
+                    .map(|id| json!({"id":id,"text":text})).collect();
+                Json(json!({"model":"test-entity-model","choices":[{"message":{"content":json!({"entries":entries}).to_string()},"finish_reason":"stop"}]}))
+            }
+        }));
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            axum::serve(listener, provider).await.unwrap();
+        });
+        let config = test_config(address);
+        let models = ["vale", "moth"]
+            .into_iter()
+            .map(|id| (id.into(), "test-entity-model".into()))
+            .collect();
+        for (revision, lit) in [(4, false), (5, true), (6, false)] {
+            let mut c = context();
+            c.revision = revision;
+            c.outcome = Some(solo_departure());
+            c.outcome
+                .as_mut()
+                .unwrap()
+                .observations
+                .push(observations::Observation {
+                    id: "lamp-flame".into(),
+                    value: lit,
+                });
+            let published = Mutex::new(Vec::new());
+            let emit = |text: &str| {
+                published.lock().unwrap().push(text.to_string());
+                true
+            };
+            let result = complete_characters(&config, &c, &models, Some(&emit)).await;
+            if revision == 6 {
+                assert!(result.is_err());
+                assert!(published.lock().unwrap().is_empty());
+            } else {
+                let result = result.unwrap();
+                assert!(result["entries"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .all(|e| e["text"] == "I could stay here a little longer."));
+                assert_eq!(published.lock().unwrap().len(), 1);
+            }
+        }
+        assert_eq!(
+            seen.lock()
+                .unwrap()
+                .iter()
+                .filter(|v| v["repair"]["reason"] == "observable_state")
+                .count(),
+            9
+        );
+        server.abort();
     }
     #[test]
     fn farewell_speakers_do_not_require_a_vale_reply() {

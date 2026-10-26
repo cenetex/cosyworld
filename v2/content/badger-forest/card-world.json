@@ -16,7 +16,11 @@
       "stage": {
         "alt": "The old Steam Clock stands on mossy stones in a sunlit clearing.",
         "resident": "badger",
-        "sprite": { "left": 59, "top": 78, "width": 22 }
+        "sprite": {
+          "left": 59,
+          "top": 78,
+          "width": 22
+        }
       }
     }
   },
@@ -78,5 +82,26 @@
         }
       }
     }
-  }
+  },
+  "observations": [
+    {
+      "id": "badger-awake",
+      "entity": "badger",
+      "subjects": ["badger", "grumpy badger"],
+      "source": {
+        "kind": "actor_flag",
+        "field": "awake"
+      },
+      "values": {
+        "true": {
+          "fact": "Badger is awake now.",
+          "claims": ["is awake", "is not asleep", "isn't asleep"]
+        },
+        "false": {
+          "fact": "Badger is asleep now.",
+          "claims": ["is asleep", "is sleeping", "is not awake", "isn't awake"]
+        }
+      }
+    }
+  ]
 }

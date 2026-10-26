@@ -38,6 +38,59 @@ const response = (context) => ({
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe("entity memories and model text", () => {
+  it("sends the final lamp state after refilling, lighting, covering and running dry", () => {
+    let world = createWorld();
+    world.actors.vale.place = "pond";
+    world.items.lamp.holder = "vale";
+    world.items.oil.holder = "vale";
+    world.items.cloth.holder = "vale";
+    world.items.lamp.fuel = 0;
+    const lamp = (state) =>
+      Object.fromEntries(
+        narrativeContext(state).outcome.observations.map(({ id, value }) => [
+          id,
+          value,
+        ]),
+      );
+    world = act(world, "refill", "oil");
+    expect(lamp(world)).toMatchObject({
+      "lamp-flame": false,
+      "lamp-cover": false,
+    });
+    world = act(world, "light", "lamp");
+    expect(lamp(world)).toMatchObject({
+      "lamp-flame": true,
+      "lamp-cover": false,
+    });
+    world = act(world, "cover", "cloth", "lamp");
+    expect(lamp(world)).toMatchObject({
+      "lamp-flame": true,
+      "lamp-cover": true,
+    });
+    world.items.lamp.fuel = 1;
+    world = act(world, "wait");
+    expect(lamp(world)).toMatchObject({
+      "lamp-flame": false,
+      "lamp-cover": true,
+    });
+    expect(narrativeContext(world).events.join(" ")).toContain("runs dry");
+    expect(lamp(decodeSave(encodeSave(world)))).toEqual(lamp(world));
+  });
+
+  it("reports an extinguished lamp when its last oil burns on the lighting turn", () => {
+    const world = createWorld();
+    world.items.lamp.holder = "vale";
+    world.items.lamp.fuel = 1;
+    const next = act(world, "light", "lamp");
+    const context = narrativeContext(next);
+    expect(context.outcome.card.kind).toBe("light");
+    expect(context.outcome.observations).toContainEqual({
+      id: "lamp-flame",
+      value: false,
+    });
+    expect(context.events.join(" ")).toContain("runs dry");
+  });
+
   it("records an event in its witnesses, item and place, including departures", () => {
     let world = act(createWorld(), "take", "lamp");
     for (const id of ["vale", "lamp", "station"])

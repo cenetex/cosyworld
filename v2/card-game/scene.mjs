@@ -7,7 +7,7 @@ import {
   shining,
   senses,
 } from "./world.mjs";
-import { entityActive, crossings } from "./pack-registry.mjs";
+import { entityActive, crossings, transports } from "./pack-registry.mjs";
 
 import { desireFor, programFor, levelOf, knownActors } from "./quests.mjs";
 import { packPlaces, packPeople } from "./pack-registry.mjs";
@@ -40,7 +40,7 @@ export function travelCard(world, id) {
   const c = crossings.find(
     (c) =>
       c.from === world.actors.vale.place &&
-      c.to === id &&
+      (c.transport ? transports[c.transport].place : c.to) === id &&
       crossingOpen(world, c, senses),
   );
   return c?.scenery

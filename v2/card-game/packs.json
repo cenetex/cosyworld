@@ -4,7 +4,72 @@
     "player": "vale",
     "places": ["station", "attic", "pond"],
     "avatars": ["vale", "moth", "keeper"],
-    "items": ["lamp", "oil", "bell", "cloth"]
+    "items": ["lamp", "oil", "bell", "cloth"],
+    "observations": [
+      {
+        "id": "lamp-flame",
+        "entity": "lamp",
+        "subjects": ["lamp"],
+        "source": {
+          "kind": "item_flag",
+          "field": "lit"
+        },
+        "note": "Pouring oil adds fuel. Lighting is a separate action. The flame can run dry during the turn; the final state includes that change.",
+        "values": {
+          "true": {
+            "fact": "The Lamp is burning now.",
+            "legacyToken": "lit",
+            "claims": [
+              "is lit",
+              "is alight",
+              "is burning",
+              "burns",
+              "is not unlit",
+              "isn't unlit",
+              "is not out",
+              "isn't out",
+              "is not extinguished",
+              "isn't extinguished"
+            ]
+          },
+          "false": {
+            "fact": "The Lamp is unlit now.",
+            "legacyToken": "unlit",
+            "claims": [
+              "is unlit",
+              "is not lit",
+              "isn't lit",
+              "is not burning",
+              "isn't burning",
+              "is out",
+              "is extinguished",
+              "burns out",
+              "has gone out"
+            ]
+          }
+        }
+      },
+      {
+        "id": "lamp-cover",
+        "entity": "lamp",
+        "subjects": ["lamp"],
+        "source": {
+          "kind": "covered"
+        },
+        "values": {
+          "true": {
+            "fact": "The Lamp is covered. Its flame state is recorded separately.",
+            "legacyToken": "covered",
+            "claims": ["is covered"]
+          },
+          "false": {
+            "fact": "The Lamp is uncovered.",
+            "legacyToken": "uncovered",
+            "claims": ["is uncovered", "is not covered", "isn't covered"]
+          }
+        }
+      }
+    ]
   },
   "packs": [
     {
@@ -92,6 +157,32 @@
           }
         }
       },
+      "observations": [
+        {
+          "id": "badger-awake",
+          "entity": "badger",
+          "subjects": ["badger", "grumpy badger"],
+          "source": {
+            "kind": "actor_flag",
+            "field": "awake"
+          },
+          "values": {
+            "true": {
+              "fact": "Badger is awake now.",
+              "claims": ["is awake", "is not asleep", "isn't asleep"]
+            },
+            "false": {
+              "fact": "Badger is asleep now.",
+              "claims": [
+                "is asleep",
+                "is sleeping",
+                "is not awake",
+                "isn't awake"
+              ]
+            }
+          }
+        }
+      ],
       "bridge": {
         "id": "shore-badger-forest",
         "description": "Two bell rings at Black pond fold its reflection onto the Steam Clock clearing. A bell sounding at either end keeps the way back open."
@@ -167,7 +258,7 @@
       "schemaVersion": 1,
       "id": "greek-drama",
       "packId": "cosyworld.greek-drama",
-      "revision": 1,
+      "revision": 2,
       "name": "The Wine-Dark Sea",
       "description": "Courtyards, cities, and sea roads where a household's decision can change a city.",
       "tone": "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -202,10 +293,10 @@
       "places": {
         "greek-harbor": {
           "name": "The Wine-Dark Harbor",
-          "text": "A ship rests against the stone landing. Worn steps climb toward the town.",
+          "text": "Worn steps climb from the stone landing toward the town.",
           "exits": ["greek-courtyard", "greek-athens", "greek-argolid-road"],
           "backdrop": "assets/greek-drama/harbor-day.webp",
-          "persona": "A ship rests against the stone landing. Worn steps climb toward the town."
+          "persona": "Worn steps climb from the stone landing toward the town."
         },
         "greek-courtyard": {
           "name": "Theban Courtyard",
@@ -618,6 +709,33 @@
           "exits": ["greek-colonus"],
           "backdrop": "assets/greek-drama/harbor.svg",
           "persona": "A ferry rests beside dark water. The keeper of the landing asks the purpose of each crossing."
+        },
+        "greek-ship": {
+          "name": "Greek ship",
+          "text": "Dark water passes beneath the hull. The ship carries its passengers to the opposite shore.",
+          "persona": "Aboard a ship crossing between Black pond and the Wine-Dark Harbor. Passengers remain aboard until they disembark at the destination.",
+          "exits": [],
+          "backdrop": "assets/greek-drama/ship-deck.webp",
+          "art": "assets/greek-drama/ship-card.webp",
+          "music": [
+            {
+              "file": "ship-1.mp3",
+              "title": "Wine, Black Sea"
+            },
+            {
+              "file": "ship-2.mp3",
+              "title": "Wine-Dark"
+            },
+            {
+              "file": "ship-3.mp3",
+              "title": "Wine-Dark-2"
+            },
+            {
+              "file": "ship-4.mp3",
+              "title": "Wine-Dark-3"
+            }
+          ],
+          "musicMode": "random-per-visit"
         }
       },
       "avatars": {
@@ -3909,7 +4027,8 @@
           "greek-gate",
           "greek-battlefield",
           "greek-palace",
-          "greek-sanctuary"
+          "greek-sanctuary",
+          "greek-ship"
         ],
         "avatars": [
           "greek-antigone",
@@ -3949,14 +4068,14 @@
       },
       "bridge": {
         "id": "shore-greek-drama",
-        "description": "A ship crosses from the quiet pond to the Wine-Dark Harbor; its appearance is the only answer to the lamp signal."
+        "description": "A ship travels between Black pond and the Wine-Dark Harbor. The lamp signal calls it to the pond."
       },
       "crossings": [
         {
           "id": "pond-greek-harbor",
           "from": "pond",
           "to": "greek-harbor",
-          "travelers": "player",
+          "travelers": "any",
           "travel": "aboard the ship",
           "travelLabel": "Board",
           "signal": {
@@ -3999,37 +4118,38 @@
               }
             ]
           },
-          "requires": [
-            {
-              "kind": "light",
-              "item": "lamp",
-              "at": ["pond"],
-              "uncovered": true
-            },
-            {
-              "kind": "not",
-              "condition": {
-                "kind": "sound",
-                "at": ["pond", "clearing"]
-              }
-            }
-          ],
+          "requires": [],
           "scenery": {
             "open": "A ship waits on the black water.",
             "overlay": "assets/greek-drama/pond-ship-overlay.png",
             "cardName": "Greek ship",
             "cardArt": "assets/greek-drama/ship-card.webp"
-          }
+          },
+          "transport": "greek-ship"
         },
         {
           "id": "greek-harbor-pond",
           "from": "greek-harbor",
           "to": "pond",
-          "travelers": "player",
+          "travelers": "any",
           "travel": "back across the black water",
-          "requires": []
+          "requires": [],
+          "transport": "greek-ship",
+          "travelLabel": "Board",
+          "scenery": {
+            "open": "The ship waits against the stone landing.",
+            "cardName": "Greek ship",
+            "cardArt": "assets/greek-drama/ship-card.webp"
+          }
         }
-      ]
+      ],
+      "transports": {
+        "greek-ship": {
+          "place": "greek-ship",
+          "docks": ["pond", "greek-harbor"],
+          "at": "greek-harbor"
+        }
+      }
     }
   ]
 }
