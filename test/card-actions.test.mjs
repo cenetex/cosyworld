@@ -112,8 +112,9 @@ describe("named card actions", () => {
     world.items.oil.holder = "vale";
     world.items.cloth.holder = "lamp";
     const cards = availableCards(world);
-    expect(cards.slice(0, 5)).toEqual(["vale", "lamp", "cloth", "oil", "moth"]);
-    expect(cards.indexOf("bell")).toBeGreaterThan(cards.indexOf("moth"));
+    expect(cards.slice(0, 2)).toEqual(["station", "bell"]);
+    expect(cards.slice(2, 7)).toEqual(["vale", "lamp", "cloth", "oil", "moth"]);
+    expect(cards.slice(-2)).toEqual(["attic", "pond"]);
     world.items.lamp.holder = "moth";
     const moved = availableCards(world);
     expect(

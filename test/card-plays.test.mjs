@@ -19,24 +19,24 @@ describe("playing the world through cards", () => {
   it("offers reachable items, local avatars, exits and the current place", () => {
     let s = createWorld();
     expect(availableCards(s)).toEqual([
-      "vale",
+      "station",
       "lamp",
       "bell",
+      "vale",
       "attic",
       "pond",
-      "station",
     ]);
     s = cards(s, "lamp");
     expect(availableCards(s)).toContain("moth");
     expect(availableCards(s)).toContain("keeper");
     s = cards(s, "attic");
     expect(availableCards(s)).toEqual([
+      "attic",
       "vale",
       "lamp",
       "moth",
       "cloth",
       "station",
-      "attic",
     ]);
   });
   it("previews single cards and pairs freely, then spends one turn per play", () => {

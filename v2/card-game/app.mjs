@@ -1510,7 +1510,7 @@ function render() {
     if (sameWorld)
       for (const frame of $("hand").children) updateCardSelection(frame);
     else $("hand").replaceChildren(...availableCards(world).map(card));
-    $("hand").scrollLeft = scroll;
+    $("hand").scrollLeft = samePlace ? scroll : 0;
     renderActions(animate);
     if (animate)
       for (const frame of $("hand").children) {
