@@ -96,8 +96,11 @@ try {
       page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
     const card = (id) => page.locator(`#hand [data-card="${id}"]`);
     async function ready() {
-      for (let i = 0; i < 150; i++) {
-        if (await page.locator("#dialogue-advance").isVisible())
+      const deadline = Date.now() + 20000;
+      while (Date.now() < deadline) {
+        if (await page.locator("#unveil-dialog[open]").count())
+          await page.keyboard.press("Escape");
+        else if (await page.locator("#dialogue-advance").isVisible())
           await page.locator("#dialogue-advance").click();
         if (
           (await page.locator("#hand").getAttribute("data-cooling")) === "false"
@@ -105,7 +108,13 @@ try {
           return;
         await page.waitForTimeout(30);
       }
-      throw Error("hand remained busy");
+      const waiting = await page.evaluate(() => ({
+        cooling: document.querySelector("#hand").dataset.cooling,
+        reveal: document.querySelector("#unveil-take").dataset.card,
+        speaker: document.querySelector("#speaker-name")?.textContent,
+        text: document.querySelector("#dialogue-text").textContent,
+      }));
+      throw Error(`hand remained busy: ${JSON.stringify(waiting)}`);
     }
     async function cards(...ids) {
       await ready();
@@ -266,7 +275,12 @@ try {
         await page.locator("#backdrop").getAttribute("alt"),
         /flash|signal|twice|cover/i,
       );
-      assert.equal(requests.length, 0, "cloth manipulations remain silent");
+      assert.equal(
+        requests.length,
+        2,
+        "each cloth play receives a spoken reaction",
+      );
+      assert(requests.every((request) => request.speakers[0] === "vale"));
       await page.reload();
       await card("cloth").waitFor({ state: "attached" });
       assert.equal(
@@ -368,7 +382,7 @@ try {
         artFraction: geometry.art / geometry.card,
         errors,
         failed,
-        ritual: "four actions, silent; reload; ship and boarding agree",
+        ritual: "four spoken actions; reload; ship and boarding agree",
         navigation:
           "overflow, wheel, keyboard, cancel, selection, boarding, travel, reload",
       });

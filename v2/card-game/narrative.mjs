@@ -174,25 +174,17 @@ export function narrativeContext(world, action = null) {
     : introductions[0] ||
       departing[0] ||
       present.find((id) => id !== "vale" && awake(id));
-  // A quiet turn's farewell belongs to the departing cast. Keep Vale's voice
-  // for a chosen interaction, a new meeting, or a Stay without a departure.
-  const farewell =
-    departing.length &&
-    !played &&
-    !directPartner &&
-    (!action?.kind || action.kind === "wait") &&
-    !introductions.length;
   const movers = changes.map((change) => change.actorId);
   const chosen = new Set(
-    (farewell ? movers : ["vale", partner, ...introductions, ...movers]).filter(
+    ["vale", partner, ...introductions, ...movers].filter(
       (id) => id && awake(id),
     ),
   );
-  // Those who stayed speak first; those who moved speak in the order they
-  // moved, so no one mentions a departure before it is seen.
+  // Vale responds to every play. Other travellers keep their movement order.
   const speakers = [
-    ...[...chosen].filter((id) => !movers.includes(id)),
-    ...movers.filter((id) => chosen.has(id)),
+    "vale",
+    ...[...chosen].filter((id) => id !== "vale" && !movers.includes(id)),
+    ...movers.filter((id) => id !== "vale" && chosen.has(id)),
   ].slice(0, 3);
   // Model requests stay bounded as the pack catalog grows. The actual chosen
   // card and every speaker take priority over incidental objects in a room.

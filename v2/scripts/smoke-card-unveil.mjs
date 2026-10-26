@@ -208,14 +208,20 @@ try {
         discoveries: window.discoveries,
         flights: window.flights,
       }));
-      assert.equal(events.discoveries[0].id, "pond");
+      assert.equal(
+        events.discoveries.filter((event) => event.id !== "player-quest")[0].id,
+        "pond",
+      );
       assert(
         events.discoveries.findIndex((e) => e.id === "moth") <
           events.discoveries.findIndex((e) => e.id === "cloth"),
       );
       assert(
         events.discoveries.every(
-          (e) => e.cooling === "true" && e.travel <= 0.01 && e.speech === 0,
+          (e) =>
+            e.cooling === "true" &&
+            e.travel <= 0.01 &&
+            (e.id === "player-quest" || e.speech === 0),
         ),
       );
       if (motion === "reduce") assert.equal(events.flights.length, 0);

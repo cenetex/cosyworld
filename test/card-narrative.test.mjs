@@ -545,6 +545,46 @@ describe("entity memories and model text", () => {
 });
 
 describe("witnessed departures and conversation continuity", () => {
+  it("gives Vale the first reaction to each available kind of play", () => {
+    const held = createWorld();
+    held.actors.moth.place = held.actors.keeper.place = "station";
+    for (const item of ["lamp", "cloth"]) held.items[item].holder = "vale";
+    held.items.lamp.fuel = 2;
+    const lit = structuredClone(held);
+    lit.items.lamp.lit = true;
+    const ground = structuredClone(held);
+    ground.items.lamp.holder = "station";
+    const oil = structuredClone(held);
+    oil.items.cloth.holder = "moth";
+    oil.items.oil.holder = "vale";
+    const bell = structuredClone(ground);
+    bell.items.bell.holder = "vale";
+    const seen = new Set();
+    for (const world of [held, lit, ground, oil, bell, createWorld()]) {
+      for (const action of legalActions(world)) {
+        const result = play(world, action);
+        expect(result.ok).toBe(true);
+        expect(
+          narrativeContext(result.state, action).speakers[0],
+          action.kind,
+        ).toBe("vale");
+        seen.add(action.kind);
+      }
+    }
+    for (const kind of [
+      "wait",
+      "light",
+      "snuff",
+      "take",
+      "drop",
+      "cover",
+      "refill",
+      "ring",
+      "talk",
+      "move",
+    ])
+      expect(seen.has(kind), kind).toBe(true);
+  });
   it("lets Vale speak on Stay when nobody departs", () => {
     const world = act(createWorld({ opening: true }), "wait");
     const context = narrativeContext(world);
@@ -562,7 +602,7 @@ describe("witnessed departures and conversation continuity", () => {
     for (let i = 0; i < 4; i++) world = act(world, "wait");
     expect(world.actors.moth.place).toBe("pond");
     const context = narrativeContext(world);
-    expect(context.speakers).toEqual(["moth"]);
+    expect(context.speakers).toEqual(["vale", "moth"]);
     expect(
       context.events.some((text) => text.includes("Pip goes to Black pond")),
     ).toBe(true);
@@ -578,7 +618,7 @@ describe("witnessed departures and conversation continuity", () => {
           (e) => e.turn === next.turn && e.generated && e.kind === "dialogue",
         )
         .map((e) => e.actorId),
-    ).toEqual(["moth"]);
+    ).toEqual(["vale", "moth"]);
     const farewell = next.log.at(-1);
     expect(farewell).toMatchObject({
       actorId: "moth",
@@ -676,12 +716,12 @@ describe("witnessed departures and conversation continuity", () => {
       ),
     ).toBe(true);
   });
-  it("lets a departure lead a quiet turn and keeps an explicit partner first", () => {
+  it("lets Vale lead Stay and keeps the chosen partner before departures", () => {
     let world = createWorld();
     for (let i = 0; i < 3; i++) world = act(world, "wait");
     expect(world.actors.moth.place).toBe("station");
     expect(world.actors.keeper.place).toBe("attic");
-    expect(narrativeContext(world).speakers).toEqual(["keeper"]);
+    expect(narrativeContext(world).speakers).toEqual(["vale", "keeper"]);
     expect(narrativeContext(world, { target: "moth" }).speakers).toEqual([
       "vale",
       "moth",
@@ -695,7 +735,7 @@ describe("witnessed departures and conversation continuity", () => {
     world.items.bell.holder = "keeper";
     world = act(world, "wait");
     const context = narrativeContext(world);
-    expect(context.speakers).toEqual(["moth", "keeper"]);
+    expect(context.speakers).toEqual(["vale", "moth", "keeper"]);
     // A partner who left after another avatar speaks after that departure,
     // so it never mentions someone gone who is still on screen.
     expect(narrativeContext(world, { target: "keeper" }).speakers).toEqual([

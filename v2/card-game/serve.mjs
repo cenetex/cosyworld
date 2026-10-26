@@ -19,6 +19,7 @@ const assets = new Map([
   ["/motives.mjs", ["motives.mjs", "text/javascript"]],
   ["/life.mjs", ["life.mjs", "text/javascript"]],
   ["/quests.mjs", ["quests.mjs", "text/javascript"]],
+  ["/quest-cards.mjs", ["quest-cards.mjs", "text/javascript"]],
   ["/situations.mjs", ["situations.mjs", "text/javascript"]],
   ["/memory.mjs", ["memory.mjs", "text/javascript"]],
   ["/narrative.mjs", ["narrative.mjs", "text/javascript"]],

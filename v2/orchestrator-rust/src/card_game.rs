@@ -192,6 +192,7 @@ mod tests {
             "cards.mjs",
             "lessons.mjs",
             "quests.mjs",
+            "quest-cards.mjs",
             "motives.mjs",
             "life.mjs",
             "situations.mjs",

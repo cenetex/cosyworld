@@ -286,6 +286,8 @@ jobs:
           node v2/scripts/smoke-card-dialogue-recovery.mjs
           node v2/scripts/smoke-card-dialogue-timing.mjs
           node v2/scripts/smoke-card-movement.mjs
+          node v2/scripts/smoke-card-quests.mjs
+          node v2/scripts/smoke-card-voice.mjs
 
       - name: Check music fades between rooms and on pause
         if: matrix.mode == 'baseline'
@@ -311,6 +313,9 @@ jobs:
             output/dialogue-timing/*.json
             output/movement/*.png
             output/movement/*.json
+            output/card-quests-chromium/*.png
+            output/card-quests-chromium/*.json
+            output/card-voice-chromium/*.png
           if-no-files-found: ignore
           retention-days: 7
 
