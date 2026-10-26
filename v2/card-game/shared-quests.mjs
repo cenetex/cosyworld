@@ -261,7 +261,7 @@ export function pruneTransientQuestHistory(world, actor, preserveKey = null) {
 }
 export function validSharedQuestRegistry(
   world,
-  { actors, items, places, program, origin },
+  { actors, items, places, program, origin, story },
 ) {
   const registry = world.quests;
   if (!registry) return true;
@@ -307,7 +307,7 @@ export function validSharedQuestRegistry(
       key.length < 1 ||
       key.length > 160 ||
       ["__proto__", "constructor", "prototype"].includes(key) ||
-      !["personal", "shared"].includes(q.mode) ||
+      !["personal", "shared", "story"].includes(q.mode) ||
       !q.holder ||
       !["avatar", "item", "place"].includes(q.holder.kind) ||
       !{ avatar: actors, item: items, place: places }[q.holder.kind].includes(
@@ -347,7 +347,9 @@ export function validSharedQuestRegistry(
           q.cause.rootId.length > 200))
     )
       return false;
-    if (q.mode === "personal") {
+    if (q.mode === "story") {
+      if (!story?.(q)) return false;
+    } else if (q.mode === "personal") {
       if (!personalKeys.includes(key) || q.subjectActor === null || q.retired)
         return false;
     } else {

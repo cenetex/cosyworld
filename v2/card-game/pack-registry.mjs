@@ -288,7 +288,15 @@ function choiceFeasible(world, pack, choice, actor) {
       !pack.release.choices.includes(choice.id)) ||
     world.actors[actor]?.place !== choice.at ||
     !entityActive(world, choice.subject) ||
-    !conditionsMet(world, pack.id, choice.requires)
+    !conditionsMet(
+      world,
+      pack.id,
+      choice.requires.map((condition) =>
+        condition.kind === "holding" && condition.actor === "vale"
+          ? { ...condition, actor }
+          : condition,
+      ),
+    )
   )
     return false;
   const subject = choice.subject;
@@ -320,7 +328,10 @@ export function packChoices(world, actor = "vale") {
         packId: pack.id,
         choiceId: c.id,
         label: c.label,
-        text: c.text,
+        text: c.text.replace(
+          /\bVale\b/g,
+          humanAvatar(actor)?.name || packPeople[actor]?.name || actor,
+        ),
         key: `choose:${actor}:${pack.id}:${c.id}`,
         cards: [c.subject],
       })),

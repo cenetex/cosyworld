@@ -1,3 +1,5 @@
+import { syncStoryQuests } from "./story-quests.mjs";
+import { publishQuestCompletions } from "./quest-completions.mjs";
 import { installSharedQuestRegistry } from "./shared-quests.mjs";
 import { newProgress, questPrograms } from "./quests.mjs";
 import { migrateMemories, newMemories, rememberEvent } from "./memory.mjs";
@@ -91,6 +93,7 @@ export function upgradeSave(
   migrateLife(s, profileOf);
   if (Object.values(s.life?.actors || {}).some((life) => life.collection))
     installSharedQuestRegistry(s);
+  if (s?.schema === 7) publishQuestCompletions(s, syncStoryQuests(s));
   return s;
 }
 
