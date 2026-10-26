@@ -214,3 +214,43 @@ Ordered receipts recompute saved choices/flags on loading.
 An optional `release` lists opening places, avatars, items and choices.
 Fresh saves use opening scope; migrated old Greek games retain full scope.
 This is release composition, not a new player progression meter or UI mode.
+
+## Observable states in dialogue
+
+A pack can add `observations` to its `card-world.json`. The hub uses the same
+field in `card-table.json`. Each definition names an entity, a state source,
+and the meaning of its two boolean values. The compiler validates these
+records and includes them in `packs.json` for both the browser and the server.
+
+```json
+{
+  "id": "gate-open",
+  "entity": "iron-gate",
+  "subjects": ["iron gate"],
+  "source": { "kind": "item_flag", "field": "open" },
+  "values": {
+    "true": { "fact": "The iron gate is open.", "claims": ["is open"] },
+    "false": { "fact": "The iron gate is closed.", "claims": ["is closed"] }
+  }
+}
+```
+
+The source reads an existing runtime field. `item_flag` and `actor_flag` read
+booleans. `item_positive` checks whether a number is greater than zero.
+`covered` checks whether another item rests on the named item. The pack's
+existing rules own changes to those fields.
+
+The browser records observations after the whole turn, including autonomous
+actions and resource use. It includes states for the entities in the resolved
+outcome. The server supplies the authored facts as `direction.observations_now`.
+An optional `note` explains how an action relates to the state. For existing
+browser tabs, an optional `legacyToken` reads an exact semicolon-separated
+field from the older entity facts.
+
+The shared checker compares direct present-tense statements against the pack's
+`subjects` and `claims`. It chooses the longest matching phrase. It preserves
+questions, wishes and recalled speech. This bounded phrase check covers the
+wording a pack declares; the final-state facts guide other wording. Conflicting
+character replies receive one rewrite attempt. A second conflict uses the
+existing retry UI. Publication follows validation. The Lamp and Badger provide
+item and avatar examples of the same path.

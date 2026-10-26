@@ -10,7 +10,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { packProblems } from "../card-game/pack-schema.mjs";
+import {
+  packProblems,
+  observationProblems,
+} from "../card-game/pack-schema.mjs";
 
 const v2 = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const output = path.join(v2, "card-game/packs.json");
@@ -19,6 +22,7 @@ const check = process.argv.includes("--check");
 
 const table = read("worlds/card-table.json");
 const problems = [];
+problems.push(...observationProblems(table.hub?.observations, table.hub));
 if (
   table.schemaVersion !== 1 ||
   !Array.isArray(table.packs) ||
@@ -52,7 +56,13 @@ const packs = (table.packs || []).map((id) => {
 });
 
 const seen = new Map();
+const observationIds = new Set((table.hub.observations || []).map((d) => d.id));
 for (const pack of packs) {
+  for (const d of pack.observations || []) {
+    if (observationIds.has(d.id))
+      problems.push(`duplicate observation ${d.id}`);
+    observationIds.add(d.id);
+  }
   problems.push(
     ...packProblems(
       pack,

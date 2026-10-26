@@ -5,7 +5,72 @@
     "player": "vale",
     "places": ["station", "attic", "pond"],
     "avatars": ["vale", "moth", "keeper"],
-    "items": ["lamp", "oil", "bell", "cloth"]
+    "items": ["lamp", "oil", "bell", "cloth"],
+    "observations": [
+      {
+        "id": "lamp-flame",
+        "entity": "lamp",
+        "subjects": ["lamp"],
+        "source": {
+          "kind": "item_flag",
+          "field": "lit"
+        },
+        "note": "Pouring oil adds fuel. Lighting is a separate action. The flame can run dry during the turn; the final state includes that change.",
+        "values": {
+          "true": {
+            "fact": "The Lamp is burning now.",
+            "legacyToken": "lit",
+            "claims": [
+              "is lit",
+              "is alight",
+              "is burning",
+              "burns",
+              "is not unlit",
+              "isn't unlit",
+              "is not out",
+              "isn't out",
+              "is not extinguished",
+              "isn't extinguished"
+            ]
+          },
+          "false": {
+            "fact": "The Lamp is unlit now.",
+            "legacyToken": "unlit",
+            "claims": [
+              "is unlit",
+              "is not lit",
+              "isn't lit",
+              "is not burning",
+              "isn't burning",
+              "is out",
+              "is extinguished",
+              "burns out",
+              "has gone out"
+            ]
+          }
+        }
+      },
+      {
+        "id": "lamp-cover",
+        "entity": "lamp",
+        "subjects": ["lamp"],
+        "source": {
+          "kind": "covered"
+        },
+        "values": {
+          "true": {
+            "fact": "The Lamp is covered. Its flame state is recorded separately.",
+            "legacyToken": "covered",
+            "claims": ["is covered"]
+          },
+          "false": {
+            "fact": "The Lamp is uncovered.",
+            "legacyToken": "uncovered",
+            "claims": ["is uncovered", "is not covered", "isn't covered"]
+          }
+        }
+      }
+    ]
   },
   "packs": ["badger-forest", "greek-drama"]
 }

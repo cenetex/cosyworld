@@ -1,7 +1,7 @@
 // The compiled world packs mounted on the card table, indexed for the engine.
 // Packs supply data only; pack-rules.mjs applies the general rules they name.
 import compiled from "./packs.json" with { type: "json" };
-import { packProblems } from "./pack-schema.mjs";
+import { packProblems, observationProblems } from "./pack-schema.mjs";
 import { conditionMet as evaluateCondition } from "./pack-rules.mjs";
 const owns = (o, key) =>
   typeof key === "string" && !!o && Object.hasOwn(o, key);
@@ -31,6 +31,45 @@ const problems =
     : ["packs.json needs schemaVersion 1 and a pack list"];
 if (problems.length)
   throw new Error(`Invalid card world packs: ${problems.join("; ")}`);
+
+const observations = [
+  ...(compiled.hub.observations || []),
+  ...compiled.packs.flatMap((pack) => pack.observations || []),
+];
+if (
+  observationProblems(compiled.hub.observations, compiled.hub).length ||
+  new Set(observations.map((d) => d.id)).size !== observations.length
+)
+  throw new Error("Invalid card world observations.");
+
+export function observableStates(world, entityIds, definitions = observations) {
+  const visible = new Set(entityIds);
+  return definitions
+    .filter((d) => visible.has(d.entity))
+    .flatMap((d) => {
+      const source = d.source;
+      const entity =
+        source.kind === "actor_flag"
+          ? world.actors[d.entity]
+          : world.items[d.entity];
+      if (!entity) return [];
+      const raw = Object.hasOwn(entity, source.field)
+        ? entity[source.field]
+        : undefined;
+      const value =
+        source.kind === "covered"
+          ? Object.values(world.items).some((item) => item.holder === d.entity)
+          : source.kind === "item_positive"
+            ? typeof raw === "number"
+              ? raw > 0
+              : null
+            : typeof raw === "boolean"
+              ? raw
+              : null;
+      return value === null ? [] : [{ id: d.id, value }];
+    })
+    .slice(0, 32);
+}
 
 export const hub = compiled.hub;
 export const packDefinitions = compiled.packs;
