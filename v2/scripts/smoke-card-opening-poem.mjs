@@ -105,6 +105,19 @@ export async function checkOpeningPoem(browser, origin) {
         const face = page.locator(
           '#hand [data-card="story-quest-greek-courtyard"]',
         );
+        await page.waitForFunction(
+          () => {
+            const card = document.querySelector(
+              '#hand [data-card="story-quest-greek-courtyard"]',
+            );
+            const hand = document.querySelector("#hand");
+            const bounds = card.getBoundingClientRect(),
+              room = hand.getBoundingClientRect();
+            return bounds.left >= room.left && bounds.right <= room.right + 1;
+          },
+          null,
+          { timeout: 3000 },
+        );
         assert.equal(await face.locator(".quest-purpose").count(), 0);
         assert.equal(
           await face.locator(".name").textContent(),

@@ -684,6 +684,10 @@ main {
   scroll-padding-inline: 5px;
   scroll-snap-type: x proximity;
 }
+/* Keep the chosen card at the position set by revealHandCard. */
+.hand:has(.card-frame[data-raised="true"]) {
+  scroll-snap-type: none;
+}
 .hand-wrap::before,
 .hand-wrap::after {
   display: none;
