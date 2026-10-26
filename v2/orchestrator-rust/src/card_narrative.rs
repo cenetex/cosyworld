@@ -3568,6 +3568,7 @@ mod tests {
                 (["test-entity-model", "alternate-name"].map(|id| json!({
                     "requested_model_id":id,"provider":"openrouter",
                     "concrete_model":{"model_id":"test-entity-model"},
+                    "supported_parameters":{"json_mode":true,"structured_output":true},
                     "input_modalities":["text"],"output_modalities":["text"],
                     "capabilities":["world_content"],"prompt_adapter":{"id":"openai-chat","version":"1"}
                 }))), "discovered":[]}).to_string()).unwrap()));
@@ -3610,6 +3611,31 @@ mod tests {
                 StatusCode::SERVICE_UNAVAILABLE
             );
         }
+        let mut voice_only = test_config(address);
+        voice_only.registry = Some(Arc::new(
+            crate::ai_gateway::CapabilityRegistrySnapshot::from_json(
+                &json!({"schema_version":1,"snapshot_version":"voice-only-test","declared":[{
+                "requested_model_id":"voice-only","provider":"openrouter",
+                "concrete_model":{"model_id":"voice-only"},
+                "input_modalities":["text"],"output_modalities":["text"],
+                "capabilities":["voice"],"prompt_adapter":{"id":"openai-chat","version":"1"}
+            }],"discovered":[]})
+                .to_string(),
+            )
+            .unwrap(),
+        ));
+        let app = router_with_models::<()>(
+            Arc::new(Some(voice_only)),
+            Ok(cast_models()),
+            Ok(VoiceSettings {
+                escalation_model: Some("voice-only".into()),
+                ..VoiceSettings::hosted()
+            }),
+        );
+        assert_eq!(
+            scene(&app, &context()).await.0,
+            StatusCode::SERVICE_UNAVAILABLE
+        );
         let mut config = tiered_config(address, &[("escalation-model", false)]);
         config
             .capability_models
