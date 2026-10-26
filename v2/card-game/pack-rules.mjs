@@ -40,6 +40,7 @@ export const newCrossingState = (c) =>
   c.signal ? { discovered: false, phase: 0, until: 0 } : { discovered: false };
 export const newPackRecord = (pack) => ({
   revision: pack.revision,
+  ...(pack.recital ? { recitals: {} } : {}),
   ...(pack.choices
     ? {
         choices: {},
@@ -443,6 +444,7 @@ export function validPackState(s, senses) {
               "receipts",
               "met",
               "scope",
+              ...(pack.recital ? ["recitals"] : []),
             ]
           : ["revision", "sounds"],
       ) ||

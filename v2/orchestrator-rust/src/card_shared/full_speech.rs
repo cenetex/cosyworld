@@ -2,6 +2,7 @@
 //! committed actions and write resident replies, while game outcomes stay in C.
 use super::{full_world::actor_id, store::Result};
 use crate::ai_gateway::ModelCapability;
+use crate::routes::recital;
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -38,7 +39,7 @@ fn prepared(actor: usize, work: &Value) -> Result<(Value, Vec<String>)> {
         return Err("The scene needs its character profiles.".into());
     }
     Ok((
-        json!({"requested_ids":ids,"acting_avatar":actor_id(actor),"profiles":selected,"scene":scene}),
+        json!({"requested_ids":ids,"acting_avatar":actor_id(actor),"profiles":selected,"scene":scene,"recital":recital::instruction(scene)}),
         ids,
     ))
 }
@@ -61,6 +62,9 @@ fn parse(text: &str, finish: &str, work: &Value, ids: &[String]) -> Result<Value
         }
         let text = entry["text"].as_str().ok_or(error)?.trim();
         if text.is_empty() || text.chars().count() > 240 || text.chars().any(char::is_control) {
+            return Err(error.into());
+        }
+        if !recital::consistent(&work["context"], id, text) {
             return Err(error.into());
         }
         let profile = &work["profiles"][id];
@@ -104,6 +108,28 @@ pub(super) async fn generate(state: &crate::AppState, actor: usize, work: &Value
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn shared_bard_quotes_the_earned_verse() {
+        let verse = "I told her I would turn away. Her brother waited by the wall.";
+        let work = json!({"room":"greek-harbor","context":{
+            "location":"greek-harbor","speakers":["vale","greek-rhapsode"],
+            "outcome":{"card":{"kind":"talk","target":"greek-rhapsode"}},
+            "entities":[{"id":"greek-rhapsode","facts":[format!("Verse 1, Vale: {verse}")]}]
+        },"profiles":{"vale":{"name":"Vale","kind":"avatar"},"greek-rhapsode":{"name":"The Bard","kind":"avatar"}}});
+        let (payload, ids) = prepared(0, &work).unwrap();
+        assert_eq!(payload["recital"]["text"], verse);
+        let response = |text: &str| {
+            json!({"entries":[{"id":"vale","text":"I hear you."},{"id":"greek-rhapsode","text":text}]}).to_string()
+        };
+        assert!(parse(&response(verse), "stop", &work, &ids).is_ok());
+        assert!(parse(
+            &response("The dark keeps every name the waves release."),
+            "stop",
+            &work,
+            &ids
+        )
+        .is_err());
+    }
     #[test]
     fn resident_dialogue_and_human_authority_share_one_scene() {
         let mut work = json!({"room":"station","context":{"location":"station","speakers":["vale","pip","mara"],"outcome":{"card":{"target":"pip"}}},"profiles":{"vale":{"name":"Vale","kind":"avatar"},"pip":{"name":"Pip","kind":"avatar"},"mara":{"name":"Mara","kind":"avatar"},"station":{"name":"Empty station","kind":"location"}}});

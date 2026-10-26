@@ -1,5 +1,6 @@
 #[path = "card_narrative.rs"]
 pub(crate) mod narrative;
+pub(crate) use narrative::recital;
 
 pub(super) fn text_router<S: Clone + Send + Sync + 'static>(
     ai: std::sync::Arc<Option<crate::ai_gateway::AiConfig>>,

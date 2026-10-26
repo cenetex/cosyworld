@@ -21,7 +21,7 @@ export const humanRoomAvailable = (world, actor, place, count = 1) =>
   world.actors[actor]?.place === place ||
   roomHumanCount(world, place) + count <= 4;
 
-// These seven homes join the existing pond. Vale, the station, the attic,
+// These seven homes join the existing shore. Vale, the station, the attic,
 // the pond and the lamp keep their original definitions and behavior.
 const visitors = humanAvatars.filter((a) => a.id !== "vale");
 export const humanHomePack = {
@@ -35,8 +35,7 @@ export const humanHomePack = {
   entry: visitors[0].home.id,
   bridge: {
     id: "shared-homes-shore",
-    description:
-      "A visitor's belonging at the pond opens the way to their home.",
+    description: "A visitor's belonging opens the way to their home.",
   },
   choices: [],
   places: Object.fromEntries(
@@ -91,13 +90,18 @@ export const humanHomePack = {
   ),
   crossings: visitors.flatMap((a) => [
     {
+      // Crossing IDs stay stable in earlier saves and recorded actions.
       id: `pond-${a.home.id}`,
-      from: "pond",
+      from: a.home.connection || "pond",
       to: a.home.id,
       travelers: "player",
       requires: [
         { kind: "shared_world" },
-        { kind: "item_near", item: a.item.id, place: "pond" },
+        {
+          kind: "item_near",
+          item: a.item.id,
+          place: a.home.connection || "pond",
+        },
       ],
       travel: `through ${a.home.entrance.name.toLowerCase()}`,
       scenery: { open: a.home.entrance.text, cardArt: a.home.image },
@@ -105,7 +109,7 @@ export const humanHomePack = {
     {
       id: `${a.home.id}-pond`,
       from: a.home.id,
-      to: "pond",
+      to: a.home.connection || "pond",
       travelers: "player",
       requires: [
         { kind: "shared_world" },
@@ -115,7 +119,7 @@ export const humanHomePack = {
           condition: { kind: "item_at", item: a.item.id, place: a.home.id },
         },
       ],
-      travel: "back to the shore",
+      travel: a.home.returnTravel || "back to the shore",
     },
   ]),
 };

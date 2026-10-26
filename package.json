@@ -1,6 +1,6 @@
 {
   "name": "cosyworld",
-  "version": "1.1.5",
+  "version": "1.1.10",
   "description": "Shared AI MUD runtime with a deterministic C kernel and Rust orchestrator",
   "type": "module",
   "private": true,
@@ -66,7 +66,6 @@
     "docs:dm-guide": "node scripts/build-dm-guide.mjs",
     "docs:dm-guide:check": "npm run docs:dm-guide && node scripts/check-dm-guide.mjs",
     "play:cards": "node v2/card-game/serve.mjs",
-    "play:cards:local": "bash v2/scripts/play-cards-local.sh",
     "v2:card:unveil:smoke": "node v2/scripts/smoke-card-unveil.mjs",
     "v2:card:pack:build": "node v2/scripts/build-card-worldpacks.mjs && npm run v2:card:assets:build && npm run v2:card:shared:build",
     "v2:card:pack:check": "node v2/scripts/build-card-worldpacks.mjs --check && npm run v2:card:assets:check && npm run v2:card:shared:check",

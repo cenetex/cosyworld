@@ -15,7 +15,10 @@ pub(super) async fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     let report = serve(state, boot_started, drain_budget).await?;
     let snapshot_started = Instant::now();
-    persist_final_snapshot(&shutdown_state).await;
+    // Background workers outlive serve() and only stop when the tokio runtime
+    // drops after this returns. Never releasing the runtime keeps them from
+    // committing a record the final snapshot does not cover.
+    std::mem::forget(persist_final_snapshot(&shutdown_state).await);
     let snapshot_elapsed = snapshot_started.elapsed();
     info!(
         event = "shutdown_complete",
@@ -312,11 +315,30 @@ fn configured_listen_addr() -> Result<SocketAddr, std::net::AddrParseError> {
         .parse()
 }
 
-async fn persist_final_snapshot(state: &AppState) {
+async fn persist_final_snapshot(state: &AppState) -> tokio::sync::MutexGuard<'_, RuntimeWorld> {
     // Snapshot writes are coalesced during play, so force the latest runtime to
     // disk on a graceful shutdown and keep the next journal replay inexpensive.
+    // Every commit needs this lock, so the caller holds the returned guard
+    // until exit and nothing can land in the journal after the checkpoint.
     let runtime = state.inner.lock().await;
     persist_runtime_now(state, &runtime);
+    release_canonical_leases(state);
+    runtime
+}
+
+fn release_canonical_leases(state: &AppState) {
+    let Some(path) = state.event_store_path.as_deref() else {
+        return;
+    };
+    match release_owner_partition_leases(
+        path,
+        OFFICIAL_WORLD_ID,
+        state.canonical_owner_id.as_str(),
+        now_millis(),
+    ) {
+        Ok(released) => info!(event = "canonical_leases_released", released),
+        Err(error) => warn!(event = "canonical_lease_release_failed", %error),
+    }
 }
 
 #[cfg(test)]
@@ -473,6 +495,26 @@ mod tests {
         (state, snapshot_path)
     }
 
+    #[tokio::test]
+    async fn the_final_snapshot_fences_later_commits_until_exit() {
+        let (state, snapshot_path) = snapshot_test_state(ShutdownReason::Sigterm);
+        let final_runtime = persist_final_snapshot(&state).await;
+        let worker_state = state.clone();
+        let late_commit = tokio::spawn(async move {
+            let _runtime = worker_state.inner.lock().await;
+        });
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        assert!(
+            !late_commit.is_finished(),
+            "a background worker must not reach the runtime after the final snapshot"
+        );
+        drop(final_runtime);
+        late_commit
+            .await
+            .expect("worker resumes once the guard drops");
+        let _ = fs::remove_file(snapshot_path);
+    }
+
     async fn run_snapshot_shutdown(reason: ShutdownReason) -> ShutdownReport {
         let (state, snapshot_path) = snapshot_test_state(reason);
         let shutdown_state = state.clone();
@@ -485,7 +527,7 @@ mod tests {
                 serve_until_shutdown(listener, state, shutdown, Duration::from_millis(250))
                     .await
                     .expect("serve until simulated shutdown");
-            persist_final_snapshot(&shutdown_state).await;
+            drop(persist_final_snapshot(&shutdown_state).await);
             report
         });
         tokio::task::yield_now().await;

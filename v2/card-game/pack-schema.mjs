@@ -168,6 +168,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       "sources",
       "observations",
       "transports",
+      "recital",
     ]),
     "has an unknown top-level field",
   );
@@ -783,6 +784,42 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         writes.get(g.key)?.size === g.options.length,
       "continuity options must match authored commitments",
     );
+  if (pack.recital !== undefined) {
+    const r = pack.recital;
+    check(
+      keysOk(r, ["actor", "title", "verses"]) &&
+        owns(avatars, r?.actor) &&
+        avatars[r.actor].travels === false &&
+        avatars[r.actor].standoffs === false &&
+        textOk(r.title, 80) &&
+        Array.isArray(r.verses) &&
+        r.verses.length > 0 &&
+        r.verses.length <= 64,
+      "recital needs a stationary singer, a title and up to 64 verses",
+    );
+    const seen = new Set();
+    const linesOk = (lines) =>
+      Array.isArray(lines) &&
+      lines.length === 2 &&
+      lines.every((line) => textOk(line, 90));
+    for (const v of Array.isArray(r?.verses) ? r.verses : []) {
+      check(
+        keysOk(v, ["choice", "quest", "lines", "summons", "after"]) &&
+          choiceIds.has(v?.choice) &&
+          !seen.has(v.choice) &&
+          idOk(v.quest) &&
+          linesOk(v.lines) &&
+          typeof v.summons === "boolean" &&
+          (v.after === undefined ||
+            (keysOk(v.after, ["choice", "lines"]) &&
+              choiceIds.has(v.after.choice) &&
+              v.after.choice !== v.choice &&
+              linesOk(v.after.lines))),
+        "recital verse needs a unique choice, quest, couplet and summons flag; after may select an earlier deed",
+      );
+      seen.add(v?.choice);
+    }
+  }
   if (problems.length) return problems;
   const combinations = groups.reduce(
     (states, g) =>
@@ -832,7 +869,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     );
     for (const id of r.avatars)
       check(
-        r.places.includes(avatars[id]?.place),
+        r.places.includes(avatars[id]?.place) || pack.recital?.actor === id,
         "release avatar is outside its places",
       );
     for (const id of r.items)
@@ -1050,11 +1087,14 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     );
   }
 
+  // The base world owns travel between its hub places. A pack may attach
+  // different rooms to different points in that connected hub.
   // Every pack place is reachable from the entry, the entry is reachable from
   // the hub, and some pack place has a crossing back to the hub.
   const reached = new Set([pack.entry]);
   for (const id of reached)
     for (const to of [
+      ...(hub.places.includes(id) ? hub.places : []),
       ...(places[id]?.exits || []),
       ...Object.values(pack.transports || {})
         .filter((t) => Array.isArray(t.docks) && t.docks.includes(id))

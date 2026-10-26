@@ -1,9 +1,11 @@
+import { recitalFacts } from "./pack-recital.mjs";
 import { hasMotives, motiveFacts, tastes } from "./motives.mjs";
 import { sceneChanges } from "./scene.mjs";
 import { profiles, validInnerLife } from "./memory.mjs";
 import {
   entityActive,
   packEntity,
+  packDefinitions,
   packFacts,
   packSceneFacts,
   observableStates,
@@ -453,7 +455,9 @@ export function narrativeContext(world, action = null) {
       );
       return {
         id,
-        facts: facts.slice(0, 16).map((text) => text.slice(0, 240)),
+        facts: [...recitalFacts(world, packDefinitions, id), ...facts]
+          .slice(0, 16)
+          .map((text) => text.slice(0, 240)),
         desire,
         memories: speechMemories(world.memories[id], {
           expressions: !beforeFirstLight,

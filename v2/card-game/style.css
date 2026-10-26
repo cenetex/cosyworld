@@ -424,10 +424,13 @@ h2 {
   .cast {
     inset: 65px 4% 235px;
   }
-  .cast[data-count="3"] .portrait[data-depth="foreground"] {
+  .cast:not([data-shared="true"])[data-count="3"]
+    .portrait[data-depth="foreground"] {
     left: 19%;
   }
-  .cast[data-count="3"][data-layout="foreground-right"]
+  .cast:not(
+      [data-shared="true"]
+    )[data-count="3"][data-layout="foreground-right"]
     .portrait[data-depth="foreground"] {
     left: 81%;
   }
@@ -683,6 +686,10 @@ main {
   scrollbar-color: #ad97744d transparent;
   scroll-padding-inline: 5px;
   scroll-snap-type: x proximity;
+}
+/* Keep the chosen card at the position set by revealHandCard. */
+.hand:has(.card-frame[data-raised="true"]) {
+  scroll-snap-type: none;
 }
 .hand-wrap::before,
 .hand-wrap::after {
@@ -968,6 +975,22 @@ body .cast[data-count] {
     top: 54px;
     width: 98%;
   }
+  body .cast[data-shared="true"]:not([data-count="1"]):not([data-count="2"]) {
+    --bust-drop: clamp(
+      0%,
+      min(calc((var(--cast-count) - 2) * 12%), calc(100% - 380px)),
+      42%
+    );
+  }
+  body
+    .cast[data-shared="true"]:not([data-count="1"]):not([data-count="2"])
+    .portrait[data-depth="foreground"] {
+    bottom: calc(100% - var(--stage-size) - var(--bust-drop));
+  }
+  body .cast[data-shared="true"] .portrait[data-depth="back"] {
+    left: calc(10% + var(--stage-x) * 0.8);
+    bottom: calc(86% - var(--stage-size));
+  }
   body .dialogue {
     bottom: calc(var(--dock-height) + 2px);
     padding: 8px 12px;
@@ -981,6 +1004,9 @@ body .cast[data-count] {
   }
 }
 @media (max-height: 440px) {
+  body .quest-frame[data-raised="true"] {
+    --card-width: 154px;
+  }
   :root {
     --card-height: 140px;
     --card-width: 112px;
@@ -1187,6 +1213,7 @@ body .card.quest .name {
 }
 .quest-purpose {
   display: none;
+  white-space: pre-line;
   padding-top: 8px;
   font:
     14px/1.3 Georgia,
@@ -1266,10 +1293,32 @@ body[data-place="attic"] .card.quest {
   body .card.quest[aria-pressed="true"] {
     padding: 24px 9px 12px;
   }
-}
-@media (max-height: 440px) {
   body .card.quest[aria-pressed="true"] .art {
     display: none;
+  }
+}
+@media (max-height: 440px) {
+  body .card.quest[aria-pressed="true"] .name {
+    font-size: 14px;
+  }
+  body .card.quest[aria-pressed="true"] .quest-purpose {
+    font-size: 11px;
+    line-height: 1.2;
+  }
+  body .card.quest[aria-pressed="true"] {
+    padding: 22px 8px 8px;
+  }
+}
+@media (max-width: 380px) {
+  .topbar {
+    padding-inline: 6px;
+  }
+  .topbar .top-actions {
+    gap: 4px;
+  }
+  .topbar .top-actions button {
+    padding-inline: 6px;
+    font-size: 11px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
