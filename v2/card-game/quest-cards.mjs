@@ -1,6 +1,6 @@
 import { programFor } from "./quests.mjs";
 import { availableCards } from "./cards.mjs";
-import { rootHolder, things } from "./world.mjs";
+import { rootHolder, things, currentActor } from "./world.mjs";
 
 export const QUEST_CARD = "player-quest";
 
@@ -56,7 +56,7 @@ const situations = {
 };
 
 export function playerQuest(world) {
-  const program = programFor(world, "vale");
+  const program = programFor(world, currentActor(world));
   if (!program) return null;
   const [title, purpose, art] =
     authored[program.id] ||
@@ -69,7 +69,7 @@ export function playerQuest(world) {
         ]
       : situations.bargain);
   return {
-    key: `vale:${world.actors.vale.progress.program}:${program.id}:${program.generated?.turn ?? "authored"}`,
+    key: `${currentActor(world)}:${world.actors[currentActor(world)].progress.program}:${program.id}:${program.generated?.turn ?? "authored"}`,
     title,
     purpose,
     art,
@@ -83,8 +83,9 @@ export function fulfilledPlayerQuest(before, after) {
     (entry) =>
       entry.seq > (before.eventSeq || 0) &&
       entry.kind === "quest" &&
-      entry.actorId === "vale" &&
-      entry.programIndex === before.actors.vale.progress.program &&
+      entry.actorId === currentActor(before) &&
+      entry.programIndex ===
+        before.actors[currentActor(before)].progress.program &&
       entry.step + 1 === entry.program?.steps.length,
   );
   return receipt ? quest : null;
@@ -93,8 +94,11 @@ export function fulfilledPlayerQuest(before, after) {
 export function questHand(world, quest) {
   const cards = availableCards(world);
   if (!quest) return cards;
-  let index = cards.indexOf("vale") + 1;
-  while (things[cards[index]] && rootHolder(world, cards[index]) === "vale")
+  let index = cards.indexOf(currentActor(world)) + 1;
+  while (
+    things[cards[index]] &&
+    rootHolder(world, cards[index]) === currentActor(world)
+  )
     index++;
   cards.splice(index, 0, QUEST_CARD);
   return cards;
