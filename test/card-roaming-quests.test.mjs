@@ -150,7 +150,7 @@ describe("saved roaming quests", () => {
     f.complete("b");
     f.world.turn++;
     f.step();
-    expect(f.world.quests.records[old]).toBeUndefined();
+    expect(f.world.quests.records[old].retired.reason).toBe("superseded");
     expect(
       f.world.roamingQuests.singer.history.some(
         (q) => q.key === old && q.retiredTurn !== null,
@@ -176,8 +176,11 @@ describe("saved roaming quests", () => {
       JOURNEY_HISTORY_LIMIT,
     );
     expect(
-      questRecords(f.world).filter((q) => q.cause?.kind === "journey"),
-    ).toHaveLength(1);
+      questRecords(f.world).filter(
+        (q) =>
+          q.cause?.kind === "journey" && !q.retired && q.completedTurn === null,
+      ),
+    ).toHaveLength(0);
     expect(
       f.world.quests.records[f.world.roamingQuests.singer.questKey]
         .completedTurn,

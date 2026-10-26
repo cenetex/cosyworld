@@ -12,8 +12,7 @@ export const authoredRouteEdges = () => [
   ...Object.entries({ ...forest.places, ...packPlaces }).flatMap(([from, p]) =>
     p.exits.map((to) => [from, to]),
   ),
-  ["attic", "pond"],
-  ["pond", "attic"],
+  ...(forest.reflectionRoutes || []).map(({ from, to }) => [from, to]),
   ...packDefinitions.flatMap((p) =>
     (p.routes || []).map((r) => [r.from, r.to]),
   ),
@@ -28,10 +27,10 @@ export const authoredRouteEdges = () => [
 ];
 export function initialRouteEdges(actor) {
   const home = packPeople[actor]?.packId;
-  return authoredRouteEdges().filter(
-    ([from, to]) =>
-      (!packPlaces[from] && !packPlaces[to]) ||
-      (home && packPlaces[from]?.packId === home),
+  return authoredRouteEdges().filter(([from, to]) =>
+    home
+      ? packPlaces[from]?.packId === home
+      : !packPlaces[from] && !packPlaces[to],
   );
 }
 export const visibleRouteEdges = (place) =>

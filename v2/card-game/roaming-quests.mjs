@@ -60,8 +60,8 @@ export function installRoamingQuests(world, actors, api) {
         history: [],
       };
       rememberRoutes(world, actor, api.initialEdges(actor));
+      rememberRoutes(world, actor, api.visibleEdges(world.actors[actor].place));
     }
-    rememberRoutes(world, actor, api.visibleEdges(world.actors[actor].place));
   }
 }
 function archiveFamily(world, actor, state) {
@@ -72,7 +72,7 @@ function archiveFamily(world, actor, state) {
       familyKinds.includes(q.cause?.kind) &&
       q.cause.rootId === rootId &&
       (q.subjectActor === actor ||
-        q.program.steps.some((h) => h.passage?.actor === actor)),
+        q.program?.steps?.some((h) => h.passage?.actor === actor)),
   )) {
     if (unfinished(q)) retireQuest(world, q.key);
     state.history.push({
@@ -84,7 +84,6 @@ function archiveFamily(world, actor, state) {
       retiredTurn: q.retired?.turn ?? null,
     });
     clearQuestFocus(world, q.key);
-    delete world.quests.records[q.key];
   }
   state.history = state.history.slice(-JOURNEY_HISTORY_LIMIT);
 }
@@ -103,7 +102,9 @@ export function refreshRoamingQuest(world, actor, api) {
     program: {
       id: `journey:${actor}:${latest.seq}`,
       name: `Visit ${api.nameOf(latest.locationId)}`,
-      purpose: `Reach the place where ${api.nameOf(latest.actorId)} completed a quest.`,
+      purpose: latest.actorId
+        ? `Reach the place where ${api.nameOf(latest.actorId)} completed a quest.`
+        : "Reach the recorded site of an earlier completed quest.",
       steps: [{ items: [], avatars: [], location: latest.locationId }],
     },
   });
@@ -150,7 +151,7 @@ function requestHelp(world, actor, state, from, to, kind, api) {
       holder: { kind: "place", id: from },
       cause,
       program: {
-        id: `help:${actor}:${state.target.seq}:${key}`,
+        id: `help:${actor}:${world.quests.next}`,
         name:
           kind === "directions"
             ? `Show the way to ${api.nameOf(to)}`
@@ -209,6 +210,8 @@ export function roamingPlan(world, actor, api) {
     api.arrive(actor);
     return null;
   }
+  const landing = api.transportExit?.(actor);
+  if (landing) return landing;
   const openPath = knownRoute(
     world,
     actor,
@@ -232,6 +235,7 @@ export function roamingPlan(world, actor, api) {
   return action;
 }
 export function settleRoamingArrival(world, actor, api) {
+  rememberRoutes(world, actor, api.visibleEdges(world.actors[actor].place));
   const state = world.roamingQuests?.[actor];
   if (state?.target?.locationId === world.actors[actor].place) {
     finish(world, questRecord(world, state.questKey), actor);
@@ -297,4 +301,60 @@ export function validRoamingQuests(world, actors, places, edges) {
             questRecord(world, s.blocked.questKey)?.cause?.kind === "help")))
     );
   });
+}
+
+// A nearby volunteer uses the same Help, Take and Move choices as a player.
+// Custody and the existing legal action list decide which help is possible.
+export function roamingHelpPlan(world, actor, api) {
+  const here = world.actors[actor].place;
+  const actions = api.actions(actor);
+  for (const q of questRecords(world)) {
+    const hand = q.program.steps[q.step],
+      help = hand?.passage;
+    if (
+      !unfinished(q) ||
+      q.cause?.kind !== "help" ||
+      !help ||
+      help.actor === actor
+    )
+      continue;
+    const joined = q.participants.includes(actor);
+    if (!joined && q.holder.id !== here) continue;
+    let action = null;
+    if (help.kind === "directions") {
+      const knowledge = {
+        routeKnowledge: {
+          [actor]: [
+            ...(world.routeKnowledge?.[actor] || []),
+            ...api.initialEdges(actor),
+            ...api.witnessedEdges(actor),
+          ],
+        },
+      };
+      if (!knownRoute(knowledge, actor, help.from, help.to)) continue;
+      action = actions.find((a) => a.kind === "wait");
+    } else {
+      const crossing = api.crossing(help.from, help.to);
+      const needed = (crossing?.requires || []).filter(
+        (c) => c.kind === "item_near" || c.kind === "holding",
+      );
+      const item = needed.find((c) => api.itemPlace(c.item) === here)?.item;
+      if (!item) continue;
+      if (world.items[item].holder !== actor)
+        action = actions.find((a) => a.kind === "take" && a.item === item);
+      else if (here !== help.from) {
+        const path = api.route(here, help.from, actor);
+        action = actions.find(
+          (a) => a.kind === "move" && a.target === path?.[1],
+        );
+      } else action = actions.find((a) => a.kind === "wait");
+    }
+    if (!action) continue;
+    if (!joined)
+      action = actions.find(
+        (a) => a.kind === "join-quest" && a.questKey === q.key,
+      );
+    if (action) return { action, reason: q.program.purpose };
+  }
+  return null;
 }

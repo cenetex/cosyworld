@@ -1,4 +1,8 @@
 {
+  "reflectionRoutes": [
+    { "from": "attic", "to": "pond" },
+    { "from": "pond", "to": "attic" }
+  ],
   "places": {
     "station": {
       "sanctuary": true,

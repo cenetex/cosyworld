@@ -1,4 +1,19 @@
 import {
+  installRoamingQuests,
+  roamingPlan,
+  roamingHelpPlan,
+  settleRoamingArrival,
+  roamingHelpMet,
+  validRoamingQuests,
+} from "./roaming-quests.mjs";
+import {
+  roamingActors,
+  authoredRouteEdges,
+  initialRouteEdges,
+  visibleRouteEdges,
+  witnessedRouteEdges,
+} from "./roaming-routes.mjs";
+import {
   collectionCards,
   installSharedQuestRegistry,
   questRecord,
@@ -15,7 +30,7 @@ import {
   recordQuestCompletion,
   validQuestCompletions,
 } from "./quest-completions.mjs";
-import { arriveRecitals } from "./pack-recital.mjs";
+import { arriveRecitals, arriveRoamingRecitals } from "./pack-recital.mjs";
 import {
   currentActor,
   humanAvatar,
@@ -109,6 +124,7 @@ import {
   packDefinitions,
   isPackActor,
   staysPut,
+  roamingQuestActor,
   avoidsStandoffs,
 } from "./pack-registry.mjs";
 import {
@@ -180,6 +196,7 @@ export function createWorld({ opening = false, packScopes = {} } = {}) {
       throw new Error("Unknown content scope.");
     world.packs[id].scope = scope;
   }
+  installRoamingQuests(world, roamingActors, roamingAPI(world));
   rememberEvent(world, world.log[0]);
   return world;
 }
@@ -221,6 +238,7 @@ function installPacks(s) {
     for (const id of Object.keys(pack.places)) s.memories[id] ??= fresh[id];
   }
   installHumanLife(s, (id) => tastes[id]);
+  installRoamingQuests(s, roamingActors, roamingAPI(s));
 }
 export function rootHolder(s, id) {
   let holder = s.items[id].holder;
@@ -364,7 +382,8 @@ export function handStatus(s, actor, hand = desireFor(s, actor)) {
       items.every((e) => e.met) &&
       location.met &&
       avatars.every((e) => e.met) &&
-      conditions.every((e) => e.met),
+      conditions.every((e) => e.met) &&
+      roamingHelpMet(s, hand, roamingAPI(s)),
   };
 }
 export function handText(hand) {
@@ -1135,7 +1154,11 @@ function sharedQuestActions(s, actor) {
 }
 
 export function legalActions(s, actor = currentActor(s)) {
-  if (!s.actors[actor] || !entityActive(s, actor)) return [];
+  if (
+    !s.actors[actor] ||
+    (!entityActive(s, actor) && !roamingQuestActor(actor))
+  )
+    return [];
   const here = s.actors[actor].place;
   const out = [
     offer("wait", actor, null, null, `${nameOf(actor)} waits one turn.`, []),
@@ -1788,6 +1811,29 @@ function perform(s, a, capture = () => {}, round = null) {
   // Answering the request is the invited avatar's action for this round.
   return invitation ? a.target : null;
 }
+
+function roamingAPI(s) {
+  return {
+    nameOf: (id) => (id ? nameOf(id) : "a traveler"),
+    crossing: (from, to) => crossingBetween(from, to, s),
+    itemPlace: (id) => itemPlace(s, id),
+    route: (from, to, actor) => routeBetween(s, from, to, actor),
+    initialEdges: initialRouteEdges,
+    visibleEdges: visibleRouteEdges,
+    witnessedEdges: (actor) => witnessedRouteEdges(s, actor),
+    exits: (from, actor, previous = null) => exits(s, from, actor, previous),
+    actions: (actor) => legalActions(s, actor),
+    transportExit: (actor) => {
+      const destinations = transportExits(s, s.actors[actor].place);
+      return legalActions(s, actor).find(
+        (a) => a.kind === "move" && destinations.includes(a.target),
+      );
+    },
+    present: (actor) => !controlledByHuman(s, actor) || humanPresent(s, actor),
+    arrive: (actor) => arriveRoamingRecitals(s, packDefinitions, actor),
+  };
+}
+
 // Routes use the exits available to the actor who is planning the trip.
 function routeBetween(s, from, target, actor = null) {
   const queue = [[from]],
@@ -1809,6 +1855,8 @@ function toward(s, actor, target) {
   );
 }
 export function plan(s, actor = currentActor(s)) {
+  const help = !staysPut(actor) && roamingHelpPlan(s, actor, roamingAPI(s));
+  if (help) return help;
   // A resident who never leaves home keeps to it.
   if (staysPut(actor))
     return {
@@ -2183,6 +2231,7 @@ export function play(
     ...active.filter(
       (id) =>
         isPackActor(id) &&
+        !roamingQuestActor(id) &&
         entityActive(next, id) &&
         next.actors[id].place === next.actors[actor].place,
     ),
@@ -2244,6 +2293,14 @@ export function play(
       { locationId: reflectionSource },
     );
   advancePrograms(next, met);
+  installRoamingQuests(next, roamingActors, roamingAPI(next));
+  for (const id of roamingActors) {
+    if (controlledByHuman(next, id)) continue;
+    if (id === respondent) next.roamingQuests[id].lastActedTurn = next.turn;
+    const action = roamingPlan(next, id, roamingAPI(next));
+    if (action) perform(next, action, () => {}, round);
+    settleRoamingArrival(next, id, roamingAPI(next));
+  }
   for (const actor of knownActors(next)) {
     const life = lifeOf(next, actor);
     if (life && life.milestones.length > (previousHopes[actor] || 0)) {
@@ -2303,7 +2360,13 @@ function validHand(h, actor) {
       (Array.isArray(h.conditions) &&
         h.conditions.length <= 3 &&
         h.conditions.every((c) => validCondition(c, actor)))) &&
-    (h.consequence === undefined || validConsequence(h.consequence, actor))
+    (h.consequence === undefined || validConsequence(h.consequence, actor)) &&
+    (h.passage === undefined ||
+      (h.passage &&
+        roamingActors.includes(h.passage.actor) &&
+        ["directions", "passage"].includes(h.passage.kind) &&
+        Object.hasOwn(places, h.passage.from) &&
+        Object.hasOwn(places, h.passage.to)))
   );
 }
 function validQuestOrigin(s, origin) {
@@ -2496,6 +2559,15 @@ export function validateWorld(s) {
   )
     fail();
   if (!validPackState(s, sensesFor(s))) fail();
+  if (
+    !validRoamingQuests(
+      s,
+      roamingActors,
+      Object.keys(places),
+      authoredRouteEdges(),
+    )
+  )
+    fail();
   if (
     !validMemories(s) ||
     !validMotives(s) ||
