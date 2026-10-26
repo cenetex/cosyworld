@@ -469,6 +469,25 @@ try {
       "connection notice clears after recovery",
     );
     await dismissDiscoveries(page);
+    await until(
+      async () =>
+        await page.locator("#cast > .portrait").evaluateAll(
+          (figures) =>
+            figures.length > 0 &&
+            figures.every((figure) => {
+              const image = figure.querySelector("img");
+              const body = figure.querySelector(".portrait-body");
+              return (
+                image.complete &&
+                image.naturalWidth > 0 &&
+                getComputedStyle(figure).visibility === "visible" &&
+                Number(getComputedStyle(figure).opacity) >= 0.99 &&
+                Number(getComputedStyle(body).opacity) >= 0.99
+              );
+            }),
+        ),
+      "present cast finishes its arrival",
+    );
     await page.screenshot({
       path: join(output, `same-world-${i ? "phone" : "desktop"}.png`),
       fullPage: true,
