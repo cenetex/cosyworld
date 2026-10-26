@@ -6,6 +6,10 @@
 #[inline(never)]
 pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
     let asset: (&str, &[u8]) = match path {
+        "forest.json" => (
+            "application/json",
+            include_bytes!("../../card-game/forest.json"),
+        ),
         "index.html" => (
             "text/html; charset=utf-8",
             include_bytes!("../../card-game/index.html"),

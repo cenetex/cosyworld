@@ -28,6 +28,7 @@ const assets = new Map([
   ["/pack-registry.mjs", ["pack-registry.mjs", "text/javascript"]],
   ["/pack-rules.mjs", ["pack-rules.mjs", "text/javascript"]],
   ["/legacy-saves.mjs", ["legacy-saves.mjs", "text/javascript"]],
+  ["/forest.json", ["forest.json", "application/json"]],
   ["/packs.json", ["packs.json", "application/json"]],
   ["/music.mjs", ["music.mjs", "text/javascript"]],
   ...Object.values(roomTracks)

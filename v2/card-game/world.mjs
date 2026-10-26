@@ -86,133 +86,34 @@ import {
   validPackState,
 } from "./pack-rules.mjs";
 import { upgradeSave } from "./legacy-saves.mjs";
-// The playable slice uses one rule path for the guided avatar and the cast.
-// World packs (pack-registry.mjs) add their places and residents to these maps.
-export const places = {
-  station: {
-    name: "Empty station",
-    text: "The timetable lists years that have yet to happen. Stairs lead to the attic; a path leads to the pond.",
-    exits: ["attic", "pond"],
-  },
-  attic: {
-    name: "Mirror attic",
-    text: "A tall mirror reflects a black shore. The stairs lead to the station.",
-    exits: ["station"],
-  },
-  pond: {
-    name: "Black pond",
-    text: "Something vast breathes beneath the reflection. A path leads to the station.",
-    exits: ["station"],
-  },
-  ...packPlaces,
-};
-export const people = {
-  vale: {
-    name: "Vale",
-    text: "Your avatar. A traveller with a coat full of empty pockets.",
-  },
-  moth: {
-    name: "Pip",
-    text: "A moth in a borrowed waistcoat. Seeks a lamp and a witness at the pond.",
-  },
-  keeper: {
-    name: "The keeper",
-    text: "A tall figure with a clock for a face. Seeks a bell and a witness in the attic.",
-  },
-  ...packPeople,
-};
-export const things = {
-  ...packThings,
-  lamp: {
-    name: "Lamp",
-    text: "An oil lamp with soot-darkened glass. Burns one fuel each turn, even under a cloth.",
-  },
-  oil: {
-    name: "Oil flask",
-    text: "Each dose adds four fuel to the lamp, up to twelve.",
-  },
-  bell: {
-    name: "Bell",
-    text: "A hand bell with a worn handle. Rings for three turns. Its ring carries far over still water. The Black cloth stops its sound.",
-  },
-  cloth: {
-    name: "Black cloth",
-    text: "Cover the lamp to block its light, or the bell to stop its sound. Travels with the covered object.",
-  },
-};
+import forest from "./forest.json" with { type: "json" };
+
+// Authored forest data and mounted packs share the same rule path.
+export const places = { ...forest.places, ...packPlaces };
+export const people = { ...forest.people, ...packPeople };
+export const things = { ...packThings, ...forest.things };
 validatePackLinks(places, people, things);
 const ids = Object.keys(things);
-const actorIds = ["vale", "moth", "keeper", ...packActorIds];
+const actorIds = [...Object.keys(forest.people), ...packActorIds];
 export const nameOf = (id) =>
   places[id]?.name || people[id]?.name || things[id]?.name || "the world";
 export function createWorld({ opening = false, packScopes = {} } = {}) {
   const world = {
     schema: 7,
-    locations: { attic: { anchored: false }, pond: { answer: null } },
-    standoffs: [],
-    peaceUntil: { vale: 0, moth: 0, keeper: 0 },
+    ...structuredClone(forest.initialState),
     memories: newMemories(),
     turn: 0,
     revision: 0,
     eventSeq: 1,
-    actors: {
-      vale: {
-        place: "station",
-        progress: newProgress(),
-        crossed: 0,
-        lastTalk: -9,
-        trust: { moth: 0, keeper: 0 },
-      },
-      moth: {
-        place: "pond",
-        progress: newProgress(),
-        crossed: 0,
-        lastTalk: -9,
-        trust: { vale: 0, keeper: 0 },
-      },
-      keeper: {
-        place: "attic",
-        progress: newProgress(),
-        crossed: 0,
-        lastTalk: -9,
-        trust: { vale: 0, moth: 0 },
-      },
-    },
-    items: {
-      lamp: { holder: "station", fuel: 8, lit: false, history: [] },
-      oil: { holder: "keeper", doses: 3, history: [] },
-      bell: { holder: "station", ringing: 0, history: [] },
-      cloth: { holder: "moth", history: [] },
-    },
-    log: [
-      {
-        seq: 1,
-        turn: 0,
-        kind: "narration",
-        actorId: null,
-        locationId: "station",
-        cast: ["vale"],
-        items: [
-          { id: "lamp", holder: "station", fuel: 8, lit: false },
-          { id: "bell", holder: "station", ringing: 0 },
-        ],
-        light: false,
-        speaker: "World",
-        text: "Vale arrives at the empty station. Pip carries a black cloth. The keeper holds the oil. Each wants something ... different. Under the pond, a presence is listening.",
-      },
-    ],
   };
   if (opening) {
-    world.opening = { version: 1, crossed: false, met: { vale: 0 } };
-    world.actors.vale.place = "attic";
-    world.actors.keeper.place = "station";
-    world.items.lamp.holder = "vale";
-    world.log[0] = {
-      ...world.log[0],
-      locationId: "attic",
-      items: [{ id: "lamp", holder: "vale", fuel: 8, lit: false }],
-      text: "Vale stands alone in Mirror attic, holding an unlit lamp. A tall mirror reflects a black shore.",
-    };
+    const start = structuredClone(forest.opening);
+    world.opening = start.discovery;
+    for (const [id, fields] of Object.entries(start.actors))
+      Object.assign(world.actors[id], fields);
+    for (const [id, fields] of Object.entries(start.items))
+      Object.assign(world.items[id], fields);
+    world.log = start.log;
   }
   installPacks(world);
   for (const [id, scope] of Object.entries(packScopes)) {
