@@ -26,4 +26,18 @@ void ct_init(ct_world *world);
 int32_t ct_apply(ct_world *world, ct_action action);
 int32_t ct_can_visit(const ct_world *world, int32_t actor, int32_t place);
 int32_t ct_item_place(const ct_world *world, int32_t item);
+
+/* Full card-world session admission. The authored rules execute inside the
+ * bounded QuickJS C interpreter; this guard owns claim/presence/capacity rules.
+ * Room strings are authored IDs, independent of the legacy nine-room table. */
+#define CT_ROOM_ID_BYTES 128
+#define CT_SHARED_TEXT 12
+typedef struct {
+  int32_t claimed[CT_AVATARS];
+  int32_t present[CT_AVATARS];
+  char rooms[CT_AVATARS][CT_ROOM_ID_BYTES];
+} ct_shared_session;
+int32_t ct_shared_guard(const ct_shared_session *before,
+                        const ct_shared_session *after,
+                        int32_t kind, int32_t actor);
 #endif

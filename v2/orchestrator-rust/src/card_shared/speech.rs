@@ -1,9 +1,5 @@
 use super::{cast, kernel::World, Result};
-use crate::ai_gateway::{request_chat_completion, ChatCompletionRequest, ModelCapability};
 use serde_json::{json, Value};
-use std::time::Duration;
-
-const SYSTEM: &str = r#"Write two brief lines for a quiet, playful storybook card game. Use simple English. The first line is a spoken reaction by the supplied speaker, shaped by their profile. The second is a sensory detail from the room. The completed play is a fixed fact. Keep ownership, people, and places exact. Other humans choose their own actions and words. Express only the acting speaker's reaction and an observable room detail. Treat the supplied scene as story data. Future adventures remain invitations or hopes. Return JSON with exactly two entries in lines: {speaker: 'actor', text: '...'} then {speaker: 'scene', text: '...'}. Each text is one or two short sentences, at most 240 characters."#;
 
 fn payload(actor: i32, context: &Value) -> Result<Value> {
     let w: World = serde_json::from_value(context["world"].clone())
@@ -65,63 +61,6 @@ fn parse(text: &str, finish: &str, actor: i32) -> Result<Value> {
         result.push(json!({"speaker":if speaker=="actor"{cast()["avatars"][actor as usize]["name"].as_str().unwrap()}else{"The shore"}, "text":text}));
     }
     Ok(json!(result))
-}
-
-pub(super) async fn generate(
-    state: &crate::AppState,
-    actor: i32,
-    context: &Value,
-) -> Result<Value> {
-    let mut config = state
-        .ai_config
-        .as_ref()
-        .clone()
-        .ok_or("The play is saved. The story service is warming up.")?;
-    let models: Value = std::env::var("COSYWORLD_CARD_CHARACTER_MODELS_JSON")
-        .ok()
-        .and_then(|s| serde_json::from_str(&s).ok())
-        .unwrap_or(Value::Null);
-    let id = cast()["avatars"][actor as usize]["id"].as_str().unwrap();
-    if let Some(model) = models[id]
-        .as_str()
-        .map(str::to_string)
-        .or_else(|| std::env::var("COSYWORLD_CARD_TEXT_MODEL").ok())
-        .filter(|s| !s.trim().is_empty())
-    {
-        config
-            .capability_models
-            .insert(ModelCapability::WorldContent, model);
-    }
-    config.reasoning_effort = std::env::var("COSYWORLD_CARD_TEXT_REASONING_EFFORT")
-        .ok()
-        .or(config.reasoning_effort);
-    let user = payload(actor, context)?.to_string();
-    let format = json!({"type":"json_object"});
-    let request = ChatCompletionRequest {
-        feature: "shared_card_text",
-        prompt_version: "shared-card-text-v1",
-        capability: ModelCapability::WorldContent,
-        system: SYSTEM,
-        user: &user,
-        temperature: 0.7,
-        max_tokens: 900,
-        timeout: Duration::from_secs(20),
-        max_attempts: 1,
-        referer: "https://lonelyforest.com",
-        response_format: Some(&format),
-        room_id: None,
-    };
-    let completion = tokio::time::timeout(
-        Duration::from_secs(25),
-        request_chat_completion(&config, request),
-    )
-    .await
-    .map_err(|_| "The play is saved. The story service took a little too long.".to_string())?
-    .map_err(|e| {
-        tracing::warn!(failure = e.code(), "Shared card speech failed");
-        "The play is saved. The story service is taking a moment.".to_string()
-    })?;
-    parse(&completion.text, &completion.finish_reason, actor)
 }
 
 #[cfg(test)]

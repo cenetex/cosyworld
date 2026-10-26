@@ -1,0 +1,508 @@
+//! Multiplayer extends the existing authored card world and save format.
+use super::{
+    admit, capacity, db, full_store as store,
+    full_world::{actor_id, actor_index, World},
+    now, reply,
+    store::{sql_error, Result},
+    user, valid_id,
+};
+use crate::AppState;
+use axum::{
+    extract::{DefaultBodyLimit, Path, State},
+    http::HeaderMap,
+    response::Response,
+    routing::{get, post},
+    Json, Router,
+};
+use rusqlite::{params, OptionalExtension, TransactionBehavior};
+use serde::Deserialize;
+use serde_json::{json, Value};
+
+pub(super) fn router() -> Router<AppState> {
+    Router::new()
+        .route(
+            "/card-game/shared/worlds",
+            get(list)
+                .post(create)
+                .layer(DefaultBodyLimit::max(2 * 1024 * 1024)),
+        )
+        .route("/card-game/shared/worlds/{id}", get(view))
+        .route(
+            "/card-game/shared/worlds/{id}/command",
+            post(command).layer(DefaultBodyLimit::max(8192)),
+        )
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Create {
+    #[serde(default)]
+    save: Option<String>,
+}
+async fn blocking(f: impl FnOnce() -> Result<Value> + Send + 'static) -> Result<Value> {
+    tokio::task::spawn_blocking(f)
+        .await
+        .map_err(|_| "The shared world is taking a moment.".to_string())?
+}
+async fn list(State(state): State<AppState>, h: HeaderMap) -> Response {
+    reply(
+        blocking(move || {
+            let u = user(&state, &h, false)?;
+            let mut value = super::store::list(&db(&state)?, &u)?;
+            for row in value["worlds"]
+                .as_array_mut()
+                .ok_or("The world list needs a moment.")?
+            {
+                if let Some(a) = row["actor"].as_u64().filter(|a| *a < 8) {
+                    row["actor"] = json!(actor_id(a as usize));
+                }
+            }
+            Ok(value)
+        })
+        .await,
+    )
+}
+async fn create(State(state): State<AppState>, h: HeaderMap, Json(body): Json<Create>) -> Response {
+    let result = blocking(move || {
+        let u = user(&state, &h, true)?;
+        admit(&u)?;
+        let mut c = db(&state)?;
+        store::schema(&c)?;
+        let tx = c
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(sql_error)?;
+        let id = crate::random_hex(24);
+        let time = now();
+        let mut w = World::create(body.save.as_deref())?;
+        super::store::create(&tx, &id, &u, time)?;
+        store::seed(&tx, &id, &w, "share-existing-card-world", time)?;
+        store::commit(&tx, &id, &mut w, json!({"op":"claim","actor":"vale"}), time)?;
+        store::commit(&tx, &id, &mut w, json!({"op":"enter","actor":"vale"}), time)?;
+        tx.execute(
+            "INSERT INTO card_members(world,actor,user,seen) VALUES(?,0,?,?)",
+            params![id, u, time],
+        )
+        .map_err(sql_error)?;
+        tx.commit().map_err(sql_error)?;
+        Ok(json!({"id":id}))
+    })
+    .await;
+    reply(result)
+}
+async fn view(State(state): State<AppState>, Path(id): Path<String>, h: HeaderMap) -> Response {
+    let worker = state.clone();
+    let wid = id.clone();
+    let result = blocking(move || {
+        let state = worker;
+        let id = wid;
+        valid_id(&id)?;
+        let u = user(&state, &h, false)?;
+        admit(&u)?;
+        let mut c = db(&state)?;
+        store::schema(&c)?;
+        let tx = c
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(sql_error)?;
+        let time = now();
+        let mut w = store::world(&tx, &id, time)?;
+        store::expire(&tx, &id, &mut w, time)?;
+        let value = store::snapshot(&tx, &id, &u, time)?;
+        tx.commit().map_err(sql_error)?;
+        Ok(value)
+    })
+    .await;
+    if result
+        .as_ref()
+        .is_ok_and(|v: &Value| v["actor"].is_string())
+    {
+        kick(state, id);
+    }
+    reply(result)
+}
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct Command {
+    pub op: String,
+    #[serde(default)]
+    pub avatar: Option<String>,
+    #[serde(default)]
+    pub action: Value,
+    #[serde(default)]
+    pub target: Option<String>,
+    #[serde(default)]
+    pub key: String,
+}
+async fn command(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    h: HeaderMap,
+    Json(body): Json<Command>,
+) -> Response {
+    let worker = state.clone();
+    let wid = id.clone();
+    let result = blocking(move || {
+        let state = worker;
+        let id = wid;
+        valid_id(&id)?;
+        let u = user(&state, &h, true)?;
+        admit(&u)?;
+        let mut c = db(&state)?;
+        store::schema(&c)?;
+        let tx = c
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(sql_error)?;
+        let value = run(&tx, &id, &u, &body, now())?;
+        tx.commit().map_err(sql_error)?;
+        Ok(value)
+    })
+    .await;
+    if result.is_ok() {
+        kick(state, id);
+    }
+    reply(result)
+}
+pub(super) fn run(
+    c: &rusqlite::Connection,
+    id: &str,
+    u: &str,
+    b: &Command,
+    time: i64,
+) -> Result<Value> {
+    let mut w = store::world(c, id, time)?;
+    store::expire(c, id, &mut w, time)?;
+    let member = super::store::member(c, id, u)?;
+    if b.op == "claim" {
+        if member.is_some() {
+            return Err("You already have an avatar in this world.".into());
+        }
+        let a = actor_index(b.avatar.as_deref().ok_or("Choose an avatar.")?)?;
+        store::commit(
+            c,
+            id,
+            &mut w,
+            json!({"op":"claim","actor":actor_id(a)}),
+            time,
+        )?;
+        c.execute(
+            "INSERT INTO card_members(world,actor,user,seen) VALUES(?,?,?,?)",
+            params![id, a, u, time],
+        )
+        .map_err(sql_error)?;
+        let enter = json!({"op":"enter","actor":actor_id(a)});
+        if w.clone().apply(&enter).is_ok() {
+            store::commit(c, id, &mut w, enter, time)?;
+        }
+    } else {
+        let a = member
+            .and_then(|a| usize::try_from(a).ok())
+            .filter(|a| *a < 8)
+            .ok_or("Choose an avatar to enter this world.")?;
+        match b.op.as_str() {
+            "heartbeat" | "enter" => {
+                c.execute(
+                    "UPDATE card_members SET seen=? WHERE world=? AND actor=?",
+                    params![time, id, a],
+                )
+                .map_err(sql_error)?;
+                if w.present[a] == 0 {
+                    let cmd = json!({"op":"enter","actor":actor_id(a)});
+                    if w.clone().apply(&cmd).is_ok() {
+                        store::commit(c, id, &mut w, cmd, time)?;
+                    }
+                }
+            }
+            "leave" | "release" => {
+                let busy:i32=c.query_row("SELECT count(*) FROM card_full_plays WHERE world=? AND actor=? AND status='working'",params![id,a],|r|r.get(0)).map_err(sql_error)?;
+                if busy > 0 {
+                    return Err("Your current play is finishing. Try again in a moment.".into());
+                }
+                c.execute("UPDATE card_full_plays SET status='cancelled' WHERE world=? AND actor=? AND status IN ('waiting','retry')",params![id,a]).map_err(sql_error)?;
+                store::commit(c, id, &mut w, json!({"op":b.op,"actor":actor_id(a)}), time)?;
+                if b.op == "release" {
+                    c.execute(
+                        "DELETE FROM card_members WHERE world=? AND actor=?",
+                        params![id, a],
+                    )
+                    .map_err(sql_error)?;
+                } else {
+                    c.execute(
+                        "UPDATE card_members SET seen=0 WHERE world=? AND actor=?",
+                        params![id, a],
+                    )
+                    .map_err(sql_error)?;
+                }
+            }
+            "play" => {
+                if b.key.len() < 16
+                    || b.key.len() > 80
+                    || !b
+                        .key
+                        .bytes()
+                        .all(|b| b.is_ascii_alphanumeric() || b == b'-')
+                {
+                    return Err("Use a fresh play request.".into());
+                }
+                if b.action
+                    .get("actor")
+                    .is_some_and(|v| v.as_str() != Some(actor_id(a)))
+                    || b.action.get("actorId").is_some()
+                    || b.action.get("world").is_some()
+                    || b.action.get("outcome").is_some()
+                {
+                    return Err("Play a card for your claimed avatar.".into());
+                }
+                store::enqueue(c, id, u, &w, a, b.action.clone(), &b.key, time)?;
+                c.execute(
+                    "UPDATE card_members SET seen=? WHERE world=? AND actor=?",
+                    params![time, id, a],
+                )
+                .map_err(sql_error)?;
+            }
+            "retry" => {
+                let record: Option<(String,String,i32)> = c.query_row(
+                    "SELECT room,narrative,retries FROM card_full_plays WHERE id=? AND world=? AND user=? AND actor=? AND status='failed'",
+                    params![b.key,id,u,a], |r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).optional().map_err(sql_error)?;
+                let (room, text, retries) =
+                    record.ok_or("Choose your latest interrupted exchange.")?;
+                let context: Value = serde_json::from_str(&text).map_err(sql_error)?;
+                if retries >= 2 {
+                    return Err(
+                        "The story service needs a little more time. Your play is saved.".into(),
+                    );
+                }
+                if w.present[a] != 1
+                    || w.room(a)? != room
+                    || context["turn"] != w.game["turn"]
+                    || !context["context"].is_object()
+                {
+                    return Err("The scene has moved on. Play a card for a fresh exchange.".into());
+                }
+                let pending:i32=c.query_row("SELECT count(*) FROM card_full_plays WHERE world=? AND actor=? AND status IN ('waiting','retry','working','playing')",params![id,a],|r|r.get(0)).map_err(sql_error)?;
+                if pending > 0 {
+                    return Err("Your play is already at the table.".into());
+                }
+                c.execute(
+                    "UPDATE card_full_plays SET status='retry',retries=retries+1 WHERE id=?",
+                    [&b.key],
+                )
+                .map_err(sql_error)?;
+            }
+            "cancel" => {
+                c.execute("UPDATE card_full_plays SET status='cancelled' WHERE world=? AND user=? AND id=? AND status IN ('waiting','retry')",params![id,u,b.key]).map_err(sql_error)?;
+            }
+            "nudge" => {
+                let t = actor_index(b.target.as_deref().ok_or("Choose someone here.")?)?;
+                if a == t || w.present[a] == 0 || w.present[t] == 0 || w.room(a)? != w.room(t)? {
+                    return Err("Choose someone in this room.".into());
+                }
+                let last: Option<i64> = c
+                    .query_row(
+                        "SELECT at FROM card_nudges WHERE world=? AND target=?",
+                        params![id, t],
+                        |r| r.get(0),
+                    )
+                    .optional()
+                    .map_err(sql_error)?;
+                if last.is_some_and(|last| time - last < 30_000) {
+                    return Err("Give them a moment to answer your nudge.".into());
+                }
+                c.execute("INSERT INTO card_nudges(world,target,sender,at) VALUES(?,?,?,?) ON CONFLICT(world,target) DO UPDATE SET sender=excluded.sender,at=excluded.at",params![id,t,a,time]).map_err(sql_error)?;
+            }
+            _ => return Err("Choose an available action.".into()),
+        }
+    }
+    store::snapshot(c, id, u, time)
+}
+pub(super) struct Work {
+    pub id: String,
+    pub room: String,
+    pub actor: usize,
+    pub context: Value,
+}
+pub(super) fn take_work(state: &AppState, id: &str) -> Result<Option<Work>> {
+    let mut c = db(state)?;
+    store::schema(&c)?;
+    let tx = c
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .map_err(sql_error)?;
+    let time = now();
+    let mut w = store::world(&tx, id, time)?;
+    store::expire(&tx, id, &mut w, time)?;
+    // The authored world advances NPCs across rooms each turn. Serialize the
+    // entire world's turn and speech so every room sees one coherent result.
+    let busy:i32=tx.query_row("SELECT count(*) FROM card_full_plays WHERE world=? AND status IN ('working','playing')",[id],|r|r.get(0)).map_err(sql_error)?;
+    if busy > 0 {
+        tx.commit().map_err(sql_error)?;
+        return Ok(None);
+    }
+    let rows = {
+        let mut q=tx.prepare("SELECT id,actor,room,command,user,status,narrative FROM card_full_plays WHERE world=? AND status IN ('waiting','retry') ORDER BY created,id LIMIT 32").map_err(sql_error)?;
+        let rows = q
+            .query_map([id], |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, usize>(1)?,
+                    r.get::<_, String>(2)?,
+                    r.get::<_, String>(3)?,
+                    r.get::<_, String>(4)?,
+                    r.get::<_, String>(5)?,
+                    r.get::<_, String>(6)?,
+                ))
+            })
+            .map_err(sql_error)?
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(sql_error)?;
+        rows
+    };
+    for (key, a, room, text, u, status, narrative) in rows {
+        let retry = status == "retry";
+        let prior: Value = serde_json::from_str(&narrative).map_err(sql_error)?;
+        let action: Value = serde_json::from_str(&text).map_err(sql_error)?;
+        let valid = if a >= 8
+            || super::store::member(&tx, id, &u)? != Some(a as i32)
+            || w.room(a)? != room
+        {
+            Err("The scene changed before this play. Choose again.".into())
+        } else if retry {
+            if w.present[a] != 1 || prior["turn"] != w.game["turn"] || !prior["context"].is_object()
+            {
+                Err("The scene has moved on. Play a card for a fresh exchange.".into())
+            } else {
+                Ok(prior.clone())
+            }
+        } else {
+            store::commit(&tx, id, &mut w, action, time)
+        };
+        let result = match valid {
+            Ok(v) => v,
+            Err(e) => {
+                tx.execute(
+                    "UPDATE card_full_plays SET status='failed',result=? WHERE id=?",
+                    params![json!({"error":e}).to_string(), key],
+                )
+                .map_err(sql_error)?;
+                continue;
+            }
+        };
+        let destination = w.room(a)?.to_string();
+        let context = if retry {
+            prior
+        } else {
+            json!({"play":key,"actor":actor_id(a),"room":destination,"turn":w.game["turn"],"context":result["context"],"profiles":result["profiles"],"events":result["events"],"lines":[],"starts_at":time,"until_at":time,"error":null})
+        };
+        tx.execute(
+            "UPDATE card_full_plays SET status='working',room=?,until_at=?,result=?,narrative=? WHERE id=?",
+            params![destination, time + 60_000, context.to_string(), context.to_string(), key],
+        )
+        .map_err(sql_error)?;
+        tx.commit().map_err(sql_error)?;
+        return Ok(Some(Work {
+            id: key,
+            room: destination,
+            actor: a,
+            context,
+        }));
+    }
+    tx.commit().map_err(sql_error)?;
+    Ok(None)
+}
+fn kick(state: AppState, id: String) {
+    let Ok(permit) = capacity().clone().try_acquire_owned() else {
+        return;
+    };
+    tokio::spawn(async move {
+        let _permit = permit;
+        loop {
+            let s = state.clone();
+            let wid = id.clone();
+            let work = tokio::task::spawn_blocking(move || take_work(&s, &wid)).await;
+            let Ok(Ok(Some(work))) = work else { break };
+            let lines = super::full_speech::generate(&state, work.actor, &work.context).await;
+            let s = state.clone();
+            let wid = id.clone();
+            match tokio::task::spawn_blocking(move || finish_work(&s, &wid, work, lines)).await {
+                Ok(Ok(())) => {}
+                other => {
+                    tracing::warn!(result=?other,"shared card publication failed");
+                    break;
+                }
+            }
+        }
+    });
+}
+pub(super) fn finish_work(
+    state: &AppState,
+    id: &str,
+    work: Work,
+    lines: Result<Value>,
+) -> Result<()> {
+    let mut c = db(state)?;
+    store::schema(&c)?;
+    let tx = c
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .map_err(sql_error)?;
+    let status: String = tx
+        .query_row(
+            "SELECT status FROM card_full_plays WHERE id=?",
+            [&work.id],
+            |r| r.get(0),
+        )
+        .map_err(sql_error)?;
+    if status != "working" {
+        return Ok(());
+    }
+    let time = now();
+    let mut scene = work.context;
+    let ok = lines.is_ok();
+    match lines {
+        Ok(lines) => {
+            let mut w = store::world(&tx, id, time)?;
+            let result = store::commit(
+                &tx,
+                id,
+                &mut w,
+                json!({"op":"speech","actor":actor_id(work.actor),"room":work.room,"lines":lines}),
+                time,
+            )?;
+            scene["lines"] = result["lines"].clone();
+        }
+        Err(error) => scene["error"] = json!(error),
+    }
+    for key in ["context", "profiles", "events"] {
+        scene
+            .as_object_mut()
+            .ok_or("The scene needs attention.")?
+            .remove(key);
+    }
+    scene["starts_at"] = json!(time);
+    let duration = if ok {
+        scene["lines"]
+            .as_array()
+            .ok_or("The scene needs attention.")?
+            .iter()
+            .map(|l| {
+                ((l["text"].as_str().unwrap_or("").chars().count() as i64) * 45 + 1500)
+                    .clamp(3500, 9000)
+            })
+            .sum::<i64>()
+    } else {
+        2000
+    };
+    scene["until_at"] = json!(time + duration);
+    tx.execute(
+        "UPDATE card_full_plays SET status=?,until_at=?,result=? WHERE id=?",
+        params![
+            if ok { "playing" } else { "failed" },
+            time + duration,
+            scene.to_string(),
+            work.id
+        ],
+    )
+    .map_err(sql_error)?;
+    tx.execute(
+        "INSERT INTO card_full_scenes(world,room,play,content) VALUES(?,?,?,?) ON CONFLICT(play) DO UPDATE SET content=excluded.content",
+        params![id, work.room, work.id, scene.to_string()],
+    )
+    .map_err(sql_error)?;
+    tx.commit().map_err(sql_error)?;
+    Ok(())
+}
