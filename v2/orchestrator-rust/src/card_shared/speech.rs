@@ -54,7 +54,12 @@ fn parse(text: &str, finish: &str, actor: i32) -> Result<Value> {
     let mut result = Vec::new();
     for (line, speaker) in lines.iter().zip(["actor", "scene"]) {
         let text = line["text"].as_str().ok_or(error)?.trim();
-        if line["speaker"] != speaker || text.is_empty() || text.chars().count() > 240 {
+        // Providers may use the supplied speaker's name for the actor line.
+        // Accept that exact name, then publish the server-owned display name.
+        let actor_name = &cast()["avatars"][actor as usize]["name"];
+        let speaker_matches =
+            line["speaker"] == speaker || (speaker == "actor" && line["speaker"] == *actor_name);
+        if !speaker_matches || text.is_empty() || text.chars().count() > 240 {
             return Err(error.into());
         }
         result.push(json!({"speaker":if speaker=="actor"{cast()["avatars"][actor as usize]["name"].as_str().unwrap()}else{"The shore"}, "text":text}));
@@ -170,5 +175,22 @@ mod tests {
         )
         .is_err());
         assert!(parse(&good.replace("actor", "Mara"), "stop", 0).is_err());
+    }
+
+    #[test]
+    fn provider_can_label_the_actor_with_their_exact_name() {
+        let live = r#"{"lines":[{"speaker":"Vale","text":"This doorframe in the pond looks like a secret passage. I bet it leads to a place few have seen."},{"speaker":"scene","text":"The lamp's light flickers softly, casting dancing shadows on the still water around the doorframe."}]}"#;
+        let lines = parse(live, "stop", 0).unwrap();
+        assert_eq!(lines[0]["speaker"], "Vale");
+        assert_eq!(lines[1]["speaker"], "The shore");
+        assert!(parse(live, "stop", 1).is_err());
+        assert!(parse(&live.replace("\"scene\"", "\"Vale\""), "stop", 0).is_err());
+        for actor in 0..8 {
+            let name = cast()["avatars"][actor as usize]["name"].as_str().unwrap();
+            assert_eq!(
+                parse(&live.replace("Vale", name), "stop", actor).unwrap()[0]["speaker"],
+                name
+            );
+        }
     }
 }
