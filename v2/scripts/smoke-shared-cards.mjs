@@ -661,6 +661,9 @@ try {
       return {
         textRight: text.right,
         label: queue.innerText,
+        column: document
+          .querySelector(".shared-portraits")
+          .getBoundingClientRect().left,
         faces: [...queue.querySelectorAll(".shared-play-avatar")].map(
           (face) => {
             const rect = face.getBoundingClientRect();
@@ -681,6 +684,10 @@ try {
       assert(
         face.left > layout.textRight,
         "queue faces sit to the right of the text",
+      );
+      assert(
+        Math.abs(face.left - layout.column) < 1,
+        "every portrait shares one column",
       );
       assert.equal(face.width, 28);
       assert.equal(face.height, 28);

@@ -378,7 +378,9 @@ export function installSharedControls({ session, saveSlot, getSave, notice }) {
   const queue = node("ol", undefined, "shared-play-queue");
   queue.id = "shared-queue";
   queue.setAttribute("aria-label", "Plays at the table");
-  document.querySelector(".dialogue").append(queue);
+  const portraits = node("div", undefined, "shared-portraits");
+  portraits.append($("live-line"), queue);
+  document.querySelector(".dialogue").append(portraits);
   const roomStatus = node("div", undefined, "shared-room-status");
   roomStatus.id = "shared-room-status";
   roomStatus.hidden = true;
