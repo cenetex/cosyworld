@@ -1125,7 +1125,7 @@ body .card.new {
     0 0 14px #e7ca8655;
 }
 
-/* A wish lives with Vale and uses the same card space as the hand. */
+/* Each avatar keeps a stack of collected wishes after their belongings. */
 .quest-preview {
   position: absolute;
   inset: 0;
@@ -1135,7 +1135,11 @@ body .card.new {
   box-shadow:
     inset 0 0 0 4px #0d131c,
     inset 0 0 0 5px #d6be8955;
-  transform: translate(13px, -6px) rotate(5deg);
+  transform: translate(
+      calc(13px + var(--quest-offset, 0) * 5px),
+      calc(-6px - var(--quest-offset, 0) * 3px)
+    )
+    rotate(calc(5deg + var(--quest-offset, 0) * 2deg));
   pointer-events: none;
 }
 .card-frame[data-expanded="true"] .quest-preview {
@@ -1273,4 +1277,18 @@ body[data-place="attic"] .card.quest {
   body[data-place="attic"] .scene-shade::after {
     transition: none;
   }
+}
+
+body .quest-frame[data-stacked="true"] {
+  margin-left: calc(14px - var(--card-width));
+  transform: translateY(4px);
+}
+body .quest-frame[data-raised="true"] {
+  transform: translateY(-10px);
+}
+body .card.quest[data-quest-status="pending"] {
+  border-color: #a48d6380;
+}
+body .card.quest[data-quest-status="fulfilled"] .art {
+  opacity: 0.6;
 }
