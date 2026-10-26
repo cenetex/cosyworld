@@ -204,6 +204,20 @@ try {
         await page.locator("#hand").getAttribute("data-cooling"),
         "true",
       );
+      if (width === 390) {
+        await page.locator("#menu-button").click();
+        await page.emulateMedia({ reducedMotion: "reduce" });
+        await page.waitForTimeout(2500);
+        assert.equal(
+          await page
+            .locator('#unveil-dialog[open] [data-fulfilled="true"]')
+            .count(),
+          1,
+          "Settings and a motion change preserve the reading pause",
+        );
+        await page.keyboard.press("Escape");
+        await page.emulateMedia({ reducedMotion: "no-preference" });
+      }
       await page.waitForFunction(() => {
         const dialog = document.querySelector("#unveil-dialog");
         return (
@@ -232,18 +246,6 @@ try {
       await page.screenshot({
         path: new URL(`fulfilled-${width}.png`, output).pathname,
       });
-      if (width === 390) {
-        await page.locator("#menu-button").click();
-        await page.waitForTimeout(2500);
-        assert.equal(
-          await page
-            .locator('#unveil-dialog[open] [data-fulfilled="true"]')
-            .count(),
-          1,
-          "Menu pauses completion",
-        );
-        await page.keyboard.press("Escape");
-      }
       await ready();
       assert.equal(await card("player-quest").count(), 0);
       assert.equal(
