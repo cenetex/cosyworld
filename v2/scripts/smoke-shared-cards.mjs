@@ -12,6 +12,7 @@ import {
   play,
 } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
+import { humanAvatars } from "../card-game/human-cast.mjs";
 
 const dir = await mkdtemp(join(tmpdir(), "shared-full-world-smoke-"));
 const output = resolve("output/shared-cards");
@@ -305,6 +306,7 @@ try {
     (await snapshot(vale)).history[0].lines.map((line) => line.actorId),
     ["vale", "moth"],
   );
+  await perform(vale, "snuff", undefined, "lamp");
   for (let i = 1; i < 8; i++) {
     await pages[i].goto(`${origin}/?world=${worldId}`);
     await pages[i].locator(`.shared-choice[data-avatar="${names[i]}"]`).click();
@@ -314,10 +316,85 @@ try {
     );
     await pages[i].locator("#shared-lobby").waitFor({ state: "hidden" });
     await pages[i].locator("#stage").waitFor({ state: "visible" });
-    assert.equal((await snapshot(pages[i])).actor, names[i]);
+    const home = await snapshot(pages[i]);
+    const avatar = humanAvatars.find((a) => a.id === names[i]);
+    assert.equal(home.actor, names[i]);
+    assert.equal(home.world.items[avatar.item.id].holder, avatar.home.id);
+    assert(
+      !home.exits.includes("pond"),
+      "new avatars start with a closed pond path",
+    );
   }
   assert.equal((await snapshot(vale)).claimed.filter(Boolean).length, 8);
+  await dismissDiscoveries(mara);
+  await mara.locator('#hand [data-card="mask"]').waitFor();
+  assert.equal(await mara.locator('#hand [data-card="pond"]').count(), 0);
+  await until(
+    () =>
+      mara.locator("#cast > .portrait").evaluateAll(
+        (figures) =>
+          figures.length > 0 &&
+          figures.every((figure) => {
+            const image = figure.querySelector("img");
+            return (
+              image.complete &&
+              image.naturalWidth > 0 &&
+              Number(getComputedStyle(figure).opacity) >= 0.99
+            );
+          }),
+      ),
+    "Mara arrives beside the floor item",
+  );
+  await mara.screenshot({
+    path: join(output, "item-floor-phone.png"),
+    fullPage: true,
+  });
+  await mara.locator('#hand [data-card="mask"]').click();
+  await mara.getByRole("button", { name: "Take", exact: true }).click();
+  await until(
+    async () => (await snapshot(mara)).world.items.mask.holder === "mara",
+    "pickup commits",
+  );
+  await idle(mara);
+  await mara.locator('#hand [data-card="pond"]').waitFor();
+  const earlierTravel = await actionFor(mara, "move", "pond");
+  await mara.locator('#hand [data-card="mara"]').click();
+  await mara.locator('#hand [data-card="mara"]').click();
+  await mara.locator('#hand [data-card="mask"]').click();
+  await mara.locator('#hand [data-card="theatre"]').click();
+  await mara.getByRole("button", { name: "Put down", exact: true }).click();
+  await until(
+    async () => (await snapshot(mara)).world.items.mask.holder === "theatre",
+    "put down commits",
+  );
+  await idle(mara);
+  await until(
+    async () => !(await mara.locator('#hand [data-card="pond"]').count()),
+    "put down closes pond card",
+  );
+  assert.equal(
+    (
+      await api(mara, {
+        op: "play",
+        key: crypto.randomUUID(),
+        action: earlierTravel,
+      })
+    ).status,
+    409,
+  );
+  await mara.reload();
+  await mara.locator('#hand [data-card="mask"]').waitFor();
+  await dismissDiscoveries(mara);
+  assert.equal(await mara.locator('#hand [data-card="pond"]').count(), 0);
+  await mara.setViewportSize({ width: 1440, height: 900 });
+  await mara.screenshot({
+    path: join(output, "item-floor-desktop.png"),
+    fullPage: true,
+  });
+  await mara.setViewportSize({ width: 390, height: 844 });
+  await perform(mara, "take", undefined, "mask");
   await perform(mara, "move", "pond");
+  await perform(vale, "light", undefined, "lamp");
   await perform(mara, "move", "attic");
   assert.equal(
     (await snapshot(mara)).world.actors.mara.place,
@@ -325,7 +402,13 @@ try {
     "a friend uses the existing mirror route",
   );
   await perform(mara, "move", "pond");
-  for (const page of [ash, nell]) await perform(page, "move", "pond");
+  for (const page of [ash, nell, tavi]) {
+    const avatar = humanAvatars.find(
+      (a) => a.id === names[pages.indexOf(page)],
+    );
+    await perform(page, "take", undefined, avatar.item.id);
+    if (page !== tavi) await perform(page, "move", "pond");
+  }
   assert(
     !(await actionFor(tavi, "move", "pond")),
     "full room hides the route while NPCs still fit",
