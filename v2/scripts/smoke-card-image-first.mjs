@@ -263,10 +263,18 @@ try {
       await cards("cloth", "lamp");
       assert.equal((await state()).crossings["pond-greek-harbor"].phase, 1);
       assert.equal(await card("lamp").getAttribute("data-covered"), "true");
-      assert.equal(await card("greek-ship").count(), 0);
+      // A travelling bard can bring the ship here before the lamp signal ends.
+      assert.equal(
+        await card("greek-ship").count(),
+        (await state()).transports["greek-ship"].dock === "pond" ? 1 : 0,
+      );
       await cards("cloth");
       assert.equal((await state()).crossings["pond-greek-harbor"].phase, 2);
-      assert.equal(await card("greek-ship").count(), 0);
+      // A travelling bard can bring the ship here before the lamp signal ends.
+      assert.equal(
+        await card("greek-ship").count(),
+        (await state()).transports["greek-ship"].dock === "pond" ? 1 : 0,
+      );
       assert.doesNotMatch(
         await page.locator("body").innerText(),
         /inspiration|[12] of two|first flash|once more|ritual|fuel|turns left|ring again/i,
