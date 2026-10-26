@@ -2132,7 +2132,10 @@ mod tests {
                     let tries = {
                         let mut seen = captured.lock().unwrap();
                         seen.push(body.clone());
-                        seen.iter().filter(|b| b["messages"] == body["messages"]).count()
+                        seen.iter().filter(|b| {
+                            b["messages"][1]["content"].as_str().and_then(|text| text.lines().last())
+                                == body["messages"][1]["content"].as_str().and_then(|text| text.lines().last())
+                        }).count()
                     };
                     now.fetch_sub(1, SeqCst);
                     let user = body["messages"][1]["content"].as_str().unwrap();
