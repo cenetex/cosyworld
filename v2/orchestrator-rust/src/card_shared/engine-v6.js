@@ -407,20 +407,6 @@
     }));
     return { title: pack.recital?.title, stanzas };
   }
-  function recitalFacts(world, packs, actor) {
-    const pack = packs.find((p) => p.recital?.actor === actor);
-    if (!pack) return [];
-    const visit = recitalVisit(world, pack);
-    if (!visit) return [];
-    const poem = recitalPoem(world, pack, visit - 1);
-    return [
-      `Your song is ${poem.title}. These are the traveler's earned words, in order. Sing a couplet when addressed; keep the whole journey in mind.`,
-      ...poem.stanzas.map((s, i) => {
-        const traveler = world.packs[pack.id].recitals[s.id].actor;
-        return `Verse ${i + 1}, ${humanAvatar(traveler)?.name || "an earlier traveler"}: ${s.lines.join(" ")}`;
-      })
-    ];
-  }
   function validRecitals(world, pack) {
     if (!pack.recital) return true;
     const state = world.packs[pack.id], records = state.recitals;
@@ -451,6 +437,27 @@
         };
       }
     }
+  }
+  function recitalContext(world, packs, actor) {
+    const pack = packs.find((p) => p.recital?.actor === actor);
+    if (!pack) return null;
+    const poem = recitalPoem(world, pack);
+    const stanzas = poem.stanzas.map((stanza) => {
+      const authorId = world.packs[pack.id].recitals[stanza.id]?.actor ?? null;
+      return {
+        id: stanza.id,
+        turn: stanza.turn,
+        authorId,
+        authorName: humanAvatar(authorId)?.name || "an earlier traveler",
+        lines: [...stanza.lines]
+      };
+    });
+    const latest = Math.max(0, ...stanzas.map((stanza) => stanza.turn));
+    return {
+      title: poem.title,
+      stanzas,
+      newLines: stanzas.filter((stanza) => stanza.turn === latest).flatMap((stanza) => stanza.lines)
+    };
   }
 
   // v2/card-game/packs.json
@@ -1355,8 +1362,8 @@
             values: {
               "greek-provisions": 2
             },
-            persona: "A wandering bard who carries the traveler's growing poem. His recorded verses are the traveler's words, sung in their voice. Speak in spare, vivid epic verse. When addressed, sing an earned couplet and connect it to the conversation. Keep each choice and its consequences as recorded. He also knows the separate tomb, palace, and farmhouse accounts of Electra when those places are open.",
-            voice: "A wandering bard who carries the traveler's growing poem. His recorded verses are the traveler's words, sung in their voice. Speak in spare, vivid epic verse. When addressed, sing an earned couplet and connect it to the conversation. Keep each choice and its consequences as recorded. He also knows the separate tomb, palace, and farmhouse accounts of Electra when those places are open.",
+            persona: "A wandering bard who carries the travelers' growing poem. He speaks in spare, vivid language about their deeds and the present company. The full earned poem and its newest lines inform his own voice. He keeps each choice and its consequences as recorded. He also knows the separate tomb, palace, and farmhouse accounts of Electra when those places are open.",
+            voice: "A wandering bard who carries the travelers' growing poem. He speaks in spare, vivid language about their deeds and the present company. The full earned poem and its newest lines inform his own voice. He keeps each choice and its consequences as recorded. He also knows the separate tomb, palace, and farmhouse accounts of Electra when those places are open.",
             portrait: "assets/greek-drama/chthonic-singer.png",
             tastes: {
               likes: "specific testimony, a patient audience",
@@ -11471,7 +11478,8 @@
         );
         return {
           id,
-          facts: [...recitalFacts(world, packDefinitions, id), ...facts].slice(0, 16).map((text) => text.slice(0, 240)),
+          poem: recitalContext(world, packDefinitions, id),
+          facts: facts.slice(0, 16).map((text) => text.slice(0, 240)),
           desire,
           memories: speechMemories(world.memories[id], {
             expressions: !beforeFirstLight

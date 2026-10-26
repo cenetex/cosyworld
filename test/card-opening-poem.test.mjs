@@ -12,6 +12,7 @@ import {
   STORY_QUEST_CARDS,
 } from "../v2/card-game/quest-cards.mjs";
 import { openingFixture } from "./helpers/greek-opening.mjs";
+import { recitalContext } from "../v2/card-game/pack-recital.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import {
   entityActive,
@@ -39,7 +40,24 @@ const bard = "greek-rhapsode";
 const facts = (world) =>
   narrativeContext(world).entities.find((e) => e.id === bard)?.facts || [];
 
+const poem = (world) => narrativeContext(world).entities.find((e) => e.id === bard)?.poem;
+const poemText = (world) => poem(world)?.stanzas.flatMap((stanza) => stanza.lines).join(" ") || "";
+
 describe("the opening poem", () => {
+  it("keeps long earned poems outside the ordinary fact limits", () => {
+    const verses = Array.from({length:12}, (_, i) => ({choice:`verse-${i}`,lines:[`I remember the path we took on journey ${i}.`, "The shore still holds the marks we left behind."]}));
+    const pack = {id:"long-poem",recital:{actor:bard,title:"A long journey",verses}};
+    const world = {packs:{"long-poem":{
+      receipts:Object.fromEntries(verses.map((v,i)=>[v.choice,i+1])),
+      recitals:Object.fromEntries(verses.map(v=>[v.choice,{actor:"vale",visit:null}])),
+    }}};
+    const context = recitalContext(world,[pack],bard);
+    expect(context.stanzas).toHaveLength(12);
+    expect(context.stanzas.flatMap(stanza=>stanza.lines).join(" ").length).toBeGreaterThan(240);
+    expect(context.stanzas[0].lines).toEqual(verses[0].lines);
+    expect(context.newLines).toEqual(verses.at(-1).lines);
+  });
+
   it("keeps each card to the same single line across every branch", () => {
     for (const branch of ["burial", "concession", "refusal", "exposure"])
       for (const world of Object.values(openingFixture(branch)))
@@ -64,7 +82,7 @@ describe("the opening poem", () => {
     const next = act(reload(waiting), "move", "greek-well");
     expect(entityActive(next, bard)).toBe(true);
     expect(next.actors[bard].place).toBe("greek-well");
-    expect(facts(act(next, "talk", bard)).join("\n")).toContain(
+    expect(poemText(act(next, "talk", bard))).toContain(
       lines(s.water).join(" "),
     );
     const away = act(reload(next), "move", "greek-palace");
@@ -84,11 +102,10 @@ describe("the opening poem", () => {
       const context = narrativeContext(talked);
       expect(context.speakers).toContain(bard);
       const song = facts(talked);
-      expect(
-        song
-          .filter((f) => f.startsWith("Verse "))
-          .map((f) => f.split(": ").slice(1).join(": ")),
-      ).toEqual(stanzas(s.closed).map((s) => s.lines.join(" ")));
+      expect(poem(talked).stanzas.map((stanza) => stanza.lines.join(" ")))
+        .toEqual(stanzas(s.closed).map((stanza) => stanza.lines.join(" ")));
+      expect(poem(talked).newLines).toEqual(stanzas(s.closed).at(-1).lines);
+      expect(poem(reload(talked))).toEqual(poem(talked));
       expect(song.length).toBeLessThanOrEqual(16);
       expect(
         song.every((f) => f.length <= 240 && !/[\u0000-\u001f\u007f]/u.test(f)),
@@ -97,16 +114,16 @@ describe("the opening poem", () => {
     },
   );
 
-  it("keeps a newly earned report pending until the next room", () => {
+  it("keeps the whole earned poem available while a visit is pending", () => {
     const s = openingFixture("refusal");
-    expect(facts(s.returning).join("\n")).toContain(
+    expect(poemText(s.returning)).toContain(
       "I told her I would turn away.",
     );
-    expect(facts(s.closed).join("\n")).not.toContain(
+    expect(poemText(s.closed)).toContain(
       "I told her how I turned away.",
     );
     const next = act(s.closed, "move", "greek-harbor");
-    expect(facts(act(next, "talk", bard)).join("\n")).toContain(
+    expect(poemText(act(next, "talk", bard))).toContain(
       "I told her how I turned away.",
     );
   });
@@ -175,7 +192,7 @@ describe("the opening poem", () => {
     });
     expect(again.world).toEqual(arrived.world);
     expect(
-      facts({ ...arrived.world, playerActorId: "vale" }).join("\n"),
+      poemText({ ...arrived.world, playerActorId: "vale" }),
     ).toContain("I set the water by her hands.");
   });
 
@@ -368,9 +385,11 @@ it("keeps a pruned shared deed's author unknown when Vale loads Mara's saved dee
   playAsVale((a) => a.choiceId === "greek-courtyard-refusal");
   playAsVale((a) => a.kind === "move" && a.target === "greek-harbor");
   expect(entityActive(moved, bard)).toBe(true);
-  expect(facts(moved).find((f) => f.startsWith("Verse 1,"))).toBe(
-    "Verse 1, an earlier traveler: I told her I would turn away. Her brother waited by the wall.",
-  );
+  expect(poem(moved).stanzas[0]).toMatchObject({
+    authorId: null,
+    authorName: "an earlier traveler",
+    lines: ["I told her I would turn away.", "Her brother waited by the wall."],
+  });
   expect(
     reload(moved).packs["greek-drama"].recitals["greek-decline-burial"].actor,
   ).toBeNull();
