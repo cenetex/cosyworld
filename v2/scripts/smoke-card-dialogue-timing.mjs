@@ -111,11 +111,11 @@ try {
         );
         assert.equal(await page.locator("#dialogue-text").textContent(), "");
         assert.equal(request.input.speakers[0], "vale");
-        assert.equal(await card("vale").isDisabled(), true);
+        assert.equal(await card("vale").isDisabled(), false);
         await page.screenshot({
           path: new URL(`${kind}-pending-${width}.png`, output).pathname,
         });
-        // A slow request releases the hand; completed words take it back.
+        // A slow request releases play execution; pairing stays available.
         await page.waitForFunction(
           () => document.querySelector("#hand").dataset.cooling === "false",
         );
@@ -137,9 +137,9 @@ try {
             .querySelector("#dialogue-text")
             .textContent.startsWith("Vale has a full reply."),
         );
-        assert.equal(await card("vale").isDisabled(), true);
+        assert.equal(await card("vale").isDisabled(), false);
         await page.waitForTimeout(2800);
-        assert.equal(await card("vale").isDisabled(), true);
+        assert.equal(await card("vale").isDisabled(), false);
         const layout = await page.evaluate(() => {
           const portrait = document
             .querySelector("#speaker-portrait")
@@ -188,7 +188,7 @@ try {
               .getAttribute("data-revealing")) === "true"
           )
             await page.locator("#dialogue-advance").click();
-          assert.equal(await card("vale").isDisabled(), true);
+          assert.equal(await card("vale").isDisabled(), false);
           await page.locator("#dialogue-advance").click();
           if (i < request.input.speakers.length - 1) {
             if (motion !== "reduce") {
@@ -196,7 +196,7 @@ try {
                 await page.locator("#speaker").innerText(),
                 nameOf(speaker),
               );
-              assert.equal(await card("vale").isDisabled(), true);
+              assert.equal(await card("vale").isDisabled(), false);
             }
             await page.waitForFunction(
               (name) => document.querySelector("#speaker").textContent === name,
