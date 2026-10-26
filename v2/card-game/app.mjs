@@ -2519,6 +2519,11 @@ function adoptShared(value) {
       ? "pending"
       : "ready";
     if (world.actors[currentActor(world)].place !== from) {
+      cancelTravel();
+      const visible = visibleQuests(world);
+      completedQuests = completedQuests.filter((quest) =>
+        visible.has(quest.key),
+      );
       reviewing = false;
       sharedLineKey = "";
       lineSeq = null;
