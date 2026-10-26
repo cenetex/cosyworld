@@ -250,6 +250,10 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "image/webp",
             include_bytes!("../../card-game/assets/greek-drama/ship-card.webp"),
         ),
+        "assets/greek-drama/ship-deck.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/ship-deck.webp"),
+        ),
         "app.mjs" => (
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/app.mjs"),

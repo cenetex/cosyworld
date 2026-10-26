@@ -150,7 +150,7 @@ try {
         await pair("cloth", "lamp");
         await playCard("cloth");
       }
-      assert.equal((await state()).crossings["pond-greek-harbor"].phase, 3);
+      assert.equal((await state()).crossings["pond-greek-harbor"].phase, 4);
     };
     const travel = async (id) => {
       const before = await state();

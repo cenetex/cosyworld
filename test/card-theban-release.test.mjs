@@ -120,6 +120,8 @@ describe("the Theban release and its ship", () => {
     expect(s.crossings["pond-greek-harbor"].phase).toBe(2);
     expect(locationOverlay(s, "pond")).toBeNull();
     s = act(s, "cover", { item: "cloth", target: "lamp" });
+    expect(locationOverlay(s, "pond")).toBeNull();
+    s = act(s, "take", { item: "cloth" });
     expect(locationOverlay(s, "pond")).toMatch(/pond-ship-overlay\.png$/);
     expect(travelCard(s, "greek-ship")).toMatchObject({
       name: "Greek ship",
@@ -177,7 +179,7 @@ describe("the Theban release and its ship", () => {
         "utf8",
       ),
     );
-    expect(packMediaFiles.filter((f) => f.endsWith(".webp"))).toHaveLength(8);
+    expect(packMediaFiles.filter((f) => f.endsWith(".webp"))).toHaveLength(9);
     for (const image of p.assets) {
       const bytes = readFileSync(
         new URL(

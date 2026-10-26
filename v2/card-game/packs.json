@@ -715,7 +715,7 @@
           "text": "Dark water passes beneath the hull. The ship carries its passengers to the opposite shore.",
           "persona": "Aboard a ship crossing between Black pond and the Wine-Dark Harbor. Passengers remain aboard until they disembark at the destination.",
           "exits": [],
-          "backdrop": "assets/greek-drama/sea.svg",
+          "backdrop": "assets/greek-drama/ship-deck.webp",
           "art": "assets/greek-drama/ship-card.webp"
         }
       },
@@ -4075,24 +4075,27 @@
                 "verb": "cover",
                 "item": "cloth",
                 "target": "lamp"
+              },
+              {
+                "verb": "take",
+                "item": "cloth",
+                "from": "lamp"
               }
             ],
             "consecutive": false,
             "opens": null,
             "while": [
               {
+                "kind": "light",
+                "item": "lamp",
+                "at": ["pond"]
+              },
+              {
                 "kind": "not",
                 "condition": {
                   "kind": "sound",
                   "at": ["pond", "clearing"]
                 }
-              }
-            ],
-            "start": [
-              {
-                "kind": "light",
-                "item": "lamp",
-                "at": ["pond"]
               }
             ]
           },

@@ -123,6 +123,9 @@ try {
       }
       assert.equal(await card("greek-ship").count(), 0);
       await pair("cloth", "lamp");
+      assert.equal((await state()).crossings["pond-greek-harbor"].phase, 3);
+      assert.equal(await card("greek-ship").count(), 0);
+      await use("cloth");
       assert.equal(await card("greek-ship").count(), 1);
     };
     const load = async (save) => {
@@ -224,6 +227,11 @@ try {
     assert.equal((await state()).actors.vale.place, "greek-ship");
     assert.equal(await card("greek-harbor").count(), 1);
     assert.equal(await card("pond").count(), 0);
+    assert.match(
+      await page.locator("#backdrop").getAttribute("src"),
+      /ship-deck\.webp$/,
+    );
+    await shot("aboard-ship");
     await page.reload();
     await ready();
     assert.equal((await state()).actors.vale.place, "greek-ship");

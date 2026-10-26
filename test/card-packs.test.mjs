@@ -117,7 +117,7 @@ describe("world packs on the card table", () => {
     }
   });
 
-  it("validates transport docks, routes, and start conditions", () => {
+  it("validates transport docks, routes, and signal conditions", () => {
     const greek = () =>
       structuredClone(packDefinitions.find((p) => p.id === "greek-drama"));
     expect(packProblems(greek(), hub, Object.keys(packPlaces))).toEqual([]);
@@ -135,7 +135,7 @@ describe("world packs on the card table", () => {
         p.crossings[0].transport = "unknown";
       },
       (p) => {
-        p.crossings[0].signal.start = [{ kind: "magic" }];
+        p.crossings[0].signal.while = [{ kind: "magic" }];
       },
       (p) => {
         p.crossings[0].signal.opens = 3;

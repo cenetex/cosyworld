@@ -12,14 +12,10 @@ export function upgradeTransportSave(s) {
     throw new Error("Conflicting legacy ship record.");
   s.transports ??= {};
   s.transports["greek-ship"] = {
-    dock: signal?.phase >= 3 ? "pond" : "greek-harbor",
+    dock: signal?.phase === 4 ? "pond" : "greek-harbor",
     destination: null,
     recall: null,
   };
-  if (signal) {
-    signal.phase = Math.min(signal.phase, 3);
-    if (signal.phase === 3) signal.discovered = true;
-  }
   if (s.memories)
     s.memories["greek-ship"] ??= {
       events: [],

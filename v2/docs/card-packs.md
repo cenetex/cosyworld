@@ -255,7 +255,7 @@ character replies receive one rewrite attempt. A second conflict uses the
 existing retry UI. Publication follows validation. The Lamp and Badger provide
 item and avatar examples of the same path.
 
-### Transport and a remembered signal start
+### Transport and lamp signals
 
 A bridge can declare `transports`. Each named transport supplies `place` (a
 pack place with an empty static exit list), two `docks`, and `at` (its first
@@ -275,14 +275,14 @@ lamp changes, and later sound. If passengers are aboard, the recall waits
 until the last passenger finishes the current trip. Then the empty ship
 travels to the requested dock.
 
-`signal.start` contains conditions checked before the first counted play.
 `signal.while` contains conditions maintained through the sequence. The
-Greek bridge checks for a burning lamp at the start and quiet throughout
-cover → uncover → cover. Fuel can run out after the first cover; the saved
-progress remains. Each completed signal recalls the ship to Black pond.
+Greek bridge requires a burning lamp and quiet throughout
+cover → uncover → cover → uncover. The lamp needs enough oil for all four
+plays. Each completed signal recalls the ship to Black pond. The ship keeps
+waiting after the lamp goes out.
 
 Saves include `transports`, keyed by transport id, with `dock`, `destination`,
 and `recall`. A parked ship has one dock. An occupied ship has one destination
 and may have a pending recall. Save validation checks these against the pack
 and its passengers. Greek revision 1 saves retain partial signals and gain
-a ship at the pond when their old sequence already includes the final cover.
+a ship at the pond when their old sequence includes the second uncover.

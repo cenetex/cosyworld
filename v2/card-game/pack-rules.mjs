@@ -172,14 +172,6 @@ export const beginRound = (s, senses) => ({
   ready: Object.fromEntries(
     crossings.map((c) => [c.id, signalReady(s, c, senses)]),
   ),
-  start: Object.fromEntries(
-    crossings.map((c) => [
-      c.id,
-      (c.signal?.start || []).every((r) =>
-        conditionMet(s, r, senses, c.packId),
-      ),
-    ]),
-  ),
   advanced: new Set(),
 });
 export const holderBefore = (s, a) =>
@@ -221,7 +213,6 @@ export function noteAct(s, a, place, holder, round, senses, log) {
       if (signal.steps.some((p) => matches(p, a, holder))) state.phase = 0;
       if (!matches(signal.steps[0], a, holder)) continue;
     }
-    if (state.phase === 0 && !round.start[c.id]) continue;
     state.phase += 1;
     round.advanced.add(c.id);
     if (state.phase === signal.steps.length) {

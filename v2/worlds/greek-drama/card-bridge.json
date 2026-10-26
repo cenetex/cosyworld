@@ -27,24 +27,27 @@
             "verb": "cover",
             "item": "cloth",
             "target": "lamp"
+          },
+          {
+            "verb": "take",
+            "item": "cloth",
+            "from": "lamp"
           }
         ],
         "consecutive": false,
         "opens": null,
         "while": [
           {
+            "kind": "light",
+            "item": "lamp",
+            "at": ["pond"]
+          },
+          {
             "kind": "not",
             "condition": {
               "kind": "sound",
               "at": ["pond", "clearing"]
             }
-          }
-        ],
-        "start": [
-          {
-            "kind": "light",
-            "item": "lamp",
-            "at": ["pond"]
           }
         ]
       },

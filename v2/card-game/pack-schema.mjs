@@ -973,7 +973,6 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "echo",
         "complete",
         "while",
-        "start",
       ]) &&
         Array.isArray(s.steps) &&
         s.steps.length >= 1 &&
@@ -983,7 +982,6 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         (s.complete === undefined || textOk(s.complete, 400)),
       `${name} signal needs 1–8 steps, consecutive, opens (1–9 turns) and complete text`,
     );
-    requirements(s.start, `${name} signal start`, false);
     if (c.transport)
       check(s.opens === null, `${name} transport signal must have opens null`);
     requirements(s.while, `${name} signal while`, false);

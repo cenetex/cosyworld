@@ -61,7 +61,7 @@ function act(s, kind, item, target) {
 const cover = (s) => act(s, "cover", "cloth", "lamp");
 const uncover = (s) => act(s, "take", "cloth");
 const cycle = (s) => uncover(cover(s));
-const summon = (s) => cover(cycle(s));
+const summon = (s) => cycle(cycle(s));
 const reload = (s) => decodeSave(encodeSave(s));
 function visible(s, yes) {
   assert.equal(greekShipPresent(s), yes);
@@ -77,21 +77,22 @@ test("lighting the lamp alone never summons a ship", () => {
   assert.equal(shipSignalPhase(s), 0);
   visible(s, false);
 });
-test("a lit start followed by cover, uncover, cover summons the ship", () => {
+test("a burning lamp summons the ship after cover, uncover, cover, uncover", () => {
   let s = pond();
   visible(s, false);
   for (const [fn, phase] of [
     [cover, 1],
     [uncover, 2],
     [cover, 3],
+    [uncover, 4],
   ]) {
     s = fn(s);
     assert.equal(shipSignalPhase(s), phase);
-    visible(s, phase === 3);
+    visible(s, phase === 4);
   }
-  assert.equal(s.items.cloth.holder, "lamp");
+  assert.equal(s.items.cloth.holder, "vale");
   assert.equal(s.items.lamp.lit, true);
-  assert.equal(s.items.lamp.fuel, 9);
+  assert.equal(s.items.lamp.fuel, 8);
   assert.equal(
     s.log.filter((e) => /first flash|once more|signal complete/i.test(e.text))
       .length,
@@ -104,7 +105,6 @@ test("actual card pairs cover, then the Black cloth card uncovers", () => {
     const c = cardPlay(s, ["cloth", "lamp"]).action;
     assert.equal(c.kind, "cover");
     s = play(s, c).state;
-    if (i === 1) break;
     const u = cardPlay(s, ["cloth"]).action;
     assert.equal(u.kind, "take");
     assert.equal(u.item, "cloth");
@@ -153,13 +153,14 @@ test("each partial phase survives reload without granting an extra flash", () =>
     [cover, 1],
     [uncover, 2],
     [cover, 3],
+    [uncover, 4],
   ]) {
     s = fn(s);
     const before = encodeSave(s);
     s = reload(s);
     assert.equal(encodeSave(s), before);
     assert.equal(shipSignalPhase(s), phase);
-    visible(s, phase === 3);
+    visible(s, phase === 4);
   }
 });
 test("inspection never advances the signal or spends fuel", () => {
@@ -183,7 +184,7 @@ test("a rejected stale-revision uncover cannot advance a saved signal", () => {
   assert.equal(play(s, a, revision).ok, false);
   assert.equal(encodeSave(s), before);
   assert.equal(shipSignalPhase(s), 3);
-  visible(s, true);
+  visible(s, false);
 });
 test("generated dialogue cannot summon the ship or increment the ritual", () => {
   const s = cycle(pond()),
@@ -203,19 +204,27 @@ test("waiting between flashes preserves progress but continues fuel consumption"
   let s = cycle(pond());
   s = act(s, "wait");
   assert.equal(shipSignalPhase(s), 2);
-  s = cover(s);
+  s = cycle(s);
   visible(s, true);
-  assert.equal(s.items.lamp.fuel, 8);
+  assert.equal(s.items.lamp.fuel, 7);
 });
-test("a remembered lit start survives snuffing before the final cover", () => {
+test("putting out the lamp resets a partial signal", () => {
   let s = cycle(pond());
   s = act(s, "snuff", "lamp");
-  assert.equal(shipSignalPhase(s), 2);
-  s = cover(s);
-  visible(s, true);
+  assert.equal(shipSignalPhase(s), 0);
+  s = cycle(s);
+  visible(s, false);
 });
-test("one remaining fuel at the start is enough to summon and board", () => {
-  let s = summon(pond({ fuel: 1 }));
+test("running dry before the last uncover resets the signal", () => {
+  for (const fuel of [1, 2, 3]) {
+    const s = summon(pond({ fuel }));
+    assert.equal(s.items.lamp.fuel, 0);
+    assert.equal(shipSignalPhase(s), 0);
+    visible(reload(s), false);
+  }
+});
+test("a ship stays after the final uncover uses the last fuel", () => {
+  let s = summon(pond({ fuel: 4 }));
   assert.equal(s.items.lamp.fuel, 0);
   assert.equal(s.items.lamp.lit, false);
   visible(s, true);
@@ -270,7 +279,7 @@ test("boarding and disembarking move the ship between shores", () => {
   visible(reload(s), true);
 });
 test("a further signal leaves the waiting ship available", () => {
-  let s = uncover(summon(pond()));
+  let s = summon(pond());
   s = cycle(s);
   assert.equal(shipSignalPhase(s), 2);
   visible(s, true);
@@ -295,7 +304,7 @@ test("earlier saves get an unsummoned pond and keep their history and belongings
   visible(s, false);
 });
 test("invalid saved signal phases fail validation", () => {
-  for (const value of [-1, 4, 5, 2.5, "3", null, {}, []]) {
+  for (const value of [-1, 5, 2.5, "3", null, {}, []]) {
     const s = pond();
     s.crossings["pond-greek-harbor"].phase = value;
     assert.throws(() => validateWorld(s));
@@ -331,7 +340,6 @@ test("the ship crossing preserves an NPC receipt for a witness Vale has not met"
   s.items.lamp.fuel = 12;
   assert.equal(s.opening.met.keeper, undefined);
   s = summon(s);
-  s = uncover(s);
   s = act(s, "drop", "cloth", "pond");
   s = act(s, "move", null, "greek-ship");
   s = act(s, "move", null, "greek-harbor");
@@ -345,14 +353,15 @@ test("the ship crossing preserves an NPC receipt for a witness Vale has not met"
   assert.deepEqual(reload(s), s);
 });
 
-test("a single oil dose supports the whole ritual", () => {
+test("filling the lamp supplies enough oil for lighting and the whole ritual", () => {
   let s = pond({ lit: false, fuel: 0 });
   s.items.oil.holder = "vale";
   s.items.bell.holder = "pond";
   s = act(s, "refill", "oil");
+  s = act(s, "refill", "oil");
   s = act(s, "light", "lamp");
   s = summon(s);
-  assert.equal(s.items.lamp.fuel, 0);
+  assert.equal(s.items.lamp.fuel, 3);
   visible(s, true);
 });
 
@@ -461,8 +470,8 @@ test("older completed signals become a waiting ship and retain their history", (
     delete old.transports;
     delete old.memories["greek-ship"];
     const s = decodeSave(JSON.stringify(old));
-    assert.equal(shipSignalPhase(s), Math.min(phase, 3));
-    visible(s, phase >= 3);
+    assert.equal(shipSignalPhase(s), phase);
+    visible(s, phase === 4);
     assert.deepEqual(s.log, old.log);
     assert.deepEqual(s.items, old.items);
     assert.deepEqual(reload(s), s);
