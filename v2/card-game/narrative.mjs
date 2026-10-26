@@ -338,7 +338,7 @@ export function narrativeContext(world, action = null) {
           played?.verb === "accompany" &&
           [played.actorId, played.targetId].includes(id)
         )
-          facts.push(
+          facts.unshift(
             `${nameOf(played.targetId)} ${played.accepted ? "agreed to" : "declined"} ${nameOf(played.actorId)}'s invitation to ${nameOf(played.destinationId)}. This is the recorded answer for this play.`,
           );
         const company = Object.keys(world.actors).filter(

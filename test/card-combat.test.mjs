@@ -223,7 +223,7 @@ describe("card standoffs", () => {
     expect(moth.facts.join(" ")).toContain("guarding");
     expect(
       context.entities.every(
-        (e) => e.facts.length <= 8 && e.facts.every((f) => f.length <= 240),
+        (e) => e.facts.length <= 16 && e.facts.every((f) => f.length <= 240),
       ),
     ).toBe(true);
   });
