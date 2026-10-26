@@ -5,6 +5,7 @@ import {
   places,
   nameOf,
   carried,
+  rootHolder,
   itemPlace,
   shining,
   senses,
@@ -31,6 +32,19 @@ export function portrait(id, facing = null, world = null) {
       (world ? variantOf(world, id) : resident.variants.awake).portrait
     }`;
   return `./assets/${id === "keeper" && facing === "right" ? "keeper-right" : id}.png`;
+}
+
+// Resolve selection against current custody, including items on a carried
+// object, so a shared transfer clears the prop as soon as the world updates.
+export function selectedHandItem(world, selection = []) {
+  return (
+    selection.findLast(
+      (id) =>
+        world.items[id] &&
+        entityActive(world, id) &&
+        rootHolder(world, id) === currentActor(world),
+    ) || null
+  );
 }
 const visibleCrossing = (world, place) =>
   crossings.find(

@@ -14,6 +14,7 @@ import {
   sceneCast,
   sceneLines,
   sceneStaging,
+  selectedHandItem,
   movementCaption,
   currentScene,
   sceneScript,
@@ -46,6 +47,50 @@ function act(s, kind, item, target) {
     ),
   ).state;
 }
+describe("selected item in the avatar's hand", () => {
+  it("previews the latest selected item and keeps the saved world intact", () => {
+    const s = createWorld();
+    s.items.lamp.holder = "vale";
+    s.items.cloth.holder = "vale";
+    const before = encodeSave(s);
+    expect(selectedHandItem(s, ["lamp", "cloth"])).toBe("cloth");
+    expect(selectedHandItem(s, ["lamp", "moth"])).toBe("lamp");
+    expect(selectedHandItem(s, ["cloth"])).toBe("cloth");
+    expect(selectedHandItem(s, [])).toBeNull();
+    expect(selectedHandItem(s, ["vale", "station", "quest:test"])).toBeNull();
+    expect(encodeSave(s)).toBe(before);
+  });
+
+  it("clears a transferred item and includes coverings on carried objects", () => {
+    const s = createWorld();
+    s.items.lamp.holder = "vale";
+    s.items.cloth.holder = "lamp";
+    s.actors.moth.place = "station";
+    expect(selectedHandItem(s, ["cloth"])).toBe("cloth");
+    s.items.lamp.holder = "moth";
+    expect(selectedHandItem(s, ["lamp", "cloth"])).toBeNull();
+    s.items.lamp.holder = "vale";
+    expect(selectedHandItem(s, ["cloth"])).toBe("cloth");
+    s.items.cloth.holder = "pond";
+    expect(selectedHandItem(s, ["lamp", "cloth"])).toBe("lamp");
+    s.items.lamp.holder = "station";
+    expect(selectedHandItem(s, ["lamp"])).toBeNull();
+  });
+
+  it("follows the claimed shared avatar's belongings", () => {
+    const s = createWorld();
+    s.sharedVersion = 1;
+    s.controlledActors = ["vale", "mara"];
+    s.presentActors = ["vale", "mara"];
+    s.playerActorId = "mara";
+    s.actors.mara.place = "pond";
+    s.items.lamp.holder = "vale";
+    expect(selectedHandItem(s, ["lamp"])).toBeNull();
+    s.items.lamp.holder = "mara";
+    expect(selectedHandItem(s, ["lamp"])).toBe("lamp");
+    expect(selectedHandItem(s, ["missing-item"])).toBeNull();
+  });
+});
 describe("JRPG scenes", () => {
   it("distinguishes a follower, agreed company, and a waiting resident", () => {
     const s = gathered();
