@@ -1846,13 +1846,16 @@ impl<'a> Check<'a> {
                 .collect::<Vec<_>>()
         };
         let key = words(&kept).concat();
-        if self.examples.iter().any(|line| {
-            let example = words(line);
-            words(line).concat() == key
-                || words(&kept)
-                    .windows(6)
-                    .any(|run| example.windows(6).any(|other| other == run))
-        }) {
+        let earned_quote = recital::earned_quote(&kept, self.entity.poem.as_ref());
+        if !earned_quote
+            && self.examples.iter().any(|line| {
+                let example = words(line);
+                words(line).concat() == key
+                    || words(&kept)
+                        .windows(6)
+                        .any(|run| example.windows(6).any(|other| other == run))
+            })
+        {
             return Err("copied example");
         }
         let repeats = key.is_empty()
@@ -1871,7 +1874,7 @@ impl<'a> Check<'a> {
                 .conversation
                 .iter()
                 .any(|line| words(&line.text).concat() == key);
-        if repeats && !recital::earned_quote(&kept, self.entity.poem.as_ref()) {
+        if repeats && !earned_quote {
             return Err("repeat");
         }
         // A character speaks as "I"; a line that names its speaker in the
@@ -1881,12 +1884,13 @@ impl<'a> Check<'a> {
         }
         let spoken = words(&kept);
         if self.labels.iter().any(|label| kept.contains(label))
-            || self.brief.iter().any(|line| {
-                let brief = words(line);
-                spoken
-                    .windows(6)
-                    .any(|run| brief.windows(6).any(|other| other == run))
-            })
+            || (!earned_quote
+                && self.brief.iter().any(|line| {
+                    let brief = words(line);
+                    spoken
+                        .windows(6)
+                        .any(|run| brief.windows(6).any(|other| other == run))
+                }))
         {
             return Err("echoed brief");
         }
@@ -2340,6 +2344,8 @@ mod tests {
         });
         let mut value = serde_json::to_value(bard_context()).unwrap();
         value["entities"][3]["previous"] = json!(EARNED_VERSE);
+        value["entities"][3]["memories"] =
+            json!([{ "turn":1, "kind":"expression", "text":format!("The Bard: {EARNED_VERSE}") }]);
         value["conversation"] = json!([{"actorId":"greek-rhapsode","text":EARNED_VERSE}]);
         let c: Context = serde_json::from_value(value).unwrap();
         let ids = vec!["vale".into(), "greek-rhapsode".into()];
