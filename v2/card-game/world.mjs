@@ -510,6 +510,36 @@ function captureHands(s, met) {
       }
     }
   }
+  for (const quest of questRecords(s).filter(
+    (q) => q.mode === "shared" && q.completedTurn === null && !q.retired,
+  )) {
+    if (met.has(quest.key)) continue;
+    const candidates = quest.subjectActor
+      ? [quest.subjectActor]
+      : quest.participants;
+    for (const actor of actorIds.filter(
+      (id) => candidates.includes(id) && entityActive(s, id),
+    )) {
+      const target = alternatives(quest.program.steps[quest.step]).find(
+        (h) => handStatus(s, actor, h).met,
+      );
+      if (!target) continue;
+      met.set(quest.key, {
+        actor,
+        questKey: quest.key,
+        shared: true,
+        step: quest.step,
+        target: structuredClone(target),
+        fulfillment: {
+          items: [...target.items],
+          location: s.actors[actor].place,
+          avatars: [...target.avatars],
+          participants: [...new Set([actor, ...target.avatars])].sort(),
+        },
+      });
+      break;
+    }
+  }
 }
 // Each new program reads the programs chosen before it in the same round, so two
 // actors never pick goals against each other's stale wants.
@@ -630,6 +660,59 @@ function advancePrograms(s, met) {
   const consequences = new Set();
   for (const evidence of met.values()) {
     const actor = evidence.actor;
+    if (evidence.shared) {
+      const quest = questRecord(s, evidence.questKey);
+      if (
+        !quest ||
+        quest.completedTurn !== null ||
+        quest.retired ||
+        quest.step !== evidence.step ||
+        quest.lastProgressTurn === s.turn
+      )
+        continue;
+      quest.step += 1;
+      quest.lastProgressTurn = s.turn;
+      const complete = quest.step === quest.program.steps.length;
+      if (complete) {
+        quest.completedTurn = s.turn;
+        clearQuestFocus(s, quest.key);
+        const effect = evidence.target.consequence;
+        const effectKey =
+          effect &&
+          JSON.stringify([effect, effect.kind === "trust" ? actor : null]);
+        if (effect && !consequences.has(effectKey)) {
+          applyConsequence(s, actor, evidence.target);
+          consequences.add(effectKey);
+        }
+      }
+      addLog(
+        s,
+        "World",
+        `${nameOf(actor)} ${complete ? "completes" : "helps with"} ${quest.program.name}.`,
+        {
+          kind: "quest",
+          questMode: "shared",
+          program: structuredClone(quest.program),
+          actorId: actor,
+          locationId: evidence.fulfillment.location,
+          questKey: quest.key,
+          programId: quest.program.id,
+          step: evidence.step,
+          target: evidence.target,
+          fulfillment: evidence.fulfillment,
+        },
+      );
+      if (complete) {
+        recordQuestCompletion(s, quest, {
+          actorId: actor,
+          locationId: evidence.fulfillment.location,
+          participants: evidence.fulfillment.participants,
+          outcome: "fulfilled",
+        });
+        pruneSharedQuestHistory(s, quest.holder);
+      }
+      continue;
+    }
     const progress = s.actors[actor].progress;
     const collection = lifeOf(s, actor)?.collection;
     const card =
@@ -653,7 +736,11 @@ function advancePrograms(s, met) {
       : source;
     const step = card ? card.step : progress.step;
     const complete = step + 1 === program.steps.length;
-    const wasActive = !collection || collection.active === card.key;
+    const focused = focusedQuest(s, actor);
+    const wasActive =
+      !collection ||
+      (collection.active === card.key &&
+        (!focused || focused.key === card.key));
     progress.marks.push(s.turn);
     progress.marks = progress.marks.slice(-32);
     if (collection) recordQuestProgress(s, actor, complete, card.key);
@@ -729,6 +816,16 @@ function advancePrograms(s, met) {
       step,
       level: programIndex + 1 + Number(complete),
     });
+    if (complete && questKey) {
+      const quest = questRecord(s, questKey);
+      if (quest)
+        recordQuestCompletion(s, quest, {
+          actorId: actor,
+          locationId: fulfillment.location,
+          participants: [actor, ...target.avatars],
+          outcome: "fulfilled",
+        });
+    }
   }
 }
 export function addLog(s, speaker, text, detail = {}) {
@@ -944,6 +1041,71 @@ export function accompanyDecision(s, actor, companion, destination) {
   };
 }
 
+function visibleQuest(s, actor, quest) {
+  const holder = quest.holder;
+  if (!holder || !entityActive(s, holder.id)) return false;
+  const here = s.actors[actor].place;
+  return holder.kind === "place"
+    ? holder.id === here
+    : holder.kind === "item"
+      ? itemPlace(s, holder.id) === here
+      : s.actors[holder.id]?.place === here;
+}
+function sharedQuestActions(s, actor) {
+  const actions = [],
+    here = s.actors[actor].place;
+  for (const quest of questRecords(s)) {
+    if (
+      quest.completedTurn !== null ||
+      quest.retired ||
+      !visibleQuest(s, actor, quest)
+    )
+      continue;
+    if (!quest.participants.includes(actor))
+      actions.push({
+        kind: "join-quest",
+        actor,
+        questKey: quest.key,
+        key: `join-quest:${actor}:${quest.key}`,
+        label: "Help",
+        text: `${nameOf(actor)} joins ${quest.program.name}.`,
+        parts: [],
+      });
+    const holder = quest.holder;
+    const canShare =
+      holder.kind === "avatar"
+        ? holder.id === actor
+        : holder.kind === "item"
+          ? rootHolder(s, holder.id) === actor
+          : quest.participants.includes(actor);
+    if (!canShare) continue;
+    const targets = [
+      { kind: "place", id: here },
+      ...actorIds
+        .filter((id) => entityActive(s, id) && s.actors[id].place === here)
+        .map((id) => ({ kind: "avatar", id })),
+      ...carried(s, actor).map((id) => ({ kind: "item", id })),
+    ];
+    for (const to of targets) {
+      if (to.kind === holder.kind && to.id === holder.id) continue;
+      actions.push({
+        kind: "share-quest",
+        actor,
+        questKey: quest.key,
+        holder: to,
+        key: `share-quest:${actor}:${quest.key}:${to.kind}:${to.id}`,
+        label:
+          to.kind === "place"
+            ? `Leave at ${nameOf(to.id)}`
+            : `Share with ${nameOf(to.id)}`,
+        text: `${nameOf(actor)} leaves ${quest.program.name} with ${nameOf(to.id)}.`,
+        parts: [],
+      });
+    }
+  }
+  return actions;
+}
+
 export function legalActions(s, actor = currentActor(s)) {
   if (!s.actors[actor] || !entityActive(s, actor)) return [];
   const here = s.actors[actor].place;
@@ -963,6 +1125,7 @@ export function legalActions(s, actor = currentActor(s)) {
       parts: [],
     });
   }
+  out.push(...sharedQuestActions(s, actor));
   for (const to of exits(s, here, actor)) {
     const through = !baseExits(s, here).includes(to);
     const crossing = crossingBetween(here, to, s);
@@ -1317,6 +1480,18 @@ function perform(s, a, capture = () => {}, round = null) {
     if (a.actor === conflict.defender) conflict.answered = true;
   }
   if (a.kind === "wait") return;
+  if (a.kind === "join-quest" || a.kind === "share-quest") {
+    if (a.kind === "join-quest") focusQuest(s, a.actor, a.questKey);
+    else shareQuest(s, a.questKey, a.holder);
+    addLog(s, "World", a.text, {
+      kind: "action",
+      actorId: a.actor,
+      locationId: here,
+      verb: a.kind,
+      questKey: a.questKey,
+    });
+    return;
+  }
   if (a.kind === "pursue") {
     pursueQuest(s, a.actor, a.questKey);
     addLog(s, "World", a.text, { actorId: a.actor, locationId: here });
@@ -2382,13 +2557,14 @@ export function validateWorld(s) {
     )
       fail();
     const program = savedProgramFor(s, id);
-    const resting = !questActive(s, id) && progress.step === 0;
+    const personalActive = !lifeOf(s, id) || lifeOf(s, id).phase === "active";
+    const resting = !personalActive && progress.step === 0;
     if (
       (!program && !resting) ||
       (program &&
         (!validProgram(program, id, s) ||
           progress.step >= program.steps.length)) ||
-      (!questActive(s, id) && !resting)
+      (!personalActive && !resting)
     )
       fail();
     const collection = lifeOf(s, id)?.collection;
@@ -2635,6 +2811,8 @@ export function validateWorld(s) {
     fail();
   let seq = 0;
   const verbs = [
+    "join-quest",
+    "share-quest",
     "accompany",
     "threaten",
     "guard",
@@ -2741,14 +2919,18 @@ export function validateWorld(s) {
       if (
         !validProgram(program, e.actorId, s) ||
         program.id !== e.programId ||
-        !Number.isSafeInteger(index) ||
-        index < 0 ||
-        index > s.actors[e.actorId].progress.program ||
+        (e.questMode !== "shared" &&
+          (!Number.isSafeInteger(index) ||
+            index < 0 ||
+            index > s.actors[e.actorId].progress.program)) ||
         !Number.isInteger(e.step) ||
         e.step < 0 ||
         e.step >= program.steps.length ||
-        e.level !== index + 1 + Number(e.step === program.steps.length - 1) ||
-        (program.generated &&
+        (e.questMode !== "shared" &&
+          e.level !==
+            index + 1 + Number(e.step === program.steps.length - 1)) ||
+        (e.questMode !== "shared" &&
+          program.generated &&
           (program.generated.level !== index + 1 ||
             program.id !== `generated-${e.actorId}-${index + 1}`))
       )

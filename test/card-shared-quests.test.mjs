@@ -1,3 +1,12 @@
+import {
+  createWorld,
+  legalActions,
+  play,
+  encodeSave,
+  decodeSave,
+} from "../v2/card-game/world.mjs";
+import { enableMotives } from "../v2/card-game/motives.mjs";
+import { latestQuestCompletion } from "../v2/card-game/quest-completions.mjs";
 import { describe, it, expect } from "vitest";
 import {
   installSharedQuestRegistry,
@@ -91,5 +100,83 @@ describe("shared quest records", () => {
     }
     expect(questRecords(s)).toHaveLength(24);
     expect(add(s).key).toBe("world:quest:80");
+  });
+});
+
+describe("shared quest legal plays", () => {
+  const scene = () => {
+    const s = enableMotives(createWorld(), { personalQuests: true });
+    s.actors.vale.place = "station";
+    return s;
+  };
+  const act = (s, kind, key) => {
+    const action = legalActions(s).find(
+      (a) => a.kind === kind && (!key || a.questKey === key),
+    );
+    expect(action).toBeTruthy();
+    const result = play(s, action);
+    expect(result.ok).toBe(true);
+    expect(play(decodeSave(encodeSave(s)), action)).toEqual(result);
+    return result.state;
+  };
+  it("lets a person help a place quest and records one exact-site completion", () => {
+    let s = scene();
+    const q = addQuestRecord(s, {
+      holder: { kind: "place", id: "station" },
+      program: {
+        id: "company",
+        name: "Make room for company",
+        steps: [{ items: [], location: "station", avatars: [] }],
+      },
+    });
+    s = act(s, "join-quest", q.key);
+    expect(questRecord(s, q.key).step).toBe(1);
+    expect(questRecord(s, q.key).completedTurn).toBe(s.turn);
+    expect(questRecord(s, q.key).completion).toMatchObject({
+      actorId: "vale",
+      locationId: "station",
+      outcome: "fulfilled",
+    });
+    expect(decodeSave(encodeSave(s))).toEqual(s);
+    const seq = questRecord(s, q.key).completion.seq;
+    s = act(s, "wait");
+    expect(questRecord(s, q.key).completion.seq).toBe(seq);
+  });
+  it("credits an AI's completed quest at its own site during another actor's turn", () => {
+    let s = scene();
+    const q = addQuestRecord(s, {
+      holder: { kind: "avatar", id: "keeper" },
+      program: {
+        id: "watch",
+        name: "Watch the station",
+        steps: [{ items: [], location: "station", avatars: [] }],
+      },
+    });
+    focusQuest(s, "keeper", q.key);
+    s = act(s, "wait");
+    expect(questRecord(s, q.key).completion).toMatchObject({
+      actorId: "keeper",
+      locationId: "station",
+      participants: ["keeper"],
+    });
+    expect(latestQuestCompletion(s).seq).toBeGreaterThan(0);
+  });
+  it("moves one unfinished card to a carried item through a legal share play", () => {
+    let s = scene();
+    s.items.lamp.holder = "vale";
+    const q = addQuestRecord(s, {
+      holder: { kind: "avatar", id: "vale" },
+      program,
+    });
+    const action = legalActions(s).find(
+      (a) =>
+        a.kind === "share-quest" &&
+        a.questKey === q.key &&
+        a.holder.id === "lamp",
+    );
+    expect(action).toBeTruthy();
+    s = play(s, action).state;
+    expect(questRecord(s, q.key).holder).toEqual({ kind: "item", id: "lamp" });
+    expect(questRecords(s).filter((r) => r.key === q.key)).toHaveLength(1);
   });
 });

@@ -425,27 +425,24 @@ function currentProgram(s, actor, card) {
     : p;
 }
 export function actorQuests(s, actor) {
-  const c = collectionOf(s, actor);
-  if (!c) {
-    const program = rawProgram(s, actor);
-    return program
+  if (!s.actors[actor]) return [];
+  const c = collectionOf(s, actor),
+    raw = c ? null : rawProgram(s, actor);
+  const personal = c
+    ? [...collectionCards(s, actor), ...collectionCards(s, actor, true)]
+    : raw
       ? [
           {
             key: questKey(actor, 0),
-            program,
+            program: raw,
             step: s.actors[actor].progress.step,
             status: questActive(s, actor) ? "active" : "pending",
             origin: lifeOf(s, actor)?.origin || null,
-            createdTurn: program.generated?.turn || 0,
+            createdTurn: raw.generated?.turn || 0,
             completedTurn: null,
           },
         ]
       : [];
-  }
-  const personal = [
-    ...collectionCards(s, actor),
-    ...collectionCards(s, actor, true),
-  ];
   const keys = new Set(personal.map((q) => q.key));
   const joined = questRecords(s).filter(
     (q) => q.participants.includes(actor) && !keys.has(q.key),
@@ -453,13 +450,14 @@ export function actorQuests(s, actor) {
   return [...personal, ...joined]
     .map((card) => ({
       ...card,
-      status: s.quests
+      status: card.holder
         ? questStatus(s, card)
-        : card.completedTurn !== null
-          ? "fulfilled"
-          : card.key === c.active
-            ? "active"
-            : "pending",
+        : card.status ||
+          (card.completedTurn !== null
+            ? "fulfilled"
+            : card.key === c?.active
+              ? "active"
+              : "pending"),
     }))
     .sort(
       (a, b) =>
@@ -499,7 +497,7 @@ export function installQuestCollection(s, actor) {
     if (!program.generated) life.collection.authoredThrough += 1;
     if (life.phase === "active") {
       life.collection.active = card.key;
-      focusQuest(s, actor, card.key);
+      if (!focusedQuest(s, actor)) focusQuest(s, actor, card.key);
     }
   }
 }
@@ -654,7 +652,15 @@ export function ensureCollectedQuest(s, actor, places, things) {
       pending.sort(
         (a, b) => rank(a) - rank(b) || a.createdTurn - b.createdTurn,
       );
+      const focused = focusedQuest(s, actor);
       pursueQuest(s, actor, pending[0].key);
+      if (
+        focused &&
+        focused.mode === "shared" &&
+        focused.completedTurn === null &&
+        !focused.retired
+      )
+        focusQuest(s, actor, focused.key);
     }
   }
   return true;

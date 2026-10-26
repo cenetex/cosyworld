@@ -15,6 +15,7 @@ export const collectionCards = (world, actor, archived = false) =>
   ).map((q) => (typeof q === "string" ? questRecord(world, q) : q));
 
 export function installSharedQuestRegistry(world) {
+  const first = !world.quests;
   world.quests ??= {
     version: SHARED_QUEST_VERSION,
     next: 0,
@@ -24,6 +25,7 @@ export function installSharedQuestRegistry(world) {
   for (const [actor, life] of Object.entries(world.life?.actors || {})) {
     const collection = life.collection;
     if (!collection) continue;
+    const migrated = collection.cards.some((q) => typeof q !== "string");
     for (const field of ["cards", "archive"]) {
       collection[field] = collection[field].map((card) => {
         if (typeof card === "string") return card;
@@ -31,7 +33,11 @@ export function installSharedQuestRegistry(world) {
         return card.key;
       });
     }
-    if (collection.active && world.quests.focus[actor] === undefined)
+    if (
+      (first || migrated) &&
+      collection.active &&
+      world.quests.focus[actor] === undefined
+    )
       world.quests.focus[actor] = collection.active;
   }
   return world.quests;
