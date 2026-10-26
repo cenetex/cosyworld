@@ -6,7 +6,9 @@ badger who would rather be left alone. Residents act by the same rules as the
 player. Their wants, belongings, journeys, and disagreements make the story;
 generated dialogue gives those events a voice.
 
-Play the current development site at [cosyworld.fly.dev](https://cosyworld.fly.dev/).
+Play the shipping game at [lonelyforest.com](https://lonelyforest.com/).
+The testing site at [cosyworld.fly.dev](https://cosyworld.fly.dev/) updates
+automatically from `main`; Lonely Forest receives deliberate versioned releases.
 Its root serves the card table prototype: one browser's deterministic world,
 saved in localStorage. The longer-term direction is a shared, persistent world
 built from general rules and generators. The existing shared runtime, with a C
@@ -122,9 +124,11 @@ train, and a daily Steam Clock prophecy are **proposals**, not implemented
 features. Their scope and open decisions are in the
 [product direction](PRD.md#card-table-direction-under-review).
 
-The prototype still includes authored opening quests and item rules. The
-generalized model under `v2/card-game/core/` is separate from the deployed
-table; features there must not be described as already playable at the root.
+The shipping card engine is `v2/card-game/world.mjs`, with quests, resident
+motives, life, memory, and pack rules in the modules beside it. Its opening
+quests and item rules form the current game. Future work builds on this engine;
+the [generated-world backlog](docs/backlog/generated-world-core.md) retains
+the ideas explored by the retired standalone engine.
 
 ## Shared Runtime at `/classic`
 

@@ -24,7 +24,9 @@ currency, or rewards. The Rust binary serves its files (`card_game.rs`), and
 `POST /card-game/text` (`card_narrative.rs`) writes its descriptions and
 dialogue; that text never changes state.
 
-New card rules land in the JavaScript model with tests in `test/card-*.test.mjs`.
+New card rules land in the shipping `v2/card-game/world.mjs` model and its
+adjacent modules, with tests in `test/card-*.test.mjs`. Earlier standalone
+engine ideas are recorded in `docs/backlog/generated-world-core.md`.
 Rules stay general: no rule names a specific entity, and new content comes from
 generators and pack data.
 A rule may stay client-only while it affects one browser's table. Anything
