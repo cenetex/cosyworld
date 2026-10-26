@@ -77,18 +77,20 @@ impl World {
     // authored rules. AI text is appended by the authored speech reducer.
     pub fn apply(&mut self, command: &Value) -> Result<Value> {
         if command["op"] == "upgrade" {
-            if self.version != engine::PREVIOUS_VERSION
-                || command["from"] != engine::PREVIOUS_VERSION
-                || command["to"] != engine::VERSION
-            {
+            let to = command["to"].as_str().unwrap_or("");
+            let allowed = engine::historical(&self.version)
+                && command["from"] == self.version
+                && (to == engine::VERSION
+                    || (self.version == engine::PREVIOUS_VERSION && to == "full-card-world/3"));
+            if !allowed {
                 return Err("This world's rules need a saved migration.".into());
             }
-            let result = engine::reduce(self.request("upgrade", 0))?;
+            let result = engine::reduce_version(to, self.request("upgrade", 0))?;
             self.game = result["world"].clone();
-            self.version = engine::VERSION.into();
+            self.version = to.into();
             return Ok(result);
         }
-        if self.version != engine::VERSION && self.version != engine::PREVIOUS_VERSION {
+        if self.version != engine::VERSION && !engine::historical(&self.version) {
             return Err("This world's rules need a saved migration.".into());
         }
         let a = actor_index(command["actor"].as_str().ok_or("Choose an avatar.")?)?;
