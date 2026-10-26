@@ -123,3 +123,26 @@ export function upgradeRecitals(world, packs) {
     }
   }
 }
+
+// The complete earned poem is separate from the short scene facts.
+export function recitalContext(world, packs, actor) {
+  const pack = packs.find((p) => p.recital?.actor === actor);
+  if (!pack) return null;
+  const poem = recitalPoem(world, pack);
+  const stanzas = poem.stanzas.map((stanza) => {
+    const authorId = world.packs[pack.id].recitals[stanza.id]?.actor ?? null;
+    return {
+      id: stanza.id,
+      turn: stanza.turn,
+      authorId,
+      authorName: humanAvatar(authorId)?.name || "an earlier traveler",
+      lines: [...stanza.lines],
+    };
+  });
+  const latest = Math.max(0, ...stanzas.map((stanza) => stanza.turn));
+  return {
+    title: poem.title,
+    stanzas,
+    newLines: stanzas.filter((stanza) => stanza.turn === latest).flatMap((stanza) => stanza.lines),
+  };
+}

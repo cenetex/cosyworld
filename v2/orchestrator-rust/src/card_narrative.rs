@@ -19,6 +19,8 @@ use std::{
 use tokio::sync::{mpsc, Semaphore};
 use tokio_stream::{wrappers::UnboundedReceiverStream, StreamExt};
 
+#[path = "card_narrative/custody.rs"]
+mod custody;
 #[path = "card_narrative/observations.rs"]
 mod observations;
 #[path = "card_narrative/recital.rs"]
@@ -264,6 +266,8 @@ struct Memory {
 struct Entity {
     id: String,
     facts: Vec<String>,
+    #[serde(default)]
+    poem: Option<recital::Poem>,
     desire: Option<Desire>,
     memories: Vec<Memory>,
     previous: Option<String>,
@@ -408,6 +412,7 @@ fn valid(context: &Context) -> bool {
             .is_none_or(|id| kind(id, "item") && ids.contains(id.as_str()))
         && context.entities.iter().all(|e| {
             profiles().get(&e.id).is_some()
+                && recital::valid(&e.id, e.poem.as_ref(), context.turn)
                 && e.facts.len() <= 16
                 && e.facts.iter().all(|s| bounded(s, 240))
                 && e.previous.as_ref().is_none_or(|s| bounded(s, 400))
@@ -833,6 +838,10 @@ pub(crate) async fn shared_lines(
             .iter()
             .any(|id| !context.entities.iter().any(|e| &e.id == id))
         || !observations::valid(&context)
+        || context
+            .entities
+            .iter()
+            .any(|entity| !recital::valid(&entity.id, entity.poem.as_ref(), context.turn))
     {
         return Err("The saved scene needs its requested voices.".into());
     }
@@ -1095,6 +1104,13 @@ fn known(context: &Context) -> BTreeSet<String> {
         ids.insert(line.actor_id.clone());
     }
     for e in &context.entities {
+        if let Some(poem) = &e.poem {
+            ids.extend(
+                poem.stanzas
+                    .iter()
+                    .filter_map(|stanza| stanza.author_id.clone()),
+            );
+        }
         if let Some(desire) = &e.desire {
             ids.extend(desire.items.iter().cloned());
             ids.extend(desire.avatars.iter().cloned());
@@ -1240,6 +1256,7 @@ fn transcript(context: &Context, entity: &Entity, part: Part) -> String {
             }
         }
     }
+    lines.extend(custody::facts(context, id));
     scene.push('.');
     if let Some(action) = &context.action {
         lines.push(format!("Just now: {action}"));
@@ -1288,8 +1305,8 @@ fn transcript(context: &Context, entity: &Entity, part: Part) -> String {
             lines.push("I'm saying goodbye to those staying.".into());
         }
     }
-    if let Some(words) = required_recital(context, entity, part) {
-        lines.push(format!("My earned recital, word for word: {words}"));
+    if let Some(poem) = &entity.poem {
+        lines.extend(recital::prompt_lines(poem));
     }
     let mut out = vec!["My voice samples:".to_string()];
     for line in voice_lines(context, id) {
@@ -1310,15 +1327,6 @@ fn transcript(context: &Context, entity: &Entity, part: Part) -> String {
     out.join("\n")
 }
 
-fn required_recital(context: &Context, entity: &Entity, part: Part) -> Option<String> {
-    if part != Part::Line {
-        return None;
-    }
-    recital::required(&serde_json::to_value(context).expect("scene"))
-        .filter(|(id, _)| id == &entity.id)
-        .map(|(_, words)| words)
-}
-
 /// A rejected reply gets fresh wording grounded in the scene. Removing the
 /// style examples on retry helps small models leave copied examples behind.
 fn attempt_transcript(context: &Context, entity: &Entity, part: Part, attempt: u8) -> String {
@@ -1329,9 +1337,6 @@ fn attempt_transcript(context: &Context, entity: &Entity, part: Part, attempt: u
     let current = prompt
         .split_once("Current scene:\n")
         .map_or(prompt.as_str(), |(_, scene)| scene);
-    if let Some(words) = required_recital(context, entity, part) {
-        return format!("I recite these exact earned words: {words}\n\nCurrent scene:\n{current}");
-    }
     format!("My next words are fresh and describe this moment.\n\nCurrent scene:\n{current}")
 }
 
@@ -1418,11 +1423,7 @@ async fn speak(
             system: &system,
             user: &user,
             // Hot sampling keeps small models varied; a retry cools slightly.
-            temperature: if required_recital(context, entity, part).is_some() {
-                0.0
-            } else {
-                1.0 - 0.1 * f64::from(attempt)
-            },
+            temperature: 1.0 - 0.1 * f64::from(attempt),
             max_tokens: if part == Part::Persona { 160 } else { 96 },
             timeout: settings.call_timeout,
             max_attempts: 1,
@@ -1535,17 +1536,25 @@ struct Check<'a> {
     /// the brief, not speech.
     brief: Vec<String>,
     labels: Vec<String>,
-    recital: Option<String>,
 }
 
 impl<'a> Check<'a> {
     fn new(context: &'a Context, entity: &'a Entity, part: Part) -> Self {
         let (limit, sentences) = part.limits();
         let own = name(&entity.id);
+        let poem_lines = entity
+            .poem
+            .as_ref()
+            .map(recital::prompt_lines)
+            .unwrap_or_default();
         let brief: Vec<String> = transcript(context, entity, part)
             .lines()
             .map(str::trim)
-            .filter(|line| !line.is_empty() && !line.starts_with(&format!("{own}:")))
+            .filter(|line| {
+                !line.is_empty()
+                    && !line.starts_with(&format!("{own}:"))
+                    && !poem_lines.iter().any(|poem| poem == line)
+            })
             .map(str::to_string)
             .collect();
         let labels = brief
@@ -1567,7 +1576,6 @@ impl<'a> Check<'a> {
             examples: profile_lines(&entity.id),
             brief,
             labels,
-            recital: required_recital(context, entity, part),
         }
     }
 
@@ -1575,20 +1583,6 @@ impl<'a> Check<'a> {
     /// breaks shape, speaks as an assistant, names someone the scene does not
     /// know, copies an example, or repeats the play or a recent line.
     fn clean(&self, raw: &str, finished: bool) -> Result<String, &'static str> {
-        // An earned recital repeats authored words by design. Check the full
-        // response before ordinary cleanup can shorten or rewrite it.
-        if let Some(words) = &self.recital {
-            if !finished || raw.trim() != words {
-                return Err("earned_verse");
-            }
-            if !bounded(words, self.limit) {
-                return Err("shape");
-            }
-            if !observations::consistent(words, self.context) {
-                return Err("observable_state");
-            }
-            return Ok(words.clone());
-        }
         let own = name(&self.entity.id);
         let line = raw
             .trim()
@@ -1692,6 +1686,12 @@ impl<'a> Check<'a> {
         }
         if !observations::consistent(&kept, self.context) {
             return Err("observable_state");
+        }
+        if !custody::consistent(&kept, self.context, &self.entity.id) {
+            return Err("custody");
+        }
+        if !recital::consistent(&kept, self.entity.poem.as_ref()) {
+            return Err("story_outcome");
         }
         let lower = kept.to_lowercase();
         if ASSISTANT_SPEAK.iter().any(|phrase| lower.contains(phrase)) {
@@ -2030,38 +2030,55 @@ mod tests {
         value["outcome"]["card"]["kind"] = json!("talk");
         value["outcome"]["card"]["target"] = json!("greek-rhapsode");
         value["entities"][3]["id"] = json!("greek-rhapsode");
-        value["entities"][3]["facts"] = json!([format!("Verse 1, Vale: {EARNED_VERSE}")]);
+        value["entities"][3]["facts"] = json!([]);
+        value["entities"][3]["poem"] = json!({
+            "title":"Before the Burial",
+            "stanzas":[{"id":"greek-decline-burial","turn":1,"authorId":"vale","authorName":"Vale",
+                "lines":["I told her I would turn away.","Her brother waited by the wall."]}],
+            "newLines":["I told her I would turn away.","Her brother waited by the wall."]
+        });
         value["entities"][3]["memories"] = json!([]);
         serde_json::from_value(value).unwrap()
     }
 
     #[test]
-    fn earned_recitals_repeat_exact_words_and_reject_extra_or_wrong_verses() {
-        let mut c = bard_context();
-        c.entities[3].previous = Some(EARNED_VERSE.into());
+    fn earned_poem_is_context_for_free_speech_and_keeps_its_authored_data() {
+        let c = bard_context();
         let check = Check::new(&c, &c.entities[3], Part::Line);
-        assert_eq!(check.clean(EARNED_VERSE, true), Ok(EARNED_VERSE.into()));
-        assert_eq!(check.clean(EARNED_VERSE, false), Err("earned_verse"));
-        for text in [
-            "The dark keeps every name the waves release.".to_string(),
-            "I laid her brother in the earth. The king's words crossed the wind.".into(),
-            format!("{EARNED_VERSE} Another verse follows."),
-            format!("{EARNED_VERSE}\nAnother verse follows."),
+        for words in [
+            EARNED_VERSE,
+            "I hear a hard choice in those lines.",
+            "I wonder how she will remember that refusal.",
         ] {
-            assert_eq!(check.clean(&text, true), Err("earned_verse"));
+            assert_eq!(check.clean(words, true), Ok(words.into()));
         }
-        assert!(Check::new(&c, &c.entities[0], Part::Line).recital.is_none());
-        assert!(Check::new(&c, &c.entities[3], Part::Thought)
-            .recital
-            .is_none());
+        assert_eq!(
+            check.clean(
+                "I laid her brother in the earth. The king's words crossed the wind.",
+                true
+            ),
+            Err("story_outcome")
+        );
         let retry = attempt_transcript(&c, &c.entities[3], Part::Line, 1);
-        assert!(retry.starts_with("I recite these exact earned words:"));
-        assert!(!retry.contains("My next words are fresh"));
-        assert!(retry.contains(EARNED_VERSE));
+        assert!(retry.starts_with("My next words are fresh"));
+        assert!(retry.contains("My earned poem: Before the Burial"));
+        assert!(retry.contains(&format!("These are the new lines: {EARNED_VERSE}")));
+        assert!(recital::valid(
+            "greek-rhapsode",
+            c.entities[3].poem.as_ref(),
+            c.turn
+        ));
+        let mut altered = bard_context();
+        altered.entities[3].poem.as_mut().unwrap().stanzas[0].lines[0] = "An invented deed.".into();
+        assert!(!recital::valid(
+            "greek-rhapsode",
+            altered.entities[3].poem.as_ref(),
+            altered.turn
+        ));
     }
 
     #[tokio::test]
-    async fn invented_bard_verse_is_repaired_before_plain_or_shared_publication() {
+    async fn bard_comments_freely_on_the_full_poem_in_plain_and_shared_speech() {
         let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
         let tries = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let count = tries.clone();
@@ -2070,9 +2087,9 @@ mod tests {
         let provider = plain_provider(seen.clone(), move |_, stem| {
             if stem == target {
                 if count.fetch_add(1, std::sync::atomic::Ordering::SeqCst) == 0 {
-                    "The dark keeps every name the waves release.".into()
+                    "As an AI, I can explain this poem.".into()
                 } else {
-                    EARNED_VERSE.into()
+                    "I hear a hard choice in those lines.".into()
                 }
             } else {
                 "I hear you.".into()
@@ -2102,10 +2119,13 @@ mod tests {
         .await
         .unwrap();
         assert_eq!(result["entries"].as_array().unwrap().len(), 2);
-        assert_eq!(result["entries"][1]["text"], EARNED_VERSE);
+        assert_eq!(
+            result["entries"][1]["text"],
+            "I hear a hard choice in those lines."
+        );
         let output = published.lock().unwrap().join(" ");
-        assert!(!output.contains("The dark keeps"));
-        assert!(output.contains(EARNED_VERSE));
+        assert!(!output.contains("As an AI"));
+        assert!(output.contains("I hear a hard choice"));
         assert_eq!(tries.load(std::sync::atomic::Ordering::SeqCst), 2);
         let shared = shared_lines(
             &test_config(address),
@@ -2117,7 +2137,10 @@ mod tests {
         .unwrap();
         assert_eq!(shared["entries"].as_array().unwrap().len(), 2);
         assert_eq!(shared["entries"][0]["id"], "vale");
-        assert_eq!(shared["entries"][1]["text"], EARNED_VERSE);
+        assert_eq!(
+            shared["entries"][1]["text"],
+            "I hear a hard choice in those lines."
+        );
         let requests = seen.lock().unwrap();
         let bard: Vec<_> = requests
             .iter()
@@ -2129,13 +2152,155 @@ mod tests {
             })
             .collect();
         assert_eq!(bard.len(), 3);
-        assert!(bard
-            .iter()
-            .all(|r| r["temperature"] == 0.0 && r.get("response_format").is_none()));
+        assert!(bard.iter().all(
+            |r| r["temperature"].as_f64().unwrap() > 0.0 && r.get("response_format").is_none()
+        ));
         assert!(bard[1]["messages"][1]["content"]
             .as_str()
             .unwrap()
-            .starts_with("I recite these exact earned words:"));
+            .starts_with("My next words are fresh"));
+        assert!(bard.iter().all(|request| request["messages"][1]["content"]
+            .as_str()
+            .unwrap()
+            .contains(EARNED_VERSE)));
+        server.abort();
+    }
+
+    fn bell_context() -> Context {
+        let mut c = context();
+        c.speakers = vec!["vale".into(), "keeper".into()];
+        c.action = Some("Vale gives the Bell to The keeper.".into());
+        c.entities[0].facts.clear();
+        c.entities[3].id = "keeper".into();
+        c.entities[3].facts.clear();
+        c.entities[3].memories.clear();
+        c.entities[3].desire = None;
+        let mut outcome = solo_departure();
+        outcome.card.kind = "give".into();
+        outcome.card.item = Some("bell".into());
+        outcome.card.target = Some("keeper".into());
+        outcome.avatars[2].travel = Some(Travel {
+            from: "station".into(),
+            to: "attic".into(),
+            companions: vec![],
+        });
+        c.outcome = Some(outcome);
+        c
+    }
+
+    #[test]
+    fn custody_claims_follow_final_holder_and_each_speakers_listener() {
+        let mut c = bell_context();
+        let words = "The bell is yours to keep now, Vale.";
+        let keeper = Check::new(&c, &c.entities[3], Part::Line);
+        assert_eq!(keeper.clean(words, true), Err("custody"));
+        assert_eq!(
+            keeper.clean("The bell is mine now.", true),
+            Ok("The bell is mine now.".into())
+        );
+        assert!(custody::consistent(
+            "I remember when the bell was yours.",
+            &c,
+            "keeper"
+        ));
+        assert!(custody::consistent("The bell is yours?", &c, "keeper"));
+        assert!(custody::consistent(
+            "The bell is yours to keep now.",
+            &c,
+            "vale"
+        ));
+        let prompt = transcript(&c, &c.entities[3], Part::Line);
+        assert!(prompt.contains("I received Bell from Vale."));
+        assert!(prompt.contains("Final custody: Bell — The keeper. Location: Mirror attic."));
+        assert!(prompt.contains("I'm leaving Empty station for Mirror attic"));
+        let outcome = c.outcome.as_mut().unwrap();
+        outcome
+            .items
+            .iter_mut()
+            .find(|item| item.id == "bell")
+            .unwrap()
+            .holder = "vale".into();
+        outcome
+            .items
+            .iter_mut()
+            .find(|item| item.id == "bell")
+            .unwrap()
+            .location = "station".into();
+        outcome.avatars[2].holding.retain(|item| item != "bell");
+        outcome.avatars[0].holding.push("bell".into());
+        c.events
+            .push("The keeper gives the Bell back to Vale before leaving.".into());
+        assert_eq!(
+            Check::new(&c, &c.entities[3], Part::Line).clean(words, true),
+            Ok(words.into())
+        );
+        assert!(!custody::consistent("The bell is mine now.", &c, "keeper"));
+    }
+
+    #[tokio::test]
+    async fn reversed_gift_perspective_is_repaired_before_local_or_shared_publication() {
+        let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
+        let tries = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let count = tries.clone();
+        let provider = plain_provider(seen.clone(), move |_, stem| {
+            if stem == "The keeper:" {
+                if count.fetch_add(1, std::sync::atomic::Ordering::SeqCst) == 0 {
+                    "The bell is yours to keep now, Vale.".into()
+                } else {
+                    "I will keep it safe, Vale.".into()
+                }
+            } else {
+                "I am glad you have it.".into()
+            }
+        });
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            axum::serve(listener, provider).await.unwrap();
+        });
+        let c = bell_context();
+        let ids = vec!["vale".into(), "keeper".into()];
+        let published = Mutex::new(Vec::new());
+        let emit = |text: &str| {
+            published.lock().unwrap().push(text.to_string());
+            true
+        };
+        let local = complete_selected(
+            &test_config(address),
+            &c,
+            &BTreeMap::new(),
+            &VoiceSettings::hosted(),
+            &ids,
+            false,
+            Some(&emit),
+        )
+        .await
+        .unwrap();
+        assert_eq!(local["entries"][1]["text"], "I will keep it safe, Vale.");
+        assert!(!published
+            .lock()
+            .unwrap()
+            .join(" ")
+            .contains("yours to keep"));
+        tries.store(0, std::sync::atomic::Ordering::SeqCst);
+        let shared = shared_lines(
+            &test_config(address),
+            &serde_json::to_value(&c).unwrap(),
+            &ids,
+            &BTreeMap::new(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(shared["entries"][1]["text"], "I will keep it safe, Vale.");
+        assert_eq!(tries.load(std::sync::atomic::Ordering::SeqCst), 2);
+        assert!(seen
+            .lock()
+            .unwrap()
+            .iter()
+            .all(|request| request["messages"][1]["content"]
+                .as_str()
+                .unwrap()
+                .contains("Final custody: Bell — The keeper. Location: Mirror attic.")));
         server.abort();
     }
 

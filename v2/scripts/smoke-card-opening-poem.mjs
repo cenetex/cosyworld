@@ -60,15 +60,11 @@ export async function checkOpeningPoem(browser, origin) {
             json: {
               revision: input.revision,
               model: "poem-fixture",
-              entries: input.entities.map(({ id, facts }) => ({
+              entries: input.entities.map(({ id }) => ({
                 id,
                 text:
                   id === "greek-rhapsode"
-                    ? facts
-                        .findLast((f) => f.startsWith("Verse "))
-                        ?.split(": ")
-                        .slice(1)
-                        .join(": ") || "I have a song for you."
+                    ? "I hear the weight of that choice in these lines."
                     : "Dione hears the account.",
               })),
             },
@@ -161,13 +157,11 @@ export async function checkOpeningPoem(browser, origin) {
           );
           const input = requests.at(-1);
           assert.ok(input.speakers.includes("greek-rhapsode"));
-          const facts = input.entities.find(
+          const poem = input.entities.find(
             (e) => e.id === "greek-rhapsode",
-          ).facts;
+          ).poem;
           assert.deepEqual(
-            facts
-              .filter((f) => f.startsWith("Verse "))
-              .map((f) => f.split(": ").slice(1).join(": ")),
+            poem.stanzas.map((stanza) => stanza.lines.join(" ")),
             expected,
           );
         };
