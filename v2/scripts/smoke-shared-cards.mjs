@@ -97,12 +97,12 @@ async function stop() {
   await ended;
 }
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-async function until(test, label, rounds = 200) {
+async function until(test, label, rounds = 200, interval = 250) {
   for (let n = 0; n < rounds; n++) {
     try {
       if (await test()) return;
     } catch {}
-    await delay(250);
+    await delay(interval);
   }
   throw new Error(`Timed out: ${label}\n${processLog.slice(-3000)}`);
 }
@@ -148,7 +148,11 @@ const api = (page, body) =>
     },
     { worldId, body },
   );
-const snapshot = async (page) => (await api(page)).body;
+const snapshot = async (page) => {
+  const response = await api(page);
+  assert.equal(response.status, 200, JSON.stringify(response.body));
+  return response.body;
+};
 const idle = (page) =>
   until(
     async () =>
@@ -156,6 +160,8 @@ const idle = (page) =>
         (q) => q.actor === names[pages.indexOf(page)],
       ),
     "player's queued play finishes",
+    60,
+    2000,
   );
 const pages = [],
   errors = [];
