@@ -4,6 +4,7 @@ import {
   renderSharedQueue,
   sharedLiveLine,
   sharedSpeechState,
+  hasSharedPlace,
   humanAvatars,
 } from "./shared.mjs";
 import { enableMotives } from "./motives.mjs";
@@ -276,6 +277,7 @@ function selectionBlocked() {
   return (
     saveBlocked ||
     covering ||
+    (sharedSession && !hasSharedPlace(sharedSession.state)) ||
     (!sharedSession && (discoveryPending || questNoticeRunning))
   );
 }
@@ -481,6 +483,7 @@ function pauseSpeech() {
   }
 }
 document.addEventListener("visibilitychange", pauseSpeech);
+document.addEventListener("shared-dialog-change", pauseSpeech);
 document.addEventListener("pointerdown", () => speechSounds.unlock(), {
   capture: true,
 });
@@ -903,6 +906,15 @@ async function showDiscovered(id, version, announcement) {
     [...shown.querySelectorAll("img")].map((img) => img.decode()),
     1500,
   );
+  while (
+    version === trip &&
+    (document.hidden || document.querySelector("dialog[open]"))
+  ) {
+    await new Promise((resolve) => {
+      wakeDiscovery = resolve;
+    });
+    wakeDiscovery = null;
+  }
   if (version !== trip) return;
   const dialog = $("unveil-dialog"),
     button = $("unveil-take");

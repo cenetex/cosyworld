@@ -49,6 +49,9 @@ function panel(title, description, closable = true) {
     modal = node("dialog", undefined, "shared-lobby");
     modal.id = "shared-lobby";
     document.body.append(modal);
+    modal.addEventListener("close", () =>
+      document.dispatchEvent(new Event("shared-dialog-change")),
+    );
   }
   modal.replaceChildren();
   modal.oncancel = (event) => {
@@ -64,6 +67,7 @@ function panel(title, description, closable = true) {
   modal.append(error);
   document.body.inert = false;
   if (!modal.open) modal.showModal();
+  document.dispatchEvent(new Event("shared-dialog-change"));
   return modal;
 }
 async function authenticate(next, closable) {
@@ -115,34 +119,49 @@ async function showLink(id, offerContinue = false) {
   );
 }
 export async function openWorlds() {
-  await authenticate(async () => {
-    const result = await request("/card-game/shared/worlds");
+  try {
+    await authenticate(async () => {
+      const result = await request("/card-game/shared/worlds");
+      const box = panel(
+        "Your worlds",
+        "Continue with your saved avatar, or open a friend's world link.",
+        false,
+      );
+      for (const entry of result.worlds)
+        box.append(
+          button(
+            entry.actor
+              ? `Continue as ${avatarName(entry.actor)}`
+              : `The reflected shore · ${8 - entry.claimed} avatars available`,
+            () => {
+              location.href = worldLink(entry.id);
+            },
+          ),
+        );
+      box.append(
+        button("Return to my game", () => {
+          location.href = "/";
+        }),
+        button("Sign out", async () => {
+          await request("/auth/logout", {});
+          location.reload();
+        }),
+      );
+    }, false);
+  } catch (error) {
     const box = panel(
-      "Your worlds",
-      "Continue with your saved avatar, or open a friend's world link.",
+      "Open your worlds",
+      "Your worlds are saved. Try again when the connection is ready.",
       false,
     );
-    for (const entry of result.worlds)
-      box.append(
-        button(
-          entry.actor
-            ? `Continue as ${avatarName(entry.actor)}`
-            : `The reflected shore · ${8 - entry.claimed} avatars available`,
-          () => {
-            location.href = worldLink(entry.id);
-          },
-        ),
-      );
     box.append(
+      button("Try again", openWorlds),
       button("Return to my game", () => {
         location.href = "/";
       }),
-      button("Sign out", async () => {
-        await request("/auth/logout", {});
-        location.reload();
-      }),
     );
-  }, false);
+    showError(error);
+  }
 }
 export async function connectSharedWorld(id) {
   ensureSharedStyle();
@@ -163,6 +182,22 @@ export async function connectSharedWorld(id) {
         );
         box.append(
           button("Check for a place", enter),
+          button("Release this avatar", () => {
+            const confirmation = panel(
+              "Release your avatar?",
+              "Their belongings and story will stay in this world. Someone else can then claim this avatar.",
+              false,
+            );
+            confirmation.append(
+              button("Keep my avatar", enter),
+              button("Release avatar", async () => {
+                await request(`/card-game/shared/worlds/${id}/command`, {
+                  op: "release",
+                });
+                await enter();
+              }),
+            );
+          }),
           button("Your worlds", () => {
             location.href = "/?shared=1";
           }),
@@ -387,6 +422,16 @@ export function renderSharedQueue(session) {
   const queue = $("shared-queue");
   if (!queue) return;
   queue.replaceChildren();
+  if (!hasSharedPlace(state)) {
+    const waiting = node(
+      "span",
+      "Your room is full. Your avatar and belongings are saved.",
+    );
+    waiting.append(
+      button("Check for a place", () => session.command({ op: "enter" })),
+    );
+    queue.append(waiting);
+  }
   for (const entry of state.queue || []) {
     const row = node(
       "span",
@@ -426,4 +471,9 @@ export function sharedSpeechState(state, room) {
       ? scene.play
       : null;
   return { status: "retry", retryKey };
+}
+
+export function hasSharedPlace(state) {
+  const index = humanAvatars.findIndex((avatar) => avatar.id === state.actor);
+  return index >= 0 && Boolean(state.present?.[index]);
 }
