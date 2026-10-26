@@ -2,6 +2,7 @@
 export const SHARED_QUEST_VERSION = 1;
 export const QUEST_RECORD_LIMIT = 4096;
 export const SHARED_QUEST_PENDING_LIMIT = 8;
+export const SHARED_QUEST_COLLECTION_LIMIT = 256;
 const historyLimit = 24;
 const sameHolder = (a, b) => a?.kind === b?.kind && a?.id === b?.id;
 const unfinished = (q) => q.completedTurn === null && !q.retired;
@@ -77,6 +78,8 @@ export function addQuestRecord(
   const records = questRecords(world);
   if (
     records.length >= QUEST_RECORD_LIMIT ||
+    records.filter((q) => q.mode === "shared").length >=
+      SHARED_QUEST_COLLECTION_LIMIT ||
     records.filter(
       (q) =>
         q.mode === "shared" && unfinished(q) && sameHolder(q.holder, holder),
@@ -177,7 +180,16 @@ export function pruneSharedQuestHistory(world, holder) {
     Math.max(0, finished.length - historyLimit),
   )) {
     clearQuestFocus(world, quest.key);
-    delete world.quests.records[quest.key];
+    if (quest.compacted) continue;
+    quest.totalSteps = quest.program.steps.length;
+    quest.program = {
+      id: quest.program.id,
+      name: quest.program.name,
+      purpose: quest.program.purpose || "",
+      ...(quest.program.art ? { art: quest.program.art } : {}),
+      steps: [],
+    };
+    quest.compacted = true;
   }
 }
 
@@ -266,14 +278,25 @@ export function validSharedQuestRegistry(
     } else {
       if (
         q.rewardActor !== null ||
-        !program(q.program, q.subjectActor) ||
+        !(q.compacted
+          ? q.program &&
+            typeof q.program.id === "string" &&
+            typeof q.program.name === "string" &&
+            typeof q.program.purpose === "string" &&
+            Array.isArray(q.program.steps) &&
+            q.program.steps.length === 0 &&
+            Number.isInteger(q.totalSteps) &&
+            q.totalSteps > 0 &&
+            q.totalSteps <= 12 &&
+            (q.completedTurn !== null || q.retired)
+          : program(q.program, q.subjectActor)) ||
         !origin(q.origin) ||
         (q.completedTurn === null
-          ? q.step >= q.program.steps.length
+          ? q.step >= (q.totalSteps ?? q.program.steps.length)
           : !Number.isSafeInteger(q.completedTurn) ||
             q.completedTurn < q.createdTurn ||
             q.completedTurn > world.turn ||
-            q.step !== q.program.steps.length)
+            q.step !== (q.totalSteps ?? q.program.steps.length))
       )
         return false;
       if (

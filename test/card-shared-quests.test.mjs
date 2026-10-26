@@ -1,3 +1,5 @@
+import { questCards, questCardId } from "../v2/card-game/quest-cards.mjs";
+import { actorQuests } from "../v2/card-game/quests.mjs";
 import {
   createWorld,
   legalActions,
@@ -98,7 +100,8 @@ describe("shared quest records", () => {
       retireQuest(s, q.key);
       s.turn++;
     }
-    expect(questRecords(s)).toHaveLength(24);
+    expect(questRecords(s)).toHaveLength(80);
+    expect(questRecords(s).filter((q) => q.compacted)).toHaveLength(56);
     expect(add(s).key).toBe("world:quest:80");
   });
 });
@@ -179,4 +182,70 @@ describe("shared quest legal plays", () => {
     expect(questRecord(s, q.key).holder).toEqual({ kind: "item", id: "lamp" });
     expect(questRecords(s).filter((r) => r.key === q.key)).toHaveLength(1);
   });
+});
+
+it("retains shared completion identity and both participant views past the recent history window", () => {
+  let s = enableMotives(createWorld(), { personalQuests: true });
+  s.actors.vale.place = "station";
+  let first, firstIds;
+  for (let index = 0; index < 30; index++) {
+    const q = addQuestRecord(s, {
+      holder: { kind: "place", id: "station" },
+      participants: ["vale", "keeper"],
+      program: {
+        id: `visit-${index}`,
+        name: `Shared visit ${index}`,
+        purpose: "Make room for company.",
+        steps: [{ items: [], avatars: [], location: "station" }],
+      },
+    });
+    first ||= q.key;
+    s = play(
+      s,
+      legalActions(s).find((a) => a.kind === "wait"),
+    ).state;
+    if (index === 0)
+      firstIds = ["vale", "keeper"].map((actor) =>
+        questCardId(
+          s,
+          questCards(s, actor).find((q) => q.key === first),
+        ),
+      );
+  }
+  const old = questRecord(s, first),
+    receipt = structuredClone(old.completion);
+  expect(old).toMatchObject({
+    compacted: true,
+    totalSteps: 1,
+    step: 1,
+    program: { name: "Shared visit 0", steps: [] },
+  });
+  for (const actor of ["vale", "keeper"])
+    expect(actorQuests(s, actor).find((q) => q.key === first)).toMatchObject({
+      status: "fulfilled",
+      completion: receipt,
+    });
+  const loaded = decodeSave(encodeSave(s));
+  expect(questRecord(loaded, first).completion).toEqual(receipt);
+  expect(
+    ["vale", "keeper"].map((actor) =>
+      questCardId(
+        loaded,
+        questCards(loaded, actor).find((q) => q.key === first),
+      ),
+    ),
+  ).toEqual(firstIds);
+  expect(questRecords(loaded).filter((q) => q.key === first)).toHaveLength(1);
+});
+
+it("pauses shared suggestions at retained capacity", () => {
+  const s = fresh();
+  for (let i = 0; i < 256; i++) {
+    const q = add(s);
+    expect(q).toBeTruthy();
+    retireQuest(s, q.key);
+    s.turn++;
+  }
+  expect(add(s)).toBeNull();
+  expect(questRecords(s)).toHaveLength(256);
 });
