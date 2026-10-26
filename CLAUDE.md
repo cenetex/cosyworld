@@ -62,11 +62,13 @@ clients follow the contract those surfaces use; when they disagree, fix the
 client, not the server. Retired prototypes leave the tree, and any idea worth
 keeping moves into `docs/backlog/` first.
 
-- `v2/card-game/`: the card table prototype: a client-only deterministic model,
+- `v2/card-game/`: the deterministic model for local and shared card games,
   UI, text client, art (`assets/PROVENANCE.md`), and a dev server.
   `public-assets.mjs` owns the public file list. After adding a public file, run
   `npm run v2:card:assets:build` and commit the generated Rust asset module.
   Pack media and room tracks join the list through their existing registries.
+  Rule changes also require `npm run v2:card:shared:build`; commit the generated
+  server bundle and keep its check mode in the release gate.
 - `v2/core-c/`: deterministic rules kernel, public ABI, and C tests.
 - `v2/orchestrator-rust/`: Axum server, C bridge, journal/replay, snapshots,
   browser client, SSE, authentication, moderation, AI, and projections.
@@ -134,13 +136,12 @@ base branch or whose crate version has drifted.
 
 ## Non-negotiable invariants
 
-These govern the shared runtime and any state that leaves a single browser. The
-client-only card table is exempt from the world, kernel, journal, and session
-rules only while it holds no shared, server-persisted, or reward-bearing state.
-It must stay deterministic.
+These govern the shared runtime and any state that leaves a single browser.
+Local card games keep their deterministic browser save. Shared card games use
+the server C interpreter, session guard, and journal described above.
 
-- There is one shared authoritative world per runtime, not a private chat state.
-- Deterministic world mutations cross the C kernel boundary.
+- Each shared world has one authoritative state for everyone who joins it.
+- Shared mutations cross the C authority boundary.
 - Accepted actions and their deterministic seeds are append-only and replayable.
 - New persistent state must survive journal replay and snapshot round trips.
 - Claim keys make every reward, spend, mint, and one-shot effect idempotent.

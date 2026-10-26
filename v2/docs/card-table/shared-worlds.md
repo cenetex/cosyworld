@@ -20,6 +20,9 @@ Waiting plays can be withdrawn. Nudge asks a present human for attention. People
 can sit quietly while the scene runs. Presence has a 60-second reconnect grace;
 the avatar claim remains saved.
 
+Each accepted play advances the existing world clock. Lamp fuel, temporary
+sounds, and crossing sequences keep their current turn rules for everyone.
+
 ## One world model
 
 The browser and server use the authored rules in `world.mjs` and its rule modules.

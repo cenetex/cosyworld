@@ -267,6 +267,13 @@ try {
   for (const [id, pack] of Object.entries(seed.packs))
     assert.deepEqual(shared.world.packs[id], pack);
   await vale.locator("#stage").waitFor({ state: "visible" });
+  await until(
+    async () =>
+      /(?:^|\/)assets\/pond\.png$/.test(
+        await vale.locator("#backdrop").getAttribute("src"),
+      ),
+    "the original pond finishes rendering",
+  );
   assert.match(
     await vale.locator("#backdrop").getAttribute("src"),
     /(?:^|\/)assets\/pond\.png$/,
@@ -283,13 +290,27 @@ try {
   const requestStart = requests.length;
   await vale.locator('#hand [data-card="moth"]').click();
   await vale.getByRole("button", { name: "Talk", exact: true }).click();
-  await until(async () => (await snapshot(vale)).world.turn > seed.turn, "the original Talk button submits a shared play");
+  await until(
+    async () => (await snapshot(vale)).world.turn > seed.turn,
+    "the original Talk button submits a shared play",
+  );
   await idle(vale);
-  assert(requests.length > requestStart, "the shared NPC conversation reaches the provider");
-  assert.deepEqual((await snapshot(vale)).history[0].lines.map((line) => line.actorId), ["vale", "moth"]);
+  assert(
+    requests.length > requestStart,
+    "the shared NPC conversation reaches the provider",
+  );
+  assert.deepEqual(
+    (await snapshot(vale)).history[0].lines.map((line) => line.actorId),
+    ["vale", "moth"],
+  );
   for (let i = 1; i < 8; i++) {
     await pages[i].goto(`${origin}/?world=${worldId}`);
     await pages[i].locator(`.shared-choice[data-avatar="${names[i]}"]`).click();
+    await until(
+      async () => (await snapshot(pages[i])).actor === names[i],
+      "avatar claim finishes",
+    );
+    await pages[i].locator("#shared-lobby").waitFor({ state: "hidden" });
     await pages[i].locator("#stage").waitFor({ state: "visible" });
     assert.equal((await snapshot(pages[i])).actor, names[i]);
   }
@@ -361,7 +382,13 @@ try {
     other.history[0],
     "people in the room receive one shared exchange",
   );
-  await until(async () => (await vale.locator("#dialogue-text").textContent()).includes("A ripple reaches the shore."), "the shared room detail stays visible");
+  await until(
+    async () =>
+      (await vale.locator("#dialogue-text").textContent()).includes(
+        "A ripple reaches the shore.",
+      ),
+    "the shared room detail stays visible",
+  );
   assert.equal((await api(vale, { op: "nudge", target: "mara" })).status, 200);
   await until(
     async () => (await snapshot(mara)).nudge === "vale",
@@ -372,6 +399,13 @@ try {
   assert.equal((await snapshot(vale)).world.items.lamp.holder, "mara");
   await perform(mara, "move", "station");
   assert.equal((await snapshot(mara)).world.actors.mara.place, "station");
+  await until(
+    async () =>
+      /(?:^|\/)assets\/station\.png$/.test(
+        await mara.locator("#backdrop").getAttribute("src"),
+      ),
+    "the original station finishes rendering",
+  );
   assert.match(
     await mara.locator("#backdrop").getAttribute("src"),
     /(?:^|\/)assets\/station\.png$/,
@@ -416,6 +450,20 @@ try {
   console.log(
     "Shared original world: progressed save, eight passkeys, original pond/station/attic, NPCs, packs, quests, room capacity, shared speech, item handoff, nudge, restart, desktop and phone passed.",
   );
+} catch (error) {
+  for (const [index, page] of pages.entries()) {
+    console.error(
+      names[index],
+      page.url(),
+      await page.locator("body").innerText(),
+    );
+    await page.screenshot({
+      path: join(output, `failure-${names[index]}.png`),
+      fullPage: true,
+    });
+  }
+  console.error("Browser errors:", errors, "Server:", processLog.slice(-3000));
+  throw error;
 } finally {
   holdReplies = false;
   for (const resolve of waitingReplies.splice(0)) resolve();
