@@ -1,5 +1,22 @@
 # Card world text and memory
 
+## Shipping engine
+
+`world.mjs` owns the card game's state, legal actions, resident turns, and save
+format. `app.mjs` uses it in the browser. The modules beside it provide quests,
+motives, life, memory, pack rules, and presentation. Both the local server and
+the Rust asset server publish this same game.
+
+[lonelyforest.com](https://lonelyforest.com/) receives deliberate versioned
+releases. [cosyworld.fly.dev](https://cosyworld.fly.dev/) tests changes from
+`main` through automatic deployment.
+
+Build new game rules in these shipping modules and check them through
+`test/card-*.test.mjs`. The [generated-world backlog](../../docs/backlog/generated-world-core.md)
+keeps the useful ideas from the retired standalone engine, with its source
+revision for reference. Existing player saves use `world.mjs` and
+`legacy-saves.mjs`; keep their migrations with changes to the save format.
+
 ## Image-first presentation
 
 Card faces contain the illustration and a small name. Tapping a card toggles
