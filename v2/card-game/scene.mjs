@@ -1,4 +1,6 @@
 import {
+  currentActor,
+  humanAvatar,
   people,
   places,
   nameOf,
@@ -17,6 +19,8 @@ import { variantOf, crossingOpen } from "./pack-rules.mjs";
 export const backdrop = (id) =>
   packPlaces[id] ? `./${packPlaces[id].backdrop}` : `./assets/${id}.png`;
 export function portrait(id, facing = null, world = null) {
+  const human = humanAvatar(id);
+  if (human && id !== "vale") return `./${human.image}`;
   const resident = packPeople[id];
   if (resident)
     return `./${
@@ -39,7 +43,7 @@ export const locationOverlay = (world, id) => {
 export function travelCard(world, id) {
   const c = crossings.find(
     (c) =>
-      c.from === world.actors.vale.place &&
+      c.from === world.actors[currentActor(world)].place &&
       (c.transport ? transports[c.transport].place : c.to) === id &&
       crossingOpen(world, c, senses),
   );
@@ -63,14 +67,14 @@ const entryKind = (entry) =>
 
 // Movement witnessed from Vale's current scene, including a forced retreat.
 export function sceneChanges(world) {
-  const here = world.actors.vale.place;
+  const here = world.actors[currentActor(world)].place;
   return world.log
     .filter(
       (entry) =>
         entry.turn === world.turn &&
         !entry.generated &&
         entry.actorId &&
-        entry.actorId !== "vale" &&
+        entry.actorId !== currentActor(world) &&
         entityActive(world, entry.actorId) &&
         entry.fromLocationId &&
         entry.locationId !== entry.fromLocationId &&
@@ -87,12 +91,12 @@ export function sceneChanges(world) {
 
 // Show physical movement as soon as the scene appears, while words are prepared.
 export function movementCaption(world) {
-  const here = world.actors.vale.place;
+  const here = world.actors[currentActor(world)].place;
   const arrival = world.log.findLast(
     (e) =>
       e.turn === world.turn &&
       !e.generated &&
-      e.actorId === "vale" &&
+      e.actorId === currentActor(world) &&
       e.fromLocationId &&
       e.fromLocationId !== e.locationId &&
       e.locationId === here,
@@ -103,7 +107,8 @@ export function movementCaption(world) {
       ...changes.map((change) => change.actorId),
       ...(arrival
         ? knownActors(world).filter(
-            (id) => id !== "vale" && world.actors[id].place === here,
+            (id) =>
+              id !== currentActor(world) && world.actors[id].place === here,
           )
         : []),
     ]),
@@ -117,7 +122,7 @@ export function movementCaption(world) {
         arrival.accepted &&
         arrival.targetId === id
       )
-        return `${who} travels with Vale.`;
+        return `${who} travels with ${nameOf(currentActor(world))}.`;
       if (change?.leaving) return `${who} leaves for ${nameOf(change.to)}.`;
       if (change)
         return change.from === arrival?.fromLocationId
@@ -134,24 +139,27 @@ export function sceneCast(
   through = world.log.length - 1,
   recordedCast = null,
 ) {
-  const here = world.actors.vale.place;
+  const here = world.actors[currentActor(world)].place;
   const present =
     recordedCast ||
     personIds.filter(
       (id) =>
-        knownActors(world).includes(id) && world.actors[id].place === here,
+        knownActors(world).includes(id) &&
+        world.actors[id].place === here &&
+        (!world.controlledActors?.includes(id) ||
+          world.presentActors?.includes(id)),
     );
   const target = world.log
     .slice(0, through + 1)
     .findLast(
       (entry) =>
         entry.turn === world.turn &&
-        entry.actorId === "vale" &&
+        entry.actorId === currentActor(world) &&
         entry.kind === "action",
     )?.targetId;
-  const priority = [...new Set(["vale", target, ...present])]
+  const priority = [...new Set([currentActor(world), target, ...present])]
     .filter((id) => present.includes(id) && people[id])
-    .slice(0, 3);
+    .slice(0, world.controlledActors ? 6 : 3);
   const slots = personIds.filter((id) => priority.includes(id));
   while (slots.length < 2) slots.push(null);
   return slots;
@@ -178,7 +186,7 @@ export function sceneStaging(
   world,
   {
     through = world.log.length - 1,
-    locationId = world.actors.vale.place,
+    locationId = world.actors[currentActor(world)].place,
     cast = sceneCast(world, through),
     line = world.log[through],
     activeSpeaker = line && entryKind(line) === "dialogue"
@@ -187,9 +195,9 @@ export function sceneStaging(
     review = false,
   } = {},
 ) {
-  const selected = [...new Set(["vale", activeSpeaker, ...cast])]
+  const selected = [...new Set([currentActor(world), activeSpeaker, ...cast])]
     .filter((id) => cast.includes(id) && people[id])
-    .slice(0, 3);
+    .slice(0, world.controlledActors ? 6 : 3);
   const ids = cast.filter(
     (id, index) => selected.includes(id) && cast.indexOf(id) === index,
   );
@@ -199,7 +207,7 @@ export function sceneStaging(
   const entry =
     history.findLast(
       (e) =>
-        e.actorId === "vale" &&
+        e.actorId === currentActor(world) &&
         e.fromLocationId &&
         e.fromLocationId !== e.locationId &&
         e.locationId === locationId &&
@@ -215,21 +223,29 @@ export function sceneStaging(
     entry &&
       locations.indexOf(entry.fromLocationId) > locations.indexOf(locationId),
   );
-  const focal = ids.includes("vale") ? "vale" : ids[0];
+  const focal = ids.includes(currentActor(world))
+    ? currentActor(world)
+    : ids[0];
   const order = [focal, ...ids.filter((id) => id !== focal)].filter(Boolean);
   const positions =
-    order.length === 3
-      ? [
-          [22, 1, 0],
-          [59, 0.84, 4],
-          [81, 0.76, 8],
-        ]
-      : order.length === 2
+    order.length > 3
+      ? order.map((_, i) => [
+          14 + (i * 72) / (order.length - 1),
+          i === 0 ? 0.85 : 0.7,
+          i === 0 ? 0 : 5,
+        ])
+      : order.length === 3
         ? [
-            [24, 1, 0],
-            [76, 0.9, 0],
+            [22, 1, 0],
+            [59, 0.84, 4],
+            [81, 0.76, 8],
           ]
-        : [[50, 1, 0]];
+        : order.length === 2
+          ? [
+              [24, 1, 0],
+              [76, 0.9, 0],
+            ]
+          : [[50, 1, 0]];
   const at = new Map(
     order.map((id, i) => [
       id,
@@ -240,24 +256,24 @@ export function sceneStaging(
     (e) => e.turn === (line?.turn ?? world.turn) && !e.generated,
   );
   const played = events.findLast(
-    (e) => e.kind === "action" && e.actorId === "vale",
+    (e) => e.kind === "action" && e.actorId === currentActor(world),
   );
   const speakerAct = events.findLast(
     (e) => e.actorId === activeSpeaker && people[e.targetId],
   );
   const partner =
-    activeSpeaker === "vale"
+    activeSpeaker === currentActor(world)
       ? played?.targetId
       : played?.targetId === activeSpeaker
-        ? "vale"
+        ? currentActor(world)
         : speakerAct?.targetId;
   const listener =
     ids.includes(partner) && partner !== activeSpeaker
       ? partner
-      : activeSpeaker === "vale"
-        ? order.find((id) => id !== "vale")
-        : ids.includes("vale")
-          ? "vale"
+      : activeSpeaker === currentActor(world)
+        ? order.find((id) => id !== currentActor(world))
+        : ids.includes(currentActor(world))
+          ? currentActor(world)
           : order.find((id) => id !== activeSpeaker);
   const snapshots = history.flatMap((e) => e.items || []);
   const items = snapshots.length
@@ -321,7 +337,7 @@ export function sceneStaging(
             : line?.actorId === id && line.departureTo
               ? "departing"
               : "present",
-        depth: ["foreground", "middle", "back"][index],
+        depth: ["foreground", "middle", "back"][Math.min(index, 2)],
         x: at.get(id),
         scale: positions[index][1],
         floor: positions[index][2],
@@ -361,7 +377,7 @@ export function sceneStaging(
   };
 }
 export function sceneLines(world) {
-  const here = world.actors.vale.place;
+  const here = world.actors[currentActor(world)].place;
   return world.log
     .map((entry, index) => ({ ...entry, index }))
     .filter(
@@ -369,14 +385,14 @@ export function sceneLines(world) {
     );
 }
 function visitStart(world, through = world.log.length - 1) {
-  const here = world.actors.vale.place;
+  const here = world.actors[currentActor(world)].place;
   return Math.max(
     0,
     world.log.findLastIndex(
       (entry, index) =>
         index <= through &&
         !entry.generated &&
-        entry.actorId === "vale" &&
+        entry.actorId === currentActor(world) &&
         entry.fromLocationId &&
         entry.fromLocationId !== here &&
         entry.locationId === here,
@@ -402,10 +418,10 @@ export function currentScene(
     ? lines.findLast((e) => e.index < line.index && e.index >= start) || null
     : null;
   return {
-    locationId: world.actors.vale.place,
-    background: backdrop(world.actors.vale.place),
-    variant: locationVariant(world, world.actors.vale.place),
-    overlay: locationOverlay(world, world.actors.vale.place),
+    locationId: world.actors[currentActor(world)].place,
+    background: backdrop(world.actors[currentActor(world)].place),
+    variant: locationVariant(world, world.actors[currentActor(world)].place),
+    overlay: locationOverlay(world, world.actors[currentActor(world)].place),
     visitStart: start,
     slots: sceneCast(
       world,
@@ -503,7 +519,7 @@ export function sceneScript(world) {
       },
     })),
     current: {
-      locationId: world.actors.vale.place,
+      locationId: world.actors[currentActor(world)].place,
       staging: sceneStaging(world),
       avatars: personIds.map((id) => ({
         id,
@@ -520,18 +536,18 @@ export function sceneScript(world) {
         locationId: itemPlace(world, id),
       })),
       light:
-        shining(world) && itemPlace(world, "lamp") === world.actors.vale.place,
+        shining(world) &&
+        itemPlace(world, "lamp") === world.actors[currentActor(world)].place,
     },
   };
 }
 
 // Pick the deterministic events Vale witnessed for History.
-export function witnessed(entry) {
+export function witnessed(entry, actor = "vale") {
   if (entry.generated) return false;
   if (!["action", "narration", "quest"].includes(entry.kind)) return false;
-  if (entry.actorId === "vale") return true;
+  if (entry.actorId === actor) return true;
   // An action is seen from where it started, so Vale sees a departure.
-  if (entry.kind === "action")
-    return Boolean(entry.witnesses?.includes("vale"));
-  return Boolean(entry.cast?.includes("vale"));
+  if (entry.kind === "action") return Boolean(entry.witnesses?.includes(actor));
+  return Boolean(entry.cast?.includes(actor));
 }

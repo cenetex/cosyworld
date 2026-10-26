@@ -2,6 +2,7 @@ import { hasMotives, tradeDecision, interest } from "./motives.mjs";
 import { desireFor } from "./quests.mjs";
 import { entityActive, packThings } from "./pack-registry.mjs";
 import {
+  currentActor,
   places,
   people,
   things,
@@ -15,12 +16,16 @@ import {
 } from "./world.mjs";
 
 export function availableCards(world) {
-  const here = world.actors.vale.place;
+  const here = world.actors[currentActor(world)].place;
   const items = Object.keys(things).filter(
     (id) => entityActive(world, id) && itemPlace(world, id) === here,
   );
   const cast = Object.keys(people).filter(
-    (id) => entityActive(world, id) && world.actors[id].place === here,
+    (id) =>
+      entityActive(world, id) &&
+      world.actors[id].place === here &&
+      (!world.controlledActors?.includes(id) ||
+        world.presentActors?.includes(id)),
   );
   const after = (holder) =>
     items
@@ -30,7 +35,12 @@ export function availableCards(world) {
     here,
     ...after(here),
     ...cast.flatMap((id) => [id, ...after(id)]),
-    ...exits(world, here, "vale"),
+    ...exits(world, here, currentActor(world)).filter(
+      (place) =>
+        !world.presentActors ||
+        world.presentActors.filter((id) => world.actors[id]?.place === place)
+          .length < 4,
+    ),
   ];
 }
 export function cardType(id) {
@@ -41,7 +51,7 @@ export function avatarPlays(world, id) {
   if (!people[id] || !availableCards(world).includes(id)) return [];
   return legalActions(world)
     .filter((a) =>
-      id === "vale"
+      id === currentActor(world)
         ? a.kind === "guard"
         : a.target === id &&
           ["talk", "threaten", "guard", "attack"].includes(a.kind),
@@ -61,9 +71,9 @@ export function cardChoices(world, id) {
 
 // A place card offers the plays its fixtures make there (ringing a clock).
 export function placePlays(world, id) {
-  if (!places[id] || world.actors.vale.place !== id) return [];
+  if (!places[id] || world.actors[currentActor(world)].place !== id) return [];
   return legalActions(world).filter(
-    (a) => a.fixture && a.target === id && a.actor === "vale",
+    (a) => a.fixture && a.target === id && a.actor === currentActor(world),
   );
 }
 
@@ -84,7 +94,7 @@ export function cardPlay(world, selected) {
         (item === undefined || a.item === item) &&
         (target === undefined || a.target === target),
     );
-  const here = world.actors.vale.place;
+  const here = world.actors[currentActor(world)].place;
   const use = (id) =>
     id === "lamp"
       ? find(world.items.lamp.lit ? "snuff" : "light", id)
@@ -98,18 +108,21 @@ export function cardPlay(world, selected) {
         id === here ? find("wait") : find("move", null, id),
         `Travel to ${nameOf(id)}.`,
       );
-    if (id === "vale") return result(find("wait"));
+    if (id === currentActor(world)) return result(find("wait"));
     if (people[id])
       return result(find("talk", null, id), `Meet ${nameOf(id)} here.`);
     const holder = world.items[id].holder;
-    if (people[rootHolder(world, id)] && rootHolder(world, id) !== "vale")
+    if (
+      people[rootHolder(world, id)] &&
+      rootHolder(world, id) !== currentActor(world)
+    )
       return result(
         find("ask", id),
         things[holder]
           ? `Play ${nameOf(holder)} to ask for the covered pair.`
           : `Make room to ask for the ${nameOf(id)}.`,
       );
-    if (holder !== "vale")
+    if (holder !== currentActor(world))
       return result(
         find("take", id),
         "Pair a carried item with this place to make room.",
@@ -135,16 +148,16 @@ export function cardPlay(world, selected) {
   const location = cards.find((id) => places[id]);
   const avatar = cards.find((id) => people[id]);
   if (
-    cards.includes("vale") &&
-    cards.some((id) => people[id] && id !== "vale")
+    cards.includes(currentActor(world)) &&
+    cards.some((id) => people[id] && id !== currentActor(world))
   ) {
-    const other = cards.find((id) => people[id] && id !== "vale");
+    const other = cards.find((id) => people[id] && id !== currentActor(world));
     return result(
       find("threaten", undefined, other) || find("guard", undefined, other),
       `Select ${nameOf(other)} on their own to talk.`,
     );
   }
-  if (item && avatar === "vale") return cardPlay(world, [item]);
+  if (item && avatar === currentActor(world)) return cardPlay(world, [item]);
   if (cards.includes("cloth")) {
     const beneath = cards.find((id) => id !== "cloth");
     if (things[beneath] && world.items.cloth.holder === beneath)
@@ -155,7 +168,7 @@ export function cardPlay(world, selected) {
   }
   if (avatar && location)
     return result(
-      avatar === "vale"
+      avatar === currentActor(world)
         ? location === here
           ? find("wait")
           : find("move", null, location)
@@ -172,7 +185,9 @@ export function cardPlay(world, selected) {
     return result(
       location === here
         ? find("drop", item, here) ||
-            (rootHolder(world, item) !== "vale" ? use(item) : undefined)
+            (rootHolder(world, item) !== currentActor(world)
+              ? use(item)
+              : undefined)
         : find("move", item, location),
       "Carry this item to play it with a location.",
     );
@@ -195,15 +210,20 @@ export function cardPlay(world, selected) {
     (id) =>
       things[id] &&
       people[rootHolder(world, id)] &&
-      rootHolder(world, id) !== "vale",
+      rootHolder(world, id) !== currentActor(world),
   );
   if (!action && heldByOther && hasMotives(world)) {
     const give = cards.find(
-      (id) => things[id] && world.items[id].holder === "vale",
+      (id) => things[id] && world.items[id].holder === currentActor(world),
     );
     const other = rootHolder(world, heldByOther);
     if (give) {
-      const decision = tradeDecision(world, "vale", give, heldByOther);
+      const decision = tradeDecision(
+        world,
+        currentActor(world),
+        give,
+        heldByOther,
+      );
       return result(
         null,
         decision.accepted
@@ -234,7 +254,7 @@ export function cardActions(world, selected) {
   let hint = actions.length ? "" : primary.hint;
   if (cards.length === 1) {
     const id = cards[0];
-    if (id === "vale") {
+    if (id === currentActor(world)) {
       actions.push(...avatarPlays(world, id));
       hint = "Select a person or place to make a pair.";
     } else if (people[id]) {
@@ -246,8 +266,8 @@ export function cardActions(world, selected) {
           : "Select a carried item to ask for it.";
     }
     actions.push(...cardChoices(world, id));
-  } else if (cards.includes("vale")) {
-    const other = cards.find((id) => id !== "vale");
+  } else if (cards.includes(currentActor(world))) {
+    const other = cards.find((id) => id !== currentActor(world));
     if (people[other]) {
       actions = avatarPlays(world, other).filter((a) => a.kind !== "talk");
       hint = actions.length ? "" : primary.hint;
@@ -320,5 +340,7 @@ export function cardObservation(world, id) {
   }
   if (world.actors[id])
     return world.actors[id].awake === false ? "Asleep." : "Here.";
-  return id === world.actors.vale.place ? "Here." : "A way onward.";
+  return id === world.actors[currentActor(world)].place
+    ? "Here."
+    : "A way onward.";
 }

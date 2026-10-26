@@ -9,6 +9,7 @@ import {
   observableStates,
 } from "./pack-registry.mjs";
 import {
+  currentActor,
   addLog,
   carried,
   itemPlace,
@@ -55,15 +56,15 @@ export function turnOutcome(world) {
     (entry) => entry.turn === world.turn && !entry.generated,
   );
   const played = events.findLast(
-    (entry) => entry.kind === "action" && entry.actorId === "vale",
+    (entry) => entry.kind === "action" && entry.actorId === currentActor(world),
   );
-  const here = world.actors.vale.place;
+  const here = world.actors[currentActor(world)].place;
   const known = knownActors(world);
   // The original table has a small, fixed cast. Packs can contain a whole
   // repertoire: send only local witnesses, the chosen partner and travellers.
   const actorIds = [
     ...new Set([
-      "vale",
+      currentActor(world),
       played?.targetId,
       ...known.filter((id) => world.actors[id].place === here),
       ...sceneChanges(world).map((change) => change.actorId),
@@ -136,7 +137,7 @@ export function turnOutcome(world) {
 }
 
 export function narrativeContext(world, action = null) {
-  const location = world.actors.vale.place;
+  const location = world.actors[currentActor(world)].place;
   // Earlier opening text could include the authored solution. Keep those lines
   // in the save while grounding this unrevealed scene in observations.
   const beforeFirstLight = Boolean(
@@ -147,7 +148,9 @@ export function narrativeContext(world, action = null) {
     (id) =>
       known.includes(id) &&
       entityActive(world, id) &&
-      world.actors[id].place === location,
+      world.actors[id].place === location &&
+      (!world.controlledActors?.includes(id) ||
+        world.presentActors?.includes(id)),
   );
   const localItems = Object.keys(world.items).filter(
     (id) => entityActive(world, id) && itemPlace(world, id) === location,
@@ -158,7 +161,10 @@ export function narrativeContext(world, action = null) {
     .map((change) => change.actorId);
   const awake = (id) => !hasTemperament(id) || world.actors[id].awake;
   const introductions = present.filter(
-    (id) => id !== "vale" && awake(id) && world.opening?.met[id] === world.turn,
+    (id) =>
+      id !== currentActor(world) &&
+      awake(id) &&
+      world.opening?.met[id] === world.turn,
   );
   const audience = [...new Set([...present, ...departing])];
   const focus = localItems.includes(action?.item) ? action.item : null;
@@ -166,27 +172,31 @@ export function narrativeContext(world, action = null) {
     (entry) =>
       entry.turn === world.turn &&
       entry.kind === "action" &&
-      entry.actorId === "vale",
+      entry.actorId === currentActor(world),
   );
   const target = action?.target || played?.targetId;
   const directPartner =
-    audience.includes(target) && target !== "vale" && awake(target);
+    audience.includes(target) &&
+    target !== currentActor(world) &&
+    awake(target);
   const partner = directPartner
     ? target
     : introductions[0] ||
       departing[0] ||
-      present.find((id) => id !== "vale" && awake(id));
+      present.find((id) => id !== currentActor(world) && awake(id));
   const movers = changes.map((change) => change.actorId);
   const chosen = new Set(
-    ["vale", partner, ...introductions, ...movers].filter(
+    [currentActor(world), partner, ...introductions, ...movers].filter(
       (id) => id && awake(id),
     ),
   );
   // Vale responds to every play. Other travellers keep their movement order.
   const speakers = [
-    "vale",
-    ...[...chosen].filter((id) => id !== "vale" && !movers.includes(id)),
-    ...movers.filter((id) => id !== "vale" && chosen.has(id)),
+    currentActor(world),
+    ...[...chosen].filter(
+      (id) => id !== currentActor(world) && !movers.includes(id),
+    ),
+    ...movers.filter((id) => id !== currentActor(world) && chosen.has(id)),
   ].slice(0, 3);
   // Model requests stay bounded as the pack catalog grows. The actual chosen
   // card and every speaker take priority over incidental objects in a room.
@@ -215,7 +225,7 @@ export function narrativeContext(world, action = null) {
         !entry.questPlan &&
         (entry.locationId === location ||
           entry.fromLocationId === location ||
-          entry.witnesses?.includes("vale")),
+          entry.witnesses?.includes(currentActor(world))),
     )
     .slice(-8)
     .map((entry) => entry.text);
@@ -259,7 +269,10 @@ export function narrativeContext(world, action = null) {
     focus,
     speakers,
     action:
-      played?.text || (world.turn ? "Vale waits and watches the cast." : null),
+      played?.text ||
+      (world.turn
+        ? `${nameOf(currentActor(world))} waits and watches the cast.`
+        : null),
     events,
     conversation,
     entities: ids.map((id) => {
@@ -267,7 +280,7 @@ export function narrativeContext(world, action = null) {
       // The place and player retain the route's established history. Another
       // resident knows only their own recorded interactions and memories.
       const continuity =
-        kind === "location" || id === "vale"
+        kind === "location" || id === currentActor(world)
           ? packSceneFacts(world, location)
           : [];
       const facts = [...packFacts(world, id), ...continuity]
@@ -322,7 +335,7 @@ export function narrativeContext(world, action = null) {
         if (movement)
           facts.push(
             movement.leaving
-              ? `Leaving ${nameOf(movement.from)} for ${nameOf(movement.to)} now. Say goodbye to Vale and name your destination and reason as you leave.`
+              ? `Leaving ${nameOf(movement.from)} for ${nameOf(movement.to)} now. Say goodbye to ${nameOf(currentActor(world))} and name your destination and reason as you leave.`
               : `Just arrived from ${nameOf(movement.from)}. Greet the people here and explain what brought you.`,
           );
         const conflict = standoffFor(world, id);
@@ -344,9 +357,9 @@ export function narrativeContext(world, action = null) {
               : personal),
           );
         }
-        if (world.opening?.met[id] === world.turn && id !== "vale")
+        if (world.opening?.met[id] === world.turn && id !== currentActor(world))
           facts.push(
-            "This is your first meeting with Vale. You were already here when Vale arrived. Greet this newcomer in your own voice.",
+            `This is your first meeting with ${nameOf(currentActor(world))}. You were already here when ${nameOf(currentActor(world))} arrived. Greet this newcomer in your own voice.`,
           );
         for (const c of target.conditions || [])
           facts.push(
@@ -401,7 +414,7 @@ export function narrativeContext(world, action = null) {
         if (places[id]) facts.push(placeText(world, id));
 
         facts.push(
-          `Paths visible now: ${exits(world, id, "vale").map(nameOf).join(", ") || "none"}.`,
+          `Paths visible now: ${exits(world, id, currentActor(world)).map(nameOf).join(", ") || "none"}.`,
         );
         if (
           (id === "attic" || id === "pond") &&
