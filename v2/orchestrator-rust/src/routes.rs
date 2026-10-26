@@ -14,6 +14,7 @@ use super::*;
 
 #[path = "card_game.rs"]
 pub(crate) mod card_game;
+pub(crate) use card_game::recital;
 
 // Keep command work bounded without making routine player and resident activity
 // contend for a single slot. Saturated callers fail fast and can safely retry

@@ -81,15 +81,22 @@ impl World {
                 .as_str()
                 .ok_or("Choose a saved rules upgrade.")?;
             let allowed = (self.version == engine::LEGACY_VERSION
-                && [engine::PREVIOUS_VERSION, engine::VERSION].contains(&target))
-                || (self.version == engine::PREVIOUS_VERSION && target == engine::VERSION);
+                && [
+                    engine::PREVIOUS_VERSION,
+                    engine::FOURTH_VERSION,
+                    engine::VERSION,
+                ]
+                .contains(&target))
+                || (self.version == engine::PREVIOUS_VERSION
+                    && [engine::FOURTH_VERSION, engine::VERSION].contains(&target))
+                || (self.version == engine::FOURTH_VERSION && target == engine::VERSION);
             if command["from"] != self.version || !allowed {
                 return Err("This world's rules upgrade needs its original version.".into());
             }
             let mut request = self.request("upgrade", 0);
             request["from"] = json!(self.version);
             request["to"] = json!(target);
-            // A saved /2 -> /3 event keeps the released /3 transformation.
+            // Recorded upgrades retain their released target transformation.
             let result = engine::reduce_version(target, request)?;
             self.game = result["world"].clone();
             self.version = target.into();
@@ -99,6 +106,7 @@ impl World {
             engine::VERSION,
             engine::PREVIOUS_VERSION,
             engine::LEGACY_VERSION,
+            engine::FOURTH_VERSION,
         ]
         .contains(&self.version.as_str())
         {

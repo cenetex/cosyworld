@@ -1,3 +1,4 @@
+import { humanHomePack } from "../v2/card-game/human-cast.mjs";
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
@@ -414,4 +415,15 @@ describe("a resident's temperament", () => {
     s = act(s, "wait");
     expect(variantOf(s, "badger").name).toBe("awake");
   });
+});
+
+it("joins homes through distinct hub places while checking every home has a route", () => {
+  expect(packProblems(humanHomePack, hub)).toEqual([]);
+  const disconnected = structuredClone(humanHomePack);
+  disconnected.crossings = disconnected.crossings.filter(
+    (c) => c.to !== "train",
+  );
+  expect(packProblems(disconnected, hub)).toContain(
+    "shared-homes: every place must be reachable from the entry",
+  );
 });

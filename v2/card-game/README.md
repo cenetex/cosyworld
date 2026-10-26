@@ -121,6 +121,27 @@ cross-tab updates. Its deterministic speech fixture tests the UI; the
 narrative contract smoke separately sends real Greek request contexts
 through Rust validation without a paid model call.
 
+## Greek story cards
+
+Three story cards follow the saved Theban outcomes. Each shows one line:
+**A place beside the bread.**, **Her brother waits for earth.**, and
+**What words will you bring home?** Their completion labels follow the
+chosen outcome: **Fulfilled**, **Declined**, **Reported**, or **Shared**.
+
+The Bard appears in the next room the player enters after a quest ends.
+His conversation context holds the earned poem in order. Talking to him
+invites an earned couplet. Permission, burial, refusal, and warning each
+keep their own verses. A later permitted burial opens the return to Dione
+again. The [exact copy list](../content/greek-drama/OPENING-POEM.md) records
+every verse and the three card lines.
+
+Story cards sit with the player's belongings beside the personal quest.
+Each has its own art, selection, first reveal, and closing moment. They stay
+with the traveler through a trip home and the rest between personal quests.
+Existing saves derive cards from their recorded meetings, choices, and flags.
+Completed stories remain complete after reload. The opening release remains
+focused on Thebes; the wider repertoire is the next content stage.
+
 ## Personal quests and lasting hopes
 
 The browser enables `personalQuests` alongside motives. The first quest gives
@@ -331,7 +352,10 @@ Each voice receives a short first-person transcript and completes one plain-text
 line. Optional `idiolect` and `lines` profile fields supply style and examples;
 existing pack `persona` and `voice` fields remain supported. The server checks
 visible state, including lamp state, before accepting each line. Supplied quest
-facts remain part of the transcript.
+facts remain part of the transcript. When a singer recites earned verses, the
+reply must match the latest earned couplet exactly. The same check applies to
+local and shared speech. A rejected recital retries with the exact words; a
+repeat performance of that couplet remains valid.
 
 Hosted calls have a twelve-second limit and the scene has a twenty-two-second
 limit, with eight calls in flight. Replies are collected as they complete, then

@@ -60,15 +60,17 @@ play keys make retries safe. Removing a checkpoint rebuilds the world from its
 seed and recorded operations.
 
 Rule version 3 introduced the home-item floor start and opened the home-to-pond
-path when the item is carried in the home. Released versions 2 and 3 stay frozen
-for replay. Historical version 2-to-3 upgrade records still use version 3's exact
-transformation. Current version 4 includes the pickup rules and collected quests.
+path when the item is carried in the home. Version 4 added Greek story cards
+and saved bard visits. Released versions 2, 3, and 4 stay frozen for replay.
+Recorded upgrades use the exact interpreter named by their target version.
+Current version 5 combines those rules with collected personal quests.
 
 Loading an earlier world first replays its accepted history with the recorded
-rule versions, then records one upgrade from its latest version to version 4.
-A direct version 2-to-4 upgrade settles unused items in unclaimed homes on the
-floor. A version 3-to-4 upgrade preserves all existing item positions. Each
+rule versions, then records one upgrade from its latest version to version 5.
+A direct version 2-to-5 upgrade settles unused items in unclaimed homes on the
+floor. Upgrades from versions 3 and 4 preserve existing item positions. Each
 upgrade advances the view revision and preserves the world turn and conversation.
+The normal save migration adds collections and any missing recital records.
 
 Earlier shared invitations keep their IDs and account claims. Their first full
 world load records an explicit migration seed. It maps the old rooms and items
@@ -105,11 +107,16 @@ The station and attic are sanctuaries. Human rest counts that person's own
 turns in a shared world. Resident rest counts world rounds. A pending quest
 can finish while another remains active, preserving the chosen focus.
 
-The shared interpreters in `engine-v2.js` and `engine-v3.js` retain their released
-bytes. New commands use `engine-v4.js`, which includes the saved life migration.
-Replay works with a checkpoint or with the seed and journal alone, including
-histories that already upgraded from version 2 to version 3. The bundle builder
-updates version 4 and keeps both earlier interpreters as replay history.
+The shared interpreters in `engine-v2.js`, `engine-v3.js`, and `engine-v4.js`
+retain their released bytes. New commands use `engine-v5.js`. Replay works
+with a checkpoint or with the seed and journal alone, including histories with
+recorded 2-to-3, 2-to-4, and 3-to-4 upgrades. The bundle builder updates version 5.
+
+Greek story cards join the same visible stack beneath the active personal
+quest. Their saved pack receipts preserve the one-line text, art, and completion
+labels. Completed cards remain in the collection; the first courtyard report
+stays there when a later report adds another card. Story choices continue to
+use the pack's ordinary actions.
 
 ## Shared words
 
@@ -118,6 +125,23 @@ shared two-line exchange. A conversation can include the resident who was
 addressed. Other plays can include a room detail. The server records the lines
 and their reading times so people in the room see the same exchange. The
 conversation panel shows the current room's history.
+
+Shared lines reveal letter by letter with the same voice sounds as solo play.
+The line arrows review the conversation. Reaching its latest line resumes live
+playback. Readers who advance early keep their place while the shared clock
+catches up. The voice setting and reduced-motion setting apply to shared play.
+A circular portrait follows the two line arrows. It shows the next queued player
+or upcoming speaker, and keeps the latest speaker's portrait while the room is
+quiet. Tapping it returns straight to the live dialogue.
+Figures shrink in order of their most recent completed play in the room. Their
+areas follow the Fibonacci steps 13, 8, 5, 3, 2, 1, so their heights change gently.
+The two most recent players stand in front. On phones, they move lower into a
+bust view as more people enter. Smaller figures sit higher behind them.
+Repeated plays by one person keep the others in order. Changes move smoothly;
+reviewing older words uses the plays up to that point in the conversation.
+Queued plays appear as small profile circles beside the dialogue. Their order
+runs from top to bottom. A player can select their waiting circle to withdraw
+their play; hover text and screen-reader labels name the player and queue state.
 
 The approved OpenRouter request contains fictional profiles, scene facts,
 visible people and belongings, and the completed play. Passkey and account data
@@ -137,9 +161,10 @@ and show a scene error. Per-person and shared play budgets bound usage.
 | Orin | Game-tile bridge | Games pavilion |
 | Ada | Open seam | Sail loft |
 
-A future Paris journey can depart from the existing station. Rue's carriage can
-arrive there for boarding. Its route board reveals the door to her home at the
-pond while that item is present there.
+A future Paris journey can depart from the existing station. Rue's carriage opens from
+the station while her route board is present there. Carrying the board inside
+the carriage opens the way back to the station. The saved crossing IDs stay
+stable across the version 5 upgrade; earlier journals retain their pond route.
 
 ## Art
 

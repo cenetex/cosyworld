@@ -3,6 +3,7 @@ import {
   installSharedControls,
   renderSharedQueue,
   sharedLiveLine,
+  sharedNextActor,
   sharedSpeechState,
   hasSharedPlace,
   humanAvatars,
@@ -63,7 +64,7 @@ import { knownActors } from "./quests.mjs";
 import {
   QUEST_CARD,
   playerQuest,
-  fulfilledPlayerQuest,
+  fulfilledQuests,
   questHand,
   questCards,
   questForCard,
@@ -204,7 +205,22 @@ function rememberQuests() {
     );
   } catch {}
 }
-const shownQuest = () => completedQuests[0] || playerQuest(world);
+const personalNotice = () =>
+  completedQuests.find((quest) => !quest.story) || null;
+const shownQuest = (id) =>
+  id
+    ? questForCard(world, id, personalNotice())
+    : personalNotice() || playerQuest(world);
+const shownQuests = () =>
+  questCards(world).map((quest) => ({
+    ...quest,
+    id: questCardId(world, quest, personalNotice()),
+  }));
+function queueQuestCompletions(before, after) {
+  for (const quest of fulfilledQuests(before, after))
+    if (!completedQuests.some((done) => done.key === quest.key))
+      completedQuests.push(quest);
+}
 loadQuestSeen();
 function save() {
   if (saveBlocked || sharedSession) return;
@@ -681,12 +697,7 @@ function performAction(action, revision) {
   exchange.cancel();
   storyStatus = "pending";
   const from = world.actors[currentActor(world)].place;
-  const fulfilled = fulfilledPlayerQuest(world, result.state);
-  if (
-    fulfilled &&
-    !completedQuests.some((quest) => quest.key === fulfilled.key)
-  )
-    completedQuests.push(fulfilled);
+  queueQuestCompletions(world, result.state);
   world = result.state;
   music.setRoom(world.actors[currentActor(world)].place);
   music.setStarted(world.turn > 0);
@@ -850,7 +861,7 @@ async function takeDiscovered() {
   let target = $("hand").querySelector(`[data-card="${id}"]`);
   if (target?.closest(".card-frame").hidden) {
     target = $("hand").querySelector(
-      `[data-card="${id === QUEST_CARD ? currentActor(world) : rootHolder(world, id)}"]`,
+      `[data-card="${isQuestCard(id) ? currentActor(world) : rootHolder(world, id)}"]`,
     );
   }
   if (target && !reducedMotion.matches) {
@@ -915,7 +926,7 @@ async function showDiscovered(id, version, announcement) {
   shown
     .querySelectorAll("[id]")
     .forEach((element) => element.removeAttribute("id"));
-  if (id === QUEST_CARD)
+  if (isQuestCard(id))
     display.querySelector(".quest-mark").textContent = "New quest";
   await waitForScene(
     [...shown.querySelectorAll("img")].map((img) => img.decode()),
@@ -936,7 +947,7 @@ async function showDiscovered(id, version, announcement) {
   button.dataset.card = id;
   button.setAttribute(
     "aria-label",
-    `${announcement} ${id === QUEST_CARD ? shownQuest().purpose + " " : ""}Add to hand.`,
+    `${announcement} ${isQuestCard(id) ? shownQuest(id).purpose + " " : ""}Add to hand.`,
   );
   button.replaceChildren(shown);
   dialog.dataset.phase = "reveal";
@@ -944,14 +955,14 @@ async function showDiscovered(id, version, announcement) {
     endDiscovery = resolve;
   });
   dialog.showModal();
-  if (id === QUEST_CARD) {
-    questSeen.add(shownQuest().key);
+  if (isQuestCard(id)) {
+    questSeen.add(shownQuest(id).key);
     rememberQuests();
   }
   $("discovery-announcement").textContent = announcement;
   pauseSpeech();
   armDiscovery(
-    id === QUEST_CARD
+    isQuestCard(id)
       ? reducedMotion.matches
         ? 900
         : 2200
@@ -962,7 +973,11 @@ async function showDiscovered(id, version, announcement) {
   await finished;
 }
 async function showQuestNotice() {
-  const quest = shownQuest();
+  const quest =
+    completedQuests[0] ||
+    shownQuests().find(
+      (q) => q.status !== "fulfilled" && !questSeen.has(q.key),
+    );
   if (
     saveBlocked ||
     !quest ||
@@ -991,12 +1006,13 @@ async function showQuestNotice() {
     if (completedQuests.length) {
       // The fulfilled card gets a short moment in the hand, then folds into Vale.
       expandedHolders.add(currentActor(world));
-      selected = [QUEST_CARD];
+      selected = [quest.id];
       render();
-      revealHandCard(QUEST_CARD);
-      $("discovery-announcement").textContent = `${quest.title}. Fulfilled.`;
+      revealHandCard(quest.id);
+      $("discovery-announcement").textContent =
+        `${quest.title}. ${quest.completion || "Fulfilled"}.`;
       const frame = $("hand")
-        .querySelector(`[data-card="${QUEST_CARD}"]`)
+        .querySelector(`[data-card="${quest.id}"]`)
         .closest(".card-frame");
       questMotion = frame.animate({ opacity: [1, 1] }, { duration: 2200 });
       pauseSpeech();
@@ -1016,7 +1032,7 @@ async function showQuestNotice() {
       expandedHolders.clear();
       render();
     } else {
-      await showDiscovered(QUEST_CARD, version, `New quest. ${quest.title}.`);
+      await showDiscovered(quest.id, version, `New quest. ${quest.title}.`);
     }
   } finally {
     if (version === trip) {
@@ -1124,6 +1140,13 @@ function frameFigure(img) {
   if (img.complete && img.naturalWidth) measure();
   else img.addEventListener("load", measure, { once: true });
 }
+function sharedQueuePortrait(actor) {
+  const image = node("img");
+  image.src = portrait(actor, null, world);
+  image.alt = "";
+  frameFigure(image);
+  return image;
+}
 function renderActions(animate = false) {
   const row = $("card-actions"),
     panel = document.querySelector(".action-panel"),
@@ -1137,7 +1160,9 @@ function renderActions(animate = false) {
   const { actions, hint } = quest
     ? {
         actions:
-          quest.actor === currentActor(world) && quest.status === "pending"
+          quest.actor === currentActor(world) &&
+          quest.status === "pending" &&
+          !quest.story
             ? legalActions(world).filter(
                 (action) =>
                   action.kind === "pursue" && action.questKey === quest.key,
@@ -1289,11 +1314,7 @@ function questCard(id) {
     raised = selected.includes(id),
     records = questCards(world, quest.actor),
     notice = quest.actor === currentActor(world) ? shownQuest() : null,
-    deck = (
-      notice
-        ? [notice, ...records.filter((item) => item.key !== notice.key)]
-        : records
-    ).map((item) => questCardId(world, item, shownQuest())),
+    deck = records.map((item) => questCardId(world, item, notice)),
     index = deck.indexOf(id);
   const frame = node("div", undefined, "card-frame quest-frame");
   frame.dataset.holder = quest.actor;
@@ -1315,13 +1336,13 @@ function questCard(id) {
   face.setAttribute("aria-pressed", String(raised));
   face.setAttribute(
     "aria-label",
-    `${quest.title}, ${nameOf(quest.actor)}'s quest, ${quest.status}`,
+    `${quest.title}, ${nameOf(quest.actor)}'s quest, ${quest.status === "fulfilled" ? quest.completion || "Fulfilled" : quest.status}`,
   );
   const detailId = `card-detail-${encodeURIComponent(id)}`;
-  face.setAttribute("aria-describedby", detailId);
+  if (!quest.singleLine) face.setAttribute("aria-describedby", detailId);
   const graphic = node("span", undefined, "art");
   const img = node("img");
-  img.src = `./assets/${quest.art}-card.png`;
+  img.src = packMedia(quest.art, "art") || `./assets/${quest.art}-card.png`;
   img.alt = "";
   img.draggable = false;
   graphic.append(img);
@@ -1331,13 +1352,15 @@ function questCard(id) {
     graphic,
     node(
       "span",
-      { active: "Active quest", pending: "Quest", fulfilled: "Fulfilled" }[
-        quest.status
-      ],
+      {
+        active: "Active quest",
+        pending: "Quest",
+        fulfilled: quest.completion || "Fulfilled",
+      }[quest.status],
       "quest-mark",
     ),
     node("span", quest.title, "name"),
-    detail,
+    ...(quest.singleLine ? [] : [detail]),
   );
   face.onclick = () => choose(id);
   frame.append(face);
@@ -1586,9 +1609,12 @@ function renderScene() {
     line: resolvedBeat ? null : scene.line,
     activeSpeaker: resolvedBeat ? null : scene.activeSpeaker,
     review: reviewing && !resolvedBeat,
+    sharedPlays: sharedSession?.state.history,
   });
   $("cast").dataset.layout = staging.layout;
   $("cast").dataset.count = String(staging.actors.length);
+  $("cast").dataset.shared = String(Boolean(sharedSession));
+  $("cast").style.setProperty("--cast-count", String(staging.actors.length));
   const castKey = JSON.stringify(staging.actors.map(({ id }) => id));
   if (castKey !== renderedCast) {
     renderedCast = castKey;
@@ -1764,7 +1790,8 @@ function renderScene() {
   const hasSpeech = Boolean(
     text || storyStatus !== "ready" || exchange.preparing,
   );
-  document.querySelector(".dialogue").hidden = !hasSpeech && !movement;
+  document.querySelector(".dialogue").hidden =
+    !hasSpeech && !movement && !sharedSession?.state.queue?.length;
   $("speech-row").hidden = !hasSpeech;
   document.querySelector(".line-controls").hidden = !text;
   $("dialogue-advance").hidden = !text;
@@ -1772,7 +1799,7 @@ function renderScene() {
   if (text) {
     const key = JSON.stringify([scene.line.seq, speaker, text, replay]);
     reveal.show(key, text, speaker, {
-      instant: Boolean(sharedSession) || completedSpeech.has(key),
+      instant: completedSpeech.has(key),
     });
   } else {
     reveal.cancel();
@@ -1784,7 +1811,6 @@ function renderScene() {
   $("previous-line").disabled = cardsCooling || at <= 0;
   updateSpeechControls(reveal.complete);
   $("previous-line").onclick = () => {
-    if (sharedSession) $("return-live").hidden = false;
     reviewing = true;
     lineSeq = spokenLines[at - 1].seq;
     renderScene();
@@ -1799,10 +1825,10 @@ function renderScene() {
       exchange.advance();
       return;
     }
-    reviewing = true;
-    if (sharedSession) $("return-live").hidden = false;
     if (nextSceneSeq !== null) lineSeq = nextSceneSeq;
     else replay++;
+    // Reading through the latest shared line rejoins the room's live clock.
+    reviewing = !sharedSession || lineSeq !== spokenLines.at(-1)?.seq;
     renderScene();
   };
   $("dialogue-advance").onclick = advance;
@@ -1823,6 +1849,29 @@ function renderScene() {
     }
   };
   $("next-line").onclick = advance;
+  const liveButton = $("live-line");
+  liveButton.hidden = !sharedSession;
+  if (sharedSession) {
+    const actor = sharedNextActor(
+      sharedSession.state,
+      sharedSession.now(),
+      scene.locationId,
+    );
+    liveButton.dataset.live = String(!reviewing);
+    liveButton.title = `Return to live dialogue · ${nameOf(actor)}`;
+    liveButton.setAttribute("aria-label", liveButton.title);
+    if (liveButton.dataset.actor !== actor) {
+      liveButton.dataset.actor = actor;
+      liveButton.replaceChildren(sharedQueuePortrait(actor));
+    }
+    liveButton.onclick = () => {
+      reviewing = false;
+      lineSeq = null;
+      sharedLineKey = "";
+      syncSharedLine();
+      renderScene();
+    };
+  }
 }
 let renderedLog = [];
 function renderLog() {
@@ -1874,8 +1923,8 @@ function render() {
     if (people[id]) expandedHolders.add(id);
   }
   const questKey = JSON.stringify([
-    shownQuest(),
-    Boolean(completedQuests.length),
+    shownQuests(),
+    completedQuests.map((quest) => quest.key),
     [...questRead],
     [...expandedQuestHolders],
   ]);
@@ -1915,7 +1964,10 @@ function render() {
     renderedHandPlace = world.actors[currentActor(world)].place;
     if (sameWorld)
       for (const frame of $("hand").children) updateCardSelection(frame);
-    else $("hand").replaceChildren(...questHand(world, shownQuest()).map(card));
+    else
+      $("hand").replaceChildren(
+        ...questHand(world, personalNotice()).map(card),
+      );
     $("hand").scrollLeft = samePlace ? scroll : 0;
     renderActions(animate);
     if (animate)
@@ -1943,7 +1995,7 @@ function render() {
   updateHandScroll();
   renderScene();
   renderLog();
-  if (sharedSession) renderSharedQueue(sharedSession);
+  if (sharedSession) renderSharedQueue(sharedSession, sharedQueuePortrait);
   updateCardCooldown();
   if (focused) {
     const frame = $("hand")
@@ -2299,7 +2351,6 @@ async function submitSharedPlay(action) {
     selected = [];
     expandedHolders.clear();
     reviewing = false;
-    $("return-live").hidden = true;
     notice("Your play is at the table.");
   } catch (error) {
     notice(error.message);
@@ -2322,7 +2373,8 @@ function syncSharedLine() {
         ? entry.seq === live.seq
         : entry.text === live.text && entry.speaker === live.speaker),
   );
-  if (!entry) return;
+  // A reader can advance ahead of the clock. Keep that line until it catches up.
+  if (!entry || (lineSeq !== null && entry.seq < lineSeq)) return;
   const key = `${room}:${entry.seq}`;
   if (key === sharedLineKey) return;
   sharedLineKey = key;
@@ -2339,12 +2391,7 @@ function adoptShared(value) {
   if (key !== sharedWorldKey) {
     const from = world.actors[currentActor(world)].place;
     const next = sharedWorld(value);
-    const fulfilled = fulfilledPlayerQuest(world, next);
-    if (
-      fulfilled &&
-      !completedQuests.some((quest) => quest.key === fulfilled.key)
-    )
-      completedQuests.push(fulfilled);
+    queueQuestCompletions(world, next);
     world = next;
     sharedWorldKey = key;
     selected = selected.filter((id) =>
@@ -2370,7 +2417,7 @@ function adoptShared(value) {
       });
     } else render();
   } else {
-    renderSharedQueue(sharedSession);
+    renderSharedQueue(sharedSession, sharedQueuePortrait);
     renderActions();
     renderScene();
   }
@@ -2391,12 +2438,6 @@ installSharedControls({
     return encodeSave(world);
   },
   notice,
-  onLive: () => {
-    reviewing = false;
-    sharedLineKey = "";
-    $("return-live").hidden = true;
-    syncSharedLine();
-  },
 });
 if (sharedSession) {
   world = sharedWorld(sharedSession.state);

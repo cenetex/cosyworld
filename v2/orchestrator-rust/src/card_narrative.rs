@@ -21,6 +21,8 @@ use tokio_stream::{wrappers::UnboundedReceiverStream, StreamExt};
 
 #[path = "card_narrative/observations.rs"]
 mod observations;
+#[path = "card_narrative/recital.rs"]
+pub(crate) mod recital;
 
 const PER_MINUTE: RateLimit = RateLimit {
     max_hits: 30,
@@ -1331,6 +1333,9 @@ fn transcript(context: &Context, entity: &Entity, part: Part) -> String {
             lines.push("I'm saying goodbye to those staying.".into());
         }
     }
+    if let Some(words) = required_recital(context, entity, part) {
+        lines.push(format!("My earned recital, word for word: {words}"));
+    }
     let mut out = vec!["My voice samples:".to_string()];
     for line in voice_lines(context, id) {
         out.push(format!("{own}: {line}"));
@@ -1350,6 +1355,15 @@ fn transcript(context: &Context, entity: &Entity, part: Part) -> String {
     out.join("\n")
 }
 
+fn required_recital(context: &Context, entity: &Entity, part: Part) -> Option<String> {
+    if part != Part::Line {
+        return None;
+    }
+    recital::required(&serde_json::to_value(context).expect("scene"))
+        .filter(|(id, _)| id == &entity.id)
+        .map(|(_, words)| words)
+}
+
 /// A rejected reply gets fresh wording grounded in the scene. Removing the
 /// style examples on retry helps small models leave copied examples behind.
 fn attempt_transcript(context: &Context, entity: &Entity, part: Part, attempt: u8) -> String {
@@ -1360,6 +1374,9 @@ fn attempt_transcript(context: &Context, entity: &Entity, part: Part, attempt: u
     let current = prompt
         .split_once("Current scene:\n")
         .map_or(prompt.as_str(), |(_, scene)| scene);
+    if let Some(words) = required_recital(context, entity, part) {
+        return format!("I recite these exact earned words: {words}\n\nCurrent scene:\n{current}");
+    }
     format!("My next words are fresh and describe this moment.\n\nCurrent scene:\n{current}")
 }
 
@@ -1518,11 +1535,15 @@ async fn speak(
             async move {
                 let request = ChatCompletionRequest {
                     feature: "card_voice",
-                    prompt_version: "card-voice-v2",
+                    prompt_version: "card-voice-v3",
                     capability: ModelCapability::WorldContent,
                     system,
                     user: &user,
-                    temperature: 1.0 - 0.1 * f64::from(attempt),
+                    temperature: if required_recital(context, entity, part).is_some() {
+                        0.0
+                    } else {
+                        1.0 - 0.1 * f64::from(attempt)
+                    },
                     max_tokens: if part == Part::Persona { 160 } else { 96 },
                     timeout,
                     max_attempts: 1,
@@ -1636,6 +1657,7 @@ struct Check<'a> {
     /// the brief, not speech.
     brief: Vec<String>,
     labels: Vec<String>,
+    recital: Option<String>,
 }
 
 impl<'a> Check<'a> {
@@ -1667,6 +1689,7 @@ impl<'a> Check<'a> {
             examples: profile_lines(&entity.id),
             brief,
             labels,
+            recital: required_recital(context, entity, part),
         }
     }
 
@@ -1674,6 +1697,20 @@ impl<'a> Check<'a> {
     /// breaks shape, speaks as an assistant, names someone the scene does not
     /// know, copies an example, or repeats the play or a recent line.
     fn clean(&self, raw: &str, finished: bool) -> Result<String, &'static str> {
+        // An earned recital repeats authored words by design. Check the full
+        // response before ordinary cleanup can shorten or rewrite it.
+        if let Some(words) = &self.recital {
+            if !finished || raw.trim() != words {
+                return Err("earned_verse");
+            }
+            if !bounded(words, self.limit) {
+                return Err("shape");
+            }
+            if !observations::consistent(words, self.context) {
+                return Err("observable_state");
+            }
+            return Ok(words.clone());
+        }
         let own = name(&self.entity.id);
         let line = raw
             .trim()
@@ -2106,6 +2143,190 @@ mod tests {
     }
 
     /// A provider that answers each stem with plain text and records requests.
+    const EARNED_VERSE: &str = "I told her I would turn away. Her brother waited by the wall.";
+
+    fn bard_context() -> Context {
+        let mut value = serde_json::to_value(context()).unwrap();
+        value["speakers"] = json!(["vale", "greek-rhapsode"]);
+        value["outcome"] = serde_json::to_value(solo_departure()).unwrap();
+        value["outcome"]["card"]["kind"] = json!("talk");
+        value["outcome"]["card"]["target"] = json!("greek-rhapsode");
+        value["entities"][3]["id"] = json!("greek-rhapsode");
+        value["entities"][3]["facts"] = json!([format!("Verse 1, Vale: {EARNED_VERSE}")]);
+        value["entities"][3]["memories"] = json!([]);
+        serde_json::from_value(value).unwrap()
+    }
+
+    #[test]
+    fn earned_recitals_repeat_exact_words_and_reject_extra_or_wrong_verses() {
+        let mut c = bard_context();
+        c.entities[3].previous = Some(EARNED_VERSE.into());
+        let check = Check::new(&c, &c.entities[3], Part::Line);
+        assert_eq!(check.clean(EARNED_VERSE, true), Ok(EARNED_VERSE.into()));
+        assert_eq!(check.clean(EARNED_VERSE, false), Err("earned_verse"));
+        for text in [
+            "The dark keeps every name the waves release.".to_string(),
+            "I laid her brother in the earth. The king's words crossed the wind.".into(),
+            format!("{EARNED_VERSE} Another verse follows."),
+            format!("{EARNED_VERSE}\nAnother verse follows."),
+        ] {
+            assert_eq!(check.clean(&text, true), Err("earned_verse"));
+        }
+        assert!(Check::new(&c, &c.entities[0], Part::Line).recital.is_none());
+        assert!(Check::new(&c, &c.entities[3], Part::Thought)
+            .recital
+            .is_none());
+        let retry = attempt_transcript(&c, &c.entities[3], Part::Line, 1);
+        assert!(retry.starts_with("I recite these exact earned words:"));
+        assert!(!retry.contains("My next words are fresh"));
+        assert!(retry.contains(EARNED_VERSE));
+    }
+
+    #[tokio::test]
+    async fn invented_bard_verse_is_repaired_before_plain_or_shared_publication() {
+        let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
+        let tries = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let count = tries.clone();
+        let bard_stem = format!("{}:", name("greek-rhapsode"));
+        let target = bard_stem.clone();
+        let provider = plain_provider(seen.clone(), move |_, stem| {
+            if stem == target {
+                if count.fetch_add(1, std::sync::atomic::Ordering::SeqCst) == 0 {
+                    "The dark keeps every name the waves release.".into()
+                } else {
+                    EARNED_VERSE.into()
+                }
+            } else {
+                "I hear you.".into()
+            }
+        });
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            axum::serve(listener, provider).await.unwrap();
+        });
+        let c = bard_context();
+        let ids = vec!["vale".into(), "greek-rhapsode".into()];
+        let published = Mutex::new(Vec::new());
+        let emit = |text: &str| {
+            published.lock().unwrap().push(text.to_string());
+            true
+        };
+        let result = complete_selected(
+            &test_config(address),
+            &c,
+            &BTreeMap::new(),
+            &VoiceSettings::hosted(),
+            &ids,
+            false,
+            Some(&emit),
+        )
+        .await
+        .unwrap();
+        assert_eq!(result["entries"].as_array().unwrap().len(), 2);
+        assert_eq!(result["entries"][1]["text"], EARNED_VERSE);
+        let output = published.lock().unwrap().join(" ");
+        assert!(!output.contains("The dark keeps"));
+        assert!(output.contains(EARNED_VERSE));
+        assert_eq!(tries.load(std::sync::atomic::Ordering::SeqCst), 2);
+        let shared = shared_lines(
+            &test_config(address),
+            &serde_json::to_value(&c).unwrap(),
+            &ids,
+            &BTreeMap::new(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(shared["entries"].as_array().unwrap().len(), 2);
+        assert_eq!(shared["entries"][0]["id"], "vale");
+        assert_eq!(shared["entries"][1]["text"], EARNED_VERSE);
+        let requests = seen.lock().unwrap();
+        let bard: Vec<_> = requests
+            .iter()
+            .filter(|r| {
+                r["messages"][1]["content"]
+                    .as_str()
+                    .unwrap()
+                    .ends_with(&bard_stem)
+            })
+            .collect();
+        assert_eq!(bard.len(), 3);
+        assert!(bard
+            .iter()
+            .all(|r| r["temperature"] == 0.0 && r.get("response_format").is_none()));
+        assert!(bard[1]["messages"][1]["content"]
+            .as_str()
+            .unwrap()
+            .starts_with("I recite these exact earned words:"));
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn earned_recital_survives_escalation_with_the_same_exact_words() {
+        let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
+        let bard_stem = format!("{}:", name("greek-rhapsode"));
+        let target = bard_stem.clone();
+        let provider = plain_provider(seen.clone(), move |body, stem| {
+            if stem == target {
+                if body["model"] == "escalation-model" {
+                    EARNED_VERSE.into()
+                } else {
+                    "The dark keeps every name the waves release.".into()
+                }
+            } else {
+                "I hear you.".into()
+            }
+        });
+        let (address, server) = serve(provider).await;
+        let config = tiered_config(address, &[("escalation-model", false)]);
+        let settings = VoiceSettings {
+            attempts: 1,
+            escalation_model: Some("escalation-model".into()),
+            ..VoiceSettings::hosted()
+        };
+        let c = bard_context();
+        let published = Mutex::new(Vec::new());
+        let emit = |text: &str| {
+            published.lock().unwrap().push(text.to_string());
+            true
+        };
+        let result = complete_selected(
+            &config,
+            &c,
+            &BTreeMap::new(),
+            &settings,
+            &["vale".into(), "greek-rhapsode".into()],
+            false,
+            Some(&emit),
+        )
+        .await
+        .unwrap();
+        assert_eq!(result["entries"][1]["text"], EARNED_VERSE);
+        let output = published.lock().unwrap().join(" ");
+        assert!(output.contains(EARNED_VERSE));
+        assert!(!output.contains("The dark keeps"));
+        let requests = seen.lock().unwrap();
+        assert_eq!(
+            models_for(&requests, &bard_stem),
+            ["test-entity-model", "escalation-model"]
+        );
+        let bard: Vec<_> = requests
+            .iter()
+            .filter(|request| stem_of(request) == bard_stem)
+            .collect();
+        assert!(bard.iter().all(|request| request["temperature"] == 0.0));
+        let prompts: Vec<_> = bard
+            .iter()
+            .map(|request| request["messages"][1]["content"].as_str().unwrap())
+            .collect();
+        assert!(prompts[1].starts_with("I recite these exact earned words:"));
+        assert_eq!(
+            prompts[0].split_once("Current scene:").unwrap().1,
+            prompts[1].split_once("Current scene:").unwrap().1
+        );
+        server.abort();
+    }
+
     fn plain_provider(
         seen: Arc<Mutex<Vec<Value>>>,
         reply: impl Fn(&Value, &str) -> String + Clone + Send + Sync + 'static,
