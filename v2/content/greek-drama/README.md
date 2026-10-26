@@ -23,7 +23,7 @@ the smaller release load.
 ## Sources and shared runtime
 
 `card-world.json` is canonical author data: 49 places, 21 resident definitions,
-13 objects, 78 typed choices and 44 work records. Five works support the
+13 objects, 79 typed choices and 44 work records. Five works support the
 existing Theban, Helen and Atreid episodes. The other 39 remain situated
 hooks in the source; **their empty inquiry actions are withheld from fresh
 opening play**. No inquiry journal is added.
@@ -69,6 +69,13 @@ a witness, staging a shovel, supplying cloth and oil, burial, petition,
 permitted burial, refusal, reporting, and later public disclosure. Object
 custody and witnessed events matter. Generated speech cannot perform an
 unrecorded murder, burial, hearing or voyage.
+
+The three opening quest cards use short verse. Completed choices earn
+couplets in **Poem**, which remains available through travel and reload.
+Permission earns its own verse. A later burial adds another and opens a
+return to tell Dione about the grave. Each report keeps the wording that
+matches its place in the saved history. See the [full copy list](OPENING-POEM.md)
+for every card face, its trigger, and the collected poem's lines.
 
 The legacy/full scope retains the two Helen accounts and three Atreid
 accounts. Mutually exclusive embodiments share `canonicalPerson` identities;

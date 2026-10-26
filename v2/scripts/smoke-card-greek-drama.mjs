@@ -1,4 +1,5 @@
 import { selectCard } from "./card-browser-helpers.mjs";
+import { checkOpeningPoem } from "./smoke-card-opening-poem.mjs";
 // Exercise the public card UI and its one saved history, at desktop and phone
 // widths. Text is a bounded fixture; the deterministic model owns every result.
 import assert from "node:assert/strict";
@@ -339,6 +340,7 @@ try {
     );
     await page.close();
   }
+  await checkOpeningPoem(browser, `http://127.0.0.1:${server.address().port}`);
 } finally {
   await browser?.close();
   await new Promise((resolve) => server.close(resolve));

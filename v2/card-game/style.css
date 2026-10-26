@@ -981,6 +981,9 @@ body .cast[data-count] {
   }
 }
 @media (max-height: 440px) {
+  body .quest-frame[data-raised="true"] {
+    --card-width: 154px;
+  }
   :root {
     --card-height: 140px;
     --card-width: 112px;
@@ -1183,11 +1186,28 @@ body .card.quest .name {
 }
 .quest-purpose {
   display: none;
+  white-space: pre-line;
   padding-top: 8px;
   font:
     14px/1.3 Georgia,
     serif;
   text-wrap: balance;
+}
+.poem-verses {
+  padding: 12px 4px 8px;
+}
+dialog .poem-stanza {
+  margin: 0 0 1.5em;
+  white-space: pre-line;
+  font:
+    18px/1.65 Georgia,
+    serif;
+  color: #f0dfbd;
+}
+@media (max-width: 440px) {
+  dialog .poem-stanza {
+    font-size: 16px;
+  }
 }
 body .card.quest[aria-pressed="true"],
 body .unveil .card.quest {
@@ -1262,10 +1282,32 @@ body[data-place="attic"] .card.quest {
   body .card.quest[aria-pressed="true"] {
     padding: 24px 9px 12px;
   }
-}
-@media (max-height: 440px) {
   body .card.quest[aria-pressed="true"] .art {
     display: none;
+  }
+}
+@media (max-height: 440px) {
+  body .card.quest[aria-pressed="true"] .name {
+    font-size: 14px;
+  }
+  body .card.quest[aria-pressed="true"] .quest-purpose {
+    font-size: 11px;
+    line-height: 1.2;
+  }
+  body .card.quest[aria-pressed="true"] {
+    padding: 22px 8px 8px;
+  }
+}
+@media (max-width: 380px) {
+  .topbar {
+    padding-inline: 6px;
+  }
+  .topbar .top-actions {
+    gap: 4px;
+  }
+  .topbar .top-actions button {
+    padding-inline: 6px;
+    font-size: 11px;
   }
 }
 @media (prefers-reduced-motion: reduce) {

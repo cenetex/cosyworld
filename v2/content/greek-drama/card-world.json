@@ -1534,6 +1534,37 @@
       ]
     },
     {
+      "id": "greek-courtyard-permitted-burial",
+      "subject": "greek-baker",
+      "at": "greek-courtyard",
+      "label": "Tell Dione about the grave",
+      "text": "Vale tells Dione that the permitted burial is complete. She hears that the brother now lies beneath the earth.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-theban-response",
+          "value": "concession"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-concession-public",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-burial-performed",
+          "value": true
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-permitted-burial-public",
+          "value": true
+        }
+      ]
+    },
+    {
       "id": "greek-courtyard-refusal",
       "subject": "greek-baker",
       "at": "greek-courtyard",
@@ -3787,6 +3818,7 @@
       "greek-report-plan",
       "greek-courtyard-burial",
       "greek-courtyard-concession",
+      "greek-courtyard-permitted-burial",
       "greek-courtyard-refusal",
       "greek-courtyard-exposure"
     ]

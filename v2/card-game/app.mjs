@@ -64,6 +64,7 @@ import {
   activeQuests,
   fulfilledQuests,
   questHand,
+  openingPoem,
 } from "./quest-cards.mjs";
 const $ = (id) => document.getElementById(id);
 const tableName = new URLSearchParams(window.location.search).get("table");
@@ -1811,6 +1812,7 @@ function renderLog() {
 }
 
 function render() {
+  renderPoem();
   music.setStarted(world.turn > 0);
   // While the travel veil comes down, the old place stays drawn.
   if (covering) return;
@@ -2056,6 +2058,28 @@ document.addEventListener("click", (e) => {
     render();
   }
 });
+function renderPoem() {
+  const poem = openingPoem(world);
+  $("poem-button").hidden = !poem.stanzas.length;
+  $("poem-title").textContent = poem.title;
+  const signature = JSON.stringify(poem.stanzas);
+  const verses = $("poem-verses");
+  if (verses.dataset.poem === signature) return;
+  verses.dataset.poem = signature;
+  verses.replaceChildren(
+    ...poem.stanzas.map((stanza) => {
+      const verse = node("p", stanza.lines.join("\n"), "poem-stanza");
+      verse.dataset.stanza = stanza.id;
+      return verse;
+    }),
+  );
+  if (!poem.stanzas.length && $("poem-dialog").open) $("poem-dialog").close();
+}
+$("poem-button").onclick = () => {
+  renderPoem();
+  $("poem-dialog").showModal();
+  pauseSpeech();
+};
 $("history-button").onclick = () => {
   $("history-dialog").showModal();
   pauseSpeech();

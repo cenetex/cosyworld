@@ -478,7 +478,7 @@ describe("Before the Burial", () => {
       key: story(beforePetition, 1).key,
       resolved: false,
     });
-    expect(story(world, 1).purpose).toContain("still awaits");
+    expect(story(world, 1).purpose).toContain("waits for earth");
     expect(story(world, 2)?.resolved).toBe(false);
     expect(stateOf(world).choices["greek-theban-response"]).toBe("concession");
     expect(stateOf(world).receipts["greek-perform-burial"]).toBeUndefined();
@@ -519,7 +519,7 @@ describe("Before the Burial", () => {
         }),
       ]),
     );
-    expect(story(world, 1).purpose).toContain("witnessed exception");
+    expect(story(world, 1).purpose).toContain("Creon gave leave");
     expect(stateOf(world).flags["greek-burial-performed"]).toBe(true);
     expect(stateOf(world).choices["greek-theban-response"]).toBe("concession");
     expect(stateOf(world).receipts["greek-perform-burial"]).toBeUndefined();
