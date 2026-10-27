@@ -17,7 +17,9 @@ async function checkPlayRecovery(width, scenario) {
   const history = [],
     keys = [],
     errors = [];
-  let releasePolls = false;
+  let releasePolls = false,
+    pollFailed = false;
+  const unaccepted = scenario.startsWith("unaccepted");
   const otherNotice = "Mara would like your attention.";
   const page = await browser.newPage({
     viewport: { width, height: 900 },
@@ -39,17 +41,16 @@ async function checkPlayRecovery(width, scenario) {
             json: { error: "Choose a current play." },
           });
         {
-          const actor = scenario === "unaccepted" ? "mara" : "vale";
-          const action =
-            scenario === "unaccepted"
-              ? dispatchShared({
-                  op: "view",
-                  world,
-                  actor,
-                  claimed: ["vale", "mara"],
-                  present: ["vale", "mara"],
-                }).actions.find((a) => a.kind === "wait")
-              : body.action;
+          const actor = unaccepted ? "mara" : "vale";
+          const action = unaccepted
+            ? dispatchShared({
+                op: "view",
+                world,
+                actor,
+                claimed: ["vale", "mara"],
+                present: ["vale", "mara"],
+              }).actions.find((a) => a.kind === "wait")
+            : body.action;
           const played = dispatchShared({
             op: "play",
             world,
@@ -60,9 +61,13 @@ async function checkPlayRecovery(width, scenario) {
           });
           assert(played.ok);
           world = played.world;
-          if (scenario !== "unaccepted")
+          if (!unaccepted)
             history.push({ play: body.key, room: "station", lines: [] });
         }
+        return route.abort("failed");
+      }
+      if (releasePolls && scenario.endsWith("poll-error") && !pollFailed) {
+        pollFailed = true;
         return route.abort("failed");
       }
       const view = dispatchShared({
@@ -97,13 +102,15 @@ async function checkPlayRecovery(width, scenario) {
     await selectCard(page, "vale");
     await page.locator('#card-actions [data-action="wait"]').click();
     const expected =
-      scenario === "validation" ? "Choose a current play." : "Failed to fetch";
+      scenario === "validation"
+        ? "Choose a current play."
+        : "The connection paused. Check the table, then try again.";
     await page.waitForFunction(
       (text) => document.querySelector("#notice").textContent === text,
       expected,
     );
     releasePolls = true;
-    if (["accepted", "queued"].includes(scenario))
+    if (["accepted", "accepted-poll-error", "queued"].includes(scenario))
       await page.waitForFunction(
         () => document.querySelector("#notice").hidden,
       );
@@ -113,13 +120,14 @@ async function checkPlayRecovery(width, scenario) {
         otherNotice,
       );
     await page.waitForTimeout(2200);
+    if (scenario.endsWith("poll-error")) assert(pollFailed);
     assert.equal(
       keys.length,
       1,
       "Polling preserves the single submitted play.",
     );
     assert.equal(world.turn, scenario === "validation" ? 0 : 1);
-    if (["unaccepted", "validation"].includes(scenario))
+    if (unaccepted || scenario === "validation")
       assert.equal(await page.locator("#notice").textContent(), expected);
     if (scenario === "new-notice")
       assert.equal(await page.locator("#notice").textContent(), otherNotice);
@@ -225,9 +233,11 @@ try {
   for (const width of [1440, 390])
     for (const scenario of [
       "accepted",
+      "accepted-poll-error",
       "queued",
       "new-notice",
       "unaccepted",
+      "unaccepted-poll-error",
       "validation",
     ])
       await checkPlayRecovery(width, scenario);

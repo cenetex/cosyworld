@@ -298,7 +298,7 @@ export async function connectSharedWorld(id) {
         heartbeat = Date.now();
       } else adopt(await request(`/card-game/shared/worlds/${id}`));
       if (connectionError) {
-        report("", connectionError);
+        report(playError?.message || "", connectionError);
         connectionError = null;
       }
     } catch (error) {
@@ -344,8 +344,12 @@ export async function connectSharedWorld(id) {
       try {
         return await command({ op: "play", key, action });
       } catch (error) {
-        if (["TypeError", "TimeoutError", "AbortError"].includes(error.name))
-          playError = { key, message: error.message };
+        if (["TypeError", "TimeoutError", "AbortError"].includes(error.name)) {
+          const message =
+            "The connection paused. Check the table, then try again.";
+          playError = { key, message };
+          throw new Error(message, { cause: error });
+        }
         throw error;
       }
     },
