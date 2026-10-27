@@ -276,7 +276,8 @@ export function fulfilledPlayerQuest(before, after) {
 }
 
 export function questCardId(world, quest, notice = null) {
-  if (quest.id) return quest.id;
+  // Cards in one story family keep a distinct view ID for each saved wish.
+  if (quest.id && !quest.keyedCard) return quest.id;
   if (
     quest.actor === currentActor(world) &&
     quest.key ===

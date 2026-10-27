@@ -2,7 +2,9 @@
 
 Dione's table opens five places: the Athenian Agora, Piraeus Quays,
 Colonus Grove, Eleusinian Sanctuary and Marathon Altar. The traveler reaches
-them through the existing roads. Each place keeps its route back.
+them through roads with a route back. The coast links Eleusis, Piraeus and
+the Wine-Dark Harbor. Local roads also join Marathon to Colonus, and Colonus
+to Eleusis. These roads share Dione’s lasting invitation.
 
 The opening invitation follows the public account of any of the four
 Theban responses: burial, permission, refusal or warning. Accepting the
@@ -115,14 +117,65 @@ records the traveler and the event order. The poem distinguishes a gift
 from a report, a prepared berth from an arrival, and a heard tale from a
 present deed. The main source keeps every exact couplet.
 
+Each completed local story opens its own early report at Dione’s table.
+The report names the actual branch and adds a new couplet about telling it.
+The Agora report follows its recovery report; the other four follow their
+closing choices. Sharing one account leaves the other journeys available.
+Each local report can be shared once.
+
 After the Eleusis answer, Piraeus berth and both remembered tales are
-complete, the traveler can report to Dione. The last couplet is:
+complete, the traveler can also share the full Open Door account. That
+existing choice gathers all five stories and closes any remaining early
+reports. Its receipt and earlier verses keep their place. Its couplet is:
 
 > I brought those names beside her bread.  
 > We made room for the words they carried.
 
 The six quest families are `story-quest-greek-open-door-eleusis`,
 `-agora`, `-piraeus`, `-colonus`, `-marathon` and `-return`.
+
+## Myrine’s journey and answer
+
+Myrine of Argos is an original household representative. She helped the
+mothers at Eleusis. She speaks for her own household and the care she sees.
+She appears after the Eleusis closing choice.
+
+Once a berth has been reserved, a traveler can agree at Eleusis to walk
+with her to Piraeus. The ordinary **Accompany** action takes them along
+the coast road. Myrine’s position is saved. Another traveler from the same
+company can take up the agreed journey. She waits for company before
+leaving and remains at the quay after arriving.
+
+The berth policy changes the objects and work in her arrival scene:
+
+- **The listed household:** take the quay basket and give it to Myrine.
+  With the basket in her hands and the return list at Piraeus, witness her
+  receive her household’s reserved care.
+- **Later guests too:** leave the basket at Piraeus for shared use. With
+  the list there, witness Myrine rest at the quay and offer to help Thaleia
+  receive later guests.
+
+Both choices require Myrine to be physically at Piraeus. The arrival
+records `greek-homecoming-arrived` and the matching care choice. Myrine
+signs the return list with her account of that care. The existing basket
+can be shared again through the ordinary Ask and Give actions. A list
+carried away early can be returned to the quay before the arrival scene.
+
+Take the signed list to Dione. Choose the earned basket stanza or berth
+stanza for the table’s reading. Dione reads the selected stanza, then
+Myrine’s written words from Piraeus. She answers what she has heard.
+The list is placed at the courtyard and the exchange earns a new couplet.
+Myrine remains at the quay; the carried list supplies her voice at the table.
+
+These scenes add three story families: `story-quest-greek-homecoming-return`,
+`-household` and `-witness`. Each early return keeps its own local story
+record. The original full Open Door return remains a separate gathering
+of the whole account.
+
+Myrine, her agreed walk, her care and her signed reply are original
+CosyWorld scenes. The play’s recovery, funeral and difficult ending remain
+the source events described above. Only Myrine’s own arrival is recorded
+in this follow-through; she represents the household whose care she claims.
 
 ## Saved facts and object care
 
@@ -134,7 +187,9 @@ make each step repeatable through replay and unique within the history.
 Nine authored objects support the routes: the mothers' petition, clean
 cloths, quay basket, funeral urn, return list, grove cup, grove honey,
 shelter blanket and refuge tablet. Source reports introduce the urn after
-the funeral and the return list after the mothers' closing answer.
+the funeral and the return list after the mothers' closing answer. Myrine’s
+arrival adds her signature to that same list. Its holder stays part of the
+world through the journey to Dione.
 
 The old source IDs remain available for earlier histories. The three works'
 current entry lists name the finished actions in this release. Shared and

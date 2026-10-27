@@ -252,6 +252,10 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/open-door-quests.mjs"),
         ),
+        "homecoming-quests.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/homecoming-quests.mjs"),
+        ),
         "quest-completions.mjs" => (
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/quest-completions.mjs"),
@@ -327,6 +331,10 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
         "pack-sections.mjs" => (
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/pack-sections.mjs"),
+        ),
+        "pack-journeys.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/pack-journeys.mjs"),
         ),
         "pack-recital.mjs" => (
             "text/javascript; charset=utf-8",
@@ -791,6 +799,10 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
         "assets/greek-drama/open-door-altar-keeper.webp" => (
             "image/webp",
             include_bytes!("../../card-game/assets/greek-drama/open-door-altar-keeper.webp"),
+        ),
+        "assets/greek-drama/myrine.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/myrine.webp"),
         ),
         _ => return None,
     };

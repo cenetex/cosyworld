@@ -39,15 +39,23 @@ The grove keeper tells Sophocles' _Oedipus at Colonus_ as an earlier tale.
 The altar keeper tells Euripides' _Children of Heracles_ in its own later
 generation. Gifts and present promises join the remembered accounts.
 
-Six short story cards follow these scenes. Twenty new couplets distinguish
-present deeds, heard reports and chosen tellings. The final account returns
-to Dione's table. Read the [full scene and source guide](OPEN-DOOR.md) for the
+Six short story cards follow these scenes. Twenty couplets distinguish
+present deeds, heard reports and chosen tellings. Homecoming adds sixteen
+couplets for early reports, Myrine’s arrival and her written answer. A
+traveler can bring each completed local story to Dione, then return for
+the rest. The full account remains available when all five stories are ready.
+
+Myrine, an original household representative, agrees at Eleusis to walk
+to Piraeus. Accompany takes her along the coast road. She receives her
+household’s basket or joins the shared quay, following the chosen berth.
+Her signed return list carries her own words to Dione. The traveler chooses
+an earned basket or berth stanza, and Dione answers the reading. Read the [full scene and source guide](OPEN-DOOR.md) for the
 route, choices, source endings and original alternatives.
 
 ## Sources and runtime
 
 `card-world.json` is canonical author data: 50 places including the ship,
-29 residents, 22 objects, 113 typed choices and 44 work records. Eight works
+30 residents, 22 objects, 130 typed choices and 44 work records. Eight works
 have developed scenes; 36 retain situated hooks for later releases.
 
 `release` lists the content in this release. `sections` groups places behind
@@ -55,15 +63,24 @@ lasting story events. New saves begin with seven shore places and the ship.
 Dione's invitation adds five shore places. Earlier full-scope worlds keep
 their travel access and their chosen Helen and Atreid accounts.
 
-Greek pack revision 3 adds eight residents and nine objects to valid earlier
-saves. The upgrade preserves old custody, memories, flags, choices, receipts
-and poem. Shared rules version 11 records the change. Versions 2–10 retain
-their original interpreter bytes so accepted history can replay.
+Greek pack revision 3 added eight residents and nine objects. Revision 4
+adds Myrine and her agreed journey. The upgrade preserves old custody,
+memories, flags, choices, receipts and poem. Shared rules version 12 records
+the new journey rule. Earlier versions retain their original interpreter
+bytes so accepted history can replay.
 
 The Forest and Greek packs share the card table's schema, registry, rules,
 item custody, quests and save system. Choices use the closed effects
-`choose`, `set_flag` and `place_item`. A placement requires the acting
-traveler to hold that object at the named place. Ordered receipts validate
+`choose`, `set_flag` and `place_item`. Myrine’s authored `journey` names the
+agreement and its road; Accompany moves her through the ordinary rules.
+A stationary pack resident can declare
+`journey: { after: <agreement choice id>, path: [<home>, ..., <destination>] }`.
+The path contains two to eight distinct, adjacent places in the same pack.
+The agreement targets that resident at home, and the resident has
+`travels: false`. Each step uses the human traveler's ordinary open route
+and the resident's saved position. An arrival choice targets the resident
+at the destination and checks the required item custody.
+A placement requires the acting traveler to hold that object at the named place. Ordered receipts validate
 recorded branches and flags on load. Generated speech describes those facts.
 
 `v2/worlds/greek-drama/card-bridge.json` joins the pack to the hub.
@@ -93,7 +110,7 @@ crossing. An occupied ship completes its voyage before a lamp recall.
 ## Art and presentation
 
 Thebes has seven generated paintings. The Open Door adds five paintings
-and eight transparent resident portraits. The pond ship uses a transparent
+and eight transparent resident portraits. Myrine has her own portrait. The pond ship uses a transparent
 ship layer over the original pond. The boarding card shows that same ship,
 mirror and night setting.
 

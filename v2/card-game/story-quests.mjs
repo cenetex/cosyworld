@@ -6,6 +6,11 @@ import {
   openDoorRelated,
 } from "./open-door-quests.mjs";
 import {
+  HOMECOMING_QUEST_CARDS,
+  homecomingDefinitions,
+  homecomingRelated,
+} from "./homecoming-quests.mjs";
+import {
   installSharedQuestRegistry,
   clearQuestFocus,
 } from "./shared-quests.mjs";
@@ -15,6 +20,7 @@ export const STORY_QUEST_CARDS = [
   "story-quest-greek-burial",
   "story-quest-greek-courtyard",
   ...OPEN_DOOR_QUEST_CARDS,
+  ...HOMECOMING_QUEST_CARDS,
 ];
 const lines = [
   "A place beside the bread.",
@@ -128,11 +134,17 @@ export function storyDefinitions(world, history = false) {
         historical: true,
       });
   }
-  return [...cards, ...openDoorDefinitions(world)];
+  return [
+    ...cards,
+    ...openDoorDefinitions(world),
+    ...homecomingDefinitions(world),
+  ];
 }
 
 const related = (definition, event) => {
   if (event.packId !== "greek-drama" || !event.choiceId) return false;
+  if (HOMECOMING_QUEST_CARDS.includes(definition.id))
+    return homecomingRelated(definition, event);
   if (OPEN_DOOR_QUEST_CARDS.includes(definition.id))
     return openDoorRelated(definition, event);
   if (definition.id === STORY_QUEST_CARDS[0])

@@ -79,6 +79,7 @@ fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
         (engine::NINTH_VERSION, false),
         (engine::TENTH_VERSION, false),
         (engine::NINTH_VERSION, true),
+        (engine::ELEVENTH_VERSION, false),
     ] {
         for scope in ["opening", "full"] {
             for keep_checkpoint in [true, false] {
@@ -94,7 +95,7 @@ fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
                 }
                 let upgraded = full_store::world(&c, &id, now()).unwrap();
                 assert_eq!(upgraded.version, engine::VERSION);
-                assert_eq!(upgraded.game["packs"]["greek-drama"]["revision"], 3);
+                assert_eq!(upgraded.game["packs"]["greek-drama"]["revision"], 4);
                 assert_eq!(upgraded.claimed, old.claimed);
                 assert_eq!(upgraded.present, old.present);
                 preserves_old_entities(&upgraded.game, &old.game);
@@ -109,11 +110,21 @@ fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
                 }
                 assert_eq!(
                     upgraded.game["actors"].as_object().unwrap().len(),
-                    old.game["actors"].as_object().unwrap().len() + 8
+                    old.game["actors"].as_object().unwrap().len()
+                        + if version == engine::ELEVENTH_VERSION {
+                            1
+                        } else {
+                            9
+                        }
                 );
                 assert_eq!(
                     upgraded.game["items"].as_object().unwrap().len(),
-                    old.game["items"].as_object().unwrap().len() + 9
+                    old.game["items"].as_object().unwrap().len()
+                        + if version == engine::ELEVENTH_VERSION {
+                            0
+                        } else {
+                            9
+                        }
                 );
                 assert_eq!(
                     upgraded.game["items"]["greek-burial-petition"]["holder"],

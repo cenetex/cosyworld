@@ -9,7 +9,8 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub(super) const VERSION: &str = "full-card-world/11";
+pub(super) const VERSION: &str = "full-card-world/12";
+pub(super) const ELEVENTH_VERSION: &str = "full-card-world/11";
 pub(super) const TENTH_VERSION: &str = "full-card-world/10";
 pub(super) const NINTH_VERSION: &str = "full-card-world/9";
 pub(super) const EIGHTH_VERSION: &str = "full-card-world/8";
@@ -19,7 +20,8 @@ pub(super) const FIFTH_VERSION: &str = "full-card-world/5";
 pub(super) const PREVIOUS_VERSION: &str = "full-card-world/3";
 pub(super) const LEGACY_VERSION: &str = "full-card-world/2";
 pub(super) const FOURTH_VERSION: &str = "full-card-world/4";
-const SOURCE: &str = include_str!("engine-v11.js");
+const SOURCE: &str = include_str!("engine-v12.js");
+const ELEVENTH_SOURCE: &str = include_str!("engine-v11.js");
 const TENTH_SOURCE: &str = include_str!("engine-v10.js");
 const NINTH_SOURCE: &str = include_str!("engine-v9.js");
 const EIGHTH_SOURCE: &str = include_str!("engine-v8.js");
@@ -42,6 +44,7 @@ pub(super) fn historical(version: &str) -> bool {
             | EIGHTH_VERSION
             | NINTH_VERSION
             | TENTH_VERSION
+            | ELEVENTH_VERSION
     )
 }
 const MAX_BYTES: usize = 4 * 1024 * 1024;
@@ -94,6 +97,7 @@ pub(super) fn reduce_version(version: &str, request: Value) -> Result<Value> {
         EIGHTH_VERSION => EIGHTH_SOURCE,
         NINTH_VERSION => NINTH_SOURCE,
         TENTH_VERSION => TENTH_SOURCE,
+        ELEVENTH_VERSION => ELEVENTH_SOURCE,
         LEGACY_VERSION => LEGACY_SOURCE,
         _ => return Err("This world needs a supported rules version.".into()),
     };
