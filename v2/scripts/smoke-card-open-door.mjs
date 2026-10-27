@@ -4,7 +4,11 @@ import { pathToFileURL } from "node:url";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { encodeSave, legalActions } from "../card-game/world.mjs";
-import { questCards, questHistoryCards } from "../card-game/quest-cards.mjs";
+import {
+  questCards,
+  questHistoryCards,
+  questCardId,
+} from "../card-game/quest-cards.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { openingFixture } from "../../test/helpers/greek-opening.mjs";
 import {
@@ -138,6 +142,8 @@ export async function checkOpenDoor(browser, origin) {
         const action = openDoorAction(before, kind, fields);
         const id = action.cards?.[0] || action.item || action.target || "vale";
         await selectCard(page, id, { touch: width === 390 });
+        if (kind === "drop")
+          await selectCard(page, fields.target, { touch: width === 390 });
         const selector = fields.choiceId
           ? `#card-actions [data-choice="${fields.choiceId}"]`
           : `#card-actions [data-action="${kind}"]`;
@@ -169,6 +175,37 @@ export async function checkOpenDoor(browser, origin) {
       await step({ kind: "drop", item: "lamp", target: "greek-courtyard" });
       for (const action of openDoorSteps(options)) {
         await step(action);
+        if (action.choiceId === "greek-open-door-hear-mothers") {
+          const world = await state();
+          const quest = questCards(world, "greek-aethra").find(
+            (card) =>
+              card.key === "greek-drama:story-quest-greek-open-door-eleusis",
+          );
+          assert.ok(quest, "Aethra holds the mothers' story card");
+          const id = questCardId(world, quest);
+          await selectCard(page, id, { touch: width === 390 });
+          const card = page.locator(`#hand [data-card="${id}"]`);
+          assert.equal(
+            await card.locator(".name").textContent(),
+            "Their sons need a road home.",
+          );
+          assert.equal(await card.locator(".quest-purpose").count(), 0);
+          assert.ok(
+            await card.evaluate(
+              (element) => element.scrollHeight <= element.clientHeight + 1,
+            ),
+          );
+          await page.screenshot({
+            path: new URL(`eleusis-quest-${width}.png`, output).pathname,
+            fullPage: true,
+          });
+          await page.keyboard.press("Escape");
+        }
+        if (action.choiceId === "greek-open-door-hear-pyre")
+          await page.screenshot({
+            path: new URL(`eleusis-rites-${width}.png`, output).pathname,
+            fullPage: true,
+          });
         if (
           [
             "greek-open-door-lay-ashes",
