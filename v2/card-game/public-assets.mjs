@@ -54,6 +54,7 @@ const files = [
   "quest-hands.mjs",
   "shared-quests.mjs",
   "story-quests.mjs",
+  "open-door-quests.mjs",
   "quest-completions.mjs",
   "roaming-quests.mjs",
   "roaming-routes.mjs",
