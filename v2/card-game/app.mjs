@@ -2533,7 +2533,7 @@ function resumeScene() {
     addLog(
       world,
       "Vale",
-      "It's cold up here. I wonder how long this room has been waiting.",
+      "It's cold up here. I'll light the lamp.",
       {
         actorId: currentActor(world),
         entityId: currentActor(world),

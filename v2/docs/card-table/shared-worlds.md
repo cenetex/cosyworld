@@ -209,3 +209,17 @@ The homes use natural wood, stone, paper, and mist with quiet complementary
 accents. Rue has close-cropped dark hair and a blue coat. Orin is tall and wiry,
 with auburn hair, spectacles, and an indigo waistcoat. Ada has white hair and a
 wooden wheelchair; Ash has a broad build and a grey beard.
+
+## A way out of a stranded home
+
+A narrow path to Empty station appears when a player in a home has no ordinary
+route and the room lacks the resources to reopen its gate. A belonging on the
+floor or carried by a present helper keeps its usual role. A fueled lamp can be
+lit or uncovered; a dry lamp can use oil available in the room. A belonging
+carried away or held by an absent player leaves the station path available.
+Room capacity still applies to the destination.
+
+The same home-gate rule serves the attic and all seven visitor homes. Shared
+rules version 10 adds the path. Versions 2 through 9 retain their released
+bytes for replay. Loading an earlier world records an upgrade to version 10
+after its journal has replayed; the upgrade preserves items and played time.

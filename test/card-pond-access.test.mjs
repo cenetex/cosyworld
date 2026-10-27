@@ -154,7 +154,7 @@ describe.each([true, false])("attic access (opening: %s)", (opening) => {
       expect(encodeSave(s)).toBe(before);
       const restored = decodeSave(before);
       expect(availableCards(restored)).not.toContain("pond");
-      expect(exits(restored, "attic")).toEqual(opening ? [] : ["station"]);
+      expect(exits(restored, "attic")).toEqual(["station"]);
       if (opening)
         expect(placeText(restored, "attic")).toContain("Dust gathers");
     },
