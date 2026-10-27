@@ -1607,7 +1607,10 @@ async fn speak(
                             );
                         })?;
                 check
-                    .clean(&completion.text, completion.finish_reason != "length")
+                    .clean(
+                        &completion.text,
+                        matches!(completion.finish_reason.as_str(), "stop" | "end_turn"),
+                    )
                     .map(|text| (text, completion.resolved_model_id))
                     .map_err(|reason| {
                         tracing::info!(
@@ -1748,12 +1751,9 @@ impl<'a> Check<'a> {
     /// know, copies an example, or repeats the play or a recent line.
     fn clean(&self, raw: &str, finished: bool) -> Result<String, &'static str> {
         let own = name(&self.entity.id);
-        let line = raw
-            .trim()
-            .lines()
-            .map(str::trim)
-            .find(|l| !l.is_empty())
-            .ok_or("empty")?;
+        let mut lines = raw.trim().lines().map(str::trim).filter(|l| !l.is_empty());
+        let line = lines.next().ok_or("empty")?;
+        let cut_line = lines.next().is_some();
         let mut text = line.split_whitespace().collect::<Vec<_>>().join(" ");
         // Stage directions such as *shrugs* or (quietly) are not speech. A
         // word or two emphasised in the middle of a sentence (*click*), or a
@@ -1840,9 +1840,15 @@ impl<'a> Check<'a> {
                 }
             }
         }
-        // An unpunctuated reply stands only when the model finished it and
-        // it is more than a fragment left by a cut ("The").
-        if kept.is_empty() && finished && text.split_whitespace().count() >= 2 {
+        // A finished, single-line imperative can stand without punctuation.
+        // A continuation mark or a cut line needs a fresh complete reply.
+        let continuation = text.ends_with([',', ':', ';', '-', '–', '—', '‐', '‑']);
+        if kept.is_empty()
+            && finished
+            && !cut_line
+            && !continuation
+            && text.split_whitespace().count() >= 2
+        {
             kept = text.trim_matches(quotes).to_string();
         }
         if !bounded(&kept, self.limit) {
@@ -2114,7 +2120,8 @@ mod tests {
         // third-person narration of oneself, and read-backs of the brief.
         for (raw, reason) in [
             ("It seems like you're creating a short story.", "assistant"),
-            ("Here is the completion for Pip's dialogue:", "assistant"),
+            // The unfinished colon is rejected before its assistant wording.
+            ("Here is the completion for Pip's dialogue:", "shape"),
             (
                 "Okay, let's break down what Pip might say next.",
                 "assistant",
@@ -2148,6 +2155,111 @@ mod tests {
             clean("Yes. *She folds the cloth and looks away.* No."),
             Ok("Yes. No.".into())
         );
+    }
+
+    #[test]
+    fn unfinished_speech_shapes_retry_while_complete_words_keep_their_voice() {
+        let c = bard_context();
+        let check = Check::new(&c, &c.entities[3], Part::Line);
+        for raw in [
+            "I want the story,",
+            "I want the story:",
+            "I want the story;",
+            "I want the story-",
+            "I want the story–",
+            "I want the story—",
+            "“I want the story,”",
+            "I want the story,\nand a patient ear.",
+            "Hold it higher\nVale: I will.",
+        ] {
+            assert_eq!(check.clean(raw, true), Err("shape"), "{raw:?}");
+        }
+        for raw in [
+            "Hold it higher",
+            "I hear a hard choice in those lines.",
+            EARNED_VERSE,
+        ] {
+            assert_eq!(check.clean(raw, true), Ok(raw.into()));
+        }
+        assert_eq!(check.clean("Hold it higher", false), Err("shape"));
+        assert_eq!(
+            check.clean("I hear you.\nVale: I will.", true),
+            Ok("I hear you.".into())
+        );
+    }
+
+    #[tokio::test]
+    async fn provider_fragments_retry_before_local_or_shared_publication() {
+        for (raw, finish, shared, retry) in [
+            ("I want the story,", Some("stop"), false, true),
+            (
+                "I want the story,\nand a patient ear.",
+                Some("stop"),
+                true,
+                true,
+            ),
+            ("Hold it higher", None, false, true),
+            ("Hold it higher", Some("unknown"), true, true),
+            ("Hold it higher", Some("stop"), false, false),
+            ("Hold it higher", Some("end_turn"), true, false),
+        ] {
+            let tries = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+            let count = tries.clone();
+            let provider = Router::new().route("/chat/completions", post(move |Json(body): Json<Value>| {
+                let attempt = count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                async move {
+                    let mut choice = json!({"message":{"content":if attempt == 0 { raw } else { EARNED_VERSE }}});
+                    if let Some(reason) = if attempt == 0 { finish } else { Some("stop") } {
+                        choice["finish_reason"] = json!(reason);
+                    }
+                    Json(json!({"model":body["model"],"choices":[choice]}))
+                }
+            }));
+            let (address, server) = serve(provider).await;
+            let c = bard_context();
+            let ids = vec!["greek-rhapsode".into()];
+            let published = Mutex::new(Vec::new());
+            let emit = |text: &str| {
+                published.lock().unwrap().push(text.to_string());
+                true
+            };
+            let result = if shared {
+                shared_lines(
+                    &test_config(address),
+                    &serde_json::to_value(&c).unwrap(),
+                    &ids,
+                    &BTreeMap::new(),
+                )
+                .await
+                .unwrap()
+            } else {
+                complete_selected(
+                    &test_config(address),
+                    &c,
+                    &BTreeMap::new(),
+                    &VoiceSettings::hosted(),
+                    &ids,
+                    false,
+                    Some(&emit),
+                )
+                .await
+                .unwrap()
+            };
+            let expected = if retry { EARNED_VERSE } else { raw };
+            assert_eq!(result["entries"][0]["text"], expected, "{raw:?} {finish:?}");
+            assert_eq!(
+                tries.load(std::sync::atomic::Ordering::SeqCst),
+                if retry { 2 } else { 1 }
+            );
+            if !shared {
+                let output = published.lock().unwrap().join(" ");
+                assert!(output.contains(expected));
+                if retry {
+                    assert!(!output.contains(raw));
+                }
+            }
+            server.abort();
+        }
     }
 
     #[test]
