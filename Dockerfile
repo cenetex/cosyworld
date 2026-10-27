@@ -11,15 +11,16 @@ COPY v2/orchestrator-rust /app/v2/orchestrator-rust
 
 RUN cargo chef prepare --recipe-path /app/recipe.json
 
-FROM chef AS build
+FROM chef AS dependencies
 
 COPY --from=planner /app/recipe.json /app/recipe.json
 COPY v2/core-c /app/v2/core-c
 COPY v2/ai-model-rust /app/v2/ai-model-rust
 
-# Keep third-party Rust dependencies in a layer that application source edits do
-# not invalidate. The release workflow persists this layer in ECR.
+# Cache third-party Rust dependencies in a separate layer.
 RUN cargo chef cook --release --recipe-path /app/recipe.json
+
+FROM dependencies AS build
 
 COPY v2/core-c /app/v2/core-c
 COPY v2/content /app/v2/content
@@ -29,12 +30,17 @@ COPY v2/media /app/v2/media
 COPY v2/ai-model-rust /app/v2/ai-model-rust
 COPY v2/orchestrator-rust /app/v2/orchestrator-rust
 
-# Keep release incremental data outside the image layer so the remote builder
-# can reuse unchanged code after the application source COPY invalidates this
-# step. Serial Cargo jobs still cap memory after prior parallel builds were
-# killed by the builder's OOM guard.
-RUN --mount=type=cache,id=cosyworld-release-incremental,target=/app/v2/orchestrator-rust/target/release/incremental,sharing=locked \
-  CARGO_INCREMENTAL=1 CARGO_BUILD_JOBS=1 cargo build --release
+# Keep the complete Cargo target between builds, including fingerprints and
+# local crate outputs. Seed a fresh cache from the dependency layer. Refresh
+# source times so Cargo checks source copied from an older checkout as well.
+# One Cargo job keeps memory within the remote builder's limit.
+RUN --mount=type=cache,id=cosyworld-release-target-v1,target=/app/v2/orchestrator-rust/target,from=dependencies,source=/app/v2/orchestrator-rust/target,sharing=locked \
+  touch build.rs \
+  && find src ../ai-model-rust/src ../core-c ../content ../card-game ../media -type f -exec touch {} + \
+  && touch ../content-engine-version.txt \
+  && CARGO_INCREMENTAL=1 CARGO_BUILD_JOBS=1 cargo build --release --locked \
+  && mkdir -p /app/bin \
+  && cp target/release/cosyworld-orchestrator /app/bin/cosyworld-orchestrator
 
 FROM debian:bookworm-slim AS runtime
 
@@ -56,7 +62,7 @@ RUN apt-get update \
   && chown cosyworld:cosyworld /data \
   && chmod 0770 /data
 
-COPY --from=build /app/v2/orchestrator-rust/target/release/cosyworld-orchestrator /app/cosyworld-orchestrator
+COPY --from=build /app/bin/cosyworld-orchestrator /app/cosyworld-orchestrator
 COPY --from=build /app/v2/content /app/v2/content
 COPY models/card-policy /app/models/card-policy
 COPY deploy/lonelyforest /app/deploy/lonelyforest
