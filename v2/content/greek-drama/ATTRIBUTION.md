@@ -44,3 +44,31 @@ this attribution.
 
 Card art has its own provenance under
 [`v2/card-game/assets/greek/`](../../card-game/assets/greek/).
+
+
+## The Open Door
+
+The five-place Attic section develops three works from the same repertoire:
+
+- [Euripides, Suppliant Women](https://classics.mit.edu/Euripides/suppliants.html)
+  supplies the mothers' request, Aethra, Adrastus, Theseus, the recovery of
+  the dead, the funeral, Evadne's death, Iphis's grief and the closing oath.
+- [Euripides, Children of Heracles](https://classics.mit.edu/Euripides/heracleidae.html)
+  supplies the Marathon refuge, the daughter's sacrifice, the battle and
+  the dispute over the captive Eurystheus. The source-facing copy calls
+  the volunteer Heracles's daughter.
+- Sophocles' *Oedipus at Colonus* is checked against the complete
+  [Storr text](https://www.gutenberg.org/files/31/31-h/31-h.htm) and the
+  [Center for Hellenic Studies text](https://www-current.chs.harvard.edu/primary-source/sophocles-oedipus-at-colonus-sb/).
+  These include Ismene's ritual, the daughters' recovery, Polyneices's plea,
+  Oedipus's passing and Theseus's final promise.
+
+Colonus is a named earlier tale. Marathon belongs to a separate generation
+under Demophon. Their present keepers, physical gifts and closing responses
+are original connective scenes. The public hearing at the Agora, the
+negotiated burial truce, Thaleia's quay work and the two present Eleusis
+answers are original adaptations. Marathon's public hearing is explicitly
+an alternate ending within the keeper's tale.
+
+[The Open Door guide](OPEN-DOOR.md) gives the scene order, facts and original
+choices. All prose and verses added for this section are original writing.
