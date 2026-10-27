@@ -495,59 +495,85 @@ export function renderSharedQueue(
     queue.append(row);
   }
 }
-// A viewer can pause to read a card while the room keeps its common clock.
+const sharedLineDuration = (line) =>
+  Math.min(9000, Math.max(3500, line.text.length * 45 + 1500));
+const roomScenes = (state, room) =>
+  (state.history || [])
+    .filter((entry) => entry.room === room && entry.lines?.length)
+    .toSorted((a, b) => a.starts_at - b.starts_at);
+const sceneIdentity = (scene) => `${scene.starts_at}:${scene.play || ""}`;
+
+// Each viewer reads incoming scenes in order, including scenes received together.
 export function createSharedPlaybackClock() {
   let sceneKey = null,
     roomKey = null,
+    awaitingFirst = false,
     delay = 0,
     pausedAt = null;
+  const reset = () => {
+    sceneKey = null;
+    roomKey = null;
+    awaitingFirst = false;
+    delay = 0;
+    pausedAt = null;
+  };
   return {
-    reset() {
-      sceneKey = null;
-      roomKey = null;
-      delay = 0;
-      pausedAt = null;
-    },
+    reset,
     now(state, now, room, paused) {
       if (room !== roomKey) {
+        reset();
         roomKey = room;
-        sceneKey = null;
-        delay = 0;
-        pausedAt = null;
       }
-      const scene = state.history?.find(
-        (entry) => entry.room === room && entry.lines?.length,
+      const scenes = roomScenes(state, room);
+      let index = scenes.findIndex(
+        (scene) => sceneIdentity(scene) === sceneKey,
       );
-      const key = scene
-        ? `${room}:${scene.starts_at}:${scene.play || ""}`
-        : room;
-      if (key !== sceneKey) {
-        sceneKey = key;
-        delay = 0;
-        if (pausedAt !== null && scene)
-          pausedAt = Math.max(pausedAt, scene.starts_at);
+      if (index < 0 && scenes.length) {
+        index = awaitingFirst ? 0 : scenes.length - 1;
+        sceneKey = sceneIdentity(scenes[index]);
+        delay =
+          awaitingFirst && !paused
+            ? Math.max(0, now - scenes[index].starts_at)
+            : 0;
+        awaitingFirst = false;
+        if (pausedAt !== null)
+          pausedAt = Math.max(pausedAt, scenes[index].starts_at);
       }
-      if (paused) {
-        pausedAt ??= now;
-        return pausedAt - delay;
-      }
-      if (pausedAt !== null) {
+      if (!scenes.length && sceneKey === null) awaitingFirst = true;
+      if (paused) pausedAt ??= now;
+      else if (pausedAt !== null) {
         delay += Math.max(0, now - pausedAt);
         pausedAt = null;
       }
-      return now - delay;
+      let readingTime = (pausedAt ?? now) - delay;
+      const scene = scenes[index];
+      const next = scenes[index + 1];
+      if (
+        !paused &&
+        scene &&
+        next &&
+        now >= next.starts_at &&
+        readingTime >=
+          scene.starts_at +
+            scene.lines.reduce((sum, line) => sum + sharedLineDuration(line), 0)
+      ) {
+        sceneKey = sceneIdentity(next);
+        // A late update can contain several scenes. Give each its reading time.
+        delay = Math.max(0, now - next.starts_at);
+        readingTime = now - delay;
+      }
+      return readingTime;
     },
   };
 }
 
 export function sharedLiveLine(state, now, room) {
-  const scene = (state.history || []).find(
-    (entry) => entry.room === room && entry.lines?.length,
-  );
+  const scenes = roomScenes(state, room);
+  const scene = scenes.findLast((entry) => entry.starts_at <= now) || scenes[0];
   if (!scene) return null;
   let elapsed = now - scene.starts_at;
   for (const line of scene.lines) {
-    elapsed -= Math.min(9000, Math.max(3500, line.text.length * 45 + 1500));
+    elapsed -= sharedLineDuration(line);
     if (elapsed < 0) return line;
   }
   return scene.lines.at(-1);
