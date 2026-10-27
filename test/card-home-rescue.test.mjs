@@ -181,7 +181,11 @@ describe("a path out of a stranded home", () => {
     refused.actors.moth.place = "attic";
     refused.items.lamp.holder = "moth";
     expect(willingToGive(refused, "moth", "lamp", "vale")).toBe(false);
-    expect(legalActions(refused, "vale").some(a => a.kind === "trade" && a.receive === "lamp")).toBe(false);
+    expect(
+      legalActions(refused, "vale").some(
+        (a) => a.kind === "trade" && a.receive === "lamp",
+      ),
+    ).toBe(false);
     expect(exits(refused, "attic", "vale")).toEqual(["station"]);
   });
   it("offers rescue only for the human who stands in the queried home", () => {
