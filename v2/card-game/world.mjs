@@ -320,7 +320,12 @@ function localGateResource(s, place, item, actor) {
       itemPlace(s, item) === place &&
       (canUse(s, actor, item) ||
         (controlledByHuman(s, rootHolder(s, item)) &&
-          humanPresent(s, rootHolder(s, item)))),
+          humanPresent(s, rootHolder(s, item))) ||
+        (knownActors(s).includes(rootHolder(s, item)) &&
+          (willingToGive(s, rootHolder(s, item), item, actor) ||
+            carried(s, actor).some((payment) =>
+              canTrade(s, actor, payment, item),
+            )))),
   );
 }
 function homeGateRecoverable(s, place, gate, actor) {

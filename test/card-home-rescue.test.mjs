@@ -7,7 +7,9 @@ import {
   encodeSave,
   decodeSave,
   placeText,
+  willingToGive,
 } from "../v2/card-game/world.mjs";
+import { enableMotives, recordReaction } from "../v2/card-game/motives.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { humanAvatars, humanAvatarIds } from "../v2/card-game/human-cast.mjs";
 
@@ -140,6 +142,33 @@ describe("a path out of a stranded home", () => {
     expect(view(w, a.id).exits).toEqual([]);
     w.actors.tavi.place = "pond";
     expect(view(w, a.id).exits).toEqual(["station"]);
+  });
+  it("keeps accepted resident gifts and trades as real recovery routes", () => {
+    for (const kind of ["ask", "trade"]) {
+      const s = enableMotives(opening());
+      s.opening.crossed = true;
+      s.opening.met.moth = s.opening.met.keeper = 0;
+      s.locations.attic.anchored = true;
+      s.actors.keeper.place = "attic";
+      s.items.lamp.holder = "keeper";
+      s.items.bell.holder = "vale";
+      if (kind === "trade") {
+        recordReaction(s, { kind: "ring", actor: "vale", item: "bell" }, [
+          "keeper",
+        ]);
+        expect(willingToGive(s, "keeper", "lamp", "vale")).toBe(false);
+      }
+      expect(exits(s, "attic", "vale")).toEqual([]);
+      const action = legalActions(s, "vale").find(
+        (a) =>
+          a.kind === kind &&
+          (kind === "ask" ? a.item === "lamp" : a.receive === "lamp"),
+      );
+      expect(action).toBeDefined();
+      const result = play(s, action);
+      expect(result.ok).toBe(true);
+      expect(result.state.items.lamp.holder).toBe("vale");
+    }
   });
   it("keeps recovery limited to home rooms and controlled humans", () => {
     const s = opening();
