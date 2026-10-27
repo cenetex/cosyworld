@@ -2182,3 +2182,78 @@ fn embedded_selected_cards_match_with_personal_and_shared_quest_offers() {
     assert_eq!(actual["world"], w.game);
     assert_eq!(w.game["items"]["cloth"]["holder"], "lamp");
 }
+
+#[test]
+fn stranded_home_rescue_replays_after_version_nine_upgrade() {
+    for keep_checkpoint in [true, false] {
+        let (_file, c, id) = fixture();
+        c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+        c.execute("DELETE FROM card_full_log", []).unwrap();
+        let result = engine::reduce_version(engine::NINTH_VERSION, json!({"op":"create"})).unwrap();
+        let mut old = World {
+            version: engine::NINTH_VERSION.into(),
+            game: result["world"].clone(),
+            claimed: [1, 0, 0, 0, 0, 0, 0, 0],
+            present: [1, 0, 0, 0, 0, 0, 0, 0],
+        };
+        old.game["items"]["lamp"]["fuel"] = json!(0);
+        old.game["items"]["lamp"]["lit"] = json!(false);
+        assert_eq!(old.project(0).unwrap()["exits"], json!([]));
+        full_store::seed(&c, &id, &old, "released-nine-dry-lamp", now()).unwrap();
+        if !keep_checkpoint {
+            c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+        }
+        let mut upgraded = full_store::world(&c, &id, now()).unwrap();
+        assert_eq!(upgraded.version, engine::VERSION);
+        assert_eq!(upgraded.project(0).unwrap()["exits"], json!(["station"]));
+        assert_eq!(upgraded.game["turn"], old.game["turn"]);
+        assert_eq!(upgraded.game["items"], old.game["items"]);
+        let action = home_action(&upgraded, 0, "move");
+        full_store::commit(
+            &c,
+            &id,
+            &mut upgraded,
+            json!({"op":"play","actor":"vale","action":action}),
+            now(),
+        )
+        .unwrap();
+        assert_eq!(upgraded.game["actors"]["vale"]["place"], "station");
+        c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+        assert_eq!(full_store::world(&c, &id, now()).unwrap(), upgraded);
+    }
+}
+
+#[test]
+fn each_shared_home_rescue_commits_through_c_and_replays() {
+    for (a, item) in [
+        (1, "mask"),
+        (2, "float"),
+        (3, "can"),
+        (4, "kite"),
+        (5, "routes"),
+        (6, "board"),
+        (7, "shears"),
+    ] {
+        let (_file, c, id) = fixture();
+        c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+        c.execute("DELETE FROM card_full_log", []).unwrap();
+        let mut w = World::create(None).unwrap();
+        w.claimed = [1; 8];
+        w.present = [1; 8];
+        w.game["items"][item]["holder"] = json!("station");
+        full_store::seed(&c, &id, &w, "stranded-home", now()).unwrap();
+        assert_eq!(w.project(a).unwrap()["exits"], json!(["station"]));
+        let action = home_action(&w, a, "move");
+        full_store::commit(
+            &c,
+            &id,
+            &mut w,
+            json!({"op":"play","actor":actor_id(a),"action":action}),
+            now(),
+        )
+        .unwrap();
+        assert_eq!(w.game["actors"][actor_id(a)]["place"], "station");
+        c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+        assert_eq!(full_store::world(&c, &id, now()).unwrap(), w);
+    }
+}
