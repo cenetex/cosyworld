@@ -39,7 +39,7 @@
       "Aristophanes": 11
     },
     "opening": "Before the Burial",
-    "status": "A complete situated repertoire, a consequential Theban opening, and branching Helen and Atreid episodes. Situated hooks open saved inquiries; they are not complete adaptations of the other plays."
+    "status": "Eight plays have authored scenes across Before the Burial, The Open Door, and the Helen and Atreid accounts. The other thirty-six works have situated hooks for later sections."
   },
   "places": {
     "greek-harbor": {
@@ -3584,8 +3584,8 @@
       "subject": "greek-baker",
       "at": "greek-courtyard",
       "label": "Take the road to Eleusis",
-      "text": "Dione has heard the burial. She tells Vale of the Argive mothers waiting at Eleusis. Vale accepts her introduction to the five Attic places.",
-      "textTemplate": "Dione has heard the burial. She tells {actor} of the Argive mothers waiting at Eleusis. {actor} accepts her introduction to the five Attic places.",
+      "text": "Dione has heard the burial. She tells Vale of the Argive mothers waiting at Eleusis. Vale takes her introduction for the mothers at Eleusis.",
+      "textTemplate": "Dione has heard the burial. She tells {actor} of the Argive mothers waiting at Eleusis. {actor} takes her introduction for the mothers at Eleusis.",
       "summary": "After the public account of the burial, the traveler accepted Dione’s introduction to Eleusis and the Attic roads.",
       "requires": [
         {
@@ -3617,8 +3617,8 @@
       "subject": "greek-baker",
       "at": "greek-courtyard",
       "label": "Take the road to Eleusis",
-      "text": "Dione has heard the permission. She tells Vale of the Argive mothers waiting at Eleusis. Vale accepts her introduction to the five Attic places.",
-      "textTemplate": "Dione has heard the permission. She tells {actor} of the Argive mothers waiting at Eleusis. {actor} accepts her introduction to the five Attic places.",
+      "text": "Dione has heard the permission. She tells Vale of the Argive mothers waiting at Eleusis. Vale takes her introduction for the mothers at Eleusis.",
+      "textTemplate": "Dione has heard the permission. She tells {actor} of the Argive mothers waiting at Eleusis. {actor} takes her introduction for the mothers at Eleusis.",
       "summary": "After the public account of the permission, the traveler accepted Dione’s introduction to Eleusis and the Attic roads.",
       "requires": [
         {
@@ -3650,8 +3650,8 @@
       "subject": "greek-baker",
       "at": "greek-courtyard",
       "label": "Take the road to Eleusis",
-      "text": "Dione has heard your refusal. She tells Vale of the Argive mothers waiting at Eleusis. Vale accepts her introduction to the five Attic places.",
-      "textTemplate": "Dione has heard your refusal. She tells {actor} of the Argive mothers waiting at Eleusis. {actor} accepts her introduction to the five Attic places.",
+      "text": "Dione has heard your refusal. She tells Vale of the Argive mothers waiting at Eleusis. Vale takes her introduction for the mothers at Eleusis.",
+      "textTemplate": "Dione has heard your refusal. She tells {actor} of the Argive mothers waiting at Eleusis. {actor} takes her introduction for the mothers at Eleusis.",
       "summary": "After the public account of your refusal, the traveler accepted Dione’s introduction to Eleusis and the Attic roads.",
       "requires": [
         {
@@ -3683,8 +3683,8 @@
       "subject": "greek-baker",
       "at": "greek-courtyard",
       "label": "Take the road to Eleusis",
-      "text": "Dione has heard the warning. She tells Vale of the Argive mothers waiting at Eleusis. Vale accepts her introduction to the five Attic places.",
-      "textTemplate": "Dione has heard the warning. She tells {actor} of the Argive mothers waiting at Eleusis. {actor} accepts her introduction to the five Attic places.",
+      "text": "Dione has heard the warning. She tells Vale of the Argive mothers waiting at Eleusis. Vale takes her introduction for the mothers at Eleusis.",
+      "textTemplate": "Dione has heard the warning. She tells {actor} of the Argive mothers waiting at Eleusis. {actor} takes her introduction for the mothers at Eleusis.",
       "summary": "After the public account of the warning, the traveler accepted Dione’s introduction to Eleusis and the Attic roads.",
       "requires": [
         {
