@@ -27,6 +27,7 @@ import {
 
 import {
   summonTransport,
+  transportUnlocked,
   validTransports,
   transportCrossing,
 } from "./pack-transport.mjs";
@@ -133,7 +134,8 @@ const windowOpen = (s, c) =>
     : s.turn < (crossingState(s, c.id)?.until ?? 0));
 export const crossingOpen = (s, c, senses) =>
   (c.transport
-    ? s.transports[c.transport]?.dock === c.from
+    ? transportUnlocked(s, c.transport) &&
+      s.transports[c.transport]?.dock === c.from
     : windowOpen(s, c) && signalReady(s, c, senses)) &&
   c.requires.every((r) => conditionMet(s, r, senses, c.packId));
 export const crossingBetween = (from, to, s = null) =>
@@ -167,7 +169,8 @@ export const packDiscovered = (s, packId) =>
   );
 export function markCrossed(s, from, to) {
   const c = crossingBetween(from, to, s);
-  if (c && crossingState(s, c.id)) s.crossings[c.id].discovered = true;
+  if (c && !(c.transport && c.signal) && crossingState(s, c.id))
+    s.crossings[c.id].discovered = true;
 }
 /** Extra place text from crossings that start here (open or closed). */
 export const crossingScenery = (s, place, senses) =>

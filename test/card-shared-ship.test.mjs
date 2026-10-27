@@ -22,6 +22,7 @@ function setup(dock) {
   s.actors.moth.place = "station";
   s.actors.keeper.place = "attic";
   summonTransport(s, "greek-ship", dock);
+  s.crossings["pond-greek-harbor"].discovered = true;
   return s;
 }
 const ask = (world, actor, op = "view", extra = {}) =>
@@ -47,6 +48,63 @@ function move(world, actor, target) {
 }
 
 describe("shared ship boarding", () => {
+  it("shares the first successful lamp signal and keeps access on later voyages", () => {
+    let s = setup("greek-harbor");
+    s.crossings["pond-greek-harbor"].discovered = false;
+    for (const actor of players) s.actors[actor].place = "pond";
+    Object.assign(s.items.lamp, { holder: "vale", lit: true, fuel: 12 });
+    s.items.cloth.holder = "vale";
+    for (const [kind, item] of [
+      ["cover", "cloth"],
+      ["take", "cloth"],
+      ["cover", "cloth"],
+      ["take", "cloth"],
+    ]) {
+      for (const actor of players)
+        expect(
+          ask(s, actor).actions.some((a) => a.target === "greek-ship"),
+        ).toBe(false);
+      const action = ask(s, "vale").actions.find(
+        (a) =>
+          a.kind === kind &&
+          a.item === item &&
+          (kind !== "cover" || a.target === "lamp"),
+      );
+      expect(action).toBeDefined();
+      const result = ask(s, "vale", "play", { action });
+      expect(result.ok, result.error).toBe(true);
+      s = decodeSave(encodeSave(result.world));
+    }
+    expect(s.crossings["pond-greek-harbor"].discovered).toBe(true);
+    for (const actor of players)
+      expect(ask(s, actor).actions.some((a) => a.target === "greek-ship")).toBe(
+        true,
+      );
+    s.items.lamp.lit = false;
+    for (const target of ["greek-ship", "greek-harbor", "greek-ship", "pond"])
+      s = move(s, "mara", target);
+    expect(s.crossings["pond-greek-harbor"].discovered).toBe(true);
+    expect(ask(s, "ash").actions.some((a) => a.target === "greek-ship")).toBe(
+      true,
+    );
+  });
+
+  it("uses authenticated passenger claims for an older shared voyage", () => {
+    const old = setup("greek-harbor");
+    old.crossings["pond-greek-harbor"].discovered = false;
+    old.actors.mara.place = "greek-ship";
+    old.transports["greek-ship"].destination = "pond";
+    const npcOnly = ask(old, "vale", "view", {
+      claimed: ["vale"],
+      present: ["vale"],
+    }).world;
+    expect(npcOnly.crossings["pond-greek-harbor"].discovered).toBe(false);
+    const humanVoyage = ask(old, "mara").world;
+    expect(humanVoyage.crossings["pond-greek-harbor"].discovered).toBe(true);
+    expect(humanVoyage.actors).toEqual(old.actors);
+    expect(humanVoyage.transports).toEqual(old.transports);
+  });
+
   it.each(["pond", "greek-harbor"])(
     "waits at %s for companions and moves on the first disembark",
     (origin) => {

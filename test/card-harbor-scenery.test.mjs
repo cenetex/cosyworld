@@ -47,9 +47,15 @@ function check(world, expected) {
     expect(currentScene(world).background).toBe(expected);
 }
 describe("harbor scenery follows the ship", () => {
+  it("shows the open berth until the first signal", () => {
+    const world = createWorld();
+    world.actors.vale.place = harbor;
+    check(world, open);
+  });
   it("keeps the ship visible while boarding and follows its dock through a return trip", () => {
     let world = createWorld();
     world.actors.vale.place = harbor;
+    world.crossings["pond-greek-harbor"].discovered = true;
     check(world, docked);
     world = move(world, "greek-ship");
     check(world, docked);
@@ -63,6 +69,7 @@ describe("harbor scenery follows the ship", () => {
   it("updates a viewer ashore when the ship is recalled, and waits for passengers", () => {
     let world = createWorld();
     world.actors.vale.place = harbor;
+    world.crossings["pond-greek-harbor"].discovered = true;
     summonTransport(world, "greek-ship", "pond");
     check(world, open);
     summonTransport(world, "greek-ship", harbor);

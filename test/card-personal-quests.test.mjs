@@ -25,6 +25,7 @@ import {
   targetsFor,
   actorQuests,
   pursueQuest,
+  installQuestCollection,
 } from "../v2/card-game/quests.mjs";
 import {
   lifeOf,
@@ -43,6 +44,10 @@ import {
   REST_TURNS,
   STALL_TURNS,
 } from "../v2/card-game/life.mjs";
+import {
+  registerPersonalQuest,
+  focusQuest,
+} from "../v2/card-game/shared-quests.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import { cardPlay } from "../v2/card-game/cards.mjs";
 
@@ -750,6 +755,36 @@ describe("personal quests grow from life", () => {
       mutate(s);
       expect(() => validateWorld(s)).toThrow();
     }
+  });
+
+  it("keeps a joined companion goal distinct when a personal quiet period ends", () => {
+    let s = together();
+    for (const actor of ["vale", "moth"]) installQuestCollection(s, actor);
+    const collection = lifeOf(s, "moth").collection;
+    const key = `moth:quest:${collection.next++}`;
+    registerPersonalQuest(s, "moth", {
+      key,
+      program: {
+        id: "a-meeting-with-vale",
+        name: "A meeting with Vale",
+        steps: [{ items: ["cloth"], location: "pond", avatars: ["vale"] }],
+      },
+      step: 0,
+      origin: null,
+      createdTurn: s.turn,
+      completedTurn: null,
+    });
+    collection.cards.push(key);
+    focusQuest(s, "vale", key);
+    lifeOf(s, "vale").quiet = STALL_TURNS;
+    s = act(s, "wait");
+    expect(s.quests.focus.vale).toBe(key);
+    expect(s.quests.records[key].subjectActor).toBe("moth");
+    expect(s.quests.records[key].participants).toEqual(["moth", "vale"]);
+    expect(
+      s.log.filter((entry) => entry.actorId === "vale" && entry.questPlan),
+    ).toEqual([]);
+    expect(decodeSave(encodeSave(s))).toEqual(s);
   });
 
   it("keeps mixed play deterministic and saved personal state bounded", () => {
