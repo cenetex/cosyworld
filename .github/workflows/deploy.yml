@@ -238,6 +238,7 @@ jobs:
         id: image
         run: bash scripts/prepare-fly-image.sh cosyworld fly.toml
         env:
+          COSYWORLD_IMAGE_BUILDER: runner
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
   # Run the guards and rollback snapshot beside the checks and image build.
@@ -372,6 +373,7 @@ jobs:
         id: image
         run: bash scripts/prepare-fly-image.sh cosyworld-lonelyforest fly.lonelyforest.toml
         env:
+          COSYWORLD_IMAGE_BUILDER: runner
           FLY_API_TOKEN: ${{ secrets.FLY_LONELYFOREST_API_TOKEN }}
           FLY_SOURCE_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
           SOURCE_IMAGE: ${{ needs.primary-image.outputs.image }}

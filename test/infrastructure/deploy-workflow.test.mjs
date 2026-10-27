@@ -223,6 +223,7 @@ describe("deploy workflow", () => {
       );
       expect(image).toContain(`FLY_API_TOKEN: \${{ secrets.${token} }}`);
       expect(image).toContain("image: ${{ steps.image.outputs.image }}");
+      expect(image).toContain("COSYWORLD_IMAGE_BUILDER: runner");
       expect(image).not.toContain("production-gate");
       expect(image).not.toContain("backup-fly-v2.sh");
     }

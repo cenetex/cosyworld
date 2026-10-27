@@ -20,6 +20,7 @@ function prepare({
   wrongDigest = false,
   sourceImage = source,
   buildFails = false,
+  imageBuilder = "fly",
   manifestDelays = 0,
 } = {}) {
   const dir = mkdtempSync(join(tmpdir(), "cosyworld-image-test-"));
@@ -37,6 +38,9 @@ if (command === 'flyctl' && args[0] === 'auth') {
   if (!config.auths?.['registry.fly.io']) process.exit(1);
   writeFileSync(join(env.DOCKER_CONFIG, 'config.json'), '{}');
 } else if (command === 'flyctl' && args[0] === 'deploy') {
+  if (env.TEST_BUILD_FAIL === 'true') process.exit(1);
+  writeFileSync(env.TEST_STATE, 'built');
+} else if (command === 'docker' && args[0] === 'buildx' && args[1] === 'build') {
   if (env.TEST_BUILD_FAIL === 'true') process.exit(1);
   writeFileSync(env.TEST_STATE, 'built');
 } else if (command === 'skopeo' && args[0] === 'copy') {
@@ -79,6 +83,7 @@ if (command === 'flyctl' && args[0] === 'auth') {
           GITHUB_SHA: "b".repeat(40),
           GITHUB_OUTPUT: output,
           SOURCE_IMAGE: copy ? sourceImage : "",
+          COSYWORLD_IMAGE_BUILDER: imageBuilder,
           TEST_LOG: log,
           TEST_STATE: join(dir, "state"),
           TEST_EXISTING: existing,
@@ -127,6 +132,37 @@ describe("Fly commit image preparation", () => {
       `deploy-${"b".repeat(40)}`,
     ]);
     expect(result.output).toBe(`image=${source}\n`);
+  });
+  it("builds on the runner with an app-scoped cache and cleans up its builder", () => {
+    const result = prepare({ imageBuilder: "runner" });
+    expect(result.status).toBe(0);
+    const calls = operations(result, "docker", "buildx");
+    expect(calls.map(({ args }) => args[1])).toEqual(["create", "build", "rm"]);
+    const args = calls[1].args;
+    expect(args).toContain("CARGO_BUILD_JOBS=4");
+    expect(args).toContain("linux/amd64");
+    expect(args).toContain(
+      "type=registry,ref=registry.fly.io/cosyworld:build-cache-v1",
+    );
+    expect(args).toContain(
+      "type=registry,ref=registry.fly.io/cosyworld:build-cache-v1,mode=max,image-manifest=true,oci-mediatypes=true",
+    );
+    expect(args).toContain(
+      `registry.fly.io/cosyworld:deploy-${"b".repeat(40)}`,
+    );
+    expect(operations(result, "flyctl", "deploy")).toHaveLength(0);
+    expect(result.output).toBe(`image=${source}\n`);
+  });
+  it("reuses a runner image before starting a builder", () => {
+    const result = prepare({ imageBuilder: "runner", existing: digest });
+    expect(result.status).toBe(0);
+    expect(operations(result, "docker", "buildx")).toHaveLength(0);
+  });
+  it("cleans up a failed runner build and withholds the image", () => {
+    const result = prepare({ imageBuilder: "runner", buildFails: true });
+    expect(result.status).not.toBe(0);
+    expect(result.output).toBe("");
+    expect(operations(result, "docker", "buildx").at(-1).args[1]).toBe("rm");
   });
   it.each([false, true])("waits for the uploaded manifest, copy=%s", (copy) => {
     const result = prepare({ copy, manifestDelays: 2 });
