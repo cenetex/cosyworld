@@ -3,7 +3,7 @@ import { build } from "esbuild";
 import { readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 const root = fileURLToPath(new URL("../../", import.meta.url));
-const output = new URL("../orchestrator-rust/src/card_shared/engine-v8.js", import.meta.url);
+const output = new URL("../orchestrator-rust/src/card_shared/engine-v9.js", import.meta.url);
 const result = await build({
   absWorkingDir: root,
   entryPoints: ["v2/card-game/shared-world-entry.mjs"],

@@ -1,3 +1,4 @@
+import { canCarryQuest, carryQuest, questHolderActor } from "./quest-hands.mjs";
 // One saved record owns each quest. Holders, helpers and personal focus are separate.
 export const SHARED_QUEST_VERSION = 1;
 export const QUEST_RECORD_LIMIT = 4096;
@@ -26,6 +27,11 @@ export function installSharedQuestRegistry(world) {
     next: 0,
     records: {},
     focus: {},
+    ...(Object.values(world.life?.actors || {}).some(
+      (life) => life.collection?.cards?.length,
+    )
+      ? {}
+      : { hands: {} }),
   };
   for (const [actor, life] of Object.entries(world.life?.actors || {})) {
     const collection = life.collection;
@@ -60,6 +66,7 @@ export function registerPersonalQuest(world, actor, card) {
     cause: card.cause || null,
   });
   registry.records[card.key] = card;
+  if (registry.hands) carryQuest(world, actor, card);
   return card;
 }
 
@@ -115,12 +122,21 @@ export function addQuestRecord(
     ...(transientActor ? { transientActor, familyActor: transientActor } : {}),
   };
   registry.records[questKey] = record;
+  if (registry.hands)
+    for (const actor of new Set([...members, questHolderActor(world, record)]))
+      if (actor) carryQuest(world, actor, record);
   return record;
 }
 
 export function canJoinQuest(world, actor, key) {
   const quest = questRecord(world, key);
-  if (!world.actors?.[actor] || !quest || !unfinished(quest)) return false;
+  if (
+    !world.actors?.[actor] ||
+    !quest ||
+    !unfinished(quest) ||
+    !canCarryQuest(world, actor, quest)
+  )
+    return false;
   return (
     !quest.transientActor ||
     actor === quest.transientActor ||
@@ -134,6 +150,7 @@ export function joinQuest(world, actor, key) {
   if (quest.transientActor && actor !== quest.transientActor)
     delete quest.transientActor;
   quest.participants = [...new Set([...quest.participants, actor])].sort();
+  carryQuest(world, actor, quest);
   return true;
 }
 
