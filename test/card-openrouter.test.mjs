@@ -243,4 +243,47 @@ describe("player OpenRouter connection", () => {
     ).rejects.toThrow();
     expect(f.fetcher).toHaveBeenCalledTimes(2);
   });
+  it("reports a routing policy rejection as a permanent request failure", async () => {
+    const f = fixture();
+    f.fetcher.mockResolvedValueOnce(
+      Response.json(
+        {
+          error: {
+            code: 404,
+            message:
+              "No endpoints found matching your data policy (Zero data retention).",
+          },
+        },
+        { status: 404 },
+      ),
+    );
+    await expect(
+      f.client.request("chat/completions", {
+        body: { model: "google/gemini-2.5-flash", messages: [] },
+      }),
+    ).rejects.toMatchObject({
+      status: 404,
+      retryable: false,
+      message:
+        "Check your OpenRouter privacy settings for an available model provider.",
+    });
+  });
+  it.each([
+    [400, false],
+    [401, false],
+    [402, false],
+    [403, false],
+    [404, false],
+    [408, true],
+    [422, false],
+    [429, true],
+    [502, true],
+    [503, true],
+  ])("classifies HTTP %i for dialogue retries", async (status, retryable) => {
+    const f = fixture();
+    f.fetcher.mockResolvedValueOnce(new Response("Provider error", { status }));
+    await expect(
+      f.client.request("chat/completions", { body: { model: "chat" } }),
+    ).rejects.toMatchObject({ status, retryable });
+  });
 });
