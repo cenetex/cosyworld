@@ -105,7 +105,7 @@ try {
     assert.equal(await frames.nth(1).getAttribute("data-stacked"), "false");
     await selectCard(page, pending);
     assert.equal(
-      await page.locator('#card-actions [data-action="pursue"]').count(),
+      await page.locator('#card-actions [data-action="drop-quest"]').count(),
       1,
     );
     assert.equal(
@@ -121,7 +121,7 @@ try {
     await selectCard(page, "moth");
     await selectCard(page, npcTop);
     assert.equal(
-      await page.locator('#card-actions [data-action="pursue"]').count(),
+      await page.locator('#card-actions [data-action="drop-quest"]').count(),
       0,
     );
     assert.equal(
@@ -130,11 +130,11 @@ try {
     );
     await selectCard(page, "player-quest");
     await selectCard(page, pending);
-    await page.locator('#card-actions [data-action="pursue"]').click();
+    await page.locator('#card-actions [data-action="drop-quest"]').click();
     await page.waitForFunction(
       ({ key, active }) =>
-        JSON.parse(localStorage.getItem(key)).life.actors.vale.collection
-          .active === active,
+        JSON.parse(localStorage.getItem(key)).quests.records[active].droppedBy
+          ?.vale !== undefined,
       { key, active: player[1].key },
     );
     const saved = await page.evaluate(
@@ -142,6 +142,14 @@ try {
       key,
     );
     assert(saved.life.actors.vale.collection.cards.includes(player[0].key));
+    assert.equal(questCards(saved).length, 1);
+    assert.equal(questCards(saved)[0].key, player[0].key);
+    await page.reload();
+    await selectCard(page, "vale");
+    assert.equal(
+      await page.locator('#hand .quest-frame[data-holder="vale"]').count(),
+      1,
+    );
     assert.equal(
       collectionCards(saved, "vale").find((q) => q.key === player[1].key).step,
       0,
@@ -150,7 +158,7 @@ try {
     await page.close();
   }
   console.log(
-    "Quest stacks, browsing, player focus and NPC read-only cards passed at desktop and phone widths.",
+    "Two-card quest stacks, Drop, saved history, reload and NPC browsing passed at desktop and phone widths.",
   );
 } finally {
   await browser.close();

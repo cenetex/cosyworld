@@ -23,6 +23,7 @@ try {
       world.items.cloth.holder = "vale";
       world.items.lamp.holder = "vale";
       world.items.bell.holder = "moth";
+      world.items.oil.holder = "pond";
       const table = `holder-${width}-${reducedMotion}`;
       const key = `cosyworld.reflected-shore.v1.${table}`;
       const page = await browser.newPage({
@@ -168,6 +169,19 @@ try {
           ["pond"],
           "an unrelated third card starts a new selection",
         );
+        assert.equal(await frame("oil").getAttribute("hidden"), null);
+        await tap("oil");
+        assert.deepEqual(await selected(), ["oil", "pond"]);
+        assert.equal(await card("pond").getAttribute("aria-expanded"), "true");
+        assert(
+          await page.locator('#card-actions [data-action="take"]').count(),
+        );
+        await page.screenshot({
+          path: new URL(`${table}-location-items.png`, output).pathname,
+        });
+        await tap("pond");
+        assert.equal(await frame("oil").getAttribute("hidden"), "");
+        assert.deepEqual(await selected(), []);
         await page.keyboard.press("Escape");
         assert.deepEqual(await selected(), []);
         assert.equal(await frame("cloth").getAttribute("hidden"), "");
@@ -277,10 +291,24 @@ try {
       await avatar.scrollIntoViewIfNeeded();
       await avatar.click();
       assert.equal(await avatar.getAttribute("aria-expanded"), "true");
+      snapshot.queue = [
+        { id: "thinking-play", actor: "vale", status: "working" },
+      ];
       world.actors.mara.place = "station";
       world.revision++;
       snapshot.now = Date.now();
       await avatar.waitFor({ state: "detached" });
+      await page.waitForFunction(
+        () =>
+          !document.querySelector(
+            '#cast [data-avatar="mara"]:not([data-removing="true"])',
+          ),
+      );
+      assert.match(await page.locator("#story-status").innerText(), /Thinking/);
+      assert.equal(
+        await page.locator("#stage").getAttribute("data-presented-revision"),
+        await page.locator("#hand").getAttribute("data-presented-revision"),
+      );
       world.actors.mara.place = "pond";
       world.revision++;
       snapshot.now = Date.now();

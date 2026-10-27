@@ -52,7 +52,10 @@
             <div class="speech-content">
               <div class="dialogue-heading">
                 <strong id="speaker"></strong>
-                <span id="story-status" role="status" hidden></span>
+                <span id="story-status" role="status" aria-live="polite" hidden>
+                  <span class="thinking-orbit" aria-hidden="true"></span>
+                  <span>Thinking</span>
+                </span>
                 <button
                   id="story-retry"
                   type="button"

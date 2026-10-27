@@ -514,7 +514,7 @@ try {
   await perform(rue, "move", "train");
 
   await dismissDiscoveries(mara);
-  await mara.locator('#hand [data-card="mask"]').waitFor();
+  await mara.locator('#hand [data-card="mask"]').waitFor({ state: "attached" });
   assert.equal(await mara.locator('#hand [data-card="pond"]').count(), 0);
   await until(
     () =>
@@ -536,7 +536,7 @@ try {
     path: join(output, "item-floor-phone.png"),
     fullPage: true,
   });
-  await mara.locator('#hand [data-card="mask"]').click();
+  await selectCard(mara, "mask");
   await mara.getByRole("button", { name: "Take", exact: true }).click();
   await until(
     async () => (await snapshot(mara)).world.items.mask.holder === "mara",
@@ -568,7 +568,7 @@ try {
     409,
   );
   await mara.reload();
-  await mara.locator('#hand [data-card="mask"]').waitFor();
+  await mara.locator('#hand [data-card="mask"]').waitFor({ state: "attached" });
   await dismissDiscoveries(mara);
   assert.equal(await mara.locator('#hand [data-card="pond"]').count(), 0);
   await mara.setViewportSize({ width: 1440, height: 900 });
@@ -791,7 +791,10 @@ try {
     );
   const first = await snapshot(vale),
     other = await snapshot(mara);
-  assert.equal(first.history[0].lines.length, 2);
+  assert.deepEqual(
+    first.history[0].lines.map((line) => line.actorId),
+    [first.history[0].actor],
+  );
   assert.deepEqual(
     first.history[0],
     other.history[0],
@@ -802,7 +805,7 @@ try {
       (await vale.locator("#dialogue-text").textContent()).includes(
         "quiet breaths.",
       ),
-    "the shared room detail stays visible",
+    "the shared actor line stays visible",
   );
   assert.equal((await api(vale, { op: "nudge", target: "mara" })).status, 200);
   await until(
