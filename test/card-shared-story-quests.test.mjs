@@ -18,6 +18,7 @@ import {
 } from "../v2/card-game/world.mjs";
 import {
   questCards,
+  questHistoryCards,
   questHand,
   storyQuests,
   activeQuests,
@@ -110,7 +111,9 @@ describe("authored shared story cards", () => {
     expect(storyQuests(old)).toEqual([]);
     const restored = decodeSave(JSON.stringify(old));
     expect(questCards(restored, "mara").filter((q) => q.story)).toEqual([]);
-    expect(questCards(restored, "vale").filter((q) => q.story)).toHaveLength(3);
+    expect(
+      questHistoryCards(restored, "vale").filter((q) => q.story),
+    ).toHaveLength(3);
     for (const id of [key(0), key(1), key(2)]) {
       expect(questRecord(restored, id).participants).toEqual(["vale"]);
       expect(questRecord(restored, id).completion.actorId).toBe("vale");
@@ -125,7 +128,7 @@ describe("authored shared story cards", () => {
       expect(questRecord(unknown, id).completion.actorId).toBe(null);
     }
     expect(
-      questCards(unknown, "greek-baker").some((q) => q.key === key(0)),
+      questHistoryCards(unknown, "greek-baker").some((q) => q.key === key(0)),
     ).toBe(true);
   });
   it("keeps named actors and literal story text separate from the acting role", () => {
@@ -181,14 +184,18 @@ describe("authored shared story cards", () => {
         locationId: site,
         outcome,
       });
-      const a = questCards(world, "vale").find((q) => q.key === record.key);
-      const b = questCards(world, holder).find((q) => q.key === record.key);
+      const a = questHistoryCards(world, "vale").find(
+        (q) => q.key === record.key,
+      );
+      const b = questHistoryCards(world, holder).find(
+        (q) => q.key === record.key,
+      );
       expect(a.status).toBe("fulfilled");
       expect(b.status).toBe(a.status);
       expect(questCardId(world, a)).not.toBe(questCardId(world, b));
       const restored = decodeSave(encodeSave(world));
-      expect(questForCard(restored, questCardId(restored, b)).key).toBe(
-        record.key,
+      expect(questForCard(restored, questCardId(restored, b))).toEqual(
+        questCards(restored, holder).find((q) => q.key === record.key) || null,
       );
       expect(questRecord(restored, record.key)).toEqual(record);
     }
@@ -232,7 +239,7 @@ describe("authored shared story cards", () => {
     });
     for (const holder of ["mara", "vale", "greek-baker"])
       expect(
-        questCards(world, holder).find((q) => q.key === key(0)).status,
+        questHistoryCards(world, holder).find((q) => q.key === key(0)).status,
       ).toBe("fulfilled");
     expect(decodeSave(encodeSave(world)).quests).toEqual(world.quests);
   });
@@ -274,7 +281,7 @@ describe("authored shared story cards", () => {
       expect(questRecord(restored, id).participants).toEqual([]);
     }
     expect(
-      questCards(restored, "greek-courtyard").filter(
+      questHistoryCards(restored, "greek-courtyard").filter(
         (q) => q.status === "fulfilled",
       ),
     ).toHaveLength(2);

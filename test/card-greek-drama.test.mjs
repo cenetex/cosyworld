@@ -39,11 +39,12 @@ import {
 import { conditionsMet } from "../v2/card-game/pack-registry.mjs";
 
 import {
-  activeQuests,
+  questCards,
+  questHistoryCards,
+  questCardId,
   storyQuests,
   fulfilledQuests,
   questHand,
-  QUEST_CARD,
   STORY_QUEST_CARDS,
 } from "../v2/card-game/quest-cards.mjs";
 
@@ -291,7 +292,7 @@ describe("the Wine-Dark Sea crossing", () => {
 });
 
 describe("Greek story quest cards", () => {
-  it("introduces each request through its people and keeps the forest quest alongside it", () => {
+  it("introduces each request through its people and keeps learned history beside a bounded hand", () => {
     const shore = pond("opening");
     expect(storyQuests(shore)).toEqual([]);
     const landing = harbor("opening");
@@ -308,21 +309,22 @@ describe("Greek story quest cards", () => {
       resolved: false,
     });
     expect(story(world, 2)).toBeUndefined();
-    // A personal purpose and two story requests can share the same hand.
+    // Learned requests keep their records while two cards fit in the hand.
     ensureCollectedQuest(world, "vale", places, things);
     const pending = collectionCards(world, "vale").find(
       (q) => q.completedTurn === null,
     );
     expect(pursueQuest(world, "vale", pending.key)).toBe(true);
     const before = encodeSave(world);
+    const carried = questCards(world);
+    expect(carried).toHaveLength(2);
+    expect(carried.some((q) => q.key === pending.key)).toBe(true);
     expect(questHand(world)).toEqual(
-      expect.arrayContaining([
-        QUEST_CARD,
-        STORY_QUEST_CARDS[0],
-        STORY_QUEST_CARDS[1],
-      ]),
+      expect.arrayContaining(carried.map((q) => questCardId(world, q))),
     );
-    expect(activeQuests(world)).toHaveLength(3);
+    expect(questHistoryCards(world).map((q) => q.id)).toEqual(
+      expect.arrayContaining([STORY_QUEST_CARDS[0], STORY_QUEST_CARDS[1]]),
+    );
     expect(encodeSave(world)).toBe(before);
     expect(storyQuests(reload(world))).toEqual(storyQuests(world));
     expect(stateOf(world).scope).toBe("opening");
@@ -345,7 +347,10 @@ describe("Greek story quest cards", () => {
         }),
       ]),
     );
-    expect(questHand(world)).toContain(STORY_QUEST_CARDS[0]);
+    expect(
+      questHistoryCards(world).find((q) => q.key === original.key),
+    ).toMatchObject({ status: "fulfilled" });
+    expect(questCards(world).length).toBeLessThanOrEqual(2);
     expect(story(reload(world), 0)).toMatchObject({
       key: original.key,
       resolved: true,
@@ -385,7 +390,12 @@ describe("Greek story quest cards", () => {
           }),
         ]),
       );
-      expect(questHand(reload(world))).toContain(STORY_QUEST_CARDS[2]);
+      expect(
+        questHistoryCards(reload(world)).find(
+          (q) => q.id === STORY_QUEST_CARDS[2],
+        ),
+      ).toMatchObject({ status: "fulfilled", completion: "Shared" });
+      expect(questCards(reload(world)).length).toBeLessThanOrEqual(2);
       expect(fulfilledQuests(world, act(world, "wait"))).toEqual([]);
     },
   );
@@ -405,7 +415,10 @@ describe("Greek story quest cards", () => {
     delete world.actors.vale.progress.current;
     world.actors.vale.progress.step = 0;
     expect(story(world, 1)).toEqual(original);
-    expect(questHand(world)).toContain(STORY_QUEST_CARDS[1]);
+    expect(
+      questHistoryCards(world).find((q) => q.key === original.key),
+    ).toEqual(original);
+    expect(questCards(world).length).toBeLessThanOrEqual(2);
     expect(storyQuests(reload(world))).toEqual(storyQuests(world));
   });
 });
@@ -565,8 +578,22 @@ describe("Before the Burial", () => {
     expect(stateOf(world).flags["greek-burial-performed"]).toBe(true);
     expect(stateOf(world).choices["greek-theban-response"]).toBe("concession");
     expect(stateOf(world).receipts["greek-perform-burial"]).toBeUndefined();
-    expect(world.items["greek-funeral-cloth"].holder).toBe(BATTLEFIELD);
-    expect(world.items["greek-oil-flask"].holder).toBe(BATTLEFIELD);
+    const rite = world.log.find(
+      (event) => event.choiceId === "greek-perform-permitted-burial",
+    );
+    // The rite leaves its materials at the grave before the cast takes its turn.
+    expect(rite.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "greek-funeral-cloth",
+          holder: BATTLEFIELD,
+        }),
+        expect.objectContaining({
+          id: "greek-oil-flask",
+          holder: BATTLEFIELD,
+        }),
+      ]),
+    );
     expect(reload(world)).toEqual(world);
   });
 

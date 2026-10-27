@@ -50,6 +50,7 @@ import {
 } from "../v2/card-game/shared-quests.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import { cardPlay } from "../v2/card-game/cards.mjs";
+import { questHandKeys } from "../v2/card-game/quest-hands.mjs";
 
 const fresh = () =>
   enableMotives(createWorld({ opening: true }), { personalQuests: true });
@@ -239,20 +240,24 @@ describe("personal quests grow from life", () => {
     expect(s.actors.vale.progress.program).toBe(1);
   });
 
-  it("collects an experience-shaped purpose for the player to choose", () => {
+  it("remembers a talk while the two held purposes keep their place", () => {
     let s = together();
     s = act(s, "talk", { target: "moth" });
-    expect(lifeOf(s, "vale").phase).toBe("seeking");
-    const quest = actorQuests(s, "vale").find((q) => q.origin?.kind === "talk");
-    expect(quest.status).toBe("pending");
-    s = act(s, "pursue", { questKey: quest.key });
-    expect(
-      actorQuests(s, "vale").find((q) => q.key === quest.key).origin.kind,
-    ).toBe("talk");
+    expect(lifeOf(s, "vale").phase).toBe("active");
+    const active = actorQuests(s, "vale").find((q) => q.status === "active");
+    expect(programFor(s, "vale")).toEqual(active.program);
+    expect(questHandKeys(s, "vale")).toHaveLength(2);
+    expect(lifeOf(s, "vale").experiences).toContainEqual({
+      kind: "talk",
+      turn: s.turn,
+      other: "moth",
+      item: null,
+      place: "station",
+    });
     expect(decodeSave(encodeSave(s))).toEqual(s);
   });
 
-  it("remembers experiences during rest and acts on them when rest ends", () => {
+  it("remembers gifts through rest while returning to a held purpose", () => {
     let s = together();
     s.turn = s.revision = 5;
     for (const id of ["vale", "moth", "keeper"]) {
@@ -276,11 +281,18 @@ describe("personal quests grow from life", () => {
     );
     while (lifeOf(s, "moth").phase === "content") s = act(s, "wait");
     expect(lifeOf(s, "moth").phase).toBe("active");
-    expect(lifeOf(s, "moth").origin).toMatchObject({
+    expect(lifeOf(s, "moth").experiences).toContainEqual({
       kind: "gift",
+      turn: 6,
       other: "vale",
+      item: "lamp",
+      place: "station",
     });
-    expect(programFor(s, "moth")).toBeTruthy();
+    const active = actorQuests(s, "moth").find((q) => q.status === "active");
+    expect(programFor(s, "moth")).toEqual(active.program);
+    expect(questHandKeys(s, "moth")).toHaveLength(2);
+    expect(s.items.lamp.holder).toBe("moth");
+    expect(decodeSave(encodeSave(s))).toEqual(s);
   });
 
   it("rests only in a sanctuary and walks there after a quest elsewhere", () => {
@@ -415,12 +427,19 @@ describe("personal quests grow from life", () => {
     s = act(s, "trade", { item: "bell", receive: "oil" });
     expect(s.items.oil.holder).toBe("vale");
     expect(s.items.bell.holder).toBe("keeper");
-    expect(actorQuests(s, "vale").some((q) => q.origin?.kind === "trade")).toBe(
-      true,
-    );
+    for (const actor of ["vale", "keeper"])
+      expect(lifeOf(s, actor).experiences).toContainEqual({
+        kind: "trade",
+        turn: s.turn,
+        other: actor === "vale" ? "keeper" : "vale",
+        item: "bell",
+        place: "station",
+      });
+    expect(questHandKeys(s, "vale")).toHaveLength(2);
+    expect(decodeSave(encodeSave(s))).toEqual(s);
   });
 
-  it("saves a quiet gap after the authored quests and generates a quest at unlock time", () => {
+  it("saves a quiet gap after authored quests and takes up the next purpose", () => {
     let s = together();
     s.turn = s.revision = 10;
     s.actors.vale.progress = { program: 1, step: 1, marks: [1, 2, 3, 4] };
@@ -441,12 +460,12 @@ describe("personal quests grow from life", () => {
     const spark = sparkOf(s, "vale");
     s = spark ? act(s, "wait") : act(s, "talk", { target: "moth" });
     const quest = actorQuests(s, "vale").find(
-      (q) => q.status === "pending" && q.program.generated,
+      (q) => q.status === "active" && q.program.generated,
     );
     expect(quest).toBeTruthy();
     expect(quest.program.generated.turn).toBeLessThanOrEqual(s.turn);
     expect(quest.program.purpose).toContain(hopeOf(s, "vale").title);
-    expect(programFor(s, "vale")).toBeNull();
+    expect(programFor(s, "vale")).toEqual(quest.program);
     expect(decodeSave(encodeSave(s))).toEqual(s);
   });
 
@@ -709,8 +728,8 @@ describe("personal quests grow from life", () => {
       loaded,
       legalActions(loaded).find((a) => a.kind === "wait"),
     ).state;
-    expect(lifeOf(next, "vale").phase).toBe("seeking");
-    expect(actorQuests(next, "vale").some((q) => q.status === "pending")).toBe(
+    expect(lifeOf(next, "vale").phase).toBe("active");
+    expect(actorQuests(next, "vale").some((q) => q.status === "active")).toBe(
       true,
     );
     expect(decodeSave(encodeSave(next))).toEqual(next);

@@ -8,7 +8,7 @@ export const questFresh = (world, q) =>
 export function questHolderActor(world, q) {
   let id = q.holder.id;
   const seen = new Set();
-  while (world.items[id] && !seen.has(id)) {
+  while (world.items?.[id] && !seen.has(id)) {
     seen.add(id);
     id = world.items[id].holder;
   }

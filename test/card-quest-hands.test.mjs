@@ -1,12 +1,18 @@
 import { describe, it, expect } from "vitest";
 import {
+  createWorld,
   decodeSave,
   encodeSave,
   legalActions,
   play,
-  validateWorld,
 } from "../v2/card-game/world.mjs";
-import { questCards, questHistoryCards } from "../v2/card-game/quest-cards.mjs";
+import {
+  questCards,
+  questHistoryCards,
+  questHand,
+  questForCard,
+  isQuestCard,
+} from "../v2/card-game/quest-cards.mjs";
 import {
   canCarryQuest,
   carryQuest,
@@ -14,18 +20,17 @@ import {
   questHandKeys,
   settleQuestHands,
 } from "../v2/card-game/quest-hands.mjs";
-import {
-  registerPersonalQuest,
-  addQuestRecord,
-  focusQuest,
-  joinQuest,
-} from "../v2/card-game/shared-quests.mjs";
+import { addQuestRecord, joinQuest } from "../v2/card-game/shared-quests.mjs";
 import {
   offerWorld,
   addOffer,
   threeGatherings,
 } from "./fixtures/card-quest-offers.mjs";
 import { openingFixture } from "./helpers/greek-opening.mjs";
+import { enableMotives } from "../v2/card-game/motives.mjs";
+import { pendingQuestValue } from "../v2/card-game/life.mjs";
+import { narrativeContext, turnOutcome } from "../v2/card-game/narrative.mjs";
+import { pursueQuest } from "../v2/card-game/quests.mjs";
 const reload = (w) => decodeSave(encodeSave(w));
 const act = (world, kind, fields = {}) => {
   const action = legalActions(world).find(
@@ -67,6 +72,78 @@ describe("two carried quests", () => {
       expect(loaded.actors.vale.progress).toEqual(old.actors.vale.progress);
     },
   );
+  it("offers Drop for the first quest before the first played turn", () => {
+    let w = enableMotives(createWorld({ opening: true }), {
+      personalQuests: true,
+    });
+    expect(questCards(w)[0].key).toBe("vale:quest:0");
+    w = act(w, "drop-quest", { questKey: "vale:quest:0" });
+    expect(w.quests.records["vale:quest:0"].droppedBy).toEqual({ vale: 1 });
+    expect(turnOutcome(w).card).toMatchObject({
+      kind: "drop-quest",
+      target: "vale",
+      quest: { key: "vale:quest:0", holder: { kind: "avatar", id: "vale" } },
+    });
+    expect(questCards(w)).toHaveLength(0);
+    expect(reload(w)).toEqual(w);
+  });
+  it("keeps a dropped hand quiet for eight turns and its identity out of later hands", () => {
+    let w = reload(threeGatherings({ protect: true }));
+    w = act(w, "drop-quest", { questKey: "vale:quest:1" });
+    const records = Object.keys(w.quests.records).filter((key) =>
+      key.startsWith("vale:quest:"),
+    );
+    for (let turn = 0; turn < 7; turn++) {
+      w = act(w, "wait");
+      expect(
+        Object.keys(w.quests.records).filter((key) =>
+          key.startsWith("vale:quest:"),
+        ),
+      ).toEqual(records);
+      expect(questHandKeys(w, "vale")).toEqual([]);
+    }
+    w = act(w, "wait");
+    expect(questHandKeys(w, "vale")).not.toContain("vale:quest:1");
+    expect(reload(w)).toEqual(w);
+  });
+  it("can explicitly resume saved overflow through the model with valid focus and progress", () => {
+    const w = reload(threeGatherings({ protect: true }));
+    dropQuest(w, "vale", "vale:quest:1");
+    expect(pursueQuest(w, "vale", "vale:quest:2")).toBe(true);
+    expect(w.life.actors.vale.collection.active).toBe("vale:quest:2");
+    expect(w.quests.focus.vale).toBe("vale:quest:2");
+    expect(questHandKeys(w, "vale")).toEqual(["vale:quest:2"]);
+    expect(reload(w)).toEqual(w);
+  });
+  it("counts an item-held quest in its owner's hand and allows Drop", () => {
+    let w = offerWorld();
+    const q = addQuestRecord(w, {
+      holder: { kind: "item", id: "lamp" },
+      participants: [],
+      program: {
+        id: "lamp-purpose",
+        name: "Lamp purpose",
+        steps: [{ items: [], avatars: [], location: "pond" }],
+      },
+    });
+    expect(questHandKeys(w, "vale")).toEqual([q.key]);
+    w = act(w, "drop-quest", { questKey: q.key });
+    expect(questHandKeys(w, "vale")).toEqual([]);
+    expect(reload(w).quests.records[q.key].droppedBy.vale).toBe(1);
+  });
+  it("keeps dropped history separate from current wants and dialogue", () => {
+    const w = offerWorld();
+    const q = addOffer(w, ["mara", "ash"]);
+    expect(pendingQuestValue(w, "vale", "lamp")).toBe(1);
+    dropQuest(w, "vale", q.key);
+    expect(pendingQuestValue(w, "vale", "lamp")).toBe(0);
+    expect(
+      narrativeContext(w)
+        .entities.find((e) => e.id === "vale")
+        .facts.join(" "),
+    ).not.toContain("I also want to pursue");
+    expect(w.quests.records[q.key].program).toEqual(q.program);
+  });
   it("bounds joins across personal and shared quests", () => {
     const w = offerWorld();
     addOffer(w, ["mara", "ash"]);
@@ -106,6 +183,22 @@ describe("two carried quests", () => {
       ),
     ).toBe(false);
     expect(reload(w)).toEqual(w);
+  });
+  it("shows one owned copy when its participant also holds the quest item", () => {
+    const w = offerWorld();
+    const q = addQuestRecord(w, {
+      holder: { kind: "item", id: "lamp" },
+      participants: ["vale"],
+      program: {
+        id: "lamp-purpose",
+        name: "Lamp purpose",
+        steps: [{ items: [], avatars: [], location: "pond" }],
+      },
+    });
+    const shown = questHand(w)
+      .filter(isQuestCard)
+      .map((id) => questForCard(w, id));
+    expect(shown.filter((card) => card.key === q.key)).toHaveLength(1);
   });
   it("drops a shared copy while its other participant keeps their hand", () => {
     const w = offerWorld();

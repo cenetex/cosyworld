@@ -491,6 +491,7 @@ fn valid_outcome(outcome: &TurnOutcome) -> bool {
             | "pursue"
             | "join-quest"
             | "share-quest"
+            | "drop-quest"
     ) && card
         .target
         .as_ref()
@@ -520,7 +521,7 @@ fn valid_outcome(outcome: &TurnOutcome) -> bool {
         }
         && match &card.quest {
             Some(quest) => {
-                ["pursue", "join-quest", "share-quest"].contains(&card.kind.as_str())
+                ["pursue", "join-quest", "share-quest", "drop-quest"].contains(&card.kind.as_str())
                     && bounded(&quest.key, 160)
                     && bounded(&quest.title, 240)
                     && match quest.holder.kind.as_str() {
@@ -533,7 +534,7 @@ fn valid_outcome(outcome: &TurnOutcome) -> bool {
                     && card.item.is_none()
                     && card.receive.is_none()
             }
-            None => !["join-quest", "share-quest"].contains(&card.kind.as_str()),
+            None => !["join-quest", "share-quest", "drop-quest"].contains(&card.kind.as_str()),
         }
         && avatars.contains("vale")
         && (1..=8).contains(&outcome.avatars.len())
@@ -3422,7 +3423,7 @@ mod tests {
             axum::serve(listener, provider).await.unwrap();
         });
         let app = router::<()>(Arc::new(Some(test_config(address))));
-        for action in ["join-quest", "share-quest"] {
+        for action in ["join-quest", "share-quest", "drop-quest"] {
             let mut c = context();
             let mut outcome = serde_json::to_value(solo_departure()).unwrap();
             outcome["card"] = json!({"kind":action,"target":"station","item":null,"receive":null,"destination":null,"accepted":null,

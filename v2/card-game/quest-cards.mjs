@@ -312,7 +312,13 @@ export function questHand(world, notice = null) {
   const visible = availableCards(world),
     cards = [];
   const appendQuests = (holder) => {
-    const deck = questCards(world, holder);
+    const deck = questCards(world, holder).filter((card) => {
+      const owner = world.items[holder] && rootHolder(world, holder);
+      return (
+        !world.actors[owner] ||
+        !questCards(world, owner).some((q) => q.key === card.key)
+      );
+    });
     if (
       holder === currentActor(world) &&
       notice &&

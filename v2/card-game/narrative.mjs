@@ -1,3 +1,4 @@
+import { questCarried } from "./quest-hands.mjs";
 import { questRecord } from "./shared-quests.mjs";
 import { recitalContext, recitalFacts } from "./pack-recital.mjs";
 import { hasMotives, motiveFacts, tastes } from "./motives.mjs";
@@ -306,7 +307,8 @@ export function narrativeContext(world, action = null) {
       const quests = kind === "avatar" ? actorQuests(world, id) : [];
       const activeQuest = quests.find((quest) => quest.status === "active");
       const pendingQuests = quests.filter(
-        (quest) => quest.status === "pending",
+        (quest) =>
+          quest.status === "pending" && questCarried(world, id, quest.key),
       );
       const questFacts = [
         ...(activeQuest

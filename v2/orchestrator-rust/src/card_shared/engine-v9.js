@@ -8,7 +8,7 @@
   function questHolderActor(world, q) {
     let id = q.holder.id;
     const seen = /* @__PURE__ */ new Set();
-    while (world.items[id] && !seen.has(id)) {
+    while (world.items?.[id] && !seen.has(id)) {
       seen.add(id);
       id = world.items[id].holder;
     }
@@ -8619,7 +8619,7 @@
   function pendingQuestValue(s, actor, item) {
     const life = lifeOf(s, actor);
     const pending = collectionCards(s, actor).filter(
-      (q) => q.completedTurn === null && q.key !== life.collection.active
+      (q) => q.completedTurn === null && q.key !== life.collection.active && questCarried(s, actor, q.key)
     ) || [];
     return Math.min(
       3,
@@ -10609,6 +10609,7 @@
         actor,
         questKey: key,
         key: `drop-quest:${actor}:${key}`,
+        cards: [],
         label: "Drop",
         text: `${nameOf(actor)} sets aside ${q.program.name}.`,
         parts: []
@@ -10920,9 +10921,12 @@
       if (!focusedQuest(s, a.actor) && remaining)
         pursueQuest(s, a.actor, remaining);
       addLog(s, "World", a.text, {
+        kind: "action",
+        verb: "drop-quest",
         actorId: a.actor,
         locationId: here,
-        questKey: a.questKey
+        questKey: a.questKey,
+        targetId: questRecord(s, a.questKey).holder.id
       });
       return;
     }
@@ -11801,6 +11805,7 @@
       fail();
     let seq = 0;
     const verbs = [
+      "drop-quest",
       "join-quest",
       "share-quest",
       "accompany",
@@ -12168,7 +12173,7 @@
         const quests = kind === "avatar" ? actorQuests(world, id) : [];
         const activeQuest = quests.find((quest) => quest.status === "active");
         const pendingQuests = quests.filter(
-          (quest) => quest.status === "pending"
+          (quest) => quest.status === "pending" && questCarried(world, id, quest.key)
         );
         const questFacts = [
           ...activeQuest ? [`My active purpose is ${activeQuest.program.name}.`] : [],
