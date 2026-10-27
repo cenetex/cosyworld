@@ -1,4 +1,5 @@
 import { recordRecital, recitalVisit, validRecitals } from "./pack-recital.mjs";
+import { sectionAllows } from "./pack-sections.mjs";
 // The compiled world packs mounted on the card table, indexed for the engine.
 // Packs supply data only; pack-rules.mjs applies the general rules they name.
 import compiled from "./packs.json" with { type: "json" };
@@ -253,7 +254,12 @@ function entityEnabled(world, id) {
   if (!e) return true;
   const pack = packDefinition(e.packId),
     state = packState(world, e.packId);
-  if (!state || !conditionsMet(world, e.packId, e.requires)) return false;
+  if (
+    !state ||
+    !conditionsMet(world, e.packId, e.requires) ||
+    !sectionAllows(world, pack, id, conditionsMet)
+  )
+    return false;
   if (!pack.release || state.scope === "full") return true;
   if (pack.recital?.actor === id)
     return (
@@ -310,6 +316,7 @@ function choiceFeasible(world, pack, choice, actor) {
       state.scope !== "full" &&
       !pack.release.choices.includes(choice.id)) ||
     world.actors[actor]?.place !== choice.at ||
+    !entityActive(world, choice.at) ||
     !entityActive(world, choice.subject) ||
     !conditionsMet(world, pack.id, choice.requires, actor)
   )
@@ -511,6 +518,8 @@ export function validatePackStates(world) {
         turn < 1 ||
         turn > world.turn ||
         seenTurns.has(turn) ||
+        !sectionAllows(projection, pack, c.at, conditionsMet) ||
+        !sectionAllows(projection, pack, c.subject, conditionsMet) ||
         !progressionMet(c.requires) ||
         !progressionMet(pack.places[c.at].requires) ||
         !progressionMet(packEntity(c.subject)?.requires) ||
