@@ -6,6 +6,8 @@ import { createWorld, encodeSave, people } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
 import { availableCards } from "../card-game/cards.mjs";
 import { questCards } from "../card-game/quest-cards.mjs";
+import { profiles } from "../card-game/memory.mjs";
+import { humanAvatarIds } from "../card-game/human-cast.mjs";
 
 const output = new URL("../../output/card-holder-collapse/", import.meta.url);
 await mkdir(output, { recursive: true });
@@ -210,6 +212,100 @@ try {
       } finally {
         await page.close();
       }
+    }
+  }
+  // Another player can leave while their avatar is selected on this screen.
+  // The real polling client must lower that avatar before it returns.
+  for (const width of [1440, 390]) {
+    const world = createWorld();
+    world.sharedVersion = 1;
+    world.playerActorId = "vale";
+    world.controlledActors = ["vale", "mara"];
+    world.presentActors = ["vale", "mara"];
+    world.actors.vale.place = "pond";
+    world.actors.mara.place = "pond";
+    world.items.float.holder = "mara";
+    const snapshot = {
+      actor: "vale",
+      world,
+      now: Date.now(),
+      actions: [],
+      queue: [],
+      history: [],
+      claimed: humanAvatarIds.map((id) => ["vale", "mara"].includes(id)),
+      present: humanAvatarIds.map((id) => ["vale", "mara"].includes(id)),
+    };
+    const page = await browser.newPage({
+      viewport: { width, height: width === 390 ? 844 : 900 },
+      reducedMotion: "reduce",
+    });
+    page.setDefaultTimeout(10000);
+    const errors = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    try {
+      await page.addInitScript(
+        ({ seen, quests }) => {
+          const key = "cosyworld.reflected-shore.v1.shared.remote-stack.vale";
+          localStorage.setItem(key + ".seen", JSON.stringify(seen));
+          localStorage.setItem(
+            key + ".quests",
+            JSON.stringify({ seen: quests, read: quests }),
+          );
+          localStorage.setItem("cosyworld.dialogue.sound", "off");
+          localStorage.setItem(
+            "cosyworld.room-music",
+            JSON.stringify({ enabled: false }),
+          );
+        },
+        {
+          seen: Object.keys(profiles),
+          quests: Object.keys(people).flatMap((id) =>
+            questCards(world, id).map((q) => q.key),
+          ),
+        },
+      );
+      await page.route("**/auth/account", (route) =>
+        route.fulfill({ json: { authenticated: true } }),
+      );
+      await page.route("**/card-game/shared/worlds/remote-stack**", (route) =>
+        route.fulfill({ json: snapshot }),
+      );
+      await page.goto(
+        `http://127.0.0.1:${server.address().port}/?world=remote-stack`,
+      );
+      const avatar = page.locator('#hand [data-card="mara"]');
+      await avatar.scrollIntoViewIfNeeded();
+      await avatar.click();
+      assert.equal(await avatar.getAttribute("aria-expanded"), "true");
+      world.actors.mara.place = "station";
+      world.revision++;
+      snapshot.now = Date.now();
+      await avatar.waitFor({ state: "detached" });
+      world.actors.mara.place = "pond";
+      world.revision++;
+      snapshot.now = Date.now();
+      await avatar.waitFor({ state: "visible" });
+      assert.equal(await avatar.getAttribute("aria-pressed"), "false");
+      assert.equal(await avatar.getAttribute("aria-expanded"), "false");
+      assert.equal(
+        await page.locator('#hand [data-card="float"]').isVisible(),
+        false,
+      );
+      await avatar.scrollIntoViewIfNeeded();
+      await page.screenshot({
+        path: new URL(`remote-return-${width}.png`, output).pathname,
+      });
+      assert.deepEqual(errors, []);
+      console.log(
+        `shared-${width}: remote departure lowers the avatar and its returning item stack`,
+      );
+    } catch (error) {
+      await page.screenshot({
+        path: new URL(`remote-return-${width}-failure.png`, output).pathname,
+      });
+      throw error;
+    } finally {
+      await page.close();
     }
   }
 } finally {

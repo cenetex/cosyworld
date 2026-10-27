@@ -2544,10 +2544,12 @@ function adoptShared(value) {
     if (alreadyOpen) queueQuestCompletions(world, next);
     world = next;
     sharedWorldKey = key;
-    selected = selected.filter((id) =>
-      isQuestCard(id)
-        ? Boolean(questForCard(world, id, shownQuest()))
-        : availableCards(world).includes(id),
+    selectCards(
+      selected.filter((id) =>
+        isQuestCard(id)
+          ? Boolean(questForCard(world, id, shownQuest()))
+          : availableCards(world).includes(id),
+      ),
     );
     selectionRevision = world.revision;
     renderedHand = "";
