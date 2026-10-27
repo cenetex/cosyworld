@@ -7,6 +7,8 @@ const files = [
   "shared-auth.mjs",
   "shared-rules.mjs",
   "shared.css",
+  "toolbar.mjs",
+  "toolbar.css",
   "shared-cast.json",
   "human-cast.mjs",
   "assets/greek-drama/harbor-day.webp",

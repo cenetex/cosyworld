@@ -20,6 +20,14 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "text/css; charset=utf-8",
             include_bytes!("../../card-game/shared.css"),
         ),
+        "toolbar.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/toolbar.mjs"),
+        ),
+        "toolbar.css" => (
+            "text/css; charset=utf-8",
+            include_bytes!("../../card-game/toolbar.css"),
+        ),
         "shared-cast.json" => (
             "application/json",
             include_bytes!("../../card-game/shared-cast.json"),

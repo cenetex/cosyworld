@@ -266,10 +266,12 @@ export async function connectSharedWorld(id) {
     inFlight = false,
     stopped = false,
     connectionError = null;
+  let lastSynced = Date.now();
   let offset = initial.now - Date.now(),
     heartbeat = Date.now();
   const adopt = (next) => {
     if (next.now < state.now) return state;
+    lastSynced = Date.now();
     state = next;
     offset = next.now - Date.now();
     listener(next);
@@ -312,6 +314,12 @@ export async function connectSharedWorld(id) {
     id,
     get state() {
       return state;
+    },
+    get connectionError() {
+      return connectionError;
+    },
+    get lastSynced() {
+      return lastSynced;
     },
     now: () => Date.now() + offset,
     subscribe(fn, onError) {

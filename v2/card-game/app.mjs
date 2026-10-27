@@ -1,4 +1,5 @@
 import { flipStagePortrait } from "./portrait-facing.mjs";
+import { installToolbar, renderPlayers } from "./toolbar.mjs";
 import {
   connectSharedWorld,
   createSharedPlaybackClock,
@@ -2092,6 +2093,7 @@ function renderLog() {
 }
 
 function render() {
+  renderPlayers();
   music.setStarted(world.turn > 0);
   // While the travel veil comes down, the old place stays drawn.
   if (covering) return;
@@ -2546,6 +2548,7 @@ async function submitSharedPlay(action) {
   }
 }
 function syncSharedLine() {
+  renderPlayers();
   if (!sharedSession || reviewing || covering) return;
   const room = world.actors[currentActor(world)].place;
   const playbackTime = sharedPlayback.now(
@@ -2640,6 +2643,7 @@ installSharedControls({
   },
   notice,
 });
+installToolbar({ session: sharedSession, getWorld: () => world });
 if (sharedSession) {
   world = sharedWorld(sharedSession.state);
   sharedSession.subscribe(adoptShared, (message, recoveredFrom) => {
