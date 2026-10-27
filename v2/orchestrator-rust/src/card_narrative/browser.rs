@@ -97,7 +97,7 @@ pub(crate) fn prepare(
                 "messages":[{"role":"system","content":idiolect(entity(&context, &id))},
                     {"role":"user","content":attempt_transcript(&context, entity(&context, &id), part, 0)}],
                 "temperature":1.0,"max_tokens":if part==Part::Persona{160}else{96},
-                "provider":{"zdr":true,"data_collection":"deny"},"stream":false
+                "stream":false
             });
             if raw {
                 request.as_object_mut().unwrap().remove("temperature");

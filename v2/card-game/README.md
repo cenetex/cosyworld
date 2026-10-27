@@ -35,6 +35,11 @@ Commit `v2/orchestrator-rust/src/card_assets.rs` with each asset-list change.
 
 ## Character voices
 
+Player-funded dialogue keeps each character's assigned model and uses the
+player's OpenRouter account routing settings. Provider retention follows those
+settings and the chosen provider's policy. Temporary provider errors can retry;
+request, account, and routing errors return control to the player immediately.
+
 Connect OpenRouter in Settings and leave **Voices: on** to hear Vale, Mara,
 Pip (`moth`), the Keeper, Badger, and Dione (`greek-baker`). The first tap or
 key press enables audio. The voice reads the character’s actual dialogue.

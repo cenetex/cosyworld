@@ -2001,7 +2001,15 @@ mod tests {
             .as_str()
             .unwrap()
             .contains("Vale"));
-        assert_eq!(call["request"]["provider"]["zdr"], true);
+        // Player-funded dialogue uses the player's OpenRouter routing settings.
+        for call in prepared["calls"].as_array().unwrap() {
+            assert!(call["request"].get("provider").is_none());
+        }
+        let shared = browser::prepare(&scene, Some(&["moth".into()]), None).unwrap();
+        let shared_calls = shared["calls"].as_array().unwrap();
+        assert_eq!(shared_calls.len(), 1);
+        assert_eq!(shared_calls[0]["id"], "moth");
+        assert!(shared_calls[0]["request"].get("provider").is_none());
         assert!(!prepared.to_string().contains("api_key"));
         let answers = |text: &str| {
             serde_json::from_value(json!([
