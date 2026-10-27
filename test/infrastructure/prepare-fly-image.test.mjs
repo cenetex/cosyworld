@@ -20,6 +20,7 @@ function prepare({
   wrongDigest = false,
   sourceImage = source,
   buildFails = false,
+  publishDelay = 0,
 } = {}) {
   const dir = mkdtempSync(join(tmpdir(), "cosyworld-image-test-"));
   const log = join(dir, "calls.jsonl");
@@ -42,13 +43,19 @@ if (command === 'flyctl' && args[0] === 'auth') {
   if (env.TEST_COPY_FAIL === 'true') process.exit(1);
   writeFileSync(env.TEST_STATE, 'copied');
 } else if (command === 'skopeo' && args[0] === 'inspect') {
+  if (existsSync(env.TEST_STATE)) {
+    const countFile = env.TEST_STATE + '.reads';
+    const count = existsSync(countFile) ? Number(readFileSync(countFile, 'utf8')) : 0;
+    writeFileSync(countFile, String(count + 1));
+    if (count < Number(env.TEST_PUBLISH_DELAY)) process.exit(1);
+  }
   const value = existsSync(env.TEST_STATE) ? env.TEST_DIGEST : env.TEST_EXISTING;
   if (!value) process.exit(1);
   console.log(value);
 }
 `;
   writeFileSync(join(dir, "package.json"), '{"type":"module"}');
-  for (const command of ["flyctl", "skopeo", "docker"])
+  for (const command of ["flyctl", "skopeo", "docker", "sleep"])
     writeFileSync(join(dir, command), fake, { mode: 0o755 });
   writeFileSync(output, "");
   try {
@@ -75,6 +82,7 @@ if (command === 'flyctl' && args[0] === 'auth') {
           TEST_DIGEST: wrongDigest ? `sha256:${"c".repeat(64)}` : digest,
           TEST_COPY_FAIL: String(copyFails),
           TEST_BUILD_FAIL: String(buildFails),
+          TEST_PUBLISH_DELAY: String(publishDelay),
         },
       },
     );
@@ -116,6 +124,24 @@ describe("Fly commit image preparation", () => {
       `deploy-${"b".repeat(40)}`,
     ]);
     expect(result.output).toBe(`image=${source}\n`);
+  });
+  it.each([false, true])("waits for a published manifest (copy=%s)", (copy) => {
+    const result = prepare({ copy, publishDelay: 2 });
+    expect(result.status).toBe(0);
+    expect(
+      result.calls.filter(({ command }) => command === "sleep"),
+    ).toHaveLength(2);
+    expect(result.output).toContain(digest);
+    expect(operations(result, "flyctl", "deploy")).toHaveLength(copy ? 0 : 1);
+  });
+  it("stops after the visibility retry limit", () => {
+    const result = prepare({ publishDelay: 6 });
+    expect(result.status).not.toBe(0);
+    expect(
+      result.calls.filter(({ command }) => command === "sleep"),
+    ).toHaveLength(5);
+    expect(result.output).toBe("");
+    expect(operations(result, "flyctl", "deploy")).toHaveLength(1);
   });
   it("copies by digest with separate app credentials", () => {
     const result = prepare({ copy: true });

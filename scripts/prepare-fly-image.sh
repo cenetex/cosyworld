@@ -31,6 +31,22 @@ printf '%s\n' '{"auths":{"registry.fly.io":{}}}' > "$DOCKER_CONFIG/config.json"
 flyctl auth docker
 authfile="$DOCKER_CONFIG/config.json"
 image="registry.fly.io/${app}:deploy-${GITHUB_SHA}"
+
+# The registry can briefly return manifest unknown after a successful push.
+read_published_digest() {
+  local published_digest attempt
+  for attempt in 1 2 3 4 5 6; do
+    if published_digest="$(skopeo inspect --no-tags --authfile "$authfile" --format '{{.Digest}}' "docker://${image}" 2>"$credentials/inspect-error")" &&
+      [[ "$published_digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+      echo "$published_digest"
+      return 0
+    fi
+    if [ "$attempt" -lt 6 ]; then sleep 2; fi
+  done
+  cat "$credentials/inspect-error" >&2
+  echo "Image lookup failed after six attempts: $image" >&2
+  return 1
+}
 digest="$(skopeo inspect --no-tags --authfile "$authfile" --format '{{.Digest}}' "docker://${image}" 2>/dev/null || true)"
 
 if [ -n "$source_image" ]; then
@@ -42,12 +58,12 @@ if [ -n "$source_image" ]; then
     skopeo copy --retry-times 3 --all --preserve-digests \
       --src-authfile "$credentials/source/config.json" --dest-authfile "$authfile" \
       "docker://${source_image}" "docker://${image}"
-    digest="$(skopeo inspect --no-tags --authfile "$authfile" --format '{{.Digest}}' "docker://${image}")"
+    digest="$(read_published_digest)"
     test "$digest" = "$source_digest"
   fi
 elif [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
   flyctl deploy --remote-only --config "$config" --build-only --push --image-label "deploy-${GITHUB_SHA}"
-  digest="$(skopeo inspect --no-tags --authfile "$authfile" --format '{{.Digest}}' "docker://${image}")"
+  digest="$(read_published_digest)"
 fi
 
 [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
