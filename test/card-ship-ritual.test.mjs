@@ -14,6 +14,8 @@ const clearingReturnOpen = (s) =>
 const clockRinging = (s) => fixtureSounding(s, "steam-clock");
 import { test } from "vitest";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import vm from "node:vm";
 import {
   createWorld,
   legalActions,
@@ -575,8 +577,25 @@ test("legacy ship validation runs before the boarding migration", () => {
 });
 
 test("older completed signals become a waiting ship and retain their history", () => {
+  const context = vm.createContext({});
+  vm.runInContext(
+    readFileSync(
+      new URL(
+        "../v2/orchestrator-rust/src/card_shared/engine-v9.js",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    context,
+  );
   for (const phase of [0, 1, 2, 3, 4]) {
-    const old = pond();
+    // The frozen engine supplies the pre-expansion cast and objects. Remove
+    // its ship fields to exercise the earlier transport migration.
+    const old = JSON.parse(
+      context.cardShared(JSON.stringify({ op: "create" })),
+    ).world;
+    delete old.opening;
+    old.actors.vale.place = "pond";
     old.packs["greek-drama"].revision = 1;
     old.crossings["pond-greek-harbor"] = {
       phase,
@@ -589,7 +608,8 @@ test("older completed signals become a waiting ship and retain their history", (
     assert.equal(shipSignalPhase(s), phase);
     visible(s, phase === 4);
     assert.deepEqual(s.log, old.log);
-    assert.deepEqual(s.items, old.items);
+    for (const [id, item] of Object.entries(old.items))
+      assert.deepEqual(s.items[id], item);
     assert.deepEqual(reload(s), s);
   }
 });

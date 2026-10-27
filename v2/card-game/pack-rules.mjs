@@ -133,6 +133,8 @@ const windowOpen = (s, c) =>
     ? crossingState(s, c.id)?.phase === c.signal.steps.length
     : s.turn < (crossingState(s, c.id)?.until ?? 0));
 export const crossingOpen = (s, c, senses) =>
+  entityActive(s, c.from) &&
+  entityActive(s, c.to) &&
   (c.transport
     ? transportUnlocked(s, c.transport) &&
       s.transports[c.transport]?.dock === c.from
