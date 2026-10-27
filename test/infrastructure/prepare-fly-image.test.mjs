@@ -20,6 +20,8 @@ function prepare({
   wrongDigest = false,
   sourceImage = source,
   buildFails = false,
+  imageBuilder = "fly",
+  manifestDelays = 0,
 } = {}) {
   const dir = mkdtempSync(join(tmpdir(), "cosyworld-image-test-"));
   const log = join(dir, "calls.jsonl");
@@ -38,17 +40,29 @@ if (command === 'flyctl' && args[0] === 'auth') {
 } else if (command === 'flyctl' && args[0] === 'deploy') {
   if (env.TEST_BUILD_FAIL === 'true') process.exit(1);
   writeFileSync(env.TEST_STATE, 'built');
+} else if (command === 'docker' && args[0] === 'buildx' && args[1] === 'build') {
+  if (env.TEST_BUILD_FAIL === 'true') process.exit(1);
+  writeFileSync(env.TEST_STATE, 'built');
 } else if (command === 'skopeo' && args[0] === 'copy') {
   if (env.TEST_COPY_FAIL === 'true') process.exit(1);
   writeFileSync(env.TEST_STATE, 'copied');
 } else if (command === 'skopeo' && args[0] === 'inspect') {
+  if (existsSync(env.TEST_STATE)) {
+    const counter = env.TEST_STATE + '.reads';
+    const reads = existsSync(counter) ? Number(readFileSync(counter, 'utf8')) : 0;
+    writeFileSync(counter, String(reads + 1));
+    if (reads < Number(env.TEST_MANIFEST_DELAYS)) {
+      console.error('manifest unknown');
+      process.exit(1);
+    }
+  }
   const value = existsSync(env.TEST_STATE) ? env.TEST_DIGEST : env.TEST_EXISTING;
   if (!value) process.exit(1);
   console.log(value);
 }
 `;
   writeFileSync(join(dir, "package.json"), '{"type":"module"}');
-  for (const command of ["flyctl", "skopeo", "docker"])
+  for (const command of ["flyctl", "skopeo", "docker", "sleep"])
     writeFileSync(join(dir, command), fake, { mode: 0o755 });
   writeFileSync(output, "");
   try {
@@ -69,12 +83,14 @@ if (command === 'flyctl' && args[0] === 'auth') {
           GITHUB_SHA: "b".repeat(40),
           GITHUB_OUTPUT: output,
           SOURCE_IMAGE: copy ? sourceImage : "",
+          COSYWORLD_IMAGE_BUILDER: imageBuilder,
           TEST_LOG: log,
           TEST_STATE: join(dir, "state"),
           TEST_EXISTING: existing,
           TEST_DIGEST: wrongDigest ? `sha256:${"c".repeat(64)}` : digest,
           TEST_COPY_FAIL: String(copyFails),
           TEST_BUILD_FAIL: String(buildFails),
+          TEST_MANIFEST_DELAYS: String(manifestDelays),
         },
       },
     );
@@ -116,6 +132,61 @@ describe("Fly commit image preparation", () => {
       `deploy-${"b".repeat(40)}`,
     ]);
     expect(result.output).toBe(`image=${source}\n`);
+  });
+  it("builds on the runner with an app-scoped cache and cleans up its builder", () => {
+    const result = prepare({ imageBuilder: "runner" });
+    expect(result.status).toBe(0);
+    const calls = operations(result, "docker", "buildx");
+    expect(calls.map(({ args }) => args[1])).toEqual(["create", "build", "rm"]);
+    const args = calls[1].args;
+    expect(args).toContain("CARGO_BUILD_JOBS=4");
+    expect(args).toContain("linux/amd64");
+    expect(args).toContain(
+      "type=registry,ref=registry.fly.io/cosyworld:build-cache-v1",
+    );
+    expect(args).toContain(
+      "type=registry,ref=registry.fly.io/cosyworld:build-cache-v1,mode=max,image-manifest=true,oci-mediatypes=true",
+    );
+    expect(args).toContain(
+      `registry.fly.io/cosyworld:deploy-${"b".repeat(40)}`,
+    );
+    expect(operations(result, "flyctl", "deploy")).toHaveLength(0);
+    expect(result.output).toBe(`image=${source}\n`);
+  });
+  it("reuses a runner image before starting a builder", () => {
+    const result = prepare({ imageBuilder: "runner", existing: digest });
+    expect(result.status).toBe(0);
+    expect(operations(result, "docker", "buildx")).toHaveLength(0);
+  });
+  it("cleans up a failed runner build and withholds the image", () => {
+    const result = prepare({ imageBuilder: "runner", buildFails: true });
+    expect(result.status).not.toBe(0);
+    expect(result.output).toBe("");
+    expect(operations(result, "docker", "buildx").at(-1).args[1]).toBe("rm");
+  });
+  it.each([false, true])("waits for the uploaded manifest, copy=%s", (copy) => {
+    const result = prepare({ copy, manifestDelays: 2 });
+    expect(result.status).toBe(0);
+    expect(
+      result.calls.filter(({ command }) => command === "sleep"),
+    ).toHaveLength(2);
+    expect(operations(result, "skopeo", "inspect")).toHaveLength(4);
+    expect(result.output).toBe(
+      `image=registry.fly.io/${copy ? "cosyworld-lonelyforest" : "cosyworld"}@${digest}\n`,
+    );
+    expect(operations(result, "flyctl", "deploy")).toHaveLength(copy ? 0 : 1);
+  });
+  it("stops after the manifest read deadline and keeps the error visible", () => {
+    const result = prepare({ manifestDelays: 20 });
+    expect(result.status).not.toBe(0);
+    expect(result.output).toBe("");
+    expect(operations(result, "skopeo", "inspect")).toHaveLength(8);
+    expect(
+      result.calls.filter(({ command }) => command === "sleep"),
+    ).toHaveLength(6);
+    expect(result.stderr).toContain("manifest unknown");
+    expect(result.stderr).toContain("after 7 reads");
+    expect(operations(result, "flyctl", "deploy")).toHaveLength(1);
   });
   it("copies by digest with separate app credentials", () => {
     const result = prepare({ copy: true });

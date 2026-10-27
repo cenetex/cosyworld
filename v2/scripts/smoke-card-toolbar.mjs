@@ -50,6 +50,8 @@ try {
   ]) {
     const page = await browser.newPage({
       viewport: { width, height },
+      isMobile: width <= 390,
+      hasTouch: width <= 390,
       reducedMotion: "reduce",
     });
     page.setDefaultTimeout(10000);
