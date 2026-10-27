@@ -85,10 +85,15 @@ ritual reload, visible state, travel and conversation without paid model calls.
 
 ## World packs and the Wine-Dark Sea
 
-Black Pond now offers a card for **The Wine-Dark Harbor**. Play it to cross
-with Vale's current belongings, then take the courtyard road to **Before the
-Burial**. The Black Pond card at the harbor returns to the same shore save.
-The lamp reflection and the bell's Steam Clock crossing keep their rules.
+At quiet Black Pond, the fueled Lamp and Black cloth can summon a ship.
+Board it, then disembark at **The Wine-Dark Harbor**. The courtyard road leads
+to **Before the Burial**. The ship keeps its dock and passengers in the same
+saved world. Once summoned, it remains available for later crossings.
+
+After a public Theban response, Dione offers the next journey at her table.
+Accepting opens **The Open Door**: the Athenian Agora, Piraeus Quays, Colonus
+Grove, Eleusinian Sanctuary, and Marathon Altar. The invitation opens the
+roads for every traveler in the shared world. Each place has a route home.
 
 Selected cards with authored decisions show their legal actions in the row
 below the hand. Choosing a history is a committed turn:
@@ -144,8 +149,17 @@ Story cards sit with the player's belongings beside the personal quest.
 Each has its own art, selection, first reveal, and closing moment. They stay
 with the traveler through a trip home and the rest between personal quests.
 Existing saves derive cards from their recorded meetings, choices, and flags.
-Completed stories remain complete after reload. The opening release remains
-focused on Thebes; the wider repertoire is the next content stage.
+Completed stories remain complete after reload.
+
+The Open Door adds six story cards with one short line each. The mothers’
+petition leads from Eleusis to Athens and the quay. The keepers at Colonus
+and Marathon name the earlier and later generations of their tales. Current
+gifts, heard reports, and chosen endings earn distinct verses. The final card
+leads back to Dione. The [scene and source guide](../content/greek-drama/OPEN-DOOR.md)
+records the full path and each original adaptation.
+
+Run `node v2/scripts/smoke-card-open-door.mjs` for the complete desktop and
+phone journeys, alternate choices, object care, reloads, cards, and Bard.
 
 ## Personal quests and lasting hopes
 
@@ -419,13 +433,15 @@ flight. `COSYWORLD_CARD_TEXT_PROFILE=local` selects this profile on another
 server. The served page receives the matching wait budget. Operators can set
 `COSYWORLD_CARD_STORY_BUDGET_MS` for a separately served card page.
 
-## Seven-place painted opening
+## Painted Greece
 
 New Greek games expose the harbor and six Theban places, each with a distinct
-painting. Old Greek saves retain later routes and histories. The ship uses
+painting. The Open Door adds five paintings and eight resident portraits.
+Old Greek saves retain later routes and histories. The ship uses
 a painted transparent layer over the unchanged pond and a card crop from
 that same scene. Both worlds now share Forest’s crossing implementation and
-one compiled `packs.json`. Weather/night alternates remain unfinished.
+one compiled `packs.json`. The new art prompts and hashes are saved in
+`assets/greek-drama/open-door-art.json`.
 
 Boarding keeps the ship at its departure shore so other players can join.
 The first passenger to disembark moves it to the arrival shore. Passengers

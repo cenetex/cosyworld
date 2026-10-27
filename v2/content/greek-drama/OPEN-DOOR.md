@@ -11,13 +11,13 @@ part of the saved history. The region remains open for later visits.
 
 ## The five places
 
-| Place | People | Work in this release |
-| --- | --- | --- |
-| Agora | Theseus; the existing Agora neighbor | Receive the mothers' petition, choose a civic response, then hear the report. |
-| Piraeus | Thaleia, an original quay host | Prepare supplies, carry cloth to Eleusis, receive the families' return list and reserve a berth. |
-| Eleusis | Aethra, Adrastus, an original chorus mother, Iphis | Hear the plea, prepare the funeral, place the ashes and choose the care carried forward. |
-| Colonus | An original grove keeper | Hear an earlier named tale, bring water and honey, then place a tablet for the grove's present custom. |
-| Marathon | An original altar keeper | Hear a separate generation's tale, bring a blanket and choose which ending the keeper tells. |
+| Place    | People                                             | Work in this release                                                                                   |
+| -------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Agora    | Theseus; the existing Agora neighbor               | Receive the mothers' petition, choose a civic response, then hear the report.                          |
+| Piraeus  | Thaleia, an original quay host                     | Prepare supplies, carry cloth to Eleusis, receive the families' return list and reserve a berth.       |
+| Eleusis  | Aethra, Adrastus, an original chorus mother, Iphis | Hear the plea, prepare the funeral, place the ashes and choose the care carried forward.               |
+| Colonus  | An original grove keeper                           | Hear an earlier named tale, bring water and honey, then place a tablet for the grove's present custom. |
+| Marathon | An original altar keeper                           | Hear a separate generation's tale, bring a blanket and choose which ending the keeper tells.           |
 
 Residents stay in their authored places. The mother joins the visible scene
 after the recovery report. Iphis joins after the pyre account. Each introduced
@@ -25,7 +25,7 @@ person remains available, with their earlier conversations intact.
 
 ## The mothers' road
 
-The central episode adapts Euripides' *Suppliant Women*. It takes place after
+The central episode adapts Euripides' _Suppliant Women_. It takes place after
 the attack on Thebes. The traveler's earlier action for Antigone remains true.
 
 1. At Eleusis, hear Aethra and the mothers. Hear Adrastus own his failed
@@ -62,7 +62,7 @@ the children and the closing oath.
 ## The earlier tale at Colonus
 
 The keeper names the time before beginning: this is Sophocles'
-*Oedipus at Colonus*, before the Theban brothers' deaths.
+_Oedipus at Colonus_, before the Theban brothers' deaths.
 
 - **Arrival:** Oedipus reaches the grove with Antigone. Theseus grants refuge.
 - **Offering:** the traveler places a real cup of water and pot of honey
@@ -84,7 +84,7 @@ closing scenes. The MIT web page ends during the earlier action.
 
 ## A separate generation at Marathon
 
-The keeper names Euripides' *Children of Heracles*, after Heracles's death,
+The keeper names Euripides' _Children of Heracles_, after Heracles's death,
 under Demophon, son of Theseus. This frame keeps the rulers and the children
 in their own generation.
 

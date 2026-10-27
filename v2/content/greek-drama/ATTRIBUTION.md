@@ -9,7 +9,7 @@ The repertoire follows [John H. Boyer's Greek Drama
 Reader](https://greekdrama.johnhboyer.com/): seven works under Aeschylus, seven
 under Sophocles, nineteen under Euripides, and eleven under Aristophanes.
 Author plus title distinguishes works with the same title. This is that
-reader's 44-work collection, including *Rhesus* and *Cyclops*; it is not a
+reader's 44-work collection, including _Rhesus_ and _Cyclops_; it is not a
 claim to contain every surviving Greek dramatic text or fragment.
 
 The underlying ancient plays supply the people, settings, and conflicts.
@@ -24,10 +24,10 @@ Classics Archive is a reference for the underlying narrative, including:
 - [Aristophanes, Frogs](https://classics.mit.edu/Aristophanes/frogs.html).
 
 The Egyptian Helen account follows the phantom premise of Euripides'
-*Helen*. The Trojan homecoming account is an explicitly alternative
+_Helen_. The Trojan homecoming account is an explicitly alternative
 adaptation. The three Atreid account choices preserve different settings
-and witnesses from Aeschylus's *Libation Bearers*, Sophocles's *Electra*,
-and Euripides' *Electra*. Their playable hearing and refusal outcomes are
+and witnesses from Aeschylus's _Libation Bearers_, Sophocles's _Electra_,
+and Euripides' _Electra_. Their playable hearing and refusal outcomes are
 new CosyWorld outcomes, not assertions about the plays' endings.
 
 The six-role Theban opening adds Dione the baker, a representative elder,
@@ -45,7 +45,6 @@ this attribution.
 Card art has its own provenance under
 [`v2/card-game/assets/greek/`](../../card-game/assets/greek/).
 
-
 ## The Open Door
 
 The five-place Attic section develops three works from the same repertoire:
@@ -57,7 +56,7 @@ The five-place Attic section develops three works from the same repertoire:
   supplies the Marathon refuge, the daughter's sacrifice, the battle and
   the dispute over the captive Eurystheus. The source-facing copy calls
   the volunteer Heracles's daughter.
-- Sophocles' *Oedipus at Colonus* is checked against the complete
+- Sophocles' _Oedipus at Colonus_ is checked against the complete
   [Storr text](https://www.gutenberg.org/files/31/31-h/31-h.htm) and the
   [Center for Hellenic Studies text](https://www-current.chs.harvard.edu/primary-source/sophocles-oedipus-at-colonus-sb/).
   These include Ismene's ritual, the daughters' recovery, Polyneices's plea,
