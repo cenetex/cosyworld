@@ -217,6 +217,13 @@ try {
         "data:image/jpeg;base64,",
       ),
     );
+    const dimensions = await page.evaluate(async (source) => {
+      const image = new Image();
+      image.src = source;
+      await image.decode();
+      return [image.naturalWidth, image.naturalHeight];
+    }, videoRequests[0].frame_images[0].image_url.url);
+    assert.deepEqual(dimensions, [1280, 720]);
     await page.locator("#scene-video-player").evaluate(async (player) => {
       player.loop = true;
       await player.play();

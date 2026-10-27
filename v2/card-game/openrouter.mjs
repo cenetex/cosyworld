@@ -176,7 +176,9 @@ export function createOpenRouter({
         generate_audio,
         frame_images,
       } = options;
+      const key = connection()?.key;
       let job = await request("videos", {
+        key,
         body: {
           model,
           prompt,
@@ -214,10 +216,10 @@ export function createOpenRouter({
           }, 3000);
           signal?.addEventListener("abort", stop, { once: true });
         });
-        job = await request(path, { signal });
+        job = await request(path, { signal, key });
       }
       // Construct the fixed OpenRouter content path so credentials stay there.
-      return request(`${path}/content?index=0`, { signal, raw: true });
+      return request(`${path}/content?index=0`, { signal, key, raw: true });
     },
   };
 }

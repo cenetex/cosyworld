@@ -11,13 +11,34 @@ function stageFrame() {
   const stage = document.getElementById("stage"),
     rect = stage.getBoundingClientRect();
   const canvas = document.createElement("canvas"),
-    scale = Math.min(1, 1280 / rect.width, 720 / rect.height);
-  canvas.width = Math.round(rect.width * scale);
-  canvas.height = Math.round(rect.height * scale);
+    scale = Math.min(1280 / rect.width, 720 / rect.height);
+  canvas.width = 1280;
+  canvas.height = 720;
+  const offsetX = (canvas.width - rect.width * scale) / 2;
+  const offsetY = (canvas.height - rect.height * scale) / 2;
   const context = canvas.getContext("2d");
   context.fillStyle = "#14151d";
   context.fillRect(0, 0, canvas.width, canvas.height);
   try {
+    const background = [...stage.querySelectorAll("img.backdrop")].find(
+      (image) =>
+        image.complete &&
+        image.naturalWidth &&
+        image.getBoundingClientRect().width,
+    );
+    if (background) {
+      const fill = Math.max(
+        canvas.width / background.naturalWidth,
+        canvas.height / background.naturalHeight,
+      );
+      context.drawImage(
+        background,
+        (canvas.width - background.naturalWidth * fill) / 2,
+        (canvas.height - background.naturalHeight * fill) / 2,
+        background.naturalWidth * fill,
+        background.naturalHeight * fill,
+      );
+    }
     for (const image of stage.querySelectorAll("img")) {
       const box = image.getBoundingClientRect();
       if (
@@ -43,16 +64,16 @@ function stageFrame() {
       context.save();
       context.beginPath();
       context.rect(
-        (box.left - rect.left) * scale,
-        (box.top - rect.top) * scale,
+        offsetX + (box.left - rect.left) * scale,
+        offsetY + (box.top - rect.top) * scale,
         box.width * scale,
         box.height * scale,
       );
       context.clip();
       context.drawImage(
         image,
-        (box.left - rect.left + (box.width - width) / 2) * scale,
-        (box.top - rect.top + (box.height - height) / 2) * scale,
+        offsetX + (box.left - rect.left + (box.width - width) / 2) * scale,
+        offsetY + (box.top - rect.top + (box.height - height) / 2) * scale,
         width * scale,
         height * scale,
       );
@@ -187,6 +208,7 @@ export function installSceneVideo({ getWorld, getScene }) {
     pause();
   });
   document.addEventListener("openrouter-change", () => {
+    if (!client.connection()?.key) controller?.abort();
     ready();
     if (waitingConnection && dialog.open && client.connection()?.key)
       void generate();
