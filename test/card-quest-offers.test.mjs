@@ -42,21 +42,20 @@ describe("quieter generated quest offers", () => {
     const old = threeGatherings();
     const before = structuredClone(collection(old));
     const world = reload(old);
-    expect(generated(world).map((q) => q.key)).toEqual(["vale:quest:1"]);
-    expect(world.quests.records["vale:quest:2"]).toBeUndefined();
-    expect(world.quests.records["vale:quest:3"]).toBeUndefined();
+    expect(questCards(world).map((q) => q.key)).toEqual(["vale:quest:1"]);
+    expect(world.quests.records).toEqual(old.quests.records);
     expect(collection(world)).toMatchObject({
       next: before.next,
       earned: before.earned,
       archivedCompleted: before.archivedCompleted,
-      lastOfferTurn: 3,
     });
     expect(reload(world)).toEqual(world);
   });
   it("keeps the pursued goal and its exact progress, rewards and origin", () => {
     const old = threeGatherings({ protect: true });
     const world = reload(old);
-    expect(generated(world)).toEqual([old.quests.records["vale:quest:1"]]);
+    expect(questCards(world).map((q) => q.key)).toEqual(["vale:quest:1"]);
+    expect(world.quests.records).toEqual(old.quests.records);
     expect(world.actors).toEqual(old.actors);
     expect(world.quests.focus).toEqual(old.quests.focus);
     expect(world.questCompletions).toEqual(old.questCompletions);
@@ -70,10 +69,11 @@ describe("quieter generated quest offers", () => {
   it("keeps joined goals and gives distinct surviving companions useful titles", () => {
     const old = threeGatherings({ protect: true, twoProtected: true });
     const world = reload(old);
-    expect(generated(world)).toEqual([
-      old.quests.records["vale:quest:1"],
-      old.quests.records["vale:quest:2"],
+    expect(questCards(world).map((q) => q.key)).toEqual([
+      "vale:quest:1",
+      "vale:quest:2",
     ]);
+    expect(world.quests.records).toEqual(old.quests.records);
     const cards = questCards(world).filter((q) =>
       q.key.startsWith("vale:quest:"),
     );
@@ -96,7 +96,8 @@ describe("quieter generated quest offers", () => {
         record.lastProgressTurn = 3;
       }
       const world = reload(old);
-      expect(generated(world)).toEqual([record]);
+      expect(world.quests.records[record.key]).toEqual(record);
+      expect(questCards(world).map((q) => q.key)).toEqual([record.key]);
     },
   );
   it("preserves fulfilled history and earned counters", () => {
@@ -110,7 +111,8 @@ describe("quieter generated quest offers", () => {
     old.actors.vale.progress.marks = [2, 3];
     const world = reload(old);
     expect(world.quests.records[record.key]).toEqual(record);
-    expect(generated(world)).toHaveLength(2);
+    expect(generated(world)).toHaveLength(3);
+    expect(questCards(world).length).toBeLessThanOrEqual(2);
     expect(world.actors.vale.progress).toEqual(old.actors.vale.progress);
     expect(collection(world).earned).toBe(2);
   });
@@ -128,7 +130,8 @@ describe("quieter generated quest offers", () => {
     expect(questGoalSignature(second.program)).toBe(
       questGoalSignature(first.program),
     );
-    expect(generated(reload(old))).toHaveLength(1);
+    expect(questCards(reload(old))).toHaveLength(1);
+    expect(generated(reload(old))).toHaveLength(3);
   });
   it("compares exact goals across families while preserving step order and rewards", () => {
     const world = threeGatherings();
@@ -250,8 +253,10 @@ describe("quieter generated quest offers", () => {
   it("keeps authored offers through cleanup and the generated offer limit", () => {
     const world = threeGatherings();
     for (const q of generated(world)) delete q.program.generated;
-    expect(reload(world)).toEqual(world);
-    expect(canOfferQuest(world, "vale")).toBe(true);
-    expect(validateWorld(reload(world))).toEqual(world);
+    const loaded = reload(world);
+    expect(loaded.quests.records).toEqual(world.quests.records);
+    expect(questCards(loaded)).toHaveLength(2);
+    expect(canOfferQuest(loaded, "vale")).toBe(false);
+    expect(validateWorld(loaded)).toEqual(loaded);
   });
 });

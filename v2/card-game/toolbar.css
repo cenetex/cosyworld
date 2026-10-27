@@ -1,0 +1,221 @@
+/* One quiet frame keeps the scene controls together. */
+.topbar .top-actions {
+  width: auto;
+  gap: 2px;
+  padding: 0;
+  border: 1px solid #ded1b31a;
+  border-radius: 10px;
+  background: #10151cb3;
+  backdrop-filter: blur(16px);
+}
+.topbar .top-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  color: #e6dfd1;
+}
+.topbar .top-actions button:hover,
+.topbar .top-actions button[aria-expanded="true"] {
+  background: #e1d2af13;
+  color: #fff2d5;
+}
+.topbar .top-actions button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+.toolbar-icon,
+.toolbar-icon svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+.toolbar-icon {
+  color: #c7c4bd;
+}
+.top-actions .toolbar-label {
+  display: none;
+}
+.world-menu {
+  position: fixed;
+  inset: 60px 20px auto auto;
+  margin: 0;
+  padding: 6px;
+  width: 190px;
+  max-width: calc(100vw - 20px);
+  max-height: calc(100dvh - 70px);
+  overflow: auto;
+  border: 1px solid #ded1b326;
+  border-radius: 12px;
+  background: #141b22f5;
+  color: var(--ink);
+  box-shadow: 0 12px 36px #0005;
+  backdrop-filter: blur(16px);
+}
+.world-menu button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  font-size: 13px;
+  text-align: left;
+}
+.world-menu button:hover {
+  background: #e1d2af13;
+}
+.world-menu button:focus-visible {
+  outline-offset: -2px;
+}
+.player-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 14px;
+  color: #d5d0c5;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+[data-online="true"] .player-count::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #9bcab0;
+}
+.topbar .top-actions #players-button {
+  border-left: 1px solid #ded1b326;
+  border-radius: 0 10px 10px 0;
+}
+.players-dialog {
+  width: min(440px, calc(100vw - 28px));
+  padding: 22px;
+  border: 1px solid #ded1b333;
+  border-radius: 18px;
+  background: #141b22f5;
+}
+.players-dialog .modal-heading {
+  gap: 12px;
+}
+.players-dialog h2 {
+  font-size: 23px;
+}
+.players-dialog .players-close {
+  padding: 8px 12px;
+  border-color: #ded1b326;
+  border-radius: 9px;
+  background: transparent;
+  font-size: 12px;
+}
+.players-summary {
+  color: #b7c7bb;
+}
+.players-list {
+  list-style: none;
+  padding: 0;
+  margin: 18px 0;
+}
+.player-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid #ded1b314;
+}
+.player-row:last-child {
+  border-bottom: 0;
+}
+.player-portrait {
+  flex: none;
+  width: 48px;
+  height: 56px;
+  object-fit: contain;
+  border-radius: 10px;
+  background: #e1d2af09;
+}
+.player-copy {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.player-name {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 14px;
+}
+.player-you {
+  color: #a5b5aa;
+  font-size: 10px;
+  font-weight: 400;
+  border: 1px solid #a5b5aa33;
+  border-radius: 4px;
+  padding: 2px 5px;
+}
+.player-location {
+  color: #b9b8b7;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.player-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 9px;
+  align-items: baseline;
+}
+.player-level {
+  color: var(--gold);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.players-dialog .players-hint {
+  color: #aaa8a5;
+  font-size: 12px;
+}
+@media (max-width: 1050px) {
+  .topbar .brand span {
+    display: none;
+  }
+}
+@media (max-width: 700px) {
+  .topbar .brand {
+    display: none;
+  }
+  .topbar {
+    justify-content: flex-end;
+    padding: 6px 10px;
+  }
+  .topbar .top-actions {
+    width: auto;
+    gap: 2px;
+  }
+  .topbar .top-actions button {
+    padding: 0 10px;
+  }
+  .world-menu {
+    right: 10px;
+    top: 56px;
+  }
+}
+@media (max-width: 380px) {
+  .topbar {
+    padding-inline: 6px;
+  }
+  .topbar .top-actions button {
+    padding-inline: 8px;
+  }
+}

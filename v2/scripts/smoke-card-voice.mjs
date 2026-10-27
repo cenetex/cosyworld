@@ -203,6 +203,7 @@ try {
       await playCards("take", ["lamp"]);
       if (width === 390) {
         // A quick first Light reply also crosses the discovery and quest cues.
+        await page.locator("#toolbar-menu-button").click();
         await page.locator("#menu-button").click();
         await page.locator("#new-game").click();
         await page.locator("#confirm-reset").click();

@@ -1,5 +1,6 @@
 import {
   questCards,
+  questHistoryCards,
   questCardId,
   questHand,
   questForCard,
@@ -90,7 +91,7 @@ describe("shared quest records", () => {
         focused: false,
       });
   });
-  it("retains set-aside cards in their place and participant views", () => {
+  it("retains set-aside cards in place and participant history", () => {
     const s = enableMotives(createWorld(), {
       questPrograms: true,
       personalQuests: true,
@@ -104,7 +105,7 @@ describe("shared quest records", () => {
     const after = decodeSave(encodeSave(s));
     for (const holder of ["vale", "station"])
       expect(
-        questCards(after, holder).find((card) => card.key === q.key),
+        questHistoryCards(after, holder).find((card) => card.key === q.key),
       ).toMatchObject({ status: "superseded", focused: false });
   });
   it("moves personal records into one registry with stable IDs and personal reward credit", () => {
@@ -201,7 +202,7 @@ describe("shared quest records", () => {
     expect(s.questCompletions.recent[0].questKey).toBe(old.key);
     const restored = decodeSave(encodeSave(s));
     expect(
-      questCards(restored, "vale").find((q) => q.key === joined.key),
+      questHistoryCards(restored, "vale").find((q) => q.key === joined.key),
     ).toMatchObject({ status: "superseded" });
     expect(questRecord(restored, joined.key).compacted).toBe(true);
     expect(
@@ -370,7 +371,7 @@ it("retains shared completion identity and both participant views past the recen
       firstIds = ["vale", "keeper"].map((actor) =>
         questCardId(
           s,
-          questCards(s, actor).find((q) => q.key === first),
+          questHistoryCards(s, actor).find((q) => q.key === first),
         ),
       );
   }
@@ -393,7 +394,7 @@ it("retains shared completion identity and both participant views past the recen
     ["vale", "keeper"].map((actor) =>
       questCardId(
         loaded,
-        questCards(loaded, actor).find((q) => q.key === first),
+        questHistoryCards(loaded, actor).find((q) => q.key === first),
       ),
     ),
   ).toEqual(firstIds);

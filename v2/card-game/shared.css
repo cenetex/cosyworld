@@ -156,12 +156,6 @@ button.shared-play-avatar:focus-visible {
   .shared-choice img {
     height: 140px;
   }
-  .top-actions {
-    gap: 4px;
-  }
-  .top-actions button {
-    padding-inline: 8px;
-  }
 }
 
 .shared-resume {
@@ -169,15 +163,6 @@ button.shared-play-avatar:focus-visible {
   margin: 4px auto 8px;
   padding: 6px 12px;
   font-size: 13px;
-}
-@media (max-width: 480px) {
-  .topbar .brand {
-    display: none;
-  }
-  .topbar .top-actions {
-    width: 100%;
-    justify-content: space-between;
-  }
 }
 
 #notice {

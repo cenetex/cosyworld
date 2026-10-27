@@ -107,6 +107,17 @@ function player({ fallback = false, random = () => 0 } = {}) {
 }
 
 describe("room music fades", () => {
+  it("remembers the item gesture while waiting for an accepted shared play", async () => {
+    const { audio, music } = player();
+    music.setStarted(false);
+    music.setRoom("theatre");
+    music.unlock();
+    await advance(5000);
+    expect(audio.play).not.toHaveBeenCalled();
+    music.setStarted(true);
+    await advance(1000);
+    expect(audio.paused).toBe(false);
+  });
   it("keeps one randomly chosen song for a crossing and chooses again on boarding", async () => {
     const random = vi.fn().mockReturnValueOnce(0.6).mockReturnValueOnce(0.9);
     const { audio, music, begin, ended, changed, level } = player({ random });

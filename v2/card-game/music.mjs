@@ -298,7 +298,8 @@ export function createRoomMusic({
       sync();
     },
     unlock() {
-      if (!started) return;
+      // Keep the gesture while a shared item play waits for the server.
+      // wanted() holds playback until that avatar's play is accepted.
       unlocked = true;
       if (enabled && !hidden) unlockGraph();
       start();

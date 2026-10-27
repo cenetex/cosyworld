@@ -1,3 +1,4 @@
+import { canCarryQuest, questCarried, questDropQuiet } from "./quest-hands.mjs";
 import { canOfferQuest } from "./quest-offers.mjs";
 import {
   collectionCards,
@@ -500,6 +501,7 @@ export function installQuestCollection(s, actor) {
   };
   if (program) {
     const card = addQuest(s, actor, program, life.origin || null);
+    if (!card) return;
     card.step = progress.step;
     if (!program.generated) life.collection.authoredThrough += 1;
     if (life.phase === "active") {
@@ -511,8 +513,11 @@ export function installQuestCollection(s, actor) {
 function addQuest(s, actor, program, origin = null) {
   const c = collectionOf(s, actor);
   if (
-    collectionCards(s, actor).filter((q) => q.completedTurn === null).length >=
-      QUEST_LIMIT ||
+    !canCarryQuest(s, actor) ||
+    questDropQuiet(s, actor) ||
+    collectionCards(s, actor).filter(
+      (q) => q.completedTurn === null && questCarried(s, actor, q.key),
+    ).length >= QUEST_LIMIT ||
     collectionCards(s, actor).length + collectionCards(s, actor, true).length >=
       COLLECTION_LIMIT
   )
@@ -533,6 +538,7 @@ function addQuest(s, actor, program, origin = null) {
 export function pursueQuest(s, actor, key) {
   const c = collectionOf(s, actor);
   const candidate = questRecord(s, key);
+  if (!candidate || !canCarryQuest(s, actor, candidate)) return false;
   if (candidate && candidate.subjectActor !== actor)
     return focusQuest(s, actor, key);
   const card =
@@ -541,8 +547,8 @@ export function pursueQuest(s, actor, key) {
       (q) => q.key === key && q.completedTurn === null,
     );
   if (!card) return false;
+  if (!focusQuest(s, actor, key)) return false;
   c.active = key;
-  focusQuest(s, actor, key);
   const life = lifeOf(s, actor);
   life.phase = "active";
   life.restLeft = 0;
@@ -620,15 +626,19 @@ export function ensureCollectedQuest(s, actor, places, things) {
   p.step = 0;
   delete p.current;
   let pending = collectionCards(s, actor).filter(
-    (q) => q.completedTurn === null,
+    (q) => q.completedTurn === null && questCarried(s, actor, q.key),
   );
   const authored = programsFor(s, actor)[c.authoredThrough];
   if (authored && addQuest(s, actor, authored)) c.authoredThrough += 1;
-  pending = collectionCards(s, actor).filter((q) => q.completedTurn === null);
+  pending = collectionCards(s, actor).filter(
+    (q) => q.completedTurn === null && questCarried(s, actor, q.key),
+  );
   if (!pending.length && life.phase === "active" && canOfferQuest(s, actor)) {
     const program = generateProgram(structuredClone(s), actor, places, things);
     addQuest(s, actor, program, life.origin || null);
-    pending = collectionCards(s, actor).filter((q) => q.completedTurn === null);
+    pending = collectionCards(s, actor).filter(
+      (q) => q.completedTurn === null && questCarried(s, actor, q.key),
+    );
   }
   if (!pending.length && life.phase === "active") {
     life.phase = "seeking";
@@ -636,8 +646,11 @@ export function ensureCollectedQuest(s, actor, places, things) {
   }
   if (life.phase === "active" && pending.length) {
     if (controlledByHuman(s, actor)) {
-      life.phase = "seeking";
-      delete life.origin;
+      if (!focusedQuest(s, actor)) pursueQuest(s, actor, pending[0].key);
+      else {
+        life.phase = "seeking";
+        delete life.origin;
+      }
     } else {
       const rank = (q) => {
         const targets = alternatives(q.program.steps[q.step]);

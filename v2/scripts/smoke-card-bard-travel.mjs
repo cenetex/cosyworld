@@ -38,7 +38,18 @@ function fixture() {
     s,
     legalActions(s).find((a) => a.kind === "wait"),
   ).state;
-  return s;
+  // Start with the shared help already collected through the shipping rules.
+  // Quest cards now offer Drop; ordinary item plays fulfil the held request.
+  const helpKey = s.roamingQuests[singer].blocked.questKey;
+  const join = legalActions(s).find(
+    (action) => action.kind === "join-quest" && action.questKey === helpKey,
+  );
+  assert(join);
+  const joined = play(s, join);
+  assert.equal(joined.ok, true);
+  assert(joined.state.quests.hands.vale.includes(helpKey));
+  assert(joined.state.quests.hands.vale.length <= 2);
+  return joined.state;
 }
 const output = new URL("../../output/card-bard-travel/", import.meta.url);
 await mkdir(output, { recursive: true });
@@ -293,7 +304,14 @@ try {
     });
     await selectCard(page, "theatre");
     await selectCard(page, questCardId(world, helpCard));
-    await page.locator('#card-actions [data-action="join-quest"]').click();
+    assert.deepEqual(
+      await page
+        .locator("#card-actions [data-action]")
+        .evaluateAll((buttons) =>
+          buttons.map((button) => button.dataset.action),
+        ),
+      ["drop-quest"],
+    );
     await page.waitForFunction(
       ({ key, helpKey }) =>
         JSON.parse(localStorage.getItem(key)).quests.records[
@@ -314,6 +332,9 @@ try {
     );
     assert.equal(saved.items.mask.holder, "vale");
     assert.equal(saved.quests.records[helpKey].completion.cause.kind, "help");
+    const fulfilledHelp = structuredClone(saved.quests.records[helpKey]);
+    assert(fulfilledHelp.participants.includes("vale"));
+    assert.equal(fulfilledHelp.step, fulfilledHelp.program.steps.length);
     await page.reload();
     await page.waitForSelector('#hand [data-card="vale"]');
     await selectCard(page, "pond");
@@ -328,6 +349,8 @@ try {
       key,
     );
     assert.equal(saved.actors[singer].place, "pond");
+    assert.deepEqual(saved.quests.records[helpKey], fulfilledHelp);
+    assert(saved.quests.hands.vale.length <= 2);
     assert.equal(
       saved.quests.records[saved.roamingQuests[singer].questKey]
         .completedTurn !== null,
@@ -341,7 +364,7 @@ try {
     await page.close();
   }
   console.log(
-    "Bard quest cards, shared Help, item-gated travel, arrival and reload passed at desktop and phone widths.",
+    "Bard quest cards, collected help, Drop action, item-gated travel, arrival and saved history passed at desktop and phone widths.",
   );
 } finally {
   await browser.close();

@@ -154,6 +154,7 @@ try {
       await selectCard(page, "pond");
       await page.locator("#card-actions .card-primary").click();
       if (kind === "reset") {
+        await page.locator("#toolbar-menu-button").click();
         await page.locator("#menu-button").click();
         await page.locator("#new-game").click();
         await page.locator("#confirm-reset").click();
