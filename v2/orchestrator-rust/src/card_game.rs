@@ -1,3 +1,5 @@
+#[path = "card_game_metadata.rs"]
+pub(crate) mod metadata;
 #[path = "card_narrative.rs"]
 pub(crate) mod narrative;
 

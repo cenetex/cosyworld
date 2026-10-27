@@ -1,5 +1,8 @@
 # All-card policy ranker
 
+> Classic compatibility reference. Its status and rules apply to the classic
+> runtime. Start card-game work with the [current source map](../../docs/current-game.md).
+
 Cosyworld has a pure-Rust training and integer-inference path for resident card
 selection. The learned model does **not** classify `A`, `B`, or `DRAW` directly.
 It scores every currently legal card with shared weights and returns a complete

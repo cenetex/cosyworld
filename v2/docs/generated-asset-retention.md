@@ -1,5 +1,8 @@
 # Generated asset retention and capacity
 
+> Classic compatibility reference. Its status and rules apply to the classic
+> runtime. Start card-game work with the [current source map](../../docs/current-game.md).
+
 Each world's generated asset directory has a 512 MiB byte budget. Existing
 published files, immutable media objects, lineage, and Journal references are
 retained. This policy bounds local growth by pausing new generation at capacity.

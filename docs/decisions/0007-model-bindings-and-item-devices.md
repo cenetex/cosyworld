@@ -1,5 +1,9 @@
 # ADR 0007: model bindings embody actors or power item devices
 
+> Decision record: scope and implementation are checked against the
+> [current game source map](../current-game.md). Earlier classic-game terms
+> describe that release; the card-game guide describes current play.
+
 - Status: Accepted
 - Date: 2026-08-09
 - Decision owners: CosyWorld maintainers

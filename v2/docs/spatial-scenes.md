@@ -1,5 +1,8 @@
 # Spatial scenes
 
+> Classic compatibility reference. Its status and rules apply to the classic
+> runtime. Start card-game work with the [current source map](../../docs/current-game.md).
+
 Spatial scenes make room topology and the current hand visible without creating
 a second authority for movement or combat. A content pack may attach one
 schema-version-1 `spatial_scenes` resource row to a location whose

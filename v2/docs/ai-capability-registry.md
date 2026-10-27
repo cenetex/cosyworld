@@ -1,5 +1,8 @@
 # AI capability registry
 
+> Classic compatibility reference. Use this guide for the earlier runtime and
+> its saved history. Start card-game work with the [current source map](../../docs/current-game.md).
+
 CosyWorld selects operator-registry inference and pack-bound exact model
 interactions through immutable, versioned capability facts. The registry and
 interaction snapshots are execution metadata, never kernel authority. They may

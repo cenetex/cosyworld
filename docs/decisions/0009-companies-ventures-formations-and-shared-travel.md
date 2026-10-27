@@ -1,5 +1,9 @@
 # ADR 0009: companies, ventures, formations, and shared travel
 
+> Decision record: scope and implementation are checked against the
+> [current game source map](../current-game.md). Earlier classic-game terms
+> describe that release; the card-game guide describes current play.
+
 - Status: Accepted design; implementation staged behind current P1 work
 - Date: 2026-08-12
 - Decision owners: CosyWorld maintainers
@@ -419,8 +423,8 @@ The shared-party target is not complete until all of these hold:
 
 - [CosyWorld Product Requirements](../../PRD.md)
 - [The CosyWorld Pact](../cosyworld-pact.md)
-- [A Traveler's Guide To CosyWorld](../travelers-guide.md)
-- [CosyWorld:Dungeons](../cosyworld-dungeons.md)
+- [A Traveler's Guide To CosyWorld](../archive/classic/docs/travelers-guide.md)
+- [CosyWorld:Dungeons](../archive/classic/docs/cosyworld-dungeons.md)
 - [ADR 0003: one canonical world](0003-one-canonical-world.md)
 - [ADR 0004: rest grades and expedition depth](0004-rest-grades-and-expedition-depth.md)
 - [ADR 0005: thresholds, trails, and the strict referee](0005-thresholds-trails-and-strict-referee.md)

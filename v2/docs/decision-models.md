@@ -1,5 +1,8 @@
 # Decision models
 
+> Classic compatibility reference. Its status and rules apply to the classic
+> runtime. Start card-game work with the [current source map](../../docs/current-game.md).
+
 A decision model answers typed questions about a state with probabilities
 instead of prose. The engine uses one through the OpenRouter Decisions API
 (`POST /api/alpha/decisions`, model `typesafe/jev-1.13`) wherever it needs a

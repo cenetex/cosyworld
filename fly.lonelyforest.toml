@@ -3,7 +3,7 @@ primary_region = "sjc"
 
 # One Fly Machine owns the Lonely Forest volume and runs one CosyWorld
 # process. The former subdomain worlds (0, 7, 89, lantern, hoppycat) were
-# retired with the classic MUD; their data remains under /data/worldpacks.
+# retired; their data remains under /data/worldpacks.
 
 [env]
   COSYWORLD_PRIMARY_GAME = "cards"

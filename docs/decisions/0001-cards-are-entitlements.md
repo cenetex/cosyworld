@@ -1,5 +1,9 @@
 # ADR 0001: cards are entitlements, never world entities
 
+> Decision record: scope and implementation are checked against the
+> [current game source map](../current-game.md). Earlier classic-game terms
+> describe that release; the card-game guide describes current play.
+
 - Status: Superseded
 - Date: 2026-07-16
 - Superseded: 2026-08-09 by

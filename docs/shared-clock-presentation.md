@@ -1,5 +1,8 @@
 # Shared Clock Presentation
 
+> Classic compatibility reference. Use this guide for the earlier runtime and
+> its saved history. Start card-game work with the [current source map](current-game.md).
+
 Player-visible clocks are presented as shared questions about a place. The
 question projection explains what is happening, why it matters, what an avatar
 can try, and what changed. It does not create a second source of mechanical

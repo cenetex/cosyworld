@@ -28,8 +28,8 @@ RT-8 onward is direction.
 
 **Related architecture**:
 
-- [SRD-Backed Action and Collectible System](../systems/04-action-system.md)
-- [CosyWorld RPG System Bible](../systems/09-cosyworld-rpg-system.md)
+- [SRD-Backed Action and Collectible System](../archive/classic/docs/systems/04-action-system.md)
+- [CosyWorld RPG System Bible](../archive/classic/docs/systems/09-cosyworld-rpg-system.md)
 - [ADR 0002: the action hand is authoritative state](../decisions/0002-action-hand-is-authoritative-state.md)
 - [ADR 0005: thresholds, trails, and the strict referee](../decisions/0005-thresholds-trails-and-strict-referee.md)
 

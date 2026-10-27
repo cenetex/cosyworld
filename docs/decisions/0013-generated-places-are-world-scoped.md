@@ -1,5 +1,9 @@
 # ADR 0013: player-established places last for the current world
 
+> Decision record: scope and implementation are checked against the
+> [current game source map](../current-game.md). Earlier classic-game terms
+> describe that release; the card-game guide describes current play.
+
 - Status: Accepted
 - Date: 2026-08-13
 - Decision owners: CosyWorld maintainers

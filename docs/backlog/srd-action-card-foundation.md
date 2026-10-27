@@ -38,7 +38,7 @@ the same Deck/loadout operations. Golden legacy replay, rules conformance,
 mutation/power audits, browser/CLI parity, Core/Ruby migration, and the
 non-shipping deck-gated design spike are checked in with the implementation.
 
-**Architecture**: [SRD-Backed Action and Collectible System](../systems/04-action-system.md)
+**Architecture**: [SRD-Backed Action and Collectible System](../archive/classic/docs/systems/04-action-system.md)
 
 | Ticket | Engineering state | Primary evidence |
 | --- | --- | --- |

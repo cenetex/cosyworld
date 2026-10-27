@@ -65,7 +65,7 @@ pack; his clothes and face are proposed visual details.
 
 ## Project 89
 
-Continue the [washed anime direction](../../../v2/docs/project-89-art-direction.md).
+Continue the [washed anime direction](../../archive/classic/v2/docs/project-89-art-direction.md).
 Use teal shade, coral lamps, rose-lavender midtones, repaired surfaces, and clear
 anime silhouettes. The background sample is Threshold Interface. Mara Quell is
 an authored quartermaster; the sample proposes her appearance.

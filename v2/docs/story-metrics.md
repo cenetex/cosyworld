@@ -1,5 +1,8 @@
 # Story and seventh-visit metrics
 
+> Classic compatibility reference. Its status and rules apply to the classic
+> runtime. Start card-game work with the [current source map](../../docs/current-game.md).
+
 CosyWorld measures whether the world gives a player a reason to return. These
 signals are diagnostics for product and world health, not player scores. They
 must never become streaks, leaderboards, rewards, eligibility rules, or social

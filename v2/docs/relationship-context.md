@@ -1,5 +1,8 @@
 # Authored relationship context
 
+> Classic compatibility reference. Its status and rules apply to the classic
+> runtime. Start card-game work with the [current source map](../../docs/current-game.md).
+
 Mara's relationship reply receives two pieces of evidence: the committed
 relationship beat and her own desire to recover Rowan's key. The `reply_prompt`
 field keeps its schema and now carries first-person context. It explains what

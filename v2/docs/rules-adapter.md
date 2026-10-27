@@ -1,5 +1,8 @@
 # CosyWorld rules adapters
 
+> Classic compatibility reference. Use this guide for the earlier runtime and
+> its saved history. Start card-game work with the [current source map](../../docs/current-game.md).
+
 ## Current state
 
 The official world selects `cosyworld.srd5/1`, compiled through
@@ -91,5 +94,5 @@ never contribute recursive capacity.
 
 See [combat-system.md](combat-system.md),
 [action-pack-authoring.md](action-pack-authoring.md), the
-[action architecture](../../docs/systems/04-action-system.md), and the
+[action architecture](../../docs/archive/classic/docs/systems/04-action-system.md), and the
 [implementation ledger](../../docs/backlog/srd-action-card-foundation.md).

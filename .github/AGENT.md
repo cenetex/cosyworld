@@ -12,7 +12,7 @@ not on a model name.
    or contradictory.
 2. Inspect `git status` before touching files. The checkout may contain another
    contributor's work; preserve it and use an isolated worktree when needed.
-3. Read `CLAUDE.md`, `ENG.md`, the relevant focused doc under `v2/docs/`, and
+3. Read `AGENTS.md`, `docs/current-game.md`, `CLAUDE.md`, `ENG.md`, and
    the current implementation. Issue line numbers and design assumptions drift.
 4. Identify the authoritative path and the evidence that will prove completion.
    Do not use a UI assertion to prove a kernel rule or a unit test to prove

@@ -9,6 +9,46 @@ const { version } = JSON.parse(
 );
 for (const target of targets) {
   const base = new URL(target);
+  const metadataResponse = await fetch(new URL("/meta", base), {
+    signal: AbortSignal.timeout(15_000),
+  });
+  assert.equal(metadataResponse.status, 200, `${base.origin}: metadata status`);
+  const meta = await metadataResponse.json();
+  assert.equal(meta.version, version, `${base.origin}: metadata release`);
+  assert.equal(
+    meta.primary_game,
+    "card-table",
+    `${base.origin}: selected game`,
+  );
+  assert.equal(meta.card_game.source_root, "v2/card-game/");
+  assert.equal(meta.card_game.entry_url, "/");
+  assert.deepEqual(meta.card_game.play_modes, ["local", "shared"]);
+  const engine = await readFile(
+    new URL("../orchestrator-rust/src/card_shared/engine.rs", import.meta.url),
+    "utf8",
+  );
+  assert.equal(
+    meta.card_game.shared_rules_version,
+    engine.match(/const VERSION: &str = "([^"]+)"/)[1],
+  );
+  assert.deepEqual(meta.card_game.catalogs, {
+    forest: "/card-game/forest.json",
+    shared_avatars: "/card-game/shared-cast.json",
+    character_profiles: "/card-game/entity-profiles.json",
+    mounted_packs: "/card-game/packs.json",
+  });
+  for (const field of [
+    "worldpack",
+    "world",
+    "combat",
+    "content_engine_version",
+  ]) {
+    assert.equal(meta.metadata_scopes[field], "classic-compatibility");
+    assert(meta[field], `${base.origin}: preserved ${field}`);
+  }
+  console.log(
+    `${base.origin}: ${meta.primary_game} ${meta.version}, rules ${meta.card_game.shared_rules_version}`,
+  );
   for (const { file, contentType } of publicAssets) {
     const url = new URL(
       file === "index.html" ? "/" : `/card-game/${file}`,

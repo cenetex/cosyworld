@@ -1,5 +1,8 @@
 # Rendezvous parties
 
+> Classic compatibility reference. Its status and rules apply to the classic
+> runtime. Start card-game work with the [current source map](../../docs/current-game.md).
+
 Hosted guest access was retired by issue #682. Invites still let players meet
 and keep a bounded social party, but party membership never grants access,
 changes ownership, or affects world simulation.

@@ -35,7 +35,7 @@ potion supply — shipped separately as a standalone bug.
 
 - [The CosyWorld Pact](../cosyworld-pact.md) — "Home Holds" and "Leaving Is Not
   A Promise To Win" are the product law this backlog implements.
-- [CosyWorld RPG System Bible](../systems/09-cosyworld-rpg-system.md)
+- [CosyWorld RPG System Bible](../archive/classic/docs/systems/09-cosyworld-rpg-system.md)
 - [Thresholds, Trails, And The Strict Referee](thresholds-trails-and-strict-referee.md)
   — owns Anchors, retreat reachability, and the fatigue restrictions that must
   never remove a rescue path.

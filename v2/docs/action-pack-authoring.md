@@ -1,5 +1,8 @@
 # Authoring SRD-backed action packs
 
+> Classic compatibility reference. Its status and rules apply to the classic
+> runtime. Start card-game work with the [current source map](../../docs/current-game.md).
+
 CosyWorld packs target exactly one versioned rules profile. For the official
 world that is `cosyworld.srd5/1`, backed by SRD 5.2.1 action identities. A pack
 does not copy an action resolver simply to change its language.

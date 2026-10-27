@@ -1,5 +1,9 @@
 # ADR 0002: the action hand is an authoritative state projection
 
+> Decision record: scope and implementation are checked against the
+> [current game source map](../current-game.md). Earlier classic-game terms
+> describe that release; the card-game guide describes current play.
+
 - Status: Accepted; superseded for the card table by ADR 0015, still the `/classic` contract
 - Date: 2026-07-17
 - Amended: 2026-07-27 by #354; 2026-07-29 by #529; 2026-08-01 by #516 and #408

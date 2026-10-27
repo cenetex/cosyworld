@@ -1,5 +1,8 @@
 # Played-Time World Simulation
 
+> Classic compatibility reference. Its status and rules apply to the classic
+> runtime. Start card-game work with the [current source map](../../docs/current-game.md).
+
 CosyWorld's wider world changes through committed play, never through elapsed wall time. The Rust orchestrator owns a deterministic projection reducer in `orchestrator-rust/src/world_simulation.rs`; the action journal remains the source of truth and snapshots remain disposable accelerators.
 
 ## Pulse contract

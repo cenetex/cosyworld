@@ -68,10 +68,13 @@ Rule version 3 introduced the home-item floor start and opened the home-to-pond
 path when the item is carried in the home. Version 4 added Greek story cards
 and saved bard visits. Released versions 2, 3, and 4 stay frozen for replay.
 Recorded upgrades use the exact interpreter named by their target version.
-Current version 5 combines those rules with collected personal quests.
+Version 5 combined those rules with collected personal quests. The current
+version is reported by `/meta.card_game.shared_rules_version` and is defined by
+the shared engine constant. Later versions preserve their own replay bundles.
 
 Loading an earlier world first replays its accepted history with the recorded
-rule versions, then records one upgrade from its latest version to version 5.
+rule versions, then records an upgrade to the current engine version. The
+version 5 migration introduced the following home and collection rules.
 A direct version 2-to-5 upgrade settles unused items in unclaimed homes on the
 floor. Upgrades from versions 3 and 4 preserve existing item positions. Each
 upgrade advances the view revision and preserves the world turn and conversation.

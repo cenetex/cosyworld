@@ -1,5 +1,8 @@
 # Avatar ownership and passkey recovery
 
+> Classic compatibility reference. Its status and rules apply to the classic
+> runtime. Start card-game work with the [current source map](../../docs/current-game.md).
+
 A CosyWorld account owns the avatars saved to it. Ownership is scoped to the
 world and its epoch. Each avatar has one account owner. An account can retain
 several avatars as its player completes tales.
