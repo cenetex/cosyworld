@@ -311,6 +311,8 @@ jobs:
           node v2/scripts/smoke-shared-ship.mjs
           node v2/scripts/smoke-card-facing.mjs
           node v2/scripts/smoke-card-image-first.mjs
+          node v2/scripts/smoke-card-toolbar.mjs
+          node v2/scripts/smoke-shared-snapshot-order.mjs
           node v2/scripts/smoke-card-actions.mjs
 
       - name: Check Greek drama and Theban scenery
@@ -349,6 +351,7 @@ jobs:
             output/theban-scenery/*.png
             output/theban-scenery/*.json
             output/image-first/*.png
+            output/card-toolbar/*.png
             output/image-first/*.json
             output/pond-crossings-check/*.png
             output/pond-crossings-check/*.json

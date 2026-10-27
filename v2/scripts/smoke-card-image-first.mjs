@@ -379,6 +379,7 @@ try {
         "touch targets",
       );
       await page.keyboard.press("Escape");
+      await page.locator("#toolbar-menu-button").click();
       await page.locator("#menu-button").click();
       assert.doesNotMatch(
         await page.locator("#menu-dialog").innerText(),
@@ -395,6 +396,7 @@ try {
       assert.equal((await state()).items.lamp.holder, "vale");
       await cards("greek-courtyard");
       await art();
+      await page.locator("#toolbar-menu-button").click();
       await page.locator("#history-button").click();
       assert.match(
         await page.locator("#messages").innerText(),

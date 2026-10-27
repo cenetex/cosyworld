@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   addQuestRecord,
   joinQuest,
+  focusQuest,
   questRecords,
 } from "../v2/card-game/shared-quests.mjs";
 import { recordQuestCompletion } from "../v2/card-game/quest-completions.mjs";
@@ -145,8 +146,7 @@ describe("saved roaming quests", () => {
         steps: [{ items: [], avatars: [], location: "c" }],
       },
     });
-    f.world.quests.focus.helper = unrelated.key;
-    unrelated.participants.push("helper");
+    expect(focusQuest(f.world, "helper", unrelated.key)).toBe(true);
     f.complete("b");
     f.world.turn++;
     f.step();

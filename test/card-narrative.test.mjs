@@ -69,12 +69,25 @@ describe("entity memories and model text", () => {
     world.items.bell.holder = "vale";
     const next = act(world, "give", "bell", "keeper");
     const outcome = narrativeContext(next).outcome;
-    expect(outcome.card).toMatchObject({kind:"give",item:"bell",target:"keeper"});
-    expect(outcome.items.find((item) => item.id === "bell")).toEqual({id:"bell",holder:"keeper",location:"attic"});
-    expect(outcome.avatars.find((actor) => actor.id === "keeper")).toMatchObject({
-      holding: ["oil", "bell"], travel: {from:"station",to:"attic",companions:[]},
+    expect(outcome.card).toMatchObject({
+      kind: "give",
+      item: "bell",
+      target: "keeper",
     });
-    expect(narrativeContext(decodeSave(encodeSave(next))).outcome).toEqual(outcome);
+    expect(outcome.items.find((item) => item.id === "bell")).toEqual({
+      id: "bell",
+      holder: "keeper",
+      location: "attic",
+    });
+    expect(
+      outcome.avatars.find((actor) => actor.id === "keeper"),
+    ).toMatchObject({
+      holding: ["oil", "bell"],
+      travel: { from: "station", to: "attic", companions: [] },
+    });
+    expect(narrativeContext(decodeSave(encodeSave(next))).outcome).toEqual(
+      outcome,
+    );
   });
 
   it("sends the final lamp state after refilling, lighting, covering and running dry", () => {
@@ -171,6 +184,7 @@ describe("entity memories and model text", () => {
       "Wants Oil flask, currently with The keeper",
     );
     expect(context.entities.every((e) => e.facts.length <= 16)).toBe(true);
+    context.scenery = true;
     const next = applyGeneratedText(world, context, response(context));
     expect(next.actors).toEqual(world.actors);
     expect(next.items).toEqual(world.items);

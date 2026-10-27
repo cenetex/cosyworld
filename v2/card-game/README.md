@@ -313,7 +313,7 @@ Run `node v2/scripts/smoke-card-pond-access.mjs` to check lamp custody, quiet de
 
 Run `node v2/scripts/smoke-card-dialogue-recovery.mjs` to check visible service failures, same-turn retry, incomplete responses, later plays and reload at desktop and phone widths. It uses local fixture responses and makes no model calls.
 
-Room music starts with the first accepted card play in a new game. The opening scene and menu wait for that play. Starting another new game resets this wait and keeps the saved music and volume settings.
+Room music starts with the first accepted card play in a new game. In a shared world, each avatar starts in silence until their own first accepted play, such as picking up or using their item. The saved play journal keeps that choice across reloads. The opening scene and menu wait for that play. Starting another new game resets this wait and keeps the saved music and volume settings.
 
 ## Character models and inner life
 

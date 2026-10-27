@@ -10,6 +10,7 @@ pub(super) fn schema(c: &Connection) -> Result<()> {
     c.execute_batch("
       CREATE TABLE IF NOT EXISTS card_full_log(seq INTEGER PRIMARY KEY AUTOINCREMENT,world TEXT NOT NULL,command TEXT NOT NULL,at INTEGER NOT NULL);
       CREATE INDEX IF NOT EXISTS card_full_log_world ON card_full_log(world,seq);
+      CREATE INDEX IF NOT EXISTS card_full_log_actor_plays ON card_full_log(world,json_extract(command,'$.actor')) WHERE json_extract(command,'$.op')='play';
       CREATE TABLE IF NOT EXISTS card_full_checkpoints(world TEXT PRIMARY KEY,seq INTEGER NOT NULL,state TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS card_full_plays(id TEXT PRIMARY KEY,world TEXT NOT NULL,actor INTEGER NOT NULL,user TEXT NOT NULL,room TEXT NOT NULL,command TEXT NOT NULL,status TEXT NOT NULL,created INTEGER NOT NULL,until_at INTEGER NOT NULL DEFAULT 0,result TEXT NOT NULL DEFAULT '{}',narrative TEXT NOT NULL DEFAULT '{}',retries INTEGER NOT NULL DEFAULT 0);
       CREATE INDEX IF NOT EXISTS card_full_plays_room ON card_full_plays(world,room,status,created);
@@ -223,6 +224,15 @@ pub(super) fn snapshot(c: &Connection, id: &str, user: &str, now: i64) -> Result
     let room = w.room(a)?;
     let here = w.present[a] == 1;
     let projected = w.project(a)?;
+    // A committed play belongs to this avatar even after its scene leaves the
+    // recent history. Claims, queued plays and other avatars keep this false.
+    let music_started: bool = c
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM card_full_log WHERE world=? AND json_extract(command,'$.actor')=? AND json_extract(command,'$.op')='play')",
+            params![id, actor_id(a)],
+            |r| r.get(0),
+        )
+        .map_err(sql_error)?;
     let mut q=c.prepare("SELECT id,actor,status FROM card_full_plays WHERE world=? AND (room=? OR actor=?) AND status IN ('waiting','retry','working','playing') ORDER BY created,id").map_err(sql_error)?;
     let queue=q.query_map(params![id,room,a],|r|Ok(json!({"id":r.get::<_,String>(0)?,"actor":actor_id(r.get::<_,usize>(1)?),"status":r.get::<_,String>(2)?}))).map_err(sql_error)?.collect::<std::result::Result<Vec<_>,_>>().map_err(sql_error)?;
     let mut q=c.prepare("SELECT content FROM card_full_scenes WHERE world=? AND room=? ORDER BY seq DESC LIMIT 40").map_err(sql_error)?;
@@ -247,7 +257,7 @@ pub(super) fn snapshot(c: &Connection, id: &str, user: &str, now: i64) -> Result
         .and_then(|s| serde_json::from_str::<Value>(&s).ok())
         .and_then(|s| s["error"].as_str().map(str::to_owned));
     Ok(
-        json!({"id":id,"version":w.version,"actor":actor_id(a),"claimed":w.claimed,"present":w.present,"world":projected["world"],"actions":projected["actions"],"exits":projected["exits"],"queue":if here{queue}else{vec![]},"history":history,"nudge":nudge.filter(|a|*a<8).map(actor_id),"now":now,"notice":notice}),
+        json!({"id":id,"version":w.version,"actor":actor_id(a),"music_started":music_started,"claimed":w.claimed,"present":w.present,"world":projected["world"],"actions":projected["actions"],"exits":projected["exits"],"queue":if here{queue}else{vec![]},"history":history,"nudge":nudge.filter(|a|*a<8).map(actor_id),"now":now,"notice":notice}),
     )
 }
 pub(super) struct PlayRequest<'a> {

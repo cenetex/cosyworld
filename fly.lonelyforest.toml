@@ -7,6 +7,9 @@ primary_region = "sjc"
 
 [env]
   COSYWORLD_PRIMARY_GAME = "cards"
+  COSYWORLD_CARD_POLICY_MODE = "shadow"
+  COSYWORLD_CARD_POLICY_MODEL_PATH = "/app/models/card-policy/incumbent.cwrank"
+  COSYWORLD_CARD_POLICY_TOP_K = "3"
   COSYWORLD_DEPLOY_PROFILE = "production"
   COSYWORLD_LOG_FORMAT = "json"
   COSYWORLD_LOG_TENANT = "root"
