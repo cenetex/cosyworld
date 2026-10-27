@@ -7,11 +7,12 @@ export async function revealCard(page, id) {
     const owner = page.locator(`#hand [data-card="${holder}"]`);
     await owner.scrollIntoViewIfNeeded();
     await owner.click();
-    await owner.click();
   }
   if ((await frame.getAttribute("data-stacked")) === "true") {
     const holder = await frame.getAttribute("data-holder");
-    const top = page.locator(`#hand .quest-frame[data-holder="${holder}"] .card`).first();
+    const top = page
+      .locator(`#hand .quest-frame[data-holder="${holder}"] .card`)
+      .first();
     await top.scrollIntoViewIfNeeded();
     await top.click();
   }
@@ -19,7 +20,21 @@ export async function revealCard(page, id) {
   return card;
 }
 export async function selectCard(page, id, { touch = false } = {}) {
+  const frame = page.locator(`#hand [data-card="${id}"]`).locator("..");
+  const holder =
+    (await frame.getAttribute("hidden")) !== null
+      ? await frame.getAttribute("data-holder")
+      : null;
   const card = await revealCard(page, id);
   if (touch) await card.tap();
   else await card.click();
+  // Keep the chosen child raised while returning its browsing avatar to the stack.
+  if (holder) {
+    const owner = page.locator(`#hand [data-card="${holder}"]`);
+    if ((await owner.getAttribute("aria-pressed")) === "true") {
+      await owner.scrollIntoViewIfNeeded();
+      if (touch) await owner.tap();
+      else await owner.click();
+    }
+  }
 }
