@@ -84,6 +84,10 @@ const env = {
   COSYWORLD_AI_API_KEY: "local-fixture",
   COSYWORLD_AI_MODEL: "openai/gpt-4.1-mini",
   COSYWORLD_CARD_TEXT_MODEL: "openai/gpt-4.1-mini",
+  // Queue inspection deliberately holds the provider while both layouts are checked.
+  // Keep that fixture budget below the shared worker's 60-second reservation.
+  COSYWORLD_CARD_TEXT_CALL_TIMEOUT_SECS: "45",
+  COSYWORLD_CARD_TEXT_SCENE_TIMEOUT_SECS: "50",
 };
 for (const key of [
   "OPENROUTER_API_KEY",
@@ -861,6 +865,15 @@ try {
     ),
   );
   await delay(Number(process.env.COSYWORLD_SHARED_PROVIDER_HOLD_MS || 0));
+  for (const request of requests.slice(queueRequestStart)) {
+    const timing = providerTiming.get(request);
+    if (timing.held)
+      assert.equal(
+        timing.closed,
+        undefined,
+        `The held fixture reply stays connected: ${JSON.stringify(timing)}`,
+      );
+  }
   holdReplies = false;
   for (const resolve of waitingReplies.splice(0)) resolve();
   await Promise.all([vale, mara, nell].map(idle));
@@ -1112,6 +1125,15 @@ try {
   throw error;
 } finally {
   await delay(Number(process.env.COSYWORLD_SHARED_PROVIDER_HOLD_MS || 0));
+  for (const request of requests.slice(queueRequestStart)) {
+    const timing = providerTiming.get(request);
+    if (timing.held)
+      assert.equal(
+        timing.closed,
+        undefined,
+        `The held fixture reply stays connected: ${JSON.stringify(timing)}`,
+      );
+  }
   holdReplies = false;
   for (const resolve of waitingReplies.splice(0)) resolve();
   if (browser) await browser.close();
