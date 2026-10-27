@@ -1293,7 +1293,7 @@ export function legalActions(s, actor = currentActor(s)) {
       parts: [],
     });
   }
-  for (const to of exits(s, here, actor)) {
+  for (const to of packPeople[actor]?.journey ? [] : exits(s, here, actor)) {
     const through = !baseExits(s, here).includes(to);
     const crossing = crossingBetween(here, to, s);
     const way = through
