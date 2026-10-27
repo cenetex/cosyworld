@@ -96,6 +96,9 @@ describe("agreed resident journeys", () => {
     let world = fixture();
     world.actors[resident].trust.vale = 1;
     expect(accompany(world)).toEqual([]);
+    expect(legalActions(world, resident).some((a) => a.kind === "move")).toBe(
+      false,
+    );
     expect(accompanyDecision(world, "vale", resident, path[1]).accepted).toBe(
       false,
     );
@@ -129,6 +132,9 @@ describe("agreed resident journeys", () => {
       );
       expect(itemPlace(world, "greek-water-jar")).toBe(destination);
       expect(plan(world, resident).action.kind).toBe("wait");
+      expect(legalActions(world, resident).some((a) => a.kind === "move")).toBe(
+        false,
+      );
       world = decodeSave(encodeSave(world));
       expect(world.actors[resident].place).toBe(destination);
     }
