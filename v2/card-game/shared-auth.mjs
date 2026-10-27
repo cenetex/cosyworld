@@ -1,3 +1,4 @@
+import { playerOpenRouter } from "./openrouter.mjs";
 const decode = (value) =>
   Uint8Array.from(atob(value.replaceAll("-", "+").replaceAll("_", "/")), (c) =>
     c.charCodeAt(0),
@@ -12,7 +13,14 @@ export async function request(path, body) {
     method: body === undefined ? "GET" : "POST",
     credentials: "same-origin",
     cache: "no-store",
-    headers: body === undefined ? {} : { "Content-Type": "application/json" },
+    headers: {
+      ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+      ...(body &&
+      ["play", "retry"].includes(body.op) &&
+      path.startsWith("/card-game/shared/worlds/")
+        ? playerOpenRouter().headers()
+        : {}),
+    },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     signal: AbortSignal.timeout(15000),
   });

@@ -21,6 +21,8 @@ use tokio_stream::{wrappers::UnboundedReceiverStream, StreamExt};
 
 #[path = "card_narrative/atmosphere.rs"]
 mod atmosphere;
+#[path = "card_narrative/browser.rs"]
+pub(crate) mod browser;
 #[path = "card_narrative/custody.rs"]
 mod custody;
 #[path = "card_narrative/observations.rs"]
@@ -238,6 +240,8 @@ fn router_with_models<S: Clone + Send + Sync + 'static>(
 ) -> Router<S> {
     Router::new()
         .route("/card-game/text", post(generate))
+        .route("/card-game/text/prepare", post(browser::prepare_route))
+        .route("/card-game/text/complete", post(browser::complete_route))
         .layer(DefaultBodyLimit::max(64 * 1024))
         .with_state(TextState {
             ai,
@@ -1983,6 +1987,55 @@ mod tests {
             {"id":"moth","facts":["Holding the black cloth."],"desire":{"items":["lamp"],"location":"pond","avatars":["vale"]},"memories":[{"turn":3,"kind":"expression","text":"Pip: I offered my cloth."}],"previous":null}
         ]})).unwrap()
     }
+    #[tokio::test]
+    async fn browser_chat_prepares_authored_prompts_and_checks_replies_without_provider_keys() {
+        let scene = serde_json::to_value(context()).unwrap();
+        let prepared = browser::prepare(&scene, None).unwrap();
+        let call = prepared["calls"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|call| call["id"] == "vale" && call["part"] == "line")
+            .unwrap();
+        assert!(call["request"]["messages"][0]["content"]
+            .as_str()
+            .unwrap()
+            .contains("Vale"));
+        assert_eq!(call["request"]["provider"]["zdr"], true);
+        assert!(!prepared.to_string().contains("api_key"));
+        let answers = |text: &str| {
+            serde_json::from_value(json!([
+                {"id":"vale","part":"line","text":text,"finish":"stop"}
+            ]))
+            .unwrap()
+        };
+        assert_eq!(
+            browser::complete(&scene, None, answers("I hear you.")).unwrap()["entries"][0]["text"],
+            "I hear you."
+        );
+        assert!(browser::complete(&scene, None, answers("As an AI, I can help.")).is_err());
+        assert!(browser::complete(&scene, None, answers("I hear you,")).is_err());
+        let app = router_with_models::<()>(
+            Arc::new(None),
+            Ok(BTreeMap::new()),
+            Ok(VoiceSettings::hosted()),
+        );
+        let mut req = request(&context());
+        *req.uri_mut() = "/card-game/text/prepare".parse().unwrap();
+        assert_eq!(
+            app.clone().oneshot(req).await.unwrap().status(),
+            StatusCode::OK
+        );
+        let mut req = request(&context());
+        *req.uri_mut() = "/card-game/text/prepare".parse().unwrap();
+        req.headers_mut()
+            .insert("sec-fetch-site", "cross-site".parse().unwrap());
+        assert_eq!(
+            app.oneshot(req).await.unwrap().status(),
+            StatusCode::FORBIDDEN
+        );
+    }
+
     fn solo_departure() -> TurnOutcome {
         serde_json::from_value(json!({
             "card":{"kind":"wait","target":null,"item":null,"receive":null,"destination":null,"accepted":null},

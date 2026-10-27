@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="./style.css" />
     <link rel="stylesheet" href="./awakening.css" />
     <link rel="stylesheet" href="./toolbar.css" />
+    <link rel="stylesheet" href="./openrouter.css" />
     <link rel="preload" as="image" href="./assets/keeper-right.png" />
     <script type="module" src="./entry.mjs"></script>
   </head>
@@ -193,6 +194,41 @@
         <input id="music-volume" type="range" min="0" max="100" value="30" />
       </div>
       <p id="music-status" class="music-status" aria-live="polite"></p>
+      <section class="openrouter-settings" aria-labelledby="openrouter-title">
+        <h3 id="openrouter-title">Your OpenRouter account</h3>
+        <p id="openrouter-status" role="status" aria-live="polite"></p>
+        <div class="openrouter-actions">
+          <button id="openrouter-connect" type="button">Connect OpenRouter</button>
+          <button id="openrouter-disconnect" type="button" hidden>Disconnect</button>
+          <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer">Manage keys and spending</a>
+        </div>
+        <div id="openrouter-options" hidden>
+          <label class="openrouter-chat"><input id="openrouter-chat" type="checkbox" /> Use my account for character chat</label>
+          <p>Each character uses their own chat model. Your key stays in this browser tab. Chat, audio, and video go straight to OpenRouter.</p>
+          <details>
+            <summary>Make audio or video</summary>
+            <p>Each Create button spends your OpenRouter credits. Set a spending limit in OpenRouter.</p>
+            <label for="openrouter-prompt">Words for audio, or a scene for video</label>
+            <textarea id="openrouter-prompt" rows="3" maxlength="4000" placeholder="A quiet shore at sunrise"></textarea>
+            <label for="openrouter-audio-model">Audio model</label>
+            <input id="openrouter-audio-model" list="openrouter-audio-models" value="openai/gpt-4o-mini-tts-2025-12-15" maxlength="200" />
+            <datalist id="openrouter-audio-models"></datalist>
+            <label for="openrouter-voice">Voice</label>
+            <input id="openrouter-voice" value="alloy" maxlength="100" />
+            <label for="openrouter-video-model">Video model</label>
+            <input id="openrouter-video-model" list="openrouter-video-models" placeholder="Choose an OpenRouter video model" maxlength="200" />
+            <datalist id="openrouter-video-models"></datalist>
+            <div class="openrouter-actions">
+              <button id="openrouter-make-audio" type="button">Create audio</button>
+              <button id="openrouter-make-video" type="button">Create video</button>
+              <button id="openrouter-stop" type="button" hidden>Stop waiting</button>
+            </div>
+            <audio id="openrouter-audio" controls hidden></audio>
+            <video id="openrouter-video" controls playsinline hidden></video>
+            <a id="openrouter-download" hidden>Save media</a>
+          </details>
+        </div>
+      </section>
       <p>Your game saves in this browser. Open Conversation to read what people have said.</p>
       <p id="table-slot" class="music-status" hidden></p>
       <button id="new-game">New game</button>
