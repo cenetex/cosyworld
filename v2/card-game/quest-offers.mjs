@@ -1,3 +1,4 @@
+import { canCarryQuest, questCarried } from "./quest-hands.mjs";
 // Generated wishes share a family; authored and earned quests keep their identities.
 export const QUEST_OFFER_GAP = 8;
 export const QUEST_OFFER_LIMIT = 2;
@@ -37,13 +38,16 @@ export const questGoalSignature = (program) =>
 export function canOfferQuest(world, actor, program = null) {
   const all = recordsFor(world, actor);
   const records = all.filter((q) => questOfferFamily(q.program));
-  const pending = records.filter((q) => q.completedTurn === null);
+  const pending = records.filter(
+    (q) => q.completedTurn === null && questCarried(world, actor, q.key),
+  );
   const latest = Math.max(
     -QUEST_OFFER_GAP,
     world.life.actors[actor].collection.lastOfferTurn ?? -QUEST_OFFER_GAP,
     ...records.map((q) => q.createdTurn),
   );
   return (
+    canCarryQuest(world, actor) &&
     pending.length < QUEST_OFFER_LIMIT &&
     world.turn - latest >= QUEST_OFFER_GAP &&
     (!program ||
