@@ -64,18 +64,15 @@ store. Each action is checked against the current world as it executes. Unique
 play keys make retries safe. Removing a checkpoint rebuilds the world from its
 seed and recorded operations.
 
-Rule version 3 introduced the home-item floor start and opened the home-to-pond
-path when the item is carried in the home. Version 4 added Greek story cards
-and saved bard visits. Released versions 2, 3, and 4 stay frozen for replay.
-Recorded upgrades use the exact interpreter named by their target version.
-Current version 5 combines those rules with collected personal quests.
+Rule version 3 introduced the home-item floor start. Version 4 added Greek
+story cards and saved bard visits. Versions 5–8 added collected and shared quests,
+shared journeys, quieter offers, and the first-signal ship gate. Published rule
+versions 2–8 retain their exact interpreter bytes for replay.
 
-Loading an earlier world first replays its accepted history with the recorded
-rule versions, then records one upgrade from its latest version to version 5.
-A direct version 2-to-5 upgrade settles unused items in unclaimed homes on the
-floor. Upgrades from versions 3 and 4 preserve existing item positions. Each
-upgrade advances the view revision and preserves the world turn and conversation.
-The normal save migration adds collections and any missing recital records.
+Version 9 adds a two-card quest hand and explicit Drop actions. Loading an earlier
+world first replays its accepted history with the recorded interpreters, then
+records an upgrade to version 9. The upgrade preserves the world turn, item
+positions, ship access, conversation, quest progress, and earned receipts.
 
 Earlier shared invitations keep their IDs and account claims. Their first full
 world load records an explicit migration seed. It maps the old rooms and items
@@ -103,55 +100,43 @@ human passenger allowance.
 ## Collected quests
 
 Each personal quest has a stable card key, its own steps, and the experience
-that led to it. The active card guides the next action. Other pending cards add
-bounded weight to an NPC's item choices. The player chooses a focus with the
-ordinary `pursue` action; NPCs choose from their circumstances and memories.
-Switching preserves the progress on every card.
+that led to it. Each avatar carries at most two quest cards across personal,
+shared, and story goals. The saved hand controls which cards appear. Existing
+saves keep the focused purpose first, then meaningful progress and participation,
+with stable ordering for remaining choices. Other records remain in the saved
+collection and history.
 
-Each round captures all matching cards before applying their consequences.
-Each card advances by at most one step in that round. A shared world effect
-runs once for matching completions, while each card keeps its own receipt.
-The receipt includes the card key, step, turn, and witnessed hand.
+Quest cards offer **Drop**. Dropping a card removes it from that avatar's hand
+and focus while retaining its record, progress, participants, receipts, and earned
+rewards. The saved drop prevents the same identity from immediately returning.
+New offers and joins respect the two-card limit.
 
-An avatar can hold eight unfinished cards. Generated experience offers use a
-smaller limit of two unfinished cards, with one per situation family. New offers
-have an eight-turn gap and each collection pass chooses at most one. The pass
-consumes skipped experiences too, so quiet periods stay quiet after reloading.
-Authored story quests keep their own progression.
+Generated experience offers keep one unfinished offer per situation family and
+an eight-turn gap. Each collection pass chooses at most one offer and consumes
+skipped experiences, so reloading preserves the gap. Distinct goals keep their
+exact requirements and identify their companions when needed.
 
-Loading an older save keeps every focused, progressed, fulfilled, joined or
-moved quest. Excess untouched generated offers from the same family leave the
-hand and registry. The saved serial counter, earned totals, completion receipts
-and latest offer turn remain intact. Distinct protected goals keep their exact
-requirements; their card titles name the company when the family appears twice.
-The existing action journal retains the source offers and the rules upgrade.
-The collection keeps up to 256 identities; new suggestions pause at that limit.
-The latest 24 fulfilled cards keep their complete programs. Older fulfilled
-cards keep their key, title, purpose, art kind, origin, completion turn, and
-step count in an archive deck. Older saves keep their prior completion count
-as migration evidence when the original card identity is unavailable.
+Each round captures matching cards before applying consequences. Each card
+advances by at most one step in that round. Matching completions share one world
+effect while each card keeps its own receipt: key, step, turn, and witnessed hand.
+A fulfilled card fades from the hand after two world turns. Its completion
+record stays available to saved history and the bard.
 
 Completing the active quest begins a rest at a place marked `sanctuary: true`.
-The station and attic are sanctuaries. Human rest counts that person's own
-turns in a shared world. Resident rest counts world rounds. A pending quest
-can finish while another remains active, preserving the chosen focus.
+The station and attic are sanctuaries. Human rest counts that person's own turns
+in a shared world. Resident rest counts world rounds.
 
-The shared interpreters in `engine-v2.js`, `engine-v3.js`, and `engine-v4.js`
-retain their released bytes. New commands use `engine-v5.js`. Replay works
-with a checkpoint or with the seed and journal alone, including histories with
-recorded 2-to-3, 2-to-4, and 3-to-4 upgrades. The bundle builder updates version 5.
-
-Greek story cards join the same visible stack beneath the active personal
-quest. Their saved pack receipts preserve the one-line text, art, and completion
-labels. Completed cards remain in the collection; the first courtyard report
-stays there when a later report adds another card. Story choices continue to
-use the pack's ordinary actions.
+The shared interpreter builder writes `engine-v9.js`. Earlier interpreters stay
+frozen. Upgrade tests cover checkpoints, journal-only rebuilds, saved drops,
+quest hand limits, and completion receipts.
 
 ## Shared words
 
-The server records the action before requesting speech. Each play receives one
-shared two-line exchange. A conversation can include the resident who was
-addressed. Other plays can include a room detail. The server records the lines
+The server records the action before requesting speech. Each play receives a shared
+exchange. A conversation can include the resident who was addressed. A saved
+turn-based choice occasionally adds a short atmospheric location line. Light,
+weather, sound, and texture guide those lines. Repeated reads and retries keep
+the same choice. The server records the lines
 and their reading times so people in the room see the same exchange. The
 conversation panel shows the current room's history.
 
@@ -159,7 +144,9 @@ Shared lines reveal letter by letter with the same voice sounds as solo play.
 The line arrows review the conversation. Reaching its latest line resumes live
 playback. Readers who advance early keep their place while the shared clock
 catches up. The voice setting and reduced-motion setting apply to shared play.
-A circular portrait follows the two line arrows. It shows the next queued player
+A thinking animation marks speech preparation. The hand, avatars, and held props
+use the same presented world while speech is pending. A circular portrait follows
+the two line arrows. It shows the next queued player
 or upcoming speaker, and keeps the latest speaker's portrait while the room is
 quiet. Tapping it returns straight to the live dialogue.
 Figures shrink in order of their most recent completed play in the room. Their
@@ -194,6 +181,13 @@ A future Paris journey can depart from the existing station. Rue's carriage open
 the station while her route board is present there. Carrying the board inside
 the carriage opens the way back to the station. The saved crossing IDs stay
 stable across the version 5 upgrade; earlier journals retain their pond route.
+
+## Folded belongings
+
+Loose items stack behind their location card. Selecting the location reveals
+those items. Carried items follow the same holder-based layout behind an avatar.
+The table keeps selected interactions and visible holders together through
+movement and delayed speech.
 
 ## Art
 
