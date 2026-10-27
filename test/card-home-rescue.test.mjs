@@ -51,6 +51,11 @@ describe("a path out of a stranded home", () => {
     expect(result.ok).toBe(true);
     expect(result.state.actors.vale.place).toBe("station");
     expect(result.state.items.lamp.fuel).toBe(0);
+    const restored = decodeSave(encodeSave(result.state));
+    const continued = play(restored, move(restored, "vale", "pond"));
+    expect(continued.ok).toBe(true);
+    expect(continued.state.actors.vale.place).toBe("pond");
+    expect(() => decodeSave(encodeSave(continued.state))).not.toThrow();
   });
   it("keeps local usable oil as recovery and spends it through the ordinary action", () => {
     const s = opening();
@@ -169,6 +174,14 @@ describe("a path out of a stranded home", () => {
       expect(result.ok).toBe(true);
       expect(result.state.items.lamp.holder).toBe("vale");
     }
+  });
+  it("offers rescue only for the human who stands in the queried home", () => {
+    const s = opening();
+    s.items.lamp.fuel = 0;
+    expect(exits(s, "attic", "vale")).toEqual(["station"]);
+    s.actors.vale.place = "station";
+    expect(exits(s, "attic", "vale")).toEqual([]);
+    expect(placeText(s, "attic")).not.toContain("narrow path");
   });
   it("keeps recovery limited to home rooms and controlled humans", () => {
     const s = opening();

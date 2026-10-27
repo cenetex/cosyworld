@@ -9951,7 +9951,7 @@
   function homeRescueExit(s, place, actor = currentActor(s), previous = null) {
     const gate = homeGates[place];
     actor ||= currentActor(s);
-    return gate && controlledByHuman(s, actor || currentActor(s)) && ordinaryExits(s, place, actor, previous).length === 0 && !homeGateRecoverable(s, place, gate, actor) ? gate.rescue : null;
+    return gate && controlledByHuman(s, actor) && s.actors[actor]?.place === place && ordinaryExits(s, place, actor, previous).length === 0 && !homeGateRecoverable(s, place, gate, actor) ? gate.rescue : null;
   }
   function exits(s, place, actor = null, previous = null) {
     const rescue = homeRescueExit(s, place, actor, previous);
@@ -10919,6 +10919,8 @@
   function travelParty(s, actors2, destination) {
     const from = s.actors[actors2[0]].place;
     const through = !baseExits(s, from).includes(destination);
+    if (homeGates[from]?.opening && homeRescueExit(s, from, actors2[0]) === destination)
+      s.locations[from].anchored = true;
     markCrossed(s, from, destination);
     for (const actor of actors2) {
       if (through) s.actors[actor].crossed += 1;
