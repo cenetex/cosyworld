@@ -22,7 +22,7 @@ use axum::{
     Router,
 };
 
-const CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'";
+const CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://openrouter.ai; media-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self'";
 
 pub(super) fn router<S: Clone + Send + Sync + 'static>(primary: bool) -> Router<S> {
     Router::new()
@@ -140,6 +140,7 @@ fn serve(path: &str) -> Response {
             (header::CACHE_CONTROL, "no-store"),
             (header::X_CONTENT_TYPE_OPTIONS, "nosniff"),
             (header::CONTENT_SECURITY_POLICY, CSP),
+            (header::REFERRER_POLICY, "no-referrer"),
             (
                 header::HeaderName::from_static("x-cosyworld-card-version"),
                 env!("CARGO_PKG_VERSION"),

@@ -17,6 +17,8 @@ use axum::{
 use rusqlite::{params, OptionalExtension, TransactionBehavior};
 use serde::Deserialize;
 use serde_json::{json, Value};
+#[path = "full_browser.rs"]
+mod browser;
 
 pub(super) fn router() -> Router<AppState> {
     Router::new()
@@ -27,6 +29,10 @@ pub(super) fn router() -> Router<AppState> {
                 .layer(DefaultBodyLimit::max(2 * 1024 * 1024)),
         )
         .route("/card-game/shared/worlds/{id}", get(view))
+        .route(
+            "/card-game/shared/worlds/{id}/browser-chat",
+            post(browser::chat).layer(DefaultBodyLimit::max(64 * 1024)),
+        )
         .route(
             "/card-game/shared/worlds/{id}/command",
             post(command).layer(DefaultBodyLimit::max(8192)),
@@ -151,6 +157,17 @@ async fn command(
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(sql_error)?;
         let value = run(&tx, &id, &u, &body, now())?;
+        if matches!(body.op.as_str(), "play" | "retry") {
+            let browser = h.get("x-cosy-browser-chat").is_some_and(|v| v == "1");
+            let text: Option<String> = tx.query_row(
+                "SELECT narrative FROM card_full_plays WHERE id=? AND world=? AND user=? AND status IN ('waiting','retry')",
+                params![body.key, id, u], |r| r.get(0)).optional().map_err(sql_error)?;
+            if let Some(text) = text {
+                let mut narrative: Value = serde_json::from_str(&text).map_err(sql_error)?;
+                narrative["browser_chat"] = json!(browser);
+                tx.execute("UPDATE card_full_plays SET narrative=? WHERE id=?", params![narrative.to_string(), body.key]).map_err(sql_error)?;
+            }
+        }
         tx.commit().map_err(sql_error)?;
         Ok(value)
     })
@@ -398,14 +415,15 @@ pub(super) fn take_work(state: &AppState, id: &str) -> Result<Option<Work>> {
             }
         };
         let destination = w.room(a)?.to_string();
+        let browser_chat = prior["browser_chat"].as_bool().unwrap_or(false);
         let context = if retry {
             prior
         } else {
-            json!({"play":key,"actor":actor_id(a),"room":destination,"turn":w.game["turn"],"context":result["context"],"profiles":result["profiles"],"events":result["events"],"lines":[],"starts_at":time,"until_at":time,"error":null})
+            json!({"play":key,"actor":actor_id(a),"room":destination,"turn":w.game["turn"],"context":result["context"],"profiles":result["profiles"],"events":result["events"],"lines":[],"starts_at":time,"until_at":time,"error":null,"browser_chat":browser_chat})
         };
         tx.execute(
             "UPDATE card_full_plays SET status='working',room=?,until_at=?,result=?,narrative=? WHERE id=?",
-            params![destination, time + 60_000, context.to_string(), context.to_string(), key],
+            params![destination, time + if browser_chat {120_000} else {60_000}, context.to_string(), context.to_string(), key],
         )
         .map_err(sql_error)?;
         tx.commit().map_err(sql_error)?;
@@ -431,6 +449,9 @@ fn kick(state: AppState, id: String) {
             let wid = id.clone();
             let work = tokio::task::spawn_blocking(move || take_work(&s, &wid)).await;
             let Ok(Ok(Some(work))) = work else { break };
+            if work.context["browser_chat"] == true {
+                break;
+            }
             let lines = super::full_speech::generate(&state, work.actor, &work.context).await;
             let s = state.clone();
             let wid = id.clone();
