@@ -2620,6 +2620,16 @@ function syncSharedLine() {
   );
   const live = sharedLiveLine(sharedSession.state, playbackTime, room);
   if (!live) return;
+  // A long spoken line can outlast the room's normal reading interval.
+  if (
+    characterSpeech.busy &&
+    (live.seq
+      ? live.seq !== shownSceneLine?.seq
+      : live.text !== shownSceneLine?.text)
+  ) {
+    sharedPlayback.now(sharedSession.state, sharedSession.now(), room, true);
+    return;
+  }
   const entry = world.log.findLast(
     (entry) =>
       entry.generated &&
