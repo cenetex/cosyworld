@@ -108,8 +108,8 @@ export function upgradeSave(
 // custody, memories, receipts, and access scope. Only new IDs are installed.
 export function upgradeGreekSectionSave(s) {
   const pack = packDefinitions.find((p) => p.id === "greek-drama");
-  const saved = s.packs?.[pack.id];
-  if (pack.revision < 3 || saved?.revision !== 2) return;
+  const saved = s.packs?.[pack?.id];
+  if (!pack || pack.revision < 3 || saved?.revision !== 2) return;
   const avatars = [
     "greek-aethra",
     "greek-adrastus",
