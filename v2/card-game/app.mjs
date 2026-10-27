@@ -1,3 +1,4 @@
+import { flipStagePortrait } from "./portrait-facing.mjs";
 import {
   connectSharedWorld,
   createSharedPlaybackClock,
@@ -1772,7 +1773,7 @@ function renderScene() {
     );
     const image = figure.querySelector("img");
     if (image.getAttribute("src") !== actor.cutout) image.src = actor.cutout;
-    image.dataset.flip = String(actor.flip);
+    image.dataset.flip = String(flipStagePortrait(actor.cutout, actor.facing));
     figure.classList.toggle(
       "active",
       scene.activeSpeaker === id && !resolvedBeat,

@@ -41,6 +41,7 @@ const files = [
   "app.mjs",
   "world.mjs",
   "scene.mjs",
+  "portrait-facing.mjs",
   "cards.mjs",
   "lessons.mjs",
   "motives.mjs",
