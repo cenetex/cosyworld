@@ -417,9 +417,16 @@ const exchange = createExchange({
 });
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 const speechSounds = createSpeechSounds();
+let completedSpokenLine = null;
 function finishSpokenLine() {
-  if (reveal.complete && !characterSpeech.busy && shownSceneLine)
-    exchange.revealed(shownSceneLine.seq, shownSceneLine.text, false);
+  const line = completedSpokenLine;
+  if (
+    line &&
+    line.key === speechKey &&
+    line.seq === shownSceneLine?.seq &&
+    !characterSpeech.busy
+  )
+    exchange.revealed(line.seq, line.text, line.instant);
 }
 const characterSpeech = createCharacterSpeech({
   changed: ({ state, message }) => {
@@ -434,7 +441,7 @@ const characterSpeech = createCharacterSpeech({
             ? "Preparing this character's voice…"
             : "";
     queueMicrotask(() => {
-      pauseSpeech();
+      syncSpeechPlayback();
       finishSpokenLine();
     });
   },
@@ -485,6 +492,7 @@ const reveal = createTextReveal({
     const text = $("dialogue-text");
     if (speechKey !== value.key) {
       speechKey = value.key;
+      completedSpokenLine = null;
       shownLetters = 0;
       speechComplete = null;
       text.scrollTop = 0;
@@ -523,8 +531,8 @@ const reveal = createTextReveal({
       completedSpeech.add(value.key);
       if (completedSpeech.size > 100)
         completedSpeech.delete(completedSpeech.values().next().value);
-      if (shownSceneLine && !characterSpeech.busy)
-        exchange.revealed(shownSceneLine.seq, value.text, value.instant);
+      completedSpokenLine = { ...value, seq: shownSceneLine?.seq };
+      finishSpokenLine();
       queueMicrotask(() => playQueue.flush());
     }
   },
@@ -538,8 +546,7 @@ reducedMotion.addEventListener("change", () => {
     for (const motion of $("unveil-take").getAnimations()) motion.finish();
   }
 });
-function pauseSpeech() {
-  pauseDiscovery();
+function syncSpeechPlayback() {
   const paused =
     document.hidden ||
     Boolean(document.querySelector("dialog[open], .world-menu:popover-open"));
@@ -553,6 +560,11 @@ function pauseSpeech() {
   reveal.pause(paused);
   characterSpeech.pause(paused);
   exchange.pause(paused || characterSpeech.busy);
+  return paused;
+}
+function pauseSpeech() {
+  pauseDiscovery();
+  const paused = syncSpeechPlayback();
   for (const animation of [
     ...$("cast").getAnimations({ subtree: true }),
     ...$("speech-row").getAnimations(),
@@ -2014,6 +2026,7 @@ function renderScene() {
     });
   } else {
     reveal.cancel();
+    completedSpokenLine = null;
     speechSounds.stop();
     characterSpeech.clear();
     speechKey = null;
@@ -2035,6 +2048,8 @@ function renderScene() {
     }
     if (exchange.current) {
       characterSpeech.stop();
+      syncSpeechPlayback();
+      finishSpokenLine();
       exchange.advance();
       return;
     }
@@ -2530,17 +2545,12 @@ function resumeScene() {
     return;
   }
   if (!saveBlocked && world.opening && world.turn === 0 && !hasCurrentWords()) {
-    addLog(
-      world,
-      "Vale",
-      "It's cold up here. I'll light the lamp.",
-      {
-        actorId: currentActor(world),
-        entityId: currentActor(world),
-        kind: "dialogue",
-        generated: true,
-      },
-    );
+    addLog(world, "Vale", "It's cold up here. I'll light the lamp.", {
+      actorId: currentActor(world),
+      entityId: currentActor(world),
+      kind: "dialogue",
+      generated: true,
+    });
     save();
   }
   if (!saveBlocked && hasCurrentWords()) {
