@@ -64,6 +64,7 @@ const files = [
   "dialogue.mjs",
   "pack-schema.mjs",
   "pack-registry.mjs",
+  "pack-sections.mjs",
   "pack-recital.mjs",
   "pack-rules.mjs",
   "pack-transport.mjs",
