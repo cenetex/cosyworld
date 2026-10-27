@@ -12,6 +12,11 @@ case "$app:$config" in
   cosyworld:fly.toml|cosyworld-lonelyforest:fly.lonelyforest.toml) ;;
   *) echo 'Use a supported app and its matching config.' >&2; exit 1 ;;
 esac
+image_builder="${COSYWORLD_IMAGE_BUILDER:-fly}"
+case "$image_builder" in
+  fly|runner) ;;
+  *) echo 'Choose the fly or runner image builder.' >&2; exit 1 ;;
+esac
 source_image="${SOURCE_IMAGE:-}"
 if [ -n "$source_image" ]; then
   [[ "$app" == cosyworld-lonelyforest ]]
@@ -66,7 +71,11 @@ if [ -n "$source_image" ]; then
     test "$digest" = "$source_digest"
   fi
 elif [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
-  flyctl deploy --remote-only --config "$config" --build-only --push --image-label "deploy-${GITHUB_SHA}"
+  if [ "$image_builder" = runner ]; then
+    bash "$(dirname "${BASH_SOURCE[0]}")/build-release-image.sh" "$image"
+  else
+    flyctl deploy --remote-only --config "$config" --build-only --push --image-label "deploy-${GITHUB_SHA}"
+  fi
   digest="$(wait_for_image)"
 fi
 

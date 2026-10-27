@@ -225,6 +225,7 @@ describe("deploy workflow", () => {
       );
       expect(image).toContain(`FLY_API_TOKEN: \${{ secrets.${token} }}`);
       expect(image).toContain("image: ${{ steps.image.outputs.image }}");
+      expect(image).toContain("COSYWORLD_IMAGE_BUILDER: runner");
       expect(image).not.toContain("production-gate");
       expect(image).not.toContain("backup-fly-v2.sh");
     }
@@ -304,7 +305,10 @@ describe("deploy workflow", () => {
     expect(dockerfile).toContain(
       "COPY --from=build /app/bin/cosyworld-orchestrator /app/cosyworld-orchestrator",
     );
-    expect(dockerfile).toContain("CARGO_INCREMENTAL=1 CARGO_BUILD_JOBS=1");
+    expect(dockerfile).toContain("ARG CARGO_BUILD_JOBS=1");
+    expect(dockerfile).toContain(
+      "CARGO_INCREMENTAL=1 CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS}",
+    );
   });
 
   it("runs Lonely Forest as one process behind the same bundle guard as primary", () => {
