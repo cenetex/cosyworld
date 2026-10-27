@@ -1,3 +1,4 @@
+import { questCarried } from "./quest-hands.mjs";
 import { collectionCards, focusedQuest } from "./shared-quests.mjs";
 // Personal quests grow from shared actions. This state belongs to the save.
 // No rule here names an avatar, item or place: hopes come from profile data
@@ -291,7 +292,10 @@ export function pendingQuestValue(s, actor, item) {
   const life = lifeOf(s, actor);
   const pending =
     collectionCards(s, actor).filter(
-      (q) => q.completedTurn === null && q.key !== life.collection.active,
+      (q) =>
+        q.completedTurn === null &&
+        q.key !== life.collection.active &&
+        questCarried(s, actor, q.key),
     ) || [];
   return Math.min(
     3,

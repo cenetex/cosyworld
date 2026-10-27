@@ -1,3 +1,4 @@
+import { questCarried } from "./quest-hands.mjs";
 import { questRecord } from "./shared-quests.mjs";
 import { recitalContext, recitalFacts } from "./pack-recital.mjs";
 import { hasMotives, motiveFacts, tastes } from "./motives.mjs";
@@ -156,6 +157,18 @@ export function turnOutcome(world) {
   };
 }
 
+// One varied turn in each four-turn block, at least three turns apart.
+// The turn is the seed: retries, reloads and shared clients keep the same choice.
+export function sceneryDue(turn) {
+  if (turn === 0) return true;
+  if (turn < 4) return false;
+  const block = Math.floor(turn / 4);
+  let seed = Math.imul(block, 0x45d9f3b);
+  seed = Math.imul(seed ^ (seed >>> 16), 0x45d9f3b);
+  const offset = (seed ^ (seed >>> 16)) & 1;
+  return turn % 4 === offset;
+}
+
 export function narrativeContext(world, action = null) {
   const location = world.actors[currentActor(world)].place;
   // Earlier opening text could include the authored solution. Keep those lines
@@ -286,6 +299,7 @@ export function narrativeContext(world, action = null) {
     turn: world.turn,
     outcome: turnOutcome(world),
     location,
+    scenery: sceneryDue(world.turn),
     focus,
     speakers,
     action:
@@ -306,7 +320,8 @@ export function narrativeContext(world, action = null) {
       const quests = kind === "avatar" ? actorQuests(world, id) : [];
       const activeQuest = quests.find((quest) => quest.status === "active");
       const pendingQuests = quests.filter(
-        (quest) => quest.status === "pending",
+        (quest) =>
+          quest.status === "pending" && questCarried(world, id, quest.key),
       );
       const questFacts = [
         ...(activeQuest
@@ -570,6 +585,7 @@ export function applyGeneratedText(world, context, response) {
     throw new Error("The story response was incomplete.");
   const next = structuredClone(world);
   for (const entry of entries) {
+    if (entry.id === context.location && context.scenery === false) continue;
     Object.assign(next.memories[entry.id], {
       text: entry.text.trim(),
       turn: next.turn,
@@ -629,7 +645,7 @@ export function applyGeneratedText(world, context, response) {
   // Descriptions stay on cards; the current place, played item and speakers also
   // become scene beats, with the same cast and item snapshot as other events.
   for (const id of [
-    context.location,
+    context.scenery === false ? null : context.location,
     context.focus,
     ...context.speakers,
   ].filter((id) => id && !omitted.includes(id))) {

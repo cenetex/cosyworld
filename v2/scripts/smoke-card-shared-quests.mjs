@@ -4,6 +4,7 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave, decodeSave } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
+import { installQuestCollection } from "../card-game/quests.mjs";
 import { addQuestRecord } from "../card-game/shared-quests.mjs";
 import { questCards, questCardId } from "../card-game/quest-cards.mjs";
 import { openingFixture } from "../../test/helpers/greek-opening.mjs";
@@ -20,19 +21,24 @@ try {
     [1440, 900],
     [390, 844],
   ]) {
-    const world = enableMotives(createWorld(), {
+    let world = enableMotives(createWorld(), {
       questPrograms: true,
       personalQuests: true,
     });
     world.items.lamp.holder = "vale";
+    installQuestCollection(world, "vale");
     const quest = addQuestRecord(world, {
-      holder: { kind: "place", id: "station" },
+      holder: { kind: "item", id: "lamp" },
+      participants: ["vale", "moth"],
       program: {
         id: "shared-water",
         name: "Meet by the water",
         steps: [{ items: [], avatars: [], location: "pond" }],
       },
     });
+    world = decodeSave(encodeSave(world));
+    assert(world.quests.hands.vale.includes(quest.key));
+    assert.equal(world.quests.hands.vale.length, 2);
     const table = `shared-quests-${width}`;
     const key = `cosyworld.reflected-shore.v1.${table}`;
     const page = await browser.newPage({
@@ -95,29 +101,29 @@ try {
       `http://127.0.0.1:${server.address().port}/?table=${table}`,
     );
     await finish();
-    await selectCard(page, questCardId(world, view(world, "station")));
+    await selectCard(page, questCardId(world, view(world, "vale")));
     assert.equal((await saved()).revision, world.revision);
-    await page.locator('#card-actions [data-action="join-quest"]').click();
-    await finish();
+    assert.deepEqual(
+      await page.locator("#card-actions button").allTextContents(),
+      ["Drop"],
+    );
     let state = await saved();
     assert(state.quests.records[quest.key].participants.includes("vale"));
-    await selectCard(page, questCardId(state, view(state, "vale")));
-    await page.getByRole("button", { name: /Share with lamp/i }).click();
-    await finish();
-    state = await saved();
     assert.deepEqual(state.quests.records[quest.key].holder, {
       kind: "item",
       id: "lamp",
     });
-    for (const holder of ["vale", "lamp"]) {
-      const card = view(state, holder);
-      assert(card);
-      await selectCard(page, questCardId(state, card));
-      assert.match(
-        await page.locator("#selection-name").textContent(),
-        /Meet by the water/,
-      );
-    }
+    // The saved item and participant views share one physical owned card.
+    for (const holder of ["vale", "lamp"])
+      assert.equal(view(state, holder).key, quest.key);
+    assert.equal(
+      await page.locator(`#hand [data-quest="${quest.key}"]`).count(),
+      1,
+    );
+    assert.match(
+      await page.locator("#selection-name").textContent(),
+      /Meet by the water/,
+    );
     await page.screenshot({
       path: new URL(`holder-${width}.png`, output).pathname,
     });
@@ -133,14 +139,26 @@ try {
     await page.locator('#card-actions [data-action="move"]').click();
     await finish();
     state = await saved();
-    for (const holder of ["vale", "lamp"]) {
+    for (const holder of ["vale", "lamp"])
       assert.equal(view(state, holder).status, "fulfilled");
-      await selectCard(page, questCardId(state, view(state, holder)));
-    }
+    await selectCard(page, questCardId(state, view(state, "vale")));
     assert.equal(state.quests.records[quest.key].step, 1);
+    assert.deepEqual(state.quests.records[quest.key].holder, {
+      kind: "item",
+      id: "lamp",
+    });
+    assert.deepEqual(state.quests.records[quest.key].participants, [
+      "moth",
+      "vale",
+    ]);
+    assert(state.quests.hands.vale.length <= 2);
+    const fulfilled = structuredClone(state.quests.records[quest.key]);
     await page.screenshot({
       path: new URL(`fulfilled-${width}.png`, output).pathname,
     });
+    await page.reload();
+    await finish();
+    assert.deepEqual((await saved()).quests.records[quest.key], fulfilled);
     assert.deepEqual(errors, []);
     await page.close();
     const travelled = dispatchShared({
@@ -210,7 +228,7 @@ try {
     await remotePage.close();
   }
   console.log(
-    "Shared holder cards, Help, Share, reload and one completion passed at desktop and phone widths.",
+    "Shared holder cards, Drop-only controls, reload and one completion passed at desktop and phone widths.",
   );
 } finally {
   await browser.close();

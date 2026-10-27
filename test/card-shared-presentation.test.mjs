@@ -99,15 +99,17 @@ describe("shared room dialogue clock", () => {
     clock.reset();
     expect(clock.now(state, 17000, "pond", false)).toBe(17000);
   });
-  it("starts a newly committed scene at its own paused reading time", () => {
+  it("finishes a paused scene before reading the next committed scene", () => {
     const clock = createSharedPlaybackClock();
     clock.now({ history: [] }, 900, "pond", true);
     expect(clock.now(state, 6000, "pond", true)).toBe(1000);
     expect(clock.now(state, 6000, "pond", false)).toBe(1000);
-    const next = { history: [{ ...state.history[0], starts_at: 7000 }] };
-    expect(clock.now(next, 7200, "pond", false)).toBe(7200);
-    expect(clock.now(next, 7300, "pond", true)).toBe(7300);
-    expect(clock.now(next, 9000, "pond", false)).toBe(7300);
+    const next = {
+      history: [{ ...state.history[0], starts_at: 7000 }, ...state.history],
+    };
+    expect(clock.now(next, 7200, "pond", false)).toBe(2200);
+    expect(clock.now(next, 7300, "pond", true)).toBe(2300);
+    expect(clock.now(next, 9000, "pond", false)).toBe(2300);
     expect(clock.now(state, 9100, "station", false)).toBe(9100);
   });
   it("joins an older room scene at the current time after paused travel", () => {
@@ -116,6 +118,91 @@ describe("shared room dialogue clock", () => {
     expect(clock.now(state, 13200, "pond", true)).toBe(1200);
     expect(clock.now(state, 13200, "station", true)).toBe(13200);
     expect(clock.now(state, 14000, "station", false)).toBe(13200);
+  });
+  it("reads every queued scene when a late update contains two new replies", () => {
+    const clock = createSharedPlaybackClock();
+    const vale = {
+      room: "pond",
+      starts_at: 1000,
+      play: "vale",
+      lines: [first],
+    };
+    const mara = {
+      room: "pond",
+      starts_at: 6000,
+      play: "mara",
+      lines: [second],
+    };
+    const nellLine = {
+      seq: 12,
+      speaker: "Nell",
+      text: "The leaves are bright.",
+    };
+    const nell = {
+      room: "pond",
+      starts_at: 11000,
+      play: "nell",
+      lines: [nellLine],
+    };
+    clock.now({ history: [vale] }, 1100, "pond", false);
+    const late = { history: [nell, mara, vale] };
+    const time = clock.now(late, 15000, "pond", false);
+    expect(time).toBe(6000);
+    expect(sharedLiveLine(late, time, "pond")).toEqual(second);
+    expect(
+      sharedLiveLine(late, clock.now(late, 16000, "pond", false), "pond"),
+    ).toEqual(second);
+    expect(
+      sharedLiveLine(late, clock.now(late, 18500, "pond", false), "pond"),
+    ).toEqual(nellLine);
+    clock.reset();
+    expect(
+      sharedLiveLine(late, clock.now(late, 19000, "pond", false), "pond"),
+    ).toEqual(nellLine);
+  });
+  it("reads the first arriving scene after observing an empty room", () => {
+    const clock = createSharedPlaybackClock();
+    clock.now({ history: [] }, 900, "pond", false);
+    const late = {
+      history: [
+        { room: "pond", starts_at: 6000, lines: [second] },
+        { room: "pond", starts_at: 1000, lines: [first] },
+      ],
+    };
+    expect(
+      sharedLiveLine(late, clock.now(late, 10000, "pond", false), "pond"),
+    ).toEqual(first);
+    expect(
+      sharedLiveLine(late, clock.now(late, 13500, "pond", false), "pond"),
+    ).toEqual(second);
+    clock.reset();
+    expect(
+      sharedLiveLine(late, clock.now(late, 14000, "pond", false), "pond"),
+    ).toEqual(second);
+  });
+  it("keeps all incoming scenes while a discovery pauses the reader", () => {
+    const clock = createSharedPlaybackClock();
+    const vale = {
+      room: "pond",
+      starts_at: 1000,
+      play: "vale",
+      lines: [first],
+    };
+    const mara = {
+      room: "pond",
+      starts_at: 6000,
+      play: "mara",
+      lines: [second],
+    };
+    clock.now({ history: [vale] }, 1200, "pond", true);
+    const late = { history: [mara, vale] };
+    expect(clock.now(late, 10000, "pond", true)).toBe(1200);
+    expect(
+      sharedLiveLine(late, clock.now(late, 10000, "pond", false), "pond"),
+    ).toEqual(first);
+    expect(
+      sharedLiveLine(late, clock.now(late, 13300, "pond", false), "pond"),
+    ).toEqual(second);
   });
   it("reads only the current room's scene", () => {
     expect(sharedLiveLine(state, 1100, "station").speaker).toBe("Keeper");

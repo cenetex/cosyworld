@@ -191,6 +191,7 @@ try {
       );
       await page.locator("#card-actions .card-primary").click();
       if (motion !== "reduce") {
+        await page.locator("#toolbar-menu-button").click();
         await page.locator("#menu-button").click();
         await page.waitForTimeout(2400);
         assert.equal(await page.locator("#unveil-dialog[open]").count(), 0);
@@ -252,6 +253,7 @@ try {
       assert.deepEqual(await page.evaluate(() => window.discoveries), []);
       assert.deepEqual(await state(), saved);
       // Reset through the real menu, then cancel a live reveal with a save update.
+      await page.locator("#toolbar-menu-button").click();
       await page.locator("#menu-button").click();
       await page.locator("#new-game").click();
       await page.locator("#confirm-reset").click();

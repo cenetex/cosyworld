@@ -4,7 +4,14 @@ import { pathToFileURL } from "node:url";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { encodeSave } from "../card-game/world.mjs";
-import { activeQuests, openingPoem } from "../card-game/quest-cards.mjs";
+import {
+  activeQuests,
+  openingPoem,
+  questCards,
+  questHistoryCards,
+} from "../card-game/quest-cards.mjs";
+import { dropQuest } from "../card-game/quest-hands.mjs";
+import { joinQuest } from "../card-game/shared-quests.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { openingFixture } from "../../test/helpers/greek-opening.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
@@ -15,7 +22,19 @@ export async function checkOpeningPoem(browser, origin) {
   for (const width of [1200, 390, 320, 667]) {
     for (const branch of ["burial", "concession", "refusal", "exposure"]) {
       const fixtures = openingFixture(branch);
-      const world = fixtures.beforeGraveReport || fixtures.returning;
+      const world = structuredClone(
+        fixtures.beforeGraveReport || fixtures.returning,
+      );
+      // This saved poem scene carries the report alongside one personal purpose.
+      const report = questHistoryCards(world).find(
+        (quest) =>
+          quest.key.startsWith("greek-drama:story-quest-greek-courtyard") &&
+          quest.status === "pending",
+      );
+      assert.ok(report, "The courtyard report is ready to carry");
+      assert.ok(dropQuest(world, "vale", questCards(world)[1].key));
+      assert.ok(joinQuest(world, "vale", report.key));
+      assert.equal(questCards(world).length, 2);
       const table = `poem-${branch}-${width}`;
       const key = `cosyworld.reflected-shore.v1.${table}`;
       const page = await browser.newPage({
