@@ -211,7 +211,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        mode: [baseline, living-world]
+        mode:
+          - baseline
+          - living-world
+          - cards-shared
+          - cards-ui
+          - cards-routes
+          - cards-drama
+          - cards-dialogue
+          - cards-quests
     env:
       CI: true
       COSYWORLD_BROWSER_CHECK_MODE: ${{ matrix.mode }}
@@ -246,7 +254,19 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-playwright-${{ hashFiles('node_modules/playwright-core/package.json') }}
+
+      - name: Use Ubuntu archive and bound package download waits
+        run: |
+          # The Azure mirror delivered browser fonts at 63 kB/s in CI.
+          if [ -f /etc/apt/apt-mirrors.txt ]; then
+            sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/apt-mirrors.txt
+          fi
+          sudo tee /etc/apt/apt.conf.d/99cosyworld-ci >/dev/null <<'EOF'
+          Acquire::Retries "2";
+          Acquire::http::Timeout "20";
+          Acquire::https::Timeout "20";
+          EOF
 
       - name: Install fresh-seed browser gate system dependencies
         run: |
@@ -258,26 +278,25 @@ jobs:
         run: npx playwright install chromium
 
       - name: Run fresh-seed browser gate
+        if: matrix.mode == 'baseline' || matrix.mode == 'living-world'
         run: npm run v2:browser:check
 
+      # Each group has its own runner, ports, and files. All groups feed the
+      # required build check. Commands within a group run in order.
       - name: Check shared card worlds with real passkeys
-        if: matrix.mode == 'baseline'
+        if: matrix.mode == 'cards-shared'
         run: node v2/scripts/smoke-shared-cards.mjs
 
-      - name: Check the Steam Clock opening
-        if: matrix.mode == 'baseline'
-        run: node v2/scripts/check-card-awakening.mjs
+      - name: Check card opening, hand, and music
+        if: matrix.mode == 'cards-ui'
+        run: |
+          node v2/scripts/check-card-awakening.mjs
+          node v2/scripts/smoke-card-unveil.mjs
+          node v2/scripts/smoke-card-hand.mjs
+          node v2/scripts/smoke-card-music.mjs
 
-      - name: Check new cards unveil before travel
-        if: matrix.mode == 'baseline'
-        run: node v2/scripts/smoke-card-unveil.mjs
-
-      - name: Check hand scrolling and pairing tips
-        if: matrix.mode == 'baseline'
-        run: node v2/scripts/smoke-card-hand.mjs
-
-      - name: Check dynamic routes and dialogue recovery
-        if: matrix.mode == 'baseline'
+      - name: Check card routes and actions
+        if: matrix.mode == 'cards-routes'
         run: |
           node v2/scripts/smoke-card-narrative-contract.mjs
           node v2/scripts/smoke-card-pond-access.mjs
@@ -285,11 +304,23 @@ jobs:
           node v2/scripts/smoke-card-pond-crossings.mjs
           node v2/scripts/smoke-card-image-first.mjs
           node v2/scripts/smoke-card-actions.mjs
+
+      - name: Check Greek drama and Theban scenery
+        if: matrix.mode == 'cards-drama'
+        run: |
           node v2/scripts/smoke-card-greek-drama.mjs
           node v2/scripts/smoke-card-theban-scenery.mjs
+
+      - name: Check dialogue and movement
+        if: matrix.mode == 'cards-dialogue'
+        run: |
           node v2/scripts/smoke-card-dialogue-recovery.mjs
           node v2/scripts/smoke-card-dialogue-timing.mjs
           node v2/scripts/smoke-card-movement.mjs
+
+      - name: Check quests, shared discovery, and voice
+        if: matrix.mode == 'cards-quests'
+        run: |
           node v2/scripts/smoke-card-quests.mjs
           node v2/scripts/smoke-card-quest-collection.mjs
           node v2/scripts/smoke-card-shared-discovery.mjs
@@ -297,16 +328,13 @@ jobs:
           node v2/scripts/smoke-card-shared-quests.mjs
           node v2/scripts/smoke-card-voice.mjs
 
-      - name: Check music fades between rooms and on pause
-        if: matrix.mode == 'baseline'
-        run: node v2/scripts/smoke-card-music.mjs
-
       - name: Upload browser images
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: cosyworld-browser-${{ matrix.mode }}
           path: |
+            output/shared-cards/*.png
             v2/orchestrator-rust/.runtime/visual-smoke/*.png
             v2/orchestrator-rust/.runtime/visual-smoke/*.json
             output/badger-check/*.png
@@ -348,15 +376,27 @@ jobs:
       - name: Install dependencies
         run: npm ci --prefer-offline --no-audit --no-fund
 
+      - name: Use Ubuntu archive and bound package download waits
+        run: |
+          # The Azure mirror delivered browser fonts at 63 kB/s in CI.
+          if [ -f /etc/apt/apt-mirrors.txt ]; then
+            sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/apt-mirrors.txt
+          fi
+          sudo tee /etc/apt/apt.conf.d/99cosyworld-ci >/dev/null <<'EOF'
+          Acquire::Retries "2";
+          Acquire::http::Timeout "20";
+          Acquire::https::Timeout "20";
+          EOF
+
       - name: Install pinned publication tools
         run: |
           sudo apt-get update
           sudo apt-get install --yes default-jre-headless poppler-utils qpdf unzip
-          curl --fail --location --silent --show-error \
+          curl --fail --location --silent --show-error --connect-timeout 15 --max-time 120 --retry 2 \
             --output /tmp/pandoc.deb \
             https://github.com/jgm/pandoc/releases/download/3.8.1/pandoc-3.8.1-1-amd64.deb
           sudo dpkg --install /tmp/pandoc.deb
-          curl --fail --location --silent --show-error \
+          curl --fail --location --silent --show-error --connect-timeout 15 --max-time 120 --retry 2 \
             --output /tmp/epubcheck.zip \
             https://github.com/w3c/epubcheck/releases/download/v5.3.0/epubcheck-5.3.0.zip
           sudo unzip -q /tmp/epubcheck.zip -d /opt/epubcheck
@@ -375,7 +415,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-playwright-${{ hashFiles('node_modules/playwright-core/package.json') }}
 
       - name: Install Chromium system dependencies
         run: npx playwright install-deps chromium
