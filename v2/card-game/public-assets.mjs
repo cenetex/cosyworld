@@ -1,5 +1,6 @@
 import { roomTracks } from "./music.mjs";
 import { packMediaFiles } from "./pack-registry.mjs";
+import voiceCast from "./voices.json" with { type: "json" };
 
 // The local server, release smoke, and Rust asset generator use this list.
 const files = [
@@ -72,6 +73,9 @@ const files = [
   "memory.mjs",
   "narrative.mjs",
   "dialogue.mjs",
+  "character-speech.mjs",
+  "voices.json",
+  ...Object.values(voiceCast.voices).map(({ file }) => file),
   "pack-schema.mjs",
   "pack-registry.mjs",
   "pack-recital.mjs",

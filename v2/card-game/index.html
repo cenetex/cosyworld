@@ -18,7 +18,27 @@
   <body inert>
     <audio id="room-music" preload="none" hidden></audio>
     <header class="topbar">
-      <div class="brand"><button id="scene-video-button" type="button" aria-label="Make a video of the last two dialogue lines" title="Make a 10 second scene video · uses OpenRouter credits"><strong>COSYWORLD</strong><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="6" width="12" height="12" rx="2"/><path d="m15 10 6-3v10l-6-3Z"/></svg></button> <span>The reflected shore</span></div>
+      <div class="brand">
+        <button
+          id="scene-video-button"
+          type="button"
+          aria-label="Make a video of the last two dialogue lines"
+          title="Make a 10 second scene video · uses OpenRouter credits"
+        >
+          <strong>COSYWORLD</strong
+          ><svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            aria-hidden="true"
+          >
+            <rect x="3" y="6" width="12" height="12" rx="2" />
+            <path d="m15 10 6-3v10l-6-3Z" />
+          </svg>
+        </button>
+        <span>The reflected shore</span>
+      </div>
       <div class="top-actions">
         <button id="history-button">Conversation</button
         ><button id="menu-button">Settings</button>
@@ -69,6 +89,15 @@
                   ↻
                 </button>
                 <div class="line-controls">
+                  <button
+                    id="voice-retry"
+                    type="button"
+                    aria-label="Retry voice"
+                    title="Retry voice"
+                    hidden
+                  >
+                    ♪
+                  </button>
                   <button
                     id="previous-line"
                     type="button"
@@ -185,8 +214,14 @@
         </p>
       </details>
       <button id="speech-sound" type="button" aria-pressed="true">
-        Voice sounds: on
+        Voices: on
       </button>
+      <p
+        id="voice-status"
+        class="music-status"
+        role="status"
+        aria-live="polite"
+      ></p>
       <div class="music-controls">
         <button id="music-toggle" type="button" aria-pressed="true">
           Music: on
@@ -199,31 +234,77 @@
         <h3 id="openrouter-title">Your OpenRouter account</h3>
         <p id="openrouter-status" role="status" aria-live="polite"></p>
         <div class="openrouter-actions">
-          <button id="openrouter-connect" type="button">Connect OpenRouter</button>
-          <button id="openrouter-disconnect" type="button" hidden>Disconnect</button>
-          <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer">Manage keys and spending</a>
+          <button id="openrouter-connect" type="button">
+            Connect OpenRouter
+          </button>
+          <button id="openrouter-disconnect" type="button" hidden>
+            Disconnect
+          </button>
+          <a
+            href="https://openrouter.ai/keys"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Manage keys and spending</a
+          >
         </div>
         <div id="openrouter-options" hidden>
-          <label class="openrouter-chat"><input id="openrouter-chat" type="checkbox" /> Use my account for character chat</label>
-          <p>Each character uses their own chat model. Your key stays in this browser tab. Chat, audio, and video go straight to OpenRouter.</p>
+          <label class="openrouter-chat"
+            ><input id="openrouter-chat" type="checkbox" /> Use my account for
+            character chat</label
+          >
+          <p>
+            Each character uses their own chat model. Your key stays in this
+            browser tab. Chat, audio, and video go straight to OpenRouter.
+          </p>
           <details>
             <summary>Make audio or video</summary>
-            <p>Each Create button spends your OpenRouter credits. Set a spending limit in OpenRouter.</p>
-            <label for="openrouter-prompt">Words for audio, or a scene for video</label>
-            <textarea id="openrouter-prompt" rows="3" maxlength="4000" placeholder="A quiet shore at sunrise"></textarea>
+            <p>
+              Each Create button spends your OpenRouter credits. Set a spending
+              limit in OpenRouter.
+            </p>
+            <label for="openrouter-prompt"
+              >Words for audio, or a scene for video</label
+            >
+            <textarea
+              id="openrouter-prompt"
+              rows="3"
+              maxlength="4000"
+              placeholder="A quiet shore at sunrise"
+            ></textarea>
             <label for="openrouter-audio-model">Audio model</label>
-            <input id="openrouter-audio-model" list="openrouter-audio-models" value="mistralai/voxtral-mini-tts-3-0" maxlength="200" />
+            <input
+              id="openrouter-audio-model"
+              list="openrouter-audio-models"
+              value="mistralai/voxtral-mini-tts-3-0"
+              maxlength="200"
+            />
             <datalist id="openrouter-audio-models"></datalist>
             <label for="openrouter-voice">Voice</label>
-            <input id="openrouter-voice" list="openrouter-voices" value="voice_3150" maxlength="100" />
+            <input
+              id="openrouter-voice"
+              list="openrouter-voices"
+              value="voice_3150"
+              maxlength="100"
+            />
             <datalist id="openrouter-voices"></datalist>
             <label for="openrouter-video-model">Video model</label>
-            <input id="openrouter-video-model" list="openrouter-video-models" placeholder="Choose an OpenRouter video model" maxlength="200" />
+            <input
+              id="openrouter-video-model"
+              list="openrouter-video-models"
+              placeholder="Choose an OpenRouter video model"
+              maxlength="200"
+            />
             <datalist id="openrouter-video-models"></datalist>
             <div class="openrouter-actions">
-              <button id="openrouter-make-audio" type="button">Create audio</button>
-              <button id="openrouter-make-video" type="button">Create video</button>
-              <button id="openrouter-stop" type="button" hidden>Stop waiting</button>
+              <button id="openrouter-make-audio" type="button">
+                Create audio
+              </button>
+              <button id="openrouter-make-video" type="button">
+                Create video
+              </button>
+              <button id="openrouter-stop" type="button" hidden>
+                Stop waiting
+              </button>
             </div>
             <audio id="openrouter-audio" controls hidden></audio>
             <video id="openrouter-video" controls playsinline hidden></video>
@@ -231,18 +312,43 @@
           </details>
         </div>
       </section>
-      <p>Your game saves in this browser. Open Conversation to read what people have said.</p>
+      <p>
+        Your game saves in this browser. Open Conversation to read what people
+        have said.
+      </p>
       <p id="table-slot" class="music-status" hidden></p>
       <button id="new-game">New game</button>
     </dialog>
     <dialog id="scene-video-dialog" aria-labelledby="scene-video-title">
-      <div class="modal-heading"><h2 id="scene-video-title">Your scene as a film</h2><button id="scene-video-close" type="button">Close</button></div>
+      <div class="modal-heading">
+        <h2 id="scene-video-title">Your scene as a film</h2>
+        <button id="scene-video-close" type="button">Close</button>
+      </div>
       <p id="scene-video-status" role="status" aria-live="polite"></p>
       <p id="scene-video-lines"></p>
       <label for="scene-video-model">Scene video model</label>
-      <input id="scene-video-model" list="openrouter-video-models" maxlength="200" />
-      <p>Aim for ten seconds. The model chooses its nearest supported length. Each video uses your OpenRouter credits.</p>
-      <div class="openrouter-actions"><button id="scene-video-connect" type="button">Connect OpenRouter</button><button id="scene-video-create" type="button">Create scene video</button><button id="scene-video-stop" type="button" hidden>Stop waiting</button><a href="https://openrouter.ai/activity" target="_blank" rel="noopener noreferrer">OpenRouter activity</a></div>
+      <input
+        id="scene-video-model"
+        list="openrouter-video-models"
+        maxlength="200"
+      />
+      <p>
+        Aim for ten seconds. The model chooses its nearest supported length.
+        Each video uses your OpenRouter credits.
+      </p>
+      <div class="openrouter-actions">
+        <button id="scene-video-connect" type="button">
+          Connect OpenRouter</button
+        ><button id="scene-video-create" type="button">
+          Create scene video</button
+        ><button id="scene-video-stop" type="button" hidden>Stop waiting</button
+        ><a
+          href="https://openrouter.ai/activity"
+          target="_blank"
+          rel="noopener noreferrer"
+          >OpenRouter activity</a
+        >
+      </div>
       <video id="scene-video-player" controls playsinline hidden></video>
       <a id="scene-video-download" hidden>Save scene video</a>
     </dialog>
