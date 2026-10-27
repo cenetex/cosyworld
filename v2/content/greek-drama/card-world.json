@@ -1083,11 +1083,6 @@
           "kind": "flag",
           "key": "greek-open-door-open",
           "value": true
-        },
-        {
-          "kind": "flag",
-          "key": "greek-open-door-bodies-returned",
-          "value": false
         }
       ],
       "tastes": {
@@ -1117,11 +1112,6 @@
           "kind": "flag",
           "key": "greek-open-door-bodies-returned",
           "value": true
-        },
-        {
-          "kind": "flag",
-          "key": "greek-open-door-pyre-heard",
-          "value": false
         }
       ],
       "tastes": {
