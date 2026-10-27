@@ -1,4 +1,5 @@
 import { flipStagePortrait } from "./portrait-facing.mjs";
+import { installSceneVideo } from "./scene-video.mjs";
 import { installToolbar, renderPlayers } from "./toolbar.mjs";
 import {
   connectSharedWorld,
@@ -15,6 +16,7 @@ import { enableMotives } from "./motives.mjs";
 import { createNarrator } from "./narrative.mjs";
 import { packMedia } from "./pack-registry.mjs";
 import { createRoomMusic } from "./music.mjs";
+import { createCharacterSpeech } from "./character-speech.mjs";
 import {
   createTextReveal,
   createSpeechSounds,
@@ -109,6 +111,7 @@ let world = sharedSession
     slotLabel.textContent = `Saving as table "${tableName}". Without the ?table= parameter this menu shows a different saved game.`;
   }
 }
+let videoScene = null;
 const paths = {
   lamp: '<path d="M18 25h28l4 29H14zM23 25v-9a9 9 0 0 1 18 0v9M12 55h40M24 47c-5-7 7-9 6-17 9 8 13 16 3 18"/>',
   oil: '<path d="M24 8h16v12l8 10v24H16V30l8-10zM24 14h16M17 35h30M32 38c-12 12-2 17 2 12 3-4-2-9-2-12z"/>',
@@ -416,11 +419,41 @@ const exchange = createExchange({
 });
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 const speechSounds = createSpeechSounds();
+let completedSpokenLine = null;
+function finishSpokenLine() {
+  const line = completedSpokenLine;
+  if (
+    line &&
+    line.key === speechKey &&
+    line.seq === shownSceneLine?.seq &&
+    !characterSpeech.busy
+  )
+    exchange.revealed(line.seq, line.text, line.instant);
+}
+const characterSpeech = createCharacterSpeech({
+  changed: ({ state, message }) => {
+    $("speech-row").dataset.voice = state;
+    $("voice-retry").hidden = state !== "error";
+    $("voice-status").textContent =
+      state === "connect"
+        ? "Connect OpenRouter below to hear character voices."
+        : state === "error"
+          ? message
+          : state === "loading"
+            ? "Preparing this character's voice…"
+            : "";
+    queueMicrotask(() => {
+      syncSpeechPlayback();
+      finishSpokenLine();
+    });
+  },
+});
 let soundEnabled = true;
 try {
   soundEnabled = localStorage.getItem("cosyworld.dialogue.sound") !== "off";
 } catch {}
 speechSounds.setEnabled(soundEnabled);
+characterSpeech.setEnabled(soundEnabled);
 function measureSpeech() {
   const text = $("dialogue-text");
   glyphBottoms = speechGlyphs.map(
@@ -454,16 +487,19 @@ function updateSpeechControls(complete) {
 const reveal = createTextReveal({
   reduced: () => reducedMotion.matches,
   sound: (...args) => {
-    if (!document.hidden) speechSounds.syllable(...args);
+    if (!document.hidden && !characterSpeech.speaks(args[0]))
+      speechSounds.syllable(...args);
   },
   frame: (value) => {
     const text = $("dialogue-text");
     if (speechKey !== value.key) {
       speechKey = value.key;
+      completedSpokenLine = null;
       shownLetters = 0;
       speechComplete = null;
       text.scrollTop = 0;
       speechSounds.stop();
+      characterSpeech.show(value.key, value.speaker, value.text);
       speechGlyphs = value.letters.map((letter) =>
         node("span", letter, "speech-letter"),
       );
@@ -497,8 +533,8 @@ const reveal = createTextReveal({
       completedSpeech.add(value.key);
       if (completedSpeech.size > 100)
         completedSpeech.delete(completedSpeech.values().next().value);
-      if (shownSceneLine)
-        exchange.revealed(shownSceneLine.seq, value.text, value.instant);
+      completedSpokenLine = { ...value, seq: shownSceneLine?.seq };
+      finishSpokenLine();
       queueMicrotask(() => playQueue.flush());
     }
   },
@@ -512,8 +548,7 @@ reducedMotion.addEventListener("change", () => {
     for (const motion of $("unveil-take").getAnimations()) motion.finish();
   }
 });
-function pauseSpeech() {
-  pauseDiscovery();
+function syncSpeechPlayback() {
   const paused =
     document.hidden ||
     Boolean(document.querySelector("dialog[open], .world-menu:popover-open"));
@@ -522,10 +557,16 @@ function pauseSpeech() {
       sharedSession.state,
       sharedSession.now(),
       world.actors[currentActor(world)].place,
-      paused,
+      paused || (reveal.complete && characterSpeech.busy),
     );
   reveal.pause(paused);
-  exchange.pause(paused);
+  characterSpeech.pause(paused);
+  exchange.pause(paused || characterSpeech.busy);
+  return paused;
+}
+function pauseSpeech() {
+  pauseDiscovery();
+  const paused = syncSpeechPlayback();
   for (const animation of [
     ...$("cast").getAnimations({ subtree: true }),
     ...$("speech-row").getAnimations(),
@@ -541,21 +582,25 @@ function pauseSpeech() {
 }
 document.addEventListener("visibilitychange", pauseSpeech);
 document.addEventListener("shared-dialog-change", pauseSpeech);
-document.addEventListener("pointerdown", () => speechSounds.unlock(), {
+function unlockSpeech() {
+  speechSounds.unlock();
+  characterSpeech.unlock();
+}
+document.addEventListener("pointerdown", unlockSpeech, {
   capture: true,
 });
-document.addEventListener("keydown", () => speechSounds.unlock(), {
+document.addEventListener("keydown", unlockSpeech, {
   capture: true,
 });
 function updateSoundButton() {
-  $("speech-sound").textContent =
-    `Voice sounds: ${soundEnabled ? "on" : "off"}`;
+  $("speech-sound").textContent = `Voices: ${soundEnabled ? "on" : "off"}`;
   $("speech-sound").setAttribute("aria-pressed", String(soundEnabled));
 }
 $("speech-sound").onclick = () => {
   soundEnabled = !soundEnabled;
   speechSounds.setEnabled(soundEnabled);
-  if (soundEnabled) speechSounds.unlock();
+  characterSpeech.setEnabled(soundEnabled);
+  if (soundEnabled) unlockSpeech();
   try {
     localStorage.setItem(
       "cosyworld.dialogue.sound",
@@ -565,6 +610,10 @@ $("speech-sound").onclick = () => {
   updateSoundButton();
 };
 updateSoundButton();
+$("voice-retry").onclick = () => characterSpeech.retry();
+document.addEventListener("openrouter-change", () =>
+  characterSpeech.connectionChanged(),
+);
 let musicEnabled = true,
   musicVolume = 0.3;
 function musicHasStarted() {
@@ -1762,6 +1811,7 @@ function renderScene() {
   // Reviewing a line changes the words while present people keep their places.
   const resolvedBeat = exchange.preparing || scene.line?.turn !== world.turn;
   scene.slots = sceneCast(world);
+  videoScene = scene;
   $("stage").dataset.presentedRevision = String(world.revision);
   shownSceneLine = scene.line;
   const img = $("backdrop");
@@ -1979,7 +2029,9 @@ function renderScene() {
     });
   } else {
     reveal.cancel();
+    completedSpokenLine = null;
     speechSounds.stop();
+    characterSpeech.clear();
     speechKey = null;
     $("dialogue-text").replaceChildren();
     $("speech-announcement").textContent = "";
@@ -1998,6 +2050,9 @@ function renderScene() {
       return;
     }
     if (exchange.current) {
+      characterSpeech.stop();
+      syncSpeechPlayback();
+      finishSpokenLine();
       exchange.advance();
       return;
     }
@@ -2493,17 +2548,12 @@ function resumeScene() {
     return;
   }
   if (!saveBlocked && world.opening && world.turn === 0 && !hasCurrentWords()) {
-    addLog(
-      world,
-      "Vale",
-      "It's cold up here. I'll light the lamp.",
-      {
-        actorId: currentActor(world),
-        entityId: currentActor(world),
-        kind: "dialogue",
-        generated: true,
-      },
-    );
+    addLog(world, "Vale", "It's cold up here. I'll light the lamp.", {
+      actorId: currentActor(world),
+      entityId: currentActor(world),
+      kind: "dialogue",
+      generated: true,
+    });
     save();
   }
   if (!saveBlocked && hasCurrentWords()) {
@@ -2568,10 +2618,21 @@ function syncSharedLine() {
     sharedSession.now(),
     room,
     document.hidden ||
+      (reveal.complete && characterSpeech.busy) ||
       Boolean(document.querySelector("dialog[open], .world-menu:popover-open")),
   );
   const live = sharedLiveLine(sharedSession.state, playbackTime, room);
   if (!live) return;
+  // A long spoken line can outlast the room's normal reading interval.
+  if (
+    characterSpeech.busy &&
+    (live.seq
+      ? live.seq !== shownSceneLine?.seq
+      : live.text !== shownSceneLine?.text)
+  ) {
+    sharedPlayback.now(sharedSession.state, sharedSession.now(), room, true);
+    return;
+  }
   const entry = world.log.findLast(
     (entry) =>
       entry.generated &&
@@ -2656,6 +2717,10 @@ installSharedControls({
   notice,
 });
 installToolbar({ session: sharedSession, getWorld: () => world });
+installSceneVideo({
+  getWorld: () => world,
+  getScene: () => videoScene || currentScene(world),
+});
 if (sharedSession) {
   world = sharedWorld(sharedSession.state);
   sharedSession.subscribe(adoptShared, (message, recoveredFrom) => {

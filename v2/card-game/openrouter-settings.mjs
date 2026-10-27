@@ -1,4 +1,8 @@
 import { playerOpenRouter } from "./openrouter.mjs";
+import {
+  connectOpenRouter,
+  cancelOpenRouterConnection,
+} from "./openrouter-connect.mjs";
 
 export async function setupOpenRouter() {
   const client = playerOpenRouter();
@@ -22,6 +26,9 @@ export async function setupOpenRouter() {
       $("openrouter-voice").value = values[0];
   }
   $("openrouter-audio-model").addEventListener("change", voices);
+  $("openrouter-video-model").addEventListener("change", (event) =>
+    client.setVideoModel(event.target.value.trim()),
+  );
   function refresh(message) {
     const connected = Boolean(client.connection()?.key);
     $("openrouter-connect").textContent = connected
@@ -30,6 +37,8 @@ export async function setupOpenRouter() {
     $("openrouter-disconnect").hidden = !connected;
     $("openrouter-options").hidden = !connected;
     $("openrouter-chat").checked = Boolean(client.connection()?.chat);
+    if (client.connection()?.videoModel)
+      $("openrouter-video-model").value = client.connection().videoModel;
     status.textContent =
       message ||
       (connected
@@ -71,18 +80,16 @@ export async function setupOpenRouter() {
       }
     }
   }
-  $("openrouter-connect").onclick = async () => {
-    try {
-      $("openrouter-connect").disabled = true;
-      location.assign(await client.begin(location.href));
-    } catch {
-      refresh("Allow session storage in this browser, then connect again.");
-      $("openrouter-connect").disabled = false;
-    }
-  };
+  $("openrouter-connect").onclick = () => connectOpenRouter(refresh);
+  document.addEventListener("openrouter-change", () => {
+    refresh();
+    if (client.connection()?.key) void models();
+  });
   $("openrouter-disconnect").onclick = () => {
+    cancelOpenRouterConnection();
     clearMedia();
     client.disconnect();
+    document.dispatchEvent(new Event("openrouter-change"));
     refresh("Disconnected from this tab. Manage the key in OpenRouter.");
   };
   $("openrouter-chat").onchange = (event) =>
@@ -141,8 +148,10 @@ export async function setupOpenRouter() {
     };
   }
   let message;
+  const params = new URL(location.href).searchParams;
   const callback =
-    new URL(location.href).searchParams.get("openrouter") === "callback";
+    params.get("openrouter") === "callback" ||
+    (params.has("state") && (params.has("code") || params.has("error")));
   try {
     if (callback) status.textContent = "Connecting OpenRouter…";
     if (

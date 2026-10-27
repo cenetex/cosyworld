@@ -1,5 +1,6 @@
 import { roomTracks } from "./music.mjs";
 import { packMediaFiles } from "./pack-registry.mjs";
+import voiceCast from "./voices.json" with { type: "json" };
 
 // The local server, release smoke, and Rust asset generator use this list.
 const files = [
@@ -43,6 +44,13 @@ const files = [
   "openrouter.mjs",
   "openrouter-settings.mjs",
   "openrouter.css",
+  "openrouter-connect.mjs",
+  "openrouter-callback.html",
+  "openrouter-callback.mjs",
+  "openrouter-callback.css",
+  "scene-video.mjs",
+  "scene-video-context.mjs",
+  "scene-video.css",
   "awakening.css",
   "app.mjs",
   "world.mjs",
@@ -66,6 +74,9 @@ const files = [
   "memory.mjs",
   "narrative.mjs",
   "dialogue.mjs",
+  "character-speech.mjs",
+  "voices.json",
+  ...Object.values(voiceCast.voices).map(({ file }) => file),
   "pack-schema.mjs",
   "pack-registry.mjs",
   "pack-sections.mjs",

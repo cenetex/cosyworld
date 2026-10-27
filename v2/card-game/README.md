@@ -33,6 +33,28 @@ Commit `v2/orchestrator-rust/src/card_assets.rs` with each asset-list change.
 `npm run v2:card:pack:build` rebuilds both pack data and the Rust asset list.
 `npm run v2:card:pack:check` checks both during CI and release gates.
 
+## Character voices
+
+Connect OpenRouter in Settings and leave **Voices: on** to hear Vale, Mara,
+Pip (`moth`), the Keeper, Badger, and Dione (`greek-baker`). The first tap or
+key press enables audio. The voice reads the character’s actual dialogue.
+Tapping once reveals the words; tapping again advances to the next speaker.
+The automatic reading pause waits for audio to finish. Menus and hidden tabs
+pause the voice. **Retry voice** repeats a failed request for the current line.
+
+`voices.json` maps the cast to six original Seed Audio references in
+`assets/voices/`. `character-speech.mjs` sends the reference, transcript, and
+current dialogue to `fish-audio/s2.1-pro-free:free` through the player's browser
+OpenRouter connection. That exact free model is fixed for this feature. A
+provider error appears in Settings and enables **Retry voice** by the line.
+
+Generated clips stay in this browser’s cache for replay and reload, up to
+32 clips and 16 MiB. Cached clips also play after disconnecting OpenRouter.
+Cache identity includes the model, reference hash, direction, transcript, and
+spoken words. Audio stays separate from saves and shared world history.
+Shared viewers hear their own copy of the room dialogue in order. Reference
+and generated audio are checked through `test/card-character-speech.test.mjs`.
+
 ## Collected quest cards
 
 Each avatar keeps a collection of quest cards after their carried items. The
@@ -250,7 +272,7 @@ Speech receives visible facts, current wants, and witnessed results. Entity prof
 
 When a play calls for speech, the browser sends the current local entities and departing avatars, their facts, avatar interests, and eight recent memories, witnessed events, and the four latest spoken lines to `POST /card-game/text`. The Rust service adds the authored profiles and uses the existing AI gateway. The deployed character map sends each avatar to its own exact OpenRouter model. Items and places each have their own voice call. These calls run together inside one bounded scene request. Each call returns a brief plain-text reply, which the service validates before publication. A short unpunctuated reply can pass when the provider confirms it finished. A trailing continuation mark or an unfinished first line triggers the usual retry. Complete sentences and voluntary quotations keep their wording. Each entry carries its own model attribution. Raising a card prepares a play and keeps the current conversation. Playing a card commits the action; social actions and travel can start an exchange, while ordinary object manipulation can remain silent. The place, played item, and chosen speakers also receive scene beats. A quiet turn with departures gives the farewell to the moving cast, without an automatic Vale recap. A Stay without departures keeps Vale available. Direct interactions, combat, travel and introductions retain their relevant speakers. A departing avatar says where they are going and why; their recorded farewell belongs to the source scene. The prompt includes the completed card play so their lines form a question and answer or a shared reaction. A separate resolved-turn record gives the played verb and outcome, every avatar's final location and holdings, exact travel companions, and final item ownership. Accepted accompany plays record both travellers; independent trips record an empty companion list. Current results take priority over desires and remembered speech. When Vale speaks on a wait play, the words stay at the place where Vale stayed. A solo farewell frames desired company as a hope for later.
 
-The conversation shows the current spoken line; earlier words are available in the optional Conversation panel. The browser buffers each exchange until it passes validation, then reveals complete letters on a local clock with short pauses at punctuation. The selected speakers take their turns in order. Each exchange advances after a reading pause. Tap the text to finish a line, then tap again to hear the next speaker. The hand pauses for up to 2.5 seconds while words are generated. A slow request can be replaced by another play. Once a complete reply arrives, the hand locks through scene preparation and every speaker, then becomes ready after the last reply. A blinking cursor marks the end. Earlier scene lines can be replayed with the line controls and History. A replayed line stages the avatars present now; a speaker who has left keeps the words and stays off the stage. Each speaker has a soft, pitched voice sound; the menu toggles it. Reduced motion shows full lines at once. Hidden tabs and open menus pause playback, including the rest of a punctuation pause. Text reveals on browser paint frames. Each visible line keeps its own height, and portraits stay mounted when the speaker changes. Empty prior replies and speech rows collapse. A scene with no words shows a compact loading line. A spoken card play immediately shows its first speaker with a loading mark. Ask and Talk show Vale while the reply is being written. The browser saves complete text before playback begins. Fresh tables request an opening exchange. Reloading resumes saved dialogue from the current turn. Action records remain in the saved world and scene export.
+The conversation shows the current spoken line; earlier words are available in the optional Conversation panel. The browser buffers each exchange until it passes validation, then reveals complete letters on a local clock with short pauses at punctuation. The selected speakers take their turns in order. Each exchange advances after a reading pause. Tap the text to finish a line, then tap again to hear the next speaker. The hand pauses for up to 2.5 seconds while words are generated. A slow request can be replaced by another play. Once a complete reply arrives, the hand locks through scene preparation and every speaker, then becomes ready after the last reply. A blinking cursor marks the end. Earlier scene lines can be replayed with the line controls and History. A replayed line stages the avatars present now; a speaker who has left keeps the words and stays off the stage. Vale, Mara, Pip, the Keeper, Badger, and Dione speak with their original cloned voices when OpenRouter is connected. Settings toggles voices. Other speakers keep their soft, pitched voice sounds. Reduced motion shows full lines at once. Hidden tabs and open menus pause playback, including the rest of a punctuation pause. Text reveals on browser paint frames. Each visible line keeps its own height, and portraits stay mounted when the speaker changes. Empty prior replies and speech rows collapse. A scene with no words shows a compact loading line. A spoken card play immediately shows its first speaker with a loading mark. Ask and Talk show Vale while the reply is being written. The browser saves complete text before playback begins. Fresh tables request an opening exchange. Reloading resumes saved dialogue from the current turn. Action records remain in the saved world and scene export.
 
 The stage holds up to three avatars. Vale stands in the foreground, with the other two farther back. The composition mirrors when Vale returns from the other side of a route. Seats and sizes stay fixed throughout an exchange. The speaker and listener face each other; another witness looks toward the speaker. The keeper has a separate right-facing cutout, so the clock face keeps its painted detail. A soft lean and light change mark the speaker. Carried item symbols follow recorded custody, including covered items. Actual arrivals fade in together for an accepted accompany play. A farewell finishes before its avatar fades out of its seat. Quiet actions update the stage cast immediately to match the hand and current locations. Reduced motion uses still poses. The scene script exports each actor's position, depth, scale, facing, gaze, pose, travel companions, and carried items for each beat. The browser uses `portrait-facing.mjs` to match each painted portrait to that gaze. This presentation-only map covers the human cast, pack portraits and Keeper variants; add new portrait files here with their native direction. Hand thumbnails keep their native artwork.
 
@@ -299,8 +321,27 @@ The endpoint accepts at most 64 KiB, fixed entity IDs, eight local entities, and
 
 ## Your OpenRouter account
 
+Hover over the CosyWorld title to reveal the video camera. Keyboard focus also
+reveals it. Phones show the camera beside the title. Click it to film the last
+two displayed dialogue lines. The video uses the current place, character
+appearances, visible items, their holders, light, and other visible states.
+The current stage supplies a reference frame where the model supports one.
+The clip aims for ten seconds and uses the nearest supported model duration.
+The camera uses the player's OpenRouter credits. Its window shows progress,
+playback, and a download link. Stop waiting ends the browser wait.
+
+Connect OpenRouter opens a separate sign-in window. The callback carries its
+own state value. It returns the connection to the original game tab through a
+same-origin browser channel. The game stays open during approval. A browser
+that blocks the window uses the same-tab PKCE return.
+The sign-in page loads before it opens OpenRouter. A Continue to OpenRouter
+link supports browsers that ask for another click before leaving the page.
+The return accepts the approval code and state on its saved callback path.
+If the provider replaces the query, the browser restores the original game
+link after it checks the state. The PKCE verifier stays in the game tab.
+
 Open Settings and choose Connect OpenRouter. The browser uses an S256 PKCE
-challenge and a fresh state value. The return must match the same table and
+challenge and a fresh state value. The return must match the stored callback and
 arrive within ten minutes. The browser clears the return code before exchange.
 The connected key lives in session storage for that tab. Disconnect clears it;
 the OpenRouter keys page offers revocation and spending controls.
