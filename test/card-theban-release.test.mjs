@@ -27,6 +27,34 @@ import {
 } from "../v2/card-game/scene.mjs";
 import { createServer } from "../v2/card-game/serve.mjs";
 const pack = packDefinition("greek-drama");
+const openingPlaces = [
+  "greek-harbor",
+  "greek-courtyard",
+  "greek-well",
+  "greek-gate",
+  "greek-battlefield",
+  "greek-palace",
+  "greek-sanctuary",
+  "greek-ship",
+];
+const openDoorPlaces = [
+  "greek-athens",
+  "greek-piraeus",
+  "greek-colonus",
+  "greek-eleusis",
+  "greek-marathon",
+];
+const openDoorItems = [
+  "greek-burial-petition",
+  "greek-return-cloths",
+  "greek-provision-basket",
+  "greek-ash-urn",
+  "greek-return-list",
+  "greek-grove-cup",
+  "greek-grove-honey",
+  "greek-shelter-blanket",
+  "greek-refuge-tablet",
+];
 const legacy = (name) =>
   JSON.parse(
     readFileSync(
@@ -59,14 +87,40 @@ describe("the Theban release and its ship", () => {
     const s = createWorld();
     expect(s.packs[pack.id].scope).toBe("opening");
     expect(reachable(s)).toEqual(
-      pack.release.places.filter((id) => id !== "greek-ship").sort(),
+      openingPlaces.filter((id) => id !== "greek-ship").sort(),
     );
     s.crossings["pond-greek-harbor"].discovered = true;
-    expect(reachable(s)).toEqual([...pack.release.places].sort());
+    expect(reachable(s)).toEqual([...openingPlaces].sort());
     expect(reachable(s)).toHaveLength(8);
+    expect(pack.release.places).toHaveLength(13);
+    expect([...pack.release.places].sort()).toEqual(
+      [...openingPlaces, ...openDoorPlaces].sort(),
+    );
     expect(entityActive(s, "greek-athens")).toBe(false);
     expect(entityActive(s, "greek-rhapsode")).toBe(true);
     expect(s.actors["greek-rhapsode"].place).toBe("greek-harbor");
+  });
+  it("opens five more places after Dione hears a refusal and keeps them through reload", () => {
+    let s = createWorld();
+    s.crossings["pond-greek-harbor"].discovered = true;
+    s.actors.vale.place = "greek-gate";
+    s = act(s, "choose", { choiceId: "greek-hear-decree" });
+    s = act(s, "choose", { choiceId: "greek-decline-burial" });
+    s.actors.vale.place = "greek-courtyard";
+    s = act(s, "choose", { choiceId: "greek-courtyard-refusal" });
+    expect(reachable(s)).toHaveLength(8);
+    s = act(s, "choose", { choiceId: "greek-open-door-invite-refusal" });
+    expect(reachable(s)).toEqual([...pack.release.places].sort());
+    expect(reachable(s)).toHaveLength(13);
+    s = decodeSave(encodeSave(s));
+    expect(reachable(s)).toEqual([...pack.release.places].sort());
+    for (const start of openDoorPlaces) {
+      const seen = new Set([start]);
+      for (const id of seen)
+        for (const to of exits(s, id, "vale"))
+          if (pack.release.places.includes(to)) seen.add(to);
+      expect(seen.has(pack.entry), start).toBe(true);
+    }
   });
   it("withholds empty inquiries and later branch menus without deleting source works", () => {
     const s = createWorld();
@@ -87,14 +141,12 @@ describe("the Theban release and its ship", () => {
     let s = createWorld();
     s.crossings["pond-greek-harbor"].discovered = true;
     for (let i = 0; i < 3; i++) s = decodeSave(encodeSave(s));
-    expect(reachable(s)).toEqual([...pack.release.places].sort());
+    expect(reachable(s)).toEqual([...openingPlaces].sort());
   });
   it("keeps a route from every opening place back to the pond after the signal", () => {
     const s = createWorld();
     s.crossings["pond-greek-harbor"].discovered = true;
-    for (const start of pack.release.places.filter(
-      (id) => id !== "greek-ship",
-    )) {
+    for (const start of openingPlaces.filter((id) => id !== "greek-ship")) {
       const seen = new Set([start]);
       for (const id of seen)
         for (const to of exits(s, id, "vale"))
@@ -122,7 +174,18 @@ describe("the Theban release and its ship", () => {
       Object.keys(after.items)
         .filter((id) => !Object.hasOwn(before.items, id))
         .sort(),
-    ).toEqual(["board", "can", "float", "kite", "mask", "routes", "shears"]);
+    ).toEqual(
+      [
+        "board",
+        "can",
+        "float",
+        "kite",
+        "mask",
+        "routes",
+        "shears",
+        ...openDoorItems,
+      ].sort(),
+    );
     expect(after.memories).toMatchObject(before.memories);
     expect(after.log).toEqual(before.log);
     expect(after.actors.vale.place).toBe("greek-egypt-tomb");
@@ -164,11 +227,18 @@ describe("the Theban release and its ship", () => {
     changed.actors["greek-helen-egypt"].place = "greek-harbor";
     expect(() => encodeSave(changed)).toThrow();
   });
-  it("uses seven distinct painted backdrops", () => {
-    const images = pack.release.places
+  it("keeps seven opening paintings and adds five section paintings", () => {
+    const openingImages = openingPlaces
       .filter((id) => id !== "greek-ship")
       .map(backdrop);
-    expect(new Set(images).size).toBe(7);
+    const sectionImages = openDoorPlaces.map(backdrop);
+    expect(new Set(openingImages).size).toBe(7);
+    expect(new Set(sectionImages).size).toBe(5);
+    expect(sectionImages.every((image) => image.includes("/open-door-"))).toBe(
+      true,
+    );
+    const images = [...openingImages, ...sectionImages];
+    expect(new Set(images).size).toBe(12);
     expect(images.every((p) => p.endsWith(".webp"))).toBe(true);
     for (const image of images) {
       const bytes = readFileSync(
@@ -186,17 +256,25 @@ describe("the Theban release and its ship", () => {
     expect(travelCard(s, pack.entry)).toBeNull();
   });
   it("checks every committed art checksum", () => {
-    const p = JSON.parse(
-      readFileSync(
-        new URL(
-          "../v2/card-game/assets/greek-drama/scenery-provenance.json",
-          import.meta.url,
-        ),
-        "utf8",
-      ),
+    const assets = ["scenery-provenance.json", "open-door-art.json"].flatMap(
+      (file) =>
+        JSON.parse(
+          readFileSync(
+            new URL(
+              `../v2/card-game/assets/greek-drama/${file}`,
+              import.meta.url,
+            ),
+            "utf8",
+          ),
+        ).assets,
     );
-    expect(packMediaFiles.filter((f) => f.endsWith(".webp"))).toHaveLength(10);
-    for (const image of p.assets) {
+    for (const image of openDoorPlaces.map(backdrop)) {
+      expect(packMediaFiles).toContain(image.replace(/^\.\//, ""));
+      expect(assets.some((asset) => image.endsWith(`/${asset.file}`))).toBe(
+        true,
+      );
+    }
+    for (const image of assets) {
       const bytes = readFileSync(
         new URL(
           `../v2/card-game/assets/greek-drama/${image.file}`,

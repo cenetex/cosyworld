@@ -1,6 +1,11 @@
 import { carryQuest } from "./quest-hands.mjs";
 import { packDefinition } from "./pack-registry.mjs";
 import {
+  OPEN_DOOR_QUEST_CARDS,
+  openDoorDefinitions,
+  openDoorRelated,
+} from "./open-door-quests.mjs";
+import {
   installSharedQuestRegistry,
   clearQuestFocus,
 } from "./shared-quests.mjs";
@@ -9,6 +14,7 @@ export const STORY_QUEST_CARDS = [
   "story-quest-greek-table",
   "story-quest-greek-burial",
   "story-quest-greek-courtyard",
+  ...OPEN_DOOR_QUEST_CARDS,
 ];
 const lines = [
   "A place beside the bread.",
@@ -122,11 +128,13 @@ export function storyDefinitions(world, history = false) {
         historical: true,
       });
   }
-  return cards;
+  return [...cards, ...openDoorDefinitions(world)];
 }
 
 const related = (definition, event) => {
   if (event.packId !== "greek-drama" || !event.choiceId) return false;
+  if (OPEN_DOOR_QUEST_CARDS.includes(definition.id))
+    return openDoorRelated(definition, event);
   if (definition.id === STORY_QUEST_CARDS[0])
     return event.choiceId === "greek-return-water-jar";
   if (definition.id === STORY_QUEST_CARDS[2])

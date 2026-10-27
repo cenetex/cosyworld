@@ -317,11 +317,12 @@ jobs:
           node v2/scripts/smoke-shared-snapshot-order.mjs
           node v2/scripts/smoke-card-actions.mjs
 
-      - name: Check Greek drama and Theban scenery
+      - name: Check Greek drama, Thebes, and the Open Door
         if: matrix.mode == 'cards-drama'
         run: |
           node v2/scripts/smoke-card-greek-drama.mjs
           node v2/scripts/smoke-card-theban-scenery.mjs
+          node v2/scripts/smoke-card-open-door.mjs
 
       - name: Check dialogue and movement
         if: matrix.mode == 'cards-dialogue'

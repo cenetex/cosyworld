@@ -1,0 +1,133 @@
+{
+  "style": "chthonic Greek",
+  "generated": "2026-10-26",
+  "tool": "image_gen",
+  "reference": "courtyard-day.webp",
+  "assets": [
+    {
+      "file": "open-door-agora.webp",
+      "sourceName": "exec-15b78671-a4e9-4ac4-a382-d641cd006440.png",
+      "sourceSha256": "ee63491b63c8181a4f05e444806faf0e99fb2a697ff62b090951dc622a3e58e4",
+      "sha256": "9052e12b1e43742f4de810f56e0f2a6f0c23d7f445744efc68cc259183cfdbf6",
+      "size": [1672, 941],
+      "prompt": "Use case: historical-scene. Asset type: wide 16:9 game location backdrop for CosyWorld, The Open Door. Generate a NEW painting of the Athenian Agora. The reference image supplies only the game's warm painterly-realistic style and detail. View from ground level across an open limestone court, shaded Doric stoa at left, public speaking stone and simple benches at right, a distant sacred hill, sunlit ochre plaster, clay jars, olive shade. Ancient Greek atmosphere. Keep the middle foreground open for character sprites. Beautiful grounded storybook realism, weathered materials, warm morning sunlight, rich natural color. Architecture and landscape only, no people, writing, lettering, interface, borders or modern objects.",
+      "processing": "Full frame encoded as WebP at quality 92."
+    },
+    {
+      "file": "open-door-piraeus.webp",
+      "sourceName": "exec-d8891748-a3e4-40e2-baae-b20278f87c26.png",
+      "sourceSha256": "ade6b6816faaeaf5b60ee46b05bd09a64cfabf5189e3e2c55c9a2472fe2d906a",
+      "sha256": "9e5a564d282c2658140e9aee121d1a013d4cd22d105be16ba4d590a5a872953f",
+      "size": [1672, 941],
+      "prompt": "Use case: historical-scene. Asset type: wide 16:9 game location backdrop for CosyWorld, The Open Door. Generate a NEW painting of the Piraeus quays in ancient Greece. The reference supplies only the game's warm painterly-realistic style. Ground-level stone landing with mooring ropes, a small wooden coastal vessel at left, folded linen and sealed clay supply jars beneath a modest harbor shed at right, distant fishing boats and clear blue water. A path inland remains visible. Open middle foreground for character sprites. Humane quiet working harbor, weathered ochre stone, olive and cypress, golden afternoon light. Architecture and landscape only, no people, writing, lettering, interface, borders or modern objects.",
+      "processing": "Full frame encoded as WebP at quality 92."
+    },
+    {
+      "file": "open-door-eleusis.webp",
+      "sourceName": "exec-68f1238a-3d1f-4b5c-84f0-2de76e73d88d.png",
+      "sourceSha256": "144fb8c91e165514b091303f08e6167458245bc55e4b271fedf4b54d8499ac0a",
+      "sha256": "e792c1dc93672b1f39dc8db45090a35238cb135e47649caafcf1733af6e170bb",
+      "size": [1672, 941],
+      "prompt": "Use case: historical-scene. Asset type: wide 16:9 game location backdrop for CosyWorld, The Open Door. Generate a NEW painting of Demeter's sanctuary at Eleusis as a setting for Euripides' Suppliant Women. Reference supplies only game's warm painterly-realistic style. A modest ancient Greek temple with worn stone steps and a broad outdoor altar, wool-bound olive branches laid at its base, clean folded cloth on a low bench, wheat fields and hills beyond the sanctuary wall. View across a spacious foreground where grieving visitors can stand as separate game sprites. Quiet dignity, soft late afternoon sun, natural olive green and warm limestone, detailed painterly realism. Architecture and landscape only, no people, bodies, writing, lettering, interface, borders or modern objects.",
+      "processing": "Full frame encoded as WebP at quality 92."
+    },
+    {
+      "file": "open-door-colonus.webp",
+      "sourceName": "exec-0cfd16b5-8add-4e05-a7ee-df7c128bf6ca.png",
+      "sourceSha256": "73534d61bd5083cef10a3046d4e4fa17502244e31793f02466214b0af01b7a13",
+      "sha256": "ce76091cd3f94db6dec9db104f6ab0d67fa81af1670089d731130a29e4625fb7",
+      "size": [1672, 941],
+      "prompt": "Use case: historical-scene. Asset type: wide 16:9 game location backdrop for CosyWorld, The Open Door. Generate a NEW painting of the sacred grove at Colonus for Sophocles' Oedipus at Colonus. Reference supplies only game's warm painterly-realistic style. Ancient olive trees arch over a shaded earth path, a low uncarved sacred boundary stone, a spring basin, narcissus and small white flowers, a narrow path toward a sunlit Athenian hill in the distance. Grove is sheltering and solemn. Place trees at the edges and leave middle foreground open for character sprites. Warm leaf-filtered light, moss and pale rock, richly detailed grounded fantasy painting. Landscape only, no people, writing, lettering, interface, borders or modern objects.",
+      "processing": "Full frame encoded as WebP at quality 92."
+    },
+    {
+      "file": "open-door-marathon.webp",
+      "sourceName": "exec-cc816cd4-b349-40e0-b12f-b4594556564a.png",
+      "sourceSha256": "351c567a002bdbd7c54a12d1495641a7081e9fedf64335cec3254f6e5fb8ed70",
+      "sha256": "f7a3475c47ce3fc8dfc7da4eee2231cbfe12bd1a74753b348098c9444d937314",
+      "size": [1672, 941],
+      "prompt": "Use case: historical-scene. Asset type: wide 16:9 game location backdrop for CosyWorld, The Open Door. Generate a NEW painting of a rural altar at Marathon for Euripides' Children of Heracles. Reference supplies only game's warm painterly-realistic style. A simple stone altar before a small Greek shrine, a low shelter with woven mats, a water vessel and tied travel bundles, open coastal plain and distant sea beyond tamarisk and olive trees. A clear road approaches from the fields. Spacious empty middle foreground for character sprites. Early morning light and a sense of precarious refuge, weathered limestone, quiet earth colors, finely detailed painterly realism. Architecture and landscape only, no people, weapons in use, writing, lettering, interface, borders or modern objects.",
+      "processing": "Full frame encoded as WebP at quality 92."
+    },
+    {
+      "file": "open-door-aethra.webp",
+      "reference": "chthonic-baker.png",
+      "sourceName": "exec-4f684301-44ad-4e5d-8bd1-098941f9ab18.png",
+      "sourceSha256": "70b597bcaf2ca8a5647482520ebbc5e67742dc9cb73e6d937d4d779b9a0adf5c",
+      "sha256": "d59c6048c876acb8167674b9119cb09c37d4a6d528fc286df7f792fb7ebae98a",
+      "size": [1024, 1536],
+      "prompt": "Use case: historical-scene. Asset type: transparent full-body character sprite for CosyWorld, The Open Door. Generate a NEW original portrait. The reference supplies only the game's finely detailed chthonic Greek painting style, realistic anatomy, textured cloth and warm rim light. Subject: Aethra, an elderly Greek queen with silver hair under a plain dark olive mourning veil, a weathered caring face, austere linen robe, an olive branch resting lightly between her hands. Full standing body including all hair and both sandaled feet, generous clear margin, three-quarter view looking toward the left, isolated on a genuinely transparent background. Match the reference's painterly realism and ancient Greek clothing. One person only. No scenery, ground plane, lettering, border, interface or props beyond those specifically named. Keep alpha transparency throughout the surrounding space.",
+      "processing": "Full frame encoded as WebP at quality 92; alpha preserved."
+    },
+    {
+      "file": "open-door-adrastus.webp",
+      "reference": "chthonic-baker.png",
+      "sourceName": "exec-d386f148-990a-46e5-a1d2-3819c4773dd2.png",
+      "sourceSha256": "4a804ba3dca7fd6054973b7a0c3fab457355d2c9cd24fd47b77607584f695fcf",
+      "sha256": "d8d915b76cd25d41b69a31e90f0d61795f34c342cc3f7c96f6da542c6a339ccd",
+      "size": [1024, 1536],
+      "prompt": "Use case: historical-scene. Asset type: transparent full-body character sprite for CosyWorld, The Open Door. Generate a NEW original portrait. The reference supplies only the game's finely detailed chthonic Greek painting style, realistic anatomy, textured cloth and warm rim light. Subject: Adrastus, an older defeated Argive king with tired eyes and a graying beard, dusty faded burgundy mantle over a plain linen tunic, bowed but upright, empty hands loosely together. Full standing body including all hair and both sandaled feet, generous clear margin, three-quarter view looking toward the left, isolated on a genuinely transparent background. Match the reference's painterly realism and ancient Greek clothing. One person only. No scenery, ground plane, lettering, border, interface or props beyond those specifically named. Keep alpha transparency throughout the surrounding space.",
+      "processing": "Full frame encoded as WebP at quality 92; alpha preserved."
+    },
+    {
+      "file": "open-door-mother.webp",
+      "reference": "chthonic-baker.png",
+      "sourceName": "exec-748be440-7847-418e-8923-b81d26af976a.png",
+      "sourceSha256": "effe23989783cd2d5b9c73228b1915d5f82e4553e9953f0448336aefd7be76a4",
+      "sha256": "1da5523186407bc171be09784f63b68b494d916493a8877fa55981724a0b4880",
+      "size": [1024, 1536],
+      "prompt": "Use case: historical-scene. Asset type: transparent full-body character sprite for CosyWorld, The Open Door. Generate a NEW original portrait. The reference supplies only the game's finely detailed chthonic Greek painting style, realistic anatomy, textured cloth and warm rim light. Subject: An Argive mother, an elderly Greek woman with deeply lined olive skin and gray braided hair, a plain dark blue mourning robe, resolute grief in her face, empty hands open at her waist. Full standing body including all hair and both sandaled feet, generous clear margin, three-quarter view looking toward the left, isolated on a genuinely transparent background. Match the reference's painterly realism and ancient Greek clothing. One person only. No scenery, ground plane, lettering, border, interface or props beyond those specifically named. Keep alpha transparency throughout the surrounding space.",
+      "processing": "Full frame encoded as WebP at quality 92; alpha preserved."
+    },
+    {
+      "file": "open-door-iphis.webp",
+      "reference": "chthonic-baker.png",
+      "sourceName": "exec-a048cb7d-0c15-43e8-85c6-07bc6c56537a.png",
+      "sourceSha256": "918ef71a9642861bf76f76326679015600ea779ab07f6f6bb203f243cae48706",
+      "sha256": "8b384cbb30cad658eaff9952d8cbb556ca1114d170e25e7b0f1a7939a1cbad4a",
+      "size": [1024, 1536],
+      "prompt": "Use case: historical-scene. Asset type: transparent full-body character sprite for CosyWorld, The Open Door. Generate a NEW original portrait. The reference supplies only the game's finely detailed chthonic Greek painting style, realistic anatomy, textured cloth and warm rim light. Subject: Iphis, an elderly Greek father with short white hair and a thin white beard, a worn gray-brown cloak, narrow shoulders, grief in his lined face, empty hands hanging at his sides. Full standing body including all hair and both sandaled feet, generous clear margin, three-quarter view looking toward the left, isolated on a genuinely transparent background. Match the reference's painterly realism and ancient Greek clothing. One person only. No scenery, ground plane, lettering, border, interface or props beyond those specifically named. Keep alpha transparency throughout the surrounding space.",
+      "processing": "Full frame encoded as WebP at quality 92; alpha preserved."
+    },
+    {
+      "file": "open-door-theseus.webp",
+      "reference": "chthonic-baker.png",
+      "sourceName": "exec-5787f837-b809-4a27-ad8c-07ba2ce9d7ee.png",
+      "sourceSha256": "bf45abbd4a241eb0ee4d74961e06c0e46c7ad04aa90dd8ef573f581f12e1b209",
+      "sha256": "a42d68565a9e216f9ce26bafb8ecb78becfe5da7f88d79e5d1a8425fa9b202fe",
+      "size": [1024, 1536],
+      "prompt": "Use case: historical-scene. Asset type: transparent full-body character sprite for CosyWorld, The Open Door. Generate a NEW original portrait. The reference supplies only the game's finely detailed chthonic Greek painting style, realistic anatomy, textured cloth and warm rim light. Subject: Theseus, a mature Athenian king with dark curly hair and a short beard touched with gray, a simple rich blue mantle pinned with a bronze clasp over cream linen, calm attentive expression, upright posture, empty hands, modest ancient sandals. Full standing body including all hair and both sandaled feet, generous clear margin, three-quarter view looking toward the left, isolated on a genuinely transparent background. Match the reference's painterly realism and ancient Greek clothing. One person only. No scenery, ground plane, lettering, border, interface or props beyond those specifically named. Keep alpha transparency throughout the surrounding space.",
+      "processing": "Full frame encoded as WebP at quality 92; alpha preserved."
+    },
+    {
+      "file": "open-door-quay-host.webp",
+      "reference": "chthonic-baker.png",
+      "sourceName": "exec-c9610a47-8348-4be0-8708-80bc39a0464d.png",
+      "sourceSha256": "862464e048c3de786fb87efcbd4ed8aec62dfaa17f552e7c83d8fd779b934e4c",
+      "sha256": "e6c987ea74f4892491f0a91f764fb363d5d64f90045f5ba91fdc2a40d007dc4f",
+      "size": [1024, 1536],
+      "prompt": "Use case: historical-scene. Asset type: transparent full-body character sprite for CosyWorld, The Open Door. Generate a NEW original portrait. The reference supplies only the game's finely detailed chthonic Greek painting style, realistic anatomy, textured cloth and warm rim light. Subject: Thaleia, an original middle-aged Greek harbor host with brown skin, thick black hair bound in a practical cloth, an earth-red tunic and pale work apron, strong arms, steady welcoming expression, empty hands on hips. Full standing body including all hair and both sandaled feet, generous clear margin, three-quarter view looking toward the left, isolated on a genuinely transparent background. Match the reference's painterly realism and ancient Greek clothing. One person only. No scenery, ground plane, lettering, border, interface or props beyond those specifically named. Keep alpha transparency throughout the surrounding space.",
+      "processing": "Full frame encoded as WebP at quality 92; alpha preserved."
+    },
+    {
+      "file": "open-door-grove-keeper.webp",
+      "reference": "chthonic-baker.png",
+      "sourceName": "exec-a9593395-17f3-487c-acbf-ae621204810a.png",
+      "sourceSha256": "e91480f2d0aa57e819d1fe62b09886927bf31545fcad67322516b3fc8dc35938",
+      "sha256": "5501fe74952d8e4e460837f0af1901b704370ebfebceaf32ea07f670d279652d",
+      "size": [1024, 1536],
+      "prompt": "Use case: historical-scene. Asset type: transparent full-body character sprite for CosyWorld, The Open Door. Generate a NEW original portrait. The reference supplies only the game's finely detailed chthonic Greek painting style, realistic anatomy, textured cloth and warm rim light. Subject: An original older Greek grove keeper, a lean man with a silver beard and curly graying hair, a faded olive-green mantle over simple cream linen, gentle attentive face, upright resting posture, empty hands loosely joined. Full standing body including all hair and both sandaled feet, generous clear margin, three-quarter view looking toward the left, isolated on a genuinely transparent background. Match the reference's painterly realism and ancient Greek clothing. One person only. No scenery, ground plane, lettering, border, interface or props beyond those specifically named. Keep alpha transparency throughout the surrounding space.",
+      "processing": "Full frame encoded as WebP at quality 92; alpha preserved."
+    },
+    {
+      "file": "open-door-altar-keeper.webp",
+      "reference": "chthonic-baker.png",
+      "sourceName": "exec-3e6f1193-d925-4c68-a026-f569d7d7d273.png",
+      "sourceSha256": "a21f29647fd97026ab39a87ae0ebcb041872406b79e763e37b2efc7f205e7947",
+      "sha256": "8ad272e454c6d9d9337b0eeb87f9fc22bd1d661ea1338db5a295a651990e5968",
+      "size": [1024, 1536],
+      "prompt": "Use case: historical-scene. Asset type: transparent full-body character sprite for CosyWorld, The Open Door. Generate a NEW original portrait. The reference supplies only the game's finely detailed chthonic Greek painting style, realistic anatomy, textured cloth and warm rim light. Subject: An original older Greek altar keeper, a strong older woman with silver hair in a low braid, a pale ochre robe and dark rust shawl, calm alert expression, empty hands folded at her waist. Full standing body including all hair and both sandaled feet, generous clear margin, three-quarter view looking toward the left, isolated on a genuinely transparent background. Match the reference's painterly realism and ancient Greek clothing. One person only. No scenery, ground plane, lettering, border, interface or props beyond those specifically named. Keep alpha transparency throughout the surrounding space.",
+      "processing": "Full frame encoded as WebP at quality 92; alpha preserved."
+    }
+  ]
+}

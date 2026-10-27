@@ -248,6 +248,10 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/story-quests.mjs"),
         ),
+        "open-door-quests.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/open-door-quests.mjs"),
+        ),
         "quest-completions.mjs" => (
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/quest-completions.mjs"),
@@ -319,6 +323,10 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
         "pack-registry.mjs" => (
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/pack-registry.mjs"),
+        ),
+        "pack-sections.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/pack-sections.mjs"),
         ),
         "pack-recital.mjs" => (
             "text/javascript; charset=utf-8",
@@ -608,13 +616,33 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "image/svg+xml",
             include_bytes!("../../card-game/assets/greek-drama/harbor.svg"),
         ),
-        "assets/greek-drama/courtyard.svg" => (
-            "image/svg+xml",
-            include_bytes!("../../card-game/assets/greek-drama/courtyard.svg"),
+        "assets/greek-drama/open-door-agora.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/open-door-agora.webp"),
+        ),
+        "assets/greek-drama/open-door-piraeus.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/open-door-piraeus.webp"),
         ),
         "assets/greek-drama/palace.svg" => (
             "image/svg+xml",
             include_bytes!("../../card-game/assets/greek-drama/palace.svg"),
+        ),
+        "assets/greek-drama/courtyard.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/greek-drama/courtyard.svg"),
+        ),
+        "assets/greek-drama/open-door-colonus.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/open-door-colonus.webp"),
+        ),
+        "assets/greek-drama/open-door-eleusis.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/open-door-eleusis.webp"),
+        ),
+        "assets/greek-drama/open-door-marathon.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/open-door-marathon.webp"),
         ),
         "assets/greek-drama/sea.svg" => (
             "image/svg+xml",
@@ -731,6 +759,38 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
         "assets/greek-drama/chthonic-orestes.png" => (
             "image/png",
             include_bytes!("../../card-game/assets/greek-drama/chthonic-orestes.png"),
+        ),
+        "assets/greek-drama/open-door-aethra.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/open-door-aethra.webp"),
+        ),
+        "assets/greek-drama/open-door-adrastus.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/open-door-adrastus.webp"),
+        ),
+        "assets/greek-drama/open-door-mother.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/open-door-mother.webp"),
+        ),
+        "assets/greek-drama/open-door-iphis.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/open-door-iphis.webp"),
+        ),
+        "assets/greek-drama/open-door-theseus.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/open-door-theseus.webp"),
+        ),
+        "assets/greek-drama/open-door-quay-host.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/open-door-quay-host.webp"),
+        ),
+        "assets/greek-drama/open-door-grove-keeper.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/open-door-grove-keeper.webp"),
+        ),
+        "assets/greek-drama/open-door-altar-keeper.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/open-door-altar-keeper.webp"),
         ),
         _ => return None,
     };

@@ -7,6 +7,7 @@ import { migrateLife } from "./life.mjs";
 import { upgradeRecitals } from "./pack-recital.mjs";
 import { isPackActor, packDefinitions, transports } from "./pack-registry.mjs";
 import { passengers } from "./pack-transport.mjs";
+import { newTemperament } from "./pack-rules.mjs";
 
 // Upgrade historical records before the world validates the current save.
 // World-owned helpers keep pack installation and generated quests on the same
@@ -77,6 +78,7 @@ export function upgradeSave(
     // Schema 7 moved the Steam Clock into the world-pack state.
     upgradeSteamClockSave(s);
     upgradeTransportSave(s);
+    upgradeGreekSectionSave(s);
     s.schema = 7;
     installPacks(s);
   } else if (
@@ -87,6 +89,7 @@ export function upgradeSave(
     typeof s.crossings === "object"
   ) {
     upgradeTransportSave(s);
+    upgradeGreekSectionSave(s);
     // A pack mounted after this save was written joins it fresh.
     installPacks(s);
   }
@@ -99,6 +102,81 @@ export function upgradeSave(
     installSharedQuestRegistry(s);
   if (s?.schema === 7) publishQuestCompletions(s, syncStoryQuests(s));
   return s;
+}
+
+// Revision 3 adds these residents and objects. Earlier records keep their
+// custody, memories, receipts, and access scope. Only new IDs are installed.
+export function upgradeGreekSectionSave(s) {
+  const pack = packDefinitions.find((p) => p.id === "greek-drama");
+  const saved = s.packs?.[pack?.id];
+  if (!pack || pack.revision < 3 || saved?.revision !== 2) return;
+  const avatars = [
+    "greek-aethra",
+    "greek-adrastus",
+    "greek-argive-mother",
+    "greek-iphis",
+    "greek-theseus",
+    "greek-quay-host",
+    "greek-colonus-keeper",
+    "greek-marathon-keeper",
+  ];
+  const items = [
+    "greek-burial-petition",
+    "greek-return-cloths",
+    "greek-provision-basket",
+    "greek-ash-urn",
+    "greek-return-list",
+    "greek-grove-cup",
+    "greek-grove-honey",
+    "greek-shelter-blanket",
+    "greek-refuge-tablet",
+  ];
+  const fresh = newMemories();
+  if (
+    !s.actors ||
+    !s.items ||
+    !s.memories ||
+    !s.peaceUntil ||
+    avatars.some(
+      (id) =>
+        !pack.avatars[id] ||
+        s.actors[id] ||
+        s.memories[id] ||
+        Object.hasOwn(s.peaceUntil, id) ||
+        Object.hasOwn(s.motives?.grievances || {}, id),
+    ) ||
+    items.some((id) => !pack.items[id] || s.items[id] || s.memories[id]) ||
+    Object.values(s.actors).some(
+      (actor) =>
+        !actor.trust || avatars.some((id) => Object.hasOwn(actor.trust, id)),
+    )
+  )
+    throw new Error(
+      "This earlier Greek save needs its original entity records.",
+    );
+  const actorIds = [...Object.keys(s.actors), ...avatars];
+  for (const id of avatars) {
+    s.actors[id] = {
+      place: pack.avatars[id].place,
+      progress: newProgress(),
+      crossed: 0,
+      lastTalk: -9,
+      trust: Object.fromEntries(
+        actorIds.filter((other) => other !== id).map((other) => [other, 0]),
+      ),
+      ...newTemperament(id),
+    };
+    s.peaceUntil[id] = 0;
+    s.memories[id] = fresh[id];
+    if (s.motives) s.motives.grievances[id] = [];
+  }
+  for (const id of items) {
+    s.items[id] = { holder: pack.items[id].holder, history: [] };
+    s.memories[id] = fresh[id];
+  }
+  for (const [id, actor] of Object.entries(s.actors))
+    for (const other of avatars) if (other !== id) actor.trust[other] ??= 0;
+  saved.revision = 3;
 }
 
 // Earlier occupied ships used a null dock. Keep their saved destination and

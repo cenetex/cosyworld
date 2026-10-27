@@ -1,132 +1,130 @@
 # The Wine-Dark Sea
 
-A Greek drama card-world pack reached from Black Pond. The first release is
-**Before the Burial**, a compact Theban episode with seven painted places.
-The traveler retains their identity, belongings, memories and decisions.
+A Greek drama card-world pack reached from Black Pond. **Before the Burial**
+opens at seven painted places around Thebes. Dione's next invitation opens
+**The Open Door**, five places around Athens. Travelers keep their identities,
+belongings, memories and decisions across both local and shared games.
 
-## Opening release
+## Before the Burial
 
 A new game exposes the Wine-Dark Harbor, Theban Courtyard, Market Well,
 City Gate, Exposed Battlefield, Palace Forecourt and Hillside Sanctuary.
-Each has distinct generated scenery. Seven local residents support the
-opening: Myrto, Antigone, Ismene, Creon, the guard, Dione and the chorus elder.
-The player can refuse involvement, visit a quiet sanctuary or return home;
-no completion checklist governs departure.
+Seven residents support the opening: Myrto, Antigone, Ismene, Creon, the guard,
+Dione and the chorus elder. Each place has distinct painted scenery.
 
-The `release` allowlist selects opening places, residents, items and choices.
-New saves store `scope: "opening"`; schema-6 Greek saves migrate to `full`
-scope so existing travelers are not stranded and their histories remain
-available. This is content-release composition, not a player-facing meter
-or a new condition to solve. Existing valid saves are never reset to make
-the smaller release load.
+The player can return water, hear the decree, arrange a witness, carry a
+shovel, supply cloth and oil, perform a burial, petition, accept permission,
+refuse, report or give a later warning. Objects keep their actual holders.
+Witnesses and recorded deeds shape each later offer. The quiet sanctuary and
+the homeward road remain available throughout.
 
-## Sources and shared runtime
+Three short story cards follow the opening. The Bard carries its growing
+poem. Finishing a quest brings him to the next room the player enters.
+Talking to him supplies the earned verses through that visit, in order.
+Permission earns a verse while the burial remains open. A later rite adds
+another verse and opens a return to Dione. The [exact copy list](OPENING-POEM.md)
+records all three card lines and every branch of the song.
 
-`card-world.json` is canonical author data: 49 places, 21 resident definitions,
-13 objects, 79 typed choices and 44 work records. Five works support the
-existing Theban, Helen and Atreid episodes. The other 39 remain situated
-hooks in the source; **their empty inquiry actions are withheld from fresh
-opening play**. No inquiry journal is added.
+## The Open Door
 
-The Forest implementation owns the shared `pack-schema.mjs`,
-`pack-rules.mjs`, registry, Steam Clock fixture and Forest Clearing behavior.
-This pack extends that same closed vocabulary with items, account choices,
-receipt validation, and signal conditions. It does not retain separate
-hardcoded Greek/Forest gates in `world.mjs`.
+After the public account of burial, permission, refusal or warning, Dione
+can offer a place on the road to Athens. Accepting records a lasting opening
+for the Athenian Agora, Piraeus Quays, Colonus Grove, Eleusinian Sanctuary
+and Marathon Altar. One shared traveler can open the roads for everyone.
 
-`v2/worlds/greek-drama/card-bridge.json` connects the reusable pack to the
-hub. `v2/worlds/card-table.json` selects both packs. One compiled file,
-`v2/card-game/packs.json`, supplies the browser and Rust's trusted personas.
-There is no separately generated Greek module or raw-source persona copy.
+The main journey follows the mothers in Euripides' _Suppliant Women_.
+Carry their petition to Theseus, choose the civic response, hear its report,
+bring cloths for the funeral, place the ashes and prepare a berth home.
+The grove keeper tells Sophocles' _Oedipus at Colonus_ as an earlier tale.
+The altar keeper tells Euripides' _Children of Heracles_ in its own later
+generation. Gifts and present promises join the remembered accounts.
+
+Six short story cards follow these scenes. Twenty new couplets distinguish
+present deeds, heard reports and chosen tellings. The final account returns
+to Dione's table. Read the [full scene and source guide](OPEN-DOOR.md) for the
+route, choices, source endings and original alternatives.
+
+## Sources and runtime
+
+`card-world.json` is canonical author data: 50 places including the ship,
+29 residents, 22 objects, 113 typed choices and 44 work records. Eight works
+have developed scenes; 36 retain situated hooks for later releases.
+
+`release` lists the content in this release. `sections` groups places behind
+lasting story events. New saves begin with seven shore places and the ship.
+Dione's invitation adds five shore places. Earlier full-scope worlds keep
+their travel access and their chosen Helen and Atreid accounts.
+
+Greek pack revision 3 adds eight residents and nine objects to valid earlier
+saves. The upgrade preserves old custody, memories, flags, choices, receipts
+and poem. Shared rules version 11 records the change. Versions 2–10 retain
+their original interpreter bytes so accepted history can replay.
+
+The Forest and Greek packs share the card table's schema, registry, rules,
+item custody, quests and save system. Choices use the closed effects
+`choose`, `set_flag` and `place_item`. A placement requires the acting
+traveler to hold that object at the named place. Ordered receipts validate
+recorded branches and flags on load. Generated speech describes those facts.
+
+`v2/worlds/greek-drama/card-bridge.json` joins the pack to the hub.
+`v2/worlds/card-table.json` selects both packs. The generated
+`v2/card-game/packs.json` supplies the browser and Rust's trusted personas.
+The local game saves in the browser. Shared worlds save each accepted turn
+through the server and rebuild from their journal.
 
 ```sh
 npm run v2:card:pack:build
 npm run v2:card:pack:check
 ```
 
-This remains the existing **browser-local deterministic card table** with
-localStorage saves. It is not a new shared server journal or multiplayer
-runtime. Server-authoritative integration still requires C-kernel/replay work.
-
 ## The crossing
 
-At quiet Black Pond, cover and uncover the fueled lit Lamp with Black cloth
-twice. Only the four resolved player transitions count. The shared signal's
-`while` conditions require a lit fueled lamp at the pond and no sound at
-the pond or clearing. Its route additionally requires the lamp uncovered.
-Leaving, losing the flame/fuel or nearby sound cancels the signal. Restoring
-light or quiet does not silently complete a canceled sequence.
+At quiet Black Pond, cover and uncover the fueled, lit Lamp with Black cloth
+twice. The signal counts each resolved action. Its conditions require a lit,
+fueled lamp at the pond and quiet at both the pond and clearing.
 
-Internal phase survives reload; the player sees no phase, counter, recipe,
-first-flash ripple or progress reassurance. The actual ship appearance and
-Board option use the same predicate and are rechecked on commitment. The
-return from the harbor stays available without the entry lamp.
+Completing the signal summons a shared ship. Its saved discovery keeps the
+boarding shores open through lamp changes, reloads and later voyages.
+Boarding starts a crossing while the ship stays at the departure dock for
+other passengers. The first passenger ashore moves it to the arrival dock.
+Those still aboard can disembark there. A new boarding starts the return
+crossing. An occupied ship completes its voyage before a lamp recall.
 
-## Dramatic actions and compatibility
+## Art and presentation
 
-Before the Burial supports returning water, hearing the decree, arranging
-a witness, staging a shovel, supplying cloth and oil, burial, petition,
-permitted burial, refusal, reporting, and later public disclosure. Object
-custody and witnessed events matter. Generated speech cannot perform an
-unrecorded murder, burial, hearing or voyage.
+Thebes has seven generated paintings. The Open Door adds five paintings
+and eight transparent resident portraits. The pond ship uses a transparent
+ship layer over the original pond. The boarding card shows that same ship,
+mirror and night setting.
 
-Each opening quest card has one short line. The Bard carries the growing
-poem. Finishing a quest brings him to the next room the player enters.
-Talking to him supplies every earned verse through that visit, in order.
-Permission adds a verse while the burial quest stays open. A later rite
-adds another verse and opens a return to tell Dione about the grave.
-See the [exact copy list](OPENING-POEM.md) for the three card lines and every
-branch of the bard's song.
+`assets/greek-drama/scenery-provenance.json` records the opening scenery.
+`assets/greek-drama/open-door-art.json` records the new art prompts, source
+hashes, dimensions and runtime hashes. Later repertoire places retain their
+original SVG scenery.
 
-The legacy/full scope retains the two Helen accounts and three Atreid
-accounts. Mutually exclusive embodiments share `canonicalPerson` identities;
-the chosen account controls its route, cast and evidence. Saved receipts
-replay choices and flags in turn order; invalid/inconsistent histories are
-rejected. Inactive embodiments cannot be moved or assigned invented history.
-
-Conditions are closed descriptors. Choice effects remain `choose`,
-`set_flag` and `place_item`; placement requires current custody at the action
-location. No script in the content can spawn, kill, teleport or spend money.
-
-## Scenery and presentation
-
-Seven generated paintings replace shared SVG backgrounds in the opening.
-The pond ship is a masked generated ship/rigging/reflection layer over the
-**unchanged original pond**. The original mirror, trees, building, shore and
-camera remain. The boarding portrait was generated from the original pond,
-the transparent ship layer and the archive's review sheet. It matches the
-ship, mirror and nighttime setting.
-
-`assets/greek-drama/scenery-provenance.json` records generation IDs, source
-names, transformations, dimensions and runtime checksums. Seven backdrops
-are full-frame WebP derivatives; the ship layer is an alpha PNG. Fifteen
-existing transparent character portraits remain intact. Later/legacy places
-still use their original SVG backgrounds. **Weather and night alternates
-are not integrated**, and no weather clock or countdown has been added.
-
-Cards remain large art and small names. Controls describe immediate actions,
-not puzzle solutions. Optional conversation history contains spoken lines,
-not objectives. Accessibility descriptions must follow the same observable-
-only boundary. Internal simulation fields are retained for save compatibility;
-this does not claim that all points-based mechanics have been redesigned.
+Card faces show large art and small names. Actions describe immediate deeds.
+Quest cards each show one short line. The Bard gives the growing poem.
+Conversation history preserves spoken lines. Accessibility descriptions
+follow the same visible facts as the scene.
 
 ## Checks
 
 ```sh
 npm test
-npx vitest run test/card-theban-release.test.mjs
+npm run check:local
+node v2/scripts/smoke-card-open-door.mjs
 node v2/scripts/smoke-card-theban-scenery.mjs
-node v2/scripts/smoke-card-image-first.mjs
 node v2/scripts/smoke-card-greek-drama.mjs
-node v2/scripts/smoke-card-clearing-access.mjs
 ```
 
-The Theban tests cover exactly seven reachable places, hidden inquiries,
-return paths, real schema-6 saves, migration of a halfway signal, evidence
-and history preservation, media checksums and HTTP MIME types. Historical
-fixtures were created with commit `25e7777`, not invented schema shapes.
-Browser tests use fixture speech, not paid live-model output. Rust formatting,
-Rust tests and actual desktop/mobile playthroughs are separate release gates;
-JavaScript tests alone do not establish them.
+The Open Door tests cover every invitation, alternate endings, object care,
+shared authorship, earned verses, interrupted duties and the return to Dione.
+Browser journeys play all five places at desktop and phone widths, inspect
+cards and art, reload during the story and hear the earned Bard context.
+Speech fixtures let these journeys run consistently.
 
-See `ATTRIBUTION.md` for repertoire and translation boundaries.
+Save checks use real earlier saves and frozen shared interpreters. They
+preserve old state through both checkpoint loading and journal-only recovery.
+The shared invitation is checked through the server with two human avatars.
+
+See [attribution](ATTRIBUTION.md) for the wider repertoire and translations.

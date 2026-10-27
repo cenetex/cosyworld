@@ -219,7 +219,36 @@ Ordered receipts recompute saved choices/flags on loading.
 
 An optional `release` lists opening places, avatars, items and choices.
 Fresh saves use opening scope; migrated old Greek games retain full scope.
-This is release composition, not a new player progression meter or UI mode.
+The allowlist sets which authored content belongs to the current release.
+
+An optional `sections` list groups released places behind lasting story events:
+
+```json
+{
+  "id": "greek-open-door",
+  "name": "The Open Door",
+  "places": [
+    "greek-athens",
+    "greek-piraeus",
+    "greek-colonus",
+    "greek-eleusis",
+    "greek-marathon"
+  ],
+  "requires": [{ "kind": "flag", "key": "greek-open-door-open", "value": true }]
+}
+```
+
+Each place belongs to at most one section. Requirements use recorded choices
+or flags set permanently to `true`. The schema checks that an authored action
+can satisfy them. The gate covers travel, the local cast, objects, fixtures,
+and story actions. Held objects keep their section through their authored
+home. Saved receipts must place the opening event before section actions.
+Older full-scope worlds keep their travel access. Authored action requirements
+still apply to their later scenes.
+
+The Open Door uses Greek pack revision 3. Its save upgrade adds the exact new
+resident and object IDs while preserving earlier state. The shared interpreter
+records this upgrade under rules version 11.
 
 ## Observable states in dialogue
 

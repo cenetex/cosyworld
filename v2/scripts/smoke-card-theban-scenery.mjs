@@ -11,7 +11,6 @@ import {
   decodeSave,
 } from "../card-game/world.mjs";
 import { summonTransport } from "../card-game/pack-transport.mjs";
-import { packDefinition } from "../card-game/pack-registry.mjs";
 const output = new URL("../../output/theban-scenery/", import.meta.url);
 await mkdir(output, { recursive: true });
 const act = (s, kind, fields = {}) => {
@@ -241,10 +240,16 @@ try {
           visited.add(id);
         }
       }
-      assert.equal(
-        visited.size,
-        packDefinition("greek-drama").release.places.length,
-      );
+      assert.deepEqual([...visited].sort(), [
+        "greek-battlefield",
+        "greek-courtyard",
+        "greek-gate",
+        "greek-harbor",
+        "greek-palace",
+        "greek-sanctuary",
+        "greek-ship",
+        "greek-well",
+      ]);
       await page.reload();
       await card("greek-ship").waitFor({ state: "attached" });
       await use("greek-ship");
