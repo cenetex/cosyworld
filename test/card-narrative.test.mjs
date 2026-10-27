@@ -171,6 +171,7 @@ describe("entity memories and model text", () => {
       "Wants Oil flask, currently with The keeper",
     );
     expect(context.entities.every((e) => e.facts.length <= 16)).toBe(true);
+    context.scenery = true;
     const next = applyGeneratedText(world, context, response(context));
     expect(next.actors).toEqual(world.actors);
     expect(next.items).toEqual(world.items);
