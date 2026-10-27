@@ -2,7 +2,7 @@
 import { readFile } from "node:fs/promises";
 import { createServer } from "../card-game/serve.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
-import { addLog, encodeSave } from "../card-game/world.mjs";
+import { addLog, createWorld, encodeSave } from "../card-game/world.mjs";
 import cast from "../card-game/voices.json" with { type: "json" };
 
 const server = createServer();
@@ -18,7 +18,9 @@ server.on("request", async (req, res) => {
   const width = url.searchParams.get("width") === "390" ? 390 : 1440;
   const send = (type, body, status = 200) => {
     res.writeHead(status, {
-      "Content-Type": type,
+      "Content-Type": type.startsWith("text/")
+        ? type + "; charset=utf-8"
+        : type,
       "Cache-Control": "no-store",
     });
     res.end(body);
@@ -74,11 +76,15 @@ server.on("request", async (req, res) => {
     );
   }
   if (url.pathname === "/fixture-seed.mjs") {
-    const world = dispatchShared({ op: "create" }).world;
+    const world = dispatchShared({
+      op: "create",
+      save: encodeSave(createWorld()),
+    }).world;
     world.actors.vale.place = world.actors[id].place;
+    world.controlledActors = ["vale", "mara"];
     world.presentActors = ["vale", "mara"];
     world.turn = 1;
-    world.log = [];
+    world.revision = 1;
     addLog(world, voice.name, voice.transcript, {
       actorId: id,
       entityId: id,
