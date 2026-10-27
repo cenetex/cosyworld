@@ -1,0 +1,20 @@
+{
+  "style": "chthonic Greek",
+  "generated": "2026-10-27",
+  "tool": "image_gen",
+  "reference": "open-door-quay-host.webp",
+  "assets": [
+    {
+      "file": "myrine.webp",
+      "sourceName": "exec-59db7f61-340e-40ff-8c1a-a943d1b3f2cb.png",
+      "sourceSha256": "0843b1c4ad5f34df0fe66f9f41e7819e1226b3b1c03807927fc99b710e0f7aa1",
+      "sha256": "e507850aa9959a4d1fedf42eb6ba17d1b70e8a1c2b25799c033e7926bb6ae0ec",
+      "size": [
+        1024,
+        1536
+      ],
+      "prompt": "Use case: historical-scene. Asset type: transparent full-body character sprite for CosyWorld, Greek homecoming. Generate a NEW original character, Myrine of Argos, a household representative traveling from Eleusis to a prepared berth at Piraeus. The reference image supplies only the established finely detailed painterly Greek style, warm natural light, realistic anatomy, weathered linen, and full-body framing. Give Myrine a distinct face and silhouette: a middle-aged Greek woman with dark hair threaded with silver, hair gathered beneath a faded indigo head cloth, a plain warm grey linen dress and muted blue travelling mantle. She holds a small tied cloth bundle at her waist. Her expression is tired, steady and observant. Full standing body including hair and both sandaled feet, generous clear margin, three-quarter view looking gently left. One person, isolated on a genuinely transparent background, with alpha transparency throughout surrounding space. Match the game’s grounded painted realism. Keep the frame free of scenery, ground planes, lettering, borders and interface.",
+      "processing": "Full frame encoded as WebP at quality 92; alpha preserved."
+    }
+  ]
+}
