@@ -242,6 +242,7 @@ try {
     await selectCard(page, "vale");
     await selectCard(page, "lamp");
     for (const dialog of ["menu", "history"]) {
+      await page.locator("#toolbar-menu-button").click();
       await page.locator(`#${dialog}-button`).click();
       await page.keyboard.press("Escape");
       assert.equal(
