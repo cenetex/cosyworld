@@ -302,7 +302,7 @@ try {
     await load(meeting());
     assert.equal(await card("lamp").isVisible(), false);
     assert.equal(await card("cloth").isVisible(), false);
-    assert.equal(await card("bell").isVisible(), true);
+    assert.equal(await card("bell").isVisible(), false);
     assert.equal(await page.locator(".card-more").count(), 0);
     await shot("stacks");
     await selectCard(page, "moth", { touch: width < 700 });

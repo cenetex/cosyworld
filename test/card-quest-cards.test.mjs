@@ -28,6 +28,7 @@ import {
   fulfilledPlayerQuest,
   questHand,
   questCards,
+  questHistoryCards,
   questCardId,
   questForCard,
   isQuestCard,
@@ -80,11 +81,7 @@ describe("collected quest cards", () => {
     world.items.oil.holder = "vale";
     world.items.cloth.holder = "lamp";
     const deck = questCards(world);
-    expect(deck.map((quest) => quest.status)).toEqual([
-      "active",
-      "pending",
-      "fulfilled",
-    ]);
+    expect(deck.map((quest) => quest.status)).toEqual(["active", "pending"]);
     const hand = questHand(world);
     const cardIds = deck.map((quest) => questCardId(world, quest));
     expect(hand.filter(isQuestCard)).toEqual(cardIds);
@@ -187,7 +184,9 @@ describe("Greek cards in the collected stack", () => {
       expect(pursueQuest(world, "vale", pending.key)).toBe(true);
       const cards = questCards(world);
       expect(cards[0].key).toBe(playerQuest(world).key);
-      const story = cards.find((q) => q.id === STORY_QUEST_CARDS[1]);
+      const story = questHistoryCards(world).find(
+        (q) => q.id === STORY_QUEST_CARDS[1],
+      );
       expect(story).toMatchObject({
         status: "fulfilled",
         singleLine: true,
@@ -196,18 +195,20 @@ describe("Greek cards in the collected stack", () => {
           { refusal: "Declined", exposure: "Reported" }[branch] || "Fulfilled",
       });
       const hand = questHand(world);
-      expect(hand.indexOf(QUEST_CARD)).toBeLessThan(hand.indexOf(story.id));
-      expect(questForCard(world, story.id)).toEqual(story);
+      expect(hand).toContain(QUEST_CARD);
+      expect(questHistoryCards(decodeSave(encodeSave(world)))).toContainEqual(
+        story,
+      );
       world.log = [];
       expect(questCards(decodeSave(encodeSave(world)))).toEqual(cards);
     }
   });
   it("retains the first courtyard report when a second report is collected", () => {
     const states = openingFixture("concession");
-    const original = questCards(states.permissionShared).find(
+    const original = questHistoryCards(states.permissionShared).find(
       (q) => q.id === STORY_QUEST_CARDS[2],
     );
-    const cards = questCards(states.closed);
+    const cards = questHistoryCards(states.closed);
     const first = cards.find((q) => q.key === original.key);
     const second = cards.find((q) => q.key === original.key + ":grave");
     expect(first).toMatchObject({
@@ -219,10 +220,10 @@ describe("Greek cards in the collected stack", () => {
     expect(questCardId(states.closed, first)).not.toBe(
       questCardId(states.closed, second),
     );
-    expect(
-      questForCard(states.closed, questCardId(states.closed, first)),
-    ).toEqual(first);
-    expect(questCards(decodeSave(encodeSave(states.closed)))).toEqual(cards);
+    expect(questHistoryCards(decodeSave(encodeSave(states.closed)))).toEqual(
+      cards,
+    );
+    expect(questCards(states.closed).length).toBeLessThanOrEqual(2);
   });
 });
 

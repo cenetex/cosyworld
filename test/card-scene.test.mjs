@@ -47,6 +47,38 @@ function act(s, kind, item, target) {
     ),
   ).state;
 }
+describe("the presented physical snapshot", () => {
+  it("uses current holdings while reviewing earlier speech", () => {
+    const world = gathered();
+    world.items.lamp.holder = "vale";
+    dialogue(world, "vale", {
+      generated: true,
+      items: [{ id: "lamp", holder: "vale", lit: false, fuel: 8 }],
+    });
+    const line = world.log.at(-1);
+    world.items.lamp.holder = "moth";
+    const stage = sceneStaging(world, {
+      line,
+      currentState: true,
+      review: true,
+    });
+    expect(
+      stage.actors
+        .find((actor) => actor.id === "vale")
+        .items.some((item) => item.id === "lamp"),
+    ).toBe(false);
+    expect(
+      stage.actors
+        .find((actor) => actor.id === "moth")
+        .items.some((item) => item.id === "lamp"),
+    ).toBe(true);
+    expect(stage.actors.every((actor) => actor.presence === "present")).toBe(
+      true,
+    );
+    expect(line.items[0].holder).toBe("vale");
+  });
+});
+
 describe("selected item in the avatar's hand", () => {
   it("previews the latest selected item and keeps the saved world intact", () => {
     const s = createWorld();

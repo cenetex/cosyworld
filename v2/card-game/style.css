@@ -390,8 +390,32 @@ main {
   margin-top: -5px;
 }
 #story-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   color: var(--muted);
   font-size: 14px;
+}
+#story-status[hidden] {
+  display: none;
+}
+.thinking-orbit {
+  width: 15px;
+  height: 15px;
+  border: 2px solid #a48d6340;
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: thinking-orbit 1.2s linear 12;
+}
+@keyframes thinking-orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .thinking-orbit {
+    animation: none;
+  }
 }
 body .dialogue-heading #story-retry {
   width: 28px;
@@ -1436,4 +1460,9 @@ body .card.quest[data-quest-status="pending"] {
 }
 body .card.quest[data-quest-status="fulfilled"] .art {
   opacity: 0.6;
+}
+
+.quest-frame[data-fading="true"] {
+  opacity: 0.45;
+  transition: opacity 600ms ease-out;
 }

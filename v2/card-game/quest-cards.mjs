@@ -1,3 +1,4 @@
+import { questCarried, questFresh, questHolderActor } from "./quest-hands.mjs";
 import { packDefinition } from "./pack-registry.mjs";
 import { recitalPoem } from "./pack-recital.mjs";
 import { questRecords, questStatus } from "./shared-quests.mjs";
@@ -42,9 +43,9 @@ export function activeQuests(world) {
 
 export function fulfilledQuests(before, after) {
   const previous = new Map(
-    questCards(before).map((quest) => [quest.key, quest]),
+    questHistoryCards(before).map((quest) => [quest.key, quest]),
   );
-  return questCards(after)
+  return questHistoryCards(after)
     .filter(
       (quest) =>
         quest.status === "fulfilled" &&
@@ -146,6 +147,11 @@ function personalQuestCards(world, actor = currentActor(world)) {
       : status === "active";
     return {
       key: record.key,
+      completedTurn: record.completedTurn,
+      expiresTurn:
+        record.completedTurn === null ? null : record.completedTurn + 2,
+      fading:
+        record.completedTurn !== null && world.turn > record.completedTurn,
       actor,
       title: questOfferTitle(world, record, records, title),
       purpose,
@@ -206,6 +212,11 @@ function storyQuestCards(world, actor) {
       const record = world.quests?.records[definition.key];
       return {
         ...definition,
+        completedTurn: record?.completedTurn ?? null,
+        expiresTurn:
+          record?.completedTurn == null ? null : record.completedTurn + 2,
+        fading:
+          record?.completedTurn != null && world.turn > record.completedTurn,
         actor,
         id:
           actor === currentActor(world) && !definition.historical
@@ -221,7 +232,7 @@ function storyQuestCards(world, actor) {
 
 // Pack receipts retain story cards through reload and log pruning. A second
 // courtyard report has its own identity while the first stays in the collection.
-export function questCards(world, actor = currentActor(world)) {
+export function questHistoryCards(world, actor = currentActor(world)) {
   const personal = personalQuestCards(world, actor);
   const stories = storyQuestCards(world, actor);
   return [
@@ -234,10 +245,21 @@ export function questCards(world, actor = currentActor(world)) {
   ];
 }
 
+export function questCards(world, actor = currentActor(world)) {
+  return questHistoryCards(world, actor)
+    .filter((card) => {
+      const q = world.quests?.records?.[card.key];
+      if (!q) return !world.life?.actors?.[actor]?.collection && !card.story;
+      if (!questFresh(world, q)) return false;
+      if (world.actors[actor]) return questCarried(world, actor, q.key);
+      const holder = questHolderActor(world, q);
+      return holder ? questCarried(world, holder, q.key) : true;
+    })
+    .slice(0, 2);
+}
+
 export function playerQuest(world) {
-  return (
-    personalQuestCards(world).find((quest) => quest.status === "active") || null
-  );
+  return questCards(world).find((quest) => quest.status === "active") || null;
 }
 
 export function fulfilledPlayerQuest(before, after) {
@@ -290,10 +312,18 @@ export function questHand(world, notice = null) {
   const visible = availableCards(world),
     cards = [];
   const appendQuests = (holder) => {
-    const deck = questCards(world, holder);
+    const deck = questCards(world, holder).filter((card) => {
+      const owner = world.items[holder] && rootHolder(world, holder);
+      return (
+        !world.actors[owner] ||
+        !questCards(world, owner).some((q) => q.key === card.key)
+      );
+    });
     if (
       holder === currentActor(world) &&
       notice &&
+      deck.length < 2 &&
+      questCarried(world, holder, notice.key) &&
       !deck.some((quest) => quest.key === notice.key)
     )
       deck.push(notice);
