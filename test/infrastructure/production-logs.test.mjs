@@ -5,23 +5,15 @@ import { describe, expect, it } from "vitest";
 const vector = readFileSync("deploy/observability/vector.yaml", "utf8");
 const terraform = readFileSync("infra/production-logs/main.tf", "utf8");
 const variables = readFileSync("infra/production-logs/variables.tf", "utf8");
-const nginx = readFileSync("deploy/lonelyforest/nginx.conf", "utf8");
 const primaryFly = readFileSync("fly.toml", "utf8");
 const lonelyforestFly = readFileSync("fly.lonelyforest.toml", "utf8");
 const shipperFly = readFileSync("fly.logs.toml", "utf8");
 const smoke = readFileSync("scripts/check-production-log-ingestion.sh", "utf8");
 
 describe("durable production logs", () => {
-  it("uses structured runtime logs and omits raw Nginx request targets", () => {
+  it("uses structured runtime logs", () => {
     expect(primaryFly).toContain('COSYWORLD_LOG_FORMAT = "json"');
     expect(lonelyforestFly).toContain('COSYWORLD_LOG_FORMAT = "json"');
-    expect(nginx).toContain("log_format cosyworld_safe");
-    expect(nginx).not.toMatch(/access_log[^;]+combined/);
-    const safeFormat =
-      nginx.match(/log_format cosyworld_safe[^;]+;/)?.[0] ?? "";
-    expect(safeFormat).not.toMatch(/\$request(?:[\s"']|$)/);
-    expect(safeFormat).not.toContain("$request_uri");
-    expect(safeFormat).not.toContain("$args");
   });
 
   it("allowlists exactly the two production apps before export", () => {

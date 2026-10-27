@@ -16,18 +16,10 @@ on:
           - primary
           - lonelyforest
       lonelyforest_recovery_capture:
-        description: Reviewed committed tenant=path capture, only when that tenant's live /meta is unavailable
+        description: Reviewed committed capture path, only when Lonely Forest's live /meta is unavailable
         required: false
         default: ""
         type: string
-      lonelyforest_fresh_empty_tenant:
-        description: One-time empty tenant bootstrap; fails if its volume directory contains any data
-        required: false
-        default: none
-        type: choice
-        options:
-          - none
-          - hoppycat
       primary_recovery_capture:
         description: Reviewed committed capture path, only when the primary app's live /meta is unavailable
         required: false
@@ -129,7 +121,6 @@ jobs:
           npm run v2:worldpack
           npm run v2:kernel
           npm run v2:syntax
-          npm run v2:lonelyforest:contract
           npx vitest run test/infrastructure/deploy-workflow.test.mjs --reporter=dot
 
   production-rust-gate:
@@ -397,34 +388,16 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_LONELYFOREST_API_TOKEN }}
 
-      - name: Guard every Lonely Forest tenant worldpack bundle compatibility
+      - name: Guard Lonely Forest worldpack bundle compatibility
         run: |
-          if [ "$COSYWORLD_LONELYFOREST_FRESH_EMPTY_TENANT" != "none" ]; then
-            if [ -n "$COSYWORLD_LONELYFOREST_RECOVERY_CAPTURE" ]; then
-              echo "::error::A recovery capture and fresh tenant bootstrap cannot be requested together"
-              exit 1
-            fi
-            if flyctl ssh console -a cosyworld-lonelyforest -C 'test -e /data/worldpacks/hoppycat'; then
-              flyctl ssh console -a cosyworld-lonelyforest -C 'test -d /data/worldpacks/hoppycat'
-              fresh_tenant_entry="$(flyctl ssh console -a cosyworld-lonelyforest -C 'find /data/worldpacks/hoppycat -mindepth 1 -print -quit')"
-              if [ -n "$fresh_tenant_entry" ]; then
-                echo "::error::Fresh Hoppycat tenant directory is not empty: $fresh_tenant_entry"
-                exit 1
-              fi
-            fi
-            node v2/scripts/check-lonelyforest-worldpacks.mjs --transport-base-url https://cosyworld-lonelyforest.fly.dev --fresh-empty-tenant hoppycat
-          elif [ -n "$COSYWORLD_LONELYFOREST_RECOVERY_CAPTURE" ]; then
-            node v2/scripts/check-lonelyforest-worldpacks.mjs --transport-base-url https://cosyworld-lonelyforest.fly.dev --recovery-capture "$COSYWORLD_LONELYFOREST_RECOVERY_CAPTURE"
+          if [ -n "$COSYWORLD_LONELYFOREST_RECOVERY_CAPTURE" ]; then
+            node v2/scripts/check-deploy-worldpack.mjs https://lonelyforest.com \
+              --recovery-capture "$COSYWORLD_LONELYFOREST_RECOVERY_CAPTURE"
           else
-            node v2/scripts/check-lonelyforest-worldpacks.mjs --transport-base-url https://cosyworld-lonelyforest.fly.dev
+            node v2/scripts/check-deploy-worldpack.mjs https://lonelyforest.com
           fi
         env:
           COSYWORLD_LONELYFOREST_RECOVERY_CAPTURE: ${{ inputs.lonelyforest_recovery_capture }}
-          COSYWORLD_LONELYFOREST_FRESH_EMPTY_TENANT: ${{ inputs.lonelyforest_fresh_empty_tenant || 'none' }}
-          FLY_API_TOKEN: ${{ secrets.FLY_LONELYFOREST_API_TOKEN }}
-
-      - name: Validate Lonely Forest multitenant contract
-        run: npm run v2:lonelyforest:contract
 
       - name: Create rollback backup
         run: scripts/backup-fly-v2.sh cosyworld-lonelyforest lonelyforest
@@ -476,7 +449,17 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_LONELYFOREST_API_TOKEN }}
 
       - name: Verify Lonely Forest readiness and persistence
-        run: npm run v2:lonelyforest:smoke -- --base-url=https://cosyworld-lonelyforest.fly.dev --shared-transport --expect-elysium --allow-remote-mutations
+        run: |
+          for attempt in {1..13}; do
+            if node v2/scripts/smoke-deployed-ruby-high.mjs https://lonelyforest.com; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 13 ]; then
+              echo "Lonely Forest readiness remained degraded after 120 seconds" >&2
+              exit 1
+            fi
+            sleep 10
+          done
 
       - name: Verify Lonely Forest card game
         run: node v2/scripts/smoke-deployed-card-game.mjs https://lonelyforest.com https://www.lonelyforest.com https://cosyworld-lonelyforest.fly.dev
@@ -494,8 +477,12 @@ jobs:
       - lonelyforest-image
       - lonelyforest-backup
       - lonelyforest-fly
-    if: always()
+    # A queued run that a newer run in the deploy concurrency group replaced
+    # (a version tag on the same commit, or a later main push) is cancelled
+    # and owns nothing; the newer run reports for it (#1044).
+    if: ${{ !cancelled() }}
     permissions:
+      contents: read
       issues: write
     steps:
       # A merge to main that produces no successful deploy must be visible
@@ -540,17 +527,6 @@ jobs:
           Production may still be serving the previous release. Investigate before merging further changes that require a deploy.
           BODY
           )
-          # A version tag on this commit runs its own deploy, which owns the
-          # outcome. The main-push run it supersedes is not a missed deploy.
-          if [ "$GITHUB_REF" = refs/heads/main ]; then
-            tag="$(gh api "repos/${GH_REPO}/tags" --paginate \
-              --jq ".[] | select(.commit.sha == \"${GITHUB_SHA}\") | select(.name | startswith(\"v\")) | .name" \
-              | head -n 1)"
-            if [ -n "$tag" ]; then
-              echo "Release ${tag} deploys ${GITHUB_SHA:0:7}; its run reports the outcome."
-              exit 0
-            fi
-          fi
           existing="$(gh issue list --state open --search "${title} in:title" --json number --jq 'length')"
           if [ "${existing:-0}" -eq 0 ]; then
             gh issue create --title "$title" --body "$body"
@@ -558,9 +534,7 @@ jobs:
             echo "A tracking issue for ${GITHUB_SHA:0:7} already exists."
           fi
 
-      # Both apps now serve this commit, so every older missed deploy it
-      # contains has reached production. Open issues should mean "still missing".
-      - name: Close tracking issues this deploy superseded
+      - name: Close tracking issues for commits this deploy shipped
         if: >-
           needs.primary-fly.result == 'success' &&
           needs.lonelyforest-fly.result == 'success'
@@ -568,15 +542,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          gh issue list --state open --search "Production did not deploy in:title" \
-            --json number,title --jq '.[] | "\(.number) \(.title)"' |
-          while read -r number title; do
-            sha="${title##* }"
-            case "$sha" in *[!0-9a-f]* | "") continue ;; esac
+          gh api --paginate "repos/${GH_REPO}/issues?state=open&per_page=100" \
+            --jq '.[] | select(.pull_request == null) | select(.title | test("^Production did not deploy [0-9a-f]{7,40}$")) | "\(.number) \(.title | split(" ") | last)"' |
+          while read -r number sha; do
             status="$(gh api "repos/${GH_REPO}/compare/${sha}...${GITHUB_SHA}" --jq .status 2>/dev/null || true)"
-            if [ "$status" = ahead ] || [ "$status" = identical ]; then
+            if [ "$status" = "ahead" ] || [ "$status" = "identical" ]; then
               gh issue close "$number" --reason completed \
-                --comment "Superseded: ${GITHUB_SHA:0:7} contains ${sha} and deployed to both apps in ${GITHUB_SERVER_URL}/${GH_REPO}/actions/runs/${GITHUB_RUN_ID}."
+                --comment "Shipped: both production apps deployed ${GITHUB_SHA:0:7}, which contains ${sha}. ${GITHUB_SERVER_URL}/${GH_REPO}/actions/runs/${GITHUB_RUN_ID}"
             fi
           done
 

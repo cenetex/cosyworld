@@ -125,24 +125,10 @@ variable "worldpack_fly_hosts" {
     fly_app_hostname      = string
     fly_dns_validation_id = optional(string, "")
   }))
-  default = {
-    "0.lonelyforest.com" = {
-      fly_app_hostname = "cosyworld-lonelyforest.fly.dev"
-    }
-    "7.lonelyforest.com" = {
-      fly_app_hostname = "cosyworld-lonelyforest.fly.dev"
-    }
-    "89.lonelyforest.com" = {
-      fly_app_hostname = "cosyworld-lonelyforest.fly.dev"
-    }
-    "lantern.lonelyforest.com" = {
-      fly_app_hostname = "cosyworld-lonelyforest.fly.dev"
-    }
-    "hoppycat.lonelyforest.com" = {
-      fly_app_hostname = "cosyworld-lonelyforest.fly.dev"
-    }
-  }
-  description = "Worldpack subdomains routed to the shared Lonely Forest Fly app. Optional per-certificate Fly DNS validation IDs publish ACME delegation records."
+  # The subdomain worlds were retired with the classic MUD (2026-10-26).
+  # Applying this empty default removes their Route 53 records.
+  default     = {}
+  description = "Optional worldpack subdomains routed to the shared Lonely Forest Fly app. Optional per-certificate Fly DNS validation IDs publish ACME delegation records."
 
   validation {
     condition = alltrue([

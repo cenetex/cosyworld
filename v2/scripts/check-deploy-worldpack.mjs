@@ -217,7 +217,7 @@ const CAPTURE_SOURCES = new Set(["app-volume", "operator-capture"]);
  * committed, reviewable file recording its source, timestamp, and the
  * unmodified /meta response, and the hash it carries is evaluated against the
  * candidate registry exactly like a live identity — a genuine mismatch still
- * fails. Mirrors `--recovery-capture` in check-lonelyforest-worldpacks.mjs.
+ * fails.
  */
 function recoveryCaptureHash(capturePath) {
   const absolutePath = path.resolve(repoRoot, capturePath);

@@ -32,6 +32,7 @@ async function inspectTarget(value) {
   assert(meta.deployment?.shard_id === meta.deployment?.process_id, `${baseUrl.origin} shard alias differs from process id`);
   assert(meta.persistence?.snapshot_enabled === true, `${baseUrl.origin} snapshot persistence is disabled`);
   assert(meta.persistence?.event_store_enabled === true, `${baseUrl.origin} event-store persistence is disabled`);
+  assert(meta.persistence?.checkpoint_rejections === 0, `${baseUrl.origin} rejected a saved checkpoint`);
   assert(meta.persistence?.event_store?.status === "healthy", `${baseUrl.origin} persistence is ${meta.persistence?.event_store?.status ?? "unobservable"}`);
   assert(meta.persistence?.event_store?.consecutive_append_failures === 0, `${baseUrl.origin} has consecutive event-store append failures`);
   assert(meta.persistence?.event_store?.consecutive_read_failures === 0, `${baseUrl.origin} has consecutive event-store read failures`);
