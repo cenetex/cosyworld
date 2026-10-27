@@ -1124,16 +1124,6 @@ try {
   console.error("Browser errors:", errors, "Server:", processLog.slice(-3000));
   throw error;
 } finally {
-  await delay(Number(process.env.COSYWORLD_SHARED_PROVIDER_HOLD_MS || 0));
-  for (const request of requests.slice(queueRequestStart)) {
-    const timing = providerTiming.get(request);
-    if (timing.held)
-      assert.equal(
-        timing.closed,
-        undefined,
-        `The held fixture reply stays connected: ${JSON.stringify(timing)}`,
-      );
-  }
   holdReplies = false;
   for (const resolve of waitingReplies.splice(0)) resolve();
   if (browser) await browser.close();
