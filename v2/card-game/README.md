@@ -283,6 +283,28 @@ Run the Rust server with `COSYWORLD_PRIMARY_GAME=cards` and the normal AI provid
 
 The endpoint accepts at most 64 KiB, fixed entity IDs, eight local entities, and bounded facts and memories. It allows two model requests at once, 30 requests per peer per minute, and 1,200 requests per process per hour. Same-site browser requests pass the origin check. Model calls have a 25-second deadline. Clients send `Accept: text/event-stream` for live text deltas followed by a validated `complete` event with all entries and the resolved model name. Other clients receive the full JSON response. Disconnects cancel the provider request and release its capacity.
 
+## Your OpenRouter account
+
+Open Settings and choose Connect OpenRouter. The browser uses an S256 PKCE
+challenge and a fresh state value. The return must match the same table and
+arrive within ten minutes. The browser clears the return code before exchange.
+The connected key lives in session storage for that tab. Disconnect clears it;
+the OpenRouter keys page offers revocation and spending controls.
+
+Character chat, speech audio, and video requests go from the browser directly
+to OpenRouter. CosyWorld prepares the authored chat prompts and checks each
+reply against the current scene. Local reflections keep their usual checks.
+Shared chat uses the signed-in player's own queued play and its saved scene.
+The browser submits the checked words for the normal shared publication step.
+A lost connection leaves the saved play available for retry. The server sees
+the browser-chat choice, prompts, and replies. The key stays in the browser.
+
+The media section accepts a prompt, audio model, voice, and video model. The
+model lists come from OpenRouter. Each Create button uses the player's credits.
+Audio uses `/audio/speech`. Video uses `/videos`, polls the job, and fetches
+the fixed OpenRouter content path. The player can play and save the result.
+Stop waiting ends browser polling; submitted work remains in OpenRouter activity.
+
 ## Threats and standoffs
 
 Avatar cards offer Talk and Threaten. A threat opens a standoff between the two avatars and adds Guard and Attack to their cards. Each has four resolve. An attack removes two resolve between equal levels, three against a lower level, and one against a higher level. Guard softens the next hit by one, with a minimum of one damage, until that avatar's next play.

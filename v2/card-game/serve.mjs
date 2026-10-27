@@ -23,7 +23,7 @@ export function createServer() {
     const path = pathname.startsWith("/card-game/")
       ? pathname.slice("/card-game".length)
       : pathname;
-    if (pathname === "/card-game/text" && req.method === "POST") {
+    if (["/card-game/text", "/card-game/text/prepare", "/card-game/text/complete"].includes(pathname) && req.method === "POST") {
       // Use the same Rust service as production. Keep provider keys there.
       const origin = process.env.COSYWORLD_CARD_TEXT_ORIGIN;
       if (!origin) {
@@ -49,7 +49,7 @@ export function createServer() {
         }
         const abort = new AbortController();
         res.on("close", () => abort.abort());
-        const response = await fetch(new URL("/card-game/text", origin), {
+        const response = await fetch(new URL(pathname, origin), {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -107,7 +107,8 @@ export function createServer() {
         "Cache-Control": "no-store",
         "X-Content-Type-Options": "nosniff",
         "Content-Security-Policy":
-          "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'",
+          "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://openrouter.ai; media-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self'",
+        "Referrer-Policy": "no-referrer",
       };
       if (asset[1] === "audio/mpeg") {
         headers["Accept-Ranges"] = "bytes";

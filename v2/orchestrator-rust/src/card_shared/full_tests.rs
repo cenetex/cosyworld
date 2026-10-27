@@ -827,6 +827,76 @@ fn full_world_npc_turn_and_speech_survive_worker_restart() {
     assert!(view["history"][0]["error"].is_string());
     assert!(view["history"][0].get("context").is_none());
 }
+#[tokio::test]
+async fn browser_chat_keeps_its_saved_scene_through_retry_and_replay() {
+    use crate::routes::card_game::narrative::browser;
+    use axum::{
+        body::Body,
+        http::{Request, StatusCode},
+    };
+    use tower::ServiceExt;
+    let (path, mut c, id) = fixture();
+    claim(&mut c, &id, 0);
+    let w = full_store::world(&c, &id, now()).unwrap();
+    let mut b = body("play", None);
+    b.key = "browser-funded-play-0001".into();
+    b.action = home_action(&w, 0, "wait");
+    full::run(&c, &id, "user0", &b, now()).unwrap();
+    c.execute(
+        "UPDATE card_full_plays SET narrative=? WHERE id=?",
+        params![json!({"browser_chat":true}).to_string(), b.key],
+    )
+    .unwrap();
+    let state = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
+    let work = full::take_work(&state, &id).unwrap().unwrap();
+    assert_eq!(work.context["browser_chat"], true);
+    let projected = full_store::snapshot(&c, &id, "user0", now()).unwrap();
+    assert_eq!(projected["queue"][0]["browser_chat"], true);
+    assert_eq!(projected["queue"][0]["attempt"], 0);
+    let response = full::router()
+        .with_state(state.clone())
+        .oneshot(
+            Request::post(format!("/card-game/shared/worlds/{id}/browser-chat"))
+                .header("content-type", "application/json")
+                .body(Body::from(json!({"key":b.key}).to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    full::finish_work(&state, &id, work, Err("Connect OpenRouter again.".into())).unwrap();
+    let mut retry = body("retry", None);
+    retry.key = b.key;
+    full::run(&c, &id, "user0", &retry, now()).unwrap();
+    let work = full::take_work(&state, &id).unwrap().unwrap();
+    assert_eq!(work.context["browser_chat"], true);
+    assert_eq!(
+        full_store::snapshot(&c, &id, "user0", now()).unwrap()["queue"][0]["attempt"],
+        1
+    );
+    let (payload, ids) = full_speech::prepared(0, &work.context).unwrap();
+    let prepared = browser::prepare(&payload["scene"], Some(&ids), None).unwrap();
+    assert!(prepared["calls"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|call| ids.iter().any(|id| call["id"] == *id)));
+    let answers = serde_json::from_value(
+        json!([{"id":"vale","part":"line","text":"I hear you.","finish":"stop"}]),
+    )
+    .unwrap();
+    let checked = browser::complete(&payload["scene"], Some(&ids), answers).unwrap();
+    let lines = full_speech::parse(&checked.to_string(), "stop", &work.context, &ids).unwrap();
+    full::finish_work(&state, &id, work, Ok(lines)).unwrap();
+    let expected = full_store::world(&c, &id, now()).unwrap();
+    assert!(expected.game["log"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|e| e["text"] == "I hear you."));
+    c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+    assert_eq!(full_store::world(&c, &id, now()).unwrap(), expected);
+}
 #[test]
 fn legacy_invitation_migrates_claims_and_items_once() {
     let path = std::env::temp_dir().join(format!("card-migrate-{}.sqlite", crate::random_hex(12)));

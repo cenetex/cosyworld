@@ -1,0 +1,254 @@
+// Player-owned credentials stay in this tab's session storage.
+const API = "https://openrouter.ai/api/v1/";
+const CONNECTION = "cosy.openrouter.connection.v1";
+const PENDING = "cosy.openrouter.pkce.v1";
+const encode = (bytes) =>
+  btoa(String.fromCharCode(...new Uint8Array(bytes)))
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replaceAll("=", "");
+
+export function createOpenRouter({
+  storage,
+  crypto = globalThis.crypto,
+  fetcher = globalThis.fetch,
+  now = Date.now,
+}) {
+  const read = (key) => {
+    try {
+      return JSON.parse(storage.getItem(key));
+    } catch {
+      return null;
+    }
+  };
+  const connection = () => read(CONNECTION);
+  async function request(
+    path,
+    { body, signal, raw = false, key = connection()?.key } = {},
+  ) {
+    const response = await fetcher(new URL(path, API), {
+      method: body === undefined ? "GET" : "POST",
+      credentials: "omit",
+      cache: "no-store",
+      referrerPolicy: "no-referrer",
+      headers: {
+        ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+        ...(key ? { Authorization: `Bearer ${key}` } : {}),
+        "X-OpenRouter-Title": "CosyWorld",
+      },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      signal: signal || AbortSignal.timeout(60_000),
+    });
+    if (!response.ok)
+      throw new Error(
+        response.status === 402
+          ? "Add credits in OpenRouter, then try again."
+          : response.status === 401 || response.status === 403
+            ? "Connect OpenRouter again in Settings."
+            : `OpenRouter needs another moment (${response.status}). Try again.`,
+      );
+    return raw ? response.blob() : response.json();
+  }
+  return {
+    connection,
+    async begin(href) {
+      const callback = new URL(href);
+      for (const key of [
+        "code",
+        "state",
+        "error",
+        "error_description",
+        "openrouter",
+      ])
+        callback.searchParams.delete(key);
+      callback.searchParams.set("openrouter", "callback");
+      const verifier = encode(crypto.getRandomValues(new Uint8Array(32)));
+      const state = encode(crypto.getRandomValues(new Uint8Array(32)));
+      const challenge = encode(
+        await crypto.subtle.digest(
+          "SHA-256",
+          new TextEncoder().encode(verifier),
+        ),
+      );
+      storage.setItem(
+        PENDING,
+        JSON.stringify({ verifier, state, at: now(), callback: callback.href }),
+      );
+      const url = new URL("https://openrouter.ai/auth");
+      for (const [key, value] of Object.entries({
+        callback_url: callback.href,
+        code_challenge: challenge,
+        code_challenge_method: "S256",
+        state,
+        key_label: "CosyWorld",
+      }))
+        url.searchParams.set(key, value);
+      return url.href;
+    },
+    async finish(href, cleanUrl) {
+      const url = new URL(href);
+      if (url.searchParams.get("openrouter") !== "callback") return false;
+      const code = url.searchParams.get("code");
+      const state = url.searchParams.get("state");
+      const denied = url.searchParams.has("error");
+      const pending = read(PENDING);
+      storage.removeItem(PENDING);
+      for (const key of [
+        "code",
+        "state",
+        "error",
+        "error_description",
+        "openrouter",
+      ])
+        url.searchParams.delete(key);
+      cleanUrl(url.href);
+      if (denied) throw new Error("Connect OpenRouter when you are ready.");
+      if (
+        !pending ||
+        !code ||
+        state !== pending.state ||
+        now() - pending.at > 600_000 ||
+        now() < pending.at
+      )
+        throw new Error("Start a fresh OpenRouter connection in Settings.");
+      const expected = new URL(pending.callback);
+      expected.searchParams.delete("openrouter");
+      if (expected.href !== url.href)
+        throw new Error(
+          "Return to the table where you started the connection.",
+        );
+      const result = await request("auth/keys", {
+        key: "",
+        body: {
+          code,
+          code_verifier: pending.verifier,
+          code_challenge_method: "S256",
+        },
+      });
+      if (!/^sk-or-[\x21-\x7e]{14,506}$/u.test(result.key || ""))
+        throw new Error("Start a fresh OpenRouter connection in Settings.");
+      storage.setItem(
+        CONNECTION,
+        JSON.stringify({ key: result.key, chat: true }),
+      );
+      return true;
+    },
+    setChat(chat) {
+      const value = connection();
+      if (value)
+        storage.setItem(CONNECTION, JSON.stringify({ ...value, chat }));
+    },
+    disconnect() {
+      storage.removeItem(CONNECTION);
+      storage.removeItem(PENDING);
+    },
+    headers() {
+      const value = connection();
+      return value?.key && value.chat ? { "X-Cosy-Browser-Chat": "1" } : {};
+    },
+    request,
+    async speech(model, voice, input, signal) {
+      return request("audio/speech", {
+        body: { model, voice, input, response_format: "mp3" },
+        signal,
+        raw: true,
+      });
+    },
+    async video(model, prompt, signal, progress = () => {}) {
+      let job = await request("videos", { body: { model, prompt }, signal });
+      if (typeof job.id !== "string" || !job.id || job.id.length > 200)
+        throw new Error("OpenRouter needs a fresh video request.");
+      const path = `videos/${encodeURIComponent(job.id)}`;
+      const deadline = now() + 15 * 60_000;
+      while (job.status !== "completed") {
+        if (job.status === "failed")
+          throw new Error(
+            "The video needs a fresh request. Check OpenRouter activity.",
+          );
+        if (now() > deadline)
+          throw new Error(
+            "Your video is still processing. Check OpenRouter activity.",
+          );
+        progress("Your video is being made…");
+        await new Promise((resolve, reject) => {
+          signal?.throwIfAborted();
+          const stop = () => {
+            clearTimeout(timer);
+            reject(signal.reason);
+          };
+          const timer = setTimeout(() => {
+            signal?.removeEventListener("abort", stop);
+            resolve();
+          }, 3000);
+          signal?.addEventListener("abort", stop, { once: true });
+        });
+        job = await request(path, { signal });
+      }
+      // Construct the fixed OpenRouter content path so credentials stay there.
+      return request(`${path}/content?index=0`, { signal, raw: true });
+    },
+  };
+}
+
+export async function browserChat(prepared, signal) {
+  const client = playerOpenRouter();
+  if (!client.connection()?.key)
+    throw new Error("Connect OpenRouter in Settings, then retry your play.");
+  const answers = [];
+  // Two calls at a time keeps a scene responsive and bounds account use.
+  for (let i = 0; i < prepared.calls.length; i += 2) {
+    const pair = await Promise.all(
+      prepared.calls.slice(i, i + 2).map(async (call) => {
+        try {
+          const reply = await client.request("chat/completions", {
+            body: call.request,
+            signal,
+          });
+          const choice = reply.choices?.[0];
+          return {
+            id: call.id,
+            part: call.part,
+            text: choice?.message?.content || "",
+            finish: choice?.finish_reason || "",
+          };
+        } catch (error) {
+          if (signal?.aborted || ["line"].includes(call.part)) throw error;
+          return { id: call.id, part: call.part, text: "", finish: "error" };
+        }
+      }),
+    );
+    answers.push(...pair);
+  }
+  return answers;
+}
+
+export async function requestBrowserNarrative(context, signal) {
+  const post = async (path, body) => {
+    const response = await fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal,
+    });
+    if (!response.ok)
+      throw new Error("Your character's words need another try.");
+    return response.json();
+  };
+  const prepared = await post("/card-game/text/prepare", context);
+  const answers = await browserChat(prepared, signal);
+  return post("/card-game/text/complete", { context, answers });
+}
+
+let client;
+export function playerOpenRouter() {
+  if (!client) {
+    let storage;
+    try {
+      storage = globalThis.sessionStorage;
+    } catch {
+      /* Settings explains storage access. */
+    }
+    client = createOpenRouter({ storage });
+  }
+  return client;
+}
