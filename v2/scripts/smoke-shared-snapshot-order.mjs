@@ -18,7 +18,8 @@ async function checkPlayRecovery(width, scenario) {
     keys = [],
     errors = [];
   let releasePolls = false,
-    pollFailed = false;
+    pollFailed = false,
+    failAfterRetry = false;
   const unaccepted = scenario.startsWith("unaccepted");
   const otherNotice = "Mara would like your attention.";
   const page = await browser.newPage({
@@ -35,14 +36,18 @@ async function checkPlayRecovery(width, scenario) {
       const body = route.request().postDataJSON();
       if (body?.op === "play") {
         keys.push(body.key);
-        if (scenario === "validation")
+        if (
+          scenario === "validation" ||
+          (scenario === "unaccepted-retry-validation" && keys.length > 1)
+        )
           return route.fulfill({
             status: 409,
             json: { error: "Choose a current play." },
           });
         {
-          const actor = unaccepted ? "mara" : "vale";
-          const action = unaccepted
+          const firstUnaccepted = unaccepted && keys.length === 1;
+          const actor = firstUnaccepted ? "mara" : "vale";
+          const action = firstUnaccepted
             ? dispatchShared({
                 op: "view",
                 world,
@@ -61,12 +66,17 @@ async function checkPlayRecovery(width, scenario) {
           });
           assert(played.ok);
           world = played.world;
-          if (!unaccepted)
+          if (!firstUnaccepted)
             history.push({ play: body.key, room: "station", lines: [] });
         }
-        return route.abort("failed");
+        if (!scenario.startsWith("unaccepted-retry") || keys.length === 1)
+          return route.abort("failed");
       }
-      if (releasePolls && scenario.endsWith("poll-error") && !pollFailed) {
+      if (
+        releasePolls &&
+        (scenario.endsWith("poll-error") || failAfterRetry) &&
+        !pollFailed
+      ) {
         pollFailed = true;
         return route.abort("failed");
       }
@@ -131,6 +141,33 @@ async function checkPlayRecovery(width, scenario) {
       assert.equal(await page.locator("#notice").textContent(), expected);
     if (scenario === "new-notice")
       assert.equal(await page.locator("#notice").textContent(), otherNotice);
+    if (scenario.startsWith("unaccepted-retry")) {
+      const validation = scenario.endsWith("validation");
+      await page.locator('#card-actions [data-action="wait"]').click();
+      await page.waitForFunction(
+        (validation) =>
+          validation
+            ? document.querySelector("#notice").textContent ===
+              "Choose a current play."
+            : document.querySelector("#notice").hidden,
+        validation,
+      );
+      failAfterRetry = true;
+      await page.waitForTimeout(2200);
+      assert(pollFailed);
+      if (validation)
+        assert.equal(
+          await page.locator("#notice").textContent(),
+          "Choose a current play.",
+        );
+      else
+        assert(
+          await page.locator("#notice").evaluate((element) => element.hidden),
+          "A successful new play retires its earlier retry cue.",
+        );
+      assert.equal(keys.length, 2);
+      assert.equal(world.turn, validation ? 1 : 2);
+    }
     assert.deepEqual(errors, []);
     console.log(`Shared play recovery ${scenario} passed at ${width}px.`);
   } finally {
@@ -238,6 +275,8 @@ try {
       "new-notice",
       "unaccepted",
       "unaccepted-poll-error",
+      "unaccepted-retry",
+      "unaccepted-retry-validation",
       "validation",
     ])
       await checkPlayRecovery(width, scenario);
