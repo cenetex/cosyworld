@@ -72,9 +72,12 @@ jobs:
           docker run --detach --name cosyworld-release-test --publish 3000:3000 \
             --env COSYWORLD_PRIMARY_GAME=cards \
             --env COSYWORLD_DEPLOY_PROFILE=development \
+            --env COSYWORLD_GENERATED_ASSET_DIR=/data/generated \
+            --env COSYWORLD_CARD_POLICY_MODEL_PATH=/app/models/card-policy/incumbent.cwrank \
             cosyworld-release-test
           for attempt in {1..30}; do
-            if curl --fail --silent http://localhost:3000/health; then exit 0; fi
+            if curl --fail --silent --max-time 2 http://localhost:3000/health; then exit 0; fi
+            if [ "$(docker inspect --format '{{.State.Running}}' cosyworld-release-test)" != true ]; then break; fi
             echo "Waiting for the release image ($attempt/30)"
             sleep 2
           done
