@@ -110,6 +110,76 @@ try {
         fullPage: true,
       });
     };
+    const checkReportCards = async (world) => {
+      const saved = structuredClone(world);
+      saved.quests.hands.vale = ["agora", "eleusis"].map(
+        (place) => `greek-drama:story-quest-greek-homecoming-return:${place}`,
+      );
+      const reports = questCards(saved);
+      assert.equal(reports.length, 2);
+      const ids = reports.map((report) => questCardId(saved, report));
+      assert.equal(
+        new Set(ids).size,
+        2,
+        "each return card has its own display ID",
+      );
+      const reportPage = await browser.newPage({
+        viewport: { width, height: width === 390 ? 844 : 900 },
+        reducedMotion: "reduce",
+        hasTouch: width === 390,
+      });
+      const reportTable = `homecoming-reports-${width}`;
+      const reportKey = `cosyworld.reflected-shore.v1.${reportTable}`;
+      reportPage.on("pageerror", (error) => errors.push(error.message));
+      try {
+        await reportPage.addInitScript(
+          ({ key, save, seen }) => {
+            if (!localStorage.getItem(key)) localStorage.setItem(key, save);
+            localStorage.setItem(`${key}.seen`, JSON.stringify(seen));
+            localStorage.setItem("cosyworld.dialogue.sound", "off");
+            localStorage.setItem(
+              "cosyworld.room-music",
+              JSON.stringify({ enabled: false }),
+            );
+          },
+          {
+            key: reportKey,
+            save: encodeSave(saved),
+            seen: Object.keys(profiles),
+          },
+        );
+        await reportPage.goto(`${origin}/?table=${reportTable}`);
+        await reportPage.waitForSelector('#hand[data-cooling="false"] .card');
+        await reportPage.reload();
+        await reportPage.waitForSelector('#hand[data-cooling="false"] .card');
+        for (const [index, report] of reports.entries()) {
+          const id = ids[index];
+          const card = reportPage.locator(`#hand [data-card="${id}"]`);
+          assert.equal(await card.count(), 1, "a return card renders once");
+          await selectCard(reportPage, id, { touch: width === 390 });
+          assert.equal(await card.getAttribute("data-quest"), report.key);
+          assert.equal(
+            await card.locator(".name").textContent(),
+            report.purpose,
+          );
+          assert.equal(
+            await reportPage.locator("#selection-name").textContent(),
+            report.purpose,
+            "selection resolves this report's own purpose",
+          );
+          assert.equal(await card.getAttribute("aria-pressed"), "true");
+          await reportPage.screenshot({
+            path: new URL(
+              `report-${index === 0 ? "agora" : "eleusis"}-${width}.png`,
+              output,
+            ).pathname,
+            fullPage: true,
+          });
+        }
+      } finally {
+        await reportPage.close();
+      }
+    };
     const step = async ({ kind, ...fields }) => {
       await settle();
       const before = await state();
@@ -149,6 +219,8 @@ try {
       await step({ kind: "drop", item: "lamp", target: "greek-courtyard" });
       for (const action of homecomingSteps({ berth, reading })) {
         await step(action);
+        if (action.choiceId === "greek-open-door-eleusis-care")
+          await checkReportCards(await state());
         if (action.choiceId === `greek-homecoming-report-piraeus-${berth}`) {
           const world = await state();
           assert.notEqual(
@@ -233,7 +305,7 @@ try {
       assert.deepEqual(errors, []);
       assert.deepEqual(failedAssets, []);
       console.log(
-        `Homecoming: ${width}px, ${berth} care, ${reading} reading, early return, consent, real travel, custody, and reload passed.`,
+        `Homecoming: ${width}px, ${berth} care, ${reading} reading, distinct report cards, early return, consent, real travel, custody, and reload passed.`,
       );
     } finally {
       await page.close();
