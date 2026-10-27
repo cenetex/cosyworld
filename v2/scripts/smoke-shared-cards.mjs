@@ -874,9 +874,13 @@ try {
         `The held fixture reply stays connected: ${JSON.stringify(timing)}`,
       );
   }
+  // Keep one reader in a menu while every queued scene reaches the browser.
+  // Closing it must reveal Vale, Mara and Nell in order, with partial letters.
+  await mara.locator("#menu-button").click();
   holdReplies = false;
   for (const resolve of waitingReplies.splice(0)) resolve();
   await Promise.all([vale, mara, nell].map(idle));
+  await mara.locator('[data-close="menu-dialog"]').click();
   // Check after playback ends: a busy driver still proves each line animated in order.
   for (const page of [vale, mara]) {
     const expected = await Promise.all(
