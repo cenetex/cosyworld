@@ -280,9 +280,49 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "audio/mpeg",
             include_bytes!("../../card-game/assets/music/greek-well.mp3"),
         ),
+        "assets/music/lofi-drift.mp3" => (
+            "audio/mpeg",
+            include_bytes!("../../card-game/assets/music/lofi-drift.mp3"),
+        ),
+        "assets/music/road-after-sunset.mp3" => (
+            "audio/mpeg",
+            include_bytes!("../../card-game/assets/music/road-after-sunset.mp3"),
+        ),
+        "assets/music/drift-jam.mp3" => (
+            "audio/mpeg",
+            include_bytes!("../../card-game/assets/music/drift-jam.mp3"),
+        ),
+        "assets/music/lofi-belt-miners.mp3" => (
+            "audio/mpeg",
+            include_bytes!("../../card-game/assets/music/lofi-belt-miners.mp3"),
+        ),
         "assets/music/attic-1.mp3" => (
             "audio/mpeg",
             include_bytes!("../../card-game/assets/music/attic-1.mp3"),
+        ),
+        "assets/music/station-2.mp3" => (
+            "audio/mpeg",
+            include_bytes!("../../card-game/assets/music/station-2.mp3"),
+        ),
+        "assets/music/pond-2.mp3" => (
+            "audio/mpeg",
+            include_bytes!("../../card-game/assets/music/pond-2.mp3"),
+        ),
+        "assets/music/empty-seat.mp3" => (
+            "audio/mpeg",
+            include_bytes!("../../card-game/assets/music/empty-seat.mp3"),
+        ),
+        "assets/music/fields-beyond-thornford.mp3" => (
+            "audio/mpeg",
+            include_bytes!("../../card-game/assets/music/fields-beyond-thornford.mp3"),
+        ),
+        "assets/music/small-change-tall-stories.mp3" => (
+            "audio/mpeg",
+            include_bytes!("../../card-game/assets/music/small-change-tall-stories.mp3"),
+        ),
+        "assets/music/rain-on-canvas.mp3" => (
+            "audio/mpeg",
+            include_bytes!("../../card-game/assets/music/rain-on-canvas.mp3"),
         ),
         "assets/music/attic-2.mp3" => (
             "audio/mpeg",
@@ -292,17 +332,9 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "audio/mpeg",
             include_bytes!("../../card-game/assets/music/pond-1.mp3"),
         ),
-        "assets/music/pond-2.mp3" => (
-            "audio/mpeg",
-            include_bytes!("../../card-game/assets/music/pond-2.mp3"),
-        ),
         "assets/music/station-1.mp3" => (
             "audio/mpeg",
             include_bytes!("../../card-game/assets/music/station-1.mp3"),
-        ),
-        "assets/music/station-2.mp3" => (
-            "audio/mpeg",
-            include_bytes!("../../card-game/assets/music/station-2.mp3"),
         ),
         "assets/music/ship-1.mp3" => (
             "audio/mpeg",

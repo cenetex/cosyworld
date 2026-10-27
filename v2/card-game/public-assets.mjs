@@ -69,9 +69,11 @@ const files = [
   "packs.json",
   "music.mjs",
   "entity-profiles.json",
-  ...Object.values(roomTracks)
-    .flat()
-    .map(({ file }) => `assets/music/${file}`),
+  ...new Set(
+    Object.values(roomTracks)
+      .flat()
+      .map(({ file }) => `assets/music/${file}`),
+  ),
   ...["lamp", "oil", "bell", "cloth"].flatMap((id) => [
     `assets/${id}-card.png`,
     `assets/${id}-card.jpg`,

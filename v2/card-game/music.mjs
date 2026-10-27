@@ -10,6 +10,40 @@ export const roomTracks = {
   "greek-well": [
     { file: "greek-well.mp3", title: "Wine Dark Sea — Theban Market Well" },
   ],
+  "greek-thinkery": [
+    { file: "lofi-drift.mp3", title: "Local Proof Trebuchet — Lo-Fi Drift" },
+  ],
+  "greek-argolid-road": [
+    { file: "road-after-sunset.mp3", title: "The Road After Sunset" },
+  ],
+  "greek-piraeus": [
+    { file: "drift-jam.mp3", title: "Signal — Lo-Fi Drift Jam" },
+  ],
+  "greek-acropolis": [
+    { file: "lofi-belt-miners.mp3", title: "Vector Veins — Lo-Fi Belt Miners" },
+  ],
+  "greek-jury-house": [{ file: "attic-1.mp3", title: "Music Box Waltz" }],
+  "greek-aulis": [{ file: "station-2.mp3", title: "Faint Hope" }],
+  "greek-underworld": [
+    { file: "pond-2.mp3", title: "Something Below the Surface" },
+  ],
+  "greek-eleusis": [
+    { file: "empty-seat.mp3", title: "An Empty Seat on the Carriage" },
+  ],
+  theatre: [{ file: "attic-1.mp3", title: "Music Box Waltz" }],
+  belfry: [{ file: "pond-2.mp3", title: "Something Below the Surface" }],
+  glasshouse: [
+    { file: "fields-beyond-thornford.mp3", title: "Fields Beyond Thornford" },
+  ],
+  hill: [{ file: "drift-jam.mp3", title: "Signal — Lo-Fi Drift Jam" }],
+  train: [{ file: "road-after-sunset.mp3", title: "The Road After Sunset" }],
+  pavilion: [
+    {
+      file: "small-change-tall-stories.mp3",
+      title: "Gloamgate — Small Change, Tall Stories",
+    },
+  ],
+  loft: [{ file: "rain-on-canvas.mp3", title: "Rain on the Canvas" }],
   attic: [
     { file: "attic-1.mp3", title: "Music Box Waltz" },
     { file: "attic-2.mp3", title: "Music Box Waltz II" },
