@@ -4,8 +4,7 @@ export async function revealCard(page, id) {
   const frame = card.locator("..");
   if ((await frame.getAttribute("hidden")) !== null) {
     const holder = await frame.getAttribute("data-holder");
-    const owner = page.locator(`#hand [data-card="${holder}"]`);
-    await owner.scrollIntoViewIfNeeded();
+    const owner = await revealCard(page, holder);
     await owner.click();
   }
   if ((await frame.getAttribute("data-stacked")) === "true") {
