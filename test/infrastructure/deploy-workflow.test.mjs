@@ -197,24 +197,43 @@ describe("deploy workflow", () => {
     ).toBeLessThan(workflow.indexOf("Create rollback backup"));
   });
 
-  it("builds each image beside the gates without touching the running app", () => {
-    for (const [name, next, config, token] of [
-      ["primary-image", "primary-backup", "fly.toml", "FLY_API_TOKEN"],
+  it("shares a commit image while each app keeps its own registry and rollout gates", () => {
+    const primary = job("primary-image", "primary-backup");
+    const forest = job("lonelyforest-image", "lonelyforest-backup");
+    expect(primary).toContain("needs: [deployment-impact, release-owner]");
+    expect(forest).toContain(
+      "needs: [deployment-impact, release-owner, primary-image]",
+    );
+    expect(forest).toContain("!cancelled()");
+    expect(forest).toContain("needs.primary-image.result == 'skipped'");
+    expect(forest).toContain(
+      "SOURCE_IMAGE: ${{ needs.primary-image.outputs.image }}",
+    );
+    for (const [image, app, config, token] of [
+      [primary, "cosyworld", "fly.toml", "FLY_API_TOKEN"],
       [
-        "lonelyforest-image",
-        "lonelyforest-backup",
+        forest,
+        "cosyworld-lonelyforest",
         "fly.lonelyforest.toml",
         "FLY_LONELYFOREST_API_TOKEN",
       ],
     ]) {
-      const image = job(name, next);
-      expect(image).toContain("needs: [deployment-impact, release-owner]");
-      expect(image).not.toContain("production-gate");
       expect(image).toContain(
-        `flyctl deploy --remote-only --config ${config} --build-only --push --image-label "deploy-\${GITHUB_SHA}"`,
+        `bash scripts/prepare-fly-image.sh ${app} ${config}`,
       );
       expect(image).toContain(`FLY_API_TOKEN: \${{ secrets.${token} }}`);
+      expect(image).toContain("image: ${{ steps.image.outputs.image }}");
+      expect(image).not.toContain("production-gate");
       expect(image).not.toContain("backup-fly-v2.sh");
+    }
+  });
+
+  it("uses matching compact Rust profiles and cache namespaces in CI and deployment", () => {
+    for (const source of [ciWorkflow, workflow]) {
+      expect(source).toContain('CARGO_PROFILE_DEV_DEBUG: "0"');
+      expect(source).toContain('CARGO_PROFILE_TEST_DEBUG: "0"');
+      expect(source).toContain("-cargo-compact-v1-");
+      expect(source).not.toContain("-cargo-orchestrator-");
     }
   });
 
@@ -319,19 +338,25 @@ describe("deploy workflow", () => {
     const primaryFly = job("primary-fly", "lonelyforest-image");
     const lonelyForestFly = job("lonelyforest-fly", "deploy-outcome");
     expect(primaryFly).toContain(
-      'flyctl deploy --config fly.toml --image "registry.fly.io/cosyworld:deploy-${GITHUB_SHA}"',
+      'flyctl deploy --config fly.toml --image "$RELEASE_IMAGE"',
     );
     expect(primaryJobs).toContain(
       "FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}",
     );
     expect(primaryJobs).not.toContain("FLY_LONELYFOREST_API_TOKEN");
     expect(lonelyForestFly).toContain(
-      'flyctl deploy --config fly.lonelyforest.toml --image "registry.fly.io/cosyworld-lonelyforest:deploy-${GITHUB_SHA}" --ha=false',
+      'flyctl deploy --config fly.lonelyforest.toml --image "$RELEASE_IMAGE" --ha=false',
     );
     expect(lonelyForestJobs).toContain(
       "FLY_API_TOKEN: ${{ secrets.FLY_LONELYFOREST_API_TOKEN }}",
     );
-    expect(lonelyForestJobs).not.toContain("secrets.FLY_API_TOKEN");
+    expect(lonelyForestFly).not.toContain("secrets.FLY_API_TOKEN");
+    expect(primaryFly).toContain(
+      "RELEASE_IMAGE: ${{ needs.primary-image.outputs.image }}",
+    );
+    expect(lonelyForestFly).toContain(
+      "RELEASE_IMAGE: ${{ needs.lonelyforest-image.outputs.image }}",
+    );
     for (const [name, next] of [
       ["lonelyforest-image", "lonelyforest-backup"],
       ["lonelyforest-backup", "lonelyforest-fly"],
@@ -347,7 +372,7 @@ describe("deploy workflow", () => {
       expect(lonelyForestJob).not.toContain("github.ref == 'refs/heads/main'");
     }
     // An app-scoped token cannot deploy the other app's image (#172), so each
-    // app deploys only the image it built in its own registry.
+    // app deploys the prepared image from its own registry.
     expect(workflow).not.toContain("flyctl image show");
     expect(primaryJobs).not.toContain("registry.fly.io/cosyworld-lonelyforest");
     expect(lonelyForestJobs).not.toContain("registry.fly.io/cosyworld:");

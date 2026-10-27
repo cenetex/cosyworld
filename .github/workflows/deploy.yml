@@ -33,6 +33,10 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  CARGO_PROFILE_DEV_DEBUG: "0"
+  CARGO_PROFILE_TEST_DEBUG: "0"
+
 jobs:
   deployment-impact:
     name: Check production impact
@@ -164,10 +168,10 @@ jobs:
             ~/.cargo/registry/cache
             ~/.cargo/git/db
             v2/orchestrator-rust/target
-          key: ${{ runner.os }}-cargo-orchestrator-${{ hashFiles('v2/orchestrator-rust/Cargo.lock') }}-${{ github.sha }}
+          key: ${{ runner.os }}-cargo-compact-v1-${{ hashFiles('v2/orchestrator-rust/Cargo.lock') }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-cargo-orchestrator-${{ hashFiles('v2/orchestrator-rust/Cargo.lock') }}-
-            ${{ runner.os }}-cargo-orchestrator-
+            ${{ runner.os }}-cargo-compact-v1-${{ hashFiles('v2/orchestrator-rust/Cargo.lock') }}-
+            ${{ runner.os }}-cargo-compact-v1-
 
       - name: Verify Rust orchestrator tests
         if: steps.ci.outputs.reuse != 'true'
@@ -208,7 +212,9 @@ jobs:
   # The image builds while the gates run. Building does not touch the running
   # app; only primary-fly replaces it, and only after the gates pass.
   primary-image:
-    name: Build primary image
+    name: Prepare primary image
+    outputs:
+      image: ${{ steps.image.outputs.image }}
     needs: [deployment-impact, release-owner]
     if: >-
       needs.deployment-impact.outputs.deploy == 'true' &&
@@ -225,8 +231,12 @@ jobs:
       - name: Setup flyctl
         uses: superfly/flyctl-actions/setup-flyctl@master
 
-      - name: Build and push primary image
-        run: flyctl deploy --remote-only --config fly.toml --build-only --push --image-label "deploy-${GITHUB_SHA}"
+      - name: Install image transfer tool
+        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends skopeo
+
+      - name: Prepare primary image
+        id: image
+        run: bash scripts/prepare-fly-image.sh cosyworld fly.toml
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -303,8 +313,9 @@ jobs:
         uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy primary Fly app
-        run: flyctl deploy --config fly.toml --image "registry.fly.io/cosyworld:deploy-${GITHUB_SHA}" --strategy rolling
+        run: flyctl deploy --config fly.toml --image "$RELEASE_IMAGE" --strategy rolling
         env:
+          RELEASE_IMAGE: ${{ needs.primary-image.outputs.image }}
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
       - name: Verify primary readiness and persistence
@@ -327,16 +338,19 @@ jobs:
       - name: Verify primary card game
         run: node v2/scripts/smoke-deployed-card-game.mjs https://cosyworld.fly.dev
 
-  # Lonely Forest builds its own image with its own app-scoped token: a token
-  # scoped to one app cannot deploy the other app's image (#172). The build
-  # runs while the gates run, beside the primary build.
+  # Copy the primary build into the Lonely Forest registry with separate
+  # app tokens. A Lonely Forest-only release builds directly in its registry.
   lonelyforest-image:
-    name: Build Lonely Forest image
-    needs: [deployment-impact, release-owner]
+    name: Prepare Lonely Forest image
+    needs: [deployment-impact, release-owner, primary-image]
+    outputs:
+      image: ${{ steps.image.outputs.image }}
     # Ordinary main pushes must never replace an intentional Lonely Forest
     # release. Tags are committed releases; workflow_dispatch is an explicit
     # operator action against the selected GitHub ref.
     if: >-
+      !cancelled() &&
+      (needs.primary-image.result == 'success' || needs.primary-image.result == 'skipped') &&
       needs.deployment-impact.outputs.deploy == 'true' &&
       needs.release-owner.outputs.owns == 'true' &&
       (startsWith(github.ref, 'refs/tags/v') ||
@@ -351,10 +365,16 @@ jobs:
       - name: Setup flyctl
         uses: superfly/flyctl-actions/setup-flyctl@master
 
-      - name: Build and push Lonely Forest image
-        run: flyctl deploy --remote-only --config fly.lonelyforest.toml --build-only --push --image-label "deploy-${GITHUB_SHA}"
+      - name: Install image transfer tool
+        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends skopeo
+
+      - name: Prepare Lonely Forest image
+        id: image
+        run: bash scripts/prepare-fly-image.sh cosyworld-lonelyforest fly.lonelyforest.toml
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_LONELYFOREST_API_TOKEN }}
+          FLY_SOURCE_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          SOURCE_IMAGE: ${{ needs.primary-image.outputs.image }}
 
   lonelyforest-backup:
     name: Guard and back up Lonely Forest
@@ -411,6 +431,10 @@ jobs:
     # release. Tags are committed releases; workflow_dispatch is an explicit
     # operator action against the selected GitHub ref.
     if: >-
+      !cancelled() &&
+      needs.production-gate.result == 'success' &&
+      needs.lonelyforest-image.result == 'success' &&
+      needs.lonelyforest-backup.result == 'success' &&
       needs.deployment-impact.outputs.deploy == 'true' &&
       needs.release-owner.outputs.owns == 'true' &&
       (startsWith(github.ref, 'refs/tags/v') ||
@@ -436,7 +460,7 @@ jobs:
       - name: Deploy Lonely Forest
         run: |
           for attempt in 1 2; do
-            if flyctl deploy --config fly.lonelyforest.toml --image "registry.fly.io/cosyworld-lonelyforest:deploy-${GITHUB_SHA}" --ha=false --strategy rolling; then
+            if flyctl deploy --config fly.lonelyforest.toml --image "$RELEASE_IMAGE" --ha=false --strategy rolling; then
               exit 0
             fi
             if [ "$attempt" -eq 2 ]; then
@@ -446,6 +470,7 @@ jobs:
             sleep 15
           done
         env:
+          RELEASE_IMAGE: ${{ needs.lonelyforest-image.outputs.image }}
           FLY_API_TOKEN: ${{ secrets.FLY_LONELYFOREST_API_TOKEN }}
 
       - name: Verify Lonely Forest readiness and persistence
