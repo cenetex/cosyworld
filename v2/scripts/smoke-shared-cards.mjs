@@ -877,6 +877,7 @@ try {
   }
   // Keep one reader in a menu while every queued scene reaches the browser.
   // Closing it must reveal Vale, Mara and Nell in order, with partial letters.
+  await mara.locator("#toolbar-menu-button").click();
   await mara.locator("#menu-button").click();
   holdReplies = false;
   for (const resolve of waitingReplies.splice(0)) resolve();
