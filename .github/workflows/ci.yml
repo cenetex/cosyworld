@@ -10,6 +10,11 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Test builds keep assertions and overflow checks, with compact symbols.
+env:
+  CARGO_PROFILE_DEV_DEBUG: "0"
+  CARGO_PROFILE_TEST_DEBUG: "0"
+
 jobs:
   node:
     name: Node, content, and kernel checks
@@ -79,10 +84,10 @@ jobs:
             ~/.cargo/registry/cache
             ~/.cargo/git/db
             v2/orchestrator-rust/target
-          key: ${{ runner.os }}-cargo-orchestrator-${{ hashFiles('v2/orchestrator-rust/Cargo.lock') }}-${{ github.sha }}
+          key: ${{ runner.os }}-cargo-compact-v1-${{ hashFiles('v2/orchestrator-rust/Cargo.lock') }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-cargo-orchestrator-${{ hashFiles('v2/orchestrator-rust/Cargo.lock') }}-
-            ${{ runner.os }}-cargo-orchestrator-
+            ${{ runner.os }}-cargo-compact-v1-${{ hashFiles('v2/orchestrator-rust/Cargo.lock') }}-
+            ${{ runner.os }}-cargo-compact-v1-
 
       - name: Test Rust orchestrator
         run: bash v2/scripts/check-rust.sh test
@@ -96,7 +101,7 @@ jobs:
             ~/.cargo/registry/cache
             ~/.cargo/git/db
             v2/orchestrator-rust/target
-          key: ${{ runner.os }}-cargo-orchestrator-${{ hashFiles('v2/orchestrator-rust/Cargo.lock') }}-${{ github.sha }}
+          key: ${{ runner.os }}-cargo-compact-v1-${{ hashFiles('v2/orchestrator-rust/Cargo.lock') }}-${{ github.sha }}
 
   # The browser and composition checks need only the debug binary, so it is
   # built beside the Rust tests instead of after them.
@@ -122,10 +127,10 @@ jobs:
             ~/.cargo/registry/cache
             ~/.cargo/git/db
             v2/orchestrator-rust/target
-          key: ${{ runner.os }}-cargo-orchestrator-${{ hashFiles('v2/orchestrator-rust/Cargo.lock') }}-${{ github.sha }}
+          key: ${{ runner.os }}-cargo-compact-v1-${{ hashFiles('v2/orchestrator-rust/Cargo.lock') }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-cargo-orchestrator-${{ hashFiles('v2/orchestrator-rust/Cargo.lock') }}-
-            ${{ runner.os }}-cargo-orchestrator-
+            ${{ runner.os }}-cargo-compact-v1-${{ hashFiles('v2/orchestrator-rust/Cargo.lock') }}-
+            ${{ runner.os }}-cargo-compact-v1-
 
       - name: Build V2 binary
         run: bash v2/scripts/check-rust.sh build
@@ -143,6 +148,7 @@ jobs:
           path: dist/ci/cosyworld-orchestrator
           if-no-files-found: error
           retention-days: 1
+          compression-level: 1
 
   rust-quality:
     name: Rust architecture and lint
