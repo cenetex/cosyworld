@@ -29,6 +29,16 @@ const groups = {
       "electra",
       "orestes",
     ].map((name) => `assets/greek-drama/chthonic-${name}.png`),
+    ...[
+      "aethra",
+      "adrastus",
+      "mother",
+      "iphis",
+      "theseus",
+      "quay-host",
+      "grove-keeper",
+      "altar-keeper",
+    ].map((name) => `assets/greek-drama/open-door-${name}.webp`),
   ],
   front: [
     "assets/badger-forest/badger-sleeping.png",
