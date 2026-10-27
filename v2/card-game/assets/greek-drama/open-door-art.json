@@ -1,0 +1,68 @@
+{
+  "style": "chthonic Greek",
+  "generated": "2026-10-26",
+  "tool": "image_gen",
+  "reference": "courtyard-day.webp",
+  "assets": [
+    {
+      "file": "open-door-agora.webp",
+      "sourceName": "exec-15b78671-a4e9-4ac4-a382-d641cd006440.png",
+      "sourceSha256": "ee63491b63c8181a4f05e444806faf0e99fb2a697ff62b090951dc622a3e58e4",
+      "sha256": "9052e12b1e43742f4de810f56e0f2a6f0c23d7f445744efc68cc259183cfdbf6",
+      "size": [
+        1672,
+        941
+      ],
+      "prompt": "Use case: historical-scene. Asset type: wide 16:9 game location backdrop for CosyWorld, The Open Door. Generate a NEW painting of the Athenian Agora. The reference image supplies only the game's warm painterly-realistic style and detail. View from ground level across an open limestone court, shaded Doric stoa at left, public speaking stone and simple benches at right, a distant sacred hill, sunlit ochre plaster, clay jars, olive shade. Ancient Greek atmosphere. Keep the middle foreground open for character sprites. Beautiful grounded storybook realism, weathered materials, warm morning sunlight, rich natural color. Architecture and landscape only, no people, writing, lettering, interface, borders or modern objects.",
+      "processing": "Full frame encoded as WebP at quality 92."
+    },
+    {
+      "file": "open-door-piraeus.webp",
+      "sourceName": "exec-d8891748-a3e4-40e2-baae-b20278f87c26.png",
+      "sourceSha256": "ade6b6816faaeaf5b60ee46b05bd09a64cfabf5189e3e2c55c9a2472fe2d906a",
+      "sha256": "9e5a564d282c2658140e9aee121d1a013d4cd22d105be16ba4d590a5a872953f",
+      "size": [
+        1672,
+        941
+      ],
+      "prompt": "Use case: historical-scene. Asset type: wide 16:9 game location backdrop for CosyWorld, The Open Door. Generate a NEW painting of the Piraeus quays in ancient Greece. The reference supplies only the game's warm painterly-realistic style. Ground-level stone landing with mooring ropes, a small wooden coastal vessel at left, folded linen and sealed clay supply jars beneath a modest harbor shed at right, distant fishing boats and clear blue water. A path inland remains visible. Open middle foreground for character sprites. Humane quiet working harbor, weathered ochre stone, olive and cypress, golden afternoon light. Architecture and landscape only, no people, writing, lettering, interface, borders or modern objects.",
+      "processing": "Full frame encoded as WebP at quality 92."
+    },
+    {
+      "file": "open-door-eleusis.webp",
+      "sourceName": "exec-68f1238a-3d1f-4b5c-84f0-2de76e73d88d.png",
+      "sourceSha256": "144fb8c91e165514b091303f08e6167458245bc55e4b271fedf4b54d8499ac0a",
+      "sha256": "e792c1dc93672b1f39dc8db45090a35238cb135e47649caafcf1733af6e170bb",
+      "size": [
+        1672,
+        941
+      ],
+      "prompt": "Use case: historical-scene. Asset type: wide 16:9 game location backdrop for CosyWorld, The Open Door. Generate a NEW painting of Demeter's sanctuary at Eleusis as a setting for Euripides' Suppliant Women. Reference supplies only game's warm painterly-realistic style. A modest ancient Greek temple with worn stone steps and a broad outdoor altar, wool-bound olive branches laid at its base, clean folded cloth on a low bench, wheat fields and hills beyond the sanctuary wall. View across a spacious foreground where grieving visitors can stand as separate game sprites. Quiet dignity, soft late afternoon sun, natural olive green and warm limestone, detailed painterly realism. Architecture and landscape only, no people, bodies, writing, lettering, interface, borders or modern objects.",
+      "processing": "Full frame encoded as WebP at quality 92."
+    },
+    {
+      "file": "open-door-colonus.webp",
+      "sourceName": "exec-0cfd16b5-8add-4e05-a7ee-df7c128bf6ca.png",
+      "sourceSha256": "73534d61bd5083cef10a3046d4e4fa17502244e31793f02466214b0af01b7a13",
+      "sha256": "ce76091cd3f94db6dec9db104f6ab0d67fa81af1670089d731130a29e4625fb7",
+      "size": [
+        1672,
+        941
+      ],
+      "prompt": "Use case: historical-scene. Asset type: wide 16:9 game location backdrop for CosyWorld, The Open Door. Generate a NEW painting of the sacred grove at Colonus for Sophocles' Oedipus at Colonus. Reference supplies only game's warm painterly-realistic style. Ancient olive trees arch over a shaded earth path, a low uncarved sacred boundary stone, a spring basin, narcissus and small white flowers, a narrow path toward a sunlit Athenian hill in the distance. Grove is sheltering and solemn. Place trees at the edges and leave middle foreground open for character sprites. Warm leaf-filtered light, moss and pale rock, richly detailed grounded fantasy painting. Landscape only, no people, writing, lettering, interface, borders or modern objects.",
+      "processing": "Full frame encoded as WebP at quality 92."
+    },
+    {
+      "file": "open-door-marathon.webp",
+      "sourceName": "exec-cc816cd4-b349-40e0-b12f-b4594556564a.png",
+      "sourceSha256": "351c567a002bdbd7c54a12d1495641a7081e9fedf64335cec3254f6e5fb8ed70",
+      "sha256": "f7a3475c47ce3fc8dfc7da4eee2231cbfe12bd1a74753b348098c9444d937314",
+      "size": [
+        1672,
+        941
+      ],
+      "prompt": "Use case: historical-scene. Asset type: wide 16:9 game location backdrop for CosyWorld, The Open Door. Generate a NEW painting of a rural altar at Marathon for Euripides' Children of Heracles. Reference supplies only game's warm painterly-realistic style. A simple stone altar before a small Greek shrine, a low shelter with woven mats, a water vessel and tied travel bundles, open coastal plain and distant sea beyond tamarisk and olive trees. A clear road approaches from the fields. Spacious empty middle foreground for character sprites. Early morning light and a sense of precarious refuge, weathered limestone, quiet earth colors, finely detailed painterly realism. Architecture and landscape only, no people, weapons in use, writing, lettering, interface, borders or modern objects.",
+      "processing": "Full frame encoded as WebP at quality 92."
+    }
+  ]
+}
