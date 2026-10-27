@@ -821,40 +821,46 @@ fn imported_save_cannot_supply_server_claims_or_authority() {
 
 #[test]
 fn full_world_shared_speech_is_journaled_with_matching_log_sequences() {
-    let (path, mut c, id) = fixture();
-    claim(&mut c, &id, 0);
-    let w = full_store::world(&c, &id, now()).unwrap();
-    let mut b = body("play", None);
-    b.key = "shared-speech-0001".into();
-    b.action = w.project(0).unwrap()["actions"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|a| a["kind"] == "wait")
-        .unwrap()
-        .clone();
-    let tx = c
-        .transaction_with_behavior(TransactionBehavior::Immediate)
-        .unwrap();
-    full::run(&tx, &id, "user0", &b, now()).unwrap();
-    tx.commit().unwrap();
-    let state = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
-    let work = full::take_work(&state, &id).unwrap().unwrap();
-    let lines = json!([{"speaker":"Vale","actorId":"vale","entityId":"vale","text":"I could stay a little longer."},{"speaker":"Empty station","actorId":null,"entityId":work.room,"text":"A moth circles the glass."}]);
-    full::finish_work(&state, &id, work, Ok(lines)).unwrap();
-    let expected = full_store::world(&c, &id, now()).unwrap();
-    let snap = full_store::snapshot(&c, &id, "user0", now()).unwrap();
-    let lines = snap["history"][0]["lines"].as_array().unwrap();
-    assert_eq!(lines.len(), 2);
-    for line in lines {
-        assert!(expected.game["log"]
+    for with_scenery in [false, true] {
+        let (path, mut c, id) = fixture();
+        claim(&mut c, &id, 0);
+        let w = full_store::world(&c, &id, now()).unwrap();
+        let mut b = body("play", None);
+        b.key = "shared-speech-0001".into();
+        b.action = w.project(0).unwrap()["actions"]
             .as_array()
             .unwrap()
             .iter()
-            .any(|e| e["seq"] == line["seq"] && e["text"] == line["text"]));
+            .find(|a| a["kind"] == "wait")
+            .unwrap()
+            .clone();
+        let tx = c
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .unwrap();
+        full::run(&tx, &id, "user0", &b, now()).unwrap();
+        tx.commit().unwrap();
+        let state = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
+        let work = full::take_work(&state, &id).unwrap().unwrap();
+        assert_eq!(work.context["context"]["scenery"], false);
+        let mut lines = json!([{"speaker":"Vale","actorId":"vale","entityId":"vale","text":"I could stay a little longer."}]);
+        if with_scenery {
+            lines.as_array_mut().unwrap().push(json!({"speaker":"Empty station","actorId":null,"entityId":work.room,"text":"A moth circles the glass."}));
+        }
+        full::finish_work(&state, &id, work, Ok(lines)).unwrap();
+        let expected = full_store::world(&c, &id, now()).unwrap();
+        let snap = full_store::snapshot(&c, &id, "user0", now()).unwrap();
+        let lines = snap["history"][0]["lines"].as_array().unwrap();
+        assert_eq!(lines.len(), if with_scenery { 2 } else { 1 });
+        for line in lines {
+            assert!(expected.game["log"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|e| e["seq"] == line["seq"] && e["text"] == line["text"]));
+        }
+        c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+        assert_eq!(full_store::world(&c, &id, now()).unwrap(), expected);
     }
-    c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
-    assert_eq!(full_store::world(&c, &id, now()).unwrap(), expected);
 }
 
 #[test]
