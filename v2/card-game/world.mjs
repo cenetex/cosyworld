@@ -51,6 +51,7 @@ import {
   humanPresent,
   sharedEnabled,
   humanRoomAvailable,
+  humanHomeGates,
 } from "./human-cast.mjs";
 export {
   currentActor,
@@ -171,6 +172,7 @@ import forest from "./forest.json" with { type: "json" };
 
 // Authored forest data and mounted packs share the same rule path.
 export const places = { ...forest.places, ...packPlaces };
+const homeGates = { ...forest.homeGates, ...humanHomeGates };
 export const sanctuaries = Object.keys(places).filter(
   (id) => places[id].sanctuary === true,
 );
@@ -305,8 +307,37 @@ export const placeText = (s, place) =>
         ? "The timetable lists years that have yet to happen. A path leads along the shore to the pond."
         : places[place].text,
     ...crossingScenery(s, place, sensesFor(s)),
+    ...(homeRescueExit(s, place)
+      ? [`A narrow path leads to ${nameOf(homeRescueExit(s, place))}.`]
+      : []),
   ].join(" ");
-export function exits(s, place, actor = null, previous = null) {
+// A home gate can be restored by resources in the room, including a present
+// helper's belongings. Full hands can make room through the usual Drop action.
+function localGateResource(s, place, item, actor) {
+  return Boolean(
+    s.items[item] &&
+      entityActive(s, item) &&
+      itemPlace(s, item) === place &&
+      (canUse(s, actor, item) ||
+        (controlledByHuman(s, rootHolder(s, item)) &&
+          humanPresent(s, rootHolder(s, item))) ||
+        (knownActors(s).includes(rootHolder(s, item)) &&
+          (willingToGive(s, rootHolder(s, item), item, actor) ||
+            carried(s, actor).some((payment) =>
+              canTrade(s, actor, payment, item),
+            )))),
+  );
+}
+function homeGateRecoverable(s, place, gate, actor) {
+  if (!localGateResource(s, place, gate.item, actor)) return false;
+  if (!gate.light || s.items[gate.item].fuel > 0) return true;
+  return Boolean(
+    gate.refill &&
+      localGateResource(s, place, gate.refill, actor) &&
+      s.items[gate.refill].doses > 0,
+  );
+}
+function ordinaryExits(s, place, actor, previous) {
   return [
     ...new Set([
       ...baseExits(s, place),
@@ -319,6 +350,24 @@ export function exits(s, place, actor = null, previous = null) {
       ...transportExits(s, place, previous),
       ...packExits(s, place, actor),
     ]),
+  ];
+}
+function homeRescueExit(s, place, actor = currentActor(s), previous = null) {
+  const gate = homeGates[place];
+  actor ||= currentActor(s);
+  return gate &&
+    controlledByHuman(s, actor) &&
+    s.actors[actor]?.place === place &&
+    ordinaryExits(s, place, actor, previous).length === 0 &&
+    !homeGateRecoverable(s, place, gate, actor)
+    ? gate.rescue
+    : null;
+}
+export function exits(s, place, actor = null, previous = null) {
+  const rescue = homeRescueExit(s, place, actor, previous);
+  return [
+    ...ordinaryExits(s, place, actor, previous),
+    ...(rescue ? [rescue] : []),
   ].filter(
     (to) =>
       entityActive(s, to) &&
@@ -1243,7 +1292,7 @@ export function legalActions(s, actor = currentActor(s)) {
     const through = !baseExits(s, here).includes(to);
     const crossing = crossingBetween(here, to, s);
     const way = through
-      ? ` ${crossing?.travel || "through the reflection"}`
+      ? ` ${homeRescueExit(s, here, actor) === to ? "along a narrow path" : crossing?.travel || "through the reflection"}`
       : "";
     // A human can invite a willing resident along their open route.
     for (const other of knownActors(s).filter(
@@ -1571,6 +1620,11 @@ function travelParty(s, actors, destination) {
   const from = s.actors[actors[0]].place;
   const through = !baseExits(s, from).includes(destination);
   // The legal action approves the whole party before any carried key moves.
+  if (
+    homeGates[from]?.opening &&
+    homeRescueExit(s, from, actors[0]) === destination
+  )
+    s.locations[from].anchored = true;
   markCrossed(s, from, destination);
   for (const actor of actors) {
     if (through) s.actors[actor].crossed += 1;
@@ -2641,7 +2695,11 @@ export function validateWorld(s) {
         o.met.keeper !== undefined &&
         o.met.moth === undefined) ||
       (!o.crossed &&
-        (s.actors?.vale?.place !== "attic" ||
+        (!Object.entries(homeGates).some(
+          ([place, gate]) =>
+            gate.opening &&
+            [place, gate.rescue].includes(s.actors?.vale?.place),
+        ) ||
           Object.keys(o.met).some(
             (id) => id !== "vale" && !roamingActors.includes(id),
           ))) ||
