@@ -21,6 +21,7 @@ const output = resolve("output/shared-cards");
 await mkdir(output, { recursive: true });
 const requests = [];
 const replies = new Map();
+const providerTiming = new Map();
 let holdReplies = false;
 let failReplies = false;
 const waitingReplies = [];
@@ -29,6 +30,16 @@ const provider = createServer(async (req, res) => {
   for await (const chunk of req) body += chunk;
   const input = JSON.parse(body || "{}");
   requests.push(input);
+  const timing = {
+    speaker: input.messages.at(-1).content.trim().split("\n").at(-1),
+    started: Date.now(),
+    held: holdReplies,
+  };
+  providerTiming.set(input, timing);
+  res.on("close", () => {
+    timing.closed = Date.now();
+    timing.finished = res.writableFinished;
+  });
   if (holdReplies) await new Promise((resolve) => waitingReplies.push(resolve));
   if (failReplies) {
     res.writeHead(200, { "Content-Type": "application/json" });
@@ -44,6 +55,7 @@ const provider = createServer(async (req, res) => {
   assert.equal(typeof transcript, "string");
   assert.match(transcript, /Current scene:/u);
   assert.match(transcript.trim(), /:$/u);
+  timing.replied = Date.now();
   const content = `I pause for ${requests.length} quiet breaths.`;
   replies.set(input, content);
   res.writeHead(200, { "Content-Type": "application/json" });
@@ -223,6 +235,7 @@ const idle = (page) =>
     2000,
   );
 const pages = [],
+  sessions = [],
   errors = [];
 async function actionFor(page, kind, target = undefined, item = undefined) {
   const state = await snapshot(page);
@@ -266,19 +279,36 @@ async function expectSharedReveal(page, requestStart, speaker = "Vale") {
     return typeof expected === "string";
   }, "the selected human receives its plain fixture reply");
   // Observe the actual letter transitions in-page, even when the driver checks later.
-  await page.waitForFunction(
-    ({ expected, speaker }) => {
-      const samples = window.sharedReveals.filter(
-        (sample) =>
-          sample.text === expected &&
-          sample.speaker === speaker &&
-          sample.shown > 0 &&
-          sample.shown < sample.total,
-      );
-      return new Set(samples.map((sample) => sample.shown)).size >= 2;
-    },
-    { expected, speaker },
-  );
+  try {
+    await page.waitForFunction(
+      ({ expected, speaker }) => {
+        const samples = window.sharedReveals.filter(
+          (sample) =>
+            sample.text === expected &&
+            sample.speaker === speaker &&
+            sample.shown > 0 &&
+            sample.shown < sample.total,
+        );
+        return new Set(samples.map((sample) => sample.shown)).size >= 2;
+      },
+      { expected, speaker },
+    );
+  } catch (error) {
+    console.error(
+      "Shared reveal failure",
+      JSON.stringify({
+        expected,
+        speaker,
+        observed: await page.evaluate(() => window.sharedReveals),
+        history: (await snapshot(page)).history.slice(0, 5),
+        provider: requests.slice(requestStart).map((request) => ({
+          ...providerTiming.get(request),
+          reply: replies.get(request),
+        })),
+      }),
+    );
+    throw error;
+  }
   return { text: expected, speaker };
 }
 async function catchUpWithArrow(page) {
@@ -386,6 +416,7 @@ try {
     pages.push(page);
     page.on("pageerror", (error) => errors.push(error.message));
     const cdp = await context.newCDPSession(page);
+    sessions.push(cdp);
     await cdp.send("WebAuthn.enable");
     await cdp.send("WebAuthn.addVirtualAuthenticator", {
       options: {
@@ -664,6 +695,19 @@ try {
   const notesBefore = await Promise.all(
     [vale, mara].map((page) => page.evaluate(() => window.sharedSpeechNotes)),
   );
+  const slow = Number(process.env.COSYWORLD_SHARED_CPU_SLOWDOWN || 1);
+  const latency = Number(process.env.COSYWORLD_SHARED_NETWORK_LATENCY || 0);
+  for (const session of sessions.slice(0, 2)) {
+    if (slow > 1)
+      await session.send("Emulation.setCPUThrottlingRate", { rate: slow });
+    if (latency > 0)
+      await session.send("Network.emulateNetworkConditions", {
+        offline: false,
+        latency,
+        downloadThroughput: 5000000,
+        uploadThroughput: 5000000,
+      });
+  }
   const queueRequestStart = requests.length;
   holdReplies = true;
   const queued = [];
@@ -816,6 +860,7 @@ try {
       }),
     ),
   );
+  await delay(Number(process.env.COSYWORLD_SHARED_PROVIDER_HOLD_MS || 0));
   holdReplies = false;
   for (const resolve of waitingReplies.splice(0)) resolve();
   await Promise.all([vale, mara, nell].map(idle));
@@ -1031,6 +1076,16 @@ try {
     "Shared original world: progressed save, eight passkeys, original pond/station/attic, NPCs, packs, quests, room capacity, shared speech, item handoff, nudge, restart, desktop and phone passed.",
   );
 } catch (error) {
+  console.error(
+    "Held provider timing",
+    JSON.stringify(
+      [...providerTiming.values()].filter((timing) => timing.held),
+    ),
+  );
+  console.error(
+    "Latest shared history",
+    JSON.stringify((await snapshot(pages[0])).history.slice(0, 5)),
+  );
   for (const [index, page] of pages.entries()) {
     console.error(
       names[index],
@@ -1056,6 +1111,7 @@ try {
   console.error("Browser errors:", errors, "Server:", processLog.slice(-3000));
   throw error;
 } finally {
+  await delay(Number(process.env.COSYWORLD_SHARED_PROVIDER_HOLD_MS || 0));
   holdReplies = false;
   for (const resolve of waitingReplies.splice(0)) resolve();
   if (browser) await browser.close();
