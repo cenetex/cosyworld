@@ -291,7 +291,9 @@ jobs:
       # required build check. Commands within a group run in order.
       - name: Check shared card worlds with real passkeys
         if: matrix.mode == 'cards-shared'
-        run: node v2/scripts/smoke-shared-cards.mjs
+        run: |
+          node v2/scripts/smoke-shared-cards.mjs
+          node v2/scripts/smoke-card-greek-capacity.mjs
 
       - name: Check card opening, hand, and music
         if: matrix.mode == 'cards-ui'
@@ -323,6 +325,7 @@ jobs:
           node v2/scripts/smoke-card-greek-drama.mjs
           node v2/scripts/smoke-card-theban-scenery.mjs
           node v2/scripts/smoke-card-open-door.mjs
+          node v2/scripts/smoke-card-greek-homecoming.mjs
 
       - name: Check dialogue and movement
         if: matrix.mode == 'cards-dialogue'
@@ -348,6 +351,10 @@ jobs:
           name: cosyworld-browser-${{ matrix.mode }}
           path: |
             output/shared-cards/*.png
+            output/greek-homecoming/*.png
+            output/greek-homecoming/*.json
+            output/greek-capacity/*.png
+            output/greek-capacity/*.json
             v2/orchestrator-rust/.runtime/visual-smoke/*.png
             v2/orchestrator-rust/.runtime/visual-smoke/*.json
             output/badger-check/*.png
