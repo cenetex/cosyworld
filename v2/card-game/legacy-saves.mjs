@@ -79,6 +79,7 @@ export function upgradeSave(
     upgradeSteamClockSave(s);
     upgradeTransportSave(s);
     upgradeGreekSectionSave(s);
+    upgradeGreekHomecomingSave(s);
     s.schema = 7;
     installPacks(s);
   } else if (
@@ -90,6 +91,7 @@ export function upgradeSave(
   ) {
     upgradeTransportSave(s);
     upgradeGreekSectionSave(s);
+    upgradeGreekHomecomingSave(s);
     // A pack mounted after this save was written joins it fresh.
     installPacks(s);
   }
@@ -131,6 +133,20 @@ export function upgradeGreekSectionSave(s) {
     "greek-shelter-blanket",
     "greek-refuge-tablet",
   ];
+  addGreekEntities(s, pack, avatars, items);
+  saved.revision = 3;
+}
+
+// Revision 4 adds Myrine after the earlier Open Door records are restored.
+export function upgradeGreekHomecomingSave(s) {
+  const pack = packDefinitions.find((p) => p.id === "greek-drama");
+  const saved = s.packs?.[pack?.id];
+  if (!pack || pack.revision < 4 || saved?.revision !== 3) return;
+  addGreekEntities(s, pack, ["greek-household-witness"], []);
+  saved.revision = 4;
+}
+
+function addGreekEntities(s, pack, avatars, items) {
   const fresh = newMemories();
   if (
     !s.actors ||
@@ -176,7 +192,6 @@ export function upgradeGreekSectionSave(s) {
   }
   for (const [id, actor] of Object.entries(s.actors))
     for (const other of avatars) if (other !== id) actor.trust[other] ??= 0;
-  saved.revision = 3;
 }
 
 // Earlier occupied ships used a null dock. Keep their saved destination and

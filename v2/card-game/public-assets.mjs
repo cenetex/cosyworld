@@ -80,6 +80,7 @@ const files = [
   "pack-schema.mjs",
   "pack-registry.mjs",
   "pack-sections.mjs",
+  "pack-journeys.mjs",
   "pack-recital.mjs",
   "pack-rules.mjs",
   "pack-transport.mjs",

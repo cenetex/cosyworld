@@ -407,6 +407,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "text",
         "place",
         "travels",
+        "journey",
         "roamingQuest",
         "previousHomes",
         "standoffs",
@@ -770,6 +771,34 @@ export function packProblems(pack, hub, mountedPlaces = []) {
           );
       check(valid, `choice ${c.id} effect is unsupported or lacks custody`);
     }
+  }
+  for (const [id, avatar] of Object.entries(avatars)) {
+    if (avatar.journey === undefined) continue;
+    const journey = avatar.journey;
+    const agreement = choices.find((c) => c.id === journey?.after);
+    check(
+      keysOk(journey, ["after", "path"]) &&
+        !hub.avatars.includes(id) &&
+        avatar.travels === false &&
+        avatar.roamingQuest === undefined &&
+        idOk(journey.after) &&
+        Array.isArray(journey.path) &&
+        journey.path.length >= 2 &&
+        journey.path.length <= 8 &&
+        new Set(journey.path).size === journey.path.length &&
+        journey.path[0] === avatar.place &&
+        journey.path.every((place) => owns(places, place)) &&
+        journey.path.slice(1).every((to, i) => {
+          const from = journey.path[i];
+          return (
+            places[from].exits.includes(to) ||
+            routes.some((route) => route.from === from && route.to === to)
+          );
+        }) &&
+        agreement?.subject === id &&
+        agreement.at === avatar.place,
+      `avatar ${id} journey needs consent at home and a simple connected path`,
+    );
   }
   const verifyRefs = (cs) =>
     (cs || []).forEach((c) => {
