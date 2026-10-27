@@ -265,7 +265,8 @@ export async function connectSharedWorld(id) {
     report = () => {},
     inFlight = false,
     stopped = false,
-    connectionError = null;
+    connectionError = null,
+    playError = null;
   let lastSynced = Date.now();
   let offset = initial.now - Date.now(),
     heartbeat = Date.now();
@@ -276,6 +277,14 @@ export async function connectSharedWorld(id) {
     state = next;
     offset = next.now - Date.now();
     listener(next);
+    if (
+      playError &&
+      (next.queue?.some((entry) => entry.id === playError.key) ||
+        next.history?.some((entry) => entry.play === playError.key))
+    ) {
+      report("", playError.message);
+      playError = null;
+    }
     return next;
   };
   const command = async (body) =>
@@ -330,7 +339,16 @@ export async function connectSharedWorld(id) {
     command,
     sync,
     showLink: () => showLink(id),
-    play: (action) => command({ op: "play", key: crypto.randomUUID(), action }),
+    async play(action) {
+      const key = crypto.randomUUID();
+      try {
+        return await command({ op: "play", key, action });
+      } catch (error) {
+        if (["TypeError", "TimeoutError", "AbortError"].includes(error.name))
+          playError = { key, message: error.message };
+        throw error;
+      }
+    },
   };
 }
 export function installSharedControls({ session, saveSlot, getSave, notice }) {
