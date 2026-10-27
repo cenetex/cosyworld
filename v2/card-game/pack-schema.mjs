@@ -159,6 +159,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       "crossings",
       "items",
       "routes",
+      "sections",
       "choices",
       "works",
       "tone",
@@ -792,6 +793,57 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     verifyRefs(e.requires);
     if (e.desire) verifyRefs(e.desire.requires);
   });
+  if (pack.sections !== undefined) {
+    check(
+      Array.isArray(pack.sections) && pack.sections.length <= 32,
+      "sections must be a bounded list",
+    );
+    const sectionIds = new Set(),
+      sectionPlaces = new Set();
+    for (const section of Array.isArray(pack.sections) ? pack.sections : []) {
+      check(
+        keysOk(section, ["id", "name", "places", "requires"]) &&
+          idOk(section.id) &&
+          !sectionIds.has(section.id) &&
+          textOk(section.name, 120) &&
+          Array.isArray(section.places) &&
+          section.places.length > 0 &&
+          section.places.length <= 16 &&
+          new Set(section.places).size === section.places.length &&
+          section.places.every(
+            (id) => owns(places, id) && !sectionPlaces.has(id),
+          ) &&
+          Array.isArray(section.requires),
+        `section ${section?.id} needs unique places and permanent requirements`,
+      );
+      if (!record(section)) continue;
+      sectionIds.add(section.id);
+      for (const id of Array.isArray(section.places) ? section.places : [])
+        sectionPlaces.add(id);
+      requirements(section.requires, `section ${section.id} requires`);
+      if (!Array.isArray(section.requires)) continue;
+      verifyRefs(section.requires);
+      for (const condition of section.requires) {
+        check(
+          condition?.kind === "choice" ||
+            (condition?.kind === "flag" && condition.value === true),
+          `section ${section.id} requires a permanent choice or true flag`,
+        );
+        if (condition?.kind === "flag")
+          check(
+            choices.every((choice) =>
+              choice.effects.every(
+                (effect) =>
+                  effect.kind !== "set_flag" ||
+                  effect.key !== condition.key ||
+                  effect.value === true,
+              ),
+            ),
+            `section ${section.id} access flag must stay true`,
+          );
+      }
+    }
+  }
   const groups = pack.continuity?.groups || [];
   for (const g of groups)
     check(

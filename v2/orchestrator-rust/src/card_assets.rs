@@ -248,6 +248,10 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/pack-registry.mjs"),
         ),
+        "pack-sections.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/pack-sections.mjs"),
+        ),
         "pack-recital.mjs" => (
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/pack-recital.mjs"),
