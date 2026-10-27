@@ -41,7 +41,7 @@ pub(super) async fn chat(
             finish_work(&state, &id, Work { id:body.key, room, actor, context, attempt }, Err("Connect OpenRouter in Settings, then retry this saved play.".into()))?;
             Ok(json!({"ok":true}))
         } else {
-            voices::prepare(&payload["scene"], Some(&ids))
+            voices::prepare(&payload["scene"], Some(&ids), state.ai_config.as_ref().as_ref())
         }
     }).await;
     reply(result)

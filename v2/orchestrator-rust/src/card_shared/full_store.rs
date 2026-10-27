@@ -233,8 +233,8 @@ pub(super) fn snapshot(c: &Connection, id: &str, user: &str, now: i64) -> Result
             |r| r.get(0),
         )
         .map_err(sql_error)?;
-    let mut q=c.prepare("SELECT id,actor,status,coalesce(json_extract(narrative,'$.browser_chat'),0) FROM card_full_plays WHERE world=? AND (room=? OR actor=?) AND status IN ('waiting','retry','working','playing') ORDER BY created,id").map_err(sql_error)?;
-    let queue=q.query_map(params![id,room,a],|r|Ok(json!({"id":r.get::<_,String>(0)?,"actor":actor_id(r.get::<_,usize>(1)?),"status":r.get::<_,String>(2)?,"browser_chat":r.get::<_,bool>(3)?}))).map_err(sql_error)?.collect::<std::result::Result<Vec<_>,_>>().map_err(sql_error)?;
+    let mut q=c.prepare("SELECT id,actor,status,coalesce(json_extract(narrative,'$.browser_chat'),0),retries FROM card_full_plays WHERE world=? AND (room=? OR actor=?) AND status IN ('waiting','retry','working','playing') ORDER BY created,id").map_err(sql_error)?;
+    let queue=q.query_map(params![id,room,a],|r|Ok(json!({"id":r.get::<_,String>(0)?,"actor":actor_id(r.get::<_,usize>(1)?),"status":r.get::<_,String>(2)?,"browser_chat":r.get::<_,bool>(3)?,"attempt":r.get::<_,i32>(4)?}))).map_err(sql_error)?.collect::<std::result::Result<Vec<_>,_>>().map_err(sql_error)?;
     let mut q=c.prepare("SELECT content FROM card_full_scenes WHERE world=? AND room=? ORDER BY seq DESC LIMIT 40").map_err(sql_error)?;
     let history = if here {
         q.query_map(params![id, room], |r| r.get::<_, String>(0))

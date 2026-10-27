@@ -1990,7 +1990,7 @@ mod tests {
     #[tokio::test]
     async fn browser_chat_prepares_authored_prompts_and_checks_replies_without_provider_keys() {
         let scene = serde_json::to_value(context()).unwrap();
-        let prepared = browser::prepare(&scene, None).unwrap();
+        let prepared = browser::prepare(&scene, None, None).unwrap();
         let call = prepared["calls"]
             .as_array()
             .unwrap()

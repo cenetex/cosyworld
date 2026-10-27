@@ -69,20 +69,46 @@ fn model(models: &BTreeMap<String, String>, id: &str) -> String {
         std::env::var("COSYWORLD_CARD_TEXT_MODEL").unwrap_or_else(|_| "openrouter/free".into())
     })
 }
-pub(crate) fn prepare(scene: &Value, ids: Option<&[String]>) -> Result<Value, String> {
+pub(crate) fn prepare(
+    scene: &Value,
+    ids: Option<&[String]>,
+    base: Option<&AiConfig>,
+) -> Result<Value, String> {
     let (context, selected) = context(scene, ids)?;
     let models = models()?;
     let mut calls = Vec::new();
     for id in selected {
         for (label, part) in parts(&context, &id, ids.is_some()) {
-            calls.push(json!({"id":id,"part":label,"request":{
-                "model":model(&models, &id),
+            let model = model(&models, &id);
+            let selection = base
+                .map(|base| {
+                    tier_config(base, Some(&model)).pin_model(ModelCapability::WorldContent)
+                })
+                .transpose()
+                .map_err(|_| "The character needs its model settings.")?;
+            let raw = selection
+                .as_ref()
+                .is_some_and(|s| s.uses_raw_prompt_adapter());
+            let reasoning = selection
+                .as_ref()
+                .is_some_and(|s| s.candidate().supported_parameters().reasoning);
+            let mut request = json!({
+                "model":model,
                 "messages":[{"role":"system","content":idiolect(entity(&context, &id))},
                     {"role":"user","content":attempt_transcript(&context, entity(&context, &id), part, 0)}],
                 "temperature":1.0,"max_tokens":if part==Part::Persona{160}else{96},
-                "provider":{"zdr":true,"data_collection":"deny"},"stream":false,
-                "reasoning":{"effort":"none"}
-            }}));
+                "provider":{"zdr":true,"data_collection":"deny"},"stream":false
+            });
+            if raw {
+                request.as_object_mut().unwrap().remove("temperature");
+                if reasoning {
+                    request.as_object_mut().unwrap().remove("max_tokens");
+                    request["reasoning"] = json!({"enabled":true});
+                }
+            } else if reasoning {
+                request["reasoning"] = json!({"effort":"none"});
+            }
+            calls.push(json!({"id":id,"part":label,"request":request}));
         }
     }
     Ok(json!({"calls":calls}))
@@ -194,7 +220,11 @@ pub(super) async fn prepare_route(
             "The story service is taking a short break.",
         );
     }
-    match prepare(&serde_json::to_value(context).unwrap_or(Value::Null), None) {
+    match prepare(
+        &serde_json::to_value(context).unwrap_or(Value::Null),
+        None,
+        state.ai.as_ref().as_ref(),
+    ) {
         Ok(value) => ([("cache-control", "no-store")], Json(value)).into_response(),
         Err(message) => error(StatusCode::BAD_REQUEST, &message),
     }

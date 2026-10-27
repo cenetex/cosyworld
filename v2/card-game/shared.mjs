@@ -283,8 +283,9 @@ export async function connectSharedWorld(id) {
     adopt(await request(`/card-game/shared/worlds/${id}/command`, body));
   const browserPlays = new Set();
   const completeBrowserPlay = async (play) => {
-    if (browserPlays.has(play.id)) return;
-    browserPlays.add(play.id);
+    const attempt = `${play.id}:${play.attempt}`;
+    if (browserPlays.has(attempt)) return;
+    browserPlays.add(attempt);
     const path = `/card-game/shared/worlds/${id}/browser-chat`;
     try {
       const prepared = await request(path, { key: play.id });
