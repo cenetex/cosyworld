@@ -311,6 +311,7 @@ jobs:
           node v2/scripts/smoke-card-facing.mjs
           node v2/scripts/smoke-card-image-first.mjs
           node v2/scripts/smoke-card-toolbar.mjs
+          node v2/scripts/smoke-shared-snapshot-order.mjs
           node v2/scripts/smoke-card-actions.mjs
 
       - name: Check Greek drama and Theban scenery

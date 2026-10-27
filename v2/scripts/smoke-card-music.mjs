@@ -1,3 +1,4 @@
+import { checkSharedMusicOpenings } from "./shared-music-openings.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
@@ -309,7 +310,24 @@ try {
     ),
     "Ship boarding and disembarking change music after the fade",
   );
+  await page.locator("#toolbar-menu-button").click();
+  await page.locator("#menu-button").click();
+  await page.locator("#new-game").click();
+  await page.locator("#confirm-reset").click();
+  assert(await page.locator("#room-music").evaluate((audio) => audio.paused));
+  await page.reload();
+  await takeUnveiled();
+  await page.locator("#toolbar-menu-button").click();
+  await page.locator("#menu-button").click();
+  await page.locator("#music-toggle").click();
+  await page.locator("#music-toggle").click();
+  await page.waitForTimeout(1200);
+  assert(await page.locator("#room-music").evaluate((audio) => audio.paused));
   assert.deepEqual(errors, []);
+  await checkSharedMusicOpenings(
+    browser,
+    `http://127.0.0.1:${server.address().port}`,
+  );
   console.log(
     `Room music: all ${tracks.length} MP3s decoded; each crossing kept one random ship song through its ending and card plays. Fades, harbor and return music, saved controls and mobile menu passed.`,
   );

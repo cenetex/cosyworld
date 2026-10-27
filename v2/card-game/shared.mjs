@@ -270,7 +270,8 @@ export async function connectSharedWorld(id) {
   let offset = initial.now - Date.now(),
     heartbeat = Date.now();
   const adopt = (next) => {
-    if (next.now < state.now) return state;
+    if (next.now < state.now || next.world?.revision < state.world?.revision)
+      return state;
     lastSynced = Date.now();
     state = next;
     offset = next.now - Date.now();
