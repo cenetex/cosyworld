@@ -1,3 +1,4 @@
+import { carryQuest } from "./quest-hands.mjs";
 import { packDefinition } from "./pack-registry.mjs";
 import {
   installSharedQuestRegistry,
@@ -217,9 +218,16 @@ export function syncStoryQuests(world, actorId = null) {
       definition.createdTurn === world.turn
     )
       recorded.push(actorId);
+    const previous = new Set(quest.participants);
     quest.participants = [
       ...new Set([...quest.participants, ...recorded]),
     ].sort();
+    if (registry.hands) {
+      for (const actor of quest.participants.filter((id) => !previous.has(id)))
+        carryQuest(world, actor, quest);
+      if (created && quest.holder.kind === "avatar")
+        carryQuest(world, quest.holder.id, quest);
+    }
     if (!definition.resolved) continue;
     const event = events.find(
       (entry) => entry.choiceId === definition.choiceId,
