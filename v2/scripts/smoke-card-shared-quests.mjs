@@ -111,7 +111,13 @@ try {
     for (const holder of ["vale", "lamp"]) {
       const card = view(state, holder);
       assert(card);
-      await selectCard(page, questCardId(state, card));
+      const id = questCardId(state, card);
+      if (
+        (await page
+          .locator(`#hand [data-card="${id}"]`)
+          .getAttribute("aria-pressed")) !== "true"
+      )
+        await selectCard(page, id);
       assert.match(
         await page.locator("#selection-name").textContent(),
         /Meet by the water/,
