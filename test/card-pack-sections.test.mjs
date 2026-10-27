@@ -112,6 +112,24 @@ describe("permanent pack sections", () => {
     expect(validatePackStates(forged)).toBe(false);
   });
 
+  it("checks a transport's destination before offering boarding", () => {
+    pack.sections[0].places = ["greek-harbor"];
+    const world = createWorld();
+    world.actors.vale.place = "pond";
+    world.crossings["pond-greek-harbor"].discovered = true;
+    world.transports["greek-ship"].dock = "pond";
+    world.invitedPlaces = { vale: ["greek-harbor"] };
+    expect(exits(world, "pond", "vale")).not.toContain("greek-ship");
+    expect(
+      legalActions(world).some((action) => action.target === "greek-ship"),
+    ).toBe(false);
+    const full = createWorld({ packScopes: { "greek-drama": "full" } });
+    full.actors.vale.place = "pond";
+    full.crossings["pond-greek-harbor"].discovered = true;
+    full.transports["greek-ship"].dock = "pond";
+    expect(exits(full, "pond", "vale")).toContain("greek-ship");
+  });
+
   it("keeps full-scope roads while preserving the chosen account", () => {
     const world = createWorld({ packScopes: { "greek-drama": "full" } });
     expect(exits(world, "greek-harbor", "vale")).toContain("greek-athens");

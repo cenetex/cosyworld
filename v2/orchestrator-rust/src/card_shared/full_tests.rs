@@ -4,6 +4,36 @@ use super::{
     store, *,
 };
 use serde_json::json;
+
+fn assert_saved_actors(current: &Value, old: &Value) {
+    for (id, saved) in old.as_object().unwrap() {
+        let mut actor = current[id].clone();
+        actor["trust"]
+            .as_object_mut()
+            .unwrap()
+            .retain(|other, trust| {
+                if saved["trust"].get(other).is_some() {
+                    true
+                } else {
+                    assert_eq!(*trust, json!(0));
+                    false
+                }
+            });
+        assert_eq!(&actor, saved, "saved actor {id}");
+    }
+}
+
+fn assert_saved_items(current: &Value, old: &Value) {
+    for (id, saved) in old.as_object().unwrap() {
+        assert_eq!(&current[id], saved, "saved item {id}");
+    }
+}
+
+fn assert_saved_packs(current: &Value, old: &Value) {
+    let mut expected = old.clone();
+    expected["greek-drama"]["revision"] = json!(3);
+    assert_eq!(current, &expected);
+}
 fn fixture() -> (std::path::PathBuf, rusqlite::Connection, String) {
     let path =
         std::env::temp_dir().join(format!("full-card-world-{}.sqlite", crate::random_hex(12)));
@@ -253,7 +283,7 @@ fn released_ship_upgrade_keeps_npc_arrivals_locked_and_human_passengers_safe() {
         full_store::seed(&c, &id, &w, "released-unsignaled-ship", now()).unwrap();
         let old_actors = w.game["actors"].clone();
         w = full_store::world(&c, &id, now()).unwrap();
-        assert_eq!(w.game["actors"], old_actors);
+        assert_saved_actors(&w.game["actors"], &old_actors);
         assert_eq!(
             w.game["crossings"]["pond-greek-harbor"]["discovered"],
             passenger == Some("vale")
@@ -484,7 +514,7 @@ fn earlier_home_travel_replays_before_one_recorded_rules_upgrade() {
         upgraded.game["revision"].as_u64(),
         old.game["revision"].as_u64().map(|n| n + 1)
     );
-    assert_eq!(upgraded.game["actors"], old.game["actors"]);
+    assert_saved_actors(&upgraded.game["actors"], &old.game["actors"]);
     assert_eq!(upgraded.game["log"], old.game["log"]);
     assert_eq!(upgraded.game["items"]["mask"], old.game["items"]["mask"]);
     assert_eq!(upgraded.claimed, old.claimed);
@@ -658,7 +688,7 @@ fn earlier_completed_quests_gain_a_pending_bard_visit_after_recorded_upgrade() {
         let previous = w.game.clone();
         let mut upgraded = full_store::world(&c, &id, now()).unwrap();
         assert_eq!(upgraded.version, engine::VERSION);
-        assert_eq!(upgraded.game["actors"], previous["actors"]);
+        assert_saved_actors(&upgraded.game["actors"], &previous["actors"]);
         assert_eq!(upgraded.game["log"], previous["log"]);
         assert_eq!(
             upgraded.game["packs"]["greek-drama"]["receipts"],
@@ -1164,8 +1194,8 @@ fn old_rule_history_upgrades_once_and_replays_with_either_checkpoint_path() {
             assert_eq!(upgraded.version, engine::VERSION);
             assert_eq!(upgraded.claimed, [1; 8]);
             assert_eq!(upgraded.present, old.present);
-            assert_eq!(upgraded.game["actors"], old.game["actors"]);
-            assert_eq!(upgraded.game["items"], old.game["items"]);
+            assert_saved_actors(&upgraded.game["actors"], &old.game["actors"]);
+            assert_saved_items(&upgraded.game["items"], &old.game["items"]);
             assert_eq!(upgraded.game["log"], old.game["log"]);
             assert_eq!(upgraded.game["life"]["version"], 2);
             assert_eq!(
@@ -1302,8 +1332,8 @@ fn released_pickup_journal_replays_through_both_recorded_upgrades() {
         }
         let mut upgraded = full_store::world(&c, &id, now()).unwrap();
         assert_eq!(upgraded.version, engine::VERSION);
-        assert_eq!(upgraded.game["actors"], old.game["actors"]);
-        assert_eq!(upgraded.game["items"], old.game["items"]);
+        assert_saved_actors(&upgraded.game["actors"], &old.game["actors"]);
+        assert_saved_items(&upgraded.game["items"], &old.game["items"]);
         assert_eq!(upgraded.game["log"], old.game["log"]);
         assert_eq!(upgraded.claimed, old.claimed);
         assert_eq!(upgraded.present, old.present);
@@ -1381,8 +1411,8 @@ fn version_three_upgrade_keeps_released_untouched_belongings() {
         }
         let upgraded = full_store::world(&c, &id, now()).unwrap();
         assert_eq!(upgraded.version, engine::VERSION);
-        assert_eq!(upgraded.game["items"], old.game["items"]);
-        assert_eq!(upgraded.game["actors"], old.game["actors"]);
+        assert_saved_items(&upgraded.game["items"], &old.game["items"]);
+        assert_saved_actors(&upgraded.game["actors"], &old.game["actors"]);
         assert_eq!(upgraded.claimed, old.claimed);
         c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
         assert_eq!(full_store::world(&c, &id, now()).unwrap(), upgraded);
@@ -1471,7 +1501,10 @@ fn released_greek_upgrades_and_recitals_replay_before_collected_quests() {
             }
             w = full_store::world(&c, &id, now()).unwrap();
             assert_eq!(w.version, engine::VERSION);
-            for key in ["actors", "items", "log", "packs", "turn"] {
+            assert_saved_actors(&w.game["actors"], &previous.game["actors"]);
+            assert_saved_items(&w.game["items"], &previous.game["items"]);
+            assert_saved_packs(&w.game["packs"], &previous.game["packs"]);
+            for key in ["log", "turn"] {
                 assert_eq!(w.game[key], previous.game[key], "Preserve {key}");
             }
             assert_eq!(
@@ -1657,7 +1690,9 @@ fn released_carriage_route_replays_before_the_station_connection_upgrade() {
             c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
         }
         w = full_store::world(&c, &id, now()).unwrap();
-        for key in ["actors", "items", "log", "crossings"] {
+        assert_saved_actors(&w.game["actors"], &earlier.game["actors"]);
+        assert_saved_items(&w.game["items"], &earlier.game["items"]);
+        for key in ["log", "crossings"] {
             assert_eq!(w.game[key], earlier.game[key]);
         }
         assert_eq!(w.version, engine::VERSION);
@@ -1756,14 +1791,10 @@ fn shared_quest_receipts_drive_bard_travel_after_released_rules_upgrade_and_repl
         }
         w = full_store::world(&c, &id, now()).unwrap();
         assert_eq!(w.version, engine::VERSION);
-        for key in [
-            "actors",
-            "items",
-            "questCompletions",
-            "log",
-            "packs",
-            "turn",
-        ] {
+        assert_saved_actors(&w.game["actors"], &previous.game["actors"]);
+        assert_saved_items(&w.game["items"], &previous.game["items"]);
+        assert_saved_packs(&w.game["packs"], &previous.game["packs"]);
+        for key in ["questCompletions", "log", "turn"] {
             assert_eq!(w.game[key], previous.game[key], "Preserve {key}");
         }
         for key in ["version", "next", "records", "focus"] {
@@ -1880,7 +1911,9 @@ fn released_quest_offers_upgrade_preserves_choices_and_replays_cleanup() {
         }
         w = full_store::world(&c, &id, now()).unwrap();
         assert_eq!(w.version, engine::VERSION);
-        for field in ["actors", "items", "questCompletions", "log", "turn"] {
+        assert_saved_actors(&w.game["actors"], &previous.game["actors"]);
+        assert_saved_items(&w.game["items"], &previous.game["items"]);
+        for field in ["questCompletions", "log", "turn"] {
             assert_eq!(w.game[field], previous.game[field], "Preserve {field}");
         }
         for key in ["vale:quest:1", "world:quest:0"] {

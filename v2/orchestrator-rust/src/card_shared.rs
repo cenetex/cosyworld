@@ -8,6 +8,8 @@ mod full_tests;
 mod full_world;
 mod kernel;
 #[cfg(test)]
+mod section_tests;
+#[cfg(test)]
 mod speech;
 mod store;
 #[cfg(test)]
