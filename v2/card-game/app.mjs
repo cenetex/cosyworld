@@ -45,7 +45,6 @@ import {
   currentScene,
   isSceneText,
   sceneCast,
-  sceneChanges,
   movementCaption,
   sceneStaging,
   selectedHandItem,
@@ -282,9 +281,7 @@ let storyStatus = "ready",
   replay = 0,
   cardsCooling = false,
   reviewing = false,
-  pendingCast = null,
-  pendingSpeaker = null,
-  departed = new Set();
+  pendingSpeaker = null;
 // Release the hand if words are still on the way after this. A new play
 // replaces the request, and words that arrive still play.
 const HAND_WAIT = 2500;
@@ -374,7 +371,6 @@ function updateCardCooldown() {
 const exchange = createExchange({
   prepare: prepareScene,
   show: (line) => {
-    pendingCast = null;
     pendingSpeaker = null;
     reviewing = false;
     lineSeq = line.seq;
@@ -385,8 +381,7 @@ const exchange = createExchange({
         easing: "ease-out",
       });
   },
-  settled: (line) => {
-    if (line.departureTo) departed.add(line.actorId);
+  settled: () => {
     renderScene();
   },
   transition: (previous, next) => {
@@ -412,7 +407,6 @@ const exchange = createExchange({
       handTimer = setTimeout(releaseHand, HAND_WAIT);
     // A failed request releases the hand as well.
     if (!value) {
-      pendingCast = null;
       pendingSpeaker = null;
       renderScene();
       queueMicrotask(showQuestNotice);
@@ -698,10 +692,21 @@ function choose(id) {
       selectCards([id]);
       expandedQuestHolders.add(quest.actor);
     }
+  } else if (places[id] && expandedHolders.has(id)) {
+    expandedHolders.delete(id);
+    selectCards(
+      selected.filter(
+        (cardId) =>
+          cardId !== id &&
+          (!things[cardId] || rootHolder(world, cardId) !== id),
+      ),
+    );
   } else {
     expandedQuestHolders.clear();
     selected = selected.filter((cardId) => !isQuestCard(cardId));
     const holder = things[id] ? rootHolder(world, id) : null;
+    if (places[holder])
+      selected = selected.filter((cardId) => cardId !== holder);
     selectCards(
       selected.includes(id)
         ? selected.filter((cardId) => cardId !== id)
@@ -764,20 +769,6 @@ function performAction(action, revision) {
   reviewing = false;
   dragging = [];
   $("stage").classList.remove("ready", "drag-over");
-  departed.clear();
-  const visible = [
-    ...new Set([
-      ...Object.keys(people).filter(
-        (id) =>
-          knownActors(world).includes(id) &&
-          world.actors[id].place === world.actors[currentActor(world)].place,
-      ),
-      ...sceneChanges(world)
-        .filter((change) => change.leaving)
-        .map((change) => change.actorId),
-    ]),
-  ];
-  pendingCast = sceneCast(world, world.log.length - 1, visible);
   exchange.begin();
   selected = [];
   expandedHolders.clear();
@@ -1276,14 +1267,10 @@ function renderActions(animate = false) {
       : null;
   const { actions, hint } = quest
     ? {
-        actions: ["pending", "active"].includes(quest.status)
-          ? legalActions(world).filter(
-              (action) =>
-                action.questKey === quest.key &&
-                ["pursue", "join-quest", "share-quest"].includes(action.kind) &&
-                (action.kind !== "pursue" || !quest.focused),
-            )
-          : [],
+        actions: legalActions(world).filter(
+          (action) =>
+            action.questKey === quest.key && action.kind === "drop-quest",
+        ),
         hint: quest.purpose,
       }
     : cardActions(world, selected);
@@ -1363,16 +1350,18 @@ function renderActions(animate = false) {
 function updateCardSelection(frame) {
   const button = frame.querySelector(".card"),
     id = button.dataset.card,
-    raised = selected.includes(id),
+    raised =
+      selected.includes(id) || Boolean(places[id] && expandedHolders.has(id)),
     label =
       raised && !isQuestCard(id)
         ? playLabel(cardPlay(world, selected).action)
         : "",
-    held = people[id]
-      ? availableCards(world).filter(
-          (item) => things[item] && rootHolder(world, item) === id,
-        )
-      : [];
+    held =
+      people[id] || places[id]
+        ? availableCards(world).filter(
+            (item) => things[item] && rootHolder(world, item) === id,
+          )
+        : [];
   frame.dataset.raised = String(raised);
   button.setAttribute("aria-pressed", String(raised));
   button.classList.toggle(
@@ -1401,7 +1390,9 @@ function updateCardSelection(frame) {
     return;
   }
   if (frame.dataset.holder)
-    frame.hidden = !raised && !expandedHolders.has(frame.dataset.holder);
+    frame.hidden = places[frame.dataset.holder]
+      ? !expandedHolders.has(frame.dataset.holder)
+      : !raised && !expandedHolders.has(frame.dataset.holder);
   if (held.length || questCards(world, id).length) {
     frame.dataset.expanded = String(expandedHolders.has(id));
     button.setAttribute("aria-expanded", String(expandedHolders.has(id)));
@@ -1410,7 +1401,7 @@ function updateCardSelection(frame) {
     cardObservation(world, id) +
     (label ? ` ${label}.` : "") +
     (held.length
-      ? ` Carries ${held.map(nameOf).join(", ")}. Select to show these cards.`
+      ? ` ${places[id] ? "Contains" : "Carries"} ${held.map(nameOf).join(", ")}. Select to show these cards.`
       : "") +
     (questCards(world, id).length
       ? ` Quests: ${questCards(world, id)
@@ -1437,6 +1428,7 @@ function questCard(id) {
     index = deck.indexOf(id);
   const frame = node("div", undefined, "card-frame quest-frame");
   frame.dataset.holder = quest.actor;
+  frame.dataset.fading = String(Boolean(quest.fading));
   frame.dataset.raised = String(raised);
   frame.dataset.stackIndex = String(index);
   frame.dataset.stackCount = String(deck.length);
@@ -1493,7 +1485,8 @@ function card(id) {
     base = places[id] || people[id] || things[id],
     crossingFace = type === "location" ? travelCard(world, id) : null,
     def = crossingFace ? { ...base, name: crossingFace.name } : base;
-  const raised = selected.includes(id);
+  const raised =
+    selected.includes(id) || Boolean(places[id] && expandedHolders.has(id));
   const chosen = raised ? cardPlay(world, selected) : null;
   const el = node("button", undefined, `card ${type}`);
   el.type = "button";
@@ -1589,21 +1582,26 @@ function card(id) {
   frame.dataset.raised = String(raised);
   frame.append(el);
   const holder = things[id] ? rootHolder(world, id) : null;
-  if (people[holder]) {
+  if (people[holder] || places[holder]) {
     frame.dataset.holder = holder;
-    frame.hidden = !raised && !expandedHolders.has(holder);
-    el.setAttribute("aria-label", `${def.name}, carried by ${nameOf(holder)}`);
+    frame.hidden = places[holder]
+      ? !expandedHolders.has(holder)
+      : !raised && !expandedHolders.has(holder);
+    el.setAttribute(
+      "aria-label",
+      `${def.name}, ${places[holder] ? "at" : "carried by"} ${nameOf(holder)}`,
+    );
   }
-  if (people[id] || questCards(world, id).length) {
+  if (people[id] || places[id] || questCards(world, id).length) {
     const held = availableCards(world).filter(
-      (item) => people[id] && things[item] && rootHolder(world, item) === id,
+      (item) => things[item] && rootHolder(world, item) === id,
     );
     if (held.length || questCards(world, id).length) {
       frame.dataset.inventory = String(held.length);
       frame.dataset.expanded = String(expandedHolders.has(id));
       el.setAttribute("aria-expanded", String(expandedHolders.has(id)));
       if (held.length)
-        observation.textContent += ` Carries ${held.map(nameOf).join(", ")}. Select to show these cards.`;
+        observation.textContent += ` ${places[id] ? "Contains" : "Carries"} ${held.map(nameOf).join(", ")}. Select to show these cards.`;
       for (const item of held.slice(0, 2)) {
         const preview = node("img", undefined, "held-preview");
         preview.src = packMedia(item, "art") || `./assets/${item}-card.png`;
@@ -1748,11 +1746,11 @@ function renderScene() {
     review: reviewing || Boolean(sharedSession),
   });
   renderStage(scene.locationId);
-  const resolvedBeat =
-    Boolean(pendingCast) ||
-    (!sharedSession && !reviewing && scene.line?.turn !== world.turn);
-  if (pendingCast) scene.slots = pendingCast;
-  else if (resolvedBeat) scene.slots = sceneCast(world);
+  // The hand and physical stage always show this same committed world.
+  // Reviewing a line changes the words while present people keep their places.
+  const resolvedBeat = exchange.preparing || scene.line?.turn !== world.turn;
+  scene.slots = sceneCast(world);
+  $("stage").dataset.presentedRevision = String(world.revision);
   shownSceneLine = scene.line;
   const img = $("backdrop");
   if (img.getAttribute("src") !== scene.background) img.src = scene.background;
@@ -1772,11 +1770,12 @@ function renderScene() {
     overlay.alt = scene.overlay ? placeText(world, scene.locationId) : "";
   }
   const staging = sceneStaging(world, {
-    through: resolvedBeat ? world.log.length - 1 : scene.line?.index,
+    through: world.log.length - 1,
     cast: scene.slots,
     line: resolvedBeat ? null : scene.line,
     activeSpeaker: resolvedBeat ? null : scene.activeSpeaker,
-    review: reviewing && !resolvedBeat,
+    review: true,
+    currentState: true,
     sharedPlays: sharedSession?.state.history,
   });
   $("cast").dataset.layout = staging.layout;
@@ -1836,9 +1835,7 @@ function renderScene() {
       "active",
       scene.activeSpeaker === id && !resolvedBeat,
     );
-    const left =
-      actor.presence === "departed" ||
-      (!reviewing && departed.has(id) && scene.line?.turn === world.turn);
+    const left = actor.presence === "departed";
     const wasLeft = figure.classList.contains("departed");
     figure.classList.toggle("departed", left);
     if (left && !wasLeft && !reviewing) leaveFigure(figure);
@@ -1914,8 +1911,8 @@ function renderScene() {
   const canRetryWords = !sharedSession || Boolean(sharedSpeech.retryKey);
   $("story-status").hidden =
     wordsFailed || (storyStatus === "ready" && !exchange.preparing);
-  $("story-status").textContent = "…";
-  $("story-status").setAttribute("aria-label", "Preparing dialogue");
+  $("story-status").setAttribute("aria-label", "Thinking about this scene");
+  $("speech-row").setAttribute("aria-busy", String(!$("story-status").hidden));
   const retryWords = $("story-retry");
   retryWords.hidden = !wordsFailed;
   retryWords.disabled = storyRetrying || !canRetryWords;
@@ -2095,14 +2092,20 @@ function render() {
   music.setStarted(world.turn > 0);
   // While the travel veil comes down, the old place stays drawn.
   if (covering) return;
+  const visibleQuestKeys = visibleQuests(world);
+  completedQuests = completedQuests.filter((quest) =>
+    visibleQuestKeys.has(quest.key),
+  );
   music.setRoom(world.actors[currentActor(world)].place);
   const focused = document.activeElement?.dataset.card,
     scroll = $("hand").scrollLeft;
+  $("hand").dataset.presentedRevision = String(world.revision);
   $("place-title").textContent = nameOf(
     world.actors[currentActor(world)].place,
   );
   for (const id of selected) {
-    if (people[id] || questCards(world, id).length) expandedHolders.add(id);
+    if (people[id] || places[id] || questCards(world, id).length)
+      expandedHolders.add(id);
   }
   const questKey = JSON.stringify([
     shownQuests(),
@@ -2406,7 +2409,6 @@ $("confirm-reset").onclick = () => {
   cancelTravel();
   narrator.invalidate();
   exchange.cancel();
-  departed.clear();
   reveal.cancel();
   speechSounds.stop();
   world = enableMotives(createWorld({ opening: true }), {
@@ -2435,7 +2437,6 @@ window.addEventListener("storage", (event) => {
   cancelTravel();
   narrator.invalidate();
   exchange.cancel();
-  departed.clear();
   reveal.cancel();
   speechKey = null;
   speechSounds.stop();
@@ -2595,7 +2596,6 @@ function adoptShared(value) {
     );
     selectionRevision = world.revision;
     renderedHand = "";
-    pendingCast = null;
     pendingSpeaker = null;
     cardsCooling = false;
     storyStatus = value.queue?.some((entry) => entry.status === "working")

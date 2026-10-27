@@ -26,7 +26,8 @@ try {
     });
     world.items.lamp.holder = "vale";
     const quest = addQuestRecord(world, {
-      holder: { kind: "place", id: "station" },
+      holder: { kind: "item", id: "lamp" },
+      participants: ["vale", "moth"],
       program: {
         id: "shared-water",
         name: "Meet by the water",
@@ -95,16 +96,14 @@ try {
       `http://127.0.0.1:${server.address().port}/?table=${table}`,
     );
     await finish();
-    await selectCard(page, questCardId(world, view(world, "station")));
+    await selectCard(page, questCardId(world, view(world, "vale")));
     assert.equal((await saved()).revision, world.revision);
-    await page.locator('#card-actions [data-action="join-quest"]').click();
-    await finish();
+    assert.deepEqual(
+      await page.locator("#card-actions button").allTextContents(),
+      ["Drop"],
+    );
     let state = await saved();
     assert(state.quests.records[quest.key].participants.includes("vale"));
-    await selectCard(page, questCardId(state, view(state, "vale")));
-    await page.getByRole("button", { name: /Share with lamp/i }).click();
-    await finish();
-    state = await saved();
     assert.deepEqual(state.quests.records[quest.key].holder, {
       kind: "item",
       id: "lamp",
@@ -210,7 +209,7 @@ try {
     await remotePage.close();
   }
   console.log(
-    "Shared holder cards, Help, Share, reload and one completion passed at desktop and phone widths.",
+    "Shared holder cards, Drop-only controls, reload and one completion passed at desktop and phone widths.",
   );
 } finally {
   await browser.close();

@@ -213,6 +213,7 @@ export function sceneStaging(
       : null,
     review = false,
     sharedPlays = [],
+    currentState = false,
   } = {},
 ) {
   const selected = [...new Set([currentActor(world), activeSpeaker, ...cast])]
@@ -339,7 +340,7 @@ export function sceneStaging(
         : ids.includes(currentActor(world))
           ? currentActor(world)
           : order.find((id) => id !== activeSpeaker);
-  const snapshots = history.flatMap((e) => e.items || []);
+  const snapshots = currentState ? [] : history.flatMap((e) => e.items || []);
   const items = snapshots.length
     ? [...new Map(snapshots.map((item) => [item.id, item])).values()]
     : Object.entries(world.items).map(([id, item]) => ({ id, ...item }));
@@ -386,21 +387,22 @@ export function sceneStaging(
       return {
         id,
         // A replayed line stages the current cast, so nobody there has left.
-        presence: review
-          ? "present"
-          : history.some(
-                (e) =>
-                  e.turn === line?.turn &&
-                  e.locationId === locationId &&
-                  e.generated &&
-                  e.departureTo &&
-                  e.actorId === id &&
-                  e.seq !== line?.seq,
-              )
-            ? "departed"
-            : line?.actorId === id && line.departureTo
-              ? "departing"
-              : "present",
+        presence:
+          review || currentState
+            ? "present"
+            : history.some(
+                  (e) =>
+                    e.turn === line?.turn &&
+                    e.locationId === locationId &&
+                    e.generated &&
+                    e.departureTo &&
+                    e.actorId === id &&
+                    e.seq !== line?.seq,
+                )
+              ? "departed"
+              : line?.actorId === id && line.departureTo
+                ? "departing"
+                : "present",
         depth: world.controlledActors
           ? front.includes(id)
             ? "foreground"
