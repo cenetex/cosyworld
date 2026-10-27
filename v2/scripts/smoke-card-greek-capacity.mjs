@@ -68,6 +68,7 @@ const delay = (ms) => new Promise((done) => setTimeout(done, ms));
 function start() {
   child = spawn(
     process.env.COSYWORLD_SHARED_BINARY ||
+      process.env.COSYWORLD_SMOKE_BINARY ||
       resolve("v2/orchestrator-rust/target/debug/cosyworld-orchestrator"),
     [],
     {
