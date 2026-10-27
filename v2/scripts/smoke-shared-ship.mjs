@@ -23,6 +23,7 @@ try {
     }).world;
     for (const id of players) world.actors[id].place = "pond";
     summonTransport(world, "greek-ship", "pond");
+    world.crossings["pond-greek-harbor"].discovered = true;
     const pages = [];
     const contexts = [];
     const errors = [];

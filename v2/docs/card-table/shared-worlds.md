@@ -87,6 +87,19 @@ exchanges with their original text and times. An avatar carrying more than the
 current limit keeps those items. That allowance shrinks as items are put down;
 new pickups and gifts use the normal limit.
 
+## First ship signal
+
+The ship opens for every player and resident after the first completed lamp
+signal. The saved signal discovery keeps both boarding shores open through
+lamp changes, reloads and later voyages. Boarding always follows the ship's
+current dock.
+
+Save upgrades preserve the current voyage of a human already aboard. Shared
+worlds use the authenticated avatar claims for that check. A prior NPC voyage
+keeps its saved destination, and its passengers can land; boarding still needs
+the completed signal. The upgrade validates the old save before granting this
+human passenger allowance.
+
 ## Collected quests
 
 Each personal quest has a stable card key, its own steps, and the experience

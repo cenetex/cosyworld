@@ -6336,6 +6336,22 @@
         recall: null
       };
   }
+  function transportUnlocked(s, id) {
+    const signals = crossings.filter((c) => c.transport === id && c.signal);
+    return !signals.length || signals.some((c) => s.crossings[c.id].discovered);
+  }
+  function preserveTransportAccess(s) {
+    for (const id of Object.keys(transports)) {
+      if (transportUnlocked(s, id)) continue;
+      if (Object.entries(s.actors).some(
+        ([actor, state]) => state.place === transports[id].place && controlledByHuman(s, actor)
+      )) {
+        const signal = crossings.find((c) => c.transport === id && c.signal);
+        if (signal) s.crossings[signal.id].discovered = true;
+      }
+    }
+    return s;
+  }
   function summonTransport(s, id, dock) {
     const state = s.transports[id];
     if (passengers(s, id).length) state.recall = dock;
@@ -6470,7 +6486,7 @@
   }
   var signalReady = (s, c, senses2) => (c.signal?.while || []).every((r) => conditionMet(s, r, senses2, c.packId));
   var windowOpen = (s, c) => !c.signal || (c.signal.opens === null ? crossingState(s, c.id)?.phase === c.signal.steps.length : s.turn < (crossingState(s, c.id)?.until ?? 0));
-  var crossingOpen = (s, c, senses2) => (c.transport ? s.transports[c.transport]?.dock === c.from : windowOpen(s, c) && signalReady(s, c, senses2)) && c.requires.every((r) => conditionMet(s, r, senses2, c.packId));
+  var crossingOpen = (s, c, senses2) => (c.transport ? transportUnlocked(s, c.transport) && s.transports[c.transport]?.dock === c.from : windowOpen(s, c) && signalReady(s, c, senses2)) && c.requires.every((r) => conditionMet(s, r, senses2, c.packId));
   var crossingBetween = (from, to, s = null) => s && transportCrossing(s, from, to) || crossings.find((c) => !c.transport && c.from === from && c.to === to) || null;
   var mayCross = (c, actor, senses2) => c.travelers === "any" || actor === senses2.player || roamingQuestActor(actor) || senses2.humanActors?.includes(actor);
   var crossingExits = (s, place, actor, senses2) => crossings.filter(
@@ -6481,7 +6497,8 @@
   );
   function markCrossed(s, from, to) {
     const c = crossingBetween(from, to, s);
-    if (c && crossingState(s, c.id)) s.crossings[c.id].discovered = true;
+    if (c && !(c.transport && c.signal) && crossingState(s, c.id))
+      s.crossings[c.id].discovered = true;
   }
   var crossingScenery = (s, place, senses2) => crossings.filter((c) => c.from === place && c.scenery).map(
     (c) => crossingOpen(s, c, senses2) ? c.scenery.open : c.scenery.closed
@@ -11399,12 +11416,13 @@
     )) {
       ensurePrograms(next);
       const origin = purposeOrigin(next, actor2);
-      if (!programFor(next, actor2)) continue;
+      const program = savedProgramFor(next, actor2);
+      if (!program) continue;
       addLog(
         next,
         "World",
-        `${nameOf(actor2)} finds a new purpose: ${programFor(next, actor2).name}.${origin ? ` It began with ${origin}.` : ""}`,
-        { actorId: actor2, questPlan: structuredClone(programFor(next, actor2)) }
+        `${nameOf(actor2)} finds a new purpose: ${program.name}.${origin ? ` It began with ${origin}.` : ""}`,
+        { actorId: actor2, questPlan: structuredClone(program) }
       );
     }
     for (const id of knownActors(next))
@@ -11737,6 +11755,7 @@
       profileOf: (id) => tastes[id]
     });
     validateWorld(s);
+    preserveTransportAccess(s);
     return validateWorld(pruneQuestOffers(s));
   }
 

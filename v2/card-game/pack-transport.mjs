@@ -1,3 +1,4 @@
+import { controlledByHuman } from "./human-cast.mjs";
 import { transports, crossings } from "./pack-registry.mjs";
 
 export const passengers = (s, id) =>
@@ -12,6 +13,29 @@ export function installTransports(s) {
       destination: null,
       recall: null,
     };
+}
+
+// A completed signal unlocks the whole vessel, including its return shore.
+export function transportUnlocked(s, id) {
+  const signals = crossings.filter((c) => c.transport === id && c.signal);
+  return !signals.length || signals.some((c) => s.crossings[c.id].discovered);
+}
+
+// Called after save validation: a human already aboard keeps their voyage.
+export function preserveTransportAccess(s) {
+  for (const id of Object.keys(transports)) {
+    if (transportUnlocked(s, id)) continue;
+    if (
+      Object.entries(s.actors).some(
+        ([actor, state]) =>
+          state.place === transports[id].place && controlledByHuman(s, actor),
+      )
+    ) {
+      const signal = crossings.find((c) => c.transport === id && c.signal);
+      if (signal) s.crossings[signal.id].discovered = true;
+    }
+  }
+  return s;
 }
 
 export function summonTransport(s, id, dock) {

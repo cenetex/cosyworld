@@ -155,6 +155,7 @@ import {
   installTransports,
   moveTransport,
   transportExits,
+  preserveTransportAccess,
 } from "./pack-transport.mjs";
 import { upgradeSave } from "./legacy-saves.mjs";
 import forest from "./forest.json" with { type: "json" };
@@ -2352,12 +2353,13 @@ export function play(
   )) {
     ensurePrograms(next);
     const origin = purposeOrigin(next, actor);
-    if (!programFor(next, actor)) continue;
+    const program = savedProgramFor(next, actor);
+    if (!program) continue;
     addLog(
       next,
       "World",
-      `${nameOf(actor)} finds a new purpose: ${programFor(next, actor).name}.${origin ? ` It began with ${origin}.` : ""}`,
-      { actorId: actor, questPlan: structuredClone(programFor(next, actor)) },
+      `${nameOf(actor)} finds a new purpose: ${program.name}.${origin ? ` It began with ${origin}.` : ""}`,
+      { actorId: actor, questPlan: structuredClone(program) },
     );
   }
   for (const id of knownActors(next))
@@ -3180,5 +3182,6 @@ export function decodeSave(text) {
     profileOf: (id) => tastes[id],
   });
   validateWorld(s);
+  preserveTransportAccess(s);
   return validateWorld(pruneQuestOffers(s));
 }

@@ -17,6 +17,7 @@ import assert from "node:assert/strict";
 import {
   createWorld,
   legalActions,
+  exits,
   play,
   encodeSave,
   decodeSave,
@@ -69,6 +70,33 @@ function visible(s, yes) {
   assert.equal(currentScene(s).variant === "pond-greek-harbor", yes);
   assert.equal(Boolean(currentScene(s).overlay), yes);
 }
+
+test("the first lamp signal gates both shores for players and residents", () => {
+  for (const place of ["pond", "greek-harbor"]) {
+    const s = pond({ place });
+    for (const actor of ["vale", "moth", "greek-rhapsode"]) {
+      s.actors[actor].place = place;
+      assert(!exits(s, place, actor).includes("greek-ship"));
+      assert(!legalActions(s, actor).some((a) => a.target === "greek-ship"));
+      assert.notEqual(plan(s, actor).action.target, "greek-ship");
+    }
+    const result = play(s, { key: "move:vale::greek-ship" });
+    assert.equal(result.ok, false);
+    assert.deepEqual(result.state, s);
+    assert.deepEqual(reload(s), s);
+  }
+});
+
+test("a resident at the original dock waits for the first signal", () => {
+  let s = pond();
+  s.actors.moth.place = "greek-harbor";
+  s.items.lamp.holder = "pond";
+  for (let turn = 0; turn < 4; turn++) s = act(s, "wait");
+  assert.equal(s.transports["greek-ship"].dock, "greek-harbor");
+  assert.equal(s.crossings["pond-greek-harbor"].discovered, false);
+  assert.notEqual(s.actors.moth.place, "greek-ship");
+  visible(s, false);
+});
 
 test("lighting the lamp alone never summons a ship", () => {
   let s = pond({ lit: false });
@@ -366,8 +394,10 @@ test("filling the lamp supplies enough oil for lighting and the whole ritual", (
   visible(s, true);
 });
 
-test("Pip brings the same ship from Greece to a waiting player", () => {
-  let s = pond();
+test("Pip brings the signaled ship from Greece to a waiting player", () => {
+  let s = summon(pond());
+  summonTransport(s, "greek-ship", "greek-harbor");
+  s.items.lamp.lit = false;
   s.actors.moth.place = "greek-harbor";
   s.items.lamp.holder = "pond";
   assert.equal(plan(s, "moth").action.target, "greek-ship");
@@ -385,7 +415,7 @@ test("Pip brings the same ship from Greece to a waiting player", () => {
 });
 
 test("a recall waits for the last passenger to finish the current trip", () => {
-  const s = pond();
+  const s = summon(pond());
   s.actors.moth.place = "greek-ship";
   s.actors.keeper.place = "greek-ship";
   s.transports["greek-ship"] = {
@@ -479,6 +509,41 @@ test("older occupied ship saves keep their destination and regain the departure 
     assert.deepEqual(upgraded.items, old.items);
     assert.deepEqual(upgraded.log, old.log);
     assert.deepEqual(reload(upgraded), upgraded);
+  }
+});
+
+test("a validated human already aboard keeps the saved voyage", () => {
+  const old = pond();
+  old.actors.vale.place = "greek-ship";
+  old.transports["greek-ship"].destination = "pond";
+  const upgraded = reload(old);
+  assert.equal(upgraded.crossings["pond-greek-harbor"].discovered, true);
+  assert.deepEqual(upgraded.transports, old.transports);
+  assert.deepEqual(upgraded.actors, old.actors);
+  assert.deepEqual(reload(upgraded), upgraded);
+  assert(exits(upgraded, "greek-ship", "vale").includes("pond"));
+  const invalid = pond();
+  invalid.transports["greek-ship"].dock = "pond";
+  invalid.crossings["pond-greek-harbor"].phase = 4;
+  assert.throws(() => decodeSave(JSON.stringify(invalid)));
+});
+
+test("an old NPC voyage preserves the first-signal lock after landing and reload", () => {
+  for (const destination of ["pond", "greek-harbor"]) {
+    let s = pond();
+    s.actors.moth.place = "greek-ship";
+    s.transports["greek-ship"].dock =
+      destination === "pond" ? "greek-harbor" : "pond";
+    s.transports["greek-ship"].destination = destination;
+    s.items.lamp.holder = destination;
+    s = reload(s);
+    assert.equal(s.crossings["pond-greek-harbor"].discovered, false);
+    s = act(s, "wait");
+    assert.equal(s.actors.moth.place, destination);
+    s = reload(s);
+    assert.equal(s.crossings["pond-greek-harbor"].discovered, false);
+    assert(!exits(s, destination, "moth").includes("greek-ship"));
+    assert(!exits(s, destination, "vale").includes("greek-ship"));
   }
 });
 

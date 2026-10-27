@@ -1,3 +1,4 @@
+import { summonTransport } from "../v2/card-game/pack-transport.mjs";
 import {
   collectionCards,
   registerPersonalQuest,
@@ -72,18 +73,8 @@ function act(world, kind, field = {}) {
 
 function move(world, target) {
   const boarding = world.actors.vale.place === "pond" && target === HARBOR;
-  if (world.actors.vale.place === HARBOR && target === "pond") {
-    if (world.items.lamp.lit) world = act(world, "snuff", { item: "lamp" });
-    while (
-      world.items.lamp.fuel < 7 &&
-      legalActions(world).some((a) => a.kind === "refill")
-    )
-      world = act(world, "refill", { item: "oil" });
-    if (rootHolder(world, "cloth") !== "vale")
-      world = act(world, "take", { item: "cloth" });
-  }
   const nested = boarding && world.items.cloth.holder === "bell";
-  if (boarding) {
+  if (boarding && !world.crossings["pond-greek-harbor"].discovered) {
     if (["lamp", "bell"].includes(world.items.cloth.holder))
       world = act(world, "take", { item: "cloth" });
     if (!world.items.lamp.lit) world = act(world, "light", { item: "lamp" });
@@ -91,13 +82,25 @@ function move(world, target) {
       world = act(world, "cover", { item: "cloth", target: "lamp" });
       world = act(world, "take", { item: "cloth" });
     }
-    if (nested) world = act(world, "cover", { item: "cloth", target: "bell" });
   }
   if (
     (world.actors.vale.place === "pond" && target === HARBOR) ||
     (world.actors.vale.place === HARBOR && target === "pond")
-  )
+  ) {
+    // Story fixtures keep the already signaled vessel at the departure shore.
+    // The ship suites cover independent resident voyages and return timing.
+    summonTransport(world, "greek-ship", world.actors.vale.place);
+    for (
+      let turn = 0;
+      turn < 8 &&
+      !legalActions(world).some(
+        (a) => a.kind === "move" && a.target === "greek-ship",
+      );
+      turn++
+    )
+      world = act(world, "wait");
     world = act(world, "move", { target: "greek-ship" });
+  }
   expect(exits(world, world.actors.vale.place, "vale")).toContain(target);
   expect(availableCards(world)).toContain(target);
   const action = cardPlay(world, [target]).action;
@@ -106,11 +109,14 @@ function move(world, target) {
   expect(result.ok, result.error).toBe(true);
   expect(result.state.actors.vale.place).toBe(target);
   world = result.state;
+  if (nested && world.items.cloth.holder !== "bell")
+    world = act(world, "cover", { item: "cloth", target: "bell" });
   if (boarding) {
     if (world.items.lamp.lit) world = act(world, "snuff", { item: "lamp" });
-    // Reserve capacity for funeral supplies, then collect this same cloth
-    // at the harbor before a return. The nested-custody case keeps its pair.
-    if (!nested) world = act(world, "drop", { item: "cloth", target: HARBOR });
+    // Reserve capacity for funeral supplies. Later voyages keep the first
+    // signal; the nested-custody case keeps its pair.
+    if (!nested && world.items.cloth.holder === "vale")
+      world = act(world, "drop", { item: "cloth", target: HARBOR });
   }
   return world;
 }

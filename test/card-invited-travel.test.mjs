@@ -61,6 +61,7 @@ describe("invited companion travel", () => {
     s.items.lamp.holder = "rue";
     s.actors.moth.trust.rue = 2;
     s.transports["greek-ship"].dock = "pond";
+    s.crossings["pond-greek-harbor"].discovered = true;
     for (const destination of ["greek-ship", "greek-harbor"]) {
       const action = legalActions(s, "rue").find(
         (a) =>
