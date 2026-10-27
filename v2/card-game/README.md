@@ -320,6 +320,11 @@ Connect OpenRouter opens a separate sign-in window. The callback carries its
 own state value. It returns the connection to the original game tab through a
 same-origin browser channel. The game stays open during approval. A browser
 that blocks the window uses the same-tab PKCE return.
+The sign-in page loads before it opens OpenRouter. A Continue to OpenRouter
+link supports browsers that ask for another click before leaving the page.
+The return accepts the approval code and state on its saved callback path.
+If the provider replaces the query, the browser restores the original game
+link after it checks the state. The PKCE verifier stays in the game tab.
 
 Open Settings and choose Connect OpenRouter. The browser uses an S256 PKCE
 challenge and a fresh state value. The return must match the stored callback and

@@ -95,11 +95,20 @@ export function createOpenRouter({
     },
     async finish(href, cleanUrl, { accept = () => true } = {}) {
       const url = new URL(href);
-      if (url.searchParams.get("openrouter") !== "callback") return false;
+      const pending = read(PENDING);
+      const response =
+        url.searchParams.has("code") || url.searchParams.has("error");
+      const popupReturn =
+        url.pathname === "/card-game/openrouter-callback.html" && response;
+      if (
+        url.searchParams.get("openrouter") !== "callback" &&
+        !popupReturn &&
+        !(pending && response)
+      )
+        return false;
       const code = url.searchParams.get("code");
       const state = url.searchParams.get("state");
       const denied = url.searchParams.has("error");
-      const pending = read(PENDING);
       storage.removeItem(PENDING);
       for (const key of [
         "code",
@@ -122,10 +131,19 @@ export function createOpenRouter({
       const expected = new URL(pending.callback);
       expected.searchParams.delete("openrouter");
       expected.searchParams.delete("state");
-      if (expected.href !== url.href)
-        throw new Error(
-          "Return to the table where you started the connection.",
-        );
+      if (expected.href !== url.href) {
+        // Restore game parameters if the provider replaces the callback query.
+        if (
+          url.origin !== expected.origin ||
+          url.pathname !== expected.pathname ||
+          url.hash !== expected.hash ||
+          url.search !== ""
+        )
+          throw new Error(
+            "Return to the table where you started the connection.",
+          );
+        cleanUrl(expected.href);
+      }
       const result = await request("auth/keys", {
         key: "",
         body: {

@@ -7,12 +7,14 @@ export function connectOpenRouter(report = () => {}) {
   // Open during the click so browsers can keep this as a sign-in window.
   const popup = window.open(
     "/card-game/openrouter-callback.html",
-    "cosy-openrouter",
+    "_blank",
     "popup,width=560,height=720",
   );
   const client = playerOpenRouter();
   let channel,
     timeout,
+    authUrl,
+    ready = false,
     active = true,
     processing = false;
   const cleanup = () => {
@@ -61,13 +63,24 @@ export function connectOpenRouter(report = () => {}) {
     }
   }
   function receiveWindow(event) {
-    if (
-      event.origin === location.origin &&
-      event.source === popup &&
-      event.data?.type === "cosy-openrouter-callback"
-    )
+    if (event.origin !== location.origin || event.source !== popup) return;
+    if (event.data?.type === "cosy-openrouter-ready") {
+      ready = true;
+      start();
+    }
+    if (event.data?.type === "cosy-openrouter-callback")
       void receive(event.data.url);
   }
+  function start() {
+    if (!active || !ready || !authUrl) return;
+    // The loaded sign-in page owns its navigation, including Safari windows.
+    popup.postMessage(
+      { type: "cosy-openrouter-start", url: authUrl },
+      location.origin,
+    );
+  }
+  window.addEventListener("message", receiveWindow);
+  report("Opening your OpenRouter sign-in window…");
   void client
     .begin(location.href, { popup: Boolean(popup), accept: () => active })
     .then((url) => {
@@ -83,12 +96,12 @@ export function connectOpenRouter(report = () => {}) {
           if (event.data?.type === "callback") void receive(event.data.url);
         };
       }
-      window.addEventListener("message", receiveWindow);
       timeout = setTimeout(() => {
         cleanup();
         report("Start a fresh OpenRouter connection when you are ready.");
       }, 600_000);
-      popup.location.href = url;
+      authUrl = url;
+      start();
       report(
         "Approve the connection in OpenRouter. Your game stays open here.",
       );

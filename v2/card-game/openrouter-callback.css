@@ -14,3 +14,18 @@ main {
 h1 {
   font-size: 24px;
 }
+a {
+  display: inline-block;
+  padding: 12px 18px;
+  border: 1px solid #cbb67c;
+  border-radius: 6px;
+  color: #eee5d5;
+  text-underline-offset: 3px;
+}
+a[hidden] {
+  display: none;
+}
+a:focus-visible {
+  outline: 3px solid #cbb67c;
+  outline-offset: 3px;
+}

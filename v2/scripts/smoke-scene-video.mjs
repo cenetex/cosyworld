@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
-import { chromium } from "playwright";
+import { chromium, webkit } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, addLog, encodeSave } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
@@ -8,7 +8,9 @@ import { enableMotives } from "../card-game/motives.mjs";
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
-const browser = await chromium.launch({ headless: true });
+const browserType =
+  process.env.COSYWORLD_TEST_BROWSER === "webkit" ? webkit : chromium;
+const browser = await browserType.launch({ headless: true });
 const evidence = [];
 await mkdir("output/scene-video", { recursive: true });
 try {
@@ -36,10 +38,12 @@ try {
     }),
   );
   await sample.close();
-  for (const [width, fallback] of [
+  for (const [width, fallback, slowStart] of [
     [1440, false],
     [390, false],
     [1440, true],
+    [1440, false, true],
+    [390, true, true],
   ]) {
     const context = await browser.newContext({
       viewport: { width, height: width < 700 ? 844 : 900 },
@@ -49,7 +53,8 @@ try {
     const page = await context.newPage(),
       errors = [],
       siteRequests = [],
-      videoRequests = [];
+      videoRequests = [],
+      readyMessages = [];
     page.on("pageerror", (error) => errors.push(error.message));
     page.on("request", (request) => {
       if (request.url().startsWith(origin))
@@ -91,6 +96,11 @@ try {
       },
       { saved, fallback },
     );
+    if (slowStart)
+      await context.route("**/openrouter-callback.mjs", async (route) => {
+        await new Promise((resolve) => setTimeout(resolve, 750));
+        await route.continue();
+      });
     await context.route("https://openrouter.ai/auth?**", async (route) => {
       const auth = new URL(route.request().url());
       const callback = new URL(auth.searchParams.get("callback_url"));
@@ -99,6 +109,11 @@ try {
         auth.searchParams.get("state"),
       );
       callback.searchParams.set("code", "provider-code-without-state-echo");
+      if (slowStart)
+        callback.search = new URLSearchParams({
+          code: "provider-code-with-state-echo",
+          state: auth.searchParams.get("state"),
+        }).toString();
       await route.fulfill({
         contentType: "text/html",
         headers: { "Cross-Origin-Opener-Policy": "same-origin" },
@@ -159,6 +174,18 @@ try {
     });
     await page.goto(`${origin}/?table=camera-check`);
     await page.locator("body:not([inert])").waitFor();
+    await page.exposeFunction("recordSignInReady", () =>
+      readyMessages.push(true),
+    );
+    await page.evaluate(() => {
+      window.addEventListener("message", (event) => {
+        if (
+          event.origin === location.origin &&
+          event.data?.type === "cosy-openrouter-ready"
+        )
+          void window.recordSignInReady();
+      });
+    });
     await page.locator("#toolbar-menu-button").click();
     await page.locator("#menu-button").click();
     const gameUrl = page.url();
@@ -174,12 +201,14 @@ try {
       await page.waitForURL("https://openrouter.ai/auth?**");
       await page.locator("#authorize").click();
       await page.locator("#openrouter-options").waitFor({ state: "visible" });
+      await page.locator("body:not([inert])").waitFor();
       assert.equal(page.url(), gameUrl);
     } else {
       const opened = page.waitForEvent("popup");
       await page.locator("#openrouter-connect").click();
       const popup = await opened;
       await popup.waitForURL("https://openrouter.ai/auth?**");
+      assert.equal(readyMessages.length, 1);
       await popup.locator("#authorize").click();
       await page.locator("#openrouter-options").waitFor({ state: "visible" });
       assert.equal(page.url(), gameUrl);
@@ -230,7 +259,7 @@ try {
       player.pause();
     });
     await page.screenshot({
-      path: `output/scene-video/${width}-${fallback ? "same-tab" : "window"}.png`,
+      path: `output/scene-video/${width}-${fallback ? "same-tab" : slowStart ? "slow-window" : "window"}.png`,
     });
     assert(
       !(await page.evaluate(
@@ -246,6 +275,7 @@ try {
     evidence.push({
       width,
       fallback,
+      slowStart: Boolean(slowStart),
       gameKept: true,
       connected: true,
       contextVideo: true,

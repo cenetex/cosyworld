@@ -148,8 +148,10 @@ export async function setupOpenRouter() {
     };
   }
   let message;
+  const params = new URL(location.href).searchParams;
   const callback =
-    new URL(location.href).searchParams.get("openrouter") === "callback";
+    params.get("openrouter") === "callback" ||
+    (params.has("state") && (params.has("code") || params.has("error")));
   try {
     if (callback) status.textContent = "Connecting OpenRouter…";
     if (
