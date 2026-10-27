@@ -8,6 +8,7 @@ import { homecomingDefinitions } from "../v2/card-game/homecoming-quests.mjs";
 import { questCards, questHistoryCards } from "../v2/card-game/quest-cards.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import {
+  openDoorJourney,
   openDoorStart,
   openDoorSteps,
   openDoorWalk,
@@ -19,6 +20,19 @@ const report = (world, id) =>
   playOpenDoor(world, "choose", { choiceId: `greek-homecoming-report-${id}` });
 
 describe("homecoming story cards", () => {
+  it("selects each report in a two-card hand after reload", () => {
+    let world = openDoorJourney().after["greek-open-door-eleusis-care"];
+    world.quests.hands.vale = [key("agora"), key("eleusis")];
+    world = decodeSave(encodeSave(world));
+    const cards = questCards(world);
+    expect(cards.map(({ key }) => key)).toEqual([key("agora"), key("eleusis")]);
+    const ids = cards.map((card) => questCardId(world, card));
+    expect(new Set(ids).size).toBe(2);
+    for (let i = 0; i < cards.length; i++) {
+      expect(questForCard(world, ids[i]).key).toBe(cards[i].key);
+      expect(questForCard(world, ids[i]).purpose).toBe(cards[i].purpose);
+    }
+  });
   it("keeps each early report complete while later journeys add their own cards", () => {
     let world = openDoorStart();
     let firstReceipt;
