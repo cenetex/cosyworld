@@ -1,0 +1,90 @@
+name: Release image
+
+on:
+  pull_request:
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - .github/workflows/image-build.yml
+      - .github/workflows/deploy.yml
+      - scripts/prepare-fly-image.sh
+      - scripts/build-release-image.sh
+  workflow_dispatch:
+    inputs:
+      publish_image:
+        description: Build and upload the commit image and dependency cache
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-image-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  image:
+    name: Build and test release image
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - name: Build a fresh release image with four workers
+        if: ${{ !inputs.publish_image }}
+        run: |
+          nproc
+          free -m
+          docker buildx build --load --platform linux/amd64 \
+            --build-arg CARGO_BUILD_JOBS=4 --tag cosyworld-release-test .
+      - name: Setup flyctl
+        if: inputs.publish_image
+        uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Install image transfer tool
+        if: inputs.publish_image
+        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends skopeo
+      - name: Build and publish the commit image
+        if: inputs.publish_image
+        id: image
+        run: bash scripts/prepare-fly-image.sh cosyworld fly.toml
+        env:
+          COSYWORLD_IMAGE_BUILDER: runner
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      - name: Load the published image for checks
+        if: inputs.publish_image
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          RELEASE_IMAGE: ${{ steps.image.outputs.image }}
+        run: |
+          umask 077
+          export DOCKER_CONFIG
+          DOCKER_CONFIG="$(mktemp -d)"
+          trap 'rm -rf "$DOCKER_CONFIG"' EXIT
+          printf '%s\n' '{"auths":{"registry.fly.io":{}}}' > "$DOCKER_CONFIG/config.json"
+          flyctl auth docker
+          docker pull "$RELEASE_IMAGE"
+          docker tag "$RELEASE_IMAGE" cosyworld-release-test
+      - name: Start the release image
+        run: |
+          docker run --detach --name cosyworld-release-test --publish 3000:3000 \
+            --env COSYWORLD_PRIMARY_GAME=cards \
+            --env COSYWORLD_DEPLOY_PROFILE=development \
+            --env COSYWORLD_GENERATED_ASSET_DIR=/data/generated \
+            --env COSYWORLD_CARD_POLICY_MODEL_PATH=/app/models/card-policy/incumbent.cwrank \
+            cosyworld-release-test
+          for attempt in {1..30}; do
+            if curl --fail --silent --max-time 2 http://localhost:3000/health; then exit 0; fi
+            if [ "$(docker inspect --format '{{.State.Running}}' cosyworld-release-test)" != true ]; then break; fi
+            echo "Waiting for the release image ($attempt/30)"
+            sleep 2
+          done
+          docker logs cosyworld-release-test
+          exit 1
+      - name: Verify every served card asset and health
+        run: node v2/scripts/smoke-deployed-card-game.mjs http://localhost:3000
+      - name: Read container logs
+        if: always()
+        run: docker logs cosyworld-release-test || true
