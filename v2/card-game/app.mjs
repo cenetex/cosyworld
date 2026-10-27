@@ -677,6 +677,11 @@ $("story-retry").onclick = async () => {
     renderScene();
   }
 };
+function selectCards(cards) {
+  for (const id of selected)
+    if (people[id] && !cards.includes(id)) expandedHolders.delete(id);
+  selected = cards;
+}
 function choose(id) {
   if (selectionBlocked()) return;
   playQueue.clear();
@@ -687,20 +692,25 @@ function choose(id) {
     questRead.add(quest.key);
     rememberQuests();
     if (selected.includes(id)) {
-      selected = [];
+      selectCards([]);
       expandedQuestHolders.delete(quest.actor);
     } else {
-      selected = [id];
+      selectCards([id]);
       expandedQuestHolders.add(quest.actor);
     }
   } else {
     expandedQuestHolders.clear();
     selected = selected.filter((cardId) => !isQuestCard(cardId));
-    selected = selected.includes(id)
-      ? selected.filter((cardId) => cardId !== id)
-      : selected.length >= 2
-        ? [id]
-        : [...selected, id];
+    const holder = things[id] ? rootHolder(world, id) : null;
+    selectCards(
+      selected.includes(id)
+        ? selected.filter((cardId) => cardId !== id)
+        : selected.length >= 2
+          ? selected.includes(holder)
+            ? selected.map((cardId) => (cardId === holder ? id : cardId))
+            : [id]
+          : [...selected, id],
+    );
   }
   selectionRevision = world.revision;
   render();
@@ -734,6 +744,7 @@ function performAction(action, revision) {
     notice(result.error);
     selected = [];
     expandedHolders.clear();
+    expandedQuestHolders.clear();
     render();
     return;
   }
@@ -770,6 +781,7 @@ function performAction(action, revision) {
   exchange.begin();
   selected = [];
   expandedHolders.clear();
+  expandedQuestHolders.clear();
   lineSeq = null;
   notice("");
   save();
@@ -1371,7 +1383,10 @@ function updateCardSelection(frame) {
   );
   if (isQuestCard(id)) {
     const quest = questForCard(world, id, shownQuest());
-    frame.hidden = !quest || !expandedHolders.has(quest.actor);
+    frame.hidden =
+      !quest ||
+      (!expandedHolders.has(quest.actor) &&
+        !expandedQuestHolders.has(quest.actor));
     frame.dataset.stacked = String(
       Number(frame.dataset.stackIndex) > 0 &&
         !expandedQuestHolders.has(quest?.actor),
@@ -1386,7 +1401,7 @@ function updateCardSelection(frame) {
     return;
   }
   if (frame.dataset.holder)
-    frame.hidden = !expandedHolders.has(frame.dataset.holder);
+    frame.hidden = !raised && !expandedHolders.has(frame.dataset.holder);
   if (held.length || questCards(world, id).length) {
     frame.dataset.expanded = String(expandedHolders.has(id));
     button.setAttribute("aria-expanded", String(expandedHolders.has(id)));
@@ -1429,7 +1444,8 @@ function questCard(id) {
     index > 0 && !expandedQuestHolders.has(quest.actor),
   );
   frame.style.zIndex = String(raised ? 100 : deck.length - index + 1);
-  frame.hidden = !expandedHolders.has(quest.actor);
+  frame.hidden =
+    !expandedHolders.has(quest.actor) && !expandedQuestHolders.has(quest.actor);
   const face = node("button", undefined, "card quest");
   face.type = "button";
   face.dataset.card = id;
@@ -1562,7 +1578,7 @@ function card(id) {
     e.stopPropagation();
     if (!selectionBlocked() && dragging.length && !dragging.includes(id)) {
       playQueue.clear();
-      selected = [dragging[0], id];
+      selectCards([dragging[0], id]);
       selectionRevision = world.revision;
       render();
     }
@@ -1575,7 +1591,7 @@ function card(id) {
   const holder = things[id] ? rootHolder(world, id) : null;
   if (people[holder]) {
     frame.dataset.holder = holder;
-    frame.hidden = !expandedHolders.has(holder);
+    frame.hidden = !raised && !expandedHolders.has(holder);
     el.setAttribute("aria-label", `${def.name}, carried by ${nameOf(holder)}`);
   }
   if (people[id] || questCards(world, id).length) {
@@ -2301,6 +2317,7 @@ document.addEventListener("keydown", (e) => {
     playQueue.clear();
     selected = [];
     expandedHolders.clear();
+    expandedQuestHolders.clear();
     render();
   }
 });
@@ -2320,6 +2337,7 @@ document.addEventListener("click", (e) => {
     playQueue.clear();
     selected = [];
     expandedHolders.clear();
+    expandedQuestHolders.clear();
     render();
   }
 });
@@ -2404,6 +2422,7 @@ $("confirm-reset").onclick = () => {
   lineSeq = null;
   selected = [];
   expandedHolders.clear();
+  expandedQuestHolders.clear();
   saveBlocked = false;
   notice("");
   save();
@@ -2431,6 +2450,7 @@ window.addEventListener("storage", (event) => {
     lineSeq = null;
     selected = [];
     expandedHolders.clear();
+    expandedQuestHolders.clear();
     saveBlocked = false;
     notice("The world was updated in another tab.");
     resumeScene();
@@ -2514,6 +2534,7 @@ async function submitSharedPlay(action) {
     await sharedSession.play(action);
     selected = [];
     expandedHolders.clear();
+    expandedQuestHolders.clear();
     reviewing = false;
     notice("");
   } catch (error) {
@@ -2565,10 +2586,12 @@ function adoptShared(value) {
     if (alreadyOpen) queueQuestCompletions(world, next);
     world = next;
     sharedWorldKey = key;
-    selected = selected.filter((id) =>
-      isQuestCard(id)
-        ? Boolean(questForCard(world, id, shownQuest()))
-        : availableCards(world).includes(id),
+    selectCards(
+      selected.filter((id) =>
+        isQuestCard(id)
+          ? Boolean(questForCard(world, id, shownQuest()))
+          : availableCards(world).includes(id),
+      ),
     );
     selectionRevision = world.revision;
     renderedHand = "";
