@@ -160,6 +160,10 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/scene.mjs"),
         ),
+        "portrait-facing.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/portrait-facing.mjs"),
+        ),
         "cards.mjs" => (
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/cards.mjs"),

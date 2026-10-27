@@ -1,3 +1,4 @@
+import { flipStagePortrait } from "./portrait-facing.mjs";
 import {
   connectSharedWorld,
   createSharedPlaybackClock,
@@ -1687,7 +1688,6 @@ function returnToLive() {
 }
 function renderHeldItem(figure, actor, itemId) {
   let preview = figure.querySelector(".portrait-held-item");
-  figure.dataset.flip = String(actor.flip);
   figure.setAttribute(
     "aria-label",
     itemId ? `${nameOf(actor.id)} holds ${nameOf(itemId)}` : nameOf(actor.id),
@@ -1813,7 +1813,8 @@ function renderScene() {
     );
     const image = figure.querySelector("img");
     if (image.getAttribute("src") !== actor.cutout) image.src = actor.cutout;
-    image.dataset.flip = String(actor.flip);
+    image.dataset.flip = String(flipStagePortrait(actor.cutout, actor.facing));
+    figure.dataset.flip = image.dataset.flip;
     renderHeldItem(figure, actor, id === currentActor(world) ? handItem : null);
     figure.classList.toggle(
       "active",
