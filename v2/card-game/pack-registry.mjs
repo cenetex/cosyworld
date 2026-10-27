@@ -1,5 +1,6 @@
 import { recordRecital, recitalVisit, validRecitals } from "./pack-recital.mjs";
 import { sectionAllows } from "./pack-sections.mjs";
+import { journeyNextPlace, validJourneyPlaces } from "./pack-journeys.mjs";
 // The compiled world packs mounted on the card table, indexed for the engine.
 // Packs supply data only; pack-rules.mjs applies the general rules they name.
 import compiled from "./packs.json" with { type: "json" };
@@ -145,6 +146,8 @@ export const resident = (id) => packPeople[id] || null;
 export const roamingQuestActor = (id) =>
   packPeople[id]?.roamingQuest === "latest-completion";
 export const staysPut = (id) => packPeople[id]?.travels === false;
+export const packJourneyDestination = (world, id) =>
+  journeyNextPlace(world, packOf(id), id);
 export const avoidsStandoffs = (id) => packPeople[id]?.standoffs === false;
 export const fixturesAt = (place) =>
   Object.entries(packFixtures)
@@ -452,6 +455,7 @@ export function validatePackStates(world) {
     if (
       !record(state) ||
       !validRecitals(world, pack) ||
+      !validJourneyPlaces(world, pack) ||
       state.revision !== pack.revision ||
       !["opening", "full"].includes(state.scope) ||
       Object.keys(state).sort().join() !==
