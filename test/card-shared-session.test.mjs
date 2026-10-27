@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { connectSharedWorld } from "../v2/card-game/shared.mjs";
 
-function snapshot(version, now = 1000) {
+function snapshot(revision, now = 1000) {
   return {
     actor: "vale",
     present: [1],
@@ -44,7 +44,9 @@ describe("shared snapshot ordering", () => {
     finishPoll(respond(snapshot(1)));
     await poll;
     expect(connection.state.world.turn).toBe(2);
-    expect(listener.mock.calls.map(([value]) => value.version)).toEqual([2]);
+    expect(listener.mock.calls.map(([value]) => value.world.revision)).toEqual([
+      2,
+    ]);
   });
 
   it("accepts queue and presence updates at the same world version", async () => {
