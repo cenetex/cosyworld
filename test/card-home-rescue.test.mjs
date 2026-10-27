@@ -174,6 +174,15 @@ describe("a path out of a stranded home", () => {
       expect(result.ok).toBe(true);
       expect(result.state.items.lamp.holder).toBe("vale");
     }
+    const refused = opening();
+    refused.opening.crossed = true;
+    refused.opening.met.moth = 0;
+    refused.locations.attic.anchored = true;
+    refused.actors.moth.place = "attic";
+    refused.items.lamp.holder = "moth";
+    expect(willingToGive(refused, "moth", "lamp", "vale")).toBe(false);
+    expect(legalActions(refused, "vale").some(a => a.kind === "trade" && a.receive === "lamp")).toBe(false);
+    expect(exits(refused, "attic", "vale")).toEqual(["station"]);
   });
   it("offers rescue only for the human who stands in the queried home", () => {
     const s = opening();

@@ -83,6 +83,11 @@ try {
       (await page.locator("#backdrop").getAttribute("src")).includes("station"),
     );
 
+    await selectCard(page, "pond", { touch: width === 390 });
+    await page.locator('#card-actions [data-action="move"]').click();
+    await page.waitForFunction(() => document.querySelector("#backdrop").src.includes("pond"));
+    await ready(page);
+
     let world = dispatchShared({
       op: "create",
       save: encodeSave(createWorld()),
