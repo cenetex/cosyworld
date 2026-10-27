@@ -12,6 +12,7 @@ const groups = {
   left: [
     "assets/moth.png",
     "assets/keeper.png",
+    "assets/greek-drama/myrine.webp",
     ...[
       "antigone",
       "ismene",
