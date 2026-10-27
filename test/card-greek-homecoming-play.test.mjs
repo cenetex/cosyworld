@@ -137,4 +137,34 @@ describe("the household reaches its berth", () => {
       shared(result.world).world.actors["greek-household-witness"].place,
     ).toBe("greek-piraeus");
   });
+
+  it("credits the traveler who brings the signed account without changing the earlier author's verses", () => {
+    const prior = homecomingJourney().after["greek-homecoming-receive-family"];
+    let world = dispatchShared({ op: "create", save: encodeSave(prior) }).world;
+    world.actors.mara.place = "greek-piraeus";
+    for (const [kind, fields] of [
+      ["take", { item: "greek-return-list" }],
+      ["move", { target: "greek-harbor" }],
+      ["move", { target: "greek-courtyard" }],
+      ["choose", { choiceId: "greek-homecoming-read-berth-family" }],
+    ]) {
+      const view = shared(world, "mara", ["mara"]);
+      const action = openDoorAction(view.world, kind, fields);
+      const result = shared(world, "mara", ["mara"], { op: "play", action });
+      expect(result.ok).toBe(true);
+      world = result.world;
+    }
+    const recital = world.packs["greek-drama"].recitals;
+    expect(recital["greek-homecoming-read-berth-family"].actor).toBe("mara");
+    expect(recital["greek-homecoming-receive-family"].actor).toBe("vale");
+    expect(recital["greek-open-door-family-berth"]).toEqual(
+      prior.packs["greek-drama"].recitals["greek-open-door-family-berth"],
+    );
+    expect(world.items["greek-return-list"].holder).toBe("greek-courtyard");
+    expect(
+      shared(decodeSave(encodeSave(world)), "mara").actions.some(
+        (a) => a.choiceId === "greek-homecoming-read-berth-family",
+      ),
+    ).toBe(false);
+  });
 });

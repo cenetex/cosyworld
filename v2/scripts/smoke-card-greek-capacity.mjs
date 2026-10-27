@@ -89,12 +89,12 @@ async function stop() {
   child.kill("SIGTERM");
   await ended;
 }
-async function until(check, label) {
+async function until(check, label, interval = 250) {
   for (let n = 0; n < 120; n++) {
     try {
       if (await check()) return;
     } catch {}
-    await delay(250);
+    await delay(interval);
   }
   throw new Error(`${label}: ${processLog.slice(-2000)}`);
 }
@@ -205,6 +205,7 @@ try {
     "piraeus",
     "eleusis",
   ]) {
+    for (const page of pages) await command(page, { op: "heartbeat" });
     const state = await view(vale);
     assert.ok(!state.exits.includes("greek-athens"));
     const action = state.actions.find(
@@ -215,6 +216,7 @@ try {
     await until(
       async () => !(await view(vale)).queue.length,
       `side road to ${destination}`,
+      2000,
     );
     const next = await view(vale);
     assert.equal(next.world.actors.vale.place, `greek-${destination}`);
@@ -244,6 +246,7 @@ try {
   await until(
     async () => !(await view(vale)).queue.length,
     "return to Eleusis commits",
+    2000,
   );
   await command(tavi, { op: "enter" });
   assert.equal((await view(tavi)).world.presentActors.includes("tavi"), true);

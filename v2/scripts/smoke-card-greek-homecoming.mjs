@@ -4,7 +4,7 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { encodeSave } from "../card-game/world.mjs";
 import { profiles } from "../card-game/memory.mjs";
-import { questCards } from "../card-game/quest-cards.mjs";
+import { questCards, questCardId } from "../card-game/quest-cards.mjs";
 import { openingFixture } from "../../test/helpers/greek-opening.mjs";
 import {
   openDoorAction,
@@ -117,6 +117,8 @@ try {
       const cards = action.cards?.length
         ? action.cards
         : [action.item || action.target || "vale"];
+      if (kind === "drop" && !cards.includes(fields.target))
+        cards.push(fields.target);
       for (const id of [...new Set(cards)])
         await selectCard(page, id, { touch: width === 390 });
       const selector = fields.choiceId
@@ -161,6 +163,27 @@ try {
         }
         if (action.choiceId === "greek-homecoming-agree-journey") {
           await capture("agreed-journey");
+          const world = await state();
+          const quest = questCards(world, "greek-household-witness").find(
+            (card) =>
+              card.key === "greek-drama:story-quest-greek-homecoming-household",
+          );
+          assert.ok(quest, "Myrine holds her journey card");
+          const id = questCardId(world, quest);
+          await selectCard(page, id, { touch: width === 390 });
+          const card = page.locator(`#hand [data-card="${id}"]`);
+          assert.equal(
+            await card.locator(".name").textContent(),
+            "Bring Myrine to the waiting berth.",
+          );
+          assert.ok(
+            await card.evaluate(
+              (element) => element.scrollHeight <= element.clientHeight + 1,
+            ),
+            "journey card fits",
+          );
+          await capture("myrine-quest");
+          await page.keyboard.press("Escape");
           const before = await state();
           await page.reload();
           await settle();
