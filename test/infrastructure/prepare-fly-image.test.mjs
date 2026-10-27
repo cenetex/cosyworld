@@ -25,13 +25,15 @@ function prepare({
   const log = join(dir, "calls.jsonl");
   const output = join(dir, "output");
   const fake = `#!${process.execPath}
-import { appendFileSync, existsSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 const command = basename(process.argv[1]);
 const args = process.argv.slice(2);
 const env = process.env;
 appendFileSync(env.TEST_LOG, JSON.stringify({ command, args, config: env.DOCKER_CONFIG, token: env.FLY_API_TOKEN }) + '\\n');
 if (command === 'flyctl' && args[0] === 'auth') {
+  const config = JSON.parse(readFileSync(join(env.DOCKER_CONFIG, 'config.json'), 'utf8'));
+  if (!config.auths?.['registry.fly.io']) process.exit(1);
   writeFileSync(join(env.DOCKER_CONFIG, 'config.json'), '{}');
 } else if (command === 'flyctl' && args[0] === 'deploy') {
   if (env.TEST_BUILD_FAIL === 'true') process.exit(1);

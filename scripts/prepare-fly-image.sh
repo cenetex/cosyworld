@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
 
 # Reuse a commit image, or copy the primary build with each app's own token.
 app="${1:?Fly app is required}"
@@ -25,25 +26,28 @@ credentials="$(mktemp -d)"
 trap 'rm -rf "$credentials"' EXIT
 export DOCKER_CONFIG="$credentials/destination"
 mkdir -m 700 "$DOCKER_CONFIG"
+# An explicit registry entry keeps Docker's login in this temporary file.
+printf '%s\n' '{"auths":{"registry.fly.io":{}}}' > "$DOCKER_CONFIG/config.json"
 flyctl auth docker
 authfile="$DOCKER_CONFIG/config.json"
 image="registry.fly.io/${app}:deploy-${GITHUB_SHA}"
-digest="$(skopeo inspect --authfile "$authfile" --format '{{.Digest}}' "docker://${image}" 2>/dev/null || true)"
+digest="$(skopeo inspect --no-tags --authfile "$authfile" --format '{{.Digest}}' "docker://${image}" 2>/dev/null || true)"
 
 if [ -n "$source_image" ]; then
   source_digest="${source_image##*@}"
   if [ "$digest" != "$source_digest" ]; then
     mkdir -m 700 "$credentials/source"
+    printf '%s\n' '{"auths":{"registry.fly.io":{}}}' > "$credentials/source/config.json"
     DOCKER_CONFIG="$credentials/source" FLY_API_TOKEN="$FLY_SOURCE_API_TOKEN" flyctl auth docker
     skopeo copy --retry-times 3 --all --preserve-digests \
       --src-authfile "$credentials/source/config.json" --dest-authfile "$authfile" \
       "docker://${source_image}" "docker://${image}"
-    digest="$(skopeo inspect --authfile "$authfile" --format '{{.Digest}}' "docker://${image}")"
+    digest="$(skopeo inspect --no-tags --authfile "$authfile" --format '{{.Digest}}' "docker://${image}")"
     test "$digest" = "$source_digest"
   fi
 elif [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
   flyctl deploy --remote-only --config "$config" --build-only --push --image-label "deploy-${GITHUB_SHA}"
-  digest="$(skopeo inspect --authfile "$authfile" --format '{{.Digest}}' "docker://${image}")"
+  digest="$(skopeo inspect --no-tags --authfile "$authfile" --format '{{.Digest}}' "docker://${image}")"
 fi
 
 [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
