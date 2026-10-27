@@ -9,8 +9,9 @@ port `3000`; there is no proxy in front of it.
 | `lonelyforest.com`, `www.lonelyforest.com` | `lonelyforest-root` | `/data/cosyworld-v2-events.sqlite` |
 
 The subdomain worlds (`0`, `7`, `89`, `lantern`, `hoppycat`) were retired on
-2026-10-26. The root app retains `/classic` for compatibility. Their journals and generated assets remain on
-the volume under `/data/worldpacks/<slug>/` as an archive. Nothing serves them.
+2026-10-26. The root app retains `/classic` for compatibility. The former
+subdomain journals and generated assets remain on the volume under
+`/data/worldpacks/<slug>/` as an archive.
 
 The process and shard identity stay `lonelyforest-root`, the value the former
 multitenant supervisor assigned, because the journal's leases are keyed to it.

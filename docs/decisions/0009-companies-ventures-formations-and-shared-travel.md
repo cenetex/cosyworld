@@ -1,8 +1,8 @@
 # ADR 0009: companies, ventures, formations, and shared travel
 
-> Decision record: scope and implementation are checked against the
-> [current game source map](../current-game.md). Earlier classic-game terms
-> describe that release; the card-game guide describes current play.
+> Historical classic-game decision. The status below records its acceptance
+> at the stated date. Check implementation against the
+> [current game source map](../current-game.md) before feature work.
 
 - Status: Accepted design; implementation staged behind current P1 work
 - Date: 2026-08-12

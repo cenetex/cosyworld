@@ -1,8 +1,8 @@
 # ADR 0010: semantic instruments shape recall, not history
 
-> Decision record: scope and implementation are checked against the
-> [current game source map](../current-game.md). Earlier classic-game terms
-> describe that release; the card-game guide describes current play.
+> Historical classic-game decision. The status below records its acceptance
+> at the stated date. Check implementation against the
+> [current game source map](../current-game.md) before feature work.
 
 - Status: Accepted design; implementation blocked on #725, which is
   authoritative wherever the two disagree

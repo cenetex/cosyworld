@@ -1,8 +1,8 @@
 # ADR 0003: capacity processes serve one canonical world
 
-> Decision record: scope and implementation are checked against the
-> [current game source map](../current-game.md). Earlier classic-game terms
-> describe that release; the card-game guide describes current play.
+> Historical classic-game decision. The status below records its acceptance
+> at the stated date. Check implementation against the
+> [current game source map](../current-game.md) before feature work.
 
 - Status: Accepted; amended 2026-10-17 by ADR 0015 (local card tables are non-canonical installations)
 - Date: 2026-07-17

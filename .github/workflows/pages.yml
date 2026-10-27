@@ -5,6 +5,9 @@ on:
     paths:
       - ".github/workflows/pages.yml"
       - "docs/**"
+      - "*.md"
+      - "v2/**/*.md"
+      - ".github/AGENT.md"
       - "scripts/build-docs.mjs"
       - "package.json"
       - "package-lock.json"
@@ -13,6 +16,9 @@ on:
     paths:
       - ".github/workflows/pages.yml"
       - "docs/**"
+      - "*.md"
+      - "v2/**/*.md"
+      - ".github/AGENT.md"
       - "scripts/build-docs.mjs"
       - "package.json"
       - "package-lock.json"

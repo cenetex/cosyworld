@@ -1,8 +1,8 @@
 # ADR 0015: a generated world, seen through cards
 
-> Decision record: scope and implementation are checked against the
-> [current game source map](../current-game.md). Earlier classic-game terms
-> describe that release; the card-game guide describes current play.
+> Historical card-game decision. The status below records its acceptance
+> at the stated date. Check implementation against the
+> [current game source map](../current-game.md) before feature work.
 
 - Status: Accepted
 - Date: 2026-10-18
