@@ -12094,6 +12094,15 @@
       observations: observableStates(world, [...actorIds2, ...relevantItems])
     };
   }
+  function sceneryDue(turn) {
+    if (turn === 0) return true;
+    if (turn < 4) return false;
+    const block = Math.floor(turn / 4);
+    let seed = Math.imul(block, 73244475);
+    seed = Math.imul(seed ^ seed >>> 16, 73244475);
+    const offset = (seed ^ seed >>> 16) & 1;
+    return turn % 4 === offset;
+  }
   function narrativeContext(world, action = null) {
     const location = world.actors[currentActor(world)].place;
     const beforeFirstLight = Boolean(
@@ -12162,6 +12171,7 @@
       turn: world.turn,
       outcome: turnOutcome(world),
       location,
+      scenery: sceneryDue(world.turn),
       focus,
       speakers,
       action: played?.text || (world.turn ? `${nameOf(currentActor(world))} waits and watches the cast.` : null),
@@ -12454,15 +12464,15 @@
       });
     }
     if (request.op === "speech") {
-      if (!Array.isArray(request.lines) || request.lines.length !== 2)
-        throw new Error("An exchange needs two lines.");
+      if (!Array.isArray(request.lines) || ![1, 2].includes(request.lines.length))
+        throw new Error("An exchange needs one or two lines.");
       const room = request.room || world.actors[actor].place;
       if (!places[room]) throw new Error("Choose a real room.");
       const lines2 = [];
       for (const line of request.lines) {
         const scenic = line.actorId == null && line.entityId === room;
         const speaker = scenic ? null : line.actorId || (people[line.entityId] ? line.entityId : null) || Object.keys(people).find((id) => people[id].name === line.speaker) || (people[line.speaker] ? line.speaker : null);
-        if (!scenic && (!speaker || world.actors[speaker].place !== room || humanAvatar(speaker) && !world.presentActors.includes(speaker) && !(speaker === actor && world.controlledActors.includes(speaker))) || typeof line.text !== "string" || !line.text.trim() || line.text.length > 600 || /[\u0000-\u001f\u007f]/u.test(line.text))
+        if (request.lines.length === 1 && speaker !== actor || !scenic && (!speaker || world.actors[speaker].place !== room || humanAvatar(speaker) && !world.presentActors.includes(speaker) && !(speaker === actor && world.controlledActors.includes(speaker))) || typeof line.text !== "string" || !line.text.trim() || line.text.length > 600 || /[\u0000-\u001f\u007f]/u.test(line.text))
           throw new Error(
             "Each line needs a present speaker or the room, and clear text."
           );
