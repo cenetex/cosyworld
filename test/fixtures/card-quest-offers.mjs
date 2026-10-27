@@ -31,6 +31,7 @@ export function offerWorld() {
   const life = lifeOf(world, "vale");
   for (const key of life.collection.cards) delete world.quests.records[key];
   life.collection.cards = [];
+  if (world.quests.hands) world.quests.hands.vale = [];
   life.collection.active = null;
   delete world.quests.focus.vale;
   life.collection.authoredThrough = 2;
@@ -107,5 +108,6 @@ export function threeGatherings({
     lifeOf(world, "vale").phase = "active";
   }
   if (twoProtected) records[1].participants = ["mara", "vale"];
+  delete world.quests.hands;
   return validateWorld(world);
 }

@@ -1,4 +1,13 @@
-import { pruneQuestOffers } from "./quest-offers.mjs";
+import {
+  dropQuest,
+  questCarried,
+  carryQuest,
+  questHolderActor,
+  canCarryQuest,
+  questHandKeys,
+  settleQuestHands,
+  validQuestHands,
+} from "./quest-hands.mjs";
 import { syncStoryQuests, validStoryQuest } from "./story-quests.mjs";
 import {
   installRoamingQuests,
@@ -494,7 +503,12 @@ function captureHands(s, met) {
   for (const actor of knownActors(s).filter((id) => !isPackActor(id))) {
     const collection = lifeOf(s, actor)?.collection;
     const cards = collection
-      ? collectionCards(s, actor).filter((q) => q.completedTurn === null)
+      ? collectionCards(s, actor).filter(
+          (q) =>
+            q.completedTurn === null &&
+            (questCarried(s, actor, q.key) ||
+              q.participants.some((id) => questCarried(s, id, q.key))),
+        )
       : [
           {
             key: null,
@@ -548,7 +562,10 @@ function captureHands(s, met) {
       ? [quest.subjectActor]
       : quest.participants;
     for (const actor of actorIds.filter(
-      (id) => candidates.includes(id) && entityActive(s, id),
+      (id) =>
+        candidates.includes(id) &&
+        entityActive(s, id) &&
+        questCarried(s, id, quest.key),
     )) {
       const target = alternatives(quest.program.steps[quest.step]).find(
         (h) => handStatus(s, actor, h).met,
@@ -958,7 +975,15 @@ function remember(s, item, text) {
   s.items[item].history = s.items[item].history.slice(-12);
 }
 function transfer(s, item, holder, text) {
+  const owned = new Map(
+    questRecords(s).map((q) => [q.key, questHolderActor(s, q)]),
+  );
   s.items[item].holder = holder;
+  settleQuestHands(s);
+  for (const q of questRecords(s)) {
+    const actor = questHolderActor(s, q);
+    if (actor && actor !== owned.get(q.key)) carryQuest(s, actor, q);
+  }
   remember(s, item, text);
 }
 function offer(kind, actor, item, target, text, cards) {
@@ -1116,6 +1141,7 @@ function sharedQuestActions(s, actor) {
     if (
       quest.completedTurn !== null ||
       quest.retired ||
+      quest.droppedBy?.[actor] !== undefined ||
       !visibleQuest(s, actor, quest)
     )
       continue;
@@ -1180,7 +1206,7 @@ export function legalActions(s, actor = currentActor(s)) {
     offer("wait", actor, null, null, `${nameOf(actor)} waits one turn.`, []),
   ];
   for (const quest of actorQuests(s, actor).filter(
-    (q) => q.status === "pending",
+    (q) => q.status === "pending" && canCarryQuest(s, actor, q),
   )) {
     out.push({
       kind: "pursue",
@@ -1193,6 +1219,26 @@ export function legalActions(s, actor = currentActor(s)) {
     });
   }
   out.push(...sharedQuestActions(s, actor));
+  const carried = questHandKeys(s, actor).map((key) => s.quests.records[key]);
+  if (
+    lifeOf(s, actor) &&
+    !lifeOf(s, actor).collection &&
+    canCarryQuest(s, actor)
+  )
+    carried.push(...actorQuests(s, actor).filter((q) => !q.holder));
+  for (const q of carried) {
+    const key = q.key;
+    out.push({
+      kind: "drop-quest",
+      actor,
+      questKey: key,
+      key: `drop-quest:${actor}:${key}`,
+      cards: [],
+      label: "Drop",
+      text: `${nameOf(actor)} sets aside ${q.program.name}.`,
+      parts: [],
+    });
+  }
   for (const to of exits(s, here, actor)) {
     const through = !baseExits(s, here).includes(to);
     const crossing = crossingBetween(here, to, s);
@@ -1553,6 +1599,23 @@ function perform(s, a, capture = () => {}, round = null) {
     if (a.actor === conflict.defender) conflict.answered = true;
   }
   if (a.kind === "wait") return;
+  if (a.kind === "drop-quest") {
+    dropQuest(s, a.actor, a.questKey);
+    const remaining = questHandKeys(s, a.actor).find(
+      (key) => s.quests.records[key].completedTurn === null,
+    );
+    if (!focusedQuest(s, a.actor) && remaining)
+      pursueQuest(s, a.actor, remaining);
+    addLog(s, "World", a.text, {
+      kind: "action",
+      verb: "drop-quest",
+      actorId: a.actor,
+      locationId: here,
+      questKey: a.questKey,
+      targetId: questRecord(s, a.questKey).holder.id,
+    });
+    return;
+  }
   if (a.kind === "join-quest" || a.kind === "share-quest") {
     if (a.kind === "join-quest") focusQuest(s, a.actor, a.questKey);
     else shareQuest(s, a.questKey, a.holder);
@@ -2373,6 +2436,7 @@ export function play(
     if (count <= 3) delete next.sharedMigration.inventoryAllowances[id];
     else next.sharedMigration.inventoryAllowances[id] = count;
   }
+  settleQuestHands(next);
   validateWorld(next);
   return { ok: true, state: next };
 }
@@ -2511,6 +2575,7 @@ export function validateWorld(s) {
       origin: (value) => validQuestOrigin(s, value),
       story: (quest) => validStoryQuest(s, quest),
     }) ||
+    !validQuestHands(s) ||
     !validQuestCompletions(s, actorIds, Object.keys(places))
   )
     fail();
@@ -2786,7 +2851,9 @@ export function validateWorld(s) {
             collection.lastOfferTurn < 0 ||
             collection.lastOfferTurn > s.turn)) ||
         new Set(cards.map((q) => q.key)).size !== cards.length ||
-        cards.filter((q) => q.completedTurn === null).length > 8 ||
+        cards.filter(
+          (q) => q.completedTurn === null && questCarried(s, id, q.key),
+        ).length > 8 ||
         cards.some(
           (q) =>
             !q ||
@@ -2980,6 +3047,7 @@ export function validateWorld(s) {
     fail();
   let seq = 0;
   const verbs = [
+    "drop-quest",
     "join-quest",
     "share-quest",
     "accompany",
@@ -3183,5 +3251,6 @@ export function decodeSave(text) {
   });
   validateWorld(s);
   preserveTransportAccess(s);
-  return validateWorld(pruneQuestOffers(s));
+  settleQuestHands(s);
+  return validateWorld(s);
 }

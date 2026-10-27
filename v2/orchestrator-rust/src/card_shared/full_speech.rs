@@ -24,8 +24,11 @@ fn prepared(actor: usize, work: &Value) -> Result<(Value, Vec<String>)> {
     let target = scene["outcome"]["card"]["target"].as_str();
     let reply = target
         .filter(|id| speakers.contains(id) && !roster.contains(id))
-        .unwrap_or(room);
-    let ids = vec![actor_id(actor).to_string(), reply.to_string()];
+        .or_else(|| (scene["scenery"].as_bool().unwrap_or(true)).then_some(room));
+    let mut ids = vec![actor_id(actor).to_string()];
+    if let Some(reply) = reply {
+        ids.push(reply.to_string());
+    }
     let profiles = work["profiles"]
         .as_object()
         .ok_or("The scene needs its character profiles.")?;
@@ -49,13 +52,29 @@ fn parse(text: &str, finish: &str, work: &Value, ids: &[String]) -> Result<Value
     }
     let parsed: Value = serde_json::from_str(text).map_err(|_| error.to_string())?;
     let entries = parsed["entries"].as_array().ok_or(error)?;
-    if entries.len() != ids.len() {
+    if entries.is_empty()
+        || entries.len() > ids.len()
+        || entries
+            .iter()
+            .map(|e| e["id"].as_str())
+            .collect::<BTreeSet<_>>()
+            .len()
+            != entries.len()
+        || entries.iter().any(|e| !ids.iter().any(|id| e["id"] == *id))
+    {
         return Err(error.into());
     }
     let mut seen = BTreeSet::new();
     let mut lines = Vec::new();
     for id in ids {
-        let entry = entries.iter().find(|e| e["id"] == *id).ok_or(error)?;
+        let Some(entry) = entries.iter().find(|e| e["id"] == *id) else {
+            if work["context"].get("scenery").is_some()
+                && work["profiles"][id]["kind"] == "location"
+            {
+                continue;
+            }
+            return Err(error.into());
+        };
         if !seen.insert(id) {
             return Err(error.into());
         }
@@ -133,7 +152,41 @@ mod tests {
         assert_eq!(ids, vec!["vale", "pip"]);
         let result=parse(r#"{"entries":[{"id":"vale","text":"What caught your eye?"},{"id":"pip","text":"That shine belongs in my collection."}]}"#,"stop",&work,&ids).unwrap();
         assert_eq!(result[1]["actorId"], "pip");
+        work["context"]["scenery"] = json!(false);
+        assert_eq!(prepared(0, &work).unwrap().1, vec!["vale", "pip"]);
         work["context"]["outcome"]["card"]["target"] = Value::Null;
+        assert_eq!(prepared(0, &work).unwrap().1, vec!["vale"]);
+        work["context"]["scenery"] = json!(true);
         assert_eq!(prepared(0, &work).unwrap().1, vec!["vale", "station"]);
+    }
+    #[test]
+    fn quiet_shared_turns_keep_the_actor_and_legacy_exchanges() {
+        let mut work = json!({"room":"station","context":{"location":"station","speakers":["vale"],"scenery":false,"outcome":{"card":{"target":null}}},"profiles":{"vale":{"name":"Vale","kind":"avatar"},"station":{"name":"Empty station","kind":"location"}}});
+        let (_, ids) = prepared(0, &work).unwrap();
+        assert_eq!(ids, vec!["vale"]);
+        let response = r#"{"entries":[{"id":"vale","text":"I can wait here."}]}"#;
+        assert_eq!(
+            parse(response, "stop", &work, &ids)
+                .unwrap()
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        work["context"]["scenery"] = json!(true);
+        let (_, scenic) = prepared(0, &work).unwrap();
+        assert_eq!(scenic, vec!["vale", "station"]);
+        assert!(parse(response, "stop", &work, &scenic).is_ok());
+        assert!(parse(
+            r#"{"entries":[{"id":"station","text":"Dust settles."}]}"#,
+            "stop",
+            &work,
+            &scenic
+        )
+        .is_err());
+        assert!(parse(r#"{"entries":[{"id":"vale","text":"I can wait."},{"id":"vale","text":"I can wait."}]}"#, "stop", &work, &scenic).is_err());
+        work["context"].as_object_mut().unwrap().remove("scenery");
+        assert_eq!(prepared(0, &work).unwrap().1, scenic);
+        assert!(parse(response, "stop", &work, &scenic).is_err());
     }
 }

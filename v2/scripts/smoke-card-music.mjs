@@ -68,6 +68,7 @@ try {
     await page.locator("#card-actions .card-primary").click();
   }
   // A new game stays quiet, menu included, until its first accepted card play.
+  await page.locator("#toolbar-menu-button").click();
   await page.locator("#menu-button").click();
   await page.waitForTimeout(500);
   assert(await page.locator("#room-music").evaluate((audio) => audio.paused));
@@ -82,6 +83,7 @@ try {
     const audio = document.querySelector("#room-music");
     return audio.src.endsWith("attic-1.mp3") && audio.currentTime > 0;
   });
+  await page.locator("#toolbar-menu-button").click();
   await page.locator("#menu-button").click();
   let volume = 0.3;
   const fullVolume = () =>
@@ -170,6 +172,7 @@ try {
   await page.waitForFunction(
     () => !document.querySelector("#room-music").paused,
   );
+  await page.locator("#toolbar-menu-button").click();
   await page.locator("#menu-button").click();
   await fullVolume();
   await page.locator("#music-toggle").click();
@@ -184,6 +187,7 @@ try {
     "Track changes and pauses happen after the gain reaches silence",
   );
   await page.reload();
+  await page.locator("#toolbar-menu-button").click();
   await page.locator("#menu-button").click();
   assert.equal(
     await page.locator("#music-toggle").getAttribute("aria-pressed"),
@@ -236,6 +240,7 @@ try {
   }, encodeSave(ship));
   await page.reload();
   await takeUnveiled();
+  await page.locator("#toolbar-menu-button").click();
   await page.locator("#menu-button").click();
   await fullVolume();
   assert.equal(await page.locator("#music-volume").inputValue(), "18");
@@ -305,12 +310,14 @@ try {
     ),
     "Ship boarding and disembarking change music after the fade",
   );
+  await page.locator("#toolbar-menu-button").click();
   await page.locator("#menu-button").click();
   await page.locator("#new-game").click();
   await page.locator("#confirm-reset").click();
   assert(await page.locator("#room-music").evaluate((audio) => audio.paused));
   await page.reload();
   await takeUnveiled();
+  await page.locator("#toolbar-menu-button").click();
   await page.locator("#menu-button").click();
   await page.locator("#music-toggle").click();
   await page.locator("#music-toggle").click();

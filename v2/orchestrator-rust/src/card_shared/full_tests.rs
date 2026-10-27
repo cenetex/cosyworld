@@ -883,40 +883,46 @@ fn imported_save_cannot_supply_server_claims_or_authority() {
 
 #[test]
 fn full_world_shared_speech_is_journaled_with_matching_log_sequences() {
-    let (path, mut c, id) = fixture();
-    claim(&mut c, &id, 0);
-    let w = full_store::world(&c, &id, now()).unwrap();
-    let mut b = body("play", None);
-    b.key = "shared-speech-0001".into();
-    b.action = w.project(0).unwrap()["actions"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|a| a["kind"] == "wait")
-        .unwrap()
-        .clone();
-    let tx = c
-        .transaction_with_behavior(TransactionBehavior::Immediate)
-        .unwrap();
-    full::run(&tx, &id, "user0", &b, now()).unwrap();
-    tx.commit().unwrap();
-    let state = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
-    let work = full::take_work(&state, &id).unwrap().unwrap();
-    let lines = json!([{"speaker":"Vale","actorId":"vale","entityId":"vale","text":"I could stay a little longer."},{"speaker":"Empty station","actorId":null,"entityId":work.room,"text":"A moth circles the glass."}]);
-    full::finish_work(&state, &id, work, Ok(lines)).unwrap();
-    let expected = full_store::world(&c, &id, now()).unwrap();
-    let snap = full_store::snapshot(&c, &id, "user0", now()).unwrap();
-    let lines = snap["history"][0]["lines"].as_array().unwrap();
-    assert_eq!(lines.len(), 2);
-    for line in lines {
-        assert!(expected.game["log"]
+    for with_scenery in [false, true] {
+        let (path, mut c, id) = fixture();
+        claim(&mut c, &id, 0);
+        let w = full_store::world(&c, &id, now()).unwrap();
+        let mut b = body("play", None);
+        b.key = "shared-speech-0001".into();
+        b.action = w.project(0).unwrap()["actions"]
             .as_array()
             .unwrap()
             .iter()
-            .any(|e| e["seq"] == line["seq"] && e["text"] == line["text"]));
+            .find(|a| a["kind"] == "wait")
+            .unwrap()
+            .clone();
+        let tx = c
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .unwrap();
+        full::run(&tx, &id, "user0", &b, now()).unwrap();
+        tx.commit().unwrap();
+        let state = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
+        let work = full::take_work(&state, &id).unwrap().unwrap();
+        assert_eq!(work.context["context"]["scenery"], false);
+        let mut lines = json!([{"speaker":"Vale","actorId":"vale","entityId":"vale","text":"I could stay a little longer."}]);
+        if with_scenery {
+            lines.as_array_mut().unwrap().push(json!({"speaker":"Empty station","actorId":null,"entityId":work.room,"text":"A moth circles the glass."}));
+        }
+        full::finish_work(&state, &id, work, Ok(lines)).unwrap();
+        let expected = full_store::world(&c, &id, now()).unwrap();
+        let snap = full_store::snapshot(&c, &id, "user0", now()).unwrap();
+        let lines = snap["history"][0]["lines"].as_array().unwrap();
+        assert_eq!(lines.len(), if with_scenery { 2 } else { 1 });
+        for line in lines {
+            assert!(expected.game["log"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|e| e["seq"] == line["seq"] && e["text"] == line["text"]));
+        }
+        c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+        assert_eq!(full_store::world(&c, &id, now()).unwrap(), expected);
     }
-    c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
-    assert_eq!(full_store::world(&c, &id, now()).unwrap(), expected);
 }
 
 #[test]
@@ -1706,6 +1712,8 @@ fn shared_quest_receipts_drive_bard_travel_after_released_rules_upgrade_and_repl
         (engine::SIXTH_VERSION, false),
         (engine::SEVENTH_VERSION, true),
         (engine::SEVENTH_VERSION, false),
+        (engine::EIGHTH_VERSION, true),
+        (engine::EIGHTH_VERSION, false),
     ] {
         let (_file, c, id) = fixture();
         c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
@@ -1752,25 +1760,32 @@ fn shared_quest_receipts_drive_bard_travel_after_released_rules_upgrade_and_repl
             "actors",
             "items",
             "questCompletions",
-            "quests",
             "log",
             "packs",
             "turn",
         ] {
             assert_eq!(w.game[key], previous.game[key], "Preserve {key}");
         }
+        for key in ["version", "next", "records", "focus"] {
+            assert_eq!(
+                w.game["quests"][key], previous.game["quests"][key],
+                "Preserve quest {key}"
+            );
+        }
+        assert!(w.game["quests"]["hands"].is_object());
         assert_eq!(w.claimed, previous.claimed);
-        let destinations: &[&str] = if version == engine::SEVENTH_VERSION {
-            // Version seven already followed the receipt before the upgrade.
-            &["greek-well", "greek-well"]
-        } else {
-            &[
-                "greek-harbor",
-                "greek-courtyard",
-                "greek-well",
-                "greek-well",
-            ]
-        };
+        let destinations: &[&str] =
+            if matches!(version, engine::SEVENTH_VERSION | engine::EIGHTH_VERSION) {
+                // Version seven already followed the receipt before the upgrade.
+                &["greek-well", "greek-well"]
+            } else {
+                &[
+                    "greek-harbor",
+                    "greek-courtyard",
+                    "greek-well",
+                    "greek-well",
+                ]
+            };
         for destination in destinations {
             let action = home_action(&w, 0, "wait");
             full_store::commit(
@@ -1792,14 +1807,18 @@ fn shared_quest_receipts_drive_bard_travel_after_released_rules_upgrade_and_repl
 
 #[test]
 fn released_quest_offers_upgrade_preserves_choices_and_replays_cleanup() {
-    for protected in [false, true] {
+    for (version, protected) in [
+        (engine::SEVENTH_VERSION, false),
+        (engine::SEVENTH_VERSION, true),
+        (engine::EIGHTH_VERSION, false),
+        (engine::EIGHTH_VERSION, true),
+    ] {
         let (path, c, id) = fixture();
         c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
         c.execute("DELETE FROM card_full_log", []).unwrap();
-        let result =
-            engine::reduce_version(engine::SEVENTH_VERSION, json!({"op":"create"})).unwrap();
+        let result = engine::reduce_version(version, json!({"op":"create"})).unwrap();
         let mut w = World {
-            version: engine::SEVENTH_VERSION.into(),
+            version: version.into(),
             game: result["world"].clone(),
             claimed: [1, 1, 0, 0, 0, 0, 0, 0],
             present: [1, 1, 0, 0, 0, 0, 0, 0],
@@ -1870,15 +1889,20 @@ fn released_quest_offers_upgrade_preserves_choices_and_replays_cleanup() {
                 previous.game["quests"]["records"][key]
             );
         }
-        assert!(w.game["quests"]["records"]["vale:quest:3"].is_null());
-        if protected {
+        for (key, record) in previous.game["quests"]["records"].as_object().unwrap() {
             assert_eq!(
-                w.game["quests"]["records"]["vale:quest:2"],
-                previous.game["quests"]["records"]["vale:quest:2"]
+                &w.game["quests"]["records"][key], record,
+                "Preserve record {key}"
             );
-        } else {
-            assert!(w.game["quests"]["records"]["vale:quest:2"].is_null());
         }
+        assert_eq!(
+            w.game["quests"]["hands"]["vale"],
+            if protected {
+                json!(["vale:quest:1", "vale:quest:2"])
+            } else {
+                json!(["vale:quest:1"])
+            }
+        );
         assert_eq!(
             w.game["quests"]["focus"]["vale"],
             previous.game["quests"]["focus"]["vale"]
@@ -1890,8 +1914,47 @@ fn released_quest_offers_upgrade_preserves_choices_and_replays_cleanup() {
                 previous.game["life"]["actors"]["vale"]["collection"][field]
             );
         }
-        assert_eq!(collection["lastOfferTurn"], 3);
+        assert_eq!(
+            collection["lastOfferTurn"],
+            previous.game["life"]["actors"]["vale"]["collection"]["lastOfferTurn"]
+        );
         full_store::commit(&c, &id, &mut w, json!({"op":"speech","actor":"vale","room":"station","lines":[{"actorId":"vale","text":"The meeting can wait."},{"actorId":null,"entityId":"station","text":"The platform settles into quiet."}]}), now()).unwrap();
+        let retained = w.game["quests"]["records"]["vale:quest:1"].clone();
+        let action = home_action(&w, 0, "drop-quest");
+        assert_eq!(action["questKey"], "vale:quest:1");
+        full_store::commit(
+            &c,
+            &id,
+            &mut w,
+            json!({"op":"play","actor":"vale","action":action}),
+            now(),
+        )
+        .unwrap();
+        let dropped = &w.game["quests"]["records"]["vale:quest:1"];
+        assert_eq!(dropped["program"], retained["program"]);
+        assert_eq!(dropped["step"], retained["step"]);
+        assert_eq!(dropped["participants"], retained["participants"]);
+        assert_eq!(dropped["droppedBy"]["vale"], 4);
+        for _ in 0..2 {
+            assert!(!w.project(0).unwrap()["actions"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|a| a["kind"] == "drop-quest" && a["questKey"] == "vale:quest:1"));
+            let action = home_action(&w, 0, "wait");
+            full_store::commit(
+                &c,
+                &id,
+                &mut w,
+                json!({"op":"play","actor":"vale","action":action}),
+                now(),
+            )
+            .unwrap();
+        }
+        assert_eq!(
+            w.game["quests"]["records"]["vale:quest:1"]["program"],
+            retained["program"]
+        );
         let upgraded = w.clone();
         drop(c);
         let c = store::open(&path).unwrap();
@@ -1900,6 +1963,51 @@ fn released_quest_offers_upgrade_preserves_choices_and_replays_cleanup() {
         c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
         assert_eq!(full_store::world(&c, &id, now()).unwrap(), upgraded);
     }
+}
+
+#[test]
+fn fulfilled_quest_hand_fades_after_two_played_turns_and_replays() {
+    let (_path, c, id) = fixture();
+    c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+    c.execute("DELETE FROM card_full_log", []).unwrap();
+    let mut w = World::create(None).unwrap();
+    w.claimed = [1, 0, 0, 0, 0, 0, 0, 0];
+    w.present = w.claimed;
+    full_store::seed(&c, &id, &w, "quest-fade", now()).unwrap();
+    let action = home_action(&w, 0, "light");
+    full_store::commit(
+        &c,
+        &id,
+        &mut w,
+        json!({"op":"play","actor":"vale","action":action}),
+        now(),
+    )
+    .unwrap();
+    let completed = w.game["quests"]["records"]["vale:quest:0"].clone();
+    assert_eq!(completed["completedTurn"], w.game["turn"]);
+    for age in 0..=2 {
+        let shown = w.project(0).unwrap()["actions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|a| a["kind"] == "drop-quest" && a["questKey"] == "vale:quest:0");
+        assert_eq!(shown, age < 2);
+        assert_eq!(w.game["quests"]["records"]["vale:quest:0"], completed);
+        assert!(w.game["quests"]["hands"]["vale"].as_array().unwrap().len() <= 2);
+        if age < 2 {
+            let action = home_action(&w, 0, "wait");
+            full_store::commit(
+                &c,
+                &id,
+                &mut w,
+                json!({"op":"play","actor":"vale","action":action}),
+                now(),
+            )
+            .unwrap();
+        }
+    }
+    c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+    assert_eq!(full_store::world(&c, &id, now()).unwrap(), w);
 }
 
 #[test]

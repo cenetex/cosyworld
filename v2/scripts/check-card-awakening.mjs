@@ -143,6 +143,7 @@ try {
   assert.ok(requests.at(-1).speakers.includes("badger"));
   await decode();
   await page.screenshot({ path: "output/badger-check/desktop-awake.png" });
+  await page.locator("#toolbar-menu-button").click();
   await page.locator("#menu-button").click();
   await page.locator('[data-close="menu-dialog"]').click();
   await play("pond");

@@ -94,6 +94,7 @@ export async function checkSharedMusicOpenings(browser, origin) {
         .waitFor({ state: "attached" });
       while (await page.locator("#unveil-dialog[open]").count())
         await page.keyboard.press("Escape");
+      await page.locator("#toolbar-menu-button").click();
       await page.locator("#menu-button").click();
       await page.locator("#music-toggle").click();
       await page.locator("#music-toggle").click();
@@ -122,6 +123,7 @@ export async function checkSharedMusicOpenings(browser, origin) {
       });
       assert(started.has(actor));
       await page.reload();
+      await page.locator("#toolbar-menu-button").click();
       await page.locator("#menu-button").click();
       await page.waitForFunction(() => {
         const a = document.querySelector("#room-music");

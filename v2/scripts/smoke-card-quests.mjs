@@ -135,7 +135,10 @@ try {
         await card("player-quest").getAttribute("draggable"),
         "false",
       );
-      assert.equal(await page.locator("#card-actions button").count(), 0);
+      assert.deepEqual(
+        await page.locator("#card-actions button").allTextContents(),
+        ["Drop"],
+      );
       assert.equal(
         await page.evaluate(() => document.activeElement.dataset.card),
         "player-quest",
@@ -205,6 +208,7 @@ try {
         "true",
       );
       if (width === 390) {
+        await page.locator("#toolbar-menu-button").click();
         await page.locator("#menu-button").click();
         await page.emulateMedia({ reducedMotion: "reduce" });
         await page.waitForTimeout(2500);
@@ -247,11 +251,56 @@ try {
         path: new URL(`fulfilled-${width}.png`, output).pathname,
       });
       await ready();
-      assert.equal(await card("player-quest").count(), 0);
+      assert.equal(
+        await page.locator('#hand [data-fulfilled="true"]').count(),
+        1,
+      );
       assert.equal(
         await page.evaluate(() => window.questMotions.includes("outward")),
         width !== 320,
         "completion uses the discovery flight in reverse with full motion",
+      );
+      const completedKey = await page
+        .locator('#hand [data-fulfilled="true"]')
+        .getAttribute("data-quest");
+      for (let turns = 1; turns <= 2; turns++) {
+        await selectCard(page, "vale");
+        await page.locator('#card-actions [data-action="wait"]').click();
+        await finish();
+        const completed = page.locator(`#hand [data-quest="${completedKey}"]`);
+        if (turns === 1) {
+          assert.equal(
+            await completed.locator("..").getAttribute("data-fading"),
+            "true",
+          );
+          await selectCard(page, await completed.getAttribute("data-card"));
+          assert.deepEqual(
+            await page.locator("#card-actions button").allTextContents(),
+            ["Drop"],
+          );
+          await page.waitForFunction(
+            (key) =>
+              Number(
+                getComputedStyle(
+                  document.querySelector(`#hand [data-quest="${key}"]`)
+                    .parentElement,
+                ).opacity,
+              ) <= 0.46,
+            completedKey,
+          );
+          await page.screenshot({
+            path: new URL(`fading-${width}.png`, output).pathname,
+          });
+        } else assert.equal(await completed.count(), 0);
+      }
+      assert.equal(
+        await page.evaluate(
+          ({ key, completedKey }) =>
+            JSON.parse(localStorage.getItem(key)).quests.records[completedKey]
+              .completedTurn !== null,
+          { key, completedKey },
+        ),
+        true,
       );
       // Resume a later purpose with an unfinished line. The new card waits for it.
       const nextQuestKey = await page.evaluate(async (key) => {
@@ -324,6 +373,7 @@ try {
       );
       assert.deepEqual(await page.evaluate(() => window.questReveals), []);
       // Reset restores the opening reveal; a save update safely cancels that reveal.
+      await page.locator("#toolbar-menu-button").click();
       await page.locator("#menu-button").click();
       await page.locator("#new-game").click();
       await page.locator("#confirm-reset").click();

@@ -133,11 +133,13 @@ describe("deploy workflow", () => {
     expect(dockerfile).toContain(
       "COPY models/card-policy /app/models/card-policy",
     );
-    expect(primaryFlyConfig).toContain('COSYWORLD_CARD_POLICY_MODE = "shadow"');
-    expect(primaryFlyConfig).toContain(
-      'COSYWORLD_CARD_POLICY_MODEL_PATH = "/app/models/card-policy/incumbent.cwrank"',
-    );
-    expect(primaryFlyConfig).toContain('COSYWORLD_CARD_POLICY_TOP_K = "3"');
+    for (const config of [primaryFlyConfig, lonelyForestFlyConfig]) {
+      expect(config).toContain('COSYWORLD_CARD_POLICY_MODE = "shadow"');
+      expect(config).toContain(
+        'COSYWORLD_CARD_POLICY_MODEL_PATH = "/app/models/card-policy/incumbent.cwrank"',
+      );
+      expect(config).toContain('COSYWORLD_CARD_POLICY_TOP_K = "3"');
+    }
   });
 
   it("keeps the Docker entrypoint COPY, chmod, and ENTRYPOINT destinations aligned", () => {
