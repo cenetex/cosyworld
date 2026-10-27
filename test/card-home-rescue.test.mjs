@@ -7,7 +7,9 @@ import {
   encodeSave,
   decodeSave,
   placeText,
+  willingToGive,
 } from "../v2/card-game/world.mjs";
+import { enableMotives, recordReaction } from "../v2/card-game/motives.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { humanAvatars, humanAvatarIds } from "../v2/card-game/human-cast.mjs";
 
@@ -49,6 +51,11 @@ describe("a path out of a stranded home", () => {
     expect(result.ok).toBe(true);
     expect(result.state.actors.vale.place).toBe("station");
     expect(result.state.items.lamp.fuel).toBe(0);
+    const restored = decodeSave(encodeSave(result.state));
+    const continued = play(restored, move(restored, "vale", "pond"));
+    expect(continued.ok).toBe(true);
+    expect(continued.state.actors.vale.place).toBe("pond");
+    expect(() => decodeSave(encodeSave(continued.state))).not.toThrow();
   });
   it("keeps local usable oil as recovery and spends it through the ordinary action", () => {
     const s = opening();
@@ -140,6 +147,54 @@ describe("a path out of a stranded home", () => {
     expect(view(w, a.id).exits).toEqual([]);
     w.actors.tavi.place = "pond";
     expect(view(w, a.id).exits).toEqual(["station"]);
+  });
+  it("keeps accepted resident gifts and trades as real recovery routes", () => {
+    for (const kind of ["ask", "trade"]) {
+      const s = enableMotives(opening());
+      s.opening.crossed = true;
+      s.opening.met.moth = s.opening.met.keeper = 0;
+      s.locations.attic.anchored = true;
+      s.actors.keeper.place = "attic";
+      s.items.lamp.holder = "keeper";
+      s.items.bell.holder = "vale";
+      if (kind === "trade") {
+        recordReaction(s, { kind: "ring", actor: "vale", item: "bell" }, [
+          "keeper",
+        ]);
+        expect(willingToGive(s, "keeper", "lamp", "vale")).toBe(false);
+      }
+      expect(exits(s, "attic", "vale")).toEqual([]);
+      const action = legalActions(s, "vale").find(
+        (a) =>
+          a.kind === kind &&
+          (kind === "ask" ? a.item === "lamp" : a.receive === "lamp"),
+      );
+      expect(action).toBeDefined();
+      const result = play(s, action);
+      expect(result.ok).toBe(true);
+      expect(result.state.items.lamp.holder).toBe("vale");
+    }
+    const refused = opening();
+    refused.opening.crossed = true;
+    refused.opening.met.moth = 0;
+    refused.locations.attic.anchored = true;
+    refused.actors.moth.place = "attic";
+    refused.items.lamp.holder = "moth";
+    expect(willingToGive(refused, "moth", "lamp", "vale")).toBe(false);
+    expect(
+      legalActions(refused, "vale").some(
+        (a) => a.kind === "trade" && a.receive === "lamp",
+      ),
+    ).toBe(false);
+    expect(exits(refused, "attic", "vale")).toEqual(["station"]);
+  });
+  it("offers rescue only for the human who stands in the queried home", () => {
+    const s = opening();
+    s.items.lamp.fuel = 0;
+    expect(exits(s, "attic", "vale")).toEqual(["station"]);
+    s.actors.vale.place = "station";
+    expect(exits(s, "attic", "vale")).toEqual([]);
+    expect(placeText(s, "attic")).not.toContain("narrow path");
   });
   it("keeps recovery limited to home rooms and controlled humans", () => {
     const s = opening();

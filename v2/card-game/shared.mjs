@@ -279,7 +279,7 @@ export async function connectSharedWorld(id) {
     offset = next.now - Date.now();
     listener(next);
     if (
-      playError &&
+      playError?.key &&
       (next.queue?.some((entry) => entry.id === playError.key) ||
         next.history?.some((entry) => entry.play === playError.key))
     ) {
@@ -360,6 +360,7 @@ export async function connectSharedWorld(id) {
     showLink: () => showLink(id),
     async play(action) {
       const key = crypto.randomUUID();
+      playError = null;
       try {
         return await command({ op: "play", key, action });
       } catch (error) {
@@ -369,6 +370,7 @@ export async function connectSharedWorld(id) {
           playError = { key, message };
           throw new Error(message, { cause: error });
         }
+        playError = { key: null, message: error.message };
         throw error;
       }
     },

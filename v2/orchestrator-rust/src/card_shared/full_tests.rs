@@ -2323,6 +2323,22 @@ fn stranded_home_rescue_replays_after_version_nine_upgrade() {
         )
         .unwrap();
         assert_eq!(upgraded.game["actors"]["vale"]["place"], "station");
+        let onward = upgraded.project(0).unwrap()["actions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|a| a["kind"] == "move" && a["target"] == "pond")
+            .unwrap()
+            .clone();
+        full_store::commit(
+            &c,
+            &id,
+            &mut upgraded,
+            json!({"op":"play","actor":"vale","action":onward}),
+            now(),
+        )
+        .unwrap();
+        assert_eq!(upgraded.game["actors"]["vale"]["place"], "pond");
         c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
         assert_eq!(full_store::world(&c, &id, now()).unwrap(), upgraded);
     }

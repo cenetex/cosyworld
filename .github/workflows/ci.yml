@@ -305,6 +305,7 @@ jobs:
         if: matrix.mode == 'cards-routes'
         run: |
           node v2/scripts/smoke-card-narrative-contract.mjs
+          node v2/scripts/smoke-card-home-rescue.mjs
           node v2/scripts/smoke-card-pond-access.mjs
           node v2/scripts/smoke-card-clearing-access.mjs
           node v2/scripts/smoke-card-pond-crossings.mjs

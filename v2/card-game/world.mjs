@@ -320,7 +320,12 @@ function localGateResource(s, place, item, actor) {
       itemPlace(s, item) === place &&
       (canUse(s, actor, item) ||
         (controlledByHuman(s, rootHolder(s, item)) &&
-          humanPresent(s, rootHolder(s, item)))),
+          humanPresent(s, rootHolder(s, item))) ||
+        (knownActors(s).includes(rootHolder(s, item)) &&
+          (willingToGive(s, rootHolder(s, item), item, actor) ||
+            carried(s, actor).some((payment) =>
+              canTrade(s, actor, payment, item),
+            )))),
   );
 }
 function homeGateRecoverable(s, place, gate, actor) {
@@ -351,7 +356,8 @@ function homeRescueExit(s, place, actor = currentActor(s), previous = null) {
   const gate = homeGates[place];
   actor ||= currentActor(s);
   return gate &&
-    controlledByHuman(s, actor || currentActor(s)) &&
+    controlledByHuman(s, actor) &&
+    s.actors[actor]?.place === place &&
     ordinaryExits(s, place, actor, previous).length === 0 &&
     !homeGateRecoverable(s, place, gate, actor)
     ? gate.rescue
@@ -1614,6 +1620,11 @@ function travelParty(s, actors, destination) {
   const from = s.actors[actors[0]].place;
   const through = !baseExits(s, from).includes(destination);
   // The legal action approves the whole party before any carried key moves.
+  if (
+    homeGates[from]?.opening &&
+    homeRescueExit(s, from, actors[0]) === destination
+  )
+    s.locations[from].anchored = true;
   markCrossed(s, from, destination);
   for (const actor of actors) {
     if (through) s.actors[actor].crossed += 1;
