@@ -5,7 +5,7 @@ use crate::ai_gateway::ModelCapability;
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
 
-fn prepared(actor: usize, work: &Value) -> Result<(Value, Vec<String>)> {
+pub(super) fn prepared(actor: usize, work: &Value) -> Result<(Value, Vec<String>)> {
     let scene = &work["context"];
     if !scene.is_object() {
         return Err("The play is saved. Its scene needs another moment.".into());
@@ -45,7 +45,7 @@ fn prepared(actor: usize, work: &Value) -> Result<(Value, Vec<String>)> {
         ids,
     ))
 }
-fn parse(text: &str, finish: &str, work: &Value, ids: &[String]) -> Result<Value> {
+pub(super) fn parse(text: &str, finish: &str, work: &Value, ids: &[String]) -> Result<Value> {
     let error = "The play is saved. Its words need another moment.";
     if finish != "stop" {
         return Err(error.into());
