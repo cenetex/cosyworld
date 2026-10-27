@@ -269,7 +269,7 @@ export async function connectSharedWorld(id) {
   let offset = initial.now - Date.now(),
     heartbeat = Date.now();
   const adopt = (next) => {
-    if (next.now < state.now) return state;
+    if (next.now < state.now || next.version < state.version) return state;
     state = next;
     offset = next.now - Date.now();
     listener(next);
