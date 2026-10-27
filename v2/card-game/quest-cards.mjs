@@ -1,9 +1,17 @@
 import { packDefinition } from "./pack-registry.mjs";
 import { recitalPoem } from "./pack-recital.mjs";
 import { questRecords, questStatus } from "./shared-quests.mjs";
-import { actorQuests } from "./quests.mjs";
+import { questOfferFamily } from "./quest-offers.mjs";
+import { actorQuests, alternatives } from "./quests.mjs";
 import { availableCards } from "./cards.mjs";
-import { rootHolder, things, people, places, currentActor } from "./world.mjs";
+import {
+  rootHolder,
+  things,
+  people,
+  places,
+  currentActor,
+  nameOf,
+} from "./world.mjs";
 
 export const QUEST_CARD = "player-quest";
 
@@ -113,51 +121,76 @@ function personalQuestCards(world, actor = currentActor(world)) {
   const held = questRecords(world).filter(
     (record) => record.holder.id === actor && !keys.has(record.key),
   );
-  return [...collected, ...held]
-    .filter((record) => record.mode !== "story")
-    .map((record) => {
-      const program = record.program;
-      const [title, purpose, art] =
-        authored[program.id] ||
-        situations[program.generated?.situation] ||
-        (program.generated?.solo
-          ? [
-              "A moment of my own",
-              "There is room here for a small discovery.",
-              "lamp",
-            ]
-          : [
-              program.name || "A wish",
-              program.purpose || "Something worth pursuing.",
-              "cloth",
-            ]);
-      const status = record.status || questStatus(world, record);
-      const focused = record.holder
-        ? world.quests.focus[actor] === record.key
-        : status === "active";
-      return {
-        key: record.key,
-        actor,
-        title,
-        purpose,
-        art: program.art || art,
-        holder: record.holder || { kind: "avatar", id: actor },
-        participants: record.participants || [actor],
-        focused,
-        status: ["fulfilled", "superseded"].includes(status)
-          ? status
-          : focused
-            ? "active"
-            : "pending",
-        completion: {
-          declined: "Declined",
-          reported: "Reported",
-          shared: "Shared",
-        }[record.completion?.outcome],
-        step: record.step,
-        steps: record.totalSteps ?? program.steps?.length ?? 0,
-      };
-    });
+  const records = [...collected, ...held].filter(
+    (record) => record.mode !== "story",
+  );
+  return records.map((record) => {
+    const program = record.program;
+    const [title, purpose, art] =
+      authored[program.id] ||
+      situations[program.generated?.situation] ||
+      (program.generated?.solo
+        ? [
+            "A moment of my own",
+            "There is room here for a small discovery.",
+            "lamp",
+          ]
+        : [
+            program.name || "A wish",
+            program.purpose || "Something worth pursuing.",
+            "cloth",
+          ]);
+    const status = record.status || questStatus(world, record);
+    const focused = record.holder
+      ? world.quests.focus[actor] === record.key
+      : status === "active";
+    return {
+      key: record.key,
+      actor,
+      title: questOfferTitle(world, record, records, title),
+      purpose,
+      art: program.art || art,
+      holder: record.holder || { kind: "avatar", id: actor },
+      participants: record.participants || [actor],
+      focused,
+      status: ["fulfilled", "superseded"].includes(status)
+        ? status
+        : focused
+          ? "active"
+          : "pending",
+      completion: {
+        declined: "Declined",
+        reported: "Reported",
+        shared: "Shared",
+      }[record.completion?.outcome],
+      step: record.step,
+      steps: record.totalSteps ?? program.steps?.length ?? 0,
+    };
+  });
+}
+
+// Distinct wishes can survive through focus, progress or sharing. Name their company.
+function questOfferTitle(world, record, records, title) {
+  const family = questOfferFamily(record.program);
+  if (
+    !family ||
+    records.filter(
+      (q) => questOfferFamily(q.program) === family && q.completedTurn === null,
+    ).length < 2 ||
+    record.completedTurn !== null
+  )
+    return title;
+  const targets = alternatives(record.program.steps[0]);
+  const companions = [
+    ...new Set(targets.flatMap((target) => target.avatars)),
+  ].sort();
+  const locations = [
+    ...new Set(targets.map((target) => target.location).filter(Boolean)),
+  ].sort();
+  const detail = companions.length
+    ? companions.map((id) => world.actors[id]?.name || nameOf(id)).join(" & ")
+    : locations.map((id) => nameOf(id)).join(" & ");
+  return detail ? `${title} · ${detail}` : title;
 }
 
 function storyQuestCards(world, actor) {

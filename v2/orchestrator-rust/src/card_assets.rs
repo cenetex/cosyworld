@@ -184,6 +184,10 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/quests.mjs"),
         ),
+        "quest-offers.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/quest-offers.mjs"),
+        ),
         "shared-quests.mjs" => (
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/shared-quests.mjs"),

@@ -48,6 +48,7 @@ const files = [
   "motives.mjs",
   "life.mjs",
   "quests.mjs",
+  "quest-offers.mjs",
   "shared-quests.mjs",
   "story-quests.mjs",
   "quest-completions.mjs",

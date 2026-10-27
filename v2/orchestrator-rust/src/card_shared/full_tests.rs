@@ -1572,6 +1572,118 @@ fn shared_quest_receipts_drive_bard_travel_after_released_rules_upgrade_and_repl
 }
 
 #[test]
+fn released_quest_offers_upgrade_preserves_choices_and_replays_cleanup() {
+    for protected in [false, true] {
+        let (path, c, id) = fixture();
+        c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+        c.execute("DELETE FROM card_full_log", []).unwrap();
+        let result =
+            engine::reduce_version(engine::SEVENTH_VERSION, json!({"op":"create"})).unwrap();
+        let mut w = World {
+            version: engine::SEVENTH_VERSION.into(),
+            game: result["world"].clone(),
+            claimed: [1, 1, 0, 0, 0, 0, 0, 0],
+            present: [1, 1, 0, 0, 0, 0, 0, 0],
+        };
+        w.game.as_object_mut().unwrap().remove("opening");
+        w.game["turn"] = json!(3);
+        w.game["revision"] = json!(3);
+        w.game["actors"]["vale"]["place"] = json!("station");
+        w.game["actors"]["vale"]["progress"] = json!({"program":0,"step":if protected {1} else {0},"marks":if protected {vec![2]} else {vec![]}});
+        w.game["life"]["actors"]["vale"]["phase"] =
+            json!(if protected { "active" } else { "seeking" });
+        w.game["life"]["actors"]["vale"]["collection"] = json!({
+            "next":4,"active":if protected {Some("vale:quest:1")} else {None},
+            "cards":["vale:quest:1","vale:quest:2","vale:quest:3"],"archive":[],
+            "earned":if protected {1} else {0},"archivedCompleted":0,"authoredThrough":2,"collectedThrough":0
+        });
+        w.game["quests"] = json!({"version":1,"next":1,"records":{},"focus":{}});
+        for (serial, companions) in [
+            (1, ["mara", "ash"]),
+            (2, ["mara", "nell"]),
+            (3, ["ash", "nell"]),
+        ] {
+            let key = format!("vale:quest:{serial}");
+            w.game["quests"]["records"][&key] = json!({
+                "key":key,"mode":"personal","holder":{"kind":"avatar","id":"vale"},
+                "subjectActor":"vale","rewardActor":"vale","participants":["vale"],"cause":null,
+                "program":{"id":"generated-vale-1","name":"Keep a light for everyone","purpose":"Share the light.",
+                    "generated":{"turn":serial,"level":1,"item":"lamp","owner":"vale","partner":"keeper","situation":"gathering"},
+                    "steps":[
+                        {"items":["lamp"],"location":"station","avatars":companions,"conditions":[{"kind":"lit","item":"lamp"}]},
+                        {"items":[],"location":"station","avatars":[companions[0]],"conditions":[{"kind":"heldBy","item":"lamp","avatar":companions[0]}],"consequence":{"kind":"trust","avatar":companions[0]}}
+                    ]},
+                "step":0,"origin":null,"createdTurn":serial,"completedTurn":null
+            });
+        }
+        if protected {
+            w.game["quests"]["focus"]["vale"] = json!("vale:quest:1");
+            w.game["quests"]["records"]["vale:quest:1"]["step"] = json!(1);
+            w.game["quests"]["records"]["vale:quest:1"]["lastProgressTurn"] = json!(2);
+            w.game["quests"]["records"]["vale:quest:2"]["participants"] = json!(["mara", "vale"]);
+            w.game["quests"]["records"]["vale:quest:2"]["holder"] =
+                json!({"kind":"item","id":"lamp"});
+        }
+        let receipt = json!({"id":"world:quest:0:terminal:1","seq":1,"eventSeq":0,"turn":0,"questKey":"world:quest:0","terminalRevision":1,"actorId":"keeper","locationId":"greek-well","participants":["keeper"],"outcome":"fulfilled","cause":null});
+        w.game["quests"]["records"]["world:quest:0"] = json!({
+            "key":"world:quest:0","mode":"shared","holder":{"kind":"item","id":"bell"},
+            "subjectActor":null,"rewardActor":null,"participants":["keeper"],
+            "program":{"id":"well-deed","name":"A deed at the well","steps":[{"items":[],"avatars":[],"location":"greek-well"}]},
+            "step":1,"origin":null,"createdTurn":0,"completedTurn":0,"cause":null,"terminalRevision":1,"completion":receipt
+        });
+        w.game["questCompletions"] = json!({"next":2,"recent":[receipt],"latest":receipt});
+        w.project(0).unwrap();
+        full_store::seed(&c, &id, &w, "released-quest-offers", now()).unwrap();
+        full_store::commit(&c, &id, &mut w, json!({"op":"speech","actor":"vale","room":"station","lines":[{"actorId":"vale","text":"We can share the light."},{"actorId":null,"entityId":"station","text":"A breeze crosses the platform."}]}), now()).unwrap();
+        let previous = w.clone();
+        // Exercise both the historical checkpoint and journal-only upgrade paths.
+        if !protected {
+            c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+        }
+        w = full_store::world(&c, &id, now()).unwrap();
+        assert_eq!(w.version, engine::VERSION);
+        for field in ["actors", "items", "questCompletions", "log", "turn"] {
+            assert_eq!(w.game[field], previous.game[field], "Preserve {field}");
+        }
+        for key in ["vale:quest:1", "world:quest:0"] {
+            assert_eq!(
+                w.game["quests"]["records"][key],
+                previous.game["quests"]["records"][key]
+            );
+        }
+        assert!(w.game["quests"]["records"]["vale:quest:3"].is_null());
+        if protected {
+            assert_eq!(
+                w.game["quests"]["records"]["vale:quest:2"],
+                previous.game["quests"]["records"]["vale:quest:2"]
+            );
+        } else {
+            assert!(w.game["quests"]["records"]["vale:quest:2"].is_null());
+        }
+        assert_eq!(
+            w.game["quests"]["focus"]["vale"],
+            previous.game["quests"]["focus"]["vale"]
+        );
+        let collection = &w.game["life"]["actors"]["vale"]["collection"];
+        for field in ["active", "next", "earned", "archivedCompleted"] {
+            assert_eq!(
+                collection[field],
+                previous.game["life"]["actors"]["vale"]["collection"][field]
+            );
+        }
+        assert_eq!(collection["lastOfferTurn"], 3);
+        full_store::commit(&c, &id, &mut w, json!({"op":"speech","actor":"vale","room":"station","lines":[{"actorId":"vale","text":"The meeting can wait."},{"actorId":null,"entityId":"station","text":"The platform settles into quiet."}]}), now()).unwrap();
+        let upgraded = w.clone();
+        drop(c);
+        let c = store::open(&path).unwrap();
+        full_store::schema(&c).unwrap();
+        assert_eq!(full_store::world(&c, &id, now()).unwrap(), upgraded);
+        c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+        assert_eq!(full_store::world(&c, &id, now()).unwrap(), upgraded);
+    }
+}
+
+#[test]
 fn bard_passage_help_uses_authoritative_home_and_ship_actions_and_replays() {
     for sea in [false, true] {
         let (_file, c, id) = fixture();
