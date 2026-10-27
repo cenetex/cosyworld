@@ -15,6 +15,7 @@ import { enableMotives } from "./motives.mjs";
 import { createNarrator } from "./narrative.mjs";
 import { packMedia } from "./pack-registry.mjs";
 import { createRoomMusic } from "./music.mjs";
+import { createCharacterSpeech } from "./character-speech.mjs";
 import {
   createTextReveal,
   createSpeechSounds,
@@ -416,11 +417,34 @@ const exchange = createExchange({
 });
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 const speechSounds = createSpeechSounds();
+function finishSpokenLine() {
+  if (reveal.complete && !characterSpeech.busy && shownSceneLine)
+    exchange.revealed(shownSceneLine.seq, shownSceneLine.text, false);
+}
+const characterSpeech = createCharacterSpeech({
+  changed: ({ state, message }) => {
+    $("speech-row").dataset.voice = state;
+    $("voice-retry").hidden = state !== "error";
+    $("voice-status").textContent =
+      state === "connect"
+        ? "Connect OpenRouter below to hear character voices."
+        : state === "error"
+          ? message
+          : state === "loading"
+            ? "Preparing this character's voice…"
+            : "";
+    queueMicrotask(() => {
+      pauseSpeech();
+      finishSpokenLine();
+    });
+  },
+});
 let soundEnabled = true;
 try {
   soundEnabled = localStorage.getItem("cosyworld.dialogue.sound") !== "off";
 } catch {}
 speechSounds.setEnabled(soundEnabled);
+characterSpeech.setEnabled(soundEnabled);
 function measureSpeech() {
   const text = $("dialogue-text");
   glyphBottoms = speechGlyphs.map(
@@ -454,7 +478,8 @@ function updateSpeechControls(complete) {
 const reveal = createTextReveal({
   reduced: () => reducedMotion.matches,
   sound: (...args) => {
-    if (!document.hidden) speechSounds.syllable(...args);
+    if (!document.hidden && !characterSpeech.speaks(args[0]))
+      speechSounds.syllable(...args);
   },
   frame: (value) => {
     const text = $("dialogue-text");
@@ -464,6 +489,7 @@ const reveal = createTextReveal({
       speechComplete = null;
       text.scrollTop = 0;
       speechSounds.stop();
+      characterSpeech.show(value.key, value.speaker, value.text);
       speechGlyphs = value.letters.map((letter) =>
         node("span", letter, "speech-letter"),
       );
@@ -497,7 +523,7 @@ const reveal = createTextReveal({
       completedSpeech.add(value.key);
       if (completedSpeech.size > 100)
         completedSpeech.delete(completedSpeech.values().next().value);
-      if (shownSceneLine)
+      if (shownSceneLine && !characterSpeech.busy)
         exchange.revealed(shownSceneLine.seq, value.text, value.instant);
       queueMicrotask(() => playQueue.flush());
     }
@@ -522,10 +548,11 @@ function pauseSpeech() {
       sharedSession.state,
       sharedSession.now(),
       world.actors[currentActor(world)].place,
-      paused,
+      paused || (reveal.complete && characterSpeech.busy),
     );
   reveal.pause(paused);
-  exchange.pause(paused);
+  characterSpeech.pause(paused);
+  exchange.pause(paused || characterSpeech.busy);
   for (const animation of [
     ...$("cast").getAnimations({ subtree: true }),
     ...$("speech-row").getAnimations(),
@@ -541,21 +568,25 @@ function pauseSpeech() {
 }
 document.addEventListener("visibilitychange", pauseSpeech);
 document.addEventListener("shared-dialog-change", pauseSpeech);
-document.addEventListener("pointerdown", () => speechSounds.unlock(), {
+function unlockSpeech() {
+  speechSounds.unlock();
+  characterSpeech.unlock();
+}
+document.addEventListener("pointerdown", unlockSpeech, {
   capture: true,
 });
-document.addEventListener("keydown", () => speechSounds.unlock(), {
+document.addEventListener("keydown", unlockSpeech, {
   capture: true,
 });
 function updateSoundButton() {
-  $("speech-sound").textContent =
-    `Voice sounds: ${soundEnabled ? "on" : "off"}`;
+  $("speech-sound").textContent = `Voices: ${soundEnabled ? "on" : "off"}`;
   $("speech-sound").setAttribute("aria-pressed", String(soundEnabled));
 }
 $("speech-sound").onclick = () => {
   soundEnabled = !soundEnabled;
   speechSounds.setEnabled(soundEnabled);
-  if (soundEnabled) speechSounds.unlock();
+  characterSpeech.setEnabled(soundEnabled);
+  if (soundEnabled) unlockSpeech();
   try {
     localStorage.setItem(
       "cosyworld.dialogue.sound",
@@ -565,6 +596,10 @@ $("speech-sound").onclick = () => {
   updateSoundButton();
 };
 updateSoundButton();
+$("voice-retry").onclick = () => characterSpeech.retry();
+document.addEventListener("openrouter-connection-change", () =>
+  characterSpeech.connectionChanged(),
+);
 let musicEnabled = true,
   musicVolume = 0.3;
 function musicHasStarted() {
@@ -1980,6 +2015,7 @@ function renderScene() {
   } else {
     reveal.cancel();
     speechSounds.stop();
+    characterSpeech.clear();
     speechKey = null;
     $("dialogue-text").replaceChildren();
     $("speech-announcement").textContent = "";
@@ -1998,6 +2034,7 @@ function renderScene() {
       return;
     }
     if (exchange.current) {
+      characterSpeech.stop();
       exchange.advance();
       return;
     }
@@ -2568,6 +2605,7 @@ function syncSharedLine() {
     sharedSession.now(),
     room,
     document.hidden ||
+      (reveal.complete && characterSpeech.busy) ||
       Boolean(document.querySelector("dialog[open], .world-menu:popover-open")),
   );
   const live = sharedLiveLine(sharedSession.state, playbackTime, room);

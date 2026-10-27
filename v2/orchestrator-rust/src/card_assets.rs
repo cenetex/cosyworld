@@ -252,6 +252,38 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/dialogue.mjs"),
         ),
+        "character-speech.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/character-speech.mjs"),
+        ),
+        "voices.json" => (
+            "application/json",
+            include_bytes!("../../card-game/voices.json"),
+        ),
+        "assets/voices/vale.mp3" => (
+            "audio/mpeg",
+            include_bytes!("../../card-game/assets/voices/vale.mp3"),
+        ),
+        "assets/voices/mara.mp3" => (
+            "audio/mpeg",
+            include_bytes!("../../card-game/assets/voices/mara.mp3"),
+        ),
+        "assets/voices/moth.mp3" => (
+            "audio/mpeg",
+            include_bytes!("../../card-game/assets/voices/moth.mp3"),
+        ),
+        "assets/voices/keeper.mp3" => (
+            "audio/mpeg",
+            include_bytes!("../../card-game/assets/voices/keeper.mp3"),
+        ),
+        "assets/voices/badger.mp3" => (
+            "audio/mpeg",
+            include_bytes!("../../card-game/assets/voices/badger.mp3"),
+        ),
+        "assets/voices/greek-baker.mp3" => (
+            "audio/mpeg",
+            include_bytes!("../../card-game/assets/voices/greek-baker.mp3"),
+        ),
         "pack-schema.mjs" => (
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/pack-schema.mjs"),

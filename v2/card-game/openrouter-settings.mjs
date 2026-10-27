@@ -83,6 +83,7 @@ export async function setupOpenRouter() {
   $("openrouter-disconnect").onclick = () => {
     clearMedia();
     client.disconnect();
+    document.dispatchEvent(new Event("openrouter-connection-change"));
     refresh("Disconnected from this tab. Manage the key in OpenRouter.");
   };
   $("openrouter-chat").onchange = (event) =>
@@ -156,6 +157,7 @@ export async function setupOpenRouter() {
     message = error.message;
   }
   refresh(message);
+  document.dispatchEvent(new Event("openrouter-connection-change"));
   if (callback) $("menu-dialog").showModal();
   if (client.connection()?.key) void models();
 }
