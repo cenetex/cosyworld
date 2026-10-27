@@ -71,3 +71,10 @@ an alternate ending within the keeper's tale.
 
 [The Open Door guide](OPEN-DOOR.md) gives the scene order, facts and original
 choices. All prose and verses added for this section are original writing.
+
+Myrine of Argos is an original household representative in the homecoming
+scenes. Her agreed walk from Eleusis to Piraeus, the two forms of care,
+her signed return list and Dione’s answer are original CosyWorld writing.
+The early reports preserve each recorded source account or named alternative.
+All sixteen homecoming couplets describe those new reports, arrivals and
+readings.
