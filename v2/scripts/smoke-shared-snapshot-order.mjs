@@ -77,7 +77,10 @@ try {
     await page.waitForFunction(() => document.body.inert === false);
     await selectCard(page, "pond", { touch: width === 390 });
     hold = true;
-    while (!release) await new Promise((resolve) => setTimeout(resolve, 25));
+    const holdDeadline = Date.now() + 15000;
+    while (!release && Date.now() < holdDeadline)
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    assert(release, "The next poll reaches the held response.");
     await page.locator('#card-actions [data-action="move"]').click();
     await page.waitForFunction(() =>
       document.querySelector("#backdrop").src.includes("pond"),
