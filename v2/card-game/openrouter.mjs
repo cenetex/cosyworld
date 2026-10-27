@@ -39,14 +39,31 @@ export function createOpenRouter({
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       signal: signal || AbortSignal.timeout(60_000),
     });
-    if (!response.ok)
-      throw new Error(
+    if (!response.ok) {
+      const detail = await response.json().catch(() => null);
+      const policy = /data policy|data retention|privacy/i.test(
+        detail?.error?.message || "",
+      );
+      const message =
         response.status === 402
           ? "Add credits in OpenRouter, then try again."
           : response.status === 401 || response.status === 403
             ? "Connect OpenRouter again in Settings."
-            : `OpenRouter needs another moment (${response.status}). Try again.`,
-      );
+            : response.status === 404
+              ? policy
+                ? "Check your OpenRouter privacy settings for an available model provider."
+                : "OpenRouter needs an available provider for this model."
+              : response.status === 400 || response.status === 422
+                ? "Check the model settings in OpenRouter, then try again."
+                : `OpenRouter needs another moment (${response.status}). Try again.`;
+      throw Object.assign(new Error(message), {
+        status: response.status,
+        retryable:
+          response.status === 408 ||
+          response.status === 429 ||
+          response.status >= 500,
+      });
+    }
     return raw ? response.blob() : response.json();
   }
   return {
