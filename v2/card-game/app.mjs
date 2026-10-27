@@ -571,6 +571,11 @@ $("speech-sound").onclick = () => {
 updateSoundButton();
 let musicEnabled = true,
   musicVolume = 0.3;
+function musicHasStarted() {
+  return sharedSession
+    ? sharedSession.state.music_started === true
+    : world.turn > 0;
+}
 try {
   const saved = JSON.parse(localStorage.getItem("cosyworld.room-music"));
   if (typeof saved?.enabled === "boolean") musicEnabled = saved.enabled;
@@ -596,7 +601,7 @@ const music = createRoomMusic({
 music.setEnabled(musicEnabled);
 music.setVolume(musicVolume);
 music.setHidden(document.hidden);
-music.setStarted(world.turn > 0);
+music.setStarted(musicHasStarted());
 $("music-volume").value = String(Math.round(musicVolume * 100));
 function saveMusicSettings() {
   try {
@@ -758,7 +763,7 @@ function performAction(action, revision) {
   queueQuestCompletions(world, result.state);
   world = result.state;
   music.setRoom(world.actors[currentActor(world)].place);
-  music.setStarted(world.turn > 0);
+  music.setStarted(musicHasStarted());
   music.unlock();
   // A new play ends any review of earlier lines.
   reviewing = false;
@@ -2092,7 +2097,7 @@ function renderLog() {
 }
 
 function render() {
-  music.setStarted(world.turn > 0);
+  music.setStarted(musicHasStarted());
   // While the travel veil comes down, the old place stays drawn.
   if (covering) return;
   music.setRoom(world.actors[currentActor(world)].place);

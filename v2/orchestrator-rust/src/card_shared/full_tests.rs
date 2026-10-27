@@ -67,6 +67,68 @@ fn home_action(w: &World, actor: usize, kind: &str) -> Value {
 }
 
 #[test]
+fn music_waits_for_each_avatars_first_committed_play_and_survives_reload() {
+    let (path, mut c, id) = fixture();
+    for a in 0..8 {
+        claim(&mut c, &id, a);
+    }
+    let mut w = full_store::world(&c, &id, now()).unwrap();
+    for a in 0..8 {
+        let user = format!("user{a}");
+        assert_eq!(
+            full_store::snapshot(&c, &id, &user, now()).unwrap()["music_started"],
+            false
+        );
+        assert!(full_store::commit(
+            &c,
+            &id,
+            &mut w,
+            json!({"op":"play","actor":actor_id(a),"action":{"key":"stale-card"}}),
+            now(),
+        )
+        .is_err());
+        assert_eq!(
+            full_store::snapshot(&c, &id, &user, now()).unwrap()["music_started"],
+            false
+        );
+        let action = home_action(&w, a, if a == 0 { "light" } else { "take" });
+        full_store::commit(
+            &c,
+            &id,
+            &mut w,
+            json!({"op":"play","actor":actor_id(a),"action":action}),
+            now(),
+        )
+        .unwrap();
+        for other in 0..8 {
+            assert_eq!(
+                full_store::snapshot(&c, &id, &format!("user{other}"), now()).unwrap()
+                    ["music_started"],
+                other <= a,
+            );
+        }
+    }
+    drop(c);
+    let mut c = store::open(&path).unwrap();
+    full_store::schema(&c).unwrap();
+    c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+    for a in 0..8 {
+        assert_eq!(
+            full_store::snapshot(&c, &id, &format!("user{a}"), now()).unwrap()["music_started"],
+            true
+        );
+    }
+    let fresh = "c".repeat(48);
+    store::create(&c, &fresh, "owner", now()).unwrap();
+    full_store::seed(&c, &fresh, &World::create(None).unwrap(), "new-game", now()).unwrap();
+    claim(&mut c, &fresh, 0);
+    assert_eq!(
+        full_store::snapshot(&c, &fresh, "user0", now()).unwrap()["music_started"],
+        false
+    );
+}
+
+#[test]
 fn first_ship_signal_unlocks_shared_round_trips_and_replays() {
     let (path, c, id) = fixture();
     c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
@@ -1025,6 +1087,8 @@ fn unchanged_snapshots_leave_the_checkpoint_and_journal_untouched() {
         .clone();
     full::run(&c, &id, "user0", &play, now()).unwrap();
     let queued = full_store::snapshot(&c, &id, "user0", now()).unwrap();
+    assert_eq!(first["music_started"], false);
+    assert_eq!(queued["music_started"], false);
     assert_eq!(queued["world"], first["world"]);
     assert_eq!(first["queue"].as_array().unwrap().len(), 0);
     assert_eq!(queued["queue"].as_array().unwrap().len(), 1);
