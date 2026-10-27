@@ -302,7 +302,10 @@ describe("deploy workflow", () => {
     expect(dockerfile).toContain(
       "COPY --from=build /app/bin/cosyworld-orchestrator /app/cosyworld-orchestrator",
     );
-    expect(dockerfile).toContain("CARGO_INCREMENTAL=1 CARGO_BUILD_JOBS=1");
+    expect(dockerfile).toContain("ARG CARGO_BUILD_JOBS=1");
+    expect(dockerfile).toContain(
+      "CARGO_INCREMENTAL=1 CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS}",
+    );
   });
 
   it("runs Lonely Forest as one process behind the same bundle guard as primary", () => {

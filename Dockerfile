@@ -22,6 +22,8 @@ RUN cargo chef cook --release --recipe-path /app/recipe.json
 
 FROM dependencies AS build
 
+ARG CARGO_BUILD_JOBS=1
+
 COPY v2/core-c /app/v2/core-c
 COPY v2/content /app/v2/content
 COPY v2/content-engine-version.txt /app/v2/content-engine-version.txt
@@ -33,12 +35,12 @@ COPY v2/orchestrator-rust /app/v2/orchestrator-rust
 # Keep the complete Cargo target between builds, including fingerprints and
 # local crate outputs. Seed a fresh cache from the dependency layer. Refresh
 # source times so Cargo checks source copied from an older checkout as well.
-# One Cargo job keeps memory within the remote builder's limit.
+# Small builders use one worker; CI can set this to match its memory budget.
 RUN --mount=type=cache,id=cosyworld-release-target-v1,target=/app/v2/orchestrator-rust/target,from=dependencies,source=/app/v2/orchestrator-rust/target,sharing=locked \
   touch build.rs \
   && find src ../ai-model-rust/src ../core-c ../content ../card-game ../media -type f -exec touch {} + \
   && touch ../content-engine-version.txt \
-  && CARGO_INCREMENTAL=1 CARGO_BUILD_JOBS=1 cargo build --release --locked \
+  && CARGO_INCREMENTAL=1 CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS} cargo build --release --locked \
   && mkdir -p /app/bin \
   && cp target/release/cosyworld-orchestrator /app/bin/cosyworld-orchestrator
 
