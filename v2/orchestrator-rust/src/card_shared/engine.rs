@@ -9,13 +9,15 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub(super) const VERSION: &str = "full-card-world/7";
+pub(super) const VERSION: &str = "full-card-world/8";
+pub(super) const SEVENTH_VERSION: &str = "full-card-world/7";
 pub(super) const SIXTH_VERSION: &str = "full-card-world/6";
 pub(super) const FIFTH_VERSION: &str = "full-card-world/5";
 pub(super) const PREVIOUS_VERSION: &str = "full-card-world/3";
 pub(super) const LEGACY_VERSION: &str = "full-card-world/2";
 pub(super) const FOURTH_VERSION: &str = "full-card-world/4";
-const SOURCE: &str = include_str!("engine-v7.js");
+const SOURCE: &str = include_str!("engine-v8.js");
+const SEVENTH_SOURCE: &str = include_str!("engine-v7.js");
 const SIXTH_SOURCE: &str = include_str!("engine-v6.js");
 const FIFTH_SOURCE: &str = include_str!("engine-v5.js");
 const FOURTH_SOURCE: &str = include_str!("engine-v4.js");
@@ -25,7 +27,12 @@ const LEGACY_SOURCE: &str = include_str!("engine-v2.js");
 pub(super) fn historical(version: &str) -> bool {
     matches!(
         version,
-        LEGACY_VERSION | PREVIOUS_VERSION | FOURTH_VERSION | FIFTH_VERSION | SIXTH_VERSION
+        LEGACY_VERSION
+            | PREVIOUS_VERSION
+            | FOURTH_VERSION
+            | FIFTH_VERSION
+            | SIXTH_VERSION
+            | SEVENTH_VERSION
     )
 }
 const MAX_BYTES: usize = 4 * 1024 * 1024;
@@ -74,6 +81,7 @@ pub(super) fn reduce_version(version: &str, request: Value) -> Result<Value> {
         FOURTH_VERSION => FOURTH_SOURCE,
         FIFTH_VERSION => FIFTH_SOURCE,
         SIXTH_VERSION => SIXTH_SOURCE,
+        SEVENTH_VERSION => SEVENTH_SOURCE,
         LEGACY_VERSION => LEGACY_SOURCE,
         _ => return Err("This world needs a supported rules version.".into()),
     };

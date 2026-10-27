@@ -68,57 +68,60 @@ fn home_action(w: &World, actor: usize, kind: &str) -> Value {
 
 #[test]
 fn occupied_ship_upgrade_preserves_shared_boarding_return_riders_and_replay() {
-    let path = std::env::temp_dir().join(format!("ship-upgrade-{}.sqlite", crate::random_hex(12)));
-    let c = store::open(&path).unwrap();
-    full_store::schema(&c).unwrap();
-    let id = "f".repeat(48);
-    store::create(&c, &id, "owner", now()).unwrap();
-    let old = engine::reduce_version("full-card-world/4", json!({"op":"create"})).unwrap();
-    let mut w = World {
-        version: "full-card-world/4".into(),
-        game: old["world"].clone(),
-        claimed: [1, 1, 0, 0, 0, 0, 0, 0],
-        present: [1, 1, 0, 0, 0, 0, 0, 0],
-    };
-    w.game.as_object_mut().unwrap().remove("opening");
-    w.game["actors"]["vale"]["place"] = json!("pond");
-    w.game["actors"]["mara"]["place"] = json!("pond");
-    w.game["transports"]["greek-ship"]["dock"] = json!("pond");
-    full_store::seed(&c, &id, &w, "ship-v4", now()).unwrap();
-    let sail = |world: &mut World, actor: usize, target: &str| {
-        let action = world.project(actor).unwrap()["actions"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|a| a["kind"] == "move" && a["target"] == target)
-            .unwrap()
-            .clone();
-        full_store::commit(
-            &c,
-            &id,
-            world,
-            json!({"op":"play","actor":actor_id(actor),"action":action}),
-            now(),
-        )
-        .unwrap();
-    };
-    sail(&mut w, 0, "greek-ship");
-    assert!(w.game["transports"]["greek-ship"]["dock"].is_null());
-    let old_log = w.game["log"].clone();
-    w = full_store::world(&c, &id, now()).unwrap();
-    assert_eq!(w.version, engine::VERSION);
-    assert_eq!(w.game["log"], old_log);
-    assert_eq!(w.game["transports"]["greek-ship"]["dock"], "pond");
-    sail(&mut w, 1, "greek-ship");
-    sail(&mut w, 0, "greek-harbor");
-    assert_eq!(w.game["transports"]["greek-ship"]["dock"], "greek-harbor");
-    sail(&mut w, 0, "greek-ship");
-    assert_eq!(w.game["actors"]["mara"]["place"], "greek-ship");
-    assert_eq!(w.game["transports"]["greek-ship"]["destination"], "pond");
-    sail(&mut w, 0, "pond");
-    sail(&mut w, 1, "pond");
-    c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
-    assert_eq!(full_store::world(&c, &id, now()).unwrap(), w);
+    for version in [engine::FOURTH_VERSION, engine::SEVENTH_VERSION] {
+        let path =
+            std::env::temp_dir().join(format!("ship-upgrade-{}.sqlite", crate::random_hex(12)));
+        let c = store::open(&path).unwrap();
+        full_store::schema(&c).unwrap();
+        let id = "f".repeat(48);
+        store::create(&c, &id, "owner", now()).unwrap();
+        let old = engine::reduce_version(version, json!({"op":"create"})).unwrap();
+        let mut w = World {
+            version: version.into(),
+            game: old["world"].clone(),
+            claimed: [1, 1, 0, 0, 0, 0, 0, 0],
+            present: [1, 1, 0, 0, 0, 0, 0, 0],
+        };
+        w.game.as_object_mut().unwrap().remove("opening");
+        w.game["actors"]["vale"]["place"] = json!("pond");
+        w.game["actors"]["mara"]["place"] = json!("pond");
+        w.game["transports"]["greek-ship"]["dock"] = json!("pond");
+        full_store::seed(&c, &id, &w, "released-ship", now()).unwrap();
+        let sail = |world: &mut World, actor: usize, target: &str| {
+            let action = world.project(actor).unwrap()["actions"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|a| a["kind"] == "move" && a["target"] == target)
+                .unwrap()
+                .clone();
+            full_store::commit(
+                &c,
+                &id,
+                world,
+                json!({"op":"play","actor":actor_id(actor),"action":action}),
+                now(),
+            )
+            .unwrap();
+        };
+        sail(&mut w, 0, "greek-ship");
+        assert!(w.game["transports"]["greek-ship"]["dock"].is_null());
+        let old_log = w.game["log"].clone();
+        w = full_store::world(&c, &id, now()).unwrap();
+        assert_eq!(w.version, engine::VERSION);
+        assert_eq!(w.game["log"], old_log);
+        assert_eq!(w.game["transports"]["greek-ship"]["dock"], "pond");
+        sail(&mut w, 1, "greek-ship");
+        sail(&mut w, 0, "greek-harbor");
+        assert_eq!(w.game["transports"]["greek-ship"]["dock"], "greek-harbor");
+        sail(&mut w, 0, "greek-ship");
+        assert_eq!(w.game["actors"]["mara"]["place"], "greek-ship");
+        assert_eq!(w.game["transports"]["greek-ship"]["destination"], "pond");
+        sail(&mut w, 0, "pond");
+        sail(&mut w, 1, "pond");
+        c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+        assert_eq!(full_store::world(&c, &id, now()).unwrap(), w);
+    }
 }
 #[test]
 fn home_item_pickup_and_drop_control_authoritative_travel_and_replay() {
@@ -1478,14 +1481,19 @@ fn released_carriage_route_replays_before_the_station_connection_upgrade() {
 }
 
 #[test]
-fn shared_quest_receipts_drive_bard_travel_after_version_seven_upgrade_and_replay() {
-    for keep_checkpoint in [true, false] {
+fn shared_quest_receipts_drive_bard_travel_after_released_rules_upgrade_and_replay() {
+    for (version, keep_checkpoint) in [
+        (engine::SIXTH_VERSION, true),
+        (engine::SIXTH_VERSION, false),
+        (engine::SEVENTH_VERSION, true),
+        (engine::SEVENTH_VERSION, false),
+    ] {
         let (_file, c, id) = fixture();
         c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
         c.execute("DELETE FROM card_full_log", []).unwrap();
-        let result = engine::reduce_version(engine::SIXTH_VERSION, json!({"op":"create"})).unwrap();
+        let result = engine::reduce_version(version, json!({"op":"create"})).unwrap();
         let mut w = World {
-            version: engine::SIXTH_VERSION.into(),
+            version: version.into(),
             game: result["world"].clone(),
             claimed: [0; 8],
             present: [0; 8],

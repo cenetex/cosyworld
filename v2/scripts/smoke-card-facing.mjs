@@ -1,3 +1,5 @@
+import { selectCard } from "./card-browser-helpers.mjs";
+import { legalActions } from "../card-game/world.mjs";
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
@@ -28,6 +30,7 @@ try {
         world.controlledActors = [actor];
         world.presentActors = [actor];
         world.actors[actor].place = "greek-courtyard";
+        world.items.lamp.holder = actor;
         if (resident === "keeper") {
           world.actors.keeper.place = "greek-courtyard";
           world.actors["greek-baker"].place = "greek-well";
@@ -44,7 +47,7 @@ try {
           actor,
           world,
           now: Date.now(),
-          actions: [],
+          actions: legalActions(world),
           queue: [],
           history: [],
           claimed: humanAvatarIds.map((id) => id === actor),
@@ -72,7 +75,7 @@ try {
           },
           {
             actor,
-            seen: Object.keys(profiles),
+            seen: [...Object.keys(profiles), "lamp"],
             quests: Object.keys(people).flatMap((id) =>
               questCards(world, id).map((q) => q.key),
             ),
@@ -105,6 +108,32 @@ try {
             );
           },
           { actor, resident },
+        );
+        await selectCard(page, "lamp");
+        const held = page.locator(
+          `[data-avatar="${actor}"] .portrait-held-item`,
+        );
+        assert.equal(await held.count(), 1);
+        const hand = await held.evaluate((el) => {
+          const figure = el.closest(".portrait");
+          const body = el.parentElement.getBoundingClientRect();
+          const box = el.getBoundingClientRect();
+          const flip = figure.querySelector(".portrait-body > img").dataset
+            .flip;
+          const nativeX =
+            parseFloat(getComputedStyle(figure).getPropertyValue("--hand-x")) /
+            100;
+          return {
+            flip,
+            figureFlip: figure.dataset.flip,
+            actual: (box.x + box.width / 2 - body.x) / body.width,
+            expected: flip === "true" ? 1 - nativeX : nativeX,
+          };
+        });
+        assert.equal(hand.figureFlip, hand.flip);
+        assert(
+          Math.abs(hand.actual - hand.expected) < 0.01,
+          JSON.stringify(hand),
         );
         const staged = await page
           .locator('#cast .portrait[aria-hidden="false"]')
