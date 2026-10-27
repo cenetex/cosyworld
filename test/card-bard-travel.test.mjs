@@ -180,7 +180,7 @@ describe("ordinary bard travel", () => {
     s = act(s, "move", { target: "greek-harbor" });
     expect(s.actors[singer].place).toBe("greek-ship");
     expect(s.transports["greek-ship"]).toMatchObject({
-      dock: null,
+      dock: "greek-harbor",
       destination: "pond",
     });
     s = act(s);

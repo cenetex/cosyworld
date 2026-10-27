@@ -47,12 +47,12 @@ function check(world, expected) {
     expect(currentScene(world).background).toBe(expected);
 }
 describe("harbor scenery follows the ship", () => {
-  it("shows the ship at its dock, open water during travel, and the ship on return", () => {
+  it("keeps the ship visible while boarding and follows its dock through a return trip", () => {
     let world = createWorld();
     world.actors.vale.place = harbor;
     check(world, docked);
     world = move(world, "greek-ship");
-    check(world, open);
+    check(world, docked);
     world = move(world, "pond");
     check(world, open);
     world = move(world, "greek-ship");
@@ -69,7 +69,7 @@ describe("harbor scenery follows the ship", () => {
     check(world, docked);
     world = move(world, "greek-ship");
     summonTransport(world, "greek-ship", harbor);
-    check(world, open);
+    check(world, docked);
     world = move(world, "pond");
     check(world, docked);
   });

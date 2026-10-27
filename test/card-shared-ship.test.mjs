@@ -6,7 +6,11 @@ import {
   transportExits,
 } from "../v2/card-game/pack-transport.mjs";
 import { availableCards, playLabel } from "../v2/card-game/cards.mjs";
-import { locationOverlay, travelCard } from "../v2/card-game/scene.mjs";
+import {
+  backdrop,
+  locationOverlay,
+  travelCard,
+} from "../v2/card-game/scene.mjs";
 
 const players = ["vale", "mara", "ash"];
 function setup(dock) {
@@ -53,6 +57,10 @@ describe("shared ship boarding", () => {
       expect(s.transports["greek-ship"].dock).toBe(origin);
       expect(availableCards(shore.world)).toContain("greek-ship");
       expect(travelCard(shore.world, "greek-ship")).toBeTruthy();
+      if (origin === "greek-harbor")
+        expect(backdrop(origin, shore.world)).toContain(
+          "harbor-ship-at-berth.webp",
+        );
       if (origin === "pond")
         expect(locationOverlay(shore.world, origin)).toBeTruthy();
       s = move(s, "mara", "greek-ship");
@@ -64,6 +72,10 @@ describe("shared ship boarding", () => {
       expect(s.actors.mara.place).toBe("greek-ship");
       expect(ask(s, "mara").exits).toContain(destination);
       expect(availableCards(ask(s, "ash").world)).not.toContain("greek-ship");
+      if (origin === "greek-harbor")
+        expect(backdrop(origin, ask(s, "ash").world)).toContain(
+          "harbor-open-berth.webp",
+        );
       expect(ask(s, "ash", "play", { action: staleBoarding }).ok).toBe(false);
       expect(availableCards(ask(s, "vale").world)).toContain("greek-ship");
       // Route search accounts for a new boarding reversing the next leg.

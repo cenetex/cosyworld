@@ -75,12 +75,14 @@ describe("invited companion travel", () => {
       expect(decodeSave(encodeSave(s))).toEqual(s);
       if (destination === "greek-ship")
         expect(s.transports["greek-ship"]).toEqual({
-          dock: null,
+          version: 2,
+          dock: "pond",
           destination: "greek-harbor",
           recall: null,
         });
     }
     expect(s.transports["greek-ship"]).toEqual({
+      version: 2,
       dock: "greek-harbor",
       destination: null,
       recall: null,
