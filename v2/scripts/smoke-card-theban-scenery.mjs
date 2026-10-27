@@ -26,6 +26,8 @@ const act = (s, kind, fields = {}) => {
 };
 function initial() {
   let s = createWorld({ opening: true });
+  // Keep the ship at harbor until this scenery fixture completes the signal.
+  s.actors["greek-rhapsode"].place = "attic";
   s = act(s, "light");
   s = act(s, "move", { target: "pond" });
   s.items.cloth.holder = "vale";
