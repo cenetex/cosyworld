@@ -14195,7 +14195,7 @@
         parts: []
       });
     }
-    for (const to of exits(s, here, actor)) {
+    for (const to of packPeople[actor]?.journey ? [] : exits(s, here, actor)) {
       const through = !baseExits(s, here).includes(to);
       const crossing = crossingBetween(here, to, s);
       const way = through ? ` ${homeRescueExit(s, here, actor) === to ? "along a narrow path" : crossing?.travel || "through the reflection"}` : "";
