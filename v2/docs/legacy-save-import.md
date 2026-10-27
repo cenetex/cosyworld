@@ -1,5 +1,8 @@
 # Isolated legacy save import
 
+> Classic compatibility reference. Use this guide for the earlier runtime and
+> its saved history. Start card-game work with the [current source map](../../docs/current-game.md).
+
 This runbook is the only supported path for bringing projections from a
 process- or shard-local save into the canonical world. It implements the save
 import rules in [ADR 0003](../../docs/decisions/0003-one-canonical-world.md).

@@ -39,7 +39,7 @@ document.
 
 - [The CosyWorld Pact](../cosyworld-pact.md) — "One World, One Truth" and
   "Home Holds" constrain what a join may do.
-- [How to Design a Worldpack](../worldpacks/how-to-design-a-worldpack.md)
+- [How to Design a Worldpack](../archive/classic/docs/worldpacks/how-to-design-a-worldpack.md)
 - [Thresholds, Trails, And The Strict Referee](thresholds-trails-and-strict-referee.md)
   — owns Leads, Gates, Anchors, and Scout forays over this topology.
 - `CLAUDE.md`: *"Cross-pack topology belongs in composition data rather than

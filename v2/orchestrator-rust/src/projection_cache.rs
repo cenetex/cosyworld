@@ -43,6 +43,8 @@ pub(super) struct MetaResponse {
 pub(super) struct MetaVersions {
     version: &'static str,
     content_engine_version: &'static str,
+    #[serde(flatten)]
+    game: routes::card_game::metadata::GameMetadata,
 }
 
 impl MetaVersions {
@@ -50,6 +52,7 @@ impl MetaVersions {
         Self {
             version: env!("CARGO_PKG_VERSION"),
             content_engine_version: content_engine_version(),
+            game: routes::card_game::metadata::GameMetadata::current(),
         }
     }
 }

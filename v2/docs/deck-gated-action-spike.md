@@ -1,5 +1,8 @@
 # Deck-gated ordinary actions — design spike
 
+> Classic compatibility reference. Its status and rules apply to the classic
+> runtime. Start card-game work with the [current source map](../../docs/current-game.md).
+
 **Status:** prototype only; not selected, not compiled, and not authorized to
 ship. Proposed identity: `cosyworld.variant/deck-gated-ordinary-actions/0`.
 

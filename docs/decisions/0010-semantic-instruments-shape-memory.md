@@ -1,5 +1,9 @@
 # ADR 0010: semantic instruments shape recall, not history
 
+> Historical classic-game decision. The status below records its acceptance
+> at the stated date. Check implementation against the
+> [current game source map](../current-game.md) before feature work.
+
 - Status: Accepted design; implementation blocked on #725, which is
   authoritative wherever the two disagree
 - Date: 2026-08-12 (revised 2026-08-13)

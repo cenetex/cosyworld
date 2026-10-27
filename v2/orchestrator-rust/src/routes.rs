@@ -120,12 +120,10 @@ fn app_router_with_dependencies(
     let request_log_context = RequestLogContext::from_state(&state);
     Router::new()
         .merge(crate::card_shared::router())
-        .merge(card_game::router(
-            std::env::var("COSYWORLD_PRIMARY_GAME").as_deref() == Ok("cards"),
-        ))
+        .merge(card_game::router(card_game::metadata::primary()))
         .merge(card_game::text_router(
             state.ai_config.clone(),
-            std::env::var("COSYWORLD_PRIMARY_GAME").as_deref() == Ok("cards"),
+            card_game::metadata::primary(),
         ))
         .route("/moderation", get(moderation_console))
         .route(

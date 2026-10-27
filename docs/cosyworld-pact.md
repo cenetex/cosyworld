@@ -5,7 +5,7 @@ promise the game makes to every traveler, regardless of who controls their
 avatar, which worldpack they entered through, or whether AI is available.
 
 It is product law. It is not an in-world faction, a membership gate, or the
-[Cottage Pact proof world](../v2/docs/pact-proof-world.md).
+[Cottage Pact proof world](archive/classic/v2/docs/pact-proof-world.md).
 
 ## One World, One Truth
 

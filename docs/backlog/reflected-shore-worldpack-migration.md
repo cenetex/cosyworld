@@ -30,7 +30,7 @@ plan with the tested multiplayer revision and record any changes.
 | Other sample prompts and reference hashes | [Built-in image receipts](../art-direction/worldpacks/review-trios/builtin-receipts.json) |
 | Earlier background and avatar studies | [Style sheets](../art-direction/worldpacks/README.md), [sample receipts](../art-direction/worldpacks/samples/receipts.json), and saved request sheets beside them |
 | Lonely Forest reference supplied by the creator | [Visual guide](../art-direction/style-guide.md) and [world map](../art-direction/world-map.md) |
-| Elysium and Lantern Keeper style boards | [Saved references](../art-direction/worldpacks/review-trios/references/) |
+| Elysium and Lantern Keeper style boards | [Saved references](../art-direction/worldpacks/review-trios/references) |
 | Pack and bridge contract | [Card packs](../../v2/docs/card-packs.md) and [validator](../../v2/card-game/pack-schema.mjs) |
 | Shared-world authority, queues, homes, and replay | [Shared worlds](../../v2/docs/card-table/shared-worlds.md) |
 
@@ -61,12 +61,12 @@ explicit source-to-card ID map. Reflected Shore IDs keep their existing meaning.
 
 | Pack and source | Four locations | Four avatars | Four items |
 | --- | --- | --- | --- |
-| Lonely Forest — [core](../../v2/content/core/) | 1 Cosy Cottage; 2 Rain-Soft Garden; 3 Moonlit Trail; 40 Old Oak Tree | 1001 Rati; 1002 Gust, with Whiskerwind naming for review; 1003 Skull; 1005 Oak | 2005 Story Button; 2002 Dewbright Button; 2007 Watch Bell; 2003 Wolfprint Charm |
-| Holy Land — [the-holy-land](../../v2/content/the-holy-land/) | 704 Capernaum; 705 Sea of Galilee Shore; 706 Hillside of Teachings; 707 Bethsaida | 7002 Simon Peter; 7003 Andrew; 7004 James son of Zebedee; 7006 Philip | 7201 Mended Net Cord; 7203 Boatwright's Adze; 7206 Pearl of Great Price; 7208 Mustard Seed Pouch |
-| Project 89 — [project89-operation-liberation](../../v2/content/project89-operation-liberation/) | 8900 Threshold Interface; 8901 Sector 89 Safehouse; 8902 89 Archives; 8903 Meme Farm 17 | 8950 Seraph; 8951 Mara Quell; 8952 Parzival; 8954 Iri Vale | 8970 Charged 89 Sigil; 8972 Memory Lantern; 8977 Loopbreaker Patch; 8978 Consciousness Capsule |
-| Hoppycat — [hoppycat-archive](../../v2/content/hoppycat-archive/) | 770000 Halfway Tea Garden; 770007 Meraki Atelier; 770008 Goldfish Tank; 770009 Signal Jetty | 771008 Hoppy Cat; 771005 Mira Meraki; 771006 Glim Twice; 771103 staticwashere | 772008 Halfway Cup; 772005 Five-Finger Meraki Brush; 772006 Goldfish Loop Token; 772009 Return-Path Checklist |
-| The Lantern Keeper — [the-lantern-keeper](../../v2/content/the-lantern-keeper/) | 801 Mothwood Path; 802 Saint Orra's Ruin; 803 Flooded Barrow; 804 Lantern Tower | 8301 Mara Wick; 8302 Pip Thistle; 8303 Moth-Eaten Knight; 8304 Rowan Vale | 8401 Keeper's Brass Key; 8402 Mothglass Lens; 8403 Dawn Oil; 8404 Keeper's Ember |
-| Elysium — [elysium](../../v2/content/elysium/) | 652000 Void 001; 652001 Void 002; 652002 Void 003; 652004 Void 005 | 289553007952 Claude Fable; 39742904712 Claude Haiku; 162757305737 Claude Opus; 470082020438 Gemini Flash | First art subjects: void_wayfinder; listening_shard; quiet_ember; fold_satchel |
+| Lonely Forest — [core](../../v2/content/core) | 1 Cosy Cottage; 2 Rain-Soft Garden; 3 Moonlit Trail; 40 Old Oak Tree | 1001 Rati; 1002 Gust, with Whiskerwind naming for review; 1003 Skull; 1005 Oak | 2005 Story Button; 2002 Dewbright Button; 2007 Watch Bell; 2003 Wolfprint Charm |
+| Holy Land — [the-holy-land](../../v2/content/the-holy-land) | 704 Capernaum; 705 Sea of Galilee Shore; 706 Hillside of Teachings; 707 Bethsaida | 7002 Simon Peter; 7003 Andrew; 7004 James son of Zebedee; 7006 Philip | 7201 Mended Net Cord; 7203 Boatwright's Adze; 7206 Pearl of Great Price; 7208 Mustard Seed Pouch |
+| Project 89 — [project89-operation-liberation](../../v2/content/project89-operation-liberation) | 8900 Threshold Interface; 8901 Sector 89 Safehouse; 8902 89 Archives; 8903 Meme Farm 17 | 8950 Seraph; 8951 Mara Quell; 8952 Parzival; 8954 Iri Vale | 8970 Charged 89 Sigil; 8972 Memory Lantern; 8977 Loopbreaker Patch; 8978 Consciousness Capsule |
+| Hoppycat — [hoppycat-archive](../../v2/content/hoppycat-archive) | 770000 Halfway Tea Garden; 770007 Meraki Atelier; 770008 Goldfish Tank; 770009 Signal Jetty | 771008 Hoppy Cat; 771005 Mira Meraki; 771006 Glim Twice; 771103 staticwashere | 772008 Halfway Cup; 772005 Five-Finger Meraki Brush; 772006 Goldfish Loop Token; 772009 Return-Path Checklist |
+| The Lantern Keeper — [the-lantern-keeper](../../v2/content/the-lantern-keeper) | 801 Mothwood Path; 802 Saint Orra's Ruin; 803 Flooded Barrow; 804 Lantern Tower | 8301 Mara Wick; 8302 Pip Thistle; 8303 Moth-Eaten Knight; 8304 Rowan Vale | 8401 Keeper's Brass Key; 8402 Mothglass Lens; 8403 Dawn Oil; 8404 Keeper's Ember |
+| Elysium — [elysium](../../v2/content/elysium) | 652000 Void 001; 652001 Void 002; 652002 Void 003; 652004 Void 005 | 289553007952 Claude Fable; 39742904712 Claude Haiku; 162757305737 Claude Opus; 470082020438 Gemini Flash | First art subjects: void_wayfinder; listening_shard; quiet_ember; fold_satchel |
 
 There are 72 review subjects across the six packs. Elysium's four item art
 subjects are resolved forms. Its starting items remain the unique unresolved

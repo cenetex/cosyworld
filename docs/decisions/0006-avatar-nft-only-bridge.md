@@ -1,5 +1,9 @@
 # ADR 0006: a wallet-optional core with an avatar-NFT-only bridge
 
+> Historical classic-game decision. The status below records its acceptance
+> at the stated date. Check implementation against the
+> [current game source map](../current-game.md) before feature work.
+
 - Status: Accepted
 - Proposed: 2026-08-02
 - Accepted: 2026-08-09

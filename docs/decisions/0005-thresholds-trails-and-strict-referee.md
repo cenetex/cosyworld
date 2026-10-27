@@ -1,5 +1,9 @@
 # ADR 0005: thresholds, trails, and the strict referee
 
+> Historical classic-game decision. The status below records its acceptance
+> at the stated date. Check implementation against the
+> [current game source map](../current-game.md) before feature work.
+
 - Status: Accepted
 - Date: 2026-07-30
 - Decision owners: CosyWorld maintainers
@@ -316,8 +320,8 @@ inspectable.
 ## References
 
 - [Thresholds, trails, and the strict referee backlog](../backlog/thresholds-trails-and-strict-referee.md)
-- [CosyWorld RPG System Bible](../systems/09-cosyworld-rpg-system.md)
-- [SRD-backed action and collectible system](../systems/04-action-system.md)
+- [CosyWorld RPG System Bible](../archive/classic/docs/systems/09-cosyworld-rpg-system.md)
+- [SRD-backed action and collectible system](../archive/classic/docs/systems/04-action-system.md)
 - [ADR 0004: rest grades and expedition depth](0004-rest-grades-and-expedition-depth.md)
 - [ADR 0009: companies, Ventures, Formations, and shared travel](0009-companies-ventures-formations-and-shared-travel.md)
-- [Worldpacks](../../v2/docs/worldpacks.md)
+- [Worldpacks](../archive/classic/v2/docs/worldpacks.md)

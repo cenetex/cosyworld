@@ -1,5 +1,9 @@
 # ADR 0015: a generated world, seen through cards
 
+> Historical card-game decision. The status below records its acceptance
+> at the stated date. Check implementation against the
+> [current game source map](../current-game.md) before feature work.
+
 - Status: Accepted
 - Date: 2026-10-18
 - Decision owners: CosyWorld maintainers

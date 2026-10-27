@@ -1,4 +1,5 @@
 mod engine;
+pub(crate) const RULES_VERSION: &str = engine::VERSION;
 mod full;
 mod full_speech;
 mod full_store;

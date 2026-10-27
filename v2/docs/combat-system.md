@@ -1,5 +1,8 @@
 # CosyWorld combat protocol
 
+> Classic compatibility reference. Its status and rules apply to the classic
+> runtime. Start card-game work with the [current source map](../../docs/current-game.md).
+
 `cosyworld.combat/4` is the deterministic encounter protocol implemented by
 the C kernel and projected by Rust. It binds Attack and Dodge to
 `srd5.2.1:attack` and `srd5.2.1:dodge` under `cosyworld.srd5/1`, while retaining
@@ -120,5 +123,5 @@ The embedded SRD reference packs remain separately attributed under
 `cosyworld.rules/1`; the active action binding comes from `cosyworld.srd5/1`
 under `cosyworld.rules/2`.
 
-See the [action architecture](../../docs/systems/04-action-system.md) and
+See the [action architecture](../../docs/archive/classic/docs/systems/04-action-system.md) and
 [SAF-10 evidence](../../docs/backlog/srd-action-card-foundation.md#saf-10--align-bounded-combat-with-the-action-registry).

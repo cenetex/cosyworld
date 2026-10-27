@@ -1,5 +1,9 @@
 # ADR 0012: Notice observes actors, Search examines places, and Scout follows leads
 
+> Historical classic-game decision. The status below records its acceptance
+> at the stated date. Check implementation against the
+> [current game source map](../current-game.md) before feature work.
+
 - Status: Accepted
 - Date: 2026-08-13
 - Decision owners: CosyWorld maintainers

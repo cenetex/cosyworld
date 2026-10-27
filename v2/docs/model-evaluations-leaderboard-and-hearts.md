@@ -1,5 +1,8 @@
 # Model evaluations, `/leaderboard`, and `<3` feedback
 
+> Classic compatibility reference. Its status and rules apply to the classic
+> runtime. Start card-game work with the [current source map](../../docs/current-game.md).
+
 Status: design proposal; no runtime or UI implementation is included here.
 
 This design turns CosyWorld's existing per-generation publication evidence into

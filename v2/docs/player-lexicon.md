@@ -1,5 +1,8 @@
 # Player lexicon
 
+> Classic compatibility reference. Its status and rules apply to the classic
+> runtime. Start card-game work with the [current source map](../../docs/current-game.md).
+
 ADR 0006 accepts a wallet-optional core with one narrow external concept:
 **linked avatar**. Cards present authoritative world state; items and locations
 remain shared-world facts. New player copy does not call actor/item/location

@@ -1,5 +1,8 @@
 # Context-Dominant Prompting
 
+> Classic compatibility reference. Use this guide for the earlier runtime and
+> its saved history. Start card-game work with the [current source map](../../docs/current-game.md).
+
 CosyWorld prompts follow one rule:
 
 > Awakening supplies consciousness; context supplies the world; code supplies

@@ -1,5 +1,8 @@
 # Daily Journal Images
 
+> Classic compatibility reference. Its status and rules apply to the classic
+> runtime. Start card-game work with the [current source map](../../docs/current-game.md).
+
 The player Journal is an avatar-private gallery of generated daily page images.
 It is not an event log, spreadsheet, progress dashboard, open-thread list, or
 room-memory view.

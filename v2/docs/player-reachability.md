@@ -1,5 +1,8 @@
 # Player action reachability
 
+> Classic compatibility reference. Its status and rules apply to the classic
+> runtime. Start card-game work with the [current source map](../../docs/current-game.md).
+
 Every playable projection exposes a legal dealt action, an avatar lifecycle
 action, or a wait with a server turn deadline. The shared browser and
 composition guard checks this contract on the actual server response.

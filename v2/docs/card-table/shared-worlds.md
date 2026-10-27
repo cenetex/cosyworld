@@ -73,6 +73,9 @@ story cards and saved bard visits. Versions 5–8 added collected and shared que
 shared journeys, quieter offers, and the first-signal ship gate. Published rule
 versions 2–8 retain their exact interpreter bytes for replay.
 
+The current rules version is reported by `/meta.card_game.shared_rules_version`
+and comes from the shared engine constant.
+
 Version 9 adds a two-card quest hand and explicit Drop actions. Loading an earlier
 world first replays its accepted history with the recorded interpreters, then
 records an upgrade to version 9. The upgrade preserves the world turn, item

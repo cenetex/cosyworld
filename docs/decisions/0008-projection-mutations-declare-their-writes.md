@@ -1,5 +1,9 @@
 # ADR 0008: projection mutations carry their payload and declare their writes
 
+> Historical classic-game decision. The status below records its acceptance
+> at the stated date. Check implementation against the
+> [current game source map](../current-game.md) before feature work.
+
 - Status: Accepted
 - Date: 2026-08-09
 - Decision owners: CosyWorld maintainers

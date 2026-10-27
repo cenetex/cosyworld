@@ -1,5 +1,8 @@
 # Respond contract evaluation
 
+> Classic compatibility reference. Use this guide for the earlier runtime and
+> its saved history. Start card-game work with the [current source map](../../docs/current-game.md).
+
 This audit follows #933. The old ten-clause `system_contract` has already been
 replaced by a first-person awakening. This pass tests the remaining shared
 truth paragraph against a shorter statement of viewpoint.

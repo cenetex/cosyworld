@@ -1,5 +1,8 @@
 # Seventh-visit proof-world findings
 
+> Classic compatibility reference. Its status and rules apply to the classic
+> runtime. Start card-game work with the [current source map](../../docs/current-game.md).
+
 ## Status
 
 The automated proof-world preflight is complete. Its synthetic player visits

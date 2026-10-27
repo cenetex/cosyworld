@@ -87,6 +87,8 @@ deployment = meta.get("deployment", {})
 print(
     "meta: "
     f"{meta.get('service')} {meta.get('version')} {meta.get('build_profile')} "
+    f"game={meta.get('primary_game', 'classic')} "
+    f"card_rules={meta.get('card_game', {}).get('shared_rules_version', 'unreported')} "
     f"profile={deployment.get('profile')} "
     f"world={deployment.get('world_id')} "
     f"process={deployment.get('process_id')} "

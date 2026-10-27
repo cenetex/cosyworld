@@ -1,5 +1,8 @@
 # Story Hand
 
+> Classic compatibility reference. Use this guide for the earlier runtime and
+> its saved history. Start card-game work with the [current source map](../../docs/current-game.md).
+
 The Story Hand is the player-facing play system. It deals up to three plain
 noun cards:
 

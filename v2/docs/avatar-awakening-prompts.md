@@ -1,5 +1,8 @@
 # Avatar awakening prompts
 
+> Classic compatibility reference. Use this guide for the earlier runtime and
+> its saved history. Start card-game work with the [current source map](../../docs/current-game.md).
+
 ## Aim
 
 An avatar should not receive a page of directions about how to perform a

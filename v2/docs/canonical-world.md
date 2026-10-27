@@ -1,5 +1,8 @@
 # Canonical world runtime contract
 
+> Classic compatibility reference. Its status and rules apply to the classic
+> runtime. Start card-game work with the [current source map](../../docs/current-game.md).
+
 CosyWorld’s official service is one persistent world. Capacity processes,
 regions, room owners, and pack bundles are replaceable machinery behind that
 promise. [ADR 0003](../../docs/decisions/0003-one-canonical-world.md) is the

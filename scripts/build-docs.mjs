@@ -1,367 +1,216 @@
 #!/usr/bin/env node
 
-/**
- * Copyright (c) 2019-2024 Cenetex Inc.
- * Licensed under the MIT License.
- * 
- * Documentation Builder Script
- * 
- * This script builds HTML documentation from markdown files using markdown-it.
- * It preserves the directory structure and adds navigation.
- * It includes Mermaid diagram support and fixes relative links.
- * It also creates a combined markdown file for LLM ingestion.
- */
+// Copyright (c) 2019-2024 Cenetex Inc. Licensed under the MIT License.
 
-import fs from 'fs/promises';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import markdownIt from 'markdown-it';
-import { glob } from 'glob';
+import fs from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import markdownIt from "markdown-it";
 
-// Setup
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const docsDir = path.join(__dirname, '..', 'docs');
-const buildDir = path.join(__dirname, '..', 'dist', 'docs');
-const combinedMdPath = path.join(buildDir, 'cosyworld-docs-combined.md');
+const defaultRoot = fileURLToPath(new URL("../", import.meta.url));
+const parser = markdownIt({ html: true, linkify: true });
+const external = (url) => /^(?:[a-z][a-z0-9+.-]*:|#|\/)/i.test(url);
+const htmlPath = (file) => file.replace(/\.md$/, ".html");
+const escape = (text) => parser.utils.escapeHtml(text);
+const defaultFence = parser.renderer.rules.fence;
+parser.renderer.rules.fence = (tokens, index, options, env, renderer) =>
+  tokens[index].info.trim() === "mermaid"
+    ? `<div class="mermaid">${escape(tokens[index].content)}</div>`
+    : defaultFence(tokens, index, options, env, renderer);
+const diagrams = '<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script><script>mermaid.initialize({startOnLoad:true,securityLevel:"strict"});</script>';
 
-// Initialize markdown-it with options
-const md = markdownIt({
-  html: true,
-  linkify: true,
-  typographer: true
-});
-
-// Basic HTML template
-const htmlTemplate = (title, content, navigation) => `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title} - CosyWorld Documentation</title>
-  <!-- Mermaid script for diagram rendering -->
-  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      mermaid.initialize({ 
-        startOnLoad: true,
-        theme: 'dark',
-        securityLevel: 'loose'
-      });
-    });
-  </script>
-  <style>
-    body { 
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-      line-height: 1.6;
-      color: #333;
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 1rem;
-      display: flex;
+export async function currentDocuments(root = defaultRoot) {
+  const manifest = JSON.parse(
+    await fs.readFile(path.join(root, "docs/current-docs.json"), "utf8"),
+  );
+  if (
+    !Array.isArray(manifest.current) ||
+    !manifest.current.length ||
+    new Set(manifest.current).size !== manifest.current.length ||
+    typeof manifest.history !== "string" ||
+    !manifest.history.startsWith("docs/archive/")
+  ) {
+    throw new Error(
+      "The current reading list needs distinct pages and a history index.",
+    );
+  }
+  for (const file of [...manifest.current, manifest.history]) {
+    if (
+      !file.endsWith(".md") ||
+      path.isAbsolute(file) ||
+      file.split("/").includes("..")
+    ) {
+      throw new Error(`Invalid documentation path: ${file}`);
     }
-    nav {
-      width: 250px;
-      padding-right: 2rem;
-      flex-shrink: 0;
-    }
-    main {
-      flex-grow: 1;
-      min-width: 0;
-    }
-    main img {
-      max-width: 100%;
-      height: auto;
-    }
-    code {
-      background: #f5f5f5;
-      padding: 0.2em 0.4em;
-      border-radius: 3px;
-      font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace;
-      font-size: 85%;
-    }
-    pre {
-      background: #f5f5f5;
-      padding: 1rem;
-      border-radius: 5px;
-      overflow: auto;
-    }
-    pre code {
-      background: none;
-      padding: 0;
-    }
-    a { color: #0366d6; text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    h1, h2, h3, h4 { margin-top: 1.5em; margin-bottom: 0.5em; }
-    h1 { border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
-    nav ul { list-style-type: none; padding-left: 1.2em; }
-    nav > ul { padding-left: 0; }
-    .section-title { 
-      font-weight: bold; 
-      margin-top: 1em;
-      color: #24292e;
-    }
-    /* Mermaid diagram styling */
-    .mermaid {
-      margin: 1rem 0;
-    }
-  </style>
-</head>
-<body>
-  <nav>${navigation}</nav>
-  <main>${content}</main>
-</body>
-</html>
-`;
-
-// Function to get the base path for relative links
-function getRelativeBasePath(filePath) {
-  const relativePath = path.relative(buildDir, path.dirname(filePath));
-  if (relativePath === '') return './';
-  
-  // Count the number of directory levels and create a path with the right number of "../"
-  const levels = relativePath.split(path.sep).length;
-  return '../'.repeat(levels);
+    await fs.access(path.join(root, file));
+  }
+  if (manifest.current.some((file) => file.startsWith("docs/archive/"))) {
+    throw new Error("History pages belong in the separate History section.");
+  }
+  return manifest;
 }
 
-// Function to build navigation with fixed relative paths
-async function buildNavigation(currentFilePath = null) {
-  // Define the sections and their directories
-  const sections = [
-    { title: 'Art direction', dir: 'art-direction' },
-    { title: 'Overview', dir: 'overview' },
-    { title: 'Worldpacks', dir: 'worldpacks' },
-    { title: 'Systems', dir: 'systems' },
-    { title: 'Services', dir: 'services' },
-    { title: 'Deployment', dir: 'deployment' }
-  ];
-  
-  // Get base path for relative links
-  const basePath = currentFilePath ? getRelativeBasePath(currentFilePath) : '';
-  
-  let nav = '<ul>';
-  nav += `<li><a href="${basePath}index.html">Home</a></li>`;
-  
-  for (const section of sections) {
-    nav += `<li><span class="section-title">${section.title}</span><ul>`;
-    
-    // Process root files for each section
-    const files = glob.sync(`${docsDir}/${section.dir}/*.md`);
-    if (section.dir === 'worldpacks') {
-      const worldpackOrder = new Map([
-        ['index.md', 0],
-        ['how-to-design-a-worldpack.md', 1],
-        ['project-89-systems-study.md', 2],
-        ['project-89-content-review.md', 3]
-      ]);
-      files.sort((left, right) => {
-        const leftName = path.basename(left);
-        const rightName = path.basename(right);
-        const leftOrder = worldpackOrder.get(leftName) ?? Number.MAX_SAFE_INTEGER;
-        const rightOrder = worldpackOrder.get(rightName) ?? Number.MAX_SAFE_INTEGER;
-        return leftOrder - rightOrder || leftName.localeCompare(rightName);
-      });
+function attributes(tokens) {
+  const result = [];
+  for (const token of tokens) {
+    for (const key of ["href", "src"]) {
+      if (token.attrGet(key))
+        result.push({ token, key, url: token.attrGet(key) });
     }
-    for (const file of files) {
-      const fileName = path.basename(file);
-      const fileNameWithoutExt = fileName.replace('.md', '');
-      const fileContent = await fs.readFile(file, 'utf8');
-      const title = fileContent.split('\n')[0].replace('# ', '').trim();
-      const outputPath = `${basePath}${section.dir}/${fileNameWithoutExt}.html`;
-      
-      nav += `<li><a href="${outputPath}">${title}</a></li>`;
-    }
-    
-    // For services, add subdirectories
-    if (section.dir === 'services') {
-      const serviceTypes = glob.sync(`${docsDir}/${section.dir}/*/`, { mark: true });
-      
-      for (const serviceType of serviceTypes) {
-        const typeDir = path.basename(serviceType.replace(/\/$/, ''));
-        if (typeDir === 'build') continue;  // Skip the build directory
-        
-        // Extract a cleaner section title from directory name
-        const sectionTitle = typeDir.charAt(0).toUpperCase() + typeDir.slice(1);
-        nav += `<li><span class="section-title">${sectionTitle}</span><ul>`;
-        
-        // Get all MD files in this service type directory
-        const serviceFiles = glob.sync(`${serviceType}*.md`);
-        for (const file of serviceFiles) {
-          const fileName = path.basename(file);
-          const fileNameWithoutExt = fileName.replace('.md', '');
-          const fileContent = await fs.readFile(file, 'utf8');
-          const title = fileContent.split('\n')[0].replace('# ', '').trim();
-          
-          // Fixed path - using direct path structure to avoid services/services
-          const outputPath = `${basePath}services/${typeDir}/${fileNameWithoutExt}.html`;
-          
-          nav += `<li><a href="${outputPath}">${title}</a></li>`;
-        }
-        
-        nav += '</ul></li>';
+    if (token.children) result.push(...attributes(token.children));
+  }
+  return result;
+}
+
+export async function checkCurrentLinks(root = defaultRoot) {
+  const manifest = await currentDocuments(root);
+  const failures = [];
+  for (const file of manifest.current) {
+    const text = await fs.readFile(path.join(root, file), "utf8");
+    for (const { url } of attributes(parser.parse(text, {}))) {
+      if (external(url)) continue;
+      const target = decodeURIComponent(url.split(/[?#]/)[0]);
+      try {
+        await fs.access(path.resolve(root, path.dirname(file), target));
+      } catch {
+        failures.push(`${file}: ${url}`);
       }
     }
-    
-    nav += '</ul></li>';
   }
-  
-  nav += '</ul>';
-  return nav;
+  if (failures.length)
+    throw new Error(
+      `Broken current documentation links:\n${failures.join("\n")}`,
+    );
+  return manifest;
 }
 
-// Function to transform Markdown content for proper diagram rendering and fixed relative links
-function transformMarkdown(markdown, filePath) {
-  // Convert mermaid code blocks to div elements
-  let transformedMarkdown = markdown.replace(/```mermaid([\s\S]*?)```/g, '<div class="mermaid">$1</div>');
-  
-  // Fix relative links to other markdown files in the same directory
-  transformedMarkdown = transformedMarkdown.replace(/\[([^\]]+)\]\(([^)]+)\.md\)/g, (match, text, link) => {
-    // Only process relative links, not absolute URLs
-    if (link.startsWith('http') || link.startsWith('#')) {
-      return match;
+async function markdownFiles(root, directory) {
+  const files = [];
+  for (const entry of await fs.readdir(path.join(root, directory), {
+    withFileTypes: true,
+  })) {
+    const file = path.posix.join(directory, entry.name);
+    if (entry.isDirectory()) files.push(...(await markdownFiles(root, file)));
+    else if (entry.isFile() && file.endsWith(".md")) files.push(file);
+  }
+  return files.sort();
+}
+
+export async function buildDocs(
+  root = defaultRoot,
+  output = path.join(root, "dist/docs"),
+) {
+  const manifest = await checkCurrentLinks(root);
+  const pages = new Set([
+    ...manifest.current,
+    manifest.history,
+    ...(await markdownFiles(root, "docs")),
+    ...(await markdownFiles(root, "v2/docs")),
+  ]);
+  const texts = new Map();
+  for (const file of pages)
+    texts.set(file, await fs.readFile(path.join(root, file), "utf8"));
+  const title = (file) =>
+    texts
+      .get(file)
+      .split("\n")[0]
+      .replace(/^#+\s*/, "");
+  const relative = (from, to) =>
+    path.relative(path.dirname(from), to).split(path.sep).join("/");
+  const navigation = (file) =>
+    `<nav><h2>Current game</h2><ul>${manifest.current
+      .map(
+        (target) =>
+          `<li><a href="${escape(relative(htmlPath(file), htmlPath(target)))}">${escape(title(target))}</a></li>`,
+      )
+      .join(
+        "",
+      )}</ul><h2>History</h2><a href="${escape(relative(htmlPath(file), htmlPath(manifest.history)))}">Classic archive</a></nav>`;
+  const page = (name, nav, body) =>
+    `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(name)} · CosyWorld</title><style>body{font:17px/1.6 system-ui;margin:2rem auto;max-width:1200px;display:flex;gap:3rem;padding:0 1rem}nav{min-width:220px;max-width:260px}main{min-width:0;flex:1}img{max-width:100%}pre{overflow:auto;padding:1rem;background:#f4f4f4}table{border-collapse:collapse}td,th{padding:.4rem;border:1px solid #ccc}@media(max-width:750px){body{display:block}nav{max-width:100%}}</style></head><body>${nav}<main>${body}</main></body></html>`;
+  await fs.mkdir(output, { recursive: true });
+  for (const file of pages) {
+    const tokens = parser.parse(texts.get(file), {});
+    for (const { token, key, url } of attributes(tokens)) {
+      if (external(url)) continue;
+      const [targetPart, fragment] = url.split("#", 2);
+      const target = path.posix.normalize(
+        path.posix.join(
+          path.posix.dirname(file),
+          decodeURIComponent(targetPart),
+        ),
+      );
+      if (target.startsWith("../")) continue;
+      if (pages.has(target)) {
+        token.attrSet(
+          key,
+          relative(htmlPath(file), htmlPath(target)) +
+            (fragment ? `#${fragment}` : ""),
+        );
+      } else if (key === "src") {
+        try {
+          const destination = path.join(output, target);
+          await fs.mkdir(path.dirname(destination), { recursive: true });
+          await fs.copyFile(path.join(root, target), destination);
+        } catch {
+          /* Historical pages retain their source references. */
+        }
+      } else {
+        token.attrSet(
+          key,
+          `https://github.com/cenetex/cosyworld/blob/main/${target}${fragment ? `#${fragment}` : ""}`,
+        );
+      }
     }
-    
-    // Check if it's a relative path with directory traversal
-    if (link.startsWith('../')) {
-      // Handle parent directory links
-      // baseDir not required for computation, keep relative calc minimal
-      const targetPath = path.resolve(path.dirname(filePath), link);
-      const _relativePath = path.relative(docsDir, targetPath);
-      const htmlLink = _relativePath.replace('.md', '.html');
-      const basePath = getRelativeBasePath(filePath);
-      return `[${text}](${basePath}${htmlLink})`;
+    // Stable heading anchors keep links within and between guides useful.
+    for (let i = 0; i < tokens.length; i++) {
+      if (tokens[i].type === "heading_open") {
+        const id = tokens[i + 1].content
+          .toLowerCase()
+          .replace(/[^\p{L}\p{N}\s_-]/gu, "")
+          .replace(/\s/g, "-");
+        tokens[i].attrSet("id", id);
+      }
     }
-    
-    // Handle links in the same directory
-    return `[${text}](${link}.html)`;
-  });
-  
-  return transformedMarkdown;
+    const destination = path.join(output, htmlPath(file));
+    await fs.mkdir(path.dirname(destination), { recursive: true });
+    await fs.writeFile(
+      destination,
+      page(
+        title(file),
+        navigation(file),
+        parser.renderer.render(tokens, parser.options, {}) +
+          (tokens.some((token) => token.type === "fence" && token.info.trim() === "mermaid") ? diagrams : ""),
+      ),
+    );
+  }
+  const combined =
+    "# CosyWorld current game documentation\n\nSelected by docs/current-docs.json. Historical guides are in the separate classic archive.\n\n" +
+    manifest.current
+      .map((file) => `## Source: ${file}\n\n${texts.get(file)}`)
+      .join("\n\n---\n\n");
+  await fs.writeFile(path.join(output, "cosyworld-docs-combined.md"), combined);
+  await fs.writeFile(
+    path.join(output, "index.html"),
+    page(
+      "Documentation",
+      navigation("index.md"),
+      "<h1>CosyWorld documentation</h1><p>Choose a current guide from the reading list. Earlier guides are in History.</p>",
+    ),
+  );
+  return { current: manifest.current.length, pages: pages.size, output };
 }
 
-// Function to generate combined markdown file for LLM ingestion
-async function generateCombinedMarkdown(markdownFiles) {
-  console.log('Generating combined markdown file for LLM ingestion...');
-  
-  let combinedContent = '# CosyWorld Documentation\n\n';
-  combinedContent += 'This document contains all documentation for the CosyWorld project.\n\n';
-  combinedContent += '## Table of Contents\n\n';
-  
-  // Create a table of contents
-  for (const section of ['Art direction', 'Overview', 'Worldpacks', 'Systems', 'Services', 'Deployment']) {
-    combinedContent += `### ${section}\n\n`;
-    
-    const sectionFiles = markdownFiles.filter(file => {
-      const relativePath = path.relative(docsDir, file);
-      return relativePath.startsWith(section.toLowerCase().replaceAll(' ', '-') + '/') ||
-             (section === 'Services' && relativePath.startsWith('services/'));
-    });
-    
-    for (const file of sectionFiles) {
-      const fileContent = await fs.readFile(file, 'utf8');
-      const title = fileContent.split('\n')[0].replace('# ', '').trim();
-      const _relativePath = path.relative(docsDir, file);
-      combinedContent += `- [${title}](#${title.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '')})\n`;
-    }
-    
-    combinedContent += '\n';
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href
+) {
+  if (process.argv.includes("--check")) {
+    const manifest = await checkCurrentLinks();
+    console.log(
+      `Current documentation: ${manifest.current.length} pages, paths and links checked.`,
+    );
+  } else {
+    console.log(await buildDocs());
   }
-  
-  // Add all content
-  for (const file of markdownFiles) {
-    const fileContent = await fs.readFile(file, 'utf8');
-    const relativePath = path.relative(docsDir, file);
-    
-    combinedContent += `\n\n## Document: ${relativePath}\n\n`;
-    combinedContent += fileContent.replace(/^# /, '## ').replace(/^## /gm, '### ').replace(/^### /gm, '#### ');
-    combinedContent += '\n\n---\n\n';
-  }
-  
-  await fs.writeFile(combinedMdPath, combinedContent);
-  console.log(`Generated combined markdown file at ${path.relative(docsDir, combinedMdPath)}`);
 }
-
-// Function to fix any path issues in the HTML
-function fixPathIssues(html) {
-  // Fix "services/services/" paths that might occur in nested navigation
-  return html.replace(/services\/services\//g, 'services/');
-}
-
-// Main build function
-async function buildDocs() {
-  console.log('Building documentation...');
-  
-  // Create build directory if it doesn't exist
-  await fs.mkdir(buildDir, { recursive: true });
-  
-  // Process all markdown files in docs directory and subdirectories
-  const markdownFiles = glob.sync(`${docsDir}/**/*.md`);
-
-  // Keep local illustrations beside the pages that reference them.
-  const imageFiles = glob.sync(`${docsDir}/**/*.{png,jpg,jpeg,webp,gif,svg,avif}`);
-  for (const file of imageFiles) {
-    const outputPath = path.join(buildDir, path.relative(docsDir, file));
-    await fs.mkdir(path.dirname(outputPath), { recursive: true });
-    await fs.copyFile(file, outputPath);
-  }
-  
-  // Generate the combined markdown file for LLM ingestion
-  await generateCombinedMarkdown(markdownFiles);
-  
-  // Build the main index navigation (without a specific path)
-  const mainNavigation = await buildNavigation();
-  
-  // Copy the main README as index.html
-  const mainReadme = await fs.readFile(path.join(docsDir, 'index.md'), 'utf8');
-  const mainContent = md.render(transformMarkdown(mainReadme, path.join(docsDir, 'index.md')));
-  let indexHtml = htmlTemplate('Home', mainContent, mainNavigation);
-  // Fix any path issues
-  indexHtml = fixPathIssues(indexHtml);
-  await fs.writeFile(path.join(buildDir, 'index.html'), indexHtml);
-  
-  // Process each markdown file to HTML
-  for (const file of markdownFiles) {
-    // Skip the main README as we've already processed it
-    if (file === path.join(docsDir, 'README.md')) continue;
-    
-    const relativePath = path.relative(docsDir, file);
-    const outputPath = path.join(buildDir, relativePath.replace('.md', '.html'));
-    const outputDir = path.dirname(outputPath);
-    
-    // Create the output directory if it doesn't exist
-    await fs.mkdir(outputDir, { recursive: true });
-    
-    // Read the markdown file
-    const markdown = await fs.readFile(file, 'utf8');
-    
-    // Transform markdown for proper diagram rendering and fixed links
-    const transformedMarkdown = transformMarkdown(markdown, file);
-    
-    // Build navigation with proper relative paths for this specific file
-    const navigation = await buildNavigation(outputPath);
-    
-    // Render the markdown to HTML
-    const content = md.render(transformedMarkdown);
-    
-    // Extract the title from the first h1
-    const title = markdown.split('\n')[0].replace('# ', '').trim();
-    
-    // Generate the HTML
-    let html = htmlTemplate(title, content, navigation);
-    
-    // Fix any path issues before writing
-    html = fixPathIssues(html);
-    
-    // Write the HTML file
-    await fs.writeFile(outputPath, html);
-    console.log(`Converted ${relativePath} to ${path.relative(docsDir, outputPath)}`);
-  }
-  
-  console.log('Documentation built successfully!');
-}
-
-// Run the build
-buildDocs().catch(err => {
-  console.error('Error building documentation:', err);
-  process.exit(1);
-});

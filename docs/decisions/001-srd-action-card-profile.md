@@ -1,5 +1,9 @@
 # ADR-001: SRD 5.2.1 Action-Card Profile
 
+> Historical classic-game decision. The status below records its acceptance
+> at the stated date. Check implementation against the
+> [current game source map](../current-game.md) before feature work.
+
 - Status: accepted for internal development; collectible policy superseded by ADR 0006; superseded as the card table's action substrate by ADR 0015
 - Date: 2026-07-19
 - Profile: `cosyworld.srd5/1`

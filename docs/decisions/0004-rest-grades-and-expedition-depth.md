@@ -1,5 +1,9 @@
 # ADR 0004: rest grades and expedition depth
 
+> Historical classic-game decision. The status below records its acceptance
+> at the stated date. Check implementation against the
+> [current game source map](../current-game.md) before feature work.
+
 - Status: Accepted
 - Date: 2026-07-26
 - Decision owners: CosyWorld maintainers
@@ -168,7 +172,7 @@ this closed schema rather than introduce a separate lodging economy.
 
 - [CosyWorld Product Requirements](../../PRD.md), especially product pillars 2,
   3, 5, and 7 and the player noun budget.
-- [CosyWorld RPG System Bible](../systems/09-cosyworld-rpg-system.md)
-- [SRD-backed action and collectible system](../systems/04-action-system.md)
+- [CosyWorld RPG System Bible](../archive/classic/docs/systems/09-cosyworld-rpg-system.md)
+- [SRD-backed action and collectible system](../archive/classic/docs/systems/04-action-system.md)
 - [ADR 0002: the action hand is an authoritative state projection](0002-action-hand-is-authoritative-state.md)
 - [ADR 0009: companies, Ventures, Formations, and shared travel](0009-companies-ventures-formations-and-shared-travel.md)

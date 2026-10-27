@@ -1,5 +1,8 @@
 # Item and location levels
 
+> Classic compatibility reference. Its status and rules apply to the classic
+> runtime. Start card-game work with the [current source map](../../docs/current-game.md).
+
 Item and location level contract 1 is carried by the optional
 `entity_level_contract` field on a journal record. Snapshot version 22 stores
 the resulting `entity_levels` ledger. Avatar levels keep their existing rules.
