@@ -74,6 +74,44 @@ describe("player OpenRouter connection", () => {
     f.client.disconnect();
     expect(f.client.connection()).toBeNull();
   });
+  it("accepts OpenRouter appending only the code to a callback with embedded state", async () => {
+    const f = fixture();
+    const auth = await f.start();
+    const callback = new URL(auth.searchParams.get("callback_url"));
+    expect(callback.searchParams.get("state")).toBe(
+      auth.searchParams.get("state"),
+    );
+    callback.searchParams.set("code", "provider-only-appends-this-code");
+    await expect(f.client.finish(callback.href, vi.fn())).resolves.toBe(true);
+  });
+  it("returns through a small window and respects a cancelled exchange", async () => {
+    const f = fixture();
+    const auth = new URL(
+      await f.client.begin("https://game.example/?world=forest", {
+        popup: true,
+      }),
+    );
+    const callback = new URL(auth.searchParams.get("callback_url"));
+    expect(callback.pathname).toBe("/card-game/openrouter-callback.html");
+    expect(callback.searchParams.get("state")).toBe(
+      auth.searchParams.get("state"),
+    );
+    callback.searchParams.set("code", "provider-code");
+    await expect(
+      f.client.finish(callback.href, vi.fn(), { accept: () => false }),
+    ).resolves.toBe(false);
+    expect(f.client.connection()).toBeNull();
+  });
+  it("keeps a cancelled sign-in attempt clear while its challenge is being made", async () => {
+    const f = fixture();
+    let active = true;
+    const started = f.client.begin("https://game.example/", {
+      accept: () => active,
+    });
+    active = false;
+    await expect(started).resolves.toBeNull();
+    expect(f.values.size).toBe(0);
+  });
   it.each(["state", "expiry", "table", "denied"])(
     "checks %s before contacting OpenRouter",
     async (kind) => {

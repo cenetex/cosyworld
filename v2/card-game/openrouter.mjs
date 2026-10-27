@@ -51,7 +51,7 @@ export function createOpenRouter({
   }
   return {
     connection,
-    async begin(href) {
+    async begin(href, { popup = false, accept = () => true } = {}) {
       const callback = new URL(href);
       for (const key of [
         "code",
@@ -61,15 +61,23 @@ export function createOpenRouter({
         "openrouter",
       ])
         callback.searchParams.delete(key);
-      callback.searchParams.set("openrouter", "callback");
       const verifier = encode(crypto.getRandomValues(new Uint8Array(32)));
       const state = encode(crypto.getRandomValues(new Uint8Array(32)));
+      if (popup) {
+        callback.pathname = "/card-game/openrouter-callback.html";
+        callback.search = "";
+        callback.hash = "";
+      }
+      callback.searchParams.set("openrouter", "callback");
+      // OpenRouter preserves the callback query when it appends the code.
+      callback.searchParams.set("state", state);
       const challenge = encode(
         await crypto.subtle.digest(
           "SHA-256",
           new TextEncoder().encode(verifier),
         ),
       );
+      if (!accept()) return null;
       storage.setItem(
         PENDING,
         JSON.stringify({ verifier, state, at: now(), callback: callback.href }),
@@ -85,7 +93,7 @@ export function createOpenRouter({
         url.searchParams.set(key, value);
       return url.href;
     },
-    async finish(href, cleanUrl) {
+    async finish(href, cleanUrl, { accept = () => true } = {}) {
       const url = new URL(href);
       if (url.searchParams.get("openrouter") !== "callback") return false;
       const code = url.searchParams.get("code");
@@ -113,6 +121,7 @@ export function createOpenRouter({
         throw new Error("Start a fresh OpenRouter connection in Settings.");
       const expected = new URL(pending.callback);
       expected.searchParams.delete("openrouter");
+      expected.searchParams.delete("state");
       if (expected.href !== url.href)
         throw new Error(
           "Return to the table where you started the connection.",
@@ -127,6 +136,7 @@ export function createOpenRouter({
       });
       if (!/^sk-or-[\x21-\x7e]{14,506}$/u.test(result.key || ""))
         throw new Error("Start a fresh OpenRouter connection in Settings.");
+      if (!accept()) return false;
       storage.setItem(
         CONNECTION,
         JSON.stringify({ key: result.key, chat: true }),
@@ -137,6 +147,11 @@ export function createOpenRouter({
       const value = connection();
       if (value)
         storage.setItem(CONNECTION, JSON.stringify({ ...value, chat }));
+    },
+    setVideoModel(videoModel) {
+      const value = connection();
+      if (value)
+        storage.setItem(CONNECTION, JSON.stringify({ ...value, videoModel }));
     },
     disconnect() {
       storage.removeItem(CONNECTION);
@@ -154,8 +169,28 @@ export function createOpenRouter({
         raw: true,
       });
     },
-    async video(model, prompt, signal, progress = () => {}) {
-      let job = await request("videos", { body: { model, prompt }, signal });
+    async video(model, prompt, signal, progress = () => {}, options = {}) {
+      const {
+        duration,
+        resolution,
+        aspect_ratio,
+        generate_audio,
+        frame_images,
+      } = options;
+      const key = connection()?.key;
+      let job = await request("videos", {
+        key,
+        body: {
+          model,
+          prompt,
+          ...(duration === undefined ? {} : { duration }),
+          ...(resolution ? { resolution } : {}),
+          ...(aspect_ratio ? { aspect_ratio } : {}),
+          ...(generate_audio === undefined ? {} : { generate_audio }),
+          ...(frame_images?.length ? { frame_images } : {}),
+        },
+        signal,
+      });
       if (typeof job.id !== "string" || !job.id || job.id.length > 200)
         throw new Error("OpenRouter needs a fresh video request.");
       const path = `videos/${encodeURIComponent(job.id)}`;
@@ -182,10 +217,10 @@ export function createOpenRouter({
           }, 3000);
           signal?.addEventListener("abort", stop, { once: true });
         });
-        job = await request(path, { signal });
+        job = await request(path, { signal, key });
       }
       // Construct the fixed OpenRouter content path so credentials stay there.
-      return request(`${path}/content?index=0`, { signal, raw: true });
+      return request(`${path}/content?index=0`, { signal, key, raw: true });
     },
   };
 }

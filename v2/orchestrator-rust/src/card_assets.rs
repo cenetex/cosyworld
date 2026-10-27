@@ -164,6 +164,34 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "text/css; charset=utf-8",
             include_bytes!("../../card-game/openrouter.css"),
         ),
+        "openrouter-connect.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/openrouter-connect.mjs"),
+        ),
+        "openrouter-callback.html" => (
+            "text/html; charset=utf-8",
+            include_bytes!("../../card-game/openrouter-callback.html"),
+        ),
+        "openrouter-callback.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/openrouter-callback.mjs"),
+        ),
+        "openrouter-callback.css" => (
+            "text/css; charset=utf-8",
+            include_bytes!("../../card-game/openrouter-callback.css"),
+        ),
+        "scene-video.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/scene-video.mjs"),
+        ),
+        "scene-video-context.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/scene-video-context.mjs"),
+        ),
+        "scene-video.css" => (
+            "text/css; charset=utf-8",
+            include_bytes!("../../card-game/scene-video.css"),
+        ),
         "awakening.css" => (
             "text/css; charset=utf-8",
             include_bytes!("../../card-game/awakening.css"),
