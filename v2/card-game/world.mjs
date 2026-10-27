@@ -1,3 +1,4 @@
+import { pruneQuestOffers } from "./quest-offers.mjs";
 import { syncStoryQuests, validStoryQuest } from "./story-quests.mjs";
 import {
   installRoamingQuests,
@@ -2778,6 +2779,10 @@ export function validateWorld(s) {
         !Number.isSafeInteger(collection.collectedThrough) ||
         collection.collectedThrough < 0 ||
         collection.collectedThrough > s.turn ||
+        (collection.lastOfferTurn !== undefined &&
+          (!Number.isSafeInteger(collection.lastOfferTurn) ||
+            collection.lastOfferTurn < 0 ||
+            collection.lastOfferTurn > s.turn)) ||
         new Set(cards.map((q) => q.key)).size !== cards.length ||
         cards.filter((q) => q.completedTurn === null).length > 8 ||
         cards.some(
@@ -3174,5 +3179,6 @@ export function decodeSave(text) {
     installPacks,
     profileOf: (id) => tastes[id],
   });
-  return validateWorld(s);
+  validateWorld(s);
+  return validateWorld(pruneQuestOffers(s));
 }

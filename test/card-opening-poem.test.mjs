@@ -98,8 +98,13 @@ describe("the opening poem", () => {
 
   it("reaches the completed quest site and stays when the player leaves", () => {
     const s = openingFixture("refusal");
-    expect(s.water.actors[bard].place).toBe("greek-courtyard");
-    const waiting = act(reload(s.water), "wait");
+    expect(latestQuestCompletion(s.water).locationId).toBe("greek-courtyard");
+    expect(s.water.roamingQuests[bard].target.locationId).toBe(
+      "greek-courtyard",
+    );
+    const arrived = act(reload(s.water), "wait");
+    expect(arrived.actors[bard].place).toBe("greek-courtyard");
+    const waiting = act(reload(arrived), "wait");
     expect(waiting.actors[bard].place).toBe("greek-courtyard");
     expect(poemText(act(waiting, "talk", bard))).toContain(
       lines(s.water).join(" "),

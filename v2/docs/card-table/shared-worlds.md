@@ -100,7 +100,18 @@ Each card advances by at most one step in that round. A shared world effect
 runs once for matching completions, while each card keeps its own receipt.
 The receipt includes the card key, step, turn, and witnessed hand.
 
-An avatar can hold eight unfinished cards. Matching suggestions coalesce.
+An avatar can hold eight unfinished cards. Generated experience offers use a
+smaller limit of two unfinished cards, with one per situation family. New offers
+have an eight-turn gap and each collection pass chooses at most one. The pass
+consumes skipped experiences too, so quiet periods stay quiet after reloading.
+Authored story quests keep their own progression.
+
+Loading an older save keeps every focused, progressed, fulfilled, joined or
+moved quest. Excess untouched generated offers from the same family leave the
+hand and registry. The saved serial counter, earned totals, completion receipts
+and latest offer turn remain intact. Distinct protected goals keep their exact
+requirements; their card titles name the company when the family appears twice.
+The existing action journal retains the source offers and the rules upgrade.
 The collection keeps up to 256 identities; new suggestions pause at that limit.
 The latest 24 fulfilled cards keep their complete programs. Older fulfilled
 cards keep their key, title, purpose, art kind, origin, completion turn, and
