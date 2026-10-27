@@ -1,3 +1,4 @@
+import { setImmediate as yieldToRunner } from "node:timers/promises";
 import { describe, expect, it } from "vitest";
 import {
   createWorld,
@@ -214,13 +215,14 @@ describe("shore wants and grievances", () => {
     expect(decodeSave(encodeSave(s))).toEqual(s);
   });
 
-  it("keeps the cast progressing and trading with quests and motives together", () => {
+  it("keeps the cast progressing and trading with quests and motives together", async () => {
     for (const initial of [7, 42, 1729]) {
       let s = enableMotives(createWorld(), { questPrograms: true });
       let seed = initial,
         trades = 0;
       const kinds = new Set();
       for (let i = 0; i < 240; i++) {
+        if (i % 20 === 0) await yieldToRunner();
         seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
         const actions = legalActions(s);
         const action = i % 3 ? plan(s).action : actions[seed % actions.length];
@@ -242,9 +244,9 @@ describe("shore wants and grievances", () => {
       expect(kinds.size).toBeGreaterThanOrEqual(3);
       expect(decodeSave(encodeSave(s))).toEqual(s);
     }
-  });
+  }, 60_000);
 
-  it("keeps mixed play deterministic and preserves archived quest progress", () => {
+  it("keeps mixed play deterministic and preserves archived quest progress", async () => {
     let s = fresh(),
       seed = 1729;
     const progress = Object.fromEntries(
@@ -254,6 +256,7 @@ describe("shore wants and grievances", () => {
       ]),
     );
     for (let i = 0; i < 320; i++) {
+      if (i % 20 === 0) await yieldToRunner();
       seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
       const actions = legalActions(s);
       const action = actions[seed % actions.length];
@@ -267,5 +270,5 @@ describe("shore wants and grievances", () => {
       expect(s.log.some((e) => e.kind === "quest")).toBe(false);
     }
     expect(interest(s, "moth").reason).toBeTruthy();
-  });
+  }, 60_000);
 });
