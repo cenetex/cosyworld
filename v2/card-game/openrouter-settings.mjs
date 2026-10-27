@@ -5,6 +5,23 @@ export async function setupOpenRouter() {
   const $ = (id) => document.getElementById(id);
   const status = $("openrouter-status");
   let controller, mediaUrl;
+  let audioModels = [];
+  function voices() {
+    const model = audioModels.find(
+      (model) => model.id === $("openrouter-audio-model").value,
+    );
+    const values = model?.supported_voices || [];
+    $("openrouter-voices").replaceChildren(
+      ...values.map((value) => {
+        const option = document.createElement("option");
+        option.value = value;
+        return option;
+      }),
+    );
+    if (values.length && !values.includes($("openrouter-voice").value))
+      $("openrouter-voice").value = values[0];
+  }
+  $("openrouter-audio-model").addEventListener("change", voices);
   function refresh(message) {
     const connected = Boolean(client.connection()?.key);
     $("openrouter-connect").textContent = connected
@@ -38,6 +55,10 @@ export async function setupOpenRouter() {
     ]);
     for (const [i, result] of results.entries()) {
       if (result.status !== "fulfilled") continue;
+      if (i === 0) {
+        audioModels = result.value.data || [];
+        voices();
+      }
       const list = $(
         i === 0 ? "openrouter-audio-models" : "openrouter-video-models",
       );

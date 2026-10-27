@@ -211,10 +211,11 @@
             <label for="openrouter-prompt">Words for audio, or a scene for video</label>
             <textarea id="openrouter-prompt" rows="3" maxlength="4000" placeholder="A quiet shore at sunrise"></textarea>
             <label for="openrouter-audio-model">Audio model</label>
-            <input id="openrouter-audio-model" list="openrouter-audio-models" value="openai/gpt-4o-mini-tts-2025-12-15" maxlength="200" />
+            <input id="openrouter-audio-model" list="openrouter-audio-models" value="mistralai/voxtral-mini-tts-3-0" maxlength="200" />
             <datalist id="openrouter-audio-models"></datalist>
             <label for="openrouter-voice">Voice</label>
-            <input id="openrouter-voice" value="alloy" maxlength="100" />
+            <input id="openrouter-voice" list="openrouter-voices" value="voice_3150" maxlength="100" />
+            <datalist id="openrouter-voices"></datalist>
             <label for="openrouter-video-model">Video model</label>
             <input id="openrouter-video-model" list="openrouter-video-models" placeholder="Choose an OpenRouter video model" maxlength="200" />
             <datalist id="openrouter-video-models"></datalist>
