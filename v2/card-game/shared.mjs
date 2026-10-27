@@ -1,5 +1,4 @@
 import { request, passkey } from "./shared-auth.mjs";
-import { browserChat } from "./openrouter.mjs";
 import roster from "./shared-cast.json" with { type: "json" };
 
 export const humanAvatars = roster.avatars;
@@ -290,21 +289,6 @@ export async function connectSharedWorld(id) {
   };
   const command = async (body) =>
     adopt(await request(`/card-game/shared/worlds/${id}/command`, body));
-  const browserPlays = new Set();
-  const completeBrowserPlay = async (play) => {
-    const attempt = `${play.id}:${play.attempt}`;
-    if (browserPlays.has(attempt)) return;
-    browserPlays.add(attempt);
-    const path = `/card-game/shared/worlds/${id}/browser-chat`;
-    try {
-      const prepared = await request(path, { key: play.id });
-      const answers = await browserChat(prepared, AbortSignal.timeout(55_000));
-      await request(path, { key: play.id, answers });
-    } catch (error) {
-      report(error.message);
-      await request(path, { key: play.id, failure: true }).catch(() => {});
-    }
-  };
   const sync = async () => {
     if (inFlight || stopped) return;
     inFlight = true;
@@ -313,9 +297,6 @@ export async function connectSharedWorld(id) {
         await command({ op: "heartbeat" });
         heartbeat = Date.now();
       } else adopt(await request(`/card-game/shared/worlds/${id}`));
-      for (const play of state.queue || [])
-        if (play.actor === state.actor && play.status === "working" && play.browser_chat)
-          void completeBrowserPlay(play);
       if (connectionError) {
         report(playError?.message || "", connectionError);
         connectionError = null;

@@ -828,7 +828,7 @@ fn full_world_npc_turn_and_speech_survive_worker_restart() {
     assert!(view["history"][0].get("context").is_none());
 }
 #[tokio::test]
-async fn browser_chat_keeps_its_saved_scene_through_retry_and_replay() {
+async fn server_dialogue_keeps_a_legacy_browser_scene_through_retry_and_replay() {
     use crate::routes::card_game::narrative::browser;
     use axum::{
         body::Body,
@@ -849,9 +849,9 @@ async fn browser_chat_keeps_its_saved_scene_through_retry_and_replay() {
     .unwrap();
     let state = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
     let work = full::take_work(&state, &id).unwrap().unwrap();
-    assert_eq!(work.context["browser_chat"], true);
+    assert_eq!(work.context["browser_chat"], false);
     let projected = full_store::snapshot(&c, &id, "user0", now()).unwrap();
-    assert_eq!(projected["queue"][0]["browser_chat"], true);
+    assert_eq!(projected["queue"][0]["browser_chat"], false);
     assert_eq!(projected["queue"][0]["attempt"], 0);
     let response = full::router()
         .with_state(state.clone())
@@ -869,7 +869,7 @@ async fn browser_chat_keeps_its_saved_scene_through_retry_and_replay() {
     retry.key = b.key;
     full::run(&c, &id, "user0", &retry, now()).unwrap();
     let work = full::take_work(&state, &id).unwrap().unwrap();
-    assert_eq!(work.context["browser_chat"], true);
+    assert_eq!(work.context["browser_chat"], false);
     assert_eq!(
         full_store::snapshot(&c, &id, "user0", now()).unwrap()["queue"][0]["attempt"],
         1
@@ -896,6 +896,35 @@ async fn browser_chat_keeps_its_saved_scene_through_retry_and_replay() {
         .any(|e| e["text"] == "I hear you."));
     c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
     assert_eq!(full_store::world(&c, &id, now()).unwrap(), expected);
+}
+#[test]
+fn server_dialogue_resumes_a_working_browser_scene_and_fences_its_old_reply() {
+    let (path, mut c, id) = fixture();
+    claim(&mut c, &id, 0);
+    let w = full_store::world(&c, &id, now()).unwrap();
+    let mut b = body("play", None);
+    b.key = "legacy-browser-working-0001".into();
+    b.action = home_action(&w, 0, "wait");
+    full::run(&c, &id, "user0", &b, now()).unwrap();
+    let state = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
+    let old = full::take_work(&state, &id).unwrap().unwrap();
+    let saved = old.context["context"].clone();
+    let committed = full_store::world(&c, &id, now()).unwrap();
+    c.execute(
+        "UPDATE card_full_plays SET narrative=json_set(narrative,'$.browser_chat',json('true')) WHERE id=?",
+        [&b.key],
+    ).unwrap();
+    let resumed = full::take_work(&state, &id).unwrap().unwrap();
+    assert_eq!(resumed.id, old.id);
+    assert_eq!(resumed.context["context"], saved);
+    assert_eq!(resumed.context["browser_chat"], false);
+    assert_eq!(full_store::world(&c, &id, now()).unwrap(), committed);
+    full::finish_work(&state, &id, old, Err("Old browser reply".into())).unwrap();
+    let view = full_store::snapshot(&c, &id, "user0", now()).unwrap();
+    assert_eq!(view["queue"][0]["status"], "working");
+    assert_eq!(view["queue"][0]["attempt"], 1);
+    assert!(view["history"].as_array().unwrap().is_empty());
+    assert!(full::take_work(&state, &id).unwrap().is_none());
 }
 #[test]
 fn legacy_invitation_migrates_claims_and_items_once() {

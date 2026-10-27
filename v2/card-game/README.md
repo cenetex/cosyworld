@@ -351,13 +351,13 @@ arrive within ten minutes. The browser clears the return code before exchange.
 The connected key lives in session storage for that tab. Disconnect clears it;
 the OpenRouter keys page offers revocation and spending controls.
 
-Character chat, speech audio, and video requests go from the browser directly
-to OpenRouter. CosyWorld prepares the authored chat prompts and checks each
-reply against the current scene. Local reflections keep their usual checks.
-Shared chat uses the signed-in player's own queued play and its saved scene.
-The browser submits the checked words for the normal shared publication step.
-A lost connection leaves the saved play available for retry. The server sees
-the browser-chat choice, prompts, and replies. The key stays in the browser.
+Normal dialogue uses the server's OpenRouter key in local play and shared
+worlds. Each character keeps their authored model and account routing settings.
+The server generates and checks the words. Saved shared plays and retries use
+the server, including plays queued by an earlier browser-funded session.
+
+Speech audio and video use the connected player's OpenRouter account directly
+from the browser. The player's key stays in browser session storage.
 
 The media section accepts a prompt, audio model, voice, and video model. The
 model lists come from OpenRouter. Each Create button uses the player's credits.

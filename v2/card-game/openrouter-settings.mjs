@@ -36,14 +36,13 @@ export async function setupOpenRouter() {
       : "Connect OpenRouter";
     $("openrouter-disconnect").hidden = !connected;
     $("openrouter-options").hidden = !connected;
-    $("openrouter-chat").checked = Boolean(client.connection()?.chat);
     if (client.connection()?.videoModel)
       $("openrouter-video-model").value = client.connection().videoModel;
     status.textContent =
       message ||
       (connected
-        ? "Connected for this tab. Your OpenRouter credits pay for your requests."
-        : "Connect your account for character chat, audio, and video.");
+        ? "Connected for audio and video in this tab. Dialogue uses the game's account."
+        : "Connect your account for audio and video. Dialogue uses the game's account.");
   }
   function clearMedia() {
     controller?.abort();
@@ -92,8 +91,6 @@ export async function setupOpenRouter() {
     document.dispatchEvent(new Event("openrouter-change"));
     refresh("Disconnected from this tab. Manage the key in OpenRouter.");
   };
-  $("openrouter-chat").onchange = (event) =>
-    client.setChat(event.target.checked);
   $("openrouter-stop").onclick = () => {
     clearMedia();
     refresh("Media stopped. Check OpenRouter activity for submitted requests.");
@@ -160,7 +157,7 @@ export async function setupOpenRouter() {
       )
     )
       message =
-        "OpenRouter connected. Your account is ready for chat, audio, and video.";
+        "OpenRouter connected for audio and video. Dialogue uses the game's account.";
   } catch (error) {
     message = error.message;
   }
