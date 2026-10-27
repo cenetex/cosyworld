@@ -162,8 +162,24 @@ try {
       if (
         boarding ||
         (before.actors.vale.place === "greek-harbor" && id === "pond")
-      )
+      ) {
+        // The bard can be on the current trip. Let the ship return through
+        // ordinary turns before boarding from this shore.
+        for (
+          let turn = 0;
+          turn < 8 &&
+          (await state()).transports["greek-ship"].dock !==
+            before.actors.vale.place;
+          turn++
+        )
+          await playCard("vale");
+        assert.equal(
+          (await state()).transports["greek-ship"].dock,
+          before.actors.vale.place,
+          "the ship reaches the departure shore",
+        );
         await playCard("greek-ship");
+      }
       await playCard(id);
       assert.equal((await state()).actors.vale.place, id, `travel to ${id}`);
       assert.equal(await page.textContent("#place-title"), places[id].name);
