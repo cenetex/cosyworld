@@ -746,7 +746,24 @@ try {
     200,
     "repeated play key is idempotent",
   );
-  await ash.locator('#shared-queue button[data-actor="ash"]').click();
+  // A portrait can first return a reader to the live exchange. Use its
+  // labelled withdraw action once Ash has caught up with the room.
+  const ashReturnLive = ash.getByRole("button", {
+    name: /^Return to live dialogue/,
+  });
+  if (await ashReturnLive.count()) await ashReturnLive.click();
+  const cancelled = ash.waitForResponse((response) => {
+    const request = response.request();
+    return (
+      request.method() === "POST" &&
+      request.url().endsWith("/command") &&
+      request.postDataJSON()?.op === "cancel"
+    );
+  });
+  await ash
+    .getByRole("button", { name: /^Ash · next · Withdraw your play$/ })
+    .click();
+  assert.equal((await cancelled).status(), 200);
   await until(
     async () => (await snapshot(vale)).queue.length === 3,
     "a waiting player withdraws through their profile circle",
