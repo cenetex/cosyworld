@@ -5,7 +5,6 @@ import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
 import { summonTransport } from "../card-game/pack-transport.mjs";
-import { selectCard } from "./card-browser-helpers.mjs";
 
 // Each browser has its own claimed avatar. The fixture replaces account and
 // queue IO; every move runs through the shipping shared-world reducer.
@@ -113,7 +112,9 @@ try {
         await page.waitForFunction(
           () => document.querySelector("#hand")?.dataset.cooling === "false",
         );
-        await selectCard(page, target);
+        // A shared update can repaint the hand while another player boards.
+        // The locator click follows the current card through that repaint.
+        await page.locator(`#hand [data-card="${target}"]`).click();
         await page
           .getByRole("button", {
             name: target === "greek-ship" ? "Board" : "Disembark",
