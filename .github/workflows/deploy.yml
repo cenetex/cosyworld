@@ -494,8 +494,12 @@ jobs:
       - lonelyforest-image
       - lonelyforest-backup
       - lonelyforest-fly
-    if: always()
+    # A queued run that a newer run in the deploy concurrency group replaced
+    # (a version tag on the same commit, or a later main push) is cancelled
+    # and owns nothing; the newer run reports for it (#1044).
+    if: ${{ !cancelled() }}
     permissions:
+      contents: read
       issues: write
     steps:
       # A merge to main that produces no successful deploy must be visible
@@ -546,6 +550,24 @@ jobs:
           else
             echo "A tracking issue for ${GITHUB_SHA:0:7} already exists."
           fi
+
+      - name: Close tracking issues for commits this deploy shipped
+        if: >-
+          needs.primary-fly.result == 'success' &&
+          needs.lonelyforest-fly.result == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh api --paginate "repos/${GH_REPO}/issues?state=open&per_page=100" \
+            --jq '.[] | select(.pull_request == null) | select(.title | test("^Production did not deploy [0-9a-f]{7,40}$")) | "\(.number) \(.title | split(" ") | last)"' |
+          while read -r number sha; do
+            status="$(gh api "repos/${GH_REPO}/compare/${sha}...${GITHUB_SHA}" --jq .status 2>/dev/null || true)"
+            if [ "$status" = "ahead" ] || [ "$status" = "identical" ]; then
+              gh issue close "$number" --reason completed \
+                --comment "Shipped: both production apps deployed ${GITHUB_SHA:0:7}, which contains ${sha}. ${GITHUB_SERVER_URL}/${GH_REPO}/actions/runs/${GITHUB_RUN_ID}"
+            fi
+          done
 
   github-release:
     name: Create GitHub release

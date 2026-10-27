@@ -60,7 +60,7 @@ describe("exactly one actor owns the release lever", () => {
   it("a merge that produces no successful deploy opens a loud tracking issue", () => {
     expect(deployWorkflow).toContain("Report production deployment outcome");
     expect(deployWorkflow).toContain("Production did not deploy ${GITHUB_SHA:0:7}");
-    expect(deployWorkflow).toMatch(/permissions:\s*\n\s*issues: write/);
+    expect(deployWorkflow).toMatch(/permissions:\s*\n(?:\s*contents: read\n)?\s*issues: write/);
   });
 
   it("the deploy workflow never cancels an in-progress production run", () => {

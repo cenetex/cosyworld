@@ -337,6 +337,18 @@ describe("deploy workflow", () => {
     expect(primaryFly).toContain("remained degraded after 120 seconds");
   });
 
+  it("reports only for runs that own their commit and closes shipped alerts (#1044)", () => {
+    const outcome = job("deploy-outcome", "github-release");
+    expect(outcome).toContain("if: ${{ !cancelled() }}");
+    expect(outcome).not.toContain("if: always()");
+    expect(outcome).toMatch(/permissions:\s+contents: read\s+issues: write/);
+    expect(outcome).toContain("gh api --paginate");
+    expect(outcome).toContain("compare/${sha}...${GITHUB_SHA}");
+    expect(outcome).toMatch(
+      /needs\.primary-fly\.result == 'success' &&\s+needs\.lonelyforest-fly\.result == 'success'/,
+    );
+  });
+
   it("retries a Lonely Forest rolling deploy after a transient Fly polling failure", () => {
     const lonelyForestFly = job("lonelyforest-fly", "deploy-outcome");
     expect(lonelyForestFly).toContain("for attempt in 1 2");
