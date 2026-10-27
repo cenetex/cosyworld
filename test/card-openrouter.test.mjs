@@ -68,11 +68,29 @@ describe("player OpenRouter connection", () => {
     expect(f.client.connection().key).toBe(
       "sk-or-test-player-browser-credential",
     );
-    expect(f.client.headers()).toEqual({ "X-Cosy-Browser-Chat": "1" });
-    f.client.setChat(false);
+    expect(f.client.headers()).toEqual({});
+    f.client.setChat(true);
+    expect(f.client.connection().chat).toBe(false);
     expect(f.client.headers()).toEqual({});
     f.client.disconnect();
     expect(f.client.connection()).toBeNull();
+  });
+  it("keeps an earlier connection for media while routing dialogue to the server", () => {
+    const f = fixture();
+    f.values.set(
+      "cosy.openrouter.connection.v1",
+      JSON.stringify({
+        key: "sk-or-test-player-browser-credential",
+        chat: true,
+        videoModel: "video-model",
+      }),
+    );
+    expect(f.client.connection()).toEqual({
+      key: "sk-or-test-player-browser-credential",
+      chat: false,
+      videoModel: "video-model",
+    });
+    expect(f.client.headers()).toEqual({});
   });
   it("accepts OpenRouter appending only the code to a callback with embedded state", async () => {
     const f = fixture();

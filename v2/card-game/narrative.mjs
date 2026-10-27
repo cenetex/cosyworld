@@ -1,4 +1,3 @@
-import { playerOpenRouter, requestBrowserNarrative } from "./openrouter.mjs";
 import { questCarried } from "./quest-hands.mjs";
 import { questRecord } from "./shared-quests.mjs";
 import { recitalContext, recitalFacts } from "./pack-recital.mjs";
@@ -702,8 +701,6 @@ export function partialEntries(source) {
 }
 
 export async function requestNarrative(context, signal, progress = () => {}) {
-  if (playerOpenRouter().connection()?.chat)
-    return requestBrowserNarrative(context, signal);
   const response = await fetch("/card-game/text", {
     method: "POST",
     headers: {

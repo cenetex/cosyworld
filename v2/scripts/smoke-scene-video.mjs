@@ -54,7 +54,8 @@ try {
       errors = [],
       siteRequests = [],
       videoRequests = [],
-      readyMessages = [];
+      readyMessages = [],
+      dialogueRequests = [];
     page.on("pageerror", (error) => errors.push(error.message));
     page.on("request", (request) => {
       if (request.url().startsWith(origin))
@@ -172,6 +173,10 @@ try {
         });
       return route.fulfill({ json: { data: [] }, headers });
     });
+    await context.route(`${origin}/card-game/text`, async (route) => {
+      dialogueRequests.push(route.request().headers());
+      await route.fulfill({ json: { entries: [] } });
+    });
     await page.goto(`${origin}/?table=camera-check`);
     await page.locator("body:not([inert])").waitFor();
     await page.exposeFunction("recordSignInReady", () =>
@@ -220,6 +225,14 @@ try {
       ),
       before,
     );
+    assert.equal(await page.locator("#openrouter-chat").count(), 0);
+    await page.evaluate(async () => {
+      const { requestNarrative } = await import("/card-game/narrative.mjs");
+      await requestNarrative({ entities: [] });
+    });
+    assert.equal(dialogueRequests.length, 1);
+    assert.equal(dialogueRequests[0].authorization, undefined);
+    assert.equal(dialogueRequests[0]["x-cosy-browser-chat"], undefined);
     await page.locator('[data-close="menu-dialog"]').click();
     for (
       let i = 0;
@@ -280,6 +293,7 @@ try {
       connected: true,
       contextVideo: true,
       keyStayedInBrowser: true,
+      serverDialogue: true,
     });
     await context.close();
   }

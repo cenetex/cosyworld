@@ -21,7 +21,11 @@ export function createOpenRouter({
       return null;
     }
   };
-  const connection = () => read(CONNECTION);
+  // Earlier tabs can keep their media key while dialogue uses the server.
+  const connection = () => {
+    const value = read(CONNECTION);
+    return value ? { ...value, chat: false } : null;
+  };
   async function request(
     path,
     { body, signal, raw = false, key = connection()?.key } = {},
@@ -172,16 +176,14 @@ export function createOpenRouter({
       if (!/^sk-or-[\x21-\x7e]{14,506}$/u.test(result.key || ""))
         throw new Error("Start a fresh OpenRouter connection in Settings.");
       if (!accept()) return false;
-      storage.setItem(
-        CONNECTION,
-        JSON.stringify({ key: result.key, chat: true }),
-      );
+      storage.setItem(CONNECTION, JSON.stringify({ key: result.key }));
       return true;
     },
-    setChat(chat) {
+    // Keep these methods available to tabs opened before server dialogue.
+    setChat() {
       const value = connection();
       if (value)
-        storage.setItem(CONNECTION, JSON.stringify({ ...value, chat }));
+        storage.setItem(CONNECTION, JSON.stringify({ ...value, chat: false }));
     },
     setVideoModel(videoModel) {
       const value = connection();
@@ -193,8 +195,7 @@ export function createOpenRouter({
       storage.removeItem(PENDING);
     },
     headers() {
-      const value = connection();
-      return value?.key && value.chat ? { "X-Cosy-Browser-Chat": "1" } : {};
+      return {};
     },
     request,
     async speech(model, voice, input, signal) {
