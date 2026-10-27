@@ -42,6 +42,7 @@ jobs:
             cosyworld-release-test
           for attempt in {1..30}; do
             if curl --fail --silent http://localhost:3000/health; then exit 0; fi
+            echo "Waiting for the release image ($attempt/30)"
             sleep 2
           done
           docker logs cosyworld-release-test
