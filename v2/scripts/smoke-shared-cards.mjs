@@ -254,23 +254,32 @@ async function dismissDiscoveries(page) {
     await delay(180);
   }
 }
-async function expectSharedReveal(page, requestStart) {
+async function expectSharedReveal(page, requestStart, speaker = "Vale") {
   let expected;
   await until(() => {
     const human = requests
       .slice(requestStart)
       .find((request) =>
-        request.messages.at(-1).content.trim().endsWith("\nVale:"),
+        request.messages.at(-1).content.trim().endsWith(`\n${speaker}:`),
       );
     expected = replies.get(human);
     return typeof expected === "string";
   }, "the selected human receives its plain fixture reply");
-  await page.waitForFunction((expected) => {
-    const text = document.getElementById("dialogue-text");
-    const letters = text.querySelectorAll(".speech-letter");
-    const shown = text.querySelectorAll(".speech-letter.revealed").length;
-    return text.textContent === expected && shown > 0 && shown < letters.length;
-  }, expected);
+  // Observe the actual letter transitions in-page, even when the driver checks later.
+  await page.waitForFunction(
+    ({ expected, speaker }) => {
+      const samples = window.sharedReveals.filter(
+        (sample) =>
+          sample.text === expected &&
+          sample.speaker === speaker &&
+          sample.shown > 0 &&
+          sample.shown < sample.total,
+      );
+      return new Set(samples.map((sample) => sample.shown)).size >= 2;
+    },
+    { expected, speaker },
+  );
+  return { text: expected, speaker };
 }
 async function catchUpWithArrow(page) {
   await page.locator("#previous-line").click();
@@ -323,6 +332,37 @@ try {
     });
     await context.addInitScript(() => {
       window.sharedSpeechNotes = 0;
+      window.sharedReveals = [];
+      window.addEventListener("DOMContentLoaded", () => {
+        const text = document.getElementById("dialogue-text");
+        new MutationObserver(() => {
+          const total = text.querySelectorAll(".speech-letter").length;
+          const shown = text.querySelectorAll(".speech-letter.revealed").length;
+          if (shown > 0 && shown < total) {
+            const sample = {
+              text: text.textContent,
+              speaker: document.getElementById("speaker").textContent.trim(),
+              shown,
+              total,
+            };
+            const previous = window.sharedReveals.at(-1);
+            if (
+              previous?.text !== sample.text ||
+              previous?.speaker !== sample.speaker ||
+              previous?.shown !== shown
+            ) {
+              window.sharedReveals.push(sample);
+              if (window.sharedReveals.length > 400)
+                window.sharedReveals.shift();
+            }
+          }
+        }).observe(text, {
+          subtree: true,
+          childList: true,
+          attributes: true,
+          attributeFilter: ["class"],
+        });
+      });
       const audio = window.AudioContext || window.webkitAudioContext;
       const original = audio.prototype.createOscillator;
       audio.prototype.createOscillator = function (...args) {
@@ -769,12 +809,44 @@ try {
     async () => (await snapshot(vale)).queue.length === 3,
     "a waiting player withdraws through their profile circle",
   );
+  await Promise.all(
+    [vale, mara].map((page) =>
+      page.evaluate(() => {
+        window.sharedReveals = [];
+      }),
+    ),
+  );
   holdReplies = false;
   for (const resolve of waitingReplies.splice(0)) resolve();
-  await Promise.all(
-    [vale, mara].map((page) => expectSharedReveal(page, queueRequestStart)),
-  );
   await Promise.all([vale, mara, nell].map(idle));
+  // Check after playback ends: a busy driver still proves each line animated in order.
+  for (const page of [vale, mara]) {
+    const expected = await Promise.all(
+      ["Vale", "Mara", "Nell"].map((speaker) =>
+        expectSharedReveal(page, queueRequestStart, speaker),
+      ),
+    );
+    const order = await page.evaluate(
+      (expected) => [
+        ...new Set(
+          window.sharedReveals
+            .filter((sample) =>
+              expected.some(
+                (line) =>
+                  line.speaker === sample.speaker && line.text === sample.text,
+              ),
+            )
+            .map((sample) => sample.speaker),
+        ),
+      ],
+      expected,
+    );
+    assert.deepEqual(
+      order,
+      ["Vale", "Mara", "Nell"],
+      "shared readers see every queued speaker in order",
+    );
+  }
   for (const page of [vale, mara]) {
     await expectStage(page, ["nell", "mara", "vale", "ash", "moth"]);
     await page.screenshot({
