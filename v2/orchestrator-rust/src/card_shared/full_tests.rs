@@ -2310,7 +2310,9 @@ fn stranded_home_rescue_replays_after_version_nine_upgrade() {
         assert_eq!(upgraded.version, engine::VERSION);
         assert_eq!(upgraded.project(0).unwrap()["exits"], json!(["station"]));
         assert_eq!(upgraded.game["turn"], old.game["turn"]);
-        assert_eq!(upgraded.game["items"], old.game["items"]);
+        for (item, state) in old.game["items"].as_object().unwrap() {
+            assert_eq!(&upgraded.game["items"][item], state);
+        }
         let action = home_action(&upgraded, 0, "move");
         full_store::commit(
             &c,

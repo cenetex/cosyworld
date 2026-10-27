@@ -75,11 +75,20 @@ fn preserves_old_entities(after: &Value, before: &Value) {
 
 #[test]
 fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
-    for version in [engine::NINTH_VERSION, engine::TENTH_VERSION] {
+    for (version, through_tenth) in [
+        (engine::NINTH_VERSION, false),
+        (engine::TENTH_VERSION, false),
+        (engine::NINTH_VERSION, true),
+    ] {
         for scope in ["opening", "full"] {
             for keep_checkpoint in [true, false] {
                 let (c, id, mut old) = old_fixture(version, scope);
                 play(&c, &id, &mut old, 0, "choiceId", "greek-return-water-jar");
+                if through_tenth {
+                    full_store::commit(&c, &id, &mut old, json!({"op":"upgrade","from":engine::NINTH_VERSION,"to":engine::TENTH_VERSION}), now()).unwrap();
+                    assert_eq!(old.game["packs"]["greek-drama"]["revision"], 2);
+                    assert!(old.game["actors"].get("greek-aethra").is_none());
+                }
                 if !keep_checkpoint {
                     c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
                 }
@@ -125,7 +134,7 @@ fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
                 c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
                 assert_eq!(full_store::world(&c, &id, now()).unwrap(), upgraded);
                 let upgrades: i64 = c.query_row("SELECT count(*) FROM card_full_log WHERE json_extract(command,'$.op')='upgrade'", [], |row| row.get(0)).unwrap();
-                assert_eq!(upgrades, 1);
+                assert_eq!(upgrades, if through_tenth { 2 } else { 1 });
             }
         }
     }
