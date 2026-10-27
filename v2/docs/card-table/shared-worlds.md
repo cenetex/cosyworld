@@ -23,8 +23,12 @@ the avatar claim remains saved.
 
 A card presentation or open dialog pauses that viewer's speech clock. Closing
 it resumes the same line. The live portrait follows the room's common clock;
-selecting it catches up immediately. A new play or scene starts a fresh reading
-clock for that viewer.
+selecting it catches up immediately. A new play by that viewer starts a fresh reading clock. Incoming scenes wait
+for that viewer's current scene and then play in order. A late update can bring
+several scenes together; each receives its own reading time. The same rule
+applies when the reader first sees replies in an empty room. Entering a room,
+selecting the live portrait, or losing an old scene from the bounded history
+joins the room's latest scene.
 
 Each accepted play advances the existing world clock. Lamp fuel, temporary
 sounds, and crossing sequences keep their current turn rules for everyone.
