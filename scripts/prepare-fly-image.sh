@@ -33,6 +33,26 @@ authfile="$DOCKER_CONFIG/config.json"
 image="registry.fly.io/${app}:deploy-${GITHUB_SHA}"
 digest="$(skopeo inspect --no-tags --authfile "$authfile" --format '{{.Digest}}' "docker://${image}" 2>/dev/null || true)"
 
+# A successful push may reach the registry before its manifest can be read.
+# Try seven reads with five-second gaps before reporting the final error.
+wait_for_image() {
+  local attempt value
+  for attempt in {1..7}; do
+    if value="$(skopeo inspect --no-tags --authfile "$authfile" --format '{{.Digest}}' "docker://${image}" 2>"$credentials/inspect-error")" &&
+      [[ "$value" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+      printf '%s\n' "$value"
+      return 0
+    fi
+    if [ "$attempt" -eq 7 ]; then
+      cat "$credentials/inspect-error" >&2
+      echo "Image manifest remained unavailable or invalid after 7 reads: ${image}" >&2
+      return 1
+    fi
+    echo "Waiting for the uploaded image manifest (${attempt}/7): ${image}" >&2
+    sleep 5
+  done
+}
+
 if [ -n "$source_image" ]; then
   source_digest="${source_image##*@}"
   if [ "$digest" != "$source_digest" ]; then
@@ -42,12 +62,12 @@ if [ -n "$source_image" ]; then
     skopeo copy --retry-times 3 --all --preserve-digests \
       --src-authfile "$credentials/source/config.json" --dest-authfile "$authfile" \
       "docker://${source_image}" "docker://${image}"
-    digest="$(skopeo inspect --no-tags --authfile "$authfile" --format '{{.Digest}}' "docker://${image}")"
+    digest="$(wait_for_image)"
     test "$digest" = "$source_digest"
   fi
 elif [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
   flyctl deploy --remote-only --config "$config" --build-only --push --image-label "deploy-${GITHUB_SHA}"
-  digest="$(skopeo inspect --no-tags --authfile "$authfile" --format '{{.Digest}}' "docker://${image}")"
+  digest="$(wait_for_image)"
 fi
 
 [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
