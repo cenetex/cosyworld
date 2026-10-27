@@ -40,6 +40,31 @@ const response = (context) => ({
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe("entity memories and model text", () => {
+  it("grounds company in online humans and local residents", () => {
+    const world = createWorld();
+    world.sharedVersion = 1;
+    world.controlledActors = ["vale", "mara", "ash"];
+    world.presentActors = ["vale", "mara"];
+    world.actors.mara = structuredClone(world.actors.vale);
+    world.actors.ash = structuredClone(world.actors.vale);
+    world.actors.vale.place = "station";
+    world.actors.mara.place = "station";
+    world.actors.ash.place = "station";
+    world.actors.keeper.place = "station";
+    const company = narrativeContext(world)
+      .entities.find((entity) => entity.id === "vale")
+      .facts.find((fact) => fact.startsWith("Location now:"));
+    expect(company).toContain(profiles.mara.name);
+    expect(company).toContain(profiles.keeper.name);
+    expect(company).not.toContain(profiles.ash.name);
+    world.actors.mara.place = "pond";
+    const moved = narrativeContext(world)
+      .entities.find((entity) => entity.id === "vale")
+      .facts.find((fact) => fact.startsWith("Location now:"));
+    expect(moved).toContain(profiles.keeper.name);
+    expect(moved).not.toContain(profiles.mara.name);
+  });
+
   it("grounds active and competing purposes in the collected quests", () => {
     const world = enableMotives(createWorld(), {
       questPrograms: true,

@@ -1649,7 +1649,9 @@ fn shared_quest_receipts_drive_bard_travel_after_released_rules_upgrade_and_repl
         (engine::SEVENTH_VERSION, true),
         (engine::SEVENTH_VERSION, false),
         (engine::EIGHTH_VERSION, true),
+        (engine::NINTH_VERSION, true),
         (engine::EIGHTH_VERSION, false),
+        (engine::NINTH_VERSION, false),
     ] {
         let (_file, c, id) = fixture();
         c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
@@ -1710,18 +1712,20 @@ fn shared_quest_receipts_drive_bard_travel_after_released_rules_upgrade_and_repl
         }
         assert!(w.game["quests"]["hands"].is_object());
         assert_eq!(w.claimed, previous.claimed);
-        let destinations: &[&str] =
-            if matches!(version, engine::SEVENTH_VERSION | engine::EIGHTH_VERSION) {
-                // Version seven already followed the receipt before the upgrade.
-                &["greek-well", "greek-well"]
-            } else {
-                &[
-                    "greek-harbor",
-                    "greek-courtyard",
-                    "greek-well",
-                    "greek-well",
-                ]
-            };
+        let destinations: &[&str] = if matches!(
+            version,
+            engine::SEVENTH_VERSION | engine::EIGHTH_VERSION | engine::NINTH_VERSION
+        ) {
+            // Version seven already followed the receipt before the upgrade.
+            &["greek-well", "greek-well"]
+        } else {
+            &[
+                "greek-harbor",
+                "greek-courtyard",
+                "greek-well",
+                "greek-well",
+            ]
+        };
         for destination in destinations {
             let action = home_action(&w, 0, "wait");
             full_store::commit(
@@ -1747,7 +1751,9 @@ fn released_quest_offers_upgrade_preserves_choices_and_replays_cleanup() {
         (engine::SEVENTH_VERSION, false),
         (engine::SEVENTH_VERSION, true),
         (engine::EIGHTH_VERSION, false),
+        (engine::NINTH_VERSION, false),
         (engine::EIGHTH_VERSION, true),
+        (engine::NINTH_VERSION, true),
     ] {
         let (path, c, id) = fixture();
         c.execute("DELETE FROM card_full_checkpoints", []).unwrap();

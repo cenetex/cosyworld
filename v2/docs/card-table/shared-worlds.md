@@ -127,7 +127,7 @@ Completing the active quest begins a rest at a place marked `sanctuary: true`.
 The station and attic are sanctuaries. Human rest counts that person's own turns
 in a shared world. Resident rest counts world rounds.
 
-The shared interpreter builder writes `engine-v9.js`. Earlier interpreters stay
+The shared interpreter builder writes `engine-v10.js`. Earlier interpreters stay
 frozen. Upgrade tests cover checkpoints, journal-only rebuilds, saved drops,
 quest hand limits, and completion receipts.
 
