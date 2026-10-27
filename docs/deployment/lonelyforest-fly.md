@@ -19,6 +19,9 @@ multitenant supervisor assigned, because the journal's leases are keyed to it.
 
 - `fly.lonelyforest.toml` defines the Machine, the process, its environment,
   and the volume.
+- Both production apps use the bundled card policy in shadow mode with
+  `top_k=3`. Their Fly configuration records the model path and rollout mode
+  checked by the live readiness gate.
 - The image entrypoint repairs ownership on the mounted `/data` volume, then
   runs the orchestrator as the unprivileged `cosyworld` user.
 - Graceful shutdown drains HTTP for `COSYWORLD_SHUTDOWN_DRAIN_MS` (three
