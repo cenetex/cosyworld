@@ -285,8 +285,22 @@ The endpoint accepts at most 64 KiB, fixed entity IDs, eight local entities, and
 
 ## Your OpenRouter account
 
+Hover over the CosyWorld title to reveal the video camera. Keyboard focus also
+reveals it. Phones show the camera beside the title. Click it to film the last
+two displayed dialogue lines. The video uses the current place, character
+appearances, visible items, their holders, light, and other visible states.
+The current stage supplies a reference frame where the model supports one.
+The clip aims for ten seconds and uses the nearest supported model duration.
+The camera uses the player's OpenRouter credits. Its window shows progress,
+playback, and a download link. Stop waiting ends the browser wait.
+
+Connect OpenRouter opens a separate sign-in window. The callback carries its
+own state value. It returns the connection to the original game tab through a
+same-origin browser channel. The game stays open during approval. A browser
+that blocks the window uses the same-tab PKCE return.
+
 Open Settings and choose Connect OpenRouter. The browser uses an S256 PKCE
-challenge and a fresh state value. The return must match the same table and
+challenge and a fresh state value. The return must match the stored callback and
 arrive within ten minutes. The browser clears the return code before exchange.
 The connected key lives in session storage for that tab. Disconnect clears it;
 the OpenRouter keys page offers revocation and spending controls.
