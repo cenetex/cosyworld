@@ -410,7 +410,7 @@ The first passenger to disembark moves it to the arrival shore. Passengers
 still aboard can step off there. A new boarding starts the return leg, so a
 passenger can stay aboard through several trips. A lamp recall waits until
 the ship is empty. Older occupied saves retain their destination and regain
-the departure dock. Shared rules version 5 records this change; older journal
+the departure dock. Shared rules version 7 records this change; older journal
 actions replay with their original rules.
 
 See the Greek pack README and `test/card-theban-release.test.mjs`; the scene
