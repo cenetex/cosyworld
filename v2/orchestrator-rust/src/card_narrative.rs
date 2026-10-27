@@ -19,6 +19,8 @@ use std::{
 use tokio::sync::{mpsc, Semaphore};
 use tokio_stream::{wrappers::UnboundedReceiverStream, StreamExt};
 
+#[path = "card_narrative/atmosphere.rs"]
+mod atmosphere;
 #[path = "card_narrative/custody.rs"]
 mod custody;
 #[path = "card_narrative/observations.rs"]
@@ -372,6 +374,8 @@ struct Context {
     revision: u64,
     turn: u64,
     location: String,
+    #[serde(default = "atmosphere::legacy_scenery")]
+    scenery: bool,
     focus: Option<String>,
     speakers: Vec<String>,
     #[serde(default)]
@@ -892,6 +896,7 @@ pub(crate) async fn shared_lines(
     let mut context: Context = serde_json::from_value(scene.clone())
         .map_err(|_| "The saved scene needs another moment.")?;
     if ids.is_empty()
+        || (!context.scenery && ids.contains(&context.location))
         || ids
             .iter()
             .any(|id| !context.entities.iter().any(|e| &e.id == id))
@@ -917,8 +922,8 @@ pub(crate) async fn shared_lines(
     let value = complete_selected(config, &context, models, &settings, ids, false, None)
         .await
         .map_err(|_| "The play is saved. Its words need another moment.")?;
-    // Shared scenes keep the existing two-line exchange and the acting human.
-    if ids.iter().any(|id| {
+    // Shared scenes require the selected actors; atmosphere may stay quiet.
+    if ids.iter().filter(|id| kind(id, "avatar")).any(|id| {
         !value["entries"]
             .as_array()
             .is_some_and(|entries| entries.iter().any(|e| e["id"] == *id))
@@ -1091,7 +1096,7 @@ fn voiced(context: &Context) -> Vec<String> {
     for id in context
         .speakers
         .iter()
-        .chain(std::iter::once(&context.location))
+        .chain(context.scenery.then_some(&context.location))
         .chain(context.focus.iter())
     {
         if !ids.contains(id) && context.entities.iter().any(|e| &e.id == id) {
@@ -1122,6 +1127,9 @@ fn names(ids: &[String]) -> String {
 
 /// The entity's own first-person words, with the persona its reflections grew.
 fn idiolect(entity: &Entity) -> String {
+    if kind(&entity.id, "location") {
+        return atmosphere::voice();
+    }
     let profile = &profiles()[&entity.id];
     let mut text = profile["idiolect"]
         .as_str()
@@ -1251,6 +1259,9 @@ fn known(context: &Context) -> BTreeSet<String> {
 /// first-person awareness, lines in its voice, recent table talk, and its
 /// name as the cue. Other characters' private memories never appear here.
 fn transcript(context: &Context, entity: &Entity, part: Part) -> String {
+    if kind(&entity.id, "location") {
+        return atmosphere::transcript(context, entity);
+    }
     let id = entity.id.as_str();
     let own = name(id);
     let avatar = kind(id, "avatar");
@@ -1418,7 +1429,7 @@ fn transcript(context: &Context, entity: &Entity, part: Part) -> String {
 /// style examples on retry helps small models leave copied examples behind.
 fn attempt_transcript(context: &Context, entity: &Entity, part: Part, attempt: u8) -> String {
     let prompt = transcript(context, entity, part);
-    if attempt == 0 {
+    if attempt == 0 || kind(&entity.id, "location") {
         return prompt;
     }
     let current = prompt
@@ -1565,6 +1576,10 @@ async fn speak(
     let mut check = Check::new(context, entity, part);
     if part == Part::Line {
         check.limit = settings.line_limit;
+        if kind(id, "location") {
+            check.limit = check.limit.min(180);
+            check.sentences = 1;
+        }
     }
     voice_attempts(
         settings,
@@ -1850,6 +1865,9 @@ impl<'a> Check<'a> {
             && text.split_whitespace().count() >= 2
         {
             kept = text.trim_matches(quotes).to_string();
+        }
+        if kind(&self.entity.id, "location") && !atmosphere::consistent(&kept) {
+            return Err("atmosphere");
         }
         if !bounded(&kept, self.limit) {
             return Err("shape");
@@ -2829,6 +2847,61 @@ mod tests {
         }
     }
 
+    #[test]
+    fn explicit_scenery_choices_keep_legacy_contexts_and_actor_voices() {
+        let mut c = context();
+        assert!(c.scenery);
+        assert!(voiced(&c).contains(&c.location));
+        c.scenery = false;
+        assert!(valid(&c));
+        assert_eq!(voiced(&c), vec!["vale", "moth", "lamp"]);
+        let saved = serde_json::to_value(&c).unwrap();
+        let retry: Context = serde_json::from_value(saved.clone()).unwrap();
+        assert_eq!(voiced(&retry), voiced(&c));
+        let mut invalid = saved;
+        invalid["scenery"] = json!("sometimes");
+        assert!(serde_json::from_value::<Context>(invalid).is_err());
+    }
+
+    #[tokio::test]
+    async fn quiet_scene_api_retries_request_only_actor_lines() {
+        let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
+        let provider = plain_provider(seen.clone(), |_, stem| stem_reply(stem));
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            axum::serve(listener, provider).await.unwrap();
+        });
+        let app = router_with_models::<()>(
+            Arc::new(Some(test_config(address))),
+            Ok(BTreeMap::new()),
+            Ok(VoiceSettings::hosted()),
+        );
+        let mut c = context();
+        c.scenery = false;
+        c.focus = None;
+        for _ in 0..2 {
+            let response = app.clone().oneshot(request(&c)).await.unwrap();
+            assert_eq!(response.status(), StatusCode::OK);
+            let bytes = to_bytes(response.into_body(), 64 * 1024).await.unwrap();
+            let result: Value = serde_json::from_slice(&bytes).unwrap();
+            assert_eq!(result["entries"].as_array().unwrap().len(), 2);
+            assert_eq!(result["omitted"], json!(["station", "lamp"]));
+        }
+        let requests = seen.lock().unwrap().clone();
+        assert_eq!(requests.len(), 4);
+        assert!(requests.iter().all(|body| {
+            let cue = body["messages"][1]["content"]
+                .as_str()
+                .unwrap()
+                .lines()
+                .last()
+                .unwrap();
+            ["Vale:", "Pip:"].contains(&cue)
+        }));
+        server.abort();
+    }
+
     #[tokio::test]
     async fn character_models_keep_their_own_memories_and_return_private_growth() {
         let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
@@ -3112,12 +3185,14 @@ mod tests {
         c.location = "attic".into();
         c.entities[1].id = "attic".into();
         let attic = idiolect(&c.entities[1]);
-        assert!(attic.contains("tall mirror shows a black shore"));
+        assert!(attic.contains("atmospheric caption"));
+        assert!(transcript(&c, &c.entities[1], Part::Line)
+            .contains("tall mirror reflecting a black shore"));
         assert!(idiolect(&c.entities[2]).contains("soot-dark"));
         let all = profiles().to_string();
         assert!(!all.contains("makes reflections into paths"));
         assert!(!all.contains("Lamplight can open a path"));
-        assert!(transcript(&c, &c.entities[1], Part::Line).contains("I remember: Vale arrived."));
+        assert!(!transcript(&c, &c.entities[1], Part::Line).contains("Vale arrived"));
     }
 
     #[test]
@@ -3292,8 +3367,8 @@ mod tests {
         assert!(vale.contains("Pip has just come from Empty station, alone."));
         assert!(!vale.contains("The keeper"));
         let pond = transcript(&c, &c.entities[1], Part::Line);
-        assert!(pond.contains("Vale has just come from Empty station, alone."));
-        assert!(pond.contains("Current scene:\nBlack pond. Present: Vale, Pip."));
+        assert!(!pond.contains("Vale has just come"));
+        assert!(pond.contains("Current scene:\nBlack pond."));
         assert!(pond.ends_with("\nBlack pond:"));
         let o = c.outcome.as_mut().unwrap();
         o.avatars[0]
@@ -3465,7 +3540,13 @@ mod tests {
             assert!(body.get("response_format").is_none());
             let system = body["messages"][0]["content"].as_str().unwrap();
             let user = body["messages"][1]["content"].as_str().unwrap();
-            assert!(user.contains("Just now: Vale asks Pip what they want."));
+            if stem == "Empty station:" {
+                assert!(system.contains("atmospheric caption"));
+                assert!(!user.contains("Just now:"));
+                assert!(!user.contains("I remember:"));
+            } else {
+                assert!(user.contains("Just now: Vale asks Pip what they want."));
+            }
             match stem {
                 "Vale:" => {
                     assert!(system.starts_with("I'm Vale."));

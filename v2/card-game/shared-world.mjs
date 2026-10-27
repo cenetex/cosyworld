@@ -192,8 +192,8 @@ export function dispatchShared(request) {
     });
   }
   if (request.op === "speech") {
-    if (!Array.isArray(request.lines) || request.lines.length !== 2)
-      throw new Error("An exchange needs two lines.");
+    if (!Array.isArray(request.lines) || ![1, 2].includes(request.lines.length))
+      throw new Error("An exchange needs one or two lines.");
     const room = request.room || world.actors[actor].place;
     if (!places[room]) throw new Error("Choose a real room.");
     const lines = [];
@@ -206,6 +206,7 @@ export function dispatchShared(request) {
           Object.keys(people).find((id) => people[id].name === line.speaker) ||
           (people[line.speaker] ? line.speaker : null);
       if (
+        (request.lines.length === 1 && speaker !== actor) ||
         (!scenic &&
           (!speaker ||
             world.actors[speaker].place !== room ||
