@@ -5116,9 +5116,9 @@
             subject: "greek-baker",
             at: "greek-courtyard",
             label: "Take the road to Eleusis",
-            text: "Dione has heard your refusal. She tells Vale of the Argive mothers waiting at Eleusis. Vale takes her introduction for the mothers at Eleusis.",
-            textTemplate: "Dione has heard your refusal. She tells {actor} of the Argive mothers waiting at Eleusis. {actor} takes her introduction for the mothers at Eleusis.",
-            summary: "After the public account of your refusal, the traveler accepted Dione\u2019s introduction to Eleusis and the Attic roads.",
+            text: "Dione has heard the refusal. She tells Vale of the Argive mothers waiting at Eleusis. Vale takes her introduction for the mothers at Eleusis.",
+            textTemplate: "Dione has heard the refusal. She tells {actor} of the Argive mothers waiting at Eleusis. {actor} takes her introduction for the mothers at Eleusis.",
+            summary: "After the public account of the refusal, the traveler accepted Dione\u2019s introduction to Eleusis and the Attic roads.",
             requires: [
               {
                 kind: "flag",
@@ -5645,6 +5645,11 @@
                 value: true
               },
               {
+                kind: "item_at",
+                item: "greek-provision-basket",
+                place: "greek-piraeus"
+              },
+              {
                 kind: "flag",
                 key: "greek-open-door-eleusis-done",
                 value: true
@@ -5694,6 +5699,11 @@
                 kind: "flag",
                 key: "greek-open-door-quay-provisioned",
                 value: true
+              },
+              {
+                kind: "item_at",
+                item: "greek-provision-basket",
+                place: "greek-piraeus"
               },
               {
                 kind: "flag",
