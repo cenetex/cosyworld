@@ -351,6 +351,9 @@
   ).length;
   var humanRoomAvailable = (world, actor, place, count = 1) => !sharedEnabled(world) || !controlledByHuman(world, actor) || world.actors[actor]?.place === place || roomHumanCount(world, place) + count <= 4;
   var visitors = humanAvatars.filter((a) => a.id !== "vale");
+  var humanHomeGates = Object.fromEntries(
+    visitors.map((a) => [a.home.id, { item: a.item.id, rescue: "station" }])
+  );
   var humanHomePack = {
     schemaVersion: 1,
     id: "shared-homes",
@@ -489,6 +492,9 @@
 
   // v2/card-game/forest.json
   var forest_default = {
+    homeGates: {
+      attic: { item: "lamp", light: true, refill: "oil", rescue: "station", opening: true }
+    },
     reflectionRoutes: [
       { from: "attic", to: "pond" },
       { from: "pond", to: "attic" }
@@ -1035,9 +1041,9 @@
   };
 
   // v2/card-game/pack-recital.mjs
-  function recordRecital(world, pack, choice2, actor) {
-    if (pack.recital?.verses.some((v) => v.choice === choice2))
-      world.packs[pack.id].recitals[choice2] = { actor, visit: null };
+  function recordRecital(world, pack, choice, actor) {
+    if (pack.recital?.verses.some((v) => v.choice === choice))
+      world.packs[pack.id].recitals[choice] = { actor, visit: null };
   }
   function arriveRecitals(world, packs, actor) {
     if (!controlledByHuman(world, actor)) return [];
@@ -1151,49 +1157,19 @@
     };
   }
 
-  // v2/card-game/pack-sections.mjs
-  function sectionPlace(pack, id) {
-    if (pack.places[id]) return id;
-    if (pack.avatars[id]) return pack.avatars[id].place;
-    if (pack.fixtures?.[id]) return pack.fixtures[id].at;
-    const holder = pack.items?.[id]?.holder;
-    return holder && (pack.places[holder] ? holder : pack.avatars[holder]?.place);
-  }
-  function sectionAllows(world, pack, id, conditionsMet2) {
-    if (world.packs?.[pack.id]?.scope === "full") return true;
-    const place = sectionPlace(pack, id);
-    const section = pack.sections?.find((part) => part.places.includes(place));
-    return !section || conditionsMet2(world, pack.id, section.requires);
-  }
-
   // v2/card-game/packs.json
   var packs_default = {
     schemaVersion: 1,
     hub: {
       player: "vale",
-      places: [
-        "station",
-        "attic",
-        "pond"
-      ],
-      avatars: [
-        "vale",
-        "moth",
-        "keeper"
-      ],
-      items: [
-        "lamp",
-        "oil",
-        "bell",
-        "cloth"
-      ],
+      places: ["station", "attic", "pond"],
+      avatars: ["vale", "moth", "keeper"],
+      items: ["lamp", "oil", "bell", "cloth"],
       observations: [
         {
           id: "lamp-flame",
           entity: "lamp",
-          subjects: [
-            "lamp"
-          ],
+          subjects: ["lamp"],
           source: {
             kind: "item_flag",
             field: "lit"
@@ -1236,9 +1212,7 @@
         {
           id: "lamp-cover",
           entity: "lamp",
-          subjects: [
-            "lamp"
-          ],
+          subjects: ["lamp"],
           source: {
             kind: "covered"
           },
@@ -1246,18 +1220,12 @@
             true: {
               fact: "The Lamp is covered. Its flame state is recorded separately.",
               legacyToken: "covered",
-              claims: [
-                "is covered"
-              ]
+              claims: ["is covered"]
             },
             false: {
               fact: "The Lamp is uncovered.",
               legacyToken: "uncovered",
-              claims: [
-                "is uncovered",
-                "is not covered",
-                "isn't covered"
-              ]
+              claims: ["is uncovered", "is not covered", "isn't covered"]
             }
           }
         }
@@ -1353,10 +1321,7 @@
           {
             id: "badger-awake",
             entity: "badger",
-            subjects: [
-              "badger",
-              "grumpy badger"
-            ],
+            subjects: ["badger", "grumpy badger"],
             source: {
               kind: "actor_flag",
               field: "awake"
@@ -1364,11 +1329,7 @@
             values: {
               true: {
                 fact: "Badger is awake now.",
-                claims: [
-                  "is awake",
-                  "is not asleep",
-                  "isn't asleep"
-                ]
+                claims: ["is awake", "is not asleep", "isn't asleep"]
               },
               false: {
                 fact: "Badger is asleep now.",
@@ -1427,9 +1388,7 @@
             requires: [
               {
                 kind: "sound",
-                at: [
-                  "pond"
-                ]
+                at: ["pond"]
               }
             ],
             closed: "The reflected clearing fades from the pond."
@@ -1443,10 +1402,7 @@
             requires: [
               {
                 kind: "sound",
-                at: [
-                  "pond",
-                  "clearing"
-                ]
+                at: ["pond", "clearing"]
               }
             ],
             scenery: {
@@ -1462,9 +1418,9 @@
         schemaVersion: 1,
         id: "greek-drama",
         packId: "cosyworld.greek-drama",
-        revision: 3,
+        revision: 2,
         name: "The Wine-Dark Sea",
-        description: "A branching Greek drama world. Dione\u2019s table opens five Attic places where burial, refuge and the cost of welcome become a growing poem.",
+        description: "Courtyards, cities, and sea roads where a household's decision can change a city.",
         tone: "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
         entry: "greek-harbor",
         continuity: {
@@ -1473,19 +1429,12 @@
           groups: [
             {
               key: "greek-helen-account",
-              options: [
-                "egypt",
-                "troy"
-              ],
+              options: ["egypt", "troy"],
               initial: "uncommitted"
             },
             {
               key: "greek-atreid-account",
-              options: [
-                "aeschylus",
-                "sophocles",
-                "euripides"
-              ],
+              options: ["aeschylus", "sophocles", "euripides"],
               initial: "uncommitted"
             }
           ]
@@ -1499,17 +1448,13 @@
             Aristophanes: 11
           },
           opening: "Before the Burial",
-          status: "Eight plays have authored scenes across Before the Burial, The Open Door, and the Helen and Atreid accounts. The other thirty-six works have situated hooks for later sections."
+          status: "A complete situated repertoire, a consequential Theban opening, and branching Helen and Atreid episodes. Situated hooks open saved inquiries; they are not complete adaptations of the other plays."
         },
         places: {
           "greek-harbor": {
             name: "The Wine-Dark Harbor",
             text: "Worn steps climb from the stone landing toward the town.",
-            exits: [
-              "greek-courtyard",
-              "greek-athens",
-              "greek-argolid-road"
-            ],
+            exits: ["greek-courtyard", "greek-athens", "greek-argolid-road"],
             backdrop: "assets/greek-drama/harbor-open-berth.webp",
             persona: "Worn steps climb from the stone landing toward the town."
           },
@@ -1528,20 +1473,14 @@
           "greek-well": {
             name: "Theban Market Well",
             text: "Water jars stand beside the well. Neighbors lower their voices when palace servants pass.",
-            exits: [
-              "greek-courtyard",
-              "greek-palace",
-              "greek-gate"
-            ],
+            exits: ["greek-courtyard", "greek-palace", "greek-gate"],
             backdrop: "assets/greek-drama/market-well-day.webp",
             persona: "Water jars stand beside the well. Neighbors lower their voices when palace servants pass."
           },
           "greek-palace": {
             name: "Theban Palace Forecourt",
             text: "The king receives petitions beneath a painted portico. A space beside the door is kept for public orders.",
-            exits: [
-              "greek-well"
-            ],
+            exits: ["greek-well"],
             backdrop: "assets/greek-drama/palace-day.webp",
             persona: "The king receives petitions beneath a painted portico. A space beside the door is kept for public orders."
           },
@@ -1560,44 +1499,34 @@
           "greek-battlefield": {
             name: "The Exposed Battlefield",
             text: "Broken spear shafts lie in the dust. A strip of earth outside the city is set apart for the fallen brother.",
-            exits: [
-              "greek-gate"
-            ],
+            exits: ["greek-gate"],
             backdrop: "assets/greek-drama/burial-ground-dusk.webp",
             persona: "Broken spear shafts lie in the dust. A strip of earth outside the city is set apart for the fallen brother."
           },
           "greek-sanctuary": {
             name: "The Hillside Sanctuary",
             text: "Olive trees shade a small altar. A stone basin stands beneath its roof.",
-            exits: [
-              "greek-courtyard",
-              "greek-cithaeron"
-            ],
+            exits: ["greek-courtyard", "greek-cithaeron"],
             backdrop: "assets/greek-drama/sanctuary-dawn.webp",
             persona: "Olive trees shade a small altar. A stone basin stands beneath its roof."
           },
           "greek-cithaeron": {
             name: "Cithaeron Slopes",
             text: "Goat paths cross the wooded slope. A distant drum carries between the trees.",
-            exits: [
-              "greek-sanctuary"
-            ],
+            exits: ["greek-sanctuary"],
             backdrop: "assets/greek-drama/grove.svg",
             persona: "Goat paths cross the wooded slope. A distant drum carries between the trees."
           },
           "greek-aulis": {
             name: "Aulis Anchorage",
             text: "The ships lie motionless beside the shore. Soldiers wait outside the command tents.",
-            exits: [
-              "greek-gate",
-              "greek-greek-camp"
-            ],
+            exits: ["greek-gate", "greek-greek-camp"],
             backdrop: "assets/greek-drama/harbor.svg",
             persona: "The ships lie motionless beside the shore. Soldiers wait outside the command tents."
           },
           "greek-athens": {
             name: "Athenian Agora",
-            text: "A herald\u2019s table stands between fish stalls and baskets. A clear space waits for the mothers\u2019 petition.",
+            text: "Fish sellers and potters share the square. A herald reads the day's public business.",
             exits: [
               "greek-harbor",
               "greek-piraeus",
@@ -1613,71 +1542,55 @@
               "greek-marathon",
               "greek-delphi"
             ],
-            backdrop: "assets/greek-drama/open-door-agora.webp",
-            persona: "The Agora holds the present hearing about the Argive dead. Theseus receives the petition here in this adaptation. The neighboring roads lead to Eleusis, the quays and two clearly named remembered tales."
+            backdrop: "assets/greek-drama/courtyard.svg",
+            persona: "Fish sellers and potters share the square. A herald reads the day's public business."
           },
           "greek-piraeus": {
             name: "Piraeus Quays",
-            text: "Folded cloth, a grain basket and a low bench stand beside the mooring ropes. A host waits for the names of returning families.",
-            exits: [
-              "greek-athens",
-              "greek-tauris",
-              "greek-sicily"
-            ],
-            backdrop: "assets/greek-drama/open-door-piraeus.webp",
-            persona: "These quays hold the practical work of welcome. A reserved berth records a promise and supplies at this quay. The host speaks about the actual list, cloth and basket and the traveler\u2019s chosen terms."
+            text: "Cargo baskets stand beside moored ships. Crews compare the cost of taking another passenger.",
+            exits: ["greek-athens", "greek-tauris", "greek-sicily"],
+            backdrop: "assets/greek-drama/harbor.svg",
+            persona: "Cargo baskets stand beside moored ships. Crews compare the cost of taking another passenger."
           },
           "greek-assembly": {
             name: "The Assembly Hill",
             text: "Stone benches face the speaker's platform. Citizens gather beside a list of proposals.",
-            exits: [
-              "greek-athens"
-            ],
+            exits: ["greek-athens"],
             backdrop: "assets/greek-drama/palace.svg",
             persona: "Stone benches face the speaker's platform. Citizens gather beside a list of proposals."
           },
           "greek-acropolis": {
             name: "Acropolis Treasury",
             text: "A barred door separates the treasury from the courtyard. Women keep watch on the steps.",
-            exits: [
-              "greek-athens"
-            ],
+            exits: ["greek-athens"],
             backdrop: "assets/greek-drama/palace.svg",
             persona: "A barred door separates the treasury from the courtyard. Women keep watch on the steps."
           },
           "greek-demos-house": {
             name: "House of Demos",
             text: "Serving dishes crowd a kitchen table. Two servants quarrel over who will carry dinner inside.",
-            exits: [
-              "greek-athens"
-            ],
+            exits: ["greek-athens"],
             backdrop: "assets/greek-drama/courtyard.svg",
             persona: "Serving dishes crowd a kitchen table. Two servants quarrel over who will carry dinner inside."
           },
           "greek-thinkery": {
             name: "The Thinkery",
             text: "Writing tablets lie beside a narrow bed. A student practices both sides of an argument.",
-            exits: [
-              "greek-athens"
-            ],
+            exits: ["greek-athens"],
             backdrop: "assets/greek-drama/courtyard.svg",
             persona: "Writing tablets lie beside a narrow bed. A student practices both sides of an argument."
           },
           "greek-jury-house": {
             name: "The Juror's House",
             text: "A jury token hangs beside the door. The household has arranged a small court in the yard.",
-            exits: [
-              "greek-athens"
-            ],
+            exits: ["greek-athens"],
             backdrop: "assets/greek-drama/courtyard.svg",
             persona: "A jury token hangs beside the door. The household has arranged a small court in the yard."
           },
           "greek-festival": {
             name: "The Women's Festival",
             text: "Garlands mark the sanctuary entrance. The women at the door check each arriving guest.",
-            exits: [
-              "greek-athens"
-            ],
+            exits: ["greek-athens"],
             backdrop: "assets/greek-drama/grove.svg",
             persona: "Garlands mark the sanctuary entrance. The women at the door check each arriving guest."
           },
@@ -1696,57 +1609,42 @@
           "greek-acharnae": {
             name: "Acharnae Market",
             text: "Charcoal baskets line the lane. A farmer has marked a separate trading ground with stones.",
-            exits: [
-              "greek-attic-farm"
-            ],
+            exits: ["greek-attic-farm"],
             backdrop: "assets/greek-drama/courtyard.svg",
             persona: "Charcoal baskets line the lane. A farmer has marked a separate trading ground with stones."
           },
           "greek-colonus": {
             name: "Colonus Grove",
-            text: "A cup and a small pot of honey stand at the grove\u2019s edge. A keeper rests beside a smooth stone.",
-            exits: [
-              "greek-athens",
-              "greek-underworld"
-            ],
-            backdrop: "assets/greek-drama/open-door-colonus.webp",
-            persona: "The keeper tells Sophocles\u2019s Oedipus at Colonus as an earlier tale, before the brothers died at Thebes. Oedipus and his daughters belong to that named tale. The traveler\u2019s offerings and refuge tablet belong to the present grove."
+            text: "A low boundary surrounds the grove. Travelers stop before crossing the sacred ground.",
+            exits: ["greek-athens", "greek-underworld"],
+            backdrop: "assets/greek-drama/grove.svg",
+            persona: "A low boundary surrounds the grove. Travelers stop before crossing the sacred ground."
           },
           "greek-eleusis": {
             name: "Eleusinian Sanctuary",
-            text: "Mothers hold olive branches on Demeter\u2019s steps. Aethra keeps a clear space beside the altar for their request.",
-            exits: [
-              "greek-athens"
-            ],
-            backdrop: "assets/greek-drama/open-door-eleusis.webp",
-            persona: "This episode follows the attack on Thebes. The Argive mothers seek their sons\u2019 remains. The traveler\u2019s own Theban deed stays true. The city\u2019s recovery, the funeral and the later care each need their own recorded action or report."
+            text: "Mothers wait on the steps of Demeter's shrine. Empty burial cloths lie folded beside them.",
+            exits: ["greek-athens"],
+            backdrop: "assets/greek-drama/grove.svg",
+            persona: "Mothers wait on the steps of Demeter's shrine. Empty burial cloths lie folded beside them."
           },
           "greek-marathon": {
             name: "Marathon Altar",
-            text: "A folded cloth lies beside the altar of Zeus. A keeper watches the road where families once sought shelter.",
-            exits: [
-              "greek-athens"
-            ],
-            backdrop: "assets/greek-drama/open-door-marathon.webp",
-            persona: "The keeper tells Euripides\u2019s Children of Heracles as a separate tale under Demophon, son of Theseus, after Heracles\u2019s death. The daughter, battle and captive king belong to that tale. The traveler\u2019s blanket stays at the present altar for guests."
+            text: "Children shelter around Zeus's altar. Their companions watch the road for a herald.",
+            exits: ["greek-athens"],
+            backdrop: "assets/greek-drama/grove.svg",
+            persona: "Children shelter around Zeus's altar. Their companions watch the road for a herald."
           },
           "greek-argolid-road": {
             name: "The Argolid Crossroads",
             text: "Three roads leave a shaded meeting place. A singer asks which household's testimony should guide the journey.",
-            exits: [
-              "greek-harbor",
-              "greek-argos-sanctuary",
-              "greek-corinth"
-            ],
+            exits: ["greek-harbor", "greek-argos-sanctuary", "greek-corinth"],
             backdrop: "assets/greek-drama/grove.svg",
             persona: "Three roads leave a shaded meeting place. A singer asks which household's testimony should guide the journey."
           },
           "greek-argos-sanctuary": {
             name: "Argive Shore Sanctuary",
             text: "Suppliant branches rest beside a coastal altar. A lookout watches an approaching ship.",
-            exits: [
-              "greek-argolid-road"
-            ],
+            exits: ["greek-argolid-road"],
             backdrop: "assets/greek-drama/harbor.svg",
             persona: "Suppliant branches rest beside a coastal altar. A lookout watches an approaching ship."
           },
@@ -1809,68 +1707,49 @@
           "greek-corinth": {
             name: "Corinthian Courtyard",
             text: "A rented household opens onto the harbor road. Bundles stand ready beside the door.",
-            exits: [
-              "greek-argolid-road",
-              "greek-troezen"
-            ],
+            exits: ["greek-argolid-road", "greek-troezen"],
             backdrop: "assets/greek-drama/courtyard.svg",
             persona: "A rented household opens onto the harbor road. Bundles stand ready beside the door."
           },
           "greek-troezen": {
             name: "Troezen Palace",
             text: "Two shrines flank the palace approach. A hunting party has left its equipment under the portico.",
-            exits: [
-              "greek-corinth"
-            ],
+            exits: ["greek-corinth"],
             backdrop: "assets/greek-drama/palace.svg",
             persona: "Two shrines flank the palace approach. A hunting party has left its equipment under the portico."
           },
           "greek-delphi": {
             name: "Delphic Temple",
             text: "Travelers queue beneath Apollo's columns. An attendant sweeps leaves from the sanctuary steps.",
-            exits: [
-              "greek-athens",
-              "greek-trachis"
-            ],
+            exits: ["greek-athens", "greek-trachis"],
             backdrop: "assets/greek-drama/palace.svg",
             persona: "Travelers queue beneath Apollo's columns. An attendant sweeps leaves from the sanctuary steps."
           },
           "greek-trachis": {
             name: "House at Trachis",
             text: "A messenger's sandals dry beside the doorway. A folded garment waits on a workbench.",
-            exits: [
-              "greek-delphi",
-              "greek-oeta",
-              "greek-pherae"
-            ],
+            exits: ["greek-delphi", "greek-oeta", "greek-pherae"],
             backdrop: "assets/greek-drama/courtyard.svg",
             persona: "A messenger's sandals dry beside the doorway. A folded garment waits on a workbench."
           },
           "greek-oeta": {
             name: "The Oeta Road",
             text: "A steep road climbs above the trees. Bearers have set a litter beside a level patch of stone.",
-            exits: [
-              "greek-trachis"
-            ],
+            exits: ["greek-trachis"],
             backdrop: "assets/greek-drama/grove.svg",
             persona: "A steep road climbs above the trees. Bearers have set a litter beside a level patch of stone."
           },
           "greek-pherae": {
             name: "Palace of Pherae",
             text: "Guests arrive at a house in mourning. A servant hesitates before opening the inner door.",
-            exits: [
-              "greek-trachis",
-              "greek-thetis"
-            ],
+            exits: ["greek-trachis", "greek-thetis"],
             backdrop: "assets/greek-drama/palace.svg",
             persona: "Guests arrive at a house in mourning. A servant hesitates before opening the inner door."
           },
           "greek-thetis": {
             name: "Thetis's Sanctuary",
             text: "The sanctuary stands beside a great household. A woman has taken refuge near the altar.",
-            exits: [
-              "greek-pherae"
-            ],
+            exits: ["greek-pherae"],
             backdrop: "assets/greek-drama/grove.svg",
             persona: "The sanctuary stands beside a great household. A woman has taken refuge near the altar."
           },
@@ -1889,20 +1768,14 @@
           "greek-greek-camp": {
             name: "The Greek Camp at Troy",
             text: "Ships cover the beach below the tents. Soldiers argue over honor, supplies, and the next order.",
-            exits: [
-              "greek-aulis",
-              "greek-troy",
-              "greek-lemnos"
-            ],
+            exits: ["greek-aulis", "greek-troy", "greek-lemnos"],
             backdrop: "assets/greek-drama/harbor.svg",
             persona: "Ships cover the beach below the tents. Soldiers argue over honor, supplies, and the next order."
           },
           "greek-trojan-camp": {
             name: "The Trojan Night Camp",
             text: "Watch fires mark the edge of the camp. A newly arrived ally waits for a guide.",
-            exits: [
-              "greek-troy"
-            ],
+            exits: ["greek-troy"],
             backdrop: "assets/greek-drama/grove.svg",
             persona: "Watch fires mark the edge of the camp. A newly arrived ally waits for a guide."
           },
@@ -1923,18 +1796,14 @@
           "greek-lemnos": {
             name: "The Lemnian Cave",
             text: "A rough bed lies inside the cave. Footprints lead toward a bow wrapped against the salt air.",
-            exits: [
-              "greek-greek-camp"
-            ],
+            exits: ["greek-greek-camp"],
             backdrop: "assets/greek-drama/sea.svg",
             persona: "A rough bed lies inside the cave. Footprints lead toward a bow wrapped against the salt air."
           },
           "greek-thrace": {
             name: "The Thracian Shore",
             text: "A fleet waits beyond the breakers. Captive households search among the new arrivals.",
-            exits: [
-              "greek-troy"
-            ],
+            exits: ["greek-troy"],
             backdrop: "assets/greek-drama/sea.svg",
             persona: "A fleet waits beyond the breakers. Captive households search among the new arrivals."
           },
@@ -1955,64 +1824,49 @@
           "greek-tauris": {
             name: "The Taurian Temple",
             text: "A walled temple overlooks the landing place. An attendant counts the people brought ashore.",
-            exits: [
-              "greek-piraeus"
-            ],
+            exits: ["greek-piraeus"],
             backdrop: "assets/greek-drama/palace.svg",
             persona: "A walled temple overlooks the landing place. An attendant counts the people brought ashore."
           },
           "greek-sicily": {
             name: "The Sicilian Cave",
             text: "Sheep crowd a stone enclosure beside the cave. Wine jars stand beyond the shepherds' reach.",
-            exits: [
-              "greek-piraeus"
-            ],
+            exits: ["greek-piraeus"],
             backdrop: "assets/greek-drama/grove.svg",
             persona: "Sheep crowd a stone enclosure beside the cave. Wine jars stand beyond the shepherds' reach."
           },
           "greek-susa": {
             name: "The Court at Susa",
             text: "Officials wait beside the royal tomb. The last dispatch from the fleet lies unopened.",
-            exits: [
-              "greek-troy",
-              "greek-scythian-crag"
-            ],
+            exits: ["greek-troy", "greek-scythian-crag"],
             backdrop: "assets/greek-drama/palace.svg",
             persona: "Officials wait beside the royal tomb. The last dispatch from the fleet lies unopened."
           },
           "greek-scythian-crag": {
             name: "The Scythian Crag",
             text: "Iron bonds fix a figure to the rock. A narrow ledge allows visitors to approach.",
-            exits: [
-              "greek-susa"
-            ],
+            exits: ["greek-susa"],
             backdrop: "assets/greek-drama/grove.svg",
             persona: "Iron bonds fix a figure to the rock. A narrow ledge allows visitors to approach."
           },
           "greek-divine-heights": {
             name: "The Divine Heights",
             text: "A steep stair ends above the clouds. Broken farming tools have been carried to the landing.",
-            exits: [
-              "greek-attic-farm"
-            ],
+            exits: ["greek-attic-farm"],
             backdrop: "assets/greek-drama/sea.svg",
             persona: "A steep stair ends above the clouds. Broken farming tools have been carried to the landing."
           },
           "greek-bird-wilderness": {
             name: "The Hoopoe's Thicket",
             text: "A nest hangs above a rocky clearing. Two travelers have laid out a basket, a pot, and a plan for a city.",
-            exits: [
-              "greek-attic-farm"
-            ],
+            exits: ["greek-attic-farm"],
             backdrop: "assets/greek-drama/grove.svg",
             persona: "A nest hangs above a rocky clearing. Two travelers have laid out a basket, a pot, and a plan for a city."
           },
           "greek-underworld": {
             name: "The Underworld Landing",
             text: "A ferry rests beside dark water. The keeper of the landing asks the purpose of each crossing.",
-            exits: [
-              "greek-colonus"
-            ],
+            exits: ["greek-colonus"],
             backdrop: "assets/greek-drama/harbor.svg",
             persona: "A ferry rests beside dark water. The keeper of the landing asks the purpose of each crossing."
           },
@@ -2059,10 +1913,7 @@
             voice: "A determined sister. Speak directly about a brother's burial and the practical help at hand. Know only public facts and witnessed acts; never predict the play's ending.",
             portrait: "assets/greek-drama/chthonic-antigone.png",
             desire: {
-              items: [
-                "greek-funeral-cloth",
-                "greek-oil-flask"
-              ],
+              items: ["greek-funeral-cloth", "greek-oil-flask"],
               location: "greek-battlefield",
               avatars: [],
               requires: [
@@ -2205,9 +2056,7 @@
             text: "He keeps the words of the journey in a song.",
             place: "greek-harbor",
             home: "greek-harbor",
-            previousHomes: [
-              "greek-argolid-road"
-            ],
+            previousHomes: ["greek-argolid-road"],
             values: {
               "greek-provisions": 2
             },
@@ -2502,208 +2351,6 @@
               sore: "being treated as an instrument of someone else's revenge",
               reason: "He has come to hear his sister before committing himself."
             }
-          },
-          "greek-aethra": {
-            name: "Aethra",
-            text: "Olive branches rest across her knees. She makes room for the mothers beside Demeter\u2019s altar.",
-            place: "greek-eleusis",
-            home: "greek-eleusis",
-            travels: false,
-            standoffs: false,
-            values: {},
-            persona: "Theseus\u2019s mother, receiving the Argive mothers at Eleusis after the attack on Thebes. Speak plainly about their plea, the city\u2019s answer, the rite and care for the surviving households. Keep each stage tied to its recorded facts.",
-            voice: "Theseus\u2019s mother, receiving the Argive mothers at Eleusis after the attack on Thebes. Speak plainly about their plea, the city\u2019s answer, the rite and care for the surviving households. Keep each stage tied to its recorded facts.",
-            portrait: "assets/greek-drama/open-door-aethra.webp",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ],
-            tastes: {
-              likes: "careful listening and help that reaches its owner",
-              sore: "promises treated as finished deeds",
-              reason: "Olive branches rest across her knees. She makes room for the mothers beside Demeter\u2019s altar."
-            }
-          },
-          "greek-adrastus": {
-            name: "Adrastus",
-            text: "Dust lies in the folds of his cloak. His hands rest beside the names of the fallen.",
-            place: "greek-eleusis",
-            home: "greek-eleusis",
-            travels: false,
-            standoffs: false,
-            values: {},
-            persona: "The Argive ruler who led the failed attack on Thebes. Own that choice and the cost to the families. Ask for recovery of the dead. The two Theban brothers keep the fate established in the opening.",
-            voice: "The Argive ruler who led the failed attack on Thebes. Own that choice and the cost to the families. Ask for recovery of the dead. The two Theban brothers keep the fate established in the opening.",
-            portrait: "assets/greek-drama/open-door-adrastus.webp",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ],
-            tastes: {
-              likes: "careful listening and help that reaches its owner",
-              sore: "promises treated as finished deeds",
-              reason: "Dust lies in the folds of his cloak. His hands rest beside the names of the fallen."
-            }
-          },
-          "greek-argive-mother": {
-            name: "An Argive Mother",
-            text: "She holds a strip of cloth between both hands. Her son\u2019s name is written beside the urn.",
-            place: "greek-eleusis",
-            home: "greek-eleusis",
-            travels: false,
-            standoffs: false,
-            values: {},
-            persona: "An original representative voice of Euripides\u2019s chorus of Argive mothers. Speak of a son, his remains and the living people who will carry his name. The recovery report establishes what has returned.",
-            voice: "An original representative voice of Euripides\u2019s chorus of Argive mothers. Speak of a son, his remains and the living people who will carry his name. The recovery report establishes what has returned.",
-            portrait: "assets/greek-drama/open-door-mother.webp",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-open-door-bodies-returned",
-                value: true
-              }
-            ],
-            tastes: {
-              likes: "careful listening and help that reaches its owner",
-              sore: "promises treated as finished deeds",
-              reason: "She holds a strip of cloth between both hands. Her son\u2019s name is written beside the urn."
-            }
-          },
-          "greek-iphis": {
-            name: "Iphis",
-            text: "He sits beside the shrine steps. A place remains empty at his side.",
-            place: "greek-eleusis",
-            home: "greek-eleusis",
-            travels: false,
-            standoffs: false,
-            values: {},
-            persona: "Evadne\u2019s father in the aftermath reported from the pyre. His son Eteoclus and daughter Evadne have died in this account. Speak about grief and the care offered now. Preserve the distinction between hearing his loss and changing it.",
-            voice: "Evadne\u2019s father in the aftermath reported from the pyre. His son Eteoclus and daughter Evadne have died in this account. Speak about grief and the care offered now. Preserve the distinction between hearing his loss and changing it.",
-            portrait: "assets/greek-drama/open-door-iphis.webp",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-open-door-pyre-heard",
-                value: true
-              }
-            ],
-            tastes: {
-              likes: "careful listening and help that reaches its owner",
-              sore: "promises treated as finished deeds",
-              reason: "He sits beside the shrine steps. A place remains empty at his side."
-            }
-          },
-          "greek-theseus": {
-            name: "Theseus",
-            text: "A petition table stands beside him. He waits for the mothers\u2019 own account.",
-            place: "greek-athens",
-            home: "greek-athens",
-            travels: false,
-            standoffs: false,
-            values: {},
-            persona: "The Athenian king in the present Eleusis episode. The public hearing is moved to the Agora for this adaptation. Hear Adrastus\u2019s responsibility and the mothers\u2019 request. The recorded choice determines a truce or the source-shaped armed recovery. Each report establishes its own result.",
-            voice: "The Athenian king in the present Eleusis episode. The public hearing is moved to the Agora for this adaptation. Hear Adrastus\u2019s responsibility and the mothers\u2019 request. The recorded choice determines a truce or the source-shaped armed recovery. Each report establishes its own result.",
-            portrait: "assets/greek-drama/open-door-theseus.webp",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ],
-            tastes: {
-              likes: "careful listening and help that reaches its owner",
-              sore: "promises treated as finished deeds",
-              reason: "A petition table stands beside him. He waits for the mothers\u2019 own account."
-            }
-          },
-          "greek-quay-host": {
-            name: "Thaleia the Quay Host",
-            text: "She counts bowls beside the grain basket. A blank space waits at the foot of her passenger list.",
-            place: "greek-piraeus",
-            home: "greek-piraeus",
-            travels: false,
-            standoffs: false,
-            values: {},
-            persona: "An original quay host who prepares supplies and a place to rest for returning mourners. Speak about the cloth sent to Eleusis, the basket at this quay, the actual return list and the chosen berth. A berth remains a prepared place until people travel.",
-            voice: "An original quay host who prepares supplies and a place to rest for returning mourners. Speak about the cloth sent to Eleusis, the basket at this quay, the actual return list and the chosen berth. A berth remains a prepared place until people travel.",
-            portrait: "assets/greek-drama/open-door-quay-host.webp",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ],
-            tastes: {
-              likes: "careful listening and help that reaches its owner",
-              sore: "promises treated as finished deeds",
-              reason: "She counts bowls beside the grain basket. A blank space waits at the foot of her passenger list."
-            }
-          },
-          "greek-colonus-keeper": {
-            name: "The Grove Keeper",
-            text: "The keeper sets a cup beside the boundary stone. A pot of honey catches the light.",
-            place: "greek-colonus",
-            home: "greek-colonus",
-            travels: false,
-            standoffs: false,
-            values: {},
-            persona: "An original keeper telling the complete earlier tale of Oedipus at Colonus. Introduce its time before speaking of Oedipus, Antigone, Ismene, Creon, Polyneices or Theseus. These are remembered people. The current traveler brings offerings and chooses how the present grove will remember refuge.",
-            voice: "An original keeper telling the complete earlier tale of Oedipus at Colonus. Introduce its time before speaking of Oedipus, Antigone, Ismene, Creon, Polyneices or Theseus. These are remembered people. The current traveler brings offerings and chooses how the present grove will remember refuge.",
-            portrait: "assets/greek-drama/open-door-grove-keeper.webp",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ],
-            tastes: {
-              likes: "careful listening and help that reaches its owner",
-              sore: "promises treated as finished deeds",
-              reason: "The keeper sets a cup beside the boundary stone. A pot of honey catches the light."
-            }
-          },
-          "greek-marathon-keeper": {
-            name: "The Altar Keeper",
-            text: "The keeper smooths a place for a blanket beside the altar. A small bowl rests inside the shelter.",
-            place: "greek-marathon",
-            home: "greek-marathon",
-            travels: false,
-            standoffs: false,
-            values: {},
-            persona: "An original keeper telling Children of Heracles in Demophon\u2019s generation. Name the daughter as Heracles\u2019s daughter. The source tale includes her sacrifice, the battle and Alcmene\u2019s demand against Eurystheus. The hearing ending is a stated variation within that tale. The blanket is present care at the altar.",
-            voice: "An original keeper telling Children of Heracles in Demophon\u2019s generation. Name the daughter as Heracles\u2019s daughter. The source tale includes her sacrifice, the battle and Alcmene\u2019s demand against Eurystheus. The hearing ending is a stated variation within that tale. The blanket is present care at the altar.",
-            portrait: "assets/greek-drama/open-door-altar-keeper.webp",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ],
-            tastes: {
-              likes: "careful listening and help that reaches its owner",
-              sore: "promises treated as finished deeds",
-              reason: "The keeper smooths a place for a blanket beside the altar. A small bowl rests inside the shelter."
-            }
           }
         },
         items: {
@@ -2837,152 +2484,6 @@
                 kind: "choice",
                 key: "greek-atreid-account",
                 value: "euripides"
-              }
-            ]
-          },
-          "greek-burial-petition": {
-            name: "The Mothers\u2019 Petition",
-            text: "An olive branch lies across a tablet bearing the mothers\u2019 request. Aethra has left room for the city\u2019s answer.",
-            holder: "greek-eleusis",
-            art: "assets/greek-drama/decree.png",
-            persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-open-door-mothers-heard",
-                value: true
-              }
-            ]
-          },
-          "greek-return-cloths": {
-            name: "Clean Burial Cloths",
-            text: "Clean folded cloths wait at the quay. Thaleia has set them aside for the rite at Eleusis.",
-            holder: "greek-piraeus",
-            art: "assets/greek-drama/funeral-cloth.png",
-            persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ]
-          },
-          "greek-provision-basket": {
-            name: "The Quay Basket",
-            text: "Grain, bread and cups fill a basket. Thaleia needs it beside the resting place at this quay.",
-            holder: "greek-piraeus",
-            art: "assets/greek-drama/provisions.png",
-            persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ]
-          },
-          "greek-ash-urn": {
-            name: "The Funeral Urn",
-            text: "A covered urn holds ashes entrusted to the mothers after the recorded recovery and funeral. Its clay is cool.",
-            holder: "greek-eleusis",
-            art: "assets/greek-drama/water-jar.png",
-            persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-open-door-bodies-returned",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-open-door-cloths-laid",
-                value: true
-              }
-            ]
-          },
-          "greek-return-list": {
-            name: "The Return List",
-            text: "The mothers have written the households who need a place to rest on the homeward road. Thaleia is waiting for their list.",
-            holder: "greek-eleusis",
-            art: "assets/greek-drama/testimony.png",
-            persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-open-door-eleusis-done",
-                value: true
-              }
-            ]
-          },
-          "greek-grove-cup": {
-            name: "The Grove Cup",
-            text: "Fresh spring water fills a small cup. The keeper has set it beside the grove boundary.",
-            holder: "greek-colonus",
-            art: "assets/greek-drama/water-jar.png",
-            persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ]
-          },
-          "greek-grove-honey": {
-            name: "Honey for the Grove",
-            text: "A sealed pot holds honey for the grove\u2019s offering.",
-            holder: "greek-colonus",
-            art: "assets/greek-drama/oil-flask.png",
-            persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ]
-          },
-          "greek-shelter-blanket": {
-            name: "The Shelter Blanket",
-            text: "A thick clean blanket is folded beside the cargo baskets. The altar keeper at Marathon has asked for it.",
-            holder: "greek-piraeus",
-            art: "assets/greek-drama/funeral-cloth.png",
-            persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ]
-          },
-          "greek-refuge-tablet": {
-            name: "The Refuge Tablet",
-            text: "A blank wax tablet waits at the public table. The keeper at Colonus can use it to record the grove\u2019s duty to guests.",
-            holder: "greek-athens",
-            art: "assets/greek-drama/decree.png",
-            persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
               }
             ]
           }
@@ -5038,1173 +4539,6 @@
             ],
             workId: "aristophanes-wealth",
             textTemplate: "{actor} opens an inquiry into the account told in Wealth. The question is recorded; its reported events have not been enacted."
-          },
-          {
-            id: "greek-open-door-invite-burial",
-            subject: "greek-baker",
-            at: "greek-courtyard",
-            label: "Take the road to Eleusis",
-            text: "Dione has heard the burial. She tells Vale of the Argive mothers waiting at Eleusis. Vale takes her introduction for the mothers at Eleusis.",
-            textTemplate: "Dione has heard the burial. She tells {actor} of the Argive mothers waiting at Eleusis. {actor} takes her introduction for the mothers at Eleusis.",
-            summary: "After the public account of the burial, the traveler accepted Dione\u2019s introduction to Eleusis and the Attic roads.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: false
-              },
-              {
-                kind: "choice",
-                key: "greek-theban-response",
-                value: "burial"
-              },
-              {
-                kind: "flag",
-                key: "greek-burial-public",
-                value: true
-              }
-            ],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ]
-          },
-          {
-            id: "greek-open-door-invite-concession",
-            subject: "greek-baker",
-            at: "greek-courtyard",
-            label: "Take the road to Eleusis",
-            text: "Dione has heard the permission. She tells Vale of the Argive mothers waiting at Eleusis. Vale takes her introduction for the mothers at Eleusis.",
-            textTemplate: "Dione has heard the permission. She tells {actor} of the Argive mothers waiting at Eleusis. {actor} takes her introduction for the mothers at Eleusis.",
-            summary: "After the public account of the permission, the traveler accepted Dione\u2019s introduction to Eleusis and the Attic roads.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: false
-              },
-              {
-                kind: "choice",
-                key: "greek-theban-response",
-                value: "concession"
-              },
-              {
-                kind: "flag",
-                key: "greek-concession-public",
-                value: true
-              }
-            ],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ]
-          },
-          {
-            id: "greek-open-door-invite-refusal",
-            subject: "greek-baker",
-            at: "greek-courtyard",
-            label: "Take the road to Eleusis",
-            text: "Dione has heard your refusal. She tells Vale of the Argive mothers waiting at Eleusis. Vale takes her introduction for the mothers at Eleusis.",
-            textTemplate: "Dione has heard your refusal. She tells {actor} of the Argive mothers waiting at Eleusis. {actor} takes her introduction for the mothers at Eleusis.",
-            summary: "After the public account of your refusal, the traveler accepted Dione\u2019s introduction to Eleusis and the Attic roads.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: false
-              },
-              {
-                kind: "choice",
-                key: "greek-theban-response",
-                value: "refusal"
-              },
-              {
-                kind: "flag",
-                key: "greek-refusal-public",
-                value: true
-              }
-            ],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ]
-          },
-          {
-            id: "greek-open-door-invite-exposure",
-            subject: "greek-baker",
-            at: "greek-courtyard",
-            label: "Take the road to Eleusis",
-            text: "Dione has heard the warning. She tells Vale of the Argive mothers waiting at Eleusis. Vale takes her introduction for the mothers at Eleusis.",
-            textTemplate: "Dione has heard the warning. She tells {actor} of the Argive mothers waiting at Eleusis. {actor} takes her introduction for the mothers at Eleusis.",
-            summary: "After the public account of the warning, the traveler accepted Dione\u2019s introduction to Eleusis and the Attic roads.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: false
-              },
-              {
-                kind: "choice",
-                key: "greek-theban-response",
-                value: "exposure"
-              },
-              {
-                kind: "flag",
-                key: "greek-exposure-public",
-                value: true
-              }
-            ],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ]
-          },
-          {
-            id: "greek-open-door-hear-mothers",
-            subject: "greek-aethra",
-            at: "greek-eleusis",
-            label: "Hear the mothers\u2019 request",
-            text: "Vale sits with Aethra and the Argive mothers. Their sons died in the attack on Thebes. They ask Athens to recover the remains for burial. Aethra sets their petition and olive branch within reach.",
-            textTemplate: "{actor} sits with Aethra and the Argive mothers. Their sons died in the attack on Thebes. They ask Athens to recover the remains for burial. Aethra sets their petition and olive branch within reach.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-open-door-mothers-heard",
-                value: true
-              }
-            ],
-            workId: "euripides-suppliant-women"
-          },
-          {
-            id: "greek-open-door-hear-adrastus",
-            subject: "greek-adrastus",
-            at: "greek-eleusis",
-            label: "Ask Adrastus about the war",
-            text: "Vale asks Adrastus why the army went to Thebes. He owns the failed expedition and the warning he set aside. Aethra asks that the mothers\u2019 right to bury their sons receive its own hearing.",
-            textTemplate: "{actor} asks Adrastus why the army went to Thebes. He owns the failed expedition and the warning he set aside. Aethra asks that the mothers\u2019 right to bury their sons receive its own hearing.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-open-door-mothers-heard",
-                value: true
-              }
-            ],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-open-door-adrastus-heard",
-                value: true
-              }
-            ],
-            workId: "euripides-suppliant-women"
-          },
-          {
-            id: "greek-open-door-register-plea",
-            subject: "greek-theseus",
-            at: "greek-athens",
-            label: "Lay the mothers\u2019 petition before Theseus",
-            text: "Vale lays the mothers\u2019 petition on the public table. Theseus hears the request and Adrastus\u2019s part in the war. The city takes up the burial claim as its own duty.",
-            textTemplate: "{actor} lays the mothers\u2019 petition on the public table. Theseus hears the request and Adrastus\u2019s part in the war. The city takes up the burial claim as its own duty.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-open-door-adrastus-heard",
-                value: true
-              },
-              {
-                kind: "holding",
-                item: "greek-burial-petition",
-                role: "actor"
-              }
-            ],
-            effects: [
-              {
-                kind: "place_item",
-                item: "greek-burial-petition",
-                place: "greek-athens"
-              },
-              {
-                kind: "set_flag",
-                key: "greek-open-door-plea-registered",
-                value: true
-              }
-            ],
-            workId: "euripides-suppliant-women"
-          },
-          {
-            id: "greek-open-door-request-truce",
-            subject: "greek-theseus",
-            at: "greek-athens",
-            label: "Ask for a witnessed burial truce",
-            text: "Vale asks Theseus to send a herald with a burial truce. The proposal names the dead, a return road and witnesses from both sides. Theseus agrees to seek those terms.",
-            textTemplate: "{actor} asks Theseus to send a herald with a burial truce. The proposal names the dead, a return road and witnesses from both sides. Theseus agrees to seek those terms.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-open-door-plea-registered",
-                value: true
-              },
-              {
-                kind: "choice_unset",
-                key: "greek-open-door-recovery"
-              }
-            ],
-            effects: [
-              {
-                kind: "choose",
-                key: "greek-open-door-recovery",
-                value: "truce"
-              }
-            ],
-            workId: "euripides-suppliant-women"
-          },
-          {
-            id: "greek-open-door-request-recovery",
-            subject: "greek-theseus",
-            at: "greek-athens",
-            label: "Support the city\u2019s recovery demand",
-            text: "Vale supports Theseus\u2019s demand for the dead. The herald carries it to Thebes. Theseus places the army behind the demand, as in Euripides\u2019s account.",
-            textTemplate: "{actor} supports Theseus\u2019s demand for the dead. The herald carries it to Thebes. Theseus places the army behind the demand, as in Euripides\u2019s account.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-open-door-plea-registered",
-                value: true
-              },
-              {
-                kind: "choice_unset",
-                key: "greek-open-door-recovery"
-              }
-            ],
-            effects: [
-              {
-                kind: "choose",
-                key: "greek-open-door-recovery",
-                value: "force"
-              }
-            ],
-            workId: "euripides-suppliant-women"
-          },
-          {
-            id: "greek-open-door-hear-truce-report",
-            subject: "greek-theseus",
-            at: "greek-athens",
-            label: "Receive the herald\u2019s truce report",
-            text: "Theseus reads the herald\u2019s return to Vale. In this new telling, both sides accepted the burial truce. The remains reached Eleusis under witness. The mothers now have their dead; their funeral and care still lie before them.",
-            textTemplate: "Theseus reads the herald\u2019s return to {actor}. In this new telling, both sides accepted the burial truce. The remains reached Eleusis under witness. The mothers now have their dead; their funeral and care still lie before them.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "choice",
-                key: "greek-open-door-recovery",
-                value: "truce"
-              }
-            ],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-open-door-bodies-returned",
-                value: true
-              }
-            ],
-            workId: "euripides-suppliant-women",
-            summary: "In this adapted telling, the herald confirmed a witnessed return of the Argive dead under a burial truce."
-          },
-          {
-            id: "greek-open-door-hear-recovery-report",
-            subject: "greek-theseus",
-            at: "greek-athens",
-            label: "Receive the messenger\u2019s recovery report",
-            text: "Theseus hears the messenger with Vale. Thebes refused the demand. Athens won the battle and recovered the remains, as in the play. Theseus stopped the pursuit at that purpose. The mothers at Eleusis can begin the funeral.",
-            textTemplate: "Theseus hears the messenger with {actor}. Thebes refused the demand. Athens won the battle and recovered the remains, as in the play. Theseus stopped the pursuit at that purpose. The mothers at Eleusis can begin the funeral.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "choice",
-                key: "greek-open-door-recovery",
-                value: "force"
-              }
-            ],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-open-door-bodies-returned",
-                value: true
-              }
-            ],
-            workId: "euripides-suppliant-women",
-            summary: "The messenger confirmed the source-shaped armed recovery of the Argive dead. The traveler heard the report at Athens."
-          },
-          {
-            id: "greek-open-door-hear-quay",
-            subject: "greek-quay-host",
-            at: "greek-piraeus",
-            label: "Ask what the returning households need",
-            text: "Thaleia shows Vale the resting place at the quay. She has cloth for Eleusis, a basket for the homeward meal and a blanket for Marathon. She asks for the mothers\u2019 own list before assigning the berth.",
-            textTemplate: "Thaleia shows {actor} the resting place at the quay. She has cloth for Eleusis, a basket for the homeward meal and a blanket for Marathon. She asks for the mothers\u2019 own list before assigning the berth.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-open-door-quay-heard",
-                value: true
-              }
-            ]
-          },
-          {
-            id: "greek-open-door-set-provisions",
-            subject: "greek-quay-host",
-            at: "greek-piraeus",
-            label: "Set the basket beside the resting place",
-            text: "Vale sets the grain basket beside Thaleia\u2019s bench. She lays out the cups for people who will rest here on their way home.",
-            textTemplate: "{actor} sets the grain basket beside Thaleia\u2019s bench. She lays out the cups for people who will rest here on their way home.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-open-door-quay-heard",
-                value: true
-              },
-              {
-                kind: "holding",
-                item: "greek-provision-basket",
-                role: "actor"
-              }
-            ],
-            effects: [
-              {
-                kind: "place_item",
-                item: "greek-provision-basket",
-                place: "greek-piraeus"
-              },
-              {
-                kind: "set_flag",
-                key: "greek-open-door-quay-provisioned",
-                value: true
-              }
-            ]
-          },
-          {
-            id: "greek-open-door-lay-cloths",
-            subject: "greek-aethra",
-            at: "greek-eleusis",
-            label: "Lay out the clean burial cloths",
-            text: "Vale lays the cloths from Piraeus beside Aethra. The mothers prepare the returned dead. Their children gather near the shrine while the funeral attendants carry out the rite.",
-            textTemplate: "{actor} lays the cloths from Piraeus beside Aethra. The mothers prepare the returned dead. Their children gather near the shrine while the funeral attendants carry out the rite.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-open-door-bodies-returned",
-                value: true
-              },
-              {
-                kind: "holding",
-                item: "greek-return-cloths",
-                role: "actor"
-              }
-            ],
-            effects: [
-              {
-                kind: "place_item",
-                item: "greek-return-cloths",
-                place: "greek-eleusis"
-              },
-              {
-                kind: "set_flag",
-                key: "greek-open-door-cloths-laid",
-                value: true
-              }
-            ],
-            workId: "euripides-suppliant-women"
-          },
-          {
-            id: "greek-open-door-lay-ashes",
-            subject: "greek-argive-mother",
-            at: "greek-eleusis",
-            label: "Place the urn in the mothers\u2019 care",
-            text: "Vale places the funeral urn beside the mothers. They name their sons over the ashes. The small vessel holds the weight of the journey they asked the city to make.",
-            textTemplate: "{actor} places the funeral urn beside the mothers. They name their sons over the ashes. The small vessel holds the weight of the journey they asked the city to make.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-open-door-cloths-laid",
-                value: true
-              },
-              {
-                kind: "holding",
-                item: "greek-ash-urn",
-                role: "actor"
-              }
-            ],
-            effects: [
-              {
-                kind: "place_item",
-                item: "greek-ash-urn",
-                place: "greek-eleusis"
-              },
-              {
-                kind: "set_flag",
-                key: "greek-open-door-ashes-laid",
-                value: true
-              }
-            ],
-            workId: "euripides-suppliant-women"
-          },
-          {
-            id: "greek-open-door-hear-pyre",
-            subject: "greek-aethra",
-            at: "greek-eleusis",
-            label: "Hear what happened beside the pyre",
-            text: "Aethra tells Vale the funeral\u2019s further loss. Evadne died at Capaneus\u2019s pyre despite Iphis\u2019s plea. He has lost both his children. The surviving children carry ashes and speak of vengeance. Aethra recalls the play\u2019s closing oath: Argos owes Athens aid, while Athena names another war for the children. Iphis comes to sit beside the shrine steps.",
-            textTemplate: "Aethra tells {actor} the funeral\u2019s further loss. Evadne died at Capaneus\u2019s pyre despite Iphis\u2019s plea. He has lost both his children. The surviving children carry ashes and speak of vengeance. Aethra recalls the play\u2019s closing oath: Argos owes Athens aid, while Athena names another war for the children. Iphis comes to sit beside the shrine steps.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-open-door-ashes-laid",
-                value: true
-              }
-            ],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-open-door-pyre-heard",
-                value: true
-              }
-            ],
-            workId: "euripides-suppliant-women",
-            summary: "Aethra reported Evadne\u2019s death and Iphis\u2019s loss after the funeral. This source event belongs to the account the traveler heard."
-          },
-          {
-            id: "greek-open-door-eleusis-pledge",
-            subject: "greek-aethra",
-            at: "greek-eleusis",
-            label: "Pledge care for the dead of either side",
-            text: "Vale places a public burial pledge beside Aethra. The mothers keep their anger and their names. The traveler promises to carry this duty into later disputes. Aethra writes the households\u2019 return list for Thaleia.",
-            textTemplate: "{actor} places a public burial pledge beside Aethra. The mothers keep their anger and their names. The traveler promises to carry this duty into later disputes. Aethra writes the households\u2019 return list for Thaleia.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-open-door-pyre-heard",
-                value: true
-              },
-              {
-                kind: "choice_unset",
-                key: "greek-open-door-eleusis"
-              }
-            ],
-            effects: [
-              {
-                kind: "choose",
-                key: "greek-open-door-eleusis",
-                value: "pledge"
-              },
-              {
-                kind: "set_flag",
-                key: "greek-open-door-eleusis-done",
-                value: true
-              }
-            ],
-            workId: "euripides-suppliant-women"
-          },
-          {
-            id: "greek-open-door-eleusis-care",
-            subject: "greek-aethra",
-            at: "greek-eleusis",
-            label: "Keep the families\u2019 needs in the account",
-            text: "Vale sits with Iphis and Aethra. Together they record food, rest and company for the bereaved households. The traveler chooses this care as the word to carry onward. Aethra writes their return list for Thaleia.",
-            textTemplate: "{actor} sits with Iphis and Aethra. Together they record food, rest and company for the bereaved households. The traveler chooses this care as the word to carry onward. Aethra writes their return list for Thaleia.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-open-door-pyre-heard",
-                value: true
-              },
-              {
-                kind: "choice_unset",
-                key: "greek-open-door-eleusis"
-              }
-            ],
-            effects: [
-              {
-                kind: "choose",
-                key: "greek-open-door-eleusis",
-                value: "care"
-              },
-              {
-                kind: "set_flag",
-                key: "greek-open-door-eleusis-done",
-                value: true
-              }
-            ],
-            workId: "euripides-suppliant-women"
-          },
-          {
-            id: "greek-open-door-family-berth",
-            subject: "greek-quay-host",
-            at: "greek-piraeus",
-            label: "Reserve the berth for the listed households",
-            text: "Vale gives Thaleia the mothers\u2019 list. She reserves the prepared bench, basket and next open berth for those households. Their names stay beside the mooring rope until they arrive.",
-            textTemplate: "{actor} gives Thaleia the mothers\u2019 list. She reserves the prepared bench, basket and next open berth for those households. Their names stay beside the mooring rope until they arrive.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-open-door-quay-provisioned",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-open-door-eleusis-done",
-                value: true
-              },
-              {
-                kind: "holding",
-                item: "greek-return-list",
-                role: "actor"
-              },
-              {
-                kind: "choice_unset",
-                key: "greek-open-door-berth"
-              }
-            ],
-            effects: [
-              {
-                kind: "place_item",
-                item: "greek-return-list",
-                place: "greek-piraeus"
-              },
-              {
-                kind: "choose",
-                key: "greek-open-door-berth",
-                value: "family"
-              },
-              {
-                kind: "set_flag",
-                key: "greek-open-door-piraeus-done",
-                value: true
-              }
-            ]
-          },
-          {
-            id: "greek-open-door-open-berth",
-            subject: "greek-quay-host",
-            at: "greek-piraeus",
-            label: "Keep a place for later guests too",
-            text: "Vale gives Thaleia the mothers\u2019 list. She keeps the listed households first in line and sets aside part of the prepared stores for later guests. The shared berth asks more of the quay\u2019s daily work.",
-            textTemplate: "{actor} gives Thaleia the mothers\u2019 list. She keeps the listed households first in line and sets aside part of the prepared stores for later guests. The shared berth asks more of the quay\u2019s daily work.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-open-door-quay-provisioned",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-open-door-eleusis-done",
-                value: true
-              },
-              {
-                kind: "holding",
-                item: "greek-return-list",
-                role: "actor"
-              },
-              {
-                kind: "choice_unset",
-                key: "greek-open-door-berth"
-              }
-            ],
-            effects: [
-              {
-                kind: "place_item",
-                item: "greek-return-list",
-                place: "greek-piraeus"
-              },
-              {
-                kind: "choose",
-                key: "greek-open-door-berth",
-                value: "open"
-              },
-              {
-                kind: "set_flag",
-                key: "greek-open-door-piraeus-done",
-                value: true
-              }
-            ]
-          },
-          {
-            id: "greek-open-door-colonus-enter",
-            subject: "greek-colonus-keeper",
-            at: "greek-colonus",
-            label: "Hear the earlier tale of Oedipus",
-            text: "The keeper names an earlier time, before the deaths of the Theban brothers. In Sophocles\u2019s tale, blind Oedipus reaches this grove with Antigone. The townspeople fear his name. Theseus grants him shelter. Vale listens at the present boundary stone.",
-            textTemplate: "The keeper names an earlier time, before the deaths of the Theban brothers. In Sophocles\u2019s tale, blind Oedipus reaches this grove with Antigone. The townspeople fear his name. Theseus grants him shelter. {actor} listens at the present boundary stone.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-open-door-colonus-entered",
-                value: true
-              }
-            ],
-            workId: "sophocles-oedipus-at-colonus"
-          },
-          {
-            id: "greek-open-door-colonus-water",
-            subject: "greek-colonus-keeper",
-            at: "greek-colonus",
-            label: "Set water and honey by the grove",
-            text: "Vale sets the water cup and honey beside the grove. The keeper recalls the gentle offering taught to Oedipus, which Ismene made in the earlier tale. Today\u2019s gift rests at the same boundary for the keeper\u2019s rite.",
-            textTemplate: "{actor} sets the water cup and honey beside the grove. The keeper recalls the gentle offering taught to Oedipus, which Ismene made in the earlier tale. Today\u2019s gift rests at the same boundary for the keeper\u2019s rite.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-open-door-colonus-entered",
-                value: true
-              },
-              {
-                kind: "holding",
-                item: "greek-grove-cup",
-                role: "actor"
-              },
-              {
-                kind: "holding",
-                item: "greek-grove-honey",
-                role: "actor"
-              }
-            ],
-            effects: [
-              {
-                kind: "place_item",
-                item: "greek-grove-cup",
-                place: "greek-colonus"
-              },
-              {
-                kind: "place_item",
-                item: "greek-grove-honey",
-                place: "greek-colonus"
-              },
-              {
-                kind: "set_flag",
-                key: "greek-open-door-colonus-water-set",
-                value: true
-              }
-            ],
-            workId: "sophocles-oedipus-at-colonus"
-          },
-          {
-            id: "greek-open-door-colonus-daughters",
-            subject: "greek-colonus-keeper",
-            at: "greek-colonus",
-            label: "Hear the daughters\u2019 return and the son\u2019s plea",
-            text: "The keeper continues the earlier tale. Creon seized Antigone and Ismene to force their father\u2019s return. Theseus brought them back. Polyneices then sought his father\u2019s blessing for war. Oedipus refused and cursed both sons. Vale hears how care and power crossed these paths.",
-            textTemplate: "The keeper continues the earlier tale. Creon seized Antigone and Ismene to force their father\u2019s return. Theseus brought them back. Polyneices then sought his father\u2019s blessing for war. Oedipus refused and cursed both sons. {actor} hears how care and power crossed these paths.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-open-door-colonus-water-set",
-                value: true
-              }
-            ],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-open-door-colonus-daughters-heard",
-                value: true
-              }
-            ],
-            workId: "sophocles-oedipus-at-colonus"
-          },
-          {
-            id: "greek-open-door-colonus-farewell",
-            subject: "greek-colonus-keeper",
-            at: "greek-colonus",
-            label: "Hear the kept promise at the end",
-            text: "The keeper finishes the tale. Oedipus entrusted his final place to Theseus alone. His daughters mourned and returned toward Thebes. Theseus kept the place secret and promised them care. Vale hears the public promise while the old resting place keeps its silence.",
-            textTemplate: "The keeper finishes the tale. Oedipus entrusted his final place to Theseus alone. His daughters mourned and returned toward Thebes. Theseus kept the place secret and promised them care. {actor} hears the public promise while the old resting place keeps its silence.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-open-door-colonus-daughters-heard",
-                value: true
-              }
-            ],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-open-door-colonus-farewell-heard",
-                value: true
-              }
-            ],
-            workId: "sophocles-oedipus-at-colonus"
-          },
-          {
-            id: "greek-open-door-colonus-custom",
-            subject: "greek-colonus-keeper",
-            at: "greek-colonus",
-            label: "Record a welcome for the next exile",
-            text: "Vale sets the refuge tablet beside the keeper. Together they record a present custom: hear a stranger\u2019s need, offer rest and seek protection. The old tale gives this promise its weight.",
-            textTemplate: "{actor} sets the refuge tablet beside the keeper. Together they record a present custom: hear a stranger\u2019s need, offer rest and seek protection. The old tale gives this promise its weight.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-open-door-colonus-farewell-heard",
-                value: true
-              },
-              {
-                kind: "holding",
-                item: "greek-refuge-tablet",
-                role: "actor"
-              },
-              {
-                kind: "choice_unset",
-                key: "greek-open-door-colonus"
-              }
-            ],
-            effects: [
-              {
-                kind: "place_item",
-                item: "greek-refuge-tablet",
-                place: "greek-colonus"
-              },
-              {
-                kind: "choose",
-                key: "greek-open-door-colonus",
-                value: "custom"
-              },
-              {
-                kind: "set_flag",
-                key: "greek-open-door-colonus-done",
-                value: true
-              }
-            ],
-            workId: "sophocles-oedipus-at-colonus"
-          },
-          {
-            id: "greek-open-door-colonus-family",
-            subject: "greek-colonus-keeper",
-            at: "greek-colonus",
-            label: "Record the daughters\u2019 work of care",
-            text: "Vale sets the refuge tablet beside the keeper. Together they name the daughters\u2019 food, guidance and long care in the public account. The grove will remember the hands that carried the exile\u2019s life.",
-            textTemplate: "{actor} sets the refuge tablet beside the keeper. Together they name the daughters\u2019 food, guidance and long care in the public account. The grove will remember the hands that carried the exile\u2019s life.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-open-door-colonus-farewell-heard",
-                value: true
-              },
-              {
-                kind: "holding",
-                item: "greek-refuge-tablet",
-                role: "actor"
-              },
-              {
-                kind: "choice_unset",
-                key: "greek-open-door-colonus"
-              }
-            ],
-            effects: [
-              {
-                kind: "place_item",
-                item: "greek-refuge-tablet",
-                place: "greek-colonus"
-              },
-              {
-                kind: "choose",
-                key: "greek-open-door-colonus",
-                value: "family"
-              },
-              {
-                kind: "set_flag",
-                key: "greek-open-door-colonus-done",
-                value: true
-              }
-            ],
-            workId: "sophocles-oedipus-at-colonus"
-          },
-          {
-            id: "greek-open-door-marathon-enter",
-            subject: "greek-marathon-keeper",
-            at: "greek-marathon",
-            label: "Hear the tale of Heracles\u2019s children",
-            text: "The keeper opens a separate tale after Heracles\u2019s death, under Demophon, son of Theseus. Iolaus and the children sought shelter here. Eurystheus\u2019s herald claimed them and used force. Demophon upheld the altar\u2019s protection. Vale hears the claim beside the present shrine.",
-            textTemplate: "The keeper opens a separate tale after Heracles\u2019s death, under Demophon, son of Theseus. Iolaus and the children sought shelter here. Eurystheus\u2019s herald claimed them and used force. Demophon upheld the altar\u2019s protection. {actor} hears the claim beside the present shrine.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-open-door-marathon-entered",
-                value: true
-              }
-            ],
-            workId: "euripides-children-of-heracles"
-          },
-          {
-            id: "greek-open-door-marathon-blanket",
-            subject: "greek-marathon-keeper",
-            at: "greek-marathon",
-            label: "Lay the blanket inside the shelter",
-            text: "Vale lays the blanket from Piraeus beside the altar. The keeper sets it aside for present-day guests. The old tale continues beside a place made ready for someone who may need it.",
-            textTemplate: "{actor} lays the blanket from Piraeus beside the altar. The keeper sets it aside for present-day guests. The old tale continues beside a place made ready for someone who may need it.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-open-door-marathon-entered",
-                value: true
-              },
-              {
-                kind: "holding",
-                item: "greek-shelter-blanket",
-                role: "actor"
-              }
-            ],
-            effects: [
-              {
-                kind: "place_item",
-                item: "greek-shelter-blanket",
-                place: "greek-marathon"
-              },
-              {
-                kind: "set_flag",
-                key: "greek-open-door-marathon-blanket-set",
-                value: true
-              }
-            ],
-            workId: "euripides-children-of-heracles"
-          },
-          {
-            id: "greek-open-door-marathon-daughter",
-            subject: "greek-marathon-keeper",
-            at: "greek-marathon",
-            label: "Hear the daughter\u2019s own answer",
-            text: "In the tale, an oracle demanded a noble maiden\u2019s life. Demophon refused to compel a household. Heracles\u2019s daughter offered herself for her siblings and rejected a lottery. The keeper gives her reasons their full place, then names the life the city\u2019s safety cost. Vale listens.",
-            textTemplate: "In the tale, an oracle demanded a noble maiden\u2019s life. Demophon refused to compel a household. Heracles\u2019s daughter offered herself for her siblings and rejected a lottery. The keeper gives her reasons their full place, then names the life the city\u2019s safety cost. {actor} listens.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-open-door-marathon-blanket-set",
-                value: true
-              }
-            ],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-open-door-marathon-daughter-heard",
-                value: true
-              }
-            ],
-            workId: "euripides-children-of-heracles"
-          },
-          {
-            id: "greek-open-door-marathon-battle",
-            subject: "greek-marathon-keeper",
-            at: "greek-marathon",
-            label: "Hear the battle and the captive\u2019s arrival",
-            text: "The keeper tells the next part. The daughter\u2019s sacrifice preceded the battle. Athens won; Iolaus pursued Eurystheus, who was brought back alive. The messenger distinguished what he saw from the story of Iolaus\u2019s renewed youth. Vale hears the cost before the victory.",
-            textTemplate: "The keeper tells the next part. The daughter\u2019s sacrifice preceded the battle. Athens won; Iolaus pursued Eurystheus, who was brought back alive. The messenger distinguished what he saw from the story of Iolaus\u2019s renewed youth. {actor} hears the cost before the victory.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-open-door-marathon-daughter-heard",
-                value: true
-              }
-            ],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-open-door-marathon-battle-heard",
-                value: true
-              }
-            ],
-            workId: "euripides-children-of-heracles"
-          },
-          {
-            id: "greek-open-door-marathon-captive",
-            subject: "greek-marathon-keeper",
-            at: "greek-marathon",
-            label: "Hear the claim against the captive",
-            text: "The keeper sets out the final dispute. Alcmene demands Eurystheus\u2019s death. The city\u2019s rule protects a prisoner taken alive. Eurystheus defends his choices and foretells his grave\u2019s power. Vale may hear the source ending or ask the keeper for a hearing variation.",
-            textTemplate: "The keeper sets out the final dispute. Alcmene demands Eurystheus\u2019s death. The city\u2019s rule protects a prisoner taken alive. Eurystheus defends his choices and foretells his grave\u2019s power. {actor} may hear the source ending or ask the keeper for a hearing variation.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-open-door-marathon-battle-heard",
-                value: true
-              }
-            ],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-open-door-marathon-captive-heard",
-                value: true
-              }
-            ],
-            workId: "euripides-children-of-heracles"
-          },
-          {
-            id: "greek-open-door-marathon-alcmene",
-            subject: "greek-marathon-keeper",
-            at: "greek-marathon",
-            label: "Hear the source ending with Alcmene",
-            text: "The keeper completes Euripides\u2019s account for Vale. Alcmene orders Eurystheus away to die despite the city\u2019s rule. His promised protection leaves a hard question over the saved children\u2019s future. The tale ends with both refuge and revenge in its care.",
-            textTemplate: "The keeper completes Euripides\u2019s account for {actor}. Alcmene orders Eurystheus away to die despite the city\u2019s rule. His promised protection leaves a hard question over the saved children\u2019s future. The tale ends with both refuge and revenge in its care.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-open-door-marathon-captive-heard",
-                value: true
-              },
-              {
-                kind: "choice_unset",
-                key: "greek-open-door-marathon"
-              }
-            ],
-            effects: [
-              {
-                kind: "choose",
-                key: "greek-open-door-marathon",
-                value: "alcmene"
-              },
-              {
-                kind: "set_flag",
-                key: "greek-open-door-marathon-done",
-                value: true
-              }
-            ],
-            workId: "euripides-children-of-heracles",
-            summary: "The traveler heard the source ending of the remembered Marathon tale, where Alcmene orders the captive Eurystheus to his death."
-          },
-          {
-            id: "greek-open-door-marathon-hearing",
-            subject: "greek-marathon-keeper",
-            at: "greek-marathon",
-            label: "Ask for a hearing in another telling",
-            text: "Vale asks the keeper for a changed ending. In this new telling, Demophon holds Eurystheus for a public hearing under the city\u2019s rule. Alcmene keeps her claim and her anger. The keeper marks the change, while the daughter\u2019s loss remains part of both accounts.",
-            textTemplate: "{actor} asks the keeper for a changed ending. In this new telling, Demophon holds Eurystheus for a public hearing under the city\u2019s rule. Alcmene keeps her claim and her anger. The keeper marks the change, while the daughter\u2019s loss remains part of both accounts.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-open-door-marathon-captive-heard",
-                value: true
-              },
-              {
-                kind: "choice_unset",
-                key: "greek-open-door-marathon"
-              }
-            ],
-            effects: [
-              {
-                kind: "choose",
-                key: "greek-open-door-marathon",
-                value: "hearing"
-              },
-              {
-                kind: "set_flag",
-                key: "greek-open-door-marathon-done",
-                value: true
-              }
-            ],
-            workId: "euripides-children-of-heracles",
-            summary: "The traveler requested an original alternate ending inside the remembered Marathon tale: the captive remains alive for a public hearing."
-          },
-          {
-            id: "greek-open-door-return-dione",
-            subject: "greek-baker",
-            at: "greek-courtyard",
-            label: "Tell Dione what welcome has cost",
-            text: "Vale returns to Dione\u2019s table with the mothers\u2019 rite, the prepared quay and the two remembered tales. The account names the city\u2019s recovery, the chosen care and each loss it carried. Dione listens, then sets the bread between them. The new verses join the earlier song.",
-            textTemplate: "{actor} returns to Dione\u2019s table with the mothers\u2019 rite, the prepared quay and the two remembered tales. The account names the city\u2019s recovery, the chosen care and each loss it carried. Dione listens, then sets the bread between them. The new verses join the earlier song.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-open-door-eleusis-done",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-open-door-piraeus-done",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-open-door-colonus-done",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-open-door-marathon-done",
-                value: true
-              }
-            ],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-open-door-returned",
-                value: true
-              }
-            ]
           }
         ],
         works: [
@@ -6213,14 +4547,10 @@
             author: "Aeschylus",
             title: "Persians",
             era: "imperial-aftermath",
-            placeIds: [
-              "greek-susa"
-            ],
+            placeIds: ["greek-susa"],
             premise: "A messenger's account of defeat must reach the grieving court without losing its source.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-aeschylus-persians"
-            ],
+            hookChoiceIds: ["greek-inquire-aeschylus-persians"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Aeschylus",
@@ -6233,14 +4563,10 @@
             author: "Aeschylus",
             title: "Seven Against Thebes",
             era: "theban-war",
-            placeIds: [
-              "greek-gate"
-            ],
+            placeIds: ["greek-gate"],
             premise: "The city's defenders must answer rival claims to command while households seek protection.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-aeschylus-seven-against-thebes"
-            ],
+            hookChoiceIds: ["greek-inquire-aeschylus-seven-against-thebes"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Aeschylus",
@@ -6253,14 +4579,10 @@
             author: "Aeschylus",
             title: "Suppliant Women",
             era: "heroic-households",
-            placeIds: [
-              "greek-argos-sanctuary"
-            ],
+            placeIds: ["greek-argos-sanctuary"],
             premise: "The Danaids seek protection against forced marriage, and the receiving city must decide what protection entails.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-aeschylus-suppliant-women"
-            ],
+            hookChoiceIds: ["greek-inquire-aeschylus-suppliant-women"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Aeschylus",
@@ -6273,14 +4595,10 @@
             author: "Aeschylus",
             title: "Prometheus Bound",
             era: "divine-frontier",
-            placeIds: [
-              "greek-scythian-crag"
-            ],
+            placeIds: ["greek-scythian-crag"],
             premise: "A punished benefactor can be approached, but neither prophecy nor release follows from a visitor's words alone.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-aeschylus-prometheus-bound"
-            ],
+            hookChoiceIds: ["greek-inquire-aeschylus-prometheus-bound"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Aeschylus",
@@ -6293,14 +4611,10 @@
             author: "Aeschylus",
             title: "Agamemnon",
             era: "homecomings",
-            placeIds: [
-              "greek-argos-palace"
-            ],
+            placeIds: ["greek-argos-palace"],
             premise: "A returning commander enters a household divided by the costs of the expedition.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-aeschylus-agamemnon"
-            ],
+            hookChoiceIds: ["greek-inquire-aeschylus-agamemnon"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Aeschylus",
@@ -6317,14 +4631,10 @@
             author: "Aeschylus",
             title: "Libation Bearers",
             era: "homecomings",
-            placeIds: [
-              "greek-argos-tomb"
-            ],
+            placeIds: ["greek-argos-tomb"],
             premise: "A meeting at a tomb raises claims of kinship and a demand for revenge.",
             status: "branching-episode",
-            hookChoiceIds: [
-              "greek-inquire-aeschylus-libation-bearers"
-            ],
+            hookChoiceIds: ["greek-inquire-aeschylus-libation-bearers"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Aeschylus",
@@ -6341,14 +4651,10 @@
             author: "Aeschylus",
             title: "Eumenides",
             era: "homecomings",
-            placeIds: [
-              "greek-delphi"
-            ],
+            placeIds: ["greek-delphi"],
             premise: "Sanctuary and public judgment offer different answers to a pursuing claim of vengeance.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-aeschylus-eumenides"
-            ],
+            hookChoiceIds: ["greek-inquire-aeschylus-eumenides"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Aeschylus",
@@ -6361,14 +4667,10 @@
             author: "Sophocles",
             title: "Ajax",
             era: "trojan-war",
-            placeIds: [
-              "greek-greek-camp"
-            ],
+            placeIds: ["greek-greek-camp"],
             premise: "Military honor, isolation, and the treatment of the dead divide the camp.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-sophocles-ajax"
-            ],
+            hookChoiceIds: ["greek-inquire-sophocles-ajax"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Sophocles",
@@ -6381,14 +4683,10 @@
             author: "Sophocles",
             title: "Antigone",
             era: "theban-aftermath",
-            placeIds: [
-              "greek-gate"
-            ],
+            placeIds: ["greek-gate"],
             premise: "A sister seeks burial for the brother whom a public decree leaves exposed.",
             status: "opening-episode",
-            hookChoiceIds: [
-              "greek-inquire-sophocles-antigone"
-            ],
+            hookChoiceIds: ["greek-inquire-sophocles-antigone"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Sophocles",
@@ -6401,14 +4699,10 @@
             author: "Sophocles",
             title: "Women of Trachis",
             era: "heroic-households",
-            placeIds: [
-              "greek-trachis"
-            ],
+            placeIds: ["greek-trachis"],
             premise: "A household prepares a gift without agreeing about its history or effects.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-sophocles-women-of-trachis"
-            ],
+            hookChoiceIds: ["greek-inquire-sophocles-women-of-trachis"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Sophocles",
@@ -6421,14 +4715,10 @@
             author: "Sophocles",
             title: "Oedipus Tyrannus",
             era: "theban-households",
-            placeIds: [
-              "greek-palace"
-            ],
+            placeIds: ["greek-palace"],
             premise: "An inquiry into a public disaster turns toward the ruler's own origins.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-sophocles-oedipus-tyrannus"
-            ],
+            hookChoiceIds: ["greek-inquire-sophocles-oedipus-tyrannus"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Sophocles",
@@ -6441,14 +4731,10 @@
             author: "Sophocles",
             title: "Electra",
             era: "homecomings",
-            placeIds: [
-              "greek-mycenae-palace"
-            ],
+            placeIds: ["greek-mycenae-palace"],
             premise: "An excluded daughter demands an answer to her father's murder from the palace approach.",
             status: "branching-episode",
-            hookChoiceIds: [
-              "greek-inquire-sophocles-electra"
-            ],
+            hookChoiceIds: ["greek-inquire-sophocles-electra"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Sophocles",
@@ -6465,14 +4751,10 @@
             author: "Sophocles",
             title: "Philoctetes",
             era: "trojan-war",
-            placeIds: [
-              "greek-lemnos"
-            ],
+            placeIds: ["greek-lemnos"],
             premise: "An army needs the help of a man it abandoned, and the request need not be honest.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-sophocles-philoctetes"
-            ],
+            hookChoiceIds: ["greek-inquire-sophocles-philoctetes"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Sophocles",
@@ -6485,24 +4767,15 @@
             author: "Sophocles",
             title: "Oedipus at Colonus",
             era: "theban-exile",
-            placeIds: [
-              "greek-colonus"
-            ],
+            placeIds: ["greek-colonus"],
             premise: "An old exile seeks a resting place while rival powers contest his presence.",
-            status: "branching-episode",
-            hookChoiceIds: [
-              "greek-open-door-colonus-enter",
-              "greek-open-door-colonus-water",
-              "greek-open-door-colonus-daughters",
-              "greek-open-door-colonus-farewell",
-              "greek-open-door-colonus-custom",
-              "greek-open-door-colonus-family"
-            ],
+            status: "situated-hook",
+            hookChoiceIds: ["greek-inquire-sophocles-oedipus-at-colonus"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Sophocles",
               work: "Oedipus at Colonus",
-              adaptation: "A named remembered tale preserves the play\u2019s time and source events. Present gifts and the selected closing response are original CosyWorld actions; Marathon\u2019s hearing is an explicit alternate ending."
+              adaptation: "Original CosyWorld situation text; no translation passages are bundled."
             }
           },
           {
@@ -6510,14 +4783,10 @@
             author: "Euripides",
             title: "Alcestis",
             era: "heroic-households",
-            placeIds: [
-              "greek-pherae"
-            ],
+            placeIds: ["greek-pherae"],
             premise: "Hospitality continues in a household mourning the person who paid for another's life.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-euripides-alcestis"
-            ],
+            hookChoiceIds: ["greek-inquire-euripides-alcestis"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Euripides",
@@ -6530,14 +4799,10 @@
             author: "Euripides",
             title: "Medea",
             era: "heroic-households",
-            placeIds: [
-              "greek-corinth"
-            ],
+            placeIds: ["greek-corinth"],
             premise: "A betrayed foreign household faces expulsion while its members seek time, refuge, and a response.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-euripides-medea"
-            ],
+            hookChoiceIds: ["greek-inquire-euripides-medea"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Euripides",
@@ -6550,25 +4815,15 @@
             author: "Euripides",
             title: "Children of Heracles",
             era: "heroic-aftermath",
-            placeIds: [
-              "greek-marathon"
-            ],
+            placeIds: ["greek-marathon"],
             premise: "Pursued children seek protection at Zeus's altar against a powerful ruler's demands.",
-            status: "branching-episode",
-            hookChoiceIds: [
-              "greek-open-door-marathon-enter",
-              "greek-open-door-marathon-blanket",
-              "greek-open-door-marathon-daughter",
-              "greek-open-door-marathon-battle",
-              "greek-open-door-marathon-captive",
-              "greek-open-door-marathon-alcmene",
-              "greek-open-door-marathon-hearing"
-            ],
+            status: "situated-hook",
+            hookChoiceIds: ["greek-inquire-euripides-children-of-heracles"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Euripides",
               work: "Children of Heracles",
-              adaptation: "A named remembered tale preserves the play\u2019s time and source events. Present gifts and the selected closing response are original CosyWorld actions; Marathon\u2019s hearing is an explicit alternate ending."
+              adaptation: "Original CosyWorld situation text; no translation passages are bundled."
             }
           },
           {
@@ -6576,14 +4831,10 @@
             author: "Euripides",
             title: "Hippolytus",
             era: "heroic-households",
-            placeIds: [
-              "greek-troezen"
-            ],
+            placeIds: ["greek-troezen"],
             premise: "A household confronts desire, shame, an accusation, and a father's power to punish.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-euripides-hippolytus"
-            ],
+            hookChoiceIds: ["greek-inquire-euripides-hippolytus"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Euripides",
@@ -6596,14 +4847,10 @@
             author: "Euripides",
             title: "Andromache",
             era: "homecomings",
-            placeIds: [
-              "greek-thetis"
-            ],
+            placeIds: ["greek-thetis"],
             premise: "A captive mother and her child seek protection inside a hostile dynastic household.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-euripides-andromache"
-            ],
+            hookChoiceIds: ["greek-inquire-euripides-andromache"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Euripides",
@@ -6616,14 +4863,10 @@
             author: "Euripides",
             title: "Hecuba",
             era: "trojan-aftermath",
-            placeIds: [
-              "greek-thrace"
-            ],
+            placeIds: ["greek-thrace"],
             premise: "A captive queen searches for reliable news of her children and a betrayed trust.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-euripides-hecuba"
-            ],
+            hookChoiceIds: ["greek-inquire-euripides-hecuba"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Euripides",
@@ -6636,30 +4879,15 @@
             author: "Euripides",
             title: "Suppliant Women",
             era: "theban-aftermath",
-            placeIds: [
-              "greek-eleusis"
-            ],
+            placeIds: ["greek-eleusis"],
             premise: "Bereaved mothers seek help recovering their sons' remains from a defeated expedition.",
-            status: "branching-episode",
-            hookChoiceIds: [
-              "greek-open-door-hear-mothers",
-              "greek-open-door-hear-adrastus",
-              "greek-open-door-register-plea",
-              "greek-open-door-request-truce",
-              "greek-open-door-request-recovery",
-              "greek-open-door-hear-truce-report",
-              "greek-open-door-hear-recovery-report",
-              "greek-open-door-lay-cloths",
-              "greek-open-door-lay-ashes",
-              "greek-open-door-hear-pyre",
-              "greek-open-door-eleusis-pledge",
-              "greek-open-door-eleusis-care"
-            ],
+            status: "situated-hook",
+            hookChoiceIds: ["greek-inquire-euripides-suppliant-women"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Euripides",
               work: "Suppliant Women",
-              adaptation: "Original playable adaptation with a source-shaped recovery report, an alternate burial truce, a funeral rite and later care. The Agora hearing and Piraeus return work are original connective scenes."
+              adaptation: "Original CosyWorld situation text; no translation passages are bundled."
             }
           },
           {
@@ -6667,14 +4895,10 @@
             author: "Euripides",
             title: "Electra",
             era: "homecomings",
-            placeIds: [
-              "greek-argive-farm"
-            ],
+            placeIds: ["greek-argive-farm"],
             premise: "The revenge claim is heard in a poor household beyond the royal city.",
             status: "branching-episode",
-            hookChoiceIds: [
-              "greek-inquire-euripides-electra"
-            ],
+            hookChoiceIds: ["greek-inquire-euripides-electra"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Euripides",
@@ -6691,14 +4915,10 @@
             author: "Euripides",
             title: "Heracles",
             era: "heroic-households",
-            placeIds: [
-              "greek-courtyard"
-            ],
+            placeIds: ["greek-courtyard"],
             premise: "A household needs protection from tyranny and support after destructive divine interference.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-euripides-heracles"
-            ],
+            hookChoiceIds: ["greek-inquire-euripides-heracles"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Euripides",
@@ -6711,14 +4931,10 @@
             author: "Euripides",
             title: "Trojan Women",
             era: "trojan-aftermath",
-            placeIds: [
-              "greek-troy"
-            ],
+            placeIds: ["greek-troy"],
             premise: "The conquered community struggles to preserve lives and relationships before dispersal.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-euripides-trojan-women"
-            ],
+            hookChoiceIds: ["greek-inquire-euripides-trojan-women"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Euripides",
@@ -6731,14 +4947,10 @@
             author: "Euripides",
             title: "Iphigenia in Tauris",
             era: "homecomings",
-            placeIds: [
-              "greek-tauris"
-            ],
+            placeIds: ["greek-tauris"],
             premise: "A ritual killing rule threatens travelers whose identities may change the priestess's obligations.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-euripides-iphigenia-in-tauris"
-            ],
+            hookChoiceIds: ["greek-inquire-euripides-iphigenia-in-tauris"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Euripides",
@@ -6751,14 +4963,10 @@
             author: "Euripides",
             title: "Ion",
             era: "heroic-households",
-            placeIds: [
-              "greek-delphi"
-            ],
+            placeIds: ["greek-delphi"],
             premise: "Competing claims to a young attendant's parentage meet inside Apollo's sanctuary.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-euripides-ion"
-            ],
+            hookChoiceIds: ["greek-inquire-euripides-ion"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Euripides",
@@ -6771,14 +4979,10 @@
             author: "Euripides",
             title: "Helen",
             era: "homecomings",
-            placeIds: [
-              "greek-egypt-tomb"
-            ],
+            placeIds: ["greek-egypt-tomb"],
             premise: "Helen's testimony distinguishes her own life from the phantom blamed for the war.",
             status: "branching-episode",
-            hookChoiceIds: [
-              "greek-inquire-euripides-helen"
-            ],
+            hookChoiceIds: ["greek-inquire-euripides-helen"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Euripides",
@@ -6795,14 +4999,10 @@
             author: "Euripides",
             title: "Phoenician Women",
             era: "theban-war",
-            placeIds: [
-              "greek-palace"
-            ],
+            placeIds: ["greek-palace"],
             premise: "A divided family tries to act while rival brothers bring armed claims to the city.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-euripides-phoenician-women"
-            ],
+            hookChoiceIds: ["greek-inquire-euripides-phoenician-women"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Euripides",
@@ -6815,14 +5015,10 @@
             author: "Euripides",
             title: "Orestes",
             era: "homecomings",
-            placeIds: [
-              "greek-argos-palace"
-            ],
+            placeIds: ["greek-argos-palace"],
             premise: "A household facing judgment after matricide considers further desperate action.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-euripides-orestes"
-            ],
+            hookChoiceIds: ["greek-inquire-euripides-orestes"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Euripides",
@@ -6839,14 +5035,10 @@
             author: "Euripides",
             title: "Bacchae",
             era: "early-thebes",
-            placeIds: [
-              "greek-cithaeron"
-            ],
+            placeIds: ["greek-cithaeron"],
             premise: "Suppressed worship and a ruler's surveillance bring human authority against a disguised god.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-euripides-bacchae"
-            ],
+            hookChoiceIds: ["greek-inquire-euripides-bacchae"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Euripides",
@@ -6859,14 +5051,10 @@
             author: "Euripides",
             title: "Iphigenia at Aulis",
             era: "trojan-departure",
-            placeIds: [
-              "greek-aulis"
-            ],
+            placeIds: ["greek-aulis"],
             premise: "Commanders and soldiers press for a sacrifice that a father has the power to resist.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-euripides-iphigenia-at-aulis"
-            ],
+            hookChoiceIds: ["greek-inquire-euripides-iphigenia-at-aulis"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Euripides",
@@ -6879,14 +5067,10 @@
             author: "Euripides",
             title: "Rhesus",
             era: "trojan-war",
-            placeIds: [
-              "greek-trojan-camp"
-            ],
+            placeIds: ["greek-trojan-camp"],
             premise: "An ally arrives at night while infiltrators and uncertain reports cross the camp.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-euripides-rhesus"
-            ],
+            hookChoiceIds: ["greek-inquire-euripides-rhesus"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Euripides",
@@ -6899,14 +5083,10 @@
             author: "Euripides",
             title: "Cyclops",
             era: "homecomings",
-            placeIds: [
-              "greek-sicily"
-            ],
+            placeIds: ["greek-sicily"],
             premise: "Captive satyrs and stranded travelers seek a way past a predatory host.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-euripides-cyclops"
-            ],
+            hookChoiceIds: ["greek-inquire-euripides-cyclops"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Euripides",
@@ -6919,14 +5099,10 @@
             author: "Aristophanes",
             title: "Acharnians",
             era: "civic-athens",
-            placeIds: [
-              "greek-acharnae"
-            ],
+            placeIds: ["greek-acharnae"],
             premise: "A farmer's separate peace creates a market inside a community still at war.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-aristophanes-acharnians"
-            ],
+            hookChoiceIds: ["greek-inquire-aristophanes-acharnians"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Aristophanes",
@@ -6939,14 +5115,10 @@
             author: "Aristophanes",
             title: "Knights",
             era: "civic-athens",
-            placeIds: [
-              "greek-demos-house"
-            ],
+            placeIds: ["greek-demos-house"],
             premise: "Rival household servants compete to flatter and exploit the person who holds political power.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-aristophanes-knights"
-            ],
+            hookChoiceIds: ["greek-inquire-aristophanes-knights"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Aristophanes",
@@ -6959,14 +5131,10 @@
             author: "Aristophanes",
             title: "Clouds",
             era: "civic-athens",
-            placeIds: [
-              "greek-thinkery"
-            ],
+            placeIds: ["greek-thinkery"],
             premise: "A debtor seeks an education that may overturn the balance of authority in his own family.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-aristophanes-clouds"
-            ],
+            hookChoiceIds: ["greek-inquire-aristophanes-clouds"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Aristophanes",
@@ -6979,14 +5147,10 @@
             author: "Aristophanes",
             title: "Wasps",
             era: "civic-athens",
-            placeIds: [
-              "greek-jury-house"
-            ],
+            placeIds: ["greek-jury-house"],
             premise: "A juror's pleasure and income collide with his household's attempt to restrain him.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-aristophanes-wasps"
-            ],
+            hookChoiceIds: ["greek-inquire-aristophanes-wasps"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Aristophanes",
@@ -6999,14 +5163,10 @@
             author: "Aristophanes",
             title: "Peace",
             era: "civic-athens",
-            placeIds: [
-              "greek-divine-heights"
-            ],
+            placeIds: ["greek-divine-heights"],
             premise: "A farmer seeks peace while trades built on war face losing their customers.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-aristophanes-peace"
-            ],
+            hookChoiceIds: ["greek-inquire-aristophanes-peace"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Aristophanes",
@@ -7019,14 +5179,10 @@
             author: "Aristophanes",
             title: "Birds",
             era: "civic-athens",
-            placeIds: [
-              "greek-bird-wilderness"
-            ],
+            placeIds: ["greek-bird-wilderness"],
             premise: "A refuge from civic life could become a new power controlling passage between gods and mortals.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-aristophanes-birds"
-            ],
+            hookChoiceIds: ["greek-inquire-aristophanes-birds"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Aristophanes",
@@ -7039,14 +5195,10 @@
             author: "Aristophanes",
             title: "Lysistrata",
             era: "civic-athens",
-            placeIds: [
-              "greek-acropolis"
-            ],
+            placeIds: ["greek-acropolis"],
             premise: "A coalition uses control of the treasury and intimacy to put pressure on the war.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-aristophanes-lysistrata"
-            ],
+            hookChoiceIds: ["greek-inquire-aristophanes-lysistrata"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Aristophanes",
@@ -7059,9 +5211,7 @@
             author: "Aristophanes",
             title: "Women at the Thesmophoria",
             era: "civic-athens",
-            placeIds: [
-              "greek-festival"
-            ],
+            placeIds: ["greek-festival"],
             premise: "Women contest a playwright's portrayal while a disguised visitor risks exposure.",
             status: "situated-hook",
             hookChoiceIds: [
@@ -7079,14 +5229,10 @@
             author: "Aristophanes",
             title: "Frogs",
             era: "civic-athens",
-            placeIds: [
-              "greek-underworld"
-            ],
+            placeIds: ["greek-underworld"],
             premise: "A divine visitor seeks a poet whose art can answer the city's troubles.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-aristophanes-frogs"
-            ],
+            hookChoiceIds: ["greek-inquire-aristophanes-frogs"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Aristophanes",
@@ -7099,14 +5245,10 @@
             author: "Aristophanes",
             title: "Assemblywomen",
             era: "civic-athens",
-            placeIds: [
-              "greek-assembly"
-            ],
+            placeIds: ["greek-assembly"],
             premise: "A political takeover promises shared property and leaves households to work through its consequences.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-aristophanes-assemblywomen"
-            ],
+            hookChoiceIds: ["greek-inquire-aristophanes-assemblywomen"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Aristophanes",
@@ -7119,14 +5261,10 @@
             author: "Aristophanes",
             title: "Wealth",
             era: "civic-athens",
-            placeIds: [
-              "greek-attic-farm"
-            ],
+            placeIds: ["greek-attic-farm"],
             premise: "Restoring Wealth's sight would change who receives prosperity and who benefits from the old distribution.",
             status: "situated-hook",
-            hookChoiceIds: [
-              "greek-inquire-aristophanes-wealth"
-            ],
+            hookChoiceIds: ["greek-inquire-aristophanes-wealth"],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Aristophanes",
@@ -7150,26 +5288,6 @@
             url: "https://classics.mit.edu/Euripides/helen.html",
             name: "Euripides, Helen",
             use: "Egyptian account and phantom premise; original adaptation prose"
-          },
-          {
-            url: "https://classics.mit.edu/Euripides/suppliants.html",
-            name: "Euripides, Suppliant Women",
-            use: "Eleusis request, civic debate, recovery, funeral, Evadne, children and closing oath; original adaptation prose"
-          },
-          {
-            url: "https://classics.mit.edu/Euripides/heracleidae.html",
-            name: "Euripides, Children of Heracles",
-            use: "Marathon refuge, the daughter\u2019s sacrifice, battle and captive dispute; named remembered tale"
-          },
-          {
-            url: "https://www.gutenberg.org/files/31/31-h/31-h.htm",
-            name: "Sophocles, Oedipus at Colonus, F. Storr",
-            use: "Complete earlier tale through the daughters\u2019 return, Polyneices, secret passing and final promise; original adaptation prose"
-          },
-          {
-            url: "https://www-current.chs.harvard.edu/primary-source/sophocles-oedipus-at-colonus-sb/",
-            name: "Sophocles, Oedipus at Colonus, Center for Hellenic Studies",
-            use: "Check of ritual water and honey, Ismene\u2019s role, and the full closing scene; original adaptation prose"
           }
         ],
         fixtures: {},
@@ -7182,12 +5300,7 @@
             "greek-battlefield",
             "greek-palace",
             "greek-sanctuary",
-            "greek-ship",
-            "greek-athens",
-            "greek-piraeus",
-            "greek-colonus",
-            "greek-eleusis",
-            "greek-marathon"
+            "greek-ship"
           ],
           avatars: [
             "greek-antigone",
@@ -7197,16 +5310,7 @@
             "greek-baker",
             "greek-elder",
             "greek-shipmaster",
-            "greek-rhapsode",
-            "greek-aethra",
-            "greek-adrastus",
-            "greek-argive-mother",
-            "greek-iphis",
-            "greek-theseus",
-            "greek-quay-host",
-            "greek-colonus-keeper",
-            "greek-marathon-keeper",
-            "greek-market-neighbor"
+            "greek-rhapsode"
           ],
           items: [
             "greek-water-jar",
@@ -7216,16 +5320,7 @@
             "greek-shovel",
             "greek-decree",
             "greek-household-token",
-            "greek-provisions",
-            "greek-burial-petition",
-            "greek-return-cloths",
-            "greek-provision-basket",
-            "greek-ash-urn",
-            "greek-return-list",
-            "greek-grove-cup",
-            "greek-grove-honey",
-            "greek-shelter-blanket",
-            "greek-refuge-tablet"
+            "greek-provisions"
           ],
           choices: [
             "greek-return-water-jar",
@@ -7242,41 +5337,7 @@
             "greek-courtyard-concession",
             "greek-courtyard-permitted-burial",
             "greek-courtyard-refusal",
-            "greek-courtyard-exposure",
-            "greek-open-door-invite-burial",
-            "greek-open-door-invite-concession",
-            "greek-open-door-invite-refusal",
-            "greek-open-door-invite-exposure",
-            "greek-open-door-hear-mothers",
-            "greek-open-door-hear-adrastus",
-            "greek-open-door-register-plea",
-            "greek-open-door-request-truce",
-            "greek-open-door-request-recovery",
-            "greek-open-door-hear-truce-report",
-            "greek-open-door-hear-recovery-report",
-            "greek-open-door-hear-quay",
-            "greek-open-door-set-provisions",
-            "greek-open-door-lay-cloths",
-            "greek-open-door-lay-ashes",
-            "greek-open-door-hear-pyre",
-            "greek-open-door-eleusis-pledge",
-            "greek-open-door-eleusis-care",
-            "greek-open-door-family-berth",
-            "greek-open-door-open-berth",
-            "greek-open-door-colonus-enter",
-            "greek-open-door-colonus-water",
-            "greek-open-door-colonus-daughters",
-            "greek-open-door-colonus-farewell",
-            "greek-open-door-colonus-custom",
-            "greek-open-door-colonus-family",
-            "greek-open-door-marathon-enter",
-            "greek-open-door-marathon-blanket",
-            "greek-open-door-marathon-daughter",
-            "greek-open-door-marathon-battle",
-            "greek-open-door-marathon-captive",
-            "greek-open-door-marathon-alcmene",
-            "greek-open-door-marathon-hearing",
-            "greek-open-door-return-dione"
+            "greek-courtyard-exposure"
           ]
         },
         recital: {
@@ -7305,46 +5366,6 @@
               anyChoices: [
                 "greek-petition-burial",
                 "greek-perform-permitted-burial"
-              ]
-            },
-            {
-              phrases: [
-                "the dead came home",
-                "the argive dead returned",
-                "the bodies were recovered"
-              ],
-              anyChoices: [
-                "greek-open-door-hear-truce-report",
-                "greek-open-door-hear-recovery-report"
-              ]
-            },
-            {
-              phrases: [
-                "i set the ashes",
-                "the ashes were placed",
-                "the urn was placed"
-              ],
-              anyChoices: [
-                "greek-open-door-lay-ashes"
-              ]
-            },
-            {
-              phrases: [
-                "the berth was prepared",
-                "a berth was reserved"
-              ],
-              anyChoices: [
-                "greek-open-door-family-berth",
-                "greek-open-door-open-berth"
-              ]
-            },
-            {
-              phrases: [
-                "i laid a blanket",
-                "the blanket was laid"
-              ],
-              anyChoices: [
-                "greek-open-door-marathon-blanket"
               ]
             }
           ],
@@ -7454,218 +5475,9 @@
                 "I brought that word to Dione."
               ],
               summons: true
-            },
-            {
-              choice: "greek-open-door-hear-mothers",
-              quest: "story-quest-greek-open-door-eleusis",
-              lines: [
-                "Their branches rested on my knees.",
-                "I heard the names beneath them."
-              ],
-              summons: false
-            },
-            {
-              choice: "greek-open-door-register-plea",
-              quest: "story-quest-greek-open-door-agora",
-              lines: [
-                "I laid their plea before the town.",
-                "The crowded square grew quiet."
-              ],
-              summons: false
-            },
-            {
-              choice: "greek-open-door-hear-truce-report",
-              quest: "story-quest-greek-open-door-agora",
-              lines: [
-                "The herald named a road of peace.",
-                "The dead came home beneath it."
-              ],
-              summons: true
-            },
-            {
-              choice: "greek-open-door-hear-recovery-report",
-              quest: "story-quest-greek-open-door-agora",
-              lines: [
-                "The messenger spoke over dust.",
-                "The dead came home behind the shields."
-              ],
-              summons: true
-            },
-            {
-              choice: "greek-open-door-set-provisions",
-              quest: "story-quest-greek-open-door-piraeus",
-              lines: [
-                "I set the basket by the ropes.",
-                "The waiting cups stood ready."
-              ],
-              summons: false
-            },
-            {
-              choice: "greek-open-door-lay-cloths",
-              quest: "story-quest-greek-open-door-eleusis",
-              lines: [
-                "The cloth lay clean upon the stone.",
-                "Their children gathered near it."
-              ],
-              summons: false
-            },
-            {
-              choice: "greek-open-door-lay-ashes",
-              quest: "story-quest-greek-open-door-eleusis",
-              lines: [
-                "I set the ashes by their hands.",
-                "Each name was heavier than clay."
-              ],
-              summons: false
-            },
-            {
-              choice: "greek-open-door-hear-pyre",
-              quest: "story-quest-greek-open-door-eleusis",
-              lines: [
-                "I heard the father\u2019s second loss.",
-                "One chair stood empty by the stone."
-              ],
-              summons: false
-            },
-            {
-              choice: "greek-open-door-eleusis-pledge",
-              quest: "story-quest-greek-open-door-eleusis",
-              lines: [
-                "I set a pledge beside the ashes.",
-                "Both banners cast a human shadow."
-              ],
-              summons: true
-            },
-            {
-              choice: "greek-open-door-eleusis-care",
-              quest: "story-quest-greek-open-door-eleusis",
-              lines: [
-                "I stayed beside the living grief.",
-                "We wrote their needs beneath the names."
-              ],
-              summons: true
-            },
-            {
-              choice: "greek-open-door-family-berth",
-              quest: "story-quest-greek-open-door-piraeus",
-              lines: [
-                "I laid their names beside the rope.",
-                "A place was kept for each of them."
-              ],
-              summons: true
-            },
-            {
-              choice: "greek-open-door-open-berth",
-              quest: "story-quest-greek-open-door-piraeus",
-              lines: [
-                "I laid their names beside the rope.",
-                "We kept a space beyond the list."
-              ],
-              summons: true
-            },
-            {
-              choice: "greek-open-door-colonus-water",
-              quest: "story-quest-greek-open-door-colonus",
-              lines: [
-                "I set sweet water by the grove.",
-                "The keeper named an older road."
-              ],
-              summons: false
-            },
-            {
-              choice: "greek-open-door-colonus-farewell",
-              quest: "story-quest-greek-open-door-colonus",
-              lines: [
-                "The keeper sang of daughters walking.",
-                "The final place stayed with the king."
-              ],
-              summons: false
-            },
-            {
-              choice: "greek-open-door-colonus-custom",
-              quest: "story-quest-greek-open-door-colonus",
-              lines: [
-                "I wrote a welcome by the trees.",
-                "A stranger\u2019s need could find a name."
-              ],
-              summons: true
-            },
-            {
-              choice: "greek-open-door-colonus-family",
-              quest: "story-quest-greek-open-door-colonus",
-              lines: [
-                "I set the daughters in the song.",
-                "Their hands had carried all those miles."
-              ],
-              summons: true
-            },
-            {
-              choice: "greek-open-door-marathon-blanket",
-              quest: "story-quest-greek-open-door-marathon",
-              lines: [
-                "I laid a blanket by the altar.",
-                "The old tale found a living task."
-              ],
-              summons: false
-            },
-            {
-              choice: "greek-open-door-marathon-daughter",
-              quest: "story-quest-greek-open-door-marathon",
-              lines: [
-                "The keeper gave the daughter voice.",
-                "Her empty place remained among them."
-              ],
-              summons: false
-            },
-            {
-              choice: "greek-open-door-marathon-alcmene",
-              quest: "story-quest-greek-open-door-marathon",
-              lines: [
-                "I heard old grief demand a death.",
-                "The altar held its troubling echo."
-              ],
-              summons: true
-            },
-            {
-              choice: "greek-open-door-marathon-hearing",
-              quest: "story-quest-greek-open-door-marathon",
-              lines: [
-                "I asked the tale to hold a hearing.",
-                "Her grief still waited at its gate."
-              ],
-              summons: true
-            },
-            {
-              choice: "greek-open-door-return-dione",
-              quest: "story-quest-greek-open-door-return",
-              lines: [
-                "I brought those names beside her bread.",
-                "We made room for the words they carried."
-              ],
-              summons: true
             }
           ]
         },
-        sections: [
-          {
-            id: "greek-open-door",
-            name: "The Open Door",
-            places: [
-              "greek-athens",
-              "greek-piraeus",
-              "greek-colonus",
-              "greek-eleusis",
-              "greek-marathon"
-            ],
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ]
-          }
-        ],
         bridge: {
           id: "shore-greek-drama",
           description: "A ship travels between Black pond and the Wine-Dark Harbor. The lamp signal calls it to the pond."
@@ -7707,18 +5519,13 @@
                 {
                   kind: "light",
                   item: "lamp",
-                  at: [
-                    "pond"
-                  ]
+                  at: ["pond"]
                 },
                 {
                   kind: "not",
                   condition: {
                     kind: "sound",
-                    at: [
-                      "pond",
-                      "clearing"
-                    ]
+                    at: ["pond", "clearing"]
                   }
                 }
               ]
@@ -7752,10 +5559,7 @@
         transports: {
           "greek-ship": {
             place: "greek-ship",
-            docks: [
-              "pond",
-              "greek-harbor"
-            ],
+            docks: ["pond", "greek-harbor"],
             at: "greek-harbor"
           }
         }
@@ -7856,7 +5660,6 @@
         "crossings",
         "items",
         "routes",
-        "sections",
         "choices",
         "works",
         "tone",
@@ -8305,43 +6108,6 @@
       verifyRefs(e.requires);
       if (e.desire) verifyRefs(e.desire.requires);
     });
-    if (pack.sections !== void 0) {
-      check(
-        Array.isArray(pack.sections) && pack.sections.length <= 32,
-        "sections must be a bounded list"
-      );
-      const sectionIds = /* @__PURE__ */ new Set(), sectionPlaces = /* @__PURE__ */ new Set();
-      for (const section of Array.isArray(pack.sections) ? pack.sections : []) {
-        check(
-          keysOk(section, ["id", "name", "places", "requires"]) && idOk(section.id) && !sectionIds.has(section.id) && textOk(section.name, 120) && Array.isArray(section.places) && section.places.length > 0 && section.places.length <= 16 && new Set(section.places).size === section.places.length && section.places.every(
-            (id) => owns(places2, id) && !sectionPlaces.has(id)
-          ) && Array.isArray(section.requires),
-          `section ${section?.id} needs unique places and permanent requirements`
-        );
-        if (!record(section)) continue;
-        sectionIds.add(section.id);
-        for (const id of Array.isArray(section.places) ? section.places : [])
-          sectionPlaces.add(id);
-        requirements(section.requires, `section ${section.id} requires`);
-        if (!Array.isArray(section.requires)) continue;
-        verifyRefs(section.requires);
-        for (const condition3 of section.requires) {
-          check(
-            condition3?.kind === "choice" || condition3?.kind === "flag" && condition3.value === true,
-            `section ${section.id} requires a permanent choice or true flag`
-          );
-          if (condition3?.kind === "flag")
-            check(
-              choices.every(
-                (choice2) => choice2.effects.every(
-                  (effect) => effect.kind !== "set_flag" || effect.key !== condition3.key || effect.value === true
-                )
-              ),
-              `section ${section.id} access flag must stay true`
-            );
-        }
-      }
-    }
     const groups = pack.continuity?.groups || [];
     for (const g of groups)
       check(
@@ -8368,7 +6134,7 @@
           Array.isArray(r.claims) && r.claims.length <= 16 && r.claims.every(
             (claim) => keysOk(claim, ["phrases", "anyChoices"]) && Array.isArray(claim.phrases) && claim.phrases.length > 0 && claim.phrases.length <= 16 && claim.phrases.every(
               (phrase) => textOk(phrase, 160) && phrase === phrase.toLowerCase()
-            ) && Array.isArray(claim.anyChoices) && claim.anyChoices.length > 0 && claim.anyChoices.length <= 64 && claim.anyChoices.every((choice2) => seen.has(choice2))
+            ) && Array.isArray(claim.anyChoices) && claim.anyChoices.length > 0 && claim.anyChoices.length <= 64 && claim.anyChoices.every((choice) => seen.has(choice))
           ),
           "recital claims need bounded phrases and supporting verse choices"
         );
@@ -8770,7 +6536,7 @@
   }
   var signalReady = (s, c, senses2) => (c.signal?.while || []).every((r) => conditionMet(s, r, senses2, c.packId));
   var windowOpen = (s, c) => !c.signal || (c.signal.opens === null ? crossingState(s, c.id)?.phase === c.signal.steps.length : s.turn < (crossingState(s, c.id)?.until ?? 0));
-  var crossingOpen = (s, c, senses2) => entityActive(s, c.from) && entityActive(s, c.to) && (c.transport ? transportUnlocked(s, c.transport) && s.transports[c.transport]?.dock === c.from : windowOpen(s, c) && signalReady(s, c, senses2)) && c.requires.every((r) => conditionMet(s, r, senses2, c.packId));
+  var crossingOpen = (s, c, senses2) => (c.transport ? transportUnlocked(s, c.transport) && s.transports[c.transport]?.dock === c.from : windowOpen(s, c) && signalReady(s, c, senses2)) && c.requires.every((r) => conditionMet(s, r, senses2, c.packId));
   var crossingBetween = (from, to, s = null) => s && transportCrossing(s, from, to) || crossings.find((c) => !c.transport && c.from === from && c.to === to) || null;
   var mayCross = (c, actor, senses2) => c.travelers === "any" || actor === senses2.player || roamingQuestActor(actor) || senses2.humanActors?.includes(actor);
   var crossingExits = (s, place, actor, senses2) => crossings.filter(
@@ -9133,8 +6899,8 @@
       (condition2) => conditionMet(world, condition2, null, packId, actor)
     );
   }
-  function choiceText(choice2, actor) {
-    return choice2.textTemplate === void 0 ? choice2.text : choice2.textTemplate.replaceAll(
+  function choiceText(choice, actor) {
+    return choice.textTemplate === void 0 ? choice.text : choice.textTemplate.replaceAll(
       "{actor}",
       humanAvatar(actor)?.name || packPeople[actor]?.name || "An earlier traveler"
     );
@@ -9156,8 +6922,7 @@
     const e = packEntity(id);
     if (!e) return true;
     const pack = packDefinition(e.packId), state = packState(world, e.packId);
-    if (!state || !conditionsMet(world, e.packId, e.requires) || !sectionAllows(world, pack, id, conditionsMet))
-      return false;
+    if (!state || !conditionsMet(world, e.packId, e.requires)) return false;
     if (!pack.release || state.scope === "full") return true;
     if (pack.recital?.actor === id)
       return (roamingQuestActor(id) || !!recitalVisit(world, pack)) && entityEnabled(world, world.actors[id].place);
@@ -9187,17 +6952,17 @@
       return domains.includes(home) && domains.includes(target) && crossings.filter((c) => c.transport === id).every((c) => c.travelers === "any");
     });
   }
-  function choiceFeasible(world, pack, choice2, actor) {
+  function choiceFeasible(world, pack, choice, actor) {
     const state = packState(world, pack.id);
-    if (!state || owns2(state.receipts, choice2.id) || pack.release && state.scope !== "full" && !pack.release.choices.includes(choice2.id) || world.actors[actor]?.place !== choice2.at || !entityActive(world, choice2.at) || !entityActive(world, choice2.subject) || !conditionsMet(world, pack.id, choice2.requires, actor))
+    if (!state || owns2(state.receipts, choice.id) || pack.release && state.scope !== "full" && !pack.release.choices.includes(choice.id) || world.actors[actor]?.place !== choice.at || !entityActive(world, choice.subject) || !conditionsMet(world, pack.id, choice.requires, actor))
       return false;
-    const subject = choice2.subject;
-    if (world.actors[subject] && world.actors[subject].place !== choice2.at)
+    const subject = choice.subject;
+    if (world.actors[subject] && world.actors[subject].place !== choice.at)
       return false;
-    if (world.items[subject] && ![actor, choice2.at].includes(world.items[subject].holder))
+    if (world.items[subject] && ![actor, choice.at].includes(world.items[subject].holder))
       return false;
-    return choice2.effects.every(
-      (e) => e.kind === "choose" ? !owns2(state.choices, e.key) : e.kind === "place_item" ? world.items[e.item]?.holder === actor && e.place === choice2.at : true
+    return choice.effects.every(
+      (e) => e.kind === "choose" ? !owns2(state.choices, e.key) : e.kind === "place_item" ? world.items[e.item]?.holder === actor && e.place === choice.at : true
     );
   }
   function packChoices(world, actor = "vale") {
@@ -9218,31 +6983,31 @@
     );
   }
   function applyPackChoice(world, action) {
-    const pack = packDefinition(action.packId), choice2 = pack?.choices?.find((c) => c.id === action.choiceId);
-    if (!choice2 || !choiceFeasible(world, pack, choice2, action.actor))
+    const pack = packDefinition(action.packId), choice = pack?.choices?.find((c) => c.id === action.choiceId);
+    if (!choice || !choiceFeasible(world, pack, choice, action.actor))
       throw new Error("That choice is no longer available.");
     const state = packState(world, pack.id);
-    for (const e of choice2.effects) {
+    for (const e of choice.effects) {
       if (e.kind === "choose") state.choices[e.key] = e.value;
       if (e.kind === "set_flag") state.flags[e.key] = e.value;
       if (e.kind === "place_item") {
         world.items[e.item].holder = e.place;
         world.items[e.item].history.push(
-          choiceText(choice2, action.actor).slice(0, 400)
+          choiceText(choice, action.actor).slice(0, 400)
         );
         world.items[e.item].history = world.items[e.item].history.slice(-12);
       }
     }
-    state.receipts[choice2.id] = world.turn;
-    recordRecital(world, pack, choice2.id, action.actor);
-    return choice2;
+    state.receipts[choice.id] = world.turn;
+    recordRecital(world, pack, choice.id, action.actor);
+    return choice;
   }
-  function committedChoiceText(world, pack, choice2) {
-    if (choice2.summary) return choice2.summary;
+  function committedChoiceText(world, pack, choice) {
+    if (choice.summary) return choice.summary;
     const actor = world.log?.find(
-      (entry) => entry.packId === pack.id && entry.choiceId === choice2.id
-    )?.actorId || world.packs[pack.id].recitals?.[choice2.id]?.actor || null;
-    return choiceText(choice2, actor);
+      (entry) => entry.packId === pack.id && entry.choiceId === choice.id
+    )?.actorId || world.packs[pack.id].recitals?.[choice.id]?.actor || null;
+    return choiceText(choice, actor);
   }
   function packFacts(world, id) {
     const e = packEntity(id);
@@ -9315,7 +7080,7 @@
       );
       for (const [id, turn] of events) {
         const c = pack.choices?.find((c2) => c2.id === id);
-        if (!c || state.scope === "opening" && pack.release && !pack.release.choices.includes(id) || !Number.isSafeInteger(turn) || turn < 1 || turn > world.turn || seenTurns.has(turn) || !sectionAllows(projection, pack, c.at, conditionsMet) || !sectionAllows(projection, pack, c.subject, conditionsMet) || !progressionMet(c.requires) || !progressionMet(pack.places[c.at].requires) || !progressionMet(packEntity(c.subject)?.requires) || (c.requires || []).some(
+        if (!c || state.scope === "opening" && pack.release && !pack.release.choices.includes(id) || !Number.isSafeInteger(turn) || turn < 1 || turn > world.turn || seenTurns.has(turn) || !progressionMet(c.requires) || !progressionMet(pack.places[c.at].requires) || !progressionMet(packEntity(c.subject)?.requires) || (c.requires || []).some(
           (condition2) => condition2.kind === "met" && (!owns2(state.met, condition2.actor) || state.met[condition2.actor] >= turn)
         ))
           return false;
@@ -9339,106 +7104,6 @@
           return false;
     }
     return true;
-  }
-
-  // v2/card-game/open-door-quests.mjs
-  var prefix = "greek-open-door-";
-  var choice = (id) => `${prefix}${id}`;
-  var cardId = (id) => `story-quest-${prefix}${id}`;
-  var stories = [
-    {
-      id: "eleusis",
-      line: "Their sons need a road home.",
-      holder: "greek-aethra",
-      art: "greek-burial-petition",
-      start: ["hear-mothers"],
-      progress: ["hear-adrastus", "lay-cloths", "lay-ashes", "hear-pyre"],
-      endings: ["eleusis-pledge", "eleusis-care"]
-    },
-    {
-      id: "agora",
-      line: "A city must answer.",
-      holder: "greek-theseus",
-      art: "greek-burial-petition",
-      start: ["register-plea"],
-      progress: ["request-truce", "request-recovery"],
-      endings: ["hear-truce-report", "hear-recovery-report"]
-    },
-    {
-      id: "piraeus",
-      line: "A berth beside the water.",
-      holder: "greek-quay-host",
-      art: "greek-return-list",
-      start: ["hear-quay"],
-      progress: ["set-provisions"],
-      endings: ["family-berth", "open-berth"]
-    },
-    {
-      id: "colonus",
-      line: "A stranger waits by the grove.",
-      holder: "greek-colonus-keeper",
-      art: "greek-grove-cup",
-      start: ["colonus-enter"],
-      progress: ["colonus-water", "colonus-daughters", "colonus-farewell"],
-      endings: ["colonus-custom", "colonus-family"]
-    },
-    {
-      id: "marathon",
-      line: "The children need a place to rest.",
-      holder: "greek-marathon-keeper",
-      art: "greek-shelter-blanket",
-      start: ["marathon-enter"],
-      progress: [
-        "marathon-blanket",
-        "marathon-daughter",
-        "marathon-battle",
-        "marathon-captive"
-      ],
-      endings: ["marathon-hearing", "marathon-alcmene"]
-    }
-  ];
-  stories.push({
-    id: "return",
-    line: "What welcome will you bring home?",
-    holder: "greek-baker",
-    art: "greek-bread",
-    start: stories.flatMap((story) => story.endings),
-    progress: [],
-    endings: ["return-dione"],
-    completion: "Shared"
-  });
-  var OPEN_DOOR_QUEST_CARDS = stories.map((story) => cardId(story.id));
-  function openDoorDefinitions(world) {
-    const receipts = world.packs?.["greek-drama"]?.receipts || {};
-    return stories.flatMap((story) => {
-      const started = [...story.start, ...story.progress, ...story.endings].map(choice).filter((id2) => Object.hasOwn(receipts, id2));
-      if (!started.length) return [];
-      const ending = story.endings.map(choice).find((id2) => Object.hasOwn(receipts, id2));
-      const id = cardId(story.id);
-      return [
-        {
-          id,
-          key: `greek-drama:${id}`,
-          title: story.line,
-          purpose: story.line,
-          singleLine: true,
-          story: true,
-          status: ending ? "fulfilled" : "pending",
-          art: story.art,
-          resolved: Boolean(ending),
-          completion: story.completion || "Fulfilled",
-          holder: { kind: "avatar", id: story.holder },
-          choiceId: ending || choice(story.endings[0]),
-          createdTurn: Math.min(...started.map((id2) => receipts[id2]))
-        }
-      ];
-    });
-  }
-  function openDoorRelated(definition, event) {
-    const story = stories.find((entry) => cardId(entry.id) === definition.id);
-    if (!story || event.packId !== "greek-drama") return false;
-    const choices = story.id === "return" ? story.endings : [...story.start, ...story.progress, ...story.endings];
-    return choices.some((id) => choice(id) === event.choiceId);
   }
 
   // v2/card-game/shared-quests.mjs
@@ -9692,8 +7357,7 @@
   var STORY_QUEST_CARDS = [
     "story-quest-greek-table",
     "story-quest-greek-burial",
-    "story-quest-greek-courtyard",
-    ...OPEN_DOOR_QUEST_CARDS
+    "story-quest-greek-courtyard"
   ];
   var lines = [
     "A place beside the bread.",
@@ -9714,7 +7378,7 @@
     const graveReturn = response2 === "concession" && buried && publicOutcome;
     const burialChoice = receipts["greek-perform-permitted-burial"] !== void 0 ? "greek-perform-permitted-burial" : "greek-perform-burial";
     const responseChoice = packDefinition("greek-drama").choices.find(
-      (choice2) => choice2.effects.some(
+      (choice) => choice.effects.some(
         (effect) => effect.kind === "choose" && effect.key === "greek-theban-response" && effect.value === response2
       )
     );
@@ -9771,12 +7435,10 @@
           historical: true
         });
     }
-    return [...cards, ...openDoorDefinitions(world)];
+    return cards;
   }
   var related2 = (definition, event) => {
     if (event.packId !== "greek-drama" || !event.choiceId) return false;
-    if (OPEN_DOOR_QUEST_CARDS.includes(definition.id))
-      return openDoorRelated(definition, event);
     if (definition.id === STORY_QUEST_CARDS[0])
       return event.choiceId === "greek-return-water-jar";
     if (definition.id === STORY_QUEST_CARDS[2])
@@ -12057,12 +9719,10 @@
     if (s?.schema === 6) {
       upgradeSteamClockSave(s);
       upgradeTransportSave(s);
-      upgradeGreekSectionSave(s);
       s.schema = 7;
       installPacks2(s);
     } else if (s?.schema === 7 && s.packs && typeof s.packs === "object" && s.crossings && typeof s.crossings === "object") {
       upgradeTransportSave(s);
-      upgradeGreekSectionSave(s);
       installPacks2(s);
     }
     if (s?.schema === 7) {
@@ -12074,64 +9734,6 @@
       installSharedQuestRegistry(s);
     if (s?.schema === 7) publishQuestCompletions(s, syncStoryQuests(s));
     return s;
-  }
-  function upgradeGreekSectionSave(s) {
-    const pack = packDefinitions.find((p) => p.id === "greek-drama");
-    const saved = s.packs?.[pack?.id];
-    if (!pack || pack.revision < 3 || saved?.revision !== 2) return;
-    const avatars = [
-      "greek-aethra",
-      "greek-adrastus",
-      "greek-argive-mother",
-      "greek-iphis",
-      "greek-theseus",
-      "greek-quay-host",
-      "greek-colonus-keeper",
-      "greek-marathon-keeper"
-    ];
-    const items2 = [
-      "greek-burial-petition",
-      "greek-return-cloths",
-      "greek-provision-basket",
-      "greek-ash-urn",
-      "greek-return-list",
-      "greek-grove-cup",
-      "greek-grove-honey",
-      "greek-shelter-blanket",
-      "greek-refuge-tablet"
-    ];
-    const fresh = newMemories();
-    if (!s.actors || !s.items || !s.memories || !s.peaceUntil || avatars.some(
-      (id) => !pack.avatars[id] || s.actors[id] || s.memories[id] || Object.hasOwn(s.peaceUntil, id) || Object.hasOwn(s.motives?.grievances || {}, id)
-    ) || items2.some((id) => !pack.items[id] || s.items[id] || s.memories[id]) || Object.values(s.actors).some(
-      (actor) => !actor.trust || avatars.some((id) => Object.hasOwn(actor.trust, id))
-    ))
-      throw new Error(
-        "This earlier Greek save needs its original entity records."
-      );
-    const actorIds2 = [...Object.keys(s.actors), ...avatars];
-    for (const id of avatars) {
-      s.actors[id] = {
-        place: pack.avatars[id].place,
-        progress: newProgress(),
-        crossed: 0,
-        lastTalk: -9,
-        trust: Object.fromEntries(
-          actorIds2.filter((other) => other !== id).map((other) => [other, 0])
-        ),
-        ...newTemperament(id)
-      };
-      s.peaceUntil[id] = 0;
-      s.memories[id] = fresh[id];
-      if (s.motives) s.motives.grievances[id] = [];
-    }
-    for (const id of items2) {
-      s.items[id] = { holder: pack.items[id].holder, history: [] };
-      s.memories[id] = fresh[id];
-    }
-    for (const [id, actor] of Object.entries(s.actors))
-      for (const other of avatars) if (other !== id) actor.trust[other] ??= 0;
-    saved.revision = 3;
   }
   function upgradeBoardingSave(s) {
     for (const [id, transport] of Object.entries(transports)) {
@@ -12214,6 +9816,7 @@
 
   // v2/card-game/world.mjs
   var places = { ...forest_default.places, ...packPlaces };
+  var homeGates = { ...forest_default.homeGates, ...humanHomeGates };
   var sanctuaries = Object.keys(places).filter(
     (id) => places[id].sanctuary === true
   );
@@ -12317,9 +9920,22 @@
   var baseExits = (s, place) => s.opening ? places[place].exits.filter((to) => ![place, to].includes("attic")) : places[place].exits;
   var placeText = (s, place) => [
     s.opening && place === "attic" ? reflectionOpen(s, place) ? "A tall mirror opens onto a black shore. A path leads through the glass." : "A tall mirror reflects a black shore. Dust gathers along its frame." : s.opening && place === "station" ? "The timetable lists years that have yet to happen. A path leads along the shore to the pond." : places[place].text,
-    ...crossingScenery(s, place, sensesFor(s))
+    ...crossingScenery(s, place, sensesFor(s)),
+    ...homeRescueExit(s, place) ? [`A narrow path leads to ${nameOf(homeRescueExit(s, place))}.`] : []
   ].join(" ");
-  function exits(s, place, actor = null, previous = null) {
+  function localGateResource(s, place, item, actor) {
+    return Boolean(
+      s.items[item] && entityActive(s, item) && itemPlace2(s, item) === place && (canUse(s, actor, item) || controlledByHuman(s, rootHolder(s, item)) && humanPresent(s, rootHolder(s, item)))
+    );
+  }
+  function homeGateRecoverable(s, place, gate, actor) {
+    if (!localGateResource(s, place, gate.item, actor)) return false;
+    if (!gate.light || s.items[gate.item].fuel > 0) return true;
+    return Boolean(
+      gate.refill && localGateResource(s, place, gate.refill, actor) && s.items[gate.refill].doses > 0
+    );
+  }
+  function ordinaryExits(s, place, actor, previous) {
     return [
       .../* @__PURE__ */ new Set([
         ...baseExits(s, place),
@@ -12328,6 +9944,18 @@
         ...transportExits(s, place, previous),
         ...packExits(s, place, actor)
       ])
+    ];
+  }
+  function homeRescueExit(s, place, actor = currentActor(s), previous = null) {
+    const gate = homeGates[place];
+    actor ||= currentActor(s);
+    return gate && controlledByHuman(s, actor || currentActor(s)) && ordinaryExits(s, place, actor, previous).length === 0 && !homeGateRecoverable(s, place, gate, actor) ? gate.rescue : null;
+  }
+  function exits(s, place, actor = null, previous = null) {
+    const rescue = homeRescueExit(s, place, actor, previous);
+    return [
+      ...ordinaryExits(s, place, actor, previous),
+      ...rescue ? [rescue] : []
     ].filter(
       (to) => entityActive(s, to) && actorCanVisit(actor, to, s) && humanRoomAvailable(s, actor, to)
     );
@@ -13022,7 +10650,7 @@
     for (const to of exits(s, here, actor)) {
       const through = !baseExits(s, here).includes(to);
       const crossing = crossingBetween(here, to, s);
-      const way = through ? ` ${crossing?.travel || "through the reflection"}` : "";
+      const way = through ? ` ${homeRescueExit(s, here, actor) === to ? "along a narrow path" : crossing?.travel || "through the reflection"}` : "";
       for (const other of knownActors(s).filter(
         (id) => (crossing?.travelers !== "player" || controlledByHuman(s, actor)) && id !== actor && !controlledByHuman(s, id) && !staysPut(id) && s.actors[id].place === here
       )) {
@@ -14070,7 +11698,9 @@
       const o = s.opening;
       if (!o || o.version !== 1 || typeof o.crossed !== "boolean" || !o.met || o.met.vale !== 0 || Object.keys(o.met).some((id) => !actorIds.includes(id)) || Object.values(o.met).some(
         (turn) => !Number.isSafeInteger(turn) || turn < 0 || turn > s.turn
-      ) || !sharedEnabled(s) && o.met.keeper !== void 0 && o.met.moth === void 0 || !o.crossed && (s.actors?.vale?.place !== "attic" || Object.keys(o.met).some(
+      ) || !sharedEnabled(s) && o.met.keeper !== void 0 && o.met.moth === void 0 || !o.crossed && (!Object.entries(homeGates).some(
+        ([place, gate]) => gate.opening && [place, gate.rescue].includes(s.actors?.vale?.place)
+      ) || Object.keys(o.met).some(
         (id) => id !== "vale" && !roamingActors.includes(id)
       )) || o.crossed && (!s.locations?.attic.anchored || o.met.moth === void 0))
         fail();
@@ -14257,8 +11887,8 @@
       if (e.locationId != null && !Object.hasOwn(places, e.locationId)) fail();
       if (e.verb != null && !verbs.includes(e.verb)) fail();
       if (e.verb === "choose") {
-        const pack = packDefinition(e.packId), choice2 = pack?.choices.find((c) => c.id === e.choiceId);
-        if (!choice2 || !humanAvatar(e.actorId) || e.targetId !== choice2.subject || e.locationId !== choice2.at || s.packs[e.packId].receipts[e.choiceId] !== e.turn)
+        const pack = packDefinition(e.packId), choice = pack?.choices.find((c) => c.id === e.choiceId);
+        if (!choice || !humanAvatar(e.actorId) || e.targetId !== choice.subject || e.locationId !== choice.at || s.packs[e.packId].receipts[e.choiceId] !== e.turn)
           fail();
       } else if (e.packId !== void 0 || e.choiceId !== void 0) fail();
       if (e.destinationId != null && !Object.hasOwn(places, e.destinationId))

@@ -248,7 +248,7 @@ still apply to their later scenes.
 
 The Open Door uses Greek pack revision 3. Its save upgrade adds the exact new
 resident and object IDs while preserving earlier state. The shared interpreter
-records this upgrade under rules version 10.
+records this upgrade under rules version 11.
 
 ## Observable states in dialogue
 

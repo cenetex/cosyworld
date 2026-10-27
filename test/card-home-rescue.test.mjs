@@ -1,0 +1,151 @@
+import { describe, it, expect } from "vitest";
+import {
+  createWorld,
+  exits,
+  legalActions,
+  play,
+  encodeSave,
+  decodeSave,
+  placeText,
+} from "../v2/card-game/world.mjs";
+import { dispatchShared } from "../v2/card-game/shared-world.mjs";
+import { humanAvatars, humanAvatarIds } from "../v2/card-game/human-cast.mjs";
+
+const opening = () => createWorld({ opening: true });
+const view = (world, actor, present = humanAvatarIds) =>
+  dispatchShared({
+    op: "view",
+    world,
+    actor,
+    claimed: humanAvatarIds,
+    present,
+  });
+const shared = () =>
+  dispatchShared({ op: "create", save: encodeSave(createWorld()) }).world;
+const move = (state, actor, target) =>
+  legalActions(state, actor).find(
+    (a) => a.kind === "move" && a.target === target,
+  );
+
+describe("a path out of a stranded home", () => {
+  it("keeps a fueled, unlit or covered lamp as an ordinary recovery", () => {
+    for (const covered of [false, true]) {
+      const s = opening();
+      if (covered) s.items.cloth.holder = "lamp";
+      expect(exits(s, "attic", "vale")).toEqual([]);
+      expect(placeText(s, "attic")).not.toContain("narrow path");
+    }
+  });
+  it("offers the station after fuel runs dry and survives a solo save", () => {
+    let s = opening();
+    s.items.lamp.fuel = 0;
+    s.items.lamp.lit = false;
+    s = decodeSave(encodeSave(s));
+    expect(exits(s, "attic", "vale")).toEqual(["station"]);
+    expect(placeText(s, "attic")).toContain(
+      "A narrow path leads to Empty station.",
+    );
+    const result = play(s, move(s, "vale", "station"));
+    expect(result.ok).toBe(true);
+    expect(result.state.actors.vale.place).toBe("station");
+    expect(result.state.items.lamp.fuel).toBe(0);
+  });
+  it("keeps local usable oil as recovery and spends it through the ordinary action", () => {
+    const s = opening();
+    s.items.lamp.fuel = 0;
+    s.items.oil.holder = "attic";
+    expect(exits(s, "attic", "vale")).toEqual([]);
+    const refill = legalActions(s, "vale").find((a) => a.kind === "refill");
+    expect(refill).toBeDefined();
+    expect(play(s, refill).state.items.lamp.fuel).toBeGreaterThan(0);
+    s.items.oil.doses = 0;
+    expect(exits(s, "attic", "vale")).toEqual(["station"]);
+  });
+  it("uses local floor and nested resources while distant resources leave a path", () => {
+    const s = opening();
+    s.items.lamp.fuel = 0;
+    s.items.oil.holder = "attic";
+    s.items.cloth.holder = "lamp";
+    expect(exits(s, "attic", "vale")).toEqual([]);
+    s.items.oil.holder = "station";
+    expect(exits(s, "attic", "vale")).toEqual(["station"]);
+    s.items.lamp.holder = "station";
+    s.items.lamp.fuel = 8;
+    expect(exits(s, "attic", "vale")).toEqual(["station"]);
+  });
+  it.each(humanAvatars.filter((a) => a.id !== "vale"))(
+    "uses the same rule in $name's home",
+    (avatar) => {
+      const w = shared();
+      const home = avatar.home.id,
+        item = avatar.item.id;
+      expect(view(w, avatar.id).exits).toEqual([]);
+      w.items[item].holder = "station";
+      const stranded = view(w, avatar.id);
+      expect(stranded.exits).toEqual(["station"]);
+      const action = stranded.actions.find(
+        (a) => a.kind === "move" && a.target === "station",
+      );
+      const result = dispatchShared({
+        op: "play",
+        world: w,
+        actor: avatar.id,
+        claimed: humanAvatarIds,
+        present: humanAvatarIds,
+        action,
+      });
+      expect(result.ok).toBe(true);
+      expect(result.world.actors[avatar.id].place).toBe("station");
+      expect(result.world.items[item].holder).toBe("station");
+      w.items[item].holder = home;
+      expect(view(w, avatar.id).exits).toEqual([]);
+      w.items[item].holder = "vale";
+      w.actors.vale.place = home;
+      expect(view(w, avatar.id).exits).toEqual([
+        avatar.home.connection || "pond",
+      ]);
+      expect(
+        view(
+          w,
+          avatar.id,
+          humanAvatarIds.filter((a) => a !== "vale"),
+        ).exits,
+      ).toEqual(["station"]);
+      w.actors.vale.place = "pond";
+      expect(view(w, avatar.id).exits).toEqual(["station"]);
+    },
+  );
+  it("counts present helpers' lamp and oil and keeps absence meaningful", () => {
+    const w = dispatchShared({ op: "create" }).world;
+    w.actors.mara.place = "attic";
+    w.items.lamp.fuel = 0;
+    w.items.oil.holder = "mara";
+    expect(view(w, "vale").exits).toEqual([]);
+    expect(view(w, "vale", ["vale"]).exits).toEqual(["station"]);
+    w.items.oil.holder = "attic";
+    w.items.lamp.holder = "mara";
+    expect(view(w, "vale").exits).toEqual([]);
+    expect(view(w, "vale", ["vale"]).exits).toEqual(["station"]);
+  });
+  it("keeps crowding as a wait and respects station capacity", () => {
+    const w = shared();
+    const a = humanAvatars[1];
+    w.items[a.item.id].holder = a.id;
+    for (const id of ["vale", "ash", "nell", "tavi"])
+      w.actors[id].place = "pond";
+    expect(view(w, a.id).exits).toEqual([]);
+    w.items[a.item.id].holder = "attic";
+    for (const id of ["vale", "ash", "nell", "tavi"])
+      w.actors[id].place = "station";
+    expect(view(w, a.id).exits).toEqual([]);
+    w.actors.tavi.place = "pond";
+    expect(view(w, a.id).exits).toEqual(["station"]);
+  });
+  it("keeps recovery limited to home rooms and controlled humans", () => {
+    const s = opening();
+    s.items.lamp.fuel = 0;
+    expect(exits(s, "attic", "moth")).toEqual([]);
+    expect(exits(s, "pond", "vale")).toEqual(["station"]);
+    expect(move(s, "vale", "pond")).toBeUndefined();
+  });
+});

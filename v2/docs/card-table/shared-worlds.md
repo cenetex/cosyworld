@@ -71,7 +71,7 @@ seed and recorded operations.
 Rule version 3 introduced the home-item floor start. Version 4 added Greek
 story cards and saved bard visits. Versions 5–8 added collected and shared quests,
 shared journeys, quieter offers, and the first-signal ship gate. Published rule
-versions 2–9 retain their exact interpreter bytes for replay.
+versions 2–10 retain their exact interpreter bytes for replay.
 
 The current rules version is reported by `/meta.card_game.shared_rules_version`
 and comes from the shared engine constant.
@@ -81,7 +81,8 @@ world first replays its accepted history with the recorded interpreters, then
 records an upgrade to version 9. The upgrade preserves the world turn, item
 positions, ship access, conversation, quest progress, and earned receipts.
 
-Version 10 adds The Open Door. One traveler can accept Dione’s invitation
+Version 10 adds the home recovery path described below. Version 11 adds
+The Open Door. One traveler can accept Dione’s invitation
 and open five places for everyone in that world. Greek pack revision 3 adds
 eight residents and nine objects. The upgrade keeps earlier possessions,
 choices, memories, and poem. Tests load real version 9 worlds from both a
@@ -140,7 +141,7 @@ Completing the active quest begins a rest at a place marked `sanctuary: true`.
 The station and attic are sanctuaries. Human rest counts that person's own turns
 in a shared world. Resident rest counts world rounds.
 
-The shared interpreter builder writes `engine-v10.js`. Earlier interpreters stay
+The shared interpreter builder writes `engine-v11.js`. Earlier interpreters stay
 frozen. Upgrade tests cover checkpoints, journal-only rebuilds, saved drops,
 quest hand limits, and completion receipts.
 
@@ -215,3 +216,17 @@ The homes use natural wood, stone, paper, and mist with quiet complementary
 accents. Rue has close-cropped dark hair and a blue coat. Orin is tall and wiry,
 with auburn hair, spectacles, and an indigo waistcoat. Ada has white hair and a
 wooden wheelchair; Ash has a broad build and a grey beard.
+
+## A way out of a stranded home
+
+A narrow path to Empty station appears when a player in a home has no ordinary
+route and the room lacks the resources to reopen its gate. A belonging on the
+floor or carried by a present helper keeps its usual role. A fueled lamp can be
+lit or uncovered; a dry lamp can use oil available in the room. A belonging
+carried away or held by an absent player leaves the station path available.
+Room capacity still applies to the destination.
+
+The same home-gate rule serves the attic and all seven visitor homes. Shared
+rules version 10 adds the path. Versions 2 through 9 retain their released
+bytes for replay. Loading an earlier world records an upgrade to version 10
+after its journal has replayed; the upgrade preserves items and played time.

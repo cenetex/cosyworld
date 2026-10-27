@@ -1,4 +1,7 @@
 {
+  "homeGates": {
+    "attic": { "item": "lamp", "light": true, "refill": "oil", "rescue": "station", "opening": true }
+  },
   "reflectionRoutes": [
     { "from": "attic", "to": "pond" },
     { "from": "pond", "to": "attic" }

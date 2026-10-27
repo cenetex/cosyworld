@@ -237,7 +237,7 @@ describe("the first light in the attic", () => {
     ).toBe(true);
   });
 
-  it("takes the lamp when lighting it and strands Vale when its fuel runs out", () => {
+  it("takes the lamp when lighting it and opens a station path when its fuel runs out", () => {
     let dropped = act(fresh(), "drop", { item: "lamp" });
     dropped = act(dropped, "light");
     expect(dropped.items.lamp.holder).toBe("vale");
@@ -248,8 +248,9 @@ describe("the first light in the attic", () => {
     expect(s.opening.crossed).toBe(false);
     expect(knownActors(s)).toEqual(["vale"]);
     s = decodeSave(encodeSave(s));
-    expect(exits(s, "attic")).toEqual([]);
+    expect(exits(s, "attic")).toEqual(["station"]);
     expect(exits(s, "station")).toEqual(["pond"]);
+    expect(availableCards(s)).toContain("station");
     expect(availableCards(s)).not.toContain("pond");
     expect(cardPlay(s, ["pond"]).action).toBeNull();
     expect(placeText(s, "attic")).toContain("Dust gathers");

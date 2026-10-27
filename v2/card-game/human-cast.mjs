@@ -24,6 +24,9 @@ export const humanRoomAvailable = (world, actor, place, count = 1) =>
 // These seven homes join the existing shore. Vale, the station, the attic,
 // the pond and the lamp keep their original definitions and behavior.
 const visitors = humanAvatars.filter((a) => a.id !== "vale");
+export const humanHomeGates = Object.fromEntries(
+  visitors.map((a) => [a.home.id, { item: a.item.id, rescue: "station" }]),
+);
 export const humanHomePack = {
   schemaVersion: 1,
   id: "shared-homes",

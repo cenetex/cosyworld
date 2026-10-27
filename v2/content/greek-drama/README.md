@@ -57,7 +57,7 @@ their travel access and their chosen Helen and Atreid accounts.
 
 Greek pack revision 3 adds eight residents and nine objects to valid earlier
 saves. The upgrade preserves old custody, memories, flags, choices, receipts
-and poem. Shared rules version 10 records the change. Versions 2–9 retain
+and poem. Shared rules version 11 records the change. Versions 2–10 retain
 their original interpreter bytes so accepted history can replay.
 
 The Forest and Greek packs share the card table's schema, registry, rules,
