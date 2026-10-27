@@ -10,6 +10,11 @@ on:
       - scripts/prepare-fly-image.sh
       - scripts/build-release-image.sh
   workflow_dispatch:
+    inputs:
+      publish_image:
+        description: Build and upload the commit image and dependency cache
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -29,11 +34,39 @@ jobs:
         with:
           node-version: "24"
       - name: Build a fresh release image with four workers
+        if: ${{ !inputs.publish_image }}
         run: |
           nproc
           free -m
           docker buildx build --load --platform linux/amd64 \
             --build-arg CARGO_BUILD_JOBS=4 --tag cosyworld-release-test .
+      - name: Setup flyctl
+        if: inputs.publish_image
+        uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Install image transfer tool
+        if: inputs.publish_image
+        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends skopeo
+      - name: Build and publish the commit image
+        if: inputs.publish_image
+        id: image
+        run: bash scripts/prepare-fly-image.sh cosyworld fly.toml
+        env:
+          COSYWORLD_IMAGE_BUILDER: runner
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      - name: Load the published image for checks
+        if: inputs.publish_image
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          RELEASE_IMAGE: ${{ steps.image.outputs.image }}
+        run: |
+          umask 077
+          export DOCKER_CONFIG
+          DOCKER_CONFIG="$(mktemp -d)"
+          trap 'rm -rf "$DOCKER_CONFIG"' EXIT
+          printf '%s\n' '{"auths":{"registry.fly.io":{}}}' > "$DOCKER_CONFIG/config.json"
+          flyctl auth docker
+          docker pull "$RELEASE_IMAGE"
+          docker tag "$RELEASE_IMAGE" cosyworld-release-test
       - name: Start the release image
         run: |
           docker run --detach --name cosyworld-release-test --publish 3000:3000 \
