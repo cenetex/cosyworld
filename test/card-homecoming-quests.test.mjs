@@ -5,7 +5,12 @@ import {
   legalActions,
 } from "../v2/card-game/world.mjs";
 import { homecomingDefinitions } from "../v2/card-game/homecoming-quests.mjs";
-import { questCards, questHistoryCards } from "../v2/card-game/quest-cards.mjs";
+import {
+  questCards,
+  questHistoryCards,
+  questCardId,
+  questForCard,
+} from "../v2/card-game/quest-cards.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import {
   openDoorJourney,
