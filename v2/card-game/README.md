@@ -300,7 +300,7 @@ same-origin browser channel. The game stays open during approval. A browser
 that blocks the window uses the same-tab PKCE return.
 
 Open Settings and choose Connect OpenRouter. The browser uses an S256 PKCE
-challenge and a fresh state value. The return must match the same table and
+challenge and a fresh state value. The return must match the stored callback and
 arrive within ten minutes. The browser clears the return code before exchange.
 The connected key lives in session storage for that tab. Disconnect clears it;
 the OpenRouter keys page offers revocation and spending controls.

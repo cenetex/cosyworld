@@ -26,6 +26,9 @@ export async function setupOpenRouter() {
       $("openrouter-voice").value = values[0];
   }
   $("openrouter-audio-model").addEventListener("change", voices);
+  $("openrouter-video-model").addEventListener("change", (event) =>
+    client.setVideoModel(event.target.value.trim()),
+  );
   function refresh(message) {
     const connected = Boolean(client.connection()?.key);
     $("openrouter-connect").textContent = connected
@@ -34,6 +37,8 @@ export async function setupOpenRouter() {
     $("openrouter-disconnect").hidden = !connected;
     $("openrouter-options").hidden = !connected;
     $("openrouter-chat").checked = Boolean(client.connection()?.chat);
+    if (client.connection()?.videoModel)
+      $("openrouter-video-model").value = client.connection().videoModel;
     status.textContent =
       message ||
       (connected

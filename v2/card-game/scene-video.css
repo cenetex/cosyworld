@@ -77,12 +77,15 @@
     opacity: 1;
   }
 }
-@media (max-width: 380px) {
+@media (max-width: 700px) {
   .topbar .brand {
     display: block;
   }
   .topbar .top-actions {
     width: auto;
+  }
+  .topbar {
+    justify-content: space-between;
   }
 }
 @media (prefers-reduced-motion: reduce) {
