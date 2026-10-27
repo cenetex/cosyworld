@@ -210,6 +210,8 @@ try {
 
   // Complete the authored signal, then use the real Board and Disembark cards.
   let ship = createWorld({ opening: true });
+  // Keep the music fixture's ship trip separate from the bard's first voyage.
+  ship.actors["greek-rhapsode"].place = "attic";
   ship.opening.crossed = true;
   ship.opening.met.moth = 0;
   ship.locations.attic.anchored = true;
