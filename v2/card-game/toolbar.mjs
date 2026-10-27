@@ -1,5 +1,6 @@
 import { humanAvatars } from "./human-cast.mjs";
 import { places } from "./world.mjs";
+import { levelOf } from "./quests.mjs";
 
 const icons = {
   worlds:
@@ -10,6 +11,8 @@ const icons = {
   players:
     '<circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6m2 3a5 5 0 0 1 3 4v2"/>',
   menu: '<path d="M5 6h14M5 12h14M5 18h14"/>',
+  settings:
+    '<path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3" fill="#141b22"/><circle cx="15" cy="17" r="3" fill="#141b22"/>',
 };
 
 function element(tag, className, text) {
@@ -39,6 +42,7 @@ export function onlinePlayers(state) {
         {
           ...avatar,
           location: places[place]?.name || "Exploring the world",
+          level: levelOf(state.world, avatar.id),
           self: avatar.id === state.actor,
         },
       ];
@@ -57,13 +61,44 @@ export function installToolbar({ session, getWorld }) {
   const toolbar = document.querySelector(".top-actions");
   toolbar.setAttribute("role", "group");
   toolbar.setAttribute("aria-label", "World controls");
+  const menuButton = element("button", "world-menu-toggle");
+  menuButton.id = "toolbar-menu-button";
+  decorate(menuButton, "menu", "Menu");
+  const menu = element("nav", "world-menu");
+  menu.id = "world-menu";
+  menu.setAttribute("popover", "auto");
+  menu.setAttribute("aria-label", "Menu");
+  menuButton.setAttribute("popovertarget", menu.id);
+  menuButton.setAttribute("aria-controls", menu.id);
+  menuButton.setAttribute("aria-expanded", "false");
+  menu.addEventListener("toggle", () => {
+    menuButton.setAttribute(
+      "aria-expanded",
+      String(menu.matches(":popover-open")),
+    );
+    document.dispatchEvent(new Event("shared-dialog-change"));
+  });
+  menu.addEventListener(
+    "click",
+    (event) => {
+      if (!event.target.closest("button")) return;
+      menu.hidePopover();
+      menuButton.focus();
+    },
+    true,
+  );
   for (const [id, icon, label] of [
     ["owned-worlds-button", "worlds", "Worlds"],
     ["shared-worlds-button", "share", "Share"],
     ["history-button", "conversation", "Conversation"],
-    ["menu-button", "menu", "Menu"],
-  ])
-    decorate(document.getElementById(id), icon, label);
+    ["menu-button", "settings", "Settings"],
+  ]) {
+    const button = document.getElementById(id);
+    decorate(button, icon, label);
+    menu.append(button);
+  }
+  document.body.append(menu);
+  toolbar.append(menuButton);
 
   const toggle = element("button", "players-button");
   toggle.id = "players-button";
@@ -74,7 +109,7 @@ export function installToolbar({ session, getWorld }) {
   toggle.setAttribute("aria-haspopup", "dialog");
   toggle.setAttribute("aria-controls", "players-dialog");
   toggle.setAttribute("aria-expanded", "false");
-  toolbar.insertBefore(toggle, document.getElementById("history-button"));
+  toolbar.append(toggle);
 
   const dialog = element("dialog", "players-dialog");
   dialog.id = "players-dialog";
@@ -123,6 +158,7 @@ export function installToolbar({ session, getWorld }) {
           {
             ...humanAvatars[0],
             self: true,
+            level: levelOf(local, "vale"),
             location:
               places[local.actors.vale.place]?.name || "Exploring the world",
           },
@@ -157,7 +193,12 @@ export function installToolbar({ session, getWorld }) {
       const copy = element("div", "player-copy");
       const name = element("strong", "player-name", player.name);
       if (player.self) name.append(element("span", "player-you", "You"));
-      copy.append(name, element("span", "player-location", player.location));
+      const details = element("span", "player-details");
+      details.append(
+        element("span", "player-level", `Level ${player.level}`),
+        element("span", "player-location", player.location),
+      );
+      copy.append(name, details);
       row.append(portrait, copy);
       list.append(row);
     }

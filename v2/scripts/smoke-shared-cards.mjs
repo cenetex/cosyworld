@@ -365,6 +365,7 @@ try {
   const [vale, mara, ash, nell, tavi, rue] = pages;
   await vale.reload();
   await dismissDiscoveries(vale);
+  await vale.locator("#toolbar-menu-button").click();
   await vale.locator("#shared-worlds-button").click();
   await vale
     .getByRole("button", { name: "Share this world", exact: true })
@@ -862,7 +863,7 @@ try {
         ),
       "reconnected game finishes rendering",
     );
-    await page.locator("#shared-worlds-button").waitFor({ state: "visible" });
+    await page.locator("#toolbar-menu-button").waitFor({ state: "visible" });
     await until(
       async () =>
         await page

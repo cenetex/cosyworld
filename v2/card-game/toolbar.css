@@ -2,11 +2,10 @@
 .topbar .top-actions {
   width: auto;
   gap: 2px;
-  padding: 3px;
-  border: 1px solid #ded1b326;
-  border-radius: 14px;
-  background: #10151cdb;
-  box-shadow: 0 4px 24px #0003;
+  padding: 0;
+  border: 1px solid #ded1b31a;
+  border-radius: 10px;
+  background: #10151cb3;
   backdrop-filter: blur(16px);
 }
 .topbar .top-actions button {
@@ -16,7 +15,7 @@
   gap: 7px;
   min-width: 44px;
   min-height: 44px;
-  padding: 0 12px;
+  padding: 0 10px;
   border: 0;
   border-radius: 10px;
   background: transparent;
@@ -44,6 +43,44 @@
 .toolbar-icon {
   color: #c7c4bd;
 }
+.top-actions .toolbar-label {
+  display: none;
+}
+.world-menu {
+  position: fixed;
+  inset: 60px 20px auto auto;
+  margin: 0;
+  padding: 6px;
+  width: 190px;
+  max-width: calc(100vw - 20px);
+  max-height: calc(100dvh - 70px);
+  overflow: auto;
+  border: 1px solid #ded1b326;
+  border-radius: 12px;
+  background: #141b22f5;
+  color: var(--ink);
+  box-shadow: 0 12px 36px #0005;
+  backdrop-filter: blur(16px);
+}
+.world-menu button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  font-size: 13px;
+  text-align: left;
+}
+.world-menu button:hover {
+  background: #e1d2af13;
+}
+.world-menu button:focus-visible {
+  outline-offset: -2px;
+}
 .player-count {
   display: inline-flex;
   align-items: center;
@@ -60,7 +97,7 @@
   border-radius: 50%;
   background: #9bcab0;
 }
-.topbar .top-actions #menu-button {
+.topbar .top-actions #players-button {
   border-left: 1px solid #ded1b326;
   border-radius: 0 10px 10px 0;
 }
@@ -134,6 +171,17 @@
   font-size: 13px;
   overflow-wrap: anywhere;
 }
+.player-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 9px;
+  align-items: baseline;
+}
+.player-level {
+  color: var(--gold);
+  font-size: 12px;
+  white-space: nowrap;
+}
 .players-dialog .players-hint {
   color: #aaa8a5;
   font-size: 12px;
@@ -158,8 +206,9 @@
   .topbar .top-actions button {
     padding: 0 10px;
   }
-  .top-actions button:not(.players-button) .toolbar-label {
-    display: none;
+  .world-menu {
+    right: 10px;
+    top: 56px;
   }
 }
 @media (max-width: 380px) {

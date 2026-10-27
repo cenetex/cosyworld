@@ -341,7 +341,7 @@ const playQueue = createPlayQueue({
     reveal.complete &&
     !selectionBlocked() &&
     !document.hidden &&
-    !document.querySelector("dialog[open]"),
+    !document.querySelector("dialog[open], .world-menu:popover-open"),
   play: performAction,
   changed: (pending) => {
     notice(
@@ -521,7 +521,8 @@ reducedMotion.addEventListener("change", () => {
 function pauseSpeech() {
   pauseDiscovery();
   const paused =
-    document.hidden || Boolean(document.querySelector("dialog[open]"));
+    document.hidden ||
+    Boolean(document.querySelector("dialog[open], .world-menu:popover-open"));
   if (sharedSession)
     sharedPlayback.now(
       sharedSession.state,
@@ -889,9 +890,9 @@ function cancelDiscovery() {
 function discoveryPaused() {
   return (
     document.hidden ||
-    [...document.querySelectorAll("dialog[open]")].some(
-      (dialog) => dialog.id !== "unveil-dialog",
-    )
+    [
+      ...document.querySelectorAll("dialog[open], .world-menu:popover-open"),
+    ].some((dialog) => dialog.id !== "unveil-dialog")
   );
 }
 function armDiscovery(delay) {
@@ -1024,7 +1025,8 @@ async function showDiscovered(id, version, announcement, fulfilled = false) {
   );
   while (
     version === trip &&
-    (document.hidden || document.querySelector("dialog[open]"))
+    (document.hidden ||
+      document.querySelector("dialog[open], .world-menu:popover-open"))
   ) {
     await new Promise((resolve) => {
       wakeDiscovery = resolve;
@@ -1105,7 +1107,8 @@ async function presentQuestNotice() {
     await prepareStage();
     while (
       version === trip &&
-      (document.hidden || document.querySelector("dialog[open]"))
+      (document.hidden ||
+        document.querySelector("dialog[open], .world-menu:popover-open"))
     ) {
       await new Promise((resolve) => {
         wakeDiscovery = resolve;
@@ -1181,7 +1184,10 @@ async function unveilNew() {
   try {
     await prepareStage();
     for (const id of found) {
-      if (document.hidden || document.querySelector("dialog[open]")) {
+      if (
+        document.hidden ||
+        document.querySelector("dialog[open], .world-menu:popover-open")
+      ) {
         await new Promise((resolve) => {
           wakeDiscovery = resolve;
         });
@@ -2313,7 +2319,7 @@ $("stage").addEventListener("drop", (e) => {
 document.addEventListener("keydown", (e) => {
   if (
     e.key === "Escape" &&
-    !document.querySelector("dialog[open]") &&
+    !document.querySelector("dialog[open], .world-menu:popover-open") &&
     (selected.length || expandedHolders.size)
   ) {
     playQueue.clear();
@@ -2332,7 +2338,7 @@ document.addEventListener("click", (e) => {
         (element) =>
           element instanceof Element &&
           element.matches(
-            ".play-dock, .card-frame, dialog, .topbar, .dialogue",
+            ".play-dock, .card-frame, dialog, .topbar, .dialogue, .world-menu",
           ),
       )
   ) {
@@ -2555,7 +2561,8 @@ function syncSharedLine() {
     sharedSession.state,
     sharedSession.now(),
     room,
-    document.hidden || Boolean(document.querySelector("dialog[open]")),
+    document.hidden ||
+      Boolean(document.querySelector("dialog[open], .world-menu:popover-open")),
   );
   const live = sharedLiveLine(sharedSession.state, playbackTime, room);
   if (!live) return;

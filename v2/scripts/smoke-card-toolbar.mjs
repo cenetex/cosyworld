@@ -87,7 +87,7 @@ try {
           };
         }),
       );
-    assert.equal(bounds.length, 5);
+    assert.equal(bounds.length, 2);
     for (const box of bounds) {
       assert(box.x >= 0 && box.right <= width, `${box.id} fits at ${width}`);
       assert(
@@ -99,6 +99,26 @@ try {
     await page.screenshot({
       path: new URL(`toolbar-${width}.png`, output).pathname,
     });
+    const menuToggle = page.locator("#toolbar-menu-button");
+    await menuToggle.focus();
+    await page.keyboard.press("Enter");
+    const menu = page.locator("#world-menu");
+    await menu.waitFor({ state: "visible" });
+    assert.deepEqual(await menu.locator("button").allTextContents(), [
+      "Worlds",
+      "Share",
+      "Conversation",
+      "Settings",
+    ]);
+    await page.screenshot({
+      path: new URL(`menu-${width}.png`, output).pathname,
+    });
+    await page.keyboard.press("Escape");
+    await menu.waitFor({ state: "hidden" });
+    await menuToggle.click();
+    // A real pointer press outside the popover performs light dismissal.
+    await page.mouse.click(5, 100);
+    await menu.waitFor({ state: "hidden" });
     await toggle.focus();
     await page.keyboard.press("Enter");
     const dialog = page.locator("#players-dialog");
@@ -108,9 +128,9 @@ try {
     assert.equal(await dialog.locator(".player-row").count(), 3);
     assert.match(
       await dialog.locator(".player-row").first().innerText(),
-      /Vale.*You\s+Black pond/s,
+      /Vale.*You\s+Level 1\s+Black pond/s,
     );
-    assert.match(await dialog.innerText(), /Mara\s+Empty station/);
+    assert.match(await dialog.innerText(), /Mara\s+Level 1\s+Empty station/);
     await page.screenshot({
       path: new URL(`players-${width}.png`, output).pathname,
     });
@@ -156,9 +176,14 @@ try {
       ["menu-button", "menu-dialog"],
       ["history-button", "history-dialog"],
     ]) {
+      await menuToggle.click();
       await page.locator(`#${button}`).click();
+      await menu.waitFor({ state: "hidden" });
       assert(await page.locator(`#${target}`).evaluate((node) => node.open));
       await page.keyboard.press("Escape");
+      await page.waitForFunction(
+        () => document.activeElement?.id === "toolbar-menu-button",
+      );
     }
     assert.deepEqual(errors, []);
     await page.close();

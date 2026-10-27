@@ -19,7 +19,7 @@
       <div class="brand">COSYWORLD <span>The reflected shore</span></div>
       <div class="top-actions">
         <button id="history-button">Conversation</button
-        ><button id="menu-button">Menu</button>
+        ><button id="menu-button">Settings</button>
       </div>
     </header>
     <p id="notice" class="notice" role="status" hidden></p>
@@ -161,9 +161,9 @@
       <div id="messages" class="messages"></div>
       <button id="export-script">Save conversation</button>
     </dialog>
-    <dialog id="menu-dialog">
+    <dialog id="menu-dialog" aria-labelledby="settings-title">
       <div class="modal-heading">
-        <h2>The reflected shore</h2>
+        <h2 id="settings-title">Settings</h2>
         <button data-close="menu-dialog">Close</button>
       </div>
       <details class="controls-help">

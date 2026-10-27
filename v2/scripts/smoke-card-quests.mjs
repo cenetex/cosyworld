@@ -205,6 +205,7 @@ try {
         "true",
       );
       if (width === 390) {
+        await page.locator("#toolbar-menu-button").click();
         await page.locator("#menu-button").click();
         await page.emulateMedia({ reducedMotion: "reduce" });
         await page.waitForTimeout(2500);
@@ -324,6 +325,7 @@ try {
       );
       assert.deepEqual(await page.evaluate(() => window.questReveals), []);
       // Reset restores the opening reveal; a save update safely cancels that reveal.
+      await page.locator("#toolbar-menu-button").click();
       await page.locator("#menu-button").click();
       await page.locator("#new-game").click();
       await page.locator("#confirm-reset").click();
