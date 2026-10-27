@@ -174,7 +174,8 @@ try {
   const blocked = await view(vale);
   assert.equal(blocked.world.presentActors.length, 5);
   assert.equal(blocked.world.actors.vale.place, "greek-eleusis");
-  assert.deepEqual(blocked.exits, []);
+  assert.ok(!blocked.exits.includes("greek-athens"));
+  assert.ok(blocked.exits.includes("greek-piraeus"));
   const oldAction = agoraView(crowdedAgoraWorld(), ["vale"]).actions.find(
     (a) => a.kind === "move" && a.target === "greek-athens",
   );
@@ -185,13 +186,45 @@ try {
   });
   assert.equal(denied.status, 409, JSON.stringify(denied.body));
   evidence.checks.push({
-    name: "five authenticated members; full Agora blocks sole exit",
+    name: "five authenticated members; full Agora preserves the coastal road",
     present: blocked.world.presentActors,
     exits: blocked.exits,
     denied,
   });
   await vale.reload();
-  assert.deepEqual((await view(vale)).exits, []);
+  assert.ok(!(await view(vale)).exits.includes("greek-athens"));
+  // Traverse every spoke with the four other people still in Agora.
+  // Every return segment is one of the authored roads to the harbor.
+  for (const destination of [
+    "colonus",
+    "marathon",
+    "colonus",
+    "eleusis",
+    "piraeus",
+    "harbor",
+    "piraeus",
+    "eleusis",
+  ]) {
+    const state = await view(vale);
+    assert.ok(!state.exits.includes("greek-athens"));
+    const action = state.actions.find(
+      (a) => a.kind === "move" && a.target === `greek-${destination}`,
+    );
+    assert.ok(action, `the side road to ${destination} is offered`);
+    await command(vale, { op: "play", key: crypto.randomUUID(), action });
+    await until(
+      async () => !(await view(vale)).queue.length,
+      `side road to ${destination}`,
+    );
+    const next = await view(vale);
+    assert.equal(next.world.actors.vale.place, `greek-${destination}`);
+    for (const id of agoraVisitors.slice(1))
+      assert.equal(next.world.actors[id].place, "greek-athens");
+  }
+  evidence.checks.push({
+    name: "four spokes connect to the harbor around four present people in Agora",
+    passed: true,
+  });
   await command(tavi, { op: "leave" });
   const open = await view(vale);
   assert.ok(open.exits.includes("greek-athens"));
@@ -214,7 +247,7 @@ try {
   );
   await command(tavi, { op: "enter" });
   assert.equal((await view(tavi)).world.presentActors.includes("tavi"), true);
-  assert.deepEqual((await view(vale)).exits, []);
+  assert.ok(!(await view(vale)).exits.includes("greek-athens"));
   evidence.checks.push({
     name: "leave restores road; full room delays re-entry; freed place admits re-entry",
     passed: true,
@@ -236,7 +269,7 @@ try {
     turn: replayed.world.turn,
   });
   console.log(
-    "Agora capacity: five passkeys, blocked exit, leave/rejoin, reload, and server replay passed.",
+    "Agora capacity: five passkeys, four side routes, room limit, leave/rejoin, reload, and server replay passed.",
   );
 } finally {
   await writeFile(
