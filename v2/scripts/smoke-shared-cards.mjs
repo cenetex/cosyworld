@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { selectCard } from "./card-browser-helpers.mjs";
 import { mkdtemp, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -544,9 +545,7 @@ try {
   await idle(mara);
   await mara.locator('#hand [data-card="pond"]').waitFor();
   const earlierTravel = await actionFor(mara, "move", "pond");
-  await mara.locator('#hand [data-card="mara"]').click();
-  await mara.locator('#hand [data-card="mara"]').click();
-  await mara.locator('#hand [data-card="mask"]').click();
+  await selectCard(mara, "mask");
   await mara.locator('#hand [data-card="theatre"]').click();
   await mara.getByRole("button", { name: "Put down", exact: true }).click();
   await until(
