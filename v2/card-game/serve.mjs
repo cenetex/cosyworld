@@ -5,9 +5,18 @@ import { fileURLToPath } from "node:url";
 import { publicAssets } from "./public-assets.mjs";
 
 const assets = new Map(
-  publicAssets.map(({ file, contentType }) => [`/${file}`, [file, contentType]]),
+  publicAssets.map(({ file, contentType }) => [
+    `/${file}`,
+    [file, contentType],
+  ]),
 );
 assets.set("/", assets.get("/index.html"));
+function storyBudget() {
+  const value = Number(process.env.COSYWORLD_CARD_STORY_BUDGET_MS || 30_000);
+  return Number.isFinite(value)
+    ? Math.max(30_000, Math.min(value, 1_900_000))
+    : 30_000;
+}
 export function createServer() {
   return http.createServer(async (req, res) => {
     const pathname = new URL(req.url, "http://localhost").pathname;
@@ -47,7 +56,10 @@ export function createServer() {
             Accept: req.headers.accept || "application/json",
           },
           body: Buffer.concat(chunks),
-          signal: AbortSignal.any([abort.signal, AbortSignal.timeout(28_000)]),
+          signal: AbortSignal.any([
+            abort.signal,
+            AbortSignal.timeout(storyBudget() - 2_000),
+          ]),
         });
         res.writeHead(response.status, {
           "Content-Type":
@@ -80,7 +92,16 @@ export function createServer() {
       return;
     }
     try {
-      const body = await readFile(new URL(asset[0], import.meta.url));
+      let body = await readFile(new URL(asset[0], import.meta.url));
+      if (asset[0] === "index.html")
+        body = Buffer.from(
+          body
+            .toString()
+            .replace(
+              'name="cosy-story-budget-ms" content="30000"',
+              `name="cosy-story-budget-ms" content="${storyBudget()}"`,
+            ),
+        );
       const headers = {
         "Content-Type": asset[1],
         "Cache-Control": "no-store",

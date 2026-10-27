@@ -1,6 +1,11 @@
 {
+  "reflectionRoutes": [
+    { "from": "attic", "to": "pond" },
+    { "from": "pond", "to": "attic" }
+  ],
   "places": {
     "station": {
+      "sanctuary": true,
       "name": "Empty station",
       "text": "The timetable lists years that have yet to happen. Stairs lead to the attic; a path leads to the pond.",
       "exits": [
@@ -9,6 +14,7 @@
       ]
     },
     "attic": {
+      "sanctuary": true,
       "name": "Mirror attic",
       "text": "A tall mirror reflects a black shore. The stairs lead to the station.",
       "exits": [

@@ -1,5 +1,6 @@
 import {
   connectSharedWorld,
+  createSharedPlaybackClock,
   installSharedControls,
   renderSharedQueue,
   sharedLiveLine,
@@ -35,6 +36,7 @@ import {
   play,
   encodeSave,
   decodeSave,
+  legalActions,
 } from "./world.mjs";
 import { packPlaces, packOf } from "./pack-registry.mjs";
 import { variantOf } from "./pack-rules.mjs";
@@ -61,10 +63,13 @@ import {
 } from "./cards.mjs";
 import { knownActors } from "./quests.mjs";
 import {
-  isQuestCard,
-  activeQuests,
-  fulfilledQuests,
+  QUEST_CARD,
+  playerQuest,
   questHand,
+  questCards,
+  questForCard,
+  questCardId,
+  isQuestCard,
 } from "./quest-cards.mjs";
 const $ = (id) => document.getElementById(id);
 const tableName = new URLSearchParams(window.location.search).get("table");
@@ -72,6 +77,7 @@ const sharedWorldId = new URLSearchParams(location.search).get("world");
 const sharedSession = sharedWorldId
   ? await connectSharedWorld(sharedWorldId)
   : null;
+const sharedPlayback = createSharedPlaybackClock();
 const SAVE_KEY =
   "cosyworld.reflected-shore.v1" +
   (sharedSession
@@ -87,6 +93,7 @@ let world = sharedSession
       }),
   selected = [],
   expandedHolders = new Set(),
+  expandedQuestHolders = new Set(),
   saveBlocked = false,
   lineSeq = null,
   selectionRevision = 0,
@@ -129,6 +136,8 @@ function node(tag, text, className) {
   return el;
 }
 function notice(text) {
+  // Saved speech failures use the small dialogue retry control.
+  if (/^(The|Your) play is saved\./.test(text)) return;
   $("notice").textContent = text;
   $("notice").hidden = !text;
 }
@@ -146,7 +155,8 @@ try {
 const SEEN_KEY = `${SAVE_KEY}.seen`;
 let encountered = new Set(),
   discoveryDone = Promise.resolve(),
-  discoveryPending = false;
+  discoveryPending = false,
+  queuedDiscoveries = 0;
 const fresh = new Set();
 function rememberCards() {
   try {
@@ -173,7 +183,7 @@ let questSeen = new Set(),
   questRead = new Set(),
   completedQuests = [],
   questNoticeRunning = false,
-  questMotion = null;
+  questNoticeDone = Promise.resolve();
 function loadQuestSeen(reset = false) {
   let saved;
   try {
@@ -199,17 +209,46 @@ function rememberQuests() {
     );
   } catch {}
 }
-const shownQuests = () =>
-  [...completedQuests, ...activeQuests(world)].filter(
-    (quest, index, all) =>
-      all.findIndex((other) => other.id === quest.id) === index,
-  );
+const personalNotice = () =>
+  completedQuests.find(
+    (quest) => !quest.story && quest.actor === currentActor(world),
+  ) || null;
 const shownQuest = (id) =>
-  id ? shownQuests().find((quest) => quest.id === id) : shownQuests()[0];
+  id
+    ? questForCard(world, id, personalNotice())
+    : personalNotice() || playerQuest(world);
+const shownQuests = () =>
+  questCards(world).map((quest) => ({
+    ...quest,
+    id: questCardId(world, quest, personalNotice()),
+  }));
+function visibleQuests(state) {
+  const records = new Map();
+  for (const holder of [currentActor(state), ...availableCards(state)])
+    for (const quest of questCards(state, holder))
+      if (!records.has(quest.key))
+        records.set(quest.key, {
+          ...quest,
+          id: questCardId(state, quest, personalNotice()),
+        });
+  return records;
+}
 function queueQuestCompletions(before, after) {
-  for (const quest of fulfilledQuests(before, after))
-    if (!completedQuests.some((done) => done.key === quest.key))
-      completedQuests.push(quest);
+  const previous = visibleQuests(before);
+  for (const quest of visibleQuests(after).values())
+    if (
+      quest.status === "fulfilled" &&
+      previous.has(quest.key) &&
+      previous.get(quest.key).status !== "fulfilled" &&
+      !completedQuests.some((done) => done.key === quest.key)
+    )
+      completedQuests.push({
+        ...quest,
+        id:
+          quest.actor === currentActor(after) && !quest.story
+            ? QUEST_CARD
+            : quest.id,
+      });
 }
 loadQuestSeen();
 function save() {
@@ -223,7 +262,7 @@ function save() {
   }
 }
 let storyStatus = "ready",
-  storyError = "",
+  storyRetrying = false,
   renderedCast = "",
   renderedHand = "",
   renderedHandRevision = null,
@@ -473,17 +512,25 @@ reducedMotion.addEventListener("change", () => {
     speechSounds.stop();
     actionPanelMotion?.finish();
     for (const motion of handMotions.values()) motion.finish();
+    for (const motion of $("unveil-take").getAnimations()) motion.finish();
   }
 });
 function pauseSpeech() {
+  pauseDiscovery();
   const paused =
     document.hidden || Boolean(document.querySelector("dialog[open]"));
+  if (sharedSession)
+    sharedPlayback.now(
+      sharedSession.state,
+      sharedSession.now(),
+      world.actors[currentActor(world)].place,
+      paused,
+    );
   reveal.pause(paused);
   exchange.pause(paused);
   for (const animation of [
     ...$("cast").getAnimations({ subtree: true }),
     ...$("speech-row").getAnimations(),
-    ...(questMotion ? [questMotion] : []),
   ]) {
     if (paused) animation.pause();
     else if (animation.playState === "paused") animation.play();
@@ -597,26 +644,34 @@ const narrator = createNarrator({
     exchange.load(lines);
     render();
   },
-  status: (value, error) => {
+  status: (value) => {
     storyStatus = value;
-    storyError = error?.message || "Dialogue is unavailable.";
     if (value === "pending" && !exchange.active) exchange.begin();
     if (value === "retry") exchange.cancel();
     renderScene();
   },
 });
 $("story-retry").onclick = async () => {
-  if (!sharedSession) return narrator.retry();
+  if (storyRetrying) return;
   const room = world.actors[currentActor(world)].place;
-  const { retryKey } = sharedSpeechState(sharedSession.state, room);
-  if (!retryKey) return;
-  $("story-retry").disabled = true;
+  const retryKey = sharedSession
+    ? sharedSpeechState(sharedSession.state, room).retryKey
+    : null;
+  if (sharedSession && !retryKey) return;
+  const retryRevision = world.revision;
+  const retryTrip = trip;
+  storyRetrying = true;
+  notice("");
+  renderScene();
   try {
-    await sharedSession.command({ op: "retry", key: retryKey });
-  } catch (error) {
-    notice(error.message);
+    if (sharedSession)
+      await sharedSession.command({ op: "retry", key: retryKey });
+    else await narrator.retry();
+  } catch {
+    if (world.revision === retryRevision && trip === retryTrip)
+      storyStatus = "retry";
   } finally {
-    $("story-retry").disabled = false;
+    storyRetrying = false;
     renderScene();
   }
 };
@@ -625,10 +680,19 @@ function choose(id) {
   playQueue.clear();
   fresh.delete(id);
   if (isQuestCard(id)) {
-    questRead.add(shownQuest(id).key);
+    const quest = questForCard(world, id, shownQuest());
+    if (!quest) return;
+    questRead.add(quest.key);
     rememberQuests();
-    selected = selected.includes(id) ? [] : [id];
+    if (selected.includes(id)) {
+      selected = [];
+      expandedQuestHolders.delete(quest.actor);
+    } else {
+      selected = [id];
+      expandedQuestHolders.add(quest.actor);
+    }
   } else {
+    expandedQuestHolders.clear();
     selected = selected.filter((cardId) => !isQuestCard(cardId));
     selected = selected.includes(id)
       ? selected.filter((cardId) => cardId !== id)
@@ -728,8 +792,6 @@ let covering = false,
   revealTravel = () => {};
 function cancelTravel() {
   trip++;
-  questMotion?.cancel();
-  questMotion = null;
   questNoticeRunning = false;
   cancelDiscovery();
   covering = false;
@@ -809,26 +871,75 @@ function cancelDiscovery() {
   endDiscovery = null;
   discoveryFlying = false;
 }
+function discoveryPaused() {
+  return (
+    document.hidden ||
+    [...document.querySelectorAll("dialog[open]")].some(
+      (dialog) => dialog.id !== "unveil-dialog",
+    )
+  );
+}
 function armDiscovery(delay) {
   clearTimeout(discoveryTimer);
   discoveryRemaining = delay;
   discoveryDue = performance.now() + delay;
-  discoveryTimer = document.hidden ? null : setTimeout(takeDiscovered, delay);
+  discoveryTimer = discoveryPaused() ? null : setTimeout(takeDiscovered, delay);
 }
 function pauseDiscovery() {
   if (!$("unveil-dialog").open) return;
-  if (document.hidden && discoveryTimer !== null) {
+  const paused = discoveryPaused();
+  if (paused && discoveryTimer !== null) {
     discoveryRemaining = Math.max(0, discoveryDue - performance.now());
     clearTimeout(discoveryTimer);
     discoveryTimer = null;
-  } else if (!document.hidden && !discoveryFlying)
-    armDiscovery(discoveryRemaining);
+  } else if (!paused && !discoveryFlying) armDiscovery(discoveryRemaining);
   for (const animation of $("unveil-take").getAnimations()) {
-    if (document.hidden) animation.pause();
+    if (paused) animation.pause();
     else if (animation.playState === "paused") animation.play();
   }
 }
 document.addEventListener("visibilitychange", pauseDiscovery);
+function discoveryAnchor(id, holder) {
+  const find = (key) => $("hand").querySelector(`[data-card="${key}"]`);
+  let target = find(id) || find(holder);
+  const visited = new Set();
+  while (target) {
+    const frame = target.closest(".card-frame");
+    if (!frame.hidden && frame.dataset.stacked !== "true") return target;
+    const owner = frame.dataset.holder || holder || rootHolder(world, id);
+    if (!owner || visited.has(owner)) break;
+    visited.add(owner);
+    target = find(owner);
+  }
+  return null;
+}
+async function flyCard(shown, target, outward = false) {
+  if (!target || reducedMotion.matches) return;
+  const hand = $("hand"),
+    visible = hand.getBoundingClientRect();
+  const cardBounds = target.getBoundingClientRect();
+  hand.scrollLeft +=
+    cardBounds.left < visible.left
+      ? cardBounds.left - visible.left
+      : cardBounds.right > visible.right
+        ? cardBounds.right - visible.right
+        : 0;
+  const start = shown.getBoundingClientRect(),
+    end = target.getBoundingClientRect();
+  const centered = { transform: "translate(0, 0) scale(1)", opacity: 1 };
+  const held = {
+    transform: `translate(${end.x - start.x}px, ${end.y - start.y}px) scale(${end.width / start.width}, ${end.height / start.height})`,
+    opacity: 0.65,
+  };
+  $("unveil-dialog").dataset.phase = outward ? "outward" : "flight";
+  const animation = shown.animate(
+    outward ? [held, centered] : [centered, held],
+    { duration: 480, easing: "cubic-bezier(.3,.05,.4,1)", fill: "forwards" },
+  );
+  pauseDiscovery();
+  await animation.finished.catch(() => {});
+  animation.cancel();
+}
 async function takeDiscovered() {
   if (!endDiscovery || discoveryFlying) return;
   clearTimeout(discoveryTimer);
@@ -838,41 +949,22 @@ async function takeDiscovered() {
     done = endDiscovery;
   const dialog = $("unveil-dialog"),
     shown = $("unveil-take");
-  const id = shown.dataset.card;
-  let target = $("hand").querySelector(`[data-card="${id}"]`);
-  if (target?.closest(".card-frame").hidden) {
-    target = $("hand").querySelector(
-      `[data-card="${isQuestCard(id) ? currentActor(world) : rootHolder(world, id)}"]`,
+  if (dialog.dataset.direction === "fulfill") {
+    if (!reducedMotion.matches) {
+      dialog.dataset.phase = "settle";
+      const animation = shown.animate(
+        { opacity: [1, 0] },
+        { duration: 200, fill: "forwards" },
+      );
+      pauseDiscovery();
+      await animation.finished.catch(() => {});
+      animation.cancel();
+    }
+  } else
+    await flyCard(
+      shown,
+      discoveryAnchor(shown.dataset.card, shown.dataset.owner),
     );
-  }
-  if (target && !reducedMotion.matches) {
-    const hand = $("hand"),
-      visible = hand.getBoundingClientRect(),
-      cardBounds = target.getBoundingClientRect();
-    const left =
-      cardBounds.left < visible.left
-        ? cardBounds.left - visible.left
-        : cardBounds.right > visible.right
-          ? cardBounds.right - visible.right
-          : 0;
-    hand.scrollLeft += left;
-    const start = shown.getBoundingClientRect(),
-      end = target.getBoundingClientRect();
-    dialog.dataset.phase = "flight";
-    const animation = shown.animate(
-      [
-        { transform: "translate(0, 0) scale(1)", opacity: 1 },
-        {
-          transform: `translate(${end.x - start.x}px, ${end.y - start.y}px) scale(${end.width / start.width}, ${end.height / start.height})`,
-          opacity: 0.65,
-        },
-      ],
-      { duration: 480, easing: "cubic-bezier(.3,.05,.4,1)", fill: "forwards" },
-    );
-    if (document.hidden) animation.pause();
-    await animation.finished.catch(() => {});
-    animation.cancel();
-  }
   if (version !== trip || done !== endDiscovery) return;
   dialog.close();
   shown.replaceChildren();
@@ -889,10 +981,12 @@ $("unveil-dialog").addEventListener("cancel", (event) => {
   event.preventDefault();
   void takeDiscovered();
 });
-async function showDiscovered(id, version, announcement) {
+async function showDiscovered(id, version, announcement, fulfilled = false) {
   const shown = card(id);
+  const revealedQuest = isQuestCard(id) ? shownQuest(id) : null;
   shown.hidden = false;
   shown.removeAttribute("data-holder");
+  shown.removeAttribute("data-stacked");
   shown.dataset.raised = "false";
   shown
     .querySelectorAll(".held-preview, .quest-preview, .sr-only")
@@ -907,7 +1001,7 @@ async function showDiscovered(id, version, announcement) {
   shown
     .querySelectorAll("[id]")
     .forEach((element) => element.removeAttribute("id"));
-  if (isQuestCard(id))
+  if (revealedQuest && !fulfilled)
     display.querySelector(".quest-mark").textContent = "New quest";
   await waitForScene(
     [...shown.querySelectorAll("img")].map((img) => img.decode()),
@@ -926,18 +1020,32 @@ async function showDiscovered(id, version, announcement) {
   const dialog = $("unveil-dialog"),
     button = $("unveil-take");
   button.dataset.card = id;
+  button.dataset.owner = revealedQuest?.actor || "";
   button.setAttribute(
     "aria-label",
-    `${announcement} ${isQuestCard(id) ? shownQuest(id).purpose + " " : ""}Add to hand.`,
+    `${announcement} ${revealedQuest ? revealedQuest.purpose + " " : ""}${fulfilled ? "Keep in quest history." : "Add to hand."}`,
   );
   button.replaceChildren(shown);
   dialog.dataset.phase = "reveal";
+  dialog.dataset.direction = fulfilled ? "fulfill" : "discover";
+  dialog.setAttribute(
+    "aria-label",
+    fulfilled ? "Quest fulfilled" : "New card discovered",
+  );
   const finished = new Promise((resolve) => {
     endDiscovery = resolve;
   });
-  dialog.showModal();
-  if (isQuestCard(id)) {
-    questSeen.add(shownQuest(id).key);
+  if (fulfilled) dialog.show();
+  else dialog.showModal();
+  if (fulfilled) {
+    discoveryFlying = true;
+    await flyCard(button, discoveryAnchor(id, revealedQuest?.actor), true);
+    if (version !== trip) return;
+    discoveryFlying = false;
+    dialog.dataset.phase = "reveal";
+  }
+  if (revealedQuest) {
+    questSeen.add(revealedQuest.key);
     rememberQuests();
   }
   $("discovery-announcement").textContent = announcement;
@@ -953,13 +1061,22 @@ async function showDiscovered(id, version, announcement) {
   );
   await finished;
 }
-async function showQuestNotice() {
+function showQuestNotice() {
+  if (questNoticeRunning) return questNoticeDone;
+  questNoticeDone = presentQuestNotice();
+  return questNoticeDone;
+}
+async function presentQuestNotice() {
   const quest =
-    completedQuests[0] || shownQuests().find((q) => !questSeen.has(q.key));
+    completedQuests[0] ||
+    shownQuests().find(
+      (q) => q.status !== "fulfilled" && !questSeen.has(q.key),
+    );
   if (
     saveBlocked ||
     !quest ||
     questNoticeRunning ||
+    queuedDiscoveries > 0 ||
     exchange.active ||
     discoveryPending ||
     (!completedQuests.length && questSeen.has(quest.key))
@@ -982,39 +1099,28 @@ async function showQuestNotice() {
     }
     if (version !== trip) return;
     if (completedQuests.length) {
-      // The fulfilled card gets a short moment in the hand, then folds into Vale.
-      expandedHolders.add(currentActor(world));
-      selected = [quest.id];
-      render();
-      revealHandCard(quest.id);
-      $("discovery-announcement").textContent =
-        `${quest.title}. ${quest.completion || "Fulfilled"}.`;
-      const frame = $("hand")
-        .querySelector(`[data-card="${quest.id}"]`)
-        .closest(".card-frame");
-      questMotion = frame.animate({ opacity: [1, 1] }, { duration: 2200 });
-      pauseSpeech();
-      await questMotion.finished.catch(() => {});
-      if (version !== trip) return;
-      if (!reducedMotion.matches) {
-        questMotion = frame.animate(
-          { opacity: [1, 0], translate: ["0 0", "-24px 8px"] },
-          { duration: 260 },
-        );
-        pauseSpeech();
-        await questMotion.finished.catch(() => {});
-      }
+      const focus = document.activeElement?.dataset.card;
+      await showDiscovered(
+        quest.id,
+        version,
+        `${quest.title}. ${quest.completion || "Fulfilled"}.`,
+        true,
+      );
       if (version !== trip) return;
       completedQuests.shift();
-      selected = [];
-      expandedHolders.clear();
       render();
+      const held = questCards(world, quest.actor).find(
+        (record) => record.key === quest.key,
+      );
+      const target = focus || (held ? questCardId(world, held) : quest.actor);
+      $("hand")
+        .querySelector(`[data-card="${target}"]`)
+        ?.focus({ preventScroll: true });
     } else {
       await showDiscovered(quest.id, version, `New quest. ${quest.title}.`);
     }
   } finally {
     if (version === trip) {
-      questMotion = null;
       questNoticeRunning = false;
       cardsCooling = exchange.active || discoveryPending;
       render();
@@ -1022,6 +1128,25 @@ async function showQuestNotice() {
     }
   }
 }
+function queueDiscoveries() {
+  const version = trip;
+  const previous = discoveryDone;
+  queuedDiscoveries++;
+  const scheduled = previous
+    .catch(() => {})
+    .then(async () => {
+      try {
+        await questNoticeDone;
+        if (version === trip) await unveilNew();
+      } finally {
+        queuedDiscoveries--;
+        if (scheduled === discoveryDone && version === trip)
+          queueMicrotask(showQuestNotice);
+      }
+    });
+  discoveryDone = scheduled;
+}
+
 async function unveilNew() {
   if (saveBlocked) return;
   const rank = { avatar: 0, item: 1, location: 2 };
@@ -1131,10 +1256,22 @@ function renderActions(animate = false) {
     fromHeight = panel.getBoundingClientRect().height;
   actionPanelMotion?.cancel();
   actionPanelMotion = null;
-  const questId = selected.find(isQuestCard);
-  const quest = questId ? shownQuest(questId) : null;
+  const quest =
+    selected.length === 1
+      ? questForCard(world, selected[0], shownQuest())
+      : null;
   const { actions, hint } = quest
-    ? { actions: [], hint: quest.purpose }
+    ? {
+        actions: ["pending", "active"].includes(quest.status)
+          ? legalActions(world).filter(
+              (action) =>
+                action.questKey === quest.key &&
+                ["pursue", "join-quest", "share-quest"].includes(action.kind) &&
+                (action.kind !== "pursue" || !quest.focused),
+            )
+          : [],
+        hint: quest.purpose,
+      }
     : cardActions(world, selected);
   const selectionName = quest ? quest.title : selected.map(nameOf).join(" + ");
   $("selection-name").textContent = selected.length
@@ -1226,15 +1363,29 @@ function updateCardSelection(frame) {
   button.setAttribute("aria-pressed", String(raised));
   button.classList.toggle(
     "new",
-    isQuestCard(id) ? !questRead.has(shownQuest(id).key) : fresh.has(id),
+    isQuestCard(id)
+      ? !questRead.has(questForCard(world, id, shownQuest())?.key)
+      : fresh.has(id),
   );
   if (isQuestCard(id)) {
-    frame.hidden = !expandedHolders.has(currentActor(world));
+    const quest = questForCard(world, id, shownQuest());
+    frame.hidden = !quest || !expandedHolders.has(quest.actor);
+    frame.dataset.stacked = String(
+      Number(frame.dataset.stackIndex) > 0 &&
+        !expandedQuestHolders.has(quest?.actor),
+    );
+    frame.style.zIndex = String(
+      raised
+        ? 100
+        : Number(frame.dataset.stackCount) -
+            Number(frame.dataset.stackIndex) +
+            1,
+    );
     return;
   }
   if (frame.dataset.holder)
     frame.hidden = !expandedHolders.has(frame.dataset.holder);
-  if (held.length || (id === currentActor(world) && shownQuest())) {
+  if (held.length || questCards(world, id).length) {
     frame.dataset.expanded = String(expandedHolders.has(id));
     button.setAttribute("aria-expanded", String(expandedHolders.has(id)));
   }
@@ -1244,10 +1395,10 @@ function updateCardSelection(frame) {
     (held.length
       ? ` Carries ${held.map(nameOf).join(", ")}. Select to show these cards.`
       : "") +
-    (id === currentActor(world) && shownQuest()
-      ? ` Quests: ${shownQuests()
+    (questCards(world, id).length
+      ? ` Quests: ${questCards(world, id)
           .map((quest) => quest.title)
-          .join("; ")}.`
+          .join(", ")}.`
       : "");
 }
 const handMotions = new Map();
@@ -1261,26 +1412,36 @@ function moveHandPart(key, element, frames) {
     .catch(() => {});
 }
 function questCard(id) {
-  const quest = shownQuest(id),
-    fulfilled = completedQuests.some((done) => done.key === quest.key),
-    raised = selected.includes(id);
+  const quest = questForCard(world, id, shownQuest()),
+    raised = selected.includes(id),
+    records = questCards(world, quest.actor),
+    notice = quest.actor === currentActor(world) ? shownQuest() : null,
+    deck = records.map((item) => questCardId(world, item, notice)),
+    index = deck.indexOf(id);
   const frame = node("div", undefined, "card-frame quest-frame");
-  frame.dataset.holder = currentActor(world);
+  frame.dataset.holder = quest.actor;
   frame.dataset.raised = String(raised);
-  frame.hidden = !expandedHolders.has(currentActor(world));
+  frame.dataset.stackIndex = String(index);
+  frame.dataset.stackCount = String(deck.length);
+  frame.dataset.stacked = String(
+    index > 0 && !expandedQuestHolders.has(quest.actor),
+  );
+  frame.style.zIndex = String(raised ? 100 : deck.length - index + 1);
+  frame.hidden = !expandedHolders.has(quest.actor);
   const face = node("button", undefined, "card quest");
   face.type = "button";
   face.dataset.card = id;
   face.dataset.quest = quest.key;
-  face.dataset.fulfilled = String(fulfilled);
+  face.dataset.questStatus = quest.status;
+  face.dataset.fulfilled = String(quest.status === "fulfilled");
   face.classList.toggle("new", !questRead.has(quest.key));
   face.setAttribute("aria-pressed", String(raised));
   face.setAttribute(
     "aria-label",
-    `${quest.title}, ${nameOf(currentActor(world))}'s quest${fulfilled ? `, ${quest.completion || "Fulfilled"}` : ""}`,
+    `${quest.title}, ${nameOf(quest.actor)}'s quest, ${quest.status === "fulfilled" ? quest.completion || "Fulfilled" : quest.status === "superseded" ? "Set aside" : quest.status}`,
   );
-  if (!quest.singleLine)
-    face.setAttribute("aria-describedby", `card-detail-${id}`);
+  const detailId = `card-detail-${encodeURIComponent(id)}`;
+  if (!quest.singleLine) face.setAttribute("aria-describedby", detailId);
   const graphic = node("span", undefined, "art");
   const img = node("img");
   img.src = packMedia(quest.art, "art") || `./assets/${quest.art}-card.png`;
@@ -1288,12 +1449,17 @@ function questCard(id) {
   img.draggable = false;
   graphic.append(img);
   const detail = node("span", quest.purpose, "quest-purpose");
-  detail.id = `card-detail-${id}`;
+  detail.id = detailId;
   face.append(
     graphic,
     node(
       "span",
-      fulfilled ? quest.completion || "Fulfilled" : "Quest",
+      {
+        active: quest.focused ? "Active quest" : "Quest",
+        superseded: "Set aside",
+        pending: "Quest",
+        fulfilled: quest.completion || "Fulfilled",
+      }[quest.status],
       "quest-mark",
     ),
     node("span", quest.title, "name"),
@@ -1409,11 +1575,11 @@ function card(id) {
     frame.hidden = !expandedHolders.has(holder);
     el.setAttribute("aria-label", `${def.name}, carried by ${nameOf(holder)}`);
   }
-  if (people[id]) {
+  if (people[id] || questCards(world, id).length) {
     const held = availableCards(world).filter(
-      (item) => things[item] && rootHolder(world, item) === id,
+      (item) => people[id] && things[item] && rootHolder(world, item) === id,
     );
-    if (held.length || (id === currentActor(world) && shownQuest())) {
+    if (held.length || questCards(world, id).length) {
       frame.dataset.inventory = String(held.length);
       frame.dataset.expanded = String(expandedHolders.has(id));
       el.setAttribute("aria-expanded", String(expandedHolders.has(id)));
@@ -1427,14 +1593,15 @@ function card(id) {
         frame.prepend(preview);
       }
     }
-    if (id === currentActor(world) && shownQuest()) {
+    const deck = questCards(world, id);
+    for (let index = Math.min(deck.length, 3) - 1; index >= 0; index--) {
       const preview = node("span", undefined, "quest-preview");
+      preview.style.setProperty("--quest-offset", String(index));
       preview.setAttribute("aria-hidden", "true");
       frame.prepend(preview);
-      observation.textContent += ` Quests: ${shownQuests()
-        .map((quest) => quest.title)
-        .join("; ")}.`;
     }
+    if (deck.length)
+      observation.textContent += ` Quests: ${deck.map((quest) => quest.title).join(", ")}.`;
   }
   return frame;
 }
@@ -1506,6 +1673,15 @@ function leaveFigure(figure, remove = false) {
       exits.delete(figure);
     });
   exits.set(figure, task);
+}
+function returnToLive() {
+  sharedPlayback.reset();
+  reviewing = false;
+  lineSeq = null;
+  sharedLineKey = "";
+  syncSharedLine();
+  renderScene();
+  if (!$("dialogue-advance").hidden) $("dialogue-advance").focus();
 }
 function renderScene() {
   // Every path to this renderer keeps the source visible until the veil covers it.
@@ -1675,21 +1851,17 @@ function renderScene() {
     ? sharedSpeechState(sharedSession.state, scene.locationId)
     : null;
   if (sharedSpeech) storyStatus = sharedSpeech.status;
-  $("story-status").hidden = storyStatus === "ready" && !exchange.preparing;
-  $("story-status").textContent =
-    storyStatus === "retry"
-      ? sharedSession
-        ? "Your play is saved. Speech is taking a moment. You can keep playing."
-        : `${storyError} Retry this scene or keep playing.`
-      : "···";
-  $("story-retry").hidden =
-    storyStatus !== "retry" || (sharedSession && !sharedSpeech.retryKey);
-  $("story-status").setAttribute(
-    "aria-label",
-    storyStatus === "retry"
-      ? $("story-status").textContent
-      : "New words are on the way",
-  );
+  const wordsFailed = storyStatus === "retry";
+  const canRetryWords = !sharedSession || Boolean(sharedSpeech.retryKey);
+  $("story-status").hidden =
+    wordsFailed || (storyStatus === "ready" && !exchange.preparing);
+  $("story-status").textContent = "…";
+  $("story-status").setAttribute("aria-label", "Preparing dialogue");
+  const retryWords = $("story-retry");
+  retryWords.hidden = !wordsFailed;
+  retryWords.disabled = storyRetrying || !canRetryWords;
+  retryWords.title = canRetryWords ? "Retry dialogue" : "Waiting for dialogue";
+  retryWords.setAttribute("aria-label", retryWords.title);
   const portraitId = spoken
     ? scene.line.entityId || scene.line.actorId || scene.locationId
     : pendingSpeaker;
@@ -1800,13 +1972,28 @@ function renderScene() {
       liveButton.dataset.actor = actor;
       liveButton.replaceChildren(sharedQueuePortrait(actor));
     }
-    liveButton.onclick = () => {
-      reviewing = false;
-      lineSeq = null;
-      sharedLineKey = "";
-      syncSharedLine();
-      renderScene();
-    };
+    const live = sharedLiveLine(
+      sharedSession.state,
+      sharedSession.now(),
+      scene.locationId,
+    );
+    const matchesLive =
+      !live ||
+      (live.seq
+        ? scene.line?.seq === live.seq
+        : scene.line?.text === live.text &&
+          scene.line?.speaker === live.speaker);
+    const mergedPortrait = Boolean(
+      sharedSession.state.queue?.some((entry) => entry.actor === actor),
+    );
+    liveButton.hidden = mergedPortrait;
+    liveButton.dataset.returnLive = "true";
+    liveButton.onclick = returnToLive;
+    renderSharedQueue(sharedSession, sharedQueuePortrait, {
+      liveActor: mergedPortrait ? actor : null,
+      needsLive: reviewing || !matchesLive,
+      onLive: returnToLive,
+    });
   }
 }
 let renderedLog = [];
@@ -1856,12 +2043,13 @@ function render() {
     world.actors[currentActor(world)].place,
   );
   for (const id of selected) {
-    if (people[id]) expandedHolders.add(id);
+    if (people[id] || questCards(world, id).length) expandedHolders.add(id);
   }
   const questKey = JSON.stringify([
     shownQuests(),
     completedQuests.map((quest) => quest.key),
     [...questRead],
+    [...expandedQuestHolders],
   ]);
   const handKey = JSON.stringify([
     questKey,
@@ -1900,7 +2088,9 @@ function render() {
     if (sameWorld)
       for (const frame of $("hand").children) updateCardSelection(frame);
     else
-      $("hand").replaceChildren(...questHand(world, shownQuests()).map(card));
+      $("hand").replaceChildren(
+        ...questHand(world, personalNotice()).map(card),
+      );
     $("hand").scrollLeft = samePlace ? scroll : 0;
     renderActions(animate);
     if (animate)
@@ -1928,7 +2118,6 @@ function render() {
   updateHandScroll();
   renderScene();
   renderLog();
-  if (sharedSession) renderSharedQueue(sharedSession, sharedQueuePortrait);
   updateCardCooldown();
   if (focused) {
     const frame = $("hand")
@@ -2273,10 +2462,9 @@ async function submitSharedPlay(action) {
     sharedSession.state.queue?.some(
       (entry) => entry.actor === currentActor(world),
     )
-  ) {
-    notice("Your play is at the table.");
+  )
     return;
-  }
+  sharedPlayback.reset();
   sharedSending = true;
   renderActions();
   try {
@@ -2284,7 +2472,7 @@ async function submitSharedPlay(action) {
     selected = [];
     expandedHolders.clear();
     reviewing = false;
-    notice("Your play is at the table.");
+    notice("");
   } catch (error) {
     notice(error.message);
   } finally {
@@ -2296,7 +2484,13 @@ async function submitSharedPlay(action) {
 function syncSharedLine() {
   if (!sharedSession || reviewing || covering) return;
   const room = world.actors[currentActor(world)].place;
-  const live = sharedLiveLine(sharedSession.state, sharedSession.now(), room);
+  const playbackTime = sharedPlayback.now(
+    sharedSession.state,
+    sharedSession.now(),
+    room,
+    document.hidden || Boolean(document.querySelector("dialog[open]")),
+  );
+  const live = sharedLiveLine(sharedSession.state, playbackTime, room);
   if (!live) return;
   const entry = world.log.findLast(
     (entry) =>
@@ -2324,12 +2518,13 @@ function adoptShared(value) {
   if (key !== sharedWorldKey) {
     const from = world.actors[currentActor(world)].place;
     const next = sharedWorld(value);
-    queueQuestCompletions(world, next);
+    const alreadyOpen = Boolean(sharedWorldKey);
+    if (alreadyOpen) queueQuestCompletions(world, next);
     world = next;
     sharedWorldKey = key;
     selected = selected.filter((id) =>
       isQuestCard(id)
-        ? Boolean(shownQuest(id))
+        ? Boolean(questForCard(world, id, shownQuest()))
         : availableCards(world).includes(id),
     );
     selectionRevision = world.revision;
@@ -2341,6 +2536,11 @@ function adoptShared(value) {
       ? "pending"
       : "ready";
     if (world.actors[currentActor(world)].place !== from) {
+      cancelTravel();
+      const visible = visibleQuests(world);
+      completedQuests = completedQuests.filter((quest) =>
+        visible.has(quest.key),
+      );
       reviewing = false;
       sharedLineKey = "";
       lineSeq = null;
@@ -2349,8 +2549,10 @@ function adoptShared(value) {
         syncSharedLine();
       });
     } else render();
+    if (alreadyOpen) {
+      queueDiscoveries();
+    }
   } else {
-    renderSharedQueue(sharedSession, sharedQueuePortrait);
     renderActions();
     renderScene();
   }

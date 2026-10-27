@@ -38,6 +38,8 @@ try {
         if (this.id === "unveil-take")
           window.flights.push({
             id: this.dataset.card,
+            direction:
+              document.querySelector("#unveil-dialog").dataset.direction,
             frames: args[0],
             duration: args[1].duration,
           });
@@ -46,11 +48,19 @@ try {
       window.addEventListener("DOMContentLoaded", () => {
         new MutationObserver(() => {
           const dialog = document.querySelector("#unveil-dialog");
-          if (!dialog?.open || dialog.dataset.phase !== "reveal") return;
+          if (
+            !dialog?.open ||
+            dialog.dataset.phase !== "reveal" ||
+            dialog.dataset.direction === "fulfill"
+          )
+            return;
           const id = document.querySelector("#unveil-take").dataset.card;
           if (window.discoveries.at(-1)?.id === id) return;
           window.discoveries.push({
             id,
+            isQuest: Boolean(
+              document.querySelector("#unveil-take [data-quest]"),
+            ),
             travel: Number(
               getComputedStyle(document.querySelector("#travel")).opacity,
             ),
@@ -209,7 +219,7 @@ try {
         flights: window.flights,
       }));
       assert.equal(
-        events.discoveries.filter((event) => event.id !== "player-quest")[0].id,
+        events.discoveries.filter((event) => !event.isQuest)[0].id,
         "pond",
       );
       assert(
@@ -221,17 +231,18 @@ try {
           (e) =>
             e.cooling === "true" &&
             e.travel <= 0.01 &&
-            (e.id === "player-quest" || e.speech === 0),
+            (e.isQuest || e.speech === 0),
         ),
+        `Reveal state at ${width}px (${motion}): ${JSON.stringify(events.discoveries)}`,
       );
       if (motion === "reduce") assert.equal(events.flights.length, 0);
       else {
         assert(events.flights.some((f) => f.id === "pond"));
         assert(events.flights.some((f) => f.id === "cloth"));
         assert(
-          events.flights.every(
-            (f) => f.frames[1].transform !== "translate(0, 0) scale(1)",
-          ),
+          events.flights
+            .filter((f) => f.direction !== "fulfill")
+            .every((f) => f.frames[1].transform !== "translate(0, 0) scale(1)"),
         );
       }
       const saved = await state();

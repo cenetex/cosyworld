@@ -3,6 +3,7 @@ import { mkdir } from "node:fs/promises";
 import { chromium, webkit } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
+import { playerQuest } from "../card-game/quest-cards.mjs";
 
 const type = process.env.CARD_BROWSER || "chromium";
 const browser = await { chromium, webkit }[type].launch({ headless: true });
@@ -34,7 +35,7 @@ try {
       window.addEventListener("DOMContentLoaded", () => {
         new MutationObserver(() => {
           const quest = document.querySelector(
-            '#hand .card-frame[data-raised="true"] [data-fulfilled="true"]',
+            '#unveil-dialog[open][data-direction="fulfill"] [data-fulfilled="true"]',
           );
           if (quest && !window.fulfilled.includes(quest.dataset.quest))
             window.fulfilled.push(quest.dataset.quest);
@@ -167,6 +168,8 @@ try {
         "Reload keeps one opening line",
       );
       assert.equal(opening.turn, 0);
+      const openingQuest = playerQuest(opening);
+      assert(openingQuest, "The opening has an active quest");
       await selectCard(page, "lamp");
       await page.locator('#card-actions [data-action="light"]').click();
       await finish(); // The delayed request releases the hand after scene preparation.
@@ -176,7 +179,7 @@ try {
       await playCards("snuff", ["lamp"]);
       assert.deepEqual(
         await page.evaluate(() => window.fulfilled),
-        ["vale:0:first-light:authored"],
+        [openingQuest.key],
         "A replaced slow reply preserves the quest completion cue",
       );
       await heldLight.route

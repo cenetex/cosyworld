@@ -9,6 +9,12 @@ export async function revealCard(page, id) {
     await owner.click();
     await owner.click();
   }
+  if ((await frame.getAttribute("data-stacked")) === "true") {
+    const holder = await frame.getAttribute("data-holder");
+    const top = page.locator(`#hand .quest-frame[data-holder="${holder}"] .card`).first();
+    await top.scrollIntoViewIfNeeded();
+    await top.click();
+  }
   await card.scrollIntoViewIfNeeded();
   return card;
 }

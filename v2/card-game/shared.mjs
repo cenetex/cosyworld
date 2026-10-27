@@ -378,7 +378,9 @@ export function installSharedControls({ session, saveSlot, getSave, notice }) {
   const queue = node("ol", undefined, "shared-play-queue");
   queue.id = "shared-queue";
   queue.setAttribute("aria-label", "Plays at the table");
-  document.querySelector(".dialogue").append(queue);
+  const portraits = node("div", undefined, "shared-portraits");
+  portraits.append($("live-line"), queue);
+  document.querySelector(".dialogue").append(portraits);
   const roomStatus = node("div", undefined, "shared-room-status");
   roomStatus.id = "shared-room-status";
   roomStatus.hidden = true;
@@ -418,11 +420,21 @@ export function installSharedControls({ session, saveSlot, getSave, notice }) {
   );
 }
 let renderedQueue = "";
-export function renderSharedQueue(session, portraitFor) {
+export function renderSharedQueue(
+  session,
+  portraitFor,
+  { liveActor = null, needsLive = false, onLive = null } = {},
+) {
   const { state } = session;
   const queue = $("shared-queue");
   if (!queue) return;
-  const key = JSON.stringify([state.actor, state.present, state.queue]);
+  const key = JSON.stringify([
+    state.actor,
+    state.present,
+    state.queue,
+    liveActor,
+    needsLive,
+  ]);
   if (key === renderedQueue) return;
   renderedQueue = key;
   queue.replaceChildren();
@@ -439,25 +451,86 @@ export function renderSharedQueue(session, portraitFor) {
     );
     roomStatus.append(waiting);
   }
-  for (const entry of state.queue || []) {
+  const entries = state.queue || [];
+  const liveEntry = entries.find((entry) => entry.actor === liveActor);
+  const ordered = liveEntry
+    ? [liveEntry, ...entries.filter((entry) => entry.id !== liveEntry.id)]
+    : entries;
+  for (const entry of ordered) {
     const canWithdraw =
       entry.actor === state.actor && entry.status === "waiting";
+    const returnsLive = entry.actor === liveActor && needsLive && onLive;
     const label = `${avatarName(entry.actor)} · ${entry.status === "waiting" ? "next" : entry.status === "working" ? "playing" : "reading"}`;
-    const face = canWithdraw
-      ? button("", () => session.command({ op: "cancel", key: entry.id }))
-      : node("span");
+    const face = returnsLive
+      ? button("", onLive)
+      : canWithdraw
+        ? button("", () => session.command({ op: "cancel", key: entry.id }))
+        : node("span");
     face.className = "shared-play-avatar";
     face.dataset.actor = entry.actor;
     face.dataset.status = entry.status;
-    face.title = canWithdraw ? `${label} · Withdraw your play` : label;
+    face.title = returnsLive
+      ? "Return to live dialogue · " + avatarName(entry.actor)
+      : canWithdraw
+        ? label + " · Withdraw your play"
+        : label;
     face.setAttribute("aria-label", face.title);
-    if (!canWithdraw) face.setAttribute("role", "img");
+    if (returnsLive) {
+      face.dataset.returnLive = "true";
+      face.dataset.live = "false";
+    }
+    if (!canWithdraw && !returnsLive) face.setAttribute("role", "img");
     face.append(portraitFor(entry.actor));
     const row = node("li");
     row.append(face);
     queue.append(row);
   }
 }
+// A viewer can pause to read a card while the room keeps its common clock.
+export function createSharedPlaybackClock() {
+  let sceneKey = null,
+    roomKey = null,
+    delay = 0,
+    pausedAt = null;
+  return {
+    reset() {
+      sceneKey = null;
+      roomKey = null;
+      delay = 0;
+      pausedAt = null;
+    },
+    now(state, now, room, paused) {
+      if (room !== roomKey) {
+        roomKey = room;
+        sceneKey = null;
+        delay = 0;
+        pausedAt = null;
+      }
+      const scene = state.history?.find(
+        (entry) => entry.room === room && entry.lines?.length,
+      );
+      const key = scene
+        ? `${room}:${scene.starts_at}:${scene.play || ""}`
+        : room;
+      if (key !== sceneKey) {
+        sceneKey = key;
+        delay = 0;
+        if (pausedAt !== null && scene)
+          pausedAt = Math.max(pausedAt, scene.starts_at);
+      }
+      if (paused) {
+        pausedAt ??= now;
+        return pausedAt - delay;
+      }
+      if (pausedAt !== null) {
+        delay += Math.max(0, now - pausedAt);
+        pausedAt = null;
+      }
+      return now - delay;
+    },
+  };
+}
+
 export function sharedLiveLine(state, now, room) {
   const scene = (state.history || []).find(
     (entry) => entry.room === room && entry.lines?.length,

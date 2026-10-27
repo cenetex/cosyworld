@@ -16,15 +16,17 @@ Greek pack's `recital` descriptor in `card-world.json`.
 
 ## Meeting the bard
 
-The existing singer becomes **The Bard**, with his existing portrait. A
-completed quest leaves a visit pending for the player who completed it.
-On that player's next journey, he waits in the destination room. He stays
-there until another completed quest brings him to a later destination.
-Waiting, talking, and reloading preserve a pending visit.
+The existing singer becomes **The Bard**, with his existing portrait. New
+worlds place him at the harbor. Existing saves keep his actual position.
+The latest completed quest gives him a journey to its saved completion site.
+He takes one legal travel action on each resolved world turn, including while
+he is away from the player. Doors, route knowledge, and sea passage shape his
+journey. A blocked route creates a shared help card. He stays after arrival
+until a later quest completion gives him a new destination.
 
-His conversation context carries the whole earned poem through his latest
-visit. Each verse names the traveler whose deed earned it. The bard sings
-an earned couplet when addressed. His voice uses spare, vivid epic verse.
+His conversation context carries the whole earned poem, including verses
+earned while he travels. Each verse names the traveler whose deed earned it.
+He speaks in his own voice and can quote an earned verse again when it fits.
 
 Permission earns a verse while the burial quest remains open. Reporting
 permission completes the return quest. A later burial opens that return
@@ -53,26 +55,32 @@ The song follows the durable choice receipts. An early permission report
 keeps its words after a later burial. Returning the water late places its
 verse later in the song. Each branch keeps its own outcome and report.
 
-When addressed, the bard recites the latest earned couplet exactly. The
-speech service checks his reply against the authored verse in his scene
-facts. Each character request can repair a reply that changes those words.
-Both local and shared speech pass this check before players hear the verse.
+The bard receives the full earned poem as context, with the newest lines marked
+separately. He chooses his own words and may quote, paraphrase, or reflect on
+the poem. Authored `recital.claims` links factual phrases to the earned choices
+that support them. The same speech check reads this metadata for every pack.
+Authored stanza text and attribution remain saved; ordinary story,
+observation, and custody checks ground his spoken response.
 
-The pack save adds a `recitals` record beside its existing receipts. Each
-verse records the acting human and, for a completed quest, the turn of the
-bard's visit. Older saves receive pending visits for their earned deeds.
-Available choice logs identify the original human; older trimmed logs use
-the saved player. The existing story choices, items, and flags are preserved.
+The pack save keeps a `recitals` record beside its choice receipts. Each
+verse records the acting human or AI and the bard's visit turn when known.
+Available choice logs identify the original actor. A pruned old receipt keeps
+unknown authorship and uses “an earlier traveler” in the poem context.
+Existing story choices, items, and flags remain intact.
 
-Shared worlds use rule version 4. Versions 2 and 3 keep their original
-bundles for older journal entries. A recorded upgrade adds the pending
-visits while preserving the earlier deeds and conversations.
+Shared worlds use rule version 7. Versions 2 through 6 keep their original
+bundles for older journal entries. Recorded upgrades use their recorded target
+reducer. The current upgrade adds saved journeys and route knowledge while
+preserving earlier deeds, positions, and conversations.
 
-Both local and shared games use the same rule. Shared visits belong to the
-human who completed the quest. The shared journal replays the arrival and
-its poem context. The world validates each visit against its earned choice.
+Local and shared games use the same travel rule. Human and AI completions
+share a durable ledger with their exact sites. The shared journal replays
+movement, help, arrival, and poem context. Journey and help cards retain their
+causal family so the next destination comes from a fresh meaningful deed.
 
 The opening tests cover all four branches, both permission-report orders,
-late water, pending visits, reload, log pruning, shared play, and journal
-replay. Browser checks cover the single-line face and talking to the bard
-at desktop, phone, small-phone, and landscape sizes.
+late water, reload, log pruning, shared play, and journal replay. Travel tests
+cover legal steps, blocked passages, shared help, changing destinations, and
+arrival. Browser checks follow a fresh harbor journey on desktop and phone.
+Separate poem scene fixtures cover the single-line face and conversation at
+desktop, phone, small-phone, and landscape sizes.

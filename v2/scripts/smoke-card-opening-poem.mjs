@@ -60,15 +60,11 @@ export async function checkOpeningPoem(browser, origin) {
             json: {
               revision: input.revision,
               model: "poem-fixture",
-              entries: input.entities.map(({ id, facts }) => ({
+              entries: input.entities.map(({ id }) => ({
                 id,
                 text:
                   id === "greek-rhapsode"
-                    ? facts
-                        .findLast((f) => f.startsWith("Verse "))
-                        ?.split(": ")
-                        .slice(1)
-                        .join(": ") || "I have a song for you."
+                    ? "I hear the weight of that choice in these lines."
                     : "Dione hears the account.",
               })),
             },
@@ -105,6 +101,19 @@ export async function checkOpeningPoem(browser, origin) {
         const face = page.locator(
           '#hand [data-card="story-quest-greek-courtyard"]',
         );
+        await page.waitForFunction(
+          () => {
+            const card = document.querySelector(
+              '#hand [data-card="story-quest-greek-courtyard"]',
+            );
+            const hand = document.querySelector("#hand");
+            const bounds = card.getBoundingClientRect(),
+              room = hand.getBoundingClientRect();
+            return bounds.left >= room.left && bounds.right <= room.right + 1;
+          },
+          null,
+          { timeout: 3000 },
+        );
         assert.equal(await face.locator(".quest-purpose").count(), 0);
         assert.equal(
           await face.locator(".name").textContent(),
@@ -127,11 +136,19 @@ export async function checkOpeningPoem(browser, origin) {
         const expected = openingPoem(fixtures.closed).stanzas.map((s) =>
           s.lines.join(" "),
         );
-        // Finishing the report preserves the pending visit through reload.
+        // The longer burial route leaves one ordinary step before arrival.
+        for (let step = 0; step < 4; step++) {
+          const arrived = await page.evaluate((key) => {
+            const s = JSON.parse(localStorage.getItem(key));
+            return s.actors["greek-rhapsode"].place === s.actors.vale.place;
+          }, key);
+          if (arrived) break;
+          await selectCard(page, "vale", { touch: width < 700 });
+          await page.locator('#card-actions [data-action="wait"]').click();
+          await settle();
+        }
+        // Poem-only fixtures preserve arrival at the report site through reload.
         await page.reload();
-        await settle();
-        await selectCard(page, "greek-harbor", { touch: width < 700 });
-        await page.locator('#card-actions [data-action="move"]').click();
         await settle();
         assert.equal(
           await page.locator('#hand [data-card="greek-rhapsode"]').count(),
@@ -148,13 +165,11 @@ export async function checkOpeningPoem(browser, origin) {
           );
           const input = requests.at(-1);
           assert.ok(input.speakers.includes("greek-rhapsode"));
-          const facts = input.entities.find(
+          const poem = input.entities.find(
             (e) => e.id === "greek-rhapsode",
-          ).facts;
+          ).poem;
           assert.deepEqual(
-            facts
-              .filter((f) => f.startsWith("Verse "))
-              .map((f) => f.split(": ").slice(1).join(": ")),
+            poem.stanzas.map((stanza) => stanza.lines.join(" ")),
             expected,
           );
         };
@@ -167,7 +182,7 @@ export async function checkOpeningPoem(browser, origin) {
         await speak();
         assert.deepEqual(errors, []);
         console.log(
-          `Opening poem: ${branch}, ${width}px, single-line card, next-room bard, full song context, talk, and reload passed.`,
+          `Opening poem: ${branch}, ${width}px, single-line card, quest-site bard, full song context, talk, and reload passed.`,
         );
       } finally {
         await page.close();

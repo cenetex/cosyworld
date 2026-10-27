@@ -9,14 +9,24 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub(super) const VERSION: &str = "full-card-world/4";
-pub(super) const PREVIOUS_VERSION: &str = "full-card-world/2";
-const SOURCE: &str = include_str!("engine-v4.js");
-// Earlier actions replay with the exact rules that accepted them.
-const PREVIOUS_SOURCE: &str = include_str!("engine-v2.js");
-const THIRD_SOURCE: &str = include_str!("engine-v3.js");
+pub(super) const VERSION: &str = "full-card-world/7";
+pub(super) const SIXTH_VERSION: &str = "full-card-world/6";
+pub(super) const FIFTH_VERSION: &str = "full-card-world/5";
+pub(super) const PREVIOUS_VERSION: &str = "full-card-world/3";
+pub(super) const LEGACY_VERSION: &str = "full-card-world/2";
+pub(super) const FOURTH_VERSION: &str = "full-card-world/4";
+const SOURCE: &str = include_str!("engine-v7.js");
+const SIXTH_SOURCE: &str = include_str!("engine-v6.js");
+const FIFTH_SOURCE: &str = include_str!("engine-v5.js");
+const FOURTH_SOURCE: &str = include_str!("engine-v4.js");
+// Released rule bundles retain the exact semantics of their journal entries.
+const PREVIOUS_SOURCE: &str = include_str!("engine-v3.js");
+const LEGACY_SOURCE: &str = include_str!("engine-v2.js");
 pub(super) fn historical(version: &str) -> bool {
-    matches!(version, PREVIOUS_VERSION | "full-card-world/3")
+    matches!(
+        version,
+        LEGACY_VERSION | PREVIOUS_VERSION | FOURTH_VERSION | FIFTH_VERSION | SIXTH_VERSION
+    )
 }
 const MAX_BYTES: usize = 4 * 1024 * 1024;
 const CACHE_ENTRIES: usize = 32;
@@ -61,18 +71,25 @@ pub(super) fn reduce_version(version: &str, request: Value) -> Result<Value> {
     let source = match version {
         VERSION => SOURCE,
         PREVIOUS_VERSION => PREVIOUS_SOURCE,
-        "full-card-world/3" => THIRD_SOURCE,
-        _ => return Err("This world's rules need a saved migration.".into()),
+        FOURTH_VERSION => FOURTH_SOURCE,
+        FIFTH_VERSION => FIFTH_SOURCE,
+        SIXTH_VERSION => SIXTH_SOURCE,
+        LEGACY_VERSION => LEGACY_SOURCE,
+        _ => return Err("This world needs a supported rules version.".into()),
     };
-    let view = request["op"] == "view" && version == VERSION;
+    let view = request["op"] == "view";
     let input = serde_json::to_string(&request).map_err(|_| "Choose a saved world.".to_string())?;
     if input.len() > MAX_BYTES {
         return Err("This saved world is too large to share.".into());
     }
+    let cache_key = format!("{version}:{input}");
     // A projection is pure for its exact world, actor, claims and presence.
     // Keep only successful serialized projections. Commands always run in C.
     if view {
-        let cached = views().lock().ok().and_then(|mut cache| cache.get(&input));
+        let cached = views()
+            .lock()
+            .ok()
+            .and_then(|mut cache| cache.get(&cache_key));
         if let Some(output) = cached {
             return serde_json::from_str(&output)
                 .map_err(|_| "The shared-world rules need attention.".to_string());
@@ -112,7 +129,7 @@ pub(super) fn reduce_version(version: &str, request: Value) -> Result<Value> {
     }
     if view {
         if let Ok(mut cache) = views().lock() {
-            cache.put(input, output);
+            cache.put(cache_key, output);
         }
     }
     Ok(value)

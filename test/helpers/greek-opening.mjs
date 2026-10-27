@@ -3,6 +3,8 @@ import { enableMotives } from "../../v2/card-game/motives.mjs";
 
 // Opening-only worlds reached through legal choices. Initial inventory setup
 // leaves the forest tools at the harbor and room for the funeral materials.
+// Poem-only scenes place the singer at the harbor after setup; separate travel
+// tests follow his data-defined start and every legal movement.
 export function openingFixture(
   branch,
   { water = true, reportFirst = true } = {},
@@ -41,6 +43,7 @@ export function openingFixture(
   walk("ship", "harbor");
   act("snuff", { item: "lamp" });
   act("drop", { item: "cloth", target: "greek-harbor" });
+  world.actors["greek-rhapsode"].place = "greek-harbor";
   walk("courtyard");
   states.arrival = world;
   if (water) {

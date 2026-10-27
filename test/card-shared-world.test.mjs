@@ -18,6 +18,11 @@ import {
 import { generateProgram, alternatives } from "../v2/card-game/quests.mjs";
 import { places, things } from "../v2/card-game/world.mjs";
 import { humanAvatarIds, humanAvatars } from "../v2/card-game/human-cast.mjs";
+import {
+  questCards,
+  questHand,
+  questCardId,
+} from "../v2/card-game/quest-cards.mjs";
 import { availableCards } from "../v2/card-game/cards.mjs";
 
 const shared = () =>
@@ -41,23 +46,55 @@ const ask = (world, op, actor = "vale", extra = {}) =>
   });
 
 describe("the full world shared by human avatars", () => {
+  it("matches selected item cards while personal and shared quest actions are offered", () => {
+    let world = dispatchShared({ op: "create" }).world;
+    for (const [kind, target] of [
+      ["light", null],
+      ["move", "pond"],
+    ]) {
+      const action = ask(world, "view").actions.find(
+        (a) => a.kind === kind && (!target || a.target === target),
+      );
+      world = ask(world, "play", "vale", { action }).world;
+    }
+    world.items.cloth.holder = "vale";
+    const actions = ask(world, "view").actions;
+    for (const kind of ["pursue", "share-quest", "join-quest"])
+      expect(actions.some((a) => a.kind === kind && !a.cards)).toBe(true);
+    const cover = actions.find((a) => a.kind === "cover");
+    expect(cover).toBeDefined();
+    const selected = ask(world, "play", "vale", {
+      selectedIds: ["vale", "cloth", "lamp", "cloth"],
+    });
+    const explicit = ask(world, "play", "vale", { action: cover });
+    expect(selected.ok).toBe(true);
+    expect(selected.world).toEqual(explicit.world);
+    expect(selected.world.items.cloth.holder).toBe("lamp");
+    const invalid = ask(world, "play", "vale", {
+      selectedIds: ["cloth", "lamp", "pond"],
+    });
+    expect(invalid.ok).toBe(false);
+    expect(invalid.world.revision).toBe(world.revision);
+    expect(invalid.world.items.cloth.holder).toBe("vale");
+  });
   it.each(humanAvatars.filter((a) => a.id !== "vale"))(
-    "$name starts with an item on the floor and opens the pond by carrying it",
+    "$name starts with an item on the floor and opens the home path by carrying it",
     (avatar) => {
+      const destination = avatar.home.connection || "pond";
       let world = shared();
       let view = ask(world, "view", avatar.id);
       expect(world.items[avatar.item.id].holder).toBe(avatar.home.id);
       expect(availableCards(view.world)).toContain(avatar.item.id);
-      expect(availableCards(view.world)).not.toContain("pond");
-      expect(view.exits).not.toContain("pond");
+      expect(availableCards(view.world)).not.toContain(destination);
+      expect(view.exits).not.toContain(destination);
       const take = view.actions.find(
         (a) => a.kind === "take" && a.item === avatar.item.id,
       );
       world = ask(world, "play", avatar.id, { action: take }).world;
       view = ask(world, "view", avatar.id);
-      expect(availableCards(view.world)).toContain("pond");
+      expect(availableCards(view.world)).toContain(destination);
       const move = view.actions.find(
-        (a) => a.kind === "move" && a.target === "pond",
+        (a) => a.kind === "move" && a.target === destination,
       );
       expect(move).toBeDefined();
       const drop = view.actions.find(
@@ -66,8 +103,8 @@ describe("the full world shared by human avatars", () => {
       world = ask(world, "play", avatar.id, { action: drop }).world;
       view = ask(JSON.parse(encodeSave(world)), "view", avatar.id);
       expect(world.items[avatar.item.id].holder).toBe(avatar.home.id);
-      expect(availableCards(view.world)).not.toContain("pond");
-      expect(view.exits).not.toContain("pond");
+      expect(availableCards(view.world)).not.toContain(destination);
+      expect(view.exits).not.toContain(destination);
       expect(ask(world, "play", avatar.id, { action: move }).ok).toBe(false);
     },
   );
@@ -84,6 +121,7 @@ describe("the full world shared by human avatars", () => {
     for (const avatar of humanAvatars.filter((a) => a.id !== "vale"))
       old.items[avatar.item.id].holder = avatar.id;
     const result = ask(old, "upgrade", "vale", {
+      from: "full-card-world/2",
       claimed: ["vale", "mara"],
       present: ["vale", "mara"],
     });
@@ -438,4 +476,71 @@ describe("the full world shared by human avatars", () => {
     expect(joined.ok).toBe(true);
     expect(joined.world.actors.mara.place).toBe("pond");
   });
+});
+
+it.each(["mara", "rue"])(
+  "places %s first among avatars with their items and quests together",
+  (actor) => {
+    const world = shared();
+    for (const id of ["vale", "mara", "rue"])
+      world.actors[id].place = "station";
+    const item = humanAvatars.find((a) => a.id === actor).item.id;
+    world.items[item].holder = actor;
+    world.items.lamp.holder = actor;
+    world.items.cloth.holder = "lamp";
+    world.items.oil.holder = "station";
+    const view = ask(world, "view", actor).world;
+    const cards = availableCards(view),
+      hand = questHand(view);
+    expect(cards[0]).toBe("station");
+    expect(cards.indexOf("oil")).toBeLessThan(cards.indexOf(actor));
+    expect(cards.indexOf(actor)).toBeLessThan(cards.indexOf("vale"));
+    const start = hand.indexOf(actor);
+    expect(hand.slice(start, start + 4)).toEqual([
+      actor,
+      item,
+      "lamp",
+      "cloth",
+    ]);
+    const quests = questCards(view, actor).map((q) => questCardId(view, q));
+    expect(quests.length).toBeGreaterThan(0);
+    expect(hand.slice(start + 4, start + 4 + quests.length)).toEqual(quests);
+  },
+);
+
+it("connects Rue's carriage to the station through pickup, drop, travel and reload", () => {
+  let world = shared();
+  const act = (kind, target, item) => {
+    const view = ask(world, "view", "rue");
+    const action = view.actions.find(
+      (a) =>
+        a.kind === kind &&
+        (!target || a.target === target) &&
+        (!item || a.item === item),
+    );
+    expect(action).toBeDefined();
+    const result = ask(world, "play", "rue", { action });
+    expect(result.ok, result.error).toBe(true);
+    world = JSON.parse(encodeSave(result.world));
+    return action;
+  };
+  act("take", null, "routes");
+  let view = ask(world, "view", "rue");
+  expect(view.exits).toContain("station");
+  expect(view.exits).not.toContain("pond");
+  const earlier = view.actions.find(
+    (a) => a.kind === "move" && a.target === "station",
+  );
+  act("drop", "train", "routes");
+  expect(ask(world, "play", "rue", { action: earlier }).ok).toBe(false);
+  act("take", null, "routes");
+  act("move", "station");
+  expect(world.actors.rue.place).toBe("station");
+  expect(ask(world, "view", "rue").exits).toContain("train");
+  act("drop", "station", "routes");
+  act("move", "train");
+  expect(ask(world, "view", "rue").exits).not.toContain("station");
+  expect(Object.keys(world.crossings)).toEqual(
+    expect.arrayContaining(["pond-train", "train-pond"]),
+  );
 });

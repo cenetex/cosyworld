@@ -1,3 +1,9 @@
+import {
+  collectionCards,
+  registerPersonalQuest,
+  focusQuest,
+  clearQuestFocus,
+} from "../v2/card-game/shared-quests.mjs";
 import { describe, expect, it } from "vitest";
 import {
   addLog,
@@ -9,6 +15,8 @@ import {
   legalActions,
   play,
   rootHolder,
+  places,
+  things,
 } from "../v2/card-game/world.mjs";
 import {
   availableCards,
@@ -16,7 +24,13 @@ import {
   cardPlay,
 } from "../v2/card-game/cards.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
-import { desireFor, knownActors, levelOf } from "../v2/card-game/quests.mjs";
+import {
+  desireFor,
+  knownActors,
+  levelOf,
+  ensureCollectedQuest,
+  pursueQuest,
+} from "../v2/card-game/quests.mjs";
 import {
   applyGeneratedText,
   narrativeContext,
@@ -60,7 +74,10 @@ function move(world, target) {
   const boarding = world.actors.vale.place === "pond" && target === HARBOR;
   if (world.actors.vale.place === HARBOR && target === "pond") {
     if (world.items.lamp.lit) world = act(world, "snuff", { item: "lamp" });
-    while (world.items.lamp.fuel < 7)
+    while (
+      world.items.lamp.fuel < 7 &&
+      legalActions(world).some((a) => a.kind === "refill")
+    )
       world = act(world, "refill", { item: "oil" });
     if (rootHolder(world, "cloth") !== "vale")
       world = act(world, "take", { item: "cloth" });
@@ -184,7 +201,10 @@ describe("the Wine-Dark Sea crossing", () => {
     expect(world.memories.moth.landmarks).toContainEqual(remembered);
     expect(rootHolder(world, "lamp")).toBe("vale");
     expect(world.items.cloth.holder).toBe("bell");
-    expect(move(world, HARBOR).actors.vale.place).toBe(HARBOR);
+    expect(world.transports["greek-ship"]).toMatchObject({
+      dock: "pond",
+      destination: null,
+    });
   });
 
   it("adds the pack once to an earlier shore save without overwriting its progress", () => {
@@ -254,7 +274,11 @@ describe("the Wine-Dark Sea crossing", () => {
     expect(rejected).toMatchObject({ ok: false, state: shore });
     expect(encodeSave(shore)).toBe(before);
     const context = narrativeContext(shore);
-    expect(context.speakers.every((id) => !id.startsWith("greek-"))).toBe(true);
+    expect(
+      context.speakers.every(
+        (id) => !id.startsWith("greek-") || id === "greek-rhapsode",
+      ),
+    ).toBe(true);
     expect(context.entities.some((e) => e.id === "greek-antigone")).toBe(false);
     expect(availableCards(shore)).not.toContain("greek-antigone");
   });
@@ -279,8 +303,11 @@ describe("Greek story quest cards", () => {
     });
     expect(story(world, 2)).toBeUndefined();
     // A personal purpose and two story requests can share the same hand.
-    world.life.actors.vale.phase = "active";
-    world.life.actors.vale.inspiration = 0;
+    ensureCollectedQuest(world, "vale", places, things);
+    const pending = collectionCards(world, "vale").find(
+      (q) => q.completedTurn === null,
+    );
+    expect(pursueQuest(world, "vale", pending.key)).toBe(true);
     const before = encodeSave(world);
     expect(questHand(world)).toEqual(
       expect.arrayContaining([
@@ -312,7 +339,7 @@ describe("Greek story quest cards", () => {
         }),
       ]),
     );
-    expect(questHand(world)).not.toContain(STORY_QUEST_CARDS[0]);
+    expect(questHand(world)).toContain(STORY_QUEST_CARDS[0]);
     expect(story(reload(world), 0)).toMatchObject({
       key: original.key,
       resolved: true,
@@ -352,7 +379,7 @@ describe("Greek story quest cards", () => {
           }),
         ]),
       );
-      expect(questHand(reload(world))).not.toContain(STORY_QUEST_CARDS[2]);
+      expect(questHand(reload(world))).toContain(STORY_QUEST_CARDS[2]);
       expect(fulfilledQuests(world, act(world, "wait"))).toEqual([]);
     },
   );
@@ -362,6 +389,12 @@ describe("Greek story quest cards", () => {
     const original = story(world, 1);
     world = walk(world, COURTYARD, HARBOR, "pond");
     world.life.actors.vale.phase = "seeking";
+    delete world.life.actors.vale.restAt;
+    delete world.life.actors.vale.origin;
+    world.life.actors.vale.restLeft = 0;
+    world.life.actors.vale.collection.active = null;
+    delete world.actors.vale.progress.current;
+    world.actors.vale.progress.step = 0;
     expect(story(world, 1)).toEqual(original);
     expect(questHand(world)).toContain(STORY_QUEST_CARDS[1]);
     expect(storyQuests(reload(world))).toEqual(storyQuests(world));
@@ -680,6 +713,8 @@ describe("incompatible histories become playable branches", () => {
     "offers a separate %s Atreid history without opening the other two",
     (branch, destination, evidence, response) => {
       let world = move(harbor(), "greek-argolid-road");
+      // This branch fixture begins with the bard at the meeting site.
+      world.actors["greek-rhapsode"].place = "greek-argolid-road";
       const options = legalActions(world).filter((a) =>
         a.choiceId?.startsWith("greek-atreid-"),
       );

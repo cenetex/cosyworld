@@ -20,6 +20,7 @@ import {
   humanAvatarIds,
   roomHumanCount,
 } from "./human-cast.mjs";
+import { installQuestCollection } from "./quests.mjs";
 import { profiles } from "./memory.mjs";
 import { enableMotives } from "./motives.mjs";
 import { narrativeContext } from "./narrative.mjs";
@@ -137,7 +138,9 @@ export function dispatchShared(request) {
   const world = load(request);
   const actor = request.actor || "vale";
   if (request.op === "upgrade") {
-    settleHomeItems(world, world.controlledActors);
+    for (const id of Object.keys(world.actors)) installQuestCollection(world, id);
+    if (request.from === "full-card-world/2")
+      settleHomeItems(world, world.controlledActors);
     world.revision += 1;
     validateWorld(world);
     return response(world);

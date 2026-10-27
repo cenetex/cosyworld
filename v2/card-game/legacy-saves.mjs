@@ -1,12 +1,19 @@
+import { syncStoryQuests } from "./story-quests.mjs";
+import { publishQuestCompletions } from "./quest-completions.mjs";
+import { installSharedQuestRegistry } from "./shared-quests.mjs";
 import { newProgress, questPrograms } from "./quests.mjs";
 import { migrateMemories, newMemories, rememberEvent } from "./memory.mjs";
+import { migrateLife } from "./life.mjs";
 import { upgradeRecitals } from "./pack-recital.mjs";
 import { isPackActor, packDefinitions } from "./pack-registry.mjs";
 
 // Upgrade historical records before the world validates the current save.
 // World-owned helpers keep pack installation and generated quests on the same
 // path as a new game, while this module owns the schema order.
-export function upgradeSave(s, { actorIds, ensurePrograms, installPacks }) {
+export function upgradeSave(
+  s,
+  { actorIds, ensurePrograms, installPacks, profileOf },
+) {
   if (s?.schema === 1 && s.actors && typeof s.actors === "object") {
     s.schema = 2;
     for (const actor of Object.values(s.actors)) {
@@ -83,6 +90,10 @@ export function upgradeSave(s, { actorIds, ensurePrograms, installPacks }) {
     installPacks(s);
   }
   if (s?.schema === 7) upgradeRecitals(s, packDefinitions);
+  migrateLife(s, profileOf);
+  if (Object.values(s.life?.actors || {}).some((life) => life.collection))
+    installSharedQuestRegistry(s);
+  if (s?.schema === 7) publishQuestCompletions(s, syncStoryQuests(s));
   return s;
 }
 

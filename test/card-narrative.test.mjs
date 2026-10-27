@@ -14,6 +14,8 @@ import {
   applyGeneratedText,
   createNarrator,
 } from "../v2/card-game/narrative.mjs";
+import { enableMotives } from "../v2/card-game/motives.mjs";
+import { actorQuests } from "../v2/card-game/quests.mjs";
 import { profiles } from "../v2/card-game/memory.mjs";
 import { sceneScript, currentScene } from "../v2/card-game/scene.mjs";
 
@@ -38,6 +40,43 @@ const response = (context) => ({
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe("entity memories and model text", () => {
+  it("grounds active and competing purposes in the collected quests", () => {
+    const world = enableMotives(createWorld(), {
+      questPrograms: true,
+      personalQuests: true,
+    });
+    const context = narrativeContext(world);
+    for (const entity of context.entities.filter(
+      (entry) => world.actors[entry.id],
+    )) {
+      const quests = actorQuests(world, entity.id);
+      const active = quests.find((quest) => quest.status === "active");
+      if (active)
+        expect(entity.facts[0]).toBe(
+          `My active purpose is ${active.program.name}.`,
+        );
+      for (const pending of quests.filter(
+        (quest) => quest.status === "pending",
+      ))
+        expect(entity.facts.join(" ")).toContain(pending.program.name);
+    }
+  });
+
+  it("keeps the final Bell recipient and its later movement in the speech request", () => {
+    const world = createWorld();
+    world.actors.vale.place = "station";
+    world.actors.keeper.place = "station";
+    world.items.bell.holder = "vale";
+    const next = act(world, "give", "bell", "keeper");
+    const outcome = narrativeContext(next).outcome;
+    expect(outcome.card).toMatchObject({kind:"give",item:"bell",target:"keeper"});
+    expect(outcome.items.find((item) => item.id === "bell")).toEqual({id:"bell",holder:"keeper",location:"attic"});
+    expect(outcome.avatars.find((actor) => actor.id === "keeper")).toMatchObject({
+      holding: ["oil", "bell"], travel: {from:"station",to:"attic",companions:[]},
+    });
+    expect(narrativeContext(decodeSave(encodeSave(next))).outcome).toEqual(outcome);
+  });
+
   it("sends the final lamp state after refilling, lighting, covering and running dry", () => {
     let world = createWorld();
     world.actors.vale.place = "pond";
@@ -131,7 +170,7 @@ describe("entity memories and model text", () => {
     expect(vale.facts.join(" ")).toContain(
       "Wants Oil flask, currently with The keeper",
     );
-    expect(context.entities.every((e) => e.facts.length <= 8)).toBe(true);
+    expect(context.entities.every((e) => e.facts.length <= 16)).toBe(true);
     const next = applyGeneratedText(world, context, response(context));
     expect(next.actors).toEqual(world.actors);
     expect(next.items).toEqual(world.items);
@@ -211,7 +250,7 @@ describe("entity memories and model text", () => {
     });
     expect(
       context.entities.every(
-        (e) => e.facts.length <= 8 && e.facts.every((f) => f.length <= 240),
+        (e) => e.facts.length <= 16 && e.facts.every((f) => f.length <= 240),
       ),
     ).toBe(true);
   });
@@ -243,6 +282,29 @@ describe("entity memories and model text", () => {
     const duplicate = response(context);
     duplicate.entries[0].id = duplicate.entries[1].id;
     expect(() => applyGeneratedText(world, context, duplicate)).toThrow();
+  });
+
+  it("keeps omitted cards unchanged and publishes only supplied speakers", () => {
+    const world = act(createWorld(), "wait");
+    const context = narrativeContext(world);
+    const reply = response(context);
+    const silent = context.speakers.at(-1);
+    expect(context.speakers.length).toBeGreaterThan(1);
+    reply.omitted = [silent];
+    reply.entries = reply.entries.filter((entry) => entry.id !== silent);
+    const next = applyGeneratedText(world, context, reply);
+    expect(next.memories[silent].text).toEqual(world.memories[silent].text);
+    expect(
+      next.log
+        .slice(world.log.length)
+        .some((e) => e.generated && e.entityId === silent),
+    ).toBe(false);
+    const empty = response(context);
+    empty.omitted = [...context.speakers];
+    empty.entries = empty.entries.filter(
+      (entry) => !empty.omitted.includes(entry.id),
+    );
+    expect(() => applyGeneratedText(world, context, empty)).toThrow();
   });
 
   it("coalesces fast plays and keeps reset worlds clear of late replies", async () => {
@@ -765,7 +827,7 @@ describe("witnessed departures and conversation continuity", () => {
     expect(
       context.entities.every(
         (e) =>
-          e.facts.length <= 8 && e.facts.every((fact) => fact.length <= 240),
+          e.facts.length <= 16 && e.facts.every((fact) => fact.length <= 240),
       ),
     ).toBe(true);
   });

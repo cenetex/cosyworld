@@ -77,20 +77,44 @@ impl World {
     // authored rules. AI text is appended by the authored speech reducer.
     pub fn apply(&mut self, command: &Value) -> Result<Value> {
         if command["op"] == "upgrade" {
-            let to = command["to"].as_str().unwrap_or("");
-            let allowed = engine::historical(&self.version)
-                && command["from"] == self.version
-                && (to == engine::VERSION
-                    || (self.version == engine::PREVIOUS_VERSION && to == "full-card-world/3"));
-            if !allowed {
-                return Err("This world's rules need a saved migration.".into());
+            let target = command["to"]
+                .as_str()
+                .ok_or("Choose a saved rules upgrade.")?;
+            let versions = [
+                engine::LEGACY_VERSION,
+                engine::PREVIOUS_VERSION,
+                engine::FOURTH_VERSION,
+                engine::FIFTH_VERSION,
+                engine::SIXTH_VERSION,
+                engine::VERSION,
+            ];
+            let allowed = versions
+                .iter()
+                .position(|v| *v == self.version)
+                .zip(versions.iter().position(|v| *v == target))
+                .is_some_and(|(from, to)| from < to);
+            if command["from"] != self.version || !allowed {
+                return Err("This world's rules upgrade needs its original version.".into());
             }
-            let result = engine::reduce_version(to, self.request("upgrade", 0))?;
+            let mut request = self.request("upgrade", 0);
+            request["from"] = json!(self.version);
+            request["to"] = json!(target);
+            // Recorded upgrades retain their released target transformation.
+            let result = engine::reduce_version(target, request)?;
             self.game = result["world"].clone();
-            self.version = to.into();
+            self.version = target.into();
             return Ok(result);
         }
-        if self.version != engine::VERSION && !engine::historical(&self.version) {
+        if ![
+            engine::VERSION,
+            engine::PREVIOUS_VERSION,
+            engine::LEGACY_VERSION,
+            engine::FOURTH_VERSION,
+            engine::FIFTH_VERSION,
+            engine::SIXTH_VERSION,
+        ]
+        .contains(&self.version.as_str())
+        {
             return Err("This world's rules need a saved migration.".into());
         }
         let a = actor_index(command["actor"].as_str().ok_or("Choose an avatar.")?)?;

@@ -317,7 +317,24 @@ main {
 }
 #story-status {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 14px;
+}
+body .dialogue-heading #story-retry {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+}
+body .dialogue-heading #story-retry:hover,
+body .dialogue-heading #story-retry:focus-visible {
+  color: var(--ink);
 }
 @keyframes speech-blink {
   50% {
@@ -686,6 +703,10 @@ main {
   scrollbar-color: #ad97744d transparent;
   scroll-padding-inline: 5px;
   scroll-snap-type: x proximity;
+}
+/* Keep the chosen card at the position set by revealHandCard. */
+.hand:has(.card-frame[data-raised="true"]) {
+  scroll-snap-type: none;
 }
 .hand-wrap::before,
 .hand-wrap::after {
@@ -1094,6 +1115,10 @@ body .line-controls button {
 
 /* A discovery uses the scene for a moment, then joins the hand. */
 .unveil[open] {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  z-index: 8;
   --reveal-height: min(310px, 52dvh);
   display: block;
   width: calc(var(--reveal-height) * 0.7);
@@ -1134,6 +1159,7 @@ body .unveil .card-frame {
 }
 body .unveil .card {
   display: block;
+  transform: none;
   opacity: 1;
   box-shadow: 0 0 35px #e5c78b55;
 }
@@ -1147,7 +1173,7 @@ body .card.new {
     0 0 14px #e7ca8655;
 }
 
-/* A wish lives with Vale and uses the same card space as the hand. */
+/* Each avatar keeps a stack of collected wishes after their belongings. */
 .quest-preview {
   position: absolute;
   inset: 0;
@@ -1157,7 +1183,11 @@ body .card.new {
   box-shadow:
     inset 0 0 0 4px #0d131c,
     inset 0 0 0 5px #d6be8955;
-  transform: translate(13px, -6px) rotate(5deg);
+  transform: translate(
+      calc(13px + var(--quest-offset, 0) * 5px),
+      calc(-6px - var(--quest-offset, 0) * 3px)
+    )
+    rotate(calc(5deg + var(--quest-offset, 0) * 2deg));
   pointer-events: none;
 }
 .card-frame[data-expanded="true"] .quest-preview {
@@ -1318,4 +1348,18 @@ body[data-place="attic"] .card.quest {
   body[data-place="attic"] .scene-shade::after {
     transition: none;
   }
+}
+
+body .quest-frame[data-stacked="true"] {
+  margin-left: calc(14px - var(--card-width));
+  transform: translateY(4px);
+}
+body .quest-frame[data-raised="true"] {
+  transform: translateY(-10px);
+}
+body .card.quest[data-quest-status="pending"] {
+  border-color: #a48d6380;
+}
+body .card.quest[data-quest-status="fulfilled"] .art {
+  opacity: 0.6;
 }

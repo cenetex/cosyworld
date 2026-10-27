@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   createWorld,
+  exits,
   legalActions,
   play,
   standoffFor,
@@ -9,6 +10,7 @@ import {
   validateWorld,
   plan,
 } from "../v2/card-game/world.mjs";
+import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { avatarPlays, cardPlay } from "../v2/card-game/cards.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import { levelOf, hand, hold, at } from "../v2/card-game/quests.mjs";
@@ -82,6 +84,7 @@ describe("card standoffs", () => {
     // Guard reduces Pip's two damage to one and lasts for one reply.
     s = act(s, "guard", "moth");
     expect(standoffFor(s, "vale").resolve.vale).toBe(1);
+    expect(exits(s, "station", "vale")).toContain("attic");
     s = act(s, "attack", "moth");
     expect(standoffFor(s, "vale")).toBeUndefined();
     expect(s.actors.vale.place).toBe("attic");
@@ -97,6 +100,55 @@ describe("card standoffs", () => {
     });
     expect(levelOf(s, "vale")).toBe(1);
     expect(s.peaceUntil.vale).toBe(s.turn + 3);
+  });
+  it("yields in a sealed attic with dropped custody and a valid shared save", () => {
+    const s = createWorld({ opening: true });
+    s.turn = s.revision = 1;
+    s.sharedVersion = 1;
+    s.actors.moth.place = "attic";
+    s.items.lamp.holder = "moth";
+    s.standoffs = [
+      {
+        challenger: "vale",
+        defender: "moth",
+        location: "attic",
+        item: "lamp",
+        opened: s.turn,
+        answered: true,
+        resolve: { vale: 4, moth: 1 },
+        guarding: { vale: false, moth: true },
+        struck: { vale: false, moth: false },
+      },
+    ];
+    expect(exits(s, "attic", "moth")).toEqual([]);
+    validateWorld(s);
+    const request = {
+      op: "play",
+      actor: "vale",
+      claimed: ["vale"],
+      present: ["vale"],
+      action: legalActions(s).find((a) => a.kind === "attack"),
+    };
+    const result = dispatchShared({ ...request, world: s });
+    expect(result.ok).toBe(true);
+    const after = result.world;
+    expect(after.actors.moth.place).toBe("attic");
+    expect(after.items.lamp.holder).toBe("attic");
+    expect(after.standoffs).toEqual([]);
+    expect(after.peaceUntil.moth).toBe(after.turn + 3);
+    const attack = after.log.findLast((entry) => entry.verb === "attack");
+    expect(attack.text).toContain("The guard softens the blow.");
+    expect(attack.text).toContain("yields here. The standoff ends.");
+    expect(
+      after.log.some(
+        (entry) => entry.verb === "arrive" && entry.actorId === "moth",
+      ),
+    ).toBe(false);
+    validateWorld(after);
+    expect(decodeSave(encodeSave(after))).toEqual(after);
+    expect(
+      dispatchShared({ ...request, world: decodeSave(encodeSave(s)) }),
+    ).toEqual(result);
   });
   it("settles an item demand through a trade while combat is open", () => {
     let s = createWorld();
@@ -223,7 +275,7 @@ describe("card standoffs", () => {
     expect(moth.facts.join(" ")).toContain("guarding");
     expect(
       context.entities.every(
-        (e) => e.facts.length <= 8 && e.facts.every((f) => f.length <= 240),
+        (e) => e.facts.length <= 16 && e.facts.every((f) => f.length <= 240),
       ),
     ).toBe(true);
   });

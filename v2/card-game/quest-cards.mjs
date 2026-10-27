@@ -1,69 +1,27 @@
 import { packDefinition } from "./pack-registry.mjs";
 import { recitalPoem } from "./pack-recital.mjs";
-import { programFor } from "./quests.mjs";
+import { questRecords, questStatus } from "./shared-quests.mjs";
+import { actorQuests } from "./quests.mjs";
 import { availableCards } from "./cards.mjs";
-import { rootHolder, things, currentActor } from "./world.mjs";
+import { rootHolder, things, people, places, currentActor } from "./world.mjs";
 
 export const QUEST_CARD = "player-quest";
-export const STORY_QUEST_CARDS = [
-  "story-quest-greek-table",
-  "story-quest-greek-burial",
-  "story-quest-greek-courtyard",
-];
-export const isQuestCard = (id) =>
-  id === QUEST_CARD || STORY_QUEST_CARDS.includes(id);
+
+export { STORY_QUEST_CARDS } from "./story-quests.mjs";
+import {
+  STORY_QUEST_CARDS,
+  storyDefinitions,
+  storyActors,
+} from "./story-quests.mjs";
 
 export function openingPoem(world) {
   return recitalPoem(world, packDefinition("greek-drama"));
 }
 
-const storyLines = [
-  "A place beside the bread.",
-  "Her brother waits for earth.",
-  "What words will you bring home?",
-];
-
-// Card lines stay short and steady; saved choices determine their completion.
 export function storyQuests(world) {
-  const state = world.packs?.["greek-drama"];
-  if (!state) return [];
-  const flags = state.flags || {},
-    met = state.met || {},
-    response = state.choices?.["greek-theban-response"],
-    buried = flags["greek-burial-performed"] === true,
-    returned = flags["greek-water-returned"] === true,
-    publicOutcome = flags[`greek-${response}-public`] === true,
-    graveReturn = response === "concession" && buried && publicOutcome,
-    graveShared = flags["greek-permitted-burial-public"] === true;
-  const card = (index, art, resolved, completion = "Fulfilled") => ({
-    id: STORY_QUEST_CARDS[index],
-    key: `greek-drama:${STORY_QUEST_CARDS[index]}${index === 2 && graveReturn ? ":grave" : ""}`,
-    title: storyLines[index],
-    purpose: storyLines[index],
-    singleLine: true,
-    art,
-    resolved,
-    completion,
-  });
-  const quests = [];
-  if (Object.hasOwn(met, "greek-baker") || returned)
-    quests.push(card(0, "greek-water-jar", returned));
-  if (
-    Object.hasOwn(met, "greek-antigone") ||
-    flags["greek-decree-known"] ||
-    response ||
-    buried
-  ) {
-    const completion = { refusal: "Declined", exposure: "Reported" }[response];
-    quests.push(
-      card(1, "greek-funeral-cloth", buried || Boolean(completion), completion),
-    );
-  }
-  if (response) {
-    const resolved = publicOutcome && (!graveReturn || graveShared);
-    quests.push(card(2, "greek-bread", resolved, "Shared"));
-  }
-  return quests;
+  return storyQuestCards(world, currentActor(world)).filter(
+    (quest) => !quest.historical,
+  );
 }
 
 export function activeQuests(world) {
@@ -75,18 +33,21 @@ export function activeQuests(world) {
 }
 
 export function fulfilledQuests(before, after) {
-  const active = new Set(
-    storyQuests(before)
-      .filter((q) => !q.resolved)
-      .map((q) => q.key),
+  const previous = new Map(
+    questCards(before).map((quest) => [quest.key, quest]),
   );
-  const personal = fulfilledPlayerQuest(before, after);
-  return [
-    ...storyQuests(after).filter((q) => q.resolved && active.has(q.key)),
-    ...(personal
-      ? [{ ...personal, id: QUEST_CARD, completion: "Fulfilled" }]
-      : []),
-  ];
+  return questCards(after)
+    .filter(
+      (quest) =>
+        quest.status === "fulfilled" &&
+        previous.has(quest.key) &&
+        previous.get(quest.key).status !== "fulfilled",
+    )
+    .map((quest) => ({
+      ...quest,
+      id: quest.story ? questCardId(after, quest) : QUEST_CARD,
+      completion: quest.completion || "Fulfilled",
+    }));
 }
 
 // Card copy describes a wish. The rules and steps remain in the quest engine.
@@ -140,52 +101,185 @@ const situations = {
   ],
 };
 
+// Stable collection keys belong to the save; card IDs only identify the view.
+export const isQuestCard = (id) =>
+  id === QUEST_CARD ||
+  STORY_QUEST_CARDS.includes(id) ||
+  (typeof id === "string" && id.startsWith("quest-card:"));
+
+function personalQuestCards(world, actor = currentActor(world)) {
+  const collected = actorQuests(world, actor);
+  const keys = new Set(collected.map((record) => record.key));
+  const held = questRecords(world).filter(
+    (record) => record.holder.id === actor && !keys.has(record.key),
+  );
+  return [...collected, ...held]
+    .filter((record) => record.mode !== "story")
+    .map((record) => {
+      const program = record.program;
+      const [title, purpose, art] =
+        authored[program.id] ||
+        situations[program.generated?.situation] ||
+        (program.generated?.solo
+          ? [
+              "A moment of my own",
+              "There is room here for a small discovery.",
+              "lamp",
+            ]
+          : [
+              program.name || "A wish",
+              program.purpose || "Something worth pursuing.",
+              "cloth",
+            ]);
+      const status = record.status || questStatus(world, record);
+      const focused = record.holder
+        ? world.quests.focus[actor] === record.key
+        : status === "active";
+      return {
+        key: record.key,
+        actor,
+        title,
+        purpose,
+        art: program.art || art,
+        holder: record.holder || { kind: "avatar", id: actor },
+        participants: record.participants || [actor],
+        focused,
+        status: ["fulfilled", "superseded"].includes(status)
+          ? status
+          : focused
+            ? "active"
+            : "pending",
+        completion: {
+          declined: "Declined",
+          reported: "Reported",
+          shared: "Shared",
+        }[record.completion?.outcome],
+        step: record.step,
+        steps: record.totalSteps ?? program.steps?.length ?? 0,
+      };
+    });
+}
+
+function storyQuestCards(world, actor) {
+  return storyDefinitions(world, true)
+    .filter((definition) => {
+      const record = world.quests?.records[definition.key];
+      return record
+        ? record.holder.id === actor || record.participants.includes(actor)
+        : definition.holder.id === actor ||
+            storyActors(world, definition).includes(actor);
+    })
+    .map((definition) => {
+      const record = world.quests?.records[definition.key];
+      return {
+        ...definition,
+        actor,
+        id:
+          actor === currentActor(world) && !definition.historical
+            ? definition.id
+            : undefined,
+        participants: record?.participants || storyActors(world, definition),
+        focused: world.quests?.focus[actor] === definition.key,
+        step: record?.step ?? Number(definition.resolved),
+        steps: 1,
+      };
+    });
+}
+
+// Pack receipts retain story cards through reload and log pruning. A second
+// courtyard report has its own identity while the first stays in the collection.
+export function questCards(world, actor = currentActor(world)) {
+  const personal = personalQuestCards(world, actor);
+  const stories = storyQuestCards(world, actor);
+  return [
+    ...personal.filter((quest) => quest.status === "active"),
+    ...personal.filter((quest) => quest.status === "pending"),
+    ...stories.filter((quest) => quest.status === "pending"),
+    ...personal.filter((quest) => quest.status === "fulfilled"),
+    ...personal.filter((quest) => quest.status === "superseded"),
+    ...stories.filter((quest) => quest.status === "fulfilled"),
+  ];
+}
+
 export function playerQuest(world) {
-  const program = programFor(world, currentActor(world));
-  if (!program) return null;
-  const [title, purpose, art] =
-    authored[program.id] ||
-    situations[program.generated?.situation] ||
-    (program.generated?.solo
-      ? [
-          "A moment of my own",
-          "There is room here for a small discovery.",
-          "lamp",
-        ]
-      : situations.bargain);
-  return {
-    key: `${currentActor(world)}:${world.actors[currentActor(world)].progress.program}:${program.id}:${program.generated?.turn ?? "authored"}`,
-    title,
-    purpose,
-    art,
-  };
+  return (
+    personalQuestCards(world).find((quest) => quest.status === "active") || null
+  );
 }
 
 export function fulfilledPlayerQuest(before, after) {
-  const quest = playerQuest(before);
-  if (!quest || quest.key === playerQuest(after)?.key) return null;
-  const receipt = after.log.find(
-    (entry) =>
-      entry.seq > (before.eventSeq || 0) &&
-      entry.kind === "quest" &&
-      entry.actorId === currentActor(before) &&
-      entry.programIndex ===
-        before.actors[currentActor(before)].progress.program &&
-      entry.step + 1 === entry.program?.steps.length,
+  const previous = new Map(
+    personalQuestCards(before).map((quest) => [quest.key, quest]),
   );
-  return receipt ? quest : null;
+  const fulfilled = personalQuestCards(after).find(
+    (quest) =>
+      quest.status === "fulfilled" &&
+      previous.has(quest.key) &&
+      previous.get(quest.key).status !== "fulfilled",
+  );
+  return fulfilled || null;
 }
 
-export function questHand(world, quest = activeQuests(world)) {
-  const cards = availableCards(world);
-  const quests = Array.isArray(quest) ? quest : quest ? [quest] : [];
-  if (!quests.length) return cards;
-  let index = cards.indexOf(currentActor(world)) + 1;
-  while (
-    things[cards[index]] &&
-    rootHolder(world, cards[index]) === currentActor(world)
+export function questCardId(world, quest, notice = null) {
+  if (quest.id) return quest.id;
+  if (
+    quest.actor === currentActor(world) &&
+    quest.key ===
+      (notice?.story ? playerQuest(world) : notice || playerQuest(world))?.key
   )
-    index++;
-  cards.splice(index, 0, ...quests.map((q) => q.id || QUEST_CARD));
+    return QUEST_CARD;
+  return `quest-card:${encodeURIComponent(quest.actor)}:${encodeURIComponent(quest.key)}`;
+}
+
+export function questForCard(world, id, notice = null) {
+  if (id === QUEST_CARD)
+    return notice?.story ? playerQuest(world) : notice || playerQuest(world);
+  if (STORY_QUEST_CARDS.includes(id))
+    return questCards(world).find((quest) => quest.id === id) || null;
+  if (!isQuestCard(id)) return null;
+  const [, encodedActor] = id.split(":");
+  let actor;
+  try {
+    actor = decodeURIComponent(encodedActor);
+  } catch {
+    return null;
+  }
+  if (!world.actors[actor] && !world.items[actor] && !places[actor])
+    return null;
+  return (
+    questCards(world, actor).find(
+      (quest) => questCardId(world, quest, notice) === id,
+    ) || null
+  );
+}
+
+export function questHand(world, notice = null) {
+  const visible = availableCards(world),
+    cards = [];
+  const appendQuests = (holder) => {
+    const deck = questCards(world, holder);
+    if (
+      holder === currentActor(world) &&
+      notice &&
+      !deck.some((quest) => quest.key === notice.key)
+    )
+      deck.push(notice);
+    cards.push(...deck.map((quest) => questCardId(world, quest, notice)));
+  };
+  for (let index = 0; index < visible.length; index++) {
+    const holder = visible[index];
+    cards.push(holder);
+    if (people[holder]) {
+      while (
+        things[visible[index + 1]] &&
+        rootHolder(world, visible[index + 1]) === holder
+      ) {
+        const item = visible[++index];
+        cards.push(item);
+        appendQuests(item);
+      }
+    }
+    appendQuests(holder);
+  }
   return cards;
 }

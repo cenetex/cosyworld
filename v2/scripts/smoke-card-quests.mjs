@@ -33,14 +33,20 @@ try {
         JSON.stringify({ enabled: false }),
       );
       window.questReveals = [];
+      window.questMotions = [];
       window.addEventListener("DOMContentLoaded", () => {
         new MutationObserver(() => {
           const dialog = document.querySelector("#unveil-dialog");
+          if (dialog?.open && dialog.dataset.direction === "fulfill") {
+            const phase = dialog.dataset.phase;
+            if (window.questMotions.at(-1) !== phase)
+              window.questMotions.push(phase);
+          }
           if (
             dialog?.open &&
             dialog.dataset.phase === "reveal" &&
-            document.querySelector("#unveil-take").dataset.card ===
-              "player-quest"
+            dialog.dataset.direction !== "fulfill" &&
+            dialog.querySelector(".card[data-quest]")
           ) {
             const id = dialog.querySelector(".card").dataset.quest;
             if (window.questReveals.at(-1) !== id) window.questReveals.push(id);
@@ -184,9 +190,7 @@ try {
         let i = 0;
         i < 20 &&
         !(await page
-          .locator(
-            '#hand .card-frame[data-raised="true"] [data-fulfilled="true"]',
-          )
+          .locator('#unveil-dialog[open] [data-fulfilled="true"]')
           .count());
         i++
       ) {
@@ -194,38 +198,81 @@ try {
         await page.waitForTimeout(60);
       }
       await page.waitForSelector(
-        '#hand .card-frame[data-raised="true"] [data-fulfilled="true"]',
+        '#unveil-dialog[open] [data-fulfilled="true"]',
       );
       assert.equal(
         await page.locator("#hand").getAttribute("data-cooling"),
         "true",
       );
-      await page.waitForTimeout(350);
+      if (width === 390) {
+        await page.locator("#menu-button").click();
+        await page.emulateMedia({ reducedMotion: "reduce" });
+        await page.waitForTimeout(2500);
+        assert.equal(
+          await page
+            .locator('#unveil-dialog[open] [data-fulfilled="true"]')
+            .count(),
+          1,
+          "Settings and a motion change preserve the reading pause",
+        );
+        await page.keyboard.press("Escape");
+        await page.emulateMedia({ reducedMotion: "no-preference" });
+      }
+      await page.waitForFunction(() => {
+        const dialog = document.querySelector("#unveil-dialog");
+        return (
+          dialog.dataset.direction === "fulfill" &&
+          dialog.dataset.phase === "reveal"
+        );
+      });
+      const completedBounds = await page
+        .locator("#unveil-take .card")
+        .boundingBox();
+      assert(
+        Math.abs(completedBounds.x + completedBounds.width / 2 - width / 2) < 2,
+        JSON.stringify({ width, height, completedBounds }),
+      );
+      assert(
+        Math.abs(completedBounds.y + completedBounds.height / 2 - height / 2) <
+          2,
+        JSON.stringify({ width, height, completedBounds }),
+      );
       assert.equal(
-        await card("player-quest").evaluate(
-          (card) => getComputedStyle(card).opacity,
-        ),
+        await page
+          .locator('#unveil-take [data-fulfilled="true"]')
+          .evaluate((card) => getComputedStyle(card).opacity),
         "1",
       );
       await page.screenshot({
         path: new URL(`fulfilled-${width}.png`, output).pathname,
       });
-      if (width === 390) {
-        await page.locator("#menu-button").click();
-        await page.waitForTimeout(2500);
-        assert.equal(
-          await card("player-quest").count(),
-          1,
-          "Menu pauses completion",
-        );
-        await page.keyboard.press("Escape");
-      }
       await ready();
       assert.equal(await card("player-quest").count(), 0);
+      assert.equal(
+        await page.evaluate(() => window.questMotions.includes("outward")),
+        width !== 320,
+        "completion uses the discovery flight in reverse with full motion",
+      );
       // Resume a later purpose with an unfinished line. The new card waits for it.
-      await page.evaluate((key) => {
+      const nextQuestKey = await page.evaluate(async (key) => {
+        const { ensureCollectedQuest, pursueQuest } = await import(
+          "/quests.mjs"
+        );
+        const { places, things } = await import("/world.mjs");
+        const { collectionCards } = await import("/shared-quests.mjs");
         const world = JSON.parse(localStorage.getItem(key));
         world.life.actors.vale.phase = "active";
+        ensureCollectedQuest(world, "vale", places, things);
+        const next = collectionCards(world, "vale").find(
+          (quest) => quest.program.id === "along-the-shore",
+        );
+        if (!pursueQuest(world, "vale", next.key))
+          throw new Error("The collected quest must accept focus.");
+        // The other tab collected this card before its local discovery was seen.
+        const seenKey = `${key}.quests`;
+        const seen = JSON.parse(localStorage.getItem(seenKey));
+        seen.seen = seen.seen.filter((quest) => quest !== next.key);
+        localStorage.setItem(seenKey, JSON.stringify(seen));
         world.eventSeq++;
         world.log.push({
           seq: world.eventSeq,
@@ -240,12 +287,18 @@ try {
         const value = JSON.stringify(world);
         localStorage.setItem(key, value);
         dispatchEvent(new StorageEvent("storage", { key, newValue: value }));
+        return next.key;
       }, key);
       await page.waitForSelector("#dialogue-text .speech-letter");
       assert.equal(await page.locator("#unveil-dialog[open]").count(), 0);
       await finish();
+      await page.waitForFunction(
+        (key) => window.questReveals.includes(key),
+        nextQuestKey,
+      );
+      await finish();
       assert.deepEqual(await page.evaluate(() => window.questReveals), [
-        "vale:1:along-the-shore:authored",
+        nextQuestKey,
       ]);
       await selectCard(page, "pond");
       await page.locator('#card-actions [data-action="move"]').click();

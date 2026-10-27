@@ -13,12 +13,15 @@ import {
 } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
 import { humanAvatars } from "../card-game/human-cast.mjs";
+import { roamingActors } from "../card-game/roaming-routes.mjs";
 
 const dir = await mkdtemp(join(tmpdir(), "shared-full-world-smoke-"));
 const output = resolve("output/shared-cards");
 await mkdir(output, { recursive: true });
 const requests = [];
+const replies = new Map();
 let holdReplies = false;
+let failReplies = false;
 const waitingReplies = [];
 const provider = createServer(async (req, res) => {
   let body = "";
@@ -26,15 +29,22 @@ const provider = createServer(async (req, res) => {
   const input = JSON.parse(body || "{}");
   requests.push(input);
   if (holdReplies) await new Promise((resolve) => waitingReplies.push(resolve));
-  const scene = JSON.parse(input.messages.at(-1).content);
-  const content = JSON.stringify({
-    entries: scene.requested_ids.map((id, index) => ({
-      id,
-      text: index
-        ? "A ripple reaches the shore."
-        : "There is room for a little company.",
-    })),
-  });
+  if (failReplies) {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(
+      JSON.stringify({
+        model: input.model,
+        choices: [{ message: { content: "" }, finish_reason: "stop" }],
+      }),
+    );
+    return;
+  }
+  const transcript = input.messages.at(-1).content;
+  assert.equal(typeof transcript, "string");
+  assert.match(transcript, /Current scene:/u);
+  assert.match(transcript.trim(), /:$/u);
+  const content = `I pause for ${requests.length} quiet breaths.`;
+  replies.set(input, content);
   res.writeHead(200, { "Content-Type": "application/json" });
   res.end(
     JSON.stringify({
@@ -110,6 +120,15 @@ async function until(test, label, rounds = 200, interval = 250) {
 const ready = () =>
   until(async () => (await fetch(origin + "/health")).ok, "server starts");
 async function expectStage(page, recent) {
+  const state = await snapshot(page);
+  const room = state.world.actors[state.actor].place;
+  recent = [
+    ...recent,
+    ...roamingActors.filter(
+      (actor) =>
+        state.world.actors[actor].place === room && !recent.includes(actor),
+    ),
+  ];
   await page.waitForFunction((ids) => {
     const cast = document.getElementById("cast");
     const figures = [
@@ -117,7 +136,7 @@ async function expectStage(page, recent) {
     ];
     const height = cast.getBoundingClientRect().height;
     return (
-      figures.length >= 4 &&
+      figures.length === ids.length &&
       ids.every((id) =>
         figures.some((figure) => figure.dataset.avatar === id),
       ) &&
@@ -234,17 +253,23 @@ async function dismissDiscoveries(page) {
     await delay(180);
   }
 }
-async function expectSharedReveal(page) {
-  await page.waitForFunction(() => {
+async function expectSharedReveal(page, requestStart) {
+  let expected;
+  await until(() => {
+    const human = requests
+      .slice(requestStart)
+      .find((request) =>
+        request.messages.at(-1).content.trim().endsWith("\nVale:"),
+      );
+    expected = replies.get(human);
+    return typeof expected === "string";
+  }, "the selected human receives its plain fixture reply");
+  await page.waitForFunction((expected) => {
     const text = document.getElementById("dialogue-text");
     const letters = text.querySelectorAll(".speech-letter");
     const shown = text.querySelectorAll(".speech-letter.revealed").length;
-    return (
-      text.textContent === "There is room for a little company." &&
-      shown > 0 &&
-      shown < letters.length
-    );
-  });
+    return text.textContent === expected && shown > 0 && shown < letters.length;
+  }, expected);
 }
 async function catchUpWithArrow(page) {
   await page.locator("#previous-line").click();
@@ -270,7 +295,7 @@ async function catchUpWithPortrait(page) {
   const live = page.getByRole("button", { name: /^Return to live dialogue/ });
   assert.equal(await live.getAttribute("data-live"), "false");
   await page.waitForFunction(() => {
-    const image = document.querySelector("#live-line img");
+    const image = document.querySelector('[data-return-live="true"] img');
     return image?.complete && image.naturalWidth > 0;
   });
   const face = await live.boundingBox();
@@ -336,7 +361,7 @@ try {
       (await import("/card-game/shared-auth.mjs")).passkey(true),
     );
   }
-  const [vale, mara, ash, nell, tavi] = pages;
+  const [vale, mara, ash, nell, tavi, rue] = pages;
   await vale.reload();
   await dismissDiscoveries(vale);
   await vale.locator("#shared-worlds-button").click();
@@ -396,7 +421,7 @@ try {
   const requestStart = requests.length;
   await vale.locator('#hand [data-card="moth"]').click();
   await vale.getByRole("button", { name: "Talk", exact: true }).click();
-  await expectSharedReveal(vale);
+  await expectSharedReveal(vale, requestStart);
   await vale.screenshot({
     path: join(output, "shared-dialogue-reveal.png"),
     fullPage: true,
@@ -442,11 +467,51 @@ try {
     assert.equal(home.actor, names[i]);
     assert.equal(home.world.items[avatar.item.id].holder, avatar.home.id);
     assert(
-      !home.exits.includes("pond"),
-      "new avatars start with a closed pond path",
+      !home.exits.includes(avatar.home.connection || "pond"),
+      "new avatars start with a closed home path",
     );
   }
   assert.equal((await snapshot(vale)).claimed.filter(Boolean).length, 8);
+  const ownAvatarFirst = async (page) => {
+    const state = await snapshot(page);
+    const ids = await page
+      .locator("#hand .card")
+      .evaluateAll((cards) => cards.map((card) => card.dataset.card));
+    assert.equal(
+      ids.find((id) => state.world.actors[id]),
+      state.actor,
+      "the player's own avatar leads the avatar groups",
+    );
+  };
+  await perform(rue, "take", undefined, "routes");
+  assert(await actionFor(rue, "move", "station"));
+  assert(!(await actionFor(rue, "move", "pond")));
+  const earlierCarriageExit = await actionFor(rue, "move", "station");
+  await perform(rue, "drop", "train", "routes");
+  await rue.reload();
+  await rue.locator('#hand [data-card="routes"]').waitFor();
+  await dismissDiscoveries(rue);
+  assert(!(await actionFor(rue, "move", "station")));
+  assert.equal(
+    (
+      await api(rue, {
+        op: "play",
+        key: crypto.randomUUID(),
+        action: earlierCarriageExit,
+      })
+    ).status,
+    409,
+  );
+  await perform(rue, "take", undefined, "routes");
+  await perform(rue, "move", "station");
+  assert.equal((await snapshot(rue)).world.actors.rue.place, "station");
+  await ownAvatarFirst(rue);
+  await rue.reload();
+  await rue.locator('#hand [data-card="rue"]').waitFor();
+  await dismissDiscoveries(rue);
+  assert(await actionFor(rue, "move", "train"));
+  await perform(rue, "move", "train");
+
   await dismissDiscoveries(mara);
   await mara.locator('#hand [data-card="mask"]').waitFor();
   assert.equal(await mara.locator('#hand [data-card="pond"]').count(), 0);
@@ -515,6 +580,7 @@ try {
   await mara.setViewportSize({ width: 390, height: 844 });
   await perform(mara, "take", undefined, "mask");
   await perform(mara, "move", "pond");
+  await ownAvatarFirst(mara);
   await perform(vale, "light", undefined, "lamp");
   await perform(mara, "move", "attic");
   assert.equal(
@@ -557,6 +623,7 @@ try {
   const notesBefore = await Promise.all(
     [vale, mara].map((page) => page.evaluate(() => window.sharedSpeechNotes)),
   );
+  const queueRequestStart = requests.length;
   holdReplies = true;
   const queued = [];
   for (const page of [vale, mara, ash, nell]) {
@@ -576,6 +643,24 @@ try {
       () => document.getElementById("live-line").dataset.actor === "mara",
     );
     await page.locator("#shared-queue .shared-play-avatar").nth(3).waitFor();
+    assert.equal(await page.locator("#live-line").isVisible(), false);
+    assert.equal(
+      await page
+        .locator("#shared-queue .shared-play-avatar")
+        .first()
+        .getAttribute("data-actor"),
+      "mara",
+      "the live portrait is first in the queue",
+    );
+    await page.locator("#previous-line").click();
+    const returnLive = page.getByRole("button", {
+      name: /^Return to live dialogue/,
+    });
+    assert.equal(await returnLive.count(), 1);
+    assert.equal(await returnLive.getAttribute("data-actor"), "mara");
+    assert.equal(await returnLive.getAttribute("data-return-live"), "true");
+    await returnLive.click();
+    assert(await page.locator("#next-line").isDisabled());
     await page.waitForFunction(() =>
       [...document.querySelectorAll("#shared-queue img")].every(
         (image) => image.complete && image.naturalWidth > 0,
@@ -589,6 +674,9 @@ try {
       return {
         textRight: text.right,
         label: queue.innerText,
+        column: document
+          .querySelector(".shared-portraits")
+          .getBoundingClientRect().left,
         faces: [...queue.querySelectorAll(".shared-play-avatar")].map(
           (face) => {
             const rect = face.getBoundingClientRect();
@@ -609,6 +697,10 @@ try {
       assert(
         face.left > layout.textRight,
         "queue faces sit to the right of the text",
+      );
+      assert(
+        Math.abs(face.left - layout.column) < 1,
+        "every portrait shares one column",
       );
       assert.equal(face.width, 28);
       assert.equal(face.height, 28);
@@ -661,7 +753,9 @@ try {
   );
   holdReplies = false;
   for (const resolve of waitingReplies.splice(0)) resolve();
-  await Promise.all([vale, mara].map(expectSharedReveal));
+  await Promise.all(
+    [vale, mara].map((page) => expectSharedReveal(page, queueRequestStart)),
+  );
   await Promise.all([vale, mara, nell].map(idle));
   for (const page of [vale, mara]) {
     await expectStage(page, ["nell", "mara", "vale", "ash", "moth"]);
@@ -690,7 +784,7 @@ try {
   await until(
     async () =>
       (await vale.locator("#dialogue-text").textContent()).includes(
-        "A ripple reaches the shore.",
+        "quiet breaths.",
       ),
     "the shared room detail stays visible",
   );
@@ -791,6 +885,53 @@ try {
       path: join(output, `same-world-${i ? "phone" : "desktop"}.png`),
       fullPage: true,
     });
+  }
+  for (const width of [1440, 390]) {
+    await vale.setViewportSize({ width, height: 900 });
+    failReplies = true;
+    const command = {
+      op: "play",
+      key: crypto.randomUUID(),
+      action: await actionFor(vale, "wait"),
+    };
+    assert.equal((await api(vale, command)).status, 200);
+    await until(
+      async () => (await snapshot(vale)).history[0]?.error,
+      "shared speech failure is saved",
+    );
+    const retry = vale.getByRole("button", {
+      name: "Retry dialogue",
+      exact: true,
+    });
+    await retry.waitFor({ state: "visible" });
+    assert.equal(await vale.locator("#story-status").isVisible(), false);
+    assert.equal(await retry.innerText(), "↻");
+    const bounds = await retry.boundingBox();
+    assert(bounds.width <= 32 && bounds.height <= 32);
+    assert.doesNotMatch(
+      await vale.locator("#notice").innerText(),
+      /play is saved|503/i,
+    );
+    const before = (await snapshot(vale)).world;
+    failReplies = false;
+    await retry.click();
+    await until(
+      async () =>
+        !(await snapshot(vale)).history[0]?.error &&
+        !(await snapshot(vale)).queue.length,
+      "shared retry finishes",
+    );
+    const after = (await snapshot(vale)).world;
+    assert.equal(after.turn, before.turn);
+    assert.equal(
+      after.revision,
+      before.revision + 1,
+      "one shared speech commit",
+    );
+    assert.deepEqual(after.items, before.items);
+    assert.deepEqual(after.actors, before.actors);
+    assert.deepEqual(after.quests, before.quests);
+    await until(async () => !(await retry.isVisible()), "retry icon clears");
   }
   assert.deepEqual(errors, []);
   console.log(

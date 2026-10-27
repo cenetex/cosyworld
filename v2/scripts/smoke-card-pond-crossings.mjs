@@ -9,6 +9,8 @@ import { profiles } from "../card-game/memory.mjs";
 
 function fixture(place, lit = false) {
   const s = createWorld({ opening: true });
+  // Isolate the signal puzzle from the bard's separate fresh-harbor voyage.
+  s.actors["greek-rhapsode"].place = "attic";
   s.opening.crossed = true;
   s.locations.attic.anchored = true;
   s.opening.met.moth = 0;

@@ -33,6 +33,9 @@ function pond() {
     questPrograms: true,
     personalQuests: true,
   });
+  // Keep the bard at this fixture's first deed so the ship starts at harbor.
+  // The separate bard smoke covers his fresh-harbor voyage.
+  s.actors["greek-rhapsode"].place = "attic";
   s = action(s, "light", "lamp");
   s = action(s, "move", null, "pond");
   // Only stage initial possessions; exercise the real transition and save rules.

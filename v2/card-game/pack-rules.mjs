@@ -22,6 +22,7 @@ import {
   isPackPlace,
   validatePackStates,
   entityActive,
+  roamingQuestActor,
 } from "./pack-registry.mjs";
 
 import {
@@ -77,7 +78,7 @@ function objectPlace(s, item) {
   }
   return s.actors[holder]?.place || holder;
 }
-export function conditionMet(s, c, senses, packId = null) {
+export function conditionMet(s, c, senses, packId = null, actor = null) {
   const state = s.packs?.[packId];
   switch (c.kind) {
     case "sound":
@@ -92,7 +93,7 @@ export function conditionMet(s, c, senses, packId = null) {
             !Object.values(s.items).some((i) => i.holder === c.item)),
       );
     case "not":
-      return !conditionMet(s, c.condition, senses, packId);
+      return !conditionMet(s, c.condition, senses, packId, actor);
     case "choice":
       return state?.choices?.[c.key] === c.value;
     case "choice_unset":
@@ -100,7 +101,7 @@ export function conditionMet(s, c, senses, packId = null) {
     case "flag":
       return (state?.flags?.[c.key] ?? false) === c.value;
     case "holding":
-      return s.items[c.item]?.holder === c.actor;
+      return s.items[c.item]?.holder === (c.role === "actor" ? actor : c.actor);
     case "shared_world":
       return sharedEnabled(s);
     case "item_near": {
@@ -142,6 +143,7 @@ export const crossingBetween = (from, to, s = null) =>
 export const mayCross = (c, actor, senses) =>
   c.travelers === "any" ||
   actor === senses.player ||
+  roamingQuestActor(actor) ||
   senses.humanActors?.includes(actor);
 
 /** Places reachable by crossing from `place` now, for this actor. */

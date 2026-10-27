@@ -16,7 +16,8 @@ import {
 } from "./world.mjs";
 
 export function availableCards(world) {
-  const here = world.actors[currentActor(world)].place;
+  const player = currentActor(world),
+    here = world.actors[player].place;
   const items = Object.keys(things).filter(
     (id) => entityActive(world, id) && itemPlace(world, id) === here,
   );
@@ -27,6 +28,7 @@ export function availableCards(world) {
       (!world.controlledActors?.includes(id) ||
         world.presentActors?.includes(id)),
   );
+  cast.sort((a, b) => Number(b === player) - Number(a === player));
   const after = (holder) =>
     items
       .filter((id) => world.items[id].holder === holder)

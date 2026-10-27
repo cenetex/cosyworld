@@ -83,12 +83,15 @@ pub(super) fn world(c: &Connection, id: &str, now: i64) -> Result<World> {
                 c,
                 id,
                 &mut w,
-                json!({"op":"upgrade","from":from,"to":engine::VERSION}),
+                json!({"op":"upgrade", "from":from, "to":engine::VERSION}),
                 now,
             )?;
-        } else if w.version != engine::VERSION {
+            return Ok(w);
+        }
+        if w.version != engine::VERSION {
             return Err("This world's rules need a saved migration.".into());
-        } else if seq > checkpoint_seq {
+        }
+        if seq > checkpoint_seq {
             checkpoint(c, id, &w, seq)?;
         }
         return Ok(w);

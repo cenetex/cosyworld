@@ -141,6 +141,8 @@ export const isPackActor = (id) =>
 export const isPackPlace = (id) => Object.hasOwn(packPlaces, id);
 export const packOf = (id) => packDefinition(entities[id]?.packId);
 export const resident = (id) => packPeople[id] || null;
+export const roamingQuestActor = (id) =>
+  packPeople[id]?.roamingQuest === "latest-completion";
 export const staysPut = (id) => packPeople[id]?.travels === false;
 export const avoidsStandoffs = (id) => packPeople[id]?.standoffs === false;
 export const fixturesAt = (place) =>
@@ -174,6 +176,7 @@ export const packTastes = Object.fromEntries(
       likes: a.tastes.likes,
       sore: a.tastes.sore,
       home: a.place,
+      quests: !!humanAvatar(id),
       values: Object.fromEntries(
         [...hub.items, ...Object.keys(packThings)].map((item) => [
           item,
@@ -212,12 +215,25 @@ export const packMediaFiles = [
 ].filter(Boolean);
 
 export const packState = (world, id) => world.packs?.[id];
-export function conditionsMet(world, packId, conditions = []) {
+export function conditionsMet(world, packId, conditions = [], actor = null) {
   return (
     Boolean(world.packs?.[packId]) &&
-    conditions.every((c) => evaluateCondition(world, c, null, packId))
+    conditions.every((condition) =>
+      evaluateCondition(world, condition, null, packId, actor),
+    )
   );
 }
+export function choiceText(choice, actor) {
+  return choice.textTemplate === undefined
+    ? choice.text
+    : choice.textTemplate.replaceAll(
+        "{actor}",
+        humanAvatar(actor)?.name ||
+          packPeople[actor]?.name ||
+          "An earlier traveler",
+      );
+}
+
 export function entityActive(world, id) {
   if (world.items?.[id]) {
     let holder = world.items[id].holder;
@@ -238,7 +254,11 @@ function entityEnabled(world, id) {
     state = packState(world, e.packId);
   if (!state || !conditionsMet(world, e.packId, e.requires)) return false;
   if (!pack.release || state.scope === "full") return true;
-  if (pack.recital?.actor === id && !recitalVisit(world, pack)) return false;
+  if (pack.recital?.actor === id)
+    return (
+      (roamingQuestActor(id) || !!recitalVisit(world, pack)) &&
+      entityEnabled(world, world.actors[id].place)
+    );
   return [pack.release.places, pack.release.avatars, pack.release.items].some(
     (ids) => ids.includes(id),
   );
@@ -251,16 +271,19 @@ export function packExits(world, place, actor = null) {
           r.from === place &&
           conditionsMet(world, pack.id, r.requires) &&
           (humanAvatarIds.includes(actor) ||
+            roamingQuestActor(actor) ||
             (owns(pack.places, r.from) && owns(pack.places, r.to))),
       )
       .map((r) => r.to),
   );
   return routes.filter(
-    (to) => entityActive(world, to) && actorCanVisit(actor, to),
+    (to) => entityActive(world, to) && actorCanVisit(actor, to, world),
   );
 }
-export function actorCanVisit(actor, place) {
-  if (!actor || humanAvatarIds.includes(actor)) return true;
+export function actorCanVisit(actor, place, world = null) {
+  if (world?.invitedPlaces?.[actor]?.includes(place)) return true;
+  if (!actor || humanAvatarIds.includes(actor) || roamingQuestActor(actor))
+    return true;
   const a = packPeople[actor],
     destination = packPlaces[place];
   if (a ? destination?.packId === a.packId : !destination) return true;
@@ -287,7 +310,7 @@ function choiceFeasible(world, pack, choice, actor) {
       !pack.release.choices.includes(choice.id)) ||
     world.actors[actor]?.place !== choice.at ||
     !entityActive(world, choice.subject) ||
-    !conditionsMet(world, pack.id, choice.requires)
+    !conditionsMet(world, pack.id, choice.requires, actor)
   )
     return false;
   const subject = choice.subject;
@@ -319,7 +342,7 @@ export function packChoices(world, actor = "vale") {
         packId: pack.id,
         choiceId: c.id,
         label: c.label,
-        text: c.text,
+        text: choiceText(c, actor),
         key: `choose:${actor}:${pack.id}:${c.id}`,
         cards: [c.subject],
       })),
@@ -336,7 +359,9 @@ export function applyPackChoice(world, action) {
     if (e.kind === "set_flag") state.flags[e.key] = e.value;
     if (e.kind === "place_item") {
       world.items[e.item].holder = e.place;
-      world.items[e.item].history.push(choice.text.slice(0, 400));
+      world.items[e.item].history.push(
+        choiceText(choice, action.actor).slice(0, 400),
+      );
       world.items[e.item].history = world.items[e.item].history.slice(-12);
     }
   }
@@ -344,6 +369,17 @@ export function applyPackChoice(world, action) {
   recordRecital(world, pack, choice.id, action.actor);
   return choice;
 }
+function committedChoiceText(world, pack, choice) {
+  if (choice.summary) return choice.summary;
+  const actor =
+    world.log?.find(
+      (entry) => entry.packId === pack.id && entry.choiceId === choice.id,
+    )?.actorId ||
+    world.packs[pack.id].recitals?.[choice.id]?.actor ||
+    null;
+  return choiceText(choice, actor);
+}
+
 export function packFacts(world, id) {
   const e = packEntity(id);
   if (!e) return [];
@@ -360,7 +396,7 @@ export function packFacts(world, id) {
     )
     .sort((a, b) => state.receipts[a.id] - state.receipts[b.id])
     .slice(-3)
-    .map((c) => (c.summary || c.text).slice(0, 240));
+    .map((c) => committedChoiceText(world, pack, c).slice(0, 240));
 }
 export function packSceneFacts(world, location) {
   const e = packEntity(location);
@@ -386,8 +422,10 @@ export function packSceneFacts(world, location) {
     .sort((a, b) => state.receipts[a.id] - state.receipts[b.id])
     .slice(-2);
   return [
-    ...canon.map((c) => `Established account: ${c.summary || c.text}`),
-    ...local.map((c) => c.summary || c.text),
+    ...canon.map(
+      (c) => `Established account: ${committedChoiceText(world, pack, c)}`,
+    ),
+    ...local.map((c) => committedChoiceText(world, pack, c)),
   ].map((text) => text.slice(0, 240));
 }
 export function validatePackStates(world) {
@@ -500,7 +538,8 @@ export function validatePackStates(world) {
     for (const [id, actor] of Object.entries(pack.avatars))
       if (
         !entityEnabled(world, id) &&
-        (world.actors[id]?.place !== actor.place ||
+        ((world.actors[id]?.place !== actor.place &&
+          !actor.previousHomes?.includes(world.actors[id]?.place)) ||
           world.actors[id]?.crossed !== 0 ||
           world.actors[id]?.lastTalk !== -9 ||
           owns(state.met, id))

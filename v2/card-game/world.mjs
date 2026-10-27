@@ -1,4 +1,38 @@
-import { arriveRecitals } from "./pack-recital.mjs";
+import { syncStoryQuests, validStoryQuest } from "./story-quests.mjs";
+import {
+  installRoamingQuests,
+  roamingPlan,
+  roamingHelpPlan,
+  settleRoamingArrival,
+  roamingHelpMet,
+  validRoamingQuests,
+} from "./roaming-quests.mjs";
+import {
+  roamingActors,
+  authoredRouteEdges,
+  initialRouteEdges,
+  visibleRouteEdges,
+  witnessedRouteEdges,
+} from "./roaming-routes.mjs";
+import {
+  collectionCards,
+  installSharedQuestRegistry,
+  questRecord,
+  questRecords,
+  focusedQuest,
+  focusQuest,
+  joinQuest,
+  canJoinQuest,
+  shareQuest,
+  clearQuestFocus,
+  pruneSharedQuestHistory,
+  validSharedQuestRegistry,
+} from "./shared-quests.mjs";
+import {
+  publishQuestCompletions,
+  validQuestCompletions,
+} from "./quest-completions.mjs";
+import { arriveRecitals, arriveRoamingRecitals } from "./pack-recital.mjs";
 import {
   currentActor,
   humanAvatar,
@@ -33,6 +67,7 @@ import {
   socialPlan,
   recordReaction,
   validMotives,
+  tastes,
 } from "./motives.mjs";
 import { newMemories, rememberEvent, validMemories } from "./memory.mjs";
 import {
@@ -47,6 +82,12 @@ import {
   alternatives,
   generateProgram,
   sequence,
+  actorQuests,
+  installQuestCollection,
+  ensureCollectedQuest,
+  collectExperienceQuests,
+  pursueQuest,
+  recordQuestProgress,
 } from "./quests.mjs";
 import {
   lifeOf,
@@ -55,10 +96,12 @@ import {
   stayingWith,
   recordLifeAction,
   finishPersonalQuest,
+  experienceKinds,
   validLife,
-  INSPIRATION_MAX,
   installHumanLife,
-  hopes,
+  hopeOf,
+  settleLife,
+  purposeOrigin,
 } from "./life.mjs";
 import {
   conditionMet,
@@ -83,6 +126,7 @@ import {
   packDefinitions,
   isPackActor,
   staysPut,
+  roamingQuestActor,
   avoidsStandoffs,
 } from "./pack-registry.mjs";
 import {
@@ -116,6 +160,9 @@ import forest from "./forest.json" with { type: "json" };
 
 // Authored forest data and mounted packs share the same rule path.
 export const places = { ...forest.places, ...packPlaces };
+export const sanctuaries = Object.keys(places).filter(
+  (id) => places[id].sanctuary === true,
+);
 export const people = { ...forest.people, ...packPeople };
 export const things = { ...packThings, ...forest.things };
 validatePackLinks(places, people, things);
@@ -151,6 +198,7 @@ export function createWorld({ opening = false, packScopes = {} } = {}) {
       throw new Error("Unknown content scope.");
     world.packs[id].scope = scope;
   }
+  installRoamingQuests(world, roamingActors, roamingAPI(world));
   rememberEvent(world, world.log[0]);
   return world;
 }
@@ -191,7 +239,8 @@ function installPacks(s) {
         if (other !== id) actor.trust[other] ??= 0;
     for (const id of Object.keys(pack.places)) s.memories[id] ??= fresh[id];
   }
-  installHumanLife(s);
+  installHumanLife(s, (id) => tastes[id]);
+  installRoamingQuests(s, roamingActors, roamingAPI(s));
 }
 export function rootHolder(s, id) {
   let holder = s.items[id].holder;
@@ -262,7 +311,7 @@ export function exits(s, place, actor = null, previous = null) {
   ].filter(
     (to) =>
       entityActive(s, to) &&
-      actorCanVisit(actor, to) &&
+      actorCanVisit(actor, to, s) &&
       humanRoomAvailable(s, actor, to),
   );
 }
@@ -284,7 +333,12 @@ function meetCast(s) {
   if (!s.opening || (player !== "vale" && !s.opening.crossed)) return;
   if (player === "vale" && s.actors.vale.place === "pond")
     s.opening.crossed = true;
-  if (!s.opening.crossed) return;
+  if (!s.opening.crossed) {
+    for (const id of roamingActors)
+      if (entityActive(s, id) && s.actors[id].place === s.actors[player].place)
+        s.opening.met[id] ??= s.turn;
+    return;
+  }
   for (const id of actorIds)
     if (
       entityActive(s, id) &&
@@ -335,7 +389,8 @@ export function handStatus(s, actor, hand = desireFor(s, actor)) {
       items.every((e) => e.met) &&
       location.met &&
       avatars.every((e) => e.met) &&
-      conditions.every((e) => e.met),
+      conditions.every((e) => e.met) &&
+      roamingHelpMet(s, hand, roamingAPI(s)),
   };
 }
 export function handText(hand) {
@@ -431,39 +486,87 @@ export function tradeOffers(s, actor) {
   );
 }
 // Capture each fulfilled hand before another actor can leave or move an item.
-// Program changes happen after the round, so every actor pursues one step per turn.
+// Each collected card captures at most one step per round, before consequences run.
 function captureHands(s, met) {
   if (!hasQuestPrograms(s)) return;
   for (const actor of knownActors(s).filter((id) => !isPackActor(id))) {
-    const target = targetsFor(s, actor).find(
-      (h) => handStatus(s, actor, h).met,
-    );
-    if (!met.has(actor) && target) {
-      met.set(actor, {
+    const collection = lifeOf(s, actor)?.collection;
+    const cards = collection
+      ? collectionCards(s, actor).filter((q) => q.completedTurn === null)
+      : [
+          {
+            key: null,
+            program: programFor(s, actor),
+            step: s.actors[actor].progress.step,
+          },
+        ];
+    for (const card of cards) {
+      const key = card.key ? `${actor}/${card.key}` : actor;
+      const target = alternatives(card.program?.steps[card.step]).find(
+        (h) => handStatus(s, actor, h).met,
+      );
+      if (!met.has(key) && target) {
+        met.set(key, {
+          actor,
+          questKey: card.key,
+          capturedSeq: s.eventSeq || 0,
+          step: card.step,
+          target: structuredClone(target),
+          fulfillment: {
+            items: [...target.items],
+            location: s.actors[actor].place,
+            // Include the actual required participants, even before Vale meets
+            // them. Keep nearby witnesses within the receipt's two-person bound.
+            avatars: [
+              ...new Set([
+                ...target.avatars,
+                ...actorIds.filter(
+                  (id) =>
+                    id !== actor &&
+                    entityActive(s, id) &&
+                    s.actors[id].place === s.actors[actor].place,
+                ),
+              ]),
+            ]
+              .slice(0, 2)
+              .sort((a, b) => actorIds.indexOf(a) - actorIds.indexOf(b)),
+            ...((target.conditions || []).length
+              ? { conditions: handStatus(s, actor, target).conditions }
+              : {}),
+          },
+        });
+      }
+    }
+  }
+  for (const quest of questRecords(s).filter(
+    (q) => q.mode === "shared" && q.completedTurn === null && !q.retired,
+  )) {
+    if (met.has(quest.key)) continue;
+    const candidates = quest.subjectActor
+      ? [quest.subjectActor]
+      : quest.participants;
+    for (const actor of actorIds.filter(
+      (id) => candidates.includes(id) && entityActive(s, id),
+    )) {
+      const target = alternatives(quest.program.steps[quest.step]).find(
+        (h) => handStatus(s, actor, h).met,
+      );
+      if (!target) continue;
+      met.set(quest.key, {
+        actor,
+        questKey: quest.key,
+        shared: true,
+        capturedSeq: s.eventSeq || 0,
+        step: quest.step,
         target: structuredClone(target),
         fulfillment: {
           items: [...target.items],
           location: s.actors[actor].place,
-          // Include the actual required participants, even before Vale meets
-          // them. Keep nearby witnesses within the receipt's two-person bound.
-          avatars: [
-            ...new Set([
-              ...target.avatars,
-              ...actorIds.filter(
-                (id) =>
-                  id !== actor &&
-                  entityActive(s, id) &&
-                  s.actors[id].place === s.actors[actor].place,
-              ),
-            ]),
-          ]
-            .slice(0, 2)
-            .sort((a, b) => actorIds.indexOf(a) - actorIds.indexOf(b)),
-          ...((target.conditions || []).length
-            ? { conditions: handStatus(s, actor, target).conditions }
-            : {}),
+          avatars: [...target.avatars],
+          participants: [...new Set([actor, ...target.avatars])].sort(),
         },
       });
+      break;
     }
   }
 }
@@ -472,6 +575,7 @@ function captureHands(s, met) {
 function ensurePrograms(s) {
   for (const actor of actorIds.filter((id) => !isPackActor(id))) {
     const p = s.actors[actor].progress;
+    if (ensureCollectedQuest(s, actor, programPlaces(s), things)) continue;
     if (p.program >= programsFor(s, actor).length && !p.current) {
       p.completedHands ??= programsFor(s, actor).reduce(
         (n, program) => n + program.steps.length,
@@ -498,6 +602,7 @@ function refreshStalledPrograms(s) {
   )) {
     const p = s.actors[actor].progress,
       current = programFor(s, actor);
+    if (lifeOf(s, actor)?.collection) continue;
     if (
       !current?.generated ||
       s.turn - Math.max(current.generated.turn, p.marks.at(-1) || 0) < 12
@@ -579,34 +684,136 @@ function applyConsequence(s, actor, target) {
   });
 }
 function advancePrograms(s, met) {
-  if (!hasQuestPrograms(s)) return;
-  const receipts = [];
-  for (const [actor, evidence] of met) {
-    const progress = s.actors[actor].progress,
-      program = programFor(s, actor),
-      step = progress.step,
-      programIndex = progress.program;
+  if (!hasQuestPrograms(s)) return [];
+  const receipts = [],
+    completions = [];
+  const consequences = new Set();
+  const captured = [...met.values()].sort(
+    (a, b) =>
+      a.capturedSeq - b.capturedSeq ||
+      ((a.questKey || a.actor) < (b.questKey || b.actor)
+        ? -1
+        : (a.questKey || a.actor) > (b.questKey || b.actor)
+          ? 1
+          : 0),
+  );
+  for (const evidence of captured) {
+    const actor = evidence.actor;
+    if (evidence.shared) {
+      const quest = questRecord(s, evidence.questKey);
+      if (
+        !quest ||
+        quest.completedTurn !== null ||
+        quest.retired ||
+        quest.step !== evidence.step ||
+        quest.lastProgressTurn === s.turn
+      )
+        continue;
+      quest.step += 1;
+      quest.lastProgressTurn = s.turn;
+      const complete = quest.step === quest.program.steps.length;
+      if (complete) {
+        quest.completedTurn = s.turn;
+        clearQuestFocus(s, quest.key);
+        const effect = evidence.target.consequence;
+        const effectKey =
+          effect &&
+          JSON.stringify([effect, effect.kind === "trust" ? actor : null]);
+        if (effect && !consequences.has(effectKey)) {
+          applyConsequence(s, actor, evidence.target);
+          consequences.add(effectKey);
+        }
+      }
+      addLog(
+        s,
+        "World",
+        `${nameOf(actor)} ${complete ? "completes" : "helps with"} ${quest.program.name}.`,
+        {
+          kind: "quest",
+          questMode: "shared",
+          program: structuredClone(quest.program),
+          actorId: actor,
+          locationId: evidence.fulfillment.location,
+          questKey: quest.key,
+          programId: quest.program.id,
+          step: evidence.step,
+          target: evidence.target,
+          fulfillment: evidence.fulfillment,
+        },
+      );
+      if (complete) {
+        completions.push({
+          questKey: quest.key,
+          capturedSeq: evidence.capturedSeq,
+          actorId: actor,
+          locationId: evidence.fulfillment.location,
+          participants: evidence.fulfillment.participants,
+          outcome: "fulfilled",
+        });
+        pruneSharedQuestHistory(s, quest.holder, quest.key);
+      }
+      continue;
+    }
+    const progress = s.actors[actor].progress;
+    const collection = lifeOf(s, actor)?.collection;
+    const card =
+      collection &&
+      collectionCards(s, actor).find((q) => q.key === evidence.questKey);
+    if (
+      card &&
+      (card.completedTurn !== null ||
+        card.lastProgressTurn === s.turn ||
+        card.step !== evidence.step)
+    )
+      continue;
+    const source = card?.program || programFor(s, actor);
+    const programIndex = progress.program;
+    const program = source.generated
+      ? {
+          ...source,
+          id: `generated-${actor}-${programIndex + 1}`,
+          generated: { ...source.generated, level: programIndex + 1 },
+        }
+      : source;
+    const step = card ? card.step : progress.step;
+    const complete = step + 1 === program.steps.length;
+    const focused = focusedQuest(s, actor);
+    const wasActive =
+      !collection ||
+      (collection.active === card.key &&
+        (!focused || focused.key === card.key));
     progress.marks.push(s.turn);
     progress.marks = progress.marks.slice(-32);
-    progress.step += 1;
-    const complete = progress.step === program.steps.length;
+    if (collection) recordQuestProgress(s, actor, complete, card.key);
+    else progress.step += 1;
     if (complete) {
-      finishPersonalQuest(s, actor, program, evidence.target);
-      applyConsequence(s, actor, evidence.target);
+      finishPersonalQuest(s, actor, program, sanctuaries, {
+        rest: wasActive || !collection?.active,
+      });
+      const effect = evidence.target.consequence;
+      const consequenceKey =
+        effect &&
+        JSON.stringify([effect, effect.kind === "trust" ? actor : null]);
+      if (effect && !consequences.has(consequenceKey)) {
+        applyConsequence(s, actor, evidence.target);
+        consequences.add(consequenceKey);
+      }
+      if (collection) progress.completedHands = collection.earned;
       if (program.generated) {
-        progress.completedHands += program.steps.length;
+        if (!collection) progress.completedHands += program.steps.length;
         if (program.generated.item)
-          progress.recent = [...progress.recent, program.generated.item].slice(
-            -4,
-          );
+          progress.recent = [
+            ...(progress.recent || []),
+            program.generated.item,
+          ].slice(-4);
         progress.recentKinds = [
           ...(progress.recentKinds || []),
           program.generated.situation || "bargain",
         ].slice(-4);
-        delete progress.current;
+        if (wasActive) delete progress.current;
       }
       progress.program += 1;
-      progress.step = 0;
+      if (wasActive) progress.step = 0;
     }
     receipts.push({
       actor,
@@ -626,27 +833,45 @@ function advancePrograms(s, met) {
     complete,
     target,
     fulfillment,
+    questKey,
+    capturedSeq,
   } of receipts) {
     let text = `${nameOf(actor)} completes hand ${step + 1}/${program.steps.length} of ${program.name}.`;
-    if (complete) text += ` Level ${levelOf(s, actor)}.`;
+    if (complete) text += ` Level ${programIndex + 2}.`;
     const life = lifeOf(s, actor);
     if (complete && life?.milestones.at(-1) === s.turn)
-      text += ` Hope milestone: ${hopes[actor].milestones[life.milestones.length - 1].title}.`;
+      text += ` Hope milestone: ${hopeOf(s, actor).milestones[life.milestones.length - 1].title}.`;
     text += questActive(s, actor)
       ? ` Next: ${handText(desireFor(s, actor))}.`
-      : " Take time to enjoy this. Helpful actions will grow a new purpose.";
+      : lifeOf(s, actor)?.phase === "returning"
+        ? ` Next: rest at ${nameOf(lifeOf(s, actor).restAt)}.`
+        : " Time to rest and enjoy it.";
     addLog(s, "World", text, {
       kind: "quest",
       actorId: actor,
       programId: program.id,
       program: structuredClone(program),
       programIndex,
+      ...(questKey ? { questKey } : {}),
       target,
       fulfillment,
       step,
-      level: levelOf(s, actor),
+      level: programIndex + 1 + Number(complete),
     });
+    if (complete && questKey) {
+      const quest = questRecord(s, questKey);
+      if (quest)
+        completions.push({
+          questKey,
+          capturedSeq,
+          actorId: actor,
+          locationId: fulfillment.location,
+          participants: [actor, ...target.avatars],
+          outcome: "fulfilled",
+        });
+    }
   }
+  return completions;
 }
 export function addLog(s, speaker, text, detail = {}) {
   const actorId =
@@ -783,9 +1008,20 @@ function settleStandoffs(s) {
   }
 }
 // A joint trip follows the invited avatar's current target hands.
-export function accompanyDecision(s, actor, companion, destination) {
+export function accompanyDecision(
+  s,
+  actor,
+  companion,
+  destination,
+  routeApproved = false,
+) {
   const here = s.actors[companion].place;
-  if (!actorCanVisit(companion, destination))
+  const invited =
+    controlledByHuman(s, actor) &&
+    !controlledByHuman(s, companion) &&
+    s.actors[actor].place === here &&
+    (routeApproved || exits(s, here, actor).includes(destination));
+  if (!invited && !actorCanVisit(companion, destination, s))
     return {
       accepted: false,
       reason: "Their commitments keep them in this part of the world.",
@@ -861,23 +1097,110 @@ export function accompanyDecision(s, actor, companion, destination) {
   };
 }
 
+function visibleQuest(s, actor, quest) {
+  const holder = quest.holder;
+  if (!holder || !entityActive(s, holder.id)) return false;
+  const here = s.actors[actor].place;
+  return holder.kind === "place"
+    ? holder.id === here
+    : holder.kind === "item"
+      ? itemPlace(s, holder.id) === here
+      : s.actors[holder.id]?.place === here;
+}
+function sharedQuestActions(s, actor) {
+  const actions = [],
+    here = s.actors[actor].place;
+  for (const quest of questRecords(s)) {
+    if (
+      quest.completedTurn !== null ||
+      quest.retired ||
+      !visibleQuest(s, actor, quest)
+    )
+      continue;
+    if (
+      !quest.participants.includes(actor) &&
+      canJoinQuest(s, actor, quest.key)
+    )
+      actions.push({
+        kind: "join-quest",
+        actor,
+        questKey: quest.key,
+        key: `join-quest:${actor}:${quest.key}`,
+        label: "Help",
+        text: `${nameOf(actor)} joins ${quest.program.name}.`,
+        parts: [],
+      });
+    if (quest.mode === "story") continue;
+    const holder = quest.holder;
+    const canShare =
+      holder.kind === "avatar"
+        ? holder.id === actor
+        : holder.kind === "item"
+          ? rootHolder(s, holder.id) === actor
+          : quest.participants.includes(actor);
+    if (!canShare) continue;
+    const targets = [
+      { kind: "place", id: here },
+      ...actorIds
+        .filter((id) => entityActive(s, id) && s.actors[id].place === here)
+        .map((id) => ({ kind: "avatar", id })),
+      ...carried(s, actor).map((id) => ({ kind: "item", id })),
+    ];
+    for (const to of targets) {
+      if (to.kind === holder.kind && to.id === holder.id) continue;
+      if (to.kind === "avatar" && !canJoinQuest(s, to.id, quest.key)) continue;
+      actions.push({
+        kind: "share-quest",
+        actor,
+        questKey: quest.key,
+        holder: to,
+        key: `share-quest:${actor}:${quest.key}:${to.kind}:${to.id}`,
+        label:
+          to.kind === "place"
+            ? `Leave at ${nameOf(to.id)}`
+            : `Share with ${nameOf(to.id)}`,
+        text: `${nameOf(actor)} leaves ${quest.program.name} with ${nameOf(to.id)}.`,
+        parts: [],
+      });
+    }
+  }
+  return actions;
+}
+
 export function legalActions(s, actor = currentActor(s)) {
-  if (!s.actors[actor] || !entityActive(s, actor)) return [];
+  if (
+    !s.actors[actor] ||
+    (!entityActive(s, actor) && !roamingQuestActor(actor))
+  )
+    return [];
   const here = s.actors[actor].place;
   const out = [
     offer("wait", actor, null, null, `${nameOf(actor)} waits one turn.`, []),
   ];
+  for (const quest of actorQuests(s, actor).filter(
+    (q) => q.status === "pending",
+  )) {
+    out.push({
+      kind: "pursue",
+      actor,
+      questKey: quest.key,
+      key: `pursue:${actor}:${quest.key}`,
+      label: "Pursue",
+      text: `${nameOf(actor)} chooses ${quest.program.name}.`,
+      parts: [],
+    });
+  }
+  out.push(...sharedQuestActions(s, actor));
   for (const to of exits(s, here, actor)) {
     const through = !baseExits(s, here).includes(to);
     const crossing = crossingBetween(here, to, s);
     const way = through
       ? ` ${crossing?.travel || "through the reflection"}`
       : "";
-    // A crossing open only to the player keeps company out; so does a
-    // resident who never leaves home.
+    // A human can invite a willing resident along their open route.
     for (const other of knownActors(s).filter(
       (id) =>
-        crossing?.travelers !== "player" &&
+        (crossing?.travelers !== "player" || controlledByHuman(s, actor)) &&
         id !== actor &&
         !controlledByHuman(s, id) &&
         !staysPut(id) &&
@@ -1191,20 +1514,27 @@ export function matchingActions(s, selected, actor = currentActor(s)) {
   if (!set.length) return [];
   return legalActions(s, actor).filter(
     (a) =>
-      a.cards.length === set.length && set.every((id) => a.cards.includes(id)),
+      Array.isArray(a.cards) &&
+      a.cards.length === set.length &&
+      set.every((id) => a.cards.includes(id)),
   );
 }
-function travel(s, actor, destination) {
-  const from = s.actors[actor].place;
+function travelParty(s, actors, destination) {
+  const from = s.actors[actors[0]].place;
   const through = !baseExits(s, from).includes(destination);
-  if (through) s.actors[actor].crossed += 1;
+  // The legal action approves the whole party before any carried key moves.
   markCrossed(s, from, destination);
-  s.actors[actor].place = destination;
+  for (const actor of actors) {
+    if (through) s.actors[actor].crossed += 1;
+    s.actors[actor].place = destination;
+    for (const id of carried(s, actor))
+      remember(s, id, `${nameOf(actor)} carried it to ${nameOf(destination)}.`);
+  }
   moveTransport(s, from, destination);
-  for (const id of carried(s, actor))
-    remember(s, id, `${nameOf(actor)} carried it to ${nameOf(destination)}.`);
   return through;
 }
+const travel = (s, actor, destination) => travelParty(s, [actor], destination);
+
 function perform(s, a, capture = () => {}, round = null) {
   const who = nameOf(a.actor);
   const firstCrossing = actorIds.every((id) => s.actors[id].crossed === 0);
@@ -1221,6 +1551,24 @@ function perform(s, a, capture = () => {}, round = null) {
     if (a.actor === conflict.defender) conflict.answered = true;
   }
   if (a.kind === "wait") return;
+  if (a.kind === "join-quest" || a.kind === "share-quest") {
+    if (a.kind === "join-quest") focusQuest(s, a.actor, a.questKey);
+    else shareQuest(s, a.questKey, a.holder);
+    addLog(s, "World", a.text, {
+      kind: "action",
+      actorId: a.actor,
+      locationId: here,
+      verb: a.kind,
+      questKey: a.questKey,
+      targetId: questRecord(s, a.questKey).holder.id,
+    });
+    return;
+  }
+  if (a.kind === "pursue") {
+    pursueQuest(s, a.actor, a.questKey);
+    addLog(s, "World", a.text, { actorId: a.actor, locationId: here });
+    return;
+  }
   const holder = holderBefore(s, a);
   const usefulGift =
     a.kind === "give" &&
@@ -1244,12 +1592,15 @@ function perform(s, a, capture = () => {}, round = null) {
         if (respondentConflict.defender === a.target)
           respondentConflict.answered = true;
       }
-      invitation = accompanyDecision(s, a.actor, a.target, a.destination);
+      invitation = accompanyDecision(s, a.actor, a.target, a.destination, true);
       if (invitation.favor) s.actors[a.target].trust[a.actor] -= 1;
       s.actors[a.actor].lastTalk = s.turn;
       if (invitation.accepted) {
-        const through = travel(s, a.actor, a.destination);
-        travel(s, a.target, a.destination);
+        const visits = (s.invitedPlaces ??= {});
+        visits[a.target] = [
+          ...new Set([...(visits[a.target] || []), a.destination]),
+        ].sort();
+        const through = travelParty(s, [a.actor, a.target], a.destination);
         text += ` ${nameOf(a.target)} agrees. ${invitation.reason} They travel together.`;
         if (through && firstCrossing)
           text += " Something on the far shore turns its head.";
@@ -1306,23 +1657,27 @@ function perform(s, a, capture = () => {}, round = null) {
           text += ` ${nameOf(a.target)} drops the ${nameOf(dropped)}.`;
         }
         const retreat = exits(s, here, a.target)[0];
-        markCrossed(s, here, retreat);
-        s.actors[a.target].place = retreat;
-        moveTransport(s, here, retreat);
-        for (const id of carried(s, a.target))
-          remember(
-            s,
-            id,
-            `${nameOf(a.target)} retreated to ${nameOf(retreat)} with it.`,
-          );
-        text += ` ${nameOf(a.target)} retreats to ${nameOf(retreat)}. The standoff ends.`;
+        if (retreat) {
+          markCrossed(s, here, retreat);
+          s.actors[a.target].place = retreat;
+          moveTransport(s, here, retreat);
+          for (const id of carried(s, a.target))
+            remember(
+              s,
+              id,
+              `${nameOf(a.target)} retreated to ${nameOf(retreat)} with it.`,
+            );
+          text += ` ${nameOf(a.target)} retreats to ${nameOf(retreat)}. The standoff ends.`;
+          arrival = {
+            text: `${nameOf(a.target)} arrives at ${nameOf(retreat)} after yielding to ${who}.`,
+            actorId: a.target,
+            locationId: retreat,
+            fromLocationId: here,
+          };
+        } else {
+          text += ` ${nameOf(a.target)} yields here. The standoff ends.`;
+        }
         closeStandoff(s, conflict);
-        arrival = {
-          text: `${nameOf(a.target)} arrives at ${nameOf(retreat)} after yielding to ${who}.`,
-          actorId: a.target,
-          locationId: retreat,
-          fromLocationId: here,
-        };
       }
       break;
     }
@@ -1480,6 +1835,30 @@ function perform(s, a, capture = () => {}, round = null) {
   // Answering the request is the invited avatar's action for this round.
   return invitation ? a.target : null;
 }
+
+function roamingAPI(s) {
+  return {
+    nameOf: (id) => (id ? nameOf(id) : "a traveler"),
+    crossing: (from, to) => crossingBetween(from, to, s),
+    itemPlace: (id) => itemPlace(s, id),
+    route: (from, to, actor) => routeBetween(s, from, to, actor),
+    initialEdges: initialRouteEdges,
+    active: (place) => entityActive(s, place),
+    visibleEdges: visibleRouteEdges,
+    witnessedEdges: (actor) => witnessedRouteEdges(s, actor),
+    exits: (from, actor, previous = null) => exits(s, from, actor, previous),
+    actions: (actor) => legalActions(s, actor),
+    transportExit: (actor) => {
+      const destinations = transportExits(s, s.actors[actor].place);
+      return legalActions(s, actor).find(
+        (a) => a.kind === "move" && destinations.includes(a.target),
+      );
+    },
+    present: (actor) => !controlledByHuman(s, actor) || humanPresent(s, actor),
+    arrive: (actor) => arriveRoamingRecitals(s, packDefinitions, actor),
+  };
+}
+
 // Routes use the exits available to the actor who is planning the trip.
 function routeBetween(s, from, target, actor = null) {
   const queue = [[from]],
@@ -1501,6 +1880,8 @@ function toward(s, actor, target) {
   );
 }
 export function plan(s, actor = currentActor(s)) {
+  const help = !staysPut(actor) && roamingHelpPlan(s, actor, roamingAPI(s));
+  if (help) return help;
   // A resident who never leaves home keeps to it.
   if (staysPut(actor))
     return {
@@ -1841,6 +2222,7 @@ export function play(
     };
   const next = structuredClone(s);
   if (actor !== "vale" || s.playerActorId) next.playerActorId = actor;
+  for (const id of actorIds) installQuestCollection(next, id);
   const previousHopes = Object.fromEntries(
     knownActors(s).map((id) => [id, lifeOf(s, id)?.milestones.length || 0]),
   );
@@ -1848,16 +2230,12 @@ export function play(
   const round = beginRound(s, sensesFor(s));
   next.turn += 1;
   next.revision += 1;
-  for (const actor of knownActors(next)) {
-    const life = lifeOf(next, actor);
-    if (life?.phase === "content" && next.turn > life.restUntil)
-      life.phase = "seeking";
-  }
   const reflectionSource = next.actors[actor].place;
   const wasOpen = reflectionOpen(next, reflectionSource);
   if (exact.kind === "wait")
     addLog(next, "World", `${nameOf(actor)} waits. The cast takes a turn.`);
   const met = new Map();
+  if (exact.kind === "pursue") pursueQuest(next, actor, exact.questKey);
   captureHands(next, met);
   const active = knownActors(next);
   const respondent = perform(next, exact, () => captureHands(next, met), round);
@@ -1878,6 +2256,7 @@ export function play(
     ...active.filter(
       (id) =>
         isPackActor(id) &&
+        !roamingQuestActor(id) &&
         entityActive(next, id) &&
         next.actors[id].place === next.actors[actor].place,
     ),
@@ -1938,31 +2317,51 @@ export function play(
           : "The attic mirror's path to the pond closes.",
       { locationId: reflectionSource },
     );
-  advancePrograms(next, met);
-  for (const actor of knownActors(next)) {
-    const life = lifeOf(next, actor);
-    if (life && life.milestones.length > (previousHopes[actor] || 0))
-      addLog(
-        next,
-        "World",
-        `${nameOf(actor)} reaches a hope milestone: ${hopes[actor].milestones[life.milestones.length - 1].title}. Hope ${life.milestones.length}/3.`,
-        { actorId: actor },
-      );
+  publishQuestCompletions(next, [
+    ...advancePrograms(next, met),
+    ...syncStoryQuests(next, exact.actor),
+  ]);
+  installRoamingQuests(next, roamingActors, roamingAPI(next));
+  for (const id of roamingActors) {
+    if (controlledByHuman(next, id)) continue;
+    if (id === respondent) next.roamingQuests[id].lastActedTurn = next.turn;
+    const action = roamingPlan(next, id, roamingAPI(next));
+    if (action) perform(next, action, () => {}, round);
+    settleRoamingArrival(next, id, roamingAPI(next));
   }
+
   for (const actor of knownActors(next)) {
     const life = lifeOf(next, actor);
-    if (life?.phase === "seeking" && life.inspiration >= INSPIRATION_MAX) {
-      life.phase = "active";
-      life.inspiration = 0;
-      ensurePrograms(next);
+    if (life && life.milestones.length > (previousHopes[actor] || 0)) {
+      const hope = hopeOf(next, actor);
       addLog(
         next,
         "World",
-        `${nameOf(actor)} finds a new purpose: ${programFor(next, actor).name}. Hope: ${hopes[actor].title}.`,
-        { actorId: actor, questPlan: structuredClone(programFor(next, actor)) },
+        `${nameOf(actor)} reaches a hope milestone: ${hope.milestones[life.milestones.length - 1].title}. Hope ${life.milestones.length}/${hope.milestones.length}.`,
+        { actorId: actor },
       );
     }
   }
+  for (const actor of settleLife(
+    next,
+    knownActors(next).filter(
+      (id) => !controlledByHuman(next, id) || id === exact.actor,
+    ),
+    sanctuaries,
+  )) {
+    ensurePrograms(next);
+    const origin = purposeOrigin(next, actor);
+    if (!programFor(next, actor)) continue;
+    addLog(
+      next,
+      "World",
+      `${nameOf(actor)} finds a new purpose: ${programFor(next, actor).name}.${origin ? ` It began with ${origin}.` : ""}`,
+      { actorId: actor, questPlan: structuredClone(programFor(next, actor)) },
+    );
+  }
+  for (const id of knownActors(next))
+    collectExperienceQuests(next, id, programPlaces(next), things);
+  ensurePrograms(next);
   refreshStalledPrograms(next);
   for (const [id, allowance] of Object.entries(
     next.sharedMigration?.inventoryAllowances || {},
@@ -1990,13 +2389,35 @@ function validHand(h, actor) {
       (Array.isArray(h.conditions) &&
         h.conditions.length <= 3 &&
         h.conditions.every((c) => validCondition(c, actor)))) &&
-    (h.consequence === undefined || validConsequence(h.consequence, actor))
+    (h.consequence === undefined || validConsequence(h.consequence, actor)) &&
+    (h.passage === undefined ||
+      (h.passage &&
+        roamingActors.includes(h.passage.actor) &&
+        ["directions", "passage"].includes(h.passage.kind) &&
+        Object.hasOwn(places, h.passage.from) &&
+        Object.hasOwn(places, h.passage.to)))
   );
 }
-function validProgram(p, actor, s) {
+function validQuestOrigin(s, origin) {
+  return (
+    origin === null ||
+    (origin &&
+      Object.keys(origin).every((key) =>
+        ["kind", "turn", "other", "item", "place"].includes(key),
+      ) &&
+      experienceKinds.includes(origin.kind) &&
+      Number.isSafeInteger(origin.turn) &&
+      origin.turn >= 0 &&
+      origin.turn <= s.turn &&
+      (origin.other === null || actorIds.includes(origin.other)) &&
+      (origin.item === null || ids.includes(origin.item)) &&
+      (origin.place === null || Object.hasOwn(places, origin.place)))
+  );
+}
+function validProgram(p, actor, s, shared = false) {
   if (
     !p ||
-    !actorIds.includes(actor) ||
+    (!shared && !actorIds.includes(actor)) ||
     typeof p.id !== "string" ||
     p.id.length > 80 ||
     !p.id.length ||
@@ -2030,8 +2451,8 @@ function validProgram(p, actor, s) {
       g.turn < 0 ||
       g.turn > s.turn ||
       !Number.isSafeInteger(g.level) ||
-      g.level < 3 ||
-      g.level > s.turn + 1 ||
+      g.level < (lifeOf(s, actor)?.collection ? 1 : 3) ||
+      g.level > s.turn * (lifeOf(s, actor)?.collection ? 8 : 1) + 1 ||
       ![...actorIds, ...Object.keys(places)].includes(g.owner) ||
       (g.solo === undefined
         ? !ids.includes(g.item) ||
@@ -2076,6 +2497,18 @@ export function validateWorld(s) {
     s.turn < 0 ||
     !Number.isSafeInteger(s.revision) ||
     s.revision < s.turn
+  )
+    fail();
+  if (
+    !validSharedQuestRegistry(s, {
+      actors: actorIds,
+      items: ids,
+      places: Object.keys(places),
+      program: (p, actor) => validProgram(p, actor, s, true),
+      origin: (value) => validQuestOrigin(s, value),
+      story: (quest) => validStoryQuest(s, quest),
+    }) ||
+    !validQuestCompletions(s, actorIds, Object.keys(places))
   )
     fail();
   if (s.sharedMigration !== undefined) {
@@ -2141,7 +2574,9 @@ export function validateWorld(s) {
         o.met.moth === undefined) ||
       (!o.crossed &&
         (s.actors?.vale?.place !== "attic" ||
-          Object.keys(o.met).length !== 1)) ||
+          Object.keys(o.met).some(
+            (id) => id !== "vale" && !roamingActors.includes(id),
+          ))) ||
       (o.crossed && (!s.locations?.attic.anchored || o.met.moth === undefined))
     )
       fail();
@@ -2155,8 +2590,37 @@ export function validateWorld(s) {
       .join() !== ids.slice().sort().join()
   )
     fail();
+  if (
+    s.invitedPlaces !== undefined &&
+    (!s.invitedPlaces ||
+      typeof s.invitedPlaces !== "object" ||
+      Array.isArray(s.invitedPlaces) ||
+      Object.entries(s.invitedPlaces).some(
+        ([actor, visits]) =>
+          !actorIds.includes(actor) ||
+          !Array.isArray(visits) ||
+          visits.length > Object.keys(places).length ||
+          new Set(visits).size !== visits.length ||
+          visits.some((place) => !Object.hasOwn(places, place)),
+      ))
+  )
+    fail();
   if (!validPackState(s, sensesFor(s))) fail();
-  if (!validMemories(s) || !validMotives(s) || !validLife(s)) fail();
+  if (
+    !validRoamingQuests(
+      s,
+      roamingActors,
+      Object.keys(places),
+      authoredRouteEdges(),
+    )
+  )
+    fail();
+  if (
+    !validMemories(s) ||
+    !validMotives(s) ||
+    !validLife(s, Object.keys(places))
+  )
+    fail();
   if (
     !s.locations ||
     typeof s.locations.attic?.anchored !== "boolean" ||
@@ -2230,7 +2694,7 @@ export function validateWorld(s) {
       fail();
     if (
       !Object.hasOwn(places, a.place) ||
-      !actorCanVisit(id, a.place) ||
+      !actorCanVisit(id, a.place, s) ||
       (entityActive(s, id) && !entityActive(s, a.place)) ||
       !Number.isSafeInteger(a.crossed) ||
       a.crossed < 0 ||
@@ -2249,21 +2713,122 @@ export function validateWorld(s) {
       !progress ||
       !Number.isSafeInteger(progress.program) ||
       progress.program < 0 ||
-      progress.program > s.turn ||
+      progress.program > s.turn * (lifeOf(s, id)?.collection ? 8 : 1) ||
       !Number.isInteger(progress.step) ||
       progress.step < 0
     )
       fail();
     const program = savedProgramFor(s, id);
-    const resting = !questActive(s, id) && progress.step === 0;
+    const personalActive = !lifeOf(s, id) || lifeOf(s, id).phase === "active";
+    const resting = !personalActive && progress.step === 0;
     if (
       (!program && !resting) ||
       (program &&
         (!validProgram(program, id, s) ||
           progress.step >= program.steps.length)) ||
-      (!questActive(s, id) && !resting)
+      (!personalActive && !resting)
     )
       fail();
+    const collection = lifeOf(s, id)?.collection;
+    if (collection) {
+      const cards = collectionCards(s, id);
+      const archive = collectionCards(s, id, true);
+      if (
+        !Array.isArray(cards) ||
+        cards.length > 32 ||
+        !Array.isArray(archive) ||
+        cards.length + archive.length > 256 ||
+        archive.some(
+          (q) =>
+            !q ||
+            typeof q.key !== "string" ||
+            !q.key.startsWith(`${id}:quest:`) ||
+            q.key.length > 80 ||
+            !validQuestOrigin(s, q.origin) ||
+            !q.program ||
+            typeof q.program.id !== "string" ||
+            typeof q.program.name !== "string" ||
+            q.program.name.length > 120 ||
+            typeof q.program.purpose !== "string" ||
+            q.program.purpose.length > 240 ||
+            !Array.isArray(q.program.steps) ||
+            q.program.steps.length !== 0 ||
+            !Number.isInteger(q.totalSteps) ||
+            q.totalSteps < 1 ||
+            q.totalSteps > 32 ||
+            q.step !== q.totalSteps ||
+            !Number.isSafeInteger(q.createdTurn) ||
+            q.createdTurn < 0 ||
+            !Number.isSafeInteger(q.completedTurn) ||
+            q.completedTurn < q.createdTurn ||
+            q.completedTurn > s.turn,
+        ) ||
+        new Set([...cards, ...archive].map((q) => q.key)).size !==
+          cards.length + archive.length ||
+        !Number.isSafeInteger(collection.next) ||
+        collection.next < cards.length + archive.length ||
+        !Number.isSafeInteger(collection.earned) ||
+        collection.earned < 0 ||
+        collection.earned > s.turn * 8 ||
+        !Number.isSafeInteger(collection.archivedCompleted) ||
+        collection.archivedCompleted < 0 ||
+        !Number.isSafeInteger(collection.authoredThrough) ||
+        collection.authoredThrough < 0 ||
+        collection.authoredThrough > programs.length ||
+        !Number.isSafeInteger(collection.collectedThrough) ||
+        collection.collectedThrough < 0 ||
+        collection.collectedThrough > s.turn ||
+        new Set(cards.map((q) => q.key)).size !== cards.length ||
+        cards.filter((q) => q.completedTurn === null).length > 8 ||
+        cards.some(
+          (q) =>
+            !q ||
+            typeof q.key !== "string" ||
+            !q.key.startsWith(`${id}:quest:`) ||
+            q.key.length > 80 ||
+            !validQuestOrigin(s, q.origin) ||
+            (q.lastProgressTurn !== undefined &&
+              (!Number.isSafeInteger(q.lastProgressTurn) ||
+                q.lastProgressTurn < q.createdTurn ||
+                q.lastProgressTurn > s.turn)) ||
+            !validProgram(q.program, id, s) ||
+            !Number.isInteger(q.step) ||
+            q.step < 0 ||
+            !Number.isSafeInteger(q.createdTurn) ||
+            q.createdTurn < 0 ||
+            q.createdTurn > s.turn ||
+            (q.completedTurn === null
+              ? q.step >= q.program.steps.length
+              : !Number.isSafeInteger(q.completedTurn) ||
+                q.completedTurn < q.createdTurn ||
+                q.completedTurn > s.turn ||
+                q.step !== q.program.steps.length),
+        ) ||
+        collection.archivedCompleted +
+          archive.length +
+          cards.filter((q) => q.completedTurn !== null).length !==
+          progress.program ||
+        (collection.active !== null &&
+          !cards.some(
+            (q) =>
+              q.key === collection.active &&
+              q.completedTurn === null &&
+              q.step === progress.step,
+          )) ||
+        (collection.active === null && progress.step !== 0) ||
+        !Array.isArray(progress.marks) ||
+        progress.marks.length !== Math.min(32, collection.earned) ||
+        progress.marks.some(
+          (turn, i) =>
+            !Number.isSafeInteger(turn) ||
+            turn < 1 ||
+            turn > s.turn ||
+            (i > 0 && turn < progress.marks[i - 1]),
+        )
+      )
+        fail();
+      continue;
+    }
     let completed = programs
       .slice(0, progress.program)
       .reduce((n, p) => n + p.steps.length, 0);
@@ -2408,6 +2973,8 @@ export function validateWorld(s) {
     fail();
   let seq = 0;
   const verbs = [
+    "join-quest",
+    "share-quest",
     "accompany",
     "threaten",
     "guard",
@@ -2514,14 +3081,18 @@ export function validateWorld(s) {
       if (
         !validProgram(program, e.actorId, s) ||
         program.id !== e.programId ||
-        !Number.isSafeInteger(index) ||
-        index < 0 ||
-        index > s.actors[e.actorId].progress.program ||
+        (e.questMode !== "shared" &&
+          (!Number.isSafeInteger(index) ||
+            index < 0 ||
+            index > s.actors[e.actorId].progress.program)) ||
         !Number.isInteger(e.step) ||
         e.step < 0 ||
         e.step >= program.steps.length ||
-        e.level !== index + 1 + Number(e.step === program.steps.length - 1) ||
-        (program.generated &&
+        (e.questMode !== "shared" &&
+          e.level !==
+            index + 1 + Number(e.step === program.steps.length - 1)) ||
+        (e.questMode !== "shared" &&
+          program.generated &&
           (program.generated.level !== index + 1 ||
             program.id !== `generated-${e.actorId}-${index + 1}`))
       )
@@ -2597,6 +3168,11 @@ export function validateWorld(s) {
 export const encodeSave = (s) => JSON.stringify(validateWorld(s));
 export function decodeSave(text) {
   const s = JSON.parse(text);
-  upgradeSave(s, { actorIds, ensurePrograms, installPacks });
+  upgradeSave(s, {
+    actorIds,
+    ensurePrograms,
+    installPacks,
+    profileOf: (id) => tastes[id],
+  });
   return validateWorld(s);
 }

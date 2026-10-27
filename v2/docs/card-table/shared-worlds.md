@@ -21,6 +21,11 @@ Waiting plays can be withdrawn. Nudge asks a present human for attention. People
 can sit quietly while the scene runs. Presence has a 60-second reconnect grace;
 the avatar claim remains saved.
 
+A card presentation or open dialog pauses that viewer's speech clock. Closing
+it resumes the same line. The live portrait follows the room's common clock;
+selecting it catches up immediately. A new play or scene starts a fresh reading
+clock for that viewer.
+
 Each accepted play advances the existing world clock. Lamp fuel, temporary
 sounds, and crossing sequences keep their current turn rules for everyone.
 
@@ -59,12 +64,18 @@ store. Each action is checked against the current world as it executes. Unique
 play keys make retries safe. Removing a checkpoint rebuilds the world from its
 seed and recorded operations.
 
-Rule version 3 gives home items their floor start and gates the home-to-pond path
-on carrying the item in the home. Version 2 stays frozen for replay. Loading an
-earlier world first replays its accepted actions with version 2, then records one
-upgrade to version 3. Claimed avatars keep their item positions and progress;
-unused items in unclaimed homes settle on the floor. The upgrade advances the
-view revision while preserving the world turn and conversation.
+Rule version 3 introduced the home-item floor start and opened the home-to-pond
+path when the item is carried in the home. Version 4 added Greek story cards
+and saved bard visits. Released versions 2, 3, and 4 stay frozen for replay.
+Recorded upgrades use the exact interpreter named by their target version.
+Current version 5 combines those rules with collected personal quests.
+
+Loading an earlier world first replays its accepted history with the recorded
+rule versions, then records one upgrade from its latest version to version 5.
+A direct version 2-to-5 upgrade settles unused items in unclaimed homes on the
+floor. Upgrades from versions 3 and 4 preserve existing item positions. Each
+upgrade advances the view revision and preserves the world turn and conversation.
+The normal save migration adds collections and any missing recital records.
 
 Earlier shared invitations keep their IDs and account claims. Their first full
 world load records an explicit migration seed. It maps the old rooms and items
@@ -75,6 +86,42 @@ Migration preserves each held item, the lamp's state, and up to 80 saved
 exchanges with their original text and times. An avatar carrying more than the
 current limit keeps those items. That allowance shrinks as items are put down;
 new pickups and gifts use the normal limit.
+
+## Collected quests
+
+Each personal quest has a stable card key, its own steps, and the experience
+that led to it. The active card guides the next action. Other pending cards add
+bounded weight to an NPC's item choices. The player chooses a focus with the
+ordinary `pursue` action; NPCs choose from their circumstances and memories.
+Switching preserves the progress on every card.
+
+Each round captures all matching cards before applying their consequences.
+Each card advances by at most one step in that round. A shared world effect
+runs once for matching completions, while each card keeps its own receipt.
+The receipt includes the card key, step, turn, and witnessed hand.
+
+An avatar can hold eight unfinished cards. Matching suggestions coalesce.
+The collection keeps up to 256 identities; new suggestions pause at that limit.
+The latest 24 fulfilled cards keep their complete programs. Older fulfilled
+cards keep their key, title, purpose, art kind, origin, completion turn, and
+step count in an archive deck. Older saves keep their prior completion count
+as migration evidence when the original card identity is unavailable.
+
+Completing the active quest begins a rest at a place marked `sanctuary: true`.
+The station and attic are sanctuaries. Human rest counts that person's own
+turns in a shared world. Resident rest counts world rounds. A pending quest
+can finish while another remains active, preserving the chosen focus.
+
+The shared interpreters in `engine-v2.js`, `engine-v3.js`, and `engine-v4.js`
+retain their released bytes. New commands use `engine-v5.js`. Replay works
+with a checkpoint or with the seed and journal alone, including histories with
+recorded 2-to-3, 2-to-4, and 3-to-4 upgrades. The bundle builder updates version 5.
+
+Greek story cards join the same visible stack beneath the active personal
+quest. Their saved pack receipts preserve the one-line text, art, and completion
+labels. Completed cards remain in the collection; the first courtyard report
+stays there when a later report adds another card. Story choices continue to
+use the pack's ordinary actions.
 
 ## Shared words
 
@@ -108,20 +155,21 @@ and show a scene error. Per-person and shared play budgets bound usage.
 
 ## Entrances and future journeys
 
-| Person | Entrance | Home |
-| ------ | -------- | ---- |
-| Vale | Existing shore and mirror paths | Empty station and Mirror attic |
-| Mara | Parted curtains | Paper theatre |
-| Ash | Diving bell | Sunken belfry |
-| Nell | Growing gate | Wild glasshouse |
-| Tavi | Wind path | Wind hill |
-| Rue | Carriage door | Between-hours carriage |
-| Orin | Game-tile bridge | Games pavilion |
-| Ada | Open seam | Sail loft |
+| Person | Entrance                        | Home                           |
+| ------ | ------------------------------- | ------------------------------ |
+| Vale   | Existing shore and mirror paths | Empty station and Mirror attic |
+| Mara   | Parted curtains                 | Paper theatre                  |
+| Ash    | Diving bell                     | Sunken belfry                  |
+| Nell   | Growing gate                    | Wild glasshouse                |
+| Tavi   | Wind path                       | Wind hill                      |
+| Rue    | Carriage door                   | Between-hours carriage         |
+| Orin   | Game-tile bridge                | Games pavilion                 |
+| Ada    | Open seam                       | Sail loft                      |
 
-A future Paris journey can depart from the existing station. Rue's carriage can
-arrive there for boarding. Its route board reveals the door to her home at the
-pond while that item is present there.
+A future Paris journey can depart from the existing station. Rue's carriage opens from
+the station while her route board is present there. Carrying the board inside
+the carriage opens the way back to the station. The saved crossing IDs stay
+stable across the version 5 upgrade; earlier journals retain their pond route.
 
 ## Art
 

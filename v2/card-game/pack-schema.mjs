@@ -406,6 +406,8 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "text",
         "place",
         "travels",
+        "roamingQuest",
+        "previousHomes",
         "standoffs",
         "persona",
         "voice",
@@ -430,8 +432,18 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       `avatar ${id} needs a name, text, persona, voice and a home place in this pack`,
     );
     check(
-      [a.travels, a.standoffs].every((v) => v === undefined || v === false),
+      [a.travels, a.standoffs].every((v) => v === undefined || v === false) &&
+        (a.roamingQuest === undefined ||
+          (a.roamingQuest === "latest-completion" && a.travels !== false)),
       `avatar ${id} may only set travels or standoffs to false`,
+    );
+    check(
+      a.previousHomes === undefined ||
+        (a.roamingQuest &&
+          Array.isArray(a.previousHomes) &&
+          a.previousHomes.length <= 8 &&
+          a.previousHomes.every((p) => owns(places, p))),
+      `avatar ${id} previous homes need authored places`,
     );
     check(
       keysOk(a.tastes, ["likes", "sore", "reason", "noise"]) &&
@@ -580,9 +592,11 @@ export function packProblems(pack, hub, mountedPlaces = []) {
           break;
         case "holding":
           ok =
-            keysOk(c, ["kind", "item", "actor"]) &&
+            keysOk(c, ["kind", "item", "actor", "role"]) &&
             owns(items, c.item) &&
-            (c.actor === hub.player || owns(avatars, c.actor));
+            (c.role === undefined
+              ? c.actor === hub.player || owns(avatars, c.actor)
+              : c.role === "actor" && c.actor === undefined);
           break;
         case "shared_world":
           ok = keysOk(c, ["kind"]);
@@ -708,6 +722,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "at",
         "label",
         "text",
+        "textTemplate",
         "summary",
         "requires",
         "effects",
@@ -719,6 +734,8 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         owns(places, c.at) &&
         textOk(c.label, 120) &&
         textOk(c.text, 600) &&
+        (c.textTemplate === undefined ||
+          templateOk(c.textTemplate, 600, ["actor"])) &&
         (c.summary === undefined || textOk(c.summary, 600)),
       `choice ${c.id} is invalid`,
     );
@@ -748,7 +765,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
             (r) =>
               r.kind === "holding" &&
               r.item === e.item &&
-              r.actor === hub.player,
+              (r.role === "actor" || r.actor === hub.player),
           );
       check(valid, `choice ${c.id} effect is unsupported or lacks custody`);
     }
@@ -787,15 +804,16 @@ export function packProblems(pack, hub, mountedPlaces = []) {
   if (pack.recital !== undefined) {
     const r = pack.recital;
     check(
-      keysOk(r, ["actor", "title", "verses"]) &&
+      keysOk(r, ["actor", "title", "verses", "claims"]) &&
         owns(avatars, r?.actor) &&
-        avatars[r.actor].travels === false &&
+        (avatars[r.actor].travels === false ||
+          avatars[r.actor].roamingQuest === "latest-completion") &&
         avatars[r.actor].standoffs === false &&
         textOk(r.title, 80) &&
         Array.isArray(r.verses) &&
         r.verses.length > 0 &&
         r.verses.length <= 64,
-      "recital needs a stationary singer, a title and up to 64 verses",
+      "recital needs a singer, a title and up to 64 verses",
     );
     const seen = new Set();
     const linesOk = (lines) =>
@@ -818,6 +836,28 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "recital verse needs a unique choice, quest, couplet and summons flag; after may select an earlier deed",
       );
       seen.add(v?.choice);
+    }
+    if (r.claims !== undefined) {
+      check(
+        Array.isArray(r.claims) &&
+          r.claims.length <= 16 &&
+          r.claims.every(
+            (claim) =>
+              keysOk(claim, ["phrases", "anyChoices"]) &&
+              Array.isArray(claim.phrases) &&
+              claim.phrases.length > 0 &&
+              claim.phrases.length <= 16 &&
+              claim.phrases.every(
+                (phrase) =>
+                  textOk(phrase, 160) && phrase === phrase.toLowerCase(),
+              ) &&
+              Array.isArray(claim.anyChoices) &&
+              claim.anyChoices.length > 0 &&
+              claim.anyChoices.length <= 64 &&
+              claim.anyChoices.every((choice) => seen.has(choice)),
+          ),
+        "recital claims need bounded phrases and supporting verse choices",
+      );
     }
   }
   if (problems.length) return problems;
@@ -1087,11 +1127,14 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     );
   }
 
+  // The base world owns travel between its hub places. A pack may attach
+  // different rooms to different points in that connected hub.
   // Every pack place is reachable from the entry, the entry is reachable from
   // the hub, and some pack place has a crossing back to the hub.
   const reached = new Set([pack.entry]);
   for (const id of reached)
     for (const to of [
+      ...(hub.places.includes(id) ? hub.places : []),
       ...(places[id]?.exits || []),
       ...Object.values(pack.transports || {})
         .filter((t) => Array.isArray(t.docks) && t.docks.includes(id))
