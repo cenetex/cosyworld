@@ -1,3 +1,4 @@
+import { canOfferQuest } from "./quest-offers.mjs";
 import {
   collectionCards,
   installSharedQuestRegistry,
@@ -526,6 +527,7 @@ function addQuest(s, actor, program, origin = null) {
   };
   registerPersonalQuest(s, actor, card);
   c.cards.push(card.key);
+  if (program.generated) c.lastOfferTurn = s.turn;
   return card;
 }
 export function pursueQuest(s, actor, key) {
@@ -623,11 +625,14 @@ export function ensureCollectedQuest(s, actor, places, things) {
   const authored = programsFor(s, actor)[c.authoredThrough];
   if (authored && addQuest(s, actor, authored)) c.authoredThrough += 1;
   pending = collectionCards(s, actor).filter((q) => q.completedTurn === null);
-  if (!pending.length && life.phase === "active") {
+  if (!pending.length && life.phase === "active" && canOfferQuest(s, actor)) {
     const program = generateProgram(structuredClone(s), actor, places, things);
     addQuest(s, actor, program, life.origin || null);
     pending = collectionCards(s, actor).filter((q) => q.completedTurn === null);
-    if (!pending.length) life.phase = "seeking";
+  }
+  if (!pending.length && life.phase === "active") {
+    life.phase = "seeking";
+    delete life.origin;
   }
   if (life.phase === "active" && pending.length) {
     if (controlledByHuman(s, actor)) {
@@ -679,24 +684,12 @@ export function collectExperienceQuests(s, actor, places, things) {
     (e) => e.turn > c.collectedThrough,
   );
   c.collectedThrough = s.turn;
-  for (const experience of experiences) {
-    if (
-      collectionCards(s, actor).filter((q) => q.completedTurn === null)
-        .length >= QUEST_LIMIT
-    )
-      break;
+  if (!canOfferQuest(s, actor)) return;
+  for (const experience of experiences.sort((a, b) => b.turn - a.turn)) {
     const probe = structuredClone(s);
     lifeOf(probe, actor).origin = experience;
     const program = generateProgram(probe, actor, places, things);
-    const signature = JSON.stringify(program.steps);
-    if (
-      collectionCards(s, actor).some(
-        (q) =>
-          q.completedTurn === null &&
-          JSON.stringify(q.program.steps) === signature,
-      )
-    )
-      continue;
-    addQuest(s, actor, program, experience);
+    if (!canOfferQuest(s, actor, program)) continue;
+    if (addQuest(s, actor, program, experience)) break;
   }
 }

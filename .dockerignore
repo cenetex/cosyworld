@@ -5,8 +5,6 @@
 !models/card-policy/
 !models/card-policy/**
 !deploy/
-!deploy/lonelyforest/
-!deploy/lonelyforest/**
 !v2/
 !v2/content-engine-version.txt
 !v2/card-game/

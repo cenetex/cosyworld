@@ -1,0 +1,191 @@
+[
+  {
+    "world": "hoppycat",
+    "kind": "location",
+    "name": "Halfway Tea Garden",
+    "prompt": "Use case: stylized-concept. Asset: worldpack art approval sample. A fresh wide 16:9 environment illustration of Halfway Tea Garden. Follow the supplied approved setting reference: round tea table and chairs, kettle-shaped tree houses, scarlet thread paths, brass lanterns, mossy stone, delicate star-map glints in cobalt dusk. Richly painted anime storybook, fine brush texture, jewel cobalt and forest green, amber warm windows. Clear inviting path in foreground and readable gathering place. Environment only. Reference is visual identity and style, generate a fresh composition. Single full-bleed art, no labels, text, borders, logos or watermark.",
+    "provider": "builtin-imagegen",
+    "filename": "hoppycat-location.png",
+    "approval": "pending",
+    "sha256": "60e85ed3af324fa142a872f633c3a9e55dbda5fff24b4863b54797174a612e70",
+    "references": [
+      {
+        "path": "v2/content/hoppycat-archive/assets/cards/hoppycat-halfway-tea-garden.webp",
+        "sha256": "7cfaf8b612737c32af8a6783edd83316fba0bca11074f98d607412a1de3b9411",
+        "role": "visual identity and style reference"
+      }
+    ],
+    "model_version": "Unavailable from the built-in tool",
+    "selected": true,
+    "status": "succeeded",
+    "source_id": "770000"
+  },
+  {
+    "world": "hoppycat",
+    "kind": "avatar",
+    "name": "Hoppy Cat",
+    "prompt": "Use case: stylized-concept. Asset: worldpack art approval sample. A fresh vertical 2:3 avatar illustration of Hoppy Cat, using the supplied approved portrait as exact identity reference. Preserve long vivid green hair, green eyes, freckles, face and natural anime proportions, cobalt hoodie, cuffed dark blue jeans, blue high-top sneakers, brown cross-body satchel, microphone in right hand. One full body, all shoes and hair visible, generous padding, friendly curious smile, standing in softly painted tea-garden dusk. Rich painted anime storybook, jewel cobalt and forest green, amber lantern light, fine hand-painted texture. Plain unmarked materials. Single art image without text, labels, borders, logos or watermark.",
+    "provider": "builtin-imagegen",
+    "filename": "hoppycat-avatar.png",
+    "approval": "pending",
+    "sha256": "181ba7a20d236a86ca593c1caac79042ce1c2ea092884c7dfbb0534324ca2b8a",
+    "references": [
+      {
+        "path": "v2/content/hoppycat-archive/assets/cards/hoppycat-hoppy-cat.webp",
+        "sha256": "944e1e08e70434a61f93256ed8b25827b83b8c46fbe5d891757d9af86377b52d",
+        "role": "visual identity and style reference"
+      }
+    ],
+    "model_version": "Unavailable from the built-in tool",
+    "selected": true,
+    "status": "succeeded",
+    "source_id": "771008"
+  },
+  {
+    "world": "hoppycat",
+    "kind": "item",
+    "name": "Halfway Cup",
+    "prompt": "Use case: stylized-concept. Asset: worldpack art approval sample. A fresh square item illustration of the Halfway Cup using the supplied approved object as exact design and style reference. One brass-and-clear-glass bubble-tea cup, amber tea with tapioca pearls, two handles deliberately set at different heights, cobalt collar, lid and reusable metal straw. Keep both handles fully readable and generous padding. One complete object on mossy stone with softly painted blue-green tea garden backdrop. Rich painterly anime-storybook finish, amber light, tactile brass, clear glass. Single full-bleed artwork, no labels, text, borders, hands, faces, logos or watermark.",
+    "provider": "builtin-imagegen",
+    "filename": "hoppycat-item.png",
+    "approval": "pending",
+    "sha256": "ec596439c597999fd975aeb5b11116141a71c9fc20de19d683813d902b2f184f",
+    "references": [
+      {
+        "path": "v2/content/hoppycat-archive/assets/cards/hoppycat-halfway-cup.webp",
+        "sha256": "c8189b87a85f77a53f5d31abd6a0ce7d4c78796193b4a58a29f6152f071207a1",
+        "role": "visual identity and style reference"
+      }
+    ],
+    "model_version": "Unavailable from the built-in tool",
+    "selected": true,
+    "status": "succeeded",
+    "source_id": "772008"
+  },
+  {
+    "world": "lantern-keeper",
+    "kind": "location",
+    "name": "Mothwood Path",
+    "prompt": "Use case: stylized-concept. Asset: worldpack art approval sample. Use the supplied board only as a visual style and world reference. Make one wide 16:9 single scene of Mothwood Path: root-broken woodland road, tall black pines, cold dark iron lamp cages covered in pale moths, slanting rain, low roadside inn with one amber window, distant round stone beacon tower with a dark lens. The roadside lamps are extinguished; the inn provides the small pool of warmth. Bold woodcut and scratchboard, visible carved strokes, strong ink shapes and fine ivory hatching, ink black, midnight blue, muted moss and amber. Clear walkable foreground and strong depth. Single environment art with no characters, text, title, border, panels or watermark.",
+    "provider": "builtin-imagegen",
+    "filename": "lantern-keeper-location.png",
+    "approval": "pending",
+    "sha256": "27094ce401f4cf32ee12a6df1bd4d4b2416224def280316e9ff791602b14fe5d",
+    "references": [
+      {
+        "path": "docs/art-direction/worldpacks/review-trios/references/lantern-keeper-concept.png",
+        "sha256": "0d3ffc26694cc3a5fbb2fefbcdf3955773b4bcf0a5d659145dc63d27c510e146",
+        "role": "visual identity and style reference"
+      }
+    ],
+    "model_version": "Unavailable from the built-in tool",
+    "selected": true,
+    "status": "succeeded",
+    "source_id": "801"
+  },
+  {
+    "world": "lantern-keeper",
+    "kind": "avatar",
+    "name": "Pip Thistle",
+    "prompt": "Use case: stylized-concept. Asset: worldpack art approval sample. Use the supplied board as character and woodcut-style reference. Make one vertical 2:3 full-body avatar study of Pip Thistle, the thumb-sized fey lamp-sprite seen in the middle right panel: short tousled dark hair, sharp expressive face, practical woodland clothes and moss-green scarf, two soot-dark wings, tiny pin sword held as a pointer. Pip stands on a wet twig beside a large pale moth to make the tiny scale clear. Full figure and wings visible, generous space. Bright opinionated expression, gentle folk-horror mood. Bold carved woodcut and scratchboard, ivory hatching, midnight-blue black ink, restrained moss and amber light. One character art image, no text, title, border, panels, logos or watermark.",
+    "provider": "builtin-imagegen",
+    "filename": "lantern-keeper-avatar.png",
+    "approval": "pending",
+    "sha256": "a466dc7112bb816ea2da045a8d87482d8c8a69e28a8fd15f5963888eccfc65c6",
+    "references": [
+      {
+        "path": "docs/art-direction/worldpacks/review-trios/references/lantern-keeper-concept.png",
+        "sha256": "0d3ffc26694cc3a5fbb2fefbcdf3955773b4bcf0a5d659145dc63d27c510e146",
+        "role": "visual identity and style reference"
+      }
+    ],
+    "model_version": "Unavailable from the built-in tool",
+    "selected": true,
+    "status": "succeeded",
+    "source_id": "8302"
+  },
+  {
+    "world": "lantern-keeper",
+    "kind": "item",
+    "name": "Mothglass Lens",
+    "prompt": "Use case: stylized-concept. Asset: worldpack art approval sample. Use the supplied board solely as the woodcut style and object reference. One square single-object study of the Mothglass Lens, a palm-sized circular convex lens in a worn brass rim. Through the glass show one faint pale moth-like trace of a past light. Rest the lens on wet dark wood, clear complete silhouette with generous padding. Bold hand-carved woodcut and scratchboard, ivory hatching, midnight-black ink, muted moss, small amber glints on brass. Intimate curious mood. Only the lens, no other tools. Full-bleed object art, no text, border, panels, labels, hands, logo or watermark.",
+    "provider": "builtin-imagegen",
+    "filename": "lantern-keeper-item.png",
+    "approval": "pending",
+    "sha256": "eafc8c73a4a3b7a507ce5aae70e3bf20915ec5d7f7dfd59ba3bbad442c5835ec",
+    "references": [
+      {
+        "path": "docs/art-direction/worldpacks/review-trios/references/lantern-keeper-concept.png",
+        "sha256": "0d3ffc26694cc3a5fbb2fefbcdf3955773b4bcf0a5d659145dc63d27c510e146",
+        "role": "visual identity and style reference"
+      }
+    ],
+    "model_version": "Unavailable from the built-in tool",
+    "selected": true,
+    "status": "succeeded",
+    "source_id": "8402"
+  },
+  {
+    "world": "elysium",
+    "kind": "location",
+    "name": "Void 001",
+    "prompt": "Use case: stylized-concept. Asset: worldpack art approval sample. Use the supplied board solely as art-style reference. One wide 16:9 environment image of Void 001, a small bare stone node suspended in immense quiet darkness. Sparse distant nodes connected by thin curving golden filaments, a gentle golden spiral implied by their arrangement, broad calm black areas, an open stone foreground for a future avatar. Fine silver etching and charcoal on black paper, restrained gold leaf, beautiful engraved detail with strong readable forms. Quiet curious intimate scale. Environment only, single full-bleed artwork without characters, buildings, labels, title, borders, panels, logos or watermark.",
+    "provider": "builtin-imagegen",
+    "filename": "elysium-location.png",
+    "approval": "pending",
+    "sha256": "26c998c0fe62a50ba4083c6e595963427232171748a01bf510db5d7c712aee80",
+    "references": [
+      {
+        "path": "docs/art-direction/worldpacks/review-trios/references/elysium-concept.png",
+        "sha256": "331572cb2d39429ba7eb6c67270538b5d200497a837f12bdba7ce23192cd9a80",
+        "role": "visual identity and style reference"
+      }
+    ],
+    "model_version": "Unavailable from the built-in tool",
+    "selected": true,
+    "status": "succeeded",
+    "source_id": "652000"
+  },
+  {
+    "world": "elysium",
+    "kind": "avatar",
+    "name": "Void 001 resident",
+    "prompt": "Use case: stylized-concept. Asset: worldpack art approval sample. Use the supplied board as the proposed Elysium avatar design and style reference. One vertical 2:3 full-body portrait of Void 001's resident, a slender abstract silver humanoid with a softly faceted quiet face, flowing sculpted robe-like contours, fine engraved lines and one small warm golden filament at the chest. This is an original proposed appearance for a model-bound resident. Calm listening pose, open relaxed hands, complete silhouette with edge padding on deep black paper. Fine silver etching, soft charcoal, restrained old gold, intimate mysterious mood. Single character image, no lettering, branding, labels, panels, border, logos or watermark.",
+    "provider": "builtin-imagegen",
+    "filename": "elysium-avatar.png",
+    "approval": "pending",
+    "sha256": "38c687d81af8394a00baa3fd88abea7cdb0bc0c9124b68b8a886e47d49d579d8",
+    "references": [
+      {
+        "path": "docs/art-direction/worldpacks/review-trios/references/elysium-concept.png",
+        "sha256": "331572cb2d39429ba7eb6c67270538b5d200497a837f12bdba7ce23192cd9a80",
+        "role": "visual identity and style reference"
+      }
+    ],
+    "model_version": "Unavailable from the built-in tool",
+    "selected": true,
+    "status": "succeeded",
+    "source_id": "289553007952"
+  },
+  {
+    "world": "elysium",
+    "kind": "item",
+    "name": "Void Wayfinder",
+    "prompt": "Use case: stylized-concept. Asset: worldpack art approval sample. Use the supplied board solely as Elysium's engraved black-silver-gold visual reference. One square item portrait of the Void Wayfinder: a compact dark compass whose single pale filament leans toward a discovered path. Matte obsidian housing, delicate silver engraved geometry, one hair-thin gold arc suspended just above it. One complete hand-sized object in three-quarter view, centered with generous padding, broad calm black background. Fine silver etching and charcoal on deep black paper, restrained gold leaf, clear silhouette, quiet wonder. A compass-like circular navigation tool. Single art image without text, numbered dial, labels, borders, panels, hands, logos or watermark.",
+    "provider": "builtin-imagegen",
+    "filename": "elysium-item.png",
+    "approval": "pending",
+    "sha256": "889c4d4cd1f937feb4465bc37d140872ce772d540422e446b34d6156840ce2b3",
+    "references": [
+      {
+        "path": "docs/art-direction/worldpacks/review-trios/references/elysium-concept.png",
+        "sha256": "331572cb2d39429ba7eb6c67270538b5d200497a837f12bdba7ce23192cd9a80",
+        "role": "visual identity and style reference"
+      }
+    ],
+    "model_version": "Unavailable from the built-in tool",
+    "selected": true,
+    "status": "succeeded",
+    "source_id": "void_wayfinder"
+  }
+]

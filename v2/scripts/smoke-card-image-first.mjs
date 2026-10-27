@@ -187,6 +187,34 @@ try {
       const tapCard = async (id) => {
         await selectCard(page, id, { touch: width === 390 });
       };
+      const heldPreview = page.locator(
+        '[data-avatar="vale"] .portrait-held-item',
+      );
+      async function assertHeldItem(id) {
+        assert.equal(await heldPreview.count(), id ? 1 : 0);
+        if (!id) return;
+        assert.equal(await heldPreview.getAttribute("data-item"), id);
+        assert.equal(await page.locator(".portrait-held-item").count(), 1);
+        await heldPreview
+          .locator("img")
+          .first()
+          .evaluate((img) => img.decode());
+        const bounds = await heldPreview.boundingBox();
+        const body = await heldPreview.locator("..").boundingBox();
+        assert(
+          bounds.width > 20 && bounds.height > 20,
+          "held item stays readable",
+        );
+        assert(
+          bounds.x >= 0 && bounds.x + bounds.width <= width,
+          "held item fits the screen",
+        );
+        assert(
+          bounds.y >= 0 && bounds.y + bounds.height <= body.y + body.height,
+          "held item follows the figure",
+        );
+      }
+      await assertHeldItem(null);
       // Either member of a pair can be lowered, with or without a play.
       for (const ids of [
         ["vale", "cloth"],
@@ -194,6 +222,7 @@ try {
       ]) {
         for (const lowered of ids) {
           for (const id of ids) await tapCard(id);
+          await assertHeldItem(ids.at(-1));
           assert.equal(
             await page.locator(".card-primary").count(),
             ids[0] === "vale" ? 0 : 1,
@@ -204,11 +233,13 @@ try {
             "false",
           );
           const remaining = ids.find((id) => id !== lowered);
+          await assertHeldItem(remaining === "vale" ? null : remaining);
           assert.equal(
             await card(remaining).getAttribute("aria-pressed"),
             "true",
           );
           await tapCard(remaining);
+          await assertHeldItem(null);
           assert.equal(
             await card(remaining).getAttribute("aria-pressed"),
             "false",
@@ -232,7 +263,14 @@ try {
         "Cover",
       );
       assert.equal((await state()).turn, old.turn, "selection costs no turn");
+      await assertHeldItem("lamp");
+      assert.equal(await heldPreview.getAttribute("data-lit"), "true");
+      await page.screenshot({
+        path: new URL(`held-item-${width}.png`, output).pathname,
+        fullPage: true,
+      });
       await page.keyboard.press("Escape");
+      await assertHeldItem(null);
       assert.equal(
         await page.locator("#card-actions button").count(),
         0,
@@ -248,8 +286,10 @@ try {
       );
       await page.keyboard.press("Enter");
       assert.equal(await card("lamp").getAttribute("aria-pressed"), "true");
+      await assertHeldItem("lamp");
       await page.keyboard.press("Enter");
       assert.equal(await card("lamp").getAttribute("aria-pressed"), "false");
+      await assertHeldItem(null);
       await page.keyboard.press("Space");
       assert.equal(await card("lamp").getAttribute("aria-pressed"), "true");
       await page.keyboard.press("Space");
@@ -264,12 +304,25 @@ try {
       assert(geometry.art / geometry.card > 0.9, JSON.stringify(geometry));
       await page.keyboard.press("Escape");
       await cards("cloth", "lamp");
+      await assertHeldItem(null);
       assert.equal((await state()).crossings["pond-greek-harbor"].phase, 1);
       assert.equal(await card("lamp").getAttribute("data-covered"), "true");
-      assert.equal(await card("greek-ship").count(), 0);
+      await selectCard(page, "lamp");
+      await assertHeldItem("lamp");
+      assert.equal(await heldPreview.getAttribute("data-covered"), "true");
+      assert.equal(await heldPreview.locator(".object-cover").count(), 1);
+      await page.keyboard.press("Escape");
+      assert.equal(
+        await card("greek-ship").count(),
+        (await state()).transports["greek-ship"].dock === "pond" ? 1 : 0,
+      );
       await cards("cloth");
       assert.equal((await state()).crossings["pond-greek-harbor"].phase, 2);
-      assert.equal(await card("greek-ship").count(), 0);
+      // A travelling bard can bring the ship here before the lamp signal ends.
+      assert.equal(
+        await card("greek-ship").count(),
+        (await state()).transports["greek-ship"].dock === "pond" ? 1 : 0,
+      );
       assert.doesNotMatch(
         await page.locator("body").innerText(),
         /inspiration|[12] of two|first flash|once more|ritual|fuel|turns left|ring again/i,
@@ -286,6 +339,7 @@ try {
       assert(requests.every((request) => request.speakers[0] === "vale"));
       await page.reload();
       await card("cloth").waitFor({ state: "attached" });
+      await assertHeldItem(null);
       assert.equal(
         (await state()).crossings["pond-greek-harbor"].phase,
         2,
@@ -370,10 +424,12 @@ try {
         "pairing by drag is selection only",
       );
       assert.equal(await card("lamp").getAttribute("aria-pressed"), "true");
+      await assertHeldItem("lamp");
       await card("lamp").dragTo(page.locator("#stage"), {
         targetPosition: { x: width / 2, y: 110 },
       });
       await ready();
+      await assertHeldItem(null);
       assert.equal(
         (await state()).items.cloth.holder,
         "lamp",

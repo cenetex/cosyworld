@@ -61,6 +61,7 @@ describe("invited companion travel", () => {
     s.items.lamp.holder = "rue";
     s.actors.moth.trust.rue = 2;
     s.transports["greek-ship"].dock = "pond";
+    s.crossings["pond-greek-harbor"].discovered = true;
     for (const destination of ["greek-ship", "greek-harbor"]) {
       const action = legalActions(s, "rue").find(
         (a) =>
@@ -75,12 +76,14 @@ describe("invited companion travel", () => {
       expect(decodeSave(encodeSave(s))).toEqual(s);
       if (destination === "greek-ship")
         expect(s.transports["greek-ship"]).toEqual({
-          dock: null,
+          version: 2,
+          dock: "pond",
           destination: "greek-harbor",
           recall: null,
         });
     }
     expect(s.transports["greek-ship"]).toEqual({
+      version: 2,
       dock: "greek-harbor",
       destination: null,
       recall: null,

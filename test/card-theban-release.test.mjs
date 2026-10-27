@@ -55,9 +55,13 @@ const reachable = (s) => {
   return [...seen].sort();
 };
 describe("the Theban release and its ship", () => {
-  it("opens seven shore places and the ship", () => {
+  it("opens seven shore places, then the ship after its first signal", () => {
     const s = createWorld();
     expect(s.packs[pack.id].scope).toBe("opening");
+    expect(reachable(s)).toEqual(
+      pack.release.places.filter((id) => id !== "greek-ship").sort(),
+    );
+    s.crossings["pond-greek-harbor"].discovered = true;
     expect(reachable(s)).toEqual([...pack.release.places].sort());
     expect(reachable(s)).toHaveLength(8);
     expect(entityActive(s, "greek-athens")).toBe(false);
@@ -81,11 +85,13 @@ describe("the Theban release and its ship", () => {
   });
   it("preserves opening scope through reloads", () => {
     let s = createWorld();
+    s.crossings["pond-greek-harbor"].discovered = true;
     for (let i = 0; i < 3; i++) s = decodeSave(encodeSave(s));
     expect(reachable(s)).toEqual([...pack.release.places].sort());
   });
-  it("keeps a route from every opening place back to the pond", () => {
+  it("keeps a route from every opening place back to the pond after the signal", () => {
     const s = createWorld();
+    s.crossings["pond-greek-harbor"].discovered = true;
     for (const start of pack.release.places.filter(
       (id) => id !== "greek-ship",
     )) {
@@ -189,7 +195,7 @@ describe("the Theban release and its ship", () => {
         "utf8",
       ),
     );
-    expect(packMediaFiles.filter((f) => f.endsWith(".webp"))).toHaveLength(9);
+    expect(packMediaFiles.filter((f) => f.endsWith(".webp"))).toHaveLength(10);
     for (const image of p.assets) {
       const bytes = readFileSync(
         new URL(

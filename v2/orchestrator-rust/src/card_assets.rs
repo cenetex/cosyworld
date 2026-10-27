@@ -28,6 +28,10 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/human-cast.mjs"),
         ),
+        "assets/greek-drama/harbor-day.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/harbor-day.webp"),
+        ),
         "assets/shared/places/pond.png" => (
             "image/png",
             include_bytes!("../../card-game/assets/shared/places/pond.png"),
@@ -156,6 +160,10 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/scene.mjs"),
         ),
+        "portrait-facing.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/portrait-facing.mjs"),
+        ),
         "cards.mjs" => (
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/cards.mjs"),
@@ -175,6 +183,10 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
         "quests.mjs" => (
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/quests.mjs"),
+        ),
+        "quest-offers.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/quest-offers.mjs"),
         ),
         "shared-quests.mjs" => (
             "text/javascript; charset=utf-8",
@@ -444,9 +456,9 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "image/png",
             include_bytes!("../../card-game/assets/badger-forest/badger-grumpy.png"),
         ),
-        "assets/greek-drama/harbor-day.webp" => (
+        "assets/greek-drama/harbor-open-berth.webp" => (
             "image/webp",
-            include_bytes!("../../card-game/assets/greek-drama/harbor-day.webp"),
+            include_bytes!("../../card-game/assets/greek-drama/harbor-open-berth.webp"),
         ),
         "assets/greek-drama/courtyard-day.webp" => (
             "image/webp",
@@ -539,6 +551,10 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
         "assets/greek-drama/pond-ship-overlay.png" => (
             "image/png",
             include_bytes!("../../card-game/assets/greek-drama/pond-ship-overlay.png"),
+        ),
+        "assets/greek-drama/harbor-ship-at-berth.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/harbor-ship-at-berth.webp"),
         ),
         "assets/greek-drama/chthonic-antigone.png" => (
             "image/png",

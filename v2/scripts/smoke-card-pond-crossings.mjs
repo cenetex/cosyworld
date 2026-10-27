@@ -113,7 +113,10 @@ try {
       await ready();
     };
     const signal = async ({ reloadHalfway = false } = {}) => {
-      assert.equal(await card("greek-ship").count(), 0);
+      assert.equal(
+        await card("greek-ship").count(),
+        (await state()).transports["greek-ship"].dock === "pond" ? 1 : 0,
+      );
       await pair("cloth", "lamp");
       assert.equal((await state()).crossings["pond-greek-harbor"].phase, 1);
       await use("cloth");
@@ -123,10 +126,16 @@ try {
         await ready();
         assert.equal((await state()).crossings["pond-greek-harbor"].phase, 2);
       }
-      assert.equal(await card("greek-ship").count(), 0);
+      assert.equal(
+        await card("greek-ship").count(),
+        (await state()).transports["greek-ship"].dock === "pond" ? 1 : 0,
+      );
       await pair("cloth", "lamp");
       assert.equal((await state()).crossings["pond-greek-harbor"].phase, 3);
-      assert.equal(await card("greek-ship").count(), 0);
+      assert.equal(
+        await card("greek-ship").count(),
+        (await state()).transports["greek-ship"].dock === "pond" ? 1 : 0,
+      );
       await use("cloth");
       assert.equal(await card("greek-ship").count(), 1);
     };
@@ -244,8 +253,13 @@ try {
     await use("greek-ship");
     await use("pond");
     assert.equal((await state()).actors.vale.place, "pond");
-    assert.equal(await card("greek-ship").count(), 1);
-    assert.equal(await page.locator("#location-overlay:visible").count(), 1);
+    // Another passenger can leave on the same world turn as Vale disembarks.
+    const docked = (await state()).transports["greek-ship"].dock === "pond";
+    assert.equal(await card("greek-ship").count(), docked ? 1 : 0);
+    assert.equal(
+      await page.locator("#location-overlay:visible").count(),
+      docked ? 1 : 0,
+    );
     await shot("pond-returned-ship");
     assert.deepEqual(errors, []);
     assert.deepEqual(failedAssets, []);

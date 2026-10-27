@@ -17,6 +17,7 @@ import assert from "node:assert/strict";
 import {
   createWorld,
   legalActions,
+  exits,
   play,
   encodeSave,
   decodeSave,
@@ -69,6 +70,33 @@ function visible(s, yes) {
   assert.equal(currentScene(s).variant === "pond-greek-harbor", yes);
   assert.equal(Boolean(currentScene(s).overlay), yes);
 }
+
+test("the first lamp signal gates both shores for players and residents", () => {
+  for (const place of ["pond", "greek-harbor"]) {
+    const s = pond({ place });
+    for (const actor of ["vale", "moth", "greek-rhapsode"]) {
+      s.actors[actor].place = place;
+      assert(!exits(s, place, actor).includes("greek-ship"));
+      assert(!legalActions(s, actor).some((a) => a.target === "greek-ship"));
+      assert.notEqual(plan(s, actor).action.target, "greek-ship");
+    }
+    const result = play(s, { key: "move:vale::greek-ship" });
+    assert.equal(result.ok, false);
+    assert.deepEqual(result.state, s);
+    assert.deepEqual(reload(s), s);
+  }
+});
+
+test("a resident at the original dock waits for the first signal", () => {
+  let s = pond();
+  s.actors.moth.place = "greek-harbor";
+  s.items.lamp.holder = "pond";
+  for (let turn = 0; turn < 4; turn++) s = act(s, "wait");
+  assert.equal(s.transports["greek-ship"].dock, "greek-harbor");
+  assert.equal(s.crossings["pond-greek-harbor"].discovered, false);
+  assert.notEqual(s.actors.moth.place, "greek-ship");
+  visible(s, false);
+});
 
 test("lighting the lamp alone never summons a ship", () => {
   let s = pond({ lit: false });
@@ -255,6 +283,7 @@ test("boarding and disembarking move the ship between shores", () => {
   let s = summon(pond());
   s = act(s, "move", null, "greek-ship");
   assert.equal(shipSignalPhase(s), 0);
+  assert.equal(s.transports["greek-ship"].dock, "pond");
   assert.deepEqual(
     availableCards(s).filter((id) =>
       ["pond", "greek-harbor", "greek-ship"].includes(id),
@@ -365,8 +394,10 @@ test("filling the lamp supplies enough oil for lighting and the whole ritual", (
   visible(s, true);
 });
 
-test("Pip brings the same ship from Greece to a waiting player", () => {
-  let s = pond();
+test("Pip brings the signaled ship from Greece to a waiting player", () => {
+  let s = summon(pond());
+  summonTransport(s, "greek-ship", "greek-harbor");
+  s.items.lamp.lit = false;
   s.actors.moth.place = "greek-harbor";
   s.items.lamp.holder = "pond";
   assert.equal(plan(s, "moth").action.target, "greek-ship");
@@ -384,11 +415,12 @@ test("Pip brings the same ship from Greece to a waiting player", () => {
 });
 
 test("a recall waits for the last passenger to finish the current trip", () => {
-  const s = pond();
+  const s = summon(pond());
   s.actors.moth.place = "greek-ship";
   s.actors.keeper.place = "greek-ship";
   s.transports["greek-ship"] = {
-    dock: null,
+    version: 2,
+    dock: "pond",
     destination: "greek-harbor",
     recall: null,
   };
@@ -396,7 +428,7 @@ test("a recall waits for the last passenger to finish the current trip", () => {
   assert.equal(s.transports["greek-ship"].destination, "greek-harbor");
   s.actors.moth.place = "greek-harbor";
   moveTransport(s, "greek-ship", "greek-harbor");
-  assert.equal(s.transports["greek-ship"].dock, null);
+  assert.equal(s.transports["greek-ship"].dock, "greek-harbor");
   assert.deepEqual(reload(s).transports, s.transports);
   s.actors.keeper.place = "greek-harbor";
   moveTransport(s, "greek-ship", "greek-harbor");
@@ -430,7 +462,7 @@ test("a trusted companion can board and disembark with Vale", () => {
   assert.deepEqual(reload(s), s);
 });
 
-test("saved ship state names one dock or one occupied trip", () => {
+test("saved ship state names a dock and a valid occupied leg", () => {
   for (const change of [
     (s) => {
       s.transports["greek-ship"].dock = "station";
@@ -450,11 +482,95 @@ test("saved ship state names one dock or one occupied trip", () => {
     (s) => {
       s.transports.extra = { dock: "pond" };
     },
+    (s) => {
+      s.transports["greek-ship"].version = 99;
+    },
   ]) {
     const s = pond();
     change(s);
     assert.throws(() => validateWorld(s));
     assert.throws(() => decodeSave(JSON.stringify(s)));
+  }
+});
+
+test("older occupied ship saves keep their destination and regain the departure dock", () => {
+  for (const destination of ["pond", "greek-harbor"]) {
+    const old = pond();
+    old.actors.vale.place = "greek-ship";
+    old.transports["greek-ship"] = { dock: null, destination, recall: "pond" };
+    const upgraded = decodeSave(JSON.stringify(old));
+    assert.deepEqual(upgraded.transports["greek-ship"], {
+      version: 2,
+      dock: destination === "pond" ? "greek-harbor" : "pond",
+      destination,
+      recall: "pond",
+    });
+    assert.deepEqual(upgraded.actors, old.actors);
+    assert.deepEqual(upgraded.items, old.items);
+    assert.deepEqual(upgraded.log, old.log);
+    assert.deepEqual(reload(upgraded), upgraded);
+  }
+});
+
+test("a validated human already aboard keeps the saved voyage", () => {
+  const old = pond();
+  old.actors.vale.place = "greek-ship";
+  old.transports["greek-ship"].destination = "pond";
+  const upgraded = reload(old);
+  assert.equal(upgraded.crossings["pond-greek-harbor"].discovered, true);
+  assert.deepEqual(upgraded.transports, old.transports);
+  assert.deepEqual(upgraded.actors, old.actors);
+  assert.deepEqual(reload(upgraded), upgraded);
+  assert(exits(upgraded, "greek-ship", "vale").includes("pond"));
+  const invalid = pond();
+  invalid.transports["greek-ship"].dock = "pond";
+  invalid.crossings["pond-greek-harbor"].phase = 4;
+  assert.throws(() => decodeSave(JSON.stringify(invalid)));
+});
+
+test("an old NPC voyage preserves the first-signal lock after landing and reload", () => {
+  for (const destination of ["pond", "greek-harbor"]) {
+    let s = pond();
+    s.actors.moth.place = "greek-ship";
+    s.transports["greek-ship"].dock =
+      destination === "pond" ? "greek-harbor" : "pond";
+    s.transports["greek-ship"].destination = destination;
+    s.items.lamp.holder = destination;
+    s = reload(s);
+    assert.equal(s.crossings["pond-greek-harbor"].discovered, false);
+    s = act(s, "wait");
+    assert.equal(s.actors.moth.place, destination);
+    s = reload(s);
+    assert.equal(s.crossings["pond-greek-harbor"].discovered, false);
+    assert(!exits(s, destination, "moth").includes("greek-ship"));
+    assert(!exits(s, destination, "vale").includes("greek-ship"));
+  }
+});
+
+test("legacy ship validation runs before the boarding migration", () => {
+  for (const change of [
+    (s) => {
+      s.transports["greek-ship"].destination = "station";
+    },
+    (s) => {
+      s.transports["greek-ship"].dock = "pond";
+    },
+    (s) => {
+      s.transports["greek-ship"].recall = "station";
+    },
+    (s) => {
+      s.actors.vale.place = "pond";
+    },
+  ]) {
+    const old = pond();
+    old.actors.vale.place = "greek-ship";
+    old.transports["greek-ship"] = {
+      dock: null,
+      destination: "greek-harbor",
+      recall: null,
+    };
+    change(old);
+    assert.throws(() => decodeSave(JSON.stringify(old)));
   }
 });
 

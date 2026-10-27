@@ -95,6 +95,7 @@ describe("ordinary bard travel", () => {
     let s = enableMotives(createWorld({ opening: true }), {
       personalQuests: true,
     });
+    s.crossings["pond-greek-harbor"].discovered = true;
     s = act(s, "light", { item: "lamp" });
     s = act(s);
     s = act(s);
@@ -170,6 +171,7 @@ describe("ordinary bard travel", () => {
     s.actors[singer].place = "greek-harbor";
     complete(s, "pond");
     s.transports["greek-ship"].dock = "pond";
+    s.crossings["pond-greek-harbor"].discovered = true;
     s = act(s);
     expect(s.actors[singer].place).toBe("greek-harbor");
     const help = s.roamingQuests[singer].blocked.questKey;
@@ -180,7 +182,7 @@ describe("ordinary bard travel", () => {
     s = act(s, "move", { target: "greek-harbor" });
     expect(s.actors[singer].place).toBe("greek-ship");
     expect(s.transports["greek-ship"]).toMatchObject({
-      dock: null,
+      dock: "greek-harbor",
       destination: "pond",
     });
     s = act(s);
@@ -262,6 +264,7 @@ describe("ordinary bard travel", () => {
       ["greek-courtyard", "greek-well"],
     ]);
     s.transports["greek-ship"].dock = "pond";
+    s.crossings["pond-greek-harbor"].discovered = true;
     s = act(s);
     expect(s.actors[singer].place).toBe("greek-ship");
     const latest = complete(s, "station", "mara", {

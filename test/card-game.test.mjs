@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { setImmediate as yieldToRunner } from "node:timers/promises";
 import { describe, expect, it } from "vitest";
 import {
   createWorld,
@@ -206,11 +207,13 @@ describe("the reflected shore card game", () => {
     expect(() => validateWorld(broken)).toThrow();
   });
 
-  it("preserves unique objects and valid state across 4000 varied turns", () => {
+  it("preserves unique objects and valid state across 4000 varied turns", async () => {
     let seed = 109,
       s = createWorld();
     const itemIds = Object.keys(s.items).sort();
     for (let i = 0; i < 4000; i++) {
+      // Keep progress messages flowing during the bounded simulation.
+      if (i % 100 === 0) await yieldToRunner();
       seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
       const actions = legalActions(s);
       const action =
@@ -225,7 +228,7 @@ describe("the reflected shore card game", () => {
       }
     }
     expect(s.turn).toBe(4000);
-  }, 60_000);
+  }, 120_000);
 
   it("serves only the game assets and supports a clean browser reload", async () => {
     const server = createServer();

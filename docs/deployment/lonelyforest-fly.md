@@ -1,60 +1,29 @@
 # Lonely Forest on Fly
 
-The Lonely Forest domains run in one Fly application and one Machine, with one
-mounted volume. Nginx maps an exact hostname allowlist to isolated CosyWorld
-processes; each worldpack has its own SQLite journal directory on that volume.
+`lonelyforest.com` runs the card table from one Fly application, one Machine,
+one mounted volume, and one CosyWorld process. The process listens directly on
+port `3000`; there is no proxy in front of it.
 
-| Domain | Registry and entry | Process | Journal |
-| --- | --- | --- | --- |
-| `lonelyforest.com` | Official manifest entry | Root, `3100` | `/data/cosyworld-v2-events.sqlite` |
-| `0.lonelyforest.com` | Elysium, Void 001 (`652000`) | Elysium, `3101` | `/data/worldpacks/0/events.sqlite` |
-| `7.lonelyforest.com` | Bethlehem (`700`) | Bethlehem, `3107` | `/data/worldpacks/7/events.sqlite` |
-| `89.lonelyforest.com` | Project 89, Threshold Interface (`8900`) | Project 89, `3189` | `/data/worldpacks/89/events.sqlite` |
-| `lantern.lonelyforest.com` | Lantern Keeper, Wayside Lantern Inn (`800`) | Lantern Keeper, `3180` | `/data/worldpacks/lantern/events.sqlite` |
-| `hoppycat.lonelyforest.com` | Hoppycat: February Third, Halfway Tea Garden (`770000`) | Hoppycat, `3177` | `/data/worldpacks/hoppycat/events.sqlite` |
+| Domain | Process identity | Journal |
+| --- | --- | --- |
+| `lonelyforest.com`, `www.lonelyforest.com` | `lonelyforest-root` | `/data/cosyworld-v2-events.sqlite` |
 
-The orchestrator remains one authoritative world per process and is not allowed
-to select a journal from an untrusted `Host` or `X-Forwarded-Host` header.
-`deploy/lonelyforest/tenants.tsv` is the committed tenant identity manifest. It
-is the source of truth for the slug, public hostname, registry, loopback port,
-entry location, and every persistence path. The supervisor starts processes
-from that file; the contract test cross-validates nginx routing and Fly health
-behavior against every row. Adding a tenant therefore requires an intentional
-manifest change plus matching nginx routing, not an ad hoc process or volume
-path.
+The subdomain worlds (`0`, `7`, `89`, `lantern`, `hoppycat`) were retired on
+2026-10-26 with the classic MUD. Their journals and generated assets remain on
+the volume under `/data/worldpacks/<slug>/` as an archive. Nothing serves them.
 
-Accounts, avatars, sessions, world events, snapshots, and generated assets stay
-isolated between processes even though all passkeys use the parent RP ID
-`lonelyforest.com`. `COSYWORLD_ENTRY_LOCATION_ID` is a deployment-only starting
-threshold: startup rejects an entry outside the selected registry and never
-rewrites the compiled manifest or bundle identity.
+The process and shard identity stay `lonelyforest-root`, the value the former
+multitenant supervisor assigned, because the journal's leases are keyed to it.
 
 ## Runtime layout
 
-- `fly.lonelyforest.toml` defines the single Machine, process group, and volume.
-- `deploy/lonelyforest/run-multitenant.sh` assigns fixed registries, ports, and
-  data directories, and restarts a failed world without changing another
-  world's journal.
-- `deploy/lonelyforest/nginx.conf` maps only the committed hostname allowlist;
-  unknown public hosts return HTTP `421`.
-- `deploy/lonelyforest/proxy-headers.conf` preserves streaming HTTP and SSE
-  behavior without letting forwarded host values select runtime state.
-- `deploy/lonelyforest/proxy-json-api.conf` buffers and bounds the command,
-  state, and health proxy paths. Proxy request timeouts and oversized bodies
-  become JSON `408`/`413` responses, while upstream `502`/`504` responses become
-  a parseable JSON `503` with `Retry-After: 1`; unknown-host command/state
-  requests receive a JSON `421` rather than nginx's default HTML body.
-- The root `/health` readiness check verifies the root event store and every
-  required sibling process. Elysium is included only when its registry is
-  installed; `/health/live` remains a lightweight process-liveness check.
-- The image entrypoint repairs ownership on the mounted `/data` volume before
-  dropping to the unprivileged `cosyworld` user. Nginx and all orchestrators
-  therefore run without root while retaining access to their volume paths.
-
-Nginx is the only public listener, on port `3000`; every CosyWorld process binds
-to loopback. The Machine has four shared CPUs and 2 GB of memory. It remains one
-failure and deploy boundary, while the short canonical lease TTL bounds write
-fencing when an individual process restarts.
+- `fly.lonelyforest.toml` defines the Machine, the process, its environment,
+  and the volume.
+- The image entrypoint repairs ownership on the mounted `/data` volume, then
+  runs the orchestrator as the unprivileged `cosyworld` user.
+- Graceful shutdown drains HTTP for `COSYWORLD_SHUTDOWN_DRAIN_MS` (three
+  seconds), then writes the final snapshot, inside Fly's five-second
+  escalation.
 
 ## Continuous deployment
 
@@ -73,12 +42,10 @@ manual production dispatches receive an approval gate.
 
 The separate jobs and app-scoped tokens prevent a primary-app release from
 implicitly touching Lonely Forest. Both jobs first pass the real v2 Node,
-worldpack, C-kernel, Rust, and routing-contract checks in the shared
-production gate. The Rust gate reuses CI's `Rust build and tests` and
+worldpack, C-kernel, and Rust checks in the shared production gate. The Rust gate reuses CI's `Rust build and tests` and
 `Rust architecture and lint` results for the same commit through
 `scripts/await-ci-rust.mjs`: it waits while they run, and runs the checks
-itself when CI did not run them, was cancelled, or failed. The Lonely Forest
-job validates its multitenant contract again before it invokes Fly.
+itself when CI did not run them, was cancelled, or failed.
 
 Each app's release runs as three jobs. The image job builds and pushes
 `registry.fly.io/<app>:deploy-<sha>` with `--build-only` while the gates run;
@@ -99,92 +66,21 @@ minutes during transient queueing, but a snapshot that never reaches `created`
 still blocks the deploy.
 
 Before Fly replaces the image, the Lonely Forest job runs
-`v2/scripts/check-lonelyforest-worldpacks.mjs`. It reads every
-required tenant's live `/meta` identity through the stable
-`cosyworld-lonelyforest.fly.dev` transport while preserving that tenant's
-public `Host` header. It compares each result with the candidate registry using
-the same exact-match or explicitly declared
-replay-compatible migration rule as the primary deploy guard. Missing,
-malformed, unreachable, or undeclared identities stop the release; the output
-names the tenant, live hash, candidate hash, and remediation. This proves both
-forward deploys and rollbacks: an older image cannot normally declare a
-snapshot hash created by a newer image.
+`v2/scripts/check-deploy-worldpack.mjs https://lonelyforest.com`, the same
+bundle-identity guard as the primary app. It compares the live `/meta` hash
+with the candidate registry using the exact-match or explicitly declared
+replay-compatible migration rule, and stops the release on a mismatch.
 
-A brand-new isolated tenant has no live `/meta` yet. Its first manual deployment
-may select that tenant in the workflow's `lonelyforest_fresh_empty_tenant`
-input. The workflow first proves the tenant's complete volume directory is
-absent or empty, then permits exactly that missing live identity to seed. The
-option fails if `/meta` is already live and must be left at `none` for every
-later deployment.
-
-Required tenants are `root`, `7`, `89`, `lantern`, and `hoppycat`. Their supervisor exits
-the Machine immediately when a child exits, and the required-tenant health
-monitor probes every required process's private `/health` after a 45-second
-startup grace, then every five seconds. A hung or unready tenant therefore
-terminates the Machine even if nginx could still proxy root `/health`; Fly
-observes failed health and restarts the single deployment boundary. Elysium
-(`0`) is explicitly optional: its registry may be absent from a release, in
-which case only its hostname returns the documented `503`; when present, it is
-still continuity checked like every other candidate registry. The supervisor
-also treats an unexpected health-monitor exit as fatal, so monitoring cannot
-silently disappear while nginx remains available. Internal required-tenant
-failures use a nonzero supervisor exit; normal operator `TERM`/`INT`/`HUP`
-shutdown remains clean.
-
-## Bounded shutdown
-
-Fly sends one signal to the multitenant supervisor, not directly to each
-orchestrator. On the first `TERM`, `INT`, or `HUP`, the supervisor stops Nginx
-from accepting public traffic and forwards `TERM` once to every tenant. Each
-orchestrator immediately rejects new work, closes active SSE responses for
-client reconnect, drains HTTP for at most `COSYWORLD_SHUTDOWN_DRAIN_MS`, and
-then flushes its final snapshot. The production value is three seconds.
-
-The supervisor independently enforces
-`COSYWORLD_MULTITENANT_SHUTDOWN_GRACE_SECS` (four seconds in production) for
-each tenant and for Nginx. It force-stops a process that misses that deadline,
-reaps auxiliary health and log processes, ignores repeated shutdown signals,
-and exits normally after every child is gone. Structured
-`tenant_shutdown_started`, `tenant_shutdown_forced`, `shutdown_started`,
-`shutdown_forced`, and `shutdown_complete` records expose elapsed time and
-forced-process counts. This nested three-/four-second budget stays inside
-Fly's five-second escalation while preserving the rolling, one-Machine,
-single-writer volume contract.
-
-### Recovery when a tenant is already unavailable
+### Recovery when the app is already unavailable
 
 Do not bypass the guard and do not blindly redeploy the previous image. A
 successful forward boot may have written a snapshot under the new bundle hash;
-the older image will then fail its own bundle-identity check and can crash-loop
-before it serves recovery traffic.
+the older image will then fail its own bundle-identity check.
 
-1. Leave the mounted volume attached and obtain the unavailable tenant's
-   persisted identity from its snapshot on that volume. If volume access is
-   unavailable, a reviewed operator may save the last observed `/meta` response
-   in a committed capture file. Never infer the hash from the candidate image.
-2. Store a capture with this exact shape and review it with the recovery change:
-
-   ```json
-   {
-     "schema_version": 1,
-     "tenant": "lantern",
-     "source": "tenant-volume",
-     "captured_at": "2026-08-01T12:34:56Z",
-     "meta": { "worldpack": { "bundle_hash": "sha256:<64 lowercase hex>" } }
-   }
-   ```
-
-   `source` may instead be `operator-capture`, but it must still contain the
-   unmodified observed `/meta` identity and a reviewable timestamp.
-3. Run the guard explicitly with
-   `node v2/scripts/check-lonelyforest-worldpacks.mjs --recovery-capture lantern=path/to/capture.json`.
-   It records a GitHub Actions warning with the capture path, source, and time,
-   then applies the normal exact/declaration comparison. It never silently
-   skips the unavailable tenant. A mismatch means author the tenant's explicit
-   replay-compatible migration or restore the matching image; do not edit a
-   persisted bundle hash.
-4. Preserve the workflow log and capture with the incident record, then verify
-   every hostname's `/meta` after recovery before creating the next release.
+Save the last observed `/meta` response as a reviewed, committed capture file
+and pass its path in the workflow's `lonelyforest_recovery_capture` input. The
+guard evaluates the captured hash exactly like a live one. See the capture
+format in `v2/scripts/check-deploy-worldpack.mjs`.
 
 The workflow requires two GitHub Actions secrets:
 
@@ -211,42 +107,6 @@ ordinary play does not depend on it. Optional model aliases may be copied when
 those features are enabled. Secret values must never enter the repository or
 command output.
 
-## Provisioning and cutover
-
-1. Create `cosyworld-lonelyforest` and a 1 GB encrypted
-   `lonelyforest_data` volume in `sjc`.
-2. Provision the production secrets without deploying a machine.
-3. Commit and merge the complete source revision, then deploy it through the
-   tagged or manually dispatched GitHub workflow.
-4. Restore the selected Lonely Forest SQLite journal and generated assets to
-   the new volume before making the app writable to public traffic.
-5. Add Fly certificates for `lonelyforest.com`, `www.lonelyforest.com`, `0`,
-   `7`, `89`, `lantern`, and `hoppycat`. Populate `fly_dns_validation_id` and
-   `worldpack_fly_hosts` with any delegated validation IDs before traffic
-   moves.
-6. Put the Fly IPv4 and IPv6 addresses in
-   `infra/aws-lonely-forest/deployment.auto.tfvars`, run `terraform plan`, and
-   apply the Route 53 change.
-7. Run `npm run v2:lonelyforest:smoke -- --base-url=https://lonelyforest.com
-   --expect-elysium --allow-remote-mutations`, then verify `/health`, `/meta`, `/world`,
-   the expected entry location, passkey registration, generated assets, and SSE
-   reconnect through every hostname.
-8. Set the rollback ECS service's `desired_count` to `0` only after the Fly
-   world cursor and store identity match the selected migration source.
-
-Route 53 and `lonelyforestlibrary.com` remain managed by the AWS Terraform
-module. The unused ECS/EFS/ALB resources are retained for a short rollback
-window and removed in a separate, reviewed destroy after the Fly deployment is
-stable.
-
-The release smoke requires snapshot and event-store persistence to report
-healthy with no pending or failed writes. It exercises every installed tenant,
-including Elysium when its compiled registry is present, and confirms that an
-unknown hostname returns HTTP 421. A Fly volume snapshot is crash-consistent;
-restore it into a new volume during a quiesced, reviewed recovery procedure.
-Never attach a restored copy as a second writable authority or overwrite the
-active volume while its process is running.
-
 ## Data authority
 
 Never merge two independently writable journals. Record the source and target
@@ -260,10 +120,9 @@ Passkeys are scoped to their relying-party domain. Restoring the Lonely Forest
 account tables to the Lonely Forest app preserves its domain credentials; those
 credentials do not authenticate at `cosyworld.fly.dev`.
 
-## Primary card game
+## Card table
 
-The root addresses open The reflected shore card game. `COSYWORLD_PRIMARY_GAME=cards` selects it on the primary Fly app and the Lonely Forest root process. Named Lonely Forest worlds keep their own home pages. `/classic` opens the shared-world client. Existing world APIs and saved journals keep their established paths.
-
-The card table saves in browser storage on each origin. The release embeds its HTML, modules, styles, and six images under `/card-game/`. The deployment workflow compares every public file with the committed release and checks service health.
-
-Run `node v2/scripts/smoke-deployed-card-game.mjs https://cosyworld.fly.dev https://lonelyforest.com` to check the public tables against a local release checkout.
+`COSYWORLD_PRIMARY_GAME=cards` serves the card table at `/`. The release
+embeds its HTML, modules, styles, and images under `/card-game/`. Run
+`node v2/scripts/smoke-deployed-card-game.mjs https://lonelyforest.com` to
+compare the public files with a local release checkout.

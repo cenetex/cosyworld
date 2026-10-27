@@ -99,3 +99,15 @@ and lantern light. The existing ship card and harbor painting guided its style.
 The 1672 × 941 output was encoded as WebP at quality 94. The full prompt is in
 [scenery-prompts.json](scenery-prompts.json). The source name, generation ID,
 dimensions and checksums are in [scenery-provenance.json](scenery-provenance.json).
+
+## Harbor berth variants — October 26, 2026
+
+The built-in `image_gen` tool created two matching views at the user's request.
+`harbor-open-berth.webp` shows the open water beside a broad stone quay.
+`harbor-ship-at-berth.webp` adds the merchant ship at that same berth.
+The game selects the ship view from the saved transport dock.
+
+Both approved 1672 × 941 PNG designs were encoded as WebP at quality 94.
+Their full prompts and checksums are in `scenery-prompts.json` and
+`scenery-provenance.json`. The original harbor remains available at its
+published URL.

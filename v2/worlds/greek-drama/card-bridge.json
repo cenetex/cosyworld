@@ -71,6 +71,7 @@
       "travelLabel": "Board",
       "scenery": {
         "open": "The ship waits against the stone landing.",
+        "backdrop": "assets/greek-drama/harbor-ship-at-berth.webp",
         "cardName": "Greek ship",
         "cardArt": "assets/greek-drama/ship-card.webp"
       }

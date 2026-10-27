@@ -29,7 +29,12 @@ if [[ "$status" -ne 0 ]]; then
   exit "$status"
 fi
 
-count="$(printf '%s\n' "$output" | grep -c '^warning:' || true)"
+# Cargo retries registry downloads before Clippy runs. Count compiler warnings
+# after a successful build; a failed download still exits through the guard above.
+count="$(printf '%s\n' "$output" | awk '
+  /^warning:/ && !/^warning: spurious network error \([0-9]+ tr(y|ies) remaining\):/ { count++ }
+  END { print count + 0 }
+')"
 echo "cargo clippy: ${count} warnings (ceiling: ${ceiling})"
 
 if [[ "$count" -gt "$ceiling" ]]; then

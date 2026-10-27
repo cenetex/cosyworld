@@ -1,3 +1,4 @@
+import { pruneQuestOffers } from "./quest-offers.mjs";
 import { syncStoryQuests, validStoryQuest } from "./story-quests.mjs";
 import {
   installRoamingQuests,
@@ -154,6 +155,7 @@ import {
   installTransports,
   moveTransport,
   transportExits,
+  preserveTransportAccess,
 } from "./pack-transport.mjs";
 import { upgradeSave } from "./legacy-saves.mjs";
 import forest from "./forest.json" with { type: "json" };
@@ -2351,12 +2353,13 @@ export function play(
   )) {
     ensurePrograms(next);
     const origin = purposeOrigin(next, actor);
-    if (!programFor(next, actor)) continue;
+    const program = savedProgramFor(next, actor);
+    if (!program) continue;
     addLog(
       next,
       "World",
-      `${nameOf(actor)} finds a new purpose: ${programFor(next, actor).name}.${origin ? ` It began with ${origin}.` : ""}`,
-      { actorId: actor, questPlan: structuredClone(programFor(next, actor)) },
+      `${nameOf(actor)} finds a new purpose: ${program.name}.${origin ? ` It began with ${origin}.` : ""}`,
+      { actorId: actor, questPlan: structuredClone(program) },
     );
   }
   for (const id of knownActors(next))
@@ -2778,6 +2781,10 @@ export function validateWorld(s) {
         !Number.isSafeInteger(collection.collectedThrough) ||
         collection.collectedThrough < 0 ||
         collection.collectedThrough > s.turn ||
+        (collection.lastOfferTurn !== undefined &&
+          (!Number.isSafeInteger(collection.lastOfferTurn) ||
+            collection.lastOfferTurn < 0 ||
+            collection.lastOfferTurn > s.turn)) ||
         new Set(cards.map((q) => q.key)).size !== cards.length ||
         cards.filter((q) => q.completedTurn === null).length > 8 ||
         cards.some(
@@ -3174,5 +3181,7 @@ export function decodeSave(text) {
     installPacks,
     profileOf: (id) => tastes[id],
   });
-  return validateWorld(s);
+  validateWorld(s);
+  preserveTransportAccess(s);
+  return validateWorld(pruneQuestOffers(s));
 }

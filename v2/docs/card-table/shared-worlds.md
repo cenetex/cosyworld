@@ -87,6 +87,19 @@ exchanges with their original text and times. An avatar carrying more than the
 current limit keeps those items. That allowance shrinks as items are put down;
 new pickups and gifts use the normal limit.
 
+## First ship signal
+
+The ship opens for every player and resident after the first completed lamp
+signal. The saved signal discovery keeps both boarding shores open through
+lamp changes, reloads and later voyages. Boarding always follows the ship's
+current dock.
+
+Save upgrades preserve the current voyage of a human already aboard. Shared
+worlds use the authenticated avatar claims for that check. A prior NPC voyage
+keeps its saved destination, and its passengers can land; boarding still needs
+the completed signal. The upgrade validates the old save before granting this
+human passenger allowance.
+
 ## Collected quests
 
 Each personal quest has a stable card key, its own steps, and the experience
@@ -100,7 +113,18 @@ Each card advances by at most one step in that round. A shared world effect
 runs once for matching completions, while each card keeps its own receipt.
 The receipt includes the card key, step, turn, and witnessed hand.
 
-An avatar can hold eight unfinished cards. Matching suggestions coalesce.
+An avatar can hold eight unfinished cards. Generated experience offers use a
+smaller limit of two unfinished cards, with one per situation family. New offers
+have an eight-turn gap and each collection pass chooses at most one. The pass
+consumes skipped experiences too, so quiet periods stay quiet after reloading.
+Authored story quests keep their own progression.
+
+Loading an older save keeps every focused, progressed, fulfilled, joined or
+moved quest. Excess untouched generated offers from the same family leave the
+hand and registry. The saved serial counter, earned totals, completion receipts
+and latest offer turn remain intact. Distinct protected goals keep their exact
+requirements; their card titles name the company when the family appears twice.
+The existing action journal retains the source offers and the rules upgrade.
 The collection keeps up to 256 identities; new suggestions pause at that limit.
 The latest 24 fulfilled cards keep their complete programs. Older fulfilled
 cards keep their key, title, purpose, art kind, origin, completion turn, and

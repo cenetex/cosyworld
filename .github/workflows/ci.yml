@@ -54,7 +54,6 @@ jobs:
           npm run v2:worldpack
           npm run v2:kernel
           npm run v2:syntax
-          npm run v2:lonelyforest:contract
 
   runtime:
     name: Rust build and tests
@@ -302,6 +301,8 @@ jobs:
           node v2/scripts/smoke-card-pond-access.mjs
           node v2/scripts/smoke-card-clearing-access.mjs
           node v2/scripts/smoke-card-pond-crossings.mjs
+          node v2/scripts/smoke-shared-ship.mjs
+          node v2/scripts/smoke-card-facing.mjs
           node v2/scripts/smoke-card-image-first.mjs
           node v2/scripts/smoke-card-actions.mjs
 
@@ -352,6 +353,7 @@ jobs:
             output/card-quests-chromium/*.png
             output/card-quests-chromium/*.json
             output/card-voice-chromium/*.png
+            output/card-facing/*.png
           if-no-files-found: ignore
           retention-days: 7
 

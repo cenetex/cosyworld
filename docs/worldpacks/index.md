@@ -11,6 +11,9 @@ rewrite the pack's authority.
 
 Start here:
 
+- [Reflected Shore Worldpack Migration](../backlog/reflected-shore-worldpack-migration.md)
+  preserves the proposed six-pack edition, art review, and connections to the
+  Shore. Integration follows multiplayer testing and creator approval.
 - [How to Design a Worldpack](how-to-design-a-worldpack.md) is the reusable
   design method and authoring checklist.
 - [Location Classes, Development Projects, and Buildings](../location-development.md)
