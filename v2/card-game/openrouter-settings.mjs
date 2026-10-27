@@ -1,4 +1,8 @@
 import { playerOpenRouter } from "./openrouter.mjs";
+import {
+  connectOpenRouter,
+  cancelOpenRouterConnection,
+} from "./openrouter-connect.mjs";
 
 export async function setupOpenRouter() {
   const client = playerOpenRouter();
@@ -71,18 +75,16 @@ export async function setupOpenRouter() {
       }
     }
   }
-  $("openrouter-connect").onclick = async () => {
-    try {
-      $("openrouter-connect").disabled = true;
-      location.assign(await client.begin(location.href));
-    } catch {
-      refresh("Allow session storage in this browser, then connect again.");
-      $("openrouter-connect").disabled = false;
-    }
-  };
+  $("openrouter-connect").onclick = () => connectOpenRouter(refresh);
+  document.addEventListener("openrouter-change", () => {
+    refresh();
+    if (client.connection()?.key) void models();
+  });
   $("openrouter-disconnect").onclick = () => {
+    cancelOpenRouterConnection();
     clearMedia();
     client.disconnect();
+    document.dispatchEvent(new Event("openrouter-change"));
     refresh("Disconnected from this tab. Manage the key in OpenRouter.");
   };
   $("openrouter-chat").onchange = (event) =>

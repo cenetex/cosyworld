@@ -1,4 +1,5 @@
 import { flipStagePortrait } from "./portrait-facing.mjs";
+import { installSceneVideo } from "./scene-video.mjs";
 import { installToolbar, renderPlayers } from "./toolbar.mjs";
 import {
   connectSharedWorld,
@@ -109,6 +110,7 @@ let world = sharedSession
     slotLabel.textContent = `Saving as table "${tableName}". Without the ?table= parameter this menu shows a different saved game.`;
   }
 }
+let videoScene = null;
 const paths = {
   lamp: '<path d="M18 25h28l4 29H14zM23 25v-9a9 9 0 0 1 18 0v9M12 55h40M24 47c-5-7 7-9 6-17 9 8 13 16 3 18"/>',
   oil: '<path d="M24 8h16v12l8 10v24H16V30l8-10zM24 14h16M17 35h30M32 38c-12 12-2 17 2 12 3-4-2-9-2-12z"/>',
@@ -1762,6 +1764,7 @@ function renderScene() {
   // Reviewing a line changes the words while present people keep their places.
   const resolvedBeat = exchange.preparing || scene.line?.turn !== world.turn;
   scene.slots = sceneCast(world);
+  videoScene = scene;
   $("stage").dataset.presentedRevision = String(world.revision);
   shownSceneLine = scene.line;
   const img = $("backdrop");
@@ -2656,6 +2659,7 @@ installSharedControls({
   notice,
 });
 installToolbar({ session: sharedSession, getWorld: () => world });
+installSceneVideo({ getWorld: () => world, getScene: () => videoScene || currentScene(world) });
 if (sharedSession) {
   world = sharedWorld(sharedSession.state);
   sharedSession.subscribe(adoptShared, (message, recoveredFrom) => {
