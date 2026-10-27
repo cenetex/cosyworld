@@ -181,13 +181,13 @@ describe("deploy workflow", () => {
     expect(gate).toContain('test "$NODE_RESULT" = success');
     expect(gate).toContain('test "$RUST_RESULT" = success');
     expect(job("primary-backup", "primary-fly")).toContain(
-      "needs: [deployment-impact, release-owner, production-gate]",
+      "needs: [deployment-impact, release-owner]",
     );
     expect(job("primary-fly", "lonelyforest-image")).toContain(
       "needs: [deployment-impact, release-owner, production-gate, primary-image, primary-backup]",
     );
     expect(job("lonelyforest-backup", "lonelyforest-fly")).toContain(
-      "needs: [deployment-impact, release-owner, production-gate]",
+      "needs: [deployment-impact, release-owner]",
     );
     expect(job("lonelyforest-fly", "deploy-outcome")).toContain(
       "needs: [deployment-impact, release-owner, production-gate, lonelyforest-image, lonelyforest-backup]",
@@ -236,7 +236,17 @@ describe("deploy workflow", () => {
     expect(composition).toContain("suite: [standalone, core-ruby]");
     expect(composition).toContain("actions/download-artifact@v8");
     expect(browser).toContain("needs: smoke-binary");
-    expect(browser).toContain("mode: [baseline, living-world]");
+    for (const mode of [
+      "baseline",
+      "living-world",
+      "cards-shared",
+      "cards-ui",
+      "cards-routes",
+      "cards-drama",
+      "cards-dialogue",
+      "cards-quests",
+    ])
+      expect(browser).toContain(`- ${mode}`);
     expect(browser).toContain("actions/download-artifact@v8");
     for (const job of ["node", "runtime", "smoke-binary", "rust-quality"])
       expect(build).toContain(job);
@@ -261,7 +271,18 @@ describe("deploy workflow", () => {
     expect(primaryFly).toContain(
       "needs.deployment-impact.outputs.deploy == 'true'",
     );
-    expect(dockerfile).toContain("id=cosyworld-release-incremental");
+    expect(dockerfile).toContain("id=cosyworld-release-target-v1");
+    expect(dockerfile).toContain(
+      "from=dependencies,source=/app/v2/orchestrator-rust/target,sharing=locked",
+    );
+    expect(dockerfile).toContain("touch build.rs");
+    expect(dockerfile).toContain("cargo build --release --locked");
+    expect(dockerfile).toContain(
+      "cp target/release/cosyworld-orchestrator /app/bin/cosyworld-orchestrator",
+    );
+    expect(dockerfile).toContain(
+      "COPY --from=build /app/bin/cosyworld-orchestrator /app/cosyworld-orchestrator",
+    );
     expect(dockerfile).toContain("CARGO_INCREMENTAL=1 CARGO_BUILD_JOBS=1");
   });
 
