@@ -165,7 +165,6 @@ describe("deploy workflow", () => {
     expect(nodeGate).toContain("npm run v2:worldpack");
     expect(nodeGate).toContain("npm run v2:kernel");
     expect(nodeGate).toContain("npm run v2:syntax");
-    expect(nodeGate).toContain("npm run v2:lonelyforest:contract");
     expect(nodeGate).toContain(
       "npx vitest run test/infrastructure/deploy-workflow.test.mjs",
     );
@@ -266,15 +265,19 @@ describe("deploy workflow", () => {
     expect(dockerfile).toContain("CARGO_INCREMENTAL=1 CARGO_BUILD_JOBS=1");
   });
 
-  it("checks a fresh Hoppycat volume with direct remote commands", () => {
-    expect(workflow).toContain("-C 'test -e /data/worldpacks/hoppycat'");
-    expect(workflow).toContain("-C 'test -d /data/worldpacks/hoppycat'");
-    expect(workflow).toContain(
-      "-C 'find /data/worldpacks/hoppycat -mindepth 1 -print -quit'",
+  it("runs Lonely Forest as one process behind the same bundle guard as primary", () => {
+    expect(lonelyForestFlyConfig).toContain('app = "/app/cosyworld-orchestrator"');
+    expect(lonelyForestFlyConfig).toContain('COSYWORLD_V2_SHARD_ID = "lonelyforest-root"');
+    expect(lonelyForestFlyConfig).toContain(
+      'COSYWORLD_V2_EVENT_DB_PATH = "/data/cosyworld-v2-events.sqlite"',
     );
-    expect(workflow).not.toContain(
-      "-C 'test ! -e /data/worldpacks/hoppycat ||",
+    expect(lonelyForestFlyConfig).not.toContain("MULTITENANT");
+    expect(job("lonelyforest-backup", "lonelyforest-fly")).toContain(
+      "node v2/scripts/check-deploy-worldpack.mjs https://lonelyforest.com",
     );
+    expect(workflow).not.toContain("lonelyforest_fresh_empty_tenant");
+    expect(dockerfile).not.toContain("nginx");
+    expect(existsSync(new URL("../../deploy/lonelyforest", import.meta.url))).toBe(false);
   });
 
   it("serializes deployments across branch and tag refs", () => {

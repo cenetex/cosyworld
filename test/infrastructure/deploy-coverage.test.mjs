@@ -13,9 +13,6 @@ const vitestConfig = readFileSync(
   new URL("../../vitest.config.js", import.meta.url),
   "utf8",
 );
-const packageScripts = JSON.parse(
-  readFileSync(new URL("../../package.json", import.meta.url), "utf8"),
-).scripts;
 
 describe("deployment-only contracts run in pull-request CI", () => {
   it("the CI Node job runs the full vitest suite, which includes every infrastructure contract", () => {
@@ -23,17 +20,12 @@ describe("deployment-only contracts run in pull-request CI", () => {
     expect(vitestConfig).toMatch(/include:\s*\[\s*'test\/\*\*\/\*\.test\.\{js,mjs\}'/);
   });
 
-  it("the CI Node job runs the Lonely Forest multitenant contract", () => {
-    expect(packageScripts["v2:lonelyforest:contract"]).toBeTruthy();
-    expect(ciWorkflow).toContain("npm run v2:lonelyforest:contract");
-  });
-
   it("the production deployment gate keeps running the same deployment-only contracts", () => {
     const gate = deployWorkflow.match(
       /Run Node and deployment contract checks\n\s*run: \|\n([\s\S]*?)\n\n {2}\w/,
     )?.[1];
     expect(gate).toBeTruthy();
-    expect(gate).toContain("npm run v2:lonelyforest:contract");
+    expect(gate).toContain("npm run v2:syntax");
     expect(gate).toMatch(/vitest run test\/infrastructure\/deploy-workflow\.test\.mjs/);
   });
 });
