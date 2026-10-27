@@ -89,7 +89,6 @@ impl World {
                 engine::SEVENTH_VERSION,
                 engine::EIGHTH_VERSION,
                 engine::NINTH_VERSION,
-                engine::NINTH_VERSION,
                 engine::VERSION,
             ];
             let allowed = versions
