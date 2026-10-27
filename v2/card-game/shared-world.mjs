@@ -138,7 +138,8 @@ export function dispatchShared(request) {
   const world = load(request);
   const actor = request.actor || "vale";
   if (request.op === "upgrade") {
-    for (const id of Object.keys(world.actors)) installQuestCollection(world, id);
+    for (const id of Object.keys(world.actors))
+      installQuestCollection(world, id);
     if (request.from === "full-card-world/2")
       settleHomeItems(world, world.controlledActors);
     world.revision += 1;

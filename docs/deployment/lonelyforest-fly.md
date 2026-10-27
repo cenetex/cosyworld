@@ -4,8 +4,8 @@
 one mounted volume, and one CosyWorld process. The process listens directly on
 port `3000`; there is no proxy in front of it.
 
-| Domain | Process identity | Journal |
-| --- | --- | --- |
+| Domain                                     | Process identity    | Journal                            |
+| ------------------------------------------ | ------------------- | ---------------------------------- |
 | `lonelyforest.com`, `www.lonelyforest.com` | `lonelyforest-root` | `/data/cosyworld-v2-events.sqlite` |
 
 The subdomain worlds (`0`, `7`, `89`, `lantern`, `hoppycat`) were retired on
