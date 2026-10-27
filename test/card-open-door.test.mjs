@@ -294,6 +294,48 @@ describe("the Open Door", () => {
     expect(questCards(world).length).toBeLessThanOrEqual(2);
   });
 
+  it("opens the next journey after a public concession while its burial stays available", () => {
+    let world = openingFixture("concession").permissionShared;
+    expect(state(world).flags["greek-burial-performed"]).toBeUndefined();
+    const invitation = openDoorInvitation(world);
+    expect(invitation).toBeTruthy();
+    world = playOpenDoor(world, "choose", { choiceId: invitation.choiceId });
+    world = openDoorWalk(
+      world,
+      "harbor",
+      "athens",
+      "harbor",
+      "courtyard",
+      "gate",
+    );
+    world = playOpenDoor(world, "take", { item: "greek-shovel" });
+    world = openDoorWalk(world, "battlefield");
+    expect(
+      legalActions(world).some(
+        (action) => action.choiceId === "greek-prepare-permitted-burial",
+      ),
+    ).toBe(true);
+    expect(accessible(reload(world))).toEqual(OPEN_DOOR_PLACES);
+  });
+
+  it("keeps Dione's closing report open while the other welcomes are pending", () => {
+    let world = openDoorJourney().after["greek-open-door-eleusis-care"];
+    world = openDoorWalk(world, "athens", "harbor", "courtyard");
+    expect(
+      openDoorDefinitions(world).find(
+        (card) => card.key === storyKey("return"),
+      ),
+    ).toMatchObject({ resolved: false, completion: "Shared" });
+    expect(
+      legalActions(world).some(
+        (action) => action.choiceId === "greek-open-door-return-dione",
+      ),
+    ).toBe(false);
+    expect(state(reload(world)).flags["greek-open-door-eleusis-done"]).toBe(
+      true,
+    );
+  });
+
   it("preserves an earlier full world and its Egyptian account", () => {
     const earlier = JSON.parse(
       readFileSync(
