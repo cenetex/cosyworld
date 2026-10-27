@@ -1541,12 +1541,18 @@ fn shared_quest_receipts_drive_bard_travel_after_released_rules_upgrade_and_repl
             assert_eq!(w.game[key], previous.game[key], "Preserve {key}");
         }
         assert_eq!(w.claimed, previous.claimed);
-        for destination in [
-            "greek-harbor",
-            "greek-courtyard",
-            "greek-well",
-            "greek-well",
-        ] {
+        let destinations: &[&str] = if version == engine::SEVENTH_VERSION {
+            // Version seven already followed the receipt before the upgrade.
+            &["greek-well", "greek-well"]
+        } else {
+            &[
+                "greek-harbor",
+                "greek-courtyard",
+                "greek-well",
+                "greek-well",
+            ]
+        };
+        for destination in destinations {
             let action = home_action(&w, 0, "wait");
             full_store::commit(
                 &c,
@@ -1556,7 +1562,7 @@ fn shared_quest_receipts_drive_bard_travel_after_released_rules_upgrade_and_repl
                 now(),
             )
             .unwrap();
-            assert_eq!(w.game["actors"]["greek-rhapsode"]["place"], destination);
+            assert_eq!(w.game["actors"]["greek-rhapsode"]["place"], *destination);
             assert_eq!(w.game["roamingQuests"]["greek-rhapsode"]["target"], receipt);
         }
         full_store::commit(&c, &id, &mut w, json!({"op":"speech","actor":"vale","room":"station","lines":[{"actorId":"vale","text":"The journey continues."},{"actorId":null,"entityId":"station","text":"A breeze crosses the platform."}]}), now()).unwrap();
