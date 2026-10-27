@@ -137,6 +137,7 @@ import {
   packDefinitions,
   isPackActor,
   staysPut,
+  packJourneyDestination,
   roamingQuestActor,
   avoidsStandoffs,
 } from "./pack-registry.mjs";
@@ -1106,6 +1107,10 @@ export function accompanyDecision(
     return { accepted: false, reason: "Attend to the standoff first." };
   if (s.peaceUntil[companion] > s.turn)
     return { accepted: false, reason: "Catch a breath after the standoff." };
+  if (packPeople[companion]?.journey)
+    return invited && packJourneyDestination(s, companion) === destination
+      ? { accepted: true, reason: "Follow the road we agreed to take." }
+      : { accepted: false, reason: "Keep to the agreed journey." };
   if (hasMotives(s)) {
     const social = socialTravel(s, actor, companion, destination);
     if (
@@ -1300,7 +1305,7 @@ export function legalActions(s, actor = currentActor(s)) {
         (crossing?.travelers !== "player" || controlledByHuman(s, actor)) &&
         id !== actor &&
         !controlledByHuman(s, id) &&
-        !staysPut(id) &&
+        (!staysPut(id) || packJourneyDestination(s, id) === to) &&
         s.actors[id].place === here,
     )) {
       const request = offer(
