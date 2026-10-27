@@ -43,7 +43,7 @@ compiled bundles. `v2/worlds/official/` and `v2/content/official/` select and bu
 that runtime. Its `actors.json` and `registry.json` files describe the classic
 cast. The classic compiler and release bundle guards keep saved history valid.
 
-Use [the archive](archive/classic/README.md) for earlier player, RPG, and worldpack
+Use [the archive](archive/classic/index.md) for earlier player, RPG, and worldpack
 guides. Historical decisions keep their original dates and context. Current
 behavior follows the shipping code, catalogs, tests, and live release.
 

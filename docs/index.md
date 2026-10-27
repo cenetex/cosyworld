@@ -21,6 +21,6 @@ local saves and shared worlds, with the same authored rules in both modes.
 ## Planning and history
 
 [Planning](backlog/README.md) records proposed work and its status.
-The [classic archive](archive/classic/README.md) preserves earlier product,
+The [classic archive](archive/classic/index.md) preserves earlier product,
 player, RPG, worldpack, and character guides. Decision records retain their
 historical context and point back to the current source map.

@@ -16,7 +16,7 @@ The shipping model, browser, and cast live in `v2/card-game/`. The Rust service
 runs the same model in a bounded C interpreter for shared games and stores the
 accepted history. See the [shared-world guide](v2/docs/card-table/shared-worlds.md).
 
-The [classic archive](docs/archive/classic/README.md) preserves earlier product,
+The [classic archive](docs/archive/classic/index.md) preserves earlier product,
 RPG, worldpack, and character guides. `/classic` serves the compatibility client.
 
 ## Local play

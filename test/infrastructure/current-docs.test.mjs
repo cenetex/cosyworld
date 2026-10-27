@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { mkdtemp, mkdir, writeFile, readFile, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile, readFile, readdir, rm } from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import {
@@ -23,7 +23,7 @@ async function fixture() {
     path.join(root, "docs/current-docs.json"),
     JSON.stringify({
       current: ["readme.md", "docs/current.md"],
-      history: "docs/archive/classic/README.md",
+      history: "docs/archive/classic/index.md",
     }),
   );
   await writeFile(
@@ -39,7 +39,7 @@ async function fixture() {
     '<svg xmlns="http://www.w3.org/2000/svg"/>',
   );
   await writeFile(
-    path.join(root, "docs/archive/classic/README.md"),
+    path.join(root, "docs/archive/classic/index.md"),
     "# Historical game\n\nClassic cast details.\n",
   );
   await writeFile(
@@ -68,7 +68,7 @@ describe("current game documentation", () => {
     ).toContain('id="playing"');
     expect(
       await readFile(
-        path.join(output, "docs/archive/classic/README.html"),
+        path.join(output, "docs/archive/classic/index.html"),
         "utf8",
       ),
     ).toContain("Classic cast details.");
@@ -88,8 +88,8 @@ describe("current game documentation", () => {
     await writeFile(
       path.join(root, "docs/current-docs.json"),
       JSON.stringify({
-        current: ["docs/archive/classic/README.md"],
-        history: "docs/archive/classic/README.md",
+        current: ["docs/archive/classic/index.md"],
+        history: "docs/archive/classic/index.md",
       }),
     );
     await expect(currentDocuments(root)).rejects.toThrow(
@@ -112,5 +112,19 @@ describe("current game documentation", () => {
     ]) {
       expect(map).toContain(file);
     }
+  });
+  it("keeps all original guides beside a distinct archive index", async () => {
+    const root = new URL("../../docs/archive/classic/", import.meta.url);
+    const files = (await readdir(root, { recursive: true })).filter(
+      (file) => file.endsWith(".md") && file !== "index.md",
+    );
+    expect(files).toHaveLength(26);
+    expect(new Set(files.map((file) => file.toLowerCase())).size).toBe(files.length);
+    for (const file of files) {
+      const text = await readFile(new URL(file, root), "utf8");
+      expect(text).toContain("Historical guide for the classic game");
+      expect(text).toContain(`Source: \`${file}\``);
+    }
+    expect(await readFile(new URL("index.md", root), "utf8")).toContain("# Classic game archive");
   });
 });
