@@ -277,6 +277,16 @@ try {
             await page.locator("#card-actions button").allTextContents(),
             ["Drop"],
           );
+          await page.waitForFunction(
+            (key) =>
+              Number(
+                getComputedStyle(
+                  document.querySelector(`#hand [data-quest="${key}"]`)
+                    .parentElement,
+                ).opacity,
+              ) <= 0.46,
+            completedKey,
+          );
           await page.screenshot({
             path: new URL(`fading-${width}.png`, output).pathname,
           });

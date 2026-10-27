@@ -60,7 +60,7 @@ try {
     page.on("pageerror", (error) => errors.push(error.message));
     await page.addInitScript(
       ({ key, save, seen }) => {
-        localStorage.setItem(key, save);
+        if (!localStorage.getItem(key)) localStorage.setItem(key, save);
         localStorage.setItem(
           `${key}.quests`,
           JSON.stringify({ seen, read: [] }),

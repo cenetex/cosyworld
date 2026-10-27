@@ -490,7 +490,9 @@ try {
   const earlierCarriageExit = await actionFor(rue, "move", "station");
   await perform(rue, "drop", "train", "routes");
   await rue.reload();
-  await rue.locator('#hand [data-card="routes"]').waitFor();
+  await rue
+    .locator('#hand [data-card="routes"]')
+    .waitFor({ state: "attached" });
   await dismissDiscoveries(rue);
   assert(!(await actionFor(rue, "move", "station")));
   assert.equal(
