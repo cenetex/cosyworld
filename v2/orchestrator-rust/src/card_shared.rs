@@ -6,6 +6,8 @@ mod full_store;
 #[cfg(test)]
 mod full_tests;
 mod full_world;
+#[cfg(test)]
+mod homecoming_tests;
 mod kernel;
 #[cfg(test)]
 mod section_tests;
