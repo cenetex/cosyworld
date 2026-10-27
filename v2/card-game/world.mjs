@@ -1233,6 +1233,7 @@ export function legalActions(s, actor = currentActor(s)) {
       actor,
       questKey: key,
       key: `drop-quest:${actor}:${key}`,
+      cards: [],
       label: "Drop",
       text: `${nameOf(actor)} sets aside ${q.program.name}.`,
       parts: [],
@@ -1606,9 +1607,12 @@ function perform(s, a, capture = () => {}, round = null) {
     if (!focusedQuest(s, a.actor) && remaining)
       pursueQuest(s, a.actor, remaining);
     addLog(s, "World", a.text, {
+      kind: "action",
+      verb: "drop-quest",
       actorId: a.actor,
       locationId: here,
       questKey: a.questKey,
+      targetId: questRecord(s, a.questKey).holder.id,
     });
     return;
   }
@@ -3043,6 +3047,7 @@ export function validateWorld(s) {
     fail();
   let seq = 0;
   const verbs = [
+    "drop-quest",
     "join-quest",
     "share-quest",
     "accompany",

@@ -115,7 +115,7 @@ impl World {
             engine::FIFTH_VERSION,
             engine::SIXTH_VERSION,
             engine::SEVENTH_VERSION,
-                engine::EIGHTH_VERSION,
+            engine::EIGHTH_VERSION,
         ]
         .contains(&self.version.as_str())
         {
