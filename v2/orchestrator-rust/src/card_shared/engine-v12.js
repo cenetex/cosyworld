@@ -10546,6 +10546,7 @@
         {
           id: story.id,
           key: key(story),
+          keyedCard: Boolean(story.suffix),
           title: story.line,
           purpose: story.line,
           singleLine: true,
