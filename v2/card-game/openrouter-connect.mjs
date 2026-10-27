@@ -53,8 +53,10 @@ export function connectOpenRouter(report = () => {}) {
       }
       processing = false;
     } catch (error) {
-      channel?.postMessage({ type: "error", message: error.message });
-      if (active) report(error.message);
+      if (active) {
+        channel?.postMessage({ type: "error", message: error.message });
+        report(error.message);
+      }
       cleanup();
     }
   }
@@ -67,7 +69,7 @@ export function connectOpenRouter(report = () => {}) {
       void receive(event.data.url);
   }
   void client
-    .begin(location.href, { popup: Boolean(popup) })
+    .begin(location.href, { popup: Boolean(popup), accept: () => active })
     .then((url) => {
       if (!active) return;
       if (!popup) {

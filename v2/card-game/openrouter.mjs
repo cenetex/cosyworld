@@ -51,7 +51,7 @@ export function createOpenRouter({
   }
   return {
     connection,
-    async begin(href, { popup = false } = {}) {
+    async begin(href, { popup = false, accept = () => true } = {}) {
       const callback = new URL(href);
       for (const key of [
         "code",
@@ -77,6 +77,7 @@ export function createOpenRouter({
           new TextEncoder().encode(verifier),
         ),
       );
+      if (!accept()) return null;
       storage.setItem(
         PENDING,
         JSON.stringify({ verifier, state, at: now(), callback: callback.href }),

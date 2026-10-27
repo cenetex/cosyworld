@@ -102,6 +102,16 @@ describe("player OpenRouter connection", () => {
     ).resolves.toBe(false);
     expect(f.client.connection()).toBeNull();
   });
+  it("keeps a cancelled sign-in attempt clear while its challenge is being made", async () => {
+    const f = fixture();
+    let active = true;
+    const started = f.client.begin("https://game.example/", {
+      accept: () => active,
+    });
+    active = false;
+    await expect(started).resolves.toBeNull();
+    expect(f.values.size).toBe(0);
+  });
   it.each(["state", "expiry", "table", "denied"])(
     "checks %s before contacting OpenRouter",
     async (kind) => {
