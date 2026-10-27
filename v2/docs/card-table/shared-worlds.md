@@ -108,8 +108,9 @@ collection and history.
 
 Quest cards offer **Drop**. Dropping a card removes it from that avatar's hand
 and focus while retaining its record, progress, participants, receipts, and earned
-rewards. The saved drop prevents the same identity from immediately returning.
-New offers and joins respect the two-card limit.
+rewards. The saved drop keeps that identity out of the avatar's hand. Automatic
+personal offers wait eight turns after a drop. New offers and joins respect the
+two-card limit.
 
 Generated experience offers keep one unfinished offer per situation family and
 an eight-turn gap. Each collection pass chooses at most one offer and consumes
@@ -153,8 +154,8 @@ Figures shrink in order of their most recent completed play in the room. Their
 areas follow the Fibonacci steps 13, 8, 5, 3, 2, 1, so their heights change gently.
 The two most recent players stand in front. On phones, they move lower into a
 bust view as more people enter. Smaller figures sit higher behind them.
-Repeated plays by one person keep the others in order. Changes move smoothly;
-reviewing older words uses the plays up to that point in the conversation.
+Repeated plays by one person keep the others in order. Changes move smoothly.
+Reviewing older words keeps the figures and belongings in their current places.
 Queued plays appear as small profile circles beside the dialogue. Their order
 runs from top to bottom. A player can select their waiting circle to withdraw
 their play; hover text and screen-reader labels name the player and queue state.
