@@ -298,6 +298,7 @@ jobs:
         run: |
           node v2/scripts/smoke-shared-cards.mjs
           node v2/scripts/smoke-card-greek-capacity.mjs
+          node v2/scripts/smoke-shared-readings.mjs
 
       - name: Check card opening, hand, and music
         if: matrix.mode == 'cards-ui'

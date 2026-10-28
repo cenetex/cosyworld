@@ -13,6 +13,7 @@ import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { describe, expect, it } from "vitest";
 import { decodeSave, encodeSave } from "../v2/card-game/world.mjs";
+import { emptyPoemReadings } from "../v2/card-game/poem-readings.mjs";
 import { entityActive } from "../v2/card-game/pack-registry.mjs";
 
 const context = vm.createContext({});
@@ -65,6 +66,7 @@ describe("the household save upgrade", () => {
       expect(after.packs["greek-drama"]).toEqual({
         ...before.packs["greek-drama"],
         revision: currentPackDefinition("greek-drama").revision,
+        poemReadings: emptyPoemReadings(),
       });
       expect(Object.keys(after.actors).length).toBe(
         Object.keys(before.actors).length + newActors.length,

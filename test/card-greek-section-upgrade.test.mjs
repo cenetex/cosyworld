@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { describe, expect, it } from "vitest";
 import { decodeSave, encodeSave, exits } from "../v2/card-game/world.mjs";
+import { emptyPoemReadings } from "../v2/card-game/poem-readings.mjs";
 import {
   entityActive,
   packDefinition,
@@ -59,6 +60,7 @@ describe("Greek section save upgrade", () => {
       expect(after.packs["greek-drama"]).toEqual({
         ...before.packs["greek-drama"],
         revision: packDefinition("greek-drama").revision,
+        poemReadings: emptyPoemReadings(),
       });
       for (const field of ["turn", "revision", "eventSeq", "log", "transports"])
         expect(after[field]).toEqual(before[field]);

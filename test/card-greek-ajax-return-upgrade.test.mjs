@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { decodeSave, encodeSave } from "../v2/card-game/world.mjs";
+import { emptyPoemReadings } from "../v2/card-game/poem-readings.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { questHistoryCards } from "../v2/card-game/quest-cards.mjs";
 import { questCarried, questHolderActor } from "../v2/card-game/quest-hands.mjs";
@@ -109,7 +110,12 @@ describe("released Ajax return card saves", () => {
     const after = decodeSave(JSON.stringify(before));
     const record = after.quests.records[KEY];
     expect(record.holder).toEqual({ kind: "item", id: "greek-ajax-plea" });
-    expect(after.packs[GREEK]).toEqual({ ...before.packs[GREEK], revision: 8 });
+    expect(after.packs[GREEK]).toEqual({
+      ...before.packs[GREEK],
+      revision: 8,
+      flags: { ...before.packs[GREEK].flags, "greek-camp-road-open": true },
+      poemReadings: emptyPoemReadings(),
+    });
     for (const [key, original] of Object.entries(before.quests.records))
       expect(after.quests.records[key]).toEqual(key === KEY ? { ...original, holder: record.holder } : original);
     for (const [id, item] of Object.entries(before.items))

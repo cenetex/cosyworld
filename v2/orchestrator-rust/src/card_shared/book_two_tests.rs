@@ -190,6 +190,9 @@ fn book_two_upgrades_rules_twenty_and_replays_the_agreed_danaid_journey() {
     );
     let mut expected_pack = before.game["packs"]["greek-drama"].clone();
     expected_pack["revision"] = json!(8);
+    expected_pack["poemReadings"] = json!({
+        "version":1,"stanzas":[],"readings":{},"drafts":{},"pins":{},"decisions":{}
+    });
     assert_eq!(world.game["packs"]["greek-drama"], expected_pack);
     let catalog: Value =
         serde_json::from_str(include_str!("../../../card-game/packs.json")).unwrap();

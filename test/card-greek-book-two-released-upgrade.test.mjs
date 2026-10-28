@@ -7,6 +7,8 @@ import {
 } from "../v2/card-game/pack-registry.mjs";
 import { newMemories } from "../v2/card-game/memory.mjs";
 import { recitalPoem } from "../v2/card-game/pack-recital.mjs";
+import { emptyPoemReadings } from "../v2/card-game/poem-readings.mjs";
+import { legacyGreekSeaPaths } from "../v2/card-game/legacy-greek-seaways.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { releasedCardEngine } from "./helpers/released-card-engine.mjs";
 
@@ -164,6 +166,7 @@ function expectRetainedRecords(world, before) {
   expect(world.packs["greek-drama"]).toEqual({
     ...before.packs["greek-drama"],
     revision: 8,
+    poemReadings: emptyPoemReadings(),
   });
   for (const [id, actor] of Object.entries(before.actors))
     expect(world.actors[id]).toEqual(actor);
@@ -197,7 +200,7 @@ function expectRetainedRecords(world, before) {
     ),
   });
   for (const [actor, routes] of Object.entries(before.routeKnowledge)) {
-    const expected = routes.flatMap(([from, to]) =>
+    const campRoutes = routes.flatMap(([from, to]) =>
       [from, to].includes("greek-susa") &&
       [from, to].includes("greek-scythian-crag")
         ? [
@@ -206,6 +209,16 @@ function expectRetainedRecords(world, before) {
           ]
         : [[from, to]],
     );
+    const seaPaths = legacyGreekSeaPaths.flatMap((path) => [
+      path,
+      [...path].reverse(),
+    ]);
+    const expected = campRoutes.flatMap(([from, to]) => {
+      const path = seaPaths.find((path) => path[0] === from && path.at(-1) === to);
+      return path
+        ? path.slice(1).map((place, index) => [path[index], place])
+        : [[from, to]];
+    });
     expect(world.routeKnowledge[actor]).toEqual([
       ...new Map(expected.map((edge) => [JSON.stringify(edge), edge])).values(),
     ]);
