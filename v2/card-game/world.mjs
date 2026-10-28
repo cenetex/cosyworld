@@ -2087,7 +2087,12 @@ function toward(s, actor, target) {
     const call = find("ring", "bell");
     if (call) return call;
   }
-  if (!s.items.lamp.fuel && find("refill", "oil")) return find("refill", "oil");
+  if (!s.items.lamp.fuel && s.items.oil.doses > 0) {
+    if (find("refill", "oil")) return find("refill", "oil");
+    if (find("take", "oil")) return find("take", "oil");
+    if (find("ask", "oil") && willingToGive(s, rootHolder(s, "oil"), "oil", actor))
+      return find("ask", "oil");
+  }
   if (!s.items.lamp.lit && find("light", "lamp")) return find("light", "lamp");
   if (here === "station")
     return actions.find((a) => a.kind === "move" && a.target === "pond");
@@ -2459,8 +2464,11 @@ function basePlan(s, actor) {
   if (rescue && hand.avatars.some((other) =>
     s.actors[other].place !== here &&
     !routeBetween(s, s.actors[other].place, here, other),
-  ))
+  )) {
+    if (!s.items.lamp.fuel && s.items.oil.doses > 0 && find("take", "oil"))
+      return choose(find("take", "oil"), "Bring oil to the travelers at the shore.");
     return choose(find("move", undefined, rescue), "Meet the waiting travelers at the shore.");
+  }
   return idle(
     handStatus(s, actor).met
       ? "Hold the target hand."
