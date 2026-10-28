@@ -171,6 +171,8 @@ fn first_ship_signal_unlocks_shared_round_trips_and_replays() {
     w.present = w.claimed;
     w.game["actors"]["vale"]["place"] = json!("pond");
     w.game["actors"]["mara"]["place"] = json!("greek-harbor");
+    // The keeper watches the far dock during this transport fixture.
+    w.game["actors"]["keeper"]["place"] = json!("greek-harbor");
     w.game["items"]["lamp"]["holder"] = json!("vale");
     w.game["items"]["lamp"]["lit"] = json!(true);
     w.game["items"]["lamp"]["fuel"] = json!(12);
