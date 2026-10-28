@@ -225,6 +225,9 @@ jobs:
           - cards-ui
           - cards-routes
           - cards-drama
+          - cards-epic-open
+          - cards-epic-war
+          - cards-epic-home
           - cards-dialogue
           - cards-quests
     env:
@@ -305,6 +308,8 @@ jobs:
           node v2/scripts/smoke-card-boardyai.mjs
           node v2/scripts/smoke-card-music.mjs
           node v2/scripts/smoke-card-music-network.mjs
+          node v2/scripts/smoke-card-music-follow.mjs
+          node v2/scripts/smoke-card-willows-atmosphere.mjs
           node v2/scripts/smoke-card-media-cache.mjs
           node v2/scripts/smoke-scene-video.mjs
 
@@ -335,6 +340,23 @@ jobs:
           node v2/scripts/smoke-card-greek-homecoming.mjs
           node v2/scripts/smoke-card-ajax.mjs
           node v2/scripts/smoke-card-book-one.mjs
+
+      - name: Check Greek welcome and household journeys
+        if: matrix.mode == 'cards-epic-open'
+        run: |
+          node v2/scripts/smoke-card-book-two.mjs
+          node v2/scripts/smoke-card-house-of-blood.mjs
+          node v2/scripts/smoke-card-house-of-blood-art.mjs
+
+      - name: Check Greek war and return voyages
+        if: matrix.mode == 'cards-epic-war'
+        run: node v2/scripts/smoke-card-book-three.mjs
+
+      - name: Check Greek homecoming and shared readings
+        if: matrix.mode == 'cards-epic-home'
+        run: |
+          node v2/scripts/smoke-card-book-iv.mjs
+          node v2/scripts/smoke-card-readings.mjs
 
       - name: Check dialogue and movement
         if: matrix.mode == 'cards-dialogue'
