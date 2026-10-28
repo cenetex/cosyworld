@@ -247,7 +247,7 @@ describe("composable quest programs", () => {
   it("keeps the cast trading and leveling while Vale keeps items and waits", () => {
     let s = continuing(),
       trades = 0;
-    for (let turn = 0; turn < 450; turn++) {
+    for (let turn = 0; turn < 600; turn++) {
       s = wait(s);
       trades += s.log.filter(
         (e) => e.turn === s.turn && e.verb === "trade",

@@ -74,6 +74,22 @@ describe("the pond opening and shore roads", () => {
     expect(world.actors.vale.place).toBe("station");
   });
 
+  it("brings oil to the shore when waiting partners cannot reach the attic", () => {
+    const world = createWorld();
+    world.turn = world.revision = 1;
+    world.actors.vale.place = world.actors.moth.place = "pond";
+    world.actors.keeper.place = "attic";
+    world.actors.vale.progress = { program: 0, step: 1, marks: [1] };
+    world.actors.moth.progress = { program: 0, step: 1, marks: [1] };
+    world.items.lamp.fuel = 0;
+    world.items.bell.holder = "keeper";
+    expect(plan(world, "keeper").action).toMatchObject({ kind: "move", target: "pond" });
+    const next = play(world, legalActions(world).find((a) => a.kind === "wait")).state;
+    expect(next.actors.keeper.place).toBe("pond");
+    expect(next.items.oil.holder).toBe("keeper");
+    expect(decodeSave(encodeSave(next))).toEqual(next);
+  });
+
   it("prepares a carried lamp before planning a return through the mirror", () => {
     const world = fresh();
     world.actors.vale.place = "attic";

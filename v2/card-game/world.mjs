@@ -2039,17 +2039,18 @@ function toward(s, actor, target) {
   const actions = legalActions(s, actor);
   if (route)
     return actions.find((a) => a.kind === "move" && a.target === route[1]);
-  // Attic journeys prepare their light at the shore before crossing the gate.
+  // Mirror journeys prepare the lamp through the same legal item plays.
   if (target !== "attic" && here !== "attic") return;
+  const find = (kind, item) => actions.find((a) => a.kind === kind && a.item === item);
+  const take = find("take", "lamp");
+  if (take) return take;
+  if (covered(s, "lamp") && find("take", "cloth")) return find("take", "cloth");
+  if (!s.items.lamp.fuel && find("refill", "oil")) return find("refill", "oil");
+  if (!s.items.lamp.lit && find("light", "lamp")) return find("light", "lamp");
   if (here === "station")
     return actions.find((a) => a.kind === "move" && a.target === "pond");
-  if (!["pond", "attic"].includes(here)) return;
-  if (covered(s, "lamp"))
-    return actions.find((a) => a.kind === "take" && a.item === "cloth");
-  if (!s.items.lamp.fuel)
-    return actions.find((a) => a.kind === "refill" && a.item === "oil");
-  if (!s.items.lamp.lit)
-    return actions.find((a) => a.kind === "light" && a.item === "lamp");
+  if (here === "pond" && itemPlace(s, "lamp") === "station")
+    return actions.find((a) => a.kind === "move" && a.target === "station");
 }
 export function plan(s, actor = currentActor(s)) {
   const arrival = transportArrival(s, actor);
@@ -2196,7 +2197,7 @@ function basePlan(s, actor) {
         id !== actor &&
         entityActive(s, id) &&
         there !== here &&
-        routeBetween(s, here, there, actor) &&
+        toward(s, actor, there) &&
         theirs.avatars.includes(actor) &&
         (theirs.location || there) === there &&
         handStatus(s, id, theirs).items.every((e) => e.met) &&
@@ -2388,6 +2389,12 @@ function basePlan(s, actor) {
   if (waiting) return goMeet(waiting);
   if (hand.location && here !== hand.location)
     return choose(toward(s, actor, hand.location), reason);
+  const rescue = homeRescueExit(s, here, actor);
+  if (rescue && hand.avatars.some((other) =>
+    s.actors[other].place !== here &&
+    !routeBetween(s, s.actors[other].place, here, other),
+  ))
+    return choose(find("move", undefined, rescue), "Meet the waiting travelers at the shore.");
   return idle(
     handStatus(s, actor).met
       ? "Hold the target hand."
