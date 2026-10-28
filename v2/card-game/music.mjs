@@ -1,5 +1,6 @@
 import { packPlaces } from "./pack-registry.mjs";
 import { mediaUrl } from "./media.mjs";
+import streams from "./music-streams.json" with { type: "json" };
 
 export const roomTracks = {
   "greek-harbor": [
@@ -197,8 +198,10 @@ export function createRoomMusic({
     ending = false;
     if (buffered) audio.currentTime = 0;
     else {
-      if (next) audio.src = mediaUrl(`./assets/music/${next.file}`);
-      else audio.removeAttribute("src");
+      if (next) {
+        const original = `assets/music/${next.file}`;
+        audio.src = mediaUrl(streams[original]?.file || original);
+      } else audio.removeAttribute("src");
       audio.load();
     }
     start();
