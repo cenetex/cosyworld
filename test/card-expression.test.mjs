@@ -13,6 +13,9 @@ import {
   createWorld,
   encodeSave,
   decodeSave,
+  addLog,
+  legalActions,
+  play,
 } from "../v2/card-game/world.mjs";
 import {
   narrativeContext,
@@ -27,6 +30,47 @@ afterEach(() => {
 });
 
 describe("authored character expression", () => {
+  it.each([
+    ["movement", "Pip tilts his head toward the lamp."],
+    ["emoji", "🌳👀"],
+  ])(
+    "keeps a %s reply in its authored form when the resident knows news",
+    (form, text) => {
+      profiles.moth.expression = people.moth.expression = form;
+      const world = createWorld();
+      for (const id of ["vale", "moth", "keeper"])
+        world.actors[id].place = "station";
+      addLog(world, "World", "Pip found a shell beside the pond.", {
+        kind: "action",
+        verb: "give",
+        actorId: "moth",
+        locationId: "station",
+        witnesses: ["moth"],
+      });
+      const action = legalActions(world).find(
+        (entry) => entry.kind === "talk" && entry.target === "moth",
+      );
+      const result = play(world, action);
+      expect(result.ok).toBe(true);
+      const context = narrativeContext(result.state, action);
+      expect(context.disclosures || []).toEqual([]);
+      const next = applyGeneratedText(result.state, context, {
+        revision: context.revision,
+        model: "expression-news-fixture",
+        entries: context.entities.map(({ id }) => ({
+          id,
+          text: id === "moth" ? text : "I am glad to be here.",
+        })),
+      });
+      expect(
+        next.log.findLast(
+          (entry) => entry.generated && entry.actorId === "moth",
+        ).text,
+      ).toBe(text);
+      expect(decodeSave(encodeSave(next))).toEqual(next);
+    },
+  );
+
   it("accepts the three authored types and keeps speech as the default", () => {
     expect(expressionOf({})).toBe("speech");
     for (const expression of ["speech", "movement", "emoji"]) {

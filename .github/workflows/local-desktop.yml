@@ -168,7 +168,7 @@ jobs:
           ditto -c -k --sequesterRsrc --keepParent "$CARGO_TARGET_DIR/release/bundle/macos/CosyWorld.app" "$archive"
           cp "$CARGO_TARGET_DIR/release/bundle/macos/CosyWorld.app/Contents/Resources/game/build-info.json" output/mac-app/build-info.json
           cp "$RUNNER_TEMP/package-check.json" output/mac-app/package-check.json
-          shasum -a 256 "$archive" > output/mac-app/SHA256SUMS
+          (cd output/mac-app && shasum -a 256 "${archive##*/}" > SHA256SUMS)
       - uses: actions/upload-artifact@v7
         id: app-download
         with:

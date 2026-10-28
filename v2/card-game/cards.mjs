@@ -1,6 +1,11 @@
 import { hasMotives, tradeDecision, interest } from "./motives.mjs";
 import { desireFor } from "./quests.mjs";
-import { entityActive, packThings, packPlaces, packDefinitions } from "./pack-registry.mjs";
+import {
+  entityActive,
+  packThings,
+  packPlaces,
+  packDefinitions,
+} from "./pack-registry.mjs";
 import {
   currentActor,
   places,

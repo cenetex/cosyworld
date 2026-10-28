@@ -19177,6 +19177,7 @@
       [action.target, action.actor]
     ];
     for (const [speaker, listener] of pairs) {
+      if (expressionOf(people[speaker]) !== "speech") continue;
       const choices = packChoices(s, listener);
       const topics = authoredKnowledgeTopics().filter(
         (topic) => conditionsMet(s, topic.packId, topic.requires || [], listener)

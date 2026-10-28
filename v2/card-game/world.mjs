@@ -1,4 +1,5 @@
 import { captureQuestHands, advanceQuestPrograms } from "./quest-progress.mjs";
+import { expressionOf } from "./expression.mjs";
 import { recordLearning, beginLearning, reconsiderPlan } from "./learning.mjs";
 import {
   dropQuest,
@@ -849,6 +850,7 @@ function talkKnowledge(s, action, entry) {
         [action.target, action.actor],
       ];
   for (const [speaker, listener] of pairs) {
+    if (expressionOf(people[speaker]) !== "speech") continue;
     const choices = packChoices(s, listener);
     const topics = authoredKnowledgeTopics()
       .filter((topic) =>
