@@ -14,6 +14,12 @@ const tick = async () => {
 };
 const audio = () =>
   new Blob([new Uint8Array([255, 251, 144, 0, 1, 2])], { type: "audio/mpeg" });
+const immediateCrypto = {
+  subtle: {
+    digest: async (_algorithm, bytes) =>
+      createHash("sha256").update(bytes).digest(),
+  },
+};
 function cacheStore() {
   const saved = new Map();
   const cache = {
@@ -60,6 +66,75 @@ function fixture() {
 }
 
 describe("the six card character voices", () => {
+  it("keeps prepared speech through a waiting screen and shares it with playback", async () => {
+    let finish;
+    const client = {
+      available: () => true,
+      clip: vi.fn(
+        () =>
+          new Promise((resolve) => {
+            finish = () => resolve(audio());
+          }),
+      ),
+    };
+    const load = createVoiceClips({
+      client,
+      storage: cacheStore(),
+      crypto: immediateCrypto,
+    });
+    const f = fixture();
+    const speech = createCharacterSpeech({
+      client,
+      load,
+      makeContext: () => f.context,
+    });
+    speech.prefetch("vale", "The lamp is warm.");
+    await vi.waitFor(() => expect(client.clip).toHaveBeenCalledTimes(1));
+    speech.clear({ keepPrefetch: true });
+    expect(client.clip.mock.calls[0][2].aborted).toBe(false);
+    speech.show("current", "vale", "The lamp is warm.");
+    speech.unlock();
+    await tick();
+    expect(client.clip).toHaveBeenCalledTimes(1);
+    finish();
+    await vi.waitFor(() =>
+      expect(f.sources[0]?.start).toHaveBeenCalledTimes(1),
+    );
+    speech.clear();
+  });
+  it("shares a prepared clip with playback and cancels it after its last listener leaves", async () => {
+    let finish;
+    const client = {
+      available: () => true,
+      voiceIdentity: "local",
+      clip: vi.fn(
+        (speaker, text, signal) =>
+          new Promise((resolve, reject) => {
+            finish = () => resolve(audio());
+            signal.addEventListener("abort", () => reject(signal.reason), {
+              once: true,
+            });
+          }),
+      ),
+    };
+    const load = createVoiceClips({
+      client,
+      storage: cacheStore(),
+      crypto: immediateCrypto,
+    });
+    const preparation = new AbortController(),
+      playback = new AbortController();
+    const first = load("vale", "The lamp is warm.", preparation.signal);
+    await vi.waitFor(() => expect(client.clip).toHaveBeenCalledTimes(1));
+    const second = load("vale", "The lamp is warm.", playback.signal);
+    await tick();
+    expect(client.clip).toHaveBeenCalledTimes(1);
+    preparation.abort();
+    await expect(first).rejects.toBeDefined();
+    expect(client.clip.mock.calls[0][2].aborted).toBe(false);
+    finish();
+    await expect(second).resolves.toBeInstanceOf(Blob);
+  });
   it("ships the exact six audition references with their transcripts", async () => {
     expect(Object.keys(characterVoices)).toEqual([
       "vale",

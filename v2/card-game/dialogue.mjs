@@ -203,6 +203,8 @@ export function createExchange({
     paused = false,
     completed = null,
     handoff = null,
+    streaming = false,
+    waiting = false,
     transitioning = false;
   function clear() {
     if (timer !== null) clearTimer(timer);
@@ -224,6 +226,8 @@ export function createExchange({
     completed = null;
     handoff = null;
     transitioning = false;
+    streaming = false;
+    waiting = false;
     busy(false);
   }
   function advance() {
@@ -236,6 +240,10 @@ export function createExchange({
       return;
     clear();
     remaining = null;
+    if (streaming && index + 1 >= lines.length) {
+      waiting = true;
+      return;
+    }
     transitioning = true;
     const previous = lines[index];
     completed = null;
@@ -253,8 +261,8 @@ export function createExchange({
       if (++index < lines.length) show(next);
       else finish();
     };
-    const waiting = transition(previous, next);
-    if (waiting?.then) void waiting.then(resume, resume);
+    const transitionWork = transition(previous, next);
+    if (transitionWork?.then) void transitionWork.then(resume, resume);
     else resume();
   }
 
@@ -268,11 +276,23 @@ export function createExchange({
       completed = null;
       handoff = null;
       transitioning = false;
+      streaming = false;
+      waiting = false;
       active = true;
       busy(true);
     },
-    load(value) {
+    load(value, { pending = false } = {}) {
       if (!active) return;
+      if (streaming) {
+        lines = value;
+        streaming = pending;
+        if (waiting) {
+          waiting = false;
+          advance();
+        }
+        return;
+      }
+      streaming = pending;
       busy(true);
       lines = value;
       index = -1;

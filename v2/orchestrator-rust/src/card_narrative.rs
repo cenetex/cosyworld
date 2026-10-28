@@ -31,6 +31,8 @@ mod observations;
 pub(crate) mod recital;
 #[path = "card_narrative/reflection.rs"]
 mod reflection;
+#[path = "card_narrative/reflections.rs"]
+mod reflections;
 
 const PER_MINUTE: RateLimit = RateLimit {
     max_hits: 30,
@@ -186,6 +188,7 @@ fn bounded(text: &str, limit: usize) -> bool {
 
 #[derive(Clone)]
 struct TextState {
+    background: Arc<reflections::Queue>,
     ai: Arc<Option<AiConfig>>,
     character_models: Arc<Result<BTreeMap<String, String>, String>>,
     settings: Arc<Result<VoiceSettings, String>>,
@@ -244,6 +247,7 @@ fn router_with_models<S: Clone + Send + Sync + 'static>(
 ) -> Router<S> {
     Router::new()
         .route("/card-game/text", post(generate))
+        .route("/card-game/reflections", post(reflections::generate))
         .route("/card-game/text/prepare", post(browser::prepare_route))
         .route("/card-game/text/complete", post(browser::complete_route))
         .layer(DefaultBodyLimit::max(64 * 1024))
@@ -254,6 +258,7 @@ fn router_with_models<S: Clone + Send + Sync + 'static>(
             limits: Arc::new(Mutex::new(RateLimiter::default())),
             in_flight: Arc::new(InFlight::default()),
             capacity: Arc::new(Semaphore::new(TOTAL_CONCURRENCY)),
+            background: Arc::new(reflections::Queue::default()),
         })
 }
 
@@ -663,6 +668,10 @@ async fn generate(
             "Character voices are waiting for valid timing settings.",
         );
     };
+    state
+        .background
+        .cancel
+        .send_modify(|generation| *generation += 1);
     // `peer` is already the derived client address (see
     // `rate_limit::client_addr`). Check this client's own limits before
     // touching shared capacity, so one client can neither hold every permit
@@ -758,7 +767,7 @@ async fn complete(
         character_models,
         settings,
         &voiced(context),
-        true,
+        !settings.defer_reflections,
         on_delta,
     )
     .await
@@ -987,6 +996,7 @@ struct VoiceSettings {
     line_limit: usize,
     reflection_model: Option<String>,
     escalation_model: Option<String>,
+    defer_reflections: bool,
 }
 
 impl VoiceSettings {
@@ -999,6 +1009,7 @@ impl VoiceSettings {
             line_limit: 400,
             reflection_model: None,
             escalation_model: None,
+            defer_reflections: false,
         }
     }
 
@@ -1011,6 +1022,7 @@ impl VoiceSettings {
             line_limit: 400,
             reflection_model: None,
             escalation_model: None,
+            defer_reflections: true,
         }
     }
 
@@ -2007,7 +2019,7 @@ mod tests {
     };
     use tower::ServiceExt;
 
-    fn context() -> Context {
+    pub(super) fn context() -> Context {
         serde_json::from_value(json!({"revision":4,"turn":4,"location":"station","focus":"lamp","speakers":["vale","moth"],"action":"Vale asks Pip what they want.","entities":[
             {"id":"vale","facts":["Holding the lamp."],"desire":{"items":["oil"],"location":"attic","avatars":["keeper"]},"memories":[],"previous":null},
             {"id":"station","facts":["Pip and Vale are here."],"desire":null,"memories":[{"turn":1,"kind":"event","text":"Vale arrived."}],"previous":null},
@@ -2908,7 +2920,7 @@ mod tests {
         server.abort();
     }
 
-    fn plain_provider(
+    pub(super) fn plain_provider(
         seen: Arc<Mutex<Vec<Value>>>,
         reply: impl Fn(&Value, &str) -> String + Clone + Send + Sync + 'static,
     ) -> Router {
@@ -3794,7 +3806,7 @@ mod tests {
         assert_eq!(in_flight.count(b), 0);
     }
 
-    fn test_config(address: SocketAddr) -> AiConfig {
+    pub(super) fn test_config(address: SocketAddr) -> AiConfig {
         AiConfig {
             api_key: "test-secret".into(),
             base_url: format!("http://{address}"),
@@ -4057,7 +4069,7 @@ mod tests {
         server.abort();
     }
     /// Serves a mock provider on a loopback port.
-    async fn serve(provider: Router) -> (SocketAddr, tokio::task::JoinHandle<()>) {
+    pub(super) async fn serve(provider: Router) -> (SocketAddr, tokio::task::JoinHandle<()>) {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
         let server = tokio::spawn(async move {
