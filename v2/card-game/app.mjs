@@ -2415,6 +2415,7 @@ document.addEventListener("keydown", (e) => {
 document.addEventListener("click", (e) => {
   if (
     (selected.length || expandedHolders.size) &&
+    !selectedHandItem(world, selected) &&
     !e
       .composedPath()
       .some(

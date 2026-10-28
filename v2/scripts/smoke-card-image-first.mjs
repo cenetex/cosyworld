@@ -218,6 +218,17 @@ try {
         for (const lowered of ids) {
           for (const id of ids) await tapCard(id);
           await assertHeldItem(ids.at(-1));
+          const scene = page.locator("#stage");
+          const outside = { position: { x: 20, y: 80 } };
+          if (width === 390) await scene.tap(outside);
+          else await scene.click(outside);
+          await assertHeldItem(ids.at(-1));
+          for (const id of ids)
+            assert.equal(
+              await card(id).getAttribute("aria-pressed"),
+              "true",
+              "clicking the scene keeps the carried item selected",
+            );
           assert.equal(
             await page.locator(".card-primary").count(),
             ids[0] === "vale" ? 0 : 1,

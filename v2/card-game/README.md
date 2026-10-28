@@ -123,6 +123,8 @@ chosen action against the current table before sending it.
 Selection, cancellation,
 drag pairing and keyboard navigation spend no turn; only a committed play does.
 The latest selected carried item appears in the player's avatar hand.
+Clicking the scene keeps that item selected and held. Tap its card again or
+press Escape to clear it.
 The preview follows the figure's facing and movement and shows the item's light,
 ringing, and covering. Lowering that card returns to the other selected item;
 clearing the selection clears the preview. Giving or dropping the item clears it
