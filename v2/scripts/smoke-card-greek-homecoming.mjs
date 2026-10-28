@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { encodeSave } from "../card-game/world.mjs";
+import { encodeSave, legalActions } from "../card-game/world.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { questCards, questCardId } from "../card-game/quest-cards.mjs";
 import { openingFixture } from "../../test/helpers/greek-opening.mjs";
@@ -182,6 +182,17 @@ try {
     };
     const step = async ({ kind, ...fields }) => {
       await settle();
+      if (kind === "move" && fields.target === "greek-ship") {
+        for (
+          let wait = 0;
+          wait < 32 &&
+          !legalActions(await state()).some(
+            (a) => a.kind === "move" && a.target === "greek-ship",
+          );
+          wait++
+        )
+          await step({ kind: "wait" });
+      }
       const before = await state();
       const action = openDoorAction(before, kind, fields);
       const cards = action.cards?.length

@@ -251,11 +251,11 @@ describe("the Open Door", () => {
       world = openDoorWalk(reload(world), "harbor", "athens");
       expect(exits(world, "greek-athens", "vale")).toEqual(
         expect.arrayContaining([
-          "greek-harbor",
-          "greek-piraeus",
-          "greek-colonus",
-          "greek-eleusis",
-          "greek-marathon",
+          "greek-road-athens-harbor",
+          "greek-road-athens-piraeus",
+          "greek-road-athens-colonus",
+          "greek-road-athens-eleusis",
+          "greek-road-athens-marathon",
         ]),
       );
       expect(entityActive(world, "greek-thinkery")).toBe(false);

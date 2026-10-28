@@ -1,3 +1,4 @@
+import { greekTravelTargets } from "../../test/helpers/greek-travel.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
 import { checkOpeningPoem } from "./smoke-card-opening-poem.mjs";
 // Exercise the public card UI and its one saved history, at desktop and phone
@@ -157,6 +158,21 @@ try {
     };
     const travel = async (id) => {
       const before = await state();
+      const steps = greekTravelTargets(before.actors.vale.place, id);
+      if (steps.length > 1) {
+        for (const step of steps) await travel(step);
+        return;
+      }
+      if (id === "greek-ship")
+        for (
+          let n = 0;
+          n < 32 &&
+          !legalActions(await state()).some(
+            (a) => a.kind === "move" && a.target === id,
+          );
+          n++
+        )
+          await playCard("vale");
       const boarding =
         before.actors.vale.place === "pond" && id === "greek-harbor";
       if (boarding && before.transports["greek-ship"].dock !== "pond")

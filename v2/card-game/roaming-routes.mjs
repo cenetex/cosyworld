@@ -20,7 +20,7 @@ export const authoredRouteEdges = () => [
     c.transport
       ? [
           [c.from, transports[c.transport].place],
-          [transports[c.transport].place, c.to],
+          [transports[c.transport].place, c.from],
         ]
       : [[c.from, c.to]],
   ),

@@ -112,6 +112,7 @@ describe("ordinary bard travel", () => {
       "pond",
       "greek-ship",
       "greek-harbor",
+      "greek-road-thebes",
       "greek-courtyard",
       "greek-gate",
     ])
@@ -155,15 +156,15 @@ describe("ordinary bard travel", () => {
     }
     expect(trace).toEqual([
       "greek-harbor",
+      "greek-road-thebes",
       "greek-courtyard",
-      "greek-well",
       "greek-well",
       "greek-well",
     ]);
     expect(s.roamingQuests[singer].target).toEqual(receipt);
     expect(
       s.quests.records[s.roamingQuests[singer].questKey].completedTurn,
-    ).toBe(3);
+    ).toBe(4);
   });
   it("uses the actual ship, waits for its return, and preserves destination through reload", () => {
     let s = createWorld();
@@ -187,7 +188,7 @@ describe("ordinary bard travel", () => {
     });
     s = act(s);
     expect(s.actors[singer].place).toBe("pond");
-    expect(s.transports["greek-ship"].dock).toBe("pond");
+    expect(s.transports["greek-ship"].dock).toBe("greek-harbor");
   });
   it("keeps a player-only home door subject to the real item gate and rejects stale travel", () => {
     let s = shared();
@@ -223,7 +224,8 @@ describe("ordinary bard travel", () => {
     rememberRoutes(s, "keeper", [
       ["pond", "greek-ship"],
       ["greek-ship", "greek-harbor"],
-      ["greek-harbor", "greek-courtyard"],
+      ["greek-harbor", "greek-road-thebes"],
+      ["greek-road-thebes", "greek-courtyard"],
       ["greek-courtyard", "greek-well"],
     ]);
     complete(s, "greek-well");
@@ -260,7 +262,8 @@ describe("ordinary bard travel", () => {
     rememberRoutes(s, "vale", [
       ["pond", "greek-ship"],
       ["greek-ship", "greek-harbor"],
-      ["greek-harbor", "greek-courtyard"],
+      ["greek-harbor", "greek-road-thebes"],
+      ["greek-road-thebes", "greek-courtyard"],
       ["greek-courtyard", "greek-well"],
     ]);
     s.transports["greek-ship"].dock = "pond";

@@ -1,3 +1,4 @@
+import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 import { summonTransport } from "../v2/card-game/pack-transport.mjs";
 import {
   collectionCards,
@@ -73,6 +74,9 @@ function act(world, kind, field = {}) {
 }
 
 function move(world, target) {
+  const roadSteps = greekTravelTargets(world.actors.vale.place, target);
+  if (roadSteps.length > 1 && !roadSteps.includes("greek-ship"))
+    return roadSteps.reduce(move, world);
   const boarding = world.actors.vale.place === "pond" && target === HARBOR;
   const nested = boarding && world.items.cloth.holder === "bell";
   if (boarding && !world.crossings["pond-greek-harbor"].discovered) {

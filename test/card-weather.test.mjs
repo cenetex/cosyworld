@@ -21,7 +21,7 @@ import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 describe("regional Greece weather", () => {
   it("covers every Greek location and keeps local scenery within its region", () => {
     const ids = Object.keys(packPlaces).filter((id) => id.startsWith("greek-"));
-    expect(ids).toHaveLength(50);
+    expect(ids).toHaveLength(60);
     for (let turn = 0; turn < WEATHER_TURNS * 8; turn++) {
       const regions = new Map();
       for (const id of ids) {
@@ -77,11 +77,18 @@ describe("regional Greece weather", () => {
   });
 
   it("matches shared views, browser rules, and the compiled server across regions and turns", () => {
+    const version = readFileSync(
+      new URL(
+        "../v2/orchestrator-rust/src/card_shared/engine.rs",
+        import.meta.url,
+      ),
+      "utf8",
+    ).match(/const VERSION: &str = "full-card-world\/(\d+)"/)[1];
     const runtime = vm.createContext({ structuredClone });
     vm.runInContext(
       readFileSync(
         new URL(
-          "../v2/orchestrator-rust/src/card_shared/engine-v15.js",
+          `../v2/orchestrator-rust/src/card_shared/engine-v${version}.js`,
           import.meta.url,
         ),
         "utf8",

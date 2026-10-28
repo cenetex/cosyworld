@@ -1,4 +1,5 @@
 import { openDoorSteps, openDoorStart, playOpenDoor } from "./open-door.mjs";
+import { greekMoveSteps } from "./greek-travel.mjs";
 
 export const homecomingChoose = (id) => ({
   kind: "choose",
@@ -8,16 +9,24 @@ export const homecomingMove = (...ids) =>
   ids.map((id) => ({ kind: "move", target: `greek-${id}` }));
 
 export function homecomingSteps({ berth = "family", reading = "basket" } = {}) {
+  const fromPiraeus = greekMoveSteps("greek-piraeus");
+  const fromCourtyard = greekMoveSteps("greek-courtyard");
+  const returnHome = greekMoveSteps("greek-piraeus");
   const opening = openDoorSteps({ berth });
   const berthIndex = opening.findIndex(
     (a) => a.choiceId === `greek-open-door-${berth}-berth`,
   );
   return [
     ...opening.slice(0, berthIndex + 1),
-    ...homecomingMove("athens", "harbor", "courtyard"),
+    ...fromPiraeus("athens", "harbor", "courtyard"),
     homecomingChoose(`report-piraeus-${berth}`),
-    ...homecomingMove("harbor", "athens", "eleusis"),
+    ...fromCourtyard("harbor", "athens", "eleusis"),
     homecomingChoose("agree-journey"),
+    {
+      kind: "accompany",
+      target: "greek-household-witness",
+      destination: "greek-road-piraeus-eleusis",
+    },
     {
       kind: "accompany",
       target: "greek-household-witness",
@@ -35,7 +44,7 @@ export function homecomingSteps({ berth = "family", reading = "basket" } = {}) {
       : []),
     homecomingChoose(`receive-${berth}`),
     { kind: "take", item: "greek-return-list" },
-    ...homecomingMove("athens", "harbor", "courtyard"),
+    ...returnHome("athens", "harbor", "courtyard"),
     homecomingChoose(`read-${reading}-${berth}`),
   ];
 }

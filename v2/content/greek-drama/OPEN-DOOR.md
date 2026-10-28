@@ -1,10 +1,11 @@
 # The Open Door
 
 Dione's table opens five places: the Athenian Agora, Piraeus Quays,
-Colonus Grove, Eleusinian Sanctuary and Marathon Altar. The traveler reaches
-them through roads with a route back. The coast links Eleusis, Piraeus and
-the Wine-Dark Harbor. Local roads also join Marathon to Colonus, and Colonus
-to Eleusis. These roads share Dione’s lasting invitation.
+Colonus Grove, Eleusinian Sanctuary and Marathon Altar. The ship reaches Athens Harbor and Piraeus Quays. A harbor road leads
+into the grand Athenian Agora. Each land journey has a shared road scene
+with two fixed ends. The coast road links Eleusis and Piraeus; inland roads
+join Athens, Colonus, Eleusis and Marathon. These routes share Dione’s
+lasting invitation. Waiting at a port lets the empty ship complete its circuit.
 
 The opening invitation follows the public account of any of the four
 Theban responses: burial, permission, refusal or warning. Accepting the

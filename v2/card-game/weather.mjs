@@ -27,10 +27,19 @@ function group(region, exposure, names) {
 }
 group("boeotia", "coast", "harbor aulis ship");
 group("boeotia", "court", "courtyard well palace");
-group("boeotia", "open", "gate battlefield");
+group("boeotia", "open", "gate battlefield road-thebes");
 group("boeotia", "grove", "sanctuary cithaeron");
 group("attica", "court", "athens acropolis acharnae");
-group("attica", "coast", "piraeus");
+group(
+  "attica",
+  "coast",
+  "piraeus athens-harbor road-athens-harbor road-piraeus-eleusis",
+);
+group(
+  "attica",
+  "open",
+  "road-athens-piraeus road-athens-colonus road-athens-eleusis road-athens-marathon road-colonus-eleusis road-colonus-marathon",
+);
 group("attica", "open", "assembly attic-farm marathon");
 group("attica", "shelter", "demos-house thinkery jury-house");
 group("attica", "grove", "festival colonus eleusis bird-wilderness");

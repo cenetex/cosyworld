@@ -284,10 +284,25 @@ Player views include their own thoughts, persona, dreams, reflection evidence
 and lessons. Other avatars supply public card text. This privacy check also
 applies when projecting a world that still uses an earlier interpreter.
 
-The current interpreter builder writes `engine-v15.js`. Version 15 adds regional
+The released version 15 interpreter is `engine-v15.js`. Version 15 adds regional
 Greek weather and Thebes day and night views. Version 14 keeps BoardyAI, his
 parlour, and his calling card. Earlier versions keep their released rules.
 Existing worlds receive an explicit saved upgrade.
 
 A rules upgrade starts a fresh sync stream from the player’s current private
 view. Earlier cached view events are replaced at that boundary.
+
+## Greek ports and roads
+
+Shared rules version 16 adds Athens Harbor and Piraeus Quays to the Greek
+ship. Nine shared road scenes have two fixed ends. Destination cards name
+each end. An empty ship follows its circuit while a human waits at a port.
+Resident passengers step ashore after arrival; a human aboard chooses the
+port before those companions leave the ship.
+
+Greek pack revision 5 preserves positions, belongings, story choices and
+poems. It adds memories for the new port and roads, and expands earlier
+learned routes through their current road and ship scenes. Myrine's coast
+journey uses two Accompany plays. Versions 13, 14 and 15 keep their released
+bytes. The builder writes `engine-v16.js`; older journals replay with the
+recorded rules before the saved upgrade.

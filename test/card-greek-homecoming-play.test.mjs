@@ -57,7 +57,7 @@ describe("the household reaches its berth", () => {
           entry.verb === "accompany" &&
           entry.targetId === "greek-household-witness",
       );
-      expect(travel).toHaveLength(1);
+      expect(travel).toHaveLength(2);
       expect(travel.every((entry) => entry.accepted)).toBe(true);
       expect(flag(world, "arrived")).toBe(true);
       expect(flag(world, "witness-heard")).toBe(true);
@@ -119,15 +119,17 @@ describe("the household reaches its berth", () => {
     world.actors.mara.place = "greek-eleusis";
     world = decodeSave(encodeSave(world));
     const later = shared(world, "mara", ["mara"]);
-    const next = openDoorAction(later.world, "accompany", {
-      target: "greek-household-witness",
-      destination: "greek-piraeus",
-    });
-    const result = shared(world, "mara", ["mara"], {
-      op: "play",
-      action: next,
-    });
-    expect(result.ok).toBe(true);
+    let result;
+    for (const destination of ["greek-road-piraeus-eleusis", "greek-piraeus"]) {
+      const view = shared(world, "mara", ["mara"]);
+      const next = openDoorAction(view.world, "accompany", {
+        target: "greek-household-witness",
+        destination,
+      });
+      result = shared(world, "mara", ["mara"], { op: "play", action: next });
+      expect(result.ok).toBe(true);
+      world = decodeSave(encodeSave(result.world));
+    }
     expect(result.world.actors.mara.place).toBe("greek-piraeus");
     expect(result.world.actors.vale.place).toBe("greek-eleusis");
     expect(result.world.actors["greek-household-witness"].place).toBe(
@@ -144,7 +146,16 @@ describe("the household reaches its berth", () => {
     world.actors.mara.place = "greek-piraeus";
     for (const [kind, fields] of [
       ["take", { item: "greek-return-list" }],
+      ["move", { target: "greek-road-athens-piraeus" }],
+      ["move", { target: "greek-athens" }],
+      ["move", { target: "greek-road-athens-harbor" }],
+      ["move", { target: "greek-athens-harbor" }],
+      ["wait", {}],
+      ["wait", {}],
+      ["wait", {}],
+      ["move", { target: "greek-ship" }],
       ["move", { target: "greek-harbor" }],
+      ["move", { target: "greek-road-thebes" }],
       ["move", { target: "greek-courtyard" }],
       ["choose", { choiceId: "greek-homecoming-read-berth-family" }],
     ]) {

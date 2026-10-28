@@ -163,7 +163,23 @@ saved world. Once summoned, it remains available for later crossings.
 After a public Theban response, Dione offers the next journey at her table.
 Accepting opens **The Open Door**: the Athenian Agora, Piraeus Quays, Colonus
 Grove, Eleusinian Sanctuary, and Marathon Altar. The invitation opens the
-roads for every traveler in the shared world. Each place has a route home.
+roads for every traveler in the shared world. Athens Harbor and Piraeus join
+the ship’s stops. Athens Harbor has a road inland to the grand Agora.
+
+Nine shared road scenes connect the region. Each road has two fixed ends,
+shown by destination cards in a fixed order. Its entry card names the place ahead.
+Travelers can meet, wait and carry objects on the road. Myrine’s coast walk
+passes through the same road scene in two Accompany plays.
+
+Run `npm run v2:card:travel:smoke` for desktop and phone trips through Athens
+Harbor, the harbor road, the Agora, Piraeus and the return to Dione. The check
+also tests the destination cards, a reload on the road and waiting for the ship.
+
+At an open port, Wait lets the empty ship continue its circuit. Resident
+passengers use the same vessel. The first human passenger ashore chooses the
+arrival port for the company. Other passengers can step off there; boarding
+at that port starts the next voyage. The lamp signal still calls the ship to
+Black Pond. Existing saves keep their positions, belongings, stories and poems.
 
 Selected cards with authored decisions show their legal actions in the row
 below the hand. Choosing a history is a committed turn:

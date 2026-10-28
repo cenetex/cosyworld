@@ -1,5 +1,6 @@
 import { createWorld, legalActions, play } from "../../v2/card-game/world.mjs";
 import { enableMotives } from "../../v2/card-game/motives.mjs";
+import { greekTravelTargets } from "./greek-travel.mjs";
 
 // Opening-only worlds reached through legal choices. Initial inventory setup
 // leaves the forest tools at the harbor and room for the funeral materials.
@@ -30,7 +31,10 @@ export function openingFixture(
   const move = (target) => act("move", { target });
   const take = (item) => act("take", { item });
   const choose = (choiceId) => act("choose", { choiceId });
-  const walk = (...places) => places.forEach((p) => move(`greek-${p}`));
+  const walk = (...places) =>
+    places.forEach((p) =>
+      greekTravelTargets(world.actors.vale.place, `greek-${p}`).forEach(move),
+    );
   act("light");
   move("pond");
   world.items.cloth.holder = "vale";

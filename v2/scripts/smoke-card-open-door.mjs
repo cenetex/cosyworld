@@ -138,6 +138,17 @@ export async function checkOpenDoor(browser, origin) {
       };
       const step = async ({ kind, ...fields }) => {
         await settle();
+        if (kind === "move" && fields.target === "greek-ship") {
+          for (
+            let wait = 0;
+            wait < 32 &&
+            !legalActions(await state()).some(
+              (a) => a.kind === "move" && a.target === "greek-ship",
+            );
+            wait++
+          )
+            await step({ kind: "wait" });
+        }
         const before = await state();
         const action = openDoorAction(before, kind, fields);
         const id = action.cards?.[0] || action.item || action.target || "vale";

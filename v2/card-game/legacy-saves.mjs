@@ -96,6 +96,7 @@ export function upgradeSave(
     installPacks(s);
   }
   if (s?.schema === 7) {
+    upgradeGreekRoadSave(s);
     upgradeBoardingSave(s);
     upgradeRecitals(s, packDefinitions);
   }
@@ -104,6 +105,58 @@ export function upgradeSave(
     installSharedQuestRegistry(s);
   if (s?.schema === 7) publishQuestCompletions(s, syncStoryQuests(s));
   return s;
+}
+
+// Revision 5 adds port and road memories. Every earlier position and deed
+// remains valid, including a household already waiting at the quay.
+export function upgradeGreekRoadSave(s) {
+  const pack = packDefinitions.find((p) => p.id === "greek-drama");
+  const saved = s.packs?.[pack?.id];
+  if (saved?.revision !== 4) return;
+  const fresh = newMemories();
+  for (const [id, place] of Object.entries(pack.places))
+    if (place.road || id === "greek-athens-harbor")
+      s.memories[id] ??= fresh[id];
+  for (const [actor, known] of Object.entries(s.routeKnowledge || {})) {
+    if (!Array.isArray(known)) continue;
+    const expanded = known.flatMap((edge) => {
+      if (!Array.isArray(edge) || edge.length !== 2) return [edge];
+      const [from, to] = edge;
+      let path;
+      if (from === "greek-harbor" && to === "greek-athens")
+        path = [
+          from,
+          "greek-ship",
+          "greek-athens-harbor",
+          "greek-road-athens-harbor",
+          to,
+        ];
+      else if (from === "greek-athens" && to === "greek-harbor")
+        path = [
+          from,
+          "greek-road-athens-harbor",
+          "greek-athens-harbor",
+          "greek-ship",
+          to,
+        ];
+      else if (
+        [from, to].includes("greek-harbor") &&
+        [from, to].includes("greek-piraeus")
+      )
+        path = [from, "greek-ship", to];
+      else {
+        const road = pack.places[from]?.exits.find((id) =>
+          pack.places[id]?.road?.includes(to),
+        );
+        if (road) path = [from, road, to];
+      }
+      return path ? path.slice(1).map((end, i) => [path[i], end]) : [edge];
+    });
+    s.routeKnowledge[actor] = [
+      ...new Map(expanded.map((edge) => [JSON.stringify(edge), edge])).values(),
+    ];
+  }
+  saved.revision = 5;
 }
 
 // Revision 3 adds these residents and objects. Earlier records keep their

@@ -171,6 +171,8 @@ import {
   installTransports,
   moveTransport,
   transportExits,
+  waitForTransport,
+  transportArrival,
   preserveTransportAccess,
 } from "./pack-transport.mjs";
 import { upgradeSave } from "./legacy-saves.mjs";
@@ -354,7 +356,7 @@ function ordinaryExits(s, place, actor, previous) {
           ? ["attic"]
           : []),
       ...crossingExits(s, place, actor, sensesFor(s)),
-      ...transportExits(s, place, previous),
+      ...transportExits(s, place, previous, actor),
       ...packExits(s, place, actor),
     ]),
   ];
@@ -2024,6 +2026,14 @@ function toward(s, actor, target) {
   );
 }
 export function plan(s, actor = currentActor(s)) {
+  const arrival = transportArrival(s, actor);
+  const landing =
+    arrival &&
+    legalActions(s, actor).find(
+      (a) => a.kind === "move" && a.target === arrival,
+    );
+  if (landing)
+    return { action: landing, reason: `Step ashore at ${nameOf(arrival)}.` };
   if (actor === BOARDY) {
     return {
       action: legalActions(s, actor).find((a) => a.kind === "wait"),
@@ -2489,6 +2499,8 @@ export function play(
     if (action) perform(next, action, () => {}, round);
     settleRoamingArrival(next, id, roamingAPI(next));
   }
+  if (exact.kind === "wait")
+    waitForTransport(next, next.actors[actor].place, actor);
 
   for (const actor of knownActors(next)) {
     const life = lifeOf(next, actor);

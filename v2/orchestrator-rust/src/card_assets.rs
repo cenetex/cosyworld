@@ -712,9 +712,9 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "image/svg+xml",
             include_bytes!("../../card-game/assets/greek-drama/harbor.svg"),
         ),
-        "assets/greek-drama/open-door-agora.webp" => (
+        "assets/greek-drama/athens-grand-agora.webp" => (
             "image/webp",
-            include_bytes!("../../card-game/assets/greek-drama/open-door-agora.webp"),
+            include_bytes!("../../card-game/assets/greek-drama/athens-grand-agora.webp"),
         ),
         "assets/greek-drama/open-door-piraeus.webp" => (
             "image/webp",
@@ -751,6 +751,14 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
         "assets/greek-drama/ship-card.webp" => (
             "image/webp",
             include_bytes!("../../card-game/assets/greek-drama/ship-card.webp"),
+        ),
+        "assets/greek-drama/athens-harbor.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/athens-harbor.webp"),
+        ),
+        "assets/greek-drama/attic-road.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/attic-road.webp"),
         ),
         "assets/greek-drama/water-jar.png" => (
             "image/png",
@@ -976,6 +984,18 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "image/webp",
             include_bytes!("../../card-game/assets/optimized/card/png/cloth-card.webp"),
         ),
+        "assets/optimized/card/webp/greek-drama/athens-grand-agora.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/greek-drama/athens-grand-agora.webp"),
+        ),
+        "assets/optimized/card/webp/greek-drama/athens-harbor.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/greek-drama/athens-harbor.webp"),
+        ),
+        "assets/optimized/card/webp/greek-drama/attic-road.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/greek-drama/attic-road.webp"),
+        ),
         "assets/optimized/stage/png/greek-drama/bread.webp" => (
             "image/webp",
             include_bytes!("../../card-game/assets/optimized/stage/png/greek-drama/bread.webp"),
@@ -1199,6 +1219,10 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
         "assets/optimized/card/webp/greek-drama/open-door-aethra.webp" => (
             "image/webp",
             include_bytes!("../../card-game/assets/optimized/card/webp/greek-drama/open-door-aethra.webp"),
+        ),
+        "assets/greek-drama/open-door-agora.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/open-door-agora.webp"),
         ),
         "assets/optimized/card/webp/greek-drama/open-door-agora.webp" => (
             "image/webp",
@@ -1667,10 +1691,10 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "media.mjs" => "\"9b56957b0e44c39ed8f3bfbb200ce3524646f62cf83fa775fc89dc2a62dc133b\"",
         "images.mjs" => "\"400bd04904821d5b21e24790f71cf89836e5a2aabb8662b963637de77b3fd612\"",
         "image-variants.json" => {
-            "\"a063ac5f1bae828ee6d31cf90af182b75d7ef167dc1919135070d1e59ad9571d\""
+            "\"a0d6262d456bd7c11e099dfde466da6366133e95e033fce9a9888aa7510ce5df\""
         }
         "media-manifest.json" => {
-            "\"bd59e91a566f1755dbdb08b8dec7b1acd5a7df4c1b1d928ad0cd9bd329522133\""
+            "\"7d1dae843ed445c1febcba628ef2346875e044634bba2971cdbdeba1e5e28383\""
         }
         "music-streams.json" => {
             "\"187db53c1c129d1505da26c18fd2384e62b9b357c91e33fd2e954bf0b7a29904\""
@@ -1796,9 +1820,9 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "scene-video.css" => "\"3c6851ec825e734e3d8a084f4ed77f077bcb4402acbf61869a67b652c3afe4c5\"",
         "awakening.css" => "\"c7a68a23baf1e46934237a57f4b5f87d76bad87af85fdf57ee40abec646908b9\"",
         "app.mjs" => "\"1b992311073bec985ce78d4a6395cad5d5597dd2721cff0d1687a7c00b85103f\"",
-        "world.mjs" => "\"711f4e9d068694da72e266d67655dcd5ed011fe6f441f5a1efa27215a90cbd32\"",
-        "scene.mjs" => "\"977324fc9e6e69459e912953f97bec997c53923eceb2df6e332fb9da070bcc33\"",
-        "weather.mjs" => "\"10f023956b3936dc1d1a6817b53ca9b6535b976f3aa5f98728ea16a665fdd07b\"",
+        "world.mjs" => "\"2cdf7bbc9db556670de9c055c118717c259547cacc5a494be2a7f43772693522\"",
+        "scene.mjs" => "\"aba97eb70f26e75c9eaa4bcf71e3d8130f8bc5efc3df2b1a2567022959879d87\"",
+        "weather.mjs" => "\"69a3e11642c43831f80581711f6113d814badd666ad2c3e3892a1a4c70a5fd27\"",
         "daylight.mjs" => "\"6e1bbbf92705e5e2ed904ca98666540ab9a91916c94e50749e649a0ba380170d\"",
         "assets/greek-drama/harbor-open-berth-night.webp" => {
             "\"aa3136f25c67ffe9717fad4d20a9f286fbdc5a111c6827baddf5eaf4aeca2f66\""
@@ -1859,7 +1883,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
             "\"8d78d47637d47eb4c48ed4dd46ce3cbc636221479c7fc3a3a26fa6428e4bc8b2\""
         }
         "roaming-routes.mjs" => {
-            "\"241f75cb48175b3d724979055ccfdd6866b9d972fe41a34ca5fdb352ca6d86d2\""
+            "\"71b33e853f1a820e06ecb2c23be8cdd011a6f66fe44b21f13804fe5cdd5bab83\""
         }
         "quest-cards.mjs" => "\"8960e4357997e63486ea61553d626821efb44cba9361190ecff7f7f4d12983c2\"",
         "situations.mjs" => "\"1fff8b8ba954720b8a0a4450d6db2bf6e6d9378566ae0ca2668a44979f83c39d\"",
@@ -1889,7 +1913,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "assets/voices/greek-baker.mp3" => {
             "\"0dc315f6c54a2a48fab122a0c1b3dc5876121073b696b0ce4537c2d76d0b08a8\""
         }
-        "pack-schema.mjs" => "\"37d5b19860e6a256e622eb1bb830d46e9b45e8873f1467052555fe44d38ceb85\"",
+        "pack-schema.mjs" => "\"414ff33a89dcf7cb5b5bff49fb0adfd9748aad1a6c0a430b24f3f361eb3fc02a\"",
         "pack-registry.mjs" => {
             "\"cc6d9dfb3252589ca86af52e3c3221c81b23fbe508152469a85d401de518a6d6\""
         }
@@ -1904,13 +1928,13 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "pack-rules.mjs" => "\"6bb4621ec8ccb1d66e64340ad50ca29e45c9148f95d6d56354af74cfb5ef87cf\"",
         "pack-transport.mjs" => {
-            "\"929b862d00b5eb0cebb4953dce374483824ff559b71443946b15e1d1b9fe8a15\""
+            "\"4a930efedb8e283404abf4e5d0345e9336384d10a4e6e4e0fe7b243e95b65500\""
         }
         "legacy-saves.mjs" => {
-            "\"388ce52d54f3f5be1e4b57555ac9c9f9b59500e986cd0b726972403adcf84ae2\""
+            "\"2e87a6002f709aa79439da42dca28632a36a561a96b3ea5bde721a7f6363b75a\""
         }
         "forest.json" => "\"12a2be7877e4daff53d3d1ad27c1703b2ca10dff51e6f371a5b3d1a7975afdfe\"",
-        "packs.json" => "\"fe05d4fb9a5431eab3687ce86e4d62efbce4f58cec52faefeda70e8b22c173ec\"",
+        "packs.json" => "\"6e2f98daf7ee7f1bcc245c17bd6b73bc61a111b3e8a978e7b817b245ee3ee862\"",
         "music.mjs" => "\"b60f61ecf558b2eed0aa2d907ca6a7a3dede4b0459541d3c59f633e25943bc22\"",
         "entity-profiles.json" => {
             "\"32bcfada78437fd92786bdb577da658828ff000563688180bd3848593f2e201e\""
@@ -2101,8 +2125,8 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "assets/greek-drama/harbor.svg" => {
             "\"1bf4c0ba2ed2a058c2e7b20daf73d28e6e246e9bc4531e488af409fc927d6e93\""
         }
-        "assets/greek-drama/open-door-agora.webp" => {
-            "\"9052e12b1e43742f4de810f56e0f2a6f0c23d7f445744efc68cc259183cfdbf6\""
+        "assets/greek-drama/athens-grand-agora.webp" => {
+            "\"ee9a3d4508a892c7ab6440658512be35be2854491bf69601be35977657cd7585\""
         }
         "assets/greek-drama/open-door-piraeus.webp" => {
             "\"9e5a564d282c2658140e9aee121d1a013d4cd22d105be16ba4d590a5a872953f\""
@@ -2130,6 +2154,12 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "assets/greek-drama/ship-card.webp" => {
             "\"c7789a3163cbd45ac8cc9fccda27591f58d66c23dafb19e768545b68707fcd06\""
+        }
+        "assets/greek-drama/athens-harbor.webp" => {
+            "\"339386bf42192929b742bb5a2e3ee2e48d9324512bcbdc7cc3aadef58825eb33\""
+        }
+        "assets/greek-drama/attic-road.webp" => {
+            "\"2e4c3f83653a90bbea9d4640b96fa3db979c1ea9c6fbdb5bee31f5bdeb3f7882\""
         }
         "assets/greek-drama/water-jar.png" => {
             "\"6d52ae719a61b32c8e6815caa49595b1d6469ddc58bba82f7df614eac1ab9061\""
@@ -2299,6 +2329,15 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "assets/optimized/card/png/cloth-card.webp" => {
             "\"04c5b7bc38b5f7b9c98eb452b61fe22c0c29944efecc0535f0fc2c83c8f96b59\""
         }
+        "assets/optimized/card/webp/greek-drama/athens-grand-agora.webp" => {
+            "\"e394df641dc2c1ec34229184aefe7d2c4794d39c098d63e81343b29855b3c0de\""
+        }
+        "assets/optimized/card/webp/greek-drama/athens-harbor.webp" => {
+            "\"f3ddf560ed98168fe1a1e702a23d155d5ced3b79b7309cf4dec234f5872d0618\""
+        }
+        "assets/optimized/card/webp/greek-drama/attic-road.webp" => {
+            "\"5eb59dff02be232a00002d0854b6ac0d9d381248d4a9eeb197e8e4956e3324b7\""
+        }
         "assets/optimized/stage/png/greek-drama/bread.webp" => {
             "\"d8ce6f6c0d18af89673595087cbdc9cc53164935981256a3853e3329188e2420\""
         }
@@ -2466,6 +2505,9 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "assets/optimized/card/webp/greek-drama/open-door-aethra.webp" => {
             "\"c181bbb181a7ae1478ab2c36c482d8e7aebabc09a3dab2cc789ca3748f2528af\""
+        }
+        "assets/greek-drama/open-door-agora.webp" => {
+            "\"9052e12b1e43742f4de810f56e0f2a6f0c23d7f445744efc68cc259183cfdbf6\""
         }
         "assets/optimized/card/webp/greek-drama/open-door-agora.webp" => {
             "\"e99f475f1e77adec24b07beae4b97855dcf9f35d971aaead1a50ffc4a59a9f54\""

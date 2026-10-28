@@ -10,6 +10,26 @@ fn play(
     actor: usize,
     fields: &[(&str, &str)],
 ) -> Value {
+    if !engine::historical(&world.version)
+        && fields.iter().any(|(k, v)| *k == "kind" && *v == "move")
+    {
+        if let Some((_, target)) = fields.iter().find(|(k, _)| *k == "target") {
+            let from = world.game["actors"][if actor == 0 { "vale" } else { "mara" }]["place"]
+                .as_str()
+                .unwrap();
+            if (from == "greek-eleusis" && *target == "greek-piraeus")
+                || (from == "greek-piraeus" && *target == "greek-eleusis")
+            {
+                play(
+                    c,
+                    id,
+                    world,
+                    actor,
+                    &[("kind", "move"), ("target", "greek-road-piraeus-eleusis")],
+                );
+            }
+        }
+    }
     let action = world.project(actor).unwrap()["actions"]
         .as_array()
         .unwrap()
@@ -72,6 +92,7 @@ fn released_berth(c: &rusqlite::Connection, id: &str) -> World {
     world.game["actors"]["vale"]["place"] = json!("greek-courtyard");
     world.game["actors"]["mara"]["place"] = json!("greek-eleusis");
     world.game["items"]["greek-water-jar"]["holder"] = json!("vale");
+    world.game["crossings"]["pond-greek-harbor"]["discovered"] = json!(true);
     full_store::seed(c, id, &world, "released-open-door", now()).unwrap();
     let steps = [
         ("choose", "choiceId", "greek-return-water-jar"),
@@ -183,6 +204,17 @@ fn agreed_household_journey_replays_after_released_history_with_both_care_choice
             assert_eq!(world.game["actors"][MYRINE]["place"], "greek-eleusis");
             c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
             assert_eq!(full_store::world(&c, &id, now()).unwrap(), world);
+            play(
+                &c,
+                &id,
+                &mut world,
+                1,
+                &[
+                    ("kind", "accompany"),
+                    ("target", MYRINE),
+                    ("destination", "greek-road-piraeus-eleusis"),
+                ],
+            );
             let travel = play(
                 &c,
                 &id,
@@ -244,13 +276,26 @@ fn agreed_household_journey_replays_after_released_history_with_both_care_choice
                 true
             );
             rejected(&c, &id, &mut world, "mara", arrival);
-            play(
-                &c,
-                &id,
-                &mut world,
-                1,
-                &[("kind", "move"), ("target", "greek-harbor")],
-            );
+            for _ in 0..32 {
+                if world.project(1).unwrap()["actions"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|a| a["kind"] == "move" && a["target"] == "greek-ship")
+                {
+                    break;
+                }
+                play(&c, &id, &mut world, 1, &[("kind", "wait")]);
+            }
+            for target in ["greek-ship", "greek-harbor"] {
+                play(
+                    &c,
+                    &id,
+                    &mut world,
+                    1,
+                    &[("kind", "move"), ("target", target)],
+                );
+            }
             assert_eq!(world.game["actors"][MYRINE]["place"], "greek-piraeus");
             c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
             assert_eq!(full_store::world(&c, &id, now()).unwrap(), world);

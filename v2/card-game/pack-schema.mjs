@@ -335,6 +335,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "musicMode",
         "stage",
         "requires",
+        "road",
       ]),
       `place ${id} has an unknown field`,
     );
@@ -349,6 +350,20 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       `place ${id} exits must name other places in this pack`,
     );
     media(p.backdrop, `place ${id} backdrop`);
+    if (p.road !== undefined)
+      check(
+        Array.isArray(p.road) &&
+          p.road.length === 2 &&
+          new Set(p.road).size === 2 &&
+          p.road.every(
+            (end, i) =>
+              owns(places, end) &&
+              p.exits[i] === end &&
+              places[end].exits.includes(id),
+          ) &&
+          p.exits.length === 2,
+        `road ${id} needs two fixed ends with a return path`,
+      );
     if (p.art !== undefined) media(p.art, `place ${id} art`);
     if (p.music !== undefined)
       check(
@@ -1018,6 +1033,9 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         ...Object.values(pack.transports || {})
           .filter((t) => Array.isArray(t.docks) && t.docks.includes(id))
           .map((t) => t.place),
+        ...Object.values(pack.transports || {})
+          .filter((t) => t.place === id)
+          .flatMap((t) => t.docks),
         ...routes.filter((r) => r.from === id).map((r) => r.to),
       ].filter((id) => r.places.includes(id)))
         reachable.add(to);
@@ -1073,16 +1091,17 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         !transportPlaces.has(t.place) &&
         places[t.place]?.exits.length === 0 &&
         Array.isArray(t.docks) &&
-        t.docks.length === 2 &&
-        new Set(t.docks).size === 2 &&
+        t.docks.length >= 2 &&
+        t.docks.length <= 8 &&
+        new Set(t.docks).size === t.docks.length &&
         t.docks.every((p) => anyPlace(p) && p !== t.place) &&
         t.docks.includes(t.at),
-      `transport ${id} needs its own place, two docks and an initial dock`,
+      `transport ${id} needs its own place, two to eight docks and an initial dock`,
     );
     if (!valid) continue;
     transportPlaces.add(t.place);
     check(
-      crossings.filter((c) => c.transport === id).length === 2 &&
+      crossings.filter((c) => c.transport === id).length === t.docks.length &&
         (t.docks || []).every((from) =>
           crossings.some(
             (c) =>
@@ -1228,6 +1247,9 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       ...Object.values(pack.transports || {})
         .filter((t) => Array.isArray(t.docks) && t.docks.includes(id))
         .map((t) => t.place),
+      ...Object.values(pack.transports || {})
+        .filter((t) => t.place === id)
+        .flatMap((t) => t.docks),
       ...routes.filter((r) => r.from === id).map((r) => r.to),
       ...crossings.filter((c) => c.from === id).map((c) => c.to),
     ])

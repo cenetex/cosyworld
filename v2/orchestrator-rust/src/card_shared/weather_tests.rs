@@ -38,9 +38,25 @@ fn regional_weather_agrees_in_c_and_survives_upgrade_and_journal_replay() {
     full_store::seed(&c, &id, &saved, "weather-release", now()).unwrap();
 
     let mut world = full_store::world(&c, &id, now()).unwrap();
-    let mut expected = saved.game.clone();
-    expected["revision"] = json!(saved.game["revision"].as_u64().unwrap() + 1);
-    assert_eq!(world.game, expected);
+    assert_eq!(
+        world.game["revision"],
+        saved.game["revision"].as_u64().unwrap() + 1
+    );
+    for field in [
+        "actors",
+        "items",
+        "turn",
+        "eventSeq",
+        "log",
+        "transports",
+        "quests",
+    ] {
+        assert_eq!(world.game[field], saved.game[field], "saved {field}");
+    }
+    for (id, memory) in saved.game["memories"].as_object().unwrap() {
+        assert_eq!(&world.game["memories"][id], memory, "saved memory {id}");
+    }
+    assert_eq!(world.game["packs"]["greek-drama"]["revision"], 5);
     assert_eq!(world.version, engine::VERSION);
     assert_eq!(
         world.project(0).unwrap()["scene"]["weather"]["condition"],
