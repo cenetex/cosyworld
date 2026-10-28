@@ -232,6 +232,28 @@ try {
           ),
         );
         await page.keyboard.press("Escape");
+        await page.waitForFunction(() =>
+          [...document.querySelectorAll("#backdrop,#cast img")].every(
+            (img) => img.complete && img.naturalWidth,
+          ),
+        );
+        await page.evaluate(async () => {
+          await Promise.all(
+            [...document.querySelectorAll("#backdrop,#cast img")].map((img) =>
+              img.decode(),
+            ),
+          );
+          await Promise.allSettled(
+            document
+              .getAnimations()
+              .filter(
+                (animation) =>
+                  animation.effect.getTiming().iterations !== Infinity,
+              )
+              .map((animation) => animation.finished),
+          );
+          await new Promise(requestAnimationFrame);
+        });
         await page.screenshot({
           path: new URL(`fire-${suffix}-${turn}-${width}.png`, output).pathname,
         });

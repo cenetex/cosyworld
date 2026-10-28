@@ -274,11 +274,25 @@ describe("the reflected shore card game", () => {
         "forest.json",
         "packs.json",
       ]) {
-        expect((await fetch(`${url}/card-game/${file}`)).status).toBe(200);
+        const response = await fetch(`${url}/card-game/${file}`);
+        expect(response.status).toBe(200);
+        await response.arrayBuffer();
       }
-      expect((await fetch(`${url}/scene.mjs`)).status).toBe(200);
-      expect((await fetch(`${url}/cards.mjs`)).status).toBe(200);
-      expect((await fetch(`${url}/quests.mjs`)).status).toBe(200);
+      {
+        const response = await fetch(`${url}/scene.mjs`);
+        expect(response.status).toBe(200);
+        await response.arrayBuffer();
+      }
+      {
+        const response = await fetch(`${url}/cards.mjs`);
+        expect(response.status).toBe(200);
+        await response.arrayBuffer();
+      }
+      {
+        const response = await fetch(`${url}/quests.mjs`);
+        expect(response.status).toBe(200);
+        await response.arrayBuffer();
+      }
       for (const id of ["station", "attic", "pond", "vale", "moth", "keeper"]) {
         const image = await fetch(`${url}/assets/${id}.png`);
         expect(image.status).toBe(200);
@@ -289,18 +303,20 @@ describe("the reflected shore card game", () => {
         ]);
       }
       const script = await fetch(`${url}/world.mjs`);
+      await script.arrayBuffer();
       for (const { file } of Object.values(roomTracks).flat()) {
         const path = `${url}/card-game/assets/music/${file}`;
         const song = await fetch(path);
-        expect(song.headers.get("content-type")).toBe("audio/mpeg");
+        expect(song.headers.get("content-type")).toBe(file.endsWith(".m4a") ? "audio/mp4" : "audio/mpeg");
         const bytes = Buffer.from(await song.arrayBuffer());
-        expect(bytes.subarray(0, 3).toString()).toBe("ID3");
+        if (file.endsWith(".m4a")) expect(bytes.subarray(4, 8).toString()).toBe("ftyp");
+        else expect(bytes.subarray(0, 3).toString()).toBe("ID3");
         const range = await fetch(path, { headers: { Range: "bytes=0-2" } });
         expect(range.status).toBe(206);
         expect(range.headers.get("content-range")).toBe(
           `bytes 0-2/${bytes.length}`,
         );
-        expect(await range.text()).toBe("ID3");
+        expect(Buffer.from(await range.arrayBuffer())).toEqual(bytes.subarray(0, 3));
         const tail = await fetch(path, { headers: { Range: "bytes=-32" } });
         expect(Buffer.from(await tail.arrayBuffer())).toEqual(
           bytes.subarray(-32),
