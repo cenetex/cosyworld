@@ -51,10 +51,10 @@ describe("Greek section save upgrade", () => {
       const before = oldWorld(scope);
       expect(before.packs["greek-drama"].revision).toBe(2);
       const after = decodeSave(JSON.stringify(before));
-      expect(after.packs["greek-drama"].revision).toBe(4);
+      expect(after.packs["greek-drama"].revision).toBe(5);
       expect(after.packs["greek-drama"]).toEqual({
         ...before.packs["greek-drama"],
-        revision: 4,
+        revision: 5,
       });
       for (const field of [
         "turn",
@@ -62,8 +62,7 @@ describe("Greek section save upgrade", () => {
         "eventSeq",
         "log",
         "transports",
-        "crossings",
-      ])
+              ])
         expect(after[field]).toEqual(before[field]);
       for (const [id, actor] of Object.entries(before.actors)) {
         expect(after.actors[id]).toMatchObject(actor);

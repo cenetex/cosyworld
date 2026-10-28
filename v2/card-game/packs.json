@@ -293,9 +293,9 @@
       "schemaVersion": 1,
       "id": "greek-drama",
       "packId": "cosyworld.greek-drama",
-      "revision": 4,
+      "revision": 5,
       "name": "The Wine-Dark Sea",
-      "description": "A branching Greek drama world. Dione’s table opens five Attic places where burial, refuge and the cost of welcome become a growing poem.",
+      "description": "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. Fixed roads lead through the Attic places where welcome becomes a growing poem.",
       "tone": "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
       "entry": "greek-harbor",
       "continuity": {
@@ -337,10 +337,8 @@
           "name": "The Wine-Dark Harbor",
           "text": "Worn steps climb from the stone landing toward the town.",
           "exits": [
-            "greek-courtyard",
-            "greek-athens",
-            "greek-argolid-road",
-            "greek-piraeus"
+            "greek-road-thebes",
+            "greek-argolid-road"
           ],
           "backdrop": "assets/greek-drama/harbor-open-berth.webp",
           "persona": "Worn steps climb from the stone landing toward the town."
@@ -349,7 +347,7 @@
           "name": "Theban Courtyard",
           "text": "Bread cools beneath a cloth. An empty place remains at the common table.",
           "exits": [
-            "greek-harbor",
+            "greek-road-thebes",
             "greek-well",
             "greek-gate",
             "greek-sanctuary"
@@ -429,10 +427,9 @@
         },
         "greek-athens": {
           "name": "Athenian Agora",
-          "text": "A herald’s table stands between fish stalls and baskets. A clear space waits for the mothers’ petition.",
+          "text": "A broad civic square opens beneath long painted colonnades. Marble steps rise toward the Acropolis above the roofs. A herald keeps a petition table beside the market.",
           "exits": [
-            "greek-harbor",
-            "greek-piraeus",
+            "greek-road-athens-piraeus",
             "greek-assembly",
             "greek-acropolis",
             "greek-demos-house",
@@ -440,23 +437,23 @@
             "greek-jury-house",
             "greek-festival",
             "greek-attic-farm",
-            "greek-colonus",
-            "greek-eleusis",
-            "greek-marathon",
-            "greek-delphi"
+            "greek-road-athens-colonus",
+            "greek-road-athens-eleusis",
+            "greek-road-athens-marathon",
+            "greek-delphi",
+            "greek-road-athens-harbor"
           ],
-          "backdrop": "assets/greek-drama/open-door-agora.webp",
-          "persona": "The Agora holds the present hearing about the Argive dead. Theseus receives the petition here in this adaptation. The neighboring roads lead to Eleusis, the quays and two clearly named remembered tales."
+          "backdrop": "assets/greek-drama/athens-grand-agora.webp",
+          "persona": "The Agora is the great civic heart of Athens. Colonnades, public monuments and the high Acropolis give the city its scale. Theseus receives the mothers’ petition at the herald’s table. Roads lead toward the harbor, the quays, Eleusis, Colonus and Marathon."
         },
         "greek-piraeus": {
           "name": "Piraeus Quays",
-          "text": "Folded cloth, a grain basket and a low bench stand beside the mooring ropes. A host waits for the names of returning families. Roads follow the coast to Eleusis and the Wine-Dark Harbor.",
+          "text": "Folded cloth, a grain basket and a low bench stand beside the mooring ropes. A host waits for the names of returning families. Roads lead inland to Athens and along the coast to Eleusis.",
           "exits": [
-            "greek-athens",
+            "greek-road-athens-piraeus",
             "greek-tauris",
             "greek-sicily",
-            "greek-eleusis",
-            "greek-harbor"
+            "greek-road-piraeus-eleusis"
           ],
           "backdrop": "assets/greek-drama/open-door-piraeus.webp",
           "persona": "These quays hold the practical work of welcome. A reserved berth records a promise and supplies at this quay. The host speaks about the actual list, cloth and basket and the traveler’s chosen terms."
@@ -540,10 +537,10 @@
           "name": "Colonus Grove",
           "text": "A cup and a small pot of honey stand at the grove’s edge. A keeper rests beside a smooth stone. Local roads lead toward Eleusis and the Marathon altar.",
           "exits": [
-            "greek-athens",
+            "greek-road-athens-colonus",
             "greek-underworld",
-            "greek-eleusis",
-            "greek-marathon"
+            "greek-road-colonus-eleusis",
+            "greek-road-colonus-marathon"
           ],
           "backdrop": "assets/greek-drama/open-door-colonus.webp",
           "persona": "The keeper tells Sophocles’s Oedipus at Colonus as an earlier tale, before the brothers died at Thebes. Oedipus and his daughters belong to that named tale. The traveler’s offerings and refuge tablet belong to the present grove."
@@ -552,9 +549,9 @@
           "name": "Eleusinian Sanctuary",
           "text": "Mothers hold olive branches on Demeter’s steps. Aethra keeps a clear space beside the altar for their request. A coast road leads to Piraeus; a local road returns through Colonus.",
           "exits": [
-            "greek-athens",
-            "greek-piraeus",
-            "greek-colonus"
+            "greek-road-athens-eleusis",
+            "greek-road-piraeus-eleusis",
+            "greek-road-colonus-eleusis"
           ],
           "backdrop": "assets/greek-drama/open-door-eleusis.webp",
           "persona": "This episode follows the attack on Thebes. The Argive mothers seek their sons’ remains. The traveler’s own Theban deed stays true. The city’s recovery, the funeral and the later care each need their own recorded action or report."
@@ -563,8 +560,8 @@
           "name": "Marathon Altar",
           "text": "A folded cloth lies beside the altar of Zeus. A keeper watches the road where families once sought shelter. A local road runs back through Colonus.",
           "exits": [
-            "greek-athens",
-            "greek-colonus"
+            "greek-road-athens-marathon",
+            "greek-road-colonus-marathon"
           ],
           "backdrop": "assets/greek-drama/open-door-marathon.webp",
           "persona": "The keeper tells Euripides’s Children of Heracles as a separate tale under Demophon, son of Theseus, after Heracles’s death. The daughter, battle and captive king belong to that tale. The traveler’s blanket stays at the present altar for guests."
@@ -857,8 +854,8 @@
         },
         "greek-ship": {
           "name": "Greek ship",
-          "text": "Dark water passes beneath the hull. The ship carries its passengers to the opposite shore.",
-          "persona": "Aboard a ship crossing between Black pond and the Wine-Dark Harbor. Passengers remain aboard until they disembark at the destination.",
+          "text": "Water passes beneath the hull. The shipmaster watches the shores. Open ports wait beyond the rail.",
+          "persona": "A shared ship serving Black Pond, the Wine-Dark Harbor, Athens Harbor and Piraeus Quays. The first passenger ashore chooses the arrival port for everyone aboard. New passengers can board there for the next voyage.",
           "exits": [],
           "backdrop": "assets/greek-drama/ship-deck.webp",
           "art": "assets/greek-drama/ship-card.webp",
@@ -881,6 +878,141 @@
             }
           ],
           "musicMode": "random-per-visit"
+        },
+        "greek-athens-harbor": {
+          "name": "Athens Harbor",
+          "text": "Stone quays run beneath long warehouses. Merchant masts rise above the water. Beyond the harbor gate, the road climbs toward the walls and the Acropolis of Athens.",
+          "persona": "Athens Harbor is the ship’s landing for the great city. The Agora lies inland along the harbor road. Piraeus Quays is a separate stop with its own host and work of welcome.",
+          "exits": [
+            "greek-road-athens-harbor"
+          ],
+          "backdrop": "assets/greek-drama/athens-harbor.webp"
+        },
+        "greek-road-thebes": {
+          "name": "Theban Harbor Road",
+          "text": "A broad road crosses the olive hills. One end leads to The Wine-Dark Harbor; the other leads to Theban Courtyard. A stone bench rests beside the verge.",
+          "persona": "A shared road between The Wine-Dark Harbor and Theban Courtyard. The left end always leads to The Wine-Dark Harbor. The right end always leads to Theban Courtyard. Travelers can meet, talk, rest and carry their belongings here.",
+          "exits": [
+            "greek-harbor",
+            "greek-courtyard"
+          ],
+          "road": [
+            "greek-harbor",
+            "greek-courtyard"
+          ],
+          "backdrop": "assets/greek-drama/attic-road.webp"
+        },
+        "greek-road-athens-harbor": {
+          "name": "Athens Harbor Road",
+          "text": "A broad road crosses the olive hills. One end leads to Athens Harbor; the other leads to Athenian Agora. A stone bench rests beside the verge.",
+          "persona": "A shared road between Athens Harbor and Athenian Agora. The left end always leads to Athens Harbor. The right end always leads to Athenian Agora. Travelers can meet, talk, rest and carry their belongings here.",
+          "exits": [
+            "greek-athens-harbor",
+            "greek-athens"
+          ],
+          "road": [
+            "greek-athens-harbor",
+            "greek-athens"
+          ],
+          "backdrop": "assets/greek-drama/attic-road.webp"
+        },
+        "greek-road-athens-piraeus": {
+          "name": "Athens–Piraeus Road",
+          "text": "A broad road crosses the olive hills. One end leads to Piraeus Quays; the other leads to Athenian Agora. A stone bench rests beside the verge.",
+          "persona": "A shared road between Piraeus Quays and Athenian Agora. The left end always leads to Piraeus Quays. The right end always leads to Athenian Agora. Travelers can meet, talk, rest and carry their belongings here.",
+          "exits": [
+            "greek-piraeus",
+            "greek-athens"
+          ],
+          "road": [
+            "greek-piraeus",
+            "greek-athens"
+          ],
+          "backdrop": "assets/greek-drama/attic-road.webp"
+        },
+        "greek-road-athens-colonus": {
+          "name": "Colonus Road",
+          "text": "A broad road crosses the olive hills. One end leads to Athenian Agora; the other leads to Colonus Grove. A stone bench rests beside the verge.",
+          "persona": "A shared road between Athenian Agora and Colonus Grove. The left end always leads to Athenian Agora. The right end always leads to Colonus Grove. Travelers can meet, talk, rest and carry their belongings here.",
+          "exits": [
+            "greek-athens",
+            "greek-colonus"
+          ],
+          "road": [
+            "greek-athens",
+            "greek-colonus"
+          ],
+          "backdrop": "assets/greek-drama/attic-road.webp"
+        },
+        "greek-road-athens-eleusis": {
+          "name": "Eleusis Road",
+          "text": "A broad road crosses the olive hills. One end leads to Athenian Agora; the other leads to Eleusinian Sanctuary. A stone bench rests beside the verge.",
+          "persona": "A shared road between Athenian Agora and Eleusinian Sanctuary. The left end always leads to Athenian Agora. The right end always leads to Eleusinian Sanctuary. Travelers can meet, talk, rest and carry their belongings here.",
+          "exits": [
+            "greek-athens",
+            "greek-eleusis"
+          ],
+          "road": [
+            "greek-athens",
+            "greek-eleusis"
+          ],
+          "backdrop": "assets/greek-drama/attic-road.webp"
+        },
+        "greek-road-athens-marathon": {
+          "name": "Marathon Road",
+          "text": "A broad road crosses the olive hills. One end leads to Athenian Agora; the other leads to Marathon Altar. A stone bench rests beside the verge.",
+          "persona": "A shared road between Athenian Agora and Marathon Altar. The left end always leads to Athenian Agora. The right end always leads to Marathon Altar. Travelers can meet, talk, rest and carry their belongings here.",
+          "exits": [
+            "greek-athens",
+            "greek-marathon"
+          ],
+          "road": [
+            "greek-athens",
+            "greek-marathon"
+          ],
+          "backdrop": "assets/greek-drama/attic-road.webp"
+        },
+        "greek-road-piraeus-eleusis": {
+          "name": "Eleusis Coast Road",
+          "text": "A broad road crosses the olive hills. One end leads to Piraeus Quays; the other leads to Eleusinian Sanctuary. A stone bench rests beside the verge.",
+          "persona": "A shared road between Piraeus Quays and Eleusinian Sanctuary. The left end always leads to Piraeus Quays. The right end always leads to Eleusinian Sanctuary. Travelers can meet, talk, rest and carry their belongings here.",
+          "exits": [
+            "greek-piraeus",
+            "greek-eleusis"
+          ],
+          "road": [
+            "greek-piraeus",
+            "greek-eleusis"
+          ],
+          "backdrop": "assets/greek-drama/attic-road.webp"
+        },
+        "greek-road-colonus-eleusis": {
+          "name": "Colonus–Eleusis Road",
+          "text": "A broad road crosses the olive hills. One end leads to Colonus Grove; the other leads to Eleusinian Sanctuary. A stone bench rests beside the verge.",
+          "persona": "A shared road between Colonus Grove and Eleusinian Sanctuary. The left end always leads to Colonus Grove. The right end always leads to Eleusinian Sanctuary. Travelers can meet, talk, rest and carry their belongings here.",
+          "exits": [
+            "greek-colonus",
+            "greek-eleusis"
+          ],
+          "road": [
+            "greek-colonus",
+            "greek-eleusis"
+          ],
+          "backdrop": "assets/greek-drama/attic-road.webp"
+        },
+        "greek-road-colonus-marathon": {
+          "name": "Colonus–Marathon Road",
+          "text": "A broad road crosses the olive hills. One end leads to Colonus Grove; the other leads to Marathon Altar. A stone bench rests beside the verge.",
+          "persona": "A shared road between Colonus Grove and Marathon Altar. The left end always leads to Colonus Grove. The right end always leads to Marathon Altar. Travelers can meet, talk, rest and carry their belongings here.",
+          "exits": [
+            "greek-colonus",
+            "greek-marathon"
+          ],
+          "road": [
+            "greek-colonus",
+            "greek-marathon"
+          ],
+          "backdrop": "assets/greek-drama/attic-road.webp"
         }
       },
       "avatars": {
@@ -1573,6 +1705,7 @@
             "after": "greek-homecoming-agree-journey",
             "path": [
               "greek-eleusis",
+              "greek-road-piraeus-eleusis",
               "greek-piraeus"
             ]
           },
@@ -6834,7 +6967,17 @@
           "greek-piraeus",
           "greek-colonus",
           "greek-eleusis",
-          "greek-marathon"
+          "greek-marathon",
+          "greek-road-thebes",
+          "greek-road-athens-harbor",
+          "greek-road-athens-piraeus",
+          "greek-road-athens-colonus",
+          "greek-road-athens-eleusis",
+          "greek-road-athens-marathon",
+          "greek-road-piraeus-eleusis",
+          "greek-road-colonus-eleusis",
+          "greek-road-colonus-marathon",
+          "greek-athens-harbor"
         ],
         "avatars": [
           "greek-antigone",
@@ -7464,7 +7607,16 @@
             "greek-piraeus",
             "greek-colonus",
             "greek-eleusis",
-            "greek-marathon"
+            "greek-marathon",
+            "greek-road-athens-harbor",
+            "greek-road-athens-piraeus",
+            "greek-road-athens-colonus",
+            "greek-road-athens-eleusis",
+            "greek-road-athens-marathon",
+            "greek-road-piraeus-eleusis",
+            "greek-road-colonus-eleusis",
+            "greek-road-colonus-marathon",
+            "greek-athens-harbor"
           ],
           "requires": [
             {
@@ -7477,7 +7629,7 @@
       ],
       "bridge": {
         "id": "shore-greek-drama",
-        "description": "A ship travels between Black pond and the Wine-Dark Harbor. The lamp signal calls it to the pond."
+        "description": "A shared ship serves Black Pond, the Wine-Dark Harbor, Athens Harbor and Piraeus Quays. The lamp signal calls it to the pond."
       },
       "crossings": [
         {
@@ -7556,6 +7708,36 @@
             "cardName": "Greek ship",
             "cardArt": "assets/greek-drama/ship-card.webp"
           }
+        },
+        {
+          "id": "greek-athens-harbor-ship",
+          "from": "greek-athens-harbor",
+          "to": "pond",
+          "travelers": "any",
+          "travel": "aboard the ship",
+          "requires": [],
+          "transport": "greek-ship",
+          "travelLabel": "Board",
+          "scenery": {
+            "open": "The Greek ship waits beside the quay.",
+            "cardName": "Greek ship",
+            "cardArt": "assets/greek-drama/ship-card.webp"
+          }
+        },
+        {
+          "id": "greek-piraeus-ship",
+          "from": "greek-piraeus",
+          "to": "pond",
+          "travelers": "any",
+          "travel": "aboard the ship",
+          "requires": [],
+          "transport": "greek-ship",
+          "travelLabel": "Board",
+          "scenery": {
+            "open": "The Greek ship waits beside the quay.",
+            "cardName": "Greek ship",
+            "cardArt": "assets/greek-drama/ship-card.webp"
+          }
         }
       ],
       "transports": {
@@ -7563,7 +7745,9 @@
           "place": "greek-ship",
           "docks": [
             "pond",
-            "greek-harbor"
+            "greek-harbor",
+            "greek-athens-harbor",
+            "greek-piraeus"
           ],
           "at": "greek-harbor"
         }

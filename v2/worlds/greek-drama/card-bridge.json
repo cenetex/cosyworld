@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "shore-greek-drama",
   "pack": "greek-drama",
-  "description": "A ship travels between Black pond and the Wine-Dark Harbor. The lamp signal calls it to the pond.",
+  "description": "A shared ship serves Black Pond, the Wine-Dark Harbor, Athens Harbor and Piraeus Quays. The lamp signal calls it to the pond.",
   "crossings": [
     {
       "id": "pond-greek-harbor",
@@ -75,12 +75,42 @@
         "cardName": "Greek ship",
         "cardArt": "assets/greek-drama/ship-card.webp"
       }
+    },
+    {
+      "id": "greek-athens-harbor-ship",
+      "from": "greek-athens-harbor",
+      "to": "pond",
+      "travelers": "any",
+      "travel": "aboard the ship",
+      "requires": [],
+      "transport": "greek-ship",
+      "travelLabel": "Board",
+      "scenery": {
+        "open": "The Greek ship waits beside the quay.",
+        "cardName": "Greek ship",
+        "cardArt": "assets/greek-drama/ship-card.webp"
+      }
+    },
+    {
+      "id": "greek-piraeus-ship",
+      "from": "greek-piraeus",
+      "to": "pond",
+      "travelers": "any",
+      "travel": "aboard the ship",
+      "requires": [],
+      "transport": "greek-ship",
+      "travelLabel": "Board",
+      "scenery": {
+        "open": "The Greek ship waits beside the quay.",
+        "cardName": "Greek ship",
+        "cardArt": "assets/greek-drama/ship-card.webp"
+      }
     }
   ],
   "transports": {
     "greek-ship": {
       "place": "greek-ship",
-      "docks": ["pond", "greek-harbor"],
+      "docks": ["pond", "greek-harbor", "greek-athens-harbor", "greek-piraeus"],
       "at": "greek-harbor"
     }
   }

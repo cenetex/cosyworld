@@ -50,7 +50,7 @@ describe("the household save upgrade", () => {
       const after = decodeSave(JSON.stringify(before));
       expect(after.packs["greek-drama"]).toEqual({
         ...before.packs["greek-drama"],
-        revision: 4,
+        revision: 5,
       });
       expect(Object.keys(after.actors).length).toBe(
         Object.keys(before.actors).length + 1,
@@ -61,8 +61,7 @@ describe("the household save upgrade", () => {
         "revision",
         "eventSeq",
         "log",
-        "crossings",
-        "transports",
+                "transports",
       ])
         expect(after[key]).toEqual(before[key]);
       for (const [id, actor] of Object.entries(before.actors))

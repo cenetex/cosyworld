@@ -49,6 +49,27 @@
       "card": "assets/optimized/card/png/cloth-card.webp",
       "cardHash": "04c5b7bc38b5f7b9c98eb452b61fe22c0c29944efecc0535f0fc2c83c8f96b59"
     },
+    "assets/greek-drama/athens-grand-agora.webp": {
+      "sourceHash": "ee9a3d4508a892c7ab6440658512be35be2854491bf69601be35977657cd7585",
+      "stage": "assets/greek-drama/athens-grand-agora.webp",
+      "stageHash": "ee9a3d4508a892c7ab6440658512be35be2854491bf69601be35977657cd7585",
+      "card": "assets/optimized/card/webp/greek-drama/athens-grand-agora.webp",
+      "cardHash": "e394df641dc2c1ec34229184aefe7d2c4794d39c098d63e81343b29855b3c0de"
+    },
+    "assets/greek-drama/athens-harbor.webp": {
+      "sourceHash": "339386bf42192929b742bb5a2e3ee2e48d9324512bcbdc7cc3aadef58825eb33",
+      "stage": "assets/greek-drama/athens-harbor.webp",
+      "stageHash": "339386bf42192929b742bb5a2e3ee2e48d9324512bcbdc7cc3aadef58825eb33",
+      "card": "assets/optimized/card/webp/greek-drama/athens-harbor.webp",
+      "cardHash": "f3ddf560ed98168fe1a1e702a23d155d5ced3b79b7309cf4dec234f5872d0618"
+    },
+    "assets/greek-drama/attic-road.webp": {
+      "sourceHash": "2e4c3f83653a90bbea9d4640b96fa3db979c1ea9c6fbdb5bee31f5bdeb3f7882",
+      "stage": "assets/greek-drama/attic-road.webp",
+      "stageHash": "2e4c3f83653a90bbea9d4640b96fa3db979c1ea9c6fbdb5bee31f5bdeb3f7882",
+      "card": "assets/optimized/card/webp/greek-drama/attic-road.webp",
+      "cardHash": "5eb59dff02be232a00002d0854b6ac0d9d381248d4a9eeb197e8e4956e3324b7"
+    },
     "assets/greek-drama/bread.png": {
       "sourceHash": "b9570b0b1db56c334ff070367afdc23cb3595cf0b87971b4c9c5c27ac587859e",
       "stage": "assets/optimized/stage/png/greek-drama/bread.webp",

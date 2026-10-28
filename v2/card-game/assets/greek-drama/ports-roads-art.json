@@ -1,0 +1,21 @@
+{
+  "generator": "Built-in image_gen tool",
+  "date": "2026-10-27",
+  "assets": [
+    {
+      "file": "athens-harbor.webp",
+      "prompt": "Use case: historical-scene. Asset type: wide 16:9 game location painting for CosyWorld. Primary request: an impressive ancient Athens harbor, a distinct landing from the smaller Piraeus quays. A broad stone quay in the foreground, coiled mooring ropes, wooden merchant ships with furled square sails, long colonnaded warehouses and a monumental harbor gateway, the road inland between pale fortified walls with the elevated Athenian Acropolis visible in the far distance. Architecture and landscape only. Ground-level viewpoint; generous open foreground for game characters; luminous golden afternoon, blue Aegean water, warm ochre limestone, weathered timber, olive green. Detailed painterly realism, hand-painted game scenery, restrained classical grandeur. The port should feel like the entrance to a great city. No people, writing, UI, frames, modern objects or fantasy towers.",
+      "sha256": "339386bf42192929b742bb5a2e3ee2e48d9324512bcbdc7cc3aadef58825eb33"
+    },
+    {
+      "file": "athens-grand-agora.webp",
+      "prompt": "Use case: historical-scene. Asset type: wide 16:9 game location painting for CosyWorld. Primary request: a grand, spacious ancient Athenian Agora, substantially larger and more impressive than a village courtyard. A vast sunlit paved civic square, monumental painted colonnades extending across both sides, a herald's modest petition table and baskets along one edge, wide steps, marble civic monuments, terracotta rooftops beyond and the magnificent Acropolis high above the city in the distance. Low street-level camera gives the architecture weight and scale; broad open middle foreground for game sprites. Warm golden afternoon, clear azure sky, pale weathered stone and muted red architectural details. Detailed painterly realism and believable ancient Greek construction. Architecture and landscape only. No people, letters, UI, borders, modern buildings, fantasy elements.",
+      "sha256": "ee9a3d4508a892c7ab6440658512be35be2854491bf69601be35977657cd7585"
+    },
+    {
+      "file": "attic-road.webp",
+      "prompt": "Use case: historical-scene. Asset type: wide 16:9 game location painting for CosyWorld. Primary request: a quiet ancient Greek road scene with two clear fixed directions, suitable for travelers to meet between settlements. A broad dusty stone-edged road passes horizontally through the open foreground, curving away gently to the left and right behind low stone walls. Olive groves and cypress on rolling Attic hills, a distant glimpse of blue sea and pale city walls on the horizon. Both ends of the road remain visually clear. A shaded stone resting bench at the edge, dry grasses, warm afternoon light. Ground-level viewpoint, generous open foreground for character sprites. Detailed painterly realism, warm ochre, olive green, blue sky. Landscape only, no people, lettering, sign text, interface, borders, cars or modern objects.",
+      "sha256": "2e4c3f83653a90bbea9d4640b96fa3db979c1ea9c6fbdb5bee31f5bdeb3f7882"
+    }
+  ]
+}

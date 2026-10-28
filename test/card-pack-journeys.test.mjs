@@ -24,9 +24,9 @@ const agreement = "test-journey-agree";
 const arrival = "test-journey-arrive";
 const path = [
   "greek-courtyard",
+  "greek-road-thebes",
   "greek-harbor",
-  "greek-athens",
-  "greek-piraeus",
+  "greek-argolid-road",
 ];
 const original = structuredClone({
   avatar: pack.avatars[resident],
@@ -143,8 +143,8 @@ describe("agreed resident journeys", () => {
     expect(world.packs[pack.id].flags["test-journey-arrived"]).toBe(true);
     expect(legalActions(world).some((a) => a.choiceId === arrival)).toBe(false);
     expect(accompany(world)).toEqual([]);
-    world = act(world, "move", { target: "greek-athens" });
-    expect(world.actors[resident].place).toBe("greek-piraeus");
+    world = act(world, "move", { target: "greek-harbor" });
+    expect(world.actors[resident].place).toBe("greek-argolid-road");
     expect(decodeSave(encodeSave(world)).actors[resident].place).toBe(
       "greek-piraeus",
     );
@@ -152,10 +152,8 @@ describe("agreed resident journeys", () => {
 
   it("waits at a closed section and requires the resident for the arrival choice", () => {
     let world = act(fixture("opening"), "choose", { choiceId: agreement });
-    world = act(world, "accompany", {
-      target: resident,
-      destination: "greek-harbor",
-    });
+    for (const destination of path.slice(1, 3))
+      world = act(world, "accompany", { target: resident, destination });
     expect(accompany(world)).toEqual([]);
     expect(world.actors[resident].place).toBe("greek-harbor");
     const together = act(fixture(), "choose", { choiceId: agreement });

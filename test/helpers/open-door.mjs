@@ -1,6 +1,7 @@
 import { legalActions, play } from "../../v2/card-game/world.mjs";
 import { packDefinition } from "../../v2/card-game/pack-registry.mjs";
 import { openingFixture } from "./greek-opening.mjs";
+import { greekTravelTargets, greekMoveSteps } from "./greek-travel.mjs";
 
 export const OPEN_DOOR_PLACES = [
   "greek-athens",
@@ -24,6 +25,17 @@ export function openDoorAction(world, kind, fields = {}) {
 }
 
 export function playOpenDoor(world, kind, fields = {}) {
+  if (kind === "move" && fields.target === "greek-ship") {
+    for (
+      let wait = 0;
+      wait < 32 &&
+      !legalActions(world).some(
+        (a) => a.kind === "move" && a.target === "greek-ship",
+      );
+      wait++
+    )
+      world = playOpenDoor(world, "wait");
+  }
   const result = play(
     world,
     openDoorAction(world, kind, fields),
@@ -38,7 +50,13 @@ export const openDoorChoice = (world, id) =>
 
 export const openDoorWalk = (world, ...places) =>
   places.reduce(
-    (state, id) => playOpenDoor(state, "move", { target: `greek-${id}` }),
+    (state, id) =>
+      greekTravelTargets(state.actors.vale.place, `greek-${id}`).reduce(
+        (s, target) => {
+          return playOpenDoor(s, "move", { target });
+        },
+        state,
+      ),
     world,
   );
 
@@ -78,8 +96,7 @@ export function openDoorSteps({
   colonus = "custom",
   marathon = "hearing",
 } = {}) {
-  const move = (...ids) =>
-    ids.map((id) => ({ kind: "move", target: `greek-${id}` }));
+  const move = greekMoveSteps("greek-courtyard");
   const take = (id) => ({ kind: "take", item: `greek-${id}` });
   const choose = (id) => ({
     kind: "choose",

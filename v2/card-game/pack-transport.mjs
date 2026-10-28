@@ -1,5 +1,5 @@
 import { controlledByHuman } from "./human-cast.mjs";
-import { transports, crossings } from "./pack-registry.mjs";
+import { transports, crossings, entityActive } from "./pack-registry.mjs";
 
 export const passengers = (s, id) =>
   Object.values(s.actors).filter((a) => a.place === transports[id].place);
@@ -44,6 +44,24 @@ export function summonTransport(s, id, dock) {
   else Object.assign(state, { dock, destination: null, recall: null });
 }
 
+// An empty vessel makes a circuit while a human waits at a port. Resident
+// voyages share the same ship, dock and arrivals.
+export function waitForTransport(s, place, actor) {
+  if (!controlledByHuman(s, actor)) return;
+  for (const [id, t] of Object.entries(transports)) {
+    const state = s.transports[id];
+    if (
+      !t.docks.includes(place) ||
+      !transportUnlocked(s, id) ||
+      state.dock === place ||
+      passengers(s, id).length
+    )
+      continue;
+    const open = t.docks.filter((dock) => entityActive(s, dock));
+    state.dock = open[(open.indexOf(state.dock) + 1) % open.length];
+  }
+}
+
 // Boarding starts a leg while the ship stays at its departure dock. The first
 // passenger ashore moves the dock; later boarders can start the return leg with
 // riders still aboard. A recall waits until the vessel is empty.
@@ -53,6 +71,7 @@ export function moveTransport(s, from, to) {
     if (to === t.place && state.dock === from) {
       state.destination = t.docks.find((dock) => dock !== from);
     } else if (from === t.place && t.docks.includes(to)) {
+      state.destination = to;
       state.dock = to;
       if (!passengers(s, id).length) {
         Object.assign(state, {
@@ -67,16 +86,29 @@ export function moveTransport(s, from, to) {
 
 // A planner can look through a boarding edge to the shore beyond it. Actual
 // cards use the saved destination of the current trip.
-export function transportExits(s, place, previous = null) {
+export function transportExits(s, place, previous = null, actor = null) {
   const found = Object.entries(transports).find(([, t]) => t.place === place);
   if (!found) return [];
   const [id, t] = found,
     state = s.transports[id];
-  const destination =
-    previous === state.dock
-      ? t.docks.find((dock) => dock !== previous)
-      : state.destination;
-  return destination ? [destination] : [];
+  // A human aboard chooses the port before resident companions step ashore.
+  if (
+    previous === null &&
+    actor &&
+    !controlledByHuman(s, actor) &&
+    state.dock !== state.destination &&
+    Object.entries(s.actors).some(
+      ([who, a]) => a.place === t.place && controlledByHuman(s, who),
+    )
+  )
+    return [];
+  // Before arrival, every open port is a choice. The first passenger ashore
+  // fixes the shared destination until another boarding starts the next leg.
+  if (previous === state.dock || state.dock !== state.destination)
+    return t.docks.filter(
+      (dock) => dock !== state.dock && entityActive(s, dock),
+    );
+  return state.destination ? [state.destination] : [];
 }
 
 export function transportCrossing(s, from, to) {
@@ -88,9 +120,9 @@ export function transportCrossing(s, from, to) {
     if (
       from === t.place &&
       t.docks.includes(to) &&
-      s.transports[id].destination === to
+      transportExits(s, from).includes(to)
     ) {
-      const c = crossings.find((c) => c.transport === id && c.to === to);
+      const c = crossings.find((c) => c.transport === id && c.from === to);
       return {
         ...c,
         from,

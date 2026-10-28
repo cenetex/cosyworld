@@ -1836,6 +1836,33 @@ function renderScene() {
     review: reviewing || Boolean(sharedSession),
   });
   renderStage(scene.locationId);
+  const roadEnds = packPlaces[scene.locationId]?.road;
+  $("road-ends").hidden = !roadEnds;
+  $("road-ends").replaceChildren(
+    ...(roadEnds || []).map((end, index) => {
+      const button = node("button", undefined, "road-end");
+      button.type = "button";
+      button.dataset.destination = end;
+      button.setAttribute("aria-label", `Select ${nameOf(end)}`);
+      const picture = node("img");
+      picture.src = imageUrl(backdrop(end, world), "card");
+      picture.alt = "";
+      button.append(
+        picture,
+        node(
+          "span",
+          `${index === 0 ? "← " : ""}${nameOf(end)}${index === 1 ? " →" : ""}`,
+        ),
+      );
+      button.disabled =
+        selectionBlocked() || !availableCards(world).includes(end);
+      button.onclick = (event) => {
+        event.stopPropagation();
+        choose(end);
+      };
+      return button;
+    }),
+  );
   // The hand and physical stage always show this same committed world.
   // Reviewing a line changes the words while present people keep their places.
   const resolvedBeat = exchange.preparing || scene.line?.turn !== world.turn;

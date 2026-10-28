@@ -171,6 +171,7 @@ import {
   installTransports,
   moveTransport,
   transportExits,
+  waitForTransport,
   preserveTransportAccess,
 } from "./pack-transport.mjs";
 import { upgradeSave } from "./legacy-saves.mjs";
@@ -353,7 +354,7 @@ function ordinaryExits(s, place, actor, previous) {
           ? ["attic"]
           : []),
       ...crossingExits(s, place, actor, sensesFor(s)),
-      ...transportExits(s, place, previous),
+      ...transportExits(s, place, previous, actor),
       ...packExits(s, place, actor),
     ]),
   ];
@@ -1669,7 +1670,10 @@ function perform(s, a, capture = () => {}, round = null) {
     conflict.guarding[a.actor] = false;
     if (a.actor === conflict.defender) conflict.answered = true;
   }
-  if (a.kind === "wait") return;
+  if (a.kind === "wait") {
+    waitForTransport(s, here, a.actor);
+    return;
+  }
   if (a.kind === "drop-quest") {
     dropQuest(s, a.actor, a.questKey);
     const remaining = questHandKeys(s, a.actor).find(

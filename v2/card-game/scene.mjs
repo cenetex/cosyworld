@@ -60,6 +60,12 @@ export const locationOverlay = (world, id) => {
   return f ? `./${f}` : null;
 };
 export function travelCard(world, id) {
+  const from = world.actors[currentActor(world)].place;
+  const road = packPlaces[id];
+  if (road?.road?.includes(from)) {
+    const other = road.road.find((end) => end !== from);
+    return { name: `Road to ${nameOf(other)}`, art: `./${road.backdrop}` };
+  }
   const c = crossings.find(
     (c) =>
       c.from === world.actors[currentActor(world)].place &&
