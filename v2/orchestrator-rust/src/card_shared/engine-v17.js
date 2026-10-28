@@ -14944,10 +14944,24 @@
       ])
     ];
   }
+  function ordinaryRouteHome(s, place, destination, actor, previous) {
+    const queue = [[place, previous]], visited = /* @__PURE__ */ new Set([place]);
+    for (let i = 0; i < queue.length; i++) {
+      const [from, before] = queue[i];
+      if (from === destination) return true;
+      for (const to of ordinaryExits(s, from, actor, before)) {
+        if (visited.has(to) || !entityActive(s, to) || !actorCanVisit(actor, to, s))
+          continue;
+        visited.add(to);
+        queue.push([to, from]);
+      }
+    }
+    return false;
+  }
   function homeRescueExit(s, place, actor = currentActor(s), previous = null) {
     const gate = homeGates[place];
     actor ||= currentActor(s);
-    return gate && controlledByHuman(s, actor) && s.actors[actor]?.place === place && ordinaryExits(s, place, actor, previous).length === 0 && !homeGateRecoverable(s, place, gate, actor) ? gate.rescue : null;
+    return gate && (controlledByHuman(s, actor) || gate.opening && knownActors(s).includes(actor)) && s.actors[actor]?.place === place && !ordinaryRouteHome(s, place, gate.rescue, actor, previous) && !homeGateRecoverable(s, place, gate, actor) ? gate.rescue : null;
   }
   function exits(s, place, actor = null, previous = null) {
     const rescue = homeRescueExit(s, place, actor, previous);
