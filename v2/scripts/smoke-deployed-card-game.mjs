@@ -49,7 +49,7 @@ for (const target of targets) {
   console.log(
     `${base.origin}: ${meta.primary_game} ${meta.version}, rules ${meta.card_game.shared_rules_version}`,
   );
-  for (const { file, contentType } of publicAssets) {
+  for (const { file, contentType, source, offset = 0 } of publicAssets) {
     const url = new URL(
       file === "index.html" ? "/" : `/card-game/${file}`,
       base,
@@ -65,9 +65,9 @@ for (const target of targets) {
       response.headers.get("content-type")?.startsWith(contentType),
       `${url}: content type`,
     );
-    const expected = await readFile(
-      new URL(`../card-game/${file}`, import.meta.url),
-    );
+    const expected = (
+      await readFile(new URL(`../card-game/${source || file}`, import.meta.url))
+    ).subarray(offset);
     const actual = Buffer.from(await response.arrayBuffer());
     assert(actual.equals(expected), `${url}: differs from this release`);
     if (file.endsWith(".mp3")) {
@@ -80,7 +80,10 @@ for (const target of targets) {
         range.headers.get("content-range"),
         `bytes 0-2/${expected.length}`,
       );
-      assert.equal(await range.text(), "ID3", `${url}: MP3 header`);
+      assert(
+        Buffer.from(await range.arrayBuffer()).equals(expected.subarray(0, 3)),
+        `${url}: MP3 source bytes`,
+      );
     }
   }
   const health = await fetch(new URL("/health", base), {

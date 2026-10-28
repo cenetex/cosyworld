@@ -13,10 +13,26 @@ const manifestPath = new URL(
 const check = process.argv.includes("--check");
 const hash = (body) => createHash("sha256").update(body).digest("hex");
 const source = (file) => new URL(`../card-game/${file}`, import.meta.url);
+function assetBytes(asset) {
+  const bytes = readFileSync(source(asset.source || asset.file));
+  const offset = asset.offset || 0;
+  if (!Number.isSafeInteger(offset) || offset < 0 || offset > bytes.length)
+    throw new Error(`Invalid source offset for ${asset.file}`);
+  if (asset.sourceHash && hash(bytes) !== asset.sourceHash)
+    throw new Error(
+      `Music source changed: ${asset.source}. Run npm run v2:card:music:build.`,
+    );
+  if (
+    asset.source &&
+    !publicAssets.some((entry) => entry.file === asset.source && !entry.source)
+  )
+    throw new Error(`Publish the original source for ${asset.file}`);
+  return bytes.subarray(offset);
+}
 const media = Object.fromEntries(
   publicAssets
     .filter(({ contentType }) => /^(image|audio)\//.test(contentType))
-    .map(({ file }) => [file, hash(readFileSync(source(file)))]),
+    .map((asset) => [asset.file, hash(assetBytes(asset))]),
 );
 const manifest = `${JSON.stringify(media, null, 2)}\n`;
 if (check) {
@@ -27,7 +43,7 @@ if (check) {
 } else writeFileSync(manifestPath, manifest);
 const assets = publicAssets.map((asset) => ({
   ...asset,
-  hash: hash(readFileSync(source(asset.file))),
+  hash: hash(assetBytes(asset)),
 }));
 
 const output = `//! Embedded public card-game files.
@@ -37,8 +53,13 @@ const output = `//! Embedded public card-game files.
 pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
     let asset: (&str, &[u8]) = match path {
 ${assets
-  .map(
-    ({ file, contentType }) => `        "${file}" => (
+  .map(({ file, contentType, source, offset = 0 }) =>
+    source
+      ? `        "${file}" => {
+            let (_, bytes) = get("${source}")?;
+            ("${contentType}", &bytes[${offset}..])
+        }`
+      : `        "${file}" => (
             "${contentType}",
             include_bytes!("../../card-game/${file}"),
         ),`,
