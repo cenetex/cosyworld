@@ -239,10 +239,10 @@ try {
     assert(
       new URL(
         await page
-          .locator('#hand [data-card="greek-road-thebes"] img')
+          .locator('#hand [data-card="greek-harbor"] img')
           .getAttribute("src"),
         origin,
-      ).pathname.endsWith("theban-harbor-road-night.webp"),
+      ).pathname.endsWith("harbor-open-berth-night.webp"),
     );
     await load("greek-harbor", 24, true);
     await check("greek-harbor", 24, "night-harbor-ship");
@@ -291,8 +291,6 @@ try {
       ["greek-piraeus", 24, "piraeus-open-night"],
       ["greek-athens-harbor", 0, "athens-open-day"],
       ["greek-athens-harbor", 24, "athens-open-night"],
-      ["greek-road-thebes", 0, "theban-road-day"],
-      ["greek-road-thebes", 24, "theban-road-night"],
       ["greek-colonus", 60, "mist-grove"],
       ["greek-thinkery", 36, "rain-shelter"],
       ["greek-underworld", 36, "underworld-mist"],
