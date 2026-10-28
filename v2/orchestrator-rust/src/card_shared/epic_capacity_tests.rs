@@ -1,6 +1,20 @@
 use super::{engine, full_store, full_world::World, now, store};
 use serde_json::{json, Value};
 
+// Catalog upgrades add residents and their empty state. Every earlier field
+// retains its value; the pack revision records that new catalog.
+fn assert_retained(old: &Value, current: &Value, path: &str) {
+    if path.ends_with("packs.greek-drama.revision") {
+        assert!(current.as_u64().unwrap() >= old.as_u64().unwrap());
+    } else if let Some(fields) = old.as_object() {
+        for (key, value) in fields {
+            assert_retained(value, &current[key], &format!("{path}.{key}"));
+        }
+    } else {
+        assert_eq!(current, old, "Retain {path}");
+    }
+}
+
 fn select(world: &World, field: &str, value: &str) -> Value {
     world.project(0).unwrap()["actions"]
         .as_array()
@@ -15,7 +29,7 @@ fn select(world: &World, field: &str, value: &str) -> Value {
 fn capacity_rules_match_twenty_for_existing_worlds_and_plays() {
     let request = json!({"op":"create"});
     let old = engine::reduce_version(engine::TWENTIETH_VERSION, request.clone()).unwrap();
-    assert_eq!(engine::reduce(request).unwrap(), old);
+    assert_retained(&old, &engine::reduce(request).unwrap(), "");
     let mut world = World {
         version: engine::TWENTIETH_VERSION.into(),
         game: old["world"].clone(),
@@ -25,11 +39,12 @@ fn capacity_rules_match_twenty_for_existing_worlds_and_plays() {
     let mut request = world.request("play", 0);
     request["action"] = select(&world, "kind", "light");
     let old = engine::reduce_version(engine::TWENTIETH_VERSION, request.clone()).unwrap();
-    assert_eq!(engine::reduce(request).unwrap(), old);
+    assert_retained(&old, &engine::reduce(request).unwrap(), "");
     world.game = old["world"].clone();
-    assert_eq!(
-        engine::reduce(world.request("view", 0)).unwrap(),
-        engine::reduce_version(engine::TWENTIETH_VERSION, world.request("view", 0)).unwrap()
+    assert_retained(
+        &engine::reduce_version(engine::TWENTIETH_VERSION, world.request("view", 0)).unwrap(),
+        &engine::reduce(world.request("view", 0)).unwrap(),
+        "",
     );
 }
 
@@ -92,7 +107,7 @@ fn capacity_upgrade_keeps_earned_wording_and_authors_through_journal_rebuild() {
             "routeKnowledge",
             "questCompletions",
         ] {
-            assert_eq!(world.game[field], before[field], "Preserve {field}");
+            assert_retained(&before[field], &world.game[field], field);
         }
         let record = &world.game["packs"]["greek-drama"]["recitals"]["greek-return-water-jar"];
         assert_eq!(record.as_object().unwrap().len(), 2);

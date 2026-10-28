@@ -148,7 +148,7 @@ describe("Hoppy Cat refresh", () => {
     vm.runInContext(
       readFileSync(
         new URL(
-          "../v2/orchestrator-rust/src/card_shared/engine-v20.js",
+          "../v2/orchestrator-rust/src/card_shared/engine-v21.js",
           import.meta.url,
         ),
         "utf8",

@@ -13313,6 +13313,20 @@
                 value: true
               }
             ]
+          },
+          {
+            id: "greek-book-one",
+            name: "Theban Accounts and Care",
+            places: [
+              "greek-cithaeron"
+            ],
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-book-one-open",
+                value: true
+              }
+            ]
           }
         ],
         storyQuests: [

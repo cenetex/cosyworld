@@ -50,9 +50,12 @@ const ajaxPlaces = pack.sections.find(
 ).places;
 const openDoorReleasedPlaces = pack.release.places.filter(
   (id) =>
-    !["greek-road-thebes", "greek-road-athens-harbor", ...ajaxPlaces].includes(
-      id,
-    ),
+    ![
+      "greek-road-thebes",
+      "greek-road-athens-harbor",
+      ...ajaxPlaces,
+      "greek-cithaeron",
+    ].includes(id),
 );
 const openDoorItems = [
   "greek-burial-petition",
@@ -102,7 +105,7 @@ describe("the Theban release and its ship", () => {
     s.crossings["pond-greek-harbor"].discovered = true;
     expect(reachable(s)).toEqual([...openingPlaces].sort());
     expect(reachable(s)).toHaveLength(8);
-    expect(pack.release.places).toHaveLength(27);
+    expect(pack.release.places).toHaveLength(28);
     expect(
       pack.release.places
         .filter(
@@ -214,7 +217,9 @@ describe("the Theban release and its ship", () => {
         "routes",
         "shears",
         ...openDoorItems,
-        ...Object.keys(pack.items).filter((id) => id.startsWith("greek-ajax-")),
+        ...Object.keys(pack.items).filter((id) =>
+          /greek-(ajax|seven|phoenician|tyrannus|bacchae)-/.test(id),
+        ),
         ...Object.keys(packDefinition("hoppycat-archive").items),
         ...Object.keys(packDefinition("willows").items),
       ].sort(),
