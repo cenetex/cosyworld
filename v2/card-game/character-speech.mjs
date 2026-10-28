@@ -92,6 +92,7 @@ export function createVoiceClips({
         model: cast.model,
         input: text,
         instructions: voice.direction,
+        speed: voice.speed ?? 1,
         response_format: "mp3",
         input_references: [
           {
