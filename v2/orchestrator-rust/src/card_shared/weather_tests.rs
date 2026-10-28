@@ -45,40 +45,33 @@ fn regional_weather_agrees_in_c_and_survives_upgrade_and_journal_replay() {
     for field in ["turn", "eventSeq", "log", "transports"] {
         assert_eq!(world.game[field], saved.game[field], "saved {field}");
     }
-    let mut quests = saved.game["quests"].clone();
-    for actor in world.game["actors"].as_object().unwrap().keys() {
-        if actor.starts_with("hoppycat-") {
-            quests["hands"][actor] = json!([]);
-        }
-    }
-    assert_eq!(
-        world.game["quests"], quests,
-        "saved quests and new empty hands"
-    );
-    for (id, memory) in saved.game["memories"].as_object().unwrap() {
-        assert_eq!(&world.game["memories"][id], memory, "saved memory {id}");
-    }
-    for (actor, fields) in saved.game["actors"].as_object().unwrap() {
-        for (field, value) in fields.as_object().unwrap() {
-            if field == "trust" {
-                for (other, trust) in value.as_object().unwrap() {
-                    assert_eq!(
-                        &world.game["actors"][actor]["trust"][other], trust,
-                        "saved trust {actor}/{other}"
-                    );
-                }
-            } else {
-                assert_eq!(
-                    &world.game["actors"][actor][field], value,
-                    "saved {actor}/{field}"
-                );
-            }
-        }
-    }
     for (key, item) in saved.game["items"].as_object().unwrap() {
         assert_eq!(&world.game["items"][key], item, "saved item {key}");
     }
     assert_eq!(world.game["packs"]["hoppycat-archive"]["revision"], 1);
+    super::full_tests::assert_saved_actors(&world.game["actors"], &saved.game["actors"]);
+    super::full_tests::assert_saved_memories(&world.game["memories"], &saved.game["memories"]);
+    let mut quests = world.game["quests"].clone();
+    quests["records"]
+        .as_object_mut()
+        .unwrap()
+        .retain(|key, record| {
+            if saved.game["quests"]["records"].get(key).is_some() {
+                return true;
+            }
+            assert_eq!(record["subjectActor"], "boardyai");
+            false
+        });
+    quests["focus"].as_object_mut().unwrap().remove("boardyai");
+    assert_eq!(quests["hands"]["boardyai"], json!(["boardyai:quest:0"]));
+    quests["hands"]["boardyai"] = saved.game["quests"]["hands"]["boardyai"].clone();
+    for actor in world.game["actors"].as_object().unwrap().keys() {
+        if actor.starts_with("hoppycat-") {
+            assert_eq!(quests["hands"][actor], json!([]));
+            quests["hands"].as_object_mut().unwrap().remove(actor);
+        }
+    }
+    assert_eq!(quests, saved.game["quests"]);
     assert_eq!(world.game["packs"]["greek-drama"]["revision"], 5);
     assert_eq!(world.version, engine::VERSION);
     assert_eq!(

@@ -88,6 +88,7 @@ import {
 import { newMemories, rememberEvent, validMemories } from "./memory.mjs";
 import {
   programsFor,
+  personalQuestActor,
   knownActors,
   newProgress,
   programFor,
@@ -177,7 +178,15 @@ import {
 } from "./pack-transport.mjs";
 import { upgradeSave } from "./legacy-saves.mjs";
 import forest from "./forest.json" with { type: "json" };
-import { BOARDY, settleBoardy } from "./boardyai.mjs";
+import { BOARDY } from "./boardyai.mjs";
+import {
+  introductionPair,
+  introductionPlan,
+  validIntroductionProgram,
+  introductionTarget,
+  recordIntroductionTurn,
+  validIntroductionVisits,
+} from "./introductions.mjs";
 
 // Authored forest data and mounted packs share the same rule path.
 export const places = { ...forest.places, ...packPlaces };
@@ -567,7 +576,7 @@ export function tradeOffers(s, actor) {
 // Each collected card captures at most one step per round, before consequences run.
 function captureHands(s, met) {
   if (!hasQuestPrograms(s)) return;
-  for (const actor of knownActors(s).filter((id) => !isPackActor(id))) {
+  for (const actor of knownActors(s).filter(personalQuestActor)) {
     const collection = lifeOf(s, actor)?.collection;
     const cards = collection
       ? collectionCards(s, actor).filter(
@@ -597,12 +606,22 @@ function captureHands(s, met) {
           target: structuredClone(target),
           fulfillment: {
             items: [...target.items],
-            location: s.actors[actor].place,
+            location: (target.conditions || []).find(
+              (c) => c.kind === "together",
+            )?.avatars
+              ? s.actors[
+                  target.conditions.find((c) => c.kind === "together")
+                    .avatars[0]
+                ].place
+              : s.actors[actor].place,
             // Include the actual required participants, even before Vale meets
             // them. Keep nearby witnesses within the receipt's two-person bound.
             avatars: [
               ...new Set([
                 ...target.avatars,
+                ...(target.conditions || []).flatMap((c) =>
+                  c.kind === "together" ? c.avatars : [],
+                ),
                 ...actorIds.filter(
                   (id) =>
                     id !== actor &&
@@ -658,8 +677,12 @@ function captureHands(s, met) {
 }
 // Each new program reads the programs chosen before it in the same round, so two
 // actors never pick goals against each other's stale wants.
-function ensurePrograms(s) {
-  for (const actor of actorIds.filter((id) => !isPackActor(id))) {
+export function ensurePrograms(s, candidates = actorIds) {
+  for (const actor of candidates.filter(
+    (id) =>
+      personalQuestActor(id) &&
+      (id !== BOARDY || (lifeOf(s, id) && entityActive(s, id))),
+  )) {
     const p = s.actors[actor].progress;
     if (ensureCollectedQuest(s, actor, programPlaces(s), things)) continue;
     if (p.program >= programsFor(s, actor).length && !p.current) {
@@ -684,7 +707,7 @@ function ensurePrograms(s) {
 function refreshStalledPrograms(s) {
   if (!hasQuestPrograms(s)) return;
   for (const actor of knownActors(s).filter(
-    (id) => !controlledByHuman(s, id) && !isPackActor(id),
+    (id) => !controlledByHuman(s, id) && personalQuestActor(id),
   )) {
     const p = s.actors[actor].progress,
       current = programFor(s, actor);
@@ -2043,12 +2066,20 @@ export function plan(s, actor = currentActor(s)) {
     );
   if (landing)
     return { action: landing, reason: `Step ashore at ${nameOf(arrival)}.` };
-  if (actor === BOARDY) {
-    return {
-      action: legalActions(s, actor).find((a) => a.kind === "wait"),
-      reason: "Bring two human players together.",
-    };
-  }
+  const program = programFor(s, actor);
+  const pair = introductionPair(program);
+  if (pair && questActive(s, actor))
+    return introductionPlan(
+      s,
+      actor,
+      focusedQuest(s, actor)?.key || program.id,
+      program,
+      {
+        actions: legalActions(s, actor),
+        toward: (place) => toward(s, actor, place),
+        name: nameOf,
+      },
+    );
   return reconsiderPlan(
     s,
     actor,
@@ -2067,7 +2098,7 @@ function basePlan(s, actor) {
       action: legalActions(s, actor)[0],
       reason: packPeople[actor].tastes.reason,
     };
-  if (isPackActor(actor)) {
+  if (isPackActor(actor) && !personalQuestActor(actor)) {
     const actions = legalActions(s, actor).filter(
       (a) =>
         !["move", "accompany", "threaten"].includes(a.kind) &&
@@ -2402,6 +2433,8 @@ export function play(
   const next = structuredClone(s);
   if (actor !== "vale" || s.playerActorId) next.playerActorId = actor;
   for (const id of actorIds) installQuestCollection(next, id);
+  if (entityActive(next, BOARDY) && lifeOf(next, BOARDY))
+    ensureCollectedQuest(next, BOARDY, programPlaces(next), things);
   const previousHopes = Object.fromEntries(
     knownActors(s).map((id) => [id, lifeOf(s, id)?.milestones.length || 0]),
   );
@@ -2430,15 +2463,22 @@ export function play(
     next.locations.attic.anchored = true;
   }
   const residents = [
-    "moth",
-    "keeper",
-    ...active.filter(
-      (id) =>
-        isPackActor(id) &&
-        !roamingQuestActor(id) &&
-        entityActive(next, id) &&
-        next.actors[id].place === next.actors[actor].place,
-    ),
+    ...new Set([
+      "moth",
+      "keeper",
+      ...active.filter(
+        (id) =>
+          !controlledByHuman(next, id) &&
+          (id === BOARDY || introductionPair(programFor(next, id))),
+      ),
+      ...active.filter(
+        (id) =>
+          isPackActor(id) &&
+          !roamingQuestActor(id) &&
+          entityActive(next, id) &&
+          next.actors[id].place === next.actors[actor].place,
+      ),
+    ]),
   ];
   for (const actor of residents) {
     if (
@@ -2447,12 +2487,16 @@ export function play(
       controlledByHuman(next, actor)
     )
       continue;
+    const program = programFor(next, actor);
+    const key = focusedQuest(next, actor)?.key || program?.id;
+    const target = introductionTarget(next, actor, key, program);
     perform(
       next,
       plan(next, actor).action,
       () => captureHands(next, met),
       round,
     );
+    recordIntroductionTurn(next, actor, key, program, target);
     captureHands(next, met);
   }
   if (next.items.lamp.lit) {
@@ -2553,7 +2597,6 @@ export function play(
     else next.sharedMigration.inventoryAllowances[id] = count;
   }
   settleQuestHands(next);
-  settleBoardy(next);
   validateWorld(next);
   return { ok: true, state: next };
 }
@@ -2630,6 +2673,8 @@ function validProgram(p, actor, s, shared = false) {
   }
   if (p.generated) {
     const g = p.generated;
+    const pair = introductionPair(p);
+    if (!validIntroductionProgram(p)) return false;
     if (
       !Number.isSafeInteger(g.turn) ||
       g.turn < 0 ||
@@ -2638,14 +2683,22 @@ function validProgram(p, actor, s, shared = false) {
       g.level < (lifeOf(s, actor)?.collection ? 1 : 3) ||
       g.level > s.turn * (lifeOf(s, actor)?.collection ? 8 : 1) + 1 ||
       ![...actorIds, ...Object.keys(places)].includes(g.owner) ||
-      (g.solo === undefined
-        ? !ids.includes(g.item) ||
-          !actorIds.includes(g.partner) ||
-          g.partner === actor
-        : g.solo !== true ||
+      (pair
+        ? g.item !== null ||
           g.owner !== actor ||
-          g.partner !== null ||
-          (g.item !== null && !ids.includes(g.item)))
+          !Array.isArray(pair) ||
+          pair.length !== 2 ||
+          new Set(pair).size !== 2 ||
+          pair.some((id) => !actorIds.includes(id) || id === actor) ||
+          g.partner !== pair[0]
+        : g.solo === undefined
+          ? !ids.includes(g.item) ||
+            !actorIds.includes(g.partner) ||
+            g.partner === actor
+          : g.solo !== true ||
+            g.owner !== actor ||
+            g.partner !== null ||
+            (g.item !== null && !ids.includes(g.item)))
     )
       return false;
   }
@@ -2807,6 +2860,7 @@ export function validateWorld(s) {
   if (
     !validMemories(s) ||
     !validMotives(s) ||
+    !validIntroductionVisits(s, actorIds, Object.keys(places)) ||
     !validLife(s, Object.keys(places))
   )
     fail();
@@ -2888,10 +2942,17 @@ export function validateWorld(s) {
     )
       fail();
     // Pack residents follow their own interests, never authored programs.
-    if (isPackActor(id)) {
+    if (isPackActor(id) && !personalQuestActor(id)) {
       if (!sameValue(a.progress, newProgress())) fail();
       continue;
     }
+    if (
+      isPackActor(id) &&
+      personalQuestActor(id) &&
+      !lifeOf(s, id)?.collection &&
+      sameValue(a.progress, newProgress())
+    )
+      continue;
     const progress = a.progress,
       programs = programsFor(s, id);
     if (
@@ -3050,6 +3111,7 @@ export function validateWorld(s) {
                 "answer",
                 "delivery",
                 "gathering",
+                "introduction",
                 "bargain",
               ].includes(kind),
           ))

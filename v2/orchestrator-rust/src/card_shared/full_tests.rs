@@ -5,7 +5,7 @@ use super::{
 };
 use serde_json::json;
 
-fn assert_saved_actors(current: &Value, old: &Value) {
+pub(super) fn assert_saved_actors(current: &Value, old: &Value) {
     for (id, saved) in old.as_object().unwrap() {
         let mut actor = current[id].clone();
         actor["trust"]
@@ -19,7 +19,22 @@ fn assert_saved_actors(current: &Value, old: &Value) {
                     false
                 }
             });
+        if id == "boardyai" && saved["progress"].get("current").is_none() {
+            if let Some(program) = actor["progress"].as_object_mut().unwrap().remove("current") {
+                assert!(program["generated"].is_object());
+            }
+        }
         assert_eq!(&actor, saved, "saved actor {id}");
+    }
+}
+
+pub(super) fn assert_saved_memories(current: &Value, old: &Value) {
+    for (id, saved) in old.as_object().unwrap() {
+        let mut retained = current[id].clone();
+        if saved.get("seen").is_none() {
+            retained.as_object_mut().unwrap().remove("seen");
+        }
+        assert_eq!(&retained, saved, "saved memory {id}");
     }
 }
 
@@ -2418,18 +2433,22 @@ fn each_shared_home_rescue_commits_through_c_and_replays() {
 mod learning_tests;
 
 #[test]
-fn hoppycat_upgrade_from_sixteen_keeps_history_and_replays_new_story_choices() {
-    for keep_checkpoint in [true, false] {
+fn hoppycat_upgrade_keeps_released_history_and_replays_new_story_choices() {
+    for (previous_version, keep_checkpoint) in [
+        (engine::SIXTEENTH_VERSION, true),
+        (engine::SIXTEENTH_VERSION, false),
+        (engine::SEVENTEENTH_VERSION, true),
+        (engine::SEVENTEENTH_VERSION, false),
+    ] {
         let path =
             std::env::temp_dir().join(format!("hoppycat-upgrade-{}.sqlite", crate::random_hex(12)));
         let c = store::open(&path).unwrap();
         full_store::schema(&c).unwrap();
         let id = "f".repeat(48);
         store::create(&c, &id, "owner", now()).unwrap();
-        let seed =
-            engine::reduce_version(engine::SIXTEENTH_VERSION, json!({"op":"create"})).unwrap();
+        let seed = engine::reduce_version(previous_version, json!({"op":"create"})).unwrap();
         let mut old = World {
-            version: engine::SIXTEENTH_VERSION.into(),
+            version: previous_version.into(),
             game: seed["world"].clone(),
             claimed: [1, 1, 0, 0, 0, 0, 0, 0],
             present: [1, 1, 0, 0, 0, 0, 0, 0],
@@ -2492,7 +2511,8 @@ fn hoppycat_upgrade_from_sixteen_keeps_history_and_replays_new_story_choices() {
         );
         assert_saved_actors(&world.game["actors"], &old.game["actors"]);
         assert_saved_items(&world.game["items"], &old.game["items"]);
-        for field in ["packs", "crossings", "memories"] {
+        assert_saved_memories(&world.game["memories"], &old.game["memories"]);
+        for field in ["packs", "crossings"] {
             for (key, saved) in old.game[field].as_object().unwrap() {
                 assert_eq!(&world.game[field][key], saved, "saved {field}/{key}");
             }

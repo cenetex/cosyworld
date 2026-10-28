@@ -83,9 +83,10 @@ describe("the household save upgrade", () => {
             ),
           },
         });
-      for (const key of ["memories", "peaceUntil"])
-        for (const [id, value] of Object.entries(before[key]))
-          expect(after[key][id]).toEqual(value);
+      for (const [id, memory] of Object.entries(before.memories))
+        expect(after.memories[id]).toMatchObject(memory);
+      for (const [id, peace] of Object.entries(before.peaceUntil))
+        expect(after.peaceUntil[id]).toEqual(peace);
       expect(after.actors[witness]).toMatchObject({
         place: "greek-eleusis",
         crossed: 0,

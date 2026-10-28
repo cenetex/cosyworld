@@ -23,7 +23,7 @@ The card game uses the authored voices through its shared dialogue service.
 
 The card pack starts at revision 1. The earlier numeric IDs, classic journals,
 model bindings, source index, and compiled classic packs retain their existing
-contracts. The new card catalog enters shared play under rules version 17.
+contracts. The new card catalog enters shared play under rules version 18.
 Versions 15 and 16 remain available for earlier journal records. Existing card saves
 receive the new pack through the normal pack installer.
 
