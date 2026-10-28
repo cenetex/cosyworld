@@ -1794,7 +1794,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
             "\"225bf98853060dc121ea82d4d89430f27d049f7de70e3b0b8e30f2cd633b9d87\""
         }
         "index.html" => "\"d8839269af602550077f9bba8daef103fad3efa7784b29c8769ff9b2edcb3a52\"",
-        "style.css" => "\"4a50df07d35cd2a5bdd7ded7dcad61e4bd05c3308068a76b1ce1836eaa012ff4\"",
+        "style.css" => "\"000e9894d9cf2afd9a49880b89ef0c7f6044f2be9fcea0a5623b33dcfeb891d9\"",
         "entry.mjs" => "\"1a7995fada45e5bf544ec6e98a6cc9ea9019634cf9bae644d6f1766581314c89\"",
         "openrouter.mjs" => "\"1f1df94c46294aeefb95b37f58f63f3cf690b645927a74f78ea5cfb3e2734330\"",
         "openrouter-settings.mjs" => {
