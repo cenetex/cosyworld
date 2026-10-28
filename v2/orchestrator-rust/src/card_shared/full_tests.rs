@@ -719,19 +719,21 @@ fn earlier_completed_quests_gain_a_pending_bard_visit_after_recorded_upgrade() {
             upgraded.game["actors"]["greek-rhapsode"]["place"],
             "greek-harbor"
         );
-        let action = home_action(&upgraded, 0, "wait");
-        full_store::commit(
-            &c,
-            &id,
-            &mut upgraded,
-            json!({"op":"play","actor":"vale","action":action}),
-            now(),
-        )
-        .unwrap();
-        assert_eq!(
-            upgraded.game["actors"]["greek-rhapsode"]["place"],
-            "greek-courtyard"
-        );
+        for destination in ["greek-road-thebes", "greek-courtyard"] {
+            let action = home_action(&upgraded, 0, "wait");
+            full_store::commit(
+                &c,
+                &id,
+                &mut upgraded,
+                json!({"op":"play","actor":"vale","action":action}),
+                now(),
+            )
+            .unwrap();
+            assert_eq!(
+                upgraded.game["actors"]["greek-rhapsode"]["place"],
+                destination
+            );
+        }
         assert_eq!(
             upgraded.game["roamingQuests"]["greek-rhapsode"]["target"]["locationId"],
             "greek-courtyard"
