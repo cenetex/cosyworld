@@ -21,6 +21,7 @@ import { humanAvatarIds } from "./human-cast.mjs";
 import { passengers } from "./pack-transport.mjs";
 import { installKnowledge } from "./knowledge.mjs";
 import { newTemperament } from "./pack-rules.mjs";
+import { greekRevisionSeven } from "./legacy-greek-catalog.mjs";
 
 // Upgrade historical records before the world validates the current save.
 // World-owned helpers keep pack installation and generated quests on the same
@@ -96,7 +97,7 @@ export function upgradeSave(
     upgradeGreekRoadSave(s);
     upgradeGreekTownSave(s);
     upgradeGreekAjaxSave(s);
-    upgradeGreekBookOneSave(s);
+    upgradeGreekEpicSave(s);
     s.schema = 7;
     installPacks(s);
   } else if (
@@ -112,7 +113,7 @@ export function upgradeSave(
     upgradeGreekRoadSave(s);
     upgradeGreekTownSave(s);
     upgradeGreekAjaxSave(s);
-    upgradeGreekBookOneSave(s);
+    upgradeGreekEpicSave(s);
     // A pack mounted after this save was written joins it fresh.
     installPacks(s);
   }
@@ -314,32 +315,36 @@ export function upgradeGreekAjaxSave(s) {
   saved.revision = 7;
 }
 
-// Revision 8 adds the present Book I hosts and objects beside earlier deeds.
-export function upgradeGreekBookOneSave(s) {
+// Revision8 adds the epic chapters around the exact published revision7 cast.
+// One catalog boundary lets each new chapter share this ordered migration.
+export function upgradeGreekEpicSave(s) {
   const pack = packDefinitions.find((p) => p.id === "greek-drama");
   const saved = s.packs?.[pack?.id];
   if (!pack || pack.revision < 8 || saved?.revision !== 7) return;
+  if (
+    !greekRevisionSeven.avatars.every(
+      (id) => s.actors?.[id] && s.memories?.[id],
+    ) ||
+    !greekRevisionSeven.items.every(
+      (id) => s.items?.[id] && s.memories?.[id],
+    ) ||
+    !greekRevisionSeven.places.every((id) => s.memories?.[id])
+  )
+    throw new Error(
+      "This earlier Greek save needs its original entity records.",
+    );
+  const oldActors = new Set(greekRevisionSeven.avatars);
+  const oldItems = new Set(greekRevisionSeven.items);
+  const oldPlaces = new Set(greekRevisionSeven.places);
   addGreekEntities(
     s,
     pack,
-    ["greek-melea", "greek-melitta"],
-    [
-      "greek-seven-shield-tablet",
-      "greek-seven-water-skin",
-      "greek-seven-household-cloth",
-      "greek-phoenician-truce-copy",
-      "greek-phoenician-care-basket",
-      "greek-phoenician-memorial-cloth",
-      "greek-tyrannus-care-basket",
-      "greek-tyrannus-messenger-record",
-      "greek-tyrannus-herdsman-record",
-      "greek-tyrannus-account",
-      "greek-bacchae-petition-copy",
-      "greek-bacchae-robe",
-      "greek-bacchae-memorial-cloth",
-      "greek-bacchae-terms",
-    ],
+    Object.keys(pack.avatars).filter((id) => !oldActors.has(id)),
+    Object.keys(pack.items || {}).filter((id) => !oldItems.has(id)),
   );
+  const fresh = newMemories();
+  for (const id of Object.keys(pack.places))
+    if (!oldPlaces.has(id)) s.memories[id] ??= fresh[id];
   saved.revision = 8;
 }
 

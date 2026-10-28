@@ -12,6 +12,18 @@ const laterGreekItems = Object.fromEntries(
     )
     .map(([id, item]) => [id, { holder: item.holder, history: [] }]),
 );
+const bookTwoItems = Object.fromEntries(
+  Object.entries(currentPackDefinition("greek-drama").items)
+    .filter(([id]) =>
+      [
+        "greek-danaid-",
+        "greek-alcestis-",
+        "greek-heracles-",
+        "greek-trachis-",
+      ].some((prefix) => id.startsWith(prefix)),
+    )
+    .map(([id, item]) => [id, { holder: item.holder, history: [] }]),
+);
 import { entityActive } from "../v2/card-game/pack-registry.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 import hoppycat from "../v2/content/hoppycat-archive/card-world.json" with { type: "json" };
@@ -214,6 +226,7 @@ describe("the side roads in earlier saved worlds", () => {
         ...world.items,
         ...willowsItems,
         ...laterGreekItems,
+        ...bookTwoItems,
         "boardyai-calling-card": { holder: "pond", history: [] },
         ...Object.fromEntries(
           Object.entries(hoppycat.items).map(([id, item]) => [

@@ -111,7 +111,7 @@ describe("Greek ports and fixed roads", () => {
 
   it.each(
     Object.entries(pack.places).filter(
-      ([id, p]) => p.road && !localRoadEnds(id),
+      ([id, p]) => p.road && !p.requires?.length && !localRoadEnds(id),
     ),
   )(
     "keeps the two ends of %s in the same order from either direction",

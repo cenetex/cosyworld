@@ -25,11 +25,75 @@ fn select(world: &World, field: &str, value: &str) -> Value {
         .clone()
 }
 
+// New chapters add catalog entries while earlier saved records keep their values.
+fn assert_catalog_extension(old: &Value, current: &Value, fresh: bool) {
+    let mut retained = current.clone();
+    if fresh {
+        let previous_routes = old["routeKnowledge"]["greek-rhapsode"].as_array().unwrap();
+        let routes = current["routeKnowledge"]["greek-rhapsode"]
+            .as_array()
+            .unwrap();
+        for route in previous_routes {
+            assert!(routes.contains(route));
+        }
+        retained["routeKnowledge"]["greek-rhapsode"] =
+            old["routeKnowledge"]["greek-rhapsode"].clone();
+    }
+    assert_retained(old, &retained, "");
+    let catalog: Value =
+        serde_json::from_str(include_str!("../../../card-game/packs.json")).unwrap();
+    let greek = catalog["packs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["id"] == "greek-drama")
+        .unwrap();
+    for (id, definition) in greek["avatars"].as_object().unwrap() {
+        if old["actors"].get(id).is_some() {
+            continue;
+        }
+        let actor = &current["actors"][id];
+        assert_eq!(actor["place"], definition["place"], "New resident {id}");
+        assert_eq!(actor["progress"], json!({"program":0,"step":0,"marks":[]}));
+        assert_eq!(actor["crossed"], 0);
+        assert_eq!(actor["lastTalk"], -9);
+        assert!(actor["trust"]
+            .as_object()
+            .unwrap()
+            .values()
+            .all(|value| value == 0));
+        assert_eq!(current["peaceUntil"][id], 0);
+        assert_eq!(current["motives"]["grievances"][id], json!([]));
+    }
+    for (id, definition) in greek["items"].as_object().unwrap() {
+        if old["items"].get(id).is_some() {
+            continue;
+        }
+        assert_eq!(
+            current["items"][id],
+            json!({"holder":definition["holder"],"history":[]})
+        );
+    }
+    for field in ["avatars", "items", "places"] {
+        for id in greek[field].as_object().unwrap().keys() {
+            if old["memories"].get(id).is_some() {
+                continue;
+            }
+            let memory = &current["memories"][id];
+            assert_eq!(memory["events"], json!([]));
+            assert_eq!(memory["landmarks"], json!([]));
+            assert!(memory["text"].is_null());
+            assert!(memory["turn"].is_null());
+        }
+    }
+}
+
 #[test]
-fn capacity_rules_match_twenty_for_existing_worlds_and_plays() {
+fn capacity_rules_extend_twenty_and_preserve_existing_plays() {
     let request = json!({"op":"create"});
     let old = engine::reduce_version(engine::TWENTIETH_VERSION, request.clone()).unwrap();
-    assert_retained(&old, &engine::reduce(request).unwrap(), "");
+    let current = engine::reduce(request).unwrap();
+    assert_catalog_extension(&old["world"], &current["world"], true);
     let mut world = World {
         version: engine::TWENTIETH_VERSION.into(),
         game: old["world"].clone(),
@@ -39,11 +103,13 @@ fn capacity_rules_match_twenty_for_existing_worlds_and_plays() {
     let mut request = world.request("play", 0);
     request["action"] = select(&world, "kind", "light");
     let old = engine::reduce_version(engine::TWENTIETH_VERSION, request.clone()).unwrap();
-    assert_retained(&old, &engine::reduce(request).unwrap(), "");
+    let current = engine::reduce(request).unwrap();
+    assert_catalog_extension(&old["world"], &current["world"], false);
     world.game = old["world"].clone();
     assert_retained(
-        &engine::reduce_version(engine::TWENTIETH_VERSION, world.request("view", 0)).unwrap(),
-        &engine::reduce(world.request("view", 0)).unwrap(),
+        &engine::reduce_version(engine::TWENTIETH_VERSION, world.request("view", 0)).unwrap()
+            ["world"],
+        &engine::reduce(world.request("view", 0)).unwrap()["world"],
         "",
     );
 }

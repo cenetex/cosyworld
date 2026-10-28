@@ -45,17 +45,21 @@ const openDoorPlaces = [
   "greek-marathon",
 ];
 const sectionPlaces = pack.sections.flatMap((section) => section.places);
-const ajaxPlaces = pack.sections.find(
-  (section) => section.id === "greek-ajax",
-).places;
-const openDoorReleasedPlaces = pack.release.places.filter(
-  (id) =>
-    ![
-      "greek-road-thebes",
-      "greek-road-athens-harbor",
-      ...ajaxPlaces,
-      "greek-cithaeron",
-    ].includes(id),
+const openDoorReleasedPlaces = [
+  ...openingPlaces,
+  ...pack.sections
+    .find((section) => section.id === "greek-open-door")
+    .places.filter((id) => id !== "greek-road-athens-harbor"),
+];
+const laterAccountEntries = [
+  "greek-greek-camp",
+  "greek-pherae",
+  "greek-heracles-theban-house",
+  "greek-argos-sanctuary",
+  "greek-trachis",
+];
+const bookTwoItems = Object.keys(pack.items).filter((id) =>
+  /^greek-(alcestis|heracles|danaid|trachis)-/.test(id),
 );
 const openDoorItems = [
   "greek-burial-petition",
@@ -105,7 +109,7 @@ describe("the Theban release and its ship", () => {
     s.crossings["pond-greek-harbor"].discovered = true;
     expect(reachable(s)).toEqual([...openingPlaces].sort());
     expect(reachable(s)).toHaveLength(8);
-    expect(pack.release.places).toHaveLength(28);
+    expect(pack.release.places).toHaveLength(38);
     expect(
       pack.release.places
         .filter(
@@ -135,6 +139,8 @@ describe("the Theban release and its ship", () => {
     s = act(s, "choose", { choiceId: "greek-open-door-invite-refusal" });
     expect(reachable(s)).toEqual([...openDoorReleasedPlaces].sort());
     expect(reachable(s)).toHaveLength(21);
+    for (const id of laterAccountEntries)
+      expect(entityActive(s, id), id).toBe(false);
     s = decodeSave(encodeSave(s));
     expect(reachable(s)).toEqual([...openDoorReleasedPlaces].sort());
     for (const start of openDoorPlaces) {
@@ -147,20 +153,27 @@ describe("the Theban release and its ship", () => {
       expect(seen.has(pack.entry), start).toBe(true);
     }
   });
-  it("withholds empty inquiries and later branch menus without deleting source works", () => {
+  it("keeps the authored Heracles inquiry and withholds later branch menus", () => {
     const s = createWorld();
+    const storyInquiry = "greek-inquire-euripides-heracles";
     for (const place of pack.release.places) {
       s.actors.vale.place = place;
       const ids = packChoices(s).map((c) => c.choiceId);
-      expect(
-        ids.some(
-          (id) =>
-            id.startsWith("greek-inquire-") || id.startsWith("greek-helen-"),
-        ),
-      ).toBe(false);
+      expect(ids.filter((id) => id.startsWith("greek-inquire-"))).toEqual(
+        place === "greek-courtyard" ? [storyInquiry] : [],
+      );
+      expect(ids.some((id) => id.startsWith("greek-helen-"))).toBe(false);
     }
+    s.actors.vale.place = "greek-courtyard";
+    expect(packChoices(s).map((choice) => choice.choiceId)).not.toContain(
+      "greek-heracles-enter",
+    );
+    const inquired = act(s, "choose", { choiceId: storyInquiry });
+    expect(packChoices(inquired).map((choice) => choice.choiceId)).toContain(
+      "greek-heracles-enter",
+    );
     expect(pack.works).toHaveLength(44);
-    expect(Object.keys(pack.places)).toHaveLength(63);
+    expect(Object.keys(pack.places)).toHaveLength(68);
   });
   it("preserves opening scope through reloads", () => {
     let s = createWorld();
@@ -220,10 +233,16 @@ describe("the Theban release and its ship", () => {
         ...Object.keys(pack.items).filter((id) =>
           /greek-(ajax|seven|phoenician|tyrannus|bacchae)-/.test(id),
         ),
+        ...bookTwoItems,
         ...Object.keys(packDefinition("hoppycat-archive").items),
         ...Object.keys(packDefinition("willows").items),
       ].sort(),
     );
+    for (const id of bookTwoItems)
+      expect(after.items[id], id).toMatchObject({
+        holder: pack.items[id].holder,
+        history: [],
+      });
     expect(after.memories).toMatchObject(before.memories);
     expect(after.log).toEqual(before.log);
     expect(after.actors.vale.place).toBe("greek-egypt-tomb");

@@ -58,9 +58,17 @@ describe("Book I present care", () => {
       16,
     );
     expect(pack.recital.verses.filter((v) => added(v.choice))).toHaveLength(28);
-    expect(Object.keys(pack.avatars)).toHaveLength(35);
-    expect(Object.keys(pack.items)).toHaveLength(40);
-    expect(Object.keys(pack.places)).toHaveLength(63);
+    expect(
+      Object.keys(pack.avatars).filter((id) =>
+        ["greek-melea", "greek-melitta"].includes(id),
+      ),
+    ).toHaveLength(2);
+    expect(Object.keys(pack.items).filter(added)).toHaveLength(14);
+    const published = releasedCardEngine(20).packs.find(
+      (p) => p.id === "greek-drama",
+    );
+    for (const id of Object.keys(published.places))
+      expect(pack.places[id], id).toBeDefined();
     for (const t of pack.topics.filter((c) => added(c.id))) {
       expect(t.text.length).toBeLessThanOrEqual(180);
       expect(t.choiceId).toBeUndefined();
@@ -410,7 +418,14 @@ describe("Book I shared learning and history", () => {
       expect(after[key]).toEqual(before[key]);
     expect(after.quests).toEqual({
       ...before.quests,
-      hands: { ...before.quests.hands, "greek-melea": [], "greek-melitta": [] },
+      hands: {
+        ...before.quests.hands,
+        ...Object.fromEntries(
+          Object.keys(pack.avatars)
+            .filter((id) => !before.actors[id])
+            .map((id) => [id, []]),
+        ),
+      },
     });
     for (const [id, item] of Object.entries(before.items))
       expect(after.items[id]).toEqual(item);

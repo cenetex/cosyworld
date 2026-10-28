@@ -189,6 +189,104 @@
       "card": "assets/optimized/card/png/greek-drama/book-one-melitta.webp",
       "cardHash": "5524d12f5de60179cce8e1706e03f1043d103e3981bde29b645c474b09dbb979"
     },
+    "assets/greek-drama/book-two-alcestis.png": {
+      "sourceHash": "47b703495dc9a713f97c9579c7aa57e106002e78b224d19c4144fbfbecd43106",
+      "stage": "assets/optimized/stage/png/greek-drama/book-two-alcestis.webp",
+      "stageHash": "beb825499256d512356190b2692f74ebe9511015527bb9b27bc760107e1e8396",
+      "card": "assets/optimized/card/png/greek-drama/book-two-alcestis.webp",
+      "cardHash": "1340a904ed3bd7b05918b9f1f93ef60ac6e264d8ddcfcbc99f3d996511244966"
+    },
+    "assets/greek-drama/book-two-amphitryon.png": {
+      "sourceHash": "8fe2a54750c97802d1c48bdc4a3c0d0c6713c8a54e24e7845f5eef5fa428d129",
+      "stage": "assets/optimized/stage/png/greek-drama/book-two-amphitryon.webp",
+      "stageHash": "81d5033139afc3eb1a25c2971b56e36e97b59b7337a41984a693096de0f8b6f8",
+      "card": "assets/optimized/card/png/greek-drama/book-two-amphitryon.webp",
+      "cardHash": "fdc8424e2fda5f36fb4b1cb98d56e8a48a0469e00b47059d6b3b080ed229a394"
+    },
+    "assets/greek-drama/book-two-chloris.png": {
+      "sourceHash": "80f91f25ae48b3ffacf7ba8183c68a841482af716c05e6ea0fdc6ee316bffb87",
+      "stage": "assets/optimized/stage/png/greek-drama/book-two-chloris.webp",
+      "stageHash": "a320934953a85163d5a32d79bbfa7410c5545b75a69ef7831572c1cb8c943b52",
+      "card": "assets/optimized/card/png/greek-drama/book-two-chloris.webp",
+      "cardHash": "a029ac2b548c5a5a843075839a73339060207be4935fcbca067289a2e1c471ca"
+    },
+    "assets/greek-drama/book-two-deianira.png": {
+      "sourceHash": "30252f6f01792ddbb0c2e634409631ff08eaac04c65c4408ee17b8f3ccbfcee5",
+      "stage": "assets/optimized/stage/png/greek-drama/book-two-deianira.webp",
+      "stageHash": "bdcd84cbeada7816c4719c4d12db4eb5b59658d939ece51515e98bd3e0d73f14",
+      "card": "assets/optimized/card/png/greek-drama/book-two-deianira.webp",
+      "cardHash": "197b51a35dd8c9d2439f1758ce0151c8dc4447bef5f599df3e379212f29ee388"
+    },
+    "assets/greek-drama/book-two-hyllus.png": {
+      "sourceHash": "b0de87ffe5d83defbcc374595bc481c9b90673e82741d8521bf27d033bdae5ed",
+      "stage": "assets/optimized/stage/png/greek-drama/book-two-hyllus.webp",
+      "stageHash": "086bac30e66faba36bb05f45f69e1620a1cad0f67543af710eddd4ffedd4585f",
+      "card": "assets/optimized/card/png/greek-drama/book-two-hyllus.webp",
+      "cardHash": "7c96bb287998bb98a177314cd8931e99500f4dda533a759e0f66754e74907b12"
+    },
+    "assets/greek-drama/book-two-iole.png": {
+      "sourceHash": "2b8783bb8f52cab3dd1098d145f5317b2c5edca4d338bc35bbb221ab26173cc6",
+      "stage": "assets/optimized/stage/png/greek-drama/book-two-iole.webp",
+      "stageHash": "e1a6e5f1f38007e64993e5a5a1e5fb07aec22f0444b4bf60d3d9ab83a8f6a767",
+      "card": "assets/optimized/card/png/greek-drama/book-two-iole.webp",
+      "cardHash": "ddb5783ab5ce885701475dc67879f27bf520daa96350fd4079fe8362fd689ab9"
+    },
+    "assets/greek-drama/book-two-lichas.png": {
+      "sourceHash": "73ef04cbbc1818cb45f78790c0798460f333da6db4296ea81ce19f07fb45dcaa",
+      "stage": "assets/optimized/stage/png/greek-drama/book-two-lichas.webp",
+      "stageHash": "4c3a3ecb6f4e4432b003118305b53d59a4520682cedc4a5aeb7ccc28849e228b",
+      "card": "assets/optimized/card/png/greek-drama/book-two-lichas.webp",
+      "cardHash": "d51ac46bfd1d600ea623182b50f70ae4b9a355e7bde1b7bb6f3459b344555758"
+    },
+    "assets/greek-drama/book-two-megara.png": {
+      "sourceHash": "665a4c92c7f50892c2735580cbd603be30b2235e00d92664a47f3eee960a6398",
+      "stage": "assets/optimized/stage/png/greek-drama/book-two-megara.webp",
+      "stageHash": "1deb37b3099c2024bc57d699607c78565c94efcbc4ed4992825528b5171af15a",
+      "card": "assets/optimized/card/png/greek-drama/book-two-megara.webp",
+      "cardHash": "8e9151fe2115b5d5d17f6d0a000f156d59c810a4390ab9a8402efce1e351181f"
+    },
+    "assets/greek-drama/book-two-melia.png": {
+      "sourceHash": "e3487670afe1e4f4b684bec63e38cc32fc6de527bc3624987522c87f641b66c4",
+      "stage": "assets/optimized/stage/png/greek-drama/book-two-melia.webp",
+      "stageHash": "3df1491af50aff24fdf349bdb8211b96d0bdde1a35c9c4d31e3f97c4d33f8b41",
+      "card": "assets/optimized/card/png/greek-drama/book-two-melia.webp",
+      "cardHash": "b1c8b494be30ab9c70ca442d4714e815d4f2215ac4330d96babc2cf2c7753a1a"
+    },
+    "assets/greek-drama/book-two-nera.png": {
+      "sourceHash": "19379b15816792d9891386d18a2eafcf4ed60241afeae8ddd62cde0d831111c6",
+      "stage": "assets/optimized/stage/png/greek-drama/book-two-nera.webp",
+      "stageHash": "cb707ba62fc5b61d2360072f243a546f695412842ea0e79d3d122704cb22f317",
+      "card": "assets/optimized/card/png/greek-drama/book-two-nera.webp",
+      "cardHash": "5599ec9cc022f7ccd6621b3faed32dd1f8410712e70214d8273af2a7be6e430c"
+    },
+    "assets/greek-drama/book-two-pherae-day.webp": {
+      "sourceHash": "cacb220f62c214c212a5fc926cea102477f81e163f5e0aebd24ac7dc231c6b41",
+      "stage": "assets/greek-drama/book-two-pherae-day.webp",
+      "stageHash": "cacb220f62c214c212a5fc926cea102477f81e163f5e0aebd24ac7dc231c6b41",
+      "card": "assets/optimized/card/webp/greek-drama/book-two-pherae-day.webp",
+      "cardHash": "e83afae0658014045c0cc98029ee6660974751c8f37fd1f5f549d3578ff73811"
+    },
+    "assets/greek-drama/book-two-pherae-night.webp": {
+      "sourceHash": "b2513e13126c457c33473ca8e6da83a7607b19cd0da492fb2f280e1ff0094b53",
+      "stage": "assets/greek-drama/book-two-pherae-night.webp",
+      "stageHash": "b2513e13126c457c33473ca8e6da83a7607b19cd0da492fb2f280e1ff0094b53",
+      "card": "assets/optimized/card/webp/greek-drama/book-two-pherae-night.webp",
+      "cardHash": "0cddb00dbc2830304cf84a977708ec136940fe21fc3cf08c908d10ccc1e01016"
+    },
+    "assets/greek-drama/book-two-trachis-day.webp": {
+      "sourceHash": "222c6059bb7bda10db354e2beaef4d436f08d330a5d6f88567c1f36b08af850d",
+      "stage": "assets/greek-drama/book-two-trachis-day.webp",
+      "stageHash": "222c6059bb7bda10db354e2beaef4d436f08d330a5d6f88567c1f36b08af850d",
+      "card": "assets/optimized/card/webp/greek-drama/book-two-trachis-day.webp",
+      "cardHash": "d88886d62b75fda7be117f54bbd682d6959f43d87abf43d3f33df6ae9bd5fb44"
+    },
+    "assets/greek-drama/book-two-trachis-night.webp": {
+      "sourceHash": "c903fdcc81d55ee3dde11508edf0b9f592f83f38c35687cbbdf01f3c1a5562da",
+      "stage": "assets/greek-drama/book-two-trachis-night.webp",
+      "stageHash": "c903fdcc81d55ee3dde11508edf0b9f592f83f38c35687cbbdf01f3c1a5562da",
+      "card": "assets/optimized/card/webp/greek-drama/book-two-trachis-night.webp",
+      "cardHash": "83caca83891c6d8a85cf8f92439794f71c71972f6035d0f872bdc195eef074c5"
+    },
     "assets/greek-drama/bread.png": {
       "sourceHash": "b9570b0b1db56c334ff070367afdc23cb3595cf0b87971b4c9c5c27ac587859e",
       "stage": "assets/optimized/stage/png/greek-drama/bread.webp",
@@ -391,6 +489,13 @@
       "stageHash": "f71d5f64371f50b37059f0929db3489b0f808696494c64078ad5fbe958e1f1d0",
       "card": "assets/optimized/card/webp/greek-drama/harbor-ship-at-berth.webp",
       "cardHash": "c2810e0b0d9e960c6501fa7744d8201de052b4f370c03ae363c00001ba43dd0b"
+    },
+    "assets/greek-drama/hero-heracles.png": {
+      "sourceHash": "0976bc6ee62ea8d2a882343b7ca28d78fe1042909d68973cdc06cebc66177832",
+      "stage": "assets/optimized/stage/png/greek-drama/hero-heracles.webp",
+      "stageHash": "b47a7ce078923790b7867c98387e3256d155368d8f4c08e4932b9f6aef330e19",
+      "card": "assets/optimized/card/png/greek-drama/hero-heracles.webp",
+      "cardHash": "aef4287029690b7bf7996f5053c23fbf34be33c98b4a1d9da8984dede6fe135a"
     },
     "assets/greek-drama/household-token.png": {
       "sourceHash": "e5a4d2daa5726d0c70fb0e5f08c02130aeaa3175309bb320a24d9fa7be871e6f",
