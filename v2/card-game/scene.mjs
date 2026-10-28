@@ -174,11 +174,12 @@ export function sceneCast(
   recordedCast = null,
 ) {
   const here = world.actors[currentActor(world)].place;
+  const known = recordedCast ? null : new Set(knownActors(world));
   const present =
     recordedCast ||
     personIds.filter(
       (id) =>
-        knownActors(world).includes(id) &&
+        known.has(id) &&
         world.actors[id].place === here &&
         (!world.controlledActors?.includes(id) ||
           world.presentActors?.includes(id)),

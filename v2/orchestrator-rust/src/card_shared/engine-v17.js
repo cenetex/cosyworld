@@ -17243,8 +17243,9 @@
   }
   function sceneCast(world, through = world.log.length - 1, recordedCast = null) {
     const here = world.actors[currentActor(world)].place;
+    const known = recordedCast ? null : new Set(knownActors(world));
     const present = recordedCast || personIds.filter(
-      (id) => knownActors(world).includes(id) && world.actors[id].place === here && (!world.controlledActors?.includes(id) || world.presentActors?.includes(id))
+      (id) => known.has(id) && world.actors[id].place === here && (!world.controlledActors?.includes(id) || world.presentActors?.includes(id))
     );
     const target = world.log.slice(0, through + 1).findLast(
       (entry) => entry.turn === world.turn && entry.actorId === currentActor(world) && entry.kind === "action"
