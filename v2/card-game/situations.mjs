@@ -5,7 +5,12 @@ import {
 } from "./human-cast.mjs";
 // Target hands can ask for an item's use or its place in someone else's hand.
 // These conditions use the same items and card plays as the rest of the world.
-import { isPackActor, entityActive, packThings } from "./pack-registry.mjs";
+import {
+  isPackActor,
+  entityActive,
+  packThings,
+  packPeople,
+} from "./pack-registry.mjs";
 export const condition = (kind, item, extra = {}) => ({
   conditions: [{ kind, item, ...extra }],
 });
@@ -41,6 +46,12 @@ export function questItemAvailable(s, actor, item) {
 }
 export function conditionMet(s, c) {
   switch (c.kind) {
+    case "together":
+      return c.avatars.every(
+        (id) =>
+          (!controlledByHuman(s, id) || humanPresent(s, id)) &&
+          s.actors[id].place === s.actors[c.avatars[0]].place,
+      );
     case "lit":
       return (
         entityActive(s, "lamp") &&
@@ -63,6 +74,8 @@ export function conditionMet(s, c) {
   }
 }
 export function conditionText(c, name) {
+  if (c.kind === "together")
+    return `${c.avatars.map(name).join(" and ")} together`;
   return {
     lit: `${name(c.item)} alight`,
     ringing: `${name(c.item)} ringing`,
@@ -70,10 +83,19 @@ export function conditionText(c, name) {
     heldBy: `${name(c.avatar)} holds ${name(c.item)}`,
   }[c.kind];
 }
+const profilesId = (id) =>
+  [...humanAvatarIds, "moth", "keeper", ...Object.keys(packPeople)].includes(
+    id,
+  );
 export function validCondition(c, actor) {
   return (
     c &&
-    ((c.kind === "lit" && c.item === "lamp") ||
+    ((c.kind === "together" &&
+      Array.isArray(c.avatars) &&
+      c.avatars.length === 2 &&
+      new Set(c.avatars).size === 2 &&
+      c.avatars.every((id) => profilesId(id) && id !== actor)) ||
+      (c.kind === "lit" && c.item === "lamp") ||
       (c.kind === "ringing" && c.item === "bell") ||
       (c.kind === "covered" && ["lamp", "bell"].includes(c.item)) ||
       (c.kind === "heldBy" &&
@@ -93,7 +115,7 @@ export const validConsequence = (c, actor) =>
 export function requiredItems(s, actor, target) {
   const items = [...target.items];
   for (const c of target.conditions || []) {
-    if (conditionMet(s, c)) continue;
+    if (conditionMet(s, c) || c.kind === "together") continue;
     items.push(c.item);
     if (c.kind === "covered") items.push("cloth");
     if (c.kind === "lit" && s.items.lamp.fuel === 0)

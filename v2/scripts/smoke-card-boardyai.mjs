@@ -4,6 +4,7 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
+import { enableMotives } from "../card-game/motives.mjs";
 import { questCards, questCardId } from "../card-game/quest-cards.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
 
@@ -19,11 +20,19 @@ try {
   ]) {
     const seed = dispatchShared({
       op: "create",
-      save: encodeSave(createWorld()),
+      save: encodeSave(enableMotives(createWorld(), { personalQuests: true })),
+    }).world;
+    const started = dispatchShared({
+      op: "play",
+      world: seed,
+      actor: "vale",
+      claimed: ["vale", "mara"],
+      present: ["vale", "mara"],
+      action: { key: "wait:vale::" },
     }).world;
     const world = dispatchShared({
       op: "view",
-      world: seed,
+      world: started,
       actor: "vale",
       claimed: ["vale", "mara"],
       present: ["vale", "mara"],
@@ -70,10 +79,7 @@ try {
     await selectCard(page, quest);
     const card = page.locator(`#hand [data-card="${quest}"]`);
     assert.equal(await card.getAttribute("data-quest-status"), "active");
-    assert.match(
-      await card.textContent(),
-      /Bring two human players together\./,
-    );
+    assert.match(await card.textContent(), /Help Vale and Mara meet/);
     const portrait = page.locator('#cast [data-avatar="boardyai"] img').first();
     assert(
       await portrait.evaluate((img) => img.complete && img.naturalWidth > 0),
@@ -92,7 +98,7 @@ try {
     await page.waitForFunction((key) => {
       const saved = JSON.parse(localStorage.getItem(key));
       return (
-        saved.turn === 1 &&
+        saved.turn === 2 &&
         saved.log.some((e) => e.generated && e.actorId === "boardyai")
       );
     }, key);
@@ -115,9 +121,9 @@ try {
     };
     await settle();
     for (const [id, kind, turn, place] of [
-      ["boardyai-calling-card", "take", 2, "station"],
-      ["boardyai-parlour", "move", 3, "boardyai-parlour"],
-      ["station", "move", 4, "station"],
+      ["boardyai-calling-card", "take", 3, "station"],
+      ["boardyai-parlour", "move", 4, "boardyai-parlour"],
+      ["station", "move", 5, "station"],
     ]) {
       await page.keyboard.press("Escape");
       await selectCard(page, id);
@@ -140,15 +146,18 @@ try {
         });
     }
     await page.reload();
-    await page.locator('#hand [data-card="boardyai"]').waitFor();
+    await page.locator('#hand [data-card="boardyai-calling-card"]').waitFor();
     assert.equal(
       await page.evaluate(
         (key) => JSON.parse(localStorage.getItem(key)).turn,
         key,
       ),
-      4,
+      5,
     );
-    assert.equal(await page.locator(`#hand [data-card="${quest}"]`).count(), 1);
+    assert.equal(
+      await page.locator('#hand [data-card="boardyai-calling-card"]').count(),
+      1,
+    );
     assert.deepEqual(errors, []);
     await page.close();
     console.log(

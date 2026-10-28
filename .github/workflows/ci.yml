@@ -301,6 +301,7 @@ jobs:
           node v2/scripts/check-card-awakening.mjs
           node v2/scripts/smoke-card-unveil.mjs
           node v2/scripts/smoke-card-hand.mjs
+          node v2/scripts/smoke-card-boardyai.mjs
           node v2/scripts/smoke-card-music.mjs
           node v2/scripts/smoke-card-music-network.mjs
           node v2/scripts/smoke-card-media-cache.mjs

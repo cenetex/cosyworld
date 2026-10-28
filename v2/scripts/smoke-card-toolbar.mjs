@@ -131,21 +131,19 @@ try {
     assert.equal(await dialog.locator(".player-row").count(), 3);
     assert.match(
       await dialog.locator(".player-row").first().innerText(),
-      /Vale.*You\s+Level 1\s+Black pond/s,
+      /Vale.*You\s+Level 1/s,
     );
-    assert.match(await dialog.innerText(), /Mara\s+Level 1\s+Empty station/);
+    assert.match(await dialog.innerText(), /Mara\s+Level 1/);
+    assert.doesNotMatch(await dialog.innerText(), /Black pond|Empty station/);
+    assert.equal(await dialog.locator(".player-location").count(), 0);
     await page.screenshot({
       path: new URL(`players-${width}.png`, output).pathname,
     });
     if (width === 1440) {
       world.actors.mara.place = "pond";
-      await page.waitForFunction(() =>
-        [...document.querySelectorAll(".player-row")].some(
-          (row) =>
-            row.textContent.includes("Mara") &&
-            row.textContent.includes("Black pond"),
-        ),
-      );
+      await page.waitForTimeout(1500);
+      assert.match(await dialog.innerText(), /Mara\s+Level 1/);
+      assert.doesNotMatch(await dialog.innerText(), /Black pond|Empty station/);
       present[2] = 0;
       await page.waitForFunction(
         () => document.querySelectorAll(".player-row").length === 2,
