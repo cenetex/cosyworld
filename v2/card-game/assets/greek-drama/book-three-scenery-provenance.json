@@ -1,0 +1,24 @@
+{
+  "date": "2026-10-28",
+  "tool": "built-in imagegen",
+  "mode": "day generation from style reference; night lighting edit",
+  "reference": "ajax-camp-day.webp",
+  "records": [
+    {
+      "phase": "day",
+      "source": "book-three-sources/lemnos-day.png",
+      "backdrop": "book-three-lemnos-day.webp",
+      "width": 1672,
+      "height": 941,
+      "sourceSha256": "070c8b93939636b42537e64f1a33bfaba4772cd7c220ce8c9818f775605374d0"
+    },
+    {
+      "phase": "night",
+      "source": "book-three-sources/lemnos-night.png",
+      "backdrop": "book-three-lemnos-night.webp",
+      "width": 1671,
+      "height": 941,
+      "sourceSha256": "8b0c68d38cc2f16bb955ee3c91c44ddf202a346c2a27e735c9712f8759709782"
+    }
+  ]
+}

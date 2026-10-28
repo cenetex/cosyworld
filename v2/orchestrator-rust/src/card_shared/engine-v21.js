@@ -2433,7 +2433,7 @@
             Aristophanes: 11
           },
           opening: "Before the Burial",
-          status: "Eleven plays have authored scenes across Before the Burial, The Open Door, Aulis, Ajax, Philoctetes, and the Helen and Atreid accounts. The other thirty-three works have situated hooks for later sections."
+          status: "12 plays have authored scenes. The other 32 works have situated hooks for later sections."
         },
         places: {
           "greek-harbor": {
@@ -2843,10 +2843,12 @@
             name: "The Trojan Night Camp",
             text: "Watch fires mark the edge of the camp. A newly arrived ally waits for a guide.",
             exits: [
-              "greek-troy"
+              "greek-troy",
+              "greek-rhesus-allies",
+              "greek-rhesus-aid-tent"
             ],
-            backdrop: "assets/greek-drama/grove.svg",
-            persona: "Watch fires mark the edge of the camp. A newly arrived ally waits for a guide."
+            backdrop: "assets/greek-drama/ajax-camp-night.webp",
+            persona: "This is the remembered Trojan night watch before the fall of Troy. The received play bears Euripides\u2019s name and its authorship is disputed. The saved ending names Rhesus\u2019s later fate before the later city-fall frame opens. Earlier Ajax deeds and the selected Helen and Atreid accounts keep their own times."
           },
           "greek-troy-beach": {
             name: "The Homecoming Beach",
@@ -2868,7 +2870,7 @@
             exits: [
               "greek-lemnos-landing"
             ],
-            backdrop: "assets/greek-drama/sea.svg",
+            backdrop: "assets/greek-drama/book-three-lemnos-day.webp",
             persona: "This is the remembered Lemnian departure before Troy falls. Philoctetes keeps his own choice, bow and terms. Heracles\u2019s promise concerns future healing. The earlier Ajax deeds and the chosen Helen and Atreid accounts retain their recorded times. The cave holds Philoctetes\u2019s bed, water and the bow he trusts to a carrier."
           },
           "greek-thrace": {
@@ -3194,7 +3196,25 @@
             exits: [
               "greek-lemnos"
             ],
-            backdrop: "assets/greek-drama/sea.svg"
+            backdrop: "assets/greek-drama/book-three-lemnos-day.webp"
+          },
+          "greek-rhesus-allies": {
+            name: "The Thracian Allies\u2019 Ground",
+            text: "Fresh tents stand beyond Hector\u2019s watch. The arriving king waits for the sentries\u2019 word.",
+            persona: "This is the remembered Trojan night watch before the fall of Troy. The received play bears Euripides\u2019s name and its authorship is disputed. The saved ending names Rhesus\u2019s later fate before the later city-fall frame opens. Earlier Ajax deeds and the selected Helen and Atreid accounts keep their own times. Fresh tents stand beyond Hector\u2019s watch. The arriving king waits for the sentries\u2019 word.",
+            exits: [
+              "greek-trojan-camp"
+            ],
+            backdrop: "assets/greek-drama/ajax-camp-night.webp"
+          },
+          "greek-rhesus-aid-tent": {
+            name: "The Night Aid Tent",
+            text: "A clean bed and bandage wait beneath a lamp. The charioteer keeps his own account of the raid.",
+            persona: "This is the remembered Trojan night watch before the fall of Troy. The received play bears Euripides\u2019s name and its authorship is disputed. The saved ending names Rhesus\u2019s later fate before the later city-fall frame opens. Earlier Ajax deeds and the selected Helen and Atreid accounts keep their own times. A clean bed and bandage wait beneath a lamp. The charioteer keeps his own account of the raid.",
+            exits: [
+              "greek-trojan-camp"
+            ],
+            backdrop: "assets/greek-drama/ajax-camp-night.webp"
           }
         },
         avatars: {
@@ -4139,6 +4159,89 @@
               sore: "an agreement treated as a finished arrival",
               reason: "He carries the army\u2019s request and must answer for his own means."
             }
+          },
+          "greek-rhesus-hector": {
+            name: "Hector",
+            text: "He receives the sentry\u2019s challenge and must answer the wounded driver\u2019s accusation.",
+            place: "greek-trojan-camp",
+            home: "greek-trojan-camp",
+            travels: false,
+            standoffs: false,
+            values: {},
+            canonicalPerson: "greek-rhesus-hector",
+            persona: "This is the remembered Trojan night watch before the fall of Troy. The received play bears Euripides\u2019s name and its authorship is disputed. The saved ending names Rhesus\u2019s later fate before the later city-fall frame opens. Earlier Ajax deeds and the selected Helen and Atreid accounts keep their own times. He receives the sentry\u2019s challenge and must answer the wounded driver\u2019s accusation.",
+            voice: "This is the remembered Trojan night watch before the fall of Troy. The received play bears Euripides\u2019s name and its authorship is disputed. The saved ending names Rhesus\u2019s later fate before the later city-fall frame opens. Earlier Ajax deeds and the selected Helen and Atreid accounts keep their own times. He receives the sentry\u2019s challenge and must answer the wounded driver\u2019s accusation.",
+            portrait: "assets/greek-drama/book-three-hector.png",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-rhesus-open",
+                value: true
+              }
+            ],
+            tastes: {
+              likes: "a named witness, practical care and an agreement kept",
+              sore: "a promised act treated as a finished deed",
+              reason: "He receives the sentry\u2019s challenge and must answer the wounded driver\u2019s accusation."
+            }
+          },
+          "greek-rhesus-rhesus": {
+            name: "Rhesus",
+            text: "The arriving Thracian king listens for a warning and names the protection he will accept.",
+            place: "greek-rhesus-allies",
+            home: "greek-rhesus-allies",
+            travels: false,
+            standoffs: false,
+            values: {},
+            canonicalPerson: "greek-rhesus-rhesus",
+            persona: "This is the remembered Trojan night watch before the fall of Troy. The received play bears Euripides\u2019s name and its authorship is disputed. The saved ending names Rhesus\u2019s later fate before the later city-fall frame opens. Earlier Ajax deeds and the selected Helen and Atreid accounts keep their own times. The arriving Thracian king listens for a warning and names the protection he will accept.",
+            voice: "This is the remembered Trojan night watch before the fall of Troy. The received play bears Euripides\u2019s name and its authorship is disputed. The saved ending names Rhesus\u2019s later fate before the later city-fall frame opens. Earlier Ajax deeds and the selected Helen and Atreid accounts keep their own times. The arriving Thracian king listens for a warning and names the protection he will accept.",
+            portrait: "assets/greek-drama/book-three-rhesus.png",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-rhesus-open",
+                value: true
+              }
+            ],
+            tastes: {
+              likes: "a named witness, practical care and an agreement kept",
+              sore: "a promised act treated as a finished deed",
+              reason: "The arriving Thracian king listens for a warning and names the protection he will accept."
+            },
+            journey: {
+              after: "greek-rhesus-agree-warning",
+              path: [
+                "greek-rhesus-allies",
+                "greek-trojan-camp",
+                "greek-rhesus-aid-tent"
+              ]
+            }
+          },
+          "greek-rhesus-charioteer": {
+            name: "The Charioteer",
+            text: "The living driver gives the remembered wound report. Care, accusation and proof remain separate.",
+            place: "greek-rhesus-aid-tent",
+            home: "greek-rhesus-aid-tent",
+            travels: false,
+            standoffs: false,
+            values: {},
+            canonicalPerson: "greek-rhesus-charioteer",
+            persona: "This is the remembered Trojan night watch before the fall of Troy. The received play bears Euripides\u2019s name and its authorship is disputed. The saved ending names Rhesus\u2019s later fate before the later city-fall frame opens. Earlier Ajax deeds and the selected Helen and Atreid accounts keep their own times. The living driver gives the remembered wound report. Care, accusation and proof remain separate.",
+            voice: "This is the remembered Trojan night watch before the fall of Troy. The received play bears Euripides\u2019s name and its authorship is disputed. The saved ending names Rhesus\u2019s later fate before the later city-fall frame opens. Earlier Ajax deeds and the selected Helen and Atreid accounts keep their own times. The living driver gives the remembered wound report. Care, accusation and proof remain separate.",
+            portrait: "assets/greek-drama/book-three-charioteer.png",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-rhesus-open",
+                value: true
+              }
+            ],
+            tastes: {
+              likes: "a named witness, practical care and an agreement kept",
+              sore: "a promised act treated as a finished deed",
+              reason: "The living driver gives the remembered wound report. Care, accusation and proof remain separate."
+            }
           }
         },
         items: {
@@ -4586,6 +4689,72 @@
               {
                 kind: "flag",
                 key: "greek-lemnos-loan-heard",
+                value: true
+              }
+            ]
+          },
+          "greek-rhesus-lamp": {
+            name: "The Watch Lamp",
+            text: "A hooded lamp marks the allied watch.",
+            holder: "greek-trojan-camp",
+            persona: "This is the remembered Trojan night watch before the fall of Troy. The received play bears Euripides\u2019s name and its authorship is disputed. The saved ending names Rhesus\u2019s later fate before the later city-fall frame opens. Earlier Ajax deeds and the selected Helen and Atreid accounts keep their own times. A hooded lamp marks the allied watch. Its saved custody records its actual use.",
+            art: "assets/greek-drama/oil-flask.svg",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-rhesus-open",
+                value: true
+              }
+            ]
+          },
+          "greek-rhesus-watchword": {
+            name: "The Sentry\u2019s Watchword",
+            text: "A written watchword records the named sentry\u2019s challenge.",
+            holder: "greek-rhesus-allies",
+            persona: "This is the remembered Trojan night watch before the fall of Troy. The received play bears Euripides\u2019s name and its authorship is disputed. The saved ending names Rhesus\u2019s later fate before the later city-fall frame opens. Earlier Ajax deeds and the selected Helen and Atreid accounts keep their own times. A written watchword records the named sentry\u2019s challenge. Its saved custody records its actual use.",
+            art: "assets/greek-drama/decree.svg",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-rhesus-open",
+                value: true
+              },
+              {
+                kind: "flag",
+                key: "greek-rhesus-word-heard",
+                value: true
+              }
+            ]
+          },
+          "greek-rhesus-bandage": {
+            name: "The Aid Bandage",
+            text: "Clean cloth serves the saved ally or the wounded driver.",
+            holder: "greek-rhesus-aid-tent",
+            persona: "This is the remembered Trojan night watch before the fall of Troy. The received play bears Euripides\u2019s name and its authorship is disputed. The saved ending names Rhesus\u2019s later fate before the later city-fall frame opens. Earlier Ajax deeds and the selected Helen and Atreid accounts keep their own times. Clean cloth serves the saved ally or the wounded driver. Its saved custody records its actual use.",
+            art: "assets/greek-drama/funeral-cloth.svg",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-rhesus-open",
+                value: true
+              }
+            ]
+          },
+          "greek-rhesus-testimony": {
+            name: "The Night Watch Account",
+            text: "The signed account keeps the witness, the king\u2019s answer and the later fate distinct.",
+            holder: "greek-rhesus-aid-tent",
+            persona: "This is the remembered Trojan night watch before the fall of Troy. The received play bears Euripides\u2019s name and its authorship is disputed. The saved ending names Rhesus\u2019s later fate before the later city-fall frame opens. Earlier Ajax deeds and the selected Helen and Atreid accounts keep their own times. The signed account keeps the witness, the king\u2019s answer and the later fate distinct. Its saved custody records its actual use.",
+            art: "assets/greek-drama/testimony.svg",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-rhesus-open",
+                value: true
+              },
+              {
+                kind: "flag",
+                key: "greek-rhesus-record-ready",
                 value: true
               }
             ]
@@ -11086,6 +11255,521 @@
               }
             ],
             workId: "sophocles-philoctetes"
+          },
+          {
+            id: "greek-rhesus-invitation",
+            subject: "greek-shipmaster",
+            at: "greek-harbor",
+            label: "Ask for the Trojan night watch",
+            text: "Myrto opens the remembered night watch after Vale returns the Lemnian arrival.",
+            textTemplate: "Myrto opens the remembered night watch after {actor} returns the Lemnian arrival.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-lemnos-returned",
+                value: true
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-rhesus-frame"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-rhesus-frame",
+                value: "remembered-night"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-rhesus-open",
+                value: true
+              }
+            ],
+            workId: "euripides-rhesus"
+          },
+          {
+            id: "greek-rhesus-set-lamp",
+            subject: "greek-rhesus-rhesus",
+            at: "greek-rhesus-allies",
+            label: "Set the lamp at the allies\u2019 watch",
+            text: "Vale sets the watch lamp beside the arriving Thracians and marks their position for Hector\u2019s sentries.",
+            textTemplate: "{actor} sets the watch lamp beside the arriving Thracians and marks their position for Hector\u2019s sentries.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-rhesus-open",
+                value: true
+              },
+              {
+                kind: "holding",
+                item: "greek-rhesus-lamp",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "place_item",
+                item: "greek-rhesus-lamp",
+                place: "greek-rhesus-allies"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-rhesus-lamp-set",
+                value: true
+              }
+            ],
+            workId: "euripides-rhesus"
+          },
+          {
+            id: "greek-rhesus-hear-word",
+            subject: "greek-rhesus-hector",
+            at: "greek-trojan-camp",
+            label: "Hear the sentry\u2019s watchword",
+            text: "Hector gives Vale the sentry\u2019s current challenge and the report of Dolon\u2019s scouting task. The written word waits at the allied watch.",
+            textTemplate: "Hector gives {actor} the sentry\u2019s current challenge and the report of Dolon\u2019s scouting task. The written word waits at the allied watch.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-rhesus-lamp-set",
+                value: true
+              }
+            ],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "greek-rhesus-word-heard",
+                value: true
+              }
+            ],
+            workId: "euripides-rhesus"
+          },
+          {
+            id: "greek-rhesus-compare-word",
+            subject: "greek-rhesus-hector",
+            at: "greek-trojan-camp",
+            label: "Compare the challenged travellers\u2019 word",
+            text: "Vale brings the sentry\u2019s written word to Hector. The challenged travellers\u2019 account conflicts with the watch. The uncertainty gives the allies a chance to withdraw.",
+            textTemplate: "{actor} brings the sentry\u2019s written word to Hector. The challenged travellers\u2019 account conflicts with the watch. The uncertainty gives the allies a chance to withdraw.",
+            requires: [
+              {
+                kind: "holding",
+                item: "greek-rhesus-watchword",
+                role: "actor"
+              },
+              {
+                kind: "flag",
+                key: "greek-rhesus-word-heard",
+                value: true
+              }
+            ],
+            effects: [
+              {
+                kind: "place_item",
+                item: "greek-rhesus-watchword",
+                place: "greek-trojan-camp"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-rhesus-watch-compared",
+                value: true
+              }
+            ],
+            workId: "euripides-rhesus"
+          },
+          {
+            id: "greek-rhesus-choose-warning",
+            subject: "greek-rhesus-hector",
+            at: "greek-trojan-camp",
+            label: "Take the early warning to Rhesus",
+            text: "Hector asks Vale to take the challenged watch to the arriving king before the attack.",
+            textTemplate: "Hector asks {actor} to take the challenged watch to the arriving king before the attack.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-rhesus-watch-compared",
+                value: true
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-rhesus-route"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-rhesus-route",
+                value: "warning"
+              }
+            ],
+            workId: "euripides-rhesus"
+          },
+          {
+            id: "greek-rhesus-choose-raid",
+            subject: "greek-rhesus-hector",
+            at: "greek-trojan-camp",
+            label: "Stay to witness the raid\u2019s aftermath",
+            text: "Vale keeps the watch record and follows the wounded driver\u2019s report after the raid.",
+            textTemplate: "{actor} keeps the watch record and follows the wounded driver\u2019s report after the raid.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-rhesus-watch-compared",
+                value: true
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-rhesus-route"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-rhesus-route",
+                value: "raid"
+              }
+            ],
+            workId: "euripides-rhesus"
+          },
+          {
+            id: "greek-rhesus-agree-warning",
+            subject: "greek-rhesus-rhesus",
+            at: "greek-rhesus-allies",
+            label: "Hear Rhesus agree to withdraw",
+            text: "Rhesus accepts Vale\u2019s warning and agrees to reach the aid tent by Hector\u2019s camp. His actual arrival will settle this changed fate.",
+            textTemplate: "Rhesus accepts {actor}\u2019s warning and agrees to reach the aid tent by Hector\u2019s camp. His actual arrival will settle this changed fate.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-rhesus-route",
+                value: "warning"
+              },
+              {
+                kind: "item_at",
+                item: "greek-rhesus-lamp",
+                place: "greek-rhesus-allies"
+              }
+            ],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "greek-rhesus-warning-agreed",
+                value: true
+              }
+            ],
+            workId: "euripides-rhesus"
+          },
+          {
+            id: "greek-rhesus-complete-warning",
+            subject: "greek-rhesus-rhesus",
+            at: "greek-rhesus-aid-tent",
+            label: "Settle the living ally\u2019s protected duty",
+            text: "Vale reaches the aid tent with Rhesus and gives him the clean bandage. In this invented survival he remains alive as the protected aid steward. This recorded duty is his settled later fate in the city-fall account.",
+            textTemplate: "{actor} reaches the aid tent with Rhesus and gives him the clean bandage. In this invented survival he remains alive as the protected aid steward. This recorded duty is his settled later fate in the city-fall account.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-rhesus-route",
+                value: "warning"
+              },
+              {
+                kind: "holding",
+                item: "greek-rhesus-bandage",
+                role: "actor"
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-rhesus-ending"
+              }
+            ],
+            effects: [
+              {
+                kind: "place_item",
+                item: "greek-rhesus-bandage",
+                place: "greek-rhesus-aid-tent"
+              },
+              {
+                kind: "choose",
+                key: "greek-rhesus-ending",
+                value: "warning"
+              },
+              {
+                kind: "choose",
+                key: "greek-rhesus-later-fate",
+                value: "protected-aid-steward"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-rhesus-fate-settled",
+                value: true
+              },
+              {
+                kind: "set_flag",
+                key: "greek-rhesus-record-ready",
+                value: true
+              }
+            ],
+            workId: "euripides-rhesus"
+          },
+          {
+            id: "greek-rhesus-bind-driver",
+            subject: "greek-rhesus-charioteer",
+            at: "greek-rhesus-aid-tent",
+            label: "Bind the driver\u2019s wound",
+            text: "Vale lays the clean bandage at the aid bed and binds the charioteer\u2019s remembered wound.",
+            textTemplate: "{actor} lays the clean bandage at the aid bed and binds the charioteer\u2019s remembered wound.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-rhesus-route",
+                value: "raid"
+              },
+              {
+                kind: "holding",
+                item: "greek-rhesus-bandage",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "place_item",
+                item: "greek-rhesus-bandage",
+                place: "greek-rhesus-aid-tent"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-rhesus-driver-cared",
+                value: true
+              }
+            ],
+            workId: "euripides-rhesus"
+          },
+          {
+            id: "greek-rhesus-hear-driver",
+            subject: "greek-rhesus-charioteer",
+            at: "greek-rhesus-aid-tent",
+            label: "Hear the wounded driver\u2019s accusation",
+            text: "The driver tells Vale he suspects Hector\u2019s men in the attack. His accusation remains a witness\u2019s claim for Hector to answer.",
+            textTemplate: "The driver tells {actor} he suspects Hector\u2019s men in the attack. His accusation remains a witness\u2019s claim for Hector to answer.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-rhesus-driver-cared",
+                value: true
+              }
+            ],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "greek-rhesus-driver-heard",
+                value: true
+              },
+              {
+                kind: "set_flag",
+                key: "greek-rhesus-record-ready",
+                value: true
+              }
+            ],
+            workId: "euripides-rhesus"
+          },
+          {
+            id: "greek-rhesus-complete-raid",
+            subject: "greek-rhesus-hector",
+            at: "greek-trojan-camp",
+            label: "Hear Hector answer the signed accusation",
+            text: "Vale gives Hector the driver\u2019s testimony. Hector attributes the raid to Odysseus, orders care for the wounded and burial for Rhesus, and calls for a dawn attack on the ships. The Muse\u2019s promised hidden divine life remains her source claim. The signed paper keeps this answer beside the driver\u2019s accusation.",
+            textTemplate: "{actor} gives Hector the driver\u2019s testimony. Hector attributes the raid to Odysseus, orders care for the wounded and burial for Rhesus, and calls for a dawn attack on the ships. The Muse\u2019s promised hidden divine life remains her source claim. The signed paper keeps this answer beside the driver\u2019s accusation.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-rhesus-route",
+                value: "raid"
+              },
+              {
+                kind: "flag",
+                key: "greek-rhesus-driver-heard",
+                value: true
+              },
+              {
+                kind: "item_at",
+                item: "greek-rhesus-bandage",
+                place: "greek-rhesus-aid-tent"
+              },
+              {
+                kind: "holding",
+                item: "greek-rhesus-testimony",
+                role: "actor"
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-rhesus-ending"
+              }
+            ],
+            effects: [
+              {
+                kind: "place_item",
+                item: "greek-rhesus-testimony",
+                place: "greek-trojan-camp"
+              },
+              {
+                kind: "choose",
+                key: "greek-rhesus-ending",
+                value: "raid"
+              },
+              {
+                kind: "choose",
+                key: "greek-rhesus-later-fate",
+                value: "dead-after-raid"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-rhesus-fate-settled",
+                value: true
+              },
+              {
+                kind: "set_flag",
+                key: "greek-rhesus-signed",
+                value: true
+              }
+            ],
+            workId: "euripides-rhesus"
+          },
+          {
+            id: "greek-rhesus-record-warning",
+            subject: "greek-rhesus-hector",
+            at: "greek-trojan-camp",
+            label: "Hear Hector record the changed watch",
+            text: "Hector confirms to Vale that Rhesus reached the protected aid duty alive. This invented warning changes the night\u2019s losses and gives the later city-fall account a settled survivor.",
+            textTemplate: "Hector confirms to {actor} that Rhesus reached the protected aid duty alive. This invented warning changes the night\u2019s losses and gives the later city-fall account a settled survivor.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-rhesus-ending",
+                value: "warning"
+              },
+              {
+                kind: "flag",
+                key: "greek-rhesus-fate-settled",
+                value: true
+              },
+              {
+                kind: "holding",
+                item: "greek-rhesus-testimony",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "greek-rhesus-signed",
+                value: true
+              }
+            ],
+            workId: "euripides-rhesus"
+          },
+          {
+            id: "greek-rhesus-return-warning",
+            subject: "greek-baker",
+            at: "greek-courtyard",
+            label: "Read the night watch to Dione",
+            text: "Vale gives Dione the signed night-watch account. The driver\u2019s care, Hector\u2019s answer and Rhesus\u2019s settled fate enter the household poem.",
+            textTemplate: "{actor} gives Dione the signed night-watch account. The driver\u2019s care, Hector\u2019s answer and Rhesus\u2019s settled fate enter the household poem.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-rhesus-ending",
+                value: "warning"
+              },
+              {
+                kind: "flag",
+                key: "greek-rhesus-signed",
+                value: true
+              },
+              {
+                kind: "holding",
+                item: "greek-rhesus-testimony",
+                role: "actor"
+              },
+              {
+                kind: "knows",
+                topic: "greek-rhesus-account-warning",
+                role: "actor"
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-rhesus-return"
+              }
+            ],
+            effects: [
+              {
+                kind: "place_item",
+                item: "greek-rhesus-testimony",
+                place: "greek-courtyard"
+              },
+              {
+                kind: "choose",
+                key: "greek-rhesus-return",
+                value: "warning"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-rhesus-returned",
+                value: true
+              }
+            ],
+            workId: "euripides-rhesus"
+          },
+          {
+            id: "greek-rhesus-return-raid",
+            subject: "greek-baker",
+            at: "greek-courtyard",
+            label: "Read the night watch to Dione",
+            text: "Vale gives Dione the signed night-watch account. The driver\u2019s care, Hector\u2019s answer and Rhesus\u2019s settled fate enter the household poem.",
+            textTemplate: "{actor} gives Dione the signed night-watch account. The driver\u2019s care, Hector\u2019s answer and Rhesus\u2019s settled fate enter the household poem.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-rhesus-ending",
+                value: "raid"
+              },
+              {
+                kind: "flag",
+                key: "greek-rhesus-signed",
+                value: true
+              },
+              {
+                kind: "holding",
+                item: "greek-rhesus-testimony",
+                role: "actor"
+              },
+              {
+                kind: "knows",
+                topic: "greek-rhesus-account-raid",
+                role: "actor"
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-rhesus-return"
+              }
+            ],
+            effects: [
+              {
+                kind: "place_item",
+                item: "greek-rhesus-testimony",
+                place: "greek-courtyard"
+              },
+              {
+                kind: "choose",
+                key: "greek-rhesus-return",
+                value: "raid"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-rhesus-returned",
+                value: true
+              }
+            ],
+            workId: "euripides-rhesus"
           }
         ],
         works: [
@@ -11828,18 +12512,34 @@
             title: "Rhesus",
             era: "trojan-war",
             placeIds: [
-              "greek-trojan-camp"
+              "greek-trojan-camp",
+              "greek-rhesus-allies",
+              "greek-rhesus-aid-tent"
             ],
             premise: "An ally arrives at night while infiltrators and uncertain reports cross the camp.",
-            status: "situated-hook",
+            status: "branching-episode",
             hookChoiceIds: [
-              "greek-inquire-euripides-rhesus"
+              "greek-inquire-euripides-rhesus",
+              "greek-rhesus-invitation",
+              "greek-rhesus-set-lamp",
+              "greek-rhesus-hear-word",
+              "greek-rhesus-compare-word",
+              "greek-rhesus-choose-warning",
+              "greek-rhesus-choose-raid",
+              "greek-rhesus-agree-warning",
+              "greek-rhesus-complete-warning",
+              "greek-rhesus-bind-driver",
+              "greek-rhesus-hear-driver",
+              "greek-rhesus-complete-raid",
+              "greek-rhesus-record-warning",
+              "greek-rhesus-return-warning",
+              "greek-rhesus-return-raid"
             ],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Euripides",
               work: "Rhesus",
-              adaptation: "Original CosyWorld situation text; no translation passages are bundled."
+              adaptation: "Original watch, lamp, sentry challenge and physical care scenes retain the disputed attribution. The source-shaped aftermath keeps the driver\u2019s accusation, Hector\u2019s attribution and care/burial/attack orders, and the Muse\u2019s attributed promise. The invented warning uses an actual agreed local withdrawal and settles a living protected aid duty before the later fall-of-Troy frame."
             }
           },
           {
@@ -12156,7 +12856,11 @@
             "greek-lemnos",
             "greek-lemnos-landing",
             "greek-delphi",
-            "greek-trachis"
+            "greek-trachis",
+            "greek-troy",
+            "greek-trojan-camp",
+            "greek-rhesus-allies",
+            "greek-rhesus-aid-tent"
           ],
           avatars: [
             "greek-antigone",
@@ -12184,7 +12888,10 @@
             "greek-aulis-clytemnestra",
             "greek-aulis-achilles",
             "greek-lemnos-philoctetes",
-            "greek-lemnos-neoptolemus"
+            "greek-lemnos-neoptolemus",
+            "greek-rhesus-hector",
+            "greek-rhesus-rhesus",
+            "greek-rhesus-charioteer"
           ],
           items: [
             "greek-water-jar",
@@ -12214,7 +12921,11 @@
             "greek-aulis-departure-record",
             "greek-lemnos-water",
             "greek-lemnos-herb",
-            "greek-lemnos-bow"
+            "greek-lemnos-bow",
+            "greek-rhesus-lamp",
+            "greek-rhesus-watchword",
+            "greek-rhesus-bandage",
+            "greek-rhesus-testimony"
           ],
           choices: [
             "greek-return-water-jar",
@@ -12342,7 +13053,21 @@
             "greek-lemnos-agree-repair",
             "greek-lemnos-arrive-repair",
             "greek-lemnos-return-repair",
-            "greek-lemnos-check-manifest"
+            "greek-lemnos-check-manifest",
+            "greek-rhesus-invitation",
+            "greek-rhesus-set-lamp",
+            "greek-rhesus-hear-word",
+            "greek-rhesus-compare-word",
+            "greek-rhesus-choose-warning",
+            "greek-rhesus-choose-raid",
+            "greek-rhesus-agree-warning",
+            "greek-rhesus-complete-warning",
+            "greek-rhesus-bind-driver",
+            "greek-rhesus-hear-driver",
+            "greek-rhesus-complete-raid",
+            "greek-rhesus-record-warning",
+            "greek-rhesus-return-warning",
+            "greek-rhesus-return-raid"
           ]
         },
         recital: {
@@ -13051,6 +13776,60 @@
                 "His own hand kept the bow he chose to bear."
               ],
               summons: true
+            },
+            {
+              choice: "greek-rhesus-set-lamp",
+              quest: "story-quest-greek-rhesus-lamp",
+              lines: [
+                "I set a watch beside the arriving tents.",
+                "A shaded lamp made room for careful eyes."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-rhesus-compare-word",
+              quest: "story-quest-greek-rhesus-watch",
+              lines: [
+                "I brought the sentry\u2019s word before the king.",
+                "A challenged voice could change the waiting night."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-rhesus-complete-warning",
+              quest: "story-quest-greek-rhesus-ending",
+              lines: [
+                "I walked the living ally to the bed.",
+                "His hands found work among the sheltered hurt."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-rhesus-complete-raid",
+              quest: "story-quest-greek-rhesus-ending",
+              lines: [
+                "I carried up the wounded driver\u2019s claim.",
+                "The king gave care and named another dawn."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-rhesus-return-warning",
+              quest: "story-quest-greek-rhesus-return",
+              lines: [
+                "I read the living ally\u2019s duty home.",
+                "The bread held room for those the warning saved."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-rhesus-return-raid",
+              quest: "story-quest-greek-rhesus-return",
+              lines: [
+                "I read the wounded driver\u2019s answer home.",
+                "The dead and living kept their separate claims."
+              ],
+              summons: true
             }
           ]
         },
@@ -13126,6 +13905,36 @@
               {
                 kind: "flag",
                 key: "greek-lemnos-open",
+                value: true
+              }
+            ]
+          },
+          {
+            id: "greek-rhesus-watch",
+            name: "The Watchword in the Dark",
+            places: [
+              "greek-trojan-camp",
+              "greek-rhesus-allies",
+              "greek-rhesus-aid-tent"
+            ],
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-rhesus-open",
+                value: true
+              }
+            ]
+          },
+          {
+            id: "greek-rhesus-city-approach",
+            name: "The Trojan City Approach",
+            places: [
+              "greek-troy"
+            ],
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-rhesus-open",
                 value: true
               }
             ]
@@ -14452,6 +15261,115 @@
             ],
             outcome: "Shared",
             progress: []
+          },
+          {
+            id: "story-quest-greek-rhesus-lamp",
+            group: "rhesus",
+            line: "Set the lamp at the arriving watch.",
+            holder: {
+              kind: "avatar",
+              id: "greek-rhesus-rhesus"
+            },
+            art: "greek-rhesus-lamp",
+            start: {
+              kind: "flag",
+              key: "greek-rhesus-open",
+              value: true
+            },
+            endings: [
+              {
+                choice: "greek-rhesus-set-lamp"
+              }
+            ],
+            outcome: "Fulfilled",
+            progress: []
+          },
+          {
+            id: "story-quest-greek-rhesus-watch",
+            group: "rhesus",
+            line: "Compare the sentry\u2019s written word.",
+            holder: {
+              kind: "avatar",
+              id: "greek-rhesus-hector"
+            },
+            art: "greek-rhesus-watchword",
+            start: {
+              kind: "receipt",
+              choice: "greek-rhesus-set-lamp"
+            },
+            endings: [
+              {
+                choice: "greek-rhesus-compare-word"
+              }
+            ],
+            outcome: "Fulfilled",
+            progress: [
+              "greek-rhesus-hear-word"
+            ]
+          },
+          {
+            id: "story-quest-greek-rhesus-ending",
+            group: "rhesus",
+            line: "Keep the warning or the wounded witness through its deed.",
+            holder: {
+              kind: "avatar",
+              id: "greek-rhesus-rhesus"
+            },
+            art: "greek-rhesus-bandage",
+            start: {
+              kind: "receipt",
+              choice: "greek-rhesus-compare-word"
+            },
+            endings: [
+              {
+                choice: "greek-rhesus-complete-warning"
+              },
+              {
+                choice: "greek-rhesus-complete-raid"
+              }
+            ],
+            outcome: "Fulfilled",
+            progress: [
+              "greek-rhesus-choose-warning",
+              "greek-rhesus-choose-raid",
+              "greek-rhesus-agree-warning",
+              "greek-rhesus-bind-driver",
+              "greek-rhesus-hear-driver"
+            ]
+          },
+          {
+            id: "story-quest-greek-rhesus-return",
+            group: "rhesus",
+            line: "Carry the signed night watch home.",
+            holder: {
+              kind: "avatar",
+              id: "greek-rhesus-hector"
+            },
+            art: "greek-rhesus-testimony",
+            start: {
+              any: [
+                {
+                  kind: "receipt",
+                  choice: "greek-rhesus-complete-warning"
+                },
+                {
+                  kind: "receipt",
+                  choice: "greek-rhesus-complete-raid"
+                }
+              ]
+            },
+            endings: [
+              {
+                choice: "greek-rhesus-return-warning"
+              },
+              {
+                choice: "greek-rhesus-return-raid"
+              }
+            ],
+            outcome: "Shared",
+            progress: [
+              "greek-rhesus-record-warning"
+            ]
           }
         ],
         topics: [
@@ -15066,6 +15984,77 @@
               }
             ],
             choiceId: "greek-lemnos-arrive-repair"
+          },
+          {
+            id: "greek-rhesus-word",
+            speaker: "greek-rhesus-hector",
+            at: "greek-trojan-camp",
+            text: "Hector names the sentry\u2019s current watchword and Dolon\u2019s scouting task before the night raid.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-rhesus-lamp-set",
+                value: true
+              }
+            ],
+            choiceId: "greek-rhesus-hear-word"
+          },
+          {
+            id: "greek-rhesus-driver",
+            speaker: "greek-rhesus-charioteer",
+            at: "greek-rhesus-aid-tent",
+            text: "The wounded charioteer accuses Hector\u2019s men of attacking the Thracian allies after their arrival.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-rhesus-driver-cared",
+                value: true
+              }
+            ],
+            choiceId: "greek-rhesus-hear-driver"
+          },
+          {
+            id: "greek-rhesus-account-raid",
+            speaker: "greek-rhesus-hector",
+            at: "greek-trojan-camp",
+            text: "Hector attributes the raid to Odysseus and orders care, Rhesus\u2019s burial and a dawn attack on the ships.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-rhesus-route",
+                value: "raid"
+              },
+              {
+                kind: "flag",
+                key: "greek-rhesus-driver-heard",
+                value: true
+              },
+              {
+                kind: "holding",
+                item: "greek-rhesus-testimony",
+                role: "actor"
+              }
+            ],
+            choiceId: "greek-rhesus-complete-raid"
+          },
+          {
+            id: "greek-rhesus-account-warning",
+            speaker: "greek-rhesus-hector",
+            at: "greek-trojan-camp",
+            text: "Hector records Rhesus alive in protected aid duty after the warning and actual withdrawal.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-rhesus-ending",
+                value: "warning"
+              },
+              {
+                kind: "holding",
+                item: "greek-rhesus-testimony",
+                role: "actor"
+              }
+            ],
+            choiceId: "greek-rhesus-record-warning"
           }
         ],
         bridge: {
@@ -25408,6 +26397,8 @@
   group("troad", "open", "troy trojan-camp");
   group("troad", "coast", "greek-camp troy-beach ajax-landing");
   group("troad", "shelter", "ajax-household");
+  group("troad", "shelter", "rhesus-aid-tent");
+  group("troad", "open", "rhesus-allies");
   group("troad", "open", "ajax-grave");
   group("thrace", "coast", "thrace");
   group("lemnos", "shelter", "lemnos");
@@ -25488,7 +26479,9 @@
     "greek-ajax-grave": art("ajax-camp-night"),
     "greek-aulis": art("ajax-camp-night"),
     "greek-aulis-household": art("ajax-camp-night"),
-    "greek-aulis-altar": art("ajax-camp-night")
+    "greek-aulis-altar": art("ajax-camp-night"),
+    "greek-lemnos": art("book-three-lemnos-night"),
+    "greek-lemnos-landing": art("book-three-lemnos-night")
   };
   var dockedNightBackdrops = {
     [art("harbor-ship-at-berth")]: art("harbor-ship-at-berth-night"),
@@ -25505,7 +26498,7 @@
     if (!world || !Object.hasOwn(nightBackdrops, id)) return null;
     const period = Math.floor(world.turn / DAYLIGHT_TURNS);
     const phase = period % 2 ? "night" : "day";
-    const where = id === "greek-athens-harbor" ? "at Athens Harbor" : id === "greek-piraeus" ? "at Piraeus Quays" : id === "greek-aulis" || id.startsWith("greek-aulis-") ? "at the remembered Aulis anchorage" : id === "greek-greek-camp" || id.startsWith("greek-ajax-") ? "at the Greek camp near Troy" : "in Thebes";
+    const where = id === "greek-athens-harbor" ? "at Athens Harbor" : id === "greek-piraeus" ? "at Piraeus Quays" : id === "greek-aulis" || id.startsWith("greek-aulis-") ? "at the remembered Aulis anchorage" : id === "greek-lemnos" || id.startsWith("greek-lemnos-") ? "on the remembered Lemnian shore" : id === "greek-greek-camp" || id.startsWith("greek-ajax-") ? "at the Greek camp near Troy" : "in Thebes";
     return {
       phase,
       period,

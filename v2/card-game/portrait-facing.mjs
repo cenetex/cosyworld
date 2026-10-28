@@ -15,9 +15,15 @@ const groups = {
     ),
   ],
   left: [
-    ...["iphigenia", "clytemnestra", "achilles", "neoptolemus"].map(
-      (name) => `assets/greek-drama/book-three-${name}.png`,
-    ),
+    ...[
+      "iphigenia",
+      "clytemnestra",
+      "achilles",
+      "neoptolemus",
+      "hector",
+      "rhesus",
+      "charioteer",
+    ].map((name) => `assets/greek-drama/book-three-${name}.png`),
     "assets/willows/swede.webp",
     "assets/moth.png",
     "assets/keeper.png",

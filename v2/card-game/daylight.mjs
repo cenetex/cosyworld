@@ -19,6 +19,8 @@ const nightBackdrops = {
   "greek-aulis": art("ajax-camp-night"),
   "greek-aulis-household": art("ajax-camp-night"),
   "greek-aulis-altar": art("ajax-camp-night"),
+  "greek-lemnos": art("book-three-lemnos-night"),
+  "greek-lemnos-landing": art("book-three-lemnos-night"),
 };
 const dockedNightBackdrops = {
   [art("harbor-ship-at-berth")]: art("harbor-ship-at-berth-night"),
@@ -43,6 +45,8 @@ export function locationDaylight(world, id) {
         ? "at Piraeus Quays"
         : id === "greek-aulis" || id.startsWith("greek-aulis-")
           ? "at the remembered Aulis anchorage"
+          : id === "greek-lemnos" || id.startsWith("greek-lemnos-")
+            ? "on the remembered Lemnian shore"
           : id === "greek-greek-camp" || id.startsWith("greek-ajax-")
             ? "at the Greek camp near Troy"
             : "in Thebes";

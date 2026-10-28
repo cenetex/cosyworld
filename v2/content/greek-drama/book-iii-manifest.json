@@ -5,7 +5,7 @@
   "rules": 21,
   "packId": "greek-drama",
   "targetRevision": 8,
-  "status": "aulis-and-lemnos-source",
+  "status": "book-three-source-in-progress",
   "baseline": {
     "source": "d0eed59f437f05467839f287d93c867f9da9d2d7",
     "rules": 21,
@@ -41,25 +41,17 @@
         "greek-aulis-offering-cloth",
         "greek-aulis-departure-record"
       ],
-      "newPlaces": [
-        "greek-aulis-household",
-        "greek-aulis-altar"
-      ]
+      "newPlaces": ["greek-aulis-household", "greek-aulis-altar"]
     },
     {
       "chapter": "Philoctetes",
-      "newActors": [
-        "greek-lemnos-philoctetes",
-        "greek-lemnos-neoptolemus"
-      ],
+      "newActors": ["greek-lemnos-philoctetes", "greek-lemnos-neoptolemus"],
       "newItems": [
         "greek-lemnos-water",
         "greek-lemnos-herb",
         "greek-lemnos-bow"
       ],
-      "newPlaces": [
-        "greek-lemnos-landing"
-      ]
+      "newPlaces": ["greek-lemnos-landing"]
     },
     {
       "chapter": "Rhesus",
@@ -74,10 +66,7 @@
         "greek-rhesus-bandage",
         "greek-rhesus-testimony"
       ],
-      "newPlaces": [
-        "greek-rhesus-allies",
-        "greek-rhesus-aid-tent"
-      ]
+      "newPlaces": ["greek-rhesus-allies", "greek-rhesus-aid-tent"]
     },
     {
       "chapter": "Trojan Women",
@@ -95,10 +84,7 @@
         "greek-troy-crew-pledge",
         "greek-troy-berth-token"
       ],
-      "newPlaces": [
-        "greek-troy-womens-tent",
-        "greek-troy-shield-ground"
-      ]
+      "newPlaces": ["greek-troy-womens-tent", "greek-troy-shield-ground"]
     },
     {
       "chapter": "Hecuba",
@@ -114,17 +100,11 @@
         "greek-thrace-gold-record",
         "greek-thrace-case-papers"
       ],
-      "newPlaces": [
-        "greek-thrace-summons-tent",
-        "greek-thrace-burial-ground"
-      ]
+      "newPlaces": ["greek-thrace-summons-tent", "greek-thrace-burial-ground"]
     },
     {
       "chapter": "Persians",
-      "newActors": [
-        "greek-susa-atossa",
-        "greek-susa-xerxes"
-      ],
+      "newActors": ["greek-susa-atossa", "greek-susa-xerxes"],
       "newItems": [
         "greek-susa-broken-oar",
         "greek-susa-dead-names",
@@ -249,21 +229,21 @@
   ],
   "actualGreekCatalog": {
     "revision": 8,
-    "actors": 38,
-    "items": 33,
-    "places": 66,
-    "choices": 190,
-    "stories": 29,
-    "topics": 32,
+    "actors": 41,
+    "items": 37,
+    "places": 68,
+    "choices": 204,
+    "stories": 33,
+    "topics": 36,
     "works": 44,
-    "verses": 70
+    "verses": 76
   },
   "implementedWorks": [
     "euripides-iphigenia-at-aulis",
-    "sophocles-philoctetes"
+    "sophocles-philoctetes",
+    "euripides-rhesus"
   ],
   "remainingWorks": [
-    "euripides-rhesus",
     "euripides-trojan-women",
     "euripides-hecuba",
     "aeschylus-persians"
@@ -274,32 +254,19 @@
       "status": "reserved for the Trojan Women source",
       "ending": {
         "key": "greek-troy-ending",
-        "values": [
-          "witness",
-          "child-refuge",
-          "family-together"
-        ]
+        "values": ["witness", "child-refuge", "family-together"]
       },
       "assignment": {
         "key": "greek-troy-andromache-assignment",
-        "values": [
-          "neoptolemus"
-        ]
+        "values": ["neoptolemus"]
       },
       "route": {
         "key": "greek-troy-andromache-route",
-        "values": [
-          "captive-departure",
-          "refuge",
-          "family-passage"
-        ]
+        "values": ["captive-departure", "refuge", "family-passage"]
       },
       "astyanax": {
         "key": "greek-troy-astyanax-fate",
-        "values": [
-          "dead",
-          "refuge"
-        ]
+        "values": ["dead", "refuge"]
       },
       "arrival": {
         "flag": "greek-troy-andromache-arrived",
@@ -311,13 +278,15 @@
     "focusedTests": 35,
     "aulisBrowserJourneys": 6,
     "shipContractTests": 8,
-    "publicAssets": 676,
+    "publicAssets": 681,
     "nativeStatus": "passed: shared passenger agreement, two human-selected stops, stale companion and boarding rejection, physical arrival and return, checkpoint removal, database reopen, and rules-20 visit upgrade",
     "lemnosBrowserJourneys": 6,
     "nativeTests": 2,
-    "nativeSeconds": 67.35
+    "nativeSeconds": 67.35,
+    "rhesusFocusedTests": 3,
+    "rhesusCastWeatherDaylightTests": 26
   },
   "visualFollowup": [
-    "Paint the Lemnian cave and landing beyond the older sea backdrop."
+    "Lemnos day and night paintings are bound; the final rendered check and optimized image batch are queued."
   ]
 }

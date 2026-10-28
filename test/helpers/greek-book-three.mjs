@@ -123,6 +123,73 @@ export function lemnosJourney(route = "troy") {
   return lemnosChoice(world, `return-${route}`);
 }
 
+export const rhesusChoice = (world, id) =>
+  bookPlay(world, "choose", { choiceId: `greek-rhesus-${id}` });
+
+export function rhesusStart() {
+  let world = bookMove(lemnosJourney(), "greek-harbor");
+  world = rhesusChoice(world, "invitation");
+  return bookMove(
+    bookBoard(world),
+    "greek-ajax-landing",
+    "greek-greek-camp",
+    "greek-troy",
+    "greek-trojan-camp",
+  );
+}
+
+export function rhesusWatch(route = "warning") {
+  let world = bookPlay(rhesusStart(), "take", { item: "greek-rhesus-lamp" });
+  world = bookMove(world, "greek-rhesus-allies");
+  world = rhesusChoice(world, "set-lamp");
+  world = bookMove(world, "greek-trojan-camp");
+  world = bookTalk(world, "greek-rhesus-hector", "greek-rhesus-word");
+  world = bookMove(world, "greek-rhesus-allies");
+  world = bookPlay(world, "take", { item: "greek-rhesus-watchword" });
+  world = bookMove(world, "greek-trojan-camp");
+  world = rhesusChoice(world, "compare-word");
+  return rhesusChoice(world, `choose-${route}`);
+}
+
+export function rhesusAccount(route = "warning") {
+  let world = bookMove(rhesusWatch(route), "greek-rhesus-aid-tent");
+  world = bookPlay(world, "take", { item: "greek-rhesus-bandage" });
+  if (route === "warning") {
+    world = bookMove(world, "greek-trojan-camp", "greek-rhesus-allies");
+    world = rhesusChoice(world, "agree-warning");
+    for (const destination of ["greek-trojan-camp", "greek-rhesus-aid-tent"])
+      world = bookPlay(world, "accompany", {
+        target: "greek-rhesus-rhesus",
+        destination,
+      });
+    world = rhesusChoice(world, "complete-warning");
+  } else {
+    world = rhesusChoice(world, "bind-driver");
+    world = bookTalk(world, "greek-rhesus-charioteer", "greek-rhesus-driver");
+  }
+  world = bookPlay(world, "take", { item: "greek-rhesus-testimony" });
+  world = bookMove(world, "greek-trojan-camp");
+  world = bookTalk(
+    world,
+    "greek-rhesus-hector",
+    `greek-rhesus-account-${route}`,
+  );
+  return route === "raid"
+    ? bookPlay(world, "take", { item: "greek-rhesus-testimony" })
+    : world;
+}
+
+export function rhesusJourney(route = "warning") {
+  let world = bookMove(
+    rhesusAccount(route),
+    "greek-troy",
+    "greek-greek-camp",
+    "greek-ajax-landing",
+  );
+  world = bookMove(bookBoard(world), "greek-harbor", "greek-courtyard");
+  return rhesusChoice(world, `return-${route}`);
+}
+
 export function bookTalk(world, speaker, topic, actor = "vale") {
   const action = legalActions(world, actor).find(
     (candidate) => candidate.kind === "talk" && candidate.target === speaker,

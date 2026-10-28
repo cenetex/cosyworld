@@ -57,6 +57,8 @@ group("thessaly", "grove", "thetis");
 group("troad", "open", "troy trojan-camp");
 group("troad", "coast", "greek-camp troy-beach ajax-landing");
 group("troad", "shelter", "ajax-household");
+group("troad", "shelter", "rhesus-aid-tent");
+group("troad", "open", "rhesus-allies");
 group("troad", "open", "ajax-grave");
 group("thrace", "coast", "thrace");
 group("lemnos", "shelter", "lemnos");
