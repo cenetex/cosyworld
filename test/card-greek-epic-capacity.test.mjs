@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import compiled from "../v2/card-game/packs.json" with { type: "json" };
 import frozen from "../v2/content/greek-drama/recital-rules20.json" with { type: "json" };
 import { packProblems } from "../v2/card-game/pack-schema.mjs";
+import { packDefinition } from "../v2/card-game/pack-registry.mjs";
 import { storyQuestProblems } from "../v2/card-game/pack-story-schema.mjs";
 import { authoredStoryDefinitions } from "../v2/card-game/pack-story-quests.mjs";
 import {
@@ -166,31 +167,72 @@ describe("frozen earned wording", () => {
     },
   );
   it("earns new wording through a new choice while the earlier receipt keeps its lines", () => {
-    const p = greek(),
+    const p = packDefinition("greek-drama"),
       original = p.recital.verses[0];
     const addition = {
       ...structuredClone(original),
       choice: "greek-new-earned-verse",
+      summons: false,
       lines: [
         "I carried news beside the bread.",
         "The room received another song.",
       ],
     };
+    // Extend the mounted pack for this authored-action fixture, then restore it.
     p.recital.verses.push(addition);
-    expect(frozenVerseProblems(p, frozen)).toEqual([]);
-    const w = { packs: { [p.id]: { receipts: { [original.choice]: 2 } } } };
-    const before = recitalPoem(w, p);
-    expect(before.stanzas.map((s) => s.id)).toEqual([original.choice]);
-    w.packs[p.id].receipts[addition.choice] = 9;
-    expect(recitalPoem(w, p).stanzas).toEqual([
-      ...before.stanzas,
-      {
-        id: addition.choice,
-        turn: 9,
-        questId: addition.quest,
-        lines: addition.lines,
-      },
-    ]);
+    p.choices.push({
+      id: addition.choice,
+      subject: "greek-baker",
+      at: "greek-courtyard",
+      label: "Read the new verse",
+      text: "Vale reads a new verse beside Dione.",
+      requires: [{ kind: "met", actor: "greek-baker" }],
+      effects: [{ kind: "set_flag", key: "greek-new-verse-read", value: true }],
+    });
+    try {
+      expect(frozenVerseProblems(p, frozen)).toEqual([]);
+      let w = createWorld({ packScopes: { "greek-drama": "full" } });
+      w.actors.vale.place = "greek-courtyard";
+      w.items["greek-water-jar"].holder = "vale";
+      w.crossings["pond-greek-harbor"].discovered = true;
+      w = play(
+        w,
+        legalActions(w).find((a) => a.choiceId === original.choice),
+      ).state;
+      const before = recitalPoem(w, p);
+      expect(before.stanzas.map((s) => s.id)).toEqual([original.choice]);
+      const action = legalActions(w).find(
+        (a) => a.choiceId === addition.choice,
+      );
+      expect(action).toBeDefined();
+      const result = play(w, action);
+      expect(result.ok).toBe(true);
+      w = result.state;
+      expect(
+        w.log.findLast((e) => e.choiceId === addition.choice),
+      ).toMatchObject({
+        verb: "choose",
+        actorId: "vale",
+        packId: p.id,
+        turn: w.turn,
+      });
+      expect(w.packs[p.id].recitals[addition.choice]).toEqual({
+        actor: "vale",
+        visit: null,
+      });
+      expect(recitalPoem(decodeSave(encodeSave(w)), p).stanzas).toEqual([
+        ...before.stanzas,
+        {
+          id: addition.choice,
+          turn: w.turn,
+          questId: addition.quest,
+          lines: addition.lines,
+        },
+      ]);
+    } finally {
+      p.choices.pop();
+      p.recital.verses.pop();
+    }
   });
   it("preserves conditional wording for either visit order", () => {
     const p = greek(),
