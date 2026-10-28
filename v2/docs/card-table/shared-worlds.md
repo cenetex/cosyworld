@@ -32,6 +32,10 @@ joins the room's latest scene.
 
 Each accepted play advances the existing world clock. Lamp fuel, temporary
 sounds, and crossing sequences keep their current turn rules for everyone.
+Greek locations also read this shared turn for regional weather. A weather
+period lasts twelve accepted plays across the world. Players in the same region
+see the same conditions, with local effects for the coast, streets, groves,
+and shelters. Each view, place card, and dialogue request uses these conditions.
 
 ## One world model
 

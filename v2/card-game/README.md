@@ -519,6 +519,14 @@ server. The served page receives the matching wait budget. Operators can set
 
 ## Painted Greece
 
+Greek weather follows one cycle per region. Each period lasts twelve accepted
+world turns. Clear skies, cloud, rain, and mist appear in the scene and on place
+cards. Coasts, courtyards, open ground, groves, and shelters each have their own
+view of the regional weather. The Underworld has low mist above its water.
+The shared game, local saves, dialogue facts, and scene exports all read the same
+turn. Reloading keeps the current weather. Shared rules version 13 adds weather
+views and preserves each earlier rule bundle for journal replay.
+
 New Greek games expose the harbor and six Theban places, each with a distinct
 painting. The Open Door adds five paintings and eight resident portraits.
 Old Greek saves retain later routes and histories. The ship uses

@@ -13,6 +13,7 @@ import {
   locationOverlay,
   sceneScript,
 } from "../v2/card-game/scene.mjs";
+import { locationWeather } from "../v2/card-game/weather.mjs";
 import { summonTransport } from "../v2/card-game/pack-transport.mjs";
 import {
   packDefinition,
@@ -39,7 +40,7 @@ function check(world, expected) {
     sceneScript(world).locations.find((p) => p.id === harbor).background,
   ).toBe(expected);
   expect(locationVariant(world, harbor)).toBe(
-    expected === docked ? "greek-harbor-pond" : "base",
+    `${expected === docked ? "greek-harbor-pond" : "base"}:${locationWeather(world, harbor).variant}`,
   );
   expect(locationOverlay(world, harbor)).toBeNull();
   expect(backdrop(harbor, decodeSave(encodeSave(world)))).toBe(expected);

@@ -232,6 +232,18 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/scene.mjs"),
         ),
+        "weather.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/weather.mjs"),
+        ),
+        "weather-view.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/weather-view.mjs"),
+        ),
+        "weather.css" => (
+            "text/css; charset=utf-8",
+            include_bytes!("../../card-game/weather.css"),
+        ),
         "portrait-facing.mjs" => (
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/portrait-facing.mjs"),
@@ -1634,7 +1646,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "assets/shared/items/shears.png" => {
             "\"225bf98853060dc121ea82d4d89430f27d049f7de70e3b0b8e30f2cd633b9d87\""
         }
-        "index.html" => "\"a20beaa679e822616e9eb2b73b05f81ad1e026c44dd1178384e2e158ac891587\"",
+        "index.html" => "\"d8839269af602550077f9bba8daef103fad3efa7784b29c8769ff9b2edcb3a52\"",
         "style.css" => "\"4a50df07d35cd2a5bdd7ded7dcad61e4bd05c3308068a76b1ce1836eaa012ff4\"",
         "entry.mjs" => "\"1a7995fada45e5bf544ec6e98a6cc9ea9019634cf9bae644d6f1766581314c89\"",
         "openrouter.mjs" => "\"1f1df94c46294aeefb95b37f58f63f3cf690b645927a74f78ea5cfb3e2734330\"",
@@ -1660,9 +1672,14 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "scene-video.css" => "\"3c6851ec825e734e3d8a084f4ed77f077bcb4402acbf61869a67b652c3afe4c5\"",
         "awakening.css" => "\"c7a68a23baf1e46934237a57f4b5f87d76bad87af85fdf57ee40abec646908b9\"",
-        "app.mjs" => "\"277caf8c2f5b4ec372af49bf6472cdf63887ec6b3584eccc9792614410a27cf1\"",
+        "app.mjs" => "\"7b311e722062d17b6d74e766e677a48f942ba7fcb5a6d500d5bebcbf02d01616\"",
         "world.mjs" => "\"ea04a8b4b8a415a19ff21269779e5a5cdfe8adc991d84de47bdb5c17e25790e5\"",
-        "scene.mjs" => "\"635ee5038f8b73ae0425bb64de542fa2a9d034f3287802a1a5b3a8101b34edd1\"",
+        "scene.mjs" => "\"7f0d731e4b812f61e10e1ae88254bdf39e73365f4d0792e4a932c61f5fe8d8a6\"",
+        "weather.mjs" => "\"10f023956b3936dc1d1a6817b53ca9b6535b976f3aa5f98728ea16a665fdd07b\"",
+        "weather-view.mjs" => {
+            "\"dc9edd54c5f13030dada6237d2d0b2b7b8e3316e3b35f06d6936a5b421a5ecc9\""
+        }
+        "weather.css" => "\"45baec76a628e698e8ead09aaaaf035c779bb10c427ac931a3f9f0219c8f796c\"",
         "portrait-facing.mjs" => {
             "\"092242aa43a1919d1469b9dfba6a50723504569fea480fd3f33fcb9f72bd23b1\""
         }
@@ -1699,7 +1716,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "quest-cards.mjs" => "\"81916b280064e9c9619fb01ee5ded358adf750374efdc10f5fbfa9c629ffeeb9\"",
         "situations.mjs" => "\"1fff8b8ba954720b8a0a4450d6db2bf6e6d9378566ae0ca2668a44979f83c39d\"",
         "memory.mjs" => "\"a60b35aae48d30646331b3de96234fad605fb363a694db9ef7204851f85be14d\"",
-        "narrative.mjs" => "\"4d057d3f8bf168e8bf22e552517252dea9920927baaf763634a34f1fc1a64065\"",
+        "narrative.mjs" => "\"9b9c8dc6d502e8814b1354b60a7d0232a3fa42b85f77bdfd5fd449c2ab5f4f47\"",
         "dialogue.mjs" => "\"1f4965d3e2a36261973aace4534359c00c7cf8aeaf15548a08d29e364adcc7ad\"",
         "character-speech.mjs" => {
             "\"d53e51f93d89a0073199f45dd83086417733d76980f6c3b22f875b3f642292b5\""

@@ -1,6 +1,8 @@
 import { imageUrl } from "./images.mjs";
 import { flipStagePortrait } from "./portrait-facing.mjs";
 import { installSceneVideo } from "./scene-video.mjs";
+import { locationWeather } from "./weather.mjs";
+import { renderWeather } from "./weather-view.mjs";
 import { installToolbar, renderPlayers } from "./toolbar.mjs";
 import {
   connectSharedWorld,
@@ -1581,6 +1583,7 @@ function card(id) {
   if (type === "avatar") frameFigure(img);
   graphic.append(img);
   if (type === "location") {
+    renderWeather(graphic, locationWeather(world, id));
     el.dataset.locationVariant = locationVariant(world, id);
     const src = locationOverlay(world, id);
     if (src) {
@@ -1847,7 +1850,9 @@ function renderScene() {
   const background = imageUrl(scene.background);
   if (img.getAttribute("src") !== background) img.src = background;
   img.alt = placeText(world, scene.locationId);
+  if (scene.weather) img.alt += ` ${scene.weather.description}`;
   img.dataset.locationVariant = scene.variant;
+  renderWeather($("stage"), scene.weather);
   let overlay = $("location-overlay");
   if (scene.overlay && !overlay) {
     overlay = node("img", undefined, "backdrop location-overlay");
