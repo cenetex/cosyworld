@@ -30,6 +30,7 @@ const requested = play(
   legalActions(spare).find((a) => a.kind === "ask" && a.item === "oil"),
 ).state;
 const tradeStart = practiceWorld();
+tradeStart.items.oil.doses = 0;
 const traded = play(
   tradeStart,
   legalActions(tradeStart).find(
@@ -38,6 +39,7 @@ const traded = play(
 ).state;
 const probes = [requested, traded].map((practised) => {
   const w = practiceWorld();
+  w.items.oil.doses = 0;
   w.turn = 2;
   w.revision = 2;
   w.eventSeq = 100;
@@ -114,11 +116,21 @@ try {
       `http://127.0.0.1:${server.address().port}/?table=learning`,
     );
     const choices = await page.evaluate(async (saves) => {
-      const { decodeSave, plan } = await import("/card-game/world.mjs");
+      const { decodeSave, legalActions } = await import("/card-game/world.mjs");
+      const { reconsiderPlan } = await import("/card-game/learning.mjs");
       return saves.map((save) => {
         const world = decodeSave(save);
         const before = JSON.stringify(world);
-        const choice = plan(world);
+        const actions = legalActions(world);
+        const action = actions.find(
+          (a) => a.kind === "trade" && a.item === "bell" && a.receive === "oil",
+        );
+        const choice = reconsiderPlan(
+          world,
+          "vale",
+          { action, reason: "Seek the oil flask." },
+          actions,
+        );
         if (JSON.stringify(world) !== before)
           throw Error("A preview must preserve the save.");
         return {

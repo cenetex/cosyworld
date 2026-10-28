@@ -195,6 +195,8 @@ import {
 // Authored forest data and mounted packs share the same rule path.
 export const places = { ...forest.places, ...packPlaces };
 const homeGates = { ...forest.homeGates, ...humanHomeGates };
+const itemGateCrossings = crossings.filter((crossing) =>
+  crossing.requires.some((condition) => condition.kind === "item_present"));
 export const sanctuaries = Object.keys(places).filter(
   (id) => places[id].sanctuary === true,
 );
@@ -2204,13 +2206,13 @@ function basePlan(s, actor) {
         id !== actor &&
         entityActive(s, id) &&
         there !== here &&
-        toward(s, actor, there) &&
         theirs.avatars.includes(actor) &&
         (theirs.location || there) === there &&
         handStatus(s, id, theirs).items.every((e) => e.met) &&
         theirs.avatars.every(
           (other) => other === actor || s.actors[other].place === there,
-        )
+        ) &&
+        toward(s, actor, there)
       );
     });
   const goMeet = (id) =>
@@ -2283,7 +2285,7 @@ function basePlan(s, actor) {
       }
     }
     if (!local) {
-      for (const crossing of routeBetween(s, here, itemPlace(s, item), actor) ? [] : crossings) {
+      for (const crossing of routeBetween(s, here, itemPlace(s, item), actor) ? [] : itemGateCrossings) {
         if (crossing.transport || !actorCanVisit(actor, crossing.to, s) ||
           !routeBetween(s, crossing.to, itemPlace(s, item), actor)) continue;
         for (const gate of crossing.requires.filter((condition) =>

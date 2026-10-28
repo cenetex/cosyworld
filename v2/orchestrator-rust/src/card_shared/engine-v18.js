@@ -162,7 +162,9 @@
   }
   function learnedPlan(world, actor, selected, actions, conditionsFor) {
     const goal = goalFor(world, actor, selected.action);
-    if (!goal || observation(world, actor, goal).met) return selected;
+    if (!goal) return selected;
+    const before = observation(world, actor, goal);
+    if (before.met) return selected;
     const trials = trialsFor(world, actor, goal);
     if (!trials.length) return selected;
     const conditions = conditionsFor(world, { ...goal, actor });
@@ -179,6 +181,8 @@
     choices.sort((a, b) => b.score - a.score || a.tie - b.tie);
     const chosen = choices[0];
     if (!chosen) return selected;
+    if (selected.action.kind === "trade" && actions.some((action) => action.key === selected.action.key) && chosen.action.key !== selected.action.key && (chosen.value ?? -Infinity) <= outcomeReward(before, { ...before, met: true }))
+      return selected;
     return {
       action: chosen.action,
       reason: chosen.samples ? `Choose ${approach(chosen.action.kind)} from ${chosen.samples} earlier measured ${chosen.samples === 1 ? "attempt" : "attempts"}.` : `Try ${approach(chosen.action.kind)} for this goal.`,
@@ -18712,6 +18716,7 @@
   // v2/card-game/world.mjs
   var places = { ...forest_default.places, ...packPlaces };
   var homeGates = { ...forest_default.homeGates, ...humanHomeGates };
+  var itemGateCrossings = crossings.filter((crossing) => crossing.requires.some((condition2) => condition2.kind === "item_present"));
   var sanctuaries = Object.keys(places).filter(
     (id) => places[id].sanctuary === true
   );
@@ -20273,9 +20278,9 @@
     }
     const waitingHere = (ids3) => ids3.find((id) => {
       const theirs = desireFor(s, id), there = s.actors[id].place;
-      return id !== actor && entityActive(s, id) && there !== here && toward(s, actor, there) && theirs.avatars.includes(actor) && (theirs.location || there) === there && handStatus(s, id, theirs).items.every((e) => e.met) && theirs.avatars.every(
+      return id !== actor && entityActive(s, id) && there !== here && theirs.avatars.includes(actor) && (theirs.location || there) === there && handStatus(s, id, theirs).items.every((e) => e.met) && theirs.avatars.every(
         (other) => other === actor || s.actors[other].place === there
-      );
+      ) && toward(s, actor, there);
     });
     const goMeet = (id) => choose(
       toward(s, actor, s.actors[id].place),
@@ -20330,7 +20335,7 @@
         }
       }
       if (!local) {
-        for (const crossing of routeBetween(s, here, itemPlace2(s, item), actor) ? [] : crossings) {
+        for (const crossing of routeBetween(s, here, itemPlace2(s, item), actor) ? [] : itemGateCrossings) {
           if (crossing.transport || !actorCanVisit(actor, crossing.to, s) || !routeBetween(s, crossing.to, itemPlace2(s, item), actor)) continue;
           for (const gate of crossing.requires.filter((condition2) => condition2.kind === "item_present" && itemPlace2(s, condition2.item) !== condition2.place)) {
             const key = acquire(gate.item, seen);
