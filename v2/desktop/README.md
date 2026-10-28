@@ -74,6 +74,8 @@ game's image cache, conditional requests, and music byte ranges.
 
 Each successful run uploads a versioned app archive, its SHA-256 checksum,
 `build-info.json`, and `package-check.json`. The run summary links the download.
+The build has a 90-minute job budget. The checked app uploads before the final
+build-cache save, which has a separate five-minute budget and is optional.
 The Mac build uses an ad-hoc signature to seal the app and its resources.
 CI checks the app and both helper signatures after building. It also checks
 a fresh extraction of the finished ZIP before upload.
