@@ -2265,6 +2265,10 @@ function basePlan(s, actor) {
       : rootHolder(s, id) !== actor,
   );
   const reason = `Seek this hand: ${handText(hand)}.`;
+  // Quiet the carried bell before preparing travel for a simple cloth hand.
+  if (!missing.length && !hand.conditions?.length && hand.items.includes("cloth") &&
+    rootHolder(s, "bell") === actor && s.items.bell.ringing && find("cover", "cloth", "bell"))
+    return choose(find("cover", "cloth", "bell"), "Wrap the ringing bell.");
   // Prepare a closed route for this hand or a nearby traveler's ready hand.
   const destinations = [...missing.map((id) => itemPlace(s, id)), hand.location,
     ...hand.avatars.map((id) => s.actors[id].place),
@@ -2274,8 +2278,15 @@ function basePlan(s, actor) {
   for (const destination of new Set(destinations)) {
     if (!destination || destination === here || routeBetween(s, here, destination, actor)) continue;
     const prepare = toward(s, actor, destination);
-    if (prepare && prepare.kind !== "move")
+    if (prepare && prepare.kind !== "move") {
+      if (prepare.kind === "light" && here === "station" && missing.some((item) => {
+        const owner = rootHolder(s, item);
+        return itemPlace(s, item) === here && actorIds.includes(owner) &&
+          !controlledByHuman(s, owner) && needed(s, owner, item) &&
+          resources.some((held) => rootHolder(s, held) === actor && needed(s, owner, held));
+      })) continue;
       return choose(prepare, "Prepare the way for the meeting.");
+    }
   }
   // Another avatar can hold its whole hand somewhere else and wait only for
   // this one. Going there completes that hand and ends the wait.
