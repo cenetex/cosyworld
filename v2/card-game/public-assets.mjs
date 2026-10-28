@@ -4,6 +4,8 @@ import voiceCast from "./voices.json" with { type: "json" };
 
 // The local server, release smoke, and Rust asset generator use this list.
 const files = [
+  "media.mjs",
+  "media-manifest.json",
   "shared.mjs",
   "shared-auth.mjs",
   "shared-sync.mjs",
