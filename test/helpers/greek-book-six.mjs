@@ -38,7 +38,7 @@ export class ComedyPlayer {
       ...fields,
     });
     assert(result.ok, result.error);
-    this.world = result.world;
+    if (op !== "view") this.world = result.world;
     return result;
   }
   offered(actor = this.actor) {

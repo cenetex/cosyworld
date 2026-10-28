@@ -264,7 +264,7 @@ describe("Book IV saved evidence and audiences", () => {
         ...fields,
       });
       expect(r.ok, r.error).toBe(true);
-      world = r.world;
+      if (op !== "view") world = r.world;
       return r;
     };
     const act = (actor, kind, fields = {}) => {
@@ -337,7 +337,7 @@ function sharedScene(original, place) {
       ...fields,
     });
     expect(r.ok, r.error).toBe(true);
-    world = r.world;
+    if (op !== "view") world = r.world;
     return r;
   };
   const act = (actor, kind, fields = {}) => {
@@ -427,8 +427,10 @@ describe("authorised public accounts", () => {
       receipt,
     );
   });
-  it("marks only the thirteen signed results and checks their linked choice", () => {
-    const lasting = pack.topics.filter((t) => t.publicAccount);
+  it("marks the thirteen Book IV signed results and checks their linked choice", () => {
+    const lasting = pack.topics.filter(
+      (t) => t.id.startsWith("greek-book-iv-") && t.publicAccount,
+    );
     expect(lasting).toHaveLength(13);
     expect(
       lasting.every(
@@ -445,7 +447,9 @@ describe("authorised public accounts", () => {
       (t) => (t.choiceId = "unknown-owned-report"),
     ]) {
       const invalid = structuredClone(pack),
-        topic = invalid.topics.find((t) => t.publicAccount);
+        topic = invalid.topics.find(
+          (t) => t.id.startsWith("greek-book-iv-") && t.publicAccount,
+        );
       change(topic);
       expect(
         packProblems(

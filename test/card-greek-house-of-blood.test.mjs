@@ -63,7 +63,9 @@ describe("House of Blood source and journeys", () => {
       for (const id of ledger.added[kind]) expect(ids).toContain(id);
     }
     expect(
-      pack.recital.verses.filter((verse) => verse.choice.startsWith("greek-v-")),
+      pack.recital.verses.filter((verse) =>
+        verse.choice.startsWith("greek-v-"),
+      ),
     ).toHaveLength(ledger.totals.verses - old.recital.verses.length);
   });
 
@@ -158,7 +160,7 @@ function sharedHarness(original) {
       ...fields,
     });
     expect(result.ok, result.error).toBe(true);
-    world = result.world;
+    if (op !== "view") world = result.world;
     return result;
   };
   const act = (actor, kind, fields = {}) => {
