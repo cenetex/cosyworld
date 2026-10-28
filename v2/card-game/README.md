@@ -475,7 +475,8 @@ The browser retains the avatar's public model attribution beside its private
 persona, thoughts, and dreams across reloads.
 
 For local Ollama play, pull a model and run `npm run play:cards:local`.
-`COSYWORLD_LOCAL_MODEL` defaults to `gemma3:4b`; `OLLAMA_URL` and
+The [local app guide](../local/README.md) covers Chatterbox setup and character
+voices. `COSYWORLD_LOCAL_MODEL` defaults to `gemma3:4b`; `OLLAMA_URL` and
 `COSYWORLD_CARD_LOCAL_PORT` select the server and table port. The local profile
 allows ninety seconds per call and four minutes per scene, with one call in
 flight. `COSYWORLD_CARD_TEXT_PROFILE=local` selects this profile on another

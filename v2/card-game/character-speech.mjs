@@ -1,5 +1,11 @@
 import cast from "./voices.json" with { type: "json" };
 import { playerOpenRouter } from "./openrouter.mjs";
+import { localVoiceClient } from "./local-service.mjs";
+
+const connected = (client) =>
+  client.available?.() ?? Boolean(client.connection?.()?.key);
+const voiceClient = () => localVoiceClient() || playerOpenRouter();
+const audioType = (blob) => ["audio/mpeg", "audio/wav"].includes(blob.type);
 
 const MAX_BYTES = 2 * 1024 * 1024;
 const MAX_CLIPS = 32;
@@ -15,7 +21,7 @@ function base64(bytes) {
 
 // Cache only generated audio. Credentials stay in the OpenRouter client.
 export function createVoiceClips({
-  client = playerOpenRouter(),
+  client = voiceClient(),
   fetcher = globalThis.fetch,
   storage = globalThis.caches,
   crypto = globalThis.crypto,
@@ -33,6 +39,7 @@ export function createVoiceClips({
         JSON.stringify([
           cast.revision,
           cast.model,
+          client.voiceIdentity || "openrouter",
           characterVoices[speaker],
           speaker,
           text,
@@ -56,11 +63,7 @@ export function createVoiceClips({
       const saved = await cache?.match(key);
       if (saved) {
         const blob = await saved.blob();
-        if (
-          blob.type === "audio/mpeg" &&
-          blob.size > 0 &&
-          blob.size <= MAX_BYTES
-        ) {
+        if (audioType(blob) && blob.size > 0 && blob.size <= MAX_BYTES) {
           remember(key, blob);
           return blob;
         }
@@ -70,11 +73,11 @@ export function createVoiceClips({
       /* Memory still holds recent clips when storage is full. */
     }
     signal.throwIfAborted();
-    if (!client.connection()?.key)
+    if (!connected(client))
       throw new Error(
         "Connect OpenRouter in Settings to hear character voices.",
       );
-    if (!references.has(speaker)) {
+    if (!client.clip && !references.has(speaker)) {
       const response = await fetcher(new URL(voice.file, import.meta.url), {
         signal,
       });
@@ -85,25 +88,27 @@ export function createVoiceClips({
         throw new Error("The voice reference needs another try.");
       references.set(speaker, `data:audio/mpeg;base64,${base64(bytes)}`);
     }
-    const blob = await client.request("audio/speech", {
-      signal,
-      raw: true,
-      body: {
-        model: cast.model,
-        input: text,
-        instructions: voice.direction,
-        response_format: "mp3",
-        input_references: [
-          {
-            type: "input_audio",
-            input_audio: { data: references.get(speaker) },
+    const blob = client.clip
+      ? await client.clip(speaker, text, signal)
+      : await client.request("audio/speech", {
+          signal,
+          raw: true,
+          body: {
+            model: cast.model,
+            input: text,
+            instructions: voice.direction,
+            response_format: "mp3",
+            input_references: [
+              {
+                type: "input_audio",
+                input_audio: { data: references.get(speaker) },
+              },
+              { type: "text", text: voice.transcript },
+            ],
           },
-          { type: "text", text: voice.transcript },
-        ],
-      },
-    });
+        });
     signal.throwIfAborted();
-    if (blob.type !== "audio/mpeg" || !blob.size || blob.size > MAX_BYTES)
+    if (!audioType(blob) || !blob.size || blob.size > MAX_BYTES)
       throw new Error("This voice needs another try.");
     remember(key, blob);
     try {
@@ -111,7 +116,7 @@ export function createVoiceClips({
         key,
         new Response(blob, {
           headers: {
-            "Content-Type": "audio/mpeg",
+            "Content-Type": blob.type,
             "Content-Length": String(blob.size),
           },
         }),
@@ -141,7 +146,7 @@ export function createVoiceClips({
 }
 
 export function createCharacterSpeech({
-  client = playerOpenRouter(),
+  client = voiceClient(),
   load = createVoiceClips({ client }),
   makeContext = () =>
     new (globalThis.AudioContext || globalThis.webkitAudioContext)(),
@@ -184,7 +189,7 @@ export function createCharacterSpeech({
     line.controller = new AbortController();
     const signal = AbortSignal.any([
       line.controller.signal,
-      AbortSignal.timeout(25_000),
+      AbortSignal.timeout(client.timeoutMs || 25_000),
     ]);
     publish("loading");
     try {
@@ -222,7 +227,7 @@ export function createCharacterSpeech({
       if (current !== line || line.controller.signal.aborted) return;
       line.busy = false;
       publish(
-        client.connection()?.key ? "error" : "connect",
+        connected(client) ? "error" : "connect",
         signal.aborted ? "This voice needs another try." : error.message,
       );
     }
@@ -233,7 +238,7 @@ export function createCharacterSpeech({
       Boolean(
         enabled &&
           characterVoices[speaker] &&
-          (client.connection()?.key || current?.busy),
+          (connected(client) || current?.busy),
       ),
     show(key, speaker, text) {
       if (current?.key === key) return;
@@ -242,11 +247,7 @@ export function createCharacterSpeech({
         ? { key, speaker, text, attempted: false, busy: false }
         : null;
       publish(
-        !enabled
-          ? "off"
-          : current && !client.connection()?.key
-            ? "connect"
-            : "ready",
+        !enabled ? "off" : current && !connected(client) ? "connect" : "ready",
       );
       void run();
     },
@@ -284,7 +285,7 @@ export function createCharacterSpeech({
     connectionChanged() {
       stop(false);
       if (current) current.attempted = false;
-      publish(client.connection()?.key ? "ready" : "connect");
+      publish(connected(client) ? "ready" : "connect");
       void run();
     },
     retry() {

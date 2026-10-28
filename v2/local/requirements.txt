@@ -1,0 +1,2 @@
+# Chatterbox Turbo and Nano use the same loader at this reviewed revision.
+chatterbox-tts @ git+https://github.com/resemble-ai/chatterbox.git@5de7a54aa4e5e2baadb0182dde554908b48b85c2

@@ -1,0 +1,37 @@
+let runtime = null;
+
+export function localRuntime() {
+  return runtime;
+}
+
+export async function setupLocalService({ fetcher = globalThis.fetch } = {}) {
+  // A server marker keeps ordinary hosted pages on their existing path.
+  if (!document.querySelector('meta[name="cosy-local-app"]')) return false;
+  const response = await fetcher("/card-game/local");
+  if (!response.ok) throw new Error("The local app needs a restart.");
+  const value = await response.json();
+  if (value.schema !== 1) throw new Error("The local app needs an update.");
+  runtime = value;
+  const account = document.querySelector(".openrouter-settings");
+  if (account) account.hidden = true;
+  return true;
+}
+
+export function localVoiceClient() {
+  if (!runtime) return null;
+  return {
+    available: () => true,
+    timeoutMs: runtime.voiceTimeoutMs,
+    voiceIdentity: [runtime.voiceModel, runtime.voiceRevision],
+    async clip(speaker, text, signal) {
+      const response = await fetch("/card-game/local/speech", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ speaker, text }),
+        signal,
+      });
+      if (!response.ok) throw new Error("The local voice needs another try.");
+      return response.blob();
+    },
+  };
+}

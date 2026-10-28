@@ -1,3 +1,5 @@
+#[path = "card_local.rs"]
+pub(crate) mod local;
 #[path = "card_game_metadata.rs"]
 pub(crate) mod metadata;
 #[path = "card_narrative.rs"]
@@ -45,11 +47,18 @@ pub(super) fn router<S: Clone + Send + Sync + 'static>(primary: bool) -> Router<
 
 async fn index() -> Response {
     let budget = narrative::client_budget_ms();
-    let page = String::from_utf8_lossy(include_bytes!("../../card-game/index.html")).replacen(
+    let mut page = String::from_utf8_lossy(include_bytes!("../../card-game/index.html")).replacen(
         r#"name="cosy-story-budget-ms" content="30000""#,
         &format!(r#"name="cosy-story-budget-ms" content="{budget}""#),
         1,
     );
+    if std::env::var("COSYWORLD_LOCAL_APP").as_deref() == Ok("1") {
+        page = page.replacen(
+            "<head>",
+            "<head><meta name=\"cosy-local-app\" content=\"1\">",
+            1,
+        );
+    }
     let mut response = serve("index.html");
     *response.body_mut() = page.into();
     response.headers_mut().remove(header::CONTENT_LENGTH);

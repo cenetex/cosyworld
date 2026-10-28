@@ -72,7 +72,9 @@
     "v2:card:assets:build": "node v2/scripts/build-card-assets.mjs",
     "v2:card:assets:check": "node v2/scripts/build-card-assets.mjs --check",
     "v2:card:shared:build": "node v2/scripts/build-card-shared-engine.mjs",
-    "v2:card:shared:check": "node v2/scripts/build-card-shared-engine.mjs --check"
+    "v2:card:shared:check": "node v2/scripts/build-card-shared-engine.mjs --check",
+    "play:cards:local": "bash v2/scripts/play-cards-local.sh",
+    "local:test": "python3 -m unittest discover -s v2/local -p \"test_*.py\""
   },
   "keywords": [
     "ai",
