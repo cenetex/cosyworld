@@ -19,14 +19,25 @@ fn regional_weather_agrees_in_c_and_survives_upgrade_and_journal_replay() {
     saved.game["packs"]["greek-drama"]["scope"] = json!("full");
     saved.game["actors"]["vale"]["place"] = json!("greek-harbor");
     saved.game["actors"]["mara"]["place"] = json!("greek-sanctuary");
-    saved.game["turn"] = json!(23);
-    saved.game["revision"] = json!(23);
+    saved.game["turn"] = json!(22);
+    saved.game["revision"] = json!(22);
+    // A released play installs the personal quest collections for each actor.
+    let action = saved.project(0).unwrap()["actions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|a| a["kind"] == "wait")
+        .unwrap()
+        .clone();
+    saved
+        .apply(&json!({"op":"play", "actor":"vale", "action":action}))
+        .unwrap();
     assert!(saved.project(0).unwrap()["scene"].get("weather").is_none());
     full_store::seed(&c, &id, &saved, "weather-release", now()).unwrap();
 
     let mut world = full_store::world(&c, &id, now()).unwrap();
     let mut expected = saved.game.clone();
-    expected["revision"] = json!(24);
+    expected["revision"] = json!(saved.game["revision"].as_u64().unwrap() + 1);
     assert_eq!(world.game, expected);
     assert_eq!(world.version, engine::VERSION);
     assert_eq!(

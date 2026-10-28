@@ -11,6 +11,8 @@ import {
 } from "../card-game/world.mjs";
 import { locationWeather } from "../card-game/weather.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
+import { enableMotives } from "../card-game/motives.mjs";
+import { questCards } from "../card-game/quest-cards.mjs";
 
 const output = new URL("../../output/card-weather/", import.meta.url);
 await mkdir(output, { recursive: true });
@@ -60,10 +62,15 @@ try {
       const world = createWorld({ packScopes: { "greek-drama": "full" } });
       world.actors.vale.place = place;
       world.turn = world.revision = turn;
+      enableMotives(world, { questPrograms: true, personalQuests: true });
       await page.evaluate(
-        ({ key, save, seen }) => {
+        ({ key, save, seen, quests }) => {
           localStorage.setItem(key, save);
           localStorage.setItem(`${key}.seen`, JSON.stringify(seen));
+          localStorage.setItem(
+            `${key}.quests`,
+            JSON.stringify({ seen: quests, read: quests }),
+          );
         },
         {
           key,
@@ -73,6 +80,9 @@ try {
             ...Object.keys(people),
             ...Object.keys(things),
           ],
+          quests: Object.keys(people).flatMap((id) =>
+            questCards(world, id).map((quest) => quest.key),
+          ),
         },
       );
       await page.reload();
@@ -94,6 +104,22 @@ try {
         await stage.getAttribute("data-weather-variant"),
         weather?.variant || null,
       );
+      if (weather) {
+        const currentArt = page.locator(`#hand [data-card="${place}"] .art`);
+        assert.equal(
+          await currentArt.getAttribute("data-weather"),
+          weather.condition,
+        );
+        if (weather.condition === "rain")
+          assert(
+            (
+              await currentArt
+                .locator("img")
+                .first()
+                .evaluate((img) => getComputedStyle(img).filter)
+            ).includes("brightness(0.68)"),
+          );
+      }
       for (const art of await page
         .locator("#hand .location .art[data-weather]")
         .all()) {
@@ -135,6 +161,25 @@ try {
           (img) => img.complete && img.naturalWidth,
         ),
       );
+      await page.evaluate(async () => {
+        await Promise.all(
+          [...document.querySelectorAll("#backdrop,#cast img,#hand img")].map(
+            (img) => img.decode(),
+          ),
+        );
+        await new Promise(requestAnimationFrame);
+        await new Promise(requestAnimationFrame);
+        await Promise.allSettled(
+          document
+            .getAnimations()
+            .filter(
+              (animation) =>
+                animation.effect.getTiming().iterations !== Infinity,
+            )
+            .map((animation) => animation.finished),
+        );
+      });
+      await page.keyboard.press("Escape");
       await page.screenshot({
         path: new URL(`${name}-${width}.png`, output).pathname,
       });
