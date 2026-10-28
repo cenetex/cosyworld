@@ -292,7 +292,8 @@ and lessons. Other avatars supply public card text. This privacy check also
 applies when projecting a world that still uses an earlier interpreter.
 
 The current interpreter is `engine-v18.js`. Version 18 adds the Hoppy Cat pack,
-its red thread crossing, and three saved story routes. It also adds day and night ship
+the Willows island, source readings, and learning from measured plays.
+It also adds day and night ship
 views at Athens Harbor and Piraeus Quays, plus the painted Theban Harbor Road.
 Town travel keeps the older road IDs in saved memories and completed deeds.
 Version 17 keeps introduction quests, remembered sightings, and Boardy’s visits.
@@ -324,3 +325,22 @@ towns. Each road has two fixed ends, shown by destination cards. Earlier interna
 stay in saved history. Current visitors, belongings and unfinished purposes
 continue at a town endpoint. The migration uses the other endpoint when the
 port already holds four human avatars. Released versions 16 and 17 keep their exact bytes.
+
+## Learning from outcomes
+
+Shared rules version 18 records measured attempts for item and companionship
+goals. The same action chooser runs in the browser and the C interpreter. Each
+avatar's retained results set its action values. The chooser compares estimates
+and gives less-tried legal approaches room to establish a record. The authored
+rules define goals, legal actions and the reward measure.
+
+Each record retains the estimate made before the play, the action event, and
+observations before and after it. Delayed credit covers up to four linked plays;
+a changed situation or a completed goal ends that link. Saves and journal replay
+preserve the measured attempts, including exploration choices. Each player
+receives their own learning records through the existing private view.
+
+The builder writes `engine-v18.js`. Versions 2–17 keep their released bytes.
+Existing worlds receive an explicit saved upgrade before new plays use these
+rules. Earlier lessons remain readable; new completed plays establish the new
+estimates.

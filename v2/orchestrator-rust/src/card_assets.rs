@@ -404,6 +404,10 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/learning.mjs"),
         ),
+        "adaptive-learning.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/adaptive-learning.mjs"),
+        ),
         "narrative.mjs" => (
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/narrative.mjs"),
@@ -2589,7 +2593,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "pack-landings.json" => {
             "\"f860b068017897de1a962925a5f3099752b84ba025a2276f62460fe92f90f855\""
         }
-        "world.mjs" => "\"2b2babc7a523d74a64a1bcabcc5e49180163fc802e3bcdd29a7b3bb31c9e7eb0\"",
+        "world.mjs" => "\"d111e8ae434b29e46b51d46def25d1dace96367fd8f8b1007a6ff854de49d6f5\"",
         "scene.mjs" => "\"a50086e28ccb33b2bc3f4d202f7b3732f0d49855b2aa3910f074b561352aa3c0\"",
         "weather.mjs" => "\"69a3e11642c43831f80581711f6113d814badd666ad2c3e3892a1a4c70a5fd27\"",
         "daylight.mjs" => "\"748fd083e2550d933e38a0d64befffd19c422192628f48db33f79ac796a87f8c\"",
@@ -2675,7 +2679,10 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "quest-cards.mjs" => "\"1013e3a24da7358f1fa6eb6534cf1640911e1a53b57ec5dd8a90ac8096fa23c6\"",
         "situations.mjs" => "\"66821915a76cea3bd1eac901b8cdf9ab4d6e5be940b414bacba8abb6daf370af\"",
         "memory.mjs" => "\"db094e20b9b8df8a22bc2c0d234fafdc487f498a0f1a6c1b45458f16b720148e\"",
-        "learning.mjs" => "\"feb6faebe9c0470cfac7545e7e91587701b7434fecd176c9475fee778cb51175\"",
+        "learning.mjs" => "\"865641bc676684d3f0adae2ad1cefd616df1ccd469ae1b2c2d211133199980f8\"",
+        "adaptive-learning.mjs" => {
+            "\"34bad8b4de0c436b5b238d3bfad7ceccd7ccb2d17e4a72626c70fabcb8fd871a\""
+        }
         "narrative.mjs" => "\"9891055484160d2aa392897e9e3f8ac8e68d4fdc60f1a5e4bcf662adc5580ff4\"",
         "dialogue.mjs" => "\"1f4965d3e2a36261973aace4534359c00c7cf8aeaf15548a08d29e364adcc7ad\"",
         "character-speech.mjs" => {

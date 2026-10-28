@@ -58,15 +58,16 @@ function speech(world) {
   };
 }
 describe("avatar learning", () => {
-  it("records an expectation, refusal and checked next approach", () => {
+  it("records an unknown first estimate and the measured request outcome", () => {
     const world = refused();
     const lesson = world.memories.vale.learning.at(-1);
     expect(lesson).toMatchObject({
-      expected: true,
-      observed: false,
-      strategy: "offer_trade",
-      target: "keeper",
-      item: "oil",
+      version: 2,
+      expected: { value: null, samples: 0, local: 0 },
+      before: { met: false },
+      after: { met: false },
+      reward: -1,
+      goal: { target: "keeper", item: "oil" },
     });
     expect(world.log.find((e) => e.seq === lesson.seq)).toMatchObject({
       verb: "ask",
@@ -78,7 +79,7 @@ describe("avatar learning", () => {
       narrativeContext(world)
         .entities.find((e) => e.id === "vale")
         .facts.join(" "),
-    ).toContain("I expected The keeper to agree. The keeper declined.");
+    ).toContain("This was my first measured try at that approach.");
   });
   it("uses a saved lesson after the short action history has passed", () => {
     const world = refused();
@@ -97,15 +98,20 @@ describe("avatar learning", () => {
       reconsiderPlan(world, "vale", selected, legalActions(world)).lessonSeq,
     ).toBeDefined();
     world.actors.keeper.trust.vale = 2;
-    expect(
-      reconsiderPlan(world, "vale", selected, legalActions(world)),
-    ).toEqual(selected);
+    const revised = reconsiderPlan(
+      world,
+      "vale",
+      selected,
+      legalActions(world),
+    );
+    expect(revised.learning.exploring).toBe(true);
+    expect(revised.learning.expected.local).toBe(0);
   });
   it("rejects invented strategies and altered evidence", () => {
     for (const change of [
       (l) => (l.strategy = "take_by_force"),
       (l) => (l.evidence = "An invented agreement."),
-      (l) => (l.observed = true),
+      (l) => (l.after.met = true),
     ]) {
       const world = refused();
       change(world.memories.vale.learning[0]);

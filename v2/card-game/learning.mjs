@@ -1,3 +1,12 @@
+import {
+  beginLearning as prepare,
+  finishLearning,
+  learnedPlan,
+  trialFacts,
+  validTrial,
+  TRIAL_LIMIT,
+  learningIntent,
+} from "./adaptive-learning.mjs";
 // Lessons come from completed requests. The same rules record and use them in
 // solo play and the shared interpreter.
 export const LEARNING_LIMIT = 8;
@@ -32,76 +41,24 @@ export function requestConditions(world, action) {
         return [id, item.holder, item.fuel ?? null, item.doses ?? null];
       }),
     world.actors[action.actor]?.place,
+    learningIntent(world, action.actor),
   ]);
 }
 
-export function recordLearning(world, action, accepted, conditions, event) {
-  const prior = world.memories[action.actor]?.learning?.findLast(
-    (l) => !l.observed && !l.followup,
-  );
-  if (
-    prior &&
-    event.seq > prior.seq &&
-    (action.kind === "wait" ||
-      (action.kind === "talk" && action.target === prior.target) ||
-      (action.kind === "trade" && action.receive === prior.item))
-  )
-    prior.followup = { seq: event.seq, turn: event.turn, kind: action.kind };
-  if (!kinds.includes(action.kind) || typeof accepted !== "boolean") return;
-  const memory = world.memories[action.actor];
-  const previous = (memory.learning || []).findLast(
-    (lesson) =>
-      lesson.key === keyOf(action) && lesson.conditions === conditions,
-  );
-  const lesson = {
-    seq: event.seq,
-    turn: event.turn,
-    key: keyOf(action),
-    kind: action.kind,
-    target: action.target,
-    item: action.item || null,
-    destination: action.destination || null,
-    expected: previous?.observed ?? true,
-    observed: accepted,
-    strategy: accepted
-      ? "continue"
-      : action.kind === "ask"
-        ? "offer_trade"
-        : "give_space",
-    conditions,
-    evidence: event.text.slice(0, 650),
-  };
-  memory.learning = [...(memory.learning || []), lesson].slice(-LEARNING_LIMIT);
+export function beginLearning(world, action) {
+  if (world.motives?.version !== 1) return null;
+  return prepare(world, action, requestConditions);
 }
-
+export function recordLearning(world, action, prepared, event) {
+  finishLearning(world, action, prepared, event, requestConditions);
+}
 export function reconsiderPlan(world, actor, selected, actions) {
-  const action = selected.action;
-  if (!kinds.includes(action.kind)) return selected;
-  const lesson = (world.memories[actor].learning || []).findLast(
-    (l) =>
-      l.key === keyOf(action) &&
-      l.conditions === requestConditions(world, action),
-  );
-  if (!lesson || lesson.observed || lesson.followup) return selected;
-  const trade =
-    action.kind === "ask" &&
-    actions.find((a) => a.kind === "trade" && a.receive === action.item);
-  const alternative =
-    trade ||
-    actions.find((a) => a.kind === "talk" && a.target === action.target) ||
-    actions.find((a) => a.kind === "wait");
-  return alternative
-    ? {
-        action: alternative,
-        reason: trade
-          ? "The request was declined. Try a fair trade."
-          : "The request was declined. Give them time and talk first.",
-        lessonSeq: lesson.seq,
-      }
-    : selected;
+  return learnedPlan(world, actor, selected, actions, requestConditions);
 }
 
 export function learningFacts(world, actor, nameOf) {
+  const facts = trialFacts(world, actor, nameOf);
+  if (facts) return facts;
   const lesson = world.memories[actor]?.learning?.at(-1);
   if (!lesson) return [];
   const other = nameOf(lesson.target);
@@ -114,8 +71,20 @@ export function validLearning(world, actor, lessons, profiles) {
   if (lessons === undefined) return true;
   const valid =
     Array.isArray(lessons) &&
-    lessons.length <= LEARNING_LIMIT &&
+    lessons.length <= TRIAL_LIMIT &&
     lessons.every((l, i) => {
+      if (
+        !l ||
+        !Number.isSafeInteger(l.seq) ||
+        l.seq <= 0 ||
+        l.seq > world.eventSeq ||
+        !Number.isSafeInteger(l.turn) ||
+        l.turn < 0 ||
+        l.turn > world.turn ||
+        (i && l.seq <= lessons[i - 1].seq)
+      )
+        return false;
+      if (l.version === 2) return validTrial(world, actor, l, profiles);
       if (!l || Object.keys(l).length !== (l.followup ? 13 : 12)) return false;
       const action = {
         kind: l.kind,
