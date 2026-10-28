@@ -1,3 +1,4 @@
+import { atticOpening } from "./fixtures/card-attic-opening.mjs";
 import { describe, it, expect, vi, afterEach } from "vitest";
 afterEach(() => vi.useRealTimers());
 import {
@@ -64,8 +65,10 @@ describe("entity memories and model text", () => {
 
   it("keeps the final Bell recipient and its later movement in the speech request", () => {
     const world = createWorld();
-    world.actors.vale.place = "station";
-    world.actors.keeper.place = "station";
+    world.actors.vale.place = "pond";
+    world.items.lamp.holder = "vale";
+    world.items.lamp.lit = true;
+    world.actors.keeper.place = "pond";
     world.items.bell.holder = "vale";
     const next = act(world, "give", "bell", "keeper");
     const outcome = narrativeContext(next).outcome;
@@ -83,7 +86,7 @@ describe("entity memories and model text", () => {
       outcome.avatars.find((actor) => actor.id === "keeper"),
     ).toMatchObject({
       holding: ["oil", "bell"],
-      travel: { from: "station", to: "attic", companions: [] },
+      travel: { from: "pond", to: "attic", companions: [] },
     });
     expect(narrativeContext(decodeSave(encodeSave(next))).outcome).toEqual(
       outcome,
@@ -715,7 +718,7 @@ describe("witnessed departures and conversation continuity", () => {
       expect(seen.has(kind), kind).toBe(true);
   });
   it("lets Vale speak on Stay when nobody departs", () => {
-    const world = act(createWorld({ opening: true }), "wait");
+    const world = act(atticOpening(), "wait");
     const context = narrativeContext(world);
     expect(context.speakers).toEqual(["vale"]);
     const next = applyGeneratedText(world, context, response(context));
@@ -828,7 +831,7 @@ describe("witnessed departures and conversation continuity", () => {
         .map((e) => [e.actorId, e.arrivalFrom]),
     ).toEqual([
       ["moth", "pond"],
-      ["keeper", "attic"],
+      ["keeper", "pond"],
     ]);
     world = act(world, "talk", null, "keeper");
     context = narrativeContext(world);
@@ -849,7 +852,7 @@ describe("witnessed departures and conversation continuity", () => {
     let world = createWorld();
     for (let i = 0; i < 3; i++) world = act(world, "wait");
     expect(world.actors.moth.place).toBe("station");
-    expect(world.actors.keeper.place).toBe("attic");
+    expect(world.actors.keeper.place).toBe("pond");
     expect(narrativeContext(world).speakers).toEqual(["vale", "keeper"]);
     expect(narrativeContext(world, { target: "moth" }).speakers).toEqual([
       "vale",
@@ -874,7 +877,7 @@ describe("witnessed departures and conversation continuity", () => {
     ]);
     const next = applyGeneratedText(world, context, response(context));
     const farewells = next.log.filter((e) => e.departureTo);
-    expect(farewells.map((e) => e.departureTo)).toEqual(["pond", "attic"]);
+    expect(farewells.map((e) => e.departureTo)).toEqual(["pond", "pond"]);
     expect(farewells[0].cast).toContain("moth");
     expect(farewells[1].cast).not.toContain("moth");
     expect(farewells[1].cast).toContain("keeper");
@@ -893,7 +896,7 @@ describe("witnessed departures and conversation continuity", () => {
     const next = applyGeneratedText(world, context, response(context));
     expect(
       next.log.findLast((e) => e.generated && e.actorId === "moth"),
-    ).toMatchObject({ departureTo: "attic", locationId: "station" });
+    ).toMatchObject({ departureTo: "pond", locationId: "station" });
   });
   it("validates saved movement captions and preserves old generated lines", () => {
     const world = createWorld(),
@@ -997,8 +1000,11 @@ describe("speech grounding in resolved card plays", () => {
   });
 
   it("keeps a declined destination separate from both avatars' actual location", () => {
+    const start = together();
+    start.actors.vale.place = start.actors.moth.place = "pond";
+    start.items.lamp.lit = true;
     const world = choose(
-      together(),
+      start,
       (a) =>
         a.kind === "accompany" &&
         a.target === "moth" &&
@@ -1012,7 +1018,7 @@ describe("speech grounding in resolved card plays", () => {
     });
     for (const id of ["vale", "moth"])
       expect(avatar(outcome, id)).toMatchObject({
-        location: "station",
+        location: "pond",
         travel: null,
       });
   });
@@ -1063,7 +1069,7 @@ describe("speech grounding in resolved card plays", () => {
       travel: null,
     });
     expect(avatar(outcome, "keeper")).toMatchObject({
-      location: "attic",
+      location: "pond",
       travel: null,
     });
   });

@@ -16,6 +16,7 @@ import { desireFor, programFor, levelOf, knownActors } from "./quests.mjs";
 import { packPlaces, packPeople } from "./pack-registry.mjs";
 import { variantOf, crossingOpen } from "./pack-rules.mjs";
 import { locationWeather } from "./weather.mjs";
+import { expressionOf } from "./expression.mjs";
 import { daylightBackdrop, locationDaylight } from "./daylight.mjs";
 
 // Pack art lives in the pack's own asset folder and is named by its data.
@@ -173,11 +174,12 @@ export function sceneCast(
   recordedCast = null,
 ) {
   const here = world.actors[currentActor(world)].place;
+  const known = recordedCast ? null : new Set(knownActors(world));
   const present =
     recordedCast ||
     personIds.filter(
       (id) =>
-        knownActors(world).includes(id) &&
+        known.has(id) &&
         world.actors[id].place === here &&
         (!world.controlledActors?.includes(id) ||
           world.presentActors?.includes(id)),
@@ -231,7 +233,12 @@ export function sceneStaging(
   } = {},
 ) {
   const selected = [...new Set([currentActor(world), activeSpeaker, ...cast])]
-    .filter((id) => cast.includes(id) && people[id])
+    .filter(
+      (id) =>
+        cast.includes(id) &&
+        people[id] &&
+        packPeople[id]?.presentation !== "backdrop",
+    )
     .slice(0, world.controlledActors ? 6 : 3);
   const ids = cast.filter(
     (id, index) => selected.includes(id) && cast.indexOf(id) === index,
@@ -651,6 +658,8 @@ export function isSceneText(entry, shared = false) {
   return Boolean(
     entry &&
       (entry.kind === "dialogue" ||
-        (shared && entry.generated === true && entry.kind === "narration")),
+        (entry.generated === true &&
+          entry.kind === "narration" &&
+          (shared || expressionOf(people[entry.actorId]) === "movement"))),
   );
 }

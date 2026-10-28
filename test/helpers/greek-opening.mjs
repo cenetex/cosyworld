@@ -1,3 +1,5 @@
+import { moveTransport } from "../../v2/card-game/pack-transport.mjs";
+import { atticOpening } from "../fixtures/card-attic-opening.mjs";
 import { createWorld, legalActions, play } from "../../v2/card-game/world.mjs";
 import { enableMotives } from "../../v2/card-game/motives.mjs";
 import { greekTravelTargets } from "./greek-travel.mjs";
@@ -10,7 +12,7 @@ export function openingFixture(
   branch,
   { water = true, reportFirst = true } = {},
 ) {
-  let world = enableMotives(createWorld({ opening: true }), {
+  let world = enableMotives(atticOpening(), {
     questPrograms: true,
     personalQuests: true,
   });
@@ -47,7 +49,9 @@ export function openingFixture(
   walk("ship", "harbor");
   act("snuff", { item: "lamp" });
   act("drop", { item: "cloth", target: "greek-harbor" });
+  const bardFrom = world.actors["greek-rhapsode"].place;
   world.actors["greek-rhapsode"].place = "greek-harbor";
+  moveTransport(world, bardFrom, "greek-harbor");
   walk("courtyard");
   states.arrival = world;
   if (water) {

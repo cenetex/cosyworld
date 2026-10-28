@@ -17,6 +17,7 @@ import { knowsFact } from "./knowledge.mjs";
 import {
   packDefinitions,
   packPeople,
+  packPlaces,
   packFixtures,
   crossings,
   transports,
@@ -126,6 +127,8 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
         objectPlace(s, c.item) === c.place
       );
     }
+    case "item_present":
+      return Boolean(s.items[c.item] && objectPlace(s, c.item) === c.place);
     case "item_at":
       return s.items[c.item]?.holder === c.place;
     case "met":
@@ -160,13 +163,16 @@ export const mayCross = (c, actor, senses) =>
   packPeople[actor]?.personalQuests ||
   senses.humanActors?.includes(actor);
 
-/** Places reachable by crossing from `place` now, for this actor. */
+/** Places reachable by crossing from `place` now, including an invited return home. */
 export const crossingExits = (s, place, actor, senses) =>
   crossings
     .filter(
       (c) =>
         c.from === place &&
-        mayCross(c, actor, senses) &&
+        (mayCross(c, actor, senses) ||
+          (s.invitedPlaces?.[actor]?.includes(c.from) &&
+            (packPeople[actor]?.packId ?? null) ===
+              (packPlaces[c.to]?.packId ?? null))) &&
         crossingOpen(s, c, senses),
     )
     .map((c) => (c.transport ? transports[c.transport].place : c.to));

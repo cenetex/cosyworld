@@ -42,6 +42,16 @@ fn regional_weather_agrees_in_c_and_survives_upgrade_and_journal_replay() {
         world.game["revision"],
         saved.game["revision"].as_u64().unwrap() + 1
     );
+    let old_routes = saved.game["routeKnowledge"]["greek-rhapsode"]
+        .as_array()
+        .unwrap();
+    assert!(old_routes.contains(&json!(["attic", "station"])));
+    let routes = world.game["routeKnowledge"]["greek-rhapsode"]
+        .as_array()
+        .unwrap();
+    assert!(routes.contains(&json!(["attic", "pond"])));
+    assert!(routes.contains(&json!(["pond", "station"])));
+    assert!(!routes.contains(&json!(["attic", "station"])));
     for field in ["turn", "eventSeq", "log", "transports"] {
         assert_eq!(world.game[field], saved.game[field], "saved {field}");
     }

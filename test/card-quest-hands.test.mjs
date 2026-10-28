@@ -1,3 +1,4 @@
+import { atticOpening } from "./fixtures/card-attic-opening.mjs";
 import { describe, it, expect } from "vitest";
 import {
   createWorld,
@@ -73,7 +74,7 @@ describe("two carried quests", () => {
     },
   );
   it("offers Drop for the first quest before the first played turn", () => {
-    let w = enableMotives(createWorld({ opening: true }), {
+    let w = enableMotives(atticOpening(), {
       personalQuests: true,
     });
     expect(questCards(w)[0].key).toBe("vale:quest:0");
@@ -221,9 +222,10 @@ describe("two carried quests", () => {
   it("drops a story copy while its authored outcome remains available", () => {
     let w = openingFixture("refusal").arrival;
     const q = Object.values(w.quests.records).find(
-      (q) => q.mode === "story" && q.completedTurn === null,
+      (q) => q.mode === "story" && q.key.startsWith("greek-drama:") && q.completedTurn === null,
     );
-    for (const key of questHandKeys(w, "vale")) dropQuest(w, "vale", key);
+    for (const key of questHandKeys(w, "vale"))
+      if (key !== q.key) dropQuest(w, "vale", key);
     expect(joinQuest(w, "vale", q.key)).toBe(true);
     expect(dropQuest(w, "vale", q.key)).toBe(true);
     const loaded = reload(w);

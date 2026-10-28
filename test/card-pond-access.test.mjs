@@ -107,6 +107,7 @@ describe.each([true, false])("attic access (opening: %s)", (opening) => {
     const s = pond(opening);
     s.actors.vale.place = s.actors.moth.place = "attic";
     s.locations.attic.anchored = true;
+    s.items.lamp.holder = "vale";
     return s;
   }
 
@@ -141,20 +142,27 @@ describe.each([true, false])("attic access (opening: %s)", (opening) => {
         s.items.lamp.fuel = 0;
       }
       if (condition === "covered") s.items.cloth.holder = "lamp";
-      if (condition === "at the station") s.actors.moth.place = "station";
+      if (condition === "at the station") s.items.lamp.holder = "station";
       const before = encodeSave(s);
-      expect(exits(s, "attic")).not.toContain("pond");
-      expect(availableCards(s)).not.toContain("pond");
-      expect(cardPlay(s, ["pond"]).action).toBeNull();
-      for (const action of stale) {
-        const result = play(s, action);
-        expect(result.ok).toBe(false);
-        expect(result.state).toBe(s);
+      const rescue = condition === "empty" || condition === "at the station";
+      expect(exits(s, "attic").includes("pond")).toBe(rescue);
+      expect(availableCards(s).includes("pond")).toBe(rescue);
+      const move = cardPlay(s, ["pond"]).action;
+      if (rescue) {
+        expect(move.kind).toBe("move");
+        expect(play(s, move).state.actors.vale.place).toBe("pond");
+      } else {
+        expect(move).toBeNull();
+        for (const action of stale) {
+          const result = play(s, action);
+          expect(result.ok).toBe(false);
+          expect(result.state).toBe(s);
+        }
       }
       expect(encodeSave(s)).toBe(before);
       const restored = decodeSave(before);
-      expect(availableCards(restored)).not.toContain("pond");
-      expect(exits(restored, "attic")).toEqual(["station"]);
+      expect(availableCards(restored).includes("pond")).toBe(rescue);
+      expect(exits(restored, "attic")).toEqual(rescue ? ["pond"] : []);
       if (opening)
         expect(placeText(restored, "attic")).toContain("Dust gathers");
     },

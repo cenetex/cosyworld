@@ -71,6 +71,10 @@ shore's authored quest programs; their interest is their home.
   and the planner leaves it in place.
 - `"standoffs": false` means it cannot be threatened.
 - `portrait` is its art, unless it has a temperament.
+- `presentation: "backdrop"` keeps a fixed resident in the place illustration.
+  Its card, dialogue and interactions keep their usual place in the game.
+  The stage paints the resident once, through the place art. The default
+  `figure` presentation uses the separate portrait.
 
 A **temperament** gives a resident moods that general rules change:
 
@@ -132,6 +136,11 @@ back to the hub.
 | Kind                                  | Holds when                                                                                                       |
 | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `{ "kind": "sound", "at": [places] }` | A sound is audible at any listed place: the hand bell ringing uncovered there, or a pack fixture sounding there. |
+
+`{ "kind": "item_present", "item": "cloth", "place": "attic" }` checks an
+item's physical place. It follows custody through covered items and their
+carrier. Hub and pack items can use this crossing condition. An item on the
+floor and an item held by someone in that room satisfy the same condition.
 
 The vocabulary also includes `light`, bounded `not`, and persistent pack
 `choice`, `choice_unset`, `flag`, `holding`, `item_at` and `met`. Environmental

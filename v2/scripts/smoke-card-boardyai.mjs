@@ -20,7 +20,9 @@ try {
   ]) {
     const seed = dispatchShared({
       op: "create",
-      save: encodeSave(enableMotives(createWorld(), { personalQuests: true })),
+      save: encodeSave(
+        enableMotives(createWorld({ opening: true }), { personalQuests: true }),
+      ),
     }).world;
     const started = dispatchShared({
       op: "play",
@@ -37,6 +39,7 @@ try {
       claimed: ["vale", "mara"],
       present: ["vale", "mara"],
     }).world;
+    assert.equal(world.actors.vale.place, "pond");
     const quest = questCardId(world, questCards(world, "boardyai")[0]);
     const table = `boardyai-${width}`;
     const key = `cosyworld.reflected-shore.v1.${table}`;
@@ -134,9 +137,9 @@ try {
     };
     await settle();
     for (const [id, kind, turn, place] of [
-      ["boardyai-calling-card", "take", 3, "station"],
+      ["boardyai-calling-card", "take", 3, "pond"],
       ["boardyai-parlour", "move", 4, "boardyai-parlour"],
-      ["station", "move", 5, "station"],
+      ["pond", "move", 5, "pond"],
     ]) {
       await page.keyboard.press("Escape");
       await selectCard(page, id);
@@ -168,6 +171,12 @@ try {
       ),
       5,
     );
+    const saved = await page.evaluate(
+      (key) => JSON.parse(localStorage.getItem(key)),
+      key,
+    );
+    assert.equal(saved.actors.vale.place, "pond");
+    assert.equal(saved.items["boardyai-calling-card"].holder, "vale");
     assert.equal(
       await page.locator('#hand [data-card="boardyai-calling-card"]').count(),
       1,

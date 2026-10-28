@@ -100,7 +100,7 @@ pub(crate) fn prepare(
                 .is_some_and(|s| s.candidate().supported_parameters().reasoning);
             let mut request = json!({
                 "model":model,
-                "messages":[{"role":"system","content":idiolect(entity(&context, &id))},
+                "messages":[{"role":"system","content":idiolect(entity(&context, &id), part)},
                     {"role":"user","content":attempt_transcript(&context, entity(&context, &id), part, 0)}],
                 "temperature":1.0,"max_tokens":if part==Part::Persona{160}else{96},
                 "stream":false

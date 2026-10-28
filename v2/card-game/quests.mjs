@@ -109,6 +109,7 @@ export const knownActors = (s) =>
 export const personalQuestActor = (actor) =>
   !isPackActor(actor) || packPeople[actor]?.personalQuests === true;
 export const programsFor = (s, actor) =>
+  (s.opening?.version === 2 && forest.pondOpeningPrograms[actor]) ||
   (s.opening ? openingPrograms : questPrograms)[actor] || [];
 export const restingHands = {
   ...forest.restingHands,

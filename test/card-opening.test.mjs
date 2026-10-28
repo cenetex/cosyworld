@@ -25,8 +25,10 @@ import {
 } from "../v2/card-game/narrative.mjs";
 import { sceneCast, currentScene } from "../v2/card-game/scene.mjs";
 
+import { atticOpening } from "./fixtures/card-attic-opening.mjs";
+
 const fresh = () =>
-  enableMotives(createWorld({ opening: true }), { questPrograms: true });
+  enableMotives(atticOpening(), { questPrograms: true });
 const choose = (s, kind, fields = {}) => {
   const action = legalActions(s).find(
     (a) =>
@@ -237,7 +239,7 @@ describe("the first light in the attic", () => {
     ).toBe(true);
   });
 
-  it("takes the lamp when lighting it and opens a station path when its fuel runs out", () => {
+  it("takes the lamp when lighting it and opens a pond path when its fuel runs out", () => {
     let dropped = act(fresh(), "drop", { item: "lamp" });
     dropped = act(dropped, "light");
     expect(dropped.items.lamp.holder).toBe("vale");
@@ -248,11 +250,11 @@ describe("the first light in the attic", () => {
     expect(s.opening.crossed).toBe(false);
     expect(knownActors(s)).toEqual(["vale"]);
     s = decodeSave(encodeSave(s));
-    expect(exits(s, "attic")).toEqual(["station"]);
+    expect(exits(s, "attic")).toEqual(["pond"]);
     expect(exits(s, "station")).toEqual(["pond"]);
-    expect(availableCards(s)).toContain("station");
-    expect(availableCards(s)).not.toContain("pond");
-    expect(cardPlay(s, ["pond"]).action).toBeNull();
+    expect(availableCards(s)).toContain("pond");
+    expect(availableCards(s)).not.toContain("station");
+    expect(cardPlay(s, ["pond"]).action.kind).toBe("move");
     expect(placeText(s, "attic")).toContain("Dust gathers");
     expect(s.actors.vale.place).toBe("attic");
   });
@@ -273,7 +275,7 @@ describe("the first light in the attic", () => {
     const restored = decodeSave(encodeSave(old));
     expect(restored).toEqual(old);
     expect(restored.opening).toBeUndefined();
-    expect(exits(restored, "attic")).toEqual(["station"]);
+    expect(exits(restored, "attic")).toEqual([]);
     expect(programFor(restored, "vale").id).toBe("borrowed-light");
     for (const s of [fresh(), act(fresh(), "light"), meetEveryone()])
       expect(decodeSave(encodeSave(s))).toEqual(s);

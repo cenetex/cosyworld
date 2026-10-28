@@ -25,7 +25,7 @@ export const humanRoomAvailable = (world, actor, place, count = 1) =>
 // the pond and the lamp keep their original definitions and behavior.
 const visitors = humanAvatars.filter((a) => a.id !== "vale");
 export const humanHomeGates = Object.fromEntries(
-  visitors.map((a) => [a.home.id, { item: a.item.id, rescue: "station" }]),
+  visitors.map((a) => [a.home.id, { item: a.item.id, rescue: "pond" }]),
 );
 export const humanHomePack = {
   schemaVersion: 1,

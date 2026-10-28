@@ -163,6 +163,7 @@ export function authoredStoryDefinitions(
             ],
           };
           definition = {
+            packId: pack.id,
             id: story.id,
             key: storyKey(pack, story),
             ...(story.keyedCard !== undefined

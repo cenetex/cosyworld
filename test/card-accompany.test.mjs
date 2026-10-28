@@ -73,7 +73,7 @@ describe("accompany card requests", () => {
     expect(matchingActions(world, ["moth", "pond"])).toEqual([trip]);
     expect(playLabel(trip)).toBe("Invite Pip along");
     expect(trip.text).toContain("asks Pip to accompany");
-    expect(trip.key).not.toBe(cardPlay(world, ["moth", "attic"]).action.key);
+    expect(cardPlay(world, ["moth", "attic"]).action).toBeNull();
     accompanyDecision(world, "vale", "moth", "pond");
     expect(encodeSave(world)).toBe(before);
     expect(cardPlay(world, ["vale", "pond"]).action.kind).toBe("move");
@@ -104,11 +104,14 @@ describe("accompany card requests", () => {
     expect(encodeSave(start)).toBe(before);
   });
   it("answers an unrelated trip with its current goal and resumes that goal next turn", () => {
-    const world = request(together(), "moth", "attic");
+    const start = together();
+    start.actors.vale.place = start.actors.moth.place = "pond";
+    start.items.lamp.lit = true;
+    const world = request(start, "moth", "attic");
     expect(reply(world).accepted).toBe(false);
     expect(reply(world).text).toContain("Black pond");
-    expect(world.actors.vale.place).toBe("station");
-    expect(world.actors.moth.place).toBe("station");
+    expect(world.actors.vale.place).toBe("pond");
+    expect(world.actors.moth.place).toBe("pond");
     const next = wait(world);
     expect(
       next.log.some(
@@ -131,7 +134,9 @@ describe("accompany card requests", () => {
   it("counts both target hands at the same arrival and remembers their own items", () => {
     const start = createWorld();
     start.turn = start.revision = 1;
-    start.actors.keeper.place = "station";
+    start.actors.vale.place = start.actors.keeper.place = "pond";
+    start.items.lamp.lit = true;
+    start.items.lamp.holder = "vale";
     start.actors.vale.progress = { program: 0, step: 1, marks: [1] };
     start.items.oil.holder = "vale";
     start.items.bell.holder = "keeper";
@@ -150,7 +155,7 @@ describe("accompany card requests", () => {
     expect(world.items.bell.history.at(-1)).toContain(
       "The keeper carried it to Mirror attic",
     );
-    for (const id of ["vale", "keeper", "station", "attic", "oil", "bell"])
+    for (const id of ["vale", "keeper", "pond", "attic", "oil", "bell"])
       expect(
         world.memories[id].events.some((e) =>
           e.text.includes("travel together"),
@@ -160,7 +165,9 @@ describe("accompany card requests", () => {
   it("earns a level when a joint arrival completes the whole quest program", () => {
     const start = createWorld();
     start.turn = start.revision = 1;
-    start.actors.keeper.place = "station";
+    start.actors.vale.place = start.actors.keeper.place = "pond";
+    start.items.lamp.lit = true;
+    start.items.lamp.holder = "vale";
     start.actors.keeper.progress = { program: 0, step: 1, marks: [1] };
     start.actors.moth.place = "attic";
     start.items.lamp.holder = "moth";
@@ -176,6 +183,8 @@ describe("accompany card requests", () => {
   });
   it("joins a trip toward a distant wanted item before its final location", () => {
     const start = together();
+    start.actors.vale.place = start.actors.moth.place = "pond";
+    start.items.lamp.lit = true;
     start.items.lamp.holder = "attic";
     const world = request(start, "moth", "attic");
     expect(reply(world).accepted).toBe(true);
@@ -274,7 +283,10 @@ describe("accompany card requests", () => {
     expect(world.standoffs[0].guarding.moth).toBe(false);
   });
   it("gives the model the recorded refusal even after an earlier promise", () => {
-    const world = request(together(), "moth", "attic");
+    const start = together();
+    start.actors.vale.place = start.actors.moth.place = "pond";
+    start.items.lamp.lit = true;
+    const world = request(start, "moth", "attic");
     world.memories.moth.text = "I will go with you.";
     const context = narrativeContext(world);
     expect(context.action).toContain("Pip declines the trip");
@@ -295,7 +307,7 @@ describe("accompany card requests", () => {
     const world = request(together(), "moth", "pond");
     const context = narrativeContext(world);
     expect(context.location).toBe("pond");
-    expect(context.speakers).toEqual(["vale", "moth"]);
+    expect(context.speakers).toEqual(["vale", "moth", "keeper"]);
     expect(context.action).toContain("Pip agrees");
     expect(context.entities.find((e) => e.id === "moth").facts[0]).toContain(
       "Pip agreed to Vale's invitation to Black pond",
@@ -308,7 +320,7 @@ describe("accompany card requests", () => {
         text: `${profiles[id].name} recalls the joint trip.`,
       })),
     });
-    expect(next.log.slice(-2).map((e) => e.actorId)).toEqual(["vale", "moth"]);
+    expect(next.log.slice(-3).map((e) => e.actorId)).toEqual(["vale", "moth", "keeper"]);
     expect(
       sceneScript(next).beats.find((e) => e.verb === "accompany"),
     ).toMatchObject({

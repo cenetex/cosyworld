@@ -201,11 +201,11 @@ let seed = enableMotives(createWorld({ opening: true }), {
   questPrograms: true,
   personalQuests: true,
 });
-for (const kind of ["light", "move"]) {
+for (const kind of ["light"]) {
   const action = legalActions(seed).find(
     (a) => a.kind === kind && (kind !== "move" || a.target === "pond"),
   );
-  assert(action, "the existing opening reaches its original pond");
+  assert(action, "the pond opening lights its lamp");
   const result = play(seed, action);
   assert(result.ok);
   seed = result.state;
@@ -274,7 +274,23 @@ async function perform(page, kind, target = undefined, item = undefined) {
   });
   assert.equal(result.status, 200, JSON.stringify(result.body));
   await idle(page);
-  return snapshot(page);
+  const finished = await snapshot(page);
+  const recent = finished.history.find(
+    (entry) => entry.actor === finished.actor,
+  );
+  if (kind === "move")
+    assert.equal(
+      finished.world.actors[finished.actor].place,
+      target,
+      `${finished.actor} completes the queued move: ${JSON.stringify(recent)}`,
+    );
+  if (kind === "take")
+    assert.equal(
+      finished.world.items[item].holder,
+      finished.actor,
+      `${finished.actor} completes the queued pickup: ${JSON.stringify(recent)}`,
+    );
+  return finished;
 }
 async function dismissDiscoveries(page) {
   for (let n = 0; n < 50; n++) {
@@ -587,16 +603,16 @@ try {
     );
   };
   await perform(rue, "take", undefined, "routes");
-  assert(await actionFor(rue, "move", "station"));
-  assert(!(await actionFor(rue, "move", "pond")));
-  const earlierCarriageExit = await actionFor(rue, "move", "station");
+  assert(await actionFor(rue, "move", "pond"));
+  assert(!(await actionFor(rue, "move", "station")));
+  const earlierCarriageExit = await actionFor(rue, "move", "pond");
   await perform(rue, "drop", "train", "routes");
   await rue.reload();
   await rue
     .locator('#hand [data-card="routes"]')
     .waitFor({ state: "attached" });
   await dismissDiscoveries(rue);
-  assert(!(await actionFor(rue, "move", "station")));
+  assert(!(await actionFor(rue, "move", "pond")));
   assert.equal(
     (
       await api(rue, {
@@ -608,8 +624,8 @@ try {
     409,
   );
   await perform(rue, "take", undefined, "routes");
-  await perform(rue, "move", "station");
-  assert.equal((await snapshot(rue)).world.actors.rue.place, "station");
+  await perform(rue, "move", "pond");
+  assert.equal((await snapshot(rue)).world.actors.rue.place, "pond");
   await ownAvatarFirst(rue);
   await rue.reload();
   await rue.locator('#hand [data-card="rue"]').waitFor();
@@ -754,7 +770,7 @@ try {
   await until(() => waitingReplies.length > 0, "first queued speech starts");
   assert.equal((await snapshot(vale)).queue.length, 4);
   for (const page of [vale, mara]) {
-    await expectStage(page, ["nell", "ash", "mara", "vale", "moth"]);
+    await expectStage(page, ["nell", "ash", "mara", "vale"]);
     await page.waitForFunction(
       () => document.getElementById("live-line").dataset.actor === "mara",
     );
@@ -832,7 +848,7 @@ try {
     });
     if (page === mara) {
       await page.setViewportSize({ width: 390, height: 640 });
-      await expectStage(page, ["nell", "ash", "mara", "vale", "moth"]);
+      await expectStage(page, ["nell", "ash", "mara", "vale"]);
       await page.waitForFunction(() => {
         const dialogueTop = document
           .querySelector(".dialogue")
@@ -938,7 +954,7 @@ try {
     );
   }
   for (const page of [vale, mara]) {
-    await expectStage(page, ["nell", "mara", "vale", "ash", "moth"]);
+    await expectStage(page, ["nell", "mara", "vale", "ash"]);
     await page.screenshot({
       path: join(
         output,

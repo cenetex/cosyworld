@@ -23,10 +23,10 @@ reloads and journal replay. Presence uses the usual reconnect grace.
 The online list shows names, levels, and connection status. Players discover
 each other's locations through encounters in the world.
 
-Boardy's calling card rests at Empty station. Its blue smile opens a door to
-**BoardyAI's Parlour** while the card is at the station or carried there by a
+Boardy's calling card rests at Black pond. Its blue smile opens a door to
+**BoardyAI's Parlour** while the card is at the pond or carried there by a
 present human. Take the card along for the trip. Two armchairs and a tea table
-wait inside. The parlour door leads back to Empty station.
+wait inside. The parlour door leads back to Black pond.
 
 The seven new humans start in their homes with their signature items on the floor.
 Picking up the item opens the path to Black pond. Putting it down closes that
@@ -240,10 +240,9 @@ and show a scene error. Per-person and shared play budgets bound usage.
 | Orin   | Game-tile bridge                | Games pavilion                 |
 | Ada    | Open seam                       | Sail loft                      |
 
-A future Paris journey can depart from the existing station. Rue's carriage opens from
-the station while her route board is present there. Carrying the board inside
-the carriage opens the way back to the station. The saved crossing IDs stay
-stable across the version 5 upgrade; earlier journals retain their pond route.
+Rue's carriage opens beside the pond while her route board is present there.
+Carrying the board inside the carriage opens the way back to the pond. The
+saved crossing IDs remain stable. Empty station connects through Black pond.
 
 ## Folded belongings
 
@@ -267,11 +266,11 @@ wooden wheelchair; Ash has a broad build and a grey beard.
 
 ## A way out of a stranded home
 
-A narrow path to Empty station appears when a player in a home has no ordinary
+A narrow path to Black pond appears when a player in a home has no ordinary
 route and the room lacks the resources to reopen its gate. A belonging on the
 floor or carried by a present helper keeps its usual role. A fueled lamp can be
 lit or uncovered; a dry lamp can use oil available in the room. A belonging
-carried away or held by an absent player leaves the station path available.
+carried away or held by an absent player leaves the pond path available.
 Room capacity still applies to the destination.
 
 The same home-gate rule serves the attic and all seven visitor homes. Shared

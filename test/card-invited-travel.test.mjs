@@ -14,7 +14,7 @@ function carriage(friendly = true) {
   s.controlledActors = [...humanAvatarIds];
   s.presentActors = [...humanAvatarIds];
   s.playerActorId = "rue";
-  s.actors.rue.place = s.actors.moth.place = "station";
+  s.actors.rue.place = s.actors.moth.place = "pond";
   s.items.routes.holder = "rue";
   s.actors.moth.trust.rue = friendly ? 1 : 0;
   return s;
@@ -42,7 +42,7 @@ describe("invited companion travel", () => {
     expect(s.log.findLast((e) => e.verb === "accompany").accepted).toBe(true);
     expect(decodeSave(encodeSave(s))).toEqual(s);
     expect(start.invitedPlaces).toBeUndefined();
-    expect(exits(s, "station", "moth")).not.toContain("train");
+    expect(exits(s, "pond", "moth")).not.toContain("train");
     const bad = structuredClone(s);
     bad.invitedPlaces.moth.push("missing-room");
     expect(() => encodeSave(bad)).toThrow();
@@ -51,8 +51,8 @@ describe("invited companion travel", () => {
     const start = carriage(false);
     const s = play(start, invite(start), start.revision, "rue").state;
     expect(s.log.findLast((e) => e.verb === "accompany").accepted).toBe(false);
-    expect(s.actors.rue.place).toBe("station");
-    expect(s.actors.moth.place).toBe("station");
+    expect(s.actors.rue.place).toBe("pond");
+    expect(s.actors.moth.place).toBe("pond");
     expect(s.invitedPlaces).toBeUndefined();
   });
   it("boards and lands a whole invited party through one saved ship trip", () => {
@@ -105,7 +105,7 @@ describe("invited companion travel", () => {
     for (const actor of ["vale", "mara", "ash", "nell"])
       full.actors[actor].place = "train";
     expect(invite(full)).toBeUndefined();
-    start.actors.mara.place = "station";
+    start.actors.mara.place = "pond";
     expect(
       legalActions(start, "rue").some(
         (a) => a.kind === "accompany" && a.target === "mara",

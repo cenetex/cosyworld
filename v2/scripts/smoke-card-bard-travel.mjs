@@ -185,7 +185,7 @@ try {
       world.controlledActors = ["rue"];
       world.presentActors = ["rue"];
       world.playerActorId = "rue";
-      world.actors.rue.place = world.actors.moth.place = "station";
+      world.actors.rue.place = world.actors.moth.place = "pond";
       world.items.routes.holder = "rue";
       world.actors.moth.trust.rue = 1;
       const table = `carriage-invitation-${width}`,

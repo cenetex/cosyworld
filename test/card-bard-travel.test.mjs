@@ -1,3 +1,4 @@
+import { atticOpening } from "./fixtures/card-attic-opening.mjs";
 import { generateProgram } from "../v2/card-game/quests.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
 import { openingFixture } from "./helpers/greek-opening.mjs";
@@ -91,8 +92,8 @@ describe("ordinary bard travel", () => {
       ),
     ).toBe(true);
   });
-  it("records a real first-light visit and a later blocked attic passage", () => {
-    let s = enableMotives(createWorld({ opening: true }), {
+  it("records a real first-light visit and returns from a dry attic for the next journey", () => {
+    let s = enableMotives(atticOpening(), {
       personalQuests: true,
     });
     s.crossings["pond-greek-harbor"].discovered = true;
@@ -118,14 +119,10 @@ describe("ordinary bard travel", () => {
       s = act(s, "move", { target });
     s = act(s, "choose", { choiceId: "greek-hear-decree" });
     s = act(s, "choose", { choiceId: "greek-decline-burial" });
-    expect(s.actors[singer].place).toBe("attic");
+    expect(s.actors[singer].place).toBe("pond");
     expect(s.roamingQuests[singer].target.locationId).toBe("greek-gate");
-    expect(s.roamingQuests[singer].blocked).toMatchObject({
-      kind: "passage",
-      from: "attic",
-      to: "pond",
-    });
-    expect(exits(s, "attic", singer)).not.toContain("pond");
+    expect(s.roamingQuests[singer].blocked).toBeNull();
+    expect(exits(s, "attic", singer)).toEqual([]);
     expect(decodeSave(encodeSave(s))).toEqual(s);
   });
   it("takes one legal offscreen step each turn and stays at an exact AI completion site", () => {

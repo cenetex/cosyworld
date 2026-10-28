@@ -81,7 +81,7 @@ describe("shore wants and grievances", () => {
     let near = together(fresh());
     near.items.bell.holder = "vale";
     near = act(near, "ring", { item: "bell" });
-    expect(near.actors.keeper.place).toBe("attic");
+    expect(near.actors.keeper.place).toBe("pond");
     expect(near.motives.grievances.keeper[0].reason).toContain("quiet moment");
   });
 

@@ -57,10 +57,10 @@ describe("named card actions", () => {
     expect(playLabel(primary(world, ["moth", "pond"]))).toBe(
       "Invite Pip along",
     );
-    expect(playLabel(primary(world, ["lamp", "attic"]))).toBe(
-      "Carry to Mirror attic",
+    expect(playLabel(primary(world, ["lamp", "pond"]))).toBe(
+      "Carry to Black pond",
     );
-    expect(primary(world, ["vale", "attic"]).kind).toBe("move");
+    expect(primary(world, ["vale", "pond"]).kind).toBe("move");
     expect(primary(world, ["lamp", "station"]).kind).toBe("drop");
   });
   it("supports use, refill, cover and uncover in either order", () => {
@@ -119,7 +119,7 @@ describe("named card actions", () => {
     expect(
       cards.slice(cards.indexOf("station"), cards.indexOf("station") + 2),
     ).toEqual(["station", "bell"]);
-    expect(cards.slice(-2)).toEqual(["attic", "pond"]);
+    expect(cards.slice(-1)).toEqual(["pond"]);
     world.items.lamp.holder = "moth";
     const moved = availableCards(world);
     expect(

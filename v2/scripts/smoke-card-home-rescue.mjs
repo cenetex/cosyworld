@@ -34,6 +34,8 @@ try {
       hasTouch: width === 390,
     });
     const opening = createWorld({ opening: true });
+    opening.actors.vale.place = "attic";
+    opening.items.lamp.holder = "attic";
     opening.items.lamp.fuel = 0;
     const seen = [
       ...Object.keys(places),
@@ -67,26 +69,27 @@ try {
     );
     await page.goto(`${origin}/?table=home-rescue`);
     await ready(page);
-    await selectCard(page, "station", { touch: width === 390 });
+    assert.equal(await page.locator('#hand [data-card="station"]').count(), 0);
+    await selectCard(page, "pond", { touch: width === 390 });
     assert.match(
       await page.locator("#card-actions").innerText(),
       /Go|Travel|Move/,
     );
     await page.locator('#card-actions [data-action="move"]').click();
     await page.waitForFunction(() =>
-      document.querySelector("#backdrop").src.includes("station"),
+      document.querySelector("#backdrop").src.includes("pond"),
     );
     await ready(page);
     await page.reload();
     await ready(page);
     assert(
-      (await page.locator("#backdrop").getAttribute("src")).includes("station"),
+      (await page.locator("#backdrop").getAttribute("src")).includes("pond"),
     );
 
-    await selectCard(page, "pond", { touch: width === 390 });
+    await selectCard(page, "station", { touch: width === 390 });
     await page.locator('#card-actions [data-action="move"]').click();
     await page.waitForFunction(() =>
-      document.querySelector("#backdrop").src.includes("pond"),
+      document.querySelector("#backdrop").src.includes("station"),
     );
     await ready(page);
 
@@ -168,7 +171,13 @@ try {
       world = result.world;
       if (kind === "take") assert.deepEqual(project().exits, ["pond"]);
     }
-    await page.locator('#hand [data-card="station"]').waitFor();
+    await page.locator('#hand [data-card="pond"]').waitFor();
+    await ready(page);
+    await selectCard(page, "pond", { touch: width === 390 });
+    await page.locator('#card-actions [data-action="move"]').click();
+    await page.waitForFunction(() =>
+      document.querySelector("#backdrop").src.includes("pond"),
+    );
     await ready(page);
     await selectCard(page, "station", { touch: width === 390 });
     await page.locator('#card-actions [data-action="move"]').click();
@@ -180,7 +189,7 @@ try {
     assert.deepEqual(errors, []);
     await context.close();
     console.log(
-      `Home rescue: dry lamp, saved station arrival, shared helper departure, and Ash station travel passed at ${width}px.`,
+      `Home rescue: dry attic lamp, saved pond rescue, shared helper departure, and Ash pond-to-station travel passed at ${width}px.`,
     );
   }
 } finally {

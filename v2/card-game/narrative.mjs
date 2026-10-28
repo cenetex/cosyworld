@@ -1,5 +1,6 @@
 import { learningFacts } from "./learning.mjs";
 import { knowledgeDisclosures, knowledgeFacts } from "./knowledge.mjs";
+import { expressionKind, validExpression } from "./expression.mjs";
 import { questCarried } from "./quest-hands.mjs";
 import { BOARDY, boardyFacts } from "./boardyai.mjs";
 import { questRecord } from "./shared-quests.mjs";
@@ -188,7 +189,7 @@ export function narrativeContext(world, action = null) {
   // Earlier opening text could include the authored solution. Keep those lines
   // in the save while grounding this unrevealed scene in observations.
   const beforeFirstLight = Boolean(
-    world.opening && !world.locations.attic.anchored,
+    world.opening?.version === 1 && !world.locations.attic.anchored,
   );
   const known = knownActors(world);
   const present = Object.keys(world.actors).filter(
@@ -762,6 +763,7 @@ export function applyGeneratedText(
         !entry.text.trim() ||
         entry.text.length > 400 ||
         /[\u0000-\u001f\u007f]/u.test(entry.text) ||
+        !validExpression(profiles[entry.id], entry.text) ||
         (entry.model !== undefined &&
           (typeof entry.model !== "string" ||
             !entry.model.trim() ||
@@ -838,7 +840,7 @@ export function applyGeneratedText(
     const avatar = profiles[id].kind === "avatar";
     const movement = changes.find((change) => change.actorId === id);
     addLog(next, profiles[id].name, text, {
-      kind: avatar ? "dialogue" : "narration",
+      kind: avatar ? expressionKind(profiles[id]) : "narration",
       actorId: avatar ? id : null,
       entityId: id,
       generated: true,

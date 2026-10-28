@@ -153,10 +153,10 @@
         "image": "assets/shared/places/train.png",
         "entrance": {
           "name": "Carriage door",
-          "text": "The route board opens a carriage door at the station. Morning shines through the far window."
+          "text": "The route board opens a carriage door beside the pond. Morning shines through the far window."
         },
-        "connection": "station",
-        "returnTravel": "back to the station"
+        "connection": "pond",
+        "returnTravel": "back to the pond"
       },
       "image": "assets/shared/characters/rue.png"
     },

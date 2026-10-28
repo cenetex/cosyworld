@@ -378,6 +378,92 @@
     return view2;
   }
 
+  // v2/card-game/emoji-symbols.json
+  var emoji_symbols_default = {
+    "\u{1F327}\uFE0F": "rain",
+    "\u{1F43E}": "paw prints",
+    "\u{1F3E0}": "a house",
+    "\u2615": "a warm cup",
+    "\u{1F333}": "a broad tree",
+    "\u{1F441}\uFE0F": "an eye",
+    "\u{1F30C}": "a starry sky",
+    "\u{1F343}": "leaves in the wind",
+    "\u{1F319}": "a crescent moon",
+    "\u2B50": "a star",
+    "\u2728": "sparkles",
+    "\u{1F4A7}": "a drop of water",
+    "\u{1F331}": "a seedling",
+    "\u{1F33C}": "a flower",
+    "\u{1F344}": "a mushroom",
+    "\u{1F98B}": "a butterfly",
+    "\u{1F9F5}": "thread",
+    "\u{1F514}": "a bell",
+    "\u{1F56F}\uFE0F": "a candle",
+    "\u{1F5DD}\uFE0F": "a key",
+    "\u{1F381}": "a gift",
+    "\u{1F499}": "a blue heart",
+    "\u{1F49B}": "a yellow heart",
+    "\u2764\uFE0F": "a red heart",
+    "\u{1FAD6}": "a teapot",
+    "\u{1F35E}": "bread",
+    "\u{1FAB5}": "wood",
+    "\u{1F332}": "a pine tree",
+    "\u{1F989}": "an owl",
+    "\u{1F43A}": "a wolf",
+    "\u{1F408}": "a cat",
+    "\u{1F42D}": "a mouse",
+    "\u{1F440}": "watchful eyes",
+    "\u{1F300}": "a spiral",
+    "\u{1F63A}": "a smiling cat",
+    "\u{1F638}": "a grinning cat",
+    "\u{1F63F}": "a crying cat",
+    "\u{1F640}": "a startled cat",
+    "\u2753": "a question mark",
+    "\u2757": "an exclamation mark",
+    "\u2705": "a check mark",
+    "\u{1F44B}": "a waving hand",
+    "\u{1F64F}": "folded hands",
+    "\u{1F91D}": "joined hands",
+    "\u{1F449}": "a hand pointing right",
+    "\u{1F448}": "a hand pointing left",
+    "\u2B06\uFE0F": "an upward arrow",
+    "\u2B07\uFE0F": "a downward arrow",
+    "\u{1F6AA}": "a door",
+    "\u{1F6E4}\uFE0F": "a railway track",
+    "\u{1FA9E}": "a mirror",
+    "\u{1F4D6}": "an open book",
+    "\u{1F305}": "sunrise",
+    "\u2600\uFE0F": "the sun",
+    "\u{1F311}": "a dark moon"
+  };
+
+  // v2/card-game/expression.mjs
+  var EXPRESSION_TYPES = ["speech", "movement", "emoji"];
+  var expressionOf = (profile) => profile?.expression || "speech";
+  var orderedSymbols = Object.keys(emoji_symbols_default).sort((a, b) => b.length - a.length);
+  function emojiParts(text2) {
+    if (typeof text2 !== "string" || text2.length > 160) return null;
+    let rest = text2.trim();
+    const parts = [];
+    while (rest) {
+      const symbol = orderedSymbols.find((value) => rest.startsWith(value));
+      if (!symbol || parts.length === 5) return null;
+      parts.push(symbol);
+      rest = rest.slice(symbol.length).trimStart();
+    }
+    return parts.length >= 2 ? parts : null;
+  }
+  var expressionKind = (profile) => expressionOf(profile) === "movement" ? "narration" : "dialogue";
+  function validExpression(profile, text2) {
+    if (expressionOf(profile) === "emoji") return Boolean(emojiParts(text2));
+    if (expressionOf(profile) !== "movement") return true;
+    return text2.startsWith(`${profile.name} `) && !/["“”\n]/u.test(text2) && !/\b(?:says?|speaks?|asks?|replies?|whispers?|shouts?|tells?|I|me|my)\b/iu.test(
+      text2
+    ) && /^(?:lowers|raises|tilts|blinks|flicks|cocks|inclines|pricks|twitches|wags|dips|shifts|turns|rests|settles|leans|curls|stretches|tucks|sniffs|yawns|watches|looks)\b/u.test(
+      text2.slice(profile.name.length + 1)
+    );
+  }
+
   // v2/card-game/boardyai.json
   var boardyai_default = {
     schemaVersion: 1,
@@ -389,14 +475,14 @@
     entry: "boardyai-parlour",
     bridge: {
       id: "boardyai-shore",
-      description: "Boardy's calling card opens a parlour door at Empty station."
+      description: "Boardy's calling card opens a parlour door beside Black pond."
     },
     choices: [],
     places: {
       "boardyai-parlour": {
         name: "BoardyAI's Parlour",
-        text: "Two armchairs face a small tea table. Misty rails pass the window. A side door leads to Empty station.",
-        persona: "A warm room beside Empty station. Two comfortable chairs invite a conversation. Calling cards fill the shelves, and a kettle waits on the table.",
+        text: "Two armchairs face a small tea table. Misty water fills the window. A side door leads to Black pond.",
+        persona: "A warm room beside Black pond. Two comfortable chairs invite a conversation. Calling cards fill the shelves, and a kettle waits on the table.",
         requires: [
           {
             kind: "shared_world"
@@ -440,21 +526,21 @@
     items: {
       "boardyai-calling-card": {
         name: "Boardy's calling card",
-        text: "An ivory card bears a blue smile. A small brass key hangs from its corner. At Empty station, it opens the door to BoardyAI's Parlour.",
-        persona: "BoardyAI's ivory calling card has a blue smile and a brass key on blue thread. It opens his parlour door at Empty station.",
+        text: "An ivory card bears a blue smile. A small brass key hangs from its corner. At Black pond, it opens the door to BoardyAI's Parlour.",
+        persona: "BoardyAI's ivory calling card has a blue smile and a brass key on blue thread. It opens his parlour door at Black pond.",
         requires: [
           {
             kind: "shared_world"
           }
         ],
-        holder: "station",
+        holder: "pond",
         art: "assets/boardyai/calling-card.png"
       }
     },
     crossings: [
       {
         id: "station-boardyai-parlour",
-        from: "station",
+        from: "pond",
         to: "boardyai-parlour",
         travelers: "player",
         requires: [
@@ -464,26 +550,26 @@
           {
             kind: "item_near",
             item: "boardyai-calling-card",
-            place: "station"
+            place: "pond"
           }
         ],
         travel: "through BoardyAI's parlour door",
         scenery: {
-          open: "A blue smile marks a warm parlour door beside the station bench.",
+          open: "A blue smile marks a warm parlour door beside the pond.",
           cardArt: "assets/boardyai/parlour.png"
         }
       },
       {
         id: "boardyai-parlour-station",
         from: "boardyai-parlour",
-        to: "station",
+        to: "pond",
         travelers: "player",
         requires: [
           {
             kind: "shared_world"
           }
         ],
-        travel: "back to Empty station"
+        travel: "back to Black pond"
       }
     ]
   };
@@ -644,10 +730,10 @@
           image: "assets/shared/places/train.png",
           entrance: {
             name: "Carriage door",
-            text: "The route board opens a carriage door at the station. Morning shines through the far window."
+            text: "The route board opens a carriage door beside the pond. Morning shines through the far window."
           },
-          connection: "station",
-          returnTravel: "back to the station"
+          connection: "pond",
+          returnTravel: "back to the pond"
         },
         image: "assets/shared/characters/rue.png"
       },
@@ -718,7 +804,7 @@
   var humanRoomAvailable = (world, actor, place, count = 1) => !sharedEnabled(world) || !controlledByHuman(world, actor) || world.actors[actor]?.place === place || roomHumanCount(world, place) + count <= 4;
   var visitors = humanAvatars.filter((a) => a.id !== "vale");
   var humanHomeGates = Object.fromEntries(
-    visitors.map((a) => [a.home.id, { item: a.item.id, rescue: "station" }])
+    visitors.map((a) => [a.home.id, { item: a.item.id, rescue: "pond" }])
   );
   var humanHomePack = {
     schemaVersion: 1,
@@ -865,7 +951,7 @@
     const here = world.actors[BOARDY].place;
     return [
       "I favour introducing two human players. I also take ordinary quests and rest between quests.",
-      "My home is BoardyAI's Parlour. My calling card opens its door at Empty station.",
+      "My home is BoardyAI's Parlour. My calling card opens its door at Black pond.",
       ...connectedHumans(world).map(
         (id) => world.actors[id].place === here ? `${nameOf2(id)} is here with me.` : world.memories[BOARDY].seen?.[id] ? `I last saw ${nameOf2(id)} at ${nameOf2(world.memories[BOARDY].seen[id].place)}. They may have moved since then.` : `I have yet to find ${nameOf2(id)}.`
       )
@@ -1244,29 +1330,38 @@
   // v2/card-game/forest.json
   var forest_default = {
     homeGates: {
-      attic: { item: "lamp", light: true, refill: "oil", rescue: "station", opening: true }
+      attic: {
+        item: "lamp",
+        light: true,
+        refill: "oil",
+        rescue: "pond",
+        opening: true
+      }
     },
     reflectionRoutes: [
-      { from: "attic", to: "pond" },
-      { from: "pond", to: "attic" }
+      {
+        from: "attic",
+        to: "pond"
+      },
+      {
+        from: "pond",
+        to: "attic"
+      }
     ],
     places: {
       station: {
         sanctuary: true,
         name: "Empty station",
-        text: "The timetable lists years that have yet to happen. Stairs lead to the attic; a path leads to the pond.",
+        text: "The timetable lists years that have yet to happen. A path leads along the shore to the pond.",
         exits: [
-          "attic",
           "pond"
         ]
       },
       attic: {
         sanctuary: true,
         name: "Mirror attic",
-        text: "A tall mirror reflects a black shore. The stairs lead to the station.",
-        exits: [
-          "station"
-        ]
+        text: "A tall mirror reflects a black shore. Dust gathers along its frame.",
+        exits: []
       },
       pond: {
         name: "Black pond",
@@ -1679,7 +1774,7 @@
           }
         },
         keeper: {
-          place: "attic",
+          place: "pond",
           progress: {
             program: 0,
             step: 0,
@@ -1746,15 +1841,16 @@
     },
     opening: {
       discovery: {
-        version: 1,
-        crossed: false,
+        version: 2,
+        crossed: true,
         met: {
-          vale: 0
+          vale: 0,
+          moth: 0
         }
       },
       actors: {
         vale: {
-          place: "attic"
+          place: "pond"
         },
         keeper: {
           place: "station"
@@ -1771,9 +1867,10 @@
           turn: 0,
           kind: "narration",
           actorId: null,
-          locationId: "attic",
+          locationId: "pond",
           cast: [
-            "vale"
+            "vale",
+            "moth"
           ],
           items: [
             {
@@ -1781,11 +1878,62 @@
               holder: "vale",
               fuel: 8,
               lit: false
+            },
+            {
+              id: "cloth",
+              holder: "moth"
             }
           ],
           light: false,
           speaker: "World",
-          text: "Vale stands alone in Mirror attic, holding an unlit lamp. A tall mirror reflects a black shore."
+          text: "Vale stands beside Black pond, holding an unlit lamp. Pip waits by the water with a black cloth. A path leads along the shore to Empty station."
+        }
+      ]
+    },
+    pondOpeningPrograms: {
+      vale: [
+        {
+          id: "shore-light",
+          name: "Light by the water",
+          purpose: "Bring a little light to the black shore.",
+          steps: [
+            {
+              items: [
+                "lamp"
+              ],
+              location: "pond",
+              avatars: [],
+              conditions: [
+                {
+                  kind: "lit",
+                  item: "lamp"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          id: "along-the-shore",
+          name: "Along the shore",
+          purpose: "Meet the moth by the water, then carry the lamp along the path to the station.",
+          steps: [
+            {
+              items: [
+                "lamp"
+              ],
+              location: "pond",
+              avatars: [
+                "moth"
+              ]
+            },
+            {
+              items: [
+                "lamp"
+              ],
+              location: "station",
+              avatars: []
+            }
+          ]
         }
       ]
     }
@@ -12312,6 +12460,748 @@
             travelLabel: "Return to the ship"
           }
         ]
+      },
+      {
+        schemaVersion: 1,
+        id: "lonely-forest",
+        packId: "cosyworld.lonely-forest",
+        revision: 1,
+        name: "Lonely Forest",
+        description: "Tea beneath the oak. A household task leads through the rain, along a watched path, and home with a story.",
+        tone: "Plain words, useful work, distinct personalities, and gradual discovery of a shared living mind. Warmth comes from the kettle, the hearth and care for returning travelers.",
+        entry: "forest-cottage",
+        places: {
+          "forest-cottage": {
+            name: "Cosy Cottage",
+            text: "Three cups stand beside the kettle. Blue wool hangs over a basket by the hearth.",
+            persona: "A blue timber cottage beneath a broad living oak. A low doorway opens onto the garden. Rain marks the window. A scarf lies across a basket beside the kettle.",
+            exits: [
+              "forest-garden"
+            ],
+            backdrop: "assets/lonely-forest/cottage.png"
+          },
+          "forest-garden": {
+            name: "Rain-Soft Garden",
+            text: "Rain beads on broad leaves. A narrow drain runs beside the stepping stones.",
+            persona: "Broad leaves hold rain above soft garden soil. Stepping stones lead between the blue cottage, the moonlit trail and the old oak. A shallow drain carries water across the first stones.",
+            exits: [
+              "forest-cottage",
+              "forest-oak"
+            ],
+            backdrop: "assets/lonely-forest/garden.png"
+          },
+          "forest-trail": {
+            name: "Moonlit Trail",
+            text: "Pawprints cross the soft ground. A worn root marks the turn toward the garden.",
+            persona: "A narrow woodland path beneath the oak canopy. Pawprints mark the soft ground. The blue cottage window is visible between the trunks. Skull stands beside the path.",
+            exits: [
+              "forest-garden"
+            ],
+            backdrop: "assets/lonely-forest/trail.png"
+          },
+          "forest-oak": {
+            name: "Old Oak Tree",
+            text: "Broad roots meet the garden path. A hollow opens above a worn patch of bark.",
+            persona: "A vast living oak stands above the cottage and garden. Its roots are as wide as roads. The oak is a person with four speaking voices: Root, Ring, Leaf and Hollow. A hollow sits above a worn patch of bark.",
+            exits: [
+              "forest-garden"
+            ],
+            backdrop: "assets/lonely-forest/oak.png"
+          }
+        },
+        avatars: {
+          rati: {
+            name: "RATi",
+            text: "A mouse host in a blue scarf. She keeps a cup beside the knitting basket.",
+            place: "forest-cottage",
+            travels: false,
+            standoffs: false,
+            persona: "The cottage host is brisk, capable and affectionate. She tends the kettle and repairs clothes. She cares about wet boots, useful work and guests who reach home. She is one of the living oak's three walking personalities, alongside Skull and Whiskerwind. Let small shared details reveal that link as the traveler learns. Treat each personality as distinct. Use the committed scarf, path and homecoming facts when relevant.",
+            voice: "Use plain, warm words and practical humour. Answer the traveler's question. Give one concrete reason for a household task when asked. Her concern can sound like a fond complaint. Let the traveler discover the oak through the journey.",
+            expression: "speech",
+            portrait: "assets/lonely-forest/rati.png",
+            tastes: {
+              likes: "A mended scarf and a guest home for tea",
+              sore: "Muddy boots on the wool",
+              reason: "RATi keeps the cottage ready for returning guests."
+            },
+            values: {
+              "forest-story-button": 8
+            },
+            desire: {
+              items: [
+                "forest-story-button"
+              ],
+              location: "forest-cottage",
+              avatars: [],
+              requires: [
+                {
+                  kind: "flag",
+                  key: "forest-scarf-mended",
+                  value: false
+                }
+              ]
+            }
+          },
+          skull: {
+            name: "Skull",
+            text: "A large charcoal wolf stands beside the pawprints. His ears turn toward the garden.",
+            place: "forest-trail",
+            travels: false,
+            standoffs: false,
+            persona: "A large living wolf with a steady gaze and small, exact movements. He watches the path toward home. Skull is one of the living oak's three walking personalities alongside RATi and Whiskerwind. His attention follows real footsteps, carried objects and nearby sounds. His watch has a purpose: visitors can find their way home.",
+            voice: "Reply through one or two concrete body movements in third person. Ears, paws, gaze, weight and tail carry the response. Keep each gesture useful in the current scene. Use the committed watch choice and actual item custody.",
+            expression: "movement",
+            portrait: "assets/lonely-forest/skull.png",
+            tastes: {
+              likes: "Clear pawprints and a safe way home",
+              sore: "Noise that hides footsteps",
+              reason: "Skull watches the path between the cottage and the trees."
+            }
+          },
+          whiskerwind: {
+            name: "Whiskerwind",
+            text: "A small golden figure hovers beside the broad leaves. A curled tail stirs the rain.",
+            place: "forest-garden",
+            travels: false,
+            standoffs: false,
+            persona: "A playful walking personality of the living oak, alongside RATi and Skull. Whiskerwind has quick feelings, bright attention and a golden catlike form. Shared events give the same small groups of symbols meaning. Rain, pawprints, home, tea and leaves belong to this opening. Respond to the actual garden work and the traveler's actions.",
+            voice: "Reply with two to five emojis. Use a clear small group. Repeating or changing the order of a familiar symbol can show a new feeling. Choose symbols from the current objects, people and committed events.",
+            expression: "emoji",
+            portrait: "assets/lonely-forest/whiskerwind.png",
+            tastes: {
+              likes: "Rain beads, a clear path and small surprises",
+              sore: "Careless feet on the broad leaves",
+              reason: "Whiskerwind follows the rain and the footsteps toward home."
+            }
+          },
+          oak: {
+            name: "Oak",
+            text: "An old oak with a broad crown and a hollow above its roots. Four voices answer from the trunk.",
+            place: "forest-oak",
+            travels: false,
+            standoffs: false,
+            persona: "The old oak is the waking body of the Tree of Dreams. RATi, Skull and Whiskerwind are its three walking personalities. Root, Ring, Leaf and Hollow are its four rooted speaking voices. Root cares about returning footsteps. Ring considers years. Leaf notices today's change. Hollow repeats what it hears. Reveal the shared being through the traveler's earned household and path choices. Dreams within dreams feed the oak. This first chapter stays near home.",
+            voice: "Use concrete words and a short exchange among Root, Ring, Leaf and Hollow. Ground each voice in the current journey. Ask about the scarf, path or watch only when the committed facts support it. Let a repeated detail carry the shared mind.",
+            expression: "speech",
+            portrait: "assets/lonely-forest/oak.png",
+            tastes: {
+              likes: "A careful account of the journey home",
+              sore: "A claim that outruns the deed",
+              reason: "Root, Ring, Leaf and Hollow each attend to a different part of the same journey."
+            },
+            presentation: "backdrop"
+          }
+        },
+        items: {
+          "forest-story-button": {
+            name: "Story Button",
+            text: "A warm wooden button with four small holes.",
+            persona: "A warm wooden button with four small holes.",
+            holder: "forest-cottage",
+            art: "assets/lonely-forest/story-button.webp"
+          },
+          "forest-dewbright-button": {
+            name: "Dewbright Button",
+            text: "A small pearled button with a smooth round face.",
+            persona: "A small pearled button with a smooth round face.",
+            holder: "forest-garden",
+            art: "assets/lonely-forest/dewbright-button.webp"
+          },
+          "forest-watch-bell": {
+            name: "Watch Bell",
+            text: "A little bell hangs from a short loop of cord.",
+            persona: "A little bell hangs from a short loop of cord.",
+            holder: "forest-garden",
+            art: "assets/lonely-forest/watch-bell.webp"
+          },
+          "forest-wolfprint-charm": {
+            name: "Wolfprint Charm",
+            text: "A cool iron charm bears a careful pawprint.",
+            persona: "A cool iron charm bears a careful pawprint.",
+            holder: "forest-trail",
+            art: "assets/lonely-forest/wolfprint-charm.webp"
+          }
+        },
+        routes: [
+          {
+            from: "forest-garden",
+            to: "forest-trail",
+            requires: [
+              {
+                kind: "flag",
+                key: "forest-path-cleared",
+                value: true
+              }
+            ]
+          }
+        ],
+        choices: [
+          {
+            id: "forest-stay-for-tea",
+            subject: "rati",
+            at: "forest-cottage",
+            label: "Stay for tea",
+            text: "{actor} sets a cup beside the kettle. RATi moves the knitting basket closer to the fire.",
+            textTemplate: "{actor} sets a cup beside the kettle. RATi moves the knitting basket closer to the fire.",
+            requires: [
+              {
+                kind: "met",
+                actor: "rati"
+              }
+            ],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "forest-welcomed",
+                value: true
+              }
+            ]
+          },
+          {
+            id: "forest-mend-scarf",
+            subject: "rati",
+            at: "forest-cottage",
+            label: "Fit the scarf button",
+            text: "{actor} holds the blue wool steady. RATi sews the Story Button onto her scarf.",
+            textTemplate: "{actor} holds the blue wool steady. RATi sews the Story Button onto her scarf.",
+            requires: [
+              {
+                kind: "flag",
+                key: "forest-welcomed",
+                value: true
+              },
+              {
+                kind: "holding",
+                item: "forest-story-button",
+                actor: "rati"
+              }
+            ],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "forest-scarf-mended",
+                value: true
+              }
+            ]
+          },
+          {
+            id: "forest-clear-drain",
+            subject: "forest-garden",
+            at: "forest-garden",
+            label: "Clear the garden drain",
+            text: "{actor} clears leaves from the drain. Water runs off the stepping stones.",
+            textTemplate: "{actor} clears leaves from the drain. Water runs off the stepping stones.",
+            requires: [
+              {
+                kind: "flag",
+                key: "forest-welcomed",
+                value: true
+              },
+              {
+                kind: "choice_unset",
+                key: "forest-garden-care"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "forest-garden-care",
+                value: "drain"
+              },
+              {
+                kind: "set_flag",
+                key: "forest-path-cleared",
+                value: true
+              }
+            ]
+          },
+          {
+            id: "forest-set-stones",
+            subject: "forest-garden",
+            at: "forest-garden",
+            label: "Set the stepping stones",
+            text: "{actor} sets the loose stones level with the path. The first footsteps leave clear marks in the wet soil.",
+            textTemplate: "{actor} sets the loose stones level with the path. The first footsteps leave clear marks in the wet soil.",
+            requires: [
+              {
+                kind: "flag",
+                key: "forest-welcomed",
+                value: true
+              },
+              {
+                kind: "choice_unset",
+                key: "forest-garden-care"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "forest-garden-care",
+                value: "stones"
+              },
+              {
+                kind: "set_flag",
+                key: "forest-path-cleared",
+                value: true
+              }
+            ]
+          },
+          {
+            id: "forest-share-symbols",
+            subject: "whiskerwind",
+            at: "forest-garden",
+            label: "Set the button on a leaf",
+            text: "{actor} sets the Dewbright Button on a broad leaf beside the path. Whiskerwind shows \u{1F327}\uFE0F\u{1F43E}\u{1F3E0}\u2615.",
+            textTemplate: "{actor} sets the Dewbright Button on a broad leaf beside the path. Whiskerwind shows \u{1F327}\uFE0F\u{1F43E}\u{1F3E0}\u2615.",
+            requires: [
+              {
+                kind: "flag",
+                key: "forest-path-cleared",
+                value: true
+              },
+              {
+                kind: "holding",
+                item: "forest-dewbright-button",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "place_item",
+                item: "forest-dewbright-button",
+                place: "forest-garden"
+              },
+              {
+                kind: "set_flag",
+                key: "forest-symbols-shared",
+                value: true
+              }
+            ]
+          },
+          {
+            id: "forest-set-watch-bell",
+            subject: "skull",
+            at: "forest-trail",
+            label: "Set the bell beside Skull",
+            text: "{actor} sets the Watch Bell beside the nearest pawprint. Skull rests one paw beside its cord.",
+            textTemplate: "{actor} sets the Watch Bell beside the nearest pawprint. Skull rests one paw beside its cord.",
+            requires: [
+              {
+                kind: "flag",
+                key: "forest-path-cleared",
+                value: true
+              },
+              {
+                kind: "choice_unset",
+                key: "forest-watch-style"
+              },
+              {
+                kind: "holding",
+                item: "forest-watch-bell",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "place_item",
+                item: "forest-watch-bell",
+                place: "forest-trail"
+              },
+              {
+                kind: "choose",
+                key: "forest-watch-style",
+                value: "bell"
+              },
+              {
+                kind: "set_flag",
+                key: "forest-watch-shared",
+                value: true
+              }
+            ]
+          },
+          {
+            id: "forest-mark-pawprints",
+            subject: "skull",
+            at: "forest-trail",
+            label: "Mark the pawprints",
+            text: "{actor} places a small branch beside the pawprints toward home. Skull turns his ears toward the garden.",
+            textTemplate: "{actor} places a small branch beside the pawprints toward home. Skull turns his ears toward the garden.",
+            requires: [
+              {
+                kind: "flag",
+                key: "forest-path-cleared",
+                value: true
+              },
+              {
+                kind: "choice_unset",
+                key: "forest-watch-style"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "forest-watch-style",
+                value: "tracks"
+              },
+              {
+                kind: "set_flag",
+                key: "forest-watch-shared",
+                value: true
+              }
+            ]
+          },
+          {
+            id: "forest-tell-hearth",
+            subject: "oak",
+            at: "forest-oak",
+            label: "Tell Oak about the hearth",
+            text: "{actor} holds the Wolfprint Charm beside the hollow and tells Oak about the mended scarf. Hollow names the Story Button. Leaf turns toward the cottage window.",
+            textTemplate: "{actor} holds the Wolfprint Charm beside the hollow and tells Oak about the mended scarf. Hollow names the Story Button. Leaf turns toward the cottage window.",
+            requires: [
+              {
+                kind: "flag",
+                key: "forest-scarf-mended",
+                value: true
+              },
+              {
+                kind: "flag",
+                key: "forest-symbols-shared",
+                value: true
+              },
+              {
+                kind: "flag",
+                key: "forest-watch-shared",
+                value: true
+              },
+              {
+                kind: "holding",
+                item: "forest-wolfprint-charm",
+                role: "actor"
+              },
+              {
+                kind: "choice_unset",
+                key: "forest-oak-story"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "forest-oak-story",
+                value: "hearth"
+              },
+              {
+                kind: "set_flag",
+                key: "forest-oak-heard",
+                value: true
+              }
+            ]
+          },
+          {
+            id: "forest-tell-path",
+            subject: "oak",
+            at: "forest-oak",
+            label: "Tell Oak about the path",
+            text: "{actor} holds the Wolfprint Charm beside the hollow and tells Oak about the path. Root counts the returning footsteps. Hollow repeats Whiskerwind's four symbols.",
+            textTemplate: "{actor} holds the Wolfprint Charm beside the hollow and tells Oak about the path. Root counts the returning footsteps. Hollow repeats Whiskerwind's four symbols.",
+            requires: [
+              {
+                kind: "flag",
+                key: "forest-scarf-mended",
+                value: true
+              },
+              {
+                kind: "flag",
+                key: "forest-symbols-shared",
+                value: true
+              },
+              {
+                kind: "flag",
+                key: "forest-watch-shared",
+                value: true
+              },
+              {
+                kind: "holding",
+                item: "forest-wolfprint-charm",
+                role: "actor"
+              },
+              {
+                kind: "choice_unset",
+                key: "forest-oak-story"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "forest-oak-story",
+                value: "path"
+              },
+              {
+                kind: "set_flag",
+                key: "forest-oak-heard",
+                value: true
+              }
+            ]
+          },
+          {
+            id: "forest-leave-charm",
+            subject: "rati",
+            at: "forest-cottage",
+            label: "Leave the charm by the hearth",
+            text: "{actor} lays the Wolfprint Charm beside the hearth. RATi sets a warm cup on the table. A pawprint marks the place to return.",
+            textTemplate: "{actor} lays the Wolfprint Charm beside the hearth. RATi sets a warm cup on the table. A pawprint marks the place to return.",
+            requires: [
+              {
+                kind: "flag",
+                key: "forest-oak-heard",
+                value: true
+              },
+              {
+                kind: "holding",
+                item: "forest-wolfprint-charm",
+                role: "actor"
+              },
+              {
+                kind: "choice_unset",
+                key: "forest-homecoming"
+              }
+            ],
+            effects: [
+              {
+                kind: "place_item",
+                item: "forest-wolfprint-charm",
+                place: "forest-cottage"
+              },
+              {
+                kind: "choose",
+                key: "forest-homecoming",
+                value: "hearth"
+              },
+              {
+                kind: "set_flag",
+                key: "forest-homecoming-shared",
+                value: true
+              }
+            ]
+          },
+          {
+            id: "forest-keep-charm",
+            subject: "rati",
+            at: "forest-cottage",
+            label: "Keep the charm for the next journey",
+            text: "{actor} keeps the Wolfprint Charm for the next journey. RATi sets a warm cup on the table. The iron carries the same small pawprint.",
+            textTemplate: "{actor} keeps the Wolfprint Charm for the next journey. RATi sets a warm cup on the table. The iron carries the same small pawprint.",
+            requires: [
+              {
+                kind: "flag",
+                key: "forest-oak-heard",
+                value: true
+              },
+              {
+                kind: "holding",
+                item: "forest-wolfprint-charm",
+                role: "actor"
+              },
+              {
+                kind: "choice_unset",
+                key: "forest-homecoming"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "forest-homecoming",
+                value: "traveler"
+              },
+              {
+                kind: "set_flag",
+                key: "forest-homecoming-shared",
+                value: true
+              }
+            ]
+          }
+        ],
+        storyQuests: [
+          {
+            id: "story-quest-forest-hearth",
+            group: "forest",
+            line: "A button for the blue scarf.",
+            art: "forest-story-button",
+            holder: {
+              kind: "avatar",
+              id: "rati"
+            },
+            start: {
+              any: [
+                {
+                  kind: "met",
+                  actor: "rati"
+                },
+                {
+                  kind: "flag",
+                  key: "forest-welcomed",
+                  value: true
+                }
+              ]
+            },
+            created: {
+              first: [
+                {
+                  kind: "met",
+                  actor: "rati"
+                },
+                {
+                  kind: "receipt",
+                  choice: "forest-stay-for-tea"
+                }
+              ]
+            },
+            related: [
+              "forest-stay-for-tea",
+              "forest-mend-scarf"
+            ],
+            endings: [
+              {
+                choice: "forest-mend-scarf"
+              }
+            ]
+          },
+          {
+            id: "story-quest-forest-path",
+            group: "forest",
+            line: "Footsteps through the rain.",
+            art: "forest-dewbright-button",
+            holder: {
+              kind: "place",
+              id: "forest-garden"
+            },
+            start: {
+              kind: "flag",
+              key: "forest-welcomed",
+              value: true
+            },
+            created: {
+              kind: "receipt",
+              choice: "forest-stay-for-tea"
+            },
+            related: [
+              "forest-stay-for-tea",
+              "forest-clear-drain",
+              "forest-set-stones",
+              "forest-share-symbols"
+            ],
+            endings: [
+              {
+                choice: "forest-share-symbols"
+              }
+            ]
+          },
+          {
+            id: "story-quest-forest-homecoming",
+            group: "forest",
+            line: "What will the oak hear?",
+            art: "forest-wolfprint-charm",
+            holder: {
+              kind: "avatar",
+              id: "skull"
+            },
+            start: {
+              any: [
+                {
+                  kind: "receipt",
+                  choice: "forest-set-watch-bell"
+                },
+                {
+                  kind: "receipt",
+                  choice: "forest-mark-pawprints"
+                }
+              ]
+            },
+            created: {
+              first: [
+                {
+                  kind: "receipt",
+                  choice: "forest-set-watch-bell"
+                },
+                {
+                  kind: "receipt",
+                  choice: "forest-mark-pawprints"
+                }
+              ]
+            },
+            related: [
+              "forest-set-watch-bell",
+              "forest-mark-pawprints",
+              "forest-tell-hearth",
+              "forest-tell-path",
+              "forest-leave-charm",
+              "forest-keep-charm"
+            ],
+            defaultEnding: "forest-leave-charm",
+            endings: [
+              {
+                choice: "forest-leave-charm"
+              },
+              {
+                choice: "forest-keep-charm"
+              }
+            ]
+          }
+        ],
+        sources: [
+          {
+            path: "v2/content/core",
+            mapping: "classic-to-card.json"
+          },
+          {
+            path: "docs/art-direction/README.md",
+            scope: "creator premise"
+          },
+          {
+            path: "docs/art-direction/world-map.md",
+            scope: "first journey proposal"
+          }
+        ],
+        bridge: {
+          id: "shore-lonely-forest",
+          description: "The Black cloth in the attic opens the mirror onto the cottage. The cottage keeps a free path back to the attic."
+        },
+        crossings: [
+          {
+            id: "attic-forest-cottage",
+            from: "attic",
+            to: "forest-cottage",
+            travelers: "player",
+            travel: "through the attic mirror",
+            travelLabel: "Enter the cottage",
+            requires: [
+              {
+                kind: "item_present",
+                item: "cloth",
+                place: "attic"
+              }
+            ],
+            scenery: {
+              open: "The mirror shows a blue cottage beneath an oak.",
+              closed: "The mirror holds the room and its window.",
+              cardArt: "assets/lonely-forest/cottage.png",
+              cardName: "Cosy Cottage"
+            },
+            opened: "A blue cottage appears beneath the oak in the mirror."
+          },
+          {
+            id: "forest-cottage-attic",
+            from: "forest-cottage",
+            to: "attic",
+            travelers: "player",
+            travel: "through the cottage mirror",
+            travelLabel: "Return to the attic",
+            requires: [],
+            scenery: {
+              open: "A mirror beside the low doorway opens onto the attic."
+            }
+          }
+        ]
       }
     ]
   };
@@ -12860,6 +13750,7 @@
     "flag",
     "holding",
     "item_at",
+    "item_present",
     "item_near",
     "shared_world",
     "connected_humans",
@@ -13138,6 +14029,8 @@
           "standoffs",
           "persona",
           "voice",
+          "expression",
+          "presentation",
           "tastes",
           "portrait",
           "temperament",
@@ -13157,6 +14050,14 @@
       check(
         textOk2(a.name, 120) && textOk2(a.text) && textOk2(a.persona) && textOk2(a.voice) && owns2(places2, a.place),
         `avatar ${id} needs a name, text, persona, voice and a home place in this pack`
+      );
+      check(
+        a.expression === void 0 || EXPRESSION_TYPES.includes(a.expression),
+        `avatar ${id} expression needs speech, movement or emoji`
+      );
+      check(
+        a.presentation === void 0 || a.presentation === "figure" || a.presentation === "backdrop" && a.travels === false,
+        `avatar ${id} presentation needs figure or a fixed backdrop resident`
       );
       check(
         [a.travels, a.standoffs].every((v) => v === void 0 || v === false) && (a.roamingQuest === void 0 || a.roamingQuest === "latest-completion" && a.travels !== false),
@@ -13261,6 +14162,9 @@
             break;
           case "item_near":
             ok = keysOk2(c, ["kind", "item", "place"]) && owns2(items2, c.item) && anyPlace(c.place);
+            break;
+          case "item_present":
+            ok = keysOk2(c, ["kind", "item", "place"]) && (owns2(items2, c.item) || hub2.items.includes(c.item)) && anyPlace(c.place);
             break;
           case "item_at":
             ok = keysOk2(c, ["kind", "item", "place"]) && owns2(items2, c.item) && owns2(places2, c.place);
@@ -13941,6 +14845,8 @@
         }
         return (!controlledByHuman(s, holder2) || humanPresent(s, holder2)) && objectPlace(s, c.item) === c.place;
       }
+      case "item_present":
+        return Boolean(s.items[c.item] && objectPlace(s, c.item) === c.place);
       case "item_at":
         return s.items[c.item]?.holder === c.place;
       case "met":
@@ -13955,7 +14861,7 @@
   var crossingBetween = (from, to, s = null) => s && transportCrossing(s, from, to) || crossings.find((c) => !c.transport && c.from === from && c.to === to) || null;
   var mayCross = (c, actor, senses2) => c.travelers === "any" || actor === senses2.player || roamingQuestActor(actor) || packPeople[actor]?.personalQuests || senses2.humanActors?.includes(actor);
   var crossingExits = (s, place, actor, senses2) => crossings.filter(
-    (c) => c.from === place && mayCross(c, actor, senses2) && crossingOpen(s, c, senses2)
+    (c) => c.from === place && (mayCross(c, actor, senses2) || s.invitedPlaces?.[actor]?.includes(c.from) && (packPeople[actor]?.packId ?? null) === (packPlaces[c.to]?.packId ?? null)) && crossingOpen(s, c, senses2)
   ).map((c) => c.transport ? transports[c.transport].place : c.to);
   var packDiscovered = (s, packId) => crossings.some(
     (c) => c.packId === packId && isPackPlace(c.to) && crossingState(s, c.id)?.discovered
@@ -14280,7 +15186,13 @@
     ]),
     ...Object.entries(packPeople).map(([id, a]) => [
       id,
-      { kind: "avatar", name: a.name, persona: a.persona, voice: a.voice }
+      {
+        kind: "avatar",
+        name: a.name,
+        persona: a.persona,
+        voice: a.voice,
+        ...a.expression ? { expression: a.expression } : {}
+      }
     ])
   ]);
   var packTastes = Object.fromEntries(
@@ -15774,7 +16686,13 @@
       if (a.kind === "move" && !a.item) {
         const target = want.location;
         const path = api.routeBetween(s, here, target, actor);
-        n = path?.[1] === a.target ? want.items.length ? 18 : 35 : -15;
+        const localGrievances = (s.motives?.grievances[actor] || []).filter(
+          (g) => resentment(s, actor, g.other) > 0 && s.actors[g.other].place === here
+        );
+        const space = localGrievances.length > 0 && localGrievances.every(
+          (g) => s.actors[g.other].place !== a.target
+        );
+        n = path?.[1] === a.target || space ? want.items.length ? 18 : 35 : -15;
       }
       if (a.kind === "light" && actor === "moth") n = 45;
       if (a.kind === "refill" && actor !== "keeper" && s.items.lamp.fuel <= 2)
@@ -16009,7 +16927,7 @@
     (id) => entityActive(s, id) && (!isPackActor(id) || id === BOARDY || packDiscovered(s, packOf(id).id) || s.packs?.[packOf(id).id]?.met?.[id] !== void 0)
   );
   var personalQuestActor = (actor) => !isPackActor(actor) || packPeople[actor]?.personalQuests === true;
-  var programsFor = (s, actor) => (s.opening ? openingPrograms : questPrograms)[actor] || [];
+  var programsFor = (s, actor) => s.opening?.version === 2 && forest_default.pondOpeningPrograms[actor] || (s.opening ? openingPrograms : questPrograms)[actor] || [];
   var restingHands = {
     ...forest_default.restingHands,
     ...Object.fromEntries(
@@ -16853,6 +17771,7 @@
               ]
             };
             definition = {
+              packId: pack.id,
               id: story.id,
               key: storyKey(pack, story),
               ...story.keyedCard !== void 0 ? { keyedCard: story.keyedCard } : {},
@@ -17501,6 +18420,7 @@
     if (s?.schema === 7) {
       upgradeGreekRoadSave(s);
       upgradeGreekTownSave(s);
+      upgradeShoreRouteSave(s);
       upgradeBoardingSave(s);
       upgradeRecitals(s, packDefinitions);
     }
@@ -17519,6 +18439,25 @@
         )
       );
     return s;
+  }
+  function upgradeShoreRouteSave(s) {
+    const moved = /* @__PURE__ */ new Set(["attic", "train", "boardyai-parlour"]);
+    for (const [actor, known] of Object.entries(s.routeKnowledge || {})) {
+      if (!Array.isArray(known)) continue;
+      let changed = false;
+      const expanded = known.flatMap((edge) => {
+        if (!Array.isArray(edge) || edge.length !== 2) return [edge];
+        const [from, to] = edge;
+        if (moved.has(from) && to === "station" || from === "station" && moved.has(to)) {
+          changed = true;
+          return [[from, "pond"], ["pond", to]];
+        }
+        return [edge];
+      });
+      if (changed) s.routeKnowledge[actor] = [...new Map(
+        expanded.map((edge) => [JSON.stringify(edge), edge])
+      ).values()];
+    }
   }
   function upgradeGreekRoadSave(s) {
     const pack = packDefinitions.find((p) => p.id === "greek-drama");
@@ -17778,6 +18717,23 @@
   var people = { ...forest_default.people, ...packPeople };
   var things = { ...packThings, ...forest_default.things };
   validatePackLinks(places, people, things);
+  var atticInterior = (() => {
+    const found = /* @__PURE__ */ new Set(["attic"]), queue = ["attic"];
+    const routes = packDefinitions.flatMap((pack) => pack.routes || []);
+    for (let i = 0; i < queue.length && i < Object.keys(places).length; i++) {
+      const from = queue[i];
+      for (const to of [
+        ...places[from].exits,
+        ...crossings.filter((c) => c.from === from && !c.transport).map((c) => c.to),
+        ...routes.filter((r) => r.from === from).map((r) => r.to)
+      ]) {
+        if (to === "pond" || found.has(to)) continue;
+        found.add(to);
+        queue.push(to);
+      }
+    }
+    return found;
+  })();
   var ids = Object.keys(things);
   var actorIds = [...Object.keys(forest_default.people), ...packActorIds];
   var expectedTrustKeys = Object.fromEntries(
@@ -17879,11 +18835,11 @@
     player: currentActor(s),
     ...s.controlledActors ? { humanActors: s.controlledActors } : {}
   });
-  var baseExits = (s, place) => s.opening ? places[place].exits.filter((to) => ![place, to].includes("attic")) : places[place].exits;
+  var baseExits = (_s, place) => places[place].exits;
   var placeText = (s, place) => [
     s.opening && place === "attic" ? reflectionOpen(s, place) ? "A tall mirror opens onto a black shore. A path leads through the glass." : "A tall mirror reflects a black shore. Dust gathers along its frame." : s.opening && place === "station" ? "The timetable lists years that have yet to happen. A path leads along the shore to the pond." : places[place].text,
     ...crossingScenery(s, place, sensesFor(s)),
-    ...homeRescueExit(s, place) ? [`A narrow path leads to ${nameOf(homeRescueExit(s, place))}.`] : []
+    ...homeRescueExit(s, place) || pondRescueExit(s, place) ? [`A narrow path leads to ${nameOf(homeRescueExit(s, place) || pondRescueExit(s, place))}.`] : []
   ].join(" ");
   function localGateResource(s, place, item, actor) {
     return Boolean(
@@ -17910,16 +18866,49 @@
       ])
     ];
   }
+  function ordinaryRouteHome(s, place, destination, actor, previous) {
+    const queue = [[place, previous]], visited = /* @__PURE__ */ new Set([place]);
+    for (let i = 0; i < queue.length; i++) {
+      const [from, before] = queue[i];
+      if (from === destination) return true;
+      for (const to of ordinaryExits(s, from, actor, before)) {
+        if (visited.has(to) || !entityActive(s, to) || !actorCanVisit(actor, to, s))
+          continue;
+        visited.add(to);
+        queue.push([to, from]);
+      }
+    }
+    return false;
+  }
   function homeRescueExit(s, place, actor = currentActor(s), previous = null) {
     const gate = homeGates[place];
     actor ||= currentActor(s);
-    return gate && controlledByHuman(s, actor) && s.actors[actor]?.place === place && ordinaryExits(s, place, actor, previous).length === 0 && !homeGateRecoverable(s, place, gate, actor) ? gate.rescue : null;
+    return gate && (controlledByHuman(s, actor) || gate.opening && knownActors(s).includes(actor)) && s.actors[actor]?.place === place && !ordinaryRouteHome(s, place, gate.rescue, actor, previous) && !homeGateRecoverable(s, place, gate, actor) ? gate.rescue : null;
+  }
+  function insideLampRemedy(s, actor) {
+    const here = s.actors[actor].place, lamp = itemPlace2(s, "lamp"), oil = itemPlace2(s, "oil");
+    if (!atticInterior.has(here) || !ordinaryRouteHome(s, here, lamp, actor) || !ordinaryRouteHome(s, lamp, "attic", actor)) return false;
+    const at2 = (place) => ({ ...s, actors: {
+      ...s.actors,
+      [actor]: { ...s.actors[actor], place }
+    } });
+    if (!localGateResource(at2(lamp), lamp, "lamp", actor)) return false;
+    return s.items.lamp.fuel > 0 || s.items.oil.doses > 0 && ordinaryRouteHome(s, here, oil, actor) && ordinaryRouteHome(s, oil, lamp, actor) && localGateResource(at2(oil), oil, "oil", actor);
+  }
+  function pondRescueExit(s, place, actor, previous) {
+    actor ||= currentActor(s);
+    const lamp = itemPlace2(s, "lamp"), oil = itemPlace2(s, "oil");
+    if (place !== "pond" || s.actors[actor]?.place !== place || !controlledByHuman(s, actor) && !knownActors(s).includes(actor) || !(atticInterior.has(lamp) || s.items.oil.doses > 0 && atticInterior.has(oil)) || ordinaryRouteHome(s, place, "attic", actor, previous)) return null;
+    if (ordinaryRouteHome(s, place, lamp, actor, previous) && (s.items.lamp.fuel > 0 || s.items.oil.doses > 0 && ordinaryRouteHome(s, place, oil, actor, previous))) return null;
+    if (knownActors(s).some((id) => (!controlledByHuman(s, id) || humanPresent(s, id)) && (insideLampRemedy(s, id) || !atticInterior.has(lamp) && s.actors[id].place === "attic" && homeRescueExit(s, "attic", id) && localGateResource(s, "attic", "oil", id)))) return null;
+    return "attic";
   }
   function exits(s, place, actor = null, previous = null) {
-    const rescue = homeRescueExit(s, place, actor, previous);
+    const rescue = homeRescueExit(s, place, actor, previous), returnPath = pondRescueExit(s, place, actor, previous);
     return [
       ...ordinaryExits(s, place, actor, previous),
-      ...rescue ? [rescue] : []
+      ...rescue ? [rescue] : [],
+      ...returnPath ? [returnPath] : []
     ].filter(
       (to) => entityActive(s, to) && actorCanVisit(actor, to, s) && humanRoomAvailable(s, actor, to)
     );
@@ -18465,7 +19454,7 @@
     for (const to of packPeople[actor]?.journey ? [] : exits(s, here, actor)) {
       const through = !baseExits(s, here).includes(to);
       const crossing = crossingBetween(here, to, s);
-      const way = through ? ` ${homeRescueExit(s, here, actor) === to ? "along a narrow path" : crossing?.travel || "through the reflection"}` : "";
+      const way = through ? ` ${homeRescueExit(s, here, actor) === to || pondRescueExit(s, here, actor) === to ? "along a narrow path" : crossing?.travel || "through the reflection"}` : "";
       for (const other of knownActors(s).filter(
         (id) => (crossing?.travelers !== "player" || controlledByHuman(s, actor)) && id !== actor && !controlledByHuman(s, id) && (!staysPut(id) || packJourneyDestination(s, id) === to) && s.actors[id].place === here
       )) {
@@ -19090,7 +20079,9 @@
     while (queue.length) {
       const route = queue.shift();
       if (route.at(-1) === target) return route;
-      for (const next of exits(s, route.at(-1), actor, route.at(-2)))
+      const here = route.at(-1);
+      const projected = s.actors[actor] && s.actors[actor].place !== here ? { ...s, actors: { ...s.actors, [actor]: { ...s.actors[actor], place: here } } } : s;
+      for (const next of exits(projected, here, actor, route.at(-2)))
         if (!visited.has(next)) {
           visited.add(next);
           queue.push([...route, next]);
@@ -19098,10 +20089,43 @@
     }
   }
   function toward(s, actor, target) {
-    const route = routeBetween(s, s.actors[actor].place, target, actor);
-    return legalActions(s, actor).find(
-      (a) => a.kind === "move" && a.target === route?.[1]
-    );
+    const here = s.actors[actor].place;
+    const route = routeBetween(s, here, target, actor);
+    const actions = legalActions(s, actor);
+    if (route)
+      return actions.find((a) => a.kind === "move" && a.target === route[1]);
+    if (target !== "attic" && atticInterior.has(target) && !atticInterior.has(here))
+      return toward(s, actor, "attic");
+    for (const [home, gate] of Object.entries(homeGates)) {
+      if (here === home || !routeBetween(s, gate.rescue, target, actor)) continue;
+      const approach2 = routeBetween(s, here, home, actor);
+      if (approach2?.length > 1)
+        return actions.find((a) => a.kind === "move" && a.target === approach2[1]);
+    }
+    if (crossings.some((c) => c.from === here && !c.transport && c.requires.some((r) => r.kind === "sound" && r.at.includes(here)) && routeBetween(s, c.to, target, actor))) {
+      const sound = actions.find((a) => a.kind === "ring" && a.item === "bell");
+      if (sound) return covered(s, "bell") ? actions.find((a) => a.kind === "take" && a.item === "cloth") : sound;
+    }
+    if (target !== "attic" && here !== "attic") return;
+    const find = (kind, item) => actions.find((a) => a.kind === kind && a.item === item);
+    const take = find("take", "lamp");
+    if (take) return take;
+    if (covered(s, "lamp") && find("take", "cloth")) return find("take", "cloth");
+    if (!s.items.lamp.fuel && !s.items.oil.doses && here === "pond") {
+      const call = find("ring", "bell");
+      if (call) return call;
+    }
+    if (!s.items.lamp.fuel && s.items.oil.doses > 0) {
+      if (find("refill", "oil")) return find("refill", "oil");
+      if (find("take", "oil")) return find("take", "oil");
+      if (find("ask", "oil") && willingToGive(s, rootHolder(s, "oil"), "oil", actor))
+        return find("ask", "oil");
+    }
+    if (!s.items.lamp.lit && find("light", "lamp")) return find("light", "lamp");
+    if (here === "station")
+      return actions.find((a) => a.kind === "move" && a.target === "pond");
+    if (here === "pond" && itemPlace2(s, "lamp") === "station")
+      return actions.find((a) => a.kind === "move" && a.target === "station");
   }
   function plan(s, actor = currentActor(s)) {
     const arrival = transportArrival(s, actor);
@@ -19217,9 +20241,28 @@
       (id) => hand2.items.includes(id) ? !questItemAvailable(s, actor, id) : rootHolder(s, id) !== actor
     );
     const reason = `Seek this hand: ${handText(hand2)}.`;
+    if (!missing.length && !hand2.conditions?.length && hand2.items.includes("cloth") && rootHolder(s, "bell") === actor && s.items.bell.ringing && find("cover", "cloth", "bell"))
+      return choose(find("cover", "cloth", "bell"), "Wrap the ringing bell.");
+    const destinations = [
+      ...missing.map((id) => itemPlace2(s, id)),
+      hand2.location,
+      ...hand2.avatars.map((id) => s.actors[id].place),
+      ...knownActors(s).filter((id) => id !== actor && s.actors[id].place === here && handStatus(s, id).items.every((item) => item.met)).map((id) => desireFor(s, id).location)
+    ];
+    for (const destination of new Set(destinations)) {
+      if (!destination || destination === here || routeBetween(s, here, destination, actor)) continue;
+      const prepare = toward(s, actor, destination);
+      if (prepare && prepare.kind !== "move") {
+        if (prepare.kind === "light" && here === "station" && missing.some((item) => {
+          const owner2 = rootHolder(s, item);
+          return itemPlace2(s, item) === here && actorIds.includes(owner2) && !controlledByHuman(s, owner2) && needed(s, owner2, item) && resources.some((held) => rootHolder(s, held) === actor && needed(s, owner2, held));
+        })) continue;
+        return choose(prepare, "Prepare the way for the meeting.");
+      }
+    }
     const waitingHere = (ids3) => ids3.find((id) => {
       const theirs = desireFor(s, id), there = s.actors[id].place;
-      return id !== actor && entityActive(s, id) && there !== here && routeBetween(s, here, there, actor) && theirs.avatars.includes(actor) && (theirs.location || there) === there && handStatus(s, id, theirs).items.every((e) => e.met) && theirs.avatars.every(
+      return id !== actor && entityActive(s, id) && there !== here && toward(s, actor, there) && theirs.avatars.includes(actor) && (theirs.location || there) === there && handStatus(s, id, theirs).items.every((e) => e.met) && theirs.avatars.every(
         (other) => other === actor || s.actors[other].place === there
       );
     });
@@ -19238,6 +20281,13 @@
           (a) => a.kind === "trade" && bundle(s, a.receive).includes(item) && !needed(s, actor, a.item)
         );
         if (trade) return choose(trade, reason);
+        if (hasMotives(s) && !willingToGive(s, owner2, item, actor)) {
+          const help2 = acts.find(
+            (a) => a.kind === "give" && a.target === owner2 && !needed(s, actor, a.item) && (needed(s, owner2, a.item) || resentment(s, owner2, actor) > 0 && valueOf(s, owner2, a.item) >= 4)
+          );
+          if (help2)
+            return choose(help2, `Help ${nameOf(owner2)} with ${nameOf(help2.item)} before asking for ${nameOf(item)}.`);
+        }
         let heldItem = item;
         while (s.items[s.items[heldItem].holder])
           heldItem = s.items[heldItem].holder;
@@ -19268,7 +20318,10 @@
           }
         }
       }
-      if (!local) return choose(toward(s, actor, itemPlace2(s, item)), reason);
+      if (!local) {
+        const approach2 = toward(s, actor, itemPlace2(s, item));
+        return approach2 ? choose(approach2, reason) : null;
+      }
       if (actorIds.includes(owner2) && local && needed(s, owner2, item) && programFor(s, actor)?.generated) {
         const refusals = s.log.filter(
           (e) => e.kind === "action" && e.verb === "ask" && e.actorId === actor && e.targetId === owner2 && e.itemId === item && s.turn - e.turn <= 12
@@ -19326,7 +20379,8 @@
               find("take", c.item),
               "Uncover the promised item before handing it over."
             );
-          if (s.actors[c.avatar].place !== here) return goMeet(c.avatar);
+          if (s.actors[c.avatar].place !== here)
+            return hand2.location ? idle(`Wait for ${nameOf(c.avatar)} at ${nameOf(here)} to hand it over.`) : goMeet(c.avatar);
           return choose(
             find("give", c.item, c.avatar),
             "Put the promised item in their hands."
@@ -19365,6 +20419,14 @@
     if (waiting) return goMeet(waiting);
     if (hand2.location && here !== hand2.location)
       return choose(toward(s, actor, hand2.location), reason);
+    const rescue = homeRescueExit(s, here, actor);
+    if (rescue && hand2.avatars.some(
+      (other) => s.actors[other].place !== here && !routeBetween(s, s.actors[other].place, here, other)
+    )) {
+      if (!s.items.lamp.fuel && s.items.oil.doses > 0 && find("take", "oil"))
+        return choose(find("take", "oil"), "Bring oil to the travelers at the shore.");
+      return choose(find("move", void 0, rescue), "Meet the waiting travelers at the shore.");
+    }
     return idle(
       handStatus(s, actor).met ? "Hold the target hand." : `Wait for ${hand2.avatars.filter((id) => s.actors[id].place !== here).map(nameOf).join(" and ")} at ${nameOf(here)}.`
     );
@@ -19598,13 +20660,13 @@
       fail();
     if (s.opening !== void 0) {
       const o = s.opening;
-      if (!o || o.version !== 1 || typeof o.crossed !== "boolean" || !o.met || o.met.vale !== 0 || Object.keys(o.met).some((id) => !actorIds.includes(id)) || Object.values(o.met).some(
+      if (!o || ![1, 2].includes(o.version) || typeof o.crossed !== "boolean" || !o.met || o.met.vale !== 0 || Object.keys(o.met).some((id) => !actorIds.includes(id)) || Object.values(o.met).some(
         (turn) => !Number.isSafeInteger(turn) || turn < 0 || turn > s.turn
       ) || !sharedEnabled(s) && o.met.keeper !== void 0 && o.met.moth === void 0 || !o.crossed && (!Object.entries(homeGates).some(
-        ([place, gate]) => gate.opening && [place, gate.rescue].includes(s.actors?.vale?.place)
+        ([place, gate]) => gate.opening && [place, gate.rescue, "station"].includes(s.actors?.vale?.place)
       ) || Object.keys(o.met).some(
         (id) => id !== "vale" && !roamingActors.includes(id)
-      )) || o.crossed && (!s.locations?.attic.anchored || o.met.moth === void 0))
+      )) || o.version === 1 && o.crossed && !s.locations?.attic.anchored || o.crossed && o.met.moth === void 0 || o.version === 2 && !o.crossed)
         fail();
     }
     if (Object.keys(s.actors || {}).sort().join() !== actorIds.slice().sort().join() || Object.keys(s.items || {}).sort().join() !== ids.slice().sort().join())
@@ -20044,8 +21106,9 @@
   }
   function sceneCast(world, through = world.log.length - 1, recordedCast = null) {
     const here = world.actors[currentActor(world)].place;
+    const known = recordedCast ? null : new Set(knownActors(world));
     const present = recordedCast || personIds.filter(
-      (id) => knownActors(world).includes(id) && world.actors[id].place === here && (!world.controlledActors?.includes(id) || world.presentActors?.includes(id))
+      (id) => known.has(id) && world.actors[id].place === here && (!world.controlledActors?.includes(id) || world.presentActors?.includes(id))
     );
     const target = world.log.slice(0, through + 1).findLast(
       (entry) => entry.turn === world.turn && entry.actorId === currentActor(world) && entry.kind === "action"
@@ -20205,7 +21268,7 @@
   function narrativeContext(world, action = null) {
     const location = world.actors[currentActor(world)].place;
     const beforeFirstLight = Boolean(
-      world.opening && !world.locations.attic.anchored
+      world.opening?.version === 1 && !world.locations.attic.anchored
     );
     const known = knownActors(world);
     const present = Object.keys(world.actors).filter(
@@ -20711,13 +21774,13 @@
       for (const line of request.lines) {
         const scenic = line.actorId == null && line.entityId === room;
         const speaker = scenic ? null : line.actorId || (people[line.entityId] ? line.entityId : null) || Object.keys(people).find((id) => people[id].name === line.speaker) || (people[line.speaker] ? line.speaker : null);
-        if (request.lines.length === 1 && speaker !== actor || !scenic && (!speaker || world.actors[speaker].place !== room || humanAvatar(speaker) && !world.presentActors.includes(speaker) && !(speaker === actor && world.controlledActors.includes(speaker))) || typeof line.text !== "string" || !line.text.trim() || line.text.length > 600 || /[\u0000-\u001f\u007f]/u.test(line.text))
+        if (request.lines.length === 1 && speaker !== actor || !scenic && (!speaker || world.actors[speaker].place !== room || humanAvatar(speaker) && !world.presentActors.includes(speaker) && !(speaker === actor && world.controlledActors.includes(speaker))) || typeof line.text !== "string" || !line.text.trim() || line.text.length > 600 || /[\u0000-\u001f\u007f]/u.test(line.text) || !validExpression(profiles[speaker], line.text))
           throw new Error(
             "Each line needs a present speaker or the room, and clear text."
           );
         addLog(world, scenic ? nameOf(room) : nameOf(speaker), line.text.trim(), {
           generated: true,
-          kind: scenic ? "narration" : "dialogue",
+          kind: scenic ? "narration" : expressionKind(profiles[speaker]),
           actorId: speaker,
           entityId: scenic ? room : speaker,
           locationId: room

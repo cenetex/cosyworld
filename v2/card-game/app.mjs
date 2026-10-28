@@ -1,11 +1,12 @@
 import { imageUrl } from "./images.mjs";
 import { landingPack, createLandingWorld } from "./pack-landing.mjs";
-import { flipStagePortrait } from "./portrait-facing.mjs";
+import { flipStagePortrait, portraitFraming } from "./portrait-facing.mjs";
 import { installSceneVideo } from "./scene-video.mjs";
 import { locationWeather } from "./weather.mjs";
 import { locationDaylight } from "./daylight.mjs";
 import { renderWeather } from "./weather-view.mjs";
 import { installToolbar, renderPlayers } from "./toolbar.mjs";
+import { expressionLabel, expressionOf } from "./expression.mjs";
 import {
   connectSharedWorld,
   createSharedPlaybackClock,
@@ -524,7 +525,11 @@ function updateSpeechControls(complete) {
 const reveal = createTextReveal({
   reduced: () => reducedMotion.matches,
   sound: (...args) => {
-    if (!document.hidden && !characterSpeech.speaks(args[0]))
+    if (
+      !document.hidden &&
+      expressionOf(people[args[0]]) === "speech" &&
+      !characterSpeech.speaks(args[0])
+    )
       speechSounds.syllable(...args);
   },
   frame: (value) => {
@@ -564,8 +569,10 @@ const reveal = createTextReveal({
       });
     }
     if (value.complete) {
-      $("speech-announcement").textContent =
-        `${nameOf(value.speaker)}: ${value.text}`;
+      $("speech-announcement").textContent = expressionLabel(
+        { ...people[value.speaker], name: nameOf(value.speaker) },
+        value.text,
+      );
       updateSpeechControls(true);
       completedSpeech.add(value.key);
       if (completedSpeech.size > 100)
@@ -1971,6 +1978,7 @@ function renderScene() {
     const { id } = actor;
     const figure = $("cast").children[index];
     figure.dataset.depth = actor.depth;
+    figure.dataset.framing = portraitFraming(actor.cutout);
     figure.dataset.facing = actor.facing;
     figure.dataset.gaze = actor.gazeTargetId || "";
     figure.dataset.pose = actor.pose;
@@ -2627,7 +2635,9 @@ function resumeScene() {
     return;
   }
   if (!saveBlocked && world.opening && world.turn === 0 && !hasCurrentWords()) {
-    addLog(world, "Vale", "It's cold up here. I'll light the lamp.", {
+    addLog(world, "Vale", world.opening.version === 2
+      ? "The water is dark. I'll light the lamp."
+      : "It's cold up here. I'll light the lamp.", {
       actorId: currentActor(world),
       entityId: currentActor(world),
       kind: "dialogue",

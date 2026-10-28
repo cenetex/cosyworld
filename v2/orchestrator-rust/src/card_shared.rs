@@ -1,6 +1,8 @@
 #[cfg(test)]
 mod boardy_tests;
 mod engine;
+#[cfg(test)]
+mod forest_tests;
 pub(crate) const RULES_VERSION: &str = engine::VERSION;
 mod full;
 mod full_speech;

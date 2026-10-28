@@ -111,6 +111,7 @@ export function upgradeSave(
   if (s?.schema === 7) {
     upgradeGreekRoadSave(s);
     upgradeGreekTownSave(s);
+    upgradeShoreRouteSave(s);
     upgradeBoardingSave(s);
     upgradeRecitals(s, packDefinitions);
   }
@@ -129,6 +130,29 @@ export function upgradeSave(
       ),
     );
   return s;
+}
+
+// Earlier station links to the attic, carriage, and parlour pass through the pond.
+// Keep just the routes each traveler already knew, and preserve their journal.
+export function upgradeShoreRouteSave(s) {
+  const moved = new Set(["attic", "train", "boardyai-parlour"]);
+  for (const [actor, known] of Object.entries(s.routeKnowledge || {})) {
+    if (!Array.isArray(known)) continue;
+    let changed = false;
+    const expanded = known.flatMap((edge) => {
+      if (!Array.isArray(edge) || edge.length !== 2) return [edge];
+      const [from, to] = edge;
+      if ((moved.has(from) && to === "station") ||
+          (from === "station" && moved.has(to))) {
+        changed = true;
+        return [[from, "pond"], ["pond", to]];
+      }
+      return [edge];
+    });
+    if (changed) s.routeKnowledge[actor] = [...new Map(
+      expanded.map((edge) => [JSON.stringify(edge), edge]),
+    ).values()];
+  }
 }
 
 // Revision 5 adds port and road memories. Every earlier position and deed

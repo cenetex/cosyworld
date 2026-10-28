@@ -32,8 +32,12 @@ export async function checkOpeningPoem(browser, origin) {
           quest.status === "pending",
       );
       assert.ok(report, "The courtyard report is ready to carry");
-      assert.ok(dropQuest(world, "vale", questCards(world)[1].key));
-      assert.ok(joinQuest(world, "vale", report.key));
+      if (!questCards(world).some((quest) => quest.key === report.key)) {
+        const spare = questCards(world).find((quest) => quest.story);
+        if (spare) assert.ok(dropQuest(world, "vale", spare.key));
+        assert.ok(joinQuest(world, "vale", report.key));
+      }
+      assert.ok(questCards(world).some((quest) => quest.key === report.key));
       assert.equal(questCards(world).length, 2);
       const table = `poem-${branch}-${width}`;
       const key = `cosyworld.reflected-shore.v1.${table}`;

@@ -50,7 +50,7 @@ function oldWorld(scope) {
 
 describe("the household save upgrade", () => {
   it.each(["opening", "full"])(
-    "keeps a released v11 %s journey and adds the household witness and BoardyAI",
+    "keeps a released v11 %s journey and adds the household witness, BoardyAI, and forest cast",
     (scope) => {
       const before = oldWorld(scope);
       expect(before.packs["greek-drama"].revision).toBe(3);
@@ -62,19 +62,23 @@ describe("the household save upgrade", () => {
       });
       expect(Object.keys(after.actors).length).toBe(
         Object.keys(before.actors).length +
-          3 +
+          7 +
           Object.keys(hoppycat.avatars).length,
       );
       expect(after.items).toEqual({
         ...before.items,
         ...willowsItems,
-        "boardyai-calling-card": { holder: "station", history: [] },
+        "boardyai-calling-card": { holder: "pond", history: [] },
         ...Object.fromEntries(
           Object.entries(hoppycat.items).map(([id, item]) => [
             id,
             { holder: item.holder, history: [] },
           ]),
         ),
+        "forest-story-button": { holder: "forest-cottage", history: [] },
+        "forest-dewbright-button": { holder: "forest-garden", history: [] },
+        "forest-watch-bell": { holder: "forest-garden", history: [] },
+        "forest-wolfprint-charm": { holder: "forest-trail", history: [] },
       });
       for (const key of ["turn", "revision", "eventSeq", "log", "transports"])
         expect(after[key]).toEqual(before[key]);
@@ -90,6 +94,10 @@ describe("the household save upgrade", () => {
               Object.keys(hoppycat.avatars).map((id) => [id, 0]),
             ),
             "willows-swede": 0,
+            rati: 0,
+            skull: 0,
+            whiskerwind: 0,
+            oak: 0,
           },
         });
       for (const [id, memory] of Object.entries(before.memories))

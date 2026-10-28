@@ -1065,6 +1065,11 @@ body .cast[data-count] {
     top: 54px;
     width: 98%;
   }
+  body .cast .portrait[data-framing="wide"] {
+    height: min(calc(var(--stage-size) * 0.74), 93vw);
+    left: clamp(34%, var(--stage-x), 66%);
+    z-index: 4;
+  }
   body .cast[data-shared="true"]:not([data-count="1"]):not([data-count="2"]) {
     --bust-drop: clamp(
       0%,

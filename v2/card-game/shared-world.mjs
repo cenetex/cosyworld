@@ -1,4 +1,5 @@
 import { privateView } from "./learning.mjs";
+import { expressionKind, validExpression } from "./expression.mjs";
 import { BOARDY } from "./boardyai.mjs";
 // One pure adapter for the browser model and the server's C-backed JS runtime.
 // The host supplies authenticated claims and presence on every operation.
@@ -235,14 +236,15 @@ export function dispatchShared(request) {
         typeof line.text !== "string" ||
         !line.text.trim() ||
         line.text.length > 600 ||
-        /[\u0000-\u001f\u007f]/u.test(line.text)
+        /[\u0000-\u001f\u007f]/u.test(line.text) ||
+        !validExpression(profiles[speaker], line.text)
       )
         throw new Error(
           "Each line needs a present speaker or the room, and clear text.",
         );
       addLog(world, scenic ? nameOf(room) : nameOf(speaker), line.text.trim(), {
         generated: true,
-        kind: scenic ? "narration" : "dialogue",
+        kind: scenic ? "narration" : expressionKind(profiles[speaker]),
         actorId: speaker,
         entityId: scenic ? room : speaker,
         locationId: room,

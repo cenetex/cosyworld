@@ -97,7 +97,7 @@ describe("introduction quests", () => {
       expect(humans.map((id) => w.actors[id].place)).toEqual(original);
     }
     expect(w.actors.boardyai.progress.current.generated.pair).toEqual(humans);
-    expect(path.slice(-4)).toEqual(["station", "pond", "station", "pond"]);
+    expect(path.slice(-4)).toEqual(["pond", "station", "pond", "station"]);
     expect(w.memories.boardyai.seen.vale.place).toBe("station");
     expect(w.memories.boardyai.seen.mara.place).toBe("pond");
     expect(decodeSave(encodeSave(w)).introductionVisits).toEqual(
@@ -107,7 +107,7 @@ describe("introduction quests", () => {
   });
   it("uses remembered sightings when a human moves unseen", () => {
     let w = fresh();
-    for (let n = 0; n < 5; n++) w = step(w);
+    for (let n = 0; n < 6; n++) w = step(w);
     const a = contextual(w),
       b = structuredClone(a);
     a.actors.mara.place = "theatre";
@@ -125,7 +125,7 @@ describe("introduction quests", () => {
   });
   it("keeps looking when the remembered place is empty", () => {
     let w = fresh();
-    for (let n = 0; n < 5; n++) w = step(w);
+    for (let n = 0; n < 6; n++) w = step(w);
     w.actors.mara.place = "theatre";
     w = step(w);
     expect(w.actors.boardyai.place).toBe("pond");

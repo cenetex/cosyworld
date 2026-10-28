@@ -1,3 +1,4 @@
+import { atticOpening } from "./fixtures/card-attic-opening.mjs";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { describe, it, expect } from "vitest";
@@ -91,7 +92,7 @@ describe("Greek ports and fixed roads", () => {
   );
 
   it("opens both new port stops with Dione's invitation", () => {
-    const before = createWorld({ opening: true });
+    const before = atticOpening();
     before.actors.vale.place = "greek-ship";
     before.transports["greek-ship"].destination = "pond";
     expect(exits(before, "greek-ship", "vale")).toEqual([

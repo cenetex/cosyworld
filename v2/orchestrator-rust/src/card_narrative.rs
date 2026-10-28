@@ -25,6 +25,8 @@ mod atmosphere;
 pub(crate) mod browser;
 #[path = "card_narrative/custody.rs"]
 mod custody;
+#[path = "card_narrative/expression.rs"]
+mod expression;
 #[path = "card_narrative/knowledge.rs"]
 mod knowledge;
 #[path = "card_narrative/observations.rs"]
@@ -153,7 +155,7 @@ fn base_profiles() -> &'static Value {
                         "persona": entity.get("persona").unwrap_or(&entity["text"]),
                         "pack": pack["id"],
                     });
-                    for field in ["voice", "idiolect", "lines"] {
+                    for field in ["voice", "idiolect", "lines", "expression"] {
                         if let Some(value) = entity.get(field) { profile[field] = value.clone(); }
                     }
                     assert!(
@@ -1169,7 +1171,7 @@ fn names(ids: &[String]) -> String {
 }
 
 /// The entity's own first-person words, with the persona its reflections grew.
-fn idiolect(entity: &Entity) -> String {
+fn idiolect(entity: &Entity, part: Part) -> String {
     if kind(&entity.id, "location") {
         return atmosphere::voice();
     }
@@ -1193,7 +1195,15 @@ fn idiolect(entity: &Entity) -> String {
         text.push_str("\n\n");
         text.push_str(persona);
     }
-    text.push_str("\n\nMy next reply is one or two short sentences in my own voice. I speak only my next words. My voice samples show my style; the current scene supplies my facts.");
+    text.push_str("\n\n");
+    text.push_str(&expression::direction(
+        if part == Part::Line {
+            expression::mode(profile)
+        } else {
+            expression::Mode::Speech
+        },
+        &name(&entity.id),
+    ));
     text
 }
 
@@ -1632,7 +1642,7 @@ async fn speak(
                         }
                 })
         });
-    let system = idiolect(entity);
+    let system = idiolect(entity, part);
     let mut check = Check::new(context, entity, part);
     if part == Part::Line {
         check.limit = settings.line_limit;
@@ -1766,6 +1776,7 @@ const ASSISTANT_SPEAK: &[&str] = &[
 
 /// What a reply is checked against before it is published.
 struct Check<'a> {
+    expression: expression::Mode,
     context: &'a Context,
     entity: &'a Entity,
     part: Part,
@@ -1811,6 +1822,11 @@ impl<'a> Check<'a> {
             .into_iter()
             .collect();
         Self {
+            expression: if part == Part::Line {
+                expression::mode(&profiles()[&entity.id])
+            } else {
+                expression::Mode::Speech
+            },
             context,
             entity,
             part,
@@ -1828,6 +1844,28 @@ impl<'a> Check<'a> {
     /// know, copies an example, or repeats the play or a recent line.
     fn clean(&self, raw: &str, finished: bool) -> Result<String, &'static str> {
         let own = name(&self.entity.id);
+        if self.expression != expression::Mode::Speech {
+            let text = expression::clean(self.expression, raw, &own, self.limit, finished)?;
+            if !observations::consistent(&text, self.context) {
+                return Err("observable_state");
+            }
+            if !custody::consistent(&text, self.context, &self.entity.id) {
+                return Err("custody");
+            }
+            if self.entity.previous.as_deref() == Some(text.as_str()) {
+                return Err("repeat");
+            }
+            for (id, profile) in profiles().as_object().expect("profiles") {
+                if profile["name"]
+                    .as_str()
+                    .is_some_and(|name| mentions(&text, name))
+                    && !self.known.contains(id)
+                {
+                    return Err("unknown entity");
+                }
+            }
+            return Ok(text);
+        }
         let mut lines = raw.trim().lines().map(str::trim).filter(|l| !l.is_empty());
         let line = lines.next().ok_or("empty")?;
         let cut_line = lines.next().is_some();
@@ -2196,10 +2234,10 @@ mod tests {
         for id in voiced(&c) {
             let e = entity(&c, &id);
             for part in [Part::Line, Part::Thought, Part::Persona, Part::Dream] {
-                assert_no_instructions(&idiolect(e));
+                assert_no_instructions(&idiolect(e, part));
                 assert_no_instructions(&transcript(&c, e, part));
                 // Each call stays well inside a small model's context.
-                let tokens = (idiolect(e).len() + transcript(&c, e, part).len()) / 4;
+                let tokens = (idiolect(e, part).len() + transcript(&c, e, part).len()) / 4;
                 assert!(tokens <= 1_100, "{id}: {tokens} tokens");
             }
         }
@@ -2304,6 +2342,23 @@ mod tests {
             clean("Yes. *She folds the cloth and looks away.* No."),
             Ok("Yes. No.".into())
         );
+    }
+
+    #[test]
+    fn expression_checks_keep_movement_and_emoji_in_their_authored_form() {
+        let c = context();
+        let pip = &c.entities[3];
+        let mut check = Check::new(&c, pip, Part::Line);
+        check.expression = expression::Mode::Movement;
+        assert_eq!(
+            check.clean("Pip tilts his head toward the lamp.", true),
+            Ok("Pip tilts his head toward the lamp.".into())
+        );
+        assert_eq!(check.clean("I will help you.", true), Err("expression"));
+        check.expression = expression::Mode::Emoji;
+        assert_eq!(check.clean("🌳 👀", true), Ok("🌳👀".into()));
+        assert_eq!(check.clean("A tree 🌳", true), Err("expression"));
+        assert_eq!(check.clean("🌳👀", false), Err("expression"));
     }
 
     #[test]
@@ -2476,7 +2531,7 @@ mod tests {
     fn earned_poem_is_context_for_free_speech_and_keeps_its_authored_data() {
         let c = bard_context();
         let check = Check::new(&c, &c.entities[3], Part::Line);
-        assert!(!idiolect(&c.entities[3]).contains("sing an earned couplet"));
+        assert!(!idiolect(&c.entities[3], Part::Line).contains("sing an earned couplet"));
         for words in [
             EARNED_VERSE,
             "I hear a hard choice in those lines.",
@@ -3318,11 +3373,11 @@ mod tests {
         let mut c = context();
         c.location = "attic".into();
         c.entities[1].id = "attic".into();
-        let attic = idiolect(&c.entities[1]);
+        let attic = idiolect(&c.entities[1], Part::Line);
         assert!(attic.contains("atmospheric caption"));
         assert!(transcript(&c, &c.entities[1], Part::Line)
             .contains("tall mirror reflecting a black shore"));
-        assert!(idiolect(&c.entities[2]).contains("soot-dark"));
+        assert!(idiolect(&c.entities[2], Part::Line).contains("soot-dark"));
         let all = profiles().to_string();
         assert!(!all.contains("makes reflections into paths"));
         assert!(!all.contains("Lamplight can open a path"));
@@ -3439,7 +3494,7 @@ mod tests {
         assert!(valid(&c));
         assert_eq!(voiced(&c), ["vale", "badger", "clearing"]);
         let badger = &c.entities[2];
-        assert!(idiolect(badger).contains("moss"));
+        assert!(idiolect(badger, Part::Line).contains("moss"));
         let heard = transcript(&c, badger, Part::Line);
         assert!(heard.contains("Awake after Vale spoke. Still grumpy about the interruption."));
         assert!(heard.contains("I'm talking with Vale."));
@@ -3585,7 +3640,7 @@ mod tests {
         );
         let pip = transcript(&c, &c.entities[3], Part::Line);
         assert!(pip.contains("Earlier: Pip: I offered my cloth."));
-        assert!(idiolect(&c.entities[3]).contains("borrowed"));
+        assert!(idiolect(&c.entities[3], Part::Line).contains("borrowed"));
         c.action = Some("x".repeat(651));
         assert!(!valid(&c));
         c = context();
@@ -4051,9 +4106,8 @@ mod tests {
         c.entities[1].id = c.location.clone();
         c.entities[3].id = "greek-baker".into();
         c.speakers[1] = "greek-baker".into();
-        assert!(
-            idiolect(&c.entities[3]).contains(profiles()["greek-baker"]["voice"].as_str().unwrap())
-        );
+        assert!(idiolect(&c.entities[3], Part::Line)
+            .contains(profiles()["greek-baker"]["voice"].as_str().unwrap()));
         assert!(valid(&c));
         let result = complete(
             &test_config(address),
@@ -4073,7 +4127,8 @@ mod tests {
         assert_eq!(baker["model"], "test-entity-model");
         c = context();
         c.entities[0].id = "mara".into();
-        assert!(idiolect(&c.entities[0]).contains("The player chooses this avatar's actions."));
+        assert!(idiolect(&c.entities[0], Part::Line)
+            .contains("The player chooses this avatar's actions."));
         c.speakers[0] = "mara".into();
         seen.lock().unwrap().clear();
         let result = shared_lines(
