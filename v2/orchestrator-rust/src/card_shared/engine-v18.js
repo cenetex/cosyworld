@@ -15011,6 +15011,23 @@
   var people = { ...forest_default.people, ...packPeople };
   var things = { ...packThings, ...forest_default.things };
   validatePackLinks(places, people, things);
+  var atticInterior = (() => {
+    const found = /* @__PURE__ */ new Set(["attic"]), queue = ["attic"];
+    const routes = packDefinitions.flatMap((pack) => pack.routes || []);
+    for (let i = 0; i < queue.length && i < Object.keys(places).length; i++) {
+      const from = queue[i];
+      for (const to of [
+        ...places[from].exits,
+        ...crossings.filter((c) => c.from === from && !c.transport).map((c) => c.to),
+        ...routes.filter((r) => r.from === from).map((r) => r.to)
+      ]) {
+        if (to === "pond" || found.has(to)) continue;
+        found.add(to);
+        queue.push(to);
+      }
+    }
+    return found;
+  })();
   var ids = Object.keys(things);
   var actorIds = [...Object.keys(forest_default.people), ...packActorIds];
   var nameOf = (id) => places[id]?.name || people[id]?.name || things[id]?.name || "the world";
@@ -15155,11 +15172,22 @@
     actor ||= currentActor(s);
     return gate && (controlledByHuman(s, actor) || gate.opening && knownActors(s).includes(actor)) && s.actors[actor]?.place === place && !ordinaryRouteHome(s, place, gate.rescue, actor, previous) && !homeGateRecoverable(s, place, gate, actor) ? gate.rescue : null;
   }
+  function insideLampRemedy(s, actor) {
+    const here = s.actors[actor].place, lamp = itemPlace2(s, "lamp"), oil = itemPlace2(s, "oil");
+    if (!atticInterior.has(here) || !ordinaryRouteHome(s, here, lamp, actor) || !ordinaryRouteHome(s, lamp, "attic", actor)) return false;
+    const at2 = (place) => ({ ...s, actors: {
+      ...s.actors,
+      [actor]: { ...s.actors[actor], place }
+    } });
+    if (!localGateResource(at2(lamp), lamp, "lamp", actor)) return false;
+    return s.items.lamp.fuel > 0 || s.items.oil.doses > 0 && ordinaryRouteHome(s, here, oil, actor) && ordinaryRouteHome(s, oil, lamp, actor) && localGateResource(at2(oil), oil, "oil", actor);
+  }
   function pondRescueExit(s, place, actor, previous) {
     actor ||= currentActor(s);
-    if (place !== "pond" || s.actors[actor]?.place !== place || !controlledByHuman(s, actor) && !knownActors(s).includes(actor) || itemPlace2(s, "oil") !== "attic" || s.items.oil.doses <= 0 || ordinaryRouteHome(s, place, "attic", actor, previous)) return null;
-    if (s.items.lamp.fuel > 0 && ordinaryRouteHome(s, place, itemPlace2(s, "lamp"), actor, previous)) return null;
-    if (knownActors(s).some((id) => s.actors[id].place === "attic" && (!controlledByHuman(s, id) || humanPresent(s, id)) && (homeGateRecoverable(s, "attic", homeGates.attic, id) || homeRescueExit(s, "attic", id) && localGateResource(s, "attic", "oil", id)))) return null;
+    const lamp = itemPlace2(s, "lamp"), oil = itemPlace2(s, "oil");
+    if (place !== "pond" || s.actors[actor]?.place !== place || !controlledByHuman(s, actor) && !knownActors(s).includes(actor) || !(atticInterior.has(lamp) || s.items.oil.doses > 0 && atticInterior.has(oil)) || ordinaryRouteHome(s, place, "attic", actor, previous)) return null;
+    if (ordinaryRouteHome(s, place, lamp, actor, previous) && (s.items.lamp.fuel > 0 || s.items.oil.doses > 0 && ordinaryRouteHome(s, place, oil, actor, previous))) return null;
+    if (knownActors(s).some((id) => (!controlledByHuman(s, id) || humanPresent(s, id)) && (insideLampRemedy(s, id) || s.actors[id].place === "attic" && homeRescueExit(s, "attic", id) && localGateResource(s, "attic", "oil", id)))) return null;
     return "attic";
   }
   function exits(s, place, actor = null, previous = null) {
@@ -16496,6 +16524,8 @@
     const actions = legalActions(s, actor);
     if (route)
       return actions.find((a) => a.kind === "move" && a.target === route[1]);
+    if (target !== "attic" && atticInterior.has(target) && !atticInterior.has(here))
+      return toward(s, actor, "attic");
     for (const [home2, gate] of Object.entries(homeGates)) {
       if (here === home2 || !routeBetween(s, gate.rescue, target, actor)) continue;
       const approach = routeBetween(s, here, home2, actor);
@@ -16704,7 +16734,10 @@
           }
         }
       }
-      if (!local) return choose(toward(s, actor, itemPlace2(s, item)), reason);
+      if (!local) {
+        const approach = toward(s, actor, itemPlace2(s, item));
+        return approach ? choose(approach, reason) : null;
+      }
       if (actorIds.includes(owner2) && local && needed(s, owner2, item) && programFor(s, actor)?.generated) {
         const refusals = s.log.filter(
           (e) => e.kind === "action" && e.verb === "ask" && e.actorId === actor && e.targetId === owner2 && e.itemId === item && s.turn - e.turn <= 12

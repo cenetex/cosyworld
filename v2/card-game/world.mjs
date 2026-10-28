@@ -198,6 +198,22 @@ export const sanctuaries = Object.keys(places).filter(
 export const people = { ...forest.people, ...packPeople };
 export const things = { ...packThings, ...forest.things };
 validatePackLinks(places, people, things);
+// Geography identifies resources beyond the attic; each real trip keeps its gates.
+const atticInterior = (() => {
+  const found = new Set(["attic"]), queue = ["attic"];
+  const routes = packDefinitions.flatMap((pack) => pack.routes || []);
+  for (let i = 0; i < queue.length && i < Object.keys(places).length; i++) {
+    const from = queue[i];
+    for (const to of [...places[from].exits,
+      ...crossings.filter((c) => c.from === from && !c.transport).map((c) => c.to),
+      ...routes.filter((r) => r.from === from).map((r) => r.to)]) {
+      if (to === "pond" || found.has(to)) continue;
+      found.add(to);
+      queue.push(to);
+    }
+  }
+  return found;
+})();
 const ids = Object.keys(things);
 const actorIds = [...Object.keys(forest.people), ...packActorIds];
 export const nameOf = (id) =>
@@ -396,19 +412,32 @@ function homeRescueExit(s, place, actor = currentActor(s), previous = null) {
     ? gate.rescue
     : null;
 }
-// Recover oil left beyond the mirror after every reachable lamp remedy is gone.
+function insideLampRemedy(s, actor) {
+  const here = s.actors[actor].place, lamp = itemPlace(s, "lamp"), oil = itemPlace(s, "oil");
+  if (!atticInterior.has(here) || !ordinaryRouteHome(s, here, lamp, actor) ||
+    !ordinaryRouteHome(s, lamp, "attic", actor)) return false;
+  const at = (place) => ({ ...s, actors: { ...s.actors,
+    [actor]: { ...s.actors[actor], place } } });
+  if (!localGateResource(at(lamp), lamp, "lamp", actor)) return false;
+  return s.items.lamp.fuel > 0 || (s.items.oil.doses > 0 &&
+    ordinaryRouteHome(s, here, oil, actor) && ordinaryRouteHome(s, oil, lamp, actor) &&
+    localGateResource(at(oil), oil, "oil", actor));
+}
+// Recover a gate resource left beyond the mirror after reachable remedies are gone.
 function pondRescueExit(s, place, actor, previous) {
   actor ||= currentActor(s);
+  const lamp = itemPlace(s, "lamp"), oil = itemPlace(s, "oil");
   if (place !== "pond" || s.actors[actor]?.place !== place ||
     (!controlledByHuman(s, actor) && !knownActors(s).includes(actor)) ||
-    itemPlace(s, "oil") !== "attic" || s.items.oil.doses <= 0 ||
+    !(atticInterior.has(lamp) || (s.items.oil.doses > 0 && atticInterior.has(oil))) ||
     ordinaryRouteHome(s, place, "attic", actor, previous)) return null;
-  if (s.items.lamp.fuel > 0 &&
-    ordinaryRouteHome(s, place, itemPlace(s, "lamp"), actor, previous)) return null;
-  if (knownActors(s).some((id) => s.actors[id].place === "attic" &&
+  if (ordinaryRouteHome(s, place, lamp, actor, previous) &&
+    (s.items.lamp.fuel > 0 || (s.items.oil.doses > 0 &&
+      ordinaryRouteHome(s, place, oil, actor, previous)))) return null;
+  if (knownActors(s).some((id) =>
     (!controlledByHuman(s, id) || humanPresent(s, id)) &&
-    (homeGateRecoverable(s, "attic", homeGates.attic, id) ||
-      (homeRescueExit(s, "attic", id) && localGateResource(s, "attic", "oil", id))))) return null;
+    (insideLampRemedy(s, id) || (s.actors[id].place === "attic" &&
+      homeRescueExit(s, "attic", id) && localGateResource(s, "attic", "oil", id))))) return null;
   return "attic";
 }
 export function exits(s, place, actor = null, previous = null) {
@@ -2084,6 +2113,8 @@ function toward(s, actor, target) {
   const actions = legalActions(s, actor);
   if (route)
     return actions.find((a) => a.kind === "move" && a.target === route[1]);
+  if (target !== "attic" && atticInterior.has(target) && !atticInterior.has(here))
+    return toward(s, actor, "attic");
   // Reach a home threshold before tending its gate or taking its rescue path.
   for (const [home, gate] of Object.entries(homeGates)) {
     if (here === home || !routeBetween(s, gate.rescue, target, actor)) continue;
@@ -2365,7 +2396,10 @@ function basePlan(s, actor) {
         }
       }
     }
-    if (!local) return choose(toward(s, actor, itemPlace(s, item)), reason);
+    if (!local) {
+      const approach = toward(s, actor, itemPlace(s, item));
+      return approach ? choose(approach, reason) : null;
+    }
     if (
       actorIds.includes(owner) &&
       local &&
