@@ -1,0 +1,177 @@
+{
+  "generated": "2026-10-28",
+  "tool": "built-in image_gen",
+  "chapter": "euripides-helen",
+  "place": "greek-egypt-tomb",
+  "sourceBase": "224fc3b380b99a6fe70b2e5d119a1d46f96f2227",
+  "style": "Detailed painted Greek storybook realism with a distinct Egyptian coastal court and household cast.",
+  "assets": [
+    {
+      "file": "helen-egypt-tomb-day.webp",
+      "sourceFile": "helen-sources/helen-egypt-tomb-day.png",
+      "sourceName": "exec-a1b8ec84-4fc2-47ba-8dfa-d47e9c378a78.png",
+      "generationId": "exec-a1b8ec84-4fc2-47ba-8dfa-d47e9c378a78",
+      "intent": "precise-object-edit",
+      "transparentBackground": false,
+      "references": [
+        {
+          "file": "helen-sources/helen-egypt-tomb-day-initial.png",
+          "role": "edit target",
+          "sha256": "2bc9cf44531dee5e13363640fd92fc6266ace27660c2c76b41af7984b2dff1ad"
+        }
+      ],
+      "processing": "Original generated PNG retained in helen-sources; full-size WebP encoded at quality 94 and effort 6.",
+      "prompt": "Use case: precise-object-edit.\nAsset type: the daylight stage painting of Proteus's tomb on the Egyptian coast for the Helen chapter.\nInput image: the supplied tomb and palace court painting is the edit target.\nPrimary request: replace the distant mountain ridge beyond the water with a low, flat Egyptian coastal horizon. Keep the far shore mostly level, with sandy ground, a few date palms, low sandstone buildings and a narrow line of reeds. The clear blue sky extends down to this low horizon.\nInvariants: preserve the exact 16:9 crop and eye-level camera; the tomb and its lotus reliefs; the palace columns and porch; the palms, foreground paving, steps, lamps, jars, water and distant small sailing boats. Keep all foreground and middle-distance shapes in place. Keep the same warm afternoon light, rich natural color and detailed painted style. Change only the distant land profile beyond the water. The full frame stays opaque.",
+      "size": [
+        1672,
+        941
+      ],
+      "sourceSha256": "306390968bf81a666638c90b3e344f0c5012224441cc5dc40a72b1e47fa33460",
+      "sha256": "63bc8c00bf579fea29258160385d2ae1c8f2df38d03fd1d2d73b77124af33a81",
+      "sourceBytes": 3022422,
+      "bytes": 659266
+    },
+    {
+      "file": "helen-egypt-tomb-night.webp",
+      "sourceFile": "helen-sources/helen-egypt-tomb-night.png",
+      "sourceName": "exec-e9e39f0c-efb6-4275-b46b-a118f70c3385.png",
+      "generationId": "exec-e9e39f0c-efb6-4275-b46b-a118f70c3385",
+      "intent": "lighting-weather edit",
+      "transparentBackground": false,
+      "references": [
+        {
+          "file": "helen-sources/helen-egypt-tomb-day.png",
+          "role": "edit target",
+          "sha256": "306390968bf81a666638c90b3e344f0c5012224441cc5dc40a72b1e47fa33460"
+        }
+      ],
+      "processing": "Original generated PNG retained in helen-sources; full-size WebP encoded at quality 94 and effort 6.",
+      "prompt": "Use case: lighting-weather.\nAsset type: the night partner for Proteus's tomb on the Egyptian coast in the Helen chapter of the Wine-Dark Sea card game.\nInput image: the supplied finished daylight painting is the edit target.\nPrimary request: set this exact court at a clear, calm night. Use a deep indigo sky with small stars and soft moonlight from the open sky to the right. Add a small warm flame to the existing lamp at the tomb steps and restrained amber light in the palace porch. The tomb and open foreground stay readable.\nInvariants: preserve the exact 16:9 crop, camera, perspective, tomb body and cover, lotus carvings, palace columns, porch, palms, jars, paving, steps, lamps, sea and small distant boats. Keep the far shore low and flat with its existing buildings, palms and reeds. Keep all object positions and silhouettes. Retain the same detailed Greek storybook painting style, natural materials and dry clear air. Change the sky, illumination and shadows to night. Scenery alone fills the opaque frame.",
+      "size": [
+        1672,
+        941
+      ],
+      "sourceSha256": "875e5e7b9fbd744ee7cb0ffa02016f76f72d7db2ad38d744592e2cb52231e362",
+      "sha256": "32f07d7483962b6d0fe1b534df8e8f91a6864210d0f3f5f0169df7661e6adae8",
+      "sourceBytes": 2827792,
+      "bytes": 571552
+    },
+    {
+      "file": "helen-theonoe.png",
+      "sourceFile": "helen-theonoe.png",
+      "sourceName": "exec-42f1439c-726a-4f01-aabb-8821d6839942.png",
+      "generationId": "exec-42f1439c-726a-4f01-aabb-8821d6839942",
+      "intent": "reference-based generation",
+      "transparentBackground": true,
+      "references": [
+        {
+          "file": "chthonic-helen.png",
+          "role": "style reference",
+          "sha256": "3c87d505fd801846e140405d3d5b84f562ddb9d00a1f015ad9c2814209a5986f"
+        },
+        {
+          "file": "chthonic-menelaus.png",
+          "role": "style reference",
+          "sha256": "8f3ef20e63ee5138d7ae09bb3e90893c51f421aecdd3adea3fb94a4d61e4113b"
+        }
+      ],
+      "processing": "Original generated PNG copied with its alpha channel and full native pixels.",
+      "prompt": "Use case: historical-scene.\nAsset type: a full-body transparent character portrait for the Helen chapter in the Wine-Dark Sea card game.\nInput images: image 1, Helen, and image 2, Menelaus, supply the existing cast's detailed painted realism, natural anatomy, handwoven cloth and aged metal textures. The new person has their own face, hair and costume.\nComposition: one adult standing in a calm three-quarter speaking pose on a tall 2:3 canvas. Show the whole head, both hands and both sandaled feet. Leave a clear margin around the complete figure. Keep a readable silhouette.\nLighting: gentle warm light from upper left, with soft cool shading within the body and cloth.\nBackground: actual transparent alpha throughout the field outside the subject, including spaces between arms and the body. Shading belongs to the figure. The image is a clean character cutout for use over day and night scenery.\n\nSubject: Theonoe, an adult Egyptian royal woman and seer, daughter of Proteus and sister of Theoclymenus. She has warm brown skin, dark steady eyes, long black hair in neat narrow braids, and a distinct thoughtful face. A light ivory linen veil rests over the back of her head and shoulders. She wears an ankle-length pleated ivory linen dress, a muted teal shawl, a restrained worn gold collar and simple leather sandals. Her dress is modest and practical. One hand rests lightly near her heart while the other opens in a careful speaking gesture. Her expression shows calm judgment and resolve as she decides to protect Helen's truth. Her head, hands and feet are fully visible.",
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "a1de93676e33c95cad1f67ee98e50dbf758c0d895130f63c8eed4acf988a6d71",
+      "sha256": "a1de93676e33c95cad1f67ee98e50dbf758c0d895130f63c8eed4acf988a6d71",
+      "sourceBytes": 2281181,
+      "bytes": 2281181,
+      "alpha": {
+        "clearPixels": 902442,
+        "partialPixels": 670422,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          134,
+          11,
+          861,
+          1514
+        ],
+        "visibleBoundsThreshold": 8
+      }
+    },
+    {
+      "file": "helen-theoclymenus.png",
+      "sourceFile": "helen-theoclymenus.png",
+      "sourceName": "exec-23cc1c7e-e2ad-45ac-a065-8f29425a90a0.png",
+      "generationId": "exec-23cc1c7e-e2ad-45ac-a065-8f29425a90a0",
+      "intent": "reference-based generation",
+      "transparentBackground": true,
+      "references": [
+        {
+          "file": "chthonic-helen.png",
+          "role": "style reference",
+          "sha256": "3c87d505fd801846e140405d3d5b84f562ddb9d00a1f015ad9c2814209a5986f"
+        },
+        {
+          "file": "chthonic-menelaus.png",
+          "role": "style reference",
+          "sha256": "8f3ef20e63ee5138d7ae09bb3e90893c51f421aecdd3adea3fb94a4d61e4113b"
+        }
+      ],
+      "processing": "Original generated PNG copied with its alpha channel and full native pixels.",
+      "prompt": "Use case: historical-scene.\nAsset type: a full-body transparent character portrait for the Helen chapter in the Wine-Dark Sea card game.\nInput images: image 1, Helen, and image 2, Menelaus, supply the existing cast's detailed painted realism, natural anatomy, handwoven cloth and aged metal textures. The new person has their own face, hair and costume.\nComposition: one adult standing in a calm three-quarter speaking pose on a tall 2:3 canvas. Show the whole head, both hands and both sandaled feet. Leave a clear margin around the complete figure. Keep a readable silhouette.\nLighting: gentle warm light from upper left, with soft cool shading within the body and cloth.\nBackground: actual transparent alpha throughout the field outside the subject, including spaces between arms and the body. Shading belongs to the figure. The image is a clean character cutout for use over day and night scenery.\n\nSubject: Theoclymenus, an adult Egyptian ruler in his forties, son of Proteus and brother of Theonoe. He has warm brown skin, black hair, a short neatly kept black beard, dark attentive eyes and a strong distinct face. He wears a long finely pleated ivory linen tunic, a deep ochre mantle with a dark green border, a restrained broad gold collar, plain gold cuffs, a narrow gold headband and leather sandals. The rich cloth and quiet metal details mark his rank. One hand rests at his belt; the other makes a measured speaking gesture. He stands upright with guarded authority and a controlled expression. Keep the pose suited to a conversation at the palace court.",
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "71526f058c0ced26866d009aff4fb65f61947a345d32872603e775d9fb46201b",
+      "sha256": "71526f058c0ced26866d009aff4fb65f61947a345d32872603e775d9fb46201b",
+      "sourceBytes": 2364804,
+      "bytes": 2364804,
+      "alpha": {
+        "clearPixels": 889073,
+        "partialPixels": 683791,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 3,
+        "visibleSubjectBounds": [
+          121,
+          7,
+          902,
+          1496
+        ],
+        "visibleBoundsThreshold": 8
+      }
+    }
+  ],
+  "generationHistory": [
+    {
+      "file": "helen-sources/helen-egypt-tomb-day-initial.png",
+      "sourceName": "exec-054a54ce-7a82-44b6-b6d3-75397d72b636.png",
+      "generationId": "exec-054a54ce-7a82-44b6-b6d3-75397d72b636",
+      "intent": "reference-based generation",
+      "references": [
+        {
+          "file": "palace-day.webp",
+          "role": "style reference",
+          "sha256": "c0b61fb49af9c98adbdf9fe7ac386f3611e13b23342a10791673871473928769"
+        },
+        {
+          "file": "harbor-ship-at-berth.webp",
+          "role": "style reference",
+          "sha256": "f71d5f64371f50b37059f0929db3489b0f808696494c64078ad5fbe958e1f1d0"
+        }
+      ],
+      "prompt": "Use case: historical-scene.\nAsset type: a wide 16:9 stage painting for the Helen chapter of the Wine-Dark Sea card game.\nPrimary request: Proteus's tomb in a royal court beside the Egyptian coast, the place where Helen seeks sanctuary in the Greek play. Create a new setting in the game's detailed painted storybook style.\nInput images: image 1 supplies the painted stone, courtyard scale and clear foreground. Image 2 supplies the painted coastal light, water and natural material detail. Use them as style references for a distinct Egyptian coastal court.\nScene: a pale sandstone royal tomb on a broad low stepped base, set slightly left of center in a quiet open court. Give the tomb a solid rectangular stone body, a gently rounded stone cover, and restrained carved lotus and reed reliefs. It is a dignified memorial and a place of refuge. Behind it, an Egyptian palace porch has weathered sandstone columns with lotus capitals and muted painted bands. Date palms cast a little shade at the side. To the right, low steps and a simple empty stone landing lead toward calm blue coastal water. The far shore is low and flat with palms and a few reeds. A small unlit oil lamp rests by the tomb steps.\nComposition: eye level, wide 16:9. The tomb remains readable in the central phone crop. Keep a generous open limestone and sand foreground across the lower third for separate cast portraits. The palace porch frames the left background and the sea opens the right background. Architecture and landscape fill the painting.\nLighting and mood: clear warm afternoon, blue sky, soft shadows, a quiet refuge by the sea. Warm cream and sandy gold stone, muted teal and red accents, natural palm green and blue water. Rich painted surface detail. Full-frame opaque scenery.",
+      "processing": "Original first day painting retained as the source for the coastal-horizon edit.",
+      "size": [
+        1672,
+        941
+      ],
+      "sha256": "2bc9cf44531dee5e13363640fd92fc6266ace27660c2c76b41af7984b2dff1ad",
+      "bytes": 3235876
+    }
+  ],
+  "integration": "The chapter integration owns catalog paths, daylight registration, generated image variants, public asset registration, shared rules and release versions. Existing Helen and Menelaus portraits provide their cast art."
+}
