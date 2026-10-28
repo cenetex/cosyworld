@@ -16664,6 +16664,8 @@
       (id) => hand2.items.includes(id) ? !questItemAvailable(s, actor, id) : rootHolder(s, id) !== actor
     );
     const reason = `Seek this hand: ${handText(hand2)}.`;
+    if (!missing.length && !hand2.conditions?.length && hand2.items.includes("cloth") && rootHolder(s, "bell") === actor && s.items.bell.ringing && find("cover", "cloth", "bell"))
+      return choose(find("cover", "cloth", "bell"), "Wrap the ringing bell.");
     const destinations = [
       ...missing.map((id) => itemPlace2(s, id)),
       hand2.location,
@@ -16673,8 +16675,13 @@
     for (const destination of new Set(destinations)) {
       if (!destination || destination === here || routeBetween(s, here, destination, actor)) continue;
       const prepare = toward(s, actor, destination);
-      if (prepare && prepare.kind !== "move")
+      if (prepare && prepare.kind !== "move") {
+        if (prepare.kind === "light" && here === "station" && missing.some((item) => {
+          const owner2 = rootHolder(s, item);
+          return itemPlace2(s, item) === here && actorIds.includes(owner2) && !controlledByHuman(s, owner2) && needed(s, owner2, item) && resources.some((held) => rootHolder(s, held) === actor && needed(s, owner2, held));
+        })) continue;
         return choose(prepare, "Prepare the way for the meeting.");
+      }
     }
     const waitingHere = (ids3) => ids3.find((id) => {
       const theirs = desireFor(s, id), there = s.actors[id].place;
