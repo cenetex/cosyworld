@@ -336,7 +336,7 @@ describe("Book I shared learning and history", () => {
         ...fields,
       });
       expect(result.ok, result.error).toBe(true);
-      world = result.world;
+      if (op !== "view") world = result.world;
       return result;
     };
     const act = (actor, kind, fields) => {

@@ -90,7 +90,7 @@ describe("shared ship boarding", () => {
   });
 
   it("uses authenticated passenger claims for an older shared voyage", () => {
-    const old = ask(setup("greek-harbor"), "vale").world;
+    const old = setup("greek-harbor");
     old.crossings["pond-greek-harbor"].discovered = false;
     old.actors.mara.place = "greek-ship";
     old.transports["greek-ship"].destination = "pond";
