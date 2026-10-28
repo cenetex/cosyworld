@@ -75,7 +75,7 @@ describe("adaptive action learning", () => {
     spare.items.oil.doses = 0;
     const asked = act(spare, "ask", "oil");
     const traded = act(setup(), "trade", "bell");
-    expect(history(asked)[0].reward).toBe(19);
+    expect(history(asked)[0].reward).toBe(23);
     expect(history(traded)[0].reward).toBe(19);
     const byRequest = choice(probe(history(asked)));
     const byTrade = choice(probe(history(traded)));
@@ -107,11 +107,11 @@ describe("adaptive action learning", () => {
     w = act(w, "give", "bell", "keeper");
     const gift = history(w).at(-1);
     expect(gift.action.kind).toBe("give");
-    expect(gift.reward).toBe(1);
-    expect(estimate(w, gift).value).toBe(1);
+    expect(gift.reward).toBe(-3);
+    expect(estimate(w, gift).value).toBe(-3);
     w = act(w, "ask", "cloth");
     expect(w.items.cloth.holder).toBe("vale");
-    expect(estimate(w, gift).value).toBe(14.3);
+    expect(estimate(w, gift).value).toBe(13.1);
     expect(history(w).at(-1).after.met).toBe(true);
   });
   it("keeps a changed situation outside the earlier action's credit chain", () => {
@@ -121,7 +121,7 @@ describe("adaptive action learning", () => {
     w = act(w, "light", "lamp");
     w = act(w, "ask", "cloth");
     expect(history(w).at(-1).after.met).toBe(true);
-    expect(estimate(w, gift).value).toBe(1);
+    expect(estimate(w, gift).value).toBe(-3);
   });
   it("records an idle attempt's actual result and lowers its value as time passes", () => {
     let w = setup();
@@ -221,5 +221,19 @@ describe("adaptive action learning", () => {
         item: "oil",
       }),
     ).not.toBe(previous);
+  });
+  it("keeps an older open goal out of a new quest step", () => {
+    const w = act(setup(), "ask", "oil");
+    const action = legalActions(w).find(
+      (a) => a.kind === "talk" && a.target === "keeper",
+    );
+    const selected = { action, reason: "Wait for the next meeting." };
+    expect(
+      reconsiderPlan(w, "vale", selected, legalActions(w)).learning,
+    ).toBeDefined();
+    w.actors.vale.progress.step++;
+    expect(reconsiderPlan(w, "vale", selected, legalActions(w))).toEqual(
+      selected,
+    );
   });
 });

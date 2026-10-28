@@ -6,6 +6,15 @@ const discount = 0.7;
 const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const round = (n) => Math.round(n * 1000) / 1000;
+const approach = (kind) =>
+  ({
+    ask: "asking",
+    trade: "trading",
+    give: "giving",
+    talk: "talking",
+    wait: "waiting",
+    accompany: "inviting",
+  })[kind];
 const goalKey = (g) => [g.kind, g.target, g.item, g.destination].join(":");
 const actionKey = (a) =>
   [a.kind, a.target, a.item, a.receive, a.destination].join(":");
@@ -16,6 +25,15 @@ const compactAction = (a) => ({
   receive: a.receive || null,
   destination: a.destination || null,
 });
+export function learningIntent(world, actor) {
+  const progress = world.actors[actor]?.progress;
+  return JSON.stringify([
+    progress?.program || 0,
+    progress?.step || 0,
+    progress?.current?.id || null,
+    world.life?.actors?.[actor]?.phase || null,
+  ]);
+}
 function holder(world, item) {
   let id = item;
   const visited = new Set();
@@ -34,6 +52,8 @@ function observation(world, actor, goal) {
             (id) => world.actors[id]?.place === goal.destination,
           ),
     trust: world.actors[goal.target]?.trust?.[actor] || 0,
+    held: Object.values(world.items).filter((item) => item.holder === actor)
+      .length,
     strain: Math.min(
       3,
       (world.motives?.grievances[goal.target] || [])
@@ -43,11 +63,13 @@ function observation(world, actor, goal) {
   };
 }
 // A completed goal is worth twenty points. Trust and eased strain are small
-// intermediate gains. Each play costs one point, so idle loops lose value.
+// intermediate gains. A carried item is worth four points. Each play costs
+// one point, so idle loops and gifts carry their actual cost.
 export function outcomeReward(before, after) {
   return (
     20 * (Number(after.met) - Number(before.met)) +
     2 * (after.trust - before.trust + before.strain - after.strain) -
+    4 * (before.held - after.held) -
     1
   );
 }
@@ -65,6 +87,7 @@ function goalFor(world, actor, action) {
   if (
     last &&
     !last.after.met &&
+    last.intent === learningIntent(world, actor) &&
     world.turn - last.turn <= horizon &&
     world.actors[actor].place === world.actors[last.goal.target]?.place &&
     related(action, last.goal)
@@ -127,7 +150,11 @@ export function actionEstimate(world, actor, goal, conditions, action) {
     samples++;
     if (exact) local++;
   }
-  return { value: samples ? round(sum / weight) : null, samples, local };
+  return {
+    value: samples ? round(sum / (weight + (local ? 0 : 1))) : null,
+    samples,
+    local,
+  };
 }
 export function beginLearning(world, action, conditionsFor) {
   const goal = goalFor(world, action.actor, action);
@@ -135,6 +162,7 @@ export function beginLearning(world, action, conditionsFor) {
   const conditions = conditionsFor(world, { ...goal, actor: action.actor });
   return {
     goal,
+    intent: learningIntent(world, action.actor),
     conditions,
     before: observation(world, action.actor, goal),
     expected: actionEstimate(world, action.actor, goal, conditions, action),
@@ -180,9 +208,12 @@ export function learnedPlan(world, actor, selected, actions, conditionsFor) {
         action,
         ...estimate,
         score:
-          (estimate.value ?? 0) +
+          (estimate.local ? estimate.value : Math.max(0, estimate.value ?? 0)) +
           3 * Math.sqrt(Math.log(total + 2) / (estimate.local + 1)),
-        tie: tieBreak(`${actor}:${goalKey(goal)}:${actionKey(action)}`),
+        tie:
+          action.key === selected.action.key && !estimate.local
+            ? -1
+            : tieBreak(`${actor}:${goalKey(goal)}:${actionKey(action)}`),
       };
     });
   choices.sort((a, b) => b.score - a.score || a.tie - b.tie);
@@ -191,8 +222,8 @@ export function learnedPlan(world, actor, selected, actions, conditionsFor) {
   return {
     action: chosen.action,
     reason: chosen.samples
-      ? `Use experience from ${chosen.samples} earlier ${chosen.action.kind} ${chosen.samples === 1 ? "attempt" : "attempts"}.`
-      : `Try ${chosen.action.kind} and measure how it helps this goal.`,
+      ? `Choose ${approach(chosen.action.kind)} from ${chosen.samples} earlier measured ${chosen.samples === 1 ? "attempt" : "attempts"}.`
+      : `Try ${approach(chosen.action.kind)} for this goal.`,
     lessonSeq: trials.at(-1).seq,
     learning: {
       goal,
@@ -223,12 +254,24 @@ export function trialFacts(world, actor, nameOf) {
       ? "That improved our relationship."
       : "My goal is still open.";
   const earlier = trial.expected.samples
-    ? `I had ${trial.expected.samples} earlier ${trial.action.kind} ${trial.expected.samples === 1 ? "attempt" : "attempts"} to compare.`
+    ? `I had ${trial.expected.samples} earlier ${trial.expected.samples === 1 ? "attempt" : "attempts"} at ${approach(trial.action.kind)} to compare.`
     : "This was my first measured try at that approach.";
   const trials = trialsFor(world, actor, goal);
   const keys = new Map(trials.map((t) => [actionKey(t.action), t.action]));
+  const describe = (a) => {
+    if (a.kind === "ask")
+      return `asking ${nameOf(a.target)} for ${nameOf(a.item)}`;
+    if (a.kind === "trade")
+      return `trading ${nameOf(a.item)} for ${nameOf(a.receive)}`;
+    if (a.kind === "give")
+      return `giving ${nameOf(a.item)} to ${nameOf(a.target)}`;
+    if (a.kind === "talk") return `talking with ${nameOf(a.target)}`;
+    if (a.kind === "accompany")
+      return `inviting ${nameOf(a.target)} to ${nameOf(a.destination)}`;
+    return "waiting";
+  };
   return [
-    `I tried ${trial.action.kind} with ${nameOf(goal.target)} while seeking ${purpose}. ${result} ${earlier}`,
+    `I tried ${describe(trial.action)} while seeking ${purpose}. ${result} ${earlier}`,
     ...[...keys.values()].slice(-4).map((a) => {
       const estimate = actionEstimate(world, actor, goal, trial.conditions, a);
       const reached = trials.filter(
@@ -236,7 +279,8 @@ export function trialFacts(world, actor, nameOf) {
           actionKey(t.action) === actionKey(a) &&
           sequence(trials, i).some((t) => t.after.met),
       ).length;
-      return `${a.kind}${a.item ? ` ${nameOf(a.item)}` : ""}: ${estimate.samples} measured ${estimate.samples === 1 ? "attempt" : "attempts"}. This approach helped reach my goal ${reached} ${reached === 1 ? "time" : "times"}.`;
+      const label = describe(a);
+      return `${label[0].toUpperCase()}${label.slice(1)}: ${estimate.samples} measured ${estimate.samples === 1 ? "attempt" : "attempts"}. This approach helped reach my goal ${reached} ${reached === 1 ? "time" : "times"}.`;
     }),
   ];
 }
@@ -245,8 +289,11 @@ const fields = (o, names) =>
   typeof o === "object" &&
   Object.keys(o).sort().join() === names.split(" ").sort().join();
 const validObservation = (o) =>
-  fields(o, "met trust strain") &&
+  fields(o, "met trust strain held") &&
   typeof o.met === "boolean" &&
+  Number.isInteger(o.held) &&
+  o.held >= 0 &&
+  o.held <= 3 &&
   [o.trust, o.strain].every((n) => Number.isInteger(n) && n >= 0 && n <= 3);
 function validAction(action, goal) {
   if (!related(action, goal)) return false;
@@ -280,7 +327,7 @@ function matchesObservation(text, observed, actor, goal) {
     const parts = JSON.parse(text);
     if (
       !Array.isArray(parts) ||
-      parts.length !== 7 ||
+      parts.length !== 8 ||
       parts[1] !== observed.trust ||
       !Array.isArray(parts[2]) ||
       !Array.isArray(parts[5])
@@ -292,6 +339,10 @@ function matchesObservation(text, observed, actor, goal) {
     );
     if (strain !== observed.strain) return false;
     const items = new Map(parts[5].map(([id, owner]) => [id, owner]));
+    if (
+      [...items.values()].filter((id) => id === actor).length !== observed.held
+    )
+      return false;
     let root = goal.item;
     const visited = new Set();
     while (items.has(root) && !visited.has(root)) {
@@ -311,7 +362,7 @@ export function validTrial(world, actor, trial, profiles) {
   if (
     !fields(
       trial,
-      "version seq turn goal conditions before expected action after afterConditions reward evidence",
+      "version seq turn goal intent conditions before expected action after afterConditions reward evidence",
     )
   )
     return false;
@@ -355,6 +406,8 @@ export function validTrial(world, actor, trial, profiles) {
     trial.conditions.length > 16000 ||
     typeof trial.afterConditions !== "string" ||
     trial.afterConditions.length > 16000 ||
+    typeof trial.intent !== "string" ||
+    trial.intent.length > 2000 ||
     typeof trial.evidence !== "string" ||
     !trial.evidence.length ||
     trial.evidence.length > 650
@@ -365,6 +418,7 @@ export function validTrial(world, actor, trial, profiles) {
     !matchesObservation(trial.afterConditions, trial.after, actor, goal)
   )
     return false;
+  if (JSON.parse(trial.conditions)[7] !== trial.intent) return false;
   const source = world.log.find((e) => e.seq === trial.seq);
   return (
     !source ||

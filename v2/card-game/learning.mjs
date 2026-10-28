@@ -5,6 +5,7 @@ import {
   trialFacts,
   validTrial,
   TRIAL_LIMIT,
+  learningIntent,
 } from "./adaptive-learning.mjs";
 // Lessons come from completed requests. The same rules record and use them in
 // solo play and the shared interpreter.
@@ -40,10 +41,12 @@ export function requestConditions(world, action) {
         return [id, item.holder, item.fuel ?? null, item.doses ?? null];
       }),
     world.actors[action.actor]?.place,
+    learningIntent(world, action.actor),
   ]);
 }
 
 export function beginLearning(world, action) {
+  if (world.motives?.version !== 1) return null;
   return prepare(world, action, requestConditions);
 }
 export function recordLearning(world, action, prepared, event) {

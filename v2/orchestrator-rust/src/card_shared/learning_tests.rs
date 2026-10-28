@@ -185,6 +185,14 @@ fn measured_approaches_and_later_success_survive_journal_only_replay() {
         .unwrap();
     let mut w = World::create(None).unwrap();
     w.game.as_object_mut().unwrap().remove("opening");
+    w.game.as_object_mut().unwrap().remove("life");
+    w.game["motives"]
+        .as_object_mut()
+        .unwrap()
+        .remove("questPrograms");
+    for actor in w.game["actors"].as_object_mut().unwrap().values_mut() {
+        actor["progress"] = json!({"program":0,"step":0,"marks":[]});
+    }
     w.game["actors"]["vale"]["place"] = json!("station");
     w.game["actors"]["keeper"]["place"] = json!("station");
     w.game["items"]["lamp"]["holder"] = json!("vale");
@@ -215,10 +223,10 @@ fn measured_approaches_and_later_success_survive_journal_only_replay() {
     assert_eq!(trials[0]["expected"]["value"], Value::Null);
     assert_eq!(trials[0]["reward"], -1);
     assert_eq!(trials[1]["action"]["kind"], "give");
-    assert_eq!(trials[1]["reward"], 1);
+    assert_eq!(trials[1]["reward"], -3);
     assert_eq!(trials[2]["expected"]["samples"], 1);
     assert_eq!(trials[2]["after"]["met"], true);
-    assert_eq!(trials[2]["reward"], 19);
+    assert_eq!(trials[2]["reward"], 23);
     assert!(w.project(1).unwrap()["world"]["memories"]["vale"]
         .get("learning")
         .is_none());
@@ -241,6 +249,14 @@ fn version_sixteen_lessons_upgrade_before_new_measured_plays() {
         present: [0; 8],
     };
     old.game.as_object_mut().unwrap().remove("opening");
+    old.game.as_object_mut().unwrap().remove("life");
+    old.game["motives"]
+        .as_object_mut()
+        .unwrap()
+        .remove("questPrograms");
+    for actor in old.game["actors"].as_object_mut().unwrap().values_mut() {
+        actor["progress"] = json!({"program":0,"step":0,"marks":[]});
+    }
     old.game["actors"]["vale"]["place"] = json!("station");
     old.game["actors"]["keeper"]["place"] = json!("station");
     old.game["items"]["bell"]["holder"] = json!("keeper");

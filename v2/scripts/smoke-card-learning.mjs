@@ -15,6 +15,37 @@ import {
   applyGeneratedText,
 } from "../card-game/narrative.mjs";
 
+function practiceWorld() {
+  const w = enableMotives(createWorld());
+  w.actors.keeper.place = "station";
+  w.items.lamp.holder = "vale";
+  w.items.bell.holder = "vale";
+  w.items.cloth.holder = "keeper";
+  return w;
+}
+const spare = practiceWorld();
+spare.items.oil.doses = 0;
+const requested = play(
+  spare,
+  legalActions(spare).find((a) => a.kind === "ask" && a.item === "oil"),
+).state;
+const tradeStart = practiceWorld();
+const traded = play(
+  tradeStart,
+  legalActions(tradeStart).find(
+    (a) => a.kind === "trade" && a.item === "bell" && a.receive === "oil",
+  ),
+).state;
+const probes = [requested, traded].map((practised) => {
+  const w = practiceWorld();
+  w.turn = 2;
+  w.revision = 2;
+  w.eventSeq = 100;
+  w.log = [];
+  w.memories.vale.learning = practised.memories.vale.learning;
+  return encodeSave(w);
+});
+
 let world = enableMotives(createWorld());
 world.actors.keeper.place = "station";
 world.items.lamp.holder = "vale";
@@ -82,6 +113,24 @@ try {
     await page.goto(
       `http://127.0.0.1:${server.address().port}/?table=learning`,
     );
+    const choices = await page.evaluate(async (saves) => {
+      const { decodeSave, plan } = await import("/card-game/world.mjs");
+      return saves.map((save) => {
+        const world = decodeSave(save);
+        const before = JSON.stringify(world);
+        const choice = plan(world);
+        if (JSON.stringify(world) !== before)
+          throw Error("A preview must preserve the save.");
+        return {
+          kind: choice.action.kind,
+          samples: choice.learning.expected.samples,
+        };
+      });
+    }, probes);
+    assert.deepEqual(choices, [
+      { kind: "ask", samples: 1 },
+      { kind: "trade", samples: 1 },
+    ]);
     for (let attempt = 0; attempt < 2; attempt++) {
       await page.getByRole("button", { name: "Menu", exact: true }).click();
       await page

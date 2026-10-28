@@ -2075,14 +2075,28 @@ export function plan(s, actor = currentActor(s)) {
         name: nameOf,
       },
     );
+  const selected = basePlan(s, actor);
+  // Earlier authored programs keep their recorded route and turn order.
+  if (!hasMotives(s)) return selected;
+  const futureItems = new Set(
+    hasQuestPrograms(s)
+      ? (program?.steps || []).flatMap((step) =>
+          alternatives(step).flatMap((hand) => requiredItems(s, actor, hand)),
+        )
+      : [],
+  );
   return reconsiderPlan(
     s,
     actor,
-    basePlan(s, actor),
+    selected,
     legalActions(s, actor).filter(
       (a) =>
+        a.key === selected.action.key ||
         !["trade", "give"].includes(a.kind) ||
-        (!needed(s, actor, a.item) && !keepReason(s, actor, a.item)),
+        (!needed(s, actor, a.item) &&
+          !keepReason(s, actor, a.item) &&
+          (a.kind !== "give" ||
+            !bundle(s, a.item).some((id) => futureItems.has(id)))),
     ),
   );
 }

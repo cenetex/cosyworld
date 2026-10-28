@@ -399,7 +399,8 @@ world can therefore produce different choices for avatars with different past
 results. Repeated failures can lower a once-successful approach's value.
 
 Reaching the goal earns twenty points; improved trust or eased grievances earn
-two points per step; each play costs one point. Up to four linked plays share a
+two points per step; each carried item is worth four points; each play costs
+one point. Exploratory gifts preserve items needed by the current quest program. Up to four linked plays share a
 later result with a 0.7 discount per step. A changed recorded situation or a
 completed goal ends that link. Human choices and resident choices use the same
 measurement path. The panel shows measured attempts and how often an approach

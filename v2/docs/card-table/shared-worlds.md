@@ -291,7 +291,7 @@ Player views include their own thoughts, persona, dreams, reflection evidence
 and lessons. Other avatars supply public card text. This privacy check also
 applies when projecting a world that still uses an earlier interpreter.
 
-The current interpreter is `engine-v17.js`. Version 17 adds introduction quests,
+The current interpreter is `engine-v18.js`. Version 17 added introduction quests,
 remembered sightings, and Boardy’s turn-based visits. Released versions 15 and
 16 keep their exact bytes for replay. Version 15 adds regional
 Greek weather and Thebes day and night views. Version 14 keeps BoardyAI, his
