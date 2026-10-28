@@ -193,6 +193,9 @@ try {
               document.querySelector('#card-actions [data-action="wait"]')
                 .dataset.queued === "false",
           );
+          // Clearing the queued label precedes the asynchronous request handler.
+          for (let attempt = 0; attempt < 100 && plays.length === 0; attempt++)
+            await page.waitForTimeout(100);
           assert.equal(plays.length, 1);
           // A second choice made while the first request is in flight survives its reply.
           assert.equal(await play.isDisabled(), false);
