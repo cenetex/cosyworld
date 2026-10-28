@@ -66,6 +66,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CI: true
+      RUST_TEST_THREADS: "2"
     steps:
       - name: Checkout
         uses: actions/checkout@v7
