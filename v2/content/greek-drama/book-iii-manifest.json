@@ -315,20 +315,25 @@
     "focusedTests": 35,
     "aulisBrowserJourneys": 6,
     "shipContractTests": 8,
-    "publicAssets": 681,
+    "publicAssets": 731,
     "nativeStatus": "passed: shared passenger agreement, two human-selected stops, stale companion and boarding rejection, physical arrival and return, checkpoint removal, database reopen, and rules-20 visit upgrade",
     "lemnosBrowserJourneys": 6,
     "nativeTests": 2,
     "nativeSeconds": 67.35,
     "rhesusFocusedTests": 3,
     "rhesusCastWeatherDaylightTests": 26,
-    "trojanFocusedTests": 5,
+    "trojanFocusedTests": 6,
     "hecubaFocusedTests": 4,
-    "persiansFocusedTests": 4
+    "persiansFocusedTests": 4,
+    "cargoRetentionChecks": 20,
+    "rhesusBrowserJourneys": 4,
+    "trojanBrowserJourneys": 6,
+    "optimizedImageSources": 220
   },
   "visualFollowup": [
-    "Lemnos day and night paintings are bound; the final rendered check and optimized image batch are queued.",
-    "Thrace and Susa use existing scenery during source validation. Their final art and desktop/phone journeys are queued.",
-    "Hector’s distinct shield, the broken Salamis oar and the returning king’s cloak need their final item artwork."
-  ]
+    "Thrace and Susa desktop/phone journeys are queued.",
+    "The reserved-family native journal case is written and waits for the shared native window.",
+    "The combined eleven-port circuit and released-shore migration remain queued."
+  ],
+  "art": "All fifteen approved cast portraits are bound. Lemnos, Thrace and Susa have paired day/night paintings. Hector’s shield, the broken oar and the returning king’s cloak have separate transparent artwork. Prompts and provenance are in the scenery guide."
 }

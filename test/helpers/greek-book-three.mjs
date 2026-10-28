@@ -5,6 +5,24 @@ import {
 } from "../../v2/card-game/narrative.mjs";
 import { ajaxJourney } from "./greek-ajax.mjs";
 
+let observePlay = null;
+
+export function traceBookJourney(run, openingChoice) {
+  let opening = null;
+  const actions = [];
+  observePlay = (world, action) => {
+    if (action.choiceId === openingChoice) opening = world;
+    if (opening) actions.push(action);
+  };
+  try {
+    const ending = run();
+    if (!opening) throw new Error(`Missing opening ${openingChoice}`);
+    return { opening, actions, ending };
+  } finally {
+    observePlay = null;
+  }
+}
+
 export function bookPlay(world, kind, fields = {}, actor = "vale") {
   const action = legalActions(world, actor).find(
     (candidate) =>
@@ -13,6 +31,7 @@ export function bookPlay(world, kind, fields = {}, actor = "vale") {
   );
   if (!action)
     throw new Error(`${actor} needs ${kind} ${JSON.stringify(fields)}`);
+  observePlay?.(world, action);
   const result = play(world, action, world.revision);
   if (!result.ok) throw new Error(result.error);
   return result.state;
@@ -485,6 +504,7 @@ export function bookTalk(world, speaker, topic, actor = "vale") {
     (candidate) => candidate.kind === "talk" && candidate.target === speaker,
   );
   if (!action) throw new Error(`${actor} needs Talk with ${speaker}`);
+  observePlay?.(world, action);
   const result = play(world, action, world.revision);
   if (!result.ok) throw new Error(result.error);
   const context = narrativeContext(result.state, action);

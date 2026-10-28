@@ -2904,7 +2904,7 @@
               "greek-thrace-summons-tent",
               "greek-thrace-burial-ground"
             ],
-            backdrop: "assets/greek-drama/sea.svg",
+            backdrop: "assets/greek-drama/book-three-thrace-day.webp",
             persona: "A fleet waits beyond the breakers. Captive households search among the new arrivals."
           },
           "greek-egypt-tomb": {
@@ -2948,7 +2948,7 @@
               "greek-susa-tomb",
               "greek-susa-threshold"
             ],
-            backdrop: "assets/greek-drama/palace.svg",
+            backdrop: "assets/greek-drama/book-three-susa-day.webp",
             persona: "Officials wait beside the royal tomb. The last dispatch from the fleet lies unopened."
           },
           "greek-scythian-crag": {
@@ -3269,7 +3269,7 @@
               "greek-thrace",
               "greek-thrace-burial-ground"
             ],
-            backdrop: "assets/greek-drama/ajax-camp-day.webp"
+            backdrop: "assets/greek-drama/book-three-thrace-day.webp"
           },
           "greek-thrace-burial-ground": {
             name: "The Two Burial Grounds",
@@ -3279,7 +3279,7 @@
               "greek-thrace",
               "greek-thrace-summons-tent"
             ],
-            backdrop: "assets/greek-drama/burial-ground-dusk.webp"
+            backdrop: "assets/greek-drama/book-three-thrace-day.webp"
           },
           "greek-susa-tomb": {
             name: "Darius\u2019s Royal Tomb",
@@ -3288,7 +3288,7 @@
             exits: [
               "greek-susa"
             ],
-            backdrop: "assets/greek-drama/palace-day.webp"
+            backdrop: "assets/greek-drama/book-three-susa-day.webp"
           },
           "greek-susa-threshold": {
             name: "The King\u2019s Return Threshold",
@@ -3297,7 +3297,7 @@
             exits: [
               "greek-susa"
             ],
-            backdrop: "assets/greek-drama/palace-day.webp"
+            backdrop: "assets/greek-drama/book-three-susa-day.webp"
           },
           "greek-susa-road": {
             name: "The Road to Susa",
@@ -5309,7 +5309,7 @@
             text: "Hector\u2019s shield has its own identity beside Ajax\u2019s shield. It serves the source burial or an earlier protective shelter.",
             holder: "greek-troy-shield-ground",
             persona: "This is the remembered fall of Troy, after the night-watch account. Hecuba is the same woman heard later on the Thracian shore. Andromache waits under Neoptolemus\u2019s recorded assignment. Astyanax is an offstage person under his mother\u2019s care; his place follows her actual journey in the rescue paths. The shield, cloth and letters are objects. Earlier Ajax deeds and the selected Helen and Atreid accounts retain their own times. Hector\u2019s shield has its own identity beside Ajax\u2019s shield. It serves the source burial or an earlier protective shelter. Its saved custody records its actual use.",
-            art: "assets/greek-drama/ajax-shield.png",
+            art: "assets/greek-drama/book-three-hector-shield.png",
             requires: [
               {
                 kind: "flag",
@@ -5465,7 +5465,7 @@
             text: "The survivor\u2019s broken oar carries the fleet\u2019s defeat into the historical court account.",
             holder: "greek-susa",
             persona: "This is a separate historical court account at Susa after Salamis in 480 BCE. The mythic Trojan road is the table\u2019s passage into this named historical frame. The messenger\u2019s dead, Darius\u2019s future Plataea warning and Xerxes\u2019s actual return have separate records. Atossa\u2019s private household consolation and the civic reckoning are original alternatives to the final public lament. The survivor\u2019s broken oar carries the fleet\u2019s defeat into the historical court account. Its saved custody records its actual use.",
-            art: "assets/greek-drama/ship-card.webp",
+            art: "assets/greek-drama/book-three-broken-oar.png",
             requires: [
               {
                 kind: "flag",
@@ -5517,7 +5517,7 @@
             text: "Atossa\u2019s prepared cloak can reach Xerxes\u2019s hand before he chooses his actual return audience.",
             holder: "greek-susa",
             persona: "This is a separate historical court account at Susa after Salamis in 480 BCE. The mythic Trojan road is the table\u2019s passage into this named historical frame. The messenger\u2019s dead, Darius\u2019s future Plataea warning and Xerxes\u2019s actual return have separate records. Atossa\u2019s private household consolation and the civic reckoning are original alternatives to the final public lament. Atossa\u2019s prepared cloak can reach Xerxes\u2019s hand before he chooses his actual return audience. Its saved custody records its actual use.",
-            art: "assets/greek-drama/funeral-cloth.svg",
+            art: "assets/greek-drama/book-three-xerxes-cloak.png",
             requires: [
               {
                 kind: "flag",
@@ -29362,7 +29362,8 @@
   }
   function canTrade(s, actor, give, receive) {
     const other = s.items[receive]?.holder;
-    if (packJourneyKeepsItem(s, other, receive)) return false;
+    if (packJourneyKeepsItem(s, actor, give) || packJourneyKeepsItem(s, other, receive))
+      return false;
     if (s.items[give]?.holder !== actor || !actorIds.includes(other) || !knownActors2(s).includes(other) || other === actor || controlledByHuman(s, other) || s.actors[actor].place !== s.actors[other].place)
       return false;
     if (hasMotives(s) ? !tradeDecision(s, actor, give, receive).accepted && !(hasQuestPrograms(s) && !s.life && !resentment(s, other, actor) && needed(s, other, give) && !needed(s, other, receive)) : !accepts(s, other, give) || needed(s, other, receive))
@@ -29935,7 +29936,7 @@
           )
         );
       }
-      if (item.holder === actor) {
+      if (item.holder === actor && !packJourneyKeepsItem(s, actor, id)) {
         out.push(
           offer(
             "drop",
@@ -31491,7 +31492,13 @@
     "greek-aulis-household": art("ajax-camp-night"),
     "greek-aulis-altar": art("ajax-camp-night"),
     "greek-lemnos": art("book-three-lemnos-night"),
-    "greek-lemnos-landing": art("book-three-lemnos-night")
+    "greek-lemnos-landing": art("book-three-lemnos-night"),
+    "greek-thrace": art("book-three-thrace-night"),
+    "greek-thrace-summons-tent": art("book-three-thrace-night"),
+    "greek-thrace-burial-ground": art("book-three-thrace-night"),
+    "greek-susa": art("book-three-susa-night"),
+    "greek-susa-tomb": art("book-three-susa-night"),
+    "greek-susa-threshold": art("book-three-susa-night")
   };
   var dockedNightBackdrops = {
     [art("harbor-ship-at-berth")]: art("harbor-ship-at-berth-night"),
@@ -31508,7 +31515,7 @@
     if (!world || !Object.hasOwn(nightBackdrops, id)) return null;
     const period = Math.floor(world.turn / DAYLIGHT_TURNS);
     const phase = period % 2 ? "night" : "day";
-    const where = id === "greek-athens-harbor" ? "at Athens Harbor" : id === "greek-piraeus" ? "at Piraeus Quays" : id === "greek-aulis" || id.startsWith("greek-aulis-") ? "at the remembered Aulis anchorage" : id === "greek-lemnos" || id.startsWith("greek-lemnos-") ? "on the remembered Lemnian shore" : id === "greek-greek-camp" || id.startsWith("greek-ajax-") ? "at the Greek camp near Troy" : "in Thebes";
+    const where = id === "greek-athens-harbor" ? "at Athens Harbor" : id === "greek-piraeus" ? "at Piraeus Quays" : id === "greek-aulis" || id.startsWith("greek-aulis-") ? "at the remembered Aulis anchorage" : id === "greek-lemnos" || id.startsWith("greek-lemnos-") ? "on the remembered Lemnian shore" : id === "greek-thrace" || id.startsWith("greek-thrace-") ? "on the remembered Thracian shore" : id === "greek-susa" || id.startsWith("greek-susa-") ? "at the historical court at Susa" : id === "greek-greek-camp" || id.startsWith("greek-ajax-") ? "at the Greek camp near Troy" : "in Thebes";
     return {
       phase,
       period,

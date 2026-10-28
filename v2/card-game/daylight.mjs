@@ -21,6 +21,12 @@ const nightBackdrops = {
   "greek-aulis-altar": art("ajax-camp-night"),
   "greek-lemnos": art("book-three-lemnos-night"),
   "greek-lemnos-landing": art("book-three-lemnos-night"),
+  "greek-thrace": art("book-three-thrace-night"),
+  "greek-thrace-summons-tent": art("book-three-thrace-night"),
+  "greek-thrace-burial-ground": art("book-three-thrace-night"),
+  "greek-susa": art("book-three-susa-night"),
+  "greek-susa-tomb": art("book-three-susa-night"),
+  "greek-susa-threshold": art("book-three-susa-night"),
 };
 const dockedNightBackdrops = {
   [art("harbor-ship-at-berth")]: art("harbor-ship-at-berth-night"),
@@ -47,9 +53,13 @@ export function locationDaylight(world, id) {
           ? "at the remembered Aulis anchorage"
           : id === "greek-lemnos" || id.startsWith("greek-lemnos-")
             ? "on the remembered Lemnian shore"
-          : id === "greek-greek-camp" || id.startsWith("greek-ajax-")
-            ? "at the Greek camp near Troy"
-            : "in Thebes";
+            : id === "greek-thrace" || id.startsWith("greek-thrace-")
+              ? "on the remembered Thracian shore"
+              : id === "greek-susa" || id.startsWith("greek-susa-")
+                ? "at the historical court at Susa"
+                : id === "greek-greek-camp" || id.startsWith("greek-ajax-")
+                  ? "at the Greek camp near Troy"
+                  : "in Thebes";
   return {
     phase,
     period,

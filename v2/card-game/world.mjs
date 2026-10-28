@@ -623,7 +623,11 @@ export function willingToGive(s, owner, item, recipient = null) {
 }
 export function canTrade(s, actor, give, receive) {
   const other = s.items[receive]?.holder;
-  if (packJourneyKeepsItem(s, other, receive)) return false;
+  if (
+    packJourneyKeepsItem(s, actor, give) ||
+    packJourneyKeepsItem(s, other, receive)
+  )
+    return false;
   if (
     s.items[give]?.holder !== actor ||
     !actorIds.includes(other) ||
@@ -1385,7 +1389,7 @@ export function legalActions(s, actor = currentActor(s)) {
         ),
       );
     }
-    if (item.holder === actor) {
+    if (item.holder === actor && !packJourneyKeepsItem(s, actor, id)) {
       out.push(
         offer(
           "drop",

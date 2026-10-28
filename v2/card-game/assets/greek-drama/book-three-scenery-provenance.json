@@ -1,7 +1,7 @@
 {
   "date": "2026-10-28",
   "tool": "built-in imagegen",
-  "mode": "day generation from style reference; night lighting edit",
+  "mode": "Original scenery and object generation; paired night lighting edits",
   "reference": "ajax-camp-day.webp",
   "records": [
     {
@@ -19,6 +19,83 @@
       "width": 1671,
       "height": 941,
       "sourceSha256": "8b0c68d38cc2f16bb955ee3c91c44ddf202a346c2a27e735c9712f8759709782"
+    },
+    {
+      "name": "susa-day",
+      "source": "book-three-sources/susa-day.png",
+      "asset": "book-three-susa-day.webp",
+      "width": 1672,
+      "height": 941,
+      "hasAlpha": false,
+      "sourceSha256": "4929c24f16c699ec29550dfef706246e93c2a44caa9fb039a37f777bbe171028",
+      "tool": "built-in imagegen",
+      "prompt": "Use case: historical game scenery. Paint one wide 16:9 CosyWorld backdrop in a rich hand-painted storybook style with detailed stone, warm light, deep space and a clear central foreground for character portraits. Show the Achaemenid court at ancient Susa in 480 BCE: a broad limestone courtyard, tall slender columns with paired bull capitals, blue and turquoise glazed brick friezes, a distant monumental hypostyle hall, low offering stone and royal tomb enclosure at the left, and a shaded palace threshold at the right. Pale ochre and turquoise, date palms, distant dry foothills, clear afternoon sky. The central paved court is empty and readable in a narrow phone crop. This is a Persian royal court; use Achaemenid architecture. Pure scenery, empty court, no people, ships, writing, captions, borders or game UI."
+    },
+    {
+      "name": "susa-night",
+      "source": "book-three-sources/susa-night.png",
+      "asset": "book-three-susa-night.webp",
+      "width": 1672,
+      "height": 941,
+      "hasAlpha": false,
+      "sourceSha256": "292fedd760f425943760fa7b7f8b58b3a2ac562a53edda43c20d36e3334c9385",
+      "tool": "built-in imagegen",
+      "prompt": "Use case: lighting edit of the attached Susa day painting. Preserve every building, column, bull capital, frieze, tomb, offering stone, palm, staircase, court perspective and framing exactly. Change only the lighting and sky to a clear starry Persian night. Cool bright moonlight makes the empty paved foreground readable, with restrained warm oil-lamp light from the palace threshold and a small brazier beside the offering stone. Keep the blue and turquoise Achaemenid details rich and readable in a phone crop. Pure empty scenery with no people, ships, writing, captions or game UI."
+    },
+    {
+      "name": "thrace-day",
+      "source": "book-three-sources/thrace-day.png",
+      "asset": "book-three-thrace-day.webp",
+      "width": 1672,
+      "height": 941,
+      "hasAlpha": false,
+      "sourceSha256": "989c5f205717b8091b75056c25fb60a3c5daaeb3478560746f87df6106fcf2b9",
+      "tool": "built-in imagegen",
+      "prompt": "Use case: historical game scenery. Paint one wide 16:9 CosyWorld backdrop in a rich hand-painted storybook style, detailed ancient stone and cloth, soft northern coastal daylight and depth. A quiet Thracian shore in antiquity: broad empty pale stone and sandy foreground for character portraits; a low canvas summons tent with dark doorway at the left; a path up to two simple uninscribed burial markers and a folded clean cloth on a low stone at the right; distant northern Aegean headland, cypress and scrub, calm empty blue water with a small empty stone landing at the mid-left shore. Keep the middle clear and readable in a narrow phone crop. Pure scenery. Empty water and berth, empty shore, no people, ships, bodies, bones, writing, captions, borders or game UI."
+    },
+    {
+      "name": "thrace-night",
+      "source": "book-three-sources/thrace-night.png",
+      "asset": "book-three-thrace-night.webp",
+      "width": 1672,
+      "height": 941,
+      "hasAlpha": false,
+      "sourceSha256": "318ff51423b01dfb3f1041ac75d7f19768783dc186af16d07da802367d5aa971",
+      "tool": "built-in imagegen",
+      "prompt": "Use case: lighting edit of the attached Thracian shore day painting. Preserve the exact shore, tent, empty landing, two plain burial markers, folded cloth, trees, headland, path and full composition. Change only lighting and sky to a clear moonlit coastal night: silver-blue water, a few stars, readable blue foreground light and one small oil lamp shining softly inside the tent. Keep the water, berth and foreground empty. Pure scenery with no people, ships, bodies, writing, captions or game UI."
+    },
+    {
+      "name": "hector-shield",
+      "source": "book-three-hector-shield.png",
+      "asset": "book-three-hector-shield.png",
+      "width": 1301,
+      "height": 1209,
+      "hasAlpha": true,
+      "sourceSha256": "cfa06800fbb6126ad88bc6df32e55e115fb1d8b02b15cdc31ca0629d4dce80d3",
+      "tool": "built-in imagegen",
+      "prompt": "Use case: painted game object cutout. One large ancient Trojan warrior’s bronze round shield, Hector’s shield for a warm illustrated storybook game. Three-quarter front view, broad circular dished shape, raised central bronze boss, restrained incised horse motif, weathered hammered bronze with a dark russet leather edge and a small visible leather grip behind. Dignified, worn from use, crisp painterly detail, warm highlights. Center the whole shield with a generous transparent margin on every side. No other objects, ground, person, letters, border or background. True transparent background, clean alpha silhouette."
+    },
+    {
+      "name": "broken-oar",
+      "source": "book-three-broken-oar.png",
+      "asset": "book-three-broken-oar.png",
+      "width": 1536,
+      "height": 1024,
+      "hasAlpha": true,
+      "sourceSha256": "ecb413bba46f2c38a95019a79e89b358533fcb7788404f97de2fe959d898ea5f",
+      "tool": "built-in imagegen",
+      "prompt": "Edit this exact broken wooden oar cutout. Preserve the wooden object, splintered upper end, blade, grain, size, lighting and diagonal pose exactly. Remove the amber glow at the upper left and every colored glow, haze or shadow outside the solid wooden silhouette. Everything outside the wood must have alpha zero. Keep the entire oar intact with transparent margins. True clean transparent background. No added marks, objects, border or text."
+    },
+    {
+      "name": "xerxes-cloak",
+      "source": "book-three-xerxes-cloak.png",
+      "asset": "book-three-xerxes-cloak.png",
+      "width": 1312,
+      "height": 1199,
+      "hasAlpha": true,
+      "sourceSha256": "74697a7ac7eae51dd36c6c1536dc8146bc69ba2d5aef5f09166a69c55fe0d809",
+      "tool": "built-in imagegen",
+      "prompt": "Use case: painted game object cutout. One folded royal Achaemenid Persian cloak prepared for a returning king in 480 BCE. Deep muted imperial purple wool with a cream inner lining, restrained fine gold embroidered hem and small geometric rosette border, a simple round gold clasp visible above the folds. Heavy natural folds, rich woven texture, dignified practical garment, warm detailed storybook painting. One complete loosely folded cloak centered with generous transparent margins. No person, mannequin, hanger, hand, ground, lettering, border or background. True transparent background, clean alpha silhouette."
     }
   ]
 }
