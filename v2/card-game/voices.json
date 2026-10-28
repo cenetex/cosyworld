@@ -7,7 +7,7 @@
       "name": "Vale",
       "file": "assets/voices/vale.mp3",
       "transcript": "The lamp is steady. We have a little oil left, and the shore looks quiet. I'll carry the lamp. You show me the crossing, and we call that a fair trade.",
-      "direction": "An adult androgynous voice with a low middle pitch, dry warmth, clear short phrases, and subtle practical humor. A relaxed traveler speaking close to the listener. A slight smile when making a bargain. Let the words guide the emotion.",
+      "direction": "An adult androgynous traveler with a low middle pitch, dry warmth, and subtle practical humor. Speak to one nearby friend. Connect the words into complete thoughts with clear consonants and brief natural pauses. Give key words gentle emphasis and let phrase endings settle softly. A slight smile colors a fair bargain. Let the words guide the emotion.",
       "speed": 1.12,
       "reference_sha256": "083024e8f77da085caaa10adb44a84684636039e1fe7b165cb93c57db77053f3"
     },
@@ -16,7 +16,7 @@
       "speed": 1.12,
       "file": "assets/voices/mara.mp3",
       "transcript": "A quiet room, a good mask, and an audience of two. We can begin. Lend me the stage for one evening. I'll give your little part a magnificent entrance.",
-      "direction": "An adult female voice with a warm middle pitch and lively theatrical range. Fluid phrasing, crisp words, a smile in the vowels, and a playful sense of timing. An inventive stage performer speaking intimately. Let the words guide the emotion.",
+      "direction": "An adult female stage performer with a warm middle pitch and lively theatrical range. Speak in a clear, present conversation with playful timing. Carry each sentence in a flowing arc with crisp words, light emphasis, and brief natural pauses. Let serious words sound sincere and let phrase endings settle softly. Let the words guide the emotion.",
       "reference_sha256": "0b6eddf93dc4a349ef85501f408666ce45c43d7e0b43d90225a0adf4b2feb1f0"
     },
     "moth": {
@@ -24,7 +24,7 @@
       "speed": 1.12,
       "file": "assets/voices/moth.mp3",
       "transcript": "Oh, what a lovely warm glow. My wings feel quite at home beside it. A little space by the lamp, and I'll tell you what I saw in the water. A splendid exchange.",
-      "direction": "A tiny adult moth creature with a bright high androgynous voice. Thin papery resonance, delicate breath, light fluttering vowels, quick precise consonants. Elaborately polite and proud. Every word is clear. Let the words guide the emotion.",
+      "direction": "A tiny adult moth creature with a bright high androgynous voice, thin papery resonance, and delicate breath. Elaborately polite and proud. Let the vowels flutter lightly through connected phrases with precise consonants. Use brief natural pauses, gentle emphasis, and soft phrase endings. Keep every word clear. Let the words guide the emotion.",
       "reference_sha256": "557bafdd84169ab55b2d7872479af437922e27f3fe3e8954a50d5dc71eaa0a5e"
     },
     "keeper": {
@@ -32,7 +32,7 @@
       "speed": 1.12,
       "file": "assets/voices/keeper.mp3",
       "transcript": "The bell is still. The platform is open. You may take your time. Bring the bell and a witness. I will consider one exception. Officially, once.",
-      "direction": "An ageless clock-faced being with a deep masculine voice, hollow wooden and brass resonance, solemn dignity, exact words, and evenly spaced pauses. Dry understated humor. Clear conversational speech. Let the words guide the emotion.",
+      "direction": "An ageless clock-faced being with a deep masculine voice, hollow wooden and brass resonance, and solemn dignity. Speak exact words in connected, measured thoughts with clear consonants. Use brief pauses where a thought turns and gentle emphasis on what matters. Let phrase endings settle softly, with dry understated humor when it fits. Let the words guide the emotion.",
       "reference_sha256": "9574342e6673aa904918baffb916aefffc0e3d6746b7f16636762d631bfe788b"
     },
     "badger": {
@@ -40,7 +40,7 @@
       "speed": 1.12,
       "file": "assets/voices/badger.mp3",
       "transcript": "Warm moss. Soft earth. A perfectly respectable place for a nap. Move that noisy business down the path, and I'll show you where the good mushrooms grow.",
-      "direction": "A sleepy adult male badger creature with a very low chest rumble, thick rounded vowels, coarse vocal grain, soft snorting breath and blunt phrase endings. Heavy, warm, earthy and reluctantly helpful. Every word is clear. Let the words guide the emotion.",
+      "direction": "A sleepy adult male badger creature with a very low chest rumble, thick rounded vowels, coarse vocal grain, and soft snorting breath. Warm, earthy, and reluctantly helpful. Connect the rounded words into clear phrases with brief natural pauses and gentle emphasis. Let each phrase end with a soft release. Dry humor suits his sleepy dignity. Let the words guide the emotion.",
       "reference_sha256": "f5492cf700d481d4e95a4c60191be42a937bbe4ca612878ce3b9267f20960362"
     },
     "greek-baker": {
@@ -48,7 +48,7 @@
       "speed": 1.12,
       "file": "assets/voices/greek-baker.mp3",
       "transcript": "The bread is warm. Set your jar by the door, and come sit with us. Bring the water back before dusk. I'll keep a loaf for you, and a place at the table.",
-      "direction": "A middle-aged woman with a warm low alto, a gentle husky grain and grounded confidence. Natural direct speech, generous warmth, clear consonants and practical affection. Firm and brisk when she is cross. Let the words guide the emotion.",
+      "direction": "A middle-aged woman with a warm low alto, gentle husky grain, and grounded confidence. Speak directly with generous warmth and practical affection. Carry connected phrases with clear consonants, gentle emphasis, and brief natural pauses. Let phrase endings settle with calm assurance. Sound firm and brisk when the words are cross. Let the words guide the emotion.",
       "reference_sha256": "0dc315f6c54a2a48fab122a0c1b3dc5876121073b696b0ce4537c2d76d0b08a8"
     }
   }
