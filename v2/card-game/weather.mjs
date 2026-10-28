@@ -27,6 +27,7 @@ function group(region, exposure, names) {
 }
 group("boeotia", "coast", "harbor aulis ship");
 group("boeotia", "court", "courtyard well palace");
+group("boeotia", "shelter", "heracles-theban-house");
 group("boeotia", "open", "gate battlefield road-thebes");
 group("boeotia", "grove", "sanctuary cithaeron");
 group("attica", "court", "athens acropolis acharnae");
@@ -38,18 +39,18 @@ group(
 group(
   "attica",
   "open",
-  "road-athens-piraeus road-athens-colonus road-athens-eleusis road-athens-marathon road-colonus-eleusis road-colonus-marathon",
+  "road-athens-piraeus road-athens-colonus road-athens-eleusis road-athens-marathon road-colonus-eleusis road-colonus-marathon heracles-athens-road",
 );
 group("attica", "open", "assembly attic-farm marathon");
-group("attica", "shelter", "demos-house thinkery jury-house");
+group("attica", "shelter", "demos-house thinkery jury-house heracles-athens-guest-room");
 group("attica", "grove", "festival colonus eleusis bird-wilderness");
 group("argolid", "open", "argolid-road argos-tomb");
 group("argolid", "coast", "argos-sanctuary");
-group("argolid", "court", "argos-palace mycenae-palace corinth troezen");
+group("argolid", "court", "argos-palace mycenae-palace corinth troezen danaid-refuge-court");
 group("argolid", "shelter", "argive-farm");
 group("phocis", "court", "delphi");
 group("thessaly", "shelter", "trachis");
-group("thessaly", "open", "oeta");
+group("thessaly", "open", "oeta trachis-canae-approach");
 group("thessaly", "court", "pherae");
 group("thessaly", "grove", "thetis");
 group("troad", "open", "troy trojan-camp");
