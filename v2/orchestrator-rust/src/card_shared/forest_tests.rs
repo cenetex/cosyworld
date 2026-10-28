@@ -3,16 +3,24 @@ use serde_json::json;
 
 #[test]
 fn forest_crossing_upgrades_from_sixteen_and_replays_with_two_humans() {
+    forest_crossing_upgrade_replays_with_two_humans(engine::SIXTEENTH_VERSION);
+}
+
+#[test]
+fn forest_crossing_upgrades_from_seventeen_and_replays_with_two_humans() {
+    forest_crossing_upgrade_replays_with_two_humans(engine::SEVENTEENTH_VERSION);
+}
+
+fn forest_crossing_upgrade_replays_with_two_humans(version: &str) {
     let path =
         std::env::temp_dir().join(format!("forest-crossing-{}.sqlite", crate::random_hex(12)));
     let c = store::open(&path).unwrap();
     full_store::schema(&c).unwrap();
     let id = "e".repeat(48);
     store::create(&c, &id, "owner", now()).unwrap();
-    let released =
-        engine::reduce_version(engine::SIXTEENTH_VERSION, json!({"op":"create"})).unwrap();
+    let released = engine::reduce_version(version, json!({"op":"create"})).unwrap();
     let mut w = World {
-        version: engine::SIXTEENTH_VERSION.into(),
+        version: version.into(),
         game: released["world"].clone(),
         claimed: [1, 1, 0, 0, 0, 0, 0, 0],
         present: [1, 1, 0, 0, 0, 0, 0, 0],
@@ -27,6 +35,23 @@ fn forest_crossing_upgrades_from_sixteen_and_replays_with_two_humans() {
     w.game["items"]["lamp"]["fuel"] = json!(0);
     full_store::seed(&c, &id, &w, "forest-crossing-two-human-fixture", now()).unwrap();
     assert!(w.game["packs"].get("lonely-forest").is_none());
+    // Record an accepted play under the released interpreter before the upgrade.
+    let wait = w.project(0).unwrap()["actions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|action| action["kind"] == "wait")
+        .unwrap()
+        .clone();
+    full_store::commit(
+        &c,
+        &id,
+        &mut w,
+        json!({"op":"play", "actor":"vale", "action":wait}),
+        now(),
+    )
+    .unwrap();
+    assert_eq!(w.version, version);
     let old = w.clone();
     let mut w = full_store::world(&c, &id, now()).unwrap();
     assert_eq!(w.version, engine::VERSION);
@@ -81,7 +106,7 @@ fn forest_crossing_upgrades_from_sixteen_and_replays_with_two_humans() {
     assert_eq!(full_store::world(&restored, &id, now()).unwrap(), expected);
     let upgrades: i64 = c.query_row(
         "SELECT COUNT(*) FROM card_full_log WHERE world=? AND json_extract(command,'$.op')='upgrade' AND json_extract(command,'$.from')=? AND json_extract(command,'$.to')=?",
-        rusqlite::params![id, engine::SIXTEENTH_VERSION, engine::VERSION], |row| row.get(0),
+        rusqlite::params![id, version, engine::VERSION], |row| row.get(0),
     ).unwrap();
     assert_eq!(upgrades, 1);
 }
