@@ -264,6 +264,10 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/world.mjs"),
         ),
+        "trust.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/trust.mjs"),
+        ),
         "scene.mjs" => (
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/scene.mjs"),
@@ -3678,6 +3682,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
             "\"f860b068017897de1a962925a5f3099752b84ba025a2276f62460fe92f90f855\""
         }
         "world.mjs" => "\"fcabdcd5aef4277865b19cdea1848f2b92710b491ead4a63d7f313d7da024f64\"",
+        "trust.mjs" => "\"898db9e446620380db7110857b9fe17ab02e864cfb19ea48c47948bc44bd7139\"",
         "scene.mjs" => "\"0723c3843e507356960d512390cbe403a1bc10284a48b36632ec7f7778fbeb2a\"",
         "weather.mjs" => "\"aa6f88ced8c7d330c175c3d7162bcfa3b1b204e195c29c2944ace7b5c5e52d80\"",
         "daylight.mjs" => "\"47cf78adbbc5351e12ebcf0b1e1ca08fb48993b8469ac2ca1f97f0e346e97f1d\"",
@@ -3780,7 +3785,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "cards.mjs" => "\"36d805245c0a19dd5b28b4cddf810ddd19714eae5b06068a943f5979014fd686\"",
         "lessons.mjs" => "\"d356ccfd6d4bb622ea7e325ebae519f3ff37433013b04874f07f83865b883705\"",
-        "motives.mjs" => "\"fb5eb498e317a14ef6e09ed438f992b6eb85a802a969f3f6929a9f4d8c417202\"",
+        "motives.mjs" => "\"acb3c1f46ea545205729ff9ae41be7e05b118eaa4788f1cbd9c8e18c07b29e20\"",
         "life.mjs" => "\"b3240510794019c3a7a0f88e08a12970d7480642d9aa112b5a01ae5f83695bad\"",
         "quests.mjs" => "\"42e47c2af91451fec3717b74c9e2400a5843fc3b22b40261b6ef76f7e50384e8\"",
         "quest-offers.mjs" => {
@@ -3824,11 +3829,11 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "quest-cards.mjs" => "\"908c572d747f3bc2564571bb94f351c7704d7a96222d61e66c5239d21d69f7db\"",
         "situations.mjs" => "\"0a3da7ead63ef181e8d3845695543939e0395312418e5f5ccf25d67127252a56\"",
         "memory.mjs" => "\"db094e20b9b8df8a22bc2c0d234fafdc487f498a0f1a6c1b45458f16b720148e\"",
-        "learning.mjs" => "\"865641bc676684d3f0adae2ad1cefd616df1ccd469ae1b2c2d211133199980f8\"",
+        "learning.mjs" => "\"99d95f0d96da157e88e50a44901f80a5b8fc5218ac61724fdb451a3907830338\"",
         "adaptive-learning.mjs" => {
-            "\"fac61b19819f69d0c4b8a193cc8dc3ecae3f4fea5bb327b992b62fe161db10de\""
+            "\"7fdaf9f2e6588f064754a166b81ebd355c432925ad972db231088e04c2efaddb\""
         }
-        "narrative.mjs" => "\"954256a8dbf8b9754aa31a9f6eefee086eb84371dcd98c8f1082e43c338499bc\"",
+        "narrative.mjs" => "\"e121c93c7941f937bf6daf2179468952c75c70b7419c45ff6883f16818a5a162\"",
         "expression.mjs" => "\"821dc690b00bd4bab145a22b30de6b173697a1e66c1c78a3c5de88f443c0a153\"",
         "emoji-symbols.json" => {
             "\"4309aa5174e51a83d139e4acfbc025d006faeda6dc30fe86d488e81b367d5bc1\""
@@ -3877,7 +3882,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
             "\"91245b851ecb2ae841364fbac5664e7095e9c5dbcd45844dd1afaffd91b209fb\""
         }
         "legacy-saves.mjs" => {
-            "\"61dc9d21497bd349248e578cfe73d940f6febbcafa6c7d611639e7e059e06c97\""
+            "\"c675e4fd95e75b2a626c6c57ec058d2447ee27963607f3d5790a2e8902d25019\""
         }
         "legacy-greek-catalog.mjs" => {
             "\"51327d63fa21981a48e7b2bee7359e65224b35a81e0fc0b12f8b475e5d2f926d\""

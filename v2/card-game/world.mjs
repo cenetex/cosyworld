@@ -1,3 +1,4 @@
+import { trustValue, validTrust } from "./trust.mjs";
 import { captureQuestHands, advanceQuestPrograms } from "./quest-progress.mjs";
 import { expressionOf } from "./expression.mjs";
 import { recordLearning, beginLearning, reconsiderPlan } from "./learning.mjs";
@@ -247,15 +248,7 @@ function knownActors(world) {
   return (reads.knownActors ??= readKnownActors(world)).slice();
 }
 
-const expectedTrustKeys = Object.fromEntries(
-  actorIds.map((id) => [
-    id,
-    actorIds
-      .filter((other) => other !== id)
-      .sort()
-      .join(),
-  ]),
-);
+const trustActorIds = new Set(actorIds);
 export const nameOf = (id) =>
   places[id]?.name || people[id]?.name || things[id]?.name || "the world";
 export function createWorld({ opening = false, packScopes = {} } = {}) {
@@ -309,9 +302,7 @@ function installPacks(s) {
         progress: newProgress(),
         crossed: 0,
         lastTalk: -9,
-        trust: Object.fromEntries(
-          actorIds.filter((other) => other !== id).map((other) => [other, 0]),
-        ),
+        trust: {},
         ...newTemperament(id),
       };
       s.peaceUntil[id] = 0;
@@ -323,9 +314,6 @@ function installPacks(s) {
       s.items[id] = { holder: item.holder, history: [] };
       s.memories[id] = fresh[id];
     }
-    for (const [id, actor] of Object.entries(s.actors))
-      for (const other of Object.keys(pack.avatars))
-        if (other !== id) actor.trust[other] ??= 0;
     for (const id of Object.keys(pack.places)) s.memories[id] ??= fresh[id];
   }
   installHumanLife(s, (id) => tastes[id]);
@@ -667,7 +655,7 @@ export function willingToGive(s, owner, item, recipient = null) {
     !controlledByHuman(s, owner) &&
     !needed(s, owner, item) &&
     (handStatus(s, owner).items.every((e) => e.met) ||
-      (recipient && s.actors[owner].trust[recipient] > 0) ||
+      (recipient && trustValue(s, owner, recipient) > 0) ||
       (recipient === "vale" && valeStalled(s)))
   );
 }
@@ -827,7 +815,7 @@ function applyConsequence(s, actor, target) {
     case "trust":
       s.actors[effect.avatar].trust[actor] = Math.min(
         3,
-        s.actors[effect.avatar].trust[actor] + 1,
+        trustValue(s, effect.avatar, actor) + 1,
       );
       text = `${nameOf(effect.avatar)} remembers ${nameOf(actor)}'s help. They will share spare items sooner and accept a detour in their company.`;
       break;
@@ -1173,7 +1161,7 @@ export function accompanyDecision(
     if (company.every((id) => s.actors[id].place === destination))
       return agree(`Travel in ${nameOf(actor)}'s company.`);
   }
-  if (s.actors[companion].trust[actor] > 0)
+  if (trustValue(s, companion, actor) > 0)
     return {
       ...agree(`Remember ${nameOf(actor)}'s help and share this detour.`),
       favor: true,
@@ -1756,7 +1744,9 @@ function perform(s, a, capture = () => {}, round = null) {
           respondentConflict.answered = true;
       }
       invitation = accompanyDecision(s, a.actor, a.target, a.destination, true);
-      if (invitation.favor) s.actors[a.target].trust[a.actor] -= 1;
+      if (invitation.favor)
+        s.actors[a.target].trust[a.actor] =
+          trustValue(s, a.target, a.actor) - 1;
       s.actors[a.actor].lastTalk = s.turn;
       if (invitation.accepted) {
         const visits = (s.invitedPlaces ??= {});
@@ -1930,9 +1920,10 @@ function perform(s, a, capture = () => {}, round = null) {
       if (willing) {
         if (
           !handStatus(s, a.target).items.every((e) => e.met) &&
-          s.actors[a.target].trust[a.actor] > 0
+          trustValue(s, a.target, a.actor) > 0
         )
-          s.actors[a.target].trust[a.actor] -= 1;
+          s.actors[a.target].trust[a.actor] =
+            trustValue(s, a.target, a.actor) - 1;
         text = `${nameOf(a.target)} hands the ${nameOf(a.item)} to ${who}.`;
         transfer(s, a.item, a.actor, text);
       } else {
@@ -3217,12 +3208,7 @@ export function validateWorld(s) {
       fail();
   }
   for (const [id, a] of Object.entries(s.actors)) {
-    if (
-      !a.trust ||
-      Object.keys(a.trust).sort().join() !== expectedTrustKeys[id] ||
-      Object.values(a.trust).some((n) => !Number.isInteger(n) || n < 0 || n > 3)
-    )
-      fail();
+    if (!validTrust(a.trust, id, trustActorIds)) fail();
     if (
       !Object.hasOwn(places, a.place) ||
       !actorCanVisit(id, a.place, s) ||

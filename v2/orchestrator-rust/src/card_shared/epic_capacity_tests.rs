@@ -23,13 +23,25 @@ fn routes_through_crag_camp(previous: &Value) -> Value {
     json!(routes)
 }
 
+fn sorted_routes(previous: &Value) -> Vec<String> {
+    let mut routes: Vec<_> = previous.as_array().unwrap().iter().map(Value::to_string).collect();
+    routes.sort();
+    routes
+}
+
 // Earlier saved fields retain their values. The eastern road gains its
 // authored camp, and the pack revision records the larger catalog.
 fn assert_retained(old: &Value, current: &Value, path: &str) {
     if path.ends_with("packs.greek-drama.revision") {
         assert!(current.as_u64().unwrap() >= old.as_u64().unwrap());
     } else if path.contains("routeKnowledge.") && old.is_array() {
-        assert_eq!(current, &routes_through_crag_camp(old), "Retain {path}");
+        // A normal turn sorts learned roads through rememberRoutes. Compare
+        // every saved edge after the camp expansion, including multiplicity.
+        assert_eq!(
+            sorted_routes(current),
+            sorted_routes(&routes_through_crag_camp(old)),
+            "Retain {path}"
+        );
     } else if let Some(fields) = old.as_object() {
         for (key, value) in fields {
             assert_retained(value, &current[key], &format!("{path}.{key}"));
@@ -53,6 +65,15 @@ fn select(world: &World, field: &str, value: &str) -> Value {
 fn assert_catalog_extension(old: &Value, current: &Value, fresh: bool) {
     let mut retained = current.clone();
     if fresh {
+        // Fresh rules21 rows resolve absent peers to zero. Imported rows stay exact.
+        for (id, actor) in old["actors"].as_object().unwrap() {
+            for (other, value) in actor["trust"].as_object().unwrap() {
+                if retained["actors"][id]["trust"].get(other).is_none() {
+                    assert_eq!(value, &json!(0));
+                    retained["actors"][id]["trust"][other] = json!(0);
+                }
+            }
+        }
         let expected_routes = routes_through_crag_camp(&old["routeKnowledge"]["greek-rhapsode"]);
         let previous_routes = expected_routes.as_array().unwrap();
         let routes = current["routeKnowledge"]["greek-rhapsode"]

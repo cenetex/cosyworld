@@ -1,0 +1,856 @@
+{
+  "actors": 200,
+  "bounded_cache_options": {
+    "eight_maximum_legal_replies_and_keys": 33555456,
+    "forty_mib": 41943040,
+    "sixteen_mib": 16777216,
+    "twenty_four_mib": 25165824
+  },
+  "cache_after_second_pass": {
+    "byte_limit": 41943040,
+    "bytes": 11365104,
+    "entries": 8,
+    "entry_limit": 32
+  },
+  "changed_view_inputs": [
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1371.815917,
+      "field": "actor",
+      "input_bytes": 1195794,
+      "output_bytes": 1420181
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1402.8731249999998,
+      "field": "present",
+      "input_bytes": 1195748,
+      "output_bytes": 1423136
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1418.207,
+      "field": "world",
+      "input_bytes": 1195794,
+      "output_bytes": 1423182
+    }
+  ],
+  "cold_calls": [
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1053.7520840000002,
+      "error": null,
+      "input_bytes": 15,
+      "op": "create",
+      "output_bytes": 1423014,
+      "sample": 0
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1039.313083,
+      "error": null,
+      "input_bytes": 15,
+      "op": "create",
+      "output_bytes": 1423014,
+      "sample": 1
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1049.539958,
+      "error": null,
+      "input_bytes": 15,
+      "op": "create",
+      "output_bytes": 1423014,
+      "sample": 2
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1048.907083,
+      "error": null,
+      "input_bytes": 15,
+      "op": "create",
+      "output_bytes": 1423014,
+      "sample": 3
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1042.211833,
+      "error": null,
+      "input_bytes": 15,
+      "op": "create",
+      "output_bytes": 1423014,
+      "sample": 4
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1040.122417,
+      "error": null,
+      "input_bytes": 15,
+      "op": "create",
+      "output_bytes": 1423014,
+      "sample": 5
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1042.116542,
+      "error": null,
+      "input_bytes": 15,
+      "op": "create",
+      "output_bytes": 1423014,
+      "sample": 6
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1058.2737499999998,
+      "error": null,
+      "input_bytes": 15,
+      "op": "create",
+      "output_bytes": 1423014,
+      "sample": 7
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1052.435625,
+      "error": null,
+      "input_bytes": 15,
+      "op": "create",
+      "output_bytes": 1423014,
+      "sample": 8
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1045.608166,
+      "error": null,
+      "input_bytes": 15,
+      "op": "create",
+      "output_bytes": 1423014,
+      "sample": 9
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1245.361792,
+      "error": null,
+      "input_bytes": 1195798,
+      "op": "validate",
+      "output_bytes": 1195647,
+      "sample": 0
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1243.609375,
+      "error": null,
+      "input_bytes": 1195798,
+      "op": "validate",
+      "output_bytes": 1195647,
+      "sample": 1
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1250.739208,
+      "error": null,
+      "input_bytes": 1195798,
+      "op": "validate",
+      "output_bytes": 1195647,
+      "sample": 2
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1275.007666,
+      "error": null,
+      "input_bytes": 1195798,
+      "op": "validate",
+      "output_bytes": 1195647,
+      "sample": 3
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1266.9628340000002,
+      "error": null,
+      "input_bytes": 1195798,
+      "op": "validate",
+      "output_bytes": 1195647,
+      "sample": 4
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1262.818083,
+      "error": null,
+      "input_bytes": 1195798,
+      "op": "validate",
+      "output_bytes": 1195647,
+      "sample": 5
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1293.872417,
+      "error": null,
+      "input_bytes": 1195798,
+      "op": "validate",
+      "output_bytes": 1195647,
+      "sample": 6
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1240.5607089999999,
+      "error": null,
+      "input_bytes": 1195798,
+      "op": "validate",
+      "output_bytes": 1195647,
+      "sample": 7
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1236.6955,
+      "error": null,
+      "input_bytes": 1195798,
+      "op": "validate",
+      "output_bytes": 1195647,
+      "sample": 8
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1242.144666,
+      "error": null,
+      "input_bytes": 1195798,
+      "op": "validate",
+      "output_bytes": 1195647,
+      "sample": 9
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1377.1623339999999,
+      "error": null,
+      "input_bytes": 1195798,
+      "op": "view",
+      "output_bytes": 1423186,
+      "sample": 0
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1374.449833,
+      "error": null,
+      "input_bytes": 1195798,
+      "op": "view",
+      "output_bytes": 1423186,
+      "sample": 1
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1378.5835,
+      "error": null,
+      "input_bytes": 1195798,
+      "op": "view",
+      "output_bytes": 1423186,
+      "sample": 2
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1379.346959,
+      "error": null,
+      "input_bytes": 1195798,
+      "op": "view",
+      "output_bytes": 1423186,
+      "sample": 3
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1375.3274580000002,
+      "error": null,
+      "input_bytes": 1195798,
+      "op": "view",
+      "output_bytes": 1423186,
+      "sample": 4
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1380.105917,
+      "error": null,
+      "input_bytes": 1195798,
+      "op": "view",
+      "output_bytes": 1423186,
+      "sample": 5
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1371.442958,
+      "error": null,
+      "input_bytes": 1195798,
+      "op": "view",
+      "output_bytes": 1423186,
+      "sample": 6
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1382.84575,
+      "error": null,
+      "input_bytes": 1195798,
+      "op": "view",
+      "output_bytes": 1423186,
+      "sample": 7
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1379.955458,
+      "error": null,
+      "input_bytes": 1195798,
+      "op": "view",
+      "output_bytes": 1423186,
+      "sample": 8
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1379.0844579999998,
+      "error": null,
+      "input_bytes": 1195798,
+      "op": "view",
+      "output_bytes": 1423186,
+      "sample": 9
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1968.556625,
+      "error": null,
+      "input_bytes": 1195936,
+      "op": "play",
+      "output_bytes": 1461064,
+      "sample": 0
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1962.3305420000002,
+      "error": null,
+      "input_bytes": 1195936,
+      "op": "play",
+      "output_bytes": 1461064,
+      "sample": 1
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1969.889792,
+      "error": null,
+      "input_bytes": 1195936,
+      "op": "play",
+      "output_bytes": 1461064,
+      "sample": 2
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1964.8505,
+      "error": null,
+      "input_bytes": 1195936,
+      "op": "play",
+      "output_bytes": 1461064,
+      "sample": 3
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1968.8388340000001,
+      "error": null,
+      "input_bytes": 1195936,
+      "op": "play",
+      "output_bytes": 1461064,
+      "sample": 4
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1963.1706669999999,
+      "error": null,
+      "input_bytes": 1195936,
+      "op": "play",
+      "output_bytes": 1461064,
+      "sample": 5
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1970.179042,
+      "error": null,
+      "input_bytes": 1195936,
+      "op": "play",
+      "output_bytes": 1461064,
+      "sample": 6
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1965.038084,
+      "error": null,
+      "input_bytes": 1195936,
+      "op": "play",
+      "output_bytes": 1461064,
+      "sample": 7
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1966.937625,
+      "error": null,
+      "input_bytes": 1195936,
+      "op": "play",
+      "output_bytes": 1461064,
+      "sample": 8
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1963.286459,
+      "error": null,
+      "input_bytes": 1195936,
+      "op": "play",
+      "output_bytes": 1461064,
+      "sample": 9
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1502.4762090000002,
+      "error": null,
+      "input_bytes": 127188,
+      "op": "upgrade",
+      "output_bytes": 1201686,
+      "sample": 0
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1432.8007499999999,
+      "error": null,
+      "input_bytes": 127188,
+      "op": "upgrade",
+      "output_bytes": 1201686,
+      "sample": 1
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1431.7431250000002,
+      "error": null,
+      "input_bytes": 127188,
+      "op": "upgrade",
+      "output_bytes": 1201686,
+      "sample": 2
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1419.5875,
+      "error": null,
+      "input_bytes": 127188,
+      "op": "upgrade",
+      "output_bytes": 1201686,
+      "sample": 3
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1414.688875,
+      "error": null,
+      "input_bytes": 127188,
+      "op": "upgrade",
+      "output_bytes": 1201686,
+      "sample": 4
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1419.663833,
+      "error": null,
+      "input_bytes": 127188,
+      "op": "upgrade",
+      "output_bytes": 1201686,
+      "sample": 5
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1416.7155,
+      "error": null,
+      "input_bytes": 127188,
+      "op": "upgrade",
+      "output_bytes": 1201686,
+      "sample": 6
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1420.626792,
+      "error": null,
+      "input_bytes": 127188,
+      "op": "upgrade",
+      "output_bytes": 1201686,
+      "sample": 7
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1415.532375,
+      "error": null,
+      "input_bytes": 127188,
+      "op": "upgrade",
+      "output_bytes": 1201686,
+      "sample": 8
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1416.35525,
+      "error": null,
+      "input_bytes": 127188,
+      "op": "upgrade",
+      "output_bytes": 1201686,
+      "sample": 9
+    }
+  ],
+  "command_cache_bypass": [
+    {
+      "elapsed_ms": 2020.9186250000002,
+      "input_bytes": 1195936,
+      "op": "play",
+      "output_bytes": 1461064,
+      "planted_cache_value_ignored": true,
+      "sample": 0
+    },
+    {
+      "elapsed_ms": 2001.8712079999998,
+      "input_bytes": 1195936,
+      "op": "play",
+      "output_bytes": 1461064,
+      "planted_cache_value_ignored": true,
+      "sample": 1
+    }
+  ],
+  "dense_trust_bytes": 1069029,
+  "eight_cache_bytes_needed": 11365104,
+  "eight_key_bytes": 664,
+  "eight_reply_bytes": 11364440,
+  "fresh_shared_save_bytes": 1195627,
+  "items": 252,
+  "keyed_trust_map_bytes": 1074201,
+  "limits": {
+    "cache_bytes": 41943040,
+    "cache_entries": 32,
+    "deadline_ms": 2000,
+    "heap_bytes": 100663296,
+    "input_output_bytes": 4194304,
+    "save_import_bytes": 2097152
+  },
+  "old_actors": 66,
+  "operations": [
+    {
+      "errors": [],
+      "max_input_bytes": 15,
+      "max_ms": 1058.2737499999998,
+      "max_output_bytes": 1423014,
+      "op": "create",
+      "p95_ms": 1058.2737499999998,
+      "samples": 10
+    },
+    {
+      "errors": [],
+      "max_input_bytes": 1195798,
+      "max_ms": 1293.872417,
+      "max_output_bytes": 1195647,
+      "op": "validate",
+      "p95_ms": 1293.872417,
+      "samples": 10
+    },
+    {
+      "errors": [],
+      "max_input_bytes": 1195798,
+      "max_ms": 1382.84575,
+      "max_output_bytes": 1423186,
+      "op": "view",
+      "p95_ms": 1382.84575,
+      "samples": 10
+    },
+    {
+      "errors": [],
+      "max_input_bytes": 1195936,
+      "max_ms": 1970.179042,
+      "max_output_bytes": 1461064,
+      "op": "play",
+      "p95_ms": 1970.179042,
+      "samples": 10
+    },
+    {
+      "errors": [],
+      "max_input_bytes": 127188,
+      "max_ms": 1502.4762090000002,
+      "max_output_bytes": 1201686,
+      "op": "upgrade",
+      "p95_ms": 1502.4762090000002,
+      "samples": 10
+    }
+  ],
+  "rules": "full-card-world/21",
+  "scope": "Actual installed catalog and fresh eight-player views; final whole-catalog, long history and reading envelopes remain separate proof",
+  "source_commit": "5f0ce983906dcc7340188c0b728caec957fc3ee3",
+  "viewer_calls": [
+    {
+      "actor": "vale",
+      "cache_after": {
+        "byte_limit": 41943040,
+        "bytes": 1423265,
+        "entries": 1,
+        "entry_limit": 32
+      },
+      "cache_hit": false,
+      "cached_output_bytes": 1423182,
+      "elapsed_ms": 1388.192125,
+      "error": null,
+      "input_bytes": 1195794,
+      "key_bytes": 83,
+      "output_bytes": 1423182,
+      "pass": 0
+    },
+    {
+      "actor": "mara",
+      "cache_after": {
+        "byte_limit": 41943040,
+        "bytes": 2843529,
+        "entries": 2,
+        "entry_limit": 32
+      },
+      "cache_hit": false,
+      "cached_output_bytes": 1420181,
+      "elapsed_ms": 1367.364458,
+      "error": null,
+      "input_bytes": 1195794,
+      "key_bytes": 83,
+      "output_bytes": 1420181,
+      "pass": 0
+    },
+    {
+      "actor": "ash",
+      "cache_after": {
+        "byte_limit": 41943040,
+        "bytes": 4263793,
+        "entries": 3,
+        "entry_limit": 32
+      },
+      "cache_hit": false,
+      "cached_output_bytes": 1420181,
+      "elapsed_ms": 1367.834875,
+      "error": null,
+      "input_bytes": 1195793,
+      "key_bytes": 83,
+      "output_bytes": 1420181,
+      "pass": 0
+    },
+    {
+      "actor": "nell",
+      "cache_after": {
+        "byte_limit": 41943040,
+        "bytes": 5684053,
+        "entries": 4,
+        "entry_limit": 32
+      },
+      "cache_hit": false,
+      "cached_output_bytes": 1420177,
+      "elapsed_ms": 1368.158875,
+      "error": null,
+      "input_bytes": 1195794,
+      "key_bytes": 83,
+      "output_bytes": 1420177,
+      "pass": 0
+    },
+    {
+      "actor": "tavi",
+      "cache_after": {
+        "byte_limit": 41943040,
+        "bytes": 7104301,
+        "entries": 5,
+        "entry_limit": 32
+      },
+      "cache_hit": false,
+      "cached_output_bytes": 1420165,
+      "elapsed_ms": 1366.564291,
+      "error": null,
+      "input_bytes": 1195794,
+      "key_bytes": 83,
+      "output_bytes": 1420165,
+      "pass": 0
+    },
+    {
+      "actor": "rue",
+      "cache_after": {
+        "byte_limit": 41943040,
+        "bytes": 8524567,
+        "entries": 6,
+        "entry_limit": 32
+      },
+      "cache_hit": false,
+      "cached_output_bytes": 1420183,
+      "elapsed_ms": 1367.8793329999999,
+      "error": null,
+      "input_bytes": 1195793,
+      "key_bytes": 83,
+      "output_bytes": 1420183,
+      "pass": 0
+    },
+    {
+      "actor": "orin",
+      "cache_after": {
+        "byte_limit": 41943040,
+        "bytes": 9944849,
+        "entries": 7,
+        "entry_limit": 32
+      },
+      "cache_hit": false,
+      "cached_output_bytes": 1420199,
+      "elapsed_ms": 1369.5115,
+      "error": null,
+      "input_bytes": 1195794,
+      "key_bytes": 83,
+      "output_bytes": 1420199,
+      "pass": 0
+    },
+    {
+      "actor": "ada",
+      "cache_after": {
+        "byte_limit": 41943040,
+        "bytes": 11365104,
+        "entries": 8,
+        "entry_limit": 32
+      },
+      "cache_hit": false,
+      "cached_output_bytes": 1420172,
+      "elapsed_ms": 1393.699333,
+      "error": null,
+      "input_bytes": 1195793,
+      "key_bytes": 83,
+      "output_bytes": 1420172,
+      "pass": 0
+    },
+    {
+      "actor": "vale",
+      "cache_after": {
+        "byte_limit": 41943040,
+        "bytes": 11365104,
+        "entries": 8,
+        "entry_limit": 32
+      },
+      "cache_hit": true,
+      "cached_output_bytes": 1423182,
+      "elapsed_ms": 85.503417,
+      "error": null,
+      "input_bytes": 1195794,
+      "key_bytes": 83,
+      "output_bytes": 1423182,
+      "pass": 1
+    },
+    {
+      "actor": "mara",
+      "cache_after": {
+        "byte_limit": 41943040,
+        "bytes": 11365104,
+        "entries": 8,
+        "entry_limit": 32
+      },
+      "cache_hit": true,
+      "cached_output_bytes": 1420181,
+      "elapsed_ms": 86.06099999999999,
+      "error": null,
+      "input_bytes": 1195794,
+      "key_bytes": 83,
+      "output_bytes": 1420181,
+      "pass": 1
+    },
+    {
+      "actor": "ash",
+      "cache_after": {
+        "byte_limit": 41943040,
+        "bytes": 11365104,
+        "entries": 8,
+        "entry_limit": 32
+      },
+      "cache_hit": true,
+      "cached_output_bytes": 1420181,
+      "elapsed_ms": 88.12616600000001,
+      "error": null,
+      "input_bytes": 1195793,
+      "key_bytes": 83,
+      "output_bytes": 1420181,
+      "pass": 1
+    },
+    {
+      "actor": "nell",
+      "cache_after": {
+        "byte_limit": 41943040,
+        "bytes": 11365104,
+        "entries": 8,
+        "entry_limit": 32
+      },
+      "cache_hit": true,
+      "cached_output_bytes": 1420177,
+      "elapsed_ms": 84.71787499999999,
+      "error": null,
+      "input_bytes": 1195794,
+      "key_bytes": 83,
+      "output_bytes": 1420177,
+      "pass": 1
+    },
+    {
+      "actor": "tavi",
+      "cache_after": {
+        "byte_limit": 41943040,
+        "bytes": 11365104,
+        "entries": 8,
+        "entry_limit": 32
+      },
+      "cache_hit": true,
+      "cached_output_bytes": 1420165,
+      "elapsed_ms": 84.712209,
+      "error": null,
+      "input_bytes": 1195794,
+      "key_bytes": 83,
+      "output_bytes": 1420165,
+      "pass": 1
+    },
+    {
+      "actor": "rue",
+      "cache_after": {
+        "byte_limit": 41943040,
+        "bytes": 11365104,
+        "entries": 8,
+        "entry_limit": 32
+      },
+      "cache_hit": true,
+      "cached_output_bytes": 1420183,
+      "elapsed_ms": 84.921083,
+      "error": null,
+      "input_bytes": 1195793,
+      "key_bytes": 83,
+      "output_bytes": 1420183,
+      "pass": 1
+    },
+    {
+      "actor": "orin",
+      "cache_after": {
+        "byte_limit": 41943040,
+        "bytes": 11365104,
+        "entries": 8,
+        "entry_limit": 32
+      },
+      "cache_hit": true,
+      "cached_output_bytes": 1420199,
+      "elapsed_ms": 85.671834,
+      "error": null,
+      "input_bytes": 1195794,
+      "key_bytes": 83,
+      "output_bytes": 1420199,
+      "pass": 1
+    },
+    {
+      "actor": "ada",
+      "cache_after": {
+        "byte_limit": 41943040,
+        "bytes": 11365104,
+        "entries": 8,
+        "entry_limit": 32
+      },
+      "cache_hit": true,
+      "cached_output_bytes": 1420172,
+      "elapsed_ms": 84.357625,
+      "error": null,
+      "input_bytes": 1195793,
+      "key_bytes": 83,
+      "output_bytes": 1420172,
+      "pass": 1
+    }
+  ],
+  "evidence_notes": {
+    "profile": "One build worker and one test worker; debug symbols disabled; 16 MiB Rust thread stack; 40 MiB host view cache",
+    "catalog": "43-work intermediate baseline; 200 actors and 252 items; final Frogs and archive/history/reading proof pending",
+    "outer_wall_time": "The audit checks engine results. Cold play max was 1970.179042 ms; two command-cache-bypass plays returned successfully at 2020.918625 and 2001.871208 ms. These exceed the 2000 ms outer wall-time gate.",
+    "command_cache": "Both repeated play calls ignored planted view-cache entries and produced the real changed world",
+    "byte_names": "dense_trust_bytes sums trust rows. keyed_trust_map_bytes includes actor IDs and outer JSON punctuation",
+    "native_result": "4 passed; 0 failed; 101.71 seconds; final release qualification remains pending"
+  }
+}

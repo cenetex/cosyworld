@@ -1,3 +1,4 @@
+import { trustValue } from "./trust.mjs";
 // Online action values come from completed plays. The game supplies legal
 // actions and goals; experience supplies each avatar's estimates and choices.
 export const TRIAL_LIMIT = 32;
@@ -54,7 +55,7 @@ function observation(world, actor, goal) {
         : [actor, goal.target].every(
             (id) => world.actors[id]?.place === goal.destination,
           ),
-    trust: world.actors[goal.target]?.trust?.[actor] || 0,
+    trust: trustValue(world, goal.target, actor),
     held: Object.values(world.items).filter((item) => item.holder === actor)
       .length,
     strain: Math.min(

@@ -71,6 +71,7 @@ const files = [
   "pack-landing.mjs",
   "pack-landings.json",
   "world.mjs",
+  "trust.mjs",
   "scene.mjs",
   "weather.mjs",
   "daylight.mjs",

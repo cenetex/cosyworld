@@ -1,3 +1,4 @@
+import { trustValue } from "./trust.mjs";
 import {
   enablePersonalQuests,
   lifeOf,
@@ -108,7 +109,7 @@ export function bundleValue(s, actor, item) {
 export function tradeDecision(s, requester, give, receive) {
   const seller = owner(s, receive);
   const premium = resentment(s, seller, requester) * 2;
-  const favour = Math.min(2, s.actors[seller].trust[requester] || 0);
+  const favour = Math.min(2, trustValue(s, seller, requester));
   const accepted =
     bundleValue(s, seller, give) >=
     bundleValue(s, seller, receive) +
@@ -126,7 +127,7 @@ export function giftDecision(s, giver, item, recipient) {
   const annoyed = resentment(s, giver, recipient);
   const spare = bundleValue(s, giver, item) <= 3;
   const favour =
-    s.actors[giver].trust[recipient] > 0 && bundleValue(s, giver, item) <= 6;
+    trustValue(s, giver, recipient) > 0 && bundleValue(s, giver, item) <= 6;
   return {
     accepted: !annoyed && !keepReason(s, giver, item) && (spare || favour),
     reason: annoyed
@@ -272,7 +273,7 @@ export function socialTravel(s, requester, companion, destination) {
         ? `Stay near the wanted ${names[want.items.find((id) => owner(s, id) === requester)]}.`
         : want.reason,
     };
-  if (s.actors[companion].trust[requester] > 0)
+  if (trustValue(s, companion, requester) > 0)
     return {
       accepted: true,
       favor: true,
@@ -339,7 +340,7 @@ export function recordReaction(s, a, witnesses, accepted) {
       .filter((g) => g.weight > 0);
     s.actors[a.target].trust[a.actor] = Math.min(
       3,
-      s.actors[a.target].trust[a.actor] + 1,
+      trustValue(s, a.target, a.actor) + 1,
     );
   }
 }

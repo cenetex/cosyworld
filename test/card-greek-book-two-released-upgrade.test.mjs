@@ -147,13 +147,7 @@ function expectNewRecords(world, before) {
       crossed: 0,
       lastTalk: -9,
     });
-    expect(world.actors[id].trust).toEqual(
-      Object.fromEntries(
-        Object.keys(world.actors)
-          .filter((other) => other !== id)
-          .map((other) => [other, 0]),
-      ),
-    );
+    expect(world.actors[id].trust).toEqual({});
     expect(world.peaceUntil[id]).toBe(0);
     expect(entityActive(world, id)).toBe(false);
   }
@@ -172,15 +166,7 @@ function expectRetainedRecords(world, before) {
     revision: 8,
   });
   for (const [id, actor] of Object.entries(before.actors))
-    expect(world.actors[id]).toEqual({
-      ...actor,
-      trust: {
-        ...actor.trust,
-        ...Object.fromEntries(
-          newCatalogIds("avatars").map((added) => [added, 0]),
-        ),
-      },
-    });
+    expect(world.actors[id]).toEqual(actor);
   for (const [id, item] of Object.entries(before.items))
     expect(world.items[id]).toEqual(item);
   for (const [id, memory] of Object.entries(before.memories))

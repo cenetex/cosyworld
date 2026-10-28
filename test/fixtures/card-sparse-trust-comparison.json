@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "baselineSource": "5f0ce983906dcc7340188c0b728caec957fc3ee3",
+  "sparseSource": "e326462096e538f540ccd51b7ab3003aedd2f4af",
+  "baselineBundleSha256": "ba9fdadb7a5747c0cebdd45b6a7704b32798077be3fd16ddc7fe47eb3e42311c",
+  "method": "Execute the fixed dense rules21 bundle in a VM and compare with the sparse source. Expand omitted peers to zero only in the comparison copy. Real replies and plans stay untouched.",
+  "freshCreateEqualAfterTrustExpansion": true,
+  "actors": 200,
+  "items": 252,
+  "denseFreshSaveBytes": 1195627,
+  "sparseFreshSaveBytes": 127053,
+  "denseTrustRowsBytes": 1069029,
+  "sparseTrustRowsBytes": 455,
+  "plays": [
+    {
+      "kind": "ask",
+      "item": "cloth",
+      "target": "keeper",
+      "viewEqual": true,
+      "planEqual": true,
+      "replyEqualAfterTrustExpansion": true,
+      "learningEqual": true
+    },
+    {
+      "kind": "give",
+      "item": "bell",
+      "target": "keeper",
+      "viewEqual": true,
+      "planEqual": true,
+      "replyEqualAfterTrustExpansion": true,
+      "learningEqual": true
+    },
+    {
+      "kind": "ask",
+      "item": "cloth",
+      "target": "keeper",
+      "viewEqual": true,
+      "planEqual": true,
+      "replyEqualAfterTrustExpansion": true,
+      "learningEqual": true
+    },
+    {
+      "kind": "talk",
+      "item": null,
+      "target": "keeper",
+      "viewEqual": true,
+      "planEqual": true,
+      "replyEqualAfterTrustExpansion": true,
+      "learningEqual": true
+    },
+    {
+      "kind": "wait",
+      "item": null,
+      "target": null,
+      "viewEqual": true,
+      "planEqual": true,
+      "replyEqualAfterTrustExpansion": true,
+      "learningEqual": true
+    }
+  ]
+}

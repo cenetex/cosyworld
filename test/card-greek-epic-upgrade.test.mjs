@@ -1,3 +1,4 @@
+import { trustValue } from "../v2/card-game/trust.mjs";
 import { describe, expect, it } from "vitest";
 import { decodeSave, encodeSave } from "../v2/card-game/world.mjs";
 import { packDefinition } from "../v2/card-game/pack-registry.mjs";
@@ -44,7 +45,7 @@ describe("one Greek revision7 to8 catalog upgrade", () => {
         expect(after.memories[id]).toBeDefined();
         expect(after.peaceUntil[id]).toBe(0);
         for (const other of Object.keys(after.actors))
-          if (other !== id) expect(after.actors[other].trust[id]).toBeDefined();
+          if (other !== id) expect(trustValue(after, other, id)).toBe(0);
       }
     for (const [id, item] of Object.entries(greek().items))
       if (!oldItems.has(id)) {
