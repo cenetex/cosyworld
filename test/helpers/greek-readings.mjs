@@ -38,7 +38,7 @@ export function finishReading(world, siteId, actor = "vale") {
     );
   return world;
 }
-export function readingWalk(world, actor, destination) {
+export function readingWalk(world, actor, destination, playStep = readingPlay) {
   const docks = transportUnlocked(world, "greek-ship")
     ? packDefinition("greek-drama").transports["greek-ship"].docks.filter(
         (id) => entityActive(world, id),
@@ -60,8 +60,8 @@ export function readingWalk(world, actor, destination) {
             );
             i++
           )
-            world = readingPlay(world, "wait", {}, actor);
-        world = readingPlay(world, "move", { target }, actor);
+            world = playStep(world, "wait", {}, actor);
+        world = playStep(world, "move", { target }, actor);
       }
       return world;
     }

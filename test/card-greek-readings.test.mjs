@@ -16,7 +16,6 @@ import {
   reviewReadingPage,
 } from "../v2/card-game/reading-ui.mjs";
 import { readingSpeechScope } from "../v2/card-game/reading-context.mjs";
-import { knowsFact } from "../v2/card-game/knowledge.mjs";
 import { privateView } from "../v2/card-game/learning.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { validReadingDecisions } from "../v2/card-game/poem-readings.mjs";
@@ -25,6 +24,7 @@ import {
   packDefinition,
 } from "../v2/card-game/pack-registry.mjs";
 import { homecomingJourney } from "./helpers/greek-homecoming.mjs";
+import { sharedReturnReading } from "./helpers/greek-return-reading.mjs";
 import { houseGo } from "./helpers/greek-house-of-blood.mjs";
 import {
   COURT,
@@ -34,7 +34,6 @@ import {
   readingPlay as act,
   finishReading,
   readHome,
-  readingWalk,
 } from "./helpers/greek-readings.mjs";
 
 const PACK = "greek-drama",
@@ -316,42 +315,18 @@ it("reaches Prometheus from the released opening and returns the carried record"
   expect(decodeSave(encodeSave(world))).toEqual(world);
 });
 
-it("lets a second carrier hear the final account and bring the tablet to Dione", () => {
+it("keeps the second carrier's task through signed Talk and the whole reading", () => {
   let world = finishReading(court, SITE);
   world = act(world, "take", { item: "greek-viii-reading-tablet" });
   world = act(world, "choose", { choiceId: FROGS + "-voice-euripides" });
-  world.sharedVersion = 1;
-  world.controlledActors = ["vale", "mara"];
-  world.presentActors = ["vale", "mara"];
-  world = readingWalk(world, "mara", COURT);
-  world = act(world, "take", { item: "greek-viii-reading-tablet" }, "mara");
-  world = act(world, "talk", { target: POETS[1] }, "mara");
-  const context = narrativeContext(world),
-    disclosure = context.disclosures?.[0];
-  expect(disclosure.text).toContain("Dione");
-  world = applyGeneratedText(world, context, {
-    revision: world.revision,
-    model: "fixture",
-    entries: context.entities.map(({ id }) => ({
-      id,
-      text:
-        id === disclosure.speaker
-          ? disclosure.text
-          : "I have heard the return account.",
-    })),
+  sharedReturnReading(world, {
+    prefix: FROGS,
+    item: "greek-viii-reading-tablet",
+    topicId: FROGS + "-account-euripides",
+    storyId: FROGS,
+    checkArchive: true,
   });
-  expect(knowsFact(world, "mara", FROGS + "-account-euripides")).toBe(true);
-  world = readingWalk(world, "mara", "greek-courtyard");
-  world = finishReading(world, FROGS + "-homecoming", "mara");
-  expect(world.packs[PACK].recitals[FROGS + "-read-home"].actor).toBe("mara");
-  expect(state(world).decisions[FROGS + "-read-home"]).toBe(
-    `site:${FROGS}-homecoming:mara`,
-  );
-  expect(world.items["greek-viii-reading-tablet"].holder).toBe(
-    "greek-courtyard",
-  );
-  expect(decodeSave(encodeSave(world))).toEqual(world);
-});
+}, 60000);
 
 it("uses active listeners for the shared-page intersection", () => {
   let world = act(court, "read", { readingOp: "start", siteId: SITE });
