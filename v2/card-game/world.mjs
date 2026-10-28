@@ -748,6 +748,7 @@ export function addLog(s, speaker, text, detail = {}) {
     entry,
     (id) =>
       entityActive(s, id) && (!controlledByHuman(s, id) || humanPresent(s, id)),
+    authoredKnowledgeTopics(),
   );
   trimLog(s);
 }

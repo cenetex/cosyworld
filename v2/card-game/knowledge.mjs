@@ -113,7 +113,12 @@ const newsVerbs = new Set([
   "accompany",
   "choose",
 ]);
-export function witnessKnowledge(world, entry, eligible = () => true) {
+export function witnessKnowledge(
+  world,
+  entry,
+  eligible = () => true,
+  topics = [],
+) {
   if (
     !world.knowledge ||
     entry.generated ||
@@ -122,7 +127,12 @@ export function witnessKnowledge(world, entry, eligible = () => true) {
     (!newsVerbs.has(entry.verb) && !entry.consequence) ||
     !validFactText(entry.text) ||
     !entry.seq ||
-    !world.actors[entry.actorId]
+    !world.actors[entry.actorId] ||
+    (entry.verb === "choose" &&
+      topics.some(
+        (topic) =>
+          topic.packId === entry.packId && topic.choiceId === entry.choiceId,
+      ))
   )
     return null;
   const witnesses = [
@@ -153,10 +163,11 @@ export function witnessKnowledge(world, entry, eligible = () => true) {
   return fact;
 }
 
-export function installKnowledge(world, eligible = () => true) {
+export function installKnowledge(world, eligible = () => true, topics = []) {
   if (world.knowledge !== undefined) return world.knowledge;
   world.knowledge = newKnowledge();
-  for (const entry of world.log || []) witnessKnowledge(world, entry, eligible);
+  for (const entry of world.log || [])
+    witnessKnowledge(world, entry, eligible, topics);
   return world.knowledge;
 }
 
