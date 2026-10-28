@@ -337,6 +337,19 @@ try {
     assert.equal(await card("lamp").isVisible(), false);
     await load(meeting());
     if (width === 1440) {
+      const transfer = await page.evaluateHandle(() => new DataTransfer());
+      await card("vale").dispatchEvent("dragstart", { dataTransfer: transfer });
+      assert.equal(
+        await page.locator("body").getAttribute("data-hand-expanded"),
+        "true",
+      );
+      await card("vale").dispatchEvent("dragend");
+      assert.equal(
+        await page.locator("body").getAttribute("data-hand-expanded"),
+        "false",
+      );
+      // Open both stacks before the browser finds the two drag coordinates.
+      await selectCard(page, "vale");
       await card("vale").dragTo(card("moth"));
       assert.equal(await card("lamp").isVisible(), true);
       assert.equal(await card("cloth").isVisible(), true);

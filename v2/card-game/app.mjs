@@ -1345,6 +1345,7 @@ function renderActions(animate = false) {
   );
   document.body.dataset.handExpanded = String(
     selected.length > 0 ||
+      dragging.length > 0 ||
       expandedHolders.size > 0 ||
       expandedQuestHolders.size > 0,
   );
@@ -1623,6 +1624,7 @@ function card(id) {
       return;
     }
     dragging = selected.includes(id) ? [...selected] : [id];
+    renderActions();
     selectionRevision = world.revision;
     e.dataTransfer.setData("text/plain", JSON.stringify(dragging));
     e.dataTransfer.effectAllowed = "move";
@@ -1631,6 +1633,7 @@ function card(id) {
   });
   el.addEventListener("dragend", () => {
     dragging = [];
+    renderActions();
     $("stage").classList.remove("ready", "drag-over");
   });
   el.addEventListener("dragover", (e) => {
