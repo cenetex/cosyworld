@@ -1,9 +1,28 @@
 use super::{engine, full_store, full_world::World, now, store};
 use serde_json::{json, Value};
 
-fn routes_through_crag_camp(previous: &Value) -> Value {
+fn upgraded_routes(previous: &Value) -> Value {
+    let sea_paths: &[&[&str]] = &[
+        &["greek-harbor", "greek-ship", "greek-book-iv-helen-landing", "greek-egypt-tomb"],
+        &["greek-harbor", "greek-ship", "greek-ajax-landing", "greek-troy-beach"],
+        &["greek-piraeus", "greek-ship", "greek-tauris-shore", "greek-tauris"],
+        &["greek-piraeus", "greek-ship", "greek-sicily-shore", "greek-sicily"],
+        &["greek-gate", "greek-courtyard", "greek-harbor", "greek-ship", "greek-aulis"],
+        &["greek-aulis", "greek-ship", "greek-ajax-landing", "greek-greek-camp"],
+        &["greek-greek-camp", "greek-ajax-landing", "greek-ship", "greek-lemnos-landing", "greek-lemnos"],
+        &["greek-troy", "greek-greek-camp", "greek-ajax-landing", "greek-ship", "greek-thrace"],
+    ];
     let mut routes = Vec::new();
     for edge in previous.as_array().unwrap() {
+        let sea_path = sea_paths.iter().find_map(|path| {
+            if edge[0] == path[0] && edge[1] == path[path.len() - 1] {
+                Some(path.to_vec())
+            } else if edge[1] == path[0] && edge[0] == path[path.len() - 1] {
+                Some(path.iter().copied().rev().collect())
+            } else {
+                None
+            }
+        });
         let replacements = if (edge[0] == "greek-susa" && edge[1] == "greek-scythian-crag")
             || (edge[1] == "greek-susa" && edge[0] == "greek-scythian-crag")
         {
@@ -11,6 +30,8 @@ fn routes_through_crag_camp(previous: &Value) -> Value {
                 json!([edge[0], "greek-vii-crag-camp"]),
                 json!(["greek-vii-crag-camp", edge[1]]),
             ]
+        } else if let Some(path) = sea_path {
+            path.windows(2).map(|pair| json!(pair)).collect()
         } else {
             vec![edge.clone()]
         };
@@ -34,17 +55,17 @@ fn sorted_routes(previous: &Value) -> Vec<String> {
     routes
 }
 
-// Earlier saved fields retain their values. The eastern road gains its
-// authored camp, and the pack revision records the larger catalog.
+// Earlier saved fields retain their values. Known distant paths gain their
+// actual landings and camp; the pack revision records the larger catalog.
 pub(super) fn assert_retained(old: &Value, current: &Value, path: &str) {
     if path.ends_with("packs.greek-drama.revision") {
         assert!(current.as_u64().unwrap() >= old.as_u64().unwrap());
     } else if path.contains("routeKnowledge.") && old.is_array() {
         // A normal turn sorts learned roads through rememberRoutes. Compare
-        // every saved edge after the camp expansion, including multiplicity.
+        // every saved edge after the route expansion, including multiplicity.
         assert_eq!(
             sorted_routes(current),
-            sorted_routes(&routes_through_crag_camp(old)),
+            sorted_routes(&upgraded_routes(old)),
             "Retain {path}"
         );
     } else if let Some(fields) = old.as_object() {
@@ -79,7 +100,7 @@ fn assert_catalog_extension(old: &Value, current: &Value, fresh: bool) {
                 }
             }
         }
-        let expected_routes = routes_through_crag_camp(&old["routeKnowledge"]["greek-rhapsode"]);
+        let expected_routes = upgraded_routes(&old["routeKnowledge"]["greek-rhapsode"]);
         let previous_routes = expected_routes.as_array().unwrap();
         let routes = current["routeKnowledge"]["greek-rhapsode"]
             .as_array()
