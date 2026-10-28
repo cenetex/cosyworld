@@ -365,6 +365,34 @@ Run the Rust server with `COSYWORLD_PRIMARY_GAME=cards` and the normal AI provid
 
 The endpoint accepts at most 64 KiB, fixed entity IDs, eight local entities, and bounded facts and memories. It allows two model requests at once, 30 requests per peer per minute, and 1,200 requests per process per hour. Same-site browser requests pass the origin check. Model calls have a 25-second deadline. Clients send `Accept: text/event-stream` for live text deltas followed by a validated `complete` event with all entries and the resolved model name. Other clients receive the full JSON response. Disconnects cancel the provider request and release its capacity.
 
+## Learning and inner life
+
+Open **Menu → Inner life** to read your avatar's persona, thoughts, dreams and
+latest lesson. A request records what the avatar expected, the answer it heard,
+and its next approach. A declined gift request suggests a fair trade. A declined
+trip suggests time and conversation. The planner checks the saved lesson when
+it considers the same request. Changed belongings, needs or relationships give
+it a reason to reconsider. Each avatar keeps eight lessons with their exact
+completed action as evidence.
+
+Solo and shared avatars reflect on witnessed events. A new thought informs the
+persona revision; the revised persona then informs an optional dream. Each
+accepted revision keeps its source events, previous persona and the model used
+for each part. Four revisions stay in the save. The six-turn thought gap and
+twelve-turn dream gap apply in both modes. Shared publication commits the
+reflection with its speech through the world journal. Retrying the publication
+keeps its original play identity.
+
+The server sends a player their own inner life and lessons. Resident inner life
+stays in the simulation. Other characters' public words remain on their cards.
+Conversation prompts include each line's witnessed audience, so a later arrival
+learns an earlier exchange through a new conversation. Older prompts use that
+avatar's recorded expressions as their witness evidence.
+
+Shared rules version 13 adds the learning rules and saved reflections. Versions
+2–12 retain their released interpreter bytes. An explicit upgrade keeps the
+existing world, possessions, quest progress, memory and persona.
+
 ## Your OpenRouter account
 
 Hover over the CosyWorld title to reveal the video camera. Keyboard focus also
@@ -533,7 +561,7 @@ world turns. Clear skies, cloud, rain, and mist appear in the scene and on place
 cards. Coasts, courtyards, open ground, groves, and shelters each have their own
 view of the regional weather. The Underworld has low mist above its water.
 The shared game, local saves, dialogue facts, and scene exports all read the same
-turn. Reloading keeps the current weather. Shared rules version 13 adds weather
+turn. Reloading keeps the current weather. Shared rules version 14 adds weather
 views and preserves each earlier rule bundle for journal replay.
 
 New Greek games expose the harbor and six Theban places, each with a distinct

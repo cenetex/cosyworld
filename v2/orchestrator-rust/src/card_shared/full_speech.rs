@@ -84,7 +84,7 @@ pub(super) fn parse(text: &str, finish: &str, work: &Value, ids: &[String]) -> R
         }
         let profile = &work["profiles"][id];
         let name = profile["name"].as_str().ok_or(error)?;
-        lines.push(json!({"speaker":name,"text":text,"entityId":id,"actorId":if profile["kind"]=="avatar"{Some(id)}else{None}}));
+        lines.push(json!({"reflection":entry["reflection"],"model":entry["model"],"speaker":name,"text":text,"entityId":id,"actorId":if profile["kind"]=="avatar"{Some(id)}else{None}}));
     }
     Ok(json!(lines))
 }

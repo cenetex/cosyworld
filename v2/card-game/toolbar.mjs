@@ -1,3 +1,4 @@
+import { installInnerLife } from "./inner-life.mjs";
 import { imageUrl } from "./images.mjs";
 import { humanAvatars } from "./human-cast.mjs";
 import { places } from "./world.mjs";
@@ -98,6 +99,7 @@ export function installToolbar({ session, getWorld }) {
     decorate(button, icon, label);
     menu.append(button);
   }
+  installInnerLife(menu, getWorld);
   document.body.append(menu);
   toolbar.append(menuButton);
 

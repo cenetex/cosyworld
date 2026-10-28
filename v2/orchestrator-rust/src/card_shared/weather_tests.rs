@@ -8,9 +8,9 @@ fn regional_weather_agrees_in_c_and_survives_upgrade_and_journal_replay() {
     full_store::schema(&c).unwrap();
     let id = "c".repeat(48);
     store::create(&c, &id, "owner", now()).unwrap();
-    let old = engine::reduce_version(engine::TWELFTH_VERSION, json!({"op":"create"})).unwrap();
+    let old = engine::reduce_version(engine::THIRTEENTH_VERSION, json!({"op":"create"})).unwrap();
     let mut saved = World {
-        version: engine::TWELFTH_VERSION.into(),
+        version: engine::THIRTEENTH_VERSION.into(),
         game: old["world"].clone(),
         claimed: [1, 1, 0, 0, 0, 0, 0, 0],
         present: [1, 1, 0, 0, 0, 0, 0, 0],

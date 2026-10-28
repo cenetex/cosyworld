@@ -500,7 +500,8 @@ pub(super) fn finish_work(
                 &tx,
                 id,
                 &mut w,
-                json!({"op":"speech","actor":actor_id(work.actor),"room":work.room,"lines":lines}),
+                json!({"op":"speech","actor":actor_id(work.actor),"room":work.room,"lines":lines,
+                    "entries":lines.as_array().into_iter().flatten().filter(|line| line["reflection"].is_object()).map(|line| json!({"id":line["entityId"],"model":line["model"],"reflection":line["reflection"]})).collect::<Vec<_>>()}),
                 time,
             )?;
             scene["lines"] = result["lines"].clone();

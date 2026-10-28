@@ -219,3 +219,15 @@
     padding-inline: 8px;
   }
 }
+
+.inner-life-dialog {
+  max-height: 80dvh;
+  overflow-y: auto;
+}
+.inner-life-dialog h3 {
+  margin: 1.2rem 0 0.4rem;
+}
+.inner-life-dialog p {
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
