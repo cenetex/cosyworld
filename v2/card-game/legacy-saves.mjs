@@ -96,6 +96,7 @@ export function upgradeSave(
     upgradeGreekRoadSave(s);
     upgradeGreekTownSave(s);
     upgradeGreekAjaxSave(s);
+    upgradeGreekHouseSave(s);
     s.schema = 7;
     installPacks(s);
   } else if (
@@ -111,6 +112,7 @@ export function upgradeSave(
     upgradeGreekRoadSave(s);
     upgradeGreekTownSave(s);
     upgradeGreekAjaxSave(s);
+    upgradeGreekHouseSave(s);
     // A pack mounted after this save was written joins it fresh.
     installPacks(s);
   }
@@ -146,16 +148,24 @@ export function upgradeShoreRouteSave(s) {
     const expanded = known.flatMap((edge) => {
       if (!Array.isArray(edge) || edge.length !== 2) return [edge];
       const [from, to] = edge;
-      if ((moved.has(from) && to === "station") ||
-          (from === "station" && moved.has(to))) {
+      if (
+        (moved.has(from) && to === "station") ||
+        (from === "station" && moved.has(to))
+      ) {
         changed = true;
-        return [[from, "pond"], ["pond", to]];
+        return [
+          [from, "pond"],
+          ["pond", to],
+        ];
       }
       return [edge];
     });
-    if (changed) s.routeKnowledge[actor] = [...new Map(
-      expanded.map((edge) => [JSON.stringify(edge), edge]),
-    ).values()];
+    if (changed)
+      s.routeKnowledge[actor] = [
+        ...new Map(
+          expanded.map((edge) => [JSON.stringify(edge), edge]),
+        ).values(),
+      ];
   }
 }
 
@@ -302,6 +312,75 @@ export function upgradeGreekAjaxSave(s) {
   ])
     s.memories[id] ??= fresh[id];
   saved.revision = 7;
+}
+
+// Revision 8 adds the House of Blood while preserving all saved testimony.
+export function upgradeGreekHouseSave(s) {
+  const pack = packDefinitions.find((p) => p.id === "greek-drama");
+  const saved = s.packs?.[pack?.id];
+  if (!pack || pack.revision < 8 || saved?.revision !== 7) return;
+  addGreekEntities(
+    s,
+    pack,
+    [
+      "greek-argos-watchman",
+      "greek-cassandra",
+      "greek-clytemnestra-aeschylus",
+      "greek-argos-housekeeper",
+      "greek-pylades-aeschylus",
+      "greek-cilissa",
+      "greek-chrysothemis",
+      "greek-paedagogus",
+      "greek-argive-farmer",
+      "greek-electra-old-servant",
+      "greek-clytemnestra-euripides",
+      "greek-pylades-euripides",
+      "greek-hermione",
+      "greek-phrygian-servant",
+      "greek-pythian-priestess",
+      "greek-furies",
+      "greek-athena",
+      "greek-iphigenia-tauris",
+      "greek-thoas",
+      "greek-taurian-chorus",
+    ],
+    [
+      "greek-beacon-fuel",
+      "greek-cassandra-cup",
+      "greek-purple-path-cloth",
+      "greek-palace-snaring-robe",
+      "greek-argos-household-record",
+      "greek-libation-vessel",
+      "greek-tomb-hair",
+      "greek-tomb-woven-cloth",
+      "greek-palace-bread",
+      "greek-palace-false-urn",
+      "greek-palace-signet",
+      "greek-farm-water-jar",
+      "greek-farm-road-bread",
+      "greek-farm-birth-message",
+      "greek-sickroom-water",
+      "greek-argos-city-petition",
+      "greek-argos-road-bundle",
+      "greek-delphi-suppliant-branch",
+      "greek-ares-vote-bowl",
+      "greek-ares-voting-stones",
+      "greek-ares-case-record",
+      "greek-tauris-sister-letter",
+      "greek-tauris-childhood-cloth",
+      "greek-tauris-artemis-image",
+      "greek-tauris-cleansing-water",
+      "greek-tauris-shore-pact",
+    ],
+  );
+  const fresh = newMemories();
+  for (const id of [
+    "greek-ares-hill",
+    "greek-argos-refuge",
+    "greek-tauris-shore",
+  ])
+    s.memories[id] ??= fresh[id];
+  saved.revision = 8;
 }
 
 // Revision 3 adds these residents and objects. Earlier records keep their
