@@ -20,6 +20,7 @@ const dir = await mkdtemp(join(tmpdir(), "shared-full-world-smoke-"));
 const output = resolve("output/shared-cards");
 await mkdir(output, { recursive: true });
 const requests = [];
+const syncReplies = [];
 const replies = new Map();
 const providerTiming = new Map();
 let holdReplies = false;
@@ -419,6 +420,17 @@ try {
     page.setDefaultTimeout(20000);
     pages.push(page);
     page.on("pageerror", (error) => errors.push(error.message));
+    page.on("response", async (response) => {
+      if (
+        !response.url().includes("/card-game/shared/worlds/") ||
+        !response.ok()
+      )
+        return;
+      try {
+        const value = await response.json();
+        if (value.sync) syncReplies.push({ player: i, value });
+      } catch {}
+    });
     const cdp = await context.newCDPSession(page);
     sessions.push(cdp);
     await cdp.send("WebAuthn.enable");
@@ -1091,6 +1103,33 @@ try {
     await until(async () => !(await retry.isVisible()), "retry icon clears");
   }
   assert.deepEqual(errors, []);
+  for (const player of [0, 1]) {
+    const replies = syncReplies
+      .filter((reply) => reply.player === player)
+      .map((reply) => reply.value);
+    assert(
+      replies.some((value) => value.sync.kind === "snapshot"),
+      "Each layout opens with a sync snapshot.",
+    );
+    assert(
+      replies.some(
+        (value) => value.sync.kind === "events" && value.events.length,
+      ),
+      "Each layout receives shared events.",
+    );
+    assert(
+      replies.some(
+        (value) => value.sync.kind === "events" && value.events.length === 0,
+      ),
+      "Quiet sync carries only the clock and cursor.",
+    );
+    assert(
+      replies
+        .filter((value) => value.sync.kind === "events")
+        .every((value) => !value.state && !value.history),
+      "Event replies carry changes to the view.",
+    );
+  }
   console.log(
     "Shared original world: progressed save, eight passkeys, original pond/station/attic, NPCs, packs, quests, room capacity, shared speech, item handoff, nudge, restart, desktop and phone passed.",
   );

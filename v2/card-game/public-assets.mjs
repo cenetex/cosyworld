@@ -6,6 +6,7 @@ import voiceCast from "./voices.json" with { type: "json" };
 const files = [
   "shared.mjs",
   "shared-auth.mjs",
+  "shared-sync.mjs",
   "shared-rules.mjs",
   "shared.css",
   "toolbar.mjs",

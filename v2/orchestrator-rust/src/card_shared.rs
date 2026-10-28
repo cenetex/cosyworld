@@ -14,6 +14,7 @@ mod section_tests;
 #[cfg(test)]
 mod speech;
 mod store;
+mod sync;
 #[cfg(test)]
 mod tests;
 
