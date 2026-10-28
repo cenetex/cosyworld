@@ -1,0 +1,83 @@
+{
+  "generator": "built-in image_gen",
+  "date": "2026-10-27",
+  "encoding": "WebP, quality 94",
+  "images": [
+    {
+      "file": "harbor-open-berth-night.webp",
+      "source": "harbor-ship-at-berth-night.webp",
+      "generation": "exec-d59b9df6-82b8-4308-9fb5-3f1e24708362.png",
+      "prompt": "Use case: precise-object-edit.\nAsset type: a complete night harbor backdrop for CosyWorld.\nInput image 1 is the edit target: the finished NIGHT harbor with the ship at its berth. Input image 2 is a supporting reference showing the exact empty berth and water in daylight.\nPrimary request: make the matching EMPTY BERTH night painting. Remove only the merchant ship, its mast, sail, cargo, ship reflection, rigging, and the mooring ropes that lead to it. Restore the calm water and the parts of the distant shore revealed by that removal, using input 2 as the geometry reference and input 1 as the night lighting reference. Keep the exact full canvas, camera, every other object, olive leaves, quay, mooring stones, shore buildings, lamps, moon position, sky, clouds, stars, and all night lighting from input 1. Preserve the painterly style and fine detail. The finished opaque painting matches input 1 so that the harbor stays still when the game changes the ship's saved dock.",
+      "width": 1672,
+      "height": 941,
+      "sha256": "aa3136f25c67ffe9717fad4d20a9f286fbdc5a111c6827baddf5eaf4aeca2f66",
+      "references": [
+        "harbor-ship-at-berth-night.webp",
+        "harbor-open-berth.webp"
+      ]
+    },
+    {
+      "file": "harbor-ship-at-berth-night.webp",
+      "source": "harbor-ship-at-berth.webp",
+      "generation": "exec-991399d6-34f9-495b-9229-5e6e53e099ea.png",
+      "prompt": "Use case: lighting-weather.\nAsset type: a complete painted night backdrop for CosyWorld, The Wine-Dark Sea.\nInput image: the edit target. Change this exact setting from its current light to NIGHT.\nKeep the original wide 16:9 camera, crop, perspective, landscape, architecture, all object positions and shapes, and the open foreground for game characters. Preserve the painterly style and fine detail. Keep the merchant ship at the berth exactly as it is, with the same hull, eye, mast, furled sail, rigging, cargo, mooring ropes, and water reflection. The ship is part of this complete painting. Soft moonlight lights its sail and wood; the warm harbor lamps touch its shore-facing side.\nUse a deep indigo sky, soft silver moonlight, a few small stars, and restrained warm light from the named lamps or fires. Keep the scene calm, clearly nighttime, and rich in readable detail. Preserve the scene's clear weather so the game can add its shared rain or mist layer. The artwork fills the whole canvas. It is a complete setting with an opaque background and an empty stage for the game's cast.",
+      "width": 1672,
+      "height": 941,
+      "sha256": "2593278fb2a66e5225bdf06794c32e832b6fb831fdbd406032ba6f7789f9f839"
+    },
+    {
+      "file": "courtyard-night.webp",
+      "source": "courtyard-day.webp",
+      "generation": "exec-d7c9cbc2-6333-4560-99b3-9c06ff42cf19.png",
+      "prompt": "Use case: lighting-weather.\nAsset type: a complete painted night backdrop for CosyWorld, The Wine-Dark Sea.\nInput image: the edit target. Change this exact setting from its current light to NIGHT.\nKeep the original wide 16:9 camera, crop, perspective, landscape, architecture, all object positions and shapes, and the open foreground for game characters. Preserve the painterly style and fine detail. Keep the common table, bread, cloth, pots, well, trees, house doors, paving and distant citadel exactly where they are. Give the existing hanging lamp and a few windows a small warm glow.\nUse a deep indigo sky, soft silver moonlight, a few small stars, and restrained warm light from the named lamps or fires. Keep the scene calm, clearly nighttime, and rich in readable detail. Preserve the scene's clear weather so the game can add its shared rain or mist layer. The artwork fills the whole canvas. It is a complete setting with an opaque background and an empty stage for the game's cast.",
+      "width": 1672,
+      "height": 941,
+      "sha256": "6dcf726a179a71f9155ef947b4e7ef97a590becc4837e976c6f998004455c5e8"
+    },
+    {
+      "file": "market-well-night.webp",
+      "source": "market-well-day.webp",
+      "generation": "exec-e759975b-d18d-42a9-9564-4bb9b2d622b5.png",
+      "prompt": "Use case: lighting-weather.\nAsset type: a complete painted night backdrop for CosyWorld, The Wine-Dark Sea.\nInput image: the edit target. Change this exact setting from its current light to NIGHT.\nKeep the original wide 16:9 camera, crop, perspective, landscape, architecture, all object positions and shapes, and the open foreground for game characters. Preserve the painterly style and fine detail. Keep the well, bucket and beam, market tables, columns, red cloth awnings, jars, olive trees and distant citadel exactly where they are. Small warm lights can come from existing lamps and house doorways.\nUse a deep indigo sky, soft silver moonlight, a few small stars, and restrained warm light from the named lamps or fires. Keep the scene calm, clearly nighttime, and rich in readable detail. Preserve the scene's clear weather so the game can add its shared rain or mist layer. The artwork fills the whole canvas. It is a complete setting with an opaque background and an empty stage for the game's cast.",
+      "width": 1672,
+      "height": 941,
+      "sha256": "738be7db249c2e294544957e64c084415b08f98ea09bde4d11da3ab2657c7f67"
+    },
+    {
+      "file": "city-gate-night.webp",
+      "source": "city-gate-day.webp",
+      "generation": "exec-2935d592-804f-4a41-98bd-14f3cbe96d2f.png",
+      "prompt": "Use case: lighting-weather.\nAsset type: a complete painted night backdrop for CosyWorld, The Wine-Dark Sea.\nInput image: the edit target. Change this exact setting from its current light to NIGHT.\nKeep the original wide 16:9 camera, crop, perspective, landscape, architecture, all object positions and shapes, and the open foreground for game characters. Preserve the painterly style and fine detail. Keep the tall open bronze gate, courtyard floor pattern, wall, cypress trees, shield and spear rack, braziers and distant city exactly where they are. Light the existing braziers with restrained warm fire.\nUse a deep indigo sky, soft silver moonlight, a few small stars, and restrained warm light from the named lamps or fires. Keep the scene calm, clearly nighttime, and rich in readable detail. Preserve the scene's clear weather so the game can add its shared rain or mist layer. The artwork fills the whole canvas. It is a complete setting with an opaque background and an empty stage for the game's cast.",
+      "width": 1672,
+      "height": 941,
+      "sha256": "7d9d444b4ea67db08df655e85199ee6b771dbd01f11f6e72ade4e8b000d990c6"
+    },
+    {
+      "file": "palace-night.webp",
+      "source": "palace-day.webp",
+      "generation": "exec-d219b50f-ade9-4995-9ad8-07ad9215920d.png",
+      "prompt": "Use case: lighting-weather.\nAsset type: a complete painted night backdrop for CosyWorld, The Wine-Dark Sea.\nInput image: the edit target. Change this exact setting from its current light to NIGHT.\nKeep the original wide 16:9 camera, crop, perspective, landscape, architecture, all object positions and shapes, and the open foreground for game characters. Preserve the painterly style and fine detail. Keep the broad palace stairs, closed bronze doors, floor mosaic, columns, braziers, pots, cypress trees and distant citadel exactly where they are. Light the existing braziers with restrained warm fire.\nUse a deep indigo sky, soft silver moonlight, a few small stars, and restrained warm light from the named lamps or fires. Keep the scene calm, clearly nighttime, and rich in readable detail. Preserve the scene's clear weather so the game can add its shared rain or mist layer. The artwork fills the whole canvas. It is a complete setting with an opaque background and an empty stage for the game's cast.",
+      "width": 1672,
+      "height": 941,
+      "sha256": "6fef7d5cfcbd3c95f5f05395d95213a2b5760875487e37b98d2ffe5841abab06"
+    },
+    {
+      "file": "burial-ground-night.webp",
+      "source": "burial-ground-dusk.webp",
+      "generation": "exec-739b9dd5-71ea-4c69-866c-5ff5b3d976b8.png",
+      "prompt": "Use case: lighting-weather.\nAsset type: a complete painted night backdrop for CosyWorld, The Wine-Dark Sea.\nInput image: the edit target. Change this exact setting from its current light to NIGHT.\nKeep the original wide 16:9 camera, crop, perspective, landscape, architecture, all object positions and shapes, and the open foreground for game characters. Preserve the painterly style and fine detail. Keep the bare tree, broken walls, helmet, shields, spears, scattered stones, dry grass, open path, valley and distant city exactly where they are. Replace the low sun with a quiet night sky. Silver moonlight makes the ground and helmet readable. Warm pinpoints come only from the distant city.\nUse a deep indigo sky, soft silver moonlight, a few small stars, and restrained warm light from the named lamps or fires. Keep the scene calm, clearly nighttime, and rich in readable detail. Preserve the scene's clear weather so the game can add its shared rain or mist layer. The artwork fills the whole canvas. It is a complete setting with an opaque background and an empty stage for the game's cast.",
+      "width": 1672,
+      "height": 941,
+      "sha256": "4d0a9e9b732b215153af878babd8085c1e8bdd56f8e2b034f112a53e4f964753"
+    },
+    {
+      "file": "sanctuary-night.webp",
+      "source": "sanctuary-dawn.webp",
+      "generation": "exec-605054de-498d-44c5-98ba-2431251ca9fc.png",
+      "prompt": "Use case: lighting-weather.\nAsset type: a complete painted night backdrop for CosyWorld, The Wine-Dark Sea.\nInput image: the edit target. Change this exact setting from its current light to NIGHT.\nKeep the original wide 16:9 camera, crop, perspective, landscape, architecture, all object positions and shapes, and the open foreground for game characters. Preserve the painterly style and fine detail. Keep the large olive tree, stone basin, small columned shelter, shrine, steps, pots, burning altar bowls, winding path, distant coast and hills exactly where they are. The existing altar flames give a little warm light, and moonlight lies on stone and water.\nUse a deep indigo sky, soft silver moonlight, a few small stars, and restrained warm light from the named lamps or fires. Keep the scene calm, clearly nighttime, and rich in readable detail. Preserve the scene's clear weather so the game can add its shared rain or mist layer. The artwork fills the whole canvas. It is a complete setting with an opaque background and an empty stage for the game's cast.",
+      "width": 1672,
+      "height": 941,
+      "sha256": "1db5b5b5f53c449710f1f1a29881d2449ef9cfda9ae378cbe7054d70b4ed5029"
+    }
+  ]
+}

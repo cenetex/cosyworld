@@ -5,6 +5,8 @@ import { questRecord } from "./shared-quests.mjs";
 import { recitalContext, recitalFacts } from "./pack-recital.mjs";
 import { hasMotives, motiveFacts, tastes } from "./motives.mjs";
 import { sceneChanges } from "./scene.mjs";
+import { locationWeather } from "./weather.mjs";
+import { locationDaylight } from "./daylight.mjs";
 import { profiles, validInnerLife } from "./memory.mjs";
 import {
   entityActive,
@@ -487,6 +489,10 @@ export function narrativeContext(world, action = null) {
         if (id === "cloth") facts.push(`Touches: ${nameOf(item.holder)}.`);
       } else {
         if (places[id]) facts.push(placeText(world, id));
+        const weather = locationWeather(world, id);
+        if (weather) facts.push(weather.description);
+        const daylight = locationDaylight(world, id);
+        if (daylight) facts.push(daylight.description);
 
         facts.push(
           `Paths visible now: ${exits(world, id, currentActor(world)).map(nameOf).join(", ") || "none"}.`,

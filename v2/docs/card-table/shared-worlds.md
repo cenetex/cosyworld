@@ -44,6 +44,10 @@ joins the room's latest scene.
 
 Each accepted play advances the existing world clock. Lamp fuel, temporary
 sounds, and crossing sequences keep their current turn rules for everyone.
+Greek locations also read this shared turn for regional weather. A weather
+period lasts twelve accepted plays across the world. Players in the same region
+see the same conditions, with local effects for the coast, streets, groves,
+and shelters. Each view, place card, and dialogue request uses these conditions.
 
 ## One world model
 
@@ -280,8 +284,9 @@ Player views include their own thoughts, persona, dreams, reflection evidence
 and lessons. Other avatars supply public card text. This privacy check also
 applies when projecting a world that still uses an earlier interpreter.
 
-The current interpreter builder writes `engine-v14.js`. Version 14 adds BoardyAI,
-his parlour, and his calling card. Versions 12 and 13 keep their released rules.
+The current interpreter builder writes `engine-v15.js`. Version 15 adds regional
+Greek weather and Thebes day and night views. Version 14 keeps BoardyAI, his
+parlour, and his calling card. Earlier versions keep their released rules.
 Existing worlds receive an explicit saved upgrade.
 
 A rules upgrade starts a fresh sync stream from the player’s current private

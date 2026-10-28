@@ -1,3 +1,4 @@
+import { greekTravelTargets } from "../../test/helpers/greek-travel.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -107,6 +108,16 @@ try {
     }
     async function use(...ids) {
       await ready();
+      if (ids.length === 1) {
+        const steps = greekTravelTargets(
+          (await state()).actors.vale.place,
+          ids[0],
+        );
+        if (steps.length > 1) {
+          for (const step of steps) await use(step);
+          return;
+        }
+      }
       for (const id of ids) {
         await selectCard(page, id);
       }

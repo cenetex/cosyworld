@@ -1,0 +1,111 @@
+/* Weather stays behind the cast and controls. Place cards use the same light. */
+[data-weather] {
+  --weather-light: brightness(1) saturate(1);
+  --rain-angle: 105deg;
+  --rain-opacity: 0.24;
+}
+[data-weather="cloud"] {
+  --weather-light: brightness(0.82) saturate(0.75);
+}
+[data-weather="rain"] {
+  --weather-light: brightness(0.68) saturate(0.65);
+}
+[data-weather="mist"] {
+  --weather-light: brightness(0.86) saturate(0.7);
+}
+.stage[data-weather] > .backdrop,
+.art[data-weather] > img {
+  filter: var(--weather-light);
+}
+.weather-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  border-radius: inherit;
+}
+.stage > .weather-layer {
+  z-index: -1;
+}
+.art > .weather-layer {
+  z-index: 1;
+}
+.art[data-weather] {
+  position: relative;
+}
+[data-weather="cloud"] > .weather-layer {
+  background: linear-gradient(#8895ad30, transparent 68%);
+}
+[data-weather="rain"] > .weather-layer {
+  background: linear-gradient(#61738d38, #c0ccd90a 65%, #aabccc26);
+}
+[data-weather="rain"] > .weather-layer::after {
+  content: "";
+  position: absolute;
+  inset: -40px;
+  opacity: var(--rain-opacity);
+  background: repeating-linear-gradient(
+    var(--rain-angle),
+    transparent 0 22px,
+    #dde9f3 23px,
+    transparent 24px 47px
+  );
+  mask-image: repeating-linear-gradient(
+    0deg,
+    #000 0 11px,
+    transparent 13px 39px
+  );
+  animation: scene-rain 700ms linear infinite;
+}
+[data-exposure="coast"] {
+  --rain-angle: 115deg;
+  --rain-opacity: 0.32;
+}
+[data-exposure="grove"] {
+  --rain-opacity: 0.14;
+}
+[data-exposure="shelter"] > .weather-layer::after {
+  display: none;
+}
+[data-exposure="shelter"][data-weather] {
+  --weather-light: brightness(0.92) saturate(0.9);
+}
+[data-weather="mist"] > .weather-layer {
+  background: linear-gradient(transparent 25%, #b6c6d922 55%, #bfcedb77);
+}
+[data-weather="mist"][data-exposure="coast"] > .weather-layer {
+  background: linear-gradient(transparent 15%, #bfcedb55 60%, #bfcedb88);
+}
+[data-weather="mist"][data-exposure="grove"] > .weather-layer {
+  background: linear-gradient(transparent 45%, #a4b9ab44 75%, #b9cbb788);
+}
+[data-weather="mist"][data-exposure="shelter"] > .weather-layer {
+  background: linear-gradient(#b6c6d914, transparent 50%);
+}
+[data-exposure="underground"] > .weather-layer {
+  background: linear-gradient(transparent 60%, #708c9b44 85%, #708c9b77);
+}
+.art[data-weather="rain"] > .weather-layer::after {
+  animation: none;
+  background-size: 50% 50%;
+}
+[data-time-of-day="night"][data-weather] {
+  --weather-light: brightness(1) saturate(1);
+}
+[data-time-of-day="night"][data-weather="rain"],
+[data-time-of-day="night"][data-weather="cloud"] {
+  --weather-light: brightness(0.9) saturate(0.85);
+}
+.stage[data-time-of-day="night"] .portrait-body {
+  filter: brightness(0.88) saturate(0.85);
+}
+@keyframes scene-rain {
+  to {
+    transform: translate(-10px, 39px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-weather="rain"] > .weather-layer::after {
+    animation: none;
+  }
+}

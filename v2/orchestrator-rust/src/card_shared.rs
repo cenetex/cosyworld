@@ -21,6 +21,8 @@ mod sync;
 mod tests;
 #[cfg(test)]
 mod travel_tests;
+#[cfg(test)]
+mod weather_tests;
 
 use crate::AppState;
 use axum::{

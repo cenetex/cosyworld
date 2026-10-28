@@ -11332,7 +11332,7 @@
         (effect) => effect.kind === "choose" && effect.key === "greek-theban-response" && effect.value === response2
       )
     );
-    const card2 = (index, art, resolved, choiceId, completion = "Fulfilled", grave = false) => ({
+    const card2 = (index, art2, resolved, choiceId, completion = "Fulfilled", grave = false) => ({
       id: STORY_QUEST_CARDS[index],
       key: `greek-drama:${STORY_QUEST_CARDS[index]}${grave ? ":grave" : ""}`,
       title: lines[index],
@@ -11340,7 +11340,7 @@
       singleLine: true,
       story: true,
       status: resolved ? "fulfilled" : "pending",
-      art,
+      art: art2,
       resolved,
       completion,
       holder: holders[index],
@@ -13171,13 +13171,13 @@
   var at = (location) => ({ location });
   var withAvatars = (...avatars) => ({ avatars });
   function hand(...parts) {
-    const locations = [
+    const locations2 = [
       ...new Set(parts.flatMap((p) => p.location ? [p.location] : []))
     ];
-    if (locations.length > 1) throw new Error("A hand needs one location.");
+    if (locations2.length > 1) throw new Error("A hand needs one location.");
     return {
       items: [...new Set(parts.flatMap((p) => p.items || []))],
-      location: locations[0] || null,
+      location: locations2[0] || null,
       avatars: [...new Set(parts.flatMap((p) => p.avatars || []))],
       ...parts.some((p) => p.conditions?.length) ? {
         conditions: parts.flatMap((p) => p.conditions || [])
@@ -13195,8 +13195,8 @@
     if (!any.length) throw new Error("Choose at least one target hand.");
     return { any: structuredClone(any) };
   }
-  var meet = (items2, avatar, locations) => either(
-    ...locations.map(
+  var meet = (items2, avatar, locations2) => either(
+    ...locations2.map(
       (location) => hand(hold(...items2), at(location), withAvatars(avatar))
     )
   );
@@ -16089,16 +16089,162 @@
     return validateWorld(s);
   }
 
+  // v2/card-game/weather.mjs
+  var WEATHER_TURNS = 12;
+  var cycles = {
+    boeotia: ["clear", "cloud", "rain", "cloud", "mist", "clear"],
+    attica: ["clear", "clear", "cloud", "rain", "cloud", "mist"],
+    argolid: ["cloud", "clear", "clear", "mist", "cloud", "rain"],
+    phocis: ["mist", "cloud", "rain", "cloud", "clear", "clear"],
+    thessaly: ["cloud", "rain", "mist", "clear", "clear", "cloud"],
+    troad: ["mist", "cloud", "rain", "rain", "cloud", "clear"],
+    thrace: ["cloud", "mist", "rain", "cloud", "clear", "cloud"],
+    lemnos: ["clear", "mist", "cloud", "rain", "cloud", "clear"],
+    egypt: ["clear", "clear", "cloud", "clear", "mist", "clear"],
+    tauris: ["mist", "rain", "cloud", "clear", "cloud", "rain"],
+    sicily: ["clear", "cloud", "clear", "mist", "rain", "cloud"],
+    susa: ["clear", "clear", "cloud", "clear", "cloud", "rain"],
+    scythia: ["cloud", "rain", "mist", "cloud", "rain", "clear"],
+    heights: ["mist", "clear", "cloud", "mist", "clear", "cloud"],
+    underworld: ["mist"]
+  };
+  var locations = {};
+  function group(region, exposure, names2) {
+    for (const name of names2.split(" "))
+      locations[`greek-${name}`] = { region, exposure };
+  }
+  group("boeotia", "coast", "harbor aulis ship");
+  group("boeotia", "court", "courtyard well palace");
+  group("boeotia", "open", "gate battlefield road-thebes");
+  group("boeotia", "grove", "sanctuary cithaeron");
+  group("attica", "court", "athens acropolis acharnae");
+  group(
+    "attica",
+    "coast",
+    "piraeus athens-harbor road-athens-harbor road-piraeus-eleusis"
+  );
+  group(
+    "attica",
+    "open",
+    "road-athens-piraeus road-athens-colonus road-athens-eleusis road-athens-marathon road-colonus-eleusis road-colonus-marathon"
+  );
+  group("attica", "open", "assembly attic-farm marathon");
+  group("attica", "shelter", "demos-house thinkery jury-house");
+  group("attica", "grove", "festival colonus eleusis bird-wilderness");
+  group("argolid", "open", "argolid-road argos-tomb");
+  group("argolid", "coast", "argos-sanctuary");
+  group("argolid", "court", "argos-palace mycenae-palace corinth troezen");
+  group("argolid", "shelter", "argive-farm");
+  group("phocis", "court", "delphi");
+  group("thessaly", "shelter", "trachis");
+  group("thessaly", "open", "oeta");
+  group("thessaly", "court", "pherae");
+  group("thessaly", "grove", "thetis");
+  group("troad", "open", "troy trojan-camp");
+  group("troad", "coast", "greek-camp troy-beach");
+  group("thrace", "coast", "thrace");
+  group("lemnos", "shelter", "lemnos");
+  group("egypt", "court", "egypt-tomb");
+  group("tauris", "court", "tauris");
+  group("sicily", "shelter", "sicily");
+  group("susa", "court", "susa");
+  group("scythia", "open", "scythian-crag");
+  group("heights", "open", "divine-heights");
+  group("underworld", "underground", "underworld");
+  function regionWeather(world, region) {
+    const cycle = cycles[region];
+    if (!cycle) return null;
+    const period = Math.floor(world.turn / WEATHER_TURNS);
+    return { region, period, condition: cycle[period % cycle.length] };
+  }
+  var descriptions = {
+    clear: {
+      coast: "Clear light falls across the water.",
+      court: "Clear light rests on the courtyard stones.",
+      open: "Clear light reaches across the open ground.",
+      grove: "Clear light falls between the branches.",
+      shelter: "Clear light reaches the doorway."
+    },
+    cloud: {
+      coast: "Cloud lies over the water.",
+      court: "Cloud softens the light on the stones.",
+      open: "Cloud gathers above the open ground.",
+      grove: "Cloud dims the light beneath the branches.",
+      shelter: "Cloud dims the light at the doorway."
+    },
+    rain: {
+      coast: "Rain blows across the landing and water.",
+      court: "Rain falls on the courtyard stones.",
+      open: "Rain sweeps across the open ground.",
+      grove: "Rain falls through the branches.",
+      shelter: "Rain falls outside the shelter."
+    },
+    mist: {
+      coast: "Sea mist drifts across the water.",
+      court: "Mist gathers along the courtyard stones.",
+      open: "Mist lies across the open ground.",
+      grove: "Mist gathers beneath the branches.",
+      shelter: "Mist lies beyond the doorway.",
+      underground: "Low mist hangs above the dark water."
+    }
+  };
+  function locationWeather(world, id) {
+    const place = locations[id];
+    if (!place) return null;
+    const weather = regionWeather(world, place.region);
+    return {
+      ...weather,
+      exposure: place.exposure,
+      variant: `${weather.condition}-${place.exposure}`,
+      description: descriptions[weather.condition][place.exposure]
+    };
+  }
+
+  // v2/card-game/daylight.mjs
+  var DAYLIGHT_TURNS = 24;
+  var art = (file) => `assets/greek-drama/${file}.webp`;
+  var nightBackdrops = {
+    "greek-harbor": art("harbor-open-berth-night"),
+    "greek-courtyard": art("courtyard-night"),
+    "greek-well": art("market-well-night"),
+    "greek-palace": art("palace-night"),
+    "greek-gate": art("city-gate-night"),
+    "greek-battlefield": art("burial-ground-night"),
+    "greek-sanctuary": art("sanctuary-night")
+  };
+  var dockedDay = art("harbor-ship-at-berth");
+  var dockedNight = art("harbor-ship-at-berth-night");
+  var daylightAssets = [...Object.values(nightBackdrops), dockedNight];
+  function locationDaylight(world, id) {
+    if (!world || !Object.hasOwn(nightBackdrops, id)) return null;
+    const period = Math.floor(world.turn / DAYLIGHT_TURNS);
+    const phase = period % 2 ? "night" : "day";
+    return {
+      phase,
+      period,
+      description: phase === "night" ? "It is night in Thebes." : "It is day in Thebes."
+    };
+  }
+  function daylightBackdrop(world, id, file) {
+    if (locationDaylight(world, id)?.phase !== "night") return file;
+    return id === "greek-harbor" && file === dockedDay ? dockedNight : nightBackdrops[id];
+  }
+
   // v2/card-game/scene.mjs
   function backdrop(id, world = null) {
     const variant = world?.actors && visibleCrossing(world, id)?.scenery.backdrop;
-    const file = variant || packPlaces[id]?.backdrop;
+    const file = daylightBackdrop(world, id, variant || packPlaces[id]?.backdrop);
     return file ? `./${file}` : `./assets/${id}.png`;
   }
   var visibleCrossing = (world, place) => crossings.find(
     (c) => c.from === place && (c.scenery?.overlay || c.scenery?.backdrop) && crossingOpen(world, c, senses)
   );
-  var locationVariant = (world, id) => visibleCrossing(world, id)?.id || "base";
+  function locationVariant(world, id) {
+    const crossing = visibleCrossing(world, id)?.id || "base";
+    const weather = locationWeather(world, id);
+    const variant = weather ? `${crossing}:${weather.variant}` : crossing;
+    return locationDaylight(world, id)?.phase === "night" ? `${variant}:night` : variant;
+  }
   var locationOverlay = (world, id) => {
     const f = visibleCrossing(world, id)?.scenery.overlay;
     return f ? `./${f}` : null;
@@ -16167,6 +16313,8 @@
       background: backdrop(world.actors[currentActor(world)].place, world),
       variant: locationVariant(world, world.actors[currentActor(world)].place),
       overlay: locationOverlay(world, world.actors[currentActor(world)].place),
+      weather: locationWeather(world, world.actors[currentActor(world)].place),
+      daylight: locationDaylight(world, world.actors[currentActor(world)].place),
       visitStart: start,
       slots: sceneCast(
         world,
@@ -16471,6 +16619,10 @@
           if (id === "cloth") facts.push(`Touches: ${nameOf(item.holder)}.`);
         } else {
           if (places[id]) facts.push(placeText(world, id));
+          const weather = locationWeather(world, id);
+          if (weather) facts.push(weather.description);
+          const daylight = locationDaylight(world, id);
+          if (daylight) facts.push(daylight.description);
           facts.push(
             `Paths visible now: ${exits(world, id, currentActor(world)).map(nameOf).join(", ") || "none"}.`
           );

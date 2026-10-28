@@ -327,7 +327,9 @@ jobs:
         run: |
           node v2/scripts/smoke-card-greek-drama.mjs
           node v2/scripts/smoke-card-theban-scenery.mjs
+          node v2/scripts/smoke-card-weather.mjs
           node v2/scripts/smoke-card-open-door.mjs
+          node v2/scripts/smoke-card-greek-travel.mjs
           node v2/scripts/smoke-card-greek-homecoming.mjs
 
       - name: Check dialogue and movement
@@ -363,6 +365,8 @@ jobs:
             output/badger-check/*.png
             output/theban-scenery/*.png
             output/theban-scenery/*.json
+            output/card-weather/*.png
+            output/card-weather/*.json
             output/image-first/*.png
             output/card-toolbar/*.png
             output/card-learning/*.png
