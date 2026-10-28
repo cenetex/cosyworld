@@ -255,7 +255,20 @@ describe("frozen earned wording", () => {
 
 describe("story validation within one unchanged operation", () => {
   it("keeps output and saved authors equal to the released interpreter through real plays", () => {
-    let old = previous.dispatch({ op: "create" }).world;
+    // Shared hosts serialize object keys in sorted order before dispatch.
+    const hostOrder = (value) =>
+      JSON.parse(
+        JSON.stringify(value, (_, v) =>
+          v && typeof v === "object" && !Array.isArray(v)
+            ? Object.fromEntries(
+                Object.keys(v)
+                  .sort()
+                  .map((key) => [key, v[key]]),
+              )
+            : v,
+        ),
+      );
+    let old = hostOrder(previous.dispatch({ op: "create" }).world);
     delete old.opening;
     old.actors.vale.place = "greek-courtyard";
     old.crossings["pond-greek-harbor"].discovered = true;
@@ -290,7 +303,7 @@ describe("story validation within one unchanged operation", () => {
       const current = dispatchShared(request(w, action));
       expect(prior.ok).toBe(true);
       expect(current.ok).toBe(true);
-      old = prior.world;
+      old = hostOrder(prior.world);
       w = current.world;
       expect(w.turn).toBe(old.turn);
       expect(w.log).toEqual(old.log);

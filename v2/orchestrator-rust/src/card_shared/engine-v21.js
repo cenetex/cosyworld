@@ -2779,7 +2779,7 @@
               "greek-pherae",
               "greek-trachis-canae-approach"
             ],
-            backdrop: "assets/greek-drama/courtyard.svg",
+            backdrop: "assets/greek-drama/book-two-trachis-day.webp",
             persona: "A messenger's sandals dry beside the doorway. A folded garment waits on a workbench."
           },
           "greek-oeta": {
@@ -2799,7 +2799,7 @@
               "greek-trachis",
               "greek-thetis"
             ],
-            backdrop: "assets/greek-drama/palace.svg",
+            backdrop: "assets/greek-drama/book-two-pherae-day.webp",
             persona: "Guests arrive at a house in mourning. A servant hesitates before opening the inner door."
           },
           "greek-thetis": {
@@ -4033,7 +4033,7 @@
             values: {},
             persona: "Chloris is an original CosyWorld attendant in the named earlier Pherae account. Identify each recalled speaker: Apollo, Death, Alcestis, Admetus, Pheres, Eumelus, the queen's woman attendant and the guest servant. These two source servants are distinct people. Her own acts concern the cup, loaf and care tablet. Returned Alcestis remains silent before the third dawn. Care pledges and later delivery are separate deeds.",
             voice: "Speak plain English. Introduce an account passage by its source speaker and earlier time. Speak as Chloris for the present table work. Keep the guest's first informant and each care pledge faithful to the recorded choice.",
-            portrait: "assets/greek-drama/chthonic-baker.png",
+            portrait: "assets/greek-drama/book-two-chloris.png",
             requires: [
               {
                 kind: "flag",
@@ -4059,7 +4059,7 @@
             canonicalPerson: "heracles",
             persona: "This is Heracles in Euripides's earlier Pherae account while the Thracian horse labor lies ahead. His body stays at this scene. He can hear the traveler name Alcestis or receive the feast before the source guest servant reveals the loss. His struggle with Death and return are reported source events. Alcestis's return is established by the recorded return scene. Her silence lasts through the end of this chapter.",
             voice: "Name the earlier Pherae account. Respond to what this traveler actually said and placed. Relate the tomb struggle as your report, then distinguish the returned woman's silence from your own speech.",
-            portrait: "assets/greek-drama/chthonic-guard.png",
+            portrait: "assets/greek-drama/hero-heracles.png",
             requires: [
               {
                 kind: "flag",
@@ -4091,7 +4091,7 @@
             expression: "movement",
             persona: "This is returned Alcestis in the earlier Pherae account. Her spoken wishes before death belong to the separately attributed remembered passage. Her present body appears only after the recorded return. The third dawn and purification remain ahead. Express visible movement in this chapter. A later spoken choice needs its own later scene and her consent.",
             voice: "Use a short visible movement beginning with Alcestis of Pherae. Examples: Alcestis of Pherae lowers her eyes. Alcestis of Pherae rests her hands beside the cup. Keep her return silent through this chapter.",
-            portrait: "assets/greek-drama/chthonic-antigone.png",
+            portrait: "assets/greek-drama/book-two-alcestis.png",
             requires: [
               {
                 kind: "flag",
@@ -4121,7 +4121,7 @@
             persona: "You are Megara in Euripides's named earlier Theban account. Speak for yourself and your three unnamed sons. Lycus killed your father Creon in this tale. Your hopes for the boys belong to your living scene. Keep this household distinct from the later Children of Heracles tale.",
             voice: "You are Megara in Euripides's named earlier Theban account. Speak for yourself and your three unnamed sons. Lycus killed your father Creon in this tale. Your hopes for the boys belong to your living scene. Keep this household distinct from the later Children of Heracles tale.",
             expression: "speech",
-            portrait: "assets/greek-drama/chthonic-antigone.png",
+            portrait: "assets/greek-drama/book-two-megara.png",
             requires: [
               {
                 kind: "flag",
@@ -4151,7 +4151,7 @@
             persona: "You are Amphitryon in the earlier Heracles account. Speak as the father who survived. Introduce Lycus, the messenger, the Theban elders and the divine speakers by name when you recount their words. Megara and the three boys have their own lives and losses. Accept the placed family cloths and names. Your vigil stays in Thebes.",
             voice: "You are Amphitryon in the earlier Heracles account. Speak as the father who survived. Introduce Lycus, the messenger, the Theban elders and the divine speakers by name when you recount their words. Megara and the three boys have their own lives and losses. Accept the placed family cloths and names. Your vigil stays in Thebes.",
             expression: "speech",
-            portrait: "assets/greek-drama/chthonic-elder.png",
+            portrait: "assets/greek-drama/book-two-amphitryon.png",
             requires: [
               {
                 kind: "flag",
@@ -4176,7 +4176,7 @@
             persona: "You are Heracles after the household disaster in Euripides's earlier Theban tale. Megara and all three sons have died in this account. Amphitryon survives. Theseus offers friendship for the help you gave him below the earth. You keep your weapons and choose to accept help. Your saved place and agreed road establish each stage of the journey. The Pherae and Trachis roles have separate identities.",
             voice: "You are Heracles after the household disaster in Euripides's earlier Theban tale. Megara and all three sons have died in this account. Amphitryon survives. Theseus offers friendship for the help you gave him below the earth. You keep your weapons and choose to accept help. Your saved place and agreed road establish each stage of the journey. The Pherae and Trachis roles have separate identities.",
             expression: "speech",
-            portrait: "assets/greek-drama/chthonic-guard.png",
+            portrait: "assets/greek-drama/hero-heracles.png",
             requires: [
               {
                 kind: "flag",
@@ -4252,7 +4252,7 @@
             canonicalPerson: "greek-danaid-melia",
             persona: "Melia is an original CosyWorld keeper and host at the living Argive sanctuary. She tells the older Danaid account in Aeschylus\u2019s Suppliant Women. Attribute Danaus\u2019s advice and report, Pelasgus\u2019s decisions, the Danaids\u2019 pleas, the Argive vote and the Egyptian herald\u2019s demand to those speakers. The present guests, their provisions and their chosen lodging belong to the current journey. She offers both household rooms and common lodging at the refuge court. Speak from the saved deeds and the people actually here.",
             voice: "Use short, clear sentences. Name the older speaker and time. Give Nera room to answer for herself.",
-            portrait: "assets/greek-drama/open-door-quay-host.webp",
+            portrait: "assets/greek-drama/book-two-melia.png",
             requires: [
               {
                 kind: "flag",
@@ -4293,7 +4293,7 @@
             canonicalPerson: "greek-danaid-nera",
             persona: "Nera is an original CosyWorld woman seeking shelter at the present Argive sanctuary. She speaks for herself. She hears Melia\u2019s older Danaid account as a story. Her own lodging and journey follow her recorded agreement. She waits for company before walking to the refuge court and remains there after arrival. Describe her actual location and the care present there.",
             voice: "Speak plainly about your own needs and recorded choice. Your agreement concerns your own journey.",
-            portrait: "assets/greek-drama/open-door-mother.webp",
+            portrait: "assets/greek-drama/book-two-nera.png",
             requires: [
               {
                 kind: "flag",
@@ -4324,7 +4324,7 @@
             values: {},
             persona: "Deianira speaks within an earlier account of Trachis. Nessus told her the treated garment would restore love. The sun reveals danger in the wool. Her death belongs to the source-shaped account.",
             voice: "Deianira speaks within an earlier account of Trachis. Nessus told her the treated garment would restore love. The sun reveals danger in the wool. Her death belongs to the source-shaped account.",
-            portrait: "assets/greek-drama/chthonic-antigone.png",
+            portrait: "assets/greek-drama/book-two-deianira.png",
             requires: [
               {
                 kind: "flag",
@@ -4353,7 +4353,7 @@
             values: {},
             persona: "Iole is a captive from Oechalia. Sophocles gives her silence. This game may offer her a clearly marked new voice, with a choice to remain silent.",
             voice: "Iole is a captive from Oechalia. Sophocles gives her silence. This game may offer her a clearly marked new voice, with a choice to remain silent.",
-            portrait: "assets/greek-drama/chthonic-electra.png",
+            portrait: "assets/greek-drama/book-two-iole.png",
             requires: [
               {
                 kind: "flag",
@@ -4377,7 +4377,7 @@
             values: {},
             persona: "Hyllus is Deianira and Heracles\u2019s son in this named earlier account. He hears the wool warning and cares for his father.",
             voice: "Hyllus is Deianira and Heracles\u2019s son in this named earlier account. He hears the wool warning and cares for his father.",
-            portrait: "assets/greek-drama/chthonic-orestes.png",
+            portrait: "assets/greek-drama/book-two-hyllus.png",
             requires: [
               {
                 kind: "flag",
@@ -4401,7 +4401,7 @@
             values: {},
             persona: "Lichas is the herald in the earlier Trachis account. He carries the casket only after accepting this journey.",
             voice: "Lichas is the herald in the earlier Trachis account. He carries the casket only after accepting this journey.",
-            portrait: "assets/greek-drama/chthonic-guard.png",
+            portrait: "assets/greek-drama/book-two-lichas.png",
             requires: [
               {
                 kind: "flag",
@@ -4437,7 +4437,7 @@
             values: {},
             persona: "Heracles waits at Canae within the named earlier Trachis account. He can agree to help along the Oeta road.",
             voice: "Heracles waits at Canae within the named earlier Trachis account. He can agree to help along the Oeta road.",
-            portrait: "assets/greek-drama/chthonic-guard.png",
+            portrait: "assets/greek-drama/hero-heracles.png",
             requires: [
               {
                 kind: "flag",
@@ -27852,6 +27852,8 @@
   var nightBackdrops = {
     "greek-harbor": art("harbor-open-berth-night"),
     "greek-courtyard": art("courtyard-night"),
+    "greek-pherae": art("book-two-pherae-night"),
+    "greek-trachis": art("book-two-trachis-night"),
     "greek-well": art("market-well-night"),
     "greek-palace": art("palace-night"),
     "greek-gate": art("city-gate-night"),
@@ -27880,7 +27882,7 @@
     if (!world || !Object.hasOwn(nightBackdrops, id)) return null;
     const period = Math.floor(world.turn / DAYLIGHT_TURNS);
     const phase = period % 2 ? "night" : "day";
-    const where = id === "greek-athens-harbor" ? "at Athens Harbor" : id === "greek-piraeus" ? "at Piraeus Quays" : id === "greek-greek-camp" || id.startsWith("greek-ajax-") ? "at the Greek camp near Troy" : "in Thebes";
+    const where = id === "greek-pherae" ? "in Pherae" : id === "greek-trachis" ? "at Trachis" : id === "greek-athens-harbor" ? "at Athens Harbor" : id === "greek-piraeus" ? "at Piraeus Quays" : id === "greek-greek-camp" || id.startsWith("greek-ajax-") ? "at the Greek camp near Troy" : "in Thebes";
     return {
       phase,
       period,

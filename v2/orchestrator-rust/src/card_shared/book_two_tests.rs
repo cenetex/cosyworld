@@ -426,14 +426,16 @@ fn book_two_upgrades_rules_twenty_and_replays_the_agreed_danaid_journey() {
     assert_eq!(recitals["greek-danaid-return-common"]["actor"], "mara");
 
     let mut reader = None;
-    for _ in 0..=8 {
+    for attempt in 0..=9 {
         reader = ["vale", "mara"].iter().position(|actor| {
             world.game["actors"][*actor]["place"] == world.game["actors"]["greek-rhapsode"]["place"]
         });
         if reader.is_some() {
             break;
         }
-        play_fields(&c, &id, &mut world, "mara", &[("kind", "wait")]);
+        if attempt < 9 {
+            play_fields(&c, &id, &mut world, "mara", &[("kind", "wait")]);
+        }
     }
     let poem = nearby_poem(
         &world,

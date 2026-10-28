@@ -1,0 +1,407 @@
+{
+  "generated": "2026-10-28",
+  "tool": "built-in image_gen",
+  "sourceBase": "adf72465f7b9102b05c1b5031ba1d88bd91e56e8",
+  "style": "Detailed painted Greek stages and full-body cast, with simple woven clothing, aged natural materials and clear silhouettes.",
+  "sourcePlan": {
+    "name": "cosyworld-book-ii-design.md",
+    "sha256": "610a763a249eb5f78a179e02d4432ffd0541462ceb22d7acd02759d062bff75e",
+    "roles": {
+      "Melia": "Original adult Argive sanctuary keeper and host.",
+      "Nera": "Original adult guest who chooses her shelter at Argos.",
+      "Alcestis": "The Pherae account has remembered speech and a separately framed quiet veiled return.",
+      "Chloris": "Original adult household attendant in the Pherae account.",
+      "Heracles": "One visual portrait for separately named Pherae, Theban and Trachis account IDs."
+    }
+  },
+  "assets": [
+    {
+      "file": "book-two-pherae-day.webp",
+      "sourceFile": "book-two-sources/book-two-pherae-day.png",
+      "sourceName": "exec-327f9406-9538-44f5-b897-f0b15ea11123.png",
+      "generationId": "exec-327f9406-9538-44f5-b897-f0b15ea11123",
+      "kind": "stage",
+      "place": "greek-pherae",
+      "intent": "reference-based generation",
+      "transparentBackground": false,
+      "references": [
+        {
+          "file": "palace-day.webp",
+          "role": "style reference",
+          "sha256": "c0b61fb49af9c98adbdf9fe7ac386f3611e13b23342a10791673871473928769"
+        },
+        {
+          "file": "courtyard-day.webp",
+          "role": "style reference",
+          "sha256": "c27b798ed993d2aa7bdfad03da26967556206fc86579934c595cbde93b1b0559"
+        }
+      ],
+      "processing": "Original generated PNG retained in book-two-sources; full-size WebP encoded at quality 94 and effort 6.",
+      "prompt": "Use case: historical-scene.\nAsset type: a wide 16:9 stage painting of the Palace of Pherae for the Alcestis chapter in the Wine-Dark Sea card game.\nInput images: style references for detailed Greek painted architecture, natural light, aged stone and a broad foreground. Compose a distinct Thessalian palace household.\nScene: a quiet royal court at Pherae. A broad low palace portico has pale limestone columns, soft blue-grey and ochre painted borders, tall wooden inner doors and a little trailing vine. One simple empty wooden chair stands in the shade near the main doorway, slightly left of center. A plain bench and a small unlit oil lamp sit along the wall. The house feels dignified and restrained, with the stillness of a household in mourning. Through a side opening, a green Thessalian plain and distant blue mountain ridge are visible.\nComposition: eye-level wide 16:9. Keep the main doorway and empty chair readable together in the central phone crop. Leave a generous open limestone court across the lower third for separate cast portraits. The palace architecture and landscape fill the frame.\nStyle and light: richly detailed Greek storybook realism, pale weathered stone, natural wood, muted woven cloth and cool blue-grey accents. Clear warm afternoon daylight with soft portico shadows and dry calm air. Opaque full-frame painting.",
+      "size": [
+        1672,
+        941
+      ],
+      "sourceSha256": "3d5548020dda2a4616f93baef8ecb9ca159fdc8f7dacbbe8d3ccc0136aaef16b",
+      "sha256": "cacb220f62c214c212a5fc926cea102477f81e163f5e0aebd24ac7dc231c6b41",
+      "sourceBytes": 3006186,
+      "bytes": 626738
+    },
+    {
+      "file": "book-two-trachis-day.webp",
+      "sourceFile": "book-two-sources/book-two-trachis-day.png",
+      "sourceName": "exec-4eb20c32-8a19-44a7-9ee8-64c1ddc6d281.png",
+      "generationId": "exec-4eb20c32-8a19-44a7-9ee8-64c1ddc6d281",
+      "kind": "stage",
+      "place": "greek-trachis",
+      "intent": "reference-based generation",
+      "transparentBackground": false,
+      "references": [
+        {
+          "file": "courtyard-day.webp",
+          "role": "style reference",
+          "sha256": "c27b798ed993d2aa7bdfad03da26967556206fc86579934c595cbde93b1b0559"
+        }
+      ],
+      "processing": "Original generated PNG retained in book-two-sources; full-size WebP encoded at quality 94 and effort 6.",
+      "prompt": "Use case: historical-scene.\nAsset type: a wide 16:9 stage painting of the House at Trachis for the Women of Trachis chapter in the Wine-Dark Sea card game.\nInput image: a style reference for detailed Greek domestic painting, warm plaster, timber, cloth and open foreground. Compose a distinct household at the foot of wooded mountain slopes.\nScene: a modest, well-kept Greek house around a quiet open court. A long low cream-plastered facade has a red tile roof, simple timber porch posts and a main wooden doorway near the center. A plain wooden workbench immediately beside the doorway holds a neatly folded length of undyed wool. A pair of worn messenger's sandals rests by the threshold. A small unlit hanging oil lamp is beneath the porch. Vines and an olive tree frame the sides; clay jars, a low bench and household plants sit by the walls. Beyond one side of the court, a path turns toward the wooded slopes and pale ridges leading toward Oeta.\nComposition: eye-level wide 16:9. Keep the house doorway, workbench and folded cloth together in the central phone crop. Leave the lower third as clear stone-and-earth court for separate cast portraits. Architecture and landscape fill the frame.\nStyle and light: richly detailed Greek storybook realism, weathered warm plaster, ochre earth, natural timber, muted woven cloth, olive green and blue mountain distance. Clear afternoon daylight with soft vine shadows and dry calm air. Opaque full-frame painting.",
+      "size": [
+        1672,
+        941
+      ],
+      "sourceSha256": "8547dc42b1c54216534f55adfa25e54a632bd89fc02ae44eccb9945907bf13c1",
+      "sha256": "222c6059bb7bda10db354e2beaef4d436f08d330a5d6f88567c1f36b08af850d",
+      "sourceBytes": 3501178,
+      "bytes": 772150
+    },
+    {
+      "file": "book-two-melia.png",
+      "sourceFile": "book-two-melia.png",
+      "sourceName": "exec-986dd103-ee7f-40c6-bd8a-6dea7a6aa64f.png",
+      "generationId": "exec-986dd103-ee7f-40c6-bd8a-6dea7a6aa64f",
+      "kind": "portrait",
+      "plannedActorIds": [
+        "greek-danaid-melia"
+      ],
+      "intent": "reference-based generation",
+      "transparentBackground": true,
+      "references": [
+        {
+          "file": "chthonic-baker.png",
+          "role": "style reference",
+          "sha256": "c8e900ee50e1a3fe860e7f38e6625f7326a6715e6821e8a5db74d264c1bbd7e0"
+        },
+        {
+          "file": "chthonic-helen.png",
+          "role": "style reference",
+          "sha256": "3c87d505fd801846e140405d3d5b84f562ddb9d00a1f015ad9c2814209a5986f"
+        }
+      ],
+      "processing": "Original generated PNG copied with its full native pixels and alpha channel.",
+      "prompt": "Use case: historical-scene.\nAsset type: one full-body transparent cast portrait for Book II of the Wine-Dark Sea card game.\nInput images: style references from the approved Greek cast. Match their detailed painterly realism, natural anatomy, handwoven cloth, aged natural materials and humane expressions. Give the new person their own face and clothing.\nComposition: a calm three-quarter standing pose on a tall 2:3 canvas. Show the complete head, both hands, garment hem and both sandaled feet, with generous clear margins. Use a readable silhouette for small cards and full stage overlays.\nLighting: soft warm light from upper left, with gentle cool shading within the subject.\nBackground: true transparent alpha across the field outside the person and held props, including gaps between limbs. Shading stays within the figure. The full body is a clean cutout for day and night scenes.\n\nSubject: Melia, an original adult keeper and host at the Argive sanctuary. She is a sturdy woman in her fifties with a warm olive complexion, a rounded face, kind watchful brown eyes and silver-streaked brown hair in a simple braided crown. She wears a plain ankle-length cream woven linen dress, a muted terracotta wool shawl, a practical woven belt and leather sandals. Her clothes are lived in and carefully kept. One hand opens in a welcoming, clear speaking gesture while the other rests lightly at her waist. Her expression carries hospitality and practical resolve, as someone who makes a promise of shelter real. Keep the pose grounded and conversational.",
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "e3487670afe1e4f4b684bec63e38cc32fc6de527bc3624987522c87f641b66c4",
+      "sha256": "e3487670afe1e4f4b684bec63e38cc32fc6de527bc3624987522c87f641b66c4",
+      "sourceBytes": 2463337,
+      "bytes": 2463337,
+      "alpha": {
+        "clearPixels": 881628,
+        "partialPixels": 691236,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          95,
+          17,
+          860,
+          1494
+        ],
+        "visibleBoundsThreshold": 8
+      }
+    },
+    {
+      "file": "book-two-nera.png",
+      "sourceFile": "book-two-nera.png",
+      "sourceName": "exec-ddace450-25d8-476e-be95-8dbfc3f4f3dd.png",
+      "generationId": "exec-ddace450-25d8-476e-be95-8dbfc3f4f3dd",
+      "kind": "portrait",
+      "plannedActorIds": [
+        "greek-danaid-nera"
+      ],
+      "intent": "reference-based generation",
+      "transparentBackground": true,
+      "references": [
+        {
+          "file": "chthonic-baker.png",
+          "role": "style reference",
+          "sha256": "c8e900ee50e1a3fe860e7f38e6625f7326a6715e6821e8a5db74d264c1bbd7e0"
+        },
+        {
+          "file": "chthonic-helen.png",
+          "role": "style reference",
+          "sha256": "3c87d505fd801846e140405d3d5b84f562ddb9d00a1f015ad9c2814209a5986f"
+        }
+      ],
+      "processing": "Original generated PNG copied with its full native pixels and alpha channel.",
+      "prompt": "Use case: historical-scene.\nAsset type: one full-body transparent cast portrait for Book II of the Wine-Dark Sea card game.\nInput images: style references from the approved Greek cast. Match their detailed painterly realism, natural anatomy, handwoven cloth, aged natural materials and humane expressions. Give the new person their own face and clothing.\nComposition: a calm three-quarter standing pose on a tall 2:3 canvas. Show the complete head, both hands, garment hem and both sandaled feet, with generous clear margins. Use a readable silhouette for small cards and full stage overlays.\nLighting: soft warm light from upper left, with gentle cool shading within the subject.\nBackground: true transparent alpha across the field outside the person and held props, including gaps between limbs. Shading stays within the figure. The full body is a clean cutout for day and night scenes.\n\nSubject: Nera, an original adult guest choosing shelter at Argos. She is a woman in her thirties with a warm medium-brown complexion, a long distinct face, steady dark eyes and tightly curled black hair gathered at the nape. She wears a simple ankle-length ochre linen dress, a muted plum-brown travel wrap, a plain cord belt and worn leather sandals. One hand holds her wrap near the shoulder; the other opens in a clear gesture as she explains her own chosen terms of shelter. Her expression shows thought, dignity and quiet determination. Keep the clothing simple and the stance self-possessed.",
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "19379b15816792d9891386d18a2eafcf4ed60241afeae8ddd62cde0d831111c6",
+      "sha256": "19379b15816792d9891386d18a2eafcf4ed60241afeae8ddd62cde0d831111c6",
+      "sourceBytes": 2241409,
+      "bytes": 2241409,
+      "alpha": {
+        "clearPixels": 968126,
+        "partialPixels": 604738,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          117,
+          14,
+          823,
+          1519
+        ],
+        "visibleBoundsThreshold": 8
+      }
+    },
+    {
+      "file": "book-two-alcestis.png",
+      "sourceFile": "book-two-alcestis.png",
+      "sourceName": "exec-aef55a17-5529-4317-b069-0ea24dc76e12.png",
+      "generationId": "exec-aef55a17-5529-4317-b069-0ea24dc76e12",
+      "kind": "portrait",
+      "plannedActorIds": [
+        "greek-alcestis-alcestis"
+      ],
+      "intent": "reference-based generation",
+      "transparentBackground": true,
+      "references": [
+        {
+          "file": "chthonic-baker.png",
+          "role": "style reference",
+          "sha256": "c8e900ee50e1a3fe860e7f38e6625f7326a6715e6821e8a5db74d264c1bbd7e0"
+        },
+        {
+          "file": "chthonic-helen.png",
+          "role": "style reference",
+          "sha256": "3c87d505fd801846e140405d3d5b84f562ddb9d00a1f015ad9c2814209a5986f"
+        }
+      ],
+      "processing": "Original generated PNG copied with its full native pixels and alpha channel.",
+      "prompt": "Use case: historical-scene.\nAsset type: one full-body transparent cast portrait for Book II of the Wine-Dark Sea card game.\nInput images: style references from the approved Greek cast. Match their detailed painterly realism, natural anatomy, handwoven cloth, aged natural materials and humane expressions. Give the new person their own face and clothing.\nComposition: a calm three-quarter standing pose on a tall 2:3 canvas. Show the complete head, both hands, garment hem and both sandaled feet, with generous clear margins. Use a readable silhouette for small cards and full stage overlays.\nLighting: soft warm light from upper left, with gentle cool shading within the subject.\nBackground: true transparent alpha across the field outside the person and held props, including gaps between limbs. Shading stays within the figure. The full body is a clean cutout for day and night scenes.\n\nSubject: Alcestis, an adult woman in her late thirties, queen of the household at Pherae in the named play account. She has a distinct softly angular face, an olive complexion, serious brown eyes and dark brown hair gathered beneath a light ivory linen veil that frames her fully visible face. She wears a dignified ankle-length ivory linen dress, a muted violet-grey mantle fastened with one modest bronze pin, a woven belt and simple sandals. Her closed-mouth expression is composed and grave. One hand rests gently near her heart and the other is lowered with an open relaxed palm. The pose should suit both the remembered account and the quiet veiled return, with her personhood and calm presence at the center.",
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "47b703495dc9a713f97c9579c7aa57e106002e78b224d19c4144fbfbecd43106",
+      "sha256": "47b703495dc9a713f97c9579c7aa57e106002e78b224d19c4144fbfbecd43106",
+      "sourceBytes": 2225484,
+      "bytes": 2225484,
+      "alpha": {
+        "clearPixels": 955525,
+        "partialPixels": 617339,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          190,
+          13,
+          828,
+          1503
+        ],
+        "visibleBoundsThreshold": 8
+      }
+    },
+    {
+      "file": "book-two-chloris.png",
+      "sourceFile": "book-two-chloris.png",
+      "sourceName": "exec-70cbfc8c-fb4b-40c4-bf78-62e2dff4be67.png",
+      "generationId": "exec-70cbfc8c-fb4b-40c4-bf78-62e2dff4be67",
+      "kind": "portrait",
+      "plannedActorIds": [
+        "greek-alcestis-chloris"
+      ],
+      "intent": "reference-based generation",
+      "transparentBackground": true,
+      "references": [
+        {
+          "file": "chthonic-baker.png",
+          "role": "style reference",
+          "sha256": "c8e900ee50e1a3fe860e7f38e6625f7326a6715e6821e8a5db74d264c1bbd7e0"
+        },
+        {
+          "file": "chthonic-helen.png",
+          "role": "style reference",
+          "sha256": "3c87d505fd801846e140405d3d5b84f562ddb9d00a1f015ad9c2814209a5986f"
+        }
+      ],
+      "processing": "Original generated PNG copied with its full native pixels and alpha channel.",
+      "prompt": "Use case: historical-scene.\nAsset type: one full-body transparent cast portrait for Book II of the Wine-Dark Sea card game.\nInput images: style references from the approved Greek cast. Match their detailed painterly realism, natural anatomy, handwoven cloth, aged natural materials and humane expressions. Give the new person their own face and clothing.\nComposition: a calm three-quarter standing pose on a tall 2:3 canvas. Show the complete head, both hands, garment hem and both sandaled feet, with generous clear margins. Use a readable silhouette for small cards and full stage overlays.\nLighting: soft warm light from upper left, with gentle cool shading within the subject.\nBackground: true transparent alpha across the field outside the person and held props, including gaps between limbs. Shading stays within the figure. The full body is a clean cutout for day and night scenes.\n\nSubject: Chloris, an original adult household attendant at Pherae. She is a woman in her forties with a fair olive complexion, a narrow face, light freckles, brown eyes and auburn hair in a plain low braid. She wears a practical ankle-length grey-brown woven dress with rolled linen sleeves, a simple undyed work apron, a small earthy shawl, a plain belt and leather sandals. One hand rests lightly at the apron while the other opens as she speaks honestly about the household. Her expression is attentive, humane and quietly candid. Give her a distinct face and a simple working silhouette.",
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "80f91f25ae48b3ffacf7ba8183c68a841482af716c05e6ea0fdc6ee316bffb87",
+      "sha256": "80f91f25ae48b3ffacf7ba8183c68a841482af716c05e6ea0fdc6ee316bffb87",
+      "sourceBytes": 2204042,
+      "bytes": 2204042,
+      "alpha": {
+        "clearPixels": 982069,
+        "partialPixels": 590795,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          148,
+          17,
+          833,
+          1507
+        ],
+        "visibleBoundsThreshold": 8
+      }
+    },
+    {
+      "file": "hero-heracles.png",
+      "sourceFile": "hero-heracles.png",
+      "sourceName": "exec-a8261ccf-8ee7-4a81-8546-f5790c5a92b3.png",
+      "generationId": "exec-a8261ccf-8ee7-4a81-8546-f5790c5a92b3",
+      "kind": "portrait",
+      "plannedActorIds": [
+        "greek-alcestis-heracles",
+        "greek-heracles-heracles",
+        "greek-trachis-heracles"
+      ],
+      "intent": "reference-based generation",
+      "transparentBackground": true,
+      "references": [
+        {
+          "file": "chthonic-menelaus.png",
+          "role": "style reference",
+          "sha256": "8f3ef20e63ee5138d7ae09bb3e90893c51f421aecdd3adea3fb94a4d61e4113b"
+        },
+        {
+          "file": "chthonic-baker.png",
+          "role": "style reference",
+          "sha256": "c8e900ee50e1a3fe860e7f38e6625f7326a6715e6821e8a5db74d264c1bbd7e0"
+        }
+      ],
+      "processing": "Original generated PNG copied with its full native pixels and alpha channel.",
+      "prompt": "Use case: historical-scene.\nAsset type: one full-body transparent cast portrait for Book II of the Wine-Dark Sea card game.\nInput images: style references from the approved Greek cast. Match their detailed painterly realism, natural anatomy, handwoven cloth, aged natural materials and humane expressions. Give the new person their own face and clothing.\nComposition: a calm three-quarter standing pose on a tall 2:3 canvas. Show the complete head, both hands, garment hem and both sandaled feet, with generous clear margins. Use a readable silhouette for small cards and full stage overlays.\nLighting: soft warm light from upper left, with gentle cool shading within the subject.\nBackground: true transparent alpha across the field outside the person and held props, including gaps between limbs. Shading stays within the figure. The full body is a clean cutout for day and night scenes.\n\nSubject: Heracles, one consistent adult Greek hero portrait for the Pherae, Theban and Trachis play accounts. He is a tall, powerfully built man in his forties with natural human proportions, a weathered olive face, dark curly hair and a full dark beard. His face is distinct from the reference man. He wears a plain knee-length natural linen chiton, a broad leather belt, practical sandals and a worn lion hide draped over one shoulder as his recognizable mantle. One hand holds a heavy knotted wooden club low and at rest beside him, with its end near the ground. His free hand opens in a restrained, humane gesture. His expression is thoughtful and steady. Keep the stance calm, the clothing grounded and the complete lion hide, hands, club and feet within the transparent margins.",
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "0976bc6ee62ea8d2a882343b7ca28d78fe1042909d68973cdc06cebc66177832",
+      "sha256": "0976bc6ee62ea8d2a882343b7ca28d78fe1042909d68973cdc06cebc66177832",
+      "sourceBytes": 2574236,
+      "bytes": 2574236,
+      "alpha": {
+        "clearPixels": 840588,
+        "partialPixels": 732276,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          80,
+          10,
+          995,
+          1508
+        ],
+        "visibleBoundsThreshold": 8
+      }
+    },
+    {
+      "file": "book-two-pherae-night.webp",
+      "sourceFile": "book-two-sources/book-two-pherae-night.png",
+      "sourceName": "exec-71f7a5ee-0c31-4063-b864-439dcc7f3ff7.png",
+      "generationId": "exec-71f7a5ee-0c31-4063-b864-439dcc7f3ff7",
+      "kind": "stage",
+      "place": "greek-pherae",
+      "intent": "lighting-weather edit",
+      "transparentBackground": false,
+      "references": [
+        {
+          "file": "book-two-sources/book-two-pherae-day.png",
+          "role": "edit target",
+          "sha256": "3d5548020dda2a4616f93baef8ecb9ca159fdc8f7dacbbe8d3ccc0136aaef16b"
+        }
+      ],
+      "processing": "Original generated PNG retained in book-two-sources; full-size WebP encoded at quality 94 and effort 6.",
+      "prompt": "Use case: lighting-weather.\nAsset type: a night partner for a Book II stage in the Wine-Dark Sea card game.\nInput image: the supplied finished daylight painting is the edit target.\nKeep the exact wide 16:9 crop, camera, perspective, object positions and silhouettes. Keep the open foreground, natural material detail, dry ground and clear air. Retain the game's detailed Greek painterly style. Change the sky, lighting and shadows to a clear calm night. The scene stays opaque and contains its scenery.\n\nScene: the Palace of Pherae. Preserve the palace portico, doors, columns, empty chair, bench, small lamp, painted borders, vines, jars, court, plain and mountain ridge. Use deep blue night sky and cool moonlight from the open side. Light the existing small lamp gently and add a few restrained warm glows within the portico and far homes. The chair and main doorway remain readable, and the quiet household mood stays intact.",
+      "size": [
+        1672,
+        941
+      ],
+      "sourceSha256": "19b201abdcbe179291d1a885bb60fd284a654ce6a683176ce9cdd63c12611c4b",
+      "sha256": "b2513e13126c457c33473ca8e6da83a7607b19cd0da492fb2f280e1ff0094b53",
+      "sourceBytes": 2682111,
+      "bytes": 513098
+    },
+    {
+      "file": "book-two-trachis-night.webp",
+      "sourceFile": "book-two-sources/book-two-trachis-night.png",
+      "sourceName": "exec-ede5d165-d4f8-43d2-b53d-c9cb85b0a1c3.png",
+      "generationId": "exec-ede5d165-d4f8-43d2-b53d-c9cb85b0a1c3",
+      "kind": "stage",
+      "place": "greek-trachis",
+      "intent": "lighting-weather edit",
+      "transparentBackground": false,
+      "references": [
+        {
+          "file": "book-two-sources/book-two-trachis-day.png",
+          "role": "edit target",
+          "sha256": "8547dc42b1c54216534f55adfa25e54a632bd89fc02ae44eccb9945907bf13c1"
+        }
+      ],
+      "processing": "Original generated PNG retained in book-two-sources; full-size WebP encoded at quality 94 and effort 6.",
+      "prompt": "Use case: lighting-weather.\nAsset type: a night partner for a Book II stage in the Wine-Dark Sea card game.\nInput image: the supplied finished daylight painting is the edit target.\nKeep the exact wide 16:9 crop, camera, perspective, object positions and silhouettes. Keep the open foreground, natural material detail, dry ground and clear air. Retain the game's detailed Greek painterly style. Change the sky, lighting and shadows to a clear calm night. The scene stays opaque and contains its scenery.\n\nScene: the House at Trachis. Preserve the house facade, roof, timber porch, doorway and its open door, hanging lamp, workbench, folded wool, messenger's sandals, jars, benches, vines, olive tree, side path, wooded slopes and mountain ridge. Use a deep indigo sky with small stars and soft cool moonlight. Light the existing hanging oil lamp with a gentle amber flame and let a small warm glow come from the doorway. Keep the doorway, workbench and cloth readable in the central crop.",
+      "size": [
+        1672,
+        941
+      ],
+      "sourceSha256": "f4cabbb3263df7b42697c96fa0af6620ef9e6b9f4679556ecf58d66e1330d127",
+      "sha256": "c903fdcc81d55ee3dde11508edf0b9f592f83f38c35687cbbdf01f3c1a5562da",
+      "sourceBytes": 2978597,
+      "bytes": 620730
+    }
+  ],
+  "integration": "The Book II source owner will bind these paths and preserve separate account identities. Chapter integration owns optimized variants, public assets, shared rules and final release versions.",
+  "reviewBackgrounds": [
+    {
+      "file": "suppliants-argive-shore-day.webp",
+      "sha256": "eeefe8a71013f2f9fab65cf71b4b153aa4a83ef454e1c87de2487eb42fa1bc60",
+      "source": "Greek scenery PR #1269, commit f79e09fda98c071c2e7e177e324e2ebb6855f2c3"
+    },
+    {
+      "file": "suppliants-argive-shore-night.webp",
+      "sha256": "a63ef68ee9c00235193a6bff4d5c9f8571dff38d6e5f3e84312130b877ca8e50",
+      "source": "Greek scenery PR #1269, commit f79e09fda98c071c2e7e177e324e2ebb6855f2c3"
+    },
+    {
+      "file": "book-two-pherae-day.webp",
+      "sha256": "cacb220f62c214c212a5fc926cea102477f81e163f5e0aebd24ac7dc231c6b41",
+      "source": "This art set"
+    },
+    {
+      "file": "book-two-pherae-night.webp",
+      "sha256": "b2513e13126c457c33473ca8e6da83a7607b19cd0da492fb2f280e1ff0094b53",
+      "source": "This art set"
+    },
+    {
+      "file": "book-two-trachis-day.webp",
+      "sha256": "222c6059bb7bda10db354e2beaef4d436f08d330a5d6f88567c1f36b08af850d",
+      "source": "This art set"
+    },
+    {
+      "file": "book-two-trachis-night.webp",
+      "sha256": "c903fdcc81d55ee3dde11508edf0b9f592f83f38c35687cbbdf01f3c1a5562da",
+      "source": "This art set"
+    }
+  ]
+}
