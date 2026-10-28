@@ -270,3 +270,6 @@ applies when projecting a world that still uses an earlier interpreter.
 
 The current interpreter builder writes `engine-v13.js`. The version 12
 interpreter stays frozen, and existing worlds receive an explicit saved upgrade.
+
+A rules upgrade starts a fresh sync stream from the player’s current private
+view. Earlier cached view events are replaced at that boundary.

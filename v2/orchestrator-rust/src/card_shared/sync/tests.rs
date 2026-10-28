@@ -146,3 +146,31 @@ fn a_damaged_derived_cache_starts_a_fresh_stream() {
         first["sync"]["head"]["stream"]
     );
 }
+
+#[test]
+fn a_rules_upgrade_replaces_retained_events_with_the_current_private_view() {
+    let c = Connection::open_in_memory().unwrap();
+    let mut old = state(1, 1);
+    old["version"] = json!("full-card-world/12");
+    old["world"]["memories"] = json!({"moth":{"innerLife":{"persona":"Earlier private thought."}}});
+    let first = send(&c, old.clone(), "snapshot");
+    old["world"]["memories"]["moth"]["innerLife"]["persona"] = json!("Unseen private thought.");
+    let unseen = send(&c, old, &cursor(&first));
+    assert!(unseen.to_string().contains("Unseen private thought."));
+    let mut current = state(3, 3);
+    current["version"] = json!("full-card-world/13");
+    current["world"]["memories"] = json!({"moth":{"text":"A public character line."}});
+    let fresh = send(&c, current, &cursor(&first));
+    assert_eq!(fresh["sync"]["kind"], "snapshot");
+    assert_ne!(
+        fresh["sync"]["head"]["stream"],
+        first["sync"]["head"]["stream"]
+    );
+    assert!(!fresh.to_string().contains("private thought"));
+    let saved: String = c
+        .query_row("SELECT chain FROM card_full_sync", [], |r| r.get(0))
+        .unwrap();
+    let chain: Chain = serde_json::from_str(&saved).unwrap();
+    assert!(chain.events.is_empty());
+    assert!(!saved.contains("private thought"));
+}
