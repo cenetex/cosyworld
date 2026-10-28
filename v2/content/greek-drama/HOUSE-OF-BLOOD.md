@@ -84,10 +84,21 @@ The revision 7 save upgrade adds the new cast, objects and place memories
 while preserving saved custody, source choices and receipts. The coordinator
 will join the revision 8 ID lists with the other books.
 
-This draft reuses the existing Greek portraits, object art and backdrops.
-The source catalog compiles into `v2/card-game/packs.json`. The current rules 21 interpreter and Rust card assets are generated from this
-source. [HOUSE-OF-BLOOD-ART.json](HOUSE-OF-BLOOD-ART.json) records the proposed
-18 portrait files for the 20 roles and three scenery files for the art queue.
+Twelve approved portraits cover fourteen roles. The two Clytemnestra roles
+share one portrait, and the two Pylades roles share one portrait. The court
+batch is from PR #1285 at `227399dda93f4ed476a1a797e2c2f98d46913115`;
+the witness batch is from PR #1286 at
+`a8b5cd606266b41dd1a8509d263390b850780e5a`. Their original PNGs retain the
+generated transparency. Each portrait faces left. The game builds a full-size
+stage image and a smaller card image from each original.
+
+The source catalog compiles into `v2/card-game/packs.json`. The current rules
+21 interpreter and Rust card assets are generated from this source.
+[HOUSE-OF-BLOOD-ART.json](HOUSE-OF-BLOOD-ART.json) keeps the fixed queue of
+18 portrait files for the 20 roles and three scenery locations. The separate
+art handoff adds day and night views for each location and both ship views
+at Tauris. The remaining six portraits, objects and scenery use the existing
+Greek art while their new images are prepared.
 The local temple/shore walk remains part of the Tauris chapter. The combined
 ship map will bind its landing to `greek-tauris-shore` and replace this draft
 branch's Piraeus/temple entry edge.
@@ -109,10 +120,13 @@ dialogue and verse are original paraphrases.
 
 - `node v2/scripts/build-card-worldpacks.mjs` — passed.
 - `node v2/scripts/build-card-shared-engine.mjs` — rebuilt rules 21.
-- `node v2/scripts/build-card-assets.mjs` — rebuilt 664 card assets.
+- `node v2/scripts/build-card-assets.mjs` — rebuilt 700 card assets.
+- `node v2/scripts/build-card-images.mjs --check` — all 208 image sources passed, including exact transparency checks for the twelve new portraits and their display copies.
+- `node node_modules/vitest/vitest.mjs run test/card-packs.test.mjs test/card-portrait-facing.test.mjs --maxWorkers=1 --minWorkers=1` — 29 passed. Chapter media paths stay inside their own pack folder.
 - `node node_modules/vitest/vitest.mjs run test/card-greek-house-of-blood.test.mjs --maxWorkers=1 --minWorkers=1` — 40 passed. These include all 21 endings and returns, six engine-20 household saves, actual arrival and custody, separate assent, first meeting authorship, second carrier publication, stable shared actor ordering and seven bundled-interpreter comparisons.
 - Targeted historical save cases in the Ajax, capacity, section-upgrade and travel test files — 11 passed.
 - `node v2/scripts/smoke-card-house-of-blood.mjs` — refuge and keeper paths passed at 1440px and 390px, with actual card pairing, published Talk, carried return, reload, viewport fit and loaded art.
+- A separate browser art check selected all fourteen roles at 1440px and 390px. All 28 portrait bindings loaded, each page fit its viewport, and browser and asset errors stayed at zero. Screenshots cover the six locations used by the two portrait batches.
 - `git diff --check` — passed.
 
 The native journal test is in `house_of_blood_tests.rs`. It covers the agreed

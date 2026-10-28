@@ -3978,7 +3978,7 @@
             values: {},
             travels: false,
             standoffs: false,
-            portrait: "assets/greek-drama/chthonic-singer.png",
+            portrait: "assets/greek-drama/house-of-blood/argos-watchman.png",
             persona: "A watchman keeps the beacon account and introduces the three separate household roads. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
             voice: "A watchman keeps the beacon account and introduces the three separate household roads.",
             tastes: {
@@ -4002,7 +4002,7 @@
             values: {},
             travels: false,
             standoffs: false,
-            portrait: "assets/greek-drama/chthonic-electra.png",
+            portrait: "assets/greek-drama/house-of-blood/cassandra.png",
             persona: "Cassandra speaks within Aeschylus\u2019s recalled homecoming, before she enters the house. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
             voice: "Cassandra speaks within Aeschylus\u2019s recalled homecoming, before she enters the house.",
             tastes: {
@@ -4031,7 +4031,7 @@
             values: {},
             travels: false,
             standoffs: false,
-            portrait: "assets/greek-drama/chthonic-electra.png",
+            portrait: "assets/greek-drama/house-of-blood/clytemnestra.png",
             persona: "Clytemnestra gives her own claim within the Aeschylus account. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
             voice: "Clytemnestra gives her own claim within the Aeschylus account.",
             tastes: {
@@ -4061,7 +4061,7 @@
             values: {},
             travels: false,
             standoffs: false,
-            portrait: "assets/greek-drama/chthonic-singer.png",
+            portrait: "assets/greek-drama/house-of-blood/argos-housekeeper.png",
             persona: "An original surviving witness keeps the household record and chooses her own shelter. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
             voice: "An original surviving witness keeps the household record and chooses her own shelter.",
             tastes: {
@@ -4099,7 +4099,7 @@
             values: {},
             travels: false,
             standoffs: false,
-            portrait: "assets/greek-drama/chthonic-orestes.png",
+            portrait: "assets/greek-drama/house-of-blood/pylades.png",
             persona: "Pylades tells his own advice and the later source ending in Aeschylus\u2019s tomb account. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
             voice: "Pylades tells his own advice and the later source ending in Aeschylus\u2019s tomb account.",
             tastes: {
@@ -4129,7 +4129,7 @@
             values: {},
             travels: false,
             standoffs: false,
-            portrait: "assets/greek-drama/chthonic-electra.png",
+            portrait: "assets/greek-drama/house-of-blood/cilissa.png",
             persona: "The nurse remembers the palace message and speaks for the work of care. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
             voice: "The nurse remembers the palace message and speaks for the work of care.",
             tastes: {
@@ -4158,7 +4158,7 @@
             values: {},
             travels: false,
             standoffs: false,
-            portrait: "assets/greek-drama/chthonic-electra.png",
+            portrait: "assets/greek-drama/house-of-blood/chrysothemis.png",
             persona: "Chrysothemis gives her own answer to Electra in Sophocles\u2019s palace account. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
             voice: "Chrysothemis gives her own answer to Electra in Sophocles\u2019s palace account.",
             tastes: {
@@ -4187,7 +4187,7 @@
             values: {},
             travels: false,
             standoffs: false,
-            portrait: "assets/greek-drama/chthonic-singer.png",
+            portrait: "assets/greek-drama/house-of-blood/paedagogus.png",
             persona: "The tutor names his false death report and the urn in Sophocles\u2019s account. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
             voice: "The tutor names his false death report and the urn in Sophocles\u2019s account.",
             tastes: {
@@ -4216,7 +4216,7 @@
             values: {},
             travels: false,
             standoffs: false,
-            portrait: "assets/greek-drama/chthonic-singer.png",
+            portrait: "assets/greek-drama/house-of-blood/argive-farmer.png",
             persona: "The farmer offers food and dignity in Euripides\u2019s farmhouse account. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
             voice: "The farmer offers food and dignity in Euripides\u2019s farmhouse account.",
             tastes: {
@@ -4245,7 +4245,7 @@
             values: {},
             travels: false,
             standoffs: false,
-            portrait: "assets/greek-drama/chthonic-singer.png",
+            portrait: "assets/greek-drama/house-of-blood/electra-old-servant.png",
             persona: "The old servant names the scar and its childhood cause in Euripides\u2019s account. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
             voice: "The old servant names the scar and its childhood cause in Euripides\u2019s account.",
             tastes: {
@@ -4274,7 +4274,7 @@
             values: {},
             travels: false,
             standoffs: false,
-            portrait: "assets/greek-drama/chthonic-electra.png",
+            portrait: "assets/greek-drama/house-of-blood/clytemnestra.png",
             persona: "Clytemnestra gives her own answer in the farmhouse telling before its later ending is heard. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
             voice: "Clytemnestra gives her own answer in the farmhouse telling before its later ending is heard.",
             tastes: {
@@ -4304,7 +4304,7 @@
             values: {},
             travels: false,
             standoffs: false,
-            portrait: "assets/greek-drama/chthonic-orestes.png",
+            portrait: "assets/greek-drama/house-of-blood/pylades.png",
             persona: "Pylades carries the farmhouse source account, including the Dioscuri\u2019s ending. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
             voice: "Pylades carries the farmhouse source account, including the Dioscuri\u2019s ending.",
             tastes: {
@@ -4334,7 +4334,7 @@
             values: {},
             travels: false,
             standoffs: false,
-            portrait: "assets/greek-drama/chthonic-electra.png",
+            portrait: "assets/greek-drama/house-of-blood/hermione.png",
             persona: "Hermione introduces Euripides\u2019s sixth-day Orestes as a separate song. Her present consent belongs to the game\u2019s care scenes. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
             voice: "Hermione introduces Euripides\u2019s sixth-day Orestes as a separate song. Her present consent belongs to the game\u2019s care scenes.",
             tastes: {
@@ -4358,7 +4358,7 @@
             values: {},
             travels: false,
             standoffs: false,
-            portrait: "assets/greek-drama/chthonic-singer.png",
+            portrait: "assets/greek-drama/house-of-blood/phrygian-servant.png",
             persona: "The servant gives his own account of the palace attack and may agree to a safe walk. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
             voice: "The servant gives his own account of the palace attack and may agree to a safe walk.",
             tastes: {
@@ -23747,7 +23747,9 @@
       return valid ? [] : [`invalid observation ${d?.id || "definition"}`];
     });
   }
-  var mediaPathOk = (pack, path) => typeof path === "string" && (new RegExp(`^assets/${pack}/[a-z0-9-]+\\.(?:png|svg|webp)$`).test(path) || /^assets\/shared\/(characters|places|items)\/[a-z0-9-]+\.(png|webp)$/.test(
+  var mediaPathOk = (pack, path) => typeof path === "string" && (new RegExp(
+    `^assets/${pack}/(?:[a-z0-9-]+/)?[a-z0-9-]+\\.(?:png|svg|webp)$`
+  ).test(path) || /^assets\/shared\/(characters|places|items)\/[a-z0-9-]+\.(png|webp)$/.test(
     path
   ));
   function packProblems(pack, hub2, mountedPlaces = []) {
@@ -23904,7 +23906,7 @@
     check(owns2(places2, pack.entry), "entry must name one of the pack's places");
     const media = (path, what) => check(
       mediaPathOk(pack.id, path),
-      `${what} must be assets/${pack.id}/<file>.png`
+      `${what} must be assets/${pack.id}/<file> or assets/${pack.id}/<chapter>/<file> (PNG, SVG or WebP)`
     );
     for (const [id, p] of Object.entries(places2)) {
       check(

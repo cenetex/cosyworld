@@ -364,6 +364,90 @@
       "card": "assets/optimized/card/webp/greek-drama/harbor-ship-at-berth.webp",
       "cardHash": "c2810e0b0d9e960c6501fa7744d8201de052b4f370c03ae363c00001ba43dd0b"
     },
+    "assets/greek-drama/house-of-blood/argive-farmer.png": {
+      "sourceHash": "69ed6bd0e8f5d86bc6bb1885633a6ad2c89dd0f4d09b03b7c0af401f13b1b0e7",
+      "stage": "assets/optimized/stage/png/greek-drama/house-of-blood/argive-farmer.webp",
+      "stageHash": "5e665df874be9633d6960d9ba2671153ce1a03ca0a846524db46f111b4605125",
+      "card": "assets/optimized/card/png/greek-drama/house-of-blood/argive-farmer.webp",
+      "cardHash": "a0183f3dc0c5d9a6867745fda91e11a6407295419166832c4da308e5249f7eb2"
+    },
+    "assets/greek-drama/house-of-blood/argos-housekeeper.png": {
+      "sourceHash": "8c524ef926a33b11ac4d0e7fe480d1185b51ad22e193e7d23eb4952b9a22f32d",
+      "stage": "assets/optimized/stage/png/greek-drama/house-of-blood/argos-housekeeper.webp",
+      "stageHash": "864b67575602d6eab34c7125b0bb8fa7e27fc0c10f9153925d6e2abab6ff4676",
+      "card": "assets/optimized/card/png/greek-drama/house-of-blood/argos-housekeeper.webp",
+      "cardHash": "aa6a1b58477a0fa39521fb672fd12a5178081490384e9d82350380617d73e175"
+    },
+    "assets/greek-drama/house-of-blood/argos-watchman.png": {
+      "sourceHash": "9cc88c785bc9bc3a6bcf1b9a73a9e17d52a04cd9163880f136763e4574e261d4",
+      "stage": "assets/optimized/stage/png/greek-drama/house-of-blood/argos-watchman.webp",
+      "stageHash": "6408499517c8a47e59924e7b47e7b27fbf384e5eeb412ec52c875f1a2f940a9c",
+      "card": "assets/optimized/card/png/greek-drama/house-of-blood/argos-watchman.webp",
+      "cardHash": "3ee03c4aa566e3c6310455fa74f308075f4a5629b316449a01b787f05c8b410b"
+    },
+    "assets/greek-drama/house-of-blood/cassandra.png": {
+      "sourceHash": "9ce7cc1508fdb139c5e805008889eb41eb89adbcee4a7b798968fb6cb5ff4dba",
+      "stage": "assets/optimized/stage/png/greek-drama/house-of-blood/cassandra.webp",
+      "stageHash": "eb1ecce25b7fcf0e67561446ff8adaaa49aa4fd114db519198b9c846f7b466db",
+      "card": "assets/optimized/card/png/greek-drama/house-of-blood/cassandra.webp",
+      "cardHash": "4fd29783fadcf4d32d5cb1e17e4e3240a9e13f9229c901021569bfe968b4ae77"
+    },
+    "assets/greek-drama/house-of-blood/chrysothemis.png": {
+      "sourceHash": "1a3f6d5d0b86afc84b9ae1b1cc87c9c6d8703de8fc26c79e7f3bbb871a771b61",
+      "stage": "assets/optimized/stage/png/greek-drama/house-of-blood/chrysothemis.webp",
+      "stageHash": "f5d2156d2adb0c774b35d1c130146958d5132cd365ba3c25221998a2ba6533ab",
+      "card": "assets/optimized/card/png/greek-drama/house-of-blood/chrysothemis.webp",
+      "cardHash": "5d8fefa4b8ca59edd27acb9b6b9d8a4418567d84a09e651be03d92fc5719d3b7"
+    },
+    "assets/greek-drama/house-of-blood/cilissa.png": {
+      "sourceHash": "00d6f19f75ed12ed00093688a41199c981532684b8f0569dd9895a7149ae3cf7",
+      "stage": "assets/optimized/stage/png/greek-drama/house-of-blood/cilissa.webp",
+      "stageHash": "60eefdfd143f2bb6e53f879b0f9f2bbbfdfe1c7d90cc7516ba0576fcc112c147",
+      "card": "assets/optimized/card/png/greek-drama/house-of-blood/cilissa.webp",
+      "cardHash": "9291dd605863bfcd34240bc0ebc22a6dec5a492926873b4891449ddc4e500320"
+    },
+    "assets/greek-drama/house-of-blood/clytemnestra.png": {
+      "sourceHash": "3beb9a8ff1fca061268f8bef5942a63b94de065dde5767eb0a44cdf02d2001a0",
+      "stage": "assets/optimized/stage/png/greek-drama/house-of-blood/clytemnestra.webp",
+      "stageHash": "108767a19b74d3a52b5aa36bcea72b7f7b0c614abe92e271c96eaf7a65c002af",
+      "card": "assets/optimized/card/png/greek-drama/house-of-blood/clytemnestra.webp",
+      "cardHash": "0382d7f99551d08d677da483f94cab2f83e0b39526f66c5ce930334eaf5d942c"
+    },
+    "assets/greek-drama/house-of-blood/electra-old-servant.png": {
+      "sourceHash": "34b266bdabfba470e7828f2665ce04dabe9cce46da9cddc9088948171ddbe34a",
+      "stage": "assets/optimized/stage/png/greek-drama/house-of-blood/electra-old-servant.webp",
+      "stageHash": "f106b3df0b1f74d76abfe0a69aef1c39d616f2a80d1b9e5d7c104b3eb7f8451b",
+      "card": "assets/optimized/card/png/greek-drama/house-of-blood/electra-old-servant.webp",
+      "cardHash": "bea58a00c1a8a29524c826392405ccd8e1582eb227b0a230d486c1de585111ef"
+    },
+    "assets/greek-drama/house-of-blood/hermione.png": {
+      "sourceHash": "e10aef057490e27b4af064b9667e16ddb1f9d204e0c33cf4c134f085f7ba91dd",
+      "stage": "assets/optimized/stage/png/greek-drama/house-of-blood/hermione.webp",
+      "stageHash": "63d56955a55506b9c00891d3136e916d1b4ea6512b680da5f8aeb8c244b630aa",
+      "card": "assets/optimized/card/png/greek-drama/house-of-blood/hermione.webp",
+      "cardHash": "f257cae486fcd32f8623ccbab9ba1872af3a805cf18b5890dadf5bd30aa29ee1"
+    },
+    "assets/greek-drama/house-of-blood/paedagogus.png": {
+      "sourceHash": "cc2bf32d8def20bb0d80c3335ed340e4d49a3b0aec253b686f978cebd3916931",
+      "stage": "assets/optimized/stage/png/greek-drama/house-of-blood/paedagogus.webp",
+      "stageHash": "eb2a3e220a79eaedb6f05eadc183c47acc382be9d751393b0d1d1a180f22df8c",
+      "card": "assets/optimized/card/png/greek-drama/house-of-blood/paedagogus.webp",
+      "cardHash": "17bec879616f7416350500dcc0ad745a11447971f2e5af1784e3347ee453d888"
+    },
+    "assets/greek-drama/house-of-blood/phrygian-servant.png": {
+      "sourceHash": "2d72c9696a5ad318ccedc3ff7f25eff468890c138e02b1bbadf96ccf3b249948",
+      "stage": "assets/optimized/stage/png/greek-drama/house-of-blood/phrygian-servant.webp",
+      "stageHash": "2d0571d9c6ea5c04bc57ae9fece8dc6a28c900a4266b05a53f51bd611df0d9bb",
+      "card": "assets/optimized/card/png/greek-drama/house-of-blood/phrygian-servant.webp",
+      "cardHash": "dd3585f923c5b04c6b1c417b02c7889c7fd626ed0bceb15abae3c25a870f9554"
+    },
+    "assets/greek-drama/house-of-blood/pylades.png": {
+      "sourceHash": "aa6c44f23b64c4d933d9be86d74b60b9335592410880eae86f64edc34488b506",
+      "stage": "assets/optimized/stage/png/greek-drama/house-of-blood/pylades.webp",
+      "stageHash": "09ea6cdbcfb6a808125bc19f9ba14d45e92eb3b6e1600575fb4712c69ffba83d",
+      "card": "assets/optimized/card/png/greek-drama/house-of-blood/pylades.webp",
+      "cardHash": "bac17cbe312585016373b6216ab5da2efdf0169ca0026be2e45edb804f679533"
+    },
     "assets/greek-drama/household-token.png": {
       "sourceHash": "e5a4d2daa5726d0c70fb0e5f08c02130aeaa3175309bb320a24d9fa7be871e6f",
       "stage": "assets/optimized/stage/png/greek-drama/household-token.webp",
