@@ -274,6 +274,23 @@ describe("a lamp trapped beyond the attic", () => {
     expect(world.log.some((e) => e.verb === "take" && e.itemId === "lamp")).toBe(true);
   });
 
+  it("lets the cloth carrier approach when an inside oil carrier still cannot reach the lamp", () => {
+    let world = trappedLamp();
+    world.actors.vale.place = "attic";
+    world.actors.vale.progress = { program: 1, step: 1, marks: [1, 9, 66, 67] };
+    world.actors.keeper.progress = { program: 1, step: 0, marks: [9, 67] };
+    world.items.bell.holder = "vale";
+    expect(exits(world, "pond", "keeper")).toContain("attic");
+    expect(exits(world, "attic", "vale")).not.toContain("forest-cottage");
+    expect(plan(world, "keeper").action).toMatchObject({ kind: "move", target: "attic" });
+    world = commit(world, "wait");
+    expect(world.actors.keeper.place).toBe("attic");
+    expect(world.items.cloth.holder).toBe("keeper");
+    expect(exits(world, "attic", "vale")).toContain("forest-cottage");
+    expect(plan(world).action).toMatchObject({ kind: "move", target: "forest-cottage" });
+    expect(world.items.lamp.holder).toBe("forest-oak");
+  });
+
   it("keeps a lamp on another reachable pack on its own route", () => {
     const world = trappedLamp();
     world.items.lamp.holder = "clearing";

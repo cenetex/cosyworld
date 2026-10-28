@@ -15187,7 +15187,7 @@
     const lamp = itemPlace2(s, "lamp"), oil = itemPlace2(s, "oil");
     if (place !== "pond" || s.actors[actor]?.place !== place || !controlledByHuman(s, actor) && !knownActors(s).includes(actor) || !(atticInterior.has(lamp) || s.items.oil.doses > 0 && atticInterior.has(oil)) || ordinaryRouteHome(s, place, "attic", actor, previous)) return null;
     if (ordinaryRouteHome(s, place, lamp, actor, previous) && (s.items.lamp.fuel > 0 || s.items.oil.doses > 0 && ordinaryRouteHome(s, place, oil, actor, previous))) return null;
-    if (knownActors(s).some((id) => (!controlledByHuman(s, id) || humanPresent(s, id)) && (insideLampRemedy(s, id) || s.actors[id].place === "attic" && homeRescueExit(s, "attic", id) && localGateResource(s, "attic", "oil", id)))) return null;
+    if (knownActors(s).some((id) => (!controlledByHuman(s, id) || humanPresent(s, id)) && (insideLampRemedy(s, id) || !atticInterior.has(lamp) && s.actors[id].place === "attic" && homeRescueExit(s, "attic", id) && localGateResource(s, "attic", "oil", id)))) return null;
     return "attic";
   }
   function exits(s, place, actor = null, previous = null) {
