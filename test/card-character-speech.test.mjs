@@ -92,7 +92,7 @@ describe("the six card character voices", () => {
       ).toBe(voice.reference_sha256);
     }
   });
-  it("clones each saved reference, pins the free model, and reuses clips across reloads", async () => {
+  it("clones each saved reference with Drama 3 and reuses clips across reloads", async () => {
     const storage = cacheStore();
     const client = {
       connection: () => ({ key: "private-fixture-key" }),
@@ -106,8 +106,11 @@ describe("the six card character voices", () => {
       await load(speaker, "A fair trade.", signal);
       const [path, request] = client.request.mock.calls.at(-1);
       expect(path).toBe("audio/speech");
-      expect(request.body.model).toBe("fish-audio/s2.1-pro-free:free");
+      expect(request.body.model).toBe("fish-audio/drama-3");
       expect(request.body.input).toBe("A fair trade.");
+      expect(request.body.instructions).toBe(
+        characterVoices[speaker].direction,
+      );
       expect(request.body.input_references[1].text).toBe(
         characterVoices[speaker].transcript,
       );
