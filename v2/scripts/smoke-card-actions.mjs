@@ -311,7 +311,8 @@ try {
     const order = await page
       .locator("#hand .card")
       .evaluateAll((cards) => cards.map((c) => c.dataset.card));
-    assert.equal(order[0], "station");
+    assert.equal(order[0], "vale");
+    assert(order.indexOf("station") > order.indexOf("moth"));
     assert.deepEqual(order.slice(-2), ["attic", "pond"]);
     assert.equal(order[order.indexOf("moth") + 1], "cloth");
     await shot("pip-items");
