@@ -142,6 +142,11 @@ fn runtime_audit_actual_catalog_and_eight_viewers() {
                 total_first_key_bytes += key.len();
                 first_digests.push(digest.clone());
             } else {
+                assert!(
+                    hit,
+                    "The second identical view stays cached for {}",
+                    actor_id(actor)
+                );
                 assert_eq!(
                     digest,
                     first_digests[actor],
@@ -156,12 +161,87 @@ fn runtime_audit_actual_catalog_and_eight_viewers() {
             viewer_calls.push(row);
         }
     }
+    let cache_after_second_pass = cache_state();
+
+    // Start with one cached viewer, then submit valid requests with changed
+    // actor, presence and world. Each new exact input must enter C once.
+    *views().lock().unwrap() = Views::default();
+    let baseline = current.request("view", 0);
+    reduce(baseline.clone()).unwrap();
+    let mut changed_inputs = Vec::new();
+    for (field, value) in [
+        ("actor", json!(actor_id(1))),
+        ("present", json!([actor_id(0)])),
+        ("world", {
+            let mut game = current.game.clone();
+            game["revision"] = json!(game["revision"].as_u64().unwrap() + 1);
+            game
+        }),
+    ] {
+        let mut request = baseline.clone();
+        request[field] = value;
+        let key = view_cache_key(VERSION, &request.to_string());
+        let hit = views()
+            .lock()
+            .unwrap()
+            .entries
+            .iter()
+            .any(|(k, _)| *k == key);
+        assert!(!hit, "A changed {field} input needs its own view");
+        let input_bytes = bytes(&request);
+        let started = Instant::now();
+        let reply = reduce(request).unwrap();
+        let row = json!({"field":field,"cache_hit":hit,
+            "elapsed_ms":started.elapsed().as_secs_f64()*1000.0,
+            "input_bytes":input_bytes,"output_bytes":bytes(&reply)});
+        println!("native_changed_view_input {row}");
+        changed_inputs.push(row);
+    }
+
+    // A deliberately planted cache value must never answer a command. The
+    // same legal lamp action is reduced twice from the same saved world.
+    let mut play_request = current.request("play", 0);
+    play_request["action"] = action;
+    let command_key = view_cache_key(VERSION, &play_request.to_string());
+    let poison = json!({"ok":true,"audit_bypass":true}).to_string();
+    views()
+        .lock()
+        .unwrap()
+        .put(command_key.clone(), poison.clone());
+    let mut command_calls = Vec::new();
+    for sample in 0..2 {
+        let started = Instant::now();
+        let reply = reduce(play_request.clone()).unwrap();
+        let elapsed_ms = started.elapsed().as_secs_f64() * 1000.0;
+        assert!(reply.get("audit_bypass").is_none());
+        assert_eq!(reply["world"]["items"]["lamp"]["lit"], true);
+        assert!(
+            reply["world"]["revision"].as_u64().unwrap()
+                > current.game["revision"].as_u64().unwrap()
+        );
+        assert_eq!(
+            views().lock().unwrap().get(&command_key),
+            Some(poison.clone())
+        );
+        let row = json!({"sample":sample,"op":"play","planted_cache_value_ignored":true,
+            "elapsed_ms":elapsed_ms,"input_bytes":bytes(&play_request),"output_bytes":bytes(&reply)});
+        println!("native_command_cache_bypass {row}");
+        command_calls.push(row);
+    }
     let trust_bytes: usize = current.game["actors"]
         .as_object()
         .unwrap()
         .values()
         .map(|a| bytes(&a["trust"]))
         .sum();
+    let keyed_trust = Value::Object(
+        current.game["actors"]
+            .as_object()
+            .unwrap()
+            .iter()
+            .map(|(id, actor)| (id.clone(), actor["trust"].clone()))
+            .collect(),
+    );
     let expected = std::env::var("COSYWORLD_AUDIT_EXPECTED_ACTORS")
         .ok()
         .map(|n| n.parse::<usize>().unwrap());
@@ -170,13 +250,15 @@ fn runtime_audit_actual_catalog_and_eight_viewers() {
         "source_commit":std::env::var("COSYWORLD_AUDIT_BASE_COMMIT").ok(),
         "rules":VERSION,"actors":actors,"items":current.game["items"].as_object().unwrap().len(),
         "fresh_shared_save_bytes":bytes(&current.game),"dense_trust_bytes":trust_bytes,
+        "keyed_trust_map_bytes":bytes(&keyed_trust),
         "old_actors":previous.game["actors"].as_object().unwrap().len(),
         "limits":{"heap_bytes":96*1024*1024,"deadline_ms":2000,"save_import_bytes":2*1024*1024,
             "input_output_bytes":MAX_BYTES,"cache_bytes":CACHE_BYTES,"cache_entries":CACHE_ENTRIES},
         "operations":operations,"cold_calls":calls,"viewer_calls":viewer_calls,
+        "changed_view_inputs":changed_inputs,"command_cache_bypass":command_calls,
         "eight_reply_bytes":total_first_reply_bytes,"eight_key_bytes":total_first_key_bytes,
         "eight_cache_bytes_needed":total_first_reply_bytes+total_first_key_bytes,
-        "cache_after_second_pass":cache_state(),
+        "cache_after_second_pass":cache_after_second_pass,
         "bounded_cache_options":{"sixteen_mib":16*1024*1024,"twenty_four_mib":24*1024*1024,
             "forty_mib":40*1024*1024,"eight_maximum_legal_replies_and_keys":8*(MAX_BYTES+128)},
         "scope":"Actual installed catalog and fresh eight-player views; final whole-catalog, long history and reading envelopes remain separate proof"

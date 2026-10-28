@@ -840,5 +840,7 @@
       "long real played history",
       "reading request envelopes"
     ]
-  }
+  },
+  "game_bundle_sha256": "129364e36f713ccb3d5526321dc08dea5ee81fb308ad64cc02615f96082bbf16",
+  "timing_scope": "Intermediate exact 3dd9e3e5 measurements; final whole-catalog acceptance still needs clear-window 203-actor, long-history and reading-envelope proof."
 }

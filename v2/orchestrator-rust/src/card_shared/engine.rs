@@ -77,7 +77,9 @@ pub(super) fn historical(version: &str) -> bool {
 }
 const MAX_BYTES: usize = 4 * 1024 * 1024;
 const CACHE_ENTRIES: usize = 32;
-const CACHE_BYTES: usize = 4 * 1024 * 1024;
+// Keep all eight legal viewer replies, including replies near the 4 MiB IO
+// bound. Entries still use exact-input SHA keys and the separate count bound.
+const CACHE_BYTES: usize = 40 * 1024 * 1024;
 
 #[derive(Default)]
 struct Views {
@@ -245,10 +247,10 @@ mod tests {
     }
 
     #[test]
-    fn compact_keys_keep_eight_large_views_within_the_existing_budget() {
+    fn compact_keys_keep_eight_maximum_size_views_within_the_cache_budget() {
         let mut cache = Views::default();
-        let world = "saved world ".repeat(48 * 1024);
-        let output = "view".repeat(96 * 1024);
+        let world = "w".repeat(1024 * 1024);
+        let output = "v".repeat(MAX_BYTES);
         let mut keys = Vec::new();
         let mut original_bytes = 0;
         for actor in 0..8 {
