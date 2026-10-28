@@ -89,6 +89,16 @@
   animation: none;
   background-size: 50% 50%;
 }
+[data-time-of-day="night"][data-weather] {
+  --weather-light: brightness(1) saturate(1);
+}
+[data-time-of-day="night"][data-weather="rain"],
+[data-time-of-day="night"][data-weather="cloud"] {
+  --weather-light: brightness(0.9) saturate(0.85);
+}
+.stage[data-time-of-day="night"] .portrait-body {
+  filter: brightness(0.88) saturate(0.85);
+}
 @keyframes scene-rain {
   to {
     transform: translate(-10px, 39px);

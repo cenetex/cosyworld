@@ -556,6 +556,11 @@ server. The served page receives the matching wait budget. Operators can set
 
 ## Painted Greece
 
+The seven Theban places share day and night. Each light setting lasts twenty-four
+accepted world turns. Each place has its own night painting. The harbor has a
+matching night painting for its open berth and for the ship at the berth. The
+saved ship dock selects the painting. The other harbors keep their day art.
+
 Greek weather follows one cycle per region. Each period lasts twelve accepted
 world turns. Clear skies, cloud, rain, and mist appear in the scene and on place
 cards. Coasts, courtyards, open ground, groves, and shelters each have their own

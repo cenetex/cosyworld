@@ -10,6 +10,7 @@ import {
   things,
 } from "../card-game/world.mjs";
 import { locationWeather } from "../card-game/weather.mjs";
+import { locationDaylight } from "../card-game/daylight.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
 import { questCards } from "../card-game/quest-cards.mjs";
@@ -58,10 +59,11 @@ try {
       );
     });
     await page.goto(`${origin}/?table=${table}`);
-    async function load(place, turn) {
+    async function load(place, turn, shipAtHarbor = false) {
       const world = createWorld({ packScopes: { "greek-drama": "full" } });
       world.actors.vale.place = place;
       world.turn = world.revision = turn;
+      if (shipAtHarbor) world.crossings["pond-greek-harbor"].discovered = true;
       enableMotives(world, { questPrograms: true, personalQuests: true });
       await page.evaluate(
         ({ key, save, seen, quests }) => {
@@ -95,7 +97,19 @@ try {
     }
     async function check(place, turn, name) {
       const weather = locationWeather({ turn }, place);
+      const daylight = locationDaylight({ turn }, place);
       const stage = page.locator("#stage");
+      assert.equal(
+        await stage.getAttribute("data-time-of-day"),
+        daylight?.phase || "day",
+      );
+      const night = daylight?.phase === "night";
+      assert.equal(
+        new URL(
+          await page.locator("#backdrop").getAttribute("src"),
+        ).pathname.endsWith("-night.webp"),
+        night,
+      );
       assert.equal(
         await stage.getAttribute("data-weather"),
         weather?.condition || null,
@@ -110,6 +124,10 @@ try {
           await currentArt.getAttribute("data-weather"),
           weather.condition,
         );
+        assert.equal(
+          await currentArt.getAttribute("data-time-of-day"),
+          daylight?.phase || "day",
+        );
         if (weather.condition === "rain")
           assert(
             (
@@ -118,7 +136,7 @@ try {
                 .first()
                 .evaluate((img) => getComputedStyle(img).filter)
             ).includes(
-              `brightness(${weather.exposure === "shelter" ? "0.92" : "0.68"})`,
+              `brightness(${daylight?.phase === "night" ? "0.9" : weather.exposure === "shelter" ? "0.92" : "0.68"})`,
             ),
           );
       }
@@ -185,7 +203,7 @@ try {
       await page.screenshot({
         path: new URL(`${name}-${width}.png`, output).pathname,
       });
-      report.push({ width, place, turn, weather, passed: true });
+      report.push({ width, place, turn, weather, daylight, passed: true });
     }
     await load("greek-courtyard", 11);
     await check("greek-courtyard", 11, "clear-courtyard");
@@ -196,10 +214,31 @@ try {
       { key },
     );
     await check("greek-courtyard", 12, "cloud-after-play");
+    await load("greek-courtyard", 23);
+    await check("greek-courtyard", 23, "before-night");
+    await selectCard(page, "vale", { touch: width === 390 });
+    await page.locator('#card-actions [data-action="wait"]').click();
+    await page.waitForFunction(
+      ({ key }) => JSON.parse(localStorage.getItem(key)).turn === 24,
+      { key },
+    );
+    await check("greek-courtyard", 24, "night-after-play");
+    await load("greek-harbor", 24, true);
+    await check("greek-harbor", 24, "night-harbor-ship");
+    assert(
+      new URL(
+        await page.locator("#backdrop").getAttribute("src"),
+      ).pathname.endsWith("harbor-ship-at-berth-night.webp"),
+    );
     for (const [place, turn, name] of [
       ["greek-harbor", 24, "rain-coast"],
       ["greek-courtyard", 24, "rain-courtyard"],
       ["greek-sanctuary", 24, "rain-grove"],
+      ["greek-well", 24, "night-well"],
+      ["greek-gate", 24, "night-gate"],
+      ["greek-palace", 24, "night-palace"],
+      ["greek-battlefield", 24, "night-battlefield"],
+      ["greek-piraeus", 24, "piraeus-day"],
       ["greek-colonus", 60, "mist-grove"],
       ["greek-thinkery", 36, "rain-shelter"],
       ["greek-underworld", 36, "underworld-mist"],

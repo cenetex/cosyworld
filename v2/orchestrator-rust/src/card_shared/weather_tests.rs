@@ -19,8 +19,10 @@ fn regional_weather_agrees_in_c_and_survives_upgrade_and_journal_replay() {
     saved.game["packs"]["greek-drama"]["scope"] = json!("full");
     saved.game["actors"]["vale"]["place"] = json!("greek-harbor");
     saved.game["actors"]["mara"]["place"] = json!("greek-sanctuary");
+    saved.game["actors"]["greek-rhapsode"]["place"] = json!("attic");
     saved.game["turn"] = json!(22);
     saved.game["revision"] = json!(22);
+    saved.game["crossings"]["pond-greek-harbor"]["discovered"] = json!(true);
     // A released play installs the personal quest collections for each actor.
     let action = saved.project(0).unwrap()["actions"]
         .as_array()
@@ -65,7 +67,16 @@ fn regional_weather_agrees_in_c_and_survives_upgrade_and_journal_replay() {
         assert_eq!(weather["region"], "boeotia");
         assert_eq!(weather["condition"], "rain");
         assert_eq!(weather["variant"], variant);
+        assert_eq!(view["scene"]["daylight"]["phase"], "night");
+        assert!(view["scene"]["background"]
+            .as_str()
+            .unwrap()
+            .ends_with("-night.webp"));
     }
+    assert_eq!(
+        world.project(0).unwrap()["scene"]["background"],
+        "./assets/greek-drama/harbor-ship-at-berth-night.webp"
+    );
     let context = engine::reduce(json!({
         "op":"context", "world":world.game, "actor":"vale",
         "claimed":["vale","mara"], "present":["vale","mara"]
@@ -82,6 +93,10 @@ fn regional_weather_agrees_in_c_and_survives_upgrade_and_journal_replay() {
         .as_array()
         .unwrap()
         .contains(&weather["description"]));
+    assert!(place["facts"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("It is night in Thebes.")));
     let ids = vec!["vale".to_string()];
     crate::routes::card_game::narrative::browser::prepare(&context["context"], Some(&ids), None)
         .unwrap();

@@ -111,3 +111,12 @@ Both approved 1672 × 941 PNG designs were encoded as WebP at quality 94.
 Their full prompts and checksums are in `scenery-prompts.json` and
 `scenery-provenance.json`. The original harbor remains available at its
 published URL.
+
+## Thebes night scenery — October 27, 2026
+
+The built-in `image_gen` tool made eight night paintings from the current
+Theban paintings. They cover the seven Theban places and the harbor's ship view.
+The ship is part of the complete harbor painting. The open berth was made from
+that night painting so the town and moon keep their places when the ship moves.
+The final images use WebP at quality 94. Prompts, source names, generation names,
+sizes, and SHA-256 checksums are in `night-scenery-provenance.json`.

@@ -2,6 +2,7 @@ import { imageUrl } from "./images.mjs";
 import { flipStagePortrait } from "./portrait-facing.mjs";
 import { installSceneVideo } from "./scene-video.mjs";
 import { locationWeather } from "./weather.mjs";
+import { locationDaylight } from "./daylight.mjs";
 import { renderWeather } from "./weather-view.mjs";
 import { installToolbar, renderPlayers } from "./toolbar.mjs";
 import {
@@ -1584,6 +1585,7 @@ function card(id) {
   graphic.append(img);
   if (type === "location") {
     renderWeather(graphic, locationWeather(world, id));
+    graphic.dataset.timeOfDay = locationDaylight(world, id)?.phase || "day";
     el.dataset.locationVariant = locationVariant(world, id);
     const src = locationOverlay(world, id);
     if (src) {
@@ -1851,8 +1853,10 @@ function renderScene() {
   if (img.getAttribute("src") !== background) img.src = background;
   img.alt = placeText(world, scene.locationId);
   if (scene.weather) img.alt += ` ${scene.weather.description}`;
+  if (scene.daylight) img.alt += ` ${scene.daylight.description}`;
   img.dataset.locationVariant = scene.variant;
   renderWeather($("stage"), scene.weather);
+  $("stage").dataset.timeOfDay = scene.daylight?.phase || "day";
   let overlay = $("location-overlay");
   if (scene.overlay && !overlay) {
     overlay = node("img", undefined, "backdrop location-overlay");

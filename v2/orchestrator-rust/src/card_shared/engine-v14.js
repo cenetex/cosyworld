@@ -10951,7 +10951,7 @@
         (effect) => effect.kind === "choose" && effect.key === "greek-theban-response" && effect.value === response2
       )
     );
-    const card2 = (index, art, resolved, choiceId, completion = "Fulfilled", grave = false) => ({
+    const card2 = (index, art2, resolved, choiceId, completion = "Fulfilled", grave = false) => ({
       id: STORY_QUEST_CARDS[index],
       key: `greek-drama:${STORY_QUEST_CARDS[index]}${grave ? ":grave" : ""}`,
       title: lines[index],
@@ -10959,7 +10959,7 @@
       singleLine: true,
       story: true,
       status: resolved ? "fulfilled" : "pending",
-      art,
+      art: art2,
       resolved,
       completion,
       holder: holders[index],
@@ -15747,10 +15747,40 @@
     };
   }
 
+  // v2/card-game/daylight.mjs
+  var DAYLIGHT_TURNS = 24;
+  var art = (file) => `assets/greek-drama/${file}.webp`;
+  var nightBackdrops = {
+    "greek-harbor": art("harbor-open-berth-night"),
+    "greek-courtyard": art("courtyard-night"),
+    "greek-well": art("market-well-night"),
+    "greek-palace": art("palace-night"),
+    "greek-gate": art("city-gate-night"),
+    "greek-battlefield": art("burial-ground-night"),
+    "greek-sanctuary": art("sanctuary-night")
+  };
+  var dockedDay = art("harbor-ship-at-berth");
+  var dockedNight = art("harbor-ship-at-berth-night");
+  var daylightAssets = [...Object.values(nightBackdrops), dockedNight];
+  function locationDaylight(world, id) {
+    if (!world || !Object.hasOwn(nightBackdrops, id)) return null;
+    const period = Math.floor(world.turn / DAYLIGHT_TURNS);
+    const phase = period % 2 ? "night" : "day";
+    return {
+      phase,
+      period,
+      description: phase === "night" ? "It is night in Thebes." : "It is day in Thebes."
+    };
+  }
+  function daylightBackdrop(world, id, file) {
+    if (locationDaylight(world, id)?.phase !== "night") return file;
+    return id === "greek-harbor" && file === dockedDay ? dockedNight : nightBackdrops[id];
+  }
+
   // v2/card-game/scene.mjs
   function backdrop(id, world = null) {
     const variant = world?.actors && visibleCrossing(world, id)?.scenery.backdrop;
-    const file = variant || packPlaces[id]?.backdrop;
+    const file = daylightBackdrop(world, id, variant || packPlaces[id]?.backdrop);
     return file ? `./${file}` : `./assets/${id}.png`;
   }
   var visibleCrossing = (world, place) => crossings.find(
@@ -15759,7 +15789,8 @@
   function locationVariant(world, id) {
     const crossing = visibleCrossing(world, id)?.id || "base";
     const weather = locationWeather(world, id);
-    return weather ? `${crossing}:${weather.variant}` : crossing;
+    const variant = weather ? `${crossing}:${weather.variant}` : crossing;
+    return locationDaylight(world, id)?.phase === "night" ? `${variant}:night` : variant;
   }
   var locationOverlay = (world, id) => {
     const f = visibleCrossing(world, id)?.scenery.overlay;
@@ -15830,6 +15861,7 @@
       variant: locationVariant(world, world.actors[currentActor(world)].place),
       overlay: locationOverlay(world, world.actors[currentActor(world)].place),
       weather: locationWeather(world, world.actors[currentActor(world)].place),
+      daylight: locationDaylight(world, world.actors[currentActor(world)].place),
       visitStart: start,
       slots: sceneCast(
         world,
@@ -16135,6 +16167,8 @@
           if (places[id]) facts.push(placeText(world, id));
           const weather = locationWeather(world, id);
           if (weather) facts.push(weather.description);
+          const daylight = locationDaylight(world, id);
+          if (daylight) facts.push(daylight.description);
           facts.push(
             `Paths visible now: ${exits(world, id, currentActor(world)).map(nameOf).join(", ") || "none"}.`
           );

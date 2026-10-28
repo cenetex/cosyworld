@@ -3,6 +3,7 @@ import { roomTracks } from "./music.mjs";
 import { packMediaFiles } from "./pack-registry.mjs";
 import imageVariants from "./image-variants.json" with { type: "json" };
 import voiceCast from "./voices.json" with { type: "json" };
+import { daylightAssets } from "./daylight.mjs";
 
 // The local server, release smoke, and Rust asset generator use this list.
 const files = [
@@ -65,6 +66,8 @@ const files = [
   "world.mjs",
   "scene.mjs",
   "weather.mjs",
+  "daylight.mjs",
+  ...daylightAssets,
   "weather-view.mjs",
   "weather.css",
   "portrait-facing.mjs",

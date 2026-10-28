@@ -240,6 +240,42 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/weather.mjs"),
         ),
+        "daylight.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/daylight.mjs"),
+        ),
+        "assets/greek-drama/harbor-open-berth-night.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/harbor-open-berth-night.webp"),
+        ),
+        "assets/greek-drama/courtyard-night.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/courtyard-night.webp"),
+        ),
+        "assets/greek-drama/market-well-night.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/market-well-night.webp"),
+        ),
+        "assets/greek-drama/palace-night.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/palace-night.webp"),
+        ),
+        "assets/greek-drama/city-gate-night.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/city-gate-night.webp"),
+        ),
+        "assets/greek-drama/burial-ground-night.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/burial-ground-night.webp"),
+        ),
+        "assets/greek-drama/sanctuary-night.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/sanctuary-night.webp"),
+        ),
+        "assets/greek-drama/harbor-ship-at-berth-night.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/harbor-ship-at-berth-night.webp"),
+        ),
         "weather-view.mjs" => (
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/weather-view.mjs"),
@@ -908,6 +944,10 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "image/webp",
             include_bytes!("../../card-game/assets/optimized/card/webp/greek-drama/burial-ground-dusk.webp"),
         ),
+        "assets/optimized/card/webp/greek-drama/burial-ground-night.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/greek-drama/burial-ground-night.webp"),
+        ),
         "assets/optimized/stage/png/greek-drama/chthonic-antigone.webp" => (
             "image/webp",
             include_bytes!("../../card-game/assets/optimized/stage/png/greek-drama/chthonic-antigone.webp"),
@@ -1032,9 +1072,17 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "image/webp",
             include_bytes!("../../card-game/assets/optimized/card/webp/greek-drama/city-gate-day.webp"),
         ),
+        "assets/optimized/card/webp/greek-drama/city-gate-night.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/greek-drama/city-gate-night.webp"),
+        ),
         "assets/optimized/card/webp/greek-drama/courtyard-day.webp" => (
             "image/webp",
             include_bytes!("../../card-game/assets/optimized/card/webp/greek-drama/courtyard-day.webp"),
+        ),
+        "assets/optimized/card/webp/greek-drama/courtyard-night.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/greek-drama/courtyard-night.webp"),
         ),
         "assets/optimized/stage/png/greek-drama/decree.webp" => (
             "image/webp",
@@ -1056,9 +1104,17 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "image/webp",
             include_bytes!("../../card-game/assets/optimized/card/webp/greek-drama/harbor-day.webp"),
         ),
+        "assets/optimized/card/webp/greek-drama/harbor-open-berth-night.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/greek-drama/harbor-open-berth-night.webp"),
+        ),
         "assets/optimized/card/webp/greek-drama/harbor-open-berth.webp" => (
             "image/webp",
             include_bytes!("../../card-game/assets/optimized/card/webp/greek-drama/harbor-open-berth.webp"),
+        ),
+        "assets/optimized/card/webp/greek-drama/harbor-ship-at-berth-night.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/greek-drama/harbor-ship-at-berth-night.webp"),
         ),
         "assets/optimized/card/webp/greek-drama/harbor-ship-at-berth.webp" => (
             "image/webp",
@@ -1075,6 +1131,10 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
         "assets/optimized/card/webp/greek-drama/market-well-day.webp" => (
             "image/webp",
             include_bytes!("../../card-game/assets/optimized/card/webp/greek-drama/market-well-day.webp"),
+        ),
+        "assets/optimized/card/webp/greek-drama/market-well-night.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/greek-drama/market-well-night.webp"),
         ),
         "assets/optimized/card/webp/greek-drama/myrine.webp" => (
             "image/webp",
@@ -1144,6 +1204,10 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "image/webp",
             include_bytes!("../../card-game/assets/optimized/card/webp/greek-drama/palace-day.webp"),
         ),
+        "assets/optimized/card/webp/greek-drama/palace-night.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/greek-drama/palace-night.webp"),
+        ),
         "assets/optimized/stage/png/greek-drama/pond-ship-overlay.webp" => (
             "image/webp",
             include_bytes!("../../card-game/assets/optimized/stage/png/greek-drama/pond-ship-overlay.webp"),
@@ -1163,6 +1227,10 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
         "assets/optimized/card/webp/greek-drama/sanctuary-dawn.webp" => (
             "image/webp",
             include_bytes!("../../card-game/assets/optimized/card/webp/greek-drama/sanctuary-dawn.webp"),
+        ),
+        "assets/optimized/card/webp/greek-drama/sanctuary-night.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/greek-drama/sanctuary-night.webp"),
         ),
         "assets/optimized/card/webp/greek-drama/ship-card.webp" => (
             "image/webp",
@@ -1555,10 +1623,10 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "media.mjs" => "\"9b56957b0e44c39ed8f3bfbb200ce3524646f62cf83fa775fc89dc2a62dc133b\"",
         "images.mjs" => "\"400bd04904821d5b21e24790f71cf89836e5a2aabb8662b963637de77b3fd612\"",
         "image-variants.json" => {
-            "\"e4a44801e1be5c30720d1f7764ab9518fc81610573e89b3f53083dd9a263e031\""
+            "\"bd541374fa99dc14c2dd432c992dfb3c49730d6b522b80962525388f954ea587\""
         }
         "media-manifest.json" => {
-            "\"94014a42088a778c8ba0292d5ab022c738ef8052fd3e1e08d064c9f4820d42ea\""
+            "\"e0c694cc922aa18bdbcfef274333927c51a66ae1247bbaaef8998ab91e53be5f\""
         }
         "music-streams.json" => {
             "\"187db53c1c129d1505da26c18fd2384e62b9b357c91e33fd2e954bf0b7a29904\""
@@ -1681,14 +1749,39 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "scene-video.css" => "\"3c6851ec825e734e3d8a084f4ed77f077bcb4402acbf61869a67b652c3afe4c5\"",
         "awakening.css" => "\"c7a68a23baf1e46934237a57f4b5f87d76bad87af85fdf57ee40abec646908b9\"",
-        "app.mjs" => "\"7b311e722062d17b6d74e766e677a48f942ba7fcb5a6d500d5bebcbf02d01616\"",
+        "app.mjs" => "\"3c736439c1cdbf4e797311b40a60559230f0475c688a5c17e76cf5a843eaf18f\"",
         "world.mjs" => "\"2c0b16981ffeb9e22f46a5a1aabe4f16a345c3119ca5af3abb150bd6b71268cb\"",
-        "scene.mjs" => "\"7f0d731e4b812f61e10e1ae88254bdf39e73365f4d0792e4a932c61f5fe8d8a6\"",
+        "scene.mjs" => "\"977324fc9e6e69459e912953f97bec997c53923eceb2df6e332fb9da070bcc33\"",
         "weather.mjs" => "\"10f023956b3936dc1d1a6817b53ca9b6535b976f3aa5f98728ea16a665fdd07b\"",
+        "daylight.mjs" => "\"6e1bbbf92705e5e2ed904ca98666540ab9a91916c94e50749e649a0ba380170d\"",
+        "assets/greek-drama/harbor-open-berth-night.webp" => {
+            "\"aa3136f25c67ffe9717fad4d20a9f286fbdc5a111c6827baddf5eaf4aeca2f66\""
+        }
+        "assets/greek-drama/courtyard-night.webp" => {
+            "\"6dcf726a179a71f9155ef947b4e7ef97a590becc4837e976c6f998004455c5e8\""
+        }
+        "assets/greek-drama/market-well-night.webp" => {
+            "\"738be7db249c2e294544957e64c084415b08f98ea09bde4d11da3ab2657c7f67\""
+        }
+        "assets/greek-drama/palace-night.webp" => {
+            "\"6fef7d5cfcbd3c95f5f05395d95213a2b5760875487e37b98d2ffe5841abab06\""
+        }
+        "assets/greek-drama/city-gate-night.webp" => {
+            "\"7d9d444b4ea67db08df655e85199ee6b771dbd01f11f6e72ade4e8b000d990c6\""
+        }
+        "assets/greek-drama/burial-ground-night.webp" => {
+            "\"4d0a9e9b732b215153af878babd8085c1e8bdd56f8e2b034f112a53e4f964753\""
+        }
+        "assets/greek-drama/sanctuary-night.webp" => {
+            "\"1db5b5b5f53c449710f1f1a29881d2449ef9cfda9ae378cbe7054d70b4ed5029\""
+        }
+        "assets/greek-drama/harbor-ship-at-berth-night.webp" => {
+            "\"2593278fb2a66e5225bdf06794c32e832b6fb831fdbd406032ba6f7789f9f839\""
+        }
         "weather-view.mjs" => {
             "\"dc9edd54c5f13030dada6237d2d0b2b7b8e3316e3b35f06d6936a5b421a5ecc9\""
         }
-        "weather.css" => "\"45baec76a628e698e8ead09aaaaf035c779bb10c427ac931a3f9f0219c8f796c\"",
+        "weather.css" => "\"a79f649ad9c106ddbaaa00734695c83e49140c3da54e331a4c5ca3ec38fee348\"",
         "portrait-facing.mjs" => {
             "\"092242aa43a1919d1469b9dfba6a50723504569fea480fd3f33fcb9f72bd23b1\""
         }
@@ -1726,7 +1819,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "situations.mjs" => "\"1fff8b8ba954720b8a0a4450d6db2bf6e6d9378566ae0ca2668a44979f83c39d\"",
         "memory.mjs" => "\"73ce17a68e29678684d13458a87fa9e2274879a45680e53d7d83b562abac3dab\"",
         "learning.mjs" => "\"feb6faebe9c0470cfac7545e7e91587701b7434fecd176c9475fee778cb51175\"",
-        "narrative.mjs" => "\"722c9ea0ed8d7145d102f00ea2e2b1e2c15802db7e8a3ac4a038fbed17fd0420\"",
+        "narrative.mjs" => "\"7b32756822f3ec3e76f1fb0d32aa4bef67b4732adcc7e548ad8ea04128cb7f02\"",
         "dialogue.mjs" => "\"1f4965d3e2a36261973aace4534359c00c7cf8aeaf15548a08d29e364adcc7ad\"",
         "character-speech.mjs" => {
             "\"d53e51f93d89a0073199f45dd83086417733d76980f6c3b22f875b3f642292b5\""
@@ -2142,6 +2235,9 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "assets/optimized/card/webp/greek-drama/burial-ground-dusk.webp" => {
             "\"c37f8ea92913244d41a79ad4cca725db03d3cf4e64b7077fbaa1c811a6c3516a\""
         }
+        "assets/optimized/card/webp/greek-drama/burial-ground-night.webp" => {
+            "\"0a95423577313bd474b998ecff5f43e0b1a7fdec219c27e5955c06333a7e9f5f\""
+        }
         "assets/optimized/stage/png/greek-drama/chthonic-antigone.webp" => {
             "\"e2f82d1eca33155a9e59a5feed38c16381775c7d0a3f63e04a4faaf9d926a8e0\""
         }
@@ -2235,8 +2331,14 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "assets/optimized/card/webp/greek-drama/city-gate-day.webp" => {
             "\"b90cba292440c7568c550d47111ca4cecdaab4cd9424f923551876304a3a82bd\""
         }
+        "assets/optimized/card/webp/greek-drama/city-gate-night.webp" => {
+            "\"d40ad19a310c3ec21c8311fca594a89879db99932c32787744529268b718c4d3\""
+        }
         "assets/optimized/card/webp/greek-drama/courtyard-day.webp" => {
             "\"fc5d303a29e6a342132a6bae7fd99ae420f6445d92d03de15f7e629795c43cc0\""
+        }
+        "assets/optimized/card/webp/greek-drama/courtyard-night.webp" => {
+            "\"0020335e7325188a8eed9ceb1be812613ca36e13d486ec6d131f342fb5bbeab4\""
         }
         "assets/optimized/stage/png/greek-drama/decree.webp" => {
             "\"ede83e5b13bb3ccdd913344de08312f60a018a53c897e5da94b4c51962542ef7\""
@@ -2253,8 +2355,14 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "assets/optimized/card/webp/greek-drama/harbor-day.webp" => {
             "\"1c55593282cbacc4b74fa0089fd83d768ee72476d3c9a2bc6f8b8030d6b32b41\""
         }
+        "assets/optimized/card/webp/greek-drama/harbor-open-berth-night.webp" => {
+            "\"5a94d36601da1839174e96a3fcba00df3eacd1b87920833462d54d801cc80c46\""
+        }
         "assets/optimized/card/webp/greek-drama/harbor-open-berth.webp" => {
             "\"a8975c0fb7ed6f24805b69d434d5983041b53e0f0ee07875ea076b8b70c98627\""
+        }
+        "assets/optimized/card/webp/greek-drama/harbor-ship-at-berth-night.webp" => {
+            "\"530b1bcba0f18b26708a829a843663811bb94aeaab8ce43ce779826e903abf8e\""
         }
         "assets/optimized/card/webp/greek-drama/harbor-ship-at-berth.webp" => {
             "\"c2810e0b0d9e960c6501fa7744d8201de052b4f370c03ae363c00001ba43dd0b\""
@@ -2267,6 +2375,9 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "assets/optimized/card/webp/greek-drama/market-well-day.webp" => {
             "\"d5c47e607c99f97bb220e3ca03f39ba9d971ac005bca7aac826735734a6d5f11\""
+        }
+        "assets/optimized/card/webp/greek-drama/market-well-night.webp" => {
+            "\"641d08250fcb1a2fd8b71596f53448bcc7ae01fee4de235e7d1193b6afcd6a8e\""
         }
         "assets/optimized/card/webp/greek-drama/myrine.webp" => {
             "\"cb769f2ddfbbf79f4909bbe3f573421714b69b5a2653d1725e4db91e5a4f0d45\""
@@ -2319,6 +2430,9 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "assets/optimized/card/webp/greek-drama/palace-day.webp" => {
             "\"82355ddabd22deb788e87d239bd29e17a1a1f47c2d8568772ed387bd0967ccac\""
         }
+        "assets/optimized/card/webp/greek-drama/palace-night.webp" => {
+            "\"60e9a23e399c7fc1ce8ae2802ea3050162bff993dfc3318809700ad5287aa1b7\""
+        }
         "assets/optimized/stage/png/greek-drama/pond-ship-overlay.webp" => {
             "\"0cd3fe8adacfaa31c2f759c56575f07e9137db3af404bcae7b6bbafb581ec73d\""
         }
@@ -2333,6 +2447,9 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "assets/optimized/card/webp/greek-drama/sanctuary-dawn.webp" => {
             "\"5c58c654893f4805c8a4b3e6aac8f96f4325bfa47f1d6c90aaf0dbe07657707e\""
+        }
+        "assets/optimized/card/webp/greek-drama/sanctuary-night.webp" => {
+            "\"1c5958697946bfde08c6d0cf0628f715784b34316fd3f1f5dc0523035614487c\""
         }
         "assets/optimized/card/webp/greek-drama/ship-card.webp" => {
             "\"46fcdc6b13261f34f960a31e3a1fd9bddd6d84ee48a1139b1f5b3ce1472207bf\""

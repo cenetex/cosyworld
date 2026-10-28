@@ -16,11 +16,12 @@ import { desireFor, programFor, levelOf, knownActors } from "./quests.mjs";
 import { packPlaces, packPeople } from "./pack-registry.mjs";
 import { variantOf, crossingOpen } from "./pack-rules.mjs";
 import { locationWeather } from "./weather.mjs";
+import { daylightBackdrop, locationDaylight } from "./daylight.mjs";
 
 // Pack art lives in the pack's own asset folder and is named by its data.
 export function backdrop(id, world = null) {
   const variant = world?.actors && visibleCrossing(world, id)?.scenery.backdrop;
-  const file = variant || packPlaces[id]?.backdrop;
+  const file = daylightBackdrop(world, id, variant || packPlaces[id]?.backdrop);
   return file ? `./${file}` : `./assets/${id}.png`;
 }
 export function portrait(id, facing = null, world = null) {
@@ -57,7 +58,10 @@ const visibleCrossing = (world, place) =>
 export function locationVariant(world, id) {
   const crossing = visibleCrossing(world, id)?.id || "base";
   const weather = locationWeather(world, id);
-  return weather ? `${crossing}:${weather.variant}` : crossing;
+  const variant = weather ? `${crossing}:${weather.variant}` : crossing;
+  return locationDaylight(world, id)?.phase === "night"
+    ? `${variant}:night`
+    : variant;
 }
 export const locationOverlay = (world, id) => {
   const f = visibleCrossing(world, id)?.scenery.overlay;
@@ -497,6 +501,7 @@ export function currentScene(
     variant: locationVariant(world, world.actors[currentActor(world)].place),
     overlay: locationOverlay(world, world.actors[currentActor(world)].place),
     weather: locationWeather(world, world.actors[currentActor(world)].place),
+    daylight: locationDaylight(world, world.actors[currentActor(world)].place),
     visitStart: start,
     slots: sceneCast(
       world,
@@ -534,6 +539,7 @@ export function sceneScript(world) {
       variant: locationVariant(world, id),
       overlay: locationOverlay(world, id),
       weather: locationWeather(world, id),
+      daylight: locationDaylight(world, id),
     })),
     avatars: Object.entries(people).map(([id, p]) => ({
       id,
@@ -555,6 +561,7 @@ export function sceneScript(world) {
       locationId: e.locationId || null,
       fromLocationId: e.fromLocationId || null,
       weather: locationWeather({ turn: e.turn }, e.locationId),
+      daylight: locationDaylight({ turn: e.turn }, e.locationId),
       text: e.text,
       verb: e.verb || null,
       itemId: e.itemId || null,
@@ -598,6 +605,10 @@ export function sceneScript(world) {
     current: {
       locationId: world.actors[currentActor(world)].place,
       weather: locationWeather(world, world.actors[currentActor(world)].place),
+      daylight: locationDaylight(
+        world,
+        world.actors[currentActor(world)].place,
+      ),
       staging: sceneStaging(world),
       avatars: personIds.map((id) => ({
         id,
