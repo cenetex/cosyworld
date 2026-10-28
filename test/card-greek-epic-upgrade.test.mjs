@@ -68,4 +68,32 @@ describe("one Greek revision7 to8 catalog upgrade", () => {
       "original entity records",
     );
   });
+  it("carries the known eastern road through the new camp", () => {
+    const before = oldWorld();
+    before.routeKnowledge.vale = [
+      ["greek-susa", "greek-scythian-crag"],
+      ["greek-scythian-crag", "greek-susa"],
+    ];
+    const after = decodeSave(JSON.stringify(before));
+    expect(after.routeKnowledge.vale).toContainEqual([
+      "greek-susa",
+      "greek-vii-crag-camp",
+    ]);
+    expect(after.routeKnowledge.vale).toContainEqual([
+      "greek-vii-crag-camp",
+      "greek-scythian-crag",
+    ]);
+    expect(after.routeKnowledge.vale).toContainEqual([
+      "greek-scythian-crag",
+      "greek-vii-crag-camp",
+    ]);
+    expect(after.routeKnowledge.vale).toContainEqual([
+      "greek-vii-crag-camp",
+      "greek-susa",
+    ]);
+    expect(after.routeKnowledge.vale).not.toContainEqual([
+      "greek-susa",
+      "greek-scythian-crag",
+    ]);
+  });
 });

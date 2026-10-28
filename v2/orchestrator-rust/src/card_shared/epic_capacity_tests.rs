@@ -1,11 +1,35 @@
 use super::{engine, full_store, full_world::World, now, store};
 use serde_json::{json, Value};
 
-// Catalog upgrades add residents and their empty state. Every earlier field
-// retains its value; the pack revision records that new catalog.
+fn routes_through_crag_camp(previous: &Value) -> Value {
+    let mut routes = Vec::new();
+    for edge in previous.as_array().unwrap() {
+        let replacements = if (edge[0] == "greek-susa" && edge[1] == "greek-scythian-crag")
+            || (edge[1] == "greek-susa" && edge[0] == "greek-scythian-crag")
+        {
+            vec![
+                json!([edge[0], "greek-vii-crag-camp"]),
+                json!(["greek-vii-crag-camp", edge[1]]),
+            ]
+        } else {
+            vec![edge.clone()]
+        };
+        for route in replacements {
+            if !routes.contains(&route) {
+                routes.push(route);
+            }
+        }
+    }
+    json!(routes)
+}
+
+// Earlier saved fields retain their values. The eastern road gains its
+// authored camp, and the pack revision records the larger catalog.
 fn assert_retained(old: &Value, current: &Value, path: &str) {
     if path.ends_with("packs.greek-drama.revision") {
         assert!(current.as_u64().unwrap() >= old.as_u64().unwrap());
+    } else if path.contains("routeKnowledge.") && old.is_array() {
+        assert_eq!(current, &routes_through_crag_camp(old), "Retain {path}");
     } else if let Some(fields) = old.as_object() {
         for (key, value) in fields {
             assert_retained(value, &current[key], &format!("{path}.{key}"));
@@ -29,15 +53,15 @@ fn select(world: &World, field: &str, value: &str) -> Value {
 fn assert_catalog_extension(old: &Value, current: &Value, fresh: bool) {
     let mut retained = current.clone();
     if fresh {
-        let previous_routes = old["routeKnowledge"]["greek-rhapsode"].as_array().unwrap();
+        let expected_routes = routes_through_crag_camp(&old["routeKnowledge"]["greek-rhapsode"]);
+        let previous_routes = expected_routes.as_array().unwrap();
         let routes = current["routeKnowledge"]["greek-rhapsode"]
             .as_array()
             .unwrap();
         for route in previous_routes {
             assert!(routes.contains(route));
         }
-        retained["routeKnowledge"]["greek-rhapsode"] =
-            old["routeKnowledge"]["greek-rhapsode"].clone();
+        retained["routeKnowledge"]["greek-rhapsode"] = expected_routes;
     }
     assert_retained(old, &retained, "");
     let catalog: Value =

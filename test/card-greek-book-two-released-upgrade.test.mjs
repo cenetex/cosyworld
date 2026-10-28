@@ -3,6 +3,7 @@ import { decodeSave, encodeSave } from "../v2/card-game/world.mjs";
 import {
   packDefinition,
   entityActive,
+  crossings,
 } from "../v2/card-game/pack-registry.mjs";
 import { newMemories } from "../v2/card-game/memory.mjs";
 import { recitalPoem } from "../v2/card-game/pack-recital.mjs";
@@ -197,12 +198,32 @@ function expectRetainedRecords(world, before) {
     "turn",
     "eventSeq",
     "log",
-    "crossings",
     "transports",
-    "routeKnowledge",
     "invitedPlaces",
   ])
     expect(world[key]).toEqual(before[key]);
+  expect(world.crossings).toEqual({
+    ...before.crossings,
+    ...Object.fromEntries(
+      crossings
+        .filter((crossing) => !before.crossings[crossing.id])
+        .map((crossing) => [crossing.id, { discovered: false }]),
+    ),
+  });
+  for (const [actor, routes] of Object.entries(before.routeKnowledge)) {
+    const expected = routes.flatMap(([from, to]) =>
+      [from, to].includes("greek-susa") &&
+      [from, to].includes("greek-scythian-crag")
+        ? [
+            [from, "greek-vii-crag-camp"],
+            ["greek-vii-crag-camp", to],
+          ]
+        : [[from, to]],
+    );
+    expect(world.routeKnowledge[actor]).toEqual([
+      ...new Map(expected.map((edge) => [JSON.stringify(edge), edge])).values(),
+    ]);
+  }
   for (const [id, record] of Object.entries(before.packs))
     if (id !== "greek-drama") expect(world.packs[id]).toEqual(record);
   expect(recitalPoem(world, currentGreek)).toEqual(

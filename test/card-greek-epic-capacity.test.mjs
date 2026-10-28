@@ -339,6 +339,33 @@ describe("story validation within one unchanged operation", () => {
     expect(decodeSave(encodeSave(upgraded))).toEqual(upgraded);
     expect(recitalPoem(upgraded, p)).toEqual(previous.poem(restored, p));
   });
+  it("matches the current bundled interpreter through real plays", () => {
+    const current = releasedCardEngine(21);
+    let world = createWorld();
+    delete world.opening;
+    world.actors.vale.place = "greek-courtyard";
+    world.crossings["pond-greek-harbor"].discovered = true;
+    world.items["greek-water-jar"].holder = "vale";
+    for (const match of [
+      (action) => action.choiceId === "greek-return-water-jar",
+      (action) => action.kind === "wait",
+      (action) => action.kind === "move" && action.target === "greek-well",
+    ]) {
+      const action = legalActions(world).find(match);
+      expect(action).toBeDefined();
+      const request = {
+        op: "play",
+        world,
+        actor: "vale",
+        claimed: ["vale"],
+        present: ["vale"],
+        action,
+      };
+      expect(dispatchShared(request)).toEqual(current.dispatch(request));
+      world = play(world, action).state;
+      expect(decodeSave(encodeSave(world))).toEqual(world);
+    }
+  });
   it("uses one definition snapshot for the batch and a fresh one for the next operation", () => {
     const w = createWorld();
     w.packs["greek-drama"].met["greek-baker"] = 0;

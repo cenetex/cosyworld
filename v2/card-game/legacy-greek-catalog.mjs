@@ -129,3 +129,6 @@ export const greekRevisionSeven = {
     "greek-ajax-grave",
   ],
 };
+
+for (const ids of Object.values(greekRevisionSeven)) Object.freeze(ids);
+Object.freeze(greekRevisionSeven);

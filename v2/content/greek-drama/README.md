@@ -7,6 +7,47 @@ belongings, memories and decisions across both local and shared games.
 The completed Athenian stories open **Earth Beside the Ships**, Ajax's
 household and burial account near Troy.
 
+## The Sky for Sale
+
+Dione can introduce the later sky accounts at the courtyard. The existing
+Athenian roads lead toward Sicily and the birds' wilderness. Each account
+keeps its own time and named cast. The player's material work and each
+cohort's saved place determine the ending.
+
+In **Cyclops**, carry separate provisions to Odysseus's crew and Silenus's
+satyrs. Bring the wine and timber to Polyphemus. Open the rock-side passage,
+ask each cohort for consent, and use Accompany for its walk to the shore.
+An arrival is recorded beside the actual cohort. The departure can include
+both groups, the crew alone, or the satyrs alone. The escape list names who
+arrived and who was left at the cave mouth.
+
+In **Birds**, accompany the Hoopoe's cohort to the air gate. Choose a keyed
+passage, an open gate, or the removal of its claim. A keyed traveler and a
+companion each need their own passage. Carry the nesting provisions to
+Pisthetaerus or to the birds at their actual refuge. The tablet records
+the gate's terms, the birds' place and the food's true holder.
+
+In **Peace**, equip Trygaeus and the farmers before the shared pull opens
+the store. Accompany the farmers home, deliver their grain, and bring tools
+to the smiths. The closing list names the food's keeper and the workshop
+that actually received its tools.
+
+In **Prometheus Bound**, carry the real lamp from the Crag Camp to
+Prometheus. Its oil, cover and finite fuel follow the ordinary rules. Carry
+his message to Io on the eastern road. Then return to the witnesses,
+leave a live flame at the camp, or deliver the entrusted terms to Hermes.
+Snuff the lamp for the longer trip and tend its remaining oil before
+lighting it again.
+
+The Sicilian Landing, `greek-sicily-shore`, has a public local path to the
+cave. The separate rock-side shore keeps the cohorts' exact escape
+arrivals. The shared ship's new port binding is part of the wider sea map.
+
+These paths use ordinary custody, consent, routes and saved receipts. The
+current chapter work keeps the released rules2–20 and the earlier56 stanza
+definitions exact. Frogs and the witnessed homecoming readings follow in
+the same draft change.
+
 ## Before the Burial
 
 A new game exposes the Wine-Dark Harbor, Theban Courtyard, Market Well,

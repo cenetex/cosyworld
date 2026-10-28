@@ -1046,7 +1046,9 @@ export function accompanyDecision(
   if (s.peaceUntil[companion] > s.turn)
     return { accepted: false, reason: "Catch a breath after the standoff." };
   if (packPeople[companion]?.journey)
-    return invited && packJourneyDestination(s, companion) === destination
+    return invited &&
+      packJourneyDestination(s, companion) === destination &&
+      exits(s, here, companion).includes(destination)
       ? { accepted: true, reason: "Follow the road we agreed to take." }
       : { accepted: false, reason: "Keep to the agreed journey." };
   if (hasMotives(s)) {
