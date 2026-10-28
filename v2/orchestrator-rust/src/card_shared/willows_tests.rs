@@ -90,7 +90,7 @@ fn replay_willows(version: &str) {
             json!({"op":"play","actor":"vale","action":action}),
             now(),
         )
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{version}: {field} {value}: {error}"));
     }
     assert_eq!(world.game["actors"]["vale"]["place"], "greek-ship");
     assert_eq!(

@@ -15745,8 +15745,15 @@
         }
       }
     }
-    for (const give of ids)
-      for (const receive of ids) {
+    const payments = ids.filter((id) => s.items[id].holder === actor);
+    const tradePartners = new Set(
+      payments.length ? knownActors(s).filter(
+        (other) => other !== actor && !controlledByHuman(s, other) && s.actors[other].place === here
+      ) : []
+    );
+    const tradeGoods = ids.filter((id) => tradePartners.has(s.items[id].holder));
+    for (const give of payments)
+      for (const receive of tradeGoods) {
         if (!canTrade(s, actor, give, receive)) continue;
         const other = s.items[receive].holder;
         const action = offer(

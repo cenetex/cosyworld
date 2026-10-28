@@ -227,4 +227,4 @@ it("keeps a sighting when its short event window is pruned", () => {
   );
   expect(w.memories.boardyai.seen.mara).toEqual(seen);
   expect(decodeSave(encodeSave(w)).memories.boardyai.seen.mara).toEqual(seen);
-}, 60_000);
+});
