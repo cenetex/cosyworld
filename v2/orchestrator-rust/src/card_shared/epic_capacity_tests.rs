@@ -120,3 +120,65 @@ fn capacity_upgrade_keeps_earned_wording_and_authors_through_journal_rebuild() {
         assert_eq!(upgrades, 1);
     }
 }
+
+#[test]
+fn capacity_current_catalog_cold_runtime_stays_within_the_live_limits() {
+    let seed = engine::reduce(json!({"op":"create"})).unwrap();
+    let mut world = World {
+        version: engine::VERSION.into(),
+        game: seed["world"].clone(),
+        claimed: [1, 0, 0, 0, 0, 0, 0, 0],
+        present: [1, 0, 0, 0, 0, 0, 0, 0],
+    };
+    world.game.as_object_mut().unwrap().remove("opening");
+    world.game["actors"]["vale"]["place"] = json!("greek-courtyard");
+    world.game["items"]["greek-water-jar"]["holder"] = json!("vale");
+    world.game["crossings"]["pond-greek-harbor"]["discovered"] = json!(true);
+    let action = select(&world, "choiceId", "greek-return-water-jar");
+    world
+        .apply(&json!({"op":"play","actor":"vale","action":action}))
+        .unwrap();
+    let action = select(&world, "kind", "wait");
+    for op in ["create", "validate", "view", "play", "upgrade"] {
+        let mut times = Vec::new();
+        let mut input_bytes = 0;
+        let mut output_bytes = 0;
+        for sample in 0..10 {
+            // Every view gets a distinct valid revision, so each sample enters
+            // a fresh interpreter. The other operations always enter it too.
+            world.game["revision"] = json!(1000 + sample);
+            let mut request = if op == "create" {
+                json!({"op":"create"})
+            } else {
+                world.request(op, 0)
+            };
+            if op == "play" {
+                request["action"] = action.clone();
+            }
+            if op == "upgrade" {
+                request["from"] = json!(engine::TWENTIETH_VERSION);
+                request["to"] = json!(engine::VERSION);
+            }
+            input_bytes = input_bytes.max(serde_json::to_vec(&request).unwrap().len());
+            let started = std::time::Instant::now();
+            let result = engine::reduce(request).unwrap();
+            let elapsed = started.elapsed();
+            assert!(
+                elapsed < std::time::Duration::from_secs(2),
+                "{op}: {elapsed:?}"
+            );
+            times.push(elapsed.as_secs_f64() * 1000.0);
+            output_bytes = output_bytes.max(serde_json::to_vec(&result).unwrap().len());
+        }
+        times.sort_by(f64::total_cmp);
+        println!(
+            "current_catalog_cold_runtime {}",
+            json!({
+                "rules":engine::VERSION,"op":op,"samples":times.len(),
+                "p95_ms":times[(times.len() * 95).div_ceil(100) - 1],
+                "max_ms":times.last(),"input_bytes":input_bytes,"output_bytes":output_bytes,
+                "heap_limit_mib":96,"deadline_ms":2000
+            })
+        );
+    }
+}
