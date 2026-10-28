@@ -64,6 +64,8 @@ describe("Greek section save upgrade", () => {
         "boardyai-parlour-station": { discovered: false },
         "greek-athens-harbor-ship": { discovered: false },
         "greek-piraeus-ship": { discovered: false },
+        "attic-forest-cottage": { discovered: false },
+        "forest-cottage-attic": { discovered: false },
       });
       for (const [id, actor] of Object.entries(before.actors)) {
         expect(after.actors[id]).toMatchObject(actor);
