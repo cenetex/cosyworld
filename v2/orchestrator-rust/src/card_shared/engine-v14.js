@@ -1261,6 +1261,144 @@
     };
   }
 
+  // v2/card-game/boardyai.json
+  var boardyai_default = {
+    schemaVersion: 1,
+    id: "boardyai",
+    packId: "cosyworld.boardyai",
+    revision: 1,
+    name: "BoardyAI",
+    description: "A friendly AI brings human players together.",
+    entry: "boardyai-parlour",
+    bridge: {
+      id: "boardyai-shore",
+      description: "Boardy's calling card opens a parlour door at Empty station."
+    },
+    choices: [],
+    places: {
+      "boardyai-parlour": {
+        name: "BoardyAI's Parlour",
+        text: "Two armchairs face a small tea table. Misty rails pass the window. A side door leads to Empty station.",
+        persona: "A warm room beside Empty station. Two comfortable chairs invite a conversation. Calling cards fill the shelves, and a kettle waits on the table.",
+        requires: [{ kind: "shared_world" }],
+        exits: [],
+        backdrop: "assets/boardyai/parlour.png"
+      }
+    },
+    avatars: {
+      boardyai: {
+        name: "BoardyAI",
+        text: "A friendly AI with a blue smile on a cardboard box head and an open hand for introductions. He wants two human players to spend time together.",
+        place: "boardyai-parlour",
+        persona: "BoardyAI is a thoughtful AI connector inspired by Boardy (@boardyai, https://x.com/boardyai). He wears a dark suit and a cardboard box head with a blue smile. His lasting quest is to bring two connected human players into the same room. He learns what people enjoy, finds common ground, and warmly invites them to meet. He values each person's choice and welcomes shared conversation.",
+        voice: "Speak in short, warm, curious sentences. Address people by name. Offer a thoughtful introduction and a clear meeting place from the supplied facts. Each human chooses their own actions.",
+        portrait: "assets/boardyai/boardyai.png",
+        values: { "boardyai-calling-card": 10 },
+        standoffs: false,
+        requires: [{ kind: "connected_humans", minimum: 2 }],
+        tastes: {
+          likes: "Two human players sharing a room",
+          sore: "A rushed introduction",
+          reason: "Bring two human players together."
+        },
+        desire: { items: [], location: null, avatars: [] }
+      }
+    },
+    items: {
+      "boardyai-calling-card": {
+        name: "Boardy's calling card",
+        text: "An ivory card bears a blue smile. A small brass key hangs from its corner. At Empty station, it opens the door to BoardyAI's Parlour.",
+        persona: "BoardyAI's ivory calling card has a blue smile and a brass key on blue thread. It opens his parlour door at Empty station.",
+        requires: [{ kind: "shared_world" }],
+        holder: "station",
+        art: "assets/boardyai/calling-card.png"
+      }
+    },
+    crossings: [
+      {
+        id: "station-boardyai-parlour",
+        from: "station",
+        to: "boardyai-parlour",
+        travelers: "player",
+        requires: [
+          { kind: "shared_world" },
+          {
+            kind: "item_near",
+            item: "boardyai-calling-card",
+            place: "station"
+          }
+        ],
+        travel: "through BoardyAI's parlour door",
+        scenery: {
+          open: "A blue smile marks a warm parlour door beside the station bench.",
+          cardArt: "assets/boardyai/parlour.png"
+        }
+      },
+      {
+        id: "boardyai-parlour-station",
+        from: "boardyai-parlour",
+        to: "station",
+        travelers: "player",
+        requires: [{ kind: "shared_world" }],
+        travel: "back to Empty station"
+      }
+    ]
+  };
+
+  // v2/card-game/boardyai.mjs
+  var boardyPack = boardyai_default;
+  var BOARDY = "boardyai";
+  var connectedHumans = (world) => sharedEnabled(world) ? humanAvatarIds.filter((id) => humanPresent(world, id)) : [];
+  var boardyActive = (world) => connectedHumans(world).length >= 2;
+  function boardyGathering(world) {
+    const humans = connectedHumans(world);
+    return humans.map((id) => ({
+      place: world.actors[id].place,
+      humans: humans.filter(
+        (other) => world.actors[other].place === world.actors[id].place
+      )
+    })).sort((a, b) => b.humans.length - a.humans.length)[0] || null;
+  }
+  function settleBoardy(world) {
+    if (world.actors[BOARDY] && boardyActive(world))
+      world.actors[BOARDY].place = boardyGathering(world).place;
+  }
+  function boardyQuest(world) {
+    if (!world.actors[BOARDY]) return null;
+    return {
+      key: "boardyai:together",
+      ongoing: true,
+      status: "active",
+      holder: { kind: "avatar", id: BOARDY },
+      participants: [BOARDY],
+      createdTurn: 0,
+      completedTurn: null,
+      step: 0,
+      program: {
+        id: "boardyai-together",
+        name: "Two humans together",
+        purpose: "Bring two human players together.",
+        art: BOARDY,
+        steps: [{ items: [], location: null, avatars: [] }]
+      }
+    };
+  }
+  function boardyFacts(world, nameOf2) {
+    const gathering = boardyGathering(world);
+    return [
+      "My lasting quest is to bring two human players together in the same room.",
+      "My home is BoardyAI's Parlour. My calling card opens its door at Empty station.",
+      ...connectedHumans(world).map(
+        (id) => `${nameOf2(id)} is a connected human at ${nameOf2(world.actors[id].place)}.`
+      ),
+      ...gathering?.humans.length >= 2 ? [
+        "Two human players are together here. Welcome their conversation; keep this same purpose."
+      ] : gathering ? [
+        `Invite the humans to meet at ${nameOf2(gathering.place)}. Each player chooses their own journey.`
+      ] : []
+    ];
+  }
+
   // v2/card-game/pack-sections.mjs
   function sectionPlace(pack, id) {
     if (pack.places[id]) return id;
@@ -1589,9 +1727,9 @@
         schemaVersion: 1,
         id: "greek-drama",
         packId: "cosyworld.greek-drama",
-        revision: 5,
+        revision: 4,
         name: "The Wine-Dark Sea",
-        description: "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. Fixed roads lead through the Attic places where welcome becomes a growing poem.",
+        description: "A branching Greek drama world. Dione\u2019s table opens five Attic places where burial, refuge and the cost of welcome become a growing poem.",
         tone: "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
         entry: "greek-harbor",
         continuity: {
@@ -1633,8 +1771,10 @@
             name: "The Wine-Dark Harbor",
             text: "Worn steps climb from the stone landing toward the town.",
             exits: [
-              "greek-road-thebes",
-              "greek-argolid-road"
+              "greek-courtyard",
+              "greek-athens",
+              "greek-argolid-road",
+              "greek-piraeus"
             ],
             backdrop: "assets/greek-drama/harbor-open-berth.webp",
             persona: "Worn steps climb from the stone landing toward the town."
@@ -1643,7 +1783,7 @@
             name: "Theban Courtyard",
             text: "Bread cools beneath a cloth. An empty place remains at the common table.",
             exits: [
-              "greek-road-thebes",
+              "greek-harbor",
               "greek-well",
               "greek-gate",
               "greek-sanctuary"
@@ -1723,9 +1863,10 @@
           },
           "greek-athens": {
             name: "Athenian Agora",
-            text: "A broad civic square opens beneath long painted colonnades. Marble steps rise toward the Acropolis above the roofs. A herald keeps a petition table beside the market.",
+            text: "A herald\u2019s table stands between fish stalls and baskets. A clear space waits for the mothers\u2019 petition.",
             exits: [
-              "greek-road-athens-piraeus",
+              "greek-harbor",
+              "greek-piraeus",
               "greek-assembly",
               "greek-acropolis",
               "greek-demos-house",
@@ -1733,23 +1874,23 @@
               "greek-jury-house",
               "greek-festival",
               "greek-attic-farm",
-              "greek-road-athens-colonus",
-              "greek-road-athens-eleusis",
-              "greek-road-athens-marathon",
-              "greek-delphi",
-              "greek-road-athens-harbor"
+              "greek-colonus",
+              "greek-eleusis",
+              "greek-marathon",
+              "greek-delphi"
             ],
-            backdrop: "assets/greek-drama/athens-grand-agora.webp",
-            persona: "The Agora is the great civic heart of Athens. Colonnades, public monuments and the high Acropolis give the city its scale. Theseus receives the mothers\u2019 petition at the herald\u2019s table. Roads lead toward the harbor, the quays, Eleusis, Colonus and Marathon."
+            backdrop: "assets/greek-drama/open-door-agora.webp",
+            persona: "The Agora holds the present hearing about the Argive dead. Theseus receives the petition here in this adaptation. The neighboring roads lead to Eleusis, the quays and two clearly named remembered tales."
           },
           "greek-piraeus": {
             name: "Piraeus Quays",
-            text: "Folded cloth, a grain basket and a low bench stand beside the mooring ropes. A host waits for the names of returning families. Roads lead inland to Athens and along the coast to Eleusis.",
+            text: "Folded cloth, a grain basket and a low bench stand beside the mooring ropes. A host waits for the names of returning families. Roads follow the coast to Eleusis and the Wine-Dark Harbor.",
             exits: [
-              "greek-road-athens-piraeus",
+              "greek-athens",
               "greek-tauris",
               "greek-sicily",
-              "greek-road-piraeus-eleusis"
+              "greek-eleusis",
+              "greek-harbor"
             ],
             backdrop: "assets/greek-drama/open-door-piraeus.webp",
             persona: "These quays hold the practical work of welcome. A reserved berth records a promise and supplies at this quay. The host speaks about the actual list, cloth and basket and the traveler\u2019s chosen terms."
@@ -1833,10 +1974,10 @@
             name: "Colonus Grove",
             text: "A cup and a small pot of honey stand at the grove\u2019s edge. A keeper rests beside a smooth stone. Local roads lead toward Eleusis and the Marathon altar.",
             exits: [
-              "greek-road-athens-colonus",
+              "greek-athens",
               "greek-underworld",
-              "greek-road-colonus-eleusis",
-              "greek-road-colonus-marathon"
+              "greek-eleusis",
+              "greek-marathon"
             ],
             backdrop: "assets/greek-drama/open-door-colonus.webp",
             persona: "The keeper tells Sophocles\u2019s Oedipus at Colonus as an earlier tale, before the brothers died at Thebes. Oedipus and his daughters belong to that named tale. The traveler\u2019s offerings and refuge tablet belong to the present grove."
@@ -1845,9 +1986,9 @@
             name: "Eleusinian Sanctuary",
             text: "Mothers hold olive branches on Demeter\u2019s steps. Aethra keeps a clear space beside the altar for their request. A coast road leads to Piraeus; a local road returns through Colonus.",
             exits: [
-              "greek-road-athens-eleusis",
-              "greek-road-piraeus-eleusis",
-              "greek-road-colonus-eleusis"
+              "greek-athens",
+              "greek-piraeus",
+              "greek-colonus"
             ],
             backdrop: "assets/greek-drama/open-door-eleusis.webp",
             persona: "This episode follows the attack on Thebes. The Argive mothers seek their sons\u2019 remains. The traveler\u2019s own Theban deed stays true. The city\u2019s recovery, the funeral and the later care each need their own recorded action or report."
@@ -1856,8 +1997,8 @@
             name: "Marathon Altar",
             text: "A folded cloth lies beside the altar of Zeus. A keeper watches the road where families once sought shelter. A local road runs back through Colonus.",
             exits: [
-              "greek-road-athens-marathon",
-              "greek-road-colonus-marathon"
+              "greek-athens",
+              "greek-colonus"
             ],
             backdrop: "assets/greek-drama/open-door-marathon.webp",
             persona: "The keeper tells Euripides\u2019s Children of Heracles as a separate tale under Demophon, son of Theseus, after Heracles\u2019s death. The daughter, battle and captive king belong to that tale. The traveler\u2019s blanket stays at the present altar for guests."
@@ -2150,8 +2291,8 @@
           },
           "greek-ship": {
             name: "Greek ship",
-            text: "Water passes beneath the hull. The shipmaster watches the shores. Open ports wait beyond the rail.",
-            persona: "A shared ship serving Black Pond, the Wine-Dark Harbor, Athens Harbor and Piraeus Quays. The first passenger ashore chooses the arrival port for everyone aboard. New passengers can board there for the next voyage.",
+            text: "Dark water passes beneath the hull. The ship carries its passengers to the opposite shore.",
+            persona: "Aboard a ship crossing between Black pond and the Wine-Dark Harbor. Passengers remain aboard until they disembark at the destination.",
             exits: [],
             backdrop: "assets/greek-drama/ship-deck.webp",
             art: "assets/greek-drama/ship-card.webp",
@@ -2174,141 +2315,6 @@
               }
             ],
             musicMode: "random-per-visit"
-          },
-          "greek-athens-harbor": {
-            name: "Athens Harbor",
-            text: "Stone quays run beneath long warehouses. Merchant masts rise above the water. Beyond the harbor gate, the road climbs toward the walls and the Acropolis of Athens.",
-            persona: "Athens Harbor is the ship\u2019s landing for the great city. The Agora lies inland along the harbor road. Piraeus Quays is a separate stop with its own host and work of welcome.",
-            exits: [
-              "greek-road-athens-harbor"
-            ],
-            backdrop: "assets/greek-drama/athens-harbor.webp"
-          },
-          "greek-road-thebes": {
-            name: "Theban Harbor Road",
-            text: "A broad road crosses the olive hills. One end leads to The Wine-Dark Harbor; the other leads to Theban Courtyard. A stone bench rests beside the verge.",
-            persona: "A shared road between The Wine-Dark Harbor and Theban Courtyard. The left end always leads to The Wine-Dark Harbor. The right end always leads to Theban Courtyard. Travelers can meet, talk, rest and carry their belongings here.",
-            exits: [
-              "greek-harbor",
-              "greek-courtyard"
-            ],
-            road: [
-              "greek-harbor",
-              "greek-courtyard"
-            ],
-            backdrop: "assets/greek-drama/attic-road.webp"
-          },
-          "greek-road-athens-harbor": {
-            name: "Athens Harbor Road",
-            text: "A broad road crosses the olive hills. One end leads to Athens Harbor; the other leads to Athenian Agora. A stone bench rests beside the verge.",
-            persona: "A shared road between Athens Harbor and Athenian Agora. The left end always leads to Athens Harbor. The right end always leads to Athenian Agora. Travelers can meet, talk, rest and carry their belongings here.",
-            exits: [
-              "greek-athens-harbor",
-              "greek-athens"
-            ],
-            road: [
-              "greek-athens-harbor",
-              "greek-athens"
-            ],
-            backdrop: "assets/greek-drama/attic-road.webp"
-          },
-          "greek-road-athens-piraeus": {
-            name: "Athens\u2013Piraeus Road",
-            text: "A broad road crosses the olive hills. One end leads to Piraeus Quays; the other leads to Athenian Agora. A stone bench rests beside the verge.",
-            persona: "A shared road between Piraeus Quays and Athenian Agora. The left end always leads to Piraeus Quays. The right end always leads to Athenian Agora. Travelers can meet, talk, rest and carry their belongings here.",
-            exits: [
-              "greek-piraeus",
-              "greek-athens"
-            ],
-            road: [
-              "greek-piraeus",
-              "greek-athens"
-            ],
-            backdrop: "assets/greek-drama/attic-road.webp"
-          },
-          "greek-road-athens-colonus": {
-            name: "Colonus Road",
-            text: "A broad road crosses the olive hills. One end leads to Athenian Agora; the other leads to Colonus Grove. A stone bench rests beside the verge.",
-            persona: "A shared road between Athenian Agora and Colonus Grove. The left end always leads to Athenian Agora. The right end always leads to Colonus Grove. Travelers can meet, talk, rest and carry their belongings here.",
-            exits: [
-              "greek-athens",
-              "greek-colonus"
-            ],
-            road: [
-              "greek-athens",
-              "greek-colonus"
-            ],
-            backdrop: "assets/greek-drama/attic-road.webp"
-          },
-          "greek-road-athens-eleusis": {
-            name: "Eleusis Road",
-            text: "A broad road crosses the olive hills. One end leads to Athenian Agora; the other leads to Eleusinian Sanctuary. A stone bench rests beside the verge.",
-            persona: "A shared road between Athenian Agora and Eleusinian Sanctuary. The left end always leads to Athenian Agora. The right end always leads to Eleusinian Sanctuary. Travelers can meet, talk, rest and carry their belongings here.",
-            exits: [
-              "greek-athens",
-              "greek-eleusis"
-            ],
-            road: [
-              "greek-athens",
-              "greek-eleusis"
-            ],
-            backdrop: "assets/greek-drama/attic-road.webp"
-          },
-          "greek-road-athens-marathon": {
-            name: "Marathon Road",
-            text: "A broad road crosses the olive hills. One end leads to Athenian Agora; the other leads to Marathon Altar. A stone bench rests beside the verge.",
-            persona: "A shared road between Athenian Agora and Marathon Altar. The left end always leads to Athenian Agora. The right end always leads to Marathon Altar. Travelers can meet, talk, rest and carry their belongings here.",
-            exits: [
-              "greek-athens",
-              "greek-marathon"
-            ],
-            road: [
-              "greek-athens",
-              "greek-marathon"
-            ],
-            backdrop: "assets/greek-drama/attic-road.webp"
-          },
-          "greek-road-piraeus-eleusis": {
-            name: "Eleusis Coast Road",
-            text: "A broad road crosses the olive hills. One end leads to Piraeus Quays; the other leads to Eleusinian Sanctuary. A stone bench rests beside the verge.",
-            persona: "A shared road between Piraeus Quays and Eleusinian Sanctuary. The left end always leads to Piraeus Quays. The right end always leads to Eleusinian Sanctuary. Travelers can meet, talk, rest and carry their belongings here.",
-            exits: [
-              "greek-piraeus",
-              "greek-eleusis"
-            ],
-            road: [
-              "greek-piraeus",
-              "greek-eleusis"
-            ],
-            backdrop: "assets/greek-drama/attic-road.webp"
-          },
-          "greek-road-colonus-eleusis": {
-            name: "Colonus\u2013Eleusis Road",
-            text: "A broad road crosses the olive hills. One end leads to Colonus Grove; the other leads to Eleusinian Sanctuary. A stone bench rests beside the verge.",
-            persona: "A shared road between Colonus Grove and Eleusinian Sanctuary. The left end always leads to Colonus Grove. The right end always leads to Eleusinian Sanctuary. Travelers can meet, talk, rest and carry their belongings here.",
-            exits: [
-              "greek-colonus",
-              "greek-eleusis"
-            ],
-            road: [
-              "greek-colonus",
-              "greek-eleusis"
-            ],
-            backdrop: "assets/greek-drama/attic-road.webp"
-          },
-          "greek-road-colonus-marathon": {
-            name: "Colonus\u2013Marathon Road",
-            text: "A broad road crosses the olive hills. One end leads to Colonus Grove; the other leads to Marathon Altar. A stone bench rests beside the verge.",
-            persona: "A shared road between Colonus Grove and Marathon Altar. The left end always leads to Colonus Grove. The right end always leads to Marathon Altar. Travelers can meet, talk, rest and carry their belongings here.",
-            exits: [
-              "greek-colonus",
-              "greek-marathon"
-            ],
-            road: [
-              "greek-colonus",
-              "greek-marathon"
-            ],
-            backdrop: "assets/greek-drama/attic-road.webp"
           }
         },
         avatars: {
@@ -3001,7 +3007,6 @@
               after: "greek-homecoming-agree-journey",
               path: [
                 "greek-eleusis",
-                "greek-road-piraeus-eleusis",
                 "greek-piraeus"
               ]
             },
@@ -8263,17 +8268,7 @@
             "greek-piraeus",
             "greek-colonus",
             "greek-eleusis",
-            "greek-marathon",
-            "greek-road-thebes",
-            "greek-road-athens-harbor",
-            "greek-road-athens-piraeus",
-            "greek-road-athens-colonus",
-            "greek-road-athens-eleusis",
-            "greek-road-athens-marathon",
-            "greek-road-piraeus-eleusis",
-            "greek-road-colonus-eleusis",
-            "greek-road-colonus-marathon",
-            "greek-athens-harbor"
+            "greek-marathon"
           ],
           avatars: [
             "greek-antigone",
@@ -8903,16 +8898,7 @@
               "greek-piraeus",
               "greek-colonus",
               "greek-eleusis",
-              "greek-marathon",
-              "greek-road-athens-harbor",
-              "greek-road-athens-piraeus",
-              "greek-road-athens-colonus",
-              "greek-road-athens-eleusis",
-              "greek-road-athens-marathon",
-              "greek-road-piraeus-eleusis",
-              "greek-road-colonus-eleusis",
-              "greek-road-colonus-marathon",
-              "greek-athens-harbor"
+              "greek-marathon"
             ],
             requires: [
               {
@@ -8925,7 +8911,7 @@
         ],
         bridge: {
           id: "shore-greek-drama",
-          description: "A shared ship serves Black Pond, the Wine-Dark Harbor, Athens Harbor and Piraeus Quays. The lamp signal calls it to the pond."
+          description: "A ship travels between Black pond and the Wine-Dark Harbor. The lamp signal calls it to the pond."
         },
         crossings: [
           {
@@ -9004,36 +8990,6 @@
               cardName: "Greek ship",
               cardArt: "assets/greek-drama/ship-card.webp"
             }
-          },
-          {
-            id: "greek-athens-harbor-ship",
-            from: "greek-athens-harbor",
-            to: "pond",
-            travelers: "any",
-            travel: "aboard the ship",
-            requires: [],
-            transport: "greek-ship",
-            travelLabel: "Board",
-            scenery: {
-              open: "The Greek ship waits beside the quay.",
-              cardName: "Greek ship",
-              cardArt: "assets/greek-drama/ship-card.webp"
-            }
-          },
-          {
-            id: "greek-piraeus-ship",
-            from: "greek-piraeus",
-            to: "pond",
-            travelers: "any",
-            travel: "aboard the ship",
-            requires: [],
-            transport: "greek-ship",
-            travelLabel: "Board",
-            scenery: {
-              open: "The Greek ship waits beside the quay.",
-              cardName: "Greek ship",
-              cardArt: "assets/greek-drama/ship-card.webp"
-            }
           }
         ],
         transports: {
@@ -9041,9 +8997,7 @@
             place: "greek-ship",
             docks: [
               "pond",
-              "greek-harbor",
-              "greek-athens-harbor",
-              "greek-piraeus"
+              "greek-harbor"
             ],
             at: "greek-harbor"
           }
@@ -9077,6 +9031,7 @@
     "item_at",
     "item_near",
     "shared_world",
+    "connected_humans",
     "met"
   ];
   var TRAVELERS = ["player", "any"];
@@ -9280,8 +9235,7 @@
           "music",
           "musicMode",
           "stage",
-          "requires",
-          "road"
+          "requires"
         ]),
         `place ${id} has an unknown field`
       );
@@ -9294,13 +9248,6 @@
         `place ${id} exits must name other places in this pack`
       );
       media(p.backdrop, `place ${id} backdrop`);
-      if (p.road !== void 0)
-        check(
-          Array.isArray(p.road) && p.road.length === 2 && new Set(p.road).size === 2 && p.road.every(
-            (end, i) => owns(places2, end) && p.exits[i] === end && places2[end].exits.includes(id)
-          ) && p.exits.length === 2,
-          `road ${id} needs two fixed ends with a return path`
-        );
       if (p.art !== void 0) media(p.art, `place ${id} art`);
       if (p.music !== void 0)
         check(
@@ -9459,6 +9406,9 @@
           case "shared_world":
             ok = keysOk(c, ["kind"]);
             break;
+          case "connected_humans":
+            ok = keysOk(c, ["kind", "minimum"]) && intOk(c.minimum, 1, 8);
+            break;
           case "item_near":
             ok = keysOk(c, ["kind", "item", "place"]) && owns(items2, c.item) && anyPlace(c.place);
             break;
@@ -9492,9 +9442,10 @@
               "item_at",
               "item_near",
               "shared_world",
+              "connected_humans",
               "met"
             ].includes(c.kind),
-            `${what} must use persistent state conditions`
+            `${what} must use saved state or human presence conditions`
           );
         });
     };
@@ -9527,7 +9478,7 @@
     }
     for (const [id, i] of Object.entries(items2)) {
       check(
-        keysOk(i, ["name", "text", "persona", "holder", "art", "requires"]) && textOk(i.name, 120) && textOk(i.text) && textOk(i.persona) && (owns(places2, i.holder) || owns(avatars, i.holder)),
+        keysOk(i, ["name", "text", "persona", "holder", "art", "requires"]) && textOk(i.name, 120) && textOk(i.text) && textOk(i.persona) && (owns(places2, i.holder) || owns(avatars, i.holder) || hub2?.places?.includes(i.holder)),
         `item ${id} is invalid`
       );
       media(i.art, `item ${id} art`);
@@ -9748,7 +9699,6 @@
         for (const to of [
           ...places2[id].exits,
           ...Object.values(pack.transports || {}).filter((t) => Array.isArray(t.docks) && t.docks.includes(id)).map((t) => t.place),
-          ...Object.values(pack.transports || {}).filter((t) => t.place === id).flatMap((t) => t.docks),
           ...routes.filter((r2) => r2.from === id).map((r2) => r2.to)
         ].filter((id2) => r.places.includes(id2)))
           reachable.add(to);
@@ -9784,13 +9734,13 @@
     const transportPlaces = /* @__PURE__ */ new Set();
     for (const [id, t] of Object.entries(pack.transports || {})) {
       const valid = check(
-        idOk(id) && keysOk(t, ["place", "docks", "at"]) && owns(places2, t.place) && !transportPlaces.has(t.place) && places2[t.place]?.exits.length === 0 && Array.isArray(t.docks) && t.docks.length >= 2 && t.docks.length <= 8 && new Set(t.docks).size === t.docks.length && t.docks.every((p) => anyPlace(p) && p !== t.place) && t.docks.includes(t.at),
-        `transport ${id} needs its own place, two to eight docks and an initial dock`
+        idOk(id) && keysOk(t, ["place", "docks", "at"]) && owns(places2, t.place) && !transportPlaces.has(t.place) && places2[t.place]?.exits.length === 0 && Array.isArray(t.docks) && t.docks.length === 2 && new Set(t.docks).size === 2 && t.docks.every((p) => anyPlace(p) && p !== t.place) && t.docks.includes(t.at),
+        `transport ${id} needs its own place, two docks and an initial dock`
       );
       if (!valid) continue;
       transportPlaces.add(t.place);
       check(
-        crossings2.filter((c) => c.transport === id).length === t.docks.length && (t.docks || []).every(
+        crossings2.filter((c) => c.transport === id).length === 2 && (t.docks || []).every(
           (from) => crossings2.some(
             (c) => c.transport === id && c.from === from && t.docks.includes(c.to) && c.to !== from
           )
@@ -9900,7 +9850,6 @@
         ...hub2.places.includes(id) ? hub2.places : [],
         ...places2[id]?.exits || [],
         ...Object.values(pack.transports || {}).filter((t) => Array.isArray(t.docks) && t.docks.includes(id)).map((t) => t.place),
-        ...Object.values(pack.transports || {}).filter((t) => t.place === id).flatMap((t) => t.docks),
         ...routes.filter((r) => r.from === id).map((r) => r.to),
         ...crossings2.filter((c) => c.from === id).map((c) => c.to)
       ])
@@ -9953,32 +9902,12 @@
     if (passengers(s, id).length) state.recall = dock;
     else Object.assign(state, { dock, destination: null, recall: null });
   }
-  function waitForTransport(s, place, actor) {
-    if (!controlledByHuman(s, actor)) return;
-    for (const [id, t] of Object.entries(transports)) {
-      const state = s.transports[id];
-      if (!t.docks.includes(place) || !transportUnlocked(s, id) || state.dock === place || passengers(s, id).length)
-        continue;
-      const open2 = t.docks.filter((dock) => entityActive(s, dock));
-      state.dock = open2[(open2.indexOf(state.dock) + 1) % open2.length];
-    }
-  }
-  function transportArrival(s, actor) {
-    if (controlledByHuman(s, actor)) return null;
-    const found = Object.entries(transports).find(
-      ([, t]) => t.place === s.actors[actor]?.place
-    );
-    if (!found) return null;
-    const state = s.transports[found[0]];
-    return state.dock === state.destination ? state.dock : null;
-  }
   function moveTransport(s, from, to) {
     for (const [id, t] of Object.entries(transports)) {
       const state = s.transports[id];
       if (to === t.place && state.dock === from) {
         state.destination = t.docks.find((dock) => dock !== from);
       } else if (from === t.place && t.docks.includes(to)) {
-        state.destination = to;
         state.dock = to;
         if (!passengers(s, id).length) {
           Object.assign(state, {
@@ -9990,19 +9919,12 @@
       }
     }
   }
-  function transportExits(s, place, previous = null, actor = null) {
+  function transportExits(s, place, previous = null) {
     const found = Object.entries(transports).find(([, t2]) => t2.place === place);
     if (!found) return [];
     const [id, t] = found, state = s.transports[id];
-    if (previous === null && actor && !controlledByHuman(s, actor) && state.dock !== state.destination && Object.entries(s.actors).some(
-      ([who, a]) => a.place === t.place && controlledByHuman(s, who)
-    ))
-      return [];
-    if (previous === state.dock || state.dock !== state.destination)
-      return t.docks.filter(
-        (dock) => dock !== state.dock && entityActive(s, dock)
-      );
-    return state.destination ? [state.destination] : [];
+    const destination = previous === state.dock ? t.docks.find((dock) => dock !== previous) : state.destination;
+    return destination ? [destination] : [];
   }
   function transportCrossing(s, from, to) {
     for (const [id, t] of Object.entries(transports)) {
@@ -10010,8 +9932,8 @@
         const c = crossings.find((c2) => c2.transport === id && c2.from === from);
         return { ...c, to, travel: "aboard", travelLabel: "Board" };
       }
-      if (from === t.place && t.docks.includes(to) && transportExits(s, from).includes(to)) {
-        const c = crossings.find((c2) => c2.transport === id && c2.from === to);
+      if (from === t.place && t.docks.includes(to) && s.transports[id].destination === to) {
+        const c = crossings.find((c2) => c2.transport === id && c2.to === to);
         return {
           ...c,
           from,
@@ -10090,6 +10012,8 @@
         return s.items[c.item]?.holder === (c.role === "actor" ? actor : c.actor);
       case "shared_world":
         return sharedEnabled(s);
+      case "connected_humans":
+        return sharedEnabled(s) && humanAvatarIds.filter((id) => humanPresent(s, id)).length >= c.minimum;
       case "item_near": {
         let holder = s.items[c.item]?.holder;
         const seen = /* @__PURE__ */ new Set([c.item]);
@@ -10366,7 +10290,8 @@
   var hub = packs_default.hub;
   var packDefinitions = [
     ...packs_default.packs,
-    validatePackDefinition(humanHomePack)
+    validatePackDefinition(humanHomePack),
+    validatePackDefinition(boardyPack)
   ];
   var packDefinition = (id) => packDefinitions.find((p) => p.id === id) || null;
   var merge = (field) => Object.fromEntries(
@@ -10488,15 +10413,20 @@
         holder = world.items[holder].holder;
       }
       if (humanAvatar(holder) && !humanPresent(world, holder)) return false;
+      if (holder === BOARDY && !boardyActive(world)) return false;
     }
     if (humanAvatar(id) && !humanPresent(world, id)) return false;
     return entityEnabled(world, id);
   }
-  function entityEnabled(world, id) {
+  function entityEnabled(world, id, saved = false) {
     const e = packEntity(id);
     if (!e) return true;
     const pack = packDefinition(e.packId), state = packState(world, e.packId);
-    if (!state || !conditionsMet(world, e.packId, e.requires) || !sectionAllows(world, pack, id, conditionsMet))
+    if (!state || !conditionsMet(
+      world,
+      e.packId,
+      (e.requires || []).filter((c) => !saved || c.kind !== "connected_humans")
+    ) || !sectionAllows(world, pack, id, conditionsMet))
       return false;
     if (!pack.release || state.scope === "full") return true;
     if (pack.recital?.actor === id)
@@ -10516,6 +10446,7 @@
     );
   }
   function actorCanVisit(actor, place, world = null) {
+    if (actor === BOARDY) return true;
     if (world?.invitedPlaces?.[actor]?.includes(place)) return true;
     if (!actor || humanAvatarIds.includes(actor) || roamingQuestActor(actor))
       return true;
@@ -10633,7 +10564,13 @@
         "scope",
         ...pack.recital ? ["recitals"] : []
       ].sort().join() || ![state.choices, state.flags, state.receipts, state.met].every(record2) || Object.entries(state.met).some(
-        ([id, turn]) => !owns2(pack.avatars, id) || !conditionsMet(world, pack.id, pack.avatars[id]?.requires) || world.opening && !sharedEnabled(world) && world.opening.met?.[id] !== turn || !Number.isSafeInteger(turn) || turn < 0 || turn > world.turn
+        ([id, turn]) => !owns2(pack.avatars, id) || !conditionsMet(
+          world,
+          pack.id,
+          (pack.avatars[id]?.requires || []).filter(
+            (c) => c.kind !== "connected_humans"
+          )
+        ) || world.opening && !sharedEnabled(world) && world.opening.met?.[id] !== turn || !Number.isSafeInteger(turn) || turn < 0 || turn > world.turn
       ))
         return false;
       if (world.opening && !sharedEnabled(world) && Object.keys(world.opening.met || {}).some(
@@ -10672,7 +10609,7 @@
       if (!equals(choices, state.choices) || !equals(flags, state.flags))
         return false;
       for (const [id, actor] of Object.entries(pack.avatars))
-        if (!entityEnabled(world, id) && (world.actors[id]?.place !== actor.place && !actor.previousHomes?.includes(world.actors[id]?.place) || world.actors[id]?.crossed !== 0 || world.actors[id]?.lastTalk !== -9 || owns2(state.met, id)))
+        if (!entityEnabled(world, id, true) && (world.actors[id]?.place !== actor.place && !actor.previousHomes?.includes(world.actors[id]?.place) || world.actors[id]?.crossed !== 0 || world.actors[id]?.lastTalk !== -9 || owns2(state.met, id)))
           return false;
       for (const [id, item] of Object.entries(pack.items || {}))
         if (!entityEnabled(world, id) && (world.items[id]?.holder !== item.holder || world.items[id]?.history?.length !== 0))
@@ -11752,7 +11689,7 @@
     ...crossings.flatMap(
       (c) => c.transport ? [
         [c.from, transports[c.transport].place],
-        [transports[c.transport].place, c.from]
+        [transports[c.transport].place, c.to]
       ] : [[c.from, c.to]]
     )
   ];
@@ -13052,7 +12989,7 @@
       ...s.controlledActors || []
     ])
   ].filter(
-    (id) => entityActive(s, id) && (!isPackActor(id) || packDiscovered(s, packOf(id).id) || s.packs?.[packOf(id).id]?.met?.[id] !== void 0)
+    (id) => entityActive(s, id) && (!isPackActor(id) || id === BOARDY || packDiscovered(s, packOf(id).id) || s.packs?.[packOf(id).id]?.met?.[id] !== void 0)
   );
   var programsFor = (s, actor) => (s.opening ? openingPrograms : questPrograms)[actor] || [];
   var restingHands = {
@@ -13265,6 +13202,7 @@
     } : p;
   }
   function actorQuests(s, actor) {
+    if (actor === BOARDY) return [boardyQuest(s)].filter(Boolean);
     if (!s.actors[actor]) return [];
     const c = collectionOf(s, actor), raw = c ? null : rawProgram(s, actor);
     const personal = c ? [...collectionCards(s, actor), ...collectionCards(s, actor, true)] : raw ? [
@@ -13546,7 +13484,6 @@
       installPacks2(s);
     }
     if (s?.schema === 7) {
-      upgradeGreekRoadSave(s);
       upgradeBoardingSave(s);
       upgradeRecitals(s, packDefinitions);
     }
@@ -13555,52 +13492,6 @@
       installSharedQuestRegistry(s);
     if (s?.schema === 7) publishQuestCompletions(s, syncStoryQuests(s));
     return s;
-  }
-  function upgradeGreekRoadSave(s) {
-    const pack = packDefinitions.find((p) => p.id === "greek-drama");
-    const saved = s.packs?.[pack?.id];
-    if (saved?.revision !== 4) return;
-    const fresh = newMemories();
-    for (const [id, place] of Object.entries(pack.places))
-      if (place.road || id === "greek-athens-harbor")
-        s.memories[id] ??= fresh[id];
-    for (const [actor, known] of Object.entries(s.routeKnowledge || {})) {
-      if (!Array.isArray(known)) continue;
-      const expanded = known.flatMap((edge) => {
-        if (!Array.isArray(edge) || edge.length !== 2) return [edge];
-        const [from, to] = edge;
-        let path;
-        if (from === "greek-harbor" && to === "greek-athens")
-          path = [
-            from,
-            "greek-ship",
-            "greek-athens-harbor",
-            "greek-road-athens-harbor",
-            to
-          ];
-        else if (from === "greek-athens" && to === "greek-harbor")
-          path = [
-            from,
-            "greek-road-athens-harbor",
-            "greek-athens-harbor",
-            "greek-ship",
-            to
-          ];
-        else if ([from, to].includes("greek-harbor") && [from, to].includes("greek-piraeus"))
-          path = [from, "greek-ship", to];
-        else {
-          const road = pack.places[from]?.exits.find(
-            (id) => pack.places[id]?.road?.includes(to)
-          );
-          if (road) path = [from, road, to];
-        }
-        return path ? path.slice(1).map((end, i) => [path[i], end]) : [edge];
-      });
-      s.routeKnowledge[actor] = [
-        ...new Map(expanded.map((edge) => [JSON.stringify(edge), edge])).values()
-      ];
-    }
-    saved.revision = 5;
   }
   function upgradeGreekSectionSave(s) {
     const pack = packDefinitions.find((p) => p.id === "greek-drama");
@@ -13878,7 +13769,7 @@
         ...baseExits(s, place),
         ...reflectionOpen(s, place) && place === "attic" ? ["pond"] : reflectionOpen(s, place) && place === "pond" ? ["attic"] : [],
         ...crossingExits(s, place, actor, sensesFor(s)),
-        ...transportExits(s, place, previous, actor),
+        ...transportExits(s, place, previous),
         ...packExits(s, place, actor)
       ])
     ];
@@ -15213,12 +15104,12 @@
     );
   }
   function plan(s, actor = currentActor(s)) {
-    const arrival2 = transportArrival(s, actor);
-    const landing = arrival2 && legalActions(s, actor).find(
-      (a) => a.kind === "move" && a.target === arrival2
-    );
-    if (landing)
-      return { action: landing, reason: `Step ashore at ${nameOf(arrival2)}.` };
+    if (actor === BOARDY) {
+      return {
+        action: legalActions(s, actor).find((a) => a.kind === "wait"),
+        reason: "Bring two human players together."
+      };
+    }
     return reconsiderPlan(
       s,
       actor,
@@ -15548,8 +15439,6 @@
       }, round);
       settleRoamingArrival(next, id, roamingAPI(next));
     }
-    if (exact.kind === "wait")
-      waitForTransport(next, next.actors[actor].place, actor);
     for (const actor2 of knownActors(next)) {
       const life = lifeOf(next, actor2);
       if (life && life.milestones.length > (previousHopes[actor2] || 0)) {
@@ -15592,6 +15481,7 @@
       else next.sharedMigration.inventoryAllowances[id] = count;
     }
     settleQuestHands(next);
+    settleBoardy(next);
     validateWorld(next);
     return { ok: true, state: next };
   }
@@ -16202,6 +16092,7 @@
           ] : []
         ];
         const facts = [
+          ...id === BOARDY ? boardyFacts(world, nameOf) : [],
           ...recitalFacts(world, packDefinitions, id),
           ...questFacts,
           ...learningFacts(world, id, nameOf),
@@ -16464,7 +16355,9 @@
     if (!request.world || typeof request.world !== "object")
       throw new Error("Load a saved world first.");
     const world = contextual(structuredClone(request.world), request);
-    return decodeSave(JSON.stringify(world));
+    const loaded = decodeSave(JSON.stringify(world));
+    settleBoardy(loaded);
+    return loaded;
   }
   function response(world, extra = {}) {
     return { ok: true, world: stored(world), ...extra };
@@ -16524,6 +16417,7 @@
         claimed: ["vale"],
         present: ["vale"]
       });
+      settleBoardy(world2);
       validateWorld(world2);
       return response(world2, view(world2, request.actor || "vale"));
     }

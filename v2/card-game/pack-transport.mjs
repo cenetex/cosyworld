@@ -1,8 +1,13 @@
 import { controlledByHuman } from "./human-cast.mjs";
+import { BOARDY } from "./boardyai.mjs";
 import { transports, crossings, entityActive } from "./pack-registry.mjs";
 
 export const passengers = (s, id) =>
-  Object.values(s.actors).filter((a) => a.place === transports[id].place);
+  Object.entries(s.actors)
+    .filter(
+      ([actor, a]) => actor !== BOARDY && a.place === transports[id].place,
+    )
+    .map(([, a]) => a);
 
 export function installTransports(s) {
   s.transports ??= {};
@@ -63,7 +68,7 @@ export function waitForTransport(s, place, actor) {
 }
 
 export function transportArrival(s, actor) {
-  if (controlledByHuman(s, actor)) return null;
+  if (actor === BOARDY || controlledByHuman(s, actor)) return null;
   const found = Object.entries(transports).find(
     ([, t]) => t.place === s.actors[actor]?.place,
   );

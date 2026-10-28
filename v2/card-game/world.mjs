@@ -177,6 +177,7 @@ import {
 } from "./pack-transport.mjs";
 import { upgradeSave } from "./legacy-saves.mjs";
 import forest from "./forest.json" with { type: "json" };
+import { BOARDY, settleBoardy } from "./boardyai.mjs";
 
 // Authored forest data and mounted packs share the same rule path.
 export const places = { ...forest.places, ...packPlaces };
@@ -2033,6 +2034,12 @@ export function plan(s, actor = currentActor(s)) {
     );
   if (landing)
     return { action: landing, reason: `Step ashore at ${nameOf(arrival)}.` };
+  if (actor === BOARDY) {
+    return {
+      action: legalActions(s, actor).find((a) => a.kind === "wait"),
+      reason: "Bring two human players together.",
+    };
+  }
   return reconsiderPlan(
     s,
     actor,
@@ -2537,6 +2544,7 @@ export function play(
     else next.sharedMigration.inventoryAllowances[id] = count;
   }
   settleQuestHands(next);
+  settleBoardy(next);
   validateWorld(next);
   return { ok: true, state: next };
 }

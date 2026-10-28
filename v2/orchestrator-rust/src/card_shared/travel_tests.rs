@@ -3,15 +3,23 @@ use serde_json::json;
 
 #[test]
 fn greek_ports_roads_and_waiting_replay_after_the_version_thirteen_upgrade() {
+    replay_journey(engine::THIRTEENTH_VERSION);
+}
+
+#[test]
+fn greek_ports_roads_and_waiting_replay_after_the_version_fourteen_upgrade() {
+    replay_journey(engine::FOURTEENTH_VERSION);
+}
+
+fn replay_journey(version: &str) {
     let path = std::env::temp_dir().join(format!("greek-travel-{}.sqlite", crate::random_hex(12)));
     let c = store::open(&path).unwrap();
     full_store::schema(&c).unwrap();
     let id = "d".repeat(48);
     store::create(&c, &id, "owner", now()).unwrap();
-    let released =
-        engine::reduce_version(engine::THIRTEENTH_VERSION, json!({"op":"create"})).unwrap();
+    let released = engine::reduce_version(version, json!({"op":"create"})).unwrap();
     let mut old = World {
-        version: engine::THIRTEENTH_VERSION.into(),
+        version: version.into(),
         game: released["world"].clone(),
         claimed: [1, 1, 0, 0, 0, 0, 0, 0],
         present: [1, 1, 0, 0, 0, 0, 0, 0],
@@ -25,7 +33,9 @@ fn greek_ports_roads_and_waiting_replay_after_the_version_thirteen_upgrade() {
     full_store::seed(&c, &id, &old, "released-ports-fixture", now()).unwrap();
     let mut w = full_store::world(&c, &id, now()).unwrap();
     assert_eq!(w.version, engine::VERSION);
-    assert_eq!(w.game["items"], old.game["items"]);
+    for (id, item) in old.game["items"].as_object().unwrap() {
+        assert_eq!(&w.game["items"][id], item);
+    }
     assert_eq!(w.game["packs"]["greek-drama"]["revision"], 5);
     for target in [
         "greek-ship",

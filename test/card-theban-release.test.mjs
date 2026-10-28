@@ -181,6 +181,7 @@ describe("the Theban release and its ship", () => {
     ).toEqual(
       [
         "board",
+        "boardyai-calling-card",
         "can",
         "float",
         "kite",

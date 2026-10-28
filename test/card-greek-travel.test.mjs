@@ -131,6 +131,7 @@ describe("Greek ports and fixed roads", () => {
       w = play(w, "vale", "wait", {});
     expect(w.transports["greek-ship"].dock).toBe(port);
     w = move(w, "vale", "greek-ship");
+    expect(w.actors.boardyai.place).toBe("greek-ship");
     expect(w.actors.vale.place).toBe("greek-ship");
   });
 
@@ -146,39 +147,54 @@ describe("Greek ports and fixed roads", () => {
     ).toEqual([]);
     w = move(w, "vale", "greek-piraeus");
     expect(w.actors.moth.place).toBe("greek-piraeus");
+    expect(w.actors.boardyai.place).toBe("greek-piraeus");
     expect(w.transports["greek-ship"].destination).toBe(null);
   });
 
-  it("upgrades a released voyage while preserving deeds, belongings and old memories", () => {
-    const ctx = vm.createContext({});
-    vm.runInContext(
-      readFileSync(
-        new URL(
-          "../v2/orchestrator-rust/src/card_shared/engine-v13.js",
-          import.meta.url,
+  it.each([13, 14])(
+    "upgrades a version %s voyage while preserving deeds, belongings and old memories",
+    (version) => {
+      const ctx = vm.createContext({});
+      vm.runInContext(
+        readFileSync(
+          new URL(
+            `../v2/orchestrator-rust/src/card_shared/engine-v${version}.js`,
+            import.meta.url,
+          ),
+          "utf8",
         ),
-        "utf8",
-      ),
-      ctx,
-    );
-    const old = JSON.parse(
-      ctx.cardShared(JSON.stringify({ op: "create" })),
-    ).world;
-    delete old.opening;
-    old.actors.vale.place = "greek-ship";
-    old.transports["greek-ship"] = {
-      version: 2,
-      dock: "pond",
-      destination: "greek-harbor",
-      recall: null,
-    };
-    const current = decodeSave(JSON.stringify(old));
-    expect(current.actors).toEqual(old.actors);
-    expect(current.items).toEqual(old.items);
-    expect(current.transports).toEqual(old.transports);
-    expect(current.packs["greek-drama"].revision).toBe(5);
-    for (const [id, memory] of Object.entries(old.memories))
-      expect(current.memories[id]).toEqual(memory);
-    expect(decodeSave(encodeSave(current))).toEqual(current);
-  });
+        ctx,
+      );
+      const old = JSON.parse(
+        ctx.cardShared(JSON.stringify({ op: "create" })),
+      ).world;
+      delete old.opening;
+      old.actors.vale.place = "greek-ship";
+      old.transports["greek-ship"] = {
+        version: 2,
+        dock: "pond",
+        destination: "greek-harbor",
+        recall: null,
+      };
+      const current = decodeSave(JSON.stringify(old));
+      for (const [id, actor] of Object.entries(old.actors))
+        expect(current.actors[id]).toEqual({
+          ...actor,
+          trust: {
+            ...actor.trust,
+            ...Object.fromEntries(
+              Object.keys(current.actors)
+                .filter((added) => !old.actors[added])
+                .map((added) => [added, 0]),
+            ),
+          },
+        });
+      expect(current.items).toMatchObject(old.items);
+      expect(current.transports).toEqual(old.transports);
+      expect(current.packs["greek-drama"].revision).toBe(5);
+      for (const [id, memory] of Object.entries(old.memories))
+        expect(current.memories[id]).toEqual(memory);
+      expect(decodeSave(encodeSave(current))).toEqual(current);
+    },
+  );
 });

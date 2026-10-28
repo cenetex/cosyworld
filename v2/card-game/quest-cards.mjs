@@ -142,11 +142,14 @@ function personalQuestCards(world, actor = currentActor(world)) {
             "cloth",
           ]);
     const status = record.status || questStatus(world, record);
-    const focused = record.holder
-      ? world.quests.focus[actor] === record.key
-      : status === "active";
+    const focused =
+      record.ongoing ||
+      (record.holder
+        ? world.quests.focus[actor] === record.key
+        : status === "active");
     return {
       key: record.key,
+      ...(record.ongoing ? { ongoing: true } : {}),
       completedTurn: record.completedTurn,
       expiresTurn:
         record.completedTurn === null ? null : record.completedTurn + 2,
@@ -248,6 +251,7 @@ export function questHistoryCards(world, actor = currentActor(world)) {
 export function questCards(world, actor = currentActor(world)) {
   return questHistoryCards(world, actor)
     .filter((card) => {
+      if (card.ongoing) return true;
       const q = world.quests?.records?.[card.key];
       if (!q) return !world.life?.actors?.[actor]?.collection && !card.story;
       if (!questFresh(world, q)) return false;

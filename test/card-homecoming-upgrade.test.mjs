@@ -42,7 +42,7 @@ function oldWorld(scope) {
 
 describe("the household save upgrade", () => {
   it.each(["opening", "full"])(
-    "keeps a released v11 %s journey and adds one resident",
+    "keeps a released v11 %s journey and adds the household witness and BoardyAI",
     (scope) => {
       const before = oldWorld(scope);
       expect(before.packs["greek-drama"].revision).toBe(3);
@@ -53,15 +53,19 @@ describe("the household save upgrade", () => {
         revision: 5,
       });
       expect(Object.keys(after.actors).length).toBe(
-        Object.keys(before.actors).length + 1,
+        Object.keys(before.actors).length + 2,
       );
-      expect(after.items).toEqual(before.items);
+      expect(after.items).toEqual({
+        ...before.items,
+        "boardyai-calling-card": { holder: "station", history: [] },
+      });
       for (const key of ["turn", "revision", "eventSeq", "log", "transports"])
         expect(after[key]).toEqual(before[key]);
+      expect(after.crossings).toMatchObject(before.crossings);
       for (const [id, actor] of Object.entries(before.actors))
         expect(after.actors[id]).toEqual({
           ...actor,
-          trust: { ...actor.trust, [witness]: 0 },
+          trust: { ...actor.trust, [witness]: 0, boardyai: 0 },
         });
       for (const key of ["memories", "peaceUntil"])
         for (const [id, value] of Object.entries(before[key]))

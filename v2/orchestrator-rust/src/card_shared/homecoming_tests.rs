@@ -160,8 +160,13 @@ fn agreed_household_journey_replays_after_released_history_with_both_care_choice
             let mut world = full_store::world(&c, &id, now()).unwrap();
             assert_eq!(world.version, engine::VERSION);
             assert_eq!(world.game["actors"][MYRINE]["place"], "greek-eleusis");
-            for key in ["turn", "eventSeq", "log", "items", "transports"] {
+            for key in ["turn", "eventSeq", "log", "transports"] {
                 assert_eq!(world.game[key], old.game[key]);
+            }
+            for field in ["items", "crossings"] {
+                for (key, value) in old.game[field].as_object().unwrap() {
+                    assert_eq!(&world.game[field][key], value);
+                }
             }
             for key in ["receipts", "choices", "flags", "recitals"] {
                 assert_eq!(

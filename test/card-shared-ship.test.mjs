@@ -101,7 +101,10 @@ describe("shared ship boarding", () => {
     expect(npcOnly.crossings["pond-greek-harbor"].discovered).toBe(false);
     const humanVoyage = ask(old, "mara").world;
     expect(humanVoyage.crossings["pond-greek-harbor"].discovered).toBe(true);
-    expect(humanVoyage.actors).toEqual(old.actors);
+    expect(humanVoyage.actors).toEqual({
+      ...old.actors,
+      boardyai: { ...old.actors.boardyai, place: "greek-harbor" },
+    });
     expect(humanVoyage.transports).toEqual(old.transports);
   });
 

@@ -58,6 +58,13 @@ describe("Greek section save upgrade", () => {
       });
       for (const field of ["turn", "revision", "eventSeq", "log", "transports"])
         expect(after[field]).toEqual(before[field]);
+      expect(after.crossings).toEqual({
+        ...before.crossings,
+        "station-boardyai-parlour": { discovered: false },
+        "boardyai-parlour-station": { discovered: false },
+        "greek-athens-harbor-ship": { discovered: false },
+        "greek-piraeus-ship": { discovered: false },
+      });
       for (const [id, actor] of Object.entries(before.actors)) {
         expect(after.actors[id]).toMatchObject(actor);
         for (const other of Object.keys(after.actors).filter(
