@@ -315,7 +315,7 @@ export function packExits(world, place, actor = null) {
       .filter(
         (r) =>
           r.from === place &&
-          conditionsMet(world, pack.id, r.requires) &&
+          conditionsMet(world, pack.id, r.requires, actor) &&
           (humanAvatarIds.includes(actor) ||
             roamingQuestActor(actor) ||
             packPeople[actor]?.personalQuests ||

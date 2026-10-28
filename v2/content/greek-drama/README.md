@@ -7,6 +7,31 @@ belongings, memories and decisions across both local and shared games.
 The completed Athenian stories open **Earth Beside the Ships**, Ajax's
 household and burial account near Troy.
 
+## The Cave and the Air Gate
+
+Dione can introduce two later accounts at the courtyard. The existing
+Athenian roads lead toward Sicily and the birds' wilderness. Each account
+keeps its own time and named cast. The player's material work and each
+cohort's saved place determine the ending.
+
+In **Cyclops**, carry separate provisions to Odysseus's crew and Silenus's
+satyrs. Bring the wine and timber to Polyphemus. Open the rock-side passage,
+ask each cohort for consent, and use Accompany for its walk to the shore.
+An arrival is recorded beside the actual cohort. The departure can include
+both groups, the crew alone, or the satyrs alone. The escape list names who
+arrived and who was left at the cave mouth.
+
+In **Birds**, accompany the Hoopoe's cohort to the air gate. Choose a keyed
+passage, an open gate, or the removal of its claim. A keyed traveler and a
+companion each need their own passage. Carry the nesting provisions to
+Pisthetaerus or to the birds at their actual refuge. The tablet records
+the gate's terms, the birds' place and the food's true holder.
+
+These paths use ordinary custody, consent, routes and saved receipts. The
+current chapter work keeps the released rules2–20 and the earlier56 stanza
+definitions exact. The later peace, flame and witnessed-reading chapters
+follow in the same draft change.
+
 ## Before the Burial
 
 A new game exposes the Wine-Dark Harbor, Theban Courtyard, Market Well,

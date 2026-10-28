@@ -254,7 +254,8 @@ describe("frozen earned wording", () => {
 });
 
 describe("story validation within one unchanged operation", () => {
-  it("keeps output and saved authors equal to the released interpreter through real plays", () => {
+  it("keeps output and saved authors equal to the current shared interpreter through real plays", () => {
+    const current = releasedCardEngine(21);
     let w = createWorld();
     delete w.opening;
     w.actors.vale.place = "greek-courtyard";
@@ -275,7 +276,7 @@ describe("story validation within one unchanged operation", () => {
         present: ["vale"],
         action,
       };
-      expect(dispatchShared(request)).toEqual(previous.dispatch(request));
+      expect(dispatchShared(request)).toEqual(current.dispatch(request));
       w = play(w, action).state;
       expect(decodeSave(encodeSave(w))).toEqual(w);
     }
@@ -291,10 +292,16 @@ describe("story validation within one unchanged operation", () => {
     ).toBeNull();
     expect(validRecitals(restored, p)).toBe(true);
     expect(recitalPoem(restored, p)).toEqual(previous.poem(restored, p));
-    const older = previous.dispatch({
-      op: "create",
-      save: JSON.stringify(restored),
-    }).world;
+    let older = previous.dispatch({ op: "create" }).world;
+    delete older.opening;
+    older.actors.vale.place = "greek-courtyard";
+    older.items["greek-water-jar"].holder = "vale";
+    older.crossings["pond-greek-harbor"].discovered = true;
+    const oldAction = previous.dispatch({ op: "view", world: older }).actions.find(
+      (action) => action.choiceId === "greek-return-water-jar",
+    );
+    expect(oldAction).toBeDefined();
+    older = previous.dispatch({ op: "play", world: older, action: oldAction }).world;
     delete older.packs[p.id].recitals;
     older.log = [];
     const upgraded = decodeSave(JSON.stringify(older));

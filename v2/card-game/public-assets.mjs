@@ -118,6 +118,7 @@ const files = [
   "pack-rules.mjs",
   "pack-transport.mjs",
   "legacy-saves.mjs",
+  "legacy-greek-catalog.mjs",
   "forest.json",
   "packs.json",
   "music.mjs",

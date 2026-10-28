@@ -677,7 +677,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         case "holding":
           ok =
             keysOk(c, ["kind", "item", "actor", "role"]) &&
-            owns(items, c.item) &&
+            (owns(items, c.item) || hub.items.includes(c.item)) &&
             (c.role === undefined
               ? c.actor === hub.player || owns(avatars, c.actor)
               : c.role === "actor" && c.actor === undefined);
@@ -703,8 +703,8 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         case "item_at":
           ok =
             keysOk(c, ["kind", "item", "place"]) &&
-            owns(items, c.item) &&
-            owns(places, c.place);
+            (owns(items, c.item) || hub.items.includes(c.item)) &&
+            anyPlace(c.place);
           break;
         case "met":
           ok = keysOk(c, ["kind", "actor"]) && owns(avatars, c.actor);
@@ -722,7 +722,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       `${what} must use the closed condition vocabulary with valid references`,
     );
   };
-  const requirements = (cs, what, persistent = true) => {
+  const requirements = (cs, what, persistent = true, choice = false) => {
     if (cs === undefined) return;
     check(
       Array.isArray(cs) && cs.length <= 12,
@@ -733,6 +733,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         condition(c, what);
         check(
           !persistent ||
+            (choice && c.kind === "light") ||
             [
               "choice",
               "choice_unset",
@@ -844,7 +845,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       `choice ${c.id} is invalid`,
     );
     choiceIds.add(c.id);
-    requirements(c.requires, `choice ${c.id} requires`);
+    requirements(c.requires, `choice ${c.id} requires`, true, true);
     for (const e of c.effects) {
       let valid = false;
       if (e.kind === "choose") {

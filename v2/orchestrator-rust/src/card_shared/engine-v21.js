@@ -2388,7 +2388,7 @@
         schemaVersion: 1,
         id: "greek-drama",
         packId: "cosyworld.greek-drama",
-        revision: 7,
+        revision: 8,
         name: "The Wine-Dark Sea",
         description: "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. Fixed roads lead through the Attic places where welcome becomes a growing poem.",
         tone: "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -2902,7 +2902,8 @@
             name: "The Sicilian Cave",
             text: "Sheep crowd a stone enclosure beside the cave. Wine jars stand beyond the shepherds' reach.",
             exits: [
-              "greek-piraeus"
+              "greek-piraeus",
+              "greek-vii-inner-cave"
             ],
             backdrop: "assets/greek-drama/grove.svg",
             persona: "Sheep crowd a stone enclosure beside the cave. Wine jars stand beyond the shepherds' reach."
@@ -2939,7 +2940,8 @@
             name: "The Hoopoe's Thicket",
             text: "A nest hangs above a rocky clearing. Two travelers have laid out a basket, a pot, and a plan for a city.",
             exits: [
-              "greek-attic-farm"
+              "greek-attic-farm",
+              "greek-vii-air-gate"
             ],
             backdrop: "assets/greek-drama/grove.svg",
             persona: "A nest hangs above a rocky clearing. Two travelers have laid out a basket, a pot, and a plan for a city."
@@ -3163,6 +3165,42 @@
                 value: true
               }
             ]
+          },
+          "greek-vii-inner-cave": {
+            name: "Polyphemus\u2019s Inner Cave",
+            text: "In Euripides\u2019s homecoming account, Polyphemus keeps the wine beside the inner hearth. The rock-side passage starts at the outer cave.",
+            persona: "In Euripides\u2019s homecoming account, Polyphemus keeps the wine beside the inner hearth. The rock-side passage starts at the outer cave.",
+            exits: [
+              "greek-sicily"
+            ],
+            backdrop: "assets/greek-drama/grove.svg"
+          },
+          "greek-vii-escape-shore": {
+            name: "The Rock-Side Shore",
+            text: "Below the Sicilian cave, a narrow ledge reaches open water. Each cohort that arrives has a place beside the boat. The path back climbs toward the cave.",
+            persona: "Below the Sicilian cave, a narrow ledge reaches open water. Each cohort that arrives has a place beside the boat. The path back climbs toward the cave.",
+            exits: [
+              "greek-sicily"
+            ],
+            backdrop: "assets/greek-drama/grove.svg"
+          },
+          "greek-vii-air-gate": {
+            name: "The Gate in the Air",
+            text: "Within Aristophanes\u2019s Birds account, Pisthetaerus holds the gate between the gathered birds and their proposed refuge. Its saved policy decides passage.",
+            persona: "Within Aristophanes\u2019s Birds account, Pisthetaerus holds the gate between the gathered birds and their proposed refuge. Its saved policy decides passage.",
+            exits: [
+              "greek-bird-wilderness"
+            ],
+            backdrop: "assets/greek-drama/grove.svg"
+          },
+          "greek-vii-bird-refuge": {
+            name: "The Birds\u2019 Refuge",
+            text: "An open nesting ground waits beyond the air gate. Food and the arriving bird chorus decide whose refuge this becomes. The gate has a return path.",
+            persona: "An open nesting ground waits beyond the air gate. Food and the arriving bird chorus decide whose refuge this becomes. The gate has a return path.",
+            exits: [
+              "greek-vii-air-gate"
+            ],
+            backdrop: "assets/greek-drama/grove.svg"
           }
         },
         avatars: {
@@ -3939,6 +3977,124 @@
               sore: "a promise called a finished burial",
               reason: "Ajax\u2019s household and burial are at issue in this named Trojan account."
             }
+          },
+          "greek-vii-odysseus-crew": {
+            name: "Odysseus and the Surviving Crew",
+            text: "This single cohort represents Odysseus and the surviving sailors in Euripides\u2019s Cyclops account. Its saved place is the place of this whole cohort.",
+            place: "greek-sicily",
+            home: "greek-sicily",
+            travels: false,
+            standoffs: false,
+            values: {
+              "greek-vii-crew-basket": 5
+            },
+            persona: "This single cohort represents Odysseus and the surviving sailors in Euripides\u2019s Cyclops account. Its saved place is the place of this whole cohort. Speak from this explicit account and your actual saved place, belongings and received testimony. Credit each speaker and traveler.",
+            voice: "This single cohort represents Odysseus and the surviving sailors in Euripides\u2019s Cyclops account. Its saved place is the place of this whole cohort. Speak plainly to the present company.",
+            portrait: "assets/greek-drama/ajax-odysseus.png",
+            tastes: {
+              likes: "a kept promise and an honest account",
+              sore: "a journey claimed before its people arrive",
+              reason: "This single cohort represents Odysseus and the surviving sailors in Euripides\u2019s Cyclops account. Its saved place is the place of this whole cohort."
+            },
+            journey: {
+              after: "greek-vii-cyclops-crew-consent",
+              path: [
+                "greek-sicily",
+                "greek-vii-escape-shore"
+              ]
+            }
+          },
+          "greek-vii-satyr-chorus": {
+            name: "Silenus and the Satyr Chorus",
+            text: "Silenus speaks for this single cohort of satyrs within Euripides\u2019s Cyclops account. Their food, consent and arrival are recorded separately from the sailors.",
+            place: "greek-sicily",
+            home: "greek-sicily",
+            travels: false,
+            standoffs: false,
+            values: {
+              "greek-vii-satyr-basket": 5
+            },
+            persona: "Silenus speaks for this single cohort of satyrs within Euripides\u2019s Cyclops account. Their food, consent and arrival are recorded separately from the sailors. Speak from this explicit account and your actual saved place, belongings and received testimony. Credit each speaker and traveler.",
+            voice: "Silenus speaks for this single cohort of satyrs within Euripides\u2019s Cyclops account. Their food, consent and arrival are recorded separately from the sailors. Speak plainly to the present company.",
+            portrait: "assets/greek-drama/chthonic-singer.png",
+            tastes: {
+              likes: "a kept promise and an honest account",
+              sore: "a journey claimed before its people arrive",
+              reason: "Silenus speaks for this single cohort of satyrs within Euripides\u2019s Cyclops account. Their food, consent and arrival are recorded separately from the sailors."
+            },
+            journey: {
+              after: "greek-vii-cyclops-satyr-consent",
+              path: [
+                "greek-sicily",
+                "greek-vii-escape-shore"
+              ]
+            }
+          },
+          "greek-vii-polyphemus": {
+            name: "Polyphemus",
+            text: "Polyphemus speaks within Euripides\u2019s Cyclops account. The wine cup and the timber stand beside the passage he controls. His recorded bargain or injury determines its opening.",
+            place: "greek-vii-inner-cave",
+            home: "greek-vii-inner-cave",
+            travels: false,
+            standoffs: false,
+            values: {
+              "greek-vii-cyclops-cup": 5
+            },
+            persona: "Polyphemus speaks within Euripides\u2019s Cyclops account. The wine cup and the timber stand beside the passage he controls. His recorded bargain or injury determines its opening. Speak from this explicit account and your actual saved place, belongings and received testimony. Credit each speaker and traveler.",
+            voice: "Polyphemus speaks within Euripides\u2019s Cyclops account. The wine cup and the timber stand beside the passage he controls. His recorded bargain or injury determines its opening. Speak plainly to the present company.",
+            portrait: "assets/greek-drama/chthonic-guard.png",
+            tastes: {
+              likes: "a kept promise and an honest account",
+              sore: "a journey claimed before its people arrive",
+              reason: "Polyphemus speaks within Euripides\u2019s Cyclops account. The wine cup and the timber stand beside the passage he controls. His recorded bargain or injury determines its opening."
+            }
+          },
+          "greek-vii-hoopoe-chorus": {
+            name: "The Hoopoe and the Bird Chorus",
+            text: "The Hoopoe speaks for the gathered birds in Aristophanes\u2019s Birds account. This cohort reaches a refuge only through its actual agreed journey and the gate\u2019s saved policy.",
+            place: "greek-bird-wilderness",
+            home: "greek-bird-wilderness",
+            travels: false,
+            standoffs: false,
+            values: {
+              "greek-vii-nest-basket": 5,
+              "greek-vii-gate-key": 5
+            },
+            persona: "The Hoopoe speaks for the gathered birds in Aristophanes\u2019s Birds account. This cohort reaches a refuge only through its actual agreed journey and the gate\u2019s saved policy. Speak from this explicit account and your actual saved place, belongings and received testimony. Credit each speaker and traveler.",
+            voice: "The Hoopoe speaks for the gathered birds in Aristophanes\u2019s Birds account. This cohort reaches a refuge only through its actual agreed journey and the gate\u2019s saved policy. Speak plainly to the present company.",
+            portrait: "assets/greek-drama/chthonic-elder.png",
+            tastes: {
+              likes: "a kept promise and an honest account",
+              sore: "a journey claimed before its people arrive",
+              reason: "The Hoopoe speaks for the gathered birds in Aristophanes\u2019s Birds account. This cohort reaches a refuge only through its actual agreed journey and the gate\u2019s saved policy."
+            },
+            journey: {
+              after: "greek-vii-birds-refuge-agreement",
+              path: [
+                "greek-bird-wilderness",
+                "greek-vii-air-gate",
+                "greek-vii-bird-refuge"
+              ]
+            }
+          },
+          "greek-vii-pisthetaerus": {
+            name: "Pisthetaerus",
+            text: "Pisthetaerus holds the air gate in Aristophanes\u2019s Birds account. His source victory includes Basileia and Zeus\u2019s power; its feast includes birds punished as rebels. His present account must name the gate policy and the actual birds and food before him.",
+            place: "greek-vii-air-gate",
+            home: "greek-vii-air-gate",
+            travels: false,
+            standoffs: false,
+            values: {
+              "greek-vii-nest-basket": 5
+            },
+            persona: "Pisthetaerus holds the air gate in Aristophanes\u2019s Birds account. His source victory includes Basileia and Zeus\u2019s power; its feast includes birds punished as rebels. His present account must name the gate policy and the actual birds and food before him. Speak from this explicit account and your actual saved place, belongings and received testimony. Credit each speaker and traveler.",
+            voice: "Pisthetaerus holds the air gate in Aristophanes\u2019s Birds account. His source victory includes Basileia and Zeus\u2019s power; its feast includes birds punished as rebels. His present account must name the gate policy and the actual birds and food before him. Speak plainly to the present company.",
+            portrait: "assets/greek-drama/chthonic-creon.png",
+            tastes: {
+              likes: "a kept promise and an honest account",
+              sore: "a journey claimed before its people arrive",
+              reason: "He holds the air gate. Its saved passage and the birds\u2019 food give his promise a material cost."
+            }
           }
         },
         items: {
@@ -4281,6 +4437,69 @@
                 value: true
               }
             ]
+          },
+          "greek-vii-crew-basket": {
+            name: "The Crew\u2019s Provisions",
+            text: "Bread and cheese are set aside for the surviving sailors.",
+            holder: "greek-sicily",
+            persona: "Describe this material, its actual holder and its recorded use.",
+            art: "assets/greek-drama/provisions.png"
+          },
+          "greek-vii-satyr-basket": {
+            name: "The Satyrs\u2019 Provisions",
+            text: "A separate meal is set aside for Silenus and the satyrs.",
+            holder: "greek-sicily",
+            persona: "Describe this material, its actual holder and its recorded use.",
+            art: "assets/greek-drama/provisions.png"
+          },
+          "greek-vii-cyclops-cup": {
+            name: "The Wine Cup",
+            text: "A cup of strong wine can be carried to Polyphemus.",
+            holder: "greek-sicily",
+            persona: "Describe this material, its actual holder and its recorded use.",
+            art: "assets/greek-drama/water-jar.png"
+          },
+          "greek-vii-cave-timber": {
+            name: "The Cave Timber",
+            text: "A stout length of timber can force the account\u2019s passage or brace its agreed opening.",
+            holder: "greek-sicily",
+            persona: "Describe this material, its actual holder and its recorded use.",
+            art: "assets/greek-drama/shovel.png"
+          },
+          "greek-vii-escape-list": {
+            name: "The Escape List",
+            text: "A list records each cohort that reaches the shore and each cohort left at the cave mouth.",
+            holder: "greek-sicily",
+            persona: "Describe this material, its actual holder and its recorded use.",
+            art: "assets/greek-drama/testimony.png"
+          },
+          "greek-vii-bird-twine": {
+            name: "The Birds\u2019 Boundary Twine",
+            text: "Twine marks the first gathering place for the birds\u2019 refuge.",
+            holder: "greek-bird-wilderness",
+            persona: "Describe this material, its actual holder and its recorded use.",
+            art: "assets/greek-drama/funeral-cloth.png"
+          },
+          "greek-vii-gate-key": {
+            name: "The Air Gate Key",
+            text: "A material key grants its actual holder passage under the throne policy.",
+            holder: "greek-vii-air-gate",
+            persona: "Describe this material, its actual holder and its recorded use.",
+            art: "assets/greek-drama/household-token.png"
+          },
+          "greek-vii-nest-basket": {
+            name: "The Nesting Provisions",
+            text: "Food for the birds can be carried to their actual refuge or handed to the keeper of the gate.",
+            holder: "greek-bird-wilderness",
+            persona: "Describe this material, its actual holder and its recorded use.",
+            art: "assets/greek-drama/provisions.png"
+          },
+          "greek-vii-refuge-tablet": {
+            name: "The Refuge Tablet",
+            text: "The tablet records who passed the air gate and whose hands held the birds\u2019 food.",
+            holder: "greek-vii-air-gate",
+            persona: "Describe this material, its actual holder and its recorded use.",
+            art: "assets/greek-drama/testimony.png"
           }
         },
         routes: [
@@ -4373,6 +4592,55 @@
           {
             from: "greek-argos-palace",
             to: "greek-argos-tomb"
+          },
+          {
+            from: "greek-sicily",
+            to: "greek-vii-escape-shore",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-vii-cave-way-open",
+                value: true
+              }
+            ]
+          },
+          {
+            from: "greek-vii-air-gate",
+            to: "greek-vii-bird-refuge",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-vii-birds-gate-policy",
+                value: "throne"
+              },
+              {
+                kind: "holding",
+                item: "greek-vii-gate-key",
+                role: "actor"
+              }
+            ]
+          },
+          {
+            from: "greek-vii-air-gate",
+            to: "greek-vii-bird-refuge",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-vii-birds-gate-policy",
+                value: "open"
+              }
+            ]
+          },
+          {
+            from: "greek-vii-air-gate",
+            to: "greek-vii-bird-refuge",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-vii-birds-gate-policy",
+                value: "dismantle"
+              }
+            ]
           }
         ],
         choices: [
@@ -9101,6 +9369,702 @@
               }
             ],
             workId: "sophocles-ajax"
+          },
+          {
+            id: "greek-vii-open-accounts",
+            subject: "greek-baker",
+            at: "greek-courtyard",
+            label: "Hear the sky and homecoming accounts",
+            text: "Dione names the later accounts beyond Piraeus: the Sicilian crew, the birds\u2019 refuge, shared peace, the chained gift and the poets below. She asks The traveler to return with the actual people, supplies and words each journey has earned.",
+            textTemplate: "Dione names the later accounts beyond Piraeus: the Sicilian crew, the birds\u2019 refuge, shared peace, the chained gift and the poets below. She asks {actor} to return with the actual people, supplies and words each journey has earned.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-vii-accounts-open",
+                value: false
+              }
+            ],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "greek-vii-accounts-open",
+                value: true
+              }
+            ]
+          },
+          {
+            id: "greek-vii-cyclops-provisions",
+            subject: "greek-vii-odysseus-crew",
+            at: "greek-sicily",
+            label: "Record food for both cohorts",
+            text: "The traveler checks the food in the sailors\u2019 hands, then the separate basket held by Silenus\u2019s chorus. Both cohorts have received their own provisions.",
+            textTemplate: "{actor} checks the food in the sailors\u2019 hands, then the separate basket held by Silenus\u2019s chorus. Both cohorts have received their own provisions.",
+            requires: [
+              {
+                kind: "choice_unset",
+                key: "greek-vii-cyclops-ending"
+              },
+              {
+                kind: "holding",
+                item: "greek-vii-crew-basket",
+                actor: "greek-vii-odysseus-crew"
+              },
+              {
+                kind: "holding",
+                item: "greek-vii-satyr-basket",
+                actor: "greek-vii-satyr-chorus"
+              }
+            ],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "greek-vii-cyclops-provisioned",
+                value: true
+              }
+            ],
+            workId: "euripides-cyclops"
+          },
+          {
+            id: "greek-vii-cyclops-force-exit",
+            subject: "greek-vii-polyphemus",
+            at: "greek-vii-inner-cave",
+            label: "Force the rock-side exit",
+            text: "Within Euripides\u2019s account, The traveler uses the carried timber against Polyphemus after the accepted wine. His injury opens the rock-side way. The sailors and satyrs still need their own departures.",
+            textTemplate: "Within Euripides\u2019s account, {actor} uses the carried timber against Polyphemus after the accepted wine. His injury opens the rock-side way. The sailors and satyrs still need their own departures.",
+            requires: [
+              {
+                kind: "choice_unset",
+                key: "greek-vii-cyclops-ending"
+              },
+              {
+                kind: "flag",
+                key: "greek-vii-cyclops-provisioned",
+                value: true
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-vii-cyclops-opening"
+              },
+              {
+                kind: "holding",
+                item: "greek-vii-cyclops-cup",
+                actor: "greek-vii-polyphemus"
+              },
+              {
+                kind: "holding",
+                item: "greek-vii-cave-timber",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-vii-cyclops-opening",
+                value: "force"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-vii-cave-way-open",
+                value: true
+              },
+              {
+                kind: "place_item",
+                item: "greek-vii-cave-timber",
+                place: "greek-vii-inner-cave"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-vii-cyclops-polyphemus-injured",
+                value: true
+              }
+            ],
+            workId: "euripides-cyclops"
+          },
+          {
+            id: "greek-vii-cyclops-brace-exit",
+            subject: "greek-vii-polyphemus",
+            at: "greek-vii-inner-cave",
+            label: "Brace the agreed rock-side exit",
+            text: "In this changed account, Polyphemus accepts the wine and agrees to the timber brace. The traveler sets it at the inner cave. The rock-side way opens for the waiting cohorts.",
+            textTemplate: "In this changed account, Polyphemus accepts the wine and agrees to the timber brace. {actor} sets it at the inner cave. The rock-side way opens for the waiting cohorts.",
+            requires: [
+              {
+                kind: "choice_unset",
+                key: "greek-vii-cyclops-ending"
+              },
+              {
+                kind: "flag",
+                key: "greek-vii-cyclops-provisioned",
+                value: true
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-vii-cyclops-opening"
+              },
+              {
+                kind: "holding",
+                item: "greek-vii-cyclops-cup",
+                actor: "greek-vii-polyphemus"
+              },
+              {
+                kind: "holding",
+                item: "greek-vii-cave-timber",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-vii-cyclops-opening",
+                value: "brace"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-vii-cave-way-open",
+                value: true
+              },
+              {
+                kind: "place_item",
+                item: "greek-vii-cave-timber",
+                place: "greek-vii-inner-cave"
+              }
+            ],
+            workId: "euripides-cyclops"
+          },
+          {
+            id: "greek-vii-cyclops-crew-consent",
+            subject: "greek-vii-odysseus-crew",
+            at: "greek-sicily",
+            label: "Agree to walk with the crew",
+            text: "The traveler asks the present cohort to take the rock-side path together. They consent and wait for company.",
+            textTemplate: "{actor} asks the present cohort to take the rock-side path together. They consent and wait for company.",
+            requires: [
+              {
+                kind: "choice_unset",
+                key: "greek-vii-cyclops-ending"
+              },
+              {
+                kind: "flag",
+                key: "greek-vii-cave-way-open",
+                value: true
+              }
+            ],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "greek-vii-cyclops-crew-agreed",
+                value: true
+              }
+            ],
+            workId: "euripides-cyclops"
+          },
+          {
+            id: "greek-vii-cyclops-crew-arrived",
+            subject: "greek-vii-odysseus-crew",
+            at: "greek-vii-escape-shore",
+            label: "Record the crew\u2019s arrival",
+            text: "The traveler meets this cohort on the open shore and records its actual arrival beside the boat.",
+            textTemplate: "{actor} meets this cohort on the open shore and records its actual arrival beside the boat.",
+            requires: [
+              {
+                kind: "choice_unset",
+                key: "greek-vii-cyclops-ending"
+              },
+              {
+                kind: "flag",
+                key: "greek-vii-cyclops-crew-agreed",
+                value: true
+              }
+            ],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "greek-vii-cyclops-crew-ashore",
+                value: true
+              }
+            ],
+            workId: "euripides-cyclops"
+          },
+          {
+            id: "greek-vii-cyclops-satyr-consent",
+            subject: "greek-vii-satyr-chorus",
+            at: "greek-sicily",
+            label: "Agree to walk with the satyrs",
+            text: "The traveler asks the present cohort to take the rock-side path together. They consent and wait for company.",
+            textTemplate: "{actor} asks the present cohort to take the rock-side path together. They consent and wait for company.",
+            requires: [
+              {
+                kind: "choice_unset",
+                key: "greek-vii-cyclops-ending"
+              },
+              {
+                kind: "flag",
+                key: "greek-vii-cave-way-open",
+                value: true
+              }
+            ],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "greek-vii-cyclops-satyr-agreed",
+                value: true
+              }
+            ],
+            workId: "euripides-cyclops"
+          },
+          {
+            id: "greek-vii-cyclops-satyrs-arrived",
+            subject: "greek-vii-satyr-chorus",
+            at: "greek-vii-escape-shore",
+            label: "Record the satyrs\u2019 arrival",
+            text: "The traveler meets this cohort on the open shore and records its actual arrival beside the boat.",
+            textTemplate: "{actor} meets this cohort on the open shore and records its actual arrival beside the boat.",
+            requires: [
+              {
+                kind: "choice_unset",
+                key: "greek-vii-cyclops-ending"
+              },
+              {
+                kind: "flag",
+                key: "greek-vii-cyclops-satyr-agreed",
+                value: true
+              }
+            ],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "greek-vii-cyclops-satyrs-ashore",
+                value: true
+              }
+            ],
+            workId: "euripides-cyclops"
+          },
+          {
+            id: "greek-vii-cyclops-all-home",
+            subject: "greek-vii-odysseus-crew",
+            at: "greek-vii-escape-shore",
+            label: "Record all home",
+            text: "The traveler lays the list beside both arrived cohorts. The surviving sailors and Silenus\u2019s satyrs have reached the shore. The list keeps the cost of the cave\u2019s opening.",
+            textTemplate: "{actor} lays the list beside both arrived cohorts. The surviving sailors and Silenus\u2019s satyrs have reached the shore. The list keeps the cost of the cave\u2019s opening.",
+            requires: [
+              {
+                kind: "choice_unset",
+                key: "greek-vii-cyclops-ending"
+              },
+              {
+                kind: "flag",
+                key: "greek-vii-cyclops-crew-ashore",
+                value: true
+              },
+              {
+                kind: "flag",
+                key: "greek-vii-cyclops-satyrs-ashore",
+                value: true
+              },
+              {
+                kind: "holding",
+                item: "greek-vii-escape-list",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-vii-cyclops-ending",
+                value: "all-home"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-vii-cave-way-open",
+                value: false
+              },
+              {
+                kind: "place_item",
+                item: "greek-vii-escape-list",
+                place: "greek-vii-escape-shore"
+              }
+            ],
+            workId: "euripides-cyclops"
+          },
+          {
+            id: "greek-vii-cyclops-crew-first",
+            subject: "greek-vii-satyr-chorus",
+            at: "greek-sicily",
+            label: "Record crew first",
+            text: "The traveler records the sailors at the shore and the satyrs still here at the cave mouth. The departure closes with Silenus\u2019s group left behind.",
+            textTemplate: "{actor} records the sailors at the shore and the satyrs still here at the cave mouth. The departure closes with Silenus\u2019s group left behind.",
+            requires: [
+              {
+                kind: "choice_unset",
+                key: "greek-vii-cyclops-ending"
+              },
+              {
+                kind: "flag",
+                key: "greek-vii-cyclops-crew-ashore",
+                value: true
+              },
+              {
+                kind: "holding",
+                item: "greek-vii-escape-list",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-vii-cyclops-ending",
+                value: "crew-first"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-vii-cave-way-open",
+                value: false
+              },
+              {
+                kind: "place_item",
+                item: "greek-vii-escape-list",
+                place: "greek-sicily"
+              }
+            ],
+            workId: "euripides-cyclops"
+          },
+          {
+            id: "greek-vii-cyclops-satyrs-first",
+            subject: "greek-vii-odysseus-crew",
+            at: "greek-sicily",
+            label: "Record satyrs first",
+            text: "The traveler records the satyrs at the shore and the sailors still here at the cave mouth. The departure closes with Odysseus\u2019s cohort left behind.",
+            textTemplate: "{actor} records the satyrs at the shore and the sailors still here at the cave mouth. The departure closes with Odysseus\u2019s cohort left behind.",
+            requires: [
+              {
+                kind: "choice_unset",
+                key: "greek-vii-cyclops-ending"
+              },
+              {
+                kind: "flag",
+                key: "greek-vii-cyclops-satyrs-ashore",
+                value: true
+              },
+              {
+                kind: "holding",
+                item: "greek-vii-escape-list",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-vii-cyclops-ending",
+                value: "satyrs-first"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-vii-cave-way-open",
+                value: false
+              },
+              {
+                kind: "place_item",
+                item: "greek-vii-escape-list",
+                place: "greek-sicily"
+              }
+            ],
+            workId: "euripides-cyclops"
+          },
+          {
+            id: "greek-vii-birds-refuge-agreement",
+            subject: "greek-vii-hoopoe-chorus",
+            at: "greek-bird-wilderness",
+            label: "Agree to seek the birds\u2019 refuge",
+            text: "The traveler lays the boundary twine before the gathered birds. The Hoopoe\u2019s cohort consents to walk together through the air gate toward the nesting ground.",
+            textTemplate: "{actor} lays the boundary twine before the gathered birds. The Hoopoe\u2019s cohort consents to walk together through the air gate toward the nesting ground.",
+            requires: [
+              {
+                kind: "choice_unset",
+                key: "greek-vii-birds-ending"
+              },
+              {
+                kind: "holding",
+                item: "greek-vii-bird-twine",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "greek-vii-birds-agreed",
+                value: true
+              },
+              {
+                kind: "place_item",
+                item: "greek-vii-bird-twine",
+                place: "greek-bird-wilderness"
+              }
+            ],
+            workId: "aristophanes-birds"
+          },
+          {
+            id: "greek-vii-birds-at-gate",
+            subject: "greek-vii-hoopoe-chorus",
+            at: "greek-vii-air-gate",
+            label: "Record the birds at the air gate",
+            text: "The Hoopoe\u2019s cohort stands with The traveler at the air gate. Their saved arrival precedes the keeper\u2019s terms.",
+            textTemplate: "The Hoopoe\u2019s cohort stands with {actor} at the air gate. Their saved arrival precedes the keeper\u2019s terms.",
+            requires: [
+              {
+                kind: "choice_unset",
+                key: "greek-vii-birds-ending"
+              },
+              {
+                kind: "flag",
+                key: "greek-vii-birds-agreed",
+                value: true
+              }
+            ],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "greek-vii-birds-gate-arrival",
+                value: true
+              }
+            ],
+            workId: "aristophanes-birds"
+          },
+          {
+            id: "greek-vii-birds-gate-throne",
+            subject: "greek-vii-pisthetaerus",
+            at: "greek-vii-air-gate",
+            label: "Keep the keyed throne passage",
+            text: "Pisthetaerus grants The traveler the carried key. Each traveler must hold it to pass. The bird cohort stays outside while the keeper asks for its food.",
+            textTemplate: "Pisthetaerus grants {actor} the carried key. Each traveler must hold it to pass. The bird cohort stays outside while the keeper asks for its food.",
+            requires: [
+              {
+                kind: "choice_unset",
+                key: "greek-vii-birds-ending"
+              },
+              {
+                kind: "flag",
+                key: "greek-vii-birds-gate-arrival",
+                value: true
+              },
+              {
+                kind: "holding",
+                item: "greek-vii-gate-key",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-vii-birds-gate-policy",
+                value: "throne"
+              }
+            ],
+            workId: "aristophanes-birds"
+          },
+          {
+            id: "greek-vii-birds-gate-open",
+            subject: "greek-vii-pisthetaerus",
+            at: "greek-vii-air-gate",
+            label: "Open passage to the birds",
+            text: "The traveler leaves the key at the gate. Pisthetaerus accepts an open passage. The birds can now continue their actual journey to the refuge.",
+            textTemplate: "{actor} leaves the key at the gate. Pisthetaerus accepts an open passage. The birds can now continue their actual journey to the refuge.",
+            requires: [
+              {
+                kind: "choice_unset",
+                key: "greek-vii-birds-ending"
+              },
+              {
+                kind: "flag",
+                key: "greek-vii-birds-gate-arrival",
+                value: true
+              },
+              {
+                kind: "holding",
+                item: "greek-vii-gate-key",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-vii-birds-gate-policy",
+                value: "open"
+              },
+              {
+                kind: "place_item",
+                item: "greek-vii-gate-key",
+                place: "greek-vii-air-gate"
+              }
+            ],
+            workId: "aristophanes-birds"
+          },
+          {
+            id: "greek-vii-birds-gate-dismantle",
+            subject: "greek-vii-pisthetaerus",
+            at: "greek-vii-air-gate",
+            label: "Remove the gate\u2019s claim",
+            text: "The traveler carries the gate key away under the agreed new terms. The route opens to all travelers. The removed key can be given to the birds at their refuge.",
+            textTemplate: "{actor} carries the gate key away under the agreed new terms. The route opens to all travelers. The removed key can be given to the birds at their refuge.",
+            requires: [
+              {
+                kind: "choice_unset",
+                key: "greek-vii-birds-ending"
+              },
+              {
+                kind: "flag",
+                key: "greek-vii-birds-gate-arrival",
+                value: true
+              },
+              {
+                kind: "holding",
+                item: "greek-vii-gate-key",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-vii-birds-gate-policy",
+                value: "dismantle"
+              }
+            ],
+            workId: "aristophanes-birds"
+          },
+          {
+            id: "greek-vii-birds-throne",
+            subject: "greek-vii-hoopoe-chorus",
+            at: "greek-vii-air-gate",
+            label: "Record throne",
+            text: "The traveler lays the tablet before the birds at the locked gate. Pisthetaerus holds their provisions; the key grants its bearer passage. The chorus has still to gain a refuge.",
+            textTemplate: "{actor} lays the tablet before the birds at the locked gate. Pisthetaerus holds their provisions; the key grants its bearer passage. The chorus has still to gain a refuge.",
+            requires: [
+              {
+                kind: "choice_unset",
+                key: "greek-vii-birds-ending"
+              },
+              {
+                kind: "choice",
+                key: "greek-vii-birds-gate-policy",
+                value: "throne"
+              },
+              {
+                kind: "holding",
+                item: "greek-vii-nest-basket",
+                actor: "greek-vii-pisthetaerus"
+              },
+              {
+                kind: "holding",
+                item: "greek-vii-refuge-tablet",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-vii-birds-ending",
+                value: "throne"
+              },
+              {
+                kind: "place_item",
+                item: "greek-vii-refuge-tablet",
+                place: "greek-vii-air-gate"
+              }
+            ],
+            workId: "aristophanes-birds"
+          },
+          {
+            id: "greek-vii-birds-open-flight",
+            subject: "greek-vii-hoopoe-chorus",
+            at: "greek-vii-bird-refuge",
+            label: "Record open flight",
+            text: "The traveler lays the tablet in the refuge before the arrived bird cohort. The birds hold their provisions and the common gate remains open.",
+            textTemplate: "{actor} lays the tablet in the refuge before the arrived bird cohort. The birds hold their provisions and the common gate remains open.",
+            requires: [
+              {
+                kind: "choice_unset",
+                key: "greek-vii-birds-ending"
+              },
+              {
+                kind: "choice",
+                key: "greek-vii-birds-gate-policy",
+                value: "open"
+              },
+              {
+                kind: "holding",
+                item: "greek-vii-nest-basket",
+                actor: "greek-vii-hoopoe-chorus"
+              },
+              {
+                kind: "item_at",
+                item: "greek-vii-gate-key",
+                place: "greek-vii-air-gate"
+              },
+              {
+                kind: "holding",
+                item: "greek-vii-refuge-tablet",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-vii-birds-ending",
+                value: "open-flight"
+              },
+              {
+                kind: "place_item",
+                item: "greek-vii-refuge-tablet",
+                place: "greek-vii-bird-refuge"
+              }
+            ],
+            workId: "aristophanes-birds"
+          },
+          {
+            id: "greek-vii-birds-broken-wall",
+            subject: "greek-vii-hoopoe-chorus",
+            at: "greek-vii-bird-refuge",
+            label: "Record broken wall",
+            text: "The traveler lays the tablet in the refuge. The arrived birds hold both their provisions and the removed gate key. Their shared passage brings the work of keeping shelter.",
+            textTemplate: "{actor} lays the tablet in the refuge. The arrived birds hold both their provisions and the removed gate key. Their shared passage brings the work of keeping shelter.",
+            requires: [
+              {
+                kind: "choice_unset",
+                key: "greek-vii-birds-ending"
+              },
+              {
+                kind: "choice",
+                key: "greek-vii-birds-gate-policy",
+                value: "dismantle"
+              },
+              {
+                kind: "holding",
+                item: "greek-vii-nest-basket",
+                actor: "greek-vii-hoopoe-chorus"
+              },
+              {
+                kind: "holding",
+                item: "greek-vii-gate-key",
+                actor: "greek-vii-hoopoe-chorus"
+              },
+              {
+                kind: "holding",
+                item: "greek-vii-refuge-tablet",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-vii-birds-ending",
+                value: "broken-wall"
+              },
+              {
+                kind: "place_item",
+                item: "greek-vii-refuge-tablet",
+                place: "greek-vii-bird-refuge"
+              }
+            ],
+            workId: "aristophanes-birds"
           }
         ],
         works: [
@@ -9817,10 +10781,12 @@
             title: "Cyclops",
             era: "homecomings",
             placeIds: [
-              "greek-sicily"
+              "greek-sicily",
+              "greek-vii-inner-cave",
+              "greek-vii-escape-shore"
             ],
             premise: "Captive satyrs and stranded travelers seek a way past a predatory host.",
-            status: "situated-hook",
+            status: "branching-episode",
             hookChoiceIds: [
               "greek-inquire-euripides-cyclops"
             ],
@@ -9937,10 +10903,12 @@
             title: "Birds",
             era: "civic-athens",
             placeIds: [
-              "greek-bird-wilderness"
+              "greek-bird-wilderness",
+              "greek-vii-air-gate",
+              "greek-vii-bird-refuge"
             ],
             premise: "A refuge from civic life could become a new power controlling passage between gods and mortals.",
-            status: "situated-hook",
+            status: "branching-episode",
             hookChoiceIds: [
               "greek-inquire-aristophanes-birds"
             ],
@@ -10087,6 +11055,16 @@
             url: "https://www-current.chs.harvard.edu/primary-source/sophocles-oedipus-at-colonus-sb/",
             name: "Sophocles, Oedipus at Colonus, Center for Hellenic Studies",
             use: "Check of ritual water and honey, Ismene\u2019s role, and the full closing scene; original adaptation prose"
+          },
+          {
+            url: "https://classics.mit.edu/Euripides/cyclops.html",
+            name: "Euripides, Cyclops, E. P. Coleridge translation",
+            use: "Full rock-side escape and closing threat checked; original English material choices and cohort journeys"
+          },
+          {
+            url: "https://www.gutenberg.org/cache/epub/8689/pg8689-images.html",
+            name: "Aristophanes, The Birds, complete text in volume two",
+            use: "Full embassy and closing procession checked, including the rebel birds; original English passage, refuge and supply choices"
           }
         ],
         fixtures: {},
@@ -10118,7 +11096,14 @@
             "greek-greek-camp",
             "greek-ajax-landing",
             "greek-ajax-household",
-            "greek-ajax-grave"
+            "greek-ajax-grave",
+            "greek-sicily",
+            "greek-bird-wilderness",
+            "greek-attic-farm",
+            "greek-vii-inner-cave",
+            "greek-vii-escape-shore",
+            "greek-vii-air-gate",
+            "greek-vii-bird-refuge"
           ],
           avatars: [
             "greek-antigone",
@@ -10141,7 +11126,12 @@
             "greek-household-witness",
             "greek-ajax-tecmessa",
             "greek-ajax-teucer",
-            "greek-ajax-odysseus"
+            "greek-ajax-odysseus",
+            "greek-vii-odysseus-crew",
+            "greek-vii-satyr-chorus",
+            "greek-vii-polyphemus",
+            "greek-vii-hoopoe-chorus",
+            "greek-vii-pisthetaerus"
           ],
           items: [
             "greek-water-jar",
@@ -10164,7 +11154,16 @@
             "greek-ajax-shield",
             "greek-ajax-plea",
             "greek-ajax-cloth",
-            "greek-ajax-tools"
+            "greek-ajax-tools",
+            "greek-vii-crew-basket",
+            "greek-vii-satyr-basket",
+            "greek-vii-cyclops-cup",
+            "greek-vii-cave-timber",
+            "greek-vii-escape-list",
+            "greek-vii-bird-twine",
+            "greek-vii-gate-key",
+            "greek-vii-nest-basket",
+            "greek-vii-refuge-tablet"
           ],
           choices: [
             "greek-return-water-jar",
@@ -10251,7 +11250,26 @@
             "greek-ajax-return-household",
             "greek-ajax-bury-appeal",
             "greek-ajax-record-appeal",
-            "greek-ajax-return-appeal"
+            "greek-ajax-return-appeal",
+            "greek-vii-open-accounts",
+            "greek-vii-cyclops-provisions",
+            "greek-vii-cyclops-force-exit",
+            "greek-vii-cyclops-brace-exit",
+            "greek-vii-cyclops-crew-consent",
+            "greek-vii-cyclops-crew-arrived",
+            "greek-vii-cyclops-satyr-consent",
+            "greek-vii-cyclops-satyrs-arrived",
+            "greek-vii-cyclops-all-home",
+            "greek-vii-cyclops-crew-first",
+            "greek-vii-cyclops-satyrs-first",
+            "greek-vii-birds-refuge-agreement",
+            "greek-vii-birds-at-gate",
+            "greek-vii-birds-gate-throne",
+            "greek-vii-birds-gate-open",
+            "greek-vii-birds-gate-dismantle",
+            "greek-vii-birds-throne",
+            "greek-vii-birds-open-flight",
+            "greek-vii-birds-broken-wall"
           ]
         },
         recital: {
@@ -10834,6 +11852,123 @@
                 "She heard how witnesses brought earth."
               ],
               summons: true
+            },
+            {
+              choice: "greek-vii-cyclops-provisions",
+              quest: "greek-vii-cyclops",
+              lines: [
+                "Two baskets reached two waiting hands.",
+                "The shore still waited for their feet."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-vii-cyclops-force-exit",
+              quest: "greek-vii-cyclops",
+              lines: [
+                "The timber opened pain and stone.",
+                "Each waiting group still needed feet."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-vii-cyclops-brace-exit",
+              quest: "greek-vii-cyclops",
+              lines: [
+                "The cup bought room beside the rock.",
+                "Our timber held the narrow way."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-vii-cyclops-all-home",
+              quest: "greek-vii-cyclops",
+              lines: [
+                "Two cohorts found the open shore.",
+                "The stone kept what the opening cost."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-vii-cyclops-crew-first",
+              quest: "greek-vii-cyclops",
+              lines: [
+                "The sailors reached the waiting boat.",
+                "The satyrs stayed beside the stone."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-vii-cyclops-satyrs-first",
+              quest: "greek-vii-cyclops",
+              lines: [
+                "The satyrs reached the waiting boat.",
+                "The sailors watched the closed rock way."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-vii-birds-refuge-agreement",
+              quest: "greek-vii-birds",
+              lines: [
+                "We marked a place for weary wings.",
+                "Their feet still had to cross the gate."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-vii-birds-gate-throne",
+              quest: "greek-vii-birds",
+              lines: [
+                "The key lay warm against my palm.",
+                "The birds stood on its farther side."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-vii-birds-gate-open",
+              quest: "greek-vii-birds",
+              lines: [
+                "I left the key beside the gate.",
+                "The road made room for other feet."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-vii-birds-gate-dismantle",
+              quest: "greek-vii-birds",
+              lines: [
+                "I took the gate\u2019s small claim away.",
+                "The birds would hold its iron weight."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-vii-birds-throne",
+              quest: "greek-vii-birds",
+              lines: [
+                "The keeper held the nesting meal.",
+                "The birds stood waiting at his gate."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-vii-birds-open-flight",
+              quest: "greek-vii-birds",
+              lines: [
+                "The birds brought food inside the gate.",
+                "Their wings found room beside our words."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-vii-birds-broken-wall",
+              quest: "greek-vii-birds",
+              lines: [
+                "The birds held food and fallen iron.",
+                "Their open shelter called for hands."
+              ],
+              summons: true
             }
           ]
         },
@@ -10878,6 +12013,25 @@
               {
                 kind: "flag",
                 key: "greek-ajax-open",
+                value: true
+              }
+            ]
+          },
+          {
+            id: "greek-vii-first-paths",
+            name: "The Cave and the Air Gate",
+            places: [
+              "greek-sicily",
+              "greek-bird-wilderness",
+              "greek-vii-inner-cave",
+              "greek-vii-escape-shore",
+              "greek-vii-air-gate",
+              "greek-vii-bird-refuge"
+            ],
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-vii-accounts-open",
                 value: true
               }
             ]
@@ -11973,6 +13127,70 @@
               "greek-ajax-record-household",
               "greek-ajax-record-appeal"
             ]
+          },
+          {
+            id: "greek-vii-cyclops",
+            group: "sky-for-sale",
+            line: "Lead the cave\u2019s people to the shore.",
+            holder: {
+              kind: "place",
+              id: "greek-sicily"
+            },
+            art: "greek-vii-escape-list",
+            start: {
+              kind: "receipt",
+              choice: "greek-vii-cyclops-provisions"
+            },
+            endings: [
+              {
+                choice: "greek-vii-cyclops-all-home"
+              },
+              {
+                choice: "greek-vii-cyclops-crew-first"
+              },
+              {
+                choice: "greek-vii-cyclops-satyrs-first"
+              }
+            ],
+            progress: [
+              "greek-vii-cyclops-force-exit",
+              "greek-vii-cyclops-brace-exit",
+              "greek-vii-cyclops-crew-arrived",
+              "greek-vii-cyclops-satyrs-arrived"
+            ],
+            outcome: "Fulfilled"
+          },
+          {
+            id: "greek-vii-birds",
+            group: "sky-for-sale",
+            line: "Bring the birds through the gate to a refuge.",
+            holder: {
+              kind: "place",
+              id: "greek-bird-wilderness"
+            },
+            art: "greek-vii-refuge-tablet",
+            start: {
+              kind: "receipt",
+              choice: "greek-vii-birds-refuge-agreement"
+            },
+            endings: [
+              {
+                choice: "greek-vii-birds-throne"
+              },
+              {
+                choice: "greek-vii-birds-open-flight"
+              },
+              {
+                choice: "greek-vii-birds-broken-wall"
+              }
+            ],
+            progress: [
+              "greek-vii-birds-at-gate",
+              "greek-vii-birds-gate-throne",
+              "greek-vii-birds-gate-open",
+              "greek-vii-birds-gate-dismantle"
+            ],
+            outcome: "Fulfilled"
           }
         ],
         topics: [
@@ -15545,7 +16763,7 @@
             ok = keysOk2(c, ["kind", "key", "value"]) && idOk2(c.key) && typeof c.value === "boolean";
             break;
           case "holding":
-            ok = keysOk2(c, ["kind", "item", "actor", "role"]) && owns2(items2, c.item) && (c.role === void 0 ? c.actor === hub2.player || owns2(avatars, c.actor) : c.role === "actor" && c.actor === void 0);
+            ok = keysOk2(c, ["kind", "item", "actor", "role"]) && (owns2(items2, c.item) || hub2.items.includes(c.item)) && (c.role === void 0 ? c.actor === hub2.player || owns2(avatars, c.actor) : c.role === "actor" && c.actor === void 0);
             break;
           case "shared_world":
             ok = keysOk2(c, ["kind"]);
@@ -15560,7 +16778,7 @@
             ok = keysOk2(c, ["kind", "item", "place"]) && (owns2(items2, c.item) || hub2.items.includes(c.item)) && anyPlace(c.place);
             break;
           case "item_at":
-            ok = keysOk2(c, ["kind", "item", "place"]) && owns2(items2, c.item) && owns2(places2, c.place);
+            ok = keysOk2(c, ["kind", "item", "place"]) && (owns2(items2, c.item) || hub2.items.includes(c.item)) && anyPlace(c.place);
             break;
           case "met":
             ok = keysOk2(c, ["kind", "actor"]) && owns2(avatars, c.actor);
@@ -15574,7 +16792,7 @@
         `${what} must use the closed condition vocabulary with valid references`
       );
     };
-    const requirements = (cs, what, persistent = true) => {
+    const requirements = (cs, what, persistent = true, choice = false) => {
       if (cs === void 0) return;
       check(
         Array.isArray(cs) && cs.length <= 12,
@@ -15584,7 +16802,7 @@
         cs.forEach((c) => {
           condition2(c, what);
           check(
-            !persistent || [
+            !persistent || choice && c.kind === "light" || [
               "choice",
               "choice_unset",
               "flag",
@@ -15665,7 +16883,7 @@
         `choice ${c.id} is invalid`
       );
       choiceIds.add(c.id);
-      requirements(c.requires, `choice ${c.id} requires`);
+      requirements(c.requires, `choice ${c.id} requires`, true, true);
       for (const e of c.effects) {
         let valid = false;
         if (e.kind === "choose") {
@@ -16676,7 +17894,7 @@
   function packExits(world, place, actor = null) {
     const routes = packDefinitions.flatMap(
       (pack) => (pack.routes || []).filter(
-        (r) => r.from === place && conditionsMet(world, pack.id, r.requires) && (humanAvatarIds.includes(actor) || roamingQuestActor(actor) || packPeople[actor]?.personalQuests || owns3(pack.places, r.from) && owns3(pack.places, r.to))
+        (r) => r.from === place && conditionsMet(world, pack.id, r.requires, actor) && (humanAvatarIds.includes(actor) || roamingQuestActor(actor) || packPeople[actor]?.personalQuests || owns3(pack.places, r.from) && owns3(pack.places, r.to))
       ).map((r) => r.to)
     );
     return routes.filter(
@@ -19759,6 +20977,138 @@
     wait: 11
   });
 
+  // v2/card-game/legacy-greek-catalog.mjs
+  var greekRevisionSeven = {
+    "avatars": [
+      "greek-antigone",
+      "greek-ismene",
+      "greek-creon",
+      "greek-guard",
+      "greek-baker",
+      "greek-elder",
+      "greek-shipmaster",
+      "greek-rhapsode",
+      "greek-market-neighbor",
+      "greek-temple-attendant",
+      "greek-ferryman",
+      "greek-helen-egypt",
+      "greek-menelaus-egypt",
+      "greek-helen-troy",
+      "greek-menelaus-troy",
+      "greek-electra-aeschylus",
+      "greek-orestes-aeschylus",
+      "greek-electra-sophocles",
+      "greek-orestes-sophocles",
+      "greek-electra-euripides",
+      "greek-orestes-euripides",
+      "greek-aethra",
+      "greek-adrastus",
+      "greek-argive-mother",
+      "greek-iphis",
+      "greek-theseus",
+      "greek-quay-host",
+      "greek-colonus-keeper",
+      "greek-marathon-keeper",
+      "greek-household-witness",
+      "greek-ajax-tecmessa",
+      "greek-ajax-teucer",
+      "greek-ajax-odysseus"
+    ],
+    "items": [
+      "greek-water-jar",
+      "greek-bread",
+      "greek-funeral-cloth",
+      "greek-oil-flask",
+      "greek-shovel",
+      "greek-decree",
+      "greek-household-token",
+      "greek-provisions",
+      "greek-egypt-testimony",
+      "greek-troy-testimony",
+      "greek-tomb-testimony",
+      "greek-palace-testimony",
+      "greek-farm-testimony",
+      "greek-burial-petition",
+      "greek-return-cloths",
+      "greek-provision-basket",
+      "greek-ash-urn",
+      "greek-return-list",
+      "greek-grove-cup",
+      "greek-grove-honey",
+      "greek-shelter-blanket",
+      "greek-refuge-tablet",
+      "greek-ajax-shield",
+      "greek-ajax-plea",
+      "greek-ajax-cloth",
+      "greek-ajax-tools"
+    ],
+    "places": [
+      "greek-harbor",
+      "greek-courtyard",
+      "greek-well",
+      "greek-palace",
+      "greek-gate",
+      "greek-battlefield",
+      "greek-sanctuary",
+      "greek-cithaeron",
+      "greek-aulis",
+      "greek-athens",
+      "greek-piraeus",
+      "greek-assembly",
+      "greek-acropolis",
+      "greek-demos-house",
+      "greek-thinkery",
+      "greek-jury-house",
+      "greek-festival",
+      "greek-attic-farm",
+      "greek-acharnae",
+      "greek-colonus",
+      "greek-eleusis",
+      "greek-marathon",
+      "greek-argolid-road",
+      "greek-argos-sanctuary",
+      "greek-argos-palace",
+      "greek-argos-tomb",
+      "greek-mycenae-palace",
+      "greek-argive-farm",
+      "greek-corinth",
+      "greek-troezen",
+      "greek-delphi",
+      "greek-trachis",
+      "greek-oeta",
+      "greek-pherae",
+      "greek-thetis",
+      "greek-troy",
+      "greek-greek-camp",
+      "greek-trojan-camp",
+      "greek-troy-beach",
+      "greek-lemnos",
+      "greek-thrace",
+      "greek-egypt-tomb",
+      "greek-tauris",
+      "greek-sicily",
+      "greek-susa",
+      "greek-scythian-crag",
+      "greek-divine-heights",
+      "greek-bird-wilderness",
+      "greek-underworld",
+      "greek-ship",
+      "greek-athens-harbor",
+      "greek-road-thebes",
+      "greek-road-athens-harbor",
+      "greek-road-athens-piraeus",
+      "greek-road-athens-colonus",
+      "greek-road-athens-eleusis",
+      "greek-road-athens-marathon",
+      "greek-road-piraeus-eleusis",
+      "greek-road-colonus-eleusis",
+      "greek-road-colonus-marathon",
+      "greek-ajax-landing",
+      "greek-ajax-household",
+      "greek-ajax-grave"
+    ]
+  };
+
   // v2/card-game/legacy-saves.mjs
   function upgradeSave(s, { actorIds: actorIds2, ensurePrograms: ensurePrograms2, installPacks: installPacks2, profileOf }) {
     if (s?.schema === 1 && s.actors && typeof s.actors === "object") {
@@ -19815,6 +21165,7 @@
       upgradeGreekRoadSave(s);
       upgradeGreekTownSave(s);
       upgradeGreekAjaxSave(s);
+      upgradeGreekEpicSave(s);
       s.schema = 7;
       installPacks2(s);
     } else if (s?.schema === 7 && s.packs && typeof s.packs === "object" && s.crossings && typeof s.crossings === "object") {
@@ -19824,6 +21175,7 @@
       upgradeGreekRoadSave(s);
       upgradeGreekTownSave(s);
       upgradeGreekAjaxSave(s);
+      upgradeGreekEpicSave(s);
       installPacks2(s);
     }
     if (s?.schema === 7) {
@@ -19991,6 +21343,26 @@
     ])
       s.memories[id] ??= fresh[id];
     saved.revision = 7;
+  }
+  function upgradeGreekEpicSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 8 || saved?.revision !== 7) return;
+    if (!greekRevisionSeven.avatars.every((id) => s.actors?.[id] && s.memories?.[id]) || !greekRevisionSeven.items.every((id) => s.items?.[id] && s.memories?.[id]) || !greekRevisionSeven.places.every((id) => s.memories?.[id]))
+      throw new Error("This earlier Greek save needs its original entity records.");
+    const oldActors = new Set(greekRevisionSeven.avatars);
+    const oldItems = new Set(greekRevisionSeven.items);
+    const oldPlaces = new Set(greekRevisionSeven.places);
+    addGreekEntities(
+      s,
+      pack,
+      Object.keys(pack.avatars).filter((id) => !oldActors.has(id)),
+      Object.keys(pack.items || {}).filter((id) => !oldItems.has(id))
+    );
+    const fresh = newMemories();
+    for (const id of Object.keys(pack.places))
+      if (!oldPlaces.has(id)) s.memories[id] ??= fresh[id];
+    saved.revision = 8;
   }
   function upgradeGreekSectionSave(s) {
     const pack = packDefinitions.find((p) => p.id === "greek-drama");
@@ -20764,7 +22136,7 @@
     if (s.peaceUntil[companion] > s.turn)
       return { accepted: false, reason: "Catch a breath after the standoff." };
     if (packPeople[companion]?.journey)
-      return invited && packJourneyDestination(s, companion) === destination ? { accepted: true, reason: "Follow the road we agreed to take." } : { accepted: false, reason: "Keep to the agreed journey." };
+      return invited && packJourneyDestination(s, companion) === destination && exits(s, here, companion).includes(destination) ? { accepted: true, reason: "Follow the road we agreed to take." } : { accepted: false, reason: "Keep to the agreed journey." };
     if (hasMotives(s)) {
       const social = socialTravel(s, actor, companion, destination);
       if (!hasQuestPrograms(s) || resentment(s, companion, actor) || social.accepted)
