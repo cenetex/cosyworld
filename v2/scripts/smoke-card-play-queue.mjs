@@ -143,6 +143,16 @@ try {
         await selectCard(page, "vale");
         const play = page.locator('#card-actions [data-action="wait"]');
         assert.equal(await play.isDisabled(), false);
+        // The resize observer places speech after the expanded hand is measured.
+        await page.waitForFunction(() => {
+          const measured = parseFloat(
+            document.documentElement.style.getPropertyValue("--dock-height"),
+          );
+          const height = document
+            .querySelector(".play-dock")
+            .getBoundingClientRect().height;
+          return Math.abs(measured - height) < 1;
+        });
         const open = await layout();
         assert(open.dialogue.bottom <= open.hand.y + 1);
         await play.click();
