@@ -23,7 +23,7 @@ const related = (definition, event) =>
 
 // Saved action authors identify who discovered or contributed to a story card.
 // A viewer and a global meeting flag carry no personal participation evidence.
-export function storyActors(world, definition) {
+export function storyActors(world, definition, includeDiscovery = true) {
   const pack = packFor(definition);
   if (!pack) return [];
   const events = (world.log || []).filter((event) =>
@@ -40,7 +40,7 @@ export function storyActors(world, definition) {
             event.locationId === definition.holder.id)),
     )
     .sort((a, b) => a.seq - b.seq)[0];
-  if (discovery) events.push(discovery);
+  if (includeDiscovery && discovery) events.push(discovery);
   const knownAuthor =
     world.packs?.[pack.id]?.recitals?.[definition.choiceId]?.actor;
   return [
@@ -89,7 +89,9 @@ export function syncStoryQuests(world, actorId = null) {
     const events = (world.log || []).filter((event) =>
       related(definition, event),
     );
-    const recorded = storyActors(world, definition);
+    // The first discovery is saved on creation. Once its log entry ages out,
+    // a later unrelated event at the same turn cannot replace that witness.
+    const recorded = storyActors(world, definition, created);
     const knownAuthor = state.recitals?.[definition.choiceId]?.actor;
     if (
       created &&

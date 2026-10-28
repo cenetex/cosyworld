@@ -255,28 +255,52 @@ describe("frozen earned wording", () => {
 
 describe("story validation within one unchanged operation", () => {
   it("keeps output and saved authors equal to the released interpreter through real plays", () => {
-    let w = createWorld();
-    delete w.opening;
-    w.actors.vale.place = "greek-courtyard";
-    w.crossings["pond-greek-harbor"].discovered = true;
-    w.items["greek-water-jar"].holder = "vale";
+    let old = previous.dispatch({ op: "create" }).world;
+    delete old.opening;
+    old.actors.vale.place = "greek-courtyard";
+    old.crossings["pond-greek-harbor"].discovered = true;
+    old.items["greek-water-jar"].holder = "vale";
+    let w = decodeSave(JSON.stringify(old));
     for (const match of [
       (a) => a.choiceId === "greek-return-water-jar",
       (a) => a.kind === "wait",
       (a) => a.kind === "move" && a.target === "greek-well",
     ]) {
-      const action = legalActions(w).find(match);
-      expect(action).toBeDefined();
-      const request = {
-        op: "play",
-        world: w,
+      const view = previous.dispatch({
+        op: "view",
+        world: old,
         actor: "vale",
         claimed: ["vale"],
         present: ["vale"],
-        action,
-      };
-      expect(dispatchShared(request)).toEqual(previous.dispatch(request));
-      w = play(w, action).state;
+      });
+      const oldAction = view.actions.find(match),
+        action = legalActions(w).find(match);
+      expect(oldAction).toBeDefined();
+      expect(action).toBeDefined();
+      expect(action.key).toBe(oldAction.key);
+      const request = (world, chosen) => ({
+        op: "play",
+        world,
+        actor: "vale",
+        claimed: ["vale"],
+        present: ["vale"],
+        action: chosen,
+      });
+      const prior = previous.dispatch(request(old, oldAction));
+      const current = dispatchShared(request(w, action));
+      expect(prior.ok).toBe(true);
+      expect(current.ok).toBe(true);
+      old = prior.world;
+      w = current.world;
+      expect(w.turn).toBe(old.turn);
+      expect(w.log).toEqual(old.log);
+      expect(w.packs["greek-drama"].receipts).toEqual(
+        old.packs["greek-drama"].receipts,
+      );
+      expect(w.packs["greek-drama"].choices).toEqual(
+        old.packs["greek-drama"].choices,
+      );
+      expect(w.items).toMatchObject(old.items);
       expect(decodeSave(encodeSave(w))).toEqual(w);
     }
     const p = greek(),
@@ -291,10 +315,7 @@ describe("story validation within one unchanged operation", () => {
     ).toBeNull();
     expect(validRecitals(restored, p)).toBe(true);
     expect(recitalPoem(restored, p)).toEqual(previous.poem(restored, p));
-    const older = previous.dispatch({
-      op: "create",
-      save: JSON.stringify(restored),
-    }).world;
+    const older = structuredClone(old);
     delete older.packs[p.id].recitals;
     older.log = [];
     const upgraded = decodeSave(JSON.stringify(older));

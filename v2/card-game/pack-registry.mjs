@@ -337,9 +337,15 @@ export function actorCanVisit(actor, place, world = null) {
   if (a ? destination?.packId === a.packId : !destination) return true;
   const home = a?.packId ?? null,
     target = destination?.packId ?? null;
-  if (crossings.some((crossing) => crossing.travelers === "any" &&
-    (packPlaces[crossing.from]?.packId ?? null) === home &&
-    (packPlaces[crossing.to]?.packId ?? null) === target)) return true;
+  if (
+    crossings.some(
+      (crossing) =>
+        crossing.travelers === "any" &&
+        (packPlaces[crossing.from]?.packId ?? null) === home &&
+        (packPlaces[crossing.to]?.packId ?? null) === target,
+    )
+  )
+    return true;
   return Object.entries(transports).some(([id, t]) => {
     const domains = t.docks.map((dock) => packPlaces[dock]?.packId ?? null);
     return (
@@ -513,6 +519,27 @@ export function validatePackStates(world) {
   for (const pack of packDefinitions) {
     if (!pack.choices) continue;
     const state = world.packs[pack.id];
+    // A resident can leave a scene after a later recorded event. Check the
+    // saved requirements at their meeting turn before accepting that history.
+    const enabledAtMeeting = (id, turn) => {
+      const choices = {},
+        flags = {};
+      for (const [choiceId, recorded] of Object.entries(state.receipts).sort(
+        (a, b) => a[1] - b[1],
+      )) {
+        if (recorded > turn) break;
+        const event = pack.choices.find((entry) => entry.id === choiceId);
+        for (const effect of event?.effects || []) {
+          if (effect.kind === "choose") choices[effect.key] = effect.value;
+          if (effect.kind === "set_flag") flags[effect.key] = effect.value;
+        }
+      }
+      const prior = {
+        ...world,
+        packs: { ...world.packs, [pack.id]: { ...state, choices, flags } },
+      };
+      return entityEnabled(prior, id, true);
+    };
     if (
       !record(state) ||
       !validRecitals(world, pack) ||
@@ -536,13 +563,7 @@ export function validatePackStates(world) {
       Object.entries(state.met).some(
         ([id, turn]) =>
           !owns(pack.avatars, id) ||
-          !conditionsMet(
-            world,
-            pack.id,
-            (pack.avatars[id]?.requires || []).filter(
-              (c) => c.kind !== "connected_humans",
-            ),
-          ) ||
+          (!entityEnabled(world, id, true) && !enabledAtMeeting(id, turn)) ||
           (world.opening &&
             !sharedEnabled(world) &&
             world.opening.met?.[id] !== turn) ||
@@ -619,6 +640,7 @@ export function validatePackStates(world) {
     for (const [id, actor] of Object.entries(pack.avatars))
       if (
         !entityEnabled(world, id, true) &&
+        !owns(state.met, id) &&
         ((world.actors[id]?.place !== actor.place &&
           !actor.previousHomes?.includes(world.actors[id]?.place)) ||
           world.actors[id]?.crossed !== 0 ||
