@@ -65,11 +65,50 @@ describe("the pond opening and shore roads", () => {
     expect(exits(world, "attic")).toEqual(["pond"]);
     world.items.lamp.fuel = 0;
     world.items.lamp.lit = false;
+    world.items.cloth.holder = "pond";
     world = decodeSave(encodeSave(world));
     expect(exits(world, "attic")).toEqual(["pond"]);
     world = act(world, "move", "pond");
     world = act(world, "move", "station");
     expect(world.actors.vale.place).toBe("station");
+  });
+
+  it("keeps a way to the pond when the cloth opens an isolated cottage loop", () => {
+    let world = act(fresh(), "light");
+    world = act(world, "move", "attic");
+    world.items.cloth.holder = "attic";
+    world.items.lamp.fuel = 0;
+    world.items.lamp.lit = false;
+    world.items.oil.holder = "station";
+    world = decodeSave(encodeSave(world));
+    expect(exits(world, "attic", "vale")).toContain("pond");
+    if (places["forest-cottage"]) {
+      expect(exits(world, "attic", "vale")).toContain("forest-cottage");
+      world = act(world, "move", "forest-cottage");
+      world = act(world, "move", "attic");
+      expect(exits(world, "attic", "vale")).toContain("pond");
+    }
+    world = act(world, "move", "pond");
+    expect(world.actors.vale.place).toBe("pond");
+  });
+
+  it("lets a stranded resident return from the attic through the pond", () => {
+    const world = fresh();
+    world.actors.moth.place = "attic";
+    world.items.lamp.holder = "moth";
+    world.items.lamp.fuel = 0;
+    expect(exits(world, "attic", "moth")).toEqual(["pond"]);
+    const action = legalActions(world, "moth").find(
+      (a) => a.kind === "move" && a.target === "pond",
+    );
+    expect(action).toBeDefined();
+    const result = play(
+      world,
+      legalActions(world).find((a) => a.kind === "wait"),
+    );
+    expect(result.ok).toBe(true);
+    expect(result.state.actors.moth.place).toBe("pond");
+    expect(result.state.items.lamp.holder).toBe("moth");
   });
 
   it("gives the station exactly one neighbor throughout the shared world", () => {
