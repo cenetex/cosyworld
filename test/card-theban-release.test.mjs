@@ -117,9 +117,11 @@ describe("the Theban release and its ship", () => {
     s = decodeSave(encodeSave(s));
     expect(reachable(s)).toEqual([...pack.release.places].sort());
     for (const start of openDoorPlaces) {
+      const trip = structuredClone(s);
+      trip.transports["greek-ship"].dock = "greek-athens-harbor";
       const seen = new Set([start]);
       for (const id of seen)
-        for (const to of exits(s, id, "vale"))
+        for (const to of exits(trip, id, "vale"))
           if (pack.release.places.includes(to)) seen.add(to);
       expect(seen.has(pack.entry), start).toBe(true);
     }

@@ -95,11 +95,11 @@ fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
                 }
                 let upgraded = full_store::world(&c, &id, now()).unwrap();
                 assert_eq!(upgraded.version, engine::VERSION);
-                assert_eq!(upgraded.game["packs"]["greek-drama"]["revision"], 4);
+                assert_eq!(upgraded.game["packs"]["greek-drama"]["revision"], 5);
                 assert_eq!(upgraded.claimed, old.claimed);
                 assert_eq!(upgraded.present, old.present);
                 preserves_old_entities(&upgraded.game, &old.game);
-                for field in ["turn", "eventSeq", "log", "crossings", "transports"] {
+                for field in ["turn", "eventSeq", "log", "transports"] {
                     assert_eq!(upgraded.game[field], old.game[field]);
                 }
                 for field in ["choices", "flags", "receipts", "met", "scope", "recitals"] {
@@ -197,9 +197,17 @@ fn a_shared_section_opens_from_an_accepted_invitation_and_replays_for_both_peopl
     assert!(world.project(1).unwrap()["exits"]
         .as_array()
         .unwrap()
-        .contains(&json!("greek-athens")));
-    play(&c, &id, &mut world, 1, "target", "greek-athens");
-    play(&c, &id, &mut world, 1, "target", "greek-piraeus");
+        .contains(&json!("greek-ship")));
+    for target in [
+        "greek-ship",
+        "greek-athens-harbor",
+        "greek-road-athens-harbor",
+        "greek-athens",
+        "greek-road-athens-piraeus",
+        "greek-piraeus",
+    ] {
+        play(&c, &id, &mut world, 1, "target", target);
+    }
     c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
     let recovered = full_store::world(&c, &id, now()).unwrap();
     assert_eq!(recovered, world);

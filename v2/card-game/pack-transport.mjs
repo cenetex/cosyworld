@@ -62,6 +62,16 @@ export function waitForTransport(s, place, actor) {
   }
 }
 
+export function transportArrival(s, actor) {
+  if (controlledByHuman(s, actor)) return null;
+  const found = Object.entries(transports).find(
+    ([, t]) => t.place === s.actors[actor]?.place,
+  );
+  if (!found) return null;
+  const state = s.transports[found[0]];
+  return state.dock === state.destination ? state.dock : null;
+}
+
 // Boarding starts a leg while the ship stays at its departure dock. The first
 // passenger ashore moves the dock; later boarders can start the return leg with
 // riders still aboard. A recall waits until the vessel is empty.

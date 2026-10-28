@@ -9963,6 +9963,15 @@
       state.dock = open2[(open2.indexOf(state.dock) + 1) % open2.length];
     }
   }
+  function transportArrival(s, actor) {
+    if (controlledByHuman(s, actor)) return null;
+    const found = Object.entries(transports).find(
+      ([, t]) => t.place === s.actors[actor]?.place
+    );
+    if (!found) return null;
+    const state = s.transports[found[0]];
+    return state.dock === state.destination ? state.dock : null;
+  }
   function moveTransport(s, from, to) {
     for (const [id, t] of Object.entries(transports)) {
       const state = s.transports[id];
@@ -14878,10 +14887,7 @@
       conflict.guarding[a.actor] = false;
       if (a.actor === conflict.defender) conflict.answered = true;
     }
-    if (a.kind === "wait") {
-      waitForTransport(s, here, a.actor);
-      return;
-    }
+    if (a.kind === "wait") return;
     if (a.kind === "drop-quest") {
       dropQuest(s, a.actor, a.questKey);
       const remaining = questHandKeys(s, a.actor).find(
@@ -15207,6 +15213,12 @@
     );
   }
   function plan(s, actor = currentActor(s)) {
+    const arrival2 = transportArrival(s, actor);
+    const landing = arrival2 && legalActions(s, actor).find(
+      (a) => a.kind === "move" && a.target === arrival2
+    );
+    if (landing)
+      return { action: landing, reason: `Step ashore at ${nameOf(arrival2)}.` };
     return reconsiderPlan(
       s,
       actor,
@@ -15536,6 +15548,8 @@
       }, round);
       settleRoamingArrival(next, id, roamingAPI(next));
     }
+    if (exact.kind === "wait")
+      waitForTransport(next, next.actors[actor].place, actor);
     for (const actor2 of knownActors(next)) {
       const life = lifeOf(next, actor2);
       if (life && life.milestones.length > (previousHopes[actor2] || 0)) {

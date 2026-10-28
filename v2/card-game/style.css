@@ -71,7 +71,7 @@ button:focus-visible {
 }
 .road-ends {
   position: absolute;
-  inset: 12px 12px auto;
+  inset: 72px 12px auto;
   z-index: 5;
   display: flex;
   justify-content: space-between;

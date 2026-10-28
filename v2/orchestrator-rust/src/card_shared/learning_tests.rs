@@ -55,7 +55,9 @@ fn shared_reflections_survive_restart_and_journal_rebuild_with_private_views() {
 #[test]
 fn version_twelve_history_replays_before_the_saved_learning_upgrade() {
     let (_path, c, id) = fixture();
+    let result = engine::reduce_version(engine::TWELFTH_VERSION, json!({"op":"create"})).unwrap();
     let mut old = World::create(None).unwrap();
+    old.game = result["world"].clone();
     old.version = engine::TWELFTH_VERSION.into();
     c.execute("DELETE FROM card_full_log WHERE world=?", [&id])
         .unwrap();
@@ -66,7 +68,9 @@ fn version_twelve_history_replays_before_the_saved_learning_upgrade() {
     assert_eq!(upgraded.version, engine::VERSION);
     assert_eq!(upgraded.game["turn"], old.game["turn"]);
     assert_eq!(upgraded.game["items"], old.game["items"]);
-    assert_eq!(upgraded.game["memories"], old.game["memories"]);
+    for (id, memory) in old.game["memories"].as_object().unwrap() {
+        assert_eq!(&upgraded.game["memories"][id], memory);
+    }
     c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
     assert_eq!(full_store::world(&c, &id, now()).unwrap(), upgraded);
 }

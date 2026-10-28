@@ -122,7 +122,10 @@ describe("the household reaches its berth", () => {
     let result;
     for (const destination of ["greek-road-piraeus-eleusis", "greek-piraeus"]) {
       const view = shared(world, "mara", ["mara"]);
-      const next = openDoorAction(view.world, "accompany", { target: "greek-household-witness", destination });
+      const next = openDoorAction(view.world, "accompany", {
+        target: "greek-household-witness",
+        destination,
+      });
       result = shared(world, "mara", ["mara"], { op: "play", action: next });
       expect(result.ok).toBe(true);
       world = decodeSave(encodeSave(result.world));
@@ -147,7 +150,9 @@ describe("the household reaches its berth", () => {
       ["move", { target: "greek-athens" }],
       ["move", { target: "greek-road-athens-harbor" }],
       ["move", { target: "greek-athens-harbor" }],
-      ["wait", {}], ["wait", {}], ["wait", {}],
+      ["wait", {}],
+      ["wait", {}],
+      ["wait", {}],
       ["move", { target: "greek-ship" }],
       ["move", { target: "greek-harbor" }],
       ["move", { target: "greek-road-thebes" }],

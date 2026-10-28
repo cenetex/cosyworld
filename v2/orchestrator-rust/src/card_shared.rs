@@ -17,6 +17,8 @@ mod store;
 mod sync;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod travel_tests;
 
 use crate::AppState;
 use axum::{

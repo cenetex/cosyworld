@@ -3,6 +3,7 @@ import vm from "node:vm";
 import { describe, it, expect } from "vitest";
 import {
   createWorld,
+  plan,
   decodeSave,
   encodeSave,
   exits,
@@ -25,7 +26,9 @@ function shared(dock) {
     save: encodeSave(createWorld({ packScopes: { "greek-drama": "full" } })),
   }).world;
   world.crossings["pond-greek-harbor"].discovered = true;
-  world.transports["greek-ship"].dock = docks.includes(dock) ? dock : "greek-harbor";
+  world.transports["greek-ship"].dock = docks.includes(dock)
+    ? dock
+    : "greek-harbor";
   for (const id of players) world.actors[id].place = dock;
   return world;
 }
@@ -142,9 +145,8 @@ describe("Greek ports and fixed roads", () => {
       ),
     ).toEqual([]);
     w = move(w, "vale", "greek-piraeus");
-    expect(exits(ask(w, "vale").world, "greek-ship", "moth")).toEqual([
-      "greek-piraeus",
-    ]);
+    expect(w.actors.moth.place).toBe("greek-piraeus");
+    expect(w.transports["greek-ship"].destination).toBe(null);
   });
 
   it("upgrades a released voyage while preserving deeds, belongings and old memories", () => {

@@ -10,6 +10,26 @@ fn play(
     actor: usize,
     fields: &[(&str, &str)],
 ) -> Value {
+    if !engine::historical(&world.version)
+        && fields.iter().any(|(k, v)| *k == "kind" && *v == "move")
+    {
+        if let Some((_, target)) = fields.iter().find(|(k, _)| *k == "target") {
+            let from = world.game["actors"][if actor == 0 { "vale" } else { "mara" }]["place"]
+                .as_str()
+                .unwrap();
+            if (from == "greek-eleusis" && *target == "greek-piraeus")
+                || (from == "greek-piraeus" && *target == "greek-eleusis")
+            {
+                play(
+                    c,
+                    id,
+                    world,
+                    actor,
+                    &[("kind", "move"), ("target", "greek-road-piraeus-eleusis")],
+                );
+            }
+        }
+    }
     let action = world.project(actor).unwrap()["actions"]
         .as_array()
         .unwrap()
@@ -140,14 +160,7 @@ fn agreed_household_journey_replays_after_released_history_with_both_care_choice
             let mut world = full_store::world(&c, &id, now()).unwrap();
             assert_eq!(world.version, engine::VERSION);
             assert_eq!(world.game["actors"][MYRINE]["place"], "greek-eleusis");
-            for key in [
-                "turn",
-                "eventSeq",
-                "log",
-                "items",
-                "crossings",
-                "transports",
-            ] {
+            for key in ["turn", "eventSeq", "log", "items", "transports"] {
                 assert_eq!(world.game[key], old.game[key]);
             }
             for key in ["receipts", "choices", "flags", "recitals"] {
@@ -185,6 +198,17 @@ fn agreed_household_journey_replays_after_released_history_with_both_care_choice
             assert_eq!(world.game["actors"][MYRINE]["place"], "greek-eleusis");
             c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
             assert_eq!(full_store::world(&c, &id, now()).unwrap(), world);
+            play(
+                &c,
+                &id,
+                &mut world,
+                1,
+                &[
+                    ("kind", "accompany"),
+                    ("target", MYRINE),
+                    ("destination", "greek-road-piraeus-eleusis"),
+                ],
+            );
             let travel = play(
                 &c,
                 &id,

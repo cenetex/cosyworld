@@ -172,6 +172,7 @@ import {
   moveTransport,
   transportExits,
   waitForTransport,
+  transportArrival,
   preserveTransportAccess,
 } from "./pack-transport.mjs";
 import { upgradeSave } from "./legacy-saves.mjs";
@@ -1670,10 +1671,7 @@ function perform(s, a, capture = () => {}, round = null) {
     conflict.guarding[a.actor] = false;
     if (a.actor === conflict.defender) conflict.answered = true;
   }
-  if (a.kind === "wait") {
-    waitForTransport(s, here, a.actor);
-    return;
-  }
+  if (a.kind === "wait") return;
   if (a.kind === "drop-quest") {
     dropQuest(s, a.actor, a.questKey);
     const remaining = questHandKeys(s, a.actor).find(
@@ -2027,6 +2025,14 @@ function toward(s, actor, target) {
   );
 }
 export function plan(s, actor = currentActor(s)) {
+  const arrival = transportArrival(s, actor);
+  const landing =
+    arrival &&
+    legalActions(s, actor).find(
+      (a) => a.kind === "move" && a.target === arrival,
+    );
+  if (landing)
+    return { action: landing, reason: `Step ashore at ${nameOf(arrival)}.` };
   return reconsiderPlan(
     s,
     actor,
@@ -2486,6 +2492,8 @@ export function play(
     if (action) perform(next, action, () => {}, round);
     settleRoamingArrival(next, id, roamingAPI(next));
   }
+  if (exact.kind === "wait")
+    waitForTransport(next, next.actors[actor].place, actor);
 
   for (const actor of knownActors(next)) {
     const life = lifeOf(next, actor);

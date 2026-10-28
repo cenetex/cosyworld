@@ -56,13 +56,7 @@ describe("the household save upgrade", () => {
         Object.keys(before.actors).length + 1,
       );
       expect(after.items).toEqual(before.items);
-      for (const key of [
-        "turn",
-        "revision",
-        "eventSeq",
-        "log",
-                "transports",
-      ])
+      for (const key of ["turn", "revision", "eventSeq", "log", "transports"])
         expect(after[key]).toEqual(before[key]);
       for (const [id, actor] of Object.entries(before.actors))
         expect(after.actors[id]).toEqual({

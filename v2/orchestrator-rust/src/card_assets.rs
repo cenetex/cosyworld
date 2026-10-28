@@ -1668,7 +1668,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
             "\"225bf98853060dc121ea82d4d89430f27d049f7de70e3b0b8e30f2cd633b9d87\""
         }
         "index.html" => "\"3e2509429b77a0e6e26d9c40b8ca02d3ba24747f44a36f7e3741bbadb7b3faca\"",
-        "style.css" => "\"d30629096f1c3f1455341b44d4e67fb62366e85f26360aea40d0b6bc2b5496cb\"",
+        "style.css" => "\"c9719fd98c3130b38ada4536b4fdb059fb98e86db36792f797a41e78957dd596\"",
         "entry.mjs" => "\"1a7995fada45e5bf544ec6e98a6cc9ea9019634cf9bae644d6f1766581314c89\"",
         "openrouter.mjs" => "\"1f1df94c46294aeefb95b37f58f63f3cf690b645927a74f78ea5cfb3e2734330\"",
         "openrouter-settings.mjs" => {
@@ -1694,7 +1694,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "scene-video.css" => "\"3c6851ec825e734e3d8a084f4ed77f077bcb4402acbf61869a67b652c3afe4c5\"",
         "awakening.css" => "\"c7a68a23baf1e46934237a57f4b5f87d76bad87af85fdf57ee40abec646908b9\"",
         "app.mjs" => "\"b8cbe89b3c296b458f823f191b219114315910dcd2cea6cabb396f295cdbac92\"",
-        "world.mjs" => "\"bd53eafb2548d17ad571457b8f6f23e5bd50989a4eaeff0c7754f6f7562421f4\"",
+        "world.mjs" => "\"49a625653fa21554158c45e77907f445073a296920f7c181240faaeb70d535af\"",
         "scene.mjs" => "\"787b3101e9e264aa6c3c20c1b12ec4245fbde5c188c5ed2321e4e191954ae8bd\"",
         "portrait-facing.mjs" => {
             "\"092242aa43a1919d1469b9dfba6a50723504569fea480fd3f33fcb9f72bd23b1\""
@@ -1772,7 +1772,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "pack-rules.mjs" => "\"3eeafd3fff5cede84496304073e5205a4ba8c6a31641c29da81c26d824832d52\"",
         "pack-transport.mjs" => {
-            "\"6cb61938b67c11059de7e3f31701f6c177b6e6eae50c1e9804c98e2cb04f367c\""
+            "\"f46437c8fceb53d5b9a16c2d0b6019e79230702e425e3b2f62b0069ef86ef68c\""
         }
         "legacy-saves.mjs" => {
             "\"2e87a6002f709aa79439da42dca28632a36a561a96b3ea5bde721a7f6363b75a\""

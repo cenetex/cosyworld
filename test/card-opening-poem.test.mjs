@@ -1,3 +1,4 @@
+import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 import { latestQuestCompletion } from "../v2/card-game/quest-completions.mjs";
 import { describe, it, expect } from "vitest";
 import {
@@ -29,6 +30,10 @@ const reload = (world) => decodeSave(encodeSave(world));
 const courtyard = (world) =>
   storyQuests(world).find((q) => q.id === STORY_QUEST_CARDS[2]);
 const act = (world, kind, target) => {
+  if (kind === "move") {
+    const steps=greekTravelTargets(world.actors.vale.place,target);
+    if(steps.length>1) return steps.reduce((w,to)=>act(w,"move",to),world);
+  }
   const action = legalActions(world).find(
     (a) => a.kind === kind && (!target || a.target === target),
   );
@@ -341,6 +346,7 @@ describe("the opening poem", () => {
     act((a) => a.choiceId === "greek-return-water-jar");
     const poem = openingPoem(world);
     expect(poem.stanzas.at(-1).id).toBe("greek-return-water-jar");
+    act((a) => a.kind === "move" && a.target === "greek-road-thebes");
     act((a) => a.kind === "move" && a.target === "greek-harbor");
     act((a) => a.kind === "wait");
     expect(openingPoem(reload(world))).toEqual(poem);

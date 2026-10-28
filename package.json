@@ -76,7 +76,8 @@
     "v2:card:images:build": "node v2/scripts/build-card-images.mjs",
     "v2:card:images:check": "node v2/scripts/build-card-images.mjs --check",
     "v2:card:music:build": "node v2/scripts/build-card-music.mjs",
-    "v2:card:music:check": "node v2/scripts/build-card-music.mjs --check"
+    "v2:card:music:check": "node v2/scripts/build-card-music.mjs --check",
+    "v2:card:travel:smoke": "node v2/scripts/smoke-card-greek-travel.mjs"
   },
   "keywords": [
     "ai",

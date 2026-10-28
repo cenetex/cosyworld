@@ -1,3 +1,4 @@
+import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   createWorld,
@@ -32,6 +33,21 @@ const original = structuredClone({
   routes: pack.routes,
 });
 const act = (world, kind, fields = {}) => {
+  if (kind === "move") {
+    const steps = greekTravelTargets(world.actors.vale.place, fields.target);
+    if (steps.length > 1)
+      return steps.reduce((w, target) => act(w, "move", { target }), world);
+    if (fields.target === "greek-ship")
+      for (
+        let n = 0;
+        n < 32 &&
+        !legalActions(world).some(
+          (a) => a.kind === "move" && a.target === fields.target,
+        );
+        n++
+      )
+        world = act(world, "wait");
+  }
   const action = legalActions(world).find(
     (a) =>
       a.kind === kind && Object.entries(fields).every(([k, v]) => a[k] === v),
@@ -64,7 +80,7 @@ describe("permanent pack sections", () => {
     const before = openingFixture("refusal").waterOffer;
     pack.routes.push({ from: "greek-harbor", to: "greek-piraeus" });
     for (const actor of ["vale", "mara", "greek-shipmaster"]) {
-      expect(exits(before, "greek-harbor", actor)).not.toContain(
+      expect(exits(before, "greek-road-athens-piraeus", actor)).not.toContain(
         "greek-athens",
       );
       expect(packExits(before, "greek-harbor", actor)).not.toContain(
@@ -76,14 +92,18 @@ describe("permanent pack sections", () => {
       choiceId: "greek-return-water-jar",
     });
     for (const actor of ["vale", "mara", "greek-shipmaster"]) {
-      expect(exits(opened, "greek-harbor", actor)).toContain("greek-athens");
+      expect(exits(opened, "greek-road-athens-piraeus", actor)).toContain(
+        "greek-athens",
+      );
       expect(packExits(opened, "greek-harbor", actor)).toContain(
         "greek-piraeus",
       );
     }
     expect(entityActive(opened, "greek-market-neighbor")).toBe(true);
     const loaded = decodeSave(encodeSave(opened));
-    expect(exits(loaded, "greek-harbor", "vale")).toContain("greek-athens");
+    expect(exits(loaded, "greek-road-athens-piraeus", "vale")).toContain(
+      "greek-athens",
+    );
   });
 
   it("checks section access before applying a choice and while replaying receipts", () => {
@@ -132,7 +152,9 @@ describe("permanent pack sections", () => {
 
   it("keeps full-scope roads while preserving the chosen account", () => {
     const world = createWorld({ packScopes: { "greek-drama": "full" } });
-    expect(exits(world, "greek-harbor", "vale")).toContain("greek-athens");
+    expect(exits(world, "greek-road-athens-harbor", "vale")).toContain(
+      "greek-athens",
+    );
     expect(entityActive(world, "greek-egypt-tomb")).toBe(false);
     expect(entityActive(world, "greek-helen-egypt")).toBe(false);
     expect(decodeSave(encodeSave(world))).toEqual(world);
