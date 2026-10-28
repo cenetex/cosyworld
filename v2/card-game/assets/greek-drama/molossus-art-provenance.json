@@ -1,0 +1,252 @@
+{
+  "schemaVersion": 1,
+  "title": "Molossus child portrait for Book IV",
+  "date": "2026-10-28",
+  "generator": "Built-in image_gen.imagegen",
+  "draftBase": {
+    "branch": "codex/greek-book-iv",
+    "commit": "fdb49630343b272a484a45957b593f762f9f4ba4",
+    "packageVersion": "1.2.5"
+  },
+  "binding": {
+    "actor": "greek-book-iv-andromache-molossus",
+    "file": "assets/greek-drama/book-four-molossus.png",
+    "nativeFacing": "left"
+  },
+  "sourceRole": {
+    "file": "v2/content/greek-drama/card-world.json",
+    "sha256": "9cff071b6d5883487f4a4a44ad69363daa281ecb784e02a931b22d9d5997bac2",
+    "text": "Molossus is Andromache’s son with Neoptolemus.",
+    "persona": "Molossus is Andromache’s son with Neoptolemus. He asks to join his mother and agrees to his own protected journey. Astyanax belongs to her earlier family with Hector.",
+    "sourceOwnerThread": "01a181a9-632b-7fa1-b5e5-053d6986f164",
+    "confirmedAge": "About seven",
+    "confirmedCanvas": "1024 by 1536 with transparent space above, child figure about 60 to 65 percent of the canvas height and a shared foot baseline"
+  },
+  "asset": {
+    "file": "book-four-molossus.png",
+    "sourceFile": "book-four-molossus.png",
+    "sourceName": "exec-4c5c98b7-1e85-4ffd-a722-820910140305.png",
+    "size": [
+      1024,
+      1536
+    ],
+    "sourceSha256": "9c91bc2fb20172aaf078f5cfebd65a91d1cc150169280cfc829354970d3f83c1",
+    "sha256": "9c91bc2fb20172aaf078f5cfebd65a91d1cc150169280cfc829354970d3f83c1",
+    "bytes": 1414767,
+    "processing": "Native generated PNG copied byte for byte; original alpha and complete canvas preserved",
+    "prompt": "Use case: precise-object-edit.\nAsset type: full-body young child sprite with native transparent alpha.\nInput image: Molossus's current native portrait is the edit target.\nKeep the same 1024 by 1536 canvas. Uniformly REDUCE the entire boy and all his clothes to 75 percent of their current size, then place him at the LOWER CENTRE of the canvas. Preserve the same clearly seven-year-old face, hair, child's body proportions, tunic, cloak, both free hands, pose, sandals and complete feet. The child's new figure is about 900 to 950 pixels tall in this 1536-pixel-high canvas. The crown of his head is around y=520 to 560, and the bottoms of both sandal soles around y=1460. Leave the large upper third of the image as clear transparent air. Keep the entire figure, hands, cloak and soles within clear margins. This canvas framing gives him about 60 to 65 percent of an adult sprite's standing height in the game. Preserve the gentle Greek painting style, calm wary face, soft neutral light and genuine native transparent alpha. The result shows the same single living child in complete ordinary household clothes.",
+    "references": [
+      {
+        "file": "molossus-sources/initial.png",
+        "sha256": "77c8e5d9b0e0599a22c26f6eeaf45022c620758b30ddbf59fa7c882f18706a4c",
+        "role": "First native child portrait used as complete-canvas scale edit target"
+      }
+    ],
+    "alpha": {
+      "clearPixels": 1286594,
+      "partialPixels": 286270,
+      "opaquePixels": 0,
+      "maximum": 254,
+      "edgeMaximum": 0,
+      "visibleSubjectBounds": [
+        235,
+        455,
+        765,
+        1459
+      ],
+      "visibleBoundsThreshold": 8,
+      "visibleHeightFraction": 0.654296875
+    }
+  },
+  "generationHistory": [
+    {
+      "sourceFile": "molossus-sources/initial.png",
+      "sourceName": "exec-fca980d5-d6ec-490b-a2cd-83ff8c337e7d.png",
+      "sha256": "77c8e5d9b0e0599a22c26f6eeaf45022c620758b30ddbf59fa7c882f18706a4c",
+      "prompt": "Use case: historical-scene.\nAsset type: a full-body CHILD character cutout for CosyWorld's painted Greek household chapter.\nInput image: Andromache's approved adult portrait is a reference for the established painted Greek style, woven cloth, lighting and family colour palette. The requested new subject is her young child.\nSubject: Molossus, a clearly young boy about seven years old. Rounded child cheeks, a small soft nose, large gentle brown eyes and short wavy dark brown hair. He has natural young-child proportions, a child's relatively larger head, short limbs and small hands. His face is calm and a little wary, quietly attentive to a trusted listener at image-left.\nClothes: a complete simple knee-length unbleached linen household tunic with a plain cloth waist tie, a small muted blue-grey wool cloak around the shoulders, and simple brown leather sandals. The clothes are whole and clean.\nPose: he stands comfortably with both complete feet on the same level, looking slightly toward image-left. Both small hands are visible and free: one relaxed open hand near waist height and one lightly holding a fold of the cloak with fingers clear. The illustration is the single living child in his ordinary household clothes.\nComposition and game scale: native 1024 by 1536 canvas with genuine transparent alpha. Place the entire child in the LOWER part of the canvas so he reads at child height when this sprite shares a stage with an adult portrait. The crown of his head sits around y=530 and the bottoms of both sandal soles around y=1460. His entire figure occupies about 60 percent of the canvas height. Keep generous clear transparent air above his head and clear margins around every hand, cloak edge, foot and sole. The complete body and both feet stay inside the original canvas.\nStyle and light: finely detailed painterly Greek storybook realism, soft neutral daylight, natural child anatomy and woven cloth texture. Keep the same warm, gentle painted finish as the reference. Only the single child and his clothes occupy the transparent canvas.",
+      "references": [
+        {
+          "file": "v2/card-game/assets/greek-drama/book-three-andromache.png",
+          "path": "/Users/ratimics/.codex/worktrees/book-three-troy-persia/cosyworld/v2/card-game/assets/greek-drama/book-three-andromache.png",
+          "sourceCommit": "ba5fb8604635fe4fe117c89d17062cab39a3cd50",
+          "sourcePR": 1280,
+          "role": "Approved mother portrait used for painted Greek style, cloth, light and family colour palette",
+          "sha256": "6125bce69f1e9341217262b0616ace1c39477e25e374d1ab4ec271b0dbd8abca"
+        }
+      ],
+      "review": "A second native generation places the same child at the agreed smaller sprite height."
+    }
+  ],
+  "additionalFacingRegistrations": [
+    {
+      "file": "assets/greek-drama/helen-theonoe.png",
+      "sha256": "a1de93676e33c95cad1f67ee98e50dbf758c0d895130f63c8eed4acf988a6d71",
+      "nativeFacing": "left",
+      "review": "Both existing original portraits were visually inspected. The facing registry now describes their published art."
+    },
+    {
+      "file": "assets/greek-drama/helen-theoclymenus.png",
+      "sha256": "71526f058c0ced26866d009aff4fb65f61947a345d32872603e775d9fb46201b",
+      "nativeFacing": "left",
+      "review": "Both existing original portraits were visually inspected. The facing registry now describes their published art."
+    }
+  ],
+  "reviewBackgrounds": [
+    {
+      "companion": "greek-book-iv-andromache-andromache",
+      "file": "chthonic-electra.png",
+      "sha256": "5239e39dbc53bfdca3ccbecbd3ac7fdf1eddc1b9a513ddc2310a44336d2ee66e",
+      "sourceCommit": "fdb49630343b272a484a45957b593f762f9f4ba4"
+    },
+    {
+      "companion": "greek-book-iv-andromache-peleus",
+      "file": "chthonic-elder.png",
+      "sha256": "a5949e884b36493b902ed3168c58c051e27e87abe80380c669e93eebc1e71869",
+      "sourceCommit": "fdb49630343b272a484a45957b593f762f9f4ba4"
+    },
+    {
+      "file": "courtyard-day.webp",
+      "sha256": "c27b798ed993d2aa7bdfad03da26967556206fc86579934c595cbde93b1b0559",
+      "sourceCommit": "fdb49630343b272a484a45957b593f762f9f4ba4",
+      "purpose": "Painted day/night light and alpha-edge review"
+    },
+    {
+      "file": "courtyard-night.webp",
+      "sha256": "6dcf726a179a71f9155ef947b4e7ef97a590becc4837e976c6f998004455c5e8",
+      "sourceCommit": "fdb49630343b272a484a45957b593f762f9f4ba4",
+      "purpose": "Painted day/night light and alpha-edge review"
+    }
+  ],
+  "reviewSheets": [
+    {
+      "file": "molossus-andromache-review.png",
+      "sha256": "2934ff04001a610511fba286a87c4258e577da374af90f76053b0934254d25d1",
+      "companion": "greek-book-iv-andromache-andromache",
+      "desktopWidth": 610,
+      "phoneSize": [
+        390,
+        580
+      ]
+    },
+    {
+      "file": "molossus-peleus-review.png",
+      "sha256": "56c603ba04793e04fcd8d5a62f597ea2fad975d31dc170d8d328467d995519e3",
+      "companion": "greek-book-iv-andromache-peleus",
+      "desktopWidth": 610,
+      "phoneSize": [
+        390,
+        580
+      ]
+    }
+  ],
+  "browserReviews": [
+    {
+      "file": "molossus-game-1440.png",
+      "sha256": "0ae89efa02c4cea7d211f4b83c62de843482ad0a9911c1fafc83747b9e22f662",
+      "fixture": "andromacheEnding(protection)",
+      "catalogOverride": "Only Molossus portrait path points to the new source PNG in the review catalog; gameplay source remains owned by chapter integration.",
+      "sourceHelper": "test/helpers/book-iv.mjs",
+      "sourceHelperSha256": "0dcd684f57ed761733c26906c0e6afbf0c4b14f4861a9d81b474e2f2a2ab1427",
+      "metrics": {
+        "src": "http://127.0.0.1:61294/card-game/assets/greek-drama/book-four-molossus.png",
+        "natural": [
+          1024,
+          1536
+        ],
+        "imageRect": {
+          "x": 177.3515625,
+          "y": 191.375,
+          "width": 403.296875,
+          "height": 604.953125
+        },
+        "place": "greek-book-iv-andromache-household",
+        "viewport": [
+          1440,
+          900
+        ],
+        "pageWidth": 1440
+      },
+      "pageErrors": [],
+      "failedAssets": []
+    },
+    {
+      "file": "molossus-game-focus-1440.png",
+      "sha256": "9e32965b80df9f14eb7cc6e72e916c66bd96a9aa283b6b0cae384f3a804eadbe",
+      "fixture": "andromacheEnding(protection)",
+      "action": "Player selects Molossus and chooses Talk",
+      "turns": [
+        127,
+        128
+      ],
+      "width": 1440,
+      "pageErrors": [],
+      "failedAssets": [],
+      "catalogOverride": "Only the child portrait path is replaced for this art review."
+    },
+    {
+      "file": "molossus-game-390.png",
+      "sha256": "f54e765169305a882f1e96641dd4878d5409888ba43069039220c9e7c42ae252",
+      "fixture": "andromacheEnding(protection)",
+      "catalogOverride": "Only Molossus portrait path points to the new source PNG in the review catalog; gameplay source remains owned by chapter integration.",
+      "sourceHelper": "test/helpers/book-iv.mjs",
+      "sourceHelperSha256": "0dcd684f57ed761733c26906c0e6afbf0c4b14f4861a9d81b474e2f2a2ab1427",
+      "metrics": {
+        "src": "http://127.0.0.1:61294/card-game/assets/greek-drama/book-four-molossus.png",
+        "natural": [
+          1024,
+          1536
+        ],
+        "imageRect": {
+          "x": -93.40625,
+          "y": 161.328125,
+          "width": 339.84375,
+          "height": 509.78125
+        },
+        "place": "greek-book-iv-andromache-household",
+        "viewport": [
+          390,
+          844
+        ],
+        "pageWidth": 390
+      },
+      "pageErrors": [],
+      "failedAssets": []
+    },
+    {
+      "file": "molossus-game-focus-390.png",
+      "sha256": "e025e4e1b9426647501774f5b44633aa20ec77acb3e7d81a0a0357e80d5ca65f",
+      "fixture": "andromacheEnding(protection)",
+      "action": "Player selects Molossus and chooses Talk",
+      "turns": [
+        127,
+        128
+      ],
+      "width": 390,
+      "pageErrors": [],
+      "failedAssets": [],
+      "catalogOverride": "Only the child portrait path is replaced for this art review."
+    }
+  ],
+  "visualReview": {
+    "nativeArt": "Passed",
+    "checks": [
+      "Clearly young child about seven with calm wary face",
+      "Complete household tunic, cloak and sandals",
+      "Whole figure, both feet and readable free hands",
+      "Native clear alpha, complete canvas and visible margins",
+      "Child uses 65.4 percent of native canvas height with transparent air above",
+      "Day/night desktop and phone overlays with confirmed Andromache and Peleus art"
+    ],
+    "realRenderer": "Resources, actual source save and one-turn Talk action passed at 1440 and 390 pixels",
+    "phoneCompositionFollowUp": {
+      "owner": "Book IV source integration",
+      "finding": "The current phone stage places Andromache over part of Molossus. Give the child a clearer phone position beside the adult cast.",
+      "evidence": "molossus-game-focus-390.png"
+    }
+  },
+  "validation": {
+    "portraitFacingAndImageStreaming": "17 tests passed",
+    "eslint": "portrait-facing.mjs passed",
+    "versionAlignment": "1.2.5 passed"
+  }
+}
