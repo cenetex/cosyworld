@@ -78,6 +78,19 @@ try {
     await selectCard(page, "boardyai");
     await selectCard(page, quest);
     const card = page.locator(`#hand [data-card="${quest}"]`);
+    await page
+      .locator("#hand img")
+      .evaluateAll((images) => Promise.all(images.map((img) => img.decode())));
+    assert(
+      await card.evaluate((face) => {
+        const purpose = face
+          .querySelector(".quest-purpose")
+          .getBoundingClientRect();
+        const bounds = face.getBoundingClientRect();
+        return purpose.bottom <= bounds.bottom && purpose.bottom <= innerHeight;
+      }),
+      "the selected quest fits on screen",
+    );
     assert.equal(await card.getAttribute("data-quest-status"), "active");
     assert.match(await card.textContent(), /Help Vale and Mara meet/);
     const portrait = page.locator('#cast [data-avatar="boardyai"] img').first();

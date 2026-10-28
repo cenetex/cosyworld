@@ -49,7 +49,7 @@ export function introductionPrograms(world, actor, base, candidates, name) {
             100,
           ),
           purpose:
-            `Help ${name(pair[0])} and ${name(pair[1])} meet in the same place. Visit them in turn and invite them to meet.`.slice(
+            `Help ${name(pair[0])} and ${name(pair[1])} meet. Visit them in turn.`.slice(
               0,
               240,
             ),
