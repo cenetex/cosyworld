@@ -77,6 +77,18 @@ try {
         assert.equal(await card("vale").getAttribute("aria-expanded"), "false");
         assert.equal(await frame("cloth").getAttribute("hidden"), "");
         await card("vale").scrollIntoViewIfNeeded();
+        await page.locator("#hand").evaluate(async (hand) => {
+          await Promise.allSettled(
+            hand
+              .getAnimations({ subtree: true })
+              .filter((animation) =>
+                Number.isFinite(animation.effect?.getComputedTiming().endTime),
+              )
+              .map((animation) => animation.finished),
+          );
+          await new Promise(requestAnimationFrame);
+          await new Promise(requestAnimationFrame);
+        });
         // Inspect the painted preview stack, including overlap and front-to-back order.
         const stack = await frame("vale").evaluate((frame) => {
           const card = frame.querySelector(".card"),
@@ -230,7 +242,12 @@ try {
   }
   // Another player can leave while their avatar is selected on this screen.
   // The real polling client must lower that avatar before it returns.
-  for (const width of [1440, 390]) {
+  for (const [width, reducedMotion] of [
+    [1440, "reduce"],
+    [390, "reduce"],
+    [1440, "no-preference"],
+    [390, "no-preference"],
+  ]) {
     const world = createWorld();
     world.sharedVersion = 1;
     world.playerActorId = "vale";
@@ -251,7 +268,7 @@ try {
     };
     const page = await browser.newPage({
       viewport: { width, height: width === 390 ? 844 : 900 },
-      reducedMotion: "reduce",
+      reducedMotion,
     });
     page.setDefaultTimeout(10000);
     const errors = [];
@@ -270,6 +287,14 @@ try {
             "cosyworld.room-music",
             JSON.stringify({ enabled: false }),
           );
+          // A command reply can bring an actor back before the farewell ends.
+          const interval = window.setInterval;
+          window.setInterval = (run, delay, ...args) =>
+            interval(
+              run,
+              run.name === "sync" && delay === 1000 ? 80 : delay,
+              ...args,
+            );
         },
         {
           seen: Object.keys(profiles),
@@ -319,13 +344,35 @@ try {
         await page.locator('#hand [data-card="float"]').isVisible(),
         false,
       );
+      await page.locator("#cast").evaluate(async (cast) => {
+        await Promise.allSettled(
+          cast
+            .getAnimations({ subtree: true })
+            .filter((animation) =>
+              Number.isFinite(animation.effect?.getComputedTiming().endTime),
+            )
+            .map((animation) => animation.finished),
+        );
+        await new Promise(requestAnimationFrame);
+        await new Promise(requestAnimationFrame);
+      });
+      const portrait = page.locator('#cast [data-avatar="mara"]');
+      assert.equal(await portrait.count(), 1);
+      assert.equal(await portrait.getAttribute("data-removing"), null);
+      assert.equal(await portrait.getAttribute("aria-hidden"), "false");
+      assert(
+        await portrait.evaluate(
+          (figure) => Number(getComputedStyle(figure).opacity) >= 0.99,
+        ),
+      );
       await avatar.scrollIntoViewIfNeeded();
       await page.screenshot({
-        path: new URL(`remote-return-${width}.png`, output).pathname,
+        path: new URL(`remote-return-${width}-${reducedMotion}.png`, output)
+          .pathname,
       });
       assert.deepEqual(errors, []);
       console.log(
-        `shared-${width}: remote departure lowers the avatar and its returning item stack`,
+        `shared-${width}-${reducedMotion}: remote departure lowers the avatar and preserves its returning portrait and item stack`,
       );
     } catch (error) {
       await page.screenshot({

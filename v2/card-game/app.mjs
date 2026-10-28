@@ -933,6 +933,7 @@ function cancelTravel() {
     if (figure.dataset.removing) figure.remove();
   }
   exits.clear();
+  renderedCast = "";
   for (const animation of $("speech-row").getAnimations()) animation.cancel();
 }
 // Cards met at the new place are unveiled once the veil has fully lifted.
@@ -1978,6 +1979,15 @@ function renderScene() {
   staging.actors.forEach((actor, index) => {
     const { id } = actor;
     const figure = $("cast").children[index];
+    if (
+      figure.dataset.removing ||
+      (exits.has(figure) && actor.presence !== "departed")
+    ) {
+      // A returning actor keeps this figure after its earlier farewell.
+      exits.delete(figure);
+      delete figure.dataset.removing;
+      for (const animation of figure.getAnimations()) animation.cancel();
+    }
     figure.dataset.depth = actor.depth;
     figure.dataset.framing = portraitFraming(actor.cutout);
     figure.dataset.facing = actor.facing;
