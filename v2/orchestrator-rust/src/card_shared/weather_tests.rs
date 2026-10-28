@@ -71,10 +71,20 @@ fn regional_weather_agrees_in_c_and_survives_upgrade_and_journal_replay() {
         "claimed":["vale","mara"], "present":["vale","mara"]
     }))
     .unwrap();
-    assert_eq!(
-        context["context"]["weather"],
-        world.project(0).unwrap()["scene"]["weather"]
-    );
+    let weather = world.project(0).unwrap()["scene"]["weather"].clone();
+    let place = context["context"]["entities"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|entity| entity["id"] == "greek-harbor")
+        .unwrap();
+    assert!(place["facts"]
+        .as_array()
+        .unwrap()
+        .contains(&weather["description"]));
+    let ids = vec!["vale".to_string()];
+    crate::routes::card_game::narrative::browser::prepare(&context["context"], Some(&ids), None)
+        .unwrap();
     let views = [world.project(0).unwrap(), world.project(1).unwrap()];
     c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
     drop(c);

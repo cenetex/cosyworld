@@ -1716,7 +1716,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "quest-cards.mjs" => "\"81916b280064e9c9619fb01ee5ded358adf750374efdc10f5fbfa9c629ffeeb9\"",
         "situations.mjs" => "\"1fff8b8ba954720b8a0a4450d6db2bf6e6d9378566ae0ca2668a44979f83c39d\"",
         "memory.mjs" => "\"a60b35aae48d30646331b3de96234fad605fb363a694db9ef7204851f85be14d\"",
-        "narrative.mjs" => "\"9b9c8dc6d502e8814b1354b60a7d0232a3fa42b85f77bdfd5fd449c2ab5f4f47\"",
+        "narrative.mjs" => "\"a489b85b506d35591306a7fc189452053944f87ff00b2b34702af8580983ff0f\"",
         "dialogue.mjs" => "\"1f4965d3e2a36261973aace4534359c00c7cf8aeaf15548a08d29e364adcc7ad\"",
         "character-speech.mjs" => {
             "\"d53e51f93d89a0073199f45dd83086417733d76980f6c3b22f875b3f642292b5\""

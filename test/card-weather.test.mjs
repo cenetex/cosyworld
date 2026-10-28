@@ -64,16 +64,16 @@ describe("regional Greece weather", () => {
     );
     expect(locationVariant(world, "greek-courtyard")).toBe("base:cloud-court");
     const context = narrativeContext(world);
-    expect(context.weather).toEqual(currentScene(world).weather);
+    const weather = currentScene(world).weather;
     expect(
       context.entities.find((e) => e.id === "greek-courtyard").facts,
-    ).toContain(context.weather.description);
+    ).toContain(weather.description);
     const script = sceneScript(world);
-    expect(script.current.weather).toEqual(context.weather);
+    expect(script.current.weather).toEqual(weather);
     const beat = script.beats.findLast(
       (e) => e.locationId === "greek-courtyard",
     );
-    expect(beat.weather).toEqual(context.weather);
+    expect(beat.weather).toEqual(weather);
   });
 
   it("matches shared views, browser rules, and the compiled server across regions and turns", () => {

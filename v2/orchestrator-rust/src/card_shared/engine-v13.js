@@ -15863,7 +15863,6 @@
       turn: world.turn,
       outcome: turnOutcome(world),
       location,
-      weather: locationWeather(world, location),
       scenery: sceneryDue(world.turn),
       focus,
       speakers,
