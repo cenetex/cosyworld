@@ -67,12 +67,29 @@ jobs:
           restore-keys: |
             macos-arm64-local-v1-${{ hashFiles('v2/orchestrator-rust/Cargo.lock', 'v2/desktop/src-tauri/Cargo.lock') }}-
             macos-arm64-local-v1-
-      - name: Install build tools
+      - name: Install Node build tools
+        timeout-minutes: 8
+        env:
+          NPM_CONFIG_FETCH_RETRIES: "2"
+          NPM_CONFIG_FETCH_TIMEOUT: "30000"
+          NPM_CONFIG_FETCH_RETRY_MINTIMEOUT: "1000"
+          NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT: "10000"
+        run: npm ci --no-audit --no-fund --prefer-offline --loglevel=info
+      - name: Install Python build tools
+        timeout-minutes: 8
+        env:
+          PIP_DEFAULT_TIMEOUT: "30"
+          PIP_RETRIES: "2"
         run: |
-          npm ci --no-audit --no-fund
           python -m venv .runtime/local-python
           .runtime/local-python/bin/python -m pip install --no-deps -r v2/local/requirements-macos.lock
           echo "$GITHUB_WORKSPACE/.runtime/local-python/bin" >> "$GITHUB_PATH"
+      - name: Show dependency logs after a setup failure
+        if: failure()
+        run: |
+          for log in "$HOME"/.npm/_logs/*debug*.log; do
+            if [ -f "$log" ]; then tail -80 "$log"; fi
+          done
       - name: Check local services and desktop source
         env:
           VERSION_CHECK_ALIGNMENT_ONLY: ${{ github.event_name != 'pull_request' && '1' || '0' }}
