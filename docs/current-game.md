@@ -3,6 +3,8 @@
 CosyWorld's shipping surface is the card table. It supports local browser saves
 and shared worlds. Read the checked-out version in `package.json`; read the
 running version and `primary_game` at each site's `/meta`.
+The Mac package embeds the same card files and uses the same release version.
+`/meta.card_game.assets_sha256` identifies the public game files in either build.
 
 ## Game and cast sources
 
