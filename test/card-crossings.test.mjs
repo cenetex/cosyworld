@@ -141,10 +141,12 @@ test("ship scene variant, overlay and travel card always agree", () => {
 });
 test("ship variant never leaks into another location", () => {
   const s = pond();
-  for (const id of ["station", "attic", "clearing", "greek-harbor"]) {
+  for (const id of ["station", "attic", "clearing"]) {
     assert.equal(locationVariant(s, id), "base");
     assert.equal(locationOverlay(s, id), null);
   }
+  assert.equal(locationVariant(s, "greek-harbor"), "base:clear-coast");
+  assert.equal(locationOverlay(s, "greek-harbor"), null);
 });
 test("a previously selected ship offer is rechecked against its dock", () => {
   const s = pond();

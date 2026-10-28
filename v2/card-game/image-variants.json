@@ -84,6 +84,13 @@
       "card": "assets/optimized/card/webp/greek-drama/burial-ground-dusk.webp",
       "cardHash": "c37f8ea92913244d41a79ad4cca725db03d3cf4e64b7077fbaa1c811a6c3516a"
     },
+    "assets/greek-drama/burial-ground-night.webp": {
+      "sourceHash": "4d0a9e9b732b215153af878babd8085c1e8bdd56f8e2b034f112a53e4f964753",
+      "stage": "assets/greek-drama/burial-ground-night.webp",
+      "stageHash": "4d0a9e9b732b215153af878babd8085c1e8bdd56f8e2b034f112a53e4f964753",
+      "card": "assets/optimized/card/webp/greek-drama/burial-ground-night.webp",
+      "cardHash": "0a95423577313bd474b998ecff5f43e0b1a7fdec219c27e5955c06333a7e9f5f"
+    },
     "assets/greek-drama/chthonic-antigone.png": {
       "sourceHash": "965adf97fdabebed518a124ea9ad7c297278bfec55d438ccfc958c80f7d9f536",
       "stage": "assets/optimized/stage/png/greek-drama/chthonic-antigone.webp",
@@ -196,12 +203,26 @@
       "card": "assets/optimized/card/webp/greek-drama/city-gate-day.webp",
       "cardHash": "b90cba292440c7568c550d47111ca4cecdaab4cd9424f923551876304a3a82bd"
     },
+    "assets/greek-drama/city-gate-night.webp": {
+      "sourceHash": "7d9d444b4ea67db08df655e85199ee6b771dbd01f11f6e72ade4e8b000d990c6",
+      "stage": "assets/greek-drama/city-gate-night.webp",
+      "stageHash": "7d9d444b4ea67db08df655e85199ee6b771dbd01f11f6e72ade4e8b000d990c6",
+      "card": "assets/optimized/card/webp/greek-drama/city-gate-night.webp",
+      "cardHash": "d40ad19a310c3ec21c8311fca594a89879db99932c32787744529268b718c4d3"
+    },
     "assets/greek-drama/courtyard-day.webp": {
       "sourceHash": "c27b798ed993d2aa7bdfad03da26967556206fc86579934c595cbde93b1b0559",
       "stage": "assets/greek-drama/courtyard-day.webp",
       "stageHash": "c27b798ed993d2aa7bdfad03da26967556206fc86579934c595cbde93b1b0559",
       "card": "assets/optimized/card/webp/greek-drama/courtyard-day.webp",
       "cardHash": "fc5d303a29e6a342132a6bae7fd99ae420f6445d92d03de15f7e629795c43cc0"
+    },
+    "assets/greek-drama/courtyard-night.webp": {
+      "sourceHash": "6dcf726a179a71f9155ef947b4e7ef97a590becc4837e976c6f998004455c5e8",
+      "stage": "assets/greek-drama/courtyard-night.webp",
+      "stageHash": "6dcf726a179a71f9155ef947b4e7ef97a590becc4837e976c6f998004455c5e8",
+      "card": "assets/optimized/card/webp/greek-drama/courtyard-night.webp",
+      "cardHash": "0020335e7325188a8eed9ceb1be812613ca36e13d486ec6d131f342fb5bbeab4"
     },
     "assets/greek-drama/decree.png": {
       "sourceHash": "ed08e73661fcb7ed7f5cf653cfbb4c035784fdab0597b9f4de73eaf8ab9df877",
@@ -224,12 +245,26 @@
       "card": "assets/optimized/card/webp/greek-drama/harbor-day.webp",
       "cardHash": "1c55593282cbacc4b74fa0089fd83d768ee72476d3c9a2bc6f8b8030d6b32b41"
     },
+    "assets/greek-drama/harbor-open-berth-night.webp": {
+      "sourceHash": "aa3136f25c67ffe9717fad4d20a9f286fbdc5a111c6827baddf5eaf4aeca2f66",
+      "stage": "assets/greek-drama/harbor-open-berth-night.webp",
+      "stageHash": "aa3136f25c67ffe9717fad4d20a9f286fbdc5a111c6827baddf5eaf4aeca2f66",
+      "card": "assets/optimized/card/webp/greek-drama/harbor-open-berth-night.webp",
+      "cardHash": "5a94d36601da1839174e96a3fcba00df3eacd1b87920833462d54d801cc80c46"
+    },
     "assets/greek-drama/harbor-open-berth.webp": {
       "sourceHash": "c389d9f8c137134a51789d6145e18b48feea3d266ccfd4e8329f0ee0969ddd75",
       "stage": "assets/greek-drama/harbor-open-berth.webp",
       "stageHash": "c389d9f8c137134a51789d6145e18b48feea3d266ccfd4e8329f0ee0969ddd75",
       "card": "assets/optimized/card/webp/greek-drama/harbor-open-berth.webp",
       "cardHash": "a8975c0fb7ed6f24805b69d434d5983041b53e0f0ee07875ea076b8b70c98627"
+    },
+    "assets/greek-drama/harbor-ship-at-berth-night.webp": {
+      "sourceHash": "2593278fb2a66e5225bdf06794c32e832b6fb831fdbd406032ba6f7789f9f839",
+      "stage": "assets/greek-drama/harbor-ship-at-berth-night.webp",
+      "stageHash": "2593278fb2a66e5225bdf06794c32e832b6fb831fdbd406032ba6f7789f9f839",
+      "card": "assets/optimized/card/webp/greek-drama/harbor-ship-at-berth-night.webp",
+      "cardHash": "530b1bcba0f18b26708a829a843663811bb94aeaab8ce43ce779826e903abf8e"
     },
     "assets/greek-drama/harbor-ship-at-berth.webp": {
       "sourceHash": "f71d5f64371f50b37059f0929db3489b0f808696494c64078ad5fbe958e1f1d0",
@@ -251,6 +286,13 @@
       "stageHash": "ec31b6e5fafa30d070e705596f7714eaa1c0d779c6b29a01347b6b6bd8ef73dd",
       "card": "assets/optimized/card/webp/greek-drama/market-well-day.webp",
       "cardHash": "d5c47e607c99f97bb220e3ca03f39ba9d971ac005bca7aac826735734a6d5f11"
+    },
+    "assets/greek-drama/market-well-night.webp": {
+      "sourceHash": "738be7db249c2e294544957e64c084415b08f98ea09bde4d11da3ab2657c7f67",
+      "stage": "assets/greek-drama/market-well-night.webp",
+      "stageHash": "738be7db249c2e294544957e64c084415b08f98ea09bde4d11da3ab2657c7f67",
+      "card": "assets/optimized/card/webp/greek-drama/market-well-night.webp",
+      "cardHash": "641d08250fcb1a2fd8b71596f53448bcc7ae01fee4de235e7d1193b6afcd6a8e"
     },
     "assets/greek-drama/myrine.webp": {
       "sourceHash": "e507850aa9959a4d1fedf42eb6ba17d1b70e8a1c2b25799c033e7926bb6ae0ec",
@@ -364,6 +406,13 @@
       "card": "assets/optimized/card/webp/greek-drama/palace-day.webp",
       "cardHash": "82355ddabd22deb788e87d239bd29e17a1a1f47c2d8568772ed387bd0967ccac"
     },
+    "assets/greek-drama/palace-night.webp": {
+      "sourceHash": "6fef7d5cfcbd3c95f5f05395d95213a2b5760875487e37b98d2ffe5841abab06",
+      "stage": "assets/greek-drama/palace-night.webp",
+      "stageHash": "6fef7d5cfcbd3c95f5f05395d95213a2b5760875487e37b98d2ffe5841abab06",
+      "card": "assets/optimized/card/webp/greek-drama/palace-night.webp",
+      "cardHash": "60e9a23e399c7fc1ce8ae2802ea3050162bff993dfc3318809700ad5287aa1b7"
+    },
     "assets/greek-drama/pond-ship-overlay.png": {
       "sourceHash": "dde8685c9d694b49e81aac2cdf76415db9390224b5e35c624e15b5d89c170b55",
       "stage": "assets/optimized/stage/png/greek-drama/pond-ship-overlay.webp",
@@ -384,6 +433,13 @@
       "stageHash": "d287fe8287369ba786b26abe14d2adb1a9082cc7f6cffbed5f52654d863ffba2",
       "card": "assets/optimized/card/webp/greek-drama/sanctuary-dawn.webp",
       "cardHash": "5c58c654893f4805c8a4b3e6aac8f96f4325bfa47f1d6c90aaf0dbe07657707e"
+    },
+    "assets/greek-drama/sanctuary-night.webp": {
+      "sourceHash": "1db5b5b5f53c449710f1f1a29881d2449ef9cfda9ae378cbe7054d70b4ed5029",
+      "stage": "assets/greek-drama/sanctuary-night.webp",
+      "stageHash": "1db5b5b5f53c449710f1f1a29881d2449ef9cfda9ae378cbe7054d70b4ed5029",
+      "card": "assets/optimized/card/webp/greek-drama/sanctuary-night.webp",
+      "cardHash": "1c5958697946bfde08c6d0cf0628f715784b34316fd3f1f5dc0523035614487c"
     },
     "assets/greek-drama/ship-card.webp": {
       "sourceHash": "c7789a3163cbd45ac8cc9fccda27591f58d66c23dafb19e768545b68707fcd06",
