@@ -96,6 +96,7 @@ try {
           await step("wait");
       const before = await state();
       const action = openDoorAction(before, kind, target ? { target } : {});
+      await page.keyboard.press("Escape");
       await selectCard(page, action.cards[0] || "mara", {
         touch: width === 390,
       });

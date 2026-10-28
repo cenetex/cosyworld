@@ -1923,7 +1923,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "pack-schema.mjs" => "\"414ff33a89dcf7cb5b5bff49fb0adfd9748aad1a6c0a430b24f3f361eb3fc02a\"",
         "pack-registry.mjs" => {
-            "\"222a4db3feafb14743ac0ad66f7f0a9b66c21dde14ee2bf4483c37746c7864f6\""
+            "\"1701b3de365a3c99f4f9d2abc61b66ca755eff7805daf1796ce07b2884148a1c\""
         }
         "pack-sections.mjs" => {
             "\"1230a3aa14a8e17e9eedaeeaead6717b77650111e8179306ad5e2a2d925d0f32\""
@@ -1939,7 +1939,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
             "\"4a930efedb8e283404abf4e5d0345e9336384d10a4e6e4e0fe7b243e95b65500\""
         }
         "legacy-saves.mjs" => {
-            "\"9572574b2e840c6aeb489dd94591a9a6a69be8d9ad8a0a806a68c0ad222e59b4\""
+            "\"85d7a313bc6ef46f8eb1507702ab3873d55bb3fe13cc0494af6ba8c93eb8fa31\""
         }
         "forest.json" => "\"12a2be7877e4daff53d3d1ad27c1703b2ca10dff51e6f371a5b3d1a7975afdfe\"",
         "packs.json" => "\"609779ccb455ea3619fbf637dd925b8ade5613f7e3758a31306c56e645ae98a2\"",

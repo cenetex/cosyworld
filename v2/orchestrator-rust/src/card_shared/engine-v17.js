@@ -10532,10 +10532,14 @@
     )
   );
   var packPlaces = merge("places");
-  function localRoadEnds(id) {
-    const ends = packPlaces[id]?.road;
-    return ends?.every((end, i) => packPlaces[end]?.exits.includes(ends[1 - i])) ? ends : null;
-  }
+  var localRoads = new Map(
+    Object.entries(packPlaces).filter(
+      ([, place]) => place.road?.every(
+        (end, i) => packPlaces[end]?.exits.includes(place.road[1 - i])
+      )
+    ).map(([id, place]) => [id, place.road])
+  );
+  var localRoadEnds = (id) => localRoads.get(id) || null;
   var canonicalPlace = (id) => localRoadEnds(id)?.[0] || id;
   var transports = merge("transports");
   var packPeople = merge("avatars");
@@ -10653,7 +10657,7 @@
     return entityEnabled(world, id);
   }
   function entityEnabled(world, id, saved = false) {
-    if (canonicalPlace(id) !== id) return false;
+    if (localRoads.has(id)) return false;
     const e = packEntity(id);
     if (!e) return true;
     const pack = packDefinition(e.packId), state = packState(world, e.packId);
