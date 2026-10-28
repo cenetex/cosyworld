@@ -2659,7 +2659,11 @@ fn hoppycat_upgrade_keeps_released_history_and_replays_new_story_choices() {
         assert_saved_memories(&world.game["memories"], &old.game["memories"]);
         for field in ["packs", "crossings"] {
             for (key, saved) in old.game[field].as_object().unwrap() {
-                assert_eq!(&world.game[field][key], saved, "saved {field}/{key}");
+                let mut expected = saved.clone();
+                if field == "packs" && key == "greek-drama" {
+                    expected["revision"] = json!(6);
+                }
+                assert_eq!(world.game[field][key], expected, "saved {field}/{key}");
             }
         }
         assert_eq!(world.game["log"], old.game["log"]);

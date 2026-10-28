@@ -568,6 +568,9 @@ const needed = (s, actor, item) =>
 const accepts = (s, actor, item) =>
   (hasMotives(s) && valueOf(s, actor, item) >= 2) ||
   controlledByHuman(s, actor) ||
+  (item === "lamp" && !s.items.lamp.fuel && s.items.oil.doses > 0 &&
+    rootHolder(s, "oil") === actor && !staysPut(actor) &&
+    (s.actors[actor].place === "attic" || desireFor(s, actor).location === "attic")) ||
   bundle(s, item).some(
     (id) =>
       requiredItems(s, actor, desireFor(s, actor)).includes(id) &&
@@ -1953,6 +1956,11 @@ function toward(s, actor, target) {
   const actions = legalActions(s, actor);
   if (route)
     return actions.find((a) => a.kind === "move" && a.target === route[1]);
+  if (target === "attic" && !["attic", "pond", "station"].includes(here)) {
+    const approach = routeBetween(s, here, "pond", actor);
+    if (approach?.length > 1)
+      return actions.find((a) => a.kind === "move" && a.target === approach[1]);
+  }
   if (target !== "attic" && atticInterior.has(target) && !atticInterior.has(here))
     return toward(s, actor, "attic");
   // Reach a home threshold before tending its gate or taking its rescue path.
@@ -1986,6 +1994,12 @@ function toward(s, actor, target) {
     if (find("take", "oil")) return find("take", "oil");
     if (find("ask", "oil") && willingToGive(s, rootHolder(s, "oil"), "oil", actor))
       return find("ask", "oil");
+    const tender = rootHolder(s, "oil");
+    if (rootHolder(s, "lamp") === actor && !needed(s, actor, "lamp") &&
+      tender !== actor && s.actors[tender]?.place === here &&
+      !controlledByHuman(s, tender) && !staysPut(tender))
+      return actions.find((action) => action.kind === "give" &&
+        action.item === "lamp" && action.target === tender);
   }
   if (!s.items.lamp.lit && find("light", "lamp")) return find("light", "lamp");
   if (here === "station")
@@ -2087,6 +2101,9 @@ function basePlan(s, actor) {
       );
     }),
     hand = desireFor(s, actor);
+  const carryingPromise = hand.conditions?.some((condition) =>
+    condition.kind === "heldBy" && condition.avatar !== actor &&
+    s.items[condition.item]?.holder === actor);
   if (
     hasMotives(s) &&
     (!hasQuestPrograms(s) ||
@@ -2094,11 +2111,11 @@ function basePlan(s, actor) {
       stayingWith(s, actor) ||
       standoffFor(s, actor) ||
       s.peaceUntil[actor] > s.turn ||
-      actorIds.some(
+      (!carryingPromise && actorIds.some(
         (other) =>
           s.actors[other].place === s.actors[actor].place &&
           resentment(s, actor, other) > 0,
-      ))
+      )))
   )
     return socialPlan(s, actor, acts, {
       standoffFor,
@@ -2157,11 +2174,13 @@ function basePlan(s, actor) {
     rootHolder(s, "bell") === actor && s.items.bell.ringing && find("cover", "cloth", "bell"))
     return choose(find("cover", "cloth", "bell"), "Wrap the ringing bell.");
   // Prepare a closed route for this hand or a nearby traveler's ready hand.
-  const destinations = [...missing.map((id) => itemPlace(s, id)), hand.location,
-    ...hand.avatars.map((id) => s.actors[id].place),
-    ...knownActors(s).filter((id) => id !== actor && s.actors[id].place === here &&
+  const collecting = missing.some((item) => itemPlace(s, item) !== here &&
+    routeBetween(s, here, itemPlace(s, item), actor));
+  const destinations = [...missing.map((id) => itemPlace(s, id)),
+    ...(!collecting ? [hand.location, ...hand.avatars.map((id) => s.actors[id].place)] : []),
+    ...(!collecting ? knownActors(s).filter((id) => id !== actor && s.actors[id].place === here &&
       handStatus(s, id).items.every((item) => item.met))
-      .map((id) => desireFor(s, id).location)];
+      .map((id) => desireFor(s, id).location) : [])];
   for (const destination of new Set(destinations)) {
     if (!destination || destination === here || routeBetween(s, here, destination, actor)) continue;
     const prepare = toward(s, actor, destination);
@@ -2214,7 +2233,7 @@ function basePlan(s, actor) {
           !needed(s, actor, a.item),
       );
       if (trade) return choose(trade, reason);
-      if (hasMotives(s) && !willingToGive(s, owner, item, actor)) {
+      if (hasMotives(s) && actorIds.includes(owner) && !willingToGive(s, owner, item, actor)) {
         const help = acts.find((a) =>
           a.kind === "give" && a.target === owner && !needed(s, actor, a.item) &&
           (needed(s, owner, a.item) ||
@@ -2264,6 +2283,19 @@ function basePlan(s, actor) {
       }
     }
     if (!local) {
+      for (const crossing of routeBetween(s, here, itemPlace(s, item), actor) ? [] : crossings) {
+        if (crossing.transport || !actorCanVisit(actor, crossing.to, s) ||
+          !routeBetween(s, crossing.to, itemPlace(s, item), actor)) continue;
+        for (const gate of crossing.requires.filter((condition) =>
+          condition.kind === "item_present" && itemPlace(s, condition.item) !== condition.place)) {
+          const key = acquire(gate.item, seen);
+          if (key) return { ...key, reason: `Bring ${nameOf(gate.item)} to ${nameOf(gate.place)} to reach ${nameOf(item)}.` };
+          if (rootHolder(s, gate.item) === actor) {
+            const doorstep = toward(s, actor, gate.place);
+            if (doorstep) return choose(doorstep, `Bring ${nameOf(gate.item)} to ${nameOf(gate.place)}.`);
+          }
+        }
+      }
       const approach = toward(s, actor, itemPlace(s, item));
       return approach ? choose(approach, reason) : null;
     }

@@ -337,6 +337,9 @@ export function actorCanVisit(actor, place, world = null) {
   if (a ? destination?.packId === a.packId : !destination) return true;
   const home = a?.packId ?? null,
     target = destination?.packId ?? null;
+  if (crossings.some((crossing) => crossing.travelers === "any" &&
+    (packPlaces[crossing.from]?.packId ?? null) === home &&
+    (packPlaces[crossing.to]?.packId ?? null) === target)) return true;
   return Object.entries(transports).some(([id, t]) => {
     const domains = t.docks.map((dock) => packPlaces[dock]?.packId ?? null);
     return (

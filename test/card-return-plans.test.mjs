@@ -18,6 +18,123 @@ function commit(world, kind, fields = {}) {
 }
 
 describe("return journeys and fixed meetings", () => {
+  it("fetches the cottage key before recovering a lamp beyond its door", () => {
+    let world = createWorld();
+    world.turn = world.revision = 400;
+    world.actors.vale.place = world.actors.moth.place = "attic";
+    world.actors.keeper.place = "station";
+    world.actors.vale.progress = { program: 1, step: 1, marks: [1, 9, 66, 67] };
+    world.actors.keeper.progress = { program: 1, step: 1, marks: [9, 67, 70] };
+    world.items.lamp.holder = "forest-oak";
+    world.items.lamp.fuel = 0;
+    world.items.lamp.lit = false;
+    world.items.oil.holder = world.items.cloth.holder = "keeper";
+    world.items.bell.holder = "vale";
+    expect(plan(world).action).toMatchObject({ kind: "move", target: "pond" });
+    let recovered = false;
+    for (let turn = 0; turn < 80 && !recovered; turn++) {
+      const result = play(world, plan(world).action);
+      expect(result.ok).toBe(true);
+      recovered = result.state.items.lamp.holder === "vale";
+      world = result.state;
+    }
+    expect(recovered).toBe(true);
+    expect(world.items.lamp.history.some((line) => line.includes("Vale takes the Lamp"))).toBe(true);
+    expect(decodeSave(encodeSave(world))).toEqual(world);
+  });
+
+  it("shares a spare lamp with the traveler who carries the oil needed for their meeting", () => {
+    let world = createWorld();
+    world.turn = world.revision = 40;
+    for (const id of ["vale", "moth", "keeper"]) world.actors[id].place = "pond";
+    world.actors.vale.progress = { program: 0, step: 1, marks: [1] };
+    world.actors.moth.progress = { program: 0, step: 1, marks: [9] };
+    world.actors.keeper.progress = { program: 0, step: 0, marks: [] };
+    world.items.lamp.holder = "vale";
+    world.items.lamp.fuel = 0;
+    world.items.lamp.lit = false;
+    world.items.oil.holder = "moth";
+    world.items.oil.doses = 3;
+    world.actors.moth.trust.vale = 0;
+    world.items.bell.holder = "keeper";
+    world.items.cloth.holder = "pond";
+    expect(plan(world).action).toMatchObject({ kind: "give", item: "lamp", target: "moth" });
+    world = commit(world, "give", { item: "lamp", target: "moth" });
+    expect(world.items.lamp.holder).toBe("moth");
+    expect(world.items.lamp.fuel).toBeGreaterThan(0);
+    expect(world.items.oil.doses).toBe(2);
+  });
+
+  it("delivers an active promise while keeping the giver's grievance", () => {
+    const world = enableMotives(createWorld(), { questPrograms: true });
+    world.turn = world.revision = 20;
+    world.actors.vale.place = "pond";
+    world.actors.moth.place = world.actors.keeper.place = "station";
+    world.items.oil.holder = "keeper";
+    world.actors.keeper.progress = {
+      program: 2, step: 0, marks: [1, 2, 3, 4], completedHands: 4, recent: [],
+    };
+    const program = generateProgram(world, "keeper", places, things);
+    program.steps = [{ items: [], location: "station", avatars: ["moth"],
+      conditions: [{ kind: "heldBy", item: "oil", avatar: "moth" }] }];
+    world.actors.keeper.progress.current = program;
+    const grievance = {
+      other: "moth", kind: "pestering", reason: "Pip kept asking for the same belongings.",
+      turn: world.turn, weight: 2,
+    };
+    world.motives.grievances.keeper = [grievance];
+    world.peaceUntil.moth = world.turn + 3;
+    const action = plan(world, "keeper").action;
+    expect(action).toMatchObject({ kind: "give", item: "oil", target: "moth" });
+    const result = play(world, legalActions(world).find((entry) => entry.kind === "wait"));
+    expect(result.ok).toBe(true);
+    expect(result.state.items.oil.holder).toBe("moth");
+    expect(result.state.motives.grievances.keeper).toContainEqual(grievance);
+    expect(decodeSave(encodeSave(result.state))).toEqual(result.state);
+  });
+
+  it("makes room for a needed floor item through ordinary item plays", () => {
+    const world = enableMotives(createWorld(), { questPrograms: true });
+    world.turn = world.revision = 40;
+    world.actors.moth.place = "hoppycat-meraki-atelier";
+    world.actors.moth.progress = { program: 1, step: 0, marks: [9, 31] };
+    for (const item of ["lamp", "oil", "bell"]) world.items[item].holder = "moth";
+    world.items.cloth.holder = "hoppycat-meraki-atelier";
+    const action = plan(world, "moth").action;
+    expect(action.kind).toBe("drop");
+    expect(["lamp", "oil", "bell"]).toContain(action.item);
+  });
+
+  it("reaches the pond threshold before tending a closed attic from another region", () => {
+    const world = createWorld();
+    world.turn = world.revision = 40;
+    world.actors.vale.place = "hoppycat-context-greenhouse";
+    world.actors.vale.progress = { program: 0, step: 1, marks: [2] };
+    world.items.oil.holder = "vale";
+    world.items.lamp.holder = "moth";
+    world.items.lamp.fuel = 0;
+    world.items.lamp.lit = false;
+    expect(plan(world).action).toMatchObject({
+      kind: "move", target: "hoppycat-open-record-cathedral",
+    });
+  });
+
+  it("collects a reachable cloth before preparing its later attic meeting", () => {
+    const world = createWorld();
+    world.turn = world.revision = 40;
+    world.actors.moth.place = "pond";
+    world.actors.keeper.place = "station";
+    world.actors.moth.progress = { program: 1, step: 0, marks: [9, 31] };
+    world.items.lamp.holder = world.items.oil.holder = "moth";
+    world.items.lamp.fuel = 0;
+    world.items.lamp.lit = false;
+    world.items.oil.doses = 1;
+    world.items.cloth.holder = "hoppycat-meraki-atelier";
+    expect(plan(world, "moth").action).toMatchObject({
+      kind: "move", target: "hoppycat-halfway-tea-garden",
+    });
+  });
+
   it("refills a carried lamp before a local bargain holds the attic closed", () => {
     let world = createWorld();
     world.turn = world.revision = 40;

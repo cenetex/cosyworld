@@ -13,6 +13,8 @@ fn boardy_talk(view: &Value) -> Option<Value> {
 #[test]
 fn boardy_follows_authenticated_presence_in_the_c_host() {
     let mut world = World::create(None).unwrap();
+    // The closed attic keeps this presence check in one room.
+    world.game["actors"]["vale"]["place"] = json!("attic");
     world.game["actors"]["boardyai"]["place"] = world.game["actors"]["vale"]["place"].clone();
     for actor in ["vale", "mara"] {
         world.apply(&json!({"op":"claim", "actor":actor})).unwrap();
@@ -134,7 +136,28 @@ fn assert_boardy_upgrade(version: &str) {
 
 #[test]
 fn boardy_searches_and_alternates_visits_in_the_c_host() {
-    let mut world = World::create(None).unwrap();
+    assert_boardy_search_visits(
+        World::create(None).unwrap(),
+        ["pond", "station", "pond", "station", "pond", "station"],
+    );
+}
+
+#[test]
+fn released_boardy_searches_with_the_original_station_door() {
+    let seed = engine::reduce_version(engine::SEVENTEENTH_VERSION, json!({"op":"create"})).unwrap();
+    let world = World {
+        version: engine::SEVENTEENTH_VERSION.into(),
+        game: seed["world"].clone(),
+        claimed: [0; 8],
+        present: [0; 8],
+    };
+    assert_boardy_search_visits(
+        world,
+        ["station", "attic", "station", "pond", "station", "pond"],
+    );
+}
+
+fn assert_boardy_search_visits(mut world: World, expected: [&str; 6]) {
     world.game.as_object_mut().unwrap().remove("opening");
     world.game["actors"]["vale"]["place"] = json!("station");
     world.game["actors"]["mara"]["place"] = json!("pond");
@@ -164,10 +187,7 @@ fn boardy_searches_and_alternates_visits_in_the_c_host() {
         assert_eq!(world.game["actors"]["vale"]["place"], "station");
         assert_eq!(world.game["actors"]["mara"]["place"], "pond");
     }
-    assert_eq!(
-        path,
-        ["station", "attic", "station", "pond", "station", "pond"]
-    );
+    assert_eq!(path, expected);
     assert_eq!(
         world.game["memories"]["boardyai"]["seen"]["mara"]["place"],
         "pond"
