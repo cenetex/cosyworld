@@ -63,9 +63,7 @@ describe("House of Blood source and journeys", () => {
       for (const id of ledger.added[kind]) expect(ids).toContain(id);
     }
     expect(
-      pack.recital.verses.filter((verse) =>
-        verse.choice.startsWith("greek-v-"),
-      ),
+      pack.recital.verses.filter((verse) => verse.choice.startsWith("greek-v-")),
     ).toHaveLength(ledger.totals.verses - old.recital.verses.length);
   });
 
