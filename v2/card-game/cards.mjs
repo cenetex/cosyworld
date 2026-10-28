@@ -1,6 +1,6 @@
 import { hasMotives, tradeDecision, interest } from "./motives.mjs";
 import { desireFor } from "./quests.mjs";
-import { entityActive, packThings } from "./pack-registry.mjs";
+import { entityActive, packThings, packDefinitions } from "./pack-registry.mjs";
 import {
   currentActor,
   places,
@@ -66,8 +66,18 @@ export function avatarPlays(world, id) {
 }
 export function cardChoices(world, id) {
   if (!availableCards(world).includes(id)) return [];
+  const spokenChoices = new Set(
+    packDefinitions.flatMap((pack) =>
+      (pack.topics || []).flatMap((topic) =>
+        topic.choiceId ? [topic.choiceId] : [],
+      ),
+    ),
+  );
   return legalActions(world).filter(
-    (a) => a.target === id && (a.kind === "choose" || Boolean(a.fixture)),
+    (a) =>
+      a.target === id &&
+      (a.kind === "choose" || Boolean(a.fixture)) &&
+      !spokenChoices.has(a.choiceId),
   );
 }
 

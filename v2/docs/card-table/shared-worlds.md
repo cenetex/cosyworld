@@ -182,7 +182,7 @@ Completing the active quest begins a rest at a place marked `sanctuary: true`.
 The station and attic are sanctuaries. Human rest counts that person's own turns
 in a shared world. Resident rest counts world rounds.
 
-The shared interpreter builder writes `engine-v11.js`. Earlier interpreters stay
+The shared interpreter builder writes `engine-v17.js`. Earlier interpreters stay
 frozen. Upgrade tests cover checkpoints, journal-only rebuilds, saved drops,
 quest hand limits, and completion receipts.
 
@@ -306,3 +306,22 @@ learned routes through their current road and ship scenes. Myrine's coast
 journey uses two Accompany plays. Versions 13, 14 and 15 keep their released
 bytes. The builder writes `engine-v16.js`; older journals replay with the
 recorded rules before the saved upgrade.
+
+## Quest core and spoken knowledge
+
+Shared rules version 17 uses common step capture and advancement for personal
+and shared quests. Each saved step keeps its evidence, source turn and card key.
+Repeated checks in one turn preserve the single-step and single-effect rules.
+
+Packs supply story cards and ordered endings through `storyQuests`. Greece uses
+this common evaluator, including its earlier choices, grave return, Open Door
+and Homecoming. Existing cards retain their keys, holders and completion turns.
+
+Talk may share one fact from an authored topic or the speaker's saved knowledge.
+The accepted line must contain the complete fact sentence. Publication records
+the listener, teller and original Talk event, then checks quest progress. A retry
+uses that saved exchange. The speech command carries its disclosure through the
+world journal, so checkpoint recovery and journal replay produce the same facts.
+
+Versions 2 through 16 retain their released interpreters. Loading an earlier
+world records an upgrade to version 17 with its prior progress and receipts.

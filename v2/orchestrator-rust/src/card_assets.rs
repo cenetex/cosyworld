@@ -320,6 +320,10 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/quest-offers.mjs"),
         ),
+        "quest-progress.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/quest-progress.mjs"),
+        ),
         "quest-hands.mjs" => (
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/quest-hands.mjs"),
@@ -1820,7 +1824,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "scene-video.css" => "\"3c6851ec825e734e3d8a084f4ed77f077bcb4402acbf61869a67b652c3afe4c5\"",
         "awakening.css" => "\"c7a68a23baf1e46934237a57f4b5f87d76bad87af85fdf57ee40abec646908b9\"",
         "app.mjs" => "\"1b992311073bec985ce78d4a6395cad5d5597dd2721cff0d1687a7c00b85103f\"",
-        "world.mjs" => "\"2cdf7bbc9db556670de9c055c118717c259547cacc5a494be2a7f43772693522\"",
+        "world.mjs" => "\"8fa686c28ce14be9aa8aa5c8e35fa1dafd383429c7500e68eea8a3868191d774\"",
         "scene.mjs" => "\"aba97eb70f26e75c9eaa4bcf71e3d8130f8bc5efc3df2b1a2567022959879d87\"",
         "weather.mjs" => "\"69a3e11642c43831f80581711f6113d814badd666ad2c3e3892a1a4c70a5fd27\"",
         "daylight.mjs" => "\"6e1bbbf92705e5e2ed904ca98666540ab9a91916c94e50749e649a0ba380170d\"",
@@ -1855,13 +1859,16 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "portrait-facing.mjs" => {
             "\"5cf323214a088c32a8dc0db977e10b8e4e37fe3ea2c25523783ddb553694b32c\""
         }
-        "cards.mjs" => "\"d830242dc06693e8a0327f41a5b56e8ff8d5f2f054e47716e420131e79aee2f0\"",
+        "cards.mjs" => "\"3030ffbcefcee8ddd5e2d48720edfffac5857e4e9bc37b694c0b34edd71604f7\"",
         "lessons.mjs" => "\"d356ccfd6d4bb622ea7e325ebae519f3ff37433013b04874f07f83865b883705\"",
         "motives.mjs" => "\"9e8b5b84a9a21761074c524f9295febaf1e03b92342f324a41e364c4d34950f1\"",
         "life.mjs" => "\"96bacb8052c8b77e11eb733edfe075f25f2e6e38ceb8f153280f4d974cb74c5c\"",
         "quests.mjs" => "\"ed09e244bea8986711df18b05baf9b376325afefc2ec111bc3f2cfc43c8b879d\"",
         "quest-offers.mjs" => {
             "\"6f0ef71f7042254df8b93dde9c928c44e5ac5914f32acfee02617668dd7b4873\""
+        }
+        "quest-progress.mjs" => {
+            "\"22073763c4479d882037c32d6c91a8f456b8094655d78f7687106fe6ec5a0716\""
         }
         "quest-hands.mjs" => "\"c7692977dd2195a1b19ace9724ed1dd344b8cf69fb59b1f2a652d98f89bfe2c4\"",
         "shared-quests.mjs" => {

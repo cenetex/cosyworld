@@ -37,7 +37,10 @@ import {
   applyGeneratedText,
   narrativeContext,
 } from "../v2/card-game/narrative.mjs";
-import { conditionsMet } from "../v2/card-game/pack-registry.mjs";
+import {
+  conditionsMet,
+  packDefinition,
+} from "../v2/card-game/pack-registry.mjs";
 
 import {
   questCards,
@@ -132,9 +135,18 @@ const take = (world, item) => act(world, "take", { item });
 function choose(world, choiceId) {
   const action = legalActions(world).find((a) => a.choiceId === choiceId);
   expect(action, `choice ${choiceId}`).toBeTruthy();
-  expect(cardChoices(world, action.cards[0]).map((a) => a.choiceId)).toContain(
-    choiceId,
+  const topic = packDefinition(PACK).topics?.find(
+    (topic) => topic.choiceId === choiceId,
   );
+  const choices = cardChoices(world, action.cards[0]).map((a) => a.choiceId);
+  if (topic) {
+    expect(choices).not.toContain(choiceId);
+    expect(
+      legalActions(world).some(
+        (a) => a.kind === "talk" && a.target === topic.speaker,
+      ),
+    ).toBe(true);
+  } else expect(choices).toContain(choiceId);
   const result = play(world, action);
   expect(result.ok, result.error).toBe(true);
   return result.state;

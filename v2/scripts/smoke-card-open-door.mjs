@@ -17,7 +17,7 @@ import {
   openDoorInvitation,
   openDoorSteps,
 } from "../../test/helpers/open-door.mjs";
-import { selectCard } from "./card-browser-helpers.mjs";
+import { selectCard, topicForChoice } from "./card-browser-helpers.mjs";
 
 export async function checkOpenDoor(browser, origin) {
   const output = new URL("../../output/open-door/", import.meta.url);
@@ -81,7 +81,9 @@ export async function checkOpenDoor(browser, origin) {
             model: "open-door-browser-fixture",
             entries: input.entities.map(({ id }) => ({
               id,
-              text: "I will keep your words in mind.",
+              text:
+                input.disclosures?.find((fact) => fact.speaker === id)?.text ||
+                "I will keep your words in mind.",
             })),
           },
         });
@@ -150,14 +152,19 @@ export async function checkOpenDoor(browser, origin) {
             await step({ kind: "wait" });
         }
         const before = await state();
-        const action = openDoorAction(before, kind, fields);
+        const topic = topicForChoice(fields.choiceId);
+        const action = topic
+          ? openDoorAction(before, "talk", { target: topic.speaker })
+          : openDoorAction(before, kind, fields);
         const id = action.cards?.[0] || action.item || action.target || "vale";
         await selectCard(page, id, { touch: width === 390 });
         if (kind === "drop")
           await selectCard(page, fields.target, { touch: width === 390 });
-        const selector = fields.choiceId
-          ? `#card-actions [data-choice="${fields.choiceId}"]`
-          : `#card-actions [data-action="${kind}"]`;
+        const selector = topic
+          ? `#card-actions [data-action="talk"]`
+          : fields.choiceId
+            ? `#card-actions [data-choice="${fields.choiceId}"]`
+            : `#card-actions [data-action="${kind}"]`;
         await page.locator(selector).first().click();
         await settle();
         const after = await state();

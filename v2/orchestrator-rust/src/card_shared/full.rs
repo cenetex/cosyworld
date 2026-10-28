@@ -501,6 +501,7 @@ pub(super) fn finish_work(
                 id,
                 &mut w,
                 json!({"op":"speech","actor":actor_id(work.actor),"room":work.room,"lines":lines,
+                    "disclosures":scene["context"]["disclosures"],
                     "entries":lines.as_array().into_iter().flatten().filter(|line| line["reflection"].is_object()).map(|line| json!({"id":line["entityId"],"model":line["model"],"reflection":line["reflection"]})).collect::<Vec<_>>()}),
                 time,
             )?;

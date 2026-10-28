@@ -1,3 +1,11 @@
+import { packDefinitions } from "../card-game/pack-registry.mjs";
+
+export const topicForChoice = (choiceId) =>
+  choiceId &&
+  packDefinitions
+    .flatMap((pack) => pack.topics || [])
+    .find((topic) => topic.choiceId === choiceId);
+
 // Use the same holder reveal and selection gestures as a player.
 export async function revealCard(page, id) {
   const card = page.locator(`#hand [data-card="${id}"]`);

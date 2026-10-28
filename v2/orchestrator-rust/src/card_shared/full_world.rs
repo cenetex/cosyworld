@@ -95,6 +95,7 @@ impl World {
                 engine::THIRTEENTH_VERSION,
                 engine::FOURTEENTH_VERSION,
                 engine::FIFTEENTH_VERSION,
+                engine::SIXTEENTH_VERSION,
                 engine::VERSION,
             ];
             let allowed = versions
@@ -130,6 +131,7 @@ impl World {
             engine::THIRTEENTH_VERSION,
             engine::FOURTEENTH_VERSION,
             engine::FIFTEENTH_VERSION,
+            engine::SIXTEENTH_VERSION,
         ]
         .contains(&self.version.as_str())
         {
@@ -170,6 +172,7 @@ impl World {
                 request["lines"] = command["lines"].clone();
                 request["room"] = command["room"].clone();
                 request["entries"] = command["entries"].clone();
+                request["disclosures"] = command["disclosures"].clone();
                 let result = engine::reduce_version(&self.version, request)?;
                 next.game = result["world"].clone();
                 // Committed text can finish after its speaker disconnects.

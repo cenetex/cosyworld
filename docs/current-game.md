@@ -19,6 +19,9 @@ running version and `primary_game` at each site's `/meta`.
 | Pack connections to the shore | `v2/worlds/<selected-pack>/card-bridge.json` |
 | Compiled card packs | `v2/card-game/packs.json`, built by `build-card-worldpacks.mjs` |
 | Runtime pack and avatar lookup | `v2/card-game/pack-registry.mjs` |
+| Quest step evidence and completion | `v2/card-game/quest-progress.mjs` |
+| Pack story cards | `storyQuests` in each card pack, read by `v2/card-game/story-quests.mjs` |
+| Learned facts and Talk topics | `v2/card-game/knowledge.mjs` and each card pack's `topics` |
 | Dialogue service | `v2/orchestrator-rust/src/card_narrative.rs` and its modules |
 | Shared rules and current version | `v2/orchestrator-rust/src/card_shared/engine.rs` |
 | Public asset list | `v2/card-game/public-assets.mjs` |

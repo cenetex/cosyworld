@@ -25,6 +25,8 @@ mod atmosphere;
 pub(crate) mod browser;
 #[path = "card_narrative/custody.rs"]
 mod custody;
+#[path = "card_narrative/knowledge.rs"]
+mod knowledge;
 #[path = "card_narrative/observations.rs"]
 mod observations;
 #[path = "card_narrative/recital.rs"]
@@ -403,6 +405,8 @@ struct Context {
     conversation: Vec<SpokenLine>,
     #[serde(default)]
     outcome: Option<TurnOutcome>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    disclosures: Vec<knowledge::Disclosure>,
 }
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -428,6 +432,7 @@ fn valid(context: &Context) -> bool {
         && ids.len() == context.entities.len()
         && context.outcome.as_ref().is_none_or(valid_outcome)
         && observations::valid(context)
+        && knowledge::valid(context)
         && context.events.len() <= 8
         && context.events.iter().all(|text| bounded(text, 650))
         && context.conversation.len() <= 4
@@ -1254,6 +1259,7 @@ fn known(context: &Context) -> BTreeSet<String> {
     .concat()
     .into_iter()
     .chain(context.entities.iter().flat_map(|e| e.facts.iter()))
+    .chain(context.disclosures.iter().map(|d| &d.text))
     .chain(
         context
             .entities
@@ -1393,6 +1399,9 @@ fn transcript(context: &Context, entity: &Entity, part: Part) -> String {
             && (fact.starts_with("Just arrived from ") || fact.starts_with("Leaving "))
     };
     lines.extend(entity.facts.iter().filter(|f| !restated(f)).cloned());
+    if part == Part::Line {
+        lines.extend(knowledge::directions(context, id));
+    }
     for fact in observations::facts(context)
         .as_array()
         .into_iter()
@@ -1741,6 +1750,7 @@ const ASSISTANT_SPEAK: &[&str] = &[
 struct Check<'a> {
     context: &'a Context,
     entity: &'a Entity,
+    part: Part,
     limit: usize,
     sentences: usize,
     known: BTreeSet<String>,
@@ -1785,6 +1795,7 @@ impl<'a> Check<'a> {
         Self {
             context,
             entity,
+            part,
             limit,
             sentences,
             known: known(context),
@@ -1905,6 +1916,9 @@ impl<'a> Check<'a> {
         if !bounded(&kept, self.limit) {
             return Err("shape");
         }
+        if self.part == Part::Line && !knowledge::delivered(self.context, &self.entity.id, &kept) {
+            return Err("knowledge_fact");
+        }
         if !observations::consistent(&kept, self.context) {
             return Err("observable_state");
         }
@@ -1936,13 +1950,19 @@ impl<'a> Check<'a> {
                 .map(str::to_string)
                 .collect::<Vec<_>>()
         };
+        let freely_spoken = if self.part == Part::Line {
+            knowledge::other_words(self.context, &self.entity.id, &kept)
+        } else {
+            kept.clone()
+        };
         let key = words(&kept).concat();
+        let sharing = freely_spoken != kept;
         let earned_quote = recital::earned_quote(&kept, self.entity.poem.as_ref());
         if !earned_quote
             && self.examples.iter().any(|line| {
                 let example = words(line);
-                words(line).concat() == key
-                    || words(&kept)
+                (!sharing && words(line).concat() == key)
+                    || words(&freely_spoken)
                         .windows(6)
                         .any(|run| example.windows(6).any(|other| other == run))
             })
@@ -1965,15 +1985,15 @@ impl<'a> Check<'a> {
                 .conversation
                 .iter()
                 .any(|line| words(&line.text).concat() == key);
-        if repeats && !earned_quote {
+        if repeats && !earned_quote && !sharing {
             return Err("repeat");
         }
         // A character speaks as "I"; a line that names its speaker in the
         // third person ("Vale's eyes flick to Pip") is narration.
-        if kind(&self.entity.id, "avatar") && mentions(&kept, &own) {
+        if kind(&self.entity.id, "avatar") && mentions(&freely_spoken, &own) {
             return Err("self-narration");
         }
-        let spoken = words(&kept);
+        let spoken = words(&freely_spoken);
         if self.labels.iter().any(|label| kept.contains(label))
             || (!earned_quote
                 && self.brief.iter().any(|line| {

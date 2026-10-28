@@ -11,7 +11,7 @@ import {
   openDoorInvitation,
 } from "../../test/helpers/open-door.mjs";
 import { homecomingSteps } from "../../test/helpers/greek-homecoming.mjs";
-import { selectCard } from "./card-browser-helpers.mjs";
+import { selectCard, topicForChoice } from "./card-browser-helpers.mjs";
 
 const output = new URL("../../output/greek-homecoming/", import.meta.url);
 await mkdir(output, { recursive: true });
@@ -64,7 +64,9 @@ try {
           model: "homecoming-browser-fixture",
           entries: input.entities.map(({ id }) => ({
             id,
-            text: "I have brought my own words home.",
+            text:
+              input.disclosures?.find((fact) => fact.speaker === id)?.text ||
+              "I have brought my own words home.",
           })),
         },
       });
@@ -194,7 +196,10 @@ try {
           await step({ kind: "wait" });
       }
       const before = await state();
-      const action = openDoorAction(before, kind, fields);
+      const topic = topicForChoice(fields.choiceId);
+      const action = topic
+        ? openDoorAction(before, "talk", { target: topic.speaker })
+        : openDoorAction(before, kind, fields);
       const cards = action.cards?.length
         ? action.cards
         : [action.item || action.target || "vale"];
@@ -202,9 +207,11 @@ try {
         cards.push(fields.target);
       for (const id of [...new Set(cards)])
         await selectCard(page, id, { touch: width === 390 });
-      const selector = fields.choiceId
-        ? `#card-actions [data-choice="${fields.choiceId}"]`
-        : `#card-actions [data-action="${kind}"]`;
+      const selector = topic
+        ? `#card-actions [data-action="talk"]`
+        : fields.choiceId
+          ? `#card-actions [data-choice="${fields.choiceId}"]`
+          : `#card-actions [data-action="${kind}"]`;
       await page.locator(selector).first().click();
       await settle();
       const after = await state();

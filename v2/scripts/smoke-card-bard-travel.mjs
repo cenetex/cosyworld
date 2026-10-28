@@ -95,9 +95,10 @@ try {
             entries: input.entities.map(({ id }) => ({
               id,
               text:
-                id === singer
+                input.disclosures?.find((fact) => fact.speaker === id)?.text ||
+                (id === singer
                   ? "The choice beside the wall has given my song a quieter turn."
-                  : "The words remain with us.",
+                  : "The words remain with us."),
             })),
           },
         });
@@ -134,7 +135,7 @@ try {
       );
       await settle();
       await selectCard(page, "greek-guard");
-      await page.locator('[data-choice="greek-hear-decree"]').click();
+      await page.locator('[data-action="talk"]').click();
       await reachTurn(1);
       assert.equal((await saved()).actors[singer].place, "greek-harbor");
       await selectCard(page, "greek-antigone");
