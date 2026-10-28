@@ -1283,6 +1283,7 @@
     const gathering = boardyGathering(world);
     return [
       "My lasting quest is to bring two human players together in the same room.",
+      "My home is BoardyAI's Parlour. My calling card opens its door at Empty station.",
       ...connectedHumans(world).map(
         (id) => `${nameOf2(id)} is a connected human at ${nameOf2(world.actors[id].place)}.`
       ),

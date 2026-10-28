@@ -55,6 +55,7 @@ export function boardyFacts(world, nameOf) {
   const gathering = boardyGathering(world);
   return [
     "My lasting quest is to bring two human players together in the same room.",
+    "My home is BoardyAI's Parlour. My calling card opens its door at Empty station.",
     ...connectedHumans(world).map(
       (id) =>
         `${nameOf(id)} is a connected human at ${nameOf(world.actors[id].place)}.`,

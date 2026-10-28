@@ -126,6 +126,9 @@ describe("BoardyAI's lasting quest", () => {
     expect(boardy.facts.join(" ")).toContain(
       "My active purpose is Two humans together",
     );
+    expect(boardy.facts.join(" ")).toContain(
+      "My calling card opens its door at Empty station",
+    );
   });
 
   it("keeps a guest's carried items with his visible presence", () => {

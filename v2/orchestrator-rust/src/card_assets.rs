@@ -1600,7 +1600,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
             "\"d33acfa50480968d23f0ef43440f104ed8abdeeb0519a6504afcdbf1507ebd6e\""
         }
         "human-cast.mjs" => "\"925cddac4e0340e9620ca81118e1535323564787194df0fa4dfe1b74825d7152\"",
-        "boardyai.mjs" => "\"36e314149ca8cbcb6c5c4b749567a7a90a0eac21118d447b54f52804105140b6\"",
+        "boardyai.mjs" => "\"97ecdcdb2134d9083b52262e73748b4036542b4e9587b8d4b57c125241b19cd4\"",
         "boardyai.json" => "\"af0d968fa961db126e218f8e90bc7f18c62499c8c5a9188cd5a7f23afbecaa5e\"",
         "assets/greek-drama/harbor-day.webp" => {
             "\"b535244774382afc8a6440e292f1c51698375717d4473f3c70b5c16fff3e4425\""
