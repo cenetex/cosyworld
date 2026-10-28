@@ -1,7 +1,11 @@
 import { recordRecital, recitalVisit, validRecitals } from "./pack-recital.mjs";
 import { boardyPack, BOARDY, boardyActive } from "./boardyai.mjs";
 import { sectionAllows } from "./pack-sections.mjs";
-import { journeyNextPlace, validJourneyPlaces } from "./pack-journeys.mjs";
+import {
+  journeyNextPlace,
+  independentJourneyNextPlace,
+  validJourneyPlaces,
+} from "./pack-journeys.mjs";
 // The compiled world packs mounted on the card table, indexed for the engine.
 // Packs supply data only; pack-rules.mjs applies the general rules they name.
 import compiled from "./packs.json" with { type: "json" };
@@ -172,6 +176,8 @@ export const roamingQuestActor = (id) =>
 export const staysPut = (id) => packPeople[id]?.travels === false;
 export const packJourneyDestination = (world, id) =>
   journeyNextPlace(world, packOf(id), id);
+export const packIndependentJourneyDestination = (world, id) =>
+  independentJourneyNextPlace(world, packOf(id), id);
 export const avoidsStandoffs = (id) => packPeople[id]?.standoffs === false;
 export const fixturesAt = (place) =>
   Object.entries(packFixtures)

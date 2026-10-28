@@ -345,6 +345,13 @@ agreements must write distinct values of one shared saved choice, so the
 resident follows the selected path. Save validation accepts exactly one
 recorded agreement for a traveling resident.
 
+A journey can set `independent: true` for an agreed departure while the human
+stays ashore. Its path includes a declared vessel. The resident takes one
+ordinary legal move per turn and carries their actual belongings. They wait
+for the vessel at its saved dock. A human aboard chooses the shared arrival
+first. The resident steps ashore when that arrival matches the agreed path.
+After arrival they remain at the path's end. The other journeys use Accompany.
+
 When a human waits at a port, an empty ship advances through its open docks.
 An occupied ship keeps its voyage and passengers. Reload restores that same
 position, destination, and waiting party.

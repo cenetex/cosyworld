@@ -894,7 +894,9 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     for (const [index, journey] of options.entries()) {
       const agreement = agreements[index];
       check(
-        keysOk(journey, ["after", "path"]) &&
+        keysOk(journey, ["after", "path", "independent"]) &&
+          (journey.independent === undefined ||
+            typeof journey.independent === "boolean") &&
           !hub.avatars.includes(id) &&
           avatar.travels === false &&
           avatar.roamingQuest === undefined &&
@@ -905,6 +907,10 @@ export function packProblems(pack, hub, mountedPlaces = []) {
           new Set(journey.path).size === journey.path.length &&
           journey.path[0] === avatar.place &&
           journey.path.every((place) => owns(places, place)) &&
+          (journey.independent !== true ||
+            Object.values(pack.transports || {}).some((transport) =>
+              journey.path.includes(transport.place),
+            )) &&
           journey.path.slice(1).every((to, i) => {
             const from = journey.path[i];
             return (

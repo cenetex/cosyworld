@@ -1,4 +1,4 @@
-// An agreed journey uses the ordinary Accompany action, one road at a time.
+// An agreed journey uses ordinary movement, one edge at a time.
 // The resident's saved place is the current step; arrival keeps them there.
 export const journeyOptions = (journey) =>
   Array.isArray(journey) ? journey : journey ? [journey] : [];
@@ -14,6 +14,13 @@ export function journeyNextPlace(world, pack, id) {
   const journey = agreed[0];
   const step = journey.path.indexOf(world.actors[id]?.place);
   return step < 0 ? null : journey.path[step + 1] || null;
+}
+
+export function independentJourneyNextPlace(world, pack, id) {
+  const agreed = agreedJourneys(world, pack, id);
+  return agreed.length === 1 && agreed[0].independent === true
+    ? journeyNextPlace(world, pack, id)
+    : null;
 }
 
 export function validJourneyPlaces(world, pack) {

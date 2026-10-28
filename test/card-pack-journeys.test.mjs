@@ -74,6 +74,23 @@ function alternateJourney() {
   packPeople[resident].journey = options;
   return { alternate, options, key };
 }
+function independentSail() {
+  const journey = {
+    after: agreement,
+    path: [
+      "greek-courtyard",
+      "greek-harbor",
+      "greek-ship",
+      "greek-athens-harbor",
+    ],
+    independent: true,
+  };
+  pack.avatars[resident].journey = journey;
+  packPeople[resident].journey = journey;
+  const world = fixture();
+  world.crossings["pond-greek-harbor"].discovered = true;
+  return world;
+}
 const accompany = (world) =>
   legalActions(world).filter(
     (a) => a.kind === "accompany" && a.target === resident,
@@ -286,5 +303,59 @@ describe("agreed resident journeys", () => {
     world.packs[pack.id].receipts[alternate] = world.turn;
     expect(validatePackStates(world)).toBe(false);
     expect(accompany(world)).toEqual([]);
+  });
+
+  it("lets a consenting resident make the actual voyage while the human stays ashore", () => {
+    let world = independentSail();
+    expect(packProblems(pack, hub, mountedPlaces)).toEqual([]);
+    world.items["greek-water-jar"].holder = resident;
+    for (let turn = 0; turn < 3; turn++) world = act(world, "wait");
+    expect(world.actors[resident].place).toBe("greek-courtyard");
+    world = act(world, "choose", { choiceId: agreement });
+    for (let turn = 0; turn < 5; turn++) {
+      world = act(world, "wait");
+      world = decodeSave(encodeSave(world));
+      expect(world.actors.vale.place).toBe("greek-courtyard");
+    }
+    expect(world.actors[resident].place).toBe("greek-athens-harbor");
+    expect(itemPlace(world, "greek-water-jar")).toBe("greek-athens-harbor");
+    expect(world.transports["greek-ship"].dock).toBe("greek-athens-harbor");
+    expect(
+      world.log
+        .filter((event) => event.actorId === resident && event.verb === "move")
+        .map((event) => event.targetId),
+    ).toEqual(["greek-harbor", "greek-ship", "greek-athens-harbor"]);
+    expect(plan(world, resident).action.kind).toBe("wait");
+  });
+
+  it("keeps an independent passenger aboard until the human chooses the agreed port", () => {
+    let world = act(independentSail(), "choose", { choiceId: agreement });
+    world = act(world, "move", { target: "greek-harbor" });
+    expect(world.actors[resident].place).toBe("greek-ship");
+    world = act(world, "move", { target: "greek-ship" });
+    world = act(world, "move", { target: "greek-piraeus" });
+    expect(world.actors[resident].place).toBe("greek-ship");
+    expect(plan(world, resident).action.kind).toBe("wait");
+    world = decodeSave(encodeSave(world));
+    world = act(world, "move", { target: "greek-ship" });
+    world = act(world, "move", { target: "greek-athens-harbor" });
+    expect(world.actors[resident].place).toBe("greek-athens-harbor");
+    expect(world.transports["greek-ship"].dock).toBe("greek-athens-harbor");
+  });
+
+  it("requires a declared vessel for an independent journey", () => {
+    pack.avatars[resident].journey.independent = true;
+    expect(
+      packProblems(pack, hub, mountedPlaces).some((problem) =>
+        problem.includes("simple connected path"),
+      ),
+    ).toBe(true);
+    independentSail();
+    pack.avatars[resident].journey.independent = "yes";
+    expect(
+      packProblems(pack, hub, mountedPlaces).some((problem) =>
+        problem.includes("simple connected path"),
+      ),
+    ).toBe(true);
   });
 });

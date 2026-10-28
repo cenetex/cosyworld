@@ -148,6 +148,7 @@ import {
   isPackActor,
   staysPut,
   packJourneyDestination,
+  packIndependentJourneyDestination,
   roamingQuestActor,
   avoidsStandoffs,
 } from "./pack-registry.mjs";
@@ -1228,7 +1229,11 @@ export function legalActions(s, actor = currentActor(s)) {
       parts: [],
     });
   }
-  for (const to of packPeople[actor]?.journey ? [] : exits(s, here, actor)) {
+  const ways = exits(s, here, actor);
+  const ownStep = packIndependentJourneyDestination(s, actor);
+  for (const to of packPeople[actor]?.journey
+    ? ways.filter((place) => place === ownStep)
+    : ways) {
     const through = !baseExits(s, here).includes(to);
     const crossing = crossingBetween(here, to, s);
     const way = through
@@ -2054,6 +2059,12 @@ export function plan(s, actor = currentActor(s)) {
   }
 }
 function readPlan(s, actor) {
+  const ownStep = packIndependentJourneyDestination(s, actor);
+  const onward = ownStep && legalActions(s, actor).find(
+    (a) => a.kind === "move" && !a.item && a.target === ownStep,
+  );
+  if (onward)
+    return { action: onward, reason: "Follow the journey I agreed to make." };
   const arrival = transportArrival(s, actor);
   const landing =
     arrival &&
@@ -2549,6 +2560,7 @@ export function play(
     ...new Set([
       "moth",
       "keeper",
+      ...active.filter((id) => packIndependentJourneyDestination(next, id)),
       ...active.filter(
         (id) =>
           !controlledByHuman(next, id) &&

@@ -2087,6 +2087,10 @@
     const step = journey.path.indexOf(world.actors[id]?.place);
     return step < 0 ? null : journey.path[step + 1] || null;
   }
+  function independentJourneyNextPlace(world, pack, id) {
+    const agreed = agreedJourneys(world, pack, id);
+    return agreed.length === 1 && agreed[0].independent === true ? journeyNextPlace(world, pack, id) : null;
+  }
   function validJourneyPlaces(world, pack) {
     return Object.entries(pack.avatars).every(([id, avatar]) => {
       if (!avatar.journey) return true;
@@ -18505,7 +18509,9 @@
       for (const [index, journey] of options.entries()) {
         const agreement = agreements[index];
         check(
-          keysOk2(journey, ["after", "path"]) && !hub2.avatars.includes(id) && avatar.travels === false && avatar.roamingQuest === void 0 && idOk2(journey.after) && Array.isArray(journey.path) && journey.path.length >= 2 && journey.path.length <= 8 && new Set(journey.path).size === journey.path.length && journey.path[0] === avatar.place && journey.path.every((place) => owns2(places2, place)) && journey.path.slice(1).every((to, i) => {
+          keysOk2(journey, ["after", "path", "independent"]) && (journey.independent === void 0 || typeof journey.independent === "boolean") && !hub2.avatars.includes(id) && avatar.travels === false && avatar.roamingQuest === void 0 && idOk2(journey.after) && Array.isArray(journey.path) && journey.path.length >= 2 && journey.path.length <= 8 && new Set(journey.path).size === journey.path.length && journey.path[0] === avatar.place && journey.path.every((place) => owns2(places2, place)) && (journey.independent !== true || Object.values(pack.transports || {}).some(
+            (transport) => journey.path.includes(transport.place)
+          )) && journey.path.slice(1).every((to, i) => {
             const from = journey.path[i];
             return places2[from].exits.includes(to) || routes.some((route) => route.from === from && route.to === to) || Object.values(pack.transports || {}).some(
               (transport) => Array.isArray(transport?.docks) && (to === transport.place && transport.docks.includes(from) || from === transport.place && transport.docks.includes(to))
@@ -19402,6 +19408,7 @@
   var roamingQuestActor = (id) => packPeople[id]?.roamingQuest === "latest-completion";
   var staysPut = (id) => packPeople[id]?.travels === false;
   var packJourneyDestination = (world, id) => journeyNextPlace(world, packOf(id), id);
+  var packIndependentJourneyDestination = (world, id) => independentJourneyNextPlace(world, packOf(id), id);
   var avoidsStandoffs = (id) => packPeople[id]?.standoffs === false;
   var fixturesAt = (place) => Object.entries(packFixtures).filter(([, f]) => f.at === place).map(([id, f]) => ({ id, ...f }));
   var packProfiles = Object.fromEntries([
@@ -23819,7 +23826,9 @@
         parts: []
       });
     }
-    for (const to of packPeople[actor]?.journey ? [] : exits(s, here, actor)) {
+    const ways = exits(s, here, actor);
+    const ownStep = packIndependentJourneyDestination(s, actor);
+    for (const to of packPeople[actor]?.journey ? ways.filter((place) => place === ownStep) : ways) {
       const through = !baseExits(s, here).includes(to);
       const crossing = crossingBetween(here, to, s);
       const way = through ? ` ${homeRescueExit(s, here, actor) === to || pondRescueExit(s, here, actor) === to ? "along a narrow path" : crossing?.travel || "through the reflection"}` : "";
@@ -24532,6 +24541,12 @@
     }
   }
   function readPlan(s, actor) {
+    const ownStep = packIndependentJourneyDestination(s, actor);
+    const onward = ownStep && legalActions(s, actor).find(
+      (a) => a.kind === "move" && !a.item && a.target === ownStep
+    );
+    if (onward)
+      return { action: onward, reason: "Follow the journey I agreed to make." };
     const arrival = transportArrival(s, actor);
     const landing = arrival && legalActions(s, actor).find(
       (a) => a.kind === "move" && a.target === arrival
@@ -24889,6 +24904,7 @@
       .../* @__PURE__ */ new Set([
         "moth",
         "keeper",
+        ...active.filter((id) => packIndependentJourneyDestination(next, id)),
         ...active.filter(
           (id) => !controlledByHuman(next, id) && (id === BOARDY || introductionPair(programFor(next, id)))
         ),
