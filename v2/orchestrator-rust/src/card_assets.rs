@@ -1030,7 +1030,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "forest.json" => "\"12a2be7877e4daff53d3d1ad27c1703b2ca10dff51e6f371a5b3d1a7975afdfe\"",
         "packs.json" => "\"fe05d4fb9a5431eab3687ce86e4d62efbce4f58cec52faefeda70e8b22c173ec\"",
-        "music.mjs" => "\"96fa3a9514a9558614a0d39803729beed6b618bdb45a96d64976c8a3e5a57582\"",
+        "music.mjs" => "\"76437bd8ca978369476febc6dcb32a7c5adfb418da2c25e11154cf7512b6b5bf\"",
         "entity-profiles.json" => {
             "\"32bcfada78437fd92786bdb577da658828ff000563688180bd3848593f2e201e\""
         }
