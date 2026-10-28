@@ -7,6 +7,9 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Value};
 
 pub(super) fn schema(c: &Connection) -> Result<()> {
+    schema_sqlite(c).map_err(sql_error)
+}
+pub(super) fn schema_sqlite(c: &Connection) -> rusqlite::Result<()> {
     c.execute_batch("
       CREATE TABLE IF NOT EXISTS card_full_log(seq INTEGER PRIMARY KEY AUTOINCREMENT,world TEXT NOT NULL,command TEXT NOT NULL,at INTEGER NOT NULL);
       CREATE INDEX IF NOT EXISTS card_full_log_world ON card_full_log(world,seq);
@@ -17,7 +20,7 @@ pub(super) fn schema(c: &Connection) -> Result<()> {
       CREATE INDEX IF NOT EXISTS card_full_plays_user ON card_full_plays(user,created);
       CREATE TABLE IF NOT EXISTS card_full_scenes(seq INTEGER PRIMARY KEY AUTOINCREMENT,world TEXT NOT NULL,room TEXT NOT NULL,play TEXT NOT NULL UNIQUE,content TEXT NOT NULL);
       CREATE INDEX IF NOT EXISTS card_full_scenes_room ON card_full_scenes(world,room,seq);
-    ").map_err(sql_error)
+    ")
 }
 fn checkpoint(c: &Connection, id: &str, w: &World, seq: i64) -> Result<()> {
     c.execute("INSERT INTO card_full_checkpoints(world,seq,state) VALUES(?,?,?) ON CONFLICT(world) DO UPDATE SET seq=excluded.seq,state=excluded.state",params![id,seq,serde_json::to_string(w).map_err(sql_error)?]).map_err(sql_error)?;
