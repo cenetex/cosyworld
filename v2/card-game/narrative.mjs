@@ -13,6 +13,7 @@ import {
   packEntity,
   packDefinitions,
   packFacts,
+  packReadings,
   packSceneFacts,
   observableStates,
 } from "./pack-registry.mjs";
@@ -514,6 +515,9 @@ export function narrativeContext(world, action = null) {
       );
       return {
         id,
+        ...(packReadings(world, id).length
+          ? { readings: packReadings(world, id) }
+          : {}),
         poem: recitalContext(world, packDefinitions, id),
         facts: facts.slice(0, 16).map((text) => text.slice(0, 240)),
         desire,

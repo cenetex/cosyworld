@@ -1,3 +1,10 @@
+import { packDefinition as currentPackDefinition } from "../v2/card-game/pack-registry.mjs";
+const willowsItems = Object.fromEntries(
+  Object.entries(currentPackDefinition("willows").items).map(([id, item]) => [
+    id,
+    { holder: item.holder, history: [] },
+  ]),
+);
 import { entityActive } from "../v2/card-game/pack-registry.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 import hoppycat from "../v2/content/hoppycat-archive/card-world.json" with { type: "json" };
@@ -196,6 +203,7 @@ describe("the side roads in earlier saved worlds", () => {
         );
       expect(restored.items).toEqual({
         ...world.items,
+        ...willowsItems,
         "boardyai-calling-card": { holder: "station", history: [] },
         ...Object.fromEntries(
           Object.entries(hoppycat.items).map(([id, item]) => [

@@ -183,7 +183,10 @@ describe("the Theban release and its ship", () => {
     expect(exits(s, pack.entry, "vale")).toContain("greek-ship");
     s.actors.vale.place = pack.entry;
     const aboard = act(s, "move", { target: "greek-ship" });
-    expect(exits(aboard, "greek-ship", "vale")).toEqual(["pond"]);
+    expect(exits(aboard, "greek-ship", "vale")).toEqual([
+      "willows-landing",
+      "pond",
+    ]);
   });
   it("retains genuine schema-6 branches, evidence, memories and wider geography", () => {
     const before = legacy("egypt"),
@@ -213,6 +216,7 @@ describe("the Theban release and its ship", () => {
         "shears",
         ...openDoorItems,
         ...Object.keys(packDefinition("hoppycat-archive").items),
+        ...Object.keys(packDefinition("willows").items),
       ].sort(),
     );
     expect(after.memories).toMatchObject(before.memories);

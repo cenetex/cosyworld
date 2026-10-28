@@ -49,6 +49,7 @@ fn assert_saved_packs(current: &Value, old: &Value) {
     expected["greek-drama"]["revision"] = json!(6);
     expected["boardyai"] = current["boardyai"].clone();
     expected["hoppycat-archive"] = current["hoppycat-archive"].clone();
+    expected["willows"] = current["willows"].clone();
     assert_eq!(current, &expected);
 }
 fn fixture() -> (std::path::PathBuf, rusqlite::Connection, String) {

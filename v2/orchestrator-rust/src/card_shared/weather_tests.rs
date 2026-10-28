@@ -65,12 +65,16 @@ fn regional_weather_agrees_in_c_and_survives_upgrade_and_journal_replay() {
     quests["focus"].as_object_mut().unwrap().remove("boardyai");
     assert_eq!(quests["hands"]["boardyai"], json!(["boardyai:quest:0"]));
     quests["hands"]["boardyai"] = saved.game["quests"]["hands"]["boardyai"].clone();
-    for actor in world.game["actors"].as_object().unwrap().keys() {
-        if actor.starts_with("hoppycat-") {
-            assert_eq!(quests["hands"][actor], json!([]));
-            quests["hands"].as_object_mut().unwrap().remove(actor);
-        }
-    }
+    quests["hands"]
+        .as_object_mut()
+        .unwrap()
+        .retain(|actor, hand| {
+            if saved.game["quests"]["hands"].get(actor).is_some() {
+                return true;
+            }
+            assert_eq!(*hand, json!([]), "new actor {actor} quest hand");
+            false
+        });
     assert_eq!(quests, saved.game["quests"]);
     assert_eq!(world.game["packs"]["greek-drama"]["revision"], 6);
     assert_eq!(world.version, engine::VERSION);

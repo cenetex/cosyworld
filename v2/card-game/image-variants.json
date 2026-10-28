@@ -1224,6 +1224,41 @@
       "stageHash": "3c5722173735cdf41cf6383bcc380e8673cf146d6f42c86e7f37525867d6adc3",
       "card": "assets/optimized/card/png/vale.webp",
       "cardHash": "62ba8b48ac3a2bb0ce5872670282551e1666053f69da62305b03d5156c7e5f9e"
+    },
+    "assets/willows/bank.webp": {
+      "sourceHash": "1b7d169860245febcaccad142b6ee7ecba37d8d302ff75e8128e6584bc07ca19",
+      "stage": "assets/willows/bank.webp",
+      "stageHash": "1b7d169860245febcaccad142b6ee7ecba37d8d302ff75e8128e6584bc07ca19",
+      "card": "assets/optimized/card/webp/willows/bank.webp",
+      "cardHash": "abdc2d0d01a27a4cc0892cf9dd890fd3f0606194b175f2ab69929bd8cd59add8"
+    },
+    "assets/willows/camp.webp": {
+      "sourceHash": "b45b2f36bca38d187e277b57704bbb9a7600a087d9cb4dcb6406049c74e10314",
+      "stage": "assets/willows/camp.webp",
+      "stageHash": "b45b2f36bca38d187e277b57704bbb9a7600a087d9cb4dcb6406049c74e10314",
+      "card": "assets/optimized/card/webp/willows/camp.webp",
+      "cardHash": "e889169ffbcfe684c0cfbb21e662e05040296a99a2810c2af574072057a9f13d"
+    },
+    "assets/willows/landing.webp": {
+      "sourceHash": "589d52b6c0d24168c7f57952f2fae3aa6550726c7e1897eef7616979fff55804",
+      "stage": "assets/willows/landing.webp",
+      "stageHash": "589d52b6c0d24168c7f57952f2fae3aa6550726c7e1897eef7616979fff55804",
+      "card": "assets/optimized/card/webp/willows/landing.webp",
+      "cardHash": "18b60f08718ce5279594703c9412225680f64d9f89d0fe535d17c581dce9af04"
+    },
+    "assets/willows/swede.webp": {
+      "sourceHash": "b29d85b8a68d2c15ff68033b5b1bc244875b05adfda3aa3ab2ec96f387f44c4f",
+      "stage": "assets/willows/swede.webp",
+      "stageHash": "b29d85b8a68d2c15ff68033b5b1bc244875b05adfda3aa3ab2ec96f387f44c4f",
+      "card": "assets/optimized/card/webp/willows/swede.webp",
+      "cardHash": "f10b982e4be3e9a819d5e909350d7d0df8369e5323e3cc800c255039e097da43"
+    },
+    "assets/willows/thicket.webp": {
+      "sourceHash": "ac2324c2edd0d98f8d7ecf11f3b30ccdd891261ba0b5514896305b41064cd95c",
+      "stage": "assets/willows/thicket.webp",
+      "stageHash": "ac2324c2edd0d98f8d7ecf11f3b30ccdd891261ba0b5514896305b41064cd95c",
+      "card": "assets/optimized/card/webp/willows/thicket.webp",
+      "cardHash": "1e86395ab9425d4083a138e3e7fe2a72fbd71370685182d309c20c2b1b4c3646"
     }
   }
 }

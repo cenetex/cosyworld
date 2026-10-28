@@ -70,6 +70,7 @@ describe("world packs on the card table", () => {
       "badger-forest",
       "greek-drama",
       "hoppycat-archive",
+      "willows",
       "shared-homes",
       "boardyai",
     ]);

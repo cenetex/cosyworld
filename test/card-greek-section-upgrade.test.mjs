@@ -60,6 +60,8 @@ describe("Greek section save upgrade", () => {
         expect(after[field]).toEqual(before[field]);
       expect(after.crossings).toEqual({
         ...before.crossings,
+        "greek-ship-willows-landing": { discovered: false },
+        "willows-landing-greek-ship": { discovered: false },
         "station-boardyai-parlour": { discovered: false },
         "boardyai-parlour-station": { discovered: false },
         "greek-athens-harbor-ship": { discovered: false },

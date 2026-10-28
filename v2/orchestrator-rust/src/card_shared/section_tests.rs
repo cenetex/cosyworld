@@ -118,9 +118,9 @@ fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
                     old.game["actors"].as_object().unwrap().len()
                         + 16
                         + if version == engine::ELEVENTH_VERSION {
-                            2
+                            3
                         } else {
-                            10
+                            11
                         }
                 );
                 assert_eq!(
@@ -128,9 +128,9 @@ fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
                     old.game["items"].as_object().unwrap().len()
                         + 10
                         + if version == engine::ELEVENTH_VERSION {
-                            1
+                            9
                         } else {
-                            10
+                            18
                         }
                 );
                 assert_eq!(
