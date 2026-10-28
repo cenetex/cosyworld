@@ -112,14 +112,20 @@ async fn view(State(state): State<AppState>, Path(id): Path<String>, h: HeaderMa
         let mut w = store::world(&tx, &id, time)?;
         store::expire(&tx, &id, &mut w, time)?;
         let value = store::snapshot(&tx, &id, &u, time)?;
+        let value = super::sync::response(
+            &tx,
+            &id,
+            &u,
+            value,
+            h.get(super::sync::HEADER).and_then(|v| v.to_str().ok()),
+        )?;
         tx.commit().map_err(sql_error)?;
         Ok(value)
     })
     .await;
-    if result
-        .as_ref()
-        .is_ok_and(|v: &Value| v["actor"].is_string())
-    {
+    if result.as_ref().is_ok_and(|v: &Value| {
+        v["actor"].is_string() || v["state"]["actor"].is_string() || v["sync"]["kind"] == "events"
+    }) {
         kick(state, id);
     }
     reply(result)
@@ -157,6 +163,13 @@ async fn command(
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(sql_error)?;
         let value = run(&tx, &id, &u, &body, now())?;
+        let value = super::sync::response(
+            &tx,
+            &id,
+            &u,
+            value,
+            h.get(super::sync::HEADER).and_then(|v| v.to_str().ok()),
+        )?;
         tx.commit().map_err(sql_error)?;
         Ok(value)
     })

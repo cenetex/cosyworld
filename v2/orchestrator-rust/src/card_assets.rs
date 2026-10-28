@@ -12,6 +12,10 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/shared-auth.mjs"),
         ),
+        "shared-sync.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/shared-sync.mjs"),
+        ),
         "shared-rules.mjs" => (
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/shared-rules.mjs"),

@@ -56,6 +56,31 @@ bundle after changing any module it imports. The check mode compares the bundle
 with its sources. The Rust service embeds the bundle, so a deployed server and
 its browser assets come from one release.
 
+## Event sync
+
+Each browser keeps a sequence number and SHA-256 hash for its shared view.
+The first read receives a snapshot. Later reads and command replies carry
+changes from that cursor. Quiet reads carry the server clock and cursor.
+New scenes enter the existing history through list changes, including when
+the room reaches its 40-scene limit.
+
+Each sync event records its sequence, previous hash, hash, and patch payload.
+The browser checks the chain before presenting the new view. A missed reply
+is recovered from the last checked cursor. An older cursor or a damaged chain
+receives a fresh snapshot. Recovery uses reads; each submitted play keeps its
+original key.
+
+SQLite saves a separate stream for each world and account. Each stream keeps
+its latest view and up to 64 events within a 512 KiB payload budget. Streams
+survive a server restart. A changed avatar starts a fresh stream. Earlier
+clients continue to receive full views.
+
+The browser sends `X-CosyWorld-Sync: <stream>:<sequence>:<hash>` on world reads
+and commands. `snapshot` requests a fresh view. Event hashes use SHA-256 over
+UTF-8 text in this order: stream, newline, sequence, newline, previous hash,
+newline, exact payload text. The payload is JSON with `set`, `remove`, and
+`splice` operations. The snapshot supplies the chain's starting cursor.
+
 ## Saving, replay, and earlier worlds
 
 Sharing validates the host's current save. It keeps the source browser save and

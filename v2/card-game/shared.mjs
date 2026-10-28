@@ -1,4 +1,5 @@
 import { request, passkey } from "./shared-auth.mjs";
+import { createSharedSync } from "./shared-sync.mjs";
 import roster from "./shared-cast.json" with { type: "json" };
 
 export const humanAvatars = roster.avatars;
@@ -165,12 +166,19 @@ export async function openWorlds() {
 }
 export async function connectSharedWorld(id) {
   ensureSharedStyle();
+  const worldRequest = createSharedSync((command, headers) =>
+    request(
+      `/card-game/shared/worlds/${id}${command === undefined ? "" : "/command"}`,
+      command,
+      headers,
+    ),
+  );
   let value;
   const initial = await new Promise((resolve) => {
     const enter = async () => {
-      value = await request(`/card-game/shared/worlds/${id}`);
+      value = await worldRequest();
       if (!value.actor) return choose();
-      value = await request(`/card-game/shared/worlds/${id}/command`, {
+      value = await worldRequest({
         op: "enter",
       });
       const index = humanAvatars.findIndex((a) => a.id === value.actor);
@@ -191,7 +199,7 @@ export async function connectSharedWorld(id) {
             confirmation.append(
               button("Keep my avatar", enter),
               button("Release avatar", async () => {
-                await request(`/card-game/shared/worlds/${id}/command`, {
+                await worldRequest({
                   op: "release",
                 });
                 await enter();
@@ -217,13 +225,13 @@ export async function connectSharedWorld(id) {
       humanAvatars.forEach((avatar, index) => {
         const card = button("", async () => {
           try {
-            await request(`/card-game/shared/worlds/${id}/command`, {
+            await worldRequest({
               op: "claim",
               avatar: avatar.id,
             });
             await enter();
           } catch (error) {
-            value = await request(`/card-game/shared/worlds/${id}`);
+            value = await worldRequest();
             if (value.actor) return enter();
             choose();
             showError(error);
@@ -271,6 +279,7 @@ export async function connectSharedWorld(id) {
   let offset = initial.now - Date.now(),
     heartbeat = Date.now();
   const adopt = (next) => {
+    if (next === state) return state;
     if (next.now < state.now || next.world?.revision < state.world?.revision)
       return state;
     lastSynced = Date.now();
@@ -287,8 +296,7 @@ export async function connectSharedWorld(id) {
     }
     return next;
   };
-  const command = async (body) =>
-    adopt(await request(`/card-game/shared/worlds/${id}/command`, body));
+  const command = async (body) => adopt(await worldRequest(body));
   const sync = async () => {
     if (inFlight || stopped) return;
     inFlight = true;
@@ -296,7 +304,7 @@ export async function connectSharedWorld(id) {
       if (Date.now() - heartbeat >= 15000) {
         await command({ op: "heartbeat" });
         heartbeat = Date.now();
-      } else adopt(await request(`/card-game/shared/worlds/${id}`));
+      } else adopt(await worldRequest());
       if (connectionError) {
         report(playError?.message || "", connectionError);
         connectionError = null;
