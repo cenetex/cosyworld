@@ -1,5 +1,6 @@
 import { atticOpening } from "./fixtures/card-attic-opening.mjs";
 import { describe, expect, it } from "vitest";
+import { legacySaveFixture } from "./helpers/legacy-save-fixture.mjs";
 import {
   createWorld,
   play,
@@ -166,8 +167,7 @@ describe("the temporary ringing path to Forest Clearing", () => {
   it("keeps legacy discovery and an inside avatar without granting permanent access", () => {
     // A schema 6 save kept the crossing in its own steamClock record.
     const legacy = (s, clock) => {
-      const old = structuredClone(s);
-      old.schema = 6;
+      const old = legacySaveFixture(s, 6);
       old.steamClock = clock;
       delete old.crossings["pond-clearing"];
       delete old.crossings["clearing-pond"];

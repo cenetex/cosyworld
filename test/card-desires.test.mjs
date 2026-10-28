@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { legacySaveFixture } from "./helpers/legacy-save-fixture.mjs";
 import {
   createWorld,
   play,
@@ -355,8 +356,7 @@ describe("quest saves and scene records", () => {
     ).toBe("borrowed-light");
   });
   it("migrates earlier saves while preserving items, positions and history", () => {
-    const legacy = createWorld();
-    legacy.schema = 1;
+    const legacy = legacySaveFixture(createWorld(), 1);
     legacy.turn = 5;
     legacy.revision = 7;
     for (const [id, a] of Object.entries(legacy.actors)) {

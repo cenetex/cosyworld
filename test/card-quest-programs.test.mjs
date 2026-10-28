@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { legacySaveFixture } from "./helpers/legacy-save-fixture.mjs";
 import {
   createWorld,
   decodeSave,
@@ -30,8 +31,7 @@ import {
 import { sceneScript } from "../v2/card-game/scene.mjs";
 
 function completedSave() {
-  const s = createWorld();
-  s.schema = 2;
+  const s = legacySaveFixture(createWorld(), 2);
   s.turn = 8;
   s.revision = 8;
   for (const [id, a] of Object.entries(s.actors).filter(([id]) =>
