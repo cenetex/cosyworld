@@ -92,4 +92,20 @@ describe("What the Ships Will Carry", { timeout: 60000 }, () => {
       legalActions(world).some((a) => a.choiceId === "greek-troy-hear-body"),
     ).toBe(false);
   });
+
+  it("keeps agreed letters out of their carriers’ own gift and drop actions", () => {
+    const world = troyArrivals("family-together");
+    for (const [actor, item] of [
+      ["greek-troy-hecuba", "greek-troy-message-a"],
+      ["greek-troy-andromache", "greek-troy-message-b"],
+    ]) {
+      expect(
+        legalActions(world, actor).some(
+          (a) =>
+            ["give", "drop", "trade"].includes(a.kind) &&
+            (a.item === item || a.give === item),
+        ),
+      ).toBe(false);
+    }
+  }, 20000);
 });
