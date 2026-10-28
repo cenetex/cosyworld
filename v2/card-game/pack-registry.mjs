@@ -5,6 +5,7 @@ import {
   journeyNextPlace,
   independentJourneyNextPlace,
   journeyReservation,
+  journeyKeepsItem,
   validJourneyPlaces,
 } from "./pack-journeys.mjs";
 // The compiled world packs mounted on the card table, indexed for the engine.
@@ -177,6 +178,8 @@ export const roamingQuestActor = (id) =>
 export const staysPut = (id) => packPeople[id]?.travels === false;
 export const packJourneyDestination = (world, id) =>
   journeyNextPlace(world, packOf(id), id);
+export const packJourneyKeepsItem = (world, id, item) =>
+  journeyKeepsItem(world, packOf(id), id, item);
 export const packIndependentJourneyDestination = (world, id) =>
   independentJourneyNextPlace(world, packOf(id), id);
 export const packJourneyReservations = (world) => packDefinitions.flatMap(

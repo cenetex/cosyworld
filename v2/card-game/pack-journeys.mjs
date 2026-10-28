@@ -36,11 +36,29 @@ export function journeyReservation(world, pack, id) {
     : null;
 }
 
+export function journeyKeepsItem(world, pack, id, item) {
+  const agreed = agreedJourneys(world, pack, id);
+  return (
+    agreed.length === 1 &&
+    !!agreed[0].cargo?.includes(item) &&
+    !world.packs[pack.id].receipts[agreed[0].until]
+  );
+}
+
 export function validJourneyPlaces(world, pack) {
   return Object.entries(pack.avatars).every(([id, avatar]) => {
     if (!avatar.journey) return true;
     const agreed = agreedJourneys(world, pack, id);
     const place = world.actors[id]?.place;
+    if (
+      agreed.length === 1 &&
+      agreed[0].cargo?.some(
+        (item) =>
+          journeyKeepsItem(world, pack, id, item) &&
+          world.items[item]?.holder !== id,
+      )
+    )
+      return false;
     const reservation = journeyReservation(world, pack, id);
     if (
       reservation?.aboard &&

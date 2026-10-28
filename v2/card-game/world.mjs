@@ -148,6 +148,7 @@ import {
   isPackActor,
   staysPut,
   packJourneyDestination,
+  packJourneyKeepsItem,
   packIndependentJourneyDestination,
   roamingQuestActor,
   avoidsStandoffs,
@@ -603,6 +604,7 @@ const accepts = (s, actor, item) =>
 export const valeStalled = (s) =>
   s.turn - (s.actors.vale.progress.marks.at(-1) || 0) >= 24;
 export function willingToGive(s, owner, item, recipient = null) {
+  if (packJourneyKeepsItem(s, owner, item)) return false;
   if (hasMotives(s) && recipient && resentment(s, owner, recipient))
     return false;
   if (!hasQuestPrograms(s) || lifeOf(s, owner))
@@ -621,6 +623,7 @@ export function willingToGive(s, owner, item, recipient = null) {
 }
 export function canTrade(s, actor, give, receive) {
   const other = s.items[receive]?.holder;
+  if (packJourneyKeepsItem(s, other, receive)) return false;
   if (
     s.items[give]?.holder !== actor ||
     !actorIds.includes(other) ||

@@ -359,6 +359,12 @@ the reserved leg while everyone else waits ashore. Ordinary boarding opens
 again after arrival. This uses the ship's saved position and the resident's
 agreed path. Save validation keeps that reserved voyage consistent.
 
+A journey can name up to three `cargo` item IDs and an `until` choice at its
+destination. The agreement requires the resident to hold each item. The
+arrival choice checks that custody and the actual destination. The resident
+keeps the agreed cargo through requests and trades until the arrival record
+is accepted. This also keeps the saved custody consistent during a voyage.
+
 When a human waits at a port, an empty ship advances through its open docks.
 An occupied ship keeps its voyage and passengers. Reload restores that same
 position, destination, and waiting party.

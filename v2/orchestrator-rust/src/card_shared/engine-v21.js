@@ -2101,11 +2101,19 @@
     );
     return vessel ? { actor: id, place: vessel.place, from, aboard: from === vessel.place } : null;
   }
+  function journeyKeepsItem(world, pack, id, item) {
+    const agreed = agreedJourneys(world, pack, id);
+    return agreed.length === 1 && !!agreed[0].cargo?.includes(item) && !world.packs[pack.id].receipts[agreed[0].until];
+  }
   function validJourneyPlaces(world, pack) {
     return Object.entries(pack.avatars).every(([id, avatar]) => {
       if (!avatar.journey) return true;
       const agreed = agreedJourneys(world, pack, id);
       const place = world.actors[id]?.place;
+      if (agreed.length === 1 && agreed[0].cargo?.some(
+        (item) => journeyKeepsItem(world, pack, id, item) && world.items[item]?.holder !== id
+      ))
+        return false;
       const reservation = journeyReservation(world, pack, id);
       if (reservation?.aboard && Object.entries(world.actors).some(
         ([other, actor]) => other !== id && actor.place === reservation.place
@@ -2448,7 +2456,7 @@
             Aristophanes: 11
           },
           opening: "Before the Burial",
-          status: "12 plays have authored scenes. The other 32 works have situated hooks for later sections."
+          status: "13 plays have authored scenes. The other 31 works have situated hooks for later sections."
         },
         places: {
           "greek-harbor": {
@@ -2837,7 +2845,9 @@
               "greek-greek-camp",
               "greek-trojan-camp",
               "greek-thrace",
-              "greek-susa"
+              "greek-susa",
+              "greek-troy-womens-tent",
+              "greek-troy-shield-ground"
             ],
             backdrop: "assets/greek-drama/palace.svg",
             persona: "The city road runs between battered walls. Soldiers and displaced households share the remaining wells."
@@ -3230,6 +3240,24 @@
               "greek-trojan-camp"
             ],
             backdrop: "assets/greek-drama/ajax-camp-night.webp"
+          },
+          "greek-troy-womens-tent": {
+            name: "The Captive Women\u2019s Tent",
+            text: "A names roll lies beside the household bundles. Hecuba listens to the women\u2019s kin messages.",
+            persona: "This is the remembered fall of Troy, after the night-watch account. Hecuba is the same woman heard later on the Thracian shore. Andromache waits under Neoptolemus\u2019s recorded assignment. Astyanax is an offstage person under his mother\u2019s care; his place follows her actual journey in the rescue paths. The shield, cloth and letters are objects. Earlier Ajax deeds and the selected Helen and Atreid accounts retain their own times. A names roll lies beside the household bundles. Hecuba listens to the women\u2019s kin messages.",
+            exits: [
+              "greek-troy"
+            ],
+            backdrop: "assets/greek-drama/ajax-camp-day.webp"
+          },
+          "greek-troy-shield-ground": {
+            name: "Hector\u2019s Shield Ground",
+            text: "A clean patch of earth waits beside Hector\u2019s broad shield. The child\u2019s recorded status gives the cloth its use.",
+            persona: "This is the remembered fall of Troy, after the night-watch account. Hecuba is the same woman heard later on the Thracian shore. Andromache waits under Neoptolemus\u2019s recorded assignment. Astyanax is an offstage person under his mother\u2019s care; his place follows her actual journey in the rescue paths. The shield, cloth and letters are objects. Earlier Ajax deeds and the selected Helen and Atreid accounts retain their own times. A clean patch of earth waits beside Hector\u2019s broad shield. The child\u2019s recorded status gives the cloth its use.",
+            exits: [
+              "greek-troy"
+            ],
+            backdrop: "assets/greek-drama/burial-ground-dusk.webp"
           }
         },
         avatars: {
@@ -4124,7 +4152,11 @@
                   "greek-ship",
                   "greek-ajax-landing",
                   "greek-greek-camp"
-                ]
+                ],
+                cargo: [
+                  "greek-lemnos-bow"
+                ],
+                until: "greek-lemnos-arrive-troy"
               },
               {
                 after: "greek-lemnos-agree-home",
@@ -4136,7 +4168,11 @@
                   "greek-athens",
                   "greek-delphi",
                   "greek-trachis"
-                ]
+                ],
+                cargo: [
+                  "greek-lemnos-bow"
+                ],
+                until: "greek-lemnos-arrive-home"
               },
               {
                 after: "greek-lemnos-agree-repair",
@@ -4146,7 +4182,11 @@
                   "greek-ship",
                   "greek-ajax-landing",
                   "greek-greek-camp"
-                ]
+                ],
+                cargo: [
+                  "greek-lemnos-bow"
+                ],
+                until: "greek-lemnos-arrive-repair"
               }
             ]
           },
@@ -4256,6 +4296,181 @@
               likes: "a named witness, practical care and an agreement kept",
               sore: "a promised act treated as a finished deed",
               reason: "The living driver gives the remembered wound report. Care, accusation and proof remain separate."
+            }
+          },
+          "greek-troy-hecuba": {
+            name: "Hecuba",
+            text: "She names the captive women, their kin and the child\u2019s care. Her remembered farewell belongs to this fall-of-Troy frame.",
+            place: "greek-troy-womens-tent",
+            home: "greek-troy-womens-tent",
+            travels: false,
+            standoffs: false,
+            values: {
+              "greek-troy-message-a": 5
+            },
+            canonicalPerson: "greek-troy-hecuba",
+            persona: "This is the remembered fall of Troy, after the night-watch account. Hecuba is the same woman heard later on the Thracian shore. Andromache waits under Neoptolemus\u2019s recorded assignment. Astyanax is an offstage person under his mother\u2019s care; his place follows her actual journey in the rescue paths. The shield, cloth and letters are objects. Earlier Ajax deeds and the selected Helen and Atreid accounts retain their own times. She names the captive women, their kin and the child\u2019s care. Her remembered farewell belongs to this fall-of-Troy frame.",
+            voice: "This is the remembered fall of Troy, after the night-watch account. Hecuba is the same woman heard later on the Thracian shore. Andromache waits under Neoptolemus\u2019s recorded assignment. Astyanax is an offstage person under his mother\u2019s care; his place follows her actual journey in the rescue paths. The shield, cloth and letters are objects. Earlier Ajax deeds and the selected Helen and Atreid accounts retain their own times. She names the captive women, their kin and the child\u2019s care. Her remembered farewell belongs to this fall-of-Troy frame.",
+            portrait: "assets/greek-drama/book-three-hecuba.png",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-troy-open",
+                value: true
+              }
+            ],
+            tastes: {
+              likes: "a named witness, practical care and an agreement kept",
+              sore: "a promised act treated as a finished deed",
+              reason: "She names the captive women, their kin and the child\u2019s care. Her remembered farewell belongs to this fall-of-Troy frame."
+            },
+            journey: [
+              {
+                after: "greek-troy-agree-hecuba-witness",
+                path: [
+                  "greek-troy-womens-tent",
+                  "greek-troy",
+                  "greek-troy-shield-ground",
+                  "greek-greek-camp",
+                  "greek-ajax-landing",
+                  "greek-ship",
+                  "greek-harbor"
+                ],
+                independent: true,
+                cargo: [
+                  "greek-troy-message-a"
+                ],
+                until: "greek-troy-record-witness"
+              },
+              {
+                after: "greek-troy-agree-hecuba-child-refuge",
+                path: [
+                  "greek-troy-womens-tent",
+                  "greek-troy",
+                  "greek-greek-camp",
+                  "greek-ajax-landing",
+                  "greek-ship",
+                  "greek-harbor"
+                ],
+                independent: true,
+                cargo: [
+                  "greek-troy-message-a"
+                ],
+                until: "greek-troy-record-child-refuge"
+              },
+              {
+                after: "greek-troy-agree-hecuba-family-together",
+                path: [
+                  "greek-troy-womens-tent",
+                  "greek-troy",
+                  "greek-greek-camp",
+                  "greek-ajax-landing",
+                  "greek-ship",
+                  "greek-harbor"
+                ],
+                independent: true,
+                cargo: [
+                  "greek-troy-message-a"
+                ],
+                until: "greek-troy-record-family-together"
+              }
+            ]
+          },
+          "greek-troy-andromache": {
+            name: "Andromache",
+            text: "She waits at the departure landing. In rescue paths her living son Astyanax travels under her care. Her later Phthian household keeps this earlier result.",
+            place: "greek-ajax-landing",
+            home: "greek-ajax-landing",
+            travels: false,
+            standoffs: false,
+            values: {
+              "greek-troy-message-b": 5,
+              "greek-troy-child-cloth": 5
+            },
+            canonicalPerson: "greek-troy-andromache",
+            persona: "This is the remembered fall of Troy, after the night-watch account. Hecuba is the same woman heard later on the Thracian shore. Andromache waits under Neoptolemus\u2019s recorded assignment. Astyanax is an offstage person under his mother\u2019s care; his place follows her actual journey in the rescue paths. The shield, cloth and letters are objects. Earlier Ajax deeds and the selected Helen and Atreid accounts retain their own times. She waits at the departure landing. In rescue paths her living son Astyanax travels under her care. Her later Phthian household keeps this earlier result.",
+            voice: "This is the remembered fall of Troy, after the night-watch account. Hecuba is the same woman heard later on the Thracian shore. Andromache waits under Neoptolemus\u2019s recorded assignment. Astyanax is an offstage person under his mother\u2019s care; his place follows her actual journey in the rescue paths. The shield, cloth and letters are objects. Earlier Ajax deeds and the selected Helen and Atreid accounts retain their own times. She waits at the departure landing. In rescue paths her living son Astyanax travels under her care. Her later Phthian household keeps this earlier result.",
+            portrait: "assets/greek-drama/book-three-andromache.png",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-troy-open",
+                value: true
+              }
+            ],
+            tastes: {
+              likes: "a named witness, practical care and an agreement kept",
+              sore: "a promised act treated as a finished deed",
+              reason: "She waits at the departure landing. In rescue paths her living son Astyanax travels under her care. Her later Phthian household keeps this earlier result."
+            },
+            journey: [
+              {
+                after: "greek-troy-agree-andromache-witness",
+                path: [
+                  "greek-ajax-landing",
+                  "greek-ship",
+                  "greek-harbor"
+                ],
+                independent: true,
+                cargo: [
+                  "greek-troy-message-b"
+                ],
+                until: "greek-troy-record-witness"
+              },
+              {
+                after: "greek-troy-agree-andromache-child-refuge",
+                path: [
+                  "greek-ajax-landing",
+                  "greek-ship",
+                  "greek-harbor"
+                ],
+                independent: false,
+                cargo: [
+                  "greek-troy-message-b",
+                  "greek-troy-child-cloth"
+                ],
+                until: "greek-troy-record-child-refuge"
+              },
+              {
+                after: "greek-troy-agree-andromache-family-together",
+                path: [
+                  "greek-ajax-landing",
+                  "greek-ship",
+                  "greek-harbor"
+                ],
+                independent: true,
+                exclusive: true,
+                cargo: [
+                  "greek-troy-message-b",
+                  "greek-troy-child-cloth"
+                ],
+                until: "greek-troy-record-family-together"
+              }
+            ]
+          },
+          "greek-troy-talthybius": {
+            name: "Talthybius",
+            text: "He gives the women\u2019s assignments and the child\u2019s recorded status in this remembered fall.",
+            place: "greek-troy",
+            home: "greek-troy",
+            travels: false,
+            standoffs: false,
+            values: {},
+            canonicalPerson: "greek-troy-talthybius",
+            persona: "This is the remembered fall of Troy, after the night-watch account. Hecuba is the same woman heard later on the Thracian shore. Andromache waits under Neoptolemus\u2019s recorded assignment. Astyanax is an offstage person under his mother\u2019s care; his place follows her actual journey in the rescue paths. The shield, cloth and letters are objects. Earlier Ajax deeds and the selected Helen and Atreid accounts retain their own times. He gives the women\u2019s assignments and the child\u2019s recorded status in this remembered fall.",
+            voice: "This is the remembered fall of Troy, after the night-watch account. Hecuba is the same woman heard later on the Thracian shore. Andromache waits under Neoptolemus\u2019s recorded assignment. Astyanax is an offstage person under his mother\u2019s care; his place follows her actual journey in the rescue paths. The shield, cloth and letters are objects. Earlier Ajax deeds and the selected Helen and Atreid accounts retain their own times. He gives the women\u2019s assignments and the child\u2019s recorded status in this remembered fall.",
+            portrait: "assets/greek-drama/book-three-talthybius.png",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-troy-open",
+                value: true
+              }
+            ],
+            tastes: {
+              likes: "a named witness, practical care and an agreement kept",
+              sore: "a promised act treated as a finished deed",
+              reason: "He gives the women\u2019s assignments and the child\u2019s recorded status in this remembered fall."
             }
           }
         },
@@ -4773,6 +4988,129 @@
                 value: true
               }
             ]
+          },
+          "greek-troy-names": {
+            name: "The Women\u2019s Names Roll",
+            text: "Hecuba\u2019s roll names Cassandra, Andromache and Astyanax, their kin and the captives\u2019 assigned destinations.",
+            holder: "greek-troy-womens-tent",
+            persona: "This is the remembered fall of Troy, after the night-watch account. Hecuba is the same woman heard later on the Thracian shore. Andromache waits under Neoptolemus\u2019s recorded assignment. Astyanax is an offstage person under his mother\u2019s care; his place follows her actual journey in the rescue paths. The shield, cloth and letters are objects. Earlier Ajax deeds and the selected Helen and Atreid accounts retain their own times. Hecuba\u2019s roll names Cassandra, Andromache and Astyanax, their kin and the captives\u2019 assigned destinations. Its saved custody records its actual use.",
+            art: "assets/greek-drama/decree.svg",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-troy-open",
+                value: true
+              }
+            ]
+          },
+          "greek-troy-message-a": {
+            name: "The Elder\u2019s Kin Letter",
+            text: "One actual copy belongs to Hecuba\u2019s departure and names the women left at the shore.",
+            holder: "greek-troy-womens-tent",
+            persona: "This is the remembered fall of Troy, after the night-watch account. Hecuba is the same woman heard later on the Thracian shore. Andromache waits under Neoptolemus\u2019s recorded assignment. Astyanax is an offstage person under his mother\u2019s care; his place follows her actual journey in the rescue paths. The shield, cloth and letters are objects. Earlier Ajax deeds and the selected Helen and Atreid accounts retain their own times. One actual copy belongs to Hecuba\u2019s departure and names the women left at the shore. Its saved custody records its actual use.",
+            art: "assets/greek-drama/testimony.svg",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-troy-open",
+                value: true
+              },
+              {
+                kind: "flag",
+                key: "greek-troy-names-written",
+                value: true
+              }
+            ]
+          },
+          "greek-troy-message-b": {
+            name: "The Mother\u2019s Kin Letter",
+            text: "The second actual copy travels in Andromache\u2019s hand under the chosen agreement.",
+            holder: "greek-troy-womens-tent",
+            persona: "This is the remembered fall of Troy, after the night-watch account. Hecuba is the same woman heard later on the Thracian shore. Andromache waits under Neoptolemus\u2019s recorded assignment. Astyanax is an offstage person under his mother\u2019s care; his place follows her actual journey in the rescue paths. The shield, cloth and letters are objects. Earlier Ajax deeds and the selected Helen and Atreid accounts retain their own times. The second actual copy travels in Andromache\u2019s hand under the chosen agreement. Its saved custody records its actual use.",
+            art: "assets/greek-drama/testimony.svg",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-troy-open",
+                value: true
+              },
+              {
+                kind: "flag",
+                key: "greek-troy-names-written",
+                value: true
+              }
+            ]
+          },
+          "greek-troy-hector-shield": {
+            name: "Hector\u2019s Shield",
+            text: "Hector\u2019s shield has its own identity beside Ajax\u2019s shield. It serves the source burial or an earlier protective shelter.",
+            holder: "greek-troy-shield-ground",
+            persona: "This is the remembered fall of Troy, after the night-watch account. Hecuba is the same woman heard later on the Thracian shore. Andromache waits under Neoptolemus\u2019s recorded assignment. Astyanax is an offstage person under his mother\u2019s care; his place follows her actual journey in the rescue paths. The shield, cloth and letters are objects. Earlier Ajax deeds and the selected Helen and Atreid accounts retain their own times. Hector\u2019s shield has its own identity beside Ajax\u2019s shield. It serves the source burial or an earlier protective shelter. Its saved custody records its actual use.",
+            art: "assets/greek-drama/ajax-shield.png",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-troy-open",
+                value: true
+              },
+              {
+                kind: "flag",
+                key: "greek-troy-names-written",
+                value: true
+              }
+            ]
+          },
+          "greek-troy-child-cloth": {
+            name: "The Child\u2019s Clean Cloth",
+            text: "Clean cloth serves the recorded burial or the living child\u2019s care with Andromache.",
+            holder: "greek-troy-womens-tent",
+            persona: "This is the remembered fall of Troy, after the night-watch account. Hecuba is the same woman heard later on the Thracian shore. Andromache waits under Neoptolemus\u2019s recorded assignment. Astyanax is an offstage person under his mother\u2019s care; his place follows her actual journey in the rescue paths. The shield, cloth and letters are objects. Earlier Ajax deeds and the selected Helen and Atreid accounts retain their own times. Clean cloth serves the recorded burial or the living child\u2019s care with Andromache. Its saved custody records its actual use.",
+            art: "assets/greek-drama/funeral-cloth.svg",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-troy-open",
+                value: true
+              },
+              {
+                kind: "flag",
+                key: "greek-troy-names-written",
+                value: true
+              }
+            ]
+          },
+          "greek-troy-crew-pledge": {
+            name: "The Refuge Crew\u2019s Pledge",
+            text: "Myrto\u2019s crew can accept a family at the Wine-Dark Harbor. The written pledge records an actual prepared welcome.",
+            holder: "greek-harbor",
+            persona: "This is the remembered fall of Troy, after the night-watch account. Hecuba is the same woman heard later on the Thracian shore. Andromache waits under Neoptolemus\u2019s recorded assignment. Astyanax is an offstage person under his mother\u2019s care; his place follows her actual journey in the rescue paths. The shield, cloth and letters are objects. Earlier Ajax deeds and the selected Helen and Atreid accounts retain their own times. Myrto\u2019s crew can accept a family at the Wine-Dark Harbor. The written pledge records an actual prepared welcome. Its saved custody records its actual use.",
+            art: "assets/greek-drama/household-token.svg",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-troy-open",
+                value: true
+              }
+            ]
+          },
+          "greek-troy-berth-token": {
+            name: "The Last Berth Token",
+            text: "This token can pay the family\u2019s reserved departure at the landing. Its giver stays ashore for that actual leg.",
+            holder: "greek-troy-womens-tent",
+            persona: "This is the remembered fall of Troy, after the night-watch account. Hecuba is the same woman heard later on the Thracian shore. Andromache waits under Neoptolemus\u2019s recorded assignment. Astyanax is an offstage person under his mother\u2019s care; his place follows her actual journey in the rescue paths. The shield, cloth and letters are objects. Earlier Ajax deeds and the selected Helen and Atreid accounts retain their own times. This token can pay the family\u2019s reserved departure at the landing. Its giver stays ashore for that actual leg. Its saved custody records its actual use.",
+            art: "assets/greek-drama/household-token.svg",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-troy-open",
+                value: true
+              },
+              {
+                kind: "flag",
+                key: "greek-troy-names-written",
+                value: true
+              }
+            ]
           }
         },
         routes: [
@@ -4929,6 +5267,28 @@
                 kind: "flag",
                 key: "greek-lemnos-open",
                 value: false
+              }
+            ]
+          },
+          {
+            from: "greek-troy-shield-ground",
+            to: "greek-greek-camp",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-troy-care-prepared",
+                value: true
+              }
+            ]
+          },
+          {
+            from: "greek-greek-camp",
+            to: "greek-troy-shield-ground",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-troy-care-prepared",
+                value: true
               }
             ]
           }
@@ -10846,6 +11206,11 @@
               {
                 kind: "choice_unset",
                 key: "greek-lemnos-consent"
+              },
+              {
+                kind: "holding",
+                item: "greek-lemnos-bow",
+                actor: "greek-lemnos-philoctetes"
               }
             ],
             effects: [
@@ -10987,6 +11352,11 @@
               {
                 kind: "choice_unset",
                 key: "greek-lemnos-consent"
+              },
+              {
+                kind: "holding",
+                item: "greek-lemnos-bow",
+                actor: "greek-lemnos-philoctetes"
               }
             ],
             effects: [
@@ -11128,6 +11498,11 @@
               {
                 kind: "choice_unset",
                 key: "greek-lemnos-consent"
+              },
+              {
+                kind: "holding",
+                item: "greek-lemnos-bow",
+                actor: "greek-lemnos-philoctetes"
               }
             ],
             effects: [
@@ -11785,6 +12160,1122 @@
               }
             ],
             workId: "euripides-rhesus"
+          },
+          {
+            id: "greek-troy-invitation",
+            subject: "greek-shipmaster",
+            at: "greek-harbor",
+            label: "Ask for the women\u2019s departure account",
+            text: "Myrto opens the remembered fall after Vale returns the night watch and Rhesus\u2019s later fate is settled.",
+            textTemplate: "Myrto opens the remembered fall after {actor} returns the night watch and Rhesus\u2019s later fate is settled.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-rhesus-returned",
+                value: true
+              },
+              {
+                kind: "flag",
+                key: "greek-rhesus-fate-settled",
+                value: true
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-troy-frame"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-troy-frame",
+                value: "remembered-fall"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-troy-open",
+                value: true
+              }
+            ],
+            workId: "euripides-trojan-women"
+          },
+          {
+            id: "greek-troy-reserve-refuge",
+            subject: "greek-shipmaster",
+            at: "greek-harbor",
+            label: "Prepare the crew\u2019s family welcome",
+            text: "Vale gives Myrto the crew pledge. Myrto reserves shelter at this harbor for the named mother and child before their departure.",
+            textTemplate: "{actor} gives Myrto the crew pledge. Myrto reserves shelter at this harbor for the named mother and child before their departure.",
+            requires: [
+              {
+                kind: "holding",
+                item: "greek-troy-crew-pledge",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "place_item",
+                item: "greek-troy-crew-pledge",
+                place: "greek-harbor"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-troy-refuge-prepared",
+                value: true
+              }
+            ],
+            workId: "euripides-trojan-women"
+          },
+          {
+            id: "greek-troy-hear-assignments",
+            subject: "greek-troy-talthybius",
+            at: "greek-troy",
+            label: "Hear the women\u2019s assigned destinations",
+            text: "Talthybius tells Vale that Andromache is assigned to Neoptolemus, Cassandra to Agamemnon and Hecuba to Odysseus. Helen\u2019s selected account keeps its own debate. An earlier rescue can change the family\u2019s departure.",
+            textTemplate: "Talthybius tells {actor} that Andromache is assigned to Neoptolemus, Cassandra to Agamemnon and Hecuba to Odysseus. Helen\u2019s selected account keeps its own debate. An earlier rescue can change the family\u2019s departure.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-troy-open",
+                value: true
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-troy-andromache-assignment",
+                value: "neoptolemus"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-troy-assignments-heard",
+                value: true
+              }
+            ],
+            workId: "euripides-trojan-women"
+          },
+          {
+            id: "greek-troy-hear-names",
+            subject: "greek-troy-hecuba",
+            at: "greek-troy-womens-tent",
+            label: "Hear Hecuba name the kin messages",
+            text: "Hecuba names the women and their kin for Vale\u2019s roll. Astyanax remains a living person before the later order; an earlier rescue needs care and a consenting crew.",
+            textTemplate: "Hecuba names the women and their kin for {actor}\u2019s roll. Astyanax remains a living person before the later order; an earlier rescue needs care and a consenting crew.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-troy-assignments-heard",
+                value: true
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-names",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "greek-troy-names-heard",
+                value: true
+              }
+            ],
+            workId: "euripides-trojan-women"
+          },
+          {
+            id: "greek-troy-write-names",
+            subject: "greek-troy-hecuba",
+            at: "greek-troy-womens-tent",
+            label: "Write the names and kin messages",
+            text: "Vale writes Hecuba\u2019s named women, children and destinations on the roll. Two separate letters can travel with the elder and the mother.",
+            textTemplate: "{actor} writes Hecuba\u2019s named women, children and destinations on the roll. Two separate letters can travel with the elder and the mother.",
+            requires: [
+              {
+                kind: "holding",
+                item: "greek-troy-names",
+                role: "actor"
+              },
+              {
+                kind: "knows",
+                topic: "greek-troy-names",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "place_item",
+                item: "greek-troy-names",
+                place: "greek-troy-womens-tent"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-troy-names-written",
+                value: true
+              }
+            ],
+            workId: "euripides-trojan-women"
+          },
+          {
+            id: "greek-troy-choose-witness",
+            subject: "greek-troy-hecuba",
+            at: "greek-troy-womens-tent",
+            label: "Keep the source departure and burial",
+            text: "Vale chooses to witness the source losses and the women\u2019s captive departure. Andromache\u2019s actual sailing comes before the child\u2019s burial.",
+            textTemplate: "{actor} chooses to witness the source losses and the women\u2019s captive departure. Andromache\u2019s actual sailing comes before the child\u2019s burial.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-troy-names-written",
+                value: true
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-troy-route"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-troy-route",
+                value: "witness"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-troy-rescue-selected",
+                value: false
+              }
+            ],
+            workId: "euripides-trojan-women"
+          },
+          {
+            id: "greek-troy-choose-child-refuge",
+            subject: "greek-troy-hecuba",
+            at: "greek-troy-womens-tent",
+            label: "Seek an earlier refuge for the child",
+            text: "Vale chooses an invented rescue before the child\u2019s order takes effect. Andromache must accept care and make the actual voyage.",
+            textTemplate: "{actor} chooses an invented rescue before the child\u2019s order takes effect. Andromache must accept care and make the actual voyage.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-troy-names-written",
+                value: true
+              },
+              {
+                kind: "flag",
+                key: "greek-troy-refuge-prepared",
+                value: true
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-troy-route"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-troy-route",
+                value: "child-refuge"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-troy-rescue-selected",
+                value: true
+              }
+            ],
+            workId: "euripides-trojan-women"
+          },
+          {
+            id: "greek-troy-choose-family-together",
+            subject: "greek-troy-hecuba",
+            at: "greek-troy-womens-tent",
+            label: "Give the family the reserved departure",
+            text: "Vale chooses an invented family passage. The last berth must be paid at the landing, and the family makes that reserved leg while the giver stays ashore.",
+            textTemplate: "{actor} chooses an invented family passage. The last berth must be paid at the landing, and the family makes that reserved leg while the giver stays ashore.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-troy-names-written",
+                value: true
+              },
+              {
+                kind: "flag",
+                key: "greek-troy-refuge-prepared",
+                value: true
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-troy-route"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-troy-route",
+                value: "family-together"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-troy-rescue-selected",
+                value: true
+              }
+            ],
+            workId: "euripides-trojan-women"
+          },
+          {
+            id: "greek-troy-hear-crew",
+            subject: "greek-troy-talthybius",
+            at: "greek-troy",
+            label: "Hear the earlier rescue terms",
+            text: "Talthybius records the crew\u2019s consent to an earlier protective departure. Andromache must accept her son\u2019s care before the later order. The rescue is a change to the play\u2019s losses.",
+            textTemplate: "Talthybius records the crew\u2019s consent to an earlier protective departure. Andromache must accept her son\u2019s care before the later order. The rescue is a change to the play\u2019s losses.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-troy-rescue-selected",
+                value: true
+              },
+              {
+                kind: "flag",
+                key: "greek-troy-refuge-prepared",
+                value: true
+              }
+            ],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "greek-troy-crew-agreed",
+                value: true
+              }
+            ],
+            workId: "euripides-trojan-women"
+          },
+          {
+            id: "greek-troy-set-refuge-shield",
+            subject: "greek-troy-andromache",
+            at: "greek-ajax-landing",
+            label: "Set Hector\u2019s shield beside the family",
+            text: "Vale sets Hector\u2019s shield at the landing as a windbreak while Andromache prepares her son\u2019s living care.",
+            textTemplate: "{actor} sets Hector\u2019s shield at the landing as a windbreak while Andromache prepares her son\u2019s living care.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-troy-crew-agreed",
+                value: true
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-hector-shield",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "place_item",
+                item: "greek-troy-hector-shield",
+                place: "greek-ajax-landing"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-troy-shield-set",
+                value: true
+              }
+            ],
+            workId: "euripides-trojan-women"
+          },
+          {
+            id: "greek-troy-prepare-refuge",
+            subject: "greek-troy-andromache",
+            at: "greek-ajax-landing",
+            label: "Hear Andromache accept the child\u2019s care",
+            text: "Andromache holds the clean cloth and accepts care of the living Astyanax. Vale has set the shield by the landing and Myrto\u2019s refuge is prepared. The child\u2019s safe arrival remains ahead.",
+            textTemplate: "Andromache holds the clean cloth and accepts care of the living Astyanax. {actor} has set the shield by the landing and Myrto\u2019s refuge is prepared. The child\u2019s safe arrival remains ahead.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-troy-rescue-selected",
+                value: true
+              },
+              {
+                kind: "flag",
+                key: "greek-troy-shield-set",
+                value: true
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-child-cloth",
+                actor: "greek-troy-andromache"
+              },
+              {
+                kind: "item_at",
+                item: "greek-troy-hector-shield",
+                place: "greek-ajax-landing"
+              }
+            ],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "greek-troy-care-prepared",
+                value: true
+              },
+              {
+                kind: "set_flag",
+                key: "greek-troy-child-in-mothers-care",
+                value: true
+              }
+            ],
+            workId: "euripides-trojan-women"
+          },
+          {
+            id: "greek-troy-agree-andromache-witness",
+            subject: "greek-troy-andromache",
+            at: "greek-ajax-landing",
+            label: "Hear Andromache name her captive passage",
+            text: "Andromache holds her kin letter and names the terms of her departure under Neoptolemus\u2019s assignment. She agrees to reach the receiving harbor. This is a captive passage.",
+            textTemplate: "Andromache holds her kin letter and names the terms of her departure under Neoptolemus\u2019s assignment. She agrees to reach the receiving harbor. This is a captive passage.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-troy-route",
+                value: "witness"
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-message-b",
+                actor: "greek-troy-andromache"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-troy-andromache-sail",
+                value: "witness"
+              }
+            ],
+            workId: "euripides-trojan-women"
+          },
+          {
+            id: "greek-troy-agree-andromache-child-refuge",
+            subject: "greek-troy-andromache",
+            at: "greek-ajax-landing",
+            label: "Accept Andromache\u2019s refuge agreement",
+            text: "Andromache agrees to reach Myrto\u2019s refuge with Astyanax under her care. Vale can accompany her on the actual shared ship.",
+            textTemplate: "Andromache agrees to reach Myrto\u2019s refuge with Astyanax under her care. {actor} can accompany her on the actual shared ship.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-troy-route",
+                value: "child-refuge"
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-message-b",
+                actor: "greek-troy-andromache"
+              },
+              {
+                kind: "flag",
+                key: "greek-troy-care-prepared",
+                value: true
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-child-cloth",
+                actor: "greek-troy-andromache"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-troy-andromache-sail",
+                value: "child-refuge"
+              }
+            ],
+            workId: "euripides-trojan-women"
+          },
+          {
+            id: "greek-troy-agree-andromache-family-together",
+            subject: "greek-troy-andromache",
+            at: "greek-ajax-landing",
+            label: "Pay the last berth for Andromache\u2019s family",
+            text: "Vale pays the last berth token at the landing. Andromache accepts the reserved departure with Astyanax under her care. She boards after the vessel is empty and sails while the giver stays ashore.",
+            textTemplate: "{actor} pays the last berth token at the landing. Andromache accepts the reserved departure with Astyanax under her care. She boards after the vessel is empty and sails while the giver stays ashore.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-troy-route",
+                value: "family-together"
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-message-b",
+                actor: "greek-troy-andromache"
+              },
+              {
+                kind: "flag",
+                key: "greek-troy-care-prepared",
+                value: true
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-child-cloth",
+                actor: "greek-troy-andromache"
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-berth-token",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-troy-andromache-sail",
+                value: "family-together"
+              },
+              {
+                kind: "place_item",
+                item: "greek-troy-berth-token",
+                place: "greek-ajax-landing"
+              },
+              {
+                kind: "choose",
+                key: "greek-troy-cargo-cost",
+                value: "player-berth"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-troy-berth-given",
+                value: true
+              }
+            ],
+            workId: "euripides-trojan-women"
+          },
+          {
+            id: "greek-troy-hear-body",
+            subject: "greek-troy-talthybius",
+            at: "greek-troy",
+            label: "Hear the child\u2019s source report after the mother sails",
+            text: "Talthybius tells Vale that Andromache has departed under her assignment. In the source loss Astyanax has died; Talthybius has washed his body and brings it on Hector\u2019s shield for Hecuba\u2019s care.",
+            textTemplate: "Talthybius tells {actor} that Andromache has departed under her assignment. In the source loss Astyanax has died; Talthybius has washed his body and brings it on Hector\u2019s shield for Hecuba\u2019s care.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-troy-route",
+                value: "witness"
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-message-b",
+                actor: "greek-troy-andromache"
+              },
+              {
+                kind: "item_near",
+                item: "greek-troy-message-b",
+                place: "greek-harbor"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-troy-astyanax-fate",
+                value: "dead"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-troy-child-reported",
+                value: true
+              }
+            ],
+            workId: "euripides-trojan-women"
+          },
+          {
+            id: "greek-troy-agree-hecuba-witness",
+            subject: "greek-troy-hecuba",
+            at: "greek-troy-womens-tent",
+            label: "Hear Hecuba agree to carry the elder\u2019s letter",
+            text: "Hecuba accepts her kin letter and names the actual departure route. She will reach the shield ground for the child\u2019s dressing, then leave with the women after that care.",
+            textTemplate: "Hecuba accepts her kin letter and names the actual departure route. She will reach the shield ground for the child\u2019s dressing, then leave with the women after that care.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-troy-route",
+                value: "witness"
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-message-a",
+                actor: "greek-troy-hecuba"
+              },
+              {
+                kind: "flag",
+                key: "greek-troy-child-reported",
+                value: true
+              },
+              {
+                kind: "knows",
+                topic: "greek-troy-body",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-troy-hecuba-sail",
+                value: "witness"
+              }
+            ],
+            workId: "euripides-trojan-women"
+          },
+          {
+            id: "greek-troy-agree-hecuba-child-refuge",
+            subject: "greek-troy-hecuba",
+            at: "greek-troy-womens-tent",
+            label: "Hear Hecuba agree to carry the elder\u2019s letter",
+            text: "Hecuba accepts her kin letter and names the actual departure route. She will carry the elder\u2019s words to the receiving harbor while Andromache keeps the child\u2019s chosen care.",
+            textTemplate: "Hecuba accepts her kin letter and names the actual departure route. She will carry the elder\u2019s words to the receiving harbor while Andromache keeps the child\u2019s chosen care.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-troy-route",
+                value: "child-refuge"
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-message-a",
+                actor: "greek-troy-hecuba"
+              },
+              {
+                kind: "flag",
+                key: "greek-troy-care-prepared",
+                value: true
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-troy-hecuba-sail",
+                value: "child-refuge"
+              }
+            ],
+            workId: "euripides-trojan-women"
+          },
+          {
+            id: "greek-troy-agree-hecuba-family-together",
+            subject: "greek-troy-hecuba",
+            at: "greek-troy-womens-tent",
+            label: "Hear Hecuba agree to carry the elder\u2019s letter",
+            text: "Hecuba accepts her kin letter and names the actual departure route. She will carry the elder\u2019s words to the receiving harbor while Andromache keeps the child\u2019s chosen care.",
+            textTemplate: "Hecuba accepts her kin letter and names the actual departure route. She will carry the elder\u2019s words to the receiving harbor while Andromache keeps the child\u2019s chosen care.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-troy-route",
+                value: "family-together"
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-message-a",
+                actor: "greek-troy-hecuba"
+              },
+              {
+                kind: "flag",
+                key: "greek-troy-care-prepared",
+                value: true
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-troy-hecuba-sail",
+                value: "family-together"
+              }
+            ],
+            workId: "euripides-trojan-women"
+          },
+          {
+            id: "greek-troy-dress-shield",
+            subject: "greek-troy-hecuba",
+            at: "greek-troy-shield-ground",
+            label: "Dress the child on Hector\u2019s shield",
+            text: "Vale reaches the shield ground with Hecuba and brings the clean cloth. Hecuba dresses the washed child for burial on Hector\u2019s own shield. The recorded dead child remains a person in this source loss.",
+            textTemplate: "{actor} reaches the shield ground with Hecuba and brings the clean cloth. Hecuba dresses the washed child for burial on Hector\u2019s own shield. The recorded dead child remains a person in this source loss.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-troy-astyanax-fate",
+                value: "dead"
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-hector-shield",
+                role: "actor"
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-child-cloth",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "place_item",
+                item: "greek-troy-hector-shield",
+                place: "greek-troy-shield-ground"
+              },
+              {
+                kind: "place_item",
+                item: "greek-troy-child-cloth",
+                place: "greek-troy-shield-ground"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-troy-care-prepared",
+                value: true
+              },
+              {
+                kind: "set_flag",
+                key: "greek-troy-buried",
+                value: true
+              }
+            ],
+            workId: "euripides-trojan-women"
+          },
+          {
+            id: "greek-troy-record-witness",
+            subject: "greek-shipmaster",
+            at: "greek-harbor",
+            label: "Hear Myrto confirm the actual departures",
+            text: "Myrto confirms both actual carriers at the harbor with their separate kin letters. Andromache\u2019s captive departure and the child\u2019s completed burial remain the source losses.",
+            textTemplate: "Myrto confirms both actual carriers at the harbor with their separate kin letters. Andromache\u2019s captive departure and the child\u2019s completed burial remain the source losses.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-troy-route",
+                value: "witness"
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-names",
+                role: "actor"
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-message-a",
+                actor: "greek-troy-hecuba"
+              },
+              {
+                kind: "item_near",
+                item: "greek-troy-message-a",
+                place: "greek-harbor"
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-message-b",
+                actor: "greek-troy-andromache"
+              },
+              {
+                kind: "item_near",
+                item: "greek-troy-message-b",
+                place: "greek-harbor"
+              },
+              {
+                kind: "flag",
+                key: "greek-troy-buried",
+                value: true
+              },
+              {
+                kind: "choice",
+                key: "greek-troy-astyanax-fate",
+                value: "dead"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-troy-ending",
+                value: "witness"
+              },
+              {
+                kind: "choose",
+                key: "greek-troy-andromache-route",
+                value: "captive-departure"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-troy-andromache-arrived",
+                value: true
+              },
+              {
+                kind: "set_flag",
+                key: "greek-troy-departures-verified",
+                value: true
+              }
+            ],
+            workId: "euripides-trojan-women"
+          },
+          {
+            id: "greek-troy-return-witness",
+            subject: "greek-baker",
+            at: "greek-courtyard",
+            label: "Read the women\u2019s names to Dione",
+            text: "Vale gives Dione the women\u2019s names roll and reads the actual witness departure account. The named kin, the child\u2019s fate and the paid cost keep their own records.",
+            textTemplate: "{actor} gives Dione the women\u2019s names roll and reads the actual witness departure account. The named kin, the child\u2019s fate and the paid cost keep their own records.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-troy-ending",
+                value: "witness"
+              },
+              {
+                kind: "flag",
+                key: "greek-troy-last-song-read",
+                value: true
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-names",
+                role: "actor"
+              },
+              {
+                kind: "knows",
+                topic: "greek-troy-account-witness",
+                role: "actor"
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-troy-return"
+              }
+            ],
+            effects: [
+              {
+                kind: "place_item",
+                item: "greek-troy-names",
+                place: "greek-courtyard"
+              },
+              {
+                kind: "choose",
+                key: "greek-troy-return",
+                value: "witness"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-troy-returned",
+                value: true
+              }
+            ],
+            workId: "euripides-trojan-women"
+          },
+          {
+            id: "greek-troy-record-child-refuge",
+            subject: "greek-shipmaster",
+            at: "greek-harbor",
+            label: "Hear Myrto confirm the actual departures",
+            text: "Myrto confirms both actual carriers and the mother\u2019s clean cloth at the prepared harbor refuge. Astyanax has reached refuge under Andromache\u2019s care. This is the invented earlier rescue.",
+            textTemplate: "Myrto confirms both actual carriers and the mother\u2019s clean cloth at the prepared harbor refuge. Astyanax has reached refuge under Andromache\u2019s care. This is the invented earlier rescue.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-troy-route",
+                value: "child-refuge"
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-names",
+                role: "actor"
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-message-a",
+                actor: "greek-troy-hecuba"
+              },
+              {
+                kind: "item_near",
+                item: "greek-troy-message-a",
+                place: "greek-harbor"
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-message-b",
+                actor: "greek-troy-andromache"
+              },
+              {
+                kind: "item_near",
+                item: "greek-troy-message-b",
+                place: "greek-harbor"
+              },
+              {
+                kind: "flag",
+                key: "greek-troy-refuge-prepared",
+                value: true
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-child-cloth",
+                actor: "greek-troy-andromache"
+              },
+              {
+                kind: "item_near",
+                item: "greek-troy-child-cloth",
+                place: "greek-harbor"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-troy-ending",
+                value: "child-refuge"
+              },
+              {
+                kind: "choose",
+                key: "greek-troy-andromache-route",
+                value: "refuge"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-troy-andromache-arrived",
+                value: true
+              },
+              {
+                kind: "set_flag",
+                key: "greek-troy-departures-verified",
+                value: true
+              },
+              {
+                kind: "choose",
+                key: "greek-troy-astyanax-fate",
+                value: "refuge"
+              }
+            ],
+            workId: "euripides-trojan-women"
+          },
+          {
+            id: "greek-troy-return-child-refuge",
+            subject: "greek-baker",
+            at: "greek-courtyard",
+            label: "Read the women\u2019s names to Dione",
+            text: "Vale gives Dione the women\u2019s names roll and reads the actual child-refuge departure account. The named kin, the child\u2019s fate and the paid cost keep their own records.",
+            textTemplate: "{actor} gives Dione the women\u2019s names roll and reads the actual child-refuge departure account. The named kin, the child\u2019s fate and the paid cost keep their own records.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-troy-ending",
+                value: "child-refuge"
+              },
+              {
+                kind: "flag",
+                key: "greek-troy-last-song-read",
+                value: true
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-names",
+                role: "actor"
+              },
+              {
+                kind: "knows",
+                topic: "greek-troy-account-child-refuge",
+                role: "actor"
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-troy-return"
+              }
+            ],
+            effects: [
+              {
+                kind: "place_item",
+                item: "greek-troy-names",
+                place: "greek-courtyard"
+              },
+              {
+                kind: "choose",
+                key: "greek-troy-return",
+                value: "child-refuge"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-troy-returned",
+                value: true
+              }
+            ],
+            workId: "euripides-trojan-women"
+          },
+          {
+            id: "greek-troy-record-family-together",
+            subject: "greek-shipmaster",
+            at: "greek-harbor",
+            label: "Hear Myrto confirm the actual departures",
+            text: "Myrto confirms both actual carriers and the mother\u2019s clean cloth at the prepared harbor refuge. The last berth was paid and the reserved family voyage left the giver ashore. Astyanax has reached refuge with Andromache.",
+            textTemplate: "Myrto confirms both actual carriers and the mother\u2019s clean cloth at the prepared harbor refuge. The last berth was paid and the reserved family voyage left the giver ashore. Astyanax has reached refuge with Andromache.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-troy-route",
+                value: "family-together"
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-names",
+                role: "actor"
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-message-a",
+                actor: "greek-troy-hecuba"
+              },
+              {
+                kind: "item_near",
+                item: "greek-troy-message-a",
+                place: "greek-harbor"
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-message-b",
+                actor: "greek-troy-andromache"
+              },
+              {
+                kind: "item_near",
+                item: "greek-troy-message-b",
+                place: "greek-harbor"
+              },
+              {
+                kind: "flag",
+                key: "greek-troy-refuge-prepared",
+                value: true
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-child-cloth",
+                actor: "greek-troy-andromache"
+              },
+              {
+                kind: "item_near",
+                item: "greek-troy-child-cloth",
+                place: "greek-harbor"
+              },
+              {
+                kind: "flag",
+                key: "greek-troy-berth-given",
+                value: true
+              },
+              {
+                kind: "choice",
+                key: "greek-troy-cargo-cost",
+                value: "player-berth"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-troy-ending",
+                value: "family-together"
+              },
+              {
+                kind: "choose",
+                key: "greek-troy-andromache-route",
+                value: "family-passage"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-troy-andromache-arrived",
+                value: true
+              },
+              {
+                kind: "set_flag",
+                key: "greek-troy-departures-verified",
+                value: true
+              },
+              {
+                kind: "choose",
+                key: "greek-troy-astyanax-fate",
+                value: "refuge"
+              }
+            ],
+            workId: "euripides-trojan-women"
+          },
+          {
+            id: "greek-troy-return-family-together",
+            subject: "greek-baker",
+            at: "greek-courtyard",
+            label: "Read the women\u2019s names to Dione",
+            text: "Vale gives Dione the women\u2019s names roll and reads the actual family-together departure account. The named kin, the child\u2019s fate and the paid cost keep their own records.",
+            textTemplate: "{actor} gives Dione the women\u2019s names roll and reads the actual family-together departure account. The named kin, the child\u2019s fate and the paid cost keep their own records.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-troy-ending",
+                value: "family-together"
+              },
+              {
+                kind: "flag",
+                key: "greek-troy-last-song-read",
+                value: true
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-names",
+                role: "actor"
+              },
+              {
+                kind: "knows",
+                topic: "greek-troy-account-family-together",
+                role: "actor"
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-troy-return"
+              }
+            ],
+            effects: [
+              {
+                kind: "place_item",
+                item: "greek-troy-names",
+                place: "greek-courtyard"
+              },
+              {
+                kind: "choose",
+                key: "greek-troy-return",
+                value: "family-together"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-troy-returned",
+                value: true
+              }
+            ],
+            workId: "euripides-trojan-women"
+          },
+          {
+            id: "greek-troy-last-song",
+            subject: "greek-shipmaster",
+            at: "greek-harbor",
+            label: "Read Hecuba\u2019s parting words",
+            text: "Myrto reads Hecuba\u2019s parting words from Vale\u2019s names roll. Troy\u2019s burning and the women\u2019s chosen departure enter the record beside the kin who reached this shore.",
+            textTemplate: "Myrto reads Hecuba\u2019s parting words from {actor}\u2019s names roll. Troy\u2019s burning and the women\u2019s chosen departure enter the record beside the kin who reached this shore.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-troy-departures-verified",
+                value: true
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-names",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "greek-troy-last-song-read",
+                value: true
+              },
+              {
+                kind: "set_flag",
+                key: "greek-troy-city-fall-recorded",
+                value: true
+              }
+            ],
+            workId: "euripides-trojan-women"
           }
         ],
         works: [
@@ -12335,18 +13826,47 @@
             title: "Trojan Women",
             era: "trojan-aftermath",
             placeIds: [
-              "greek-troy"
+              "greek-troy",
+              "greek-troy-womens-tent",
+              "greek-troy-shield-ground",
+              "greek-ajax-landing"
             ],
             premise: "The conquered community struggles to preserve lives and relationships before dispersal.",
-            status: "situated-hook",
+            status: "branching-episode",
             hookChoiceIds: [
-              "greek-inquire-euripides-trojan-women"
+              "greek-inquire-euripides-trojan-women",
+              "greek-troy-invitation",
+              "greek-troy-reserve-refuge",
+              "greek-troy-hear-assignments",
+              "greek-troy-hear-names",
+              "greek-troy-write-names",
+              "greek-troy-choose-witness",
+              "greek-troy-choose-child-refuge",
+              "greek-troy-choose-family-together",
+              "greek-troy-hear-crew",
+              "greek-troy-set-refuge-shield",
+              "greek-troy-prepare-refuge",
+              "greek-troy-agree-andromache-witness",
+              "greek-troy-agree-andromache-child-refuge",
+              "greek-troy-agree-andromache-family-together",
+              "greek-troy-hear-body",
+              "greek-troy-agree-hecuba-witness",
+              "greek-troy-agree-hecuba-child-refuge",
+              "greek-troy-agree-hecuba-family-together",
+              "greek-troy-dress-shield",
+              "greek-troy-record-witness",
+              "greek-troy-return-witness",
+              "greek-troy-record-child-refuge",
+              "greek-troy-return-child-refuge",
+              "greek-troy-record-family-together",
+              "greek-troy-return-family-together",
+              "greek-troy-last-song"
             ],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Euripides",
               work: "Trojan Women",
-              adaptation: "Original CosyWorld situation text; no translation passages are bundled."
+              adaptation: "Original named-kin, shield, cloth and letter scenes keep the source\u2019s washed child, Andromache\u2019s earlier departure, Hecuba\u2019s dressing and farewell, and the women\u2019s captivity. Earlier child refuge and the paid family departure are invented changes. Two distinct physical letters reach shore in their actual adult carriers\u2019 hands. The family\u2019s reserved one-vessel leg keeps the payer ashore. Astyanax is an offstage person whose rescue location follows his actual mother, and final refuge is recorded only after her disembarkation. Hector\u2019s shield keeps its own identity beside Ajax\u2019s shield."
             }
           },
           {
@@ -12875,7 +14395,9 @@
             "greek-troy",
             "greek-trojan-camp",
             "greek-rhesus-allies",
-            "greek-rhesus-aid-tent"
+            "greek-rhesus-aid-tent",
+            "greek-troy-womens-tent",
+            "greek-troy-shield-ground"
           ],
           avatars: [
             "greek-antigone",
@@ -12906,7 +14428,10 @@
             "greek-lemnos-neoptolemus",
             "greek-rhesus-hector",
             "greek-rhesus-rhesus",
-            "greek-rhesus-charioteer"
+            "greek-rhesus-charioteer",
+            "greek-troy-hecuba",
+            "greek-troy-andromache",
+            "greek-troy-talthybius"
           ],
           items: [
             "greek-water-jar",
@@ -12940,7 +14465,14 @@
             "greek-rhesus-lamp",
             "greek-rhesus-watchword",
             "greek-rhesus-bandage",
-            "greek-rhesus-testimony"
+            "greek-rhesus-testimony",
+            "greek-troy-names",
+            "greek-troy-message-a",
+            "greek-troy-message-b",
+            "greek-troy-hector-shield",
+            "greek-troy-child-cloth",
+            "greek-troy-crew-pledge",
+            "greek-troy-berth-token"
           ],
           choices: [
             "greek-return-water-jar",
@@ -13082,7 +14614,33 @@
             "greek-rhesus-complete-raid",
             "greek-rhesus-record-warning",
             "greek-rhesus-return-warning",
-            "greek-rhesus-return-raid"
+            "greek-rhesus-return-raid",
+            "greek-troy-invitation",
+            "greek-troy-reserve-refuge",
+            "greek-troy-hear-assignments",
+            "greek-troy-hear-names",
+            "greek-troy-write-names",
+            "greek-troy-choose-witness",
+            "greek-troy-choose-child-refuge",
+            "greek-troy-choose-family-together",
+            "greek-troy-hear-crew",
+            "greek-troy-set-refuge-shield",
+            "greek-troy-prepare-refuge",
+            "greek-troy-agree-andromache-witness",
+            "greek-troy-agree-andromache-child-refuge",
+            "greek-troy-agree-andromache-family-together",
+            "greek-troy-hear-body",
+            "greek-troy-agree-hecuba-witness",
+            "greek-troy-agree-hecuba-child-refuge",
+            "greek-troy-agree-hecuba-family-together",
+            "greek-troy-dress-shield",
+            "greek-troy-record-witness",
+            "greek-troy-return-witness",
+            "greek-troy-record-child-refuge",
+            "greek-troy-return-child-refuge",
+            "greek-troy-record-family-together",
+            "greek-troy-return-family-together",
+            "greek-troy-last-song"
           ]
         },
         recital: {
@@ -13814,7 +15372,7 @@
               choice: "greek-rhesus-complete-warning",
               quest: "story-quest-greek-rhesus-ending",
               lines: [
-                "I walked the living ally to the bed.",
+                "The living ally reached the sheltered bed.",
                 "His hands found work among the sheltered hurt."
               ],
               summons: true
@@ -13843,6 +15401,69 @@
               lines: [
                 "I read the wounded driver\u2019s answer home.",
                 "The dead and living kept their separate claims."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-troy-write-names",
+              quest: "story-quest-greek-troy-names",
+              lines: [
+                "I wrote the women\u2019s kin beside their names.",
+                "Each waiting household had a word to carry."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-troy-dress-shield",
+              quest: "story-quest-greek-troy-care",
+              lines: [
+                "I brought the cloth to Hector\u2019s waiting shield.",
+                "The elder dressed the child the herald washed."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-troy-prepare-refuge",
+              quest: "story-quest-greek-troy-care",
+              lines: [
+                "The shield stood ready by the living child.",
+                "His mother took the cloth and named his care."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-troy-last-song",
+              quest: "story-quest-greek-troy-departure",
+              lines: [
+                "Both letters crossed and reached the waiting shore.",
+                "The parting song kept names beside the sea."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-troy-return-witness",
+              quest: "story-quest-greek-troy-return",
+              lines: [
+                "I read the women\u2019s names beside the bread.",
+                "The shield and emptied city kept their grief."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-troy-return-child-refuge",
+              quest: "story-quest-greek-troy-return",
+              lines: [
+                "I read the mother\u2019s reached refuge at home.",
+                "The child\u2019s own care came with the carried names."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-troy-return-family-together",
+              quest: "story-quest-greek-troy-return",
+              lines: [
+                "I read the family\u2019s reached refuge at home.",
+                "The paid last berth had kept its giver ashore."
               ],
               summons: true
             }
@@ -13950,6 +15571,21 @@
               {
                 kind: "flag",
                 key: "greek-rhesus-open",
+                value: true
+              }
+            ]
+          },
+          {
+            id: "greek-troy-captives",
+            name: "What the Ships Will Carry",
+            places: [
+              "greek-troy-womens-tent",
+              "greek-troy-shield-ground"
+            ],
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-troy-open",
                 value: true
               }
             ]
@@ -15385,6 +17021,128 @@
             progress: [
               "greek-rhesus-record-warning"
             ]
+          },
+          {
+            id: "story-quest-greek-troy-names",
+            group: "troy",
+            line: "Write the women\u2019s names and kin messages.",
+            holder: {
+              kind: "avatar",
+              id: "greek-troy-hecuba"
+            },
+            art: "greek-troy-names",
+            start: {
+              kind: "flag",
+              key: "greek-troy-open",
+              value: true
+            },
+            endings: [
+              {
+                choice: "greek-troy-write-names"
+              }
+            ],
+            outcome: "Fulfilled",
+            progress: [
+              "greek-troy-hear-assignments",
+              "greek-troy-hear-names"
+            ]
+          },
+          {
+            id: "story-quest-greek-troy-care",
+            group: "troy",
+            line: "Keep the child\u2019s recorded status through his care.",
+            holder: {
+              kind: "avatar",
+              id: "greek-troy-hecuba"
+            },
+            art: "greek-troy-child-cloth",
+            start: {
+              kind: "receipt",
+              choice: "greek-troy-write-names"
+            },
+            endings: [
+              {
+                choice: "greek-troy-dress-shield"
+              },
+              {
+                choice: "greek-troy-prepare-refuge"
+              }
+            ],
+            outcome: "Fulfilled",
+            progress: [
+              "greek-troy-choose-witness",
+              "greek-troy-choose-child-refuge",
+              "greek-troy-choose-family-together",
+              "greek-troy-hear-body",
+              "greek-troy-hear-crew",
+              "greek-troy-set-refuge-shield"
+            ]
+          },
+          {
+            id: "story-quest-greek-troy-departure",
+            group: "troy",
+            line: "Carry both kin letters through the actual departures.",
+            holder: {
+              kind: "avatar",
+              id: "greek-troy-andromache"
+            },
+            art: "greek-troy-message-b",
+            start: {
+              any: [
+                {
+                  kind: "receipt",
+                  choice: "greek-troy-dress-shield"
+                },
+                {
+                  kind: "receipt",
+                  choice: "greek-troy-prepare-refuge"
+                }
+              ]
+            },
+            endings: [
+              {
+                choice: "greek-troy-last-song"
+              }
+            ],
+            outcome: "Fulfilled",
+            progress: [
+              "greek-troy-agree-andromache-witness",
+              "greek-troy-agree-andromache-child-refuge",
+              "greek-troy-agree-andromache-family-together",
+              "greek-troy-agree-hecuba-witness",
+              "greek-troy-agree-hecuba-child-refuge",
+              "greek-troy-agree-hecuba-family-together",
+              "greek-troy-record-witness",
+              "greek-troy-record-child-refuge",
+              "greek-troy-record-family-together"
+            ]
+          },
+          {
+            id: "story-quest-greek-troy-return",
+            group: "troy",
+            line: "Carry the women\u2019s names home.",
+            holder: {
+              kind: "avatar",
+              id: "greek-troy-hecuba"
+            },
+            art: "greek-troy-names",
+            start: {
+              kind: "receipt",
+              choice: "greek-troy-last-song"
+            },
+            endings: [
+              {
+                choice: "greek-troy-return-witness"
+              },
+              {
+                choice: "greek-troy-return-child-refuge"
+              },
+              {
+                choice: "greek-troy-return-family-together"
+              }
+            ],
+            outcome: "Shared",
+            progress: []
           }
         ],
         topics: [
@@ -16070,6 +17828,249 @@
               }
             ],
             choiceId: "greek-rhesus-record-warning"
+          },
+          {
+            id: "greek-troy-assignments",
+            speaker: "greek-troy-talthybius",
+            at: "greek-troy",
+            text: "Talthybius assigns Andromache to Neoptolemus, Cassandra to Agamemnon and Hecuba to Odysseus in this source account.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-troy-open",
+                value: true
+              }
+            ],
+            choiceId: "greek-troy-hear-assignments"
+          },
+          {
+            id: "greek-troy-names",
+            speaker: "greek-troy-hecuba",
+            at: "greek-troy-womens-tent",
+            text: "Hecuba names the captive women\u2019s kin messages and Astyanax\u2019s living care before the later order.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-troy-assignments-heard",
+                value: true
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-names",
+                role: "actor"
+              }
+            ],
+            choiceId: "greek-troy-hear-names"
+          },
+          {
+            id: "greek-troy-crew",
+            speaker: "greek-troy-talthybius",
+            at: "greek-troy",
+            text: "Talthybius records the invented earlier rescue terms with a prepared refuge and a consenting crew.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-troy-rescue-selected",
+                value: true
+              },
+              {
+                kind: "flag",
+                key: "greek-troy-refuge-prepared",
+                value: true
+              }
+            ],
+            choiceId: "greek-troy-hear-crew"
+          },
+          {
+            id: "greek-troy-body",
+            speaker: "greek-troy-talthybius",
+            at: "greek-troy",
+            text: "Talthybius reports Astyanax\u2019s death and washed body on Hector\u2019s shield after Andromache\u2019s captive departure.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-troy-route",
+                value: "witness"
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-message-b",
+                actor: "greek-troy-andromache"
+              },
+              {
+                kind: "item_near",
+                item: "greek-troy-message-b",
+                place: "greek-harbor"
+              }
+            ],
+            choiceId: "greek-troy-hear-body"
+          },
+          {
+            id: "greek-troy-account-witness",
+            speaker: "greek-shipmaster",
+            at: "greek-harbor",
+            text: "Myrto confirms the two kin-letter carriers\u2019 actual arrival after Andromache\u2019s captive departure and the child\u2019s burial.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-troy-route",
+                value: "witness"
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-names",
+                role: "actor"
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-message-a",
+                actor: "greek-troy-hecuba"
+              },
+              {
+                kind: "item_near",
+                item: "greek-troy-message-a",
+                place: "greek-harbor"
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-message-b",
+                actor: "greek-troy-andromache"
+              },
+              {
+                kind: "item_near",
+                item: "greek-troy-message-b",
+                place: "greek-harbor"
+              },
+              {
+                kind: "flag",
+                key: "greek-troy-buried",
+                value: true
+              },
+              {
+                kind: "choice",
+                key: "greek-troy-astyanax-fate",
+                value: "dead"
+              }
+            ],
+            choiceId: "greek-troy-record-witness"
+          },
+          {
+            id: "greek-troy-account-child-refuge",
+            speaker: "greek-shipmaster",
+            at: "greek-harbor",
+            text: "Myrto confirms the two kin-letter carriers and Astyanax\u2019s actual refuge under Andromache\u2019s care.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-troy-route",
+                value: "child-refuge"
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-names",
+                role: "actor"
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-message-a",
+                actor: "greek-troy-hecuba"
+              },
+              {
+                kind: "item_near",
+                item: "greek-troy-message-a",
+                place: "greek-harbor"
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-message-b",
+                actor: "greek-troy-andromache"
+              },
+              {
+                kind: "item_near",
+                item: "greek-troy-message-b",
+                place: "greek-harbor"
+              },
+              {
+                kind: "flag",
+                key: "greek-troy-refuge-prepared",
+                value: true
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-child-cloth",
+                actor: "greek-troy-andromache"
+              },
+              {
+                kind: "item_near",
+                item: "greek-troy-child-cloth",
+                place: "greek-harbor"
+              }
+            ],
+            choiceId: "greek-troy-record-child-refuge"
+          },
+          {
+            id: "greek-troy-account-family-together",
+            speaker: "greek-shipmaster",
+            at: "greek-harbor",
+            text: "Myrto confirms the family\u2019s actual refuge after the paid reserved voyage left its giver ashore.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-troy-route",
+                value: "family-together"
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-names",
+                role: "actor"
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-message-a",
+                actor: "greek-troy-hecuba"
+              },
+              {
+                kind: "item_near",
+                item: "greek-troy-message-a",
+                place: "greek-harbor"
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-message-b",
+                actor: "greek-troy-andromache"
+              },
+              {
+                kind: "item_near",
+                item: "greek-troy-message-b",
+                place: "greek-harbor"
+              },
+              {
+                kind: "flag",
+                key: "greek-troy-refuge-prepared",
+                value: true
+              },
+              {
+                kind: "holding",
+                item: "greek-troy-child-cloth",
+                actor: "greek-troy-andromache"
+              },
+              {
+                kind: "item_near",
+                item: "greek-troy-child-cloth",
+                place: "greek-harbor"
+              },
+              {
+                kind: "flag",
+                key: "greek-troy-berth-given",
+                value: true
+              },
+              {
+                kind: "choice",
+                key: "greek-troy-cargo-cost",
+                value: "player-berth"
+              }
+            ],
+            choiceId: "greek-troy-record-family-together"
           }
         ],
         bridge: {
@@ -19513,7 +21514,14 @@
       for (const [index, journey] of options.entries()) {
         const agreement = agreements[index];
         check(
-          keysOk2(journey, ["after", "path", "independent", "exclusive"]) && (journey.independent === void 0 || typeof journey.independent === "boolean") && (journey.exclusive === void 0 || typeof journey.exclusive === "boolean") && (journey.exclusive !== true || journey.independent === true) && !hub2.avatars.includes(id) && avatar.travels === false && avatar.roamingQuest === void 0 && idOk2(journey.after) && Array.isArray(journey.path) && journey.path.length >= 2 && journey.path.length <= 8 && new Set(journey.path).size === journey.path.length && journey.path[0] === avatar.place && journey.path.every((place) => owns2(places2, place)) && (journey.independent !== true || Object.values(pack.transports || {}).some(
+          keysOk2(journey, [
+            "after",
+            "path",
+            "independent",
+            "exclusive",
+            "cargo",
+            "until"
+          ]) && (journey.independent === void 0 || typeof journey.independent === "boolean") && (journey.exclusive === void 0 || typeof journey.exclusive === "boolean") && (journey.exclusive !== true || journey.independent === true) && !hub2.avatars.includes(id) && avatar.travels === false && avatar.roamingQuest === void 0 && idOk2(journey.after) && Array.isArray(journey.path) && journey.path.length >= 2 && journey.path.length <= 8 && new Set(journey.path).size === journey.path.length && journey.path[0] === avatar.place && journey.path.every((place) => owns2(places2, place)) && (journey.independent !== true || Object.values(pack.transports || {}).some(
             (transport) => journey.path.includes(transport.place)
           )) && (journey.exclusive !== true || Object.values(pack.transports || {}).filter(
             (transport) => journey.path.includes(transport.place)
@@ -19524,7 +21532,19 @@
             return places2[from].exits.includes(to) || routes.some((route) => route.from === from && route.to === to) || Object.values(pack.transports || {}).some(
               (transport) => Array.isArray(transport?.docks) && (to === transport.place && transport.docks.includes(from) || from === transport.place && transport.docks.includes(to))
             );
-          }) && agreement?.subject === id && agreement.at === avatar.place,
+          }) && agreement?.subject === id && agreement.at === avatar.place && (journey.cargo === void 0 && journey.until === void 0 || Array.isArray(journey.cargo) && journey.cargo.length >= 1 && journey.cargo.length <= 3 && new Set(journey.cargo).size === journey.cargo.length && journey.cargo.every(
+            (item) => owns2(items2, item) && agreement.requires?.some(
+              (r) => r.kind === "holding" && r.item === item && r.actor === id
+            )
+          ) && choices.some(
+            (end) => end.id === journey.until && end.at === journey.path.at(-1) && journey.cargo.every(
+              (item) => end.requires?.some(
+                (r) => r.kind === "holding" && r.item === item && r.actor === id
+              )
+            ) && (end.subject === id || end.requires?.some(
+              (r) => r.kind === "item_near" && journey.cargo.includes(r.item) && r.place === end.at
+            ))
+          )),
           `avatar ${id} journey needs consent at home and a simple connected path`
         );
       }
@@ -20427,6 +22447,7 @@
   var roamingQuestActor = (id) => packPeople[id]?.roamingQuest === "latest-completion";
   var staysPut = (id) => packPeople[id]?.travels === false;
   var packJourneyDestination = (world, id) => journeyNextPlace(world, packOf(id), id);
+  var packJourneyKeepsItem = (world, id, item) => journeyKeepsItem(world, packOf(id), id, item);
   var packIndependentJourneyDestination = (world, id) => independentJourneyNextPlace(world, packOf(id), id);
   var packJourneyReservations = (world) => packDefinitions.flatMap(
     (pack) => Object.keys(pack.avatars).map(
@@ -24386,6 +26407,7 @@
   );
   var valeStalled = (s) => s.turn - (s.actors.vale.progress.marks.at(-1) || 0) >= 24;
   function willingToGive(s, owner2, item, recipient = null) {
+    if (packJourneyKeepsItem(s, owner2, item)) return false;
     if (hasMotives(s) && recipient && resentment(s, owner2, recipient))
       return false;
     if (!hasQuestPrograms(s) || lifeOf(s, owner2))
@@ -24394,6 +26416,7 @@
   }
   function canTrade(s, actor, give, receive) {
     const other = s.items[receive]?.holder;
+    if (packJourneyKeepsItem(s, other, receive)) return false;
     if (s.items[give]?.holder !== actor || !actorIds.includes(other) || !knownActors2(s).includes(other) || other === actor || controlledByHuman(s, other) || s.actors[actor].place !== s.actors[other].place)
       return false;
     if (hasMotives(s) ? !tradeDecision(s, actor, give, receive).accepted && !(hasQuestPrograms(s) && !s.life && !resentment(s, other, actor) && needed(s, other, give) && !needed(s, other, receive)) : !accepts(s, other, give) || needed(s, other, receive))
@@ -26433,6 +28456,8 @@
   group("troad", "coast", "greek-camp troy-beach ajax-landing");
   group("troad", "shelter", "ajax-household");
   group("troad", "shelter", "rhesus-aid-tent");
+  group("troad", "shelter", "troy-womens-tent");
+  group("troad", "open", "troy-shield-ground");
   group("troad", "open", "rhesus-allies");
   group("troad", "open", "ajax-grave");
   group("thrace", "coast", "thrace");

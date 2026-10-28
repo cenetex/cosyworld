@@ -27,18 +27,21 @@ export const aulisState = (world) => world.packs["greek-drama"];
 export const lemnosChoice = (world, id) =>
   bookPlay(world, "choose", { choiceId: `greek-lemnos-${id}` });
 
-export function bookBoard(world, actor = "vale") {
+export function bookDocked(world, actor = "vale") {
   for (let turn = 0; turn < 16; turn++) {
     if (
       legalActions(world, actor).some(
         (a) => a.kind === "move" && a.target === "greek-ship",
       )
     )
-      return bookPlay(world, "move", { target: "greek-ship" }, actor);
+      return world;
     world = bookPlay(world, "wait", {}, actor);
   }
   throw new Error("The shared ship still has passengers on another voyage.");
 }
+
+export const bookBoard = (world, actor = "vale") =>
+  bookPlay(bookDocked(world, actor), "move", { target: "greek-ship" }, actor);
 
 export function lemnosStart() {
   let world = bookMove(aulisJourney(), "greek-harbor");
@@ -188,6 +191,135 @@ export function rhesusJourney(route = "warning") {
   );
   world = bookMove(bookBoard(world), "greek-harbor", "greek-courtyard");
   return rhesusChoice(world, `return-${route}`);
+}
+
+export const troyChoice = (world, id) =>
+  bookPlay(world, "choose", { choiceId: `greek-troy-${id}` });
+const troyTent = "greek-troy-womens-tent";
+const troyPort = "greek-ajax-landing";
+const troyAndromache = "greek-troy-andromache";
+const troyHecuba = "greek-troy-hecuba";
+const troyToPort = (world) =>
+  bookMove(world, "greek-troy", "greek-greek-camp", troyPort);
+const troyToTent = (world) =>
+  bookMove(world, "greek-greek-camp", "greek-troy", troyTent);
+
+export function troyStart(route = "witness") {
+  let world = bookMove(rhesusJourney(), "greek-harbor");
+  world = troyChoice(world, "invitation");
+  if (route !== "witness") {
+    world = bookPlay(world, "take", { item: "greek-troy-crew-pledge" });
+    world = troyChoice(world, "reserve-refuge");
+  }
+  world = bookMove(
+    bookBoard(world),
+    troyPort,
+    "greek-greek-camp",
+    "greek-troy",
+  );
+  world = bookTalk(world, "greek-troy-talthybius", "greek-troy-assignments");
+  world = bookMove(world, troyTent);
+  world = bookPlay(world, "take", { item: "greek-troy-names" });
+  world = bookTalk(world, troyHecuba, "greek-troy-names");
+  world = troyChoice(world, "write-names");
+  world = troyChoice(world, `choose-${route}`);
+  world = bookPlay(world, "take", { item: "greek-troy-message-a" });
+  world = bookPlay(world, "give", {
+    item: "greek-troy-message-a",
+    target: troyHecuba,
+  });
+  return bookPlay(world, "take", { item: "greek-troy-message-b" });
+}
+
+export function troyPrepared(route = "witness") {
+  let world = troyStart(route);
+  if (route === "witness") {
+    world = troyToPort(world);
+    world = bookPlay(world, "give", {
+      item: "greek-troy-message-b",
+      target: troyAndromache,
+    });
+    world = troyChoice(world, "agree-andromache-witness");
+    for (
+      let turn = 0;
+      turn < 24 && world.actors[troyAndromache].place !== "greek-harbor";
+      turn++
+    )
+      world = bookPlay(world, "wait");
+    world = bookMove(world, "greek-greek-camp", "greek-troy");
+    world = bookTalk(world, "greek-troy-talthybius", "greek-troy-body");
+    world = bookMove(world, troyTent);
+    world = troyChoice(world, "agree-hecuba-witness");
+    world = bookPlay(world, "take", { item: "greek-troy-child-cloth" });
+    world = bookMove(world, "greek-troy", "greek-troy-shield-ground");
+    world = bookPlay(world, "take", { item: "greek-troy-hector-shield" });
+    world = troyChoice(world, "dress-shield");
+    world = bookMove(world, "greek-troy", troyTent);
+  } else {
+    world = bookPlay(world, "take", { item: "greek-troy-child-cloth" });
+    world = bookMove(world, "greek-troy");
+    world = bookTalk(world, "greek-troy-talthybius", "greek-troy-crew");
+    world = bookMove(world, "greek-troy-shield-ground");
+    world = bookPlay(world, "take", { item: "greek-troy-hector-shield" });
+    world = troyToPort(world);
+    world = troyChoice(world, "set-refuge-shield");
+    for (const item of ["child-cloth", "message-b"])
+      world = bookPlay(world, "give", {
+        item: `greek-troy-${item}`,
+        target: troyAndromache,
+      });
+    world = troyChoice(world, "prepare-refuge");
+    if (route === "child-refuge")
+      world = troyChoice(world, "agree-andromache-child-refuge");
+    world = troyToTent(world);
+    world = troyChoice(world, `agree-hecuba-${route}`);
+    if (route === "family-together")
+      world = bookPlay(world, "take", { item: "greek-troy-berth-token" });
+  }
+  world = bookPlay(world, "take", { item: "greek-troy-names" });
+  return troyToPort(world);
+}
+
+export const troyFamilyReady = () =>
+  bookDocked(troyPrepared("family-together"));
+
+export function troyArrivals(route = "witness") {
+  let world =
+    route === "family-together" ? troyFamilyReady() : troyPrepared(route);
+  if (route === "family-together")
+    world = troyChoice(world, "agree-andromache-family-together");
+  if (route === "child-refuge") {
+    world = bookDocked(world);
+    for (const destination of ["greek-ship", "greek-harbor"])
+      world = bookPlay(world, "accompany", {
+        target: troyAndromache,
+        destination,
+      });
+  } else {
+    for (
+      let turn = 0;
+      turn < 32 &&
+      [troyAndromache, troyHecuba].some(
+        (id) => world.actors[id].place !== "greek-harbor",
+      );
+      turn++
+    )
+      world = bookPlay(world, "wait");
+  }
+  return world;
+}
+
+export function troyJourney(route = "witness") {
+  return troyReturn(troyArrivals(route), route);
+}
+
+export function troyReturn(world, route = "witness") {
+  if (world.actors.vale.place !== "greek-harbor")
+    world = bookMove(bookBoard(world), "greek-harbor");
+  world = bookTalk(world, "greek-shipmaster", `greek-troy-account-${route}`);
+  world = troyChoice(world, "last-song");
+  world = bookMove(world, "greek-courtyard");
+  return troyChoice(world, `return-${route}`);
 }
 
 export function bookTalk(world, speaker, topic, actor = "vale") {

@@ -894,7 +894,14 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     for (const [index, journey] of options.entries()) {
       const agreement = agreements[index];
       check(
-        keysOk(journey, ["after", "path", "independent", "exclusive"]) &&
+        keysOk(journey, [
+          "after",
+          "path",
+          "independent",
+          "exclusive",
+          "cargo",
+          "until",
+        ]) &&
           (journey.independent === undefined ||
             typeof journey.independent === "boolean") &&
           (journey.exclusive === undefined ||
@@ -937,7 +944,40 @@ export function packProblems(pack, hub, mountedPlaces = []) {
             );
           }) &&
           agreement?.subject === id &&
-          agreement.at === avatar.place,
+          agreement.at === avatar.place &&
+          ((journey.cargo === undefined && journey.until === undefined) ||
+            (Array.isArray(journey.cargo) &&
+              journey.cargo.length >= 1 &&
+              journey.cargo.length <= 3 &&
+              new Set(journey.cargo).size === journey.cargo.length &&
+              journey.cargo.every(
+                (item) =>
+                  owns(items, item) &&
+                  agreement.requires?.some(
+                    (r) =>
+                      r.kind === "holding" && r.item === item && r.actor === id,
+                  ),
+              ) &&
+              choices.some(
+                (end) =>
+                  end.id === journey.until &&
+                  end.at === journey.path.at(-1) &&
+                  journey.cargo.every((item) =>
+                    end.requires?.some(
+                      (r) =>
+                        r.kind === "holding" &&
+                        r.item === item &&
+                        r.actor === id,
+                    ),
+                  ) &&
+                  (end.subject === id ||
+                    end.requires?.some(
+                      (r) =>
+                        r.kind === "item_near" &&
+                        journey.cargo.includes(r.item) &&
+                        r.place === end.at,
+                    )),
+              ))),
         `avatar ${id} journey needs consent at home and a simple connected path`,
       );
     }

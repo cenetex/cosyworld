@@ -130,6 +130,15 @@ Work `euripides-trojan-women`; existing `greek-troy`.
 
 **New places:** `greek-troy-womens-tent`, `greek-troy-shield-ground`. **New items:** `greek-troy-names`, `greek-troy-message-a`, `greek-troy-message-b`, `greek-troy-hector-shield`, `greek-troy-child-cloth`, `greek-troy-crew-pledge`, `greek-troy-berth-token`.
 
+Andromache starts at the existing Trojan Camp Landing for her departure
+agreement. Hecuba’s source path reaches the shield ground and waits there
+for the actual dressing before it continues to the vessel. Each woman holds
+her separate letter through the actual voyage and Myrto’s published arrival
+record. The family path pays its token at the landing and reserves one actual
+leg of the shared ship. Its giver waits ashore and can make a later crossing.
+Astyanax’s rescue care follows Andromache’s actual place. The later household
+keys are written after the mother and her cloth reach the harbor refuge.
+
 Three physical beats:
 
 1. Hear the women and write their names, destinations, and kin messages onto the roll.
