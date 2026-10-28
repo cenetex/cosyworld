@@ -1,5 +1,6 @@
 import { entityActive } from "../v2/card-game/pack-registry.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
+import hoppycat from "../v2/content/hoppycat-archive/card-world.json" with { type: "json" };
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { describe, expect, it } from "vitest";
@@ -196,6 +197,12 @@ describe("the side roads in earlier saved worlds", () => {
       expect(restored.items).toEqual({
         ...world.items,
         "boardyai-calling-card": { holder: "station", history: [] },
+        ...Object.fromEntries(
+          Object.entries(hoppycat.items).map(([id, item]) => [
+            id,
+            { holder: item.holder, history: [] },
+          ]),
+        ),
       });
       expect(restored.log).toEqual(world.log);
       expect(restored.actors["greek-household-witness"].place).toBe(

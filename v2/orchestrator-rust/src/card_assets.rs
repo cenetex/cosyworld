@@ -2155,7 +2155,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "weather.css" => "\"a79f649ad9c106ddbaaa00734695c83e49140c3da54e331a4c5ca3ec38fee348\"",
         "portrait-facing.mjs" => {
-            "\"5cf323214a088c32a8dc0db977e10b8e4e37fe3ea2c25523783ddb553694b32c\""
+            "\"331d13f1d44709c5e4d611cce0c267f11d7c8aeb8990a462a4aaba835a1620dd\""
         }
         "cards.mjs" => "\"d830242dc06693e8a0327f41a5b56e8ff8d5f2f054e47716e420131e79aee2f0\"",
         "lessons.mjs" => "\"d356ccfd6d4bb622ea7e325ebae519f3ff37433013b04874f07f83865b883705\"",
