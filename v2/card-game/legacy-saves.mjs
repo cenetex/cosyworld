@@ -213,7 +213,11 @@ export function upgradeGreekTownSave(s) {
   for (const actor of Object.values(s.actors || {}))
     program(actor.progress?.current);
   for (const quest of Object.values(s.quests?.records || {}))
-    if (quest.completedTurn === null && !quest.retired) program(quest.program);
+    if (quest.completedTurn === null && !quest.retired) {
+      if (quest.holder?.kind === "place")
+        quest.holder.id = canonicalPlace(quest.holder.id);
+      program(quest.program);
+    }
   for (const state of Object.values(s.roamingQuests || {})) {
     if (state.target)
       state.target.locationId = canonicalPlace(state.target.locationId);

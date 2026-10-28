@@ -1939,7 +1939,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
             "\"4a930efedb8e283404abf4e5d0345e9336384d10a4e6e4e0fe7b243e95b65500\""
         }
         "legacy-saves.mjs" => {
-            "\"85d7a313bc6ef46f8eb1507702ab3873d55bb3fe13cc0494af6ba8c93eb8fa31\""
+            "\"ae39c068257ad00cf50b44ed214335ba7cd8a9f631e69c67313a1b6f5f786615\""
         }
         "forest.json" => "\"12a2be7877e4daff53d3d1ad27c1703b2ca10dff51e6f371a5b3d1a7975afdfe\"",
         "packs.json" => "\"609779ccb455ea3619fbf637dd925b8ade5613f7e3758a31306c56e645ae98a2\"",

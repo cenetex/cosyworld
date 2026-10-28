@@ -106,11 +106,28 @@ describe("local town visits and road history", () => {
       (q) => q.completedTurn === null,
     );
     quest.program.steps[0].location = "greek-road-athens-harbor";
+    const shared = addQuestRecord(before, {
+      holder: { kind: "place", id: "greek-road-athens-harbor" },
+      program: {
+        id: "road-visit",
+        name: "A visit by the harbor",
+        steps: [
+          { items: [], avatars: [], location: "greek-road-athens-harbor" },
+        ],
+      },
+    });
     const current = decodeSave(JSON.stringify(before));
     expect(current.quests.records[quest.key].program.steps[0].location).toBe(
       "greek-athens-harbor",
     );
     expect(current.quests.records[quest.key].key).toBe(quest.key);
+    expect(current.quests.records[shared.key].holder).toEqual({
+      kind: "place",
+      id: "greek-athens-harbor",
+    });
+    expect(current.quests.records[shared.key].program.steps[0].location).toBe(
+      "greek-athens-harbor",
+    );
   });
 
   it("offers seven roads between towns and direct visits inside each town", () => {
