@@ -1,0 +1,287 @@
+{
+  "generated": "2026-10-28",
+  "tool": "built-in image_gen",
+  "sourceBase": "aeda691649722caf8536afdd10ea6cc8d1652df4",
+  "sourceDocuments": [
+    {
+      "name": "cosyworld-book-iii-handoff.md",
+      "sha256": "b4253d2e0f32264d3acbb3df415b031cec652aece0666bb4e89e9f7ec29955b4"
+    },
+    {
+      "name": "cosyworld-book-iii-proposed-entities.json",
+      "sha256": "de3811210d6a7560c3269e50d0c79331d1877c3636bfea5e0e8cd7a8fed7e3c5"
+    }
+  ],
+  "designSourceCommit": "0028c76f1e7acbcb73931713b0d6901747a828ad",
+  "style": "Approved painted Greek cast realism with distinct adult faces, ordinary woven clothes, full feet and clear silhouettes.",
+  "storyBow": {
+    "plannedItemId": "greek-lemnos-bow",
+    "binding": "A separate chapter item with its own custody history."
+  },
+  "assets": [
+    {
+      "file": "book-three-iphigenia.png",
+      "sourceFile": "book-three-iphigenia.png",
+      "sourceName": "exec-b981782f-2526-47bd-8573-db41447bc182.png",
+      "generationId": "exec-b981782f-2526-47bd-8573-db41447bc182",
+      "plannedActorId": "greek-aulis-iphigenia",
+      "accountGroup": "aulis",
+      "intent": "reference-based generation",
+      "transparentBackground": true,
+      "references": [
+        {
+          "file": "chthonic-ismene.png",
+          "role": "style reference",
+          "sha256": "73ea9c0504277380a52dcc04fbf4eac0df658dec278d9210f80430a0e37f16c5"
+        },
+        {
+          "file": "chthonic-helen.png",
+          "role": "style reference",
+          "sha256": "3c87d505fd801846e140405d3d5b84f562ddb9d00a1f015ad9c2814209a5986f"
+        }
+      ],
+      "processing": "Original generated PNG copied with its full native pixels and alpha channel.",
+      "prompt": "Use case: historical-scene.\nAsset type: one full-body transparent portrait for Book III of the Wine-Dark Sea card game.\nInput images: approved Greek cast portraits used as style references. Match their detailed painterly realism, natural anatomy, woven linen and wool, aged materials and humane expressions. Give the new subject a distinct adult face and clothing.\nComposition: a calm three-quarter standing pose on a tall 2:3 canvas. Show the full head, both hands, entire garment hem, any named prop and both sandaled feet. Leave generous clear margins around the whole figure. Use a readable silhouette for small cards and stage overlays.\nLighting: gentle warm light from upper left and cool soft shading within the subject.\nBackground: true transparent alpha outside the complete figure and named prop, including gaps between limbs. Shading stays within the subject. The image is a clean cutout for day and night scenes.\n\nSubject: Iphigenia in the Aulis account, a clearly adult young woman about twenty-two years old. She has a warm olive complexion, a distinct softly rounded adult face, thoughtful brown eyes and dark brown hair braided and pinned back. Her head and face are fully uncovered. She wears a plain ankle-length natural linen dress, a light muted blue wool wrap over one shoulder, a simple cord belt and practical leather sandals. One hand holds the edge of her wrap near her waist while the other opens gently as she considers her own words. Her expression is composed, alert and quietly resolute. Keep her clothing simple and her fully adult features clear.",
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "a8b9176f8fd51aa48cbfaf37ef44c8fee51cc4138604c1c661d31ba3e86a10bb",
+      "sha256": "a8b9176f8fd51aa48cbfaf37ef44c8fee51cc4138604c1c661d31ba3e86a10bb",
+      "bytes": 2259624,
+      "alpha": {
+        "clearPixels": 940585,
+        "partialPixels": 632279,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 2,
+        "visibleSubjectBounds": [
+          140,
+          7,
+          878,
+          1521
+        ],
+        "visibleBoundsThreshold": 8
+      }
+    },
+    {
+      "file": "book-three-clytemnestra.png",
+      "sourceFile": "book-three-clytemnestra.png",
+      "sourceName": "exec-7f85aa5a-e330-444a-be31-f5897f610ac6.png",
+      "generationId": "exec-7f85aa5a-e330-444a-be31-f5897f610ac6",
+      "plannedActorId": "greek-aulis-clytemnestra",
+      "accountGroup": "aulis",
+      "intent": "reference-based generation",
+      "transparentBackground": true,
+      "references": [
+        {
+          "file": "chthonic-baker.png",
+          "role": "style reference",
+          "sha256": "c8e900ee50e1a3fe860e7f38e6625f7326a6715e6821e8a5db74d264c1bbd7e0"
+        },
+        {
+          "file": "chthonic-helen.png",
+          "role": "style reference",
+          "sha256": "3c87d505fd801846e140405d3d5b84f562ddb9d00a1f015ad9c2814209a5986f"
+        }
+      ],
+      "processing": "Original generated PNG copied with its full native pixels and alpha channel.",
+      "prompt": "Use case: historical-scene.\nAsset type: one full-body transparent portrait for Book III of the Wine-Dark Sea card game.\nInput images: approved Greek cast portraits used as style references. Match their detailed painterly realism, natural anatomy, woven linen and wool, aged materials and humane expressions. Give the new subject a distinct adult face and clothing.\nComposition: a calm three-quarter standing pose on a tall 2:3 canvas. Show the full head, both hands, entire garment hem, any named prop and both sandaled feet. Leave generous clear margins around the whole figure. Use a readable silhouette for small cards and stage overlays.\nLighting: gentle warm light from upper left and cool soft shading within the subject.\nBackground: true transparent alpha outside the complete figure and named prop, including gaps between limbs. Shading stays within the subject. The image is a clean cutout for day and night scenes.\n\nSubject: Clytemnestra, Iphigenia's mature adult mother in the Aulis account, a woman in her late forties. She has a medium olive complexion, a broad distinct face with strong cheekbones, watchful dark eyes and deep auburn hair touched with grey at the temples, gathered into a simple braided bun. She wears an ordinary ankle-length muted ochre woven dress, a deep red-brown wool mantle fastened with one modest bronze pin, a woven belt and leather sandals. One hand rests near her chest and the other opens in a firm, protective speaking gesture. Her expression carries maternal resolve and thought. Keep the complete face, hands and feet clear.",
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "de3702b884f8430a1f3db7c9e1ed3d94ec4ffedee31491e705fd3e33c7a0ef19",
+      "sha256": "de3702b884f8430a1f3db7c9e1ed3d94ec4ffedee31491e705fd3e33c7a0ef19",
+      "bytes": 2296658,
+      "alpha": {
+        "clearPixels": 946978,
+        "partialPixels": 625886,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          106,
+          17,
+          900,
+          1502
+        ],
+        "visibleBoundsThreshold": 8
+      }
+    },
+    {
+      "file": "book-three-achilles.png",
+      "sourceFile": "book-three-achilles.png",
+      "sourceName": "exec-7149e911-5f9e-4355-9e4a-1ea9850610a1.png",
+      "generationId": "exec-7149e911-5f9e-4355-9e4a-1ea9850610a1",
+      "plannedActorId": "greek-aulis-achilles",
+      "accountGroup": "aulis",
+      "intent": "reference-based generation",
+      "transparentBackground": true,
+      "references": [
+        {
+          "file": "chthonic-orestes.png",
+          "role": "style reference",
+          "sha256": "612b5608fadf8f3c9e2e84dacda395eb05b057dfd0c562781f3c748a96b8da23"
+        },
+        {
+          "file": "chthonic-menelaus.png",
+          "role": "style reference",
+          "sha256": "8f3ef20e63ee5138d7ae09bb3e90893c51f421aecdd3adea3fb94a4d61e4113b"
+        }
+      ],
+      "processing": "Original generated PNG copied with its full native pixels and alpha channel.",
+      "prompt": "Use case: historical-scene.\nAsset type: one full-body transparent portrait for Book III of the Wine-Dark Sea card game.\nInput images: approved Greek cast portraits used as style references. Match their detailed painterly realism, natural anatomy, woven linen and wool, aged materials and humane expressions. Give the new subject a distinct adult face and clothing.\nComposition: a calm three-quarter standing pose on a tall 2:3 canvas. Show the full head, both hands, entire garment hem, any named prop and both sandaled feet. Leave generous clear margins around the whole figure. Use a readable silhouette for small cards and stage overlays.\nLighting: gentle warm light from upper left and cool soft shading within the subject.\nBackground: true transparent alpha outside the complete figure and named prop, including gaps between limbs. Shading stays within the subject. The image is a clean cutout for day and night scenes.\n\nSubject: Achilles in the Aulis account, an adult Greek warrior about thirty years old. He has a strong natural athletic build, a sun-worn light olive complexion, a distinct angular adult face, grey-brown eyes and short wavy dark blond hair with a little close stubble. His head is bare and his entire face is uncovered. He wears a simple worn bronze breastplate over a knee-length natural linen chiton, a muted red wool cloak, a plain leather belt, leather bracers and sandals. One hand rests near his belt and the other opens in a calm, clear speaking gesture. His expression is attentive and resolute. Keep the pose humane and conversational.",
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "fc6c481696dd63c7da09571cf0d8e7c2d5972e4ebf805ff208965a8983b35dfc",
+      "sha256": "fc6c481696dd63c7da09571cf0d8e7c2d5972e4ebf805ff208965a8983b35dfc",
+      "bytes": 2172468,
+      "alpha": {
+        "clearPixels": 991802,
+        "partialPixels": 581062,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          120,
+          17,
+          915,
+          1469
+        ],
+        "visibleBoundsThreshold": 8
+      }
+    },
+    {
+      "file": "book-three-philoctetes.png",
+      "sourceFile": "book-three-philoctetes.png",
+      "sourceName": "exec-89cbba7f-fcf4-466f-9f99-945736a6e633.png",
+      "generationId": "exec-89cbba7f-fcf4-466f-9f99-945736a6e633",
+      "plannedActorId": "greek-lemnos-philoctetes",
+      "accountGroup": "lemnos",
+      "intent": "reference-based generation",
+      "transparentBackground": true,
+      "references": [
+        {
+          "file": "chthonic-elder.png",
+          "role": "style reference",
+          "sha256": "a5949e884b36493b902ed3168c58c051e27e87abe80380c669e93eebc1e71869"
+        },
+        {
+          "file": "chthonic-menelaus.png",
+          "role": "style reference",
+          "sha256": "8f3ef20e63ee5138d7ae09bb3e90893c51f421aecdd3adea3fb94a4d61e4113b"
+        }
+      ],
+      "processing": "Original generated PNG copied with its full native pixels and alpha channel.",
+      "prompt": "Use case: historical-scene.\nAsset type: one full-body transparent portrait for Book III of the Wine-Dark Sea card game.\nInput images: approved Greek cast portraits used as style references. Match their detailed painterly realism, natural anatomy, woven linen and wool, aged materials and humane expressions. Give the new subject a distinct adult face and clothing.\nComposition: a calm three-quarter standing pose on a tall 2:3 canvas. Show the full head, both hands, entire garment hem, any named prop and both sandaled feet. Leave generous clear margins around the whole figure. Use a readable silhouette for small cards and stage overlays.\nLighting: gentle warm light from upper left and cool soft shading within the subject.\nBackground: true transparent alpha outside the complete figure and named prop, including gaps between limbs. Shading stays within the subject. The image is a clean cutout for day and night scenes.\n\nSubject: Philoctetes at Lemnos, an older adult man in his early sixties. He has a deeply weathered olive face, steady brown eyes, rough grey-brown hair and a short salt-and-pepper beard. He wears a simple faded olive-brown knee-length woven tunic, a worn grey wool wrap, a plain belt and practical sandals. A clean plain linen bandage wraps his left ankle above the sandal, shown as an intact cloth wrap. He stands with gentle support from one plain wooden walking staff held in one hand; his other hand is free and open. His expression is wary, thoughtful and human. The portrait's identifying equipment consists of the walking staff and clean ankle wrap. Keep the full staff, bandaged ankle and both feet within clear margins.",
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "d7fc19afdb768adf14d67d359aabb49543f1955882268a01f5a6b3fdb2e74323",
+      "sha256": "d7fc19afdb768adf14d67d359aabb49543f1955882268a01f5a6b3fdb2e74323",
+      "bytes": 2411833,
+      "alpha": {
+        "clearPixels": 931451,
+        "partialPixels": 641413,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          166,
+          11,
+          887,
+          1470
+        ],
+        "visibleBoundsThreshold": 8
+      }
+    },
+    {
+      "file": "book-three-neoptolemus.png",
+      "sourceFile": "book-three-neoptolemus.png",
+      "sourceName": "exec-da352d86-51fa-4168-8513-ac527261b1d4.png",
+      "generationId": "exec-da352d86-51fa-4168-8513-ac527261b1d4",
+      "plannedActorId": "greek-lemnos-neoptolemus",
+      "accountGroup": "lemnos",
+      "intent": "reference-based generation",
+      "transparentBackground": true,
+      "references": [
+        {
+          "file": "chthonic-orestes.png",
+          "role": "style reference",
+          "sha256": "612b5608fadf8f3c9e2e84dacda395eb05b057dfd0c562781f3c748a96b8da23"
+        },
+        {
+          "file": "chthonic-menelaus.png",
+          "role": "style reference",
+          "sha256": "8f3ef20e63ee5138d7ae09bb3e90893c51f421aecdd3adea3fb94a4d61e4113b"
+        }
+      ],
+      "processing": "Original generated PNG copied with its full native pixels and alpha channel.",
+      "prompt": "Use case: historical-scene.\nAsset type: one full-body transparent portrait for Book III of the Wine-Dark Sea card game.\nInput images: approved Greek cast portraits used as style references. Match their detailed painterly realism, natural anatomy, woven linen and wool, aged materials and humane expressions. Give the new subject a distinct adult face and clothing.\nComposition: a calm three-quarter standing pose on a tall 2:3 canvas. Show the full head, both hands, entire garment hem, any named prop and both sandaled feet. Leave generous clear margins around the whole figure. Use a readable silhouette for small cards and stage overlays.\nLighting: gentle warm light from upper left and cool soft shading within the subject.\nBackground: true transparent alpha outside the complete figure and named prop, including gaps between limbs. Shading stays within the subject. The image is a clean cutout for day and night scenes.\n\nSubject: Neoptolemus at Lemnos, a grown adult traveller in his late twenties. He has a warm olive complexion, a distinct broad adult face, a strong clean-shaven jaw, brown eyes and dark brown wavy hair of medium length. He wears a plain knee-length natural linen tunic, a muted slate-blue wool travel cloak, a simple leather belt and well-used sandals. One free hand rests lightly at the cloak while the other is open in a clear conversational gesture. His expression is thoughtful and earnest as he weighs what to say. The portrait shows his simple clothes, belt, sandals and free hands as its complete design. Keep the full figure readable and grounded.",
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "974d3bf51254ba8a631044baf2cfc4d34223ebddb25451eb075b8f64de459c89",
+      "sha256": "974d3bf51254ba8a631044baf2cfc4d34223ebddb25451eb075b8f64de459c89",
+      "bytes": 2087105,
+      "alpha": {
+        "clearPixels": 1032045,
+        "partialPixels": 540819,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          152,
+          17,
+          860,
+          1480
+        ],
+        "visibleBoundsThreshold": 8
+      }
+    }
+  ],
+  "integration": "The Book III source owner will bind these exact actor and image paths. Chapter integration owns optimized variants, public assets, shared rules and final release versions.",
+  "reviewBackgrounds": [
+    {
+      "file": "ajax-camp-day.webp",
+      "sha256": "846fd6875ded126c01eb4108247d5b94c5a0c6fbf2f9909ff42dafe21ebfbe77",
+      "source": "Approved Greek camp, PR #1265, commit 11f8801f9ed6ede6ea7fcacab0da7ae7b9697773",
+      "purpose": "Painted lighting and alpha-edge review; chapter bindings belong to the source owner"
+    },
+    {
+      "file": "ajax-camp-night.webp",
+      "sha256": "45dd0233ac83a755d6f4aa645683c77aa1959d4f68128668f4a11cb9a61a2bbb",
+      "source": "Approved Greek camp, PR #1265, commit 11f8801f9ed6ede6ea7fcacab0da7ae7b9697773",
+      "purpose": "Painted lighting and alpha-edge review; chapter bindings belong to the source owner"
+    },
+    {
+      "file": "ajax-camp-day.webp",
+      "sha256": "846fd6875ded126c01eb4108247d5b94c5a0c6fbf2f9909ff42dafe21ebfbe77",
+      "source": "Approved Greek camp, PR #1265, commit 11f8801f9ed6ede6ea7fcacab0da7ae7b9697773",
+      "purpose": "Painted lighting and alpha-edge review; chapter bindings belong to the source owner"
+    },
+    {
+      "file": "ajax-camp-night.webp",
+      "sha256": "45dd0233ac83a755d6f4aa645683c77aa1959d4f68128668f4a11cb9a61a2bbb",
+      "source": "Approved Greek camp, PR #1265, commit 11f8801f9ed6ede6ea7fcacab0da7ae7b9697773",
+      "purpose": "Painted lighting and alpha-edge review; chapter bindings belong to the source owner"
+    },
+    {
+      "file": "theban-harbor-road.webp",
+      "sha256": "02f068c0f388054541c0e74ee2235836e205742cd0941c5dfdbf22f608f1478f",
+      "source": "Published coastal-road paintings used for light and edge review",
+      "purpose": "Painted lighting and alpha-edge review; chapter bindings belong to the source owner"
+    },
+    {
+      "file": "theban-harbor-road-night.webp",
+      "sha256": "9aeaa198d0aabf002a349a7b6c47732080034bc000e694c8729ef84c07f27018",
+      "source": "Published coastal-road paintings used for light and edge review",
+      "purpose": "Painted lighting and alpha-edge review; chapter bindings belong to the source owner"
+    }
+  ]
+}
