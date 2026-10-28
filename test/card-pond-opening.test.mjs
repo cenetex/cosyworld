@@ -110,6 +110,7 @@ describe("the pond opening and shore roads", () => {
     if (places["forest-cottage"]) {
       expect(exits(world, "attic", "vale")).toContain("forest-cottage");
       world = act(world, "move", "forest-cottage");
+      expect(plan(world).action).toMatchObject({ kind: "move", target: "attic" });
       world = act(world, "move", "attic");
       expect(exits(world, "attic", "vale")).toContain("pond");
     }
