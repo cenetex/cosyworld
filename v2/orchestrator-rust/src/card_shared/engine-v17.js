@@ -14004,7 +14004,13 @@
       if (a.kind === "move" && !a.item) {
         const target = want.location;
         const path = api.routeBetween(s, here, target, actor);
-        n = path?.[1] === a.target ? want.items.length ? 18 : 35 : -15;
+        const localGrievances = (s.motives?.grievances[actor] || []).filter(
+          (g) => resentment(s, actor, g.other) > 0 && s.actors[g.other].place === here
+        );
+        const space = localGrievances.length > 0 && localGrievances.every(
+          (g) => s.actors[g.other].place !== a.target
+        );
+        n = path?.[1] === a.target || space ? want.items.length ? 18 : 35 : -15;
       }
       if (a.kind === "light" && actor === "moth") n = 45;
       if (a.kind === "refill" && actor !== "keeper" && s.items.lamp.fuel <= 2)
@@ -14625,13 +14631,14 @@
     return s;
   }
   function upgradeShoreRouteSave(s) {
+    const moved = /* @__PURE__ */ new Set(["attic", "train", "boardyai-parlour"]);
     for (const [actor, known] of Object.entries(s.routeKnowledge || {})) {
       if (!Array.isArray(known)) continue;
       let changed = false;
       const expanded = known.flatMap((edge) => {
         if (!Array.isArray(edge) || edge.length !== 2) return [edge];
         const [from, to] = edge;
-        if (from === "attic" && to === "station" || from === "station" && to === "attic") {
+        if (moved.has(from) && to === "station" || from === "station" && moved.has(to)) {
           changed = true;
           return [[from, "pond"], ["pond", to]];
         }
@@ -16312,10 +16319,10 @@
     const actions = legalActions(s, actor);
     if (route)
       return actions.find((a) => a.kind === "move" && a.target === route[1]);
-    if (target !== "attic") return;
+    if (target !== "attic" && here !== "attic") return;
     if (here === "station")
       return actions.find((a) => a.kind === "move" && a.target === "pond");
-    if (here !== "pond") return;
+    if (!["pond", "attic"].includes(here)) return;
     if (covered(s, "lamp"))
       return actions.find((a) => a.kind === "take" && a.item === "cloth");
     if (!s.items.lamp.fuel)

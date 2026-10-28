@@ -6,6 +6,7 @@ import {
   exits,
   legalActions,
   places,
+  plan,
   play,
 } from "../v2/card-game/world.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
@@ -71,6 +72,14 @@ describe("the pond opening and shore roads", () => {
     world = act(world, "move", "pond");
     world = act(world, "move", "station");
     expect(world.actors.vale.place).toBe("station");
+  });
+
+  it("prepares a carried lamp before planning a return through the mirror", () => {
+    const world = fresh();
+    world.actors.vale.place = "attic";
+    expect(plan(world).action.kind).toBe("light");
+    const lit = play(world, plan(world).action).state;
+    expect(plan(lit).action).toMatchObject({ kind: "move", target: "pond" });
   });
 
   it("keeps a way to the pond when the cloth opens an isolated cottage loop", () => {

@@ -1948,7 +1948,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "scene-video.css" => "\"3c6851ec825e734e3d8a084f4ed77f077bcb4402acbf61869a67b652c3afe4c5\"",
         "awakening.css" => "\"c7a68a23baf1e46934237a57f4b5f87d76bad87af85fdf57ee40abec646908b9\"",
         "app.mjs" => "\"ad23393ae412547aa59c961850d8e0e8b94d3cdb5dc35fa85d764580bfbdef9e\"",
-        "world.mjs" => "\"5abb9dd5f5387cd9d831f79e2b0c9bf8d24c81f175432eec8abe93350cf32f71\"",
+        "world.mjs" => "\"3f29971545c4e700da78fbb313a223b51954dd0e332335b07fa72e17cbfa3e7e\"",
         "scene.mjs" => "\"74d8a5b3030d4c8ee8150296f70c82d369efb7caa873e4e3cdc2d8fd2d0b5b81\"",
         "weather.mjs" => "\"69a3e11642c43831f80581711f6113d814badd666ad2c3e3892a1a4c70a5fd27\"",
         "daylight.mjs" => "\"6e1bbbf92705e5e2ed904ca98666540ab9a91916c94e50749e649a0ba380170d\"",
@@ -1985,7 +1985,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "cards.mjs" => "\"d830242dc06693e8a0327f41a5b56e8ff8d5f2f054e47716e420131e79aee2f0\"",
         "lessons.mjs" => "\"d356ccfd6d4bb622ea7e325ebae519f3ff37433013b04874f07f83865b883705\"",
-        "motives.mjs" => "\"9e8b5b84a9a21761074c524f9295febaf1e03b92342f324a41e364c4d34950f1\"",
+        "motives.mjs" => "\"20e17369ab3ff347a7d28250d4f8f135898c9a627ba52949ab2456a277d52886\"",
         "life.mjs" => "\"96bacb8052c8b77e11eb733edfe075f25f2e6e38ceb8f153280f4d974cb74c5c\"",
         "quests.mjs" => "\"e60df2b0a9d3909078911eab2c57f16dc4ee7e87307dcbf65a83a95b853ec15e\"",
         "quest-offers.mjs" => {
@@ -2066,7 +2066,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
             "\"4a930efedb8e283404abf4e5d0345e9336384d10a4e6e4e0fe7b243e95b65500\""
         }
         "legacy-saves.mjs" => {
-            "\"8b85d1f8a1ba63618d4b95eafc7e56d02c5271237a8deb789121180b4ac03b5d\""
+            "\"676f4323f8bdc13606b1a622ad3f33dc7bdaea0459584a77ebb85e1a681f4d98\""
         }
         "forest.json" => "\"be43360615850d460ecb291474250a82b486bb5bbccfa7cb9eeca5813cbc7702\"",
         "packs.json" => "\"cf57f8baa0303ea9343ed5097260467575db89ed91da3f2ae2a8ddd8539a420e\"",

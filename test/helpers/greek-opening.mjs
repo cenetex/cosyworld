@@ -1,3 +1,4 @@
+import { moveTransport } from "../../v2/card-game/pack-transport.mjs";
 import { atticOpening } from "../fixtures/card-attic-opening.mjs";
 import { createWorld, legalActions, play } from "../../v2/card-game/world.mjs";
 import { enableMotives } from "../../v2/card-game/motives.mjs";
@@ -48,7 +49,9 @@ export function openingFixture(
   walk("ship", "harbor");
   act("snuff", { item: "lamp" });
   act("drop", { item: "cloth", target: "greek-harbor" });
+  const bardFrom = world.actors["greek-rhapsode"].place;
   world.actors["greek-rhapsode"].place = "greek-harbor";
+  moveTransport(world, bardFrom, "greek-harbor");
   walk("courtyard");
   states.arrival = world;
   if (water) {

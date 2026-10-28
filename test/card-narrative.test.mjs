@@ -731,8 +731,6 @@ describe("witnessed departures and conversation continuity", () => {
 
   it("keeps a departing avatar's farewell in the source scene and in memory", () => {
     let world = createWorld();
-    world.actors.keeper.place = "attic";
-    world.peaceUntil.keeper = 20;
     for (let i = 0; i < 4; i++) world = act(world, "wait");
     expect(world.actors.moth.place).toBe("pond");
     const context = narrativeContext(world);
@@ -935,8 +933,6 @@ describe("speech grounding in resolved card plays", () => {
 
   it("keeps a solo departure separate from a wish and an earlier spoken promise", () => {
     let world = createWorld();
-    world.actors.keeper.place = "attic";
-    world.peaceUntil.keeper = 20;
     for (let i = 0; i < 3; i++) world = act(world, "wait");
     const context = narrativeContext(world),
       generated = response(context);

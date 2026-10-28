@@ -108,17 +108,18 @@ export function upgradeSave(
   return s;
 }
 
-// Earlier walks between the attic and station now pass through the pond.
+// Earlier station links to the attic, carriage, and parlour pass through the pond.
 // Keep just the routes each traveler already knew, and preserve their journal.
 export function upgradeShoreRouteSave(s) {
+  const moved = new Set(["attic", "train", "boardyai-parlour"]);
   for (const [actor, known] of Object.entries(s.routeKnowledge || {})) {
     if (!Array.isArray(known)) continue;
     let changed = false;
     const expanded = known.flatMap((edge) => {
       if (!Array.isArray(edge) || edge.length !== 2) return [edge];
       const [from, to] = edge;
-      if ((from === "attic" && to === "station") ||
-          (from === "station" && to === "attic")) {
+      if ((moved.has(from) && to === "station") ||
+          (from === "station" && moved.has(to))) {
         changed = true;
         return [[from, "pond"], ["pond", to]];
       }

@@ -2268,17 +2268,15 @@ fn embedded_selected_cards_match_with_personal_and_shared_quest_offers() {
     for op in ["claim", "enter"] {
         w.apply(&json!({"op":op,"actor":"vale"})).unwrap();
     }
-    for (kind, target) in [("light", None)] {
-        let action = w.project(0).unwrap()["actions"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|a| a["kind"] == kind && target.is_none_or(|to| a["target"] == to))
-            .unwrap()
-            .clone();
-        w.apply(&json!({"op":"play","actor":"vale","action":action}))
-            .unwrap();
-    }
+    let action = w.project(0).unwrap()["actions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|a| a["kind"] == "light")
+        .unwrap()
+        .clone();
+    w.apply(&json!({"op":"play", "actor":"vale", "action":action}))
+        .unwrap();
     w.game["items"]["cloth"]["holder"] = json!("vale");
     let view = w.project(0).unwrap();
     let actions = view["actions"].as_array().unwrap();
