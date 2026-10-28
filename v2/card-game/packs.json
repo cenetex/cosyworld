@@ -330,7 +330,7 @@
           "Aristophanes": 11
         },
         "opening": "Before the Burial",
-        "status": "Forty-three works have authored scenes across the Greek chapters. Frogs and the witnessed reading flow are the final source work in progress."
+        "status": "Forty-four works have authored scenes across the Greek chapters. Six witnessed reading sites preserve their readers, earlier authors and heard pages. Five carried records return to Dione’s table."
       },
       "places": {
         "greek-harbor": {
@@ -454,8 +454,6 @@
           "text": "Folded cloth, a grain basket and a low bench stand beside the mooring ropes. A host waits for the names of returning families. Roads lead inland to Athens and along the coast to Eleusis.",
           "exits": [
             "greek-road-athens-piraeus",
-            "greek-tauris",
-            "greek-sicily",
             "greek-road-piraeus-eleusis"
           ],
           "backdrop": "assets/greek-drama/piraeus-open-berth.webp",
@@ -782,7 +780,9 @@
         "greek-troy-beach": {
           "name": "The Homecoming Beach",
           "text": "A small boat is drawn above the tideline. Its passengers compare what they remember of the war.",
-          "exits": [],
+          "exits": [
+            "greek-ajax-landing"
+          ],
           "backdrop": "assets/greek-drama/sea.svg",
           "requires": [
             {
@@ -833,7 +833,6 @@
           "name": "The Taurian Temple",
           "text": "A walled temple overlooks the landing place. An attendant counts the people brought ashore.",
           "exits": [
-            "greek-piraeus",
             "greek-tauris-shore"
           ],
           "backdrop": "assets/greek-drama/palace.svg",
@@ -843,7 +842,6 @@
           "name": "The Sicilian Cave",
           "text": "Sheep crowd a stone enclosure beside the cave. Wine jars stand beyond the shepherds' reach.",
           "exits": [
-            "greek-piraeus",
             "greek-vii-inner-cave",
             "greek-sicily-shore"
           ],
@@ -1065,19 +1063,13 @@
         },
         "greek-ajax-landing": {
           "name": "The Trojan Camp Landing",
-          "text": "A wooden landing meets the ships below the tents. The Greek ship calls here for the named Trojan burial account.",
-          "persona": "This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. A wooden landing meets the ships below the tents. The Greek ship calls here for the named Trojan burial account.",
+          "text": "A wooden landing meets the shared ship below the tents. Local paths reach the Greek camp and the homecoming beach.",
+          "persona": "This shared Trojan landing serves Ajax’s burial account and Helen’s Trojan homecoming. Each keeps its named time. Local paths reach the Greek camp and the homecoming beach.",
           "exits": [
-            "greek-greek-camp"
+            "greek-greek-camp",
+            "greek-troy-beach"
           ],
-          "backdrop": "assets/greek-drama/ajax-camp-day.webp",
-          "requires": [
-            {
-              "kind": "flag",
-              "key": "greek-camp-road-open",
-              "value": true
-            }
-          ]
+          "backdrop": "assets/greek-drama/ajax-camp-day.webp"
         },
         "greek-ajax-household": {
           "name": "Ajax’s Household Tent",
@@ -10036,36 +10028,6 @@
       },
       "routes": [
         {
-          "from": "greek-harbor",
-          "to": "greek-egypt-tomb",
-          "requires": [
-            {
-              "kind": "choice",
-              "key": "greek-helen-account",
-              "value": "egypt"
-            }
-          ]
-        },
-        {
-          "from": "greek-egypt-tomb",
-          "to": "greek-harbor"
-        },
-        {
-          "from": "greek-harbor",
-          "to": "greek-troy-beach",
-          "requires": [
-            {
-              "kind": "choice",
-              "key": "greek-helen-account",
-              "value": "troy"
-            }
-          ]
-        },
-        {
-          "from": "greek-troy-beach",
-          "to": "greek-harbor"
-        },
-        {
           "from": "greek-argolid-road",
           "to": "greek-argos-tomb",
           "requires": [
@@ -10297,72 +10259,6 @@
           ]
         },
         {
-          "from": "greek-gate",
-          "to": "greek-aulis",
-          "requires": [
-            {
-              "kind": "flag",
-              "key": "greek-aulis-open",
-              "value": false
-            }
-          ]
-        },
-        {
-          "from": "greek-aulis",
-          "to": "greek-gate",
-          "requires": [
-            {
-              "kind": "flag",
-              "key": "greek-aulis-open",
-              "value": false
-            }
-          ]
-        },
-        {
-          "from": "greek-greek-camp",
-          "to": "greek-aulis",
-          "requires": [
-            {
-              "kind": "flag",
-              "key": "greek-aulis-open",
-              "value": false
-            }
-          ]
-        },
-        {
-          "from": "greek-aulis",
-          "to": "greek-greek-camp",
-          "requires": [
-            {
-              "kind": "flag",
-              "key": "greek-aulis-open",
-              "value": false
-            }
-          ]
-        },
-        {
-          "from": "greek-lemnos",
-          "to": "greek-greek-camp",
-          "requires": [
-            {
-              "kind": "flag",
-              "key": "greek-lemnos-open",
-              "value": false
-            }
-          ]
-        },
-        {
-          "from": "greek-greek-camp",
-          "to": "greek-lemnos",
-          "requires": [
-            {
-              "kind": "flag",
-              "key": "greek-lemnos-open",
-              "value": false
-            }
-          ]
-        },
-        {
           "from": "greek-troy-shield-ground",
           "to": "greek-greek-camp",
           "requires": [
@@ -10381,28 +10277,6 @@
               "kind": "flag",
               "key": "greek-troy-care-prepared",
               "value": true
-            }
-          ]
-        },
-        {
-          "from": "greek-thrace",
-          "to": "greek-troy",
-          "requires": [
-            {
-              "kind": "flag",
-              "key": "greek-thrace-open",
-              "value": false
-            }
-          ]
-        },
-        {
-          "from": "greek-troy",
-          "to": "greek-thrace",
-          "requires": [
-            {
-              "kind": "flag",
-              "key": "greek-thrace-open",
-              "value": false
             }
           ]
         },
@@ -10944,6 +10818,11 @@
               "kind": "choose",
               "key": "greek-helen-account",
               "value": "troy"
+            },
+            {
+              "kind": "set_flag",
+              "key": "greek-camp-road-open",
+              "value": true
             }
           ],
           "summary": "The Trojan account governs Helen's whereabouts and testimony. No phantom has been established in this history.",
@@ -50868,7 +50747,7 @@
           },
           {
             "choice": "greek-vii-cyclops-read-home",
-            "quest": "greek-vii-cyclops",
+            "quest": "greek-vii-cyclops-return",
             "lines": [
               "I read the cave’s account beside the bread.",
               "Each cohort kept its place within the telling."
@@ -50877,7 +50756,7 @@
           },
           {
             "choice": "greek-vii-birds-read-home",
-            "quest": "greek-vii-birds",
+            "quest": "greek-vii-birds-return",
             "lines": [
               "I read the refuge’s record at the table.",
               "The gate and food retained their actual keepers."
@@ -50886,7 +50765,7 @@
           },
           {
             "choice": "greek-vii-peace-read-home",
-            "quest": "greek-vii-peace",
+            "quest": "greek-vii-peace-return",
             "lines": [
               "I read the common labor beside Dione.",
               "The grain and tools still named their present holders."
@@ -50895,7 +50774,7 @@
           },
           {
             "choice": "greek-vii-prometheus-read-home",
-            "quest": "greek-vii-prometheus",
+            "quest": "greek-vii-prometheus-return",
             "lines": [
               "I read the flame and message beside Dione.",
               "The oil and words retained their separate costs."
@@ -51230,8 +51109,7 @@
           "name": "The Faces of Home: Helen",
           "places": [
             "greek-book-iv-helen-boat",
-            "greek-book-iv-helen-court",
-            "greek-book-iv-helen-landing"
+            "greek-book-iv-helen-court"
           ],
           "requires": [
             {
@@ -51489,6 +51367,20 @@
               "kind": "flag",
               "key": "greek-camp-road-open",
               "value": true
+            }
+          ]
+        },
+        {
+          "id": "greek-egyptian-landing",
+          "name": "The Egyptian Landing",
+          "places": [
+            "greek-book-iv-helen-landing"
+          ],
+          "requires": [
+            {
+              "kind": "choice",
+              "key": "greek-helen-account",
+              "value": "egypt"
             }
           ]
         },
@@ -57674,12 +57566,96 @@
           "progress": []
         },
         {
+          "id": "greek-vii-cyclops-return",
+          "group": "sky-for-sale",
+          "line": "Carry the Cyclops account home and read it to Dione.",
+          "holder": {
+            "kind": "item",
+            "id": "greek-vii-escape-list"
+          },
+          "art": "greek-vii-escape-list",
+          "start": {
+            "kind": "flag",
+            "key": "greek-vii-cyclops-home-ready",
+            "value": true
+          },
+          "endings": [
+            {
+              "choice": "greek-vii-cyclops-read-home"
+            }
+          ],
+          "outcome": "Shared"
+        },
+        {
+          "id": "greek-vii-birds-return",
+          "group": "sky-for-sale",
+          "line": "Carry the Birds account home and read it to Dione.",
+          "holder": {
+            "kind": "item",
+            "id": "greek-vii-refuge-tablet"
+          },
+          "art": "greek-vii-refuge-tablet",
+          "start": {
+            "kind": "flag",
+            "key": "greek-vii-birds-home-ready",
+            "value": true
+          },
+          "endings": [
+            {
+              "choice": "greek-vii-birds-read-home"
+            }
+          ],
+          "outcome": "Shared"
+        },
+        {
+          "id": "greek-vii-peace-return",
+          "group": "sky-for-sale",
+          "line": "Carry the Peace account home and read it to Dione.",
+          "holder": {
+            "kind": "item",
+            "id": "greek-vii-peace-list"
+          },
+          "art": "greek-vii-peace-list",
+          "start": {
+            "kind": "flag",
+            "key": "greek-vii-peace-home-ready",
+            "value": true
+          },
+          "endings": [
+            {
+              "choice": "greek-vii-peace-read-home"
+            }
+          ],
+          "outcome": "Shared"
+        },
+        {
+          "id": "greek-vii-prometheus-return",
+          "group": "sky-for-sale",
+          "line": "Carry the Prometheus account home and read it to Dione.",
+          "holder": {
+            "kind": "item",
+            "id": "greek-vii-storm-record"
+          },
+          "art": "greek-vii-storm-record",
+          "start": {
+            "kind": "flag",
+            "key": "greek-vii-prometheus-home-ready",
+            "value": true
+          },
+          "endings": [
+            {
+              "choice": "greek-vii-prometheus-read-home"
+            }
+          ],
+          "outcome": "Shared"
+        },
+        {
           "id": "greek-viii-frogs",
           "group": "last-voices",
           "line": "Read the earned account to both poets and carry the chosen voice home.",
           "holder": {
-            "kind": "place",
-            "id": "greek-underworld"
+            "kind": "item",
+            "id": "greek-viii-reading-tablet"
           },
           "art": "greek-viii-reading-tablet",
           "start": {
@@ -64762,7 +64738,7 @@
       ],
       "bridge": {
         "id": "shore-greek-drama",
-        "description": "A shared ship serves Black Pond, the Wine-Dark Harbor, Athens Harbor and Piraeus Quays. The lamp signal calls it to the pond."
+        "description": "One shared ship serves eleven Greek and forest landings. Local paths join each landing to its nearby scene."
       },
       "crossings": [
         {
@@ -64881,13 +64857,7 @@
           "to": "pond",
           "travelers": "any",
           "travel": "aboard the ship",
-          "requires": [
-            {
-              "kind": "flag",
-              "key": "greek-camp-road-open",
-              "value": true
-            }
-          ],
+          "requires": [],
           "transport": "greek-ship",
           "travelLabel": "Board",
           "scenery": {
@@ -64903,13 +64873,7 @@
           "to": "pond",
           "travelers": "any",
           "travel": "aboard the ship",
-          "requires": [
-            {
-              "kind": "flag",
-              "key": "greek-book-iv-open",
-              "value": true
-            }
-          ],
+          "requires": [],
           "transport": "greek-ship",
           "travelLabel": "Board",
           "scenery": {
@@ -64924,13 +64888,7 @@
           "to": "pond",
           "travelers": "any",
           "travel": "aboard the ship",
-          "requires": [
-            {
-              "kind": "flag",
-              "key": "greek-aulis-open",
-              "value": true
-            }
-          ],
+          "requires": [],
           "transport": "greek-ship",
           "travelLabel": "Board",
           "scenery": {
@@ -64946,13 +64904,7 @@
           "to": "pond",
           "travelers": "any",
           "travel": "aboard the ship",
-          "requires": [
-            {
-              "kind": "flag",
-              "key": "greek-lemnos-open",
-              "value": true
-            }
-          ],
+          "requires": [],
           "transport": "greek-ship",
           "travelLabel": "Board",
           "scenery": {
@@ -64968,13 +64920,7 @@
           "to": "pond",
           "travelers": "any",
           "travel": "aboard the ship",
-          "requires": [
-            {
-              "kind": "flag",
-              "key": "greek-thrace-open",
-              "value": true
-            }
-          ],
+          "requires": [],
           "transport": "greek-ship",
           "travelLabel": "Board",
           "scenery": {
@@ -64985,23 +64931,33 @@
           }
         },
         {
+          "id": "greek-tauris-shore-ship",
+          "from": "greek-tauris-shore",
+          "to": "pond",
+          "travelers": "any",
+          "travel": "aboard the shared ship",
+          "travelLabel": "Board",
+          "requires": [],
+          "transport": "greek-ship",
+          "scenery": {
+            "open": "The shared ship waits at the Taurian Shore.",
+            "closed": "The landing waits beside open water.",
+            "cardName": "Greek ship",
+            "cardArt": "assets/greek-drama/ship-card.webp"
+          }
+        },
+        {
           "id": "greek-sicily-shore-ship",
           "from": "greek-sicily-shore",
           "to": "pond",
           "travelers": "any",
-          "travel": "aboard the ship",
-          "requires": [
-            {
-              "kind": "flag",
-              "key": "greek-vii-accounts-open",
-              "value": true
-            }
-          ],
-          "transport": "greek-ship",
+          "travel": "aboard the shared ship",
           "travelLabel": "Board",
+          "requires": [],
+          "transport": "greek-ship",
           "scenery": {
-            "open": "The shared ship waits beside the Sicilian shore.",
-            "closed": "The Sicilian landing faces open water.",
+            "open": "The shared ship waits at the Sicilian Landing.",
+            "closed": "The landing waits beside open water.",
             "cardName": "Greek ship",
             "cardArt": "assets/greek-drama/ship-card.webp"
           }
@@ -65020,6 +64976,7 @@
             "greek-aulis",
             "greek-lemnos-landing",
             "greek-thrace",
+            "greek-tauris-shore",
             "greek-sicily-shore"
           ],
           "at": "greek-harbor"

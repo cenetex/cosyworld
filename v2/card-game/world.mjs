@@ -670,7 +670,8 @@ export function willingToGive(s, owner, item, recipient = null) {
 }
 export function canTrade(s, actor, give, receive) {
   const other = s.items[receive]?.holder;
-  if (packKeepsItem(s, actor, give) || packKeepsItem(s, other, receive)) return false;
+  if (packKeepsItem(s, actor, give) || packKeepsItem(s, other, receive))
+    return false;
   if (
     s.items[give]?.holder !== actor ||
     !actorIds.includes(other) ||
@@ -1615,7 +1616,11 @@ export function legalActions(s, actor = currentActor(s)) {
       action.key += ":" + receive;
       out.push(action);
     }
-  out.push(...fixtureOffers(s, actor, sensesFor(s)), ...packChoices(s, actor), ...readingActions(s, actor));
+  out.push(
+    ...fixtureOffers(s, actor, sensesFor(s)),
+    ...packChoices(s, actor),
+    ...readingActions(s, actor),
+  );
   for (const action of out) {
     if (action.kind === "take" && things[s.items[action.item]?.holder])
       action.label = "Uncover";
@@ -2735,7 +2740,9 @@ export function play(
       state: s,
       error: "The world changed. Choose a current play.",
     };
-  const exact = legalActions(s, actor).find((a) => a.key === action?.key) || resolveReadingReplay(s, actor, action?.key);
+  const exact =
+    legalActions(s, actor).find((a) => a.key === action?.key) ||
+    resolveReadingReplay(s, actor, action?.key);
   if (!exact)
     return {
       ok: false,
@@ -3454,13 +3461,12 @@ export function validateWorld(s) {
       fail();
   }
 
+  const itemHolders = new Set([...actorIds, ...Object.keys(places)]);
+  const heldCounts = new Map();
   for (const [id, item] of Object.entries(s.items)) {
     if (
-      ![
-        ...actorIds,
-        ...Object.keys(places),
-        ...(id === "cloth" ? ["lamp", "bell"] : []),
-      ].includes(item.holder)
+      !itemHolders.has(item.holder) &&
+      !(id === "cloth" && ["lamp", "bell"].includes(item.holder))
     )
       fail();
     if (
@@ -3474,10 +3480,12 @@ export function validateWorld(s) {
       item.history.some((t) => typeof t !== "string" || t.length > 400)
     )
       fail();
+    const holder = rootHolder(s, id);
+    heldCounts.set(holder, (heldCounts.get(holder) || 0) + 1);
   }
   for (const actor of actorIds) {
     const allowance = s.sharedMigration?.inventoryAllowances?.[actor];
-    const count = carried(s, actor).length;
+    const count = heldCounts.get(actor) || 0;
     if (count > (allowance || 3) || (allowance && allowance !== count)) fail();
   }
   const lamp = s.items.lamp,
@@ -3568,7 +3576,8 @@ export function validateWorld(s) {
   for (const e of s.log) {
     if (!validPrivateAudience(s, e.privateTo)) fail();
     if (!validRecallRef(s, e.recall, e.privateTo)) fail();
-    if (!validHearingRef(s, e.hearing, e.privateTo, e.turn, e.locationId)) fail();
+    if (!validHearingRef(s, e.hearing, e.privateTo, e.turn, e.locationId))
+      fail();
     if (e.seq !== undefined) {
       if (!Number.isSafeInteger(e.seq) || e.seq <= seq || e.seq > s.eventSeq)
         fail();

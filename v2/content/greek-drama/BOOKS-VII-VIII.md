@@ -64,5 +64,29 @@ Focused model checks include `test/card-greek-readings.test.mjs`,
 `test/card-reading-privacy.test.mjs` and `test/card-reading-catalogs.test.mjs`.
 The host uses heard-page and outsider prompt fixtures. The browser check is
 `node v2/scripts/smoke-card-readings.mjs` at desktop and phone widths.
-The shared C and HTTP checks cover the saved authority, attendance,
+The shared C and store checks cover the saved authority, attendance,
 private responses, caches and journal rebuild.
+
+The full archive audit follows accepted plays through all five journeys,
+then completes all 48 reserved readings and eight later readings. Its helper
+is `test/helpers/greek-reading-envelope.mjs`. Run this check by itself, with
+Node 24 available:
+
+```sh
+COSYWORLD_READING_AUDIT_REPORT=/tmp/cosyworld-reading-audit.json \
+COSYWORLD_AUDIT_BASE_COMMIT="$(git rev-parse HEAD)" \
+CARGO_BUILD_JOBS=1 RUST_MIN_STACK=16777216 \
+cargo test --manifest-path v2/orchestrator-rust/Cargo.toml \
+  --bin cosyworld-orchestrator \
+  readings_full_archive_and_forty_scene_history_fit_the_game_limits \
+  -- --ignored --nocapture --test-threads=1
+```
+
+This checks the 203-actor save through import, validation, context and play.
+Each validation, context and play response must finish within two seconds,
+including host setup and response encoding.
+It also checks 40 saved private scenes through all eight member views and
+their cached responses. The report records each duration and response size.
+The normal limits remain 96 MiB of engine heap, two seconds per operation,
+2 MiB per save, 4 MiB per request or response, and 384 KiB per reading archive.
+`COSYWORLD_READING_AUDIT_SAVE` can select an existing save from this helper.

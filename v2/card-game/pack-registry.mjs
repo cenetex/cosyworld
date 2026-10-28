@@ -1,5 +1,9 @@
 import { recordRecital, recitalVisit, validRecitals } from "./pack-recital.mjs";
-import { validPoemReadings, completedHeardReading, validReadingDecisions } from "./poem-readings.mjs";
+import {
+  validPoemReadings,
+  completedHeardReading,
+  validReadingDecisions,
+} from "./poem-readings.mjs";
 import { readingCatalogs } from "./poem-catalogs.mjs";
 import { boardyPack, BOARDY, boardyActive } from "./boardyai.mjs";
 import { sectionAllows } from "./pack-sections.mjs";
@@ -188,7 +192,8 @@ export const packJourneyDestination = (world, id) =>
 export const packJourneyKeepsItem = (world, id, item) =>
   journeyKeepsItem(world, packOf(id), id, item);
 export const packKeepsItem = (world, id, item) =>
-  !!packPeople[id]?.keeps?.includes(item) || packJourneyKeepsItem(world, id, item);
+  !!packPeople[id]?.keeps?.includes(item) ||
+  packJourneyKeepsItem(world, id, item);
 export const packIndependentJourneyDestination = (world, id) =>
   independentJourneyNextPlace(world, packOf(id), id);
 export const packJourneyReservations = (world) =>

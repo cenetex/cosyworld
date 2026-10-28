@@ -3,7 +3,7 @@ import { packDefinitions } from "./pack-registry.mjs";
 import {
   authoredStoryIds,
   authoredStoryDefinitions,
-  authoredStoryRelated,
+  authoredStoryRelation,
 } from "./pack-story-quests.mjs";
 import {
   installSharedQuestRegistry,
@@ -18,16 +18,19 @@ export function storyDefinitions(world, history = false) {
 
 const packFor = (definition) =>
   packDefinitions.find((pack) => definition.key.startsWith(`${pack.id}:`));
-const related = (definition, event) =>
-  authoredStoryRelated(packDefinitions, definition, event);
+const relation = (definition) =>
+  authoredStoryRelation(packDefinitions, definition);
 
 // Saved deeds and required reading starts identify story participants.
-export function storyActors(world, definition, includeDiscovery = true) {
+export function storyActors(
+  world,
+  definition,
+  includeDiscovery = true,
+  related = relation(definition),
+) {
   const pack = packFor(definition);
   if (!pack) return [];
-  const events = (world.log || []).filter((event) =>
-    related(definition, event),
-  );
+  const events = (world.log || []).filter(related);
   const discovery = (world.log || [])
     .filter(
       (event) =>
@@ -111,12 +114,11 @@ export function syncStoryQuests(world, actorId = null) {
         cause: null,
       };
     }
-    const events = (world.log || []).filter((event) =>
-      related(definition, event),
-    );
+    const related = relation(definition);
+    const events = (world.log || []).filter(related);
     // The first discovery is saved on creation. Once its log entry ages out,
     // a later unrelated event at the same turn cannot replace that witness.
-    const recorded = storyActors(world, definition, created);
+    const recorded = storyActors(world, definition, created, related);
     const knownAuthor = state.recitals?.[definition.choiceId]?.actor;
     if (
       created &&

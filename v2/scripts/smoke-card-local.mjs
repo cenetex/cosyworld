@@ -183,15 +183,13 @@ try {
     );
     await Promise.all([
       page.waitForEvent("load"),
-      page
-        .locator("#local-import")
-        .setInputFiles({
-          name: "backup.json",
-          mimeType: "application/json",
-          buffer: Buffer.from(
-            JSON.stringify({ format: "cosyworld.local-save.v1", save: saved }),
-          ),
-        }),
+      page.locator("#local-import").setInputFiles({
+        name: "backup.json",
+        mimeType: "application/json",
+        buffer: Buffer.from(
+          JSON.stringify({ format: "cosyworld.local-save.v1", save: saved }),
+        ),
+      }),
     ]);
     await page.waitForFunction(() => !document.body.inert);
     assert.equal(

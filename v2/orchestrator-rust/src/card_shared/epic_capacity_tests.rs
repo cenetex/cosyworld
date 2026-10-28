@@ -3,14 +3,57 @@ use serde_json::{json, Value};
 
 fn upgraded_routes(previous: &Value) -> Value {
     let sea_paths: &[&[&str]] = &[
-        &["greek-harbor", "greek-ship", "greek-book-iv-helen-landing", "greek-egypt-tomb"],
-        &["greek-harbor", "greek-ship", "greek-ajax-landing", "greek-troy-beach"],
-        &["greek-piraeus", "greek-ship", "greek-tauris-shore", "greek-tauris"],
-        &["greek-piraeus", "greek-ship", "greek-sicily-shore", "greek-sicily"],
-        &["greek-gate", "greek-courtyard", "greek-harbor", "greek-ship", "greek-aulis"],
-        &["greek-aulis", "greek-ship", "greek-ajax-landing", "greek-greek-camp"],
-        &["greek-greek-camp", "greek-ajax-landing", "greek-ship", "greek-lemnos-landing", "greek-lemnos"],
-        &["greek-troy", "greek-greek-camp", "greek-ajax-landing", "greek-ship", "greek-thrace"],
+        &[
+            "greek-harbor",
+            "greek-ship",
+            "greek-book-iv-helen-landing",
+            "greek-egypt-tomb",
+        ],
+        &[
+            "greek-harbor",
+            "greek-ship",
+            "greek-ajax-landing",
+            "greek-troy-beach",
+        ],
+        &[
+            "greek-piraeus",
+            "greek-ship",
+            "greek-tauris-shore",
+            "greek-tauris",
+        ],
+        &[
+            "greek-piraeus",
+            "greek-ship",
+            "greek-sicily-shore",
+            "greek-sicily",
+        ],
+        &[
+            "greek-gate",
+            "greek-courtyard",
+            "greek-harbor",
+            "greek-ship",
+            "greek-aulis",
+        ],
+        &[
+            "greek-aulis",
+            "greek-ship",
+            "greek-ajax-landing",
+            "greek-greek-camp",
+        ],
+        &[
+            "greek-greek-camp",
+            "greek-ajax-landing",
+            "greek-ship",
+            "greek-lemnos-landing",
+            "greek-lemnos",
+        ],
+        &[
+            "greek-troy",
+            "greek-greek-camp",
+            "greek-ajax-landing",
+            "greek-ship",
+            "greek-thrace",
+        ],
     ];
     let mut routes = Vec::new();
     for edge in previous.as_array().unwrap() {

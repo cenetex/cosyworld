@@ -152,13 +152,14 @@ describe("Cyclops's physical departure", { timeout: 60000 }, () => {
       expect(w.items["greek-vii-escape-list"].holder).toBe(atClosing);
       expect(exits(w, cave, "vale")).not.toContain(shore);
       expect(exits(w, shore, "vale")).toContain(cave);
-      w = ending === "all-home"
-        ? sharedReturnReading(w, {
-            prefix: "greek-vii-cyclops",
-            item: "greek-vii-escape-list",
-            topicId: "greek-vii-cyclops-account-all-home",
-          })
-        : readHome(w, "greek-vii-cyclops", "greek-vii-escape-list");
+      w =
+        ending === "all-home"
+          ? sharedReturnReading(w, {
+              prefix: "greek-vii-cyclops",
+              item: "greek-vii-escape-list",
+              topicId: "greek-vii-cyclops-account-all-home",
+            })
+          : readHome(w, "greek-vii-cyclops", "greek-vii-escape-list");
       expect(w.packs[GREEK].receipts["greek-vii-cyclops-read-home"]).toBe(
         w.turn,
       );
@@ -234,6 +235,20 @@ describe("bounded flame preconditions", () => {
       compiled.hub,
       compiled.packs.flatMap((p) => Object.keys(p.places)),
     );
+  it("accepts nested saved custody and keeps sound outside persistent requirements", () => {
+    const p = structuredClone(compiled.packs.find((p) => p.id === GREEK));
+    const harvest = p.choices.find(
+      (choice) => choice.id === "greek-vii-peace-harvest",
+    );
+    expect(problems(p)).toEqual([]);
+    harvest.requires[harvest.requires.length - 1] = {
+      kind: "not",
+      condition: { kind: "sound", at: ["greek-attic-farm"] },
+    };
+    expect(problems(p)).toContain(
+      "greek-drama: choice greek-vii-peace-harvest requires must use saved state or human presence conditions",
+    );
+  });
   it("accepts actual hub custody, placement and light on a completion choice", () => {
     const p = structuredClone(compiled.packs.find((p) => p.id === GREEK));
     p.choices.push({
@@ -286,64 +301,71 @@ function sharedPull() {
   w = give(take(w, "greek-vii-peace-rope"), "greek-vii-peace-rope", farmers);
   return choose(w, peace("pull"));
 }
-describe("Peace reaches actual workers and supplies", { timeout: 60000 }, () => {
-  it("records the workshop result when the tools arrive before the harvest account", () => {
-    let w = sharedPull();
-    w = take(take(take(w, grain), peaceList), tools);
-    w = accompany(w, farmers, farm);
-    w = choose(w, peace("farmers-arrived"));
-    w = give(w, grain, farmers);
-    w = give(move(w, workshop), tools, smiths);
-    w = move(w, farm);
-    expect(
-      legalActions(w).some((action) => action.choiceId === peace("harvest")),
-    ).toBe(false);
-    w = decodeSave(encodeSave(w));
-    expect(w.items[grain].holder).toBe(farmers);
-    expect(w.items[tools].holder).toBe(smiths);
-    w = choose(move(w, workshop), peace("workshops"));
-    expect(w.packs[GREEK].choices[peace("ending")]).toBe("workshops");
-    expect(decodeSave(encodeSave(w))).toEqual(w);
-  });
-
-  it.each(["harvest", "workshops", "private-store"])(
-    "earns %s from real holders",
-    (ending) => {
+describe(
+  "Peace reaches actual workers and supplies",
+  { timeout: 60000 },
+  () => {
+    it("records the workshop result when the tools arrive before the harvest account", () => {
       let w = sharedPull();
-      expect(w.items["greek-vii-beetle-harness"].holder).toBe(trygaeus);
-      expect(w.items["greek-vii-peace-rope"].holder).toBe(farmers);
-      w = take(take(w, grain), peaceList);
-      if (ending === "private-store") {
-        w = give(w, grain, trygaeus);
-      } else {
-        w = accompany(w, farmers, farm);
-        w = choose(w, peace("farmers-arrived"));
-        w = give(w, grain, farmers);
-        if (ending === "workshops") {
-          w = take(move(w, heights), tools);
-          w = move(move(w, farm), workshop);
-          w = give(w, tools, smiths);
-        }
-      }
-      w = choose(w, peace(ending));
-      expect(w.items[grain].holder).toBe(
-        ending === "private-store" ? trygaeus : farmers,
-      );
-      if (ending === "workshops") expect(w.items[tools].holder).toBe(smiths);
-      expect(w.items[peaceList].holder).toBe(w.actors.vale.place);
-      expect(w.packs[GREEK].choices[peace("ending")]).toBe(ending);
-      w = ending === "harvest"
-        ? sharedReturnReading(w, {
-            prefix: "greek-vii-peace",
-            item: peaceList,
-            topicId: "greek-vii-peace-account-harvest",
-          })
-        : readHome(w, "greek-vii-peace", peaceList);
-      expect(w.packs[GREEK].receipts["greek-vii-peace-read-home"]).toBe(w.turn);
+      w = take(take(take(w, grain), peaceList), tools);
+      w = accompany(w, farmers, farm);
+      w = choose(w, peace("farmers-arrived"));
+      w = give(w, grain, farmers);
+      w = give(move(w, workshop), tools, smiths);
+      w = move(w, farm);
+      expect(
+        legalActions(w).some((action) => action.choiceId === peace("harvest")),
+      ).toBe(false);
+      w = decodeSave(encodeSave(w));
+      expect(w.items[grain].holder).toBe(farmers);
+      expect(w.items[tools].holder).toBe(smiths);
+      w = choose(move(w, workshop), peace("workshops"));
+      expect(w.packs[GREEK].choices[peace("ending")]).toBe("workshops");
       expect(decodeSave(encodeSave(w))).toEqual(w);
-    },
-  );
-});
+    });
+
+    it.each(["harvest", "workshops", "private-store"])(
+      "earns %s from real holders",
+      (ending) => {
+        let w = sharedPull();
+        expect(w.items["greek-vii-beetle-harness"].holder).toBe(trygaeus);
+        expect(w.items["greek-vii-peace-rope"].holder).toBe(farmers);
+        w = take(take(w, grain), peaceList);
+        if (ending === "private-store") {
+          w = give(w, grain, trygaeus);
+        } else {
+          w = accompany(w, farmers, farm);
+          w = choose(w, peace("farmers-arrived"));
+          w = give(w, grain, farmers);
+          if (ending === "workshops") {
+            w = take(move(w, heights), tools);
+            w = move(move(w, farm), workshop);
+            w = give(w, tools, smiths);
+          }
+        }
+        w = choose(w, peace(ending));
+        expect(w.items[grain].holder).toBe(
+          ending === "private-store" ? trygaeus : farmers,
+        );
+        if (ending === "workshops") expect(w.items[tools].holder).toBe(smiths);
+        expect(w.items[peaceList].holder).toBe(w.actors.vale.place);
+        expect(w.packs[GREEK].choices[peace("ending")]).toBe(ending);
+        w =
+          ending === "harvest"
+            ? sharedReturnReading(w, {
+                prefix: "greek-vii-peace",
+                item: peaceList,
+                topicId: "greek-vii-peace-account-harvest",
+              })
+            : readHome(w, "greek-vii-peace", peaceList);
+        expect(w.packs[GREEK].receipts["greek-vii-peace-read-home"]).toBe(
+          w.turn,
+        );
+        expect(decodeSave(encodeSave(w))).toEqual(w);
+      },
+    );
+  },
+);
 
 const camp = "greek-vii-crag-camp";
 const crag = "greek-scythian-crag";
@@ -395,78 +417,90 @@ function deliveredIoMessage() {
   w = give(w, "greek-vii-io-message", io);
   return choose(w, prometheus("io-message-arrived"));
 }
-describe("Prometheus uses the finite carried flame and actual messages", { timeout: 60000 }, () => {
-  it("carries a covered flame, uncovers it and preserves fuel with Snuff", () => {
-    const w = carriedFlame();
-    expect(w.items.lamp).toMatchObject({ holder: "vale", fuel: 4, lit: false });
-    expect(w.items.oil).toMatchObject({ holder: camp, doses: 1 });
-    expect(w.packs[GREEK].flags[prometheus("flame-delivered")]).toBe(true);
-    expect(
-      w.log.find((e) => e.choiceId === prometheus("flame-arrived")),
-    ).toMatchObject({ light: true });
-  });
-  it.each(["stay", "terms"])(
-    "earns %s after the actual message reached Io",
-    (ending) => {
-      let w = deliveredIoMessage();
-      expect(w.items["greek-vii-io-message"].holder).toBe(io);
-      w = move(move(w, camp), crag);
-      if (ending === "terms") {
-        w = take(w, "greek-vii-power-terms");
-        w = give(move(w, camp), "greek-vii-power-terms", hermes);
-      }
-      w = choose(w, prometheus(ending));
-      expect(w.packs[GREEK].choices[prometheus("ending")]).toBe(ending);
-      expect(w.items[stormRecord].holder).toBe(ending === "stay" ? crag : camp);
-      if (ending === "terms")
-        expect(w.items["greek-vii-power-terms"].holder).toBe(hermes);
-      if (ending === "stay") {
-        w = sharedReturnReading(w, {
-          prefix: "greek-vii-prometheus",
-          item: stormRecord,
-          topicId: "greek-vii-prometheus-account-stay",
-        });
-        expect(w.packs[GREEK].receipts["greek-vii-prometheus-read-home"]).toBe(w.turn);
-      }
-      expect(decodeSave(encodeSave(w))).toEqual(w);
-    },
-  );
-  it("rechecks real light after another human's turn and recovers with the remaining oil", () => {
-    let w = move(deliveredIoMessage(), camp);
-    w = act(w, "drop", { item: stormRecord, target: camp });
-    w = act(w, "light", { item: "lamp" });
-    w = act(w, "drop", { item: "lamp", target: camp });
-    w = take(w, stormRecord);
-    expect(w.items.lamp.fuel).toBe(1);
-    const stale = legalActions(w).find(
-      (a) => a.choiceId === prometheus("gifts"),
-    );
-    expect(stale).toBeDefined();
-    w.sharedVersion = 1;
-    const reply = dispatchShared({
-      op: "play",
-      world: w,
-      actor: "mara",
-      claimed: ["vale", "mara"],
-      present: ["vale", "mara"],
-      revision: w.revision,
-      action: "wait:mara::",
+describe(
+  "Prometheus uses the finite carried flame and actual messages",
+  { timeout: 60000 },
+  () => {
+    it("carries a covered flame, uncovers it and preserves fuel with Snuff", () => {
+      const w = carriedFlame();
+      expect(w.items.lamp).toMatchObject({
+        holder: "vale",
+        fuel: 4,
+        lit: false,
+      });
+      expect(w.items.oil).toMatchObject({ holder: camp, doses: 1 });
+      expect(w.packs[GREEK].flags[prometheus("flame-delivered")]).toBe(true);
+      expect(
+        w.log.find((e) => e.choiceId === prometheus("flame-arrived")),
+      ).toMatchObject({ light: true });
     });
-    expect(reply.ok).toBe(true);
-    w = reply.world;
-    expect(w.items.lamp).toMatchObject({ lit: false, fuel: 0 });
-    expect(play(w, stale, w.revision).ok).toBe(false);
-    expect(w.packs[GREEK].receipts[prometheus("gifts")]).toBeUndefined();
-    w = act(w, "drop", { item: stormRecord, target: camp });
-    w = take(w, "oil");
-    w = act(w, "refill", { item: "oil", target: "lamp" });
-    w = act(w, "drop", { item: "oil", target: camp });
-    w = act(w, "light", { item: "lamp" });
-    w = take(w, stormRecord);
-    w = choose(w, prometheus("gifts"));
-    expect(w.items.lamp).toMatchObject({ holder: camp, fuel: 1, lit: true });
-    expect(w.items.oil.doses).toBe(0);
-    expect(w.items[stormRecord].holder).toBe(camp);
-    expect(decodeSave(encodeSave(w))).toEqual(w);
-  });
-});
+    it.each(["stay", "terms"])(
+      "earns %s after the actual message reached Io",
+      (ending) => {
+        let w = deliveredIoMessage();
+        expect(w.items["greek-vii-io-message"].holder).toBe(io);
+        w = move(move(w, camp), crag);
+        if (ending === "terms") {
+          w = take(w, "greek-vii-power-terms");
+          w = give(move(w, camp), "greek-vii-power-terms", hermes);
+        }
+        w = choose(w, prometheus(ending));
+        expect(w.packs[GREEK].choices[prometheus("ending")]).toBe(ending);
+        expect(w.items[stormRecord].holder).toBe(
+          ending === "stay" ? crag : camp,
+        );
+        if (ending === "terms")
+          expect(w.items["greek-vii-power-terms"].holder).toBe(hermes);
+        if (ending === "stay") {
+          w = sharedReturnReading(w, {
+            prefix: "greek-vii-prometheus",
+            item: stormRecord,
+            topicId: "greek-vii-prometheus-account-stay",
+          });
+          expect(
+            w.packs[GREEK].receipts["greek-vii-prometheus-read-home"],
+          ).toBe(w.turn);
+        }
+        expect(decodeSave(encodeSave(w))).toEqual(w);
+      },
+    );
+    it("rechecks real light after another human's turn and recovers with the remaining oil", () => {
+      let w = move(deliveredIoMessage(), camp);
+      w = act(w, "drop", { item: stormRecord, target: camp });
+      w = act(w, "light", { item: "lamp" });
+      w = act(w, "drop", { item: "lamp", target: camp });
+      w = take(w, stormRecord);
+      expect(w.items.lamp.fuel).toBe(1);
+      const stale = legalActions(w).find(
+        (a) => a.choiceId === prometheus("gifts"),
+      );
+      expect(stale).toBeDefined();
+      w.sharedVersion = 1;
+      const reply = dispatchShared({
+        op: "play",
+        world: w,
+        actor: "mara",
+        claimed: ["vale", "mara"],
+        present: ["vale", "mara"],
+        revision: w.revision,
+        action: "wait:mara::",
+      });
+      expect(reply.ok).toBe(true);
+      w = reply.world;
+      expect(w.items.lamp).toMatchObject({ lit: false, fuel: 0 });
+      expect(play(w, stale, w.revision).ok).toBe(false);
+      expect(w.packs[GREEK].receipts[prometheus("gifts")]).toBeUndefined();
+      w = act(w, "drop", { item: stormRecord, target: camp });
+      w = take(w, "oil");
+      w = act(w, "refill", { item: "oil", target: "lamp" });
+      w = act(w, "drop", { item: "oil", target: camp });
+      w = act(w, "light", { item: "lamp" });
+      w = take(w, stormRecord);
+      w = choose(w, prometheus("gifts"));
+      expect(w.items.lamp).toMatchObject({ holder: camp, fuel: 1, lit: true });
+      expect(w.items.oil.doses).toBe(0);
+      expect(w.items[stormRecord].holder).toBe(camp);
+      expect(decodeSave(encodeSave(w))).toEqual(w);
+    });
+  },
+);

@@ -428,13 +428,22 @@ export function socialPlan(s, actor, actions, api) {
       const target = want.location;
       const path = api.routeBetween(s, here, target, actor);
       const localGrievances = (s.motives?.grievances[actor] || []).filter(
-        (g) => resentment(s, actor, g.other) > 0 && s.actors[g.other].place === here,
+        (g) =>
+          resentment(s, actor, g.other) > 0 && s.actors[g.other].place === here,
       );
-      const space = localGrievances.length > 0 && localGrievances.every(
-        (g) => s.actors[g.other].place !== a.target,
-      );
-      n = path?.[1] === a.target ? (want.items.length ? 19 : 36)
-        : space ? (want.items.length ? 18 : 35) : -15;
+      const space =
+        localGrievances.length > 0 &&
+        localGrievances.every((g) => s.actors[g.other].place !== a.target);
+      n =
+        path?.[1] === a.target
+          ? want.items.length
+            ? 19
+            : 36
+          : space
+            ? want.items.length
+              ? 18
+              : 35
+            : -15;
     }
     if (a.kind === "light" && actor === "moth") n = 45;
     if (a.kind === "refill" && actor !== "keeper" && s.items.lamp.fuel <= 2)

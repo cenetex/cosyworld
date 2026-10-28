@@ -1236,421 +1236,6 @@
     return hash2.map((part) => part.toString(16).padStart(8, "0")).join("");
   }
 
-  // v2/card-game/poem-readings.mjs
-  var readingLimits = Object.freeze({
-    sites: 6,
-    optional: 8,
-    records: 56,
-    rows: 512,
-    tuples: 1024,
-    pageSize: 4,
-    listeners: 2,
-    bytes: 384 * 1024
-  });
-  var owns = (value, key) => !!value && Object.hasOwn(value, key);
-  var record = (value) => !!value && typeof value === "object" && !Array.isArray(value);
-  var integer = (value, low, high = Number.MAX_SAFE_INTEGER) => Number.isSafeInteger(value) && value >= low && value <= high;
-  var same = (left, right) => JSON.stringify(left) === JSON.stringify(right);
-  var emptyPoemReadings = () => ({
-    version: 1,
-    stanzas: [],
-    readings: {},
-    drafts: {},
-    pins: {},
-    decisions: {}
-  });
-  var readingBlockBytes = (state) => utf8Length(JSON.stringify(state));
-  var siteFor = (pack, id) => pack.recital?.sites?.find((site) => site.id === id);
-  var canonicalKey = (site, reader) => `site:${site}:${reader}`;
-  var pageCount = (reading) => Math.max(1, Math.ceil(reading.selection.length / readingLimits.pageSize));
-  function actorHere(world, actor, place) {
-    return world.actors[actor]?.place === place && (!humanAvatarIds.includes(actor) || humanPresent(world, actor));
-  }
-  function readerHere(world, reader, place) {
-    if (currentActor(world) !== reader || !humanAvatarIds.includes(reader) || !controlledByHuman(world, reader) || !actorHere(world, reader, place))
-      throw new Error("Bring your own present avatar to the reading.");
-  }
-  function commit(state, next) {
-    if (readingBlockBytes(next) > readingLimits.bytes)
-      throw new Error("The reading archive is full. Replay a saved reading.");
-    Object.assign(state, next);
-  }
-  function earnedTuples(world, pack, catalog, through) {
-    const saved = world.packs[pack.id];
-    const authors = new Map(catalog.authors.map((author, i) => [author.id, i]));
-    return catalog.rows.map((row, index) => [row, index]).filter(([row]) => integer(saved.receipts[row.choice], 1, through)).sort(
-      ([a, ai], [b, bi]) => saved.receipts[a.choice] - saved.receipts[b.choice] || ai - bi
-    ).map(([row, index]) => {
-      const author = saved.recitals[row.choice]?.actor ?? null;
-      if (author !== null && !authors.has(author))
-        throw new Error("Use the published catalog for this stanza's author.");
-      return [
-        index,
-        saved.receipts[row.choice],
-        author === null ? null : authors.get(author),
-        row.after && saved.receipts[row.after.choice] < saved.receipts[row.choice] ? 1 : 0
-      ];
-    });
-  }
-  var snapshotDigest = (catalog, tuples) => readingDigest(JSON.stringify([catalog.digest, tuples]));
-  function setReadingDraft(world, pack, state, siteId, reader, guests) {
-    const site = siteFor(pack, siteId);
-    if (!site) throw new Error("Choose an authored reading site.");
-    readerHere(world, reader, site.at);
-    if (!Array.isArray(guests) || new Set(guests).size !== guests.length || guests.some(
-      (id) => id === reader || !humanAvatarIds.includes(id) || !actorHere(world, id, site.at)
-    ))
-      throw new Error("Invite the people who are present beside you.");
-    const invited = humanAvatarIds.filter((id) => guests.includes(id));
-    commit(state, {
-      ...state,
-      drafts: { ...state.drafts, [reader]: { site: siteId, invited } }
-    });
-  }
-  function beginReading(world, pack, catalog, state, { site: siteId, reader, optional = false }) {
-    const site = siteFor(pack, siteId);
-    if (!site || catalog.pack !== pack.id)
-      throw new Error("Choose the site's published poem catalog.");
-    readerHere(world, reader, site.at);
-    const fixed = site.listeners;
-    if (!Array.isArray(fixed) || fixed.length < 1 || fixed.length > readingLimits.listeners || new Set(fixed).size !== fixed.length || fixed.some((id2) => !actorHere(world, id2, site.at)))
-      throw new Error("Bring the required listeners together.");
-    if (!integer(world.turn, 1))
-      throw new Error("Start the reading on an accepted turn.");
-    const draft = state.drafts[reader];
-    const guests = draft?.site === siteId ? draft.invited : [];
-    if (guests.some((id2) => !actorHere(world, id2, site.at)))
-      throw new Error("Choose the present audience again.");
-    const optionalSlots = Object.keys(state.readings).filter(
-      (id2) => id2.startsWith("optional:")
-    );
-    if (optional && optionalSlots.length >= readingLimits.optional)
-      throw new Error("Replay a saved reading from the archive.");
-    const id = optional ? `optional:${optionalSlots.length}:${reader}` : canonicalKey(siteId, reader);
-    if (owns(state.readings, id))
-      throw new Error("Resume your original reading at this site.");
-    const audience = [reader, ...fixed, ...guests];
-    if (new Set(audience).size !== audience.length)
-      throw new Error("Choose distinct listeners.");
-    const tuples = earnedTuples(world, pack, catalog, world.turn - 1);
-    const stanzas = [...state.stanzas];
-    const indices = new Map(
-      stanzas.map((tuple, index) => [JSON.stringify(tuple), index])
-    );
-    const selection = tuples.map((tuple) => {
-      const key = JSON.stringify(tuple);
-      if (!indices.has(key)) {
-        indices.set(key, stanzas.length);
-        stanzas.push(tuple);
-      }
-      return indices.get(key);
-    });
-    if (stanzas.length > readingLimits.tuples || Object.keys(state.readings).length >= readingLimits.records)
-      throw new Error("Replay an existing reading from the bounded archive.");
-    const reading = {
-      site: siteId,
-      reader,
-      catalog: catalog.id,
-      catalogDigest: catalog.digest,
-      poemDigest: snapshotDigest(catalog, tuples),
-      selection,
-      turn: world.turn,
-      through: world.turn - 1,
-      place: site.at,
-      audience,
-      requiredMask: (1 << 1 + fixed.length) - 1,
-      departedMask: 0,
-      pages: [],
-      complete: false
-    };
-    const drafts = { ...state.drafts };
-    delete drafts[reader];
-    commit(state, {
-      ...state,
-      stanzas,
-      drafts,
-      readings: { ...state.readings, [id]: reading }
-    });
-    return id;
-  }
-  function readingPage(state, reading, catalog, index) {
-    if (!integer(index, 0, pageCount(reading) - 1))
-      throw new Error("Choose a page in this reading.");
-    return reading.selection.slice(index * readingLimits.pageSize, (index + 1) * readingLimits.pageSize).map((slot) => {
-      const [rowIndex, turn, authorIndex, variant] = state.stanzas[slot];
-      const row = catalog.rows[rowIndex];
-      const author = authorIndex === null ? null : catalog.authors[authorIndex];
-      return {
-        id: row.choice,
-        turn,
-        authorId: author?.id ?? null,
-        authorName: author?.name ?? "an earlier traveler",
-        lines: [...variant ? row.after.lines : row.lines]
-      };
-    });
-  }
-  function readingFor(state, catalogs, id) {
-    const reading = state.readings[id];
-    const catalog = reading && owns(catalogs, reading.catalog) && catalogs[reading.catalog];
-    if (!reading || !catalog || reading.catalogDigest !== catalog.digest)
-      throw new Error("Load this reading's exact published catalog.");
-    return { reading, catalog };
-  }
-  function publishReadingPage(world, state, catalogs, id, reader) {
-    const { reading, catalog } = readingFor(state, catalogs, id);
-    readerHere(world, reader, reading.place);
-    if (reader !== reading.reader || reading.complete)
-      throw new Error("Choose your unfinished reading.");
-    const index = reading.pages.length;
-    const previousTurn = reading.pages.at(-1)?.[0] ?? reading.turn;
-    if (!integer(world.turn, previousTurn + 1))
-      throw new Error("Publish on the next accepted turn.");
-    let mask = 0;
-    for (const [i, actor] of reading.audience.entries())
-      if (actorHere(world, actor, reading.place)) mask |= 1 << i;
-    if ((mask & reading.requiredMask) !== reading.requiredMask)
-      throw new Error("Bring the required listeners back together.");
-    const optionalMask = (1 << reading.audience.length) - 1 ^ reading.requiredMask;
-    const departedMask = reading.departedMask | optionalMask & ~mask;
-    mask &= ~departedMask;
-    const updated = {
-      ...reading,
-      departedMask,
-      pages: [...reading.pages, [world.turn, mask, mask]],
-      complete: index + 1 === pageCount(reading)
-    };
-    const firstCompletion = updated.complete && !owns(state.pins, reading.site);
-    const pins = firstCompletion ? { ...state.pins, [reading.site]: id } : state.pins;
-    commit(state, {
-      ...state,
-      pins,
-      readings: { ...state.readings, [id]: updated }
-    });
-    return {
-      id,
-      index,
-      readingTurn: reading.turn,
-      through: reading.through,
-      publishedTurn: world.turn,
-      firstCompletion,
-      audience: reading.audience.filter((_, i) => mask & 1 << i),
-      stanzas: readingPage(state, updated, catalog, index)
-    };
-  }
-  function replayReadingPage(world, state, catalogs, id, reader, index, listener) {
-    const { reading, catalog } = readingFor(state, catalogs, id);
-    readerHere(world, reader, reading.place);
-    const bit = reading.audience.indexOf(listener);
-    if (reader !== reading.reader || bit < 0 || !actorHere(world, listener, reading.place) || !integer(index, 0, reading.pages.length - 1) || !integer(world.turn, reading.pages[index][0] + 1))
-      throw new Error("Replay a published page to a present original listener.");
-    const pages = reading.pages.map(
-      (page, i) => i === index ? [page[0], page[1], page[2] | 1 << bit] : [...page]
-    );
-    commit(state, {
-      ...state,
-      readings: { ...state.readings, [id]: { ...reading, pages } }
-    });
-    return {
-      id,
-      index,
-      readingTurn: reading.turn,
-      through: reading.through,
-      publishedTurn: world.turn,
-      audience: [.../* @__PURE__ */ new Set([reader, listener])],
-      stanzas: readingPage(state, reading, catalog, index)
-    };
-  }
-  function noteReadingDepartures(world) {
-    let changed = false;
-    for (const pack of Object.values(world.packs || {}))
-      for (const reading of Object.values(pack.poemReadings?.readings || {})) {
-        if (reading.complete) continue;
-        for (const [bit, actor] of reading.audience.entries()) {
-          const mask = 1 << bit;
-          if (!(reading.requiredMask & mask) && !(reading.departedMask & mask) && !actorHere(world, actor, reading.place)) {
-            reading.departedMask |= mask;
-            changed = true;
-          }
-        }
-      }
-    return changed;
-  }
-  function completedHeardReading(state, site, actor) {
-    return Object.entries(state?.readings || {}).filter(([, reading]) => {
-      const bit = reading.audience.indexOf(actor);
-      return reading.site === site && reading.complete && bit >= 0 && reading.pages.every((page) => page[2] & 1 << bit);
-    }).sort(([, left], [, right]) => right.turn - left.turn)[0]?.[0] || null;
-  }
-  function validReadingDecisions(world, pack) {
-    const saved = world.packs[pack.id], state = saved.poemReadings;
-    if (!state) return !pack.recital?.sites?.length;
-    const required = pack.choices.filter(
-      (choice) => choice.requires?.some((condition2) => condition2.kind === "reading_complete")
-    );
-    if (Object.keys(state.decisions).some(
-      (id) => !required.some((choice) => choice.id === id) || !owns(saved.receipts, id)
-    ))
-      return false;
-    return required.every((choice) => {
-      if (!owns(saved.receipts, choice.id))
-        return !owns(state.decisions, choice.id);
-      const reading = state.readings[state.decisions[choice.id]];
-      const actor = saved.recitals[choice.id]?.actor;
-      const bit = reading?.audience.indexOf(actor);
-      return reading?.complete && actor && bit >= 0 && choice.requires.filter((condition2) => condition2.kind === "reading_complete").every((condition2) => condition2.site === reading.site) && reading.pages.every((page) => page[2] & 1 << bit) && saved.receipts[choice.id] >= reading.pages.at(-1)[0];
-    });
-  }
-  function projectPoemReadings(state, actor) {
-    const stanzas = [], slots = /* @__PURE__ */ new Map(), readings = [];
-    const intern = (index) => {
-      if (!slots.has(index)) {
-        slots.set(index, stanzas.length);
-        stanzas.push([...state.stanzas[index]]);
-      }
-      return slots.get(index);
-    };
-    for (const [id, reading] of Object.entries(state.readings)) {
-      const bit = reading.audience.indexOf(actor);
-      if (bit < 0) continue;
-      const owner2 = actor === reading.reader;
-      const pages = Array.from({ length: pageCount(reading) }, (_, index) => {
-        const receipt = reading.pages[index];
-        if (!owner2 && !(receipt?.[2] & 1 << bit)) return null;
-        return [
-          index,
-          receipt?.[0] ?? null,
-          reading.selection.slice(
-            index * readingLimits.pageSize,
-            (index + 1) * readingLimits.pageSize
-          ).map(intern)
-        ];
-      }).filter(Boolean);
-      if (!owner2 && !pages.length) continue;
-      readings.push({
-        id,
-        site: reading.site,
-        reader: reading.reader,
-        catalog: reading.catalog,
-        readingTurn: reading.turn,
-        through: reading.through,
-        complete: reading.complete,
-        pageCount: pageCount(reading),
-        pages,
-        heardAll: reading.complete && reading.pages.every((page) => page[2] & 1 << bit),
-        ...owner2 ? { audience: [...reading.audience] } : {}
-      });
-    }
-    return { stanzas, readings };
-  }
-  function validPoemReadings(world, pack, catalogs, state) {
-    try {
-      if (!record(state) || Object.keys(state).sort().join() !== "decisions,drafts,pins,readings,stanzas,version" || state.version !== 1 || !Array.isArray(state.stanzas) || state.stanzas.length > readingLimits.tuples || ![state.readings, state.drafts, state.pins, state.decisions].every(
-        record
-      ) || Object.keys(state.readings).length > readingLimits.records || Object.keys(state.drafts).length > humanAvatarIds.length || Object.keys(state.decisions).length > 16 || readingBlockBytes(state) > readingLimits.bytes)
-        return false;
-      const sites = pack.recital?.sites || [];
-      if (sites.length > readingLimits.sites || new Set(sites.map((site) => site.id)).size !== sites.length)
-        return false;
-      const catalog = Object.values(catalogs).filter((entry) => entry.pack === pack.id).sort(
-        (a, b) => b.rows.length - a.rows.length || b.authors.length - a.authors.length
-      )[0];
-      if (!catalog) return false;
-      const keys = /* @__PURE__ */ new Set();
-      for (const tuple of state.stanzas) {
-        if (!Array.isArray(tuple) || tuple.length !== 4 || !integer(tuple[0], 0, readingLimits.rows - 1) || !integer(tuple[1], 1, world.turn) || !(tuple[2] === null || integer(tuple[2], 0)) || ![0, 1].includes(tuple[3]) || keys.has(JSON.stringify(tuple)))
-          return false;
-        const row = catalog.rows[tuple[0]];
-        const author = tuple[2] === null ? null : catalog.authors[tuple[2]]?.id;
-        if (!row || tuple[3] === 1 && !row.after || world.packs[pack.id].receipts[row.choice] !== tuple[1] || author !== (world.packs[pack.id].recitals[row.choice]?.actor ?? null))
-          return false;
-        keys.add(JSON.stringify(tuple));
-      }
-      for (const [reader, draft] of Object.entries(state.drafts)) {
-        if (!humanAvatarIds.includes(reader) || !record(draft) || Object.keys(draft).sort().join() !== "invited,site" || !siteFor(pack, draft.site) || !Array.isArray(draft.invited) || new Set(draft.invited).size !== draft.invited.length || draft.invited.some(
-          (id) => id === reader || !humanAvatarIds.includes(id)
-        ) || !same(
-          draft.invited,
-          humanAvatarIds.filter((id) => draft.invited.includes(id))
-        ))
-          return false;
-      }
-      const optionalSlots = /* @__PURE__ */ new Set();
-      const complete = /* @__PURE__ */ new Map();
-      const expected = /* @__PURE__ */ new Map();
-      const earned = /* @__PURE__ */ new Map();
-      for (const [id, reading] of Object.entries(state.readings)) {
-        if (!record(reading) || Object.keys(reading).sort().join() !== "audience,catalog,catalogDigest,complete,departedMask,pages,place,poemDigest,reader,requiredMask,selection,site,through,turn")
-          return false;
-        const site = siteFor(pack, reading.site);
-        const catalog2 = owns(catalogs, reading.catalog) && catalogs[reading.catalog];
-        if (!site || !catalog2 || catalog2.pack !== pack.id || catalog2.digest !== reading.catalogDigest || !humanAvatarIds.includes(reading.reader) || reading.place !== site.at || !integer(reading.turn, 1, world.turn) || reading.through !== reading.turn - 1 || !Array.isArray(reading.selection) || reading.selection.length > readingLimits.rows || !Array.isArray(reading.audience) || reading.audience.length > humanAvatarIds.length + readingLimits.listeners || new Set(reading.audience).size !== reading.audience.length || !same(reading.audience.slice(0, 1 + site.listeners.length), [
-          reading.reader,
-          ...site.listeners
-        ]) || reading.audience.slice(1 + site.listeners.length).some((actor) => !humanAvatarIds.includes(actor)) || reading.requiredMask !== (1 << 1 + site.listeners.length) - 1)
-          return false;
-        const optional = /^optional:([0-7]):([a-z][a-z0-9-]*)$/.exec(id);
-        if (optional) {
-          if (optional[2] !== reading.reader || optionalSlots.has(optional[1]))
-            return false;
-          optionalSlots.add(optional[1]);
-        } else if (id !== canonicalKey(reading.site, reading.reader))
-          return false;
-        const selected = reading.selection.map(
-          (index) => integer(index, 0, state.stanzas.length - 1) ? state.stanzas[index] : null
-        );
-        if (selected.some((tuple) => !tuple)) return false;
-        if (!earned.has(catalog2.digest))
-          earned.set(
-            catalog2.digest,
-            earnedTuples(world, pack, catalog2, world.turn)
-          );
-        const all = earned.get(catalog2.digest);
-        const end = all.findIndex((tuple) => tuple[1] > reading.through);
-        const count = end < 0 ? all.length : end;
-        const expectedKey = `${catalog2.digest}:${count}`;
-        if (!expected.has(expectedKey)) {
-          const tuples = all.slice(0, count);
-          expected.set(expectedKey, {
-            tuples: JSON.stringify(tuples),
-            digest: snapshotDigest(catalog2, tuples)
-          });
-        }
-        const snapshot = expected.get(expectedKey);
-        if (JSON.stringify(selected) !== snapshot.tuples || reading.poemDigest !== snapshot.digest)
-          return false;
-        if (!Array.isArray(reading.pages) || reading.pages.length > pageCount(reading) || reading.complete !== (reading.pages.length === pageCount(reading)))
-          return false;
-        const fullMask = (1 << reading.audience.length) - 1;
-        const guests = fullMask ^ reading.requiredMask;
-        let departed = 0, lastTurn = reading.turn;
-        for (const page of reading.pages) {
-          if (!Array.isArray(page) || page.length !== 3 || !integer(page[0], lastTurn + 1, world.turn) || !integer(page[1], 0, fullMask) || !integer(page[2], 0, fullMask) || (page[1] & reading.requiredMask) !== reading.requiredMask || (page[2] & page[1]) !== page[1] || page[1] & departed)
-            return false;
-          departed |= guests & ~page[1];
-          lastTurn = page[0];
-        }
-        if (!integer(reading.departedMask, 0, fullMask) || reading.departedMask & reading.requiredMask || (reading.departedMask & departed) !== departed)
-          return false;
-        if (reading.complete) {
-          const old = complete.get(reading.site);
-          if (!old || lastTurn < old.turn || lastTurn === old.turn && id < old.id)
-            complete.set(reading.site, { id, turn: lastTurn });
-        }
-      }
-      if ([...optionalSlots].some((_, i) => !optionalSlots.has(String(i))))
-        return false;
-      if (Object.keys(state.pins).length !== complete.size || [...complete].some(([site, first]) => state.pins[site] !== first.id))
-        return false;
-      if (Object.entries(state.decisions).some(
-        ([choice, id]) => !pack.choices.some((entry) => entry.id === choice) || !state.readings[id]?.complete
-      ))
-        return false;
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
   // v2/card-game/poem-catalogs.json
   var poem_catalogs_default = {
     schemaVersion: 1,
@@ -11056,6 +10641,8 @@
   };
 
   // v2/card-game/poem-catalogs.mjs
+  var publishedCatalogs = /* @__PURE__ */ new WeakMap();
+  var publishedCatalogId = 0;
   for (const history of Object.values(poem_catalogs_default.packs)) {
     for (const catalog of Object.values(history.catalogs)) {
       for (const row of catalog.rows) {
@@ -11072,8 +10659,10 @@
       Object.freeze(catalog);
     }
     Object.freeze(history.catalogs);
+    publishedCatalogs.set(history.catalogs, ++publishedCatalogId);
     Object.freeze(history);
   }
+  var publishedCatalogIdentity = (catalogs) => publishedCatalogs.get(catalogs) ?? null;
   var readingCatalogVersion = poem_catalogs_default.currentVersion;
   var readingCatalogs = Object.freeze(
     Object.fromEntries(
@@ -11084,6 +10673,456 @@
     )
   );
   var currentReadingCatalog = (packId) => readingCatalogs[packId]?.[poem_catalogs_default.packs[packId]?.current] || null;
+
+  // v2/card-game/poem-readings.mjs
+  var readingLimits = Object.freeze({
+    sites: 6,
+    optional: 8,
+    records: 56,
+    rows: 512,
+    tuples: 1024,
+    pageSize: 4,
+    listeners: 2,
+    bytes: 384 * 1024
+  });
+  var owns = (value, key) => !!value && Object.hasOwn(value, key);
+  var record = (value) => !!value && typeof value === "object" && !Array.isArray(value);
+  var integer = (value, low, high = Number.MAX_SAFE_INTEGER) => Number.isSafeInteger(value) && value >= low && value <= high;
+  var same = (left, right) => JSON.stringify(left) === JSON.stringify(right);
+  var emptyPoemReadings = () => ({
+    version: 1,
+    stanzas: [],
+    readings: {},
+    drafts: {},
+    pins: {},
+    decisions: {}
+  });
+  var readingBlockBytes = (state) => utf8Length(JSON.stringify(state));
+  var validationScope = null;
+  function withReadingValidation(operation) {
+    const previous = validationScope;
+    validationScope = /* @__PURE__ */ new Map();
+    try {
+      return operation();
+    } finally {
+      validationScope = previous;
+    }
+  }
+  var siteFor = (pack, id) => pack.recital?.sites?.find((site) => site.id === id);
+  var canonicalKey = (site, reader) => `site:${site}:${reader}`;
+  var pageCount = (reading) => Math.max(1, Math.ceil(reading.selection.length / readingLimits.pageSize));
+  function actorHere(world, actor, place) {
+    return world.actors[actor]?.place === place && (!humanAvatarIds.includes(actor) || humanPresent(world, actor));
+  }
+  function readerHere(world, reader, place) {
+    if (currentActor(world) !== reader || !humanAvatarIds.includes(reader) || !controlledByHuman(world, reader) || !actorHere(world, reader, place))
+      throw new Error("Bring your own present avatar to the reading.");
+  }
+  function commit(state, next) {
+    if (readingBlockBytes(next) > readingLimits.bytes)
+      throw new Error("The reading archive is full. Replay a saved reading.");
+    Object.assign(state, next);
+  }
+  function earnedTuples(world, pack, catalog, through) {
+    const saved = world.packs[pack.id];
+    const authors = new Map(catalog.authors.map((author, i) => [author.id, i]));
+    return catalog.rows.map((row, index) => [row, index]).filter(([row]) => integer(saved.receipts[row.choice], 1, through)).sort(
+      ([a, ai], [b, bi]) => saved.receipts[a.choice] - saved.receipts[b.choice] || ai - bi
+    ).map(([row, index]) => {
+      const author = saved.recitals[row.choice]?.actor ?? null;
+      if (author !== null && !authors.has(author))
+        throw new Error("Use the published catalog for this stanza's author.");
+      return [
+        index,
+        saved.receipts[row.choice],
+        author === null ? null : authors.get(author),
+        row.after && saved.receipts[row.after.choice] < saved.receipts[row.choice] ? 1 : 0
+      ];
+    });
+  }
+  var snapshotDigest = (catalog, tuples) => readingDigest(JSON.stringify([catalog.digest, tuples]));
+  function setReadingDraft(world, pack, state, siteId, reader, guests) {
+    const site = siteFor(pack, siteId);
+    if (!site) throw new Error("Choose an authored reading site.");
+    readerHere(world, reader, site.at);
+    if (!Array.isArray(guests) || new Set(guests).size !== guests.length || guests.some(
+      (id) => id === reader || !humanAvatarIds.includes(id) || !actorHere(world, id, site.at)
+    ))
+      throw new Error("Invite the people who are present beside you.");
+    const invited = humanAvatarIds.filter((id) => guests.includes(id));
+    commit(state, {
+      ...state,
+      drafts: { ...state.drafts, [reader]: { site: siteId, invited } }
+    });
+  }
+  function beginReading(world, pack, catalog, state, { site: siteId, reader, optional = false }) {
+    const site = siteFor(pack, siteId);
+    if (!site || catalog.pack !== pack.id)
+      throw new Error("Choose the site's published poem catalog.");
+    readerHere(world, reader, site.at);
+    const fixed = site.listeners;
+    if (!Array.isArray(fixed) || fixed.length < 1 || fixed.length > readingLimits.listeners || new Set(fixed).size !== fixed.length || fixed.some((id2) => !actorHere(world, id2, site.at)))
+      throw new Error("Bring the required listeners together.");
+    if (!integer(world.turn, 1))
+      throw new Error("Start the reading on an accepted turn.");
+    const draft = state.drafts[reader];
+    const guests = draft?.site === siteId ? draft.invited : [];
+    if (guests.some((id2) => !actorHere(world, id2, site.at)))
+      throw new Error("Choose the present audience again.");
+    const optionalSlots = Object.keys(state.readings).filter(
+      (id2) => id2.startsWith("optional:")
+    );
+    if (optional && optionalSlots.length >= readingLimits.optional)
+      throw new Error("Replay a saved reading from the archive.");
+    const id = optional ? `optional:${optionalSlots.length}:${reader}` : canonicalKey(siteId, reader);
+    if (owns(state.readings, id))
+      throw new Error("Resume your original reading at this site.");
+    const audience = [reader, ...fixed, ...guests];
+    if (new Set(audience).size !== audience.length)
+      throw new Error("Choose distinct listeners.");
+    const tuples = earnedTuples(world, pack, catalog, world.turn - 1);
+    const stanzas = [...state.stanzas];
+    const indices = new Map(
+      stanzas.map((tuple, index) => [JSON.stringify(tuple), index])
+    );
+    const selection = tuples.map((tuple) => {
+      const key = JSON.stringify(tuple);
+      if (!indices.has(key)) {
+        indices.set(key, stanzas.length);
+        stanzas.push(tuple);
+      }
+      return indices.get(key);
+    });
+    if (stanzas.length > readingLimits.tuples || Object.keys(state.readings).length >= readingLimits.records)
+      throw new Error("Replay an existing reading from the bounded archive.");
+    const reading = {
+      site: siteId,
+      reader,
+      catalog: catalog.id,
+      catalogDigest: catalog.digest,
+      poemDigest: snapshotDigest(catalog, tuples),
+      selection,
+      turn: world.turn,
+      through: world.turn - 1,
+      place: site.at,
+      audience,
+      requiredMask: (1 << 1 + fixed.length) - 1,
+      departedMask: 0,
+      pages: [],
+      complete: false
+    };
+    const drafts = { ...state.drafts };
+    delete drafts[reader];
+    commit(state, {
+      ...state,
+      stanzas,
+      drafts,
+      readings: { ...state.readings, [id]: reading }
+    });
+    return id;
+  }
+  function readingPage(state, reading, catalog, index) {
+    if (!integer(index, 0, pageCount(reading) - 1))
+      throw new Error("Choose a page in this reading.");
+    return reading.selection.slice(index * readingLimits.pageSize, (index + 1) * readingLimits.pageSize).map((slot) => {
+      const [rowIndex, turn, authorIndex, variant] = state.stanzas[slot];
+      const row = catalog.rows[rowIndex];
+      const author = authorIndex === null ? null : catalog.authors[authorIndex];
+      return {
+        id: row.choice,
+        turn,
+        authorId: author?.id ?? null,
+        authorName: author?.name ?? "an earlier traveler",
+        lines: [...variant ? row.after.lines : row.lines]
+      };
+    });
+  }
+  function readingFor(state, catalogs, id) {
+    const reading = state.readings[id];
+    const catalog = reading && owns(catalogs, reading.catalog) && catalogs[reading.catalog];
+    if (!reading || !catalog || reading.catalogDigest !== catalog.digest)
+      throw new Error("Load this reading's exact published catalog.");
+    return { reading, catalog };
+  }
+  function publishReadingPage(world, state, catalogs, id, reader) {
+    const { reading, catalog } = readingFor(state, catalogs, id);
+    readerHere(world, reader, reading.place);
+    if (reader !== reading.reader || reading.complete)
+      throw new Error("Choose your unfinished reading.");
+    const index = reading.pages.length;
+    const previousTurn = reading.pages.at(-1)?.[0] ?? reading.turn;
+    if (!integer(world.turn, previousTurn + 1))
+      throw new Error("Publish on the next accepted turn.");
+    let mask = 0;
+    for (const [i, actor] of reading.audience.entries())
+      if (actorHere(world, actor, reading.place)) mask |= 1 << i;
+    if ((mask & reading.requiredMask) !== reading.requiredMask)
+      throw new Error("Bring the required listeners back together.");
+    const optionalMask = (1 << reading.audience.length) - 1 ^ reading.requiredMask;
+    const departedMask = reading.departedMask | optionalMask & ~mask;
+    mask &= ~departedMask;
+    const updated = {
+      ...reading,
+      departedMask,
+      pages: [...reading.pages, [world.turn, mask, mask]],
+      complete: index + 1 === pageCount(reading)
+    };
+    const firstCompletion = updated.complete && !owns(state.pins, reading.site);
+    const pins = firstCompletion ? { ...state.pins, [reading.site]: id } : state.pins;
+    commit(state, {
+      ...state,
+      pins,
+      readings: { ...state.readings, [id]: updated }
+    });
+    return {
+      id,
+      index,
+      readingTurn: reading.turn,
+      through: reading.through,
+      publishedTurn: world.turn,
+      firstCompletion,
+      audience: reading.audience.filter((_, i) => mask & 1 << i),
+      stanzas: readingPage(state, updated, catalog, index)
+    };
+  }
+  function replayReadingPage(world, state, catalogs, id, reader, index, listener) {
+    const { reading, catalog } = readingFor(state, catalogs, id);
+    readerHere(world, reader, reading.place);
+    const bit = reading.audience.indexOf(listener);
+    if (reader !== reading.reader || bit < 0 || !actorHere(world, listener, reading.place) || !integer(index, 0, reading.pages.length - 1) || !integer(world.turn, reading.pages[index][0] + 1))
+      throw new Error("Replay a published page to a present original listener.");
+    const pages = reading.pages.map(
+      (page, i) => i === index ? [page[0], page[1], page[2] | 1 << bit] : [...page]
+    );
+    commit(state, {
+      ...state,
+      readings: { ...state.readings, [id]: { ...reading, pages } }
+    });
+    return {
+      id,
+      index,
+      readingTurn: reading.turn,
+      through: reading.through,
+      publishedTurn: world.turn,
+      audience: [.../* @__PURE__ */ new Set([reader, listener])],
+      stanzas: readingPage(state, reading, catalog, index)
+    };
+  }
+  function noteReadingDepartures(world) {
+    let changed = false;
+    for (const pack of Object.values(world.packs || {}))
+      for (const reading of Object.values(pack.poemReadings?.readings || {})) {
+        if (reading.complete) continue;
+        for (const [bit, actor] of reading.audience.entries()) {
+          const mask = 1 << bit;
+          if (!(reading.requiredMask & mask) && !(reading.departedMask & mask) && !actorHere(world, actor, reading.place)) {
+            reading.departedMask |= mask;
+            changed = true;
+          }
+        }
+      }
+    return changed;
+  }
+  function completedHeardReading(state, site, actor) {
+    return Object.entries(state?.readings || {}).filter(([, reading]) => {
+      const bit = reading.audience.indexOf(actor);
+      return reading.site === site && reading.complete && bit >= 0 && reading.pages.every((page) => page[2] & 1 << bit);
+    }).sort(([, left], [, right]) => right.turn - left.turn)[0]?.[0] || null;
+  }
+  function validReadingDecisions(world, pack) {
+    const saved = world.packs[pack.id], state = saved.poemReadings;
+    if (!state) return !pack.recital?.sites?.length;
+    const required = pack.choices.filter(
+      (choice) => choice.requires?.some((condition2) => condition2.kind === "reading_complete")
+    );
+    if (Object.keys(state.decisions).some(
+      (id) => !required.some((choice) => choice.id === id) || !owns(saved.receipts, id)
+    ))
+      return false;
+    return required.every((choice) => {
+      if (!owns(saved.receipts, choice.id))
+        return !owns(state.decisions, choice.id);
+      const reading = state.readings[state.decisions[choice.id]];
+      const actor = saved.recitals[choice.id]?.actor;
+      const bit = reading?.audience.indexOf(actor);
+      return reading?.complete && actor && bit >= 0 && choice.requires.filter((condition2) => condition2.kind === "reading_complete").every((condition2) => condition2.site === reading.site) && reading.pages.every((page) => page[2] & 1 << bit) && saved.receipts[choice.id] >= reading.pages.at(-1)[0];
+    });
+  }
+  function projectPoemReadings(state, actor) {
+    const stanzas = [], slots = /* @__PURE__ */ new Map(), readings = [];
+    const intern = (index) => {
+      if (!slots.has(index)) {
+        slots.set(index, stanzas.length);
+        stanzas.push([...state.stanzas[index]]);
+      }
+      return slots.get(index);
+    };
+    for (const [id, reading] of Object.entries(state.readings)) {
+      const bit = reading.audience.indexOf(actor);
+      if (bit < 0) continue;
+      const owner2 = actor === reading.reader;
+      const pages = Array.from({ length: pageCount(reading) }, (_, index) => {
+        const receipt = reading.pages[index];
+        if (!owner2 && !(receipt?.[2] & 1 << bit)) return null;
+        return [
+          index,
+          receipt?.[0] ?? null,
+          reading.selection.slice(
+            index * readingLimits.pageSize,
+            (index + 1) * readingLimits.pageSize
+          ).map(intern)
+        ];
+      }).filter(Boolean);
+      if (!owner2 && !pages.length) continue;
+      readings.push({
+        id,
+        site: reading.site,
+        reader: reading.reader,
+        catalog: reading.catalog,
+        readingTurn: reading.turn,
+        through: reading.through,
+        complete: reading.complete,
+        pageCount: pageCount(reading),
+        pages,
+        heardAll: reading.complete && reading.pages.every((page) => page[2] & 1 << bit),
+        ...owner2 ? { audience: [...reading.audience] } : {}
+      });
+    }
+    return { stanzas, readings };
+  }
+  function validPoemReadings(world, pack, catalogs, state) {
+    if (!validationScope) return checkPoemReadings(world, pack, catalogs, state);
+    try {
+      const identity = publishedCatalogIdentity(catalogs);
+      const saved = world.packs[pack.id];
+      const key = JSON.stringify([
+        pack.id,
+        pack.recital?.sites,
+        pack.choices.map((choice) => choice.id),
+        identity === null ? ["bytes", catalogs] : ["immutable", identity],
+        state,
+        saved.receipts,
+        saved.recitals
+      ]);
+      const checked = validationScope.get(key);
+      if (Number.isSafeInteger(world.turn) && checked !== void 0 && world.turn >= checked)
+        return true;
+      const valid = checkPoemReadings(world, pack, catalogs, state);
+      if (valid && Number.isSafeInteger(world.turn))
+        validationScope.set(key, world.turn);
+      return valid;
+    } catch {
+      return false;
+    }
+  }
+  function checkPoemReadings(world, pack, catalogs, state) {
+    try {
+      if (!record(state) || Object.keys(state).sort().join() !== "decisions,drafts,pins,readings,stanzas,version" || state.version !== 1 || !Array.isArray(state.stanzas) || state.stanzas.length > readingLimits.tuples || ![state.readings, state.drafts, state.pins, state.decisions].every(
+        record
+      ) || Object.keys(state.readings).length > readingLimits.records || Object.keys(state.drafts).length > humanAvatarIds.length || Object.keys(state.decisions).length > 16 || readingBlockBytes(state) > readingLimits.bytes)
+        return false;
+      const sites = pack.recital?.sites || [];
+      if (sites.length > readingLimits.sites || new Set(sites.map((site) => site.id)).size !== sites.length)
+        return false;
+      const catalog = Object.values(catalogs).filter((entry) => entry.pack === pack.id).sort(
+        (a, b) => b.rows.length - a.rows.length || b.authors.length - a.authors.length
+      )[0];
+      if (!catalog) return false;
+      const keys = /* @__PURE__ */ new Set();
+      for (const tuple of state.stanzas) {
+        if (!Array.isArray(tuple) || tuple.length !== 4 || !integer(tuple[0], 0, readingLimits.rows - 1) || !integer(tuple[1], 1, world.turn) || !(tuple[2] === null || integer(tuple[2], 0)) || ![0, 1].includes(tuple[3]) || keys.has(JSON.stringify(tuple)))
+          return false;
+        const row = catalog.rows[tuple[0]];
+        const author = tuple[2] === null ? null : catalog.authors[tuple[2]]?.id;
+        if (!row || tuple[3] === 1 && !row.after || world.packs[pack.id].receipts[row.choice] !== tuple[1] || author !== (world.packs[pack.id].recitals[row.choice]?.actor ?? null))
+          return false;
+        keys.add(JSON.stringify(tuple));
+      }
+      for (const [reader, draft] of Object.entries(state.drafts)) {
+        if (!humanAvatarIds.includes(reader) || !record(draft) || Object.keys(draft).sort().join() !== "invited,site" || !siteFor(pack, draft.site) || !Array.isArray(draft.invited) || new Set(draft.invited).size !== draft.invited.length || draft.invited.some(
+          (id) => id === reader || !humanAvatarIds.includes(id)
+        ) || !same(
+          draft.invited,
+          humanAvatarIds.filter((id) => draft.invited.includes(id))
+        ))
+          return false;
+      }
+      const optionalSlots = /* @__PURE__ */ new Set();
+      const complete = /* @__PURE__ */ new Map();
+      const expected = /* @__PURE__ */ new Map();
+      const earned = /* @__PURE__ */ new Map();
+      for (const [id, reading] of Object.entries(state.readings)) {
+        if (!record(reading) || Object.keys(reading).sort().join() !== "audience,catalog,catalogDigest,complete,departedMask,pages,place,poemDigest,reader,requiredMask,selection,site,through,turn")
+          return false;
+        const site = siteFor(pack, reading.site);
+        const catalog2 = owns(catalogs, reading.catalog) && catalogs[reading.catalog];
+        if (!site || !catalog2 || catalog2.pack !== pack.id || catalog2.digest !== reading.catalogDigest || !humanAvatarIds.includes(reading.reader) || reading.place !== site.at || !integer(reading.turn, 1, world.turn) || reading.through !== reading.turn - 1 || !Array.isArray(reading.selection) || reading.selection.length > readingLimits.rows || !Array.isArray(reading.audience) || reading.audience.length > humanAvatarIds.length + readingLimits.listeners || new Set(reading.audience).size !== reading.audience.length || !same(reading.audience.slice(0, 1 + site.listeners.length), [
+          reading.reader,
+          ...site.listeners
+        ]) || reading.audience.slice(1 + site.listeners.length).some((actor) => !humanAvatarIds.includes(actor)) || reading.requiredMask !== (1 << 1 + site.listeners.length) - 1)
+          return false;
+        const optional = /^optional:([0-7]):([a-z][a-z0-9-]*)$/.exec(id);
+        if (optional) {
+          if (optional[2] !== reading.reader || optionalSlots.has(optional[1]))
+            return false;
+          optionalSlots.add(optional[1]);
+        } else if (id !== canonicalKey(reading.site, reading.reader))
+          return false;
+        const selected = reading.selection.map(
+          (index) => integer(index, 0, state.stanzas.length - 1) ? state.stanzas[index] : null
+        );
+        if (selected.some((tuple) => !tuple)) return false;
+        if (!earned.has(catalog2.digest))
+          earned.set(
+            catalog2.digest,
+            earnedTuples(world, pack, catalog2, world.turn)
+          );
+        const all = earned.get(catalog2.digest);
+        const end = all.findIndex((tuple) => tuple[1] > reading.through);
+        const count = end < 0 ? all.length : end;
+        const expectedKey = `${catalog2.digest}:${count}`;
+        if (!expected.has(expectedKey)) {
+          const tuples = all.slice(0, count);
+          expected.set(expectedKey, {
+            tuples: JSON.stringify(tuples),
+            digest: snapshotDigest(catalog2, tuples)
+          });
+        }
+        const snapshot = expected.get(expectedKey);
+        if (JSON.stringify(selected) !== snapshot.tuples || reading.poemDigest !== snapshot.digest)
+          return false;
+        if (!Array.isArray(reading.pages) || reading.pages.length > pageCount(reading) || reading.complete !== (reading.pages.length === pageCount(reading)))
+          return false;
+        const fullMask = (1 << reading.audience.length) - 1;
+        const guests = fullMask ^ reading.requiredMask;
+        let departed = 0, lastTurn = reading.turn;
+        for (const page of reading.pages) {
+          if (!Array.isArray(page) || page.length !== 3 || !integer(page[0], lastTurn + 1, world.turn) || !integer(page[1], 0, fullMask) || !integer(page[2], 0, fullMask) || (page[1] & reading.requiredMask) !== reading.requiredMask || (page[2] & page[1]) !== page[1] || page[1] & departed)
+            return false;
+          departed |= guests & ~page[1];
+          lastTurn = page[0];
+        }
+        if (!integer(reading.departedMask, 0, fullMask) || reading.departedMask & reading.requiredMask || (reading.departedMask & departed) !== departed)
+          return false;
+        if (reading.complete) {
+          const old = complete.get(reading.site);
+          if (!old || lastTurn < old.turn || lastTurn === old.turn && id < old.id)
+            complete.set(reading.site, { id, turn: lastTurn });
+        }
+      }
+      if ([...optionalSlots].some((_, i) => !optionalSlots.has(String(i))))
+        return false;
+      if (Object.keys(state.pins).length !== complete.size || [...complete].some(([site, first]) => state.pins[site] !== first.id))
+        return false;
+      if (Object.entries(state.decisions).some(
+        ([choice, id]) => !pack.choices.some((entry) => entry.id === choice) || !state.readings[id]?.complete
+      ))
+        return false;
+      return true;
+    } catch {
+      return false;
+    }
+  }
 
   // v2/card-game/boardyai.json
   var boardyai_default = {
@@ -11654,7 +11693,7 @@
             Aristophanes: 11
           },
           opening: "Before the Burial",
-          status: "Forty-three works have authored scenes across the Greek chapters. Frogs and the witnessed reading flow are the final source work in progress."
+          status: "Forty-four works have authored scenes across the Greek chapters. Six witnessed reading sites preserve their readers, earlier authors and heard pages. Five carried records return to Dione\u2019s table."
         },
         places: {
           "greek-harbor": {
@@ -11778,8 +11817,6 @@
             text: "Folded cloth, a grain basket and a low bench stand beside the mooring ropes. A host waits for the names of returning families. Roads lead inland to Athens and along the coast to Eleusis.",
             exits: [
               "greek-road-athens-piraeus",
-              "greek-tauris",
-              "greek-sicily",
               "greek-road-piraeus-eleusis"
             ],
             backdrop: "assets/greek-drama/piraeus-open-berth.webp",
@@ -12106,7 +12143,9 @@
           "greek-troy-beach": {
             name: "The Homecoming Beach",
             text: "A small boat is drawn above the tideline. Its passengers compare what they remember of the war.",
-            exits: [],
+            exits: [
+              "greek-ajax-landing"
+            ],
             backdrop: "assets/greek-drama/sea.svg",
             requires: [
               {
@@ -12157,7 +12196,6 @@
             name: "The Taurian Temple",
             text: "A walled temple overlooks the landing place. An attendant counts the people brought ashore.",
             exits: [
-              "greek-piraeus",
               "greek-tauris-shore"
             ],
             backdrop: "assets/greek-drama/palace.svg",
@@ -12167,7 +12205,6 @@
             name: "The Sicilian Cave",
             text: "Sheep crowd a stone enclosure beside the cave. Wine jars stand beyond the shepherds' reach.",
             exits: [
-              "greek-piraeus",
               "greek-vii-inner-cave",
               "greek-sicily-shore"
             ],
@@ -12389,19 +12426,13 @@
           },
           "greek-ajax-landing": {
             name: "The Trojan Camp Landing",
-            text: "A wooden landing meets the ships below the tents. The Greek ship calls here for the named Trojan burial account.",
-            persona: "This is a named Trojan account, beginning after Ajax\u2019s death. Its deeds belong to that telling. The Theban opening keeps its own time. A wooden landing meets the ships below the tents. The Greek ship calls here for the named Trojan burial account.",
+            text: "A wooden landing meets the shared ship below the tents. Local paths reach the Greek camp and the homecoming beach.",
+            persona: "This shared Trojan landing serves Ajax\u2019s burial account and Helen\u2019s Trojan homecoming. Each keeps its named time. Local paths reach the Greek camp and the homecoming beach.",
             exits: [
-              "greek-greek-camp"
+              "greek-greek-camp",
+              "greek-troy-beach"
             ],
-            backdrop: "assets/greek-drama/ajax-camp-day.webp",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-camp-road-open",
-                value: true
-              }
-            ]
+            backdrop: "assets/greek-drama/ajax-camp-day.webp"
           },
           "greek-ajax-household": {
             name: "Ajax\u2019s Household Tent",
@@ -21360,36 +21391,6 @@
         },
         routes: [
           {
-            from: "greek-harbor",
-            to: "greek-egypt-tomb",
-            requires: [
-              {
-                kind: "choice",
-                key: "greek-helen-account",
-                value: "egypt"
-              }
-            ]
-          },
-          {
-            from: "greek-egypt-tomb",
-            to: "greek-harbor"
-          },
-          {
-            from: "greek-harbor",
-            to: "greek-troy-beach",
-            requires: [
-              {
-                kind: "choice",
-                key: "greek-helen-account",
-                value: "troy"
-              }
-            ]
-          },
-          {
-            from: "greek-troy-beach",
-            to: "greek-harbor"
-          },
-          {
             from: "greek-argolid-road",
             to: "greek-argos-tomb",
             requires: [
@@ -21621,72 +21622,6 @@
             ]
           },
           {
-            from: "greek-gate",
-            to: "greek-aulis",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-aulis-open",
-                value: false
-              }
-            ]
-          },
-          {
-            from: "greek-aulis",
-            to: "greek-gate",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-aulis-open",
-                value: false
-              }
-            ]
-          },
-          {
-            from: "greek-greek-camp",
-            to: "greek-aulis",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-aulis-open",
-                value: false
-              }
-            ]
-          },
-          {
-            from: "greek-aulis",
-            to: "greek-greek-camp",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-aulis-open",
-                value: false
-              }
-            ]
-          },
-          {
-            from: "greek-lemnos",
-            to: "greek-greek-camp",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-lemnos-open",
-                value: false
-              }
-            ]
-          },
-          {
-            from: "greek-greek-camp",
-            to: "greek-lemnos",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-lemnos-open",
-                value: false
-              }
-            ]
-          },
-          {
             from: "greek-troy-shield-ground",
             to: "greek-greek-camp",
             requires: [
@@ -21705,28 +21640,6 @@
                 kind: "flag",
                 key: "greek-troy-care-prepared",
                 value: true
-              }
-            ]
-          },
-          {
-            from: "greek-thrace",
-            to: "greek-troy",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-thrace-open",
-                value: false
-              }
-            ]
-          },
-          {
-            from: "greek-troy",
-            to: "greek-thrace",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-thrace-open",
-                value: false
               }
             ]
           },
@@ -22268,6 +22181,11 @@
                 kind: "choose",
                 key: "greek-helen-account",
                 value: "troy"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-camp-road-open",
+                value: true
               }
             ],
             summary: "The Trojan account governs Helen's whereabouts and testimony. No phantom has been established in this history.",
@@ -62192,7 +62110,7 @@
             },
             {
               choice: "greek-vii-cyclops-read-home",
-              quest: "greek-vii-cyclops",
+              quest: "greek-vii-cyclops-return",
               lines: [
                 "I read the cave\u2019s account beside the bread.",
                 "Each cohort kept its place within the telling."
@@ -62201,7 +62119,7 @@
             },
             {
               choice: "greek-vii-birds-read-home",
-              quest: "greek-vii-birds",
+              quest: "greek-vii-birds-return",
               lines: [
                 "I read the refuge\u2019s record at the table.",
                 "The gate and food retained their actual keepers."
@@ -62210,7 +62128,7 @@
             },
             {
               choice: "greek-vii-peace-read-home",
-              quest: "greek-vii-peace",
+              quest: "greek-vii-peace-return",
               lines: [
                 "I read the common labor beside Dione.",
                 "The grain and tools still named their present holders."
@@ -62219,7 +62137,7 @@
             },
             {
               choice: "greek-vii-prometheus-read-home",
-              quest: "greek-vii-prometheus",
+              quest: "greek-vii-prometheus-return",
               lines: [
                 "I read the flame and message beside Dione.",
                 "The oil and words retained their separate costs."
@@ -62554,8 +62472,7 @@
             name: "The Faces of Home: Helen",
             places: [
               "greek-book-iv-helen-boat",
-              "greek-book-iv-helen-court",
-              "greek-book-iv-helen-landing"
+              "greek-book-iv-helen-court"
             ],
             requires: [
               {
@@ -62813,6 +62730,20 @@
                 kind: "flag",
                 key: "greek-camp-road-open",
                 value: true
+              }
+            ]
+          },
+          {
+            id: "greek-egyptian-landing",
+            name: "The Egyptian Landing",
+            places: [
+              "greek-book-iv-helen-landing"
+            ],
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-helen-account",
+                value: "egypt"
               }
             ]
           },
@@ -63913,8 +63844,8 @@
             group: "ajax",
             line: "Carry Teucer\u2019s account home to Dione.",
             holder: {
-              kind: "avatar",
-              id: "greek-ajax-teucer"
+              kind: "item",
+              id: "greek-ajax-plea"
             },
             art: "greek-ajax-plea",
             start: {
@@ -64744,8 +64675,8 @@
             group: "heracles",
             line: "Bring the named household account to Dione.",
             holder: {
-              kind: "avatar",
-              id: "greek-heracles-amphitryon"
+              kind: "item",
+              id: "greek-heracles-remembrance-tablet"
             },
             art: "greek-heracles-remembrance-tablet",
             start: {
@@ -64848,8 +64779,8 @@
             group: "danaid",
             line: "Bring Nera\u2019s own answer to Dione.",
             holder: {
-              kind: "avatar",
-              id: "greek-baker"
+              kind: "item",
+              id: "greek-danaid-host-pledge"
             },
             art: "greek-danaid-host-pledge",
             start: {
@@ -64976,8 +64907,8 @@
             group: "trachis",
             line: "Tell Dione what the gift became.",
             holder: {
-              kind: "avatar",
-              id: "greek-baker"
+              kind: "item",
+              id: "greek-trachis-wool-remnant"
             },
             art: "greek-trachis-wool-remnant",
             start: {
@@ -67739,8 +67670,8 @@
             group: "book-iv-helen",
             line: "Carry Helen\u2019s authorised account to Dione.",
             holder: {
-              kind: "avatar",
-              id: "greek-helen-egypt"
+              kind: "item",
+              id: "greek-book-iv-helen-account"
             },
             art: "greek-book-iv-helen-account",
             start: {
@@ -67840,8 +67771,8 @@
             group: "book-iv-andromache",
             line: "Carry the Phthian household and Delphic accounts to Dione.",
             holder: {
-              kind: "avatar",
-              id: "greek-book-iv-andromache-andromache"
+              kind: "item",
+              id: "greek-book-iv-andromache-account"
             },
             art: "greek-book-iv-andromache-account",
             start: {
@@ -67944,8 +67875,8 @@
             group: "book-iv-hippolytus",
             line: "Carry the chosen Troezen account to Dione.",
             holder: {
-              kind: "avatar",
-              id: "greek-book-iv-hippolytus-nurse"
+              kind: "item",
+              id: "greek-book-iv-hippolytus-account"
             },
             art: "greek-book-iv-hippolytus-account",
             start: {
@@ -68051,8 +67982,8 @@
             group: "book-iv-medea",
             line: "Carry the sons\u2019 actual result in the nurse\u2019s account.",
             holder: {
-              kind: "avatar",
-              id: "greek-book-iv-medea-nurse"
+              kind: "item",
+              id: "greek-book-iv-medea-account"
             },
             art: "greek-book-iv-medea-account",
             start: {
@@ -68163,8 +68094,8 @@
             group: "book-iv-ion",
             line: "Carry the authorised care excerpt to Dione.",
             holder: {
-              kind: "avatar",
-              id: "greek-book-iv-ion-ion"
+              kind: "item",
+              id: "greek-book-iv-ion-account"
             },
             art: "greek-book-iv-ion-account",
             start: {
@@ -68395,8 +68326,8 @@
             group: "aulis",
             line: "Carry the mother\u2019s account home.",
             holder: {
-              kind: "avatar",
-              id: "greek-aulis-clytemnestra"
+              kind: "item",
+              id: "greek-aulis-departure-record"
             },
             art: "greek-aulis-departure-record",
             start: {
@@ -68516,8 +68447,8 @@
             group: "lemnos",
             line: "Carry his marked arrival home.",
             holder: {
-              kind: "avatar",
-              id: "greek-lemnos-philoctetes"
+              kind: "item",
+              id: "greek-lemnos-water"
             },
             art: "greek-lemnos-water",
             start: {
@@ -68618,8 +68549,8 @@
             group: "rhesus",
             line: "Carry the signed night watch home.",
             holder: {
-              kind: "avatar",
-              id: "greek-rhesus-hector"
+              kind: "item",
+              id: "greek-rhesus-testimony"
             },
             art: "greek-rhesus-testimony",
             start: {
@@ -68747,8 +68678,8 @@
             group: "troy",
             line: "Carry the women\u2019s names home.",
             holder: {
-              kind: "avatar",
-              id: "greek-troy-hecuba"
+              kind: "item",
+              id: "greek-troy-names"
             },
             art: "greek-troy-names",
             start: {
@@ -68856,8 +68787,8 @@
             group: "thrace",
             line: "Hear and carry Hecuba\u2019s signed case home.",
             holder: {
-              kind: "avatar",
-              id: "greek-thrace-hecuba"
+              kind: "item",
+              id: "greek-thrace-case-papers"
             },
             art: "greek-thrace-case-papers",
             start: {
@@ -68963,8 +68894,8 @@
             group: "susa",
             line: "Hear and carry the signed historical loss roll home.",
             holder: {
-              kind: "avatar",
-              id: "greek-susa-xerxes"
+              kind: "item",
+              id: "greek-susa-dead-names"
             },
             art: "greek-susa-dead-names",
             start: {
@@ -68998,12 +68929,96 @@
             progress: []
           },
           {
+            id: "greek-vii-cyclops-return",
+            group: "sky-for-sale",
+            line: "Carry the Cyclops account home and read it to Dione.",
+            holder: {
+              kind: "item",
+              id: "greek-vii-escape-list"
+            },
+            art: "greek-vii-escape-list",
+            start: {
+              kind: "flag",
+              key: "greek-vii-cyclops-home-ready",
+              value: true
+            },
+            endings: [
+              {
+                choice: "greek-vii-cyclops-read-home"
+              }
+            ],
+            outcome: "Shared"
+          },
+          {
+            id: "greek-vii-birds-return",
+            group: "sky-for-sale",
+            line: "Carry the Birds account home and read it to Dione.",
+            holder: {
+              kind: "item",
+              id: "greek-vii-refuge-tablet"
+            },
+            art: "greek-vii-refuge-tablet",
+            start: {
+              kind: "flag",
+              key: "greek-vii-birds-home-ready",
+              value: true
+            },
+            endings: [
+              {
+                choice: "greek-vii-birds-read-home"
+              }
+            ],
+            outcome: "Shared"
+          },
+          {
+            id: "greek-vii-peace-return",
+            group: "sky-for-sale",
+            line: "Carry the Peace account home and read it to Dione.",
+            holder: {
+              kind: "item",
+              id: "greek-vii-peace-list"
+            },
+            art: "greek-vii-peace-list",
+            start: {
+              kind: "flag",
+              key: "greek-vii-peace-home-ready",
+              value: true
+            },
+            endings: [
+              {
+                choice: "greek-vii-peace-read-home"
+              }
+            ],
+            outcome: "Shared"
+          },
+          {
+            id: "greek-vii-prometheus-return",
+            group: "sky-for-sale",
+            line: "Carry the Prometheus account home and read it to Dione.",
+            holder: {
+              kind: "item",
+              id: "greek-vii-storm-record"
+            },
+            art: "greek-vii-storm-record",
+            start: {
+              kind: "flag",
+              key: "greek-vii-prometheus-home-ready",
+              value: true
+            },
+            endings: [
+              {
+                choice: "greek-vii-prometheus-read-home"
+              }
+            ],
+            outcome: "Shared"
+          },
+          {
             id: "greek-viii-frogs",
             group: "last-voices",
             line: "Read the earned account to both poets and carry the chosen voice home.",
             holder: {
-              kind: "place",
-              id: "greek-underworld"
+              kind: "item",
+              id: "greek-viii-reading-tablet"
             },
             art: "greek-viii-reading-tablet",
             start: {
@@ -76086,7 +76101,7 @@
         ],
         bridge: {
           id: "shore-greek-drama",
-          description: "A shared ship serves Black Pond, the Wine-Dark Harbor, Athens Harbor and Piraeus Quays. The lamp signal calls it to the pond."
+          description: "One shared ship serves eleven Greek and forest landings. Local paths join each landing to its nearby scene."
         },
         crossings: [
           {
@@ -76205,13 +76220,7 @@
             to: "pond",
             travelers: "any",
             travel: "aboard the ship",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-camp-road-open",
-                value: true
-              }
-            ],
+            requires: [],
             transport: "greek-ship",
             travelLabel: "Board",
             scenery: {
@@ -76227,13 +76236,7 @@
             to: "pond",
             travelers: "any",
             travel: "aboard the ship",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-book-iv-open",
-                value: true
-              }
-            ],
+            requires: [],
             transport: "greek-ship",
             travelLabel: "Board",
             scenery: {
@@ -76248,13 +76251,7 @@
             to: "pond",
             travelers: "any",
             travel: "aboard the ship",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-aulis-open",
-                value: true
-              }
-            ],
+            requires: [],
             transport: "greek-ship",
             travelLabel: "Board",
             scenery: {
@@ -76270,13 +76267,7 @@
             to: "pond",
             travelers: "any",
             travel: "aboard the ship",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-lemnos-open",
-                value: true
-              }
-            ],
+            requires: [],
             transport: "greek-ship",
             travelLabel: "Board",
             scenery: {
@@ -76292,13 +76283,7 @@
             to: "pond",
             travelers: "any",
             travel: "aboard the ship",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-thrace-open",
-                value: true
-              }
-            ],
+            requires: [],
             transport: "greek-ship",
             travelLabel: "Board",
             scenery: {
@@ -76309,23 +76294,33 @@
             }
           },
           {
+            id: "greek-tauris-shore-ship",
+            from: "greek-tauris-shore",
+            to: "pond",
+            travelers: "any",
+            travel: "aboard the shared ship",
+            travelLabel: "Board",
+            requires: [],
+            transport: "greek-ship",
+            scenery: {
+              open: "The shared ship waits at the Taurian Shore.",
+              closed: "The landing waits beside open water.",
+              cardName: "Greek ship",
+              cardArt: "assets/greek-drama/ship-card.webp"
+            }
+          },
+          {
             id: "greek-sicily-shore-ship",
             from: "greek-sicily-shore",
             to: "pond",
             travelers: "any",
-            travel: "aboard the ship",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-vii-accounts-open",
-                value: true
-              }
-            ],
-            transport: "greek-ship",
+            travel: "aboard the shared ship",
             travelLabel: "Board",
+            requires: [],
+            transport: "greek-ship",
             scenery: {
-              open: "The shared ship waits beside the Sicilian shore.",
-              closed: "The Sicilian landing faces open water.",
+              open: "The shared ship waits at the Sicilian Landing.",
+              closed: "The landing waits beside open water.",
               cardName: "Greek ship",
               cardArt: "assets/greek-drama/ship-card.webp"
             }
@@ -76344,6 +76339,7 @@
               "greek-aulis",
               "greek-lemnos-landing",
               "greek-thrace",
+              "greek-tauris-shore",
               "greek-sicily-shore"
             ],
             at: "greek-harbor"
@@ -77244,17 +77240,17 @@
             exits: [
               "willows-camp"
             ],
-            backdrop: "assets/willows/landing.webp"
+            backdrop: "assets/willows/landing-day.webp"
           },
           "willows-camp": {
             name: "River Camp",
-            text: "A canvas tent shelters a food sack and a small cooking pot. The Swede watches the willow tops beyond the fire. A sandy path leads to the canoe.",
-            persona: "Speak as the campsite in first person, through the tent canvas, fire warmth, cooking smells and disturbed sand. The Swede is the one resident. Let ordinary shelter feel small within the surrounding willows. Supplies are those named in the current facts; their condition follows recorded discoveries. Describe the people and objects present with care.",
+            text: "A canvas tent shelters a food sack and a small cooking pot. A stone fire ring lies among the camping gear. The Swede watches the willow tops. A sandy path leads to the canoe.",
+            persona: "Speak as the campsite in first person, through the tent canvas, fire warmth, cooking smells and disturbed sand. The Swede is the one resident. Let ordinary shelter feel small within the surrounding willows. Supplies are those named in the current facts; their condition follows recorded discoveries. Describe the people and objects present with care. The current fire facts describe its warmth or cold ash.",
             exits: [
               "willows-landing",
               "willows-thicket"
             ],
-            backdrop: "assets/willows/camp.webp"
+            backdrop: "assets/willows/camp-day.webp"
           },
           "willows-thicket": {
             name: "Willow Thicket",
@@ -77264,7 +77260,7 @@
               "willows-camp",
               "willows-bank"
             ],
-            backdrop: "assets/willows/thicket.webp"
+            backdrop: "assets/willows/thicket-day.webp"
           },
           "willows-bank": {
             name: "Crumbling Bank",
@@ -77273,7 +77269,7 @@
             exits: [
               "willows-thicket"
             ],
-            backdrop: "assets/willows/bank.webp"
+            backdrop: "assets/willows/bank-day.webp"
           }
         },
         avatars: {
@@ -77312,56 +77308,56 @@
             text: "One wooden paddle remains beside the canoe. Its blade has been scraped strangely thin.",
             persona: "A long wooden canoe paddle with a blade worn thin. It can be carried and laid beside the canoe. Its condition is a clue in the hull discovery.",
             holder: "willows-landing",
-            art: "assets/willows/paddle.svg"
+            art: "assets/willows/paddle.webp"
           },
           "willows-map": {
             name: "River Map",
             text: "The Danube divides into more channels than this creased map can show.",
             persona: "A creased paper river map of the Danube below Pressburg, with channels and sandbanks marked in ink.",
             holder: "willows-camp",
-            art: "assets/willows/map.svg"
+            art: "assets/willows/map.webp"
           },
           "willows-rope": {
             name: "Tent Rope",
             text: "A spare length of rope lies coiled beside the tent.",
             persona: "A spare coil of sound hemp rope. The preparation action uses it together with the waterproof sheet at the landing.",
             holder: "willows-camp",
-            art: "assets/willows/rope.svg"
+            art: "assets/willows/rope.webp"
           },
           "willows-sheet": {
             name: "Waterproof Sheet",
             text: "A folded waterproof sheet keeps the camping gear above the damp sand.",
             persona: "A folded dark waterproof camping sheet. The preparation action lays it beneath the canoe, together with rope.",
             holder: "willows-camp",
-            art: "assets/willows/sheet.svg"
+            art: "assets/willows/sheet.webp"
           },
           "willows-provisions": {
             name: "Food Sack",
             text: "A canvas sack holds oatmeal, potatoes, onions and tea. Its tied mouth smells faintly of smoke.",
             persona: "A canvas food sack holding the remaining camp provisions: oatmeal, potatoes, onions and tea. Counting the stores records the missing bread. Actual custody follows the current world facts.",
             holder: "willows-camp",
-            art: "assets/willows/provisions.svg"
+            art: "assets/willows/provisions.webp"
           },
           "willows-pot": {
             name: "Stew Pot",
             text: "An iron pot carries the smell of onions and yesterday's stew.",
             persona: "A small black iron stew-pot, cold enough to carry. The smell of camp cooking clings to it.",
             holder: "willows-camp",
-            art: "assets/willows/pot.svg"
+            art: "assets/willows/pot.webp"
           },
           "willows-spoon": {
             name: "Wooden Spoon",
             text: "The long handle has darkened with years of cooking over open fires.",
             persona: "A plain wooden cooking spoon with a long, smoke-darkened handle.",
             holder: "willows-camp",
-            art: "assets/willows/spoon.svg"
+            art: "assets/willows/spoon.webp"
           },
           "willows-pipe": {
             name: "The Swede's Pipe",
             text: "A worn briar pipe. The Swede turns it in his fingers while he listens.",
             persona: "The Swede's well-used briar pipe. Its holder is supplied by the world facts.",
             holder: "willows-swede",
-            art: "assets/willows/pipe.svg"
+            art: "assets/willows/pipe.webp"
           }
         },
         choices: [
@@ -77634,8 +77630,8 @@
             subject: "willows-swede",
             at: "willows-camp",
             label: "Keep watch with the Swede",
-            text: "The traveller chooses to keep watch with the Swede a while longer. They sit beside the fire. Beyond its warmth, the willows stir in a slow ring around the camp.",
-            textTemplate: "{actor} chooses to keep watch with the Swede a while longer. They sit beside the fire. Beyond its warmth, the willows stir in a slow ring around the camp.",
+            text: "The traveller chooses to keep watch with the Swede a while longer. They settle beside the tent. Around them, the willows stir in a slow ring around the camp.",
+            textTemplate: "{actor} chooses to keep watch with the Swede a while longer. They settle beside the tent. Around them, the willows stir in a slow ring around the camp.",
             summary: "The traveller chose to keep watch beside the Swede after they shared the strange discoveries.",
             requires: [
               {
@@ -77653,6 +77649,54 @@
                 kind: "choose",
                 key: "willows-response",
                 value: "watch"
+              }
+            ]
+          },
+          {
+            id: "willows-put-out-fire",
+            subject: "willows-camp",
+            at: "willows-camp",
+            label: "Put out the campfire",
+            text: "The traveller pours water over the campfire and stirs the ash until the logs are cold.",
+            textTemplate: "{actor} pours water over the campfire and stirs the ash until the logs are cold.",
+            summary: "The campfire was put out.",
+            repeatable: true,
+            requires: [
+              {
+                kind: "flag",
+                key: "willows-fire-out",
+                value: false
+              }
+            ],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "willows-fire-out",
+                value: true
+              }
+            ]
+          },
+          {
+            id: "willows-light-fire",
+            subject: "willows-camp",
+            at: "willows-camp",
+            label: "Light the campfire",
+            text: "The traveller sets dry kindling in the fire ring and lights a small campfire.",
+            textTemplate: "{actor} sets dry kindling in the fire ring and lights a small campfire.",
+            summary: "The campfire was lit.",
+            repeatable: true,
+            requires: [
+              {
+                kind: "flag",
+                key: "willows-fire-out",
+                value: true
+              }
+            ],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "willows-fire-out",
+                value: false
               }
             ]
           }
@@ -79573,6 +79617,19 @@
         `${what} must use the closed condition vocabulary with valid references`
       );
     };
+    const persistentCondition = (c, depth = 0) => record4(c) && depth <= 2 && (c.kind === "not" ? persistentCondition(c.condition, depth + 1) : [
+      "choice",
+      "choice_unset",
+      "reading_complete",
+      "flag",
+      "holding",
+      "item_at",
+      "item_near",
+      "shared_world",
+      "connected_humans",
+      "met",
+      "knows"
+    ].includes(c.kind));
     const requirements = (cs, what, persistent = true, choice = false) => {
       if (cs === void 0) return;
       check(
@@ -79583,19 +79640,7 @@
         cs.forEach((c) => {
           condition2(c, what);
           check(
-            !persistent || choice && c.kind === "light" || choice && c.kind === "not" && c.condition?.kind === "holding" || [
-              "choice",
-              "choice_unset",
-              "reading_complete",
-              "flag",
-              "holding",
-              "item_at",
-              "item_near",
-              "shared_world",
-              "connected_humans",
-              "met",
-              "knows"
-            ].includes(c.kind),
+            !persistent || choice && c.kind === "light" || persistentCondition(c),
             `${what} must use saved state or human presence conditions`
           );
         });
@@ -79660,12 +79705,22 @@
           "summary",
           "requires",
           "effects",
-          "workId"
-        ]) && idOk2(c.id) && !choiceIds.has(c.id) && own.includes(c.subject) && owns3(places2, c.at) && textOk2(c.label, 120) && textOk2(c.text, 600) && (c.textTemplate === void 0 || templateOk(c.textTemplate, 600, ["actor"])) && (c.summary === void 0 || textOk2(c.summary, 600)),
+          "workId",
+          "repeatable"
+        ]) && (c.repeatable === void 0 || typeof c.repeatable === "boolean") && idOk2(c.id) && !choiceIds.has(c.id) && own.includes(c.subject) && owns3(places2, c.at) && textOk2(c.label, 120) && textOk2(c.text, 600) && (c.textTemplate === void 0 || templateOk(c.textTemplate, 600, ["actor"])) && (c.summary === void 0 || textOk2(c.summary, 600)),
         `choice ${c.id} is invalid`
       );
       choiceIds.add(c.id);
       requirements(c.requires, `choice ${c.id} requires`, true, true);
+      if (c.repeatable)
+        check(
+          c.effects.every((e) => e.kind === "set_flag") && (c.requires || []).length === c.effects.length && c.effects.every(
+            (e) => c.requires.some(
+              (r) => r.kind === "flag" && r.key === e.key && r.value !== e.value
+            )
+          ),
+          `repeatable choice ${c.id} needs opposite flag guards`
+        );
       for (const e of c.effects) {
         let valid = false;
         if (e.kind === "choose") {
@@ -80844,7 +80899,7 @@
   }
   function choiceFeasible(world, pack, choice, actor) {
     const state = packState(world, pack.id);
-    if (!state || owns4(state.receipts, choice.id) || pack.release && state.scope !== "full" && !pack.release.choices.includes(choice.id) || world.actors[actor]?.place !== choice.at || !entityActive(world, choice.at) || !entityActive(world, choice.subject) || !conditionsMet(world, pack.id, choice.requires, actor))
+    if (!state || !choice.repeatable && owns4(state.receipts, choice.id) || pack.release && state.scope !== "full" && !pack.release.choices.includes(choice.id) || world.actors[actor]?.place !== choice.at || !entityActive(world, choice.at) || !entityActive(world, choice.subject) || !conditionsMet(world, pack.id, choice.requires, actor))
       return false;
     const subject = choice.subject;
     if (world.actors[subject] && world.actors[subject].place !== choice.at)
@@ -81051,7 +81106,7 @@
       );
       for (const [id, turn] of events) {
         const c = choiceById.get(id);
-        if (!c || state.scope === "opening" && pack.release && !pack.release.choices.includes(id) || !Number.isSafeInteger(turn) || turn < 1 || turn > world.turn || seenTurns.has(turn) || !sectionAllows(projection, pack, c.at, conditionsMet) || !sectionAllows(projection, pack, c.subject, conditionsMet) || !progressionMet(c.requires) || !progressionMet(pack.places[c.at].requires) || !progressionMet(packEntity(c.subject)?.requires) || (c.requires || []).some(
+        if (!c || state.scope === "opening" && pack.release && !pack.release.choices.includes(id) || !Number.isSafeInteger(turn) || turn < 1 || turn > world.turn || seenTurns.has(turn) || !sectionAllows(projection, pack, c.at, conditionsMet) || !sectionAllows(projection, pack, c.subject, conditionsMet) || !c.repeatable && !progressionMet(c.requires) || !progressionMet(pack.places[c.at].requires) || !progressionMet(packEntity(c.subject)?.requires) || (c.requires || []).some(
           (condition2) => condition2.kind === "met" && (!owns4(state.met, condition2.actor) || state.met[condition2.actor] >= turn)
         ))
           return false;
@@ -82657,19 +82712,21 @@
   }
   function rememberEvent(world, entry) {
     if (entry.kind === "quest" || entry.questPlan) return;
-    const related4 = new Set(entry.privateTo || [
-      entry.locationId,
-      entry.fromLocationId,
-      entry.actorId,
-      entry.entityId,
-      entry.itemId,
-      entry.receiveId,
-      entry.targetId,
-      ...entry.witnesses || [],
-      ...entry.cast || [],
-      ...(entry.items || []).map((item) => item.id)
-    ]);
-    for (const id of related4) {
+    const related3 = new Set(
+      entry.privateTo || [
+        entry.locationId,
+        entry.fromLocationId,
+        entry.actorId,
+        entry.entityId,
+        entry.itemId,
+        entry.receiveId,
+        entry.targetId,
+        ...entry.witnesses || [],
+        ...entry.cast || [],
+        ...(entry.items || []).map((item) => item.id)
+      ]
+    );
+    for (const id of related3) {
       if (!profiles[id]) continue;
       if (profiles[id].kind === "avatar" && world.controlledActors?.includes(id) && !world.presentActors?.includes(id) && entry.actorId !== id)
         continue;
@@ -83459,9 +83516,7 @@
         const localGrievances = (s.motives?.grievances[actor] || []).filter(
           (g) => resentment(s, actor, g.other) > 0 && s.actors[g.other].place === here
         );
-        const space = localGrievances.length > 0 && localGrievances.every(
-          (g) => s.actors[g.other].place !== a.target
-        );
+        const space = localGrievances.length > 0 && localGrievances.every((g) => s.actors[g.other].place !== a.target);
         n = path?.[1] === a.target ? want.items.length ? 19 : 36 : space ? want.items.length ? 18 : 35 : -15;
       }
       if (a.kind === "light" && actor === "moth") n = 45;
@@ -84576,18 +84631,18 @@
       );
     });
   }
-  function authoredStoryRelated(packs, definition, event) {
+  function authoredStoryRelation(packs, definition) {
     const pack = packs.find((entry) => definition.key.startsWith(`${entry.id}:`));
     const story = pack?.storyQuests?.find(
       (entry) => storyKey(pack, entry) === definition.key
     );
-    if (!story || event.packId !== pack.id) return false;
-    const related4 = story.related === "ending" ? [definition.choiceId] : story.related === "start-and-ending" ? [...sourceChoices(story.start), definition.choiceId] : story.related || [
+    if (!story) return () => false;
+    const related3 = story.related === "ending" ? [definition.choiceId] : story.related === "start-and-ending" ? [...sourceChoices(story.start), definition.choiceId] : story.related || [
       ...sourceChoices(story.start),
       ...story.progress || [],
       ...story.endings.map((entry) => entry.choice)
     ];
-    return related4.includes(event.choiceId);
+    return (event) => event.packId === pack.id && related3.includes(event.choiceId);
   }
 
   // v2/card-game/story-quests.mjs
@@ -84596,21 +84651,34 @@
     return authoredStoryDefinitions(world, packDefinitions, { history });
   }
   var packFor = (definition) => packDefinitions.find((pack) => definition.key.startsWith(`${pack.id}:`));
-  var related3 = (definition, event) => authoredStoryRelated(packDefinitions, definition, event);
-  function storyActors(world, definition, includeDiscovery = true) {
+  var relation = (definition) => authoredStoryRelation(packDefinitions, definition);
+  function storyActors(world, definition, includeDiscovery = true, related3 = relation(definition)) {
     const pack = packFor(definition);
     if (!pack) return [];
-    const events = (world.log || []).filter(
-      (event) => related3(definition, event)
-    );
+    const events = (world.log || []).filter(related3);
     const discovery = (world.log || []).filter(
       (event) => event.kind === "action" && event.turn === definition.createdTurn && (event.packId === pack.id || event.cast?.includes(definition.holder.id) || definition.holder.kind === "place" && event.locationId === definition.holder.id)
     ).sort((a, b) => a.seq - b.seq)[0];
     if (includeDiscovery && discovery) events.push(discovery);
-    const knownAuthor = world.packs?.[pack.id]?.recitals?.[definition.choiceId]?.actor;
+    const state = world.packs?.[pack.id];
+    const knownAuthor = state?.recitals?.[definition.choiceId]?.actor;
+    const completedTurn = state?.receipts?.[definition.choiceId];
+    const story = pack.storyQuests?.find(
+      (entry) => `${pack.id}:${entry.key || entry.id}` === definition.key
+    );
+    const readingChoices = /* @__PURE__ */ new Set([
+      definition.choiceId,
+      ...story?.progress || []
+    ]);
+    const readingSites = new Map(
+      (pack.recital?.sites || []).filter((site) => readingChoices.has(site.completion)).map((site) => [site.id, state?.receipts?.[site.completion]])
+    );
+    const readers = readingSites.size ? Object.values(state?.poemReadings?.readings || {}).filter(
+      (reading) => readingSites.has(reading.site) && reading.turn >= definition.createdTurn && reading.turn <= (readingSites.get(reading.site) ?? Infinity) && (completedTurn === void 0 || reading.turn <= completedTurn)
+    ).map((reading) => reading.reader) : [];
     return [
       ...new Set(
-        [...events.map((event) => event.actorId), knownAuthor].filter(
+        [...events.map((event) => event.actorId), knownAuthor, ...readers].filter(
           (id) => world.actors[id]
         )
       )
@@ -84647,10 +84715,9 @@
           cause: null
         };
       }
-      const events = (world.log || []).filter(
-        (event2) => related3(definition, event2)
-      );
-      const recorded = storyActors(world, definition, created);
+      const related3 = relation(definition);
+      const events = (world.log || []).filter(related3);
+      const recorded = storyActors(world, definition, created, related3);
       const knownAuthor = state.recitals?.[definition.choiceId]?.actor;
       if (created && actorId && world.actors[actorId] && definition.createdTurn === world.turn)
         recorded.push(actorId);
@@ -85273,6 +85340,80 @@
   for (const ids3 of Object.values(greekRevisionSeven)) Object.freeze(ids3);
   Object.freeze(greekRevisionSeven);
 
+  // v2/card-game/legacy-greek-seaways.mjs
+  var legacyGreekSeaPaths = [
+    [
+      "greek-harbor",
+      "greek-ship",
+      "greek-book-iv-helen-landing",
+      "greek-egypt-tomb"
+    ],
+    ["greek-harbor", "greek-ship", "greek-ajax-landing", "greek-troy-beach"],
+    ["greek-piraeus", "greek-ship", "greek-tauris-shore", "greek-tauris"],
+    ["greek-piraeus", "greek-ship", "greek-sicily-shore", "greek-sicily"],
+    [
+      "greek-gate",
+      "greek-courtyard",
+      "greek-harbor",
+      "greek-ship",
+      "greek-aulis"
+    ],
+    ["greek-aulis", "greek-ship", "greek-ajax-landing", "greek-greek-camp"],
+    [
+      "greek-greek-camp",
+      "greek-ajax-landing",
+      "greek-ship",
+      "greek-lemnos-landing",
+      "greek-lemnos"
+    ],
+    [
+      "greek-troy",
+      "greek-greek-camp",
+      "greek-ajax-landing",
+      "greek-ship",
+      "greek-thrace"
+    ]
+  ];
+  var paths = new Map(
+    legacyGreekSeaPaths.flatMap((path) => [path, [...path].reverse()]).map((path) => [JSON.stringify([path[0], path.at(-1)]), path])
+  );
+  var oldRemotePlaces = /* @__PURE__ */ new Set([
+    "greek-aulis",
+    "greek-lemnos",
+    "greek-greek-camp",
+    "greek-trojan-camp",
+    "greek-troy",
+    "greek-thrace",
+    "greek-susa",
+    "greek-scythian-crag",
+    "greek-egypt-tomb",
+    "greek-troy-beach",
+    "greek-tauris",
+    "greek-sicily"
+  ]);
+  function upgradeGreekSeaKnowledge(world) {
+    for (const [actor, known] of Object.entries(world.routeKnowledge || {})) {
+      if (!Array.isArray(known)) continue;
+      const expanded = known.flatMap((edge) => {
+        const path = paths.get(JSON.stringify(edge));
+        return path ? path.slice(1).map((to, index) => [path[index], to]) : [edge];
+      });
+      world.routeKnowledge[actor] = [
+        ...new Map(expanded.map((edge) => [JSON.stringify(edge), edge])).values()
+      ];
+    }
+    const signal = world.crossings?.["pond-greek-harbor"];
+    if (signal?.discovered === false && Object.entries(world.actors || {}).some(
+      ([actor, state]) => controlledByHuman(world, actor) && oldRemotePlaces.has(state?.place)
+    ))
+      signal.discovered = true;
+  }
+  function restoreGreekLandingAccess(world) {
+    const pack = world.packs?.["greek-drama"];
+    if (pack?.revision === 8 && pack.flags && pack.choices && (pack.flags["greek-ajax-open"] || pack.choices["greek-helen-account"] === "troy"))
+      pack.flags["greek-camp-road-open"] = true;
+  }
+
   // v2/card-game/legacy-saves.mjs
   function upgradeSave(s, { actorIds: actorIds2, ensurePrograms: ensurePrograms2, installPacks: installPacks2, profileOf }) {
     if (s?.schema === 6 || s?.schema === 7 && s.packs?.["greek-drama"]?.revision < 8) {
@@ -85351,6 +85492,7 @@
       installPacks2(s);
     }
     if (s?.schema === 7) {
+      restoreGreekLandingAccess(s);
       upgradeShoreRouteSave(s);
       upgradeBoardingSave(s);
       upgradeRecitals(s, packDefinitions);
@@ -85455,9 +85597,9 @@
     for (const item of Object.values(s.items || {}))
       item.holder = canonicalPlace(item.holder);
     for (const [actor, edges] of Object.entries(s.routeKnowledge || {})) {
-      const paths = edges.map(([from, to]) => [canonicalPlace(from), canonicalPlace(to)]).filter(([from, to]) => from !== to);
+      const paths2 = edges.map(([from, to]) => [canonicalPlace(from), canonicalPlace(to)]).filter(([from, to]) => from !== to);
       s.routeKnowledge[actor] = [
-        ...new Map(paths.map((edge) => [JSON.stringify(edge), edge])).values()
+        ...new Map(paths2.map((edge) => [JSON.stringify(edge), edge])).values()
       ];
     }
     const condition2 = (value) => {
@@ -85564,6 +85706,15 @@
           ).values()
         ];
       }
+    const ajaxReturn = s.quests?.records?.["greek-drama:story-quest-greek-ajax-return"];
+    if (ajaxReturn?.mode === "story" && ajaxReturn.holder?.kind === "avatar" && ajaxReturn.holder.id === "greek-ajax-teucer") {
+      ajaxReturn.holder = { kind: "item", id: "greek-ajax-plea" };
+      settleQuestHands(s);
+      const carrier = questHolderActor(s, ajaxReturn);
+      if (carrier && ajaxReturn.completedTurn === null)
+        carryQuest(s, carrier, ajaxReturn);
+    }
+    upgradeGreekSeaKnowledge(s);
     for (const choice of pack.choices)
       if (Object.hasOwn(saved.receipts || {}, choice.id)) {
         for (const effect of choice.effects)
@@ -85571,7 +85722,8 @@
             "greek-camp-road-open",
             "greek-troy-road-open",
             "greek-susa-road-open"
-          ].includes(effect.key)) saved.flags[effect.key] = effect.value;
+          ].includes(effect.key))
+            saved.flags[effect.key] = effect.value;
       }
     saved.revision = 8;
   }
@@ -86022,7 +86174,8 @@
   }
   function canTrade(s, actor, give, receive) {
     const other = s.items[receive]?.holder;
-    if (packKeepsItem(s, actor, give) || packKeepsItem(s, other, receive)) return false;
+    if (packKeepsItem(s, actor, give) || packKeepsItem(s, other, receive))
+      return false;
     if (s.items[give]?.holder !== actor || !actorIds.includes(other) || !knownActors2(s).includes(other) || other === actor || controlledByHuman(s, other) || s.actors[actor].place !== s.actors[other].place)
       return false;
     if (hasMotives(s) ? !tradeDecision(s, actor, give, receive).accepted && !(hasQuestPrograms(s) && !s.life && !resentment(s, other, actor) && needed(s, other, give) && !needed(s, other, receive)) : !accepts(s, other, give) || needed(s, other, receive))
@@ -86742,7 +86895,11 @@
         action.key += ":" + receive;
         out.push(action);
       }
-    out.push(...fixtureOffers(s, actor, sensesFor(s)), ...packChoices(s, actor), ...readingActions(s, actor));
+    out.push(
+      ...fixtureOffers(s, actor, sensesFor(s)),
+      ...packChoices(s, actor),
+      ...readingActions(s, actor)
+    );
     for (const action of out) {
       if (action.kind === "take" && things[s.items[action.item]?.holder])
         action.label = "Uncover";
@@ -87943,21 +88100,21 @@
       ))
         fail();
     }
+    const itemHolders = /* @__PURE__ */ new Set([...actorIds, ...Object.keys(places)]);
+    const heldCounts = /* @__PURE__ */ new Map();
     for (const [id, item] of Object.entries(s.items)) {
-      if (![
-        ...actorIds,
-        ...Object.keys(places),
-        ...id === "cloth" ? ["lamp", "bell"] : []
-      ].includes(item.holder))
+      if (!itemHolders.has(item.holder) && !(id === "cloth" && ["lamp", "bell"].includes(item.holder)))
         fail();
       if (entityActive(s, id) && (!entityActive(s, item.holder) || !entityActive(s, itemPlace2(s, id))))
         fail();
       if (!Array.isArray(item.history) || item.history.length > 12 || item.history.some((t) => typeof t !== "string" || t.length > 400))
         fail();
+      const holder2 = rootHolder(s, id);
+      heldCounts.set(holder2, (heldCounts.get(holder2) || 0) + 1);
     }
     for (const actor of actorIds) {
       const allowance = s.sharedMigration?.inventoryAllowances?.[actor];
-      const count = carried(s, actor).length;
+      const count = heldCounts.get(actor) || 0;
       if (count > (allowance || 3) || allowance && allowance !== count) fail();
     }
     const lamp = s.items.lamp, oil = s.items.oil, bell = s.items.bell;
@@ -88005,7 +88162,8 @@
     for (const e of s.log) {
       if (!validPrivateAudience(s, e.privateTo)) fail();
       if (!validRecallRef(s, e.recall, e.privateTo)) fail();
-      if (!validHearingRef(s, e.hearing, e.privateTo, e.turn, e.locationId)) fail();
+      if (!validHearingRef(s, e.hearing, e.privateTo, e.turn, e.locationId))
+        fail();
       if (e.seq !== void 0) {
         if (!Number.isSafeInteger(e.seq) || e.seq <= seq || e.seq > s.eventSeq)
           fail();
@@ -88031,7 +88189,7 @@
       if (e.verb != null && !verbs.includes(e.verb)) fail();
       if (e.verb === "choose") {
         const pack = packDefinition(e.packId), choice = pack?.choices.find((c) => c.id === e.choiceId);
-        if (!choice || !humanAvatar(e.actorId) || e.targetId !== choice.subject || e.locationId !== choice.at || s.packs[e.packId].receipts[e.choiceId] !== e.turn)
+        if (!choice || !humanAvatar(e.actorId) || e.targetId !== choice.subject || e.locationId !== choice.at || (choice.repeatable ? !(s.packs[e.packId].receipts[e.choiceId] >= e.turn) : s.packs[e.packId].receipts[e.choiceId] !== e.turn))
           fail();
       } else if (e.packId !== void 0 || e.choiceId !== void 0) fail();
       if (e.destinationId != null && !Object.hasOwn(places, e.destinationId))
@@ -88099,6 +88257,7 @@
   // v2/card-game/weather.mjs
   var WEATHER_TURNS = 12;
   var cycles = {
+    danube: ["mist", "cloud", "rain", "cloud", "clear", "mist"],
     boeotia: ["clear", "cloud", "rain", "cloud", "mist", "clear"],
     attica: ["clear", "clear", "cloud", "rain", "cloud", "mist"],
     argolid: ["cloud", "clear", "clear", "mist", "cloud", "rain"],
@@ -88213,6 +88372,39 @@
   group("sicily", "coast", "vii-escape-shore sicily-shore");
   group("heights", "open", "vii-air-gate vii-bird-refuge");
   group("scythia", "open", "vii-crag-camp");
+  for (const [name2, exposure] of Object.entries({
+    landing: "coast",
+    camp: "shelter",
+    thicket: "grove",
+    bank: "open"
+  }))
+    locations[`willows-${name2}`] = { region: "danube", exposure };
+  var riverDescriptions = {
+    "willows-landing": {
+      clear: "Clear light reaches the canoe and the flooded Danube.",
+      cloud: "Cloud shadows pass over the canoe and backwater.",
+      rain: "Rain slants across the canoe and stipples the backwater.",
+      mist: "River mist drifts around the canoe and across the backwater."
+    },
+    "willows-camp": {
+      clear: "Clear light rests on the tent canvas beside the campfire.",
+      cloud: "Cloud dims the tent canvas and softens the campfire shadows.",
+      rain: "Rain taps the tent canvas and falls beyond its shelter.",
+      mist: "River mist gathers beyond the tent and campfire."
+    },
+    "willows-thicket": {
+      clear: "Clear light picks out the silver undersides of the willow leaves.",
+      cloud: "Cloud dims the narrow track between the willows.",
+      rain: "Rain drips through the willow leaves onto the sandy track.",
+      mist: "River mist threads the willow roots and shallow hollows."
+    },
+    "willows-bank": {
+      clear: "Clear light catches the exposed roots above the flood.",
+      cloud: "Cloud shadows sweep over the crumbling bank and flood.",
+      rain: "Rain sweeps across the exposed roots and swollen river.",
+      mist: "River mist hides the far islands beyond the crumbling bank."
+    }
+  };
   function regionWeather(world, region) {
     const cycle = cycles[region];
     if (!cycle) return null;
@@ -88258,12 +88450,26 @@
       ...weather,
       exposure: place.exposure,
       variant: `${weather.condition}-${place.exposure}`,
-      description: descriptions[weather.condition][place.exposure]
+      description: riverDescriptions[id]?.[weather.condition] || descriptions[weather.condition][place.exposure]
     };
   }
 
   // v2/card-game/daylight.mjs
   var DAYLIGHT_TURNS = 24;
+  var WILLOWS_PHASE_TURNS = 8;
+  var willowsPlaces = /* @__PURE__ */ new Set([
+    "willows-landing",
+    "willows-camp",
+    "willows-thicket",
+    "willows-bank"
+  ]);
+  var willowsPhases = ["dawn", "day", "day", "dusk", "night", "night"];
+  var willowsLight = {
+    dawn: "Dawn brings pale light to the Danube island.",
+    day: "It is day on the Danube island.",
+    dusk: "Dusk settles over the Danube island.",
+    night: "It is night on the Danube island."
+  };
   var art = (file) => `assets/greek-drama/${file}.webp`;
   var houseArt = (file) => `assets/greek-drama/house-of-blood/${file}.png`;
   var housePlaceWords = {
@@ -88335,7 +88541,17 @@
     ])
   ];
   function locationDaylight(world, id) {
-    if (!world || !Object.hasOwn(nightBackdrops, id)) return null;
+    if (!world) return null;
+    if (willowsPlaces.has(id)) {
+      const period2 = Math.floor(world.turn / WILLOWS_PHASE_TURNS);
+      const phase2 = willowsPhases[period2 % willowsPhases.length];
+      return {
+        phase: phase2,
+        period: period2,
+        description: willowsLight[phase2] + (id === "willows-landing" && phase2 === "night" ? " A Greek ship waits in the backwater, its lanterns reflected on the river." : "")
+      };
+    }
+    if (!Object.hasOwn(nightBackdrops, id)) return null;
     const period = Math.floor(world.turn / DAYLIGHT_TURNS);
     const phase = period % 2 ? "night" : "day";
     const where = housePlaceWords[id] || (id === "greek-egypt-tomb" || id.startsWith("greek-book-iv-helen-") ? "by the Nile in Helen\u2019s Egyptian account" : id === "greek-cithaeron" ? "on Cithaeron Slopes" : id === "greek-pherae" ? "in Pherae" : id === "greek-trachis" ? "at Trachis" : id === "greek-athens-harbor" ? "at Athens Harbor" : id === "greek-piraeus" ? "at Piraeus Quays" : id === "greek-greek-camp" || id.startsWith("greek-ajax-") ? "at the Greek camp near Troy" : "in Thebes");
@@ -88347,13 +88563,48 @@
   }
   function daylightBackdrop(world, id, file) {
     if (locationDaylight(world, id)?.phase !== "night") return file;
-    return dockedNightBackdrops[file] || nightBackdrops[id];
+    return dockedNightBackdrops[file] || nightBackdrops[id] || file;
   }
+
+  // v2/card-game/willows-scenery.mjs
+  var art2 = (name2) => `assets/willows/${name2}.webp`;
+  var willowsAssets = [
+    "camp-out-day",
+    "camp-lit-night",
+    "camp-out-night",
+    "landing-ship-night",
+    "swede-listening",
+    "swede-worried",
+    "swede-seated"
+  ].map(art2);
+  var willowsFireLit = (world) => !world?.packs?.willows?.flags?.["willows-fire-out"];
+  function willowsBackdrop(world, id, file) {
+    if (!world) return file;
+    const night = locationDaylight(world, id)?.phase === "night";
+    if (id === "willows-landing" && night) return art2("landing-ship-night");
+    if (id === "willows-camp") {
+      if (night)
+        return art2(willowsFireLit(world) ? "camp-lit-night" : "camp-out-night");
+      if (!willowsFireLit(world)) return art2("camp-out-day");
+    }
+    return file;
+  }
+  function willowsSceneFacts(world, id) {
+    if (id !== "willows-camp" && id !== "willows-swede") return [];
+    return [
+      willowsFireLit(world) ? "The campfire is lit. Its warmth reaches the tent and the Swede." : "The campfire is out. Cold ash and dark logs lie inside the stone ring."
+    ];
+  }
+  var willowsVariant = (world, id, variant) => id === "willows-camp" ? `${variant}:fire-${willowsFireLit(world) ? "lit" : "out"}` : variant;
 
   // v2/card-game/scene.mjs
   function backdrop(id, world = null) {
     const variant = world?.actors && visibleCrossing(world, id)?.scenery.backdrop;
-    const file = daylightBackdrop(world, id, variant || packPlaces[id]?.backdrop);
+    const file = daylightBackdrop(
+      world,
+      id,
+      willowsBackdrop(world, id, variant || packPlaces[id]?.backdrop)
+    );
     return file ? `./${file}` : `./assets/${id}.png`;
   }
   var visibleCrossing = (world, place) => crossings.find(
@@ -88363,7 +88614,9 @@
     const crossing = visibleCrossing(world, id)?.id || "base";
     const weather = locationWeather(world, id);
     const variant = weather ? `${crossing}:${weather.variant}` : crossing;
-    return locationDaylight(world, id)?.phase === "night" ? `${variant}:night` : variant;
+    const phase = locationDaylight(world, id)?.phase;
+    const light = phase && phase !== "day" ? `${variant}:${phase}` : variant;
+    return willowsVariant(world, id, light);
   }
   var locationOverlay = (world, id) => {
     const f = visibleCrossing(world, id)?.scenery.overlay;
@@ -88679,6 +88932,7 @@
           ...learningFacts(world, id, nameOf),
           ...[...packFacts(world, id), ...continuity].filter((fact, index, all) => all.indexOf(fact) === index).slice(-4)
         ];
+        facts.push(...willowsSceneFacts(world, id));
         let desire = null;
         if (kind === "avatar") {
           if (hasTemperament(id)) {
@@ -88932,7 +89186,7 @@
     return world;
   }
   function stored(world) {
-    const result = structuredClone(world);
+    const result = { ...world };
     delete result.playerActorId;
     delete result.controlledActors;
     delete result.presentActors;
@@ -88941,7 +89195,7 @@
   function load(request) {
     if (!request.world || typeof request.world !== "object")
       throw new Error("Load a saved world first.");
-    const world = contextual(structuredClone(request.world), request);
+    const world = contextual({ ...request.world }, request);
     const loaded = decodeSave(JSON.stringify(world));
     return loaded;
   }
@@ -88985,6 +89239,9 @@
     return decodeSave(JSON.stringify(raw));
   }
   function dispatchShared(request) {
+    return withReadingValidation(() => dispatch(request));
+  }
+  function dispatch(request) {
     if (!request || typeof request !== "object")
       throw new Error("Choose a world operation.");
     if (request.op === "create") {
@@ -89097,7 +89354,7 @@
       for (const line of request.lines) {
         const scenic = line.actorId == null && line.entityId === room;
         const speaker = scenic ? null : line.actorId || (people[line.entityId] ? line.entityId : null) || Object.keys(people).find((id) => people[id].name === line.speaker) || (people[line.speaker] ? line.speaker : null);
-        if (request.lines.length === 1 && speaker !== actor || !scenic && (!speaker || !entityActive(world, speaker) || world.actors[speaker].place !== room || humanAvatar(speaker) && !world.presentActors.includes(speaker) && !(speaker === actor && world.controlledActors.includes(speaker))) || typeof line.text !== "string" || !line.text.trim() || line.text.length > 600 || /[\u0000-\u001f\u007f]/u.test(line.text) || !validExpression(profiles[speaker], line.text) || request.privateTo && speaker && !request.privateTo.includes(speaker) || !readingQuoteAllowed(world, context, speaker || room, line.text))
+        if (request.lines.length === 1 && speaker !== actor || !scenic && (!speaker || !world.actors[speaker] || !humanAvatar(speaker) && !entityActive(world, speaker) || world.actors[speaker].place !== room || humanAvatar(speaker) && !world.presentActors.includes(speaker) && !(speaker === actor && world.controlledActors.includes(speaker))) || typeof line.text !== "string" || !line.text.trim() || line.text.length > 600 || /[\u0000-\u001f\u007f]/u.test(line.text) || !validExpression(profiles[speaker], line.text) || request.privateTo && speaker && !request.privateTo.includes(speaker) || !readingQuoteAllowed(world, context, speaker || room, line.text))
           throw new Error(
             "Each line needs a present speaker or the room, and clear text."
           );

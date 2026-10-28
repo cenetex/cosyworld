@@ -179,7 +179,9 @@ describe("The Willows", () => {
       find(world, { choiceId: "willows-look-beneath-roots" }),
     ).toBeUndefined();
     world = discoveries();
-    expect(portrait("willows-swede", null, world)).toContain("swede-worried.webp");
+    expect(portrait("willows-swede", null, world)).toContain(
+      "swede-worried.webp",
+    );
     expect(packFacts(world, "willows-swede").join(" ")).toContain(
       "compared the canoe damage",
     );
@@ -187,7 +189,9 @@ describe("The Willows", () => {
     expect(saved.packs.willows).toEqual(world.packs.willows);
     expect(find(saved, { choiceId: "willows-compare-signs" })).toBeUndefined();
     world = choose(saved, "choose-watch");
-    expect(portrait("willows-swede", null, world)).toContain("swede-listening.webp");
+    expect(portrait("willows-swede", null, world)).toContain(
+      "swede-listening.webp",
+    );
     expect(world.packs.willows.choices["willows-response"]).toBe("watch");
     expect(world.actors["willows-swede"].place).toBe("willows-camp");
     world = move(world, "willows-landing");

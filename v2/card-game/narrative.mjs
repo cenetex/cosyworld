@@ -2,7 +2,10 @@ import { trustedActors } from "./trust.mjs";
 import { learningFacts } from "./learning.mjs";
 import { audienceMemory, privateAudienceAllows } from "./reading-privacy.mjs";
 import {
-  readingSpeechScope, readingPoem, privateSpeechFields, readingQuoteAllowed,
+  readingSpeechScope,
+  readingPoem,
+  privateSpeechFields,
+  readingQuoteAllowed,
 } from "./reading-context.mjs";
 import { knowledgeDisclosures, knowledgeFacts } from "./knowledge.mjs";
 import { expressionKind, validExpression } from "./expression.mjs";
@@ -251,7 +254,8 @@ export function narrativeContext(world, action = null) {
   const movers = changes.map((change) => change.actorId);
   const chosen = new Set(
     [currentActor(world), partner, ...introductions, ...movers].filter(
-      (id) => id && awake(id) && (!scope.privateTo || scope.privateTo.includes(id)),
+      (id) =>
+        id && awake(id) && (!scope.privateTo || scope.privateTo.includes(id)),
     ),
   );
   // Vale responds to every play. Other travellers keep their movement order.
@@ -568,7 +572,9 @@ export function narrativeContext(world, action = null) {
         ...(packReadings(world, id).length
           ? { readings: packReadings(world, id) }
           : {}),
-        poem: readingPoem(world, scope, id) || recitalContext(world, packDefinitions, id),
+        poem:
+          readingPoem(world, scope, id) ||
+          recitalContext(world, packDefinitions, id),
         facts: facts.slice(0, 16).map((text) => text.slice(0, 240)),
         desire,
         memories: speechMemories(visibleMemory(id), {
@@ -892,9 +898,15 @@ export function applyGeneratedText(
       ...(movement?.leaving ? { departureTo: movement.to } : {}),
       ...(movement && !movement.leaving ? { arrivalFrom: movement.from } : {}),
     });
-    publishKnowledgeSpeech(next, next.log.at(-1), (context.disclosures || []).filter(
-      (disclosure) => !context.privateTo || next.knowledge?.facts[disclosure.factId]?.source.topic,
-    ));
+    publishKnowledgeSpeech(
+      next,
+      next.log.at(-1),
+      (context.disclosures || []).filter(
+        (disclosure) =>
+          !context.privateTo ||
+          next.knowledge?.facts[disclosure.factId]?.source.topic,
+      ),
+    );
     if (movement?.leaving) cast.splice(cast.indexOf(id), 1);
   }
   return validateWorld(next);

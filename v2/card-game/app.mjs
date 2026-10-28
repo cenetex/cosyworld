@@ -882,7 +882,8 @@ function performAction(action, revision) {
   world = result.state;
   music.setRoom(
     world.actors[currentActor(world)].place,
-    locationDaylight(world, world.actors[currentActor(world)].place)?.phase || "day",
+    locationDaylight(world, world.actors[currentActor(world)].place)?.phase ||
+      "day",
   );
   music.setStarted(musicHasStarted());
   music.unlock();
@@ -2292,7 +2293,8 @@ function render() {
   );
   music.setRoom(
     world.actors[currentActor(world)].place,
-    locationDaylight(world, world.actors[currentActor(world)].place)?.phase || "day",
+    locationDaylight(world, world.actors[currentActor(world)].place)?.phase ||
+      "day",
   );
   const focused = document.activeElement?.dataset.card,
     scroll = $("hand").scrollLeft;
@@ -2659,14 +2661,19 @@ function resumeScene() {
     return;
   }
   if (!saveBlocked && world.opening && world.turn === 0 && !hasCurrentWords()) {
-    addLog(world, "Vale", world.opening.version === 2
-      ? "The water is dark. I'll light the lamp."
-      : "It's cold up here. I'll light the lamp.", {
-      actorId: currentActor(world),
-      entityId: currentActor(world),
-      kind: "dialogue",
-      generated: true,
-    });
+    addLog(
+      world,
+      "Vale",
+      world.opening.version === 2
+        ? "The water is dark. I'll light the lamp."
+        : "It's cold up here. I'll light the lamp.",
+      {
+        actorId: currentActor(world),
+        entityId: currentActor(world),
+        kind: "dialogue",
+        generated: true,
+      },
+    );
     save();
   }
   if (!saveBlocked && hasCurrentWords()) {
@@ -2704,7 +2711,8 @@ async function submitSharedPlay(action) {
     )
   )
     return;
-  const current = legalActions(world).find((entry) => entry.key === action.key) ||
+  const current =
+    legalActions(world).find((entry) => entry.key === action.key) ||
     resolveReadingReplay(world, currentActor(world), action.key);
   if (!current) {
     notice("The table changed. Choose a current play.");
@@ -2840,7 +2848,9 @@ installSharedControls({
   },
   notice,
 });
-installToolbar({ session: sharedSession, getWorld: () => world,
+installToolbar({
+  session: sharedSession,
+  getWorld: () => world,
   playReading: (action) => commitAction(action, world.revision),
 });
 if (localRuntime()) {

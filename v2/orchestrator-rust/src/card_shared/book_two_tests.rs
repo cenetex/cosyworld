@@ -214,13 +214,7 @@ fn book_two_upgrades_rules_twenty_and_replays_the_agreed_danaid_journey() {
     let added_actors = added("avatars", "actors");
     let added_items = added("items", "items");
     let added_places = added("places", "memories");
-    for field in [
-        "turn",
-        "eventSeq",
-        "log",
-        "transports",
-        "invitedPlaces",
-    ] {
+    for field in ["turn", "eventSeq", "log", "transports", "invitedPlaces"] {
         assert_eq!(
             world.game[field], before.game[field],
             "Preserve released {field}"

@@ -214,7 +214,9 @@ function expectRetainedRecords(world, before) {
       [...path].reverse(),
     ]);
     const expected = campRoutes.flatMap(([from, to]) => {
-      const path = seaPaths.find((path) => path[0] === from && path.at(-1) === to);
+      const path = seaPaths.find(
+        (path) => path[0] === from && path.at(-1) === to,
+      );
       return path
         ? path.slice(1).map((place, index) => [path[index], place])
         : [[from, to]];

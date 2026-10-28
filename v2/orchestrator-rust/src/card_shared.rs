@@ -30,6 +30,8 @@ mod kernel;
 #[cfg(test)]
 mod quest_core_tests;
 #[cfg(test)]
+mod reading_tests;
+#[cfg(test)]
 mod section_tests;
 #[cfg(test)]
 mod speech;

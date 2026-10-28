@@ -412,9 +412,15 @@ export function upgradeGreekEpicSave(s) {
   for (const choice of pack.choices)
     if (Object.hasOwn(saved.receipts || {}, choice.id))
       for (const effect of choice.effects)
-        if (effect.kind === "set_flag" && [
-          "greek-camp-road-open", "greek-troy-road-open", "greek-susa-road-open",
-        ].includes(effect.key)) saved.flags[effect.key] = effect.value;
+        if (
+          effect.kind === "set_flag" &&
+          [
+            "greek-camp-road-open",
+            "greek-troy-road-open",
+            "greek-susa-road-open",
+          ].includes(effect.key)
+        )
+          saved.flags[effect.key] = effect.value;
   saved.revision = 8;
 }
 

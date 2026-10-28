@@ -2,8 +2,14 @@ import assert from "node:assert/strict";
 import { decodeSave, encodeSave } from "../../v2/card-game/world.mjs";
 import { dispatchShared } from "../../v2/card-game/shared-world.mjs";
 import { packDefinition } from "../../v2/card-game/pack-registry.mjs";
-import { questCards, questHistoryCards } from "../../v2/card-game/quest-cards.mjs";
-import { questCarried, questHolderActor } from "../../v2/card-game/quest-hands.mjs";
+import {
+  questCards,
+  questHistoryCards,
+} from "../../v2/card-game/quest-cards.mjs";
+import {
+  questCarried,
+  questHolderActor,
+} from "../../v2/card-game/quest-hands.mjs";
 import { knowsFact } from "../../v2/card-game/knowledge.mjs";
 import { readingWalk } from "./greek-readings.mjs";
 
@@ -12,24 +18,30 @@ const HUMANS = ["vale", "mara", "ash"];
 
 // Start the shared fixture where Mara meets the author and the signed record.
 // Every take, Talk, road step and reading below uses the shared action path.
-export function sharedReturnReading(original, {
-  prefix, item, topicId, storyId = `${prefix}-return`, checkArchive = false,
-}) {
+export function sharedReturnReading(
+  original,
+  { prefix, item, topicId, storyId = `${prefix}-return`, checkArchive = false },
+) {
   const created = dispatchShared({ op: "create", save: encodeSave(original) });
   assert.equal(created.ok, true, created.error);
   let world = created.world;
   world.actors.mara.place = world.actors.vale.place;
   world.actors.ash.place = "greek-courtyard";
-  const initial = structuredClone(world), journal = [];
+  const initial = structuredClone(world),
+    journal = [];
   const key = `${PACK}:${storyId}`;
   const siteId = `${prefix}-homecoming`;
   const choice = `${prefix}-read-home`;
-  const topic = packDefinition(PACK).topics.find((entry) => entry.id === topicId);
+  const topic = packDefinition(PACK).topics.find(
+    (entry) => entry.id === topicId,
+  );
   assert.ok(topic);
   const prior = structuredClone(world.packs[PACK]);
-  const completed = Object.fromEntries(Object.entries(world.quests.records)
-    .filter(([, q]) => q.mode === "story" && q.completion)
-    .map(([id, q]) => [id, structuredClone(q.completion)]));
+  const completed = Object.fromEntries(
+    Object.entries(world.quests.records)
+      .filter(([, q]) => q.mode === "story" && q.completion)
+      .map(([id, q]) => [id, structuredClone(q.completion)]),
+  );
   const request = (op, actor, fields = {}) => {
     const command = { op, actor, claimed: HUMANS, present: HUMANS, ...fields };
     const reply = dispatchShared({ ...command, world });
@@ -41,8 +53,11 @@ export function sharedReturnReading(original, {
     return reply;
   };
   const act = (actor, kind, fields = {}) => {
-    const action = request("view", actor).actions.find((candidate) =>
-      candidate.kind === kind && Object.entries(fields).every(([k, v]) => candidate[k] === v));
+    const action = request("view", actor).actions.find(
+      (candidate) =>
+        candidate.kind === kind &&
+        Object.entries(fields).every(([k, v]) => candidate[k] === v),
+    );
     assert.ok(action, `${actor} ${kind} ${JSON.stringify(fields)}`);
     return request("play", actor, { action, revision: world.revision });
   };
@@ -50,7 +65,11 @@ export function sharedReturnReading(original, {
     const record = state.quests.records[key];
     assert.deepEqual(record.holder, { kind: "item", id: item });
     assert.equal(record.completedTurn, null);
-    assert.ok(questHistoryCards(state, "mara").some((q) => q.key === key && q.completedTurn === null));
+    assert.ok(
+      questHistoryCards(state, "mara").some(
+        (q) => q.key === key && q.completedTurn === null,
+      ),
+    );
     assert.equal(questCarried(state, "mara", key), true);
     assert.ok(questCards(state, "mara").some((q) => q.key === key));
   };
@@ -71,9 +90,14 @@ export function sharedReturnReading(original, {
       assert.deepEqual(world.quests.records[id].completion, evidence);
   };
 
-  for (const action of request("view", "mara").actions.filter((a) => a.kind === "drop-quest"))
+  for (const action of request("view", "mara").actions.filter(
+    (a) => a.kind === "drop-quest",
+  ))
     request("play", "mara", { action });
-  assert.equal(questHistoryCards(world, "mara").some((q) => q.key === key), false);
+  assert.equal(
+    questHistoryCards(world, "mara").some((q) => q.key === key),
+    false,
+  );
   act("mara", "take", { item });
   assert.equal(questHolderActor(world, world.quests.records[key]), "mara");
   pending();
@@ -94,10 +118,15 @@ export function sharedReturnReading(original, {
   assert.equal(knowsFact(world, "mara", topicId), true);
   pending();
   earlierEvidence();
-  readingWalk(world, "mara", "greek-courtyard", (_state, kind, fields, actor) => {
-    act(actor, kind, fields);
-    return world;
-  });
+  readingWalk(
+    world,
+    "mara",
+    "greek-courtyard",
+    (_state, kind, fields, actor) => {
+      act(actor, kind, fields);
+      return world;
+    },
+  );
   pending();
   assert.equal(world.quests.records[key].participants.includes("mara"), false);
   act("mara", "read", { readingOp: "invite", siteId, invitee: "ash" });
@@ -115,15 +144,24 @@ export function sharedReturnReading(original, {
     // has been pruned. Loading it reconstructs the reader's task membership.
     const pruned = structuredClone(world);
     pruned.log = [];
-    pruned.quests.records[key].participants = pruned.quests.records[key].participants.filter((id) => id !== "mara");
-    pruned.quests.hands.mara = pruned.quests.hands.mara.filter((id) => id !== key);
+    pruned.quests.records[key].participants = pruned.quests.records[
+      key
+    ].participants.filter((id) => id !== "mara");
+    pruned.quests.hands.mara = pruned.quests.hands.mara.filter(
+      (id) => id !== key,
+    );
     delete pruned.quests.focus.mara;
     const restored = decodeSave(JSON.stringify(pruned));
     pending(restored);
     assert.ok(restored.quests.records[key].participants.includes("mara"));
-    assert.deepEqual(restored.packs[PACK].poemReadings, world.packs[PACK].poemReadings);
+    assert.deepEqual(
+      restored.packs[PACK].poemReadings,
+      world.packs[PACK].poemReadings,
+    );
     assert.deepEqual(restored.packs[PACK].recitals, world.packs[PACK].recitals);
-    assert.ok(world.packs[PACK].poemReadings.readings[readingId].selection.length > 4);
+    assert.ok(
+      world.packs[PACK].poemReadings.readings[readingId].selection.length > 4,
+    );
   }
   while (!world.packs[PACK].poemReadings.readings[readingId].complete) {
     act("mara", "read", { readingOp: "page", readingId });
@@ -145,7 +183,10 @@ export function sharedReturnReading(original, {
     const evidence = structuredClone(world.quests.records[key]);
     act("ash", "read", { readingOp: "start", siteId });
     assert.deepEqual(world.quests.records[key], evidence);
-    assert.equal(questHistoryCards(world, "ash").some((q) => q.key === key), false);
+    assert.equal(
+      questHistoryCards(world, "ash").some((q) => q.key === key),
+      false,
+    );
     assert.equal(world.packs[PACK].recitals[choice].actor, "mara");
     reload();
   }

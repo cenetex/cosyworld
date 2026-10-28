@@ -323,29 +323,45 @@ it("keeps the pending Frogs task with a second reader at the poets' court", () =
   const key = `${PACK}:${FROGS}`;
   const request = (op, actor, fields = {}) => {
     const result = dispatchShared({
-      op, actor, world, claimed: ["vale", "mara", "ash"],
-      present: ["vale", "mara", "ash"], ...fields,
+      op,
+      actor,
+      world,
+      claimed: ["vale", "mara", "ash"],
+      present: ["vale", "mara", "ash"],
+      ...fields,
     });
     expect(result.ok, result.error).toBe(true);
     if (op !== "view") world = result.world;
     return result;
   };
   const sharedAct = (actor, kind, fields = {}) => {
-    const action = request("view", actor).actions.find((candidate) =>
-      candidate.kind === kind && Object.entries(fields).every(([k, v]) => candidate[k] === v));
+    const action = request("view", actor).actions.find(
+      (candidate) =>
+        candidate.kind === kind &&
+        Object.entries(fields).every(([k, v]) => candidate[k] === v),
+    );
     expect(action, `${actor} ${kind} ${JSON.stringify(fields)}`).toBeDefined();
     return request("play", actor, { action });
   };
   const pending = () => {
     expect(world.quests.records[key].completedTurn).toBeNull();
     expect(world.quests.records[key].participants).toContain("mara");
-    expect(questHistoryCards(world, "mara").some((q) => q.key === key)).toBe(true);
+    expect(questHistoryCards(world, "mara").some((q) => q.key === key)).toBe(
+      true,
+    );
     expect(questCards(world, "mara").some((q) => q.key === key)).toBe(true);
   };
-  for (const action of request("view", "mara").actions.filter((a) => a.kind === "drop-quest"))
+  for (const action of request("view", "mara").actions.filter(
+    (a) => a.kind === "drop-quest",
+  ))
     request("play", "mara", { action });
-  sharedAct("vale", "give", { item: "greek-viii-verse-scales", target: "mara" });
-  expect(questHistoryCards(world, "mara").some((q) => q.key === key)).toBe(false);
+  sharedAct("vale", "give", {
+    item: "greek-viii-verse-scales",
+    target: "mara",
+  });
+  expect(questHistoryCards(world, "mara").some((q) => q.key === key)).toBe(
+    false,
+  );
   sharedAct("mara", "read", { readingOp: "start", siteId: SITE });
   pending();
   const id = `site:${SITE}:mara`;
@@ -359,12 +375,16 @@ it("keeps the pending Frogs task with a second reader at the poets' court", () =
   while (!state(world).readings[id].complete)
     sharedAct("mara", "read", { readingOp: "page", readingId: id });
   expect(world.packs[PACK].recitals[FROGS + "-weigh"].actor).toBe("mara");
-  expect(world.packs[PACK].recitals[FROGS + "-carry-burden"].actor).toBe("vale");
+  expect(world.packs[PACK].recitals[FROGS + "-carry-burden"].actor).toBe(
+    "vale",
+  );
   pending();
   const participants = [...world.quests.records[key].participants];
   sharedAct("ash", "read", { readingOp: "start", siteId: SITE });
   expect(world.quests.records[key].participants).toEqual(participants);
-  expect(questHistoryCards(world, "ash").some((q) => q.key === key)).toBe(false);
+  expect(questHistoryCards(world, "ash").some((q) => q.key === key)).toBe(
+    false,
+  );
   expect(decodeSave(encodeSave(world))).toEqual(world);
 }, 60000);
 
