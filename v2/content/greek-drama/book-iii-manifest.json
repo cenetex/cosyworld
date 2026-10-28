@@ -120,7 +120,7 @@
   ],
   "shipPlan": {
     "transport": "greek-ship",
-    "currentDockBound": 8,
+    "currentDockBound": 12,
     "proposedDockBound": 12,
     "reviewStatus": "twelve-dock validator approved; later-book owned landing IDs are being bound",
     "ports": [
@@ -180,13 +180,27 @@
         "status": "proposed"
       },
       {
-        "id": "greek-sicily-landing",
+        "id": "greek-sicily-shore",
         "name": "Sicily Landing",
         "book": "VII",
         "status": "proposed"
       }
     ],
-    "pendingOwnerID": "Book VII Sicily landing"
+    "actualPorts": [
+      "pond",
+      "greek-harbor",
+      "greek-athens-harbor",
+      "greek-piraeus",
+      "greek-ajax-landing",
+      "greek-aulis"
+    ],
+    "additionalReview": {
+      "id": "greek-oeta-shore",
+      "purpose": "Actual arrival for Philoctetes’s alternate home ending",
+      "status": "proposed; pending review",
+      "extraPlaces": 1,
+      "resultingFullPortCount": 12
+    }
   },
   "ruleExtensions": [
     {
@@ -195,11 +209,11 @@
     },
     {
       "kind": "consenting-ship-passenger",
-      "status": "trace complete; proof next"
+      "status": "Existing Accompany and ship guards support authored transport edges; eight focused bound/circuit/passenger tests pass; native journal proof is queued."
     },
     {
       "kind": "dock-bound",
-      "status": "eleven named ports submitted for review"
+      "status": "Approved twelve-dock validator; twelve accepted, thirteen rejected, distinct/known/crossing guards retained."
     }
   ],
   "actualGreekCatalog": {
@@ -221,5 +235,37 @@
     "euripides-hecuba",
     "aeschylus-persians"
   ],
-  "prototypeArt": "Approved Book III cast from ae1b181c; Aulis bindings use the painted Iphigenia, Clytemnestra and Achilles."
+  "prototypeArt": "Approved Book III cast from ae1b181c; Aulis bindings use the painted Iphigenia, Clytemnestra and Achilles.",
+  "crossBookContracts": {
+    "trojanFamily": {
+      "status": "reserved for the Trojan Women source",
+      "ending": {
+        "key": "greek-troy-ending",
+        "values": ["witness", "child-refuge", "family-together"]
+      },
+      "assignment": {
+        "key": "greek-troy-andromache-assignment",
+        "values": ["neoptolemus"]
+      },
+      "route": {
+        "key": "greek-troy-andromache-route",
+        "values": ["captive-departure", "refuge", "family-passage"]
+      },
+      "astyanax": {
+        "key": "greek-troy-astyanax-fate",
+        "values": ["dead", "refuge"]
+      },
+      "arrival": {
+        "flag": "greek-troy-andromache-arrived",
+        "rule": "true after actual shared-ship disembarkation at the agreed refuge or departure shore"
+      }
+    }
+  },
+  "prototypeProof": {
+    "focusedTests": 33,
+    "aulisBrowserJourneys": 6,
+    "shipContractTests": 8,
+    "publicAssets": 673,
+    "nativeStatus": "queued behind the shared test window"
+  }
 }

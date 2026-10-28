@@ -17206,7 +17206,9 @@
       check(
         keysOk2(journey, ["after", "path"]) && !hub2.avatars.includes(id) && avatar.travels === false && avatar.roamingQuest === void 0 && idOk2(journey.after) && Array.isArray(journey.path) && journey.path.length >= 2 && journey.path.length <= 8 && new Set(journey.path).size === journey.path.length && journey.path[0] === avatar.place && journey.path.every((place) => owns2(places2, place)) && journey.path.slice(1).every((to, i) => {
           const from = journey.path[i];
-          return places2[from].exits.includes(to) || routes.some((route) => route.from === from && route.to === to);
+          return places2[from].exits.includes(to) || routes.some((route) => route.from === from && route.to === to) || Object.values(pack.transports || {}).some(
+            (transport) => Array.isArray(transport?.docks) && (to === transport.place && transport.docks.includes(from) || from === transport.place && transport.docks.includes(to))
+          );
         }) && agreement?.subject === id && agreement.at === avatar.place,
         `avatar ${id} journey needs consent at home and a simple connected path`
       );
@@ -17431,8 +17433,8 @@
     const transportPlaces = /* @__PURE__ */ new Set();
     for (const [id, t] of Object.entries(pack.transports || {})) {
       const valid = check(
-        idOk2(id) && keysOk2(t, ["place", "docks", "at"]) && owns2(places2, t.place) && !transportPlaces.has(t.place) && places2[t.place]?.exits.length === 0 && Array.isArray(t.docks) && t.docks.length >= 2 && t.docks.length <= 8 && new Set(t.docks).size === t.docks.length && t.docks.every((p) => anyPlace(p) && p !== t.place) && t.docks.includes(t.at),
-        `transport ${id} needs its own place, two to eight docks and an initial dock`
+        idOk2(id) && keysOk2(t, ["place", "docks", "at"]) && owns2(places2, t.place) && !transportPlaces.has(t.place) && places2[t.place]?.exits.length === 0 && Array.isArray(t.docks) && t.docks.length >= 2 && t.docks.length <= 12 && new Set(t.docks).size === t.docks.length && t.docks.every((p) => anyPlace(p) && p !== t.place) && t.docks.includes(t.at),
+        `transport ${id} needs its own place, two to twelve docks and an initial dock`
       );
       if (!valid) continue;
       transportPlaces.add(t.place);

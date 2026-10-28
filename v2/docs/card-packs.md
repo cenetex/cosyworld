@@ -321,16 +321,29 @@ item and avatar examples of the same path.
 ### Transport and lamp signals
 
 A bridge can declare `transports`. Each named transport supplies `place` (a
-pack place with an empty static exit list), two `docks`, and `at` (its first
+pack place with an empty static exit list), two to twelve distinct `docks`, and `at` (its first
 dock). A crossing in each direction names it with `transport`. `travelers`
 controls who can board. `any` lets hub avatars and residents of that pack
-travel between both shores.
+travel among those shores. Every dock names a known place and has its own
+transport crossing.
 
 The ship place uses the existing place cards. At a dock, the ship card offers
-Board. Aboard, the hand contains the ship and the destination. The destination
-card offers Disembark. Boarding saves the destination; disembarking the last
-passenger parks the ship there. The same saved ship serves every actor.
+Board. Aboard, the hand contains the ship and the open destinations. A destination
+card offers Disembark. Boarding keeps the ship at its departure port while
+companions join. The first passenger ashore fixes the arrival port for everyone
+aboard. Later passengers can stay aboard for another leg. The same saved ship
+serves every actor.
 An optional place `art` supplies its card face separately from its backdrop.
+
+An authored consent journey can put the transport place between two of its
+docks. Its agreement starts at the resident's home. Accompany then boards and
+disembarks through the ordinary ship rules. A resident keeps the agreed path
+while a human visits a different port. The next joint leg follows that path.
+The journey retains its two-to-eight-place bound and one recorded agreement.
+
+When a human waits at a port, an empty ship advances through its open docks.
+An occupied ship keeps its voyage and passengers. Reload restores that same
+position, destination, and waiting party.
 
 An optional place `music` supplies an ordered playlist of `{file, title}`
 records. Each file is an MP3 in `assets/music/`. The room music player uses

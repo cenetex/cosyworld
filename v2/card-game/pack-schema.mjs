@@ -894,7 +894,13 @@ export function packProblems(pack, hub, mountedPlaces = []) {
           const from = journey.path[i];
           return (
             places[from].exits.includes(to) ||
-            routes.some((route) => route.from === from && route.to === to)
+            routes.some((route) => route.from === from && route.to === to) ||
+            Object.values(pack.transports || {}).some(
+              (transport) =>
+                Array.isArray(transport?.docks) &&
+                ((to === transport.place && transport.docks.includes(from)) ||
+                  (from === transport.place && transport.docks.includes(to))),
+            )
           );
         }) &&
         agreement?.subject === id &&
@@ -1217,11 +1223,11 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         places[t.place]?.exits.length === 0 &&
         Array.isArray(t.docks) &&
         t.docks.length >= 2 &&
-        t.docks.length <= 8 &&
+        t.docks.length <= 12 &&
         new Set(t.docks).size === t.docks.length &&
         t.docks.every((p) => anyPlace(p) && p !== t.place) &&
         t.docks.includes(t.at),
-      `transport ${id} needs its own place, two to eight docks and an initial dock`,
+      `transport ${id} needs its own place, two to twelve docks and an initial dock`,
     );
     if (!valid) continue;
     transportPlaces.add(t.place);
