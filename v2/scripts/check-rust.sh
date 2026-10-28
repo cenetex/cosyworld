@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEFAULT_TIMEOUT_SECS=120
 if [ "${CI:-}" = "true" ]; then
-  # A restored CI cache still recompiles the release before running the suite.
+  # Bound compilation and the full replay suite separately in CI.
   DEFAULT_TIMEOUT_SECS=600
 fi
 TIMEOUT_SECS="${COSYWORLD_CARGO_TIMEOUT_SECS:-$DEFAULT_TIMEOUT_SECS}"
@@ -62,6 +62,7 @@ run_tests() {
   (
     cd "$ROOT/orchestrator-rust"
     export RUST_MIN_STACK="${RUST_MIN_STACK:-16777216}"
+    run_with_timeout "compiling orchestrator tests" cargo test --no-run
     run_with_timeout "running orchestrator cargo test" cargo test
   )
 }
