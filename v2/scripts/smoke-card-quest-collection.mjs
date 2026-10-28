@@ -109,6 +109,8 @@ try {
     await page.screenshot({
       path: new URL(`stack-${width}.png`, output).pathname,
     });
+    await page.keyboard.press("Escape");
+    await selectCard(page, "player-quest");
     await selectCard(page, "player-quest");
     assert.equal(await frames.nth(1).getAttribute("data-stacked"), "false");
     await selectCard(page, pending);
@@ -126,6 +128,7 @@ try {
     await page.screenshot({
       path: new URL(`browse-${width}.png`, output).pathname,
     });
+    await page.keyboard.press("Escape");
     await selectCard(page, "moth");
     await selectCard(page, npcTop);
     assert.equal(
@@ -136,7 +139,7 @@ try {
       await page.locator('#hand .quest-frame[data-holder="moth"]').count(),
       2,
     );
-    await selectCard(page, "player-quest");
+    await page.keyboard.press("Escape");
     await selectCard(page, pending);
     await page.locator('#card-actions [data-action="drop-quest"]').click();
     await page.waitForFunction(

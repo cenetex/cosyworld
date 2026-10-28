@@ -128,10 +128,16 @@ try {
       throw Error("Dialogue kept the hand busy");
     };
     const load = async (world) => {
-      await page.evaluate(({ key, save }) => localStorage.setItem(key, save), {
-        key,
-        save: encodeSave(world),
-      });
+      await page.evaluate(
+        ({ key, save }) => {
+          localStorage.setItem(key, save);
+          localStorage.removeItem(`${key}.hand`);
+        },
+        {
+          key,
+          save: encodeSave(world),
+        },
+      );
       await page.reload();
       await card("vale").waitFor();
       await ready();
@@ -207,40 +213,21 @@ try {
         "the card passes through an intermediate position",
       );
     }
-    const lowering = await measureHand(
-      page,
-      '#card-actions [data-action="wait"]',
-    );
-    assert.equal(
-      lowering.same,
-      false,
-      "a committed play refreshes the card contents and handlers",
-    );
+    const lowering = await measureHand(page, '#hand [data-card="vale"]');
+    assert.equal(lowering.same, true, "lowering preserves the tapped card");
     if (width === 320) assert(Math.abs(lowering.immediate - lowering.end) < 1);
     else {
-      assert(
-        Math.abs(lowering.immediate - lowering.start) < 1,
-        "a committed play lowers the hand from its current position",
-      );
-      assert(
-        Math.abs(lowering.nameImmediate - lowering.nameStart) < 1,
-        "the refreshed card name starts in the same position",
-      );
+      assert(Math.abs(lowering.immediate - lowering.start) < 1);
       assert(
         lowering.during > lowering.start && lowering.during < lowering.end,
-        "the hand passes through its lowering midpoint",
-      );
-      assert.deepEqual(
-        lowering.clocks.sort((a, b) => a.target.localeCompare(b.target)),
-        [
-          { target: "action-panel", state: "running", duration: 220 },
-          { target: "hand", state: "running", duration: 220 },
-        ],
       );
     }
+    await selectCard(page, "vale");
+    await page.locator('#card-actions [data-action="wait"]').click();
     await ready();
     assert.equal((await state()).turn, 1);
-    assert.equal(await page.locator(".action-panel").isVisible(), false);
+    assert.equal(await card("vale").getAttribute("aria-pressed"), "true");
+    assert.equal(await page.locator(".action-panel").isVisible(), true);
     await load(meeting());
     await selectCard(page, "vale");
     await selectCard(page, "lamp");
@@ -321,7 +308,10 @@ try {
     await shot("pip-items");
     await selectCard(page, "moth");
     await selectCard(page, "cloth");
-    assert.deepEqual(await labels(), ["Ask Pip for Black cloth"]);
+    assert.deepEqual(await labels(), [
+      "Ask Pip for Black cloth",
+      "Threaten Pip for Black cloth",
+    ]);
     await selectCard(page, "lamp");
     assert.deepEqual(await labels(), ["Trade Lamp for Black cloth"]);
     assert.equal(await page.locator('.card[aria-pressed="true"]').count(), 2);
@@ -329,16 +319,14 @@ try {
     await shot("trade");
     await page.locator("#card-actions button").click();
     assert.equal(await card("vale").isDisabled(), false);
-    await card("vale").dispatchEvent("click");
-    assert.equal(await page.locator('.card[aria-pressed="true"]').count(), 1);
-    await card("vale").dispatchEvent("click");
     await ready();
+    await page.keyboard.press("Escape");
     assert.equal((await state()).turn, before.turn + 1);
     assert.equal((await state()).items.cloth.holder, "vale");
     assert.equal((await state()).items.lamp.holder, "moth");
     await selectCard(page, "vale");
     assert.equal(await card("cloth").isVisible(), true);
-    assert.equal(await card("lamp").isVisible(), false);
+    assert.equal(await card("lamp").isVisible(), true);
     await load(meeting());
     if (width === 1440) {
       const transfer = await page.evaluateHandle(() => new DataTransfer());

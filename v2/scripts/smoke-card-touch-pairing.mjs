@@ -192,6 +192,13 @@ try {
       await page.screenshot({
         path: new URL(`compact-pair-${width}.png`, output).pathname,
       });
+      await page.reload();
+      await card("vale").waitFor();
+      assert.equal(await frame("lamp").getAttribute("data-shown-item"), "true");
+      assert.equal(await frame("oil").getAttribute("data-shown-item"), "true");
+      await tap("moth");
+      await tap("vale");
+      assert.equal(await threat.innerText(), "Threaten Pip for Oil flask");
       await threat.click();
       await page.waitForFunction(
         ({ key, before }) =>
