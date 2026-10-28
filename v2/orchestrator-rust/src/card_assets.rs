@@ -1795,7 +1795,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "scene-video.css" => "\"3c6851ec825e734e3d8a084f4ed77f077bcb4402acbf61869a67b652c3afe4c5\"",
         "awakening.css" => "\"c7a68a23baf1e46934237a57f4b5f87d76bad87af85fdf57ee40abec646908b9\"",
-        "app.mjs" => "\"3c736439c1cdbf4e797311b40a60559230f0475c688a5c17e76cf5a843eaf18f\"",
+        "app.mjs" => "\"1b992311073bec985ce78d4a6395cad5d5597dd2721cff0d1687a7c00b85103f\"",
         "world.mjs" => "\"711f4e9d068694da72e266d67655dcd5ed011fe6f441f5a1efa27215a90cbd32\"",
         "scene.mjs" => "\"977324fc9e6e69459e912953f97bec997c53923eceb2df6e332fb9da070bcc33\"",
         "weather.mjs" => "\"10f023956b3936dc1d1a6817b53ca9b6535b976f3aa5f98728ea16a665fdd07b\"",
