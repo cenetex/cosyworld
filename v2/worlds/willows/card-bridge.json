@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "id": "shore-willows",
+  "pack": "willows",
+  "description": "A reflected backwater at Black pond leads to a small island in the Danube. The quiet channel keeps a path home.",
+  "values": {
+    "willows-swede": {
+      "lamp": 5,
+      "oil": 3,
+      "bell": 1,
+      "cloth": 6
+    }
+  },
+  "crossings": [
+    {
+      "id": "pond-willows-landing",
+      "from": "pond",
+      "to": "willows-landing",
+      "travelers": "player",
+      "travel": "along the reflected backwater",
+      "requires": [],
+      "scenery": {
+        "open": "A narrow backwater leads through the reflection to a willow island.",
+        "cardArt": "assets/willows/landing.webp"
+      }
+    },
+    {
+      "id": "willows-landing-pond",
+      "from": "willows-landing",
+      "to": "pond",
+      "travelers": "player",
+      "travel": "along the quiet reflected channel",
+      "requires": [],
+      "scenery": {
+        "open": "A quiet channel reflects Black pond between the willow roots."
+      }
+    }
+  ]
+}

@@ -7752,6 +7752,488 @@
           "at": "greek-harbor"
         }
       }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "willows",
+      "packId": "cosyworld.willows",
+      "revision": 1,
+      "name": "The Willows",
+      "description": "A small island in the flooded Danube. The Swede keeps camp while the river and the willows gather around him.",
+      "tone": "Quiet cosmic horror grounded in ordinary camping work, river sounds, damaged gear and a companion's growing fear. Each location speaks as its landscape in first person. The Swede speaks for himself. Discoveries and choices follow their recorded world facts.",
+      "entry": "willows-landing",
+      "continuity": {
+        "startingEra": "willows-island",
+        "policy": "The traveller joins the Swede on the island. The locations tell the landscape's side of the story. Discovered signs belong to the recorded choices. The response records a decision to return or keep watch; the quiet channel remains available for later visits.",
+        "groups": [
+          {
+            "key": "willows-response",
+            "options": [
+              "depart",
+              "watch"
+            ],
+            "initial": "uncommitted"
+          }
+        ]
+      },
+      "places": {
+        "willows-landing": {
+          "name": "River Landing",
+          "text": "An upturned canoe rests above the backwater. A paddle lies on the sand. Beyond the low willows, the Danube carries whole pieces of bank downstream.",
+          "persona": "Speak as the river landing in first person. Feel the canoe against your sand and the weight of the river beyond your edge. Describe small physical changes through sand, wood, spray and current. The canoe is fixed scenery. Its slit and any preparation become known through recorded discoveries. Black pond is reached through the shallow reflected channel; describe that crossing when its action is used.",
+          "exits": [
+            "willows-camp"
+          ],
+          "backdrop": "assets/willows/landing.webp"
+        },
+        "willows-camp": {
+          "name": "River Camp",
+          "text": "A canvas tent shelters a food sack and a small cooking pot. The Swede watches the willow tops beyond the fire. A sandy path leads to the canoe.",
+          "persona": "Speak as the campsite in first person, through the tent canvas, fire warmth, cooking smells and disturbed sand. The Swede is the one resident. Let ordinary shelter feel small within the surrounding willows. Supplies are those named in the current facts; their condition follows recorded discoveries. Describe the people and objects present with care.",
+          "exits": [
+            "willows-landing",
+            "willows-thicket"
+          ],
+          "backdrop": "assets/willows/camp.webp"
+        },
+        "willows-thicket": {
+          "name": "Willow Thicket",
+          "text": "Low willow branches crowd a narrow track. Smooth little hollows mark the sand between their roots. The camp shows through one gap; the riverbank lies beyond another.",
+          "persona": "Speak as the willow thicket in first person. Use the feel of narrow stems, silver leaf undersides, soft sand and the spaces between roots. A rustle can travel against the wind. The hollows become a known clue when examined. Keep the powers beyond the island distant and strange; express their nearness through the landscape and committed discoveries.",
+          "exits": [
+            "willows-camp",
+            "willows-bank"
+          ],
+          "backdrop": "assets/willows/thicket.webp"
+        },
+        "willows-bank": {
+          "name": "Crumbling Bank",
+          "text": "Bare roots hang over the flood. Loose sand drops into the current. Across the water, willows cover every island to the horizon.",
+          "persona": "Speak as the riverbank in first person. Feel the current pull grains from your edge. Use exposed roots, water pressure and the reach of the opposite willows. The distant humming and the discovery below the roots belong to their recorded actions. Give each discovery its own moment. The four authored places remain the paths the traveller can choose.",
+          "exits": [
+            "willows-thicket"
+          ],
+          "backdrop": "assets/willows/bank.webp"
+        }
+      },
+      "avatars": {
+        "willows-swede": {
+          "name": "The Swede",
+          "text": "A practical canoe traveller with wind-reddened hands. He keeps looking up from the campfire to the willow tops.",
+          "place": "willows-camp",
+          "travels": false,
+          "standoffs": false,
+          "home": "willows-camp",
+          "portrait": "assets/willows/swede.webp",
+          "persona": "The Swede is the experienced travelling companion from Algernon Blackwood's The Willows. He keeps the river camp and attends to ordinary practical work. He notices damaged gear, river changes and the strange pressure around the island. His fear grows as discoveries are recorded. He cares for his companion and wants them to leave with care. A direct question gets a plain answer drawn from his own observations and the supplied facts. The river and the locations carry the wider horror.",
+          "voice": "Speak in simple English with the steady warmth of a trusted travelling companion. Use short, concrete observations. Let concern show through a pause or a practical suggestion. Answer from the current facts, recorded discoveries and actual custody. When the signs have been shared, speak with restrained urgency. Let the powers beyond the island remain strange and unnamed.",
+          "tastes": {
+            "likes": "A sound canoe, a warm meal and a companion who listens",
+            "sore": "Careless noise among the willows",
+            "reason": "The Swede wants his companion to get home safely.",
+            "noise": "{actor} rang a bell beside the river camp."
+          },
+          "values": {
+            "willows-paddle": 8,
+            "willows-map": 7,
+            "willows-rope": 6,
+            "willows-sheet": 6
+          },
+          "desire": {
+            "items": [],
+            "location": null,
+            "avatars": []
+          }
+        }
+      },
+      "items": {
+        "willows-paddle": {
+          "name": "Worn Paddle",
+          "text": "One wooden paddle remains beside the canoe. Its blade has been scraped strangely thin.",
+          "persona": "A long wooden canoe paddle with a blade worn thin. It can be carried and laid beside the canoe. Its condition is a clue in the hull discovery.",
+          "holder": "willows-landing",
+          "art": "assets/willows/paddle.svg"
+        },
+        "willows-map": {
+          "name": "River Map",
+          "text": "The Danube divides into more channels than this creased map can show.",
+          "persona": "A creased paper river map of the Danube below Pressburg, with channels and sandbanks marked in ink.",
+          "holder": "willows-camp",
+          "art": "assets/willows/map.svg"
+        },
+        "willows-rope": {
+          "name": "Tent Rope",
+          "text": "A spare length of rope lies coiled beside the tent.",
+          "persona": "A spare coil of sound hemp rope. The preparation action uses it together with the waterproof sheet at the landing.",
+          "holder": "willows-camp",
+          "art": "assets/willows/rope.svg"
+        },
+        "willows-sheet": {
+          "name": "Waterproof Sheet",
+          "text": "A folded waterproof sheet keeps the camping gear above the damp sand.",
+          "persona": "A folded dark waterproof camping sheet. The preparation action lays it beneath the canoe, together with rope.",
+          "holder": "willows-camp",
+          "art": "assets/willows/sheet.svg"
+        },
+        "willows-provisions": {
+          "name": "Food Sack",
+          "text": "A canvas sack holds oatmeal, potatoes, onions and tea. Its tied mouth smells faintly of smoke.",
+          "persona": "A canvas food sack holding the remaining camp provisions: oatmeal, potatoes, onions and tea. Counting the stores records the missing bread. Actual custody follows the current world facts.",
+          "holder": "willows-camp",
+          "art": "assets/willows/provisions.svg"
+        },
+        "willows-pot": {
+          "name": "Stew Pot",
+          "text": "An iron pot carries the smell of onions and yesterday's stew.",
+          "persona": "A small black iron stew-pot, cold enough to carry. The smell of camp cooking clings to it.",
+          "holder": "willows-camp",
+          "art": "assets/willows/pot.svg"
+        },
+        "willows-spoon": {
+          "name": "Wooden Spoon",
+          "text": "The long handle has darkened with years of cooking over open fires.",
+          "persona": "A plain wooden cooking spoon with a long, smoke-darkened handle.",
+          "holder": "willows-camp",
+          "art": "assets/willows/spoon.svg"
+        },
+        "willows-pipe": {
+          "name": "The Swede's Pipe",
+          "text": "A worn briar pipe. The Swede turns it in his fingers while he listens.",
+          "persona": "The Swede's well-used briar pipe. Its holder is supplied by the world facts.",
+          "holder": "willows-swede",
+          "art": "assets/willows/pipe.svg"
+        }
+      },
+      "choices": [
+        {
+          "id": "willows-examine-hull",
+          "subject": "willows-landing",
+          "at": "willows-landing",
+          "label": "Examine the canoe",
+          "text": "The traveller runs a hand along the upturned canoe. A fine slit crosses the hull. The remaining paddle has been scraped thin; the steering paddle is gone.",
+          "textTemplate": "{actor} runs a hand along the upturned canoe. A fine slit crosses the hull. The remaining paddle has been scraped thin; the steering paddle is gone.",
+          "summary": "The canoe has a fine slit in its hull. The steering paddle is missing, and the remaining paddle is scraped thin.",
+          "requires": [],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "willows-hull-seen",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "willows-count-stores",
+          "subject": "willows-camp",
+          "at": "willows-camp",
+          "label": "Count the camp supplies",
+          "text": "The traveller checks the camp stores. There is oatmeal and tea for another morning. The bread has vanished. The empty space in the sack is strangely clean.",
+          "textTemplate": "{actor} checks the camp stores. There is oatmeal and tea for another morning. The bread has vanished. The empty space in the sack is strangely clean.",
+          "summary": "The camp stores were counted. Oatmeal and tea remain; the bread is missing.",
+          "requires": [
+            {
+              "kind": "item_near",
+              "item": "willows-provisions",
+              "place": "willows-camp"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "willows-stores-counted",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "willows-examine-hollows",
+          "subject": "willows-thicket",
+          "at": "willows-thicket",
+          "label": "Examine the sand hollows",
+          "text": "The traveller kneels beside the willows. Each hollow is smooth and round, as though something pressed into the sand from above. Fine roots cross their edges.",
+          "textTemplate": "{actor} kneels beside the willows. Each hollow is smooth and round, as though something pressed into the sand from above. Fine roots cross their edges.",
+          "summary": "Smooth round hollows were found in the sand between the willow roots.",
+          "requires": [],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "willows-hollows-seen",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "willows-hear-humming",
+          "subject": "willows-bank",
+          "at": "willows-bank",
+          "label": "Listen across the river",
+          "text": "The traveller listens at the bank. A low metallic humming rises through the willows across the water. For a moment it seems to come from the sand underfoot.",
+          "textTemplate": "{actor} listens at the bank. A low metallic humming rises through the willows across the water. For a moment it seems to come from the sand underfoot.",
+          "summary": "A metallic humming was heard across the river and through the sand beneath the bank.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "willows-hollows-seen",
+              "value": true
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "willows-humming-heard",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "willows-look-beneath-roots",
+          "subject": "willows-bank",
+          "at": "willows-bank",
+          "label": "Look beneath the roots",
+          "text": "The traveller peers beneath the exposed roots. A drowned man lies caught in them. Small smooth hollows mark his skin, the same shape as those in the sand. The current turns him slowly.",
+          "textTemplate": "{actor} peers beneath the exposed roots. A drowned man lies caught in them. Small smooth hollows mark his skin, the same shape as those in the sand. The current turns him slowly.",
+          "summary": "A drowned man caught below the roots bears hollows like those found in the sand.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "willows-humming-heard",
+              "value": true
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "willows-mark-seen",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "willows-compare-signs",
+          "subject": "willows-swede",
+          "at": "willows-camp",
+          "label": "Compare the strange signs",
+          "text": "The traveller and the Swede compare the damaged canoe, the missing bread and the marks beneath the roots. He lays his hands flat on his knees. The fire crackles between them.",
+          "textTemplate": "{actor} and the Swede compare the damaged canoe, the missing bread and the marks beneath the roots. He lays his hands flat on his knees. The fire crackles between them.",
+          "summary": "The Swede and the traveller compared the canoe damage, the missing bread and the marks beneath the roots.",
+          "requires": [
+            {
+              "kind": "met",
+              "actor": "willows-swede"
+            },
+            {
+              "kind": "flag",
+              "key": "willows-hull-seen",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "willows-stores-counted",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "willows-mark-seen",
+              "value": true
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "willows-signs-shared",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "willows-prepare-canoe",
+          "subject": "willows-landing",
+          "at": "willows-landing",
+          "label": "Lay out the canoe gear",
+          "text": "The traveller spreads the waterproof sheet beneath the canoe and lays the spare rope along its side. The damaged hull is ready for careful work above the wet sand.",
+          "textTemplate": "{actor} spreads the waterproof sheet beneath the canoe and lays the spare rope along its side. The damaged hull is ready for careful work above the wet sand.",
+          "summary": "The waterproof sheet and spare rope were laid at the canoe for work on its damaged hull.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "willows-hull-seen",
+              "value": true
+            },
+            {
+              "kind": "holding",
+              "item": "willows-sheet",
+              "role": "actor"
+            },
+            {
+              "kind": "holding",
+              "item": "willows-rope",
+              "role": "actor"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "place_item",
+              "item": "willows-sheet",
+              "place": "willows-landing"
+            },
+            {
+              "kind": "place_item",
+              "item": "willows-rope",
+              "place": "willows-landing"
+            },
+            {
+              "kind": "set_flag",
+              "key": "willows-gear-laid",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "willows-set-paddle",
+          "subject": "willows-landing",
+          "at": "willows-landing",
+          "label": "Lay the paddle by the canoe",
+          "text": "The traveller sets the worn paddle beside the canoe, within reach of the rope and waterproof sheet. The backwater reflects a quiet shore beyond the moving river.",
+          "textTemplate": "{actor} sets the worn paddle beside the canoe, within reach of the rope and waterproof sheet. The backwater reflects a quiet shore beyond the moving river.",
+          "summary": "The remaining paddle was laid beside the canoe.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "willows-gear-laid",
+              "value": true
+            },
+            {
+              "kind": "holding",
+              "item": "willows-paddle",
+              "role": "actor"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "place_item",
+              "item": "willows-paddle",
+              "place": "willows-landing"
+            },
+            {
+              "kind": "set_flag",
+              "key": "willows-paddle-laid",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "willows-choose-departure",
+          "subject": "willows-landing",
+          "at": "willows-landing",
+          "label": "Choose the quiet way home",
+          "text": "The traveller chooses the quiet channel back to Black pond. The gear lies ready beside the canoe. Across the river, a long strip of silver leaves turns toward the landing.",
+          "textTemplate": "{actor} chooses the quiet channel back to Black pond. The gear lies ready beside the canoe. Across the river, a long strip of silver leaves turns toward the landing.",
+          "summary": "The traveller chose the quiet channel home after sharing the discoveries with the Swede and laying out the canoe gear.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "willows-signs-shared",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "willows-gear-laid",
+              "value": true
+            },
+            {
+              "kind": "item_at",
+              "item": "willows-rope",
+              "place": "willows-landing"
+            },
+            {
+              "kind": "item_at",
+              "item": "willows-sheet",
+              "place": "willows-landing"
+            },
+            {
+              "kind": "item_at",
+              "item": "willows-paddle",
+              "place": "willows-landing"
+            },
+            {
+              "kind": "flag",
+              "key": "willows-paddle-laid",
+              "value": true
+            }
+          ],
+          "effects": [
+            {
+              "kind": "choose",
+              "key": "willows-response",
+              "value": "depart"
+            }
+          ]
+        },
+        {
+          "id": "willows-choose-watch",
+          "subject": "willows-swede",
+          "at": "willows-camp",
+          "label": "Keep watch with the Swede",
+          "text": "The traveller chooses to keep watch with the Swede a while longer. They sit beside the fire. Beyond its warmth, the willows stir in a slow ring around the camp.",
+          "textTemplate": "{actor} chooses to keep watch with the Swede a while longer. They sit beside the fire. Beyond its warmth, the willows stir in a slow ring around the camp.",
+          "summary": "The traveller chose to keep watch beside the Swede after they shared the strange discoveries.",
+          "requires": [
+            {
+              "kind": "met",
+              "actor": "willows-swede"
+            },
+            {
+              "kind": "flag",
+              "key": "willows-signs-shared",
+              "value": true
+            }
+          ],
+          "effects": [
+            {
+              "kind": "choose",
+              "key": "willows-response",
+              "value": "watch"
+            }
+          ]
+        }
+      ],
+      "bridge": {
+        "id": "shore-willows",
+        "description": "A reflected backwater at Black pond leads to a small island in the Danube. The quiet channel keeps a path home."
+      },
+      "values": {
+        "willows-swede": {
+          "lamp": 5,
+          "oil": 3,
+          "bell": 1,
+          "cloth": 6
+        }
+      },
+      "crossings": [
+        {
+          "id": "pond-willows-landing",
+          "from": "pond",
+          "to": "willows-landing",
+          "travelers": "player",
+          "travel": "along the reflected backwater",
+          "requires": [],
+          "scenery": {
+            "open": "A narrow backwater leads through the reflection to a willow island.",
+            "cardArt": "assets/willows/landing.webp"
+          }
+        },
+        {
+          "id": "willows-landing-pond",
+          "from": "willows-landing",
+          "to": "pond",
+          "travelers": "player",
+          "travel": "along the quiet reflected channel",
+          "requires": [],
+          "scenery": {
+            "open": "A quiet channel reflects Black pond between the willow roots."
+          }
+        }
+      ]
     }
   ]
 }

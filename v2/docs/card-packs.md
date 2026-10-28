@@ -330,3 +330,11 @@ and `recall`. A parked ship has one dock. An occupied ship has one destination
 and may have a pending recall. Save validation checks these against the pack
 and its passengers. Greek revision 1 saves retain partial signals and gain
 a ship at the pond when their old sequence includes the second uncover.
+
+## The Willows
+
+The Willows is a four-place horror pack based on Algernon Blackwood's 1907
+story. A reflected backwater at Black pond leads to its landing. The places
+speak as the landscape; the Swede is its one resident. The landing keeps a
+path home. See [the pack guide](../content/willows/README.md) for the story
+choices, source text and art.

@@ -23,6 +23,8 @@ mod tests;
 mod travel_tests;
 #[cfg(test)]
 mod weather_tests;
+#[cfg(test)]
+mod willows_tests;
 
 use crate::AppState;
 use axum::{
