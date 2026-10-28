@@ -427,7 +427,7 @@ function pondRescueExit(s, place, actor, previous) {
       ordinaryRouteHome(s, place, oil, actor, previous)))) return null;
   if (knownActors(s).some((id) =>
     (!controlledByHuman(s, id) || humanPresent(s, id)) &&
-    (insideLampRemedy(s, id) || (s.actors[id].place === "attic" &&
+    (insideLampRemedy(s, id) || (!atticInterior.has(lamp) && s.actors[id].place === "attic" &&
       homeRescueExit(s, "attic", id) && localGateResource(s, "attic", "oil", id))))) return null;
   return "attic";
 }
