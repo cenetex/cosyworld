@@ -60,6 +60,7 @@ try {
       presentActors: membership.present,
     };
     assert.equal(world.actors.vale.place, "pond");
+    const startTurn = world.turn;
     const quest = questCardId(world, questCards(world, "boardyai")[0]);
     const table = `boardyai-${width}`;
     const key = `cosyworld.reflected-shore.v1.${table}`;
@@ -131,13 +132,16 @@ try {
     await page.keyboard.press("Escape");
     await selectCard(page, "boardyai");
     await page.locator('#card-actions [data-action="talk"]').click();
-    await page.waitForFunction((key) => {
-      const saved = JSON.parse(localStorage.getItem(key));
-      return (
-        saved.turn === 2 &&
-        saved.log.some((e) => e.generated && e.actorId === "boardyai")
-      );
-    }, key);
+    await page.waitForFunction(
+      ({ key, turn }) => {
+        const saved = JSON.parse(localStorage.getItem(key));
+        return (
+          saved.turn === turn &&
+          saved.log.some((e) => e.generated && e.actorId === "boardyai")
+        );
+      },
+      { key, turn: startTurn + 1 },
+    );
     const settle = async () => {
       for (let i = 0; i < 180; i++) {
         if (await page.locator("#unveil-dialog[open]").count())
@@ -157,9 +161,9 @@ try {
     };
     await settle();
     for (const [id, kind, turn, place] of [
-      ["boardyai-calling-card", "take", 3, "pond"],
-      ["boardyai-parlour", "move", 4, "boardyai-parlour"],
-      ["pond", "move", 5, "pond"],
+      ["boardyai-calling-card", "take", startTurn + 2, "pond"],
+      ["boardyai-parlour", "move", startTurn + 3, "boardyai-parlour"],
+      ["pond", "move", startTurn + 4, "pond"],
     ]) {
       await page.keyboard.press("Escape");
       await selectCard(page, id);
@@ -189,7 +193,7 @@ try {
         (key) => JSON.parse(localStorage.getItem(key)).turn,
         key,
       ),
-      5,
+      startTurn + 4,
     );
     const saved = await page.evaluate(
       (key) => JSON.parse(localStorage.getItem(key)),
