@@ -13,7 +13,7 @@ import { enableMotives } from "../card-game/motives.mjs";
 let fixture = enableMotives(createWorld({ opening: true }), {
   questPrograms: true,
 });
-for (const kind of ["light", "move"])
+for (const kind of ["light"])
   fixture = play(
     fixture,
     legalActions(fixture).find(
@@ -148,7 +148,10 @@ try {
     assert.deepEqual(recovered.items, before.items);
     assert.deepEqual(recovered.actors, before.actors);
     assert.equal(await retry.isVisible(), false);
-    assert.match(await page.textContent("#dialogue-text"), /speaks on turn 3/);
+    assert.match(
+      await page.textContent("#dialogue-text"),
+      new RegExp(`speaks on turn ${before.turn}`),
+    );
     // Invalid JSON content must fail visibly too, and a later play can recover.
     mode = "invalid";
     const pond = person;
@@ -196,10 +199,16 @@ try {
     await page.locator("#card-actions .card-primary").click();
     await ready();
     assert.equal((await state()).turn, before.turn + 3);
-    assert.match(await page.textContent("#dialogue-text"), /speaks on turn 6/);
+    assert.match(
+      await page.textContent("#dialogue-text"),
+      new RegExp(`speaks on turn ${before.turn + 3}`),
+    );
     await page.reload();
     await ready();
-    assert.match(await page.textContent("#dialogue-text"), /speaks on turn 6/);
+    assert.match(
+      await page.textContent("#dialogue-text"),
+      new RegExp(`speaks on turn ${before.turn + 3}`),
+    );
     assert.deepEqual(errors, []);
     console.log(
       `Visible failure, same-turn retry, later play and reload passed at ${width}px.`,
