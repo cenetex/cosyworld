@@ -295,7 +295,7 @@ try {
   const decoded = await page.evaluate(async (tracks) => {
     const results = [];
     for (const { file } of tracks) {
-      const probe = new Audio(`/card-game/assets/music/${file}`);
+      const probe = new Audio(`/card-game/assets/music-stream/${file}`);
       probe.muted = true;
       try {
         await probe.play();
