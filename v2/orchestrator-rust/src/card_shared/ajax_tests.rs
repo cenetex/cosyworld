@@ -262,3 +262,104 @@ fn ajax_appeal_custody_spoken_accounts_and_second_carrier_replay_from_the_journa
     c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
     assert_eq!(full_store::world(&c, &id, now()).unwrap(), expected);
 }
+
+#[test]
+fn ajax_upgrade_keeps_a_released_nineteen_camp_visit_and_replays_its_exit() {
+    let released = "full-card-world/19";
+    for keep_checkpoint in [true, false] {
+        let seed = engine::reduce_version(released, json!({"op":"create"})).unwrap();
+        let mut old = World {
+            version: released.into(),
+            game: seed["world"].clone(),
+            claimed: [1, 1, 0, 0, 0, 0, 0, 0],
+            present: [1, 1, 0, 0, 0, 0, 0, 0],
+        };
+        old.game.as_object_mut().unwrap().remove("opening");
+        old.game["packs"]["greek-drama"]["scope"] = json!("full");
+        old.game["actors"]["vale"]["place"] = json!("greek-greek-camp");
+        old.game["actors"]["mara"]["place"] = json!("greek-harbor");
+        old.game["items"]["lamp"]["holder"] = json!("vale");
+        old.game["crossings"]["pond-greek-harbor"]["discovered"] = json!(true);
+        let path =
+            std::env::temp_dir().join(format!("ajax-upgrade-{}.sqlite", crate::random_hex(12)));
+        let c = store::open(&path).unwrap();
+        full_store::schema(&c).unwrap();
+        let id = "c".repeat(48);
+        store::create(&c, &id, "owner", now()).unwrap();
+        full_store::seed(&c, &id, &old, "released-nineteen-camp", now()).unwrap();
+        play(&c, &id, &mut old, 0, &[("kind", "wait")]);
+        if !keep_checkpoint {
+            c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+        }
+        let mut current = full_store::world(&c, &id, now()).unwrap();
+        assert_eq!(current.version, engine::VERSION);
+        assert_eq!(current.game["packs"]["greek-drama"]["revision"], 7);
+        assert_eq!(current.claimed, old.claimed);
+        assert_eq!(current.present, old.present);
+        for field in [
+            "turn",
+            "eventSeq",
+            "log",
+            "transports",
+            "routeKnowledge",
+            "knowledge",
+        ] {
+            assert_eq!(current.game[field], old.game[field], "Preserve {field}");
+        }
+        for field in ["items", "peaceUntil"] {
+            for (key, value) in old.game[field].as_object().unwrap() {
+                assert_eq!(&current.game[field][key], value);
+            }
+        }
+        super::full_tests::assert_saved_memories(&current.game["memories"], &old.game["memories"]);
+        for field in ["choices", "flags", "receipts", "met", "recitals", "scope"] {
+            assert_eq!(
+                current.game["packs"]["greek-drama"][field],
+                old.game["packs"]["greek-drama"][field]
+            );
+        }
+        for (id, saved) in old.game["actors"].as_object().unwrap() {
+            let mut retained = current.game["actors"][id].clone();
+            retained["trust"]
+                .as_object_mut()
+                .unwrap()
+                .retain(|id, trust| {
+                    if saved["trust"].get(id).is_some() {
+                        true
+                    } else {
+                        assert_eq!(*trust, json!(0));
+                        false
+                    }
+                });
+            assert_eq!(&retained, saved);
+        }
+        for id in [
+            "greek-ajax-tecmessa",
+            "greek-ajax-teucer",
+            "greek-ajax-odysseus",
+        ] {
+            assert!(current.game["actors"].get(id).is_some());
+        }
+        assert_eq!(current.game["actors"]["vale"]["place"], "greek-greek-camp");
+        play(
+            &c,
+            &id,
+            &mut current,
+            0,
+            &[("kind", "move"), ("target", "greek-troy")],
+        );
+        let expected = current.clone();
+        drop(c);
+        let c = store::open(&path).unwrap();
+        c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+        assert_eq!(full_store::world(&c, &id, now()).unwrap(), expected);
+        let upgrades: i64 = c
+            .query_row(
+                "SELECT count(*) FROM card_full_log WHERE json_extract(command,'$.op')='upgrade'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(upgrades, 1);
+    }
+}
