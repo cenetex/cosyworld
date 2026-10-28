@@ -29,6 +29,7 @@ export const CONDITION_KINDS = [
   "item_at",
   "item_near",
   "shared_world",
+  "connected_humans",
   "met",
 ];
 export const TRAVELERS = ["player", "any"];
@@ -603,6 +604,9 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         case "shared_world":
           ok = keysOk(c, ["kind"]);
           break;
+        case "connected_humans":
+          ok = keysOk(c, ["kind", "minimum"]) && intOk(c.minimum, 1, 8);
+          break;
         case "item_near":
           ok =
             keysOk(c, ["kind", "item", "place"]) &&
@@ -643,9 +647,10 @@ export function packProblems(pack, hub, mountedPlaces = []) {
               "item_at",
               "item_near",
               "shared_world",
+              "connected_humans",
               "met",
             ].includes(c.kind),
-          `${what} must use persistent state conditions`,
+          `${what} must use saved state or human presence conditions`,
         );
       });
   };
@@ -690,7 +695,9 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         textOk(i.name, 120) &&
         textOk(i.text) &&
         textOk(i.persona) &&
-        (owns(places, i.holder) || owns(avatars, i.holder)),
+        (owns(places, i.holder) ||
+          owns(avatars, i.holder) ||
+          hub?.places?.includes(i.holder)),
       `item ${id} is invalid`,
     );
     media(i.art, `item ${id} art`);

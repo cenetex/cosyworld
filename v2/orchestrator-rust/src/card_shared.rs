@@ -1,3 +1,5 @@
+#[cfg(test)]
+mod boardy_tests;
 mod engine;
 pub(crate) const RULES_VERSION: &str = engine::VERSION;
 mod full;

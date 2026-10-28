@@ -12,6 +12,7 @@ running version and `primary_game` at each site's `/meta`.
 | Browser entry and presentation | `v2/card-game/entry.mjs`, `app.mjs`, and their imports |
 | Forest catalog and opening | `v2/card-game/forest.json` |
 | Shared human avatars and homes | `v2/card-game/shared-cast.json`, used by `human-cast.mjs` |
+| BoardyAI, his home, and calling card | `v2/card-game/boardyai.json` and `boardyai.mjs` |
 | Base character writing profiles | `v2/card-game/entity-profiles.json` |
 | Mounted card pack selection | `v2/worlds/card-table.json` |
 | Authored card pack data | `v2/content/<selected-pack>/card-world.json` |

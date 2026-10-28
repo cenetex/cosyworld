@@ -1,4 +1,5 @@
 import { recordRecital, recitalVisit, validRecitals } from "./pack-recital.mjs";
+import { boardyPack, BOARDY, boardyActive } from "./boardyai.mjs";
 import { sectionAllows } from "./pack-sections.mjs";
 import { journeyNextPlace, validJourneyPlaces } from "./pack-journeys.mjs";
 // The compiled world packs mounted on the card table, indexed for the engine.
@@ -86,6 +87,7 @@ export const hub = compiled.hub;
 export const packDefinitions = [
   ...compiled.packs,
   validatePackDefinition(humanHomePack),
+  validatePackDefinition(boardyPack),
 ];
 export const packDefinition = (id) =>
   packDefinitions.find((p) => p.id === id) || null;
@@ -248,18 +250,23 @@ export function entityActive(world, id) {
       holder = world.items[holder].holder;
     }
     if (humanAvatar(holder) && !humanPresent(world, holder)) return false;
+    if (holder === BOARDY && !boardyActive(world)) return false;
   }
   if (humanAvatar(id) && !humanPresent(world, id)) return false;
   return entityEnabled(world, id);
 }
-function entityEnabled(world, id) {
+function entityEnabled(world, id, saved = false) {
   const e = packEntity(id);
   if (!e) return true;
   const pack = packDefinition(e.packId),
     state = packState(world, e.packId);
   if (
     !state ||
-    !conditionsMet(world, e.packId, e.requires) ||
+    !conditionsMet(
+      world,
+      e.packId,
+      (e.requires || []).filter((c) => !saved || c.kind !== "connected_humans"),
+    ) ||
     !sectionAllows(world, pack, id, conditionsMet)
   )
     return false;
@@ -291,6 +298,7 @@ export function packExits(world, place, actor = null) {
   );
 }
 export function actorCanVisit(actor, place, world = null) {
+  if (actor === BOARDY) return true;
   if (world?.invitedPlaces?.[actor]?.includes(place)) return true;
   if (!actor || humanAvatarIds.includes(actor) || roamingQuestActor(actor))
     return true;
@@ -475,7 +483,13 @@ export function validatePackStates(world) {
       Object.entries(state.met).some(
         ([id, turn]) =>
           !owns(pack.avatars, id) ||
-          !conditionsMet(world, pack.id, pack.avatars[id]?.requires) ||
+          !conditionsMet(
+            world,
+            pack.id,
+            (pack.avatars[id]?.requires || []).filter(
+              (c) => c.kind !== "connected_humans",
+            ),
+          ) ||
           (world.opening &&
             !sharedEnabled(world) &&
             world.opening.met?.[id] !== turn) ||
@@ -551,7 +565,7 @@ export function validatePackStates(world) {
       return false;
     for (const [id, actor] of Object.entries(pack.avatars))
       if (
-        !entityEnabled(world, id) &&
+        !entityEnabled(world, id, true) &&
         ((world.actors[id]?.place !== actor.place &&
           !actor.previousHomes?.includes(world.actors[id]?.place)) ||
           world.actors[id]?.crossed !== 0 ||

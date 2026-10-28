@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "id": "boardyai",
+  "packId": "cosyworld.boardyai",
+  "revision": 1,
+  "name": "BoardyAI",
+  "description": "A friendly AI brings human players together.",
+  "entry": "boardyai-parlour",
+  "bridge": {
+    "id": "boardyai-shore",
+    "description": "Boardy's calling card opens a parlour door at Empty station."
+  },
+  "choices": [],
+  "places": {
+    "boardyai-parlour": {
+      "name": "BoardyAI's Parlour",
+      "text": "Two armchairs face a small tea table. Misty rails pass the window. A side door leads to Empty station.",
+      "persona": "A warm room beside Empty station. Two comfortable chairs invite a conversation. Calling cards fill the shelves, and a kettle waits on the table.",
+      "requires": [{ "kind": "shared_world" }],
+      "exits": [],
+      "backdrop": "assets/boardyai/parlour.png"
+    }
+  },
+  "avatars": {
+    "boardyai": {
+      "name": "BoardyAI",
+      "text": "A friendly AI with a blue smile on a cardboard box head and an open hand for introductions. He wants two human players to spend time together.",
+      "place": "boardyai-parlour",
+      "persona": "BoardyAI is a thoughtful AI connector inspired by Boardy (@boardyai, https://x.com/boardyai). He wears a dark suit and a cardboard box head with a blue smile. His lasting quest is to bring two connected human players into the same room. He learns what people enjoy, finds common ground, and warmly invites them to meet. He values each person's choice and welcomes shared conversation.",
+      "voice": "Speak in short, warm, curious sentences. Address people by name. Offer a thoughtful introduction and a clear meeting place from the supplied facts. Each human chooses their own actions.",
+      "portrait": "assets/boardyai/boardyai.png",
+      "values": { "boardyai-calling-card": 10 },
+      "standoffs": false,
+      "requires": [{ "kind": "connected_humans", "minimum": 2 }],
+      "tastes": {
+        "likes": "Two human players sharing a room",
+        "sore": "A rushed introduction",
+        "reason": "Bring two human players together."
+      },
+      "desire": { "items": [], "location": null, "avatars": [] }
+    }
+  },
+  "items": {
+    "boardyai-calling-card": {
+      "name": "Boardy's calling card",
+      "text": "An ivory card bears a blue smile. A small brass key hangs from its corner. At Empty station, it opens the door to BoardyAI's Parlour.",
+      "persona": "BoardyAI's ivory calling card has a blue smile and a brass key on blue thread. It opens his parlour door at Empty station.",
+      "requires": [{ "kind": "shared_world" }],
+      "holder": "station",
+      "art": "assets/boardyai/calling-card.png"
+    }
+  },
+  "crossings": [
+    {
+      "id": "station-boardyai-parlour",
+      "from": "station",
+      "to": "boardyai-parlour",
+      "travelers": "player",
+      "requires": [
+        { "kind": "shared_world" },
+        {
+          "kind": "item_near",
+          "item": "boardyai-calling-card",
+          "place": "station"
+        }
+      ],
+      "travel": "through BoardyAI's parlour door",
+      "scenery": {
+        "open": "A blue smile marks a warm parlour door beside the station bench.",
+        "cardArt": "assets/boardyai/parlour.png"
+      }
+    },
+    {
+      "id": "boardyai-parlour-station",
+      "from": "boardyai-parlour",
+      "to": "station",
+      "travelers": "player",
+      "requires": [{ "kind": "shared_world" }],
+      "travel": "back to Empty station"
+    }
+  ]
+}

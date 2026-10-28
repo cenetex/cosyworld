@@ -99,8 +99,11 @@ fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
                 assert_eq!(upgraded.claimed, old.claimed);
                 assert_eq!(upgraded.present, old.present);
                 preserves_old_entities(&upgraded.game, &old.game);
-                for field in ["turn", "eventSeq", "log", "crossings", "transports"] {
+                for field in ["turn", "eventSeq", "log", "transports"] {
                     assert_eq!(upgraded.game[field], old.game[field]);
+                }
+                for (key, value) in old.game["crossings"].as_object().unwrap() {
+                    assert_eq!(&upgraded.game["crossings"][key], value);
                 }
                 for field in ["choices", "flags", "receipts", "met", "scope", "recitals"] {
                     assert_eq!(
@@ -112,18 +115,18 @@ fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
                     upgraded.game["actors"].as_object().unwrap().len(),
                     old.game["actors"].as_object().unwrap().len()
                         + if version == engine::ELEVENTH_VERSION {
-                            1
+                            2
                         } else {
-                            9
+                            10
                         }
                 );
                 assert_eq!(
                     upgraded.game["items"].as_object().unwrap().len(),
                     old.game["items"].as_object().unwrap().len()
                         + if version == engine::ELEVENTH_VERSION {
-                            0
+                            1
                         } else {
-                            9
+                            10
                         }
                 );
                 assert_eq!(

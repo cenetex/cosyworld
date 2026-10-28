@@ -9,6 +9,18 @@ Mirror attic, Pip, the keeper, Badger, mounted story packs, and their rules belo
 to this same world. Each account claims one of eight human avatars. Each room
 holds four present humans. Residents can share a room with those humans.
 
+BoardyAI appears while two or more humans are connected to the world. He joins
+the largest human gathering. Cast order settles ties, so every reader sees him
+in the same place. His lasting quest is **Bring two human players together.**
+The quest stays active through meetings, travel, and reconnects. His dialogue
+names connected people and offers a place to meet. Each human chooses their
+own journey. Presence follows the usual 60-second reconnect grace.
+
+Boardy's calling card rests at Empty station. Its blue smile opens a door to
+**BoardyAI's Parlour** while the card is at the station or carried there by a
+present human. Take the card along for the trip. Two armchairs and a tea table
+wait inside. The parlour door leads back to Empty station.
+
 The seven new humans start in their homes with their signature items on the floor.
 Picking up the item opens the path to Black pond. Putting it down closes that
 path. At the pond, the item reveals the home's entrance when it rests there or
@@ -268,8 +280,9 @@ Player views include their own thoughts, persona, dreams, reflection evidence
 and lessons. Other avatars supply public card text. This privacy check also
 applies when projecting a world that still uses an earlier interpreter.
 
-The current interpreter builder writes `engine-v13.js`. The version 12
-interpreter stays frozen, and existing worlds receive an explicit saved upgrade.
+The current interpreter builder writes `engine-v14.js`. Version 14 adds BoardyAI,
+his parlour, and his calling card. Versions 12 and 13 keep their released rules.
+Existing worlds receive an explicit saved upgrade.
 
 A rules upgrade starts a fresh sync stream from the player’s current private
 view. Earlier cached view events are replaced at that boundary.

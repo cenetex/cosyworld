@@ -42,6 +42,27 @@
       "card": "assets/optimized/card/png/bell-card.webp",
       "cardHash": "76fc97154051bc3d9ad837e3bcc77ec7e190bb7af2358d90783c182938a612aa"
     },
+    "assets/boardyai/boardyai.png": {
+      "sourceHash": "4ed53a7dafc921fd80b56e0d0d50c17958001963008eb1f8d05b5cbfa1001857",
+      "stage": "assets/optimized/stage/png/boardyai/boardyai.webp",
+      "stageHash": "0b83bdd5b18e3a896b82a5051ccad325bb497c336a86ef0da3c116768569351e",
+      "card": "assets/optimized/card/png/boardyai/boardyai.webp",
+      "cardHash": "9ceb2756efe015bcbe356e818678b9c885dcefdc6291db2ee721a0601ecf7269"
+    },
+    "assets/boardyai/calling-card.png": {
+      "sourceHash": "831dce7d2767e1be045e1c44b5c99a1459156f8d639d15064ee8a56259bcc2a4",
+      "stage": "assets/optimized/stage/png/boardyai/calling-card.webp",
+      "stageHash": "d478d729126f8b3f097fd283e140e8d863e2115b3c95f6eefeba87b6ef3780be",
+      "card": "assets/optimized/card/png/boardyai/calling-card.webp",
+      "cardHash": "3b3e13b4f2dbe97a3b435f328cd956ec0cc111b613087f7b934fcf15f7b97fce"
+    },
+    "assets/boardyai/parlour.png": {
+      "sourceHash": "5221b36927a1e97ae2eb14e3dd5eeb8ce01f1557f44078d0ee700883e187c33d",
+      "stage": "assets/optimized/stage/png/boardyai/parlour.webp",
+      "stageHash": "37121c817bfcc5df66db8bb39791ce1e5f84d7e3dada075e15a7efa483352d91",
+      "card": "assets/optimized/card/png/boardyai/parlour.webp",
+      "cardHash": "f55c7200578115e2428db703a0b467fc3e599c41dc00990797a22dfd63b1679c"
+    },
     "assets/cloth-card.png": {
       "sourceHash": "9c4a2c383eeac4abeeed6d91f13ede9d0a82576e12a421fa8a4bb5d382e1adaf",
       "stage": "assets/optimized/stage/png/cloth-card.webp",

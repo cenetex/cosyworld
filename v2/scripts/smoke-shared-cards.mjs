@@ -14,7 +14,7 @@ import {
 } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
 import { humanAvatars } from "../card-game/human-cast.mjs";
-import { roamingActors } from "../card-game/roaming-routes.mjs";
+import { currentScene } from "../card-game/scene.mjs";
 
 const dir = await mkdtemp(join(tmpdir(), "shared-full-world-smoke-"));
 const output = resolve("output/shared-cards");
@@ -139,14 +139,16 @@ const ready = () =>
   until(async () => (await fetch(origin + "/health")).ok, "server starts");
 async function expectStage(page, recent) {
   const state = await snapshot(page);
-  const room = state.world.actors[state.actor].place;
-  recent = [
-    ...recent,
-    ...roamingActors.filter(
-      (actor) =>
-        state.world.actors[actor].place === room && !recent.includes(actor),
-    ),
-  ];
+  const cast = currentScene({
+    ...state.world,
+    playerActorId: state.actor,
+  }).slots.filter(Boolean);
+  recent = [...recent, ...cast.filter((actor) => !recent.includes(actor))];
+  assert.deepEqual(
+    new Set(recent),
+    new Set(cast),
+    "the expected players share the stage with its current residents",
+  );
   await page.waitForFunction((ids) => {
     const cast = document.getElementById("cast");
     const figures = [
