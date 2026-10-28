@@ -31,7 +31,8 @@
       "../bundle/voices/": "voices/"
     },
     "macOS": {
-      "minimumSystemVersion": "12.3"
+      "minimumSystemVersion": "12.3",
+      "signingIdentity": "-"
     },
     "shortDescription": "A local card world with character voices",
     "category": "Game",
