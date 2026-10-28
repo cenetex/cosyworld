@@ -487,16 +487,17 @@ try {
   for (const [id, pack] of Object.entries(seed.packs))
     assert.deepEqual(shared.world.packs[id], pack);
   await vale.locator("#stage").waitFor({ state: "visible" });
+  const pondBackdrop = await vale.evaluate(async () =>
+    (await import("/card-game/images.mjs")).imageUrl("./assets/pond.png"),
+  );
   await until(
     async () =>
-      /(?:^|\/)assets\/pond\.png$/.test(
-        await vale.locator("#backdrop").getAttribute("src"),
-      ),
+      (await vale.locator("#backdrop").getAttribute("src")) === pondBackdrop,
     "the original pond finishes rendering",
   );
-  assert.match(
+  assert.equal(
     await vale.locator("#backdrop").getAttribute("src"),
-    /(?:^|\/)assets\/pond\.png$/,
+    pondBackdrop,
   );
   assert(
     await vale.locator('#hand [data-card="moth"]').count(),
@@ -967,16 +968,17 @@ try {
   assert.equal((await snapshot(vale)).world.items.lamp.holder, "mara");
   await perform(mara, "move", "station");
   assert.equal((await snapshot(mara)).world.actors.mara.place, "station");
+  const stationBackdrop = await mara.evaluate(async () =>
+    (await import("/card-game/images.mjs")).imageUrl("./assets/station.png"),
+  );
   await until(
     async () =>
-      /(?:^|\/)assets\/station\.png$/.test(
-        await mara.locator("#backdrop").getAttribute("src"),
-      ),
+      (await mara.locator("#backdrop").getAttribute("src")) === stationBackdrop,
     "the original station finishes rendering",
   );
-  assert.match(
+  assert.equal(
     await mara.locator("#backdrop").getAttribute("src"),
-    /(?:^|\/)assets\/station\.png$/,
+    stationBackdrop,
   );
   await perform(tavi, "move", "pond");
   const saved = await snapshot(vale);
