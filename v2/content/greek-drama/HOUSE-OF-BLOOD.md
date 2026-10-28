@@ -117,6 +117,19 @@ dialogue and verse are original paraphrases.
 
 The native journal test is in `house_of_blood_tests.rs`. It covers the agreed
 refuge arrival, a second carrier's source hearing and return, and replay after
-checkpoint removal. Its run awaits the shared native test window. The full
-JavaScript and native suites remain assigned to that release window. This PR
-stays in draft through the final combined checks.
+checkpoint removal. The focused native run passed at
+`b4d6297c5d2da0bc005a4e44b2f4eab7f8bb0ab2`: one test passed in 39.13 seconds.
+It used Node 24, one build worker, one test worker, a 16 MiB thread stack and
+the isolated target folder `/private/tmp/cosyworld-book-v-native-target`:
+
+```sh
+CARGO_TARGET_DIR=/private/tmp/cosyworld-book-v-native-target \
+  CARGO_BUILD_JOBS=1 RUST_MIN_STACK=16777216 \
+  cargo test --manifest-path v2/orchestrator-rust/Cargo.toml \
+  house_of_blood_agreed_arrival_and_second_carrier_replay_from_the_journal \
+  -- --test-threads=1
+```
+
+The native window has returned to the release coordinator. The full combined
+JavaScript and native suites remain part of the chapter release checks. This
+PR stays in draft through those checks and the shared ship and art joins.
