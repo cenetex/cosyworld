@@ -132,3 +132,17 @@ fn player_streams_and_legacy_views_keep_their_scope() {
     let unclaimed = json!({"actor":null,"now":5});
     assert_eq!(send(&c, unclaimed.clone(), "snapshot"), unclaimed);
 }
+
+#[test]
+fn a_damaged_derived_cache_starts_a_fresh_stream() {
+    let c = Connection::open_in_memory().unwrap();
+    let first = send(&c, state(1, 1), "snapshot");
+    c.execute("UPDATE card_full_sync SET chain='broken'", [])
+        .unwrap();
+    let fresh = send(&c, state(2, 1), &cursor(&first));
+    assert_eq!(fresh["sync"]["kind"], "snapshot");
+    assert_ne!(
+        fresh["sync"]["head"]["stream"],
+        first["sync"]["head"]["stream"]
+    );
+}

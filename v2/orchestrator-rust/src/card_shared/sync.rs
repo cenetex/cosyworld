@@ -120,9 +120,7 @@ pub(super) fn response(
         .map_err(sql_error)?;
     let mut chain = saved
         .as_deref()
-        .map(serde_json::from_str::<Chain>)
-        .transpose()
-        .map_err(sql_error)?;
+        .and_then(|text| serde_json::from_str::<Chain>(text).ok());
     let reset = chain
         .as_ref()
         .is_none_or(|chain| chain.state["actor"] != state["actor"]);
