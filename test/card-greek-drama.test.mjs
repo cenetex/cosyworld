@@ -716,10 +716,40 @@ describe("incompatible histories become playable branches", () => {
       );
       expect(alternative).toBeTruthy();
       world = choose(world, `greek-helen-${branch}`);
-      expect(exits(world, HARBOR, "vale")).toContain(destination);
-      expect(exits(world, HARBOR, "vale")).not.toContain(otherDestination);
+      const landing =
+        branch === "egypt"
+          ? "greek-book-iv-helen-landing"
+          : "greek-ajax-landing";
+      const otherLanding =
+        branch === "egypt"
+          ? "greek-ajax-landing"
+          : "greek-book-iv-helen-landing";
+      const sail = (state, target) => {
+        if (state.actors.vale.place === destination)
+          state = move(state, landing);
+        for (
+          let wait = 0;
+          wait < 32 &&
+          !legalActions(state).some(
+            (a) => a.kind === "move" && a.target === "greek-ship",
+          );
+          wait++
+        )
+          state = act(state, "wait");
+        state = reload(move(state, "greek-ship"));
+        state = reload(move(state, target === destination ? landing : target));
+        return target === destination ? move(state, destination) : state;
+      };
+      const homeWaters = (state) => {
+        for (const port of [HARBOR, "pond", HARBOR]) state = sail(state, port);
+        return state;
+      };
+      expect(exits(world, landing, "vale")).toContain(destination);
+      expect(exits(world, otherLanding, "vale")).not.toContain(
+        otherDestination,
+      );
       expect(play(world, alternative, world.revision).ok).toBe(false);
-      world = move(world, destination);
+      world = sail(world, destination);
       expect(knownActors(world)).toContain(`greek-helen-${branch}`);
       expect(knownActors(world)).not.toContain(`greek-helen-${other}`);
       expect(narrativeContext(world).speakers).not.toContain(
@@ -727,7 +757,7 @@ describe("incompatible histories become playable branches", () => {
       );
       world = choose(world, `greek-hear-helen-${branch}`);
       world = take(world, evidence);
-      world = walk(reload(world), HARBOR, "pond", HARBOR);
+      world = homeWaters(reload(world));
       expect(stateOf(world).choices["greek-helen-account"]).toBe(branch);
       expect(rootHolder(world, evidence)).toBe("vale");
       expect(exits(world, HARBOR, "vale")).not.toContain(otherDestination);
@@ -740,13 +770,13 @@ describe("incompatible histories become playable branches", () => {
 
       const response = branch === "egypt" ? "passage" : "shelter";
       if (response === "passage") world = take(world, "greek-provisions");
-      world = move(world, destination);
+      world = sail(world, destination);
       world = choose(world, `greek-helen-${branch}-${response}`);
       expect(stateOf(world).choices["greek-helen-response"]).toBe(response);
       expect(world.items[evidence].holder).toBe(destination);
       if (response === "passage")
         expect(world.items["greek-provisions"].holder).toBe(destination);
-      world = walk(reload(world), HARBOR, "pond", HARBOR, destination);
+      world = sail(homeWaters(reload(world)), destination);
       expect(stateOf(world).choices["greek-helen-response"]).toBe(response);
       expect(world.items[evidence].holder).toBe(destination);
       expect(

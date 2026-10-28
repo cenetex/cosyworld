@@ -142,7 +142,8 @@ describe("Greek ports and fixed roads", () => {
     w.actors.vale.place = port;
     for (
       let n = 0;
-      n < docks.length && w.transports["greek-ship"].dock !== port;
+      n < transports["greek-ship"].docks.length &&
+      w.transports["greek-ship"].dock !== port;
       n++
     )
       w = play(w, "vale", "wait", {});
