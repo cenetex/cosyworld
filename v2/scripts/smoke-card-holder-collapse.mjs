@@ -361,8 +361,8 @@ try {
       assert.equal(await portrait.getAttribute("data-removing"), null);
       assert.equal(await portrait.getAttribute("aria-hidden"), "false");
       assert(
-        await portrait.evaluate((figure) =>
-          Number(getComputedStyle(figure).opacity) >= 0.99,
+        await portrait.evaluate(
+          (figure) => Number(getComputedStyle(figure).opacity) >= 0.99,
         ),
       );
       await avatar.scrollIntoViewIfNeeded();
