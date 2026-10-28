@@ -26,6 +26,8 @@ function group(region, exposure, names) {
     locations[`greek-${name}`] = { region, exposure };
 }
 group("boeotia", "coast", "harbor aulis ship");
+group("boeotia", "shelter", "aulis-household");
+group("boeotia", "open", "aulis-altar");
 group("boeotia", "court", "courtyard well palace");
 group("boeotia", "open", "gate battlefield road-thebes");
 group("boeotia", "grove", "sanctuary cithaeron");

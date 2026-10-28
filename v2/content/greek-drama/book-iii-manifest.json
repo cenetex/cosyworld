@@ -122,7 +122,7 @@
     "transport": "greek-ship",
     "currentDockBound": 8,
     "proposedDockBound": 12,
-    "reviewStatus": "pending",
+    "reviewStatus": "twelve-dock validator approved; later-book owned landing IDs are being bound",
     "ports": [
       {
         "id": "pond",
@@ -168,13 +168,13 @@
         "status": "proposed"
       },
       {
-        "id": "greek-egypt-landing",
+        "id": "greek-book-iv-helen-landing",
         "name": "Egypt Landing",
         "book": "IV",
         "status": "proposed"
       },
       {
-        "id": "greek-tauris-landing",
+        "id": "greek-tauris-shore",
         "name": "Tauris Landing",
         "book": "V",
         "status": "proposed"
@@ -185,7 +185,8 @@
         "book": "VII",
         "status": "proposed"
       }
-    ]
+    ],
+    "pendingOwnerID": "Book VII Sicily landing"
   },
   "ruleExtensions": [
     {
@@ -220,5 +221,5 @@
     "euripides-hecuba",
     "aeschylus-persians"
   ],
-  "prototypeArt": "existing Greek source art; approved portrait bindings follow in the next source commit"
+  "prototypeArt": "Approved Book III cast from ae1b181c; Aulis bindings use the painted Iphigenia, Clytemnestra and Achilles."
 }

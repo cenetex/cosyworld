@@ -3967,7 +3967,7 @@
             canonicalPerson: "aulis-iphigenia",
             persona: "This is the remembered Aulis departure before the Trojan war. Its speakers keep their roles in that remembered scene. The chosen ending records Iphigenia\u2019s fate in this account. A later visit hears their remembered words. The Theban opening, Ajax\u2019s completed deeds, Helen\u2019s chosen account and the chosen Atreid author keep their own times. She speaks her own fear, consent and remembered farewell.",
             voice: "This is the remembered Aulis departure before the Trojan war. Its speakers keep their roles in that remembered scene. The chosen ending records Iphigenia\u2019s fate in this account. A later visit hears their remembered words. The Theban opening, Ajax\u2019s completed deeds, Helen\u2019s chosen account and the chosen Atreid author keep their own times. She speaks her own fear, consent and remembered farewell.",
-            portrait: "assets/greek-drama/antigone.svg",
+            portrait: "assets/greek-drama/book-three-iphigenia.png",
             requires: [
               {
                 kind: "flag",
@@ -3999,7 +3999,7 @@
             canonicalPerson: "aulis-clytemnestra",
             persona: "This is the remembered Aulis departure before the Trojan war. Its speakers keep their roles in that remembered scene. The chosen ending records Iphigenia\u2019s fate in this account. A later visit hears their remembered words. The Theban opening, Ajax\u2019s completed deeds, Helen\u2019s chosen account and the chosen Atreid author keep their own times. She asks what the wedding summons conceals and keeps her own judgment of the ending.",
             voice: "This is the remembered Aulis departure before the Trojan war. Its speakers keep their roles in that remembered scene. The chosen ending records Iphigenia\u2019s fate in this account. A later visit hears their remembered words. The Theban opening, Ajax\u2019s completed deeds, Helen\u2019s chosen account and the chosen Atreid author keep their own times. She asks what the wedding summons conceals and keeps her own judgment of the ending.",
-            portrait: "assets/greek-drama/ismene.svg",
+            portrait: "assets/greek-drama/book-three-clytemnestra.png",
             requires: [
               {
                 kind: "flag",
@@ -4024,7 +4024,7 @@
             canonicalPerson: "aulis-achilles",
             persona: "This is the remembered Aulis departure before the Trojan war. Its speakers keep their roles in that remembered scene. The chosen ending records Iphigenia\u2019s fate in this account. A later visit hears their remembered words. The Theban opening, Ajax\u2019s completed deeds, Helen\u2019s chosen account and the chosen Atreid author keep their own times. He lends his name to a false marriage and then agrees to witness the daughter\u2019s answer.",
             voice: "This is the remembered Aulis departure before the Trojan war. Its speakers keep their roles in that remembered scene. The chosen ending records Iphigenia\u2019s fate in this account. A later visit hears their remembered words. The Theban opening, Ajax\u2019s completed deeds, Helen\u2019s chosen account and the chosen Atreid author keep their own times. He lends his name to a false marriage and then agrees to witness the daughter\u2019s answer.",
-            portrait: "assets/greek-drama/guard.svg",
+            portrait: "assets/greek-drama/book-three-achilles.png",
             requires: [
               {
                 kind: "flag",
@@ -24040,6 +24040,8 @@
       locations[`greek-${name}`] = { region, exposure };
   }
   group("boeotia", "coast", "harbor aulis ship");
+  group("boeotia", "shelter", "aulis-household");
+  group("boeotia", "open", "aulis-altar");
   group("boeotia", "court", "courtyard well palace");
   group("boeotia", "open", "gate battlefield road-thebes");
   group("boeotia", "grove", "sanctuary cithaeron");
@@ -24145,7 +24147,10 @@
     "greek-greek-camp": art("ajax-camp-night"),
     "greek-ajax-landing": art("ajax-camp-night"),
     "greek-ajax-household": art("ajax-camp-night"),
-    "greek-ajax-grave": art("ajax-camp-night")
+    "greek-ajax-grave": art("ajax-camp-night"),
+    "greek-aulis": art("ajax-camp-night"),
+    "greek-aulis-household": art("ajax-camp-night"),
+    "greek-aulis-altar": art("ajax-camp-night")
   };
   var dockedNightBackdrops = {
     [art("harbor-ship-at-berth")]: art("harbor-ship-at-berth-night"),
@@ -24162,7 +24167,7 @@
     if (!world || !Object.hasOwn(nightBackdrops, id)) return null;
     const period = Math.floor(world.turn / DAYLIGHT_TURNS);
     const phase = period % 2 ? "night" : "day";
-    const where = id === "greek-athens-harbor" ? "at Athens Harbor" : id === "greek-piraeus" ? "at Piraeus Quays" : id === "greek-greek-camp" || id.startsWith("greek-ajax-") ? "at the Greek camp near Troy" : "in Thebes";
+    const where = id === "greek-athens-harbor" ? "at Athens Harbor" : id === "greek-piraeus" ? "at Piraeus Quays" : id === "greek-aulis" || id.startsWith("greek-aulis-") ? "at the remembered Aulis anchorage" : id === "greek-greek-camp" || id.startsWith("greek-ajax-") ? "at the Greek camp near Troy" : "in Thebes";
     return {
       phase,
       period,

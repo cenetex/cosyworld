@@ -1411,7 +1411,7 @@
       "canonicalPerson": "aulis-iphigenia",
       "persona": "This is the remembered Aulis departure before the Trojan war. Its speakers keep their roles in that remembered scene. The chosen ending records Iphigenia’s fate in this account. A later visit hears their remembered words. The Theban opening, Ajax’s completed deeds, Helen’s chosen account and the chosen Atreid author keep their own times. She speaks her own fear, consent and remembered farewell.",
       "voice": "This is the remembered Aulis departure before the Trojan war. Its speakers keep their roles in that remembered scene. The chosen ending records Iphigenia’s fate in this account. A later visit hears their remembered words. The Theban opening, Ajax’s completed deeds, Helen’s chosen account and the chosen Atreid author keep their own times. She speaks her own fear, consent and remembered farewell.",
-      "portrait": "assets/greek-drama/antigone.svg",
+      "portrait": "assets/greek-drama/book-three-iphigenia.png",
       "requires": [
         {
           "kind": "flag",
@@ -1440,7 +1440,7 @@
       "canonicalPerson": "aulis-clytemnestra",
       "persona": "This is the remembered Aulis departure before the Trojan war. Its speakers keep their roles in that remembered scene. The chosen ending records Iphigenia’s fate in this account. A later visit hears their remembered words. The Theban opening, Ajax’s completed deeds, Helen’s chosen account and the chosen Atreid author keep their own times. She asks what the wedding summons conceals and keeps her own judgment of the ending.",
       "voice": "This is the remembered Aulis departure before the Trojan war. Its speakers keep their roles in that remembered scene. The chosen ending records Iphigenia’s fate in this account. A later visit hears their remembered words. The Theban opening, Ajax’s completed deeds, Helen’s chosen account and the chosen Atreid author keep their own times. She asks what the wedding summons conceals and keeps her own judgment of the ending.",
-      "portrait": "assets/greek-drama/ismene.svg",
+      "portrait": "assets/greek-drama/book-three-clytemnestra.png",
       "requires": [
         {
           "kind": "flag",
@@ -1465,7 +1465,7 @@
       "canonicalPerson": "aulis-achilles",
       "persona": "This is the remembered Aulis departure before the Trojan war. Its speakers keep their roles in that remembered scene. The chosen ending records Iphigenia’s fate in this account. A later visit hears their remembered words. The Theban opening, Ajax’s completed deeds, Helen’s chosen account and the chosen Atreid author keep their own times. He lends his name to a false marriage and then agrees to witness the daughter’s answer.",
       "voice": "This is the remembered Aulis departure before the Trojan war. Its speakers keep their roles in that remembered scene. The chosen ending records Iphigenia’s fate in this account. A later visit hears their remembered words. The Theban opening, Ajax’s completed deeds, Helen’s chosen account and the chosen Atreid author keep their own times. He lends his name to a false marriage and then agrees to witness the daughter’s answer.",
-      "portrait": "assets/greek-drama/guard.svg",
+      "portrait": "assets/greek-drama/book-three-achilles.png",
       "requires": [
         {
           "kind": "flag",
