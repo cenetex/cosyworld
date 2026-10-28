@@ -13,6 +13,7 @@ import { fileURLToPath } from "node:url";
 import {
   packProblems,
   observationProblems,
+  topicCompositionProblems,
 } from "../card-game/pack-schema.mjs";
 
 const v2 = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -56,6 +57,7 @@ const packs = (table.packs || []).map((id) => {
 });
 
 const seen = new Map();
+problems.push(...topicCompositionProblems(packs));
 const observationIds = new Set((table.hub.observations || []).map((d) => d.id));
 for (const pack of packs) {
   for (const d of pack.observations || []) {

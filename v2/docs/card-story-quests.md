@@ -98,6 +98,8 @@ several cards in one family distinct in the card view.
 `topics` is a list of short facts a named character can share at a place.
 Each entry has `id`, `speaker`, `at`, `text` and optional `requires` and
 `choiceId`. The text is one complete sentence of at most 180 characters.
+Topic IDs are unique across every mounted pack. The mounted catalog supports
+128 authored topics, with room for witnessed events in the knowledge store.
 Third-person wording keeps its subject clear when another character retells
 the fact. Requirements use the common pack condition vocabulary.
 

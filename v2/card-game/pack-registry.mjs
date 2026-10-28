@@ -13,7 +13,11 @@ import {
   humanPresent,
   sharedEnabled,
 } from "./human-cast.mjs";
-import { packProblems, observationProblems } from "./pack-schema.mjs";
+import {
+  packProblems,
+  observationProblems,
+  topicCompositionProblems,
+} from "./pack-schema.mjs";
 import { conditionMet as evaluateCondition } from "./pack-rules.mjs";
 const owns = (o, key) =>
   typeof key === "string" && !!o && Object.hasOwn(o, key);
@@ -89,6 +93,9 @@ export const packDefinitions = [
   validatePackDefinition(humanHomePack),
   validatePackDefinition(boardyPack),
 ];
+const topicProblems = topicCompositionProblems(packDefinitions);
+if (topicProblems.length)
+  throw new Error(`Invalid card world topics: ${topicProblems.join("; ")}`);
 export const packDefinition = (id) =>
   packDefinitions.find((p) => p.id === id) || null;
 

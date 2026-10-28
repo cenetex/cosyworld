@@ -4,6 +4,32 @@
 import { storyQuestProblems } from "./pack-story-schema.mjs";
 
 export const PACK_SCHEMA_VERSION = 1;
+export const AUTHORED_TOPIC_LIMIT = 128;
+
+// A topic keeps one identity across the whole mounted world. This budget
+// leaves room for witnessed events in the shared knowledge store.
+export function topicCompositionProblems(packs) {
+  const problems = [],
+    seen = new Map();
+  let count = 0;
+  for (const pack of packs) {
+    if (!Array.isArray(pack?.topics)) continue;
+    for (const topic of pack.topics) {
+      count += 1;
+      if (typeof topic?.id !== "string") continue;
+      if (seen.has(topic.id))
+        problems.push(
+          `${pack.id}: topic ${topic.id} is also defined by ${seen.get(topic.id)}`,
+        );
+      else seen.set(topic.id, pack.id);
+    }
+  }
+  if (count > AUTHORED_TOPIC_LIMIT)
+    problems.push(
+      `mounted packs have ${count} topics; the shared limit is ${AUTHORED_TOPIC_LIMIT}`,
+    );
+  return problems;
+}
 // Resolved plays a signal step can match. Each is a verb the engine logs.
 export const SIGNAL_VERBS = [
   "ring",
