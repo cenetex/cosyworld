@@ -458,5 +458,13 @@ describe("required hearings and private guests", () => {
     const forged = structuredClone(f.state);
     forged.readings[id].complete = true;
     expect(validPoemReadings(f.world, f.pack, f.catalogs, forged)).toBe(false);
+    const reordered = structuredClone(f.state);
+    reordered.readings[id].selection.reverse();
+    expect(validPoemReadings(f.world, f.pack, f.catalogs, reordered)).toBe(
+      false,
+    );
+    const digest = structuredClone(f.state);
+    digest.readings[id].poemDigest = "0".repeat(64);
+    expect(validPoemReadings(f.world, f.pack, f.catalogs, digest)).toBe(false);
   });
 });

@@ -501,6 +501,7 @@ export function validPoemReadings(world, pack, catalogs, state) {
     const optionalSlots = new Set();
     const complete = new Map();
     const expected = new Map();
+    const earned = new Map();
     for (const [id, reading] of Object.entries(state.readings)) {
       if (
         !record(reading) ||
@@ -549,15 +550,28 @@ export function validPoemReadings(world, pack, catalogs, state) {
           : null,
       );
       if (selected.some((tuple) => !tuple)) return false;
-      const expectedKey = `${catalog.digest}:${reading.through}`;
-      if (!expected.has(expectedKey))
-        expected.set(
-          expectedKey,
-          earnedTuples(world, pack, catalog, reading.through),
+      if (!earned.has(catalog.digest))
+        earned.set(
+          catalog.digest,
+          earnedTuples(world, pack, catalog, world.turn),
         );
+      const all = earned.get(catalog.digest);
+      const end = all.findIndex((tuple) => tuple[1] > reading.through);
+      const count = end < 0 ? all.length : end;
+      // Receipt order fixes the exact prefix. Readers with the same earned
+      // prefix share its validation work while keeping their own start turn.
+      const expectedKey = `${catalog.digest}:${count}`;
+      if (!expected.has(expectedKey)) {
+        const tuples = all.slice(0, count);
+        expected.set(expectedKey, {
+          tuples: JSON.stringify(tuples),
+          digest: snapshotDigest(catalog, tuples),
+        });
+      }
+      const snapshot = expected.get(expectedKey);
       if (
-        !same(selected, expected.get(expectedKey)) ||
-        reading.poemDigest !== snapshotDigest(catalog, selected)
+        JSON.stringify(selected) !== snapshot.tuples ||
+        reading.poemDigest !== snapshot.digest
       )
         return false;
       if (
