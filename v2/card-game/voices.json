@@ -1,6 +1,6 @@
 {
   "revision": "cast-2026-10-27-1",
-  "model": "fish-audio/s2.1-pro-free:free",
+  "model": "fish-audio/drama-3",
   "origin": "Original character voices designed with Seed Audio through OpenRouter.",
   "voices": {
     "vale": {

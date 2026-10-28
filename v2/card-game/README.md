@@ -35,10 +35,11 @@ Commit `v2/orchestrator-rust/src/card_assets.rs` with each asset-list change.
 
 ## Character voices
 
-Player-funded dialogue keeps each character's assigned model and uses the
-player's OpenRouter account routing settings. Provider retention follows those
-settings and the chosen provider's policy. Temporary provider errors can retry;
-request, account, and routing errors return control to the player immediately.
+Spoken character voices use the player's OpenRouter credits and account routing
+settings. Written dialogue uses the game's account. Provider retention follows
+the chosen account settings and provider policy. Temporary provider errors can
+retry; request, account, and routing errors return control to the player
+immediately.
 
 Connect OpenRouter in Settings and leave **Voices: on** to hear Vale, Mara,
 Pip (`moth`), the Keeper, Badger, and Dione (`greek-baker`). The first tap or
@@ -49,9 +50,11 @@ pause the voice. **Retry voice** repeats a failed request for the current line.
 
 `voices.json` maps the cast to six original Seed Audio references in
 `assets/voices/`. `character-speech.mjs` sends the reference, transcript, and
-current dialogue to `fish-audio/s2.1-pro-free:free` through the player's browser
-OpenRouter connection. That exact free model is fixed for this feature. A
-provider error appears in Settings and enables **Retry voice** by the line.
+current dialogue to `fish-audio/drama-3` through the player's browser OpenRouter
+connection. [Drama 3](https://openrouter.ai/fish-audio/drama-3) supports voice
+cloning and natural-language performance direction. The saved references keep
+each character's original voice. A provider error appears in Settings and enables
+**Retry voice** by the line.
 
 Generated clips stay in this browser’s cache for replay and reload, up to
 32 clips and 16 MiB. Cached clips also play after disconnecting OpenRouter.
