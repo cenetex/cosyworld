@@ -56,6 +56,10 @@ cloning and natural-language performance direction. The saved references keep
 each character's original voice. A provider error appears in Settings and enables
 **Retry voice** by the line.
 
+Each character can set its own speaking speed. Vale uses 1.12× speed for a
+slightly quicker delivery. Voice settings are part of the cache key, so a pace
+adjustment produces fresh speech for Vale.
+
 Generated clips stay in this browser’s cache for replay and reload, up to
 32 clips and 16 MiB. Cached clips also play after disconnecting OpenRouter.
 Cache identity includes the model, reference hash, direction, transcript, and
