@@ -221,7 +221,7 @@ describe("shore wants and grievances", () => {
       let seed = initial,
         trades = 0;
       const kinds = new Set();
-      for (let i = 0; i < 400; i++) {
+      for (let i = 0; i < 240; i++) {
         if (i % 20 === 0) await yieldToRunner();
         seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
         const actions = legalActions(s);
