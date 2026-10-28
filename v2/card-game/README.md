@@ -104,6 +104,13 @@ its selection. Selecting a card or pair shows named actions in the row below.
 Tapping an action button plays it. The current place leads the hand, followed
 by items lying there, avatars with their carried items, and travel destinations.
 Arrival starts the hand at the new current place. Selection keeps its scroll position.
+On wide screens, the resting hand occupies two card widths at the right. Dialogue
+sits at the left. Selecting a card opens the hand across the screen and moves
+dialogue above it. Swipe, use the wheel, or use the arrow keys to reach more cards.
+Play stays available during an exchange. A waiting play shows **Queued**;
+tapping it again cancels it. Selecting another card clears the waiting play.
+Shared play waits for the player's current turn to finish, then checks the
+chosen action against the current table before sending it.
 Selection, cancellation,
 drag pairing and keyboard navigation spend no turn; only a committed play does.
 The latest selected carried item appears in the player's avatar hand.

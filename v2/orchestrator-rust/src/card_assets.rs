@@ -1643,8 +1643,8 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "assets/shared/items/shears.png" => {
             "\"225bf98853060dc121ea82d4d89430f27d049f7de70e3b0b8e30f2cd633b9d87\""
         }
-        "index.html" => "\"ac1c6a78c3c090b20ef3883a33f835348ae3bb840e0f5b3b1759fc14c5480b8a\"",
-        "style.css" => "\"00c0b408d8521f41bb829de05053cce354886f1dcf8e9adcec8cff0975406278\"",
+        "index.html" => "\"a20beaa679e822616e9eb2b73b05f81ad1e026c44dd1178384e2e158ac891587\"",
+        "style.css" => "\"4a50df07d35cd2a5bdd7ded7dcad61e4bd05c3308068a76b1ce1836eaa012ff4\"",
         "entry.mjs" => "\"1a7995fada45e5bf544ec6e98a6cc9ea9019634cf9bae644d6f1766581314c89\"",
         "openrouter.mjs" => "\"1f1df94c46294aeefb95b37f58f63f3cf690b645927a74f78ea5cfb3e2734330\"",
         "openrouter-settings.mjs" => {
@@ -1669,7 +1669,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "scene-video.css" => "\"3c6851ec825e734e3d8a084f4ed77f077bcb4402acbf61869a67b652c3afe4c5\"",
         "awakening.css" => "\"c7a68a23baf1e46934237a57f4b5f87d76bad87af85fdf57ee40abec646908b9\"",
-        "app.mjs" => "\"71fc94f09d48266f4f8fc7648eb12d929f0ce400929da11933bd034311a59cfe\"",
+        "app.mjs" => "\"277caf8c2f5b4ec372af49bf6472cdf63887ec6b3584eccc9792614410a27cf1\"",
         "world.mjs" => "\"2c0b16981ffeb9e22f46a5a1aabe4f16a345c3119ca5af3abb150bd6b71268cb\"",
         "scene.mjs" => "\"635ee5038f8b73ae0425bb64de542fa2a9d034f3287802a1a5b3a8101b34edd1\"",
         "portrait-facing.mjs" => {
