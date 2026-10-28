@@ -49,7 +49,7 @@ function steps(part) {
         take("tauris-shore-pact"),
         move("tauris"),
         choose("account-keeper"),
-        move("piraeus"),
+        move("tauris-shore"),
         move("ship"),
         move("harbor"),
         move("courtyard"),

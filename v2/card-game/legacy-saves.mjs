@@ -28,6 +28,10 @@ import { installKnowledge } from "./knowledge.mjs";
 import { newTemperament } from "./pack-rules.mjs";
 import { greekRevisionSeven } from "./legacy-greek-catalog.mjs";
 import { validTrust } from "./trust.mjs";
+import {
+  upgradeGreekSeaKnowledge,
+  restoreGreekLandingAccess,
+} from "./legacy-greek-seaways.mjs";
 
 // Upgrade historical records before the world validates the current save.
 // World-owned helpers keep pack installation and generated quests on the same
@@ -139,6 +143,7 @@ export function upgradeSave(
     installPacks(s);
   }
   if (s?.schema === 7) {
+    restoreGreekLandingAccess(s);
     upgradeShoreRouteSave(s);
     upgradeBoardingSave(s);
     upgradeRecitals(s, packDefinitions);
@@ -401,6 +406,7 @@ export function upgradeGreekEpicSave(s) {
     if (carrier && ajaxReturn.completedTurn === null)
       carryQuest(s, carrier, ajaxReturn);
   }
+  upgradeGreekSeaKnowledge(s);
   saved.revision = 8;
 }
 

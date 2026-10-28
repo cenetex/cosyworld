@@ -4,6 +4,48 @@ use serde_json::{json, Value};
 const PHILOCTETES: &str = "greek-lemnos-philoctetes";
 const LANDING: &str = "greek-lemnos-landing";
 
+fn trace_interpreter_errors() {
+    let _ = tracing_subscriber::fmt()
+        .with_test_writer()
+        .with_max_level(tracing::Level::WARN)
+        .try_init();
+}
+
+fn browser_upgrade(world: &World) -> Value {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap();
+    let mut request = world.request("upgrade", 0);
+    request["from"] = json!(world.version);
+    request["to"] = json!(engine::VERSION);
+    let mut child = std::process::Command::new("node")
+        .current_dir(root)
+        .args([
+            "--input-type=module",
+            "-e",
+            "import {readFileSync} from 'node:fs'; import {dispatchShared} from './v2/card-game/shared-world.mjs'; console.log(JSON.stringify(dispatchShared(JSON.parse(readFileSync(0,'utf8'))).world));",
+        ])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .expect("Node 24 runs the same explicit browser upgrade");
+    std::io::Write::write_all(
+        &mut child.stdin.take().unwrap(),
+        request.to_string().as_bytes(),
+    )
+    .unwrap();
+    let output = child.wait_with_output().unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    serde_json::from_slice(&output.stdout).unwrap()
+}
+
 fn action(world: &World, actor: usize, fields: &[(&str, &str)]) -> Option<Value> {
     world.project(actor).unwrap()["actions"]
         .as_array()
@@ -86,7 +128,16 @@ fn journey_fixture(
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
-    let mut world = World::create(Some(&String::from_utf8(output.stdout).unwrap())).unwrap();
+    trace_interpreter_errors();
+    let save = String::from_utf8(output.stdout).unwrap();
+    let started = std::time::Instant::now();
+    let mut world = World::create(Some(&save)).unwrap_or_else(|error| {
+        panic!(
+            "Book III {helper} import failed after {:?}, {} saved bytes: {error}",
+            started.elapsed(),
+            save.len()
+        )
+    });
     world.claimed = [1, 1, 1, 0, 0, 0, 0, 0];
     world.present = world.claimed;
     world.game["actors"]["mara"]["place"] = json!(landing);
@@ -462,6 +513,7 @@ fn book_three_agreed_ship_passenger_waits_for_the_shared_arrival_and_replays_the
 
 #[test]
 fn book_three_rules_twenty_upgrade_preserves_the_old_full_scope_lemnian_visit() {
+    trace_interpreter_errors();
     let released =
         engine::reduce_version(engine::TWENTIETH_VERSION, json!({"op":"create"})).unwrap();
     let mut old = World {
@@ -472,7 +524,7 @@ fn book_three_rules_twenty_upgrade_preserves_the_old_full_scope_lemnian_visit() 
     };
     old.game.as_object_mut().unwrap().remove("opening");
     old.game["packs"]["greek-drama"]["scope"] = json!("full");
-    old.game["actors"]["vale"]["place"] = json!("greek-lemnos");
+    old.game["actors"]["vale"]["place"] = json!("greek-greek-camp");
     let path = std::env::temp_dir().join(format!(
         "book-three-rules-twenty-{}.sqlite",
         crate::random_hex(12)
@@ -481,32 +533,70 @@ fn book_three_rules_twenty_upgrade_preserves_the_old_full_scope_lemnian_visit() 
     full_store::schema(&c).unwrap();
     let id = "c".repeat(48);
     store::create(&c, &id, "owner", now()).unwrap();
-    full_store::seed(&c, &id, &old, "released-lemnian-visit", now()).unwrap();
-    let current = full_store::world(&c, &id, now()).unwrap();
+    full_store::seed(&c, &id, &old, "released-camp-before-lemnian-visit", now()).unwrap();
+    // The old move is accepted by rules 20 and retained in the mixed journal.
+    play(
+        &c,
+        &id,
+        &mut old,
+        0,
+        &[("kind", "move"), ("target", "greek-lemnos")],
+    );
+    assert_eq!(old.game["actors"]["vale"]["place"], "greek-lemnos");
+    let expected_upgrade = browser_upgrade(&old);
+    let started = std::time::Instant::now();
+    let mut current = full_store::world(&c, &id, now()).unwrap_or_else(|error| {
+        panic!(
+            "Rules-20 Lemnos upgrade failed after {:?}, {} saved bytes: {error}",
+            started.elapsed(),
+            old.game.to_string().len()
+        )
+    });
     assert_eq!(current.version, engine::VERSION);
+    assert_eq!(
+        current.game, expected_upgrade,
+        "Browser and C upgrade agree"
+    );
     assert_eq!(current.game["packs"]["greek-drama"]["revision"], 8);
     assert_eq!(current.game["actors"]["vale"]["place"], "greek-lemnos");
     assert!(current.game["actors"].get(PHILOCTETES).is_some());
     assert!(current.game["memories"].get(LANDING).is_some());
-    for field in [
-        "turn",
-        "eventSeq",
-        "log",
-        "transports",
-        "routeKnowledge",
-        "knowledge",
-    ] {
+    for field in ["turn", "eventSeq", "log", "transports", "knowledge"] {
         assert_eq!(current.game[field], old.game[field], "Preserve {field}");
     }
     for (id, item) in old.game["items"].as_object().unwrap() {
         assert_eq!(&current.game["items"][id], item);
     }
-    assert!(action(
-        &current,
+    assert_eq!(
+        current.game["crossings"]["pond-greek-harbor"]["discovered"],
+        true
+    );
+    play(
+        &c,
+        &id,
+        &mut current,
         0,
-        &[("kind", "move"), ("target", "greek-greek-camp")]
-    )
-    .is_some());
+        &[("kind", "move"), ("target", LANDING)],
+    );
+    for _ in 0..24 {
+        if action(&current, 0, &[("kind", "move"), ("target", "greek-ship")]).is_some() {
+            break;
+        }
+        play(&c, &id, &mut current, 0, &[("kind", "wait")]);
+    }
+    for target in ["greek-ship", "greek-harbor", "greek-courtyard"] {
+        play(
+            &c,
+            &id,
+            &mut current,
+            0,
+            &[("kind", "move"), ("target", target)],
+        );
+    }
+    assert_eq!(current.game["actors"]["vale"]["place"], "greek-courtyard");
     c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
     assert_eq!(full_store::world(&c, &id, now()).unwrap(), current);
+    drop(c);
+    let reopened = store::open(&path).unwrap();
+    assert_eq!(full_store::world(&reopened, &id, now()).unwrap(), current);
 }
