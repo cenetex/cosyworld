@@ -135,10 +135,16 @@ describe("day and night in Thebes", () => {
       "greek-ajax-grave",
     ]) {
       world.turn = world.revision = 0;
-      expect(backdrop(place, world)).toBe("./assets/greek-drama/ajax-camp-day.webp");
+      expect(backdrop(place, world)).toBe(
+        "./assets/greek-drama/ajax-camp-day.webp",
+      );
       world.turn = world.revision = DAYLIGHT_TURNS;
-      expect(backdrop(place, world)).toBe("./assets/greek-drama/ajax-camp-night.webp");
-      expect(locationDaylight(world, place).description).toBe("It is night at the Greek camp near Troy.");
+      expect(backdrop(place, world)).toBe(
+        "./assets/greek-drama/ajax-camp-night.webp",
+      );
+      expect(locationDaylight(world, place).description).toBe(
+        "It is night at the Greek camp near Troy.",
+      );
     }
   });
 
