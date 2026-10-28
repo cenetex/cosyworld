@@ -324,6 +324,10 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/quest-progress.mjs"),
         ),
+        "knowledge.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/knowledge.mjs"),
+        ),
         "quest-hands.mjs" => (
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/quest-hands.mjs"),
@@ -335,6 +339,14 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
         "story-quests.mjs" => (
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/story-quests.mjs"),
+        ),
+        "pack-story-quests.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/pack-story-quests.mjs"),
+        ),
+        "pack-story-schema.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/pack-story-schema.mjs"),
         ),
         "open-door-quests.mjs" => (
             "text/javascript; charset=utf-8",
@@ -1823,8 +1835,8 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "scene-video.css" => "\"3c6851ec825e734e3d8a084f4ed77f077bcb4402acbf61869a67b652c3afe4c5\"",
         "awakening.css" => "\"c7a68a23baf1e46934237a57f4b5f87d76bad87af85fdf57ee40abec646908b9\"",
-        "app.mjs" => "\"1b992311073bec985ce78d4a6395cad5d5597dd2721cff0d1687a7c00b85103f\"",
-        "world.mjs" => "\"8fa686c28ce14be9aa8aa5c8e35fa1dafd383429c7500e68eea8a3868191d774\"",
+        "app.mjs" => "\"81f3a191e0c3d99ed7f4103294c4395ca07b8a746020cf030c5a00a79b8bd026\"",
+        "world.mjs" => "\"14736a885601d65c3d6eceb4239f3a0b0f616ed9d1ada08c9067faa907522790\"",
         "scene.mjs" => "\"aba97eb70f26e75c9eaa4bcf71e3d8130f8bc5efc3df2b1a2567022959879d87\"",
         "weather.mjs" => "\"69a3e11642c43831f80581711f6113d814badd666ad2c3e3892a1a4c70a5fd27\"",
         "daylight.mjs" => "\"6e1bbbf92705e5e2ed904ca98666540ab9a91916c94e50749e649a0ba380170d\"",
@@ -1863,25 +1875,32 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "lessons.mjs" => "\"d356ccfd6d4bb622ea7e325ebae519f3ff37433013b04874f07f83865b883705\"",
         "motives.mjs" => "\"9e8b5b84a9a21761074c524f9295febaf1e03b92342f324a41e364c4d34950f1\"",
         "life.mjs" => "\"96bacb8052c8b77e11eb733edfe075f25f2e6e38ceb8f153280f4d974cb74c5c\"",
-        "quests.mjs" => "\"ed09e244bea8986711df18b05baf9b376325afefc2ec111bc3f2cfc43c8b879d\"",
+        "quests.mjs" => "\"244a1c39ed8aceea24af9eca1c3bd8e9155a23200891a7c659ce01a0de4a6e49\"",
         "quest-offers.mjs" => {
             "\"6f0ef71f7042254df8b93dde9c928c44e5ac5914f32acfee02617668dd7b4873\""
         }
         "quest-progress.mjs" => {
             "\"22073763c4479d882037c32d6c91a8f456b8094655d78f7687106fe6ec5a0716\""
         }
+        "knowledge.mjs" => "\"d37a940202640614b12ac986f068378b2bbe6606fffdbc6cc52119a24e3b7d34\"",
         "quest-hands.mjs" => "\"c7692977dd2195a1b19ace9724ed1dd344b8cf69fb59b1f2a652d98f89bfe2c4\"",
         "shared-quests.mjs" => {
             "\"9bdab1a2df233ad7b58da7358ac69e99de9e7f644a8792ffa913484964aec4e8\""
         }
         "story-quests.mjs" => {
-            "\"ce2fcbc99fdeabdb11bcc0fb57c861bb6eb0fee1d321161947dceb28d813c3a9\""
+            "\"095bdc4d6ea6760b4eaf8a3e4da3cd4ed08a40ba73a0169983dd7d5c23ddcc55\""
+        }
+        "pack-story-quests.mjs" => {
+            "\"3a7230d993ab01e375421ab365c387173414f584ae074f569523124143f3741c\""
+        }
+        "pack-story-schema.mjs" => {
+            "\"a4b05fe9428e620bed6fef7e1b7fc7430fbc9b00232598d0fa6475cf4ba5c850\""
         }
         "open-door-quests.mjs" => {
-            "\"d4892be4215ebbf0d9079db72d572fdffa4b3cbd1dde15a8ec13692bf9cc80a6\""
+            "\"10edec2590918b3d5e4f1375708650e6f09bd90f5abfdd6f535bec2d028503df\""
         }
         "homecoming-quests.mjs" => {
-            "\"12c99e2360a5fd07ded8875e6038a7d70454785045359b84acfc310db63f2b64\""
+            "\"83a2fb0a0ac81dbae1fbf18526a327a328f7f98d40da6183f0ad7236adf80351\""
         }
         "quest-completions.mjs" => {
             "\"b97912558deeb5a499e8d25c403b14c08f6a83c82110e3826c41f85fcdda3552\""
@@ -1893,10 +1912,10 @@ pub fn etag(path: &str) -> Option<&'static str> {
             "\"71b33e853f1a820e06ecb2c23be8cdd011a6f66fe44b21f13804fe5cdd5bab83\""
         }
         "quest-cards.mjs" => "\"8960e4357997e63486ea61553d626821efb44cba9361190ecff7f7f4d12983c2\"",
-        "situations.mjs" => "\"1fff8b8ba954720b8a0a4450d6db2bf6e6d9378566ae0ca2668a44979f83c39d\"",
+        "situations.mjs" => "\"d9ea587b56d3e9dfef29e5f5987cdf20276fd65415f0279880922cd4f1d06ca4\"",
         "memory.mjs" => "\"73ce17a68e29678684d13458a87fa9e2274879a45680e53d7d83b562abac3dab\"",
         "learning.mjs" => "\"feb6faebe9c0470cfac7545e7e91587701b7434fecd176c9475fee778cb51175\"",
-        "narrative.mjs" => "\"1dd20c612150c1c2c41986377194a79a1f8fb5069448493bd3ef18c283c38aa2\"",
+        "narrative.mjs" => "\"1a70deed37748fd558ecc9355039f8beeddf073c9253adfc2b91917df77ab901\"",
         "dialogue.mjs" => "\"1f4965d3e2a36261973aace4534359c00c7cf8aeaf15548a08d29e364adcc7ad\"",
         "character-speech.mjs" => {
             "\"d53e51f93d89a0073199f45dd83086417733d76980f6c3b22f875b3f642292b5\""
@@ -1920,9 +1939,9 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "assets/voices/greek-baker.mp3" => {
             "\"0dc315f6c54a2a48fab122a0c1b3dc5876121073b696b0ce4537c2d76d0b08a8\""
         }
-        "pack-schema.mjs" => "\"414ff33a89dcf7cb5b5bff49fb0adfd9748aad1a6c0a430b24f3f361eb3fc02a\"",
+        "pack-schema.mjs" => "\"8dd4a0b745b5c26ad273ee3057bf66f151b2a778e4152226b40b7b20c311fd16\"",
         "pack-registry.mjs" => {
-            "\"cc6d9dfb3252589ca86af52e3c3221c81b23fbe508152469a85d401de518a6d6\""
+            "\"5129ec6b3ca347c41bc57f90f11ad15770ca8ae50b62da13c19bc0240ecaa111\""
         }
         "pack-sections.mjs" => {
             "\"1230a3aa14a8e17e9eedaeeaead6717b77650111e8179306ad5e2a2d925d0f32\""
@@ -1933,15 +1952,15 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "pack-recital.mjs" => {
             "\"69bb676f4fbe0591f81e473921b6ff8ae8c88cddbab5a1931d005f662d0ffcea\""
         }
-        "pack-rules.mjs" => "\"6bb4621ec8ccb1d66e64340ad50ca29e45c9148f95d6d56354af74cfb5ef87cf\"",
+        "pack-rules.mjs" => "\"0b08bbcd455db5161b624f349ff683980fb282a93d6c671b384d2d4c9f0d49a1\"",
         "pack-transport.mjs" => {
             "\"4a930efedb8e283404abf4e5d0345e9336384d10a4e6e4e0fe7b243e95b65500\""
         }
         "legacy-saves.mjs" => {
-            "\"2e87a6002f709aa79439da42dca28632a36a561a96b3ea5bde721a7f6363b75a\""
+            "\"a4ab123a5fbf5ebaf188840dd6024247dbcf72d6c9acaf4f63f47fd49375b3f3\""
         }
         "forest.json" => "\"12a2be7877e4daff53d3d1ad27c1703b2ca10dff51e6f371a5b3d1a7975afdfe\"",
-        "packs.json" => "\"6e2f98daf7ee7f1bcc245c17bd6b73bc61a111b3e8a978e7b817b245ee3ee862\"",
+        "packs.json" => "\"6508a68fbb4ff25b880fc3e36678e46f07dc76cbde34cf195aa9a60003c2b27a\"",
         "music.mjs" => "\"b60f61ecf558b2eed0aa2d907ca6a7a3dede4b0459541d3c59f633e25943bc22\"",
         "entity-profiles.json" => {
             "\"32bcfada78437fd92786bdb577da658828ff000563688180bd3848593f2e201e\""

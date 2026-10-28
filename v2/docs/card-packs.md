@@ -29,6 +29,10 @@ for personas, so ids and voices cannot drift between them. One validator
 loads. It rejects unknown fields, unknown condition kinds, dangling ids and
 missing art with a reason naming the field.
 
+Packs can also supply `storyQuests` and `topics`. The
+[story quest guide](card-story-quests.md) covers saved evidence, branches,
+spoken clues and ordered knowledge requirements.
+
 ## The pack source
 
 ```jsonc

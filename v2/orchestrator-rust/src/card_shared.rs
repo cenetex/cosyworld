@@ -12,6 +12,8 @@ mod full_world;
 mod homecoming_tests;
 mod kernel;
 #[cfg(test)]
+mod quest_core_tests;
+#[cfg(test)]
 mod section_tests;
 #[cfg(test)]
 mod speech;

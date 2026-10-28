@@ -112,3 +112,34 @@ Build the compiled catalog with
 `npx vitest run test/card-pack-story-quests.test.mjs` for the generic pack,
 branch, requirement and topic validation checks. The Greek story suites cover
 the existing journeys, authors, saved outcomes and poem.
+
+## Knowledge and ordered steps
+
+A saved fact keeps its original event, person, place and turn. Each avatar keeps
+whether they witnessed it or heard it, plus the person who told them. A Talk
+selects one fact the listener can learn. The reply includes that complete fact
+sentence and may add a short sentence in the speaker's voice. The listener gains
+the fact when the checked reply is saved. Heard news becomes available for
+retelling on a later turn.
+
+For a chain of story lines, give each topic a stable ID. A later topic can
+require the previous topic:
+
+```json
+{
+  "id": "orchard-second-line",
+  "speaker": "orchard-host",
+  "at": "orchard-gate",
+  "text": "The second verse names the old well.",
+  "requires": [
+    { "kind": "knows", "topic": "orchard-first-line", "role": "actor" }
+  ]
+}
+```
+
+A personal or shared quest program can also use
+`{"kind":"knows","topic":"orchard-first-line","role":"actor"}` in a hand's
+`conditions`. Put one such hand in each ordered program step. The common progress
+core captures the learned fact as evidence and advances at most one step per
+turn. A pack action can require the final fact and record the story's ending.
+The Bard continues to read the verses earned by completed deeds.

@@ -250,6 +250,12 @@ describe("pack disclosure declarations", () => {
   });
   it.each([
     [
+      "short fact",
+      (p) => {
+        p.topics[0].text = "Mara arrived.";
+      },
+    ],
+    [
       "unknown topic",
       (p) => {
         p.choices[0].requires.push({

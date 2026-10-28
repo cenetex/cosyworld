@@ -2,6 +2,7 @@
 // The build script and the browser registry both use this one validator, so
 // an authored pack either loads exactly as checked or does not load at all.
 import { storyQuestProblems } from "./pack-story-schema.mjs";
+import { validFactText } from "./knowledge.mjs";
 
 export const PACK_SCHEMA_VERSION = 1;
 export const AUTHORED_TOPIC_LIMIT = 128;
@@ -882,8 +883,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         !topicIds.has(topic.id) &&
         owns(avatars, topic.speaker) &&
         owns(places, topic.at) &&
-        textOk(topic.text, 180) &&
-        /^[^.!?]+[.!?]$/.test(topic.text.trim()) &&
+        validFactText(topic.text) &&
         (topic.choiceId === undefined || choiceIds.has(topic.choiceId)),
       `topic ${topic.id} needs a unique id, speaker, place, sentence and valid choice`,
     );

@@ -249,6 +249,18 @@ phone journeys, alternate choices, object care, reloads, cards, and Bard.
 
 ## Personal quests and lasting hopes
 
+Personal and shared quest programs use `quest-progress.mjs` to capture evidence,
+advance one step per turn, apply each shared effect once and save completions.
+Pack stories use `storyQuests` in their authored data. The
+[story quest guide](../docs/card-story-quests.md) explains how another pack can
+use the same rules.
+
+Talk can share one saved fact. Authored topics and witnessed deeds supply those
+facts; each listener keeps the source and teller. A checked spoken reply teaches
+the fact and can unlock an authored scene or a quest step. Later Talk can pass
+heard news to another person. Greece's spoken clues now use this path, including
+the mothers' plea, the decree and the returning reports.
+
 The browser enables `personalQuests` alongside motives. The first quest gives
 each avatar a starting purpose. A completed quest earns a level. The avatar then
 heads to a sanctuary and rests there for three turns. Shared human avatars count

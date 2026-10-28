@@ -104,6 +104,7 @@ export function narrativeContractCases() {
     ["Steam Clock return bell", playCard(clearing, "ring", null, "clearing")],
     ["Greek harbor crossing", harbor],
     ["Theban gate cast", gate],
+    ["Theban decree through Talk", playCard(gate, "talk", null, "greek-guard")],
     ["Theban refusal", refused],
     ["Helen history choice", egypt],
     ["Helen in Egypt", helen],
