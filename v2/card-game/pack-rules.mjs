@@ -16,6 +16,7 @@ import {
 import {
   packDefinitions,
   packPeople,
+  packPlaces,
   packFixtures,
   crossings,
   transports,
@@ -158,13 +159,16 @@ export const mayCross = (c, actor, senses) =>
   roamingQuestActor(actor) ||
   senses.humanActors?.includes(actor);
 
-/** Places reachable by crossing from `place` now, for this actor. */
+/** Places reachable by crossing from `place` now, including an invited return home. */
 export const crossingExits = (s, place, actor, senses) =>
   crossings
     .filter(
       (c) =>
         c.from === place &&
-        mayCross(c, actor, senses) &&
+        (mayCross(c, actor, senses) ||
+          (s.invitedPlaces?.[actor]?.includes(c.from) &&
+            (packPeople[actor]?.packId ?? null) ===
+              (packPlaces[c.to]?.packId ?? null))) &&
         crossingOpen(s, c, senses),
     )
     .map((c) => (c.transport ? transports[c.transport].place : c.to));
