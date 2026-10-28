@@ -3,6 +3,11 @@ import { publishQuestCompletions } from "./quest-completions.mjs";
 import { installSharedQuestRegistry } from "./shared-quests.mjs";
 import { newProgress, questPrograms } from "./quests.mjs";
 import {
+  carryQuest,
+  questHolderActor,
+  settleQuestHands,
+} from "./quest-hands.mjs";
+import {
   migrateMemories,
   newMemories,
   rememberEvent,
@@ -366,15 +371,20 @@ export function upgradeGreekEpicSave(s) {
       ];
     }
   // The published Ajax return card follows its carried account in revision8.
-  // Keep its saved people, completion and verse evidence intact.
+  // Keep its participants, completion and verse evidence intact.
   const ajaxReturn =
     s.quests?.records?.["greek-drama:story-quest-greek-ajax-return"];
   if (
     ajaxReturn?.mode === "story" &&
     ajaxReturn.holder?.kind === "avatar" &&
     ajaxReturn.holder.id === "greek-ajax-teucer"
-  )
+  ) {
     ajaxReturn.holder = { kind: "item", id: "greek-ajax-plea" };
+    settleQuestHands(s);
+    const carrier = questHolderActor(s, ajaxReturn);
+    if (carrier && ajaxReturn.completedTurn === null)
+      carryQuest(s, carrier, ajaxReturn);
+  }
   saved.revision = 8;
 }
 
