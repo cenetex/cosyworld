@@ -81,13 +81,7 @@ fn publication_keeps_reflection_private_after_disconnect_and_duplicate_finish() 
     full::run(&c, &id, "user0", &queued, now()).unwrap();
     let app = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
     let work = full::take_work(&app, &id).unwrap().unwrap();
-    let duplicate = full::Work {
-        id: work.id.clone(),
-        room: work.room.clone(),
-        actor: work.actor,
-        context: work.context.clone(),
-        attempt: work.attempt,
-    };
+    let duplicate = work.clone();
     let (_, ids) = full_speech::prepared(0, &work.context).unwrap();
     let evidence: Vec<_> = work.context["context"]["entities"]
         .as_array()
@@ -142,7 +136,7 @@ fn shared_request_lessons_replay_from_their_completed_action() {
         .unwrap();
     let mut w = World::create(None).unwrap();
     w.game["actors"]["keeper"]["place"] = w.game["actors"]["vale"]["place"].clone();
-    w.game["opening"]["met"]["keeper"] = json!(0);
+    w.game.as_object_mut().unwrap().remove("opening");
     w.apply(&json!({"op":"claim","actor":"vale"})).unwrap();
     w.apply(&json!({"op":"enter","actor":"vale"})).unwrap();
     full_store::seed(&c, &id, &w, "learning-fixture", now()).unwrap();
