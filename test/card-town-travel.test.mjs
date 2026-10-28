@@ -7,6 +7,7 @@ import {
   encodeSave,
   exits,
   legalActions,
+  play,
 } from "../v2/card-game/world.mjs";
 import { availableCards } from "../v2/card-game/cards.mjs";
 import { backdrop, locationVariant } from "../v2/card-game/scene.mjs";
@@ -14,6 +15,8 @@ import {
   entityActive,
   packDefinition,
 } from "../v2/card-game/pack-registry.mjs";
+import { addQuestRecord } from "../v2/card-game/shared-quests.mjs";
+import { recordQuestCompletion } from "../v2/card-game/quest-completions.mjs";
 
 function releasedRoad(road) {
   const context = vm.createContext({});
@@ -118,6 +121,38 @@ describe("local town visits and road history", () => {
     expect(roads).toHaveLength(7);
     expect(exits(w, "greek-athens-harbor", "vale")).toContain("greek-athens");
     expect(exits(w, "greek-harbor", "vale")).toContain("greek-courtyard");
+  });
+
+  it("lets the Bard visit a completed deed from an earlier internal road", () => {
+    const before = releasedRoad("greek-road-athens-harbor");
+    const quest = addQuestRecord(before, {
+      holder: { kind: "place", id: "greek-road-athens-harbor" },
+      program: {
+        id: "road-deed",
+        name: "A deed by the harbor",
+        steps: [
+          { items: [], avatars: [], location: "greek-road-athens-harbor" },
+        ],
+      },
+    });
+    quest.completedTurn = before.turn;
+    quest.step = 1;
+    const receipt = recordQuestCompletion(before, quest, {
+      actorId: "vale",
+      locationId: "greek-road-athens-harbor",
+    });
+    const current = decodeSave(JSON.stringify(before));
+    const wait = legalActions(current).find((action) => action.kind === "wait");
+    const result = play(current, wait);
+    expect(result.ok, result.error).toBe(true);
+    expect(result.state.roamingQuests["greek-rhapsode"].target.locationId).toBe(
+      "greek-athens-harbor",
+    );
+    expect(
+      result.state.questCompletions.recent.find(
+        (record) => record.id === receipt.id,
+      ).locationId,
+    ).toBe("greek-road-athens-harbor");
   });
 });
 

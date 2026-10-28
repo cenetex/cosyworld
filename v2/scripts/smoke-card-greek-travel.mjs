@@ -140,6 +140,7 @@ try {
       await step("move", target);
       const road = packDefinition("greek-drama").places[target]?.road;
       if (road) {
+        await selectCard(page, target, { touch: width === 390 });
         const visibleOrder = await page
           .locator("#hand [data-card]")
           .evaluateAll(
