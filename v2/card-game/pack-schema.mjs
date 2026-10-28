@@ -936,7 +936,15 @@ export function packProblems(pack, hub, mountedPlaces = []) {
   const topicIds = new Set();
   for (const topic of pack.topics || []) {
     check(
-      keysOk(topic, ["id", "speaker", "at", "text", "requires", "choiceId"]) &&
+      keysOk(topic, [
+        "id",
+        "speaker",
+        "at",
+        "text",
+        "requires",
+        "choiceId",
+        "publicAccount",
+      ]) &&
         idOk(topic.id) &&
         !topicIds.has(topic.id) &&
         owns(avatars, topic.speaker) &&
@@ -944,6 +952,12 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         validFactText(topic.text) &&
         (topic.choiceId === undefined || choiceIds.has(topic.choiceId)),
       `topic ${topic.id} needs a unique id, speaker, place, sentence and valid choice`,
+    );
+    check(
+      topic.publicAccount === undefined ||
+        (typeof topic.publicAccount === "boolean" &&
+          topic.choiceId !== undefined),
+      `topic ${topic.id} public account needs a linked choice`,
     );
     topicIds.add(topic.id);
     requirements(topic.requires, `topic ${topic.id} requires`);

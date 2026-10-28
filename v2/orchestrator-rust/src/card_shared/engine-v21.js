@@ -13745,8 +13745,8 @@
             subject: "greek-book-iv-ion-creusa",
             at: "greek-delphi",
             label: "Hear Creusa on this account",
-            text: "Creusa chooses to give the temple witnesses her maternal account and to name Apollo in that testimony.",
-            textTemplate: "Creusa chooses to give the temple witnesses her maternal account and to name Apollo in that testimony.",
+            text: "Creusa authorises her maternal testimony before the temple witnesses and names Apollo as Ion\u2019s father.",
+            textTemplate: "Creusa authorises her maternal testimony before the temple witnesses and names Apollo as Ion\u2019s father.",
             requires: [
               {
                 kind: "flag",
@@ -13910,8 +13910,8 @@
             subject: "greek-book-iv-ion-creusa",
             at: "greek-delphi",
             label: "Hear Creusa on this account",
-            text: "Creusa gives the temple witnesses her maternal account and names Apollo as Ion\u2019s father.",
-            textTemplate: "Creusa gives the temple witnesses her maternal account and names Apollo as Ion\u2019s father.",
+            text: "Creusa approves the care excerpt honouring Ion\u2019s temple carers and the family they have chosen.",
+            textTemplate: "Creusa approves the care excerpt honouring Ion\u2019s temple carers and the family they have chosen.",
             requires: [
               {
                 kind: "flag",
@@ -18797,9 +18797,14 @@
                 kind: "holding",
                 item: "greek-book-iv-helen-account",
                 role: "actor"
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-book-iv-helen-ending"
               }
             ],
-            choiceId: "greek-book-iv-helen-finish-escape"
+            choiceId: "greek-book-iv-helen-finish-escape",
+            publicAccount: true
           },
           {
             id: "greek-book-iv-helen-finish-hearing-words",
@@ -18836,9 +18841,14 @@
                 kind: "holding",
                 item: "greek-book-iv-helen-account",
                 role: "actor"
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-book-iv-helen-ending"
               }
             ],
-            choiceId: "greek-book-iv-helen-finish-hearing"
+            choiceId: "greek-book-iv-helen-finish-hearing",
+            publicAccount: true
           },
           {
             id: "greek-book-iv-helen-finish-sanctuary-words",
@@ -18875,9 +18885,14 @@
                 kind: "holding",
                 item: "greek-book-iv-helen-account",
                 role: "actor"
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-book-iv-helen-ending"
               }
             ],
-            choiceId: "greek-book-iv-helen-finish-sanctuary"
+            choiceId: "greek-book-iv-helen-finish-sanctuary",
+            publicAccount: true
           },
           {
             id: "greek-book-iv-andromache-hear-mother-words",
@@ -19130,9 +19145,9 @@
                 value: "protection"
               },
               {
-                kind: "flag",
-                key: "greek-book-iv-andromache-delphic-heard",
-                value: true
+                kind: "knows",
+                topic: "greek-book-iv-andromache-delphic-report-words",
+                role: "actor"
               },
               {
                 kind: "flag",
@@ -19158,9 +19173,14 @@
                 kind: "holding",
                 item: "greek-book-iv-andromache-account",
                 role: "actor"
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-book-iv-andromache-ending"
               }
             ],
-            choiceId: "greek-book-iv-andromache-finish-protection"
+            choiceId: "greek-book-iv-andromache-finish-protection",
+            publicAccount: true
           },
           {
             id: "greek-book-iv-andromache-finish-departure-words",
@@ -19179,9 +19199,9 @@
                 value: "departure"
               },
               {
-                kind: "flag",
-                key: "greek-book-iv-andromache-delphic-heard",
-                value: true
+                kind: "knows",
+                topic: "greek-book-iv-andromache-delphic-report-words",
+                role: "actor"
               },
               {
                 kind: "flag",
@@ -19207,9 +19227,14 @@
                 kind: "holding",
                 item: "greek-book-iv-andromache-account",
                 role: "actor"
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-book-iv-andromache-ending"
               }
             ],
-            choiceId: "greek-book-iv-andromache-finish-departure"
+            choiceId: "greek-book-iv-andromache-finish-departure",
+            publicAccount: true
           },
           {
             id: "greek-book-iv-hippolytus-hear-phaedra-words",
@@ -19438,9 +19463,9 @@
                 place: "greek-troezen"
               },
               {
-                kind: "flag",
-                key: "greek-book-iv-hippolytus-delay-accepted",
-                value: true
+                kind: "knows",
+                topic: "greek-book-iv-hippolytus-theseus-delay-words",
+                role: "actor"
               },
               {
                 kind: "item_at",
@@ -19451,9 +19476,14 @@
                 kind: "holding",
                 item: "greek-book-iv-hippolytus-account",
                 role: "actor"
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-book-iv-hippolytus-ending"
               }
             ],
-            choiceId: "greek-book-iv-hippolytus-finish-hearing"
+            choiceId: "greek-book-iv-hippolytus-finish-hearing",
+            publicAccount: true
           },
           {
             id: "greek-book-iv-hippolytus-finish-source-words",
@@ -19477,9 +19507,9 @@
                 place: "greek-troezen"
               },
               {
-                kind: "flag",
-                key: "greek-book-iv-hippolytus-forgiven",
-                value: true
+                kind: "knows",
+                topic: "greek-book-iv-hippolytus-son-forgives-words",
+                role: "actor"
               },
               {
                 kind: "flag",
@@ -19495,9 +19525,14 @@
                 kind: "holding",
                 item: "greek-book-iv-hippolytus-account",
                 role: "actor"
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-book-iv-hippolytus-ending"
               }
             ],
-            choiceId: "greek-book-iv-hippolytus-finish-source"
+            choiceId: "greek-book-iv-hippolytus-finish-source",
+            publicAccount: true
           },
           {
             id: "greek-book-iv-medea-hear-nurse-words",
@@ -19794,9 +19829,9 @@
                 value: "departure"
               },
               {
-                kind: "flag",
-                key: "greek-book-iv-medea-sons-alive",
-                value: true
+                kind: "knows",
+                topic: "greek-book-iv-medea-living-sons-words",
+                role: "actor"
               },
               {
                 kind: "item_at",
@@ -19807,9 +19842,14 @@
                 kind: "holding",
                 item: "greek-book-iv-medea-account",
                 role: "actor"
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-book-iv-medea-ending"
               }
             ],
-            choiceId: "greek-book-iv-medea-finish-departure"
+            choiceId: "greek-book-iv-medea-finish-departure",
+            publicAccount: true
           },
           {
             id: "greek-book-iv-medea-finish-source-words",
@@ -19828,9 +19868,9 @@
                 value: "source"
               },
               {
-                kind: "flag",
-                key: "greek-book-iv-medea-sons-dead",
-                value: true
+                kind: "knows",
+                topic: "greek-book-iv-medea-children-deaths-words",
+                role: "actor"
               },
               {
                 kind: "flag",
@@ -19846,9 +19886,14 @@
                 kind: "holding",
                 item: "greek-book-iv-medea-account",
                 role: "actor"
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-book-iv-medea-ending"
               }
             ],
-            choiceId: "greek-book-iv-medea-finish-source"
+            choiceId: "greek-book-iv-medea-finish-source",
+            publicAccount: true
           },
           {
             id: "greek-book-iv-medea-finish-reckoning-words",
@@ -19867,9 +19912,9 @@
                 value: "reckoning"
               },
               {
-                kind: "flag",
-                key: "greek-book-iv-medea-guarded-sons",
-                value: true
+                kind: "knows",
+                topic: "greek-book-iv-medea-guarded-shelter-words",
+                role: "actor"
               },
               {
                 kind: "item_at",
@@ -19885,9 +19930,14 @@
                 kind: "holding",
                 item: "greek-book-iv-medea-account",
                 role: "actor"
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-book-iv-medea-ending"
               }
             ],
-            choiceId: "greek-book-iv-medea-finish-reckoning"
+            choiceId: "greek-book-iv-medea-finish-reckoning",
+            publicAccount: true
           },
           {
             id: "greek-book-iv-ion-hear-worker-words",
@@ -20098,7 +20148,7 @@
             id: "greek-book-iv-ion-public-consent-words",
             speaker: "greek-book-iv-ion-creusa",
             at: "greek-delphi",
-            text: "Creusa chooses to give the temple witnesses her maternal account and to name Apollo in that testimony.",
+            text: "Creusa authorises her maternal testimony before the temple witnesses and names Apollo as Ion\u2019s father.",
             requires: [
               {
                 kind: "flag",
@@ -20149,9 +20199,9 @@
                 value: "private"
               },
               {
-                kind: "flag",
-                key: "greek-book-iv-ion-private-consent",
-                value: true
+                kind: "knows",
+                topic: "greek-book-iv-ion-private-consent-words",
+                role: "actor"
               },
               {
                 kind: "item_at",
@@ -20167,15 +20217,20 @@
                 kind: "holding",
                 item: "greek-book-iv-ion-account",
                 role: "actor"
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-book-iv-ion-ending"
               }
             ],
-            choiceId: "greek-book-iv-ion-finish-private"
+            choiceId: "greek-book-iv-ion-finish-private",
+            publicAccount: true
           },
           {
             id: "greek-book-iv-ion-finish-public-words",
             speaker: "greek-book-iv-ion-creusa",
             at: "greek-delphi",
-            text: "Creusa gives the temple witnesses her maternal account and names Apollo as Ion\u2019s father.",
+            text: "Creusa approves the care excerpt honouring Ion\u2019s temple carers and the family they have chosen.",
             requires: [
               {
                 kind: "flag",
@@ -20188,9 +20243,9 @@
                 value: "public"
               },
               {
-                kind: "flag",
-                key: "greek-book-iv-ion-public-consent",
-                value: true
+                kind: "knows",
+                topic: "greek-book-iv-ion-public-consent-words",
+                role: "actor"
               },
               {
                 kind: "item_at",
@@ -20206,9 +20261,14 @@
                 kind: "holding",
                 item: "greek-book-iv-ion-account",
                 role: "actor"
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-book-iv-ion-ending"
               }
             ],
-            choiceId: "greek-book-iv-ion-finish-public"
+            choiceId: "greek-book-iv-ion-finish-public",
+            publicAccount: true
           },
           {
             id: "greek-book-iv-ion-finish-temple-words",
@@ -20227,9 +20287,9 @@
                 value: "temple"
               },
               {
-                kind: "flag",
-                key: "greek-book-iv-ion-temple-consent",
-                value: true
+                kind: "knows",
+                topic: "greek-book-iv-ion-temple-consent-words",
+                role: "actor"
               },
               {
                 kind: "item_at",
@@ -20245,9 +20305,14 @@
                 kind: "holding",
                 item: "greek-book-iv-ion-account",
                 role: "actor"
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-book-iv-ion-ending"
               }
             ],
-            choiceId: "greek-book-iv-ion-finish-temple"
+            choiceId: "greek-book-iv-ion-finish-temple",
+            publicAccount: true
           }
         ],
         bridge: {
@@ -23782,8 +23847,20 @@
     const topicIds = /* @__PURE__ */ new Set();
     for (const topic of pack.topics || []) {
       check(
-        keysOk2(topic, ["id", "speaker", "at", "text", "requires", "choiceId"]) && idOk2(topic.id) && !topicIds.has(topic.id) && owns2(avatars, topic.speaker) && owns2(places2, topic.at) && validFactText(topic.text) && (topic.choiceId === void 0 || choiceIds.has(topic.choiceId)),
+        keysOk2(topic, [
+          "id",
+          "speaker",
+          "at",
+          "text",
+          "requires",
+          "choiceId",
+          "publicAccount"
+        ]) && idOk2(topic.id) && !topicIds.has(topic.id) && owns2(avatars, topic.speaker) && owns2(places2, topic.at) && validFactText(topic.text) && (topic.choiceId === void 0 || choiceIds.has(topic.choiceId)),
         `topic ${topic.id} needs a unique id, speaker, place, sentence and valid choice`
+      );
+      check(
+        topic.publicAccount === void 0 || typeof topic.publicAccount === "boolean" && topic.choiceId !== void 0,
+        `topic ${topic.id} public account needs a linked choice`
       );
       topicIds.add(topic.id);
       requirements(topic.requires, `topic ${topic.id} requires`);
@@ -29545,7 +29622,7 @@
       if (expressionOf(people[speaker]) !== "speech") continue;
       const choices = packChoices(s, listener);
       const topics = authoredKnowledgeTopics().filter(
-        (topic) => conditionsMet(s, topic.packId, topic.requires || [], listener)
+        (topic) => topic.publicAccount === true && topic.choiceId !== void 0 && Object.hasOwn(s.packs[topic.packId]?.receipts || {}, topic.choiceId) || conditionsMet(s, topic.packId, topic.requires || [], listener)
       ).map((topic) => ({
         ...topic,
         choiceReady: choices.some(

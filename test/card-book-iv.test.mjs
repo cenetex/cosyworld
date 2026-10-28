@@ -9,13 +9,17 @@ import {
   legalActions,
 } from "../v2/card-game/world.mjs";
 import {
+  hub,
+  packDefinitions,
   packDefinition,
   entityActive,
 } from "../v2/card-game/pack-registry.mjs";
+import { packProblems } from "../v2/card-game/pack-schema.mjs";
 import { recitalPoem } from "../v2/card-game/pack-recital.mjs";
 import {
   andromacheJourney,
   hippolytusJourney,
+  hippolytusPrepared,
   medeaJourney,
   helenEnding,
   ionEnding,
@@ -272,6 +276,9 @@ describe("Book IV saved evidence and audiences", () => {
       expect(action, JSON.stringify({ actor, kind, fields })).toBeTruthy();
       return request("play", actor, { action });
     };
+    const originalReceipt =
+      world.packs["greek-drama"].receipts[id("finish-hearing")];
+    act("vale", "take", { item: "greek-egypt-testimony" });
     act("vale", "give", { item: id("account"), target: "mara" });
     expect(knowsFact(world, "mara", id("finish-hearing-words"))).toBe(false);
     const { context } = act("mara", "talk", { target: id("theoclymenus") });
@@ -306,6 +313,147 @@ describe("Book IV saved evidence and audiences", () => {
     }
     act("mara", "choose", { choiceId: id("return-hearing") });
     expect(world.items[id("account")].holder).toBe("greek-courtyard");
+    expect(world.packs["greek-drama"].receipts[id("finish-hearing")]).toBe(
+      originalReceipt,
+    );
     expect(decodeSave(encodeSave(world))).toEqual(world);
+  });
+});
+
+function sharedScene(original, place) {
+  let world = dispatchShared({
+    op: "create",
+    save: encodeSave(original),
+  }).world;
+  world.actors.mara.place = place;
+  const claimed = ["vale", "mara"];
+  const request = (op, actor, fields = {}) => {
+    const r = dispatchShared({
+      op,
+      world,
+      actor,
+      claimed,
+      present: claimed,
+      ...fields,
+    });
+    expect(r.ok, r.error).toBe(true);
+    world = r.world;
+    return r;
+  };
+  const act = (actor, kind, fields = {}) => {
+    const a = request("view", actor).actions.find(
+      (a) =>
+        a.kind === kind && Object.entries(fields).every(([k, v]) => a[k] === v),
+    );
+    expect(a, JSON.stringify({ actor, kind, fields })).toBeTruthy();
+    return request("play", actor, { action: a });
+  };
+  const hear = (speaker, topic) => {
+    const { context } = act("mara", "talk", { target: speaker });
+    expect(context.disclosures[0].factId).toBe(topic);
+    return request("speech", "mara", {
+      room: world.actors.mara.place,
+      disclosures: context.disclosures,
+      lines: [
+        { actorId: "mara", text: "Please tell me your account." },
+        { actorId: speaker, text: context.disclosures[0].text },
+      ],
+    });
+  };
+  return {
+    get world() {
+      return world;
+    },
+    act,
+    hear,
+  };
+}
+describe("authorised public accounts", () => {
+  it("keeps the first report gated before its own committed receipt", () => {
+    const id = (s) => ivId("helen", s);
+    let world = helenPrepared("hearing");
+    world = ivTalk(world, "greek-helen-egypt", id("public-consent-words"));
+    world = ivChoose(ivMove(world, id("court")), "helen", "place-hearing");
+    world = ivPlay(world, "take", { item: "greek-egypt-testimony" });
+    const action = legalActions(world).find(
+      (a) => a.kind === "talk" && a.target === id("theoclymenus"),
+    );
+    world = ivPlay(world, "talk", { target: id("theoclymenus") });
+    expect(
+      narrativeContext(world, action).disclosures?.some(
+        (d) => d.factId === id("finish-hearing-words"),
+      ),
+    ).toBeFalsy();
+    expect(
+      world.packs["greek-drama"].receipts[id("finish-hearing")],
+    ).toBeUndefined();
+    expect(knowsFact(world, "vale", id("finish-hearing-words"))).toBe(false);
+  });
+  it("keeps Theonoe’s completed clue behind its actual appeal", () => {
+    const id = (s) => ivId("helen", s),
+      scene = sharedScene(helenPrepared("hearing"), id("court"));
+    const receipt =
+      scene.world.packs["greek-drama"].receipts[id("hear-theonoe")];
+    const { context } = scene.act("mara", "talk", { target: id("theonoe") });
+    expect(
+      context.disclosures?.some((d) => d.factId === id("hear-theonoe-words")),
+    ).toBeFalsy();
+    scene.act("mara", "take", { item: id("appeal") });
+    scene.hear(id("theonoe"), id("hear-theonoe-words"));
+    expect(scene.world.packs["greek-drama"].receipts[id("hear-theonoe")]).toBe(
+      receipt,
+    );
+  });
+  it("keeps the nurse’s completed witness behind the reader’s oath knowledge and paper", () => {
+    const id = (s) => ivId("hippolytus", s),
+      scene = sharedScene(hippolytusPrepared(), id("sickroom"));
+    const receipt =
+      scene.world.packs["greek-drama"].receipts[id("nurse-witness")];
+    scene.hear(id("nurse"), id("hear-nurse-words"));
+    scene.hear(id("nurse"), id("phaedra-death-words"));
+    scene.act("mara", "move", { target: "greek-troezen" });
+    scene.act("mara", "take", { item: id("accusation") });
+    scene.hear(id("hippolytus"), id("hear-oath-words"));
+    scene.act("mara", "move", { target: id("sickroom") });
+    const { context } = scene.act("mara", "talk", { target: id("nurse") });
+    expect(
+      context.disclosures?.some((d) => d.factId === id("nurse-witness-words")),
+    ).toBeFalsy();
+    scene.act("mara", "move", { target: "greek-troezen" });
+    scene.act("mara", "take", { item: id("account") });
+    scene.act("mara", "move", { target: id("sickroom") });
+    scene.hear(id("nurse"), id("nurse-witness-words"));
+    expect(scene.world.packs["greek-drama"].receipts[id("nurse-witness")]).toBe(
+      receipt,
+    );
+  });
+  it("marks only the thirteen signed results and checks their linked choice", () => {
+    const lasting = pack.topics.filter((t) => t.publicAccount);
+    expect(lasting).toHaveLength(13);
+    expect(
+      lasting.every(
+        (t) =>
+          t.choiceId?.startsWith("greek-book-iv-") &&
+          t.choiceId.includes("-finish-"),
+      ),
+    ).toBe(true);
+    for (const topic of lasting.filter((t) => t.id.startsWith(ivId("ion", ""))))
+      expect(topic.text).not.toMatch(/Apollo|father|mother/);
+    for (const change of [
+      (t) => (t.publicAccount = "yes"),
+      (t) => delete t.choiceId,
+      (t) => (t.choiceId = "unknown-owned-report"),
+    ]) {
+      const invalid = structuredClone(pack),
+        topic = invalid.topics.find((t) => t.publicAccount);
+      change(topic);
+      expect(
+        packProblems(
+          invalid,
+          hub,
+          packDefinitions.flatMap((p) => Object.keys(p.places)),
+        ).length,
+      ).toBeGreaterThan(0);
+    }
   });
 });

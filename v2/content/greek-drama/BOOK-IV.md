@@ -10,6 +10,11 @@ batch. The new source adds 23 actors, 30 items, 12 places, 112 choices,
 64 spoken topics, 20 story cards and 36 stanza definitions. Each played
 route earns four couplets. Each outcome has its own signed return action.
 The 56 earlier stanza definitions retain their wording and order.
+The thirteen final signed topics use `publicAccount: true`. Their full
+conditions govern the first report. The dated report then stays readable
+as earlier evidence moves. A later carrier learns its words through their
+own published hearing. Theonoe’s appeal and the nurse’s witness keep their
+own clue and custody conditions.
 
 ## Helen
 
