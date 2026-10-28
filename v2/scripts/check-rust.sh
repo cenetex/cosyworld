@@ -4,8 +4,9 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEFAULT_TIMEOUT_SECS=120
 if [ "${CI:-}" = "true" ]; then
-  # Bound compilation and the full replay suite separately in CI.
-  DEFAULT_TIMEOUT_SECS=600
+  # The combined pack and released-history replay suite needs its full run.
+  # Compilation and tests each keep a separate bounded budget.
+  DEFAULT_TIMEOUT_SECS=1200
 fi
 TIMEOUT_SECS="${COSYWORLD_CARGO_TIMEOUT_SECS:-$DEFAULT_TIMEOUT_SECS}"
 
