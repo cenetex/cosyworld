@@ -3,7 +3,8 @@ import { mkdir } from "node:fs/promises";
 import { chromium, webkit } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
-import { selectCard } from "./card-browser-helpers.mjs";
+import { knowsFact } from "../card-game/knowledge.mjs";
+import { selectCard, topicForChoice } from "./card-browser-helpers.mjs";
 
 const browserName = process.env.CARD_BROWSER || "chromium";
 const browserType = { chromium, webkit }[browserName];
@@ -104,7 +105,9 @@ try {
           model: "actions-fixture",
           entries: c.entities.map(({ id }) => ({
             id,
-            text: "Let us consider this.",
+            text:
+              c.disclosures?.find((fact) => fact.speaker === id)?.text ||
+              "Let us consider this.",
           })),
         }),
       });
@@ -385,13 +388,15 @@ try {
     story.crossings["pond-greek-harbor"].discovered = true;
     await load(story);
     await selectCard(page, "greek-guard");
-    assert((await labels()).includes("Hear the burial order"));
+    assert((await labels()).includes("Talk"));
     await shot("story");
-    await page
-      .getByRole("button", { name: "Hear the burial order", exact: true })
-      .click();
+    await page.getByRole("button", { name: "Talk", exact: true }).click();
     await ready();
     assert.equal((await state()).turn, 1);
+    assert(
+      knowsFact(await state(), "vale", topicForChoice("greek-hear-decree").id),
+      "Talk teaches the listener the guard's decree",
+    );
     assert.deepEqual(errors, []);
     console.log(
       `Actions, item stacks, trade, standoff, story choices and keyboard passed in ${browserName} at ${width}px.`,
