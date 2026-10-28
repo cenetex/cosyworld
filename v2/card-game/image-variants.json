@@ -77,6 +77,27 @@
       "card": "assets/optimized/card/webp/greek-drama/athens-grand-agora.webp",
       "cardHash": "e394df641dc2c1ec34229184aefe7d2c4794d39c098d63e81343b29855b3c0de"
     },
+    "assets/greek-drama/athens-harbor-open-berth-night.webp": {
+      "sourceHash": "7611dbc03f4be404d80ca9811ffef114ad654a80390ee20f902740c468587edb",
+      "stage": "assets/greek-drama/athens-harbor-open-berth-night.webp",
+      "stageHash": "7611dbc03f4be404d80ca9811ffef114ad654a80390ee20f902740c468587edb",
+      "card": "assets/optimized/card/webp/greek-drama/athens-harbor-open-berth-night.webp",
+      "cardHash": "49c1d7e195cc07f836c946371e555e667a7b84c4cf43470dceaee87beb965cec"
+    },
+    "assets/greek-drama/athens-harbor-open-berth.webp": {
+      "sourceHash": "3f69dfebaeb78d4e581e2383ed51172799d2a83ab3a91b9441fd76997468f9be",
+      "stage": "assets/greek-drama/athens-harbor-open-berth.webp",
+      "stageHash": "3f69dfebaeb78d4e581e2383ed51172799d2a83ab3a91b9441fd76997468f9be",
+      "card": "assets/optimized/card/webp/greek-drama/athens-harbor-open-berth.webp",
+      "cardHash": "542737cc3966648885165a274c8dbb6e7a175b4db6beaea59a0ac76bb5872ef2"
+    },
+    "assets/greek-drama/athens-harbor-ship-at-berth-night.webp": {
+      "sourceHash": "1f83c1bfaf7ec4bcf4b918ccafd2be3564bfb045869b93d524276fb5fdcddf4a",
+      "stage": "assets/greek-drama/athens-harbor-ship-at-berth-night.webp",
+      "stageHash": "1f83c1bfaf7ec4bcf4b918ccafd2be3564bfb045869b93d524276fb5fdcddf4a",
+      "card": "assets/optimized/card/webp/greek-drama/athens-harbor-ship-at-berth-night.webp",
+      "cardHash": "55c709e3d81d5d757e8bd082d062316eac41312c44c1b4b88bb116b683b19322"
+    },
     "assets/greek-drama/athens-harbor.webp": {
       "sourceHash": "339386bf42192929b742bb5a2e3ee2e48d9324512bcbdc7cc3aadef58825eb33",
       "stage": "assets/greek-drama/athens-harbor.webp",
@@ -434,6 +455,27 @@
       "card": "assets/optimized/card/webp/greek-drama/palace-night.webp",
       "cardHash": "60e9a23e399c7fc1ce8ae2802ea3050162bff993dfc3318809700ad5287aa1b7"
     },
+    "assets/greek-drama/piraeus-open-berth-night.webp": {
+      "sourceHash": "83b716069bc66d5bbdf3af6b733bae21461e83cc9851c42c90da5f81dbdeda3b",
+      "stage": "assets/greek-drama/piraeus-open-berth-night.webp",
+      "stageHash": "83b716069bc66d5bbdf3af6b733bae21461e83cc9851c42c90da5f81dbdeda3b",
+      "card": "assets/optimized/card/webp/greek-drama/piraeus-open-berth-night.webp",
+      "cardHash": "0c53b21bf8ec12dce189bbceb2537776c3f333ca583ce354c85ea7ab11ffe530"
+    },
+    "assets/greek-drama/piraeus-open-berth.webp": {
+      "sourceHash": "1b1a3763e0d6639b08d46b62793c34ea607ecec88a807162e2581bba9d58dc42",
+      "stage": "assets/greek-drama/piraeus-open-berth.webp",
+      "stageHash": "1b1a3763e0d6639b08d46b62793c34ea607ecec88a807162e2581bba9d58dc42",
+      "card": "assets/optimized/card/webp/greek-drama/piraeus-open-berth.webp",
+      "cardHash": "fcf099552f9f408651ba717f7d12ae4d13370409a3d75ad368d49391fac90f80"
+    },
+    "assets/greek-drama/piraeus-ship-at-berth-night.webp": {
+      "sourceHash": "c16f95e9f733116df4537aabf7203af492898146191aaeaee575e5265d47dce8",
+      "stage": "assets/greek-drama/piraeus-ship-at-berth-night.webp",
+      "stageHash": "c16f95e9f733116df4537aabf7203af492898146191aaeaee575e5265d47dce8",
+      "card": "assets/optimized/card/webp/greek-drama/piraeus-ship-at-berth-night.webp",
+      "cardHash": "8028afbc367a0618982ec3ba1315e5ccb629d5d2549225a4c963f1f3aff24a67"
+    },
     "assets/greek-drama/pond-ship-overlay.png": {
       "sourceHash": "dde8685c9d694b49e81aac2cdf76415db9390224b5e35c624e15b5d89c170b55",
       "stage": "assets/optimized/stage/png/greek-drama/pond-ship-overlay.webp",
@@ -489,6 +531,20 @@
       "stageHash": "86db585e2935be7dcf89d69059573ead26efd99ec27c8cae8124d38eb3ae0a81",
       "card": "assets/optimized/card/png/greek-drama/testimony.webp",
       "cardHash": "c23a356ee78830cd35c1b9eefb5ef3aa05ff2cd5e5a2654a928153a19dd30d1c"
+    },
+    "assets/greek-drama/theban-harbor-road-night.webp": {
+      "sourceHash": "9aeaa198d0aabf002a349a7b6c47732080034bc000e694c8729ef84c07f27018",
+      "stage": "assets/greek-drama/theban-harbor-road-night.webp",
+      "stageHash": "9aeaa198d0aabf002a349a7b6c47732080034bc000e694c8729ef84c07f27018",
+      "card": "assets/optimized/card/webp/greek-drama/theban-harbor-road-night.webp",
+      "cardHash": "db53f9f76b79164ecaa397af9593f1111c22e446cca0f7d5e970a1c1b5166c7e"
+    },
+    "assets/greek-drama/theban-harbor-road.webp": {
+      "sourceHash": "02f068c0f388054541c0e74ee2235836e205742cd0941c5dfdbf22f608f1478f",
+      "stage": "assets/greek-drama/theban-harbor-road.webp",
+      "stageHash": "02f068c0f388054541c0e74ee2235836e205742cd0941c5dfdbf22f608f1478f",
+      "card": "assets/optimized/card/webp/greek-drama/theban-harbor-road.webp",
+      "cardHash": "1a403fc53f855415fe35981a8033137a8ebc7f154a923a0380bc60ffbce81b91"
     },
     "assets/greek-drama/water-jar.png": {
       "sourceHash": "6d52ae719a61b32c8e6815caa49595b1d6469ddc58bba82f7df614eac1ab9061",

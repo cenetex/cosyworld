@@ -574,18 +574,20 @@ server. The served page receives the matching wait budget. Operators can set
 
 ## Painted Greece
 
-The seven Theban places share day and night. Each light setting lasts twenty-four
-accepted world turns. Each place has its own night painting. The harbor has a
-matching night painting for its open berth and for the ship at the berth. The
-saved ship dock selects the painting. The other harbors keep their day art.
+The seven Theban places, the Theban Harbor Road, Athens Harbor and Piraeus Quays
+share day and night. Each light setting lasts twenty-four accepted world turns.
+Each place has its own night painting. All three harbors have matching day and
+night views for the ship at the berth and the open berth. The saved ship dock
+selects the painting. The Theban Harbor Road has its own coast and town painting
+in both light settings. Its approach cards use the same light as the road scene.
 
 Greek weather follows one cycle per region. Each period lasts twelve accepted
 world turns. Clear skies, cloud, rain, and mist appear in the scene and on place
 cards. Coasts, courtyards, open ground, groves, and shelters each have their own
 view of the regional weather. The Underworld has low mist above its water.
 The shared game, local saves, dialogue facts, and scene exports all read the same
-turn. Reloading keeps the current weather. Shared rules version 14 adds weather
-views and preserves each earlier rule bundle for journal replay.
+turn. Reloading keeps the current weather. Shared rules version 18 adds the
+harbor and road views. Each earlier rule bundle keeps its contents for replay.
 
 New Greek games expose the harbor and six Theban places, each with a distinct
 painting. The Open Door adds five paintings and eight resident portraits.
