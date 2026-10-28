@@ -49,6 +49,38 @@ if (process.argv.includes("--real-models")) {
   console.log(
     `Real local dialogue: ${words.entries.length} entries in ${((performance.now() - started) / 1000).toFixed(1)}s.`,
   );
+  const { courtJourney, readingPlay, FROGS } = await import(
+    "../../test/helpers/greek-readings.mjs"
+  );
+  let readingWorld = courtJourney();
+  readingWorld = readingPlay(readingWorld, "read", {
+    readingOp: "start",
+    siteId: FROGS + "-court",
+  });
+  readingWorld = readingPlay(readingWorld, "read", {
+    readingOp: "page",
+    readingId: `site:${FROGS}-court:vale`,
+  });
+  const heardContext = narrativeContext(readingWorld);
+  assert.equal(
+    heardContext.entities.find((entity) => entity.id === "greek-viii-aeschylus")
+      .poem.stanzas.length,
+    4,
+  );
+  const heardStarted = performance.now();
+  const heardResponse = await fetch(`${origin}/card-game/text`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(heardContext),
+    signal: AbortSignal.timeout(250000),
+  });
+  assert.equal(heardResponse.status, 200);
+  const heardWords = await heardResponse.json();
+  assert(heardWords.entries.length > 0);
+  applyGeneratedText(readingWorld, heardContext, heardWords);
+  console.log(
+    `Real local reading: four stanzas, ${heardWords.entries.length} entries in ${((performance.now() - heardStarted) / 1000).toFixed(1)}s.`,
+  );
   const voice = await fetch(`${origin}/card-game/local/speech`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
