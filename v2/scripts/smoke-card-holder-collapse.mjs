@@ -77,6 +77,18 @@ try {
         assert.equal(await card("vale").getAttribute("aria-expanded"), "false");
         assert.equal(await frame("cloth").getAttribute("hidden"), "");
         await card("vale").scrollIntoViewIfNeeded();
+        await page.locator("#hand").evaluate(async (hand) => {
+          await Promise.allSettled(
+            hand
+              .getAnimations({ subtree: true })
+              .filter((animation) =>
+                Number.isFinite(animation.effect?.getComputedTiming().endTime),
+              )
+              .map((animation) => animation.finished),
+          );
+          await new Promise(requestAnimationFrame);
+          await new Promise(requestAnimationFrame);
+        });
         // Inspect the painted preview stack, including overlap and front-to-back order.
         const stack = await frame("vale").evaluate((frame) => {
           const card = frame.querySelector(".card"),
