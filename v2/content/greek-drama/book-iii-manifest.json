@@ -5,7 +5,7 @@
   "rules": 21,
   "packId": "greek-drama",
   "targetRevision": 8,
-  "status": "book-three-source-in-progress",
+  "status": "six-source-chapters-focused-validation",
   "baseline": {
     "source": "d0eed59f437f05467839f287d93c867f9da9d2d7",
     "rules": 21,
@@ -253,26 +253,25 @@
   ],
   "actualGreekCatalog": {
     "revision": 8,
-    "actors": 44,
-    "items": 44,
-    "places": 70,
-    "choices": 230,
-    "stories": 37,
-    "topics": 43,
+    "actors": 49,
+    "items": 53,
+    "places": 75,
+    "choices": 274,
+    "stories": 45,
+    "topics": 57,
     "works": 44,
-    "verses": 83
+    "verses": 97
   },
   "implementedWorks": [
     "euripides-iphigenia-at-aulis",
     "sophocles-philoctetes",
     "euripides-rhesus",
-    "euripides-trojan-women"
-  ],
-  "remainingWorks": [
+    "euripides-trojan-women",
     "euripides-hecuba",
     "aeschylus-persians"
   ],
-  "prototypeArt": "Approved Book III cast from ae1b181c; Aulis bindings use the painted Iphigenia, Clytemnestra and Achilles.",
+  "remainingWorks": [],
+  "prototypeArt": "All fifteen approved portraits are bound to the sixteen Book III roles with their native facing directions.",
   "crossBookContracts": {
     "trojanFamily": {
       "status": "implemented: actual adult carriers, mother’s care, completed disembarkation and Myrto’s published record",
@@ -323,9 +322,13 @@
     "nativeSeconds": 67.35,
     "rhesusFocusedTests": 3,
     "rhesusCastWeatherDaylightTests": 26,
-    "trojanFocusedTests": 5
+    "trojanFocusedTests": 5,
+    "hecubaFocusedTests": 4,
+    "persiansFocusedTests": 4
   },
   "visualFollowup": [
-    "Lemnos day and night paintings are bound; the final rendered check and optimized image batch are queued."
+    "Lemnos day and night paintings are bound; the final rendered check and optimized image batch are queued.",
+    "Thrace and Susa use existing scenery during source validation. Their final art and desktop/phone journeys are queued.",
+    "Hector’s distinct shield, the broken Salamis oar and the returning king’s cloak need their final item artwork."
   ]
 }

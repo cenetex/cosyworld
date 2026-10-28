@@ -33,7 +33,7 @@ These are design counts. They describe the named IDs below. A source change shou
 
 All new place definitions receive one saved place memory. People mentioned by witnesses stay attributed source voices. Their names add zero actor records. Offstage children receive explicit care, custody, and fate facts. They retain personhood in the prose. Their status is recorded through their carers and place facts.
 
-Reserve 40 new verse definitions: Aulis 8, Philoctetes 6, Rhesus 6, Trojan Women 7, Hecuba 7, Persians 6. This gives 96 Greek verses. Three physical beats and a return receipt give four story cards per chapter, for 45 total story quests. Keep all 56 existing verse texts and receipts. Rules 21 supplies the chapter capacity. The four account-group limit stays fixed.
+The six source chapters add 41 verse definitions: Aulis 8, Philoctetes 6, Rhesus 6, Trojan Women 7, Hecuba 8, Persians 6. This gives 97 Greek verses. Hecuba has a separate burial and return pair for each chosen ending. Three physical beats and a return receipt give four story cards per chapter, for 45 total story quests. All 56 existing verse texts and receipts stay exact. Rules 21 supplies the chapter capacity. The four account-group limit stays fixed.
 
 ## Accounts, people, and travel
 
@@ -157,6 +157,12 @@ Work `euripides-hecuba`; existing `greek-thrace`.
 
 **New places:** `greek-thrace-summons-tent`, `greek-thrace-burial-ground`. **New items:** `greek-thrace-polyxena-cloth`, `greek-thrace-polydorus-shroud`, `greek-thrace-entrusted-gold`, `greek-thrace-gold-record`, `greek-thrace-case-papers`.
 
+The source chapter uses the actual shared ship at the Thracian Shore. Hecuba
+holds her case papers through her agreed local journey and both burials. She
+signs them at the burial ground. A carrier then takes the actual papers, hears
+her selected account and brings it to Dione. The hearing ending requires the
+actual gold in Hecuba’s hand; the burial ending leaves the wealth with the king.
+
 Three physical beats:
 
 1. Hear Polyxena's own farewell and prepare her cloth. Record the source sacrifice and her expressed wishes.
@@ -174,6 +180,13 @@ Work `aeschylus-persians`; existing `greek-susa`.
 **Actual table cast:** `greek-susa-atossa`, `greek-susa-xerxes`. **Attributed voices:** the messenger, Darius's ghost, the elders' chorus, and named bereaved households. These last household voices are authored additions. Label this historical Salamis account at entry and in its carried record.
 
 **New places:** `greek-susa-tomb`, `greek-susa-threshold`, `greek-susa-road`. **New items:** `greek-susa-broken-oar`, `greek-susa-dead-names`, `greek-susa-offering-water`, `greek-susa-cloak`. The fixed road replaces the long town-to-court approach; the tomb and threshold use direct local paths.
+
+The implemented road has fixed ends at the Trojan Walls and Susa. Xerxes
+agrees at his threshold, holds the actual cloak through the audience record,
+and reaches court through Accompany. The private welcome also requires
+Atossa’s actual journey from the tomb. The messenger’s roll names Artembares,
+Dadaces and Tenagon in the [primary text](https://classics.mit.edu/Aeschylus/persians.html).
+Each ending returns that actual roll to Dione with four earned stanzas.
 
 Three physical beats:
 

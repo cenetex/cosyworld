@@ -174,6 +174,28 @@
         "cardName": "Greek ship",
         "cardArt": "assets/greek-drama/ship-card.webp"
       }
+    },
+    {
+      "id": "greek-thrace-ship",
+      "from": "greek-thrace",
+      "to": "pond",
+      "travelers": "any",
+      "travel": "aboard the ship",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-thrace-open",
+          "value": true
+        }
+      ],
+      "transport": "greek-ship",
+      "travelLabel": "Board",
+      "scenery": {
+        "open": "The shared ship waits at the Thracian shore.",
+        "closed": "The landing waits beside open water.",
+        "cardName": "Greek ship",
+        "cardArt": "assets/greek-drama/ship-card.webp"
+      }
     }
   ],
   "transports": {
@@ -186,7 +208,8 @@
         "greek-piraeus",
         "greek-ajax-landing",
         "greek-aulis",
-        "greek-lemnos-landing"
+        "greek-lemnos-landing",
+        "greek-thrace"
       ],
       "at": "greek-harbor"
     }

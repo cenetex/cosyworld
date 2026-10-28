@@ -13,12 +13,19 @@
     "groups": [
       {
         "key": "greek-helen-account",
-        "options": ["egypt", "troy"],
+        "options": [
+          "egypt",
+          "troy"
+        ],
         "initial": "uncommitted"
       },
       {
         "key": "greek-atreid-account",
-        "options": ["aeschylus", "sophocles", "euripides"],
+        "options": [
+          "aeschylus",
+          "sophocles",
+          "euripides"
+        ],
         "initial": "uncommitted"
       }
     ]
@@ -32,13 +39,17 @@
       "Aristophanes": 11
     },
     "opening": "Before the Burial",
-    "status": "13 plays have authored scenes. The other 31 works have situated hooks for later sections."
+    "status": "15 plays have authored scenes. The other 29 works have situated hooks for later sections."
   },
   "places": {
     "greek-harbor": {
       "name": "The Wine-Dark Harbor",
       "text": "Worn steps climb from the stone landing toward the town.",
-      "exits": ["greek-courtyard", "greek-road-thebes", "greek-argolid-road"],
+      "exits": [
+        "greek-courtyard",
+        "greek-road-thebes",
+        "greek-argolid-road"
+      ],
       "backdrop": "assets/greek-drama/harbor-open-berth.webp",
       "persona": "Worn steps climb from the stone landing toward the town."
     },
@@ -58,49 +69,69 @@
     "greek-well": {
       "name": "Theban Market Well",
       "text": "Water jars stand beside the well. Neighbors lower their voices when palace servants pass.",
-      "exits": ["greek-courtyard", "greek-palace", "greek-gate"],
+      "exits": [
+        "greek-courtyard",
+        "greek-palace",
+        "greek-gate"
+      ],
       "backdrop": "assets/greek-drama/market-well-day.webp",
       "persona": "Water jars stand beside the well. Neighbors lower their voices when palace servants pass."
     },
     "greek-palace": {
       "name": "Theban Palace Forecourt",
       "text": "The king receives petitions beneath a painted portico. A space beside the door is kept for public orders.",
-      "exits": ["greek-well"],
+      "exits": [
+        "greek-well"
+      ],
       "backdrop": "assets/greek-drama/palace-day.webp",
       "persona": "The king receives petitions beneath a painted portico. A space beside the door is kept for public orders."
     },
     "greek-gate": {
       "name": "Theban City Gate",
       "text": "Fresh repairs cover the gate. A guard keeps the road to the fallen soldiers clear.",
-      "exits": ["greek-courtyard", "greek-well", "greek-battlefield"],
+      "exits": [
+        "greek-courtyard",
+        "greek-well",
+        "greek-battlefield"
+      ],
       "backdrop": "assets/greek-drama/city-gate-day.webp",
       "persona": "Fresh repairs cover the gate. A guard keeps the road to the fallen soldiers clear."
     },
     "greek-battlefield": {
       "name": "The Exposed Battlefield",
       "text": "Broken spear shafts lie in the dust. A strip of earth outside the city is set apart for the fallen brother.",
-      "exits": ["greek-gate"],
+      "exits": [
+        "greek-gate"
+      ],
       "backdrop": "assets/greek-drama/burial-ground-dusk.webp",
       "persona": "Broken spear shafts lie in the dust. A strip of earth outside the city is set apart for the fallen brother."
     },
     "greek-sanctuary": {
       "name": "The Hillside Sanctuary",
       "text": "Olive trees shade a small altar. A stone basin stands beneath its roof.",
-      "exits": ["greek-courtyard", "greek-cithaeron"],
+      "exits": [
+        "greek-courtyard",
+        "greek-cithaeron"
+      ],
       "backdrop": "assets/greek-drama/sanctuary-dawn.webp",
       "persona": "Olive trees shade a small altar. A stone basin stands beneath its roof."
     },
     "greek-cithaeron": {
       "name": "Cithaeron Slopes",
       "text": "Goat paths cross the wooded slope. A distant drum carries between the trees.",
-      "exits": ["greek-sanctuary"],
+      "exits": [
+        "greek-sanctuary"
+      ],
       "backdrop": "assets/greek-drama/grove.svg",
       "persona": "Goat paths cross the wooded slope. A distant drum carries between the trees."
     },
     "greek-aulis": {
       "name": "Aulis Anchorage",
       "text": "The fleet waits beside a still shore. Achilles receives the remembered letters beneath the command awning.",
-      "exits": ["greek-aulis-household", "greek-aulis-altar"],
+      "exits": [
+        "greek-aulis-household",
+        "greek-aulis-altar"
+      ],
       "backdrop": "assets/greek-drama/ajax-camp-day.webp",
       "persona": "This is the remembered Aulis departure before the Trojan war. Its speakers keep their roles in that remembered scene. The chosen ending records Iphigenia’s fate in this account. A later visit hears their remembered words. The Theban opening, Ajax’s completed deeds, Helen’s chosen account and the chosen Atreid author keep their own times. The anchorage, household and altar are local paths. The shared ship calls at this shore."
     },
@@ -141,42 +172,54 @@
     "greek-assembly": {
       "name": "The Assembly Hill",
       "text": "Stone benches face the speaker's platform. Citizens gather beside a list of proposals.",
-      "exits": ["greek-athens"],
+      "exits": [
+        "greek-athens"
+      ],
       "backdrop": "assets/greek-drama/palace.svg",
       "persona": "Stone benches face the speaker's platform. Citizens gather beside a list of proposals."
     },
     "greek-acropolis": {
       "name": "Acropolis Treasury",
       "text": "A barred door separates the treasury from the courtyard. Women keep watch on the steps.",
-      "exits": ["greek-athens"],
+      "exits": [
+        "greek-athens"
+      ],
       "backdrop": "assets/greek-drama/palace.svg",
       "persona": "A barred door separates the treasury from the courtyard. Women keep watch on the steps."
     },
     "greek-demos-house": {
       "name": "House of Demos",
       "text": "Serving dishes crowd a kitchen table. Two servants quarrel over who will carry dinner inside.",
-      "exits": ["greek-athens"],
+      "exits": [
+        "greek-athens"
+      ],
       "backdrop": "assets/greek-drama/courtyard.svg",
       "persona": "Serving dishes crowd a kitchen table. Two servants quarrel over who will carry dinner inside."
     },
     "greek-thinkery": {
       "name": "The Thinkery",
       "text": "Writing tablets lie beside a narrow bed. A student practices both sides of an argument.",
-      "exits": ["greek-athens"],
+      "exits": [
+        "greek-athens"
+      ],
       "backdrop": "assets/greek-drama/courtyard.svg",
       "persona": "Writing tablets lie beside a narrow bed. A student practices both sides of an argument."
     },
     "greek-jury-house": {
       "name": "The Juror's House",
       "text": "A jury token hangs beside the door. The household has arranged a small court in the yard.",
-      "exits": ["greek-athens"],
+      "exits": [
+        "greek-athens"
+      ],
       "backdrop": "assets/greek-drama/courtyard.svg",
       "persona": "A jury token hangs beside the door. The household has arranged a small court in the yard."
     },
     "greek-festival": {
       "name": "The Women's Festival",
       "text": "Garlands mark the sanctuary entrance. The women at the door check each arriving guest.",
-      "exits": ["greek-athens"],
+      "exits": [
+        "greek-athens"
+      ],
       "backdrop": "assets/greek-drama/grove.svg",
       "persona": "Garlands mark the sanctuary entrance. The women at the door check each arriving guest."
     },
@@ -195,7 +238,9 @@
     "greek-acharnae": {
       "name": "Acharnae Market",
       "text": "Charcoal baskets line the lane. A farmer has marked a separate trading ground with stones.",
-      "exits": ["greek-attic-farm"],
+      "exits": [
+        "greek-attic-farm"
+      ],
       "backdrop": "assets/greek-drama/courtyard.svg",
       "persona": "Charcoal baskets line the lane. A farmer has marked a separate trading ground with stones."
     },
@@ -225,21 +270,30 @@
     "greek-marathon": {
       "name": "Marathon Altar",
       "text": "A folded cloth lies beside the altar of Zeus. A keeper watches the road where families once sought shelter. A local road runs back through Colonus.",
-      "exits": ["greek-road-athens-marathon", "greek-road-colonus-marathon"],
+      "exits": [
+        "greek-road-athens-marathon",
+        "greek-road-colonus-marathon"
+      ],
       "backdrop": "assets/greek-drama/open-door-marathon.webp",
       "persona": "The keeper tells Euripides’s Children of Heracles as a separate tale under Demophon, son of Theseus, after Heracles’s death. The daughter, battle and captive king belong to that tale. The traveler’s blanket stays at the present altar for guests."
     },
     "greek-argolid-road": {
       "name": "The Argolid Crossroads",
       "text": "Three roads leave a shaded meeting place. A singer asks which household's testimony should guide the journey.",
-      "exits": ["greek-harbor", "greek-argos-sanctuary", "greek-corinth"],
+      "exits": [
+        "greek-harbor",
+        "greek-argos-sanctuary",
+        "greek-corinth"
+      ],
       "backdrop": "assets/greek-drama/grove.svg",
       "persona": "Three roads leave a shaded meeting place. A singer asks which household's testimony should guide the journey."
     },
     "greek-argos-sanctuary": {
       "name": "Argive Shore Sanctuary",
       "text": "Suppliant branches rest beside a coastal altar. A lookout watches an approaching ship.",
-      "exits": ["greek-argolid-road"],
+      "exits": [
+        "greek-argolid-road"
+      ],
       "backdrop": "assets/greek-drama/harbor.svg",
       "persona": "Suppliant branches rest beside a coastal altar. A lookout watches an approaching ship."
     },
@@ -302,49 +356,68 @@
     "greek-corinth": {
       "name": "Corinthian Courtyard",
       "text": "A rented household opens onto the harbor road. Bundles stand ready beside the door.",
-      "exits": ["greek-argolid-road", "greek-troezen"],
+      "exits": [
+        "greek-argolid-road",
+        "greek-troezen"
+      ],
       "backdrop": "assets/greek-drama/courtyard.svg",
       "persona": "A rented household opens onto the harbor road. Bundles stand ready beside the door."
     },
     "greek-troezen": {
       "name": "Troezen Palace",
       "text": "Two shrines flank the palace approach. A hunting party has left its equipment under the portico.",
-      "exits": ["greek-corinth"],
+      "exits": [
+        "greek-corinth"
+      ],
       "backdrop": "assets/greek-drama/palace.svg",
       "persona": "Two shrines flank the palace approach. A hunting party has left its equipment under the portico."
     },
     "greek-delphi": {
       "name": "Delphic Temple",
       "text": "Travelers queue beneath Apollo's columns. An attendant sweeps leaves from the sanctuary steps.",
-      "exits": ["greek-athens", "greek-trachis"],
+      "exits": [
+        "greek-athens",
+        "greek-trachis"
+      ],
       "backdrop": "assets/greek-drama/palace.svg",
       "persona": "Travelers queue beneath Apollo's columns. An attendant sweeps leaves from the sanctuary steps."
     },
     "greek-trachis": {
       "name": "House at Trachis",
       "text": "A messenger's sandals dry beside the doorway. A folded garment waits on a workbench.",
-      "exits": ["greek-delphi", "greek-oeta", "greek-pherae"],
+      "exits": [
+        "greek-delphi",
+        "greek-oeta",
+        "greek-pherae"
+      ],
       "backdrop": "assets/greek-drama/courtyard.svg",
       "persona": "A messenger's sandals dry beside the doorway. A folded garment waits on a workbench."
     },
     "greek-oeta": {
       "name": "The Oeta Road",
       "text": "A steep road climbs above the trees. Bearers have set a litter beside a level patch of stone.",
-      "exits": ["greek-trachis"],
+      "exits": [
+        "greek-trachis"
+      ],
       "backdrop": "assets/greek-drama/grove.svg",
       "persona": "A steep road climbs above the trees. Bearers have set a litter beside a level patch of stone."
     },
     "greek-pherae": {
       "name": "Palace of Pherae",
       "text": "Guests arrive at a house in mourning. A servant hesitates before opening the inner door.",
-      "exits": ["greek-trachis", "greek-thetis"],
+      "exits": [
+        "greek-trachis",
+        "greek-thetis"
+      ],
       "backdrop": "assets/greek-drama/palace.svg",
       "persona": "Guests arrive at a house in mourning. A servant hesitates before opening the inner door."
     },
     "greek-thetis": {
       "name": "Thetis's Sanctuary",
       "text": "The sanctuary stands beside a great household. A woman has taken refuge near the altar.",
-      "exits": ["greek-pherae"],
+      "exits": [
+        "greek-pherae"
+      ],
       "backdrop": "assets/greek-drama/grove.svg",
       "persona": "The sanctuary stands beside a great household. A woman has taken refuge near the altar."
     },
@@ -354,10 +427,9 @@
       "exits": [
         "greek-greek-camp",
         "greek-trojan-camp",
-        "greek-thrace",
-        "greek-susa",
         "greek-troy-womens-tent",
-        "greek-troy-shield-ground"
+        "greek-troy-shield-ground",
+        "greek-susa-road"
       ],
       "backdrop": "assets/greek-drama/palace.svg",
       "persona": "The city road runs between battered walls. Soldiers and displaced households share the remaining wells."
@@ -377,7 +449,11 @@
     "greek-trojan-camp": {
       "name": "The Trojan Night Camp",
       "text": "Watch fires mark the edge of the camp. A newly arrived ally waits for a guide.",
-      "exits": ["greek-troy", "greek-rhesus-allies", "greek-rhesus-aid-tent"],
+      "exits": [
+        "greek-troy",
+        "greek-rhesus-allies",
+        "greek-rhesus-aid-tent"
+      ],
       "backdrop": "assets/greek-drama/ajax-camp-night.webp",
       "persona": "This is the remembered Trojan night watch before the fall of Troy. The received play bears Euripides’s name and its authorship is disputed. The saved ending names Rhesus’s later fate before the later city-fall frame opens. Earlier Ajax deeds and the selected Helen and Atreid accounts keep their own times."
     },
@@ -398,14 +474,19 @@
     "greek-lemnos": {
       "name": "The Lemnian Cave",
       "text": "A rough bed lies inside the cave. Footprints lead toward a bow wrapped against the salt air.",
-      "exits": ["greek-lemnos-landing"],
+      "exits": [
+        "greek-lemnos-landing"
+      ],
       "backdrop": "assets/greek-drama/book-three-lemnos-day.webp",
       "persona": "This is the remembered Lemnian departure before Troy falls. Philoctetes keeps his own choice, bow and terms. Heracles’s promise concerns future healing. The earlier Ajax deeds and the chosen Helen and Atreid accounts retain their recorded times. The cave holds Philoctetes’s bed, water and the bow he trusts to a carrier."
     },
     "greek-thrace": {
       "name": "The Thracian Shore",
       "text": "A fleet waits beyond the breakers. Captive households search among the new arrivals.",
-      "exits": ["greek-troy"],
+      "exits": [
+        "greek-thrace-summons-tent",
+        "greek-thrace-burial-ground"
+      ],
       "backdrop": "assets/greek-drama/sea.svg",
       "persona": "A fleet waits beyond the breakers. Captive households search among the new arrivals."
     },
@@ -426,49 +507,66 @@
     "greek-tauris": {
       "name": "The Taurian Temple",
       "text": "A walled temple overlooks the landing place. An attendant counts the people brought ashore.",
-      "exits": ["greek-piraeus"],
+      "exits": [
+        "greek-piraeus"
+      ],
       "backdrop": "assets/greek-drama/palace.svg",
       "persona": "A walled temple overlooks the landing place. An attendant counts the people brought ashore."
     },
     "greek-sicily": {
       "name": "The Sicilian Cave",
       "text": "Sheep crowd a stone enclosure beside the cave. Wine jars stand beyond the shepherds' reach.",
-      "exits": ["greek-piraeus"],
+      "exits": [
+        "greek-piraeus"
+      ],
       "backdrop": "assets/greek-drama/grove.svg",
       "persona": "Sheep crowd a stone enclosure beside the cave. Wine jars stand beyond the shepherds' reach."
     },
     "greek-susa": {
       "name": "The Court at Susa",
       "text": "Officials wait beside the royal tomb. The last dispatch from the fleet lies unopened.",
-      "exits": ["greek-troy", "greek-scythian-crag"],
+      "exits": [
+        "greek-scythian-crag",
+        "greek-susa-road",
+        "greek-susa-tomb",
+        "greek-susa-threshold"
+      ],
       "backdrop": "assets/greek-drama/palace.svg",
       "persona": "Officials wait beside the royal tomb. The last dispatch from the fleet lies unopened."
     },
     "greek-scythian-crag": {
       "name": "The Scythian Crag",
       "text": "Iron bonds fix a figure to the rock. A narrow ledge allows visitors to approach.",
-      "exits": ["greek-susa"],
+      "exits": [
+        "greek-susa"
+      ],
       "backdrop": "assets/greek-drama/grove.svg",
       "persona": "Iron bonds fix a figure to the rock. A narrow ledge allows visitors to approach."
     },
     "greek-divine-heights": {
       "name": "The Divine Heights",
       "text": "A steep stair ends above the clouds. Broken farming tools have been carried to the landing.",
-      "exits": ["greek-attic-farm"],
+      "exits": [
+        "greek-attic-farm"
+      ],
       "backdrop": "assets/greek-drama/sea.svg",
       "persona": "A steep stair ends above the clouds. Broken farming tools have been carried to the landing."
     },
     "greek-bird-wilderness": {
       "name": "The Hoopoe's Thicket",
       "text": "A nest hangs above a rocky clearing. Two travelers have laid out a basket, a pot, and a plan for a city.",
-      "exits": ["greek-attic-farm"],
+      "exits": [
+        "greek-attic-farm"
+      ],
       "backdrop": "assets/greek-drama/grove.svg",
       "persona": "A nest hangs above a rocky clearing. Two travelers have laid out a basket, a pot, and a plan for a city."
     },
     "greek-underworld": {
       "name": "The Underworld Landing",
       "text": "A ferry rests beside dark water. The keeper of the landing asks the purpose of each crossing.",
-      "exits": ["greek-colonus"],
+      "exits": [
+        "greek-colonus"
+      ],
       "backdrop": "assets/greek-drama/harbor.svg",
       "persona": "A ferry rests beside dark water. The keeper of the landing asks the purpose of each crossing."
     },
@@ -503,86 +601,145 @@
       "name": "Athens Harbor",
       "text": "Stone quays run beneath long warehouses. Beyond the harbor gate, city streets and steps climb toward the walls and the Acropolis of Athens.",
       "persona": "Athens Harbor is the ship’s landing for the great city. City streets lead inland to the Agora. Piraeus Quays is a separate town with its own host and work of welcome.",
-      "exits": ["greek-athens", "greek-road-athens-harbor"],
+      "exits": [
+        "greek-athens",
+        "greek-road-athens-harbor"
+      ],
       "backdrop": "assets/greek-drama/athens-harbor-open-berth.webp"
     },
     "greek-road-thebes": {
       "name": "Theban Harbor Road",
       "text": "A broad road crosses the olive hills. One end leads to The Wine-Dark Harbor; the other leads to Theban Courtyard. A stone bench rests beside the verge.",
       "persona": "A shared road between The Wine-Dark Harbor and Theban Courtyard. The left end always leads to The Wine-Dark Harbor. The right end always leads to Theban Courtyard. Travelers can meet, talk, rest and carry their belongings here.",
-      "exits": ["greek-harbor", "greek-courtyard"],
-      "road": ["greek-harbor", "greek-courtyard"],
+      "exits": [
+        "greek-harbor",
+        "greek-courtyard"
+      ],
+      "road": [
+        "greek-harbor",
+        "greek-courtyard"
+      ],
       "backdrop": "assets/greek-drama/theban-harbor-road.webp"
     },
     "greek-road-athens-harbor": {
       "name": "Athens Harbor Road",
       "text": "A broad road crosses the olive hills. One end leads to Athens Harbor; the other leads to Athenian Agora. A stone bench rests beside the verge.",
       "persona": "A shared road between Athens Harbor and Athenian Agora. The left end always leads to Athens Harbor. The right end always leads to Athenian Agora. Travelers can meet, talk, rest and carry their belongings here.",
-      "exits": ["greek-athens-harbor", "greek-athens"],
-      "road": ["greek-athens-harbor", "greek-athens"],
+      "exits": [
+        "greek-athens-harbor",
+        "greek-athens"
+      ],
+      "road": [
+        "greek-athens-harbor",
+        "greek-athens"
+      ],
       "backdrop": "assets/greek-drama/attic-road.webp"
     },
     "greek-road-athens-piraeus": {
       "name": "Athens–Piraeus Road",
       "text": "A broad road crosses the olive hills. One end leads to Piraeus Quays; the other leads to Athenian Agora. A stone bench rests beside the verge.",
       "persona": "A shared road between Piraeus Quays and Athenian Agora. The left end always leads to Piraeus Quays. The right end always leads to Athenian Agora. Travelers can meet, talk, rest and carry their belongings here.",
-      "exits": ["greek-piraeus", "greek-athens"],
-      "road": ["greek-piraeus", "greek-athens"],
+      "exits": [
+        "greek-piraeus",
+        "greek-athens"
+      ],
+      "road": [
+        "greek-piraeus",
+        "greek-athens"
+      ],
       "backdrop": "assets/greek-drama/attic-road.webp"
     },
     "greek-road-athens-colonus": {
       "name": "Colonus Road",
       "text": "A broad road crosses the olive hills. One end leads to Athenian Agora; the other leads to Colonus Grove. A stone bench rests beside the verge.",
       "persona": "A shared road between Athenian Agora and Colonus Grove. The left end always leads to Athenian Agora. The right end always leads to Colonus Grove. Travelers can meet, talk, rest and carry their belongings here.",
-      "exits": ["greek-athens", "greek-colonus"],
-      "road": ["greek-athens", "greek-colonus"],
+      "exits": [
+        "greek-athens",
+        "greek-colonus"
+      ],
+      "road": [
+        "greek-athens",
+        "greek-colonus"
+      ],
       "backdrop": "assets/greek-drama/attic-road.webp"
     },
     "greek-road-athens-eleusis": {
       "name": "Eleusis Road",
       "text": "A broad road crosses the olive hills. One end leads to Athenian Agora; the other leads to Eleusinian Sanctuary. A stone bench rests beside the verge.",
       "persona": "A shared road between Athenian Agora and Eleusinian Sanctuary. The left end always leads to Athenian Agora. The right end always leads to Eleusinian Sanctuary. Travelers can meet, talk, rest and carry their belongings here.",
-      "exits": ["greek-athens", "greek-eleusis"],
-      "road": ["greek-athens", "greek-eleusis"],
+      "exits": [
+        "greek-athens",
+        "greek-eleusis"
+      ],
+      "road": [
+        "greek-athens",
+        "greek-eleusis"
+      ],
       "backdrop": "assets/greek-drama/attic-road.webp"
     },
     "greek-road-athens-marathon": {
       "name": "Marathon Road",
       "text": "A broad road crosses the olive hills. One end leads to Athenian Agora; the other leads to Marathon Altar. A stone bench rests beside the verge.",
       "persona": "A shared road between Athenian Agora and Marathon Altar. The left end always leads to Athenian Agora. The right end always leads to Marathon Altar. Travelers can meet, talk, rest and carry their belongings here.",
-      "exits": ["greek-athens", "greek-marathon"],
-      "road": ["greek-athens", "greek-marathon"],
+      "exits": [
+        "greek-athens",
+        "greek-marathon"
+      ],
+      "road": [
+        "greek-athens",
+        "greek-marathon"
+      ],
       "backdrop": "assets/greek-drama/attic-road.webp"
     },
     "greek-road-piraeus-eleusis": {
       "name": "Eleusis Coast Road",
       "text": "A broad road crosses the olive hills. One end leads to Piraeus Quays; the other leads to Eleusinian Sanctuary. A stone bench rests beside the verge.",
       "persona": "A shared road between Piraeus Quays and Eleusinian Sanctuary. The left end always leads to Piraeus Quays. The right end always leads to Eleusinian Sanctuary. Travelers can meet, talk, rest and carry their belongings here.",
-      "exits": ["greek-piraeus", "greek-eleusis"],
-      "road": ["greek-piraeus", "greek-eleusis"],
+      "exits": [
+        "greek-piraeus",
+        "greek-eleusis"
+      ],
+      "road": [
+        "greek-piraeus",
+        "greek-eleusis"
+      ],
       "backdrop": "assets/greek-drama/attic-road.webp"
     },
     "greek-road-colonus-eleusis": {
       "name": "Colonus–Eleusis Road",
       "text": "A broad road crosses the olive hills. One end leads to Colonus Grove; the other leads to Eleusinian Sanctuary. A stone bench rests beside the verge.",
       "persona": "A shared road between Colonus Grove and Eleusinian Sanctuary. The left end always leads to Colonus Grove. The right end always leads to Eleusinian Sanctuary. Travelers can meet, talk, rest and carry their belongings here.",
-      "exits": ["greek-colonus", "greek-eleusis"],
-      "road": ["greek-colonus", "greek-eleusis"],
+      "exits": [
+        "greek-colonus",
+        "greek-eleusis"
+      ],
+      "road": [
+        "greek-colonus",
+        "greek-eleusis"
+      ],
       "backdrop": "assets/greek-drama/attic-road.webp"
     },
     "greek-road-colonus-marathon": {
       "name": "Colonus–Marathon Road",
       "text": "A broad road crosses the olive hills. One end leads to Colonus Grove; the other leads to Marathon Altar. A stone bench rests beside the verge.",
       "persona": "A shared road between Colonus Grove and Marathon Altar. The left end always leads to Colonus Grove. The right end always leads to Marathon Altar. Travelers can meet, talk, rest and carry their belongings here.",
-      "exits": ["greek-colonus", "greek-marathon"],
-      "road": ["greek-colonus", "greek-marathon"],
+      "exits": [
+        "greek-colonus",
+        "greek-marathon"
+      ],
+      "road": [
+        "greek-colonus",
+        "greek-marathon"
+      ],
       "backdrop": "assets/greek-drama/attic-road.webp"
     },
     "greek-ajax-landing": {
       "name": "The Trojan Camp Landing",
       "text": "A wooden landing meets the ships below the tents. The Greek ship calls here for the named Trojan burial account.",
       "persona": "This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. A wooden landing meets the ships below the tents. The Greek ship calls here for the named Trojan burial account.",
-      "exits": ["greek-greek-camp"],
+      "exits": [
+        "greek-greek-camp"
+      ],
       "backdrop": "assets/greek-drama/ajax-camp-day.webp",
       "requires": [
         {
@@ -596,7 +753,9 @@
       "name": "Ajax’s Household Tent",
       "text": "Tecmessa keeps a place for Eurysaces beside the tent. The child’s father has died. His shield can be set safely with the household.",
       "persona": "This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. Tecmessa keeps a place for Eurysaces beside the tent. The child’s father has died. His shield can be set safely with the household.",
-      "exits": ["greek-greek-camp"],
+      "exits": [
+        "greek-greek-camp"
+      ],
       "backdrop": "assets/greek-drama/ajax-camp-day.webp",
       "requires": [
         {
@@ -610,7 +769,9 @@
       "name": "Ajax’s Grave",
       "text": "A patch of earth waits above the ships. Cloth and grave tools must reach this place before Ajax’s burial can be completed.",
       "persona": "This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. A patch of earth waits above the ships. Cloth and grave tools must reach this place before Ajax’s burial can be completed.",
-      "exits": ["greek-greek-camp"],
+      "exits": [
+        "greek-greek-camp"
+      ],
       "backdrop": "assets/greek-drama/ajax-camp-day.webp",
       "requires": [
         {
@@ -624,50 +785,116 @@
       "name": "The Aulis Household",
       "text": "Iphigenia and Clytemnestra wait beside the wedding veil. A path leads back to the ships.",
       "persona": "This is the remembered Aulis departure before the Trojan war. Its speakers keep their roles in that remembered scene. The chosen ending records Iphigenia’s fate in this account. A later visit hears their remembered words. The Theban opening, Ajax’s completed deeds, Helen’s chosen account and the chosen Atreid author keep their own times. Mother and daughter speak their own words before the selected altar ending.",
-      "exits": ["greek-aulis"],
+      "exits": [
+        "greek-aulis"
+      ],
       "backdrop": "assets/greek-drama/ajax-camp-day.webp"
     },
     "greek-aulis-altar": {
       "name": "The Altar at Aulis",
       "text": "A stone altar stands above the anchorage. The prepared cloth lies where the account places it.",
       "persona": "This is the remembered Aulis departure before the Trojan war. Its speakers keep their roles in that remembered scene. The chosen ending records Iphigenia’s fate in this account. A later visit hears their remembered words. The Theban opening, Ajax’s completed deeds, Helen’s chosen account and the chosen Atreid author keep their own times. A rite needs the actual cloth. The received rescue is a named messenger report, with Clytemnestra’s doubt preserved.",
-      "exits": ["greek-aulis"],
+      "exits": [
+        "greek-aulis"
+      ],
       "backdrop": "assets/greek-drama/ajax-camp-day.webp"
     },
     "greek-lemnos-landing": {
       "name": "Lemnos Landing",
       "text": "A worn path joins the cave to a sheltered landing. Neoptolemus waits beside the vessel’s empty mooring.",
       "persona": "This is the remembered Lemnian departure before Troy falls. Philoctetes keeps his own choice, bow and terms. Heracles’s promise concerns future healing. The earlier Ajax deeds and the chosen Helen and Atreid accounts retain their recorded times. The shared ship has one actual position. A consent names a route; arrival completes it.",
-      "exits": ["greek-lemnos"],
+      "exits": [
+        "greek-lemnos"
+      ],
       "backdrop": "assets/greek-drama/book-three-lemnos-day.webp"
     },
     "greek-rhesus-allies": {
       "name": "The Thracian Allies’ Ground",
       "text": "Fresh tents stand beyond Hector’s watch. The arriving king waits for the sentries’ word.",
       "persona": "This is the remembered Trojan night watch before the fall of Troy. The received play bears Euripides’s name and its authorship is disputed. The saved ending names Rhesus’s later fate before the later city-fall frame opens. Earlier Ajax deeds and the selected Helen and Atreid accounts keep their own times. Fresh tents stand beyond Hector’s watch. The arriving king waits for the sentries’ word.",
-      "exits": ["greek-trojan-camp"],
+      "exits": [
+        "greek-trojan-camp"
+      ],
       "backdrop": "assets/greek-drama/ajax-camp-night.webp"
     },
     "greek-rhesus-aid-tent": {
       "name": "The Night Aid Tent",
       "text": "A clean bed and bandage wait beneath a lamp. The charioteer keeps his own account of the raid.",
       "persona": "This is the remembered Trojan night watch before the fall of Troy. The received play bears Euripides’s name and its authorship is disputed. The saved ending names Rhesus’s later fate before the later city-fall frame opens. Earlier Ajax deeds and the selected Helen and Atreid accounts keep their own times. A clean bed and bandage wait beneath a lamp. The charioteer keeps his own account of the raid.",
-      "exits": ["greek-trojan-camp"],
+      "exits": [
+        "greek-trojan-camp"
+      ],
       "backdrop": "assets/greek-drama/ajax-camp-night.webp"
     },
     "greek-troy-womens-tent": {
       "name": "The Captive Women’s Tent",
       "text": "A names roll lies beside the household bundles. Hecuba listens to the women’s kin messages.",
       "persona": "This is the remembered fall of Troy, after the night-watch account. Hecuba is the same woman heard later on the Thracian shore. Andromache waits under Neoptolemus’s recorded assignment. Astyanax is an offstage person under his mother’s care; his place follows her actual journey in the rescue paths. The shield, cloth and letters are objects. Earlier Ajax deeds and the selected Helen and Atreid accounts retain their own times. A names roll lies beside the household bundles. Hecuba listens to the women’s kin messages.",
-      "exits": ["greek-troy"],
+      "exits": [
+        "greek-troy"
+      ],
       "backdrop": "assets/greek-drama/ajax-camp-day.webp"
     },
     "greek-troy-shield-ground": {
       "name": "Hector’s Shield Ground",
       "text": "A clean patch of earth waits beside Hector’s broad shield. The child’s recorded status gives the cloth its use.",
       "persona": "This is the remembered fall of Troy, after the night-watch account. Hecuba is the same woman heard later on the Thracian shore. Andromache waits under Neoptolemus’s recorded assignment. Astyanax is an offstage person under his mother’s care; his place follows her actual journey in the rescue paths. The shield, cloth and letters are objects. Earlier Ajax deeds and the selected Helen and Atreid accounts retain their own times. A clean patch of earth waits beside Hector’s broad shield. The child’s recorded status gives the cloth its use.",
-      "exits": ["greek-troy"],
+      "exits": [
+        "greek-troy"
+      ],
       "backdrop": "assets/greek-drama/burial-ground-dusk.webp"
+    },
+    "greek-thrace-summons-tent": {
+      "name": "Polymestor’s Summons Tent",
+      "text": "A custody record waits beside the king’s entrusted gold. Hecuba’s charge needs an actual witness here.",
+      "persona": "This is the remembered Thracian shore after Troy’s chosen departure. Hecuba is the same person heard in the earlier Trojan frame. Polyxena is an adult. Her source death and Polydorus’s death are reported person histories. Cloth, gold and case papers are physical objects. Agamemnon’s judgment and Polymestor’s prophecies belong to their named speakers; later Atreid choices keep their own authority. A custody record waits beside the king’s entrusted gold. Hecuba’s charge needs an actual witness here.",
+      "exits": [
+        "greek-thrace",
+        "greek-thrace-burial-ground"
+      ],
+      "backdrop": "assets/greek-drama/ajax-camp-day.webp"
+    },
+    "greek-thrace-burial-ground": {
+      "name": "The Two Burial Grounds",
+      "text": "Two marked resting places wait above the tide. Each child’s named care must be completed.",
+      "persona": "This is the remembered Thracian shore after Troy’s chosen departure. Hecuba is the same person heard in the earlier Trojan frame. Polyxena is an adult. Her source death and Polydorus’s death are reported person histories. Cloth, gold and case papers are physical objects. Agamemnon’s judgment and Polymestor’s prophecies belong to their named speakers; later Atreid choices keep their own authority. Two marked resting places wait above the tide. Each child’s named care must be completed.",
+      "exits": [
+        "greek-thrace",
+        "greek-thrace-summons-tent"
+      ],
+      "backdrop": "assets/greek-drama/burial-ground-dusk.webp"
+    },
+    "greek-susa-tomb": {
+      "name": "Darius’s Royal Tomb",
+      "text": "The offering stone stands beside the tomb. A broken oar and named dead give Atossa’s prayer its present weight.",
+      "persona": "This is a separate historical court account at Susa after Salamis in 480 BCE. The mythic Trojan road is the table’s passage into this named historical frame. The messenger’s dead, Darius’s future Plataea warning and Xerxes’s actual return have separate records. Atossa’s private household consolation and the civic reckoning are original alternatives to the final public lament. The offering stone stands beside the tomb. A broken oar and named dead give Atossa’s prayer its present weight.",
+      "exits": [
+        "greek-susa"
+      ],
+      "backdrop": "assets/greek-drama/palace-day.webp"
+    },
+    "greek-susa-threshold": {
+      "name": "The King’s Return Threshold",
+      "text": "Xerxes waits in the remembered return with torn clothing and the losses of his army. A chosen audience waits ahead.",
+      "persona": "This is a separate historical court account at Susa after Salamis in 480 BCE. The mythic Trojan road is the table’s passage into this named historical frame. The messenger’s dead, Darius’s future Plataea warning and Xerxes’s actual return have separate records. Atossa’s private household consolation and the civic reckoning are original alternatives to the final public lament. Xerxes waits in the remembered return with torn clothing and the losses of his army. A chosen audience waits ahead.",
+      "exits": [
+        "greek-susa"
+      ],
+      "backdrop": "assets/greek-drama/palace-day.webp"
+    },
+    "greek-susa-road": {
+      "name": "The Road to Susa",
+      "text": "The fixed road joins the Trojan Walls and the Court at Susa. Its eastern end enters the named historical Salamis account.",
+      "persona": "This is a separate historical court account at Susa after Salamis in 480 BCE. The mythic Trojan road is the table’s passage into this named historical frame. The messenger’s dead, Darius’s future Plataea warning and Xerxes’s actual return have separate records. Atossa’s private household consolation and the civic reckoning are original alternatives to the final public lament. The fixed road joins the Trojan Walls and the Court at Susa. Its eastern end enters the named historical Salamis account.",
+      "exits": [
+        "greek-troy",
+        "greek-susa"
+      ],
+      "backdrop": "assets/greek-drama/attic-road.webp",
+      "road": [
+        "greek-troy",
+        "greek-susa"
+      ]
     }
   },
   "avatars": {
@@ -685,7 +912,10 @@
       "voice": "A determined sister. Speak directly about a brother's burial and the practical help at hand. Know only public facts and witnessed acts; never predict the play's ending.",
       "portrait": "assets/greek-drama/chthonic-antigone.png",
       "desire": {
-        "items": ["greek-funeral-cloth", "greek-oil-flask"],
+        "items": [
+          "greek-funeral-cloth",
+          "greek-oil-flask"
+        ],
         "location": "greek-battlefield",
         "avatars": [],
         "requires": [
@@ -828,7 +1058,9 @@
       "text": "He keeps the words of the journey in a song.",
       "place": "greek-harbor",
       "home": "greek-harbor",
-      "previousHomes": ["greek-argolid-road"],
+      "previousHomes": [
+        "greek-argolid-road"
+      ],
       "values": {
         "greek-provisions": 2
       },
@@ -1353,7 +1585,11 @@
       ],
       "journey": {
         "after": "greek-homecoming-agree-journey",
-        "path": ["greek-eleusis", "greek-road-piraeus-eleusis", "greek-piraeus"]
+        "path": [
+          "greek-eleusis",
+          "greek-road-piraeus-eleusis",
+          "greek-piraeus"
+        ]
       },
       "tastes": {
         "likes": "a place kept ready and a promise carried through",
@@ -1462,7 +1698,10 @@
       },
       "journey": {
         "after": "greek-aulis-choose-escape",
-        "path": ["greek-aulis-household", "greek-aulis"]
+        "path": [
+          "greek-aulis-household",
+          "greek-aulis"
+        ]
       }
     },
     "greek-aulis-clytemnestra": {
@@ -1551,7 +1790,9 @@
             "greek-ajax-landing",
             "greek-greek-camp"
           ],
-          "cargo": ["greek-lemnos-bow"],
+          "cargo": [
+            "greek-lemnos-bow"
+          ],
           "until": "greek-lemnos-arrive-troy"
         },
         {
@@ -1565,7 +1806,9 @@
             "greek-delphi",
             "greek-trachis"
           ],
-          "cargo": ["greek-lemnos-bow"],
+          "cargo": [
+            "greek-lemnos-bow"
+          ],
           "until": "greek-lemnos-arrive-home"
         },
         {
@@ -1577,7 +1820,9 @@
             "greek-ajax-landing",
             "greek-greek-camp"
           ],
-          "cargo": ["greek-lemnos-bow"],
+          "cargo": [
+            "greek-lemnos-bow"
+          ],
           "until": "greek-lemnos-arrive-repair"
         }
       ]
@@ -1729,7 +1974,9 @@
             "greek-harbor"
           ],
           "independent": true,
-          "cargo": ["greek-troy-message-a"],
+          "cargo": [
+            "greek-troy-message-a"
+          ],
           "until": "greek-troy-record-witness"
         },
         {
@@ -1743,7 +1990,9 @@
             "greek-harbor"
           ],
           "independent": true,
-          "cargo": ["greek-troy-message-a"],
+          "cargo": [
+            "greek-troy-message-a"
+          ],
           "until": "greek-troy-record-child-refuge"
         },
         {
@@ -1757,7 +2006,9 @@
             "greek-harbor"
           ],
           "independent": true,
-          "cargo": ["greek-troy-message-a"],
+          "cargo": [
+            "greek-troy-message-a"
+          ],
           "until": "greek-troy-record-family-together"
         }
       ]
@@ -1792,24 +2043,44 @@
       "journey": [
         {
           "after": "greek-troy-agree-andromache-witness",
-          "path": ["greek-ajax-landing", "greek-ship", "greek-harbor"],
+          "path": [
+            "greek-ajax-landing",
+            "greek-ship",
+            "greek-harbor"
+          ],
           "independent": true,
-          "cargo": ["greek-troy-message-b"],
+          "cargo": [
+            "greek-troy-message-b"
+          ],
           "until": "greek-troy-record-witness"
         },
         {
           "after": "greek-troy-agree-andromache-child-refuge",
-          "path": ["greek-ajax-landing", "greek-ship", "greek-harbor"],
+          "path": [
+            "greek-ajax-landing",
+            "greek-ship",
+            "greek-harbor"
+          ],
           "independent": false,
-          "cargo": ["greek-troy-message-b", "greek-troy-child-cloth"],
+          "cargo": [
+            "greek-troy-message-b",
+            "greek-troy-child-cloth"
+          ],
           "until": "greek-troy-record-child-refuge"
         },
         {
           "after": "greek-troy-agree-andromache-family-together",
-          "path": ["greek-ajax-landing", "greek-ship", "greek-harbor"],
+          "path": [
+            "greek-ajax-landing",
+            "greek-ship",
+            "greek-harbor"
+          ],
           "independent": true,
           "exclusive": true,
-          "cargo": ["greek-troy-message-b", "greek-troy-child-cloth"],
+          "cargo": [
+            "greek-troy-message-b",
+            "greek-troy-child-cloth"
+          ],
           "until": "greek-troy-record-family-together"
         }
       ]
@@ -1838,6 +2109,215 @@
         "sore": "a promised act treated as a finished deed",
         "reason": "He gives the women’s assignments and the child’s recorded status in this remembered fall."
       }
+    },
+    "greek-thrace-hecuba": {
+      "name": "Hecuba",
+      "text": "She carries her earlier Trojan departure into the Thracian loss. Her case and the two burials have separate duties.",
+      "place": "greek-thrace",
+      "home": "greek-thrace",
+      "travels": false,
+      "standoffs": false,
+      "values": {
+        "greek-thrace-case-papers": 5,
+        "greek-thrace-entrusted-gold": 5
+      },
+      "canonicalPerson": "greek-thrace-hecuba",
+      "persona": "This is the remembered Thracian shore after Troy’s chosen departure. Hecuba is the same person heard in the earlier Trojan frame. Polyxena is an adult. Her source death and Polydorus’s death are reported person histories. Cloth, gold and case papers are physical objects. Agamemnon’s judgment and Polymestor’s prophecies belong to their named speakers; later Atreid choices keep their own authority. She carries her earlier Trojan departure into the Thracian loss. Her case and the two burials have separate duties.",
+      "voice": "This is the remembered Thracian shore after Troy’s chosen departure. Hecuba is the same person heard in the earlier Trojan frame. Polyxena is an adult. Her source death and Polydorus’s death are reported person histories. Cloth, gold and case papers are physical objects. Agamemnon’s judgment and Polymestor’s prophecies belong to their named speakers; later Atreid choices keep their own authority. She carries her earlier Trojan departure into the Thracian loss. Her case and the two burials have separate duties.",
+      "portrait": "assets/greek-drama/book-three-hecuba.png",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-thrace-open",
+          "value": true
+        }
+      ],
+      "tastes": {
+        "likes": "a named witness, practical care and an agreement kept",
+        "sore": "a promised act treated as a finished deed",
+        "reason": "She carries her earlier Trojan departure into the Thracian loss. Her case and the two burials have separate duties."
+      },
+      "journey": [
+        {
+          "after": "greek-thrace-choose-revenge",
+          "path": [
+            "greek-thrace",
+            "greek-thrace-summons-tent",
+            "greek-thrace-burial-ground"
+          ],
+          "cargo": [
+            "greek-thrace-case-papers"
+          ],
+          "until": "greek-thrace-seal-case"
+        },
+        {
+          "after": "greek-thrace-choose-hearing",
+          "path": [
+            "greek-thrace",
+            "greek-thrace-summons-tent",
+            "greek-thrace-burial-ground"
+          ],
+          "cargo": [
+            "greek-thrace-case-papers"
+          ],
+          "until": "greek-thrace-seal-case"
+        },
+        {
+          "after": "greek-thrace-choose-two-burials",
+          "path": [
+            "greek-thrace",
+            "greek-thrace-burial-ground"
+          ],
+          "cargo": [
+            "greek-thrace-case-papers"
+          ],
+          "until": "greek-thrace-seal-case"
+        }
+      ]
+    },
+    "greek-thrace-polyxena": {
+      "name": "Polyxena",
+      "text": "She speaks her adult farewell in the remembered scene before the source sacrifice. Her wishes remain part of the carried account.",
+      "place": "greek-thrace",
+      "home": "greek-thrace",
+      "travels": false,
+      "standoffs": false,
+      "values": {},
+      "canonicalPerson": "greek-thrace-polyxena",
+      "persona": "This is the remembered Thracian shore after Troy’s chosen departure. Hecuba is the same person heard in the earlier Trojan frame. Polyxena is an adult. Her source death and Polydorus’s death are reported person histories. Cloth, gold and case papers are physical objects. Agamemnon’s judgment and Polymestor’s prophecies belong to their named speakers; later Atreid choices keep their own authority. She speaks her adult farewell in the remembered scene before the source sacrifice. Her wishes remain part of the carried account.",
+      "voice": "This is the remembered Thracian shore after Troy’s chosen departure. Hecuba is the same person heard in the earlier Trojan frame. Polyxena is an adult. Her source death and Polydorus’s death are reported person histories. Cloth, gold and case papers are physical objects. Agamemnon’s judgment and Polymestor’s prophecies belong to their named speakers; later Atreid choices keep their own authority. She speaks her adult farewell in the remembered scene before the source sacrifice. Her wishes remain part of the carried account.",
+      "portrait": "assets/greek-drama/book-three-polyxena.png",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-thrace-open",
+          "value": true
+        }
+      ],
+      "tastes": {
+        "likes": "a named witness, practical care and an agreement kept",
+        "sore": "a promised act treated as a finished deed",
+        "reason": "She speaks her adult farewell in the remembered scene before the source sacrifice. Her wishes remain part of the carried account."
+      }
+    },
+    "greek-thrace-polymestor": {
+      "name": "Polymestor",
+      "text": "He answers the charge over Polydorus and the gold entrusted to his custody. His closing predictions remain attributed claims.",
+      "place": "greek-thrace-summons-tent",
+      "home": "greek-thrace-summons-tent",
+      "travels": false,
+      "standoffs": false,
+      "values": {},
+      "canonicalPerson": "greek-thrace-polymestor",
+      "persona": "This is the remembered Thracian shore after Troy’s chosen departure. Hecuba is the same person heard in the earlier Trojan frame. Polyxena is an adult. Her source death and Polydorus’s death are reported person histories. Cloth, gold and case papers are physical objects. Agamemnon’s judgment and Polymestor’s prophecies belong to their named speakers; later Atreid choices keep their own authority. He answers the charge over Polydorus and the gold entrusted to his custody. His closing predictions remain attributed claims.",
+      "voice": "This is the remembered Thracian shore after Troy’s chosen departure. Hecuba is the same person heard in the earlier Trojan frame. Polyxena is an adult. Her source death and Polydorus’s death are reported person histories. Cloth, gold and case papers are physical objects. Agamemnon’s judgment and Polymestor’s prophecies belong to their named speakers; later Atreid choices keep their own authority. He answers the charge over Polydorus and the gold entrusted to his custody. His closing predictions remain attributed claims.",
+      "portrait": "assets/greek-drama/book-three-polymestor.png",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-thrace-open",
+          "value": true
+        }
+      ],
+      "tastes": {
+        "likes": "a named witness, practical care and an agreement kept",
+        "sore": "a promised act treated as a finished deed",
+        "reason": "He answers the charge over Polydorus and the gold entrusted to his custody. His closing predictions remain attributed claims."
+      }
+    },
+    "greek-susa-atossa": {
+      "name": "Atossa",
+      "text": "She hears the named dead and offers water at Darius’s tomb. The ghost’s warning stays attributed to its historical source.",
+      "place": "greek-susa-tomb",
+      "home": "greek-susa-tomb",
+      "travels": false,
+      "standoffs": false,
+      "values": {},
+      "canonicalPerson": "greek-susa-atossa",
+      "persona": "This is a separate historical court account at Susa after Salamis in 480 BCE. The mythic Trojan road is the table’s passage into this named historical frame. The messenger’s dead, Darius’s future Plataea warning and Xerxes’s actual return have separate records. Atossa’s private household consolation and the civic reckoning are original alternatives to the final public lament. She hears the named dead and offers water at Darius’s tomb. The ghost’s warning stays attributed to its historical source.",
+      "voice": "This is a separate historical court account at Susa after Salamis in 480 BCE. The mythic Trojan road is the table’s passage into this named historical frame. The messenger’s dead, Darius’s future Plataea warning and Xerxes’s actual return have separate records. Atossa’s private household consolation and the civic reckoning are original alternatives to the final public lament. She hears the named dead and offers water at Darius’s tomb. The ghost’s warning stays attributed to its historical source.",
+      "portrait": "assets/greek-drama/book-three-atossa.png",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-susa-open",
+          "value": true
+        }
+      ],
+      "tastes": {
+        "likes": "a named witness, practical care and an agreement kept",
+        "sore": "a promised act treated as a finished deed",
+        "reason": "She hears the named dead and offers water at Darius’s tomb. The ghost’s warning stays attributed to its historical source."
+      },
+      "journey": {
+        "after": "greek-susa-agree-mother",
+        "path": [
+          "greek-susa-tomb",
+          "greek-susa"
+        ]
+      }
+    },
+    "greek-susa-xerxes": {
+      "name": "Xerxes",
+      "text": "He returns alive after Salamis. His chosen audience begins after the actual cloak and court journey.",
+      "place": "greek-susa-threshold",
+      "home": "greek-susa-threshold",
+      "travels": false,
+      "standoffs": false,
+      "values": {
+        "greek-susa-cloak": 5
+      },
+      "canonicalPerson": "greek-susa-xerxes",
+      "persona": "This is a separate historical court account at Susa after Salamis in 480 BCE. The mythic Trojan road is the table’s passage into this named historical frame. The messenger’s dead, Darius’s future Plataea warning and Xerxes’s actual return have separate records. Atossa’s private household consolation and the civic reckoning are original alternatives to the final public lament. He returns alive after Salamis. His chosen audience begins after the actual cloak and court journey.",
+      "voice": "This is a separate historical court account at Susa after Salamis in 480 BCE. The mythic Trojan road is the table’s passage into this named historical frame. The messenger’s dead, Darius’s future Plataea warning and Xerxes’s actual return have separate records. Atossa’s private household consolation and the civic reckoning are original alternatives to the final public lament. He returns alive after Salamis. His chosen audience begins after the actual cloak and court journey.",
+      "portrait": "assets/greek-drama/book-three-xerxes.png",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-susa-open",
+          "value": true
+        }
+      ],
+      "tastes": {
+        "likes": "a named witness, practical care and an agreement kept",
+        "sore": "a promised act treated as a finished deed",
+        "reason": "He returns alive after Salamis. His chosen audience begins after the actual cloak and court journey."
+      },
+      "journey": [
+        {
+          "after": "greek-susa-choose-public",
+          "path": [
+            "greek-susa-threshold",
+            "greek-susa"
+          ],
+          "cargo": [
+            "greek-susa-cloak"
+          ],
+          "until": "greek-susa-record-public"
+        },
+        {
+          "after": "greek-susa-choose-private",
+          "path": [
+            "greek-susa-threshold",
+            "greek-susa"
+          ],
+          "cargo": [
+            "greek-susa-cloak"
+          ],
+          "until": "greek-susa-record-private"
+        },
+        {
+          "after": "greek-susa-choose-reckoning",
+          "path": [
+            "greek-susa-threshold",
+            "greek-susa"
+          ],
+          "cargo": [
+            "greek-susa-cloak"
+          ],
+          "until": "greek-susa-record-reckoning"
+        }
+      ]
     }
   },
   "items": {
@@ -2477,6 +2957,162 @@
           "value": true
         }
       ]
+    },
+    "greek-thrace-polyxena-cloth": {
+      "name": "Polyxena’s Farewell Cloth",
+      "text": "A clean cloth carries the adult daughter’s expressed wishes into her named burial.",
+      "holder": "greek-thrace",
+      "persona": "This is the remembered Thracian shore after Troy’s chosen departure. Hecuba is the same person heard in the earlier Trojan frame. Polyxena is an adult. Her source death and Polydorus’s death are reported person histories. Cloth, gold and case papers are physical objects. Agamemnon’s judgment and Polymestor’s prophecies belong to their named speakers; later Atreid choices keep their own authority. A clean cloth carries the adult daughter’s expressed wishes into her named burial. Its saved custody records its actual use.",
+      "art": "assets/greek-drama/funeral-cloth.svg",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-thrace-open",
+          "value": true
+        }
+      ]
+    },
+    "greek-thrace-polydorus-shroud": {
+      "name": "Polydorus’s Shore Shroud",
+      "text": "A separate shroud serves the recovered son’s care above the tide.",
+      "holder": "greek-thrace-burial-ground",
+      "persona": "This is the remembered Thracian shore after Troy’s chosen departure. Hecuba is the same person heard in the earlier Trojan frame. Polyxena is an adult. Her source death and Polydorus’s death are reported person histories. Cloth, gold and case papers are physical objects. Agamemnon’s judgment and Polymestor’s prophecies belong to their named speakers; later Atreid choices keep their own authority. A separate shroud serves the recovered son’s care above the tide. Its saved custody records its actual use.",
+      "art": "assets/greek-drama/funeral-cloth.svg",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-thrace-open",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-thrace-body-reported",
+          "value": true
+        }
+      ]
+    },
+    "greek-thrace-entrusted-gold": {
+      "name": "Polydorus’s Entrusted Gold",
+      "text": "The actual entrusted gold can remain with the king or pass through the public hearing.",
+      "holder": "greek-thrace-polymestor",
+      "persona": "This is the remembered Thracian shore after Troy’s chosen departure. Hecuba is the same person heard in the earlier Trojan frame. Polyxena is an adult. Her source death and Polydorus’s death are reported person histories. Cloth, gold and case papers are physical objects. Agamemnon’s judgment and Polymestor’s prophecies belong to their named speakers; later Atreid choices keep their own authority. The actual entrusted gold can remain with the king or pass through the public hearing. Its saved custody records its actual use.",
+      "art": "assets/greek-drama/household-token.svg",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-thrace-open",
+          "value": true
+        }
+      ]
+    },
+    "greek-thrace-gold-record": {
+      "name": "The Gold Custody Record",
+      "text": "The record names Priam’s entrusted son, the king’s protection and the gold he received.",
+      "holder": "greek-thrace-summons-tent",
+      "persona": "This is the remembered Thracian shore after Troy’s chosen departure. Hecuba is the same person heard in the earlier Trojan frame. Polyxena is an adult. Her source death and Polydorus’s death are reported person histories. Cloth, gold and case papers are physical objects. Agamemnon’s judgment and Polymestor’s prophecies belong to their named speakers; later Atreid choices keep their own authority. The record names Priam’s entrusted son, the king’s protection and the gold he received. Its saved custody records its actual use.",
+      "art": "assets/greek-drama/decree.svg",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-thrace-open",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-thrace-king-statement",
+          "value": true
+        }
+      ]
+    },
+    "greek-thrace-case-papers": {
+      "name": "Hecuba’s Case Papers",
+      "text": "The actual case copy travels with Hecuba to the summons and the completed burials before another carrier can take it home.",
+      "holder": "greek-thrace",
+      "persona": "This is the remembered Thracian shore after Troy’s chosen departure. Hecuba is the same person heard in the earlier Trojan frame. Polyxena is an adult. Her source death and Polydorus’s death are reported person histories. Cloth, gold and case papers are physical objects. Agamemnon’s judgment and Polymestor’s prophecies belong to their named speakers; later Atreid choices keep their own authority. The actual case copy travels with Hecuba to the summons and the completed burials before another carrier can take it home. Its saved custody records its actual use.",
+      "art": "assets/greek-drama/testimony.svg",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-thrace-open",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-thrace-case-prepared",
+          "value": true
+        }
+      ]
+    },
+    "greek-susa-broken-oar": {
+      "name": "The Broken Salamis Oar",
+      "text": "The survivor’s broken oar carries the fleet’s defeat into the historical court account.",
+      "holder": "greek-susa",
+      "persona": "This is a separate historical court account at Susa after Salamis in 480 BCE. The mythic Trojan road is the table’s passage into this named historical frame. The messenger’s dead, Darius’s future Plataea warning and Xerxes’s actual return have separate records. Atossa’s private household consolation and the civic reckoning are original alternatives to the final public lament. The survivor’s broken oar carries the fleet’s defeat into the historical court account. Its saved custody records its actual use.",
+      "art": "assets/greek-drama/ship-card.webp",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-susa-open",
+          "value": true
+        }
+      ]
+    },
+    "greek-susa-dead-names": {
+      "name": "The Salamis Names Roll",
+      "text": "The messenger’s roll names Artembares, Dadaces and Tenagon, alongside the ordinary households named in the adapted lament.",
+      "holder": "greek-susa",
+      "persona": "This is a separate historical court account at Susa after Salamis in 480 BCE. The mythic Trojan road is the table’s passage into this named historical frame. The messenger’s dead, Darius’s future Plataea warning and Xerxes’s actual return have separate records. Atossa’s private household consolation and the civic reckoning are original alternatives to the final public lament. The messenger’s roll names Artembares, Dadaces and Tenagon, alongside the ordinary households named in the adapted lament. Its saved custody records its actual use.",
+      "art": "assets/greek-drama/decree.svg",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-susa-open",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-susa-messenger-heard",
+          "value": true
+        }
+      ]
+    },
+    "greek-susa-offering-water": {
+      "name": "Atossa’s Offering Water",
+      "text": "A filled vessel must reach Darius’s tomb in an actual carrier’s hand before the libation.",
+      "holder": "greek-susa",
+      "persona": "This is a separate historical court account at Susa after Salamis in 480 BCE. The mythic Trojan road is the table’s passage into this named historical frame. The messenger’s dead, Darius’s future Plataea warning and Xerxes’s actual return have separate records. Atossa’s private household consolation and the civic reckoning are original alternatives to the final public lament. A filled vessel must reach Darius’s tomb in an actual carrier’s hand before the libation. Its saved custody records its actual use.",
+      "art": "assets/greek-drama/water-jar.svg",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-susa-open",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-susa-messenger-heard",
+          "value": true
+        }
+      ]
+    },
+    "greek-susa-cloak": {
+      "name": "The Returning King’s Cloak",
+      "text": "Atossa’s prepared cloak can reach Xerxes’s hand before he chooses his actual return audience.",
+      "holder": "greek-susa",
+      "persona": "This is a separate historical court account at Susa after Salamis in 480 BCE. The mythic Trojan road is the table’s passage into this named historical frame. The messenger’s dead, Darius’s future Plataea warning and Xerxes’s actual return have separate records. Atossa’s private household consolation and the civic reckoning are original alternatives to the final public lament. Atossa’s prepared cloak can reach Xerxes’s hand before he chooses his actual return audience. Its saved custody records its actual use.",
+      "art": "assets/greek-drama/funeral-cloth.svg",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-susa-open",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-susa-warning-heard",
+          "value": true
+        }
+      ]
     }
   },
   "routes": [
@@ -2655,6 +3291,50 @@
           "kind": "flag",
           "key": "greek-troy-care-prepared",
           "value": true
+        }
+      ]
+    },
+    {
+      "from": "greek-thrace",
+      "to": "greek-troy",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-thrace-open",
+          "value": false
+        }
+      ]
+    },
+    {
+      "from": "greek-troy",
+      "to": "greek-thrace",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-thrace-open",
+          "value": false
+        }
+      ]
+    },
+    {
+      "from": "greek-susa",
+      "to": "greek-troy",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-susa-open",
+          "value": false
+        }
+      ]
+    },
+    {
+      "from": "greek-troy",
+      "to": "greek-susa",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-susa-open",
+          "value": false
         }
       ]
     }
@@ -10642,6 +11322,1679 @@
         }
       ],
       "workId": "euripides-trojan-women"
+    },
+    {
+      "id": "greek-thrace-invitation",
+      "subject": "greek-shipmaster",
+      "at": "greek-harbor",
+      "label": "Ask for the Thracian shore account",
+      "text": "Myrto opens the later shore after Vale returns the women’s actual departure account. Hecuba’s earlier selected child care and captive passage keep their recorded result.",
+      "textTemplate": "Myrto opens the later shore after {actor} returns the women’s actual departure account. Hecuba’s earlier selected child care and captive passage keep their recorded result.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-troy-returned",
+          "value": true
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-thrace-frame"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "greek-thrace-frame",
+          "value": "remembered-thracian-shore"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-thrace-open",
+          "value": true
+        }
+      ],
+      "workId": "euripides-hecuba"
+    },
+    {
+      "id": "greek-thrace-hear-farewell",
+      "subject": "greek-thrace-polyxena",
+      "at": "greek-thrace",
+      "label": "Hear Polyxena’s own farewell",
+      "text": "Polyxena tells Vale her wishes before the source sacrifice. She asks for the dignity of her own farewell and names Hecuba’s coming grief.",
+      "textTemplate": "Polyxena tells {actor} her wishes before the source sacrifice. She asks for the dignity of her own farewell and names Hecuba’s coming grief.",
+      "requires": [
+        {
+          "kind": "holding",
+          "item": "greek-thrace-polyxena-cloth",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-thrace-farewell-heard",
+          "value": true
+        }
+      ],
+      "workId": "euripides-hecuba"
+    },
+    {
+      "id": "greek-thrace-lay-cloth",
+      "subject": "greek-thrace-polyxena",
+      "at": "greek-thrace",
+      "label": "Lay the cloth for Polyxena’s farewell",
+      "text": "Vale lays the clean cloth beside Polyxena after hearing her own farewell. Her later burial still needs Hecuba’s actual care.",
+      "textTemplate": "{actor} lays the clean cloth beside Polyxena after hearing her own farewell. Her later burial still needs Hecuba’s actual care.",
+      "requires": [
+        {
+          "kind": "holding",
+          "item": "greek-thrace-polyxena-cloth",
+          "role": "actor"
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-thrace-farewell",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-thrace-polyxena-cloth",
+          "place": "greek-thrace"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-thrace-farewell-prepared",
+          "value": true
+        }
+      ],
+      "workId": "euripides-hecuba"
+    },
+    {
+      "id": "greek-thrace-hear-losses",
+      "subject": "greek-thrace-hecuba",
+      "at": "greek-thrace",
+      "label": "Hear Hecuba name the two losses",
+      "text": "Hecuba tells Vale that Talthybius reported Polyxena’s sacrifice and her courage, while a servant found Polydorus’s body at the tide. The two dead children need separate burials.",
+      "textTemplate": "Hecuba tells {actor} that Talthybius reported Polyxena’s sacrifice and her courage, while a servant found Polydorus’s body at the tide. The two dead children need separate burials.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-thrace-farewell-prepared",
+          "value": true
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-thrace-body-reported",
+          "value": true
+        }
+      ],
+      "workId": "euripides-hecuba"
+    },
+    {
+      "id": "greek-thrace-prepare-shroud",
+      "subject": "greek-thrace-hecuba",
+      "at": "greek-thrace",
+      "label": "Name Polydorus before preparing his shroud",
+      "text": "Hecuba names her son and gives Vale the task of laying his separate shroud above the tide.",
+      "textTemplate": "Hecuba names her son and gives {actor} the task of laying his separate shroud above the tide.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-thrace-body-reported",
+          "value": true
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-thrace-losses",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-thrace-shroud-task",
+          "value": true
+        }
+      ],
+      "workId": "euripides-hecuba"
+    },
+    {
+      "id": "greek-thrace-lay-shroud",
+      "subject": "greek-thrace-hecuba",
+      "at": "greek-thrace",
+      "label": "Prepare the son’s shore care",
+      "text": "Vale brings the son’s actual shroud to Hecuba. She marks it for the burial ground and keeps the evidence of his recovered death.",
+      "textTemplate": "{actor} brings the son’s actual shroud to Hecuba. She marks it for the burial ground and keeps the evidence of his recovered death.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-thrace-shroud-task",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-thrace-polydorus-shroud",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-thrace-polydorus-shroud",
+          "place": "greek-thrace"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-thrace-son-care-prepared",
+          "value": true
+        }
+      ],
+      "workId": "euripides-hecuba"
+    },
+    {
+      "id": "greek-thrace-hear-custody",
+      "subject": "greek-thrace-polymestor",
+      "at": "greek-thrace-summons-tent",
+      "label": "Hear the king’s gold custody claim",
+      "text": "Polymestor tells Vale that Priam entrusted the young Polydorus and gold to him for protection. His claim can be compared with the recovered body and the custody record.",
+      "textTemplate": "Polymestor tells {actor} that Priam entrusted the young Polydorus and gold to him for protection. His claim can be compared with the recovered body and the custody record.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-thrace-son-care-prepared",
+          "value": true
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-thrace-king-statement",
+          "value": true
+        }
+      ],
+      "workId": "euripides-hecuba"
+    },
+    {
+      "id": "greek-thrace-compare-record",
+      "subject": "greek-thrace-hecuba",
+      "at": "greek-thrace",
+      "label": "Compare the custody record with the shore evidence",
+      "text": "Vale brings the actual gold record to Hecuba beside her son’s prepared shroud. She names the broken protection and prepares a charge that can be carried to the summons.",
+      "textTemplate": "{actor} brings the actual gold record to Hecuba beside her son’s prepared shroud. She names the broken protection and prepares a charge that can be carried to the summons.",
+      "requires": [
+        {
+          "kind": "holding",
+          "item": "greek-thrace-gold-record",
+          "role": "actor"
+        },
+        {
+          "kind": "item_at",
+          "item": "greek-thrace-polydorus-shroud",
+          "place": "greek-thrace"
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-thrace-custody",
+          "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-thrace-son-care-prepared",
+          "value": true
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-thrace-gold-record",
+          "place": "greek-thrace"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-thrace-case-prepared",
+          "value": true
+        }
+      ],
+      "workId": "euripides-hecuba"
+    },
+    {
+      "id": "greek-thrace-choose-revenge",
+      "subject": "greek-thrace-hecuba",
+      "at": "greek-thrace",
+      "label": "Carry Hecuba’s source revenge to the summons",
+      "text": "Hecuba holds her actual case papers and agrees to reach the summons tent with Vale. The source revenge has its own violence, judgment and later burials.",
+      "textTemplate": "Hecuba holds her actual case papers and agrees to reach the summons tent with {actor}. The source revenge has its own violence, judgment and later burials.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-thrace-case-prepared",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-thrace-case-papers",
+          "actor": "greek-thrace-hecuba"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-thrace-route"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "greek-thrace-route",
+          "value": "revenge"
+        }
+      ],
+      "workId": "euripides-hecuba"
+    },
+    {
+      "id": "greek-thrace-choose-hearing",
+      "subject": "greek-thrace-hecuba",
+      "at": "greek-thrace",
+      "label": "Seek an open hearing for the entrusted gold",
+      "text": "Hecuba holds her actual case papers and agrees to an invented public hearing with Vale. A charge, a judgment and actual restitution remain separate deeds.",
+      "textTemplate": "Hecuba holds her actual case papers and agrees to an invented public hearing with {actor}. A charge, a judgment and actual restitution remain separate deeds.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-thrace-case-prepared",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-thrace-case-papers",
+          "actor": "greek-thrace-hecuba"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-thrace-route"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "greek-thrace-route",
+          "value": "hearing"
+        }
+      ],
+      "workId": "euripides-hecuba"
+    },
+    {
+      "id": "greek-thrace-choose-two-burials",
+      "subject": "greek-thrace-hecuba",
+      "at": "greek-thrace",
+      "label": "Carry the charge and complete both burials",
+      "text": "Hecuba holds her actual case papers and agrees to reach both burial grounds with Vale. The charge will remain on record while the king keeps the entrusted gold.",
+      "textTemplate": "Hecuba holds her actual case papers and agrees to reach both burial grounds with {actor}. The charge will remain on record while the king keeps the entrusted gold.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-thrace-case-prepared",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-thrace-case-papers",
+          "actor": "greek-thrace-hecuba"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-thrace-route"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "greek-thrace-route",
+          "value": "two-burials"
+        }
+      ],
+      "workId": "euripides-hecuba"
+    },
+    {
+      "id": "greek-thrace-set-trap",
+      "subject": "greek-thrace-hecuba",
+      "at": "greek-thrace-summons-tent",
+      "label": "Bring the record into Hecuba’s source trap",
+      "text": "Vale reaches the tent with Hecuba and the gold record. In the source revenge the captive women blind Polymestor and kill his sons inside the tent. Hecuba’s charge and the children’s burials remain before the judgment.",
+      "textTemplate": "{actor} reaches the tent with Hecuba and the gold record. In the source revenge the captive women blind Polymestor and kill his sons inside the tent. Hecuba’s charge and the children’s burials remain before the judgment.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-thrace-route",
+          "value": "revenge"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-thrace-case-papers",
+          "actor": "greek-thrace-hecuba"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-thrace-gold-record",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-thrace-gold-record",
+          "place": "greek-thrace-summons-tent"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-thrace-retaliation-recorded",
+          "value": true
+        }
+      ],
+      "workId": "euripides-hecuba"
+    },
+    {
+      "id": "greek-thrace-hear-prophecy",
+      "subject": "greek-thrace-polymestor",
+      "at": "greek-thrace-summons-tent",
+      "label": "Hear Polymestor’s closing prophecy",
+      "text": "Polymestor foretells Hecuba’s changed form and death, then Cassandra’s and Agamemnon’s deaths. Vale records these as the blinded king’s source predictions within this shore frame.",
+      "textTemplate": "Polymestor foretells Hecuba’s changed form and death, then Cassandra’s and Agamemnon’s deaths. {actor} records these as the blinded king’s source predictions within this shore frame.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-thrace-retaliation-recorded",
+          "value": true
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-thrace-prophecy-heard",
+          "value": true
+        }
+      ],
+      "workId": "euripides-hecuba"
+    },
+    {
+      "id": "greek-thrace-hear-judgment",
+      "subject": "greek-thrace-hecuba",
+      "at": "greek-thrace-summons-tent",
+      "label": "Hear the source judgment and burial order",
+      "text": "Hecuba tells Vale that Agamemnon judged Polymestor’s killing a breach of protection for gold and ordered his exile. The rising wind brings an order to bury her two children before the fleet leaves.",
+      "textTemplate": "Hecuba tells {actor} that Agamemnon judged Polymestor’s killing a breach of protection for gold and ordered his exile. The rising wind brings an order to bury her two children before the fleet leaves.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-thrace-retaliation-recorded",
+          "value": true
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-thrace-prophecy",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-thrace-judgment-heard",
+          "value": true
+        }
+      ],
+      "workId": "euripides-hecuba"
+    },
+    {
+      "id": "greek-thrace-file-charge",
+      "subject": "greek-thrace-hecuba",
+      "at": "greek-thrace-summons-tent",
+      "label": "File the charge before the king and witnesses",
+      "text": "Vale reaches the king’s tent with Hecuba, her case papers and the gold record. The record becomes an open charge over Polydorus’s broken protection and the entrusted gold.",
+      "textTemplate": "{actor} reaches the king’s tent with Hecuba, her case papers and the gold record. The record becomes an open charge over Polydorus’s broken protection and the entrusted gold.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-thrace-route",
+          "value": "hearing"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-thrace-case-papers",
+          "actor": "greek-thrace-hecuba"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-thrace-gold-record",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-thrace-gold-record",
+          "place": "greek-thrace-summons-tent"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-thrace-charge-filed",
+          "value": true
+        }
+      ],
+      "workId": "euripides-hecuba"
+    },
+    {
+      "id": "greek-thrace-hear-answer",
+      "subject": "greek-thrace-polymestor",
+      "at": "greek-thrace-summons-tent",
+      "label": "Hear the invented public hearing’s answer",
+      "text": "Polymestor answers the open charge before Hecuba and Vale. In this invented hearing he yields the entrusted gold for restitution while the witnesses order both children’s burial.",
+      "textTemplate": "Polymestor answers the open charge before Hecuba and {actor}. In this invented hearing he yields the entrusted gold for restitution while the witnesses order both children’s burial.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-thrace-charge-filed",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-thrace-case-papers",
+          "actor": "greek-thrace-hecuba"
+        },
+        {
+          "kind": "item_near",
+          "item": "greek-thrace-case-papers",
+          "place": "greek-thrace-summons-tent"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-thrace-hearing-judgment",
+          "value": true
+        }
+      ],
+      "workId": "euripides-hecuba"
+    },
+    {
+      "id": "greek-thrace-acknowledge-gold",
+      "subject": "greek-thrace-hecuba",
+      "at": "greek-thrace-summons-tent",
+      "label": "Record the actual gold restored to Hecuba",
+      "text": "Hecuba holds the actual entrusted gold after Vale’s handoff. The hearing’s promised restitution has become a deed, and both children still need their named burials.",
+      "textTemplate": "Hecuba holds the actual entrusted gold after {actor}’s handoff. The hearing’s promised restitution has become a deed, and both children still need their named burials.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-thrace-route",
+          "value": "hearing"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-thrace-hearing-judgment",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-thrace-entrusted-gold",
+          "actor": "greek-thrace-hecuba"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-thrace-case-papers",
+          "actor": "greek-thrace-hecuba"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-thrace-gold-restored",
+          "value": true
+        }
+      ],
+      "workId": "euripides-hecuba"
+    },
+    {
+      "id": "greek-thrace-leave-charge",
+      "subject": "greek-thrace-hecuba",
+      "at": "greek-thrace",
+      "label": "Leave the charge while the king keeps the gold",
+      "text": "Vale leaves the actual gold record on the shore as Hecuba carries her case papers toward the burial grounds. The king still holds the entrusted wealth; the carried charge preserves that unpaid debt.",
+      "textTemplate": "{actor} leaves the actual gold record on the shore as Hecuba carries her case papers toward the burial grounds. The king still holds the entrusted wealth; the carried charge preserves that unpaid debt.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-thrace-route",
+          "value": "two-burials"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-thrace-gold-record",
+          "role": "actor"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-thrace-entrusted-gold",
+          "actor": "greek-thrace-polymestor"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-thrace-case-papers",
+          "actor": "greek-thrace-hecuba"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-thrace-gold-record",
+          "place": "greek-thrace"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-thrace-charge-retained",
+          "value": true
+        }
+      ],
+      "workId": "euripides-hecuba"
+    },
+    {
+      "id": "greek-thrace-bury-revenge",
+      "subject": "greek-thrace-hecuba",
+      "at": "greek-thrace-burial-ground",
+      "label": "Complete both children’s named burials",
+      "text": "Vale reaches the burial grounds with Hecuba, her case papers and both actual cloths. Hecuba completes Polyxena’s and Polydorus’s separate burials. The revenge, the king’s predictions and Agamemnon’s judgment remain recorded before the fleet leaves.",
+      "textTemplate": "{actor} reaches the burial grounds with Hecuba, her case papers and both actual cloths. Hecuba completes Polyxena’s and Polydorus’s separate burials. The revenge, the king’s predictions and Agamemnon’s judgment remain recorded before the fleet leaves.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-thrace-route",
+          "value": "revenge"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-thrace-case-papers",
+          "actor": "greek-thrace-hecuba"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-thrace-polyxena-cloth",
+          "role": "actor"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-thrace-polydorus-shroud",
+          "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-thrace-judgment-heard",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-thrace-prophecy-heard",
+          "value": true
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-thrace-polyxena-cloth",
+          "place": "greek-thrace-burial-ground"
+        },
+        {
+          "kind": "place_item",
+          "item": "greek-thrace-polydorus-shroud",
+          "place": "greek-thrace-burial-ground"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-thrace-ending",
+          "value": "revenge"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-thrace-both-buried",
+          "value": true
+        }
+      ],
+      "workId": "euripides-hecuba"
+    },
+    {
+      "id": "greek-thrace-bury-hearing",
+      "subject": "greek-thrace-hecuba",
+      "at": "greek-thrace-burial-ground",
+      "label": "Complete both children’s named burials",
+      "text": "Vale reaches the burial grounds with Hecuba, her case papers and both actual cloths. Hecuba completes Polyxena’s and Polydorus’s separate burials. The open hearing and the actual restored gold remain recorded beside the two names.",
+      "textTemplate": "{actor} reaches the burial grounds with Hecuba, her case papers and both actual cloths. Hecuba completes Polyxena’s and Polydorus’s separate burials. The open hearing and the actual restored gold remain recorded beside the two names.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-thrace-route",
+          "value": "hearing"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-thrace-case-papers",
+          "actor": "greek-thrace-hecuba"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-thrace-polyxena-cloth",
+          "role": "actor"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-thrace-polydorus-shroud",
+          "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-thrace-gold-restored",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-thrace-entrusted-gold",
+          "actor": "greek-thrace-hecuba"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-thrace-polyxena-cloth",
+          "place": "greek-thrace-burial-ground"
+        },
+        {
+          "kind": "place_item",
+          "item": "greek-thrace-polydorus-shroud",
+          "place": "greek-thrace-burial-ground"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-thrace-ending",
+          "value": "hearing"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-thrace-both-buried",
+          "value": true
+        }
+      ],
+      "workId": "euripides-hecuba"
+    },
+    {
+      "id": "greek-thrace-bury-two-burials",
+      "subject": "greek-thrace-hecuba",
+      "at": "greek-thrace-burial-ground",
+      "label": "Complete both children’s named burials",
+      "text": "Vale reaches the burial grounds with Hecuba, her case papers and both actual cloths. Hecuba completes Polyxena’s and Polydorus’s separate burials. The king retains the gold, and the charge travels onward with the two names.",
+      "textTemplate": "{actor} reaches the burial grounds with Hecuba, her case papers and both actual cloths. Hecuba completes Polyxena’s and Polydorus’s separate burials. The king retains the gold, and the charge travels onward with the two names.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-thrace-route",
+          "value": "two-burials"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-thrace-case-papers",
+          "actor": "greek-thrace-hecuba"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-thrace-polyxena-cloth",
+          "role": "actor"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-thrace-polydorus-shroud",
+          "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-thrace-charge-retained",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-thrace-entrusted-gold",
+          "actor": "greek-thrace-polymestor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-thrace-polyxena-cloth",
+          "place": "greek-thrace-burial-ground"
+        },
+        {
+          "kind": "place_item",
+          "item": "greek-thrace-polydorus-shroud",
+          "place": "greek-thrace-burial-ground"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-thrace-ending",
+          "value": "two-burials"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-thrace-both-buried",
+          "value": true
+        }
+      ],
+      "workId": "euripides-hecuba"
+    },
+    {
+      "id": "greek-thrace-seal-case",
+      "subject": "greek-thrace-hecuba",
+      "at": "greek-thrace-burial-ground",
+      "label": "Have Hecuba sign the completed burial case",
+      "text": "Hecuba signs the actual case papers after the separate burials with Vale. Another carrier can now take this completed record and hear its chosen shore account.",
+      "textTemplate": "Hecuba signs the actual case papers after the separate burials with {actor}. Another carrier can now take this completed record and hear its chosen shore account.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-thrace-both-buried",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-thrace-case-papers",
+          "actor": "greek-thrace-hecuba"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-thrace-case-signed",
+          "value": true
+        }
+      ],
+      "workId": "euripides-hecuba"
+    },
+    {
+      "id": "greek-thrace-record-revenge",
+      "subject": "greek-thrace-hecuba",
+      "at": "greek-thrace-burial-ground",
+      "label": "Hear Hecuba’s signed shore account",
+      "text": "Hecuba tells Vale the completed revenge account over the actual case papers. She names Polyxena and Polydorus, the two burials and the gold’s recorded custody.",
+      "textTemplate": "Hecuba tells {actor} the completed revenge account over the actual case papers. She names Polyxena and Polydorus, the two burials and the gold’s recorded custody.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-thrace-ending",
+          "value": "revenge"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-thrace-case-signed",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-thrace-case-papers",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-thrace-account-ready",
+          "value": true
+        }
+      ],
+      "workId": "euripides-hecuba"
+    },
+    {
+      "id": "greek-thrace-return-revenge",
+      "subject": "greek-baker",
+      "at": "greek-courtyard",
+      "label": "Read Hecuba’s signed case to Dione",
+      "text": "Vale brings Dione the actual signed shore case and its heard revenge account. Polyxena’s and Polydorus’s burials and the gold’s final custody enter the home record.",
+      "textTemplate": "{actor} brings Dione the actual signed shore case and its heard revenge account. Polyxena’s and Polydorus’s burials and the gold’s final custody enter the home record.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-thrace-ending",
+          "value": "revenge"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-thrace-account-ready",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-thrace-case-papers",
+          "role": "actor"
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-thrace-account-revenge",
+          "role": "actor"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-thrace-return"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-thrace-case-papers",
+          "place": "greek-courtyard"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-thrace-return",
+          "value": "revenge"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-thrace-returned",
+          "value": true
+        }
+      ],
+      "workId": "euripides-hecuba"
+    },
+    {
+      "id": "greek-thrace-record-hearing",
+      "subject": "greek-thrace-hecuba",
+      "at": "greek-thrace-burial-ground",
+      "label": "Hear Hecuba’s signed shore account",
+      "text": "Hecuba tells Vale the completed hearing account over the actual case papers. She names Polyxena and Polydorus, the two burials and the gold’s recorded custody.",
+      "textTemplate": "Hecuba tells {actor} the completed hearing account over the actual case papers. She names Polyxena and Polydorus, the two burials and the gold’s recorded custody.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-thrace-ending",
+          "value": "hearing"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-thrace-case-signed",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-thrace-case-papers",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-thrace-account-ready",
+          "value": true
+        }
+      ],
+      "workId": "euripides-hecuba"
+    },
+    {
+      "id": "greek-thrace-return-hearing",
+      "subject": "greek-baker",
+      "at": "greek-courtyard",
+      "label": "Read Hecuba’s signed case to Dione",
+      "text": "Vale brings Dione the actual signed shore case and its heard hearing account. Polyxena’s and Polydorus’s burials and the gold’s final custody enter the home record.",
+      "textTemplate": "{actor} brings Dione the actual signed shore case and its heard hearing account. Polyxena’s and Polydorus’s burials and the gold’s final custody enter the home record.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-thrace-ending",
+          "value": "hearing"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-thrace-account-ready",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-thrace-case-papers",
+          "role": "actor"
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-thrace-account-hearing",
+          "role": "actor"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-thrace-return"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-thrace-case-papers",
+          "place": "greek-courtyard"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-thrace-return",
+          "value": "hearing"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-thrace-returned",
+          "value": true
+        }
+      ],
+      "workId": "euripides-hecuba"
+    },
+    {
+      "id": "greek-thrace-record-two-burials",
+      "subject": "greek-thrace-hecuba",
+      "at": "greek-thrace-burial-ground",
+      "label": "Hear Hecuba’s signed shore account",
+      "text": "Hecuba tells Vale the completed two-burials account over the actual case papers. She names Polyxena and Polydorus, the two burials and the gold’s recorded custody.",
+      "textTemplate": "Hecuba tells {actor} the completed two-burials account over the actual case papers. She names Polyxena and Polydorus, the two burials and the gold’s recorded custody.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-thrace-ending",
+          "value": "two-burials"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-thrace-case-signed",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-thrace-case-papers",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-thrace-account-ready",
+          "value": true
+        }
+      ],
+      "workId": "euripides-hecuba"
+    },
+    {
+      "id": "greek-thrace-return-two-burials",
+      "subject": "greek-baker",
+      "at": "greek-courtyard",
+      "label": "Read Hecuba’s signed case to Dione",
+      "text": "Vale brings Dione the actual signed shore case and its heard two-burials account. Polyxena’s and Polydorus’s burials and the gold’s final custody enter the home record.",
+      "textTemplate": "{actor} brings Dione the actual signed shore case and its heard two-burials account. Polyxena’s and Polydorus’s burials and the gold’s final custody enter the home record.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-thrace-ending",
+          "value": "two-burials"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-thrace-account-ready",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-thrace-case-papers",
+          "role": "actor"
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-thrace-account-two-burials",
+          "role": "actor"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-thrace-return"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-thrace-case-papers",
+          "place": "greek-courtyard"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-thrace-return",
+          "value": "two-burials"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-thrace-returned",
+          "value": true
+        }
+      ],
+      "workId": "euripides-hecuba"
+    },
+    {
+      "id": "greek-susa-invitation",
+      "subject": "greek-shipmaster",
+      "at": "greek-harbor",
+      "label": "Ask for the historical Salamis court account",
+      "text": "Myrto opens the road to Susa after Vale returns Hecuba’s signed shore case. This passage enters the historical account after Salamis; the named Trojan and Atreid frames keep their own times.",
+      "textTemplate": "Myrto opens the road to Susa after {actor} returns Hecuba’s signed shore case. This passage enters the historical account after Salamis; the named Trojan and Atreid frames keep their own times.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-thrace-returned",
+          "value": true
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-susa-frame"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "greek-susa-frame",
+          "value": "historical-salamis-480-bce"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-susa-open",
+          "value": true
+        }
+      ],
+      "workId": "aeschylus-persians"
+    },
+    {
+      "id": "greek-susa-hear-messenger",
+      "subject": "greek-susa-atossa",
+      "at": "greek-susa-tomb",
+      "label": "Hear Atossa repeat the messenger’s named losses",
+      "text": "Atossa gives Vale the messenger’s Salamis account. Xerxes lives, while Artembares, Dadaces and Tenagon are among the dead. The fleet’s defeat and the households’ losses belong to this historical frame.",
+      "textTemplate": "Atossa gives {actor} the messenger’s Salamis account. Xerxes lives, while Artembares, Dadaces and Tenagon are among the dead. The fleet’s defeat and the households’ losses belong to this historical frame.",
+      "requires": [
+        {
+          "kind": "holding",
+          "item": "greek-susa-broken-oar",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-susa-messenger-heard",
+          "value": true
+        }
+      ],
+      "workId": "aeschylus-persians"
+    },
+    {
+      "id": "greek-susa-set-oar",
+      "subject": "greek-susa-atossa",
+      "at": "greek-susa-tomb",
+      "label": "Set the actual broken oar beside the tomb",
+      "text": "Vale lays the broken oar beside Atossa after hearing the messenger’s named losses. A names roll and an actual offering still need to reach the tomb.",
+      "textTemplate": "{actor} lays the broken oar beside Atossa after hearing the messenger’s named losses. A names roll and an actual offering still need to reach the tomb.",
+      "requires": [
+        {
+          "kind": "holding",
+          "item": "greek-susa-broken-oar",
+          "role": "actor"
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-susa-messenger",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-susa-broken-oar",
+          "place": "greek-susa-tomb"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-susa-oar-laid",
+          "value": true
+        }
+      ],
+      "workId": "aeschylus-persians"
+    },
+    {
+      "id": "greek-susa-pour-water",
+      "subject": "greek-susa-atossa",
+      "at": "greek-susa-tomb",
+      "label": "Read the names and pour the offering water",
+      "text": "Vale brings the actual names roll and filled water vessel to Atossa. She reads the named dead and pours the libation at Darius’s tomb before the remembered ghost’s warning.",
+      "textTemplate": "{actor} brings the actual names roll and filled water vessel to Atossa. She reads the named dead and pours the libation at Darius’s tomb before the remembered ghost’s warning.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-susa-oar-laid",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-susa-dead-names",
+          "role": "actor"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-susa-offering-water",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-susa-offering-water",
+          "place": "greek-susa-tomb"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-susa-offering-made",
+          "value": true
+        }
+      ],
+      "workId": "aeschylus-persians"
+    },
+    {
+      "id": "greek-susa-hear-warning",
+      "subject": "greek-susa-atossa",
+      "at": "greek-susa-tomb",
+      "label": "Hear Darius’s source warning through Atossa",
+      "text": "Atossa tells Vale that Darius’s ghost warned against further attack and foretold the remaining army’s defeat at Plataea. Plataea is a future prediction in this court scene. The named loss roll records Salamis.",
+      "textTemplate": "Atossa tells {actor} that Darius’s ghost warned against further attack and foretold the remaining army’s defeat at Plataea. Plataea is a future prediction in this court scene. The named loss roll records Salamis.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-susa-offering-made",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-susa-dead-names",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-susa-warning-heard",
+          "value": true
+        }
+      ],
+      "workId": "aeschylus-persians"
+    },
+    {
+      "id": "greek-susa-choose-public",
+      "subject": "greek-susa-xerxes",
+      "at": "greek-susa-threshold",
+      "label": "Agree to the public return lament",
+      "text": "Xerxes holds the actual cloak and agrees to reach the court with Vale. The elders and named households will meet his source-shaped public lament there.",
+      "textTemplate": "Xerxes holds the actual cloak and agrees to reach the court with {actor}. The elders and named households will meet his source-shaped public lament there.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-susa-warning-heard",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-susa-dead-names",
+          "role": "actor"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-susa-cloak",
+          "actor": "greek-susa-xerxes"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-susa-audience"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "greek-susa-audience",
+          "value": "public"
+        }
+      ],
+      "workId": "aeschylus-persians"
+    },
+    {
+      "id": "greek-susa-choose-private",
+      "subject": "greek-susa-xerxes",
+      "at": "greek-susa-threshold",
+      "label": "Agree to Atossa’s private household welcome",
+      "text": "Xerxes holds the actual cloak and agrees to reach the court with Vale. This invented private consolation also needs Atossa’s actual arrival and preserves a later duty to tell the households.",
+      "textTemplate": "Xerxes holds the actual cloak and agrees to reach the court with {actor}. This invented private consolation also needs Atossa’s actual arrival and preserves a later duty to tell the households.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-susa-warning-heard",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-susa-dead-names",
+          "role": "actor"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-susa-cloak",
+          "actor": "greek-susa-xerxes"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-susa-audience"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "greek-susa-audience",
+          "value": "private"
+        }
+      ],
+      "workId": "aeschylus-persians"
+    },
+    {
+      "id": "greek-susa-choose-reckoning",
+      "subject": "greek-susa-xerxes",
+      "at": "greek-susa-threshold",
+      "label": "Agree to an open account for the bereaved",
+      "text": "Xerxes holds the actual cloak and agrees to reach the court with Vale. This invented civic account will name the losses and appoint messengers for the waiting households.",
+      "textTemplate": "Xerxes holds the actual cloak and agrees to reach the court with {actor}. This invented civic account will name the losses and appoint messengers for the waiting households.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-susa-warning-heard",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-susa-dead-names",
+          "role": "actor"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-susa-cloak",
+          "actor": "greek-susa-xerxes"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-susa-audience"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "greek-susa-audience",
+          "value": "reckoning"
+        }
+      ],
+      "workId": "aeschylus-persians"
+    },
+    {
+      "id": "greek-susa-agree-mother",
+      "subject": "greek-susa-atossa",
+      "at": "greek-susa-tomb",
+      "label": "Hear Atossa agree to reach the private audience",
+      "text": "Atossa agrees to leave the tomb and reach the court with Vale. The private welcome requires mother and son to meet there after their actual journeys.",
+      "textTemplate": "Atossa agrees to leave the tomb and reach the court with {actor}. The private welcome requires mother and son to meet there after their actual journeys.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-susa-audience",
+          "value": "private"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-susa-dead-names",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "greek-susa-mother-journey",
+          "value": "private-court"
+        }
+      ],
+      "workId": "aeschylus-persians"
+    },
+    {
+      "id": "greek-susa-receive-return",
+      "subject": "greek-susa-xerxes",
+      "at": "greek-susa",
+      "label": "Receive Xerxes’s actual court arrival",
+      "text": "Vale reaches the court with Xerxes and the names roll. The king still holds Atossa’s actual cloak. His chosen audience can now hear a return that has happened.",
+      "textTemplate": "{actor} reaches the court with Xerxes and the names roll. The king still holds Atossa’s actual cloak. His chosen audience can now hear a return that has happened.",
+      "requires": [
+        {
+          "kind": "holding",
+          "item": "greek-susa-cloak",
+          "actor": "greek-susa-xerxes"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-susa-dead-names",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-susa-king-arrived",
+          "value": true
+        }
+      ],
+      "workId": "aeschylus-persians"
+    },
+    {
+      "id": "greek-susa-record-public",
+      "subject": "greek-susa-xerxes",
+      "at": "greek-susa",
+      "label": "Hear Xerxes and the public lament",
+      "text": "Xerxes and the elders name the lost leaders and lament toward his house. Vale reads the actual roll with the ordinary households added by this adaptation. Their grief gives the public return its record.",
+      "textTemplate": "Xerxes and the elders name the lost leaders and lament toward his house. {actor} reads the actual roll with the ordinary households added by this adaptation. Their grief gives the public return its record.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-susa-audience",
+          "value": "public"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-susa-king-arrived",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-susa-dead-names",
+          "role": "actor"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-susa-cloak",
+          "actor": "greek-susa-xerxes"
+        },
+        {
+          "kind": "item_near",
+          "item": "greek-susa-cloak",
+          "place": "greek-susa"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "greek-susa-ending",
+          "value": "public"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-susa-names-signed",
+          "value": true
+        }
+      ],
+      "workId": "aeschylus-persians"
+    },
+    {
+      "id": "greek-susa-return-public",
+      "subject": "greek-baker",
+      "at": "greek-courtyard",
+      "label": "Read the Salamis names to Dione",
+      "text": "Vale brings Dione the actual signed Salamis names roll and the heard public court account. The historical dead, Darius’s future warning and the chosen audience remain named in the return.",
+      "textTemplate": "{actor} brings Dione the actual signed Salamis names roll and the heard public court account. The historical dead, Darius’s future warning and the chosen audience remain named in the return.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-susa-ending",
+          "value": "public"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-susa-names-signed",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-susa-dead-names",
+          "role": "actor"
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-susa-account-public",
+          "role": "actor"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-susa-return"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-susa-dead-names",
+          "place": "greek-courtyard"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-susa-return",
+          "value": "public"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-susa-returned",
+          "value": true
+        }
+      ],
+      "workId": "aeschylus-persians"
+    },
+    {
+      "id": "greek-susa-record-private",
+      "subject": "greek-susa-atossa",
+      "at": "greek-susa",
+      "label": "Hear Atossa’s household welcome and its later duty",
+      "text": "Atossa meets her actual returned son and Vale at court. In this invented household scene she offers consolation while the roll keeps every known loss. The household accepts a later duty to tell the full account to the waiting families.",
+      "textTemplate": "Atossa meets her actual returned son and {actor} at court. In this invented household scene she offers consolation while the roll keeps every known loss. The household accepts a later duty to tell the full account to the waiting families.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-susa-audience",
+          "value": "private"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-susa-king-arrived",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-susa-dead-names",
+          "role": "actor"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-susa-cloak",
+          "actor": "greek-susa-xerxes"
+        },
+        {
+          "kind": "item_near",
+          "item": "greek-susa-cloak",
+          "place": "greek-susa"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "greek-susa-ending",
+          "value": "private"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-susa-names-signed",
+          "value": true
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-susa-households-disclosure-due",
+          "value": true
+        }
+      ],
+      "workId": "aeschylus-persians"
+    },
+    {
+      "id": "greek-susa-return-private",
+      "subject": "greek-baker",
+      "at": "greek-courtyard",
+      "label": "Read the Salamis names to Dione",
+      "text": "Vale brings Dione the actual signed Salamis names roll and the heard private court account. The historical dead, Darius’s future warning and the chosen audience remain named in the return.",
+      "textTemplate": "{actor} brings Dione the actual signed Salamis names roll and the heard private court account. The historical dead, Darius’s future warning and the chosen audience remain named in the return.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-susa-ending",
+          "value": "private"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-susa-names-signed",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-susa-dead-names",
+          "role": "actor"
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-susa-account-private",
+          "role": "actor"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-susa-return"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-susa-dead-names",
+          "place": "greek-courtyard"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-susa-return",
+          "value": "private"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-susa-returned",
+          "value": true
+        }
+      ],
+      "workId": "aeschylus-persians"
+    },
+    {
+      "id": "greek-susa-record-reckoning",
+      "subject": "greek-susa-xerxes",
+      "at": "greek-susa",
+      "label": "Hear the public losses and household messengers",
+      "text": "Xerxes hears Vale’s actual roll before the court. In this invented reckoning the court names the dead and appoints household messengers to give the loss account to the bereaved.",
+      "textTemplate": "Xerxes hears {actor}’s actual roll before the court. In this invented reckoning the court names the dead and appoints household messengers to give the loss account to the bereaved.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-susa-audience",
+          "value": "reckoning"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-susa-king-arrived",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-susa-dead-names",
+          "role": "actor"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-susa-cloak",
+          "actor": "greek-susa-xerxes"
+        },
+        {
+          "kind": "item_near",
+          "item": "greek-susa-cloak",
+          "place": "greek-susa"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "greek-susa-ending",
+          "value": "reckoning"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-susa-names-signed",
+          "value": true
+        }
+      ],
+      "workId": "aeschylus-persians"
+    },
+    {
+      "id": "greek-susa-return-reckoning",
+      "subject": "greek-baker",
+      "at": "greek-courtyard",
+      "label": "Read the Salamis names to Dione",
+      "text": "Vale brings Dione the actual signed Salamis names roll and the heard reckoning court account. The historical dead, Darius’s future warning and the chosen audience remain named in the return.",
+      "textTemplate": "{actor} brings Dione the actual signed Salamis names roll and the heard reckoning court account. The historical dead, Darius’s future warning and the chosen audience remain named in the return.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-susa-ending",
+          "value": "reckoning"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-susa-names-signed",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-susa-dead-names",
+          "role": "actor"
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-susa-account-reckoning",
+          "role": "actor"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-susa-return"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-susa-dead-names",
+          "place": "greek-courtyard"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-susa-return",
+          "value": "reckoning"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-susa-returned",
+          "value": true
+        }
+      ],
+      "workId": "aeschylus-persians"
     }
   ],
   "works": [
@@ -10650,15 +13003,38 @@
       "author": "Aeschylus",
       "title": "Persians",
       "era": "imperial-aftermath",
-      "placeIds": ["greek-susa"],
+      "placeIds": [
+        "greek-susa",
+        "greek-susa-tomb",
+        "greek-susa-threshold",
+        "greek-susa-road"
+      ],
       "premise": "A messenger's account of defeat must reach the grieving court without losing its source.",
-      "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aeschylus-persians"],
+      "status": "branching-episode",
+      "hookChoiceIds": [
+        "greek-inquire-aeschylus-persians",
+        "greek-susa-invitation",
+        "greek-susa-hear-messenger",
+        "greek-susa-set-oar",
+        "greek-susa-pour-water",
+        "greek-susa-hear-warning",
+        "greek-susa-choose-public",
+        "greek-susa-choose-private",
+        "greek-susa-choose-reckoning",
+        "greek-susa-agree-mother",
+        "greek-susa-receive-return",
+        "greek-susa-record-public",
+        "greek-susa-return-public",
+        "greek-susa-record-private",
+        "greek-susa-return-private",
+        "greek-susa-record-reckoning",
+        "greek-susa-return-reckoning"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aeschylus",
         "work": "Persians",
-        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+        "adaptation": "The separate historical Salamis frame carries an actual broken oar, named loss roll, offering water and cloak. The messenger’s named dead are Artembares, Dadaces and Tenagon. Darius’s warning places Plataea in the future. The chosen audience follows Xerxes’s actual cloak custody and court journey. The private alternative also requires Atossa’s actual arrival and records a later family disclosure duty. Public mourning adapts the source’s final lament; private consolation and civic reckoning are original alternatives. The actual signed roll reaches Dione through a carrier who heard the chosen court account."
       }
     },
     {
@@ -10666,10 +13042,14 @@
       "author": "Aeschylus",
       "title": "Seven Against Thebes",
       "era": "theban-war",
-      "placeIds": ["greek-gate"],
+      "placeIds": [
+        "greek-gate"
+      ],
       "premise": "The city's defenders must answer rival claims to command while households seek protection.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aeschylus-seven-against-thebes"],
+      "hookChoiceIds": [
+        "greek-inquire-aeschylus-seven-against-thebes"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aeschylus",
@@ -10682,10 +13062,14 @@
       "author": "Aeschylus",
       "title": "Suppliant Women",
       "era": "heroic-households",
-      "placeIds": ["greek-argos-sanctuary"],
+      "placeIds": [
+        "greek-argos-sanctuary"
+      ],
       "premise": "The Danaids seek protection against forced marriage, and the receiving city must decide what protection entails.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aeschylus-suppliant-women"],
+      "hookChoiceIds": [
+        "greek-inquire-aeschylus-suppliant-women"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aeschylus",
@@ -10698,10 +13082,14 @@
       "author": "Aeschylus",
       "title": "Prometheus Bound",
       "era": "divine-frontier",
-      "placeIds": ["greek-scythian-crag"],
+      "placeIds": [
+        "greek-scythian-crag"
+      ],
       "premise": "A punished benefactor can be approached, but neither prophecy nor release follows from a visitor's words alone.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aeschylus-prometheus-bound"],
+      "hookChoiceIds": [
+        "greek-inquire-aeschylus-prometheus-bound"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aeschylus",
@@ -10714,10 +13102,14 @@
       "author": "Aeschylus",
       "title": "Agamemnon",
       "era": "homecomings",
-      "placeIds": ["greek-argos-palace"],
+      "placeIds": [
+        "greek-argos-palace"
+      ],
       "premise": "A returning commander enters a household divided by the costs of the expedition.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aeschylus-agamemnon"],
+      "hookChoiceIds": [
+        "greek-inquire-aeschylus-agamemnon"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aeschylus",
@@ -10734,10 +13126,14 @@
       "author": "Aeschylus",
       "title": "Libation Bearers",
       "era": "homecomings",
-      "placeIds": ["greek-argos-tomb"],
+      "placeIds": [
+        "greek-argos-tomb"
+      ],
       "premise": "A meeting at a tomb raises claims of kinship and a demand for revenge.",
       "status": "branching-episode",
-      "hookChoiceIds": ["greek-inquire-aeschylus-libation-bearers"],
+      "hookChoiceIds": [
+        "greek-inquire-aeschylus-libation-bearers"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aeschylus",
@@ -10754,10 +13150,14 @@
       "author": "Aeschylus",
       "title": "Eumenides",
       "era": "homecomings",
-      "placeIds": ["greek-delphi"],
+      "placeIds": [
+        "greek-delphi"
+      ],
       "premise": "Sanctuary and public judgment offer different answers to a pursuing claim of vengeance.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aeschylus-eumenides"],
+      "hookChoiceIds": [
+        "greek-inquire-aeschylus-eumenides"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aeschylus",
@@ -10811,10 +13211,14 @@
       "author": "Sophocles",
       "title": "Antigone",
       "era": "theban-aftermath",
-      "placeIds": ["greek-gate"],
+      "placeIds": [
+        "greek-gate"
+      ],
       "premise": "A sister seeks burial for the brother whom a public decree leaves exposed.",
       "status": "opening-episode",
-      "hookChoiceIds": ["greek-inquire-sophocles-antigone"],
+      "hookChoiceIds": [
+        "greek-inquire-sophocles-antigone"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Sophocles",
@@ -10827,10 +13231,14 @@
       "author": "Sophocles",
       "title": "Women of Trachis",
       "era": "heroic-households",
-      "placeIds": ["greek-trachis"],
+      "placeIds": [
+        "greek-trachis"
+      ],
       "premise": "A household prepares a gift without agreeing about its history or effects.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-sophocles-women-of-trachis"],
+      "hookChoiceIds": [
+        "greek-inquire-sophocles-women-of-trachis"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Sophocles",
@@ -10843,10 +13251,14 @@
       "author": "Sophocles",
       "title": "Oedipus Tyrannus",
       "era": "theban-households",
-      "placeIds": ["greek-palace"],
+      "placeIds": [
+        "greek-palace"
+      ],
       "premise": "An inquiry into a public disaster turns toward the ruler's own origins.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-sophocles-oedipus-tyrannus"],
+      "hookChoiceIds": [
+        "greek-inquire-sophocles-oedipus-tyrannus"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Sophocles",
@@ -10859,10 +13271,14 @@
       "author": "Sophocles",
       "title": "Electra",
       "era": "homecomings",
-      "placeIds": ["greek-mycenae-palace"],
+      "placeIds": [
+        "greek-mycenae-palace"
+      ],
       "premise": "An excluded daughter demands an answer to her father's murder from the palace approach.",
       "status": "branching-episode",
-      "hookChoiceIds": ["greek-inquire-sophocles-electra"],
+      "hookChoiceIds": [
+        "greek-inquire-sophocles-electra"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Sophocles",
@@ -10921,7 +13337,9 @@
       "author": "Sophocles",
       "title": "Oedipus at Colonus",
       "era": "theban-exile",
-      "placeIds": ["greek-colonus"],
+      "placeIds": [
+        "greek-colonus"
+      ],
       "premise": "An old exile seeks a resting place while rival powers contest his presence.",
       "status": "branching-episode",
       "hookChoiceIds": [
@@ -10944,10 +13362,14 @@
       "author": "Euripides",
       "title": "Alcestis",
       "era": "heroic-households",
-      "placeIds": ["greek-pherae"],
+      "placeIds": [
+        "greek-pherae"
+      ],
       "premise": "Hospitality continues in a household mourning the person who paid for another's life.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-alcestis"],
+      "hookChoiceIds": [
+        "greek-inquire-euripides-alcestis"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -10960,10 +13382,14 @@
       "author": "Euripides",
       "title": "Medea",
       "era": "heroic-households",
-      "placeIds": ["greek-corinth"],
+      "placeIds": [
+        "greek-corinth"
+      ],
       "premise": "A betrayed foreign household faces expulsion while its members seek time, refuge, and a response.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-medea"],
+      "hookChoiceIds": [
+        "greek-inquire-euripides-medea"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -10976,7 +13402,9 @@
       "author": "Euripides",
       "title": "Children of Heracles",
       "era": "heroic-aftermath",
-      "placeIds": ["greek-marathon"],
+      "placeIds": [
+        "greek-marathon"
+      ],
       "premise": "Pursued children seek protection at Zeus's altar against a powerful ruler's demands.",
       "status": "branching-episode",
       "hookChoiceIds": [
@@ -11000,10 +13428,14 @@
       "author": "Euripides",
       "title": "Hippolytus",
       "era": "heroic-households",
-      "placeIds": ["greek-troezen"],
+      "placeIds": [
+        "greek-troezen"
+      ],
       "premise": "A household confronts desire, shame, an accusation, and a father's power to punish.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-hippolytus"],
+      "hookChoiceIds": [
+        "greek-inquire-euripides-hippolytus"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -11016,10 +13448,14 @@
       "author": "Euripides",
       "title": "Andromache",
       "era": "homecomings",
-      "placeIds": ["greek-thetis"],
+      "placeIds": [
+        "greek-thetis"
+      ],
       "premise": "A captive mother and her child seek protection inside a hostile dynastic household.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-andromache"],
+      "hookChoiceIds": [
+        "greek-inquire-euripides-andromache"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -11032,15 +13468,49 @@
       "author": "Euripides",
       "title": "Hecuba",
       "era": "trojan-aftermath",
-      "placeIds": ["greek-thrace"],
+      "placeIds": [
+        "greek-thrace",
+        "greek-thrace-summons-tent",
+        "greek-thrace-burial-ground"
+      ],
       "premise": "A captive queen searches for reliable news of her children and a betrayed trust.",
-      "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-hecuba"],
+      "status": "branching-episode",
+      "hookChoiceIds": [
+        "greek-inquire-euripides-hecuba",
+        "greek-thrace-invitation",
+        "greek-thrace-hear-farewell",
+        "greek-thrace-lay-cloth",
+        "greek-thrace-hear-losses",
+        "greek-thrace-prepare-shroud",
+        "greek-thrace-lay-shroud",
+        "greek-thrace-hear-custody",
+        "greek-thrace-compare-record",
+        "greek-thrace-choose-revenge",
+        "greek-thrace-choose-hearing",
+        "greek-thrace-choose-two-burials",
+        "greek-thrace-set-trap",
+        "greek-thrace-hear-prophecy",
+        "greek-thrace-hear-judgment",
+        "greek-thrace-file-charge",
+        "greek-thrace-hear-answer",
+        "greek-thrace-acknowledge-gold",
+        "greek-thrace-leave-charge",
+        "greek-thrace-bury-revenge",
+        "greek-thrace-bury-hearing",
+        "greek-thrace-bury-two-burials",
+        "greek-thrace-seal-case",
+        "greek-thrace-record-revenge",
+        "greek-thrace-return-revenge",
+        "greek-thrace-record-hearing",
+        "greek-thrace-return-hearing",
+        "greek-thrace-record-two-burials",
+        "greek-thrace-return-two-burials"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
         "work": "Hecuba",
-        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+        "adaptation": "The later remembered shore reads the selected Trojan departure. Polyxena speaks as an adult before the reported source sacrifice. The actual cloths, custody record, gold and Hecuba’s carried case distinguish preparation, judgment, restitution and two completed burials. The source revenge includes Polymestor’s blinding and his sons’ deaths, then attributed prophecy and Agamemnon’s judgment. The public hearing is an invented change with actual gold restitution. The burial path retains an unpaid charge while the king keeps the gold. A signed case reaches Dione through an actual carrier who has heard Hecuba’s ending."
       }
     },
     {
@@ -11048,7 +13518,9 @@
       "author": "Euripides",
       "title": "Suppliant Women",
       "era": "theban-aftermath",
-      "placeIds": ["greek-eleusis"],
+      "placeIds": [
+        "greek-eleusis"
+      ],
       "premise": "Bereaved mothers seek help recovering their sons' remains from a defeated expedition.",
       "status": "branching-episode",
       "hookChoiceIds": [
@@ -11077,10 +13549,14 @@
       "author": "Euripides",
       "title": "Electra",
       "era": "homecomings",
-      "placeIds": ["greek-argive-farm"],
+      "placeIds": [
+        "greek-argive-farm"
+      ],
       "premise": "The revenge claim is heard in a poor household beyond the royal city.",
       "status": "branching-episode",
-      "hookChoiceIds": ["greek-inquire-euripides-electra"],
+      "hookChoiceIds": [
+        "greek-inquire-euripides-electra"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -11097,10 +13573,14 @@
       "author": "Euripides",
       "title": "Heracles",
       "era": "heroic-households",
-      "placeIds": ["greek-courtyard"],
+      "placeIds": [
+        "greek-courtyard"
+      ],
       "premise": "A household needs protection from tyranny and support after destructive divine interference.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-heracles"],
+      "hookChoiceIds": [
+        "greek-inquire-euripides-heracles"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -11162,10 +13642,14 @@
       "author": "Euripides",
       "title": "Iphigenia in Tauris",
       "era": "homecomings",
-      "placeIds": ["greek-tauris"],
+      "placeIds": [
+        "greek-tauris"
+      ],
       "premise": "A ritual killing rule threatens travelers whose identities may change the priestess's obligations.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-iphigenia-in-tauris"],
+      "hookChoiceIds": [
+        "greek-inquire-euripides-iphigenia-in-tauris"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -11178,10 +13662,14 @@
       "author": "Euripides",
       "title": "Ion",
       "era": "heroic-households",
-      "placeIds": ["greek-delphi"],
+      "placeIds": [
+        "greek-delphi"
+      ],
       "premise": "Competing claims to a young attendant's parentage meet inside Apollo's sanctuary.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-ion"],
+      "hookChoiceIds": [
+        "greek-inquire-euripides-ion"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -11194,10 +13682,14 @@
       "author": "Euripides",
       "title": "Helen",
       "era": "homecomings",
-      "placeIds": ["greek-egypt-tomb"],
+      "placeIds": [
+        "greek-egypt-tomb"
+      ],
       "premise": "Helen's testimony distinguishes her own life from the phantom blamed for the war.",
       "status": "branching-episode",
-      "hookChoiceIds": ["greek-inquire-euripides-helen"],
+      "hookChoiceIds": [
+        "greek-inquire-euripides-helen"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -11214,10 +13706,14 @@
       "author": "Euripides",
       "title": "Phoenician Women",
       "era": "theban-war",
-      "placeIds": ["greek-palace"],
+      "placeIds": [
+        "greek-palace"
+      ],
       "premise": "A divided family tries to act while rival brothers bring armed claims to the city.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-phoenician-women"],
+      "hookChoiceIds": [
+        "greek-inquire-euripides-phoenician-women"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -11230,10 +13726,14 @@
       "author": "Euripides",
       "title": "Orestes",
       "era": "homecomings",
-      "placeIds": ["greek-argos-palace"],
+      "placeIds": [
+        "greek-argos-palace"
+      ],
       "premise": "A household facing judgment after matricide considers further desperate action.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-orestes"],
+      "hookChoiceIds": [
+        "greek-inquire-euripides-orestes"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -11250,10 +13750,14 @@
       "author": "Euripides",
       "title": "Bacchae",
       "era": "early-thebes",
-      "placeIds": ["greek-cithaeron"],
+      "placeIds": [
+        "greek-cithaeron"
+      ],
       "premise": "Suppressed worship and a ruler's surveillance bring human authority against a disguised god.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-bacchae"],
+      "hookChoiceIds": [
+        "greek-inquire-euripides-bacchae"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -11266,7 +13770,11 @@
       "author": "Euripides",
       "title": "Iphigenia at Aulis",
       "era": "trojan-departure",
-      "placeIds": ["greek-aulis", "greek-aulis-household", "greek-aulis-altar"],
+      "placeIds": [
+        "greek-aulis",
+        "greek-aulis-household",
+        "greek-aulis-altar"
+      ],
       "premise": "Commanders and soldiers press for a sacrifice that a father has the power to resist.",
       "status": "branching-episode",
       "hookChoiceIds": [
@@ -11342,10 +13850,14 @@
       "author": "Euripides",
       "title": "Cyclops",
       "era": "homecomings",
-      "placeIds": ["greek-sicily"],
+      "placeIds": [
+        "greek-sicily"
+      ],
       "premise": "Captive satyrs and stranded travelers seek a way past a predatory host.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-cyclops"],
+      "hookChoiceIds": [
+        "greek-inquire-euripides-cyclops"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -11358,10 +13870,14 @@
       "author": "Aristophanes",
       "title": "Acharnians",
       "era": "civic-athens",
-      "placeIds": ["greek-acharnae"],
+      "placeIds": [
+        "greek-acharnae"
+      ],
       "premise": "A farmer's separate peace creates a market inside a community still at war.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aristophanes-acharnians"],
+      "hookChoiceIds": [
+        "greek-inquire-aristophanes-acharnians"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aristophanes",
@@ -11374,10 +13890,14 @@
       "author": "Aristophanes",
       "title": "Knights",
       "era": "civic-athens",
-      "placeIds": ["greek-demos-house"],
+      "placeIds": [
+        "greek-demos-house"
+      ],
       "premise": "Rival household servants compete to flatter and exploit the person who holds political power.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aristophanes-knights"],
+      "hookChoiceIds": [
+        "greek-inquire-aristophanes-knights"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aristophanes",
@@ -11390,10 +13910,14 @@
       "author": "Aristophanes",
       "title": "Clouds",
       "era": "civic-athens",
-      "placeIds": ["greek-thinkery"],
+      "placeIds": [
+        "greek-thinkery"
+      ],
       "premise": "A debtor seeks an education that may overturn the balance of authority in his own family.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aristophanes-clouds"],
+      "hookChoiceIds": [
+        "greek-inquire-aristophanes-clouds"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aristophanes",
@@ -11406,10 +13930,14 @@
       "author": "Aristophanes",
       "title": "Wasps",
       "era": "civic-athens",
-      "placeIds": ["greek-jury-house"],
+      "placeIds": [
+        "greek-jury-house"
+      ],
       "premise": "A juror's pleasure and income collide with his household's attempt to restrain him.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aristophanes-wasps"],
+      "hookChoiceIds": [
+        "greek-inquire-aristophanes-wasps"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aristophanes",
@@ -11422,10 +13950,14 @@
       "author": "Aristophanes",
       "title": "Peace",
       "era": "civic-athens",
-      "placeIds": ["greek-divine-heights"],
+      "placeIds": [
+        "greek-divine-heights"
+      ],
       "premise": "A farmer seeks peace while trades built on war face losing their customers.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aristophanes-peace"],
+      "hookChoiceIds": [
+        "greek-inquire-aristophanes-peace"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aristophanes",
@@ -11438,10 +13970,14 @@
       "author": "Aristophanes",
       "title": "Birds",
       "era": "civic-athens",
-      "placeIds": ["greek-bird-wilderness"],
+      "placeIds": [
+        "greek-bird-wilderness"
+      ],
       "premise": "A refuge from civic life could become a new power controlling passage between gods and mortals.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aristophanes-birds"],
+      "hookChoiceIds": [
+        "greek-inquire-aristophanes-birds"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aristophanes",
@@ -11454,10 +13990,14 @@
       "author": "Aristophanes",
       "title": "Lysistrata",
       "era": "civic-athens",
-      "placeIds": ["greek-acropolis"],
+      "placeIds": [
+        "greek-acropolis"
+      ],
       "premise": "A coalition uses control of the treasury and intimacy to put pressure on the war.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aristophanes-lysistrata"],
+      "hookChoiceIds": [
+        "greek-inquire-aristophanes-lysistrata"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aristophanes",
@@ -11470,10 +14010,14 @@
       "author": "Aristophanes",
       "title": "Women at the Thesmophoria",
       "era": "civic-athens",
-      "placeIds": ["greek-festival"],
+      "placeIds": [
+        "greek-festival"
+      ],
       "premise": "Women contest a playwright's portrayal while a disguised visitor risks exposure.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aristophanes-women-at-the-thesmophoria"],
+      "hookChoiceIds": [
+        "greek-inquire-aristophanes-women-at-the-thesmophoria"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aristophanes",
@@ -11486,10 +14030,14 @@
       "author": "Aristophanes",
       "title": "Frogs",
       "era": "civic-athens",
-      "placeIds": ["greek-underworld"],
+      "placeIds": [
+        "greek-underworld"
+      ],
       "premise": "A divine visitor seeks a poet whose art can answer the city's troubles.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aristophanes-frogs"],
+      "hookChoiceIds": [
+        "greek-inquire-aristophanes-frogs"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aristophanes",
@@ -11502,10 +14050,14 @@
       "author": "Aristophanes",
       "title": "Assemblywomen",
       "era": "civic-athens",
-      "placeIds": ["greek-assembly"],
+      "placeIds": [
+        "greek-assembly"
+      ],
       "premise": "A political takeover promises shared property and leaves households to work through its consequences.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aristophanes-assemblywomen"],
+      "hookChoiceIds": [
+        "greek-inquire-aristophanes-assemblywomen"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aristophanes",
@@ -11518,10 +14070,14 @@
       "author": "Aristophanes",
       "title": "Wealth",
       "era": "civic-athens",
-      "placeIds": ["greek-attic-farm"],
+      "placeIds": [
+        "greek-attic-farm"
+      ],
       "premise": "Restoring Wealth's sight would change who receives prosperity and who benefits from the old distribution.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aristophanes-wealth"],
+      "hookChoiceIds": [
+        "greek-inquire-aristophanes-wealth"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aristophanes",
@@ -11609,7 +14165,14 @@
       "greek-rhesus-allies",
       "greek-rhesus-aid-tent",
       "greek-troy-womens-tent",
-      "greek-troy-shield-ground"
+      "greek-troy-shield-ground",
+      "greek-thrace-summons-tent",
+      "greek-thrace-burial-ground",
+      "greek-thrace",
+      "greek-susa-tomb",
+      "greek-susa-threshold",
+      "greek-susa-road",
+      "greek-susa"
     ],
     "avatars": [
       "greek-antigone",
@@ -11643,7 +14206,12 @@
       "greek-rhesus-charioteer",
       "greek-troy-hecuba",
       "greek-troy-andromache",
-      "greek-troy-talthybius"
+      "greek-troy-talthybius",
+      "greek-thrace-hecuba",
+      "greek-thrace-polyxena",
+      "greek-thrace-polymestor",
+      "greek-susa-atossa",
+      "greek-susa-xerxes"
     ],
     "items": [
       "greek-water-jar",
@@ -11684,7 +14252,16 @@
       "greek-troy-hector-shield",
       "greek-troy-child-cloth",
       "greek-troy-crew-pledge",
-      "greek-troy-berth-token"
+      "greek-troy-berth-token",
+      "greek-thrace-polyxena-cloth",
+      "greek-thrace-polydorus-shroud",
+      "greek-thrace-entrusted-gold",
+      "greek-thrace-gold-record",
+      "greek-thrace-case-papers",
+      "greek-susa-broken-oar",
+      "greek-susa-dead-names",
+      "greek-susa-offering-water",
+      "greek-susa-cloak"
     ],
     "choices": [
       "greek-return-water-jar",
@@ -11852,7 +14429,51 @@
       "greek-troy-return-child-refuge",
       "greek-troy-record-family-together",
       "greek-troy-return-family-together",
-      "greek-troy-last-song"
+      "greek-troy-last-song",
+      "greek-thrace-invitation",
+      "greek-thrace-hear-farewell",
+      "greek-thrace-lay-cloth",
+      "greek-thrace-hear-losses",
+      "greek-thrace-prepare-shroud",
+      "greek-thrace-lay-shroud",
+      "greek-thrace-hear-custody",
+      "greek-thrace-compare-record",
+      "greek-thrace-choose-revenge",
+      "greek-thrace-choose-hearing",
+      "greek-thrace-choose-two-burials",
+      "greek-thrace-set-trap",
+      "greek-thrace-hear-prophecy",
+      "greek-thrace-hear-judgment",
+      "greek-thrace-file-charge",
+      "greek-thrace-hear-answer",
+      "greek-thrace-acknowledge-gold",
+      "greek-thrace-leave-charge",
+      "greek-thrace-bury-revenge",
+      "greek-thrace-bury-hearing",
+      "greek-thrace-bury-two-burials",
+      "greek-thrace-seal-case",
+      "greek-thrace-record-revenge",
+      "greek-thrace-return-revenge",
+      "greek-thrace-record-hearing",
+      "greek-thrace-return-hearing",
+      "greek-thrace-record-two-burials",
+      "greek-thrace-return-two-burials",
+      "greek-susa-invitation",
+      "greek-susa-hear-messenger",
+      "greek-susa-set-oar",
+      "greek-susa-pour-water",
+      "greek-susa-hear-warning",
+      "greek-susa-choose-public",
+      "greek-susa-choose-private",
+      "greek-susa-choose-reckoning",
+      "greek-susa-agree-mother",
+      "greek-susa-receive-return",
+      "greek-susa-record-public",
+      "greek-susa-return-public",
+      "greek-susa-record-private",
+      "greek-susa-return-private",
+      "greek-susa-record-reckoning",
+      "greek-susa-return-reckoning"
     ]
   },
   "recital": {
@@ -11866,7 +14487,10 @@
           "buried him",
           "his body lies in the grave"
         ],
-        "anyChoices": ["greek-perform-burial", "greek-perform-permitted-burial"]
+        "anyChoices": [
+          "greek-perform-burial",
+          "greek-perform-permitted-burial"
+        ]
       },
       {
         "phrases": [
@@ -11897,18 +14521,28 @@
           "the ashes were placed",
           "the urn was placed"
         ],
-        "anyChoices": ["greek-open-door-lay-ashes"]
+        "anyChoices": [
+          "greek-open-door-lay-ashes"
+        ]
       },
       {
-        "phrases": ["the berth was prepared", "a berth was reserved"],
+        "phrases": [
+          "the berth was prepared",
+          "a berth was reserved"
+        ],
         "anyChoices": [
           "greek-open-door-family-berth",
           "greek-open-door-open-berth"
         ]
       },
       {
-        "phrases": ["i laid a blanket", "the blanket was laid"],
-        "anyChoices": ["greek-open-door-marathon-blanket"]
+        "phrases": [
+          "i laid a blanket",
+          "the blanket was laid"
+        ],
+        "anyChoices": [
+          "greek-open-door-marathon-blanket"
+        ]
       }
     ],
     "verses": [
@@ -12665,6 +15299,132 @@
           "The paid last berth had kept its giver ashore."
         ],
         "summons": true
+      },
+      {
+        "choice": "greek-thrace-lay-cloth",
+        "quest": "story-quest-greek-thrace-farewell",
+        "lines": [
+          "I laid the cloth beside the daughter’s words.",
+          "Her chosen farewell waited by the tide."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-thrace-compare-record",
+        "quest": "story-quest-greek-thrace-evidence",
+        "lines": [
+          "I brought the gold’s own record to the shore.",
+          "The broken trust was written with his name."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-thrace-bury-revenge",
+        "quest": "story-quest-greek-thrace-burials",
+        "lines": [
+          "Two named cloths marked the children’s resting ground.",
+          "The mother’s source revenge kept its own cost."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-thrace-return-revenge",
+        "quest": "story-quest-greek-thrace-return",
+        "lines": [
+          "I read the signed shore case beside the bread.",
+          "The dead had names beyond the king’s last words."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-thrace-bury-hearing",
+        "quest": "story-quest-greek-thrace-burials",
+        "lines": [
+          "Two named cloths marked the children’s resting ground.",
+          "The yielded gold had reached the mother’s hand."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-thrace-return-hearing",
+        "quest": "story-quest-greek-thrace-return",
+        "lines": [
+          "I read the signed shore case beside the bread.",
+          "The gold restored had joined the children’s names."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-thrace-bury-two-burials",
+        "quest": "story-quest-greek-thrace-burials",
+        "lines": [
+          "Two named cloths marked the children’s resting ground.",
+          "The king kept gold beside the carried charge."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-thrace-return-two-burials",
+        "quest": "story-quest-greek-thrace-return",
+        "lines": [
+          "I read the signed shore case beside the bread.",
+          "The unpaid charge went home with both the names."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-susa-set-oar",
+        "quest": "story-quest-greek-susa-losses",
+        "lines": [
+          "I laid the broken oar beside the tomb.",
+          "The messenger’s dead names had reached the court."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-susa-pour-water",
+        "quest": "story-quest-greek-susa-offering",
+        "lines": [
+          "The names were read above the offered water.",
+          "The warning spoke of battles still to come."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-susa-receive-return",
+        "quest": "story-quest-greek-susa-audience",
+        "lines": [
+          "The living king had reached the court in cloth.",
+          "The waiting names had crossed the threshold too."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-susa-return-public",
+        "quest": "story-quest-greek-susa-return",
+        "lines": [
+          "I read the Salamis names beside the bread.",
+          "The public mourning carried common grief."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-susa-return-private",
+        "quest": "story-quest-greek-susa-return",
+        "lines": [
+          "I read the Salamis names beside the bread.",
+          "The private comfort kept its public duty."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-susa-return-reckoning",
+        "quest": "story-quest-greek-susa-return",
+        "lines": [
+          "I read the Salamis names beside the bread.",
+          "The court sent names to households of the lost."
+        ],
+        "summons": true
       }
     ]
   },
@@ -12716,7 +15476,11 @@
     {
       "id": "greek-aulis",
       "name": "The Wind’s Price",
-      "places": ["greek-aulis", "greek-aulis-household", "greek-aulis-altar"],
+      "places": [
+        "greek-aulis",
+        "greek-aulis-household",
+        "greek-aulis-altar"
+      ],
       "requires": [
         {
           "kind": "flag",
@@ -12728,7 +15492,10 @@
     {
       "id": "greek-lemnos-chapter",
       "name": "The Offered Sail",
-      "places": ["greek-lemnos", "greek-lemnos-landing"],
+      "places": [
+        "greek-lemnos",
+        "greek-lemnos-landing"
+      ],
       "requires": [
         {
           "kind": "flag",
@@ -12756,7 +15523,9 @@
     {
       "id": "greek-rhesus-city-approach",
       "name": "The Trojan City Approach",
-      "places": ["greek-troy"],
+      "places": [
+        "greek-troy"
+      ],
       "requires": [
         {
           "kind": "flag",
@@ -12768,11 +15537,47 @@
     {
       "id": "greek-troy-captives",
       "name": "What the Ships Will Carry",
-      "places": ["greek-troy-womens-tent", "greek-troy-shield-ground"],
+      "places": [
+        "greek-troy-womens-tent",
+        "greek-troy-shield-ground"
+      ],
       "requires": [
         {
           "kind": "flag",
           "key": "greek-troy-open",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-thrace-shore",
+      "name": "The Gold Beneath the Tide",
+      "places": [
+        "greek-thrace",
+        "greek-thrace-summons-tent",
+        "greek-thrace-burial-ground"
+      ],
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-thrace-open",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-susa-court",
+      "name": "The Broken Oar",
+      "places": [
+        "greek-susa",
+        "greek-susa-tomb",
+        "greek-susa-threshold",
+        "greek-susa-road"
+      ],
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-susa-open",
           "value": true
         }
       ]
@@ -12818,7 +15623,9 @@
           }
         ]
       },
-      "related": ["greek-return-water-jar"]
+      "related": [
+        "greek-return-water-jar"
+      ]
     },
     {
       "id": "story-quest-greek-burial",
@@ -13186,7 +15993,9 @@
           }
         ]
       },
-      "progress": ["greek-open-door-set-provisions"],
+      "progress": [
+        "greek-open-door-set-provisions"
+      ],
       "endings": [
         {
           "choice": "greek-open-door-family-berth"
@@ -13787,7 +16596,9 @@
         }
       ],
       "outcome": "Fulfilled",
-      "progress": ["greek-ajax-hear-plea"]
+      "progress": [
+        "greek-ajax-hear-plea"
+      ]
     },
     {
       "id": "story-quest-greek-ajax-burial",
@@ -13883,7 +16694,9 @@
         }
       ],
       "outcome": "Fulfilled",
-      "progress": ["greek-aulis-hear-recall"]
+      "progress": [
+        "greek-aulis-hear-recall"
+      ]
     },
     {
       "id": "story-quest-greek-aulis-witness",
@@ -14133,7 +16946,9 @@
         }
       ],
       "outcome": "Fulfilled",
-      "progress": ["greek-rhesus-hear-word"]
+      "progress": [
+        "greek-rhesus-hear-word"
+      ]
     },
     {
       "id": "story-quest-greek-rhesus-ending",
@@ -14195,7 +17010,9 @@
         }
       ],
       "outcome": "Shared",
-      "progress": ["greek-rhesus-record-warning"]
+      "progress": [
+        "greek-rhesus-record-warning"
+      ]
     },
     {
       "id": "story-quest-greek-troy-names",
@@ -14217,7 +17034,10 @@
         }
       ],
       "outcome": "Fulfilled",
-      "progress": ["greek-troy-hear-assignments", "greek-troy-hear-names"]
+      "progress": [
+        "greek-troy-hear-assignments",
+        "greek-troy-hear-names"
+      ]
     },
     {
       "id": "story-quest-greek-troy-care",
@@ -14311,6 +17131,234 @@
         },
         {
           "choice": "greek-troy-return-family-together"
+        }
+      ],
+      "outcome": "Shared",
+      "progress": []
+    },
+    {
+      "id": "story-quest-greek-thrace-farewell",
+      "group": "thrace",
+      "line": "Hear Polyxena and prepare her farewell cloth.",
+      "holder": {
+        "kind": "avatar",
+        "id": "greek-thrace-polyxena"
+      },
+      "art": "greek-thrace-polyxena-cloth",
+      "start": {
+        "kind": "flag",
+        "key": "greek-thrace-open",
+        "value": true
+      },
+      "endings": [
+        {
+          "choice": "greek-thrace-lay-cloth"
+        }
+      ],
+      "outcome": "Fulfilled",
+      "progress": [
+        "greek-thrace-hear-farewell"
+      ]
+    },
+    {
+      "id": "story-quest-greek-thrace-evidence",
+      "group": "thrace",
+      "line": "Compare the entrusted gold with Polydorus’s shore evidence.",
+      "holder": {
+        "kind": "avatar",
+        "id": "greek-thrace-hecuba"
+      },
+      "art": "greek-thrace-gold-record",
+      "start": {
+        "kind": "receipt",
+        "choice": "greek-thrace-lay-cloth"
+      },
+      "endings": [
+        {
+          "choice": "greek-thrace-compare-record"
+        }
+      ],
+      "outcome": "Fulfilled",
+      "progress": [
+        "greek-thrace-hear-losses",
+        "greek-thrace-prepare-shroud",
+        "greek-thrace-lay-shroud",
+        "greek-thrace-hear-custody"
+      ]
+    },
+    {
+      "id": "story-quest-greek-thrace-burials",
+      "group": "thrace",
+      "line": "Carry Hecuba’s actual case through the judgment and both burials.",
+      "holder": {
+        "kind": "avatar",
+        "id": "greek-thrace-hecuba"
+      },
+      "art": "greek-thrace-case-papers",
+      "start": {
+        "kind": "receipt",
+        "choice": "greek-thrace-compare-record"
+      },
+      "endings": [
+        {
+          "choice": "greek-thrace-seal-case"
+        }
+      ],
+      "outcome": "Fulfilled",
+      "progress": [
+        "greek-thrace-choose-revenge",
+        "greek-thrace-choose-hearing",
+        "greek-thrace-choose-two-burials",
+        "greek-thrace-set-trap",
+        "greek-thrace-file-charge",
+        "greek-thrace-acknowledge-gold",
+        "greek-thrace-leave-charge",
+        "greek-thrace-bury-revenge",
+        "greek-thrace-bury-hearing",
+        "greek-thrace-bury-two-burials"
+      ]
+    },
+    {
+      "id": "story-quest-greek-thrace-return",
+      "group": "thrace",
+      "line": "Hear and carry Hecuba’s signed case home.",
+      "holder": {
+        "kind": "avatar",
+        "id": "greek-thrace-hecuba"
+      },
+      "art": "greek-thrace-case-papers",
+      "start": {
+        "kind": "receipt",
+        "choice": "greek-thrace-seal-case"
+      },
+      "endings": [
+        {
+          "choice": "greek-thrace-return-revenge"
+        },
+        {
+          "choice": "greek-thrace-return-hearing"
+        },
+        {
+          "choice": "greek-thrace-return-two-burials"
+        }
+      ],
+      "outcome": "Shared",
+      "progress": []
+    },
+    {
+      "id": "story-quest-greek-susa-losses",
+      "group": "susa",
+      "line": "Carry the broken oar through the named Salamis losses.",
+      "holder": {
+        "kind": "avatar",
+        "id": "greek-susa-atossa"
+      },
+      "art": "greek-susa-broken-oar",
+      "start": {
+        "kind": "flag",
+        "key": "greek-susa-open",
+        "value": true
+      },
+      "endings": [
+        {
+          "choice": "greek-susa-set-oar"
+        }
+      ],
+      "outcome": "Fulfilled",
+      "progress": [
+        "greek-susa-hear-messenger"
+      ]
+    },
+    {
+      "id": "story-quest-greek-susa-offering",
+      "group": "susa",
+      "line": "Carry the names and water to Darius’s tomb.",
+      "holder": {
+        "kind": "avatar",
+        "id": "greek-susa-atossa"
+      },
+      "art": "greek-susa-offering-water",
+      "start": {
+        "kind": "receipt",
+        "choice": "greek-susa-set-oar"
+      },
+      "endings": [
+        {
+          "choice": "greek-susa-pour-water"
+        }
+      ],
+      "outcome": "Fulfilled",
+      "progress": [
+        "greek-susa-hear-warning"
+      ]
+    },
+    {
+      "id": "story-quest-greek-susa-audience",
+      "group": "susa",
+      "line": "Carry the cloak and reach the chosen actual audience.",
+      "holder": {
+        "kind": "avatar",
+        "id": "greek-susa-xerxes"
+      },
+      "art": "greek-susa-cloak",
+      "start": {
+        "kind": "receipt",
+        "choice": "greek-susa-pour-water"
+      },
+      "endings": [
+        {
+          "choice": "greek-susa-record-public"
+        },
+        {
+          "choice": "greek-susa-record-private"
+        },
+        {
+          "choice": "greek-susa-record-reckoning"
+        }
+      ],
+      "outcome": "Fulfilled",
+      "progress": [
+        "greek-susa-choose-public",
+        "greek-susa-choose-private",
+        "greek-susa-choose-reckoning",
+        "greek-susa-agree-mother",
+        "greek-susa-receive-return"
+      ]
+    },
+    {
+      "id": "story-quest-greek-susa-return",
+      "group": "susa",
+      "line": "Hear and carry the signed historical loss roll home.",
+      "holder": {
+        "kind": "avatar",
+        "id": "greek-susa-xerxes"
+      },
+      "art": "greek-susa-dead-names",
+      "start": {
+        "any": [
+          {
+            "kind": "receipt",
+            "choice": "greek-susa-record-public"
+          },
+          {
+            "kind": "receipt",
+            "choice": "greek-susa-record-private"
+          },
+          {
+            "kind": "receipt",
+            "choice": "greek-susa-record-reckoning"
+          }
+        ]
+      },
+      "endings": [
+        {
+          "choice": "greek-susa-return-public"
+        },
+        {
+          "choice": "greek-susa-return-private"
+        },
+        {
+          "choice": "greek-susa-return-reckoning"
         }
       ],
       "outcome": "Shared",
@@ -15243,6 +18291,292 @@
         }
       ],
       "choiceId": "greek-troy-record-family-together"
+    },
+    {
+      "id": "greek-thrace-farewell",
+      "speaker": "greek-thrace-polyxena",
+      "at": "greek-thrace",
+      "text": "Polyxena gives her adult farewell and asks Hecuba to remember her dignity in the source sacrifice.",
+      "requires": [
+        {
+          "kind": "holding",
+          "item": "greek-thrace-polyxena-cloth",
+          "role": "actor"
+        }
+      ],
+      "choiceId": "greek-thrace-hear-farewell"
+    },
+    {
+      "id": "greek-thrace-losses",
+      "speaker": "greek-thrace-hecuba",
+      "at": "greek-thrace",
+      "text": "Hecuba names Talthybius’s report of Polyxena’s sacrifice and the servant’s discovery of Polydorus at the tide.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-thrace-farewell-prepared",
+          "value": true
+        }
+      ],
+      "choiceId": "greek-thrace-hear-losses"
+    },
+    {
+      "id": "greek-thrace-custody",
+      "speaker": "greek-thrace-polymestor",
+      "at": "greek-thrace-summons-tent",
+      "text": "Polymestor says Priam entrusted Polydorus and gold to his protection before the city fell.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-thrace-son-care-prepared",
+          "value": true
+        }
+      ],
+      "choiceId": "greek-thrace-hear-custody"
+    },
+    {
+      "id": "greek-thrace-prophecy",
+      "speaker": "greek-thrace-polymestor",
+      "at": "greek-thrace-summons-tent",
+      "text": "Polymestor predicts Hecuba’s changed form and death and Cassandra’s and Agamemnon’s deaths in his source speech.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-thrace-retaliation-recorded",
+          "value": true
+        }
+      ],
+      "choiceId": "greek-thrace-hear-prophecy"
+    },
+    {
+      "id": "greek-thrace-judgment",
+      "speaker": "greek-thrace-hecuba",
+      "at": "greek-thrace-summons-tent",
+      "text": "Hecuba reports Agamemnon’s judgment against Polymestor and his order to bury both children before the fleet sails.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-thrace-retaliation-recorded",
+          "value": true
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-thrace-prophecy",
+          "role": "actor"
+        }
+      ],
+      "choiceId": "greek-thrace-hear-judgment"
+    },
+    {
+      "id": "greek-thrace-answer",
+      "speaker": "greek-thrace-polymestor",
+      "at": "greek-thrace-summons-tent",
+      "text": "Polymestor yields the entrusted gold for restitution in the invented hearing while witnesses order both burials.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-thrace-charge-filed",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-thrace-case-papers",
+          "actor": "greek-thrace-hecuba"
+        },
+        {
+          "kind": "item_near",
+          "item": "greek-thrace-case-papers",
+          "place": "greek-thrace-summons-tent"
+        }
+      ],
+      "choiceId": "greek-thrace-hear-answer"
+    },
+    {
+      "id": "greek-thrace-account-revenge",
+      "speaker": "greek-thrace-hecuba",
+      "at": "greek-thrace-burial-ground",
+      "text": "Hecuba names both completed burials after her source revenge and records the king’s predictions as his claims.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-thrace-ending",
+          "value": "revenge"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-thrace-case-signed",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-thrace-case-papers",
+          "role": "actor"
+        }
+      ],
+      "choiceId": "greek-thrace-record-revenge"
+    },
+    {
+      "id": "greek-thrace-account-hearing",
+      "speaker": "greek-thrace-hecuba",
+      "at": "greek-thrace-burial-ground",
+      "text": "Hecuba names both completed burials and the actual gold restored through the invented public hearing.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-thrace-ending",
+          "value": "hearing"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-thrace-case-signed",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-thrace-case-papers",
+          "role": "actor"
+        }
+      ],
+      "choiceId": "greek-thrace-record-hearing"
+    },
+    {
+      "id": "greek-thrace-account-two-burials",
+      "speaker": "greek-thrace-hecuba",
+      "at": "greek-thrace-burial-ground",
+      "text": "Hecuba names both completed burials and carries the unpaid gold charge while Polymestor retains the wealth.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-thrace-ending",
+          "value": "two-burials"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-thrace-case-signed",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-thrace-case-papers",
+          "role": "actor"
+        }
+      ],
+      "choiceId": "greek-thrace-record-two-burials"
+    },
+    {
+      "id": "greek-susa-messenger",
+      "speaker": "greek-susa-atossa",
+      "at": "greek-susa-tomb",
+      "text": "Atossa repeats the messenger’s Salamis losses, naming Artembares, Dadaces and Tenagon while Xerxes survives.",
+      "requires": [
+        {
+          "kind": "holding",
+          "item": "greek-susa-broken-oar",
+          "role": "actor"
+        }
+      ],
+      "choiceId": "greek-susa-hear-messenger"
+    },
+    {
+      "id": "greek-susa-warning",
+      "speaker": "greek-susa-atossa",
+      "at": "greek-susa-tomb",
+      "text": "Atossa attributes the warning against further attack and the future defeat at Plataea to Darius’s ghost.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-susa-offering-made",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-susa-dead-names",
+          "role": "actor"
+        }
+      ],
+      "choiceId": "greek-susa-hear-warning"
+    },
+    {
+      "id": "greek-susa-account-public",
+      "speaker": "greek-susa-xerxes",
+      "at": "greek-susa",
+      "text": "Xerxes joins the source-shaped public lament after his actual court arrival while the roll names leaders and ordinary losses.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-susa-audience",
+          "value": "public"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-susa-king-arrived",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-susa-dead-names",
+          "role": "actor"
+        }
+      ],
+      "choiceId": "greek-susa-record-public"
+    },
+    {
+      "id": "greek-susa-account-private",
+      "speaker": "greek-susa-atossa",
+      "at": "greek-susa",
+      "text": "Atossa offers the invented private welcome after mother and son reach court and accepts the later full-disclosure duty to families.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-susa-audience",
+          "value": "private"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-susa-king-arrived",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-susa-dead-names",
+          "role": "actor"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-susa-cloak",
+          "actor": "greek-susa-xerxes"
+        },
+        {
+          "kind": "item_near",
+          "item": "greek-susa-cloak",
+          "place": "greek-susa"
+        }
+      ],
+      "choiceId": "greek-susa-record-private"
+    },
+    {
+      "id": "greek-susa-account-reckoning",
+      "speaker": "greek-susa-xerxes",
+      "at": "greek-susa",
+      "text": "Xerxes accepts the invented public loss record and appoints household messengers after his actual court arrival.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-susa-audience",
+          "value": "reckoning"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-susa-king-arrived",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-susa-dead-names",
+          "role": "actor"
+        }
+      ],
+      "choiceId": "greek-susa-record-reckoning"
     }
   ]
 }

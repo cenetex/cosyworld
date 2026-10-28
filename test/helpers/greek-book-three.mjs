@@ -18,6 +18,164 @@ export function bookPlay(world, kind, fields = {}, actor = "vale") {
   return result.state;
 }
 
+export const thraceChoice = (world, id) =>
+  bookPlay(world, "choose", { choiceId: `greek-thrace-${id}` });
+
+export function thraceStart() {
+  let world = bookMove(troyJourney(), "greek-harbor");
+  world = thraceChoice(world, "invitation");
+  return bookMove(bookBoard(world), "greek-thrace");
+}
+
+export function thraceEvidence() {
+  const hecuba = "greek-thrace-hecuba";
+  let world = bookPlay(thraceStart(), "take", {
+    item: "greek-thrace-polyxena-cloth",
+  });
+  world = bookTalk(world, "greek-thrace-polyxena", "greek-thrace-farewell");
+  world = thraceChoice(world, "lay-cloth");
+  world = bookTalk(world, hecuba, "greek-thrace-losses");
+  world = thraceChoice(world, "prepare-shroud");
+  world = bookMove(world, "greek-thrace-burial-ground");
+  world = bookPlay(world, "take", { item: "greek-thrace-polydorus-shroud" });
+  world = bookMove(world, "greek-thrace");
+  world = thraceChoice(world, "lay-shroud");
+  world = bookMove(world, "greek-thrace-summons-tent");
+  world = bookTalk(world, "greek-thrace-polymestor", "greek-thrace-custody");
+  world = bookPlay(world, "take", { item: "greek-thrace-gold-record" });
+  world = bookMove(world, "greek-thrace");
+  world = thraceChoice(world, "compare-record");
+  world = bookPlay(world, "take", { item: "greek-thrace-case-papers" });
+  return bookPlay(world, "give", {
+    item: "greek-thrace-case-papers",
+    target: hecuba,
+  });
+}
+
+export function thraceBurials(route = "revenge") {
+  const hecuba = "greek-thrace-hecuba";
+  let world = thraceEvidence();
+  for (const id of ["gold-record", "polyxena-cloth", "polydorus-shroud"])
+    world = bookPlay(world, "take", { item: `greek-thrace-${id}` });
+  world = thraceChoice(world, `choose-${route}`);
+  if (route === "two-burials") {
+    world = thraceChoice(world, "leave-charge");
+  } else {
+    world = bookPlay(world, "accompany", {
+      target: hecuba,
+      destination: "greek-thrace-summons-tent",
+    });
+    if (route === "revenge") {
+      world = thraceChoice(world, "set-trap");
+      world = bookTalk(
+        world,
+        "greek-thrace-polymestor",
+        "greek-thrace-prophecy",
+      );
+      world = bookTalk(world, hecuba, "greek-thrace-judgment");
+    } else {
+      world = thraceChoice(world, "file-charge");
+      world = bookTalk(world, "greek-thrace-polymestor", "greek-thrace-answer");
+      world = bookPlay(world, "ask", { item: "greek-thrace-entrusted-gold" });
+      world = bookPlay(world, "give", {
+        item: "greek-thrace-entrusted-gold",
+        target: hecuba,
+      });
+      world = thraceChoice(world, "acknowledge-gold");
+    }
+  }
+  world = bookPlay(world, "accompany", {
+    target: hecuba,
+    destination: "greek-thrace-burial-ground",
+  });
+  world = thraceChoice(world, `bury-${route}`);
+  return thraceChoice(world, "seal-case");
+}
+
+export function thraceJourney(route = "revenge") {
+  let world = bookPlay(thraceBurials(route), "ask", {
+    item: "greek-thrace-case-papers",
+  });
+  world = bookTalk(
+    world,
+    "greek-thrace-hecuba",
+    `greek-thrace-account-${route}`,
+  );
+  world = bookMove(world, "greek-thrace");
+  world = bookMove(bookBoard(world), "greek-harbor", "greek-courtyard");
+  return thraceChoice(world, `return-${route}`);
+}
+
+export const susaChoice = (world, id) =>
+  bookPlay(world, "choose", { choiceId: `greek-susa-${id}` });
+
+export function susaStart() {
+  let world = bookMove(thraceJourney(), "greek-harbor");
+  world = susaChoice(world, "invitation");
+  return bookMove(
+    bookBoard(world),
+    "greek-ajax-landing",
+    "greek-greek-camp",
+    "greek-troy",
+    "greek-susa-road",
+    "greek-susa",
+  );
+}
+
+export function susaReady() {
+  let world = bookPlay(susaStart(), "take", { item: "greek-susa-broken-oar" });
+  world = bookMove(world, "greek-susa-tomb");
+  world = bookTalk(world, "greek-susa-atossa", "greek-susa-messenger");
+  world = susaChoice(world, "set-oar");
+  world = bookMove(world, "greek-susa");
+  for (const id of ["dead-names", "offering-water"])
+    world = bookPlay(world, "take", { item: `greek-susa-${id}` });
+  world = bookMove(world, "greek-susa-tomb");
+  world = susaChoice(world, "pour-water");
+  world = bookTalk(world, "greek-susa-atossa", "greek-susa-warning");
+  world = bookMove(world, "greek-susa");
+  world = bookPlay(world, "take", { item: "greek-susa-cloak" });
+  world = bookMove(world, "greek-susa-threshold");
+  return bookPlay(world, "give", {
+    item: "greek-susa-cloak",
+    target: "greek-susa-xerxes",
+  });
+}
+
+export function susaAudience(route = "public") {
+  let world = susaChoice(susaReady(), `choose-${route}`);
+  world = bookPlay(world, "accompany", {
+    target: "greek-susa-xerxes",
+    destination: "greek-susa",
+  });
+  world = susaChoice(world, "receive-return");
+  if (route === "private") {
+    world = bookMove(world, "greek-susa-tomb");
+    world = susaChoice(world, "agree-mother");
+    world = bookPlay(world, "accompany", {
+      target: "greek-susa-atossa",
+      destination: "greek-susa",
+    });
+  }
+  return bookTalk(
+    world,
+    route === "private" ? "greek-susa-atossa" : "greek-susa-xerxes",
+    `greek-susa-account-${route}`,
+  );
+}
+
+export function susaJourney(route = "public") {
+  let world = bookMove(
+    susaAudience(route),
+    "greek-susa-road",
+    "greek-troy",
+    "greek-greek-camp",
+    "greek-ajax-landing",
+  );
+  world = bookMove(bookBoard(world), "greek-harbor", "greek-courtyard");
+  return susaChoice(world, `return-${route}`);
+}
+
 export const bookMove = (world, ...places) =>
   places.reduce((state, target) => bookPlay(state, "move", { target }), world);
 export const aulisChoice = (world, id) =>
