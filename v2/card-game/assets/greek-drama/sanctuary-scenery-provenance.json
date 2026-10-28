@@ -1,0 +1,166 @@
+{
+  "generated": "2026-10-28",
+  "tool": "built-in image_gen",
+  "sourceBase": "adf72465f7b9102b05c1b5031ba1d88bd91e56e8",
+  "style": "Detailed painted Greek storybook realism, matched to existing Greek grove and sanctuary stages.",
+  "assets": [
+    {
+      "file": "bacchae-cithaeron-day.webp",
+      "sourceFile": "sanctuary-sources/bacchae-cithaeron-day.png",
+      "sourceName": "exec-47a093b4-abce-4e48-954e-602dc651ad35.png",
+      "generationId": "exec-47a093b4-abce-4e48-954e-602dc651ad35",
+      "place": "greek-cithaeron",
+      "chapter": "euripides-bacchae",
+      "intent": "reference-based generation",
+      "transparentBackground": false,
+      "references": [
+        {
+          "file": "open-door-colonus.webp",
+          "role": "style reference",
+          "sha256": "ce76091cd3f94db6dec9db104f6ab0d67fa81af1670089d731130a29e4625fb7"
+        },
+        {
+          "file": "burial-ground-dusk.webp",
+          "role": "style reference",
+          "sha256": "a48b519c59a4bdea60ce1d843c8c475238e0fc4b83da7eef6ce8277ca234592f"
+        }
+      ],
+      "processing": "Original generated PNG retained in sanctuary-sources; full-size WebP encoded at quality 94 and effort 6.",
+      "prompt": "Use case: historical-scene.\nAsset type: a wide 16:9 stage painting for Cithaeron Slopes in the Bacchae chapter of the Wine-Dark Sea card game.\nInput images: image 1 is a style reference for richly painted Greek trees, paths and natural light. Image 2 is a style reference for rugged Greek limestone, depth and mountain terrain. Compose a new living woodland setting.\nPrimary request: a rugged wooded slope on Mount Cithaeron above Thebes. Goat paths cross among old holm oaks, tall firs and pines, limestone outcrops, ivy, dry grasses and low mountain shrubs. A rough path climbs between trees toward the ridge; another path bends downhill toward a small distant glimpse of the Theban valley. A tall fir stands beside the uphill path. A few ivy branches and a simple wool ribbon tied around a small stone at the edge suggest a place visited by the worshippers.\nComposition: eye level, wide 16:9. Place the rugged trees and boulders mainly at the sides and in the middle distance. Keep a broad clear rock-and-earth clearing across the lower third for separate cast portraits. The uphill path, wooded slope and limestone ridge stay readable in the center phone crop. Natural landscape and its small ritual marker fill the scene.\nStyle: match the game's detailed painterly Greek storybook realism, weathered bark, rough stone, layered foliage and rich natural textures. Mossy and olive greens, warm pale rock, muted earth and a little blue distance.\nLighting: clear afternoon daylight through the trees, warm highlights and cool green shadows. Quiet mountain air, with a sense of hidden depth beyond the clearing. Opaque full-frame scenery.",
+      "size": [
+        1672,
+        941
+      ],
+      "sourceSha256": "c9d43459ab755cf028251540d3a503fa99794b412a3eb51b00b27206b8d5e132",
+      "sha256": "e9a09eaf250dac0a485655d04fe62bdab60409b770879dddbd2aaad9d4cf68f9",
+      "sourceBytes": 3950788,
+      "bytes": 900820
+    },
+    {
+      "file": "bacchae-cithaeron-night.webp",
+      "sourceFile": "sanctuary-sources/bacchae-cithaeron-night.png",
+      "sourceName": "exec-952b8832-82f2-40df-86c2-4737b5ef740b.png",
+      "generationId": "exec-952b8832-82f2-40df-86c2-4737b5ef740b",
+      "place": "greek-cithaeron",
+      "chapter": "euripides-bacchae",
+      "intent": "lighting-weather edit",
+      "transparentBackground": false,
+      "references": [
+        {
+          "file": "sanctuary-sources/bacchae-cithaeron-day.png",
+          "role": "edit target",
+          "sha256": "c9d43459ab755cf028251540d3a503fa99794b412a3eb51b00b27206b8d5e132"
+        }
+      ],
+      "processing": "Original generated PNG retained in sanctuary-sources; full-size WebP encoded at quality 94 and effort 6.",
+      "prompt": "Use case: lighting-weather.\nAsset type: the night partner for Cithaeron Slopes in the Bacchae chapter of the Wine-Dark Sea card game.\nInput image: the supplied finished day painting is the edit target.\nPrimary request: set this exact wooded mountain slope at a clear night. Use a deep indigo sky, a few small stars in the sky openings and cool moonlight through the trees. Keep enough light on the clearing, pale limestone and paths for the cast to stand and travel. The distant Theban valley has a few restrained warm window lights.\nInvariants: preserve the exact wide 16:9 crop, viewpoint, perspective, rock clearing, uphill and downhill paths, firs, oaks, pines, boulders, ivy, shrubs, ribboned stone, mountain ridge and distant city. Keep every object, tree and path in its current position and shape. Retain the rich natural painted Greek storybook style, rough bark and stone, dry ground and clear air. Change the sky, illumination and shadows to night. Natural scenery fills the opaque frame.",
+      "size": [
+        1672,
+        941
+      ],
+      "sourceSha256": "a397258fa019f1840c3de3dd2b07decaf7351cb7c8e5d11f3bec732f94423e7e",
+      "sha256": "ecbab8ff347e1d42e0a0a8df1aa7f40d1aeaf4077295ba6287ec7f344f025acc",
+      "sourceBytes": 3371116,
+      "bytes": 688160
+    },
+    {
+      "file": "suppliants-argive-shore-day.webp",
+      "sourceFile": "sanctuary-sources/suppliants-argive-shore-day.png",
+      "sourceName": "exec-775f8181-3e55-45d8-bcbd-a2f5da574dae.png",
+      "generationId": "exec-775f8181-3e55-45d8-bcbd-a2f5da574dae",
+      "place": "greek-argos-sanctuary",
+      "chapter": "aeschylus-suppliant-women",
+      "intent": "precise-object-edit",
+      "transparentBackground": false,
+      "references": [
+        {
+          "file": "sanctuary-sources/suppliants-argive-shore-day-gate-edit.png",
+          "role": "edit target",
+          "sha256": "1aed1d7de19d427bc1927a38ebad450a13ead7c3cb4aa8c483724e794be082e2"
+        }
+      ],
+      "processing": "Original generated PNG retained in sanctuary-sources; full-size WebP encoded at quality 94 and effort 6.",
+      "prompt": "Use case: precise-object-edit.\nAsset type: the daylight Argive Shore Sanctuary stage for a phone-friendly game view.\nInput image: the supplied day painting is the edit target.\nPrimary request: arrange the altar and the open shelter gate together inside the middle of the image. Keep the altar at about one third of the full image width. Place the center of the open gap between the two gateposts at about 55 percent of the full image width. Make this a modest narrow gateway, with both posts inside the central band from 45 to 65 percent of the image width. The gate may stand just behind the right side of the altar. Its open gap and the path to a sheltered house doorway behind it should be clearly visible together in that central band. The path continues from the clear foreground into the gate.\nKeep the same wide 16:9 view, Greek shrine and large olive tree at the left, broad empty foreground, bound suppliant branches, basin, limestone textures, afternoon light and painted style. Keep blue coastal water visible to the left of the gate. The small distant ship can sit in that open water. The town houses can gather around the clear route behind the gate. Make the central crop show the altar, open passage and a welcoming doorway together. The painting is full-frame and opaque.",
+      "size": [
+        1672,
+        941
+      ],
+      "sourceSha256": "24f4cc208fbcbbd917a474fe3c8949a713a15e95d64cdd86872041531ab1302f",
+      "sha256": "eeefe8a71013f2f9fab65cf71b4b153aa4a83ef454e1c87de2487eb42fa1bc60",
+      "sourceBytes": 3315650,
+      "bytes": 745404
+    },
+    {
+      "file": "suppliants-argive-shore-night.webp",
+      "sourceFile": "sanctuary-sources/suppliants-argive-shore-night.png",
+      "sourceName": "exec-4412638e-02ba-40ce-8d55-68399331b9ad.png",
+      "generationId": "exec-4412638e-02ba-40ce-8d55-68399331b9ad",
+      "place": "greek-argos-sanctuary",
+      "chapter": "aeschylus-suppliant-women",
+      "intent": "lighting-weather edit",
+      "transparentBackground": false,
+      "references": [
+        {
+          "file": "sanctuary-sources/suppliants-argive-shore-day.png",
+          "role": "edit target",
+          "sha256": "24f4cc208fbcbbd917a474fe3c8949a713a15e95d64cdd86872041531ab1302f"
+        }
+      ],
+      "processing": "Original generated PNG retained in sanctuary-sources; full-size WebP encoded at quality 94 and effort 6.",
+      "prompt": "Use case: lighting-weather.\nAsset type: the night partner for the Argive Shore Sanctuary in Aeschylus's Suppliant Women chapter of the Wine-Dark Sea card game.\nInput image: the supplied finished day painting is the edit target.\nPrimary request: set this exact coastal sanctuary at a clear, calm night. Use a deep blue sky, small stars and soft moonlight over the sea, altar, branches and open court. Put gentle amber flames in the existing bronze bowls at the gate and restrained warm light in the sheltered doorway beyond it. The open path through the gate stays clearly readable.\nInvariants: preserve the exact wide 16:9 crop, camera, perspective, altar and its carvings, bound olive branches, shrine, olive tree, basin, jars, foreground paving, open gateposts and doors, connecting path, town houses, hills, shore, sea and single distant ship. Keep their geometry, positions and silhouettes aligned with the day view. Retain the detailed Greek painted style, dry ground, natural material textures and clear air. Change the sky, illumination and shadows to night. Opaque scenery fills the frame.",
+      "size": [
+        1672,
+        941
+      ],
+      "sourceSha256": "937e93e491b2f85b05e023fd6d26a0bb7d7d07ae5de7a388b65f0233baaeb9d7",
+      "sha256": "a63ef68ee9c00235193a6bff4d5c9f8571dff38d6e5f3e84312130b877ca8e50",
+      "sourceBytes": 2999474,
+      "bytes": 641242
+    }
+  ],
+  "generationHistory": [
+    {
+      "file": "sanctuary-sources/suppliants-argive-shore-day-initial.png",
+      "sourceName": "exec-d34abbcb-c8eb-4b17-9876-0ea778060d09.png",
+      "generationId": "exec-d34abbcb-c8eb-4b17-9876-0ea778060d09",
+      "intent": "reference-based generation",
+      "references": [
+        {
+          "file": "open-door-eleusis.webp",
+          "role": "style reference",
+          "sha256": "e792c1dc93672b1f39dc8db45090a35238cb135e47649caafcf1733af6e170bb"
+        }
+      ],
+      "processing": "Original first Argive day painting retained as the source for the gate-layout edit.",
+      "prompt": "Use case: historical-scene.\nAsset type: a wide 16:9 stage painting for the Argive Shore Sanctuary in Aeschylus's Suppliant Women chapter of the Wine-Dark Sea card game.\nInput image: a style reference for the game's detailed Greek sanctuary painting, warm stone, olive branches and open foreground. Compose a new coastal refuge setting.\nPrimary request: an ancient Greek sanctuary just above the Argive shore. A broad weathered limestone altar stands slightly left of center, with suppliant olive branches bound with white wool resting against its low stepped base. A simple stone basin sits nearby. A small Doric shrine and an olive tree shelter one side of the court. Beyond the low sea-facing wall, blue coastal water and a single small distant wooden sailing ship are visible. To the right of the altar, an open shore gate leads to a clearly visible path toward modest sunlit town houses and their sheltered doorways. Low Greek hills frame the distance.\nComposition: eye level, wide 16:9. The altar, bound branches and open route toward shelter stay readable in the central phone crop. Keep generous open paving and sandy ground across the lower third for separate cast portraits. Give the path a clear line from the altar through the gate toward the homes. Architecture and coastal landscape fill the painting.\nStyle: richly detailed painted Greek storybook realism, aged limestone, soft ochre plaster, natural olive green, wool and clay textures, clear blue water. The sanctuary feels like a living refuge where a city's promise becomes practical care.\nLighting: clear warm afternoon daylight, gentle shadows, calm dry air. Opaque full-frame scenery.",
+      "size": [
+        1672,
+        941
+      ],
+      "sha256": "4b15c696f91020ec7550cdafb1a54b24282acdcaddfdd90a87bb4e06c697c9ad",
+      "bytes": 3423534
+    },
+    {
+      "file": "sanctuary-sources/suppliants-argive-shore-day-gate-edit.png",
+      "sourceName": "exec-b7868d6c-0d2e-4a34-88a0-a027e97730be.png",
+      "generationId": "exec-b7868d6c-0d2e-4a34-88a0-a027e97730be",
+      "intent": "precise-object-edit",
+      "references": [
+        {
+          "file": "sanctuary-sources/suppliants-argive-shore-day-initial.png",
+          "role": "edit target",
+          "sha256": "4b15c696f91020ec7550cdafb1a54b24282acdcaddfdd90a87bb4e06c697c9ad"
+        }
+      ],
+      "processing": "Original first gate-layout edit retained as the source for the final central-crop edit.",
+      "prompt": "Use case: precise-object-edit.\nAsset type: the day painting of the Argive Shore Sanctuary for the Wine-Dark Sea card game.\nInput image: the supplied sanctuary painting is the edit target.\nPrimary request: bring the open gateway and the route toward the town closer to the center of the composition. Place the open gate immediately to the right of the altar, around 60 percent of the full image width, so both the altar and the gate fit inside the central third of the painting. Let a clear sunlit path continue through that gate toward a few welcoming town doorways visible directly behind it. Use the space of the low sea wall and nearby shrubs for this revised opening. Keep the sea visible beyond the altar and to the left of the gate.\nInvariants: preserve the same wide 16:9 crop, eye-level camera, broad open foreground, altar and its bound olive branches, shrine, large olive tree, basin, paving, distant hills and small ship. Retain warm afternoon daylight, aged limestone, ochre walls and the detailed Greek painted style. Adjust the gateway, its connecting path and the houses behind it to make the way toward shelter readable in a narrow central phone crop. The court and coastal scenery fill the opaque frame.",
+      "size": [
+        1672,
+        941
+      ],
+      "sha256": "1aed1d7de19d427bc1927a38ebad450a13ead7c3cb4aa8c483724e794be082e2",
+      "bytes": 3352176
+    }
+  ],
+  "integration": "The chapter owners will add catalog bindings, daylight registration, optimized image variants, public assets, shared rules and final release versions."
+}

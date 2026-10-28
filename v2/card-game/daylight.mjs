@@ -2,6 +2,7 @@
 export const DAYLIGHT_TURNS = 24;
 const art = (file) => `assets/greek-drama/${file}.webp`;
 const nightBackdrops = {
+  "greek-cithaeron": art("bacchae-cithaeron-night"),
   "greek-harbor": art("harbor-open-berth-night"),
   "greek-courtyard": art("courtyard-night"),
   "greek-well": art("market-well-night"),
@@ -34,13 +35,15 @@ export function locationDaylight(world, id) {
   const period = Math.floor(world.turn / DAYLIGHT_TURNS);
   const phase = period % 2 ? "night" : "day";
   const where =
-    id === "greek-athens-harbor"
-      ? "at Athens Harbor"
-      : id === "greek-piraeus"
-        ? "at Piraeus Quays"
-        : id === "greek-greek-camp" || id.startsWith("greek-ajax-")
-          ? "at the Greek camp near Troy"
-          : "in Thebes";
+    id === "greek-cithaeron"
+      ? "on Cithaeron Slopes"
+      : id === "greek-athens-harbor"
+        ? "at Athens Harbor"
+        : id === "greek-piraeus"
+          ? "at Piraeus Quays"
+          : id === "greek-greek-camp" || id.startsWith("greek-ajax-")
+            ? "at the Greek camp near Troy"
+            : "in Thebes";
   return {
     phase,
     period,

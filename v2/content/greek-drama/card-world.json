@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "greek-drama",
   "packId": "cosyworld.greek-drama",
-  "revision": 7,
+  "revision": 8,
   "name": "The Wine-Dark Sea",
   "description": "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. Fixed roads lead through the Attic places where welcome becomes a growing poem.",
   "tone": "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -32,7 +32,7 @@
       "Aristophanes": 11
     },
     "opening": "Before the Burial",
-    "status": "Nine plays have authored scenes across Before the Burial, The Open Door, Ajax, and the Helen and Atreid accounts. The other thirty-five works have situated hooks for later sections."
+    "status": "Thirteen plays have authored scenes across Before the Burial, The Open Door, Ajax, Book I care strands, and the Helen and Atreid accounts. The other thirty-one works have situated hooks for later sections."
   },
   "places": {
     "greek-harbor": {
@@ -99,7 +99,7 @@
       "name": "Cithaeron Slopes",
       "text": "Goat paths cross the wooded slope. A distant drum carries between the trees.",
       "exits": ["greek-sanctuary"],
-      "backdrop": "assets/greek-drama/grove.svg",
+      "backdrop": "assets/greek-drama/bacchae-cithaeron-day.webp",
       "persona": "Goat paths cross the wooded slope. A distant drum carries between the trees."
     },
     "greek-aulis": {
@@ -1391,6 +1391,54 @@
         "sore": "a promise called a finished burial",
         "reason": "Ajax’s household and burial are at issue in this named Trojan account."
       }
+    },
+    "greek-melea": {
+      "name": "Melea, Keeper of Accounts",
+      "text": "Melea keeps two old accounts beside the palace bench. Each has its own witnesses and time.",
+      "place": "greek-palace",
+      "home": "greek-palace",
+      "travels": false,
+      "standoffs": false,
+      "values": {},
+      "persona": "Melea is an original present-day keeper of accounts. She offers copied records and provisions from her palace bench. In Euripides’s Phoenician Women, Jocasta and Oedipus live during the brothers’ war; Jocasta seeks a truce, Menoeceus faces Teiresias’s demand and Creon’s plea, and the Phoenician chorus hears the deaths. In Sophocles’s earlier Oedipus Tyrannus, the priest, Tiresias, Jocasta, Creon and two distinct witnesses face the king’s origins. Keep the Corinthian messenger and Laius’s herdsman distinct. The current Antigone is an adult who may hear her family’s earlier account. These are present-day acts in the Theban aftermath. Name the author, play and earlier time when retelling a source scene. Attribute each historical voice to that telling. The brothers’ deaths and the current burial choice keep their recorded meaning.",
+      "voice": "Melea is an original present-day keeper of accounts. She offers copied records and provisions from her palace bench. In Euripides’s Phoenician Women, Jocasta and Oedipus live during the brothers’ war; Jocasta seeks a truce, Menoeceus faces Teiresias’s demand and Creon’s plea, and the Phoenician chorus hears the deaths. In Sophocles’s earlier Oedipus Tyrannus, the priest, Tiresias, Jocasta, Creon and two distinct witnesses face the king’s origins. Keep the Corinthian messenger and Laius’s herdsman distinct. The current Antigone is an adult who may hear her family’s earlier account. These are present-day acts in the Theban aftermath. Name the author, play and earlier time when retelling a source scene. Attribute each historical voice to that telling. The brothers’ deaths and the current burial choice keep their recorded meaning.",
+      "portrait": "assets/greek-drama/book-one-melea.png",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        }
+      ],
+      "tastes": {
+        "likes": "care shown through a completed deed",
+        "sore": "a remembered scene confused with a present act",
+        "reason": "The old accounts give weight to the present work."
+      }
+    },
+    "greek-melitta": {
+      "name": "Melitta, Mountain Keeper",
+      "text": "Melitta tends the mountain path. A robe, a remembered grief and a place for gathering wait for care.",
+      "place": "greek-cithaeron",
+      "home": "greek-cithaeron",
+      "travels": false,
+      "standoffs": false,
+      "values": {},
+      "persona": "Melitta is an original present-day mountain keeper and speaks for her own worshipping group. Her copies, robe and written terms serve present people. She keeps Laius’s herdsman’s account from Sophocles’s earlier inquiry. In Euripides’s Bacchae, from early Thebes, the foreign chorus describes worship, Dionysus guides Pentheus’s spying, the messengers report his death, and Cadmus helps Agave recognize her son. Name their voices and time. Melitta and the Chorus Elder each accept current local gathering terms through their own recorded act. These are present-day acts in the Theban aftermath. Name the author, play and earlier time when retelling a source scene. Attribute each historical voice to that telling. The brothers’ deaths and the current burial choice keep their recorded meaning.",
+      "voice": "Melitta is an original present-day mountain keeper and speaks for her own worshipping group. Her copies, robe and written terms serve present people. She keeps Laius’s herdsman’s account from Sophocles’s earlier inquiry. In Euripides’s Bacchae, from early Thebes, the foreign chorus describes worship, Dionysus guides Pentheus’s spying, the messengers report his death, and Cadmus helps Agave recognize her son. Name their voices and time. Melitta and the Chorus Elder each accept current local gathering terms through their own recorded act. These are present-day acts in the Theban aftermath. Name the author, play and earlier time when retelling a source scene. Attribute each historical voice to that telling. The brothers’ deaths and the current burial choice keep their recorded meaning.",
+      "portrait": "assets/greek-drama/book-one-melitta.png",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        }
+      ],
+      "tastes": {
+        "likes": "care shown through a completed deed",
+        "sore": "a remembered scene confused with a present act",
+        "reason": "The old accounts give weight to the present work."
+      }
     }
   },
   "items": {
@@ -1730,6 +1778,227 @@
         {
           "kind": "flag",
           "key": "greek-ajax-open",
+          "value": true
+        }
+      ]
+    },
+    "greek-seven-shield-tablet": {
+      "name": "Copied Shield Record",
+      "text": "Carry the source record to the Guard; later carry it to Dione.",
+      "holder": "greek-well",
+      "persona": "Copied Shield Record is a present-day object offered at Theban Market Well. Carry the source record to the Guard; later carry it to Dione. These are present-day acts in the Theban aftermath. Name the author, play and earlier time when retelling a source scene. Attribute each historical voice to that telling. The brothers’ deaths and the current burial choice keep their recorded meaning.",
+      "art": "assets/greek-drama/decree.png",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        }
+      ]
+    },
+    "greek-seven-water-skin": {
+      "name": "Shelter Water Skin",
+      "text": "Carry the prepared water to Dione's present shelter.",
+      "holder": "greek-well",
+      "persona": "Shelter Water Skin is a present-day object offered at Theban Market Well. Carry the prepared water to Dione's present shelter. These are present-day acts in the Theban aftermath. Name the author, play and earlier time when retelling a source scene. Attribute each historical voice to that telling. The brothers’ deaths and the current burial choice keep their recorded meaning.",
+      "art": "assets/greek-drama/water-jar.png",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        }
+      ]
+    },
+    "greek-seven-household-cloth": {
+      "name": "Household Cloth",
+      "text": "Place at the chosen present vigil, public memorial or shelter.",
+      "holder": "greek-courtyard",
+      "persona": "Household Cloth is a present-day object offered at Theban Courtyard. Place at the chosen present vigil, public memorial or shelter. These are present-day acts in the Theban aftermath. Name the author, play and earlier time when retelling a source scene. Attribute each historical voice to that telling. The brothers’ deaths and the current burial choice keep their recorded meaning.",
+      "art": "assets/greek-drama/funeral-cloth.png",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-seven-shelter-stocked",
+          "value": true
+        }
+      ]
+    },
+    "greek-phoenician-truce-copy": {
+      "name": "Copy of Jocasta's Truce Account",
+      "text": "Carry the two claims to the Guard as an attributed historical account.",
+      "holder": "greek-palace",
+      "persona": "Copy of Jocasta's Truce Account is a present-day object offered at Theban Palace Forecourt. Carry the two claims to the Guard as an attributed historical account. These are present-day acts in the Theban aftermath. Name the author, play and earlier time when retelling a source scene. Attribute each historical voice to that telling. The brothers’ deaths and the current burial choice keep their recorded meaning.",
+      "art": "assets/greek-drama/decree.png",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        }
+      ]
+    },
+    "greek-phoenician-care-basket": {
+      "name": "Household Care Basket",
+      "text": "Deliver provisions to Melea for present households visiting the forecourt.",
+      "holder": "greek-courtyard",
+      "persona": "Household Care Basket is a present-day object offered at Theban Courtyard. Deliver provisions to Melea for present households visiting the forecourt. These are present-day acts in the Theban aftermath. Name the author, play and earlier time when retelling a source scene. Attribute each historical voice to that telling. The brothers’ deaths and the current burial choice keep their recorded meaning.",
+      "art": "assets/greek-drama/provisions.png",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        }
+      ]
+    },
+    "greek-phoenician-memorial-cloth": {
+      "name": "Family Remembrance Cloth",
+      "text": "Place at the present family memorial or give to the present shelter.",
+      "holder": "greek-palace",
+      "persona": "Family Remembrance Cloth is a present-day object offered at Theban Palace Forecourt. Place at the present family memorial or give to the present shelter. These are present-day acts in the Theban aftermath. Name the author, play and earlier time when retelling a source scene. Attribute each historical voice to that telling. The brothers’ deaths and the current burial choice keep their recorded meaning.",
+      "art": "assets/greek-drama/funeral-cloth.png",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-phoenician-care-delivered",
+          "value": true
+        }
+      ]
+    },
+    "greek-tyrannus-care-basket": {
+      "name": "Courtyard Care Basket",
+      "text": "Supply present households at Dione's courtyard.",
+      "holder": "greek-well",
+      "persona": "Courtyard Care Basket is a present-day object offered at Theban Market Well. Supply present households at Dione's courtyard. These are present-day acts in the Theban aftermath. Name the author, play and earlier time when retelling a source scene. Attribute each historical voice to that telling. The brothers’ deaths and the current burial choice keep their recorded meaning.",
+      "art": "assets/greek-drama/provisions.png",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        }
+      ]
+    },
+    "greek-tyrannus-messenger-record": {
+      "name": "Corinthian Messenger Record",
+      "text": "Keep the messenger's testimony distinct during comparison.",
+      "holder": "greek-palace",
+      "persona": "Corinthian Messenger Record is a present-day object offered at Theban Palace Forecourt. Keep the messenger's testimony distinct during comparison. These are present-day acts in the Theban aftermath. Name the author, play and earlier time when retelling a source scene. Attribute each historical voice to that telling. The brothers’ deaths and the current burial choice keep their recorded meaning.",
+      "art": "assets/greek-drama/decree.png",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        }
+      ]
+    },
+    "greek-tyrannus-herdsman-record": {
+      "name": "Laius's Herdsman Record",
+      "text": "Carry the second attributed testimony from Cithaeron.",
+      "holder": "greek-cithaeron",
+      "persona": "Laius's Herdsman Record is a present-day object offered at Cithaeron Slopes. Carry the second attributed testimony from Cithaeron. These are present-day acts in the Theban aftermath. Name the author, play and earlier time when retelling a source scene. Attribute each historical voice to that telling. The brothers’ deaths and the current burial choice keep their recorded meaning.",
+      "art": "assets/greek-drama/decree.png",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        }
+      ]
+    },
+    "greek-tyrannus-account": {
+      "name": "The Compared Witness Account",
+      "text": "Carry the compared source account to the chosen audience, then to Dione.",
+      "holder": "greek-palace",
+      "persona": "The Compared Witness Account is a present-day object offered at Theban Palace Forecourt. Carry the compared source account to the chosen audience, then to Dione. These are present-day acts in the Theban aftermath. Name the author, play and earlier time when retelling a source scene. Attribute each historical voice to that telling. The brothers’ deaths and the current burial choice keep their recorded meaning.",
+      "art": "assets/greek-drama/decree.png",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-tyrannus-records-compared",
+          "value": true
+        }
+      ]
+    },
+    "greek-bacchae-petition-copy": {
+      "name": "The Worshippers' Account",
+      "text": "Carry the attributed old account to the present Elder.",
+      "holder": "greek-cithaeron",
+      "persona": "The Worshippers' Account is a present-day object offered at Cithaeron Slopes. Carry the attributed old account to the present Elder. These are present-day acts in the Theban aftermath. Name the author, play and earlier time when retelling a source scene. Attribute each historical voice to that telling. The brothers’ deaths and the current burial choice keep their recorded meaning.",
+      "art": "assets/greek-drama/decree.png",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        }
+      ]
+    },
+    "greek-bacchae-robe": {
+      "name": "Melitta's Festival Robe",
+      "text": "Deliver the present garment to its owner after hearing the older robe and spying account.",
+      "holder": "greek-palace",
+      "persona": "Melitta's Festival Robe is a present-day object offered at Theban Palace Forecourt. Deliver the present garment to its owner after hearing the older robe and spying account. These are present-day acts in the Theban aftermath. Name the author, play and earlier time when retelling a source scene. Attribute each historical voice to that telling. The brothers’ deaths and the current burial choice keep their recorded meaning.",
+      "art": "assets/greek-drama/funeral-cloth.png",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        }
+      ]
+    },
+    "greek-bacchae-memorial-cloth": {
+      "name": "Mountain Remembrance Cloth",
+      "text": "Place a present memorial to the family loss in the named play.",
+      "holder": "greek-courtyard",
+      "persona": "Mountain Remembrance Cloth is a present-day object offered at Theban Courtyard. Place a present memorial to the family loss in the named play. These are present-day acts in the Theban aftermath. Name the author, play and earlier time when retelling a source scene. Attribute each historical voice to that telling. The brothers’ deaths and the current burial choice keep their recorded meaning.",
+      "art": "assets/greek-drama/funeral-cloth.png",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-bacchae-robe-returned",
+          "value": true
+        }
+      ]
+    },
+    "greek-bacchae-terms": {
+      "name": "Local Gathering Terms",
+      "text": "Carry the same written terms between Melitta and the Elder; place them at the gathering path.",
+      "holder": "greek-cithaeron",
+      "persona": "Local Gathering Terms is a present-day object offered at Cithaeron Slopes. Carry the same written terms between Melitta and the Elder; place them at the gathering path. These are present-day acts in the Theban aftermath. Name the author, play and earlier time when retelling a source scene. Attribute each historical voice to that telling. The brothers’ deaths and the current burial choice keep their recorded meaning.",
+      "art": "assets/greek-drama/decree.png",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-bacchae-robe-returned",
           "value": true
         }
       ]
@@ -6553,6 +6822,1820 @@
         }
       ],
       "workId": "sophocles-ajax"
+    },
+    {
+      "id": "greek-book-one-invitation-burial",
+      "subject": "greek-baker",
+      "at": "greek-courtyard",
+      "label": "Follow the earlier Theban accounts",
+      "text": "Dione invites Vale to the Guard, Melea and Melitta, whose older Theban accounts lead to work for people living here today.",
+      "textTemplate": "Dione invites {actor} to the Guard, Melea and Melitta, whose older Theban accounts lead to work for people living here today.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-water-returned",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-burial-public",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": false
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-book-one-open",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-book-one-invitation-concession",
+      "subject": "greek-baker",
+      "at": "greek-courtyard",
+      "label": "Follow the earlier Theban accounts",
+      "text": "Dione invites Vale to the Guard, Melea and Melitta, whose older Theban accounts lead to work for people living here today.",
+      "textTemplate": "Dione invites {actor} to the Guard, Melea and Melitta, whose older Theban accounts lead to work for people living here today.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-water-returned",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-concession-public",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": false
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-book-one-open",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-book-one-invitation-refusal",
+      "subject": "greek-baker",
+      "at": "greek-courtyard",
+      "label": "Follow the earlier Theban accounts",
+      "text": "Dione invites Vale to the Guard, Melea and Melitta, whose older Theban accounts lead to work for people living here today.",
+      "textTemplate": "Dione invites {actor} to the Guard, Melea and Melitta, whose older Theban accounts lead to work for people living here today.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-water-returned",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-refusal-public",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": false
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-book-one-open",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-book-one-invitation-exposure",
+      "subject": "greek-baker",
+      "at": "greek-courtyard",
+      "label": "Follow the earlier Theban accounts",
+      "text": "Dione invites Vale to the Guard, Melea and Melitta, whose older Theban accounts lead to work for people living here today.",
+      "textTemplate": "Dione invites {actor} to the Guard, Melea and Melitta, whose older Theban accounts lead to work for people living here today.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-water-returned",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-exposure-public",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": false
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-book-one-open",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-seven-set-shield-record",
+      "subject": "greek-guard",
+      "at": "greek-gate",
+      "label": "Set the copied shield record by the Guard",
+      "text": "Vale sets the copied seven-gate report beside the Gate Guard.",
+      "textTemplate": "{actor} sets the copied seven-gate report beside the Gate Guard.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-seven-shields",
+          "role": "actor"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-seven-shield-tablet",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-seven-shield-tablet",
+          "place": "greek-gate"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-seven-report-set",
+          "value": true
+        }
+      ],
+      "workId": "aeschylus-seven-against-thebes"
+    },
+    {
+      "id": "greek-seven-stock-shelter",
+      "subject": "greek-baker",
+      "at": "greek-courtyard",
+      "label": "Set water at Dione’s shelter",
+      "text": "Vale sets the shelter water skin beside Dione for the households resting in her courtyard.",
+      "textTemplate": "{actor} sets the shelter water skin beside Dione for the households resting in her courtyard.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-seven-inner-road",
+          "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-seven-report-set",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-seven-water-skin",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-seven-water-skin",
+          "place": "greek-courtyard"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-seven-shelter-stocked",
+          "value": true
+        }
+      ],
+      "workId": "aeschylus-seven-against-thebes"
+    },
+    {
+      "id": "greek-seven-two-name-vigil",
+      "subject": "greek-guard",
+      "at": "greek-gate",
+      "label": "Lay cloth for a vigil naming both brothers",
+      "text": "Vale lays the household cloth beside the Guard for a present vigil naming Eteocles and Polyneices.",
+      "textTemplate": "{actor} lays the household cloth beside the Guard for a present vigil naming Eteocles and Polyneices.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-seven-brothers",
+          "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-seven-shelter-stocked",
+          "value": true
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-seven-ending"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-seven-household-cloth",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-seven-household-cloth",
+          "place": "greek-gate"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-seven-ending",
+          "value": "two-name-vigil"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-seven-done",
+          "value": true
+        }
+      ],
+      "workId": "aeschylus-seven-against-thebes"
+    },
+    {
+      "id": "greek-seven-state-remembrance",
+      "subject": "greek-creon",
+      "at": "greek-palace",
+      "label": "Lay cloth for the public remembrance of Eteocles",
+      "text": "Vale lays the household cloth before Creon for the present public remembrance of Eteocles.",
+      "textTemplate": "{actor} lays the household cloth before Creon for the present public remembrance of Eteocles.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-seven-brothers",
+          "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-seven-shelter-stocked",
+          "value": true
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-seven-ending"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-seven-household-cloth",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-seven-household-cloth",
+          "place": "greek-palace"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-seven-ending",
+          "value": "state-remembrance"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-seven-done",
+          "value": true
+        }
+      ],
+      "workId": "aeschylus-seven-against-thebes"
+    },
+    {
+      "id": "greek-seven-survivors-care",
+      "subject": "greek-baker",
+      "at": "greek-courtyard",
+      "label": "Give the cloth to the surviving households",
+      "text": "Vale sets the household cloth beside Dione for the living households at her shelter.",
+      "textTemplate": "{actor} sets the household cloth beside Dione for the living households at her shelter.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-seven-brothers",
+          "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-seven-shelter-stocked",
+          "value": true
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-seven-ending"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-seven-household-cloth",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-seven-household-cloth",
+          "place": "greek-courtyard"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-seven-ending",
+          "value": "survivors-care"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-seven-done",
+          "value": true
+        }
+      ],
+      "workId": "aeschylus-seven-against-thebes"
+    },
+    {
+      "id": "greek-seven-return-two-name-vigil",
+      "subject": "greek-baker",
+      "at": "greek-courtyard",
+      "label": "Read the carried account to Dione",
+      "text": "Vale lays the carried shield record beside Dione and reads the account of the vigil naming both brothers.",
+      "textTemplate": "{actor} lays the carried shield record beside Dione and reads the account of the vigil naming both brothers.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-seven-ending",
+          "value": "two-name-vigil"
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-seven-account-two-name-vigil",
+          "role": "actor"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-seven-return"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-seven-shield-tablet",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-seven-shield-tablet",
+          "place": "greek-courtyard"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-seven-return",
+          "value": "two-name-vigil"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-seven-returned",
+          "value": true
+        }
+      ],
+      "workId": "aeschylus-seven-against-thebes"
+    },
+    {
+      "id": "greek-seven-return-state-remembrance",
+      "subject": "greek-baker",
+      "at": "greek-courtyard",
+      "label": "Read the carried account to Dione",
+      "text": "Vale lays the carried shield record beside Dione and reads the account of the public remembrance of Eteocles.",
+      "textTemplate": "{actor} lays the carried shield record beside Dione and reads the account of the public remembrance of Eteocles.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-seven-ending",
+          "value": "state-remembrance"
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-seven-account-state-remembrance",
+          "role": "actor"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-seven-return"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-seven-shield-tablet",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-seven-shield-tablet",
+          "place": "greek-courtyard"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-seven-return",
+          "value": "state-remembrance"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-seven-returned",
+          "value": true
+        }
+      ],
+      "workId": "aeschylus-seven-against-thebes"
+    },
+    {
+      "id": "greek-seven-return-survivors-care",
+      "subject": "greek-baker",
+      "at": "greek-courtyard",
+      "label": "Read the carried account to Dione",
+      "text": "Vale lays the carried shield record beside Dione and reads how the household cloth went to the survivors.",
+      "textTemplate": "{actor} lays the carried shield record beside Dione and reads how the household cloth went to the survivors.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-seven-ending",
+          "value": "survivors-care"
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-seven-account-survivors-care",
+          "role": "actor"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-seven-return"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-seven-shield-tablet",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-seven-shield-tablet",
+          "place": "greek-courtyard"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-seven-return",
+          "value": "survivors-care"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-seven-returned",
+          "value": true
+        }
+      ],
+      "workId": "aeschylus-seven-against-thebes"
+    },
+    {
+      "id": "greek-phoenician-lodge-truce-copy",
+      "subject": "greek-guard",
+      "at": "greek-gate",
+      "label": "Place Jocasta’s copied truce account by the Guard",
+      "text": "Vale places the copy of Jocasta’s truce account beside the Guard, with Euripides’s telling named on it.",
+      "textTemplate": "{actor} places the copy of Jocasta’s truce account beside the Guard, with Euripides’s telling named on it.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-phoenician-truce",
+          "role": "actor"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-phoenician-truce-copy",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-phoenician-truce-copy",
+          "place": "greek-gate"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-phoenician-truce-lodged",
+          "value": true
+        }
+      ],
+      "workId": "euripides-phoenician-women"
+    },
+    {
+      "id": "greek-phoenician-deliver-care",
+      "subject": "greek-melea",
+      "at": "greek-palace",
+      "label": "Set provisions for the visiting households",
+      "text": "Vale sets the care basket beside Melea for the present households visiting the forecourt.",
+      "textTemplate": "{actor} sets the care basket beside Melea for the present households visiting the forecourt.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-phoenician-menoeceus",
+          "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-phoenician-truce-lodged",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-phoenician-care-basket",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-phoenician-care-basket",
+          "place": "greek-palace"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-phoenician-care-delivered",
+          "value": true
+        }
+      ],
+      "workId": "euripides-phoenician-women"
+    },
+    {
+      "id": "greek-phoenician-family-remembrance",
+      "subject": "greek-guard",
+      "at": "greek-gate",
+      "label": "Lay cloth for the remembered family",
+      "text": "Vale lays the remembrance cloth at the gate for Jocasta and her sons in Euripides’s named account.",
+      "textTemplate": "{actor} lays the remembrance cloth at the gate for Jocasta and her sons in Euripides’s named account.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-phoenician-mourning",
+          "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-phoenician-care-delivered",
+          "value": true
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-phoenician-ending"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-phoenician-memorial-cloth",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-phoenician-memorial-cloth",
+          "place": "greek-gate"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-phoenician-ending",
+          "value": "family-remembrance"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-phoenician-done",
+          "value": true
+        }
+      ],
+      "workId": "euripides-phoenician-women"
+    },
+    {
+      "id": "greek-phoenician-living-households",
+      "subject": "greek-baker",
+      "at": "greek-courtyard",
+      "label": "Give the cloth to the living households",
+      "text": "Vale sets the remembrance cloth beside Dione for the living households at her shelter.",
+      "textTemplate": "{actor} sets the remembrance cloth beside Dione for the living households at her shelter.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-phoenician-mourning",
+          "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-phoenician-care-delivered",
+          "value": true
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-phoenician-ending"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-phoenician-memorial-cloth",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-phoenician-memorial-cloth",
+          "place": "greek-courtyard"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-phoenician-ending",
+          "value": "living-households"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-phoenician-done",
+          "value": true
+        }
+      ],
+      "workId": "euripides-phoenician-women"
+    },
+    {
+      "id": "greek-phoenician-return-family-remembrance",
+      "subject": "greek-baker",
+      "at": "greek-courtyard",
+      "label": "Read the carried account to Dione",
+      "text": "Vale lays the carried truce copy beside Dione and reads how the present memorial remembers Euripides’s family account.",
+      "textTemplate": "{actor} lays the carried truce copy beside Dione and reads how the present memorial remembers Euripides’s family account.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-phoenician-ending",
+          "value": "family-remembrance"
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-phoenician-account-family-remembrance",
+          "role": "actor"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-phoenician-return"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-phoenician-truce-copy",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-phoenician-truce-copy",
+          "place": "greek-courtyard"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-phoenician-return",
+          "value": "family-remembrance"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-phoenician-returned",
+          "value": true
+        }
+      ],
+      "workId": "euripides-phoenician-women"
+    },
+    {
+      "id": "greek-phoenician-return-living-households",
+      "subject": "greek-baker",
+      "at": "greek-courtyard",
+      "label": "Read the carried account to Dione",
+      "text": "Vale lays the carried truce copy beside Dione and reads how Melea’s cloth came to the living households.",
+      "textTemplate": "{actor} lays the carried truce copy beside Dione and reads how Melea’s cloth came to the living households.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-phoenician-ending",
+          "value": "living-households"
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-phoenician-account-living-households",
+          "role": "actor"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-phoenician-return"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-phoenician-truce-copy",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-phoenician-truce-copy",
+          "place": "greek-courtyard"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-phoenician-return",
+          "value": "living-households"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-phoenician-returned",
+          "value": true
+        }
+      ],
+      "workId": "euripides-phoenician-women"
+    },
+    {
+      "id": "greek-tyrannus-deliver-care",
+      "subject": "greek-baker",
+      "at": "greek-courtyard",
+      "label": "Bring the care basket to Dione",
+      "text": "Vale sets the courtyard care basket beside Dione for the households living here today.",
+      "textTemplate": "{actor} sets the courtyard care basket beside Dione for the households living here today.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-tyrannus-inquiry",
+          "role": "actor"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-tyrannus-care-basket",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-tyrannus-care-basket",
+          "place": "greek-courtyard"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-tyrannus-care-delivered",
+          "value": true
+        }
+      ],
+      "workId": "sophocles-oedipus-tyrannus"
+    },
+    {
+      "id": "greek-tyrannus-compare-records",
+      "subject": "greek-melea",
+      "at": "greek-palace",
+      "label": "Lay the two witness records side by side",
+      "text": "Vale lays the Corinthian messenger’s record beside Laius’s herdsman’s record at Melea’s bench.",
+      "textTemplate": "{actor} lays the Corinthian messenger’s record beside Laius’s herdsman’s record at Melea’s bench.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-tyrannus-messenger",
+          "role": "actor"
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-tyrannus-herdsman",
+          "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-tyrannus-care-delivered",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-tyrannus-messenger-record",
+          "role": "actor"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-tyrannus-herdsman-record",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-tyrannus-messenger-record",
+          "place": "greek-palace"
+        },
+        {
+          "kind": "place_item",
+          "item": "greek-tyrannus-herdsman-record",
+          "place": "greek-palace"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-tyrannus-records-compared",
+          "value": true
+        }
+      ],
+      "workId": "sophocles-oedipus-tyrannus"
+    },
+    {
+      "id": "greek-tyrannus-read-family",
+      "subject": "greek-antigone",
+      "at": "greek-gate",
+      "label": "Read the family copy with Antigone",
+      "text": "Vale sets the compared account beside Antigone, who accepts a present family reading of Sophocles’s earlier inquiry.",
+      "textTemplate": "{actor} sets the compared account beside Antigone, who accepts a present family reading of Sophocles’s earlier inquiry.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-tyrannus-truth",
+          "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-tyrannus-records-compared",
+          "value": true
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-tyrannus-ending"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-tyrannus-route"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-tyrannus-account",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-tyrannus-account",
+          "place": "greek-gate"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-tyrannus-route",
+          "value": "household-first"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-tyrannus-family-read",
+          "value": true
+        }
+      ],
+      "workId": "sophocles-oedipus-tyrannus"
+    },
+    {
+      "id": "greek-tyrannus-melea-approves",
+      "subject": "greek-melea",
+      "at": "greek-palace",
+      "label": "Ask Melea to check the messenger’s wording",
+      "text": "Vale sets the compared account before Melea, who approves its attributed wording of the Corinthian messenger’s testimony.",
+      "textTemplate": "{actor} sets the compared account before Melea, who approves its attributed wording of the Corinthian messenger’s testimony.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-tyrannus-truth",
+          "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-tyrannus-records-compared",
+          "value": true
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-tyrannus-ending"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-tyrannus-route"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-tyrannus-account",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-tyrannus-account",
+          "place": "greek-palace"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-tyrannus-route",
+          "value": "attributed-witnesses"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-tyrannus-melea-approved",
+          "value": true
+        }
+      ],
+      "workId": "sophocles-oedipus-tyrannus"
+    },
+    {
+      "id": "greek-tyrannus-melitta-approves",
+      "subject": "greek-melitta",
+      "at": "greek-cithaeron",
+      "label": "Ask Melitta to check the herdsman’s wording",
+      "text": "Vale sets the compared account before Melitta, who approves its attributed wording of Laius’s herdsman’s testimony.",
+      "textTemplate": "{actor} sets the compared account before Melitta, who approves its attributed wording of Laius’s herdsman’s testimony.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-tyrannus-truth",
+          "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-tyrannus-records-compared",
+          "value": true
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-tyrannus-ending"
+        },
+        {
+          "kind": "choice",
+          "key": "greek-tyrannus-route",
+          "value": "attributed-witnesses"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-tyrannus-melea-approved",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-tyrannus-account",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-tyrannus-account",
+          "place": "greek-cithaeron"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-tyrannus-melitta-approved",
+          "value": true
+        }
+      ],
+      "workId": "sophocles-oedipus-tyrannus"
+    },
+    {
+      "id": "greek-tyrannus-public-care",
+      "subject": "greek-elder",
+      "at": "greek-well",
+      "label": "Read the compared account at the well",
+      "text": "Vale sets the compared witness account beside the Elder and reads it publicly after the courtyard care delivery.",
+      "textTemplate": "{actor} sets the compared witness account beside the Elder and reads it publicly after the courtyard care delivery.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-tyrannus-truth",
+          "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-tyrannus-records-compared",
+          "value": true
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-tyrannus-ending"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-tyrannus-route"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-tyrannus-account",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-tyrannus-account",
+          "place": "greek-well"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-tyrannus-route",
+          "value": "public-care"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-tyrannus-ending",
+          "value": "public-care"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-tyrannus-done",
+          "value": true
+        }
+      ],
+      "workId": "sophocles-oedipus-tyrannus"
+    },
+    {
+      "id": "greek-tyrannus-household-first",
+      "subject": "greek-elder",
+      "at": "greek-well",
+      "label": "Complete the public reading after Antigone’s hearing",
+      "text": "Vale sets the compared witness account beside the Elder and completes the public reading after Antigone’s family hearing.",
+      "textTemplate": "{actor} sets the compared witness account beside the Elder and completes the public reading after Antigone’s family hearing.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-tyrannus-truth",
+          "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-tyrannus-records-compared",
+          "value": true
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-tyrannus-ending"
+        },
+        {
+          "kind": "choice",
+          "key": "greek-tyrannus-route",
+          "value": "household-first"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-tyrannus-family-read",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-tyrannus-account",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-tyrannus-account",
+          "place": "greek-well"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-tyrannus-ending",
+          "value": "household-first"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-tyrannus-done",
+          "value": true
+        }
+      ],
+      "workId": "sophocles-oedipus-tyrannus"
+    },
+    {
+      "id": "greek-tyrannus-attributed-witnesses",
+      "subject": "greek-elder",
+      "at": "greek-well",
+      "label": "Read the wording checked by both keepers",
+      "text": "Vale sets the compared account beside the Elder and reads the distinct witness wording approved by Melea and Melitta.",
+      "textTemplate": "{actor} sets the compared account beside the Elder and reads the distinct witness wording approved by Melea and Melitta.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-tyrannus-truth",
+          "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-tyrannus-records-compared",
+          "value": true
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-tyrannus-ending"
+        },
+        {
+          "kind": "choice",
+          "key": "greek-tyrannus-route",
+          "value": "attributed-witnesses"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-tyrannus-melea-approved",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-tyrannus-melitta-approved",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-tyrannus-account",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-tyrannus-account",
+          "place": "greek-well"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-tyrannus-ending",
+          "value": "attributed-witnesses"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-tyrannus-done",
+          "value": true
+        }
+      ],
+      "workId": "sophocles-oedipus-tyrannus"
+    },
+    {
+      "id": "greek-tyrannus-return-public-care",
+      "subject": "greek-baker",
+      "at": "greek-courtyard",
+      "label": "Read the carried account to Dione",
+      "text": "Vale lays the carried witness account beside Dione and reads how care preceded the public reading.",
+      "textTemplate": "{actor} lays the carried witness account beside Dione and reads how care preceded the public reading.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-tyrannus-ending",
+          "value": "public-care"
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-tyrannus-account-public-care",
+          "role": "actor"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-tyrannus-return"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-tyrannus-account",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-tyrannus-account",
+          "place": "greek-courtyard"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-tyrannus-return",
+          "value": "public-care"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-tyrannus-returned",
+          "value": true
+        }
+      ],
+      "workId": "sophocles-oedipus-tyrannus"
+    },
+    {
+      "id": "greek-tyrannus-return-household-first",
+      "subject": "greek-baker",
+      "at": "greek-courtyard",
+      "label": "Read the carried account to Dione",
+      "text": "Vale lays the carried witness account beside Dione and reads how Antigone’s family hearing came before the public reading.",
+      "textTemplate": "{actor} lays the carried witness account beside Dione and reads how Antigone’s family hearing came before the public reading.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-tyrannus-ending",
+          "value": "household-first"
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-tyrannus-account-household-first",
+          "role": "actor"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-tyrannus-return"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-tyrannus-account",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-tyrannus-account",
+          "place": "greek-courtyard"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-tyrannus-return",
+          "value": "household-first"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-tyrannus-returned",
+          "value": true
+        }
+      ],
+      "workId": "sophocles-oedipus-tyrannus"
+    },
+    {
+      "id": "greek-tyrannus-return-attributed-witnesses",
+      "subject": "greek-baker",
+      "at": "greek-courtyard",
+      "label": "Read the carried account to Dione",
+      "text": "Vale lays the carried witness account beside Dione and reads how both keepers checked the separate witness wording.",
+      "textTemplate": "{actor} lays the carried witness account beside Dione and reads how both keepers checked the separate witness wording.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-tyrannus-ending",
+          "value": "attributed-witnesses"
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-tyrannus-account-attributed-witnesses",
+          "role": "actor"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-tyrannus-return"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-tyrannus-account",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-tyrannus-account",
+          "place": "greek-courtyard"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-tyrannus-return",
+          "value": "attributed-witnesses"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-tyrannus-returned",
+          "value": true
+        }
+      ],
+      "workId": "sophocles-oedipus-tyrannus"
+    },
+    {
+      "id": "greek-bacchae-deliver-account",
+      "subject": "greek-elder",
+      "at": "greek-well",
+      "label": "Carry the worshippers’ account to the Elder",
+      "text": "Vale lays the copied worshippers’ account beside the Elder, with Euripides’s early Theban telling named on it.",
+      "textTemplate": "{actor} lays the copied worshippers’ account beside the Elder, with Euripides’s early Theban telling named on it.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-bacchae-worshippers",
+          "role": "actor"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-bacchae-petition-copy",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-bacchae-petition-copy",
+          "place": "greek-well"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-bacchae-account-delivered",
+          "value": true
+        }
+      ],
+      "workId": "euripides-bacchae"
+    },
+    {
+      "id": "greek-bacchae-return-robe",
+      "subject": "greek-melitta",
+      "at": "greek-cithaeron",
+      "label": "Return Melitta’s festival robe",
+      "text": "Vale sets Melitta’s present festival robe beside her at the mountain gathering place.",
+      "textTemplate": "{actor} sets Melitta’s present festival robe beside her at the mountain gathering place.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-bacchae-robe",
+          "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-bacchae-account-delivered",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-bacchae-robe",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-bacchae-robe",
+          "place": "greek-cithaeron"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-bacchae-robe-returned",
+          "value": true
+        }
+      ],
+      "workId": "euripides-bacchae"
+    },
+    {
+      "id": "greek-bacchae-elder-accepts",
+      "subject": "greek-elder",
+      "at": "greek-well",
+      "label": "Ask the Elder to accept the local gathering terms",
+      "text": "Vale sets the local terms before the Elder, who accepts a clear path and freely chosen attendance for his neighbors.",
+      "textTemplate": "{actor} sets the local terms before the Elder, who accepts a clear path and freely chosen attendance for his neighbors.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-bacchae-grief",
+          "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-bacchae-robe-returned",
+          "value": true
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-bacchae-ending"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-bacchae-terms",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-bacchae-terms",
+          "place": "greek-well"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-bacchae-elder-accepted",
+          "value": true
+        }
+      ],
+      "workId": "euripides-bacchae"
+    },
+    {
+      "id": "greek-bacchae-melitta-accepts",
+      "subject": "greek-melitta",
+      "at": "greek-cithaeron",
+      "label": "Ask Melitta to accept the local gathering terms",
+      "text": "Vale sets the local terms before Melitta, who accepts a clear path and freely chosen attendance for her worshipping group.",
+      "textTemplate": "{actor} sets the local terms before Melitta, who accepts a clear path and freely chosen attendance for her worshipping group.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-bacchae-grief",
+          "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-bacchae-robe-returned",
+          "value": true
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-bacchae-ending"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-bacchae-terms",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-bacchae-terms",
+          "place": "greek-cithaeron"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-bacchae-melitta-accepted",
+          "value": true
+        }
+      ],
+      "workId": "euripides-bacchae"
+    },
+    {
+      "id": "greek-bacchae-family-memorial",
+      "subject": "greek-melitta",
+      "at": "greek-cithaeron",
+      "label": "Lay the cloth for the remembered family",
+      "text": "Vale lays the present memorial cloth beside Melitta for Agave’s loss in Euripides’s earlier Bacchae.",
+      "textTemplate": "{actor} lays the present memorial cloth beside Melitta for Agave’s loss in Euripides’s earlier Bacchae.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-bacchae-grief",
+          "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-bacchae-robe-returned",
+          "value": true
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-bacchae-ending"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-bacchae-memorial-cloth",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-bacchae-memorial-cloth",
+          "place": "greek-cithaeron"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-bacchae-ending",
+          "value": "family-memorial"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-bacchae-done",
+          "value": true
+        }
+      ],
+      "workId": "euripides-bacchae"
+    },
+    {
+      "id": "greek-bacchae-local-gathering-agreement",
+      "subject": "greek-melitta",
+      "at": "greek-cithaeron",
+      "label": "Place the agreed terms beside the gathering path",
+      "text": "Vale places the local gathering terms beside the path after Melitta and the Elder each accepted them.",
+      "textTemplate": "{actor} places the local gathering terms beside the path after Melitta and the Elder each accepted them.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-bacchae-grief",
+          "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-bacchae-robe-returned",
+          "value": true
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-bacchae-ending"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-bacchae-elder-accepted",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-bacchae-melitta-accepted",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-bacchae-terms",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-bacchae-terms",
+          "place": "greek-cithaeron"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-bacchae-ending",
+          "value": "local-gathering-agreement"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-bacchae-done",
+          "value": true
+        }
+      ],
+      "workId": "euripides-bacchae"
+    },
+    {
+      "id": "greek-bacchae-return-family-memorial",
+      "subject": "greek-baker",
+      "at": "greek-courtyard",
+      "label": "Read the carried account to Dione",
+      "text": "Vale lays the carried Bacchae account beside Dione and reads how the mountain cloth remembers Agave’s loss.",
+      "textTemplate": "{actor} lays the carried Bacchae account beside Dione and reads how the mountain cloth remembers Agave’s loss.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-bacchae-ending",
+          "value": "family-memorial"
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-bacchae-account-family-memorial",
+          "role": "actor"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-bacchae-return"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-bacchae-petition-copy",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-bacchae-petition-copy",
+          "place": "greek-courtyard"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-bacchae-return",
+          "value": "family-memorial"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-bacchae-returned",
+          "value": true
+        }
+      ],
+      "workId": "euripides-bacchae"
+    },
+    {
+      "id": "greek-bacchae-return-local-gathering-agreement",
+      "subject": "greek-baker",
+      "at": "greek-courtyard",
+      "label": "Read the carried account to Dione",
+      "text": "Vale lays the carried Bacchae account beside Dione and reads the local gathering agreement accepted by both speakers.",
+      "textTemplate": "{actor} lays the carried Bacchae account beside Dione and reads the local gathering agreement accepted by both speakers.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-bacchae-ending",
+          "value": "local-gathering-agreement"
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-bacchae-account-local-gathering-agreement",
+          "role": "actor"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-bacchae-return"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-bacchae-petition-copy",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-bacchae-petition-copy",
+          "place": "greek-courtyard"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-bacchae-return",
+          "value": "local-gathering-agreement"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-bacchae-returned",
+          "value": true
+        }
+      ],
+      "workId": "euripides-bacchae"
     }
   ],
   "works": [
@@ -6577,15 +8660,25 @@
       "author": "Aeschylus",
       "title": "Seven Against Thebes",
       "era": "theban-war",
-      "placeIds": ["greek-gate"],
+      "placeIds": ["greek-gate", "greek-courtyard", "greek-palace"],
       "premise": "The city's defenders must answer rival claims to command while households seek protection.",
-      "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aeschylus-seven-against-thebes"],
+      "status": "branching-episode",
+      "hookChoiceIds": [
+        "greek-inquire-aeschylus-seven-against-thebes",
+        "greek-seven-set-shield-record",
+        "greek-seven-stock-shelter",
+        "greek-seven-two-name-vigil",
+        "greek-seven-state-remembrance",
+        "greek-seven-survivors-care",
+        "greek-seven-return-two-name-vigil",
+        "greek-seven-return-state-remembrance",
+        "greek-seven-return-survivors-care"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aeschylus",
         "work": "Seven Against Thebes",
-        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+        "adaptation": "An attributed older account leads to three present-day deeds and a carried return to Dione. The Guard recounts Aeschylus's siege before the seventh gate; player deeds take place in the current aftermath. The ending and return each require their own saved action."
       }
     },
     {
@@ -6754,15 +8847,34 @@
       "author": "Sophocles",
       "title": "Oedipus Tyrannus",
       "era": "theban-households",
-      "placeIds": ["greek-palace"],
+      "placeIds": [
+        "greek-palace",
+        "greek-courtyard",
+        "greek-gate",
+        "greek-cithaeron",
+        "greek-well"
+      ],
       "premise": "An inquiry into a public disaster turns toward the ruler's own origins.",
-      "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-sophocles-oedipus-tyrannus"],
+      "status": "branching-episode",
+      "hookChoiceIds": [
+        "greek-inquire-sophocles-oedipus-tyrannus",
+        "greek-tyrannus-deliver-care",
+        "greek-tyrannus-compare-records",
+        "greek-tyrannus-read-family",
+        "greek-tyrannus-melea-approves",
+        "greek-tyrannus-melitta-approves",
+        "greek-tyrannus-public-care",
+        "greek-tyrannus-household-first",
+        "greek-tyrannus-attributed-witnesses",
+        "greek-tyrannus-return-public-care",
+        "greek-tyrannus-return-household-first",
+        "greek-tyrannus-return-attributed-witnesses"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Sophocles",
         "work": "Oedipus Tyrannus",
-        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+        "adaptation": "An attributed older account leads to three present-day deeds and a carried return to Dione. Melea and Melitta name Sophocles's earlier inquiry, before the crown broke; current Antigone hears as an adult. The ending and return each require their own saved action."
       }
     },
     {
@@ -7066,15 +9178,23 @@
       "author": "Euripides",
       "title": "Phoenician Women",
       "era": "theban-war",
-      "placeIds": ["greek-palace"],
+      "placeIds": ["greek-palace", "greek-gate", "greek-courtyard"],
       "premise": "A divided family tries to act while rival brothers bring armed claims to the city.",
-      "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-phoenician-women"],
+      "status": "branching-episode",
+      "hookChoiceIds": [
+        "greek-inquire-euripides-phoenician-women",
+        "greek-phoenician-lodge-truce-copy",
+        "greek-phoenician-deliver-care",
+        "greek-phoenician-family-remembrance",
+        "greek-phoenician-living-households",
+        "greek-phoenician-return-family-remembrance",
+        "greek-phoenician-return-living-households"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
         "work": "Phoenician Women",
-        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+        "adaptation": "An attributed older account leads to three present-day deeds and a carried return to Dione. Melea names Euripides's war account, in which Jocasta and Oedipus are alive during the brothers' conflict. The ending and return each require their own saved action."
       }
     },
     {
@@ -7102,15 +9222,25 @@
       "author": "Euripides",
       "title": "Bacchae",
       "era": "early-thebes",
-      "placeIds": ["greek-cithaeron"],
+      "placeIds": ["greek-cithaeron", "greek-well", "greek-courtyard"],
       "premise": "Suppressed worship and a ruler's surveillance bring human authority against a disguised god.",
-      "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-bacchae"],
+      "status": "branching-episode",
+      "hookChoiceIds": [
+        "greek-inquire-euripides-bacchae",
+        "greek-bacchae-deliver-account",
+        "greek-bacchae-return-robe",
+        "greek-bacchae-elder-accepts",
+        "greek-bacchae-melitta-accepts",
+        "greek-bacchae-family-memorial",
+        "greek-bacchae-local-gathering-agreement",
+        "greek-bacchae-return-family-memorial",
+        "greek-bacchae-return-local-gathering-agreement"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
         "work": "Bacchae",
-        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+        "adaptation": "An attributed older account leads to three present-day deeds and a carried return to Dione. Melitta names Euripides's early-Thebes tale; she speaks for her own present worshipping group when agreeing current terms. The ending and return each require their own saved action."
       }
     },
     {
@@ -7404,7 +9534,8 @@
       "greek-greek-camp",
       "greek-ajax-landing",
       "greek-ajax-household",
-      "greek-ajax-grave"
+      "greek-ajax-grave",
+      "greek-cithaeron"
     ],
     "avatars": [
       "greek-antigone",
@@ -7427,7 +9558,9 @@
       "greek-household-witness",
       "greek-ajax-tecmessa",
       "greek-ajax-teucer",
-      "greek-ajax-odysseus"
+      "greek-ajax-odysseus",
+      "greek-melea",
+      "greek-melitta"
     ],
     "items": [
       "greek-water-jar",
@@ -7450,7 +9583,21 @@
       "greek-ajax-shield",
       "greek-ajax-plea",
       "greek-ajax-cloth",
-      "greek-ajax-tools"
+      "greek-ajax-tools",
+      "greek-seven-shield-tablet",
+      "greek-seven-water-skin",
+      "greek-seven-household-cloth",
+      "greek-phoenician-truce-copy",
+      "greek-phoenician-care-basket",
+      "greek-phoenician-memorial-cloth",
+      "greek-tyrannus-care-basket",
+      "greek-tyrannus-messenger-record",
+      "greek-tyrannus-herdsman-record",
+      "greek-tyrannus-account",
+      "greek-bacchae-petition-copy",
+      "greek-bacchae-robe",
+      "greek-bacchae-memorial-cloth",
+      "greek-bacchae-terms"
     ],
     "choices": [
       "greek-return-water-jar",
@@ -7537,7 +9684,44 @@
       "greek-ajax-return-household",
       "greek-ajax-bury-appeal",
       "greek-ajax-record-appeal",
-      "greek-ajax-return-appeal"
+      "greek-ajax-return-appeal",
+      "greek-book-one-invitation-burial",
+      "greek-book-one-invitation-concession",
+      "greek-book-one-invitation-refusal",
+      "greek-book-one-invitation-exposure",
+      "greek-seven-set-shield-record",
+      "greek-seven-stock-shelter",
+      "greek-seven-two-name-vigil",
+      "greek-seven-state-remembrance",
+      "greek-seven-survivors-care",
+      "greek-seven-return-two-name-vigil",
+      "greek-seven-return-state-remembrance",
+      "greek-seven-return-survivors-care",
+      "greek-phoenician-lodge-truce-copy",
+      "greek-phoenician-deliver-care",
+      "greek-phoenician-family-remembrance",
+      "greek-phoenician-living-households",
+      "greek-phoenician-return-family-remembrance",
+      "greek-phoenician-return-living-households",
+      "greek-tyrannus-deliver-care",
+      "greek-tyrannus-compare-records",
+      "greek-tyrannus-read-family",
+      "greek-tyrannus-melea-approves",
+      "greek-tyrannus-melitta-approves",
+      "greek-tyrannus-public-care",
+      "greek-tyrannus-household-first",
+      "greek-tyrannus-attributed-witnesses",
+      "greek-tyrannus-return-public-care",
+      "greek-tyrannus-return-household-first",
+      "greek-tyrannus-return-attributed-witnesses",
+      "greek-bacchae-deliver-account",
+      "greek-bacchae-return-robe",
+      "greek-bacchae-elder-accepts",
+      "greek-bacchae-melitta-accepts",
+      "greek-bacchae-family-memorial",
+      "greek-bacchae-local-gathering-agreement",
+      "greek-bacchae-return-family-memorial",
+      "greek-bacchae-return-local-gathering-agreement"
     ]
   },
   "recital": {
@@ -8107,6 +10291,258 @@
           "She heard how witnesses brought earth."
         ],
         "summons": true
+      },
+      {
+        "choice": "greek-seven-set-shield-record",
+        "quest": "story-quest-greek-seven-shields",
+        "lines": [
+          "I set the shield record by the gate.",
+          "The Guard named those who held it."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-seven-stock-shelter",
+        "quest": "story-quest-greek-seven-shelter",
+        "lines": [
+          "I carried water through the town.",
+          "Dione set it by the waiting cloth."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-seven-two-name-vigil",
+        "quest": "story-quest-greek-seven-remembrance",
+        "lines": [
+          "I laid their names beside the gate.",
+          "The cloth held room for both."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-seven-state-remembrance",
+        "quest": "story-quest-greek-seven-remembrance",
+        "lines": [
+          "I laid the cloth before the throne.",
+          "The city spoke one brother’s name."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-seven-survivors-care",
+        "quest": "story-quest-greek-seven-remembrance",
+        "lines": [
+          "I brought the cloth beside the water.",
+          "The living found a place to rest."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-seven-return-two-name-vigil",
+        "quest": "story-quest-greek-seven-return",
+        "lines": [
+          "I laid the account beside the bread.",
+          "Dione heard the deed I brought."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-seven-return-state-remembrance",
+        "quest": "story-quest-greek-seven-return",
+        "lines": [
+          "I laid the account beside the bread.",
+          "Dione heard the deed I brought."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-seven-return-survivors-care",
+        "quest": "story-quest-greek-seven-return",
+        "lines": [
+          "I laid the account beside the bread.",
+          "Dione heard the deed I brought."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-phoenician-lodge-truce-copy",
+        "quest": "story-quest-greek-phoenician-truce",
+        "lines": [
+          "I carried the mother’s copied plea.",
+          "The Guard received its older words."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-phoenician-deliver-care",
+        "quest": "story-quest-greek-phoenician-care",
+        "lines": [
+          "I set the basket by the palace.",
+          "The waiting households had its care."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-phoenician-family-remembrance",
+        "quest": "story-quest-greek-phoenician-remembrance",
+        "lines": [
+          "I laid the cloth beside their names.",
+          "Melea’s telling kept its time."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-phoenician-living-households",
+        "quest": "story-quest-greek-phoenician-remembrance",
+        "lines": [
+          "I carried their account through grief.",
+          "The cloth found living hands."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-phoenician-return-family-remembrance",
+        "quest": "story-quest-greek-phoenician-return",
+        "lines": [
+          "I laid the account beside the bread.",
+          "Dione heard the deed I brought."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-phoenician-return-living-households",
+        "quest": "story-quest-greek-phoenician-return",
+        "lines": [
+          "I laid the account beside the bread.",
+          "Dione heard the deed I brought."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-tyrannus-deliver-care",
+        "quest": "story-quest-greek-tyrannus-care",
+        "lines": [
+          "I carried care beside the older tale.",
+          "The living shared the courtyard bread."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-tyrannus-compare-records",
+        "quest": "story-quest-greek-tyrannus-witnesses",
+        "lines": [
+          "I laid two witnesses side by side.",
+          "Their words kept separate hands."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-tyrannus-public-care",
+        "quest": "story-quest-greek-tyrannus-reading",
+        "lines": [
+          "I set the witnesses beside the well.",
+          "The basket came before their words."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-tyrannus-household-first",
+        "quest": "story-quest-greek-tyrannus-reading",
+        "lines": [
+          "Her hearing came before the square.",
+          "I brought the same account to both."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-tyrannus-attributed-witnesses",
+        "quest": "story-quest-greek-tyrannus-reading",
+        "lines": [
+          "Two keepers weighed the words I bore.",
+          "Each witness kept a name and voice."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-tyrannus-return-public-care",
+        "quest": "story-quest-greek-tyrannus-return",
+        "lines": [
+          "I laid the account beside the bread.",
+          "Dione heard the deed I brought."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-tyrannus-return-household-first",
+        "quest": "story-quest-greek-tyrannus-return",
+        "lines": [
+          "I laid the account beside the bread.",
+          "Dione heard the deed I brought."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-tyrannus-return-attributed-witnesses",
+        "quest": "story-quest-greek-tyrannus-return",
+        "lines": [
+          "I laid the account beside the bread.",
+          "Dione heard the deed I brought."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-bacchae-deliver-account",
+        "quest": "story-quest-greek-bacchae-account",
+        "lines": [
+          "I brought the mountain’s older words.",
+          "The Elder heard their named account."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-bacchae-return-robe",
+        "quest": "story-quest-greek-bacchae-robe",
+        "lines": [
+          "I brought her robe along the slope.",
+          "Melitta took its present care."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-bacchae-family-memorial",
+        "quest": "story-quest-greek-bacchae-response",
+        "lines": [
+          "I laid the cloth beneath the trees.",
+          "The older grief kept its own name."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-bacchae-local-gathering-agreement",
+        "quest": "story-quest-greek-bacchae-response",
+        "lines": [
+          "Two voices chose the words I placed.",
+          "The path lay open by the gathering."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-bacchae-return-family-memorial",
+        "quest": "story-quest-greek-bacchae-return",
+        "lines": [
+          "I laid the account beside the bread.",
+          "Dione heard the deed I brought."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-bacchae-return-local-gathering-agreement",
+        "quest": "story-quest-greek-bacchae-return",
+        "lines": [
+          "I laid the account beside the bread.",
+          "Dione heard the deed I brought."
+        ],
+        "summons": true
       }
     ]
   },
@@ -8151,6 +10587,18 @@
         {
           "kind": "flag",
           "key": "greek-ajax-open",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-book-one",
+      "name": "Theban Accounts and Care",
+      "places": ["greek-cithaeron"],
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
           "value": true
         }
       ]
@@ -9240,6 +11688,591 @@
         "greek-ajax-record-household",
         "greek-ajax-record-appeal"
       ]
+    },
+    {
+      "id": "story-quest-greek-seven-shields",
+      "group": "book-one",
+      "line": "Bring the seven-gate record to the Guard.",
+      "holder": {
+        "kind": "avatar",
+        "id": "greek-guard"
+      },
+      "art": "greek-seven-shield-tablet",
+      "start": {
+        "all": [
+          {
+            "kind": "flag",
+            "key": "greek-book-one-open",
+            "value": true
+          },
+          {
+            "kind": "met",
+            "actor": "greek-guard"
+          }
+        ]
+      },
+      "when": {
+        "kind": "flag",
+        "key": "greek-book-one-open",
+        "value": true
+      },
+      "endings": [
+        {
+          "choice": "greek-seven-set-shield-record"
+        }
+      ],
+      "created": {
+        "latest": [
+          {
+            "earliest": [
+              {
+                "kind": "receipt",
+                "choice": "greek-book-one-invitation-burial"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-book-one-invitation-concession"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-book-one-invitation-refusal"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-book-one-invitation-exposure"
+              }
+            ]
+          },
+          {
+            "kind": "met",
+            "actor": "greek-guard"
+          }
+        ]
+      }
+    },
+    {
+      "id": "story-quest-greek-seven-shelter",
+      "group": "book-one",
+      "line": "Bring water to the households at Dione’s shelter.",
+      "holder": {
+        "kind": "avatar",
+        "id": "greek-baker"
+      },
+      "art": "greek-seven-water-skin",
+      "start": {
+        "kind": "receipt",
+        "choice": "greek-seven-set-shield-record"
+      },
+      "when": {
+        "kind": "flag",
+        "key": "greek-book-one-open",
+        "value": true
+      },
+      "endings": [
+        {
+          "choice": "greek-seven-stock-shelter"
+        }
+      ]
+    },
+    {
+      "id": "story-quest-greek-seven-remembrance",
+      "group": "book-one",
+      "line": "Choose whom the household cloth will serve.",
+      "holder": {
+        "kind": "avatar",
+        "id": "greek-guard"
+      },
+      "art": "greek-seven-household-cloth",
+      "start": {
+        "kind": "receipt",
+        "choice": "greek-seven-stock-shelter"
+      },
+      "when": {
+        "kind": "flag",
+        "key": "greek-book-one-open",
+        "value": true
+      },
+      "endings": [
+        {
+          "choice": "greek-seven-two-name-vigil"
+        },
+        {
+          "choice": "greek-seven-state-remembrance"
+        },
+        {
+          "choice": "greek-seven-survivors-care"
+        }
+      ]
+    },
+    {
+      "id": "story-quest-greek-seven-return",
+      "group": "book-one",
+      "line": "Carry the completed deed home to Dione.",
+      "holder": {
+        "kind": "item",
+        "id": "greek-seven-shield-tablet"
+      },
+      "art": "greek-seven-shield-tablet",
+      "start": {
+        "kind": "choice_set",
+        "key": "greek-seven-ending"
+      },
+      "when": {
+        "kind": "flag",
+        "key": "greek-book-one-open",
+        "value": true
+      },
+      "endings": [
+        {
+          "choice": "greek-seven-return-two-name-vigil"
+        },
+        {
+          "choice": "greek-seven-return-state-remembrance"
+        },
+        {
+          "choice": "greek-seven-return-survivors-care"
+        }
+      ],
+      "outcome": "Shared",
+      "related": "ending"
+    },
+    {
+      "id": "story-quest-greek-phoenician-truce",
+      "group": "book-one",
+      "line": "Carry the mother’s copied truce to the gate.",
+      "holder": {
+        "kind": "avatar",
+        "id": "greek-melea"
+      },
+      "art": "greek-phoenician-truce-copy",
+      "start": {
+        "all": [
+          {
+            "kind": "flag",
+            "key": "greek-book-one-open",
+            "value": true
+          },
+          {
+            "kind": "met",
+            "actor": "greek-melea"
+          }
+        ]
+      },
+      "when": {
+        "kind": "flag",
+        "key": "greek-book-one-open",
+        "value": true
+      },
+      "endings": [
+        {
+          "choice": "greek-phoenician-lodge-truce-copy"
+        }
+      ],
+      "created": {
+        "latest": [
+          {
+            "earliest": [
+              {
+                "kind": "receipt",
+                "choice": "greek-book-one-invitation-burial"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-book-one-invitation-concession"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-book-one-invitation-refusal"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-book-one-invitation-exposure"
+              }
+            ]
+          },
+          {
+            "kind": "met",
+            "actor": "greek-melea"
+          }
+        ]
+      }
+    },
+    {
+      "id": "story-quest-greek-phoenician-care",
+      "group": "book-one",
+      "line": "Bring provisions to the present households.",
+      "holder": {
+        "kind": "avatar",
+        "id": "greek-melea"
+      },
+      "art": "greek-phoenician-care-basket",
+      "start": {
+        "kind": "receipt",
+        "choice": "greek-phoenician-lodge-truce-copy"
+      },
+      "when": {
+        "kind": "flag",
+        "key": "greek-book-one-open",
+        "value": true
+      },
+      "endings": [
+        {
+          "choice": "greek-phoenician-deliver-care"
+        }
+      ]
+    },
+    {
+      "id": "story-quest-greek-phoenician-remembrance",
+      "group": "book-one",
+      "line": "Choose where the remembrance cloth belongs.",
+      "holder": {
+        "kind": "avatar",
+        "id": "greek-melea"
+      },
+      "art": "greek-phoenician-memorial-cloth",
+      "start": {
+        "kind": "receipt",
+        "choice": "greek-phoenician-deliver-care"
+      },
+      "when": {
+        "kind": "flag",
+        "key": "greek-book-one-open",
+        "value": true
+      },
+      "endings": [
+        {
+          "choice": "greek-phoenician-family-remembrance"
+        },
+        {
+          "choice": "greek-phoenician-living-households"
+        }
+      ]
+    },
+    {
+      "id": "story-quest-greek-phoenician-return",
+      "group": "book-one",
+      "line": "Carry the completed deed home to Dione.",
+      "holder": {
+        "kind": "item",
+        "id": "greek-phoenician-truce-copy"
+      },
+      "art": "greek-phoenician-truce-copy",
+      "start": {
+        "kind": "choice_set",
+        "key": "greek-phoenician-ending"
+      },
+      "when": {
+        "kind": "flag",
+        "key": "greek-book-one-open",
+        "value": true
+      },
+      "endings": [
+        {
+          "choice": "greek-phoenician-return-family-remembrance"
+        },
+        {
+          "choice": "greek-phoenician-return-living-households"
+        }
+      ],
+      "outcome": "Shared",
+      "related": "ending"
+    },
+    {
+      "id": "story-quest-greek-tyrannus-care",
+      "group": "book-one",
+      "line": "Bring care before the older inquiry.",
+      "holder": {
+        "kind": "avatar",
+        "id": "greek-melea"
+      },
+      "art": "greek-tyrannus-care-basket",
+      "start": {
+        "all": [
+          {
+            "kind": "flag",
+            "key": "greek-book-one-open",
+            "value": true
+          },
+          {
+            "kind": "met",
+            "actor": "greek-melea"
+          }
+        ]
+      },
+      "when": {
+        "kind": "flag",
+        "key": "greek-book-one-open",
+        "value": true
+      },
+      "endings": [
+        {
+          "choice": "greek-tyrannus-deliver-care"
+        }
+      ],
+      "created": {
+        "latest": [
+          {
+            "earliest": [
+              {
+                "kind": "receipt",
+                "choice": "greek-book-one-invitation-burial"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-book-one-invitation-concession"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-book-one-invitation-refusal"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-book-one-invitation-exposure"
+              }
+            ]
+          },
+          {
+            "kind": "met",
+            "actor": "greek-melea"
+          }
+        ]
+      }
+    },
+    {
+      "id": "story-quest-greek-tyrannus-witnesses",
+      "group": "book-one",
+      "line": "Bring the two witness records together.",
+      "holder": {
+        "kind": "avatar",
+        "id": "greek-melea"
+      },
+      "art": "greek-tyrannus-messenger-record",
+      "start": {
+        "kind": "receipt",
+        "choice": "greek-tyrannus-deliver-care"
+      },
+      "when": {
+        "kind": "flag",
+        "key": "greek-book-one-open",
+        "value": true
+      },
+      "endings": [
+        {
+          "choice": "greek-tyrannus-compare-records"
+        }
+      ]
+    },
+    {
+      "id": "story-quest-greek-tyrannus-reading",
+      "group": "book-one",
+      "line": "Choose how the compared account reaches the well.",
+      "holder": {
+        "kind": "avatar",
+        "id": "greek-melea"
+      },
+      "art": "greek-tyrannus-account",
+      "start": {
+        "kind": "receipt",
+        "choice": "greek-tyrannus-compare-records"
+      },
+      "when": {
+        "kind": "flag",
+        "key": "greek-book-one-open",
+        "value": true
+      },
+      "endings": [
+        {
+          "choice": "greek-tyrannus-public-care"
+        },
+        {
+          "choice": "greek-tyrannus-household-first"
+        },
+        {
+          "choice": "greek-tyrannus-attributed-witnesses"
+        }
+      ],
+      "progress": [
+        "greek-tyrannus-read-family",
+        "greek-tyrannus-melea-approves",
+        "greek-tyrannus-melitta-approves"
+      ]
+    },
+    {
+      "id": "story-quest-greek-tyrannus-return",
+      "group": "book-one",
+      "line": "Carry the completed deed home to Dione.",
+      "holder": {
+        "kind": "item",
+        "id": "greek-tyrannus-account"
+      },
+      "art": "greek-tyrannus-account",
+      "start": {
+        "kind": "choice_set",
+        "key": "greek-tyrannus-ending"
+      },
+      "when": {
+        "kind": "flag",
+        "key": "greek-book-one-open",
+        "value": true
+      },
+      "endings": [
+        {
+          "choice": "greek-tyrannus-return-public-care"
+        },
+        {
+          "choice": "greek-tyrannus-return-household-first"
+        },
+        {
+          "choice": "greek-tyrannus-return-attributed-witnesses"
+        }
+      ],
+      "outcome": "Shared",
+      "related": "ending"
+    },
+    {
+      "id": "story-quest-greek-bacchae-account",
+      "group": "book-one",
+      "line": "Bring the mountain account to the Elder.",
+      "holder": {
+        "kind": "avatar",
+        "id": "greek-melitta"
+      },
+      "art": "greek-bacchae-petition-copy",
+      "start": {
+        "all": [
+          {
+            "kind": "flag",
+            "key": "greek-book-one-open",
+            "value": true
+          },
+          {
+            "kind": "met",
+            "actor": "greek-melitta"
+          }
+        ]
+      },
+      "when": {
+        "kind": "flag",
+        "key": "greek-book-one-open",
+        "value": true
+      },
+      "endings": [
+        {
+          "choice": "greek-bacchae-deliver-account"
+        }
+      ],
+      "created": {
+        "latest": [
+          {
+            "earliest": [
+              {
+                "kind": "receipt",
+                "choice": "greek-book-one-invitation-burial"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-book-one-invitation-concession"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-book-one-invitation-refusal"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-book-one-invitation-exposure"
+              }
+            ]
+          },
+          {
+            "kind": "met",
+            "actor": "greek-melitta"
+          }
+        ]
+      }
+    },
+    {
+      "id": "story-quest-greek-bacchae-robe",
+      "group": "book-one",
+      "line": "Return Melitta’s robe to the mountain.",
+      "holder": {
+        "kind": "avatar",
+        "id": "greek-melitta"
+      },
+      "art": "greek-bacchae-robe",
+      "start": {
+        "kind": "receipt",
+        "choice": "greek-bacchae-deliver-account"
+      },
+      "when": {
+        "kind": "flag",
+        "key": "greek-book-one-open",
+        "value": true
+      },
+      "endings": [
+        {
+          "choice": "greek-bacchae-return-robe"
+        }
+      ]
+    },
+    {
+      "id": "story-quest-greek-bacchae-response",
+      "group": "book-one",
+      "line": "Choose a memorial or agreed gathering terms.",
+      "holder": {
+        "kind": "avatar",
+        "id": "greek-melitta"
+      },
+      "art": "greek-bacchae-memorial-cloth",
+      "start": {
+        "kind": "receipt",
+        "choice": "greek-bacchae-return-robe"
+      },
+      "when": {
+        "kind": "flag",
+        "key": "greek-book-one-open",
+        "value": true
+      },
+      "endings": [
+        {
+          "choice": "greek-bacchae-family-memorial"
+        },
+        {
+          "choice": "greek-bacchae-local-gathering-agreement"
+        }
+      ],
+      "progress": [
+        "greek-bacchae-elder-accepts",
+        "greek-bacchae-melitta-accepts"
+      ]
+    },
+    {
+      "id": "story-quest-greek-bacchae-return",
+      "group": "book-one",
+      "line": "Carry the completed deed home to Dione.",
+      "holder": {
+        "kind": "item",
+        "id": "greek-bacchae-petition-copy"
+      },
+      "art": "greek-bacchae-petition-copy",
+      "start": {
+        "kind": "choice_set",
+        "key": "greek-bacchae-ending"
+      },
+      "when": {
+        "kind": "flag",
+        "key": "greek-book-one-open",
+        "value": true
+      },
+      "endings": [
+        {
+          "choice": "greek-bacchae-return-family-memorial"
+        },
+        {
+          "choice": "greek-bacchae-return-local-gathering-agreement"
+        }
+      ],
+      "outcome": "Shared",
+      "related": "ending"
     }
   ],
   "topics": [
@@ -9568,6 +12601,445 @@
         }
       ],
       "choiceId": "greek-ajax-record-appeal"
+    },
+    {
+      "id": "greek-seven-shields",
+      "speaker": "greek-guard",
+      "at": "greek-gate",
+      "text": "In Aeschylus’s Seven, Eteocles, Melanippus, Polyphontes, Megareus, Hyperbius, Actor and Lasthenes defend the seven gates.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-seven-inner-road",
+      "speaker": "greek-guard",
+      "at": "greek-gate",
+      "text": "In Aeschylus’s remembered siege, the Theban women fear for the households inside the gates.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-seven-shields",
+          "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-seven-report-set",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-seven-brothers",
+      "speaker": "greek-guard",
+      "at": "greek-gate",
+      "text": "In Aeschylus’s Seven, Eteocles and Polyneices die at the seventh gate while the city survives.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-seven-inner-road",
+          "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-seven-shelter-stocked",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-seven-account-two-name-vigil",
+      "speaker": "greek-guard",
+      "at": "greek-gate",
+      "text": "The present vigil at the Theban gate names both Eteocles and Polyneices.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-seven-ending",
+          "value": "two-name-vigil"
+        }
+      ]
+    },
+    {
+      "id": "greek-seven-account-state-remembrance",
+      "speaker": "greek-creon",
+      "at": "greek-palace",
+      "text": "The present palace remembrance honors Eteocles with the delivered household cloth.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-seven-ending",
+          "value": "state-remembrance"
+        }
+      ]
+    },
+    {
+      "id": "greek-seven-account-survivors-care",
+      "speaker": "greek-baker",
+      "at": "greek-courtyard",
+      "text": "The surviving households at Dione’s shelter received the delivered household cloth.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-seven-ending",
+          "value": "survivors-care"
+        }
+      ]
+    },
+    {
+      "id": "greek-phoenician-truce",
+      "speaker": "greek-melea",
+      "at": "greek-palace",
+      "text": "In Euripides’s Phoenician Women, Jocasta seeks a truce between Eteocles and Polyneices while Oedipus lives in the palace.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-phoenician-menoeceus",
+      "speaker": "greek-melea",
+      "at": "greek-palace",
+      "text": "In Euripides’s Phoenician Women, Menoeceus chooses death for Thebes after Teiresias’s demand and his father Creon’s plea.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-phoenician-truce",
+          "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-phoenician-truce-lodged",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-phoenician-mourning",
+      "speaker": "greek-melea",
+      "at": "greek-palace",
+      "text": "In Euripides’s Phoenician Women, both brothers die in their duel and Jocasta dies beside them as the Phoenician chorus hears the loss.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-phoenician-menoeceus",
+          "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-phoenician-care-delivered",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-phoenician-account-family-remembrance",
+      "speaker": "greek-guard",
+      "at": "greek-gate",
+      "text": "The present memorial cloth at the gate remembers Jocasta and her sons in Euripides’s Phoenician Women.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-phoenician-ending",
+          "value": "family-remembrance"
+        }
+      ]
+    },
+    {
+      "id": "greek-phoenician-account-living-households",
+      "speaker": "greek-baker",
+      "at": "greek-courtyard",
+      "text": "The present households at Dione’s shelter received the cloth carried from Melea’s Phoenician account.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-phoenician-ending",
+          "value": "living-households"
+        }
+      ]
+    },
+    {
+      "id": "greek-tyrannus-inquiry",
+      "speaker": "greek-melea",
+      "at": "greek-palace",
+      "text": "In Sophocles’s earlier Oedipus Tyrannus, the priest asks aid for Thebes and the inquiry turns toward Laius’s death.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-tyrannus-messenger",
+      "speaker": "greek-melea",
+      "at": "greek-palace",
+      "text": "In Sophocles’s earlier inquiry, the Corinthian messenger says Polybus and Merope raised Oedipus after receiving him as a baby.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-tyrannus-inquiry",
+          "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-tyrannus-care-delivered",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-tyrannus-herdsman",
+      "speaker": "greek-melitta",
+      "at": "greek-cithaeron",
+      "text": "In Sophocles’s earlier inquiry, Laius’s herdsman says the baby came from Laius and Jocasta’s household.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-tyrannus-messenger",
+          "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-tyrannus-care-delivered",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-tyrannus-truth",
+      "speaker": "greek-melea",
+      "at": "greek-palace",
+      "text": "In Sophocles’s Oedipus Tyrannus, the two witnesses reveal Oedipus’s parentage as Jocasta and the palace household face the truth.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-tyrannus-herdsman",
+          "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-tyrannus-records-compared",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-tyrannus-account-public-care",
+      "speaker": "greek-elder",
+      "at": "greek-well",
+      "text": "The compared account of Sophocles’s earlier inquiry was read at the well after the present courtyard care delivery.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-tyrannus-ending",
+          "value": "public-care"
+        }
+      ]
+    },
+    {
+      "id": "greek-tyrannus-account-household-first",
+      "speaker": "greek-elder",
+      "at": "greek-well",
+      "text": "The compared account of Sophocles’s earlier inquiry reached Antigone first and then the public hearing at the well.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-tyrannus-ending",
+          "value": "household-first"
+        }
+      ]
+    },
+    {
+      "id": "greek-tyrannus-account-attributed-witnesses",
+      "speaker": "greek-elder",
+      "at": "greek-well",
+      "text": "Melea and Melitta checked their distinct witness records before the public reading of Sophocles’s earlier inquiry.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-tyrannus-ending",
+          "value": "attributed-witnesses"
+        }
+      ]
+    },
+    {
+      "id": "greek-bacchae-worshippers",
+      "speaker": "greek-melitta",
+      "at": "greek-cithaeron",
+      "text": "In Euripides’s Bacchae from early Thebes, the foreign chorus honors Dionysus while Pentheus suppresses his worship.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-bacchae-robe",
+      "speaker": "greek-melitta",
+      "at": "greek-cithaeron",
+      "text": "In Euripides’s earlier Bacchae, Dionysus dresses Pentheus for a spying journey to the women on Cithaeron.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-bacchae-worshippers",
+          "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-bacchae-account-delivered",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-bacchae-grief",
+      "speaker": "greek-melitta",
+      "at": "greek-cithaeron",
+      "text": "In Euripides’s earlier Bacchae, the messengers report Pentheus’s death and Cadmus helps Agave recognize her son.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-bacchae-robe",
+          "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-bacchae-robe-returned",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-bacchae-account-family-memorial",
+      "speaker": "greek-melitta",
+      "at": "greek-cithaeron",
+      "text": "The present mountain memorial remembers Agave’s loss in Euripides’s earlier Bacchae.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-bacchae-ending",
+          "value": "family-memorial"
+        }
+      ]
+    },
+    {
+      "id": "greek-bacchae-account-local-gathering-agreement",
+      "speaker": "greek-melitta",
+      "at": "greek-cithaeron",
+      "text": "Melitta and the Elder each accepted the present local gathering terms before they were placed beside the mountain path.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-one-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-bacchae-ending",
+          "value": "local-gathering-agreement"
+        }
+      ]
     }
   ]
 }

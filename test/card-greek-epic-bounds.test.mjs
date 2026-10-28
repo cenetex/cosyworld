@@ -167,7 +167,7 @@ describe("512 stored facts with protected source knowledge", () => {
     });
     expect(result.ok, result.error).toBe(true);
     expect(result.world.knowledge).toEqual(before);
-    const added = news(result.world, 256);
+    news(result.world, 256);
     expect(Object.keys(result.world.knowledge.facts)).toHaveLength(257);
     expect(dispatchShared({ op: "validate", world: result.world }).ok).toBe(
       true,
@@ -175,10 +175,13 @@ describe("512 stored facts with protected source knowledge", () => {
     expect(old.dispatch({ op: "validate", world: result.world }).ok).toBe(
       false,
     );
-    const earlierSize = structuredClone(result.world);
-    delete earlierSize.knowledge.facts[added.id];
+    const earlierSize = structuredClone(world);
+    const oldAdded = news(earlierSize, 256);
+    earlierSize.revision++;
+    expect(old.dispatch({ op: "validate", world: earlierSize }).ok).toBe(false);
+    delete earlierSize.knowledge.facts[oldAdded.id];
     for (const known of Object.values(earlierSize.knowledge.known))
-      delete known[added.id];
+      delete known[oldAdded.id];
     expect(old.dispatch({ op: "validate", world: earlierSize }).ok).toBe(true);
   });
   it("keeps exactly 512 global and per-person event facts and prunes the oldest", () => {

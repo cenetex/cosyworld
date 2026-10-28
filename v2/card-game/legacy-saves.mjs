@@ -96,6 +96,7 @@ export function upgradeSave(
     upgradeGreekRoadSave(s);
     upgradeGreekTownSave(s);
     upgradeGreekAjaxSave(s);
+    upgradeGreekBookOneSave(s);
     s.schema = 7;
     installPacks(s);
   } else if (
@@ -111,6 +112,7 @@ export function upgradeSave(
     upgradeGreekRoadSave(s);
     upgradeGreekTownSave(s);
     upgradeGreekAjaxSave(s);
+    upgradeGreekBookOneSave(s);
     // A pack mounted after this save was written joins it fresh.
     installPacks(s);
   }
@@ -146,16 +148,24 @@ export function upgradeShoreRouteSave(s) {
     const expanded = known.flatMap((edge) => {
       if (!Array.isArray(edge) || edge.length !== 2) return [edge];
       const [from, to] = edge;
-      if ((moved.has(from) && to === "station") ||
-          (from === "station" && moved.has(to))) {
+      if (
+        (moved.has(from) && to === "station") ||
+        (from === "station" && moved.has(to))
+      ) {
         changed = true;
-        return [[from, "pond"], ["pond", to]];
+        return [
+          [from, "pond"],
+          ["pond", to],
+        ];
       }
       return [edge];
     });
-    if (changed) s.routeKnowledge[actor] = [...new Map(
-      expanded.map((edge) => [JSON.stringify(edge), edge]),
-    ).values()];
+    if (changed)
+      s.routeKnowledge[actor] = [
+        ...new Map(
+          expanded.map((edge) => [JSON.stringify(edge), edge]),
+        ).values(),
+      ];
   }
 }
 
@@ -302,6 +312,35 @@ export function upgradeGreekAjaxSave(s) {
   ])
     s.memories[id] ??= fresh[id];
   saved.revision = 7;
+}
+
+// Revision 8 adds the present Book I hosts and objects beside earlier deeds.
+export function upgradeGreekBookOneSave(s) {
+  const pack = packDefinitions.find((p) => p.id === "greek-drama");
+  const saved = s.packs?.[pack?.id];
+  if (!pack || pack.revision < 8 || saved?.revision !== 7) return;
+  addGreekEntities(
+    s,
+    pack,
+    ["greek-melea", "greek-melitta"],
+    [
+      "greek-seven-shield-tablet",
+      "greek-seven-water-skin",
+      "greek-seven-household-cloth",
+      "greek-phoenician-truce-copy",
+      "greek-phoenician-care-basket",
+      "greek-phoenician-memorial-cloth",
+      "greek-tyrannus-care-basket",
+      "greek-tyrannus-messenger-record",
+      "greek-tyrannus-herdsman-record",
+      "greek-tyrannus-account",
+      "greek-bacchae-petition-copy",
+      "greek-bacchae-robe",
+      "greek-bacchae-memorial-cloth",
+      "greek-bacchae-terms",
+    ],
+  );
+  saved.revision = 8;
 }
 
 // Revision 3 adds these residents and objects. Earlier records keep their
