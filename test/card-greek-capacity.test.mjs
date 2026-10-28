@@ -1,5 +1,13 @@
+import { packDefinition as currentPackDefinition } from "../v2/card-game/pack-registry.mjs";
+const willowsItems = Object.fromEntries(
+  Object.entries(currentPackDefinition("willows").items).map(([id, item]) => [
+    id,
+    { holder: item.holder, history: [] },
+  ]),
+);
 import { entityActive } from "../v2/card-game/pack-registry.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
+import hoppycat from "../v2/content/hoppycat-archive/card-world.json" with { type: "json" };
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { describe, expect, it } from "vitest";
@@ -188,14 +196,25 @@ describe("the side roads in earlier saved worlds", () => {
       }
       expect(world.packs["greek-drama"].revision).toBe(3);
       const restored = decodeSave(JSON.stringify(world));
-      expect(restored.packs["greek-drama"].revision).toBe(5);
+      expect(restored.packs["greek-drama"].revision).toBe(6);
       for (const key of ["choices", "flags", "receipts", "recitals"])
         expect(restored.packs["greek-drama"][key]).toEqual(
           world.packs["greek-drama"][key],
         );
       expect(restored.items).toEqual({
         ...world.items,
-        "boardyai-calling-card": { holder: "station", history: [] },
+        ...willowsItems,
+        "boardyai-calling-card": { holder: "pond", history: [] },
+        ...Object.fromEntries(
+          Object.entries(hoppycat.items).map(([id, item]) => [
+            id,
+            { holder: item.holder, history: [] },
+          ]),
+        ),
+        "forest-story-button": { holder: "forest-cottage", history: [] },
+        "forest-dewbright-button": { holder: "forest-garden", history: [] },
+        "forest-watch-bell": { holder: "forest-garden", history: [] },
+        "forest-wolfprint-charm": { holder: "forest-trail", history: [] },
       });
       expect(restored.log).toEqual(world.log);
       expect(restored.actors["greek-household-witness"].place).toBe(

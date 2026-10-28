@@ -65,6 +65,7 @@ try {
     {
       const world = enableMotives(createWorld(), { personalQuests: true });
       world.actors.vale.place = "greek-gate";
+      world.crossings["pond-greek-harbor"].discovered = true;
       assert.equal(world.actors[singer].place, "greek-harbor");
       const key = `cosyworld.reflected-shore.v1.bard-route-${width}`;
       const page = await browser.newPage({
@@ -95,9 +96,10 @@ try {
             entries: input.entities.map(({ id }) => ({
               id,
               text:
-                id === singer
+                input.disclosures?.find((fact) => fact.speaker === id)?.text ||
+                (id === singer
                   ? "The choice beside the wall has given my song a quieter turn."
-                  : "The words remain with us.",
+                  : "The words remain with us."),
             })),
           },
         });
@@ -134,14 +136,14 @@ try {
       );
       await settle();
       await selectCard(page, "greek-guard");
-      await page.locator('[data-choice="greek-hear-decree"]').click();
+      await page.locator('[data-action="talk"]').click();
       await reachTurn(1);
       assert.equal((await saved()).actors[singer].place, "greek-harbor");
       await selectCard(page, "greek-antigone");
       await page.locator('[data-choice="greek-decline-burial"]').click();
       await reachTurn(2);
       let state = await saved();
-      assert.equal(state.actors[singer].place, "greek-road-thebes");
+      assert.equal(state.actors[singer].place, "greek-courtyard");
       assert.equal(state.roamingQuests[singer].target.locationId, "greek-gate");
       assert.equal(
         state.packs["greek-drama"].recitals["greek-decline-burial"].visit,
@@ -151,19 +153,14 @@ try {
       await page.locator('#card-actions [data-action="wait"]').click();
       await reachTurn(3);
       state = await saved();
-      assert.equal(state.actors[singer].place, "greek-courtyard");
-      await selectCard(page, "vale");
-      await page.locator('#card-actions [data-action="wait"]').click();
-      await reachTurn(4);
-      state = await saved();
       assert.equal(state.actors[singer].place, "greek-gate");
       assert.equal(
         state.packs["greek-drama"].recitals["greek-decline-burial"].visit,
-        4,
+        3,
       );
       await selectCard(page, singer);
       await page.locator('#card-actions [data-action="talk"]').click();
-      await reachTurn(5);
+      await reachTurn(4);
       assert.equal(await page.locator("#story-retry").isVisible(), false);
       const poem = requests.at(-1).entities.find((e) => e.id === singer)?.poem;
       assert.equal(poem.stanzas.length, 1);
@@ -188,7 +185,7 @@ try {
       world.controlledActors = ["rue"];
       world.presentActors = ["rue"];
       world.playerActorId = "rue";
-      world.actors.rue.place = world.actors.moth.place = "station";
+      world.actors.rue.place = world.actors.moth.place = "pond";
       world.items.routes.holder = "rue";
       world.actors.moth.trust.rue = 1;
       const table = `carriage-invitation-${width}`,

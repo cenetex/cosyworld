@@ -25,12 +25,20 @@ mod atmosphere;
 pub(crate) mod browser;
 #[path = "card_narrative/custody.rs"]
 mod custody;
+#[path = "card_narrative/expression.rs"]
+mod expression;
+#[path = "card_narrative/knowledge.rs"]
+mod knowledge;
 #[path = "card_narrative/observations.rs"]
 mod observations;
+#[path = "card_narrative/readings.rs"]
+mod readings;
 #[path = "card_narrative/recital.rs"]
 pub(crate) mod recital;
 #[path = "card_narrative/reflection.rs"]
 mod reflection;
+#[path = "card_narrative/reflections.rs"]
+mod reflections;
 
 const PER_MINUTE: RateLimit = RateLimit {
     max_hits: 30,
@@ -147,7 +155,7 @@ fn base_profiles() -> &'static Value {
                         "persona": entity.get("persona").unwrap_or(&entity["text"]),
                         "pack": pack["id"],
                     });
-                    for field in ["voice", "idiolect", "lines"] {
+                    for field in ["voice", "idiolect", "lines", "expression"] {
                         if let Some(value) = entity.get(field) { profile[field] = value.clone(); }
                     }
                     assert!(
@@ -186,6 +194,7 @@ fn bounded(text: &str, limit: usize) -> bool {
 
 #[derive(Clone)]
 struct TextState {
+    background: Arc<reflections::Queue>,
     ai: Arc<Option<AiConfig>>,
     character_models: Arc<Result<BTreeMap<String, String>, String>>,
     settings: Arc<Result<VoiceSettings, String>>,
@@ -244,6 +253,7 @@ fn router_with_models<S: Clone + Send + Sync + 'static>(
 ) -> Router<S> {
     Router::new()
         .route("/card-game/text", post(generate))
+        .route("/card-game/reflections", post(reflections::generate))
         .route("/card-game/text/prepare", post(browser::prepare_route))
         .route("/card-game/text/complete", post(browser::complete_route))
         .layer(DefaultBodyLimit::max(64 * 1024))
@@ -254,6 +264,7 @@ fn router_with_models<S: Clone + Send + Sync + 'static>(
             limits: Arc::new(Mutex::new(RateLimiter::default())),
             in_flight: Arc::new(InFlight::default()),
             capacity: Arc::new(Semaphore::new(TOTAL_CONCURRENCY)),
+            background: Arc::new(reflections::Queue::default()),
         })
 }
 
@@ -278,6 +289,8 @@ struct Memory {
 struct Entity {
     id: String,
     facts: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    readings: Vec<readings::Reading>,
     #[serde(default)]
     poem: Option<recital::Poem>,
     desire: Option<Desire>,
@@ -403,6 +416,8 @@ struct Context {
     conversation: Vec<SpokenLine>,
     #[serde(default)]
     outcome: Option<TurnOutcome>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    disclosures: Vec<knowledge::Disclosure>,
 }
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -428,6 +443,7 @@ fn valid(context: &Context) -> bool {
         && ids.len() == context.entities.len()
         && context.outcome.as_ref().is_none_or(valid_outcome)
         && observations::valid(context)
+        && knowledge::valid(context)
         && context.events.len() <= 8
         && context.events.iter().all(|text| bounded(text, 650))
         && context.conversation.len() <= 4
@@ -452,6 +468,7 @@ fn valid(context: &Context) -> bool {
         && context.entities.iter().all(|e| {
             profiles().get(&e.id).is_some()
                 && recital::valid(&e.id, e.poem.as_ref(), context.turn)
+                && readings::valid(&e.id, &e.readings, context.turn)
                 && e.facts.len() <= 16
                 && e.facts.iter().all(|s| bounded(s, 240))
                 && e.previous.as_ref().is_none_or(|s| bounded(s, 400))
@@ -663,6 +680,10 @@ async fn generate(
             "Character voices are waiting for valid timing settings.",
         );
     };
+    state
+        .background
+        .cancel
+        .send_modify(|generation| *generation += 1);
     // `peer` is already the derived client address (see
     // `rate_limit::client_addr`). Check this client's own limits before
     // touching shared capacity, so one client can neither hold every permit
@@ -758,7 +779,7 @@ async fn complete(
         character_models,
         settings,
         &voiced(context),
-        true,
+        !settings.defer_reflections,
         on_delta,
     )
     .await
@@ -987,6 +1008,7 @@ struct VoiceSettings {
     line_limit: usize,
     reflection_model: Option<String>,
     escalation_model: Option<String>,
+    defer_reflections: bool,
 }
 
 impl VoiceSettings {
@@ -999,6 +1021,7 @@ impl VoiceSettings {
             line_limit: 400,
             reflection_model: None,
             escalation_model: None,
+            defer_reflections: false,
         }
     }
 
@@ -1011,6 +1034,7 @@ impl VoiceSettings {
             line_limit: 400,
             reflection_model: None,
             escalation_model: None,
+            defer_reflections: true,
         }
     }
 
@@ -1147,7 +1171,7 @@ fn names(ids: &[String]) -> String {
 }
 
 /// The entity's own first-person words, with the persona its reflections grew.
-fn idiolect(entity: &Entity) -> String {
+fn idiolect(entity: &Entity, part: Part) -> String {
     if kind(&entity.id, "location") {
         return atmosphere::voice();
     }
@@ -1171,7 +1195,15 @@ fn idiolect(entity: &Entity) -> String {
         text.push_str("\n\n");
         text.push_str(persona);
     }
-    text.push_str("\n\nMy next reply is one or two short sentences in my own voice. I speak only my next words. My voice samples show my style; the current scene supplies my facts.");
+    text.push_str("\n\n");
+    text.push_str(&expression::direction(
+        if part == Part::Line {
+            expression::mode(profile)
+        } else {
+            expression::Mode::Speech
+        },
+        &name(&entity.id),
+    ));
     text
 }
 
@@ -1254,6 +1286,7 @@ fn known(context: &Context) -> BTreeSet<String> {
     .concat()
     .into_iter()
     .chain(context.entities.iter().flat_map(|e| e.facts.iter()))
+    .chain(context.disclosures.iter().map(|d| &d.text))
     .chain(
         context
             .entities
@@ -1393,6 +1426,10 @@ fn transcript(context: &Context, entity: &Entity, part: Part) -> String {
             && (fact.starts_with("Just arrived from ") || fact.starts_with("Leaving "))
     };
     lines.extend(entity.facts.iter().filter(|f| !restated(f)).cloned());
+    lines.extend(readings::facts(&entity.id, &entity.readings));
+    if part == Part::Line {
+        lines.extend(knowledge::directions(context, id));
+    }
     for fact in observations::facts(context)
         .as_array()
         .into_iter()
@@ -1605,7 +1642,7 @@ async fn speak(
                         }
                 })
         });
-    let system = idiolect(entity);
+    let system = idiolect(entity, part);
     let mut check = Check::new(context, entity, part);
     if part == Part::Line {
         check.limit = settings.line_limit;
@@ -1739,8 +1776,10 @@ const ASSISTANT_SPEAK: &[&str] = &[
 
 /// What a reply is checked against before it is published.
 struct Check<'a> {
+    expression: expression::Mode,
     context: &'a Context,
     entity: &'a Entity,
+    part: Part,
     limit: usize,
     sentences: usize,
     known: BTreeSet<String>,
@@ -1783,8 +1822,14 @@ impl<'a> Check<'a> {
             .into_iter()
             .collect();
         Self {
+            expression: if part == Part::Line {
+                expression::mode(&profiles()[&entity.id])
+            } else {
+                expression::Mode::Speech
+            },
             context,
             entity,
+            part,
             limit,
             sentences,
             known: known(context),
@@ -1799,6 +1844,28 @@ impl<'a> Check<'a> {
     /// know, copies an example, or repeats the play or a recent line.
     fn clean(&self, raw: &str, finished: bool) -> Result<String, &'static str> {
         let own = name(&self.entity.id);
+        if self.expression != expression::Mode::Speech {
+            let text = expression::clean(self.expression, raw, &own, self.limit, finished)?;
+            if !observations::consistent(&text, self.context) {
+                return Err("observable_state");
+            }
+            if !custody::consistent(&text, self.context, &self.entity.id) {
+                return Err("custody");
+            }
+            if self.entity.previous.as_deref() == Some(text.as_str()) {
+                return Err("repeat");
+            }
+            for (id, profile) in profiles().as_object().expect("profiles") {
+                if profile["name"]
+                    .as_str()
+                    .is_some_and(|name| mentions(&text, name))
+                    && !self.known.contains(id)
+                {
+                    return Err("unknown entity");
+                }
+            }
+            return Ok(text);
+        }
         let mut lines = raw.trim().lines().map(str::trim).filter(|l| !l.is_empty());
         let line = lines.next().ok_or("empty")?;
         let cut_line = lines.next().is_some();
@@ -1905,6 +1972,9 @@ impl<'a> Check<'a> {
         if !bounded(&kept, self.limit) {
             return Err("shape");
         }
+        if self.part == Part::Line && !knowledge::delivered(self.context, &self.entity.id, &kept) {
+            return Err("knowledge_fact");
+        }
         if !observations::consistent(&kept, self.context) {
             return Err("observable_state");
         }
@@ -1936,13 +2006,19 @@ impl<'a> Check<'a> {
                 .map(str::to_string)
                 .collect::<Vec<_>>()
         };
+        let freely_spoken = if self.part == Part::Line {
+            knowledge::other_words(self.context, &self.entity.id, &kept)
+        } else {
+            kept.clone()
+        };
         let key = words(&kept).concat();
+        let sharing = freely_spoken != kept;
         let earned_quote = recital::earned_quote(&kept, self.entity.poem.as_ref());
         if !earned_quote
             && self.examples.iter().any(|line| {
                 let example = words(line);
-                words(line).concat() == key
-                    || words(&kept)
+                (!sharing && words(line).concat() == key)
+                    || words(&freely_spoken)
                         .windows(6)
                         .any(|run| example.windows(6).any(|other| other == run))
             })
@@ -1965,15 +2041,15 @@ impl<'a> Check<'a> {
                 .conversation
                 .iter()
                 .any(|line| words(&line.text).concat() == key);
-        if repeats && !earned_quote {
+        if repeats && !earned_quote && !sharing {
             return Err("repeat");
         }
         // A character speaks as "I"; a line that names its speaker in the
         // third person ("Vale's eyes flick to Pip") is narration.
-        if kind(&self.entity.id, "avatar") && mentions(&kept, &own) {
+        if kind(&self.entity.id, "avatar") && mentions(&freely_spoken, &own) {
             return Err("self-narration");
         }
-        let spoken = words(&kept);
+        let spoken = words(&freely_spoken);
         if self.labels.iter().any(|label| kept.contains(label))
             || (!earned_quote
                 && self.brief.iter().any(|line| {
@@ -2007,7 +2083,7 @@ mod tests {
     };
     use tower::ServiceExt;
 
-    fn context() -> Context {
+    pub(super) fn context() -> Context {
         serde_json::from_value(json!({"revision":4,"turn":4,"location":"station","focus":"lamp","speakers":["vale","moth"],"action":"Vale asks Pip what they want.","entities":[
             {"id":"vale","facts":["Holding the lamp."],"desire":{"items":["oil"],"location":"attic","avatars":["keeper"]},"memories":[],"previous":null},
             {"id":"station","facts":["Pip and Vale are here."],"desire":null,"memories":[{"turn":1,"kind":"event","text":"Vale arrived."}],"previous":null},
@@ -2158,10 +2234,10 @@ mod tests {
         for id in voiced(&c) {
             let e = entity(&c, &id);
             for part in [Part::Line, Part::Thought, Part::Persona, Part::Dream] {
-                assert_no_instructions(&idiolect(e));
+                assert_no_instructions(&idiolect(e, part));
                 assert_no_instructions(&transcript(&c, e, part));
                 // Each call stays well inside a small model's context.
-                let tokens = (idiolect(e).len() + transcript(&c, e, part).len()) / 4;
+                let tokens = (idiolect(e, part).len() + transcript(&c, e, part).len()) / 4;
                 assert!(tokens <= 1_100, "{id}: {tokens} tokens");
             }
         }
@@ -2266,6 +2342,23 @@ mod tests {
             clean("Yes. *She folds the cloth and looks away.* No."),
             Ok("Yes. No.".into())
         );
+    }
+
+    #[test]
+    fn expression_checks_keep_movement_and_emoji_in_their_authored_form() {
+        let c = context();
+        let pip = &c.entities[3];
+        let mut check = Check::new(&c, pip, Part::Line);
+        check.expression = expression::Mode::Movement;
+        assert_eq!(
+            check.clean("Pip tilts his head toward the lamp.", true),
+            Ok("Pip tilts his head toward the lamp.".into())
+        );
+        assert_eq!(check.clean("I will help you.", true), Err("expression"));
+        check.expression = expression::Mode::Emoji;
+        assert_eq!(check.clean("🌳 👀", true), Ok("🌳👀".into()));
+        assert_eq!(check.clean("A tree 🌳", true), Err("expression"));
+        assert_eq!(check.clean("🌳👀", false), Err("expression"));
     }
 
     #[test]
@@ -2438,7 +2531,7 @@ mod tests {
     fn earned_poem_is_context_for_free_speech_and_keeps_its_authored_data() {
         let c = bard_context();
         let check = Check::new(&c, &c.entities[3], Part::Line);
-        assert!(!idiolect(&c.entities[3]).contains("sing an earned couplet"));
+        assert!(!idiolect(&c.entities[3], Part::Line).contains("sing an earned couplet"));
         for words in [
             EARNED_VERSE,
             "I hear a hard choice in those lines.",
@@ -2908,7 +3001,7 @@ mod tests {
         server.abort();
     }
 
-    fn plain_provider(
+    pub(super) fn plain_provider(
         seen: Arc<Mutex<Vec<Value>>>,
         reply: impl Fn(&Value, &str) -> String + Clone + Send + Sync + 'static,
     ) -> Router {
@@ -3280,11 +3373,11 @@ mod tests {
         let mut c = context();
         c.location = "attic".into();
         c.entities[1].id = "attic".into();
-        let attic = idiolect(&c.entities[1]);
+        let attic = idiolect(&c.entities[1], Part::Line);
         assert!(attic.contains("atmospheric caption"));
         assert!(transcript(&c, &c.entities[1], Part::Line)
             .contains("tall mirror reflecting a black shore"));
-        assert!(idiolect(&c.entities[2]).contains("soot-dark"));
+        assert!(idiolect(&c.entities[2], Part::Line).contains("soot-dark"));
         let all = profiles().to_string();
         assert!(!all.contains("makes reflections into paths"));
         assert!(!all.contains("Lamplight can open a path"));
@@ -3401,7 +3494,7 @@ mod tests {
         assert!(valid(&c));
         assert_eq!(voiced(&c), ["vale", "badger", "clearing"]);
         let badger = &c.entities[2];
-        assert!(idiolect(badger).contains("moss"));
+        assert!(idiolect(badger, Part::Line).contains("moss"));
         let heard = transcript(&c, badger, Part::Line);
         assert!(heard.contains("Awake after Vale spoke. Still grumpy about the interruption."));
         assert!(heard.contains("I'm talking with Vale."));
@@ -3547,7 +3640,7 @@ mod tests {
         );
         let pip = transcript(&c, &c.entities[3], Part::Line);
         assert!(pip.contains("Earlier: Pip: I offered my cloth."));
-        assert!(idiolect(&c.entities[3]).contains("borrowed"));
+        assert!(idiolect(&c.entities[3], Part::Line).contains("borrowed"));
         c.action = Some("x".repeat(651));
         assert!(!valid(&c));
         c = context();
@@ -3794,7 +3887,7 @@ mod tests {
         assert_eq!(in_flight.count(b), 0);
     }
 
-    fn test_config(address: SocketAddr) -> AiConfig {
+    pub(super) fn test_config(address: SocketAddr) -> AiConfig {
         AiConfig {
             api_key: "test-secret".into(),
             base_url: format!("http://{address}"),
@@ -4013,9 +4106,8 @@ mod tests {
         c.entities[1].id = c.location.clone();
         c.entities[3].id = "greek-baker".into();
         c.speakers[1] = "greek-baker".into();
-        assert!(
-            idiolect(&c.entities[3]).contains(profiles()["greek-baker"]["voice"].as_str().unwrap())
-        );
+        assert!(idiolect(&c.entities[3], Part::Line)
+            .contains(profiles()["greek-baker"]["voice"].as_str().unwrap()));
         assert!(valid(&c));
         let result = complete(
             &test_config(address),
@@ -4035,7 +4127,8 @@ mod tests {
         assert_eq!(baker["model"], "test-entity-model");
         c = context();
         c.entities[0].id = "mara".into();
-        assert!(idiolect(&c.entities[0]).contains("The player chooses this avatar's actions."));
+        assert!(idiolect(&c.entities[0], Part::Line)
+            .contains("The player chooses this avatar's actions."));
         c.speakers[0] = "mara".into();
         seen.lock().unwrap().clear();
         let result = shared_lines(
@@ -4057,7 +4150,7 @@ mod tests {
         server.abort();
     }
     /// Serves a mock provider on a loopback port.
-    async fn serve(provider: Router) -> (SocketAddr, tokio::task::JoinHandle<()>) {
+    pub(super) async fn serve(provider: Router) -> (SocketAddr, tokio::task::JoinHandle<()>) {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
         let server = tokio::spawn(async move {

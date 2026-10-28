@@ -69,15 +69,19 @@ describe("the reflected shore card game", () => {
     let s = createWorld();
     s.items.cloth.holder = "pond";
     s = act(s, "take", "lamp");
-    s = act(s, "move", null, "attic");
     s = act(s, "light", "lamp");
     s = act(s, "move", null, "pond");
+    s = act(s, "move", null, "attic");
+    s = act(s, "move", null, "pond");
     expect(s.actors.vale.place).toBe("pond");
-    expect(s.actors.vale.crossed).toBe(1);
+    expect(s.actors.vale.crossed).toBe(2);
     expect(exits(s, "pond")).toContain("attic");
     s = act(s, "cover", "cloth", "lamp");
     expect(covered(s, "lamp")).toBe(true);
-    expect(exits(s, "pond")).toEqual(["station"]);
+    expect(exits(s, "pond")).toEqual([
+      "station",
+      "hoppycat-halfway-tea-garden",
+    ]);
     const fuel = s.items.lamp.fuel;
     s = act(s, "take", "cloth");
     expect(reflectionOpen(s)).toBe(true);
@@ -117,14 +121,18 @@ describe("the reflected shore card game", () => {
     expect(legalActions(s).some((a) => a.kind === "refill")).toBe(false);
   });
 
-  it("lets the keeper seek the bell and carry it toward its target place", () => {
-    let s = act(createWorld(), "ring", "bell");
+  it("lets the keeper seek the bell and carry it through the lit pond passage", () => {
+    const start = createWorld();
+    start.items.lamp.holder = "pond";
+    start.items.lamp.lit = true;
+    let s = act(start, "ring", "bell");
     expect(s.actors.keeper.place).toBe("station");
     s = act(s, "wait");
     expect(s.items.bell.holder).toBe("keeper");
     s = act(s, "wait");
-    expect(itemPlace(s, "bell")).toBe("attic");
+    expect(itemPlace(s, "bell")).toBe("pond");
     s = act(s, "wait");
+    expect(itemPlace(s, "bell")).toBe("attic");
     expect(s.items.bell.holder).toBe("keeper");
     expect(s.items.bell.ringing).toBe(0);
   });

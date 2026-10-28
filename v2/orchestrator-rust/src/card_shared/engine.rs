@@ -3,13 +3,15 @@
 use super::store::Result;
 use rquickjs::{Context, Function, Runtime};
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 use std::{
     collections::VecDeque,
     sync::{Mutex, OnceLock},
     time::{Duration, Instant},
 };
 
-pub(super) const VERSION: &str = "full-card-world/18";
+pub(super) const VERSION: &str = "full-card-world/19";
+pub(super) const EIGHTEENTH_VERSION: &str = "full-card-world/18";
 pub(super) const SEVENTEENTH_VERSION: &str = "full-card-world/17";
 pub(super) const SIXTEENTH_VERSION: &str = "full-card-world/16";
 pub(super) const FIFTEENTH_VERSION: &str = "full-card-world/15";
@@ -26,7 +28,8 @@ pub(super) const FIFTH_VERSION: &str = "full-card-world/5";
 pub(super) const PREVIOUS_VERSION: &str = "full-card-world/3";
 pub(super) const LEGACY_VERSION: &str = "full-card-world/2";
 pub(super) const FOURTH_VERSION: &str = "full-card-world/4";
-const SOURCE: &str = include_str!("engine-v18.js");
+const SOURCE: &str = include_str!("engine-v19.js");
+const EIGHTEENTH_SOURCE: &str = include_str!("engine-v18.js");
 const SEVENTEENTH_SOURCE: &str = include_str!("engine-v17.js");
 const SIXTEENTH_SOURCE: &str = include_str!("engine-v16.js");
 const FIFTEENTH_SOURCE: &str = include_str!("engine-v15.js");
@@ -63,6 +66,7 @@ pub(super) fn historical(version: &str) -> bool {
             | FIFTEENTH_VERSION
             | SIXTEENTH_VERSION
             | SEVENTEENTH_VERSION
+            | EIGHTEENTH_VERSION
     )
 }
 const MAX_BYTES: usize = 4 * 1024 * 1024;
@@ -101,12 +105,21 @@ fn views() -> &'static Mutex<Views> {
     VIEWS.get_or_init(|| Mutex::new(Views::default()))
 }
 
+fn view_cache_key(version: &str, input: &str) -> String {
+    let mut hash = Sha256::new();
+    hash.update(version.as_bytes());
+    hash.update([0]);
+    hash.update(input.as_bytes());
+    format!("{version}:{:x}", hash.finalize())
+}
+
 pub(super) fn reduce(request: Value) -> Result<Value> {
     reduce_version(VERSION, request)
 }
 pub(super) fn reduce_version(version: &str, request: Value) -> Result<Value> {
     let source = match version {
         VERSION => SOURCE,
+        EIGHTEENTH_VERSION => EIGHTEENTH_SOURCE,
         PREVIOUS_VERSION => PREVIOUS_SOURCE,
         FOURTH_VERSION => FOURTH_SOURCE,
         FIFTH_VERSION => FIFTH_SOURCE,
@@ -130,14 +143,14 @@ pub(super) fn reduce_version(version: &str, request: Value) -> Result<Value> {
     if input.len() > MAX_BYTES {
         return Err("This saved world is too large to share.".into());
     }
-    let cache_key = format!("{version}:{input}");
+    let cache_key = view.then(|| view_cache_key(version, &input));
     // A projection is pure for its exact world, actor, claims and presence.
     // Keep only successful serialized projections. Commands always run in C.
-    if view {
+    if let Some(cache_key) = cache_key.as_deref() {
         let cached = views()
             .lock()
             .ok()
-            .and_then(|mut cache| cache.get(&cache_key));
+            .and_then(|mut cache| cache.get(cache_key));
         if let Some(output) = cached {
             return serde_json::from_str(&output)
                 .map_err(|_| "The shared-world rules need attention.".to_string());
@@ -175,7 +188,7 @@ pub(super) fn reduce_version(version: &str, request: Value) -> Result<Value> {
             .take(240)
             .collect());
     }
-    if view {
+    if let Some(cache_key) = cache_key {
         if let Ok(mut cache) = views().lock() {
             cache.put(cache_key, output);
         }
@@ -190,6 +203,58 @@ fn engine_error(error: impl std::fmt::Display) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn view_cache_keys_cover_the_exact_world_and_viewer() {
+        let input = serde_json::json!({
+            "op":"view", "world":{"revision":4}, "actor":"vale",
+            "claimed":["vale"], "present":["vale"]
+        });
+        let original = view_cache_key(VERSION, &input.to_string());
+        assert_eq!(original, view_cache_key(VERSION, &input.to_string()));
+        assert_ne!(
+            original,
+            view_cache_key(EIGHTEENTH_VERSION, &input.to_string())
+        );
+        for (field, value) in [
+            ("world", serde_json::json!({"revision":5})),
+            ("actor", serde_json::json!("mara")),
+            ("claimed", serde_json::json!(["vale", "mara"])),
+            ("present", serde_json::json!([])),
+        ] {
+            let mut changed = input.clone();
+            changed[field] = value;
+            assert_ne!(
+                original,
+                view_cache_key(VERSION, &changed.to_string()),
+                "{field}"
+            );
+        }
+        assert_ne!(view_cache_key("a", "bc"), view_cache_key("ab", "c"));
+    }
+
+    #[test]
+    fn compact_keys_keep_eight_large_views_within_the_existing_budget() {
+        let mut cache = Views::default();
+        let world = "saved world ".repeat(48 * 1024);
+        let output = "view".repeat(96 * 1024);
+        let mut keys = Vec::new();
+        let mut original_bytes = 0;
+        for actor in 0..8 {
+            let input = serde_json::json!({"actor":actor,"world":world}).to_string();
+            let key = view_cache_key(VERSION, &input);
+            assert!(key.len() < 128);
+            original_bytes += VERSION.len() + 1 + input.len() + output.len();
+            cache.put(key.clone(), output.clone());
+            keys.push(key);
+        }
+        assert!(original_bytes > CACHE_BYTES);
+        assert_eq!(cache.entries.len(), 8);
+        assert!(cache.bytes <= CACHE_BYTES);
+        for key in keys {
+            assert_eq!(cache.get(&key).as_deref(), Some(output.as_str()));
+        }
+    }
+
     #[test]
     fn view_cache_bounds_entries_and_combined_payload() {
         let mut cache = Views::default();

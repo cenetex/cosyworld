@@ -251,7 +251,7 @@ describe("the Open Door", () => {
       world = openDoorWalk(reload(world), "harbor", "athens");
       expect(exits(world, "greek-athens", "vale")).toEqual(
         expect.arrayContaining([
-          "greek-road-athens-harbor",
+          "greek-athens-harbor",
           "greek-road-athens-piraeus",
           "greek-road-athens-colonus",
           "greek-road-athens-eleusis",

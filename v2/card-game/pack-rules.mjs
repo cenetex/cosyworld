@@ -5,6 +5,7 @@ import {
   humanAvatarIds,
   sharedEnabled,
 } from "./human-cast.mjs";
+import { knowsFact } from "./knowledge.mjs";
 // General rules over world-pack data: crossings and their signals, fixtures
 // that sound, and residents with a temperament. No rule here names a pack,
 // place, resident or hub object; the compiled packs supply every name.
@@ -16,6 +17,7 @@ import {
 import {
   packDefinitions,
   packPeople,
+  packPlaces,
   packFixtures,
   crossings,
   transports,
@@ -102,6 +104,8 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
       return !!state && !Object.hasOwn(state.choices || {}, c.key);
     case "flag":
       return (state?.flags?.[c.key] ?? false) === c.value;
+    case "knows":
+      return knowsFact(s, actor || senses?.player || currentActor(s), c.topic);
     case "holding":
       return s.items[c.item]?.holder === (c.role === "actor" ? actor : c.actor);
     case "shared_world":
@@ -123,6 +127,8 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
         objectPlace(s, c.item) === c.place
       );
     }
+    case "item_present":
+      return Boolean(s.items[c.item] && objectPlace(s, c.item) === c.place);
     case "item_at":
       return s.items[c.item]?.holder === c.place;
     case "met":
@@ -157,13 +163,16 @@ export const mayCross = (c, actor, senses) =>
   packPeople[actor]?.personalQuests ||
   senses.humanActors?.includes(actor);
 
-/** Places reachable by crossing from `place` now, for this actor. */
+/** Places reachable by crossing from `place` now, including an invited return home. */
 export const crossingExits = (s, place, actor, senses) =>
   crossings
     .filter(
       (c) =>
         c.from === place &&
-        mayCross(c, actor, senses) &&
+        (mayCross(c, actor, senses) ||
+          (s.invitedPlaces?.[actor]?.includes(c.from) &&
+            (packPeople[actor]?.packId ?? null) ===
+              (packPlaces[c.to]?.packId ?? null))) &&
         crossingOpen(s, c, senses),
     )
     .map((c) => (c.transport ? transports[c.transport].place : c.to));

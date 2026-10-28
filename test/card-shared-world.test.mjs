@@ -496,8 +496,8 @@ it.each(["mara", "rue"])(
     const view = ask(world, "view", actor).world;
     const cards = availableCards(view),
       hand = questHand(view);
-    expect(cards[0]).toBe("station");
-    expect(cards.indexOf("oil")).toBeLessThan(cards.indexOf(actor));
+    expect(cards[0]).toBe(actor);
+    expect(cards.indexOf("oil")).toBeGreaterThan(cards.indexOf(actor));
     expect(cards.indexOf(actor)).toBeLessThan(cards.indexOf("vale"));
     const start = hand.indexOf(actor);
     expect(hand.slice(start, start + 4)).toEqual([
@@ -512,7 +512,7 @@ it.each(["mara", "rue"])(
   },
 );
 
-it("connects Rue's carriage to the station through pickup, drop, travel and reload", () => {
+it("connects Rue's carriage to the pond through pickup, drop, travel and reload", () => {
   let world = shared();
   const act = (kind, target, item) => {
     const view = ask(world, "view", "rue");
@@ -530,20 +530,20 @@ it("connects Rue's carriage to the station through pickup, drop, travel and relo
   };
   act("take", null, "routes");
   let view = ask(world, "view", "rue");
-  expect(view.exits).toContain("station");
-  expect(view.exits).not.toContain("pond");
+  expect(view.exits).toContain("pond");
+  expect(view.exits).not.toContain("station");
   const earlier = view.actions.find(
-    (a) => a.kind === "move" && a.target === "station",
+    (a) => a.kind === "move" && a.target === "pond",
   );
   act("drop", "train", "routes");
   expect(ask(world, "play", "rue", { action: earlier }).ok).toBe(false);
   act("take", null, "routes");
-  act("move", "station");
-  expect(world.actors.rue.place).toBe("station");
+  act("move", "pond");
+  expect(world.actors.rue.place).toBe("pond");
   expect(ask(world, "view", "rue").exits).toContain("train");
-  act("drop", "station", "routes");
+  act("drop", "pond", "routes");
   act("move", "train");
-  expect(ask(world, "view", "rue").exits).toContain("station");
+  expect(ask(world, "view", "rue").exits).toContain("pond");
   expect(Object.keys(world.crossings)).toEqual(
     expect.arrayContaining(["pond-train", "train-pond"]),
   );

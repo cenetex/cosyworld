@@ -48,6 +48,15 @@ The Terraform state remains stored in:
 ## Cutting a Release
 
 The package and Rust crate versions must already match the final release version.
+The Mac shell and game helper share this version. `npm run version:bump` updates
+the package and both Cargo manifests and lock files. `npm run check:version`
+checks their agreement. The **Local desktop app** workflow builds the same
+commit on `main` and release tags. Its package check verifies the app version,
+shared rules, voice references, and public game files against the web source.
+Use the version and source commit in its download manifest to select the app
+for that release. The source asset hash appears in both services at
+`/meta.card_game.assets_sha256`.
+
 `v2/content-engine-version.txt` is a separate compatibility contract; change it
 only when pack engine compatibility actually changes.
 For a major or otherwise high-risk release, deploy an immutable release candidate

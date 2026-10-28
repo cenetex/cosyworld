@@ -10,8 +10,16 @@ import {
 } from "./memory.mjs";
 import { installHumanLife, migrateLife } from "./life.mjs";
 import { upgradeRecitals } from "./pack-recital.mjs";
-import { isPackActor, packDefinitions, transports } from "./pack-registry.mjs";
+import {
+  isPackActor,
+  packDefinitions,
+  transports,
+  canonicalPlace,
+  localRoadEnds,
+} from "./pack-registry.mjs";
+import { humanAvatarIds } from "./human-cast.mjs";
 import { passengers } from "./pack-transport.mjs";
+import { installKnowledge } from "./knowledge.mjs";
 import { newTemperament } from "./pack-rules.mjs";
 
 // Upgrade historical records before the world validates the current save.
@@ -102,6 +110,8 @@ export function upgradeSave(
   }
   if (s?.schema === 7) {
     upgradeGreekRoadSave(s);
+    upgradeGreekTownSave(s);
+    upgradeShoreRouteSave(s);
     upgradeBoardingSave(s);
     upgradeRecitals(s, packDefinitions);
   }
@@ -111,7 +121,38 @@ export function upgradeSave(
   if (Object.values(s.life?.actors || {}).some((life) => life.collection))
     installSharedQuestRegistry(s);
   if (s?.schema === 7) publishQuestCompletions(s, syncStoryQuests(s));
+  if (s?.schema === 7)
+    installKnowledge(
+      s,
+      undefined,
+      packDefinitions.flatMap((pack) =>
+        (pack.topics || []).map((topic) => ({ ...topic, packId: pack.id })),
+      ),
+    );
   return s;
+}
+
+// Earlier station links to the attic, carriage, and parlour pass through the pond.
+// Keep just the routes each traveler already knew, and preserve their journal.
+export function upgradeShoreRouteSave(s) {
+  const moved = new Set(["attic", "train", "boardyai-parlour"]);
+  for (const [actor, known] of Object.entries(s.routeKnowledge || {})) {
+    if (!Array.isArray(known)) continue;
+    let changed = false;
+    const expanded = known.flatMap((edge) => {
+      if (!Array.isArray(edge) || edge.length !== 2) return [edge];
+      const [from, to] = edge;
+      if ((moved.has(from) && to === "station") ||
+          (from === "station" && moved.has(to))) {
+        changed = true;
+        return [[from, "pond"], ["pond", to]];
+      }
+      return [edge];
+    });
+    if (changed) s.routeKnowledge[actor] = [...new Map(
+      expanded.map((edge) => [JSON.stringify(edge), edge]),
+    ).values()];
+  }
 }
 
 // Revision 5 adds port and road memories. Every earlier position and deed
@@ -164,6 +205,72 @@ export function upgradeGreekRoadSave(s) {
     ];
   }
   saved.revision = 5;
+}
+
+// Local paths now belong to their town. Preserve the old IDs in memories and
+// completed records, and continue current visits and purposes at their ends.
+export function upgradeGreekTownSave(s) {
+  const saved = s.packs?.["greek-drama"];
+  if (saved?.revision !== 5) return;
+  for (const [id, actor] of Object.entries(s.actors || {})) {
+    const ends = localRoadEnds(actor.place);
+    if (!ends) continue;
+    const count = (place) =>
+      humanAvatarIds.filter((human) => s.actors[human]?.place === place).length;
+    actor.place =
+      humanAvatarIds.includes(id) && count(ends[0]) >= 4 ? ends[1] : ends[0];
+  }
+  for (const item of Object.values(s.items || {}))
+    item.holder = canonicalPlace(item.holder);
+  for (const [actor, edges] of Object.entries(s.routeKnowledge || {})) {
+    const paths = edges
+      .map(([from, to]) => [canonicalPlace(from), canonicalPlace(to)])
+      .filter(([from, to]) => from !== to);
+    s.routeKnowledge[actor] = [
+      ...new Map(paths.map((edge) => [JSON.stringify(edge), edge])).values(),
+    ];
+  }
+  const condition = (value) => {
+    if (!value) return;
+    if (value.place) value.place = canonicalPlace(value.place);
+    if (value.at) value.at = [...new Set(value.at.map(canonicalPlace))];
+    if (value.condition) condition(value.condition);
+  };
+  const hand = (value) => {
+    if (!value) return;
+    if (value.location) value.location = canonicalPlace(value.location);
+    for (const option of value.any || []) hand(option);
+    for (const test of value.conditions || []) condition(test);
+    if (value.passage) {
+      value.passage.from = canonicalPlace(value.passage.from);
+      value.passage.to = canonicalPlace(value.passage.to);
+      if (value.passage.from === value.passage.to) delete value.passage;
+    }
+  };
+  const program = (value) => {
+    for (const step of value?.steps || []) hand(step);
+  };
+  for (const actor of Object.values(s.actors || {}))
+    program(actor.progress?.current);
+  for (const quest of Object.values(s.quests?.records || {}))
+    if (quest.completedTurn === null && !quest.retired) {
+      if (quest.holder?.kind === "place")
+        quest.holder.id = canonicalPlace(quest.holder.id);
+      program(quest.program);
+    }
+  for (const state of Object.values(s.roamingQuests || {})) {
+    if (state.target)
+      state.target.locationId = canonicalPlace(state.target.locationId);
+    if (
+      state.blocked &&
+      [state.blocked.from, state.blocked.to].some(localRoadEnds)
+    )
+      state.blocked = null;
+  }
+  s.standoffs = (s.standoffs || []).filter(
+    (conflict) => !localRoadEnds(conflict.location),
+  );
+  saved.revision = 6;
 }
 
 // Revision 3 adds these residents and objects. Earlier records keep their

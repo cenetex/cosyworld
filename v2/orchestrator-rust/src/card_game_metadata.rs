@@ -19,6 +19,7 @@ struct CardGameMetadata {
     source_root: &'static str,
     play_modes: [&'static str; 2],
     shared_rules_version: &'static str,
+    assets_sha256: &'static str,
     catalogs: Catalogs,
 }
 
@@ -52,6 +53,7 @@ impl GameMetadata {
                 source_root: "v2/card-game/",
                 play_modes: ["local", "shared"],
                 shared_rules_version: crate::card_shared::RULES_VERSION,
+                assets_sha256: cosyworld_orchestrator::card_assets::manifest_sha256(),
                 catalogs: Catalogs {
                     forest: "/card-game/forest.json",
                     shared_avatars: "/card-game/shared-cast.json",

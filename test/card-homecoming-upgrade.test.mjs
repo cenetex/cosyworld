@@ -1,3 +1,11 @@
+import hoppycat from "../v2/content/hoppycat-archive/card-world.json" with { type: "json" };
+import { packDefinition as currentPackDefinition } from "../v2/card-game/pack-registry.mjs";
+const willowsItems = Object.fromEntries(
+  Object.entries(currentPackDefinition("willows").items).map(([id, item]) => [
+    id,
+    { holder: item.holder, history: [] },
+  ]),
+);
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { describe, expect, it } from "vitest";
@@ -42,7 +50,7 @@ function oldWorld(scope) {
 
 describe("the household save upgrade", () => {
   it.each(["opening", "full"])(
-    "keeps a released v11 %s journey and adds the household witness and BoardyAI",
+    "keeps a released v11 %s journey and adds the household witness, BoardyAI, and forest cast",
     (scope) => {
       const before = oldWorld(scope);
       expect(before.packs["greek-drama"].revision).toBe(3);
@@ -50,14 +58,27 @@ describe("the household save upgrade", () => {
       const after = decodeSave(JSON.stringify(before));
       expect(after.packs["greek-drama"]).toEqual({
         ...before.packs["greek-drama"],
-        revision: 5,
+        revision: 6,
       });
       expect(Object.keys(after.actors).length).toBe(
-        Object.keys(before.actors).length + 2,
+        Object.keys(before.actors).length +
+          7 +
+          Object.keys(hoppycat.avatars).length,
       );
       expect(after.items).toEqual({
         ...before.items,
-        "boardyai-calling-card": { holder: "station", history: [] },
+        ...willowsItems,
+        "boardyai-calling-card": { holder: "pond", history: [] },
+        ...Object.fromEntries(
+          Object.entries(hoppycat.items).map(([id, item]) => [
+            id,
+            { holder: item.holder, history: [] },
+          ]),
+        ),
+        "forest-story-button": { holder: "forest-cottage", history: [] },
+        "forest-dewbright-button": { holder: "forest-garden", history: [] },
+        "forest-watch-bell": { holder: "forest-garden", history: [] },
+        "forest-wolfprint-charm": { holder: "forest-trail", history: [] },
       });
       for (const key of ["turn", "revision", "eventSeq", "log", "transports"])
         expect(after[key]).toEqual(before[key]);
@@ -65,7 +86,19 @@ describe("the household save upgrade", () => {
       for (const [id, actor] of Object.entries(before.actors))
         expect(after.actors[id]).toEqual({
           ...actor,
-          trust: { ...actor.trust, [witness]: 0, boardyai: 0 },
+          trust: {
+            ...actor.trust,
+            [witness]: 0,
+            boardyai: 0,
+            ...Object.fromEntries(
+              Object.keys(hoppycat.avatars).map((id) => [id, 0]),
+            ),
+            "willows-swede": 0,
+            rati: 0,
+            skull: 0,
+            whiskerwind: 0,
+            oak: 0,
+          },
         });
       for (const [id, memory] of Object.entries(before.memories))
         expect(after.memories[id]).toMatchObject(memory);

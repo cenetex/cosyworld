@@ -1,3 +1,4 @@
+import { atticOpening } from "./fixtures/card-attic-opening.mjs";
 import { describe, it, expect } from "vitest";
 import { createWorld, legalActions, play } from "../v2/card-game/world.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
@@ -14,7 +15,7 @@ function act(s, kind, target) {
 // Vale gives Pip the lamp, they meet the keeper at the station, and Pip
 // trades the cloth for the keeper's oil on a cast turn.
 function stationTrade() {
-  let s = enableMotives(createWorld({ opening: true }), {
+  let s = enableMotives(atticOpening(), {
     questPrograms: true,
   });
   for (const [kind, target] of [
@@ -32,7 +33,7 @@ function stationTrade() {
 
 describe("witnessed History events", () => {
   it("keeps a visible event for every turn before generated words arrive", () => {
-    let s = enableMotives(createWorld({ opening: true }), {
+    let s = enableMotives(atticOpening(), {
       questPrograms: true,
     });
     for (let turn = 0; turn < 6; turn++) {

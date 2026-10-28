@@ -37,7 +37,6 @@ function pond() {
   // The separate bard smoke covers his fresh-harbor voyage.
   s.actors["greek-rhapsode"].place = "attic";
   s = action(s, "light", "lamp");
-  s = action(s, "move", null, "pond");
   // Only stage initial possessions; exercise the real transition and save rules.
   s.items.cloth.holder = "vale";
   s.items.lamp.fuel = 12;
@@ -400,7 +399,6 @@ try {
       await cards("greek-harbor");
       assert.equal((await state()).actors.vale.place, "greek-harbor");
       assert.equal((await state()).items.lamp.holder, "vale");
-      await cards("greek-road-thebes");
       await cards("greek-courtyard");
       await art();
       await page.locator("#toolbar-menu-button").click();

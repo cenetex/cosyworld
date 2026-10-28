@@ -1,0 +1,14 @@
+{
+  "gemma3:4b": {
+    "file": "gemma3-4b-q4.gguf",
+    "bytes": 2499012288,
+    "sha256": "f06e91e18fc74295d0c781bf91622508c75655e2c18ed869d52447ffe1e667e1",
+    "url": "https://registry.ollama.ai/v2/library/gemma3/blobs/sha256:f06e91e18fc74295d0c781bf91622508c75655e2c18ed869d52447ffe1e667e1"
+  },
+  "gemma3:1b": {
+    "file": "gemma3-1b-q4.gguf",
+    "bytes": 806058400,
+    "sha256": "2f8c3d137f2496dcb4019e17a50f2974b89c1be1a742db3c80cc86f91cafeeef",
+    "url": "https://registry.ollama.ai/v2/library/gemma3/blobs/sha256:2f8c3d137f2496dcb4019e17a50f2974b89c1be1a742db3c80cc86f91cafeeef"
+  }
+}

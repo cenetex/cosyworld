@@ -1,5 +1,8 @@
 # Hoppycat: February Third
 
+The current card game uses the [card refresh](CARD-REFRESH.md). The guide below
+describes the earlier classic pack and its source contracts.
+
 Every dawn is February Second. The forest can reach its next day only by
 building a continuity honest enough to change: sourced but not frozen,
 imaginative but not misleading, memorable but bounded, and never forced past a

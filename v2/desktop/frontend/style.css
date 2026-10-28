@@ -1,0 +1,64 @@
+:root {
+  color-scheme: dark;
+  font:
+    17px/1.6 Georgia,
+    serif;
+  color: #ede6d3;
+  background: #172824;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+main {
+  max-width: 600px;
+  margin: 32px auto;
+  padding: 24px;
+}
+h1 {
+  font-size: 3rem;
+  font-weight: normal;
+  margin: 0;
+}
+.eyebrow {
+  color: #c8c193;
+  letter-spacing: 0.08em;
+}
+label {
+  display: block;
+  margin-top: 16px;
+}
+input,
+select,
+button {
+  font: inherit;
+  border-radius: 8px;
+  padding: 10px 14px;
+  border: 1px solid #728478;
+}
+input,
+select {
+  width: 100%;
+  background: #223a32;
+  color: inherit;
+}
+button {
+  margin: 8px 8px 0 0;
+  background: #dbd0a7;
+  color: #172824;
+  cursor: pointer;
+}
+button:disabled {
+  opacity: 0.6;
+}
+a {
+  color: #e2d2a1;
+}
+.footnote {
+  font-size: 0.85rem;
+}
+#status {
+  min-height: 3em;
+}

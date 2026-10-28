@@ -57,10 +57,10 @@ describe("named card actions", () => {
     expect(playLabel(primary(world, ["moth", "pond"]))).toBe(
       "Invite Pip along",
     );
-    expect(playLabel(primary(world, ["lamp", "attic"]))).toBe(
-      "Carry to Mirror attic",
+    expect(playLabel(primary(world, ["lamp", "pond"]))).toBe(
+      "Carry to Black pond",
     );
-    expect(primary(world, ["vale", "attic"]).kind).toBe("move");
+    expect(primary(world, ["vale", "pond"]).kind).toBe("move");
     expect(primary(world, ["lamp", "station"]).kind).toBe("drop");
   });
   it("supports use, refill, cover and uncover in either order", () => {
@@ -79,7 +79,7 @@ describe("named card actions", () => {
     expect(primary(world, ["lamp", "station"]).kind).toBe("snuff");
     expect(primary(world, ["bell", "station"]).kind).toBe("ring");
   });
-  it("lists local fixtures and story choices alongside the basic play", () => {
+  it("lists local fixtures and carries spoken clues through Talk", () => {
     const world = createWorld();
     world.actors.vale.place = "clearing";
     const local = cardActions(world, ["clearing"]).actions;
@@ -88,7 +88,10 @@ describe("named card actions", () => {
     world.crossings["pond-greek-harbor"].discovered = true;
     const story = cardActions(world, ["greek-guard"]).actions;
     expect(story[0].kind).toBe("talk");
-    expect(story.some((a) => a.kind === "choose")).toBe(true);
+    expect(story.some((a) => a.choiceId === "greek-hear-decree")).toBe(false);
+    expect(
+      legalActions(world).some((a) => a.choiceId === "greek-hear-decree"),
+    ).toBe(true);
     for (const action of story)
       expect(legalActions(world)).toContainEqual(action);
   });
@@ -112,9 +115,11 @@ describe("named card actions", () => {
     world.items.oil.holder = "vale";
     world.items.cloth.holder = "lamp";
     const cards = availableCards(world);
-    expect(cards.slice(0, 2)).toEqual(["station", "bell"]);
-    expect(cards.slice(2, 7)).toEqual(["vale", "lamp", "cloth", "oil", "moth"]);
-    expect(cards.slice(-2)).toEqual(["attic", "pond"]);
+    expect(cards.slice(0, 5)).toEqual(["vale", "lamp", "cloth", "oil", "moth"]);
+    expect(
+      cards.slice(cards.indexOf("station"), cards.indexOf("station") + 2),
+    ).toEqual(["station", "bell"]);
+    expect(cards.slice(-1)).toEqual(["pond"]);
     world.items.lamp.holder = "moth";
     const moved = availableCards(world);
     expect(

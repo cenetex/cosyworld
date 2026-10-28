@@ -81,14 +81,19 @@ export function transportArrival(s, actor) {
 export function moveTransport(s, from, to) {
   for (const [id, t] of Object.entries(transports)) {
     const state = s.transports[id];
-    if (to === t.place && state.dock === from) {
-      state.destination = t.docks.find((dock) => dock !== from);
-    } else if (from === t.place && t.docks.includes(to)) {
-      state.destination = to;
-      state.dock = to;
+    if (to === t.place) {
+      if (state.dock === from || state.destination === null)
+        state.destination = t.docks.find((dock) => dock !== state.dock);
+    } else if (from === t.place) {
+      if (t.docks.includes(to)) {
+        state.destination = to;
+        state.dock = to;
+      }
+      // A side crossing leaves the vessel at its saved dock. The last rider
+      // settles a pending recall, just as on a normal disembarkation.
       if (!passengers(s, id).length) {
         Object.assign(state, {
-          dock: state.recall || to,
+          dock: state.recall || state.dock,
           destination: null,
           recall: null,
         });

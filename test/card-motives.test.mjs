@@ -81,7 +81,7 @@ describe("shore wants and grievances", () => {
     let near = together(fresh());
     near.items.bell.holder = "vale";
     near = act(near, "ring", { item: "bell" });
-    expect(near.actors.keeper.place).toBe("attic");
+    expect(near.actors.keeper.place).toBe("pond");
     expect(near.motives.grievances.keeper[0].reason).toContain("quiet moment");
   });
 
@@ -191,6 +191,22 @@ describe("shore wants and grievances", () => {
       kind: "move",
       target: "pond",
     });
+  });
+
+  it("takes the homeward exit when both paths give space from a grievance", () => {
+    const s = fresh();
+    s.turn = s.revision = 12;
+    s.actors.moth.place = s.actors.keeper.place = "hoppycat-halfway-tea-garden";
+    recordReaction(
+      s,
+      { kind: "threaten", actor: "keeper", target: "moth" },
+      ["moth"],
+      false,
+    );
+    const before = structuredClone(s);
+    expect(plan(s, "moth").action).toMatchObject({ kind: "move", target: "pond" });
+    expect(s).toEqual(before);
+    expect(decodeSave(encodeSave(s))).toEqual(s);
   });
 
   it("continues saved quest programs alongside personal grievances", () => {

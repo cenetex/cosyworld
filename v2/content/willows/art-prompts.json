@@ -1,0 +1,29 @@
+{
+  "tool": "built-in imagegen",
+  "prompts": [
+    {
+      "asset": "landing",
+      "prompt": "Use case: historical-scene. Asset type: finished painted backdrop for CosyWorld's card game, 16:9 landscape. Style: richly detailed hand-painted gouache and ink, an illustrated 1907 weird tale, soft natural textures, grounded period detail, restrained sage green, silver willow leaves, ochre sand and slate river water. Quiet cosmic dread within a beautiful real landscape. Low shrubby willow bushes rather than large trees. Empty of people, text and interface. Clear readable foreground and layered depth. Scene: river landing on a small sandy island in the flooded Danube, early evening in July. An upturned long wooden Canadian canoe rests on the sand at the left, a narrow backwater in front, fast wide river beyond, low willow thickets framing the banks. Far horizon obscured by endless silver-green willows beneath wind-driven clouds. View from the island toward the river. Keep the overturned canoe clear and its hull intact with a fine dark seam."
+    },
+    {
+      "asset": "camp",
+      "prompt": "Use case: historical-scene. Asset type: finished painted backdrop for CosyWorld's card game, 16:9 landscape. Style: richly detailed hand-painted gouache and ink, an illustrated 1907 weird tale, soft natural textures, grounded period detail, restrained sage green, silver willow leaves, ochre sand and slate river water. Quiet cosmic dread within a beautiful real landscape. Low shrubby willow bushes rather than large trees. Empty of people, text and interface. Clear readable foreground and layered depth. Scene: sheltered campsite on the same small Danube island at dusk. A modest low canvas ridge tent on ochre sand in the right middle distance, a small glowing campfire ring on the left, an iron stew-pot beside it, folded waterproof canvas and a food sack. Close willow bushes lean toward the campsite; the slate river glimmers behind them. Sky opening above the low shrubs, intensely quiet and uneasy. Low camera at the edge of camp."
+    },
+    {
+      "asset": "thicket",
+      "prompt": "Use case: historical-scene. Asset type: finished painted backdrop for CosyWorld's card game, 16:9 landscape. Style: richly detailed hand-painted gouache and ink, an illustrated 1907 weird tale, soft natural textures, grounded period detail, restrained sage green, silver willow leaves, ochre sand and slate river water. Quiet cosmic dread within a beautiful real landscape. Low shrubby willow bushes rather than large trees. Empty of people, text and interface. Clear readable foreground and layered depth. Scene: narrow passage between tightly crowded waist-high willow shrubs on a sandy Danube island at blue dusk. Silver leaves turn against dark green leaves, bending and leaning inward. Small smooth bowl-shaped hollows in bare sand in the foreground. A sliver of the river visible through a gap. Strange rhythm in repeated stems suggests attention while remaining ordinary vegetation. Close intimate framing, paths visible and readable."
+    },
+    {
+      "asset": "bank",
+      "prompt": "Use case: historical-scene. Asset type: finished painted backdrop for CosyWorld's card game, 16:9 landscape. Style: richly detailed hand-painted gouache and ink, an illustrated 1907 weird tale, soft natural textures, grounded period detail, restrained sage green, silver willow leaves, ochre sand and slate river water. Quiet cosmic dread within a beautiful real landscape. Low shrubby willow bushes rather than large trees. Empty of people, text and interface. Clear readable foreground and layered depth. Scene: collapsing edge of the same small Danube island near nightfall, a fresh vertical slice of yellow sand with exposed willow roots in the foreground and a heavy brown-grey current tearing past below. Across the broad river are low unbroken willow islands, small flecks of driftwood on the flood. Twilight silver cloud glow and distant dusk amber. A sense of immense scale beyond the tiny island. Keep foreground bank walkable and readable."
+    },
+    {
+      "asset": "swede",
+      "prompt": "Use case: historical-scene. Asset type: finished character card portrait for CosyWorld. A practical Swedish canoe traveller around 1907, male age forty, weather-worn face, light brown hair, short moustache, grey eyes. Plain rolled-sleeve linen shirt, dark brown waistcoat, wool trousers. Waist-up portrait, three-quarter view looking slightly left, hands resting naturally on his knees, sitting by a campfire on a sandy river island. Low silver-green willow shrubs and slate Danube water behind him. Expression thoughtful, alert, restrained concern, capable travelling companion. Richly detailed hand-painted gouache and ink illustration, natural skin texture, soft twilight and warm fire light. Portrait 3:4 composition with whole head and shoulders comfortably inside the frame. No text or interface."
+    },
+    {
+      "asset": "swede-transparent",
+      "prompt": "Use case: identity-preserve. Edit target: the supplied Swede portrait. Create a full-body transparent character cutout for the CosyWorld stage, retaining this exact man's face, age, short moustache, hair, plain cream linen rolled-sleeve shirt, dark brown waistcoat and brown wool trousers. Show him standing at ease, from head to both boots, in a three-quarter pose looking to the left, hands loose by his sides. Practical Swedish canoe traveller around 1907, calm but alert. Match the original detailed painted gouache and ink finish. Keep the whole figure inside a portrait canvas with a small clear margin at head and feet. The output background must be genuinely transparent, including all areas around his body. Preserve natural warm evening light on the figure. The only visible subject is the man, with no scenery, ground plane, frame, shadow rectangle, captions or text."
+    }
+  ]
+}

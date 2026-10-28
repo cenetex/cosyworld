@@ -1,3 +1,4 @@
+import { atticOpening } from "./fixtures/card-attic-opening.mjs";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { describe, it, expect } from "vitest";
@@ -13,6 +14,7 @@ import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import {
   packDefinition,
   entityActive,
+  localRoadEnds,
 } from "../v2/card-game/pack-registry.mjs";
 import { travelCard } from "../v2/card-game/scene.mjs";
 import { openDoorStart } from "./helpers/open-door.mjs";
@@ -65,14 +67,17 @@ describe("Greek ports and fixed roads", () => {
       w.items.lamp.holder = "vale";
       w = move(w, "vale", "greek-ship");
       w = move(w, "mara", "greek-ship");
-      expect(ask(w, "vale").exits).toEqual(docks.filter((d) => d !== from));
+      expect(ask(w, "vale").exits).toEqual([
+        "willows-landing",
+        ...docks.filter((d) => d !== from),
+      ]);
       const stale = ask(w, "mara").actions.find(
         (a) =>
           a.kind === "move" &&
           a.target === docks.find((d) => d !== from && d !== to),
       );
       w = move(w, "vale", to);
-      expect(ask(w, "mara").exits).toEqual([to]);
+      expect(ask(w, "mara").exits).toEqual(["willows-landing", to]);
       expect(ask(w, "mara", { op: "play", action: stale }).ok).toBe(false);
       w = move(w, "mara", to);
       expect(w.transports["greek-ship"]).toMatchObject({
@@ -87,19 +92,28 @@ describe("Greek ports and fixed roads", () => {
   );
 
   it("opens both new port stops with Dione's invitation", () => {
-    const before = createWorld({ opening: true });
+    const before = atticOpening();
     before.actors.vale.place = "greek-ship";
     before.transports["greek-ship"].destination = "pond";
-    expect(exits(before, "greek-ship", "vale")).toEqual(["pond"]);
+    expect(exits(before, "greek-ship", "vale")).toEqual([
+      "willows-landing",
+      "pond",
+    ]);
     const after = openDoorStart();
     expect(entityActive(after, "greek-athens-harbor")).toBe(true);
-    expect(entityActive(after, "greek-road-athens-harbor")).toBe(true);
-    expect(exits(after, "greek-harbor", "vale")).toContain("greek-road-thebes");
+    expect(exits(after, "greek-athens-harbor", "vale")).toContain(
+      "greek-athens",
+    );
+    expect(exits(after, "greek-harbor", "vale")).toContain("greek-courtyard");
     expect(exits(after, "greek-harbor", "vale")).not.toContain("greek-athens");
     expect(exits(after, "greek-harbor", "vale")).not.toContain("greek-piraeus");
   });
 
-  it.each(Object.entries(pack.places).filter(([, p]) => p.road))(
+  it.each(
+    Object.entries(pack.places).filter(
+      ([id, p]) => p.road && !localRoadEnds(id),
+    ),
+  )(
     "keeps the two ends of %s in the same order from either direction",
     (id, road) => {
       for (const from of road.road) {
@@ -191,7 +205,7 @@ describe("Greek ports and fixed roads", () => {
         });
       expect(current.items).toMatchObject(old.items);
       expect(current.transports).toEqual(old.transports);
-      expect(current.packs["greek-drama"].revision).toBe(5);
+      expect(current.packs["greek-drama"].revision).toBe(6);
       for (const [id, memory] of Object.entries(old.memories)) {
         const { seen, ...retained } = current.memories[id];
         expect(retained).toEqual(memory);

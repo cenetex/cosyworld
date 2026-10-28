@@ -51,19 +51,25 @@ describe("Greek section save upgrade", () => {
       const before = oldWorld(scope);
       expect(before.packs["greek-drama"].revision).toBe(2);
       const after = decodeSave(JSON.stringify(before));
-      expect(after.packs["greek-drama"].revision).toBe(5);
+      expect(after.packs["greek-drama"].revision).toBe(6);
       expect(after.packs["greek-drama"]).toEqual({
         ...before.packs["greek-drama"],
-        revision: 5,
+        revision: 6,
       });
       for (const field of ["turn", "revision", "eventSeq", "log", "transports"])
         expect(after[field]).toEqual(before[field]);
       expect(after.crossings).toEqual({
         ...before.crossings,
+        "greek-ship-willows-landing": { discovered: false },
+        "willows-landing-greek-ship": { discovered: false },
         "station-boardyai-parlour": { discovered: false },
         "boardyai-parlour-station": { discovered: false },
         "greek-athens-harbor-ship": { discovered: false },
         "greek-piraeus-ship": { discovered: false },
+        "hoppycat-pond-garden": { discovered: false },
+        "hoppycat-garden-pond": { discovered: false },
+        "attic-forest-cottage": { discovered: false },
+        "forest-cottage-attic": { discovered: false },
       });
       for (const [id, actor] of Object.entries(before.actors)) {
         expect(after.actors[id]).toMatchObject(actor);

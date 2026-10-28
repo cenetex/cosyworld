@@ -243,11 +243,11 @@ describe("composable quest programs", () => {
     }
     expect(s.log.length).toBeLessThanOrEqual(100);
     expect(decodeSave(encodeSave(s))).toEqual(s);
-  });
+  }, 60_000);
   it("keeps the cast trading and leveling while Vale keeps items and waits", () => {
     let s = continuing(),
       trades = 0;
-    for (let turn = 0; turn < 300; turn++) {
+    for (let turn = 0; turn < 600; turn++) {
       s = wait(s);
       trades += s.log.filter(
         (e) => e.turn === s.turn && e.verb === "trade",
@@ -259,7 +259,7 @@ describe("composable quest programs", () => {
     expect(levelOf(s, "keeper")).toBeGreaterThan(10);
     expect(trades).toBeGreaterThan(10);
     expect(levelOf(s, "vale")).toBe(3);
-  });
+  }, 60_000);
   it("preserves completed schema-two saves and resumes them at the earned level", () => {
     const old = completedSave(),
       s = decodeSave(JSON.stringify(old));

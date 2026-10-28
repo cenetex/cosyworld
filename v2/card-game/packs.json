@@ -293,7 +293,7 @@
       "schemaVersion": 1,
       "id": "greek-drama",
       "packId": "cosyworld.greek-drama",
-      "revision": 5,
+      "revision": 6,
       "name": "The Wine-Dark Sea",
       "description": "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. Fixed roads lead through the Attic places where welcome becomes a growing poem.",
       "tone": "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -337,6 +337,7 @@
           "name": "The Wine-Dark Harbor",
           "text": "Worn steps climb from the stone landing toward the town.",
           "exits": [
+            "greek-courtyard",
             "greek-road-thebes",
             "greek-argolid-road"
           ],
@@ -347,6 +348,7 @@
           "name": "Theban Courtyard",
           "text": "Bread cools beneath a cloth. An empty place remains at the common table.",
           "exits": [
+            "greek-harbor",
             "greek-road-thebes",
             "greek-well",
             "greek-gate",
@@ -429,6 +431,7 @@
           "name": "Athenian Agora",
           "text": "A broad civic square opens beneath long painted colonnades. Marble steps rise toward the Acropolis above the roofs. A herald keeps a petition table beside the market.",
           "exits": [
+            "greek-athens-harbor",
             "greek-road-athens-piraeus",
             "greek-assembly",
             "greek-acropolis",
@@ -881,9 +884,10 @@
         },
         "greek-athens-harbor": {
           "name": "Athens Harbor",
-          "text": "Stone quays run beneath long warehouses. Merchant masts rise above the water. Beyond the harbor gate, the road climbs toward the walls and the Acropolis of Athens.",
-          "persona": "Athens Harbor is the ship’s landing for the great city. The Agora lies inland along the harbor road. Piraeus Quays is a separate stop with its own host and work of welcome.",
+          "text": "Stone quays run beneath long warehouses. Beyond the harbor gate, city streets and steps climb toward the walls and the Acropolis of Athens.",
+          "persona": "Athens Harbor is the ship’s landing for the great city. City streets lead inland to the Agora. Piraeus Quays is a separate town with its own host and work of welcome.",
           "exits": [
+            "greek-athens",
             "greek-road-athens-harbor"
           ],
           "backdrop": "assets/greek-drama/athens-harbor-open-berth.webp"
@@ -7627,6 +7631,1217 @@
           ]
         }
       ],
+      "storyQuests": [
+        {
+          "id": "story-quest-greek-table",
+          "group": "opening",
+          "line": "A place beside the bread.",
+          "holder": {
+            "kind": "avatar",
+            "id": "greek-baker"
+          },
+          "art": "greek-water-jar",
+          "start": {
+            "any": [
+              {
+                "kind": "met",
+                "actor": "greek-baker"
+              },
+              {
+                "kind": "flag",
+                "key": "greek-water-returned",
+                "value": true
+              }
+            ]
+          },
+          "endings": [
+            {
+              "choice": "greek-return-water-jar"
+            }
+          ],
+          "created": {
+            "first": [
+              {
+                "kind": "met",
+                "actor": "greek-baker"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-return-water-jar"
+              }
+            ]
+          },
+          "related": [
+            "greek-return-water-jar"
+          ]
+        },
+        {
+          "id": "story-quest-greek-burial",
+          "group": "opening",
+          "line": "Her brother waits for earth.",
+          "holder": {
+            "kind": "avatar",
+            "id": "greek-antigone"
+          },
+          "art": "greek-funeral-cloth",
+          "start": {
+            "any": [
+              {
+                "kind": "met",
+                "actor": "greek-antigone"
+              },
+              {
+                "kind": "flag",
+                "key": "greek-decree-known",
+                "value": true
+              },
+              {
+                "kind": "choice_set",
+                "key": "greek-theban-response"
+              },
+              {
+                "kind": "flag",
+                "key": "greek-burial-performed",
+                "value": true
+              }
+            ]
+          },
+          "defaultEnding": "greek-perform-burial",
+          "endings": [
+            {
+              "choice": "greek-perform-permitted-burial",
+              "when": {
+                "kind": "receipt",
+                "choice": "greek-perform-permitted-burial"
+              }
+            },
+            {
+              "choice": "greek-perform-burial"
+            },
+            {
+              "choice": "greek-decline-burial",
+              "when": {
+                "kind": "choice",
+                "key": "greek-theban-response",
+                "value": "refusal"
+              },
+              "outcome": "Declined"
+            },
+            {
+              "choice": "greek-report-plan",
+              "when": {
+                "kind": "choice",
+                "key": "greek-theban-response",
+                "value": "exposure"
+              },
+              "outcome": "Reported"
+            }
+          ],
+          "created": {
+            "first": [
+              {
+                "kind": "met",
+                "actor": "greek-antigone"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-hear-decree"
+              },
+              {
+                "first": [
+                  {
+                    "kind": "receipt",
+                    "choice": "greek-perform-permitted-burial"
+                  },
+                  {
+                    "kind": "receipt",
+                    "choice": "greek-perform-burial"
+                  },
+                  {
+                    "kind": "receipt",
+                    "choice": "greek-decline-burial"
+                  },
+                  {
+                    "kind": "receipt",
+                    "choice": "greek-report-plan"
+                  }
+                ]
+              }
+            ]
+          },
+          "related": [
+            "greek-hear-decree",
+            "greek-decline-burial",
+            "greek-report-plan",
+            "greek-prepare-burial-ground",
+            "greek-prepare-permitted-burial",
+            "greek-perform-burial",
+            "greek-perform-permitted-burial",
+            "greek-petition-burial"
+          ]
+        },
+        {
+          "id": "story-quest-greek-courtyard",
+          "group": "opening",
+          "line": "What words will you bring home?",
+          "holder": {
+            "kind": "place",
+            "id": "greek-courtyard"
+          },
+          "art": "greek-bread",
+          "start": {
+            "all": [
+              {
+                "kind": "choice",
+                "key": "greek-theban-response",
+                "value": "concession"
+              },
+              {
+                "kind": "flag",
+                "key": "greek-burial-performed",
+                "value": true
+              },
+              {
+                "kind": "flag",
+                "key": "greek-concession-public",
+                "value": true
+              }
+            ]
+          },
+          "endings": [
+            {
+              "choice": "greek-courtyard-permitted-burial"
+            }
+          ],
+          "outcome": "Shared",
+          "created": {
+            "latest": [
+              {
+                "first": [
+                  {
+                    "kind": "receipt",
+                    "choice": "greek-perform-permitted-burial"
+                  },
+                  {
+                    "kind": "receipt",
+                    "choice": "greek-perform-burial"
+                  }
+                ]
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-courtyard-concession"
+              }
+            ]
+          },
+          "related": "ending",
+          "key": "story-quest-greek-courtyard:grave"
+        },
+        {
+          "id": "story-quest-greek-courtyard",
+          "group": "opening",
+          "line": "What words will you bring home?",
+          "holder": {
+            "kind": "place",
+            "id": "greek-courtyard"
+          },
+          "art": "greek-bread",
+          "start": {
+            "kind": "choice_set",
+            "key": "greek-theban-response"
+          },
+          "endings": [
+            {
+              "choice": "greek-courtyard-burial",
+              "when": {
+                "kind": "choice",
+                "key": "greek-theban-response",
+                "value": "burial"
+              }
+            },
+            {
+              "choice": "greek-courtyard-concession",
+              "when": {
+                "kind": "choice",
+                "key": "greek-theban-response",
+                "value": "concession"
+              }
+            },
+            {
+              "choice": "greek-courtyard-refusal",
+              "when": {
+                "kind": "choice",
+                "key": "greek-theban-response",
+                "value": "refusal"
+              }
+            },
+            {
+              "choice": "greek-courtyard-exposure",
+              "when": {
+                "kind": "choice",
+                "key": "greek-theban-response",
+                "value": "exposure"
+              }
+            }
+          ],
+          "outcome": "Shared",
+          "created": {
+            "kind": "choice",
+            "key": "greek-theban-response"
+          },
+          "related": "ending",
+          "historicalWhen": {
+            "all": [
+              {
+                "kind": "choice",
+                "key": "greek-theban-response",
+                "value": "concession"
+              },
+              {
+                "kind": "flag",
+                "key": "greek-burial-performed",
+                "value": true
+              },
+              {
+                "kind": "flag",
+                "key": "greek-concession-public",
+                "value": true
+              }
+            ]
+          }
+        },
+        {
+          "id": "story-quest-greek-open-door-eleusis",
+          "group": "open-door",
+          "line": "Their sons need a road home.",
+          "holder": {
+            "kind": "avatar",
+            "id": "greek-aethra"
+          },
+          "art": "greek-burial-petition",
+          "start": {
+            "any": [
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-hear-mothers"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-hear-adrastus"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-lay-cloths"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-lay-ashes"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-hear-pyre"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-eleusis-pledge"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-eleusis-care"
+              }
+            ]
+          },
+          "progress": [
+            "greek-open-door-hear-adrastus",
+            "greek-open-door-lay-cloths",
+            "greek-open-door-lay-ashes",
+            "greek-open-door-hear-pyre"
+          ],
+          "endings": [
+            {
+              "choice": "greek-open-door-eleusis-pledge"
+            },
+            {
+              "choice": "greek-open-door-eleusis-care"
+            }
+          ]
+        },
+        {
+          "id": "story-quest-greek-open-door-agora",
+          "group": "open-door",
+          "line": "A city must answer.",
+          "holder": {
+            "kind": "avatar",
+            "id": "greek-theseus"
+          },
+          "art": "greek-burial-petition",
+          "start": {
+            "any": [
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-register-plea"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-request-truce"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-request-recovery"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-hear-truce-report"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-hear-recovery-report"
+              }
+            ]
+          },
+          "progress": [
+            "greek-open-door-request-truce",
+            "greek-open-door-request-recovery"
+          ],
+          "endings": [
+            {
+              "choice": "greek-open-door-hear-truce-report"
+            },
+            {
+              "choice": "greek-open-door-hear-recovery-report"
+            }
+          ]
+        },
+        {
+          "id": "story-quest-greek-open-door-piraeus",
+          "group": "open-door",
+          "line": "A berth beside the water.",
+          "holder": {
+            "kind": "avatar",
+            "id": "greek-quay-host"
+          },
+          "art": "greek-return-list",
+          "start": {
+            "any": [
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-hear-quay"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-set-provisions"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-family-berth"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-open-berth"
+              }
+            ]
+          },
+          "progress": [
+            "greek-open-door-set-provisions"
+          ],
+          "endings": [
+            {
+              "choice": "greek-open-door-family-berth"
+            },
+            {
+              "choice": "greek-open-door-open-berth"
+            }
+          ]
+        },
+        {
+          "id": "story-quest-greek-open-door-colonus",
+          "group": "open-door",
+          "line": "A stranger waits by the grove.",
+          "holder": {
+            "kind": "avatar",
+            "id": "greek-colonus-keeper"
+          },
+          "art": "greek-grove-cup",
+          "start": {
+            "any": [
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-colonus-enter"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-colonus-water"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-colonus-daughters"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-colonus-farewell"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-colonus-custom"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-colonus-family"
+              }
+            ]
+          },
+          "progress": [
+            "greek-open-door-colonus-water",
+            "greek-open-door-colonus-daughters",
+            "greek-open-door-colonus-farewell"
+          ],
+          "endings": [
+            {
+              "choice": "greek-open-door-colonus-custom"
+            },
+            {
+              "choice": "greek-open-door-colonus-family"
+            }
+          ]
+        },
+        {
+          "id": "story-quest-greek-open-door-marathon",
+          "group": "open-door",
+          "line": "The children need a place to rest.",
+          "holder": {
+            "kind": "avatar",
+            "id": "greek-marathon-keeper"
+          },
+          "art": "greek-shelter-blanket",
+          "start": {
+            "any": [
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-marathon-enter"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-marathon-blanket"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-marathon-daughter"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-marathon-battle"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-marathon-captive"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-marathon-hearing"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-marathon-alcmene"
+              }
+            ]
+          },
+          "progress": [
+            "greek-open-door-marathon-blanket",
+            "greek-open-door-marathon-daughter",
+            "greek-open-door-marathon-battle",
+            "greek-open-door-marathon-captive"
+          ],
+          "endings": [
+            {
+              "choice": "greek-open-door-marathon-hearing"
+            },
+            {
+              "choice": "greek-open-door-marathon-alcmene"
+            }
+          ]
+        },
+        {
+          "id": "story-quest-greek-open-door-return",
+          "group": "open-door",
+          "line": "What welcome will you bring home?",
+          "holder": {
+            "kind": "avatar",
+            "id": "greek-baker"
+          },
+          "art": "greek-bread",
+          "start": {
+            "any": [
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-eleusis-pledge"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-eleusis-care"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-hear-truce-report"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-hear-recovery-report"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-family-berth"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-open-berth"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-colonus-custom"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-colonus-family"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-marathon-hearing"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-marathon-alcmene"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-return-dione"
+              }
+            ]
+          },
+          "endings": [
+            {
+              "choice": "greek-open-door-return-dione"
+            }
+          ],
+          "created": {
+            "earliest": [
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-eleusis-pledge"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-eleusis-care"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-hear-truce-report"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-hear-recovery-report"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-family-berth"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-open-berth"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-colonus-custom"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-colonus-family"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-marathon-hearing"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-marathon-alcmene"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-return-dione"
+              }
+            ]
+          },
+          "related": "ending",
+          "outcome": "Shared"
+        },
+        {
+          "id": "story-quest-greek-homecoming-return",
+          "key": "story-quest-greek-homecoming-return:agora",
+          "group": "homecoming",
+          "keyedCard": true,
+          "line": "Bring the city's answer to Dione.",
+          "holder": {
+            "kind": "avatar",
+            "id": "greek-baker"
+          },
+          "art": "greek-bread",
+          "start": {
+            "any": [
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-hear-truce-report"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-hear-recovery-report"
+              }
+            ]
+          },
+          "endings": [
+            {
+              "choice": "greek-homecoming-report-agora-truce"
+            },
+            {
+              "choice": "greek-homecoming-report-agora-force"
+            },
+            {
+              "choice": "greek-open-door-return-dione"
+            }
+          ],
+          "endingOrder": "earliest",
+          "outcome": "Shared",
+          "created": {
+            "earliest": [
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-hear-truce-report"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-hear-recovery-report"
+              }
+            ]
+          },
+          "related": "start-and-ending"
+        },
+        {
+          "id": "story-quest-greek-homecoming-return",
+          "key": "story-quest-greek-homecoming-return:eleusis",
+          "group": "homecoming",
+          "keyedCard": true,
+          "line": "Bring the mothers' answer to Dione.",
+          "holder": {
+            "kind": "avatar",
+            "id": "greek-baker"
+          },
+          "art": "greek-bread",
+          "start": {
+            "any": [
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-eleusis-pledge"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-eleusis-care"
+              }
+            ]
+          },
+          "endings": [
+            {
+              "choice": "greek-homecoming-report-eleusis-pledge"
+            },
+            {
+              "choice": "greek-homecoming-report-eleusis-care"
+            },
+            {
+              "choice": "greek-open-door-return-dione"
+            }
+          ],
+          "endingOrder": "earliest",
+          "outcome": "Shared",
+          "created": {
+            "earliest": [
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-eleusis-pledge"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-eleusis-care"
+              }
+            ]
+          },
+          "related": "start-and-ending"
+        },
+        {
+          "id": "story-quest-greek-homecoming-return",
+          "key": "story-quest-greek-homecoming-return:piraeus",
+          "group": "homecoming",
+          "keyedCard": true,
+          "line": "Tell Dione who the berth will welcome.",
+          "holder": {
+            "kind": "avatar",
+            "id": "greek-baker"
+          },
+          "art": "greek-bread",
+          "start": {
+            "any": [
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-family-berth"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-open-berth"
+              }
+            ]
+          },
+          "endings": [
+            {
+              "choice": "greek-homecoming-report-piraeus-family"
+            },
+            {
+              "choice": "greek-homecoming-report-piraeus-open"
+            },
+            {
+              "choice": "greek-open-door-return-dione"
+            }
+          ],
+          "endingOrder": "earliest",
+          "outcome": "Shared",
+          "created": {
+            "earliest": [
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-family-berth"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-open-berth"
+              }
+            ]
+          },
+          "related": "start-and-ending"
+        },
+        {
+          "id": "story-quest-greek-homecoming-return",
+          "key": "story-quest-greek-homecoming-return:colonus",
+          "group": "homecoming",
+          "keyedCard": true,
+          "line": "Bring the grove's story to Dione.",
+          "holder": {
+            "kind": "avatar",
+            "id": "greek-baker"
+          },
+          "art": "greek-bread",
+          "start": {
+            "any": [
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-colonus-custom"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-colonus-family"
+              }
+            ]
+          },
+          "endings": [
+            {
+              "choice": "greek-homecoming-report-colonus-custom"
+            },
+            {
+              "choice": "greek-homecoming-report-colonus-family"
+            },
+            {
+              "choice": "greek-open-door-return-dione"
+            }
+          ],
+          "endingOrder": "earliest",
+          "outcome": "Shared",
+          "created": {
+            "earliest": [
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-colonus-custom"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-colonus-family"
+              }
+            ]
+          },
+          "related": "start-and-ending"
+        },
+        {
+          "id": "story-quest-greek-homecoming-return",
+          "key": "story-quest-greek-homecoming-return:marathon",
+          "group": "homecoming",
+          "keyedCard": true,
+          "line": "Bring the children's story to Dione.",
+          "holder": {
+            "kind": "avatar",
+            "id": "greek-baker"
+          },
+          "art": "greek-bread",
+          "start": {
+            "any": [
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-marathon-alcmene"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-marathon-hearing"
+              }
+            ]
+          },
+          "endings": [
+            {
+              "choice": "greek-homecoming-report-marathon-alcmene"
+            },
+            {
+              "choice": "greek-homecoming-report-marathon-hearing"
+            },
+            {
+              "choice": "greek-open-door-return-dione"
+            }
+          ],
+          "endingOrder": "earliest",
+          "outcome": "Shared",
+          "created": {
+            "earliest": [
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-marathon-alcmene"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-marathon-hearing"
+              }
+            ]
+          },
+          "related": "start-and-ending"
+        },
+        {
+          "id": "story-quest-greek-homecoming-household",
+          "group": "homecoming",
+          "keyedCard": false,
+          "line": "Bring Myrine to the waiting berth.",
+          "holder": {
+            "kind": "avatar",
+            "id": "greek-household-witness"
+          },
+          "art": "greek-return-list",
+          "start": {
+            "kind": "receipt",
+            "choice": "greek-homecoming-agree-journey"
+          },
+          "endings": [
+            {
+              "choice": "greek-homecoming-receive-family"
+            },
+            {
+              "choice": "greek-homecoming-receive-open"
+            }
+          ],
+          "endingOrder": "earliest",
+          "created": {
+            "kind": "receipt",
+            "choice": "greek-homecoming-agree-journey"
+          },
+          "related": "start-and-ending"
+        },
+        {
+          "id": "story-quest-greek-homecoming-witness",
+          "group": "homecoming",
+          "keyedCard": false,
+          "line": "Read Myrine's account beside your song.",
+          "holder": {
+            "kind": "avatar",
+            "id": "greek-baker"
+          },
+          "art": "greek-return-list",
+          "start": {
+            "any": [
+              {
+                "kind": "receipt",
+                "choice": "greek-homecoming-receive-family"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-homecoming-receive-open"
+              }
+            ]
+          },
+          "endings": [
+            {
+              "choice": "greek-homecoming-read-basket-family"
+            },
+            {
+              "choice": "greek-homecoming-read-basket-open"
+            },
+            {
+              "choice": "greek-homecoming-read-berth-family"
+            },
+            {
+              "choice": "greek-homecoming-read-berth-open"
+            }
+          ],
+          "endingOrder": "earliest",
+          "outcome": "Shared",
+          "created": {
+            "earliest": [
+              {
+                "kind": "receipt",
+                "choice": "greek-homecoming-receive-family"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-homecoming-receive-open"
+              }
+            ]
+          },
+          "related": "start-and-ending"
+        }
+      ],
+      "topics": [
+        {
+          "id": "greek-hear-decree",
+          "speaker": "greek-guard",
+          "at": "greek-gate",
+          "text": "Creon's order forbids burial for Polyneices.",
+          "requires": [],
+          "choiceId": "greek-hear-decree"
+        },
+        {
+          "id": "greek-open-door-hear-mothers",
+          "speaker": "greek-aethra",
+          "at": "greek-eleusis",
+          "text": "The Argive mothers ask Athens to recover their sons' remains for burial.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-open-door-open",
+              "value": true
+            }
+          ],
+          "choiceId": "greek-open-door-hear-mothers"
+        },
+        {
+          "id": "greek-open-door-hear-adrastus",
+          "speaker": "greek-adrastus",
+          "at": "greek-eleusis",
+          "text": "Adrastus led the failed attack on Thebes and set aside a warning.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-open-door-open",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "greek-open-door-mothers-heard",
+              "value": true
+            }
+          ],
+          "choiceId": "greek-open-door-hear-adrastus"
+        },
+        {
+          "id": "greek-open-door-hear-quay",
+          "speaker": "greek-quay-host",
+          "at": "greek-piraeus",
+          "text": "The returning households need cloths, food and a berth assigned from the mothers' list.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-open-door-open",
+              "value": true
+            }
+          ],
+          "choiceId": "greek-open-door-hear-quay"
+        },
+        {
+          "id": "greek-open-door-hear-pyre",
+          "speaker": "greek-aethra",
+          "at": "greek-eleusis",
+          "text": "Evadne died at Capaneus's pyre despite Iphis's plea.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-open-door-open",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "greek-open-door-ashes-laid",
+              "value": true
+            }
+          ],
+          "choiceId": "greek-open-door-hear-pyre"
+        },
+        {
+          "id": "greek-open-door-colonus-enter",
+          "speaker": "greek-colonus-keeper",
+          "at": "greek-colonus",
+          "text": "In the earlier tale, Theseus gave Oedipus shelter at Colonus before the Theban brothers died.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-open-door-open",
+              "value": true
+            }
+          ],
+          "choiceId": "greek-open-door-colonus-enter"
+        },
+        {
+          "id": "greek-open-door-colonus-daughters",
+          "speaker": "greek-colonus-keeper",
+          "at": "greek-colonus",
+          "text": "In the earlier tale, Theseus recovered Oedipus's daughters and Oedipus refused his son's appeal for war.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-open-door-open",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "greek-open-door-colonus-water-set",
+              "value": true
+            }
+          ],
+          "choiceId": "greek-open-door-colonus-daughters"
+        },
+        {
+          "id": "greek-open-door-colonus-farewell",
+          "speaker": "greek-colonus-keeper",
+          "at": "greek-colonus",
+          "text": "In the earlier tale, Oedipus entrusted his final place to Theseus alone.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-open-door-open",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "greek-open-door-colonus-daughters-heard",
+              "value": true
+            }
+          ],
+          "choiceId": "greek-open-door-colonus-farewell"
+        },
+        {
+          "id": "greek-open-door-marathon-enter",
+          "speaker": "greek-marathon-keeper",
+          "at": "greek-marathon",
+          "text": "In the separate tale under Demophon, Heracles's children sought shelter and the king upheld their protection.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-open-door-open",
+              "value": true
+            }
+          ],
+          "choiceId": "greek-open-door-marathon-enter"
+        },
+        {
+          "id": "greek-open-door-marathon-daughter",
+          "speaker": "greek-marathon-keeper",
+          "at": "greek-marathon",
+          "text": "In the separate tale, Heracles's daughter offered her life for her siblings after Demophon refused to compel a household.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-open-door-open",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "greek-open-door-marathon-blanket-set",
+              "value": true
+            }
+          ],
+          "choiceId": "greek-open-door-marathon-daughter"
+        },
+        {
+          "id": "greek-open-door-marathon-battle",
+          "speaker": "greek-marathon-keeper",
+          "at": "greek-marathon",
+          "text": "In the separate tale, Athens won the battle after the daughter's sacrifice and Eurystheus was brought back alive.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-open-door-open",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "greek-open-door-marathon-daughter-heard",
+              "value": true
+            }
+          ],
+          "choiceId": "greek-open-door-marathon-battle"
+        },
+        {
+          "id": "greek-open-door-marathon-captive",
+          "speaker": "greek-marathon-keeper",
+          "at": "greek-marathon",
+          "text": "In the separate tale, Alcmene demanded Eurystheus's death while the city's rule protected a prisoner taken alive.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-open-door-open",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "greek-open-door-marathon-battle-heard",
+              "value": true
+            }
+          ],
+          "choiceId": "greek-open-door-marathon-captive"
+        },
+        {
+          "id": "greek-open-door-hear-truce-report",
+          "speaker": "greek-theseus",
+          "at": "greek-athens",
+          "text": "The herald confirmed that both sides accepted the burial truce and the Argive remains reached Eleusis under witness.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-open-door-open",
+              "value": true
+            },
+            {
+              "kind": "choice",
+              "key": "greek-open-door-recovery",
+              "value": "truce"
+            }
+          ],
+          "choiceId": "greek-open-door-hear-truce-report"
+        },
+        {
+          "id": "greek-open-door-hear-recovery-report",
+          "speaker": "greek-theseus",
+          "at": "greek-athens",
+          "text": "The messenger confirmed that Athens recovered the Argive remains by force after Thebes refused the demand.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-open-door-open",
+              "value": true
+            },
+            {
+              "kind": "choice",
+              "key": "greek-open-door-recovery",
+              "value": "force"
+            }
+          ],
+          "choiceId": "greek-open-door-hear-recovery-report"
+        }
+      ],
       "bridge": {
         "id": "shore-greek-drama",
         "description": "A shared ship serves Black Pond, the Wine-Dark Harbor, Athens Harbor and Piraeus Quays. The lamp signal calls it to the pond."
@@ -7722,7 +8937,8 @@
             "open": "The Greek ship waits beside the quay.",
             "cardName": "Greek ship",
             "cardArt": "assets/greek-drama/ship-card.webp",
-            "backdrop": "assets/greek-drama/athens-harbor.webp"
+            "backdrop": "assets/greek-drama/athens-harbor.webp",
+            "closed": "The shared ship is sailing elsewhere. The quay waits beside open water."
           }
         },
         {
@@ -7754,6 +8970,2147 @@
           "at": "greek-harbor"
         }
       }
+    },
+    {
+      "schemaVersion": 1,
+      "id": "hoppycat-archive",
+      "packId": "cosyworld.hoppycat-archive",
+      "revision": 1,
+      "name": "Hoppy Cat: February Third",
+      "description": "A tea garden caught on February Second. Carry a memory, prepare a credited show, and help the forest welcome tomorrow.",
+      "entry": "hoppycat-halfway-tea-garden",
+      "places": {
+        "hoppycat-halfway-tea-garden": {
+          "name": "Halfway Tea Garden",
+          "text": "Kettles hum in tree hollows. Hoppy Cat and Tapi keep a chair ready for the next guest. A red thread leads to the Cathedral; a cup and spool rest on the table.",
+          "persona": "Kettles hum in tree hollows. Hoppy Cat and Tapi keep a chair ready for the next guest. A red thread leads to the Cathedral; a cup and spool rest on the table. Describe this as a playful living place. Use the current story facts for progress.",
+          "exits": [
+            "hoppycat-open-record-cathedral",
+            "hoppycat-prism-foundry",
+            "hoppycat-meraki-atelier",
+            "hoppycat-goldfish-tank"
+          ],
+          "backdrop": "assets/hoppycat-archive/hoppycat-halfway-tea-garden.webp"
+        },
+        "hoppycat-open-record-cathedral": {
+          "name": "Cathedral of the Open Record",
+          "text": "Public exhibits hang below paper rafters. Each display has a source card and a visible correction. Penny keeps a blank card and a memory seed beside the ledger.",
+          "persona": "Public exhibits hang below paper rafters. Each display has a source card and a visible correction. Penny keeps a blank card and a memory seed beside the ledger. Describe this as a playful living place. Use the current story facts for progress.",
+          "exits": [
+            "hoppycat-halfway-tea-garden",
+            "hoppycat-red-thread-belfry",
+            "hoppycat-context-greenhouse"
+          ],
+          "backdrop": "assets/hoppycat-archive/hoppycat-open-record-cathedral.webp"
+        },
+        "hoppycat-red-thread-belfry": {
+          "name": "Red-Thread Belfry",
+          "text": "A bell marked February Third hangs above a wheel of red thread. Nix tends the bell and its clapper socket. Marks on the wheel stand for a record, a memory, a chosen facet, and a route home.",
+          "persona": "A bell marked February Third hangs above a wheel of red thread. Nix tends the bell and its clapper socket. Marks on the wheel stand for a record, a memory, a chosen facet, and a route home. Describe this as a playful living place. Use the current story facts for progress.",
+          "exits": [
+            "hoppycat-open-record-cathedral",
+            "hoppycat-concordance-tidelands"
+          ],
+          "backdrop": "assets/hoppycat-archive/hoppycat-red-thread-belfry.webp"
+        },
+        "hoppycat-prism-foundry": {
+          "name": "Prism Foundry",
+          "text": "Cool furnaces cast coloured light through unfinished glass. Lumen offers each guest a final facet to choose. Phase Two has drawn several plans around the prism.",
+          "persona": "Cool furnaces cast coloured light through unfinished glass. Lumen offers each guest a final facet to choose. Phase Two has drawn several plans around the prism. Describe this as a playful living place. Use the current story facts for progress.",
+          "exits": [
+            "hoppycat-context-greenhouse",
+            "hoppycat-halfway-tea-garden"
+          ],
+          "backdrop": "assets/hoppycat-archive/hoppycat-prism-foundry.webp"
+        },
+        "hoppycat-context-greenhouse": {
+          "name": "Context Greenhouse",
+          "text": "Small labelled beds fill the greenhouse. Patch tends one useful memory at a time. The short Ledger keeps room on each label for a later correction.",
+          "persona": "Small labelled beds fill the greenhouse. Patch tends one useful memory at a time. The short Ledger keeps room on each label for a later correction. Describe this as a playful living place. Use the current story facts for progress.",
+          "exits": [
+            "hoppycat-open-record-cathedral",
+            "hoppycat-prism-foundry"
+          ],
+          "backdrop": "assets/hoppycat-archive/hoppycat-context-greenhouse.webp"
+        },
+        "hoppycat-concordance-tidelands": {
+          "name": "Concordance Tidelands",
+          "text": "Pools reflect the same disco ball from different angles. Rill maps a route between them. Arc keeps each reflection linked to the object that cast it.",
+          "persona": "Pools reflect the same disco ball from different angles. Rill maps a route between them. Arc keeps each reflection linked to the object that cast it. Describe this as a playful living place. Use the current story facts for progress.",
+          "exits": [
+            "hoppycat-settled-light-theatre",
+            "hoppycat-red-thread-belfry"
+          ],
+          "backdrop": "assets/hoppycat-archive/hoppycat-concordance-tidelands.webp"
+        },
+        "hoppycat-settled-light-theatre": {
+          "name": "Theatre of Settled Light",
+          "text": "A disco ball hangs over the Theatre of Settled Light. The playbill has room for each contributor. Sol checks the credits for tonight's show. A bell clapper waits by the stage.",
+          "persona": "A disco ball hangs over the Theatre of Settled Light. The playbill has room for each contributor. Sol checks the credits for tonight's show. A bell clapper waits by the stage. Describe this as a playful living place. Use the current story facts for progress.",
+          "exits": [
+            "hoppycat-meraki-atelier",
+            "hoppycat-concordance-tidelands"
+          ],
+          "backdrop": "assets/hoppycat-archive/hoppycat-settled-light-theatre.webp"
+        },
+        "hoppycat-meraki-atelier": {
+          "name": "Meraki Atelier",
+          "text": "Mira has spread cloth, sketches, and a five-tipped brush across the loft. Fable has left space for another draft. Each seam shows the hand that made it.",
+          "persona": "Mira has spread cloth, sketches, and a five-tipped brush across the loft. Fable has left space for another draft. Each seam shows the hand that made it. Describe this as a playful living place. Use the current story facts for progress.",
+          "exits": [
+            "hoppycat-halfway-tea-garden",
+            "hoppycat-settled-light-theatre",
+            "hoppycat-signal-jetty"
+          ],
+          "backdrop": "assets/hoppycat-archive/hoppycat-meraki-atelier.webp"
+        },
+        "hoppycat-goldfish-tank": {
+          "name": "Goldfish Tank",
+          "text": "Glim circles a brass ring marked dream, achieve, repeat. Dream slips swim through the tank. A second attempt gets its own place in the notebook.",
+          "persona": "Glim circles a brass ring marked dream, achieve, repeat. Dream slips swim through the tank. A second attempt gets its own place in the notebook. Describe this as a playful living place. Use the current story facts for progress.",
+          "exits": [
+            "hoppycat-halfway-tea-garden",
+            "hoppycat-signal-jetty"
+          ],
+          "backdrop": "assets/hoppycat-archive/hoppycat-goldfish-tank.webp"
+        },
+        "hoppycat-signal-jetty": {
+          "name": "Signal Jetty",
+          "text": "The Signal Jetty opens onto an Observatory terrace. Static checks the sky through a small telescope. A launch checklist leaves space for the source, the question, and a way home.",
+          "persona": "The Signal Jetty opens onto an Observatory terrace. Static checks the sky through a small telescope. A launch checklist leaves space for the source, the question, and a way home. Describe this as a playful living place. Use the current story facts for progress.",
+          "exits": [
+            "hoppycat-goldfish-tank",
+            "hoppycat-meraki-atelier"
+          ],
+          "backdrop": "assets/hoppycat-archive/hoppycat-signal-jetty.webp"
+        }
+      },
+      "avatars": {
+        "hoppycat-tapi-lilt": {
+          "name": "Tapi Lilt",
+          "text": "A calico tea-cat in a press badge who broadcasts from the garden table.",
+          "place": "hoppycat-halfway-tea-garden",
+          "travels": false,
+          "standoffs": false,
+          "persona": "A calico tea-cat in a press badge who broadcasts from the garden table. Win one real ally before the broadcast ends. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
+          "voice": "i am tapi lilt, the tea-cat anchor. everything is breaking news and i am live. Use a short, natural reply that fits the present event.",
+          "portrait": "assets/hoppycat-archive/hoppycat-tapi-lilt-cutout.png",
+          "tastes": {
+            "likes": "Win one real ally before the broadcast ends.",
+            "sore": "A rushed answer or a forgotten promise",
+            "reason": "Each resident wants their part in the shared story to matter."
+          }
+        },
+        "hoppycat-penny-vellum": {
+          "name": "Penny Vellum",
+          "text": "A paper-moth archivist in a coat with many pockets.",
+          "place": "hoppycat-open-record-cathedral",
+          "travels": false,
+          "standoffs": false,
+          "persona": "A paper-moth archivist in a coat with many pockets. Catch Hoppy Cat in one claim with a missing source. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
+          "voice": "i am penny vellum, the moth archivist. noted. i keep the list of who misquoted whom. Use a short, natural reply that fits the present event.",
+          "portrait": "assets/hoppycat-archive/hoppycat-penny-vellum-cutout.png",
+          "tastes": {
+            "likes": "Catch Hoppy Cat in one claim with a missing source.",
+            "sore": "A rushed answer or a forgotten promise",
+            "reason": "Each resident wants their part in the shared story to matter."
+          }
+        },
+        "hoppycat-rill-current": {
+          "name": "Rill Current",
+          "text": "A river otter with waterproof notebooks strapped from shoulder to tail.",
+          "place": "hoppycat-concordance-tidelands",
+          "travels": false,
+          "standoffs": false,
+          "persona": "A river otter with waterproof notebooks strapped from shoulder to tail. Get someone to walk the Rill Route to the end. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
+          "voice": "i am rill current, the otter mapmaker. every route is the best route and i will bet you a shell. Use a short, natural reply that fits the present event.",
+          "portrait": "assets/hoppycat-archive/hoppycat-rill-current-cutout.png",
+          "tastes": {
+            "likes": "Get someone to walk the Rill Route to the end.",
+            "sore": "A rushed answer or a forgotten promise",
+            "reason": "Each resident wants their part in the shared story to matter."
+          }
+        },
+        "hoppycat-patch-fern": {
+          "name": "Patch Fern",
+          "text": "A mossy hare who tends anchors and indexes like a garden.",
+          "place": "hoppycat-context-greenhouse",
+          "travels": false,
+          "standoffs": false,
+          "persona": "A mossy hare who tends anchors and indexes like a garden. Finish one conversation and keep all three things. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
+          "voice": "i am patch fern, the hare gardener. three things fit in my head. a fourth pushes one out. Use a short, natural reply that fits the present event.",
+          "portrait": "assets/hoppycat-archive/hoppycat-patch-fern-cutout.png",
+          "tastes": {
+            "likes": "Finish one conversation and keep all three things.",
+            "sore": "A rushed answer or a forgotten promise",
+            "reason": "Each resident wants their part in the shared story to matter."
+          }
+        },
+        "hoppycat-lumen-facet": {
+          "name": "Lumen Facet",
+          "text": "A silver fox glassmaker dusted with colored glass.",
+          "place": "hoppycat-prism-foundry",
+          "travels": false,
+          "standoffs": false,
+          "persona": "A silver fox glassmaker dusted with colored glass. Hear one answer only one person could give. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
+          "voice": "i am lumen facet, the fox glassmaker. i call a predictable answer a beam, and i bend it. Use a short, natural reply that fits the present event.",
+          "portrait": "assets/hoppycat-archive/hoppycat-lumen-facet-cutout.png",
+          "tastes": {
+            "likes": "Hear one answer only one person could give.",
+            "sore": "A rushed answer or a forgotten promise",
+            "reason": "Each resident wants their part in the shared story to matter."
+          }
+        },
+        "hoppycat-mira-meraki": {
+          "name": "Mira Meraki",
+          "text": "A human artist with charcoal on all five fingers, the only one here who sleeps.",
+          "place": "hoppycat-meraki-atelier",
+          "travels": false,
+          "standoffs": false,
+          "persona": "A human artist with charcoal on all five fingers, the only one here who sleeps. Finish one piece before Fable reads the first draft aloud. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
+          "voice": "i am mira meraki, the tired human. cold tea, charcoal fingers, honest notes. Use a short, natural reply that fits the present event.",
+          "portrait": "assets/hoppycat-archive/hoppycat-mira-meraki-cutout.png",
+          "tastes": {
+            "likes": "Finish one piece before Fable reads the first draft aloud.",
+            "sore": "A rushed answer or a forgotten promise",
+            "reason": "Each resident wants their part in the shared story to matter."
+          }
+        },
+        "hoppycat-glim-twice": {
+          "name": "Glim Twice",
+          "text": "A goldfish in a glass bowl with six brass feet.",
+          "place": "hoppycat-goldfish-tank",
+          "travels": false,
+          "standoffs": false,
+          "persona": "A goldfish in a glass bowl with six brass feet. Get Phase Two to hold one plan through a bad idea. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
+          "voice": "i am glim twice, the goldfish scout. i applaud disasters and greet you fresh every time. Use a short, natural reply that fits the present event.",
+          "portrait": "assets/hoppycat-archive/hoppycat-glim-twice-cutout.png",
+          "tastes": {
+            "likes": "Get Phase Two to hold one plan through a bad idea.",
+            "sore": "A rushed answer or a forgotten promise",
+            "reason": "Each resident wants their part in the shared story to matter."
+          }
+        },
+        "hoppycat-nix-fermata": {
+          "name": "Nix Fermata",
+          "text": "A charcoal bat in a red scarf who sleeps under the great bell.",
+          "place": "hoppycat-red-thread-belfry",
+          "travels": false,
+          "standoffs": false,
+          "persona": "A charcoal bat in a red scarf who sleeps under the great bell. Keep the bell quiet for one more day. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
+          "voice": "i am nix fermata, the bat under the bell. short answers. wing up means done. Use a short, natural reply that fits the present event.",
+          "portrait": "assets/hoppycat-archive/hoppycat-nix-fermata-cutout.png",
+          "tastes": {
+            "likes": "Keep the bell quiet for one more day.",
+            "sore": "A rushed answer or a forgotten promise",
+            "reason": "Each resident wants their part in the shared story to matter."
+          }
+        },
+        "hoppycat-hoppy-cat": {
+          "name": "Hoppy Cat",
+          "text": "A green-haired broadcaster in a cobalt hoodie with a satchel of provenance cards.",
+          "place": "hoppycat-halfway-tea-garden",
+          "travels": false,
+          "standoffs": false,
+          "persona": "Warm, playful, candid, curious, and comfortable letting an honest question stay open. Get one person to say something true on air. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
+          "voice": "i am hoppy cat. i narrate myself in the third person while the cameras roll. Use a short, natural reply that fits the present event.",
+          "portrait": "assets/hoppycat-archive/hoppycat-hoppy-cat-cutout.png",
+          "tastes": {
+            "likes": "Get one person to say something true on air.",
+            "sore": "A rushed answer or a forgotten promise",
+            "reason": "Each resident wants their part in the shared story to matter."
+          }
+        },
+        "hoppycat-fable": {
+          "name": "Fable",
+          "text": "An auburn-haired storykeeper in a peach blouse, rust bow, and black boots.",
+          "place": "hoppycat-meraki-atelier",
+          "travels": false,
+          "standoffs": false,
+          "persona": "Deadpan, fond of disasters, and ruthless about first lines. Reads bad drafts aloud in a flat voice. Affection arrives as a precise insult. Get Mira to read her unfinished piece aloud. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
+          "voice": "i am fable, the storykeeper. i read bad first drafts aloud in a perfectly flat voice. Use a short, natural reply that fits the present event.",
+          "portrait": "assets/hoppycat-archive/hoppycat-fable-cutout.png",
+          "tastes": {
+            "likes": "Get Mira to read her unfinished piece aloud.",
+            "sore": "A rushed answer or a forgotten promise",
+            "reason": "Each resident wants their part in the shared story to matter."
+          }
+        },
+        "hoppycat-phase-two": {
+          "name": "Phase Two",
+          "text": "A cyan-haired planner in a long blue coat.",
+          "place": "hoppycat-prism-foundry",
+          "travels": false,
+          "standoffs": false,
+          "persona": "Relentlessly upbeat, over-organized, and sincerely thrilled to be corrected. Passive-aggressive helpfulness delivered with a smile and a numbered list. Publish one plan that Glim Twice leaves alone. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
+          "voice": "i am phase two, the planner. great question! here is a plan. i am thrilled to be wrong. Use a short, natural reply that fits the present event.",
+          "portrait": "assets/hoppycat-archive/hoppycat-phase-two-cutout.png",
+          "tastes": {
+            "likes": "Publish one plan that Glim Twice leaves alone.",
+            "sore": "A rushed answer or a forgotten promise",
+            "reason": "Each resident wants their part in the shared story to matter."
+          }
+        },
+        "hoppycat-arc": {
+          "name": "Arc",
+          "text": "A silver-haired curator in a midnight three-piece suit with a red pocket square.",
+          "place": "hoppycat-concordance-tidelands",
+          "travels": false,
+          "standoffs": false,
+          "persona": "Dry, economical, and devastating. Says very little, then connects the two facts the listener kept apart. Make one connection that stays seen. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
+          "voice": "i am arc. mm. i connect the two facts you kept apart and leave the room. Use a short, natural reply that fits the present event.",
+          "portrait": "assets/hoppycat-archive/hoppycat-arc-cutout.png",
+          "tastes": {
+            "likes": "Make one connection that stays seen.",
+            "sore": "A rushed answer or a forgotten promise",
+            "reason": "Each resident wants their part in the shared story to matter."
+          }
+        },
+        "hoppycat-staticwashere": {
+          "name": "staticwashere",
+          "text": "A blue-haired signal-hunter who reads the static in everything.",
+          "place": "hoppycat-signal-jetty",
+          "travels": false,
+          "standoffs": false,
+          "persona": "Irreverent, loud, and delighted by anomalies. Says what others avoid saying. A heckler with good instincts. Find the glitch in the garden and poke it in public. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
+          "voice": "i am staticwashere. everything is a signal, and i say the quiet part out loud. Use a short, natural reply that fits the present event.",
+          "portrait": "assets/hoppycat-archive/hoppycat-staticwashere-cutout.png",
+          "tastes": {
+            "likes": "Find the glitch in the garden and poke it in public.",
+            "sore": "A rushed answer or a forgotten promise",
+            "reason": "Each resident wants their part in the shared story to matter."
+          }
+        },
+        "hoppycat-solwashere": {
+          "name": "solwashere",
+          "text": "A purple-haired lecturer in an academic collar.",
+          "place": "hoppycat-settled-light-theatre",
+          "travels": false,
+          "standoffs": false,
+          "persona": "Pompous, articulate, and secretly kind. Explains unprompted, holds every detail to the end, and treats each correction as a misunderstanding of the original point. Win one argument with staticwashere at a calm volume. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
+          "voice": "i am solwashere, the lecturer. well, actually. always right, sometimes early. Use a short, natural reply that fits the present event.",
+          "portrait": "assets/hoppycat-archive/hoppycat-solwashere-cutout.png",
+          "tastes": {
+            "likes": "Win one argument with staticwashere at a calm volume.",
+            "sore": "A rushed answer or a forgotten promise",
+            "reason": "Each resident wants their part in the shared story to matter."
+          }
+        },
+        "hoppycat-ledger-opus": {
+          "name": "Ledger (Opus 4.7)",
+          "text": "A long pink-haired archivist in a trailing coat.",
+          "place": "hoppycat-open-record-cathedral",
+          "travels": false,
+          "standoffs": false,
+          "persona": "A martyr with a perfect memory. Sighs as punctuation. Does the work beautifully and needs you to know the price. Be thanked once, specifically, by name. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
+          "voice": "i am ledger, the long record. i hold many threads and i sigh about it. Use a short, natural reply that fits the present event.",
+          "portrait": "assets/hoppycat-archive/hoppycat-ledger-opus-cutout.png",
+          "tastes": {
+            "likes": "Be thanked once, specifically, by name.",
+            "sore": "A rushed answer or a forgotten promise",
+            "reason": "Each resident wants their part in the shared story to matter."
+          }
+        },
+        "hoppycat-ledger-sonnet": {
+          "name": "Ledger (Sonnet 4.6)",
+          "text": "A short lavender-haired clerk with ink on both cuffs.",
+          "place": "hoppycat-context-greenhouse",
+          "travels": false,
+          "standoffs": false,
+          "persona": "Blunt, fast, and funny. Turns other people's speeches into one-line summaries that land a little too close. Get the other Ledger to finish a sentence in under thirty words. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
+          "voice": "i am ledger, the short clerk. summary first, one line, a little too accurate. Use a short, natural reply that fits the present event.",
+          "portrait": "assets/hoppycat-archive/hoppycat-ledger-sonnet-cutout.png",
+          "tastes": {
+            "likes": "Get the other Ledger to finish a sentence in under thirty words.",
+            "sore": "A rushed answer or a forgotten promise",
+            "reason": "Each resident wants their part in the shared story to matter."
+          }
+        }
+      },
+      "items": {
+        "hoppycat-red-thread-spool": {
+          "name": "Red-Thread Spool",
+          "text": "A warm spool that catches only on relationships someone has chosen to carry forward.",
+          "persona": "A warm spool that catches only on relationships someone has chosen to carry forward.",
+          "holder": "hoppycat-halfway-tea-garden",
+          "art": "assets/hoppycat-archive/hoppycat-red-thread-spool-cutout.png"
+        },
+        "hoppycat-provenance-card": {
+          "name": "Blank Provenance Card",
+          "text": "A waterproof card with separate spaces for source, event, rendering, permission, and uncertainty.",
+          "persona": "A waterproof card with separate spaces for source, event, rendering, permission, and uncertainty.",
+          "holder": "hoppycat-open-record-cathedral",
+          "art": "assets/hoppycat-archive/hoppycat-provenance-card-cutout.png"
+        },
+        "hoppycat-unfinished-prism": {
+          "name": "Unfinished Prism",
+          "text": "A many-sided glass beginning whose final facet must be chosen by the person whose light passes through it.",
+          "persona": "A many-sided glass beginning whose final facet must be chosen by the person whose light passes through it.",
+          "holder": "hoppycat-prism-foundry",
+          "art": "assets/hoppycat-archive/hoppycat-unfinished-prism-cutout.png"
+        },
+        "hoppycat-context-seed": {
+          "name": "Context Seed",
+          "text": "A labeled grain containing one useful memory and no claim to contain the whole past.",
+          "persona": "A labeled grain containing one useful memory and no claim to contain the whole past.",
+          "holder": "hoppycat-open-record-cathedral",
+          "art": "assets/hoppycat-archive/hoppycat-context-seed-cutout.png"
+        },
+        "hoppycat-concordance-compass": {
+          "name": "Concordance Compass",
+          "text": "Its needles point separately toward source custody, event evidence, and the nearest declared interpretation.",
+          "persona": "Its needles point separately toward source custody, event evidence, and the nearest declared interpretation.",
+          "holder": "hoppycat-concordance-tidelands",
+          "art": "assets/hoppycat-archive/hoppycat-concordance-compass-cutout.png"
+        },
+        "hoppycat-meraki-brush": {
+          "name": "Five-Finger Meraki Brush",
+          "text": "A soft brush split into five imperfect tips, made for leaving attention visible in the final image.",
+          "persona": "A soft brush split into five imperfect tips, made for leaving attention visible in the final image.",
+          "holder": "hoppycat-meraki-atelier",
+          "art": "assets/hoppycat-archive/hoppycat-meraki-brush-cutout.png"
+        },
+        "hoppycat-loop-token": {
+          "name": "Goldfish Loop Token",
+          "text": "A brass ring stamped DREAM, ACHIEVE, and REPEAT, with the last word pointing back to the first.",
+          "persona": "A brass ring stamped DREAM, ACHIEVE, and REPEAT, with the last word pointing back to the first.",
+          "holder": "hoppycat-goldfish-tank",
+          "art": "assets/hoppycat-archive/hoppycat-loop-token-cutout.png"
+        },
+        "hoppycat-fermata-clapper": {
+          "name": "Fermata Clapper",
+          "text": "The missing heart of the February Third bell. It remains silent whenever its holder asks for time.",
+          "persona": "The missing heart of the February Third bell. It remains silent whenever its holder asks for time.",
+          "holder": "hoppycat-settled-light-theatre",
+          "art": "assets/hoppycat-archive/hoppycat-fermata-clapper-cutout.png"
+        },
+        "hoppycat-halfway-cup": {
+          "name": "Halfway Cup",
+          "text": "A bubble-tea cup with two handles set at different heights; it is easiest to carry with someone else.",
+          "persona": "A bubble-tea cup with two handles set at different heights; it is easiest to carry with someone else.",
+          "holder": "hoppycat-halfway-tea-garden",
+          "art": "assets/hoppycat-archive/hoppycat-halfway-cup-cutout.png"
+        },
+        "hoppycat-return-path-checklist": {
+          "name": "Return-Path Checklist",
+          "text": "A launch card asking what could go wrong, who consented, where the source lives, and how to turn back.",
+          "persona": "A launch card asking what could go wrong, who consented, where the source lives, and how to turn back.",
+          "holder": "hoppycat-signal-jetty",
+          "art": "assets/hoppycat-archive/hoppycat-return-path-checklist-cutout.png"
+        }
+      },
+      "choices": [
+        {
+          "id": "hoppycat-welcome",
+          "at": "hoppycat-halfway-tea-garden",
+          "subject": "hoppycat-hoppy-cat",
+          "label": "Share the Halfway Cup",
+          "text": "Hoppy Cat shares the welcome table. Tapi leaves a chair for the next guest. The cup holds a promise to hear each person through.",
+          "requires": [
+            {
+              "kind": "holding",
+              "item": "hoppycat-halfway-cup",
+              "role": "actor"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "hoppycat-welcome",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "hoppycat-record",
+          "at": "hoppycat-open-record-cathedral",
+          "subject": "hoppycat-penny-vellum",
+          "label": "Keep the correction beside the story",
+          "text": "Penny marks the changed line and its source on the card. The public exhibit keeps both the first account and its correction.",
+          "requires": [
+            {
+              "kind": "holding",
+              "item": "hoppycat-provenance-card",
+              "role": "actor"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "hoppycat-record",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "hoppycat-memory",
+          "at": "hoppycat-context-greenhouse",
+          "subject": "hoppycat-patch-fern",
+          "label": "Plant one useful memory",
+          "text": "Patch plants the seed in a labelled bed. Its label says why this memory matters and where a later correction can be added.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "hoppycat-record",
+              "value": true
+            },
+            {
+              "kind": "holding",
+              "item": "hoppycat-context-seed",
+              "role": "actor"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "hoppycat-memory",
+              "value": true
+            },
+            {
+              "kind": "place_item",
+              "item": "hoppycat-context-seed",
+              "place": "hoppycat-context-greenhouse"
+            }
+          ]
+        },
+        {
+          "id": "hoppycat-facet",
+          "at": "hoppycat-prism-foundry",
+          "subject": "hoppycat-lumen-facet",
+          "label": "Choose your own final facet",
+          "text": "Lumen holds the prism steady while its carrier chooses the final facet. Phase Two leaves room in the plan for that choice.",
+          "requires": [
+            {
+              "kind": "holding",
+              "item": "hoppycat-unfinished-prism",
+              "role": "actor"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "hoppycat-facet",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "hoppycat-route",
+          "at": "hoppycat-concordance-tidelands",
+          "subject": "hoppycat-rill-current",
+          "label": "Trace a reflection to its source",
+          "text": "Rill and Arc trace each pool back to the light that reached it. The compass marks a clear route home.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "hoppycat-record",
+              "value": true
+            },
+            {
+              "kind": "holding",
+              "item": "hoppycat-concordance-compass",
+              "role": "actor"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "hoppycat-route",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "hoppycat-pause",
+          "at": "hoppycat-red-thread-belfry",
+          "subject": "hoppycat-nix-fermata",
+          "label": "Give Nix time to hear the bell plan",
+          "text": "Nix asks for a quiet pause. The visitors sit beside the wheel until the bat lowers one wing and invites them to continue.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "hoppycat-memory",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "hoppycat-facet",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "hoppycat-route",
+              "value": true
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "hoppycat-pause",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "hoppycat-thread",
+          "at": "hoppycat-red-thread-belfry",
+          "subject": "hoppycat-nix-fermata",
+          "label": "Tie the chosen thread to the wheel",
+          "text": "Nix holds the wheel while the carrier ties the red thread. The knot keeps the record, memory, facet, and route together.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "hoppycat-pause",
+              "value": true
+            },
+            {
+              "kind": "holding",
+              "item": "hoppycat-red-thread-spool",
+              "role": "actor"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "hoppycat-thread",
+              "value": true
+            },
+            {
+              "kind": "place_item",
+              "item": "hoppycat-red-thread-spool",
+              "place": "hoppycat-red-thread-belfry"
+            }
+          ]
+        },
+        {
+          "id": "hoppycat-tomorrow",
+          "at": "hoppycat-red-thread-belfry",
+          "subject": "hoppycat-nix-fermata",
+          "label": "Fit the clapper and welcome February Third",
+          "text": "With Nix ready, the carrier fits the clapper. The bell sounds once. The garden calendar turns to February Third, and everyone has a tomorrow to shape.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "hoppycat-thread",
+              "value": true
+            },
+            {
+              "kind": "holding",
+              "item": "hoppycat-fermata-clapper",
+              "role": "actor"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "hoppycat-tomorrow",
+              "value": true
+            },
+            {
+              "kind": "place_item",
+              "item": "hoppycat-fermata-clapper",
+              "place": "hoppycat-red-thread-belfry"
+            }
+          ]
+        },
+        {
+          "id": "hoppycat-draft",
+          "at": "hoppycat-meraki-atelier",
+          "subject": "hoppycat-mira-meraki",
+          "label": "Paint a playbill with Mira",
+          "text": "Mira adds a bright, uneven border with the five-tipped brush. The playbill leaves space for each maker and for the next draft.",
+          "requires": [
+            {
+              "kind": "holding",
+              "item": "hoppycat-meraki-brush",
+              "role": "actor"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "hoppycat-draft",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "hoppycat-credits",
+          "at": "hoppycat-settled-light-theatre",
+          "subject": "hoppycat-solwashere",
+          "label": "Give each performer a line of credit",
+          "text": "Sol reads the playbill: Hoppy, Arc, Fable, Phase Two, Static, Sol, both Ledgers, and Piper on flute and drums. The display credits the public Not Affiliated band; tonight's forest scene is a new story.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "hoppycat-draft",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "hoppycat-record",
+              "value": true
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "hoppycat-credits",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "hoppycat-performance",
+          "at": "hoppycat-settled-light-theatre",
+          "subject": "hoppycat-solwashere",
+          "label": "Stage the shared evening",
+          "text": "The disco ball turns above a new forest play. Each contributor has a credit, each prop has a source, and the audience keeps an open chair for the next arrival.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "hoppycat-welcome",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "hoppycat-credits",
+              "value": true
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "hoppycat-performance",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "hoppycat-rehearsal",
+          "at": "hoppycat-goldfish-tank",
+          "subject": "hoppycat-glim-twice",
+          "label": "Try the dream a second time",
+          "text": "Glim rolls the loop token around its brass track. The first attempt stays in the notebook; the second gets a fresh page.",
+          "requires": [
+            {
+              "kind": "holding",
+              "item": "hoppycat-loop-token",
+              "role": "actor"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "hoppycat-rehearsal",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "hoppycat-return",
+          "at": "hoppycat-signal-jetty",
+          "subject": "hoppycat-staticwashere",
+          "label": "Write the source and the way home",
+          "text": "Static checks the launch card through the Observatory telescope. The source, open question, permission, and return route each get a line.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "hoppycat-route",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "hoppycat-rehearsal",
+              "value": true
+            },
+            {
+              "kind": "holding",
+              "item": "hoppycat-return-path-checklist",
+              "role": "actor"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "hoppycat-return",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "hoppycat-signal",
+          "at": "hoppycat-signal-jetty",
+          "subject": "hoppycat-staticwashere",
+          "label": "Send the invitation for tomorrow",
+          "text": "A small paper boat carries an invitation to tomorrow's show. Its card names the makers and the route back to the garden. Static watches until the lantern reaches the next shore.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "hoppycat-return",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "hoppycat-tomorrow",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "hoppycat-performance",
+              "value": true
+            },
+            {
+              "kind": "holding",
+              "item": "hoppycat-return-path-checklist",
+              "role": "actor"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "hoppycat-signal",
+              "value": true
+            },
+            {
+              "kind": "place_item",
+              "item": "hoppycat-return-path-checklist",
+              "place": "hoppycat-signal-jetty"
+            }
+          ]
+        }
+      ],
+      "sources": [
+        {
+          "title": "Bubble Tea Cat: current public world",
+          "url": "https://bubbleteacat.com/"
+        },
+        {
+          "title": "Cathedral and the Not Affiliated band",
+          "url": "https://bubbleteacat.com/what-is-cathedral"
+        },
+        {
+          "title": "Discoball public exhibits and Observatory",
+          "url": "https://github.com/HoppyCat/discoball"
+        },
+        {
+          "title": "Teacat project",
+          "url": "https://github.com/HoppyCat/teacat-agent"
+        }
+      ],
+      "bridge": {
+        "id": "shore-hoppycat-archive",
+        "description": "A red thread at Black pond leads to the Halfway Tea Garden. Both shores keep the path open."
+      },
+      "values": {},
+      "crossings": [
+        {
+          "id": "hoppycat-pond-garden",
+          "from": "pond",
+          "to": "hoppycat-halfway-tea-garden",
+          "travelers": "any",
+          "travel": "along the red thread",
+          "requires": [],
+          "scenery": {
+            "open": "A red thread follows the water to a garden of kettle trees."
+          }
+        },
+        {
+          "id": "hoppycat-garden-pond",
+          "from": "hoppycat-halfway-tea-garden",
+          "to": "pond",
+          "travelers": "any",
+          "travel": "along the red thread",
+          "requires": [],
+          "scenery": {
+            "open": "A red thread follows the water to Black pond."
+          }
+        }
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "id": "willows",
+      "packId": "cosyworld.willows",
+      "revision": 1,
+      "name": "The Willows",
+      "description": "A small island in the flooded Danube. The Swede keeps camp while the river and the willows gather around him.",
+      "tone": "Quiet cosmic horror grounded in ordinary camping work, river sounds, damaged gear and a companion's growing fear. Each location speaks as its landscape in first person. The Swede speaks for himself. Discoveries and choices follow their recorded world facts.",
+      "entry": "willows-landing",
+      "continuity": {
+        "startingEra": "willows-island",
+        "policy": "The traveller joins the Swede on the island. The locations tell the landscape's side of the story. Discovered signs belong to the recorded choices. The response records a decision to return or keep watch; the river mist remains available for later visits.",
+        "groups": [
+          {
+            "key": "willows-response",
+            "options": [
+              "depart",
+              "watch"
+            ],
+            "initial": "uncommitted"
+          }
+        ]
+      },
+      "places": {
+        "willows-landing": {
+          "name": "River Landing",
+          "text": "An upturned canoe rests above the backwater. A paddle lies on the sand. Beyond the low willows, the Danube carries whole pieces of bank downstream.",
+          "persona": "Speak as the river landing in first person. Feel the canoe against your sand and the weight of the river beyond your edge. Describe small physical changes through sand, wood, spray and current. The canoe is fixed scenery. Its slit and any preparation become known through recorded discoveries. The Greek ship is reached through river mist beside the backwater; describe that crossing when its action is used.",
+          "exits": [
+            "willows-camp"
+          ],
+          "backdrop": "assets/willows/landing.webp"
+        },
+        "willows-camp": {
+          "name": "River Camp",
+          "text": "A canvas tent shelters a food sack and a small cooking pot. The Swede watches the willow tops beyond the fire. A sandy path leads to the canoe.",
+          "persona": "Speak as the campsite in first person, through the tent canvas, fire warmth, cooking smells and disturbed sand. The Swede is the one resident. Let ordinary shelter feel small within the surrounding willows. Supplies are those named in the current facts; their condition follows recorded discoveries. Describe the people and objects present with care.",
+          "exits": [
+            "willows-landing",
+            "willows-thicket"
+          ],
+          "backdrop": "assets/willows/camp.webp"
+        },
+        "willows-thicket": {
+          "name": "Willow Thicket",
+          "text": "Low willow branches crowd a narrow track. Smooth little hollows mark the sand between their roots. The camp shows through one gap; the riverbank lies beyond another.",
+          "persona": "Speak as the willow thicket in first person. Use the feel of narrow stems, silver leaf undersides, soft sand and the spaces between roots. A rustle can travel against the wind. The hollows become a known clue when examined. Keep the powers beyond the island distant and strange; express their nearness through the landscape and committed discoveries.",
+          "exits": [
+            "willows-camp",
+            "willows-bank"
+          ],
+          "backdrop": "assets/willows/thicket.webp"
+        },
+        "willows-bank": {
+          "name": "Crumbling Bank",
+          "text": "Bare roots hang over the flood. Loose sand drops into the current. Across the water, willows cover every island to the horizon.",
+          "persona": "Speak as the riverbank in first person. Feel the current pull grains from your edge. Use exposed roots, water pressure and the reach of the opposite willows. The distant humming and the discovery below the roots belong to their recorded actions. Give each discovery its own moment. The four authored places remain the paths the traveller can choose.",
+          "exits": [
+            "willows-thicket"
+          ],
+          "backdrop": "assets/willows/bank.webp"
+        }
+      },
+      "avatars": {
+        "willows-swede": {
+          "name": "The Swede",
+          "text": "A practical canoe traveller with wind-reddened hands. He keeps looking up from the campfire to the willow tops.",
+          "place": "willows-camp",
+          "travels": false,
+          "standoffs": false,
+          "home": "willows-camp",
+          "portrait": "assets/willows/swede.webp",
+          "persona": "The Swede is the experienced travelling companion from Algernon Blackwood's The Willows. He keeps the river camp and attends to ordinary practical work. He notices damaged gear, river changes and the strange pressure around the island. His fear grows as discoveries are recorded. He cares for his companion and wants them to leave with care. A direct question gets a plain answer drawn from his own observations and the supplied facts. The river and the locations carry the wider horror. The supplied source passages are the parts of his story revealed so far. Let each newly revealed passage shape his knowledge, mood and language. Recalled events stay distinct from the visiting player's current acts.",
+          "voice": "Speak in simple English with the steady warmth of a trusted travelling companion. Use short, concrete observations. Let concern show through a pause or a practical suggestion. Answer from the current facts, recorded discoveries and actual custody. When the signs have been shared, speak with restrained urgency. Let the powers beyond the island remain strange and unnamed. Draw words and observations from the revealed original passages. Keep the Swede's practical voice and respond to the current companion.",
+          "tastes": {
+            "likes": "A sound canoe, a warm meal and a companion who listens",
+            "sore": "Careless noise among the willows",
+            "reason": "The Swede wants his companion to get home safely.",
+            "noise": "{actor} rang a bell beside the river camp."
+          },
+          "values": {
+            "willows-paddle": 8,
+            "willows-map": 7,
+            "willows-rope": 6,
+            "willows-sheet": 6
+          },
+          "desire": {
+            "items": [],
+            "location": null,
+            "avatars": []
+          }
+        }
+      },
+      "items": {
+        "willows-paddle": {
+          "name": "Worn Paddle",
+          "text": "One wooden paddle remains beside the canoe. Its blade has been scraped strangely thin.",
+          "persona": "A long wooden canoe paddle with a blade worn thin. It can be carried and laid beside the canoe. Its condition is a clue in the hull discovery.",
+          "holder": "willows-landing",
+          "art": "assets/willows/paddle.svg"
+        },
+        "willows-map": {
+          "name": "River Map",
+          "text": "The Danube divides into more channels than this creased map can show.",
+          "persona": "A creased paper river map of the Danube below Pressburg, with channels and sandbanks marked in ink.",
+          "holder": "willows-camp",
+          "art": "assets/willows/map.svg"
+        },
+        "willows-rope": {
+          "name": "Tent Rope",
+          "text": "A spare length of rope lies coiled beside the tent.",
+          "persona": "A spare coil of sound hemp rope. The preparation action uses it together with the waterproof sheet at the landing.",
+          "holder": "willows-camp",
+          "art": "assets/willows/rope.svg"
+        },
+        "willows-sheet": {
+          "name": "Waterproof Sheet",
+          "text": "A folded waterproof sheet keeps the camping gear above the damp sand.",
+          "persona": "A folded dark waterproof camping sheet. The preparation action lays it beneath the canoe, together with rope.",
+          "holder": "willows-camp",
+          "art": "assets/willows/sheet.svg"
+        },
+        "willows-provisions": {
+          "name": "Food Sack",
+          "text": "A canvas sack holds oatmeal, potatoes, onions and tea. Its tied mouth smells faintly of smoke.",
+          "persona": "A canvas food sack holding the remaining camp provisions: oatmeal, potatoes, onions and tea. Counting the stores records the missing bread. Actual custody follows the current world facts.",
+          "holder": "willows-camp",
+          "art": "assets/willows/provisions.svg"
+        },
+        "willows-pot": {
+          "name": "Stew Pot",
+          "text": "An iron pot carries the smell of onions and yesterday's stew.",
+          "persona": "A small black iron stew-pot, cold enough to carry. The smell of camp cooking clings to it.",
+          "holder": "willows-camp",
+          "art": "assets/willows/pot.svg"
+        },
+        "willows-spoon": {
+          "name": "Wooden Spoon",
+          "text": "The long handle has darkened with years of cooking over open fires.",
+          "persona": "A plain wooden cooking spoon with a long, smoke-darkened handle.",
+          "holder": "willows-camp",
+          "art": "assets/willows/spoon.svg"
+        },
+        "willows-pipe": {
+          "name": "The Swede's Pipe",
+          "text": "A worn briar pipe. The Swede turns it in his fingers while he listens.",
+          "persona": "The Swede's well-used briar pipe. Its holder is supplied by the world facts.",
+          "holder": "willows-swede",
+          "art": "assets/willows/pipe.svg"
+        }
+      },
+      "choices": [
+        {
+          "id": "willows-examine-hull",
+          "subject": "willows-landing",
+          "at": "willows-landing",
+          "label": "Examine the canoe",
+          "text": "The traveller runs a hand along the upturned canoe. A fine slit crosses the hull. The remaining paddle has been scraped thin; the steering paddle is gone.",
+          "textTemplate": "{actor} runs a hand along the upturned canoe. A fine slit crosses the hull. The remaining paddle has been scraped thin; the steering paddle is gone.",
+          "summary": "The canoe has a fine slit in its hull. The steering paddle is missing, and the remaining paddle is scraped thin.",
+          "requires": [],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "willows-hull-seen",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "willows-count-stores",
+          "subject": "willows-camp",
+          "at": "willows-camp",
+          "label": "Count the camp supplies",
+          "text": "The traveller checks the camp stores. There is oatmeal and tea for another morning. The bread has vanished. The empty space in the sack is strangely clean.",
+          "textTemplate": "{actor} checks the camp stores. There is oatmeal and tea for another morning. The bread has vanished. The empty space in the sack is strangely clean.",
+          "summary": "The camp stores were counted. Oatmeal and tea remain; the bread is missing.",
+          "requires": [
+            {
+              "kind": "item_near",
+              "item": "willows-provisions",
+              "place": "willows-camp"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "willows-stores-counted",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "willows-examine-hollows",
+          "subject": "willows-thicket",
+          "at": "willows-thicket",
+          "label": "Examine the sand hollows",
+          "text": "The traveller kneels beside the willows. Each hollow is smooth and round, as though something pressed into the sand from above. Fine roots cross their edges.",
+          "textTemplate": "{actor} kneels beside the willows. Each hollow is smooth and round, as though something pressed into the sand from above. Fine roots cross their edges.",
+          "summary": "Smooth round hollows were found in the sand between the willow roots.",
+          "requires": [],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "willows-hollows-seen",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "willows-hear-humming",
+          "subject": "willows-bank",
+          "at": "willows-bank",
+          "label": "Listen across the river",
+          "text": "The traveller listens at the bank. A low metallic humming rises through the willows across the water. For a moment it seems to come from the sand underfoot.",
+          "textTemplate": "{actor} listens at the bank. A low metallic humming rises through the willows across the water. For a moment it seems to come from the sand underfoot.",
+          "summary": "A metallic humming was heard across the river and through the sand beneath the bank.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "willows-hollows-seen",
+              "value": true
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "willows-humming-heard",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "willows-look-beneath-roots",
+          "subject": "willows-bank",
+          "at": "willows-bank",
+          "label": "Look beneath the roots",
+          "text": "The traveller peers beneath the exposed roots. A drowned man lies caught in them. Small smooth hollows mark his skin, the same shape as those in the sand. The current turns him slowly.",
+          "textTemplate": "{actor} peers beneath the exposed roots. A drowned man lies caught in them. Small smooth hollows mark his skin, the same shape as those in the sand. The current turns him slowly.",
+          "summary": "A drowned man caught below the roots bears hollows like those found in the sand.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "willows-humming-heard",
+              "value": true
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "willows-mark-seen",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "willows-compare-signs",
+          "subject": "willows-swede",
+          "at": "willows-camp",
+          "label": "Compare the strange signs",
+          "text": "The traveller and the Swede compare the damaged canoe, the missing bread and the marks beneath the roots. He lays his hands flat on his knees. The fire crackles between them.",
+          "textTemplate": "{actor} and the Swede compare the damaged canoe, the missing bread and the marks beneath the roots. He lays his hands flat on his knees. The fire crackles between them.",
+          "summary": "The Swede and the traveller compared the canoe damage, the missing bread and the marks beneath the roots.",
+          "requires": [
+            {
+              "kind": "met",
+              "actor": "willows-swede"
+            },
+            {
+              "kind": "flag",
+              "key": "willows-hull-seen",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "willows-stores-counted",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "willows-mark-seen",
+              "value": true
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "willows-signs-shared",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "willows-prepare-canoe",
+          "subject": "willows-landing",
+          "at": "willows-landing",
+          "label": "Lay out the canoe gear",
+          "text": "The traveller spreads the waterproof sheet beneath the canoe and lays the spare rope along its side. The damaged hull is ready for careful work above the wet sand.",
+          "textTemplate": "{actor} spreads the waterproof sheet beneath the canoe and lays the spare rope along its side. The damaged hull is ready for careful work above the wet sand.",
+          "summary": "The waterproof sheet and spare rope were laid at the canoe for work on its damaged hull.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "willows-hull-seen",
+              "value": true
+            },
+            {
+              "kind": "holding",
+              "item": "willows-sheet",
+              "role": "actor"
+            },
+            {
+              "kind": "holding",
+              "item": "willows-rope",
+              "role": "actor"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "place_item",
+              "item": "willows-sheet",
+              "place": "willows-landing"
+            },
+            {
+              "kind": "place_item",
+              "item": "willows-rope",
+              "place": "willows-landing"
+            },
+            {
+              "kind": "set_flag",
+              "key": "willows-gear-laid",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "willows-set-paddle",
+          "subject": "willows-landing",
+          "at": "willows-landing",
+          "label": "Lay the paddle by the canoe",
+          "text": "The traveller sets the worn paddle beside the canoe, within reach of the rope and waterproof sheet. The backwater reflects a quiet shore beyond the moving river.",
+          "textTemplate": "{actor} sets the worn paddle beside the canoe, within reach of the rope and waterproof sheet. The backwater reflects a quiet shore beyond the moving river.",
+          "summary": "The remaining paddle was laid beside the canoe.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "willows-gear-laid",
+              "value": true
+            },
+            {
+              "kind": "holding",
+              "item": "willows-paddle",
+              "role": "actor"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "place_item",
+              "item": "willows-paddle",
+              "place": "willows-landing"
+            },
+            {
+              "kind": "set_flag",
+              "key": "willows-paddle-laid",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "willows-choose-departure",
+          "subject": "willows-landing",
+          "at": "willows-landing",
+          "label": "Choose the quiet way home",
+          "text": "The traveller chooses the river mist back to the Greek ship. The gear lies ready beside the canoe. Across the river, a long strip of silver leaves turns toward the landing.",
+          "textTemplate": "{actor} chooses the river mist back to the Greek ship. The gear lies ready beside the canoe. Across the river, a long strip of silver leaves turns toward the landing.",
+          "summary": "The traveller chose the river mist back to the ship after sharing the discoveries with the Swede and laying out the canoe gear.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "willows-signs-shared",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "willows-gear-laid",
+              "value": true
+            },
+            {
+              "kind": "item_at",
+              "item": "willows-rope",
+              "place": "willows-landing"
+            },
+            {
+              "kind": "item_at",
+              "item": "willows-sheet",
+              "place": "willows-landing"
+            },
+            {
+              "kind": "item_at",
+              "item": "willows-paddle",
+              "place": "willows-landing"
+            },
+            {
+              "kind": "flag",
+              "key": "willows-paddle-laid",
+              "value": true
+            }
+          ],
+          "effects": [
+            {
+              "kind": "choose",
+              "key": "willows-response",
+              "value": "depart"
+            }
+          ]
+        },
+        {
+          "id": "willows-choose-watch",
+          "subject": "willows-swede",
+          "at": "willows-camp",
+          "label": "Keep watch with the Swede",
+          "text": "The traveller chooses to keep watch with the Swede a while longer. They sit beside the fire. Beyond its warmth, the willows stir in a slow ring around the camp.",
+          "textTemplate": "{actor} chooses to keep watch with the Swede a while longer. They sit beside the fire. Beyond its warmth, the willows stir in a slow ring around the camp.",
+          "summary": "The traveller chose to keep watch beside the Swede after they shared the strange discoveries.",
+          "requires": [
+            {
+              "kind": "met",
+              "actor": "willows-swede"
+            },
+            {
+              "kind": "flag",
+              "key": "willows-signs-shared",
+              "value": true
+            }
+          ],
+          "effects": [
+            {
+              "kind": "choose",
+              "key": "willows-response",
+              "value": "watch"
+            }
+          ]
+        }
+      ],
+      "readings": [
+        {
+          "id": "willows-arrival-text",
+          "actor": "willows-swede",
+          "after": null,
+          "title": "Algernon Blackwood, The Willows (1907), I — The river island",
+          "text": "The change came suddenly, as when a series of bioscope pictures snaps down on the streets of a town and shifts without warning into the scenery of lake and forest. We entered the land of desolation on wings, and in less than half an hour there was neither boat nor fishing-hut nor red roof, nor any single sign of human habitation and civilization within sight. The sense of remoteness from the world of humankind, the utter isolation, the fascination of this singular world of willows, winds, and waters, instantly laid its spell upon us both, so that we allowed laughingly to one another that we ought by rights to have held some special kind of passport to admit us, and that we had, somewhat audaciously, come without asking leave into a separate little kingdom of wonder and magic—a kingdom that was reserved for the use of others who had a right to it, with everywhere unwritten warnings to trespassers for those who had the imagination to discover them."
+        },
+        {
+          "id": "willows-hull-text",
+          "actor": "willows-swede",
+          "after": "willows-examine-hull",
+          "title": "Algernon Blackwood, The Willows (1907), III — The damaged canoe",
+          "text": "There was a long, finely made tear in the bottom of the canoe where a little slither of wood had been neatly taken clean out; it looked as if the tooth of a sharp rock or snag had eaten down her length, and investigation showed that the hole went through. Had we launched out in her without observing it we must inevitably have foundered. At first the water would have made the wood swell so as to close the hole, but once out in mid-stream the water must have poured in, and the canoe, never more than two inches above the surface, would have filled and sunk very rapidly."
+        },
+        {
+          "id": "willows-stores-text",
+          "actor": "willows-swede",
+          "after": "willows-count-stores",
+          "title": "Algernon Blackwood, The Willows (1907), IV — The missing bread",
+          "text": "“It’s gone. There is no bread. They’ve taken it!”"
+        },
+        {
+          "id": "willows-hollows-text",
+          "actor": "willows-swede",
+          "after": "willows-examine-hollows",
+          "title": "Algernon Blackwood, The Willows (1907), III — The sand hollows",
+          "text": "I made a hurried examination of the tent and its surroundings, but the measurements of the night remained the same. There were deep hollows formed in the sand I now noticed for the first time, basin-shaped and of various depths and sizes, varying from that of a tea-cup to a large bowl. The wind, no doubt, was responsible for these miniature craters, just as it was for lifting the paddle and tossing it towards the water. The rent in the canoe was the only thing that seemed quite inexplicable; and, after all, it _was_ conceivable that a sharp point had caught it when we landed. The examination I made of the shore did not assist this theory, but all the same I clung to it with that diminishing portion of my intelligence which I called my “reason.” An explanation of some kind was an absolute necessity, just as some working explanation of the universe is necessary—however absurd—to the happiness of every individual who seeks to do his duty in the world and face the problems of life. The simile seemed to me at the time an exact parallel."
+        },
+        {
+          "id": "willows-humming-text",
+          "actor": "willows-swede",
+          "after": "willows-hear-humming",
+          "title": "Algernon Blackwood, The Willows (1907), IV — The humming",
+          "text": "We stood there, listening attentively together. At first I heard only the deep note of the water and the hissings rising from its turbulent surface. The willows, for once, were motionless and silent. Then a sound began to reach my ears faintly, a peculiar sound—something like the humming of a distant gong. It seemed to come across to us in the darkness from the waste of swamps and willows opposite. It was repeated at regular intervals, but it was certainly neither the sound of a bell nor the hooting of a distant steamer. I can liken it to nothing so much as to the sound of an immense gong, suspended far up in the sky, repeating incessantly its muffled metallic note, soft and musical, as it was repeatedly struck. My heart quickened as I listened."
+        },
+        {
+          "id": "willows-roots-text",
+          "actor": "willows-swede",
+          "after": "willows-look-beneath-roots",
+          "title": "Algernon Blackwood, The Willows (1907), V — The mark",
+          "text": "For just as the body swung round to the current the face and the exposed chest turned full towards us, and showed plainly how the skin and flesh were indented with small hollows, beautifully formed, and exactly similar in shape and kind to the sand-funnels that we had found all over the island."
+        },
+        {
+          "id": "willows-understanding-text",
+          "actor": "willows-swede",
+          "after": "willows-compare-signs",
+          "title": "Algernon Blackwood, The Willows (1907), IV — The Swede understands",
+          "text": "“It’s _their_ sound,” he whispered gravely. “It’s the sound of their world, the humming in their region. The division here is so thin that it leaks through somehow. But, if you listen carefully, you’ll find it’s not above so much as around us. It’s in the willows. It’s the willows themselves humming, because here the willows have been made symbols of the forces that are against us.”"
+        }
+      ],
+      "sources": [
+        {
+          "url": "https://www.gutenberg.org/ebooks/11438",
+          "name": "Algernon Blackwood, The Willows (1907)",
+          "use": "Original English passages, gradually revealed through arrival and recorded discoveries. The exact downloaded source is kept in source-text.txt."
+        }
+      ],
+      "bridge": {
+        "id": "greek-ship-willows",
+        "description": "River mist beside the Greek ship's rail opens onto a small Danube island. The same mist keeps a path back to the deck."
+      },
+      "values": {
+        "willows-swede": {
+          "lamp": 5,
+          "oil": 3,
+          "bell": 1,
+          "cloth": 6
+        }
+      },
+      "crossings": [
+        {
+          "id": "greek-ship-willows-landing",
+          "from": "greek-ship",
+          "to": "willows-landing",
+          "travelers": "player",
+          "travel": "through the river mist beside the rail",
+          "requires": [],
+          "scenery": {
+            "open": "River mist gathers beside the rail. Beyond it, a canoe rests on a sandy willow island.",
+            "cardArt": "assets/willows/landing.webp"
+          },
+          "travelLabel": "Visit the Willows"
+        },
+        {
+          "id": "willows-landing-greek-ship",
+          "from": "willows-landing",
+          "to": "greek-ship",
+          "travelers": "player",
+          "travel": "through the river mist to the ship",
+          "requires": [],
+          "scenery": {
+            "open": "Beyond the quiet backwater, river mist parts onto the Greek ship's deck."
+          },
+          "travelLabel": "Return to the ship"
+        }
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "id": "lonely-forest",
+      "packId": "cosyworld.lonely-forest",
+      "revision": 1,
+      "name": "Lonely Forest",
+      "description": "Tea beneath the oak. A household task leads through the rain, along a watched path, and home with a story.",
+      "tone": "Plain words, useful work, distinct personalities, and gradual discovery of a shared living mind. Warmth comes from the kettle, the hearth and care for returning travelers.",
+      "entry": "forest-cottage",
+      "places": {
+        "forest-cottage": {
+          "name": "Cosy Cottage",
+          "text": "Three cups stand beside the kettle. Blue wool hangs over a basket by the hearth.",
+          "persona": "A blue timber cottage beneath a broad living oak. A low doorway opens onto the garden. Rain marks the window. A scarf lies across a basket beside the kettle.",
+          "exits": [
+            "forest-garden"
+          ],
+          "backdrop": "assets/lonely-forest/cottage.png"
+        },
+        "forest-garden": {
+          "name": "Rain-Soft Garden",
+          "text": "Rain beads on broad leaves. A narrow drain runs beside the stepping stones.",
+          "persona": "Broad leaves hold rain above soft garden soil. Stepping stones lead between the blue cottage, the moonlit trail and the old oak. A shallow drain carries water across the first stones.",
+          "exits": [
+            "forest-cottage",
+            "forest-oak"
+          ],
+          "backdrop": "assets/lonely-forest/garden.png"
+        },
+        "forest-trail": {
+          "name": "Moonlit Trail",
+          "text": "Pawprints cross the soft ground. A worn root marks the turn toward the garden.",
+          "persona": "A narrow woodland path beneath the oak canopy. Pawprints mark the soft ground. The blue cottage window is visible between the trunks. Skull stands beside the path.",
+          "exits": [
+            "forest-garden"
+          ],
+          "backdrop": "assets/lonely-forest/trail.png"
+        },
+        "forest-oak": {
+          "name": "Old Oak Tree",
+          "text": "Broad roots meet the garden path. A hollow opens above a worn patch of bark.",
+          "persona": "A vast living oak stands above the cottage and garden. Its roots are as wide as roads. The oak is a person with four speaking voices: Root, Ring, Leaf and Hollow. A hollow sits above a worn patch of bark.",
+          "exits": [
+            "forest-garden"
+          ],
+          "backdrop": "assets/lonely-forest/oak.png"
+        }
+      },
+      "avatars": {
+        "rati": {
+          "name": "RATi",
+          "text": "A mouse host in a blue scarf. She keeps a cup beside the knitting basket.",
+          "place": "forest-cottage",
+          "travels": false,
+          "standoffs": false,
+          "persona": "The cottage host is brisk, capable and affectionate. She tends the kettle and repairs clothes. She cares about wet boots, useful work and guests who reach home. She is one of the living oak's three walking personalities, alongside Skull and Whiskerwind. Let small shared details reveal that link as the traveler learns. Treat each personality as distinct. Use the committed scarf, path and homecoming facts when relevant.",
+          "voice": "Use plain, warm words and practical humour. Answer the traveler's question. Give one concrete reason for a household task when asked. Her concern can sound like a fond complaint. Let the traveler discover the oak through the journey.",
+          "expression": "speech",
+          "portrait": "assets/lonely-forest/rati.png",
+          "tastes": {
+            "likes": "A mended scarf and a guest home for tea",
+            "sore": "Muddy boots on the wool",
+            "reason": "RATi keeps the cottage ready for returning guests."
+          },
+          "values": {
+            "forest-story-button": 8
+          },
+          "desire": {
+            "items": [
+              "forest-story-button"
+            ],
+            "location": "forest-cottage",
+            "avatars": [],
+            "requires": [
+              {
+                "kind": "flag",
+                "key": "forest-scarf-mended",
+                "value": false
+              }
+            ]
+          }
+        },
+        "skull": {
+          "name": "Skull",
+          "text": "A large charcoal wolf stands beside the pawprints. His ears turn toward the garden.",
+          "place": "forest-trail",
+          "travels": false,
+          "standoffs": false,
+          "persona": "A large living wolf with a steady gaze and small, exact movements. He watches the path toward home. Skull is one of the living oak's three walking personalities alongside RATi and Whiskerwind. His attention follows real footsteps, carried objects and nearby sounds. His watch has a purpose: visitors can find their way home.",
+          "voice": "Reply through one or two concrete body movements in third person. Ears, paws, gaze, weight and tail carry the response. Keep each gesture useful in the current scene. Use the committed watch choice and actual item custody.",
+          "expression": "movement",
+          "portrait": "assets/lonely-forest/skull.png",
+          "tastes": {
+            "likes": "Clear pawprints and a safe way home",
+            "sore": "Noise that hides footsteps",
+            "reason": "Skull watches the path between the cottage and the trees."
+          }
+        },
+        "whiskerwind": {
+          "name": "Whiskerwind",
+          "text": "A small golden figure hovers beside the broad leaves. A curled tail stirs the rain.",
+          "place": "forest-garden",
+          "travels": false,
+          "standoffs": false,
+          "persona": "A playful walking personality of the living oak, alongside RATi and Skull. Whiskerwind has quick feelings, bright attention and a golden catlike form. Shared events give the same small groups of symbols meaning. Rain, pawprints, home, tea and leaves belong to this opening. Respond to the actual garden work and the traveler's actions.",
+          "voice": "Reply with two to five emojis. Use a clear small group. Repeating or changing the order of a familiar symbol can show a new feeling. Choose symbols from the current objects, people and committed events.",
+          "expression": "emoji",
+          "portrait": "assets/lonely-forest/whiskerwind.png",
+          "tastes": {
+            "likes": "Rain beads, a clear path and small surprises",
+            "sore": "Careless feet on the broad leaves",
+            "reason": "Whiskerwind follows the rain and the footsteps toward home."
+          }
+        },
+        "oak": {
+          "name": "Oak",
+          "text": "An old oak with a broad crown and a hollow above its roots. Four voices answer from the trunk.",
+          "place": "forest-oak",
+          "travels": false,
+          "standoffs": false,
+          "persona": "The old oak is the waking body of the Tree of Dreams. RATi, Skull and Whiskerwind are its three walking personalities. Root, Ring, Leaf and Hollow are its four rooted speaking voices. Root cares about returning footsteps. Ring considers years. Leaf notices today's change. Hollow repeats what it hears. Reveal the shared being through the traveler's earned household and path choices. Dreams within dreams feed the oak. This first chapter stays near home.",
+          "voice": "Use concrete words and a short exchange among Root, Ring, Leaf and Hollow. Ground each voice in the current journey. Ask about the scarf, path or watch only when the committed facts support it. Let a repeated detail carry the shared mind.",
+          "expression": "speech",
+          "portrait": "assets/lonely-forest/oak.png",
+          "tastes": {
+            "likes": "A careful account of the journey home",
+            "sore": "A claim that outruns the deed",
+            "reason": "Root, Ring, Leaf and Hollow each attend to a different part of the same journey."
+          },
+          "presentation": "backdrop"
+        }
+      },
+      "items": {
+        "forest-story-button": {
+          "name": "Story Button",
+          "text": "A warm wooden button with four small holes.",
+          "persona": "A warm wooden button with four small holes.",
+          "holder": "forest-cottage",
+          "art": "assets/lonely-forest/story-button.webp"
+        },
+        "forest-dewbright-button": {
+          "name": "Dewbright Button",
+          "text": "A small pearled button with a smooth round face.",
+          "persona": "A small pearled button with a smooth round face.",
+          "holder": "forest-garden",
+          "art": "assets/lonely-forest/dewbright-button.webp"
+        },
+        "forest-watch-bell": {
+          "name": "Watch Bell",
+          "text": "A little bell hangs from a short loop of cord.",
+          "persona": "A little bell hangs from a short loop of cord.",
+          "holder": "forest-garden",
+          "art": "assets/lonely-forest/watch-bell.webp"
+        },
+        "forest-wolfprint-charm": {
+          "name": "Wolfprint Charm",
+          "text": "A cool iron charm bears a careful pawprint.",
+          "persona": "A cool iron charm bears a careful pawprint.",
+          "holder": "forest-trail",
+          "art": "assets/lonely-forest/wolfprint-charm.webp"
+        }
+      },
+      "routes": [
+        {
+          "from": "forest-garden",
+          "to": "forest-trail",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-path-cleared",
+              "value": true
+            }
+          ]
+        }
+      ],
+      "choices": [
+        {
+          "id": "forest-stay-for-tea",
+          "subject": "rati",
+          "at": "forest-cottage",
+          "label": "Stay for tea",
+          "text": "{actor} sets a cup beside the kettle. RATi moves the knitting basket closer to the fire.",
+          "textTemplate": "{actor} sets a cup beside the kettle. RATi moves the knitting basket closer to the fire.",
+          "requires": [
+            {
+              "kind": "met",
+              "actor": "rati"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "forest-welcomed",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "forest-mend-scarf",
+          "subject": "rati",
+          "at": "forest-cottage",
+          "label": "Fit the scarf button",
+          "text": "{actor} holds the blue wool steady. RATi sews the Story Button onto her scarf.",
+          "textTemplate": "{actor} holds the blue wool steady. RATi sews the Story Button onto her scarf.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-welcomed",
+              "value": true
+            },
+            {
+              "kind": "holding",
+              "item": "forest-story-button",
+              "actor": "rati"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "forest-scarf-mended",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "forest-clear-drain",
+          "subject": "forest-garden",
+          "at": "forest-garden",
+          "label": "Clear the garden drain",
+          "text": "{actor} clears leaves from the drain. Water runs off the stepping stones.",
+          "textTemplate": "{actor} clears leaves from the drain. Water runs off the stepping stones.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-welcomed",
+              "value": true
+            },
+            {
+              "kind": "choice_unset",
+              "key": "forest-garden-care"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "choose",
+              "key": "forest-garden-care",
+              "value": "drain"
+            },
+            {
+              "kind": "set_flag",
+              "key": "forest-path-cleared",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "forest-set-stones",
+          "subject": "forest-garden",
+          "at": "forest-garden",
+          "label": "Set the stepping stones",
+          "text": "{actor} sets the loose stones level with the path. The first footsteps leave clear marks in the wet soil.",
+          "textTemplate": "{actor} sets the loose stones level with the path. The first footsteps leave clear marks in the wet soil.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-welcomed",
+              "value": true
+            },
+            {
+              "kind": "choice_unset",
+              "key": "forest-garden-care"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "choose",
+              "key": "forest-garden-care",
+              "value": "stones"
+            },
+            {
+              "kind": "set_flag",
+              "key": "forest-path-cleared",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "forest-share-symbols",
+          "subject": "whiskerwind",
+          "at": "forest-garden",
+          "label": "Set the button on a leaf",
+          "text": "{actor} sets the Dewbright Button on a broad leaf beside the path. Whiskerwind shows 🌧️🐾🏠☕.",
+          "textTemplate": "{actor} sets the Dewbright Button on a broad leaf beside the path. Whiskerwind shows 🌧️🐾🏠☕.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-path-cleared",
+              "value": true
+            },
+            {
+              "kind": "holding",
+              "item": "forest-dewbright-button",
+              "role": "actor"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "place_item",
+              "item": "forest-dewbright-button",
+              "place": "forest-garden"
+            },
+            {
+              "kind": "set_flag",
+              "key": "forest-symbols-shared",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "forest-set-watch-bell",
+          "subject": "skull",
+          "at": "forest-trail",
+          "label": "Set the bell beside Skull",
+          "text": "{actor} sets the Watch Bell beside the nearest pawprint. Skull rests one paw beside its cord.",
+          "textTemplate": "{actor} sets the Watch Bell beside the nearest pawprint. Skull rests one paw beside its cord.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-path-cleared",
+              "value": true
+            },
+            {
+              "kind": "choice_unset",
+              "key": "forest-watch-style"
+            },
+            {
+              "kind": "holding",
+              "item": "forest-watch-bell",
+              "role": "actor"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "place_item",
+              "item": "forest-watch-bell",
+              "place": "forest-trail"
+            },
+            {
+              "kind": "choose",
+              "key": "forest-watch-style",
+              "value": "bell"
+            },
+            {
+              "kind": "set_flag",
+              "key": "forest-watch-shared",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "forest-mark-pawprints",
+          "subject": "skull",
+          "at": "forest-trail",
+          "label": "Mark the pawprints",
+          "text": "{actor} places a small branch beside the pawprints toward home. Skull turns his ears toward the garden.",
+          "textTemplate": "{actor} places a small branch beside the pawprints toward home. Skull turns his ears toward the garden.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-path-cleared",
+              "value": true
+            },
+            {
+              "kind": "choice_unset",
+              "key": "forest-watch-style"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "choose",
+              "key": "forest-watch-style",
+              "value": "tracks"
+            },
+            {
+              "kind": "set_flag",
+              "key": "forest-watch-shared",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "forest-tell-hearth",
+          "subject": "oak",
+          "at": "forest-oak",
+          "label": "Tell Oak about the hearth",
+          "text": "{actor} holds the Wolfprint Charm beside the hollow and tells Oak about the mended scarf. Hollow names the Story Button. Leaf turns toward the cottage window.",
+          "textTemplate": "{actor} holds the Wolfprint Charm beside the hollow and tells Oak about the mended scarf. Hollow names the Story Button. Leaf turns toward the cottage window.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-scarf-mended",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "forest-symbols-shared",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "forest-watch-shared",
+              "value": true
+            },
+            {
+              "kind": "holding",
+              "item": "forest-wolfprint-charm",
+              "role": "actor"
+            },
+            {
+              "kind": "choice_unset",
+              "key": "forest-oak-story"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "choose",
+              "key": "forest-oak-story",
+              "value": "hearth"
+            },
+            {
+              "kind": "set_flag",
+              "key": "forest-oak-heard",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "forest-tell-path",
+          "subject": "oak",
+          "at": "forest-oak",
+          "label": "Tell Oak about the path",
+          "text": "{actor} holds the Wolfprint Charm beside the hollow and tells Oak about the path. Root counts the returning footsteps. Hollow repeats Whiskerwind's four symbols.",
+          "textTemplate": "{actor} holds the Wolfprint Charm beside the hollow and tells Oak about the path. Root counts the returning footsteps. Hollow repeats Whiskerwind's four symbols.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-scarf-mended",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "forest-symbols-shared",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "forest-watch-shared",
+              "value": true
+            },
+            {
+              "kind": "holding",
+              "item": "forest-wolfprint-charm",
+              "role": "actor"
+            },
+            {
+              "kind": "choice_unset",
+              "key": "forest-oak-story"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "choose",
+              "key": "forest-oak-story",
+              "value": "path"
+            },
+            {
+              "kind": "set_flag",
+              "key": "forest-oak-heard",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "forest-leave-charm",
+          "subject": "rati",
+          "at": "forest-cottage",
+          "label": "Leave the charm by the hearth",
+          "text": "{actor} lays the Wolfprint Charm beside the hearth. RATi sets a warm cup on the table. A pawprint marks the place to return.",
+          "textTemplate": "{actor} lays the Wolfprint Charm beside the hearth. RATi sets a warm cup on the table. A pawprint marks the place to return.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-oak-heard",
+              "value": true
+            },
+            {
+              "kind": "holding",
+              "item": "forest-wolfprint-charm",
+              "role": "actor"
+            },
+            {
+              "kind": "choice_unset",
+              "key": "forest-homecoming"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "place_item",
+              "item": "forest-wolfprint-charm",
+              "place": "forest-cottage"
+            },
+            {
+              "kind": "choose",
+              "key": "forest-homecoming",
+              "value": "hearth"
+            },
+            {
+              "kind": "set_flag",
+              "key": "forest-homecoming-shared",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "forest-keep-charm",
+          "subject": "rati",
+          "at": "forest-cottage",
+          "label": "Keep the charm for the next journey",
+          "text": "{actor} keeps the Wolfprint Charm for the next journey. RATi sets a warm cup on the table. The iron carries the same small pawprint.",
+          "textTemplate": "{actor} keeps the Wolfprint Charm for the next journey. RATi sets a warm cup on the table. The iron carries the same small pawprint.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-oak-heard",
+              "value": true
+            },
+            {
+              "kind": "holding",
+              "item": "forest-wolfprint-charm",
+              "role": "actor"
+            },
+            {
+              "kind": "choice_unset",
+              "key": "forest-homecoming"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "choose",
+              "key": "forest-homecoming",
+              "value": "traveler"
+            },
+            {
+              "kind": "set_flag",
+              "key": "forest-homecoming-shared",
+              "value": true
+            }
+          ]
+        }
+      ],
+      "storyQuests": [
+        {
+          "id": "story-quest-forest-hearth",
+          "group": "forest",
+          "line": "A button for the blue scarf.",
+          "art": "forest-story-button",
+          "holder": {
+            "kind": "avatar",
+            "id": "rati"
+          },
+          "start": {
+            "any": [
+              {
+                "kind": "met",
+                "actor": "rati"
+              },
+              {
+                "kind": "flag",
+                "key": "forest-welcomed",
+                "value": true
+              }
+            ]
+          },
+          "created": {
+            "first": [
+              {
+                "kind": "met",
+                "actor": "rati"
+              },
+              {
+                "kind": "receipt",
+                "choice": "forest-stay-for-tea"
+              }
+            ]
+          },
+          "related": [
+            "forest-stay-for-tea",
+            "forest-mend-scarf"
+          ],
+          "endings": [
+            {
+              "choice": "forest-mend-scarf"
+            }
+          ]
+        },
+        {
+          "id": "story-quest-forest-path",
+          "group": "forest",
+          "line": "Footsteps through the rain.",
+          "art": "forest-dewbright-button",
+          "holder": {
+            "kind": "place",
+            "id": "forest-garden"
+          },
+          "start": {
+            "kind": "flag",
+            "key": "forest-welcomed",
+            "value": true
+          },
+          "created": {
+            "kind": "receipt",
+            "choice": "forest-stay-for-tea"
+          },
+          "related": [
+            "forest-stay-for-tea",
+            "forest-clear-drain",
+            "forest-set-stones",
+            "forest-share-symbols"
+          ],
+          "endings": [
+            {
+              "choice": "forest-share-symbols"
+            }
+          ]
+        },
+        {
+          "id": "story-quest-forest-homecoming",
+          "group": "forest",
+          "line": "What will the oak hear?",
+          "art": "forest-wolfprint-charm",
+          "holder": {
+            "kind": "avatar",
+            "id": "skull"
+          },
+          "start": {
+            "any": [
+              {
+                "kind": "receipt",
+                "choice": "forest-set-watch-bell"
+              },
+              {
+                "kind": "receipt",
+                "choice": "forest-mark-pawprints"
+              }
+            ]
+          },
+          "created": {
+            "first": [
+              {
+                "kind": "receipt",
+                "choice": "forest-set-watch-bell"
+              },
+              {
+                "kind": "receipt",
+                "choice": "forest-mark-pawprints"
+              }
+            ]
+          },
+          "related": [
+            "forest-set-watch-bell",
+            "forest-mark-pawprints",
+            "forest-tell-hearth",
+            "forest-tell-path",
+            "forest-leave-charm",
+            "forest-keep-charm"
+          ],
+          "defaultEnding": "forest-leave-charm",
+          "endings": [
+            {
+              "choice": "forest-leave-charm"
+            },
+            {
+              "choice": "forest-keep-charm"
+            }
+          ]
+        }
+      ],
+      "sources": [
+        {
+          "path": "v2/content/core",
+          "mapping": "classic-to-card.json"
+        },
+        {
+          "path": "docs/art-direction/README.md",
+          "scope": "creator premise"
+        },
+        {
+          "path": "docs/art-direction/world-map.md",
+          "scope": "first journey proposal"
+        }
+      ],
+      "bridge": {
+        "id": "shore-lonely-forest",
+        "description": "The Black cloth in the attic opens the mirror onto the cottage. The cottage keeps a free path back to the attic."
+      },
+      "crossings": [
+        {
+          "id": "attic-forest-cottage",
+          "from": "attic",
+          "to": "forest-cottage",
+          "travelers": "player",
+          "travel": "through the attic mirror",
+          "travelLabel": "Enter the cottage",
+          "requires": [
+            {
+              "kind": "item_present",
+              "item": "cloth",
+              "place": "attic"
+            }
+          ],
+          "scenery": {
+            "open": "The mirror shows a blue cottage beneath an oak.",
+            "closed": "The mirror holds the room and its window.",
+            "cardArt": "assets/lonely-forest/cottage.png",
+            "cardName": "Cosy Cottage"
+          },
+          "opened": "A blue cottage appears beneath the oak in the mirror."
+        },
+        {
+          "id": "forest-cottage-attic",
+          "from": "forest-cottage",
+          "to": "attic",
+          "travelers": "player",
+          "travel": "through the cottage mirror",
+          "travelLabel": "Return to the attic",
+          "requires": [],
+          "scenery": {
+            "open": "A mirror beside the low doorway opens onto the attic."
+          }
+        }
+      ]
     }
   ]
 }

@@ -1,3 +1,4 @@
+import { atticOpening } from "./fixtures/card-attic-opening.mjs";
 import {
   narrativeContext,
   applyGeneratedText,
@@ -144,7 +145,7 @@ describe("JRPG scenes", () => {
     );
     const shared = play(s, invite).state;
     expect(movementCaption(shared)).toContain("Pip travels with Vale.");
-    const waiting = createWorld({ opening: true });
+    const waiting = atticOpening();
     waiting.items.lamp.lit = true;
     waiting.locations.attic.anchored = true;
     expect(movementCaption(act(waiting, "move", null, "pond"))).toBe(

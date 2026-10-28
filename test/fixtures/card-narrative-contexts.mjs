@@ -1,3 +1,4 @@
+import { atticOpening } from "./card-attic-opening.mjs";
 import { openingFixture } from "../helpers/greek-opening.mjs";
 import {
   createWorld,
@@ -54,7 +55,7 @@ export function narrativeContractCases() {
   const covered = playCard(echoed, "cover", "cloth", "bell");
   const secondRing = playCard(echoed, "ring", "bell");
   const clearing = playCard(secondRing, "move", null, "clearing");
-  const opening = enableMotives(createWorld({ opening: true }), {
+  const opening = enableMotives(atticOpening(), {
     questPrograms: true,
   });
   const lit = playCard(opening, "light", "lamp");
@@ -68,8 +69,7 @@ export function narrativeContractCases() {
   const ship = playCard(secondCover, "take", "cloth");
   const aboard = playCard(ship, "move", null, "greek-ship");
   const harbor = playCard(aboard, "move", null, "greek-harbor");
-  const road = playCard(harbor, "move", null, "greek-road-thebes");
-  const courtyard = playCard(road, "move", null, "greek-courtyard");
+  const courtyard = playCard(harbor, "move", null, "greek-courtyard");
   const gate = playCard(courtyard, "move", null, "greek-gate");
   const choose = (world, choiceId) => {
     const action = legalActions(world).find((a) => a.choiceId === choiceId);
@@ -104,6 +104,7 @@ export function narrativeContractCases() {
     ["Steam Clock return bell", playCard(clearing, "ring", null, "clearing")],
     ["Greek harbor crossing", harbor],
     ["Theban gate cast", gate],
+    ["Theban decree through Talk", playCard(gate, "talk", null, "greek-guard")],
     ["Theban refusal", refused],
     ["Helen history choice", egypt],
     ["Helen in Egypt", helen],

@@ -1,6 +1,8 @@
 #[cfg(test)]
 mod boardy_tests;
 mod engine;
+#[cfg(test)]
+mod forest_tests;
 pub(crate) const RULES_VERSION: &str = engine::VERSION;
 mod full;
 mod full_speech;
@@ -11,6 +13,8 @@ mod full_world;
 #[cfg(test)]
 mod homecoming_tests;
 mod kernel;
+#[cfg(test)]
+mod quest_core_tests;
 #[cfg(test)]
 mod section_tests;
 #[cfg(test)]
@@ -23,6 +27,8 @@ mod tests;
 mod travel_tests;
 #[cfg(test)]
 mod weather_tests;
+#[cfg(test)]
+mod willows_tests;
 
 use crate::AppState;
 use axum::{

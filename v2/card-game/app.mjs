@@ -1,10 +1,12 @@
 import { imageUrl } from "./images.mjs";
-import { flipStagePortrait } from "./portrait-facing.mjs";
+import { landingPack, createLandingWorld } from "./pack-landing.mjs";
+import { flipStagePortrait, portraitFraming } from "./portrait-facing.mjs";
 import { installSceneVideo } from "./scene-video.mjs";
 import { locationWeather } from "./weather.mjs";
 import { locationDaylight } from "./daylight.mjs";
 import { renderWeather } from "./weather-view.mjs";
 import { installToolbar, renderPlayers } from "./toolbar.mjs";
+import { expressionLabel, expressionOf } from "./expression.mjs";
 import {
   connectSharedWorld,
   createSharedPlaybackClock,
@@ -17,10 +19,12 @@ import {
   humanAvatars,
 } from "./shared.mjs";
 import { enableMotives } from "./motives.mjs";
-import { createNarrator } from "./narrative.mjs";
+import { createNarrator, requestNarrative } from "./narrative.mjs";
 import { packMedia } from "./pack-registry.mjs";
 import { createRoomMusic } from "./music.mjs";
 import { createCharacterSpeech } from "./character-speech.mjs";
+import { localRuntime } from "./local-service.mjs";
+import { createLocalBackups, installBackupControls } from "./local-saves.mjs";
 import {
   createTextReveal,
   createSpeechSounds,
@@ -35,7 +39,6 @@ import {
   people,
   things,
   nameOf,
-  createWorld,
   addLog,
   covered,
   shining,
@@ -81,6 +84,7 @@ import {
 } from "./quest-cards.mjs";
 const $ = (id) => document.getElementById(id);
 const tableName = new URLSearchParams(window.location.search).get("table");
+const startingPack = landingPack(window.location.href);
 const sharedWorldId = new URLSearchParams(location.search).get("world");
 const sharedSession = sharedWorldId
   ? await connectSharedWorld(sharedWorldId)
@@ -92,10 +96,12 @@ const SAVE_KEY =
     ? `.shared.${sharedWorldId}.${sharedSession.state.actor}`
     : tableName && /^[a-z0-9-]{1,40}$/i.test(tableName)
       ? `.${tableName}`
-      : "");
+      : startingPack
+        ? `.pack.${startingPack.id}`
+        : "");
 let world = sharedSession
     ? { ...sharedSession.state.world, playerActorId: sharedSession.state.actor }
-    : enableMotives(createWorld({ opening: true }), {
+    : enableMotives(createLandingWorld(startingPack), {
         questPrograms: true,
         personalQuests: true,
       }),
@@ -150,7 +156,16 @@ function notice(text) {
   $("notice").textContent = text;
   $("notice").hidden = !text;
 }
+const localBackups =
+  localRuntime()?.backups && !sharedSession
+    ? createLocalBackups({
+        slot: SAVE_KEY,
+        validate: decodeSave,
+        onError: notice,
+      })
+    : null;
 try {
+  await localBackups?.restore();
   const saved = sharedSession ? null : localStorage.getItem(SAVE_KEY);
   if (saved)
     world = enableMotives(decodeSave(saved), {
@@ -263,12 +278,25 @@ loadQuestSeen();
 function save() {
   if (saveBlocked || sharedSession) return;
   try {
-    localStorage.setItem(SAVE_KEY, encodeSave(world));
+    const encoded = encodeSave(world);
+    localStorage.setItem(SAVE_KEY, encoded);
+    void localBackups?.queue(encoded);
   } catch {
     notice(
       "This browser could not save the world. Keep this tab open to keep playing.",
     );
   }
+}
+if (localBackups) {
+  installBackupControls({
+    slot: SAVE_KEY,
+    backups: localBackups,
+    getSave: () => encodeSave(world),
+    validate: decodeSave,
+  });
+  window.addEventListener("pagehide", () => {
+    void localBackups.flush();
+  });
 }
 let storyStatus = "ready",
   storyRetrying = false,
@@ -276,6 +304,7 @@ let storyStatus = "ready",
   renderedHand = "",
   renderedHandRevision = null,
   renderedHandPlace = null,
+  renderedHandState = null,
   renderedQuest = null,
   actionPanelMotion = null,
   speechKey = null,
@@ -418,7 +447,11 @@ const exchange = createExchange({
     if (!value) {
       pendingSpeaker = null;
       renderScene();
-      queueMicrotask(showQuestNotice);
+      queueMicrotask(() => {
+        if (availableCards(world).some((id) => !encountered.has(id)))
+          queueDiscoveries();
+        else void showQuestNotice();
+      });
     }
   },
 });
@@ -493,7 +526,11 @@ function updateSpeechControls(complete) {
 const reveal = createTextReveal({
   reduced: () => reducedMotion.matches,
   sound: (...args) => {
-    if (!document.hidden && !characterSpeech.speaks(args[0]))
+    if (
+      !document.hidden &&
+      expressionOf(people[args[0]]) === "speech" &&
+      !characterSpeech.speaks(args[0])
+    )
       speechSounds.syllable(...args);
   },
   frame: (value) => {
@@ -533,8 +570,10 @@ const reveal = createTextReveal({
       });
     }
     if (value.complete) {
-      $("speech-announcement").textContent =
-        `${nameOf(value.speaker)}: ${value.text}`;
+      $("speech-announcement").textContent = expressionLabel(
+        { ...people[value.speaker], name: nameOf(value.speaker) },
+        value.text,
+      );
       updateSpeechControls(true);
       completedSpeech.add(value.key);
       if (completedSpeech.size > 100)
@@ -684,14 +723,29 @@ window.addEventListener("pagehide", () => music.setHidden(true));
 window.addEventListener("pageshow", () => music.setHidden(document.hidden));
 const narrator = createNarrator({
   getWorld: () => world,
+  early: Boolean(localRuntime()),
+  request: localRuntime()
+    ? (context, signal, progress) =>
+        requestNarrative(context, signal, progress, "/card-game/text", true)
+    : undefined,
+  reflect: localRuntime()
+    ? (context, signal) =>
+        requestNarrative(context, signal, () => {}, "/card-game/reflections")
+    : null,
   started: (context) => {
+    if (localRuntime()) characterSpeech.clear();
     pendingSpeaker = context.speakers[0] || null;
     renderScene();
   },
-  apply: (next) => {
+  apply: (next, { pending = false, reflection = false } = {}) => {
+    queueQuestCompletions(world, next);
     world = next;
-    storyStatus = "ready";
     save();
+    if (reflection) {
+      render();
+      return;
+    }
+    storyStatus = pending ? "pending" : "ready";
     const lines = world.log.filter(
       (entry) =>
         entry.generated &&
@@ -699,7 +753,12 @@ const narrator = createNarrator({
         entry.turn === world.turn &&
         entry.locationId === world.actors[currentActor(world)].place,
     );
-    exchange.load(lines);
+    if (localRuntime() && lines.length) {
+      const line =
+        lines.find((entry) => entry.seq !== exchange.current?.seq) || lines[0];
+      characterSpeech.prefetch(line.actorId, line.text);
+    }
+    exchange.load(lines, { pending });
     render();
   },
   status: (value) => {
@@ -1920,6 +1979,7 @@ function renderScene() {
     const { id } = actor;
     const figure = $("cast").children[index];
     figure.dataset.depth = actor.depth;
+    figure.dataset.framing = portraitFraming(actor.cutout);
     figure.dataset.facing = actor.facing;
     figure.dataset.gaze = actor.gazeTargetId || "";
     figure.dataset.pose = actor.pose;
@@ -2081,7 +2141,9 @@ function renderScene() {
     reveal.cancel();
     completedSpokenLine = null;
     speechSounds.stop();
-    characterSpeech.clear();
+    characterSpeech.clear({
+      keepPrefetch: Boolean(localRuntime() && exchange.preparing),
+    });
     speechKey = null;
     $("dialogue-text").replaceChildren();
     $("speech-announcement").textContent = "";
@@ -2226,14 +2288,21 @@ function render() {
       expandedHolders.add(id);
   }
   const questKey = JSON.stringify([
-    shownQuests(),
+    [...visibleQuestKeys.values()],
     completedQuests.map((quest) => quest.key),
     [...questRead],
     [...expandedQuestHolders],
   ]);
+  const handCards = questHand(world, personalNotice());
+  // Published speech can unlock cards and plays during the current turn.
+  const handState = JSON.stringify([
+    handCards,
+    legalActions(world).map((action) => action.key),
+  ]);
   const handKey = JSON.stringify([
     questKey,
     world.revision,
+    handState,
     selected,
     [...expandedHolders],
     [...fresh],
@@ -2243,10 +2312,12 @@ function render() {
     const sameWorld =
         renderedHand &&
         renderedHandRevision === world.revision &&
+        renderedHandState === handState &&
         renderedQuest === questKey,
       samePlace =
         renderedHand &&
         renderedHandPlace === world.actors[currentActor(world)].place,
+      arriving = renderedHandPlace !== null && !samePlace,
       animate = samePlace && !reducedMotion.matches,
       before = new Map();
     if (animate)
@@ -2265,14 +2336,13 @@ function render() {
     renderedQuest = questKey;
     renderedHandRevision = world.revision;
     renderedHandPlace = world.actors[currentActor(world)].place;
+    renderedHandState = handState;
     if (sameWorld)
       for (const frame of $("hand").children) updateCardSelection(frame);
-    else
-      $("hand").replaceChildren(
-        ...questHand(world, personalNotice()).map(card),
-      );
+    else $("hand").replaceChildren(...handCards.map(card));
     $("hand").scrollLeft = samePlace ? scroll : 0;
     renderActions(animate);
+    if (arriving) revealHandCard(renderedHandPlace, true, true);
     if (animate)
       for (const frame of $("hand").children) {
         if (frame.hidden) continue;
@@ -2308,7 +2378,7 @@ function render() {
       ?.focus({ preventScroll: true });
   }
 }
-function revealHandCard(id, alignStart = false) {
+function revealHandCard(id, alignStart = false, instant = false) {
   const hand = $("hand"),
     frame = hand.querySelector(`[data-card="${id}"]`)?.closest(".card-frame");
   if (!frame || frame.hidden) return;
@@ -2324,7 +2394,7 @@ function revealHandCard(id, alignStart = false) {
         : hand.scrollLeft;
   hand.scrollTo({
     left: target,
-    behavior: reducedMotion.matches ? "instant" : "smooth",
+    behavior: instant || reducedMotion.matches ? "instant" : "smooth",
   });
 }
 new ResizeObserver(([entry]) => {
@@ -2503,7 +2573,7 @@ $("confirm-reset").onclick = () => {
   exchange.cancel();
   reveal.cancel();
   speechSounds.stop();
-  world = enableMotives(createWorld({ opening: true }), {
+  world = enableMotives(createLandingWorld(startingPack), {
     questPrograms: true,
     personalQuests: true,
   });
@@ -2572,7 +2642,9 @@ function resumeScene() {
     return;
   }
   if (!saveBlocked && world.opening && world.turn === 0 && !hasCurrentWords()) {
-    addLog(world, "Vale", "It's cold up here. I'll light the lamp.", {
+    addLog(world, "Vale", world.opening.version === 2
+      ? "The water is dark. I'll light the lamp."
+      : "It's cold up here. I'll light the lamp.", {
       actorId: currentActor(world),
       entityId: currentActor(world),
       kind: "dialogue",
@@ -2751,6 +2823,14 @@ installSharedControls({
   notice,
 });
 installToolbar({ session: sharedSession, getWorld: () => world });
+if (localRuntime()) {
+  for (const id of ["owned-worlds-button", "shared-worlds-button"]) {
+    const button = $(id);
+    if (button) button.hidden = true;
+  }
+  const hint = document.querySelector(".players-hint");
+  if (hint) hint.hidden = true;
+}
 installSceneVideo({
   getWorld: () => world,
   getScene: () => videoScene || currentScene(world),

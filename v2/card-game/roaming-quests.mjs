@@ -95,6 +95,8 @@ export function refreshRoamingQuest(world, actor, api) {
   archiveFamily(world, actor, state);
   state.afterSeq = latest.seq;
   state.target = clone(latest);
+  state.target.locationId =
+    api.canonicalPlace?.(latest.locationId) || latest.locationId;
   state.blocked = null;
   const quest = addQuestRecord(world, {
     holder: { kind: "avatar", id: actor },
@@ -103,11 +105,11 @@ export function refreshRoamingQuest(world, actor, api) {
     cause: { kind: "journey", rootId: latest.id },
     program: {
       id: `journey:${actor}:${latest.seq}`,
-      name: `Visit ${api.nameOf(latest.locationId)}`,
+      name: `Visit ${api.nameOf(state.target.locationId)}`,
       purpose: latest.actorId
         ? `Reach the place where ${api.nameOf(latest.actorId)} completed a quest.`
         : "Reach the recorded site of an earlier completed quest.",
-      steps: [{ items: [], avatars: [], location: latest.locationId }],
+      steps: [{ items: [], avatars: [], location: state.target.locationId }],
     },
   });
   state.questKey = quest?.key ?? null;

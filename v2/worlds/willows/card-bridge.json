@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "id": "greek-ship-willows",
+  "pack": "willows",
+  "description": "River mist beside the Greek ship's rail opens onto a small Danube island. The same mist keeps a path back to the deck.",
+  "values": {
+    "willows-swede": {
+      "lamp": 5,
+      "oil": 3,
+      "bell": 1,
+      "cloth": 6
+    }
+  },
+  "crossings": [
+    {
+      "id": "greek-ship-willows-landing",
+      "from": "greek-ship",
+      "to": "willows-landing",
+      "travelers": "player",
+      "travel": "through the river mist beside the rail",
+      "requires": [],
+      "scenery": {
+        "open": "River mist gathers beside the rail. Beyond it, a canoe rests on a sandy willow island.",
+        "cardArt": "assets/willows/landing.webp"
+      },
+      "travelLabel": "Visit the Willows"
+    },
+    {
+      "id": "willows-landing-greek-ship",
+      "from": "willows-landing",
+      "to": "greek-ship",
+      "travelers": "player",
+      "travel": "through the river mist to the ship",
+      "requires": [],
+      "scenery": {
+        "open": "Beyond the quiet backwater, river mist parts onto the Greek ship's deck."
+      },
+      "travelLabel": "Return to the ship"
+    }
+  ]
+}

@@ -16,6 +16,13 @@
       "file": "attic-road.webp",
       "prompt": "Use case: historical-scene. Asset type: wide 16:9 game location painting for CosyWorld. Primary request: a quiet ancient Greek road scene with two clear fixed directions, suitable for travelers to meet between settlements. A broad dusty stone-edged road passes horizontally through the open foreground, curving away gently to the left and right behind low stone walls. Olive groves and cypress on rolling Attic hills, a distant glimpse of blue sea and pale city walls on the horizon. Both ends of the road remain visually clear. A shaded stone resting bench at the edge, dry grasses, warm afternoon light. Ground-level viewpoint, generous open foreground for character sprites. Detailed painterly realism, warm ochre, olive green, blue sky. Landscape only, no people, lettering, sign text, interface, borders, cars or modern objects.",
       "sha256": "2e4c3f83653a90bbea9d4640b96fa3db979c1ea9c6fbdb5bee31f5bdeb3f7882"
+    },
+    {
+      "file": "athens-harbor-empty.webp",
+      "source": "athens-harbor.webp",
+      "prompt": "Edit the provided Athens Harbor painting into a matching empty-berth alternate for the same game scene. Preserve the exact camera, architecture, Acropolis, city walls, columns, gate, stone foreground quay, baskets, ropes, sunny blue sky, color palette, painterly realism, and landscape composition. Remove every vessel from the water, including the large foreground ship on the left and all smaller moored ships and boats in the background. Remove their masts, sails and ship rigging. Replace the removed ships and rigging with calm harbor water and the matching city buildings and stone quay that would be visible behind them. Keep the wooden shelter at the far left; it belongs to the quay. The main berth and water should look clearly empty, ready for the shared ship to arrive. No people, text, logos, or UI. This is a background painting, not a screenshot.",
+      "sha256": "b34bf1b84d8daaa93e7ebca73e706b97d2432f31bbf7751bdc731a3b0e498e67",
+      "date": "2026-10-28"
     }
   ]
 }

@@ -23,10 +23,10 @@ reloads and journal replay. Presence uses the usual reconnect grace.
 The online list shows names, levels, and connection status. Players discover
 each other's locations through encounters in the world.
 
-Boardy's calling card rests at Empty station. Its blue smile opens a door to
-**BoardyAI's Parlour** while the card is at the station or carried there by a
+Boardy's calling card rests at Black pond. Its blue smile opens a door to
+**BoardyAI's Parlour** while the card is at the pond or carried there by a
 present human. Take the card along for the trip. Two armchairs and a tea table
-wait inside. The parlour door leads back to Empty station.
+wait inside. The parlour door leads back to Black pond.
 
 The seven new humans start in their homes with their signature items on the floor.
 Picking up the item opens the path to Black pond. Putting it down closes that
@@ -189,7 +189,7 @@ Completing the active quest begins a rest at a place marked `sanctuary: true`.
 The station and attic are sanctuaries. Human rest counts that person's own turns
 in a shared world. Resident rest counts world rounds.
 
-The shared interpreter builder writes `engine-v11.js`. Earlier interpreters stay
+The shared interpreter builder writes `engine-v19.js`. Earlier interpreters stay
 frozen. Upgrade tests cover checkpoints, journal-only rebuilds, saved drops,
 quest hand limits, and completion receipts.
 
@@ -240,10 +240,9 @@ and show a scene error. Per-person and shared play budgets bound usage.
 | Orin   | Game-tile bridge                | Games pavilion                 |
 | Ada    | Open seam                       | Sail loft                      |
 
-A future Paris journey can depart from the existing station. Rue's carriage opens from
-the station while her route board is present there. Carrying the board inside
-the carriage opens the way back to the station. The saved crossing IDs stay
-stable across the version 5 upgrade; earlier journals retain their pond route.
+Rue's carriage opens beside the pond while her route board is present there.
+Carrying the board inside the carriage opens the way back to the pond. The
+saved crossing IDs remain stable. Empty station connects through Black pond.
 
 ## Folded belongings
 
@@ -267,11 +266,11 @@ wooden wheelchair; Ash has a broad build and a grey beard.
 
 ## A way out of a stranded home
 
-A narrow path to Empty station appears when a player in a home has no ordinary
+A narrow path to Black pond appears when a player in a home has no ordinary
 route and the room lacks the resources to reopen its gate. A belonging on the
 floor or carried by a present helper keeps its usual role. A fueled lamp can be
 lit or uncovered; a dry lamp can use oil available in the room. A belonging
-carried away or held by an absent player leaves the station path available.
+carried away or held by an absent player leaves the pond path available.
 Room capacity still applies to the destination.
 
 The same home-gate rule serves the attic and all seven visitor homes. Shared
@@ -291,8 +290,12 @@ Player views include their own thoughts, persona, dreams, reflection evidence
 and lessons. Other avatars supply public card text. This privacy check also
 applies when projecting a world that still uses an earlier interpreter.
 
-The current interpreter is `engine-v18.js`. Version 18 adds day and night ship
+The current interpreter is `engine-v19.js`. Version 19 adds the Hoppy Cat pack,
+the Willows island, source readings, learning from measured plays, the common
+quest core, and spoken knowledge.
+It also adds the forest chapter and pond opening. Version 18 keeps day and night ship
 views at Athens Harbor and Piraeus Quays, plus the painted Theban Harbor Road.
+Town travel keeps the older road IDs in saved memories and completed deeds.
 Version 17 keeps introduction quests, remembered sightings, and Boardy’s visits.
 Released versions 15, 16 and 17 keep their exact bytes for replay. Version 15 adds regional
 Greek weather and Thebes day and night views. Version 14 keeps BoardyAI, his
@@ -305,8 +308,7 @@ view. Earlier cached view events are replaced at that boundary.
 ## Greek ports and roads
 
 Shared rules version 16 adds Athens Harbor and Piraeus Quays to the Greek
-ship. Nine shared road scenes have two fixed ends. Destination cards name
-each end. An empty ship follows its circuit while a human waits at a port.
+ship. An empty ship follows its circuit while a human waits at a port.
 Resident passengers step ashore after arrival; a human aboard chooses the
 port before those companions leave the ship.
 
@@ -314,5 +316,50 @@ Greek pack revision 5 preserves positions, belongings, story choices and
 poems. It adds memories for the new port and roads, and expands earlier
 learned routes through their current road and ship scenes. Myrine's coast
 journey uses two Accompany plays. Versions 13, 14 and 15 keep their released
-bytes. The builder writes `engine-v16.js`; older journals replay with the
+bytes. The builder writes `engine-v19.js`; older journals replay with the
 recorded rules before the saved upgrade.
+
+Shared rules version 18 makes the harbor and Agora a direct local visit, and
+joins the Theban harbor directly to the courtyard. Seven roads connect the
+towns. Each road has two fixed ends, shown by destination cards. Earlier internal road IDs
+stay in saved history. Current visitors, belongings and unfinished purposes
+continue at a town endpoint. The migration uses the other endpoint when the
+port already holds four human avatars. Released versions 16 and 17 keep their exact bytes.
+
+## Learning from outcomes
+
+Shared rules version 19 records measured attempts for item and companionship
+goals. The same action chooser runs in the browser and the C interpreter. Each
+avatar's retained results set its action values. The chooser compares estimates
+and gives less-tried legal approaches room to establish a record. The authored
+rules define goals, legal actions and the reward measure.
+
+Each record retains the estimate made before the play, the action event, and
+observations before and after it. Delayed credit covers up to four linked plays;
+a changed situation or a completed goal ends that link. Saves and journal replay
+preserve the measured attempts, including exploration choices. Each player
+receives their own learning records through the existing private view.
+
+The builder writes `engine-v19.js`. Versions 2–18 keep their released bytes.
+Existing worlds receive an explicit saved upgrade before new plays use these
+rules. Earlier lessons remain readable; new completed plays establish the new
+estimates.
+
+## Quest core and spoken knowledge
+
+Shared rules version 19 uses common step capture and advancement for personal
+and shared quests. Each saved step keeps its evidence, source turn and card key.
+Repeated checks in one turn preserve the single-step and single-effect rules.
+
+Packs supply story cards and ordered endings through `storyQuests`. Greece uses
+this common evaluator, including its earlier choices, grave return, Open Door
+and Homecoming. Existing cards retain their keys, holders and completion turns.
+
+Talk may share one fact from an authored topic or the speaker's saved knowledge.
+The accepted line must contain the complete fact sentence. Publication records
+the listener, teller and original Talk event, then checks quest progress. A retry
+uses that saved exchange. The speech command carries its disclosure through the
+world journal, so checkpoint recovery and journal replay produce the same facts.
+
+Versions 2 through 17 retain their released interpreters. Loading an earlier
+world records an upgrade to version 18 with its prior progress and receipts.

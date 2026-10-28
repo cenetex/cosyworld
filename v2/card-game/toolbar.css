@@ -1,4 +1,11 @@
 /* One quiet frame keeps the scene controls together. */
+body.local-app #owned-worlds-button,
+body.local-app #shared-worlds-button {
+  display: none;
+}
+body.local-app #scene-video-button {
+  cursor: default;
+}
 .topbar .top-actions {
   width: auto;
   gap: 2px;

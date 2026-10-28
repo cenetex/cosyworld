@@ -4,6 +4,9 @@
 const groups = {
   right: [
     "assets/boardyai/boardyai.png",
+    ...["rati", "skull", "whiskerwind"].map(
+      (name) => `assets/lonely-forest/${name}.png`,
+    ),
     "assets/vale.png",
     "assets/keeper-right.png",
     ...["vale", "mara", "ash", "nell", "tavi", "rue", "orin", "ada"].map(
@@ -11,6 +14,7 @@ const groups = {
     ),
   ],
   left: [
+    "assets/willows/swede.webp",
     "assets/moth.png",
     "assets/keeper.png",
     "assets/greek-drama/myrine.webp",
@@ -43,6 +47,24 @@ const groups = {
     ].map((name) => `assets/greek-drama/open-door-${name}.webp`),
   ],
   front: [
+    "assets/hoppycat-archive/hoppycat-tapi-lilt-cutout.png",
+    "assets/hoppycat-archive/hoppycat-penny-vellum-cutout.png",
+    "assets/hoppycat-archive/hoppycat-rill-current-cutout.png",
+    "assets/hoppycat-archive/hoppycat-patch-fern-cutout.png",
+    "assets/hoppycat-archive/hoppycat-lumen-facet-cutout.png",
+    "assets/hoppycat-archive/hoppycat-mira-meraki-cutout.png",
+    "assets/hoppycat-archive/hoppycat-glim-twice-cutout.png",
+    "assets/hoppycat-archive/hoppycat-nix-fermata-cutout.png",
+    "assets/hoppycat-archive/hoppycat-hoppy-cat-cutout.png",
+    "assets/hoppycat-archive/hoppycat-fable-cutout.png",
+    "assets/hoppycat-archive/hoppycat-phase-two-cutout.png",
+    "assets/hoppycat-archive/hoppycat-arc-cutout.png",
+    "assets/hoppycat-archive/hoppycat-staticwashere-cutout.png",
+    "assets/hoppycat-archive/hoppycat-solwashere-cutout.png",
+    "assets/hoppycat-archive/hoppycat-ledger-opus-cutout.png",
+    "assets/hoppycat-archive/hoppycat-ledger-sonnet-cutout.png",
+
+    "assets/lonely-forest/oak.png",
     "assets/badger-forest/badger-sleeping.png",
     "assets/badger-forest/badger-grumpy.png",
   ],
@@ -60,3 +82,11 @@ export function flipStagePortrait(cutout, facing) {
   const native = nativePortraitFacing(cutout);
   return Boolean(native && native !== "front" && native !== facing);
 }
+
+// Broad animal silhouettes keep their whole face inside a narrow scene.
+const widePortraits = new Set([
+  "assets/lonely-forest/skull.png",
+  "assets/lonely-forest/whiskerwind.png",
+]);
+export const portraitFraming = (cutout) =>
+  widePortraits.has(cutout.replace(/^\.\//, "")) ? "wide" : "standard";

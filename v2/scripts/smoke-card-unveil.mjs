@@ -132,8 +132,8 @@ try {
       assert.equal(await page.locator("#unveil-dialog[open]").count(), 0);
       await selectCard(page, "lamp");
       await page.locator("#card-actions .card-primary").click();
-      await unveil("pond");
-      assert.equal((await state()).actors.vale.place, "attic");
+      await unveil("attic");
+      assert.equal((await state()).actors.vale.place, "pond");
       assert.equal(
         await page.locator('#hand [data-card="vale"]').isDisabled(),
         true,
@@ -177,18 +177,20 @@ try {
       await ready();
       assert.equal(
         await page
-          .locator('#hand [data-card="pond"]')
+          .locator('#hand [data-card="attic"]')
           .evaluate((el) => el.classList.contains("new")),
         true,
       );
       assert.equal(await page.locator(".action-panel").isVisible(), false);
-      await selectCard(page, "pond");
+      await selectCard(page, "attic");
       assert.equal(
         await page
-          .locator('#hand [data-card="pond"]')
+          .locator('#hand [data-card="attic"]')
           .evaluate((el) => el.classList.contains("new")),
         false,
       );
+      await page.keyboard.press("Escape");
+      await selectCard(page, "station");
       await page.locator("#card-actions .card-primary").click();
       if (motion !== "reduce") {
         await page.locator("#toolbar-menu-button").click();
@@ -197,7 +199,7 @@ try {
         assert.equal(await page.locator("#unveil-dialog[open]").count(), 0);
         await page.locator('[data-close="menu-dialog"]').click();
       }
-      await unveil("moth");
+      await unveil("keeper");
       assert.equal(
         await page
           .locator("#travel")
@@ -206,9 +208,9 @@ try {
       );
       assert.equal(await page.locator("#dialogue-text .revealed").count(), 0);
       await page.keyboard.press("Escape");
-      await unveil("cloth");
+      await unveil("oil");
       assert.equal(
-        await page.locator('#hand [data-card="cloth"]').isVisible(),
+        await page.locator('#hand [data-card="oil"]').isVisible(),
         false,
       );
       await page.locator("#unveil-take").click();
@@ -221,11 +223,11 @@ try {
       }));
       assert.equal(
         events.discoveries.filter((event) => !event.isQuest)[0].id,
-        "pond",
+        "attic",
       );
       assert(
-        events.discoveries.findIndex((e) => e.id === "moth") <
-          events.discoveries.findIndex((e) => e.id === "cloth"),
+        events.discoveries.findIndex((e) => e.id === "keeper") <
+          events.discoveries.findIndex((e) => e.id === "oil"),
       );
       assert(
         events.discoveries.every(
@@ -238,8 +240,8 @@ try {
       );
       if (motion === "reduce") assert.equal(events.flights.length, 0);
       else {
-        assert(events.flights.some((f) => f.id === "pond"));
-        assert(events.flights.some((f) => f.id === "cloth"));
+        assert(events.flights.some((f) => f.id === "attic"));
+        assert(events.flights.some((f) => f.id === "oil"));
         assert(
           events.flights
             .filter((f) => f.direction !== "fulfill")
@@ -260,7 +262,7 @@ try {
       await ready();
       await selectCard(page, "lamp");
       await page.locator("#card-actions .card-primary").click();
-      await unveil("pond");
+      await unveil("attic");
       await page.evaluate(
         ({ key, save }) => {
           localStorage.setItem(key, save);

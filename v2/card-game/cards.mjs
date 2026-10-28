@@ -1,6 +1,11 @@
 import { hasMotives, tradeDecision, interest } from "./motives.mjs";
 import { desireFor } from "./quests.mjs";
-import { entityActive, packThings } from "./pack-registry.mjs";
+import {
+  entityActive,
+  packThings,
+  packPlaces,
+  packDefinitions,
+} from "./pack-registry.mjs";
 import {
   currentActor,
   places,
@@ -33,16 +38,19 @@ export function availableCards(world) {
     items
       .filter((id) => world.items[id].holder === holder)
       .flatMap((id) => [id, ...after(id)]);
+  const destinations = exits(world, here, player).filter(
+    (place) =>
+      !world.presentActors ||
+      world.presentActors.filter((id) => world.actors[id]?.place === place)
+        .length < 4,
+  );
+  const road = packPlaces[here]?.road;
   return [
+    ...cast.flatMap((id) => [id, ...after(id)]),
+    ...(road && destinations.includes(road[0]) ? [road[0]] : []),
     here,
     ...after(here),
-    ...cast.flatMap((id) => [id, ...after(id)]),
-    ...exits(world, here, currentActor(world)).filter(
-      (place) =>
-        !world.presentActors ||
-        world.presentActors.filter((id) => world.actors[id]?.place === place)
-          .length < 4,
-    ),
+    ...destinations.filter((id) => !road || id !== road[0]),
   ];
 }
 export function cardType(id) {
@@ -66,8 +74,18 @@ export function avatarPlays(world, id) {
 }
 export function cardChoices(world, id) {
   if (!availableCards(world).includes(id)) return [];
+  const spokenChoices = new Set(
+    packDefinitions.flatMap((pack) =>
+      (pack.topics || []).flatMap((topic) =>
+        topic.choiceId ? [topic.choiceId] : [],
+      ),
+    ),
+  );
   return legalActions(world).filter(
-    (a) => a.target === id && (a.kind === "choose" || Boolean(a.fixture)),
+    (a) =>
+      a.target === id &&
+      (a.kind === "choose" || Boolean(a.fixture)) &&
+      !spokenChoices.has(a.choiceId),
   );
 }
 

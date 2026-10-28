@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 
 // Bump the release version across every file that must stay aligned, in one
-// step. The root package.json version is the source of truth for CI's version
-// guard, and content_registry pins CARGO_PKG_VERSION to it at test time, so a
-// PR must move all four files together or the Rust suite fails late.
+// step. The root package.json version is shared by the web game, local game
+// helper, and Mac shell. Both Cargo manifests and lock files move with it.
 //
 // Usage:
 //   npm run version:bump            # patch bump (1.0.84 -> 1.0.85)
@@ -96,6 +95,16 @@ function bumpRustFiles(version) {
     return false;
   }
   writeFileSync(lock, lockUpdated);
+  const desktopManifest = path.join(repoRoot, 'v2/desktop/src-tauri/Cargo.toml');
+  const desktopLock = path.join(repoRoot, 'v2/desktop/src-tauri/Cargo.lock');
+  writeFileSync(desktopManifest, readFileSync(desktopManifest, 'utf8').replace(
+    /^(\[package\][^[]*?^version = )"[^"]+"/ms,
+    `$1"${version}"`
+  ));
+  writeFileSync(desktopLock, readFileSync(desktopLock, 'utf8').replace(
+    /(name = "cosyworld-desktop"\nversion = )"[^"]+"/,
+    `$1"${version}"`
+  ));
   return true;
 }
 
@@ -120,4 +129,4 @@ if (!bumpPackageFiles(version) || !bumpRustFiles(version)) {
 
 console.log(`[version:bump] ${from} -> ${version}`);
 console.log('[version:bump] updated: package.json, package-lock.json,');
-console.log('[version:bump]          v2/orchestrator-rust/Cargo.toml, v2/orchestrator-rust/Cargo.lock');
+console.log('[version:bump]          game and desktop Cargo.toml and Cargo.lock');

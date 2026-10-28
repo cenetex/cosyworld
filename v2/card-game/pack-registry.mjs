@@ -13,7 +13,11 @@ import {
   humanPresent,
   sharedEnabled,
 } from "./human-cast.mjs";
-import { packProblems, observationProblems } from "./pack-schema.mjs";
+import {
+  packProblems,
+  observationProblems,
+  packCompositionProblems,
+} from "./pack-schema.mjs";
 import { conditionMet as evaluateCondition } from "./pack-rules.mjs";
 const owns = (o, key) =>
   typeof key === "string" && !!o && Object.hasOwn(o, key);
@@ -89,6 +93,11 @@ export const packDefinitions = [
   validatePackDefinition(humanHomePack),
   validatePackDefinition(boardyPack),
 ];
+const compositionProblems = packCompositionProblems(packDefinitions);
+if (compositionProblems.length)
+  throw new Error(
+    `Invalid card world composition: ${compositionProblems.join("; ")}`,
+  );
 export const packDefinition = (id) =>
   packDefinitions.find((p) => p.id === id) || null;
 
@@ -102,6 +111,19 @@ const merge = (field) =>
     ),
   );
 export const packPlaces = merge("places");
+// Earlier road IDs remain available to saved history. A direct local link
+// joins their two ends into the town's ordinary paths.
+const localRoads = new Map(
+  Object.entries(packPlaces)
+    .filter(([, place]) =>
+      place.road?.every((end, i) =>
+        packPlaces[end]?.exits.includes(place.road[1 - i]),
+      ),
+    )
+    .map(([id, place]) => [id, place.road]),
+);
+export const localRoadEnds = (id) => localRoads.get(id) || null;
+export const canonicalPlace = (id) => localRoadEnds(id)?.[0] || id;
 export const transports = merge("transports");
 export const packPeople = merge("avatars");
 export const packFixtures = merge("fixtures");
@@ -169,7 +191,13 @@ export const packProfiles = Object.fromEntries([
   ]),
   ...Object.entries(packPeople).map(([id, a]) => [
     id,
-    { kind: "avatar", name: a.name, persona: a.persona, voice: a.voice },
+    {
+      kind: "avatar",
+      name: a.name,
+      persona: a.persona,
+      voice: a.voice,
+      ...(a.expression ? { expression: a.expression } : {}),
+    },
   ]),
 ]);
 
@@ -256,6 +284,7 @@ export function entityActive(world, id) {
   return entityEnabled(world, id);
 }
 function entityEnabled(world, id, saved = false) {
+  if (localRoads.has(id)) return false;
   const e = packEntity(id);
   if (!e) return true;
   const pack = packDefinition(e.packId),
@@ -308,6 +337,9 @@ export function actorCanVisit(actor, place, world = null) {
   if (a ? destination?.packId === a.packId : !destination) return true;
   const home = a?.packId ?? null,
     target = destination?.packId ?? null;
+  if (crossings.some((crossing) => crossing.travelers === "any" &&
+    (packPlaces[crossing.from]?.packId ?? null) === home &&
+    (packPlaces[crossing.to]?.packId ?? null) === target)) return true;
   return Object.entries(transports).some(([id, t]) => {
     const domains = t.docks.map((dock) => packPlaces[dock]?.packId ?? null);
     return (
@@ -417,6 +449,26 @@ export function packFacts(world, id) {
     .sort((a, b) => state.receipts[a.id] - state.receipts[b.id])
     .slice(-3)
     .map((c) => committedChoiceText(world, pack, c).slice(0, 240));
+}
+// Source text enters a resident's knowledge through saved story receipts.
+export function packReadings(world, actor) {
+  const pack = packOf(actor);
+  const state = pack && world.packs?.[pack.id];
+  if (!state) return [];
+  return (pack.readings || [])
+    .filter(
+      (r) =>
+        r.actor === actor &&
+        (r.after === null
+          ? pack.crossings.some(
+              (c) => pack.places[c.to] && world.crossings[c.id]?.discovered,
+            )
+          : Object.hasOwn(state.receipts || {}, r.after)),
+    )
+    .map((r) => ({
+      id: r.id,
+      turn: r.after === null ? 0 : state.receipts[r.after],
+    }));
 }
 export function packSceneFacts(world, location) {
   const e = packEntity(location);

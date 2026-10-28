@@ -4,6 +4,10 @@ mod streaming;
 #[path = "ai_registry.rs"]
 mod registry;
 
+#[cfg(feature = "embedded-llama")]
+#[path = "card_llama.rs"]
+pub(crate) mod llama;
+
 use super::{
     compact_whitespace, AppState, GeneratedPathwayState, GeneratedWaypointState, LocationMeta,
     NaturalPotentialPolicy,
@@ -1376,6 +1380,10 @@ async fn request_chat_completion_progress(
         .pin_model(request.capability)
         .map_err(|error| AiGatewayError::registry(request.feature, error))?;
     let raw_mode = selection.uses_raw_prompt_adapter();
+    #[cfg(feature = "embedded-llama")]
+    if config.base_url == "embedded://llama" {
+        return llama::complete(request, selection.requested_model_id()).await;
+    }
     request_completion(
         config,
         request.feature,
@@ -4072,7 +4080,8 @@ fn retry_delay(attempt: u8) -> Duration {
 }
 
 pub(crate) fn local_ai_base_url(base_url: &str) -> bool {
-    base_url.starts_with("http://127.0.0.1:")
+    base_url == "embedded://llama"
+        || base_url.starts_with("http://127.0.0.1:")
         || base_url.starts_with("http://localhost:")
         || base_url.starts_with("http://[::1]:")
 }
@@ -4085,7 +4094,9 @@ pub(crate) fn ai_provider_name(config: Option<&AiConfig>) -> &'static str {
 }
 
 fn ai_provider_name_for_base_url(base_url: &str) -> &'static str {
-    if base_url.contains("openrouter.ai") {
+    if base_url == "embedded://llama" {
+        "embedded_llama"
+    } else if base_url.contains("openrouter.ai") {
         "openrouter"
     } else if base_url.contains("api.openai.com") {
         "openai"

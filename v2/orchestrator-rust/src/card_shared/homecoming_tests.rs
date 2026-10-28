@@ -30,12 +30,20 @@ fn play(
             }
         }
     }
-    let action = world.project(actor).unwrap()["actions"]
+    let step = format!(
+        "{} turn {} actor {actor} at {} playing {fields:?}",
+        world.version,
+        world.game["turn"],
+        world.room(actor).unwrap()
+    );
+    let action = world
+        .project(actor)
+        .unwrap_or_else(|error| panic!("Project {step}: {error}"))["actions"]
         .as_array()
         .unwrap()
         .iter()
         .find(|a| fields.iter().all(|(key, value)| a[key] == *value))
-        .unwrap_or_else(|| panic!("Missing {fields:?} for actor {actor}"))
+        .unwrap_or_else(|| panic!("Missing card for {step}"))
         .clone();
     full_store::commit(
         c,
@@ -44,7 +52,7 @@ fn play(
         json!({"op":"play", "actor":if actor == 0 {"vale"} else {"mara"}, "action":action}),
         now(),
     )
-    .unwrap();
+    .unwrap_or_else(|error| panic!("Commit {step}: {error}"));
     action
 }
 

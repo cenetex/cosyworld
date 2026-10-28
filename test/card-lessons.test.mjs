@@ -1,3 +1,4 @@
+import { atticOpening } from "./fixtures/card-attic-opening.mjs";
 import { describe, expect, it } from "vitest";
 import { createWorld, play } from "../v2/card-game/world.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
@@ -5,7 +6,7 @@ import { cardPlay } from "../v2/card-game/cards.mjs";
 import { nextLesson } from "../v2/card-game/lessons.mjs";
 
 const start = () =>
-  enableMotives(createWorld({ opening: true }), { questPrograms: true });
+  enableMotives(atticOpening(), { questPrograms: true });
 function cards(s, ...ids) {
   const action = cardPlay(s, ids).action;
   expect(action, ids.join(" + ")).toBeTruthy();

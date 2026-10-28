@@ -1,8 +1,49 @@
 // The closed vocabulary for card-table world packs and their bridges.
 // The build script and the browser registry both use this one validator, so
 // an authored pack either loads exactly as checked or does not load at all.
+import { storyQuestProblems } from "./pack-story-schema.mjs";
+import { validFactText } from "./knowledge.mjs";
+
+import { EXPRESSION_TYPES } from "./expression.mjs";
 
 export const PACK_SCHEMA_VERSION = 1;
+export const AUTHORED_TOPIC_LIMIT = 128;
+
+// Mounted packs keep distinct public identities. The topic budget leaves room
+// for witnessed events in the shared knowledge store.
+export function packCompositionProblems(packs) {
+  const problems = [],
+    seen = new Map(),
+    families = new Map();
+  let count = 0;
+  for (const pack of packs) {
+    const stories = Array.isArray(pack?.storyQuests) ? pack.storyQuests : [];
+    for (const id of new Set(stories.map((story) => story?.id))) {
+      if (typeof id !== "string") continue;
+      if (families.has(id))
+        problems.push(
+          `${pack.id}: story family ${id} is also defined by ${families.get(id)}`,
+        );
+      else families.set(id, pack.id);
+    }
+    if (!Array.isArray(pack?.topics)) continue;
+    for (const topic of pack.topics) {
+      count += 1;
+      if (typeof topic?.id !== "string") continue;
+      if (seen.has(topic.id))
+        problems.push(
+          `${pack.id}: topic ${topic.id} is also defined by ${seen.get(topic.id)}`,
+        );
+      else seen.set(topic.id, pack.id);
+    }
+  }
+  if (count > AUTHORED_TOPIC_LIMIT)
+    problems.push(
+      `mounted packs have ${count} topics; the shared limit is ${AUTHORED_TOPIC_LIMIT}`,
+    );
+  return problems;
+}
+export const topicCompositionProblems = packCompositionProblems;
 // Resolved plays a signal step can match. Each is a verb the engine logs.
 export const SIGNAL_VERBS = [
   "ring",
@@ -27,10 +68,12 @@ export const CONDITION_KINDS = [
   "flag",
   "holding",
   "item_at",
+  "item_present",
   "item_near",
   "shared_world",
   "connected_humans",
   "met",
+  "knows",
 ];
 export const TRAVELERS = ["player", "any"];
 export const VARIANTS = ["asleep", "awake", "irritated"];
@@ -171,6 +214,9 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       "observations",
       "transports",
       "recital",
+      "readings",
+      "storyQuests",
+      "topics",
     ]),
     "has an unknown top-level field",
   );
@@ -215,6 +261,8 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     ["choices", 256],
     ["works", 128],
     ["crossings", 32],
+    ["storyQuests", 128],
+    ["topics", 128],
   ])
     if (
       pack[key] !== undefined &&
@@ -430,6 +478,8 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "standoffs",
         "persona",
         "voice",
+        "expression",
+        "presentation",
         "tastes",
         "portrait",
         "temperament",
@@ -453,6 +503,16 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         textOk(a.voice) &&
         owns(places, a.place),
       `avatar ${id} needs a name, text, persona, voice and a home place in this pack`,
+    );
+    check(
+      a.expression === undefined || EXPRESSION_TYPES.includes(a.expression),
+      `avatar ${id} expression needs speech, movement or emoji`,
+    );
+    check(
+      a.presentation === undefined ||
+        a.presentation === "figure" ||
+        (a.presentation === "backdrop" && a.travels === false),
+      `avatar ${id} presentation needs figure or a fixed backdrop resident`,
     );
     check(
       [a.travels, a.standoffs].every((v) => v === undefined || v === false) &&
@@ -554,7 +614,8 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       ),
     "bridge values map pack avatars to hub item values from 0 to 20",
   );
-  const anyPlace = (id) => owns(places, id) || hub?.places?.includes(id);
+  const anyPlace = (id) =>
+    owns(places, id) || hub?.places?.includes(id) || mountedPlaces.includes(id);
   const entity = (id) =>
     owns(places, id) ||
     owns(avatars, id) ||
@@ -633,6 +694,12 @@ export function packProblems(pack, hub, mountedPlaces = []) {
             owns(items, c.item) &&
             anyPlace(c.place);
           break;
+        case "item_present":
+          ok =
+            keysOk(c, ["kind", "item", "place"]) &&
+            (owns(items, c.item) || hub.items.includes(c.item)) &&
+            anyPlace(c.place);
+          break;
         case "item_at":
           ok =
             keysOk(c, ["kind", "item", "place"]) &&
@@ -641,6 +708,13 @@ export function packProblems(pack, hub, mountedPlaces = []) {
           break;
         case "met":
           ok = keysOk(c, ["kind", "actor"]) && owns(avatars, c.actor);
+          break;
+        case "knows":
+          ok =
+            keysOk(c, ["kind", "topic", "role"]) &&
+            idOk(c.topic) &&
+            c.role === "actor" &&
+            (pack.topics || []).some((topic) => topic.id === c.topic);
           break;
       }
     return check(
@@ -669,6 +743,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
               "shared_world",
               "connected_humans",
               "met",
+              "knows",
             ].includes(c.kind),
           `${what} must use saved state or human presence conditions`,
         );
@@ -839,6 +914,30 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       if (c.kind === "flag")
         check(flags.has(c.key), "a condition names an unwritten flag");
     });
+  const topicIds = new Set();
+  for (const topic of pack.topics || []) {
+    check(
+      keysOk(topic, ["id", "speaker", "at", "text", "requires", "choiceId"]) &&
+        idOk(topic.id) &&
+        !topicIds.has(topic.id) &&
+        owns(avatars, topic.speaker) &&
+        owns(places, topic.at) &&
+        validFactText(topic.text) &&
+        (topic.choiceId === undefined || choiceIds.has(topic.choiceId)),
+      `topic ${topic.id} needs a unique id, speaker, place, sentence and valid choice`,
+    );
+    topicIds.add(topic.id);
+    requirements(topic.requires, `topic ${topic.id} requires`);
+    verifyRefs(topic.requires);
+    if (topic.choiceId !== undefined) {
+      const choice = choices.find((entry) => entry.id === topic.choiceId);
+      check(
+        choice?.subject === topic.speaker && choice?.at === topic.at,
+        `topic ${topic.id} must use its choice's speaker and place`,
+      );
+    }
+  }
+  problems.push(...storyQuestProblems(pack, hub));
   [
     ...Object.values(places),
     ...Object.values(avatars),
@@ -1083,6 +1182,27 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     );
   }
   const crossings = Array.isArray(pack.crossings) ? pack.crossings : [];
+  if (pack.readings !== undefined) {
+    const ids = new Set();
+    check(
+      Array.isArray(pack.readings) &&
+        pack.readings.length <= 8 &&
+        pack.readings.every((r) => {
+          if (!record(r)) return false;
+          const valid =
+            keysOk(r, ["id", "actor", "after", "title", "text"]) &&
+            idOk(r.id) &&
+            !ids.has(r.id) &&
+            owns(avatars, r.actor) &&
+            (r.after === null || choiceIds.has(r.after)) &&
+            textOk(r.title, 120) &&
+            textOk(r.text, 3000);
+          ids.add(r.id);
+          return valid;
+        }),
+      "readings need distinct ids, a resident, a recorded choice or arrival, and bounded source text",
+    );
+  }
   check(
     Array.isArray(pack.crossings) && crossings.length > 0,
     "bridge needs crossings",
@@ -1160,7 +1280,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       anyPlace(c?.from) &&
         anyPlace(c?.to) &&
         owns(places, c.from) !== owns(places, c.to),
-      `${name} must join a hub place to a pack place`,
+      `${name} must join a hub place or mounted place to this pack`,
     );
     check(
       TRAVELERS.includes(c?.travelers) && textOk(c?.travel, 80),

@@ -29,6 +29,10 @@ for personas, so ids and voices cannot drift between them. One validator
 loads. It rejects unknown fields, unknown condition kinds, dangling ids and
 missing art with a reason naming the field.
 
+Packs can also supply `storyQuests` and `topics`. The
+[story quest guide](card-story-quests.md) covers saved evidence, branches,
+spoken clues and ordered knowledge requirements.
+
 ## The pack source
 
 ```jsonc
@@ -67,6 +71,10 @@ shore's authored quest programs; their interest is their home.
   and the planner leaves it in place.
 - `"standoffs": false` means it cannot be threatened.
 - `portrait` is its art, unless it has a temperament.
+- `presentation: "backdrop"` keeps a fixed resident in the place illustration.
+  Its card, dialogue and interactions keep their usual place in the game.
+  The stage paints the resident once, through the place art. The default
+  `figure` presentation uses the separate portrait.
 
 A **temperament** gives a resident moods that general rules change:
 
@@ -103,6 +111,11 @@ irritated variant inherits the awake portrait and greeting.
 
 A **crossing** joins one hub place and one pack place in one direction:
 
+A crossing can also join a place in another mounted pack. The compiler checks
+that the external place exists. A passage from a ship keeps the vessel's saved
+dock and its other passengers. The last passenger through a side passage
+settles any pending recall, and a return to the deck joins its current voyage.
+
 | Field              | Meaning                                                                                |
 | ------------------ | -------------------------------------------------------------------------------------- |
 | `id`               | Stable id; its saved state is keyed by it.                                             |
@@ -123,6 +136,11 @@ back to the hub.
 | Kind                                  | Holds when                                                                                                       |
 | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `{ "kind": "sound", "at": [places] }` | A sound is audible at any listed place: the hand bell ringing uncovered there, or a pack fixture sounding there. |
+
+`{ "kind": "item_present", "item": "cloth", "place": "attic" }` checks an
+item's physical place. It follows custody through covered items and their
+carrier. Hub and pack items can use this crossing condition. An item on the
+floor and an item held by someone in that room satisfy the same condition.
 
 The vocabulary also includes `light`, bounded `not`, and persistent pack
 `choice`, `choice_unset`, `flag`, `holding`, `item_at` and `met`. Environmental
@@ -330,3 +348,21 @@ and `recall`. A parked ship has one dock. An occupied ship has one destination
 and may have a pending recall. Save validation checks these against the pack
 and its passengers. Greek revision 1 saves retain partial signals and gain
 a ship at the pond when their old sequence includes the second uncover.
+
+## The Willows
+
+The Willows is a four-place horror pack based on Algernon Blackwood's 1907
+story. River mist beside the Greek ship's rail opens onto the island. Its places
+speak as the landscape; the Swede is its one resident. The landing keeps a
+path back to the ship. See [the pack guide](../content/willows/README.md) for the story
+choices, source text and art.
+
+### Source readings
+
+An optional `readings` list gives a resident exact source passages as the story
+unfolds. Each record has `id`, `actor`, `after`, `title` and `text`. `after`
+names a choice receipt; `null` reveals a passage on first entry. A pack can
+hold eight passages of up to 3,000 characters each. The browser sends the
+revealed ids and their turns. The server reads the exact text from its own
+catalog and gives those passages to that resident's dialogue. Saved receipts
+preserve the same knowledge after a reload and shared journal replay.

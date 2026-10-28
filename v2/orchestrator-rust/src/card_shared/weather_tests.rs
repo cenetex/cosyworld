@@ -42,9 +42,23 @@ fn regional_weather_agrees_in_c_and_survives_upgrade_and_journal_replay() {
         world.game["revision"],
         saved.game["revision"].as_u64().unwrap() + 1
     );
-    for field in ["items", "turn", "eventSeq", "log", "transports"] {
+    let old_routes = saved.game["routeKnowledge"]["greek-rhapsode"]
+        .as_array()
+        .unwrap();
+    assert!(old_routes.contains(&json!(["attic", "station"])));
+    let routes = world.game["routeKnowledge"]["greek-rhapsode"]
+        .as_array()
+        .unwrap();
+    assert!(routes.contains(&json!(["attic", "pond"])));
+    assert!(routes.contains(&json!(["pond", "station"])));
+    assert!(!routes.contains(&json!(["attic", "station"])));
+    for field in ["turn", "eventSeq", "log", "transports"] {
         assert_eq!(world.game[field], saved.game[field], "saved {field}");
     }
+    for (key, item) in saved.game["items"].as_object().unwrap() {
+        assert_eq!(&world.game["items"][key], item, "saved item {key}");
+    }
+    assert_eq!(world.game["packs"]["hoppycat-archive"]["revision"], 1);
     super::full_tests::assert_saved_actors(&world.game["actors"], &saved.game["actors"]);
     super::full_tests::assert_saved_memories(&world.game["memories"], &saved.game["memories"]);
     let mut quests = world.game["quests"].clone();
@@ -61,8 +75,18 @@ fn regional_weather_agrees_in_c_and_survives_upgrade_and_journal_replay() {
     quests["focus"].as_object_mut().unwrap().remove("boardyai");
     assert_eq!(quests["hands"]["boardyai"], json!(["boardyai:quest:0"]));
     quests["hands"]["boardyai"] = saved.game["quests"]["hands"]["boardyai"].clone();
+    quests["hands"]
+        .as_object_mut()
+        .unwrap()
+        .retain(|actor, hand| {
+            if saved.game["quests"]["hands"].get(actor).is_some() {
+                return true;
+            }
+            assert_eq!(*hand, json!([]), "new actor {actor} quest hand");
+            false
+        });
     assert_eq!(quests, saved.game["quests"]);
-    assert_eq!(world.game["packs"]["greek-drama"]["revision"], 5);
+    assert_eq!(world.game["packs"]["greek-drama"]["revision"], 6);
     assert_eq!(world.version, engine::VERSION);
     assert_eq!(
         world.project(0).unwrap()["scene"]["weather"]["condition"],
@@ -175,9 +199,21 @@ fn harbor_night_views_follow_the_shared_ship_and_replay_from_version_seventeen()
         .unwrap();
     full_store::seed(&c, &id, &saved, "before-harbor-nights", now()).unwrap();
     let mut world = full_store::world(&c, &id, now()).unwrap();
-    let mut expected = saved.game.clone();
-    expected["revision"] = json!(24);
-    assert_eq!(world.game, expected);
+    assert_eq!(world.game["revision"], json!(24));
+    for field in ["turn", "eventSeq", "log", "transports"] {
+        assert_eq!(world.game[field], saved.game[field], "saved {field}");
+    }
+    for (id, item) in saved.game["items"].as_object().unwrap() {
+        assert_eq!(&world.game["items"][id], item, "saved item {id}");
+    }
+    let mut actors = saved.game["actors"].clone();
+    actors["ash"]["place"] = json!("greek-harbor");
+    super::full_tests::assert_saved_actors(&world.game["actors"], &actors);
+    super::full_tests::assert_saved_memories(&world.game["memories"], &saved.game["memories"]);
+    assert_eq!(world.game["packs"]["greek-drama"]["revision"], 6);
+    assert_eq!(world.game["packs"]["hoppycat-archive"]["revision"], 1);
+    assert_eq!(world.game["packs"]["willows"]["revision"], 1);
+    assert!(world.game["knowledge"].is_object());
     assert_eq!(world.version, engine::VERSION);
 
     for (kind, target) in [
@@ -208,7 +244,7 @@ fn harbor_night_views_follow_the_shared_ship_and_replay_from_version_seventeen()
         assert_eq!(views[0]["scene"]["daylight"]["phase"], "night");
         assert_eq!(
             views[2]["scene"]["background"],
-            "./assets/greek-drama/theban-harbor-road-night.webp"
+            "./assets/greek-drama/harbor-open-berth-night.webp"
         );
         if kind == "wait" {
             assert_eq!(

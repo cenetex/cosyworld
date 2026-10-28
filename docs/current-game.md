@@ -3,6 +3,8 @@
 CosyWorld's shipping surface is the card table. It supports local browser saves
 and shared worlds. Read the checked-out version in `package.json`; read the
 running version and `primary_game` at each site's `/meta`.
+The Mac package embeds the same card files and uses the same release version.
+`/meta.card_game.assets_sha256` identifies the public game files in either build.
 
 ## Game and cast sources
 
@@ -17,15 +19,19 @@ running version and `primary_game` at each site's `/meta`.
 | Mounted card pack selection | `v2/worlds/card-table.json` |
 | Authored card pack data | `v2/content/<selected-pack>/card-world.json` |
 | Pack connections to the shore | `v2/worlds/<selected-pack>/card-bridge.json` |
+| Hoppy Cat card refresh | `v2/content/hoppycat-archive/card-world.json` and `CARD-REFRESH.md` |
 | Compiled card packs | `v2/card-game/packs.json`, built by `build-card-worldpacks.mjs` |
 | Runtime pack and avatar lookup | `v2/card-game/pack-registry.mjs` |
+| Quest step evidence and completion | `v2/card-game/quest-progress.mjs` |
+| Pack story cards | `storyQuests` in each card pack, read by `v2/card-game/story-quests.mjs` |
+| Learned facts and Talk topics | `v2/card-game/knowledge.mjs` and each card pack's `topics` |
 | Dialogue service | `v2/orchestrator-rust/src/card_narrative.rs` and its modules |
 | Shared rules and current version | `v2/orchestrator-rust/src/card_shared/engine.rs` |
 | Public asset list | `v2/card-game/public-assets.mjs` |
 
 The forest has Vale, Pip, and the keeper. Shared avatars add Mara, Ash, Nell,
-Tavi, Rue, Orin, and Ada alongside Vale. The selected packs add Badger and the
-Wine-Dark Sea cast. Derive a full roster from these catalogs and their imports
+Tavi, Rue, Orin, and Ada alongside Vale. The selected packs add Badger, the Wine-Dark Sea cast, and the
+Hoppy Cat: February Third cast. Derive a full roster from these catalogs and their imports
 when doing character work; shared presence and discovery determine who appears
 in a particular saved world.
 

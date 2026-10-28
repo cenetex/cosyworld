@@ -4,7 +4,7 @@
 
 `world.mjs` owns the card game's state, legal actions, resident turns, and save
 format. `forest.json` holds the forest catalog, starting state, and authored
-quests for the station and attic openings. `createWorld()` copies that data
+quests for the station, attic and pond openings. `createWorld()` copies that data
 for each game. `app.mjs` uses the engine in the browser. The modules beside it provide quests,
 motives, life, memory, pack rules, and presentation. Both the local server and
 the Rust asset server publish this same game.
@@ -51,6 +51,13 @@ Commit the generated image map, WebP files, music stream map, media hashes, and
 `npm run v2:card:pack:check` checks it during CI and release gates.
 
 ## Character voices
+
+Pack residents can set `expression` to `speech`, `movement`, or `emoji`.
+Speech is the default. Movement replies describe a small visible gesture and
+appear as narration. Emoji replies use two to five symbols from
+`emoji-symbols.json`; their English names supply the accessible reading.
+The server reads the expression type from the authored character profile.
+Spoken audio and letter sounds follow speech replies.
 
 Spoken character voices use the player's OpenRouter credits and account routing
 settings. Written dialogue uses the game's account. Provider retention follows
@@ -156,7 +163,7 @@ ritual reload, visible state, travel and conversation without paid model calls.
 ## World packs and the Wine-Dark Sea
 
 At quiet Black Pond, the fueled Lamp and Black cloth can summon a ship.
-Board it, then disembark at **The Wine-Dark Harbor**. The courtyard road leads
+Board it, then disembark at **The Wine-Dark Harbor**. The local path leads
 to **Before the Burial**. The ship keeps its dock and passengers in the same
 saved world. Once summoned, it remains available for later crossings.
 
@@ -164,16 +171,20 @@ After a public Theban response, Dione offers the next journey at her table.
 Accepting opens **The Open Door**: the Athenian Agora, Piraeus Quays, Colonus
 Grove, Eleusinian Sanctuary, and Marathon Altar. The invitation opens the
 roads for every traveler in the shared world. Athens Harbor and Piraeus join
-the ship’s stops. Athens Harbor has a road inland to the grand Agora.
+the ship’s stops. Athens Harbor connects directly to the grand Agora through city streets.
 
-Nine shared road scenes connect the region. Each road has two fixed ends,
-shown by destination cards in a fixed order. Its entry card names the place ahead.
+Seven shared road scenes connect the towns. Each road has two fixed ends,
+shown by destination cards in a fixed order. Avatars come first in the hand,
+followed by the first end, the road, and the other end. Its entry card names the place ahead.
 Travelers can meet, wait and carry objects on the road. Myrine’s coast walk
 passes through the same road scene in two Accompany plays.
 
 Run `npm run v2:card:travel:smoke` for desktop and phone trips through Athens
-Harbor, the harbor road, the Agora, Piraeus and the return to Dione. The check
+Harbor, the Agora, inter-town roads, Piraeus and the return to Dione. The check
 also tests the destination cards, a reload on the road and waiting for the ship.
+
+Athens Harbor shows the ship at its berth when it is docked there, and open
+water while the ship travels elsewhere.
 
 At an open port, Wait lets the empty ship continue its circuit. Resident
 passengers use the same vessel. The first human passenger ashore chooses the
@@ -249,15 +260,24 @@ phone journeys, alternate choices, object care, reloads, cards, and Bard.
 
 ## Personal quests and lasting hopes
 
+Personal and shared quest programs use `quest-progress.mjs` to capture evidence,
+advance one step per turn, apply each shared effect once and save completions.
+Pack stories use `storyQuests` in their authored data. The
+[story quest guide](../docs/card-story-quests.md) explains how another pack can
+use the same rules.
+
+Talk can share one saved fact. Authored topics and witnessed deeds supply those
+facts; each listener keeps the source and teller. A checked spoken reply teaches
+the fact and can unlock an authored scene or a quest step. Later Talk can pass
+heard news to another person. Greece's spoken clues now use this path, including
+the mothers' plea, the decree and the returning reports.
+
 The browser enables `personalQuests` alongside motives. The first quest gives
-each avatar a starting purpose. A completed quest earns a level and starts
-three quiet turns. This is internal simulation state. After this rest, useful
-gifts and lamp care earn two Inspiration points; conversations, trades and
-accepted shared trips earn one. Both people in a social action can earn points.
-Each person earns at most two points per round. The same exchange earns again
-after six turns. Failed requests, solo waiting and inspecting cards leave the
-saved inspiration unchanged. Five points unlock one new personal quest at the end of the
-round. The new quest can first advance on the following turn.
+each avatar a starting purpose. A completed quest earns a level. The avatar then
+heads to a sanctuary and rests there for three turns. Shared human avatars count
+their own turns; residents count world rounds. A meaningful experience can seed
+the next purpose after rest. A long quiet spell also gives the avatar a fresh
+purpose. The new quest can first advance on the following turn.
 
 Each avatar has a lasting hope and three milestones. Generated quests favour
 the next feasible milestone, then recent experiences and variety. A quest
@@ -272,13 +292,13 @@ purpose. Talking, giving, trading and accepted invitations create three turns
 of shared time. Residents can tend items or talk during this time. A grievance
 still lets them seek space. The player chooses Vale's actions throughout.
 
-These mechanics remain internal; cards and menus do not display Inspiration,
-hope milestones or task checklists. Personal relationships may inform speech.
+Cards show the current purpose. Personal relationships and lasting hopes may
+inform speech.
 
-Schema 6 saves gain optional, validated `life` state. Loading an earlier save
-adds this state while keeping its active quest, earned steps, items, memories
-and levels. New-game and cross-tab save updates use the same setup. The action
-history is bounded independently from the saved Inspiration and attachments.
+Schema 6 saves gain validated `life` state. Life version 2 records experiences,
+rest, hopes and attachments. Loading an earlier save keeps its active quest,
+earned steps, items, memories and levels. New-game and cross-tab save updates use
+the same setup. The action history and lasting experiences have separate bounds.
 
 Run `npx vitest run test/card-personal-quests.test.mjs` for the quest cycle,
 repeat limits, attachment and company rules, hope selection, save migration,
@@ -346,19 +366,26 @@ The card rules still commit movement, trades, quest progress and inventory. The 
 
 Schema 6 saves include location changes, favours and lasting memories. Earlier saves keep their positions, items, current programs, earned steps and generated speech. Conversation exports include only the speaker and text of spoken lines.
 
-## Opening in the attic
+## Opening at Black pond
 
-New browser tables use `createWorld({ opening: true })`. Vale starts alone in Mirror attic with the lamp in hand and its flame off. The first target hand asks for the lamp alight in the attic. Playing Light completes that hand and reveals a Black pond location card. Vale stays in the attic until the player plays that card, then meets Pip at the pond. A lit, fueled, uncovered lamp at either Mirror attic or Black pond opens the mirror in both directions. The lamp can rest on the ground or be carried by someone at either end. When the lamp goes dark, is covered, or leaves both ends of the mirror, the destination card and travel offers disappear. Vale can become stranded in the attic when the fuel runs out. Previously selected moves and accompany requests are checked against the current state again at play time. Saved discovery records keep the same light requirement after reload.
+New browser tables and shared worlds use `createWorld({ opening: true })`.
+Vale starts at Black pond with an unlit lamp. Pip waits beside the water with
+the Black cloth. The first purpose asks for light at the pond. The next leads
+along the shore to Empty station and the keeper.
 
-Newly encountered cards join the hand without a modal or tutorial. Travel still
-fades between locations and loads the next scene before revealing it. Reduced
-motion skips the fade. The opening route stays the same: attic, pond, then station.
-The `v2:card:unveil:smoke` command checks discovery reveals, flights, glow,
-travel order, held items, reload, cancellation, and reduced motion.
+Empty station connects to Black pond. Mirror attic connects to the pond through
+the reflection. A lit, fueled, uncovered lamp at either end opens that mirror
+in both directions. A stranded traveler in the attic finds a narrow path to
+the pond when the room's resources have run out.
 
-The next program introduces company at the pond, then leads Vale to the station and the keeper. Each cast member joins the simulation when Vale first meets them and takes their first autonomous action on the following turn. Their introduction, quest progress, and route rules survive a reload. The menu and speech request use the discovered cast. The Light play records the fulfilled hand and revealed path in the attic. The later Travel play records the trip to the pond, so the scene and dialogue follow each card’s result.
+Each newly met card joins the hand through its discovery reveal. Travel loads
+the destination scene before its discoveries and dialogue. Reduced motion uses
+a brief still reveal.
 
-Existing saves keep their station start, original routes, authored programs, and earned progress. `createWorld()` retains the station start for existing fixtures; the browser chooses the attic opening for fresh tables and New game.
+Pond openings carry version 2. Existing version 1 attic openings retain their
+original purposes and discovery records. Saved positions, belongings, meetings
+and earned progress survive loading. The current routes apply to every save.
+`createWorld()` retains the station seed used by older simulation fixtures.
 
 ## Shore experiment
 
@@ -373,7 +400,7 @@ Trades compare each character’s value for both objects, including attached clo
 
 Accompany requests use current interests, the items carried by the requester, favours, and grievances. An agreed trip moves both avatars and their belongings through the usual rules. A refusal leaves both in place for that exchange. The other cast member takes its own turn.
 
-Schema 6 gains optional `motives` state. The browser activates this state for both fresh games and restored games. Earlier progress, earned levels, inventory, and memories remain in the save. The browser enables quest programs alongside personal motives at every new-game and load entry point. Saved progress continues from its recorded step. Completing a program earns a level and starts three quiet turns. Shared actions then fill Inspiration and unlock a fresh purpose from the current world and the avatar’s lasting hope. Tastes shape prices; a remembered grievance can raise a price, refuse company, or prompt a retreat. Quest items also carry value in a fair exchange. The interests-only simulation remains available through `enableMotives()` for comparison; the browser passes `questPrograms: true`. Generated speech receives current interests, exact outcomes, and witnessed grievances.
+Schema 6 gains optional `motives` state. The browser activates this state for both fresh games and restored games. Earlier progress, earned levels, inventory, and memories remain in the save. The browser enables quest programs alongside personal motives at every new-game and load entry point. Saved progress continues from its recorded step. Completing a program earns a level and starts three quiet turns. Meaningful experiences and the avatar’s lasting hope shape the next purpose after sanctuary rest. Tastes shape prices; a remembered grievance can raise a price, refuse company, or prompt a retreat. Quest items also carry value in a fair exchange. The interests-only simulation remains available through `enableMotives()` for comparison; the browser passes `questPrograms: true`. Generated speech receives current interests, exact outcomes, and witnessed grievances.
 
 At the station, Vale can take the bell. The Keeper values the bell more than the oil and accepts that pair. Ring the bell beside the Keeper first and the price rises. Pip values the lamp more than the cloth. These competing tastes let the same objects support several bargains.
 
@@ -386,12 +413,27 @@ The endpoint accepts at most 64 KiB, fixed entity IDs, eight local entities, and
 ## Learning and inner life
 
 Open **Menu → Inner life** to read your avatar's persona, thoughts, dreams and
-latest lesson. A request records what the avatar expected, the answer it heard,
-and its next approach. A declined gift request suggests a fair trade. A declined
-trip suggests time and conversation. The planner checks the saved lesson when
-it considers the same request. Changed belongings, needs or relationships give
-it a reason to reconsider. Each avatar keeps eight lessons with their exact
-completed action as evidence.
+measured attempts. Each avatar keeps up to 32 completed plays for item and
+companionship goals. The record includes the goal, the chosen action, the
+estimate before the play, the observed result, and the exact event as evidence.
+The first estimate is unknown. Later estimates come from that avatar's results.
+
+The action chooser compares those results across legal requests, trades, gifts,
+conversations and waits. It gives less-tried approaches room to establish a
+record. Recent results matter more. A changed situation gets fresh exploration,
+with earlier results providing a small starting estimate. The same present
+world can therefore produce different choices for avatars with different past
+results. Repeated failures can lower a once-successful approach's value.
+A ready trade keeps its known value for completing the goal. Another approach
+can replace it when its learned value is higher.
+
+Reaching the goal earns twenty points; improved trust or eased grievances earn
+two points per step; each carried item is worth four points; each play costs
+one point. Exploratory gifts preserve items needed by the current quest program. Up to four linked plays share a
+later result with a 0.7 discount per step. A changed recorded situation or a
+completed goal ends that link. Human choices and resident choices use the same
+measurement path. The panel shows measured attempts and how often an approach
+helped reach the goal. Earlier lessons remain readable in existing saves.
 
 Solo and shared avatars reflect on witnessed events. A new thought informs the
 persona revision; the revised persona then informs an optional dream. Each
@@ -407,8 +449,8 @@ Conversation prompts include each line's witnessed audience, so a later arrival
 learns an earlier exchange through a new conversation. Older prompts use that
 avatar's recorded expressions as their witness evidence.
 
-Shared rules version 13 adds the learning rules and saved reflections. Versions
-2–12 retain their released interpreter bytes. An explicit upgrade keeps the
+Shared rules version 18 adds measured action values and exploration. Versions
+2–17 retain their released interpreter bytes. An explicit upgrade keeps the
 existing world, possessions, quest progress, memory and persona.
 
 ## Your OpenRouter account
@@ -464,11 +506,13 @@ Card selection keeps the current card elements in place and leaves keyboard focu
 
 Run `node v2/scripts/smoke-card-actions.mjs` for Chromium controls, or `CARD_BROWSER=webkit node v2/scripts/smoke-card-actions.mjs` for WebKit. The checks cover desktop, phone, short landscape, reduced motion, fast taps, panel dismissal, and save updates.
 
+When the lamp or oil is trapped beyond the attic, a narrow path can open from Black pond. It appears after reachable lamp remedies are exhausted. A traveler inside can still tend the lamp through the usual item plays. Every object keeps its holder until a play changes it. The Black cloth still opens the cottage from the attic.
+
 ## Accompany requests
 
 Pair a nearby avatar with an open location card to ask them to accompany Vale. Either card order works. Tap the Accompany button beneath either raised card to play the request. Pairing Vale with a location offers travel there. Pairing a carried item with the current place offers to put it down; pairing a lamp or bell lying here with the current place offers to light, put out or ring it where it lies.
 
-The invited avatar weighs its own interests, the requester’s belongings, remembered grievances, and favours. Standoffs and recovery also shape the answer. Accepted requests take one round. The pair resumes its own choices on the next play.
+The invited avatar weighs its own interests, the requester’s belongings, remembered grievances, and favours. Standoffs and recovery also shape the answer. Accepted requests take one round. The pair resumes its own choices on the next play. An invited resident can use an open crossing back to their own part of the world. Their belongings stay with them on that return.
 
 Requests record the destination and the answer in the scene script. Both places, witnesses, avatars and carried items remember an agreed trip. The same model request writes Vale's invitation and the invited avatar's reply from the completed result, desires, personas and memories.
 
@@ -544,7 +588,7 @@ published in scene order. Local play can publish completed lines once at least
 one requested speaker succeeds. Omitted cards keep their saved words. Shared
 play requires both selected voices and journals the committed text through the
 existing shared dialogue event. Shared speech uses the same transcript and
-visible-state checks; reflections belong to local play.
+visible-state checks. Shared reflections are saved through the world journal.
 
 Optional voice tiers are enabled with exact model IDs in
 `COSYWORLD_CARD_REFLECTION_MODEL` and `COSYWORLD_CARD_ESCALATION_MODEL`.
@@ -565,7 +609,8 @@ The browser retains the avatar's public model attribution beside its private
 persona, thoughts, and dreams across reloads.
 
 For local Ollama play, pull a model and run `npm run play:cards:local`.
-`COSYWORLD_LOCAL_MODEL` defaults to `gemma3:4b`; `OLLAMA_URL` and
+The [local app guide](../local/README.md) covers Chatterbox setup and character
+voices. `COSYWORLD_LOCAL_MODEL` defaults to `gemma3:4b`; `OLLAMA_URL` and
 `COSYWORLD_CARD_LOCAL_PORT` select the server and table port. The local profile
 allows ninety seconds per call and four minutes per scene, with one call in
 flight. `COSYWORLD_CARD_TEXT_PROFILE=local` selects this profile on another
