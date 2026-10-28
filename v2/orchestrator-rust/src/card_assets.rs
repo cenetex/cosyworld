@@ -292,6 +292,10 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/weather-view.mjs"),
         ),
+        "weather-shader.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/weather-shader.mjs"),
+        ),
         "weather.css" => (
             "text/css; charset=utf-8",
             include_bytes!("../../card-game/weather.css"),
@@ -1834,7 +1838,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "scene-video.css" => "\"3c6851ec825e734e3d8a084f4ed77f077bcb4402acbf61869a67b652c3afe4c5\"",
         "awakening.css" => "\"c7a68a23baf1e46934237a57f4b5f87d76bad87af85fdf57ee40abec646908b9\"",
-        "app.mjs" => "\"c510a6d25e5e46cba6d7674b2159b99acc73a48185ff1c1d19e05fa9d79c9181\"",
+        "app.mjs" => "\"2fa33a2c84dcbc6380dd23a321307ac10314035aaaea562d5b292c2da7ef09a5\"",
         "world.mjs" => "\"272c1f34d3c65e073991d7d5b15156351f530620d13224b8f829b38bb1c01e0f\"",
         "scene.mjs" => "\"aba97eb70f26e75c9eaa4bcf71e3d8130f8bc5efc3df2b1a2567022959879d87\"",
         "weather.mjs" => "\"69a3e11642c43831f80581711f6113d814badd666ad2c3e3892a1a4c70a5fd27\"",
@@ -1864,9 +1868,12 @@ pub fn etag(path: &str) -> Option<&'static str> {
             "\"2593278fb2a66e5225bdf06794c32e832b6fb831fdbd406032ba6f7789f9f839\""
         }
         "weather-view.mjs" => {
-            "\"dc9edd54c5f13030dada6237d2d0b2b7b8e3316e3b35f06d6936a5b421a5ecc9\""
+            "\"9df8b854b77506d568013296e90a36ea2dedef7dc5202d9b06f6ce69f9c36b22\""
         }
-        "weather.css" => "\"a79f649ad9c106ddbaaa00734695c83e49140c3da54e331a4c5ca3ec38fee348\"",
+        "weather-shader.mjs" => {
+            "\"60bfbc126e93d5ba529cc8fbed338938b379d74a8052db89d83541721b0c580f\""
+        }
+        "weather.css" => "\"3a9e573a7c75d83da7fbd49e25b9caee527ac80e0e38fe04384f44776f65ba67\"",
         "portrait-facing.mjs" => {
             "\"5cf323214a088c32a8dc0db977e10b8e4e37fe3ea2c25523783ddb553694b32c\""
         }
