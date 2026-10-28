@@ -21,7 +21,7 @@ const act = (s, kind, target) => {
 let fixture = enableMotives(createWorld({ opening: true }), {
   questPrograms: true,
 });
-fixture = act(act(fixture, "light"), "move", "pond");
+fixture = act(fixture, "light");
 fixture.items.lamp.holder = "moth";
 fixture.items.lamp.fuel = 8;
 fixture = act(fixture, "wait");

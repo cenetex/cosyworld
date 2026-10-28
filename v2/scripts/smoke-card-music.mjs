@@ -73,19 +73,16 @@ try {
   await page.waitForTimeout(500);
   assert(await page.locator("#room-music").evaluate((audio) => audio.paused));
   await page.locator('[data-close="menu-dialog"]').click();
-  // Lighting the lamp opens the way to the pond and starts the attic music.
+  // Lighting the lamp opens the attic mirror and starts the pond music.
   await playCard("lamp");
   await page.waitForFunction(() =>
-    document.querySelector('#hand [data-card="pond"]'),
+    document.querySelector('#hand [data-card="attic"]'),
   );
   await takeUnveiled();
-  await page.waitForFunction(() => {
+  await page.waitForFunction((file) => {
     const audio = document.querySelector("#room-music");
-    return (
-      new URL(audio.src).pathname.endsWith("attic-1.mp3") &&
-      audio.currentTime > 0
-    );
-  });
+    return new URL(audio.src).pathname.endsWith(file) && audio.currentTime > 0;
+  }, roomTracks.pond[0].file);
   await page.locator("#toolbar-menu-button").click();
   await page.locator("#menu-button").click();
   let volume = 0.3;
@@ -130,8 +127,8 @@ try {
       roomTracks[room][0].file,
     );
   }
-  await checkPlaylist("attic");
-  console.log("Attic tracks played");
+  await checkPlaylist("pond");
+  console.log("Pond opening tracks played");
   await page.locator("#music-volume").evaluate((input) => {
     input.value = "18";
     input.dispatchEvent(new Event("input", { bubbles: true }));
@@ -164,12 +161,14 @@ try {
     );
     await check();
   }
-  // Playing the pond goes there.
+  // The mirror trip checks the attic playlist and the way back.
+  await travel("attic");
+  console.log("Attic tracks played");
   await travel("pond");
   console.log("Pond tracks played");
-  await playCard("moth");
   await travel("station");
   console.log("Station tracks played");
+  await playCard("moth");
   await fullVolume();
   await page.evaluate(() => window.dispatchEvent(new Event("pagehide")));
   assert(await page.locator("#room-music").evaluate((audio) => !audio.paused));
