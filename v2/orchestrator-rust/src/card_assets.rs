@@ -1836,7 +1836,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "scene-video.css" => "\"3c6851ec825e734e3d8a084f4ed77f077bcb4402acbf61869a67b652c3afe4c5\"",
         "awakening.css" => "\"c7a68a23baf1e46934237a57f4b5f87d76bad87af85fdf57ee40abec646908b9\"",
         "app.mjs" => "\"81f3a191e0c3d99ed7f4103294c4395ca07b8a746020cf030c5a00a79b8bd026\"",
-        "world.mjs" => "\"14736a885601d65c3d6eceb4239f3a0b0f616ed9d1ada08c9067faa907522790\"",
+        "world.mjs" => "\"38c6f29d970aca7df8a14ff3d6b4cda91529b985e39734072bc19cac34a9f913\"",
         "scene.mjs" => "\"aba97eb70f26e75c9eaa4bcf71e3d8130f8bc5efc3df2b1a2567022959879d87\"",
         "weather.mjs" => "\"69a3e11642c43831f80581711f6113d814badd666ad2c3e3892a1a4c70a5fd27\"",
         "daylight.mjs" => "\"6e1bbbf92705e5e2ed904ca98666540ab9a91916c94e50749e649a0ba380170d\"",
@@ -1882,7 +1882,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "quest-progress.mjs" => {
             "\"22073763c4479d882037c32d6c91a8f456b8094655d78f7687106fe6ec5a0716\""
         }
-        "knowledge.mjs" => "\"d37a940202640614b12ac986f068378b2bbe6606fffdbc6cc52119a24e3b7d34\"",
+        "knowledge.mjs" => "\"f5c90dc2567a79e8a23089be5b71b271dce24d1244b19f37e3528591e9d0c5a5\"",
         "quest-hands.mjs" => "\"c7692977dd2195a1b19ace9724ed1dd344b8cf69fb59b1f2a652d98f89bfe2c4\"",
         "shared-quests.mjs" => {
             "\"9bdab1a2df233ad7b58da7358ac69e99de9e7f644a8792ffa913484964aec4e8\""
@@ -1891,7 +1891,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
             "\"095bdc4d6ea6760b4eaf8a3e4da3cd4ed08a40ba73a0169983dd7d5c23ddcc55\""
         }
         "pack-story-quests.mjs" => {
-            "\"3a7230d993ab01e375421ab365c387173414f584ae074f569523124143f3741c\""
+            "\"3535c8a22eb25bc1efbb5ebedd034a09fb634613895458c573101d84bf0123c3\""
         }
         "pack-story-schema.mjs" => {
             "\"a4b05fe9428e620bed6fef7e1b7fc7430fbc9b00232598d0fa6475cf4ba5c850\""
@@ -1939,9 +1939,9 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "assets/voices/greek-baker.mp3" => {
             "\"0dc315f6c54a2a48fab122a0c1b3dc5876121073b696b0ce4537c2d76d0b08a8\""
         }
-        "pack-schema.mjs" => "\"8dd4a0b745b5c26ad273ee3057bf66f151b2a778e4152226b40b7b20c311fd16\"",
+        "pack-schema.mjs" => "\"8460b00751e57e09fa0f5e5abced45c1beb7ef000f81b596aadca88b2a2a05ba\"",
         "pack-registry.mjs" => {
-            "\"5129ec6b3ca347c41bc57f90f11ad15770ca8ae50b62da13c19bc0240ecaa111\""
+            "\"8cebc4df43c2ef039c048b416f6620a2ad078d88feca64474c93eec37d9b5cb2\""
         }
         "pack-sections.mjs" => {
             "\"1230a3aa14a8e17e9eedaeeaead6717b77650111e8179306ad5e2a2d925d0f32\""
@@ -1957,7 +1957,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
             "\"4a930efedb8e283404abf4e5d0345e9336384d10a4e6e4e0fe7b243e95b65500\""
         }
         "legacy-saves.mjs" => {
-            "\"a4ab123a5fbf5ebaf188840dd6024247dbcf72d6c9acaf4f63f47fd49375b3f3\""
+            "\"341051fd95c480aba320d4f93df99d17ea2081e033d44fe83a58f786ef29f121\""
         }
         "forest.json" => "\"12a2be7877e4daff53d3d1ad27c1703b2ca10dff51e6f371a5b3d1a7975afdfe\"",
         "packs.json" => "\"6508a68fbb4ff25b880fc3e36678e46f07dc76cbde34cf195aa9a60003c2b27a\"",

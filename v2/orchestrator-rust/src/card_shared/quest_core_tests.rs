@@ -116,7 +116,7 @@ fn quest_core_talk_disclosure_retries_the_original_scene_and_replays_accepted_le
     let (path, c, id, _) = fixture(engine::VERSION);
     full::run(&c, &id, "user0", &command("claim", ""), now()).unwrap();
     let before = full_store::world(&c, &id, now()).unwrap();
-    let mut talk = command("play", "quest-core-talk");
+    let mut talk = command("play", "quest-core-talk-request");
     talk.action = action(&before, &[("kind", "talk"), ("target", "greek-guard")]);
     full::run(&c, &id, "user0", &talk, now()).unwrap();
     let app = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path.clone()));
@@ -142,7 +142,7 @@ fn quest_core_talk_disclosure_retries_the_original_scene_and_replays_accepted_le
         &c,
         &id,
         "user0",
-        &command("retry", "quest-core-talk"),
+        &command("retry", "quest-core-talk-request"),
         now(),
     )
     .unwrap();

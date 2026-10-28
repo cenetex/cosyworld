@@ -10912,8 +10912,10 @@
     "accompany",
     "choose"
   ]);
-  function witnessKnowledge(world, entry, eligible = () => true) {
-    if (!world.knowledge || entry.generated || entry.questPlan || entry.kind !== "action" && !entry.consequence || !newsVerbs.has(entry.verb) && !entry.consequence || !validFactText(entry.text) || !entry.seq || !world.actors[entry.actorId])
+  function witnessKnowledge(world, entry, eligible = () => true, topics = []) {
+    if (!world.knowledge || entry.generated || entry.questPlan || entry.kind !== "action" && !entry.consequence || !newsVerbs.has(entry.verb) && !entry.consequence || !validFactText(entry.text) || !entry.seq || !world.actors[entry.actorId] || entry.verb === "choose" && topics.some(
+      (topic) => topic.packId === entry.packId && topic.choiceId === entry.choiceId
+    ))
       return null;
     const witnesses = [
       .../* @__PURE__ */ new Set([
@@ -10940,10 +10942,11 @@
       remember(world, actor, fact, "witnessed", null, entry.seq, entry.turn);
     return fact;
   }
-  function installKnowledge(world, eligible = () => true) {
+  function installKnowledge(world, eligible = () => true, topics = []) {
     if (world.knowledge !== void 0) return world.knowledge;
     world.knowledge = newKnowledge();
-    for (const entry of world.log || []) witnessKnowledge(world, entry, eligible);
+    for (const entry of world.log || [])
+      witnessKnowledge(world, entry, eligible, topics);
     return world.knowledge;
   }
   function topicFact(world, topic, entry) {
@@ -11138,10 +11141,19 @@
   // v2/card-game/pack-schema.mjs
   var PACK_SCHEMA_VERSION = 1;
   var AUTHORED_TOPIC_LIMIT = 128;
-  function topicCompositionProblems(packs) {
-    const problems2 = [], seen = /* @__PURE__ */ new Map();
+  function packCompositionProblems(packs) {
+    const problems2 = [], seen = /* @__PURE__ */ new Map(), families = /* @__PURE__ */ new Map();
     let count = 0;
     for (const pack of packs) {
+      const stories = Array.isArray(pack?.storyQuests) ? pack.storyQuests : [];
+      for (const id of new Set(stories.map((story) => story?.id))) {
+        if (typeof id !== "string") continue;
+        if (families.has(id))
+          problems2.push(
+            `${pack.id}: story family ${id} is also defined by ${families.get(id)}`
+          );
+        else families.set(id, pack.id);
+      }
       if (!Array.isArray(pack?.topics)) continue;
       for (const topic of pack.topics) {
         count += 1;
@@ -12512,9 +12524,11 @@
     validatePackDefinition(humanHomePack),
     validatePackDefinition(boardyPack)
   ];
-  var topicProblems = topicCompositionProblems(packDefinitions);
-  if (topicProblems.length)
-    throw new Error(`Invalid card world topics: ${topicProblems.join("; ")}`);
+  var compositionProblems = packCompositionProblems(packDefinitions);
+  if (compositionProblems.length)
+    throw new Error(
+      `Invalid card world composition: ${compositionProblems.join("; ")}`
+    );
   var packDefinition = (id) => packDefinitions.find((p) => p.id === id) || null;
   var merge = (field) => Object.fromEntries(
     packDefinitions.flatMap(
@@ -14907,7 +14921,7 @@
             completed.sort(
               (a, b) => state.receipts[a.choice] - state.receipts[b.choice]
             );
-          const ending = completed[0] || endings.find((entry) => entry.choice === story.defaultEnding) || endings[0];
+          const ending = completed[0] || endings.find((entry) => entry.choice === story.defaultEnding) || endings[0] || story.endings.find((entry) => entry.choice === story.defaultEnding) || story.endings[0];
           if (ending) {
             const created = story.created || {
               earliest: [
@@ -15572,7 +15586,14 @@
     if (Object.values(s.life?.actors || {}).some((life) => life.collection))
       installSharedQuestRegistry(s);
     if (s?.schema === 7) publishQuestCompletions(s, syncStoryQuests(s));
-    if (s?.schema === 7) installKnowledge(s);
+    if (s?.schema === 7)
+      installKnowledge(
+        s,
+        void 0,
+        packDefinitions.flatMap(
+          (pack) => (pack.topics || []).map((topic) => ({ ...topic, packId: pack.id }))
+        )
+      );
     return s;
   }
   function upgradeGreekRoadSave(s) {
@@ -16161,7 +16182,8 @@
     witnessKnowledge(
       s,
       entry,
-      (id) => entityActive(s, id) && (!controlledByHuman(s, id) || humanPresent(s, id))
+      (id) => entityActive(s, id) && (!controlledByHuman(s, id) || humanPresent(s, id)),
+      authoredKnowledgeTopics()
     );
     trimLog(s);
   }
