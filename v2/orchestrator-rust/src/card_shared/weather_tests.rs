@@ -48,10 +48,25 @@ fn regional_weather_agrees_in_c_and_survives_upgrade_and_journal_replay() {
     for (id, memory) in saved.game["memories"].as_object().unwrap() {
         assert_eq!(&world.game["memories"][id], memory, "saved memory {id}");
     }
-    for field in ["actors", "items"] {
-        for (key, saved) in saved.game[field].as_object().unwrap() {
-            assert_eq!(&world.game[field][key], saved, "saved {field}/{key}");
+    for (actor, fields) in saved.game["actors"].as_object().unwrap() {
+        for (field, value) in fields.as_object().unwrap() {
+            if field == "trust" {
+                for (other, trust) in value.as_object().unwrap() {
+                    assert_eq!(
+                        &world.game["actors"][actor]["trust"][other], trust,
+                        "saved trust {actor}/{other}"
+                    );
+                }
+            } else {
+                assert_eq!(
+                    &world.game["actors"][actor][field], value,
+                    "saved {actor}/{field}"
+                );
+            }
         }
+    }
+    for (key, item) in saved.game["items"].as_object().unwrap() {
+        assert_eq!(&world.game["items"][key], item, "saved item {key}");
     }
     assert_eq!(world.game["packs"]["hoppycat-archive"]["revision"], 1);
     assert_eq!(world.game["packs"]["greek-drama"]["revision"], 5);

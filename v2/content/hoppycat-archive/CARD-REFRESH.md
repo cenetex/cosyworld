@@ -14,7 +14,10 @@ managed separately from this browser setting.
 
 All 10 places, 16 residents, and 10 objects use their existing `cards.json`
 IDs. The 36 generated WebP images are copied byte for byte into
-`v2/card-game/assets/hoppycat-archive/`. Fable now works beside Mira in the
+`v2/card-game/assets/hoppycat-archive/`. The card game uses 26 new transparent
+PNG cutouts for its characters and objects. Each cutout comes from its original
+portrait or item image through the built-in image generator. The exact prompts
+and file paths are in `cutout-prompts.json`. Fable now works beside Mira in the
 Atelier. Residents keep their homes so every story step has a steady host.
 The card game uses the authored voices through its shared dialogue service.
 
@@ -43,15 +46,15 @@ on flute and drums.
 Three research agents covered the public lore, places and objects, and the
 existing pack's path into the current game.
 
-| Public source | Finding used in this refresh |
-| --- | --- |
-| [Bubble Tea Cat](https://bubbleteacat.com/) | Tea house, studio rooms, shared making, and community |
-| [Cathedral](https://bubbleteacat.com/what-is-cathedral) | Private archive, public Discoball exhibits, Not Affiliated band, and Piper's instruments |
-| [About](https://bubbleteacat.com/about) | Teacat name, tools, and credited work |
-| [Discoball](https://github.com/HoppyCat/discoball) | Curated exhibits and the public Observatory |
-| [Discoball vision](https://github.com/HoppyCat/discoball/blob/main/VISION.md) | Reflections keep a link to the surface that produced them |
-| [The play](https://github.com/HoppyCat/discoball/blob/main/play/wtldwis.md) | Open chair, cooling tea, memory, and shared attention |
-| [Teacat](https://github.com/HoppyCat/teacat-agent) | Current project name and source location |
+| Public source                                                                 | Finding used in this refresh                                                             |
+| ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| [Bubble Tea Cat](https://bubbleteacat.com/)                                   | Tea house, studio rooms, shared making, and community                                    |
+| [Cathedral](https://bubbleteacat.com/what-is-cathedral)                       | Private archive, public Discoball exhibits, Not Affiliated band, and Piper's instruments |
+| [About](https://bubbleteacat.com/about)                                       | Teacat name, tools, and credited work                                                    |
+| [Discoball](https://github.com/HoppyCat/discoball)                            | Curated exhibits and the public Observatory                                              |
+| [Discoball vision](https://github.com/HoppyCat/discoball/blob/main/VISION.md) | Reflections keep a link to the surface that produced them                                |
+| [The play](https://github.com/HoppyCat/discoball/blob/main/play/wtldwis.md)   | Open chair, cooling tea, memory, and shared attention                                    |
+| [Teacat](https://github.com/HoppyCat/teacat-agent)                            | Current project name and source location                                                 |
 
 The old forest map, its animal residents, the February Third bell, and every
 new quest scene are CosyWorld fiction. The existing user-designated avatar
@@ -60,5 +63,5 @@ The Cathedral room is a fictional public exhibit hall. Its shelves hold the
 public material selected for this story.
 
 All new scene text is original. Visuals use the project's existing generated
-art. Source branding and artwork follow the [site terms](https://bubbleteacat.com/terms).
+art and the cutouts made from it. Source branding and artwork follow the [site terms](https://bubbleteacat.com/terms).
 The earlier source attribution remains in `ATTRIBUTION.md`.

@@ -77,7 +77,10 @@ describe("the reflected shore card game", () => {
     expect(exits(s, "pond")).toContain("attic");
     s = act(s, "cover", "cloth", "lamp");
     expect(covered(s, "lamp")).toBe(true);
-    expect(exits(s, "pond")).toEqual(["station"]);
+    expect(exits(s, "pond")).toEqual([
+      "station",
+      "hoppycat-halfway-tea-garden",
+    ]);
     const fuel = s.items.lamp.fuel;
     s = act(s, "take", "cloth");
     expect(reflectionOpen(s)).toBe(true);
