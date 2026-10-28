@@ -55,16 +55,13 @@ describe("the household save upgrade", () => {
       expect(Object.keys(after.actors).length).toBe(
         Object.keys(before.actors).length + 2,
       );
-      expect(after.items).toEqual(before.items);
-      for (const key of [
-        "turn",
-        "revision",
-        "eventSeq",
-        "log",
-        "crossings",
-        "transports",
-      ])
+      expect(after.items).toEqual({
+        ...before.items,
+        "boardyai-calling-card": { holder: "station", history: [] },
+      });
+      for (const key of ["turn", "revision", "eventSeq", "log", "transports"])
         expect(after[key]).toEqual(before[key]);
+      expect(after.crossings).toMatchObject(before.crossings);
       for (const [id, actor] of Object.entries(before.actors))
         expect(after.actors[id]).toEqual({
           ...actor,

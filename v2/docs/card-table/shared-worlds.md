@@ -16,6 +16,11 @@ The quest stays active through meetings, travel, and reconnects. His dialogue
 names connected people and offers a place to meet. Each human chooses their
 own journey. Presence follows the usual 60-second reconnect grace.
 
+Boardy's calling card rests at Empty station. Its blue smile opens a door to
+**BoardyAI's Parlour** while the card is at the station or carried there by a
+present human. Take the card along for the trip. Two armchairs and a tea table
+wait inside. The parlour door leads back to Empty station.
+
 The seven new humans start in their homes with their signature items on the floor.
 Picking up the item opens the path to Black pond. Putting it down closes that
 path. At the pond, the item reveals the home's entrance when it rests there or

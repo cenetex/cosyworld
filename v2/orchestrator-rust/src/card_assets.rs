@@ -836,6 +836,14 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "image/webp",
             include_bytes!("../../card-game/assets/greek-drama/myrine.webp"),
         ),
+        "assets/boardyai/parlour.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/boardyai/parlour.png"),
+        ),
+        "assets/boardyai/calling-card.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/boardyai/calling-card.png"),
+        ),
         "assets/boardyai/boardyai.png" => (
             "image/png",
             include_bytes!("../../card-game/assets/boardyai/boardyai.png"),
@@ -887,6 +895,22 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
         "assets/optimized/card/png/boardyai/boardyai.webp" => (
             "image/webp",
             include_bytes!("../../card-game/assets/optimized/card/png/boardyai/boardyai.webp"),
+        ),
+        "assets/optimized/stage/png/boardyai/calling-card.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/stage/png/boardyai/calling-card.webp"),
+        ),
+        "assets/optimized/card/png/boardyai/calling-card.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/png/boardyai/calling-card.webp"),
+        ),
+        "assets/optimized/stage/png/boardyai/parlour.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/stage/png/boardyai/parlour.webp"),
+        ),
+        "assets/optimized/card/png/boardyai/parlour.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/png/boardyai/parlour.webp"),
         ),
         "assets/optimized/stage/png/cloth-card.webp" => (
             "image/webp",
@@ -1555,10 +1579,10 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "media.mjs" => "\"9b56957b0e44c39ed8f3bfbb200ce3524646f62cf83fa775fc89dc2a62dc133b\"",
         "images.mjs" => "\"400bd04904821d5b21e24790f71cf89836e5a2aabb8662b963637de77b3fd612\"",
         "image-variants.json" => {
-            "\"f1c6a67dd34855ba09e58c7591c57bd19299a3b9a3bd1b14f00b3bf73ae566ee\""
+            "\"1a0cfcbdab0a759b052dba5d180a794b5647bd07ed97d877a83b15bc336b3119\""
         }
         "media-manifest.json" => {
-            "\"897817139fcdcaa5fc4701a350680e659a0d32f997629dab4d3bfa790a8e6d07\""
+            "\"9b50d2b48f878e5bcdec81613bb248d11d9582ea516b6c527dca31507a21452c\""
         }
         "music-streams.json" => {
             "\"187db53c1c129d1505da26c18fd2384e62b9b357c91e33fd2e954bf0b7a29904\""
@@ -1577,7 +1601,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "human-cast.mjs" => "\"925cddac4e0340e9620ca81118e1535323564787194df0fa4dfe1b74825d7152\"",
         "boardyai.mjs" => "\"36e314149ca8cbcb6c5c4b749567a7a90a0eac21118d447b54f52804105140b6\"",
-        "boardyai.json" => "\"ec2decdc2153425a0562ba4d279cb31e317784aab88a47ff7d31f6b34e4d0939\"",
+        "boardyai.json" => "\"af0d968fa961db126e218f8e90bc7f18c62499c8c5a9188cd5a7f23afbecaa5e\"",
         "assets/greek-drama/harbor-day.webp" => {
             "\"b535244774382afc8a6440e292f1c51698375717d4473f3c70b5c16fff3e4425\""
         }
@@ -1692,7 +1716,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "lessons.mjs" => "\"d356ccfd6d4bb622ea7e325ebae519f3ff37433013b04874f07f83865b883705\"",
         "motives.mjs" => "\"9e8b5b84a9a21761074c524f9295febaf1e03b92342f324a41e364c4d34950f1\"",
         "life.mjs" => "\"96bacb8052c8b77e11eb733edfe075f25f2e6e38ceb8f153280f4d974cb74c5c\"",
-        "quests.mjs" => "\"555c22aea06736c8e0e0db13ac9ef4a174e876576762037d72537346a0e63c56\"",
+        "quests.mjs" => "\"ed09e244bea8986711df18b05baf9b376325afefc2ec111bc3f2cfc43c8b879d\"",
         "quest-offers.mjs" => {
             "\"6f0ef71f7042254df8b93dde9c928c44e5ac5914f32acfee02617668dd7b4873\""
         }
@@ -1745,7 +1769,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "assets/voices/greek-baker.mp3" => {
             "\"0dc315f6c54a2a48fab122a0c1b3dc5876121073b696b0ce4537c2d76d0b08a8\""
         }
-        "pack-schema.mjs" => "\"9e2854695b201c44e3d38df1a0bd53f35e8adce19e691e81ef91da3ff4d01fd1\"",
+        "pack-schema.mjs" => "\"37d5b19860e6a256e622eb1bb830d46e9b45e8873f1467052555fe44d38ceb85\"",
         "pack-registry.mjs" => {
             "\"cc6d9dfb3252589ca86af52e3c3221c81b23fbe508152469a85d401de518a6d6\""
         }
@@ -1758,7 +1782,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "pack-recital.mjs" => {
             "\"69bb676f4fbe0591f81e473921b6ff8ae8c88cddbab5a1931d005f662d0ffcea\""
         }
-        "pack-rules.mjs" => "\"985085200c83ccaed1fc4c2b61145d3eafcdc512d441145fb7f36299fa959186\"",
+        "pack-rules.mjs" => "\"6bb4621ec8ccb1d66e64340ad50ca29e45c9148f95d6d56354af74cfb5ef87cf\"",
         "pack-transport.mjs" => {
             "\"929b862d00b5eb0cebb4953dce374483824ff559b71443946b15e1d1b9fe8a15\""
         }
@@ -2092,6 +2116,12 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "assets/greek-drama/myrine.webp" => {
             "\"e507850aa9959a4d1fedf42eb6ba17d1b70e8a1c2b25799c033e7926bb6ae0ec\""
         }
+        "assets/boardyai/parlour.png" => {
+            "\"5221b36927a1e97ae2eb14e3dd5eeb8ce01f1557f44078d0ee700883e187c33d\""
+        }
+        "assets/boardyai/calling-card.png" => {
+            "\"831dce7d2767e1be045e1c44b5c99a1459156f8d639d15064ee8a56259bcc2a4\""
+        }
         "assets/boardyai/boardyai.png" => {
             "\"4ed53a7dafc921fd80b56e0d0d50c17958001963008eb1f8d05b5cbfa1001857\""
         }
@@ -2130,6 +2160,18 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "assets/optimized/card/png/boardyai/boardyai.webp" => {
             "\"9ceb2756efe015bcbe356e818678b9c885dcefdc6291db2ee721a0601ecf7269\""
+        }
+        "assets/optimized/stage/png/boardyai/calling-card.webp" => {
+            "\"d478d729126f8b3f097fd283e140e8d863e2115b3c95f6eefeba87b6ef3780be\""
+        }
+        "assets/optimized/card/png/boardyai/calling-card.webp" => {
+            "\"3b3e13b4f2dbe97a3b435f328cd956ec0cc111b613087f7b934fcf15f7b97fce\""
+        }
+        "assets/optimized/stage/png/boardyai/parlour.webp" => {
+            "\"37121c817bfcc5df66db8bb39791ce1e5f84d7e3dada075e15a7efa483352d91\""
+        }
+        "assets/optimized/card/png/boardyai/parlour.webp" => {
+            "\"f55c7200578115e2428db703a0b467fc3e599c41dc00990797a22dfd63b1679c\""
         }
         "assets/optimized/stage/png/cloth-card.webp" => {
             "\"358e4584c7aa6cafa68f6d776ff8343b41168db9ff2477c2752114061b8a862c\""

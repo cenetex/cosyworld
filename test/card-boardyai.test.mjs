@@ -135,7 +135,44 @@ describe("BoardyAI's lasting quest", () => {
     expect(entityActive(view(world, ["vale"]).world, "cloth")).toBe(false);
   });
 
-  it("validates visiting avatars and bounded human presence conditions", () => {
+  it("opens his home from Empty station with his calling card and keeps the return door", () => {
+    let world = fresh();
+    const act = (kind, field, value) => {
+      const action = view(world).actions.find(
+        (a) => a.kind === kind && a[field] === value,
+      );
+      expect(action).toBeDefined();
+      const result = dispatchShared({
+        op: "play",
+        world,
+        actor: "vale",
+        claimed: ["vale", "mara"],
+        present: ["vale", "mara"],
+        action,
+      });
+      expect(result.ok).toBe(true);
+      world = result.world;
+    };
+    expect(availableCards(view(world).world)).toContain(
+      "boardyai-calling-card",
+    );
+    expect(view(world).exits).toContain("boardyai-parlour");
+    world.items["boardyai-calling-card"].holder = "mara";
+    expect(view(world).exits).not.toContain("boardyai-parlour");
+    world.items["boardyai-calling-card"].holder = "station";
+    act("take", "item", "boardyai-calling-card");
+    act("move", "target", "boardyai-parlour");
+    expect(world.actors.vale.place).toBe("boardyai-parlour");
+    expect(world.items["boardyai-calling-card"].holder).toBe("vale");
+    expect(view(decodeSave(encodeSave(world)), ["vale"]).exits).toContain(
+      "station",
+    );
+    act("move", "target", "station");
+    expect(world.actors.vale.place).toBe("station");
+    expect(view(world).exits).toContain("boardyai-parlour");
+  });
+
+  it("validates his home and bounded human presence conditions", () => {
     expect(validatePackDefinition(boardyPack)).toBe(boardyPack);
     for (const minimum of [0, 9, 1.5, "2"]) {
       const invalid = structuredClone(boardyPack);

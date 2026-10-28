@@ -39,6 +39,39 @@ fn boardy_follows_authenticated_presence_in_the_c_host() {
 }
 
 #[test]
+fn boardy_calling_card_opens_the_parlour_from_empty_station() {
+    let mut world = World::create(None).unwrap();
+    world.game.as_object_mut().unwrap().remove("opening");
+    world.game["actors"]["vale"]["place"] = json!("station");
+    for actor in ["vale", "mara"] {
+        world.apply(&json!({"op":"claim", "actor":actor})).unwrap();
+        world.apply(&json!({"op":"enter", "actor":actor})).unwrap();
+    }
+    for (kind, field, value, destination) in [
+        ("take", "item", "boardyai-calling-card", "station"),
+        ("move", "target", "boardyai-parlour", "boardyai-parlour"),
+        ("move", "target", "station", "station"),
+    ] {
+        let view = world.project(0).unwrap();
+        let action = view["actions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|a| a["kind"] == kind && a[field] == value)
+            .unwrap()
+            .clone();
+        world
+            .apply(&json!({"op":"play", "actor":"vale", "action":action}))
+            .unwrap();
+        assert_eq!(world.game["actors"]["vale"]["place"], destination);
+        assert_eq!(
+            world.game["items"]["boardyai-calling-card"]["holder"],
+            "vale"
+        );
+    }
+}
+
+#[test]
 fn boardy_upgrade_from_twelve_survives_checkpoints_and_journal_replay() {
     let path = std::env::temp_dir().join(format!("boardy-{}.sqlite", crate::random_hex(12)));
     let c = store::open(&path).unwrap();
@@ -57,7 +90,13 @@ fn boardy_upgrade_from_twelve_survives_checkpoints_and_journal_replay() {
     let mut world = full_store::world(&c, &id, now()).unwrap();
     assert_eq!(world.version, engine::VERSION);
     assert_eq!(world.game["turn"], old.game["turn"]);
-    assert_eq!(world.game["items"], old.game["items"]);
+    for (key, value) in old.game["items"].as_object().unwrap() {
+        assert_eq!(&world.game["items"][key], value);
+    }
+    assert_eq!(
+        world.game["items"]["boardyai-calling-card"]["holder"],
+        "station"
+    );
     assert_eq!(world.game["log"], old.game["log"]);
     assert!(boardy_talk(&world.project(0).unwrap()).is_some());
     let action = boardy_talk(&world.project(0).unwrap()).unwrap();

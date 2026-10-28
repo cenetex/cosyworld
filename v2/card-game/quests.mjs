@@ -99,6 +99,7 @@ export const knownActors = (s) =>
     (id) =>
       entityActive(s, id) &&
       (!isPackActor(id) ||
+        id === BOARDY ||
         packDiscovered(s, packOf(id).id) ||
         s.packs?.[packOf(id).id]?.met?.[id] !== undefined),
   );

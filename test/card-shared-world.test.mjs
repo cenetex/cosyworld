@@ -133,7 +133,10 @@ describe("the full world shared by human avatars", () => {
     expect(result.world.turn).toBe(old.turn);
     expect(result.world.revision).toBe(old.revision + 1);
     expect(result.world.log).toEqual(old.log);
-    expect(result.world.actors).toEqual(old.actors);
+    expect(result.world.actors).toEqual({
+      ...old.actors,
+      boardyai: { ...old.actors.boardyai, place: old.actors.vale.place },
+    });
   });
   it("imports the exact opening, fuel, progress, memory and life state", () => {
     let world = enableMotives(createWorld({ opening: true }), {

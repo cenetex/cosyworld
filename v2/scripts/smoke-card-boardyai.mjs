@@ -3,7 +3,7 @@ import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
-import { encodeSave } from "../card-game/world.mjs";
+import { createWorld, encodeSave } from "../card-game/world.mjs";
 import { questCards, questCardId } from "../card-game/quest-cards.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
 
@@ -17,7 +17,10 @@ try {
     [1440, 900],
     [390, 844],
   ]) {
-    const seed = dispatchShared({ op: "create" }).world;
+    const seed = dispatchShared({
+      op: "create",
+      save: encodeSave(createWorld()),
+    }).world;
     const world = dispatchShared({
       op: "view",
       world: seed,
@@ -36,7 +39,7 @@ try {
     page.on("pageerror", (error) => errors.push(error.message));
     await page.addInitScript(
       ({ key, save }) => {
-        localStorage.setItem(key, save);
+        if (!localStorage.getItem(key)) localStorage.setItem(key, save);
         localStorage.setItem("cosyworld.dialogue.sound", "off");
         localStorage.setItem(
           "cosyworld.room-music",
@@ -83,13 +86,73 @@ try {
     await page.screenshot({
       path: new URL(`quest-${width}.png`, output).pathname,
     });
+    await page.keyboard.press("Escape");
+    await selectCard(page, "boardyai");
+    await page.locator('#card-actions [data-action="talk"]').click();
+    await page.waitForFunction((key) => {
+      const saved = JSON.parse(localStorage.getItem(key));
+      return (
+        saved.turn === 1 &&
+        saved.log.some((e) => e.generated && e.actorId === "boardyai")
+      );
+    }, key);
+    const settle = async () => {
+      for (let i = 0; i < 180; i++) {
+        if (await page.locator("#unveil-dialog[open]").count())
+          await page.keyboard.press("Escape");
+        else if (await page.locator("#dialogue-advance").isVisible())
+          await page.locator("#dialogue-advance").click();
+        await page.waitForTimeout(60);
+        if (
+          (await page.locator("#hand").getAttribute("data-cooling")) ===
+            "false" &&
+          (await page.locator("#card-actions").getAttribute("aria-busy")) ===
+            "false"
+        )
+          return;
+      }
+      throw Error("BoardyAI's visit stayed busy.");
+    };
+    await settle();
+    for (const [id, kind, turn, place] of [
+      ["boardyai-calling-card", "take", 2, "station"],
+      ["boardyai-parlour", "move", 3, "boardyai-parlour"],
+      ["station", "move", 4, "station"],
+    ]) {
+      await page.keyboard.press("Escape");
+      await selectCard(page, id);
+      await page.locator(`#card-actions [data-action="${kind}"]`).click();
+      await page.waitForFunction(
+        ({ key, turn }) => JSON.parse(localStorage.getItem(key)).turn === turn,
+        { key, turn },
+      );
+      await settle();
+      assert.equal(
+        await page.evaluate(
+          (key) => JSON.parse(localStorage.getItem(key)).actors.vale.place,
+          key,
+        ),
+        place,
+      );
+      if (place === "boardyai-parlour")
+        await page.screenshot({
+          path: new URL(`parlour-${width}.png`, output).pathname,
+        });
+    }
     await page.reload();
     await page.locator('#hand [data-card="boardyai"]').waitFor();
+    assert.equal(
+      await page.evaluate(
+        (key) => JSON.parse(localStorage.getItem(key)).turn,
+        key,
+      ),
+      4,
+    );
     assert.equal(await page.locator(`#hand [data-card="${quest}"]`).count(), 1);
     assert.deepEqual(errors, []);
     await page.close();
     console.log(
-      `BoardyAI avatar, quest, art and reload passed at ${width}x${height}.`,
+      `BoardyAI avatar, quest, conversation, calling card, home, return and reload passed at ${width}x${height}.`,
     );
   }
 } finally {

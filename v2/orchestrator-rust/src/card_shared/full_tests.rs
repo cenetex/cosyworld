@@ -1792,8 +1792,9 @@ fn released_carriage_route_replays_before_the_station_connection_upgrade() {
         w = full_store::world(&c, &id, now()).unwrap();
         assert_saved_actors(&w.game["actors"], &earlier.game["actors"]);
         assert_saved_items(&w.game["items"], &earlier.game["items"]);
-        for key in ["log", "crossings"] {
-            assert_eq!(w.game[key], earlier.game[key]);
+        assert_eq!(w.game["log"], earlier.game["log"]);
+        for (key, value) in earlier.game["crossings"].as_object().unwrap() {
+            assert_eq!(&w.game["crossings"][key], value);
         }
         assert_eq!(w.version, engine::VERSION);
         assert!(!w.project(5).unwrap()["exits"]

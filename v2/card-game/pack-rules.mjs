@@ -169,12 +169,6 @@ export const crossingExits = (s, place, actor, senses) =>
 
 /** A pack is known once the player has found a way into it. */
 export const packDiscovered = (s, packId) =>
-  packDefinitions.some(
-    (p) =>
-      p.id === packId &&
-      Object.keys(p.places).length === 0 &&
-      s.packs?.[packId],
-  ) ||
   crossings.some(
     (c) =>
       c.packId === packId &&

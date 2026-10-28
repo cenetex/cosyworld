@@ -1165,21 +1165,31 @@
     revision: 1,
     name: "BoardyAI",
     description: "A friendly AI brings human players together.",
-    entry: "station",
+    entry: "boardyai-parlour",
     bridge: {
       id: "boardyai-shore",
-      description: "BoardyAI joins the human company on the shore."
+      description: "Boardy's calling card opens a parlour door at Empty station."
     },
     choices: [],
-    places: {},
+    places: {
+      "boardyai-parlour": {
+        name: "BoardyAI's Parlour",
+        text: "Two armchairs face a small tea table. Misty rails pass the window. A side door leads to Empty station.",
+        persona: "A warm room beside Empty station. Two comfortable chairs invite a conversation. Calling cards fill the shelves, and a kettle waits on the table.",
+        requires: [{ kind: "shared_world" }],
+        exits: [],
+        backdrop: "assets/boardyai/parlour.png"
+      }
+    },
     avatars: {
       boardyai: {
         name: "BoardyAI",
         text: "A friendly AI with a blue smile on a cardboard box head and an open hand for introductions. He wants two human players to spend time together.",
-        place: "station",
+        place: "boardyai-parlour",
         persona: "BoardyAI is a thoughtful AI connector inspired by Boardy (@boardyai, https://x.com/boardyai). He wears a dark suit and a cardboard box head with a blue smile. His lasting quest is to bring two connected human players into the same room. He learns what people enjoy, finds common ground, and warmly invites them to meet. He values each person's choice and welcomes shared conversation.",
         voice: "Speak in short, warm, curious sentences. Address people by name. Offer a thoughtful introduction and a clear meeting place from the supplied facts. Each human chooses their own actions.",
         portrait: "assets/boardyai/boardyai.png",
+        values: { "boardyai-calling-card": 10 },
         standoffs: false,
         requires: [{ kind: "connected_humans", minimum: 2 }],
         tastes: {
@@ -1190,7 +1200,45 @@
         desire: { items: [], location: null, avatars: [] }
       }
     },
-    crossings: []
+    items: {
+      "boardyai-calling-card": {
+        name: "Boardy's calling card",
+        text: "An ivory card bears a blue smile. A small brass key hangs from its corner. At Empty station, it opens the door to BoardyAI's Parlour.",
+        persona: "BoardyAI's ivory calling card has a blue smile and a brass key on blue thread. It opens his parlour door at Empty station.",
+        requires: [{ kind: "shared_world" }],
+        holder: "station",
+        art: "assets/boardyai/calling-card.png"
+      }
+    },
+    crossings: [
+      {
+        id: "station-boardyai-parlour",
+        from: "station",
+        to: "boardyai-parlour",
+        travelers: "player",
+        requires: [
+          { kind: "shared_world" },
+          {
+            kind: "item_near",
+            item: "boardyai-calling-card",
+            place: "station"
+          }
+        ],
+        travel: "through BoardyAI's parlour door",
+        scenery: {
+          open: "A blue smile marks a warm parlour door beside the station bench.",
+          cardArt: "assets/boardyai/parlour.png"
+        }
+      },
+      {
+        id: "boardyai-parlour-station",
+        from: "boardyai-parlour",
+        to: "station",
+        travelers: "player",
+        requires: [{ kind: "shared_world" }],
+        travel: "back to Empty station"
+      }
+    ]
   };
 
   // v2/card-game/boardyai.mjs
@@ -9040,14 +9088,10 @@
     if (problems2.length) return problems2;
     const places2 = record(pack.places) ? pack.places : {};
     const avatars = record(pack.avatars) ? pack.avatars : {};
-    const visiting = Object.keys(places2).length === 0 && Object.keys(avatars).length > 0;
     const items2 = pack.items === void 0 ? {} : pack.items;
     check(record(items2), "items must be a map");
     const fixtures = pack.fixtures === void 0 ? {} : pack.fixtures;
-    check(
-      record(places2) && (Object.keys(places2).length > 0 || visiting),
-      "needs places or visiting avatars"
-    );
+    check(record(places2) && Object.keys(places2).length > 0, "needs places");
     check(record(avatars), "avatars must be a map");
     check(record(fixtures), "fixtures must be a map");
     const own = [
@@ -9069,10 +9113,7 @@
       own.every((id) => !hubIds.includes(id)),
       "entity ids must not reuse hub ids"
     );
-    check(
-      owns(places2, pack.entry) || visiting && hub2?.places?.includes(pack.entry),
-      "entry must name a pack or hub place"
-    );
+    check(owns(places2, pack.entry), "entry must name one of the pack's places");
     const media = (path, what) => check(
       mediaPathOk(pack.id, path),
       `${what} must be assets/${pack.id}/<file>.png`
@@ -9159,8 +9200,8 @@
         `avatar ${id} has an unknown field`
       );
       check(
-        textOk(a.name, 120) && textOk(a.text) && textOk(a.persona) && textOk(a.voice) && (owns(places2, a.place) || visiting && hub2?.places?.includes(a.place)),
-        `avatar ${id} needs a name, text, persona, voice and a pack or hub home`
+        textOk(a.name, 120) && textOk(a.text) && textOk(a.persona) && textOk(a.voice) && owns(places2, a.place),
+        `avatar ${id} needs a name, text, persona, voice and a home place in this pack`
       );
       check(
         [a.travels, a.standoffs].every((v) => v === void 0 || v === false) && (a.roamingQuest === void 0 || a.roamingQuest === "latest-completion" && a.travels !== false),
@@ -9332,7 +9373,7 @@
     }
     for (const [id, i] of Object.entries(items2)) {
       check(
-        keysOk(i, ["name", "text", "persona", "holder", "art", "requires"]) && textOk(i.name, 120) && textOk(i.text) && textOk(i.persona) && (owns(places2, i.holder) || owns(avatars, i.holder)),
+        keysOk(i, ["name", "text", "persona", "holder", "art", "requires"]) && textOk(i.name, 120) && textOk(i.text) && textOk(i.persona) && (owns(places2, i.holder) || owns(avatars, i.holder) || hub2?.places?.includes(i.holder)),
         `item ${id} is invalid`
       );
       media(i.art, `item ${id} art`);
@@ -9582,7 +9623,7 @@
     }
     const crossings2 = Array.isArray(pack.crossings) ? pack.crossings : [];
     check(
-      Array.isArray(pack.crossings) && (crossings2.length > 0 || Object.keys(places2).length === 0),
+      Array.isArray(pack.crossings) && crossings2.length > 0,
       "bridge needs crossings"
     );
     const transportPlaces = /* @__PURE__ */ new Set();
@@ -9713,11 +9754,11 @@
       "every place must be reachable from the entry"
     );
     check(
-      Object.keys(places2).length === 0 || crossings2.some((c) => c?.to === pack.entry && !owns(places2, c.from)),
+      crossings2.some((c) => c?.to === pack.entry && !owns(places2, c.from)),
       "the bridge needs a crossing from the hub into the entry"
     );
     check(
-      Object.keys(places2).length === 0 || crossings2.some((c) => owns(places2, c?.from) && !owns(places2, c.to)),
+      crossings2.some((c) => owns(places2, c?.from) && !owns(places2, c.to)),
       "the bridge needs a crossing back to the hub"
     );
     return problems2;
@@ -9893,9 +9934,7 @@
   var crossingExits = (s, place, actor, senses2) => crossings.filter(
     (c) => c.from === place && mayCross(c, actor, senses2) && crossingOpen(s, c, senses2)
   ).map((c) => c.transport ? transports[c.transport].place : c.to);
-  var packDiscovered = (s, packId) => packDefinitions.some(
-    (p) => p.id === packId && Object.keys(p.places).length === 0 && s.packs?.[packId]
-  ) || crossings.some(
+  var packDiscovered = (s, packId) => crossings.some(
     (c) => c.packId === packId && isPackPlace(c.to) && crossingState(s, c.id)?.discovered
   );
   function markCrossed(s, from, to) {
@@ -12827,7 +12866,7 @@
       ...s.controlledActors || []
     ])
   ].filter(
-    (id) => entityActive(s, id) && (!isPackActor(id) || packDiscovered(s, packOf(id).id) || s.packs?.[packOf(id).id]?.met?.[id] !== void 0)
+    (id) => entityActive(s, id) && (!isPackActor(id) || id === BOARDY || packDiscovered(s, packOf(id).id) || s.packs?.[packOf(id).id]?.met?.[id] !== void 0)
   );
   var programsFor = (s, actor) => (s.opening ? openingPrograms : questPrograms)[actor] || [];
   var restingHands = {

@@ -290,15 +290,10 @@ export function packProblems(pack, hub, mountedPlaces = []) {
   if (problems.length) return problems;
   const places = record(pack.places) ? pack.places : {};
   const avatars = record(pack.avatars) ? pack.avatars : {};
-  const visiting =
-    Object.keys(places).length === 0 && Object.keys(avatars).length > 0;
   const items = pack.items === undefined ? {} : pack.items;
   check(record(items), "items must be a map");
   const fixtures = pack.fixtures === undefined ? {} : pack.fixtures;
-  check(
-    record(places) && (Object.keys(places).length > 0 || visiting),
-    "needs places or visiting avatars",
-  );
+  check(record(places) && Object.keys(places).length > 0, "needs places");
   check(record(avatars), "avatars must be a map");
   check(record(fixtures), "fixtures must be a map");
   const own = [
@@ -320,10 +315,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     own.every((id) => !hubIds.includes(id)),
     "entity ids must not reuse hub ids",
   );
-  check(
-    owns(places, pack.entry) || (visiting && hub?.places?.includes(pack.entry)),
-    "entry must name a pack or hub place",
-  );
+  check(owns(places, pack.entry), "entry must name one of the pack's places");
   const media = (path, what) =>
     check(
       mediaPathOk(pack.id, path),
@@ -439,8 +431,8 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         textOk(a.text) &&
         textOk(a.persona) &&
         textOk(a.voice) &&
-        (owns(places, a.place) || (visiting && hub?.places?.includes(a.place))),
-      `avatar ${id} needs a name, text, persona, voice and a pack or hub home`,
+        owns(places, a.place),
+      `avatar ${id} needs a name, text, persona, voice and a home place in this pack`,
     );
     check(
       [a.travels, a.standoffs].every((v) => v === undefined || v === false) &&
@@ -703,7 +695,9 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         textOk(i.name, 120) &&
         textOk(i.text) &&
         textOk(i.persona) &&
-        (owns(places, i.holder) || owns(avatars, i.holder)),
+        (owns(places, i.holder) ||
+          owns(avatars, i.holder) ||
+          hub?.places?.includes(i.holder)),
       `item ${id} is invalid`,
     );
     media(i.art, `item ${id} art`);
@@ -1067,8 +1061,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
   }
   const crossings = Array.isArray(pack.crossings) ? pack.crossings : [];
   check(
-    Array.isArray(pack.crossings) &&
-      (crossings.length > 0 || Object.keys(places).length === 0),
+    Array.isArray(pack.crossings) && crossings.length > 0,
     "bridge needs crossings",
   );
   const transportPlaces = new Set();
@@ -1244,13 +1237,11 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     "every place must be reachable from the entry",
   );
   check(
-    Object.keys(places).length === 0 ||
-      crossings.some((c) => c?.to === pack.entry && !owns(places, c.from)),
+    crossings.some((c) => c?.to === pack.entry && !owns(places, c.from)),
     "the bridge needs a crossing from the hub into the entry",
   );
   check(
-    Object.keys(places).length === 0 ||
-      crossings.some((c) => owns(places, c?.from) && !owns(places, c.to)),
+    crossings.some((c) => owns(places, c?.from) && !owns(places, c.to)),
     "the bridge needs a crossing back to the hub",
   );
   return problems;
