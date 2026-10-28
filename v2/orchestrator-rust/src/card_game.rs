@@ -1,3 +1,6 @@
+#[path = "card_media_http.rs"]
+mod media_http;
+
 #[path = "card_game_metadata.rs"]
 pub(crate) mod metadata;
 #[path = "card_narrative.rs"]
@@ -15,7 +18,7 @@ pub(super) fn text_router<S: Clone + Send + Sync + 'static>(
 }
 
 use axum::{
-    extract::Path,
+    extract::{Path, RawQuery},
     http::{header, HeaderMap, Method, StatusCode},
     response::{IntoResponse, Redirect, Response},
     routing::get,
@@ -56,78 +59,29 @@ async fn index() -> Response {
     response
 }
 
-async fn asset(Path(path): Path<String>, method: Method, headers: HeaderMap) -> Response {
+async fn asset(
+    Path(path): Path<String>,
+    RawQuery(query): RawQuery,
+    method: Method,
+    headers: HeaderMap,
+) -> Response {
     if path == "index.html" {
         return index().await;
     }
-    let response = serve(&path);
-    if path.ends_with(".mp3") && response.status() == StatusCode::OK {
-        return music_range(
-            response,
-            if method == Method::GET {
-                headers
-                    .get(header::RANGE)
-                    .and_then(|value| value.to_str().ok())
-            } else {
-                None
-            },
-        )
-        .await;
-    }
-    response
-}
-
-// Browsers use byte ranges to load MP3 metadata and resume long tracks.
-async fn music_range(response: Response, range: Option<&str>) -> Response {
-    let (mut parts, body) = response.into_parts();
-    let Ok(bytes) = axum::body::to_bytes(body, usize::MAX).await else {
-        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+    let Some((content_type, bytes)) = cosyworld_orchestrator::card_assets::get(&path) else {
+        return StatusCode::NOT_FOUND.into_response();
     };
-    let length = bytes.len();
-    parts
-        .headers
-        .insert(header::ACCEPT_RANGES, "bytes".parse().unwrap());
-    parts.headers.insert(header::CONTENT_LENGTH, length.into());
-    let Some(value) = range.and_then(|value| value.strip_prefix("bytes=")) else {
-        return Response::from_parts(parts, bytes.into());
+    let Some(etag) = cosyworld_orchestrator::card_assets::etag(&path) else {
+        return StatusCode::NOT_FOUND.into_response();
     };
-    // A full response also satisfies clients that ask for several ranges.
-    if value.contains(',') {
-        return Response::from_parts(parts, bytes.into());
-    }
-    let bounds = value.split_once('-').and_then(|(start, end)| {
-        if start.is_empty() {
-            let count = end.parse::<usize>().ok()?;
-            (count > 0).then_some((length.saturating_sub(count), length - 1))
-        } else {
-            let start = start.parse::<usize>().ok()?;
-            let end = if end.is_empty() {
-                length - 1
-            } else {
-                end.parse::<usize>().ok()?.min(length - 1)
-            };
-            (start <= end).then_some((start, end))
-        }
-    });
-    if let Some((start, end)) = bounds {
-        parts.status = StatusCode::PARTIAL_CONTENT;
-        parts.headers.insert(
-            header::CONTENT_RANGE,
-            format!("bytes {start}-{end}/{length}").parse().unwrap(),
-        );
-        parts
-            .headers
-            .insert(header::CONTENT_LENGTH, (end - start + 1).into());
-        Response::from_parts(parts, bytes.slice(start..=end).into())
-    } else {
-        parts.status = StatusCode::RANGE_NOT_SATISFIABLE;
-        parts.headers.insert(
-            header::CONTENT_RANGE,
-            format!("bytes */{length}").parse().unwrap(),
-        );
-        parts.headers.insert(header::CONTENT_LENGTH, 0.into());
-        Response::from_parts(parts, axum::body::Body::empty())
-    }
+    media_http::serve(
+        content_type,
+        bytes,
+        etag,
+        query.as_deref(),
+        &method,
+        &headers,
+    )
 }
 
 fn serve(path: &str) -> Response {
@@ -387,6 +341,112 @@ mod tests {
                     "{range}"
                 );
             }
+        }
+    }
+
+    #[tokio::test]
+    async fn html_aliases_stay_fresh_while_static_assets_use_content_validators() {
+        use sha2::{Digest, Sha256};
+        for path in ["/", "/card-game/", "/card-game/index.html"] {
+            let response = request(true, path, "HEAD").await;
+            assert_eq!(response.status(), StatusCode::OK);
+            assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
+            assert!(!response.headers().contains_key(header::ETAG));
+            assert!(to_bytes(response.into_body(), usize::MAX)
+                .await
+                .unwrap()
+                .is_empty());
+        }
+        let song = include_bytes!("../../card-game/assets/music/attic-1.mp3");
+        let hash = format!("{:x}", Sha256::digest(song));
+        let response = request(
+            true,
+            &format!("/card-game/assets/music/attic-1.mp3?v={hash}"),
+            "HEAD",
+        )
+        .await;
+        assert_eq!(response.headers()[header::ETAG], format!("\"{hash}\""));
+        assert_eq!(
+            response.headers()[header::CACHE_CONTROL],
+            "public, max-age=31536000, immutable"
+        );
+        assert_eq!(
+            response.headers()[header::CONTENT_LENGTH],
+            song.len().to_string()
+        );
+        assert!(to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .is_empty());
+    }
+
+    #[tokio::test]
+    async fn response_compression_keeps_music_bytes_and_text_cache_variants() {
+        for range in [None, Some("bytes=0-31")] {
+            let mut builder = Request::builder()
+                .uri("/card-game/assets/music/attic-1.mp3")
+                .header(header::ACCEPT_ENCODING, "gzip");
+            if let Some(range) = range {
+                builder = builder.header(header::RANGE, range);
+            }
+            let response = router::<()>(true)
+                .layer(super::super::response_compression())
+                .oneshot(builder.body(Body::empty()).unwrap())
+                .await
+                .unwrap();
+            assert!(!response.headers().contains_key(header::CONTENT_ENCODING));
+            assert!(response.headers()[header::ETAG]
+                .to_str()
+                .unwrap()
+                .starts_with('"'));
+            assert_eq!(
+                response.status(),
+                if range.is_some() {
+                    StatusCode::PARTIAL_CONTENT
+                } else {
+                    StatusCode::OK
+                }
+            );
+            let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+            assert_eq!(
+                body.len(),
+                if range.is_some() {
+                    32
+                } else {
+                    include_bytes!("../../card-game/assets/music/attic-1.mp3").len()
+                }
+            );
+        }
+        for path in ["shared.mjs", "assets/greek-drama/antigone.svg"] {
+            let response = router::<()>(true)
+                .layer(super::super::response_compression())
+                .oneshot(
+                    Request::builder()
+                        .uri(format!("/card-game/{path}"))
+                        .header(header::ACCEPT_ENCODING, "gzip")
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.headers()[header::CONTENT_ENCODING], "gzip");
+            assert_eq!(response.headers()[header::VARY], "accept-encoding");
+            let etag = response.headers()[header::ETAG].clone();
+            assert!(etag.to_str().unwrap().starts_with("W/"));
+            let revalidated = router::<()>(true)
+                .layer(super::super::response_compression())
+                .oneshot(
+                    Request::builder()
+                        .uri(format!("/card-game/{path}"))
+                        .header(header::ACCEPT_ENCODING, "gzip")
+                        .header(header::IF_NONE_MATCH, etag)
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(revalidated.status(), StatusCode::NOT_MODIFIED);
+            assert_eq!(revalidated.headers()[header::VARY], "accept-encoding");
         }
     }
 }
