@@ -1,5 +1,6 @@
 import { atticOpening } from "./fixtures/card-attic-opening.mjs";
 import { describe, it, expect } from "vitest";
+import { legacySaveFixture } from "./helpers/legacy-save-fixture.mjs";
 import {
   createWorld,
   exits,
@@ -196,8 +197,7 @@ describe("card standoffs", () => {
       Object.assign(broken.standoffs[0], patch);
       expect(() => validateWorld(broken)).toThrow();
     }
-    const old = meeting();
-    old.schema = 4;
+    const old = legacySaveFixture(meeting(), 4);
     delete old.standoffs;
     delete old.peaceUntil;
     const migrated = decodeSave(JSON.stringify(old));
@@ -206,8 +206,7 @@ describe("card standoffs", () => {
     expect(migrated.standoffs).toEqual([]);
   });
   it("breaks a repeated cast impasse through a threat, combat and a released item", () => {
-    const old = meeting();
-    old.schema = 2;
+    const old = legacySaveFixture(meeting(), 2);
     old.turn = old.revision = 8;
     for (const [id, actor] of Object.entries(old.actors).filter(([id]) =>
       ["vale", "moth", "keeper"].includes(id),

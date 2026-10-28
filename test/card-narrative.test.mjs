@@ -1,5 +1,6 @@
 import { atticOpening } from "./fixtures/card-attic-opening.mjs";
 import { describe, it, expect, vi, afterEach } from "vitest";
+import { legacySaveFixture } from "./helpers/legacy-save-fixture.mjs";
 afterEach(() => vi.useRealTimers());
 import {
   createWorld,
@@ -274,8 +275,13 @@ describe("entity memories and model text", () => {
 
   it("migrates old saves and retains quest progress and item histories", () => {
     const world = act(createWorld(), "take", "lamp");
-    const old = structuredClone(world);
-    old.schema = 3;
+    // This migration introduces zero trust for every peer in the saved cast.
+    const peers = Object.keys(world.actors);
+    for (const [id, actor] of Object.entries(world.actors))
+      actor.trust = Object.fromEntries(
+        peers.filter((peer) => peer !== id).map((peer) => [peer, 0]),
+      );
+    const old = legacySaveFixture(world, 3);
     delete old.memories;
     const restored = decodeSave(JSON.stringify(old));
     expect(restored.schema).toBe(7);

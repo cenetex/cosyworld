@@ -4,6 +4,7 @@ import {
   applyGeneratedText,
 } from "../v2/card-game/narrative.mjs";
 import { describe, it, expect } from "vitest";
+import { legacySaveFixture } from "./helpers/legacy-save-fixture.mjs";
 import {
   createWorld,
   legalActions,
@@ -582,8 +583,7 @@ describe("JRPG scenes", () => {
     expect(new Set(script.beats.map((e) => e.id)).size).toBe(100);
   });
   it("restores earlier saves and assigns event order on the next action", () => {
-    const s = createWorld();
-    s.schema = 3;
+    const s = legacySaveFixture(createWorld(), 3);
     delete s.memories;
     delete s.eventSeq;
     s.log = s.log.map(({ turn, speaker, text }) => ({ turn, speaker, text }));

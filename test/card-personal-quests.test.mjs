@@ -1,6 +1,7 @@
 import { currentPlaces } from "./helpers/card-place-graph.mjs";
 import { atticOpening } from "./fixtures/card-attic-opening.mjs";
 import { describe, it, expect } from "vitest";
+import { legacySaveFixture } from "./helpers/legacy-save-fixture.mjs";
 import {
   createWorld,
   play,
@@ -79,8 +80,7 @@ const noNumbers = (text) => expect(text).not.toMatch(/\d/);
 
 describe("personal quests grow from life", () => {
   it("records a shared bell quest before its sound changes the owner's mood", () => {
-    let s = createWorld();
-    s.schema = 2;
+    let s = legacySaveFixture(createWorld(), 2);
     s.turn = s.revision = 20;
     s.actors.vale.progress = { program: 2, step: 0, marks: [1, 2, 3, 4, 5] };
     s = enableMotives(decodeSave(JSON.stringify(s)), { personalQuests: true });

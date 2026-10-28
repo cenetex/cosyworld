@@ -1,5 +1,6 @@
 import { currentPlaces } from "./helpers/card-place-graph.mjs";
 import { describe, it, expect } from "vitest";
+import { legacySaveFixture } from "./helpers/legacy-save-fixture.mjs";
 import {
   createWorld,
   play,
@@ -30,8 +31,7 @@ import {
 import { addLog } from "../v2/card-game/world.mjs";
 
 function continuing() {
-  const s = createWorld();
-  s.schema = 2;
+  const s = legacySaveFixture(createWorld(), 2);
   s.turn = s.revision = 20;
   for (const [id, actor] of Object.entries(s.actors).filter(([id]) =>
     ["vale", "moth", "keeper"].includes(id),
@@ -377,8 +377,7 @@ describe("situations and their consequences", () => {
   });
 
   it("upgrades schema five while keeping its current quests, speech and custody", () => {
-    const old = continuing();
-    old.schema = 5;
+    const old = legacySaveFixture(continuing(), 5);
     delete old.locations;
     for (const actor of Object.values(old.actors)) delete actor.trust;
     for (const memory of Object.values(old.memories)) delete memory.landmarks;
