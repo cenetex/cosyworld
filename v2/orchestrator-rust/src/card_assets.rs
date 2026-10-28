@@ -2434,7 +2434,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "pack-landings.json" => {
             "\"f860b068017897de1a962925a5f3099752b84ba025a2276f62460fe92f90f855\""
         }
-        "world.mjs" => "\"2cdf7bbc9db556670de9c055c118717c259547cacc5a494be2a7f43772693522\"",
+        "world.mjs" => "\"82e545109dac04d3a9de41cea3aa05d475d36fc3f242d9b9cf1260fc4d12c68d\"",
         "scene.mjs" => "\"aba97eb70f26e75c9eaa4bcf71e3d8130f8bc5efc3df2b1a2567022959879d87\"",
         "weather.mjs" => "\"69a3e11642c43831f80581711f6113d814badd666ad2c3e3892a1a4c70a5fd27\"",
         "daylight.mjs" => "\"6e1bbbf92705e5e2ed904ca98666540ab9a91916c94e50749e649a0ba380170d\"",

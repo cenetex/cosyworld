@@ -14778,6 +14778,12 @@
   validatePackLinks(places, people, things);
   var ids = Object.keys(things);
   var actorIds = [...Object.keys(forest_default.people), ...packActorIds];
+  var expectedTrustKeys = Object.fromEntries(
+    actorIds.map((id) => [
+      id,
+      actorIds.filter((other) => other !== id).sort().join()
+    ])
+  );
   var nameOf = (id) => places[id]?.name || people[id]?.name || things[id]?.name || "the world";
   function createWorld({ opening = false, packScopes = {} } = {}) {
     const world = {
@@ -15839,7 +15845,7 @@
         }
       }
     }
-    for (const give of ids)
+    for (const give of ids.filter((id) => s.items[id].holder === actor))
       for (const receive of ids) {
         if (!canTrade(s, actor, give, receive)) continue;
         const other = s.items[receive].holder;
@@ -16740,7 +16746,7 @@
         fail();
     }
     for (const [id, a] of Object.entries(s.actors)) {
-      if (!a.trust || Object.keys(a.trust).sort().join() !== actorIds.filter((other) => other !== id).sort().join() || Object.values(a.trust).some((n) => !Number.isInteger(n) || n < 0 || n > 3))
+      if (!a.trust || Object.keys(a.trust).sort().join() !== expectedTrustKeys[id] || Object.values(a.trust).some((n) => !Number.isInteger(n) || n < 0 || n > 3))
         fail();
       if (!Object.hasOwn(places, a.place) || !actorCanVisit(id, a.place, s) || entityActive(s, id) && !entityActive(s, a.place) || !Number.isSafeInteger(a.crossed) || a.crossed < 0 || !Number.isSafeInteger(a.lastTalk) || a.lastTalk > s.turn)
         fail();
