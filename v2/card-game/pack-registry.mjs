@@ -1,6 +1,11 @@
 import { recordRecital, recitalVisit, validRecitals } from "./pack-recital.mjs";
 import { boardyPack, BOARDY, boardyActive } from "./boardyai.mjs";
 import { sectionAllows } from "./pack-sections.mjs";
+import {
+  retirementTurn,
+  retireAfterReport,
+  validRetiredMeeting,
+} from "./pack-retirement.mjs";
 import { journeyNextPlace, validJourneyPlaces } from "./pack-journeys.mjs";
 // The compiled world packs mounted on the card table, indexed for the engine.
 // Packs supply data only; pack-rules.mjs applies the general rules they name.
@@ -291,6 +296,7 @@ function entityEnabled(world, id, saved = false) {
     state = packState(world, e.packId);
   if (
     !state ||
+    retirementTurn(world, pack, id) !== null ||
     !conditionsMet(
       world,
       e.packId,
@@ -337,9 +343,15 @@ export function actorCanVisit(actor, place, world = null) {
   if (a ? destination?.packId === a.packId : !destination) return true;
   const home = a?.packId ?? null,
     target = destination?.packId ?? null;
-  if (crossings.some((crossing) => crossing.travelers === "any" &&
-    (packPlaces[crossing.from]?.packId ?? null) === home &&
-    (packPlaces[crossing.to]?.packId ?? null) === target)) return true;
+  if (
+    crossings.some(
+      (crossing) =>
+        crossing.travelers === "any" &&
+        (packPlaces[crossing.from]?.packId ?? null) === home &&
+        (packPlaces[crossing.to]?.packId ?? null) === target,
+    )
+  )
+    return true;
   return Object.entries(transports).some(([id, t]) => {
     const domains = t.docks.map((dock) => packPlaces[dock]?.packId ?? null);
     return (
@@ -418,6 +430,7 @@ export function applyPackChoice(world, action) {
     }
   }
   state.receipts[choice.id] = world.turn;
+  retireAfterReport(world, pack, choice, choiceText(choice, action.actor));
   recordRecital(world, pack, choice.id, action.actor);
   return choice;
 }
@@ -543,6 +556,8 @@ export function validatePackStates(world) {
               (c) => c.kind !== "connected_humans",
             ),
           ) ||
+          (retirementTurn(world, pack, id) !== null &&
+            !validRetiredMeeting(world, pack, id, turn, conditionsMet)) ||
           (world.opening &&
             !sharedEnabled(world) &&
             world.opening.met?.[id] !== turn) ||
@@ -623,7 +638,7 @@ export function validatePackStates(world) {
           !actor.previousHomes?.includes(world.actors[id]?.place)) ||
           world.actors[id]?.crossed !== 0 ||
           world.actors[id]?.lastTalk !== -9 ||
-          owns(state.met, id))
+          (owns(state.met, id) && retirementTurn(world, pack, id) === null))
       )
         return false;
     for (const [id, item] of Object.entries(pack.items || {}))

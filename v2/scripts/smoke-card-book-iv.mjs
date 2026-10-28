@@ -44,6 +44,8 @@ export async function checkBookIV(browser, origin) {
           failedAssets = [],
           photographed = new Set();
         let current;
+        const state = () =>
+          page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
         page.on("pageerror", (e) => errors.push(e.message));
         page.on("response", (r) => {
           if (
@@ -80,8 +82,6 @@ export async function checkBookIV(browser, origin) {
               },
             });
           });
-          const state = () =>
-            page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
           const settle = async () => {
             await page.waitForSelector("#hand .card");
             for (let i = 0; i < 250; i++) {
@@ -236,7 +236,10 @@ export async function checkBookIV(browser, origin) {
               error: error.message,
             }),
           );
-          throw error;
+          throw new Error(
+            `${chapter}/${route}/${width} at ${JSON.stringify(current)}: ${error.message}`,
+            { cause: error },
+          );
         } finally {
           await page.close();
         }

@@ -472,6 +472,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "place",
         "travels",
         "journey",
+        "retireAfter",
         "roamingQuest",
         "personalQuests",
         "previousHomes",
@@ -873,6 +874,24 @@ export function packProblems(pack, hub, mountedPlaces = []) {
           );
       check(valid, `choice ${c.id} effect is unsupported or lacks custody`);
     }
+  }
+  for (const [id, avatar] of Object.entries(avatars)) {
+    if (avatar.retireAfter === undefined) continue;
+    const report = choices.find((choice) => choice.id === avatar.retireAfter);
+    check(
+      idOk(avatar.retireAfter) &&
+        report &&
+        report.subject !== id &&
+        avatar.travels === false &&
+        avatar.journey === undefined &&
+        avatar.roamingQuest === undefined &&
+        avatar.personalQuests !== true &&
+        avatar.temperament === undefined &&
+        (avatar.requires || []).every(
+          (c) => c.kind === "choice" || (c.kind === "flag" && c.value === true),
+        ),
+      `avatar ${id} retirement needs a fixed role, positive opening and a witness report`,
+    );
   }
   for (const [id, avatar] of Object.entries(avatars)) {
     if (avatar.journey === undefined) continue;

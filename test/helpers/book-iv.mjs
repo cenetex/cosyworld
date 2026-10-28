@@ -240,7 +240,7 @@ export function andromacheJourney(route = "protection") {
   );
 }
 
-export function hippolytusPrepared() {
+export function hippolytusCare() {
   const w = "hippolytus",
     id = (slug) => ivId(w, slug);
   let world = ivWalk(ivStart(), "greek-troezen");
@@ -250,7 +250,12 @@ export function hippolytusPrepared() {
   world = ivTalk(world, id("phaedra"), id("hear-phaedra-words"));
   world = ivTalk(world, id("nurse"), id("hear-nurse-words"));
   world = ivChoose(world, w, "cool-cloth");
-  world = ivTalk(world, id("nurse"), id("phaedra-death-words"));
+  return world;
+}
+export function hippolytusPrepared() {
+  const w = "hippolytus",
+    id = (slug) => ivId(w, slug);
+  let world = ivTalk(hippolytusCare(), id("nurse"), id("phaedra-death-words"));
   world = ivTake(world, id("account"));
   world = ivMove(world, "greek-troezen");
   world = ivTake(world, id("accusation"));

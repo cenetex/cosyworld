@@ -1818,18 +1818,14 @@
           "kind": "flag",
           "key": "greek-book-iv-open",
           "value": true
-        },
-        {
-          "kind": "flag",
-          "key": "greek-book-iv-hippolytus-phaedra-dead",
-          "value": false
         }
       ],
       "tastes": {
-        "likes": "careful work and a trustworthy account",
+        "likes": "a cool cloth and a quiet lamp",
         "sore": "a promise treated as a finished deed",
         "reason": "Phaedra speaks from her sickroom in the Troezen household account. Her desire, shame and choices have their own moment. The nurse’s later death report changes the household."
-      }
+      },
+      "retireAfter": "greek-book-iv-hippolytus-phaedra-death"
     },
     "greek-book-iv-hippolytus-nurse": {
       "name": "Phaedra’s Nurse",
@@ -1871,18 +1867,14 @@
           "kind": "flag",
           "key": "greek-book-iv-open",
           "value": true
-        },
-        {
-          "kind": "flag",
-          "key": "greek-book-iv-hippolytus-hippolytus-dead",
-          "value": false
         }
       ],
       "tastes": {
         "likes": "careful work and a trustworthy account",
         "sore": "a promise treated as a finished deed",
         "reason": "Hippolytus speaks in the Troezen household account. His oath limits his testimony. The source ending gives his forgiveness before his death."
-      }
+      },
+      "retireAfter": "greek-book-iv-hippolytus-finish-source"
     },
     "greek-book-iv-hippolytus-messenger": {
       "name": "The Troezen Household Messenger",
@@ -2004,18 +1996,14 @@
           "kind": "flag",
           "key": "greek-book-iv-open",
           "value": true
-        },
-        {
-          "kind": "flag",
-          "key": "greek-book-iv-medea-royals-dead",
-          "value": false
         }
       ],
       "tastes": {
         "likes": "careful work and a trustworthy account",
         "sore": "a promise treated as a finished deed",
         "reason": "Creon of Corinth grants one day before exile in Medea’s household account. His own reply governs the original guarded-exile alternative."
-      }
+      },
+      "retireAfter": "greek-book-iv-medea-royal-deaths"
     },
     "greek-book-iv-medea-aegeus": {
       "name": "Aegeus",

@@ -128,6 +128,10 @@ returns, frozen poem, second carrier and Ion’s separate audiences.
 and phone widths with a text-service fixture. It keeps screenshots and
 checks the saved position, custody, speech, reload, page width and art.
 
-The source death reports also exercise actor retirement after an earlier
-meeting. This draft holds that path for the coordinator’s shared save-rule
-review. The combined release gate qualifies the final native journal paths.
+The three source death reports use the explicit `retireAfter` field for a
+fixed scene role. The committed witness report supplies its saved date.
+An earlier valid meeting remains part of the story. Directly carried
+belongings move to that person’s actual scene with their item history.
+Nested contents keep their holder chain. Final scene words precede the
+witness’s report. The combined release gate qualifies the native journal
+paths.

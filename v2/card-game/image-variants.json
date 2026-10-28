@@ -364,6 +364,34 @@
       "card": "assets/optimized/card/webp/greek-drama/harbor-ship-at-berth.webp",
       "cardHash": "c2810e0b0d9e960c6501fa7744d8201de052b4f370c03ae363c00001ba43dd0b"
     },
+    "assets/greek-drama/helen-egypt-tomb-day.webp": {
+      "sourceHash": "63bc8c00bf579fea29258160385d2ae1c8f2df38d03fd1d2d73b77124af33a81",
+      "stage": "assets/greek-drama/helen-egypt-tomb-day.webp",
+      "stageHash": "63bc8c00bf579fea29258160385d2ae1c8f2df38d03fd1d2d73b77124af33a81",
+      "card": "assets/optimized/card/webp/greek-drama/helen-egypt-tomb-day.webp",
+      "cardHash": "720d8c3e6ab18dadc9ffa62e19ae359ce78aca34b59234530d1f737be07d24dc"
+    },
+    "assets/greek-drama/helen-egypt-tomb-night.webp": {
+      "sourceHash": "32f07d7483962b6d0fe1b534df8e8f91a6864210d0f3f5f0169df7661e6adae8",
+      "stage": "assets/greek-drama/helen-egypt-tomb-night.webp",
+      "stageHash": "32f07d7483962b6d0fe1b534df8e8f91a6864210d0f3f5f0169df7661e6adae8",
+      "card": "assets/optimized/card/webp/greek-drama/helen-egypt-tomb-night.webp",
+      "cardHash": "643da62f16ef6fdbe44049b4cb3adcb84fd6bb2962a1ae9515277675a6f33537"
+    },
+    "assets/greek-drama/helen-theoclymenus.png": {
+      "sourceHash": "71526f058c0ced26866d009aff4fb65f61947a345d32872603e775d9fb46201b",
+      "stage": "assets/optimized/stage/png/greek-drama/helen-theoclymenus.webp",
+      "stageHash": "7daf9667f3540e9b063112a57a4933a412c73fef5121afc94b1814eba286d4b1",
+      "card": "assets/optimized/card/png/greek-drama/helen-theoclymenus.webp",
+      "cardHash": "f7ff34e95a5c0caf6498cf76ec30f2c25277d77cd7c8c76783961a6cffca23e3"
+    },
+    "assets/greek-drama/helen-theonoe.png": {
+      "sourceHash": "a1de93676e33c95cad1f67ee98e50dbf758c0d895130f63c8eed4acf988a6d71",
+      "stage": "assets/optimized/stage/png/greek-drama/helen-theonoe.webp",
+      "stageHash": "7f3708aefc043dc1a337f1b91fee9b62f15f7e2afa55e667a333100072cc51e4",
+      "card": "assets/optimized/card/png/greek-drama/helen-theonoe.webp",
+      "cardHash": "f3928f9a2667a952beadca0e28472c28bec8055dc52274a215276f6eef7f4f57"
+    },
     "assets/greek-drama/household-token.png": {
       "sourceHash": "e5a4d2daa5726d0c70fb0e5f08c02130aeaa3175309bb320a24d9fa7be871e6f",
       "stage": "assets/optimized/stage/png/greek-drama/household-token.webp",

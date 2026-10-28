@@ -184,6 +184,21 @@ generated speech never advance a signal. Leaving the place resets progress.
 With `"consecutive": false`, other plays leave progress alone. A refresh
 play counts from anyone at the place while the crossing is open.
 
+### Fixed scene roles after a report
+
+A fixed NPC may name `"retireAfter": "witness-report-choice-id"`.
+The named choice belongs to a different scene witness. Its committed receipt
+gives the role a permanent closing date. The actor uses `"travels": false`
+and positive opening flags or account choices. Its original or previous home,
+`crossed: 0` and `lastTalk: -9` remain the saved position contract.
+
+After the report, earlier meetings, knowledge, trust and memories remain saved.
+Meeting validation checks the opening at that earlier turn. An appearance
+earlier on the report turn is valid. Directly held items move to the actor’s
+actual place and gain the report in their history. Contents such as a cloth
+around a lamp keep their own holder chain. A retiring speaker’s final scene
+words come before the witness. The witness carries later speech.
+
 ## Saves
 
 A save keeps `crossings` (per crossing: `discovered`, plus `phase` and

@@ -166,5 +166,11 @@
       ],
       "at": "greek-harbor"
     }
+  },
+  "values": {
+    "greek-book-iv-hippolytus-phaedra": {
+      "lamp": 3,
+      "cloth": 3
+    }
   }
 }

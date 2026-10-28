@@ -14,6 +14,7 @@ import {
   entityActive,
   packEntity,
   packDefinitions,
+  packDefinition,
   packFacts,
   packReadings,
   packSceneFacts,
@@ -271,6 +272,21 @@ export function narrativeContext(world, action = null) {
     location,
     played?.seq,
   );
+  const retiring = new Set(
+    disclosures.flatMap((disclosure) => {
+      const topic = world.knowledge?.facts[disclosure.factId]?.source.topic;
+      const pack = topic && packDefinition(topic.packId);
+      return Object.entries(pack?.avatars || {})
+        .filter(([, avatar]) => avatar.retireAfter === topic?.choiceId)
+        .map(([id]) => id);
+    }),
+  );
+  if (retiring.size) {
+    const beforeWitness = (a, b) =>
+      Number(retiring.has(b)) - Number(retiring.has(a));
+    speakers.sort(beforeWitness);
+    ids.sort(beforeWitness);
+  }
   const events = world.log
     .filter(
       (entry) =>
@@ -836,8 +852,9 @@ export function applyGeneratedText(
       )
     )
       continue;
-    const text = next.memories[id].text;
     const avatar = profiles[id].kind === "avatar";
+    if (avatar && !entityActive(next, id)) continue;
+    const text = next.memories[id].text;
     const movement = changes.find((change) => change.actorId === id);
     addLog(next, profiles[id].name, text, {
       kind: avatar ? expressionKind(profiles[id]) : "narration",
