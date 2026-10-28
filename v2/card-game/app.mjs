@@ -421,7 +421,11 @@ const exchange = createExchange({
     if (!value) {
       pendingSpeaker = null;
       renderScene();
-      queueMicrotask(showQuestNotice);
+      queueMicrotask(() => {
+        if (availableCards(world).some((id) => !encountered.has(id)))
+          queueDiscoveries();
+        else void showQuestNotice();
+      });
     }
   },
 });
@@ -692,6 +696,7 @@ const narrator = createNarrator({
     renderScene();
   },
   apply: (next) => {
+    queueQuestCompletions(world, next);
     world = next;
     storyStatus = "ready";
     save();
@@ -2229,7 +2234,7 @@ function render() {
       expandedHolders.add(id);
   }
   const questKey = JSON.stringify([
-    shownQuests(),
+    [...visibleQuestKeys.values()],
     completedQuests.map((quest) => quest.key),
     [...questRead],
     [...expandedQuestHolders],

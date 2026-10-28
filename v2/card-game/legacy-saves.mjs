@@ -19,6 +19,7 @@ import {
 } from "./pack-registry.mjs";
 import { humanAvatarIds } from "./human-cast.mjs";
 import { passengers } from "./pack-transport.mjs";
+import { installKnowledge } from "./knowledge.mjs";
 import { newTemperament } from "./pack-rules.mjs";
 
 // Upgrade historical records before the world validates the current save.
@@ -119,6 +120,14 @@ export function upgradeSave(
   if (Object.values(s.life?.actors || {}).some((life) => life.collection))
     installSharedQuestRegistry(s);
   if (s?.schema === 7) publishQuestCompletions(s, syncStoryQuests(s));
+  if (s?.schema === 7)
+    installKnowledge(
+      s,
+      undefined,
+      packDefinitions.flatMap((pack) =>
+        (pack.topics || []).map((topic) => ({ ...topic, packId: pack.id })),
+      ),
+    );
   return s;
 }
 

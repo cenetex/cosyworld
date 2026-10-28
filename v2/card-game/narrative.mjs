@@ -1,4 +1,5 @@
 import { learningFacts } from "./learning.mjs";
+import { knowledgeDisclosures, knowledgeFacts } from "./knowledge.mjs";
 import { questCarried } from "./quest-hands.mjs";
 import { BOARDY, boardyFacts } from "./boardyai.mjs";
 import { questRecord } from "./shared-quests.mjs";
@@ -31,6 +32,7 @@ import {
   opponentOf,
   placeText,
   places,
+  publishKnowledgeSpeech,
 } from "./world.mjs";
 import { actorQuests, desireFor, knownActors } from "./quests.mjs";
 import { hasTemperament, variantOf, signalEcho } from "./pack-rules.mjs";
@@ -261,6 +263,13 @@ export function narrativeContext(world, action = null) {
         (id === location || audience.includes(id) || localItems.includes(id)),
     )
     .slice(0, 8);
+  const disclosures = knowledgeDisclosures(
+    world,
+    speakers,
+    ids,
+    location,
+    played?.seq,
+  );
   const events = world.log
     .filter(
       (entry) =>
@@ -320,6 +329,7 @@ export function narrativeContext(world, action = null) {
     scenery: sceneryDue(world.turn),
     focus,
     speakers,
+    ...(disclosures.length ? { disclosures } : {}),
     action:
       played?.text ||
       (world.turn
@@ -352,6 +362,12 @@ export function narrativeContext(world, action = null) {
           : []),
       ];
       const facts = [
+        ...knowledgeFacts(
+          world,
+          id,
+          nameOf,
+          disclosures.filter((d) => d.speaker === id).map((d) => d.factId),
+        ),
         ...(id === BOARDY ? boardyFacts(world, nameOf) : []),
         ...recitalFacts(world, packDefinitions, id),
         ...questFacts,
@@ -441,7 +457,7 @@ export function narrativeContext(world, action = null) {
           );
         for (const c of target.conditions || [])
           facts.push(
-            `${conditionMet(world, c) ? "Already true" : "Still hoped for"}: ${conditionText(c, nameOf)}.`,
+            `${conditionMet(world, c, id) ? "Already true" : "Still hoped for"}: ${conditionText(c, nameOf)}.`,
           );
         const helpers = Object.entries(world.actors[id].trust)
           .filter(([, n]) => n > 0)
@@ -789,6 +805,7 @@ export function applyGeneratedText(world, context, response) {
       ...(movement?.leaving ? { departureTo: movement.to } : {}),
       ...(movement && !movement.leaving ? { arrivalFrom: movement.from } : {}),
     });
+    publishKnowledgeSpeech(next, next.log.at(-1), context.disclosures || []);
     if (movement?.leaving) cast.splice(cast.indexOf(id), 1);
   }
   return validateWorld(next);

@@ -1,5 +1,5 @@
 import { greekTravelTargets } from "../../test/helpers/greek-travel.mjs";
-import { selectCard } from "./card-browser-helpers.mjs";
+import { selectCard, topicForChoice } from "./card-browser-helpers.mjs";
 import { checkOpeningPoem } from "./smoke-card-opening-poem.mjs";
 // Exercise the public card UI and its one saved history, at desktop and phone
 // widths. Text is a bounded fixture; the deterministic model owns every result.
@@ -104,7 +104,9 @@ try {
           model: "greek-browser-fixture",
           entries: input.entities.map(({ id }) => ({
             id,
-            text: `${profiles[id]?.name || id} considers the witnessed result.`,
+            text:
+              input.disclosures?.find((fact) => fact.speaker === id)?.text ||
+              `${profiles[id]?.name || id} considers the witnessed result.`,
           })),
         }),
       });
@@ -209,11 +211,14 @@ try {
         (a) => a.choiceId === choiceId,
       );
       assert.ok(action, `legal choice ${choiceId}`);
+      const topic = topicForChoice(choiceId);
       const option = page.locator(
-        `[data-choice="${choiceId}"][data-pack="greek-drama"]`,
+        topic
+          ? `#card-actions [data-action="talk"]`
+          : `[data-choice="${choiceId}"][data-pack="greek-drama"]`,
       );
       if (!(await option.isVisible())) {
-        await selectCard(page, action.cards[0]);
+        await selectCard(page, topic?.speaker || action.cards[0]);
       }
       if (["greek-helen-egypt", "greek-helen-troy"].includes(choiceId)) {
         const bounds = await page.locator("#card-actions").boundingBox();

@@ -79,7 +79,7 @@ describe("named card actions", () => {
     expect(primary(world, ["lamp", "station"]).kind).toBe("snuff");
     expect(primary(world, ["bell", "station"]).kind).toBe("ring");
   });
-  it("lists local fixtures and story choices alongside the basic play", () => {
+  it("lists local fixtures and carries spoken clues through Talk", () => {
     const world = createWorld();
     world.actors.vale.place = "clearing";
     const local = cardActions(world, ["clearing"]).actions;
@@ -88,7 +88,10 @@ describe("named card actions", () => {
     world.crossings["pond-greek-harbor"].discovered = true;
     const story = cardActions(world, ["greek-guard"]).actions;
     expect(story[0].kind).toBe("talk");
-    expect(story.some((a) => a.kind === "choose")).toBe(true);
+    expect(story.some((a) => a.choiceId === "greek-hear-decree")).toBe(false);
+    expect(
+      legalActions(world).some((a) => a.choiceId === "greek-hear-decree"),
+    ).toBe(true);
     for (const action of story)
       expect(legalActions(world)).toContainEqual(action);
   });

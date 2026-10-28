@@ -253,15 +253,24 @@ phone journeys, alternate choices, object care, reloads, cards, and Bard.
 
 ## Personal quests and lasting hopes
 
+Personal and shared quest programs use `quest-progress.mjs` to capture evidence,
+advance one step per turn, apply each shared effect once and save completions.
+Pack stories use `storyQuests` in their authored data. The
+[story quest guide](../docs/card-story-quests.md) explains how another pack can
+use the same rules.
+
+Talk can share one saved fact. Authored topics and witnessed deeds supply those
+facts; each listener keeps the source and teller. A checked spoken reply teaches
+the fact and can unlock an authored scene or a quest step. Later Talk can pass
+heard news to another person. Greece's spoken clues now use this path, including
+the mothers' plea, the decree and the returning reports.
+
 The browser enables `personalQuests` alongside motives. The first quest gives
-each avatar a starting purpose. A completed quest earns a level and starts
-three quiet turns. This is internal simulation state. After this rest, useful
-gifts and lamp care earn two Inspiration points; conversations, trades and
-accepted shared trips earn one. Both people in a social action can earn points.
-Each person earns at most two points per round. The same exchange earns again
-after six turns. Failed requests, solo waiting and inspecting cards leave the
-saved inspiration unchanged. Five points unlock one new personal quest at the end of the
-round. The new quest can first advance on the following turn.
+each avatar a starting purpose. A completed quest earns a level. The avatar then
+heads to a sanctuary and rests there for three turns. Shared human avatars count
+their own turns; residents count world rounds. A meaningful experience can seed
+the next purpose after rest. A long quiet spell also gives the avatar a fresh
+purpose. The new quest can first advance on the following turn.
 
 Each avatar has a lasting hope and three milestones. Generated quests favour
 the next feasible milestone, then recent experiences and variety. A quest
@@ -276,13 +285,13 @@ purpose. Talking, giving, trading and accepted invitations create three turns
 of shared time. Residents can tend items or talk during this time. A grievance
 still lets them seek space. The player chooses Vale's actions throughout.
 
-These mechanics remain internal; cards and menus do not display Inspiration,
-hope milestones or task checklists. Personal relationships may inform speech.
+Cards show the current purpose. Personal relationships and lasting hopes may
+inform speech.
 
-Schema 6 saves gain optional, validated `life` state. Loading an earlier save
-adds this state while keeping its active quest, earned steps, items, memories
-and levels. New-game and cross-tab save updates use the same setup. The action
-history is bounded independently from the saved Inspiration and attachments.
+Schema 6 saves gain validated `life` state. Life version 2 records experiences,
+rest, hopes and attachments. Loading an earlier save keeps its active quest,
+earned steps, items, memories and levels. New-game and cross-tab save updates use
+the same setup. The action history and lasting experiences have separate bounds.
 
 Run `npx vitest run test/card-personal-quests.test.mjs` for the quest cycle,
 repeat limits, attachment and company rules, hope selection, save migration,
@@ -377,7 +386,7 @@ Trades compare each character’s value for both objects, including attached clo
 
 Accompany requests use current interests, the items carried by the requester, favours, and grievances. An agreed trip moves both avatars and their belongings through the usual rules. A refusal leaves both in place for that exchange. The other cast member takes its own turn.
 
-Schema 6 gains optional `motives` state. The browser activates this state for both fresh games and restored games. Earlier progress, earned levels, inventory, and memories remain in the save. The browser enables quest programs alongside personal motives at every new-game and load entry point. Saved progress continues from its recorded step. Completing a program earns a level and starts three quiet turns. Shared actions then fill Inspiration and unlock a fresh purpose from the current world and the avatar’s lasting hope. Tastes shape prices; a remembered grievance can raise a price, refuse company, or prompt a retreat. Quest items also carry value in a fair exchange. The interests-only simulation remains available through `enableMotives()` for comparison; the browser passes `questPrograms: true`. Generated speech receives current interests, exact outcomes, and witnessed grievances.
+Schema 6 gains optional `motives` state. The browser activates this state for both fresh games and restored games. Earlier progress, earned levels, inventory, and memories remain in the save. The browser enables quest programs alongside personal motives at every new-game and load entry point. Saved progress continues from its recorded step. Completing a program earns a level and starts three quiet turns. Meaningful experiences and the avatar’s lasting hope shape the next purpose after sanctuary rest. Tastes shape prices; a remembered grievance can raise a price, refuse company, or prompt a retreat. Quest items also carry value in a fair exchange. The interests-only simulation remains available through `enableMotives()` for comparison; the browser passes `questPrograms: true`. Generated speech receives current interests, exact outcomes, and witnessed grievances.
 
 At the station, Vale can take the bell. The Keeper values the bell more than the oil and accepts that pair. Ring the bell beside the Keeper first and the price rises. Pip values the lamp more than the cloth. These competing tastes let the same objects support several bargains.
 
@@ -561,7 +570,7 @@ published in scene order. Local play can publish completed lines once at least
 one requested speaker succeeds. Omitted cards keep their saved words. Shared
 play requires both selected voices and journals the committed text through the
 existing shared dialogue event. Shared speech uses the same transcript and
-visible-state checks; reflections belong to local play.
+visible-state checks. Shared reflections are saved through the world journal.
 
 Optional voice tiers are enabled with exact model IDs in
 `COSYWORLD_CARD_REFLECTION_MODEL` and `COSYWORLD_CARD_ESCALATION_MODEL`.

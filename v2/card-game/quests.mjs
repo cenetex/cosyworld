@@ -162,7 +162,7 @@ export const desireFor = (s, actor) => {
         : ownerOf(s, id) !== actor,
     ).length *
       20 +
-    (h.conditions || []).filter((c) => !conditionMet(s, c)).length * 2 +
+    (h.conditions || []).filter((c) => !conditionMet(s, c, actor)).length * 2 +
     (h.conditions || []).filter(
       (c) =>
         c.kind === "heldBy" &&
@@ -656,6 +656,10 @@ export function recordQuestProgress(
     }
   }
 }
+// Read current exits only when a new program needs them.
+const resolvePlaces = (places) =>
+  typeof places === "function" ? places() : places;
+
 export function ensureCollectedQuest(s, actor, places, things) {
   const life = lifeOf(s, actor),
     c = collectionOf(s, actor);
@@ -678,7 +682,12 @@ export function ensureCollectedQuest(s, actor, places, things) {
     (q) => q.completedTurn === null && questCarried(s, actor, q.key),
   );
   if (!pending.length && life.phase === "active" && canOfferQuest(s, actor)) {
-    const program = generateProgram(structuredClone(s), actor, places, things);
+    const program = generateProgram(
+      structuredClone(s),
+      actor,
+      resolvePlaces(places),
+      things,
+    );
     addQuest(s, actor, program, life.origin || null);
     pending = collectionCards(s, actor).filter(
       (q) => q.completedTurn === null && questCarried(s, actor, q.key),
@@ -745,7 +754,12 @@ export function collectExperienceQuests(s, actor, places, things) {
   for (const experience of experiences.sort((a, b) => b.turn - a.turn)) {
     const probe = structuredClone(s);
     lifeOf(probe, actor).origin = experience;
-    const program = generateProgram(probe, actor, places, things);
+    const program = generateProgram(
+      probe,
+      actor,
+      resolvePlaces(places),
+      things,
+    );
     if (!canOfferQuest(s, actor, program)) continue;
     if (addQuest(s, actor, program, experience)) break;
   }

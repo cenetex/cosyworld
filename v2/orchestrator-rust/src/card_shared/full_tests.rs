@@ -1139,6 +1139,171 @@ fn shared_speech_retry_reuses_committed_play_without_another_turn() {
         .unwrap();
     assert_eq!(count, 1);
 }
+
+#[test]
+fn shared_speech_publication_retries_a_write_lock_with_the_original_reply() {
+    let (path, mut c, id) = fixture();
+    c.pragma_update(None, "journal_mode", "WAL").unwrap();
+    for a in 0..2 {
+        claim(&mut c, &id, a);
+        let world = full_store::world(&c, &id, now()).unwrap();
+        let mut command = body("play", None);
+        command.key = format!("publication-lock-{a:04}");
+        command.action = home_action(&world, a, "wait");
+        let tx = c
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .unwrap();
+        full::run(&tx, &id, &format!("user{a}"), &command, now()).unwrap();
+        tx.commit().unwrap();
+    }
+    let app = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path.clone()));
+    let work = full::take_work(&app, &id).unwrap().unwrap();
+    assert_eq!(work.actor, 0);
+    let evidence: Vec<Value> = work.context["context"]["entities"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|entity| entity["id"] == "vale")
+        .unwrap()["memories"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|memory| memory["kind"] == "event")
+        .map(|memory| memory["seq"].clone())
+        .collect();
+    let reflection = json!({
+        "thought":"I have time to listen.",
+        "persona":"I listen closely to the people near me.",
+        "dream":"I heard a bell beyond the trees.",
+        "models":{"thought":"private-fixture","persona":"private-fixture","dream":"private-fixture"},
+        "evidence":evidence,
+    });
+    let lines = json!([{"speaker":"Vale","actorId":"vale","entityId":"vale",
+        "text":"I pause for 60 quiet breaths.","model":"fixed-fixture-model","reflection":reflection}]);
+    let before = full_store::world(&c, &id, now()).unwrap();
+    let (locked, ready) = std::sync::mpsc::channel();
+    let blocker = std::thread::spawn(move || {
+        let mut connection = store::open(&path).unwrap();
+        let tx = connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .unwrap();
+        locked.send(()).unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(250));
+        tx.commit().unwrap();
+    });
+    ready.recv().unwrap();
+    full::finish_work_with_lock_budget(
+        &app,
+        &id,
+        work.clone(),
+        Ok(lines.clone()),
+        std::time::Duration::from_secs(3),
+    )
+    .unwrap();
+    blocker.join().unwrap();
+    full::finish_work(&app, &id, work.clone(), Ok(lines.clone())).unwrap();
+    let after = full_store::world(&c, &id, now()).unwrap();
+    assert_eq!(after.game["turn"], before.game["turn"]);
+    assert_eq!(
+        after.game["memories"]["vale"]["innerLife"]["thoughts"][0]["text"],
+        reflection["thought"]
+    );
+    let commands: Vec<String> = c
+        .prepare("SELECT command FROM card_full_log WHERE json_extract(command,'$.op')='speech'")
+        .unwrap()
+        .query_map([], |row| row.get(0))
+        .unwrap()
+        .collect::<rusqlite::Result<_>>()
+        .unwrap();
+    assert_eq!(commands.len(), 1);
+    let published: Value = serde_json::from_str(&commands[0]).unwrap();
+    assert_eq!(published["lines"], lines);
+    let (status, retries): (String, i32) = c
+        .query_row(
+            "SELECT status,retries FROM card_full_plays WHERE id=?",
+            [&work.id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(status, "playing");
+    assert_eq!(retries, 0, "The original speech attempt stays unchanged.");
+    assert_eq!(
+        c.query_row("SELECT count(*) FROM card_full_scenes", [], |row| row
+            .get::<_, i64>(0))
+            .unwrap(),
+        1
+    );
+    c.execute(
+        "UPDATE card_full_plays SET until_at=0 WHERE id=?",
+        [&work.id],
+    )
+    .unwrap();
+    let next = full::take_work(&app, &id).unwrap().unwrap();
+    assert_eq!(next.actor, 1);
+    assert_eq!(
+        full_store::world(&c, &id, now()).unwrap().game["turn"]
+            .as_u64()
+            .unwrap(),
+        before.game["turn"].as_u64().unwrap() + 1
+    );
+}
+
+#[test]
+fn shared_speech_publication_reports_an_exhausted_write_lock_budget() {
+    let (path, mut c, id) = fixture();
+    c.pragma_update(None, "journal_mode", "WAL").unwrap();
+    claim(&mut c, &id, 0);
+    let world = full_store::world(&c, &id, now()).unwrap();
+    let mut command = body("play", None);
+    command.key = "publication-lock-exhausted".into();
+    command.action = home_action(&world, 0, "wait");
+    let tx = c
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .unwrap();
+    full::run(&tx, &id, "user0", &command, now()).unwrap();
+    tx.commit().unwrap();
+    let app = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path.clone()));
+    let work = full::take_work(&app, &id).unwrap().unwrap();
+    let lines = json!([{"speaker":"Vale","actorId":"vale","entityId":"vale","text":"I have a moment to listen."}]);
+    let mut connection = store::open(&path).unwrap();
+    let held = connection
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .unwrap();
+    assert!(full::finish_work_with_lock_budget(
+        &app,
+        &id,
+        work.clone(),
+        Ok(lines.clone()),
+        std::time::Duration::from_millis(150)
+    )
+    .is_err());
+    held.commit().unwrap();
+    let (status, retries): (String, i32) = c
+        .query_row(
+            "SELECT status,retries FROM card_full_plays WHERE id=?",
+            [&work.id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(status, "working");
+    assert_eq!(
+        retries, 0,
+        "A lock timeout keeps the original speech attempt."
+    );
+    assert_eq!(
+        c.query_row("SELECT count(*) FROM card_full_scenes", [], |row| row
+            .get::<_, i64>(0))
+            .unwrap(),
+        0
+    );
+    full::finish_work(&app, &id, work, Ok(lines)).unwrap();
+    assert_eq!(
+        c.query_row("SELECT count(*) FROM card_full_scenes", [], |row| row
+            .get::<_, i64>(0))
+            .unwrap(),
+        1
+    );
+}
 #[test]
 fn existing_save_progress_and_inventory_are_preserved_on_share() {
     let mut w = World::create(None).unwrap();
