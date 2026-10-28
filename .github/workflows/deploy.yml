@@ -140,6 +140,7 @@ jobs:
       checks: read
     env:
       CI: true
+      RUST_TEST_THREADS: "2"
     steps:
       - name: Checkout committed release
         uses: actions/checkout@v7
