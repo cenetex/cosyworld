@@ -1721,7 +1721,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "character-speech.mjs" => {
             "\"d53e51f93d89a0073199f45dd83086417733d76980f6c3b22f875b3f642292b5\""
         }
-        "voices.json" => "\"1008d1fd1b14398dbf837b50ab1c1eb2ae8e9679e2b4147f651a5bdec791e25d\"",
+        "voices.json" => "\"9779065a6e1d8f4e6b3cc23ac3531b7915243388483fad9a31e5a819b7e0871f\"",
         "assets/voices/vale.mp3" => {
             "\"083024e8f77da085caaa10adb44a84684636039e1fe7b165cb93c57db77053f3\""
         }
