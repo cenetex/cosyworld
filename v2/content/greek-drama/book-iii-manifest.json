@@ -328,10 +328,14 @@
     "cargoRetentionChecks": 20,
     "rhesusBrowserJourneys": 4,
     "trojanBrowserJourneys": 6,
-    "optimizedImageSources": 220
+    "optimizedImageSources": 220,
+    "hecubaBrowserJourneys": 6,
+    "persiansBrowserJourneys": 6,
+    "totalBrowserJourneys": 34,
+    "finalSourceFocusedChecksCovered": 68,
+    "pairedSceneryDaylightChecks": 10
   },
   "visualFollowup": [
-    "Thrace and Susa desktop/phone journeys are queued.",
     "The reserved-family native journal case is written and waits for the shared native window.",
     "The combined eleven-port circuit and released-shore migration remain queued."
   ],

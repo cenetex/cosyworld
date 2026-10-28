@@ -113,12 +113,41 @@ describe("day and night in Thebes", () => {
 
   it("keeps the other coastal places on their current paintings", () => {
     const world = createWorld({ packScopes: { "greek-drama": "full" } });
-    for (const place of ["greek-argos-sanctuary", "greek-thrace"]) {
+    for (const place of ["greek-argos-sanctuary"]) {
       const day = backdrop(place, world);
       world.turn = world.revision = DAYLIGHT_TURNS;
       expect(locationDaylight(world, place)).toBeNull();
       expect(backdrop(place, world)).toBe(day);
       world.turn = world.revision = 0;
+    }
+  });
+
+  it("restores the painted Lemnos, Thrace and Susa scenes in the saved light", () => {
+    const world = createWorld({ packScopes: { "greek-drama": "full" } });
+    for (const [region, places] of [
+      ["lemnos", ["greek-lemnos", "greek-lemnos-landing"]],
+      [
+        "thrace",
+        [
+          "greek-thrace",
+          "greek-thrace-summons-tent",
+          "greek-thrace-burial-ground",
+        ],
+      ],
+      ["susa", ["greek-susa", "greek-susa-tomb", "greek-susa-threshold"]],
+    ]) {
+      for (const place of places) {
+        for (const [turn, phase] of [
+          [0, "day"],
+          [DAYLIGHT_TURNS, "night"],
+        ]) {
+          world.turn = world.revision = turn;
+          expect(locationDaylight(world, place).phase).toBe(phase);
+          const file = `./assets/greek-drama/book-three-${region}-${phase}.webp`;
+          expect(backdrop(place, world)).toBe(file);
+          expect(backdrop(place, decodeSave(encodeSave(world)))).toBe(file);
+        }
+      }
     }
   });
 
