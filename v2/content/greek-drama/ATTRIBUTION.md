@@ -78,3 +78,11 @@ her signed return list and Dione’s answer are original CosyWorld writing.
 The early reports preserve each recorded source account or named alternative.
 All sixteen homecoming couplets describe those new reports, arrivals and
 readings.
+
+## House of Blood
+
+The [Book V source guide](HOUSE-OF-BLOOD.md#sources) links the seven MIT
+Internet Classics Archive versions used for event order and ending boundaries.
+The new dialogue, game alternatives and 57 couplets are original paraphrases.
+This draft reuses the existing Greek art credited above. The proposed new
+portrait and scenery bindings are listed in `HOUSE-OF-BLOOD-ART.json`.

@@ -1,31 +1,13 @@
 import hoppycat from "../v2/content/hoppycat-archive/card-world.json" with { type: "json" };
-import { packDefinition as currentPackDefinition } from "../v2/card-game/pack-registry.mjs";
+import {
+  packDefinition as currentPackDefinition,
+  packDefinitions,
+} from "../v2/card-game/pack-registry.mjs";
 const willowsItems = Object.fromEntries(
   Object.entries(currentPackDefinition("willows").items).map(([id, item]) => [
     id,
     { holder: item.holder, history: [] },
   ]),
-);
-const laterGreekItems = Object.fromEntries(
-  Object.entries(currentPackDefinition("greek-drama").items)
-    .filter(([id]) =>
-      /greek-(ajax|seven|phoenician|tyrannus|bacchae)-/.test(id),
-    )
-    .map(([id, item]) => [id, { holder: item.holder, history: [] }]),
-);
-const bookTwoPrefixes = [
-  "greek-danaid-",
-  "greek-alcestis-",
-  "greek-heracles-",
-  "greek-trachis-",
-];
-const bookTwoActors = Object.keys(
-  currentPackDefinition("greek-drama").avatars,
-).filter((id) => bookTwoPrefixes.some((prefix) => id.startsWith(prefix)));
-const bookTwoItems = Object.fromEntries(
-  Object.entries(currentPackDefinition("greek-drama").items)
-    .filter(([id]) => bookTwoPrefixes.some((prefix) => id.startsWith(prefix)))
-    .map(([id, item]) => [id, { holder: item.holder, history: [] }]),
 );
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
@@ -76,22 +58,25 @@ describe("the household save upgrade", () => {
       const before = oldWorld(scope);
       expect(before.packs["greek-drama"].revision).toBe(3);
       expect(before.actors[witness]).toBeUndefined();
+      const newActors = packDefinitions
+        .flatMap((pack) => Object.keys(pack.avatars))
+        .filter((id) => !before.actors[id]);
       const after = decodeSave(JSON.stringify(before));
       expect(after.packs["greek-drama"]).toEqual({
         ...before.packs["greek-drama"],
         revision: currentPackDefinition("greek-drama").revision,
       });
       expect(Object.keys(after.actors).length).toBe(
-        Object.keys(before.actors).length +
-          12 +
-          bookTwoActors.length +
-          Object.keys(hoppycat.avatars).length,
+        Object.keys(before.actors).length + newActors.length,
       );
       expect(after.items).toEqual({
         ...before.items,
         ...willowsItems,
-        ...laterGreekItems,
-        ...bookTwoItems,
+        ...Object.fromEntries(
+          Object.entries(currentPackDefinition("greek-drama").items)
+            .filter(([id]) => !before.items[id])
+            .map(([id, item]) => [id, { holder: item.holder, history: [] }]),
+        ),
         "boardyai-calling-card": { holder: "pond", history: [] },
         ...Object.fromEntries(
           Object.entries(hoppycat.items).map(([id, item]) => [
@@ -112,22 +97,7 @@ describe("the household save upgrade", () => {
           ...actor,
           trust: {
             ...actor.trust,
-            ...Object.fromEntries(bookTwoActors.map((id) => [id, 0])),
-            [witness]: 0,
-            boardyai: 0,
-            ...Object.fromEntries(
-              Object.keys(hoppycat.avatars).map((id) => [id, 0]),
-            ),
-            "willows-swede": 0,
-            rati: 0,
-            skull: 0,
-            whiskerwind: 0,
-            oak: 0,
-            "greek-ajax-tecmessa": 0,
-            "greek-ajax-teucer": 0,
-            "greek-ajax-odysseus": 0,
-            "greek-melea": 0,
-            "greek-melitta": 0,
+            ...Object.fromEntries(newActors.map((added) => [added, 0])),
           },
         });
       for (const [id, memory] of Object.entries(before.memories))

@@ -20,6 +20,8 @@ mod full_tests;
 mod full_world;
 #[cfg(test)]
 mod homecoming_tests;
+#[cfg(test)]
+mod house_of_blood_tests;
 mod kernel;
 #[cfg(test)]
 mod quest_core_tests;

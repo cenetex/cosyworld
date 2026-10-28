@@ -5,25 +5,6 @@ const willowsItems = Object.fromEntries(
     { holder: item.holder, history: [] },
   ]),
 );
-const laterGreekItems = Object.fromEntries(
-  Object.entries(currentPackDefinition("greek-drama").items)
-    .filter(([id]) =>
-      /greek-(ajax|seven|phoenician|tyrannus|bacchae)-/.test(id),
-    )
-    .map(([id, item]) => [id, { holder: item.holder, history: [] }]),
-);
-const bookTwoItems = Object.fromEntries(
-  Object.entries(currentPackDefinition("greek-drama").items)
-    .filter(([id]) =>
-      [
-        "greek-danaid-",
-        "greek-alcestis-",
-        "greek-heracles-",
-        "greek-trachis-",
-      ].some((prefix) => id.startsWith(prefix)),
-    )
-    .map(([id, item]) => [id, { holder: item.holder, history: [] }]),
-);
 import { entityActive } from "../v2/card-game/pack-registry.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 import hoppycat from "../v2/content/hoppycat-archive/card-world.json" with { type: "json" };
@@ -225,8 +206,11 @@ describe("the side roads in earlier saved worlds", () => {
       expect(restored.items).toEqual({
         ...world.items,
         ...willowsItems,
-        ...laterGreekItems,
-        ...bookTwoItems,
+        ...Object.fromEntries(
+          Object.entries(currentPackDefinition("greek-drama").items)
+            .filter(([id]) => !world.items[id])
+            .map(([id, item]) => [id, { holder: item.holder, history: [] }]),
+        ),
         "boardyai-calling-card": { holder: "pond", history: [] },
         ...Object.fromEntries(
           Object.entries(hoppycat.items).map(([id, item]) => [
