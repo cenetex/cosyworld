@@ -2295,7 +2295,7 @@
           "values": {},
           "travels": false,
           "standoffs": false,
-          "portrait": "assets/greek-drama/chthonic-electra.png",
+          "portrait": "assets/greek-drama/house-of-blood/pythian-priestess.png",
           "persona": "The priestess receives a refuge branch and introduces the Delphi opening of Eumenides. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
           "voice": "The priestess receives a refuge branch and introduces the Delphi opening of Eumenides.",
           "tastes": {
@@ -2319,7 +2319,7 @@
           "values": {},
           "travels": false,
           "standoffs": false,
-          "portrait": "assets/greek-drama/chthonic-electra.png",
+          "portrait": "assets/greek-drama/house-of-blood/furies.png",
           "persona": "The accusing chorus speaks as a group and can agree to bring its claim to Ares Hill. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
           "voice": "The accusing chorus speaks as a group and can agree to bring its claim to Ares Hill.",
           "tastes": {
@@ -2351,7 +2351,7 @@
           "values": {},
           "travels": false,
           "standoffs": false,
-          "portrait": "assets/greek-drama/chthonic-electra.png",
+          "portrait": "assets/greek-drama/house-of-blood/athena.png",
           "persona": "Athena names the court’s source frame, its verdict and the separate settlement. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
           "voice": "Athena names the court’s source frame, its verdict and the separate settlement.",
           "tastes": {
@@ -2375,7 +2375,7 @@
           "values": {},
           "travels": false,
           "standoffs": false,
-          "portrait": "assets/greek-drama/chthonic-electra.png",
+          "portrait": "assets/greek-drama/house-of-blood/iphigenia-tauris.png",
           "persona": "Iphigenia tells the Tauris account in which Artemis saved her at Aulis. Every family recognition keeps this frame. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
           "voice": "Iphigenia tells the Tauris account in which Artemis saved her at Aulis. Every family recognition keeps this frame.",
           "tastes": {
@@ -2399,7 +2399,7 @@
           "values": {},
           "travels": false,
           "standoffs": false,
-          "portrait": "assets/greek-drama/chthonic-orestes.png",
+          "portrait": "assets/greek-drama/house-of-blood/thoas.png",
           "persona": "Thoas hears the rite at the shore and gives his own answer to a new pact. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
           "voice": "Thoas hears the rite at the shore and gives his own answer to a new pact.",
           "tastes": {
@@ -2423,7 +2423,7 @@
           "values": {},
           "travels": false,
           "standoffs": false,
-          "portrait": "assets/greek-drama/chthonic-electra.png",
+          "portrait": "assets/greek-drama/house-of-blood/taurian-chorus.png",
           "persona": "The captive Greek women keep their own claim to return and choose whether to join a new pact. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
           "voice": "The captive Greek women keep their own claim to return and choose whether to join a new pact.",
           "tastes": {

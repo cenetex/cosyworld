@@ -31,6 +31,12 @@ const groups = {
       "electra-old-servant",
       "hermione",
       "phrygian-servant",
+      "pythian-priestess",
+      "furies",
+      "athena",
+      "iphigenia-tauris",
+      "thoas",
+      "taurian-chorus",
     ].map((name) => `assets/greek-drama/house-of-blood/${name}.png`),
     ...["tecmessa", "teucer", "odysseus"].map(
       (name) => `assets/greek-drama/ajax-${name}.png`,
