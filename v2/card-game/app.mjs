@@ -1,3 +1,4 @@
+import { handLayout } from "./hand-layout.mjs";
 import { imageUrl } from "./images.mjs";
 import { landingPack, createLandingWorld } from "./pack-landing.mjs";
 import { flipStagePortrait, portraitFraming } from "./portrait-facing.mjs";
@@ -106,6 +107,11 @@ let world = sharedSession
         personalQuests: true,
       }),
   selected = [],
+  shownItems = {},
+  savedHandChoices = "",
+  frontQuests = {},
+  shownHolders = new Set(),
+  currentHandLayout = new Map(),
   expandedHolders = new Set(),
   expandedQuestHolders = new Set(),
   saveBlocked = false,
@@ -793,57 +799,84 @@ $("story-retry").onclick = async () => {
   }
 };
 function selectCards(cards) {
-  for (const id of selected)
-    if (people[id] && !cards.includes(id)) expandedHolders.delete(id);
   selected = cards;
+}
+function keepHandChoices() {
+  const available = new Set(availableCards(world));
+  selectCards(
+    selected.filter((id) =>
+      isQuestCard(id)
+        ? available.has(questForCard(world, id, shownQuest())?.actor) &&
+          Boolean(questForCard(world, id, shownQuest()))
+        : available.has(id),
+    ),
+  );
+  for (const [holder, item] of Object.entries(shownItems))
+    if (!world.items[item] || rootHolder(world, item) !== holder)
+      delete shownItems[holder];
+  for (const holder of expandedHolders)
+    if (!available.has(holder)) expandedHolders.delete(holder);
+  for (const holder of expandedQuestHolders)
+    if (!available.has(holder)) expandedQuestHolders.delete(holder);
+  selectionRevision = world.revision;
+}
+function fullHandCue() {
+  $("play-readout").textContent =
+    "Two cards selected. Tap a raised card to make room.";
+  if (!reducedMotion.matches)
+    for (const card of $("hand").querySelectorAll('.card[aria-pressed="true"]'))
+      card.animate(
+        { borderColor: ["#f2dba6", "#fff3d5", "#f2dba6"] },
+        { duration: 240 },
+      );
 }
 function choose(id) {
   if (selectionBlocked()) return;
+  const info = currentHandLayout.get(id);
+  const quest = isQuestCard(id) ? questForCard(world, id, shownQuest()) : null;
+  // A folded collection opens before its cards can join a play.
+  if (
+    info?.holder &&
+    info.count > 1 &&
+    !info.expanded &&
+    !selected.includes(id)
+  ) {
+    (quest ? expandedQuestHolders : expandedHolders).add(info.holder);
+    shownHolders.add(info.holder);
+    render();
+    revealHandCard(id);
+    return;
+  }
+  if (people[id] || places[id]) {
+    shownHolders.add(id);
+    expandedHolders.delete(id);
+    expandedQuestHolders.delete(id);
+  }
+  if (!selected.includes(id) && selected.length >= 2) {
+    render();
+    fullHandCue();
+    return;
+  }
   playQueue.clear();
   fresh.delete(id);
-  if (isQuestCard(id)) {
-    const quest = questForCard(world, id, shownQuest());
-    if (!quest) return;
+  if (quest) {
     questRead.add(quest.key);
     rememberQuests();
-    if (selected.includes(id)) {
-      selectCards([]);
-      expandedQuestHolders.delete(quest.actor);
-    } else {
-      selectCards([id]);
-      expandedQuestHolders.add(quest.actor);
-    }
-  } else if (places[id] && expandedHolders.has(id)) {
-    expandedHolders.delete(id);
-    selectCards(
-      selected.filter(
-        (cardId) =>
-          cardId !== id &&
-          (!things[cardId] || rootHolder(world, cardId) !== id),
-      ),
-    );
-  } else {
-    expandedQuestHolders.clear();
-    selected = selected.filter((cardId) => !isQuestCard(cardId));
-    const holder = things[id] ? rootHolder(world, id) : null;
-    if (places[holder])
-      selected = selected.filter((cardId) => cardId !== holder);
-    selectCards(
-      selected.includes(id)
-        ? selected.filter((cardId) => cardId !== id)
-        : selected.length >= 2
-          ? selected.includes(holder)
-            ? selected.map((cardId) => (cardId === holder ? id : cardId))
-            : [id]
-          : [...selected, id],
-    );
+    frontQuests[quest.actor] = quest.key;
   }
+  selectCards(
+    selected.includes(id)
+      ? selected.filter((cardId) => cardId !== id)
+      : [...selected, id],
+  );
+  const holder = things[id] ? rootHolder(world, id) : null;
+  if (people[holder] && selected.includes(id)) shownItems[holder] = id;
   selectionRevision = world.revision;
   render();
   $("hand")
     .querySelector(`[data-card="${id}"]`)
     ?.focus({ preventScroll: true });
-  revealHandCard(id, Boolean(people[id]));
+  revealHandCard(id);
 }
 function commit(cards, revision) {
   if (selectionBlocked()) return;
@@ -864,9 +897,6 @@ function performAction(action, revision) {
   const result = play(world, action, revision);
   if (!result.ok) {
     notice(result.error);
-    selected = [];
-    expandedHolders.clear();
-    expandedQuestHolders.clear();
     render();
     return;
   }
@@ -887,9 +917,7 @@ function performAction(action, revision) {
   dragging = [];
   $("stage").classList.remove("ready", "drag-over");
   exchange.begin();
-  selected = [];
-  expandedHolders.clear();
-  expandedQuestHolders.clear();
+  keepHandChoices();
   lineSeq = null;
   notice("");
   save();
@@ -1385,10 +1413,9 @@ function renderActions(animate = false) {
     fromHeight = panel.getBoundingClientRect().height;
   actionPanelMotion?.cancel();
   actionPanelMotion = null;
-  const quest =
-    selected.length === 1
-      ? questForCard(world, selected[0], shownQuest())
-      : null;
+  const quest = selected
+    .map((id) => questForCard(world, id, shownQuest()))
+    .find(Boolean);
   const { actions, hint } = quest
     ? {
         actions: legalActions(world).filter(
@@ -1397,7 +1424,7 @@ function renderActions(animate = false) {
         ),
         hint: quest.purpose,
       }
-    : cardActions(world, selected);
+    : cardActions(world, selected, shownItems);
   const selectionName = quest ? quest.title : selected.map(nameOf).join(" + ");
   $("selection-name").textContent = selected.length
     ? selectionName
@@ -1475,8 +1502,7 @@ function renderActions(animate = false) {
 function updateCardSelection(frame) {
   const button = frame.querySelector(".card"),
     id = button.dataset.card,
-    raised =
-      selected.includes(id) || Boolean(places[id] && expandedHolders.has(id)),
+    raised = selected.includes(id),
     label =
       raised && !isQuestCard(id)
         ? playLabel(cardPlay(world, selected).action)
@@ -1495,32 +1521,23 @@ function updateCardSelection(frame) {
       ? !questRead.has(questForCard(world, id, shownQuest())?.key)
       : fresh.has(id),
   );
-  if (isQuestCard(id)) {
-    const quest = questForCard(world, id, shownQuest());
-    frame.hidden =
-      !quest ||
-      (!expandedHolders.has(quest.actor) &&
-        !expandedQuestHolders.has(quest.actor));
-    frame.dataset.stacked = String(
-      Number(frame.dataset.stackIndex) > 0 &&
-        !expandedQuestHolders.has(quest?.actor),
-    );
-    frame.style.zIndex = String(
-      raised
-        ? 100
-        : Number(frame.dataset.stackCount) -
-            Number(frame.dataset.stackIndex) +
-            1,
-    );
-    return;
-  }
-  if (frame.dataset.holder)
-    frame.hidden = places[frame.dataset.holder]
-      ? !expandedHolders.has(frame.dataset.holder)
-      : !raised && !expandedHolders.has(frame.dataset.holder);
+  const info = currentHandLayout.get(id);
+  frame.hidden = Boolean(info?.hidden);
+  frame.dataset.stacked = String(Boolean(info?.stacked));
+  frame.dataset.stackIndex = String(info?.index || 0);
+  frame.dataset.stackCount = String(info?.count || 1);
+  frame.dataset.stackKind = info?.kind || "";
+  frame.style.setProperty("--stack-index", String(info?.index || 0));
+  frame.style.zIndex = String(
+    raised ? 100 : info?.stacked ? 20 - info.index : 30,
+  );
+  frame.dataset.shownItem = String(shownItems[info?.holder] === id);
+  if (info?.holder && info.count > 1)
+    button.setAttribute("aria-expanded", String(info.expanded));
+  if (isQuestCard(id)) return;
   if (held.length || questCards(world, id).length) {
-    frame.dataset.expanded = String(expandedHolders.has(id));
-    button.setAttribute("aria-expanded", String(expandedHolders.has(id)));
+    frame.dataset.expanded = String(shownHolders.has(id));
+    button.setAttribute("aria-expanded", String(shownHolders.has(id)));
   }
   button.querySelector(".sr-only").textContent =
     cardObservation(world, id) +
@@ -1618,8 +1635,7 @@ function card(id) {
     base = places[id] || people[id] || things[id],
     crossingFace = type === "location" ? travelCard(world, id) : null,
     def = crossingFace ? { ...base, name: crossingFace.name } : base;
-  const raised =
-    selected.includes(id) || Boolean(places[id] && expandedHolders.has(id));
+  const raised = selected.includes(id);
   const chosen = raised ? cardPlay(world, selected) : null;
   const el = node("button", undefined, `card ${type}`);
   el.type = "button";
@@ -1715,8 +1731,20 @@ function card(id) {
     e.preventDefault();
     e.stopPropagation();
     if (!selectionBlocked() && dragging.length && !dragging.includes(id)) {
+      const pair = [...new Set([...selected, dragging[0], id])];
+      if (pair.length > 2) {
+        fullHandCue();
+        dragging = [];
+        $("stage").classList.remove("ready", "drag-over");
+        renderActions();
+        return;
+      }
       playQueue.clear();
-      selectCards([dragging[0], id]);
+      selectCards(pair);
+      for (const item of pair) {
+        const holder = things[item] ? rootHolder(world, item) : null;
+        if (people[holder]) shownItems[holder] = item;
+      }
       selectionRevision = world.revision;
       render();
     }
@@ -1729,9 +1757,9 @@ function card(id) {
   const holder = things[id] ? rootHolder(world, id) : null;
   if (people[holder] || places[holder]) {
     frame.dataset.holder = holder;
-    frame.hidden = places[holder]
-      ? !expandedHolders.has(holder)
-      : !raised && !expandedHolders.has(holder);
+    frame.hidden =
+      !raised && shownItems[holder] !== id && !expandedHolders.has(holder);
+    frame.dataset.shownItem = String(shownItems[holder] === id);
     el.setAttribute(
       "aria-label",
       `${def.name}, ${places[holder] ? "at" : "carried by"} ${nameOf(holder)}`,
@@ -2278,6 +2306,7 @@ function renderLog() {
 }
 
 function render() {
+  rememberHandChoices();
   renderPlayers();
   music.setStarted(musicHasStarted());
   // While the travel veil comes down, the old place stays drawn.
@@ -2293,17 +2322,27 @@ function render() {
   $("place-title").textContent = nameOf(
     world.actors[currentActor(world)].place,
   );
-  for (const id of selected) {
-    if (people[id] || places[id] || questCards(world, id).length)
-      expandedHolders.add(id);
-  }
   const questKey = JSON.stringify([
     [...visibleQuestKeys.values()],
     completedQuests.map((quest) => quest.key),
     [...questRead],
     [...expandedQuestHolders],
   ]);
-  const handCards = questHand(world, personalNotice());
+  const handView = handLayout(
+    world,
+    questHand(world, personalNotice()),
+    {
+      selected,
+      shownItems,
+      shownQuests: frontQuests,
+      shownHolders,
+      expandedHolders,
+      expandedQuestHolders,
+    },
+    shownQuest(),
+  );
+  const handCards = handView.cards;
+  currentHandLayout = handView.layout;
   // Published speech can unlock cards and plays during the current turn.
   const handState = JSON.stringify([
     handCards,
@@ -2314,6 +2353,9 @@ function render() {
     world.revision,
     handState,
     selected,
+    shownItems,
+    frontQuests,
+    [...shownHolders],
     [...expandedHolders],
     [...fresh],
     saveBlocked,
@@ -2349,7 +2391,10 @@ function render() {
     renderedHandState = handState;
     if (sameWorld)
       for (const frame of $("hand").children) updateCardSelection(frame);
-    else $("hand").replaceChildren(...handCards.map(card));
+    else {
+      $("hand").replaceChildren(...handCards.map(card));
+      for (const frame of $("hand").children) updateCardSelection(frame);
+    }
     $("hand").scrollLeft = samePlace ? scroll : 0;
     renderActions(animate);
     if (arriving) revealHandCard(renderedHandPlace, true, true);
@@ -2387,6 +2432,7 @@ function render() {
       .querySelector(`[data-card="${focusId}"]`)
       ?.focus({ preventScroll: true });
   }
+  updateHandArrows();
 }
 function revealHandCard(id, alignStart = false, instant = false) {
   const hand = $("hand"),
@@ -2407,6 +2453,25 @@ function revealHandCard(id, alignStart = false, instant = false) {
     behavior: instant || reducedMotion.matches ? "instant" : "smooth",
   });
 }
+function updateHandArrows() {
+  const hand = $("hand"),
+    overflow = hand.scrollWidth > hand.clientWidth + 2;
+  $("hand-previous").hidden = $("hand-next").hidden = !overflow;
+  $("hand-previous").disabled = hand.scrollLeft <= 1;
+  $("hand-next").disabled =
+    hand.scrollLeft + hand.clientWidth >= hand.scrollWidth - 2;
+}
+for (const [id, direction] of [
+  ["hand-previous", -1],
+  ["hand-next", 1],
+])
+  $(id).onclick = () =>
+    $("hand").scrollBy({
+      left: direction * $("hand").clientWidth * 0.75,
+      behavior: reducedMotion.matches ? "instant" : "smooth",
+    });
+$("hand").addEventListener("scroll", updateHandArrows, { passive: true });
+new ResizeObserver(updateHandArrows).observe($("hand"));
 new ResizeObserver(([entry]) => {
   document.documentElement.style.setProperty(
     "--dock-height",
@@ -2417,13 +2482,12 @@ $("hand").addEventListener(
   "wheel",
   (e) => {
     const hand = $("hand");
-    if (
-      hand.scrollWidth <= hand.clientWidth + 1 ||
-      Math.abs(e.deltaY) <= Math.abs(e.deltaX)
-    )
-      return;
+    if (hand.scrollWidth <= hand.clientWidth + 1 || e.ctrlKey) return;
     e.preventDefault();
-    hand.scrollLeft += e.deltaY;
+    const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+    hand.scrollLeft +=
+      delta *
+      (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? hand.clientWidth : 1);
   },
   { passive: false },
 );
@@ -2487,27 +2551,6 @@ document.addEventListener("keydown", (e) => {
     e.key === "Escape" &&
     !document.querySelector("dialog[open], .world-menu:popover-open") &&
     (selected.length || expandedHolders.size)
-  ) {
-    playQueue.clear();
-    selected = [];
-    expandedHolders.clear();
-    expandedQuestHolders.clear();
-    render();
-  }
-});
-document.addEventListener("click", (e) => {
-  if (
-    (selected.length || expandedHolders.size) &&
-    !selectedHandItem(world, selected) &&
-    !e
-      .composedPath()
-      .some(
-        (element) =>
-          element instanceof Element &&
-          element.matches(
-            ".play-dock, .card-frame, dialog, .topbar, .dialogue, .world-menu",
-          ),
-      )
   ) {
     playQueue.clear();
     selected = [];
@@ -2595,6 +2638,9 @@ $("confirm-reset").onclick = () => {
   replay = 0;
   lineSeq = null;
   selected = [];
+  shownItems = {};
+  frontQuests = {};
+  shownHolders.clear();
   expandedHolders.clear();
   expandedQuestHolders.clear();
   saveBlocked = false;
@@ -2621,9 +2667,7 @@ window.addEventListener("storage", (event) => {
     loadQuestSeen();
     renderedHand = "";
     lineSeq = null;
-    selected = [];
-    expandedHolders.clear();
-    expandedQuestHolders.clear();
+    keepHandChoices();
     saveBlocked = false;
     notice("The world was updated in another tab.");
     resumeScene();
@@ -2652,14 +2696,19 @@ function resumeScene() {
     return;
   }
   if (!saveBlocked && world.opening && world.turn === 0 && !hasCurrentWords()) {
-    addLog(world, "Vale", world.opening.version === 2
-      ? "The water is dark. I'll light the lamp."
-      : "It's cold up here. I'll light the lamp.", {
-      actorId: currentActor(world),
-      entityId: currentActor(world),
-      kind: "dialogue",
-      generated: true,
-    });
+    addLog(
+      world,
+      "Vale",
+      world.opening.version === 2
+        ? "The water is dark. I'll light the lamp."
+        : "It's cold up here. I'll light the lamp.",
+      {
+        actorId: currentActor(world),
+        entityId: currentActor(world),
+        kind: "dialogue",
+        generated: true,
+      },
+    );
     save();
   }
   if (!saveBlocked && hasCurrentWords()) {
@@ -2703,18 +2752,12 @@ async function submitSharedPlay(action) {
     render();
     return;
   }
-  const selection = JSON.stringify(selected);
   sharedPlayback.reset();
   sharedSending = true;
   renderActions();
   try {
     await sharedSession.play(current);
-    if (!playQueue.pending && JSON.stringify(selected) === selection) {
-      selected = [];
-      expandedHolders.clear();
-      expandedQuestHolders.clear();
-      reviewing = false;
-    }
+    if (!playQueue.pending) reviewing = false;
     if (!playQueue.pending) notice("");
   } catch (error) {
     notice(error.message);
@@ -2778,14 +2821,7 @@ function adoptShared(value) {
     if (alreadyOpen) queueQuestCompletions(world, next);
     world = next;
     sharedWorldKey = key;
-    selectCards(
-      selected.filter((id) =>
-        isQuestCard(id)
-          ? Boolean(questForCard(world, id, shownQuest()))
-          : availableCards(world).includes(id),
-      ),
-    );
-    selectionRevision = world.revision;
+    keepHandChoices();
     renderedHand = "";
     pendingSpeaker = null;
     cardsCooling = false;
@@ -2845,6 +2881,36 @@ installSceneVideo({
   getWorld: () => world,
   getScene: () => videoScene || currentScene(world),
 });
+try {
+  const saved = JSON.parse(localStorage.getItem(`${SAVE_KEY}.hand`) || "{}");
+  for (const [holder, item] of Object.entries(saved.items || {}))
+    if (
+      people[holder] &&
+      things[item] &&
+      world.items[item] &&
+      rootHolder(world, item) === holder
+    )
+      shownItems[holder] = item;
+  for (const [holder, key] of Object.entries(saved.quests || {}))
+    if (people[holder] && typeof key === "string") frontQuests[holder] = key;
+  shownHolders = new Set(
+    (Array.isArray(saved.holders) ? saved.holders : []).filter(
+      (id) => people[id] || places[id],
+    ),
+  );
+} catch {}
+function rememberHandChoices() {
+  const value = JSON.stringify({
+    items: shownItems,
+    quests: frontQuests,
+    holders: [...shownHolders],
+  });
+  if (value === savedHandChoices) return;
+  savedHandChoices = value;
+  try {
+    localStorage.setItem(`${SAVE_KEY}.hand`, value);
+  } catch {}
+}
 if (sharedSession) {
   world = sharedWorld(sharedSession.state);
   sharedSession.subscribe(adoptShared, (message, recoveredFrom) => {

@@ -1327,16 +1327,20 @@ export function legalActions(s, actor = currentActor(s)) {
         ) ||
         ids.find((id) => s.items[id].holder === other) ||
         null;
-      out.push(
-        offer(
-          "threaten",
-          actor,
-          stake,
-          other,
-          `${nameOf(actor)} threatens ${nameOf(other)}${stake ? ` over the ${nameOf(stake)}` : ""}.`,
-          [other],
-        ),
-      );
+      const stakes = [
+        ...new Set([stake, ...ids.filter((id) => rootHolder(s, id) === other)]),
+      ];
+      for (const item of stakes)
+        out.push(
+          offer(
+            "threaten",
+            actor,
+            item,
+            other,
+            `${nameOf(actor)} threatens ${nameOf(other)}${item ? ` over the ${nameOf(item)}` : ""}.`,
+            [other],
+          ),
+        );
     }
     if (!hasTemperament(other))
       out.push(

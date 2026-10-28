@@ -13,6 +13,8 @@ mod full_store;
 mod full_tests;
 mod full_world;
 #[cfg(test)]
+mod hand_tests;
+#[cfg(test)]
 mod homecoming_tests;
 mod kernel;
 #[cfg(test)]

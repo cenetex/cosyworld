@@ -57,9 +57,15 @@ export function cardType(id) {
   return things[id] ? "item" : people[id] ? "avatar" : "location";
 }
 
-export function avatarPlays(world, id) {
+export function avatarPlays(world, id, item = null) {
   if (!people[id] || !availableCards(world).includes(id)) return [];
-  return legalActions(world)
+  const legal = legalActions(world);
+  const threat = legal.find(
+    (a) =>
+      a.kind === "threaten" && a.target === id && (!item || a.item === item),
+  );
+  return legal
+    .filter((a) => a.kind !== "threaten" || a === threat)
     .filter((a) =>
       id === currentActor(world)
         ? a.kind === "guard"
@@ -261,7 +267,7 @@ export function cardPlay(world, selected) {
   return result(action, "Try Oil flask + Lamp, or Black cloth + Lamp / Bell.");
 }
 // The row lists every play for this selection. The world owns legality.
-export function cardActions(world, selected) {
+export function cardActions(world, selected, shownItems = {}) {
   const cards = [...new Set(selected)];
   const primary = cardPlay(world, cards);
   if (
@@ -289,9 +295,25 @@ export function cardActions(world, selected) {
   } else if (cards.includes(currentActor(world))) {
     const other = cards.find((id) => id !== currentActor(world));
     if (people[other]) {
-      actions = avatarPlays(world, other).filter((a) => a.kind !== "talk");
+      actions = avatarPlays(world, other, shownItems[other]).filter(
+        (a) => a.kind !== "talk",
+      );
       hint = actions.length ? "" : primary.hint;
     }
+  }
+  const item = cards.find((id) => things[id]);
+  const owner = item && rootHolder(world, item);
+  if (
+    people[owner] &&
+    owner !== currentActor(world) &&
+    cards.every(
+      (id) => id === item || id === owner || id === currentActor(world),
+    )
+  ) {
+    const threat = legalActions(world).find(
+      (a) => a.kind === "threaten" && a.target === owner && a.item === item,
+    );
+    if (threat) actions.push(threat);
   }
   return {
     actions: [

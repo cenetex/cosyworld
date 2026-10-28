@@ -116,26 +116,43 @@ browsing, focus changes, and resident cards at desktop and phone sizes.
 ## Image-first presentation
 
 Card faces contain the illustration and a small name. Tapping a card toggles
-its selection. Selecting a card or pair shows named actions in the row below.
+its selection. A pair stays raised until a selected card is tapped again or
+Escape clears it. A third card gives the pair a small glow. Completed plays
+keep selected cards that remain in the current hand.
+Selecting a card or pair shows named actions in the row below.
 Tapping an action button plays it. The current place leads the hand, followed
 by items lying there, avatars with their carried items, and travel destinations.
 Arrival starts the hand at the new current place. Selection keeps its scroll position.
 On wide screens, the resting hand occupies two card widths at the right. Dialogue
 sits at the left. Selecting a card opens the hand across the screen and moves
-dialogue above it. Swipe, use the wheel, or use the arrow keys to reach more cards.
+dialogue above it. Arrow buttons beside the hand reach more cards. Touch
+scrolling, the wheel and keyboard arrows also browse the hand. Horizontal wheel
+input stays within the hand at both ends.
 Play stays available during an exchange. A waiting play shows **Queued**;
 tapping it again cancels it. Selecting another card clears the waiting play.
 Shared play waits for the player's current turn to finish, then checks the
 chosen action against the current table before sending it.
 Selection, cancellation,
 drag pairing and keyboard navigation spend no turn; only a committed play does.
+Tap an avatar to show a compact item stack and quest stack beside them. Each
+stack shows its front card and the edges of the other cards. Tap a stack to
+spread that collection, then tap a card to select it. Tap the avatar again to
+fold both stacks. The chosen front item and quest stay with their avatar while
+you select other cards. Front choices survive a reload. Item custody controls
+which avatar owns each item stack.
+
 The latest selected carried item appears in the player's avatar hand.
-Clicking the scene keeps that item selected and held. Tap its card again or
-press Escape to clear it.
+Clicking the scene keeps the active pair. Tap a raised card again or press
+Escape to clear the active selection.
 The preview follows the figure's facing and movement and shows the item's light,
 ringing, and covering. Lowering that card returns to the other selected item;
-clearing the selection clears the preview. Giving or dropping the item clears it
-as soon as custody changes.
+clearing the active selection clears the scene preview. The chosen card stays
+at the front of its avatar's item stack. Giving or dropping the item clears
+that front choice as soon as custody changes.
+
+An opponent's item card offers a named Threaten action. The avatar pair uses
+that opponent's chosen front item for its demand. Shared rules version 21 adds
+these item choices and retains each earlier rule bundle for saved journal replay.
 
 No card face or hover text exposes quest checklists, levels, hope fractions,
 Inspiration, fuel arithmetic, ringing deadlines, or ritual phases. Each newly
@@ -507,9 +524,9 @@ Talk and item trades stay available during a standoff. Travel ends it; releasing
 
 The cast guards, responds to attacks, or leaves. Threats, hits, releases, and retreats enter witnessed memories. A threat also leaves a personal grievance. Earlier saves gain an empty standoff state.
 
-Card selection keeps the current card elements in place and leaves keyboard focus on the tapped card. The hand and action row open together over 220 milliseconds; held items slide out from their owner. A play in the same place refreshes the cards as the hand lowers, with each name moving into its resting position. Travel changes the hand under the scene veil. Rapid taps reverse the current motion. Reduced motion applies the final layout at once. Menu and Conversation keep the selected cards and open items, and Escape closes the active panel before lowering the hand. Short landscape screens keep the hand inside the viewport.
+Card selection keeps the current card elements in place and leaves keyboard focus on the tapped card. The hand and action row open together over 220 milliseconds; stacks spread beside their owner and fold around their chosen front card. A play in the same place refreshes the cards and preserves the active pair. Travel changes the hand under the scene veil. Rapid taps reverse the current motion. Reduced motion applies the final layout at once. Menu and Conversation keep the selected cards and open items, and Escape closes the active panel before lowering the hand. Short landscape screens keep the hand inside the viewport.
 
-Run `node v2/scripts/smoke-card-actions.mjs` for Chromium controls, or `CARD_BROWSER=webkit node v2/scripts/smoke-card-actions.mjs` for WebKit. The checks cover desktop, phone, short landscape, reduced motion, fast taps, panel dismissal, and save updates.
+Run `node v2/scripts/smoke-card-touch-pairing.mjs` for Chromium controls, or `CARD_BROWSER=webkit node v2/scripts/smoke-card-touch-pairing.mjs` for WebKit. The checks cover desktop, phone, short landscape, reduced motion, separate item and quest stacks, panel dismissal, the two card limit, chosen item threats, persistent pairs and scroll arrows.
 
 When the lamp or oil is trapped beyond the attic, a narrow path can open from Black pond. It appears after reachable lamp remedies are exhausted. A traveler inside can still tend the lamp through the usual item plays. Every object keeps its holder until a play changes it. The Black cloth still opens the cottage from the attic.
 
