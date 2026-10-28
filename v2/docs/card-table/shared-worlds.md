@@ -304,5 +304,24 @@ Greek pack revision 5 preserves positions, belongings, story choices and
 poems. It adds memories for the new port and roads, and expands earlier
 learned routes through their current road and ship scenes. Myrine's coast
 journey uses two Accompany plays. Versions 13, 14 and 15 keep their released
-bytes. The builder writes `engine-v16.js`; older journals replay with the
+bytes. The version 16 bundle remains `engine-v16.js`; older journals replay with the
 recorded rules before the saved upgrade.
+
+## Learning from outcomes
+
+Shared rules version 18 records measured attempts for item and companionship
+goals. The same action chooser runs in the browser and the C interpreter. Each
+avatar's retained results set its action values. The chooser compares estimates
+and gives less-tried legal approaches room to establish a record. The authored
+rules define goals, legal actions and the reward measure.
+
+Each record retains the estimate made before the play, the action event, and
+observations before and after it. Delayed credit covers up to four linked plays;
+a changed situation or a completed goal ends that link. Saves and journal replay
+preserve the measured attempts, including exploration choices. Each player
+receives their own learning records through the existing private view.
+
+The builder writes `engine-v18.js`. Versions 2–17 keep their released bytes.
+Existing worlds receive an explicit saved upgrade before new plays use these
+rules. Earlier lessons remain readable; new completed plays establish the new
+estimates.

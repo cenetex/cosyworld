@@ -1,8 +1,4 @@
-import {
-  recordLearning,
-  requestConditions,
-  reconsiderPlan,
-} from "./learning.mjs";
+import { recordLearning, beginLearning, reconsiderPlan } from "./learning.mjs";
 import {
   dropQuest,
   questCarried,
@@ -1672,7 +1668,20 @@ function perform(s, a, capture = () => {}, round = null) {
     conflict.guarding[a.actor] = false;
     if (a.actor === conflict.defender) conflict.answered = true;
   }
-  if (a.kind === "wait") return;
+  if (a.kind === "wait") {
+    const learningStart = beginLearning(s, a);
+    if (a.actor === currentActor(s)) calm(s, here, a.actor);
+    if (learningStart) {
+      addLog(s, "World", a.text, {
+        kind: "action",
+        actorId: a.actor,
+        verb: "wait",
+        witnesses,
+      });
+      recordLearning(s, a, learningStart, s.log.at(-1));
+    }
+    return;
+  }
   if (a.kind === "drop-quest") {
     dropQuest(s, a.actor, a.questKey);
     const remaining = questHandKeys(s, a.actor).find(
@@ -1708,6 +1717,7 @@ function perform(s, a, capture = () => {}, round = null) {
     addLog(s, "World", a.text, { actorId: a.actor, locationId: here });
     return;
   }
+  const learningStart = beginLearning(s, a);
   const holder = holderBefore(s, a);
   const usefulGift =
     a.kind === "give" &&
@@ -1949,13 +1959,7 @@ function perform(s, a, capture = () => {}, round = null) {
       : {}),
     ...(a.kind === "attack" ? { locationId: here } : {}),
   });
-  recordLearning(
-    s,
-    a,
-    invitation?.accepted ?? requestAccepted,
-    requestConditions(s, a),
-    s.log.at(-1),
-  );
+  recordLearning(s, a, learningStart, s.log.at(-1));
   for (const visit of recitals)
     addLog(
       s,
@@ -2045,7 +2049,9 @@ export function plan(s, actor = currentActor(s)) {
     actor,
     basePlan(s, actor),
     legalActions(s, actor).filter(
-      (a) => a.kind !== "trade" || !needed(s, actor, a.item),
+      (a) =>
+        !["trade", "give"].includes(a.kind) ||
+        (!needed(s, actor, a.item) && !keepReason(s, actor, a.item)),
     ),
   );
 }
@@ -2409,8 +2415,6 @@ export function play(
   captureHands(next, met);
   const active = knownActors(next);
   const respondent = perform(next, exact, () => captureHands(next, met), round);
-  // Waiting quietly beside a resident calms it.
-  if (exact.kind === "wait") calm(next, next.actors[actor].place, actor);
   captureHands(next, met);
   if (
     next.opening &&

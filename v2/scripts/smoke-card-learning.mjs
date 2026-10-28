@@ -47,8 +47,7 @@ world.memories.keeper.innerLife = {
   dreams: [],
 };
 const output =
-  process.env.COSYWORLD_LEARNING_SCREENSHOTS ||
-  resolve("output/card-learning");
+  process.env.COSYWORLD_LEARNING_SCREENSHOTS || resolve("output/card-learning");
 await mkdir(output, { recursive: true });
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -92,8 +91,8 @@ try {
       await dialog.waitFor();
       const text = await dialog.innerText();
       assert(text.includes("learning to listen"));
-      assert(text.includes("The keeper declined"));
-      assert(text.includes("fair trade"));
+      assert(text.includes("My goal is still open"));
+      assert(text.includes("1 measured attempt"));
       assert(text.includes("little boat"));
       assert(!text.includes("Keeper private sentinel"));
       const box = await dialog.boundingBox();

@@ -386,12 +386,24 @@ The endpoint accepts at most 64 KiB, fixed entity IDs, eight local entities, and
 ## Learning and inner life
 
 Open **Menu → Inner life** to read your avatar's persona, thoughts, dreams and
-latest lesson. A request records what the avatar expected, the answer it heard,
-and its next approach. A declined gift request suggests a fair trade. A declined
-trip suggests time and conversation. The planner checks the saved lesson when
-it considers the same request. Changed belongings, needs or relationships give
-it a reason to reconsider. Each avatar keeps eight lessons with their exact
-completed action as evidence.
+measured attempts. Each avatar keeps up to 32 completed plays for item and
+companionship goals. The record includes the goal, the chosen action, the
+estimate before the play, the observed result, and the exact event as evidence.
+The first estimate is unknown. Later estimates come from that avatar's results.
+
+The action chooser compares those results across legal requests, trades, gifts,
+conversations and waits. It gives less-tried approaches room to establish a
+record. Recent results matter more. A changed situation gets fresh exploration,
+with earlier results providing a small starting estimate. The same present
+world can therefore produce different choices for avatars with different past
+results. Repeated failures can lower a once-successful approach's value.
+
+Reaching the goal earns twenty points; improved trust or eased grievances earn
+two points per step; each play costs one point. Up to four linked plays share a
+later result with a 0.7 discount per step. A changed recorded situation or a
+completed goal ends that link. Human choices and resident choices use the same
+measurement path. The panel shows measured attempts and how often an approach
+helped reach the goal. Earlier lessons remain readable in existing saves.
 
 Solo and shared avatars reflect on witnessed events. A new thought informs the
 persona revision; the revised persona then informs an optional dream. Each
@@ -407,8 +419,8 @@ Conversation prompts include each line's witnessed audience, so a later arrival
 learns an earlier exchange through a new conversation. Older prompts use that
 avatar's recorded expressions as their witness evidence.
 
-Shared rules version 13 adds the learning rules and saved reflections. Versions
-2–12 retain their released interpreter bytes. An explicit upgrade keeps the
+Shared rules version 18 adds measured action values and exploration. Versions
+2–17 retain their released interpreter bytes. An explicit upgrade keeps the
 existing world, possessions, quest progress, memory and persona.
 
 ## Your OpenRouter account
