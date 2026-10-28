@@ -31,7 +31,7 @@ fn assert_saved_items(current: &Value, old: &Value) {
 
 fn assert_saved_packs(current: &Value, old: &Value) {
     let mut expected = old.clone();
-    expected["greek-drama"]["revision"] = json!(5);
+    expected["greek-drama"]["revision"] = json!(6);
     expected["boardyai"] = current["boardyai"].clone();
     assert_eq!(current, &expected);
 }
@@ -719,21 +719,19 @@ fn earlier_completed_quests_gain_a_pending_bard_visit_after_recorded_upgrade() {
             upgraded.game["actors"]["greek-rhapsode"]["place"],
             "greek-harbor"
         );
-        for destination in ["greek-road-thebes", "greek-courtyard"] {
-            let action = home_action(&upgraded, 0, "wait");
-            full_store::commit(
-                &c,
-                &id,
-                &mut upgraded,
-                json!({"op":"play","actor":"vale","action":action}),
-                now(),
-            )
-            .unwrap();
-            assert_eq!(
-                upgraded.game["actors"]["greek-rhapsode"]["place"],
-                destination
-            );
-        }
+        let action = home_action(&upgraded, 0, "wait");
+        full_store::commit(
+            &c,
+            &id,
+            &mut upgraded,
+            json!({"op":"play","actor":"vale","action":action}),
+            now(),
+        )
+        .unwrap();
+        assert_eq!(
+            upgraded.game["actors"]["greek-rhapsode"]["place"],
+            "greek-courtyard"
+        );
         assert_eq!(
             upgraded.game["roamingQuests"]["greek-rhapsode"]["target"]["locationId"],
             "greek-courtyard"
@@ -1915,7 +1913,6 @@ fn shared_quest_receipts_drive_bard_travel_after_released_rules_upgrade_and_repl
             } else {
                 &[
                     "greek-harbor",
-                    "greek-road-thebes",
                     "greek-courtyard",
                     "greek-well",
                     "greek-well",

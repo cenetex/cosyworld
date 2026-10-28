@@ -23,7 +23,8 @@ try {
     const table = `greek-travel-${width}`;
     const key = `cosyworld.reflected-shore.v1.${table}`;
     const fixture = openDoorStart();
-    fixture.actors.vale.place = "greek-harbor";
+    fixture.playerActorId = "mara";
+    fixture.actors.mara.place = "greek-athens-harbor";
     const page = await browser.newPage({
       viewport: { width, height: width === 390 ? 844 : 900 },
       reducedMotion: "reduce",
@@ -92,7 +93,7 @@ try {
           await step("wait");
       const before = await state();
       const action = openDoorAction(before, kind, target ? { target } : {});
-      await selectCard(page, action.cards[0] || "vale", {
+      await selectCard(page, action.cards[0] || "mara", {
         touch: width === 390,
       });
       await page
@@ -102,7 +103,7 @@ try {
       await settle();
       const after = await state();
       assert.equal(after.turn, before.turn + 1);
-      if (kind === "move") assert.equal(after.actors.vale.place, target);
+      if (kind === "move") assert.equal(after.actors.mara.place, target);
       assert.ok(
         await page.evaluate(
           () => document.documentElement.scrollWidth <= innerWidth + 1,
@@ -111,36 +112,46 @@ try {
     };
     await page.goto(`${origin}/?table=${table}`);
     await settle();
+    assert.match(
+      await page.locator("#backdrop").getAttribute("src"),
+      /athens-harbor-empty\.webp/,
+    );
+    await page.screenshot({
+      path: new URL(`athens-empty-${width}.png`, output).pathname,
+      fullPage: true,
+    });
     for (const target of [
       "greek-ship",
-      "greek-athens-harbor",
-      "greek-road-athens-harbor",
-      "greek-athens",
-      "greek-road-athens-piraeus",
       "greek-piraeus",
+      "greek-road-athens-piraeus",
+      "greek-athens",
+      "greek-road-athens-eleusis",
+      "greek-eleusis",
+      "greek-road-athens-eleusis",
+      "greek-athens",
+      "greek-athens-harbor",
       "greek-ship",
       "greek-harbor",
-      "greek-road-thebes",
       "greek-courtyard",
     ]) {
       await step("move", target);
       const road = packDefinition("greek-drama").places[target]?.road;
       if (road) {
-        const ends = await page
+        const visibleOrder = await page
           .locator("#hand [data-card]")
           .evaluateAll(
-            (cards, road) =>
+            (cards, ids) =>
               cards
                 .map((card) => card.dataset.card)
-                .filter((id) => road.includes(id)),
-            road,
+                .filter((id) => ids.includes(id)),
+            ["mara", road[0], target, road[1]],
           );
-        assert.deepEqual(ends, road);
+        assert.deepEqual(visibleOrder, ["mara", road[0], target, road[1]]);
       }
       if (
         [
           "greek-athens-harbor",
-          "greek-road-athens-harbor",
+          "greek-road-athens-eleusis",
           "greek-athens",
           "greek-piraeus",
         ].includes(target)
@@ -155,13 +166,13 @@ try {
           fullPage: true,
         });
       }
-      if (target === "greek-road-athens-harbor") {
+      if (target === "greek-road-athens-eleusis") {
         const before = await state();
         await page.reload();
         await settle();
         assert.equal(
-          (await state()).actors.vale.place,
-          before.actors.vale.place,
+          (await state()).actors.mara.place,
+          before.actors.mara.place,
         );
         await selectCard(page, "greek-athens", { touch: width === 390 });
         assert.equal(
@@ -175,7 +186,7 @@ try {
     }
     assert.deepEqual(errors, []);
     console.log(
-      `Greek travel: ${width}px, both new ship ports, harbor road, fixed ends, reload, and return passed.`,
+      `Greek travel: ${width}px, Mara first, roads between their ends, direct town visits, empty Athens berth, reload, and return passed.`,
     );
     await page.close();
   }

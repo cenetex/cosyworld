@@ -156,7 +156,7 @@ ritual reload, visible state, travel and conversation without paid model calls.
 ## World packs and the Wine-Dark Sea
 
 At quiet Black Pond, the fueled Lamp and Black cloth can summon a ship.
-Board it, then disembark at **The Wine-Dark Harbor**. The courtyard road leads
+Board it, then disembark at **The Wine-Dark Harbor**. The local path leads
 to **Before the Burial**. The ship keeps its dock and passengers in the same
 saved world. Once summoned, it remains available for later crossings.
 
@@ -164,16 +164,20 @@ After a public Theban response, Dione offers the next journey at her table.
 Accepting opens **The Open Door**: the Athenian Agora, Piraeus Quays, Colonus
 Grove, Eleusinian Sanctuary, and Marathon Altar. The invitation opens the
 roads for every traveler in the shared world. Athens Harbor and Piraeus join
-the ship’s stops. Athens Harbor has a road inland to the grand Agora.
+the ship’s stops. Athens Harbor connects directly to the grand Agora through city streets.
 
-Nine shared road scenes connect the region. Each road has two fixed ends,
-shown by destination cards in a fixed order. Its entry card names the place ahead.
+Seven shared road scenes connect the towns. Each road has two fixed ends,
+shown by destination cards in a fixed order. Avatars come first in the hand,
+followed by the first end, the road, and the other end. Its entry card names the place ahead.
 Travelers can meet, wait and carry objects on the road. Myrine’s coast walk
 passes through the same road scene in two Accompany plays.
 
 Run `npm run v2:card:travel:smoke` for desktop and phone trips through Athens
-Harbor, the harbor road, the Agora, Piraeus and the return to Dione. The check
+Harbor, the Agora, inter-town roads, Piraeus and the return to Dione. The check
 also tests the destination cards, a reload on the road and waiting for the ship.
+
+Athens Harbor shows the ship at its berth when it is docked there, and open
+water while the ship travels elsewhere.
 
 At an open port, Wait lets the empty ship continue its circuit. Resident
 passengers use the same vessel. The first human passenger ashore chooses the

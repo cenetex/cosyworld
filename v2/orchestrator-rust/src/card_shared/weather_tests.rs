@@ -56,7 +56,7 @@ fn regional_weather_agrees_in_c_and_survives_upgrade_and_journal_replay() {
     for (id, memory) in saved.game["memories"].as_object().unwrap() {
         assert_eq!(&world.game["memories"][id], memory, "saved memory {id}");
     }
-    assert_eq!(world.game["packs"]["greek-drama"]["revision"], 5);
+    assert_eq!(world.game["packs"]["greek-drama"]["revision"], 6);
     assert_eq!(world.version, engine::VERSION);
     assert_eq!(
         world.project(0).unwrap()["scene"]["weather"]["condition"],

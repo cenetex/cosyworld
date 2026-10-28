@@ -77,6 +77,13 @@
       "card": "assets/optimized/card/webp/greek-drama/athens-grand-agora.webp",
       "cardHash": "e394df641dc2c1ec34229184aefe7d2c4794d39c098d63e81343b29855b3c0de"
     },
+    "assets/greek-drama/athens-harbor-empty.webp": {
+      "sourceHash": "b34bf1b84d8daaa93e7ebca73e706b97d2432f31bbf7751bdc731a3b0e498e67",
+      "stage": "assets/greek-drama/athens-harbor-empty.webp",
+      "stageHash": "b34bf1b84d8daaa93e7ebca73e706b97d2432f31bbf7751bdc731a3b0e498e67",
+      "card": "assets/optimized/card/webp/greek-drama/athens-harbor-empty.webp",
+      "cardHash": "a065654b258d58926ecbbef82d68ad5185bebdeac5ea758b2830d51aa5f57614"
+    },
     "assets/greek-drama/athens-harbor.webp": {
       "sourceHash": "339386bf42192929b742bb5a2e3ee2e48d9324512bcbdc7cc3aadef58825eb33",
       "stage": "assets/greek-drama/athens-harbor.webp",
