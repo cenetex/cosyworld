@@ -29,6 +29,7 @@ export const CONDITION_KINDS = [
   "flag",
   "holding",
   "item_at",
+  "item_present",
   "item_near",
   "shared_world",
   "connected_humans",
@@ -633,6 +634,12 @@ export function packProblems(pack, hub, mountedPlaces = []) {
           ok =
             keysOk(c, ["kind", "item", "place"]) &&
             owns(items, c.item) &&
+            anyPlace(c.place);
+          break;
+        case "item_present":
+          ok =
+            keysOk(c, ["kind", "item", "place"]) &&
+            (owns(items, c.item) || hub.items.includes(c.item)) &&
             anyPlace(c.place);
           break;
         case "item_at":

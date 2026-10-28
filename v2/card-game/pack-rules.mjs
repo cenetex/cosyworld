@@ -123,6 +123,8 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
         objectPlace(s, c.item) === c.place
       );
     }
+    case "item_present":
+      return Boolean(s.items[c.item] && objectPlace(s, c.item) === c.place);
     case "item_at":
       return s.items[c.item]?.holder === c.place;
     case "met":

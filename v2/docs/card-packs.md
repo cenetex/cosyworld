@@ -124,6 +124,11 @@ back to the hub.
 | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `{ "kind": "sound", "at": [places] }` | A sound is audible at any listed place: the hand bell ringing uncovered there, or a pack fixture sounding there. |
 
+`{ "kind": "item_present", "item": "cloth", "place": "attic" }` checks an
+item's physical place. It follows custody through covered items and their
+carrier. Hub and pack items can use this crossing condition. An item on the
+floor and an item held by someone in that room satisfy the same condition.
+
 The vocabulary also includes `light`, bounded `not`, and persistent pack
 `choice`, `choice_unset`, `flag`, `holding`, `item_at` and `met`. Environmental
 senses belong on crossings; entity/choice requirements use persistent kinds.
