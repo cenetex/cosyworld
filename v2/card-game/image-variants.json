@@ -1,0 +1,634 @@
+{
+  "version": 1,
+  "settings": {
+    "quality": 88,
+    "alphaQuality": 100,
+    "cardWidth": 512,
+    "effort": 6
+  },
+  "images": {
+    "assets/attic.png": {
+      "sourceHash": "24ecf6100097986d8b72578a991d30f14a4b96070e320c78ddf2f83d41dcf18e",
+      "stage": "assets/optimized/stage/png/attic.webp",
+      "stageHash": "29dcee8addc5d58654cda25c7fcabfc9d36e049e77cf5b011a618f37a6d731a0",
+      "card": "assets/optimized/card/png/attic.webp",
+      "cardHash": "4d7b1bf0643c48c499773230238f8ce3e876823229b89497150251119961c393"
+    },
+    "assets/badger-forest/badger-grumpy.png": {
+      "sourceHash": "7c68d659f2ff827633095fbd98338ee1b9693645fb4e3eaad88bb6abf53f417f",
+      "stage": "assets/optimized/stage/png/badger-forest/badger-grumpy.webp",
+      "stageHash": "9d6585815d69349b12c2619751bf9eab594f1f8a8dd080ec2ac89ef3413e8eb0",
+      "card": "assets/optimized/card/png/badger-forest/badger-grumpy.webp",
+      "cardHash": "cf49d8bf35e7686dd3ec4f8ed052e3b4d2549818a03c67c980982e9e32e217c7"
+    },
+    "assets/badger-forest/badger-sleeping.png": {
+      "sourceHash": "36b36df7a5c50d6da1eab9b8fd96450fec4c2ae9844dc8e696e7af0ee5c4a9c0",
+      "stage": "assets/optimized/stage/png/badger-forest/badger-sleeping.webp",
+      "stageHash": "ce5e0e89317cc6426c46736e66780df6ad570b879780996135b1810724350ed9",
+      "card": "assets/optimized/card/png/badger-forest/badger-sleeping.webp",
+      "cardHash": "9c8e08ff69f8dd5fe5fc48465708084d7c1019dca34019a330e3bbf3bb363111"
+    },
+    "assets/badger-forest/steam-clock-background.png": {
+      "sourceHash": "99640ed1e1a47ce05daeeb14679853fdcc160563ac0a61fb446d67605153b8d3",
+      "stage": "assets/optimized/stage/png/badger-forest/steam-clock-background.webp",
+      "stageHash": "0b3465140145fed2a6fa3c1b4e72ac3f56264e84ff96b3164475304edd6b61bc",
+      "card": "assets/optimized/card/png/badger-forest/steam-clock-background.webp",
+      "cardHash": "29770ac464804f2fb88c9d07b8d223084ba3e20185e2bc26ef1c2b2d3efd18c2"
+    },
+    "assets/bell-card.png": {
+      "sourceHash": "aa5405ab9f6d4ab3e7398e4c5383cdddadaee9dc215784e225475c33fb3ae763",
+      "stage": "assets/optimized/stage/png/bell-card.webp",
+      "stageHash": "baaf745c41a8006ccbf279dfd53e2fc061d8b4b5d5c230ee05583c4da12dba6e",
+      "card": "assets/optimized/card/png/bell-card.webp",
+      "cardHash": "76fc97154051bc3d9ad837e3bcc77ec7e190bb7af2358d90783c182938a612aa"
+    },
+    "assets/cloth-card.png": {
+      "sourceHash": "9c4a2c383eeac4abeeed6d91f13ede9d0a82576e12a421fa8a4bb5d382e1adaf",
+      "stage": "assets/optimized/stage/png/cloth-card.webp",
+      "stageHash": "358e4584c7aa6cafa68f6d776ff8343b41168db9ff2477c2752114061b8a862c",
+      "card": "assets/optimized/card/png/cloth-card.webp",
+      "cardHash": "04c5b7bc38b5f7b9c98eb452b61fe22c0c29944efecc0535f0fc2c83c8f96b59"
+    },
+    "assets/greek-drama/bread.png": {
+      "sourceHash": "b9570b0b1db56c334ff070367afdc23cb3595cf0b87971b4c9c5c27ac587859e",
+      "stage": "assets/optimized/stage/png/greek-drama/bread.webp",
+      "stageHash": "d8ce6f6c0d18af89673595087cbdc9cc53164935981256a3853e3329188e2420",
+      "card": "assets/optimized/card/png/greek-drama/bread.webp",
+      "cardHash": "4b7ad2323d9bd10775bff3bfa2149ae99c608361c9ce880f2d469650f30d8582"
+    },
+    "assets/greek-drama/burial-ground-dusk.webp": {
+      "sourceHash": "a48b519c59a4bdea60ce1d843c8c475238e0fc4b83da7eef6ce8277ca234592f",
+      "stage": "assets/greek-drama/burial-ground-dusk.webp",
+      "stageHash": "a48b519c59a4bdea60ce1d843c8c475238e0fc4b83da7eef6ce8277ca234592f",
+      "card": "assets/optimized/card/webp/greek-drama/burial-ground-dusk.webp",
+      "cardHash": "c37f8ea92913244d41a79ad4cca725db03d3cf4e64b7077fbaa1c811a6c3516a"
+    },
+    "assets/greek-drama/chthonic-antigone.png": {
+      "sourceHash": "965adf97fdabebed518a124ea9ad7c297278bfec55d438ccfc958c80f7d9f536",
+      "stage": "assets/optimized/stage/png/greek-drama/chthonic-antigone.webp",
+      "stageHash": "e2f82d1eca33155a9e59a5feed38c16381775c7d0a3f63e04a4faaf9d926a8e0",
+      "card": "assets/optimized/card/png/greek-drama/chthonic-antigone.webp",
+      "cardHash": "dd7b8fa797531cd60461c0a635f8fff874b23bdc96c10a4b1aa454832ae37dc1"
+    },
+    "assets/greek-drama/chthonic-attendant.png": {
+      "sourceHash": "61977265e6897bc973d582ec0487fa82a2b4c7e2baecc4571420c18047f55130",
+      "stage": "assets/optimized/stage/png/greek-drama/chthonic-attendant.webp",
+      "stageHash": "16988d3107091dc772dc32dd0188596835db098af482c5c2767903e83febbf50",
+      "card": "assets/optimized/card/png/greek-drama/chthonic-attendant.webp",
+      "cardHash": "446bb9bd05de419e0e473711303e9c27be66ee3717ef5abc1239ea39be91d6e0"
+    },
+    "assets/greek-drama/chthonic-baker.png": {
+      "sourceHash": "c8e900ee50e1a3fe860e7f38e6625f7326a6715e6821e8a5db74d264c1bbd7e0",
+      "stage": "assets/optimized/stage/png/greek-drama/chthonic-baker.webp",
+      "stageHash": "36f2124d9e7b8860a05d9f131a651df017f2fafa19bd38b5f512c1e4b6546f17",
+      "card": "assets/optimized/card/png/greek-drama/chthonic-baker.webp",
+      "cardHash": "bad174e11b5fa7e897431cf2e20a8b713e450a14e568a88e091faa96deaf7d8d"
+    },
+    "assets/greek-drama/chthonic-creon.png": {
+      "sourceHash": "a4b3ca08129e861de9d61d21b98dcbe38278ffc1dc4d3bd5d15e99b33612df2f",
+      "stage": "assets/optimized/stage/png/greek-drama/chthonic-creon.webp",
+      "stageHash": "34f79472a32b07aaf8cdefb443eb8db2cb5268b96ef83cb98fee099b217ad34c",
+      "card": "assets/optimized/card/png/greek-drama/chthonic-creon.webp",
+      "cardHash": "0ce55504beceb1bd354f9185c4485a77a64c2cc6cc958479bf5e2ce091f2dc4f"
+    },
+    "assets/greek-drama/chthonic-elder.png": {
+      "sourceHash": "a5949e884b36493b902ed3168c58c051e27e87abe80380c669e93eebc1e71869",
+      "stage": "assets/optimized/stage/png/greek-drama/chthonic-elder.webp",
+      "stageHash": "56133ad3a3998dba16a9bdee81db504c0b66211be66c23051038c042a61bba27",
+      "card": "assets/optimized/card/png/greek-drama/chthonic-elder.webp",
+      "cardHash": "3d54fc5ead35d68e1d3034e0f9c82d54328c2c93fc4daa135a27b4e2ac05e352"
+    },
+    "assets/greek-drama/chthonic-electra.png": {
+      "sourceHash": "5239e39dbc53bfdca3ccbecbd3ac7fdf1eddc1b9a513ddc2310a44336d2ee66e",
+      "stage": "assets/optimized/stage/png/greek-drama/chthonic-electra.webp",
+      "stageHash": "5d53098804cdab34c7c0e6cd72da09dce55276f874067dc74bf832b7b4fa5c65",
+      "card": "assets/optimized/card/png/greek-drama/chthonic-electra.webp",
+      "cardHash": "bc470e06a77c2efcf08e5ceebe6723a5e6787a370b872bdca5600da3a2303bab"
+    },
+    "assets/greek-drama/chthonic-ferryman.png": {
+      "sourceHash": "af8fdc32806113c750aa048e4f3eefb429013a24c457a75ad7dd1d89dce5d3a0",
+      "stage": "assets/optimized/stage/png/greek-drama/chthonic-ferryman.webp",
+      "stageHash": "45704561490d874a91f8dd7c9bd79de7b751c5300c32f36fcd80be61d7118047",
+      "card": "assets/optimized/card/png/greek-drama/chthonic-ferryman.webp",
+      "cardHash": "57b118c052f027b21967ddeb687351420b0e5bfa54e170a1bec5abf387c0c473"
+    },
+    "assets/greek-drama/chthonic-guard.png": {
+      "sourceHash": "14b1fdce81b903d39726d75c5f16c4f1375ff5e5dc8f8d07496b87fbcc9a0402",
+      "stage": "assets/optimized/stage/png/greek-drama/chthonic-guard.webp",
+      "stageHash": "cdfa4ec8c5ec248605f6e799525a836ac2716a993e44f5c3950c16fc75c8f92e",
+      "card": "assets/optimized/card/png/greek-drama/chthonic-guard.webp",
+      "cardHash": "21545c3063cab544f919bf32482791ffdf7f41b17c0c7c2cb2140023585511f6"
+    },
+    "assets/greek-drama/chthonic-helen.png": {
+      "sourceHash": "3c87d505fd801846e140405d3d5b84f562ddb9d00a1f015ad9c2814209a5986f",
+      "stage": "assets/optimized/stage/png/greek-drama/chthonic-helen.webp",
+      "stageHash": "f10eff15f5ecf0322e4a230734572d4306db760ca80a381d7255c88cb470dad6",
+      "card": "assets/optimized/card/png/greek-drama/chthonic-helen.webp",
+      "cardHash": "0858fde53c4de660e62e9d2d239482ee309871825ba9aff83932ace3557a22e0"
+    },
+    "assets/greek-drama/chthonic-ismene.png": {
+      "sourceHash": "73ea9c0504277380a52dcc04fbf4eac0df658dec278d9210f80430a0e37f16c5",
+      "stage": "assets/optimized/stage/png/greek-drama/chthonic-ismene.webp",
+      "stageHash": "4517c88c9ee379744a1ecb98a17c52815a97ed5424df768243774f14ea83f168",
+      "card": "assets/optimized/card/png/greek-drama/chthonic-ismene.webp",
+      "cardHash": "95e355ca2bd8424dfb1b19250eb28ea42c782300a003fbff30ae76f26200392d"
+    },
+    "assets/greek-drama/chthonic-menelaus.png": {
+      "sourceHash": "8f3ef20e63ee5138d7ae09bb3e90893c51f421aecdd3adea3fb94a4d61e4113b",
+      "stage": "assets/optimized/stage/png/greek-drama/chthonic-menelaus.webp",
+      "stageHash": "3a1127ea36ebcf72c60ee400aed8ac6c8da44900fb5943449b2cbbaea55d8f95",
+      "card": "assets/optimized/card/png/greek-drama/chthonic-menelaus.webp",
+      "cardHash": "54206023cf1803ffcdd1a6f1d635f95156bb1af8901cce11cd1d5157dddfa3b2"
+    },
+    "assets/greek-drama/chthonic-neighbor.png": {
+      "sourceHash": "8d37d52aa924f1432fe751eb2c99daee8c6136c4507a36550f914b6948e34401",
+      "stage": "assets/optimized/stage/png/greek-drama/chthonic-neighbor.webp",
+      "stageHash": "972f39b908a6d6ca238ac824fd3dd291e495b73292f731516948fa75ea2441c0",
+      "card": "assets/optimized/card/png/greek-drama/chthonic-neighbor.webp",
+      "cardHash": "d47e269e5b28a7c3828402eacc8c07a5d9ce395d41508e96eb2d6af665cf3b8d"
+    },
+    "assets/greek-drama/chthonic-orestes.png": {
+      "sourceHash": "612b5608fadf8f3c9e2e84dacda395eb05b057dfd0c562781f3c748a96b8da23",
+      "stage": "assets/optimized/stage/png/greek-drama/chthonic-orestes.webp",
+      "stageHash": "f72670184a63b1fa9991d38296dc6abe97455b1cbf172e8f941b16e49cc6a744",
+      "card": "assets/optimized/card/png/greek-drama/chthonic-orestes.webp",
+      "cardHash": "2624f2ac857413a9be2fa7f4fb40555a02b703c2f2607e5e30be2ac09acb6105"
+    },
+    "assets/greek-drama/chthonic-shipmaster.png": {
+      "sourceHash": "cc8a78bca8bd303988a38c693304556b52df632ed7f99f69111466028a894ed8",
+      "stage": "assets/optimized/stage/png/greek-drama/chthonic-shipmaster.webp",
+      "stageHash": "01941c1c28620975459557326702fa8f913019aae3a1ed9da049f733d0962767",
+      "card": "assets/optimized/card/png/greek-drama/chthonic-shipmaster.webp",
+      "cardHash": "4bec92c162db21f8c16d887a35eadcd9ed4efb000f4c4772d2ce984cc5ac5458"
+    },
+    "assets/greek-drama/chthonic-singer.png": {
+      "sourceHash": "6e5ae857c2efbe1d6a545675d4198b3b1d12b0cad2ca828eca6771ade6d6792a",
+      "stage": "assets/optimized/stage/png/greek-drama/chthonic-singer.webp",
+      "stageHash": "37d1bf3e8d59d1336639e6c2cf075afa9bf062eb0803ec9787e9381916d40fe3",
+      "card": "assets/optimized/card/png/greek-drama/chthonic-singer.webp",
+      "cardHash": "06e4692217bcc371266d0da09e6fb8142b94202a5fff0a644db1af92710808ce"
+    },
+    "assets/greek-drama/city-gate-day.webp": {
+      "sourceHash": "6b40cfeb3a5b3ee0bd08ad2f3d815f07aaa4b08d6a208b1f8ca483024c2d1c33",
+      "stage": "assets/greek-drama/city-gate-day.webp",
+      "stageHash": "6b40cfeb3a5b3ee0bd08ad2f3d815f07aaa4b08d6a208b1f8ca483024c2d1c33",
+      "card": "assets/optimized/card/webp/greek-drama/city-gate-day.webp",
+      "cardHash": "b90cba292440c7568c550d47111ca4cecdaab4cd9424f923551876304a3a82bd"
+    },
+    "assets/greek-drama/courtyard-day.webp": {
+      "sourceHash": "c27b798ed993d2aa7bdfad03da26967556206fc86579934c595cbde93b1b0559",
+      "stage": "assets/greek-drama/courtyard-day.webp",
+      "stageHash": "c27b798ed993d2aa7bdfad03da26967556206fc86579934c595cbde93b1b0559",
+      "card": "assets/optimized/card/webp/greek-drama/courtyard-day.webp",
+      "cardHash": "fc5d303a29e6a342132a6bae7fd99ae420f6445d92d03de15f7e629795c43cc0"
+    },
+    "assets/greek-drama/decree.png": {
+      "sourceHash": "ed08e73661fcb7ed7f5cf653cfbb4c035784fdab0597b9f4de73eaf8ab9df877",
+      "stage": "assets/optimized/stage/png/greek-drama/decree.webp",
+      "stageHash": "ede83e5b13bb3ccdd913344de08312f60a018a53c897e5da94b4c51962542ef7",
+      "card": "assets/optimized/card/png/greek-drama/decree.webp",
+      "cardHash": "a5350e7d14a6faa60d63056d0917b0da367ac1dc5e9bad800636d69b0fd552ee"
+    },
+    "assets/greek-drama/funeral-cloth.png": {
+      "sourceHash": "495f882672ce8513a65f789b919741ef3f49f22a76c73551847cefb5d217e0a0",
+      "stage": "assets/optimized/stage/png/greek-drama/funeral-cloth.webp",
+      "stageHash": "ac6bb3db29ba5fc78be371fd1bfc4ce404ffff70b90377d7ce9c96dd152acbf2",
+      "card": "assets/optimized/card/png/greek-drama/funeral-cloth.webp",
+      "cardHash": "04908ec4ef42d1f602cdcd1c70a74f6126f424e14b79a1be384b2804ce9ba57d"
+    },
+    "assets/greek-drama/harbor-day.webp": {
+      "sourceHash": "b535244774382afc8a6440e292f1c51698375717d4473f3c70b5c16fff3e4425",
+      "stage": "assets/greek-drama/harbor-day.webp",
+      "stageHash": "b535244774382afc8a6440e292f1c51698375717d4473f3c70b5c16fff3e4425",
+      "card": "assets/optimized/card/webp/greek-drama/harbor-day.webp",
+      "cardHash": "1c55593282cbacc4b74fa0089fd83d768ee72476d3c9a2bc6f8b8030d6b32b41"
+    },
+    "assets/greek-drama/harbor-open-berth.webp": {
+      "sourceHash": "c389d9f8c137134a51789d6145e18b48feea3d266ccfd4e8329f0ee0969ddd75",
+      "stage": "assets/greek-drama/harbor-open-berth.webp",
+      "stageHash": "c389d9f8c137134a51789d6145e18b48feea3d266ccfd4e8329f0ee0969ddd75",
+      "card": "assets/optimized/card/webp/greek-drama/harbor-open-berth.webp",
+      "cardHash": "a8975c0fb7ed6f24805b69d434d5983041b53e0f0ee07875ea076b8b70c98627"
+    },
+    "assets/greek-drama/harbor-ship-at-berth.webp": {
+      "sourceHash": "f71d5f64371f50b37059f0929db3489b0f808696494c64078ad5fbe958e1f1d0",
+      "stage": "assets/greek-drama/harbor-ship-at-berth.webp",
+      "stageHash": "f71d5f64371f50b37059f0929db3489b0f808696494c64078ad5fbe958e1f1d0",
+      "card": "assets/optimized/card/webp/greek-drama/harbor-ship-at-berth.webp",
+      "cardHash": "c2810e0b0d9e960c6501fa7744d8201de052b4f370c03ae363c00001ba43dd0b"
+    },
+    "assets/greek-drama/household-token.png": {
+      "sourceHash": "e5a4d2daa5726d0c70fb0e5f08c02130aeaa3175309bb320a24d9fa7be871e6f",
+      "stage": "assets/optimized/stage/png/greek-drama/household-token.webp",
+      "stageHash": "178a2fd676aa87dadceb114f6bfa2341b223848cf4ebdb035011cfebbc56d0cf",
+      "card": "assets/optimized/card/png/greek-drama/household-token.webp",
+      "cardHash": "e7f2b20c02f5ee49950ecfe63d6273b9a5b3423bc7cd1c8b738450f3a155a4f2"
+    },
+    "assets/greek-drama/market-well-day.webp": {
+      "sourceHash": "ec31b6e5fafa30d070e705596f7714eaa1c0d779c6b29a01347b6b6bd8ef73dd",
+      "stage": "assets/greek-drama/market-well-day.webp",
+      "stageHash": "ec31b6e5fafa30d070e705596f7714eaa1c0d779c6b29a01347b6b6bd8ef73dd",
+      "card": "assets/optimized/card/webp/greek-drama/market-well-day.webp",
+      "cardHash": "d5c47e607c99f97bb220e3ca03f39ba9d971ac005bca7aac826735734a6d5f11"
+    },
+    "assets/greek-drama/myrine.webp": {
+      "sourceHash": "e507850aa9959a4d1fedf42eb6ba17d1b70e8a1c2b25799c033e7926bb6ae0ec",
+      "stage": "assets/greek-drama/myrine.webp",
+      "stageHash": "e507850aa9959a4d1fedf42eb6ba17d1b70e8a1c2b25799c033e7926bb6ae0ec",
+      "card": "assets/optimized/card/webp/greek-drama/myrine.webp",
+      "cardHash": "cb769f2ddfbbf79f4909bbe3f573421714b69b5a2653d1725e4db91e5a4f0d45"
+    },
+    "assets/greek-drama/oil-flask.png": {
+      "sourceHash": "93a2cc9f0e8bfdc2b7da0077aa1f0f16f5e6768467f7a39489e9d3dc41dc6f3a",
+      "stage": "assets/optimized/stage/png/greek-drama/oil-flask.webp",
+      "stageHash": "a45d4756278f380dc11e2ebf828e80d71b6377804caa35e53f9aa607d864fe83",
+      "card": "assets/optimized/card/png/greek-drama/oil-flask.webp",
+      "cardHash": "592bb0c0244eea50b3321113a2f8f71f0b66d771c5dad7674fc25d30087ed3a7"
+    },
+    "assets/greek-drama/open-door-adrastus.webp": {
+      "sourceHash": "d8d915b76cd25d41b69a31e90f0d61795f34c342cc3f7c96f6da542c6a339ccd",
+      "stage": "assets/greek-drama/open-door-adrastus.webp",
+      "stageHash": "d8d915b76cd25d41b69a31e90f0d61795f34c342cc3f7c96f6da542c6a339ccd",
+      "card": "assets/optimized/card/webp/greek-drama/open-door-adrastus.webp",
+      "cardHash": "6fda54265fb1c939af4fa248770e62161261c71e0c2de9a0f40e2c7e358ab467"
+    },
+    "assets/greek-drama/open-door-aethra.webp": {
+      "sourceHash": "d59c6048c876acb8167674b9119cb09c37d4a6d528fc286df7f792fb7ebae98a",
+      "stage": "assets/greek-drama/open-door-aethra.webp",
+      "stageHash": "d59c6048c876acb8167674b9119cb09c37d4a6d528fc286df7f792fb7ebae98a",
+      "card": "assets/optimized/card/webp/greek-drama/open-door-aethra.webp",
+      "cardHash": "c181bbb181a7ae1478ab2c36c482d8e7aebabc09a3dab2cc789ca3748f2528af"
+    },
+    "assets/greek-drama/open-door-agora.webp": {
+      "sourceHash": "9052e12b1e43742f4de810f56e0f2a6f0c23d7f445744efc68cc259183cfdbf6",
+      "stage": "assets/greek-drama/open-door-agora.webp",
+      "stageHash": "9052e12b1e43742f4de810f56e0f2a6f0c23d7f445744efc68cc259183cfdbf6",
+      "card": "assets/optimized/card/webp/greek-drama/open-door-agora.webp",
+      "cardHash": "e99f475f1e77adec24b07beae4b97855dcf9f35d971aaead1a50ffc4a59a9f54"
+    },
+    "assets/greek-drama/open-door-altar-keeper.webp": {
+      "sourceHash": "8ad272e454c6d9d9337b0eeb87f9fc22bd1d661ea1338db5a295a651990e5968",
+      "stage": "assets/greek-drama/open-door-altar-keeper.webp",
+      "stageHash": "8ad272e454c6d9d9337b0eeb87f9fc22bd1d661ea1338db5a295a651990e5968",
+      "card": "assets/optimized/card/webp/greek-drama/open-door-altar-keeper.webp",
+      "cardHash": "59f50fb22dee5b79bf0746346a7fa851c29a30a37b6d94b8947b2154b328c06d"
+    },
+    "assets/greek-drama/open-door-colonus.webp": {
+      "sourceHash": "ce76091cd3f94db6dec9db104f6ab0d67fa81af1670089d731130a29e4625fb7",
+      "stage": "assets/greek-drama/open-door-colonus.webp",
+      "stageHash": "ce76091cd3f94db6dec9db104f6ab0d67fa81af1670089d731130a29e4625fb7",
+      "card": "assets/optimized/card/webp/greek-drama/open-door-colonus.webp",
+      "cardHash": "19c9bae99e6538be1c7e8723ad6552d6a2e21f6f999717fec002a147f2745fbb"
+    },
+    "assets/greek-drama/open-door-eleusis.webp": {
+      "sourceHash": "e792c1dc93672b1f39dc8db45090a35238cb135e47649caafcf1733af6e170bb",
+      "stage": "assets/greek-drama/open-door-eleusis.webp",
+      "stageHash": "e792c1dc93672b1f39dc8db45090a35238cb135e47649caafcf1733af6e170bb",
+      "card": "assets/optimized/card/webp/greek-drama/open-door-eleusis.webp",
+      "cardHash": "77b8383134b7aef843eb6c279531246957514a659174c043520959d71ff6b127"
+    },
+    "assets/greek-drama/open-door-grove-keeper.webp": {
+      "sourceHash": "5501fe74952d8e4e460837f0af1901b704370ebfebceaf32ea07f670d279652d",
+      "stage": "assets/greek-drama/open-door-grove-keeper.webp",
+      "stageHash": "5501fe74952d8e4e460837f0af1901b704370ebfebceaf32ea07f670d279652d",
+      "card": "assets/optimized/card/webp/greek-drama/open-door-grove-keeper.webp",
+      "cardHash": "9245ad94da979a3ec33898508a53a5ce8410c266962b431b08a37a937095dbae"
+    },
+    "assets/greek-drama/open-door-iphis.webp": {
+      "sourceHash": "8b384cbb30cad658eaff9952d8cbb556ca1114d170e25e7b0f1a7939a1cbad4a",
+      "stage": "assets/greek-drama/open-door-iphis.webp",
+      "stageHash": "8b384cbb30cad658eaff9952d8cbb556ca1114d170e25e7b0f1a7939a1cbad4a",
+      "card": "assets/optimized/card/webp/greek-drama/open-door-iphis.webp",
+      "cardHash": "5b10370121695d6cc39d311b6c84150b5424a5f5517381f2e53237fe694c922f"
+    },
+    "assets/greek-drama/open-door-marathon.webp": {
+      "sourceHash": "f7a3475c47ce3fc8dfc7da4eee2231cbfe12bd1a74753b348098c9444d937314",
+      "stage": "assets/greek-drama/open-door-marathon.webp",
+      "stageHash": "f7a3475c47ce3fc8dfc7da4eee2231cbfe12bd1a74753b348098c9444d937314",
+      "card": "assets/optimized/card/webp/greek-drama/open-door-marathon.webp",
+      "cardHash": "4a8fbf425bbc32dc401c4d8c1e9f9ed2b076659924271331ea459bf4ae339ae3"
+    },
+    "assets/greek-drama/open-door-mother.webp": {
+      "sourceHash": "1da5523186407bc171be09784f63b68b494d916493a8877fa55981724a0b4880",
+      "stage": "assets/greek-drama/open-door-mother.webp",
+      "stageHash": "1da5523186407bc171be09784f63b68b494d916493a8877fa55981724a0b4880",
+      "card": "assets/optimized/card/webp/greek-drama/open-door-mother.webp",
+      "cardHash": "b54bdcf0c3524231cd787be79c85eeea8e2a63bccc40fcd57f2611866dfe2498"
+    },
+    "assets/greek-drama/open-door-piraeus.webp": {
+      "sourceHash": "9e5a564d282c2658140e9aee121d1a013d4cd22d105be16ba4d590a5a872953f",
+      "stage": "assets/greek-drama/open-door-piraeus.webp",
+      "stageHash": "9e5a564d282c2658140e9aee121d1a013d4cd22d105be16ba4d590a5a872953f",
+      "card": "assets/optimized/card/webp/greek-drama/open-door-piraeus.webp",
+      "cardHash": "f77145d02e293a8fb65ec50e87822890a84d957cb012c2291efd161df53aaadd"
+    },
+    "assets/greek-drama/open-door-quay-host.webp": {
+      "sourceHash": "e6c987ea74f4892491f0a91f764fb363d5d64f90045f5ba91fdc2a40d007dc4f",
+      "stage": "assets/greek-drama/open-door-quay-host.webp",
+      "stageHash": "e6c987ea74f4892491f0a91f764fb363d5d64f90045f5ba91fdc2a40d007dc4f",
+      "card": "assets/optimized/card/webp/greek-drama/open-door-quay-host.webp",
+      "cardHash": "53a08e9bceeff9bdc14deef5362bb8da1f8fb1eeb19baa2069e2494551fc5bac"
+    },
+    "assets/greek-drama/open-door-theseus.webp": {
+      "sourceHash": "a42d68565a9e216f9ce26bafb8ecb78becfe5da7f88d79e5d1a8425fa9b202fe",
+      "stage": "assets/greek-drama/open-door-theseus.webp",
+      "stageHash": "a42d68565a9e216f9ce26bafb8ecb78becfe5da7f88d79e5d1a8425fa9b202fe",
+      "card": "assets/optimized/card/webp/greek-drama/open-door-theseus.webp",
+      "cardHash": "c236bfc2edbac266d3f4cf49477712061b4c8c4d50f43e42e16d5a62092e06f6"
+    },
+    "assets/greek-drama/palace-day.webp": {
+      "sourceHash": "c0b61fb49af9c98adbdf9fe7ac386f3611e13b23342a10791673871473928769",
+      "stage": "assets/greek-drama/palace-day.webp",
+      "stageHash": "c0b61fb49af9c98adbdf9fe7ac386f3611e13b23342a10791673871473928769",
+      "card": "assets/optimized/card/webp/greek-drama/palace-day.webp",
+      "cardHash": "82355ddabd22deb788e87d239bd29e17a1a1f47c2d8568772ed387bd0967ccac"
+    },
+    "assets/greek-drama/pond-ship-overlay.png": {
+      "sourceHash": "dde8685c9d694b49e81aac2cdf76415db9390224b5e35c624e15b5d89c170b55",
+      "stage": "assets/optimized/stage/png/greek-drama/pond-ship-overlay.webp",
+      "stageHash": "0cd3fe8adacfaa31c2f759c56575f07e9137db3af404bcae7b6bbafb581ec73d",
+      "card": "assets/optimized/card/png/greek-drama/pond-ship-overlay.webp",
+      "cardHash": "574dd59fe5fe3f2648b8d6087fc7d8d3f8b223c1d71883e03c1684bc0769f41b"
+    },
+    "assets/greek-drama/provisions.png": {
+      "sourceHash": "318f5f4a2fe860efb4d5b8b747d334a79eecc321368cccd51113b579222149f4",
+      "stage": "assets/optimized/stage/png/greek-drama/provisions.webp",
+      "stageHash": "43feb523798e1b1a017ea27d52b458a79354b1bd6ef6ff43667a69a5fe6a6257",
+      "card": "assets/optimized/card/png/greek-drama/provisions.webp",
+      "cardHash": "0de1983be4a6273ee85fc9d9c12d24cdfbf3d51ff1415de11f6690c18f49daa5"
+    },
+    "assets/greek-drama/sanctuary-dawn.webp": {
+      "sourceHash": "d287fe8287369ba786b26abe14d2adb1a9082cc7f6cffbed5f52654d863ffba2",
+      "stage": "assets/greek-drama/sanctuary-dawn.webp",
+      "stageHash": "d287fe8287369ba786b26abe14d2adb1a9082cc7f6cffbed5f52654d863ffba2",
+      "card": "assets/optimized/card/webp/greek-drama/sanctuary-dawn.webp",
+      "cardHash": "5c58c654893f4805c8a4b3e6aac8f96f4325bfa47f1d6c90aaf0dbe07657707e"
+    },
+    "assets/greek-drama/ship-card.webp": {
+      "sourceHash": "c7789a3163cbd45ac8cc9fccda27591f58d66c23dafb19e768545b68707fcd06",
+      "stage": "assets/greek-drama/ship-card.webp",
+      "stageHash": "c7789a3163cbd45ac8cc9fccda27591f58d66c23dafb19e768545b68707fcd06",
+      "card": "assets/optimized/card/webp/greek-drama/ship-card.webp",
+      "cardHash": "46fcdc6b13261f34f960a31e3a1fd9bddd6d84ee48a1139b1f5b3ce1472207bf"
+    },
+    "assets/greek-drama/ship-deck.webp": {
+      "sourceHash": "e09145506d279ba279abb94f716d93366b4a3584852e2ddc6f52584798425dbd",
+      "stage": "assets/greek-drama/ship-deck.webp",
+      "stageHash": "e09145506d279ba279abb94f716d93366b4a3584852e2ddc6f52584798425dbd",
+      "card": "assets/optimized/card/webp/greek-drama/ship-deck.webp",
+      "cardHash": "b4e8ce3183d1517e5d213700d0b8b5813ba48c4b1a866e7531da755ff239cc29"
+    },
+    "assets/greek-drama/shovel.png": {
+      "sourceHash": "090528f43290b6dd85cff02a538499aeb3d8af54f52bedb9bdb8c462addcfdc3",
+      "stage": "assets/optimized/stage/png/greek-drama/shovel.webp",
+      "stageHash": "9c95edb931f81d5b1dc47d320cb21feaa66238d14981310a4c85a2f1ec648832",
+      "card": "assets/optimized/card/png/greek-drama/shovel.webp",
+      "cardHash": "92dc355856680205066d921c3c99e9fa337284c8948330c8d28404038ed3ee71"
+    },
+    "assets/greek-drama/testimony.png": {
+      "sourceHash": "98374962809e259ecba2e1aa26643f3397c37c038f7f0ab7dc6a42a43b24e7bf",
+      "stage": "assets/optimized/stage/png/greek-drama/testimony.webp",
+      "stageHash": "86db585e2935be7dcf89d69059573ead26efd99ec27c8cae8124d38eb3ae0a81",
+      "card": "assets/optimized/card/png/greek-drama/testimony.webp",
+      "cardHash": "c23a356ee78830cd35c1b9eefb5ef3aa05ff2cd5e5a2654a928153a19dd30d1c"
+    },
+    "assets/greek-drama/water-jar.png": {
+      "sourceHash": "6d52ae719a61b32c8e6815caa49595b1d6469ddc58bba82f7df614eac1ab9061",
+      "stage": "assets/optimized/stage/png/greek-drama/water-jar.webp",
+      "stageHash": "695b367edb894cd434fd9148ff98bd406cc91b257b4199ea9ef52b279b2ff7cf",
+      "card": "assets/optimized/card/png/greek-drama/water-jar.webp",
+      "cardHash": "4ac166f8bf8f5addeb8216e3d34ddd4aef246839e070eec18766de287dcc3e4b"
+    },
+    "assets/keeper-right.png": {
+      "sourceHash": "7b07a71e5ff2e3b47ee5b2b6c20071ef8531a15a91aa0f28fc31ae7bbea76a7e",
+      "stage": "assets/optimized/stage/png/keeper-right.webp",
+      "stageHash": "8dd96fb5ed6da2fa4f6fe152880af53cf2576ccc5f54c7a9c7a089959f790e58",
+      "card": "assets/optimized/card/png/keeper-right.webp",
+      "cardHash": "04cb0bf0fac357a93aa7a78322f82cc1badd25bfcfb9ff1fc8fc2859e59a25a4"
+    },
+    "assets/keeper.png": {
+      "sourceHash": "5ef1a982a8bd921edb86ff8c3b7aec9ae11025bdad395561a2e7b2e6a3b92f88",
+      "stage": "assets/optimized/stage/png/keeper.webp",
+      "stageHash": "52c74440c63b2f906bc84788545a6ba61d469fd8355b4e8b1408e0fd706e4f1d",
+      "card": "assets/optimized/card/png/keeper.webp",
+      "cardHash": "575df97671b35054b8272cbe62987a8f2eb132991252850eba7545e9764ecc67"
+    },
+    "assets/lamp-card.png": {
+      "sourceHash": "efb35f0a22872c049ef88e9afabced379fffff42db7f8d2f197ad69fb52a7934",
+      "stage": "assets/optimized/stage/png/lamp-card.webp",
+      "stageHash": "2948748c10d7fd740f566debc6d57d83058d18b952f705db969192249603d47d",
+      "card": "assets/optimized/card/png/lamp-card.webp",
+      "cardHash": "c19054288874cbc2ec546d609e8255f71164cf7cb0eebf6c550b16f105eeb849"
+    },
+    "assets/moth.png": {
+      "sourceHash": "89a55a9fe6a3541c8c63bbf55673d04e1bdf18c6b1b186707846c1a12713dcd5",
+      "stage": "assets/optimized/stage/png/moth.webp",
+      "stageHash": "ff0ea2501943c2e793d2f855fffcfa900ac04189c174cb5a109dd8208804cd97",
+      "card": "assets/optimized/card/png/moth.webp",
+      "cardHash": "4e2f77408f8a1e17a2640d119a67daf998ba4cc8bb86461b169e6dddd075ec28"
+    },
+    "assets/oil-card.png": {
+      "sourceHash": "e6671231f130a8e00fcb9aa3223a8100efc6202fbd5cac185bfec87f947ef65e",
+      "stage": "assets/optimized/stage/png/oil-card.webp",
+      "stageHash": "f07a021363aab88955baf3a1ce654edf999fe4a680a775a1a121c2eed7a3d0a1",
+      "card": "assets/optimized/card/png/oil-card.webp",
+      "cardHash": "fdd70c672ba71a462ee5736caf5ad8a88a0ed2fe642722d714daa8abe00b04ff"
+    },
+    "assets/pond.png": {
+      "sourceHash": "aa4b9600d32dc3cd043aa91eed47aa2a6f16fd422849a0563f05cb3b42478e75",
+      "stage": "assets/optimized/stage/png/pond.webp",
+      "stageHash": "a5958bca0a48780b86a7850f4b132a7d05a8a151e61d9988559bbf4584483ed0",
+      "card": "assets/optimized/card/png/pond.webp",
+      "cardHash": "d5978146fba1928ea2952d73a8945027f10b2b8f7b2a2d221c8fa8ff9bae17e8"
+    },
+    "assets/shared/characters/ada.png": {
+      "sourceHash": "4f3a53f874cd2d715b8edd7c704bb1fc1a54d182829ea03d2c6dfc5c83058512",
+      "stage": "assets/optimized/stage/png/shared/characters/ada.webp",
+      "stageHash": "22a5f256f2646ab4ebfe6d71172bb56f95df1803c52518d5edd78cb25aec2558",
+      "card": "assets/optimized/card/png/shared/characters/ada.webp",
+      "cardHash": "ab6d8b14dd49c6ac8347588dbeadd4abca1d88f93f04e61607687b4d03a52994"
+    },
+    "assets/shared/characters/ash.png": {
+      "sourceHash": "2592261ccbf329574da95ca83d88fedeb787a38d01335276c3d66d368fa8d285",
+      "stage": "assets/optimized/stage/png/shared/characters/ash.webp",
+      "stageHash": "54c1a19aa9c0e354a8d3565894fb66d52aa1348c4c2a297811fc0df7782883b1",
+      "card": "assets/optimized/card/png/shared/characters/ash.webp",
+      "cardHash": "2b55677dd39a3755cd53f8bc21bf8677576f0b44808e818b48f4fb449bbbdfda"
+    },
+    "assets/shared/characters/mara.png": {
+      "sourceHash": "c182c00f2ab3d455e3228af72c67df061789ae8d050e187cc44d9e4bf67b76b1",
+      "stage": "assets/optimized/stage/png/shared/characters/mara.webp",
+      "stageHash": "cf64eb3c62e41258d0dc76799569bf7f126984cec0a4799fcb321e82dbb0e19c",
+      "card": "assets/optimized/card/png/shared/characters/mara.webp",
+      "cardHash": "930def66dff6eecc4dcb3e685c8f354e7710cf3b58650fe16b50bdb81859ecb9"
+    },
+    "assets/shared/characters/nell.png": {
+      "sourceHash": "705a095b4f379338192290d4e6003d065b7d87c04b88b47706ff1f744471043f",
+      "stage": "assets/optimized/stage/png/shared/characters/nell.webp",
+      "stageHash": "9f571c70ecf6b66db204a4da26c79509978d1024df6328e5f888887f755db9a5",
+      "card": "assets/optimized/card/png/shared/characters/nell.webp",
+      "cardHash": "8080018d7003f6065d829d525d8245381cee876e7a5d8123b1c661e27b4a22c9"
+    },
+    "assets/shared/characters/orin.png": {
+      "sourceHash": "909bd6f9b2a7e4e58b637a765e8059fc0474eb07e8767d45b1623c9dccccfba4",
+      "stage": "assets/optimized/stage/png/shared/characters/orin.webp",
+      "stageHash": "2681ad8ff46bca37222ed73b10c1fb78b42d9de8d1b16edab645ce94f238025b",
+      "card": "assets/optimized/card/png/shared/characters/orin.webp",
+      "cardHash": "e2a05276c6b01c200bfe3310e1ca6081d5fec610f3f8f919963f341eded5124c"
+    },
+    "assets/shared/characters/rue.png": {
+      "sourceHash": "e8655322dc5f4d5f13da698fb5f0664837f176b67ff9a954e09d9f6b2a52b633",
+      "stage": "assets/optimized/stage/png/shared/characters/rue.webp",
+      "stageHash": "5739b7de6ff7240a945332829e209fca355623a43b973d460df241ae26d98cf7",
+      "card": "assets/optimized/card/png/shared/characters/rue.webp",
+      "cardHash": "39f4e053c6d04ade741dca99140f50e682d85803226758024e45aa284a049339"
+    },
+    "assets/shared/characters/tavi.png": {
+      "sourceHash": "6798af3ad543eab76109801ec0ad1ef953566f2975e43667882ec033d39f8a3a",
+      "stage": "assets/optimized/stage/png/shared/characters/tavi.webp",
+      "stageHash": "5dfa43cfd411dddd7d33f6abc4e672bf9f767f2f218bffefa16fb2dbe93b8ef3",
+      "card": "assets/optimized/card/png/shared/characters/tavi.webp",
+      "cardHash": "7f1dbe4ff29be311407da74c846117cdf012493085b80c21c828aea09c02d832"
+    },
+    "assets/shared/characters/vale.png": {
+      "sourceHash": "7e6dfd1bd18f9c6e7d548aeb27637284887b555373e2ad00109fdc233366d512",
+      "stage": "assets/optimized/stage/png/shared/characters/vale.webp",
+      "stageHash": "d91efcab6fac56d2e279260f515d05a5d75d29b2ec79f066517721b956dc3648",
+      "card": "assets/optimized/card/png/shared/characters/vale.webp",
+      "cardHash": "97e5bd69c8c31ed4e6ba8f270b78a1b157a7aa8ccebf58a41305cd2139a7ea5b"
+    },
+    "assets/shared/items/board.png": {
+      "sourceHash": "fc0fd13fc4a297a9d02b61933da7dee1de23246edce91d1da89ad8a031fde15d",
+      "stage": "assets/optimized/stage/png/shared/items/board.webp",
+      "stageHash": "7377c4c06bef788d19311d9ae227943dd7be49ed263d5b90006e628904919450",
+      "card": "assets/optimized/card/png/shared/items/board.webp",
+      "cardHash": "84cd6cdaa59b20ca0213314464139dc73d9ca5dfb3fea8666f46412fe0bbf9fd"
+    },
+    "assets/shared/items/can.png": {
+      "sourceHash": "81c4ee06e82ed43dfd20f92504e334af2ef3c628de1f08392f2c60805e75d518",
+      "stage": "assets/optimized/stage/png/shared/items/can.webp",
+      "stageHash": "6c02c2117121f28fcb6bdb80a312e053cf030e13cb9fec941a0e5cf813188d41",
+      "card": "assets/optimized/card/png/shared/items/can.webp",
+      "cardHash": "d175cbc95c37febba5fe307f9b01e433258d8600413a37db0eefe3aeacd659e0"
+    },
+    "assets/shared/items/float.png": {
+      "sourceHash": "abc993c2e3a5d1a110a445e0ef530aa19e170a802b97e2c508922272c5702aeb",
+      "stage": "assets/optimized/stage/png/shared/items/float.webp",
+      "stageHash": "1652c240b3bc2949b636f3f367b928693a12854515db8437caaa0d6d18dcc342",
+      "card": "assets/optimized/card/png/shared/items/float.webp",
+      "cardHash": "556a0d766804deebcabddd758f32c8723c9048aa80e514d73782cfe8e9fe93e1"
+    },
+    "assets/shared/items/kite.png": {
+      "sourceHash": "7874feca2a18a57ff1bfb030f8f89e557aa6b0f5fc9e529e63e7cfd121f0b211",
+      "stage": "assets/optimized/stage/png/shared/items/kite.webp",
+      "stageHash": "dfdeb580f300ab514f34b22240c098ab8fbeafbcb520c04e070a1a0230f4b9b3",
+      "card": "assets/optimized/card/png/shared/items/kite.webp",
+      "cardHash": "3159a76755e8d96026ce48b24fe60c82732a3794f8ce2ff40b1d6a2bc0fe2b31"
+    },
+    "assets/shared/items/lamp.png": {
+      "sourceHash": "1507da7bdb13cd082c323f9632d2bd6ae5c899609a8be46955bb9727b507f934",
+      "stage": "assets/optimized/stage/png/shared/items/lamp.webp",
+      "stageHash": "8f36a2f29779a2498ea3a23e210f49779078152b657900dfe6c226701e1e7f03",
+      "card": "assets/optimized/card/png/shared/items/lamp.webp",
+      "cardHash": "e24aac734bf302b044781f22c75946d07804b66c81fd01be8e3dfb0c08f11d24"
+    },
+    "assets/shared/items/mask.png": {
+      "sourceHash": "033006e9a38fcd8f2526abd6c086df91c35b8ee77a7d7e27c00ddad1690ca807",
+      "stage": "assets/optimized/stage/png/shared/items/mask.webp",
+      "stageHash": "283f6acbb693b4d81079929de84c12bbf7379a229f6f20acc95bb23697ccd3bf",
+      "card": "assets/optimized/card/png/shared/items/mask.webp",
+      "cardHash": "fd01d8db49fea4b8087806a9d7ea82b7043d74fe4aacaf522be63365fe693bb2"
+    },
+    "assets/shared/items/routes.png": {
+      "sourceHash": "baa6be68f7bbb8b455f9ad94d8f52ad3a697a52b4a63fb59330e7e90b2ca0f02",
+      "stage": "assets/optimized/stage/png/shared/items/routes.webp",
+      "stageHash": "8ca45fdb4d170638f18f7e89672165e1e5c3c0abffb11715a4f77c0252746466",
+      "card": "assets/optimized/card/png/shared/items/routes.webp",
+      "cardHash": "e963e47931795716ceaad608de314f83a7f7b364a4a82119c1839ac39c59fb8b"
+    },
+    "assets/shared/items/shears.png": {
+      "sourceHash": "225bf98853060dc121ea82d4d89430f27d049f7de70e3b0b8e30f2cd633b9d87",
+      "stage": "assets/optimized/stage/png/shared/items/shears.webp",
+      "stageHash": "040a10dcfa11f87264ee34d56bf65625a967493ae3a6230f1fb20027139c94fa",
+      "card": "assets/optimized/card/png/shared/items/shears.webp",
+      "cardHash": "dc8c5100f22eb715090b47e733b8c77581bb83a94f81edf613c2cec0cdaf22ac"
+    },
+    "assets/shared/places/belfry.png": {
+      "sourceHash": "cb522e38a8887757d62839616c8fbc7ba0647c7dd3c1b5c4762521050dc2a289",
+      "stage": "assets/optimized/stage/png/shared/places/belfry.webp",
+      "stageHash": "e5c140ab64e88616d043f12ae7217919fa193f62d7a3169ab20c12dcd443459d",
+      "card": "assets/optimized/card/png/shared/places/belfry.webp",
+      "cardHash": "1451357338466c988460e30f827b31c23530624e80f756e86d614eececaa5d0b"
+    },
+    "assets/shared/places/glasshouse.png": {
+      "sourceHash": "08d2085a0d906052ba4899db1a9e076a2ce87905f09b1aebe553a04b7f704333",
+      "stage": "assets/optimized/stage/png/shared/places/glasshouse.webp",
+      "stageHash": "41e659ca8cc5704de2f3d32f3d30fe219303d73bb66f592fe08c8de3a89f2854",
+      "card": "assets/optimized/card/png/shared/places/glasshouse.webp",
+      "cardHash": "f87f5f084270ac7c1b03f763fef57da2bacb941e2b53fd72599ee76bcb848df6"
+    },
+    "assets/shared/places/hill.png": {
+      "sourceHash": "8bfb545e525068a3be27a428044b67bc9344a095475a5b4067593b6ef07d375a",
+      "stage": "assets/optimized/stage/png/shared/places/hill.webp",
+      "stageHash": "1cc3756918859f74cfc716286955c6e59ba6da497be38461a078c5899f02a2be",
+      "card": "assets/optimized/card/png/shared/places/hill.webp",
+      "cardHash": "3a2066ab714b1afb9e313bc991bd868dcb3727991eee9cb559c47e88b1a0e281"
+    },
+    "assets/shared/places/loft.png": {
+      "sourceHash": "69008efdd4002437c41cb433efd1117f0b3d2698241318c094668feefd589e71",
+      "stage": "assets/optimized/stage/png/shared/places/loft.webp",
+      "stageHash": "f0fe5cbbc07e8fa4c3b04b50ee56e6b5f2617eaef0876f4d45dbc8e03c326e5b",
+      "card": "assets/optimized/card/png/shared/places/loft.webp",
+      "cardHash": "1cd22a1947bcda264e485bc93b577f8d38453280d6687f1df2d0be4e5a96966b"
+    },
+    "assets/shared/places/pavilion.png": {
+      "sourceHash": "ef20bbed9c76e35dbe54a385ce5a1bcea95de128f99bc9b0d3cb21df4a65d129",
+      "stage": "assets/optimized/stage/png/shared/places/pavilion.webp",
+      "stageHash": "e7d6e15bf7e3a188b118b95150c0b0f9fc6014f55e9f3d331013ec55522b45cd",
+      "card": "assets/optimized/card/png/shared/places/pavilion.webp",
+      "cardHash": "0fd1326ad3c5550c529001aacd705733f46e148458ae5118ef50775bad6cbc5d"
+    },
+    "assets/shared/places/pond.png": {
+      "sourceHash": "7c7cb3bfa8e2bfb24ee92b8665e06a2ff104d82e565700ed28568b3eeb8988b6",
+      "stage": "assets/optimized/stage/png/shared/places/pond.webp",
+      "stageHash": "23348d1d34a42aac9656067290814a85a619dff35eb63bcf2470b89f8975f6ea",
+      "card": "assets/optimized/card/png/shared/places/pond.webp",
+      "cardHash": "f5235201dde6bf27e1df1638e3414ddb102679087050b3631a87999f2cae186a"
+    },
+    "assets/shared/places/station.png": {
+      "sourceHash": "a34f1b27b05f15cb4868eeb74616f53c71b5c7faa95d70f858f2acc9322e9c31",
+      "stage": "assets/optimized/stage/png/shared/places/station.webp",
+      "stageHash": "84380211e3ecad258efe879ea7586a50996634562e99859daad4d195b5734d11",
+      "card": "assets/optimized/card/png/shared/places/station.webp",
+      "cardHash": "30ec4e6fc050e1f2a3e00c2290c1365977ad8be555aee49f0f295ed4c4fbc03e"
+    },
+    "assets/shared/places/theatre.png": {
+      "sourceHash": "8f6e772488774b223dfc7dc5704cd9321cf8a2c548c59f4e04e24d13cf18554f",
+      "stage": "assets/optimized/stage/png/shared/places/theatre.webp",
+      "stageHash": "13d3245f46a7783cab98922438dbeafcb77b2e5b6815c37d48918c87f7edba26",
+      "card": "assets/optimized/card/png/shared/places/theatre.webp",
+      "cardHash": "5928848e3785061f8b045441657dee270b8e12550609a063141c5df7f3257a22"
+    },
+    "assets/shared/places/train.png": {
+      "sourceHash": "604988d90be527cfbb24f4431cf447620b5b4acfc95a77ae4d13dab5e744a76b",
+      "stage": "assets/optimized/stage/png/shared/places/train.webp",
+      "stageHash": "d40b411bfedcf134f5a62c7a16bf77ab35b4eb751aa794105d8fdbc7924c9509",
+      "card": "assets/optimized/card/png/shared/places/train.webp",
+      "cardHash": "33377ed624a0358a6558d0d75dde7ad9496705d3fed8f3f0afc82a70500343a0"
+    },
+    "assets/station.png": {
+      "sourceHash": "7dacf532b00c33735860d19273366188d6f759df6ad2f5429f15d287c08d1a33",
+      "stage": "assets/optimized/stage/png/station.webp",
+      "stageHash": "07b39a224d9222b27fbeb2b438a4594eadd464081ac5415a601e69e8dc053bcf",
+      "card": "assets/optimized/card/png/station.webp",
+      "cardHash": "fe2bf8467279c70cf3c7ce8b7c66bbc217493f34deec690715d364782eb6ddae"
+    },
+    "assets/vale.png": {
+      "sourceHash": "f6a79cda52b36495592c5dcf3f53e4e611cdcd4b9d6573b399270b42b7991079",
+      "stage": "assets/optimized/stage/png/vale.webp",
+      "stageHash": "3c5722173735cdf41cf6383bcc380e8673cf146d6f42c86e7f37525867d6adc3",
+      "card": "assets/optimized/card/png/vale.webp",
+      "cardHash": "62ba8b48ac3a2bb0ce5872670282551e1666053f69da62305b03d5156c7e5f9e"
+    }
+  }
+}

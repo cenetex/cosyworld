@@ -1,3 +1,4 @@
+import { imageUrl } from "./images.mjs";
 import { request, passkey } from "./shared-auth.mjs";
 import { createSharedSync } from "./shared-sync.mjs";
 import roster from "./shared-cast.json" with { type: "json" };
@@ -241,7 +242,9 @@ export async function connectSharedWorld(id) {
         card.disabled = Boolean(value.claimed[index]);
         card.dataset.avatar = avatar.id;
         const image = node("img");
-        image.src = `/card-game/${avatar.image}`;
+        image.decoding = "async";
+        image.loading = "lazy";
+        image.src = imageUrl(`/card-game/${avatar.image}`, "card");
         image.alt = "";
         card.append(
           image,

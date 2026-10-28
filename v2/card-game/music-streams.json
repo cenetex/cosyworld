@@ -1,0 +1,107 @@
+{
+  "assets/music/attic-1.mp3": {
+    "file": "assets/music-stream/attic-1.mp3",
+    "offset": 21274,
+    "sourceHash": "06a2b1c90cfaa6384898e9e14d8c0bd868925d92d64e31044797fde8753deeae"
+  },
+  "assets/music/attic-2.mp3": {
+    "file": "assets/music-stream/attic-2.mp3",
+    "offset": 20603,
+    "sourceHash": "58e26e429a4cb6cc57d287655da201782a75a56baed426f784473d3367adc53d"
+  },
+  "assets/music/drift-jam.mp3": {
+    "file": "assets/music-stream/drift-jam.mp3",
+    "offset": 13956,
+    "sourceHash": "353e1e40122f4ed2f62c148169e6deba87bc546340b36c8babb090e96b90d8c2"
+  },
+  "assets/music/empty-seat.mp3": {
+    "file": "assets/music-stream/empty-seat.mp3",
+    "offset": 24186,
+    "sourceHash": "eedd8184fb42dfd84d4c4ba87a5aa0b24bc7fbdef59677bb97acc8476069f3c1"
+  },
+  "assets/music/fields-beyond-thornford.mp3": {
+    "file": "assets/music-stream/fields-beyond-thornford.mp3",
+    "offset": 25100,
+    "sourceHash": "142b9e509cc0291aa8390e201a9840b4c193cd995fd8776561ccb91ddb4aae61"
+  },
+  "assets/music/greek-courtyard.mp3": {
+    "file": "assets/music-stream/greek-courtyard.mp3",
+    "offset": 30391,
+    "sourceHash": "60ac8870acb7c3cc71aff040bddd623b2b07a7413bf72390063fdedac1176722"
+  },
+  "assets/music/greek-harbor.mp3": {
+    "file": "assets/music-stream/greek-harbor.mp3",
+    "offset": 24000,
+    "sourceHash": "f57d529d1724b22683e2cc7ed6ce3750ef0c131a617c06b3e3f88f9f1a81732e"
+  },
+  "assets/music/greek-well.mp3": {
+    "file": "assets/music-stream/greek-well.mp3",
+    "offset": 28914,
+    "sourceHash": "c2f409b2afbe5df1a929c11b0c273db892f03cfe6e0ed57e5b10923c67a6cedb"
+  },
+  "assets/music/lofi-belt-miners.mp3": {
+    "file": "assets/music-stream/lofi-belt-miners.mp3",
+    "offset": 17633,
+    "sourceHash": "00c643d54ede2f3798e69c8d3d444ae3e3f22e6fb4063c0b2f6cd4c23e896d9d"
+  },
+  "assets/music/lofi-drift.mp3": {
+    "file": "assets/music-stream/lofi-drift.mp3",
+    "offset": 25924,
+    "sourceHash": "ce3b8aeaba7e5ffb56c5004cb31b1c7a2919a2b90193f6534dc6314eae46686c"
+  },
+  "assets/music/pond-1.mp3": {
+    "file": "assets/music-stream/pond-1.mp3",
+    "offset": 26253,
+    "sourceHash": "dad0ccc76d4defd4fc3f59f026cb47e4692a22086e11a1ab8cecba906c5d8ec4"
+  },
+  "assets/music/pond-2.mp3": {
+    "file": "assets/music-stream/pond-2.mp3",
+    "offset": 20801,
+    "sourceHash": "5d9a1254fa729c9cda3ce0f3c46cf756d150f24199988557fa3ca2e94873bd96"
+  },
+  "assets/music/rain-on-canvas.mp3": {
+    "file": "assets/music-stream/rain-on-canvas.mp3",
+    "offset": 26256,
+    "sourceHash": "359b859aa95c324b7157098ca8ea95980b8879fb38b70e82cbdcfa5bca44aa69"
+  },
+  "assets/music/road-after-sunset.mp3": {
+    "file": "assets/music-stream/road-after-sunset.mp3",
+    "offset": 22476,
+    "sourceHash": "a91cded7fae8c5923de25fffa2147ecdfc05e2fb8509845b919baa7b854266a8"
+  },
+  "assets/music/ship-1.mp3": {
+    "file": "assets/music-stream/ship-1.mp3",
+    "offset": 71,
+    "sourceHash": "fbe7b5ce3b1dedc447f7ebdfbcb4dcbf33e66588b206fd8693ae7c3f0f26c535"
+  },
+  "assets/music/ship-2.mp3": {
+    "file": "assets/music-stream/ship-2.mp3",
+    "offset": 65,
+    "sourceHash": "41cd2d1e6015c3a4cdd5605016fd8caa52f3359fedbb0b2326c63cef96b6073d"
+  },
+  "assets/music/ship-3.mp3": {
+    "file": "assets/music-stream/ship-3.mp3",
+    "offset": 67,
+    "sourceHash": "0f43865d54bf6037b5874c2f48df9e8e5167c4fb7941ac89f5369a683b9f81a8"
+  },
+  "assets/music/ship-4.mp3": {
+    "file": "assets/music-stream/ship-4.mp3",
+    "offset": 67,
+    "sourceHash": "f74258754cb967ab5fe837477b621690dbaee5a3b6f821e6ef3f24c89791e3dc"
+  },
+  "assets/music/small-change-tall-stories.mp3": {
+    "file": "assets/music-stream/small-change-tall-stories.mp3",
+    "offset": 25876,
+    "sourceHash": "5299108601c0c019dc853e267d1ebc724ff0da912c6f0c18f20d4839174f9a22"
+  },
+  "assets/music/station-1.mp3": {
+    "file": "assets/music-stream/station-1.mp3",
+    "offset": 26091,
+    "sourceHash": "4d9ca91936030f3338295c17f6a1d271057d5fcb958c684a6646e59504b32a70"
+  },
+  "assets/music/station-2.mp3": {
+    "file": "assets/music-stream/station-2.mp3",
+    "offset": 25032,
+    "sourceHash": "67648d54c0ceefd1911079f5f842663f6c0cd4f5dc7da309807e4e63a4b1213d"
+  }
+}

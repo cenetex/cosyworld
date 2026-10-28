@@ -81,7 +81,10 @@ try {
   await takeUnveiled();
   await page.waitForFunction(() => {
     const audio = document.querySelector("#room-music");
-    return audio.src.endsWith("attic-1.mp3") && audio.currentTime > 0;
+    return (
+      new URL(audio.src).pathname.endsWith("attic-1.mp3") &&
+      audio.currentTime > 0
+    );
   });
   await page.locator("#toolbar-menu-button").click();
   await page.locator("#menu-button").click();
@@ -98,7 +101,7 @@ try {
       await page.waitForFunction((file) => {
         const audio = document.querySelector("#room-music");
         return (
-          audio.src.endsWith(file) &&
+          new URL(audio.src).pathname.endsWith(file) &&
           audio.currentTime > 0 &&
           !audio.paused &&
           Number.isFinite(audio.duration)
@@ -120,7 +123,10 @@ try {
       }, volume);
     }
     await page.waitForFunction(
-      (file) => document.querySelector("#room-music").src.endsWith(file),
+      (file) =>
+        new URL(document.querySelector("#room-music").src).pathname.endsWith(
+          file,
+        ),
       roomTracks[room][0].file,
     );
   }
@@ -150,7 +156,9 @@ try {
     await page.waitForFunction(
       (tracks) =>
         tracks.some(({ file }) =>
-          document.querySelector("#room-music").src.endsWith(file),
+          new URL(document.querySelector("#room-music").src).pathname.endsWith(
+            file,
+          ),
         ),
       roomTracks[room],
     );
@@ -250,7 +258,7 @@ try {
     await page.waitForFunction((tracks) => {
       const audio = document.querySelector("#room-music");
       return (
-        tracks.some(({ file }) => audio.src.endsWith(file)) &&
+        tracks.some(({ file }) => new URL(audio.src).pathname.endsWith(file)) &&
         audio.currentTime > 0 &&
         !audio.paused &&
         Number.isFinite(audio.duration)
@@ -287,7 +295,7 @@ try {
   const decoded = await page.evaluate(async (tracks) => {
     const results = [];
     for (const { file } of tracks) {
-      const probe = new Audio(`/card-game/assets/music/${file}`);
+      const probe = new Audio(`/card-game/assets/music-stream/${file}`);
       probe.muted = true;
       try {
         await probe.play();

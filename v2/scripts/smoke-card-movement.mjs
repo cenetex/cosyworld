@@ -175,7 +175,11 @@ try {
         assert.equal(saved.actors.vale.place, "attic");
         assert.equal(
           await page.locator("#backdrop").getAttribute("src"),
-          "./assets/attic.png",
+          await page.evaluate(async () =>
+            (await import("/card-game/images.mjs")).imageUrl(
+              "./assets/attic.png",
+            ),
+          ),
         );
         assert.equal(
           await page
@@ -207,9 +211,10 @@ try {
         return window.movementCheck;
       });
       report.animations = captured.animations;
-      const firstPond = captured.frames.find((f) =>
-        f.backdrop?.endsWith("/pond.png"),
+      const pondImage = await page.evaluate(async () =>
+        (await import("/card-game/images.mjs")).imageUrl("./assets/pond.png"),
       );
+      const firstPond = captured.frames.find((f) => f.backdrop === pondImage);
       const firstSpeech = captured.frames.find((f) => f.speech);
       report.firstPond = firstPond;
       report.firstSpeech = firstSpeech;

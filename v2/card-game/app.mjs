@@ -1,3 +1,4 @@
+import { imageUrl } from "./images.mjs";
 import { flipStagePortrait } from "./portrait-facing.mjs";
 import { installSceneVideo } from "./scene-video.mjs";
 import { installToolbar, renderPlayers } from "./toolbar.mjs";
@@ -131,7 +132,7 @@ const paths = {
 function art(id) {
   const media = packMedia(id);
   return media
-    ? `<img src="${media}" alt="">`
+    ? `<img src="${imageUrl(media, "card")}" alt="" decoding="async">`
     : `<svg viewBox="0 0 64 64" aria-hidden="true">${paths[id] || '<path d="M20 12h24v40H20zM25 22h14M25 30h14M25 38h10"/>'}</svg>`;
 }
 function node(tag, text, className) {
@@ -1311,7 +1312,8 @@ function frameFigure(img) {
 }
 function sharedQueuePortrait(actor) {
   const image = node("img");
-  image.src = portrait(actor, null, world);
+  image.decoding = "async";
+  image.src = imageUrl(portrait(actor, null, world), "card");
   image.alt = "";
   frameFigure(image);
   return image;
@@ -1515,7 +1517,12 @@ function questCard(id) {
   if (!quest.singleLine) face.setAttribute("aria-describedby", detailId);
   const graphic = node("span", undefined, "art");
   const img = node("img");
-  img.src = packMedia(quest.art, "art") || `./assets/${quest.art}-card.png`;
+  img.decoding = "async";
+  img.fetchPriority = "low";
+  img.src = imageUrl(
+    packMedia(quest.art, "art") || `./assets/${quest.art}-card.png`,
+    "card",
+  );
   img.alt = "";
   img.draggable = false;
   graphic.append(img);
@@ -1559,13 +1566,17 @@ function card(id) {
   el.setAttribute("aria-describedby", `card-detail-${id}`);
   const graphic = node("span", undefined, "art");
   const img = node("img");
-  img.src =
+  img.decoding = "async";
+  img.fetchPriority = "low";
+  img.src = imageUrl(
     type === "item"
       ? packMedia(id, "art") || `./assets/${id}-card.png`
       : type === "avatar"
         ? portrait(id, null, world)
         : crossingFace?.art ||
-          (packPlaces[id]?.art ? packMedia(id, "art") : backdrop(id, world));
+          (packPlaces[id]?.art ? packMedia(id, "art") : backdrop(id, world)),
+    "card",
+  );
   img.alt = "";
   img.draggable = false;
   if (type === "avatar") frameFigure(img);
@@ -1575,7 +1586,7 @@ function card(id) {
     const src = locationOverlay(world, id);
     if (src) {
       const overlay = node("img", undefined, "location-overlay");
-      overlay.src = src;
+      overlay.src = imageUrl(src, "card");
       overlay.alt = "";
       graphic.append(overlay);
     }
@@ -1592,7 +1603,11 @@ function card(id) {
     if (covering) {
       el.dataset.covered = "true";
       const cloth = node("img", undefined, "object-cover");
-      cloth.src = packMedia(covering, "art") || `./assets/${covering}-card.png`;
+      cloth.decoding = "async";
+      cloth.src = imageUrl(
+        packMedia(covering, "art") || `./assets/${covering}-card.png`,
+        "card",
+      );
       cloth.alt = "";
       graphic.append(cloth);
     }
@@ -1665,7 +1680,11 @@ function card(id) {
         observation.textContent += ` ${places[id] ? "Contains" : "Carries"} ${held.map(nameOf).join(", ")}. Select to show these cards.`;
       for (const item of held.slice(0, 2)) {
         const preview = node("img", undefined, "held-preview");
-        preview.src = packMedia(item, "art") || `./assets/${item}-card.png`;
+        preview.decoding = "async";
+        preview.src = imageUrl(
+          packMedia(item, "art") || `./assets/${item}-card.png`,
+          "card",
+        );
         preview.alt = "";
         preview.draggable = false;
         frame.prepend(preview);
@@ -1702,7 +1721,9 @@ function renderStage(locationId) {
     picture.dataset.place = locationId;
     const canvas = node("div", undefined, "stage-canvas");
     const background = node("img", undefined, "backdrop");
-    background.src = backdrop(locationId, world);
+    background.decoding = "async";
+    background.fetchPriority = "high";
+    background.src = imageUrl(backdrop(locationId, world));
     background.alt = stage.alt;
     const sprite = node("img", undefined, "stage-resident");
     sprite.id = "resident-sprite";
@@ -1719,7 +1740,10 @@ function renderStage(locationId) {
   if (stage) {
     const sprite = $("resident-sprite");
     const mood = variantOf(world, stage.resident);
-    sprite.src = portrait(stage.resident, null, world);
+    const source = imageUrl(portrait(stage.resident, null, world));
+    sprite.decoding = "async";
+    sprite.fetchPriority = "high";
+    if (sprite.getAttribute("src") !== source) sprite.src = source;
     sprite.dataset.state = mood?.name || "present";
     sprite.alt = mood?.alt || nameOf(stage.resident);
   }
@@ -1784,7 +1808,11 @@ function renderHeldItem(figure, actor, itemId) {
   if (preview.dataset.key !== key) {
     const images = [itemId, covering].filter(Boolean).map((id, index) => {
       const image = node("img", undefined, index ? "object-cover" : "");
-      image.src = packMedia(id, "art") || `./assets/${id}-card.png`;
+      image.decoding = "async";
+      image.src = imageUrl(
+        packMedia(id, "art") || `./assets/${id}-card.png`,
+        "card",
+      );
       image.alt = "";
       image.draggable = false;
       return image;
@@ -1815,7 +1843,8 @@ function renderScene() {
   $("stage").dataset.presentedRevision = String(world.revision);
   shownSceneLine = scene.line;
   const img = $("backdrop");
-  if (img.getAttribute("src") !== scene.background) img.src = scene.background;
+  const background = imageUrl(scene.background);
+  if (img.getAttribute("src") !== background) img.src = background;
   img.alt = placeText(world, scene.locationId);
   img.dataset.locationVariant = scene.variant;
   let overlay = $("location-overlay");
@@ -1827,8 +1856,9 @@ function renderScene() {
   }
   if (overlay) {
     overlay.hidden = !scene.overlay;
-    if (scene.overlay && overlay.getAttribute("src") !== scene.overlay)
-      overlay.src = scene.overlay;
+    const overlaySource = imageUrl(scene.overlay);
+    if (scene.overlay && overlay.getAttribute("src") !== overlaySource)
+      overlay.src = overlaySource;
     overlay.alt = scene.overlay ? placeText(world, scene.locationId) : "";
   }
   const staging = sceneStaging(world, {
@@ -1889,7 +1919,10 @@ function renderScene() {
       actor.facing === "right" ? ".35deg" : "-.35deg",
     );
     const image = figure.querySelector("img");
-    if (image.getAttribute("src") !== actor.cutout) image.src = actor.cutout;
+    const source = imageUrl(actor.cutout);
+    image.decoding = "async";
+    image.fetchPriority = "high";
+    if (image.getAttribute("src") !== source) image.src = source;
     image.dataset.flip = String(flipStagePortrait(actor.cutout, actor.facing));
     figure.dataset.flip = image.dataset.flip;
     renderHeldItem(figure, actor, id === currentActor(world) ? handItem : null);
@@ -1990,11 +2023,15 @@ function renderScene() {
     if (portraitId) {
       const image = node("img");
       image.alt = "";
-      image.src = people[portraitId]
-        ? portrait(portraitId, null, world)
-        : places[portraitId]
-          ? backdrop(portraitId, world)
-          : packMedia(portraitId, "art") || `./assets/${portraitId}-card.png`;
+      image.decoding = "async";
+      image.src = imageUrl(
+        people[portraitId]
+          ? portrait(portraitId, null, world)
+          : places[portraitId]
+            ? backdrop(portraitId, world)
+            : packMedia(portraitId, "art") || `./assets/${portraitId}-card.png`,
+        "card",
+      );
       portraitBox.dataset.kind = people[portraitId] ? "avatar" : "scene";
       if (people[portraitId]) frameFigure(image);
       portraitBox.append(image);

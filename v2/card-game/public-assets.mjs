@@ -1,9 +1,16 @@
+import musicStreams from "./music-streams.json" with { type: "json" };
 import { roomTracks } from "./music.mjs";
 import { packMediaFiles } from "./pack-registry.mjs";
+import imageVariants from "./image-variants.json" with { type: "json" };
 import voiceCast from "./voices.json" with { type: "json" };
 
 // The local server, release smoke, and Rust asset generator use this list.
 const files = [
+  "media.mjs",
+  "images.mjs",
+  "image-variants.json",
+  "media-manifest.json",
+  "music-streams.json",
   "shared.mjs",
   "shared-auth.mjs",
   "shared-sync.mjs",
@@ -125,6 +132,8 @@ const files = [
 ];
 // A mounted pack can reuse an image already published by the card table.
 for (const file of packMediaFiles) if (!files.includes(file)) files.push(file);
+for (const { stage, card } of Object.values(imageVariants.images))
+  for (const file of [stage, card]) if (!files.includes(file)) files.push(file);
 const types = {
   html: "text/html; charset=utf-8",
   css: "text/css; charset=utf-8",
@@ -136,9 +145,25 @@ const types = {
   webp: "image/webp",
   mp3: "audio/mpeg",
 };
+const aliases = Object.entries(musicStreams).map(([source, value]) => {
+  if (
+    !files.includes(source) ||
+    !Number.isSafeInteger(value.offset) ||
+    value.offset < 0 ||
+    !/^[a-f0-9]{64}$/.test(value.sourceHash)
+  )
+    throw new Error(`Invalid music stream source: ${source}`);
+  return {
+    file: value.file,
+    source,
+    offset: value.offset,
+    sourceHash: value.sourceHash,
+  };
+});
 const seen = new Set();
 export const publicAssets = Object.freeze(
-  files.map((file) => {
+  [...files.map((file) => ({ file })), ...aliases].map((asset) => {
+    const { file } = asset;
     const contentType = types[file.split(".").at(-1)];
     if (
       !/^[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*\.[a-z0-9]+$/.test(file) ||
@@ -147,6 +172,6 @@ export const publicAssets = Object.freeze(
       throw new Error(`Invalid public card asset: ${file}`);
     if (seen.has(file)) throw new Error(`Duplicate public card asset: ${file}`);
     seen.add(file);
-    return Object.freeze({ file, contentType });
+    return Object.freeze({ ...asset, contentType });
   }),
 );

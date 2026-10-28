@@ -23,15 +23,32 @@ revision for reference. Existing player saves use `world.mjs` and
 
 `public-assets.mjs` defines the public files and their content types. It includes
 room music and pack media from their registries. The local server and release
-smoke read that list. Generate the Rust server's embedded list with:
+smoke read that list. Build image variants, music stream descriptions, and the
+Rust server's embedded list with:
 
 ```sh
+npm run v2:card:images:build
+npm run v2:card:music:build
 npm run v2:card:assets:build
 ```
 
-Commit `v2/orchestrator-rust/src/card_assets.rs` with each asset-list change.
-`npm run v2:card:pack:build` rebuilds both pack data and the Rust asset list.
-`npm run v2:card:pack:check` checks both during CI and release gates.
+Stage images use full-size WebP copies. Hand cards and small portraits use
+512-pixel copies. Transparent parts keep their original alpha values. Authored
+image paths keep their identity in saves and rules.
+
+`media-manifest.json` records the SHA-256 of each published image and audio
+response. `mediaUrl()` adds that hash to the URL. Browsers can retain those
+bytes across visits. A changed file receives a new URL. Other static requests
+use content validators for a short revalidation reply.
+
+Music stream URLs expose the original MP3 audio frames after the leading ID3
+metadata. The original MP3s keep their metadata and remain available at their
+published paths. Each stream has its own hash and byte range support.
+
+Commit the generated image map, WebP files, music stream map, media hashes, and
+`v2/orchestrator-rust/src/card_assets.rs` with their source changes.
+`npm run v2:card:pack:build` rebuilds this set and the pack data.
+`npm run v2:card:pack:check` checks it during CI and release gates.
 
 ## Character voices
 
@@ -401,6 +418,12 @@ New programs rotate recent purposes and consider the purposes already active acr
 Run `node v2/scripts/smoke-card-pond-access.mjs` to check lamp custody, quiet departures, both mirror directions, reload and relighting at desktop and phone widths. Run `node v2/scripts/smoke-card-dialogue-timing.mjs` to check the first loading speaker, card locks through each reply, and the cast after quiet actions. Run `node v2/scripts/smoke-card-movement.mjs` to check visible entrances, the travel screen, movement captions, and reset during travel with fast and delayed replies. The card table still keeps its rules and inventory in the browser; `/card-game/text` only generates validated text and does not authorize movement.
 
 Run `node v2/scripts/smoke-card-dialogue-recovery.mjs` to check visible service failures, same-turn retry, incomplete responses, later plays and reload at desktop and phone widths. It uses local fixture responses and makes no model calls.
+
+Music loading starts when playback is ready: after the first accepted play,
+with music enabled and the page visible. Muted or hidden travel keeps the
+current source for a later resume. A repeated ship song starts again from its
+buffered beginning. Run `node v2/scripts/smoke-card-music-network.mjs` for the
+throttled request and first-sound checks.
 
 Room music starts with the first accepted card play in a new game. In a shared world, each avatar starts in silence until their own first accepted play, such as picking up or using their item. The saved play journal keeps that choice across reloads. The opening scene and menu wait for that play. Starting another new game resets this wait and keeps the saved music and volume settings.
 

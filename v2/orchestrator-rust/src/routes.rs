@@ -7,7 +7,13 @@ use axum::{
     Router,
 };
 use tokio::sync::Semaphore;
-use tower_http::{compression::CompressionLayer, cors::CorsLayer};
+use tower_http::{
+    compression::{
+        predicate::{DefaultPredicate, NotForContentType, Predicate},
+        CompressionLayer,
+    },
+    cors::CorsLayer,
+};
 use tracing::Instrument;
 
 use super::*;
@@ -21,6 +27,14 @@ pub(crate) mod card_game;
 const COMMAND_CONCURRENCY_LIMIT: usize = 16;
 const REQUEST_ID_HEADER: HeaderName = HeaderName::from_static("x-request-id");
 const MAX_REQUEST_ID_LENGTH: usize = 128;
+
+fn response_compression() -> CompressionLayer<impl Predicate> {
+    CompressionLayer::new().compress_when(
+        DefaultPredicate::new()
+            .and(NotForContentType::const_new("audio/"))
+            .and(NotForContentType::const_new("video/")),
+    )
+}
 
 #[derive(Clone, Debug)]
 struct RequestLogContext {
@@ -439,7 +453,7 @@ fn app_router_with_dependencies(
         // process begins draining. Liveness remains available to distinguish a
         // draining process from a dead one.
         .layer(middleware::from_fn_with_state(shutdown, shutdown_admission))
-        .layer(CompressionLayer::new())
+        .layer(response_compression())
         .layer(CorsLayer::permissive())
         .layer(middleware::from_fn_with_state(
             request_log_context,
