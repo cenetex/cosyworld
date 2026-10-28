@@ -1908,7 +1908,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "memory.mjs" => "\"db094e20b9b8df8a22bc2c0d234fafdc487f498a0f1a6c1b45458f16b720148e\"",
         "learning.mjs" => "\"865641bc676684d3f0adae2ad1cefd616df1ccd469ae1b2c2d211133199980f8\"",
         "adaptive-learning.mjs" => {
-            "\"f157e21fd5141d5bab2cb3dba8ef4d2e399fc971e1461a5db3de72d08ace47a0\""
+            "\"34bad8b4de0c436b5b238d3bfad7ceccd7ccb2d17e4a72626c70fabcb8fd871a\""
         }
         "narrative.mjs" => "\"1dd20c612150c1c2c41986377194a79a1f8fb5069448493bd3ef18c283c38aa2\"",
         "dialogue.mjs" => "\"1f4965d3e2a36261973aace4534359c00c7cf8aeaf15548a08d29e364adcc7ad\"",

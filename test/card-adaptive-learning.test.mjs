@@ -236,4 +236,18 @@ describe("adaptive action learning", () => {
       selected,
     );
   });
+  it("keeps shared quest focus separate from an older open goal", () => {
+    const w = act(setup(), "ask", "oil");
+    const action = legalActions(w).find(
+      (a) => a.kind === "talk" && a.target === "keeper",
+    );
+    const selected = { action, reason: "Attend to a shared hand." };
+    expect(
+      reconsiderPlan(w, "vale", selected, legalActions(w)).learning,
+    ).toBeDefined();
+    w.quests.focus.vale = "another-shared-hand";
+    expect(reconsiderPlan(w, "vale", selected, legalActions(w))).toEqual(
+      selected,
+    );
+  });
 });
