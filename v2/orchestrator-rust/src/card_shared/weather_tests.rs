@@ -42,20 +42,18 @@ fn regional_weather_agrees_in_c_and_survives_upgrade_and_journal_replay() {
         world.game["revision"],
         saved.game["revision"].as_u64().unwrap() + 1
     );
-    for field in [
-        "actors",
-        "items",
-        "turn",
-        "eventSeq",
-        "log",
-        "transports",
-        "quests",
-    ] {
+    for field in ["turn", "eventSeq", "log", "transports", "quests"] {
         assert_eq!(world.game[field], saved.game[field], "saved {field}");
     }
     for (id, memory) in saved.game["memories"].as_object().unwrap() {
         assert_eq!(&world.game["memories"][id], memory, "saved memory {id}");
     }
+    for field in ["actors", "items"] {
+        for (key, saved) in saved.game[field].as_object().unwrap() {
+            assert_eq!(&world.game[field][key], saved, "saved {field}/{key}");
+        }
+    }
+    assert_eq!(world.game["packs"]["hoppycat-archive"]["revision"], 1);
     assert_eq!(world.game["packs"]["greek-drama"]["revision"], 5);
     assert_eq!(world.version, engine::VERSION);
     assert_eq!(

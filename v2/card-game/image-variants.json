@@ -497,6 +497,258 @@
       "card": "assets/optimized/card/png/greek-drama/water-jar.webp",
       "cardHash": "4ac166f8bf8f5addeb8216e3d34ddd4aef246839e070eec18766de287dcc3e4b"
     },
+    "assets/hoppycat-archive/hoppycat-arc.webp": {
+      "sourceHash": "2b7d007cf40c9d9d4c08a79e907e7055c3c60c7580de84aa6db2736207fc0b17",
+      "stage": "assets/hoppycat-archive/hoppycat-arc.webp",
+      "stageHash": "2b7d007cf40c9d9d4c08a79e907e7055c3c60c7580de84aa6db2736207fc0b17",
+      "card": "assets/optimized/card/webp/hoppycat-archive/hoppycat-arc.webp",
+      "cardHash": "28f304c99f7f28906d47f3f5156cc90b3632a07a35f0b73568f2529353673d02"
+    },
+    "assets/hoppycat-archive/hoppycat-concordance-compass.webp": {
+      "sourceHash": "71a6e776e1651d1f125b2338c95d147d527701c76a680af98dfc0e2e930c3ab6",
+      "stage": "assets/hoppycat-archive/hoppycat-concordance-compass.webp",
+      "stageHash": "71a6e776e1651d1f125b2338c95d147d527701c76a680af98dfc0e2e930c3ab6",
+      "card": "assets/optimized/card/webp/hoppycat-archive/hoppycat-concordance-compass.webp",
+      "cardHash": "f22246af7500344906a68281b2433fbe0ddae83aaa867c2d74a6da4cb71fe3e1"
+    },
+    "assets/hoppycat-archive/hoppycat-concordance-tidelands.webp": {
+      "sourceHash": "ce5f8c02ed1c5d1a4d253966966fec1a15d108b66795f6aaecdc0f2b0a1cd7bb",
+      "stage": "assets/hoppycat-archive/hoppycat-concordance-tidelands.webp",
+      "stageHash": "ce5f8c02ed1c5d1a4d253966966fec1a15d108b66795f6aaecdc0f2b0a1cd7bb",
+      "card": "assets/optimized/card/webp/hoppycat-archive/hoppycat-concordance-tidelands.webp",
+      "cardHash": "8f92d9b720235034beb5169fc39fda9cf19e7bd628036b9aca78681d664956f0"
+    },
+    "assets/hoppycat-archive/hoppycat-context-greenhouse.webp": {
+      "sourceHash": "8370f2820b02d89b7175ac6ebb40bf1d714008a67ab7300022bd706ba2e3edc0",
+      "stage": "assets/hoppycat-archive/hoppycat-context-greenhouse.webp",
+      "stageHash": "8370f2820b02d89b7175ac6ebb40bf1d714008a67ab7300022bd706ba2e3edc0",
+      "card": "assets/optimized/card/webp/hoppycat-archive/hoppycat-context-greenhouse.webp",
+      "cardHash": "54fa171c43143a3a19105a5dcd6a22a8027611c1e36a9d7051f3898876eab588"
+    },
+    "assets/hoppycat-archive/hoppycat-context-seed.webp": {
+      "sourceHash": "8380e7445f460fca7936af3f5ef8203366ab9e973330c0b6399796f542505f28",
+      "stage": "assets/hoppycat-archive/hoppycat-context-seed.webp",
+      "stageHash": "8380e7445f460fca7936af3f5ef8203366ab9e973330c0b6399796f542505f28",
+      "card": "assets/optimized/card/webp/hoppycat-archive/hoppycat-context-seed.webp",
+      "cardHash": "95c013050460268c717ac62b3b3b5c9a62f1722d9b19878211aaa393dd804576"
+    },
+    "assets/hoppycat-archive/hoppycat-fable.webp": {
+      "sourceHash": "5f059ec1d52994c2fe5adaef78ebf8875910854691f8e1e4cea942e039915c26",
+      "stage": "assets/hoppycat-archive/hoppycat-fable.webp",
+      "stageHash": "5f059ec1d52994c2fe5adaef78ebf8875910854691f8e1e4cea942e039915c26",
+      "card": "assets/optimized/card/webp/hoppycat-archive/hoppycat-fable.webp",
+      "cardHash": "3ce187803d5ff90a667c24be693e159620ddd275dce31617008ec17d3aedca7c"
+    },
+    "assets/hoppycat-archive/hoppycat-fermata-clapper.webp": {
+      "sourceHash": "b74ea2afaca5d9a5df13873e987832b684654fd4e38fdd0259008c808dae020d",
+      "stage": "assets/hoppycat-archive/hoppycat-fermata-clapper.webp",
+      "stageHash": "b74ea2afaca5d9a5df13873e987832b684654fd4e38fdd0259008c808dae020d",
+      "card": "assets/optimized/card/webp/hoppycat-archive/hoppycat-fermata-clapper.webp",
+      "cardHash": "eafa47f2c2fd67e1b0614a77f2c73df64d8356742e9ede158e4b70af382009b4"
+    },
+    "assets/hoppycat-archive/hoppycat-glim-twice.webp": {
+      "sourceHash": "6cadf42366a15f61dfe166b7bf90fc920f40429921f606b0047253a721491dd1",
+      "stage": "assets/hoppycat-archive/hoppycat-glim-twice.webp",
+      "stageHash": "6cadf42366a15f61dfe166b7bf90fc920f40429921f606b0047253a721491dd1",
+      "card": "assets/optimized/card/webp/hoppycat-archive/hoppycat-glim-twice.webp",
+      "cardHash": "786c4df10269bb7aa5e6e7cc99be84fb75a294a8ff5b68811144d8cb35912797"
+    },
+    "assets/hoppycat-archive/hoppycat-goldfish-tank.webp": {
+      "sourceHash": "83d9dea73946e4ce9d30dc50a68a148f16c332cb00a0f5a33dbaaa2bfe2f4a25",
+      "stage": "assets/hoppycat-archive/hoppycat-goldfish-tank.webp",
+      "stageHash": "83d9dea73946e4ce9d30dc50a68a148f16c332cb00a0f5a33dbaaa2bfe2f4a25",
+      "card": "assets/optimized/card/webp/hoppycat-archive/hoppycat-goldfish-tank.webp",
+      "cardHash": "ca56a790cb8b0a332bb347bf784a40a7dbd6025ff6b9a76512d03352ec85e06f"
+    },
+    "assets/hoppycat-archive/hoppycat-halfway-cup.webp": {
+      "sourceHash": "c8189b87a85f77a53f5d31abd6a0ce7d4c78796193b4a58a29f6152f071207a1",
+      "stage": "assets/hoppycat-archive/hoppycat-halfway-cup.webp",
+      "stageHash": "c8189b87a85f77a53f5d31abd6a0ce7d4c78796193b4a58a29f6152f071207a1",
+      "card": "assets/optimized/card/webp/hoppycat-archive/hoppycat-halfway-cup.webp",
+      "cardHash": "05a5eec73d2ed0ab8b30f2eacf56a2c3c71dd97b3d8975a29b3ddf7c1845a657"
+    },
+    "assets/hoppycat-archive/hoppycat-halfway-tea-garden.webp": {
+      "sourceHash": "7cfaf8b612737c32af8a6783edd83316fba0bca11074f98d607412a1de3b9411",
+      "stage": "assets/hoppycat-archive/hoppycat-halfway-tea-garden.webp",
+      "stageHash": "7cfaf8b612737c32af8a6783edd83316fba0bca11074f98d607412a1de3b9411",
+      "card": "assets/optimized/card/webp/hoppycat-archive/hoppycat-halfway-tea-garden.webp",
+      "cardHash": "8402713aca57264358efb3494e7adef3d831b25cc2e702b1e40f9fb636499527"
+    },
+    "assets/hoppycat-archive/hoppycat-hoppy-cat.webp": {
+      "sourceHash": "944e1e08e70434a61f93256ed8b25827b83b8c46fbe5d891757d9af86377b52d",
+      "stage": "assets/hoppycat-archive/hoppycat-hoppy-cat.webp",
+      "stageHash": "944e1e08e70434a61f93256ed8b25827b83b8c46fbe5d891757d9af86377b52d",
+      "card": "assets/optimized/card/webp/hoppycat-archive/hoppycat-hoppy-cat.webp",
+      "cardHash": "5e5bad8e893f75758e8aa87fba3ab10b9830a386dca309b58a62c0930353daee"
+    },
+    "assets/hoppycat-archive/hoppycat-ledger-opus.webp": {
+      "sourceHash": "c8326e4ed53ff2d5dfe931cb38c0e2c91ac5b4e1828d1605012eae5bde6ed0a6",
+      "stage": "assets/hoppycat-archive/hoppycat-ledger-opus.webp",
+      "stageHash": "c8326e4ed53ff2d5dfe931cb38c0e2c91ac5b4e1828d1605012eae5bde6ed0a6",
+      "card": "assets/optimized/card/webp/hoppycat-archive/hoppycat-ledger-opus.webp",
+      "cardHash": "448c8851c842ea4fa2caa80e2242129f7d811e75655bc9d195252d457c9a59e5"
+    },
+    "assets/hoppycat-archive/hoppycat-ledger-sonnet.webp": {
+      "sourceHash": "165527b083ef838a1b6b7f528bbee0857a717a5e059453dc5e26a417fb0ece36",
+      "stage": "assets/hoppycat-archive/hoppycat-ledger-sonnet.webp",
+      "stageHash": "165527b083ef838a1b6b7f528bbee0857a717a5e059453dc5e26a417fb0ece36",
+      "card": "assets/optimized/card/webp/hoppycat-archive/hoppycat-ledger-sonnet.webp",
+      "cardHash": "dabca51cc54208a6eed565bb67c1b2dd7e2c29476d2fc6587c377286034b8ed8"
+    },
+    "assets/hoppycat-archive/hoppycat-loop-token.webp": {
+      "sourceHash": "20974b2c25973c607e61752589506cb22d5d08c3928f88d2e43a167a3a57a9ef",
+      "stage": "assets/hoppycat-archive/hoppycat-loop-token.webp",
+      "stageHash": "20974b2c25973c607e61752589506cb22d5d08c3928f88d2e43a167a3a57a9ef",
+      "card": "assets/optimized/card/webp/hoppycat-archive/hoppycat-loop-token.webp",
+      "cardHash": "fd18d0aee59b2d8ee631e9d9c21fec255a1b73b1a793f1ccdcdcfbbe193d680a"
+    },
+    "assets/hoppycat-archive/hoppycat-lumen-facet.webp": {
+      "sourceHash": "444597d4131b84891ea61bb1fb88d8615b2e2f7d20d7e4764cd97c64497780bf",
+      "stage": "assets/hoppycat-archive/hoppycat-lumen-facet.webp",
+      "stageHash": "444597d4131b84891ea61bb1fb88d8615b2e2f7d20d7e4764cd97c64497780bf",
+      "card": "assets/optimized/card/webp/hoppycat-archive/hoppycat-lumen-facet.webp",
+      "cardHash": "7653fd17f9605ef362d653e0d809df3813b7518bcaee4724182de1ede188412d"
+    },
+    "assets/hoppycat-archive/hoppycat-meraki-atelier.webp": {
+      "sourceHash": "625bc00cb4a846a9829b3e648d98140b97301fe2037a972e37fb22d460920ac9",
+      "stage": "assets/hoppycat-archive/hoppycat-meraki-atelier.webp",
+      "stageHash": "625bc00cb4a846a9829b3e648d98140b97301fe2037a972e37fb22d460920ac9",
+      "card": "assets/optimized/card/webp/hoppycat-archive/hoppycat-meraki-atelier.webp",
+      "cardHash": "2634b6c5041001161cf220208422c0161e97edf56befcd4e963b5dac6a9f2ad7"
+    },
+    "assets/hoppycat-archive/hoppycat-meraki-brush.webp": {
+      "sourceHash": "1e7814cc5ad86c3f405d6f632cd6777c4106d308cef4adc4add3a7fabfe57a27",
+      "stage": "assets/hoppycat-archive/hoppycat-meraki-brush.webp",
+      "stageHash": "1e7814cc5ad86c3f405d6f632cd6777c4106d308cef4adc4add3a7fabfe57a27",
+      "card": "assets/optimized/card/webp/hoppycat-archive/hoppycat-meraki-brush.webp",
+      "cardHash": "ba791133708541a5124364b9127bc5cb8ab0641827a3c0725543180ae6a6229f"
+    },
+    "assets/hoppycat-archive/hoppycat-mira-meraki.webp": {
+      "sourceHash": "af47172718943ea94488e3f8c3cc7013fc53624bee15b6f28732e56fbbfe7180",
+      "stage": "assets/hoppycat-archive/hoppycat-mira-meraki.webp",
+      "stageHash": "af47172718943ea94488e3f8c3cc7013fc53624bee15b6f28732e56fbbfe7180",
+      "card": "assets/optimized/card/webp/hoppycat-archive/hoppycat-mira-meraki.webp",
+      "cardHash": "091295c0c895782b22e016c673e7ad29c2d9e4ea24b4f2f601fd819627b1af0a"
+    },
+    "assets/hoppycat-archive/hoppycat-nix-fermata.webp": {
+      "sourceHash": "bd0226d4bfd8064b4b0c4a571661dad7a2612364adf97f2af4c72fd7236612ed",
+      "stage": "assets/hoppycat-archive/hoppycat-nix-fermata.webp",
+      "stageHash": "bd0226d4bfd8064b4b0c4a571661dad7a2612364adf97f2af4c72fd7236612ed",
+      "card": "assets/optimized/card/webp/hoppycat-archive/hoppycat-nix-fermata.webp",
+      "cardHash": "14b907be2b077ca04b55f6847bd736df04c790de1dd058ba2c5a5fe81faca5e3"
+    },
+    "assets/hoppycat-archive/hoppycat-open-record-cathedral.webp": {
+      "sourceHash": "0c560edff016025699521b5994b48bde744ac5101c58d8d1a3f14b0d20b699fd",
+      "stage": "assets/hoppycat-archive/hoppycat-open-record-cathedral.webp",
+      "stageHash": "0c560edff016025699521b5994b48bde744ac5101c58d8d1a3f14b0d20b699fd",
+      "card": "assets/optimized/card/webp/hoppycat-archive/hoppycat-open-record-cathedral.webp",
+      "cardHash": "8c9fe0f3169354493aa606e67a3a0d3f579de26da2ffc04d2cbc989cec169e7d"
+    },
+    "assets/hoppycat-archive/hoppycat-patch-fern.webp": {
+      "sourceHash": "9d91a38ed92bc5fe803c39dd79736f88a3936a45bb8f48951aadd71410e6ba0a",
+      "stage": "assets/hoppycat-archive/hoppycat-patch-fern.webp",
+      "stageHash": "9d91a38ed92bc5fe803c39dd79736f88a3936a45bb8f48951aadd71410e6ba0a",
+      "card": "assets/optimized/card/webp/hoppycat-archive/hoppycat-patch-fern.webp",
+      "cardHash": "71ea011d50eaf300e3c2ca040d6981bcbb15e06ca35c4d71a25b2e0f225ce565"
+    },
+    "assets/hoppycat-archive/hoppycat-penny-vellum.webp": {
+      "sourceHash": "766f8be018bbe16b9f368f665dd4c0df22945625f5822f551c93b2ec2731dd33",
+      "stage": "assets/hoppycat-archive/hoppycat-penny-vellum.webp",
+      "stageHash": "766f8be018bbe16b9f368f665dd4c0df22945625f5822f551c93b2ec2731dd33",
+      "card": "assets/optimized/card/webp/hoppycat-archive/hoppycat-penny-vellum.webp",
+      "cardHash": "5aba5d379cb532db317e3713400f13bf9f7eb1a2d3e1321f3737b201ca4cf7fb"
+    },
+    "assets/hoppycat-archive/hoppycat-phase-two.webp": {
+      "sourceHash": "15d3976c241f80259beaeb6b911f5b678fba15869c69deb6c0e956145fc2fde8",
+      "stage": "assets/hoppycat-archive/hoppycat-phase-two.webp",
+      "stageHash": "15d3976c241f80259beaeb6b911f5b678fba15869c69deb6c0e956145fc2fde8",
+      "card": "assets/optimized/card/webp/hoppycat-archive/hoppycat-phase-two.webp",
+      "cardHash": "513425fc1d7b30797553ae6dc6978154a3b5a2b0cbfcbfa839423ff42e85f8b8"
+    },
+    "assets/hoppycat-archive/hoppycat-prism-foundry.webp": {
+      "sourceHash": "6d45f15167b636ba87c69dbba39ec3f6d138af6c5117ba0de88cc08a675ff729",
+      "stage": "assets/hoppycat-archive/hoppycat-prism-foundry.webp",
+      "stageHash": "6d45f15167b636ba87c69dbba39ec3f6d138af6c5117ba0de88cc08a675ff729",
+      "card": "assets/optimized/card/webp/hoppycat-archive/hoppycat-prism-foundry.webp",
+      "cardHash": "22d5adc8463a4fb0243b9262217e270be2c6fc55358aa9a84b17dc5f209962c8"
+    },
+    "assets/hoppycat-archive/hoppycat-provenance-card.webp": {
+      "sourceHash": "a31eb007c98b5c46121a4b95df4fc60146dffc64afdcc0d8dc503df982ab79fe",
+      "stage": "assets/hoppycat-archive/hoppycat-provenance-card.webp",
+      "stageHash": "a31eb007c98b5c46121a4b95df4fc60146dffc64afdcc0d8dc503df982ab79fe",
+      "card": "assets/optimized/card/webp/hoppycat-archive/hoppycat-provenance-card.webp",
+      "cardHash": "efbafe0211d987820db7f7bf35cfcdcca3ff3991b51a20c0db5214d52987930d"
+    },
+    "assets/hoppycat-archive/hoppycat-red-thread-belfry.webp": {
+      "sourceHash": "b15741cd4eb57cea9f25aeec6e34d2b4f1dbc8741e1b76525217d61a21a110b9",
+      "stage": "assets/hoppycat-archive/hoppycat-red-thread-belfry.webp",
+      "stageHash": "b15741cd4eb57cea9f25aeec6e34d2b4f1dbc8741e1b76525217d61a21a110b9",
+      "card": "assets/optimized/card/webp/hoppycat-archive/hoppycat-red-thread-belfry.webp",
+      "cardHash": "75c11b17794d5ba809bac77824cbbeee6f5fcd9500ceed8c9478d75c0c691bf7"
+    },
+    "assets/hoppycat-archive/hoppycat-red-thread-spool.webp": {
+      "sourceHash": "ba69750fd5382f01e0e77180c975ffe0951d4cbcad4d0dc139ad6869661ad334",
+      "stage": "assets/hoppycat-archive/hoppycat-red-thread-spool.webp",
+      "stageHash": "ba69750fd5382f01e0e77180c975ffe0951d4cbcad4d0dc139ad6869661ad334",
+      "card": "assets/optimized/card/webp/hoppycat-archive/hoppycat-red-thread-spool.webp",
+      "cardHash": "878b36da4d42a608c814ca3a6bac15031b02c212440eb15f00245243bb50880c"
+    },
+    "assets/hoppycat-archive/hoppycat-return-path-checklist.webp": {
+      "sourceHash": "96d2205f9ee573aeaeaf3838132001ff34e79ffb826b2e2d8fb4205403911fbf",
+      "stage": "assets/hoppycat-archive/hoppycat-return-path-checklist.webp",
+      "stageHash": "96d2205f9ee573aeaeaf3838132001ff34e79ffb826b2e2d8fb4205403911fbf",
+      "card": "assets/optimized/card/webp/hoppycat-archive/hoppycat-return-path-checklist.webp",
+      "cardHash": "9e4b8f61127e73f0f5084b01d0fa2116fd2425232ee8cf2290800b4ff6607630"
+    },
+    "assets/hoppycat-archive/hoppycat-rill-current.webp": {
+      "sourceHash": "ff935f23198964ad0d791c2620fb9f2005e690925dd98c86e6e436dc018dfa9d",
+      "stage": "assets/hoppycat-archive/hoppycat-rill-current.webp",
+      "stageHash": "ff935f23198964ad0d791c2620fb9f2005e690925dd98c86e6e436dc018dfa9d",
+      "card": "assets/optimized/card/webp/hoppycat-archive/hoppycat-rill-current.webp",
+      "cardHash": "1a16da30f10d2d699cf656e10e00bb8a5e8ca98af06c9633566f1ec9d3427482"
+    },
+    "assets/hoppycat-archive/hoppycat-settled-light-theatre.webp": {
+      "sourceHash": "9bd7c5a890d5e256bdc41d71889afd8511cf3322d2fb4e88c65499f9a0086833",
+      "stage": "assets/hoppycat-archive/hoppycat-settled-light-theatre.webp",
+      "stageHash": "9bd7c5a890d5e256bdc41d71889afd8511cf3322d2fb4e88c65499f9a0086833",
+      "card": "assets/optimized/card/webp/hoppycat-archive/hoppycat-settled-light-theatre.webp",
+      "cardHash": "1525abe922667d62a7e29f8ed31dc20c7da2d3b980a549ce5870b70a757acecb"
+    },
+    "assets/hoppycat-archive/hoppycat-signal-jetty.webp": {
+      "sourceHash": "7732aa62df2edbc6b34e47269ddce9e4c2b02634e765c90e3bfef2115e62d293",
+      "stage": "assets/hoppycat-archive/hoppycat-signal-jetty.webp",
+      "stageHash": "7732aa62df2edbc6b34e47269ddce9e4c2b02634e765c90e3bfef2115e62d293",
+      "card": "assets/optimized/card/webp/hoppycat-archive/hoppycat-signal-jetty.webp",
+      "cardHash": "8d0101af138ed67c84e5abf01ffd646b311cfe2efe4f243da4b6a81bea95a26b"
+    },
+    "assets/hoppycat-archive/hoppycat-solwashere.webp": {
+      "sourceHash": "7c9d7a38e03d1cd3b12094eccca95c7df84ce910d7a203ec84fae810d0ae8b5d",
+      "stage": "assets/hoppycat-archive/hoppycat-solwashere.webp",
+      "stageHash": "7c9d7a38e03d1cd3b12094eccca95c7df84ce910d7a203ec84fae810d0ae8b5d",
+      "card": "assets/optimized/card/webp/hoppycat-archive/hoppycat-solwashere.webp",
+      "cardHash": "ed89745343eead5d4c3d7cd426b54bea983027d4915bc1dc91d4829dac252e93"
+    },
+    "assets/hoppycat-archive/hoppycat-staticwashere.webp": {
+      "sourceHash": "28e7d9ca86684b6d4ae2774ffb057e31b7866f0585266dfb022319617cbc439f",
+      "stage": "assets/hoppycat-archive/hoppycat-staticwashere.webp",
+      "stageHash": "28e7d9ca86684b6d4ae2774ffb057e31b7866f0585266dfb022319617cbc439f",
+      "card": "assets/optimized/card/webp/hoppycat-archive/hoppycat-staticwashere.webp",
+      "cardHash": "10acf36a09111d368cb479a6a96d81e63f1983e0e085c54670ab83b4d9d52963"
+    },
+    "assets/hoppycat-archive/hoppycat-tapi-lilt.webp": {
+      "sourceHash": "c2c8b2ce00ea51f5d9d70509d6f31d1a9074b4f139245fc130a0cc7b3bcc6a47",
+      "stage": "assets/hoppycat-archive/hoppycat-tapi-lilt.webp",
+      "stageHash": "c2c8b2ce00ea51f5d9d70509d6f31d1a9074b4f139245fc130a0cc7b3bcc6a47",
+      "card": "assets/optimized/card/webp/hoppycat-archive/hoppycat-tapi-lilt.webp",
+      "cardHash": "cc7ce7970a032b73bd6649110893eeca53be47dd78747ee950f2bdef80cdce9c"
+    },
+    "assets/hoppycat-archive/hoppycat-unfinished-prism.webp": {
+      "sourceHash": "8c265181f98ba637fc62741d638582f6f929ddbcdf3b8782374afbf441368d9d",
+      "stage": "assets/hoppycat-archive/hoppycat-unfinished-prism.webp",
+      "stageHash": "8c265181f98ba637fc62741d638582f6f929ddbcdf3b8782374afbf441368d9d",
+      "card": "assets/optimized/card/webp/hoppycat-archive/hoppycat-unfinished-prism.webp",
+      "cardHash": "74f84f4bdf5119d8a9164171332cdccf9eca7e3a1bfb8b3b3894c7e524072b37"
+    },
     "assets/keeper-right.png": {
       "sourceHash": "7b07a71e5ff2e3b47ee5b2b6c20071ef8531a15a91aa0f28fc31ae7bbea76a7e",
       "stage": "assets/optimized/stage/png/keeper-right.webp",

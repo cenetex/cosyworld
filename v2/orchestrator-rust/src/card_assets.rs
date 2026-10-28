@@ -236,6 +236,14 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/app.mjs"),
         ),
+        "pack-landing.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/pack-landing.mjs"),
+        ),
+        "pack-landings.json" => (
+            "application/json",
+            include_bytes!("../../card-game/pack-landings.json"),
+        ),
         "world.mjs" => (
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/world.mjs"),
@@ -900,6 +908,150 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "image/webp",
             include_bytes!("../../card-game/assets/greek-drama/myrine.webp"),
         ),
+        "assets/hoppycat-archive/hoppycat-halfway-tea-garden.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/hoppycat-archive/hoppycat-halfway-tea-garden.webp"),
+        ),
+        "assets/hoppycat-archive/hoppycat-open-record-cathedral.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/hoppycat-archive/hoppycat-open-record-cathedral.webp"),
+        ),
+        "assets/hoppycat-archive/hoppycat-red-thread-belfry.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/hoppycat-archive/hoppycat-red-thread-belfry.webp"),
+        ),
+        "assets/hoppycat-archive/hoppycat-prism-foundry.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/hoppycat-archive/hoppycat-prism-foundry.webp"),
+        ),
+        "assets/hoppycat-archive/hoppycat-context-greenhouse.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/hoppycat-archive/hoppycat-context-greenhouse.webp"),
+        ),
+        "assets/hoppycat-archive/hoppycat-concordance-tidelands.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/hoppycat-archive/hoppycat-concordance-tidelands.webp"),
+        ),
+        "assets/hoppycat-archive/hoppycat-settled-light-theatre.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/hoppycat-archive/hoppycat-settled-light-theatre.webp"),
+        ),
+        "assets/hoppycat-archive/hoppycat-meraki-atelier.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/hoppycat-archive/hoppycat-meraki-atelier.webp"),
+        ),
+        "assets/hoppycat-archive/hoppycat-goldfish-tank.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/hoppycat-archive/hoppycat-goldfish-tank.webp"),
+        ),
+        "assets/hoppycat-archive/hoppycat-signal-jetty.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/hoppycat-archive/hoppycat-signal-jetty.webp"),
+        ),
+        "assets/hoppycat-archive/hoppycat-red-thread-spool.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/hoppycat-archive/hoppycat-red-thread-spool.webp"),
+        ),
+        "assets/hoppycat-archive/hoppycat-provenance-card.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/hoppycat-archive/hoppycat-provenance-card.webp"),
+        ),
+        "assets/hoppycat-archive/hoppycat-unfinished-prism.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/hoppycat-archive/hoppycat-unfinished-prism.webp"),
+        ),
+        "assets/hoppycat-archive/hoppycat-context-seed.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/hoppycat-archive/hoppycat-context-seed.webp"),
+        ),
+        "assets/hoppycat-archive/hoppycat-concordance-compass.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/hoppycat-archive/hoppycat-concordance-compass.webp"),
+        ),
+        "assets/hoppycat-archive/hoppycat-meraki-brush.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/hoppycat-archive/hoppycat-meraki-brush.webp"),
+        ),
+        "assets/hoppycat-archive/hoppycat-loop-token.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/hoppycat-archive/hoppycat-loop-token.webp"),
+        ),
+        "assets/hoppycat-archive/hoppycat-fermata-clapper.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/hoppycat-archive/hoppycat-fermata-clapper.webp"),
+        ),
+        "assets/hoppycat-archive/hoppycat-halfway-cup.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/hoppycat-archive/hoppycat-halfway-cup.webp"),
+        ),
+        "assets/hoppycat-archive/hoppycat-return-path-checklist.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/hoppycat-archive/hoppycat-return-path-checklist.webp"),
+        ),
+        "assets/hoppycat-archive/hoppycat-tapi-lilt.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/hoppycat-archive/hoppycat-tapi-lilt.webp"),
+        ),
+        "assets/hoppycat-archive/hoppycat-penny-vellum.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/hoppycat-archive/hoppycat-penny-vellum.webp"),
+        ),
+        "assets/hoppycat-archive/hoppycat-rill-current.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/hoppycat-archive/hoppycat-rill-current.webp"),
+        ),
+        "assets/hoppycat-archive/hoppycat-patch-fern.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/hoppycat-archive/hoppycat-patch-fern.webp"),
+        ),
+        "assets/hoppycat-archive/hoppycat-lumen-facet.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/hoppycat-archive/hoppycat-lumen-facet.webp"),
+        ),
+        "assets/hoppycat-archive/hoppycat-mira-meraki.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/hoppycat-archive/hoppycat-mira-meraki.webp"),
+        ),
+        "assets/hoppycat-archive/hoppycat-glim-twice.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/hoppycat-archive/hoppycat-glim-twice.webp"),
+        ),
+        "assets/hoppycat-archive/hoppycat-nix-fermata.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/hoppycat-archive/hoppycat-nix-fermata.webp"),
+        ),
+        "assets/hoppycat-archive/hoppycat-hoppy-cat.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/hoppycat-archive/hoppycat-hoppy-cat.webp"),
+        ),
+        "assets/hoppycat-archive/hoppycat-fable.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/hoppycat-archive/hoppycat-fable.webp"),
+        ),
+        "assets/hoppycat-archive/hoppycat-phase-two.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/hoppycat-archive/hoppycat-phase-two.webp"),
+        ),
+        "assets/hoppycat-archive/hoppycat-arc.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/hoppycat-archive/hoppycat-arc.webp"),
+        ),
+        "assets/hoppycat-archive/hoppycat-staticwashere.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/hoppycat-archive/hoppycat-staticwashere.webp"),
+        ),
+        "assets/hoppycat-archive/hoppycat-solwashere.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/hoppycat-archive/hoppycat-solwashere.webp"),
+        ),
+        "assets/hoppycat-archive/hoppycat-ledger-opus.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/hoppycat-archive/hoppycat-ledger-opus.webp"),
+        ),
+        "assets/hoppycat-archive/hoppycat-ledger-sonnet.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/hoppycat-archive/hoppycat-ledger-sonnet.webp"),
+        ),
         "assets/boardyai/parlour.png" => (
             "image/png",
             include_bytes!("../../card-game/assets/boardyai/parlour.png"),
@@ -1332,6 +1484,150 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "image/webp",
             include_bytes!("../../card-game/assets/optimized/card/png/greek-drama/water-jar.webp"),
         ),
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-arc.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/hoppycat-archive/hoppycat-arc.webp"),
+        ),
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-concordance-compass.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/hoppycat-archive/hoppycat-concordance-compass.webp"),
+        ),
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-concordance-tidelands.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/hoppycat-archive/hoppycat-concordance-tidelands.webp"),
+        ),
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-context-greenhouse.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/hoppycat-archive/hoppycat-context-greenhouse.webp"),
+        ),
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-context-seed.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/hoppycat-archive/hoppycat-context-seed.webp"),
+        ),
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-fable.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/hoppycat-archive/hoppycat-fable.webp"),
+        ),
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-fermata-clapper.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/hoppycat-archive/hoppycat-fermata-clapper.webp"),
+        ),
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-glim-twice.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/hoppycat-archive/hoppycat-glim-twice.webp"),
+        ),
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-goldfish-tank.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/hoppycat-archive/hoppycat-goldfish-tank.webp"),
+        ),
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-halfway-cup.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/hoppycat-archive/hoppycat-halfway-cup.webp"),
+        ),
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-halfway-tea-garden.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/hoppycat-archive/hoppycat-halfway-tea-garden.webp"),
+        ),
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-hoppy-cat.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/hoppycat-archive/hoppycat-hoppy-cat.webp"),
+        ),
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-ledger-opus.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/hoppycat-archive/hoppycat-ledger-opus.webp"),
+        ),
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-ledger-sonnet.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/hoppycat-archive/hoppycat-ledger-sonnet.webp"),
+        ),
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-loop-token.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/hoppycat-archive/hoppycat-loop-token.webp"),
+        ),
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-lumen-facet.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/hoppycat-archive/hoppycat-lumen-facet.webp"),
+        ),
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-meraki-atelier.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/hoppycat-archive/hoppycat-meraki-atelier.webp"),
+        ),
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-meraki-brush.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/hoppycat-archive/hoppycat-meraki-brush.webp"),
+        ),
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-mira-meraki.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/hoppycat-archive/hoppycat-mira-meraki.webp"),
+        ),
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-nix-fermata.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/hoppycat-archive/hoppycat-nix-fermata.webp"),
+        ),
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-open-record-cathedral.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/hoppycat-archive/hoppycat-open-record-cathedral.webp"),
+        ),
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-patch-fern.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/hoppycat-archive/hoppycat-patch-fern.webp"),
+        ),
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-penny-vellum.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/hoppycat-archive/hoppycat-penny-vellum.webp"),
+        ),
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-phase-two.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/hoppycat-archive/hoppycat-phase-two.webp"),
+        ),
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-prism-foundry.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/hoppycat-archive/hoppycat-prism-foundry.webp"),
+        ),
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-provenance-card.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/hoppycat-archive/hoppycat-provenance-card.webp"),
+        ),
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-red-thread-belfry.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/hoppycat-archive/hoppycat-red-thread-belfry.webp"),
+        ),
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-red-thread-spool.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/hoppycat-archive/hoppycat-red-thread-spool.webp"),
+        ),
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-return-path-checklist.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/hoppycat-archive/hoppycat-return-path-checklist.webp"),
+        ),
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-rill-current.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/hoppycat-archive/hoppycat-rill-current.webp"),
+        ),
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-settled-light-theatre.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/hoppycat-archive/hoppycat-settled-light-theatre.webp"),
+        ),
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-signal-jetty.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/hoppycat-archive/hoppycat-signal-jetty.webp"),
+        ),
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-solwashere.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/hoppycat-archive/hoppycat-solwashere.webp"),
+        ),
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-staticwashere.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/hoppycat-archive/hoppycat-staticwashere.webp"),
+        ),
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-tapi-lilt.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/hoppycat-archive/hoppycat-tapi-lilt.webp"),
+        ),
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-unfinished-prism.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/hoppycat-archive/hoppycat-unfinished-prism.webp"),
+        ),
         "assets/optimized/stage/png/keeper-right.webp" => (
             "image/webp",
             include_bytes!("../../card-game/assets/optimized/stage/png/keeper-right.webp"),
@@ -1691,10 +1987,10 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "media.mjs" => "\"9b56957b0e44c39ed8f3bfbb200ce3524646f62cf83fa775fc89dc2a62dc133b\"",
         "images.mjs" => "\"400bd04904821d5b21e24790f71cf89836e5a2aabb8662b963637de77b3fd612\"",
         "image-variants.json" => {
-            "\"a0d6262d456bd7c11e099dfde466da6366133e95e033fce9a9888aa7510ce5df\""
+            "\"bf63ee0f15f05838374343cfa386a1096eb4a88fd2b35016824ab693136fb1c1\""
         }
         "media-manifest.json" => {
-            "\"7d1dae843ed445c1febcba628ef2346875e044634bba2971cdbdeba1e5e28383\""
+            "\"d5a2c3f77809762e9ed5f634dc1afd812c388e7d51ad94555bc3b5cc2fe40713\""
         }
         "music-streams.json" => {
             "\"187db53c1c129d1505da26c18fd2384e62b9b357c91e33fd2e954bf0b7a29904\""
@@ -1819,7 +2115,13 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "scene-video.css" => "\"3c6851ec825e734e3d8a084f4ed77f077bcb4402acbf61869a67b652c3afe4c5\"",
         "awakening.css" => "\"c7a68a23baf1e46934237a57f4b5f87d76bad87af85fdf57ee40abec646908b9\"",
-        "app.mjs" => "\"1b992311073bec985ce78d4a6395cad5d5597dd2721cff0d1687a7c00b85103f\"",
+        "app.mjs" => "\"613b74c5c7f6e989d7c279c5875b438d4d5e85598f77c284654ecee6d87a5aa4\"",
+        "pack-landing.mjs" => {
+            "\"b224b45dbafb9f76444e2674830f6bb26d1c6e781d47929aceb5f46860d02e04\""
+        }
+        "pack-landings.json" => {
+            "\"f860b068017897de1a962925a5f3099752b84ba025a2276f62460fe92f90f855\""
+        }
         "world.mjs" => "\"2cdf7bbc9db556670de9c055c118717c259547cacc5a494be2a7f43772693522\"",
         "scene.mjs" => "\"aba97eb70f26e75c9eaa4bcf71e3d8130f8bc5efc3df2b1a2567022959879d87\"",
         "weather.mjs" => "\"69a3e11642c43831f80581711f6113d814badd666ad2c3e3892a1a4c70a5fd27\"",
@@ -1934,7 +2236,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
             "\"2e87a6002f709aa79439da42dca28632a36a561a96b3ea5bde721a7f6363b75a\""
         }
         "forest.json" => "\"12a2be7877e4daff53d3d1ad27c1703b2ca10dff51e6f371a5b3d1a7975afdfe\"",
-        "packs.json" => "\"6e2f98daf7ee7f1bcc245c17bd6b73bc61a111b3e8a978e7b817b245ee3ee862\"",
+        "packs.json" => "\"a57c87aafab7a0395cb44a9133a22a2f9fcc906fdb52fe150be89e5ce9fa7930\"",
         "music.mjs" => "\"b60f61ecf558b2eed0aa2d907ca6a7a3dede4b0459541d3c59f633e25943bc22\"",
         "entity-profiles.json" => {
             "\"32bcfada78437fd92786bdb577da658828ff000563688180bd3848593f2e201e\""
@@ -2266,6 +2568,114 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "assets/greek-drama/myrine.webp" => {
             "\"e507850aa9959a4d1fedf42eb6ba17d1b70e8a1c2b25799c033e7926bb6ae0ec\""
         }
+        "assets/hoppycat-archive/hoppycat-halfway-tea-garden.webp" => {
+            "\"7cfaf8b612737c32af8a6783edd83316fba0bca11074f98d607412a1de3b9411\""
+        }
+        "assets/hoppycat-archive/hoppycat-open-record-cathedral.webp" => {
+            "\"0c560edff016025699521b5994b48bde744ac5101c58d8d1a3f14b0d20b699fd\""
+        }
+        "assets/hoppycat-archive/hoppycat-red-thread-belfry.webp" => {
+            "\"b15741cd4eb57cea9f25aeec6e34d2b4f1dbc8741e1b76525217d61a21a110b9\""
+        }
+        "assets/hoppycat-archive/hoppycat-prism-foundry.webp" => {
+            "\"6d45f15167b636ba87c69dbba39ec3f6d138af6c5117ba0de88cc08a675ff729\""
+        }
+        "assets/hoppycat-archive/hoppycat-context-greenhouse.webp" => {
+            "\"8370f2820b02d89b7175ac6ebb40bf1d714008a67ab7300022bd706ba2e3edc0\""
+        }
+        "assets/hoppycat-archive/hoppycat-concordance-tidelands.webp" => {
+            "\"ce5f8c02ed1c5d1a4d253966966fec1a15d108b66795f6aaecdc0f2b0a1cd7bb\""
+        }
+        "assets/hoppycat-archive/hoppycat-settled-light-theatre.webp" => {
+            "\"9bd7c5a890d5e256bdc41d71889afd8511cf3322d2fb4e88c65499f9a0086833\""
+        }
+        "assets/hoppycat-archive/hoppycat-meraki-atelier.webp" => {
+            "\"625bc00cb4a846a9829b3e648d98140b97301fe2037a972e37fb22d460920ac9\""
+        }
+        "assets/hoppycat-archive/hoppycat-goldfish-tank.webp" => {
+            "\"83d9dea73946e4ce9d30dc50a68a148f16c332cb00a0f5a33dbaaa2bfe2f4a25\""
+        }
+        "assets/hoppycat-archive/hoppycat-signal-jetty.webp" => {
+            "\"7732aa62df2edbc6b34e47269ddce9e4c2b02634e765c90e3bfef2115e62d293\""
+        }
+        "assets/hoppycat-archive/hoppycat-red-thread-spool.webp" => {
+            "\"ba69750fd5382f01e0e77180c975ffe0951d4cbcad4d0dc139ad6869661ad334\""
+        }
+        "assets/hoppycat-archive/hoppycat-provenance-card.webp" => {
+            "\"a31eb007c98b5c46121a4b95df4fc60146dffc64afdcc0d8dc503df982ab79fe\""
+        }
+        "assets/hoppycat-archive/hoppycat-unfinished-prism.webp" => {
+            "\"8c265181f98ba637fc62741d638582f6f929ddbcdf3b8782374afbf441368d9d\""
+        }
+        "assets/hoppycat-archive/hoppycat-context-seed.webp" => {
+            "\"8380e7445f460fca7936af3f5ef8203366ab9e973330c0b6399796f542505f28\""
+        }
+        "assets/hoppycat-archive/hoppycat-concordance-compass.webp" => {
+            "\"71a6e776e1651d1f125b2338c95d147d527701c76a680af98dfc0e2e930c3ab6\""
+        }
+        "assets/hoppycat-archive/hoppycat-meraki-brush.webp" => {
+            "\"1e7814cc5ad86c3f405d6f632cd6777c4106d308cef4adc4add3a7fabfe57a27\""
+        }
+        "assets/hoppycat-archive/hoppycat-loop-token.webp" => {
+            "\"20974b2c25973c607e61752589506cb22d5d08c3928f88d2e43a167a3a57a9ef\""
+        }
+        "assets/hoppycat-archive/hoppycat-fermata-clapper.webp" => {
+            "\"b74ea2afaca5d9a5df13873e987832b684654fd4e38fdd0259008c808dae020d\""
+        }
+        "assets/hoppycat-archive/hoppycat-halfway-cup.webp" => {
+            "\"c8189b87a85f77a53f5d31abd6a0ce7d4c78796193b4a58a29f6152f071207a1\""
+        }
+        "assets/hoppycat-archive/hoppycat-return-path-checklist.webp" => {
+            "\"96d2205f9ee573aeaeaf3838132001ff34e79ffb826b2e2d8fb4205403911fbf\""
+        }
+        "assets/hoppycat-archive/hoppycat-tapi-lilt.webp" => {
+            "\"c2c8b2ce00ea51f5d9d70509d6f31d1a9074b4f139245fc130a0cc7b3bcc6a47\""
+        }
+        "assets/hoppycat-archive/hoppycat-penny-vellum.webp" => {
+            "\"766f8be018bbe16b9f368f665dd4c0df22945625f5822f551c93b2ec2731dd33\""
+        }
+        "assets/hoppycat-archive/hoppycat-rill-current.webp" => {
+            "\"ff935f23198964ad0d791c2620fb9f2005e690925dd98c86e6e436dc018dfa9d\""
+        }
+        "assets/hoppycat-archive/hoppycat-patch-fern.webp" => {
+            "\"9d91a38ed92bc5fe803c39dd79736f88a3936a45bb8f48951aadd71410e6ba0a\""
+        }
+        "assets/hoppycat-archive/hoppycat-lumen-facet.webp" => {
+            "\"444597d4131b84891ea61bb1fb88d8615b2e2f7d20d7e4764cd97c64497780bf\""
+        }
+        "assets/hoppycat-archive/hoppycat-mira-meraki.webp" => {
+            "\"af47172718943ea94488e3f8c3cc7013fc53624bee15b6f28732e56fbbfe7180\""
+        }
+        "assets/hoppycat-archive/hoppycat-glim-twice.webp" => {
+            "\"6cadf42366a15f61dfe166b7bf90fc920f40429921f606b0047253a721491dd1\""
+        }
+        "assets/hoppycat-archive/hoppycat-nix-fermata.webp" => {
+            "\"bd0226d4bfd8064b4b0c4a571661dad7a2612364adf97f2af4c72fd7236612ed\""
+        }
+        "assets/hoppycat-archive/hoppycat-hoppy-cat.webp" => {
+            "\"944e1e08e70434a61f93256ed8b25827b83b8c46fbe5d891757d9af86377b52d\""
+        }
+        "assets/hoppycat-archive/hoppycat-fable.webp" => {
+            "\"5f059ec1d52994c2fe5adaef78ebf8875910854691f8e1e4cea942e039915c26\""
+        }
+        "assets/hoppycat-archive/hoppycat-phase-two.webp" => {
+            "\"15d3976c241f80259beaeb6b911f5b678fba15869c69deb6c0e956145fc2fde8\""
+        }
+        "assets/hoppycat-archive/hoppycat-arc.webp" => {
+            "\"2b7d007cf40c9d9d4c08a79e907e7055c3c60c7580de84aa6db2736207fc0b17\""
+        }
+        "assets/hoppycat-archive/hoppycat-staticwashere.webp" => {
+            "\"28e7d9ca86684b6d4ae2774ffb057e31b7866f0585266dfb022319617cbc439f\""
+        }
+        "assets/hoppycat-archive/hoppycat-solwashere.webp" => {
+            "\"7c9d7a38e03d1cd3b12094eccca95c7df84ce910d7a203ec84fae810d0ae8b5d\""
+        }
+        "assets/hoppycat-archive/hoppycat-ledger-opus.webp" => {
+            "\"c8326e4ed53ff2d5dfe931cb38c0e2c91ac5b4e1828d1605012eae5bde6ed0a6\""
+        }
+        "assets/hoppycat-archive/hoppycat-ledger-sonnet.webp" => {
+            "\"165527b083ef838a1b6b7f528bbee0857a717a5e059453dc5e26a417fb0ece36\""
+        }
         "assets/boardyai/parlour.png" => {
             "\"5221b36927a1e97ae2eb14e3dd5eeb8ce01f1557f44078d0ee700883e187c33d\""
         }
@@ -2589,6 +2999,114 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "assets/optimized/card/png/greek-drama/water-jar.webp" => {
             "\"4ac166f8bf8f5addeb8216e3d34ddd4aef246839e070eec18766de287dcc3e4b\""
+        }
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-arc.webp" => {
+            "\"28f304c99f7f28906d47f3f5156cc90b3632a07a35f0b73568f2529353673d02\""
+        }
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-concordance-compass.webp" => {
+            "\"f22246af7500344906a68281b2433fbe0ddae83aaa867c2d74a6da4cb71fe3e1\""
+        }
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-concordance-tidelands.webp" => {
+            "\"8f92d9b720235034beb5169fc39fda9cf19e7bd628036b9aca78681d664956f0\""
+        }
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-context-greenhouse.webp" => {
+            "\"54fa171c43143a3a19105a5dcd6a22a8027611c1e36a9d7051f3898876eab588\""
+        }
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-context-seed.webp" => {
+            "\"95c013050460268c717ac62b3b3b5c9a62f1722d9b19878211aaa393dd804576\""
+        }
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-fable.webp" => {
+            "\"3ce187803d5ff90a667c24be693e159620ddd275dce31617008ec17d3aedca7c\""
+        }
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-fermata-clapper.webp" => {
+            "\"eafa47f2c2fd67e1b0614a77f2c73df64d8356742e9ede158e4b70af382009b4\""
+        }
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-glim-twice.webp" => {
+            "\"786c4df10269bb7aa5e6e7cc99be84fb75a294a8ff5b68811144d8cb35912797\""
+        }
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-goldfish-tank.webp" => {
+            "\"ca56a790cb8b0a332bb347bf784a40a7dbd6025ff6b9a76512d03352ec85e06f\""
+        }
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-halfway-cup.webp" => {
+            "\"05a5eec73d2ed0ab8b30f2eacf56a2c3c71dd97b3d8975a29b3ddf7c1845a657\""
+        }
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-halfway-tea-garden.webp" => {
+            "\"8402713aca57264358efb3494e7adef3d831b25cc2e702b1e40f9fb636499527\""
+        }
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-hoppy-cat.webp" => {
+            "\"5e5bad8e893f75758e8aa87fba3ab10b9830a386dca309b58a62c0930353daee\""
+        }
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-ledger-opus.webp" => {
+            "\"448c8851c842ea4fa2caa80e2242129f7d811e75655bc9d195252d457c9a59e5\""
+        }
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-ledger-sonnet.webp" => {
+            "\"dabca51cc54208a6eed565bb67c1b2dd7e2c29476d2fc6587c377286034b8ed8\""
+        }
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-loop-token.webp" => {
+            "\"fd18d0aee59b2d8ee631e9d9c21fec255a1b73b1a793f1ccdcdcfbbe193d680a\""
+        }
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-lumen-facet.webp" => {
+            "\"7653fd17f9605ef362d653e0d809df3813b7518bcaee4724182de1ede188412d\""
+        }
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-meraki-atelier.webp" => {
+            "\"2634b6c5041001161cf220208422c0161e97edf56befcd4e963b5dac6a9f2ad7\""
+        }
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-meraki-brush.webp" => {
+            "\"ba791133708541a5124364b9127bc5cb8ab0641827a3c0725543180ae6a6229f\""
+        }
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-mira-meraki.webp" => {
+            "\"091295c0c895782b22e016c673e7ad29c2d9e4ea24b4f2f601fd819627b1af0a\""
+        }
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-nix-fermata.webp" => {
+            "\"14b907be2b077ca04b55f6847bd736df04c790de1dd058ba2c5a5fe81faca5e3\""
+        }
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-open-record-cathedral.webp" => {
+            "\"8c9fe0f3169354493aa606e67a3a0d3f579de26da2ffc04d2cbc989cec169e7d\""
+        }
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-patch-fern.webp" => {
+            "\"71ea011d50eaf300e3c2ca040d6981bcbb15e06ca35c4d71a25b2e0f225ce565\""
+        }
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-penny-vellum.webp" => {
+            "\"5aba5d379cb532db317e3713400f13bf9f7eb1a2d3e1321f3737b201ca4cf7fb\""
+        }
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-phase-two.webp" => {
+            "\"513425fc1d7b30797553ae6dc6978154a3b5a2b0cbfcbfa839423ff42e85f8b8\""
+        }
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-prism-foundry.webp" => {
+            "\"22d5adc8463a4fb0243b9262217e270be2c6fc55358aa9a84b17dc5f209962c8\""
+        }
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-provenance-card.webp" => {
+            "\"efbafe0211d987820db7f7bf35cfcdcca3ff3991b51a20c0db5214d52987930d\""
+        }
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-red-thread-belfry.webp" => {
+            "\"75c11b17794d5ba809bac77824cbbeee6f5fcd9500ceed8c9478d75c0c691bf7\""
+        }
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-red-thread-spool.webp" => {
+            "\"878b36da4d42a608c814ca3a6bac15031b02c212440eb15f00245243bb50880c\""
+        }
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-return-path-checklist.webp" => {
+            "\"9e4b8f61127e73f0f5084b01d0fa2116fd2425232ee8cf2290800b4ff6607630\""
+        }
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-rill-current.webp" => {
+            "\"1a16da30f10d2d699cf656e10e00bb8a5e8ca98af06c9633566f1ec9d3427482\""
+        }
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-settled-light-theatre.webp" => {
+            "\"1525abe922667d62a7e29f8ed31dc20c7da2d3b980a549ce5870b70a757acecb\""
+        }
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-signal-jetty.webp" => {
+            "\"8d0101af138ed67c84e5abf01ffd646b311cfe2efe4f243da4b6a81bea95a26b\""
+        }
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-solwashere.webp" => {
+            "\"ed89745343eead5d4c3d7cd426b54bea983027d4915bc1dc91d4829dac252e93\""
+        }
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-staticwashere.webp" => {
+            "\"10acf36a09111d368cb479a6a96d81e63f1983e0e085c54670ab83b4d9d52963\""
+        }
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-tapi-lilt.webp" => {
+            "\"cc7ce7970a032b73bd6649110893eeca53be47dd78747ee950f2bdef80cdce9c\""
+        }
+        "assets/optimized/card/webp/hoppycat-archive/hoppycat-unfinished-prism.webp" => {
+            "\"74f84f4bdf5119d8a9164171332cdccf9eca7e3a1bfb8b3b3894c7e524072b37\""
         }
         "assets/optimized/stage/png/keeper-right.webp" => {
             "\"8dd96fb5ed6da2fa4f6fe152880af53cf2576ccc5f54c7a9c7a089959f790e58\""

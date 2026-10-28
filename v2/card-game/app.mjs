@@ -1,4 +1,5 @@
 import { imageUrl } from "./images.mjs";
+import { landingPack, createLandingWorld } from "./pack-landing.mjs";
 import { flipStagePortrait } from "./portrait-facing.mjs";
 import { installSceneVideo } from "./scene-video.mjs";
 import { locationWeather } from "./weather.mjs";
@@ -35,7 +36,6 @@ import {
   people,
   things,
   nameOf,
-  createWorld,
   addLog,
   covered,
   shining,
@@ -81,6 +81,7 @@ import {
 } from "./quest-cards.mjs";
 const $ = (id) => document.getElementById(id);
 const tableName = new URLSearchParams(window.location.search).get("table");
+const startingPack = landingPack(window.location.href);
 const sharedWorldId = new URLSearchParams(location.search).get("world");
 const sharedSession = sharedWorldId
   ? await connectSharedWorld(sharedWorldId)
@@ -92,10 +93,12 @@ const SAVE_KEY =
     ? `.shared.${sharedWorldId}.${sharedSession.state.actor}`
     : tableName && /^[a-z0-9-]{1,40}$/i.test(tableName)
       ? `.${tableName}`
-      : "");
+      : startingPack
+        ? `.pack.${startingPack.id}`
+        : "");
 let world = sharedSession
     ? { ...sharedSession.state.world, playerActorId: sharedSession.state.actor }
-    : enableMotives(createWorld({ opening: true }), {
+    : enableMotives(createLandingWorld(startingPack), {
         questPrograms: true,
         personalQuests: true,
       }),
@@ -2500,7 +2503,7 @@ $("confirm-reset").onclick = () => {
   exchange.cancel();
   reveal.cancel();
   speechSounds.stop();
-  world = enableMotives(createWorld({ opening: true }), {
+  world = enableMotives(createLandingWorld(startingPack), {
     questPrograms: true,
     personalQuests: true,
   });

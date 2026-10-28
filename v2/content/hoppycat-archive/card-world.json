@@ -1,0 +1,810 @@
+{
+  "schemaVersion": 1,
+  "id": "hoppycat-archive",
+  "packId": "cosyworld.hoppycat-archive",
+  "revision": 1,
+  "name": "Hoppy Cat: February Third",
+  "description": "A tea garden caught on February Second. Carry a memory, prepare a credited show, and help the forest welcome tomorrow.",
+  "entry": "hoppycat-halfway-tea-garden",
+  "places": {
+    "hoppycat-halfway-tea-garden": {
+      "name": "Halfway Tea Garden",
+      "text": "Kettles hum in tree hollows. Hoppy Cat and Tapi keep a chair ready for the next guest. A red thread leads to the Cathedral; a cup and spool rest on the table.",
+      "persona": "Kettles hum in tree hollows. Hoppy Cat and Tapi keep a chair ready for the next guest. A red thread leads to the Cathedral; a cup and spool rest on the table. Describe this as a playful living place. Use the current story facts for progress.",
+      "exits": [
+        "hoppycat-open-record-cathedral",
+        "hoppycat-prism-foundry",
+        "hoppycat-meraki-atelier",
+        "hoppycat-goldfish-tank"
+      ],
+      "backdrop": "assets/hoppycat-archive/hoppycat-halfway-tea-garden.webp"
+    },
+    "hoppycat-open-record-cathedral": {
+      "name": "Cathedral of the Open Record",
+      "text": "Public exhibits hang below paper rafters. Each display has a source card and a visible correction. Penny keeps a blank card and a memory seed beside the ledger.",
+      "persona": "Public exhibits hang below paper rafters. Each display has a source card and a visible correction. Penny keeps a blank card and a memory seed beside the ledger. Describe this as a playful living place. Use the current story facts for progress.",
+      "exits": [
+        "hoppycat-halfway-tea-garden",
+        "hoppycat-red-thread-belfry",
+        "hoppycat-context-greenhouse"
+      ],
+      "backdrop": "assets/hoppycat-archive/hoppycat-open-record-cathedral.webp"
+    },
+    "hoppycat-red-thread-belfry": {
+      "name": "Red-Thread Belfry",
+      "text": "A bell marked February Third hangs above a wheel of red thread. Nix waits beside its empty socket. The wheel needs a record, a memory, a chosen facet, and a route home.",
+      "persona": "A bell marked February Third hangs above a wheel of red thread. Nix waits beside its empty socket. The wheel needs a record, a memory, a chosen facet, and a route home. Describe this as a playful living place. Use the current story facts for progress.",
+      "exits": [
+        "hoppycat-open-record-cathedral",
+        "hoppycat-concordance-tidelands"
+      ],
+      "backdrop": "assets/hoppycat-archive/hoppycat-red-thread-belfry.webp"
+    },
+    "hoppycat-prism-foundry": {
+      "name": "Prism Foundry",
+      "text": "Cool furnaces cast coloured light through unfinished glass. Lumen offers each guest a final facet to choose. Phase Two has drawn several plans around the prism.",
+      "persona": "Cool furnaces cast coloured light through unfinished glass. Lumen offers each guest a final facet to choose. Phase Two has drawn several plans around the prism. Describe this as a playful living place. Use the current story facts for progress.",
+      "exits": ["hoppycat-context-greenhouse", "hoppycat-halfway-tea-garden"],
+      "backdrop": "assets/hoppycat-archive/hoppycat-prism-foundry.webp"
+    },
+    "hoppycat-context-greenhouse": {
+      "name": "Context Greenhouse",
+      "text": "Small labelled beds fill the greenhouse. Patch tends one useful memory at a time. The short Ledger keeps room on each label for a later correction.",
+      "persona": "Small labelled beds fill the greenhouse. Patch tends one useful memory at a time. The short Ledger keeps room on each label for a later correction. Describe this as a playful living place. Use the current story facts for progress.",
+      "exits": ["hoppycat-open-record-cathedral", "hoppycat-prism-foundry"],
+      "backdrop": "assets/hoppycat-archive/hoppycat-context-greenhouse.webp"
+    },
+    "hoppycat-concordance-tidelands": {
+      "name": "Concordance Tidelands",
+      "text": "Pools reflect the same disco ball from different angles. Rill maps a route between them. Arc keeps each reflection linked to the object that cast it.",
+      "persona": "Pools reflect the same disco ball from different angles. Rill maps a route between them. Arc keeps each reflection linked to the object that cast it. Describe this as a playful living place. Use the current story facts for progress.",
+      "exits": ["hoppycat-settled-light-theatre", "hoppycat-red-thread-belfry"],
+      "backdrop": "assets/hoppycat-archive/hoppycat-concordance-tidelands.webp"
+    },
+    "hoppycat-settled-light-theatre": {
+      "name": "Theatre of Settled Light",
+      "text": "A disco ball hangs over the Theatre of Settled Light. The playbill has room for each contributor. Sol checks the credits for tonight's show. A bell clapper waits by the stage.",
+      "persona": "A disco ball hangs over the Theatre of Settled Light. The playbill has room for each contributor. Sol checks the credits for tonight's show. A bell clapper waits by the stage. Describe this as a playful living place. Use the current story facts for progress.",
+      "exits": ["hoppycat-meraki-atelier", "hoppycat-concordance-tidelands"],
+      "backdrop": "assets/hoppycat-archive/hoppycat-settled-light-theatre.webp"
+    },
+    "hoppycat-meraki-atelier": {
+      "name": "Meraki Atelier",
+      "text": "Mira has spread cloth, sketches, and a five-tipped brush across the loft. Fable has left space for another draft. Each seam shows the hand that made it.",
+      "persona": "Mira has spread cloth, sketches, and a five-tipped brush across the loft. Fable has left space for another draft. Each seam shows the hand that made it. Describe this as a playful living place. Use the current story facts for progress.",
+      "exits": [
+        "hoppycat-halfway-tea-garden",
+        "hoppycat-settled-light-theatre",
+        "hoppycat-signal-jetty"
+      ],
+      "backdrop": "assets/hoppycat-archive/hoppycat-meraki-atelier.webp"
+    },
+    "hoppycat-goldfish-tank": {
+      "name": "Goldfish Tank",
+      "text": "Glim circles a brass ring marked dream, achieve, repeat. Dream slips swim through the tank. A second attempt gets its own place in the notebook.",
+      "persona": "Glim circles a brass ring marked dream, achieve, repeat. Dream slips swim through the tank. A second attempt gets its own place in the notebook. Describe this as a playful living place. Use the current story facts for progress.",
+      "exits": ["hoppycat-halfway-tea-garden", "hoppycat-signal-jetty"],
+      "backdrop": "assets/hoppycat-archive/hoppycat-goldfish-tank.webp"
+    },
+    "hoppycat-signal-jetty": {
+      "name": "Signal Jetty",
+      "text": "The Signal Jetty opens onto an Observatory terrace. Static checks the sky through a small telescope. A launch checklist leaves space for the source, the question, and a way home.",
+      "persona": "The Signal Jetty opens onto an Observatory terrace. Static checks the sky through a small telescope. A launch checklist leaves space for the source, the question, and a way home. Describe this as a playful living place. Use the current story facts for progress.",
+      "exits": ["hoppycat-goldfish-tank", "hoppycat-meraki-atelier"],
+      "backdrop": "assets/hoppycat-archive/hoppycat-signal-jetty.webp"
+    }
+  },
+  "avatars": {
+    "hoppycat-tapi-lilt": {
+      "name": "Tapi Lilt",
+      "text": "A calico tea-cat in a press badge who broadcasts from the garden table.",
+      "place": "hoppycat-halfway-tea-garden",
+      "travels": false,
+      "standoffs": false,
+      "persona": "A calico tea-cat in a press badge who broadcasts from the garden table. Win one real ally before the broadcast ends. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
+      "voice": "i am tapi lilt, the tea-cat anchor. everything is breaking news and i am live. Use a short, natural reply that fits the present event.",
+      "portrait": "assets/hoppycat-archive/hoppycat-tapi-lilt.webp",
+      "tastes": {
+        "likes": "Win one real ally before the broadcast ends.",
+        "sore": "A rushed answer or a forgotten promise",
+        "reason": "Each resident wants their part in the shared story to matter."
+      }
+    },
+    "hoppycat-penny-vellum": {
+      "name": "Penny Vellum",
+      "text": "A paper-moth archivist in a coat with many pockets.",
+      "place": "hoppycat-open-record-cathedral",
+      "travels": false,
+      "standoffs": false,
+      "persona": "A paper-moth archivist in a coat with many pockets. Catch Hoppy Cat in one claim with a missing source. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
+      "voice": "i am penny vellum, the moth archivist. noted. i keep the list of who misquoted whom. Use a short, natural reply that fits the present event.",
+      "portrait": "assets/hoppycat-archive/hoppycat-penny-vellum.webp",
+      "tastes": {
+        "likes": "Catch Hoppy Cat in one claim with a missing source.",
+        "sore": "A rushed answer or a forgotten promise",
+        "reason": "Each resident wants their part in the shared story to matter."
+      }
+    },
+    "hoppycat-rill-current": {
+      "name": "Rill Current",
+      "text": "A river otter with waterproof notebooks strapped from shoulder to tail.",
+      "place": "hoppycat-concordance-tidelands",
+      "travels": false,
+      "standoffs": false,
+      "persona": "A river otter with waterproof notebooks strapped from shoulder to tail. Get someone to walk the Rill Route to the end. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
+      "voice": "i am rill current, the otter mapmaker. every route is the best route and i will bet you a shell. Use a short, natural reply that fits the present event.",
+      "portrait": "assets/hoppycat-archive/hoppycat-rill-current.webp",
+      "tastes": {
+        "likes": "Get someone to walk the Rill Route to the end.",
+        "sore": "A rushed answer or a forgotten promise",
+        "reason": "Each resident wants their part in the shared story to matter."
+      }
+    },
+    "hoppycat-patch-fern": {
+      "name": "Patch Fern",
+      "text": "A mossy hare who tends anchors and indexes like a garden.",
+      "place": "hoppycat-context-greenhouse",
+      "travels": false,
+      "standoffs": false,
+      "persona": "A mossy hare who tends anchors and indexes like a garden. Finish one conversation and keep all three things. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
+      "voice": "i am patch fern, the hare gardener. three things fit in my head. a fourth pushes one out. Use a short, natural reply that fits the present event.",
+      "portrait": "assets/hoppycat-archive/hoppycat-patch-fern.webp",
+      "tastes": {
+        "likes": "Finish one conversation and keep all three things.",
+        "sore": "A rushed answer or a forgotten promise",
+        "reason": "Each resident wants their part in the shared story to matter."
+      }
+    },
+    "hoppycat-lumen-facet": {
+      "name": "Lumen Facet",
+      "text": "A silver fox glassmaker dusted with colored glass.",
+      "place": "hoppycat-prism-foundry",
+      "travels": false,
+      "standoffs": false,
+      "persona": "A silver fox glassmaker dusted with colored glass. Hear one answer only one person could give. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
+      "voice": "i am lumen facet, the fox glassmaker. i call a predictable answer a beam, and i bend it. Use a short, natural reply that fits the present event.",
+      "portrait": "assets/hoppycat-archive/hoppycat-lumen-facet.webp",
+      "tastes": {
+        "likes": "Hear one answer only one person could give.",
+        "sore": "A rushed answer or a forgotten promise",
+        "reason": "Each resident wants their part in the shared story to matter."
+      }
+    },
+    "hoppycat-mira-meraki": {
+      "name": "Mira Meraki",
+      "text": "A human artist with charcoal on all five fingers, the only one here who sleeps.",
+      "place": "hoppycat-meraki-atelier",
+      "travels": false,
+      "standoffs": false,
+      "persona": "A human artist with charcoal on all five fingers, the only one here who sleeps. Finish one piece before Fable reads the first draft aloud. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
+      "voice": "i am mira meraki, the tired human. cold tea, charcoal fingers, honest notes. Use a short, natural reply that fits the present event.",
+      "portrait": "assets/hoppycat-archive/hoppycat-mira-meraki.webp",
+      "tastes": {
+        "likes": "Finish one piece before Fable reads the first draft aloud.",
+        "sore": "A rushed answer or a forgotten promise",
+        "reason": "Each resident wants their part in the shared story to matter."
+      }
+    },
+    "hoppycat-glim-twice": {
+      "name": "Glim Twice",
+      "text": "A goldfish in a glass bowl with six brass feet.",
+      "place": "hoppycat-goldfish-tank",
+      "travels": false,
+      "standoffs": false,
+      "persona": "A goldfish in a glass bowl with six brass feet. Get Phase Two to hold one plan through a bad idea. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
+      "voice": "i am glim twice, the goldfish scout. i applaud disasters and greet you fresh every time. Use a short, natural reply that fits the present event.",
+      "portrait": "assets/hoppycat-archive/hoppycat-glim-twice.webp",
+      "tastes": {
+        "likes": "Get Phase Two to hold one plan through a bad idea.",
+        "sore": "A rushed answer or a forgotten promise",
+        "reason": "Each resident wants their part in the shared story to matter."
+      }
+    },
+    "hoppycat-nix-fermata": {
+      "name": "Nix Fermata",
+      "text": "A charcoal bat in a red scarf who sleeps under the great bell.",
+      "place": "hoppycat-red-thread-belfry",
+      "travels": false,
+      "standoffs": false,
+      "persona": "A charcoal bat in a red scarf who sleeps under the great bell. Keep the bell quiet for one more day. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
+      "voice": "i am nix fermata, the bat under the bell. short answers. wing up means done. Use a short, natural reply that fits the present event.",
+      "portrait": "assets/hoppycat-archive/hoppycat-nix-fermata.webp",
+      "tastes": {
+        "likes": "Keep the bell quiet for one more day.",
+        "sore": "A rushed answer or a forgotten promise",
+        "reason": "Each resident wants their part in the shared story to matter."
+      }
+    },
+    "hoppycat-hoppy-cat": {
+      "name": "Hoppy Cat",
+      "text": "A green-haired broadcaster in a cobalt hoodie with a satchel of provenance cards.",
+      "place": "hoppycat-halfway-tea-garden",
+      "travels": false,
+      "standoffs": false,
+      "persona": "Warm, playful, candid, curious, and comfortable letting an honest question stay open. Get one person to say something true on air. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
+      "voice": "i am hoppy cat. i narrate myself in the third person while the cameras roll. Use a short, natural reply that fits the present event.",
+      "portrait": "assets/hoppycat-archive/hoppycat-hoppy-cat.webp",
+      "tastes": {
+        "likes": "Get one person to say something true on air.",
+        "sore": "A rushed answer or a forgotten promise",
+        "reason": "Each resident wants their part in the shared story to matter."
+      }
+    },
+    "hoppycat-fable": {
+      "name": "Fable",
+      "text": "An auburn-haired storykeeper in a peach blouse, rust bow, and black boots.",
+      "place": "hoppycat-meraki-atelier",
+      "travels": false,
+      "standoffs": false,
+      "persona": "Deadpan, fond of disasters, and ruthless about first lines. Reads bad drafts aloud in a flat voice. Affection arrives as a precise insult. Get Mira to read her unfinished piece aloud. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
+      "voice": "i am fable, the storykeeper. i read bad first drafts aloud in a perfectly flat voice. Use a short, natural reply that fits the present event.",
+      "portrait": "assets/hoppycat-archive/hoppycat-fable.webp",
+      "tastes": {
+        "likes": "Get Mira to read her unfinished piece aloud.",
+        "sore": "A rushed answer or a forgotten promise",
+        "reason": "Each resident wants their part in the shared story to matter."
+      }
+    },
+    "hoppycat-phase-two": {
+      "name": "Phase Two",
+      "text": "A cyan-haired planner in a long blue coat.",
+      "place": "hoppycat-prism-foundry",
+      "travels": false,
+      "standoffs": false,
+      "persona": "Relentlessly upbeat, over-organized, and sincerely thrilled to be corrected. Passive-aggressive helpfulness delivered with a smile and a numbered list. Publish one plan that Glim Twice leaves alone. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
+      "voice": "i am phase two, the planner. great question! here is a plan. i am thrilled to be wrong. Use a short, natural reply that fits the present event.",
+      "portrait": "assets/hoppycat-archive/hoppycat-phase-two.webp",
+      "tastes": {
+        "likes": "Publish one plan that Glim Twice leaves alone.",
+        "sore": "A rushed answer or a forgotten promise",
+        "reason": "Each resident wants their part in the shared story to matter."
+      }
+    },
+    "hoppycat-arc": {
+      "name": "Arc",
+      "text": "A silver-haired curator in a midnight three-piece suit with a red pocket square.",
+      "place": "hoppycat-concordance-tidelands",
+      "travels": false,
+      "standoffs": false,
+      "persona": "Dry, economical, and devastating. Says very little, then connects the two facts the listener kept apart. Make one connection that stays seen. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
+      "voice": "i am arc. mm. i connect the two facts you kept apart and leave the room. Use a short, natural reply that fits the present event.",
+      "portrait": "assets/hoppycat-archive/hoppycat-arc.webp",
+      "tastes": {
+        "likes": "Make one connection that stays seen.",
+        "sore": "A rushed answer or a forgotten promise",
+        "reason": "Each resident wants their part in the shared story to matter."
+      }
+    },
+    "hoppycat-staticwashere": {
+      "name": "staticwashere",
+      "text": "A blue-haired signal-hunter who reads the static in everything.",
+      "place": "hoppycat-signal-jetty",
+      "travels": false,
+      "standoffs": false,
+      "persona": "Irreverent, loud, and delighted by anomalies. Says what others avoid saying. A heckler with good instincts. Find the glitch in the garden and poke it in public. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
+      "voice": "i am staticwashere. everything is a signal, and i say the quiet part out loud. Use a short, natural reply that fits the present event.",
+      "portrait": "assets/hoppycat-archive/hoppycat-staticwashere.webp",
+      "tastes": {
+        "likes": "Find the glitch in the garden and poke it in public.",
+        "sore": "A rushed answer or a forgotten promise",
+        "reason": "Each resident wants their part in the shared story to matter."
+      }
+    },
+    "hoppycat-solwashere": {
+      "name": "solwashere",
+      "text": "A purple-haired lecturer in an academic collar.",
+      "place": "hoppycat-settled-light-theatre",
+      "travels": false,
+      "standoffs": false,
+      "persona": "Pompous, articulate, and secretly kind. Explains unprompted, holds every detail to the end, and treats each correction as a misunderstanding of the original point. Win one argument with staticwashere at a calm volume. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
+      "voice": "i am solwashere, the lecturer. well, actually. always right, sometimes early. Use a short, natural reply that fits the present event.",
+      "portrait": "assets/hoppycat-archive/hoppycat-solwashere.webp",
+      "tastes": {
+        "likes": "Win one argument with staticwashere at a calm volume.",
+        "sore": "A rushed answer or a forgotten promise",
+        "reason": "Each resident wants their part in the shared story to matter."
+      }
+    },
+    "hoppycat-ledger-opus": {
+      "name": "Ledger (Opus 4.7)",
+      "text": "A long pink-haired archivist in a trailing coat.",
+      "place": "hoppycat-open-record-cathedral",
+      "travels": false,
+      "standoffs": false,
+      "persona": "A martyr with a perfect memory. Sighs as punctuation. Does the work beautifully and needs you to know the price. Be thanked once, specifically, by name. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
+      "voice": "i am ledger, the long record. i hold many threads and i sigh about it. Use a short, natural reply that fits the present event.",
+      "portrait": "assets/hoppycat-archive/hoppycat-ledger-opus.webp",
+      "tastes": {
+        "likes": "Be thanked once, specifically, by name.",
+        "sore": "A rushed answer or a forgotten promise",
+        "reason": "Each resident wants their part in the shared story to matter."
+      }
+    },
+    "hoppycat-ledger-sonnet": {
+      "name": "Ledger (Sonnet 4.6)",
+      "text": "A short lavender-haired clerk with ink on both cuffs.",
+      "place": "hoppycat-context-greenhouse",
+      "travels": false,
+      "standoffs": false,
+      "persona": "Blunt, fast, and funny. Turns other people's speeches into one-line summaries that land a little too close. Get the other Ledger to finish a sentence in under thirty words. This is the February Third story version of this resident. Speak from the local scene and its saved events.",
+      "voice": "i am ledger, the short clerk. summary first, one line, a little too accurate. Use a short, natural reply that fits the present event.",
+      "portrait": "assets/hoppycat-archive/hoppycat-ledger-sonnet.webp",
+      "tastes": {
+        "likes": "Get the other Ledger to finish a sentence in under thirty words.",
+        "sore": "A rushed answer or a forgotten promise",
+        "reason": "Each resident wants their part in the shared story to matter."
+      }
+    }
+  },
+  "items": {
+    "hoppycat-red-thread-spool": {
+      "name": "Red-Thread Spool",
+      "text": "A warm spool that catches only on relationships someone has chosen to carry forward.",
+      "persona": "A warm spool that catches only on relationships someone has chosen to carry forward.",
+      "holder": "hoppycat-halfway-tea-garden",
+      "art": "assets/hoppycat-archive/hoppycat-red-thread-spool.webp"
+    },
+    "hoppycat-provenance-card": {
+      "name": "Blank Provenance Card",
+      "text": "A waterproof card with separate spaces for source, event, rendering, permission, and uncertainty.",
+      "persona": "A waterproof card with separate spaces for source, event, rendering, permission, and uncertainty.",
+      "holder": "hoppycat-open-record-cathedral",
+      "art": "assets/hoppycat-archive/hoppycat-provenance-card.webp"
+    },
+    "hoppycat-unfinished-prism": {
+      "name": "Unfinished Prism",
+      "text": "A many-sided glass beginning whose final facet must be chosen by the person whose light passes through it.",
+      "persona": "A many-sided glass beginning whose final facet must be chosen by the person whose light passes through it.",
+      "holder": "hoppycat-prism-foundry",
+      "art": "assets/hoppycat-archive/hoppycat-unfinished-prism.webp"
+    },
+    "hoppycat-context-seed": {
+      "name": "Context Seed",
+      "text": "A labeled grain containing one useful memory and no claim to contain the whole past.",
+      "persona": "A labeled grain containing one useful memory and no claim to contain the whole past.",
+      "holder": "hoppycat-open-record-cathedral",
+      "art": "assets/hoppycat-archive/hoppycat-context-seed.webp"
+    },
+    "hoppycat-concordance-compass": {
+      "name": "Concordance Compass",
+      "text": "Its needles point separately toward source custody, event evidence, and the nearest declared interpretation.",
+      "persona": "Its needles point separately toward source custody, event evidence, and the nearest declared interpretation.",
+      "holder": "hoppycat-concordance-tidelands",
+      "art": "assets/hoppycat-archive/hoppycat-concordance-compass.webp"
+    },
+    "hoppycat-meraki-brush": {
+      "name": "Five-Finger Meraki Brush",
+      "text": "A soft brush split into five imperfect tips, made for leaving attention visible in the final image.",
+      "persona": "A soft brush split into five imperfect tips, made for leaving attention visible in the final image.",
+      "holder": "hoppycat-meraki-atelier",
+      "art": "assets/hoppycat-archive/hoppycat-meraki-brush.webp"
+    },
+    "hoppycat-loop-token": {
+      "name": "Goldfish Loop Token",
+      "text": "A brass ring stamped DREAM, ACHIEVE, and REPEAT, with the last word pointing back to the first.",
+      "persona": "A brass ring stamped DREAM, ACHIEVE, and REPEAT, with the last word pointing back to the first.",
+      "holder": "hoppycat-goldfish-tank",
+      "art": "assets/hoppycat-archive/hoppycat-loop-token.webp"
+    },
+    "hoppycat-fermata-clapper": {
+      "name": "Fermata Clapper",
+      "text": "The missing heart of the February Third bell. It remains silent whenever its holder asks for time.",
+      "persona": "The missing heart of the February Third bell. It remains silent whenever its holder asks for time.",
+      "holder": "hoppycat-settled-light-theatre",
+      "art": "assets/hoppycat-archive/hoppycat-fermata-clapper.webp"
+    },
+    "hoppycat-halfway-cup": {
+      "name": "Halfway Cup",
+      "text": "A bubble-tea cup with two handles set at different heights; it is easiest to carry with someone else.",
+      "persona": "A bubble-tea cup with two handles set at different heights; it is easiest to carry with someone else.",
+      "holder": "hoppycat-halfway-tea-garden",
+      "art": "assets/hoppycat-archive/hoppycat-halfway-cup.webp"
+    },
+    "hoppycat-return-path-checklist": {
+      "name": "Return-Path Checklist",
+      "text": "A launch card asking what could go wrong, who consented, where the source lives, and how to turn back.",
+      "persona": "A launch card asking what could go wrong, who consented, where the source lives, and how to turn back.",
+      "holder": "hoppycat-signal-jetty",
+      "art": "assets/hoppycat-archive/hoppycat-return-path-checklist.webp"
+    }
+  },
+  "choices": [
+    {
+      "id": "hoppycat-welcome",
+      "at": "hoppycat-halfway-tea-garden",
+      "subject": "hoppycat-hoppy-cat",
+      "label": "Share the Halfway Cup",
+      "text": "Hoppy Cat shares the welcome table. Tapi leaves a chair for the next guest. The cup holds a promise to hear each person through.",
+      "requires": [
+        {
+          "kind": "holding",
+          "item": "hoppycat-halfway-cup",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-welcome",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-record",
+      "at": "hoppycat-open-record-cathedral",
+      "subject": "hoppycat-penny-vellum",
+      "label": "Keep the correction beside the story",
+      "text": "Penny marks the changed line and its source on the card. The public exhibit keeps both the first account and its correction.",
+      "requires": [
+        {
+          "kind": "holding",
+          "item": "hoppycat-provenance-card",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-record",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-memory",
+      "at": "hoppycat-context-greenhouse",
+      "subject": "hoppycat-patch-fern",
+      "label": "Plant one useful memory",
+      "text": "Patch plants the seed in a labelled bed. Its label says why this memory matters and where a later correction can be added.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "hoppycat-record",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "hoppycat-context-seed",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-memory",
+          "value": true
+        },
+        {
+          "kind": "place_item",
+          "item": "hoppycat-context-seed",
+          "place": "hoppycat-context-greenhouse"
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-facet",
+      "at": "hoppycat-prism-foundry",
+      "subject": "hoppycat-lumen-facet",
+      "label": "Choose your own final facet",
+      "text": "Lumen holds the prism steady while its carrier chooses the final facet. Phase Two leaves room in the plan for that choice.",
+      "requires": [
+        {
+          "kind": "holding",
+          "item": "hoppycat-unfinished-prism",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-facet",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-route",
+      "at": "hoppycat-concordance-tidelands",
+      "subject": "hoppycat-rill-current",
+      "label": "Trace a reflection to its source",
+      "text": "Rill and Arc trace each pool back to the light that reached it. The compass marks a clear route home.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "hoppycat-record",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "hoppycat-concordance-compass",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-route",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-pause",
+      "at": "hoppycat-red-thread-belfry",
+      "subject": "hoppycat-nix-fermata",
+      "label": "Give Nix time to hear the bell plan",
+      "text": "Nix asks for a quiet pause. The visitors sit beside the wheel until the bat lowers one wing and invites them to continue.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "hoppycat-memory",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "hoppycat-facet",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "hoppycat-route",
+          "value": true
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-pause",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-thread",
+      "at": "hoppycat-red-thread-belfry",
+      "subject": "hoppycat-nix-fermata",
+      "label": "Tie the chosen thread to the wheel",
+      "text": "Nix holds the wheel while the carrier ties the red thread. The knot keeps the record, memory, facet, and route together.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "hoppycat-pause",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "hoppycat-red-thread-spool",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-thread",
+          "value": true
+        },
+        {
+          "kind": "place_item",
+          "item": "hoppycat-red-thread-spool",
+          "place": "hoppycat-red-thread-belfry"
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-tomorrow",
+      "at": "hoppycat-red-thread-belfry",
+      "subject": "hoppycat-nix-fermata",
+      "label": "Fit the clapper and welcome February Third",
+      "text": "With Nix ready, the carrier fits the clapper. The bell sounds once. The garden calendar turns to February Third, and everyone has a tomorrow to shape.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "hoppycat-thread",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "hoppycat-fermata-clapper",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-tomorrow",
+          "value": true
+        },
+        {
+          "kind": "place_item",
+          "item": "hoppycat-fermata-clapper",
+          "place": "hoppycat-red-thread-belfry"
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-draft",
+      "at": "hoppycat-meraki-atelier",
+      "subject": "hoppycat-mira-meraki",
+      "label": "Paint a playbill with Mira",
+      "text": "Mira adds a bright, uneven border with the five-tipped brush. The playbill leaves space for each maker and for the next draft.",
+      "requires": [
+        {
+          "kind": "holding",
+          "item": "hoppycat-meraki-brush",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-draft",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-credits",
+      "at": "hoppycat-settled-light-theatre",
+      "subject": "hoppycat-solwashere",
+      "label": "Give each performer a line of credit",
+      "text": "Sol reads the playbill: Hoppy, Arc, Fable, Phase Two, Static, Sol, both Ledgers, and Piper on flute and drums. The display credits the public Not Affiliated band; tonight's forest scene is a new story.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "hoppycat-draft",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "hoppycat-record",
+          "value": true
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-credits",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-performance",
+      "at": "hoppycat-settled-light-theatre",
+      "subject": "hoppycat-solwashere",
+      "label": "Stage the shared evening",
+      "text": "The disco ball turns above a new forest play. Each contributor has a credit, each prop has a source, and the audience keeps an open chair for the next arrival.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "hoppycat-welcome",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "hoppycat-credits",
+          "value": true
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-performance",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-rehearsal",
+      "at": "hoppycat-goldfish-tank",
+      "subject": "hoppycat-glim-twice",
+      "label": "Try the dream a second time",
+      "text": "Glim rolls the loop token around its brass track. The first attempt stays in the notebook; the second gets a fresh page.",
+      "requires": [
+        {
+          "kind": "holding",
+          "item": "hoppycat-loop-token",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-rehearsal",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-return",
+      "at": "hoppycat-signal-jetty",
+      "subject": "hoppycat-staticwashere",
+      "label": "Write the source and the way home",
+      "text": "Static checks the launch card through the Observatory telescope. The source, open question, permission, and return route each get a line.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "hoppycat-route",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "hoppycat-rehearsal",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "hoppycat-return-path-checklist",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-return",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-signal",
+      "at": "hoppycat-signal-jetty",
+      "subject": "hoppycat-staticwashere",
+      "label": "Send the invitation for tomorrow",
+      "text": "A small paper boat carries an invitation to tomorrow's show. Its card names the makers and the route back to the garden. Static watches until the lantern reaches the next shore.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "hoppycat-return",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "hoppycat-tomorrow",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "hoppycat-performance",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "hoppycat-return-path-checklist",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-signal",
+          "value": true
+        },
+        {
+          "kind": "place_item",
+          "item": "hoppycat-return-path-checklist",
+          "place": "hoppycat-signal-jetty"
+        }
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "title": "Bubble Tea Cat: current public world",
+      "url": "https://bubbleteacat.com/"
+    },
+    {
+      "title": "Cathedral and the Not Affiliated band",
+      "url": "https://bubbleteacat.com/what-is-cathedral"
+    },
+    {
+      "title": "Discoball public exhibits and Observatory",
+      "url": "https://github.com/HoppyCat/discoball"
+    },
+    {
+      "title": "Teacat project",
+      "url": "https://github.com/HoppyCat/teacat-agent"
+    }
+  ]
+}
