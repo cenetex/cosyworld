@@ -27,20 +27,20 @@ pub(crate) mod browser;
 mod custody;
 #[path = "card_narrative/expression.rs"]
 mod expression;
+#[path = "card_narrative/heard.rs"]
+mod heard;
+#[cfg(any(feature = "embedded-llama", test))]
+#[path = "card_narrative/heard_local.rs"]
+mod heard_local;
+#[cfg(test)]
+#[path = "card_narrative/heard_tests.rs"]
+mod heard_tests;
 #[path = "card_narrative/knowledge.rs"]
 mod knowledge;
 #[path = "card_narrative/observations.rs"]
 mod observations;
 #[path = "card_narrative/readings.rs"]
 mod readings;
-#[path = "card_narrative/heard.rs"]
-mod heard;
-#[cfg(test)]
-#[path = "card_narrative/heard_tests.rs"]
-mod heard_tests;
-#[cfg(any(feature = "embedded-llama", test))]
-#[path = "card_narrative/heard_local.rs"]
-mod heard_local;
 #[path = "card_narrative/recital.rs"]
 pub(crate) mod recital;
 #[path = "card_narrative/reflection.rs"]
@@ -1669,8 +1669,13 @@ async fn speak(
         }
     }
     #[cfg(feature = "embedded-llama")]
-    if part == Part::Line && own.base_url == "embedded://llama"
-        && entity.poem.as_ref().is_some_and(|poem| poem.heard.is_some()) {
+    if part == Part::Line
+        && own.base_url == "embedded://llama"
+        && entity
+            .poem
+            .as_ref()
+            .is_some_and(|poem| poem.heard.is_some())
+    {
         return heard_local::speak(&own, context, entity, settings, deadline, &system).await;
     }
     voice_attempts(

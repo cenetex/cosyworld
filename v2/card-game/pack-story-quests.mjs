@@ -202,12 +202,12 @@ export function authoredStoryDefinitions(
   });
 }
 
-export function authoredStoryRelated(packs, definition, event) {
+export function authoredStoryRelation(packs, definition) {
   const pack = packs.find((entry) => definition.key.startsWith(`${entry.id}:`));
   const story = pack?.storyQuests?.find(
     (entry) => storyKey(pack, entry) === definition.key,
   );
-  if (!story || event.packId !== pack.id) return false;
+  if (!story) return () => false;
   const related =
     story.related === "ending"
       ? [definition.choiceId]
@@ -218,5 +218,10 @@ export function authoredStoryRelated(packs, definition, event) {
             ...(story.progress || []),
             ...story.endings.map((entry) => entry.choice),
           ];
-  return related.includes(event.choiceId);
+  return (event) =>
+    event.packId === pack.id && related.includes(event.choiceId);
+}
+
+export function authoredStoryRelated(packs, definition, event) {
+  return authoredStoryRelation(packs, definition)(event);
 }

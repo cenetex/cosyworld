@@ -1236,421 +1236,6 @@
     return hash2.map((part) => part.toString(16).padStart(8, "0")).join("");
   }
 
-  // v2/card-game/poem-readings.mjs
-  var readingLimits = Object.freeze({
-    sites: 6,
-    optional: 8,
-    records: 56,
-    rows: 512,
-    tuples: 1024,
-    pageSize: 4,
-    listeners: 2,
-    bytes: 384 * 1024
-  });
-  var owns = (value, key) => !!value && Object.hasOwn(value, key);
-  var record = (value) => !!value && typeof value === "object" && !Array.isArray(value);
-  var integer = (value, low, high = Number.MAX_SAFE_INTEGER) => Number.isSafeInteger(value) && value >= low && value <= high;
-  var same = (left, right) => JSON.stringify(left) === JSON.stringify(right);
-  var emptyPoemReadings = () => ({
-    version: 1,
-    stanzas: [],
-    readings: {},
-    drafts: {},
-    pins: {},
-    decisions: {}
-  });
-  var readingBlockBytes = (state) => utf8Length(JSON.stringify(state));
-  var siteFor = (pack, id) => pack.recital?.sites?.find((site) => site.id === id);
-  var canonicalKey = (site, reader) => `site:${site}:${reader}`;
-  var pageCount = (reading) => Math.max(1, Math.ceil(reading.selection.length / readingLimits.pageSize));
-  function actorHere(world, actor, place) {
-    return world.actors[actor]?.place === place && (!humanAvatarIds.includes(actor) || humanPresent(world, actor));
-  }
-  function readerHere(world, reader, place) {
-    if (currentActor(world) !== reader || !humanAvatarIds.includes(reader) || !controlledByHuman(world, reader) || !actorHere(world, reader, place))
-      throw new Error("Bring your own present avatar to the reading.");
-  }
-  function commit(state, next) {
-    if (readingBlockBytes(next) > readingLimits.bytes)
-      throw new Error("The reading archive is full. Replay a saved reading.");
-    Object.assign(state, next);
-  }
-  function earnedTuples(world, pack, catalog, through) {
-    const saved = world.packs[pack.id];
-    const authors = new Map(catalog.authors.map((author, i) => [author.id, i]));
-    return catalog.rows.map((row, index) => [row, index]).filter(([row]) => integer(saved.receipts[row.choice], 1, through)).sort(
-      ([a, ai], [b, bi]) => saved.receipts[a.choice] - saved.receipts[b.choice] || ai - bi
-    ).map(([row, index]) => {
-      const author = saved.recitals[row.choice]?.actor ?? null;
-      if (author !== null && !authors.has(author))
-        throw new Error("Use the published catalog for this stanza's author.");
-      return [
-        index,
-        saved.receipts[row.choice],
-        author === null ? null : authors.get(author),
-        row.after && saved.receipts[row.after.choice] < saved.receipts[row.choice] ? 1 : 0
-      ];
-    });
-  }
-  var snapshotDigest = (catalog, tuples) => readingDigest(JSON.stringify([catalog.digest, tuples]));
-  function setReadingDraft(world, pack, state, siteId, reader, guests) {
-    const site = siteFor(pack, siteId);
-    if (!site) throw new Error("Choose an authored reading site.");
-    readerHere(world, reader, site.at);
-    if (!Array.isArray(guests) || new Set(guests).size !== guests.length || guests.some(
-      (id) => id === reader || !humanAvatarIds.includes(id) || !actorHere(world, id, site.at)
-    ))
-      throw new Error("Invite the people who are present beside you.");
-    const invited = humanAvatarIds.filter((id) => guests.includes(id));
-    commit(state, {
-      ...state,
-      drafts: { ...state.drafts, [reader]: { site: siteId, invited } }
-    });
-  }
-  function beginReading(world, pack, catalog, state, { site: siteId, reader, optional = false }) {
-    const site = siteFor(pack, siteId);
-    if (!site || catalog.pack !== pack.id)
-      throw new Error("Choose the site's published poem catalog.");
-    readerHere(world, reader, site.at);
-    const fixed = site.listeners;
-    if (!Array.isArray(fixed) || fixed.length < 1 || fixed.length > readingLimits.listeners || new Set(fixed).size !== fixed.length || fixed.some((id2) => !actorHere(world, id2, site.at)))
-      throw new Error("Bring the required listeners together.");
-    if (!integer(world.turn, 1))
-      throw new Error("Start the reading on an accepted turn.");
-    const draft = state.drafts[reader];
-    const guests = draft?.site === siteId ? draft.invited : [];
-    if (guests.some((id2) => !actorHere(world, id2, site.at)))
-      throw new Error("Choose the present audience again.");
-    const optionalSlots = Object.keys(state.readings).filter(
-      (id2) => id2.startsWith("optional:")
-    );
-    if (optional && optionalSlots.length >= readingLimits.optional)
-      throw new Error("Replay a saved reading from the archive.");
-    const id = optional ? `optional:${optionalSlots.length}:${reader}` : canonicalKey(siteId, reader);
-    if (owns(state.readings, id))
-      throw new Error("Resume your original reading at this site.");
-    const audience = [reader, ...fixed, ...guests];
-    if (new Set(audience).size !== audience.length)
-      throw new Error("Choose distinct listeners.");
-    const tuples = earnedTuples(world, pack, catalog, world.turn - 1);
-    const stanzas = [...state.stanzas];
-    const indices = new Map(
-      stanzas.map((tuple, index) => [JSON.stringify(tuple), index])
-    );
-    const selection = tuples.map((tuple) => {
-      const key = JSON.stringify(tuple);
-      if (!indices.has(key)) {
-        indices.set(key, stanzas.length);
-        stanzas.push(tuple);
-      }
-      return indices.get(key);
-    });
-    if (stanzas.length > readingLimits.tuples || Object.keys(state.readings).length >= readingLimits.records)
-      throw new Error("Replay an existing reading from the bounded archive.");
-    const reading = {
-      site: siteId,
-      reader,
-      catalog: catalog.id,
-      catalogDigest: catalog.digest,
-      poemDigest: snapshotDigest(catalog, tuples),
-      selection,
-      turn: world.turn,
-      through: world.turn - 1,
-      place: site.at,
-      audience,
-      requiredMask: (1 << 1 + fixed.length) - 1,
-      departedMask: 0,
-      pages: [],
-      complete: false
-    };
-    const drafts = { ...state.drafts };
-    delete drafts[reader];
-    commit(state, {
-      ...state,
-      stanzas,
-      drafts,
-      readings: { ...state.readings, [id]: reading }
-    });
-    return id;
-  }
-  function readingPage(state, reading, catalog, index) {
-    if (!integer(index, 0, pageCount(reading) - 1))
-      throw new Error("Choose a page in this reading.");
-    return reading.selection.slice(index * readingLimits.pageSize, (index + 1) * readingLimits.pageSize).map((slot) => {
-      const [rowIndex, turn, authorIndex, variant] = state.stanzas[slot];
-      const row = catalog.rows[rowIndex];
-      const author = authorIndex === null ? null : catalog.authors[authorIndex];
-      return {
-        id: row.choice,
-        turn,
-        authorId: author?.id ?? null,
-        authorName: author?.name ?? "an earlier traveler",
-        lines: [...variant ? row.after.lines : row.lines]
-      };
-    });
-  }
-  function readingFor(state, catalogs, id) {
-    const reading = state.readings[id];
-    const catalog = reading && owns(catalogs, reading.catalog) && catalogs[reading.catalog];
-    if (!reading || !catalog || reading.catalogDigest !== catalog.digest)
-      throw new Error("Load this reading's exact published catalog.");
-    return { reading, catalog };
-  }
-  function publishReadingPage(world, state, catalogs, id, reader) {
-    const { reading, catalog } = readingFor(state, catalogs, id);
-    readerHere(world, reader, reading.place);
-    if (reader !== reading.reader || reading.complete)
-      throw new Error("Choose your unfinished reading.");
-    const index = reading.pages.length;
-    const previousTurn = reading.pages.at(-1)?.[0] ?? reading.turn;
-    if (!integer(world.turn, previousTurn + 1))
-      throw new Error("Publish on the next accepted turn.");
-    let mask = 0;
-    for (const [i, actor] of reading.audience.entries())
-      if (actorHere(world, actor, reading.place)) mask |= 1 << i;
-    if ((mask & reading.requiredMask) !== reading.requiredMask)
-      throw new Error("Bring the required listeners back together.");
-    const optionalMask = (1 << reading.audience.length) - 1 ^ reading.requiredMask;
-    const departedMask = reading.departedMask | optionalMask & ~mask;
-    mask &= ~departedMask;
-    const updated = {
-      ...reading,
-      departedMask,
-      pages: [...reading.pages, [world.turn, mask, mask]],
-      complete: index + 1 === pageCount(reading)
-    };
-    const firstCompletion = updated.complete && !owns(state.pins, reading.site);
-    const pins = firstCompletion ? { ...state.pins, [reading.site]: id } : state.pins;
-    commit(state, {
-      ...state,
-      pins,
-      readings: { ...state.readings, [id]: updated }
-    });
-    return {
-      id,
-      index,
-      readingTurn: reading.turn,
-      through: reading.through,
-      publishedTurn: world.turn,
-      firstCompletion,
-      audience: reading.audience.filter((_, i) => mask & 1 << i),
-      stanzas: readingPage(state, updated, catalog, index)
-    };
-  }
-  function replayReadingPage(world, state, catalogs, id, reader, index, listener) {
-    const { reading, catalog } = readingFor(state, catalogs, id);
-    readerHere(world, reader, reading.place);
-    const bit = reading.audience.indexOf(listener);
-    if (reader !== reading.reader || bit < 0 || !actorHere(world, listener, reading.place) || !integer(index, 0, reading.pages.length - 1) || !integer(world.turn, reading.pages[index][0] + 1))
-      throw new Error("Replay a published page to a present original listener.");
-    const pages = reading.pages.map(
-      (page, i) => i === index ? [page[0], page[1], page[2] | 1 << bit] : [...page]
-    );
-    commit(state, {
-      ...state,
-      readings: { ...state.readings, [id]: { ...reading, pages } }
-    });
-    return {
-      id,
-      index,
-      readingTurn: reading.turn,
-      through: reading.through,
-      publishedTurn: world.turn,
-      audience: [.../* @__PURE__ */ new Set([reader, listener])],
-      stanzas: readingPage(state, reading, catalog, index)
-    };
-  }
-  function noteReadingDepartures(world) {
-    let changed = false;
-    for (const pack of Object.values(world.packs || {}))
-      for (const reading of Object.values(pack.poemReadings?.readings || {})) {
-        if (reading.complete) continue;
-        for (const [bit, actor] of reading.audience.entries()) {
-          const mask = 1 << bit;
-          if (!(reading.requiredMask & mask) && !(reading.departedMask & mask) && !actorHere(world, actor, reading.place)) {
-            reading.departedMask |= mask;
-            changed = true;
-          }
-        }
-      }
-    return changed;
-  }
-  function completedHeardReading(state, site, actor) {
-    return Object.entries(state?.readings || {}).filter(([, reading]) => {
-      const bit = reading.audience.indexOf(actor);
-      return reading.site === site && reading.complete && bit >= 0 && reading.pages.every((page) => page[2] & 1 << bit);
-    }).sort(([, left], [, right]) => right.turn - left.turn)[0]?.[0] || null;
-  }
-  function validReadingDecisions(world, pack) {
-    const saved = world.packs[pack.id], state = saved.poemReadings;
-    if (!state) return !pack.recital?.sites?.length;
-    const required = pack.choices.filter(
-      (choice) => choice.requires?.some((condition2) => condition2.kind === "reading_complete")
-    );
-    if (Object.keys(state.decisions).some(
-      (id) => !required.some((choice) => choice.id === id) || !owns(saved.receipts, id)
-    ))
-      return false;
-    return required.every((choice) => {
-      if (!owns(saved.receipts, choice.id))
-        return !owns(state.decisions, choice.id);
-      const reading = state.readings[state.decisions[choice.id]];
-      const actor = saved.recitals[choice.id]?.actor;
-      const bit = reading?.audience.indexOf(actor);
-      return reading?.complete && actor && bit >= 0 && choice.requires.filter((condition2) => condition2.kind === "reading_complete").every((condition2) => condition2.site === reading.site) && reading.pages.every((page) => page[2] & 1 << bit) && saved.receipts[choice.id] >= reading.pages.at(-1)[0];
-    });
-  }
-  function projectPoemReadings(state, actor) {
-    const stanzas = [], slots = /* @__PURE__ */ new Map(), readings = [];
-    const intern = (index) => {
-      if (!slots.has(index)) {
-        slots.set(index, stanzas.length);
-        stanzas.push([...state.stanzas[index]]);
-      }
-      return slots.get(index);
-    };
-    for (const [id, reading] of Object.entries(state.readings)) {
-      const bit = reading.audience.indexOf(actor);
-      if (bit < 0) continue;
-      const owner2 = actor === reading.reader;
-      const pages = Array.from({ length: pageCount(reading) }, (_, index) => {
-        const receipt = reading.pages[index];
-        if (!owner2 && !(receipt?.[2] & 1 << bit)) return null;
-        return [
-          index,
-          receipt?.[0] ?? null,
-          reading.selection.slice(
-            index * readingLimits.pageSize,
-            (index + 1) * readingLimits.pageSize
-          ).map(intern)
-        ];
-      }).filter(Boolean);
-      if (!owner2 && !pages.length) continue;
-      readings.push({
-        id,
-        site: reading.site,
-        reader: reading.reader,
-        catalog: reading.catalog,
-        readingTurn: reading.turn,
-        through: reading.through,
-        complete: reading.complete,
-        pageCount: pageCount(reading),
-        pages,
-        heardAll: reading.complete && reading.pages.every((page) => page[2] & 1 << bit),
-        ...owner2 ? { audience: [...reading.audience] } : {}
-      });
-    }
-    return { stanzas, readings };
-  }
-  function validPoemReadings(world, pack, catalogs, state) {
-    try {
-      if (!record(state) || Object.keys(state).sort().join() !== "decisions,drafts,pins,readings,stanzas,version" || state.version !== 1 || !Array.isArray(state.stanzas) || state.stanzas.length > readingLimits.tuples || ![state.readings, state.drafts, state.pins, state.decisions].every(
-        record
-      ) || Object.keys(state.readings).length > readingLimits.records || Object.keys(state.drafts).length > humanAvatarIds.length || Object.keys(state.decisions).length > 16 || readingBlockBytes(state) > readingLimits.bytes)
-        return false;
-      const sites = pack.recital?.sites || [];
-      if (sites.length > readingLimits.sites || new Set(sites.map((site) => site.id)).size !== sites.length)
-        return false;
-      const catalog = Object.values(catalogs).filter((entry) => entry.pack === pack.id).sort(
-        (a, b) => b.rows.length - a.rows.length || b.authors.length - a.authors.length
-      )[0];
-      if (!catalog) return false;
-      const keys = /* @__PURE__ */ new Set();
-      for (const tuple of state.stanzas) {
-        if (!Array.isArray(tuple) || tuple.length !== 4 || !integer(tuple[0], 0, readingLimits.rows - 1) || !integer(tuple[1], 1, world.turn) || !(tuple[2] === null || integer(tuple[2], 0)) || ![0, 1].includes(tuple[3]) || keys.has(JSON.stringify(tuple)))
-          return false;
-        const row = catalog.rows[tuple[0]];
-        const author = tuple[2] === null ? null : catalog.authors[tuple[2]]?.id;
-        if (!row || tuple[3] === 1 && !row.after || world.packs[pack.id].receipts[row.choice] !== tuple[1] || author !== (world.packs[pack.id].recitals[row.choice]?.actor ?? null))
-          return false;
-        keys.add(JSON.stringify(tuple));
-      }
-      for (const [reader, draft] of Object.entries(state.drafts)) {
-        if (!humanAvatarIds.includes(reader) || !record(draft) || Object.keys(draft).sort().join() !== "invited,site" || !siteFor(pack, draft.site) || !Array.isArray(draft.invited) || new Set(draft.invited).size !== draft.invited.length || draft.invited.some(
-          (id) => id === reader || !humanAvatarIds.includes(id)
-        ) || !same(
-          draft.invited,
-          humanAvatarIds.filter((id) => draft.invited.includes(id))
-        ))
-          return false;
-      }
-      const optionalSlots = /* @__PURE__ */ new Set();
-      const complete = /* @__PURE__ */ new Map();
-      const expected = /* @__PURE__ */ new Map();
-      const earned = /* @__PURE__ */ new Map();
-      for (const [id, reading] of Object.entries(state.readings)) {
-        if (!record(reading) || Object.keys(reading).sort().join() !== "audience,catalog,catalogDigest,complete,departedMask,pages,place,poemDigest,reader,requiredMask,selection,site,through,turn")
-          return false;
-        const site = siteFor(pack, reading.site);
-        const catalog2 = owns(catalogs, reading.catalog) && catalogs[reading.catalog];
-        if (!site || !catalog2 || catalog2.pack !== pack.id || catalog2.digest !== reading.catalogDigest || !humanAvatarIds.includes(reading.reader) || reading.place !== site.at || !integer(reading.turn, 1, world.turn) || reading.through !== reading.turn - 1 || !Array.isArray(reading.selection) || reading.selection.length > readingLimits.rows || !Array.isArray(reading.audience) || reading.audience.length > humanAvatarIds.length + readingLimits.listeners || new Set(reading.audience).size !== reading.audience.length || !same(reading.audience.slice(0, 1 + site.listeners.length), [
-          reading.reader,
-          ...site.listeners
-        ]) || reading.audience.slice(1 + site.listeners.length).some((actor) => !humanAvatarIds.includes(actor)) || reading.requiredMask !== (1 << 1 + site.listeners.length) - 1)
-          return false;
-        const optional = /^optional:([0-7]):([a-z][a-z0-9-]*)$/.exec(id);
-        if (optional) {
-          if (optional[2] !== reading.reader || optionalSlots.has(optional[1]))
-            return false;
-          optionalSlots.add(optional[1]);
-        } else if (id !== canonicalKey(reading.site, reading.reader))
-          return false;
-        const selected = reading.selection.map(
-          (index) => integer(index, 0, state.stanzas.length - 1) ? state.stanzas[index] : null
-        );
-        if (selected.some((tuple) => !tuple)) return false;
-        if (!earned.has(catalog2.digest))
-          earned.set(
-            catalog2.digest,
-            earnedTuples(world, pack, catalog2, world.turn)
-          );
-        const all = earned.get(catalog2.digest);
-        const end = all.findIndex((tuple) => tuple[1] > reading.through);
-        const count = end < 0 ? all.length : end;
-        const expectedKey = `${catalog2.digest}:${count}`;
-        if (!expected.has(expectedKey)) {
-          const tuples = all.slice(0, count);
-          expected.set(expectedKey, {
-            tuples: JSON.stringify(tuples),
-            digest: snapshotDigest(catalog2, tuples)
-          });
-        }
-        const snapshot = expected.get(expectedKey);
-        if (JSON.stringify(selected) !== snapshot.tuples || reading.poemDigest !== snapshot.digest)
-          return false;
-        if (!Array.isArray(reading.pages) || reading.pages.length > pageCount(reading) || reading.complete !== (reading.pages.length === pageCount(reading)))
-          return false;
-        const fullMask = (1 << reading.audience.length) - 1;
-        const guests = fullMask ^ reading.requiredMask;
-        let departed = 0, lastTurn = reading.turn;
-        for (const page of reading.pages) {
-          if (!Array.isArray(page) || page.length !== 3 || !integer(page[0], lastTurn + 1, world.turn) || !integer(page[1], 0, fullMask) || !integer(page[2], 0, fullMask) || (page[1] & reading.requiredMask) !== reading.requiredMask || (page[2] & page[1]) !== page[1] || page[1] & departed)
-            return false;
-          departed |= guests & ~page[1];
-          lastTurn = page[0];
-        }
-        if (!integer(reading.departedMask, 0, fullMask) || reading.departedMask & reading.requiredMask || (reading.departedMask & departed) !== departed)
-          return false;
-        if (reading.complete) {
-          const old = complete.get(reading.site);
-          if (!old || lastTurn < old.turn || lastTurn === old.turn && id < old.id)
-            complete.set(reading.site, { id, turn: lastTurn });
-        }
-      }
-      if ([...optionalSlots].some((_, i) => !optionalSlots.has(String(i))))
-        return false;
-      if (Object.keys(state.pins).length !== complete.size || [...complete].some(([site, first]) => state.pins[site] !== first.id))
-        return false;
-      if (Object.entries(state.decisions).some(
-        ([choice, id]) => !pack.choices.some((entry) => entry.id === choice) || !state.readings[id]?.complete
-      ))
-        return false;
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
   // v2/card-game/poem-catalogs.json
   var poem_catalogs_default = {
     schemaVersion: 1,
@@ -11056,6 +10641,8 @@
   };
 
   // v2/card-game/poem-catalogs.mjs
+  var publishedCatalogs = /* @__PURE__ */ new WeakMap();
+  var publishedCatalogId = 0;
   for (const history of Object.values(poem_catalogs_default.packs)) {
     for (const catalog of Object.values(history.catalogs)) {
       for (const row of catalog.rows) {
@@ -11072,8 +10659,10 @@
       Object.freeze(catalog);
     }
     Object.freeze(history.catalogs);
+    publishedCatalogs.set(history.catalogs, ++publishedCatalogId);
     Object.freeze(history);
   }
+  var publishedCatalogIdentity = (catalogs) => publishedCatalogs.get(catalogs) ?? null;
   var readingCatalogVersion = poem_catalogs_default.currentVersion;
   var readingCatalogs = Object.freeze(
     Object.fromEntries(
@@ -11084,6 +10673,456 @@
     )
   );
   var currentReadingCatalog = (packId) => readingCatalogs[packId]?.[poem_catalogs_default.packs[packId]?.current] || null;
+
+  // v2/card-game/poem-readings.mjs
+  var readingLimits = Object.freeze({
+    sites: 6,
+    optional: 8,
+    records: 56,
+    rows: 512,
+    tuples: 1024,
+    pageSize: 4,
+    listeners: 2,
+    bytes: 384 * 1024
+  });
+  var owns = (value, key) => !!value && Object.hasOwn(value, key);
+  var record = (value) => !!value && typeof value === "object" && !Array.isArray(value);
+  var integer = (value, low, high = Number.MAX_SAFE_INTEGER) => Number.isSafeInteger(value) && value >= low && value <= high;
+  var same = (left, right) => JSON.stringify(left) === JSON.stringify(right);
+  var emptyPoemReadings = () => ({
+    version: 1,
+    stanzas: [],
+    readings: {},
+    drafts: {},
+    pins: {},
+    decisions: {}
+  });
+  var readingBlockBytes = (state) => utf8Length(JSON.stringify(state));
+  var validationScope = null;
+  function withReadingValidation(operation) {
+    const previous = validationScope;
+    validationScope = /* @__PURE__ */ new Map();
+    try {
+      return operation();
+    } finally {
+      validationScope = previous;
+    }
+  }
+  var siteFor = (pack, id) => pack.recital?.sites?.find((site) => site.id === id);
+  var canonicalKey = (site, reader) => `site:${site}:${reader}`;
+  var pageCount = (reading) => Math.max(1, Math.ceil(reading.selection.length / readingLimits.pageSize));
+  function actorHere(world, actor, place) {
+    return world.actors[actor]?.place === place && (!humanAvatarIds.includes(actor) || humanPresent(world, actor));
+  }
+  function readerHere(world, reader, place) {
+    if (currentActor(world) !== reader || !humanAvatarIds.includes(reader) || !controlledByHuman(world, reader) || !actorHere(world, reader, place))
+      throw new Error("Bring your own present avatar to the reading.");
+  }
+  function commit(state, next) {
+    if (readingBlockBytes(next) > readingLimits.bytes)
+      throw new Error("The reading archive is full. Replay a saved reading.");
+    Object.assign(state, next);
+  }
+  function earnedTuples(world, pack, catalog, through) {
+    const saved = world.packs[pack.id];
+    const authors = new Map(catalog.authors.map((author, i) => [author.id, i]));
+    return catalog.rows.map((row, index) => [row, index]).filter(([row]) => integer(saved.receipts[row.choice], 1, through)).sort(
+      ([a, ai], [b, bi]) => saved.receipts[a.choice] - saved.receipts[b.choice] || ai - bi
+    ).map(([row, index]) => {
+      const author = saved.recitals[row.choice]?.actor ?? null;
+      if (author !== null && !authors.has(author))
+        throw new Error("Use the published catalog for this stanza's author.");
+      return [
+        index,
+        saved.receipts[row.choice],
+        author === null ? null : authors.get(author),
+        row.after && saved.receipts[row.after.choice] < saved.receipts[row.choice] ? 1 : 0
+      ];
+    });
+  }
+  var snapshotDigest = (catalog, tuples) => readingDigest(JSON.stringify([catalog.digest, tuples]));
+  function setReadingDraft(world, pack, state, siteId, reader, guests) {
+    const site = siteFor(pack, siteId);
+    if (!site) throw new Error("Choose an authored reading site.");
+    readerHere(world, reader, site.at);
+    if (!Array.isArray(guests) || new Set(guests).size !== guests.length || guests.some(
+      (id) => id === reader || !humanAvatarIds.includes(id) || !actorHere(world, id, site.at)
+    ))
+      throw new Error("Invite the people who are present beside you.");
+    const invited = humanAvatarIds.filter((id) => guests.includes(id));
+    commit(state, {
+      ...state,
+      drafts: { ...state.drafts, [reader]: { site: siteId, invited } }
+    });
+  }
+  function beginReading(world, pack, catalog, state, { site: siteId, reader, optional = false }) {
+    const site = siteFor(pack, siteId);
+    if (!site || catalog.pack !== pack.id)
+      throw new Error("Choose the site's published poem catalog.");
+    readerHere(world, reader, site.at);
+    const fixed = site.listeners;
+    if (!Array.isArray(fixed) || fixed.length < 1 || fixed.length > readingLimits.listeners || new Set(fixed).size !== fixed.length || fixed.some((id2) => !actorHere(world, id2, site.at)))
+      throw new Error("Bring the required listeners together.");
+    if (!integer(world.turn, 1))
+      throw new Error("Start the reading on an accepted turn.");
+    const draft = state.drafts[reader];
+    const guests = draft?.site === siteId ? draft.invited : [];
+    if (guests.some((id2) => !actorHere(world, id2, site.at)))
+      throw new Error("Choose the present audience again.");
+    const optionalSlots = Object.keys(state.readings).filter(
+      (id2) => id2.startsWith("optional:")
+    );
+    if (optional && optionalSlots.length >= readingLimits.optional)
+      throw new Error("Replay a saved reading from the archive.");
+    const id = optional ? `optional:${optionalSlots.length}:${reader}` : canonicalKey(siteId, reader);
+    if (owns(state.readings, id))
+      throw new Error("Resume your original reading at this site.");
+    const audience = [reader, ...fixed, ...guests];
+    if (new Set(audience).size !== audience.length)
+      throw new Error("Choose distinct listeners.");
+    const tuples = earnedTuples(world, pack, catalog, world.turn - 1);
+    const stanzas = [...state.stanzas];
+    const indices = new Map(
+      stanzas.map((tuple, index) => [JSON.stringify(tuple), index])
+    );
+    const selection = tuples.map((tuple) => {
+      const key = JSON.stringify(tuple);
+      if (!indices.has(key)) {
+        indices.set(key, stanzas.length);
+        stanzas.push(tuple);
+      }
+      return indices.get(key);
+    });
+    if (stanzas.length > readingLimits.tuples || Object.keys(state.readings).length >= readingLimits.records)
+      throw new Error("Replay an existing reading from the bounded archive.");
+    const reading = {
+      site: siteId,
+      reader,
+      catalog: catalog.id,
+      catalogDigest: catalog.digest,
+      poemDigest: snapshotDigest(catalog, tuples),
+      selection,
+      turn: world.turn,
+      through: world.turn - 1,
+      place: site.at,
+      audience,
+      requiredMask: (1 << 1 + fixed.length) - 1,
+      departedMask: 0,
+      pages: [],
+      complete: false
+    };
+    const drafts = { ...state.drafts };
+    delete drafts[reader];
+    commit(state, {
+      ...state,
+      stanzas,
+      drafts,
+      readings: { ...state.readings, [id]: reading }
+    });
+    return id;
+  }
+  function readingPage(state, reading, catalog, index) {
+    if (!integer(index, 0, pageCount(reading) - 1))
+      throw new Error("Choose a page in this reading.");
+    return reading.selection.slice(index * readingLimits.pageSize, (index + 1) * readingLimits.pageSize).map((slot) => {
+      const [rowIndex, turn, authorIndex, variant] = state.stanzas[slot];
+      const row = catalog.rows[rowIndex];
+      const author = authorIndex === null ? null : catalog.authors[authorIndex];
+      return {
+        id: row.choice,
+        turn,
+        authorId: author?.id ?? null,
+        authorName: author?.name ?? "an earlier traveler",
+        lines: [...variant ? row.after.lines : row.lines]
+      };
+    });
+  }
+  function readingFor(state, catalogs, id) {
+    const reading = state.readings[id];
+    const catalog = reading && owns(catalogs, reading.catalog) && catalogs[reading.catalog];
+    if (!reading || !catalog || reading.catalogDigest !== catalog.digest)
+      throw new Error("Load this reading's exact published catalog.");
+    return { reading, catalog };
+  }
+  function publishReadingPage(world, state, catalogs, id, reader) {
+    const { reading, catalog } = readingFor(state, catalogs, id);
+    readerHere(world, reader, reading.place);
+    if (reader !== reading.reader || reading.complete)
+      throw new Error("Choose your unfinished reading.");
+    const index = reading.pages.length;
+    const previousTurn = reading.pages.at(-1)?.[0] ?? reading.turn;
+    if (!integer(world.turn, previousTurn + 1))
+      throw new Error("Publish on the next accepted turn.");
+    let mask = 0;
+    for (const [i, actor] of reading.audience.entries())
+      if (actorHere(world, actor, reading.place)) mask |= 1 << i;
+    if ((mask & reading.requiredMask) !== reading.requiredMask)
+      throw new Error("Bring the required listeners back together.");
+    const optionalMask = (1 << reading.audience.length) - 1 ^ reading.requiredMask;
+    const departedMask = reading.departedMask | optionalMask & ~mask;
+    mask &= ~departedMask;
+    const updated = {
+      ...reading,
+      departedMask,
+      pages: [...reading.pages, [world.turn, mask, mask]],
+      complete: index + 1 === pageCount(reading)
+    };
+    const firstCompletion = updated.complete && !owns(state.pins, reading.site);
+    const pins = firstCompletion ? { ...state.pins, [reading.site]: id } : state.pins;
+    commit(state, {
+      ...state,
+      pins,
+      readings: { ...state.readings, [id]: updated }
+    });
+    return {
+      id,
+      index,
+      readingTurn: reading.turn,
+      through: reading.through,
+      publishedTurn: world.turn,
+      firstCompletion,
+      audience: reading.audience.filter((_, i) => mask & 1 << i),
+      stanzas: readingPage(state, updated, catalog, index)
+    };
+  }
+  function replayReadingPage(world, state, catalogs, id, reader, index, listener) {
+    const { reading, catalog } = readingFor(state, catalogs, id);
+    readerHere(world, reader, reading.place);
+    const bit = reading.audience.indexOf(listener);
+    if (reader !== reading.reader || bit < 0 || !actorHere(world, listener, reading.place) || !integer(index, 0, reading.pages.length - 1) || !integer(world.turn, reading.pages[index][0] + 1))
+      throw new Error("Replay a published page to a present original listener.");
+    const pages = reading.pages.map(
+      (page, i) => i === index ? [page[0], page[1], page[2] | 1 << bit] : [...page]
+    );
+    commit(state, {
+      ...state,
+      readings: { ...state.readings, [id]: { ...reading, pages } }
+    });
+    return {
+      id,
+      index,
+      readingTurn: reading.turn,
+      through: reading.through,
+      publishedTurn: world.turn,
+      audience: [.../* @__PURE__ */ new Set([reader, listener])],
+      stanzas: readingPage(state, reading, catalog, index)
+    };
+  }
+  function noteReadingDepartures(world) {
+    let changed = false;
+    for (const pack of Object.values(world.packs || {}))
+      for (const reading of Object.values(pack.poemReadings?.readings || {})) {
+        if (reading.complete) continue;
+        for (const [bit, actor] of reading.audience.entries()) {
+          const mask = 1 << bit;
+          if (!(reading.requiredMask & mask) && !(reading.departedMask & mask) && !actorHere(world, actor, reading.place)) {
+            reading.departedMask |= mask;
+            changed = true;
+          }
+        }
+      }
+    return changed;
+  }
+  function completedHeardReading(state, site, actor) {
+    return Object.entries(state?.readings || {}).filter(([, reading]) => {
+      const bit = reading.audience.indexOf(actor);
+      return reading.site === site && reading.complete && bit >= 0 && reading.pages.every((page) => page[2] & 1 << bit);
+    }).sort(([, left], [, right]) => right.turn - left.turn)[0]?.[0] || null;
+  }
+  function validReadingDecisions(world, pack) {
+    const saved = world.packs[pack.id], state = saved.poemReadings;
+    if (!state) return !pack.recital?.sites?.length;
+    const required = pack.choices.filter(
+      (choice) => choice.requires?.some((condition2) => condition2.kind === "reading_complete")
+    );
+    if (Object.keys(state.decisions).some(
+      (id) => !required.some((choice) => choice.id === id) || !owns(saved.receipts, id)
+    ))
+      return false;
+    return required.every((choice) => {
+      if (!owns(saved.receipts, choice.id))
+        return !owns(state.decisions, choice.id);
+      const reading = state.readings[state.decisions[choice.id]];
+      const actor = saved.recitals[choice.id]?.actor;
+      const bit = reading?.audience.indexOf(actor);
+      return reading?.complete && actor && bit >= 0 && choice.requires.filter((condition2) => condition2.kind === "reading_complete").every((condition2) => condition2.site === reading.site) && reading.pages.every((page) => page[2] & 1 << bit) && saved.receipts[choice.id] >= reading.pages.at(-1)[0];
+    });
+  }
+  function projectPoemReadings(state, actor) {
+    const stanzas = [], slots = /* @__PURE__ */ new Map(), readings = [];
+    const intern = (index) => {
+      if (!slots.has(index)) {
+        slots.set(index, stanzas.length);
+        stanzas.push([...state.stanzas[index]]);
+      }
+      return slots.get(index);
+    };
+    for (const [id, reading] of Object.entries(state.readings)) {
+      const bit = reading.audience.indexOf(actor);
+      if (bit < 0) continue;
+      const owner2 = actor === reading.reader;
+      const pages = Array.from({ length: pageCount(reading) }, (_, index) => {
+        const receipt = reading.pages[index];
+        if (!owner2 && !(receipt?.[2] & 1 << bit)) return null;
+        return [
+          index,
+          receipt?.[0] ?? null,
+          reading.selection.slice(
+            index * readingLimits.pageSize,
+            (index + 1) * readingLimits.pageSize
+          ).map(intern)
+        ];
+      }).filter(Boolean);
+      if (!owner2 && !pages.length) continue;
+      readings.push({
+        id,
+        site: reading.site,
+        reader: reading.reader,
+        catalog: reading.catalog,
+        readingTurn: reading.turn,
+        through: reading.through,
+        complete: reading.complete,
+        pageCount: pageCount(reading),
+        pages,
+        heardAll: reading.complete && reading.pages.every((page) => page[2] & 1 << bit),
+        ...owner2 ? { audience: [...reading.audience] } : {}
+      });
+    }
+    return { stanzas, readings };
+  }
+  function validPoemReadings(world, pack, catalogs, state) {
+    if (!validationScope) return checkPoemReadings(world, pack, catalogs, state);
+    try {
+      const identity = publishedCatalogIdentity(catalogs);
+      const saved = world.packs[pack.id];
+      const key = JSON.stringify([
+        pack.id,
+        pack.recital?.sites,
+        pack.choices.map((choice) => choice.id),
+        identity === null ? ["bytes", catalogs] : ["immutable", identity],
+        state,
+        saved.receipts,
+        saved.recitals
+      ]);
+      const checked = validationScope.get(key);
+      if (Number.isSafeInteger(world.turn) && checked !== void 0 && world.turn >= checked)
+        return true;
+      const valid = checkPoemReadings(world, pack, catalogs, state);
+      if (valid && Number.isSafeInteger(world.turn))
+        validationScope.set(key, world.turn);
+      return valid;
+    } catch {
+      return false;
+    }
+  }
+  function checkPoemReadings(world, pack, catalogs, state) {
+    try {
+      if (!record(state) || Object.keys(state).sort().join() !== "decisions,drafts,pins,readings,stanzas,version" || state.version !== 1 || !Array.isArray(state.stanzas) || state.stanzas.length > readingLimits.tuples || ![state.readings, state.drafts, state.pins, state.decisions].every(
+        record
+      ) || Object.keys(state.readings).length > readingLimits.records || Object.keys(state.drafts).length > humanAvatarIds.length || Object.keys(state.decisions).length > 16 || readingBlockBytes(state) > readingLimits.bytes)
+        return false;
+      const sites = pack.recital?.sites || [];
+      if (sites.length > readingLimits.sites || new Set(sites.map((site) => site.id)).size !== sites.length)
+        return false;
+      const catalog = Object.values(catalogs).filter((entry) => entry.pack === pack.id).sort(
+        (a, b) => b.rows.length - a.rows.length || b.authors.length - a.authors.length
+      )[0];
+      if (!catalog) return false;
+      const keys = /* @__PURE__ */ new Set();
+      for (const tuple of state.stanzas) {
+        if (!Array.isArray(tuple) || tuple.length !== 4 || !integer(tuple[0], 0, readingLimits.rows - 1) || !integer(tuple[1], 1, world.turn) || !(tuple[2] === null || integer(tuple[2], 0)) || ![0, 1].includes(tuple[3]) || keys.has(JSON.stringify(tuple)))
+          return false;
+        const row = catalog.rows[tuple[0]];
+        const author = tuple[2] === null ? null : catalog.authors[tuple[2]]?.id;
+        if (!row || tuple[3] === 1 && !row.after || world.packs[pack.id].receipts[row.choice] !== tuple[1] || author !== (world.packs[pack.id].recitals[row.choice]?.actor ?? null))
+          return false;
+        keys.add(JSON.stringify(tuple));
+      }
+      for (const [reader, draft] of Object.entries(state.drafts)) {
+        if (!humanAvatarIds.includes(reader) || !record(draft) || Object.keys(draft).sort().join() !== "invited,site" || !siteFor(pack, draft.site) || !Array.isArray(draft.invited) || new Set(draft.invited).size !== draft.invited.length || draft.invited.some(
+          (id) => id === reader || !humanAvatarIds.includes(id)
+        ) || !same(
+          draft.invited,
+          humanAvatarIds.filter((id) => draft.invited.includes(id))
+        ))
+          return false;
+      }
+      const optionalSlots = /* @__PURE__ */ new Set();
+      const complete = /* @__PURE__ */ new Map();
+      const expected = /* @__PURE__ */ new Map();
+      const earned = /* @__PURE__ */ new Map();
+      for (const [id, reading] of Object.entries(state.readings)) {
+        if (!record(reading) || Object.keys(reading).sort().join() !== "audience,catalog,catalogDigest,complete,departedMask,pages,place,poemDigest,reader,requiredMask,selection,site,through,turn")
+          return false;
+        const site = siteFor(pack, reading.site);
+        const catalog2 = owns(catalogs, reading.catalog) && catalogs[reading.catalog];
+        if (!site || !catalog2 || catalog2.pack !== pack.id || catalog2.digest !== reading.catalogDigest || !humanAvatarIds.includes(reading.reader) || reading.place !== site.at || !integer(reading.turn, 1, world.turn) || reading.through !== reading.turn - 1 || !Array.isArray(reading.selection) || reading.selection.length > readingLimits.rows || !Array.isArray(reading.audience) || reading.audience.length > humanAvatarIds.length + readingLimits.listeners || new Set(reading.audience).size !== reading.audience.length || !same(reading.audience.slice(0, 1 + site.listeners.length), [
+          reading.reader,
+          ...site.listeners
+        ]) || reading.audience.slice(1 + site.listeners.length).some((actor) => !humanAvatarIds.includes(actor)) || reading.requiredMask !== (1 << 1 + site.listeners.length) - 1)
+          return false;
+        const optional = /^optional:([0-7]):([a-z][a-z0-9-]*)$/.exec(id);
+        if (optional) {
+          if (optional[2] !== reading.reader || optionalSlots.has(optional[1]))
+            return false;
+          optionalSlots.add(optional[1]);
+        } else if (id !== canonicalKey(reading.site, reading.reader))
+          return false;
+        const selected = reading.selection.map(
+          (index) => integer(index, 0, state.stanzas.length - 1) ? state.stanzas[index] : null
+        );
+        if (selected.some((tuple) => !tuple)) return false;
+        if (!earned.has(catalog2.digest))
+          earned.set(
+            catalog2.digest,
+            earnedTuples(world, pack, catalog2, world.turn)
+          );
+        const all = earned.get(catalog2.digest);
+        const end = all.findIndex((tuple) => tuple[1] > reading.through);
+        const count = end < 0 ? all.length : end;
+        const expectedKey = `${catalog2.digest}:${count}`;
+        if (!expected.has(expectedKey)) {
+          const tuples = all.slice(0, count);
+          expected.set(expectedKey, {
+            tuples: JSON.stringify(tuples),
+            digest: snapshotDigest(catalog2, tuples)
+          });
+        }
+        const snapshot = expected.get(expectedKey);
+        if (JSON.stringify(selected) !== snapshot.tuples || reading.poemDigest !== snapshot.digest)
+          return false;
+        if (!Array.isArray(reading.pages) || reading.pages.length > pageCount(reading) || reading.complete !== (reading.pages.length === pageCount(reading)))
+          return false;
+        const fullMask = (1 << reading.audience.length) - 1;
+        const guests = fullMask ^ reading.requiredMask;
+        let departed = 0, lastTurn = reading.turn;
+        for (const page of reading.pages) {
+          if (!Array.isArray(page) || page.length !== 3 || !integer(page[0], lastTurn + 1, world.turn) || !integer(page[1], 0, fullMask) || !integer(page[2], 0, fullMask) || (page[1] & reading.requiredMask) !== reading.requiredMask || (page[2] & page[1]) !== page[1] || page[1] & departed)
+            return false;
+          departed |= guests & ~page[1];
+          lastTurn = page[0];
+        }
+        if (!integer(reading.departedMask, 0, fullMask) || reading.departedMask & reading.requiredMask || (reading.departedMask & departed) !== departed)
+          return false;
+        if (reading.complete) {
+          const old = complete.get(reading.site);
+          if (!old || lastTurn < old.turn || lastTurn === old.turn && id < old.id)
+            complete.set(reading.site, { id, turn: lastTurn });
+        }
+      }
+      if ([...optionalSlots].some((_, i) => !optionalSlots.has(String(i))))
+        return false;
+      if (Object.keys(state.pins).length !== complete.size || [...complete].some(([site, first]) => state.pins[site] !== first.id))
+        return false;
+      if (Object.entries(state.decisions).some(
+        ([choice, id]) => !pack.choices.some((entry) => entry.id === choice) || !state.readings[id]?.complete
+      ))
+        return false;
+      return true;
+    } catch {
+      return false;
+    }
+  }
 
   // v2/card-game/boardyai.json
   var boardyai_default = {
@@ -11654,7 +11693,7 @@
             Aristophanes: 11
           },
           opening: "Before the Burial",
-          status: "Forty-three works have authored scenes across the Greek chapters. Frogs and the witnessed reading flow are the final source work in progress."
+          status: "Forty-four works have authored scenes across the Greek chapters. Six witnessed reading sites preserve their readers, earlier authors and heard pages. Five carried records return to Dione\u2019s table."
         },
         places: {
           "greek-harbor": {
@@ -79573,6 +79612,19 @@
         `${what} must use the closed condition vocabulary with valid references`
       );
     };
+    const persistentCondition = (c, depth = 0) => record4(c) && depth <= 2 && (c.kind === "not" ? persistentCondition(c.condition, depth + 1) : [
+      "choice",
+      "choice_unset",
+      "reading_complete",
+      "flag",
+      "holding",
+      "item_at",
+      "item_near",
+      "shared_world",
+      "connected_humans",
+      "met",
+      "knows"
+    ].includes(c.kind));
     const requirements = (cs, what, persistent = true, choice = false) => {
       if (cs === void 0) return;
       check(
@@ -79583,19 +79635,7 @@
         cs.forEach((c) => {
           condition2(c, what);
           check(
-            !persistent || choice && c.kind === "light" || choice && c.kind === "not" && c.condition?.kind === "holding" || [
-              "choice",
-              "choice_unset",
-              "reading_complete",
-              "flag",
-              "holding",
-              "item_at",
-              "item_near",
-              "shared_world",
-              "connected_humans",
-              "met",
-              "knows"
-            ].includes(c.kind),
+            !persistent || choice && c.kind === "light" || persistentCondition(c),
             `${what} must use saved state or human presence conditions`
           );
         });
@@ -82657,7 +82697,7 @@
   }
   function rememberEvent(world, entry) {
     if (entry.kind === "quest" || entry.questPlan) return;
-    const related4 = new Set(entry.privateTo || [
+    const related3 = new Set(entry.privateTo || [
       entry.locationId,
       entry.fromLocationId,
       entry.actorId,
@@ -82669,7 +82709,7 @@
       ...entry.cast || [],
       ...(entry.items || []).map((item) => item.id)
     ]);
-    for (const id of related4) {
+    for (const id of related3) {
       if (!profiles[id]) continue;
       if (profiles[id].kind === "avatar" && world.controlledActors?.includes(id) && !world.presentActors?.includes(id) && entry.actorId !== id)
         continue;
@@ -84576,18 +84616,18 @@
       );
     });
   }
-  function authoredStoryRelated(packs, definition, event) {
+  function authoredStoryRelation(packs, definition) {
     const pack = packs.find((entry) => definition.key.startsWith(`${entry.id}:`));
     const story = pack?.storyQuests?.find(
       (entry) => storyKey(pack, entry) === definition.key
     );
-    if (!story || event.packId !== pack.id) return false;
-    const related4 = story.related === "ending" ? [definition.choiceId] : story.related === "start-and-ending" ? [...sourceChoices(story.start), definition.choiceId] : story.related || [
+    if (!story) return () => false;
+    const related3 = story.related === "ending" ? [definition.choiceId] : story.related === "start-and-ending" ? [...sourceChoices(story.start), definition.choiceId] : story.related || [
       ...sourceChoices(story.start),
       ...story.progress || [],
       ...story.endings.map((entry) => entry.choice)
     ];
-    return related4.includes(event.choiceId);
+    return (event) => event.packId === pack.id && related3.includes(event.choiceId);
   }
 
   // v2/card-game/story-quests.mjs
@@ -84596,13 +84636,11 @@
     return authoredStoryDefinitions(world, packDefinitions, { history });
   }
   var packFor = (definition) => packDefinitions.find((pack) => definition.key.startsWith(`${pack.id}:`));
-  var related3 = (definition, event) => authoredStoryRelated(packDefinitions, definition, event);
-  function storyActors(world, definition, includeDiscovery = true) {
+  var relation = (definition) => authoredStoryRelation(packDefinitions, definition);
+  function storyActors(world, definition, includeDiscovery = true, related3 = relation(definition)) {
     const pack = packFor(definition);
     if (!pack) return [];
-    const events = (world.log || []).filter(
-      (event) => related3(definition, event)
-    );
+    const events = (world.log || []).filter(related3);
     const discovery = (world.log || []).filter(
       (event) => event.kind === "action" && event.turn === definition.createdTurn && (event.packId === pack.id || event.cast?.includes(definition.holder.id) || definition.holder.kind === "place" && event.locationId === definition.holder.id)
     ).sort((a, b) => a.seq - b.seq)[0];
@@ -84647,10 +84685,9 @@
           cause: null
         };
       }
-      const events = (world.log || []).filter(
-        (event2) => related3(definition, event2)
-      );
-      const recorded = storyActors(world, definition, created);
+      const related3 = relation(definition);
+      const events = (world.log || []).filter(related3);
+      const recorded = storyActors(world, definition, created, related3);
       const knownAuthor = state.recitals?.[definition.choiceId]?.actor;
       if (created && actorId && world.actors[actorId] && definition.createdTurn === world.turn)
         recorded.push(actorId);
@@ -87943,21 +87980,21 @@
       ))
         fail();
     }
+    const itemHolders = /* @__PURE__ */ new Set([...actorIds, ...Object.keys(places)]);
+    const heldCounts = /* @__PURE__ */ new Map();
     for (const [id, item] of Object.entries(s.items)) {
-      if (![
-        ...actorIds,
-        ...Object.keys(places),
-        ...id === "cloth" ? ["lamp", "bell"] : []
-      ].includes(item.holder))
+      if (!itemHolders.has(item.holder) && !(id === "cloth" && ["lamp", "bell"].includes(item.holder)))
         fail();
       if (entityActive(s, id) && (!entityActive(s, item.holder) || !entityActive(s, itemPlace2(s, id))))
         fail();
       if (!Array.isArray(item.history) || item.history.length > 12 || item.history.some((t) => typeof t !== "string" || t.length > 400))
         fail();
+      const holder2 = rootHolder(s, id);
+      heldCounts.set(holder2, (heldCounts.get(holder2) || 0) + 1);
     }
     for (const actor of actorIds) {
       const allowance = s.sharedMigration?.inventoryAllowances?.[actor];
-      const count = carried(s, actor).length;
+      const count = heldCounts.get(actor) || 0;
       if (count > (allowance || 3) || allowance && allowance !== count) fail();
     }
     const lamp = s.items.lamp, oil = s.items.oil, bell = s.items.bell;
@@ -88932,7 +88969,7 @@
     return world;
   }
   function stored(world) {
-    const result = structuredClone(world);
+    const result = { ...world };
     delete result.playerActorId;
     delete result.controlledActors;
     delete result.presentActors;
@@ -88941,7 +88978,7 @@
   function load(request) {
     if (!request.world || typeof request.world !== "object")
       throw new Error("Load a saved world first.");
-    const world = contextual(structuredClone(request.world), request);
+    const world = contextual({ ...request.world }, request);
     const loaded = decodeSave(JSON.stringify(world));
     return loaded;
   }
@@ -88985,6 +89022,9 @@
     return decodeSave(JSON.stringify(raw));
   }
   function dispatchShared(request) {
+    return withReadingValidation(() => dispatch(request));
+  }
+  function dispatch(request) {
     if (!request || typeof request !== "object")
       throw new Error("Choose a world operation.");
     if (request.op === "create") {
@@ -89097,7 +89137,7 @@
       for (const line of request.lines) {
         const scenic = line.actorId == null && line.entityId === room;
         const speaker = scenic ? null : line.actorId || (people[line.entityId] ? line.entityId : null) || Object.keys(people).find((id) => people[id].name === line.speaker) || (people[line.speaker] ? line.speaker : null);
-        if (request.lines.length === 1 && speaker !== actor || !scenic && (!speaker || !entityActive(world, speaker) || world.actors[speaker].place !== room || humanAvatar(speaker) && !world.presentActors.includes(speaker) && !(speaker === actor && world.controlledActors.includes(speaker))) || typeof line.text !== "string" || !line.text.trim() || line.text.length > 600 || /[\u0000-\u001f\u007f]/u.test(line.text) || !validExpression(profiles[speaker], line.text) || request.privateTo && speaker && !request.privateTo.includes(speaker) || !readingQuoteAllowed(world, context, speaker || room, line.text))
+        if (request.lines.length === 1 && speaker !== actor || !scenic && (!speaker || !world.actors[speaker] || !humanAvatar(speaker) && !entityActive(world, speaker) || world.actors[speaker].place !== room || humanAvatar(speaker) && !world.presentActors.includes(speaker) && !(speaker === actor && world.controlledActors.includes(speaker))) || typeof line.text !== "string" || !line.text.trim() || line.text.length > 600 || /[\u0000-\u001f\u007f]/u.test(line.text) || !validExpression(profiles[speaker], line.text) || request.privateTo && speaker && !request.privateTo.includes(speaker) || !readingQuoteAllowed(world, context, speaker || room, line.text))
           throw new Error(
             "Each line needs a present speaker or the room, and clear text."
           );

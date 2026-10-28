@@ -117,7 +117,7 @@ describe("the full world shared by human avatars", () => {
       expect(world.items[avatar.item.id].holder).toBe(avatar.home.id);
   });
   it("upgrades unused homes while preserving claimed avatars and existing item history", () => {
-    const old = ask(shared(), "view").world;
+    const old = shared();
     for (const avatar of humanAvatars.filter((a) => a.id !== "vale"))
       old.items[avatar.item.id].holder = avatar.id;
     const result = ask(old, "upgrade", "vale", {

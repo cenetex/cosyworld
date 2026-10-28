@@ -18,6 +18,7 @@ import {
   readingLimits,
   projectPoemReadings,
   completedHeardReading,
+  withReadingValidation,
 } from "../v2/card-game/poem-readings.mjs";
 
 const court = "greek-viii-poets-court";
@@ -339,6 +340,82 @@ describe("the complete reserved reading envelope", () => {
         JSON.parse(JSON.stringify(f.state)),
       ),
     ).toBe(true);
+  });
+});
+
+describe("one-command exact reading checks", () => {
+  it.each([
+    "page",
+    "author",
+    "receipt",
+    "catalog",
+    "row",
+    "catalogAuthor",
+    "selection",
+    "pin",
+    "decision",
+    "site",
+    "lowerTurn",
+  ])("keeps a changed %s cold after an earlier positive result", (kind) => {
+    const f = fixture();
+    const id = start(f);
+    page(f, id);
+    page(f, id);
+    f.catalogs = structuredClone(f.catalogs);
+    withReadingValidation(() => {
+      expect(validPoemReadings(f.world, f.pack, f.catalogs, f.state)).toBe(
+        true,
+      );
+      f.world.turn++;
+      expect(validPoemReadings(f.world, f.pack, f.catalogs, f.state)).toBe(
+        true,
+      );
+      const saved = f.world.packs[f.pack.id];
+      if (kind === "page") f.state.readings[id].pages[0][0] = f.world.turn + 1;
+      if (kind === "author") saved.recitals["earned-0"].actor = "mara";
+      if (kind === "receipt") saved.receipts["earned-0"]++;
+      if (kind === "catalog") f.catalogs[f.catalog.id].digest = "0".repeat(64);
+      if (kind === "row")
+        f.catalogs[f.catalog.id].rows[0].choice = "another-deed";
+      if (kind === "catalogAuthor")
+        f.catalogs[f.catalog.id].authors[0].id = "another-author";
+      if (kind === "selection") f.state.readings[id].selection.reverse();
+      if (kind === "pin") f.state.pins[siteIds[0]] = "another-reading";
+      if (kind === "decision") f.state.decisions["another-choice"] = id;
+      if (kind === "site") f.pack.recital.sites[0].at = "another-place";
+      if (kind === "lowerTurn") f.world.turn = f.state.readings[id].turn;
+      expect(validPoemReadings(f.world, f.pack, f.catalogs, f.state)).toBe(
+        false,
+      );
+    });
+  });
+  it("includes a conditional verse's earlier receipt in the exact check", () => {
+    const f = fixture();
+    f.pack.recital.verses[2].after = {
+      choice: "prior-deed",
+      lines: ["The earlier word arrived.", "The waiting company heard it."],
+    };
+    f.world.packs[f.pack.id].receipts["prior-deed"] = 2;
+    f.catalog = makeReadingCatalog({
+      id: f.catalog.id,
+      pack: f.pack.id,
+      title: f.catalog.title,
+      verses: f.pack.recital.verses,
+      authors: f.catalog.authors,
+    });
+    f.catalogs = { [f.catalog.id]: f.catalog };
+    const id = start(f);
+    page(f, id);
+    page(f, id);
+    withReadingValidation(() => {
+      expect(validPoemReadings(f.world, f.pack, f.catalogs, f.state)).toBe(
+        true,
+      );
+      f.world.packs[f.pack.id].receipts["prior-deed"] = f.world.turn;
+      expect(validPoemReadings(f.world, f.pack, f.catalogs, f.state)).toBe(
+        false,
+      );
+    });
   });
 });
 

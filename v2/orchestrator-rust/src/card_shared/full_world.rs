@@ -182,7 +182,9 @@ impl World {
                 request["entries"] = command["entries"].clone();
                 request["disclosures"] = command["disclosures"].clone();
                 for key in ["privateTo", "hearing", "recall"] {
-                    if let Some(value) = command.get(key) { request[key] = value.clone(); }
+                    if let Some(value) = command.get(key) {
+                        request[key] = value.clone();
+                    }
                 }
                 let result = engine::reduce_version(&self.version, request)?;
                 next.game = result["world"].clone();
@@ -196,18 +198,32 @@ impl World {
         self.guard(&next, kind, a)?;
         if [2, 4].contains(&kind) {
             let leaving = actor_id(a);
-            let pending_guest = next.game["packs"].as_object().into_iter().flat_map(|p| p.values())
-                .flat_map(|p| p["poemReadings"]["readings"].as_object().into_iter().flat_map(|r| r.values()))
+            let pending_guest = next.game["packs"]
+                .as_object()
+                .into_iter()
+                .flat_map(|p| p.values())
+                .flat_map(|p| {
+                    p["poemReadings"]["readings"]
+                        .as_object()
+                        .into_iter()
+                        .flat_map(|r| r.values())
+                })
                 .any(|reading| {
-                    reading["complete"] == false && reading["audience"].as_array().is_some_and(|ids| {
-                        ids.iter().position(|id| *id == leaving).is_some_and(|bit| {
-                            reading["requiredMask"].as_u64().is_some_and(|mask| mask & (1 << bit) == 0)
-                                && reading["departedMask"].as_u64().is_some_and(|mask| mask & (1 << bit) == 0)
+                    reading["complete"] == false
+                        && reading["audience"].as_array().is_some_and(|ids| {
+                            ids.iter().position(|id| *id == leaving).is_some_and(|bit| {
+                                reading["requiredMask"]
+                                    .as_u64()
+                                    .is_some_and(|mask| mask & (1 << bit) == 0)
+                                    && reading["departedMask"]
+                                        .as_u64()
+                                        .is_some_and(|mask| mask & (1 << bit) == 0)
+                            })
                         })
-                    })
                 });
             if pending_guest {
-                let attendance = engine::reduce_version(&self.version, next.request("attendance", a))?;
+                let attendance =
+                    engine::reduce_version(&self.version, next.request("attendance", a))?;
                 next.game = attendance["world"].clone();
             }
         }

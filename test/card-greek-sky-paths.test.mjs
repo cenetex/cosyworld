@@ -223,6 +223,20 @@ describe("bounded flame preconditions", () => {
       compiled.hub,
       compiled.packs.flatMap((p) => Object.keys(p.places)),
     );
+  it("accepts nested saved custody and keeps sound outside persistent requirements", () => {
+    const p = structuredClone(compiled.packs.find((p) => p.id === GREEK));
+    const harvest = p.choices.find(
+      (choice) => choice.id === "greek-vii-peace-harvest",
+    );
+    expect(problems(p)).toEqual([]);
+    harvest.requires[harvest.requires.length - 1] = {
+      kind: "not",
+      condition: { kind: "sound", at: ["greek-attic-farm"] },
+    };
+    expect(problems(p)).toContain(
+      "greek-drama: choice greek-vii-peace-harvest requires must use saved state or human presence conditions",
+    );
+  });
   it("accepts actual hub custody, placement and light on a completion choice", () => {
     const p = structuredClone(compiled.packs.find((p) => p.id === GREEK));
     p.choices.push({

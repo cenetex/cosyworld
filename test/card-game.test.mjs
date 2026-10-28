@@ -175,6 +175,11 @@ describe("the reflected shore card game", () => {
       legalActions(s).some((a) => a.kind === "take" && a.item === "cloth"),
     ).toBe(false);
     expect(legalActions(s).some((a) => a.kind === "cover")).toBe(false);
+    expect(() => validateWorld(s)).not.toThrow();
+    s.items.cloth.holder = "lamp";
+    expect(() => validateWorld(s)).toThrow();
+    s.items.oil.holder = "station";
+    expect(() => validateWorld(s)).not.toThrow();
   });
 
   it("supports card pairs for giving, using, and carrying", () => {

@@ -1,7 +1,10 @@
 import { entityActive } from "./pack-registry.mjs";
 import { validPrivateAudience } from "./reading-privacy.mjs";
 import { validHearingRef } from "./reading-actions.mjs";
-import { noteReadingDepartures } from "./poem-readings.mjs";
+import {
+  noteReadingDepartures,
+  withReadingValidation,
+} from "./poem-readings.mjs";
 import {
   validRecallRef,
   privateSpeechFields,
@@ -65,7 +68,7 @@ function contextual(world, request) {
   return world;
 }
 function stored(world) {
-  const result = structuredClone(world);
+  const result = { ...world };
   // These fields describe the current request, not the saved simulation.
   delete result.playerActorId;
   delete result.controlledActors;
@@ -75,7 +78,7 @@ function stored(world) {
 function load(request) {
   if (!request.world || typeof request.world !== "object")
     throw new Error("Load a saved world first.");
-  const world = contextual(structuredClone(request.world), request);
+  const world = contextual({ ...request.world }, request);
   const loaded = decodeSave(JSON.stringify(world));
   return loaded;
 }
@@ -126,6 +129,9 @@ function importClientSave(save) {
   return decodeSave(JSON.stringify(raw));
 }
 export function dispatchShared(request) {
+  return withReadingValidation(() => dispatch(request));
+}
+function dispatch(request) {
   if (!request || typeof request !== "object")
     throw new Error("Choose a world operation.");
   if (request.op === "create") {
@@ -268,7 +274,8 @@ export function dispatchShared(request) {
         (request.lines.length === 1 && speaker !== actor) ||
         (!scenic &&
           (!speaker ||
-            !entityActive(world, speaker) ||
+            !world.actors[speaker] ||
+            (!humanAvatar(speaker) && !entityActive(world, speaker)) ||
             world.actors[speaker].place !== room ||
             (humanAvatar(speaker) &&
               !world.presentActors.includes(speaker) &&

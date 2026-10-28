@@ -1,5 +1,7 @@
 import compiled from "./poem-catalogs.json" with { type: "json" };
 
+const publishedCatalogs = new WeakMap();
+let publishedCatalogId = 0;
 for (const history of Object.values(compiled.packs)) {
   for (const catalog of Object.values(history.catalogs)) {
     for (const row of catalog.rows) {
@@ -16,8 +18,11 @@ for (const history of Object.values(compiled.packs)) {
     Object.freeze(catalog);
   }
   Object.freeze(history.catalogs);
+  publishedCatalogs.set(history.catalogs, ++publishedCatalogId);
   Object.freeze(history);
 }
+export const publishedCatalogIdentity = (catalogs) =>
+  publishedCatalogs.get(catalogs) ?? null;
 export const readingCatalogVersion = compiled.currentVersion;
 export const readingCatalogs = Object.freeze(
   Object.fromEntries(

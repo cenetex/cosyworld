@@ -5,6 +5,7 @@ import {
   humanAvatarIds,
 } from "./human-cast.mjs";
 import { readingDigest, utf8Length } from "./reading-digest.mjs";
+import { publishedCatalogIdentity } from "./poem-catalogs.mjs";
 
 export const readingLimits = Object.freeze({
   sites: 6,
@@ -92,6 +93,18 @@ export const emptyPoemReadings = () => ({
   decisions: {},
 });
 export const readingBlockBytes = (state) => utf8Length(JSON.stringify(state));
+let validationScope = null;
+
+// A command gets a fresh scope. Only exact positive checks can be reused.
+export function withReadingValidation(operation) {
+  const previous = validationScope;
+  validationScope = new Map();
+  try {
+    return operation();
+  } finally {
+    validationScope = previous;
+  }
+}
 const siteFor = (pack, id) =>
   pack.recital?.sites?.find((site) => site.id === id);
 const canonicalKey = (site, reader) => `site:${site}:${reader}`;
@@ -546,6 +559,36 @@ export function projectPoemReadings(state, actor) {
 }
 
 export function validPoemReadings(world, pack, catalogs, state) {
+  if (!validationScope) return checkPoemReadings(world, pack, catalogs, state);
+  try {
+    const identity = publishedCatalogIdentity(catalogs);
+    const saved = world.packs[pack.id];
+    const key = JSON.stringify([
+      pack.id,
+      pack.recital?.sites,
+      pack.choices.map((choice) => choice.id),
+      identity === null ? ["bytes", catalogs] : ["immutable", identity],
+      state,
+      saved.receipts,
+      saved.recitals,
+    ]);
+    const checked = validationScope.get(key);
+    if (
+      Number.isSafeInteger(world.turn) &&
+      checked !== undefined &&
+      world.turn >= checked
+    )
+      return true;
+    const valid = checkPoemReadings(world, pack, catalogs, state);
+    if (valid && Number.isSafeInteger(world.turn))
+      validationScope.set(key, world.turn);
+    return valid;
+  } catch {
+    return false;
+  }
+}
+
+function checkPoemReadings(world, pack, catalogs, state) {
   try {
     if (
       !record(state) ||

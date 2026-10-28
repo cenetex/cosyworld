@@ -12,8 +12,27 @@ import {
   decodeSave,
 } from "../v2/card-game/world.mjs";
 import { privateView } from "../v2/card-game/learning.mjs";
+import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 
 describe("private reading memories", () => {
+  it("keeps the request isolated when shared replies reuse their decoded world", () => {
+    const original = createWorld();
+    const before = JSON.stringify(original);
+    const reply = dispatchShared({
+      op: "validate",
+      world: original,
+      actor: "vale",
+      claimed: ["vale"],
+      present: ["vale"],
+    });
+    expect(JSON.stringify(original)).toBe(before);
+    expect(reply.world.actors).not.toBe(original.actors);
+    expect(reply.world.playerActorId).toBeUndefined();
+    expect(reply.world.controlledActors).toBeUndefined();
+    expect(reply.world.presentActors).toBeUndefined();
+    reply.world.actors.vale.place = "pond";
+    expect(JSON.stringify(original)).toBe(before);
+  });
   it("keeps private words with their original listeners during later public talk", () => {
     const privateTo = ["vale", "poet"];
     const memory = {

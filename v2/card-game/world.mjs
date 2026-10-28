@@ -3454,13 +3454,12 @@ export function validateWorld(s) {
       fail();
   }
 
+  const itemHolders = new Set([...actorIds, ...Object.keys(places)]);
+  const heldCounts = new Map();
   for (const [id, item] of Object.entries(s.items)) {
     if (
-      ![
-        ...actorIds,
-        ...Object.keys(places),
-        ...(id === "cloth" ? ["lamp", "bell"] : []),
-      ].includes(item.holder)
+      !itemHolders.has(item.holder) &&
+      !(id === "cloth" && ["lamp", "bell"].includes(item.holder))
     )
       fail();
     if (
@@ -3474,10 +3473,12 @@ export function validateWorld(s) {
       item.history.some((t) => typeof t !== "string" || t.length > 400)
     )
       fail();
+    const holder = rootHolder(s, id);
+    heldCounts.set(holder, (heldCounts.get(holder) || 0) + 1);
   }
   for (const actor of actorIds) {
     const allowance = s.sharedMigration?.inventoryAllowances?.[actor];
-    const count = carried(s, actor).length;
+    const count = heldCounts.get(actor) || 0;
     if (count > (allowance || 3) || (allowance && allowance !== count)) fail();
   }
   const lamp = s.items.lamp,

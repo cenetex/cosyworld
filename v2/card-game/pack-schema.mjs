@@ -741,6 +741,24 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       `${what} must use the closed condition vocabulary with valid references`,
     );
   };
+  const persistentCondition = (c, depth = 0) =>
+    record(c) &&
+    depth <= 2 &&
+    (c.kind === "not"
+      ? persistentCondition(c.condition, depth + 1)
+      : [
+          "choice",
+          "choice_unset",
+          "reading_complete",
+          "flag",
+          "holding",
+          "item_at",
+          "item_near",
+          "shared_world",
+          "connected_humans",
+          "met",
+          "knows",
+        ].includes(c.kind));
   const requirements = (cs, what, persistent = true, choice = false) => {
     if (cs === undefined) return;
     check(
@@ -753,20 +771,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         check(
           !persistent ||
             (choice && c.kind === "light") ||
-            (choice && c.kind === "not" && c.condition?.kind === "holding") ||
-            [
-              "choice",
-              "choice_unset",
-              "reading_complete",
-              "flag",
-              "holding",
-              "item_at",
-              "item_near",
-              "shared_world",
-              "connected_humans",
-              "met",
-              "knows",
-            ].includes(c.kind),
+            persistentCondition(c),
           `${what} must use saved state or human presence conditions`,
         );
       });

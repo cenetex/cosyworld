@@ -24,7 +24,12 @@ fn routes_through_crag_camp(previous: &Value) -> Value {
 }
 
 fn sorted_routes(previous: &Value) -> Vec<String> {
-    let mut routes: Vec<_> = previous.as_array().unwrap().iter().map(Value::to_string).collect();
+    let mut routes: Vec<_> = previous
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(Value::to_string)
+        .collect();
     routes.sort();
     routes
 }
