@@ -16,7 +16,7 @@ import {
 import {
   packProblems,
   observationProblems,
-  topicCompositionProblems,
+  packCompositionProblems,
 } from "./pack-schema.mjs";
 import { conditionMet as evaluateCondition } from "./pack-rules.mjs";
 const owns = (o, key) =>
@@ -93,9 +93,11 @@ export const packDefinitions = [
   validatePackDefinition(humanHomePack),
   validatePackDefinition(boardyPack),
 ];
-const topicProblems = topicCompositionProblems(packDefinitions);
-if (topicProblems.length)
-  throw new Error(`Invalid card world topics: ${topicProblems.join("; ")}`);
+const compositionProblems = packCompositionProblems(packDefinitions);
+if (compositionProblems.length)
+  throw new Error(
+    `Invalid card world composition: ${compositionProblems.join("; ")}`,
+  );
 export const packDefinition = (id) =>
   packDefinitions.find((p) => p.id === id) || null;
 

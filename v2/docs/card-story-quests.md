@@ -36,6 +36,8 @@ IDs must exist. `art` names a character, place or item from the pack or hub.
 An optional `key` supplies a distinct local key, such as
 `story-quest-orchard-return:gate`. Several cards may share a family ID while
 each keeps its own key. Keys stay stable across releases.
+Card family IDs stay unique across packs. Cards within one pack may share a
+family ID while each keeps its own saved key.
 
 `outcome` defaults to `Fulfilled`. An ending can supply its own outcome.
 The supported outcomes are `Fulfilled`, `Declined`, `Reported` and `Shared`.
