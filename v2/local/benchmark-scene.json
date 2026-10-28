@@ -1,0 +1,144 @@
+{
+  "revision": 1,
+  "turn": 1,
+  "outcome": {
+    "card": {
+      "kind": "light",
+      "target": null,
+      "item": "lamp",
+      "receive": null,
+      "destination": null,
+      "accepted": null
+    },
+    "avatars": [
+      {
+        "id": "vale",
+        "location": "attic",
+        "holding": ["lamp"],
+        "travel": null
+      }
+    ],
+    "items": [
+      {
+        "id": "lamp",
+        "holder": "vale",
+        "location": "attic"
+      }
+    ],
+    "observations": [
+      {
+        "id": "lamp-flame",
+        "value": true
+      },
+      {
+        "id": "lamp-cover",
+        "value": false
+      }
+    ]
+  },
+  "location": "attic",
+  "scenery": false,
+  "focus": "lamp",
+  "speakers": ["vale"],
+  "action": "Vale lights the Lamp.",
+  "events": [
+    "Vale lights the Lamp.",
+    "The attic mirror opens a path to the pond. A dark shore waits through the glass."
+  ],
+  "conversation": [],
+  "entities": [
+    {
+      "id": "attic",
+      "poem": null,
+      "facts": [
+        "A tall mirror opens onto a black shore. A path leads through the glass.",
+        "Paths visible now: Black pond.",
+        "An open passage is visible in the reflection.",
+        "At the dialogue scene: Vale. Items here: Lamp."
+      ],
+      "desire": null,
+      "memories": [
+        {
+          "turn": 0,
+          "kind": "event",
+          "text": "World: Vale stands alone in Mirror attic, holding an unlit lamp. A tall mirror reflects a black shore."
+        },
+        {
+          "turn": 1,
+          "kind": "event",
+          "text": "World: Vale lights the Lamp."
+        },
+        {
+          "turn": 1,
+          "kind": "event",
+          "text": "World: The attic mirror opens a path to the pond. A dark shore waits through the glass."
+        }
+      ],
+      "previous": null
+    },
+    {
+      "id": "vale",
+      "poem": null,
+      "facts": [
+        "My active purpose is Along the shore.",
+        "Holding: Lamp.",
+        "Location now: Mirror attic. Company now: alone.",
+        "Already holds the wanted Lamp.",
+        "Wants to be at Black pond; currently at Mirror attic.",
+        "At the dialogue scene: Vale. Items here: Lamp."
+      ],
+      "desire": {
+        "items": ["lamp"],
+        "location": "pond",
+        "avatars": []
+      },
+      "memories": [
+        {
+          "turn": 0,
+          "kind": "event",
+          "text": "World: Vale stands alone in Mirror attic, holding an unlit lamp. A tall mirror reflects a black shore."
+        },
+        {
+          "turn": 1,
+          "kind": "event",
+          "text": "World: Vale lights the Lamp."
+        },
+        {
+          "turn": 1,
+          "kind": "event",
+          "text": "World: The attic mirror opens a path to the pond. A dark shore waits through the glass."
+        }
+      ],
+      "previous": null,
+      "inner_life": null
+    },
+    {
+      "id": "lamp",
+      "poem": null,
+      "facts": [
+        "Held by or resting at: Vale.",
+        "Has oil; lit; uncovered.",
+        "At the dialogue scene: Vale. Items here: Lamp."
+      ],
+      "desire": null,
+      "memories": [
+        {
+          "turn": 0,
+          "kind": "event",
+          "text": "World: Vale stands alone in Mirror attic, holding an unlit lamp. A tall mirror reflects a black shore."
+        },
+        {
+          "turn": 1,
+          "kind": "event",
+          "text": "World: Vale lights the Lamp."
+        },
+        {
+          "turn": 1,
+          "kind": "event",
+          "text": "World: The attic mirror opens a path to the pond. A dark shore waits through the glass."
+        }
+      ],
+      "previous": null
+    }
+  ]
+}

@@ -1,0 +1,285 @@
+{
+  "date": "2026-10-28",
+  "hardware": {
+    "chip": "Apple M4 Max",
+    "memory_gib": 36,
+    "macos": "26.3.1"
+  },
+  "method": "Three sequential samples per build of one resolved Light the lamp card. Same Gemma 3 4B Q4_K_M GGUF, 2048-token context, Nano on four CPU threads, and scene hash. Source launcher uses the packaged game helper. Each build has a fresh voice cache. A 2-second gap separates samples. A single 750ms HTTP retry is allowed and counted in elapsed times. All six measured foreground requests used zero retries.",
+  "native_window_sampled_peak_bytes": 7607473168,
+  "browser_stream": {
+    "desktop_width": 1440,
+    "phone_width": 390,
+    "voice_request_ms": [105.6, 105.8],
+    "first_line_visible_ms": [732.1, 723.4],
+    "scene_complete_ms": 2500,
+    "voice_requests_per_line": 1,
+    "page_errors": 0
+  },
+  "runs": {
+    "baseline": {
+      "machine": "arm64",
+      "system": "Darwin",
+      "system_version": "26.3.1",
+      "game_version": "1.1.40",
+      "dialogue_model": "gemma3:4b",
+      "voice_model": "nano",
+      "context_sha256": "599e54b4fe32851905143c80d26ea82c32bb2c2535d7aa408c37c4846c4a7e3a",
+      "samples": [
+        {
+          "first_validated_line_s": 3.9213757088873535,
+          "display_ready_s": 8.554628791986033,
+          "scene_complete_s": 8.554628791986033,
+          "entries": 2,
+          "omitted": ["attic"],
+          "request_retries": 0,
+          "private_updates_in_foreground": true,
+          "audio_ready_s": 10.18069599987939,
+          "audio_seconds": 2.56
+        },
+        {
+          "first_validated_line_s": 0.8261728750076145,
+          "display_ready_s": 6.40605704090558,
+          "scene_complete_s": 6.40605704090558,
+          "entries": 2,
+          "omitted": ["attic"],
+          "request_retries": 0,
+          "private_updates_in_foreground": true,
+          "audio_ready_s": 8.445075290976092,
+          "audio_seconds": 2.44
+        },
+        {
+          "first_validated_line_s": 0.8804200829472393,
+          "display_ready_s": 6.3063701670616865,
+          "scene_complete_s": 6.3063701670616865,
+          "entries": 2,
+          "omitted": ["attic"],
+          "request_retries": 0,
+          "private_updates_in_foreground": true,
+          "audio_ready_s": 8.31899775005877,
+          "audio_seconds": 2.8
+        }
+      ],
+      "completed_private_updates": 0,
+      "median_display_ready_s": 6.40605704090558,
+      "median_scene_complete_s": 6.40605704090558,
+      "notes": "Samples began after service readiness. Native warms dialogue during startup. The earlier helper loads its dialogue model on the first scene. Medians include all three samples.",
+      "median_audio_ready_s": 8.445075290976092,
+      "memory": {
+        "resident_bytes": 7854358528,
+        "physical_footprint_bytes": 5138475160,
+        "window_reserve_bytes": 536870912,
+        "charged_bytes": 8391229440,
+        "peak_charged_bytes": 8391229440,
+        "limit_bytes": 8589934592,
+        "process_count": 8,
+        "over_budget": false
+      }
+    },
+    "native": {
+      "machine": "arm64",
+      "system": "Darwin",
+      "system_version": "26.3.1",
+      "game_version": "1.2.0",
+      "dialogue_model": "gemma3:4b",
+      "voice_model": "nano",
+      "context_sha256": "599e54b4fe32851905143c80d26ea82c32bb2c2535d7aa408c37c4846c4a7e3a",
+      "samples": [
+        {
+          "first_validated_line_s": 0.8216347910929471,
+          "display_ready_s": 0.8216347910929471,
+          "scene_complete_s": 1.4611826660111547,
+          "entries": 2,
+          "omitted": ["attic"],
+          "request_retries": 0,
+          "private_updates_in_foreground": false,
+          "audio_ready_s": 3.975201833061874,
+          "audio_seconds": 1.68
+        },
+        {
+          "first_validated_line_s": 1.5016550000291318,
+          "display_ready_s": 1.5016550000291318,
+          "scene_complete_s": 2.0786263330373913,
+          "entries": 2,
+          "omitted": ["attic"],
+          "request_retries": 0,
+          "private_updates_in_foreground": false,
+          "audio_ready_s": 4.05902975006029,
+          "audio_seconds": 2.32
+        },
+        {
+          "first_validated_line_s": 0.7615886670537293,
+          "display_ready_s": 0.7615886670537293,
+          "scene_complete_s": 1.2092742088716477,
+          "entries": 2,
+          "omitted": ["attic"],
+          "request_retries": 0,
+          "private_updates_in_foreground": false,
+          "audio_ready_s": 6.116714542033151,
+          "audio_seconds": 3.24
+        }
+      ],
+      "completed_private_updates": 2,
+      "median_display_ready_s": 0.8216347910929471,
+      "median_scene_complete_s": 1.4611826660111547,
+      "notes": "Samples began after service readiness. Native warms dialogue during startup. The earlier helper loads its dialogue model on the first scene. Medians include all three samples.",
+      "median_audio_ready_s": 4.05902975006029,
+      "memory": {
+        "resident_bytes": 6432505856,
+        "physical_footprint_bytes": 3748618328,
+        "window_reserve_bytes": 536870912,
+        "charged_bytes": 6969376768,
+        "peak_charged_bytes": 7004946432,
+        "limit_bytes": 8589934592,
+        "process_count": 6,
+        "over_budget": false
+      }
+    }
+  },
+  "isolated_voice_probe": {
+    "cpu": {
+      "device": "cpu",
+      "peak_rss_bytes": 4513447936,
+      "wall_s": 12.38601154112257,
+      "returncode": 0,
+      "abort": null,
+      "results": [
+        {
+          "phase": "identity",
+          "seconds": 0.7763556248974055
+        },
+        {
+          "phase": "import",
+          "seconds": 1.5553050839807838,
+          "mps_available": true
+        },
+        {
+          "phase": "load",
+          "seconds": 7.284585332963616
+        },
+        {
+          "phase": "speech1",
+          "seconds": 1.8370169999543577,
+          "audio_seconds": 2.84,
+          "real_time_factor": 0.6468369718149147
+        },
+        {
+          "phase": "speech2",
+          "seconds": 1.0336892500054091,
+          "audio_seconds": 3.08,
+          "real_time_factor": 0.3356133928588991
+        }
+      ]
+    },
+    "mps": {
+      "device": "mps",
+      "peak_rss_bytes": 4065935360,
+      "wall_s": 13.80515766586177,
+      "returncode": 0,
+      "abort": null,
+      "results": [
+        {
+          "phase": "identity",
+          "seconds": 0.7258069168310612
+        },
+        {
+          "phase": "import",
+          "seconds": 1.2505745419766754,
+          "mps_available": true
+        },
+        {
+          "phase": "load",
+          "seconds": 6.321276416070759
+        },
+        {
+          "phase": "speech1",
+          "seconds": 3.8709792920853943,
+          "audio_seconds": 2.76,
+          "real_time_factor": 1.4025287290164472,
+          "mps_live_bytes": 2159684352,
+          "mps_driver_bytes": 2817802240
+        },
+        {
+          "phase": "speech2",
+          "seconds": 1.7407258749008179,
+          "audio_seconds": 3.16,
+          "real_time_factor": 0.5508626186394993,
+          "mps_live_bytes": 2159684352,
+          "mps_driver_bytes": 2818490368
+        }
+      ]
+    }
+  },
+  "voice_profiles": {
+    "baseline": {
+      "samples": [
+        {
+          "speaker": "vale",
+          "seconds": 26.109922166913748,
+          "audio_seconds": 2.96,
+          "sha256": "aaa0726782901adae16419b0b8fa4a696fa97368ab6360e7998ab54966d327b4"
+        },
+        {
+          "speaker": "mara",
+          "seconds": 30.00444516702555,
+          "audio_seconds": 2.72,
+          "sha256": "fa2c34c266dbd0c93161552c0a07b871c436ac5562b446e8ddb326f61e6dde33"
+        },
+        {
+          "speaker": "keeper",
+          "seconds": 22.14839362492785,
+          "audio_seconds": 1.88,
+          "sha256": "f9159d057653c24d3cf644b2fc2f3c4c26d0e02ec33c06c87eb43f077b5f2408"
+        }
+      ],
+      "memory": {
+        "resident_bytes": 1706852352,
+        "physical_footprint_bytes": 3629732064,
+        "window_reserve_bytes": 0,
+        "charged_bytes": 3631681328,
+        "peak_charged_bytes": 3631681328,
+        "limit_bytes": 8589934592,
+        "process_count": 3,
+        "over_budget": false
+      }
+    },
+    "preparation": {
+      "seconds": 2.362581083085388,
+      "profiles_built": 0,
+      "released_parameter_bytes": 682394792
+    },
+    "prepared": {
+      "samples": [
+        {
+          "speaker": "vale",
+          "seconds": 17.6526424579788,
+          "audio_seconds": 2.96,
+          "sha256": "aaa0726782901adae16419b0b8fa4a696fa97368ab6360e7998ab54966d327b4"
+        },
+        {
+          "speaker": "mara",
+          "seconds": 9.934255333151668,
+          "audio_seconds": 2.72,
+          "sha256": "fa2c34c266dbd0c93161552c0a07b871c436ac5562b446e8ddb326f61e6dde33"
+        },
+        {
+          "speaker": "keeper",
+          "seconds": 10.091646916000172,
+          "audio_seconds": 1.88,
+          "sha256": "f9159d057653c24d3cf644b2fc2f3c4c26d0e02ec33c06c87eb43f077b5f2408"
+        }
+      ],
+      "memory": {
+        "resident_bytes": 1005453312,
+        "physical_footprint_bytes": 2167148048,
+        "window_reserve_bytes": 0,
+        "charged_bytes": 2169080928,
+        "peak_charged_bytes": 3631681328,
+        "limit_bytes": 8589934592,
+        "process_count": 3,
+        "over_budget": false
+      }
+    },
+    "notes": "Same loaded CPU Nano, four threads, fixed seeds and text. Baseline includes first-use profiles for Mara and the keeper. Prepared run reuses saved profiles, detaches reference tensors, and removes reference and training weights. Other builds were active. Memory is a reading after each three-line phase; peak field spans both phases. Audio hashes match in all three pairs."
+  }
+}

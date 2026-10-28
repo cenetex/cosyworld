@@ -143,7 +143,38 @@ function main() {
     return 1;
   }
 
-  if (currentBranch && baseBranch && currentBranch === baseBranch) {
+  for (const [directory, name] of [
+    ['v2/orchestrator-rust', 'cosyworld-orchestrator'],
+    ['v2/desktop/src-tauri', 'cosyworld-desktop'],
+  ]) {
+    for (const file of ['Cargo.toml', 'Cargo.lock']) {
+      const source = readFileSync(path.join(repoRoot, directory, file), 'utf8');
+      const pattern = file === 'Cargo.toml'
+        ? /^\[package\][^[]*?^version = "([^"]+)"/ms
+        : new RegExp(`name = "${name}"\\nversion = "([^"]+)"`);
+      if (source.match(pattern)?.[1] !== currentVersion) {
+        console.error(`[version-check] Align ${directory}/${file} with ${currentVersion}. Run npm run version:bump.`);
+        return 1;
+      }
+    }
+  }
+  for (const version of [
+    JSON.parse(readFileSync(path.join(repoRoot, 'package-lock.json'), 'utf8')).version,
+    JSON.parse(readFileSync(path.join(repoRoot, 'package-lock.json'), 'utf8')).packages[''].version,
+  ]) {
+    if (version !== currentVersion) {
+      console.error('[version-check] Align package-lock.json with package.json. Run npm run version:bump.');
+      return 1;
+    }
+  }
+  const desktopConfig = JSON.parse(readFileSync(path.join(repoRoot, 'v2/desktop/src-tauri/tauri.conf.json'), 'utf8'));
+  if (desktopConfig.version !== '../../../package.json') {
+    console.error('[version-check] Read the desktop app version from ../../../package.json.');
+    return 1;
+  }
+
+  if (process.env.VERSION_CHECK_ALIGNMENT_ONLY === '1' ||
+      (currentBranch && baseBranch && currentBranch === baseBranch)) {
     return 0;
   }
 

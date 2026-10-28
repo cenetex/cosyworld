@@ -10,6 +10,10 @@ export default [
       'docs/**',
       'reference-library/**',
       'coverage/**',
+      '.runtime/**',
+      'v2/desktop/bundle/**',
+      'v2/desktop/src-tauri/target/**',
+      'v2/desktop/src-tauri/gen/**',
       '**/*.min.js'
     ]
   },

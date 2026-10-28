@@ -726,14 +726,25 @@ async function main() {
     await completeFirstTale(first.baseUrl, actorId, actorSession);
     await move(first.baseUrl, actorId, actorSession, 1);
     const discovered = await discoverExit(first.baseUrl, actorId, actorSession, 11);
+    const matchesHomeroomTravel = (offer) => offer.kind === "move"
+      && offer.verb === "Travel"
+      && offer.target?.id === 11;
+    await drawExactOffer(
+      first.baseUrl,
+      actorId,
+      actorSession,
+      matchesHomeroomTravel,
+      "discovered Homeroom path did not become a Core Travel offer",
+    );
+    // Finish the resident work from drawing this hand before measuring the
+    // rejected play's state revision. Use the current certificate after it.
+    await waitForActorJobs(eventDbPath);
     const travelOffer = await drawExactOffer(
       first.baseUrl,
       actorId,
       actorSession,
-      (offer) => offer.kind === "move"
-        && offer.verb === "Travel"
-        && offer.target?.id === 11,
-      "discovered Homeroom path did not become a Core Travel offer",
+      matchesHomeroomTravel,
+      "settled Homeroom path",
     );
     const travelPayload = {
       actor_id: actorId,
