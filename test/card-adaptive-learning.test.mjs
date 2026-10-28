@@ -94,9 +94,7 @@ describe("adaptive action learning", () => {
       const spare = setup();
       spare.items.oil.doses = 0;
       const success = history(act(spare, "ask", "oil"));
-      const refusal = withRefusal
-        ? history(act(setup(), "ask", "oil"))
-        : [];
+      const refusal = withRefusal ? history(act(setup(), "ask", "oil")) : [];
       const w = probe([...success, ...refusal]);
       const before = structuredClone(w);
       const next = choice(w, "oil", "trade");
