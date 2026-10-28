@@ -11,6 +11,7 @@ import {
 import { enableMotives } from "../card-game/motives.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
 import { summonTransport } from "../card-game/pack-transport.mjs";
+import { profiles } from "../card-game/memory.mjs";
 
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -45,6 +46,7 @@ try {
       viewport: { width, height },
       reducedMotion: "reduce",
     });
+    const readingCounts = [];
     const errors = [],
       mediaFailures = [];
     page.on("pageerror", (error) => errors.push(error.message));
@@ -66,6 +68,8 @@ try {
     // The browser smoke checks controls and layout. Server tests check the rules.
     await page.route("**/card-game/text", (route) => {
       const input = route.request().postDataJSON();
+      const swede = input.entities.find((e) => e.id === "willows-swede");
+      if (swede) readingCounts.push(swede.readings?.length || 0);
       return route.fulfill({
         json: {
           revision: input.revision,
@@ -75,7 +79,9 @@ try {
             text:
               e.id === "willows-swede"
                 ? "Stay close. I heard it through the sand."
-                : "I feel the river pulling at my edge.",
+                : profiles[e.id]?.kind === "location"
+                  ? "I feel the river pulling at my edge."
+                  : "I will stay close to the camp.",
           })),
         },
       });
@@ -149,6 +155,8 @@ try {
     );
     assert.deepEqual(errors, []);
     assert.deepEqual(mediaFailures, []);
+    assert(readingCounts[0] < 7);
+    assert.equal(Math.max(...readingCounts), 7);
     await page.close();
     console.log(`Willows browser play passed at ${width} × ${height}.`);
   }

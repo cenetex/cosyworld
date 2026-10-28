@@ -65,14 +65,17 @@ describe("Greek ports and fixed roads", () => {
       w.items.lamp.holder = "vale";
       w = move(w, "vale", "greek-ship");
       w = move(w, "mara", "greek-ship");
-      expect(ask(w, "vale").exits).toEqual(docks.filter((d) => d !== from));
+      expect(ask(w, "vale").exits).toEqual([
+        "willows-landing",
+        ...docks.filter((d) => d !== from),
+      ]);
       const stale = ask(w, "mara").actions.find(
         (a) =>
           a.kind === "move" &&
           a.target === docks.find((d) => d !== from && d !== to),
       );
       w = move(w, "vale", to);
-      expect(ask(w, "mara").exits).toEqual([to]);
+      expect(ask(w, "mara").exits).toEqual(["willows-landing", to]);
       expect(ask(w, "mara", { op: "play", action: stale }).ok).toBe(false);
       w = move(w, "mara", to);
       expect(w.transports["greek-ship"]).toMatchObject({
@@ -90,7 +93,10 @@ describe("Greek ports and fixed roads", () => {
     const before = createWorld({ opening: true });
     before.actors.vale.place = "greek-ship";
     before.transports["greek-ship"].destination = "pond";
-    expect(exits(before, "greek-ship", "vale")).toEqual(["pond"]);
+    expect(exits(before, "greek-ship", "vale")).toEqual([
+      "willows-landing",
+      "pond",
+    ]);
     const after = openDoorStart();
     expect(entityActive(after, "greek-athens-harbor")).toBe(true);
     expect(entityActive(after, "greek-road-athens-harbor")).toBe(true);
