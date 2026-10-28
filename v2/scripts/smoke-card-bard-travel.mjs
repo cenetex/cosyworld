@@ -65,6 +65,7 @@ try {
     {
       const world = enableMotives(createWorld(), { personalQuests: true });
       world.actors.vale.place = "greek-gate";
+      world.crossings["pond-greek-harbor"].discovered = true;
       assert.equal(world.actors[singer].place, "greek-harbor");
       const key = `cosyworld.reflected-shore.v1.bard-route-${width}`;
       const page = await browser.newPage({
