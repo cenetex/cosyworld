@@ -48,6 +48,32 @@ function fixture(scope = "full") {
   world.actors.vale.place = path[0];
   return world;
 }
+function alternateJourney() {
+  const key = "test-journey-route";
+  const alternate = "test-journey-agree-well";
+  const first = pack.choices.find((choice) => choice.id === agreement);
+  first.effects.push({ kind: "choose", key, value: "harbor" });
+  pack.choices.push({
+    id: alternate,
+    at: path[0],
+    subject: resident,
+    label: "Choose the well journey",
+    text: "Dione agrees to visit the well.",
+    requires: [],
+    effects: [
+      { kind: "set_flag", key: "test-journey-agreed", value: true },
+      { kind: "choose", key, value: "well" },
+    ],
+  });
+  pack.release.choices.push(alternate);
+  const options = [
+    { after: agreement, path: [...path] },
+    { after: alternate, path: [path[0], "greek-well"] },
+  ];
+  pack.avatars[resident].journey = options;
+  packPeople[resident].journey = options;
+  return { alternate, options, key };
+}
 const accompany = (world) =>
   legalActions(world).filter(
     (a) => a.kind === "accompany" && a.target === resident,
@@ -202,5 +228,63 @@ describe("agreed resident journeys", () => {
         p.includes("journey needs consent"),
       ),
     ).toBe(true);
+  });
+
+  it.each(["harbor", "well"])(
+    "follows only the %s path after the resident chooses between exclusive journeys",
+    (route) => {
+      const { alternate, options } = alternateJourney();
+      expect(packProblems(pack, hub, mountedPlaces)).toEqual([]);
+      let world = fixture();
+      expect(accompany(world)).toEqual([]);
+      world = act(world, "choose", {
+        choiceId: route === "harbor" ? agreement : alternate,
+      });
+      const selected = options[route === "harbor" ? 0 : 1].path;
+      expect(accompany(world).map((action) => action.destination)).toEqual([
+        selected[1],
+      ]);
+      const other = route === "harbor" ? "greek-well" : "greek-harbor";
+      expect(accompanyDecision(world, "vale", resident, other).accepted).toBe(
+        false,
+      );
+      for (const destination of selected.slice(1)) {
+        world = act(world, "accompany", { target: resident, destination });
+        world = decodeSave(encodeSave(world));
+        expect(world.actors[resident].place).toBe(destination);
+      }
+      expect(accompany(world)).toEqual([]);
+      world.actors[resident].place = other;
+      expect(validatePackStates(world)).toBe(false);
+    },
+  );
+
+  it("bounds the journey options and requires one shared exclusive consent key", () => {
+    const { options, key } = alternateJourney();
+    const tooMany = structuredClone(pack);
+    tooMany.avatars[resident].journey = [...options, ...options];
+    expect(
+      packProblems(tooMany, hub, mountedPlaces).some((problem) =>
+        problem.includes("one to three distinct agreements"),
+      ),
+    ).toBe(true);
+    const independent = structuredClone(pack);
+    independent.choices.find((choice) => choice.id === agreement).effects =
+      independent.choices
+        .find((choice) => choice.id === agreement)
+        .effects.filter((effect) => effect.key !== key);
+    expect(
+      packProblems(independent, hub, mountedPlaces).some((problem) =>
+        problem.includes("exclusive recorded consent"),
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects two recorded journey agreements for one resident", () => {
+    const { alternate } = alternateJourney();
+    const world = act(fixture(), "choose", { choiceId: agreement });
+    world.packs[pack.id].receipts[alternate] = world.turn;
+    expect(validatePackStates(world)).toBe(false);
+    expect(accompany(world)).toEqual([]);
   });
 });

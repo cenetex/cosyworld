@@ -214,6 +214,10 @@
     {
       "kind": "dock-bound",
       "status": "Approved twelve-dock validator; twelve accepted, thirteen rejected, distinct/known/crossing guards retained."
+    },
+    {
+      "kind": "exclusive-authored-journeys",
+      "status": "Up to three mutually exclusive consent paths, each with two to eight distinct places; one current agreement; existing Accompany and ship movement."
     }
   ],
   "actualGreekCatalog": {

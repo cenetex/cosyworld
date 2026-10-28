@@ -3,6 +3,7 @@
 // an authored pack either loads exactly as checked or does not load at all.
 import { storyQuestProblems } from "./pack-story-schema.mjs";
 import { validFactText } from "./knowledge.mjs";
+import { journeyOptions } from "./pack-journeys.mjs";
 
 import { EXPRESSION_TYPES } from "./expression.mjs";
 
@@ -876,37 +877,77 @@ export function packProblems(pack, hub, mountedPlaces = []) {
   }
   for (const [id, avatar] of Object.entries(avatars)) {
     if (avatar.journey === undefined) continue;
-    const journey = avatar.journey;
-    const agreement = choices.find((c) => c.id === journey?.after);
-    check(
-      keysOk(journey, ["after", "path"]) &&
-        !hub.avatars.includes(id) &&
-        avatar.travels === false &&
-        avatar.roamingQuest === undefined &&
-        idOk(journey.after) &&
-        Array.isArray(journey.path) &&
-        journey.path.length >= 2 &&
-        journey.path.length <= 8 &&
-        new Set(journey.path).size === journey.path.length &&
-        journey.path[0] === avatar.place &&
-        journey.path.every((place) => owns(places, place)) &&
-        journey.path.slice(1).every((to, i) => {
-          const from = journey.path[i];
-          return (
-            places[from].exits.includes(to) ||
-            routes.some((route) => route.from === from && route.to === to) ||
-            Object.values(pack.transports || {}).some(
-              (transport) =>
-                Array.isArray(transport?.docks) &&
-                ((to === transport.place && transport.docks.includes(from)) ||
-                  (from === transport.place && transport.docks.includes(to))),
-            )
-          );
-        }) &&
-        agreement?.subject === id &&
-        agreement.at === avatar.place,
-      `avatar ${id} journey needs consent at home and a simple connected path`,
+    const options = journeyOptions(avatar.journey);
+    if (
+      !check(
+        options.length >= 1 &&
+          options.length <= 3 &&
+          new Set(options.map((journey) => journey?.after)).size ===
+            options.length,
+        `avatar ${id} journey needs one to three distinct agreements`,
+      )
+    )
+      continue;
+    const agreements = options.map((journey) =>
+      choices.find((choice) => choice.id === journey?.after),
     );
+    for (const [index, journey] of options.entries()) {
+      const agreement = agreements[index];
+      check(
+        keysOk(journey, ["after", "path"]) &&
+          !hub.avatars.includes(id) &&
+          avatar.travels === false &&
+          avatar.roamingQuest === undefined &&
+          idOk(journey.after) &&
+          Array.isArray(journey.path) &&
+          journey.path.length >= 2 &&
+          journey.path.length <= 8 &&
+          new Set(journey.path).size === journey.path.length &&
+          journey.path[0] === avatar.place &&
+          journey.path.every((place) => owns(places, place)) &&
+          journey.path.slice(1).every((to, i) => {
+            const from = journey.path[i];
+            return (
+              places[from].exits.includes(to) ||
+              routes.some((route) => route.from === from && route.to === to) ||
+              Object.values(pack.transports || {}).some(
+                (transport) =>
+                  Array.isArray(transport?.docks) &&
+                  ((to === transport.place && transport.docks.includes(from)) ||
+                    (from === transport.place && transport.docks.includes(to))),
+              )
+            );
+          }) &&
+          agreement?.subject === id &&
+          agreement.at === avatar.place,
+        `avatar ${id} journey needs consent at home and a simple connected path`,
+      );
+    }
+    if (options.length > 1) {
+      const effects = (agreement) =>
+        Array.isArray(agreement?.effects) ? agreement.effects : [];
+      const exclusive = effects(agreements[0]).some(
+        (effect) =>
+          effect.kind === "choose" &&
+          new Set(
+            agreements.map(
+              (agreement) =>
+                effects(agreement).find(
+                  (candidate) =>
+                    candidate.kind === "choose" && candidate.key === effect.key,
+                )?.value,
+            ),
+          ).size === options.length &&
+          agreements.every(
+            (agreement) =>
+              effects(agreement).filter(
+                (candidate) =>
+                  candidate.kind === "choose" && candidate.key === effect.key,
+              ).length === 1,
+          ),
+      );
+      check(exclusive, `avatar ${id} journeys need exclusive recorded consent`);
+    }
   }
   const verifyRefs = (cs) =>
     (cs || []).forEach((c) => {

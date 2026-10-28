@@ -2076,19 +2076,23 @@
   }
 
   // v2/card-game/pack-journeys.mjs
+  var journeyOptions = (journey) => Array.isArray(journey) ? journey : journey ? [journey] : [];
+  var agreedJourneys = (world, pack, id) => journeyOptions(pack?.avatars[id]?.journey).filter(
+    (journey) => world.packs?.[pack.id]?.receipts?.[journey.after]
+  );
   function journeyNextPlace(world, pack, id) {
-    const journey = pack?.avatars[id]?.journey;
-    if (!journey || !world.packs?.[pack.id]?.receipts?.[journey.after])
-      return null;
+    const agreed = agreedJourneys(world, pack, id);
+    if (agreed.length !== 1) return null;
+    const journey = agreed[0];
     const step = journey.path.indexOf(world.actors[id]?.place);
     return step < 0 ? null : journey.path[step + 1] || null;
   }
   function validJourneyPlaces(world, pack) {
     return Object.entries(pack.avatars).every(([id, avatar]) => {
-      const journey = avatar.journey;
-      if (!journey) return true;
+      if (!avatar.journey) return true;
+      const agreed = agreedJourneys(world, pack, id);
       const place = world.actors[id]?.place;
-      return world.packs?.[pack.id]?.receipts?.[journey.after] ? journey.path.includes(place) : place === journey.path[0];
+      return agreed.length ? agreed.length === 1 && agreed[0].path.includes(place) : place === avatar.place;
     });
   }
 
@@ -17201,17 +17205,44 @@
     }
     for (const [id, avatar] of Object.entries(avatars)) {
       if (avatar.journey === void 0) continue;
-      const journey = avatar.journey;
-      const agreement = choices.find((c) => c.id === journey?.after);
-      check(
-        keysOk2(journey, ["after", "path"]) && !hub2.avatars.includes(id) && avatar.travels === false && avatar.roamingQuest === void 0 && idOk2(journey.after) && Array.isArray(journey.path) && journey.path.length >= 2 && journey.path.length <= 8 && new Set(journey.path).size === journey.path.length && journey.path[0] === avatar.place && journey.path.every((place) => owns2(places2, place)) && journey.path.slice(1).every((to, i) => {
-          const from = journey.path[i];
-          return places2[from].exits.includes(to) || routes.some((route) => route.from === from && route.to === to) || Object.values(pack.transports || {}).some(
-            (transport) => Array.isArray(transport?.docks) && (to === transport.place && transport.docks.includes(from) || from === transport.place && transport.docks.includes(to))
-          );
-        }) && agreement?.subject === id && agreement.at === avatar.place,
-        `avatar ${id} journey needs consent at home and a simple connected path`
+      const options = journeyOptions(avatar.journey);
+      if (!check(
+        options.length >= 1 && options.length <= 3 && new Set(options.map((journey) => journey?.after)).size === options.length,
+        `avatar ${id} journey needs one to three distinct agreements`
+      ))
+        continue;
+      const agreements = options.map(
+        (journey) => choices.find((choice) => choice.id === journey?.after)
       );
+      for (const [index, journey] of options.entries()) {
+        const agreement = agreements[index];
+        check(
+          keysOk2(journey, ["after", "path"]) && !hub2.avatars.includes(id) && avatar.travels === false && avatar.roamingQuest === void 0 && idOk2(journey.after) && Array.isArray(journey.path) && journey.path.length >= 2 && journey.path.length <= 8 && new Set(journey.path).size === journey.path.length && journey.path[0] === avatar.place && journey.path.every((place) => owns2(places2, place)) && journey.path.slice(1).every((to, i) => {
+            const from = journey.path[i];
+            return places2[from].exits.includes(to) || routes.some((route) => route.from === from && route.to === to) || Object.values(pack.transports || {}).some(
+              (transport) => Array.isArray(transport?.docks) && (to === transport.place && transport.docks.includes(from) || from === transport.place && transport.docks.includes(to))
+            );
+          }) && agreement?.subject === id && agreement.at === avatar.place,
+          `avatar ${id} journey needs consent at home and a simple connected path`
+        );
+      }
+      if (options.length > 1) {
+        const effects = (agreement) => Array.isArray(agreement?.effects) ? agreement.effects : [];
+        const exclusive = effects(agreements[0]).some(
+          (effect) => effect.kind === "choose" && new Set(
+            agreements.map(
+              (agreement) => effects(agreement).find(
+                (candidate) => candidate.kind === "choose" && candidate.key === effect.key
+              )?.value
+            )
+          ).size === options.length && agreements.every(
+            (agreement) => effects(agreement).filter(
+              (candidate) => candidate.kind === "choose" && candidate.key === effect.key
+            ).length === 1
+          )
+        );
+        check(exclusive, `avatar ${id} journeys need exclusive recorded consent`);
+      }
     }
     const verifyRefs = (cs) => (cs || []).forEach((c) => {
       if (c.kind === "choice")

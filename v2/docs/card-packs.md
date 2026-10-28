@@ -340,6 +340,10 @@ docks. Its agreement starts at the resident's home. Accompany then boards and
 disembarks through the ordinary ship rules. A resident keeps the agreed path
 while a human visits a different port. The next joint leg follows that path.
 The journey retains its two-to-eight-place bound and one recorded agreement.
+An avatar can give `journey` as a list of up to three such paths. Their
+agreements must write distinct values of one shared saved choice, so the
+resident follows the selected path. Save validation accepts exactly one
+recorded agreement for a traveling resident.
 
 When a human waits at a port, an empty ship advances through its open docks.
 An occupied ship keeps its voyage and passengers. Reload restores that same
