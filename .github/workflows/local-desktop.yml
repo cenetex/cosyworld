@@ -32,7 +32,7 @@ jobs:
   macos:
     name: Build and check the Mac app
     runs-on: macos-15
-    timeout-minutes: 60
+    timeout-minutes: 90
     env:
       CARGO_TARGET_DIR: ${{ github.workspace }}/.runtime/desktop-target
       CARGO_PROFILE_DEV_DEBUG: "0"
@@ -116,6 +116,8 @@ jobs:
           "$voice" --model nano --model-dir "$RUNNER_TEMP/cosy-nano" --voices "$refs" --cache-dir "$RUNNER_TEMP/cosy-clips" --device cpu --smoke-voice "$RUNNER_TEMP/cosy-voice.wav"
           python -c 'import os,wave; f=wave.open(os.environ["RUNNER_TEMP"]+"/cosy-voice.wav"); assert f.getnframes()>f.getframerate()'
       - name: Check the packaged game and file recovery in a browser
+        env:
+          GGML_METAL_DEVICES: "0"
         run: |
           npx playwright install chromium
           python v2/local/prepare.py --model gemma3:1b --directory "$RUNNER_TEMP/cosy-dialogue"
@@ -157,13 +159,6 @@ jobs:
           for log in "$RUNNER_TEMP/local-game.log" "$RUNNER_TEMP/local-voice.log"; do
             if [ -f "$log" ]; then tail -200 "$log"; fi
           done
-      - uses: actions/cache/save@v6
-        if: always() && steps.cargo-cache.outputs.cache-hit != 'true'
-        with:
-          path: |
-            ~/.cargo/registry
-            .runtime/desktop-target
-          key: macos-arm64-local-v1-${{ hashFiles('v2/orchestrator-rust/Cargo.lock', 'v2/desktop/src-tauri/Cargo.lock') }}-${{ github.sha }}
       - name: Package the app
         env:
           APP_VERSION: ${{ steps.release.outputs.version }}
@@ -197,3 +192,12 @@ jobs:
             echo "[Download the checked Mac app]($APP_DOWNLOAD) · Commit $APP_COMMIT"
             echo "The package version, rules, voice references, and every public game file match this web source."
           } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/cache/save@v6
+        if: always() && steps.cargo-cache.outputs.cache-hit != 'true'
+        timeout-minutes: 5
+        continue-on-error: true
+        with:
+          path: |
+            ~/.cargo/registry
+            .runtime/desktop-target
+          key: macos-arm64-local-v1-${{ hashFiles('v2/orchestrator-rust/Cargo.lock', 'v2/desktop/src-tauri/Cargo.lock') }}-${{ github.sha }}

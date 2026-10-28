@@ -125,9 +125,10 @@ the exact ID ledger, art bindings and current validation.
 
 ## Sources and runtime
 
-`card-world.json` is canonical author data: 66 places including the ship,
-53 residents, 52 objects, 263 typed choices and 44 work records. The Book V
-draft adds seven source chapters to the existing developed scenes.
+`card-world.json` is canonical author data: 118 places including the ship,
+167 residents, 218 objects, 860 typed choices and 44 work records. Forty-three
+works have authored scenes. Frogs and witnessed readings are the final source
+work in progress.
 
 `release` lists the content in this release. `sections` groups places behind
 lasting story events. New saves begin with seven shore places and the ship.
