@@ -2742,14 +2742,12 @@ installSharedControls({
 });
 installToolbar({ session: sharedSession, getWorld: () => world });
 if (localRuntime()) {
-  for (const id of [
-    "owned-worlds-button",
-    "shared-worlds-button",
-    "scene-video-button",
-  ]) {
+  for (const id of ["owned-worlds-button", "shared-worlds-button"]) {
     const button = $(id);
     if (button) button.hidden = true;
   }
+  const hint = document.querySelector(".players-hint");
+  if (hint) hint.hidden = true;
 }
 installSceneVideo({
   getWorld: () => world,

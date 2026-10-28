@@ -17,16 +17,16 @@ ollama pull gemma3:4b
 Download the voice model once with the same Python environment:
 
 ```sh
-.runtime/local-python/bin/python -c 'from chatterbox.tts_turbo import ChatterboxTurboTTS; ChatterboxTurboTTS.from_pretrained(device="cpu")'
-COSYWORLD_CHATTERBOX_PYTHON="$PWD/.runtime/local-python/bin/python" npm run play:cards:local
+.runtime/local-python/bin/python v2/local/chatterbox_service.py --model turbo --download-model .runtime/models/chatterbox-turbo
+COSYWORLD_CHATTERBOX_PYTHON="$PWD/.runtime/local-python/bin/python" COSYWORLD_CHATTERBOX_MODEL_DIR="$PWD/.runtime/models/chatterbox-turbo" npm run play:cards:local
 ```
 
 Open `http://127.0.0.1:3110/`. The first voice loads the model. Later lines
 reuse it. Press Control-C in the terminal to close the local services.
 
 `COSYWORLD_LOCAL_MODEL` chooses another pulled Ollama model.
-`COSYWORLD_CHATTERBOX_MODEL=nano` selects Chatterbox Nano; download that model
-with `nano=True` in the model download command above.
+`COSYWORLD_CHATTERBOX_MODEL=nano` selects Chatterbox Nano; use `--model nano`
+and a matching folder in the download command above.
 `COSYWORLD_CHATTERBOX_MODEL_DIR` selects a downloaded model folder.
 `COSYWORLD_LOCAL_DATA_DIR` selects the app's data folder; its default is
 `~/.cosyworld`. `COSYWORLD_CARD_LOCAL_PORT` and `COSYWORLD_CHATTERBOX_PORT`
@@ -57,7 +57,10 @@ can reuse them. A single speech queue keeps each character's voice together.
 ```sh
 npm run local:test
 npx vitest run test/card-local-voice.test.mjs test/card-character-speech.test.mjs
+node v2/scripts/smoke-card-local.mjs --real-models
 ```
 
 The HTTP voice tests use a small WAV fixture. Real model timing and voice
 quality need a run with downloaded Ollama and Chatterbox models.
+The smoke command checks the running local server, real dialogue and speech,
+desktop and phone settings, and recovery into a fresh browser profile.

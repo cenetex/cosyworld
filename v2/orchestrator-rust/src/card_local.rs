@@ -10,6 +10,7 @@ use axum::{
 };
 use serde::Deserialize;
 use serde_json::json;
+use sha2::{Digest, Sha256};
 use std::{net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
 
 #[path = "card_local_saves.rs"]
@@ -100,6 +101,18 @@ pub(crate) async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>
 
 fn api(state: Arc<Config>) -> Router {
     Router::new()
+        .route("/health", get(|| async { Json(json!({"ok":true})) }))
+        .route(
+            "/meta",
+            get(|| async {
+                let mut meta =
+                    serde_json::to_value(super::metadata::GameMetadata::for_primary(true)).unwrap();
+                meta["service"] = json!("cosyworld-local");
+                meta["version"] = json!(env!("CARGO_PKG_VERSION"));
+                meta["card_game"]["play_modes"] = json!(["local"]);
+                Json(meta)
+            }),
+        )
         .route("/card-game/local", get(settings))
         .route("/card-game/local/speech", post(speech))
         .layer(DefaultBodyLimit::max(8 * 1024))
@@ -132,7 +145,8 @@ async fn local_origin(State(config): State<Arc<Config>>, request: Request, next:
 async fn settings(State(config): State<Arc<Config>>) -> Json<serde_json::Value> {
     Json(json!({
         "schema":1, "dialogueModel":config.model, "voiceModel":config.voice_model,
-        "voiceRevision":"chatterbox-v1", "voiceTimeoutMs":120000, "backups":true
+        "voiceRevision":format!("{:x}", Sha256::digest(config.speech_token.as_bytes())),
+        "voiceTimeoutMs":120000, "backups":true
     }))
 }
 

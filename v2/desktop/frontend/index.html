@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CosyWorld</title>
+    <link rel="stylesheet" href="style.css" />
+    <script type="module" src="app.mjs"></script>
+  </head>
+  <body>
+    <main>
+      <p class="eyebrow">A world on your computer</p>
+      <h1>CosyWorld</h1>
+      <p>
+        A quiet card world with people to meet, places to visit, and voices to
+        hear.
+      </p>
+      <form id="setup">
+        <label for="model">Dialogue model</label>
+        <input id="model" value="gemma3:4b" maxlength="160" required />
+        <label for="voice">Character voices</label>
+        <select id="voice">
+          <option value="turbo">Chatterbox Turbo</option>
+          <option value="nano">Chatterbox Nano</option>
+        </select>
+        <p>
+          First setup downloads the chosen models. Your game then runs on this
+          computer.
+        </p>
+        <button id="prepare" type="button">Prepare models</button>
+        <button id="play" type="submit">Play</button>
+      </form>
+      <p id="status" role="status" aria-live="polite">
+        Opening your local settings…
+      </p>
+      <p class="footnote">
+        Install
+        <a href="https://ollama.com/download" target="_blank" rel="noreferrer"
+          >Ollama</a
+        >
+        before the first setup. The app starts it when needed.
+      </p>
+    </main>
+  </body>
+</html>

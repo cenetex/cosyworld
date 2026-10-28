@@ -3,12 +3,18 @@ import argparse
 import hashlib
 import io
 import json
+import multiprocessing
 import os
 from pathlib import Path
 import secrets
 import threading
 import wave
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+MODEL_REVISIONS = {
+    "turbo": "749d1c1a46eb10492095d68fbcf55691ccf137cd",
+    "nano": "71ccd1d0081b430592cea481f4307e764e07bc64",
+}
 
 
 class SpeechEngine:
@@ -177,12 +183,29 @@ def create_server(address, token, engine):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=3111)
-    parser.add_argument("--voices", type=Path, required=True)
+    parser.add_argument("--voices", type=Path)
     parser.add_argument("--model", choices=["turbo", "nano"], default="turbo")
     parser.add_argument("--device", default="auto")
     parser.add_argument("--model-dir", type=Path)
-    parser.add_argument("--cache-dir", type=Path, required=True)
+    parser.add_argument("--cache-dir", type=Path)
+    parser.add_argument("--download-model", type=Path)
+    parser.add_argument("--smoke-voice", type=Path)
     args = parser.parse_args()
+    if args.download_model:
+        os.environ.pop("HF_HUB_OFFLINE", None)
+        from huggingface_hub import snapshot_download
+        snapshot_download(repo_id="ResembleAI/chatterbox-" + args.model,
+                          revision=MODEL_REVISIONS[args.model], local_dir=args.download_model,
+                          allow_patterns=["ve.safetensors", "s3gen_meanflow.safetensors",
+                                          f"t3_{args.model}_v1.safetensors", "*.json", "*.txt", "*.pt"])
+        return
+    if not args.voices or not args.cache_dir:
+        parser.error("Choose the character references and voice cache folder.")
+    if args.smoke_voice:
+        os.environ["HF_HUB_OFFLINE"] = "1"
+        engine = SpeechEngine(args.voices, args.model, args.device, args.model_dir)
+        args.smoke_voice.write_bytes(engine.generate("vale", "The lamp is warm. Come sit beside me."))
+        return
     token = os.environ.get("COSYWORLD_CHATTERBOX_TOKEN", "")
     if len(token) < 32:
         parser.error("Start Chatterbox through the CosyWorld launcher.")
@@ -200,4 +223,5 @@ def main():
 
 
 if __name__ == "__main__":
+    multiprocessing.freeze_support()
     main()

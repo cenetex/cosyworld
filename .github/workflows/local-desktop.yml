@@ -1,0 +1,84 @@
+name: Local desktop app
+
+on:
+  pull_request:
+    paths:
+      - "v2/desktop/**"
+      - "v2/local/**"
+      - "v2/card-game/**"
+      - "v2/orchestrator-rust/**"
+      - "package*.json"
+      - ".github/workflows/local-desktop.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: local-desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    name: Build and check the Mac app
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      CARGO_TARGET_DIR: ${{ github.workspace }}/.runtime/desktop-target
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
+      CARGO_INCREMENTAL: "0"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: v2/local/requirements-macos.lock
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install build tools
+        run: |
+          npm ci --no-audit --no-fund
+          python -m venv .runtime/local-python
+          .runtime/local-python/bin/python -m pip install --no-deps -r v2/local/requirements-macos.lock
+          echo "$GITHUB_WORKSPACE/.runtime/local-python/bin" >> "$GITHUB_PATH"
+      - name: Check local services and desktop source
+        run: |
+          npm run local:test
+          npx vitest run test/card-local-voice.test.mjs test/card-local-saves.test.mjs
+          cargo fmt --manifest-path v2/desktop/src-tauri/Cargo.toml --check
+      - name: Build the app and its helper programs
+        run: npm run desktop:build
+      - name: Check desktop service shutdown
+        run: cargo test --release --manifest-path v2/desktop/src-tauri/Cargo.toml
+      - name: Check the packaged voice engine with Nano on CPU
+        run: |
+          voice="$CARGO_TARGET_DIR/release/bundle/macos/CosyWorld.app/Contents/Resources/voice/cosyworld-voices/cosyworld-voices"
+          refs="$CARGO_TARGET_DIR/release/bundle/macos/CosyWorld.app/Contents/Resources/voices/voices.json"
+          "$voice" --model nano --download-model "$RUNNER_TEMP/cosy-nano"
+          "$voice" --model nano --model-dir "$RUNNER_TEMP/cosy-nano" --voices "$refs" --cache-dir "$RUNNER_TEMP/cosy-clips" --device cpu --smoke-voice "$RUNNER_TEMP/cosy-voice.wav"
+          python -c 'import os,wave; f=wave.open(os.environ["RUNNER_TEMP"]+"/cosy-voice.wav"); assert f.getnframes()>f.getframerate()'
+      - name: Check the packaged game and file recovery in a browser
+        run: |
+          npx playwright install chromium
+          game="$CARGO_TARGET_DIR/release/bundle/macos/CosyWorld.app/Contents/Resources/game/cosyworld-orchestrator"
+          export COSYWORLD_LOCAL_APP=1 COSYWORLD_PRIMARY_GAME=cards COSYWORLD_V2_ADDR=127.0.0.1:3110
+          export COSYWORLD_AI_BASE_URL=http://127.0.0.1:11434/v1 COSYWORLD_AI_MODEL=fixture
+          export COSYWORLD_CARD_TEXT_PROFILE=local COSYWORLD_LOCAL_DATA_DIR="$RUNNER_TEMP/local-game"
+          export COSYWORLD_CHATTERBOX_TOKEN=desktop-smoke-token-with-32-characters
+          "$game" > "$RUNNER_TEMP/local-game.log" 2>&1 &
+          game_pid=$!
+          trap 'kill "$game_pid" 2>/dev/null || true' EXIT
+          python -c 'import time,urllib.request; time.sleep(2); urllib.request.urlopen("http://127.0.0.1:3110/health")'
+          node v2/scripts/smoke-card-local.mjs
+      - name: Package the app
+        run: ditto -c -k --sequesterRsrc --keepParent "$CARGO_TARGET_DIR/release/bundle/macos/CosyWorld.app" CosyWorld-macos-arm64.zip
+      - uses: actions/upload-artifact@v7
+        with:
+          name: CosyWorld-macos-arm64
+          path: CosyWorld-macos-arm64.zip
+          retention-days: 14

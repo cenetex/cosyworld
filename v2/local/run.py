@@ -17,6 +17,8 @@ def local_environment(source, port, speech_port, token, data_dir):
     env = {key: value for key, value in source.items()
            if not key.startswith(("COSYWORLD_", "OPENROUTER_", "OPENAI_"))}
     model = source.get("COSYWORLD_LOCAL_MODEL", "gemma3:4b")
+    if model.endswith(":cloud"):
+        raise ValueError("Choose a downloaded local dialogue model.")
     ollama = source.get("OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
     from urllib.parse import urlparse
     parsed = urlparse(ollama)
@@ -45,6 +47,13 @@ def main():
             models = json.load(response).get("models", [])
         if not any(model["name"] == env["COSYWORLD_AI_MODEL"] for model in models):
             raise ValueError("Pull the chosen model with: ollama pull " + env["COSYWORLD_AI_MODEL"])
+        request = urllib.request.Request(ollama + "/api/show",
+            data=json.dumps({"model":env["COSYWORLD_AI_MODEL"]}).encode(),
+            headers={"Content-Type":"application/json"})
+        with urllib.request.urlopen(request, timeout=10) as response:
+            details = json.load(response)
+        if details.get("remote_model") or details.get("remote_host"):
+            raise ValueError("Choose a downloaded local dialogue model.")
     except OSError as error:
         raise ValueError("Start Ollama with: ollama serve") from error
     binary = os.environ.get("COSYWORLD_LOCAL_BINARY")
@@ -75,6 +84,16 @@ def main():
     try:
         children.append(subprocess.Popen(voice_command, env=env))
         children.append(subprocess.Popen([binary], env=env))
+        for _attempt in range(150):
+            if any(child.poll() is not None for child in children):
+                raise RuntimeError("A local service stopped. Check the messages above.")
+            try:
+                with urllib.request.urlopen(f"http://127.0.0.1:{port}/health", timeout=1):
+                    break
+            except OSError:
+                time.sleep(0.2)
+        else:
+            raise RuntimeError("The local game needs a restart. Check the messages above.")
         print(f"CosyWorld: http://127.0.0.1:{port}/", flush=True)
         while all(child.poll() is None for child in children):
             time.sleep(0.25)
