@@ -1836,7 +1836,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "scene-video.css" => "\"3c6851ec825e734e3d8a084f4ed77f077bcb4402acbf61869a67b652c3afe4c5\"",
         "awakening.css" => "\"c7a68a23baf1e46934237a57f4b5f87d76bad87af85fdf57ee40abec646908b9\"",
         "app.mjs" => "\"81f3a191e0c3d99ed7f4103294c4395ca07b8a746020cf030c5a00a79b8bd026\"",
-        "world.mjs" => "\"38c6f29d970aca7df8a14ff3d6b4cda91529b985e39734072bc19cac34a9f913\"",
+        "world.mjs" => "\"cd0f0636c49fee7f6e37e7a712fd867e1cfe00932829ad6a58f0c1e5ccba69f2\"",
         "scene.mjs" => "\"aba97eb70f26e75c9eaa4bcf71e3d8130f8bc5efc3df2b1a2567022959879d87\"",
         "weather.mjs" => "\"69a3e11642c43831f80581711f6113d814badd666ad2c3e3892a1a4c70a5fd27\"",
         "daylight.mjs" => "\"6e1bbbf92705e5e2ed904ca98666540ab9a91916c94e50749e649a0ba380170d\"",
@@ -1875,7 +1875,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "lessons.mjs" => "\"d356ccfd6d4bb622ea7e325ebae519f3ff37433013b04874f07f83865b883705\"",
         "motives.mjs" => "\"9e8b5b84a9a21761074c524f9295febaf1e03b92342f324a41e364c4d34950f1\"",
         "life.mjs" => "\"96bacb8052c8b77e11eb733edfe075f25f2e6e38ceb8f153280f4d974cb74c5c\"",
-        "quests.mjs" => "\"244a1c39ed8aceea24af9eca1c3bd8e9155a23200891a7c659ce01a0de4a6e49\"",
+        "quests.mjs" => "\"db627d2ba343da74cedd4d0032b9994359881c309d1fa1b779dd6657dad0390a\"",
         "quest-offers.mjs" => {
             "\"6f0ef71f7042254df8b93dde9c928c44e5ac5914f32acfee02617668dd7b4873\""
         }

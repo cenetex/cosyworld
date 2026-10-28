@@ -14482,6 +14482,7 @@
       }
     }
   }
+  var resolvePlaces = (places2) => typeof places2 === "function" ? places2() : places2;
   function ensureCollectedQuest(s, actor, places2, things2) {
     const life = lifeOf(s, actor), c = collectionOf(s, actor);
     if (!c) return false;
@@ -14503,7 +14504,12 @@
       (q) => q.completedTurn === null && questCarried(s, actor, q.key)
     );
     if (!pending.length && life.phase === "active" && canOfferQuest(s, actor)) {
-      const program = generateProgram(structuredClone(s), actor, places2, things2);
+      const program = generateProgram(
+        structuredClone(s),
+        actor,
+        resolvePlaces(places2),
+        things2
+      );
       addQuest(s, actor, program, life.origin || null);
       pending = collectionCards(s, actor).filter(
         (q) => q.completedTurn === null && questCarried(s, actor, q.key)
@@ -14553,7 +14559,12 @@
     for (const experience of experiences.sort((a, b) => b.turn - a.turn)) {
       const probe = structuredClone(s);
       lifeOf(probe, actor).origin = experience;
-      const program = generateProgram(probe, actor, places2, things2);
+      const program = generateProgram(
+        probe,
+        actor,
+        resolvePlaces(places2),
+        things2
+      );
       if (!canOfferQuest(s, actor, program)) continue;
       if (addQuest(s, actor, program, experience)) break;
     }
@@ -16032,9 +16043,10 @@
     captureQuestHands(s, met, { actorIds, handStatus });
   }
   function ensurePrograms(s) {
+    const placesForGeneration = () => programPlaces(s);
     for (const actor of actorIds.filter((id) => !isPackActor(id))) {
       const p = s.actors[actor].progress;
-      if (ensureCollectedQuest(s, actor, programPlaces(s), things)) continue;
+      if (ensureCollectedQuest(s, actor, placesForGeneration, things)) continue;
       if (p.program >= programsFor(s, actor).length && !p.current) {
         p.completedHands ??= programsFor(s, actor).reduce(
           (n, program) => n + program.steps.length,
@@ -17481,7 +17493,7 @@
       );
     }
     for (const id of knownActors(next))
-      collectExperienceQuests(next, id, programPlaces(next), things);
+      collectExperienceQuests(next, id, () => programPlaces(next), things);
     ensurePrograms(next);
     refreshStalledPrograms(next);
     for (const [id, allowance] of Object.entries(
