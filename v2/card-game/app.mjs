@@ -2244,6 +2244,7 @@ function render() {
       samePlace =
         renderedHand &&
         renderedHandPlace === world.actors[currentActor(world)].place,
+      arriving = renderedHandPlace !== null && !samePlace,
       animate = samePlace && !reducedMotion.matches,
       before = new Map();
     if (animate)
@@ -2270,6 +2271,7 @@ function render() {
       );
     $("hand").scrollLeft = samePlace ? scroll : 0;
     renderActions(animate);
+    if (arriving) revealHandCard(renderedHandPlace, true, true);
     if (animate)
       for (const frame of $("hand").children) {
         if (frame.hidden) continue;
@@ -2305,7 +2307,7 @@ function render() {
       ?.focus({ preventScroll: true });
   }
 }
-function revealHandCard(id, alignStart = false) {
+function revealHandCard(id, alignStart = false, instant = false) {
   const hand = $("hand"),
     frame = hand.querySelector(`[data-card="${id}"]`)?.closest(".card-frame");
   if (!frame || frame.hidden) return;
@@ -2321,7 +2323,7 @@ function revealHandCard(id, alignStart = false) {
         : hand.scrollLeft;
   hand.scrollTo({
     left: target,
-    behavior: reducedMotion.matches ? "instant" : "smooth",
+    behavior: instant || reducedMotion.matches ? "instant" : "smooth",
   });
 }
 new ResizeObserver(([entry]) => {
