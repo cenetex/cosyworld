@@ -2016,7 +2016,14 @@ function toward(s, actor, target) {
   );
 }
 export function plan(s, actor = currentActor(s)) {
-  return reconsiderPlan(s, actor, basePlan(s, actor), legalActions(s, actor));
+  return reconsiderPlan(
+    s,
+    actor,
+    basePlan(s, actor),
+    legalActions(s, actor).filter(
+      (a) => a.kind !== "trade" || !needed(s, actor, a.item),
+    ),
+  );
 }
 function basePlan(s, actor) {
   const help = !staysPut(actor) && roamingHelpPlan(s, actor, roamingAPI(s));

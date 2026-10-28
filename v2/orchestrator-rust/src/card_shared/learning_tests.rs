@@ -70,3 +70,102 @@ fn version_twelve_history_replays_before_the_saved_learning_upgrade() {
     c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
     assert_eq!(full_store::world(&c, &id, now()).unwrap(), upgraded);
 }
+
+#[test]
+fn publication_keeps_reflection_private_after_disconnect_and_duplicate_finish() {
+    let (path, mut c, id) = fixture();
+    claim(&mut c, &id, 0);
+    let mut queued = body("play", None);
+    queued.key = "learning-publication".into();
+    queued.action = home_action(&full_store::world(&c, &id, now()).unwrap(), 0, "light");
+    full::run(&c, &id, "user0", &queued, now()).unwrap();
+    let app = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
+    let work = full::take_work(&app, &id).unwrap().unwrap();
+    let duplicate = full::Work {
+        id: work.id.clone(),
+        room: work.room.clone(),
+        actor: work.actor,
+        context: work.context.clone(),
+        attempt: work.attempt,
+    };
+    let (_, ids) = full_speech::prepared(0, &work.context).unwrap();
+    let evidence: Vec<_> = work.context["context"]["entities"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["id"] == "vale")
+        .unwrap()["memories"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|e| e["kind"] == "event")
+        .map(|e| e["seq"].clone())
+        .collect();
+    let entries: Vec<_> = ids.iter().map(|id| if id=="vale" {
+        json!({"id":id,"text":"I can see the shore.","model":"voice-model","reflection":{"thought":"I will care for what I carry.","persona":"A private revised persona.","evidence":evidence,"models":{"thought":"thought-model","persona":"persona-model"}}})
+    } else {json!({"id":id,"text":"Mist gathers by the water."})}).collect();
+    let lines = full_speech::parse(
+        &json!({"entries":entries}).to_string(),
+        "stop",
+        &work.context,
+        &ids,
+    )
+    .unwrap();
+    let mut w = full_store::world(&c, &id, now()).unwrap();
+    full_store::commit(&c, &id, &mut w, json!({"op":"leave","actor":"vale"}), now()).unwrap();
+    full::finish_work(&app, &id, work, Ok(lines)).unwrap();
+    let expected = full_store::world(&c, &id, now()).unwrap();
+    assert_eq!(
+        expected.game["memories"]["vale"]["innerLife"]["persona"],
+        "A private revised persona."
+    );
+    full::finish_work(&app, &id, duplicate, Err("Late duplicate".into())).unwrap();
+    assert_eq!(full_store::world(&c, &id, now()).unwrap(), expected);
+    let scene: String = c
+        .query_row(
+            "SELECT content FROM card_full_scenes WHERE world=?",
+            [&id],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert!(!scene.contains("private revised persona"));
+    c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+    assert_eq!(full_store::world(&c, &id, now()).unwrap(), expected);
+}
+
+#[test]
+fn shared_request_lessons_replay_from_their_completed_action() {
+    let (_path, c, id) = fixture();
+    c.execute("DELETE FROM card_full_log WHERE world=?", [&id])
+        .unwrap();
+    c.execute("DELETE FROM card_full_checkpoints WHERE world=?", [&id])
+        .unwrap();
+    let mut w = World::create(None).unwrap();
+    w.game["actors"]["keeper"]["place"] = w.game["actors"]["vale"]["place"].clone();
+    w.game["opening"]["met"]["keeper"] = json!(0);
+    w.apply(&json!({"op":"claim","actor":"vale"})).unwrap();
+    w.apply(&json!({"op":"enter","actor":"vale"})).unwrap();
+    full_store::seed(&c, &id, &w, "learning-fixture", now()).unwrap();
+    let action = w.project(0).unwrap()["actions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|a| a["kind"] == "ask" && a["item"] == "oil")
+        .unwrap()
+        .clone();
+    full_store::commit(
+        &c,
+        &id,
+        &mut w,
+        json!({"op":"play","actor":"vale","action":action}),
+        now(),
+    )
+    .unwrap();
+    assert_eq!(w.game["memories"]["vale"]["learning"][0]["observed"], false);
+    assert_eq!(
+        w.game["memories"]["vale"]["learning"][0]["strategy"],
+        "offer_trade"
+    );
+    c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+    assert_eq!(full_store::world(&c, &id, now()).unwrap(), w);
+}

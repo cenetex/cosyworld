@@ -11986,7 +11986,7 @@
     if (!world.memories || Object.keys(world.memories).sort().join() !== Object.keys(profiles).sort().join())
       return false;
     return Object.entries(world.memories).every(([id, memory]) => {
-      if (!validInnerLife(memory?.innerLife, world.turn) || !validLearning(world, id, memory?.learning, profiles) || !validReflections(world, memory?.reflections) || profiles[id].kind !== "avatar" && memory?.innerLife != null)
+      if (!validInnerLife(memory?.innerLife, world.turn) || !validLearning(world, id, memory?.learning, profiles) || !validReflections(world, id, memory?.reflections) || profiles[id].kind !== "avatar" && memory?.innerLife != null)
         return false;
       if (!memory || !Array.isArray(memory.events) || memory.events.length > MEMORY_LIMIT)
         return false;
@@ -12005,12 +12005,17 @@
       );
     });
   }
-  function validReflections(world, history) {
+  function validReflections(world, id, history) {
     if (history === void 0) return true;
     const text = (s, max) => typeof s === "string" && s.trim() && s.length <= max && !/[\u0000-\u001f\u007f]/u.test(s);
-    return Array.isArray(history) && history.length <= 4 && history.every(
+    return profiles[id].kind === "avatar" && Array.isArray(history) && history.length <= 4 && (!history.length || world.memories[id].innerLife?.persona === history.at(-1).persona && world.memories[id].innerLife?.thoughts.at(-1)?.text === history.at(-1).thought) && history.every(
       (r, i) => r && Number.isSafeInteger(r.turn) && r.turn > 0 && r.turn <= world.turn && (!i || history[i - 1].turn < r.turn) && (r.previousPersona === null || text(r.previousPersona, 600)) && text(r.persona, 600) && text(r.thought, 400) && (r.dream === null || text(r.dream, 400)) && Array.isArray(r.sources) && r.sources.length > 0 && r.sources.length <= 6 && r.sources.every(
-        (e, j) => Number.isSafeInteger(e.seq) && e.seq > 0 && e.seq <= world.eventSeq && (!j || r.sources[j - 1].seq < e.seq) && Number.isSafeInteger(e.turn) && e.turn <= r.turn && text(e.text, 650)
+        (e, j) => Number.isSafeInteger(e.seq) && e.seq > 0 && e.seq <= world.eventSeq && (!j || r.sources[j - 1].seq < e.seq) && Number.isSafeInteger(e.turn) && e.turn >= 0 && e.turn <= r.turn && text(e.text, 650) && [
+          ...world.memories[id].events,
+          ...world.memories[id].landmarks || []
+        ].filter((saved) => saved.seq === e.seq).every(
+          (saved) => saved.kind === "event" && saved.turn === e.turn && saved.text === e.text
+        )
       ) && r.models && ["thought", "persona"].every((k) => text(r.models[k], 160)) && Object.entries(r.models).every(
         ([k, v]) => ["thought", "persona", "dream"].includes(k) && text(v, 160)
       )
@@ -14936,7 +14941,14 @@
     );
   }
   function plan(s, actor = currentActor(s)) {
-    return reconsiderPlan(s, actor, basePlan(s, actor), legalActions(s, actor));
+    return reconsiderPlan(
+      s,
+      actor,
+      basePlan(s, actor),
+      legalActions(s, actor).filter(
+        (a) => a.kind !== "trade" || !needed(s, actor, a.item)
+      )
+    );
   }
   function basePlan(s, actor) {
     const help = !staysPut(actor) && roamingHelpPlan(s, actor, roamingAPI(s));

@@ -124,6 +124,10 @@ describe("avatar learning", () => {
     expect(audit.models.persona).toBe("persona-model");
     expect(audit.models.thought).toBe("thought-model");
     expect(decodeSave(encodeSave(next))).toEqual(next);
+    const altered = structuredClone(next);
+    altered.memories.vale.reflections[0].sources[0].text =
+      "An invented encounter.";
+    expect(() => decodeSave(JSON.stringify(altered))).toThrow();
     response.entries.find((e) => e.id === "vale").reflection.evidence = [
       999999,
     ];

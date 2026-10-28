@@ -102,7 +102,7 @@ export function validMemories(world) {
     if (
       !validInnerLife(memory?.innerLife, world.turn) ||
       !validLearning(world, id, memory?.learning, profiles) ||
-      !validReflections(world, memory?.reflections) ||
+      !validReflections(world, id, memory?.reflections) ||
       (profiles[id].kind !== "avatar" && memory?.innerLife != null)
     )
       return false;
@@ -168,7 +168,7 @@ export function validMemories(world) {
 }
 
 // Keep the evidence and earlier persona beside each accepted revision.
-function validReflections(world, history) {
+function validReflections(world, id, history) {
   if (history === undefined) return true;
   const text = (s, max) =>
     typeof s === "string" &&
@@ -176,8 +176,13 @@ function validReflections(world, history) {
     s.length <= max &&
     !/[\u0000-\u001f\u007f]/u.test(s);
   return (
+    profiles[id].kind === "avatar" &&
     Array.isArray(history) &&
     history.length <= 4 &&
+    (!history.length ||
+      (world.memories[id].innerLife?.persona === history.at(-1).persona &&
+        world.memories[id].innerLife?.thoughts.at(-1)?.text ===
+          history.at(-1).thought)) &&
     history.every(
       (r, i) =>
         r &&
@@ -199,8 +204,20 @@ function validReflections(world, history) {
             e.seq <= world.eventSeq &&
             (!j || r.sources[j - 1].seq < e.seq) &&
             Number.isSafeInteger(e.turn) &&
+            e.turn >= 0 &&
             e.turn <= r.turn &&
-            text(e.text, 650),
+            text(e.text, 650) &&
+            [
+              ...world.memories[id].events,
+              ...(world.memories[id].landmarks || []),
+            ]
+              .filter((saved) => saved.seq === e.seq)
+              .every(
+                (saved) =>
+                  saved.kind === "event" &&
+                  saved.turn === e.turn &&
+                  saved.text === e.text,
+              ),
         ) &&
         r.models &&
         ["thought", "persona"].every((k) => text(r.models[k], 160)) &&
