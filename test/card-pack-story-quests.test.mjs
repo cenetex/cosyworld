@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import compiled from "../v2/card-game/packs.json" with { type: "json" };
+import greekSource from "../v2/content/greek-drama/card-world.json" with { type: "json" };
 import { packProblems } from "../v2/card-game/pack-schema.mjs";
 import { storyQuestProblems } from "../v2/card-game/pack-story-schema.mjs";
 import {
@@ -259,9 +260,12 @@ describe("pack disclosure declarations", () => {
       compiled.packs.flatMap((p) => Object.keys(p.places)),
     );
   it("validates every migrated story and disclosure", () => {
-    expect(problems(greek())).toEqual([]);
-    expect(greek().storyQuests).toHaveLength(37);
-    expect(greek().topics).toHaveLength(41);
+    const pack = greek();
+    expect(problems(pack)).toEqual([]);
+    for (const field of ["storyQuests", "topics"])
+      expect(pack[field].map(({ id }) => id)).toEqual(
+        greekSource[field].map(({ id }) => id),
+      );
   });
   it("allows an authored choice to require its actor's learned topic", () => {
     const pack = greek();
