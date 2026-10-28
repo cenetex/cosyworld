@@ -1763,10 +1763,10 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "media.mjs" => "\"9b56957b0e44c39ed8f3bfbb200ce3524646f62cf83fa775fc89dc2a62dc133b\"",
         "images.mjs" => "\"400bd04904821d5b21e24790f71cf89836e5a2aabb8662b963637de77b3fd612\"",
         "image-variants.json" => {
-            "\"366af7d0b1c98ed0ebb8a40daad77fab156dc944a35df5dd4bf469f3cc81a76f\""
+            "\"301081e15de42f1870797274ad591725fb69678531dd644b5957277b297a9100\""
         }
         "media-manifest.json" => {
-            "\"1898ba838dae3d7aeaab4e03dbbdbdce1d5d0d59580839516a01903ac6647294\""
+            "\"f36a647c889209aa76240ff93f28c39c8319bd98aa15ef709727663a14989a32\""
         }
         "music-streams.json" => {
             "\"187db53c1c129d1505da26c18fd2384e62b9b357c91e33fd2e954bf0b7a29904\""
@@ -2375,7 +2375,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
             "\"faaecf72cc918006ea84819ef8f56e2b14034195f6edb46b302f01b509deb8a3\""
         }
         "assets/willows/swede.webp" => {
-            "\"891fbaf90aef1e610015ccb9f61505c655b68ebcbffe426661c343fc5d0379da\""
+            "\"b29d85b8a68d2c15ff68033b5b1bc244875b05adfda3aa3ab2ec96f387f44c4f\""
         }
         "assets/boardyai/parlour.png" => {
             "\"5221b36927a1e97ae2eb14e3dd5eeb8ce01f1557f44078d0ee700883e187c33d\""
@@ -2909,7 +2909,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
             "\"18b60f08718ce5279594703c9412225680f64d9f89d0fe535d17c581dce9af04\""
         }
         "assets/optimized/card/webp/willows/swede.webp" => {
-            "\"c9c6a62c19da4dbb8a19bcab99b7e54472e9891d1b9106cf90480e24733c0892\""
+            "\"f10b982e4be3e9a819d5e909350d7d0df8369e5323e3cc800c255039e097da43\""
         }
         "assets/optimized/card/webp/willows/thicket.webp" => {
             "\"1e86395ab9425d4083a138e3e7fe2a72fbd71370685182d309c20c2b1b4c3646\""
