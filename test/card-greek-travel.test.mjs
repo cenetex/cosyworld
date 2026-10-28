@@ -205,7 +205,9 @@ describe("Greek ports and fixed roads", () => {
         });
       expect(current.items).toMatchObject(old.items);
       expect(current.transports).toEqual(old.transports);
-      expect(current.packs["greek-drama"].revision).toBe(7);
+      expect(current.packs["greek-drama"].revision).toBe(
+        packDefinition("greek-drama").revision,
+      );
       for (const [id, memory] of Object.entries(old.memories)) {
         const { seen, ...retained } = current.memories[id];
         expect(retained).toEqual(memory);

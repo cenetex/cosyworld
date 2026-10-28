@@ -225,7 +225,9 @@ describe("Ajax save continuity", () => {
       before.actors.vale.place = "greek-greek-camp";
       before.items.lamp.holder = "vale";
       const after = decodeSave(JSON.stringify(before));
-      expect(after.packs["greek-drama"].revision).toBe(7);
+      expect(after.packs["greek-drama"].revision).toBe(
+        packDefinition("greek-drama").revision,
+      );
       expect(after.actors.vale.place).toBe("greek-greek-camp");
       expect(after.items.lamp).toEqual(before.items.lamp);
       expect(after.log).toEqual(before.log);

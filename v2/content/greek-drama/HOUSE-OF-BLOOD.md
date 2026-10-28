@@ -85,8 +85,12 @@ while preserving saved custody, source choices and receipts. The coordinator
 will join the revision 8 ID lists with the other books.
 
 This draft reuses the existing Greek portraits, object art and backdrops.
-The source catalog compiles into `v2/card-game/packs.json`. The current shared
-interpreter must be rebuilt after the source is settled.
+The source catalog compiles into `v2/card-game/packs.json`. The current rules 21 interpreter and Rust card assets are generated from this
+source. [HOUSE-OF-BLOOD-ART.json](HOUSE-OF-BLOOD-ART.json) records the proposed
+18 portrait files for the 20 roles and three scenery files for the art queue.
+The local temple/shore walk remains part of the Tauris chapter. The combined
+ship map will bind its landing to `greek-tauris-shore` and replace this draft
+branch's Piraeus/temple entry edge.
 
 ## Sources
 
@@ -103,7 +107,16 @@ dialogue and verse are original paraphrases.
 
 ## Validation status
 
-The pack compiler and whitespace check pass for the initial source draft.
-Focused journey, save, authorship and browser checks are being added. The
-release coordinator has reserved the larger JavaScript and native test runs
-for the shared release window. This PR stays in draft until those checks pass.
+- `node v2/scripts/build-card-worldpacks.mjs` — passed.
+- `node v2/scripts/build-card-shared-engine.mjs` — rebuilt rules 21.
+- `node v2/scripts/build-card-assets.mjs` — rebuilt 664 card assets.
+- `node node_modules/vitest/vitest.mjs run test/card-greek-house-of-blood.test.mjs --maxWorkers=1 --minWorkers=1` — 40 passed. These include all 21 endings and returns, six engine-20 household saves, actual arrival and custody, separate assent, first meeting authorship, second carrier publication, stable shared actor ordering and seven bundled-interpreter comparisons.
+- Targeted historical save cases in the Ajax, capacity, section-upgrade and travel test files — 11 passed.
+- `node v2/scripts/smoke-card-house-of-blood.mjs` — refuge and keeper paths passed at 1440px and 390px, with actual card pairing, published Talk, carried return, reload, viewport fit and loaded art.
+- `git diff --check` — passed.
+
+The native journal test is in `house_of_blood_tests.rs`. It covers the agreed
+refuge arrival, a second carrier's source hearing and return, and replay after
+checkpoint removal. Its run awaits the shared native test window. The full
+JavaScript and native suites remain assigned to that release window. This PR
+stays in draft through the final combined checks.
