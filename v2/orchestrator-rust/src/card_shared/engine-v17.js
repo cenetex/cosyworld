@@ -16306,7 +16306,9 @@
     while (queue.length) {
       const route = queue.shift();
       if (route.at(-1) === target) return route;
-      for (const next of exits(s, route.at(-1), actor, route.at(-2)))
+      const here = route.at(-1);
+      const projected = s.actors[actor] && s.actors[actor].place !== here ? { ...s, actors: { ...s.actors, [actor]: { ...s.actors[actor], place: here } } } : s;
+      for (const next of exits(projected, here, actor, route.at(-2)))
         if (!visited.has(next)) {
           visited.add(next);
           queue.push([...route, next]);
@@ -16319,6 +16321,12 @@
     const actions = legalActions(s, actor);
     if (route)
       return actions.find((a) => a.kind === "move" && a.target === route[1]);
+    for (const [home2, gate] of Object.entries(homeGates)) {
+      if (here === home2 || !routeBetween(s, gate.rescue, target, actor)) continue;
+      const approach = routeBetween(s, here, home2, actor);
+      if (approach?.length > 1)
+        return actions.find((a) => a.kind === "move" && a.target === approach[1]);
+    }
     if (target !== "attic" && here !== "attic") return;
     const find = (kind, item) => actions.find((a) => a.kind === kind && a.item === item);
     const take = find("take", "lamp");
