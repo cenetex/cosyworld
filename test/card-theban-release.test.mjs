@@ -45,6 +45,15 @@ const openDoorPlaces = [
   "greek-marathon",
 ];
 const sectionPlaces = pack.sections.flatMap((section) => section.places);
+const ajaxPlaces = pack.sections.find(
+  (section) => section.id === "greek-ajax",
+).places;
+const openDoorReleasedPlaces = pack.release.places.filter(
+  (id) =>
+    !["greek-road-thebes", "greek-road-athens-harbor", ...ajaxPlaces].includes(
+      id,
+    ),
+);
 const openDoorItems = [
   "greek-burial-petition",
   "greek-return-cloths",
@@ -93,7 +102,7 @@ describe("the Theban release and its ship", () => {
     s.crossings["pond-greek-harbor"].discovered = true;
     expect(reachable(s)).toEqual([...openingPlaces].sort());
     expect(reachable(s)).toHaveLength(8);
-    expect(pack.release.places).toHaveLength(23);
+    expect(pack.release.places).toHaveLength(27);
     expect(
       pack.release.places
         .filter(
@@ -121,24 +130,10 @@ describe("the Theban release and its ship", () => {
     s = act(s, "choose", { choiceId: "greek-courtyard-refusal" });
     expect(reachable(s)).toHaveLength(8);
     s = act(s, "choose", { choiceId: "greek-open-door-invite-refusal" });
-    expect(reachable(s)).toEqual(
-      pack.release.places
-        .filter(
-          (id) =>
-            !["greek-road-thebes", "greek-road-athens-harbor"].includes(id),
-        )
-        .sort(),
-    );
+    expect(reachable(s)).toEqual([...openDoorReleasedPlaces].sort());
     expect(reachable(s)).toHaveLength(21);
     s = decodeSave(encodeSave(s));
-    expect(reachable(s)).toEqual(
-      pack.release.places
-        .filter(
-          (id) =>
-            !["greek-road-thebes", "greek-road-athens-harbor"].includes(id),
-        )
-        .sort(),
-    );
+    expect(reachable(s)).toEqual([...openDoorReleasedPlaces].sort());
     for (const start of openDoorPlaces) {
       const trip = structuredClone(s);
       trip.transports["greek-ship"].dock = "greek-athens-harbor";
@@ -162,7 +157,7 @@ describe("the Theban release and its ship", () => {
       ).toBe(false);
     }
     expect(pack.works).toHaveLength(44);
-    expect(Object.keys(pack.places)).toHaveLength(60);
+    expect(Object.keys(pack.places)).toHaveLength(63);
   });
   it("preserves opening scope through reloads", () => {
     let s = createWorld();
@@ -219,6 +214,7 @@ describe("the Theban release and its ship", () => {
         "routes",
         "shears",
         ...openDoorItems,
+        ...Object.keys(pack.items).filter((id) => id.startsWith("greek-ajax-")),
         ...Object.keys(packDefinition("hoppycat-archive").items),
         ...Object.keys(packDefinition("willows").items),
       ].sort(),

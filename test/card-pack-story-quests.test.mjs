@@ -260,8 +260,8 @@ describe("pack disclosure declarations", () => {
     );
   it("validates every migrated story and disclosure", () => {
     expect(problems(greek())).toEqual([]);
-    expect(greek().storyQuests).toHaveLength(17);
-    expect(greek().topics).toHaveLength(14);
+    expect(greek().storyQuests).toHaveLength(21);
+    expect(greek().topics).toHaveLength(18);
   });
   it("allows an authored choice to require its actor's learned topic", () => {
     const pack = greek();
