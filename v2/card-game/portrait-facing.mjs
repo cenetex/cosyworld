@@ -18,6 +18,9 @@ const groups = {
     "assets/moth.png",
     "assets/keeper.png",
     "assets/greek-drama/myrine.webp",
+    ...["tecmessa", "teucer", "odysseus"].map(
+      (name) => `assets/greek-drama/ajax-${name}.png`,
+    ),
     ...[
       "antigone",
       "ismene",

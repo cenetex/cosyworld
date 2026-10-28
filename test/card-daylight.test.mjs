@@ -116,7 +116,6 @@ describe("day and night in Thebes", () => {
     for (const place of [
       "greek-aulis",
       "greek-argos-sanctuary",
-      "greek-greek-camp",
       "greek-thrace",
     ]) {
       const day = backdrop(place, world);
@@ -124,6 +123,28 @@ describe("day and night in Thebes", () => {
       expect(locationDaylight(world, place)).toBeNull();
       expect(backdrop(place, world)).toBe(day);
       world.turn = world.revision = 0;
+    }
+  });
+
+  it("gives the Trojan camp's local places a shared day and night", () => {
+    const world = createWorld({ packScopes: { "greek-drama": "full" } });
+    for (const place of [
+      "greek-greek-camp",
+      "greek-ajax-landing",
+      "greek-ajax-household",
+      "greek-ajax-grave",
+    ]) {
+      world.turn = world.revision = 0;
+      expect(backdrop(place, world)).toBe(
+        "./assets/greek-drama/ajax-camp-day.webp",
+      );
+      world.turn = world.revision = DAYLIGHT_TURNS;
+      expect(backdrop(place, world)).toBe(
+        "./assets/greek-drama/ajax-camp-night.webp",
+      );
+      expect(locationDaylight(world, place).description).toBe(
+        "It is night at the Greek camp near Troy.",
+      );
     }
   });
 

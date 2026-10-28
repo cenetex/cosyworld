@@ -93,6 +93,9 @@ export function upgradeSave(
     upgradeTransportSave(s);
     upgradeGreekSectionSave(s);
     upgradeGreekHomecomingSave(s);
+    upgradeGreekRoadSave(s);
+    upgradeGreekTownSave(s);
+    upgradeGreekAjaxSave(s);
     s.schema = 7;
     installPacks(s);
   } else if (
@@ -105,12 +108,13 @@ export function upgradeSave(
     upgradeTransportSave(s);
     upgradeGreekSectionSave(s);
     upgradeGreekHomecomingSave(s);
+    upgradeGreekRoadSave(s);
+    upgradeGreekTownSave(s);
+    upgradeGreekAjaxSave(s);
     // A pack mounted after this save was written joins it fresh.
     installPacks(s);
   }
   if (s?.schema === 7) {
-    upgradeGreekRoadSave(s);
-    upgradeGreekTownSave(s);
     upgradeShoreRouteSave(s);
     upgradeBoardingSave(s);
     upgradeRecitals(s, packDefinitions);
@@ -271,6 +275,33 @@ export function upgradeGreekTownSave(s) {
     (conflict) => !localRoadEnds(conflict.location),
   );
   saved.revision = 6;
+}
+
+// Revision 7 adds the invited Trojan account while earlier journeys retain
+// their cast, belongings, access and recorded choices.
+export function upgradeGreekAjaxSave(s) {
+  const pack = packDefinitions.find((p) => p.id === "greek-drama");
+  const saved = s.packs?.[pack?.id];
+  if (!pack || pack.revision < 7 || saved?.revision !== 6) return;
+  addGreekEntities(
+    s,
+    pack,
+    ["greek-ajax-tecmessa", "greek-ajax-teucer", "greek-ajax-odysseus"],
+    [
+      "greek-ajax-shield",
+      "greek-ajax-plea",
+      "greek-ajax-cloth",
+      "greek-ajax-tools",
+    ],
+  );
+  const fresh = newMemories();
+  for (const id of [
+    "greek-ajax-landing",
+    "greek-ajax-household",
+    "greek-ajax-grave",
+  ])
+    s.memories[id] ??= fresh[id];
+  saved.revision = 7;
 }
 
 // Revision 3 adds these residents and objects. Earlier records keep their

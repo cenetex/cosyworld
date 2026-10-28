@@ -5,6 +5,11 @@ const willowsItems = Object.fromEntries(
     { holder: item.holder, history: [] },
   ]),
 );
+const ajaxItems = Object.fromEntries(
+  Object.entries(currentPackDefinition("greek-drama").items)
+    .filter(([id]) => id.startsWith("greek-ajax-"))
+    .map(([id, item]) => [id, { holder: item.holder, history: [] }]),
+);
 import { entityActive } from "../v2/card-game/pack-registry.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 import hoppycat from "../v2/content/hoppycat-archive/card-world.json" with { type: "json" };
@@ -196,7 +201,7 @@ describe("the side roads in earlier saved worlds", () => {
       }
       expect(world.packs["greek-drama"].revision).toBe(3);
       const restored = decodeSave(JSON.stringify(world));
-      expect(restored.packs["greek-drama"].revision).toBe(6);
+      expect(restored.packs["greek-drama"].revision).toBe(7);
       for (const key of ["choices", "flags", "receipts", "recitals"])
         expect(restored.packs["greek-drama"][key]).toEqual(
           world.packs["greek-drama"][key],
@@ -204,6 +209,7 @@ describe("the side roads in earlier saved worlds", () => {
       expect(restored.items).toEqual({
         ...world.items,
         ...willowsItems,
+        ...ajaxItems,
         "boardyai-calling-card": { holder: "pond", history: [] },
         ...Object.fromEntries(
           Object.entries(hoppycat.items).map(([id, item]) => [

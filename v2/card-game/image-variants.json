@@ -70,6 +70,48 @@
       "card": "assets/optimized/card/png/cloth-card.webp",
       "cardHash": "04c5b7bc38b5f7b9c98eb452b61fe22c0c29944efecc0535f0fc2c83c8f96b59"
     },
+    "assets/greek-drama/ajax-camp-day.webp": {
+      "sourceHash": "846fd6875ded126c01eb4108247d5b94c5a0c6fbf2f9909ff42dafe21ebfbe77",
+      "stage": "assets/greek-drama/ajax-camp-day.webp",
+      "stageHash": "846fd6875ded126c01eb4108247d5b94c5a0c6fbf2f9909ff42dafe21ebfbe77",
+      "card": "assets/optimized/card/webp/greek-drama/ajax-camp-day.webp",
+      "cardHash": "622d2a539c65aa7888eb992970a3c010254e3072d1e45ef9d8ccc4ae72b0e13b"
+    },
+    "assets/greek-drama/ajax-camp-night.webp": {
+      "sourceHash": "45dd0233ac83a755d6f4aa645683c77aa1959d4f68128668f4a11cb9a61a2bbb",
+      "stage": "assets/greek-drama/ajax-camp-night.webp",
+      "stageHash": "45dd0233ac83a755d6f4aa645683c77aa1959d4f68128668f4a11cb9a61a2bbb",
+      "card": "assets/optimized/card/webp/greek-drama/ajax-camp-night.webp",
+      "cardHash": "c169dc069d85fd3fb7b44db6273e43b2ca6c29824a4678e72e5da0b2e18df495"
+    },
+    "assets/greek-drama/ajax-odysseus.png": {
+      "sourceHash": "1434a77416bccea91a6b81c66eb96e00040f886a49407129c17bd6b5ccc1ab62",
+      "stage": "assets/optimized/stage/png/greek-drama/ajax-odysseus.webp",
+      "stageHash": "27fa7cab152938545d4ef05be7a5619a2fab36c207db40117fc0306a7203564f",
+      "card": "assets/optimized/card/png/greek-drama/ajax-odysseus.webp",
+      "cardHash": "faa49c6bd0d50170d80df385e2354f6d0facfb3be83c07a3eb428da68f4ab2c0"
+    },
+    "assets/greek-drama/ajax-shield.png": {
+      "sourceHash": "80198b6f8bb826b2a15a455ecf0e8a393904a72afa5bc793bb54fa006a231f23",
+      "stage": "assets/optimized/stage/png/greek-drama/ajax-shield.webp",
+      "stageHash": "852d798ff011644bac7aa1baa12660aa8f2290bcdba635f1689c9115bca3a794",
+      "card": "assets/optimized/card/png/greek-drama/ajax-shield.webp",
+      "cardHash": "5747bed7f089d74408b7146bf5001b176b16574375a2b79d618a82bdfd55a26b"
+    },
+    "assets/greek-drama/ajax-tecmessa.png": {
+      "sourceHash": "f1f7c057b83a5a7c681d2b4446901e2e0b40998f0fd91c0de5a2bbc9b0fe7c09",
+      "stage": "assets/optimized/stage/png/greek-drama/ajax-tecmessa.webp",
+      "stageHash": "f5408e46a9a6b5233d9b5b4de1cb478944880dec0b2b7cc95fc1c2ab749b9c0c",
+      "card": "assets/optimized/card/png/greek-drama/ajax-tecmessa.webp",
+      "cardHash": "36d23b33d82f89b4ce6ece5c6864a4e783d96b16980f53f6599f8aac578ff282"
+    },
+    "assets/greek-drama/ajax-teucer.png": {
+      "sourceHash": "b27ccde3bf5b45d23cfb0d5a1047d61420aaf65a1efac7d0f7797f2a4526bb9b",
+      "stage": "assets/optimized/stage/png/greek-drama/ajax-teucer.webp",
+      "stageHash": "35a79cf3fea4a79391c8085035fdbbdffe64f476b0d4c2cd710181780b986e34",
+      "card": "assets/optimized/card/png/greek-drama/ajax-teucer.webp",
+      "cardHash": "ee7d0b06053bf03cec21df4475cf4109daed90f83fe0ec1681e6b7887c642942"
+    },
     "assets/greek-drama/athens-grand-agora.webp": {
       "sourceHash": "ee9a3d4508a892c7ab6440658512be35be2854491bf69601be35977657cd7585",
       "stage": "assets/greek-drama/athens-grand-agora.webp",

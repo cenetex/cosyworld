@@ -448,7 +448,7 @@ try {
     const page = await context.newPage();
     page.setDefaultTimeout(20000);
     pages.push(page);
-    page.on("pageerror", (error) => errors.push(error.message));
+    page.on("pageerror", (error) => errors.push(error.stack || error.message));
     page.on("response", async (response) => {
       if (
         !response.url().includes("/card-game/shared/worlds/") ||

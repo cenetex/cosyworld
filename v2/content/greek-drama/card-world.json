@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "greek-drama",
   "packId": "cosyworld.greek-drama",
-  "revision": 6,
+  "revision": 7,
   "name": "The Wine-Dark Sea",
   "description": "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. Fixed roads lead through the Attic places where welcome becomes a growing poem.",
   "tone": "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -32,7 +32,7 @@
       "Aristophanes": 11
     },
     "opening": "Before the Burial",
-    "status": "Eight plays have authored scenes across Before the Burial, The Open Door, and the Helen and Atreid accounts. The other thirty-six works have situated hooks for later sections."
+    "status": "Nine plays have authored scenes across Before the Burial, The Open Door, Ajax, and the Helen and Atreid accounts. The other thirty-five works have situated hooks for later sections."
   },
   "places": {
     "greek-harbor": {
@@ -367,10 +367,17 @@
     },
     "greek-greek-camp": {
       "name": "The Greek Camp at Troy",
-      "text": "Ships cover the beach below the tents. Soldiers argue over honor, supplies, and the next order.",
-      "exits": ["greek-aulis", "greek-troy", "greek-lemnos"],
-      "backdrop": "assets/greek-drama/harbor.svg",
-      "persona": "Ships cover the beach below the tents. Soldiers argue over honor, supplies, and the next order."
+      "text": "A speaker names the Trojan account after Ajax’s death. Tents stand above the ships. Teucer carries a burial plea to the commanders.",
+      "exits": [
+        "greek-aulis",
+        "greek-troy",
+        "greek-lemnos",
+        "greek-ajax-landing",
+        "greek-ajax-household",
+        "greek-ajax-grave"
+      ],
+      "backdrop": "assets/greek-drama/ajax-camp-day.webp",
+      "persona": "This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. The household tents, shore landing and grave are local paths within the same camp."
     },
     "greek-trojan-camp": {
       "name": "The Trojan Night Camp",
@@ -473,7 +480,7 @@
     "greek-ship": {
       "name": "Greek ship",
       "text": "Water passes beneath the hull. The shipmaster watches the shores. Open ports wait beyond the rail.",
-      "persona": "A shared ship serving Black Pond, the Wine-Dark Harbor, Athens Harbor and Piraeus Quays. The first passenger ashore chooses the arrival port for everyone aboard. New passengers can board there for the next voyage.",
+      "persona": "A shared ship serving Black Pond, the Wine-Dark Harbor, Athens Harbor and Piraeus Quays. Myrto’s lasting invitation adds the Trojan camp landing. The first passenger ashore chooses the arrival port for everyone aboard. New passengers can board there for the next voyage. The Ajax visit is a named Trojan account after his death.",
       "exits": [],
       "backdrop": "assets/greek-drama/ship-deck.webp",
       "art": "assets/greek-drama/ship-card.webp",
@@ -575,6 +582,48 @@
       "exits": ["greek-colonus", "greek-marathon"],
       "road": ["greek-colonus", "greek-marathon"],
       "backdrop": "assets/greek-drama/attic-road.webp"
+    },
+    "greek-ajax-landing": {
+      "name": "The Trojan Camp Landing",
+      "text": "A wooden landing meets the ships below the tents. The Greek ship calls here for the named Trojan burial account.",
+      "persona": "This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. A wooden landing meets the ships below the tents. The Greek ship calls here for the named Trojan burial account.",
+      "exits": ["greek-greek-camp"],
+      "backdrop": "assets/greek-drama/ajax-camp-day.webp",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-ajax-open",
+          "value": true
+        }
+      ]
+    },
+    "greek-ajax-household": {
+      "name": "Ajax’s Household Tent",
+      "text": "Tecmessa keeps a place for Eurysaces beside the tent. The child’s father has died. His shield can be set safely with the household.",
+      "persona": "This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. Tecmessa keeps a place for Eurysaces beside the tent. The child’s father has died. His shield can be set safely with the household.",
+      "exits": ["greek-greek-camp"],
+      "backdrop": "assets/greek-drama/ajax-camp-day.webp",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-ajax-open",
+          "value": true
+        }
+      ]
+    },
+    "greek-ajax-grave": {
+      "name": "Ajax’s Grave",
+      "text": "A patch of earth waits above the ships. Cloth and grave tools must reach this place before Ajax’s burial can be completed.",
+      "persona": "This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. A patch of earth waits above the ships. Cloth and grave tools must reach this place before Ajax’s burial can be completed.",
+      "exits": ["greek-greek-camp"],
+      "backdrop": "assets/greek-drama/ajax-camp-day.webp",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-ajax-open",
+          "value": true
+        }
+      ]
     }
   },
   "avatars": {
@@ -1267,6 +1316,81 @@
         "sore": "her household spoken for before she has answered",
         "reason": "She has walked beside the mourners and knows the work that follows a funeral."
       }
+    },
+    "greek-ajax-tecmessa": {
+      "name": "Tecmessa",
+      "text": "Tecmessa keeps the household beside Eurysaces. She asks for Ajax’s shield to be set where the child can keep it.",
+      "place": "greek-ajax-household",
+      "home": "greek-ajax-household",
+      "travels": false,
+      "standoffs": false,
+      "values": {},
+      "canonicalPerson": "tecmessa",
+      "persona": "Tecmessa speaks within the Trojan account after Ajax’s death. Eurysaces is in her household and is represented through her words. The shield belongs with the household. She can choose the form of its care and ask for a quiet burial.",
+      "voice": "Tecmessa speaks within the Trojan account after Ajax’s death. Eurysaces is in her household and is represented through her words. The shield belongs with the household. She can choose the form of its care and ask for a quiet burial.",
+      "portrait": "assets/greek-drama/ajax-tecmessa.png",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-ajax-open",
+          "value": true
+        }
+      ],
+      "tastes": {
+        "likes": "a deed carried through with its witnesses",
+        "sore": "a promise called a finished burial",
+        "reason": "Ajax’s household and burial are at issue in this named Trojan account."
+      }
+    },
+    "greek-ajax-teucer": {
+      "name": "Teucer",
+      "text": "Ajax’s brother carries a written plea for burial. He asks for the household and the dead to be heard.",
+      "place": "greek-greek-camp",
+      "home": "greek-greek-camp",
+      "travels": false,
+      "standoffs": false,
+      "values": {},
+      "canonicalPerson": "teucer",
+      "persona": "Teucer speaks within the Trojan account after Ajax’s death. He asks Odysseus to support his burial plea. An appeal begins a vigil. Burial becomes a finished deed when Ajax has actually received earth. He can sign the completed account for Dione.",
+      "voice": "Teucer speaks within the Trojan account after Ajax’s death. He asks Odysseus to support his burial plea. An appeal begins a vigil. Burial becomes a finished deed when Ajax has actually received earth. He can sign the completed account for Dione.",
+      "portrait": "assets/greek-drama/ajax-teucer.png",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-ajax-open",
+          "value": true
+        }
+      ],
+      "tastes": {
+        "likes": "a deed carried through with its witnesses",
+        "sore": "a promise called a finished burial",
+        "reason": "Ajax’s household and burial are at issue in this named Trojan account."
+      }
+    },
+    "greek-ajax-odysseus": {
+      "name": "Odysseus",
+      "text": "Odysseus waits by the commanders’ tents. He can hear Teucer’s plea and speak for a former rival.",
+      "place": "greek-greek-camp",
+      "home": "greek-greek-camp",
+      "travels": false,
+      "standoffs": false,
+      "values": {},
+      "canonicalPerson": "odysseus",
+      "persona": "Odysseus speaks within the Trojan account after Ajax’s death. Ajax was his rival. Teucer’s written plea must reach him before a burial route is chosen. His support, a household rite and a witnessed appeal remain distinct choices. He speaks from the local recorded account.",
+      "voice": "Odysseus speaks within the Trojan account after Ajax’s death. Ajax was his rival. Teucer’s written plea must reach him before a burial route is chosen. His support, a household rite and a witnessed appeal remain distinct choices. He speaks from the local recorded account.",
+      "portrait": "assets/greek-drama/ajax-odysseus.png",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-ajax-open",
+          "value": true
+        }
+      ],
+      "tastes": {
+        "likes": "a deed carried through with its witnesses",
+        "sore": "a promise called a finished burial",
+        "reason": "Ajax’s household and burial are at issue in this named Trojan account."
+      }
     }
   },
   "items": {
@@ -1545,6 +1669,67 @@
         {
           "kind": "flag",
           "key": "greek-open-door-open",
+          "value": true
+        }
+      ]
+    },
+    "greek-ajax-shield": {
+      "name": "Ajax’s Shield",
+      "text": "Ajax’s shield waits to be carried to Tecmessa’s household for Eurysaces.",
+      "holder": "greek-greek-camp",
+      "persona": "This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. Describe its actual holder and recorded use.",
+      "art": "assets/greek-drama/ajax-shield.png",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-ajax-open",
+          "value": true
+        }
+      ]
+    },
+    "greek-ajax-plea": {
+      "name": "Teucer’s Written Plea",
+      "text": "Teucer’s burial plea has room for the witnesses’ signed account of the completed rite.",
+      "holder": "greek-greek-camp",
+      "persona": "This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. Describe its actual holder and recorded use.",
+      "art": "assets/greek-drama/decree.png",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-ajax-open",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-ajax-plea-heard",
+          "value": true
+        }
+      ]
+    },
+    "greek-ajax-cloth": {
+      "name": "The Camp’s Burial Cloth",
+      "text": "Clean linen is set aside for Ajax’s burial in the Trojan account.",
+      "holder": "greek-greek-camp",
+      "persona": "This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. Describe its actual holder and recorded use.",
+      "art": "assets/greek-drama/funeral-cloth.png",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-ajax-open",
+          "value": true
+        }
+      ]
+    },
+    "greek-ajax-tools": {
+      "name": "The Camp’s Grave Tools",
+      "text": "A short shovel and grave tools wait beside the tents.",
+      "holder": "greek-greek-camp",
+      "persona": "This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. Describe its actual holder and recorded use.",
+      "art": "assets/greek-drama/shovel.png",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-ajax-open",
           "value": true
         }
       ]
@@ -2955,7 +3140,13 @@
       "at": "greek-greek-camp",
       "label": "Ask who will speak for the isolated soldier",
       "text": "Vale opens an inquiry into the account told in Ajax. The question is recorded; its reported events have not been enacted.",
-      "requires": [],
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-ajax-open",
+          "value": false
+        }
+      ],
       "effects": [
         {
           "kind": "set_flag",
@@ -5538,6 +5729,830 @@
         }
       ],
       "summary": "The traveler selected the earlier berth stanza at Dione’s table and placed Myrine’s signed return list there. Dione read the stanza and Myrine’s account of her own care at Piraeus, then answered the reading."
+    },
+    {
+      "id": "greek-ajax-invitation",
+      "subject": "greek-shipmaster",
+      "at": "greek-harbor",
+      "label": "Accept the Trojan camp’s invitation",
+      "text": "Vale accepts Myrto’s lasting invitation to a named Trojan account. It begins after Ajax’s death, where his household and Teucer seek burial. The Greek ship can now call at the camp landing. Dione’s earlier account keeps its own time.",
+      "textTemplate": "{actor} accepts Myrto’s lasting invitation to a named Trojan account. It begins after Ajax’s death, where his household and Teucer seek burial. The Greek ship can now call at the camp landing. Dione’s earlier account keeps its own time.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-open-door-open",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-open-door-eleusis-done",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-open-door-piraeus-done",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-open-door-colonus-done",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-open-door-marathon-done",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-open-door-returned",
+          "value": true
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-ajax-frame"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "greek-ajax-frame",
+          "value": "trojan-after-ajax"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-ajax-open",
+          "value": true
+        }
+      ],
+      "workId": "sophocles-ajax"
+    },
+    {
+      "id": "greek-ajax-deliver-shield",
+      "subject": "greek-ajax-tecmessa",
+      "at": "greek-ajax-household",
+      "label": "Set the shield with Tecmessa for Eurysaces",
+      "text": "Vale sets Ajax’s shield beside Tecmessa’s tent for Eurysaces. Tecmessa receives it into the household’s care within the Trojan account.",
+      "textTemplate": "{actor} sets Ajax’s shield beside Tecmessa’s tent for Eurysaces. Tecmessa receives it into the household’s care within the Trojan account.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-ajax-open",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-ajax-shield",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-ajax-shield",
+          "place": "greek-ajax-household"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-ajax-shield-delivered",
+          "value": true
+        }
+      ],
+      "workId": "sophocles-ajax"
+    },
+    {
+      "id": "greek-ajax-hear-plea",
+      "subject": "greek-ajax-teucer",
+      "at": "greek-greek-camp",
+      "label": "Hear Teucer’s burial plea",
+      "text": "Teucer asks Vale to carry his written burial plea to Odysseus. He places the plea on the camp bench. This is testimony within the named Trojan account.",
+      "textTemplate": "Teucer asks {actor} to carry his written burial plea to Odysseus. He places the plea on the camp bench. This is testimony within the named Trojan account.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-ajax-open",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-ajax-shield-delivered",
+          "value": true
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-ajax-plea-heard",
+          "value": true
+        }
+      ],
+      "workId": "sophocles-ajax"
+    },
+    {
+      "id": "greek-ajax-deliver-plea",
+      "subject": "greek-ajax-odysseus",
+      "at": "greek-greek-camp",
+      "label": "Bring Teucer’s plea to Odysseus",
+      "text": "Vale sets Teucer’s written plea before Odysseus and names its source. Odysseus hears the rival’s claim to burial within the Trojan account.",
+      "textTemplate": "{actor} sets Teucer’s written plea before Odysseus and names its source. Odysseus hears the rival’s claim to burial within the Trojan account.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-ajax-open",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-ajax-plea-heard",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-ajax-plea",
+          "role": "actor"
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-ajax-plea",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-ajax-plea",
+          "place": "greek-greek-camp"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-ajax-plea-delivered",
+          "value": true
+        }
+      ],
+      "workId": "sophocles-ajax"
+    },
+    {
+      "id": "greek-ajax-choose-public",
+      "subject": "greek-ajax-odysseus",
+      "at": "greek-greek-camp",
+      "label": "Seek a public burial with Odysseus’s support",
+      "text": "Odysseus supports a public burial for his former rival. Vale undertakes the work of the rite. The burial still needs cloth, grave tools and earth.",
+      "textTemplate": "Odysseus supports a public burial for his former rival. {actor} undertakes the work of the rite. The burial still needs cloth, grave tools and earth.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-ajax-open",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-ajax-plea-delivered",
+          "value": true
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-ajax-plea",
+          "role": "actor"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-ajax-route"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "greek-ajax-route",
+          "value": "public"
+        }
+      ],
+      "workId": "sophocles-ajax"
+    },
+    {
+      "id": "greek-ajax-choose-household",
+      "subject": "greek-ajax-tecmessa",
+      "at": "greek-ajax-household",
+      "label": "Keep the rite with Ajax’s household",
+      "text": "Tecmessa asks for a quiet household rite. Vale agrees to prepare it. Ajax still awaits the cloth, grave tools and earth.",
+      "textTemplate": "Tecmessa asks for a quiet household rite. {actor} agrees to prepare it. Ajax still awaits the cloth, grave tools and earth.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-ajax-open",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-ajax-plea-delivered",
+          "value": true
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-ajax-plea",
+          "role": "actor"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-ajax-route"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "greek-ajax-route",
+          "value": "household"
+        }
+      ],
+      "workId": "sophocles-ajax"
+    },
+    {
+      "id": "greek-ajax-choose-appeal",
+      "subject": "greek-ajax-teucer",
+      "at": "greek-greek-camp",
+      "label": "Keep a vigil while the burial appeal is heard",
+      "text": "Vale joins Teucer’s vigil while witnesses press the burial appeal. This begins the appeal. The account will close when Ajax has received burial.",
+      "textTemplate": "{actor} joins Teucer’s vigil while witnesses press the burial appeal. This begins the appeal. The account will close when Ajax has received burial.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-ajax-open",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-ajax-plea-delivered",
+          "value": true
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-ajax-plea",
+          "role": "actor"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-ajax-route"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "greek-ajax-route",
+          "value": "appeal"
+        }
+      ],
+      "workId": "sophocles-ajax"
+    },
+    {
+      "id": "greek-ajax-witness-appeal",
+      "subject": "greek-ajax-odysseus",
+      "at": "greek-greek-camp",
+      "label": "Hear the witnessed appeal with Teucer and Odysseus",
+      "text": "Before Teucer and Odysseus, Vale hears the witnessed appeal receive support. The vigil can become a rite. Ajax still awaits actual burial at the grave.",
+      "textTemplate": "Before Teucer and Odysseus, {actor} hears the witnessed appeal receive support. The vigil can become a rite. Ajax still awaits actual burial at the grave.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-ajax-route",
+          "value": "appeal"
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-ajax-plea",
+          "role": "actor"
+        },
+        {
+          "kind": "met",
+          "actor": "greek-ajax-teucer"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-ajax-appeal-witnessed",
+          "value": true
+        }
+      ],
+      "workId": "sophocles-ajax"
+    },
+    {
+      "id": "greek-ajax-prepare-grave",
+      "subject": "greek-ajax-grave",
+      "at": "greek-ajax-grave",
+      "label": "Prepare Ajax’s grave with the camp tools",
+      "text": "Vale prepares Ajax’s grave and sets the camp tools beside it. This is the work of preparation within the Trojan account.",
+      "textTemplate": "{actor} prepares Ajax’s grave and sets the camp tools beside it. This is the work of preparation within the Trojan account.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-ajax-open",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-ajax-plea-delivered",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-ajax-tools",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-ajax-tools",
+          "place": "greek-ajax-grave"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-ajax-grave-prepared",
+          "value": true
+        }
+      ],
+      "workId": "sophocles-ajax"
+    },
+    {
+      "id": "greek-ajax-lay-cloth",
+      "subject": "greek-ajax-grave",
+      "at": "greek-ajax-grave",
+      "label": "Lay the camp’s cloth at Ajax’s grave",
+      "text": "Vale lays clean linen at Ajax’s prepared grave. The cloth is ready for the chosen rite.",
+      "textTemplate": "{actor} lays clean linen at Ajax’s prepared grave. The cloth is ready for the chosen rite.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-ajax-grave-prepared",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-ajax-cloth",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-ajax-cloth",
+          "place": "greek-ajax-grave"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-ajax-cloth-laid",
+          "value": true
+        }
+      ],
+      "workId": "sophocles-ajax"
+    },
+    {
+      "id": "greek-ajax-bury-public",
+      "subject": "greek-ajax-grave",
+      "at": "greek-ajax-grave",
+      "label": "Complete Ajax’s public burial",
+      "text": "Vale uses the prepared grave, cloth and tools to complete Ajax’s public burial. The account records Odysseus’s support for his former rival and the earth given to Ajax.",
+      "textTemplate": "{actor} uses the prepared grave, cloth and tools to complete Ajax’s public burial. The account records Odysseus’s support for his former rival and the earth given to Ajax.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-ajax-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-ajax-route",
+          "value": "public"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-ajax-grave-prepared",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-ajax-cloth-laid",
+          "value": true
+        },
+        {
+          "kind": "item_at",
+          "item": "greek-ajax-cloth",
+          "place": "greek-ajax-grave"
+        },
+        {
+          "kind": "item_at",
+          "item": "greek-ajax-tools",
+          "place": "greek-ajax-grave"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-ajax-buried",
+          "value": false
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-ajax-buried",
+          "value": true
+        },
+        {
+          "kind": "choose",
+          "key": "greek-ajax-ending",
+          "value": "public"
+        }
+      ],
+      "workId": "sophocles-ajax"
+    },
+    {
+      "id": "greek-ajax-record-public",
+      "subject": "greek-ajax-teucer",
+      "at": "greek-greek-camp",
+      "label": "Ask Teucer to sign the burial account",
+      "text": "Vale brings the written plea back to Teucer. He adds the completed public burial and signs the Trojan account for Dione. The paper now carries his own testimony.",
+      "textTemplate": "{actor} brings the written plea back to Teucer. He adds the completed public burial and signs the Trojan account for Dione. The paper now carries his own testimony.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-ajax-ending",
+          "value": "public"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-ajax-buried",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-ajax-plea",
+          "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-ajax-account-ready",
+          "value": false
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-ajax-account-ready",
+          "value": true
+        }
+      ],
+      "workId": "sophocles-ajax"
+    },
+    {
+      "id": "greek-ajax-return-public",
+      "subject": "greek-baker",
+      "at": "greek-courtyard",
+      "label": "Read Teucer’s signed account to Dione",
+      "text": "Vale lays Teucer’s signed account beside Dione’s bread. Dione hears how the public burial was completed in the Trojan telling. Its time and witnesses join the song beside the earlier Theban deeds.",
+      "textTemplate": "{actor} lays Teucer’s signed account beside Dione’s bread. Dione hears how the public burial was completed in the Trojan telling. Its time and witnesses join the song beside the earlier Theban deeds.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-ajax-ending",
+          "value": "public"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-ajax-account-ready",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-ajax-plea",
+          "role": "actor"
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-ajax-account-public",
+          "role": "actor"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-ajax-return"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-ajax-plea",
+          "place": "greek-courtyard"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-ajax-return",
+          "value": "public"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-ajax-returned",
+          "value": true
+        }
+      ],
+      "workId": "sophocles-ajax"
+    },
+    {
+      "id": "greek-ajax-bury-household",
+      "subject": "greek-ajax-grave",
+      "at": "greek-ajax-grave",
+      "label": "Complete Ajax’s household burial",
+      "text": "Vale uses the prepared grave, cloth and tools to complete Ajax’s household burial. The account keeps Tecmessa and Eurysaces’s care beside the rite.",
+      "textTemplate": "{actor} uses the prepared grave, cloth and tools to complete Ajax’s household burial. The account keeps Tecmessa and Eurysaces’s care beside the rite.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-ajax-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-ajax-route",
+          "value": "household"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-ajax-grave-prepared",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-ajax-cloth-laid",
+          "value": true
+        },
+        {
+          "kind": "item_at",
+          "item": "greek-ajax-cloth",
+          "place": "greek-ajax-grave"
+        },
+        {
+          "kind": "item_at",
+          "item": "greek-ajax-tools",
+          "place": "greek-ajax-grave"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-ajax-buried",
+          "value": false
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-ajax-buried",
+          "value": true
+        },
+        {
+          "kind": "choose",
+          "key": "greek-ajax-ending",
+          "value": "household"
+        }
+      ],
+      "workId": "sophocles-ajax"
+    },
+    {
+      "id": "greek-ajax-record-household",
+      "subject": "greek-ajax-teucer",
+      "at": "greek-greek-camp",
+      "label": "Ask Teucer to sign the burial account",
+      "text": "Vale brings the written plea back to Teucer. He adds the completed household burial and signs the Trojan account for Dione. The paper now carries his own testimony.",
+      "textTemplate": "{actor} brings the written plea back to Teucer. He adds the completed household burial and signs the Trojan account for Dione. The paper now carries his own testimony.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-ajax-ending",
+          "value": "household"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-ajax-buried",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-ajax-plea",
+          "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-ajax-account-ready",
+          "value": false
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-ajax-account-ready",
+          "value": true
+        }
+      ],
+      "workId": "sophocles-ajax"
+    },
+    {
+      "id": "greek-ajax-return-household",
+      "subject": "greek-baker",
+      "at": "greek-courtyard",
+      "label": "Read Teucer’s signed account to Dione",
+      "text": "Vale lays Teucer’s signed account beside Dione’s bread. Dione hears how the household burial was completed in the Trojan telling. Its time and witnesses join the song beside the earlier Theban deeds.",
+      "textTemplate": "{actor} lays Teucer’s signed account beside Dione’s bread. Dione hears how the household burial was completed in the Trojan telling. Its time and witnesses join the song beside the earlier Theban deeds.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-ajax-ending",
+          "value": "household"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-ajax-account-ready",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-ajax-plea",
+          "role": "actor"
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-ajax-account-household",
+          "role": "actor"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-ajax-return"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-ajax-plea",
+          "place": "greek-courtyard"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-ajax-return",
+          "value": "household"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-ajax-returned",
+          "value": true
+        }
+      ],
+      "workId": "sophocles-ajax"
+    },
+    {
+      "id": "greek-ajax-bury-appeal",
+      "subject": "greek-ajax-grave",
+      "at": "greek-ajax-grave",
+      "label": "Complete Ajax’s witnessed-appeal burial",
+      "text": "After the witnessed appeal, Vale uses the prepared grave, cloth and tools to bury Ajax. The vigil closes with actual burial in the named Trojan account.",
+      "textTemplate": "After the witnessed appeal, {actor} uses the prepared grave, cloth and tools to bury Ajax. The vigil closes with actual burial in the named Trojan account.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-ajax-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-ajax-route",
+          "value": "appeal"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-ajax-grave-prepared",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-ajax-cloth-laid",
+          "value": true
+        },
+        {
+          "kind": "item_at",
+          "item": "greek-ajax-cloth",
+          "place": "greek-ajax-grave"
+        },
+        {
+          "kind": "item_at",
+          "item": "greek-ajax-tools",
+          "place": "greek-ajax-grave"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-ajax-buried",
+          "value": false
+        },
+        {
+          "kind": "flag",
+          "key": "greek-ajax-appeal-witnessed",
+          "value": true
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-ajax-buried",
+          "value": true
+        },
+        {
+          "kind": "choose",
+          "key": "greek-ajax-ending",
+          "value": "appeal"
+        }
+      ],
+      "workId": "sophocles-ajax"
+    },
+    {
+      "id": "greek-ajax-record-appeal",
+      "subject": "greek-ajax-teucer",
+      "at": "greek-greek-camp",
+      "label": "Ask Teucer to sign the burial account",
+      "text": "Vale brings the written plea back to Teucer. He adds the completed witnessed-appeal burial and signs the Trojan account for Dione. The paper now carries his own testimony.",
+      "textTemplate": "{actor} brings the written plea back to Teucer. He adds the completed witnessed-appeal burial and signs the Trojan account for Dione. The paper now carries his own testimony.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-ajax-ending",
+          "value": "appeal"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-ajax-buried",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-ajax-plea",
+          "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-ajax-account-ready",
+          "value": false
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-ajax-account-ready",
+          "value": true
+        }
+      ],
+      "workId": "sophocles-ajax"
+    },
+    {
+      "id": "greek-ajax-return-appeal",
+      "subject": "greek-baker",
+      "at": "greek-courtyard",
+      "label": "Read Teucer’s signed account to Dione",
+      "text": "Vale lays Teucer’s signed account beside Dione’s bread. Dione hears how the witnessed-appeal burial was completed in the Trojan telling. Its time and witnesses join the song beside the earlier Theban deeds.",
+      "textTemplate": "{actor} lays Teucer’s signed account beside Dione’s bread. Dione hears how the witnessed-appeal burial was completed in the Trojan telling. Its time and witnesses join the song beside the earlier Theban deeds.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-ajax-ending",
+          "value": "appeal"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-ajax-account-ready",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-ajax-plea",
+          "role": "actor"
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-ajax-account-appeal",
+          "role": "actor"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-ajax-return"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-ajax-plea",
+          "place": "greek-courtyard"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-ajax-return",
+          "value": "appeal"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-ajax-returned",
+          "value": true
+        }
+      ],
+      "workId": "sophocles-ajax"
     }
   ],
   "works": [
@@ -5666,15 +6681,40 @@
       "author": "Sophocles",
       "title": "Ajax",
       "era": "trojan-war",
-      "placeIds": ["greek-greek-camp"],
+      "placeIds": [
+        "greek-greek-camp",
+        "greek-ajax-household",
+        "greek-ajax-grave"
+      ],
       "premise": "Military honor, isolation, and the treatment of the dead divide the camp.",
-      "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-sophocles-ajax"],
+      "status": "branching-episode",
+      "hookChoiceIds": [
+        "greek-inquire-sophocles-ajax",
+        "greek-ajax-invitation",
+        "greek-ajax-deliver-shield",
+        "greek-ajax-hear-plea",
+        "greek-ajax-deliver-plea",
+        "greek-ajax-choose-public",
+        "greek-ajax-choose-household",
+        "greek-ajax-choose-appeal",
+        "greek-ajax-witness-appeal",
+        "greek-ajax-prepare-grave",
+        "greek-ajax-lay-cloth",
+        "greek-ajax-bury-public",
+        "greek-ajax-record-public",
+        "greek-ajax-return-public",
+        "greek-ajax-bury-household",
+        "greek-ajax-record-household",
+        "greek-ajax-return-household",
+        "greek-ajax-bury-appeal",
+        "greek-ajax-record-appeal",
+        "greek-ajax-return-appeal"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Sophocles",
         "work": "Ajax",
-        "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+        "adaptation": "A named Trojan account begins after Ajax’s death. The shield delivery, rival’s plea, grave work, witnessed appeal and return to Dione are original CosyWorld actions. A burial result requires cloth, tools and actual burial."
       }
     },
     {
@@ -6360,7 +7400,11 @@
       "greek-road-piraeus-eleusis",
       "greek-road-colonus-eleusis",
       "greek-road-colonus-marathon",
-      "greek-athens-harbor"
+      "greek-athens-harbor",
+      "greek-greek-camp",
+      "greek-ajax-landing",
+      "greek-ajax-household",
+      "greek-ajax-grave"
     ],
     "avatars": [
       "greek-antigone",
@@ -6380,7 +7424,10 @@
       "greek-colonus-keeper",
       "greek-marathon-keeper",
       "greek-market-neighbor",
-      "greek-household-witness"
+      "greek-household-witness",
+      "greek-ajax-tecmessa",
+      "greek-ajax-teucer",
+      "greek-ajax-odysseus"
     ],
     "items": [
       "greek-water-jar",
@@ -6399,7 +7446,11 @@
       "greek-grove-cup",
       "greek-grove-honey",
       "greek-shelter-blanket",
-      "greek-refuge-tablet"
+      "greek-refuge-tablet",
+      "greek-ajax-shield",
+      "greek-ajax-plea",
+      "greek-ajax-cloth",
+      "greek-ajax-tools"
     ],
     "choices": [
       "greek-return-water-jar",
@@ -6467,7 +7518,26 @@
       "greek-homecoming-read-basket-family",
       "greek-homecoming-read-berth-family",
       "greek-homecoming-read-basket-open",
-      "greek-homecoming-read-berth-open"
+      "greek-homecoming-read-berth-open",
+      "greek-ajax-invitation",
+      "greek-ajax-deliver-shield",
+      "greek-ajax-hear-plea",
+      "greek-ajax-deliver-plea",
+      "greek-ajax-choose-public",
+      "greek-ajax-choose-household",
+      "greek-ajax-choose-appeal",
+      "greek-ajax-witness-appeal",
+      "greek-ajax-prepare-grave",
+      "greek-ajax-lay-cloth",
+      "greek-ajax-bury-public",
+      "greek-ajax-record-public",
+      "greek-ajax-return-public",
+      "greek-ajax-bury-household",
+      "greek-ajax-record-household",
+      "greek-ajax-return-household",
+      "greek-ajax-bury-appeal",
+      "greek-ajax-record-appeal",
+      "greek-ajax-return-appeal"
     ]
   },
   "recital": {
@@ -6965,6 +8035,78 @@
           "Her answer named the work to come."
         ],
         "summons": true
+      },
+      {
+        "choice": "greek-ajax-deliver-shield",
+        "quest": "story-quest-greek-ajax-shield",
+        "lines": [
+          "I set his shield beside the tent.",
+          "Tecmessa kept it for her child."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-ajax-deliver-plea",
+        "quest": "story-quest-greek-ajax-plea",
+        "lines": [
+          "I brought his brother’s written plea.",
+          "A rival heard it by the ships."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-ajax-bury-public",
+        "quest": "story-quest-greek-ajax-burial",
+        "lines": [
+          "His rival spoke; I broke the ground.",
+          "The camp laid down its quarrel."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-ajax-bury-household",
+        "quest": "story-quest-greek-ajax-burial",
+        "lines": [
+          "I gave him earth beside the ships.",
+          "The household kept his shield."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-ajax-bury-appeal",
+        "quest": "story-quest-greek-ajax-burial",
+        "lines": [
+          "I kept the vigil with their plea.",
+          "The witnessed rite gave Ajax earth."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-ajax-return-public",
+        "quest": "story-quest-greek-ajax-return",
+        "lines": [
+          "I laid his words beside the bread.",
+          "She held the rival’s plea with care."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-ajax-return-household",
+        "quest": "story-quest-greek-ajax-return",
+        "lines": [
+          "I laid his words beside the bread.",
+          "She named the household in the song."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-ajax-return-appeal",
+        "quest": "story-quest-greek-ajax-return",
+        "lines": [
+          "I laid his words beside the bread.",
+          "She heard how witnesses brought earth."
+        ],
+        "summons": true
       }
     ]
   },
@@ -6992,6 +8134,23 @@
         {
           "kind": "flag",
           "key": "greek-open-door-open",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-ajax",
+      "name": "Earth Beside the Ships",
+      "places": [
+        "greek-greek-camp",
+        "greek-ajax-landing",
+        "greek-ajax-household",
+        "greek-ajax-grave"
+      ],
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-ajax-open",
           "value": true
         }
       ]
@@ -7965,6 +9124,122 @@
         ]
       },
       "related": "start-and-ending"
+    },
+    {
+      "id": "story-quest-greek-ajax-shield",
+      "group": "ajax",
+      "line": "His child should keep the shield.",
+      "holder": {
+        "kind": "avatar",
+        "id": "greek-ajax-tecmessa"
+      },
+      "art": "greek-ajax-shield",
+      "start": {
+        "kind": "flag",
+        "key": "greek-ajax-open",
+        "value": true
+      },
+      "endings": [
+        {
+          "choice": "greek-ajax-deliver-shield"
+        }
+      ],
+      "outcome": "Fulfilled"
+    },
+    {
+      "id": "story-quest-greek-ajax-plea",
+      "group": "ajax",
+      "line": "A rival should hear his brother’s plea.",
+      "holder": {
+        "kind": "avatar",
+        "id": "greek-ajax-teucer"
+      },
+      "art": "greek-ajax-plea",
+      "start": {
+        "kind": "receipt",
+        "choice": "greek-ajax-deliver-shield"
+      },
+      "endings": [
+        {
+          "choice": "greek-ajax-deliver-plea"
+        }
+      ],
+      "outcome": "Fulfilled",
+      "progress": ["greek-ajax-hear-plea"]
+    },
+    {
+      "id": "story-quest-greek-ajax-burial",
+      "group": "ajax",
+      "line": "Give Ajax earth beside the ships.",
+      "holder": {
+        "kind": "place",
+        "id": "greek-ajax-grave"
+      },
+      "art": "greek-ajax-cloth",
+      "start": {
+        "kind": "receipt",
+        "choice": "greek-ajax-deliver-plea"
+      },
+      "endings": [
+        {
+          "choice": "greek-ajax-bury-public"
+        },
+        {
+          "choice": "greek-ajax-bury-household"
+        },
+        {
+          "choice": "greek-ajax-bury-appeal"
+        }
+      ],
+      "outcome": "Fulfilled",
+      "progress": [
+        "greek-ajax-prepare-grave",
+        "greek-ajax-lay-cloth",
+        "greek-ajax-witness-appeal"
+      ]
+    },
+    {
+      "id": "story-quest-greek-ajax-return",
+      "group": "ajax",
+      "line": "Carry Teucer’s account home to Dione.",
+      "holder": {
+        "kind": "avatar",
+        "id": "greek-ajax-teucer"
+      },
+      "art": "greek-ajax-plea",
+      "start": {
+        "any": [
+          {
+            "kind": "receipt",
+            "choice": "greek-ajax-bury-public"
+          },
+          {
+            "kind": "receipt",
+            "choice": "greek-ajax-bury-household"
+          },
+          {
+            "kind": "receipt",
+            "choice": "greek-ajax-bury-appeal"
+          }
+        ]
+      },
+      "endings": [
+        {
+          "choice": "greek-ajax-return-public"
+        },
+        {
+          "choice": "greek-ajax-return-household"
+        },
+        {
+          "choice": "greek-ajax-return-appeal"
+        }
+      ],
+      "outcome": "Shared",
+      "progress": [
+        "greek-ajax-record-public",
+        "greek-ajax-record-household",
+        "greek-ajax-record-appeal"
+      ]
     }
   ],
   "topics": [
@@ -8202,6 +9477,97 @@
         }
       ],
       "choiceId": "greek-open-door-hear-recovery-report"
+    },
+    {
+      "id": "greek-ajax-plea",
+      "speaker": "greek-ajax-teucer",
+      "at": "greek-greek-camp",
+      "text": "Teucer asks Odysseus to support Ajax’s burial in the Trojan account.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-ajax-open",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-ajax-shield-delivered",
+          "value": true
+        }
+      ],
+      "choiceId": "greek-ajax-hear-plea"
+    },
+    {
+      "id": "greek-ajax-account-public",
+      "speaker": "greek-ajax-teucer",
+      "at": "greek-greek-camp",
+      "text": "Teucer’s signed Trojan account records Ajax’s public burial.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-ajax-ending",
+          "value": "public"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-ajax-buried",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-ajax-plea",
+          "role": "actor"
+        }
+      ],
+      "choiceId": "greek-ajax-record-public"
+    },
+    {
+      "id": "greek-ajax-account-household",
+      "speaker": "greek-ajax-teucer",
+      "at": "greek-greek-camp",
+      "text": "Teucer’s signed Trojan account records Ajax’s household burial.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-ajax-ending",
+          "value": "household"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-ajax-buried",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-ajax-plea",
+          "role": "actor"
+        }
+      ],
+      "choiceId": "greek-ajax-record-household"
+    },
+    {
+      "id": "greek-ajax-account-appeal",
+      "speaker": "greek-ajax-teucer",
+      "at": "greek-greek-camp",
+      "text": "Teucer’s signed Trojan account records Ajax’s witnessed-appeal burial.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-ajax-ending",
+          "value": "appeal"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-ajax-buried",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-ajax-plea",
+          "role": "actor"
+        }
+      ],
+      "choiceId": "greek-ajax-record-appeal"
     }
   ]
 }

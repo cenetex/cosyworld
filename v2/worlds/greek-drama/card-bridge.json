@@ -108,12 +108,40 @@
         "cardArt": "assets/greek-drama/ship-card.webp",
         "backdrop": "assets/greek-drama/open-door-piraeus.webp"
       }
+    },
+    {
+      "id": "greek-ajax-landing-ship",
+      "from": "greek-ajax-landing",
+      "to": "pond",
+      "travelers": "any",
+      "travel": "aboard the ship",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-ajax-open",
+          "value": true
+        }
+      ],
+      "transport": "greek-ship",
+      "travelLabel": "Board",
+      "scenery": {
+        "open": "The Greek ship waits at the camp landing.",
+        "closed": "The shared ship is sailing elsewhere. The camp landing waits for its return.",
+        "cardName": "Greek ship",
+        "cardArt": "assets/greek-drama/ship-card.webp"
+      }
     }
   ],
   "transports": {
     "greek-ship": {
       "place": "greek-ship",
-      "docks": ["pond", "greek-harbor", "greek-athens-harbor", "greek-piraeus"],
+      "docks": [
+        "pond",
+        "greek-harbor",
+        "greek-athens-harbor",
+        "greek-piraeus",
+        "greek-ajax-landing"
+      ],
       "at": "greek-harbor"
     }
   }

@@ -1,0 +1,237 @@
+{
+  "generated": "2026-10-28",
+  "tool": "built-in image_gen",
+  "chapter": "sophocles-ajax",
+  "sourceBase": "8f473ccce3ca17961e68858daa29ff9e8f716af1",
+  "style": "Detailed painted Greek storybook realism, matched to the existing Wine-Dark Sea scenery and cast.",
+  "scope": "The camp after Ajax's death, its night partner, three full-body cast portraits and the household shield.",
+  "assets": [
+    {
+      "file": "ajax-camp-day.webp",
+      "sourceFile": "ajax-sources/ajax-camp-day.png",
+      "sourceName": "exec-e37d91a6-de35-43ad-95b0-705996b84889.png",
+      "generationId": "exec-e37d91a6-de35-43ad-95b0-705996b84889",
+      "intent": "reference-based generation",
+      "transparentBackground": false,
+      "references": [
+        {
+          "file": "harbor-ship-at-berth.webp",
+          "role": "style reference",
+          "sha256": "f71d5f64371f50b37059f0929db3489b0f808696494c64078ad5fbe958e1f1d0"
+        },
+        {
+          "file": "burial-ground-dusk.webp",
+          "role": "style reference",
+          "sha256": "a48b519c59a4bdea60ce1d843c8c475238e0fc4b83da7eef6ce8277ca234592f"
+        }
+      ],
+      "processing": "Original generated PNG retained in ajax-sources; full-size WebP encoded at quality 94 and effort 6.",
+      "prompt": "Use case: historical-scene.\nAsset type: a wide 16:9 stage painting for the Wine-Dark Sea card game.\nPrimary request: the Greek ships-and-tents camp on the shore at Troy, in daylight, after Ajax's death. The scene is quiet and solemn, ready for a debate about his burial.\nInput images: Image 1 is a style reference for the game's detailed painted coastal scenery. Image 2 is a style reference for ancient stone, rough ground and the sober Greek story mood. Compose a new camp setting.\nScene: a broad packed-sand clearing among weathered linen tents above a shallow beach. A larger family tent sits to the left, with a folded cloth, a stool and a small clay lamp near its entrance. Wooden ships with furled linen sails and orderly masts rest along the shore to the right. Ropes, jars and timber sit near the tents. Low dry hills and a distant walled city mark the far horizon. The shoreline and camp are the focus.\nComposition: wide 16:9, eye level, generous empty ground across the lower third for separate character portraits. Keep tents, ships and the route between them readable in a central phone crop. Scenery alone fills the painting; the foreground is clear for the cast.\nStyle: detailed painterly Greek storybook realism, rich natural materials, warm sandy ochres, weathered canvas, dark timber, muted red cloth and blue water. Match the quality and brushwork of the references.\nLighting: warm clear afternoon daylight, soft blue shadows, calm blue sky, still dry air. Opaque full-frame painting.",
+      "size": [
+        1672,
+        941
+      ],
+      "sourceSha256": "60d8918c4341875e0e929d1f9287cff1666064fea6df009e2ee444b8ae83828c",
+      "sha256": "846fd6875ded126c01eb4108247d5b94c5a0c6fbf2f9909ff42dafe21ebfbe77",
+      "bytes": 791734,
+      "sourceBytes": 3547284
+    },
+    {
+      "file": "ajax-tecmessa.png",
+      "sourceFile": "ajax-tecmessa.png",
+      "sourceName": "exec-89bff730-2561-41ee-96c8-579edbb65925.png",
+      "generationId": "exec-89bff730-2561-41ee-96c8-579edbb65925",
+      "intent": "reference-based generation",
+      "transparentBackground": true,
+      "references": [
+        {
+          "file": "chthonic-menelaus.png",
+          "role": "style reference",
+          "sha256": "8f3ef20e63ee5138d7ae09bb3e90893c51f421aecdd3adea3fb94a4d61e4113b"
+        },
+        {
+          "file": "chthonic-electra.png",
+          "role": "style reference",
+          "sha256": "5239e39dbc53bfdca3ccbecbd3ac7fdf1eddc1b9a513ddc2310a44336d2ee66e"
+        }
+      ],
+      "processing": "Original generated PNG copied with its alpha channel and full native pixels.",
+      "prompt": "Use case: historical-scene.\nAsset type: a full-body transparent character portrait for the Wine-Dark Sea card game.\nInput images: Image 1 and image 2 are style references for the existing Greek cast. Use their detailed painted realism, natural anatomy, worn linen, subtle bronze, and warm earth tones. The new subject has their own face and clothing.\nComposition: one adult standing in a calm three-quarter speaking pose. Show the complete head, hands and sandaled feet with clear margins. The person fills a tall portrait canvas. Keep a clean, readable silhouette.\nLighting: soft warm light from the upper left with gentle cool shading on the figure. Render shadows within the clothing and body.\nBackground: true transparent alpha around the subject, including the spaces between limbs and loose cloth. The entire field outside the figure is clear.\n\nSubject: Tecmessa, an adult woman and a steady grieving survivor of Ajax's household. She stands alone. She has an olive complexion, dark brown eyes, long dark hair braided back, and a distinct thoughtful face. She wears a modest ankle-length handwoven ivory linen dress with a muted blue wool cloak and simple leather sandals. One hand holds the cloak near her chest; the other opens gently as she speaks about her household. Her expression carries grief, dignity and resolve. Her clothing is lived in and carefully kept. Keep the portrait grounded and humane.",
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "f1f7c057b83a5a7c681d2b4446901e2e0b40998f0fd91c0de5a2bbc9b0fe7c09",
+      "sha256": "f1f7c057b83a5a7c681d2b4446901e2e0b40998f0fd91c0de5a2bbc9b0fe7c09",
+      "bytes": 2294767,
+      "sourceBytes": 2294767,
+      "alpha": {
+        "clearPixels": 933840,
+        "partialPixels": 639024,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          136,
+          13,
+          902,
+          1507
+        ],
+        "visibleBoundsThreshold": 8
+      }
+    },
+    {
+      "file": "ajax-teucer.png",
+      "sourceFile": "ajax-teucer.png",
+      "sourceName": "exec-124cc2f7-4415-45ec-b1c9-12248f9883e4.png",
+      "generationId": "exec-124cc2f7-4415-45ec-b1c9-12248f9883e4",
+      "intent": "reference-based generation",
+      "transparentBackground": true,
+      "references": [
+        {
+          "file": "chthonic-menelaus.png",
+          "role": "style reference",
+          "sha256": "8f3ef20e63ee5138d7ae09bb3e90893c51f421aecdd3adea3fb94a4d61e4113b"
+        },
+        {
+          "file": "chthonic-electra.png",
+          "role": "style reference",
+          "sha256": "5239e39dbc53bfdca3ccbecbd3ac7fdf1eddc1b9a513ddc2310a44336d2ee66e"
+        }
+      ],
+      "processing": "Original generated PNG copied with its alpha channel and full native pixels.",
+      "prompt": "Use case: historical-scene.\nAsset type: a full-body transparent character portrait for the Wine-Dark Sea card game.\nInput images: Image 1 and image 2 are style references for the existing Greek cast. Use their detailed painted realism, natural anatomy, worn linen, subtle bronze, and warm earth tones. The new subject has their own face and clothing.\nComposition: one adult standing in a calm three-quarter speaking pose. Show the complete head, hands and sandaled feet with clear margins. The person fills a tall portrait canvas. Keep a clean, readable silhouette.\nLighting: soft warm light from the upper left with gentle cool shading on the figure. Render shadows within the clothing and body.\nBackground: true transparent alpha around the subject, including the spaces between limbs and loose cloth. The entire field outside the figure is clear.\n\nSubject: Teucer, an adult Greek archer and Ajax's brother. He has dark curly hair, a short dark beard, a sun-worn olive face and an alert, steady expression. He wears a knee-length natural linen tunic, a muted rust wool cloak, a leather belt, modest bronze fastenings, leather bracers and sandals. A simple wooden bow is held low at rest by one hand, with a small quiver slung on his back. His free hand is open as he asks for a burial. His stance is calm and firm. Give him a distinct face and silhouette from the reference cast.",
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "b27ccde3bf5b45d23cfb0d5a1047d61420aaf65a1efac7d0f7797f2a4526bb9b",
+      "sha256": "b27ccde3bf5b45d23cfb0d5a1047d61420aaf65a1efac7d0f7797f2a4526bb9b",
+      "bytes": 2294296,
+      "sourceBytes": 2294296,
+      "alpha": {
+        "clearPixels": 920299,
+        "partialPixels": 652565,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 2,
+        "visibleSubjectBounds": [
+          101,
+          9,
+          964,
+          1496
+        ],
+        "visibleBoundsThreshold": 8
+      }
+    },
+    {
+      "file": "ajax-odysseus.png",
+      "sourceFile": "ajax-odysseus.png",
+      "sourceName": "exec-2e78bd1b-041f-49e5-a5dc-90dde53dd1aa.png",
+      "generationId": "exec-2e78bd1b-041f-49e5-a5dc-90dde53dd1aa",
+      "intent": "reference-based generation",
+      "transparentBackground": true,
+      "references": [
+        {
+          "file": "chthonic-menelaus.png",
+          "role": "style reference",
+          "sha256": "8f3ef20e63ee5138d7ae09bb3e90893c51f421aecdd3adea3fb94a4d61e4113b"
+        },
+        {
+          "file": "chthonic-electra.png",
+          "role": "style reference",
+          "sha256": "5239e39dbc53bfdca3ccbecbd3ac7fdf1eddc1b9a513ddc2310a44336d2ee66e"
+        }
+      ],
+      "processing": "Original generated PNG copied with its alpha channel and full native pixels.",
+      "prompt": "Use case: historical-scene.\nAsset type: a full-body transparent character portrait for the Wine-Dark Sea card game.\nInput images: Image 1 and image 2 are style references for the existing Greek cast. Use their detailed painted realism, natural anatomy, worn linen, subtle bronze, and warm earth tones. The new subject has their own face and clothing.\nComposition: one adult standing in a calm three-quarter speaking pose. Show the complete head, hands and sandaled feet with clear margins. The person fills a tall portrait canvas. Keep a clean, readable silhouette.\nLighting: soft warm light from the upper left with gentle cool shading on the figure. Render shadows within the clothing and body.\nBackground: true transparent alpha around the subject, including the spaces between limbs and loose cloth. The entire field outside the figure is clear.\n\nSubject: Odysseus, a thoughtful adult Greek traveler and commander in his late forties. His face is lean and weathered, with dark wavy hair touched with grey, a close dark beard, a strong nose and watchful brown eyes. He wears a simple soft felt travel cap, a knee-length natural linen tunic, a worn grey-blue wool cloak fastened at one shoulder, a plain leather belt and sandals. One hand rests at the cloak while the other opens in a measured, humane speaking gesture. His face shows thought and resolve as he supports burial for a former rival. Give him a distinct face from Teucer and Menelaus.",
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "1434a77416bccea91a6b81c66eb96e00040f886a49407129c17bd6b5ccc1ab62",
+      "sha256": "1434a77416bccea91a6b81c66eb96e00040f886a49407129c17bd6b5ccc1ab62",
+      "bytes": 2389838,
+      "sourceBytes": 2389838,
+      "alpha": {
+        "clearPixels": 896020,
+        "partialPixels": 676844,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 0,
+        "visibleSubjectBounds": [
+          88,
+          14,
+          926,
+          1477
+        ],
+        "visibleBoundsThreshold": 8
+      }
+    },
+    {
+      "file": "ajax-shield.png",
+      "sourceFile": "ajax-shield.png",
+      "sourceName": "exec-8c3a6373-cc90-4a6b-9812-2bc7e70ff581.png",
+      "generationId": "exec-8c3a6373-cc90-4a6b-9812-2bc7e70ff581",
+      "intent": "reference-based generation",
+      "transparentBackground": true,
+      "references": [
+        {
+          "file": "burial-ground-dusk.webp",
+          "role": "style reference",
+          "sha256": "a48b519c59a4bdea60ce1d843c8c475238e0fc4b83da7eef6ce8277ca234592f"
+        }
+      ],
+      "processing": "Original generated PNG copied with its alpha channel and full native pixels.",
+      "prompt": "Use case: historical-scene.\nAsset type: a single transparent inventory object for the Wine-Dark Sea card game.\nInput image: a style reference for detailed Greek painted materials and worn bronze. The new subject is an isolated object.\nSubject: Ajax's great ancient Greek shield, a large round shield with a broad worn bronze face over thick layered hide and wood. A raised central boss and a simple restrained geometric rim give it a clear shape. Small dents, scratches, darkened bronze and the thick layered edge show its weight and history. Keep it intact and worthy of a household burial rite.\nComposition: one complete shield, centered on a square canvas, nearly front-facing at a slight three-quarter angle so the depth and thick edge are visible. Leave a clear margin on every side. The shield fills most of the frame.\nStyle: detailed painterly realism with warm bronze and dark brown hide, matching the Greek cast and item paintings. Soft light from upper left. Shading belongs to the shield.\nBackground: true transparent alpha across the full field outside the shield. The shield is the sole subject, with a clear edge for use over day and night scenery.",
+      "size": [
+        1254,
+        1254
+      ],
+      "sourceSha256": "80198b6f8bb826b2a15a455ecf0e8a393904a72afa5bc793bb54fa006a231f23",
+      "sha256": "80198b6f8bb826b2a15a455ecf0e8a393904a72afa5bc793bb54fa006a231f23",
+      "bytes": 2835704,
+      "sourceBytes": 2835704,
+      "alpha": {
+        "clearPixels": 498246,
+        "partialPixels": 1073614,
+        "opaquePixels": 656,
+        "maximum": 255,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          60,
+          32,
+          1200,
+          1223
+        ],
+        "visibleBoundsThreshold": 8
+      }
+    },
+    {
+      "file": "ajax-camp-night.webp",
+      "sourceFile": "ajax-sources/ajax-camp-night.png",
+      "sourceName": "exec-adb46f85-cd93-4bc7-8c8a-f9a4951d63b1.png",
+      "generationId": "exec-adb46f85-cd93-4bc7-8c8a-f9a4951d63b1",
+      "intent": "lighting-weather edit",
+      "transparentBackground": false,
+      "references": [
+        {
+          "file": "ajax-sources/ajax-camp-day.png",
+          "role": "edit target",
+          "sha256": "60d8918c4341875e0e929d1f9287cff1666064fea6df009e2ee444b8ae83828c"
+        }
+      ],
+      "processing": "Original generated PNG retained in ajax-sources; full-size WebP encoded at quality 94 and effort 6.",
+      "prompt": "Use case: lighting-weather.\nAsset type: the night partner for the Greek camp at Troy stage painting in the Wine-Dark Sea card game.\nInput image: the supplied day painting is the edit target.\nPrimary request: change the time of day to a clear, calm night. Use deep indigo sky, small stars and cool moonlight across the sand, linen tents, ships, sea and distant city. Keep a soft amber flame in the small lamp at the family tent, and a few restrained warm glows near the camp. The foreground remains clear and readable for separate character portraits.\nInvariants: preserve the exact wide 16:9 crop, viewpoint, perspective, open ground, tent positions and shapes, ships and furled sails, masts, ropes, props, tree, shore, mountains and city geometry. Keep every object in its current place. Scenery alone fills the frame. Keep the dry clear air, natural painted textures and detailed Greek storybook style. Change the light and sky to night while keeping the same place.\nThe full scene is an opaque painting.",
+      "size": [
+        1672,
+        941
+      ],
+      "sourceSha256": "c319b767f2ec858bac95c27ca1e5641f79a38bb0f3b9ad964f1060088dea98cf",
+      "sha256": "45dd0233ac83a755d6f4aa645683c77aa1959d4f68128668f4a11cb9a61a2bbb",
+      "bytes": 616244,
+      "sourceBytes": 3125972
+    }
+  ],
+  "integration": "The chapter integration owns catalog paths, daylight registration, generated image variants, public asset registration, shared rules and release versions."
+}

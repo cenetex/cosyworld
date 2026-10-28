@@ -82,7 +82,7 @@ describe("local town visits and road history", () => {
       ]);
       expect(current.log).toEqual(before.log);
       expect(current.memories[road]).toMatchObject(before.memories[road]);
-      expect(current.packs["greek-drama"].revision).toBe(6);
+      expect(current.packs["greek-drama"].revision).toBe(7);
       expect(exits(current, port, "vale")).toContain(town);
       expect(
         legalActions(current, "vale").some(

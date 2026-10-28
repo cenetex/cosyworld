@@ -258,6 +258,11 @@ records the full path and each original adaptation.
 Run `node v2/scripts/smoke-card-open-door.mjs` for the complete desktop and
 phone journeys, alternate choices, object care, reloads, cards, and Bard.
 
+The completed Athenian stories and a return to Dione open the Ajax chapter.
+Its shield, spoken plea, three burial routes and signed return account are
+described in the [chapter guide](../content/greek-drama/AJAX.md).
+Run `node v2/scripts/smoke-card-ajax.mjs` for all three desktop and phone journeys.
+
 ## Personal quests and lasting hopes
 
 Personal and shared quest programs use `quest-progress.mjs` to capture evidence,
