@@ -50949,8 +50949,8 @@
       "group": "ajax",
       "line": "Carry Teucer’s account home to Dione.",
       "holder": {
-        "kind": "avatar",
-        "id": "greek-ajax-teucer"
+        "kind": "item",
+        "id": "greek-ajax-plea"
       },
       "art": "greek-ajax-plea",
       "start": {
@@ -51778,8 +51778,8 @@
       "group": "heracles",
       "line": "Bring the named household account to Dione.",
       "holder": {
-        "kind": "avatar",
-        "id": "greek-heracles-amphitryon"
+        "kind": "item",
+        "id": "greek-heracles-remembrance-tablet"
       },
       "art": "greek-heracles-remembrance-tablet",
       "start": {
@@ -51877,8 +51877,8 @@
       "group": "danaid",
       "line": "Bring Nera’s own answer to Dione.",
       "holder": {
-        "kind": "avatar",
-        "id": "greek-baker"
+        "kind": "item",
+        "id": "greek-danaid-host-pledge"
       },
       "art": "greek-danaid-host-pledge",
       "start": {
@@ -52002,8 +52002,8 @@
       "group": "trachis",
       "line": "Tell Dione what the gift became.",
       "holder": {
-        "kind": "avatar",
-        "id": "greek-baker"
+        "kind": "item",
+        "id": "greek-trachis-wool-remnant"
       },
       "art": "greek-trachis-wool-remnant",
       "start": {
@@ -54706,8 +54706,8 @@
       "group": "book-iv-helen",
       "line": "Carry Helen’s authorised account to Dione.",
       "holder": {
-        "kind": "avatar",
-        "id": "greek-helen-egypt"
+        "kind": "item",
+        "id": "greek-book-iv-helen-account"
       },
       "art": "greek-book-iv-helen-account",
       "start": {
@@ -54803,8 +54803,8 @@
       "group": "book-iv-andromache",
       "line": "Carry the Phthian household and Delphic accounts to Dione.",
       "holder": {
-        "kind": "avatar",
-        "id": "greek-book-iv-andromache-andromache"
+        "kind": "item",
+        "id": "greek-book-iv-andromache-account"
       },
       "art": "greek-book-iv-andromache-account",
       "start": {
@@ -54907,8 +54907,8 @@
       "group": "book-iv-hippolytus",
       "line": "Carry the chosen Troezen account to Dione.",
       "holder": {
-        "kind": "avatar",
-        "id": "greek-book-iv-hippolytus-nurse"
+        "kind": "item",
+        "id": "greek-book-iv-hippolytus-account"
       },
       "art": "greek-book-iv-hippolytus-account",
       "start": {
@@ -55012,8 +55012,8 @@
       "group": "book-iv-medea",
       "line": "Carry the sons’ actual result in the nurse’s account.",
       "holder": {
-        "kind": "avatar",
-        "id": "greek-book-iv-medea-nurse"
+        "kind": "item",
+        "id": "greek-book-iv-medea-account"
       },
       "art": "greek-book-iv-medea-account",
       "start": {
@@ -55124,8 +55124,8 @@
       "group": "book-iv-ion",
       "line": "Carry the authorised care excerpt to Dione.",
       "holder": {
-        "kind": "avatar",
-        "id": "greek-book-iv-ion-ion"
+        "kind": "item",
+        "id": "greek-book-iv-ion-account"
       },
       "art": "greek-book-iv-ion-account",
       "start": {
@@ -55349,8 +55349,8 @@
       "group": "aulis",
       "line": "Carry the mother’s account home.",
       "holder": {
-        "kind": "avatar",
-        "id": "greek-aulis-clytemnestra"
+        "kind": "item",
+        "id": "greek-aulis-departure-record"
       },
       "art": "greek-aulis-departure-record",
       "start": {
@@ -55470,8 +55470,8 @@
       "group": "lemnos",
       "line": "Carry his marked arrival home.",
       "holder": {
-        "kind": "avatar",
-        "id": "greek-lemnos-philoctetes"
+        "kind": "item",
+        "id": "greek-lemnos-water"
       },
       "art": "greek-lemnos-water",
       "start": {
@@ -55570,8 +55570,8 @@
       "group": "rhesus",
       "line": "Carry the signed night watch home.",
       "holder": {
-        "kind": "avatar",
-        "id": "greek-rhesus-hector"
+        "kind": "item",
+        "id": "greek-rhesus-testimony"
       },
       "art": "greek-rhesus-testimony",
       "start": {
@@ -55694,8 +55694,8 @@
       "group": "troy",
       "line": "Carry the women’s names home.",
       "holder": {
-        "kind": "avatar",
-        "id": "greek-troy-hecuba"
+        "kind": "item",
+        "id": "greek-troy-names"
       },
       "art": "greek-troy-names",
       "start": {
@@ -55801,8 +55801,8 @@
       "group": "thrace",
       "line": "Hear and carry Hecuba’s signed case home.",
       "holder": {
-        "kind": "avatar",
-        "id": "greek-thrace-hecuba"
+        "kind": "item",
+        "id": "greek-thrace-case-papers"
       },
       "art": "greek-thrace-case-papers",
       "start": {
@@ -55904,8 +55904,8 @@
       "group": "susa",
       "line": "Hear and carry the signed historical loss roll home.",
       "holder": {
-        "kind": "avatar",
-        "id": "greek-susa-xerxes"
+        "kind": "item",
+        "id": "greek-susa-dead-names"
       },
       "art": "greek-susa-dead-names",
       "start": {
