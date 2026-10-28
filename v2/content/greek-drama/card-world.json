@@ -13,12 +13,19 @@
     "groups": [
       {
         "key": "greek-helen-account",
-        "options": ["egypt", "troy"],
+        "options": [
+          "egypt",
+          "troy"
+        ],
         "initial": "uncommitted"
       },
       {
         "key": "greek-atreid-account",
-        "options": ["aeschylus", "sophocles", "euripides"],
+        "options": [
+          "aeschylus",
+          "sophocles",
+          "euripides"
+        ],
         "initial": "uncommitted"
       }
     ]
@@ -38,7 +45,11 @@
     "greek-harbor": {
       "name": "The Wine-Dark Harbor",
       "text": "Worn steps climb from the stone landing toward the town.",
-      "exits": ["greek-courtyard", "greek-road-thebes", "greek-argolid-road"],
+      "exits": [
+        "greek-courtyard",
+        "greek-road-thebes",
+        "greek-argolid-road"
+      ],
       "backdrop": "assets/greek-drama/harbor-open-berth.webp",
       "persona": "Worn steps climb from the stone landing toward the town."
     },
@@ -58,14 +69,20 @@
     "greek-well": {
       "name": "Theban Market Well",
       "text": "Water jars stand beside the well. Neighbors lower their voices when palace servants pass.",
-      "exits": ["greek-courtyard", "greek-palace", "greek-gate"],
+      "exits": [
+        "greek-courtyard",
+        "greek-palace",
+        "greek-gate"
+      ],
       "backdrop": "assets/greek-drama/market-well-day.webp",
       "persona": "Water jars stand beside the well. Neighbors lower their voices when palace servants pass."
     },
     "greek-palace": {
       "name": "Theban Palace Forecourt",
       "text": "The king receives petitions beneath a painted portico. A space beside the door is kept for public orders.",
-      "exits": ["greek-well"],
+      "exits": [
+        "greek-well"
+      ],
       "backdrop": "assets/greek-drama/palace-day.webp",
       "persona": "The king receives petitions beneath a painted portico. A space beside the door is kept for public orders."
     },
@@ -84,28 +101,38 @@
     "greek-battlefield": {
       "name": "The Exposed Battlefield",
       "text": "Broken spear shafts lie in the dust. A strip of earth outside the city is set apart for the fallen brother.",
-      "exits": ["greek-gate"],
+      "exits": [
+        "greek-gate"
+      ],
       "backdrop": "assets/greek-drama/burial-ground-dusk.webp",
       "persona": "Broken spear shafts lie in the dust. A strip of earth outside the city is set apart for the fallen brother."
     },
     "greek-sanctuary": {
       "name": "The Hillside Sanctuary",
       "text": "Olive trees shade a small altar. A stone basin stands beneath its roof.",
-      "exits": ["greek-courtyard", "greek-cithaeron"],
+      "exits": [
+        "greek-courtyard",
+        "greek-cithaeron"
+      ],
       "backdrop": "assets/greek-drama/sanctuary-dawn.webp",
       "persona": "Olive trees shade a small altar. A stone basin stands beneath its roof."
     },
     "greek-cithaeron": {
       "name": "Cithaeron Slopes",
       "text": "Goat paths cross the wooded slope. A distant drum carries between the trees.",
-      "exits": ["greek-sanctuary"],
+      "exits": [
+        "greek-sanctuary"
+      ],
       "backdrop": "assets/greek-drama/grove.svg",
       "persona": "Goat paths cross the wooded slope. A distant drum carries between the trees."
     },
     "greek-aulis": {
       "name": "Aulis Anchorage",
       "text": "The ships lie motionless beside the shore. Soldiers wait outside the command tents.",
-      "exits": ["greek-gate", "greek-greek-camp"],
+      "exits": [
+        "greek-gate",
+        "greek-greek-camp"
+      ],
       "backdrop": "assets/greek-drama/harbor.svg",
       "persona": "The ships lie motionless beside the shore. Soldiers wait outside the command tents."
     },
@@ -260,21 +287,30 @@
     "greek-marathon": {
       "name": "Marathon Altar",
       "text": "A folded cloth lies beside the altar of Zeus. A keeper watches the road where families once sought shelter. A local road runs back through Colonus.",
-      "exits": ["greek-road-athens-marathon", "greek-road-colonus-marathon"],
+      "exits": [
+        "greek-road-athens-marathon",
+        "greek-road-colonus-marathon"
+      ],
       "backdrop": "assets/greek-drama/open-door-marathon.webp",
       "persona": "The keeper tells Euripides’s Children of Heracles as a separate tale under Demophon, son of Theseus, after Heracles’s death. The daughter, battle and captive king belong to that tale. The traveler’s blanket stays at the present altar for guests."
     },
     "greek-argolid-road": {
       "name": "The Argolid Crossroads",
       "text": "Three roads leave a shaded meeting place. A singer asks which household's testimony should guide the journey.",
-      "exits": ["greek-harbor", "greek-argos-sanctuary", "greek-corinth"],
+      "exits": [
+        "greek-harbor",
+        "greek-argos-sanctuary",
+        "greek-corinth"
+      ],
       "backdrop": "assets/greek-drama/grove.svg",
       "persona": "Three roads leave a shaded meeting place. A singer asks which household's testimony should guide the journey."
     },
     "greek-argos-sanctuary": {
       "name": "Argive Shore Sanctuary",
       "text": "Suppliant branches rest beside a coastal altar. A lookout watches an approaching ship.",
-      "exits": ["greek-argolid-road"],
+      "exits": [
+        "greek-argolid-road"
+      ],
       "backdrop": "assets/greek-drama/harbor.svg",
       "persona": "Suppliant branches rest beside a coastal altar. A lookout watches an approaching ship."
     },
@@ -337,49 +373,68 @@
     "greek-corinth": {
       "name": "Corinthian Courtyard",
       "text": "A rented household opens onto the harbor road. Bundles stand ready beside the door.",
-      "exits": ["greek-argolid-road", "greek-troezen"],
+      "exits": [
+        "greek-argolid-road",
+        "greek-troezen"
+      ],
       "backdrop": "assets/greek-drama/courtyard.svg",
       "persona": "A rented household opens onto the harbor road. Bundles stand ready beside the door."
     },
     "greek-troezen": {
       "name": "Troezen Palace",
       "text": "Two shrines flank the palace approach. A hunting party has left its equipment under the portico.",
-      "exits": ["greek-corinth"],
+      "exits": [
+        "greek-corinth"
+      ],
       "backdrop": "assets/greek-drama/palace.svg",
       "persona": "Two shrines flank the palace approach. A hunting party has left its equipment under the portico."
     },
     "greek-delphi": {
       "name": "Delphic Temple",
       "text": "Travelers queue beneath Apollo's columns. An attendant sweeps leaves from the sanctuary steps.",
-      "exits": ["greek-athens", "greek-trachis"],
+      "exits": [
+        "greek-athens",
+        "greek-trachis"
+      ],
       "backdrop": "assets/greek-drama/palace.svg",
       "persona": "Travelers queue beneath Apollo's columns. An attendant sweeps leaves from the sanctuary steps."
     },
     "greek-trachis": {
       "name": "House at Trachis",
       "text": "A messenger's sandals dry beside the doorway. A folded garment waits on a workbench.",
-      "exits": ["greek-delphi", "greek-oeta", "greek-pherae"],
+      "exits": [
+        "greek-delphi",
+        "greek-oeta",
+        "greek-pherae"
+      ],
       "backdrop": "assets/greek-drama/courtyard.svg",
       "persona": "A messenger's sandals dry beside the doorway. A folded garment waits on a workbench."
     },
     "greek-oeta": {
       "name": "The Oeta Road",
       "text": "A steep road climbs above the trees. Bearers have set a litter beside a level patch of stone.",
-      "exits": ["greek-trachis"],
+      "exits": [
+        "greek-trachis"
+      ],
       "backdrop": "assets/greek-drama/grove.svg",
       "persona": "A steep road climbs above the trees. Bearers have set a litter beside a level patch of stone."
     },
     "greek-pherae": {
       "name": "Palace of Pherae",
       "text": "Guests arrive at a house in mourning. A servant hesitates before opening the inner door.",
-      "exits": ["greek-trachis", "greek-thetis"],
+      "exits": [
+        "greek-trachis",
+        "greek-thetis"
+      ],
       "backdrop": "assets/greek-drama/palace.svg",
       "persona": "Guests arrive at a house in mourning. A servant hesitates before opening the inner door."
     },
     "greek-thetis": {
       "name": "Thetis's Sanctuary",
       "text": "The sanctuary stands beside a great household. A woman has taken refuge near the altar.",
-      "exits": ["greek-pherae"],
+      "exits": [
+        "greek-pherae"
+      ],
       "backdrop": "assets/greek-drama/grove.svg",
       "persona": "The sanctuary stands beside a great household. A woman has taken refuge near the altar."
     },
@@ -412,7 +467,9 @@
     "greek-trojan-camp": {
       "name": "The Trojan Night Camp",
       "text": "Watch fires mark the edge of the camp. A newly arrived ally waits for a guide.",
-      "exits": ["greek-troy"],
+      "exits": [
+        "greek-troy"
+      ],
       "backdrop": "assets/greek-drama/grove.svg",
       "persona": "Watch fires mark the edge of the camp. A newly arrived ally waits for a guide."
     },
@@ -433,14 +490,18 @@
     "greek-lemnos": {
       "name": "The Lemnian Cave",
       "text": "A rough bed lies inside the cave. Footprints lead toward a bow wrapped against the salt air.",
-      "exits": ["greek-greek-camp"],
+      "exits": [
+        "greek-greek-camp"
+      ],
       "backdrop": "assets/greek-drama/sea.svg",
       "persona": "A rough bed lies inside the cave. Footprints lead toward a bow wrapped against the salt air."
     },
     "greek-thrace": {
       "name": "The Thracian Shore",
       "text": "A fleet waits beyond the breakers. Captive households search among the new arrivals.",
-      "exits": ["greek-troy"],
+      "exits": [
+        "greek-troy"
+      ],
       "backdrop": "assets/greek-drama/sea.svg",
       "persona": "A fleet waits beyond the breakers. Captive households search among the new arrivals."
     },
@@ -461,49 +522,64 @@
     "greek-tauris": {
       "name": "The Taurian Temple",
       "text": "A walled temple overlooks the landing place. An attendant counts the people brought ashore.",
-      "exits": ["greek-piraeus"],
+      "exits": [
+        "greek-piraeus"
+      ],
       "backdrop": "assets/greek-drama/palace.svg",
       "persona": "A walled temple overlooks the landing place. An attendant counts the people brought ashore."
     },
     "greek-sicily": {
       "name": "The Sicilian Cave",
       "text": "Sheep crowd a stone enclosure beside the cave. Wine jars stand beyond the shepherds' reach.",
-      "exits": ["greek-piraeus"],
+      "exits": [
+        "greek-piraeus"
+      ],
       "backdrop": "assets/greek-drama/grove.svg",
       "persona": "Sheep crowd a stone enclosure beside the cave. Wine jars stand beyond the shepherds' reach."
     },
     "greek-susa": {
       "name": "The Court at Susa",
       "text": "Officials wait beside the royal tomb. The last dispatch from the fleet lies unopened.",
-      "exits": ["greek-troy", "greek-scythian-crag"],
+      "exits": [
+        "greek-troy",
+        "greek-scythian-crag"
+      ],
       "backdrop": "assets/greek-drama/palace.svg",
       "persona": "Officials wait beside the royal tomb. The last dispatch from the fleet lies unopened."
     },
     "greek-scythian-crag": {
       "name": "The Scythian Crag",
       "text": "Iron bonds fix a figure to the rock. A narrow ledge allows visitors to approach.",
-      "exits": ["greek-susa"],
+      "exits": [
+        "greek-susa"
+      ],
       "backdrop": "assets/greek-drama/grove.svg",
       "persona": "Iron bonds fix a figure to the rock. A narrow ledge allows visitors to approach."
     },
     "greek-divine-heights": {
       "name": "The Divine Heights",
       "text": "A steep stair ends above the clouds. Broken farming tools have been carried to the landing.",
-      "exits": ["greek-attic-farm"],
+      "exits": [
+        "greek-attic-farm"
+      ],
       "backdrop": "assets/greek-drama/sea.svg",
       "persona": "A steep stair ends above the clouds. Broken farming tools have been carried to the landing."
     },
     "greek-bird-wilderness": {
       "name": "The Hoopoe's Thicket",
       "text": "A nest hangs above a rocky clearing. Two travelers have laid out a basket, a pot, and a plan for a city.",
-      "exits": ["greek-attic-farm"],
+      "exits": [
+        "greek-attic-farm"
+      ],
       "backdrop": "assets/greek-drama/grove.svg",
       "persona": "A nest hangs above a rocky clearing. Two travelers have laid out a basket, a pot, and a plan for a city."
     },
     "greek-underworld": {
       "name": "The Underworld Landing",
       "text": "A ferry rests beside dark water. The keeper of the landing asks the purpose of each crossing.",
-      "exits": ["greek-colonus"],
+      "exits": [
+        "greek-colonus"
+      ],
       "backdrop": "assets/greek-drama/harbor.svg",
       "persona": "A ferry rests beside dark water. The keeper of the landing asks the purpose of each crossing."
     },
@@ -538,86 +614,145 @@
       "name": "Athens Harbor",
       "text": "Stone quays run beneath long warehouses. Beyond the harbor gate, city streets and steps climb toward the walls and the Acropolis of Athens.",
       "persona": "Athens Harbor is the ship’s landing for the great city. City streets lead inland to the Agora. Piraeus Quays is a separate town with its own host and work of welcome.",
-      "exits": ["greek-athens", "greek-road-athens-harbor"],
+      "exits": [
+        "greek-athens",
+        "greek-road-athens-harbor"
+      ],
       "backdrop": "assets/greek-drama/athens-harbor-open-berth.webp"
     },
     "greek-road-thebes": {
       "name": "Theban Harbor Road",
       "text": "A broad road crosses the olive hills. One end leads to The Wine-Dark Harbor; the other leads to Theban Courtyard. A stone bench rests beside the verge.",
       "persona": "A shared road between The Wine-Dark Harbor and Theban Courtyard. The left end always leads to The Wine-Dark Harbor. The right end always leads to Theban Courtyard. Travelers can meet, talk, rest and carry their belongings here.",
-      "exits": ["greek-harbor", "greek-courtyard"],
-      "road": ["greek-harbor", "greek-courtyard"],
+      "exits": [
+        "greek-harbor",
+        "greek-courtyard"
+      ],
+      "road": [
+        "greek-harbor",
+        "greek-courtyard"
+      ],
       "backdrop": "assets/greek-drama/theban-harbor-road.webp"
     },
     "greek-road-athens-harbor": {
       "name": "Athens Harbor Road",
       "text": "A broad road crosses the olive hills. One end leads to Athens Harbor; the other leads to Athenian Agora. A stone bench rests beside the verge.",
       "persona": "A shared road between Athens Harbor and Athenian Agora. The left end always leads to Athens Harbor. The right end always leads to Athenian Agora. Travelers can meet, talk, rest and carry their belongings here.",
-      "exits": ["greek-athens-harbor", "greek-athens"],
-      "road": ["greek-athens-harbor", "greek-athens"],
+      "exits": [
+        "greek-athens-harbor",
+        "greek-athens"
+      ],
+      "road": [
+        "greek-athens-harbor",
+        "greek-athens"
+      ],
       "backdrop": "assets/greek-drama/attic-road.webp"
     },
     "greek-road-athens-piraeus": {
       "name": "Athens–Piraeus Road",
       "text": "A broad road crosses the olive hills. One end leads to Piraeus Quays; the other leads to Athenian Agora. A stone bench rests beside the verge.",
       "persona": "A shared road between Piraeus Quays and Athenian Agora. The left end always leads to Piraeus Quays. The right end always leads to Athenian Agora. Travelers can meet, talk, rest and carry their belongings here.",
-      "exits": ["greek-piraeus", "greek-athens"],
-      "road": ["greek-piraeus", "greek-athens"],
+      "exits": [
+        "greek-piraeus",
+        "greek-athens"
+      ],
+      "road": [
+        "greek-piraeus",
+        "greek-athens"
+      ],
       "backdrop": "assets/greek-drama/attic-road.webp"
     },
     "greek-road-athens-colonus": {
       "name": "Colonus Road",
       "text": "A broad road crosses the olive hills. One end leads to Athenian Agora; the other leads to Colonus Grove. A stone bench rests beside the verge.",
       "persona": "A shared road between Athenian Agora and Colonus Grove. The left end always leads to Athenian Agora. The right end always leads to Colonus Grove. Travelers can meet, talk, rest and carry their belongings here.",
-      "exits": ["greek-athens", "greek-colonus"],
-      "road": ["greek-athens", "greek-colonus"],
+      "exits": [
+        "greek-athens",
+        "greek-colonus"
+      ],
+      "road": [
+        "greek-athens",
+        "greek-colonus"
+      ],
       "backdrop": "assets/greek-drama/attic-road.webp"
     },
     "greek-road-athens-eleusis": {
       "name": "Eleusis Road",
       "text": "A broad road crosses the olive hills. One end leads to Athenian Agora; the other leads to Eleusinian Sanctuary. A stone bench rests beside the verge.",
       "persona": "A shared road between Athenian Agora and Eleusinian Sanctuary. The left end always leads to Athenian Agora. The right end always leads to Eleusinian Sanctuary. Travelers can meet, talk, rest and carry their belongings here.",
-      "exits": ["greek-athens", "greek-eleusis"],
-      "road": ["greek-athens", "greek-eleusis"],
+      "exits": [
+        "greek-athens",
+        "greek-eleusis"
+      ],
+      "road": [
+        "greek-athens",
+        "greek-eleusis"
+      ],
       "backdrop": "assets/greek-drama/attic-road.webp"
     },
     "greek-road-athens-marathon": {
       "name": "Marathon Road",
       "text": "A broad road crosses the olive hills. One end leads to Athenian Agora; the other leads to Marathon Altar. A stone bench rests beside the verge.",
       "persona": "A shared road between Athenian Agora and Marathon Altar. The left end always leads to Athenian Agora. The right end always leads to Marathon Altar. Travelers can meet, talk, rest and carry their belongings here.",
-      "exits": ["greek-athens", "greek-marathon"],
-      "road": ["greek-athens", "greek-marathon"],
+      "exits": [
+        "greek-athens",
+        "greek-marathon"
+      ],
+      "road": [
+        "greek-athens",
+        "greek-marathon"
+      ],
       "backdrop": "assets/greek-drama/attic-road.webp"
     },
     "greek-road-piraeus-eleusis": {
       "name": "Eleusis Coast Road",
       "text": "A broad road crosses the olive hills. One end leads to Piraeus Quays; the other leads to Eleusinian Sanctuary. A stone bench rests beside the verge.",
       "persona": "A shared road between Piraeus Quays and Eleusinian Sanctuary. The left end always leads to Piraeus Quays. The right end always leads to Eleusinian Sanctuary. Travelers can meet, talk, rest and carry their belongings here.",
-      "exits": ["greek-piraeus", "greek-eleusis"],
-      "road": ["greek-piraeus", "greek-eleusis"],
+      "exits": [
+        "greek-piraeus",
+        "greek-eleusis"
+      ],
+      "road": [
+        "greek-piraeus",
+        "greek-eleusis"
+      ],
       "backdrop": "assets/greek-drama/attic-road.webp"
     },
     "greek-road-colonus-eleusis": {
       "name": "Colonus–Eleusis Road",
       "text": "A broad road crosses the olive hills. One end leads to Colonus Grove; the other leads to Eleusinian Sanctuary. A stone bench rests beside the verge.",
       "persona": "A shared road between Colonus Grove and Eleusinian Sanctuary. The left end always leads to Colonus Grove. The right end always leads to Eleusinian Sanctuary. Travelers can meet, talk, rest and carry their belongings here.",
-      "exits": ["greek-colonus", "greek-eleusis"],
-      "road": ["greek-colonus", "greek-eleusis"],
+      "exits": [
+        "greek-colonus",
+        "greek-eleusis"
+      ],
+      "road": [
+        "greek-colonus",
+        "greek-eleusis"
+      ],
       "backdrop": "assets/greek-drama/attic-road.webp"
     },
     "greek-road-colonus-marathon": {
       "name": "Colonus–Marathon Road",
       "text": "A broad road crosses the olive hills. One end leads to Colonus Grove; the other leads to Marathon Altar. A stone bench rests beside the verge.",
       "persona": "A shared road between Colonus Grove and Marathon Altar. The left end always leads to Colonus Grove. The right end always leads to Marathon Altar. Travelers can meet, talk, rest and carry their belongings here.",
-      "exits": ["greek-colonus", "greek-marathon"],
-      "road": ["greek-colonus", "greek-marathon"],
+      "exits": [
+        "greek-colonus",
+        "greek-marathon"
+      ],
+      "road": [
+        "greek-colonus",
+        "greek-marathon"
+      ],
       "backdrop": "assets/greek-drama/attic-road.webp"
     },
     "greek-ajax-landing": {
       "name": "The Trojan Camp Landing",
       "text": "A wooden landing meets the ships below the tents. The Greek ship calls here for the named Trojan burial account.",
       "persona": "This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. A wooden landing meets the ships below the tents. The Greek ship calls here for the named Trojan burial account.",
-      "exits": ["greek-greek-camp"],
+      "exits": [
+        "greek-greek-camp"
+      ],
       "backdrop": "assets/greek-drama/ajax-camp-day.webp",
       "requires": [
         {
@@ -631,7 +766,9 @@
       "name": "Ajax’s Household Tent",
       "text": "Tecmessa keeps a place for Eurysaces beside the tent. The child’s father has died. His shield can be set safely with the household.",
       "persona": "This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. Tecmessa keeps a place for Eurysaces beside the tent. The child’s father has died. His shield can be set safely with the household.",
-      "exits": ["greek-greek-camp"],
+      "exits": [
+        "greek-greek-camp"
+      ],
       "backdrop": "assets/greek-drama/ajax-camp-day.webp",
       "requires": [
         {
@@ -645,7 +782,9 @@
       "name": "Ajax’s Grave",
       "text": "A patch of earth waits above the ships. Cloth and grave tools must reach this place before Ajax’s burial can be completed.",
       "persona": "This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. A patch of earth waits above the ships. Cloth and grave tools must reach this place before Ajax’s burial can be completed.",
-      "exits": ["greek-greek-camp"],
+      "exits": [
+        "greek-greek-camp"
+      ],
       "backdrop": "assets/greek-drama/ajax-camp-day.webp",
       "requires": [
         {
@@ -659,7 +798,9 @@
       "name": "truce porch",
       "text": "A shaded porch holds the three offered lengths of peace. The thirty-year jar waits beside the door.",
       "persona": "This is Dicaeopolis’s private truce during the war, a separate comic account. Speak from the saved acts and credited reports in this work. Other Greek accounts keep their own people, time and law.",
-      "exits": ["greek-acharnae"],
+      "exits": [
+        "greek-acharnae"
+      ],
       "backdrop": "assets/greek-drama/courtyard.svg",
       "requires": [
         {
@@ -673,7 +814,9 @@
       "name": "trading lane",
       "text": "Charcoal baskets and bare market stones border a lane between the two traders.",
       "persona": "This is Dicaeopolis’s private truce during the war, a separate comic account. Speak from the saved acts and credited reports in this work. Other Greek accounts keep their own people, time and law.",
-      "exits": ["greek-acharnae"],
+      "exits": [
+        "greek-acharnae"
+      ],
       "backdrop": "assets/greek-drama/courtyard.svg",
       "requires": [
         {
@@ -687,7 +830,9 @@
       "name": "servants' kitchen",
       "text": "A serving dish waits beside a food tally in the servants’ kitchen.",
       "persona": "This is the comic household of Demos, a separate comic account. Speak from the saved acts and credited reports in this work. Other Greek accounts keep their own people, time and law.",
-      "exits": ["greek-demos-house"],
+      "exits": [
+        "greek-demos-house"
+      ],
       "backdrop": "assets/greek-drama/courtyard.svg",
       "requires": [
         {
@@ -701,7 +846,9 @@
       "name": "sausage seller's stall",
       "text": "The sausage seller’s stall faces the household road.",
       "persona": "This is the comic household of Demos, a separate comic account. Speak from the saved acts and credited reports in this work. Other Greek accounts keep their own people, time and law.",
-      "exits": ["greek-demos-house"],
+      "exits": [
+        "greek-demos-house"
+      ],
       "backdrop": "assets/greek-drama/courtyard.svg",
       "requires": [
         {
@@ -715,7 +862,9 @@
       "name": "household trial yard",
       "text": "Two voting pots stand apart in the household trial yard.",
       "persona": "This is Philocleon’s household court and its revel claims, a separate comic account. Speak from the saved acts and credited reports in this work. Other Greek accounts keep their own people, time and law.",
-      "exits": ["greek-jury-house"],
+      "exits": [
+        "greek-jury-house"
+      ],
       "backdrop": "assets/greek-drama/courtyard.svg",
       "requires": [
         {
@@ -729,7 +878,9 @@
       "name": "Myrtia's bread street",
       "text": "Myrtia’s bread stall faces the place where the revellers passed.",
       "persona": "This is Philocleon’s household court and its revel claims, a separate comic account. Speak from the saved acts and credited reports in this work. Other Greek accounts keep their own people, time and law.",
-      "exits": ["greek-jury-house"],
+      "exits": [
+        "greek-jury-house"
+      ],
       "backdrop": "assets/greek-drama/courtyard.svg",
       "requires": [
         {
@@ -743,7 +894,9 @@
       "name": "Strepsiades's bedroom",
       "text": "A bed and a household ledger hold the cost of the son’s horses.",
       "persona": "This is the Thinkery comedy and Strepsiades’s debts, a separate comic account. Speak from the saved acts and credited reports in this work. Other Greek accounts keep their own people, time and law.",
-      "exits": ["greek-thinkery"],
+      "exits": [
+        "greek-thinkery"
+      ],
       "backdrop": "assets/greek-drama/courtyard.svg",
       "requires": [
         {
@@ -757,7 +910,9 @@
       "name": "creditors' court",
       "text": "Two lenders keep their separate claims in a small public court.",
       "persona": "This is the Thinkery comedy and Strepsiades’s debts, a separate comic account. Speak from the saved acts and credited reports in this work. Other Greek accounts keep their own people, time and law.",
-      "exits": ["greek-thinkery"],
+      "exits": [
+        "greek-thinkery"
+      ],
       "backdrop": "assets/greek-drama/courtyard.svg",
       "requires": [
         {
@@ -771,7 +926,9 @@
       "name": "coalition oath porch",
       "text": "The coalition’s oath cup waits beside supplies for the occupation.",
       "persona": "This is the women’s coalition and its comic peace, a separate comic account. Speak from the saved acts and credited reports in this work. Other Greek accounts keep their own people, time and law.",
-      "exits": ["greek-acropolis"],
+      "exits": [
+        "greek-acropolis"
+      ],
       "backdrop": "assets/greek-drama/palace.svg",
       "requires": [
         {
@@ -785,7 +942,9 @@
       "name": "treaty loom room",
       "text": "Wool and treaty cloth lie on the table beside a working loom.",
       "persona": "This is the women’s coalition and its comic peace, a separate comic account. Speak from the saved acts and credited reports in this work. Other Greek accounts keep their own people, time and law.",
-      "exits": ["greek-acropolis"],
+      "exits": [
+        "greek-acropolis"
+      ],
       "backdrop": "assets/greek-drama/palace.svg",
       "requires": [
         {
@@ -799,7 +958,9 @@
       "name": "common-goods yard",
       "text": "A common pot and contribution list wait in a yard for deposited goods.",
       "persona": "This is Praxagora’s comic assembly and common feast, a separate comic account. Speak from the saved acts and credited reports in this work. Other Greek accounts keep their own people, time and law.",
-      "exits": ["greek-assembly"],
+      "exits": [
+        "greek-assembly"
+      ],
       "backdrop": "assets/greek-drama/palace.svg",
       "requires": [
         {
@@ -813,7 +974,9 @@
       "name": "feast threshold",
       "text": "A published law hangs beside the threshold of the feast.",
       "persona": "This is Praxagora’s comic assembly and common feast, a separate comic account. Speak from the saved acts and credited reports in this work. Other Greek accounts keep their own people, time and law.",
-      "exits": ["greek-assembly"],
+      "exits": [
+        "greek-assembly"
+      ],
       "backdrop": "assets/greek-drama/palace.svg",
       "requires": [
         {
@@ -827,7 +990,9 @@
       "name": "healing porch",
       "text": "A coverlet and offering bowl wait at a sheltered healing door.",
       "persona": "This is Chremylus’s comic encounter with Plutus, a separate comic account. Speak from the saved acts and credited reports in this work. Other Greek accounts keep their own people, time and law.",
-      "exits": ["greek-attic-farm"],
+      "exits": [
+        "greek-attic-farm"
+      ],
       "backdrop": "assets/greek-drama/grove.svg",
       "requires": [
         {
@@ -841,7 +1006,9 @@
       "name": "distribution granary",
       "text": "A grain basket and wage purse stand beside the distribution table.",
       "persona": "This is Chremylus’s comic encounter with Plutus, a separate comic account. Speak from the saved acts and credited reports in this work. Other Greek accounts keep their own people, time and law.",
-      "exits": ["greek-attic-farm"],
+      "exits": [
+        "greek-attic-farm"
+      ],
       "backdrop": "assets/greek-drama/grove.svg",
       "requires": [
         {
@@ -855,7 +1022,9 @@
       "name": "dressing porch",
       "text": "A loaned robe and stage mask rest on the festival dressing porch.",
       "persona": "This is the festival comedy’s dispute with the staged Euripides, a separate comic account. Speak from the saved acts and credited reports in this work. Other Greek accounts keep their own people, time and law.",
-      "exits": ["greek-festival"],
+      "exits": [
+        "greek-festival"
+      ],
       "backdrop": "assets/greek-drama/grove.svg",
       "requires": [
         {
@@ -869,7 +1038,9 @@
       "name": "guarded performance stage",
       "text": "A guard watches the performance space and its route to the Agora.",
       "persona": "This is the festival comedy’s dispute with the staged Euripides, a separate comic account. Speak from the saved acts and credited reports in this work. Other Greek accounts keep their own people, time and law.",
-      "exits": ["greek-festival"],
+      "exits": [
+        "greek-festival"
+      ],
       "backdrop": "assets/greek-drama/grove.svg",
       "requires": [
         {
@@ -895,7 +1066,10 @@
       "voice": "A determined sister. Speak directly about a brother's burial and the practical help at hand. Know only public facts and witnessed acts; never predict the play's ending.",
       "portrait": "assets/greek-drama/chthonic-antigone.png",
       "desire": {
-        "items": ["greek-funeral-cloth", "greek-oil-flask"],
+        "items": [
+          "greek-funeral-cloth",
+          "greek-oil-flask"
+        ],
         "location": "greek-battlefield",
         "avatars": [],
         "requires": [
@@ -1038,7 +1212,9 @@
       "text": "He keeps the words of the journey in a song.",
       "place": "greek-harbor",
       "home": "greek-harbor",
-      "previousHomes": ["greek-argolid-road"],
+      "previousHomes": [
+        "greek-argolid-road"
+      ],
       "values": {
         "greek-provisions": 2
       },
@@ -1563,7 +1739,11 @@
       ],
       "journey": {
         "after": "greek-homecoming-agree-journey",
-        "path": ["greek-eleusis", "greek-road-piraeus-eleusis", "greek-piraeus"]
+        "path": [
+          "greek-eleusis",
+          "greek-road-piraeus-eleusis",
+          "greek-piraeus"
+        ]
       },
       "tastes": {
         "likes": "a place kept ready and a promise carried through",
@@ -1719,7 +1899,10 @@
       },
       "journey": {
         "after": "greek-comedy-acharnians-shared-farmer-assent",
-        "path": ["greek-acharnae", "greek-comedy-acharnians-trading-lane"]
+        "path": [
+          "greek-acharnae",
+          "greek-comedy-acharnians-trading-lane"
+        ]
       }
     },
     "greek-comedy-acharnians-lamachus": {
@@ -1825,7 +2008,9 @@
       "home": "greek-comedy-knights-sausage-sellers-stall",
       "travels": false,
       "standoffs": false,
-      "values": {},
+      "values": {
+        "greek-comedy-knights-demoss-genuine-ring": 5
+      },
       "persona": "The sausage seller seeks Demos’s favour and the steward’s place. This is the comic household of Demos, a separate comic account. Speak from the saved acts and credited reports in this work. Other Greek accounts keep their own people, time and law.",
       "voice": "Use plain first-person words. Name what you witnessed, what you were told, and what you agreed. The sausage seller seeks Demos’s favour and the steward’s place.",
       "portrait": "assets/greek-drama/chthonic-elder.png",
@@ -1843,7 +2028,7 @@
       }
     },
     "greek-comedy-knights-paphlagonian": {
-      "name": "the Paphlagonian, called Cleon in this translation",
+      "name": "The Paphlagonian",
       "text": "The Paphlagonian claims credit for the household meal.",
       "place": "greek-demos-house",
       "home": "greek-demos-house",
@@ -2210,7 +2395,9 @@
       "home": "greek-acropolis",
       "travels": false,
       "standoffs": false,
-      "values": {},
+      "values": {
+        "greek-comedy-lysistrata-treasury-key": 5
+      },
       "persona": "She joins the separate pledges into a demand for peace. This is the women’s coalition and its comic peace, a separate comic account. Speak from the saved acts and credited reports in this work. Other Greek accounts keep their own people, time and law.",
       "voice": "Use plain first-person words. Name what you witnessed, what you were told, and what you agreed. She joins the separate pledges into a demand for peace.",
       "portrait": "assets/greek-drama/chthonic-elder.png",
@@ -3789,6 +3976,11 @@
         {
           "kind": "flag",
           "key": "greek-comedy-lysistrata-begun",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-comedy-lysistrata-key-permission",
           "value": true
         }
       ]
@@ -10520,7 +10712,7 @@
     },
     {
       "id": "greek-comedy-acharnians-return",
-      "subject": "greek-market-neighbor",
+      "subject": "greek-baker",
       "at": "greek-courtyard",
       "label": "Bring Acharnians’s signed account to Dione",
       "text": "Vale lays the signed signed market account beside Dione’s bread. Dione hears the authorised result of Dicaeopolis’s private truce during the war, the named recipients and the duties still open.",
@@ -10684,7 +10876,7 @@
       "id": "greek-comedy-knights-rivals-claim",
       "subject": "greek-comedy-knights-paphlagonian",
       "at": "greek-demos-house",
-      "label": "Hear the Paphlagonian, called Cleon in this translation: rivals claim",
+      "label": "Hear The Paphlagonian: rivals claim",
       "text": "The Paphlagonian states his claim beside the sausage seller’s rival offer and the Knights’ chorus’s challenge.",
       "textTemplate": "The Paphlagonian states his claim beside the sausage seller’s rival offer and the Knights’ chorus’s challenge.",
       "requires": [
@@ -11292,8 +11484,8 @@
       "subject": "greek-comedy-knights-demosthenes",
       "at": "greek-comedy-knights-servants-kitchen",
       "label": "Lodge the public food tally with the agreed keepers",
-      "text": "Vale places the actual tally in the kitchen. Demosthenes receives it under Demos’s terms and Nicias’s separate pledge.",
-      "textTemplate": "{actor} places the actual tally in the kitchen. Demosthenes receives it under Demos’s terms and Nicias’s separate pledge.",
+      "text": "Vale places the tally in the kitchen. Demosthenes receives it under Demos’s terms and Nicias’s separate pledge.",
+      "textTemplate": "{actor} places the tally in the kitchen. Demosthenes receives it under Demos’s terms and Nicias’s separate pledge.",
       "requires": [
         {
           "kind": "flag",
@@ -11514,7 +11706,7 @@
     },
     {
       "id": "greek-comedy-knights-return",
-      "subject": "greek-market-neighbor",
+      "subject": "greek-baker",
       "at": "greek-courtyard",
       "label": "Bring Knights’s signed account to Dione",
       "text": "Vale lays the signed signed stewardship account beside Dione’s bread. Dione hears the authorised result of the comic household of Demos, the named recipients and the duties still open.",
@@ -11765,8 +11957,8 @@
       "subject": "greek-comedy-wasps-xanthias",
       "at": "greek-comedy-wasps-household-trial-yard",
       "label": "Choose the misdirection voting method",
-      "text": "Vale chooses the misdirection method for this dog trial. The verdict awaits the actual ballot pebble.",
-      "textTemplate": "{actor} chooses the misdirection method for this dog trial. The verdict awaits the actual ballot pebble.",
+      "text": "Vale chooses the misdirection method for this dog trial. The verdict awaits the ballot pebble.",
+      "textTemplate": "{actor} chooses the misdirection method for this dog trial. The verdict awaits the ballot pebble.",
       "requires": [
         {
           "kind": "flag",
@@ -11802,8 +11994,8 @@
       "subject": "greek-comedy-wasps-xanthias",
       "at": "greek-comedy-wasps-household-trial-yard",
       "label": "Choose the open voting method",
-      "text": "Vale chooses the open method for this dog trial. The verdict awaits the actual ballot pebble.",
-      "textTemplate": "{actor} chooses the open method for this dog trial. The verdict awaits the actual ballot pebble.",
+      "text": "Vale chooses the open method for this dog trial. The verdict awaits the ballot pebble.",
+      "textTemplate": "{actor} chooses the open method for this dog trial. The verdict awaits the ballot pebble.",
       "requires": [
         {
           "kind": "flag",
@@ -11839,8 +12031,8 @@
       "subject": "greek-comedy-wasps-xanthias",
       "at": "greek-comedy-wasps-household-trial-yard",
       "label": "Choose the purchased voting method",
-      "text": "Vale chooses the purchased method for this dog trial. The verdict awaits the actual ballot pebble.",
-      "textTemplate": "{actor} chooses the purchased method for this dog trial. The verdict awaits the actual ballot pebble.",
+      "text": "Vale chooses the purchased method for this dog trial. The verdict awaits the ballot pebble.",
+      "textTemplate": "{actor} chooses the purchased method for this dog trial. The verdict awaits the ballot pebble.",
       "requires": [
         {
           "kind": "flag",
@@ -11876,8 +12068,8 @@
       "subject": "greek-comedy-wasps-xanthias",
       "at": "greek-comedy-wasps-household-trial-yard",
       "label": "Cast the pebble for acquittal under misdirection",
-      "text": "Vale casts the actual pebble at the acquittal pot under the misdirection method. Xanthias records the verdict separately from the method.",
-      "textTemplate": "{actor} casts the actual pebble at the acquittal pot under the misdirection method. Xanthias records the verdict separately from the method.",
+      "text": "Vale casts the pebble at the acquittal pot under the misdirection method. Xanthias records the verdict separately from the method.",
+      "textTemplate": "{actor} casts the pebble at the acquittal pot under the misdirection method. Xanthias records the verdict separately from the method.",
       "requires": [
         {
           "kind": "flag",
@@ -11943,8 +12135,8 @@
       "subject": "greek-comedy-wasps-xanthias",
       "at": "greek-comedy-wasps-household-trial-yard",
       "label": "Cast the pebble for acquittal under open",
-      "text": "Vale casts the actual pebble at the acquittal pot under the open method. Xanthias records the verdict separately from the method.",
-      "textTemplate": "{actor} casts the actual pebble at the acquittal pot under the open method. Xanthias records the verdict separately from the method.",
+      "text": "Vale casts the pebble at the acquittal pot under the open method. Xanthias records the verdict separately from the method.",
+      "textTemplate": "{actor} casts the pebble at the acquittal pot under the open method. Xanthias records the verdict separately from the method.",
       "requires": [
         {
           "kind": "flag",
@@ -12010,8 +12202,8 @@
       "subject": "greek-comedy-wasps-xanthias",
       "at": "greek-comedy-wasps-household-trial-yard",
       "label": "Cast the pebble for conviction under open",
-      "text": "Vale casts the actual pebble at the conviction pot under the open method. Xanthias records the verdict separately from the method.",
-      "textTemplate": "{actor} casts the actual pebble at the conviction pot under the open method. Xanthias records the verdict separately from the method.",
+      "text": "Vale casts the pebble at the conviction pot under the open method. Xanthias records the verdict separately from the method.",
+      "textTemplate": "{actor} casts the pebble at the conviction pot under the open method. Xanthias records the verdict separately from the method.",
       "requires": [
         {
           "kind": "flag",
@@ -12077,8 +12269,8 @@
       "subject": "greek-comedy-wasps-xanthias",
       "at": "greek-comedy-wasps-household-trial-yard",
       "label": "Cast the pebble for acquittal under purchased",
-      "text": "Vale casts the actual pebble at the acquittal pot under the purchased method. Xanthias records the verdict separately from the method.",
-      "textTemplate": "{actor} casts the actual pebble at the acquittal pot under the purchased method. Xanthias records the verdict separately from the method.",
+      "text": "Vale casts the pebble at the acquittal pot under the purchased method. Xanthias records the verdict separately from the method.",
+      "textTemplate": "{actor} casts the pebble at the acquittal pot under the purchased method. Xanthias records the verdict separately from the method.",
       "requires": [
         {
           "kind": "flag",
@@ -12144,8 +12336,8 @@
       "subject": "greek-comedy-wasps-xanthias",
       "at": "greek-comedy-wasps-household-trial-yard",
       "label": "Cast the pebble for conviction under purchased",
-      "text": "Vale casts the actual pebble at the conviction pot under the purchased method. Xanthias records the verdict separately from the method.",
-      "textTemplate": "{actor} casts the actual pebble at the conviction pot under the purchased method. Xanthias records the verdict separately from the method.",
+      "text": "Vale casts the pebble at the conviction pot under the purchased method. Xanthias records the verdict separately from the method.",
+      "textTemplate": "{actor} casts the pebble at the conviction pot under the purchased method. Xanthias records the verdict separately from the method.",
       "requires": [
         {
           "kind": "flag",
@@ -12211,8 +12403,8 @@
       "subject": "greek-comedy-wasps-xanthias",
       "at": "greek-comedy-wasps-household-trial-yard",
       "label": "Record the dog trial’s method and verdict",
-      "text": "Xanthias confirms the cast pebble and the saved verdict. The hearing’s method keeps its own record beside the answer.",
-      "textTemplate": "Xanthias confirms the cast pebble and the saved verdict. The hearing’s method keeps its own record beside the answer.",
+      "text": "Xanthias confirms the cast pebble and the recorded verdict. The hearing’s method keeps its own record beside the answer.",
+      "textTemplate": "Xanthias confirms the cast pebble and the recorded verdict. The hearing’s method keeps its own record beside the answer.",
       "requires": [
         {
           "kind": "flag",
@@ -12439,6 +12631,11 @@
           "kind": "set_flag",
           "key": "greek-comedy-wasps-route-chosen",
           "value": true
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-comedy-wasps-repair-terms",
+          "value": true
         }
       ],
       "workId": "aristophanes-wasps"
@@ -12490,6 +12687,11 @@
         {
           "kind": "set_flag",
           "key": "greek-comedy-wasps-route-chosen",
+          "value": true
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-comedy-wasps-repair-terms",
           "value": true
         }
       ],
@@ -12583,6 +12785,11 @@
           "kind": "holding",
           "item": "greek-comedy-wasps-myrtias-fourteen-obol-compensation-purse",
           "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-comedy-wasps-repair-terms",
+          "value": true
         }
       ],
       "effects": [
@@ -12631,6 +12838,11 @@
           "kind": "holding",
           "item": "greek-comedy-wasps-care-bandage",
           "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-comedy-wasps-repair-terms",
+          "value": true
         }
       ],
       "effects": [
@@ -12879,8 +13091,8 @@
       "subject": "greek-comedy-wasps-myrtia",
       "at": "greek-comedy-wasps-myrtias-bread-street",
       "label": "Hear Myrtia the baker: signed account",
-      "text": "Myrtia signs the revel-claims account, preserving the trial, revel, claims, closing dance, actual payment and duties still owed in their order.",
-      "textTemplate": "Myrtia signs the revel-claims account, preserving the trial, revel, claims, closing dance, actual payment and duties still owed in their order.",
+      "text": "Myrtia signs the revel-claims account, preserving the trial, revel, claims, closing dance, payment and duties still owed in their order.",
+      "textTemplate": "Myrtia signs the revel-claims account, preserving the trial, revel, claims, closing dance, payment and duties still owed in their order.",
       "requires": [
         {
           "kind": "flag",
@@ -12914,7 +13126,7 @@
     },
     {
       "id": "greek-comedy-wasps-return",
-      "subject": "greek-market-neighbor",
+      "subject": "greek-baker",
       "at": "greek-courtyard",
       "label": "Bring Wasps’s signed account to Dione",
       "text": "Vale lays the signed signed revel-claims account beside Dione’s bread. Dione hears the authorised result of Philocleon’s household court and its revel claims, the named recipients and the duties still open.",
@@ -13049,8 +13261,8 @@
       "subject": "greek-comedy-clouds-strepsiades",
       "at": "greek-comedy-clouds-strepsiadess-bedroom",
       "label": "Lay the two lenders’ claims beside the household ledger",
-      "text": "Vale lays the actual ledger and both claim tablets beside the bed. Strepsiades hears each lender’s separate claim and his son’s expenses.",
-      "textTemplate": "{actor} lays the actual ledger and both claim tablets beside the bed. Strepsiades hears each lender’s separate claim and his son’s expenses.",
+      "text": "Vale lays the ledger and both claim tablets beside the bed. Strepsiades hears each lender’s separate claim and his son’s expenses.",
+      "textTemplate": "{actor} lays the ledger and both claim tablets beside the bed. Strepsiades hears each lender’s separate claim and his son’s expenses.",
       "requires": [
         {
           "kind": "flag",
@@ -13154,7 +13366,7 @@
       "id": "greek-comedy-clouds-test-lesson",
       "subject": "greek-comedy-clouds-pasias",
       "at": "greek-comedy-clouds-creditors-court",
-      "label": "Test the lesson against the actual claims",
+      "label": "Test the lesson against the claims",
       "text": "Vale brings the lesson tablet and both lenders’ claims to the court. Pasias witnesses the attempted argument against the written debts.",
       "textTemplate": "{actor} brings the lesson tablet and both lenders’ claims to the court. Pasias witnesses the attempted argument against the written debts.",
       "requires": [
@@ -13774,8 +13986,8 @@
       "subject": "greek-comedy-clouds-socrates",
       "at": "greek-thinkery",
       "label": "Carry the torch to the school door",
-      "text": "Vale carries the torch to the school door in the source-shaped attack. The changed school awaits its separate witness report.",
-      "textTemplate": "{actor} carries the torch to the school door in the source-shaped attack. The changed school awaits its separate witness report.",
+      "text": "Vale carries the torch to the school door in the attack at the end of Aristophanes’s comedy. The changed school awaits its separate witness report.",
+      "textTemplate": "{actor} carries the torch to the school door in the attack at the end of Aristophanes’s comedy. The changed school awaits its separate witness report.",
       "requires": [
         {
           "kind": "flag",
@@ -13943,7 +14155,7 @@
     },
     {
       "id": "greek-comedy-clouds-return",
-      "subject": "greek-market-neighbor",
+      "subject": "greek-baker",
       "at": "greek-courtyard",
       "label": "Bring Clouds’s signed account to Dione",
       "text": "Vale lays the signed signed debt-and-school account beside Dione’s bread. Dione hears the authorised result of the Thinkery comedy and Strepsiades’s debts, the named recipients and the duties still open.",
@@ -14202,8 +14414,8 @@
       "subject": "greek-comedy-lysistrata-lysistrata",
       "at": "greek-acropolis",
       "label": "Count the ledger and deliver the occupation’s supplies",
-      "text": "Vale brings the war ledger, occupation basket and wool to Lysistrata. She counts the stated spending and receives the actual provisions for the occupied treasury.",
-      "textTemplate": "{actor} brings the war ledger, occupation basket and wool to Lysistrata. She counts the stated spending and receives the actual provisions for the occupied treasury.",
+      "text": "Vale brings the war ledger, occupation basket and wool to Lysistrata. She counts the stated spending and receives the provisions for the occupied treasury.",
+      "textTemplate": "{actor} brings the war ledger, occupation basket and wool to Lysistrata. She counts the stated spending and receives the provisions for the occupied treasury.",
       "requires": [
         {
           "kind": "flag",
@@ -14639,8 +14851,8 @@
       "subject": "greek-comedy-lysistrata-lysistrata",
       "at": "greek-acropolis",
       "label": "Publish the accepted cloth and prepare the first feast",
-      "text": "Vale publishes the actual treaty cloth and prepares the first feast from the delivered occupation basket. Lysistrata receives the recorded replies and credits both cities’ closing singers.",
-      "textTemplate": "{actor} publishes the actual treaty cloth and prepares the first feast from the delivered occupation basket. Lysistrata receives the recorded replies and credits both cities’ closing singers.",
+      "text": "Vale publishes the treaty cloth and prepares the first feast from the delivered occupation basket. Lysistrata receives the recorded replies and credits both cities’ closing singers.",
+      "textTemplate": "{actor} publishes the treaty cloth and prepares the first feast from the delivered occupation basket. Lysistrata receives the recorded replies and credits both cities’ closing singers.",
       "requires": [
         {
           "kind": "flag",
@@ -14720,8 +14932,8 @@
       "subject": "greek-comedy-lysistrata-lysistrata",
       "at": "greek-acropolis",
       "label": "Complete the agreed key handover and feast",
-      "text": "Lysistrata holds the actual treasury key under the shared peace. She acknowledges the prepared feast and the two cities’ closing song.",
-      "textTemplate": "Lysistrata holds the actual treasury key under the shared peace. She acknowledges the prepared feast and the two cities’ closing song.",
+      "text": "Lysistrata holds the treasury key under the shared peace. She acknowledges the prepared feast and the two cities’ closing song.",
+      "textTemplate": "Lysistrata holds the treasury key under the shared peace. She acknowledges the prepared feast and the two cities’ closing song.",
       "requires": [
         {
           "kind": "flag",
@@ -14849,8 +15061,8 @@
       "subject": "greek-comedy-lysistrata-myrrhine",
       "at": "greek-comedy-lysistrata-treaty-loom-room",
       "label": "Lodge the key and spending ledger under the council pledge",
-      "text": "Vale lodges the actual key and spending ledger at the loom under the two named keepers’ accepted duties. Myrrhine receives the public record.",
-      "textTemplate": "{actor} lodges the actual key and spending ledger at the loom under the two named keepers’ accepted duties. Myrrhine receives the public record.",
+      "text": "Vale lodges the key and spending ledger at the loom under the two named keepers’ accepted duties. Myrrhine receives the public record.",
+      "textTemplate": "{actor} lodges the key and spending ledger at the loom under the two named keepers’ accepted duties. Myrrhine receives the public record.",
       "requires": [
         {
           "kind": "flag",
@@ -15056,8 +15268,8 @@
       "subject": "greek-comedy-lysistrata-lysistrata",
       "at": "greek-acropolis",
       "label": "Hear Lysistrata: signed account",
-      "text": "Lysistrata and Lampito authorise the signed peace account. The delivered cloth, actual key handover, first feast and remaining duties have their own records.",
-      "textTemplate": "Lysistrata and Lampito authorise the signed peace account. The delivered cloth, actual key handover, first feast and remaining duties have their own records.",
+      "text": "Lysistrata and Lampito authorise the signed peace account. The delivered cloth, key handover, first feast and remaining duties have their own records.",
+      "textTemplate": "Lysistrata and Lampito authorise the signed peace account. The delivered cloth, key handover, first feast and remaining duties have their own records.",
       "requires": [
         {
           "kind": "flag",
@@ -15096,7 +15308,7 @@
     },
     {
       "id": "greek-comedy-lysistrata-return",
-      "subject": "greek-market-neighbor",
+      "subject": "greek-baker",
       "at": "greek-courtyard",
       "label": "Bring Lysistrata’s signed account to Dione",
       "text": "Vale lays the signed signed peace account beside Dione’s bread. Dione hears the authorised result of the women’s coalition and its comic peace, the named recipients and the duties still open.",
@@ -15261,8 +15473,8 @@
       "subject": "greek-comedy-assemblywomen-praxagora",
       "at": "greek-assembly",
       "label": "Return the borrowed clothing after the vote",
-      "text": "Vale returns the actual borrowed beard and cloak to Praxagora after the recorded vote. She receives the two borrowed articles.",
-      "textTemplate": "{actor} returns the actual borrowed beard and cloak to Praxagora after the recorded vote. She receives the two borrowed articles.",
+      "text": "Vale returns the borrowed beard and cloak to Praxagora after the recorded vote. She receives the two borrowed articles.",
+      "textTemplate": "{actor} returns the borrowed beard and cloak to Praxagora after the recorded vote. She receives the two borrowed articles.",
       "requires": [
         {
           "kind": "flag",
@@ -15380,8 +15592,8 @@
       "subject": "greek-comedy-assemblywomen-contributor",
       "at": "greek-comedy-assemblywomen-common-goods-yard",
       "label": "Bring the common pot and count the contribution list",
-      "text": "Vale brings the common pot and actual contribution list to the goods yard. The two citizens’ separate deposits and withheld purse enter the count.",
-      "textTemplate": "{actor} brings the common pot and actual contribution list to the goods yard. The two citizens’ separate deposits and withheld purse enter the count.",
+      "text": "Vale brings the common pot and contribution list to the goods yard. The two citizens’ separate deposits and withheld purse enter the count.",
+      "textTemplate": "{actor} brings the common pot and contribution list to the goods yard. The two citizens’ separate deposits and withheld purse enter the count.",
       "requires": [
         {
           "kind": "flag",
@@ -15547,6 +15759,11 @@
           "kind": "set_flag",
           "key": "greek-comedy-assemblywomen-route-chosen",
           "value": true
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-comedy-assemblywomen-law-agreed",
+          "value": true
         }
       ],
       "workId": "aristophanes-assemblywomen"
@@ -15651,6 +15868,11 @@
           "kind": "set_flag",
           "key": "greek-comedy-assemblywomen-route-chosen",
           "value": true
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-comedy-assemblywomen-law-agreed",
+          "value": true
         }
       ],
       "workId": "aristophanes-assemblywomen"
@@ -15750,6 +15972,11 @@
           "kind": "set_flag",
           "key": "greek-comedy-assemblywomen-young-man-amendment",
           "value": true
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-comedy-assemblywomen-law-agreed",
+          "value": true
         }
       ],
       "workId": "aristophanes-assemblywomen"
@@ -15759,8 +15986,8 @@
       "subject": "greek-comedy-assemblywomen-withholder",
       "at": "greek-comedy-assemblywomen-common-goods-yard",
       "label": "Hear the withholding citizen: withholder permission",
-      "text": "The withholding citizen agrees that the traveler may conceal his actual purse in his covered pot while he claims a public share.",
-      "textTemplate": "The withholding citizen agrees that the traveler may conceal his actual purse in his covered pot while he claims a public share.",
+      "text": "The withholding citizen agrees that the traveler may conceal his purse in his covered pot while he claims a public share.",
+      "textTemplate": "The withholding citizen agrees that the traveler may conceal his purse in his covered pot while he claims a public share.",
       "requires": [
         {
           "kind": "flag",
@@ -15791,9 +16018,9 @@
       "id": "greek-comedy-assemblywomen-conceal-purse",
       "subject": "greek-comedy-assemblywomen-withholder",
       "at": "greek-comedy-assemblywomen-common-goods-yard",
-      "label": "Conceal the actual purse in the withholder’s covered pot",
-      "text": "Vale places the actual purse in the withholder’s covered pot. He acknowledges it, while the public contribution list retains the shortfall.",
-      "textTemplate": "{actor} places the actual purse in the withholder’s covered pot. He acknowledges it, while the public contribution list retains the shortfall.",
+      "label": "Conceal the purse in the withholder’s covered pot",
+      "text": "Vale places the purse in the withholder’s covered pot. He acknowledges it, while the public contribution list retains the shortfall.",
+      "textTemplate": "{actor} places the purse in the withholder’s covered pot. He acknowledges it, while the public contribution list retains the shortfall.",
       "requires": [
         {
           "kind": "flag",
@@ -15839,7 +16066,7 @@
       "id": "greek-comedy-assemblywomen-publish-law",
       "subject": "greek-comedy-assemblywomen-older-woman",
       "at": "greek-comedy-assemblywomen-feast-threshold",
-      "label": "Carry and publish the actual decree at the feast threshold",
+      "label": "Carry and publish the decree at the feast threshold",
       "text": "Vale carries the decree to the feast threshold and publishes the chosen text before the affected speakers. The older woman receives the paper.",
       "textTemplate": "{actor} carries the decree to the feast threshold and publishes the chosen text before the affected speakers. The older woman receives the paper.",
       "requires": [
@@ -15872,6 +16099,11 @@
           "kind": "holding",
           "item": "greek-comedy-assemblywomen-published-decree",
           "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-comedy-assemblywomen-law-agreed",
+          "value": true
         }
       ],
       "effects": [
@@ -16062,8 +16294,8 @@
       "subject": "greek-comedy-assemblywomen-young-man",
       "at": "greek-comedy-assemblywomen-feast-threshold",
       "label": "Take the public share with the concealed shortfall recorded",
-      "text": "Vale receives a meal from the actual common pot after helping conceal the withholder’s purse. The contribution list preserves the shortfall and the cooks’ labour.",
-      "textTemplate": "{actor} receives a meal from the actual common pot after helping conceal the withholder’s purse. The contribution list preserves the shortfall and the cooks’ labour.",
+      "text": "Vale receives a meal from the common pot after helping conceal the withholder’s purse. The contribution list preserves the shortfall and the cooks’ labour.",
+      "textTemplate": "{actor} receives a meal from the common pot after helping conceal the withholder’s purse. The contribution list preserves the shortfall and the cooks’ labour.",
       "requires": [
         {
           "kind": "flag",
@@ -16160,7 +16392,7 @@
     },
     {
       "id": "greek-comedy-assemblywomen-return",
-      "subject": "greek-market-neighbor",
+      "subject": "greek-baker",
       "at": "greek-courtyard",
       "label": "Bring Assemblywomen’s signed account to Dione",
       "text": "Vale lays the signed signed feast-and-law account beside Dione’s bread. Dione hears the authorised result of Praxagora’s comic assembly and common feast, the named recipients and the duties still open.",
@@ -16276,7 +16508,7 @@
       "id": "greek-comedy-wealth-welcome-arrival",
       "subject": "greek-comedy-wealth-plutus",
       "at": "greek-comedy-wealth-healing-porch",
-      "label": "Serve Plutus at his actual healing-porch arrival",
+      "label": "Serve Plutus at his healing-porch arrival",
       "text": "Vale serves the welcome basket to Plutus after their agreed arrival at the healing door. Plutus acknowledges his supper.",
       "textTemplate": "{actor} serves the welcome basket to Plutus after their agreed arrival at the healing door. Plutus acknowledges his supper.",
       "requires": [
@@ -16932,8 +17164,8 @@
       "subject": "greek-comedy-wealth-carion",
       "at": "greek-comedy-wealth-distribution-granary",
       "label": "Take the vegetable pot for the announced procession",
-      "text": "Carion authorises Vale to carry the actual vegetable pot as the announced procession sets out. The wider riches remain his credited comic report.",
-      "textTemplate": "Carion authorises {actor} to carry the actual vegetable pot as the announced procession sets out. The wider riches remain his credited comic report.",
+      "text": "Carion authorises Vale to carry the vegetable pot as the announced procession sets out. The wider riches remain his credited comic report.",
+      "textTemplate": "Carion authorises {actor} to carry the vegetable pot as the announced procession sets out. The wider riches remain his credited comic report.",
       "requires": [
         {
           "kind": "flag",
@@ -17103,7 +17335,7 @@
       "id": "greek-comedy-wealth-workers-wage",
       "subject": "greek-comedy-wealth-carion",
       "at": "greek-comedy-wealth-distribution-granary",
-      "label": "Deliver Carion’s actual wage purse",
+      "label": "Deliver Carion’s wage purse",
       "text": "Vale delivers the wage purse to Carion at the granary. He counts and accepts his wage after the agreed grain delivery.",
       "textTemplate": "{actor} delivers the wage purse to Carion at the granary. He counts and accepts his wage after the agreed grain delivery.",
       "requires": [
@@ -17152,8 +17384,8 @@
       "subject": "greek-comedy-wealth-plutus",
       "at": "greek-comedy-wealth-distribution-granary",
       "label": "Publish the accepted first grain and wage distribution",
-      "text": "Plutus confirms the named recipients’ actual grain and wage deliveries and their separate acknowledgements. Poverty and the informer’s remaining claims stay in the public ledger.",
-      "textTemplate": "Plutus confirms the named recipients’ actual grain and wage deliveries and their separate acknowledgements. Poverty and the informer’s remaining claims stay in the public ledger.",
+      "text": "Plutus confirms the named recipients’ grain and wage deliveries and their separate acknowledgements. Poverty and the informer’s remaining claims stay in the public ledger.",
+      "textTemplate": "Plutus confirms the named recipients’ grain and wage deliveries and their separate acknowledgements. Poverty and the informer’s remaining claims stay in the public ledger.",
       "requires": [
         {
           "kind": "flag",
@@ -17248,8 +17480,8 @@
       "subject": "greek-comedy-wealth-chremylus",
       "at": "greek-attic-farm",
       "label": "Lodge the grain and wage purse under the farm’s private terms",
-      "text": "Vale lodges the actual grain and wage purse with Chremylus at the farm. He accepts private custody and records the petitioners still waiting.",
-      "textTemplate": "{actor} lodges the actual grain and wage purse with Chremylus at the farm. He accepts private custody and records the petitioners still waiting.",
+      "text": "Vale lodges the grain and wage purse with Chremylus at the farm. He accepts private custody and records the petitioners still waiting.",
+      "textTemplate": "{actor} lodges the grain and wage purse with Chremylus at the farm. He accepts private custody and records the petitioners still waiting.",
       "requires": [
         {
           "kind": "flag",
@@ -17394,7 +17626,7 @@
     },
     {
       "id": "greek-comedy-wealth-return",
-      "subject": "greek-market-neighbor",
+      "subject": "greek-baker",
       "at": "greek-courtyard",
       "label": "Bring Wealth’s signed account to Dione",
       "text": "Vale lays the signed signed first-distribution ledger beside Dione’s bread. Dione hears the authorised result of Chremylus’s comic encounter with Plutus, the named recipients and the duties still open.",
@@ -17445,8 +17677,8 @@
       "subject": "greek-comedy-thesmophoria-mica",
       "at": "greek-festival",
       "label": "Hear Mica: mica words",
-      "text": "Mica chooses the words the traveler may carry about the women’s complaint against Euripides. Her wine-skin remains her actual wine-skin.",
-      "textTemplate": "Mica chooses the words the traveler may carry about the women’s complaint against Euripides. Her wine-skin remains her actual wine-skin.",
+      "text": "Mica chooses the words the traveler may carry about the women’s complaint against Euripides. Her wine-skin remains her wine-skin.",
+      "textTemplate": "Mica chooses the words the traveler may carry about the women’s complaint against Euripides. Her wine-skin remains her wine-skin.",
       "requires": [
         {
           "kind": "flag",
@@ -17657,7 +17889,7 @@
       "id": "greek-comedy-thesmophoria-festival-arrival",
       "subject": "greek-comedy-thesmophoria-mnesilochus",
       "at": "greek-festival",
-      "label": "Record Mnesilochus’s actual festival arrival",
+      "label": "Record Mnesilochus’s festival arrival",
       "text": "Mnesilochus arrives at the festival in the agreed route. Vale records his own answer about the borrowed dress.",
       "textTemplate": "Mnesilochus arrives at the festival in the agreed route. {actor} records his own answer about the borrowed dress.",
       "requires": [
@@ -17799,7 +18031,7 @@
       "id": "greek-comedy-thesmophoria-guarded-arrival",
       "subject": "greek-comedy-thesmophoria-mnesilochus",
       "at": "greek-comedy-thesmophoria-guarded-performance-stage",
-      "label": "Record Mnesilochus’s actual guarded-stage arrival",
+      "label": "Record Mnesilochus’s guarded-stage arrival",
       "text": "Mnesilochus arrives at the guarded stage and answers the exposure report. Vale keeps his arrival, the wine-skin report and the custody order as distinct records.",
       "textTemplate": "Mnesilochus arrives at the guarded stage and answers the exposure report. {actor} keeps his arrival, the wine-skin report and the custody order as distinct records.",
       "requires": [
@@ -18147,6 +18379,59 @@
       "workId": "aristophanes-women-at-the-thesmophoria"
     },
     {
+      "id": "greek-comedy-thesmophoria-perform-mask",
+      "subject": "greek-comedy-thesmophoria-euripides",
+      "at": "greek-comedy-thesmophoria-guarded-performance-stage",
+      "label": "Perform the named parody with the mask",
+      "text": "Euripides and Mnesilochus perform their named stage parts with the mask and rescue board. The approved women’s reply keeps its own credited words.",
+      "textTemplate": "Euripides and Mnesilochus perform their named stage parts with the mask and rescue board. The approved women’s reply keeps its own credited words.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-comedy-open",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-comedy-thesmophoria-begun",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-comedy-thesmophoria-stage-message",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-comedy-thesmophoria-stage-mask",
+          "role": "actor"
+        },
+        {
+          "kind": "item_at",
+          "item": "greek-comedy-thesmophoria-rescue-message-board",
+          "place": "greek-comedy-thesmophoria-guarded-performance-stage"
+        },
+        {
+          "kind": "item_at",
+          "item": "greek-comedy-thesmophoria-the-womens-approved-reply",
+          "place": "greek-comedy-thesmophoria-guarded-performance-stage"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-comedy-thesmophoria-stage-mask",
+          "place": "greek-comedy-thesmophoria-guarded-performance-stage"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-comedy-thesmophoria-performed",
+          "value": true
+        }
+      ],
+      "workId": "aristophanes-women-at-the-thesmophoria"
+    },
+    {
       "id": "greek-comedy-thesmophoria-poet-answer",
       "subject": "greek-comedy-thesmophoria-euripides",
       "at": "greek-comedy-thesmophoria-guarded-performance-stage",
@@ -18168,6 +18453,11 @@
           "kind": "flag",
           "key": "greek-comedy-thesmophoria-stage-message",
           "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-comedy-thesmophoria-performed",
+          "value": true
         }
       ],
       "effects": [
@@ -18183,9 +18473,9 @@
       "id": "greek-comedy-thesmophoria-release-terms",
       "subject": "greek-comedy-thesmophoria-scythian-guard",
       "at": "greek-comedy-thesmophoria-guarded-performance-stage",
-      "label": "Publish the actual release pledge before the guard",
-      "text": "Vale publishes the actual release pledge before the guard, naming the women’s pact, the chosen performance and both travellers’ agreed exits.",
-      "textTemplate": "{actor} publishes the actual release pledge before the guard, naming the women’s pact, the chosen performance and both travellers’ agreed exits.",
+      "label": "Publish the release pledge before the guard",
+      "text": "Vale publishes the release pledge before the guard, naming the women’s pact, the chosen performance and both travellers’ agreed exits.",
+      "textTemplate": "{actor} publishes the release pledge before the guard, naming the women’s pact, the chosen performance and both travellers’ agreed exits.",
       "requires": [
         {
           "kind": "flag",
@@ -18241,7 +18531,7 @@
       "id": "greek-comedy-thesmophoria-poet-exit",
       "subject": "greek-comedy-thesmophoria-euripides",
       "at": "greek-athens",
-      "label": "Record Euripides’s actual Agora exit",
+      "label": "Record Euripides’s Agora exit",
       "text": "Euripides arrives in the Agora under his own agreed release. Vale records his separate departure receipt.",
       "textTemplate": "Euripides arrives in the Agora under his own agreed release. {actor} records his separate departure receipt.",
       "requires": [
@@ -18275,8 +18565,8 @@
       "subject": "greek-comedy-thesmophoria-mnesilochus",
       "at": "greek-athens",
       "label": "Record the completed rescue release",
-      "text": "Mnesilochus arrives in the Agora after the rescue terms and his agreed exit. Euripides has his own saved arrival. The signed account credits the pact, performance, approved reply and duties still open.",
-      "textTemplate": "Mnesilochus arrives in the Agora after the rescue terms and his agreed exit. Euripides has his own saved arrival. The signed account credits the pact, performance, approved reply and duties still open.",
+      "text": "Mnesilochus arrives in the Agora after the rescue terms and his agreed exit. Euripides has his own recorded arrival. The signed account credits the pact, performance, approved reply and duties still open.",
+      "textTemplate": "Mnesilochus arrives in the Agora after the rescue terms and his agreed exit. Euripides has his own recorded arrival. The signed account credits the pact, performance, approved reply and duties still open.",
       "requires": [
         {
           "kind": "flag",
@@ -18333,8 +18623,8 @@
       "subject": "greek-comedy-thesmophoria-mnesilochus",
       "at": "greek-athens",
       "label": "Record the completed answer release",
-      "text": "Mnesilochus arrives in the Agora after the answer terms and his agreed exit. Euripides has his own saved arrival. The signed account credits the pact, performance, approved reply and duties still open.",
-      "textTemplate": "Mnesilochus arrives in the Agora after the answer terms and his agreed exit. Euripides has his own saved arrival. The signed account credits the pact, performance, approved reply and duties still open.",
+      "text": "Mnesilochus arrives in the Agora after the answer terms and his agreed exit. Euripides has his own recorded arrival. The signed account credits the pact, performance, approved reply and duties still open.",
+      "textTemplate": "Mnesilochus arrives in the Agora after the answer terms and his agreed exit. Euripides has his own recorded arrival. The signed account credits the pact, performance, approved reply and duties still open.",
       "requires": [
         {
           "kind": "flag",
@@ -18391,8 +18681,8 @@
       "subject": "greek-comedy-thesmophoria-mnesilochus",
       "at": "greek-athens",
       "label": "Record the completed judgment release",
-      "text": "Mnesilochus arrives in the Agora after the judgment terms and his agreed exit. Euripides has his own saved arrival. The signed account credits the pact, performance, approved reply and duties still open.",
-      "textTemplate": "Mnesilochus arrives in the Agora after the judgment terms and his agreed exit. Euripides has his own saved arrival. The signed account credits the pact, performance, approved reply and duties still open.",
+      "text": "Mnesilochus arrives in the Agora after the judgment terms and his agreed exit. Euripides has his own recorded arrival. The signed account credits the pact, performance, approved reply and duties still open.",
+      "textTemplate": "Mnesilochus arrives in the Agora after the judgment terms and his agreed exit. Euripides has his own recorded arrival. The signed account credits the pact, performance, approved reply and duties still open.",
       "requires": [
         {
           "kind": "flag",
@@ -18449,8 +18739,8 @@
       "subject": "greek-comedy-thesmophoria-mica",
       "at": "greek-festival",
       "label": "Hear Mica: signed account",
-      "text": "Mica signs the festival return account under her and Critylla’s approved pact. It names the authorised words, credited work, chosen release terms and both travellers’ actual Agora arrivals.",
-      "textTemplate": "Mica signs the festival return account under her and Critylla’s approved pact. It names the authorised words, credited work, chosen release terms and both travellers’ actual Agora arrivals.",
+      "text": "Mica signs the festival return account under her and Critylla’s approved pact. It names the authorised words, credited work, chosen release terms and both travellers’ Agora arrivals.",
+      "textTemplate": "Mica signs the festival return account under her and Critylla’s approved pact. It names the authorised words, credited work, chosen release terms and both travellers’ Agora arrivals.",
       "requires": [
         {
           "kind": "flag",
@@ -18489,7 +18779,7 @@
     },
     {
       "id": "greek-comedy-thesmophoria-return",
-      "subject": "greek-market-neighbor",
+      "subject": "greek-baker",
       "at": "greek-courtyard",
       "label": "Bring Women at the Thesmophoria’s signed account to Dione",
       "text": "Vale lays the signed signed festival return account beside Dione’s bread. Dione hears the authorised result of the festival comedy’s dispute with the staged Euripides, the named recipients and the duties still open.",
@@ -18552,10 +18842,14 @@
       "author": "Aeschylus",
       "title": "Persians",
       "era": "imperial-aftermath",
-      "placeIds": ["greek-susa"],
+      "placeIds": [
+        "greek-susa"
+      ],
       "premise": "A messenger's account of defeat must reach the grieving court without losing its source.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aeschylus-persians"],
+      "hookChoiceIds": [
+        "greek-inquire-aeschylus-persians"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aeschylus",
@@ -18568,10 +18862,14 @@
       "author": "Aeschylus",
       "title": "Seven Against Thebes",
       "era": "theban-war",
-      "placeIds": ["greek-gate"],
+      "placeIds": [
+        "greek-gate"
+      ],
       "premise": "The city's defenders must answer rival claims to command while households seek protection.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aeschylus-seven-against-thebes"],
+      "hookChoiceIds": [
+        "greek-inquire-aeschylus-seven-against-thebes"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aeschylus",
@@ -18584,10 +18882,14 @@
       "author": "Aeschylus",
       "title": "Suppliant Women",
       "era": "heroic-households",
-      "placeIds": ["greek-argos-sanctuary"],
+      "placeIds": [
+        "greek-argos-sanctuary"
+      ],
       "premise": "The Danaids seek protection against forced marriage, and the receiving city must decide what protection entails.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aeschylus-suppliant-women"],
+      "hookChoiceIds": [
+        "greek-inquire-aeschylus-suppliant-women"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aeschylus",
@@ -18600,10 +18902,14 @@
       "author": "Aeschylus",
       "title": "Prometheus Bound",
       "era": "divine-frontier",
-      "placeIds": ["greek-scythian-crag"],
+      "placeIds": [
+        "greek-scythian-crag"
+      ],
       "premise": "A punished benefactor can be approached, but neither prophecy nor release follows from a visitor's words alone.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aeschylus-prometheus-bound"],
+      "hookChoiceIds": [
+        "greek-inquire-aeschylus-prometheus-bound"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aeschylus",
@@ -18616,10 +18922,14 @@
       "author": "Aeschylus",
       "title": "Agamemnon",
       "era": "homecomings",
-      "placeIds": ["greek-argos-palace"],
+      "placeIds": [
+        "greek-argos-palace"
+      ],
       "premise": "A returning commander enters a household divided by the costs of the expedition.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aeschylus-agamemnon"],
+      "hookChoiceIds": [
+        "greek-inquire-aeschylus-agamemnon"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aeschylus",
@@ -18636,10 +18946,14 @@
       "author": "Aeschylus",
       "title": "Libation Bearers",
       "era": "homecomings",
-      "placeIds": ["greek-argos-tomb"],
+      "placeIds": [
+        "greek-argos-tomb"
+      ],
       "premise": "A meeting at a tomb raises claims of kinship and a demand for revenge.",
       "status": "branching-episode",
-      "hookChoiceIds": ["greek-inquire-aeschylus-libation-bearers"],
+      "hookChoiceIds": [
+        "greek-inquire-aeschylus-libation-bearers"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aeschylus",
@@ -18656,10 +18970,14 @@
       "author": "Aeschylus",
       "title": "Eumenides",
       "era": "homecomings",
-      "placeIds": ["greek-delphi"],
+      "placeIds": [
+        "greek-delphi"
+      ],
       "premise": "Sanctuary and public judgment offer different answers to a pursuing claim of vengeance.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aeschylus-eumenides"],
+      "hookChoiceIds": [
+        "greek-inquire-aeschylus-eumenides"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aeschylus",
@@ -18713,10 +19031,14 @@
       "author": "Sophocles",
       "title": "Antigone",
       "era": "theban-aftermath",
-      "placeIds": ["greek-gate"],
+      "placeIds": [
+        "greek-gate"
+      ],
       "premise": "A sister seeks burial for the brother whom a public decree leaves exposed.",
       "status": "opening-episode",
-      "hookChoiceIds": ["greek-inquire-sophocles-antigone"],
+      "hookChoiceIds": [
+        "greek-inquire-sophocles-antigone"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Sophocles",
@@ -18729,10 +19051,14 @@
       "author": "Sophocles",
       "title": "Women of Trachis",
       "era": "heroic-households",
-      "placeIds": ["greek-trachis"],
+      "placeIds": [
+        "greek-trachis"
+      ],
       "premise": "A household prepares a gift without agreeing about its history or effects.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-sophocles-women-of-trachis"],
+      "hookChoiceIds": [
+        "greek-inquire-sophocles-women-of-trachis"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Sophocles",
@@ -18745,10 +19071,14 @@
       "author": "Sophocles",
       "title": "Oedipus Tyrannus",
       "era": "theban-households",
-      "placeIds": ["greek-palace"],
+      "placeIds": [
+        "greek-palace"
+      ],
       "premise": "An inquiry into a public disaster turns toward the ruler's own origins.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-sophocles-oedipus-tyrannus"],
+      "hookChoiceIds": [
+        "greek-inquire-sophocles-oedipus-tyrannus"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Sophocles",
@@ -18761,10 +19091,14 @@
       "author": "Sophocles",
       "title": "Electra",
       "era": "homecomings",
-      "placeIds": ["greek-mycenae-palace"],
+      "placeIds": [
+        "greek-mycenae-palace"
+      ],
       "premise": "An excluded daughter demands an answer to her father's murder from the palace approach.",
       "status": "branching-episode",
-      "hookChoiceIds": ["greek-inquire-sophocles-electra"],
+      "hookChoiceIds": [
+        "greek-inquire-sophocles-electra"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Sophocles",
@@ -18781,10 +19115,14 @@
       "author": "Sophocles",
       "title": "Philoctetes",
       "era": "trojan-war",
-      "placeIds": ["greek-lemnos"],
+      "placeIds": [
+        "greek-lemnos"
+      ],
       "premise": "An army needs the help of a man it abandoned, and the request need not be honest.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-sophocles-philoctetes"],
+      "hookChoiceIds": [
+        "greek-inquire-sophocles-philoctetes"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Sophocles",
@@ -18797,7 +19135,9 @@
       "author": "Sophocles",
       "title": "Oedipus at Colonus",
       "era": "theban-exile",
-      "placeIds": ["greek-colonus"],
+      "placeIds": [
+        "greek-colonus"
+      ],
       "premise": "An old exile seeks a resting place while rival powers contest his presence.",
       "status": "branching-episode",
       "hookChoiceIds": [
@@ -18820,10 +19160,14 @@
       "author": "Euripides",
       "title": "Alcestis",
       "era": "heroic-households",
-      "placeIds": ["greek-pherae"],
+      "placeIds": [
+        "greek-pherae"
+      ],
       "premise": "Hospitality continues in a household mourning the person who paid for another's life.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-alcestis"],
+      "hookChoiceIds": [
+        "greek-inquire-euripides-alcestis"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -18836,10 +19180,14 @@
       "author": "Euripides",
       "title": "Medea",
       "era": "heroic-households",
-      "placeIds": ["greek-corinth"],
+      "placeIds": [
+        "greek-corinth"
+      ],
       "premise": "A betrayed foreign household faces expulsion while its members seek time, refuge, and a response.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-medea"],
+      "hookChoiceIds": [
+        "greek-inquire-euripides-medea"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -18852,7 +19200,9 @@
       "author": "Euripides",
       "title": "Children of Heracles",
       "era": "heroic-aftermath",
-      "placeIds": ["greek-marathon"],
+      "placeIds": [
+        "greek-marathon"
+      ],
       "premise": "Pursued children seek protection at Zeus's altar against a powerful ruler's demands.",
       "status": "branching-episode",
       "hookChoiceIds": [
@@ -18876,10 +19226,14 @@
       "author": "Euripides",
       "title": "Hippolytus",
       "era": "heroic-households",
-      "placeIds": ["greek-troezen"],
+      "placeIds": [
+        "greek-troezen"
+      ],
       "premise": "A household confronts desire, shame, an accusation, and a father's power to punish.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-hippolytus"],
+      "hookChoiceIds": [
+        "greek-inquire-euripides-hippolytus"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -18892,10 +19246,14 @@
       "author": "Euripides",
       "title": "Andromache",
       "era": "homecomings",
-      "placeIds": ["greek-thetis"],
+      "placeIds": [
+        "greek-thetis"
+      ],
       "premise": "A captive mother and her child seek protection inside a hostile dynastic household.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-andromache"],
+      "hookChoiceIds": [
+        "greek-inquire-euripides-andromache"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -18908,10 +19266,14 @@
       "author": "Euripides",
       "title": "Hecuba",
       "era": "trojan-aftermath",
-      "placeIds": ["greek-thrace"],
+      "placeIds": [
+        "greek-thrace"
+      ],
       "premise": "A captive queen searches for reliable news of her children and a betrayed trust.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-hecuba"],
+      "hookChoiceIds": [
+        "greek-inquire-euripides-hecuba"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -18924,7 +19286,9 @@
       "author": "Euripides",
       "title": "Suppliant Women",
       "era": "theban-aftermath",
-      "placeIds": ["greek-eleusis"],
+      "placeIds": [
+        "greek-eleusis"
+      ],
       "premise": "Bereaved mothers seek help recovering their sons' remains from a defeated expedition.",
       "status": "branching-episode",
       "hookChoiceIds": [
@@ -18953,10 +19317,14 @@
       "author": "Euripides",
       "title": "Electra",
       "era": "homecomings",
-      "placeIds": ["greek-argive-farm"],
+      "placeIds": [
+        "greek-argive-farm"
+      ],
       "premise": "The revenge claim is heard in a poor household beyond the royal city.",
       "status": "branching-episode",
-      "hookChoiceIds": ["greek-inquire-euripides-electra"],
+      "hookChoiceIds": [
+        "greek-inquire-euripides-electra"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -18973,10 +19341,14 @@
       "author": "Euripides",
       "title": "Heracles",
       "era": "heroic-households",
-      "placeIds": ["greek-courtyard"],
+      "placeIds": [
+        "greek-courtyard"
+      ],
       "premise": "A household needs protection from tyranny and support after destructive divine interference.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-heracles"],
+      "hookChoiceIds": [
+        "greek-inquire-euripides-heracles"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -18989,10 +19361,14 @@
       "author": "Euripides",
       "title": "Trojan Women",
       "era": "trojan-aftermath",
-      "placeIds": ["greek-troy"],
+      "placeIds": [
+        "greek-troy"
+      ],
       "premise": "The conquered community struggles to preserve lives and relationships before dispersal.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-trojan-women"],
+      "hookChoiceIds": [
+        "greek-inquire-euripides-trojan-women"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -19005,10 +19381,14 @@
       "author": "Euripides",
       "title": "Iphigenia in Tauris",
       "era": "homecomings",
-      "placeIds": ["greek-tauris"],
+      "placeIds": [
+        "greek-tauris"
+      ],
       "premise": "A ritual killing rule threatens travelers whose identities may change the priestess's obligations.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-iphigenia-in-tauris"],
+      "hookChoiceIds": [
+        "greek-inquire-euripides-iphigenia-in-tauris"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -19021,10 +19401,14 @@
       "author": "Euripides",
       "title": "Ion",
       "era": "heroic-households",
-      "placeIds": ["greek-delphi"],
+      "placeIds": [
+        "greek-delphi"
+      ],
       "premise": "Competing claims to a young attendant's parentage meet inside Apollo's sanctuary.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-ion"],
+      "hookChoiceIds": [
+        "greek-inquire-euripides-ion"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -19037,10 +19421,14 @@
       "author": "Euripides",
       "title": "Helen",
       "era": "homecomings",
-      "placeIds": ["greek-egypt-tomb"],
+      "placeIds": [
+        "greek-egypt-tomb"
+      ],
       "premise": "Helen's testimony distinguishes her own life from the phantom blamed for the war.",
       "status": "branching-episode",
-      "hookChoiceIds": ["greek-inquire-euripides-helen"],
+      "hookChoiceIds": [
+        "greek-inquire-euripides-helen"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -19057,10 +19445,14 @@
       "author": "Euripides",
       "title": "Phoenician Women",
       "era": "theban-war",
-      "placeIds": ["greek-palace"],
+      "placeIds": [
+        "greek-palace"
+      ],
       "premise": "A divided family tries to act while rival brothers bring armed claims to the city.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-phoenician-women"],
+      "hookChoiceIds": [
+        "greek-inquire-euripides-phoenician-women"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -19073,10 +19465,14 @@
       "author": "Euripides",
       "title": "Orestes",
       "era": "homecomings",
-      "placeIds": ["greek-argos-palace"],
+      "placeIds": [
+        "greek-argos-palace"
+      ],
       "premise": "A household facing judgment after matricide considers further desperate action.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-orestes"],
+      "hookChoiceIds": [
+        "greek-inquire-euripides-orestes"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -19093,10 +19489,14 @@
       "author": "Euripides",
       "title": "Bacchae",
       "era": "early-thebes",
-      "placeIds": ["greek-cithaeron"],
+      "placeIds": [
+        "greek-cithaeron"
+      ],
       "premise": "Suppressed worship and a ruler's surveillance bring human authority against a disguised god.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-bacchae"],
+      "hookChoiceIds": [
+        "greek-inquire-euripides-bacchae"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -19109,10 +19509,14 @@
       "author": "Euripides",
       "title": "Iphigenia at Aulis",
       "era": "trojan-departure",
-      "placeIds": ["greek-aulis"],
+      "placeIds": [
+        "greek-aulis"
+      ],
       "premise": "Commanders and soldiers press for a sacrifice that a father has the power to resist.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-iphigenia-at-aulis"],
+      "hookChoiceIds": [
+        "greek-inquire-euripides-iphigenia-at-aulis"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -19125,10 +19529,14 @@
       "author": "Euripides",
       "title": "Rhesus",
       "era": "trojan-war",
-      "placeIds": ["greek-trojan-camp"],
+      "placeIds": [
+        "greek-trojan-camp"
+      ],
       "premise": "An ally arrives at night while infiltrators and uncertain reports cross the camp.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-rhesus"],
+      "hookChoiceIds": [
+        "greek-inquire-euripides-rhesus"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -19141,10 +19549,14 @@
       "author": "Euripides",
       "title": "Cyclops",
       "era": "homecomings",
-      "placeIds": ["greek-sicily"],
+      "placeIds": [
+        "greek-sicily"
+      ],
       "premise": "Captive satyrs and stranded travelers seek a way past a predatory host.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-euripides-cyclops"],
+      "hookChoiceIds": [
+        "greek-inquire-euripides-cyclops"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -19249,10 +19661,14 @@
       "author": "Aristophanes",
       "title": "Peace",
       "era": "civic-athens",
-      "placeIds": ["greek-divine-heights"],
+      "placeIds": [
+        "greek-divine-heights"
+      ],
       "premise": "A farmer seeks peace while trades built on war face losing their customers.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aristophanes-peace"],
+      "hookChoiceIds": [
+        "greek-inquire-aristophanes-peace"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aristophanes",
@@ -19265,10 +19681,14 @@
       "author": "Aristophanes",
       "title": "Birds",
       "era": "civic-athens",
-      "placeIds": ["greek-bird-wilderness"],
+      "placeIds": [
+        "greek-bird-wilderness"
+      ],
       "premise": "A refuge from civic life could become a new power controlling passage between gods and mortals.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aristophanes-birds"],
+      "hookChoiceIds": [
+        "greek-inquire-aristophanes-birds"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aristophanes",
@@ -19327,10 +19747,14 @@
       "author": "Aristophanes",
       "title": "Frogs",
       "era": "civic-athens",
-      "placeIds": ["greek-underworld"],
+      "placeIds": [
+        "greek-underworld"
+      ],
       "premise": "A divine visitor seeks a poet whose art can answer the city's troubles.",
       "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aristophanes-frogs"],
+      "hookChoiceIds": [
+        "greek-inquire-aristophanes-frogs"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aristophanes",
@@ -19932,6 +20356,7 @@
       "greek-comedy-thesmophoria-mica-pact",
       "greek-comedy-thesmophoria-critylla-pact",
       "greek-comedy-thesmophoria-stage-message",
+      "greek-comedy-thesmophoria-perform-mask",
       "greek-comedy-thesmophoria-poet-answer",
       "greek-comedy-thesmophoria-release-terms",
       "greek-comedy-thesmophoria-poet-exit",
@@ -19953,7 +20378,10 @@
           "buried him",
           "his body lies in the grave"
         ],
-        "anyChoices": ["greek-perform-burial", "greek-perform-permitted-burial"]
+        "anyChoices": [
+          "greek-perform-burial",
+          "greek-perform-permitted-burial"
+        ]
       },
       {
         "phrases": [
@@ -19984,21 +20412,33 @@
           "the ashes were placed",
           "the urn was placed"
         ],
-        "anyChoices": ["greek-open-door-lay-ashes"]
+        "anyChoices": [
+          "greek-open-door-lay-ashes"
+        ]
       },
       {
-        "phrases": ["the berth was prepared", "a berth was reserved"],
+        "phrases": [
+          "the berth was prepared",
+          "a berth was reserved"
+        ],
         "anyChoices": [
           "greek-open-door-family-berth",
           "greek-open-door-open-berth"
         ]
       },
       {
-        "phrases": ["i laid a blanket", "the blanket was laid"],
-        "anyChoices": ["greek-open-door-marathon-blanket"]
+        "phrases": [
+          "i laid a blanket",
+          "the blanket was laid"
+        ],
+        "anyChoices": [
+          "greek-open-door-marathon-blanket"
+        ]
       },
       {
-        "phrases": ["acharnians"],
+        "phrases": [
+          "acharnians"
+        ],
         "anyChoices": [
           "greek-comedy-acharnians-set-truce",
           "greek-comedy-acharnians-lay-boundary",
@@ -20009,7 +20449,9 @@
         ]
       },
       {
-        "phrases": ["knights"],
+        "phrases": [
+          "knights"
+        ],
         "anyChoices": [
           "greek-comedy-knights-bring-dish",
           "greek-comedy-knights-ring-handover",
@@ -20020,7 +20462,9 @@
         ]
       },
       {
-        "phrases": ["wasps"],
+        "phrases": [
+          "wasps"
+        ],
         "anyChoices": [
           "greek-comedy-wasps-set-court",
           "greek-comedy-wasps-record-verdict",
@@ -20031,7 +20475,9 @@
         ]
       },
       {
-        "phrases": ["clouds"],
+        "phrases": [
+          "clouds"
+        ],
         "anyChoices": [
           "greek-comedy-clouds-gather-debts",
           "greek-comedy-clouds-weigh-lesson",
@@ -20042,7 +20488,9 @@
         ]
       },
       {
-        "phrases": ["lysistrata"],
+        "phrases": [
+          "lysistrata"
+        ],
         "anyChoices": [
           "greek-comedy-lysistrata-oath-cup",
           "greek-comedy-lysistrata-treasury-supplies",
@@ -20053,7 +20501,9 @@
         ]
       },
       {
-        "phrases": ["assemblywomen"],
+        "phrases": [
+          "assemblywomen"
+        ],
         "anyChoices": [
           "greek-comedy-assemblywomen-return-loan",
           "greek-comedy-assemblywomen-count-goods",
@@ -20064,7 +20514,9 @@
         ]
       },
       {
-        "phrases": ["wealth"],
+        "phrases": [
+          "wealth"
+        ],
         "anyChoices": [
           "greek-comedy-wealth-welcome-arrival",
           "greek-comedy-wealth-record-healing",
@@ -20075,7 +20527,9 @@
         ]
       },
       {
-        "phrases": ["women at the thesmophoria"],
+        "phrases": [
+          "women at the thesmophoria"
+        ],
         "anyChoices": [
           "greek-comedy-thesmophoria-speakers-garland",
           "greek-comedy-thesmophoria-guarded-arrival",
@@ -21147,7 +21601,9 @@
           }
         ]
       },
-      "related": ["greek-return-water-jar"]
+      "related": [
+        "greek-return-water-jar"
+      ]
     },
     {
       "id": "story-quest-greek-burial",
@@ -21515,7 +21971,9 @@
           }
         ]
       },
-      "progress": ["greek-open-door-set-provisions"],
+      "progress": [
+        "greek-open-door-set-provisions"
+      ],
       "endings": [
         {
           "choice": "greek-open-door-family-berth"
@@ -22116,7 +22574,9 @@
         }
       ],
       "outcome": "Fulfilled",
-      "progress": ["greek-ajax-hear-plea"]
+      "progress": [
+        "greek-ajax-hear-plea"
+      ]
     },
     {
       "id": "story-quest-greek-ajax-burial",
@@ -22195,7 +22655,7 @@
     {
       "id": "story-quest-greek-comedy-acharnians-beat-1",
       "group": "comedy-acharnians",
-      "line": "Prepare the first civic work in Acharnians.",
+      "line": "Carry the thirty-year truce and terms to the boundary.",
       "holder": {
         "kind": "avatar",
         "id": "greek-comedy-acharnians-dicaeopolis"
@@ -22241,7 +22701,7 @@
     {
       "id": "story-quest-greek-comedy-acharnians-beat-2",
       "group": "comedy-acharnians",
-      "line": "Complete the second civic work in Acharnians.",
+      "line": "Lay the boundary stones after hearing the farmer and traders.",
       "holder": {
         "kind": "avatar",
         "id": "greek-comedy-acharnians-dicaeopolis"
@@ -22344,7 +22804,9 @@
           }
         ]
       },
-      "progress": ["greek-comedy-acharnians-signed-account"],
+      "progress": [
+        "greek-comedy-acharnians-signed-account"
+      ],
       "endings": [
         {
           "choice": "greek-comedy-acharnians-return"
@@ -22355,7 +22817,7 @@
     {
       "id": "story-quest-greek-comedy-knights-beat-1",
       "group": "comedy-knights",
-      "line": "Prepare the first civic work in Knights.",
+      "line": "Bring the kitchen dish and food tally to Demos.",
       "holder": {
         "kind": "avatar",
         "id": "greek-comedy-knights-demos"
@@ -22401,7 +22863,7 @@
     {
       "id": "story-quest-greek-comedy-knights-beat-2",
       "group": "comedy-knights",
-      "line": "Complete the second civic work in Knights.",
+      "line": "Hand Demos’s genuine ring to the appointed Agoracritus.",
       "holder": {
         "kind": "avatar",
         "id": "greek-comedy-knights-demos"
@@ -22500,7 +22962,9 @@
           }
         ]
       },
-      "progress": ["greek-comedy-knights-signed-account"],
+      "progress": [
+        "greek-comedy-knights-signed-account"
+      ],
       "endings": [
         {
           "choice": "greek-comedy-knights-return"
@@ -22511,7 +22975,7 @@
     {
       "id": "story-quest-greek-comedy-wasps-beat-1",
       "group": "comedy-wasps",
-      "line": "Prepare the first civic work in Wasps.",
+      "line": "Prepare the household court with its token and two pots.",
       "holder": {
         "kind": "avatar",
         "id": "greek-comedy-wasps-philocleon"
@@ -22562,7 +23026,7 @@
     {
       "id": "story-quest-greek-comedy-wasps-beat-2",
       "group": "comedy-wasps",
-      "line": "Complete the second civic work in Wasps.",
+      "line": "Cast the pebble and record the method beside the verdict.",
       "holder": {
         "kind": "avatar",
         "id": "greek-comedy-wasps-philocleon"
@@ -22675,7 +23139,9 @@
           }
         ]
       },
-      "progress": ["greek-comedy-wasps-signed-account"],
+      "progress": [
+        "greek-comedy-wasps-signed-account"
+      ],
       "endings": [
         {
           "choice": "greek-comedy-wasps-return"
@@ -22686,7 +23152,7 @@
     {
       "id": "story-quest-greek-comedy-clouds-beat-1",
       "group": "comedy-clouds",
-      "line": "Prepare the first civic work in Clouds.",
+      "line": "Gather the household ledger and both lenders’ claims.",
       "holder": {
         "kind": "avatar",
         "id": "greek-comedy-clouds-strepsiades"
@@ -22732,7 +23198,7 @@
     {
       "id": "story-quest-greek-comedy-clouds-beat-2",
       "group": "comedy-clouds",
-      "line": "Complete the second civic work in Clouds.",
+      "line": "Test the lesson and hear the father and son’s replies.",
       "holder": {
         "kind": "avatar",
         "id": "greek-comedy-clouds-strepsiades"
@@ -22834,7 +23300,9 @@
           }
         ]
       },
-      "progress": ["greek-comedy-clouds-signed-account"],
+      "progress": [
+        "greek-comedy-clouds-signed-account"
+      ],
       "endings": [
         {
           "choice": "greek-comedy-clouds-return"
@@ -22845,7 +23313,7 @@
     {
       "id": "story-quest-greek-comedy-lysistrata-beat-1",
       "group": "comedy-lysistrata",
-      "line": "Prepare the first civic work in Lysistrata.",
+      "line": "Bring the oath cup to the women’s separate pledges.",
       "holder": {
         "kind": "avatar",
         "id": "greek-comedy-lysistrata-lysistrata"
@@ -22894,7 +23362,7 @@
     {
       "id": "story-quest-greek-comedy-lysistrata-beat-2",
       "group": "comedy-lysistrata",
-      "line": "Complete the second civic work in Lysistrata.",
+      "line": "Count the war spending and deliver the occupation supplies.",
       "holder": {
         "kind": "avatar",
         "id": "greek-comedy-lysistrata-lysistrata"
@@ -23004,7 +23472,9 @@
           }
         ]
       },
-      "progress": ["greek-comedy-lysistrata-signed-account"],
+      "progress": [
+        "greek-comedy-lysistrata-signed-account"
+      ],
       "endings": [
         {
           "choice": "greek-comedy-lysistrata-return"
@@ -23015,7 +23485,7 @@
     {
       "id": "story-quest-greek-comedy-assemblywomen-beat-1",
       "group": "comedy-assemblywomen",
-      "line": "Prepare the first civic work in Assemblywomen.",
+      "line": "Return the borrowed clothing after the assembly vote.",
       "holder": {
         "kind": "avatar",
         "id": "greek-comedy-assemblywomen-praxagora"
@@ -23061,7 +23531,7 @@
     {
       "id": "story-quest-greek-comedy-assemblywomen-beat-2",
       "group": "comedy-assemblywomen",
-      "line": "Complete the second civic work in Assemblywomen.",
+      "line": "Bring the common pot and count the deposited goods.",
       "holder": {
         "kind": "avatar",
         "id": "greek-comedy-assemblywomen-praxagora"
@@ -23161,7 +23631,9 @@
           }
         ]
       },
-      "progress": ["greek-comedy-assemblywomen-signed-account"],
+      "progress": [
+        "greek-comedy-assemblywomen-signed-account"
+      ],
       "endings": [
         {
           "choice": "greek-comedy-assemblywomen-return"
@@ -23172,7 +23644,7 @@
     {
       "id": "story-quest-greek-comedy-wealth-beat-1",
       "group": "comedy-wealth",
-      "line": "Prepare the first civic work in Wealth.",
+      "line": "Guide Plutus to the healing porch and serve his supper.",
       "holder": {
         "kind": "avatar",
         "id": "greek-comedy-wealth-chremylus"
@@ -23223,7 +23695,7 @@
     {
       "id": "story-quest-greek-comedy-wealth-beat-2",
       "group": "comedy-wealth",
-      "line": "Complete the second civic work in Wealth.",
+      "line": "Prepare his resting place and hear the cure and his reply.",
       "holder": {
         "kind": "avatar",
         "id": "greek-comedy-wealth-chremylus"
@@ -23332,7 +23804,9 @@
           }
         ]
       },
-      "progress": ["greek-comedy-wealth-signed-account"],
+      "progress": [
+        "greek-comedy-wealth-signed-account"
+      ],
       "endings": [
         {
           "choice": "greek-comedy-wealth-return"
@@ -23343,7 +23817,7 @@
     {
       "id": "story-quest-greek-comedy-thesmophoria-beat-1",
       "group": "comedy-thesmophoria",
-      "line": "Prepare the first civic work in Women at the Thesmophoria.",
+      "line": "Bring the garland to the women’s authorised words.",
       "holder": {
         "kind": "avatar",
         "id": "greek-comedy-thesmophoria-euripides"
@@ -23373,6 +23847,7 @@
         "greek-comedy-thesmophoria-mica-pact",
         "greek-comedy-thesmophoria-critylla-pact",
         "greek-comedy-thesmophoria-stage-message",
+        "greek-comedy-thesmophoria-perform-mask",
         "greek-comedy-thesmophoria-poet-answer",
         "greek-comedy-thesmophoria-release-terms",
         "greek-comedy-thesmophoria-poet-exit",
@@ -23391,7 +23866,7 @@
     {
       "id": "story-quest-greek-comedy-thesmophoria-beat-2",
       "group": "comedy-thesmophoria",
-      "line": "Complete the second civic work in Women at the Thesmophoria.",
+      "line": "Carry the robe and witness the festival and guarded arrivals.",
       "holder": {
         "kind": "avatar",
         "id": "greek-comedy-thesmophoria-euripides"
@@ -23421,6 +23896,7 @@
         "greek-comedy-thesmophoria-mica-pact",
         "greek-comedy-thesmophoria-critylla-pact",
         "greek-comedy-thesmophoria-stage-message",
+        "greek-comedy-thesmophoria-perform-mask",
         "greek-comedy-thesmophoria-poet-answer",
         "greek-comedy-thesmophoria-release-terms",
         "greek-comedy-thesmophoria-poet-exit",
@@ -23495,7 +23971,9 @@
           }
         ]
       },
-      "progress": ["greek-comedy-thesmophoria-signed-account"],
+      "progress": [
+        "greek-comedy-thesmophoria-signed-account"
+      ],
       "endings": [
         {
           "choice": "greek-comedy-thesmophoria-return"
@@ -24511,7 +24989,7 @@
       "id": "greek-comedy-wasps-signed-account",
       "speaker": "greek-comedy-wasps-myrtia",
       "at": "greek-comedy-wasps-myrtias-bread-street",
-      "text": "Myrtia signs the revel-claims account, preserving the trial, revel, claims, closing dance, actual payment and duties still owed in their order.",
+      "text": "Myrtia signs the revel-claims account, preserving the trial, revel, claims, closing dance, payment and duties still owed in their order.",
       "requires": [
         {
           "kind": "flag",
@@ -25351,7 +25829,7 @@
       "id": "greek-comedy-assemblywomen-withholder-permission",
       "speaker": "greek-comedy-assemblywomen-withholder",
       "at": "greek-comedy-assemblywomen-common-goods-yard",
-      "text": "The withholding citizen agrees that the traveler may conceal his actual purse in his covered pot while he claims a public share.",
+      "text": "The withholding citizen agrees that the traveler may conceal his purse in his covered pot while he claims a public share.",
       "requires": [
         {
           "kind": "flag",
@@ -25673,7 +26151,7 @@
       "id": "greek-comedy-wealth-signed-account",
       "speaker": "greek-comedy-wealth-chremylus",
       "at": "greek-attic-farm",
-      "text": "Chremylus signs the actual baskets, purse, named recipients, waiting petitioners and recorded procession state into the distribution ledger.",
+      "text": "Chremylus signs the baskets, purse, named recipients, waiting petitioners and recorded procession state into the distribution ledger.",
       "requires": [
         {
           "kind": "flag",
@@ -25697,7 +26175,7 @@
       "id": "greek-comedy-thesmophoria-mica-words",
       "speaker": "greek-comedy-thesmophoria-mica",
       "at": "greek-festival",
-      "text": "Mica authorises her own complaint against Euripides and names her actual wine-skin in the festival account.",
+      "text": "Mica authorises her own complaint against Euripides and names her wine-skin in the festival account.",
       "requires": [
         {
           "kind": "flag",
@@ -25871,6 +26349,11 @@
           "kind": "flag",
           "key": "greek-comedy-thesmophoria-stage-message",
           "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-comedy-thesmophoria-performed",
+          "value": true
         }
       ],
       "choiceId": "greek-comedy-thesmophoria-poet-answer"
@@ -25879,7 +26362,7 @@
       "id": "greek-comedy-thesmophoria-signed-account",
       "speaker": "greek-comedy-thesmophoria-mica",
       "at": "greek-festival",
-      "text": "Mica and Critylla authorise the festival account of chosen words, credited work, release terms and both travellers’ actual Agora arrivals.",
+      "text": "Mica and Critylla authorise the festival account of chosen words, credited work, release terms and both travellers’ Agora arrivals.",
       "requires": [
         {
           "kind": "flag",
