@@ -125,10 +125,16 @@ the exact ID ledger, art bindings and current validation.
 
 ## Sources and runtime
 
-`card-world.json` is canonical author data: 118 places including the ship,
-167 residents, 218 objects, 860 typed choices and 44 work records. Forty-three
-works have authored scenes. Frogs and witnessed readings are the final source
-work in progress.
+`card-world.json` is canonical author data: 119 places including the ship,
+170 residents, 221 objects, 871 typed choices and 44 work records. All 44
+works have authored scenes. The pack has 166 story cards, 312 Talk topics
+and 331 earned verse entries.
+
+The final chapters open the sky journeys and the poets' court in Frogs.
+Six reading sites keep the earned words, their authors and their original
+turns. Carried records support shared returns to Dione. Read the
+[Books VII and VIII guide](BOOKS-VII-VIII.md) for the journeys and readings.
+The [ship guide](SEAWAYS.md) lists all eleven landings.
 
 `release` lists the content in this release. `sections` groups places behind
 lasting story events. New saves begin with seven shore places and the ship.
@@ -207,8 +213,9 @@ The card pack compiler also writes `v2/card-game/poem-catalogs.json`.
 Each poem catalog has its rules version, a content identity and a full digest.
 It keeps earlier catalogs when later deeds or rules add new verses. Saved
 readings retain their original words, author names and stanza order. Published
-wording changes use a new stanza identity. The command, host and UI reading
-integration is in progress in the Books VII and VIII draft.
+wording changes use a new stanza identity. Shared readings keep each
+listener's heard pages through departures, explicit replay, reloads and
+journal recovery.
 
 ```sh
 npm test
@@ -217,6 +224,8 @@ node v2/scripts/smoke-card-open-door.mjs
 node v2/scripts/smoke-card-ajax.mjs
 node v2/scripts/smoke-card-theban-scenery.mjs
 node v2/scripts/smoke-card-greek-drama.mjs
+node v2/scripts/smoke-card-readings.mjs
+node v2/scripts/smoke-shared-readings.mjs
 ```
 
 The Open Door tests cover every invitation, alternate endings, object care,
