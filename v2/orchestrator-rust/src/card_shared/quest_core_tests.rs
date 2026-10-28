@@ -42,6 +42,23 @@ fn command(op: &str, key: &str) -> full::Command {
     }
 }
 
+fn assert_saved_values(saved: &Value, current: &Value, path: &str) {
+    if let Some(fields) = saved.as_object() {
+        let current = current
+            .as_object()
+            .unwrap_or_else(|| panic!("Preserve released object {path}"));
+        for (key, value) in fields {
+            let path = format!("{path}.{key}");
+            let actual = current
+                .get(key)
+                .unwrap_or_else(|| panic!("Preserve released field {path}"));
+            assert_saved_values(value, actual, &path);
+        }
+    } else {
+        assert_eq!(current, saved, "Preserve released {path}");
+    }
+}
+
 #[test]
 fn quest_core_v17_upgrade_preserves_old_deeds_and_long_history_during_journal_replay() {
     let (path, c, id, mut old) = fixture(engine::SEVENTEENTH_VERSION);
@@ -62,7 +79,7 @@ fn quest_core_v17_upgrade_preserves_old_deeds_and_long_history_during_journal_re
         now(),
     )
     .unwrap();
-    for _ in 0..55 {
+    for speech in 0..55 {
         full_store::commit(
             &c,
             &id,
@@ -73,7 +90,12 @@ fn quest_core_v17_upgrade_preserves_old_deeds_and_long_history_during_journal_re
             ]}),
             now(),
         )
-        .unwrap();
+        .unwrap_or_else(|error| {
+            panic!(
+                "Released speech {speech} under {} at turn {}: {error}",
+                old.version, old.game["turn"]
+            )
+        });
     }
     assert!(old.game["log"].as_array().unwrap().len() > 100);
     assert!(old.game.get("knowledge").is_none());
@@ -81,10 +103,22 @@ fn quest_core_v17_upgrade_preserves_old_deeds_and_long_history_during_journal_re
     let upgraded = full_store::world(&c, &id, now()).unwrap();
     assert_eq!(upgraded.version, engine::VERSION);
     assert_eq!(upgraded.game["knowledge"]["version"], 1);
+    // New packs add cast, belongings and story records. Every saved field and
+    // complete history array still survives, with the authored pack revision.
+    let catalog: Value =
+        serde_json::from_str(include_str!("../../../card-game/packs.json")).unwrap();
+    let greek = catalog["packs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|pack| pack["id"] == "greek-drama")
+        .unwrap();
+    let mut expected_packs = old.game["packs"].clone();
+    expected_packs["greek-drama"]["revision"] = greek["revision"].clone();
+    assert_saved_values(&expected_packs, &upgraded.game["packs"], "packs");
     for field in [
         "actors",
         "items",
-        "packs",
         "quests",
         "questCompletions",
         "memories",
@@ -92,10 +126,14 @@ fn quest_core_v17_upgrade_preserves_old_deeds_and_long_history_during_journal_re
         "turn",
         "eventSeq",
     ] {
-        assert_eq!(
-            upgraded.game[field], old.game[field],
-            "Preserve released {field}"
-        );
+        assert_saved_values(&old.game[field], &upgraded.game[field], field);
+    }
+    for (id, actor) in old.game["actors"].as_object().unwrap() {
+        for (other, trust) in upgraded.game["actors"][id]["trust"].as_object().unwrap() {
+            if actor["trust"].get(other).is_none() {
+                assert_eq!(trust, &json!(0), "New trust starts at zero: {id}/{other}");
+            }
+        }
     }
     let upgrades: i64 = c.query_row(
         "SELECT count(*) FROM card_full_log WHERE world=? AND json_extract(command,'$.op')='upgrade'",
