@@ -50,14 +50,16 @@ export function storyActors(world, definition, includeDiscovery = true) {
   );
   // The saved reader keeps the task when the record rests on the table.
   // Later readings retain their own archive credit after this task is complete.
-  const readers = Object.values(state?.poemReadings?.readings || {})
-    .filter(
-      (reading) =>
-        readingSites.has(reading.site) &&
-        reading.turn >= definition.createdTurn &&
-        (completedTurn === undefined || reading.turn <= completedTurn),
-    )
-    .map((reading) => reading.reader);
+  const readers = readingSites.size
+    ? Object.values(state?.poemReadings?.readings || {})
+        .filter(
+          (reading) =>
+            readingSites.has(reading.site) &&
+            reading.turn >= definition.createdTurn &&
+            (completedTurn === undefined || reading.turn <= completedTurn),
+        )
+        .map((reading) => reading.reader)
+    : [];
   return [
     ...new Set(
       [...events.map((event) => event.actorId), knownAuthor, ...readers].filter(
