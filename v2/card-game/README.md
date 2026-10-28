@@ -600,6 +600,15 @@ The shared game, local saves, dialogue facts, and scene exports all read the sam
 turn. Reloading keeps the current weather. Shared rules version 14 adds weather
 views and preserves each earlier rule bundle for journal replay.
 
+`weather-shader.mjs` paints the weather with one WebGL fragment shader. The
+scene animates parallax rain sheets with gusts and ground splashes, drifting
+cloud shadow, and folding mist banks. Each exposure sets its own slant, rain
+strength, mist height, and tint, and night cools the palette. Place cards show
+cached still frames from the same shader, so the hand never holds more than
+one extra WebGL context. Reduced motion holds a single frame. Clear skies and
+hidden tabs stop the animation loop. Without WebGL, `weather.css` supplies the
+earlier gradient view.
+
 New Greek games expose the harbor and six Theban places, each with a distinct
 painting. The Open Door adds five paintings and eight resident portraits.
 Old Greek saves retain later routes and histories. The ship uses

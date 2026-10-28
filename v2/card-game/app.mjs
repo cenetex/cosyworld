@@ -1587,8 +1587,8 @@ function card(id) {
   if (type === "avatar") frameFigure(img);
   graphic.append(img);
   if (type === "location") {
-    renderWeather(graphic, locationWeather(world, id));
     graphic.dataset.timeOfDay = locationDaylight(world, id)?.phase || "day";
+    renderWeather(graphic, locationWeather(world, id));
     el.dataset.locationVariant = locationVariant(world, id);
     const src = locationOverlay(world, id);
     if (src) {
@@ -1858,8 +1858,8 @@ function renderScene() {
   if (scene.weather) img.alt += ` ${scene.weather.description}`;
   if (scene.daylight) img.alt += ` ${scene.daylight.description}`;
   img.dataset.locationVariant = scene.variant;
-  renderWeather($("stage"), scene.weather);
   $("stage").dataset.timeOfDay = scene.daylight?.phase || "day";
+  renderWeather($("stage"), scene.weather);
   let overlay = $("location-overlay");
   if (scene.overlay && !overlay) {
     overlay = node("img", undefined, "backdrop location-overlay");
