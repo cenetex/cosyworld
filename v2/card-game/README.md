@@ -478,7 +478,7 @@ Card selection keeps the current card elements in place and leaves keyboard focu
 
 Run `node v2/scripts/smoke-card-actions.mjs` for Chromium controls, or `CARD_BROWSER=webkit node v2/scripts/smoke-card-actions.mjs` for WebKit. The checks cover desktop, phone, short landscape, reduced motion, fast taps, panel dismissal, and save updates.
 
-When oil is trapped inside the attic, a narrow path can open from Black pond. It appears after reachable lamp remedies are exhausted. A traveler inside can still tend the lamp through the usual item plays. Every object keeps its holder until a play changes it. The Black cloth still opens the cottage from the attic.
+When the lamp or oil is trapped beyond the attic, a narrow path can open from Black pond. It appears after reachable lamp remedies are exhausted. A traveler inside can still tend the lamp through the usual item plays. Every object keeps its holder until a play changes it. The Black cloth still opens the cottage from the attic.
 
 ## Accompany requests
 

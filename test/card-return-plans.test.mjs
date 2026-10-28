@@ -230,3 +230,95 @@ describe("oil trapped behind the attic gate", () => {
     expect(decodeSave(encodeSave(shared.world))).toEqual(shared.world);
   });
 });
+
+function trappedLamp() {
+  const world = createWorld();
+  world.turn = world.revision = 400;
+  world.actors.vale.place = world.actors.keeper.place = "pond";
+  world.actors.moth.place = "attic";
+  world.actors.vale.progress = { program: 0, step: 2, marks: [1, 9] };
+  world.actors.moth.progress = { program: 0, step: 0, marks: [] };
+  world.actors.keeper.progress = { program: 0, step: 1, marks: [9] };
+  world.items.lamp.holder = "forest-oak";
+  world.items.lamp.fuel = 0;
+  world.items.lamp.lit = false;
+  world.items.oil.holder = "vale";
+  world.items.oil.doses = 2;
+  world.items.bell.holder = "station";
+  world.items.cloth.holder = "keeper";
+  return world;
+}
+
+describe("a lamp trapped beyond the attic", () => {
+  it("recovers the exact loose-play state through physical plays and cloth care", () => {
+    let world = trappedLamp();
+    const items = structuredClone(world.items);
+    expect(exits(world, "pond", "vale")).toContain("attic");
+    expect(exits(world, "attic", "vale")).not.toContain("forest-cottage");
+    world = decodeSave(encodeSave(world));
+    expect(world.items).toEqual(items);
+    let movedLamp = false;
+    for (let i = 0; i < 40; i++) {
+      const action = plan(world).action, result = play(world, action);
+      expect(result.ok).toBe(true);
+      expect(play(decodeSave(encodeSave(world)), action)).toEqual(result);
+      world = result.state;
+      if (world.items.lamp.holder !== "forest-oak") movedLamp = true;
+      if (world.actors.moth.progress.marks.length > 0 &&
+        world.actors.vale.progress.marks.at(-1) > 9 && world.actors.keeper.progress.marks.at(-1) > 9) break;
+    }
+    expect(movedLamp).toBe(true);
+    expect(world.actors.moth.progress.marks.length).toBeGreaterThan(0);
+    for (const id of ["vale", "keeper"])
+      expect(world.actors[id].progress.marks.at(-1)).toBeGreaterThan(9);
+    expect(world.log.some((e) => e.verb === "take" && e.itemId === "lamp")).toBe(true);
+  });
+
+  it("keeps a lamp on another reachable pack on its own route", () => {
+    const world = trappedLamp();
+    world.items.lamp.holder = "clearing";
+    world.items.bell.holder = "pond";
+    world.items.bell.ringing = 3;
+    world.crossings["pond-clearing"] = { discovered: true, phase: 2, until: 403 };
+    expect(exits(world, "pond", "vale")).toContain("clearing");
+    expect(exits(world, "pond", "vale")).not.toContain("attic");
+  });
+
+  it.each(["reachable lamp", "inside light", "inside refill"])("keeps %s as the ordinary remedy", (kind) => {
+    const world = trappedLamp();
+    if (kind === "reachable lamp") {
+      world.items.lamp.holder = "station";
+      world.items.lamp.fuel = 4;
+    } else {
+      world.sharedVersion = 1;
+      world.controlledActors = world.presentActors = ["vale", "mara"];
+      world.actors.mara.place = "forest-oak";
+      world.items.lamp.holder = "mara";
+      if (kind === "inside light") world.items.lamp.fuel = 4;
+      if (kind === "inside refill") world.items.oil.holder = "mara";
+    }
+    expect(exits(world, "pond", "vale")).not.toContain("attic");
+  });
+
+  it("uses the same saved recovery move in local and shared play", () => {
+    let world = trappedLamp();
+    world.sharedVersion = 1;
+    world = dispatchShared({ op: "validate", world, actor: "vale",
+      claimed: ["vale", "mara"], present: ["vale", "mara"] }).world;
+    world.controlledActors = world.presentActors = ["vale", "mara"];
+    world.playerActorId = "vale";
+    const action = legalActions(world).find((a) => a.kind === "move" && a.target === "attic");
+    const local = play(world, action);
+    const shared = dispatchShared({ op: "play", world: decodeSave(encodeSave(world)),
+      actor: "vale", claimed: ["vale", "mara"], present: ["vale", "mara"],
+      revision: world.revision, action });
+    expect(local.ok).toBe(true);
+    expect(shared.ok).toBe(true);
+    const expected = structuredClone(local.state);
+    for (const key of ["controlledActors", "presentActors", "playerActorId"]) delete expected[key];
+    expect(shared.world).toEqual(expected);
+    expect(shared.world.items.lamp.holder).toBe("forest-oak");
+    expect(shared.world.items.oil.holder).toBe("vale");
+    expect(decodeSave(encodeSave(shared.world))).toEqual(shared.world);
+  });
+});
