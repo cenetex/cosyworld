@@ -340,10 +340,18 @@ const playQueue = createPlayQueue({
   ready: () =>
     !cardsCooling &&
     reveal.complete &&
+    (!sharedSession ||
+      (!sharedSending &&
+        !sharedSession.state.queue?.some(
+          (entry) => entry.actor === currentActor(world),
+        ))) &&
     !selectionBlocked() &&
     !document.hidden &&
     !document.querySelector("dialog[open], .world-menu:popover-open"),
-  play: performAction,
+  play: (action, revision) => {
+    if (sharedSession) void submitSharedPlay(action);
+    else performAction(action, revision);
+  },
   changed: (pending) => {
     notice(
       pending
@@ -360,14 +368,7 @@ function updateCardCooldown() {
   for (const button of document.querySelectorAll(
     "#hand button, #card-actions button",
   )) {
-    button.disabled =
-      selectionBlocked() ||
-      (Boolean(sharedSession) &&
-        Boolean(button.dataset.action) &&
-        (sharedSending ||
-          sharedSession.state.queue?.some(
-            (entry) => entry.actor === currentActor(world),
-          )));
+    button.disabled = selectionBlocked();
     if (button.dataset.card)
       button.draggable = !button.disabled && !isQuestCard(button.dataset.card);
   }
@@ -483,7 +484,8 @@ function updateSpeechControls(complete) {
         ? "Continue"
         : "Read again"
     : "Tap to reveal";
-  $("next-line").disabled = complete && nextSceneSeq === null;
+  $("next-line").disabled =
+    complete && nextSceneSeq === null && !exchange.current;
 }
 const reveal = createTextReveal({
   reduced: () => reducedMotion.matches,
@@ -530,7 +532,7 @@ const reveal = createTextReveal({
     if (value.complete) {
       $("speech-announcement").textContent =
         `${nameOf(value.speaker)}: ${value.text}`;
-      $("next-line").disabled = nextSceneSeq === null;
+      updateSpeechControls(true);
       completedSpeech.add(value.key);
       if (completedSpeech.size > 100)
         completedSpeech.delete(completedSpeech.values().next().value);
@@ -792,10 +794,6 @@ function commit(cards, revision) {
 }
 function commitAction(action, revision) {
   if (selectionBlocked()) return;
-  if (sharedSession) {
-    void submitSharedPlay(action);
-    return;
-  }
   if (playQueue.pending?.action.key === action.key) playQueue.clear();
   else playQueue.submit(action, revision);
 }
@@ -1345,6 +1343,12 @@ function renderActions(animate = false) {
   document.querySelector(".play-dock").dataset.selected = String(
     selected.length > 0,
   );
+  document.body.dataset.handExpanded = String(
+    selected.length > 0 ||
+      dragging.length > 0 ||
+      expandedHolders.size > 0 ||
+      expandedQuestHolders.size > 0,
+  );
   const revision = world.revision;
   const nudgeTarget =
     sharedSession &&
@@ -1361,14 +1365,9 @@ function renderActions(animate = false) {
       );
       button.type = "button";
       button.dataset.action = action.kind;
-      button.title = action.text;
-      button.disabled =
-        selectionBlocked() ||
-        (Boolean(sharedSession) &&
-          (sharedSending ||
-            sharedSession.state.queue?.some(
-              (entry) => entry.actor === currentActor(world),
-            )));
+      button.dataset.queued = String(queued);
+      button.title = queued ? "Cancel this queued play" : action.text;
+      button.disabled = selectionBlocked();
       button.setAttribute("aria-pressed", String(queued));
       if (action.choiceId) {
         button.dataset.choice = action.choiceId;
@@ -1625,6 +1624,7 @@ function card(id) {
       return;
     }
     dragging = selected.includes(id) ? [...selected] : [id];
+    renderActions();
     selectionRevision = world.revision;
     e.dataTransfer.setData("text/plain", JSON.stringify(dragging));
     e.dataTransfer.effectAllowed = "move";
@@ -1633,6 +1633,7 @@ function card(id) {
   });
   el.addEventListener("dragend", () => {
     dragging = [];
+    renderActions();
     $("stage").classList.remove("ready", "drag-over");
   });
   el.addEventListener("dragover", (e) => {
@@ -2282,7 +2283,6 @@ function render() {
           });
       }
   }
-  updateHandScroll();
   renderScene();
   renderLog();
   updateCardCooldown();
@@ -2295,21 +2295,6 @@ function render() {
       .querySelector(`[data-card="${focusId}"]`)
       ?.focus({ preventScroll: true });
   }
-}
-// A hand wider than the dock scrolls; the arrows and edge fades show there
-// is more, and the wheel and arrow keys move along it.
-function updateHandScroll() {
-  const hand = $("hand"),
-    wrap = hand.parentElement,
-    over = hand.scrollWidth > hand.clientWidth + 1,
-    atStart = hand.scrollLeft <= 1,
-    atEnd = hand.scrollLeft + hand.clientWidth >= hand.scrollWidth - 1;
-  wrap.dataset.overflow = String(over);
-  wrap.dataset.start = String(atStart);
-  wrap.dataset.end = String(atEnd);
-  $("hand-prev").hidden = $("hand-next").hidden = !over;
-  $("hand-prev").disabled = atStart;
-  $("hand-next").disabled = atEnd;
 }
 function revealHandCard(id, alignStart = false) {
   const hand = $("hand"),
@@ -2330,17 +2315,6 @@ function revealHandCard(id, alignStart = false) {
     behavior: reducedMotion.matches ? "instant" : "smooth",
   });
 }
-function scrollHand(direction) {
-  const hand = $("hand");
-  hand.scrollBy({
-    left: direction * Math.max(160, hand.clientWidth - 120),
-    behavior: reducedMotion.matches ? "auto" : "smooth",
-  });
-}
-$("hand-prev").onclick = () => scrollHand(-1);
-$("hand-next").onclick = () => scrollHand(1);
-$("hand").addEventListener("scroll", updateHandScroll, { passive: true });
-new ResizeObserver(updateHandScroll).observe($("hand"));
 new ResizeObserver(([entry]) => {
   document.documentElement.style.setProperty(
     "--dock-height",
@@ -2628,16 +2602,25 @@ async function submitSharedPlay(action) {
     )
   )
     return;
+  const current = legalActions(world).find((entry) => entry.key === action.key);
+  if (!current) {
+    notice("The table changed. Choose a current play.");
+    render();
+    return;
+  }
+  const selection = JSON.stringify(selected);
   sharedPlayback.reset();
   sharedSending = true;
   renderActions();
   try {
-    await sharedSession.play(action);
-    selected = [];
-    expandedHolders.clear();
-    expandedQuestHolders.clear();
-    reviewing = false;
-    notice("");
+    await sharedSession.play(current);
+    if (!playQueue.pending && JSON.stringify(selected) === selection) {
+      selected = [];
+      expandedHolders.clear();
+      expandedQuestHolders.clear();
+      reviewing = false;
+    }
+    if (!playQueue.pending) notice("");
   } catch (error) {
     notice(error.message);
   } finally {
@@ -2743,6 +2726,7 @@ function adoptShared(value) {
     notice(`${nameOf(value.nudge)} would like your attention.`);
   sharedNudgeKey = nudge;
   syncSharedLine();
+  queueMicrotask(() => playQueue.flush());
 }
 installSharedControls({
   session: sharedSession,

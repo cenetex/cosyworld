@@ -165,17 +165,12 @@ try {
         0,
         "quiet save load needs no generated commentary",
       );
-      // Overflow arrows, wheel and keyboard remain discoverable without pair recipes.
+      // The wheel reaches overflow cards; arrow keys follow card focus.
       const hand = page.locator("#hand");
       const overflow = await hand.evaluate(
         (h) => h.scrollWidth > h.clientWidth + 1,
       );
       if (overflow) {
-        await hand.evaluate((h) => (h.scrollLeft = 0));
-        await page.locator("#hand-next").click();
-        await page.waitForFunction(
-          () => document.querySelector("#hand").scrollLeft > 0,
-        );
         await hand.evaluate((h) => (h.scrollLeft = 0));
         const bounds = await hand.boundingBox();
         await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + 30);

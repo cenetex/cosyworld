@@ -790,6 +790,7 @@ main {
 }
 .hand {
   display: flex;
+  justify-content: safe center;
   gap: 14px;
   flex-wrap: nowrap;
   overflow-x: auto;
@@ -809,36 +810,6 @@ main {
 .hand-wrap::before,
 .hand-wrap::after {
   display: none;
-}
-.hand-scroll {
-  position: absolute;
-  top: 42%;
-  translate: 0 -50%;
-  z-index: 3;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  border-radius: 50%;
-  border: 1px solid #bda57488;
-  background: #11151de6;
-  color: var(--gold);
-  font-size: 24px;
-}
-.hand-scroll.prev {
-  left: -15px;
-}
-.hand-scroll.next {
-  right: -15px;
-}
-.hand-scroll:disabled {
-  opacity: 0;
-  pointer-events: none;
-}
-.card-frame:first-child {
-  margin-left: auto;
-}
-.card-frame:last-child {
-  margin-right: auto;
 }
 body .card-frame {
   position: relative;
@@ -1013,6 +984,10 @@ body .card-frame[hidden] {
   margin-right: auto;
 }
 #card-actions button:hover {
+  background: #3c3325;
+}
+#card-actions button[data-queued="true"] {
+  border-color: var(--gold);
   background: #3c3325;
 }
 body .card.drag-over {
@@ -1197,6 +1172,23 @@ body .line-controls button {
 }
 .play-dock[data-selected="true"] .card .name {
   bottom: 0;
+}
+/* A resting hand shares the bottom edge with the dialogue on wide screens. */
+@media (min-width: 1100px) and (min-aspect-ratio: 3/2) {
+  :root {
+    --resting-hand-width: calc(var(--card-width) * 2 + 46px);
+  }
+  body[data-hand-expanded="false"] .play-dock {
+    left: auto;
+    width: calc(var(--resting-hand-width) + 44px);
+  }
+  body[data-hand-expanded="false"] .dialogue {
+    left: 22px;
+    bottom: max(22px, env(safe-area-inset-bottom));
+    transform: none;
+    width: calc(100% - var(--resting-hand-width) - 110px);
+    max-width: 620px;
+  }
 }
 @media (max-width: 700px) {
   .speech-row {
