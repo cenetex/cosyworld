@@ -5,7 +5,6 @@ const nightBackdrops = {
   "greek-egypt-tomb": art("helen-egypt-tomb-night"),
   "greek-book-iv-helen-court": art("helen-egypt-tomb-night"),
   "greek-book-iv-helen-landing": art("helen-egypt-tomb-night"),
-  "greek-book-iv-helen-boat": art("helen-egypt-tomb-night"),
   "greek-harbor": art("harbor-open-berth-night"),
   "greek-courtyard": art("courtyard-night"),
   "greek-well": art("market-well-night"),

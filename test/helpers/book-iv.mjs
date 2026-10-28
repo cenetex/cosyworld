@@ -6,6 +6,22 @@ import {
 import { packDefinition } from "../../v2/card-game/pack-registry.mjs";
 import { openDoorJourney, playOpenDoor } from "./open-door.mjs";
 export const ivId = (work, slug) => `greek-book-iv-${work}-${slug}`;
+let recording;
+function record(world, step) {
+  if (!recording) return;
+  recording.world ||= structuredClone(world);
+  recording.steps.push(step);
+}
+export function traceIV(journey, route) {
+  const trace = { world: null, steps: [] };
+  recording = trace;
+  try {
+    trace.result = journey(route);
+    return trace;
+  } finally {
+    recording = null;
+  }
+}
 export function ivPlay(world, kind, fields = {}, actor = "vale") {
   const action = legalActions(world, actor).find(
     (a) =>
@@ -15,6 +31,7 @@ export function ivPlay(world, kind, fields = {}, actor = "vale") {
     throw new Error(
       `Missing ${actor} ${kind} ${JSON.stringify(fields)} at ${world.actors[actor].place}`,
     );
+  record(world, { kind, ...fields });
   const result = play(world, action, world.revision);
   if (!result.ok) throw new Error(result.error);
   if (
@@ -26,8 +43,10 @@ export function ivPlay(world, kind, fields = {}, actor = "vale") {
 }
 export const ivChoose = (world, work, slug) =>
   ivPlay(world, "choose", { choiceId: ivId(work, slug) });
-export const ivMove = (world, target) =>
-  playOpenDoor(world, "move", { target });
+export const ivMove = (world, target) => {
+  record(world, { kind: "move", target });
+  return playOpenDoor(world, "move", { target });
+};
 export const ivTake = (world, item) => ivPlay(world, "take", { item });
 export function ivTalk(world, speaker, expectedTopic, actor = "vale", words) {
   const action = legalActions(world, actor).find(
@@ -37,6 +56,7 @@ export function ivTalk(world, speaker, expectedTopic, actor = "vale", words) {
     throw new Error(
       `Missing Talk to ${speaker} at ${world.actors[actor].place}`,
     );
+  record(world, { kind: "talk", target: speaker, topic: expectedTopic });
   const result = play(world, action, world.revision);
   if (!result.ok) throw new Error(result.error);
   const context = narrativeContext(result.state, action);
@@ -80,7 +100,10 @@ export function helenPrepared(route = "escape") {
   world = ivChoose(ivMove(world, "greek-egypt-tomb"), "helen", `plan-${route}`);
   return world;
 }
-export function helenEnding(route = "escape") {
+export function helenEnding(
+  route = "escape",
+  { pauseAfterSupplies = false } = {},
+) {
   const id = (slug) => ivId("helen", slug);
   let world = helenPrepared(route);
   if (route === "escape") {
@@ -93,8 +116,10 @@ export function helenEnding(route = "escape") {
     world = ivMove(world, id("landing"));
     for (const item of [id("cloth"), id("provisions")])
       world = ivTake(world, item);
+    world = ivMove(world, id("boat"));
     world = ivChoose(world, "helen", "prepare-voyage");
-    world = ivMove(world, "greek-egypt-tomb");
+    if (pauseAfterSupplies) return world;
+    world = ivMove(ivMove(world, id("landing")), "greek-egypt-tomb");
     for (const person of ["greek-helen-egypt", "greek-menelaus-egypt"]) {
       if (world.actors.vale.place !== "greek-egypt-tomb")
         world = ivMove(ivMove(world, id("landing")), "greek-egypt-tomb");
@@ -263,6 +288,141 @@ export function hippolytusJourney(route = "hearing") {
   return ivChoose(
     ivWalk(hippolytusEnding(route), "greek-courtyard"),
     "hippolytus",
+    `return-${route}`,
+  );
+}
+
+export function medeaPrepared() {
+  const w = "medea",
+    id = (slug) => ivId(w, slug);
+  let world = ivWalk(ivStart(), "greek-corinth");
+  for (const item of [id("food"), id("account")]) world = ivTake(world, item);
+  world = ivTalk(world, id("nurse"), id("hear-nurse-words"));
+  world = ivChoose(world, w, "feed-house");
+  world = ivMove(world, id("palace"));
+  world = ivTake(world, id("shelter"));
+  world = ivTalk(world, id("creon"), id("one-day-grant-words"));
+  world = ivWalk(world, id("quay"));
+  world = ivTake(world, id("oath"));
+  world = ivTalk(world, id("aegeus"), id("aegeus-oath-words"));
+  world = ivChoose(ivMove(world, "greek-corinth"), w, "carry-oath");
+  world = ivTalk(world, id("medea"), id("gift-plan-words"));
+  for (const item of [id("robe"), id("crown")]) world = ivTake(world, item);
+  return ivChoose(world, w, "examine-gifts");
+}
+export function medeaEnding(route = "departure") {
+  const w = "medea",
+    id = (slug) => ivId(w, slug);
+  let world = ivChoose(medeaPrepared(), w, `plan-${route}`);
+  if (route === "departure") {
+    for (const item of [id("robe"), id("crown")])
+      world = ivPlay(world, "drop", { item });
+    world = ivTake(world, id("provisions"));
+    world = ivTalk(world, id("medea"), id("medea-consent-words"));
+    world = ivTalk(world, id("nurse"), id("nurse-consent-words"));
+    for (const who of ["medea", "nurse"]) {
+      if (world.actors.vale.place !== "greek-corinth")
+        world = ivMove(world, "greek-corinth");
+      world = ivPlay(world, "accompany", {
+        target: id(who),
+        destination: id("quay"),
+      });
+      world = ivTalk(world, id(who), id(`${who}-arrival-words`));
+    }
+    world = ivChoose(world, w, "supply-quay");
+    world = ivTalk(world, id("attendant"), id("living-sons-words"));
+    return ivTalk(world, id("nurse"), id("finish-departure-words"));
+  }
+  world = ivChoose(ivMove(world, id("palace")), w, `deliver-${route}`);
+  if (route === "source") {
+    world = ivTalk(world, id("jason"), id("royal-deaths-words"));
+    world = ivMove(world, "greek-corinth");
+    world = ivTalk(world, id("nurse"), id("children-deaths-words"));
+    world = ivChoose(world, w, "mourn-sons");
+    return ivTalk(world, id("nurse"), id("finish-source-words"));
+  }
+  world = ivWalk(world, id("quay"));
+  world = ivTalk(world, id("attendant"), id("guarded-shelter-words"));
+  world = ivWalk(world, id("palace"));
+  return ivTalk(world, id("creon"), id("finish-reckoning-words"));
+}
+export function medeaJourney(route = "departure") {
+  return ivChoose(
+    ivWalk(medeaEnding(route), "greek-courtyard"),
+    "medea",
+    `return-${route}`,
+  );
+}
+export function ionRecognitionReady() {
+  const w = "ion",
+    id = (slug) => ivId(w, slug);
+  let world = ivWalk(ivStart(), "greek-delphi");
+  world = ivTake(world, id("broom"));
+  world = ivMove(world, id("guesthouse"));
+  for (const item of [id("water"), id("account")]) world = ivTake(world, item);
+  world = ivMove(world, "greek-delphi");
+  world = ivTalk(world, id("ion"), id("hear-worker-words"));
+  world = ivTalk(world, id("priestess"), id("hear-carer-words"));
+  world = ivChoose(world, w, "sweep-temple");
+  world = ivTalk(world, id("ion"), id("poison-report-words"));
+  world = ivMove(world, id("feast-court"));
+  world = ivTake(world, id("cup"));
+  world = ivChoose(world, w, "secure-cup");
+  world = ivWalk(world, id("guesthouse"));
+  world = ivTalk(world, id("creusa"), id("hear-creusa-words"));
+  world = ivTalk(world, id("creusa"), id("name-signs-words"));
+  world = ivMove(world, "greek-delphi");
+  world = ivTalk(world, id("priestess"), id("entrust-basket-words"));
+  for (const pair of [
+    ["basket", "cloth"],
+    ["snakes", "wreath"],
+  ]) {
+    world = ivMove(world, id("feast-court"));
+    for (const item of pair) world = ivTake(world, id(item));
+    world = ivMove(world, "greek-delphi");
+    world = ivChoose(
+      world,
+      w,
+      pair[0] === "basket" ? "lay-basket" : "lay-tokens",
+    );
+  }
+  world = ivMove(world, id("guesthouse"));
+  world = ivTalk(world, id("creusa"), id("creusa-consent-words"));
+  world = ivPlay(world, "accompany", {
+    target: id("creusa"),
+    destination: "greek-delphi",
+  });
+  return world;
+}
+export function ionPrepared() {
+  const w = "ion",
+    id = (slug) => ivId(w, slug);
+  let world = ivTalk(
+    ionRecognitionReady(),
+    id("creusa"),
+    id("recognition-words"),
+  );
+  return ivChoose(world, w, "private-instruction");
+}
+export function ionEnding(route = "private") {
+  const w = "ion",
+    id = (slug) => ivId(w, slug);
+  let world = ivChoose(ionPrepared(), w, `plan-${route}`);
+  world = ivTalk(
+    world,
+    id(route === "temple" ? "ion" : "creusa"),
+    id(`${route}-consent-words`),
+  );
+  return ivTalk(
+    world,
+    id(route === "public" ? "creusa" : "ion"),
+    id(`finish-${route}-words`),
+  );
+}
+export function ionJourney(route = "private") {
+  return ivChoose(
+    ivWalk(ionEnding(route), "greek-courtyard"),
+    "ion",
     `return-${route}`,
   );
 }

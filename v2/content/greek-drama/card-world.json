@@ -677,7 +677,7 @@
       "text": "In Helen’s Egyptian account, a local boat waits for an empty funeral cloth. It holds this chapter’s travellers and supplies. The shared Greek ship serves the landing.",
       "persona": "In Helen’s Egyptian account, a local boat waits for an empty funeral cloth. It holds this chapter’s travellers and supplies. The shared Greek ship serves the landing.",
       "exits": ["greek-book-iv-helen-landing"],
-      "backdrop": "assets/greek-drama/helen-egypt-tomb-day.webp",
+      "backdrop": "assets/greek-drama/ship-deck.webp",
       "requires": [
         {
           "kind": "choice",
@@ -3099,7 +3099,12 @@
       "requires": [
         {
           "kind": "flag",
-          "key": "greek-book-iv-helen-voyage-prepared",
+          "key": "greek-book-iv-helen-helen-consent",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-helen-menelaus-consent",
           "value": true
         }
       ]
@@ -8233,8 +8238,8 @@
     },
     {
       "id": "greek-book-iv-helen-prepare-voyage",
-      "subject": "greek-book-iv-helen-landing",
-      "at": "greek-book-iv-helen-landing",
+      "subject": "greek-book-iv-helen-boat",
+      "at": "greek-book-iv-helen-boat",
       "label": "Lay the empty cloth and provisions aboard",
       "text": "Vale lays the empty funeral cloth and provisions aboard the local boat.",
       "textTemplate": "{actor} lays the empty funeral cloth and provisions aboard the local boat.",
@@ -8279,12 +8284,12 @@
         {
           "kind": "place_item",
           "item": "greek-book-iv-helen-cloth",
-          "place": "greek-book-iv-helen-landing"
+          "place": "greek-book-iv-helen-boat"
         },
         {
           "kind": "place_item",
           "item": "greek-book-iv-helen-provisions",
-          "place": "greek-book-iv-helen-landing"
+          "place": "greek-book-iv-helen-boat"
         },
         {
           "kind": "set_flag",
@@ -8340,12 +8345,12 @@
         {
           "kind": "item_at",
           "item": "greek-book-iv-helen-cloth",
-          "place": "greek-book-iv-helen-landing"
+          "place": "greek-book-iv-helen-boat"
         },
         {
           "kind": "item_at",
           "item": "greek-book-iv-helen-provisions",
-          "place": "greek-book-iv-helen-landing"
+          "place": "greek-book-iv-helen-boat"
         },
         {
           "kind": "holding",
@@ -16831,21 +16836,17 @@
         {
           "kind": "item_at",
           "item": "greek-book-iv-helen-cloth",
-          "place": "greek-book-iv-helen-landing"
+          "place": "greek-book-iv-helen-boat"
         },
         {
           "kind": "item_at",
           "item": "greek-book-iv-helen-provisions",
-          "place": "greek-book-iv-helen-landing"
+          "place": "greek-book-iv-helen-boat"
         },
         {
           "kind": "holding",
           "item": "greek-book-iv-helen-account",
           "role": "actor"
-        },
-        {
-          "kind": "choice_unset",
-          "key": "greek-book-iv-helen-ending"
         }
       ],
       "choiceId": "greek-book-iv-helen-finish-escape"
@@ -16885,10 +16886,6 @@
           "kind": "holding",
           "item": "greek-book-iv-helen-account",
           "role": "actor"
-        },
-        {
-          "kind": "choice_unset",
-          "key": "greek-book-iv-helen-ending"
         }
       ],
       "choiceId": "greek-book-iv-helen-finish-hearing"
@@ -16928,10 +16925,6 @@
           "kind": "holding",
           "item": "greek-book-iv-helen-account",
           "role": "actor"
-        },
-        {
-          "kind": "choice_unset",
-          "key": "greek-book-iv-helen-ending"
         }
       ],
       "choiceId": "greek-book-iv-helen-finish-sanctuary"
@@ -17187,9 +17180,9 @@
           "value": "protection"
         },
         {
-          "kind": "knows",
-          "topic": "greek-book-iv-andromache-delphic-report-words",
-          "role": "actor"
+          "kind": "flag",
+          "key": "greek-book-iv-andromache-delphic-heard",
+          "value": true
         },
         {
           "kind": "flag",
@@ -17215,10 +17208,6 @@
           "kind": "holding",
           "item": "greek-book-iv-andromache-account",
           "role": "actor"
-        },
-        {
-          "kind": "choice_unset",
-          "key": "greek-book-iv-andromache-ending"
         }
       ],
       "choiceId": "greek-book-iv-andromache-finish-protection"
@@ -17240,9 +17229,9 @@
           "value": "departure"
         },
         {
-          "kind": "knows",
-          "topic": "greek-book-iv-andromache-delphic-report-words",
-          "role": "actor"
+          "kind": "flag",
+          "key": "greek-book-iv-andromache-delphic-heard",
+          "value": true
         },
         {
           "kind": "flag",
@@ -17268,10 +17257,6 @@
           "kind": "holding",
           "item": "greek-book-iv-andromache-account",
           "role": "actor"
-        },
-        {
-          "kind": "choice_unset",
-          "key": "greek-book-iv-andromache-ending"
         }
       ],
       "choiceId": "greek-book-iv-andromache-finish-departure"
@@ -17503,9 +17488,9 @@
           "place": "greek-troezen"
         },
         {
-          "kind": "knows",
-          "topic": "greek-book-iv-hippolytus-theseus-delay-words",
-          "role": "actor"
+          "kind": "flag",
+          "key": "greek-book-iv-hippolytus-delay-accepted",
+          "value": true
         },
         {
           "kind": "item_at",
@@ -17516,10 +17501,6 @@
           "kind": "holding",
           "item": "greek-book-iv-hippolytus-account",
           "role": "actor"
-        },
-        {
-          "kind": "choice_unset",
-          "key": "greek-book-iv-hippolytus-ending"
         }
       ],
       "choiceId": "greek-book-iv-hippolytus-finish-hearing"
@@ -17546,9 +17527,9 @@
           "place": "greek-troezen"
         },
         {
-          "kind": "knows",
-          "topic": "greek-book-iv-hippolytus-son-forgives-words",
-          "role": "actor"
+          "kind": "flag",
+          "key": "greek-book-iv-hippolytus-forgiven",
+          "value": true
         },
         {
           "kind": "flag",
@@ -17564,10 +17545,6 @@
           "kind": "holding",
           "item": "greek-book-iv-hippolytus-account",
           "role": "actor"
-        },
-        {
-          "kind": "choice_unset",
-          "key": "greek-book-iv-hippolytus-ending"
         }
       ],
       "choiceId": "greek-book-iv-hippolytus-finish-source"
@@ -17867,9 +17844,9 @@
           "value": "departure"
         },
         {
-          "kind": "knows",
-          "topic": "greek-book-iv-medea-living-sons-words",
-          "role": "actor"
+          "kind": "flag",
+          "key": "greek-book-iv-medea-sons-alive",
+          "value": true
         },
         {
           "kind": "item_at",
@@ -17880,10 +17857,6 @@
           "kind": "holding",
           "item": "greek-book-iv-medea-account",
           "role": "actor"
-        },
-        {
-          "kind": "choice_unset",
-          "key": "greek-book-iv-medea-ending"
         }
       ],
       "choiceId": "greek-book-iv-medea-finish-departure"
@@ -17905,9 +17878,9 @@
           "value": "source"
         },
         {
-          "kind": "knows",
-          "topic": "greek-book-iv-medea-children-deaths-words",
-          "role": "actor"
+          "kind": "flag",
+          "key": "greek-book-iv-medea-sons-dead",
+          "value": true
         },
         {
           "kind": "flag",
@@ -17923,10 +17896,6 @@
           "kind": "holding",
           "item": "greek-book-iv-medea-account",
           "role": "actor"
-        },
-        {
-          "kind": "choice_unset",
-          "key": "greek-book-iv-medea-ending"
         }
       ],
       "choiceId": "greek-book-iv-medea-finish-source"
@@ -17948,9 +17917,9 @@
           "value": "reckoning"
         },
         {
-          "kind": "knows",
-          "topic": "greek-book-iv-medea-guarded-shelter-words",
-          "role": "actor"
+          "kind": "flag",
+          "key": "greek-book-iv-medea-guarded-sons",
+          "value": true
         },
         {
           "kind": "item_at",
@@ -17966,10 +17935,6 @@
           "kind": "holding",
           "item": "greek-book-iv-medea-account",
           "role": "actor"
-        },
-        {
-          "kind": "choice_unset",
-          "key": "greek-book-iv-medea-ending"
         }
       ],
       "choiceId": "greek-book-iv-medea-finish-reckoning"
@@ -18234,9 +18199,9 @@
           "value": "private"
         },
         {
-          "kind": "knows",
-          "topic": "greek-book-iv-ion-private-consent-words",
-          "role": "actor"
+          "kind": "flag",
+          "key": "greek-book-iv-ion-private-consent",
+          "value": true
         },
         {
           "kind": "item_at",
@@ -18252,10 +18217,6 @@
           "kind": "holding",
           "item": "greek-book-iv-ion-account",
           "role": "actor"
-        },
-        {
-          "kind": "choice_unset",
-          "key": "greek-book-iv-ion-ending"
         }
       ],
       "choiceId": "greek-book-iv-ion-finish-private"
@@ -18277,9 +18238,9 @@
           "value": "public"
         },
         {
-          "kind": "knows",
-          "topic": "greek-book-iv-ion-public-consent-words",
-          "role": "actor"
+          "kind": "flag",
+          "key": "greek-book-iv-ion-public-consent",
+          "value": true
         },
         {
           "kind": "item_at",
@@ -18295,10 +18256,6 @@
           "kind": "holding",
           "item": "greek-book-iv-ion-account",
           "role": "actor"
-        },
-        {
-          "kind": "choice_unset",
-          "key": "greek-book-iv-ion-ending"
         }
       ],
       "choiceId": "greek-book-iv-ion-finish-public"
@@ -18320,9 +18277,9 @@
           "value": "temple"
         },
         {
-          "kind": "knows",
-          "topic": "greek-book-iv-ion-temple-consent-words",
-          "role": "actor"
+          "kind": "flag",
+          "key": "greek-book-iv-ion-temple-consent",
+          "value": true
         },
         {
           "kind": "item_at",
@@ -18338,10 +18295,6 @@
           "kind": "holding",
           "item": "greek-book-iv-ion-account",
           "role": "actor"
-        },
-        {
-          "kind": "choice_unset",
-          "key": "greek-book-iv-ion-ending"
         }
       ],
       "choiceId": "greek-book-iv-ion-finish-temple"
