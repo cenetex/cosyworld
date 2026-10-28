@@ -146,7 +146,8 @@ try {
         });
     }
     await page.reload();
-    await page.locator('#hand [data-card="boardyai-calling-card"]').waitFor();
+    await page.locator('#hand [data-card="vale"]').waitFor();
+    await selectCard(page, "boardyai-calling-card");
     assert.equal(
       await page.evaluate(
         (key) => JSON.parse(localStorage.getItem(key)).turn,

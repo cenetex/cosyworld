@@ -378,23 +378,24 @@ export function generateProgram(
       humanAvatar(id)?.name ||
       packPeople[id]?.name,
   });
-  catalog.push(
-    ...introductionPrograms(
-      s,
-      actor,
-      base,
-      (actor === BOARDY ? connectedHumans(s) : actors).filter(
+  if (lifeOf(s, actor))
+    catalog.push(
+      ...introductionPrograms(
+        s,
+        actor,
+        base,
+        (actor === BOARDY ? connectedHumans(s) : actors).filter(
+          (id) =>
+            id !== actor &&
+            (actor === BOARDY || reachable.includes(s.actors[id].place)) &&
+            (!humanAvatar(id) || humanPresent(s, id)),
+        ),
         (id) =>
-          id !== actor &&
-          (actor === BOARDY || reachable.includes(s.actors[id].place)) &&
-          (!humanAvatar(id) || humanPresent(s, id)),
+          humanAvatar(id)?.name ||
+          packPeople[id]?.name ||
+          (id === "moth" ? "Pip" : id === "keeper" ? "the keeper" : id),
       ),
-      (id) =>
-        humanAvatar(id)?.name ||
-        packPeople[id]?.name ||
-        (id === "moth" ? "Pip" : id === "keeper" ? "the keeper" : id),
-    ),
-  );
+    );
   const preferences = {
     vale: ["crossing", "answer", "delivery", "gathering", "bargain"],
     moth: ["delivery", "gathering", "crossing", "answer", "bargain"],

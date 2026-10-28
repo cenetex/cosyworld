@@ -13545,17 +13545,18 @@
       needed: (id) => requiredItems(s, id, desireFor(s, id)),
       name: (id) => things2[id]?.name || places2[id]?.name || { vale: "Vale", moth: "Pip", keeper: "the keeper" }[id] || humanAvatar(id)?.name || packPeople[id]?.name
     });
-    catalog.push(
-      ...introductionPrograms(
-        s,
-        actor,
-        base,
-        (actor === BOARDY ? connectedHumans(s) : actors2).filter(
-          (id) => id !== actor && (actor === BOARDY || reachable.includes(s.actors[id].place)) && (!humanAvatar(id) || humanPresent(s, id))
-        ),
-        (id) => humanAvatar(id)?.name || packPeople[id]?.name || (id === "moth" ? "Pip" : id === "keeper" ? "the keeper" : id)
-      )
-    );
+    if (lifeOf(s, actor))
+      catalog.push(
+        ...introductionPrograms(
+          s,
+          actor,
+          base,
+          (actor === BOARDY ? connectedHumans(s) : actors2).filter(
+            (id) => id !== actor && (actor === BOARDY || reachable.includes(s.actors[id].place)) && (!humanAvatar(id) || humanPresent(s, id))
+          ),
+          (id) => humanAvatar(id)?.name || packPeople[id]?.name || (id === "moth" ? "Pip" : id === "keeper" ? "the keeper" : id)
+        )
+      );
     const preferences = {
       vale: ["crossing", "answer", "delivery", "gathering", "bargain"],
       moth: ["delivery", "gathering", "crossing", "answer", "bargain"],

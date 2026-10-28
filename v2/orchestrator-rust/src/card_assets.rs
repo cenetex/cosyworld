@@ -1866,7 +1866,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "lessons.mjs" => "\"d356ccfd6d4bb622ea7e325ebae519f3ff37433013b04874f07f83865b883705\"",
         "motives.mjs" => "\"ad0d1881d52234756bfe3579f1a57de4cecb0181998b04788f06f8398ddcc288\"",
         "life.mjs" => "\"a85595a11e475412cad72cf237da96196003c85d37b5f466a71b9698012adca5\"",
-        "quests.mjs" => "\"2fa7eb4784c1863841ee77b21096a39df35557655f8a407e9fe8d417993eb5c1\"",
+        "quests.mjs" => "\"9b31206cf3766b01c1973af5b7cb80b03c342bec631d7714ceb08630bfd54583\"",
         "quest-offers.mjs" => {
             "\"6f0ef71f7042254df8b93dde9c928c44e5ac5914f32acfee02617668dd7b4873\""
         }
