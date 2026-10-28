@@ -157,6 +157,7 @@ export const mayCross = (c, actor, senses) =>
   c.travelers === "any" ||
   actor === senses.player ||
   roamingQuestActor(actor) ||
+  packPeople[actor]?.personalQuests ||
   senses.humanActors?.includes(actor);
 
 /** Places reachable by crossing from `place` now, for this actor. */

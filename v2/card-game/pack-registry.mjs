@@ -191,7 +191,7 @@ export const packTastes = Object.fromEntries(
       likes: a.tastes.likes,
       sore: a.tastes.sore,
       home: a.place,
-      quests: !!humanAvatar(id),
+      quests: !!humanAvatar(id) || a.personalQuests === true,
       values: Object.fromEntries(
         [...hub.items, ...Object.keys(packThings)].map((item) => [
           item,
@@ -298,6 +298,7 @@ export function packExits(world, place, actor = null) {
           conditionsMet(world, pack.id, r.requires) &&
           (humanAvatarIds.includes(actor) ||
             roamingQuestActor(actor) ||
+            packPeople[actor]?.personalQuests ||
             (owns(pack.places, r.from) && owns(pack.places, r.to))),
       )
       .map((r) => r.to),

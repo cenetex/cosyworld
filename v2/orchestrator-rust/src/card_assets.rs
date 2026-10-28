@@ -68,6 +68,10 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/boardyai.mjs"),
         ),
+        "introductions.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/introductions.mjs"),
+        ),
         "boardyai.json" => (
             "application/json",
             include_bytes!("../../card-game/boardyai.json"),
@@ -1722,15 +1726,18 @@ pub fn etag(path: &str) -> Option<&'static str> {
             "\"be6a52126ec58998a7b316b5f99b4d7ad435dd791de421d083fe1b9b8b3c4f82\""
         }
         "shared.css" => "\"5693c0a2aa0bcb130eda370b14251973072e641a646989c05e8c70beac387bfd\"",
-        "toolbar.mjs" => "\"903a46e5ddee5756fb92f3b21cfb9145a9cdb7bc1f6cc4ef7ff465aef5f8c5af\"",
+        "toolbar.mjs" => "\"65b5aeda0a65b79cbf50568ee5d04d066541aa3d79ce4cb0a2baebaaf3b0c285\"",
         "inner-life.mjs" => "\"b27778f2cac4e9570a242d06084e04e5c2a06a495a81d01c216279f0c67450e0\"",
         "toolbar.css" => "\"5f548f139b187d3176fcd853790347c3755e12e0c313a9b766c7f399066c57b1\"",
         "shared-cast.json" => {
             "\"d33acfa50480968d23f0ef43440f104ed8abdeeb0519a6504afcdbf1507ebd6e\""
         }
         "human-cast.mjs" => "\"925cddac4e0340e9620ca81118e1535323564787194df0fa4dfe1b74825d7152\"",
-        "boardyai.mjs" => "\"97ecdcdb2134d9083b52262e73748b4036542b4e9587b8d4b57c125241b19cd4\"",
-        "boardyai.json" => "\"af0d968fa961db126e218f8e90bc7f18c62499c8c5a9188cd5a7f23afbecaa5e\"",
+        "boardyai.mjs" => "\"ec22dc98d08573e767c046d580ae46f7b1b44e93a39c11ef8b63fa81c22421be\"",
+        "introductions.mjs" => {
+            "\"9852c333dbb8d902c21c78fa05dc15be6e26c95984bb5a6229347bfbb3b237d0\""
+        }
+        "boardyai.json" => "\"2852f0286629dc01e11e1b328f16e604deff2f16b26f053c3b73b71e56209f2c\"",
         "assets/greek-drama/harbor-day.webp" => {
             "\"b535244774382afc8a6440e292f1c51698375717d4473f3c70b5c16fff3e4425\""
         }
@@ -1835,8 +1842,8 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "scene-video.css" => "\"3c6851ec825e734e3d8a084f4ed77f077bcb4402acbf61869a67b652c3afe4c5\"",
         "awakening.css" => "\"c7a68a23baf1e46934237a57f4b5f87d76bad87af85fdf57ee40abec646908b9\"",
-        "app.mjs" => "\"81f3a191e0c3d99ed7f4103294c4395ca07b8a746020cf030c5a00a79b8bd026\"",
-        "world.mjs" => "\"cd0f0636c49fee7f6e37e7a712fd867e1cfe00932829ad6a58f0c1e5ccba69f2\"",
+        "app.mjs" => "\"4a1105eb5164a34f34289eb1932b2cce7c1ff52324a8a687311034911ce59ae8\"",
+        "world.mjs" => "\"a38debe3747d7675c8b89e3264127969aa5810effd5e03aa5bbf3d327d0ca734\"",
         "scene.mjs" => "\"aba97eb70f26e75c9eaa4bcf71e3d8130f8bc5efc3df2b1a2567022959879d87\"",
         "weather.mjs" => "\"69a3e11642c43831f80581711f6113d814badd666ad2c3e3892a1a4c70a5fd27\"",
         "daylight.mjs" => "\"6e1bbbf92705e5e2ed904ca98666540ab9a91916c94e50749e649a0ba380170d\"",
@@ -1873,14 +1880,14 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "cards.mjs" => "\"3030ffbcefcee8ddd5e2d48720edfffac5857e4e9bc37b694c0b34edd71604f7\"",
         "lessons.mjs" => "\"d356ccfd6d4bb622ea7e325ebae519f3ff37433013b04874f07f83865b883705\"",
-        "motives.mjs" => "\"9e8b5b84a9a21761074c524f9295febaf1e03b92342f324a41e364c4d34950f1\"",
-        "life.mjs" => "\"96bacb8052c8b77e11eb733edfe075f25f2e6e38ceb8f153280f4d974cb74c5c\"",
-        "quests.mjs" => "\"db627d2ba343da74cedd4d0032b9994359881c309d1fa1b779dd6657dad0390a\"",
+        "motives.mjs" => "\"ad0d1881d52234756bfe3579f1a57de4cecb0181998b04788f06f8398ddcc288\"",
+        "life.mjs" => "\"a85595a11e475412cad72cf237da96196003c85d37b5f466a71b9698012adca5\"",
+        "quests.mjs" => "\"58df08bc426fd29e9eceaa3df7c0187e03e1777e3502917fb011bfa9eb9d7365\"",
         "quest-offers.mjs" => {
             "\"6f0ef71f7042254df8b93dde9c928c44e5ac5914f32acfee02617668dd7b4873\""
         }
         "quest-progress.mjs" => {
-            "\"22073763c4479d882037c32d6c91a8f456b8094655d78f7687106fe6ec5a0716\""
+            "\"b97aa715d5fba2fb994e744da812ea8683bdb65e798b742edf6c3bf84e28b4a9\""
         }
         "knowledge.mjs" => "\"f5c90dc2567a79e8a23089be5b71b271dce24d1244b19f37e3528591e9d0c5a5\"",
         "quest-hands.mjs" => "\"c7692977dd2195a1b19ace9724ed1dd344b8cf69fb59b1f2a652d98f89bfe2c4\"",
@@ -1911,9 +1918,9 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "roaming-routes.mjs" => {
             "\"71b33e853f1a820e06ecb2c23be8cdd011a6f66fe44b21f13804fe5cdd5bab83\""
         }
-        "quest-cards.mjs" => "\"8960e4357997e63486ea61553d626821efb44cba9361190ecff7f7f4d12983c2\"",
-        "situations.mjs" => "\"d9ea587b56d3e9dfef29e5f5987cdf20276fd65415f0279880922cd4f1d06ca4\"",
-        "memory.mjs" => "\"73ce17a68e29678684d13458a87fa9e2274879a45680e53d7d83b562abac3dab\"",
+        "quest-cards.mjs" => "\"1013e3a24da7358f1fa6eb6534cf1640911e1a53b57ec5dd8a90ac8096fa23c6\"",
+        "situations.mjs" => "\"0a3da7ead63ef181e8d3845695543939e0395312418e5f5ccf25d67127252a56\"",
+        "memory.mjs" => "\"db094e20b9b8df8a22bc2c0d234fafdc487f498a0f1a6c1b45458f16b720148e\"",
         "learning.mjs" => "\"feb6faebe9c0470cfac7545e7e91587701b7434fecd176c9475fee778cb51175\"",
         "narrative.mjs" => "\"1a70deed37748fd558ecc9355039f8beeddf073c9253adfc2b91917df77ab901\"",
         "dialogue.mjs" => "\"1f4965d3e2a36261973aace4534359c00c7cf8aeaf15548a08d29e364adcc7ad\"",
@@ -1939,9 +1946,9 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "assets/voices/greek-baker.mp3" => {
             "\"0dc315f6c54a2a48fab122a0c1b3dc5876121073b696b0ce4537c2d76d0b08a8\""
         }
-        "pack-schema.mjs" => "\"8460b00751e57e09fa0f5e5abced45c1beb7ef000f81b596aadca88b2a2a05ba\"",
+        "pack-schema.mjs" => "\"1b84b5946416ff9e0af7b9bd02c33568f9adb4e48924b68ba5b59774be854557\"",
         "pack-registry.mjs" => {
-            "\"8cebc4df43c2ef039c048b416f6620a2ad078d88feca64474c93eec37d9b5cb2\""
+            "\"0a9f9dcda490bf23df012cc402beb4e29893fa1fdb60dfd0155e3e94c7eaa6ba\""
         }
         "pack-sections.mjs" => {
             "\"1230a3aa14a8e17e9eedaeeaead6717b77650111e8179306ad5e2a2d925d0f32\""
@@ -1952,12 +1959,12 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "pack-recital.mjs" => {
             "\"69bb676f4fbe0591f81e473921b6ff8ae8c88cddbab5a1931d005f662d0ffcea\""
         }
-        "pack-rules.mjs" => "\"0b08bbcd455db5161b624f349ff683980fb282a93d6c671b384d2d4c9f0d49a1\"",
+        "pack-rules.mjs" => "\"15b285e737f8e285fc57c35d1f053e0531987bf3ad0124d95c04470311897a63\"",
         "pack-transport.mjs" => {
-            "\"4a930efedb8e283404abf4e5d0345e9336384d10a4e6e4e0fe7b243e95b65500\""
+            "\"8e01f7a0cbb46e16c7443aca4ebb63cfe7d528e88ed25fe6c794464cddc5c4c3\""
         }
         "legacy-saves.mjs" => {
-            "\"341051fd95c480aba320d4f93df99d17ea2081e033d44fe83a58f786ef29f121\""
+            "\"d27dda0cf81398e9402a7e81db125fa14344436d14609e71730fa9af22634387\""
         }
         "forest.json" => "\"12a2be7877e4daff53d3d1ad27c1703b2ca10dff51e6f371a5b3d1a7975afdfe\"",
         "packs.json" => "\"6508a68fbb4ff25b880fc3e36678e46f07dc76cbde34cf195aa9a60003c2b27a\"",

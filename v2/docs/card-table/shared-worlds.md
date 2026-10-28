@@ -9,12 +9,19 @@ Mirror attic, Pip, the keeper, Badger, mounted story packs, and their rules belo
 to this same world. Each account claims one of eight human avatars. Each room
 holds four present humans. Residents can share a room with those humans.
 
-BoardyAI appears while two or more humans are connected to the world. He joins
-the largest human gathering. Cast order settles ties, so every reader sees him
-in the same place. His lasting quest is **Bring two human players together.**
-The quest stays active through meetings, travel, and reconnects. His dialogue
-names connected people and offers a place to meet. Each human chooses their
-own journey. Presence follows the usual 60-second reconnect grace.
+BoardyAI appears while two or more humans are connected. He favours
+**Get these two together** quests, which name a chosen pair. This quest type is
+also available to the rest of the cast. He visits the pair in turn on his turns
+and uses his last sightings to find them. When a remembered place is empty,
+he searches other open rooms. Each human chooses their own journey.
+
+A meeting completes the quest. Boardy takes the usual break before choosing
+another purpose. He also chooses ordinary quests. Later introductions favour
+a new pair. His position, sightings, search, quest history, and break survive
+reloads and journal replay. Presence uses the usual reconnect grace.
+
+The online list shows names, levels, and connection status. Players discover
+each other's locations through encounters in the world.
 
 Boardy's calling card rests at Empty station. Its blue smile opens a door to
 **BoardyAI's Parlour** while the card is at the station or carried there by a
@@ -182,7 +189,7 @@ Completing the active quest begins a rest at a place marked `sanctuary: true`.
 The station and attic are sanctuaries. Human rest counts that person's own turns
 in a shared world. Resident rest counts world rounds.
 
-The shared interpreter builder writes `engine-v17.js`. Earlier interpreters stay
+The shared interpreter builder writes `engine-v18.js`. Earlier interpreters stay
 frozen. Upgrade tests cover checkpoints, journal-only rebuilds, saved drops,
 quest hand limits, and completion receipts.
 
@@ -284,7 +291,10 @@ Player views include their own thoughts, persona, dreams, reflection evidence
 and lessons. Other avatars supply public card text. This privacy check also
 applies when projecting a world that still uses an earlier interpreter.
 
-The released version 15 interpreter is `engine-v15.js`. Version 15 adds regional
+The current interpreter is `engine-v18.js`. Version 18 adds the quest core and
+spoken knowledge described below. Version 17 adds introduction quests,
+remembered sightings, and Boardy’s turn-based visits. Released versions 15, 16 and
+17 keep their exact bytes for replay. Version 15 adds regional
 Greek weather and Thebes day and night views. Version 14 keeps BoardyAI, his
 parlour, and his calling card. Earlier versions keep their released rules.
 Existing worlds receive an explicit saved upgrade.
@@ -309,7 +319,7 @@ recorded rules before the saved upgrade.
 
 ## Quest core and spoken knowledge
 
-Shared rules version 17 uses common step capture and advancement for personal
+Shared rules version 18 uses common step capture and advancement for personal
 and shared quests. Each saved step keeps its evidence, source turn and card key.
 Repeated checks in one turn preserve the single-step and single-effect rules.
 
@@ -323,5 +333,5 @@ the listener, teller and original Talk event, then checks quest progress. A retr
 uses that saved exchange. The speech command carries its disclosure through the
 world journal, so checkpoint recovery and journal replay produce the same facts.
 
-Versions 2 through 16 retain their released interpreters. Loading an earlier
+Versions 2 through 17 retain their released interpreters. Loading an earlier
 world records an upgrade to version 17 with its prior progress and receipts.

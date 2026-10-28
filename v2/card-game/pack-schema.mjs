@@ -469,6 +469,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "travels",
         "journey",
         "roamingQuest",
+        "personalQuests",
         "previousHomes",
         "standoffs",
         "persona",
@@ -484,6 +485,10 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "canonicalPerson",
       ]),
       `avatar ${id} has an unknown field`,
+    );
+    check(
+      a.personalQuests === undefined || typeof a.personalQuests === "boolean",
+      `avatar ${id} personalQuests needs a boolean`,
     );
     check(
       textOk(a.name, 120) &&

@@ -10,13 +10,14 @@ import {
 import { hasQuestPrograms } from "./motives.mjs";
 import {
   knownActors,
+  personalQuestActor,
   programFor,
   desireFor,
   alternatives,
   recordQuestProgress,
 } from "./quests.mjs";
 import { lifeOf, questActive, finishPersonalQuest, hopeOf } from "./life.mjs";
-import { isPackActor, entityActive } from "./pack-registry.mjs";
+import { entityActive } from "./pack-registry.mjs";
 
 // The same match records the current step and exact world evidence for every card.
 export function captureQuestStep(s, met, card, { handStatus, fulfillment }) {
@@ -57,7 +58,17 @@ export function captureQuestHands(s, met, { actorIds, handStatus }) {
         handStatus,
         fulfillment: (world, id, target) => ({
           items: [...target.items],
-          location: world.actors[id].place,
+          location:
+            !shared &&
+            target.conditions?.find(
+              (condition) => condition.kind === "together",
+            )
+              ? world.actors[
+                  target.conditions.find(
+                    (condition) => condition.kind === "together",
+                  ).avatars[0]
+                ].place
+              : world.actors[id].place,
           ...(shared
             ? {
                 avatars: [...target.avatars],
@@ -68,6 +79,9 @@ export function captureQuestHands(s, met, { actorIds, handStatus }) {
                 avatars: [
                   ...new Set([
                     ...target.avatars,
+                    ...(target.conditions || []).flatMap((condition) =>
+                      condition.kind === "together" ? condition.avatars : [],
+                    ),
                     ...actorIds.filter(
                       (other) =>
                         other !== id &&
@@ -85,7 +99,7 @@ export function captureQuestHands(s, met, { actorIds, handStatus }) {
         }),
       },
     );
-  for (const actor of knownActors(s).filter((id) => !isPackActor(id))) {
+  for (const actor of knownActors(s).filter(personalQuestActor)) {
     const collection = lifeOf(s, actor)?.collection;
     const cards = collection
       ? collectionCards(s, actor).filter(

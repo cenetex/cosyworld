@@ -976,8 +976,7 @@ try {
     async () => (await snapshot(mara)).nudge === "vale",
     "nudge reaches friend",
   );
-  await perform(vale, "drop", "pond", "lamp");
-  await perform(mara, "take", undefined, "lamp");
+  await perform(vale, "give", "mara", "lamp");
   assert.equal((await snapshot(vale)).world.items.lamp.holder, "mara");
   await perform(mara, "move", "station");
   assert.equal((await snapshot(mara)).world.actors.mara.place, "station");

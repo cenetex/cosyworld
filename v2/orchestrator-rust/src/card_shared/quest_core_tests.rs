@@ -43,13 +43,13 @@ fn command(op: &str, key: &str) -> full::Command {
 }
 
 #[test]
-fn quest_core_v16_upgrade_preserves_old_deeds_and_long_history_during_journal_replay() {
-    let (path, c, id, mut old) = fixture(engine::SIXTEENTH_VERSION);
+fn quest_core_v17_upgrade_preserves_old_deeds_and_long_history_during_journal_replay() {
+    let (path, c, id, mut old) = fixture(engine::SEVENTEENTH_VERSION);
     old.claimed[0] = 1;
     old.present[0] = 1;
     c.execute("DELETE FROM card_full_log", []).unwrap();
     c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
-    full_store::seed(&c, &id, &old, "released-sixteen", now()).unwrap();
+    full_store::seed(&c, &id, &old, "released-seventeen", now()).unwrap();
     let choice = action(
         &old,
         &[("kind", "choose"), ("choiceId", "greek-hear-decree")],

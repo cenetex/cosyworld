@@ -9,9 +9,47 @@ export const newMemories = () =>
   Object.fromEntries(
     Object.keys(profiles).map((id) => [
       id,
-      { events: [], landmarks: [], text: null, turn: null },
+      {
+        events: [],
+        landmarks: [],
+        text: null,
+        turn: null,
+        ...(profiles[id].kind === "avatar" ? { seen: {} } : {}),
+      },
     ]),
   );
+
+// A sighting comes from sharing a recorded scene. Its evidence survives short event windows.
+function rememberSightings(world, entry, observers = entry.cast || []) {
+  for (const id of observers) {
+    if (profiles[id]?.kind !== "avatar" || !entry.cast?.includes(id)) continue;
+    const memory = world.memories[id];
+    memory.seen ??= {};
+    for (const other of entry.cast) {
+      if (
+        other === id ||
+        profiles[other]?.kind !== "avatar" ||
+        (memory.seen[other]?.seq ?? 0) >= entry.seq
+      )
+        continue;
+      memory.seen[other] = {
+        place: entry.locationId,
+        turn: entry.turn,
+        seq: entry.seq,
+      };
+    }
+  }
+}
+export function upgradeSightings(world) {
+  if (!world.memories || !Array.isArray(world.log)) return;
+  const missing = Object.keys(world.memories).filter(
+    (id) =>
+      profiles[id]?.kind === "avatar" && world.memories[id].seen === undefined,
+  );
+  if (!missing.length) return;
+  for (const entry of world.log) rememberSightings(world, entry, missing);
+  for (const id of missing) world.memories[id].seen ??= {};
+}
 
 // A place and its contents retain events there. Avatars retain witnessed events.
 export function rememberEvent(world, entry) {
@@ -38,6 +76,8 @@ export function rememberEvent(world, entry) {
     )
       continue;
     const memory = world.memories[id];
+    rememberSightings(world, entry, [id]);
+
     if (memory.events.some((event) => event.seq === entry.seq)) continue;
     memory.events.push({
       seq: entry.seq,
@@ -107,6 +147,29 @@ export function validMemories(world) {
     return false;
   return Object.entries(world.memories).every(([id, memory]) => {
     if (
+      (memory?.seen !== undefined &&
+        (!memory.seen ||
+          typeof memory.seen !== "object" ||
+          Array.isArray(memory.seen) ||
+          profiles[id].kind !== "avatar" ||
+          Object.entries(memory.seen).some(
+            ([other, seen]) =>
+              other === id ||
+              profiles[other]?.kind !== "avatar" ||
+              !seen ||
+              Object.keys(seen).some(
+                (key) => !["place", "turn", "seq"].includes(key),
+              ) ||
+              !profiles[seen.place] ||
+              profiles[seen.place].kind === "avatar" ||
+              world.items[seen.place] ||
+              !Number.isSafeInteger(seen.turn) ||
+              seen.turn < 0 ||
+              seen.turn > world.turn ||
+              !Number.isSafeInteger(seen.seq) ||
+              seen.seq < 1 ||
+              seen.seq > world.eventSeq,
+          ))) ||
       !validInnerLife(memory?.innerLife, world.turn) ||
       !validLearning(world, id, memory?.learning, profiles) ||
       !validReflections(world, id, memory?.reflections) ||
