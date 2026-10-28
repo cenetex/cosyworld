@@ -288,7 +288,6 @@ fn book_iv_public_account_survives_moved_evidence_and_a_second_carrier_journal()
     world.game["actors"]["mara"]["place"] = json!(COURT);
     let (path, c, id) = database("public-account-carrier", &world);
     let original_receipt = world.game["packs"]["greek-drama"]["receipts"][ENDING].clone();
-    let original_stanza = world.game["packs"]["greek-drama"]["recitals"][ENDING].clone();
     party_play(
         &c,
         &id,
@@ -313,6 +312,9 @@ fn book_iv_public_account_survives_moved_evidence_and_a_second_carrier_journal()
             .get(TOPIC)
             .is_none()
     );
+    // The next native play fulfils the already-earned singer visit.
+    // Capture that settled visit before testing the later reader's speech.
+    let original_stanza = world.game["packs"]["greek-drama"]["recitals"][ENDING].clone();
     let spoken = party_play(
         &c,
         &id,
