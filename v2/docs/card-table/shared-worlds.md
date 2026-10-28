@@ -295,8 +295,7 @@ view. Earlier cached view events are replaced at that boundary.
 ## Greek ports and roads
 
 Shared rules version 16 adds Athens Harbor and Piraeus Quays to the Greek
-ship. Seven roads between towns have two fixed ends. Destination cards name
-each end. An empty ship follows its circuit while a human waits at a port.
+ship. An empty ship follows its circuit while a human waits at a port.
 Resident passengers step ashore after arrival; a human aboard chooses the
 port before those companions leave the ship.
 
@@ -308,7 +307,8 @@ bytes. The builder writes `engine-v17.js`; older journals replay with the
 recorded rules before the saved upgrade.
 
 Shared rules version 17 makes the harbor and Agora a direct local visit, and
-joins the Theban harbor directly to the courtyard. Earlier internal road IDs
+joins the Theban harbor directly to the courtyard. Seven roads connect the
+towns. Each road has two fixed ends, shown by destination cards. Earlier internal road IDs
 stay in saved history. Current visitors, belongings and unfinished purposes
 continue at a town endpoint. The migration uses the other endpoint when the
 port already holds four human avatars. Released version 16 keeps its exact bytes.
