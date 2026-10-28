@@ -7,6 +7,7 @@ import { migrateLife } from "./life.mjs";
 import { upgradeRecitals } from "./pack-recital.mjs";
 import { isPackActor, packDefinitions, transports } from "./pack-registry.mjs";
 import { passengers } from "./pack-transport.mjs";
+import { installKnowledge } from "./knowledge.mjs";
 import { newTemperament } from "./pack-rules.mjs";
 
 // Upgrade historical records before the world validates the current save.
@@ -104,6 +105,7 @@ export function upgradeSave(
   if (Object.values(s.life?.actors || {}).some((life) => life.collection))
     installSharedQuestRegistry(s);
   if (s?.schema === 7) publishQuestCompletions(s, syncStoryQuests(s));
+  if (s?.schema === 7) installKnowledge(s);
   return s;
 }
 

@@ -5,6 +5,7 @@ import {
   humanAvatarIds,
   sharedEnabled,
 } from "./human-cast.mjs";
+import { knowsFact } from "./knowledge.mjs";
 // General rules over world-pack data: crossings and their signals, fixtures
 // that sound, and residents with a temperament. No rule here names a pack,
 // place, resident or hub object; the compiled packs supply every name.
@@ -102,6 +103,8 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
       return !!state && !Object.hasOwn(state.choices || {}, c.key);
     case "flag":
       return (state?.flags?.[c.key] ?? false) === c.value;
+    case "knows":
+      return knowsFact(s, actor || senses?.player || currentActor(s), c.topic);
     case "holding":
       return s.items[c.item]?.holder === (c.role === "actor" ? actor : c.actor);
     case "shared_world":
