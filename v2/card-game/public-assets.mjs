@@ -122,6 +122,8 @@ const files = [
   "legacy-greek-catalog.mjs",
   "reading-digest.mjs",
   "poem-readings.mjs",
+  "poem-catalogs.mjs",
+  "poem-catalogs.json",
   "forest.json",
   "packs.json",
   "music.mjs",

@@ -202,6 +202,13 @@ follow the same visible facts as the scene.
 
 ## Checks
 
+The card pack compiler also writes `v2/card-game/poem-catalogs.json`.
+Each poem catalog has its rules version, a content identity and a full digest.
+It keeps earlier catalogs when later deeds or rules add new verses. Saved
+readings retain their original words, author names and stanza order. Published
+wording changes use a new stanza identity. The command, host and UI reading
+integration is in progress in the Books VII and VIII draft.
+
 ```sh
 npm test
 npm run check:local

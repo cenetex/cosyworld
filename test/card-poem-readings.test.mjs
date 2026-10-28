@@ -256,7 +256,7 @@ describe("the complete reserved reading envelope", () => {
       };
     });
     f.catalog = makeReadingCatalog({
-      id: "full-card-world/21",
+      id: "full-card-world/21#0123456789abcdef",
       pack: f.pack.id,
       title: f.pack.recital.title,
       verses: f.pack.recital.verses,
