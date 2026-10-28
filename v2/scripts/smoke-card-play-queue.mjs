@@ -106,6 +106,13 @@ try {
             document.querySelector("#dialogue-advance").dataset.revealing ===
             "false",
         );
+        await page.evaluate(async () => {
+          await Promise.all(
+            [...document.images]
+              .filter((image) => image.getClientRects().length)
+              .map((image) => image.decode()),
+          );
+        });
         const layout = () =>
           page.evaluate(() => {
             const rect = (selector) => {
