@@ -16451,6 +16451,13 @@
           (a) => a.kind === "trade" && bundle(s, a.receive).includes(item) && !needed(s, actor, a.item)
         );
         if (trade) return choose(trade, reason);
+        if (hasMotives(s) && !willingToGive(s, owner2, item, actor)) {
+          const help2 = acts.find(
+            (a) => a.kind === "give" && a.target === owner2 && !needed(s, actor, a.item) && (needed(s, owner2, a.item) || resentment(s, owner2, actor) > 0 && valueOf(s, owner2, a.item) >= 4)
+          );
+          if (help2)
+            return choose(help2, `Help ${nameOf(owner2)} with ${nameOf(help2.item)} before asking for ${nameOf(item)}.`);
+        }
         let heldItem = item;
         while (s.items[s.items[heldItem].holder])
           heldItem = s.items[heldItem].holder;

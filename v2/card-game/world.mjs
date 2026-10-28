@@ -2226,6 +2226,15 @@ function basePlan(s, actor) {
           !needed(s, actor, a.item),
       );
       if (trade) return choose(trade, reason);
+      if (hasMotives(s) && !willingToGive(s, owner, item, actor)) {
+        const help = acts.find((a) =>
+          a.kind === "give" && a.target === owner && !needed(s, actor, a.item) &&
+          (needed(s, owner, a.item) ||
+            (resentment(s, owner, actor) > 0 && valueOf(s, owner, a.item) >= 4)),
+        );
+        if (help)
+          return choose(help, `Help ${nameOf(owner)} with ${nameOf(help.item)} before asking for ${nameOf(item)}.`);
+      }
       let heldItem = item;
       while (s.items[s.items[heldItem].holder])
         heldItem = s.items[heldItem].holder;

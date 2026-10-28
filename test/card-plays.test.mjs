@@ -5,6 +5,7 @@ import {
   encodeSave,
   decodeSave,
   reflectionOpen,
+  places,
 } from "../v2/card-game/world.mjs";
 import { availableCards, cardPlay } from "../v2/card-game/cards.mjs";
 function cards(s, ...ids) {
@@ -33,6 +34,7 @@ describe("playing the world through cards", () => {
     s = cards(s, "attic");
     expect(availableCards(s)).toEqual([
       "attic", "vale", "lamp", "moth", "cloth", "keeper", "oil", "bell", "pond",
+      ...(places["forest-cottage"] ? ["forest-cottage"] : []),
     ]);
   });
   it("previews single cards and pairs freely, then spends one turn per play", () => {
