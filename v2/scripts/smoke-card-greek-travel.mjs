@@ -118,7 +118,7 @@ try {
     await settle();
     assert.match(
       await page.locator("#backdrop").getAttribute("src"),
-      /athens-harbor-empty\.webp/,
+      /athens-harbor-open-berth(?:-night)?\.webp/,
     );
     await page.screenshot({
       path: new URL(`athens-empty-${width}.png`, output).pathname,

@@ -291,9 +291,11 @@ Player views include their own thoughts, persona, dreams, reflection evidence
 and lessons. Other avatars supply public card text. This privacy check also
 applies when projecting a world that still uses an earlier interpreter.
 
-The current interpreter is `engine-v18.js`. Version 17 adds introduction quests,
-remembered sightings, and Boardy’s turn-based visits. Released versions 15, 16
-and 17 keep their exact bytes for replay. Version 15 adds regional
+The current interpreter is `engine-v18.js`. Version 18 adds day and night ship
+views at Athens Harbor and Piraeus Quays, plus the painted Theban Harbor Road.
+Town travel keeps the older road IDs in saved memories and completed deeds.
+Version 17 keeps introduction quests, remembered sightings, and Boardy’s visits.
+Released versions 15, 16 and 17 keep their exact bytes for replay. Version 15 adds regional
 Greek weather and Thebes day and night views. Version 14 keeps BoardyAI, his
 parlour, and his calling card. Earlier versions keep their released rules.
 Existing worlds receive an explicit saved upgrade.

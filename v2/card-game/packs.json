@@ -458,7 +458,7 @@
             "greek-sicily",
             "greek-road-piraeus-eleusis"
           ],
-          "backdrop": "assets/greek-drama/open-door-piraeus.webp",
+          "backdrop": "assets/greek-drama/piraeus-open-berth.webp",
           "persona": "These quays hold the practical work of welcome. A reserved berth records a promise and supplies at this quay. The host speaks about the actual list, cloth and basket and the traveler’s chosen terms."
         },
         "greek-assembly": {
@@ -890,7 +890,7 @@
             "greek-athens",
             "greek-road-athens-harbor"
           ],
-          "backdrop": "assets/greek-drama/athens-harbor-empty.webp"
+          "backdrop": "assets/greek-drama/athens-harbor-open-berth.webp"
         },
         "greek-road-thebes": {
           "name": "Theban Harbor Road",
@@ -904,7 +904,7 @@
             "greek-harbor",
             "greek-courtyard"
           ],
-          "backdrop": "assets/greek-drama/attic-road.webp"
+          "backdrop": "assets/greek-drama/theban-harbor-road.webp"
         },
         "greek-road-athens-harbor": {
           "name": "Athens Harbor Road",
@@ -7742,7 +7742,8 @@
           "scenery": {
             "open": "The Greek ship waits beside the quay.",
             "cardName": "Greek ship",
-            "cardArt": "assets/greek-drama/ship-card.webp"
+            "cardArt": "assets/greek-drama/ship-card.webp",
+            "backdrop": "assets/greek-drama/open-door-piraeus.webp"
           }
         }
       ],

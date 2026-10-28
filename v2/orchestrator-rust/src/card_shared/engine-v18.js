@@ -1880,7 +1880,7 @@
               "greek-sicily",
               "greek-road-piraeus-eleusis"
             ],
-            backdrop: "assets/greek-drama/open-door-piraeus.webp",
+            backdrop: "assets/greek-drama/piraeus-open-berth.webp",
             persona: "These quays hold the practical work of welcome. A reserved berth records a promise and supplies at this quay. The host speaks about the actual list, cloth and basket and the traveler\u2019s chosen terms."
           },
           "greek-assembly": {
@@ -2312,7 +2312,7 @@
               "greek-athens",
               "greek-road-athens-harbor"
             ],
-            backdrop: "assets/greek-drama/athens-harbor-empty.webp"
+            backdrop: "assets/greek-drama/athens-harbor-open-berth.webp"
           },
           "greek-road-thebes": {
             name: "Theban Harbor Road",
@@ -2326,7 +2326,7 @@
               "greek-harbor",
               "greek-courtyard"
             ],
-            backdrop: "assets/greek-drama/attic-road.webp"
+            backdrop: "assets/greek-drama/theban-harbor-road.webp"
           },
           "greek-road-athens-harbor": {
             name: "Athens Harbor Road",
@@ -9164,7 +9164,8 @@
             scenery: {
               open: "The Greek ship waits beside the quay.",
               cardName: "Greek ship",
-              cardArt: "assets/greek-drama/ship-card.webp"
+              cardArt: "assets/greek-drama/ship-card.webp",
+              backdrop: "assets/greek-drama/open-door-piraeus.webp"
             }
           }
         ],
@@ -16500,24 +16501,34 @@
     "greek-palace": art("palace-night"),
     "greek-gate": art("city-gate-night"),
     "greek-battlefield": art("burial-ground-night"),
-    "greek-sanctuary": art("sanctuary-night")
+    "greek-sanctuary": art("sanctuary-night"),
+    "greek-road-thebes": art("theban-harbor-road-night"),
+    "greek-athens-harbor": art("athens-harbor-open-berth-night"),
+    "greek-piraeus": art("piraeus-open-berth-night")
   };
-  var dockedDay = art("harbor-ship-at-berth");
-  var dockedNight = art("harbor-ship-at-berth-night");
-  var daylightAssets = [...Object.values(nightBackdrops), dockedNight];
+  var dockedNightBackdrops = {
+    [art("harbor-ship-at-berth")]: art("harbor-ship-at-berth-night"),
+    [art("athens-harbor")]: art("athens-harbor-ship-at-berth-night"),
+    [art("open-door-piraeus")]: art("piraeus-ship-at-berth-night")
+  };
+  var daylightAssets = [
+    ...Object.values(nightBackdrops),
+    ...Object.values(dockedNightBackdrops)
+  ];
   function locationDaylight(world, id) {
     if (!world || !Object.hasOwn(nightBackdrops, id)) return null;
     const period = Math.floor(world.turn / DAYLIGHT_TURNS);
     const phase = period % 2 ? "night" : "day";
+    const where = id === "greek-athens-harbor" ? "at Athens Harbor" : id === "greek-piraeus" ? "at Piraeus Quays" : "in Thebes";
     return {
       phase,
       period,
-      description: phase === "night" ? "It is night in Thebes." : "It is day in Thebes."
+      description: `It is ${phase} ${where}.`
     };
   }
   function daylightBackdrop(world, id, file) {
     if (locationDaylight(world, id)?.phase !== "night") return file;
-    return id === "greek-harbor" && file === dockedDay ? dockedNight : nightBackdrops[id];
+    return dockedNightBackdrops[file] || nightBackdrops[id];
   }
 
   // v2/card-game/scene.mjs

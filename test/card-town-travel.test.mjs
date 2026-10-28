@@ -183,7 +183,7 @@ it("changes the Athens berth painting with the shared ship's dock", () => {
   w.crossings["pond-greek-harbor"].discovered = true;
   w.transports["greek-ship"].dock = "pond";
   expect(backdrop("greek-athens-harbor", w)).toBe(
-    "./assets/greek-drama/athens-harbor-empty.webp",
+    "./assets/greek-drama/athens-harbor-open-berth.webp",
   );
   const empty = locationVariant(w, "greek-athens-harbor");
   w.transports["greek-ship"].dock = "greek-athens-harbor";

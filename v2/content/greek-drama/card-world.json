@@ -140,7 +140,7 @@
         "greek-sicily",
         "greek-road-piraeus-eleusis"
       ],
-      "backdrop": "assets/greek-drama/open-door-piraeus.webp",
+      "backdrop": "assets/greek-drama/piraeus-open-berth.webp",
       "persona": "These quays hold the practical work of welcome. A reserved berth records a promise and supplies at this quay. The host speaks about the actual list, cloth and basket and the traveler’s chosen terms."
     },
     "greek-assembly": {
@@ -502,7 +502,7 @@
       "text": "Stone quays run beneath long warehouses. Beyond the harbor gate, city streets and steps climb toward the walls and the Acropolis of Athens.",
       "persona": "Athens Harbor is the ship’s landing for the great city. City streets lead inland to the Agora. Piraeus Quays is a separate town with its own host and work of welcome.",
       "exits": ["greek-athens", "greek-road-athens-harbor"],
-      "backdrop": "assets/greek-drama/athens-harbor-empty.webp"
+      "backdrop": "assets/greek-drama/athens-harbor-open-berth.webp"
     },
     "greek-road-thebes": {
       "name": "Theban Harbor Road",
@@ -510,7 +510,7 @@
       "persona": "A shared road between The Wine-Dark Harbor and Theban Courtyard. The left end always leads to The Wine-Dark Harbor. The right end always leads to Theban Courtyard. Travelers can meet, talk, rest and carry their belongings here.",
       "exits": ["greek-harbor", "greek-courtyard"],
       "road": ["greek-harbor", "greek-courtyard"],
-      "backdrop": "assets/greek-drama/attic-road.webp"
+      "backdrop": "assets/greek-drama/theban-harbor-road.webp"
     },
     "greek-road-athens-harbor": {
       "name": "Athens Harbor Road",

@@ -134,3 +134,126 @@ fn regional_weather_agrees_in_c_and_survives_upgrade_and_journal_replay() {
     drop(c);
     std::fs::remove_file(path).unwrap();
 }
+
+#[test]
+fn harbor_night_views_follow_the_shared_ship_and_replay_from_version_seventeen() {
+    let path = std::env::temp_dir().join(format!("harbor-night-{}.sqlite", crate::random_hex(12)));
+    let c = store::open(&path).unwrap();
+    full_store::schema(&c).unwrap();
+    let id = "d".repeat(48);
+    store::create(&c, &id, "owner", now()).unwrap();
+    let seed = engine::reduce_version(engine::SEVENTEENTH_VERSION, json!({"op":"create"})).unwrap();
+    let mut saved = World {
+        version: engine::SEVENTEENTH_VERSION.into(),
+        game: seed["world"].clone(),
+        claimed: [1, 1, 1, 0, 0, 0, 0, 0],
+        present: [1, 1, 1, 0, 0, 0, 0, 0],
+    };
+    saved.game.as_object_mut().unwrap().remove("opening");
+    saved.game["packs"]["greek-drama"]["scope"] = json!("full");
+    for (actor, place) in [
+        ("vale", "greek-athens-harbor"),
+        ("mara", "greek-piraeus"),
+        ("ash", "greek-road-thebes"),
+        ("greek-rhapsode", "attic"),
+    ] {
+        saved.game["actors"][actor]["place"] = json!(place);
+    }
+    saved.game["turn"] = json!(22);
+    saved.game["revision"] = json!(22);
+    saved.game["crossings"]["pond-greek-harbor"]["discovered"] = json!(true);
+    saved.game["transports"]["greek-ship"]["dock"] = json!("greek-athens-harbor");
+    let old_wait = saved.project(0).unwrap()["actions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|a| a["kind"] == "wait")
+        .unwrap()
+        .clone();
+    saved
+        .apply(&json!({"op":"play","actor":"vale","action":old_wait}))
+        .unwrap();
+    full_store::seed(&c, &id, &saved, "before-harbor-nights", now()).unwrap();
+    let mut world = full_store::world(&c, &id, now()).unwrap();
+    let mut expected = saved.game.clone();
+    expected["revision"] = json!(24);
+    assert_eq!(world.game, expected);
+    assert_eq!(world.version, engine::VERSION);
+
+    for (kind, target) in [
+        ("wait", None),
+        ("move", Some("greek-ship")),
+        ("move", Some("greek-athens-harbor")),
+    ] {
+        let action = world.project(1).unwrap()["actions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|a| a["kind"] == kind && target.is_none_or(|to| a["target"] == to))
+            .unwrap()
+            .clone();
+        full_store::commit(
+            &c,
+            &id,
+            &mut world,
+            json!({"op":"play","actor":"mara","action":action}),
+            now(),
+        )
+        .unwrap();
+        let views = [
+            world.project(0).unwrap(),
+            world.project(1).unwrap(),
+            world.project(2).unwrap(),
+        ];
+        assert_eq!(views[0]["scene"]["daylight"]["phase"], "night");
+        assert_eq!(
+            views[2]["scene"]["background"],
+            "./assets/greek-drama/theban-harbor-road-night.webp"
+        );
+        if kind == "wait" {
+            assert_eq!(
+                world.game["transports"]["greek-ship"]["dock"],
+                "greek-piraeus"
+            );
+            assert_eq!(
+                views[0]["scene"]["background"],
+                "./assets/greek-drama/athens-harbor-open-berth-night.webp"
+            );
+            assert_eq!(
+                views[1]["scene"]["background"],
+                "./assets/greek-drama/piraeus-ship-at-berth-night.webp"
+            );
+            assert_eq!(views[0]["scene"]["weather"], views[1]["scene"]["weather"]);
+        }
+        if target == Some("greek-athens-harbor") {
+            assert_eq!(
+                world.game["transports"]["greek-ship"]["dock"],
+                "greek-athens-harbor"
+            );
+            assert_eq!(
+                views[0]["scene"]["background"],
+                "./assets/greek-drama/athens-harbor-ship-at-berth-night.webp"
+            );
+            assert_eq!(
+                views[1]["scene"]["background"],
+                views[0]["scene"]["background"]
+            );
+        }
+    }
+    let views = [
+        world.project(0).unwrap(),
+        world.project(1).unwrap(),
+        world.project(2).unwrap(),
+    ];
+    c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+    drop(c);
+    let c = store::open(&path).unwrap();
+    full_store::schema(&c).unwrap();
+    let replay = full_store::world(&c, &id, now()).unwrap();
+    assert_eq!(replay, world);
+    for (actor, view) in views.iter().enumerate() {
+        assert_eq!(&replay.project(actor).unwrap(), view);
+    }
+    drop(c);
+    std::fs::remove_file(path).unwrap();
+}
