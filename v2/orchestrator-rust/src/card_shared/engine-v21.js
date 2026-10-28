@@ -22711,6 +22711,7 @@
       willowsFireLit(world) ? "The campfire is lit. Its warmth reaches the tent and the Swede." : "The campfire is out. Cold ash and dark logs lie inside the stone ring."
     ];
   }
+  var willowsVariant = (world, id, variant) => id === "willows-camp" ? `${variant}:fire-${willowsFireLit(world) ? "lit" : "out"}` : variant;
 
   // v2/card-game/scene.mjs
   function backdrop(id, world = null) {
@@ -22731,7 +22732,7 @@
     const variant = weather ? `${crossing}:${weather.variant}` : crossing;
     const phase = locationDaylight(world, id)?.phase;
     const light = phase && phase !== "day" ? `${variant}:${phase}` : variant;
-    return id === "willows-camp" ? `${light}:fire-${willowsFireLit(world) ? "lit" : "out"}` : light;
+    return willowsVariant(world, id, light);
   }
   var locationOverlay = (world, id) => {
     const f = visibleCrossing(world, id)?.scenery.overlay;

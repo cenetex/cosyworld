@@ -50,3 +50,8 @@ export function willowsSceneFacts(world, id) {
 
 export const willowsScale = (world, id) =>
   willowsPortrait(world, id) === art("swede-seated") ? 0.58 : 1;
+
+export const willowsVariant = (world, id, variant) =>
+  id === "willows-camp"
+    ? `${variant}:fire-${willowsFireLit(world) ? "lit" : "out"}`
+    : variant;
