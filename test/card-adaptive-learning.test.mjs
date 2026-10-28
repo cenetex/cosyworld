@@ -39,9 +39,9 @@ function act(w, kind, item, target) {
   return result.state;
 }
 const history = (w) => w.memories.vale.learning || [];
-function choice(w, item = "oil") {
+function choice(w, item = "oil", kind = "ask") {
   const action = legalActions(w).find(
-    (a) => a.kind === "ask" && a.item === item,
+    (a) => a.kind === kind && (kind === "trade" ? a.receive : a.item) === item,
   );
   expect(action).toBeDefined();
   return reconsiderPlan(
@@ -53,8 +53,9 @@ function choice(w, item = "oil") {
 }
 // A controlled evaluation holds the present state and legal choices fixed.
 // Only the retained records from real completed plays change between probes.
-function probe(records) {
+function probe(records, oilDoses = 3) {
   const w = setup();
+  w.items.oil.doses = oilDoses;
   w.log = [];
   w.turn = records.length * 5 + 1;
   w.revision = w.turn;
@@ -74,16 +75,54 @@ describe("adaptive action learning", () => {
     const spare = setup();
     spare.items.oil.doses = 0;
     const asked = act(spare, "ask", "oil");
-    const traded = act(setup(), "trade", "bell");
+    const tradeStart = setup();
+    tradeStart.items.oil.doses = 0;
+    const traded = act(tradeStart, "trade", "bell");
     expect(history(asked)[0].reward).toBe(23);
     expect(history(traded)[0].reward).toBe(19);
-    const byRequest = choice(probe(history(asked)));
-    const byTrade = choice(probe(history(traded)));
+    const byRequest = choice(probe(history(asked), 0));
+    const byTrade = choice(probe(history(traded), 0));
     expect(byRequest.action.kind).toBe("ask");
     expect(byTrade.action.kind).toBe("trade");
     expect(byTrade.action.item).toBe("bell");
     expect(byTrade.learning.expected.samples).toBe(1);
     expect(byTrade.learning.expected.value).toBe(19);
+  });
+  it.each([false, true])(
+    "keeps a ready trade above an old request success after a fresh refusal: %s",
+    (withRefusal) => {
+      const spare = setup();
+      spare.items.oil.doses = 0;
+      const success = history(act(spare, "ask", "oil"));
+      const refusal = withRefusal ? history(act(setup(), "ask", "oil")) : [];
+      const w = probe([...success, ...refusal]);
+      const before = structuredClone(w);
+      const next = choice(w, "oil", "trade");
+      expect(next.action.kind).toBe("trade");
+      expect(next.learning).toBeUndefined();
+      expect(w).toEqual(before);
+      const result = play(w, next.action);
+      expect(result.ok).toBe(true);
+      expect(result.state.items.oil.holder).toBe("vale");
+      expect(history(result.state).at(-1)).toMatchObject({
+        action: { kind: "trade" },
+        reward: 19,
+        after: { met: true },
+      });
+      expect(decodeSave(encodeSave(result.state))).toEqual(result.state);
+    },
+  );
+  it("chooses a higher learned request value over a ready trade in matched conditions", () => {
+    const spare = setup();
+    spare.items.oil.doses = 0;
+    const w = probe(history(act(spare, "ask", "oil")), 0);
+    const next = choice(w, "oil", "trade");
+    expect(next.action.kind).toBe("ask");
+    expect(next.learning.expected).toEqual({ value: 23, samples: 1, local: 1 });
+    const result = play(w, next.action);
+    expect(result.ok).toBe(true);
+    expect(result.state.items.oil.holder).toBe("vale");
+    expect(history(result.state).at(-1).reward).toBe(23);
   });
   it("revises a successful approach after recent failures", () => {
     const spare = setup();

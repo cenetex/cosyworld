@@ -397,6 +397,8 @@ record. Recent results matter more. A changed situation gets fresh exploration,
 with earlier results providing a small starting estimate. The same present
 world can therefore produce different choices for avatars with different past
 results. Repeated failures can lower a once-successful approach's value.
+A ready trade keeps its known value for completing the goal. Another approach
+can replace it when its learned value is higher.
 
 Reaching the goal earns twenty points; improved trust or eased grievances earn
 two points per step; each carried item is worth four points; each play costs

@@ -162,7 +162,9 @@
   }
   function learnedPlan(world, actor, selected, actions, conditionsFor) {
     const goal = goalFor(world, actor, selected.action);
-    if (!goal || observation(world, actor, goal).met) return selected;
+    if (!goal) return selected;
+    const before = observation(world, actor, goal);
+    if (before.met) return selected;
     const trials = trialsFor(world, actor, goal);
     if (!trials.length) return selected;
     const conditions = conditionsFor(world, { ...goal, actor });
@@ -179,6 +181,8 @@
     choices.sort((a, b) => b.score - a.score || a.tie - b.tie);
     const chosen = choices[0];
     if (!chosen) return selected;
+    if (selected.action.kind === "trade" && actions.some((action) => action.key === selected.action.key) && chosen.action.key !== selected.action.key && (chosen.value ?? -Infinity) <= outcomeReward(before, { ...before, met: true }))
+      return selected;
     return {
       action: chosen.action,
       reason: chosen.samples ? `Choose ${approach(chosen.action.kind)} from ${chosen.samples} earlier measured ${chosen.samples === 1 ? "attempt" : "attempts"}.` : `Try ${approach(chosen.action.kind)} for this goal.`,
