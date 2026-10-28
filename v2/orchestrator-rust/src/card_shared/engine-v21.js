@@ -14794,7 +14794,7 @@
 
   // v2/card-game/knowledge.mjs
   var KNOWLEDGE_VERSION = 1;
-  var KNOWLEDGE_FACT_LIMIT = 256;
+  var KNOWLEDGE_FACT_LIMIT = 512;
   var KNOWLEDGE_PERSON_LIMIT = KNOWLEDGE_FACT_LIMIT;
   var KNOWLEDGE_PENDING_LIMIT = 32;
   var FACT_TEXT_LIMIT = 180;
@@ -15091,7 +15091,7 @@
 
   // v2/card-game/pack-schema.mjs
   var PACK_SCHEMA_VERSION = 1;
-  var AUTHORED_TOPIC_LIMIT = 128;
+  var AUTHORED_TOPIC_LIMIT = 512;
   function packCompositionProblems(packs) {
     const problems2 = [], seen = /* @__PURE__ */ new Map(), families = /* @__PURE__ */ new Map();
     let count = 0;
@@ -15249,8 +15249,8 @@
     );
     for (const [key, required, max] of [
       ["places", true, 128],
-      ["avatars", true, 128],
-      ["items", false, 128],
+      ["avatars", true, 256],
+      ["items", false, 256],
       ["fixtures", false, 32],
       ["transports", false, 8]
     ]) {
@@ -15264,11 +15264,11 @@
     }
     for (const [key, max] of [
       ["routes", 256],
-      ["choices", 512],
+      ["choices", 1024],
       ["works", 128],
       ["crossings", 32],
       ["storyQuests", 256],
-      ["topics", 128]
+      ["topics", 512]
     ])
       if (pack[key] !== void 0 && !check(
         Array.isArray(pack[key]) && pack[key].length <= max && pack[key].every(record3),

@@ -7,10 +7,10 @@ import { validFactText } from "./knowledge.mjs";
 import { EXPRESSION_TYPES } from "./expression.mjs";
 
 export const PACK_SCHEMA_VERSION = 1;
-export const AUTHORED_TOPIC_LIMIT = 128;
+export const AUTHORED_TOPIC_LIMIT = 512;
 
-// Mounted packs keep distinct public identities. The topic budget leaves room
-// for witnessed events in the shared knowledge store.
+// Mounted packs keep distinct public identities. Stored facts have their own
+// bounded budget and retain authored facts while older event news is pruned.
 export function packCompositionProblems(packs) {
   const problems = [],
     seen = new Map(),
@@ -239,8 +239,8 @@ export function packProblems(pack, hub, mountedPlaces = []) {
   // Bound malformed author data before iterating nested collections.
   for (const [key, required, max] of [
     ["places", true, 128],
-    ["avatars", true, 128],
-    ["items", false, 128],
+    ["avatars", true, 256],
+    ["items", false, 256],
     ["fixtures", false, 32],
     ["transports", false, 8],
   ]) {
@@ -258,11 +258,11 @@ export function packProblems(pack, hub, mountedPlaces = []) {
   }
   for (const [key, max] of [
     ["routes", 256],
-    ["choices", 512],
+    ["choices", 1024],
     ["works", 128],
     ["crossings", 32],
     ["storyQuests", 256],
-    ["topics", 128],
+    ["topics", 512],
   ])
     if (
       pack[key] !== undefined &&

@@ -34,7 +34,7 @@ const problems = (pack) =>
 function capacityPack() {
   const p = greek();
   delete p.release;
-  while (p.choices.length < 512) {
+  while (p.choices.length < 1024) {
     const id = `scale-choice-${p.choices.length}`;
     p.choices.push({
       id,
@@ -48,7 +48,7 @@ function capacityPack() {
   }
   const verseChoices = new Set(p.recital.verses.map((v) => v.choice));
   for (const c of p.choices)
-    if (!verseChoices.has(c.id))
+    if (!verseChoices.has(c.id) && p.recital.verses.length < 512)
       p.recital.verses.push({
         choice: c.id,
         quest: `scale-quest-${p.recital.verses.length}`,
@@ -70,7 +70,7 @@ function capacityPack() {
 }
 
 describe("bounded room for the Greek epic", () => {
-  it("accepts 512 choices and verses with 256 story definitions", () => {
+  it("accepts 1024 choices, 512 verses and 256 story definitions", () => {
     const p = capacityPack();
     expect(p.recital.verses).toHaveLength(512);
     expect(problems(p)).toEqual([]);

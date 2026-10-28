@@ -33,7 +33,8 @@ Packs can also supply `storyQuests` and `topics`. The
 [story quest guide](card-story-quests.md) covers saved evidence, branches,
 spoken clues and ordered knowledge requirements.
 
-Each pack can hold 512 choices, 512 recital verses and 256 story definitions.
+Each pack can hold 256 avatars, 256 items, 128 places, 1,024 choices,
+512 recital verses and 256 story definitions.
 Recitals support 64 claim groups with up to 512 supporting choices each. Each
 group keeps its limit of 16 phrases; verse lines keep their 90-character limit.
 The Greek catalog in `v2/content/greek-drama/recital-rules20.json` freezes its
