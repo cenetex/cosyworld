@@ -1955,7 +1955,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "scene-video.css" => "\"3c6851ec825e734e3d8a084f4ed77f077bcb4402acbf61869a67b652c3afe4c5\"",
         "awakening.css" => "\"c7a68a23baf1e46934237a57f4b5f87d76bad87af85fdf57ee40abec646908b9\"",
         "app.mjs" => "\"2de5cc7423e2cd22a5130ca5d0290fc07bcaa6c394469889004c6b2f3d4163e4\"",
-        "world.mjs" => "\"17ec81dd66f829be2292729dd376488617db48948db6fa48dfb57b41a1b549f4\"",
+        "world.mjs" => "\"ed65caf5a28411f6f0370b0137ac3ce6c2f913d3998cfe131b9bdbbc31774b3f\"",
         "scene.mjs" => "\"8bd47c2e4718d1f27358ec50d72a397d6cc5ce49d2cc70803b628e9567103383\"",
         "weather.mjs" => "\"69a3e11642c43831f80581711f6113d814badd666ad2c3e3892a1a4c70a5fd27\"",
         "daylight.mjs" => "\"6e1bbbf92705e5e2ed904ca98666540ab9a91916c94e50749e649a0ba380170d\"",
@@ -2068,7 +2068,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "pack-recital.mjs" => {
             "\"69bb676f4fbe0591f81e473921b6ff8ae8c88cddbab5a1931d005f662d0ffcea\""
         }
-        "pack-rules.mjs" => "\"03bda9a7aeeafb7f45377a1a78a5df7ee7a6dd58ac7b5a4af848ee36a6d7fe92\"",
+        "pack-rules.mjs" => "\"806f12c31b30d35f4135a26436e4b1916d7bc91f6171cf5c7054d48b03b686e3\"",
         "pack-transport.mjs" => {
             "\"8e01f7a0cbb46e16c7443aca4ebb63cfe7d528e88ed25fe6c794464cddc5c4c3\""
         }
