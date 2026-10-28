@@ -1,3 +1,4 @@
+import { currentPlaces } from "./helpers/card-place-graph.mjs";
 import { describe, it, expect } from "vitest";
 import {
   createWorld,
@@ -64,14 +65,16 @@ function lastStep(s, target) {
 describe("situations and their consequences", () => {
   it("chooses different situations from current custody, past help and recent programs", () => {
     const s = continuing();
+    s.actors.vale.place = "pond";
+    s.items.lamp.lit = true;
     s.items.lamp.holder = s.items.bell.holder = s.items.cloth.holder = "vale";
     s.actors.moth.progress.current.steps = [hand(hold("cloth"), at("pond"))];
     const before = encodeSave(s),
       kinds = [];
     for (let i = 0; i < 4; i++) {
       s.actors.vale.progress.recentKinds = [...kinds];
-      const p = generateProgram(s, "vale", places, things);
-      expect(p).toEqual(generateProgram(s, "vale", places, things));
+      const p = generateProgram(s, "vale", currentPlaces(s), things);
+      expect(p).toEqual(generateProgram(s, "vale", currentPlaces(s), things));
       kinds.push(p.generated.situation);
       expect(p.purpose.length).toBeLessThanOrEqual(240);
     }
@@ -82,11 +85,11 @@ describe("situations and their consequences", () => {
     expect(encodeSave(s)).toBe(before);
     s.locations.attic.anchored = true;
     expect(
-      generateProgram(s, "vale", places, things).generated.situation,
+      generateProgram(s, "vale", currentPlaces(s), things).generated.situation,
     ).not.toBe("crossing");
     s.items.lamp.fuel = s.items.oil.doses = 0;
     expect(
-      generateProgram(s, "vale", places, things).generated.situation,
+      generateProgram(s, "vale", currentPlaces(s), things).generated.situation,
     ).not.toBe("gathering");
   });
 
@@ -321,7 +324,8 @@ describe("situations and their consequences", () => {
 
   it("spends an earned favour on a detour while keeping the remembered help", () => {
     let s = createWorld();
-    s.actors.moth.place = "station";
+    s.actors.vale.place = s.actors.moth.place = "pond";
+    s.items.lamp.lit = true;
     s.actors.moth.trust.vale = 1;
     s.items.lamp.holder = "moth";
     s.actors.moth.progress.current = undefined;

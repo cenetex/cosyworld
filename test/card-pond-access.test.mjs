@@ -107,6 +107,7 @@ describe.each([true, false])("attic access (opening: %s)", (opening) => {
     const s = pond(opening);
     s.actors.vale.place = s.actors.moth.place = "attic";
     s.locations.attic.anchored = true;
+    s.items.lamp.holder = "vale";
     return s;
   }
 
@@ -141,7 +142,7 @@ describe.each([true, false])("attic access (opening: %s)", (opening) => {
         s.items.lamp.fuel = 0;
       }
       if (condition === "covered") s.items.cloth.holder = "lamp";
-      if (condition === "at the station") s.actors.moth.place = "station";
+      if (condition === "at the station") s.items.lamp.holder = "station";
       const before = encodeSave(s);
       const rescue = condition === "empty" || condition === "at the station";
       expect(exits(s, "attic").includes("pond")).toBe(rescue);

@@ -33,14 +33,16 @@ const firstProgram = [
   ["lamp"],
   ["bell"],
   ["bell", "oil"],
-  ["attic"],
   ["lamp"],
+  ["pond"],
+  ["attic"],
   ["pond"],
   ["lamp", "cloth"],
 ];
 const secondProgram = [
   ["cloth", "bell"],
   ["oil", "lamp"],
+  ["station"],
   ["station"],
   ["station"],
 ];
@@ -59,6 +61,7 @@ describe("target hands and quest programs", () => {
     s.items.bell.holder = "vale";
     expect(handStatus(s, "vale", target).met).toBe(false);
     s.actors.vale.place = "pond";
+    s.actors.keeper.place = "attic";
     expect(handStatus(s, "vale", target).met).toBe(false);
     s.actors.keeper.place = "pond";
     expect(handStatus(s, "vale", target).met).toBe(true);
@@ -99,14 +102,14 @@ describe("target hands and quest programs", () => {
   });
   it("completes ordered hands and earns a level only for the whole program", () => {
     let s = createWorld();
-    s = playRoute(s, firstProgram.slice(0, 4));
+    s = playRoute(s, firstProgram.slice(0, 6));
     expect(levelOf(s, "vale")).toBe(1);
     expect(s.actors.vale.progress.step).toBe(2);
-    expect(s.actors.vale.progress.marks).toEqual([1, 4]);
-    s = playRoute(s, firstProgram.slice(4));
+    expect(s.actors.vale.progress.marks).toEqual([1, 6]);
+    s = playRoute(s, firstProgram.slice(6));
     expect(levelOf(s, "vale")).toBe(2);
     expect(programFor(s, "vale").id).toBe("the-bell-below");
-    expect(s.actors.vale.progress.marks).toEqual([1, 4, 7]);
+    expect(s.actors.vale.progress.marks).toEqual([1, 6, 8]);
     expect(desireFor(s, "moth")).toEqual({
       items: ["oil"],
       location: "attic",
@@ -119,7 +122,7 @@ describe("target hands and quest programs", () => {
     s = cards(s, "cloth", "bell");
     expect(s.actors.keeper.place).toBe("attic");
     expect(s.actors.vale.progress.step).toBe(1);
-    expect(s.actors.vale.progress.marks).toEqual([1, 4, 7, 8]);
+    expect(s.actors.vale.progress.marks).toEqual([1, 6, 8, 9]);
     expect(levelOf(s, "vale")).toBe(2);
     const receipt = s.log.findLast(
       (e) => e.kind === "quest" && e.actorId === "vale",
@@ -138,7 +141,7 @@ describe("target hands and quest programs", () => {
     let s = createWorld();
     s.items.lamp.holder = "vale";
     s.actors.moth.place = "station";
-    s = cards(s, "attic");
+    s = cards(s, "pond");
     expect(s.actors.vale.progress).toEqual({ program: 0, step: 1, marks: [1] });
     expect(
       s.log.find((e) => e.kind === "quest" && e.actorId === "vale").fulfillment
@@ -382,7 +385,7 @@ describe("quest saves and scene records", () => {
       { program: 0, step: 99, marks: [] },
       { program: 1, step: 0, marks: [] },
       { program: 1, step: 0, marks: [1, 1, 7] },
-      { program: 1, step: 0, marks: [1, 4, 8] },
+      { program: 1, step: 0, marks: [1, 6, 9] },
       { program: 0, step: 1, marks: [0] },
     ]) {
       const s = structuredClone(completed);

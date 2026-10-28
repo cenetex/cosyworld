@@ -23,27 +23,24 @@ describe("playing the world through cards", () => {
       "lamp",
       "bell",
       "vale",
-      "attic",
       "pond",
     ]);
     s = cards(s, "lamp");
     expect(availableCards(s)).toContain("moth");
     expect(availableCards(s)).toContain("keeper");
+    s = cards(s, "lamp");
+    s = cards(s, "pond");
     s = cards(s, "attic");
     expect(availableCards(s)).toEqual([
-      "attic",
-      "vale",
-      "lamp",
-      "moth",
-      "cloth",
-      "station",
+      "attic", "vale", "lamp", "moth", "cloth", "keeper", "oil", "bell", "pond",
     ]);
   });
   it("previews single cards and pairs freely, then spends one turn per play", () => {
     const s = createWorld(),
       before = encodeSave(s);
     expect(cardPlay(s, ["lamp"]).action.kind).toBe("take");
-    expect(cardPlay(s, ["attic"]).action.kind).toBe("move");
+    expect(cardPlay(s, ["pond"]).action.kind).toBe("move");
+    expect(cardPlay(s, ["attic"]).action).toBeNull();
     expect(cardPlay(s, ["station"]).action.kind).toBe("wait");
     expect(cardPlay(s, ["lamp", "bell"]).action).toBeFalsy();
     expect(cardPlay(s, ["oil"]).action).toBeFalsy();
@@ -56,14 +53,15 @@ describe("playing the world through cards", () => {
     start.items.oil.holder = "vale";
     start.items.cloth.holder = "vale";
     let s = cards(start, "lamp");
-    s = cards(s, "lamp", "attic");
     s = cards(s, "lamp");
+    s = cards(s, "pond");
+    s = cards(s, "lamp", "attic");
     expect(reflectionOpen(s)).toBe(true);
     s = cards(s, "oil", "lamp");
     expect(s.items.oil.doses).toBe(2);
-    expect(s.items.lamp.fuel).toBe(10);
+    expect(s.items.lamp.fuel).toBe(8);
     s = cards(s, "pond");
-    expect(s.actors.vale.crossed).toBe(1);
+    expect(s.actors.vale.crossed).toBe(2);
     s = cards(s, "cloth", "lamp");
     expect(s.items.cloth.holder).toBe("lamp");
     expect(reflectionOpen(s)).toBe(false);

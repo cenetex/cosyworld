@@ -16288,10 +16288,21 @@
     }
   }
   function toward(s, actor, target) {
-    const route = routeBetween(s, s.actors[actor].place, target, actor);
-    return legalActions(s, actor).find(
-      (a) => a.kind === "move" && a.target === route?.[1]
-    );
+    const here = s.actors[actor].place;
+    const route = routeBetween(s, here, target, actor);
+    const actions = legalActions(s, actor);
+    if (route)
+      return actions.find((a) => a.kind === "move" && a.target === route[1]);
+    if (target !== "attic") return;
+    if (here === "station")
+      return actions.find((a) => a.kind === "move" && a.target === "pond");
+    if (here !== "pond") return;
+    if (covered(s, "lamp"))
+      return actions.find((a) => a.kind === "take" && a.item === "cloth");
+    if (!s.items.lamp.fuel)
+      return actions.find((a) => a.kind === "refill" && a.item === "oil");
+    if (!s.items.lamp.lit)
+      return actions.find((a) => a.kind === "light" && a.item === "lamp");
   }
   function plan(s, actor = currentActor(s)) {
     const arrival2 = transportArrival(s, actor);
