@@ -239,7 +239,7 @@ describe("the Theban release and its ship", () => {
     const sectionImages = openDoorPlaces.map(backdrop);
     expect(new Set(openingImages).size).toBe(7);
     expect(new Set(sectionImages).size).toBe(5);
-    expect(sectionImages.every((image) => /\/(open-door-|athens-grand-agora)/.test(image))).toBe(
+    expect(sectionImages.every((image) => /\/(open-door-|athens-grand-agora|piraeus-open-berth)/.test(image))).toBe(
       true,
     );
     const images = [...openingImages, ...sectionImages];
@@ -261,7 +261,7 @@ describe("the Theban release and its ship", () => {
     expect(travelCard(s, pack.entry)).toBeNull();
   });
   it("checks every committed art checksum", () => {
-    const assets = ["scenery-provenance.json", "open-door-art.json", "ports-roads-art.json"].flatMap(
+    const assets = ["scenery-provenance.json", "open-door-art.json", "ports-roads-art.json", "harbor-road-night-provenance.json"].flatMap(
       (file) =>
         JSON.parse(
           readFileSync(

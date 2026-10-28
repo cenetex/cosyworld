@@ -1,0 +1,115 @@
+{
+  "generator": "Built-in image_gen tool",
+  "date": "2026-10-28",
+  "encoding": {
+    "format": "webp",
+    "quality": 94
+  },
+  "assets": [
+    {
+      "file": "athens-harbor-ship-at-berth-night.webp",
+      "source": "athens-harbor.webp",
+      "references": [
+        "athens-harbor.webp"
+      ],
+      "generation": "exec-173b54d6-6215-4546-be7c-8beb2f318aa8.png",
+      "prompt": "Use case: lighting-weather.\nAsset type: complete painted game backdrop for CosyWorld.\nInput image: edit target. Turn this exact Athens Harbor painting into a clear night scene.\nKeep the same wide 16:9 camera, crop, perspective, stone quay, architecture, Acropolis, water, boats, cargo, ropes and all object positions. The large wooden ship at the left berth stays exactly as painted, including its hull, mast, furled sail and rigging.\nUse a deep indigo sky, soft silver moonlight, small stars and warm light in a few existing warehouse windows and gateways. Keep the ship and quay readable. Match the painterly style and fine detail. Keep the foreground open for the game's characters. Clear weather lets the game add its own rain or mist. The painting fills the whole canvas and has an opaque background.",
+      "width": 1672,
+      "height": 941,
+      "bytes": 612198,
+      "sha256": "1f83c1bfaf7ec4bcf4b918ccafd2be3564bfb045869b93d524276fb5fdcddf4a"
+    },
+    {
+      "file": "piraeus-ship-at-berth-night.webp",
+      "source": "open-door-piraeus.webp",
+      "references": [
+        "open-door-piraeus.webp"
+      ],
+      "generation": "exec-5d67556c-be6a-4438-8f97-fa7e01e86b23.png",
+      "prompt": "Use case: lighting-weather.\nAsset type: complete painted game backdrop for CosyWorld.\nInput image: edit target. Turn this exact Piraeus Quays painting into a clear night scene.\nKeep the same wide 16:9 camera, crop, perspective, quay, harbor walls, distant temples and hills, open water, mooring posts, shore shelter, jars, cloth and all object positions. The large wooden ship at the left foreground berth stays exactly as painted, including its hull, mast, furled sail, rigging, cargo and mooring ropes. Keep the other boats in their places.\nUse a deep indigo sky, soft silver moonlight, small stars and a restrained warm glow from the existing shore shelter and a few distant windows. Keep the ship, cloth and quay readable. Match the painterly style and fine detail. Keep the foreground open for the game's characters. Clear weather lets the game add its own rain or mist. The painting fills the whole canvas and has an opaque background.",
+      "width": 1672,
+      "height": 941,
+      "bytes": 568802,
+      "sha256": "c16f95e9f733116df4537aabf7203af492898146191aaeaee575e5265d47dce8"
+    },
+    {
+      "file": "athens-harbor-open-berth.webp",
+      "source": "athens-harbor.webp",
+      "references": [
+        "athens-harbor.webp"
+      ],
+      "generation": "exec-d78f9b01-d123-484c-86bf-cd980d88bebc.png",
+      "prompt": "Use case: precise-object-edit.\nAsset type: complete painted game backdrop for CosyWorld.\nInput image: edit target. Show this exact Athens Harbor with the nearest large wooden ship at the left berth away on a voyage.\nRemove only that foreground ship, its mast, furled sail, rigging, cargo aboard it and the mooring lines attached to it. Fill its former area with the same harbor water, natural reflections and the continuation of the distant quay. Keep the other smaller merchant ships and their masts exactly in place. Preserve the exact camera, framing, perspective, clear daytime light, Acropolis, gateway, colonnades, foreground quay, roof supports, crates, shore jars, bollards, rope coils and every other detail. The foreground berth is open water. Match the original painterly style. Deliver the complete opaque painting at the same wide 16:9 framing.",
+      "width": 1672,
+      "height": 941,
+      "bytes": 522942,
+      "sha256": "3f69dfebaeb78d4e581e2383ed51172799d2a83ab3a91b9441fd76997468f9be"
+    },
+    {
+      "file": "piraeus-open-berth.webp",
+      "source": "open-door-piraeus.webp",
+      "references": [
+        "open-door-piraeus.webp"
+      ],
+      "generation": "exec-9a5143ca-fa2b-4947-9b6e-4093d16253d6.png",
+      "prompt": "Use case: precise-object-edit.\nAsset type: complete painted game backdrop for CosyWorld.\nInput image: edit target. Show this exact Piraeus Quays with the nearest large wooden ship at the left foreground berth away on a voyage.\nRemove only that foreground ship, its tall mast, large furled sail and boom across the upper left, its rigging and the mooring lines attached to it. Fill its former area with matching harbor water, natural reflections and the continuation of the distant coast and sky. Keep the distant boats exactly in place. Preserve the exact camera, crop, perspective, clear daytime light, walls, temples, distant hills, quay, foreground bollards and rope coils, trees, right shore shelter, jars, bench, cloth and every other detail. The foreground berth is open water. Match the original painterly style. Deliver the complete opaque painting at the same wide 16:9 framing.",
+      "width": 1672,
+      "height": 941,
+      "bytes": 541650,
+      "sha256": "1b1a3763e0d6639b08d46b62793c34ea607ecec88a807162e2581bba9d58dc42"
+    },
+    {
+      "file": "theban-harbor-road.webp",
+      "source": "attic-road.webp",
+      "references": [
+        "attic-road.webp",
+        "harbor-open-berth.webp"
+      ],
+      "generation": "exec-687f209d-a975-427a-96e6-7dd16e946e42.png",
+      "prompt": "Use case: historical-scene.\nAsset type: a custom wide 16:9 game location painting for CosyWorld, the road between The Wine-Dark Harbor and Theban Courtyard.\nInput image 1: reference for road layout, camera and painterly style. Input image 2: reference for the Wine-Dark Harbor setting, coastal town and architecture.\nPaint a distinct coastal road above the Wine-Dark Harbor. A broad weathered stone road crosses the open foreground from left to right. Its left end bends gently downhill toward the harbor, which is clearly visible in the left middle distance: a small stone landing, blue inlet, low tiled shore buildings and mooring posts. Its right end climbs gently toward the walled Theban town and citadel on the right hillside. These are the road's two clear directions. A low stone bench rests at the verge. Olive trees, tall cypress, dry grasses, low stone walls and pale coastal rock join the two settings.\nUse a low road-level camera, an open foreground for characters, warm clear afternoon light, blue Aegean water, ochre stone and muted olive green. Match the detailed painterly realism of the references. Architecture and landscape only. The complete painting fills an opaque wide 16:9 canvas.",
+      "width": 1672,
+      "height": 941,
+      "bytes": 766038,
+      "sha256": "02f068c0f388054541c0e74ee2235836e205742cd0941c5dfdbf22f608f1478f"
+    },
+    {
+      "file": "athens-harbor-open-berth-night.webp",
+      "source": "athens-harbor-ship-at-berth-night.webp",
+      "references": [
+        "athens-harbor-ship-at-berth-night.webp"
+      ],
+      "generation": "exec-0eeea92f-ced3-4050-9df4-39b11f8899ed.png",
+      "prompt": "Use case: precise-object-edit.\nAsset type: a complete painted night backdrop for CosyWorld.\nInput image: edit target. Show this exact Athens Harbor night painting with the nearest large wooden ship at the left berth away on a voyage.\nRemove only that foreground ship, its mast, furled sail, rigging, cargo aboard it and mooring lines attached to it. Fill its former area with matching dark water and the continuation of the distant quay. Keep every other smaller merchant ship and mast exactly in place. Preserve the exact camera, crop, perspective, moon position, stars, clouds, moonlit water, warm lights, Acropolis, gateway, colonnades, foreground quay, roof supports, crates, shore jars, bollards and rope coils. Keep all other shapes, details and colors unchanged. The foreground berth is open water. Match the original painterly style and preserve the full opaque wide painting.",
+      "width": 1672,
+      "height": 941,
+      "bytes": 543040,
+      "sha256": "7611dbc03f4be404d80ca9811ffef114ad654a80390ee20f902740c468587edb"
+    },
+    {
+      "file": "piraeus-open-berth-night.webp",
+      "source": "piraeus-ship-at-berth-night.webp",
+      "references": [
+        "piraeus-ship-at-berth-night.webp"
+      ],
+      "generation": "exec-20989f25-a4e2-4919-8c20-1026c4a10909.png",
+      "prompt": "Use case: precise-object-edit.\nAsset type: a complete painted night backdrop for CosyWorld.\nInput image: edit target. Show this exact Piraeus Quays night painting with the nearest large wooden ship at the left foreground berth away on a voyage.\nRemove only that foreground ship, its tall mast, furled sail and boom across the upper left, its rigging and mooring lines attached to it. Fill its former area with matching dark harbor water, reflections, distant coast and sky. Keep every distant boat exactly in place. Preserve the exact camera, crop, perspective, moon position, stars, clouds, warm lights, walls, temples, hills, foreground quay, bollards and rope coils, trees, right shore shelter, jars, bench and cloth. Keep all other shapes, details and colors unchanged. The foreground berth is open water. Match the original painterly style and preserve the full opaque wide painting.",
+      "width": 1672,
+      "height": 941,
+      "bytes": 500018,
+      "sha256": "83b716069bc66d5bbdf3af6b733bae21461e83cc9851c42c90da5f81dbdeda3b"
+    },
+    {
+      "file": "theban-harbor-road-night.webp",
+      "source": "theban-harbor-road.webp",
+      "references": [
+        "theban-harbor-road.webp"
+      ],
+      "generation": "exec-d466f112-d744-4ea1-b48c-6d7dff93f2a6.png",
+      "prompt": "Use case: lighting-weather.\nAsset type: a complete painted night backdrop for CosyWorld.\nInput image: edit target. Turn this exact Theban Harbor Road painting into a clear night scene.\nKeep the exact camera, wide 16:9 crop, perspective and every object position. Keep the left road leading downhill to the Wine-Dark Harbor and the right road leading uphill to the walled Theban town. Preserve the bench, stone walls, olive tree, cypress, jars, shore buildings, landing, coastline and citadel exactly as painted.\nUse a deep indigo sky, a small bright moon and stars, soft silver moonlight across the sea and road, and restrained warm light in the harbor buildings and town windows. The road and both directions remain easy to read. Match the existing painterly style and fine detail. Keep the foreground open for the game's characters. Clear weather lets the game add its shared rain or mist. The full painting is opaque.",
+      "width": 1672,
+      "height": 941,
+      "bytes": 641868,
+      "sha256": "9aeaa198d0aabf002a349a7b6c47732080034bc000e694c8729ef84c07f27018"
+    }
+  ]
+}

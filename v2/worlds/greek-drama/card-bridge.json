@@ -88,7 +88,8 @@
       "scenery": {
         "open": "The Greek ship waits beside the quay.",
         "cardName": "Greek ship",
-        "cardArt": "assets/greek-drama/ship-card.webp"
+        "cardArt": "assets/greek-drama/ship-card.webp",
+        "backdrop": "assets/greek-drama/athens-harbor.webp"
       }
     },
     {
@@ -103,7 +104,8 @@
       "scenery": {
         "open": "The Greek ship waits beside the quay.",
         "cardName": "Greek ship",
-        "cardArt": "assets/greek-drama/ship-card.webp"
+        "cardArt": "assets/greek-drama/ship-card.webp",
+        "backdrop": "assets/greek-drama/open-door-piraeus.webp"
       }
     }
   ],

@@ -284,9 +284,29 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "image/webp",
             include_bytes!("../../card-game/assets/greek-drama/sanctuary-night.webp"),
         ),
+        "assets/greek-drama/theban-harbor-road-night.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/theban-harbor-road-night.webp"),
+        ),
+        "assets/greek-drama/athens-harbor-open-berth-night.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/athens-harbor-open-berth-night.webp"),
+        ),
+        "assets/greek-drama/piraeus-open-berth-night.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/piraeus-open-berth-night.webp"),
+        ),
         "assets/greek-drama/harbor-ship-at-berth-night.webp" => (
             "image/webp",
             include_bytes!("../../card-game/assets/greek-drama/harbor-ship-at-berth-night.webp"),
+        ),
+        "assets/greek-drama/athens-harbor-ship-at-berth-night.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/athens-harbor-ship-at-berth-night.webp"),
+        ),
+        "assets/greek-drama/piraeus-ship-at-berth-night.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/piraeus-ship-at-berth-night.webp"),
         ),
         "weather-view.mjs" => (
             "text/javascript; charset=utf-8",
@@ -724,9 +744,9 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "image/webp",
             include_bytes!("../../card-game/assets/greek-drama/athens-grand-agora.webp"),
         ),
-        "assets/greek-drama/open-door-piraeus.webp" => (
+        "assets/greek-drama/piraeus-open-berth.webp" => (
             "image/webp",
-            include_bytes!("../../card-game/assets/greek-drama/open-door-piraeus.webp"),
+            include_bytes!("../../card-game/assets/greek-drama/piraeus-open-berth.webp"),
         ),
         "assets/greek-drama/palace.svg" => (
             "image/svg+xml",
@@ -760,9 +780,13 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "image/webp",
             include_bytes!("../../card-game/assets/greek-drama/ship-card.webp"),
         ),
-        "assets/greek-drama/athens-harbor.webp" => (
+        "assets/greek-drama/athens-harbor-open-berth.webp" => (
             "image/webp",
-            include_bytes!("../../card-game/assets/greek-drama/athens-harbor.webp"),
+            include_bytes!("../../card-game/assets/greek-drama/athens-harbor-open-berth.webp"),
+        ),
+        "assets/greek-drama/theban-harbor-road.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/theban-harbor-road.webp"),
         ),
         "assets/greek-drama/attic-road.webp" => (
             "image/webp",
@@ -811,6 +835,14 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
         "assets/greek-drama/harbor-ship-at-berth.webp" => (
             "image/webp",
             include_bytes!("../../card-game/assets/greek-drama/harbor-ship-at-berth.webp"),
+        ),
+        "assets/greek-drama/athens-harbor.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/athens-harbor.webp"),
+        ),
+        "assets/greek-drama/open-door-piraeus.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/open-door-piraeus.webp"),
         ),
         "assets/greek-drama/chthonic-antigone.png" => (
             "image/png",
@@ -995,6 +1027,18 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
         "assets/optimized/card/webp/greek-drama/athens-grand-agora.webp" => (
             "image/webp",
             include_bytes!("../../card-game/assets/optimized/card/webp/greek-drama/athens-grand-agora.webp"),
+        ),
+        "assets/optimized/card/webp/greek-drama/athens-harbor-open-berth-night.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/greek-drama/athens-harbor-open-berth-night.webp"),
+        ),
+        "assets/optimized/card/webp/greek-drama/athens-harbor-open-berth.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/greek-drama/athens-harbor-open-berth.webp"),
+        ),
+        "assets/optimized/card/webp/greek-drama/athens-harbor-ship-at-berth-night.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/greek-drama/athens-harbor-ship-at-berth-night.webp"),
         ),
         "assets/optimized/card/webp/greek-drama/athens-harbor.webp" => (
             "image/webp",
@@ -1284,6 +1328,18 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "image/webp",
             include_bytes!("../../card-game/assets/optimized/card/webp/greek-drama/palace-night.webp"),
         ),
+        "assets/optimized/card/webp/greek-drama/piraeus-open-berth-night.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/greek-drama/piraeus-open-berth-night.webp"),
+        ),
+        "assets/optimized/card/webp/greek-drama/piraeus-open-berth.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/greek-drama/piraeus-open-berth.webp"),
+        ),
+        "assets/optimized/card/webp/greek-drama/piraeus-ship-at-berth-night.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/greek-drama/piraeus-ship-at-berth-night.webp"),
+        ),
         "assets/optimized/stage/png/greek-drama/pond-ship-overlay.webp" => (
             "image/webp",
             include_bytes!("../../card-game/assets/optimized/stage/png/greek-drama/pond-ship-overlay.webp"),
@@ -1331,6 +1387,14 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
         "assets/optimized/card/png/greek-drama/testimony.webp" => (
             "image/webp",
             include_bytes!("../../card-game/assets/optimized/card/png/greek-drama/testimony.webp"),
+        ),
+        "assets/optimized/card/webp/greek-drama/theban-harbor-road-night.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/greek-drama/theban-harbor-road-night.webp"),
+        ),
+        "assets/optimized/card/webp/greek-drama/theban-harbor-road.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/greek-drama/theban-harbor-road.webp"),
         ),
         "assets/optimized/stage/png/greek-drama/water-jar.webp" => (
             "image/webp",
@@ -1699,10 +1763,10 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "media.mjs" => "\"9b56957b0e44c39ed8f3bfbb200ce3524646f62cf83fa775fc89dc2a62dc133b\"",
         "images.mjs" => "\"400bd04904821d5b21e24790f71cf89836e5a2aabb8662b963637de77b3fd612\"",
         "image-variants.json" => {
-            "\"a0d6262d456bd7c11e099dfde466da6366133e95e033fce9a9888aa7510ce5df\""
+            "\"738f336d4e3b59871caa3ea20cd305166fdf78846b5abff35c4572be35f9d657\""
         }
         "media-manifest.json" => {
-            "\"7d1dae843ed445c1febcba628ef2346875e044634bba2971cdbdeba1e5e28383\""
+            "\"19450948e6f2fa1da393c94c5a224e0d35369f082bed71fb408537bafbbaa240\""
         }
         "music-streams.json" => {
             "\"187db53c1c129d1505da26c18fd2384e62b9b357c91e33fd2e954bf0b7a29904\""
@@ -1832,9 +1896,9 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "awakening.css" => "\"c7a68a23baf1e46934237a57f4b5f87d76bad87af85fdf57ee40abec646908b9\"",
         "app.mjs" => "\"42e6606881baa67a604ed8ba7704a2f47cc68d44ffb9ddf30c5ade86848dda3d\"",
         "world.mjs" => "\"91b93483d2d0dcdeba444f4f3bf89fbf63590412b9b63c25f530fd7e2beda429\"",
-        "scene.mjs" => "\"aba97eb70f26e75c9eaa4bcf71e3d8130f8bc5efc3df2b1a2567022959879d87\"",
+        "scene.mjs" => "\"a50086e28ccb33b2bc3f4d202f7b3732f0d49855b2aa3910f074b561352aa3c0\"",
         "weather.mjs" => "\"69a3e11642c43831f80581711f6113d814badd666ad2c3e3892a1a4c70a5fd27\"",
-        "daylight.mjs" => "\"6e1bbbf92705e5e2ed904ca98666540ab9a91916c94e50749e649a0ba380170d\"",
+        "daylight.mjs" => "\"748fd083e2550d933e38a0d64befffd19c422192628f48db33f79ac796a87f8c\"",
         "assets/greek-drama/harbor-open-berth-night.webp" => {
             "\"aa3136f25c67ffe9717fad4d20a9f286fbdc5a111c6827baddf5eaf4aeca2f66\""
         }
@@ -1856,8 +1920,23 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "assets/greek-drama/sanctuary-night.webp" => {
             "\"1db5b5b5f53c449710f1f1a29881d2449ef9cfda9ae378cbe7054d70b4ed5029\""
         }
+        "assets/greek-drama/theban-harbor-road-night.webp" => {
+            "\"9aeaa198d0aabf002a349a7b6c47732080034bc000e694c8729ef84c07f27018\""
+        }
+        "assets/greek-drama/athens-harbor-open-berth-night.webp" => {
+            "\"7611dbc03f4be404d80ca9811ffef114ad654a80390ee20f902740c468587edb\""
+        }
+        "assets/greek-drama/piraeus-open-berth-night.webp" => {
+            "\"83b716069bc66d5bbdf3af6b733bae21461e83cc9851c42c90da5f81dbdeda3b\""
+        }
         "assets/greek-drama/harbor-ship-at-berth-night.webp" => {
             "\"2593278fb2a66e5225bdf06794c32e832b6fb831fdbd406032ba6f7789f9f839\""
+        }
+        "assets/greek-drama/athens-harbor-ship-at-berth-night.webp" => {
+            "\"1f83c1bfaf7ec4bcf4b918ccafd2be3564bfb045869b93d524276fb5fdcddf4a\""
+        }
+        "assets/greek-drama/piraeus-ship-at-berth-night.webp" => {
+            "\"c16f95e9f733116df4537aabf7203af492898146191aaeaee575e5265d47dce8\""
         }
         "weather-view.mjs" => {
             "\"9df8b854b77506d568013296e90a36ea2dedef7dc5202d9b06f6ce69f9c36b22\""
@@ -1948,7 +2027,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
             "\"0a6167366a0ea4705d2eea48d141f410bbb1f4ba355aa3a843044ef678cd248e\""
         }
         "forest.json" => "\"12a2be7877e4daff53d3d1ad27c1703b2ca10dff51e6f371a5b3d1a7975afdfe\"",
-        "packs.json" => "\"6e2f98daf7ee7f1bcc245c17bd6b73bc61a111b3e8a978e7b817b245ee3ee862\"",
+        "packs.json" => "\"ef2828c87a1e0265a528a519c9be12e0eeec6a642108768b613b2d313dee9f04\"",
         "music.mjs" => "\"b60f61ecf558b2eed0aa2d907ca6a7a3dede4b0459541d3c59f633e25943bc22\"",
         "entity-profiles.json" => {
             "\"32bcfada78437fd92786bdb577da658828ff000563688180bd3848593f2e201e\""
@@ -2142,8 +2221,8 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "assets/greek-drama/athens-grand-agora.webp" => {
             "\"ee9a3d4508a892c7ab6440658512be35be2854491bf69601be35977657cd7585\""
         }
-        "assets/greek-drama/open-door-piraeus.webp" => {
-            "\"9e5a564d282c2658140e9aee121d1a013d4cd22d105be16ba4d590a5a872953f\""
+        "assets/greek-drama/piraeus-open-berth.webp" => {
+            "\"1b1a3763e0d6639b08d46b62793c34ea607ecec88a807162e2581bba9d58dc42\""
         }
         "assets/greek-drama/palace.svg" => {
             "\"b87f2d86939de92ac3066cd508f59c9fc2e68a8c5b3d669fad8d45b7af98f431\""
@@ -2169,8 +2248,11 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "assets/greek-drama/ship-card.webp" => {
             "\"c7789a3163cbd45ac8cc9fccda27591f58d66c23dafb19e768545b68707fcd06\""
         }
-        "assets/greek-drama/athens-harbor.webp" => {
-            "\"339386bf42192929b742bb5a2e3ee2e48d9324512bcbdc7cc3aadef58825eb33\""
+        "assets/greek-drama/athens-harbor-open-berth.webp" => {
+            "\"3f69dfebaeb78d4e581e2383ed51172799d2a83ab3a91b9441fd76997468f9be\""
+        }
+        "assets/greek-drama/theban-harbor-road.webp" => {
+            "\"02f068c0f388054541c0e74ee2235836e205742cd0941c5dfdbf22f608f1478f\""
         }
         "assets/greek-drama/attic-road.webp" => {
             "\"2e4c3f83653a90bbea9d4640b96fa3db979c1ea9c6fbdb5bee31f5bdeb3f7882\""
@@ -2207,6 +2289,12 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "assets/greek-drama/harbor-ship-at-berth.webp" => {
             "\"f71d5f64371f50b37059f0929db3489b0f808696494c64078ad5fbe958e1f1d0\""
+        }
+        "assets/greek-drama/athens-harbor.webp" => {
+            "\"339386bf42192929b742bb5a2e3ee2e48d9324512bcbdc7cc3aadef58825eb33\""
+        }
+        "assets/greek-drama/open-door-piraeus.webp" => {
+            "\"9e5a564d282c2658140e9aee121d1a013d4cd22d105be16ba4d590a5a872953f\""
         }
         "assets/greek-drama/chthonic-antigone.png" => {
             "\"965adf97fdabebed518a124ea9ad7c297278bfec55d438ccfc958c80f7d9f536\""
@@ -2345,6 +2433,15 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "assets/optimized/card/webp/greek-drama/athens-grand-agora.webp" => {
             "\"e394df641dc2c1ec34229184aefe7d2c4794d39c098d63e81343b29855b3c0de\""
+        }
+        "assets/optimized/card/webp/greek-drama/athens-harbor-open-berth-night.webp" => {
+            "\"49c1d7e195cc07f836c946371e555e667a7b84c4cf43470dceaee87beb965cec\""
+        }
+        "assets/optimized/card/webp/greek-drama/athens-harbor-open-berth.webp" => {
+            "\"542737cc3966648885165a274c8dbb6e7a175b4db6beaea59a0ac76bb5872ef2\""
+        }
+        "assets/optimized/card/webp/greek-drama/athens-harbor-ship-at-berth-night.webp" => {
+            "\"55c709e3d81d5d757e8bd082d062316eac41312c44c1b4b88bb116b683b19322\""
         }
         "assets/optimized/card/webp/greek-drama/athens-harbor.webp" => {
             "\"f3ddf560ed98168fe1a1e702a23d155d5ced3b79b7309cf4dec234f5872d0618\""
@@ -2562,6 +2659,15 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "assets/optimized/card/webp/greek-drama/palace-night.webp" => {
             "\"60e9a23e399c7fc1ce8ae2802ea3050162bff993dfc3318809700ad5287aa1b7\""
         }
+        "assets/optimized/card/webp/greek-drama/piraeus-open-berth-night.webp" => {
+            "\"0c53b21bf8ec12dce189bbceb2537776c3f333ca583ce354c85ea7ab11ffe530\""
+        }
+        "assets/optimized/card/webp/greek-drama/piraeus-open-berth.webp" => {
+            "\"fcf099552f9f408651ba717f7d12ae4d13370409a3d75ad368d49391fac90f80\""
+        }
+        "assets/optimized/card/webp/greek-drama/piraeus-ship-at-berth-night.webp" => {
+            "\"8028afbc367a0618982ec3ba1315e5ccb629d5d2549225a4c963f1f3aff24a67\""
+        }
         "assets/optimized/stage/png/greek-drama/pond-ship-overlay.webp" => {
             "\"0cd3fe8adacfaa31c2f759c56575f07e9137db3af404bcae7b6bbafb581ec73d\""
         }
@@ -2597,6 +2703,12 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "assets/optimized/card/png/greek-drama/testimony.webp" => {
             "\"c23a356ee78830cd35c1b9eefb5ef3aa05ff2cd5e5a2654a928153a19dd30d1c\""
+        }
+        "assets/optimized/card/webp/greek-drama/theban-harbor-road-night.webp" => {
+            "\"db53f9f76b79164ecaa397af9593f1111c22e446cca0f7d5e970a1c1b5166c7e\""
+        }
+        "assets/optimized/card/webp/greek-drama/theban-harbor-road.webp" => {
+            "\"1a403fc53f855415fe35981a8033137a8ebc7f154a923a0380bc60ffbce81b91\""
         }
         "assets/optimized/stage/png/greek-drama/water-jar.webp" => {
             "\"695b367edb894cd434fd9148ff98bd406cc91b257b4199ea9ef52b279b2ff7cf\""

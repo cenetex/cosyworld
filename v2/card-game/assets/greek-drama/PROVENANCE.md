@@ -120,3 +120,14 @@ The ship is part of the complete harbor painting. The open berth was made from
 that night painting so the town and moon keep their places when the ship moves.
 The final images use WebP at quality 94. Prompts, source names, generation names,
 sizes, and SHA-256 checksums are in `night-scenery-provenance.json`.
+
+## Harbor stops and Theban Harbor Road
+
+The built-in image generation tool made eight new paintings on 2026-10-28.
+Athens Harbor and Piraeus Quays have matching open-berth and docked-ship views
+for night, plus open-berth day views. Their existing day ship paintings remain
+the docked views. The Theban Harbor Road has its own day and night paintings,
+with the harbor at the left end and Thebes at the right end. Full prompts,
+reference files, generation names, sizes and hashes are recorded in
+`harbor-road-night-provenance.json`. The WebP stage files and card images are
+saved beside the game’s other art.

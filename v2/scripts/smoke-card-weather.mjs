@@ -63,7 +63,10 @@ try {
       const world = createWorld({ packScopes: { "greek-drama": "full" } });
       world.actors.vale.place = place;
       world.turn = world.revision = turn;
-      if (shipAtHarbor) world.crossings["pond-greek-harbor"].discovered = true;
+      if (shipAtHarbor) {
+        world.crossings["pond-greek-harbor"].discovered = true;
+        world.transports["greek-ship"].dock = place;
+      }
       enableMotives(world, { questPrograms: true, personalQuests: true });
       await page.evaluate(
         ({ key, save, seen, quests }) => {
@@ -107,6 +110,7 @@ try {
       assert.equal(
         new URL(
           await page.locator("#backdrop").getAttribute("src"),
+          origin,
         ).pathname.endsWith("-night.webp"),
         night,
       );
@@ -232,13 +236,49 @@ try {
       { key },
     );
     await check("greek-courtyard", 24, "night-after-play");
+    assert(
+      new URL(
+        await page
+          .locator('#hand [data-card="greek-road-thebes"] img')
+          .getAttribute("src"),
+        origin,
+      ).pathname.endsWith("theban-harbor-road-night.webp"),
+    );
     await load("greek-harbor", 24, true);
     await check("greek-harbor", 24, "night-harbor-ship");
     assert(
       new URL(
         await page.locator("#backdrop").getAttribute("src"),
+        origin,
       ).pathname.endsWith("harbor-ship-at-berth-night.webp"),
     );
+    for (const [place, day, night] of [
+      [
+        "greek-athens-harbor",
+        "athens-harbor.webp",
+        "athens-harbor-ship-at-berth-night.webp",
+      ],
+      [
+        "greek-piraeus",
+        "open-door-piraeus.webp",
+        "piraeus-ship-at-berth-night.webp",
+      ],
+    ]) {
+      for (const turn of [0, 24]) {
+        await load(place, turn, true);
+        await check(
+          place,
+          turn,
+          `${place}-ship-${turn === 24 ? "night" : "day"}`,
+        );
+        assert(
+          new URL(
+            await page.locator("#backdrop").getAttribute("src"),
+            origin,
+          ).pathname.endsWith(turn === 24 ? night : day),
+        );
+      }
+    }
     for (const [place, turn, name] of [
       ["greek-harbor", 24, "rain-coast"],
       ["greek-courtyard", 24, "rain-courtyard"],
@@ -247,7 +287,12 @@ try {
       ["greek-gate", 24, "night-gate"],
       ["greek-palace", 24, "night-palace"],
       ["greek-battlefield", 24, "night-battlefield"],
-      ["greek-piraeus", 24, "piraeus-day"],
+      ["greek-piraeus", 0, "piraeus-open-day"],
+      ["greek-piraeus", 24, "piraeus-open-night"],
+      ["greek-athens-harbor", 0, "athens-open-day"],
+      ["greek-athens-harbor", 24, "athens-open-night"],
+      ["greek-road-thebes", 0, "theban-road-day"],
+      ["greek-road-thebes", 24, "theban-road-night"],
       ["greek-colonus", 60, "mist-grove"],
       ["greek-thinkery", 36, "rain-shelter"],
       ["greek-underworld", 36, "underworld-mist"],

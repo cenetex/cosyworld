@@ -72,7 +72,7 @@ export function travelCard(world, id) {
   const road = packPlaces[id];
   if (road?.road?.includes(from)) {
     const other = road.road.find((end) => end !== from);
-    return { name: `Road to ${nameOf(other)}`, art: `./${road.backdrop}` };
+    return { name: `Road to ${nameOf(other)}`, art: backdrop(id, world) };
   }
   const c = crossings.find(
     (c) =>
