@@ -1827,7 +1827,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "scene-video.css" => "\"3c6851ec825e734e3d8a084f4ed77f077bcb4402acbf61869a67b652c3afe4c5\"",
         "awakening.css" => "\"c7a68a23baf1e46934237a57f4b5f87d76bad87af85fdf57ee40abec646908b9\"",
         "app.mjs" => "\"1b992311073bec985ce78d4a6395cad5d5597dd2721cff0d1687a7c00b85103f\"",
-        "world.mjs" => "\"fa5f2b88e5076d572759bb3174f1913d43a10e848c31c11b268d29448a8e045d\"",
+        "world.mjs" => "\"91b93483d2d0dcdeba444f4f3bf89fbf63590412b9b63c25f530fd7e2beda429\"",
         "scene.mjs" => "\"aba97eb70f26e75c9eaa4bcf71e3d8130f8bc5efc3df2b1a2567022959879d87\"",
         "weather.mjs" => "\"69a3e11642c43831f80581711f6113d814badd666ad2c3e3892a1a4c70a5fd27\"",
         "daylight.mjs" => "\"6e1bbbf92705e5e2ed904ca98666540ab9a91916c94e50749e649a0ba380170d\"",
@@ -1935,7 +1935,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "pack-rules.mjs" => "\"ba2c49f08d133b5cd7b0cd6de1d33e39bfea53b2b77c5e88402b666a907842d8\"",
         "pack-transport.mjs" => {
-            "\"4a930efedb8e283404abf4e5d0345e9336384d10a4e6e4e0fe7b243e95b65500\""
+            "\"8e01f7a0cbb46e16c7443aca4ebb63cfe7d528e88ed25fe6c794464cddc5c4c3\""
         }
         "legacy-saves.mjs" => {
             "\"0a6167366a0ea4705d2eea48d141f410bbb1f4ba355aa3a843044ef678cd248e\""

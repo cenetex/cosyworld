@@ -245,3 +245,24 @@ fn boardy_version_sixteen_upgrade_preserves_sightings_and_replays() {
     c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
     assert_eq!(full_store::world(&c, &id, now()).unwrap(), world);
 }
+
+#[test]
+fn one_connected_human_keeps_the_normal_turn_loop() {
+    let mut world = World::create(None).unwrap();
+    world.apply(&json!({"op":"claim", "actor":"vale"})).unwrap();
+    world.apply(&json!({"op":"enter", "actor":"vale"})).unwrap();
+    for _ in 0..3 {
+        let view = world.project(0).unwrap();
+        let wait = view["actions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|a| a["kind"] == "wait")
+            .unwrap()
+            .clone();
+        world
+            .apply(&json!({"op":"play", "actor":"vale", "action":wait}))
+            .unwrap();
+    }
+    assert_eq!(world.game["turn"], 3);
+}

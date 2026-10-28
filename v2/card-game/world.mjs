@@ -668,8 +668,8 @@ function captureHands(s, met) {
 }
 // Each new program reads the programs chosen before it in the same round, so two
 // actors never pick goals against each other's stale wants.
-export function ensurePrograms(s) {
-  for (const actor of actorIds.filter(
+export function ensurePrograms(s, candidates = actorIds) {
+  for (const actor of candidates.filter(
     (id) =>
       personalQuestActor(id) &&
       (id !== BOARDY || (lifeOf(s, id) && entityActive(s, id))),

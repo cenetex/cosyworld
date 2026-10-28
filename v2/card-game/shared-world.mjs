@@ -1,4 +1,5 @@
 import { privateView } from "./learning.mjs";
+import { BOARDY } from "./boardyai.mjs";
 // One pure adapter for the browser model and the server's C-backed JS runtime.
 // The host supplies authenticated claims and presence on every operation.
 import {
@@ -145,7 +146,7 @@ export function dispatchShared(request) {
       installQuestCollection(world, id);
     if (request.from === "full-card-world/2")
       settleHomeItems(world, world.controlledActors);
-    ensurePrograms(world);
+    ensurePrograms(world, [BOARDY]);
     world.revision += 1;
     validateWorld(world);
     return response(world);

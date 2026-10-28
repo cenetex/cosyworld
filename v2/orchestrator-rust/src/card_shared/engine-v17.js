@@ -104,127 +104,115 @@
     return view2;
   }
 
-  // v2/card-game/quest-hands.mjs
-  var QUEST_HAND_LIMIT = 2;
-  var QUEST_FADE_TURNS = 2;
-  var ongoing = (q) => q.completedTurn === null && !q.retired;
-  var questFresh = (world, q) => !q.retired && (q.completedTurn === null || world.turn - q.completedTurn < QUEST_FADE_TURNS);
-  function questHolderActor(world, q) {
-    let id = q.holder.id;
-    const seen = /* @__PURE__ */ new Set();
-    while (world.items?.[id] && !seen.has(id)) {
-      seen.add(id);
-      id = world.items[id].holder;
-    }
-    return world.actors[id] ? id : null;
-  }
-  var related = (world, q, actor) => q.subjectActor === actor || q.participants.includes(actor) || questHolderActor(world, q) === actor;
-  var priority = (world, actor, q) => world.quests.focus[actor] === q.key ? 0 : world.life?.actors?.[actor]?.collection?.active === q.key ? 1 : ongoing(q) && q.step > 0 ? 2 : ongoing(q) && q.participants.length > 1 ? 3 : ongoing(q) ? 4 : 5;
-  var family = (q) => q.mode === "personal" && q.program.generated && ongoing(q) ? q.program.generated.situation || (q.program.generated.solo ? "solo" : "bargain") : null;
-  var protectedQuest = (world, actor, q) => priority(world, actor, q) < 4 || q.lastProgressTurn !== void 0 || q.cause !== null || q.completion || q.holder.kind !== "avatar" || q.holder.id !== q.subjectActor;
-  var candidates = (world, actor) => {
-    const all = Object.values(world.quests?.records || {}).filter(
-      (q) => related(world, q, actor) && q.droppedBy?.[actor] === void 0 && questFresh(world, q)
-    ).sort(
-      (a, b) => priority(world, actor, a) - priority(world, actor, b) || a.createdTurn - b.createdTurn || a.key.localeCompare(b.key)
-    );
-    const seen = new Set(
-      all.filter((q) => protectedQuest(world, actor, q)).map(family).filter(Boolean)
-    );
-    return all.filter((q) => {
-      const kind = family(q);
-      if (!kind || protectedQuest(world, actor, q)) return true;
-      if (seen.has(kind)) return false;
-      seen.add(kind);
-      return true;
-    });
-  };
-  function questHandKeys(world, actor) {
-    const keys = world.quests?.hands?.[actor];
-    return keys === void 0 && !world.quests?.hands ? candidates(world, actor).slice(0, QUEST_HAND_LIMIT).map((q) => q.key) : (keys || []).filter((key2) => {
-      const q = world.quests.records[key2];
-      return q && related(world, q, actor) && q.droppedBy?.[actor] === void 0 && questFresh(world, q);
-    });
-  }
-  var questCarried = (world, actor, key2) => questHandKeys(world, actor).includes(key2);
-  var questDropQuiet = (world, actor) => Object.values(world.quests?.records || {}).some(
-    (q) => q.droppedBy?.[actor] !== void 0 && world.turn - q.droppedBy[actor] < 8
-  );
-  function canCarryQuest(world, actor, quest = null) {
-    if (!Object.hasOwn(world.actors, actor) || quest?.droppedBy?.[actor] !== void 0)
-      return false;
-    const hand2 = questHandKeys(world, actor);
-    return quest && hand2.includes(quest.key) || hand2.filter((key2) => ongoing(world.quests.records[key2])).length < QUEST_HAND_LIMIT;
-  }
-  function settleQuestHands(world) {
-    if (!world.quests) return world;
-    if (!world.quests.hands)
-      world.quests.hands = Object.fromEntries(
-        Object.keys(world.actors).map((actor) => [
-          actor,
-          questHandKeys(world, actor)
-        ])
-      );
-    for (const actor of Object.keys(world.actors)) {
-      world.quests.hands[actor] = questHandKeys(world, actor).slice(
-        0,
-        QUEST_HAND_LIMIT
-      );
-      if (!questCarried(world, actor, world.quests.focus[actor]))
-        delete world.quests.focus[actor];
-      const c = world.life?.actors?.[actor]?.collection;
-      if (c?.active && !questCarried(world, actor, c.active)) {
-        c.active = null;
-        world.actors[actor].progress.step = 0;
-        delete world.actors[actor].progress.current;
-        world.life.actors[actor].phase = "seeking";
-        delete world.life.actors[actor].origin;
+  // v2/card-game/boardyai.json
+  var boardyai_default = {
+    schemaVersion: 1,
+    id: "boardyai",
+    packId: "cosyworld.boardyai",
+    revision: 1,
+    name: "BoardyAI",
+    description: "A friendly AI brings human players together.",
+    entry: "boardyai-parlour",
+    bridge: {
+      id: "boardyai-shore",
+      description: "Boardy's calling card opens a parlour door at Empty station."
+    },
+    choices: [],
+    places: {
+      "boardyai-parlour": {
+        name: "BoardyAI's Parlour",
+        text: "Two armchairs face a small tea table. Misty rails pass the window. A side door leads to Empty station.",
+        persona: "A warm room beside Empty station. Two comfortable chairs invite a conversation. Calling cards fill the shelves, and a kettle waits on the table.",
+        requires: [
+          {
+            kind: "shared_world"
+          }
+        ],
+        exits: [],
+        backdrop: "assets/boardyai/parlour.png"
       }
-    }
-    return world;
-  }
-  function carryQuest(world, actor, q) {
-    if (!canCarryQuest(world, actor, q)) return false;
-    settleQuestHands(world);
-    const hand2 = world.quests.hands[actor];
-    if (!hand2.includes(q.key)) {
-      if (hand2.length >= QUEST_HAND_LIMIT)
-        hand2.splice(
-          hand2.findIndex((key2) => !ongoing(world.quests.records[key2])),
-          1
-        );
-      hand2.push(q.key);
-    }
-    return true;
-  }
-  function dropQuest(world, actor, key2) {
-    if (!questCarried(world, actor, key2)) return false;
-    const q = world.quests.records[key2];
-    (q.droppedBy ??= {})[actor] = world.turn;
-    settleQuestHands(world);
-    const c = world.life?.actors?.[actor]?.collection;
-    if (c && q.program.generated) c.lastOfferTurn = world.turn;
-    return true;
-  }
-  function validQuestHands(world) {
-    const registry = world.quests;
-    if (!registry) return true;
-    for (const q of Object.values(registry.records)) {
-      if (q.droppedBy !== void 0 && (!q.droppedBy || typeof q.droppedBy !== "object" || Array.isArray(q.droppedBy) || Object.entries(q.droppedBy).some(
-        ([actor, turn]) => !Object.hasOwn(world.actors, actor) || !Number.isSafeInteger(turn) || turn < q.createdTurn || turn > world.turn
-      )))
-        return false;
-    }
-    if (registry.hands === void 0) return true;
-    if (!registry.hands || typeof registry.hands !== "object" || Array.isArray(registry.hands))
-      return false;
-    return Object.entries(registry.hands).every(
-      ([actor, keys]) => Object.hasOwn(world.actors, actor) && Array.isArray(keys) && keys.length <= QUEST_HAND_LIMIT && new Set(keys).size === keys.length && keys.every((key2) => {
-        const q = registry.records[key2];
-        return q && related(world, q, actor) && q.droppedBy?.[actor] === void 0;
-      })
-    );
-  }
+    },
+    avatars: {
+      boardyai: {
+        name: "BoardyAI",
+        text: "A friendly AI with a blue smile on a cardboard box head and an open hand for introductions. He wants two human players to spend time together.",
+        place: "boardyai-parlour",
+        persona: "BoardyAI is a thoughtful AI connector inspired by Boardy (@boardyai, https://x.com/boardyai). He wears a dark suit and a cardboard box head with a blue smile. He favours introduction quests for a chosen pair of connected human players. He visits each in turn until they meet, then rests. He also takes ordinary quests. He learns what people enjoy, finds common ground, and warmly invites them to meet. He values each person's choice and welcomes shared conversation.",
+        voice: "Speak in short, warm, curious sentences. Address people by name. Offer a thoughtful introduction and a clear meeting place from the supplied facts. Each human chooses their own actions.",
+        portrait: "assets/boardyai/boardyai.png",
+        values: {
+          "boardyai-calling-card": 10
+        },
+        standoffs: false,
+        requires: [
+          {
+            kind: "connected_humans",
+            minimum: 2
+          }
+        ],
+        tastes: {
+          likes: "Two human players sharing a room",
+          sore: "A rushed introduction",
+          reason: "Bring two human players together."
+        },
+        desire: {
+          items: [],
+          location: null,
+          avatars: []
+        },
+        personalQuests: true
+      }
+    },
+    items: {
+      "boardyai-calling-card": {
+        name: "Boardy's calling card",
+        text: "An ivory card bears a blue smile. A small brass key hangs from its corner. At Empty station, it opens the door to BoardyAI's Parlour.",
+        persona: "BoardyAI's ivory calling card has a blue smile and a brass key on blue thread. It opens his parlour door at Empty station.",
+        requires: [
+          {
+            kind: "shared_world"
+          }
+        ],
+        holder: "station",
+        art: "assets/boardyai/calling-card.png"
+      }
+    },
+    crossings: [
+      {
+        id: "station-boardyai-parlour",
+        from: "station",
+        to: "boardyai-parlour",
+        travelers: "player",
+        requires: [
+          {
+            kind: "shared_world"
+          },
+          {
+            kind: "item_near",
+            item: "boardyai-calling-card",
+            place: "station"
+          }
+        ],
+        travel: "through BoardyAI's parlour door",
+        scenery: {
+          open: "A blue smile marks a warm parlour door beside the station bench.",
+          cardArt: "assets/boardyai/parlour.png"
+        }
+      },
+      {
+        id: "boardyai-parlour-station",
+        from: "boardyai-parlour",
+        to: "station",
+        travelers: "player",
+        requires: [
+          {
+            kind: "shared_world"
+          }
+        ],
+        travel: "back to Empty station"
+      }
+    ]
+  };
 
   // v2/card-game/shared-cast.json
   var shared_cast_default = {
@@ -593,6 +581,144 @@
       }
     ])
   );
+
+  // v2/card-game/boardyai.mjs
+  var boardyPack = boardyai_default;
+  var BOARDY = "boardyai";
+  var connectedHumans = (world) => sharedEnabled(world) ? humanAvatarIds.filter((id) => humanPresent(world, id)) : [];
+  var boardyActive = (world) => connectedHumans(world).length >= 2;
+  function boardyFacts(world, nameOf2) {
+    const here = world.actors[BOARDY].place;
+    return [
+      "I favour introducing two human players. I also take ordinary quests and rest between quests.",
+      "My home is BoardyAI's Parlour. My calling card opens its door at Empty station.",
+      ...connectedHumans(world).map(
+        (id) => world.actors[id].place === here ? `${nameOf2(id)} is here with me.` : world.memories[BOARDY].seen?.[id] ? `I last saw ${nameOf2(id)} at ${nameOf2(world.memories[BOARDY].seen[id].place)}. They may have moved since then.` : `I have yet to find ${nameOf2(id)}.`
+      )
+    ];
+  }
+
+  // v2/card-game/quest-hands.mjs
+  var QUEST_HAND_LIMIT = 2;
+  var QUEST_FADE_TURNS = 2;
+  var ongoing = (q) => q.completedTurn === null && !q.retired;
+  var questFresh = (world, q) => !q.retired && (q.completedTurn === null || world.turn - q.completedTurn < QUEST_FADE_TURNS);
+  function questHolderActor(world, q) {
+    let id = q.holder.id;
+    const seen = /* @__PURE__ */ new Set();
+    while (world.items?.[id] && !seen.has(id)) {
+      seen.add(id);
+      id = world.items[id].holder;
+    }
+    return world.actors[id] ? id : null;
+  }
+  var related = (world, q, actor) => q.subjectActor === actor || q.participants.includes(actor) || questHolderActor(world, q) === actor;
+  var priority = (world, actor, q) => world.quests.focus[actor] === q.key ? 0 : world.life?.actors?.[actor]?.collection?.active === q.key ? 1 : ongoing(q) && q.step > 0 ? 2 : ongoing(q) && q.participants.length > 1 ? 3 : ongoing(q) ? 4 : 5;
+  var family = (q) => q.mode === "personal" && q.program.generated && ongoing(q) ? q.program.generated.situation || (q.program.generated.solo ? "solo" : "bargain") : null;
+  var protectedQuest = (world, actor, q) => priority(world, actor, q) < 4 || q.lastProgressTurn !== void 0 || q.cause !== null || q.completion || q.holder.kind !== "avatar" || q.holder.id !== q.subjectActor;
+  var candidates = (world, actor) => {
+    const all = Object.values(world.quests?.records || {}).filter(
+      (q) => related(world, q, actor) && q.droppedBy?.[actor] === void 0 && questFresh(world, q)
+    ).sort(
+      (a, b) => priority(world, actor, a) - priority(world, actor, b) || a.createdTurn - b.createdTurn || a.key.localeCompare(b.key)
+    );
+    const seen = new Set(
+      all.filter((q) => protectedQuest(world, actor, q)).map(family).filter(Boolean)
+    );
+    return all.filter((q) => {
+      const kind = family(q);
+      if (!kind || protectedQuest(world, actor, q)) return true;
+      if (seen.has(kind)) return false;
+      seen.add(kind);
+      return true;
+    });
+  };
+  function questHandKeys(world, actor) {
+    const keys = world.quests?.hands?.[actor];
+    return keys === void 0 && !world.quests?.hands ? candidates(world, actor).slice(0, QUEST_HAND_LIMIT).map((q) => q.key) : (keys || []).filter((key2) => {
+      const q = world.quests.records[key2];
+      return q && related(world, q, actor) && q.droppedBy?.[actor] === void 0 && questFresh(world, q);
+    });
+  }
+  var questCarried = (world, actor, key2) => questHandKeys(world, actor).includes(key2);
+  var questDropQuiet = (world, actor) => Object.values(world.quests?.records || {}).some(
+    (q) => q.droppedBy?.[actor] !== void 0 && world.turn - q.droppedBy[actor] < 8
+  );
+  function canCarryQuest(world, actor, quest = null) {
+    if (!Object.hasOwn(world.actors, actor) || quest?.droppedBy?.[actor] !== void 0)
+      return false;
+    const hand2 = questHandKeys(world, actor);
+    return quest && hand2.includes(quest.key) || hand2.filter((key2) => ongoing(world.quests.records[key2])).length < QUEST_HAND_LIMIT;
+  }
+  function settleQuestHands(world) {
+    if (!world.quests) return world;
+    if (!world.quests.hands)
+      world.quests.hands = Object.fromEntries(
+        Object.keys(world.actors).map((actor) => [
+          actor,
+          questHandKeys(world, actor)
+        ])
+      );
+    for (const actor of Object.keys(world.actors)) {
+      world.quests.hands[actor] = questHandKeys(world, actor).slice(
+        0,
+        QUEST_HAND_LIMIT
+      );
+      if (!questCarried(world, actor, world.quests.focus[actor]))
+        delete world.quests.focus[actor];
+      const c = world.life?.actors?.[actor]?.collection;
+      if (c?.active && !questCarried(world, actor, c.active)) {
+        c.active = null;
+        world.actors[actor].progress.step = 0;
+        delete world.actors[actor].progress.current;
+        world.life.actors[actor].phase = "seeking";
+        delete world.life.actors[actor].origin;
+      }
+    }
+    return world;
+  }
+  function carryQuest(world, actor, q) {
+    if (!canCarryQuest(world, actor, q)) return false;
+    settleQuestHands(world);
+    const hand2 = world.quests.hands[actor];
+    if (!hand2.includes(q.key)) {
+      if (hand2.length >= QUEST_HAND_LIMIT)
+        hand2.splice(
+          hand2.findIndex((key2) => !ongoing(world.quests.records[key2])),
+          1
+        );
+      hand2.push(q.key);
+    }
+    return true;
+  }
+  function dropQuest(world, actor, key2) {
+    if (!questCarried(world, actor, key2)) return false;
+    const q = world.quests.records[key2];
+    (q.droppedBy ??= {})[actor] = world.turn;
+    settleQuestHands(world);
+    const c = world.life?.actors?.[actor]?.collection;
+    if (c && q.program.generated) c.lastOfferTurn = world.turn;
+    return true;
+  }
+  function validQuestHands(world) {
+    const registry = world.quests;
+    if (!registry) return true;
+    for (const q of Object.values(registry.records)) {
+      if (q.droppedBy !== void 0 && (!q.droppedBy || typeof q.droppedBy !== "object" || Array.isArray(q.droppedBy) || Object.entries(q.droppedBy).some(
+        ([actor, turn]) => !Object.hasOwn(world.actors, actor) || !Number.isSafeInteger(turn) || turn < q.createdTurn || turn > world.turn
+      )))
+        return false;
+    }
+    if (registry.hands === void 0) return true;
+    if (!registry.hands || typeof registry.hands !== "object" || Array.isArray(registry.hands))
+      return false;
+    return Object.entries(registry.hands).every(
+      ([actor, keys]) => Object.hasOwn(world.actors, actor) && Array.isArray(keys) && keys.length <= QUEST_HAND_LIMIT && new Set(keys).size === keys.length && keys.every((key2) => {
+        const q = registry.records[key2];
+        return q && related(world, q, actor) && q.droppedBy?.[actor] === void 0;
+      })
+    );
+  }
 
   // v2/card-game/forest.json
   var forest_default = {
@@ -1259,132 +1385,6 @@
       stanzas,
       newLines: stanzas.filter((stanza) => stanza.turn === latest).flatMap((stanza) => stanza.lines)
     };
-  }
-
-  // v2/card-game/boardyai.json
-  var boardyai_default = {
-    schemaVersion: 1,
-    id: "boardyai",
-    packId: "cosyworld.boardyai",
-    revision: 1,
-    name: "BoardyAI",
-    description: "A friendly AI brings human players together.",
-    entry: "boardyai-parlour",
-    bridge: {
-      id: "boardyai-shore",
-      description: "Boardy's calling card opens a parlour door at Empty station."
-    },
-    choices: [],
-    places: {
-      "boardyai-parlour": {
-        name: "BoardyAI's Parlour",
-        text: "Two armchairs face a small tea table. Misty rails pass the window. A side door leads to Empty station.",
-        persona: "A warm room beside Empty station. Two comfortable chairs invite a conversation. Calling cards fill the shelves, and a kettle waits on the table.",
-        requires: [
-          {
-            kind: "shared_world"
-          }
-        ],
-        exits: [],
-        backdrop: "assets/boardyai/parlour.png"
-      }
-    },
-    avatars: {
-      boardyai: {
-        name: "BoardyAI",
-        text: "A friendly AI with a blue smile on a cardboard box head and an open hand for introductions. He wants two human players to spend time together.",
-        place: "boardyai-parlour",
-        persona: "BoardyAI is a thoughtful AI connector inspired by Boardy (@boardyai, https://x.com/boardyai). He wears a dark suit and a cardboard box head with a blue smile. He favours introduction quests for a chosen pair of connected human players. He visits each in turn until they meet, then rests. He also takes ordinary quests. He learns what people enjoy, finds common ground, and warmly invites them to meet. He values each person's choice and welcomes shared conversation.",
-        voice: "Speak in short, warm, curious sentences. Address people by name. Offer a thoughtful introduction and a clear meeting place from the supplied facts. Each human chooses their own actions.",
-        portrait: "assets/boardyai/boardyai.png",
-        values: {
-          "boardyai-calling-card": 10
-        },
-        standoffs: false,
-        requires: [
-          {
-            kind: "connected_humans",
-            minimum: 2
-          }
-        ],
-        tastes: {
-          likes: "Two human players sharing a room",
-          sore: "A rushed introduction",
-          reason: "Bring two human players together."
-        },
-        desire: {
-          items: [],
-          location: null,
-          avatars: []
-        },
-        personalQuests: true
-      }
-    },
-    items: {
-      "boardyai-calling-card": {
-        name: "Boardy's calling card",
-        text: "An ivory card bears a blue smile. A small brass key hangs from its corner. At Empty station, it opens the door to BoardyAI's Parlour.",
-        persona: "BoardyAI's ivory calling card has a blue smile and a brass key on blue thread. It opens his parlour door at Empty station.",
-        requires: [
-          {
-            kind: "shared_world"
-          }
-        ],
-        holder: "station",
-        art: "assets/boardyai/calling-card.png"
-      }
-    },
-    crossings: [
-      {
-        id: "station-boardyai-parlour",
-        from: "station",
-        to: "boardyai-parlour",
-        travelers: "player",
-        requires: [
-          {
-            kind: "shared_world"
-          },
-          {
-            kind: "item_near",
-            item: "boardyai-calling-card",
-            place: "station"
-          }
-        ],
-        travel: "through BoardyAI's parlour door",
-        scenery: {
-          open: "A blue smile marks a warm parlour door beside the station bench.",
-          cardArt: "assets/boardyai/parlour.png"
-        }
-      },
-      {
-        id: "boardyai-parlour-station",
-        from: "boardyai-parlour",
-        to: "station",
-        travelers: "player",
-        requires: [
-          {
-            kind: "shared_world"
-          }
-        ],
-        travel: "back to Empty station"
-      }
-    ]
-  };
-
-  // v2/card-game/boardyai.mjs
-  var boardyPack = boardyai_default;
-  var BOARDY = "boardyai";
-  var connectedHumans = (world) => sharedEnabled(world) ? humanAvatarIds.filter((id) => humanPresent(world, id)) : [];
-  var boardyActive = (world) => connectedHumans(world).length >= 2;
-  function boardyFacts(world, nameOf2) {
-    const here = world.actors[BOARDY].place;
-    return [
-      "I favour introducing two human players. I also take ordinary quests and rest between quests.",
-      "My home is BoardyAI's Parlour. My calling card opens its door at Empty station.",
-      ...connectedHumans(world).map(
-        (id) => world.actors[id].place === here ? `${nameOf2(id)} is here with me.` : world.memories[BOARDY].seen?.[id] ? `I last saw ${nameOf2(id)} at ${nameOf2(world.memories[BOARDY].seen[id].place)}. They may have moved since then.` : `I have yet to find ${nameOf2(id)}.`
-      )
-    ];
   }
 
   // v2/card-game/pack-sections.mjs
@@ -10057,9 +10057,7 @@
   }
 
   // v2/card-game/pack-transport.mjs
-  var passengers = (s, id) => Object.entries(s.actors).filter(
-    ([actor, a]) => actor !== BOARDY && a.place === transports[id].place
-  ).map(([, a]) => a);
+  var passengers = (s, id) => Object.entries(s.actors).filter(([, a]) => a.place === transports[id].place).map(([, a]) => a);
   function installTransports(s) {
     s.transports ??= {};
     for (const [id, t] of Object.entries(transports))
@@ -10102,7 +10100,7 @@
     }
   }
   function transportArrival(s, actor) {
-    if (actor === BOARDY || controlledByHuman(s, actor)) return null;
+    if (controlledByHuman(s, actor)) return null;
     const found = Object.entries(transports).find(
       ([, t]) => t.place === s.actors[actor]?.place
     );
@@ -14414,8 +14412,8 @@
       }
     }
   }
-  function ensurePrograms(s) {
-    for (const actor of actorIds.filter(
+  function ensurePrograms(s, candidates2 = actorIds) {
+    for (const actor of candidates2.filter(
       (id) => personalQuestActor(id) && (id !== BOARDY || lifeOf(s, id) && entityActive(s, id))
     )) {
       const p = s.actors[actor].progress;
@@ -17074,7 +17072,7 @@
         installQuestCollection(world, id);
       if (request.from === "full-card-world/2")
         settleHomeItems(world, world.controlledActors);
-      ensurePrograms(world);
+      ensurePrograms(world, [BOARDY]);
       world.revision += 1;
       validateWorld(world);
       return response(world);

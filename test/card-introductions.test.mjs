@@ -158,6 +158,33 @@ describe("introduction quests", () => {
       ),
     ).toBe(true);
   });
+  it("lets Boardy board the shared ship as its first rider", () => {
+    let w = fresh();
+    for (let n = 0; n < 5; n++) w = step(w);
+    w.actors.vale.place = "greek-harbor";
+    w.actors.mara.place = "pond";
+    w.actors.boardyai.place = "pond";
+    w.crossings["pond-greek-harbor"].discovered = true;
+    w.transports["greek-ship"] = {
+      version: 2,
+      dock: "pond",
+      destination: null,
+      recall: null,
+    };
+    w.memories.boardyai.seen.vale = {
+      place: "greek-harbor",
+      turn: w.turn,
+      seq: w.eventSeq,
+    };
+    w.introductionVisits.boardyai.next = "vale";
+    w = step(w);
+    expect(w.actors.boardyai.place).toBe("greek-ship");
+    expect(w.transports["greek-ship"].destination).toBe("greek-harbor");
+    expect(decodeSave(encodeSave(w))).toEqual(w);
+    w = step(w);
+    expect(w.actors.boardyai.place).toBe("greek-harbor");
+    expect(w.transports["greek-ship"].destination).toBeNull();
+  });
   it("requires both chosen humans to be present for the meeting", () => {
     const w = contextual(fresh());
     w.actors.mara.place = w.actors.vale.place;
