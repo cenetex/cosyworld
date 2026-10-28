@@ -16697,7 +16697,7 @@
         const space = localGrievances.length > 0 && localGrievances.every(
           (g) => s.actors[g.other].place !== a.target
         );
-        n = path?.[1] === a.target || space ? want.items.length ? 18 : 35 : -15;
+        n = path?.[1] === a.target ? want.items.length ? 19 : 36 : space ? want.items.length ? 18 : 35 : -15;
       }
       if (a.kind === "light" && actor === "moth") n = 45;
       if (a.kind === "refill" && actor !== "keeper" && s.items.lamp.fuel <= 2)

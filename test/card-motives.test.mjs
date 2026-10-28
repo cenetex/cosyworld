@@ -193,6 +193,22 @@ describe("shore wants and grievances", () => {
     });
   });
 
+  it("takes the homeward exit when both paths give space from a grievance", () => {
+    const s = fresh();
+    s.turn = s.revision = 12;
+    s.actors.moth.place = s.actors.keeper.place = "hoppycat-halfway-tea-garden";
+    recordReaction(
+      s,
+      { kind: "threaten", actor: "keeper", target: "moth" },
+      ["moth"],
+      false,
+    );
+    const before = structuredClone(s);
+    expect(plan(s, "moth").action).toMatchObject({ kind: "move", target: "pond" });
+    expect(s).toEqual(before);
+    expect(decodeSave(encodeSave(s))).toEqual(s);
+  });
+
   it("continues saved quest programs alongside personal grievances", () => {
     let s = together(createWorld());
     s.turn = s.revision = 5;

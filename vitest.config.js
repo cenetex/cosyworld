@@ -61,8 +61,9 @@ export default defineConfig({
     restoreMocks: true,
     clearMocks: true,
     
-    // Parallel execution
-    threads: true,
+    // Keep room for native and browser checks alongside the larger game suite.
+    maxWorkers: 2,
+    minWorkers: 1,
     
     // Retry failed tests once
     retry: 1,
