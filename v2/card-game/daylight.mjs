@@ -12,6 +12,10 @@ const nightBackdrops = {
   "greek-road-thebes": art("theban-harbor-road-night"),
   "greek-athens-harbor": art("athens-harbor-open-berth-night"),
   "greek-piraeus": art("piraeus-open-berth-night"),
+  "greek-greek-camp": art("ajax-camp-night"),
+  "greek-ajax-landing": art("ajax-camp-night"),
+  "greek-ajax-household": art("ajax-camp-night"),
+  "greek-ajax-grave": art("ajax-camp-night"),
 };
 const dockedNightBackdrops = {
   [art("harbor-ship-at-berth")]: art("harbor-ship-at-berth-night"),
@@ -32,7 +36,9 @@ export function locationDaylight(world, id) {
       ? "at Athens Harbor"
       : id === "greek-piraeus"
         ? "at Piraeus Quays"
-        : "in Thebes";
+        : id === "greek-greek-camp" || id.startsWith("greek-ajax-")
+          ? "at the Greek camp near Troy"
+          : "in Thebes";
   return {
     phase,
     period,
