@@ -1,3 +1,4 @@
+import { imageUrl } from "./images.mjs";
 import { humanAvatars } from "./human-cast.mjs";
 import { places } from "./world.mjs";
 import { levelOf } from "./quests.mjs";
@@ -188,7 +189,9 @@ export function installToolbar({ session, getWorld }) {
     for (const player of players) {
       const row = element("li", "player-row");
       const portrait = element("img", "player-portrait");
-      portrait.src = `/card-game/${player.image}`;
+      portrait.decoding = "async";
+      portrait.loading = "lazy";
+      portrait.src = imageUrl(`/card-game/${player.image}`, "card");
       portrait.alt = "";
       const copy = element("div", "player-copy");
       const name = element("strong", "player-name", player.name);

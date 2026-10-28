@@ -159,9 +159,9 @@ try {
         "Greek ship",
       );
       assert(
-        (
-          await card("greek-ship").locator(".art img").getAttribute("src")
-        ).endsWith("ship-card.webp"),
+        new URL(
+          await card("greek-ship").locator(".art img").getAttribute("src"),
+        ).pathname.endsWith("ship-card.webp"),
       );
       await shot("pond-ship");
       await use("greek-ship");
@@ -191,12 +191,14 @@ try {
         await page.reload();
         await card("greek-harbor").waitFor({ state: "attached" });
         assert(
-          (await page.locator("#backdrop").getAttribute("src")).endsWith(file),
+          new URL(
+            await page.locator("#backdrop").getAttribute("src"),
+          ).pathname.endsWith(file),
         );
         assert(
-          (
-            await card("greek-harbor").locator(".art img").getAttribute("src")
-          ).endsWith(file),
+          new URL(
+            await card("greek-harbor").locator(".art img").getAttribute("src"),
+          ).pathname.endsWith(file),
         );
         assert.equal(
           await card("greek-ship").count(),
@@ -221,9 +223,9 @@ try {
         await use(id);
         assert.equal((await state()).actors.vale.place, id);
         assert(
-          (await page.locator("#backdrop").getAttribute("src")).endsWith(
-            ".webp",
-          ),
+          new URL(
+            await page.locator("#backdrop").getAttribute("src"),
+          ).pathname.endsWith(".webp"),
         );
         const destinations = await page
           .locator("#hand [data-card]")

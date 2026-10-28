@@ -167,7 +167,11 @@ try {
           if (figure.id === "keeper")
             assert.equal(
               figure.src,
-              `./assets/keeper${desired === "right" ? "-right" : ""}.png`,
+              await page.evaluate(
+                async (source) =>
+                  (await import("/card-game/images.mjs")).imageUrl(source),
+                `./assets/keeper${desired === "right" ? "-right" : ""}.png`,
+              ),
             );
           const flip = native !== desired;
           assert.equal(
