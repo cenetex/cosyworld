@@ -127,7 +127,9 @@ fn base_profiles() -> &'static Value {
         let packs: Value = serde_json::from_str(include_str!("../../card-game/packs.json"))
             .expect("embedded card world packs");
         let map = profiles.as_object_mut().expect("profiles");
-        for pack in packs["packs"].as_array().expect("pack list") {
+        let boardy: Value = serde_json::from_str(include_str!("../../card-game/boardyai.json"))
+            .expect("BoardyAI guest");
+        for pack in packs["packs"].as_array().expect("pack list").iter().chain(std::iter::once(&boardy)) {
             for (collection, kind) in [
                 ("places", "location"),
                 ("avatars", "avatar"),

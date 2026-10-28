@@ -9,6 +9,13 @@ Mirror attic, Pip, the keeper, Badger, mounted story packs, and their rules belo
 to this same world. Each account claims one of eight human avatars. Each room
 holds four present humans. Residents can share a room with those humans.
 
+BoardyAI appears while two or more humans are connected to the world. He joins
+the largest human gathering. Cast order settles ties, so every reader sees him
+in the same place. His lasting quest is **Bring two human players together.**
+The quest stays active through meetings, travel, and reconnects. His dialogue
+names connected people and offers a place to meet. Each human chooses their
+own journey. Presence follows the usual 60-second reconnect grace.
+
 The seven new humans start in their homes with their signature items on the floor.
 Picking up the item opens the path to Black pond. Putting it down closes that
 path. At the pond, the item reveals the home's entrance when it rests there or

@@ -1,4 +1,5 @@
 import { questCarried } from "./quest-hands.mjs";
+import { BOARDY, boardyFacts } from "./boardyai.mjs";
 import { questRecord } from "./shared-quests.mjs";
 import { recitalContext, recitalFacts } from "./pack-recital.mjs";
 import { hasMotives, motiveFacts, tastes } from "./motives.mjs";
@@ -334,6 +335,7 @@ export function narrativeContext(world, action = null) {
           : []),
       ];
       const facts = [
+        ...(id === BOARDY ? boardyFacts(world, nameOf) : []),
         ...recitalFacts(world, packDefinitions, id),
         ...questFacts,
         ...[...packFacts(world, id), ...continuity]
@@ -635,7 +637,8 @@ export function applyGeneratedText(world, context, response) {
   const cast = [
     ...new Set([
       ...Object.keys(next.actors).filter(
-        (id) => next.actors[id].place === context.location,
+        (id) =>
+          entityActive(next, id) && next.actors[id].place === context.location,
       ),
       ...changes
         .filter((change) => change.leaving)

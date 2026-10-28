@@ -2,6 +2,7 @@ import {
   currentActor,
   controlledByHuman,
   humanPresent,
+  humanAvatarIds,
   sharedEnabled,
 } from "./human-cast.mjs";
 // General rules over world-pack data: crossings and their signals, fixtures
@@ -105,6 +106,11 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
       return s.items[c.item]?.holder === (c.role === "actor" ? actor : c.actor);
     case "shared_world":
       return sharedEnabled(s);
+    case "connected_humans":
+      return (
+        sharedEnabled(s) &&
+        humanAvatarIds.filter((id) => humanPresent(s, id)).length >= c.minimum
+      );
     case "item_near": {
       let holder = s.items[c.item]?.holder;
       const seen = new Set([c.item]);
@@ -163,6 +169,12 @@ export const crossingExits = (s, place, actor, senses) =>
 
 /** A pack is known once the player has found a way into it. */
 export const packDiscovered = (s, packId) =>
+  packDefinitions.some(
+    (p) =>
+      p.id === packId &&
+      Object.keys(p.places).length === 0 &&
+      s.packs?.[packId],
+  ) ||
   crossings.some(
     (c) =>
       c.packId === packId &&

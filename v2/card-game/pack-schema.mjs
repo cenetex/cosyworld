@@ -29,6 +29,7 @@ export const CONDITION_KINDS = [
   "item_at",
   "item_near",
   "shared_world",
+  "connected_humans",
   "met",
 ];
 export const TRAVELERS = ["player", "any"];
@@ -289,10 +290,15 @@ export function packProblems(pack, hub, mountedPlaces = []) {
   if (problems.length) return problems;
   const places = record(pack.places) ? pack.places : {};
   const avatars = record(pack.avatars) ? pack.avatars : {};
+  const visiting =
+    Object.keys(places).length === 0 && Object.keys(avatars).length > 0;
   const items = pack.items === undefined ? {} : pack.items;
   check(record(items), "items must be a map");
   const fixtures = pack.fixtures === undefined ? {} : pack.fixtures;
-  check(record(places) && Object.keys(places).length > 0, "needs places");
+  check(
+    record(places) && (Object.keys(places).length > 0 || visiting),
+    "needs places or visiting avatars",
+  );
   check(record(avatars), "avatars must be a map");
   check(record(fixtures), "fixtures must be a map");
   const own = [
@@ -314,7 +320,10 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     own.every((id) => !hubIds.includes(id)),
     "entity ids must not reuse hub ids",
   );
-  check(owns(places, pack.entry), "entry must name one of the pack's places");
+  check(
+    owns(places, pack.entry) || (visiting && hub?.places?.includes(pack.entry)),
+    "entry must name a pack or hub place",
+  );
   const media = (path, what) =>
     check(
       mediaPathOk(pack.id, path),
@@ -430,8 +439,8 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         textOk(a.text) &&
         textOk(a.persona) &&
         textOk(a.voice) &&
-        owns(places, a.place),
-      `avatar ${id} needs a name, text, persona, voice and a home place in this pack`,
+        (owns(places, a.place) || (visiting && hub?.places?.includes(a.place))),
+      `avatar ${id} needs a name, text, persona, voice and a pack or hub home`,
     );
     check(
       [a.travels, a.standoffs].every((v) => v === undefined || v === false) &&
@@ -603,6 +612,9 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         case "shared_world":
           ok = keysOk(c, ["kind"]);
           break;
+        case "connected_humans":
+          ok = keysOk(c, ["kind", "minimum"]) && intOk(c.minimum, 1, 8);
+          break;
         case "item_near":
           ok =
             keysOk(c, ["kind", "item", "place"]) &&
@@ -643,9 +655,10 @@ export function packProblems(pack, hub, mountedPlaces = []) {
               "item_at",
               "item_near",
               "shared_world",
+              "connected_humans",
               "met",
             ].includes(c.kind),
-          `${what} must use persistent state conditions`,
+          `${what} must use saved state or human presence conditions`,
         );
       });
   };
@@ -1054,7 +1067,8 @@ export function packProblems(pack, hub, mountedPlaces = []) {
   }
   const crossings = Array.isArray(pack.crossings) ? pack.crossings : [];
   check(
-    Array.isArray(pack.crossings) && crossings.length > 0,
+    Array.isArray(pack.crossings) &&
+      (crossings.length > 0 || Object.keys(places).length === 0),
     "bridge needs crossings",
   );
   const transportPlaces = new Set();
@@ -1230,11 +1244,13 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     "every place must be reachable from the entry",
   );
   check(
-    crossings.some((c) => c?.to === pack.entry && !owns(places, c.from)),
+    Object.keys(places).length === 0 ||
+      crossings.some((c) => c?.to === pack.entry && !owns(places, c.from)),
     "the bridge needs a crossing from the hub into the entry",
   );
   check(
-    crossings.some((c) => owns(places, c?.from) && !owns(places, c.to)),
+    Object.keys(places).length === 0 ||
+      crossings.some((c) => owns(places, c?.from) && !owns(places, c.to)),
     "the bridge needs a crossing back to the hub",
   );
   return problems;

@@ -1,4 +1,5 @@
 import { canCarryQuest, questCarried, questDropQuiet } from "./quest-hands.mjs";
+import { BOARDY, boardyQuest } from "./boardyai.mjs";
 import { canOfferQuest } from "./quest-offers.mjs";
 import {
   collectionCards,
@@ -429,6 +430,7 @@ function currentProgram(s, actor, card) {
     : p;
 }
 export function actorQuests(s, actor) {
+  if (actor === BOARDY) return [boardyQuest(s)].filter(Boolean);
   if (!s.actors[actor]) return [];
   const c = collectionOf(s, actor),
     raw = c ? null : rawProgram(s, actor);

@@ -3,6 +3,7 @@
 // Keep this module in the presentation layer so saved rule bundles stay stable.
 const groups = {
   right: [
+    "assets/boardyai/boardyai.png",
     "assets/vale.png",
     "assets/keeper-right.png",
     ...["vale", "mara", "ash", "nell", "tavi", "rue", "orin", "ada"].map(

@@ -42,6 +42,13 @@
       "card": "assets/optimized/card/png/bell-card.webp",
       "cardHash": "76fc97154051bc3d9ad837e3bcc77ec7e190bb7af2358d90783c182938a612aa"
     },
+    "assets/boardyai/boardyai.png": {
+      "sourceHash": "4ed53a7dafc921fd80b56e0d0d50c17958001963008eb1f8d05b5cbfa1001857",
+      "stage": "assets/optimized/stage/png/boardyai/boardyai.webp",
+      "stageHash": "0b83bdd5b18e3a896b82a5051ccad325bb497c336a86ef0da3c116768569351e",
+      "card": "assets/optimized/card/png/boardyai/boardyai.webp",
+      "cardHash": "9ceb2756efe015bcbe356e818678b9c885dcefdc6291db2ee721a0601ecf7269"
+    },
     "assets/cloth-card.png": {
       "sourceHash": "9c4a2c383eeac4abeeed6d91f13ede9d0a82576e12a421fa8a4bb5d382e1adaf",
       "stage": "assets/optimized/stage/png/cloth-card.webp",

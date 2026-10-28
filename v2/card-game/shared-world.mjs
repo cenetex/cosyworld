@@ -25,6 +25,7 @@ import { profiles } from "./memory.mjs";
 import { enableMotives } from "./motives.mjs";
 import { narrativeContext } from "./narrative.mjs";
 import { currentScene } from "./scene.mjs";
+import { settleBoardy } from "./boardyai.mjs";
 
 function ids(value, fallback = []) {
   const result = value === undefined ? fallback : value;
@@ -61,7 +62,9 @@ function load(request) {
   if (!request.world || typeof request.world !== "object")
     throw new Error("Load a saved world first.");
   const world = contextual(structuredClone(request.world), request);
-  return decodeSave(JSON.stringify(world));
+  const loaded = decodeSave(JSON.stringify(world));
+  settleBoardy(loaded);
+  return loaded;
 }
 function response(world, extra = {}) {
   return { ok: true, world: stored(world), ...extra };
@@ -131,6 +134,7 @@ export function dispatchShared(request) {
       claimed: ["vale"],
       present: ["vale"],
     });
+    settleBoardy(world);
     validateWorld(world);
     return response(world, view(world, request.actor || "vale"));
   }
