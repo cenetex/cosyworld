@@ -1,0 +1,859 @@
+{
+  "actors": 200,
+  "bounded_cache_options": {
+    "eight_maximum_legal_replies_and_keys": 33555456,
+    "forty_mib": 41943040,
+    "sixteen_mib": 16777216,
+    "twenty_four_mib": 25165824
+  },
+  "cache_after_second_pass": {
+    "byte_limit": 41943040,
+    "bytes": 2816512,
+    "entries": 8,
+    "entry_limit": 32
+  },
+  "changed_view_inputs": [
+    {
+      "cache_hit": false,
+      "elapsed_ms": 962.155375,
+      "field": "actor",
+      "input_bytes": 127220,
+      "output_bytes": 351607
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 984.747916,
+      "field": "present",
+      "input_bytes": 127174,
+      "output_bytes": 354562
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 993.1443340000001,
+      "field": "world",
+      "input_bytes": 127220,
+      "output_bytes": 354608
+    }
+  ],
+  "cold_calls": [
+    {
+      "cache_hit": false,
+      "elapsed_ms": 839.175833,
+      "error": null,
+      "input_bytes": 15,
+      "op": "create",
+      "output_bytes": 354440,
+      "sample": 0
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 838.48525,
+      "error": null,
+      "input_bytes": 15,
+      "op": "create",
+      "output_bytes": 354440,
+      "sample": 1
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 838.9060000000001,
+      "error": null,
+      "input_bytes": 15,
+      "op": "create",
+      "output_bytes": 354440,
+      "sample": 2
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 838.0805,
+      "error": null,
+      "input_bytes": 15,
+      "op": "create",
+      "output_bytes": 354440,
+      "sample": 3
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 836.4043330000001,
+      "error": null,
+      "input_bytes": 15,
+      "op": "create",
+      "output_bytes": 354440,
+      "sample": 4
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 835.562292,
+      "error": null,
+      "input_bytes": 15,
+      "op": "create",
+      "output_bytes": 354440,
+      "sample": 5
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 836.633667,
+      "error": null,
+      "input_bytes": 15,
+      "op": "create",
+      "output_bytes": 354440,
+      "sample": 6
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 839.841375,
+      "error": null,
+      "input_bytes": 15,
+      "op": "create",
+      "output_bytes": 354440,
+      "sample": 7
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 836.4209999999999,
+      "error": null,
+      "input_bytes": 15,
+      "op": "create",
+      "output_bytes": 354440,
+      "sample": 8
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 837.6853749999999,
+      "error": null,
+      "input_bytes": 15,
+      "op": "create",
+      "output_bytes": 354440,
+      "sample": 9
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 940.555375,
+      "error": null,
+      "input_bytes": 127224,
+      "op": "validate",
+      "output_bytes": 127073,
+      "sample": 0
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 931.1642089999999,
+      "error": null,
+      "input_bytes": 127224,
+      "op": "validate",
+      "output_bytes": 127073,
+      "sample": 1
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 930.201708,
+      "error": null,
+      "input_bytes": 127224,
+      "op": "validate",
+      "output_bytes": 127073,
+      "sample": 2
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 931.993208,
+      "error": null,
+      "input_bytes": 127224,
+      "op": "validate",
+      "output_bytes": 127073,
+      "sample": 3
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 934.777875,
+      "error": null,
+      "input_bytes": 127224,
+      "op": "validate",
+      "output_bytes": 127073,
+      "sample": 4
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 934.9842080000001,
+      "error": null,
+      "input_bytes": 127224,
+      "op": "validate",
+      "output_bytes": 127073,
+      "sample": 5
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 937.868958,
+      "error": null,
+      "input_bytes": 127224,
+      "op": "validate",
+      "output_bytes": 127073,
+      "sample": 6
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 924.5836670000001,
+      "error": null,
+      "input_bytes": 127224,
+      "op": "validate",
+      "output_bytes": 127073,
+      "sample": 7
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 924.097583,
+      "error": null,
+      "input_bytes": 127224,
+      "op": "validate",
+      "output_bytes": 127073,
+      "sample": 8
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 925.408875,
+      "error": null,
+      "input_bytes": 127224,
+      "op": "validate",
+      "output_bytes": 127073,
+      "sample": 9
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 989.426416,
+      "error": null,
+      "input_bytes": 127224,
+      "op": "view",
+      "output_bytes": 354612,
+      "sample": 0
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 993.9559999999999,
+      "error": null,
+      "input_bytes": 127224,
+      "op": "view",
+      "output_bytes": 354612,
+      "sample": 1
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 983.719875,
+      "error": null,
+      "input_bytes": 127224,
+      "op": "view",
+      "output_bytes": 354612,
+      "sample": 2
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 986.125417,
+      "error": null,
+      "input_bytes": 127224,
+      "op": "view",
+      "output_bytes": 354612,
+      "sample": 3
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 988.148791,
+      "error": null,
+      "input_bytes": 127224,
+      "op": "view",
+      "output_bytes": 354612,
+      "sample": 4
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 985.2222499999999,
+      "error": null,
+      "input_bytes": 127224,
+      "op": "view",
+      "output_bytes": 354612,
+      "sample": 5
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1017.0495,
+      "error": null,
+      "input_bytes": 127224,
+      "op": "view",
+      "output_bytes": 354612,
+      "sample": 6
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 988.791833,
+      "error": null,
+      "input_bytes": 127224,
+      "op": "view",
+      "output_bytes": 354612,
+      "sample": 7
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 987.358166,
+      "error": null,
+      "input_bytes": 127224,
+      "op": "view",
+      "output_bytes": 354612,
+      "sample": 8
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 984.74775,
+      "error": null,
+      "input_bytes": 127224,
+      "op": "view",
+      "output_bytes": 354612,
+      "sample": 9
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1528.338375,
+      "error": null,
+      "input_bytes": 127362,
+      "op": "play",
+      "output_bytes": 392490,
+      "sample": 0
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1519.8427909999998,
+      "error": null,
+      "input_bytes": 127362,
+      "op": "play",
+      "output_bytes": 392490,
+      "sample": 1
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1511.932917,
+      "error": null,
+      "input_bytes": 127362,
+      "op": "play",
+      "output_bytes": 392490,
+      "sample": 2
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1525.999791,
+      "error": null,
+      "input_bytes": 127362,
+      "op": "play",
+      "output_bytes": 392490,
+      "sample": 3
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1514.6957080000002,
+      "error": null,
+      "input_bytes": 127362,
+      "op": "play",
+      "output_bytes": 392490,
+      "sample": 4
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1562.907625,
+      "error": null,
+      "input_bytes": 127362,
+      "op": "play",
+      "output_bytes": 392490,
+      "sample": 5
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1534.243917,
+      "error": null,
+      "input_bytes": 127362,
+      "op": "play",
+      "output_bytes": 392490,
+      "sample": 6
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1523.320375,
+      "error": null,
+      "input_bytes": 127362,
+      "op": "play",
+      "output_bytes": 392490,
+      "sample": 7
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1518.170167,
+      "error": null,
+      "input_bytes": 127362,
+      "op": "play",
+      "output_bytes": 392490,
+      "sample": 8
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1520.876458,
+      "error": null,
+      "input_bytes": 127362,
+      "op": "play",
+      "output_bytes": 392490,
+      "sample": 9
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1156.927209,
+      "error": null,
+      "input_bytes": 127188,
+      "op": "upgrade",
+      "output_bytes": 216971,
+      "sample": 0
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1156.292584,
+      "error": null,
+      "input_bytes": 127188,
+      "op": "upgrade",
+      "output_bytes": 216971,
+      "sample": 1
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1159.822208,
+      "error": null,
+      "input_bytes": 127188,
+      "op": "upgrade",
+      "output_bytes": 216971,
+      "sample": 2
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1160.037875,
+      "error": null,
+      "input_bytes": 127188,
+      "op": "upgrade",
+      "output_bytes": 216971,
+      "sample": 3
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1162.339209,
+      "error": null,
+      "input_bytes": 127188,
+      "op": "upgrade",
+      "output_bytes": 216971,
+      "sample": 4
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1158.740417,
+      "error": null,
+      "input_bytes": 127188,
+      "op": "upgrade",
+      "output_bytes": 216971,
+      "sample": 5
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1163.226291,
+      "error": null,
+      "input_bytes": 127188,
+      "op": "upgrade",
+      "output_bytes": 216971,
+      "sample": 6
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1159.6182079999999,
+      "error": null,
+      "input_bytes": 127188,
+      "op": "upgrade",
+      "output_bytes": 216971,
+      "sample": 7
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1160.25225,
+      "error": null,
+      "input_bytes": 127188,
+      "op": "upgrade",
+      "output_bytes": 216971,
+      "sample": 8
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1160.6235840000002,
+      "error": null,
+      "input_bytes": 127188,
+      "op": "upgrade",
+      "output_bytes": 216971,
+      "sample": 9
+    }
+  ],
+  "command_cache_bypass": [
+    {
+      "elapsed_ms": 1518.669625,
+      "input_bytes": 127362,
+      "op": "play",
+      "output_bytes": 392490,
+      "planted_cache_value_ignored": true,
+      "sample": 0
+    },
+    {
+      "elapsed_ms": 1515.675042,
+      "input_bytes": 127362,
+      "op": "play",
+      "output_bytes": 392490,
+      "planted_cache_value_ignored": true,
+      "sample": 1
+    }
+  ],
+  "dense_trust_bytes": 455,
+  "eight_cache_bytes_needed": 2816512,
+  "eight_key_bytes": 664,
+  "eight_reply_bytes": 2815848,
+  "fresh_shared_save_bytes": 127053,
+  "items": 252,
+  "keyed_trust_map_bytes": 5627,
+  "limits": {
+    "cache_bytes": 41943040,
+    "cache_entries": 32,
+    "deadline_ms": 2000,
+    "heap_bytes": 100663296,
+    "input_output_bytes": 4194304,
+    "save_import_bytes": 2097152
+  },
+  "old_actors": 66,
+  "operations": [
+    {
+      "errors": [],
+      "max_input_bytes": 15,
+      "max_ms": 839.841375,
+      "max_output_bytes": 354440,
+      "op": "create",
+      "p95_ms": 839.841375,
+      "samples": 10
+    },
+    {
+      "errors": [],
+      "max_input_bytes": 127224,
+      "max_ms": 940.555375,
+      "max_output_bytes": 127073,
+      "op": "validate",
+      "p95_ms": 940.555375,
+      "samples": 10
+    },
+    {
+      "errors": [],
+      "max_input_bytes": 127224,
+      "max_ms": 1017.0495,
+      "max_output_bytes": 354612,
+      "op": "view",
+      "p95_ms": 1017.0495,
+      "samples": 10
+    },
+    {
+      "errors": [],
+      "max_input_bytes": 127362,
+      "max_ms": 1562.907625,
+      "max_output_bytes": 392490,
+      "op": "play",
+      "p95_ms": 1562.907625,
+      "samples": 10
+    },
+    {
+      "errors": [],
+      "max_input_bytes": 127188,
+      "max_ms": 1163.226291,
+      "max_output_bytes": 216971,
+      "op": "upgrade",
+      "p95_ms": 1163.226291,
+      "samples": 10
+    }
+  ],
+  "rules": "full-card-world/21",
+  "scope": "Actual installed catalog and fresh eight-player views; final whole-catalog, long history and reading envelopes remain separate proof",
+  "source_commit": "b5ec6ffc0a303d2e1cccc95a9ddd23f85d589912",
+  "viewer_calls": [
+    {
+      "actor": "vale",
+      "cache_after": {
+        "byte_limit": 41943040,
+        "bytes": 354691,
+        "entries": 1,
+        "entry_limit": 32
+      },
+      "cache_hit": false,
+      "cached_output_bytes": 354608,
+      "elapsed_ms": 985.955875,
+      "error": null,
+      "input_bytes": 127220,
+      "key_bytes": 83,
+      "output_bytes": 354608,
+      "pass": 0
+    },
+    {
+      "actor": "mara",
+      "cache_after": {
+        "byte_limit": 41943040,
+        "bytes": 706381,
+        "entries": 2,
+        "entry_limit": 32
+      },
+      "cache_hit": false,
+      "cached_output_bytes": 351607,
+      "elapsed_ms": 962.6633340000001,
+      "error": null,
+      "input_bytes": 127220,
+      "key_bytes": 83,
+      "output_bytes": 351607,
+      "pass": 0
+    },
+    {
+      "actor": "ash",
+      "cache_after": {
+        "byte_limit": 41943040,
+        "bytes": 1058071,
+        "entries": 3,
+        "entry_limit": 32
+      },
+      "cache_hit": false,
+      "cached_output_bytes": 351607,
+      "elapsed_ms": 965.757875,
+      "error": null,
+      "input_bytes": 127219,
+      "key_bytes": 83,
+      "output_bytes": 351607,
+      "pass": 0
+    },
+    {
+      "actor": "nell",
+      "cache_after": {
+        "byte_limit": 41943040,
+        "bytes": 1409757,
+        "entries": 4,
+        "entry_limit": 32
+      },
+      "cache_hit": false,
+      "cached_output_bytes": 351603,
+      "elapsed_ms": 968.1888749999999,
+      "error": null,
+      "input_bytes": 127220,
+      "key_bytes": 83,
+      "output_bytes": 351603,
+      "pass": 0
+    },
+    {
+      "actor": "tavi",
+      "cache_after": {
+        "byte_limit": 41943040,
+        "bytes": 1761431,
+        "entries": 5,
+        "entry_limit": 32
+      },
+      "cache_hit": false,
+      "cached_output_bytes": 351591,
+      "elapsed_ms": 961.138416,
+      "error": null,
+      "input_bytes": 127220,
+      "key_bytes": 83,
+      "output_bytes": 351591,
+      "pass": 0
+    },
+    {
+      "actor": "rue",
+      "cache_after": {
+        "byte_limit": 41943040,
+        "bytes": 2113123,
+        "entries": 6,
+        "entry_limit": 32
+      },
+      "cache_hit": false,
+      "cached_output_bytes": 351609,
+      "elapsed_ms": 962.701542,
+      "error": null,
+      "input_bytes": 127219,
+      "key_bytes": 83,
+      "output_bytes": 351609,
+      "pass": 0
+    },
+    {
+      "actor": "orin",
+      "cache_after": {
+        "byte_limit": 41943040,
+        "bytes": 2464831,
+        "entries": 7,
+        "entry_limit": 32
+      },
+      "cache_hit": false,
+      "cached_output_bytes": 351625,
+      "elapsed_ms": 960.618125,
+      "error": null,
+      "input_bytes": 127220,
+      "key_bytes": 83,
+      "output_bytes": 351625,
+      "pass": 0
+    },
+    {
+      "actor": "ada",
+      "cache_after": {
+        "byte_limit": 41943040,
+        "bytes": 2816512,
+        "entries": 8,
+        "entry_limit": 32
+      },
+      "cache_hit": false,
+      "cached_output_bytes": 351598,
+      "elapsed_ms": 966.441375,
+      "error": null,
+      "input_bytes": 127219,
+      "key_bytes": 83,
+      "output_bytes": 351598,
+      "pass": 0
+    },
+    {
+      "actor": "vale",
+      "cache_after": {
+        "byte_limit": 41943040,
+        "bytes": 2816512,
+        "entries": 8,
+        "entry_limit": 32
+      },
+      "cache_hit": true,
+      "cached_output_bytes": 354608,
+      "elapsed_ms": 10.919958000000001,
+      "error": null,
+      "input_bytes": 127220,
+      "key_bytes": 83,
+      "output_bytes": 354608,
+      "pass": 1
+    },
+    {
+      "actor": "mara",
+      "cache_after": {
+        "byte_limit": 41943040,
+        "bytes": 2816512,
+        "entries": 8,
+        "entry_limit": 32
+      },
+      "cache_hit": true,
+      "cached_output_bytes": 351607,
+      "elapsed_ms": 11.102542,
+      "error": null,
+      "input_bytes": 127220,
+      "key_bytes": 83,
+      "output_bytes": 351607,
+      "pass": 1
+    },
+    {
+      "actor": "ash",
+      "cache_after": {
+        "byte_limit": 41943040,
+        "bytes": 2816512,
+        "entries": 8,
+        "entry_limit": 32
+      },
+      "cache_hit": true,
+      "cached_output_bytes": 351607,
+      "elapsed_ms": 10.98925,
+      "error": null,
+      "input_bytes": 127219,
+      "key_bytes": 83,
+      "output_bytes": 351607,
+      "pass": 1
+    },
+    {
+      "actor": "nell",
+      "cache_after": {
+        "byte_limit": 41943040,
+        "bytes": 2816512,
+        "entries": 8,
+        "entry_limit": 32
+      },
+      "cache_hit": true,
+      "cached_output_bytes": 351603,
+      "elapsed_ms": 11.04375,
+      "error": null,
+      "input_bytes": 127220,
+      "key_bytes": 83,
+      "output_bytes": 351603,
+      "pass": 1
+    },
+    {
+      "actor": "tavi",
+      "cache_after": {
+        "byte_limit": 41943040,
+        "bytes": 2816512,
+        "entries": 8,
+        "entry_limit": 32
+      },
+      "cache_hit": true,
+      "cached_output_bytes": 351591,
+      "elapsed_ms": 10.968959,
+      "error": null,
+      "input_bytes": 127220,
+      "key_bytes": 83,
+      "output_bytes": 351591,
+      "pass": 1
+    },
+    {
+      "actor": "rue",
+      "cache_after": {
+        "byte_limit": 41943040,
+        "bytes": 2816512,
+        "entries": 8,
+        "entry_limit": 32
+      },
+      "cache_hit": true,
+      "cached_output_bytes": 351609,
+      "elapsed_ms": 10.980208,
+      "error": null,
+      "input_bytes": 127219,
+      "key_bytes": 83,
+      "output_bytes": 351609,
+      "pass": 1
+    },
+    {
+      "actor": "orin",
+      "cache_after": {
+        "byte_limit": 41943040,
+        "bytes": 2816512,
+        "entries": 8,
+        "entry_limit": 32
+      },
+      "cache_hit": true,
+      "cached_output_bytes": 351625,
+      "elapsed_ms": 10.919833,
+      "error": null,
+      "input_bytes": 127220,
+      "key_bytes": 83,
+      "output_bytes": 351625,
+      "pass": 1
+    },
+    {
+      "actor": "ada",
+      "cache_after": {
+        "byte_limit": 41943040,
+        "bytes": 2816512,
+        "entries": 8,
+        "entry_limit": 32
+      },
+      "cache_hit": true,
+      "cached_output_bytes": 351598,
+      "elapsed_ms": 10.797625,
+      "error": null,
+      "input_bytes": 127219,
+      "key_bytes": 83,
+      "output_bytes": 351598,
+      "pass": 1
+    }
+  ],
+  "evidence_notes": {
+    "baseline_source": "5f0ce983906dcc7340188c0b728caec957fc3ee3",
+    "runtime_source": "e326462096e538f540ccd51b7ab3003aedd2f4af",
+    "profile": "One build worker, one test worker, debug symbols disabled, 16 MiB Rust stack, isolated target, 40 MiB host cache",
+    "isolation": "An earlier Playwright GPU job overlapped compilation. Cargo was paused before tests. The browser processes ended before cargo resumed. Measurements ran after that pause, with other assigned builds/checks held.",
+    "catalog": "Actual 200-actor / 252-item intermediate source; final 203-actor and archive/history/reading qualification remains pending",
+    "byte_names": "dense_trust_bytes is the historical field name for the sum of trust-row JSON bytes; this run uses sparse new rows. keyed_trust_map_bytes includes actor IDs and outer punctuation.",
+    "outer_wall_time": "All 50 cold calls and both command-cache-bypass calls were under 2000 ms wall time. The separate normal capacity gate also passed every call under 2000 ms.",
+    "limits": "96 MiB heap, 2 second interpreter deadline, 2 MiB save import, 4 MiB input/output, 40 MiB / 32-entry host view cache",
+    "native_result": "4 audit/cache tests passed in 72.68 seconds. Separate capacity checks: 2 passed, 1 camp-road array-order assertion failed; see card-sparse-trust-native-gates.json."
+  }
+}

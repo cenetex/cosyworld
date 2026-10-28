@@ -1,0 +1,136 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "b5ec6ffc0a303d2e1cccc95a9ddd23f85d589912",
+  "runtimeSourceCommit": "e326462096e538f540ccd51b7ab3003aedd2f4af",
+  "audit": {
+    "passed": 4,
+    "failed": 0,
+    "seconds": 72.68
+  },
+  "capacity": {
+    "passed": 2,
+    "failed": 1,
+    "seconds": 69.2,
+    "tests": [
+      {
+        "name": "capacity_current_catalog_cold_runtime_stays_within_the_live_limits",
+        "result": "passed",
+        "operations": [
+          {
+            "deadline_ms": 2000,
+            "heap_limit_mib": 96,
+            "input_bytes": 15,
+            "max_ms": 871.7296660000001,
+            "op": "create",
+            "output_bytes": 354440,
+            "p95_ms": 871.7296660000001,
+            "rules": "full-card-world/21",
+            "samples": 10
+          },
+          {
+            "deadline_ms": 2000,
+            "heap_limit_mib": 96,
+            "input_bytes": 152112,
+            "max_ms": 955.648916,
+            "op": "validate",
+            "output_bytes": 152053,
+            "p95_ms": 955.648916,
+            "rules": "full-card-world/21",
+            "samples": 10
+          },
+          {
+            "deadline_ms": 2000,
+            "heap_limit_mib": 96,
+            "input_bytes": 152108,
+            "max_ms": 1025.8843749999999,
+            "op": "view",
+            "output_bytes": 385297,
+            "p95_ms": 1025.8843749999999,
+            "rules": "full-card-world/21",
+            "samples": 10
+          },
+          {
+            "deadline_ms": 2000,
+            "heap_limit_mib": 96,
+            "input_bytes": 152235,
+            "max_ms": 1448.361542,
+            "op": "play",
+            "output_bytes": 396952,
+            "p95_ms": 1448.361542,
+            "rules": "full-card-world/21",
+            "samples": 10
+          },
+          {
+            "deadline_ms": 2000,
+            "heap_limit_mib": 96,
+            "input_bytes": 152165,
+            "max_ms": 1118.204958,
+            "op": "upgrade",
+            "output_bytes": 152053,
+            "p95_ms": 1118.204958,
+            "rules": "full-card-world/21",
+            "samples": 10
+          }
+        ]
+      },
+      {
+        "name": "capacity_rules_extend_twenty_and_preserve_existing_plays",
+        "result": "failed",
+        "path": ".routeKnowledge.greek-rhapsode",
+        "assertion": "Retain earlier values after the allowed Susa/camp/crag road expansion",
+        "leftCount": 144,
+        "rightCount": 144,
+        "edgeSetsEqual": true,
+        "allOtherEdgesKeepOrder": true,
+        "leftCampEdges": [
+          [
+            "greek-scythian-crag",
+            "greek-vii-crag-camp"
+          ],
+          [
+            "greek-susa",
+            "greek-vii-crag-camp"
+          ],
+          [
+            "greek-vii-crag-camp",
+            "greek-scythian-crag"
+          ],
+          [
+            "greek-vii-crag-camp",
+            "greek-susa"
+          ]
+        ],
+        "rightCampEdges": [
+          [
+            "greek-scythian-crag",
+            "greek-vii-crag-camp"
+          ],
+          [
+            "greek-vii-crag-camp",
+            "greek-susa"
+          ],
+          [
+            "greek-susa",
+            "greek-vii-crag-camp"
+          ],
+          [
+            "greek-vii-crag-camp",
+            "greek-scythian-crag"
+          ]
+        ],
+        "scope": "The four replacement camp edges have a different array order. Every other road entry keeps its order. The release coordinator owns the separate road migration and will review its canonical order."
+      },
+      {
+        "name": "capacity_upgrade_keeps_earned_wording_and_authors_through_journal_rebuild",
+        "result": "passed",
+        "evidence": "Known and unknown verse authors, saved earlier fields, reopened store and journal-only rebuild all retain their expected values."
+      }
+    ]
+  },
+  "focusedJavascript": {
+    "passed": 85,
+    "failed": 0,
+    "files": 10
+  },
+  "finalRelease": "Draft pending final 203-actor/history/archive/reading proof, the separate road-order review and full CI"
+}
