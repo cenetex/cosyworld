@@ -231,7 +231,12 @@ export function sceneStaging(
   } = {},
 ) {
   const selected = [...new Set([currentActor(world), activeSpeaker, ...cast])]
-    .filter((id) => cast.includes(id) && people[id])
+    .filter(
+      (id) =>
+        cast.includes(id) &&
+        people[id] &&
+        packPeople[id]?.presentation !== "backdrop",
+    )
     .slice(0, world.controlledActors ? 6 : 3);
   const ids = cast.filter(
     (id, index) => selected.includes(id) && cast.indexOf(id) === index,

@@ -39,6 +39,15 @@ import {
 import { questHistoryCards } from "../v2/card-game/quest-cards.mjs";
 import { hub, packDefinition } from "../v2/card-game/pack-registry.mjs";
 import { packProblems } from "../v2/card-game/pack-schema.mjs";
+import {
+  currentScene,
+  sceneCast,
+  sceneStaging,
+} from "../v2/card-game/scene.mjs";
+import {
+  narrativeContext,
+  applyGeneratedText,
+} from "../v2/card-game/narrative.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 
 const PACK = "lonely-forest";
@@ -107,6 +116,40 @@ function chapter({
 }
 
 describe("Tea beneath the oak", () => {
+  it("paints a backdrop resident once while keeping its card and dialogue", () => {
+    let world = welcome();
+    world = move(world, GARDEN);
+    world = move(world, OAK);
+    world = act(world, "talk", { target: "oak" });
+    const context = narrativeContext(world);
+    world = applyGeneratedText(world, context, {
+      revision: world.revision,
+      model: "forest-presentation-test",
+      entries: context.entities.map(({ id }) => ({
+        id,
+        text:
+          id === "oak"
+            ? "Root counts the footsteps beside the garden."
+            : "I can see the path from here.",
+      })),
+    });
+    const scene = currentScene(world);
+    expect(sceneCast(world)).toContain("oak");
+    expect(sceneStaging(world).actors.map((a) => a.id)).toEqual(["vale"]);
+    expect(scene.background).toBe("./assets/lonely-forest/oak.png");
+    expect(scene.lines.some((line) => line.actorId === "oak")).toBe(true);
+    expect(availableCards(world)).toContain("oak");
+    expect(
+      legalActions(world).some((a) => a.kind === "talk" && a.target === "oak"),
+    ).toBe(true);
+    const pack = structuredClone(packDefinition(PACK));
+    pack.avatars.oak.presentation = "unknown";
+    expect(packProblems(pack, hub).join(" ")).toMatch(/presentation/);
+    pack.avatars.oak.presentation = "backdrop";
+    delete pack.avatars.oak.travels;
+    expect(packProblems(pack, hub).join(" ")).toMatch(/fixed backdrop/);
+  });
+
   it("validates the source cast, routes, choices and mirror crossing", () => {
     const pack = packDefinition(PACK);
     expect(packProblems(pack, hub)).toEqual([]);

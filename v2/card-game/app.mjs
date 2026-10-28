@@ -1,5 +1,5 @@
 import { imageUrl } from "./images.mjs";
-import { flipStagePortrait } from "./portrait-facing.mjs";
+import { flipStagePortrait, portraitFraming } from "./portrait-facing.mjs";
 import { installSceneVideo } from "./scene-video.mjs";
 import { locationWeather } from "./weather.mjs";
 import { locationDaylight } from "./daylight.mjs";
@@ -1917,6 +1917,7 @@ function renderScene() {
     const { id } = actor;
     const figure = $("cast").children[index];
     figure.dataset.depth = actor.depth;
+    figure.dataset.framing = portraitFraming(actor.cutout);
     figure.dataset.facing = actor.facing;
     figure.dataset.gaze = actor.gazeTargetId || "";
     figure.dataset.pose = actor.pose;

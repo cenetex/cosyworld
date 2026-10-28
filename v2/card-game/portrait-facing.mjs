@@ -4,6 +4,9 @@
 const groups = {
   right: [
     "assets/boardyai/boardyai.png",
+    ...["rati", "skull", "whiskerwind"].map(
+      (name) => `assets/lonely-forest/${name}.png`,
+    ),
     "assets/vale.png",
     "assets/keeper-right.png",
     ...["vale", "mara", "ash", "nell", "tavi", "rue", "orin", "ada"].map(
@@ -43,6 +46,7 @@ const groups = {
     ].map((name) => `assets/greek-drama/open-door-${name}.webp`),
   ],
   front: [
+    "assets/lonely-forest/oak.png",
     "assets/badger-forest/badger-sleeping.png",
     "assets/badger-forest/badger-grumpy.png",
   ],
@@ -60,3 +64,11 @@ export function flipStagePortrait(cutout, facing) {
   const native = nativePortraitFacing(cutout);
   return Boolean(native && native !== "front" && native !== facing);
 }
+
+// Broad animal silhouettes keep their whole face inside a narrow scene.
+const widePortraits = new Set([
+  "assets/lonely-forest/skull.png",
+  "assets/lonely-forest/whiskerwind.png",
+]);
+export const portraitFraming = (cutout) =>
+  widePortraits.has(cutout.replace(/^\.\//, "")) ? "wide" : "standard";

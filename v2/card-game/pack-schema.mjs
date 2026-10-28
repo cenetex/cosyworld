@@ -433,6 +433,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "persona",
         "voice",
         "expression",
+        "presentation",
         "tastes",
         "portrait",
         "temperament",
@@ -456,6 +457,12 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     check(
       a.expression === undefined || EXPRESSION_TYPES.includes(a.expression),
       `avatar ${id} expression needs speech, movement or emoji`,
+    );
+    check(
+      a.presentation === undefined ||
+        a.presentation === "figure" ||
+        (a.presentation === "backdrop" && a.travels === false),
+      `avatar ${id} presentation needs figure or a fixed backdrop resident`,
     );
     check(
       [a.travels, a.standoffs].every((v) => v === undefined || v === false) &&

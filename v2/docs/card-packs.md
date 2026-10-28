@@ -67,6 +67,10 @@ shore's authored quest programs; their interest is their home.
   and the planner leaves it in place.
 - `"standoffs": false` means it cannot be threatened.
 - `portrait` is its art, unless it has a temperament.
+- `presentation: "backdrop"` keeps a fixed resident in the place illustration.
+  Its card, dialogue and interactions keep their usual place in the game.
+  The stage paints the resident once, through the place art. The default
+  `figure` presentation uses the separate portrait.
 
 A **temperament** gives a resident moods that general rules change:
 
