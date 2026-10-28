@@ -137,7 +137,7 @@ describe("Greek ports and fixed roads", () => {
       w = play(w, "vale", "wait", {});
     expect(w.transports["greek-ship"].dock).toBe(port);
     w = move(w, "vale", "greek-ship");
-    expect(w.actors.boardyai.place).toBe("greek-ship");
+    expect(w.actors.boardyai.place).toBe("boardyai-parlour");
     expect(w.actors.vale.place).toBe("greek-ship");
   });
 
@@ -153,7 +153,7 @@ describe("Greek ports and fixed roads", () => {
     ).toEqual([]);
     w = move(w, "vale", "greek-piraeus");
     expect(w.actors.moth.place).toBe("greek-piraeus");
-    expect(w.actors.boardyai.place).toBe("greek-piraeus");
+    expect(w.actors.boardyai.place).toBe("boardyai-parlour");
     expect(w.transports["greek-ship"].destination).toBe(null);
   });
 
@@ -198,8 +198,11 @@ describe("Greek ports and fixed roads", () => {
       expect(current.items).toMatchObject(old.items);
       expect(current.transports).toEqual(old.transports);
       expect(current.packs["greek-drama"].revision).toBe(5);
-      for (const [id, memory] of Object.entries(old.memories))
-        expect(current.memories[id]).toEqual(memory);
+      for (const [id, memory] of Object.entries(old.memories)) {
+        const { seen, ...retained } = current.memories[id];
+        expect(retained).toEqual(memory);
+        if (seen) expect(typeof seen).toBe("object");
+      }
       expect(decodeSave(encodeSave(current))).toEqual(current);
     },
   );

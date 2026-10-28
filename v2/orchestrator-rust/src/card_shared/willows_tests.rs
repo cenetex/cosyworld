@@ -3,15 +3,23 @@ use serde_json::json;
 
 #[test]
 fn willows_upgrades_version_sixteen_and_replays_discoveries_custody_and_return() {
+    replay_willows(engine::SIXTEENTH_VERSION);
+}
+
+#[test]
+fn willows_upgrades_version_seventeen_and_replays_discoveries_custody_and_return() {
+    replay_willows(engine::SEVENTEENTH_VERSION);
+}
+
+fn replay_willows(version: &str) {
     let path = std::env::temp_dir().join(format!("willows-{}.sqlite", crate::random_hex(12)));
     let c = store::open(&path).unwrap();
     full_store::schema(&c).unwrap();
     let id = "a".repeat(48);
     store::create(&c, &id, "owner", now()).unwrap();
-    let released =
-        engine::reduce_version(engine::SIXTEENTH_VERSION, json!({"op":"create"})).unwrap();
+    let released = engine::reduce_version(version, json!({"op":"create"})).unwrap();
     let mut old = World {
-        version: engine::SIXTEENTH_VERSION.into(),
+        version: version.into(),
         game: released["world"].clone(),
         claimed: [1, 1, 0, 0, 0, 0, 0, 0],
         present: [1, 1, 0, 0, 0, 0, 0, 0],

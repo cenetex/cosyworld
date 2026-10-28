@@ -42,6 +42,6 @@ the game's simple SVG item style. Art lives in `v2/card-game/assets/willows/`.
 ## Checks
 
 `test/card-willows.test.mjs` covers discovery, custody, old saves, the two
-responses and shared play. The Rust Willows tests cover the released rules
-upgrade and journal replay. `v2/scripts/smoke-card-willows.mjs` checks the
+responses and shared play. The Rust Willows tests cover upgrades from released
+rules versions 16 and 17 and journal replay. `v2/scripts/smoke-card-willows.mjs` checks the
 play path at desktop and phone sizes.
