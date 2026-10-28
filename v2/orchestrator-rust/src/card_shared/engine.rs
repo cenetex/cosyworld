@@ -209,6 +209,10 @@ fn engine_error(error: impl std::fmt::Display) -> String {
 }
 
 #[cfg(test)]
+#[path = "engine_audit_tests.rs"]
+mod audit_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     #[test]
