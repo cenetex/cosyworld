@@ -24,6 +24,280 @@
     {
       "asset": "swede-transparent",
       "prompt": "Use case: identity-preserve. Edit target: the supplied Swede portrait. Create a full-body transparent character cutout for the CosyWorld stage, retaining this exact man's face, age, short moustache, hair, plain cream linen rolled-sleeve shirt, dark brown waistcoat and brown wool trousers. Show him standing at ease, from head to both boots, in a three-quarter pose looking to the left, hands loose by his sides. Practical Swedish canoe traveller around 1907, calm but alert. Match the original detailed painted gouache and ink finish. Keep the whole figure inside a portrait canvas with a small clear margin at head and feet. The output background must be genuinely transparent, including all areas around his body. Preserve natural warm evening light on the figure. The only visible subject is the man, with no scenery, ground plane, frame, shadow rectangle, captions or text."
+    },
+    {
+      "asset": "paddle",
+      "prompt": "Use case: stylized-concept. Asset type: individual game item cutout for The Willows, a quiet cosmic horror story set on a Danube island around 1907. Style: finely painted realistic storybook illustration with tactile natural materials, subtle brushwork, muted earth tones, matching the project's detailed camping scenery. Scene/backdrop: genuinely transparent alpha background. Composition: exactly one item centered, complete silhouette with generous transparent margin on every side, fills about 78 percent of a square canvas. Lighting: soft neutral daylight, readable against both pale and dark scenery. Render just the requested item as an isolated sprite. Text and logos: none. Human figures and hands: none. Floor and cast shadow: none. Subject: One long wooden canoe paddle, the blade scraped unusually thin, pale worn edges, dark wet brown wood, oval grip. Pose it diagonally from lower left to upper right, fully visible.",
+      "file": "assets/willows/paddle.webp",
+      "sourceName": "exec-4d2d2180-6ab1-4099-aa00-9409557e57f3.png",
+      "sourceSha256": "e0b8c8d53fdc3fe20040b5960e67ea261f40508d1f3881ffc8db91b7191c8f77",
+      "sha256": "56fd0bee151949b74076c7e86a7b02fee9bb33c4bd426dcd1f0a9d14f2dbfdfe",
+      "size": [
+        1024,
+        1024
+      ],
+      "processing": "Built-in image_gen; WebP quality 94 with original alpha."
+    },
+    {
+      "asset": "map",
+      "prompt": "Use case: stylized-concept. Asset type: individual game item cutout for The Willows, a quiet cosmic horror story set on a Danube island around 1907. Style: finely painted realistic storybook illustration with tactile natural materials, subtle brushwork, muted earth tones, matching the project's detailed camping scenery. Scene/backdrop: genuinely transparent alpha background. Composition: exactly one item centered, complete silhouette with generous transparent margin on every side, fills about 78 percent of a square canvas. Lighting: soft neutral daylight, readable against both pale and dark scenery. Render just the requested item as an isolated sprite. Text and logos: none. Human figures and hands: none. Floor and cast shadow: none. Subject: One creased, partly unfolded antique paper river map, warm ivory paper with hand-inked branching Danube channels and sandbanks, faint contour marks, softly curled corners. Ink marks stay small and abstract.",
+      "file": "assets/willows/map.webp",
+      "sourceName": "exec-1b05a634-cedf-4acc-850c-5ef9ae8cb897.png",
+      "sourceSha256": "bcb299835c975ef45a269eebd38656b380bcc8b30e815a0bdf0d3e912f88ac4c",
+      "sha256": "fc3b8a8d4358edf0dd9ef787098e21d1475f25cafc3f07335e0d4322ce493a13",
+      "size": [
+        1024,
+        1024
+      ],
+      "processing": "Built-in image_gen; WebP quality 94 with original alpha."
+    },
+    {
+      "asset": "rope",
+      "prompt": "Use case: stylized-concept. Asset type: individual game item cutout for The Willows, a quiet cosmic horror story set on a Danube island around 1907. Style: finely painted realistic storybook illustration with tactile natural materials, subtle brushwork, muted earth tones, matching the project's detailed camping scenery. Scene/backdrop: genuinely transparent alpha background. Composition: exactly one item centered, complete silhouette with generous transparent margin on every side, fills about 78 percent of a square canvas. Lighting: soft neutral daylight, readable against both pale and dark scenery. Render just the requested item as an isolated sprite. Text and logos: none. Human figures and hands: none. Floor and cast shadow: none. Subject: One spare coil of stout sound hemp tent rope, natural tan rough fibres, neatly looped with a short loose end and a practical small knot.",
+      "file": "assets/willows/rope.webp",
+      "sourceName": "exec-607b2fa9-10ac-42df-a15a-c2af83560236.png",
+      "sourceSha256": "a7a0d24fdef70a456ff6514e1400b9316a1b9df87a8409ade712a3b6c7e20469",
+      "sha256": "ff70af3dec7cc0918a185566ede85ade628e4a5087d2366d9512bdca7bd599e2",
+      "size": [
+        1024,
+        1024
+      ],
+      "processing": "Built-in image_gen; WebP quality 94 with original alpha."
+    },
+    {
+      "asset": "sheet",
+      "prompt": "Use case: stylized-concept. Asset type: individual game item cutout for The Willows, a quiet cosmic horror story set on a Danube island around 1907. Style: finely painted realistic storybook illustration with tactile natural materials, subtle brushwork, muted earth tones, matching the project's detailed camping scenery. Scene/backdrop: genuinely transparent alpha background. Composition: exactly one item centered, complete silhouette with generous transparent margin on every side, fills about 78 percent of a square canvas. Lighting: soft neutral daylight, readable against both pale and dark scenery. Render just the requested item as an isolated sprite. Text and logos: none. Human figures and hands: none. Floor and cast shadow: none. Subject: One folded dark olive-black waterproof oilcloth camping sheet, sturdy fabric, thick overlapping folds, gently weathered edges, with a small loose corner showing its material.",
+      "file": "assets/willows/sheet.webp",
+      "sourceName": "exec-5463e54d-db20-45e6-b85c-b24df36be0cf.png",
+      "sourceSha256": "709977b7a47605f684ffc2bd71a1d0e461d322e804d6e02ec0c58d72dcf0093f",
+      "sha256": "504a1e8099b194dcdf801346ea0e5843d063801d8a8ef83e0bf07e3012cf8351",
+      "size": [
+        1024,
+        1024
+      ],
+      "processing": "Built-in image_gen; WebP quality 94 with original alpha."
+    },
+    {
+      "asset": "provisions",
+      "prompt": "Use case: stylized-concept. Asset type: individual game item cutout for The Willows, a quiet cosmic horror story set on a Danube island around 1907. Style: finely painted realistic storybook illustration with tactile natural materials, subtle brushwork, muted earth tones, matching the project's detailed camping scenery. Scene/backdrop: genuinely transparent alpha background. Composition: exactly one item centered, complete silhouette with generous transparent margin on every side, fills about 78 percent of a square canvas. Lighting: soft neutral daylight, readable against both pale and dark scenery. Render just the requested item as an isolated sprite. Text and logos: none. Human figures and hands: none. Floor and cast shadow: none. Subject: One tied smoke-stained beige canvas provisions sack, full rounded body, narrow gathered neck tied with twine, heavy cloth seams and creases. The sack is closed.",
+      "file": "assets/willows/provisions.webp",
+      "sourceName": "exec-aa78c086-f95b-4eaa-8132-da25887b9845.png",
+      "sourceSha256": "0a66be416e85f7608f7c31f1f0e3b18daf782c2872ce11d684741d32780be9ac",
+      "sha256": "f45811daa80b665755dc849a9b48f5c5ae4e2e64305690dad553c731be3493ba",
+      "size": [
+        1024,
+        1024
+      ],
+      "processing": "Built-in image_gen; WebP quality 94 with original alpha."
+    },
+    {
+      "asset": "pot",
+      "prompt": "Use case: stylized-concept. Asset type: individual game item cutout for The Willows, a quiet cosmic horror story set on a Danube island around 1907. Style: finely painted realistic storybook illustration with tactile natural materials, subtle brushwork, muted earth tones, matching the project's detailed camping scenery. Scene/backdrop: genuinely transparent alpha background. Composition: exactly one item centered, complete silhouette with generous transparent margin on every side, fills about 78 percent of a square canvas. Lighting: soft neutral daylight, readable against both pale and dark scenery. Render just the requested item as an isolated sprite. Text and logos: none. Human figures and hands: none. Floor and cast shadow: none. Subject: One small well-used black iron camp stew pot, rounded kettle body, open empty dark interior, thin upright curved carrying bail, soot on the lower body, worn iron rim. Show all of the handle.",
+      "file": "assets/willows/pot.webp",
+      "sourceName": "exec-943c48af-3521-435e-9231-bea54638f097.png",
+      "sourceSha256": "b44a29754d648fcf82ea9e261da4459779517c44805809ad9fbe3a463b71b73f",
+      "sha256": "cef263bea678d5980a2be458eab37469cd505d665e49138a2046094fbc1a2338",
+      "size": [
+        1024,
+        1024
+      ],
+      "processing": "Built-in image_gen; WebP quality 94 with original alpha."
+    },
+    {
+      "asset": "spoon",
+      "prompt": "Use case: stylized-concept. Asset type: individual game item cutout for The Willows, a quiet cosmic horror story set on a Danube island around 1907. Style: finely painted realistic storybook illustration with tactile natural materials, subtle brushwork, muted earth tones, matching the project's detailed camping scenery. Scene/backdrop: genuinely transparent alpha background. Composition: exactly one item centered, complete silhouette with generous transparent margin on every side, fills about 78 percent of a square canvas. Lighting: soft neutral daylight, readable against both pale and dark scenery. Render just the requested item as an isolated sprite. Text and logos: none. Human figures and hands: none. Floor and cast shadow: none. Subject: One plain long wooden cooking spoon, oval shallow bowl and long straight handle, warm dark brown wood grain, smoke-darkened handle. Pose it diagonally lower left to upper right, fully visible.",
+      "file": "assets/willows/spoon.webp",
+      "sourceName": "exec-cfe0a649-1571-4ae1-a164-b44ae712c30e.png",
+      "sourceSha256": "115b23ec32b51403b7c47ca6af4062b4b46153fa225d6a23099bb64ac7f52fdc",
+      "sha256": "afa50136e123093c7248f0e4cdb02841d59bc136e3aee3fa055ab7849318c972",
+      "size": [
+        1024,
+        1024
+      ],
+      "processing": "Built-in image_gen; WebP quality 94 with original alpha."
+    },
+    {
+      "asset": "pipe",
+      "prompt": "Use case: stylized-concept. Asset type: individual game item cutout for The Willows, a quiet cosmic horror story set on a Danube island around 1907. Style: finely painted realistic storybook illustration with tactile natural materials, subtle brushwork, muted earth tones, matching the project's detailed camping scenery. Scene/backdrop: genuinely transparent alpha background. Composition: exactly one item centered, complete silhouette with generous transparent margin on every side, fills about 78 percent of a square canvas. Lighting: soft neutral daylight, readable against both pale and dark scenery. Render just the requested item as an isolated sprite. Text and logos: none. Human figures and hands: none. Floor and cast shadow: none. Subject: One well-used briar tobacco pipe, warm chestnut curved bowl with dark rim and short gently bent black stem, subtle wear, classic early twentieth century travelling companion's pipe.",
+      "file": "assets/willows/pipe.webp",
+      "sourceName": "exec-d1148f37-f32e-4496-90a6-ed73d7879381.png",
+      "sourceSha256": "1b9ca965219b9d3b258347f31b9e122010a381bbfc4fdd384e745ad296be1394",
+      "sha256": "dc9eec04d2c74425ecd4624392844fa35de629b0627cd60f5a4089f4ac3c9ec2",
+      "size": [
+        1024,
+        1024
+      ],
+      "processing": "Built-in image_gen; WebP quality 94 with original alpha."
+    },
+    {
+      "asset": "landing-day",
+      "prompt": "Use case: lighting-weather. Edit target: the supplied Willows game background. Create a daylight lighting variant of this exact scene for the game's changing time and weather. Preserve the camera, landscape, every important prop, river channels, trees, paths, root shapes, and painted detail. Keep the same wide landscape format. Change the sky and light to soft pale blue-grey daylight with a few thin high clouds and neutral silver-green willow leaves. The entire sky is ordinary daytime sky. Use diffuse overhead light, subtle earthy colours and clear readable details. Retain the campfire if present and let it cast a small warm glow on nearby sand. Preserve the empty foreground space. All existing objects retain their positions and scale. Use a continuous natural sky in place of any sunset sun, moon or celestial pattern. Keep the detailed painted realistic storybook style. Text and characters: none.",
+      "file": "assets/willows/landing-day.webp",
+      "reference": "assets/willows/landing.webp",
+      "sourceName": "exec-33555dc0-4e5d-4ed9-9958-a4f47be4bcd8.png",
+      "sourceSha256": "637fa31f850eb39f23d1eb9a502bf08eb4af51c9f8a5e63fdcba51fbbc119ec1",
+      "sha256": "5ef9eba378e530de7b48e25b0cca07e62d11c3bff243990f84eff767769bfac7",
+      "size": [
+        1672,
+        941
+      ],
+      "processing": "Built-in image_gen; WebP quality 94 with original alpha."
+    },
+    {
+      "asset": "camp-day",
+      "prompt": "Use case: lighting-weather. Edit target: the supplied Willows game background. Create a daylight lighting variant of this exact scene for the game's changing time and weather. Preserve the camera, landscape, every important prop, river channels, trees, paths, root shapes, and painted detail. Keep the same wide landscape format. Change the sky and light to soft pale blue-grey daylight with a few thin high clouds and neutral silver-green willow leaves. The entire sky is ordinary daytime sky. Use diffuse overhead light, subtle earthy colours and clear readable details. Retain the campfire if present and let it cast a small warm glow on nearby sand. Preserve the empty foreground space. All existing objects retain their positions and scale. Use a continuous natural sky in place of any sunset sun, moon or celestial pattern. Keep the detailed painted realistic storybook style. Text and characters: none.",
+      "file": "assets/willows/camp-day.webp",
+      "reference": "assets/willows/camp.webp",
+      "sourceName": "exec-e984d2f5-f998-44f1-bf95-727d87026cdd.png",
+      "sourceSha256": "61038f15a194f2fe8f2dc03ee45e2fa2d476b2d11d18717a354ac13004c6130e",
+      "sha256": "72e0d10c71f80769a83f8bf9a4a3b0f133fb5a7d8f56c6e122cf9bb7dfe081db",
+      "size": [
+        1672,
+        941
+      ],
+      "processing": "Built-in image_gen; WebP quality 94 with original alpha."
+    },
+    {
+      "asset": "thicket-day",
+      "prompt": "Use case: lighting-weather. Edit target: the supplied Willows game background. Create a daylight lighting variant of this exact scene for the game's changing time and weather. Preserve the camera, landscape, every important prop, river channels, trees, paths, root shapes, and painted detail. Keep the same wide landscape format. Change the sky and light to soft pale blue-grey daylight with a few thin high clouds and neutral silver-green willow leaves. The entire sky is ordinary daytime sky. Use diffuse overhead light, subtle earthy colours and clear readable details. Retain the campfire if present and let it cast a small warm glow on nearby sand. Preserve the empty foreground space. All existing objects retain their positions and scale. Use a continuous natural sky in place of any sunset sun, moon or celestial pattern. Keep the detailed painted realistic storybook style. Text and characters: none.",
+      "file": "assets/willows/thicket-day.webp",
+      "reference": "assets/willows/thicket.webp",
+      "sourceName": "exec-486dccaa-b898-4be8-bd4c-9577e8211a91.png",
+      "sourceSha256": "1709fe948433308089eb211c67ad24060b134cc9d2b790679d45884d6ceba36b",
+      "sha256": "ee8056addd7b63fc1a9cdcf393fb2519c7b49958237d65d894b41d29f134814c",
+      "size": [
+        1672,
+        941
+      ],
+      "processing": "Built-in image_gen; WebP quality 94 with original alpha."
+    },
+    {
+      "asset": "bank-day",
+      "prompt": "Use case: lighting-weather. Edit target: the supplied Willows game background. Create a daylight lighting variant of this exact scene for the game's changing time and weather. Preserve the camera, landscape, every important prop, river channels, trees, paths, root shapes, and painted detail. Keep the same wide landscape format. Change the sky and light to soft pale blue-grey daylight with a few thin high clouds and neutral silver-green willow leaves. The entire sky is ordinary daytime sky. Use diffuse overhead light, subtle earthy colours and clear readable details. Retain the campfire if present and let it cast a small warm glow on nearby sand. Preserve the empty foreground space. All existing objects retain their positions and scale. Use a continuous natural sky in place of any sunset sun, moon or celestial pattern. Keep the detailed painted realistic storybook style. Text and characters: none.",
+      "file": "assets/willows/bank-day.webp",
+      "reference": "assets/willows/bank.webp",
+      "sourceName": "exec-00d98432-1b50-4686-b6c6-52cd04fc1d67.png",
+      "sourceSha256": "10176dc7c3e3cee0081a52f6edf937ea8d54aa0d879180e21bf61ba3cd6762aa",
+      "sha256": "2fcbfcb133ea6ac3af204d337eefb354e7cb05617b330c06d9f75f57951fe692",
+      "size": [
+        1672,
+        941
+      ],
+      "processing": "Built-in image_gen; WebP quality 94 with original alpha."
+    },
+    {
+      "asset": "swede-listening",
+      "prompt": "Use case: identity-preserve. Edit target: the supplied Swede character cutout. Make a new full-body pose of this exact man for The Willows game. Preserve his face, short moustache, light brown hair, age about forty, rolled cream linen sleeves, dark brown waistcoat, brown wool trousers and worn lace-up boots. He stands with his body in three-quarter view toward the left, head turned slightly farther left toward the river, one hand raised loosely near his chest as he listens, the other arm resting at his side. Alert and thoughtful. Complete figure including both boots and both hands, centered on a portrait canvas, clear margin around every edge. Same detailed realistic painted illustration, neutral soft daylight suitable for game lighting. Genuinely transparent alpha background. The man is the sole subject; text, scenery and ground shadow are absent.",
+      "file": "assets/willows/swede-listening.webp",
+      "references": [
+        "assets/willows/swede.webp"
+      ],
+      "sourceName": "exec-28e30b85-cbb2-49c3-b3f9-27b3e645b2e6.png",
+      "sourceSha256": "9d9664560379327d8420d18bdb4afdca8cd3c30996e70785ac50e8fa000693b0",
+      "sha256": "766e6b2cedabd2d735689ae3063dbab8180e9fabc2d372ad3b84236bcdf35a4f",
+      "size": [
+        1024,
+        1536
+      ],
+      "processing": "Built-in image_gen; WebP quality 94 with original alpha."
+    },
+    {
+      "asset": "swede-worried",
+      "prompt": "Use case: identity-preserve. Edit target: the supplied Swede character cutout. Make a new full-body pose of this exact man for The Willows game. Preserve his face, short moustache, light brown hair, age about forty, rolled cream linen sleeves, dark brown waistcoat, brown wool trousers and worn lace-up boots. He stands in three-quarter view toward the left with folded arms, shoulders drawn slightly inward, brow gently furrowed, looking toward his companion with restrained grave concern. Complete figure including both boots and hands, centered on a portrait canvas, clear margin around every edge. Same detailed realistic painted illustration, neutral soft daylight suitable for game lighting. Genuinely transparent alpha background. The man is the sole subject; text, scenery and ground shadow are absent.",
+      "file": "assets/willows/swede-worried.webp",
+      "references": [
+        "assets/willows/swede.webp"
+      ],
+      "sourceName": "exec-cd54ce0a-73ea-41fe-a328-d465371141ab.png",
+      "sourceSha256": "a699a8e566e61ba1760f9ba7f0f1b8f3123730e8c22a1e2884cf5992576c3338",
+      "sha256": "5c379121ab909a82d9710b20b8d0d8e82f5dde18e62d85621cca33be8036c6a0",
+      "size": [
+        1024,
+        1536
+      ],
+      "processing": "Built-in image_gen; WebP quality 94 with original alpha."
+    },
+    {
+      "asset": "swede-seated",
+      "prompt": "Use case: identity-preserve. Edit target: the supplied Swede character cutout. Make a new full-body pose of this exact man for The Willows game. Preserve his face, short moustache, light brown hair, age about forty, rolled cream linen sleeves, dark brown waistcoat, brown wool trousers and worn lace-up boots. He sits in a relaxed low camping crouch on his heels beside an implied fire, forearms resting on his bent knees, body in three-quarter view toward the left, hands loosely joined, looking thoughtfully up toward his companion. Keep a natural practical posture. Complete figure including both boots and hands, centered on a portrait canvas, clear margin around every edge. Same detailed realistic painted illustration, neutral soft daylight suitable for game lighting. Genuinely transparent alpha background. The man is the sole subject; text, scenery, seats and ground shadow are absent.",
+      "file": "assets/willows/swede-seated.webp",
+      "references": [
+        "assets/willows/swede.webp"
+      ],
+      "sourceName": "exec-4196a0d8-f335-48c6-bd9a-e68bcf019dfc.png",
+      "sourceSha256": "0b61bde3296d2704c36ca7fae2c7bf542a73c0ebb8db6dc22a1fbdd46511d7dd",
+      "sha256": "edc20cb2636b6e340f71591d334beb3b548dfee54294bb446db6ddc34f6ea7f6",
+      "size": [
+        1024,
+        1536
+      ],
+      "processing": "Built-in image_gen; WebP quality 94 with original alpha."
+    },
+    {
+      "asset": "camp-out-day",
+      "prompt": "Use case: precise-object-edit. Edit target: supplied Willows camp daylight painting. Change only the campfire into a fully extinguished fire: cold grey ash, dark spent logs and the existing stone ring. The air immediately above the ring is clear. Preserve the iron pot, all camping gear, tent, willows, sand, river, sky, camera, composition and detailed painted style exactly. Same pale neutral daylight and wide landscape format. Empty of people and text.",
+      "file": "assets/willows/camp-out-day.webp",
+      "references": [
+        "assets/willows/camp-day.webp"
+      ],
+      "sourceName": "exec-ec125197-fee7-405c-a67f-465cc4270886.png",
+      "sourceSha256": "8016d2dd884e8dc8ffe5d70c43f1cba69d8911ce1f44c8baebcfb3d766df3209",
+      "sha256": "434413185ab2a6d4cd33e6275b67376618334075213b98bd807e8b21791f13a0",
+      "size": [
+        1672,
+        941
+      ],
+      "processing": "Built-in image_gen; WebP quality 94 with original alpha."
+    },
+    {
+      "asset": "camp-lit-night",
+      "prompt": "Use case: lighting-weather. Edit target: supplied Willows camp daylight painting. Create the same exact camp at deep blue night. Preserve the camera, tent, camping gear, iron pot, willow shapes, sand, river and all prop locations. The campfire is fully lit with modest orange flames and gives a strong local warm glow to the nearby sand, pot, tent edge and leaves. Beyond that small circle the island is dark cool blue with faint soft natural sky light. Preserve readable shadow detail and the original detailed painted illustration. A dark ordinary sky with thin soft clouds. Empty of people and text. Same wide landscape format.",
+      "file": "assets/willows/camp-lit-night.webp",
+      "references": [
+        "assets/willows/camp-day.webp"
+      ],
+      "sourceName": "exec-276dc5c3-c6bc-4a8d-a130-360fd47945ea.png",
+      "sourceSha256": "a3d16546e7b1859baa0230d45e1ca22f63280019f8111a87b3cce7a77e1389e9",
+      "sha256": "3aeac8f45d6c1422f1ffb410a01a7709d607c25a4f9a4781e6fcef1ed41e2aef",
+      "size": [
+        1672,
+        941
+      ],
+      "processing": "Built-in image_gen; WebP quality 94 with original alpha."
+    },
+    {
+      "asset": "camp-out-night",
+      "prompt": "Use case: lighting-weather. Edit target: supplied Willows camp daylight painting. Create the same exact camp at deep blue night with the fire fully out. The stone ring contains cold grey ash and dark spent logs. The air above the fire ring is clear. Preserve the camera, tent, camping gear, iron pot, willow shapes, sand, river and all prop locations. Use cool blue ambient night light across the scene, with enough detail to read the path and tent. A dark ordinary sky with thin soft clouds. Preserve original detailed painted illustration. Empty of people and text. Same wide landscape format.",
+      "file": "assets/willows/camp-out-night.webp",
+      "references": [
+        "assets/willows/camp-day.webp"
+      ],
+      "sourceName": "exec-ae15d164-0bd5-49e4-a7f1-9514f4e298c1.png",
+      "sourceSha256": "e1b844caf1cda671bd66326d0a5cad4c758c477353c542d6312c2dfe72a1c601",
+      "sha256": "f9e1ea3e3cce0cb2354b9393d4f482876fd9add43f56dff046f8a455cbd55bfe",
+      "size": [
+        1672,
+        941
+      ],
+      "processing": "Built-in image_gen; WebP quality 94 with original alpha."
+    },
+    {
+      "asset": "landing-ship-night",
+      "prompt": "Use case: compositing. Image 1 is the edit target: The Willows river landing. Image 2 is a reference only for the Greek ship's design. Create image 1 at deep blue night and place this Greek ship close to the bank in the backwater at the right, its ornate curved wooden prow, cream square sail and small warm lanterns clearly visible. The ship feels like a quiet mysterious night arrival on the flooded Danube. Preserve image 1's upturned canoe on the left, sand, willow bushes, river channels, tree islands, camera angle, wide landscape format and realistic painted detail. The ship sits naturally in the water with lantern reflections. Use a dark blue sky and light river mist. Keep the foreground open. The reference's mirror and forest remain confined to the reference. Empty of people and text.",
+      "file": "assets/willows/landing-ship-night.webp",
+      "references": [
+        "assets/willows/landing-day.webp",
+        "assets/greek-drama/ship-card.webp"
+      ],
+      "sourceName": "exec-0073b384-3224-458e-b194-fd61a1715b6f.png",
+      "sourceSha256": "f5f08d339f85a50af18942f377f54bea727373bdd1a176bfadb1ca12c9d78419",
+      "sha256": "eccc07e492fe00237e93746026c69d88e515a91553cdc766cbdf97e0e102a887",
+      "size": [
+        1672,
+        941
+      ],
+      "processing": "Built-in image_gen; WebP quality 94 with original alpha."
     }
-  ]
+  ],
+  "generated": "2026-10-28"
 }

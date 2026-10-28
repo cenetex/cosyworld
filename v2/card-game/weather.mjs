@@ -3,6 +3,7 @@
 export const WEATHER_TURNS = 12;
 
 const cycles = {
+  danube: ["mist", "cloud", "rain", "cloud", "clear", "mist"],
   boeotia: ["clear", "cloud", "rain", "cloud", "mist", "clear"],
   attica: ["clear", "clear", "cloud", "rain", "cloud", "mist"],
   argolid: ["cloud", "clear", "clear", "mist", "cloud", "rain"],
@@ -119,6 +120,40 @@ group("sicily", "shelter", "vii-inner-cave");
 group("sicily", "coast", "vii-escape-shore sicily-shore");
 group("heights", "open", "vii-air-gate vii-bird-refuge");
 group("scythia", "open", "vii-crag-camp");
+for (const [name, exposure] of Object.entries({
+  landing: "coast",
+  camp: "shelter",
+  thicket: "grove",
+  bank: "open",
+}))
+  locations[`willows-${name}`] = { region: "danube", exposure };
+
+const riverDescriptions = {
+  "willows-landing": {
+    clear: "Clear light reaches the canoe and the flooded Danube.",
+    cloud: "Cloud shadows pass over the canoe and backwater.",
+    rain: "Rain slants across the canoe and stipples the backwater.",
+    mist: "River mist drifts around the canoe and across the backwater.",
+  },
+  "willows-camp": {
+    clear: "Clear light rests on the tent canvas beside the campfire.",
+    cloud: "Cloud dims the tent canvas and softens the campfire shadows.",
+    rain: "Rain taps the tent canvas and falls beyond its shelter.",
+    mist: "River mist gathers beyond the tent and campfire.",
+  },
+  "willows-thicket": {
+    clear: "Clear light picks out the silver undersides of the willow leaves.",
+    cloud: "Cloud dims the narrow track between the willows.",
+    rain: "Rain drips through the willow leaves onto the sandy track.",
+    mist: "River mist threads the willow roots and shallow hollows.",
+  },
+  "willows-bank": {
+    clear: "Clear light catches the exposed roots above the flood.",
+    cloud: "Cloud shadows sweep over the crumbling bank and flood.",
+    rain: "Rain sweeps across the exposed roots and swollen river.",
+    mist: "River mist hides the far islands beyond the crumbling bank.",
+  },
+};
 
 export function regionWeather(world, region) {
   const cycle = cycles[region];
@@ -167,6 +202,8 @@ export function locationWeather(world, id) {
     ...weather,
     exposure: place.exposure,
     variant: `${weather.condition}-${place.exposure}`,
-    description: descriptions[weather.condition][place.exposure],
+    description:
+      riverDescriptions[id]?.[weather.condition] ||
+      descriptions[weather.condition][place.exposure],
   };
 }

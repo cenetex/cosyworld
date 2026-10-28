@@ -3,10 +3,13 @@ import { roomTracks } from "./music.mjs";
 import { packMediaFiles } from "./pack-registry.mjs";
 import imageVariants from "./image-variants.json" with { type: "json" };
 import voiceCast from "./voices.json" with { type: "json" };
+import { willowsAssets } from "./willows-scenery.mjs";
 import { daylightAssets } from "./daylight.mjs";
 
 // The local server, release smoke, and Rust asset generator use this list.
 const files = [
+  "willows-scenery.mjs",
+  ...willowsAssets,
   "media.mjs",
   "images.mjs",
   "image-variants.json",
@@ -141,6 +144,20 @@ const files = [
   ...["station", "attic", "pond", "vale", "moth", "keeper", "keeper-right"].map(
     (id) => `assets/${id}.png`,
   ),
+  // Keep the art URLs used by released Willows worlds.
+  ...[
+    "paddle",
+    "map",
+    "rope",
+    "sheet",
+    "provisions",
+    "pot",
+    "spoon",
+    "pipe",
+  ].map((id) => `assets/willows/${id}.svg`),
+  ...["landing", "camp", "thicket", "bank"].map(
+    (id) => `assets/willows/${id}.webp`,
+  ),
   // Keep the art URLs published by earlier Rust releases.
   ...[
     "antigone",
@@ -175,6 +192,7 @@ const types = {
   svg: "image/svg+xml",
   webp: "image/webp",
   mp3: "audio/mpeg",
+  m4a: "audio/mp4",
 };
 const aliases = Object.entries(musicStreams).map(([source, value]) => {
   if (

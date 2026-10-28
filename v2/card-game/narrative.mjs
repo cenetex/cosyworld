@@ -8,6 +8,7 @@ import { questRecord } from "./shared-quests.mjs";
 import { recitalContext, recitalFacts } from "./pack-recital.mjs";
 import { hasMotives, motiveFacts, tastes } from "./motives.mjs";
 import { sceneChanges } from "./scene.mjs";
+import { willowsSceneFacts } from "./willows-scenery.mjs";
 import { locationWeather } from "./weather.mjs";
 import { locationDaylight } from "./daylight.mjs";
 import { profiles, validInnerLife } from "./memory.mjs";
@@ -397,6 +398,7 @@ export function narrativeContext(world, action = null) {
           .filter((fact, index, all) => all.indexOf(fact) === index)
           .slice(-4),
       ];
+      facts.push(...willowsSceneFacts(world, id));
       let desire = null;
       if (kind === "avatar") {
         // A resident's mood is a world fact; its pack words how to play it.

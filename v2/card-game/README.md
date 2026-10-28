@@ -563,10 +563,13 @@ Run `node v2/scripts/smoke-card-pond-access.mjs` to check lamp custody, quiet de
 Run `node v2/scripts/smoke-card-dialogue-recovery.mjs` to check visible service failures, same-turn retry, incomplete responses, later plays and reload at desktop and phone widths. It uses local fixture responses and makes no model calls.
 
 Music loading starts when playback is ready: after the first accepted play,
-with music enabled and the page visible. Muted or hidden travel keeps the
-current source for a later resume. A repeated ship song starts again from its
-buffered beginning. Run `node v2/scripts/smoke-card-music-network.mjs` for the
-throttled request and first-sound checks.
+with music enabled and the page visible. A place triggers a song when music
+is idle. Each song follows the player through travel until it ends. The current
+place chooses the next song. A quiet place lets the player hear the landscape.
+Mute and hidden tabs pause the same song for a later resume. River Camp chooses
+one of four supplied acid jazz songs during the day. An active camp song keeps
+playing through dusk and night. Run `node v2/scripts/smoke-card-music-network.mjs`
+for the throttled request and first-sound checks.
 
 Room music starts with the first accepted card play in a new game. In a shared world, each avatar starts in silence until their own first accepted play, such as picking up or using their item. The saved play journal keeps that choice across reloads. The opening scene and menu wait for that play. Starting another new game resets this wait and keeps the saved music and volume settings.
 
@@ -669,6 +672,14 @@ view of the regional weather. The Underworld has low mist above its water.
 The shared game, local saves, dialogue facts, and scene exports all read the same
 turn. Reloading keeps the current weather. Shared rules version 18 adds the
 harbor and road views. Each earlier rule bundle keeps its contents for replay.
+
+The Willows shares one Danube weather cycle across its four places. River
+mist, cloud, rain and clear light each last twelve accepted turns. Dawn lasts
+eight turns, day sixteen, dusk eight, and night sixteen. The forty-eight-turn
+light cycle repeats from the saved world turn. Place cards, scenes, shared
+views, dialogue facts and scene exports use the same light and weather.
+The pack's [guide](../content/willows/README.md) holds its art and music briefs.
+Shared rules version 21 adds these views and the painted item cutouts.
 
 `weather-shader.mjs` paints the weather with one WebGL fragment shader. The
 scene animates parallax rain sheets with gusts and ground splashes, drifting

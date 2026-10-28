@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
+import { portrait } from "../v2/card-game/scene.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import { summonTransport } from "../v2/card-game/pack-transport.mjs";
 import {
@@ -178,6 +179,7 @@ describe("The Willows", () => {
       find(world, { choiceId: "willows-look-beneath-roots" }),
     ).toBeUndefined();
     world = discoveries();
+    expect(portrait("willows-swede", null, world)).toContain("swede-worried.webp");
     expect(packFacts(world, "willows-swede").join(" ")).toContain(
       "compared the canoe damage",
     );
@@ -185,6 +187,7 @@ describe("The Willows", () => {
     expect(saved.packs.willows).toEqual(world.packs.willows);
     expect(find(saved, { choiceId: "willows-compare-signs" })).toBeUndefined();
     world = choose(saved, "choose-watch");
+    expect(portrait("willows-swede", null, world)).toContain("swede-listening.webp");
     expect(world.packs.willows.choices["willows-response"]).toBe("watch");
     expect(world.actors["willows-swede"].place).toBe("willows-camp");
     world = move(world, "willows-landing");

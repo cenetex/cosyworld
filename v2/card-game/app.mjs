@@ -879,7 +879,10 @@ function performAction(action, revision) {
   const from = world.actors[currentActor(world)].place;
   queueQuestCompletions(world, result.state);
   world = result.state;
-  music.setRoom(world.actors[currentActor(world)].place);
+  music.setRoom(
+    world.actors[currentActor(world)].place,
+    locationDaylight(world, world.actors[currentActor(world)].place)?.phase || "day",
+  );
   music.setStarted(musicHasStarted());
   music.unlock();
   // A new play ends any review of earlier lines.
@@ -2286,7 +2289,10 @@ function render() {
   completedQuests = completedQuests.filter((quest) =>
     visibleQuestKeys.has(quest.key),
   );
-  music.setRoom(world.actors[currentActor(world)].place);
+  music.setRoom(
+    world.actors[currentActor(world)].place,
+    locationDaylight(world, world.actors[currentActor(world)].place)?.phase || "day",
+  );
   const focused = document.activeElement?.dataset.card,
     scroll = $("hand").scrollLeft;
   $("hand").dataset.presentedRevision = String(world.revision);

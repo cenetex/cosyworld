@@ -16,7 +16,7 @@
 }
 .stage[data-weather] > .backdrop,
 .art[data-weather] > img {
-  filter: var(--weather-light);
+  filter: var(--weather-light) var(--daylight-light, brightness(1));
 }
 .weather-layer {
   position: absolute;
@@ -121,4 +121,41 @@
   display: block;
   width: 100%;
   height: 100%;
+}
+
+/* The Danube paintings share one sky. Light also reaches the place cards. */
+[data-weather-region="danube"][data-time-of-day="dawn"] {
+  --daylight-light: brightness(0.82) saturate(0.8);
+  --daylight-sky: linear-gradient(#45567555, #f1cba638 43%, transparent 75%);
+}
+[data-weather-region="danube"][data-time-of-day="dusk"] {
+  --daylight-light: brightness(0.7) saturate(0.85) sepia(0.18);
+  --daylight-sky: linear-gradient(#38385666, #d58b6244 43%, #28334a22);
+}
+[data-weather-region="danube"][data-time-of-day="night"] {
+  --daylight-light: brightness(0.34) saturate(0.55);
+  --daylight-sky: linear-gradient(#101d4277, #20324a44 60%, #111b3544);
+}
+[data-weather-region="danube"] > .weather-layer::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: var(--daylight-sky, transparent);
+}
+.stage[data-weather-region="danube"][data-time-of-day="dawn"] .portrait-body {
+  filter: brightness(0.9) saturate(0.85);
+}
+.stage[data-weather-region="danube"][data-time-of-day="dusk"] .portrait-body {
+  filter: brightness(0.82) saturate(0.85) sepia(0.12);
+}
+.stage[data-weather-region="danube"][data-time-of-day="night"] .portrait-body {
+  filter: brightness(0.62) saturate(0.65);
+}
+
+/* These two places use painted night light, including the warm fire and ship. */
+[data-weather-region="danube"][data-time-of-day="night"][data-exposure="shelter"],
+[data-weather-region="danube"][data-time-of-day="night"][data-exposure="coast"] {
+  --daylight-light: brightness(1);
+  --daylight-sky: transparent;
 }

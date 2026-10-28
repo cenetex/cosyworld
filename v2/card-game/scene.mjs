@@ -16,13 +16,23 @@ import { desireFor, programFor, levelOf, knownActors } from "./quests.mjs";
 import { packPlaces, packPeople } from "./pack-registry.mjs";
 import { variantOf, crossingOpen } from "./pack-rules.mjs";
 import { locationWeather } from "./weather.mjs";
+import {
+  willowsBackdrop,
+  willowsPortrait,
+  willowsVariant,
+  willowsScale,
+} from "./willows-scenery.mjs";
 import { expressionOf } from "./expression.mjs";
 import { daylightBackdrop, locationDaylight } from "./daylight.mjs";
 
 // Pack art lives in the pack's own asset folder and is named by its data.
 export function backdrop(id, world = null) {
   const variant = world?.actors && visibleCrossing(world, id)?.scenery.backdrop;
-  const file = daylightBackdrop(world, id, variant || packPlaces[id]?.backdrop);
+  const file = daylightBackdrop(
+    world,
+    id,
+    willowsBackdrop(world, id, variant || packPlaces[id]?.backdrop),
+  );
   return file ? `./${file}` : `./assets/${id}.png`;
 }
 export function portrait(id, facing = null, world = null) {
@@ -31,6 +41,7 @@ export function portrait(id, facing = null, world = null) {
   const resident = packPeople[id];
   if (resident)
     return `./${
+      willowsPortrait(world, id) ||
       resident.portrait ||
       (world ? variantOf(world, id) : resident.variants.awake).portrait
     }`;
@@ -60,9 +71,9 @@ export function locationVariant(world, id) {
   const crossing = visibleCrossing(world, id)?.id || "base";
   const weather = locationWeather(world, id);
   const variant = weather ? `${crossing}:${weather.variant}` : crossing;
-  return locationDaylight(world, id)?.phase === "night"
-    ? `${variant}:night`
-    : variant;
+  const phase = locationDaylight(world, id)?.phase;
+  const light = phase && phase !== "day" ? `${variant}:${phase}` : variant;
+  return willowsVariant(world, id, light);
 }
 export const locationOverlay = (world, id) => {
   const f = visibleCrossing(world, id)?.scenery.overlay;
@@ -430,7 +441,7 @@ export function sceneStaging(
             : "back"
           : ["foreground", "middle", "back"][Math.min(index, 2)],
         x: at.get(id),
-        scale: positions[index][1],
+        scale: positions[index][1] * willowsScale(world, id),
         floor: positions[index][2],
         facing,
         gazeTargetId,
@@ -559,8 +570,8 @@ export function sceneScript(world) {
       name: p.name,
       cutout: portrait(id, null, world),
       facingCutouts: {
-        left: portrait(id, "left"),
-        right: portrait(id, "right"),
+        left: portrait(id, "left", world),
+        right: portrait(id, "right", world),
       },
       nativeFacing: id === "vale" ? "right" : "left",
       anchors: { feet: [0.5, 0.99], eyes: [0.5, 0.13] },

@@ -3577,7 +3577,9 @@ export function validateWorld(s) {
         !humanAvatar(e.actorId) ||
         e.targetId !== choice.subject ||
         e.locationId !== choice.at ||
-        s.packs[e.packId].receipts[e.choiceId] !== e.turn
+        (choice.repeatable
+          ? !(s.packs[e.packId].receipts[e.choiceId] >= e.turn)
+          : s.packs[e.packId].receipts[e.choiceId] !== e.turn)
       )
         fail();
     } else if (e.packId !== undefined || e.choiceId !== undefined) fail();
