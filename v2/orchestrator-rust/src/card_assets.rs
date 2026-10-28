@@ -2066,7 +2066,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
             "\"4a930efedb8e283404abf4e5d0345e9336384d10a4e6e4e0fe7b243e95b65500\""
         }
         "legacy-saves.mjs" => {
-            "\"2e87a6002f709aa79439da42dca28632a36a561a96b3ea5bde721a7f6363b75a\""
+            "\"8b85d1f8a1ba63618d4b95eafc7e56d02c5271237a8deb789121180b4ac03b5d\""
         }
         "forest.json" => "\"be43360615850d460ecb291474250a82b486bb5bbccfa7cb9eeca5813cbc7702\"",
         "packs.json" => "\"cf57f8baa0303ea9343ed5097260467575db89ed91da3f2ae2a8ddd8539a420e\"",

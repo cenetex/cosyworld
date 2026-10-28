@@ -97,6 +97,7 @@ export function upgradeSave(
   }
   if (s?.schema === 7) {
     upgradeGreekRoadSave(s);
+    upgradeShoreRouteSave(s);
     upgradeBoardingSave(s);
     upgradeRecitals(s, packDefinitions);
   }
@@ -105,6 +106,28 @@ export function upgradeSave(
     installSharedQuestRegistry(s);
   if (s?.schema === 7) publishQuestCompletions(s, syncStoryQuests(s));
   return s;
+}
+
+// Earlier walks between the attic and station now pass through the pond.
+// Keep just the routes each traveler already knew, and preserve their journal.
+export function upgradeShoreRouteSave(s) {
+  for (const [actor, known] of Object.entries(s.routeKnowledge || {})) {
+    if (!Array.isArray(known)) continue;
+    let changed = false;
+    const expanded = known.flatMap((edge) => {
+      if (!Array.isArray(edge) || edge.length !== 2) return [edge];
+      const [from, to] = edge;
+      if ((from === "attic" && to === "station") ||
+          (from === "station" && to === "attic")) {
+        changed = true;
+        return [[from, "pond"], ["pond", to]];
+      }
+      return [edge];
+    });
+    if (changed) s.routeKnowledge[actor] = [...new Map(
+      expanded.map((edge) => [JSON.stringify(edge), edge]),
+    ).values()];
+  }
 }
 
 // Revision 5 adds port and road memories. Every earlier position and deed

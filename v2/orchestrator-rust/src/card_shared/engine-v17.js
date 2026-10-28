@@ -14614,6 +14614,7 @@
     }
     if (s?.schema === 7) {
       upgradeGreekRoadSave(s);
+      upgradeShoreRouteSave(s);
       upgradeBoardingSave(s);
       upgradeRecitals(s, packDefinitions);
     }
@@ -14622,6 +14623,24 @@
       installSharedQuestRegistry(s);
     if (s?.schema === 7) publishQuestCompletions(s, syncStoryQuests(s));
     return s;
+  }
+  function upgradeShoreRouteSave(s) {
+    for (const [actor, known] of Object.entries(s.routeKnowledge || {})) {
+      if (!Array.isArray(known)) continue;
+      let changed = false;
+      const expanded = known.flatMap((edge) => {
+        if (!Array.isArray(edge) || edge.length !== 2) return [edge];
+        const [from, to] = edge;
+        if (from === "attic" && to === "station" || from === "station" && to === "attic") {
+          changed = true;
+          return [[from, "pond"], ["pond", to]];
+        }
+        return [edge];
+      });
+      if (changed) s.routeKnowledge[actor] = [...new Map(
+        expanded.map((edge) => [JSON.stringify(edge), edge])
+      ).values()];
+    }
   }
   function upgradeGreekRoadSave(s) {
     const pack = packDefinitions.find((p) => p.id === "greek-drama");
