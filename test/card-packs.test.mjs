@@ -24,7 +24,7 @@ import {
 import { portrait } from "../v2/card-game/scene.mjs";
 import { interest } from "../v2/card-game/motives.mjs";
 import { knownActors } from "../v2/card-game/quests.mjs";
-import { packProblems } from "../v2/card-game/pack-schema.mjs";
+import { mediaPathOk, packProblems } from "../v2/card-game/pack-schema.mjs";
 import {
   hub,
   packDefinitions,
@@ -59,6 +59,29 @@ const ringClock = (s) => act(s, "ring", "clearing", null);
 const forest = () => structuredClone(packDefinitions[0]);
 
 describe("world packs on the card table", () => {
+  it("keeps chapter art inside one named folder of its own pack", () => {
+    for (const path of [
+      "assets/greek-drama/chthonic-electra.png",
+      "assets/greek-drama/house-of-blood/cassandra.png",
+      "assets/greek-drama/house-of-blood/tauris-shore-scene.webp",
+      "assets/greek-drama/house-of-blood/ares-hill-scene.svg",
+      "assets/shared/characters/vale.png",
+    ])
+      expect(mediaPathOk("greek-drama", path), path).toBe(true);
+    for (const path of [
+      "assets/greek-drama/../cassandra.png",
+      "assets/greek-drama/house-of-blood/../cassandra.png",
+      "assets/greek-drama/house-of-blood/deeper/cassandra.png",
+      "assets/greek-drama//cassandra.png",
+      "assets/greek-drama/%2e%2e/cassandra.png",
+      "assets/greek-drama/house-of-blood/cassandra.png?other=1",
+      "assets/greek-drama/house-of-blood/cassandra.html",
+      "assets/another-pack/house-of-blood/cassandra.png",
+      "/assets/greek-drama/house-of-blood/cassandra.png",
+    ])
+      expect(mediaPathOk("greek-drama", path), path).toBe(false);
+  });
+
   it("compiles packs.json exactly from its pack and bridge sources", () => {
     expect(() =>
       execFileSync(process.execPath, [

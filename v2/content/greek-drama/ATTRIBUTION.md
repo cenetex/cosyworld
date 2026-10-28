@@ -84,5 +84,13 @@ readings.
 The [Book V source guide](HOUSE-OF-BLOOD.md#sources) links the seven MIT
 Internet Classics Archive versions used for event order and ending boundaries.
 The new dialogue, game alternatives and 57 couplets are original paraphrases.
-This draft reuses the existing Greek art credited above. The proposed new
-portrait and scenery bindings are listed in `HOUSE-OF-BLOOD-ART.json`.
+Eighteen new generated portraits cover twenty roles. Their prompts, reference
+images, original file hashes and transparency checks are recorded in the
+[court cast provenance](../../card-game/assets/greek-drama/house-of-blood/court-cast-provenance.json)
+and [witness cast provenance](../../card-game/assets/greek-drama/house-of-blood/witness-cast-provenance.json),
+with the final six in the [Delphi and Tauris provenance](../../card-game/assets/greek-drama/house-of-blood/sacred-cast-provenance.json).
+Eight generated scenery files cover the three new places by day and night,
+including both Tauris ship-at-berth views. Their complete prompts, references
+and native file hashes are in the [scene provenance](../../card-game/assets/greek-drama/house-of-blood/scene-provenance.json).
+Objects use the existing Greek art credited above. The fixed art queue is in
+`HOUSE-OF-BLOOD-ART.json`.

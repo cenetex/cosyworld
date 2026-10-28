@@ -2412,6 +2412,33 @@
               }
             ]
           },
+          "greek-ares-hill": {
+            name: "Ares Hill",
+            text: "A stone court stands above Athens. Each case names its speaker, time and claim.",
+            persona: "A stone court stands above Athens. Each case names its speaker, time and claim.",
+            exits: [
+              "greek-athens"
+            ],
+            backdrop: "assets/greek-drama/house-of-blood/ares-hill-scene.png"
+          },
+          "greek-argos-refuge": {
+            name: "Argive Refuge",
+            text: "A sheltered court receives witnesses. Hermione keeps the sixth-day play within its named song.",
+            persona: "A sheltered court receives witnesses. Hermione keeps the sixth-day play within its named song.",
+            exits: [
+              "greek-argolid-road"
+            ],
+            backdrop: "assets/greek-drama/house-of-blood/argos-refuge-scene.png"
+          },
+          "greek-tauris-shore": {
+            name: "Taurian Shore",
+            text: "Salt water reaches the temple steps. Thoas hears the rite and the keepers\u2019 reply.",
+            persona: "Salt water reaches the temple steps. Thoas hears the rite and the keepers\u2019 reply.",
+            exits: [
+              "greek-tauris"
+            ],
+            backdrop: "assets/greek-drama/house-of-blood/tauris-shore-scene.png"
+          },
           "greek-heracles-theban-house": {
             requires: [
               {
@@ -2490,33 +2517,6 @@
                 value: true
               }
             ]
-          },
-          "greek-ares-hill": {
-            name: "Ares Hill",
-            text: "A stone court stands above Athens. Each case names its speaker, time and claim.",
-            persona: "A stone court stands above Athens. Each case names its speaker, time and claim.",
-            exits: [
-              "greek-athens"
-            ],
-            backdrop: "assets/greek-drama/palace.svg"
-          },
-          "greek-argos-refuge": {
-            name: "Argive Refuge",
-            text: "A sheltered court receives witnesses. Hermione keeps the sixth-day play within its named song.",
-            persona: "A sheltered court receives witnesses. Hermione keeps the sixth-day play within its named song.",
-            exits: [
-              "greek-argolid-road"
-            ],
-            backdrop: "assets/greek-drama/courtyard.svg"
-          },
-          "greek-tauris-shore": {
-            name: "Taurian Shore",
-            text: "Salt water reaches the temple steps. Thoas hears the rite and the keepers\u2019 reply.",
-            persona: "Salt water reaches the temple steps. Thoas hears the rite and the keepers\u2019 reply.",
-            exits: [
-              "greek-tauris"
-            ],
-            backdrop: "assets/greek-drama/harbor.svg"
           },
           "greek-comedy-acharnians-truce-porch": {
             name: "truce porch",
@@ -3804,6 +3804,570 @@
               reason: "Ajax\u2019s household and burial are at issue in this named Trojan account."
             }
           },
+          "greek-argos-watchman": {
+            name: "Argive Watchman",
+            text: "A watchman keeps the beacon account and introduces the three separate household roads.",
+            place: "greek-argolid-road",
+            home: "greek-argolid-road",
+            values: {},
+            travels: false,
+            standoffs: false,
+            portrait: "assets/greek-drama/house-of-blood/argos-watchman.png",
+            persona: "A watchman keeps the beacon account and introduces the three separate household roads. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
+            voice: "A watchman keeps the beacon account and introduces the three separate household roads.",
+            tastes: {
+              likes: "careful listening and kept promises",
+              sore: "a witness given another person\u2019s words",
+              reason: "A watchman keeps the beacon account and introduces the three separate household roads."
+            },
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-v-open",
+                value: true
+              }
+            ]
+          },
+          "greek-cassandra": {
+            name: "Cassandra",
+            text: "Cassandra speaks within Aeschylus\u2019s recalled homecoming, before she enters the house.",
+            place: "greek-argos-palace",
+            home: "greek-argos-palace",
+            values: {},
+            travels: false,
+            standoffs: false,
+            portrait: "assets/greek-drama/house-of-blood/cassandra.png",
+            persona: "Cassandra speaks within Aeschylus\u2019s recalled homecoming, before she enters the house. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
+            voice: "Cassandra speaks within Aeschylus\u2019s recalled homecoming, before she enters the house.",
+            tastes: {
+              likes: "careful listening and kept promises",
+              sore: "a witness given another person\u2019s words",
+              reason: "Cassandra speaks within Aeschylus\u2019s recalled homecoming, before she enters the house."
+            },
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-v-open",
+                value: true
+              },
+              {
+                kind: "choice",
+                key: "greek-atreid-account",
+                value: "aeschylus"
+              }
+            ]
+          },
+          "greek-clytemnestra-aeschylus": {
+            name: "Clytemnestra",
+            text: "Clytemnestra gives her own claim within the Aeschylus account.",
+            place: "greek-argos-palace",
+            home: "greek-argos-palace",
+            values: {},
+            travels: false,
+            standoffs: false,
+            portrait: "assets/greek-drama/house-of-blood/clytemnestra.png",
+            persona: "Clytemnestra gives her own claim within the Aeschylus account. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
+            voice: "Clytemnestra gives her own claim within the Aeschylus account.",
+            tastes: {
+              likes: "careful listening and kept promises",
+              sore: "a witness given another person\u2019s words",
+              reason: "Clytemnestra gives her own claim within the Aeschylus account."
+            },
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-v-open",
+                value: true
+              },
+              {
+                kind: "choice",
+                key: "greek-atreid-account",
+                value: "aeschylus"
+              }
+            ],
+            canonicalPerson: "clytemnestra"
+          },
+          "greek-argos-housekeeper": {
+            name: "Argive Housekeeper",
+            text: "An original surviving witness keeps the household record and chooses her own shelter.",
+            place: "greek-argos-palace",
+            home: "greek-argos-palace",
+            values: {},
+            travels: false,
+            standoffs: false,
+            portrait: "assets/greek-drama/house-of-blood/argos-housekeeper.png",
+            persona: "An original surviving witness keeps the household record and chooses her own shelter. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
+            voice: "An original surviving witness keeps the household record and chooses her own shelter.",
+            tastes: {
+              likes: "careful listening and kept promises",
+              sore: "a witness given another person\u2019s words",
+              reason: "An original surviving witness keeps the household record and chooses her own shelter."
+            },
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-v-open",
+                value: true
+              },
+              {
+                kind: "choice",
+                key: "greek-atreid-account",
+                value: "aeschylus"
+              }
+            ],
+            journey: {
+              after: "greek-v-agamemnon-agree-refuge",
+              path: [
+                "greek-argos-palace",
+                "greek-argos-tomb",
+                "greek-argolid-road",
+                "greek-argos-refuge"
+              ]
+            }
+          },
+          "greek-pylades-aeschylus": {
+            name: "Pylades",
+            text: "Pylades tells his own advice and the later source ending in Aeschylus\u2019s tomb account.",
+            place: "greek-argos-tomb",
+            home: "greek-argos-tomb",
+            values: {},
+            travels: false,
+            standoffs: false,
+            portrait: "assets/greek-drama/house-of-blood/pylades.png",
+            persona: "Pylades tells his own advice and the later source ending in Aeschylus\u2019s tomb account. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
+            voice: "Pylades tells his own advice and the later source ending in Aeschylus\u2019s tomb account.",
+            tastes: {
+              likes: "careful listening and kept promises",
+              sore: "a witness given another person\u2019s words",
+              reason: "Pylades tells his own advice and the later source ending in Aeschylus\u2019s tomb account."
+            },
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-v-open",
+                value: true
+              },
+              {
+                kind: "choice",
+                key: "greek-atreid-account",
+                value: "aeschylus"
+              }
+            ],
+            canonicalPerson: "pylades"
+          },
+          "greek-cilissa": {
+            name: "Cilissa",
+            text: "The nurse remembers the palace message and speaks for the work of care.",
+            place: "greek-argos-tomb",
+            home: "greek-argos-tomb",
+            values: {},
+            travels: false,
+            standoffs: false,
+            portrait: "assets/greek-drama/house-of-blood/cilissa.png",
+            persona: "The nurse remembers the palace message and speaks for the work of care. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
+            voice: "The nurse remembers the palace message and speaks for the work of care.",
+            tastes: {
+              likes: "careful listening and kept promises",
+              sore: "a witness given another person\u2019s words",
+              reason: "The nurse remembers the palace message and speaks for the work of care."
+            },
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-v-open",
+                value: true
+              },
+              {
+                kind: "choice",
+                key: "greek-atreid-account",
+                value: "aeschylus"
+              }
+            ]
+          },
+          "greek-chrysothemis": {
+            name: "Chrysothemis",
+            text: "Chrysothemis gives her own answer to Electra in Sophocles\u2019s palace account.",
+            place: "greek-mycenae-palace",
+            home: "greek-mycenae-palace",
+            values: {},
+            travels: false,
+            standoffs: false,
+            portrait: "assets/greek-drama/house-of-blood/chrysothemis.png",
+            persona: "Chrysothemis gives her own answer to Electra in Sophocles\u2019s palace account. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
+            voice: "Chrysothemis gives her own answer to Electra in Sophocles\u2019s palace account.",
+            tastes: {
+              likes: "careful listening and kept promises",
+              sore: "a witness given another person\u2019s words",
+              reason: "Chrysothemis gives her own answer to Electra in Sophocles\u2019s palace account."
+            },
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-v-open",
+                value: true
+              },
+              {
+                kind: "choice",
+                key: "greek-atreid-account",
+                value: "sophocles"
+              }
+            ]
+          },
+          "greek-paedagogus": {
+            name: "The Tutor",
+            text: "The tutor names his false death report and the urn in Sophocles\u2019s account.",
+            place: "greek-mycenae-palace",
+            home: "greek-mycenae-palace",
+            values: {},
+            travels: false,
+            standoffs: false,
+            portrait: "assets/greek-drama/house-of-blood/paedagogus.png",
+            persona: "The tutor names his false death report and the urn in Sophocles\u2019s account. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
+            voice: "The tutor names his false death report and the urn in Sophocles\u2019s account.",
+            tastes: {
+              likes: "careful listening and kept promises",
+              sore: "a witness given another person\u2019s words",
+              reason: "The tutor names his false death report and the urn in Sophocles\u2019s account."
+            },
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-v-open",
+                value: true
+              },
+              {
+                kind: "choice",
+                key: "greek-atreid-account",
+                value: "sophocles"
+              }
+            ]
+          },
+          "greek-argive-farmer": {
+            name: "The Farmer",
+            text: "The farmer offers food and dignity in Euripides\u2019s farmhouse account.",
+            place: "greek-argive-farm",
+            home: "greek-argive-farm",
+            values: {},
+            travels: false,
+            standoffs: false,
+            portrait: "assets/greek-drama/house-of-blood/argive-farmer.png",
+            persona: "The farmer offers food and dignity in Euripides\u2019s farmhouse account. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
+            voice: "The farmer offers food and dignity in Euripides\u2019s farmhouse account.",
+            tastes: {
+              likes: "careful listening and kept promises",
+              sore: "a witness given another person\u2019s words",
+              reason: "The farmer offers food and dignity in Euripides\u2019s farmhouse account."
+            },
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-v-open",
+                value: true
+              },
+              {
+                kind: "choice",
+                key: "greek-atreid-account",
+                value: "euripides"
+              }
+            ]
+          },
+          "greek-electra-old-servant": {
+            name: "The Old Servant",
+            text: "The old servant names the scar and its childhood cause in Euripides\u2019s account.",
+            place: "greek-argive-farm",
+            home: "greek-argive-farm",
+            values: {},
+            travels: false,
+            standoffs: false,
+            portrait: "assets/greek-drama/house-of-blood/electra-old-servant.png",
+            persona: "The old servant names the scar and its childhood cause in Euripides\u2019s account. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
+            voice: "The old servant names the scar and its childhood cause in Euripides\u2019s account.",
+            tastes: {
+              likes: "careful listening and kept promises",
+              sore: "a witness given another person\u2019s words",
+              reason: "The old servant names the scar and its childhood cause in Euripides\u2019s account."
+            },
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-v-open",
+                value: true
+              },
+              {
+                kind: "choice",
+                key: "greek-atreid-account",
+                value: "euripides"
+              }
+            ]
+          },
+          "greek-clytemnestra-euripides": {
+            name: "Clytemnestra",
+            text: "Clytemnestra gives her own answer in the farmhouse telling before its later ending is heard.",
+            place: "greek-argive-farm",
+            home: "greek-argive-farm",
+            values: {},
+            travels: false,
+            standoffs: false,
+            portrait: "assets/greek-drama/house-of-blood/clytemnestra.png",
+            persona: "Clytemnestra gives her own answer in the farmhouse telling before its later ending is heard. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
+            voice: "Clytemnestra gives her own answer in the farmhouse telling before its later ending is heard.",
+            tastes: {
+              likes: "careful listening and kept promises",
+              sore: "a witness given another person\u2019s words",
+              reason: "Clytemnestra gives her own answer in the farmhouse telling before its later ending is heard."
+            },
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-v-open",
+                value: true
+              },
+              {
+                kind: "choice",
+                key: "greek-atreid-account",
+                value: "euripides"
+              }
+            ],
+            canonicalPerson: "clytemnestra"
+          },
+          "greek-pylades-euripides": {
+            name: "Pylades",
+            text: "Pylades carries the farmhouse source account, including the Dioscuri\u2019s ending.",
+            place: "greek-argive-farm",
+            home: "greek-argive-farm",
+            values: {},
+            travels: false,
+            standoffs: false,
+            portrait: "assets/greek-drama/house-of-blood/pylades.png",
+            persona: "Pylades carries the farmhouse source account, including the Dioscuri\u2019s ending. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
+            voice: "Pylades carries the farmhouse source account, including the Dioscuri\u2019s ending.",
+            tastes: {
+              likes: "careful listening and kept promises",
+              sore: "a witness given another person\u2019s words",
+              reason: "Pylades carries the farmhouse source account, including the Dioscuri\u2019s ending."
+            },
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-v-open",
+                value: true
+              },
+              {
+                kind: "choice",
+                key: "greek-atreid-account",
+                value: "euripides"
+              }
+            ],
+            canonicalPerson: "pylades"
+          },
+          "greek-hermione": {
+            name: "Hermione",
+            text: "Hermione introduces Euripides\u2019s sixth-day Orestes as a separate song. Her present consent belongs to the game\u2019s care scenes.",
+            place: "greek-argos-refuge",
+            home: "greek-argos-refuge",
+            values: {},
+            travels: false,
+            standoffs: false,
+            portrait: "assets/greek-drama/house-of-blood/hermione.png",
+            persona: "Hermione introduces Euripides\u2019s sixth-day Orestes as a separate song. Her present consent belongs to the game\u2019s care scenes. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
+            voice: "Hermione introduces Euripides\u2019s sixth-day Orestes as a separate song. Her present consent belongs to the game\u2019s care scenes.",
+            tastes: {
+              likes: "careful listening and kept promises",
+              sore: "a witness given another person\u2019s words",
+              reason: "Hermione introduces Euripides\u2019s sixth-day Orestes as a separate song. Her present consent belongs to the game\u2019s care scenes."
+            },
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-v-open",
+                value: true
+              }
+            ]
+          },
+          "greek-phrygian-servant": {
+            name: "The Phrygian Servant",
+            text: "The servant gives his own account of the palace attack and may agree to a safe walk.",
+            place: "greek-argos-refuge",
+            home: "greek-argos-refuge",
+            values: {},
+            travels: false,
+            standoffs: false,
+            portrait: "assets/greek-drama/house-of-blood/phrygian-servant.png",
+            persona: "The servant gives his own account of the palace attack and may agree to a safe walk. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
+            voice: "The servant gives his own account of the palace attack and may agree to a safe walk.",
+            tastes: {
+              likes: "careful listening and kept promises",
+              sore: "a witness given another person\u2019s words",
+              reason: "The servant gives his own account of the palace attack and may agree to a safe walk."
+            },
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-v-open",
+                value: true
+              }
+            ],
+            journey: {
+              after: "greek-v-orestes-agree-passage",
+              path: [
+                "greek-argos-refuge",
+                "greek-argolid-road",
+                "greek-harbor"
+              ]
+            }
+          },
+          "greek-pythian-priestess": {
+            name: "Pythian Priestess",
+            text: "The priestess receives a refuge branch and introduces the Delphi opening of Eumenides.",
+            place: "greek-delphi",
+            home: "greek-delphi",
+            values: {},
+            travels: false,
+            standoffs: false,
+            portrait: "assets/greek-drama/house-of-blood/pythian-priestess.png",
+            persona: "The priestess receives a refuge branch and introduces the Delphi opening of Eumenides. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
+            voice: "The priestess receives a refuge branch and introduces the Delphi opening of Eumenides.",
+            tastes: {
+              likes: "careful listening and kept promises",
+              sore: "a witness given another person\u2019s words",
+              reason: "The priestess receives a refuge branch and introduces the Delphi opening of Eumenides."
+            },
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-v-open",
+                value: true
+              }
+            ]
+          },
+          "greek-furies": {
+            name: "The Furies",
+            text: "The accusing chorus speaks as a group and can agree to bring its claim to Ares Hill.",
+            place: "greek-delphi",
+            home: "greek-delphi",
+            values: {},
+            travels: false,
+            standoffs: false,
+            portrait: "assets/greek-drama/house-of-blood/furies.png",
+            persona: "The accusing chorus speaks as a group and can agree to bring its claim to Ares Hill. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
+            voice: "The accusing chorus speaks as a group and can agree to bring its claim to Ares Hill.",
+            tastes: {
+              likes: "careful listening and kept promises",
+              sore: "a witness given another person\u2019s words",
+              reason: "The accusing chorus speaks as a group and can agree to bring its claim to Ares Hill."
+            },
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-v-open",
+                value: true
+              }
+            ],
+            journey: {
+              after: "greek-v-eumenides-agree-court",
+              path: [
+                "greek-delphi",
+                "greek-athens",
+                "greek-ares-hill"
+              ]
+            }
+          },
+          "greek-athena": {
+            name: "Athena",
+            text: "Athena names the court\u2019s source frame, its verdict and the separate settlement.",
+            place: "greek-ares-hill",
+            home: "greek-ares-hill",
+            values: {},
+            travels: false,
+            standoffs: false,
+            portrait: "assets/greek-drama/house-of-blood/athena.png",
+            persona: "Athena names the court\u2019s source frame, its verdict and the separate settlement. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
+            voice: "Athena names the court\u2019s source frame, its verdict and the separate settlement.",
+            tastes: {
+              likes: "careful listening and kept promises",
+              sore: "a witness given another person\u2019s words",
+              reason: "Athena names the court\u2019s source frame, its verdict and the separate settlement."
+            },
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-v-open",
+                value: true
+              }
+            ]
+          },
+          "greek-iphigenia-tauris": {
+            name: "Iphigenia",
+            text: "Iphigenia tells the Tauris account in which Artemis saved her at Aulis. Every family recognition keeps this frame.",
+            place: "greek-tauris",
+            home: "greek-tauris",
+            values: {},
+            travels: false,
+            standoffs: false,
+            portrait: "assets/greek-drama/house-of-blood/iphigenia-tauris.png",
+            persona: "Iphigenia tells the Tauris account in which Artemis saved her at Aulis. Every family recognition keeps this frame. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
+            voice: "Iphigenia tells the Tauris account in which Artemis saved her at Aulis. Every family recognition keeps this frame.",
+            tastes: {
+              likes: "careful listening and kept promises",
+              sore: "a witness given another person\u2019s words",
+              reason: "Iphigenia tells the Tauris account in which Artemis saved her at Aulis. Every family recognition keeps this frame."
+            },
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-v-open",
+                value: true
+              }
+            ]
+          },
+          "greek-thoas": {
+            name: "Thoas",
+            text: "Thoas hears the rite at the shore and gives his own answer to a new pact.",
+            place: "greek-tauris-shore",
+            home: "greek-tauris-shore",
+            values: {},
+            travels: false,
+            standoffs: false,
+            portrait: "assets/greek-drama/house-of-blood/thoas.png",
+            persona: "Thoas hears the rite at the shore and gives his own answer to a new pact. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
+            voice: "Thoas hears the rite at the shore and gives his own answer to a new pact.",
+            tastes: {
+              likes: "careful listening and kept promises",
+              sore: "a witness given another person\u2019s words",
+              reason: "Thoas hears the rite at the shore and gives his own answer to a new pact."
+            },
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-v-open",
+                value: true
+              }
+            ]
+          },
+          "greek-taurian-chorus": {
+            name: "The Captive Women",
+            text: "The captive Greek women keep their own claim to return and choose whether to join a new pact.",
+            place: "greek-tauris",
+            home: "greek-tauris",
+            values: {},
+            travels: false,
+            standoffs: false,
+            portrait: "assets/greek-drama/house-of-blood/taurian-chorus.png",
+            persona: "The captive Greek women keep their own claim to return and choose whether to join a new pact. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
+            voice: "The captive Greek women keep their own claim to return and choose whether to join a new pact.",
+            tastes: {
+              likes: "careful listening and kept promises",
+              sore: "a witness given another person\u2019s words",
+              reason: "The captive Greek women keep their own claim to return and choose whether to join a new pact."
+            },
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-v-open",
+                value: true
+              }
+            ]
+          },
           "greek-melea": {
             name: "Melea, Keeper of Accounts",
             text: "Melea keeps two old accounts beside the palace bench. Each has its own witnesses and time.",
@@ -4292,570 +4856,6 @@
                 "greek-oeta"
               ]
             }
-          },
-          "greek-argos-watchman": {
-            name: "Argive Watchman",
-            text: "A watchman keeps the beacon account and introduces the three separate household roads.",
-            place: "greek-argolid-road",
-            home: "greek-argolid-road",
-            values: {},
-            travels: false,
-            standoffs: false,
-            portrait: "assets/greek-drama/chthonic-singer.png",
-            persona: "A watchman keeps the beacon account and introduces the three separate household roads. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
-            voice: "A watchman keeps the beacon account and introduces the three separate household roads.",
-            tastes: {
-              likes: "careful listening and kept promises",
-              sore: "a witness given another person\u2019s words",
-              reason: "A watchman keeps the beacon account and introduces the three separate household roads."
-            },
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-v-open",
-                value: true
-              }
-            ]
-          },
-          "greek-cassandra": {
-            name: "Cassandra",
-            text: "Cassandra speaks within Aeschylus\u2019s recalled homecoming, before she enters the house.",
-            place: "greek-argos-palace",
-            home: "greek-argos-palace",
-            values: {},
-            travels: false,
-            standoffs: false,
-            portrait: "assets/greek-drama/chthonic-electra.png",
-            persona: "Cassandra speaks within Aeschylus\u2019s recalled homecoming, before she enters the house. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
-            voice: "Cassandra speaks within Aeschylus\u2019s recalled homecoming, before she enters the house.",
-            tastes: {
-              likes: "careful listening and kept promises",
-              sore: "a witness given another person\u2019s words",
-              reason: "Cassandra speaks within Aeschylus\u2019s recalled homecoming, before she enters the house."
-            },
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-v-open",
-                value: true
-              },
-              {
-                kind: "choice",
-                key: "greek-atreid-account",
-                value: "aeschylus"
-              }
-            ]
-          },
-          "greek-clytemnestra-aeschylus": {
-            name: "Clytemnestra",
-            text: "Clytemnestra gives her own claim within the Aeschylus account.",
-            place: "greek-argos-palace",
-            home: "greek-argos-palace",
-            values: {},
-            travels: false,
-            standoffs: false,
-            portrait: "assets/greek-drama/chthonic-electra.png",
-            persona: "Clytemnestra gives her own claim within the Aeschylus account. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
-            voice: "Clytemnestra gives her own claim within the Aeschylus account.",
-            tastes: {
-              likes: "careful listening and kept promises",
-              sore: "a witness given another person\u2019s words",
-              reason: "Clytemnestra gives her own claim within the Aeschylus account."
-            },
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-v-open",
-                value: true
-              },
-              {
-                kind: "choice",
-                key: "greek-atreid-account",
-                value: "aeschylus"
-              }
-            ],
-            canonicalPerson: "clytemnestra"
-          },
-          "greek-argos-housekeeper": {
-            name: "Argive Housekeeper",
-            text: "An original surviving witness keeps the household record and chooses her own shelter.",
-            place: "greek-argos-palace",
-            home: "greek-argos-palace",
-            values: {},
-            travels: false,
-            standoffs: false,
-            portrait: "assets/greek-drama/chthonic-singer.png",
-            persona: "An original surviving witness keeps the household record and chooses her own shelter. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
-            voice: "An original surviving witness keeps the household record and chooses her own shelter.",
-            tastes: {
-              likes: "careful listening and kept promises",
-              sore: "a witness given another person\u2019s words",
-              reason: "An original surviving witness keeps the household record and chooses her own shelter."
-            },
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-v-open",
-                value: true
-              },
-              {
-                kind: "choice",
-                key: "greek-atreid-account",
-                value: "aeschylus"
-              }
-            ],
-            journey: {
-              after: "greek-v-agamemnon-agree-refuge",
-              path: [
-                "greek-argos-palace",
-                "greek-argos-tomb",
-                "greek-argolid-road",
-                "greek-argos-refuge"
-              ]
-            }
-          },
-          "greek-pylades-aeschylus": {
-            name: "Pylades",
-            text: "Pylades tells his own advice and the later source ending in Aeschylus\u2019s tomb account.",
-            place: "greek-argos-tomb",
-            home: "greek-argos-tomb",
-            values: {},
-            travels: false,
-            standoffs: false,
-            portrait: "assets/greek-drama/chthonic-orestes.png",
-            persona: "Pylades tells his own advice and the later source ending in Aeschylus\u2019s tomb account. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
-            voice: "Pylades tells his own advice and the later source ending in Aeschylus\u2019s tomb account.",
-            tastes: {
-              likes: "careful listening and kept promises",
-              sore: "a witness given another person\u2019s words",
-              reason: "Pylades tells his own advice and the later source ending in Aeschylus\u2019s tomb account."
-            },
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-v-open",
-                value: true
-              },
-              {
-                kind: "choice",
-                key: "greek-atreid-account",
-                value: "aeschylus"
-              }
-            ],
-            canonicalPerson: "pylades"
-          },
-          "greek-cilissa": {
-            name: "Cilissa",
-            text: "The nurse remembers the palace message and speaks for the work of care.",
-            place: "greek-argos-tomb",
-            home: "greek-argos-tomb",
-            values: {},
-            travels: false,
-            standoffs: false,
-            portrait: "assets/greek-drama/chthonic-electra.png",
-            persona: "The nurse remembers the palace message and speaks for the work of care. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
-            voice: "The nurse remembers the palace message and speaks for the work of care.",
-            tastes: {
-              likes: "careful listening and kept promises",
-              sore: "a witness given another person\u2019s words",
-              reason: "The nurse remembers the palace message and speaks for the work of care."
-            },
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-v-open",
-                value: true
-              },
-              {
-                kind: "choice",
-                key: "greek-atreid-account",
-                value: "aeschylus"
-              }
-            ]
-          },
-          "greek-chrysothemis": {
-            name: "Chrysothemis",
-            text: "Chrysothemis gives her own answer to Electra in Sophocles\u2019s palace account.",
-            place: "greek-mycenae-palace",
-            home: "greek-mycenae-palace",
-            values: {},
-            travels: false,
-            standoffs: false,
-            portrait: "assets/greek-drama/chthonic-electra.png",
-            persona: "Chrysothemis gives her own answer to Electra in Sophocles\u2019s palace account. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
-            voice: "Chrysothemis gives her own answer to Electra in Sophocles\u2019s palace account.",
-            tastes: {
-              likes: "careful listening and kept promises",
-              sore: "a witness given another person\u2019s words",
-              reason: "Chrysothemis gives her own answer to Electra in Sophocles\u2019s palace account."
-            },
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-v-open",
-                value: true
-              },
-              {
-                kind: "choice",
-                key: "greek-atreid-account",
-                value: "sophocles"
-              }
-            ]
-          },
-          "greek-paedagogus": {
-            name: "The Tutor",
-            text: "The tutor names his false death report and the urn in Sophocles\u2019s account.",
-            place: "greek-mycenae-palace",
-            home: "greek-mycenae-palace",
-            values: {},
-            travels: false,
-            standoffs: false,
-            portrait: "assets/greek-drama/chthonic-singer.png",
-            persona: "The tutor names his false death report and the urn in Sophocles\u2019s account. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
-            voice: "The tutor names his false death report and the urn in Sophocles\u2019s account.",
-            tastes: {
-              likes: "careful listening and kept promises",
-              sore: "a witness given another person\u2019s words",
-              reason: "The tutor names his false death report and the urn in Sophocles\u2019s account."
-            },
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-v-open",
-                value: true
-              },
-              {
-                kind: "choice",
-                key: "greek-atreid-account",
-                value: "sophocles"
-              }
-            ]
-          },
-          "greek-argive-farmer": {
-            name: "The Farmer",
-            text: "The farmer offers food and dignity in Euripides\u2019s farmhouse account.",
-            place: "greek-argive-farm",
-            home: "greek-argive-farm",
-            values: {},
-            travels: false,
-            standoffs: false,
-            portrait: "assets/greek-drama/chthonic-singer.png",
-            persona: "The farmer offers food and dignity in Euripides\u2019s farmhouse account. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
-            voice: "The farmer offers food and dignity in Euripides\u2019s farmhouse account.",
-            tastes: {
-              likes: "careful listening and kept promises",
-              sore: "a witness given another person\u2019s words",
-              reason: "The farmer offers food and dignity in Euripides\u2019s farmhouse account."
-            },
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-v-open",
-                value: true
-              },
-              {
-                kind: "choice",
-                key: "greek-atreid-account",
-                value: "euripides"
-              }
-            ]
-          },
-          "greek-electra-old-servant": {
-            name: "The Old Servant",
-            text: "The old servant names the scar and its childhood cause in Euripides\u2019s account.",
-            place: "greek-argive-farm",
-            home: "greek-argive-farm",
-            values: {},
-            travels: false,
-            standoffs: false,
-            portrait: "assets/greek-drama/chthonic-singer.png",
-            persona: "The old servant names the scar and its childhood cause in Euripides\u2019s account. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
-            voice: "The old servant names the scar and its childhood cause in Euripides\u2019s account.",
-            tastes: {
-              likes: "careful listening and kept promises",
-              sore: "a witness given another person\u2019s words",
-              reason: "The old servant names the scar and its childhood cause in Euripides\u2019s account."
-            },
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-v-open",
-                value: true
-              },
-              {
-                kind: "choice",
-                key: "greek-atreid-account",
-                value: "euripides"
-              }
-            ]
-          },
-          "greek-clytemnestra-euripides": {
-            name: "Clytemnestra",
-            text: "Clytemnestra gives her own answer in the farmhouse telling before its later ending is heard.",
-            place: "greek-argive-farm",
-            home: "greek-argive-farm",
-            values: {},
-            travels: false,
-            standoffs: false,
-            portrait: "assets/greek-drama/chthonic-electra.png",
-            persona: "Clytemnestra gives her own answer in the farmhouse telling before its later ending is heard. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
-            voice: "Clytemnestra gives her own answer in the farmhouse telling before its later ending is heard.",
-            tastes: {
-              likes: "careful listening and kept promises",
-              sore: "a witness given another person\u2019s words",
-              reason: "Clytemnestra gives her own answer in the farmhouse telling before its later ending is heard."
-            },
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-v-open",
-                value: true
-              },
-              {
-                kind: "choice",
-                key: "greek-atreid-account",
-                value: "euripides"
-              }
-            ],
-            canonicalPerson: "clytemnestra"
-          },
-          "greek-pylades-euripides": {
-            name: "Pylades",
-            text: "Pylades carries the farmhouse source account, including the Dioscuri\u2019s ending.",
-            place: "greek-argive-farm",
-            home: "greek-argive-farm",
-            values: {},
-            travels: false,
-            standoffs: false,
-            portrait: "assets/greek-drama/chthonic-orestes.png",
-            persona: "Pylades carries the farmhouse source account, including the Dioscuri\u2019s ending. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
-            voice: "Pylades carries the farmhouse source account, including the Dioscuri\u2019s ending.",
-            tastes: {
-              likes: "careful listening and kept promises",
-              sore: "a witness given another person\u2019s words",
-              reason: "Pylades carries the farmhouse source account, including the Dioscuri\u2019s ending."
-            },
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-v-open",
-                value: true
-              },
-              {
-                kind: "choice",
-                key: "greek-atreid-account",
-                value: "euripides"
-              }
-            ],
-            canonicalPerson: "pylades"
-          },
-          "greek-hermione": {
-            name: "Hermione",
-            text: "Hermione introduces Euripides\u2019s sixth-day Orestes as a separate song. Her present consent belongs to the game\u2019s care scenes.",
-            place: "greek-argos-refuge",
-            home: "greek-argos-refuge",
-            values: {},
-            travels: false,
-            standoffs: false,
-            portrait: "assets/greek-drama/chthonic-electra.png",
-            persona: "Hermione introduces Euripides\u2019s sixth-day Orestes as a separate song. Her present consent belongs to the game\u2019s care scenes. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
-            voice: "Hermione introduces Euripides\u2019s sixth-day Orestes as a separate song. Her present consent belongs to the game\u2019s care scenes.",
-            tastes: {
-              likes: "careful listening and kept promises",
-              sore: "a witness given another person\u2019s words",
-              reason: "Hermione introduces Euripides\u2019s sixth-day Orestes as a separate song. Her present consent belongs to the game\u2019s care scenes."
-            },
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-v-open",
-                value: true
-              }
-            ]
-          },
-          "greek-phrygian-servant": {
-            name: "The Phrygian Servant",
-            text: "The servant gives his own account of the palace attack and may agree to a safe walk.",
-            place: "greek-argos-refuge",
-            home: "greek-argos-refuge",
-            values: {},
-            travels: false,
-            standoffs: false,
-            portrait: "assets/greek-drama/chthonic-singer.png",
-            persona: "The servant gives his own account of the palace attack and may agree to a safe walk. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
-            voice: "The servant gives his own account of the palace attack and may agree to a safe walk.",
-            tastes: {
-              likes: "careful listening and kept promises",
-              sore: "a witness given another person\u2019s words",
-              reason: "The servant gives his own account of the palace attack and may agree to a safe walk."
-            },
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-v-open",
-                value: true
-              }
-            ],
-            journey: {
-              after: "greek-v-orestes-agree-passage",
-              path: [
-                "greek-argos-refuge",
-                "greek-argolid-road",
-                "greek-harbor"
-              ]
-            }
-          },
-          "greek-pythian-priestess": {
-            name: "Pythian Priestess",
-            text: "The priestess receives a refuge branch and introduces the Delphi opening of Eumenides.",
-            place: "greek-delphi",
-            home: "greek-delphi",
-            values: {},
-            travels: false,
-            standoffs: false,
-            portrait: "assets/greek-drama/chthonic-electra.png",
-            persona: "The priestess receives a refuge branch and introduces the Delphi opening of Eumenides. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
-            voice: "The priestess receives a refuge branch and introduces the Delphi opening of Eumenides.",
-            tastes: {
-              likes: "careful listening and kept promises",
-              sore: "a witness given another person\u2019s words",
-              reason: "The priestess receives a refuge branch and introduces the Delphi opening of Eumenides."
-            },
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-v-open",
-                value: true
-              }
-            ]
-          },
-          "greek-furies": {
-            name: "The Furies",
-            text: "The accusing chorus speaks as a group and can agree to bring its claim to Ares Hill.",
-            place: "greek-delphi",
-            home: "greek-delphi",
-            values: {},
-            travels: false,
-            standoffs: false,
-            portrait: "assets/greek-drama/chthonic-electra.png",
-            persona: "The accusing chorus speaks as a group and can agree to bring its claim to Ares Hill. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
-            voice: "The accusing chorus speaks as a group and can agree to bring its claim to Ares Hill.",
-            tastes: {
-              likes: "careful listening and kept promises",
-              sore: "a witness given another person\u2019s words",
-              reason: "The accusing chorus speaks as a group and can agree to bring its claim to Ares Hill."
-            },
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-v-open",
-                value: true
-              }
-            ],
-            journey: {
-              after: "greek-v-eumenides-agree-court",
-              path: [
-                "greek-delphi",
-                "greek-athens",
-                "greek-ares-hill"
-              ]
-            }
-          },
-          "greek-athena": {
-            name: "Athena",
-            text: "Athena names the court\u2019s source frame, its verdict and the separate settlement.",
-            place: "greek-ares-hill",
-            home: "greek-ares-hill",
-            values: {},
-            travels: false,
-            standoffs: false,
-            portrait: "assets/greek-drama/chthonic-electra.png",
-            persona: "Athena names the court\u2019s source frame, its verdict and the separate settlement. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
-            voice: "Athena names the court\u2019s source frame, its verdict and the separate settlement.",
-            tastes: {
-              likes: "careful listening and kept promises",
-              sore: "a witness given another person\u2019s words",
-              reason: "Athena names the court\u2019s source frame, its verdict and the separate settlement."
-            },
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-v-open",
-                value: true
-              }
-            ]
-          },
-          "greek-iphigenia-tauris": {
-            name: "Iphigenia",
-            text: "Iphigenia tells the Tauris account in which Artemis saved her at Aulis. Every family recognition keeps this frame.",
-            place: "greek-tauris",
-            home: "greek-tauris",
-            values: {},
-            travels: false,
-            standoffs: false,
-            portrait: "assets/greek-drama/chthonic-electra.png",
-            persona: "Iphigenia tells the Tauris account in which Artemis saved her at Aulis. Every family recognition keeps this frame. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
-            voice: "Iphigenia tells the Tauris account in which Artemis saved her at Aulis. Every family recognition keeps this frame.",
-            tastes: {
-              likes: "careful listening and kept promises",
-              sore: "a witness given another person\u2019s words",
-              reason: "Iphigenia tells the Tauris account in which Artemis saved her at Aulis. Every family recognition keeps this frame."
-            },
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-v-open",
-                value: true
-              }
-            ]
-          },
-          "greek-thoas": {
-            name: "Thoas",
-            text: "Thoas hears the rite at the shore and gives his own answer to a new pact.",
-            place: "greek-tauris-shore",
-            home: "greek-tauris-shore",
-            values: {},
-            travels: false,
-            standoffs: false,
-            portrait: "assets/greek-drama/chthonic-orestes.png",
-            persona: "Thoas hears the rite at the shore and gives his own answer to a new pact. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
-            voice: "Thoas hears the rite at the shore and gives his own answer to a new pact.",
-            tastes: {
-              likes: "careful listening and kept promises",
-              sore: "a witness given another person\u2019s words",
-              reason: "Thoas hears the rite at the shore and gives his own answer to a new pact."
-            },
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-v-open",
-                value: true
-              }
-            ]
-          },
-          "greek-taurian-chorus": {
-            name: "The Captive Women",
-            text: "The captive Greek women keep their own claim to return and choose whether to join a new pact.",
-            place: "greek-tauris",
-            home: "greek-tauris",
-            values: {},
-            travels: false,
-            standoffs: false,
-            portrait: "assets/greek-drama/chthonic-electra.png",
-            persona: "The captive Greek women keep their own claim to return and choose whether to join a new pact. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
-            voice: "The captive Greek women keep their own claim to return and choose whether to join a new pact.",
-            tastes: {
-              likes: "careful listening and kept promises",
-              sore: "a witness given another person\u2019s words",
-              reason: "The captive Greek women keep their own claim to return and choose whether to join a new pact."
-            },
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-v-open",
-                value: true
-              }
-            ]
           },
           "greek-comedy-acharnians-dicaeopolis": {
             name: "Dicaeopolis",
@@ -59235,7 +59235,9 @@
       return valid ? [] : [`invalid observation ${d?.id || "definition"}`];
     });
   }
-  var mediaPathOk = (pack, path) => typeof path === "string" && (new RegExp(`^assets/${pack}/[a-z0-9-]+\\.(?:png|svg|webp)$`).test(path) || /^assets\/shared\/(characters|places|items)\/[a-z0-9-]+\.(png|webp)$/.test(
+  var mediaPathOk = (pack, path) => typeof path === "string" && (new RegExp(
+    `^assets/${pack}/(?:[a-z0-9-]+/)?[a-z0-9-]+\\.(?:png|svg|webp)$`
+  ).test(path) || /^assets\/shared\/(characters|places|items)\/[a-z0-9-]+\.(png|webp)$/.test(
     path
   ));
   function packProblems(pack, hub2, mountedPlaces = []) {
@@ -59392,7 +59394,7 @@
     check(owns2(places2, pack.entry), "entry must name one of the pack's places");
     const media = (path, what) => check(
       mediaPathOk(pack.id, path),
-      `${what} must be assets/${pack.id}/<file>.png`
+      `${what} must be assets/${pack.id}/<file> or assets/${pack.id}/<chapter>/<file> (PNG, SVG or WebP)`
     );
     for (const [id, p] of Object.entries(places2)) {
       check(
@@ -67598,6 +67600,12 @@
   // v2/card-game/daylight.mjs
   var DAYLIGHT_TURNS = 24;
   var art = (file) => `assets/greek-drama/${file}.webp`;
+  var houseArt = (file) => `assets/greek-drama/house-of-blood/${file}.png`;
+  var housePlaceWords = {
+    "greek-ares-hill": "on Ares Hill",
+    "greek-argos-refuge": "at the Argive Refuge",
+    "greek-tauris-shore": "on the Taurian Shore"
+  };
   var nightBackdrops = {
     "greek-cithaeron": art("bacchae-cithaeron-night"),
     "greek-egypt-tomb": art("helen-egypt-tomb-night"),
@@ -67618,16 +67626,23 @@
     "greek-greek-camp": art("ajax-camp-night"),
     "greek-ajax-landing": art("ajax-camp-night"),
     "greek-ajax-household": art("ajax-camp-night"),
-    "greek-ajax-grave": art("ajax-camp-night")
+    "greek-ajax-grave": art("ajax-camp-night"),
+    "greek-ares-hill": houseArt("ares-hill-scene-night"),
+    "greek-argos-refuge": houseArt("argos-refuge-scene-night"),
+    "greek-tauris-shore": houseArt("tauris-shore-scene-night")
   };
   var dockedNightBackdrops = {
     [art("harbor-ship-at-berth")]: art("harbor-ship-at-berth-night"),
     [art("athens-harbor")]: art("athens-harbor-ship-at-berth-night"),
-    [art("open-door-piraeus")]: art("piraeus-ship-at-berth-night")
+    [art("open-door-piraeus")]: art("piraeus-ship-at-berth-night"),
+    [houseArt("tauris-shore-ship-at-berth")]: houseArt(
+      "tauris-shore-ship-at-berth-night"
+    )
   };
   var daylightAssets = [
     .../* @__PURE__ */ new Set([
       ...Object.values(nightBackdrops),
+      ...Object.keys(dockedNightBackdrops),
       ...Object.values(dockedNightBackdrops)
     ])
   ];
@@ -67635,7 +67650,7 @@
     if (!world || !Object.hasOwn(nightBackdrops, id)) return null;
     const period = Math.floor(world.turn / DAYLIGHT_TURNS);
     const phase = period % 2 ? "night" : "day";
-    const where = id === "greek-egypt-tomb" || id.startsWith("greek-book-iv-helen-") ? "by the Nile in Helen\u2019s Egyptian account" : id === "greek-cithaeron" ? "on Cithaeron Slopes" : id === "greek-pherae" ? "in Pherae" : id === "greek-trachis" ? "at Trachis" : id === "greek-athens-harbor" ? "at Athens Harbor" : id === "greek-piraeus" ? "at Piraeus Quays" : id === "greek-greek-camp" || id.startsWith("greek-ajax-") ? "at the Greek camp near Troy" : "in Thebes";
+    const where = housePlaceWords[id] || (id === "greek-egypt-tomb" || id.startsWith("greek-book-iv-helen-") ? "by the Nile in Helen\u2019s Egyptian account" : id === "greek-cithaeron" ? "on Cithaeron Slopes" : id === "greek-pherae" ? "in Pherae" : id === "greek-trachis" ? "at Trachis" : id === "greek-athens-harbor" ? "at Athens Harbor" : id === "greek-piraeus" ? "at Piraeus Quays" : id === "greek-greek-camp" || id.startsWith("greek-ajax-") ? "at the Greek camp near Troy" : "in Thebes");
     return {
       phase,
       period,

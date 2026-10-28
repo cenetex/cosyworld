@@ -156,10 +156,12 @@ export function observationProblems(definitions, catalog) {
   });
 }
 
-// Media lives in the pack's own folder under the card table's assets.
+// Media lives in the pack's own folder or one named chapter folder.
 export const mediaPathOk = (pack, path) =>
   typeof path === "string" &&
-  (new RegExp(`^assets/${pack}/[a-z0-9-]+\\.(?:png|svg|webp)$`).test(path) ||
+  (new RegExp(
+    `^assets/${pack}/(?:[a-z0-9-]+/)?[a-z0-9-]+\\.(?:png|svg|webp)$`,
+  ).test(path) ||
     /^assets\/shared\/(characters|places|items)\/[a-z0-9-]+\.(png|webp)$/.test(
       path,
     ));
@@ -367,7 +369,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
   const media = (path, what) =>
     check(
       mediaPathOk(pack.id, path),
-      `${what} must be assets/${pack.id}/<file>.png`,
+      `${what} must be assets/${pack.id}/<file> or assets/${pack.id}/<chapter>/<file> (PNG, SVG or WebP)`,
     );
 
   for (const [id, p] of Object.entries(places)) {

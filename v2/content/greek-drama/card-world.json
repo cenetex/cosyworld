@@ -13,19 +13,12 @@
     "groups": [
       {
         "key": "greek-helen-account",
-        "options": [
-          "egypt",
-          "troy"
-        ],
+        "options": ["egypt", "troy"],
         "initial": "uncommitted"
       },
       {
         "key": "greek-atreid-account",
-        "options": [
-          "aeschylus",
-          "sophocles",
-          "euripides"
-        ],
+        "options": ["aeschylus", "sophocles", "euripides"],
         "initial": "uncommitted"
       }
     ]
@@ -45,11 +38,7 @@
     "greek-harbor": {
       "name": "The Wine-Dark Harbor",
       "text": "Worn steps climb from the stone landing toward the town.",
-      "exits": [
-        "greek-courtyard",
-        "greek-road-thebes",
-        "greek-argolid-road"
-      ],
+      "exits": ["greek-courtyard", "greek-road-thebes", "greek-argolid-road"],
       "backdrop": "assets/greek-drama/harbor-open-berth.webp",
       "persona": "Worn steps climb from the stone landing toward the town."
     },
@@ -69,20 +58,14 @@
     "greek-well": {
       "name": "Theban Market Well",
       "text": "Water jars stand beside the well. Neighbors lower their voices when palace servants pass.",
-      "exits": [
-        "greek-courtyard",
-        "greek-palace",
-        "greek-gate"
-      ],
+      "exits": ["greek-courtyard", "greek-palace", "greek-gate"],
       "backdrop": "assets/greek-drama/market-well-day.webp",
       "persona": "Water jars stand beside the well. Neighbors lower their voices when palace servants pass."
     },
     "greek-palace": {
       "name": "Theban Palace Forecourt",
       "text": "The king receives petitions beneath a painted portico. A space beside the door is kept for public orders.",
-      "exits": [
-        "greek-well"
-      ],
+      "exits": ["greek-well"],
       "backdrop": "assets/greek-drama/palace-day.webp",
       "persona": "The king receives petitions beneath a painted portico. A space beside the door is kept for public orders."
     },
@@ -101,38 +84,28 @@
     "greek-battlefield": {
       "name": "The Exposed Battlefield",
       "text": "Broken spear shafts lie in the dust. A strip of earth outside the city is set apart for the fallen brother.",
-      "exits": [
-        "greek-gate"
-      ],
+      "exits": ["greek-gate"],
       "backdrop": "assets/greek-drama/burial-ground-dusk.webp",
       "persona": "Broken spear shafts lie in the dust. A strip of earth outside the city is set apart for the fallen brother."
     },
     "greek-sanctuary": {
       "name": "The Hillside Sanctuary",
       "text": "Olive trees shade a small altar. A stone basin stands beneath its roof.",
-      "exits": [
-        "greek-courtyard",
-        "greek-cithaeron"
-      ],
+      "exits": ["greek-courtyard", "greek-cithaeron"],
       "backdrop": "assets/greek-drama/sanctuary-dawn.webp",
       "persona": "Olive trees shade a small altar. A stone basin stands beneath its roof."
     },
     "greek-cithaeron": {
       "name": "Cithaeron Slopes",
       "text": "Goat paths cross the wooded slope. A distant drum carries between the trees.",
-      "exits": [
-        "greek-sanctuary"
-      ],
+      "exits": ["greek-sanctuary"],
       "backdrop": "assets/greek-drama/bacchae-cithaeron-day.webp",
       "persona": "Goat paths cross the wooded slope. A distant drum carries between the trees."
     },
     "greek-aulis": {
       "name": "Aulis Anchorage",
       "text": "The ships lie motionless beside the shore. Soldiers wait outside the command tents.",
-      "exits": [
-        "greek-gate",
-        "greek-greek-camp"
-      ],
+      "exits": ["greek-gate", "greek-greek-camp"],
       "backdrop": "assets/greek-drama/harbor.svg",
       "persona": "The ships lie motionless beside the shore. Soldiers wait outside the command tents."
     },
@@ -289,10 +262,7 @@
     "greek-marathon": {
       "name": "Marathon Altar",
       "text": "A folded cloth lies beside the altar of Zeus. A keeper watches the road where families once sought shelter. A local road runs back through Colonus.",
-      "exits": [
-        "greek-road-athens-marathon",
-        "greek-road-colonus-marathon"
-      ],
+      "exits": ["greek-road-athens-marathon", "greek-road-colonus-marathon"],
       "backdrop": "assets/greek-drama/open-door-marathon.webp",
       "persona": "The keeper tells Euripides’s Children of Heracles as a separate tale under Demophon, son of Theseus, after Heracles’s death. The daughter, battle and captive king belong to that tale. The traveler’s blanket stays at the present altar for guests."
     },
@@ -311,10 +281,7 @@
     "greek-argos-sanctuary": {
       "name": "Argive Shore Sanctuary",
       "text": "Wool-wreathed branches rest beside the coastal altar. Guests bring water from the refuge court. Paths lead to that court and the Argolid Crossroads.",
-      "exits": [
-        "greek-argolid-road",
-        "greek-danaid-refuge-court"
-      ],
+      "exits": ["greek-argolid-road", "greek-danaid-refuge-court"],
       "backdrop": "assets/greek-drama/harbor.svg",
       "persona": "A living Argive sanctuary. Nera seeks shelter here in the current journey. Melia tells the older Danaid account at the nearby refuge court. The old herald, Danaus and Pelasgus belong to her attributed account."
     },
@@ -424,20 +391,14 @@
     "greek-oeta": {
       "name": "The Oeta Road",
       "text": "A steep road climbs above the trees. Bearers have set a litter beside a level patch of stone.",
-      "exits": [
-        "greek-trachis",
-        "greek-trachis-canae-approach"
-      ],
+      "exits": ["greek-trachis", "greek-trachis-canae-approach"],
       "backdrop": "assets/greek-drama/grove.svg",
       "persona": "A steep road climbs above the trees. Bearers have set a litter beside a level patch of stone."
     },
     "greek-pherae": {
       "name": "Palace of Pherae",
       "text": "Guests arrive at a house in mourning. A servant hesitates before opening the inner door.",
-      "exits": [
-        "greek-trachis",
-        "greek-thetis"
-      ],
+      "exits": ["greek-trachis", "greek-thetis"],
       "backdrop": "assets/greek-drama/book-two-pherae-day.webp",
       "persona": "Guests arrive at a house in mourning. A servant hesitates before opening the inner door."
     },
@@ -482,9 +443,7 @@
     "greek-trojan-camp": {
       "name": "The Trojan Night Camp",
       "text": "Watch fires mark the edge of the camp. A newly arrived ally waits for a guide.",
-      "exits": [
-        "greek-troy"
-      ],
+      "exits": ["greek-troy"],
       "backdrop": "assets/greek-drama/grove.svg",
       "persona": "Watch fires mark the edge of the camp. A newly arrived ally waits for a guide."
     },
@@ -505,28 +464,21 @@
     "greek-lemnos": {
       "name": "The Lemnian Cave",
       "text": "A rough bed lies inside the cave. Footprints lead toward a bow wrapped against the salt air.",
-      "exits": [
-        "greek-greek-camp"
-      ],
+      "exits": ["greek-greek-camp"],
       "backdrop": "assets/greek-drama/sea.svg",
       "persona": "A rough bed lies inside the cave. Footprints lead toward a bow wrapped against the salt air."
     },
     "greek-thrace": {
       "name": "The Thracian Shore",
       "text": "A fleet waits beyond the breakers. Captive households search among the new arrivals.",
-      "exits": [
-        "greek-troy"
-      ],
+      "exits": ["greek-troy"],
       "backdrop": "assets/greek-drama/sea.svg",
       "persona": "A fleet waits beyond the breakers. Captive households search among the new arrivals."
     },
     "greek-egypt-tomb": {
       "name": "Proteus's Tomb in Egypt",
       "text": "A tomb stands beside the Egyptian palace. A woman receives visitors from the sea.",
-      "exits": [
-        "greek-book-iv-helen-court",
-        "greek-book-iv-helen-landing"
-      ],
+      "exits": ["greek-book-iv-helen-court", "greek-book-iv-helen-landing"],
       "backdrop": "assets/greek-drama/helen-egypt-tomb-day.webp",
       "requires": [
         {
@@ -540,68 +492,49 @@
     "greek-tauris": {
       "name": "The Taurian Temple",
       "text": "A walled temple overlooks the landing place. An attendant counts the people brought ashore.",
-      "exits": [
-        "greek-piraeus",
-        "greek-tauris-shore"
-      ],
+      "exits": ["greek-piraeus", "greek-tauris-shore"],
       "backdrop": "assets/greek-drama/palace.svg",
       "persona": "A walled temple overlooks the landing place. An attendant counts the people brought ashore."
     },
     "greek-sicily": {
       "name": "The Sicilian Cave",
       "text": "Sheep crowd a stone enclosure beside the cave. Wine jars stand beyond the shepherds' reach.",
-      "exits": [
-        "greek-piraeus",
-        "greek-vii-inner-cave",
-        "greek-sicily-shore"
-      ],
+      "exits": ["greek-piraeus", "greek-vii-inner-cave", "greek-sicily-shore"],
       "backdrop": "assets/greek-drama/grove.svg",
       "persona": "Sheep crowd a stone enclosure beside the cave. Wine jars stand beyond the shepherds' reach."
     },
     "greek-susa": {
       "name": "The Court at Susa",
       "text": "Officials wait beside the royal tomb. The last dispatch from the fleet lies unopened.",
-      "exits": [
-        "greek-troy",
-        "greek-vii-crag-camp"
-      ],
+      "exits": ["greek-troy", "greek-vii-crag-camp"],
       "backdrop": "assets/greek-drama/palace.svg",
       "persona": "Officials wait beside the royal tomb. The last dispatch from the fleet lies unopened."
     },
     "greek-scythian-crag": {
       "name": "The Scythian Crag",
       "text": "Iron bonds fix a figure to the rock. A narrow ledge allows visitors to approach.",
-      "exits": [
-        "greek-vii-crag-camp"
-      ],
+      "exits": ["greek-vii-crag-camp"],
       "backdrop": "assets/greek-drama/grove.svg",
       "persona": "Iron bonds fix a figure to the rock. A narrow ledge allows visitors to approach."
     },
     "greek-divine-heights": {
       "name": "The Divine Heights",
       "text": "A steep stair ends above the clouds. Broken farming tools have been carried to the landing.",
-      "exits": [
-        "greek-attic-farm"
-      ],
+      "exits": ["greek-attic-farm"],
       "backdrop": "assets/greek-drama/sea.svg",
       "persona": "A steep stair ends above the clouds. Broken farming tools have been carried to the landing."
     },
     "greek-bird-wilderness": {
       "name": "The Hoopoe's Thicket",
       "text": "A nest hangs above a rocky clearing. Two travelers have laid out a basket, a pot, and a plan for a city.",
-      "exits": [
-        "greek-attic-farm",
-        "greek-vii-air-gate"
-      ],
+      "exits": ["greek-attic-farm", "greek-vii-air-gate"],
       "backdrop": "assets/greek-drama/grove.svg",
       "persona": "A nest hangs above a rocky clearing. Two travelers have laid out a basket, a pot, and a plan for a city."
     },
     "greek-underworld": {
       "name": "The Underworld Landing",
       "text": "A ferry rests beside dark water. The keeper of the landing asks the purpose of each crossing.",
-      "exits": [
-        "greek-colonus"
-      ],
+      "exits": ["greek-colonus"],
       "backdrop": "assets/greek-drama/harbor.svg",
       "persona": "A ferry rests beside dark water. The keeper of the landing asks the purpose of each crossing."
     },
@@ -636,145 +569,86 @@
       "name": "Athens Harbor",
       "text": "Stone quays run beneath long warehouses. Beyond the harbor gate, city streets and steps climb toward the walls and the Acropolis of Athens.",
       "persona": "Athens Harbor is the ship’s landing for the great city. City streets lead inland to the Agora. Piraeus Quays is a separate town with its own host and work of welcome.",
-      "exits": [
-        "greek-athens",
-        "greek-road-athens-harbor"
-      ],
+      "exits": ["greek-athens", "greek-road-athens-harbor"],
       "backdrop": "assets/greek-drama/athens-harbor-open-berth.webp"
     },
     "greek-road-thebes": {
       "name": "Theban Harbor Road",
       "text": "A broad road crosses the olive hills. One end leads to The Wine-Dark Harbor; the other leads to Theban Courtyard. A stone bench rests beside the verge.",
       "persona": "A shared road between The Wine-Dark Harbor and Theban Courtyard. The left end always leads to The Wine-Dark Harbor. The right end always leads to Theban Courtyard. Travelers can meet, talk, rest and carry their belongings here.",
-      "exits": [
-        "greek-harbor",
-        "greek-courtyard"
-      ],
-      "road": [
-        "greek-harbor",
-        "greek-courtyard"
-      ],
+      "exits": ["greek-harbor", "greek-courtyard"],
+      "road": ["greek-harbor", "greek-courtyard"],
       "backdrop": "assets/greek-drama/theban-harbor-road.webp"
     },
     "greek-road-athens-harbor": {
       "name": "Athens Harbor Road",
       "text": "A broad road crosses the olive hills. One end leads to Athens Harbor; the other leads to Athenian Agora. A stone bench rests beside the verge.",
       "persona": "A shared road between Athens Harbor and Athenian Agora. The left end always leads to Athens Harbor. The right end always leads to Athenian Agora. Travelers can meet, talk, rest and carry their belongings here.",
-      "exits": [
-        "greek-athens-harbor",
-        "greek-athens"
-      ],
-      "road": [
-        "greek-athens-harbor",
-        "greek-athens"
-      ],
+      "exits": ["greek-athens-harbor", "greek-athens"],
+      "road": ["greek-athens-harbor", "greek-athens"],
       "backdrop": "assets/greek-drama/attic-road.webp"
     },
     "greek-road-athens-piraeus": {
       "name": "Athens–Piraeus Road",
       "text": "A broad road crosses the olive hills. One end leads to Piraeus Quays; the other leads to Athenian Agora. A stone bench rests beside the verge.",
       "persona": "A shared road between Piraeus Quays and Athenian Agora. The left end always leads to Piraeus Quays. The right end always leads to Athenian Agora. Travelers can meet, talk, rest and carry their belongings here.",
-      "exits": [
-        "greek-piraeus",
-        "greek-athens"
-      ],
-      "road": [
-        "greek-piraeus",
-        "greek-athens"
-      ],
+      "exits": ["greek-piraeus", "greek-athens"],
+      "road": ["greek-piraeus", "greek-athens"],
       "backdrop": "assets/greek-drama/attic-road.webp"
     },
     "greek-road-athens-colonus": {
       "name": "Colonus Road",
       "text": "A broad road crosses the olive hills. One end leads to Athenian Agora; the other leads to Colonus Grove. A stone bench rests beside the verge.",
       "persona": "A shared road between Athenian Agora and Colonus Grove. The left end always leads to Athenian Agora. The right end always leads to Colonus Grove. Travelers can meet, talk, rest and carry their belongings here.",
-      "exits": [
-        "greek-athens",
-        "greek-colonus"
-      ],
-      "road": [
-        "greek-athens",
-        "greek-colonus"
-      ],
+      "exits": ["greek-athens", "greek-colonus"],
+      "road": ["greek-athens", "greek-colonus"],
       "backdrop": "assets/greek-drama/attic-road.webp"
     },
     "greek-road-athens-eleusis": {
       "name": "Eleusis Road",
       "text": "A broad road crosses the olive hills. One end leads to Athenian Agora; the other leads to Eleusinian Sanctuary. A stone bench rests beside the verge.",
       "persona": "A shared road between Athenian Agora and Eleusinian Sanctuary. The left end always leads to Athenian Agora. The right end always leads to Eleusinian Sanctuary. Travelers can meet, talk, rest and carry their belongings here.",
-      "exits": [
-        "greek-athens",
-        "greek-eleusis"
-      ],
-      "road": [
-        "greek-athens",
-        "greek-eleusis"
-      ],
+      "exits": ["greek-athens", "greek-eleusis"],
+      "road": ["greek-athens", "greek-eleusis"],
       "backdrop": "assets/greek-drama/attic-road.webp"
     },
     "greek-road-athens-marathon": {
       "name": "Marathon Road",
       "text": "A broad road crosses the olive hills. One end leads to Athenian Agora; the other leads to Marathon Altar. A stone bench rests beside the verge.",
       "persona": "A shared road between Athenian Agora and Marathon Altar. The left end always leads to Athenian Agora. The right end always leads to Marathon Altar. Travelers can meet, talk, rest and carry their belongings here.",
-      "exits": [
-        "greek-athens",
-        "greek-marathon"
-      ],
-      "road": [
-        "greek-athens",
-        "greek-marathon"
-      ],
+      "exits": ["greek-athens", "greek-marathon"],
+      "road": ["greek-athens", "greek-marathon"],
       "backdrop": "assets/greek-drama/attic-road.webp"
     },
     "greek-road-piraeus-eleusis": {
       "name": "Eleusis Coast Road",
       "text": "A broad road crosses the olive hills. One end leads to Piraeus Quays; the other leads to Eleusinian Sanctuary. A stone bench rests beside the verge.",
       "persona": "A shared road between Piraeus Quays and Eleusinian Sanctuary. The left end always leads to Piraeus Quays. The right end always leads to Eleusinian Sanctuary. Travelers can meet, talk, rest and carry their belongings here.",
-      "exits": [
-        "greek-piraeus",
-        "greek-eleusis"
-      ],
-      "road": [
-        "greek-piraeus",
-        "greek-eleusis"
-      ],
+      "exits": ["greek-piraeus", "greek-eleusis"],
+      "road": ["greek-piraeus", "greek-eleusis"],
       "backdrop": "assets/greek-drama/attic-road.webp"
     },
     "greek-road-colonus-eleusis": {
       "name": "Colonus–Eleusis Road",
       "text": "A broad road crosses the olive hills. One end leads to Colonus Grove; the other leads to Eleusinian Sanctuary. A stone bench rests beside the verge.",
       "persona": "A shared road between Colonus Grove and Eleusinian Sanctuary. The left end always leads to Colonus Grove. The right end always leads to Eleusinian Sanctuary. Travelers can meet, talk, rest and carry their belongings here.",
-      "exits": [
-        "greek-colonus",
-        "greek-eleusis"
-      ],
-      "road": [
-        "greek-colonus",
-        "greek-eleusis"
-      ],
+      "exits": ["greek-colonus", "greek-eleusis"],
+      "road": ["greek-colonus", "greek-eleusis"],
       "backdrop": "assets/greek-drama/attic-road.webp"
     },
     "greek-road-colonus-marathon": {
       "name": "Colonus–Marathon Road",
       "text": "A broad road crosses the olive hills. One end leads to Colonus Grove; the other leads to Marathon Altar. A stone bench rests beside the verge.",
       "persona": "A shared road between Colonus Grove and Marathon Altar. The left end always leads to Colonus Grove. The right end always leads to Marathon Altar. Travelers can meet, talk, rest and carry their belongings here.",
-      "exits": [
-        "greek-colonus",
-        "greek-marathon"
-      ],
-      "road": [
-        "greek-colonus",
-        "greek-marathon"
-      ],
+      "exits": ["greek-colonus", "greek-marathon"],
+      "road": ["greek-colonus", "greek-marathon"],
       "backdrop": "assets/greek-drama/attic-road.webp"
     },
     "greek-ajax-landing": {
       "name": "The Trojan Camp Landing",
       "text": "A wooden landing meets the ships below the tents. The Greek ship calls here for the named Trojan burial account.",
       "persona": "This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. A wooden landing meets the ships below the tents. The Greek ship calls here for the named Trojan burial account.",
-      "exits": [
-        "greek-greek-camp"
-      ],
+      "exits": ["greek-greek-camp"],
       "backdrop": "assets/greek-drama/ajax-camp-day.webp",
       "requires": [
         {
@@ -788,9 +662,7 @@
       "name": "Ajax’s Household Tent",
       "text": "Tecmessa keeps a place for Eurysaces beside the tent. The child’s father has died. His shield can be set safely with the household.",
       "persona": "This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. Tecmessa keeps a place for Eurysaces beside the tent. The child’s father has died. His shield can be set safely with the household.",
-      "exits": [
-        "greek-greek-camp"
-      ],
+      "exits": ["greek-greek-camp"],
       "backdrop": "assets/greek-drama/ajax-camp-day.webp",
       "requires": [
         {
@@ -804,9 +676,7 @@
       "name": "Ajax’s Grave",
       "text": "A patch of earth waits above the ships. Cloth and grave tools must reach this place before Ajax’s burial can be completed.",
       "persona": "This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. A patch of earth waits above the ships. Cloth and grave tools must reach this place before Ajax’s burial can be completed.",
-      "exits": [
-        "greek-greek-camp"
-      ],
+      "exits": ["greek-greek-camp"],
       "backdrop": "assets/greek-drama/ajax-camp-day.webp",
       "requires": [
         {
@@ -815,6 +685,27 @@
           "value": true
         }
       ]
+    },
+    "greek-ares-hill": {
+      "name": "Ares Hill",
+      "text": "A stone court stands above Athens. Each case names its speaker, time and claim.",
+      "persona": "A stone court stands above Athens. Each case names its speaker, time and claim.",
+      "exits": ["greek-athens"],
+      "backdrop": "assets/greek-drama/house-of-blood/ares-hill-scene.png"
+    },
+    "greek-argos-refuge": {
+      "name": "Argive Refuge",
+      "text": "A sheltered court receives witnesses. Hermione keeps the sixth-day play within its named song.",
+      "persona": "A sheltered court receives witnesses. Hermione keeps the sixth-day play within its named song.",
+      "exits": ["greek-argolid-road"],
+      "backdrop": "assets/greek-drama/house-of-blood/argos-refuge-scene.png"
+    },
+    "greek-tauris-shore": {
+      "name": "Taurian Shore",
+      "text": "Salt water reaches the temple steps. Thoas hears the rite and the keepers’ reply.",
+      "persona": "Salt water reaches the temple steps. Thoas hears the rite and the keepers’ reply.",
+      "exits": ["greek-tauris"],
+      "backdrop": "assets/greek-drama/house-of-blood/tauris-shore-scene.png"
     },
     "greek-heracles-theban-house": {
       "requires": [
@@ -827,9 +718,7 @@
       "name": "Heracles's House · Earlier Thebes",
       "text": "This is Euripides's earlier Theban household. An altar stands by the door; a road leads to an Athenian guest room. The way back returns to Dione's present courtyard.",
       "persona": "A named earlier account from Euripides's Heracles. Megara and the boys belong to its first scene. The messenger's report opens the aftermath. The family's care and both friends' journeys follow their saved acts.",
-      "exits": [
-        "greek-heracles-athens-road"
-      ],
+      "exits": ["greek-heracles-athens-road"],
       "backdrop": "assets/greek-drama/courtyard-day.webp"
     },
     "greek-heracles-athens-road": {
@@ -864,28 +753,21 @@
       "name": "Theseus's Guest Room · Heracles Account",
       "text": "A receiving table and two chairs wait in this earlier Athenian room. The road returns to Heracles's house. A help tablet can be delivered before the friends arrive.",
       "persona": "Theseus's guest room in the earlier Euripides account. A placed tablet proves its own delivery. Heracles and Theseus reach the room through their own agreed journeys. This is separate from the present Agora.",
-      "exits": [
-        "greek-heracles-athens-road"
-      ],
+      "exits": ["greek-heracles-athens-road"],
       "backdrop": "assets/greek-drama/palace.svg"
     },
     "greek-danaid-refuge-court": {
       "name": "Argive Refuge Court",
       "text": "A shaded court joins household doors and common guest rooms. A path returns to the shore sanctuary. Melia keeps water and provisions beside a low table.",
       "persona": "A living refuge court in the current Argive community. Both household rooms and common lodging open from this court. Melia’s older Danaid account has its own speakers and time. Nera enters through an agreed walk from the shore sanctuary.",
-      "exits": [
-        "greek-argos-sanctuary"
-      ],
+      "exits": ["greek-argos-sanctuary"],
       "backdrop": "assets/greek-drama/courtyard-day.webp"
     },
     "greek-trachis-canae-approach": {
       "name": "Canae Approach",
       "text": "A path reaches the sacrificial ground. Lichas brings his message here.",
       "persona": "This is Canae within the earlier named Trachis account. Keep this account separate from present Thebes.",
-      "exits": [
-        "greek-trachis",
-        "greek-oeta"
-      ],
+      "exits": ["greek-trachis", "greek-oeta"],
       "backdrop": "assets/greek-drama/grove.svg",
       "requires": [
         {
@@ -895,40 +777,11 @@
         }
       ]
     },
-    "greek-ares-hill": {
-      "name": "Ares Hill",
-      "text": "A stone court stands above Athens. Each case names its speaker, time and claim.",
-      "persona": "A stone court stands above Athens. Each case names its speaker, time and claim.",
-      "exits": [
-        "greek-athens"
-      ],
-      "backdrop": "assets/greek-drama/palace.svg"
-    },
-    "greek-argos-refuge": {
-      "name": "Argive Refuge",
-      "text": "A sheltered court receives witnesses. Hermione keeps the sixth-day play within its named song.",
-      "persona": "A sheltered court receives witnesses. Hermione keeps the sixth-day play within its named song.",
-      "exits": [
-        "greek-argolid-road"
-      ],
-      "backdrop": "assets/greek-drama/courtyard.svg"
-    },
-    "greek-tauris-shore": {
-      "name": "Taurian Shore",
-      "text": "Salt water reaches the temple steps. Thoas hears the rite and the keepers’ reply.",
-      "persona": "Salt water reaches the temple steps. Thoas hears the rite and the keepers’ reply.",
-      "exits": [
-        "greek-tauris"
-      ],
-      "backdrop": "assets/greek-drama/harbor.svg"
-    },
     "greek-comedy-acharnians-truce-porch": {
       "name": "truce porch",
       "text": "A shaded porch holds the three offered lengths of peace. The thirty-year jar waits beside the door.",
       "persona": "This is Dicaeopolis’s private truce during the war, a separate comic account. Speak from the saved acts and credited reports in this work. Other Greek accounts keep their own people, time and law.",
-      "exits": [
-        "greek-acharnae"
-      ],
+      "exits": ["greek-acharnae"],
       "backdrop": "assets/greek-drama/courtyard.svg",
       "requires": [
         {
@@ -942,9 +795,7 @@
       "name": "trading lane",
       "text": "Charcoal baskets and bare market stones border a lane between the two traders.",
       "persona": "This is Dicaeopolis’s private truce during the war, a separate comic account. Speak from the saved acts and credited reports in this work. Other Greek accounts keep their own people, time and law.",
-      "exits": [
-        "greek-acharnae"
-      ],
+      "exits": ["greek-acharnae"],
       "backdrop": "assets/greek-drama/courtyard.svg",
       "requires": [
         {
@@ -958,9 +809,7 @@
       "name": "servants' kitchen",
       "text": "A serving dish waits beside a food tally in the servants’ kitchen.",
       "persona": "This is the comic household of Demos, a separate comic account. Speak from the saved acts and credited reports in this work. Other Greek accounts keep their own people, time and law.",
-      "exits": [
-        "greek-demos-house"
-      ],
+      "exits": ["greek-demos-house"],
       "backdrop": "assets/greek-drama/courtyard.svg",
       "requires": [
         {
@@ -974,9 +823,7 @@
       "name": "sausage seller's stall",
       "text": "The sausage seller’s stall faces the household road.",
       "persona": "This is the comic household of Demos, a separate comic account. Speak from the saved acts and credited reports in this work. Other Greek accounts keep their own people, time and law.",
-      "exits": [
-        "greek-demos-house"
-      ],
+      "exits": ["greek-demos-house"],
       "backdrop": "assets/greek-drama/courtyard.svg",
       "requires": [
         {
@@ -990,9 +837,7 @@
       "name": "household trial yard",
       "text": "Two voting pots stand apart in the household trial yard.",
       "persona": "This is Philocleon’s household court and its revel claims, a separate comic account. Speak from the saved acts and credited reports in this work. Other Greek accounts keep their own people, time and law.",
-      "exits": [
-        "greek-jury-house"
-      ],
+      "exits": ["greek-jury-house"],
       "backdrop": "assets/greek-drama/courtyard.svg",
       "requires": [
         {
@@ -1006,9 +851,7 @@
       "name": "Myrtia's bread street",
       "text": "Myrtia’s bread stall faces the place where the revellers passed.",
       "persona": "This is Philocleon’s household court and its revel claims, a separate comic account. Speak from the saved acts and credited reports in this work. Other Greek accounts keep their own people, time and law.",
-      "exits": [
-        "greek-jury-house"
-      ],
+      "exits": ["greek-jury-house"],
       "backdrop": "assets/greek-drama/courtyard.svg",
       "requires": [
         {
@@ -1022,9 +865,7 @@
       "name": "Strepsiades's bedroom",
       "text": "A bed and a household ledger hold the cost of the son’s horses.",
       "persona": "This is the Thinkery comedy and Strepsiades’s debts, a separate comic account. Speak from the saved acts and credited reports in this work. Other Greek accounts keep their own people, time and law.",
-      "exits": [
-        "greek-thinkery"
-      ],
+      "exits": ["greek-thinkery"],
       "backdrop": "assets/greek-drama/courtyard.svg",
       "requires": [
         {
@@ -1038,9 +879,7 @@
       "name": "creditors' court",
       "text": "Two lenders keep their separate claims in a small public court.",
       "persona": "This is the Thinkery comedy and Strepsiades’s debts, a separate comic account. Speak from the saved acts and credited reports in this work. Other Greek accounts keep their own people, time and law.",
-      "exits": [
-        "greek-thinkery"
-      ],
+      "exits": ["greek-thinkery"],
       "backdrop": "assets/greek-drama/courtyard.svg",
       "requires": [
         {
@@ -1054,9 +893,7 @@
       "name": "coalition oath porch",
       "text": "The coalition’s oath cup waits beside supplies for the occupation.",
       "persona": "This is the women’s coalition and its comic peace, a separate comic account. Speak from the saved acts and credited reports in this work. Other Greek accounts keep their own people, time and law.",
-      "exits": [
-        "greek-acropolis"
-      ],
+      "exits": ["greek-acropolis"],
       "backdrop": "assets/greek-drama/palace.svg",
       "requires": [
         {
@@ -1070,9 +907,7 @@
       "name": "treaty loom room",
       "text": "Wool and treaty cloth lie on the table beside a working loom.",
       "persona": "This is the women’s coalition and its comic peace, a separate comic account. Speak from the saved acts and credited reports in this work. Other Greek accounts keep their own people, time and law.",
-      "exits": [
-        "greek-acropolis"
-      ],
+      "exits": ["greek-acropolis"],
       "backdrop": "assets/greek-drama/palace.svg",
       "requires": [
         {
@@ -1086,9 +921,7 @@
       "name": "common-goods yard",
       "text": "A common pot and contribution list wait in a yard for deposited goods.",
       "persona": "This is Praxagora’s comic assembly and common feast, a separate comic account. Speak from the saved acts and credited reports in this work. Other Greek accounts keep their own people, time and law.",
-      "exits": [
-        "greek-assembly"
-      ],
+      "exits": ["greek-assembly"],
       "backdrop": "assets/greek-drama/palace.svg",
       "requires": [
         {
@@ -1102,9 +935,7 @@
       "name": "feast threshold",
       "text": "A published law hangs beside the threshold of the feast.",
       "persona": "This is Praxagora’s comic assembly and common feast, a separate comic account. Speak from the saved acts and credited reports in this work. Other Greek accounts keep their own people, time and law.",
-      "exits": [
-        "greek-assembly"
-      ],
+      "exits": ["greek-assembly"],
       "backdrop": "assets/greek-drama/palace.svg",
       "requires": [
         {
@@ -1118,9 +949,7 @@
       "name": "healing porch",
       "text": "A coverlet and offering bowl wait at a sheltered healing door.",
       "persona": "This is Chremylus’s comic encounter with Plutus, a separate comic account. Speak from the saved acts and credited reports in this work. Other Greek accounts keep their own people, time and law.",
-      "exits": [
-        "greek-attic-farm"
-      ],
+      "exits": ["greek-attic-farm"],
       "backdrop": "assets/greek-drama/grove.svg",
       "requires": [
         {
@@ -1134,9 +963,7 @@
       "name": "distribution granary",
       "text": "A grain basket and wage purse stand beside the distribution table.",
       "persona": "This is Chremylus’s comic encounter with Plutus, a separate comic account. Speak from the saved acts and credited reports in this work. Other Greek accounts keep their own people, time and law.",
-      "exits": [
-        "greek-attic-farm"
-      ],
+      "exits": ["greek-attic-farm"],
       "backdrop": "assets/greek-drama/grove.svg",
       "requires": [
         {
@@ -1150,9 +977,7 @@
       "name": "dressing porch",
       "text": "A loaned robe and stage mask rest on the festival dressing porch.",
       "persona": "This is the festival comedy’s dispute with the staged Euripides, a separate comic account. Speak from the saved acts and credited reports in this work. Other Greek accounts keep their own people, time and law.",
-      "exits": [
-        "greek-festival"
-      ],
+      "exits": ["greek-festival"],
       "backdrop": "assets/greek-drama/grove.svg",
       "requires": [
         {
@@ -1166,9 +991,7 @@
       "name": "guarded performance stage",
       "text": "A guard watches the performance space and its route to the Agora.",
       "persona": "This is the festival comedy’s dispute with the staged Euripides, a separate comic account. Speak from the saved acts and credited reports in this work. Other Greek accounts keep their own people, time and law.",
-      "exits": [
-        "greek-festival"
-      ],
+      "exits": ["greek-festival"],
       "backdrop": "assets/greek-drama/grove.svg",
       "requires": [
         {
@@ -1182,9 +1005,7 @@
       "name": "Proteus’s Household Court",
       "text": "In Helen’s Egyptian account, a petition bench stands between the palace and Proteus’s tomb. Theonoe and Theoclymenus answer for their own choices.",
       "persona": "In Helen’s Egyptian account, a petition bench stands between the palace and Proteus’s tomb. Theonoe and Theoclymenus answer for their own choices.",
-      "exits": [
-        "greek-egypt-tomb"
-      ],
+      "exits": ["greek-egypt-tomb"],
       "backdrop": "assets/greek-drama/helen-egypt-tomb-day.webp",
       "requires": [
         {
@@ -1198,9 +1019,7 @@
       "name": "Egyptian Landing",
       "text": "In Helen’s Egyptian account, wreck timbers and an unused sail lie above the Nile-mouth tide. The shipwreck messenger keeps his own account.",
       "persona": "In Helen’s Egyptian account, wreck timbers and an unused sail lie above the Nile-mouth tide. The shipwreck messenger keeps his own account.",
-      "exits": [
-        "greek-egypt-tomb"
-      ],
+      "exits": ["greek-egypt-tomb"],
       "backdrop": "assets/greek-drama/helen-egypt-tomb-day.webp",
       "requires": [
         {
@@ -1214,9 +1033,7 @@
       "name": "The Empty Funeral Boat",
       "text": "In Helen’s Egyptian account, a local boat waits for an empty funeral cloth. It holds this chapter’s travellers and supplies. The shared Greek ship serves the landing.",
       "persona": "In Helen’s Egyptian account, a local boat waits for an empty funeral cloth. It holds this chapter’s travellers and supplies. The shared Greek ship serves the landing.",
-      "exits": [
-        "greek-book-iv-helen-landing"
-      ],
+      "exits": ["greek-book-iv-helen-landing"],
       "backdrop": "assets/greek-drama/ship-deck.webp",
       "requires": [
         {
@@ -1230,148 +1047,112 @@
       "name": "The Neighbour’s Refuge",
       "text": "In the Phthian household after Troy, a neighbour shelters Molossus, Andromache’s son with Neoptolemus.",
       "persona": "In the Phthian household after Troy, a neighbour shelters Molossus, Andromache’s son with Neoptolemus.",
-      "exits": [
-        "greek-thetis"
-      ],
+      "exits": ["greek-thetis"],
       "backdrop": "assets/greek-drama/courtyard.svg"
     },
     "greek-book-iv-andromache-household": {
       "name": "The Protected Household",
       "text": "In the Phthian household account, Peleus offers a protected doorway. Hermione must answer for the threat to Andromache and Molossus.",
       "persona": "In the Phthian household account, Peleus offers a protected doorway. Hermione must answer for the threat to Andromache and Molossus.",
-      "exits": [
-        "greek-thetis"
-      ],
+      "exits": ["greek-thetis"],
       "backdrop": "assets/greek-drama/courtyard.svg"
     },
     "greek-book-iv-andromache-boundary": {
       "name": "The Phthian Boundary",
       "text": "The Phthian household’s boundary marks a real departure. A Delphic messenger carries the separate report of Neoptolemus’s death.",
       "persona": "The Phthian household’s boundary marks a real departure. A Delphic messenger carries the separate report of Neoptolemus’s death.",
-      "exits": [
-        "greek-thetis",
-        "greek-book-iv-andromache-household"
-      ],
+      "exits": ["greek-thetis", "greek-book-iv-andromache-household"],
       "backdrop": "assets/greek-drama/courtyard.svg"
     },
     "greek-book-iv-hippolytus-sickroom": {
       "name": "Phaedra’s Sickroom",
       "text": "In the Troezen household account, a nurse keeps water beside Phaedra’s bed. Her own words precede the sealed accusation.",
       "persona": "In the Troezen household account, a nurse keeps water beside Phaedra’s bed. Her own words precede the sealed accusation.",
-      "exits": [
-        "greek-troezen"
-      ],
+      "exits": ["greek-troezen"],
       "backdrop": "assets/greek-drama/palace.svg"
     },
     "greek-book-iv-hippolytus-sea-shrine": {
       "name": "The Troezen Sea Shrine",
       "text": "In the Troezen household account, the palace messenger brings Theseus’s answers beside the sea. Each report names its source.",
       "persona": "In the Troezen household account, the palace messenger brings Theseus’s answers beside the sea. Each report names its source.",
-      "exits": [
-        "greek-troezen"
-      ],
+      "exits": ["greek-troezen"],
       "backdrop": "assets/greek-drama/sea.svg"
     },
     "greek-book-iv-medea-palace": {
       "name": "The Corinthian Palace Approach",
       "text": "In Medea’s Corinthian household account, Jason and Creon of Corinth face the rented house. This king’s time and household belong to Corinth.",
       "persona": "In Medea’s Corinthian household account, Jason and Creon of Corinth face the rented house. This king’s time and household belong to Corinth.",
-      "exits": [
-        "greek-corinth"
-      ],
+      "exits": ["greek-corinth"],
       "backdrop": "assets/greek-drama/palace.svg"
     },
     "greek-book-iv-medea-quay": {
       "name": "The Quay Beyond Corinth’s Gate",
       "text": "In Medea’s household account, the quay stands beyond the city gate. Aegeus promises refuge after arrival in Athens. The attendant keeps the elder and younger sons’ own account.",
       "persona": "In Medea’s household account, the quay stands beyond the city gate. Aegeus promises refuge after arrival in Athens. The attendant keeps the elder and younger sons’ own account.",
-      "exits": [
-        "greek-corinth"
-      ],
+      "exits": ["greek-corinth"],
       "backdrop": "assets/greek-drama/harbor.svg"
     },
     "greek-book-iv-ion-guesthouse": {
       "name": "The Delphic Guest House",
       "text": "In Ion’s earlier Delphic foundation tale, Creusa and Xuthus lodge beside the temple. Each keeps a separate account of the young attendant.",
       "persona": "In Ion’s earlier Delphic foundation tale, Creusa and Xuthus lodge beside the temple. Each keeps a separate account of the young attendant.",
-      "exits": [
-        "greek-delphi"
-      ],
+      "exits": ["greek-delphi"],
       "backdrop": "assets/greek-drama/courtyard.svg"
     },
     "greek-book-iv-ion-feast-court": {
       "name": "The Feast and Store Court",
       "text": "In Ion’s earlier Delphic foundation tale, the old servant stands by the feast stores. The saved basket and its signs await the priestess’s actual trust.",
       "persona": "In Ion’s earlier Delphic foundation tale, the old servant stands by the feast stores. The saved basket and its signs await the priestess’s actual trust.",
-      "exits": [
-        "greek-delphi"
-      ],
+      "exits": ["greek-delphi"],
       "backdrop": "assets/greek-drama/courtyard.svg"
     },
     "greek-vii-inner-cave": {
       "name": "Polyphemus’s Inner Cave",
       "text": "In Euripides’s homecoming account, Polyphemus keeps the wine beside the inner hearth. The rock-side passage starts at the outer cave.",
       "persona": "In Euripides’s homecoming account, Polyphemus keeps the wine beside the inner hearth. The rock-side passage starts at the outer cave.",
-      "exits": [
-        "greek-sicily"
-      ],
+      "exits": ["greek-sicily"],
       "backdrop": "assets/greek-drama/grove.svg"
     },
     "greek-vii-escape-shore": {
       "name": "The Rock-Side Shore",
       "text": "Below the Sicilian cave, a narrow ledge reaches open water. Each cohort that arrives has a place beside the boat. The path back climbs toward the cave.",
       "persona": "Below the Sicilian cave, a narrow ledge reaches open water. Each cohort that arrives has a place beside the boat. The path back climbs toward the cave.",
-      "exits": [
-        "greek-sicily",
-        "greek-sicily-shore"
-      ],
+      "exits": ["greek-sicily", "greek-sicily-shore"],
       "backdrop": "assets/greek-drama/grove.svg"
     },
     "greek-vii-air-gate": {
       "name": "The Gate in the Air",
       "text": "Within Aristophanes’s Birds account, Pisthetaerus holds the gate between the gathered birds and their proposed refuge. The keeper’s terms decide who may pass.",
       "persona": "Within Aristophanes’s Birds account, Pisthetaerus holds the gate between the gathered birds and their proposed refuge. Its saved policy decides passage.",
-      "exits": [
-        "greek-bird-wilderness"
-      ],
+      "exits": ["greek-bird-wilderness"],
       "backdrop": "assets/greek-drama/grove.svg"
     },
     "greek-vii-bird-refuge": {
       "name": "The Birds’ Refuge",
       "text": "An open nesting ground waits beyond the air gate. Food and the arriving bird chorus decide whose refuge this becomes. The gate has a return path.",
       "persona": "An open nesting ground waits beyond the air gate. Food and the arriving bird chorus decide whose refuge this becomes. The gate has a return path.",
-      "exits": [
-        "greek-vii-air-gate"
-      ],
+      "exits": ["greek-vii-air-gate"],
       "backdrop": "assets/greek-drama/grove.svg"
     },
     "greek-sicily-shore": {
       "name": "The Sicilian Landing",
       "text": "Stone steps meet the shared ship below the Sicilian cave. A public path climbs to the cave mouth; another reaches the rock-side escape shore.",
       "persona": "Stone steps meet the shared ship below the Sicilian cave. A public path climbs to the cave mouth; another reaches the rock-side escape shore.",
-      "exits": [
-        "greek-sicily",
-        "greek-vii-escape-shore"
-      ],
+      "exits": ["greek-sicily", "greek-vii-escape-shore"],
       "backdrop": "assets/greek-drama/grove.svg"
     },
     "greek-vii-peace-workshop": {
       "name": "The Smiths’ Workshop",
       "text": "Within the Peace account, the smiths have cleared a bench for tools that will serve the fields. The path returns to the Attic farm.",
       "persona": "Within the Peace account, the smiths have cleared a bench for tools that will serve the fields. The path returns to the Attic farm.",
-      "exits": [
-        "greek-attic-farm"
-      ],
+      "exits": ["greek-attic-farm"],
       "backdrop": "assets/greek-drama/grove.svg"
     },
     "greek-vii-crag-camp": {
       "name": "The Crag Camp",
       "text": "A sheltered camp stands between the eastern road and Prometheus’s crag. Hermes waits here in the divine-frontier account. A carried lamp can be tended before the climb.",
       "persona": "A sheltered camp stands between the eastern road and Prometheus’s crag. Hermes waits here in the divine-frontier account. A carried lamp can be tended before the climb.",
-      "exits": [
-        "greek-susa",
-        "greek-scythian-crag"
-      ],
+      "exits": ["greek-susa", "greek-scythian-crag"],
       "backdrop": "assets/greek-drama/grove.svg"
     }
   },
@@ -1390,10 +1171,7 @@
       "voice": "A determined sister. Speak directly about a brother's burial and the practical help at hand. Know only public facts and witnessed acts; never predict the play's ending.",
       "portrait": "assets/greek-drama/chthonic-antigone.png",
       "desire": {
-        "items": [
-          "greek-funeral-cloth",
-          "greek-oil-flask"
-        ],
+        "items": ["greek-funeral-cloth", "greek-oil-flask"],
         "location": "greek-battlefield",
         "avatars": [],
         "requires": [
@@ -1536,9 +1314,7 @@
       "text": "He keeps the words of the journey in a song.",
       "place": "greek-harbor",
       "home": "greek-harbor",
-      "previousHomes": [
-        "greek-argolid-road"
-      ],
+      "previousHomes": ["greek-argolid-road"],
       "values": {
         "greek-provisions": 2
       },
@@ -2121,11 +1897,7 @@
       ],
       "journey": {
         "after": "greek-homecoming-agree-journey",
-        "path": [
-          "greek-eleusis",
-          "greek-road-piraeus-eleusis",
-          "greek-piraeus"
-        ]
+        "path": ["greek-eleusis", "greek-road-piraeus-eleusis", "greek-piraeus"]
       },
       "tastes": {
         "likes": "a place kept ready and a promise carried through",
@@ -2207,6 +1979,562 @@
         "sore": "a promise called a finished burial",
         "reason": "Ajax’s household and burial are at issue in this named Trojan account."
       }
+    },
+    "greek-argos-watchman": {
+      "name": "Argive Watchman",
+      "text": "A watchman keeps the beacon account and introduces the three separate household roads.",
+      "place": "greek-argolid-road",
+      "home": "greek-argolid-road",
+      "values": {},
+      "travels": false,
+      "standoffs": false,
+      "portrait": "assets/greek-drama/house-of-blood/argos-watchman.png",
+      "persona": "A watchman keeps the beacon account and introduces the three separate household roads. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
+      "voice": "A watchman keeps the beacon account and introduces the three separate household roads.",
+      "tastes": {
+        "likes": "careful listening and kept promises",
+        "sore": "a witness given another person’s words",
+        "reason": "A watchman keeps the beacon account and introduces the three separate household roads."
+      },
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-v-open",
+          "value": true
+        }
+      ]
+    },
+    "greek-cassandra": {
+      "name": "Cassandra",
+      "text": "Cassandra speaks within Aeschylus’s recalled homecoming, before she enters the house.",
+      "place": "greek-argos-palace",
+      "home": "greek-argos-palace",
+      "values": {},
+      "travels": false,
+      "standoffs": false,
+      "portrait": "assets/greek-drama/house-of-blood/cassandra.png",
+      "persona": "Cassandra speaks within Aeschylus’s recalled homecoming, before she enters the house. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
+      "voice": "Cassandra speaks within Aeschylus’s recalled homecoming, before she enters the house.",
+      "tastes": {
+        "likes": "careful listening and kept promises",
+        "sore": "a witness given another person’s words",
+        "reason": "Cassandra speaks within Aeschylus’s recalled homecoming, before she enters the house."
+      },
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-v-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "aeschylus"
+        }
+      ]
+    },
+    "greek-clytemnestra-aeschylus": {
+      "name": "Clytemnestra",
+      "text": "Clytemnestra gives her own claim within the Aeschylus account.",
+      "place": "greek-argos-palace",
+      "home": "greek-argos-palace",
+      "values": {},
+      "travels": false,
+      "standoffs": false,
+      "portrait": "assets/greek-drama/house-of-blood/clytemnestra.png",
+      "persona": "Clytemnestra gives her own claim within the Aeschylus account. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
+      "voice": "Clytemnestra gives her own claim within the Aeschylus account.",
+      "tastes": {
+        "likes": "careful listening and kept promises",
+        "sore": "a witness given another person’s words",
+        "reason": "Clytemnestra gives her own claim within the Aeschylus account."
+      },
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-v-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "aeschylus"
+        }
+      ],
+      "canonicalPerson": "clytemnestra"
+    },
+    "greek-argos-housekeeper": {
+      "name": "Argive Housekeeper",
+      "text": "An original surviving witness keeps the household record and chooses her own shelter.",
+      "place": "greek-argos-palace",
+      "home": "greek-argos-palace",
+      "values": {},
+      "travels": false,
+      "standoffs": false,
+      "portrait": "assets/greek-drama/house-of-blood/argos-housekeeper.png",
+      "persona": "An original surviving witness keeps the household record and chooses her own shelter. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
+      "voice": "An original surviving witness keeps the household record and chooses her own shelter.",
+      "tastes": {
+        "likes": "careful listening and kept promises",
+        "sore": "a witness given another person’s words",
+        "reason": "An original surviving witness keeps the household record and chooses her own shelter."
+      },
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-v-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "aeschylus"
+        }
+      ],
+      "journey": {
+        "after": "greek-v-agamemnon-agree-refuge",
+        "path": [
+          "greek-argos-palace",
+          "greek-argos-tomb",
+          "greek-argolid-road",
+          "greek-argos-refuge"
+        ]
+      }
+    },
+    "greek-pylades-aeschylus": {
+      "name": "Pylades",
+      "text": "Pylades tells his own advice and the later source ending in Aeschylus’s tomb account.",
+      "place": "greek-argos-tomb",
+      "home": "greek-argos-tomb",
+      "values": {},
+      "travels": false,
+      "standoffs": false,
+      "portrait": "assets/greek-drama/house-of-blood/pylades.png",
+      "persona": "Pylades tells his own advice and the later source ending in Aeschylus’s tomb account. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
+      "voice": "Pylades tells his own advice and the later source ending in Aeschylus’s tomb account.",
+      "tastes": {
+        "likes": "careful listening and kept promises",
+        "sore": "a witness given another person’s words",
+        "reason": "Pylades tells his own advice and the later source ending in Aeschylus’s tomb account."
+      },
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-v-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "aeschylus"
+        }
+      ],
+      "canonicalPerson": "pylades"
+    },
+    "greek-cilissa": {
+      "name": "Cilissa",
+      "text": "The nurse remembers the palace message and speaks for the work of care.",
+      "place": "greek-argos-tomb",
+      "home": "greek-argos-tomb",
+      "values": {},
+      "travels": false,
+      "standoffs": false,
+      "portrait": "assets/greek-drama/house-of-blood/cilissa.png",
+      "persona": "The nurse remembers the palace message and speaks for the work of care. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
+      "voice": "The nurse remembers the palace message and speaks for the work of care.",
+      "tastes": {
+        "likes": "careful listening and kept promises",
+        "sore": "a witness given another person’s words",
+        "reason": "The nurse remembers the palace message and speaks for the work of care."
+      },
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-v-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "aeschylus"
+        }
+      ]
+    },
+    "greek-chrysothemis": {
+      "name": "Chrysothemis",
+      "text": "Chrysothemis gives her own answer to Electra in Sophocles’s palace account.",
+      "place": "greek-mycenae-palace",
+      "home": "greek-mycenae-palace",
+      "values": {},
+      "travels": false,
+      "standoffs": false,
+      "portrait": "assets/greek-drama/house-of-blood/chrysothemis.png",
+      "persona": "Chrysothemis gives her own answer to Electra in Sophocles’s palace account. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
+      "voice": "Chrysothemis gives her own answer to Electra in Sophocles’s palace account.",
+      "tastes": {
+        "likes": "careful listening and kept promises",
+        "sore": "a witness given another person’s words",
+        "reason": "Chrysothemis gives her own answer to Electra in Sophocles’s palace account."
+      },
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-v-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "sophocles"
+        }
+      ]
+    },
+    "greek-paedagogus": {
+      "name": "The Tutor",
+      "text": "The tutor names his false death report and the urn in Sophocles’s account.",
+      "place": "greek-mycenae-palace",
+      "home": "greek-mycenae-palace",
+      "values": {},
+      "travels": false,
+      "standoffs": false,
+      "portrait": "assets/greek-drama/house-of-blood/paedagogus.png",
+      "persona": "The tutor names his false death report and the urn in Sophocles’s account. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
+      "voice": "The tutor names his false death report and the urn in Sophocles’s account.",
+      "tastes": {
+        "likes": "careful listening and kept promises",
+        "sore": "a witness given another person’s words",
+        "reason": "The tutor names his false death report and the urn in Sophocles’s account."
+      },
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-v-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "sophocles"
+        }
+      ]
+    },
+    "greek-argive-farmer": {
+      "name": "The Farmer",
+      "text": "The farmer offers food and dignity in Euripides’s farmhouse account.",
+      "place": "greek-argive-farm",
+      "home": "greek-argive-farm",
+      "values": {},
+      "travels": false,
+      "standoffs": false,
+      "portrait": "assets/greek-drama/house-of-blood/argive-farmer.png",
+      "persona": "The farmer offers food and dignity in Euripides’s farmhouse account. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
+      "voice": "The farmer offers food and dignity in Euripides’s farmhouse account.",
+      "tastes": {
+        "likes": "careful listening and kept promises",
+        "sore": "a witness given another person’s words",
+        "reason": "The farmer offers food and dignity in Euripides’s farmhouse account."
+      },
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-v-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "euripides"
+        }
+      ]
+    },
+    "greek-electra-old-servant": {
+      "name": "The Old Servant",
+      "text": "The old servant names the scar and its childhood cause in Euripides’s account.",
+      "place": "greek-argive-farm",
+      "home": "greek-argive-farm",
+      "values": {},
+      "travels": false,
+      "standoffs": false,
+      "portrait": "assets/greek-drama/house-of-blood/electra-old-servant.png",
+      "persona": "The old servant names the scar and its childhood cause in Euripides’s account. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
+      "voice": "The old servant names the scar and its childhood cause in Euripides’s account.",
+      "tastes": {
+        "likes": "careful listening and kept promises",
+        "sore": "a witness given another person’s words",
+        "reason": "The old servant names the scar and its childhood cause in Euripides’s account."
+      },
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-v-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "euripides"
+        }
+      ]
+    },
+    "greek-clytemnestra-euripides": {
+      "name": "Clytemnestra",
+      "text": "Clytemnestra gives her own answer in the farmhouse telling before its later ending is heard.",
+      "place": "greek-argive-farm",
+      "home": "greek-argive-farm",
+      "values": {},
+      "travels": false,
+      "standoffs": false,
+      "portrait": "assets/greek-drama/house-of-blood/clytemnestra.png",
+      "persona": "Clytemnestra gives her own answer in the farmhouse telling before its later ending is heard. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
+      "voice": "Clytemnestra gives her own answer in the farmhouse telling before its later ending is heard.",
+      "tastes": {
+        "likes": "careful listening and kept promises",
+        "sore": "a witness given another person’s words",
+        "reason": "Clytemnestra gives her own answer in the farmhouse telling before its later ending is heard."
+      },
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-v-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "euripides"
+        }
+      ],
+      "canonicalPerson": "clytemnestra"
+    },
+    "greek-pylades-euripides": {
+      "name": "Pylades",
+      "text": "Pylades carries the farmhouse source account, including the Dioscuri’s ending.",
+      "place": "greek-argive-farm",
+      "home": "greek-argive-farm",
+      "values": {},
+      "travels": false,
+      "standoffs": false,
+      "portrait": "assets/greek-drama/house-of-blood/pylades.png",
+      "persona": "Pylades carries the farmhouse source account, including the Dioscuri’s ending. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
+      "voice": "Pylades carries the farmhouse source account, including the Dioscuri’s ending.",
+      "tastes": {
+        "likes": "careful listening and kept promises",
+        "sore": "a witness given another person’s words",
+        "reason": "Pylades carries the farmhouse source account, including the Dioscuri’s ending."
+      },
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-v-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "euripides"
+        }
+      ],
+      "canonicalPerson": "pylades"
+    },
+    "greek-hermione": {
+      "name": "Hermione",
+      "text": "Hermione introduces Euripides’s sixth-day Orestes as a separate song. Her present consent belongs to the game’s care scenes.",
+      "place": "greek-argos-refuge",
+      "home": "greek-argos-refuge",
+      "values": {},
+      "travels": false,
+      "standoffs": false,
+      "portrait": "assets/greek-drama/house-of-blood/hermione.png",
+      "persona": "Hermione introduces Euripides’s sixth-day Orestes as a separate song. Her present consent belongs to the game’s care scenes. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
+      "voice": "Hermione introduces Euripides’s sixth-day Orestes as a separate song. Her present consent belongs to the game’s care scenes.",
+      "tastes": {
+        "likes": "careful listening and kept promises",
+        "sore": "a witness given another person’s words",
+        "reason": "Hermione introduces Euripides’s sixth-day Orestes as a separate song. Her present consent belongs to the game’s care scenes."
+      },
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-v-open",
+          "value": true
+        }
+      ]
+    },
+    "greek-phrygian-servant": {
+      "name": "The Phrygian Servant",
+      "text": "The servant gives his own account of the palace attack and may agree to a safe walk.",
+      "place": "greek-argos-refuge",
+      "home": "greek-argos-refuge",
+      "values": {},
+      "travels": false,
+      "standoffs": false,
+      "portrait": "assets/greek-drama/house-of-blood/phrygian-servant.png",
+      "persona": "The servant gives his own account of the palace attack and may agree to a safe walk. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
+      "voice": "The servant gives his own account of the palace attack and may agree to a safe walk.",
+      "tastes": {
+        "likes": "careful listening and kept promises",
+        "sore": "a witness given another person’s words",
+        "reason": "The servant gives his own account of the palace attack and may agree to a safe walk."
+      },
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-v-open",
+          "value": true
+        }
+      ],
+      "journey": {
+        "after": "greek-v-orestes-agree-passage",
+        "path": ["greek-argos-refuge", "greek-argolid-road", "greek-harbor"]
+      }
+    },
+    "greek-pythian-priestess": {
+      "name": "Pythian Priestess",
+      "text": "The priestess receives a refuge branch and introduces the Delphi opening of Eumenides.",
+      "place": "greek-delphi",
+      "home": "greek-delphi",
+      "values": {},
+      "travels": false,
+      "standoffs": false,
+      "portrait": "assets/greek-drama/house-of-blood/pythian-priestess.png",
+      "persona": "The priestess receives a refuge branch and introduces the Delphi opening of Eumenides. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
+      "voice": "The priestess receives a refuge branch and introduces the Delphi opening of Eumenides.",
+      "tastes": {
+        "likes": "careful listening and kept promises",
+        "sore": "a witness given another person’s words",
+        "reason": "The priestess receives a refuge branch and introduces the Delphi opening of Eumenides."
+      },
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-v-open",
+          "value": true
+        }
+      ]
+    },
+    "greek-furies": {
+      "name": "The Furies",
+      "text": "The accusing chorus speaks as a group and can agree to bring its claim to Ares Hill.",
+      "place": "greek-delphi",
+      "home": "greek-delphi",
+      "values": {},
+      "travels": false,
+      "standoffs": false,
+      "portrait": "assets/greek-drama/house-of-blood/furies.png",
+      "persona": "The accusing chorus speaks as a group and can agree to bring its claim to Ares Hill. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
+      "voice": "The accusing chorus speaks as a group and can agree to bring its claim to Ares Hill.",
+      "tastes": {
+        "likes": "careful listening and kept promises",
+        "sore": "a witness given another person’s words",
+        "reason": "The accusing chorus speaks as a group and can agree to bring its claim to Ares Hill."
+      },
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-v-open",
+          "value": true
+        }
+      ],
+      "journey": {
+        "after": "greek-v-eumenides-agree-court",
+        "path": ["greek-delphi", "greek-athens", "greek-ares-hill"]
+      }
+    },
+    "greek-athena": {
+      "name": "Athena",
+      "text": "Athena names the court’s source frame, its verdict and the separate settlement.",
+      "place": "greek-ares-hill",
+      "home": "greek-ares-hill",
+      "values": {},
+      "travels": false,
+      "standoffs": false,
+      "portrait": "assets/greek-drama/house-of-blood/athena.png",
+      "persona": "Athena names the court’s source frame, its verdict and the separate settlement. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
+      "voice": "Athena names the court’s source frame, its verdict and the separate settlement.",
+      "tastes": {
+        "likes": "careful listening and kept promises",
+        "sore": "a witness given another person’s words",
+        "reason": "Athena names the court’s source frame, its verdict and the separate settlement."
+      },
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-v-open",
+          "value": true
+        }
+      ]
+    },
+    "greek-iphigenia-tauris": {
+      "name": "Iphigenia",
+      "text": "Iphigenia tells the Tauris account in which Artemis saved her at Aulis. Every family recognition keeps this frame.",
+      "place": "greek-tauris",
+      "home": "greek-tauris",
+      "values": {},
+      "travels": false,
+      "standoffs": false,
+      "portrait": "assets/greek-drama/house-of-blood/iphigenia-tauris.png",
+      "persona": "Iphigenia tells the Tauris account in which Artemis saved her at Aulis. Every family recognition keeps this frame. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
+      "voice": "Iphigenia tells the Tauris account in which Artemis saved her at Aulis. Every family recognition keeps this frame.",
+      "tastes": {
+        "likes": "careful listening and kept promises",
+        "sore": "a witness given another person’s words",
+        "reason": "Iphigenia tells the Tauris account in which Artemis saved her at Aulis. Every family recognition keeps this frame."
+      },
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-v-open",
+          "value": true
+        }
+      ]
+    },
+    "greek-thoas": {
+      "name": "Thoas",
+      "text": "Thoas hears the rite at the shore and gives his own answer to a new pact.",
+      "place": "greek-tauris-shore",
+      "home": "greek-tauris-shore",
+      "values": {},
+      "travels": false,
+      "standoffs": false,
+      "portrait": "assets/greek-drama/house-of-blood/thoas.png",
+      "persona": "Thoas hears the rite at the shore and gives his own answer to a new pact. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
+      "voice": "Thoas hears the rite at the shore and gives his own answer to a new pact.",
+      "tastes": {
+        "likes": "careful listening and kept promises",
+        "sore": "a witness given another person’s words",
+        "reason": "Thoas hears the rite at the shore and gives his own answer to a new pact."
+      },
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-v-open",
+          "value": true
+        }
+      ]
+    },
+    "greek-taurian-chorus": {
+      "name": "The Captive Women",
+      "text": "The captive Greek women keep their own claim to return and choose whether to join a new pact.",
+      "place": "greek-tauris",
+      "home": "greek-tauris",
+      "values": {},
+      "travels": false,
+      "standoffs": false,
+      "portrait": "assets/greek-drama/house-of-blood/taurian-chorus.png",
+      "persona": "The captive Greek women keep their own claim to return and choose whether to join a new pact. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
+      "voice": "The captive Greek women keep their own claim to return and choose whether to join a new pact.",
+      "tastes": {
+        "likes": "careful listening and kept promises",
+        "sore": "a witness given another person’s words",
+        "reason": "The captive Greek women keep their own claim to return and choose whether to join a new pact."
+      },
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-v-open",
+          "value": true
+        }
+      ]
     },
     "greek-melea": {
       "name": "Melea, Keeper of Accounts",
@@ -2511,9 +2839,7 @@
         "greek-danaid-provisions": 2
       },
       "desire": {
-        "items": [
-          "greek-danaid-provisions"
-        ],
+        "items": ["greek-danaid-provisions"],
         "location": null,
         "avatars": [],
         "requires": [
@@ -2537,10 +2863,7 @@
       ],
       "journey": {
         "after": "greek-danaid-agree-journey",
-        "path": [
-          "greek-argos-sanctuary",
-          "greek-danaid-refuge-court"
-        ]
+        "path": ["greek-argos-sanctuary", "greek-danaid-refuge-court"]
       },
       "tastes": {
         "likes": "a chosen room and a promise carried through",
@@ -2655,10 +2978,7 @@
       },
       "journey": {
         "after": "greek-trachis-dispatch",
-        "path": [
-          "greek-trachis",
-          "greek-trachis-canae-approach"
-        ]
+        "path": ["greek-trachis", "greek-trachis-canae-approach"]
       }
     },
     "greek-trachis-heracles": {
@@ -2691,575 +3011,8 @@
       },
       "journey": {
         "after": "greek-trachis-agree-oeta",
-        "path": [
-          "greek-trachis-canae-approach",
-          "greek-oeta"
-        ]
+        "path": ["greek-trachis-canae-approach", "greek-oeta"]
       }
-    },
-    "greek-argos-watchman": {
-      "name": "Argive Watchman",
-      "text": "A watchman keeps the beacon account and introduces the three separate household roads.",
-      "place": "greek-argolid-road",
-      "home": "greek-argolid-road",
-      "values": {},
-      "travels": false,
-      "standoffs": false,
-      "portrait": "assets/greek-drama/chthonic-singer.png",
-      "persona": "A watchman keeps the beacon account and introduces the three separate household roads. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
-      "voice": "A watchman keeps the beacon account and introduces the three separate household roads.",
-      "tastes": {
-        "likes": "careful listening and kept promises",
-        "sore": "a witness given another person’s words",
-        "reason": "A watchman keeps the beacon account and introduces the three separate household roads."
-      },
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-v-open",
-          "value": true
-        }
-      ]
-    },
-    "greek-cassandra": {
-      "name": "Cassandra",
-      "text": "Cassandra speaks within Aeschylus’s recalled homecoming, before she enters the house.",
-      "place": "greek-argos-palace",
-      "home": "greek-argos-palace",
-      "values": {},
-      "travels": false,
-      "standoffs": false,
-      "portrait": "assets/greek-drama/chthonic-electra.png",
-      "persona": "Cassandra speaks within Aeschylus’s recalled homecoming, before she enters the house. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
-      "voice": "Cassandra speaks within Aeschylus’s recalled homecoming, before she enters the house.",
-      "tastes": {
-        "likes": "careful listening and kept promises",
-        "sore": "a witness given another person’s words",
-        "reason": "Cassandra speaks within Aeschylus’s recalled homecoming, before she enters the house."
-      },
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-v-open",
-          "value": true
-        },
-        {
-          "kind": "choice",
-          "key": "greek-atreid-account",
-          "value": "aeschylus"
-        }
-      ]
-    },
-    "greek-clytemnestra-aeschylus": {
-      "name": "Clytemnestra",
-      "text": "Clytemnestra gives her own claim within the Aeschylus account.",
-      "place": "greek-argos-palace",
-      "home": "greek-argos-palace",
-      "values": {},
-      "travels": false,
-      "standoffs": false,
-      "portrait": "assets/greek-drama/chthonic-electra.png",
-      "persona": "Clytemnestra gives her own claim within the Aeschylus account. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
-      "voice": "Clytemnestra gives her own claim within the Aeschylus account.",
-      "tastes": {
-        "likes": "careful listening and kept promises",
-        "sore": "a witness given another person’s words",
-        "reason": "Clytemnestra gives her own claim within the Aeschylus account."
-      },
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-v-open",
-          "value": true
-        },
-        {
-          "kind": "choice",
-          "key": "greek-atreid-account",
-          "value": "aeschylus"
-        }
-      ],
-      "canonicalPerson": "clytemnestra"
-    },
-    "greek-argos-housekeeper": {
-      "name": "Argive Housekeeper",
-      "text": "An original surviving witness keeps the household record and chooses her own shelter.",
-      "place": "greek-argos-palace",
-      "home": "greek-argos-palace",
-      "values": {},
-      "travels": false,
-      "standoffs": false,
-      "portrait": "assets/greek-drama/chthonic-singer.png",
-      "persona": "An original surviving witness keeps the household record and chooses her own shelter. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
-      "voice": "An original surviving witness keeps the household record and chooses her own shelter.",
-      "tastes": {
-        "likes": "careful listening and kept promises",
-        "sore": "a witness given another person’s words",
-        "reason": "An original surviving witness keeps the household record and chooses her own shelter."
-      },
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-v-open",
-          "value": true
-        },
-        {
-          "kind": "choice",
-          "key": "greek-atreid-account",
-          "value": "aeschylus"
-        }
-      ],
-      "journey": {
-        "after": "greek-v-agamemnon-agree-refuge",
-        "path": [
-          "greek-argos-palace",
-          "greek-argos-tomb",
-          "greek-argolid-road",
-          "greek-argos-refuge"
-        ]
-      }
-    },
-    "greek-pylades-aeschylus": {
-      "name": "Pylades",
-      "text": "Pylades tells his own advice and the later source ending in Aeschylus’s tomb account.",
-      "place": "greek-argos-tomb",
-      "home": "greek-argos-tomb",
-      "values": {},
-      "travels": false,
-      "standoffs": false,
-      "portrait": "assets/greek-drama/chthonic-orestes.png",
-      "persona": "Pylades tells his own advice and the later source ending in Aeschylus’s tomb account. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
-      "voice": "Pylades tells his own advice and the later source ending in Aeschylus’s tomb account.",
-      "tastes": {
-        "likes": "careful listening and kept promises",
-        "sore": "a witness given another person’s words",
-        "reason": "Pylades tells his own advice and the later source ending in Aeschylus’s tomb account."
-      },
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-v-open",
-          "value": true
-        },
-        {
-          "kind": "choice",
-          "key": "greek-atreid-account",
-          "value": "aeschylus"
-        }
-      ],
-      "canonicalPerson": "pylades"
-    },
-    "greek-cilissa": {
-      "name": "Cilissa",
-      "text": "The nurse remembers the palace message and speaks for the work of care.",
-      "place": "greek-argos-tomb",
-      "home": "greek-argos-tomb",
-      "values": {},
-      "travels": false,
-      "standoffs": false,
-      "portrait": "assets/greek-drama/chthonic-electra.png",
-      "persona": "The nurse remembers the palace message and speaks for the work of care. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
-      "voice": "The nurse remembers the palace message and speaks for the work of care.",
-      "tastes": {
-        "likes": "careful listening and kept promises",
-        "sore": "a witness given another person’s words",
-        "reason": "The nurse remembers the palace message and speaks for the work of care."
-      },
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-v-open",
-          "value": true
-        },
-        {
-          "kind": "choice",
-          "key": "greek-atreid-account",
-          "value": "aeschylus"
-        }
-      ]
-    },
-    "greek-chrysothemis": {
-      "name": "Chrysothemis",
-      "text": "Chrysothemis gives her own answer to Electra in Sophocles’s palace account.",
-      "place": "greek-mycenae-palace",
-      "home": "greek-mycenae-palace",
-      "values": {},
-      "travels": false,
-      "standoffs": false,
-      "portrait": "assets/greek-drama/chthonic-electra.png",
-      "persona": "Chrysothemis gives her own answer to Electra in Sophocles’s palace account. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
-      "voice": "Chrysothemis gives her own answer to Electra in Sophocles’s palace account.",
-      "tastes": {
-        "likes": "careful listening and kept promises",
-        "sore": "a witness given another person’s words",
-        "reason": "Chrysothemis gives her own answer to Electra in Sophocles’s palace account."
-      },
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-v-open",
-          "value": true
-        },
-        {
-          "kind": "choice",
-          "key": "greek-atreid-account",
-          "value": "sophocles"
-        }
-      ]
-    },
-    "greek-paedagogus": {
-      "name": "The Tutor",
-      "text": "The tutor names his false death report and the urn in Sophocles’s account.",
-      "place": "greek-mycenae-palace",
-      "home": "greek-mycenae-palace",
-      "values": {},
-      "travels": false,
-      "standoffs": false,
-      "portrait": "assets/greek-drama/chthonic-singer.png",
-      "persona": "The tutor names his false death report and the urn in Sophocles’s account. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
-      "voice": "The tutor names his false death report and the urn in Sophocles’s account.",
-      "tastes": {
-        "likes": "careful listening and kept promises",
-        "sore": "a witness given another person’s words",
-        "reason": "The tutor names his false death report and the urn in Sophocles’s account."
-      },
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-v-open",
-          "value": true
-        },
-        {
-          "kind": "choice",
-          "key": "greek-atreid-account",
-          "value": "sophocles"
-        }
-      ]
-    },
-    "greek-argive-farmer": {
-      "name": "The Farmer",
-      "text": "The farmer offers food and dignity in Euripides’s farmhouse account.",
-      "place": "greek-argive-farm",
-      "home": "greek-argive-farm",
-      "values": {},
-      "travels": false,
-      "standoffs": false,
-      "portrait": "assets/greek-drama/chthonic-singer.png",
-      "persona": "The farmer offers food and dignity in Euripides’s farmhouse account. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
-      "voice": "The farmer offers food and dignity in Euripides’s farmhouse account.",
-      "tastes": {
-        "likes": "careful listening and kept promises",
-        "sore": "a witness given another person’s words",
-        "reason": "The farmer offers food and dignity in Euripides’s farmhouse account."
-      },
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-v-open",
-          "value": true
-        },
-        {
-          "kind": "choice",
-          "key": "greek-atreid-account",
-          "value": "euripides"
-        }
-      ]
-    },
-    "greek-electra-old-servant": {
-      "name": "The Old Servant",
-      "text": "The old servant names the scar and its childhood cause in Euripides’s account.",
-      "place": "greek-argive-farm",
-      "home": "greek-argive-farm",
-      "values": {},
-      "travels": false,
-      "standoffs": false,
-      "portrait": "assets/greek-drama/chthonic-singer.png",
-      "persona": "The old servant names the scar and its childhood cause in Euripides’s account. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
-      "voice": "The old servant names the scar and its childhood cause in Euripides’s account.",
-      "tastes": {
-        "likes": "careful listening and kept promises",
-        "sore": "a witness given another person’s words",
-        "reason": "The old servant names the scar and its childhood cause in Euripides’s account."
-      },
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-v-open",
-          "value": true
-        },
-        {
-          "kind": "choice",
-          "key": "greek-atreid-account",
-          "value": "euripides"
-        }
-      ]
-    },
-    "greek-clytemnestra-euripides": {
-      "name": "Clytemnestra",
-      "text": "Clytemnestra gives her own answer in the farmhouse telling before its later ending is heard.",
-      "place": "greek-argive-farm",
-      "home": "greek-argive-farm",
-      "values": {},
-      "travels": false,
-      "standoffs": false,
-      "portrait": "assets/greek-drama/chthonic-electra.png",
-      "persona": "Clytemnestra gives her own answer in the farmhouse telling before its later ending is heard. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
-      "voice": "Clytemnestra gives her own answer in the farmhouse telling before its later ending is heard.",
-      "tastes": {
-        "likes": "careful listening and kept promises",
-        "sore": "a witness given another person’s words",
-        "reason": "Clytemnestra gives her own answer in the farmhouse telling before its later ending is heard."
-      },
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-v-open",
-          "value": true
-        },
-        {
-          "kind": "choice",
-          "key": "greek-atreid-account",
-          "value": "euripides"
-        }
-      ],
-      "canonicalPerson": "clytemnestra"
-    },
-    "greek-pylades-euripides": {
-      "name": "Pylades",
-      "text": "Pylades carries the farmhouse source account, including the Dioscuri’s ending.",
-      "place": "greek-argive-farm",
-      "home": "greek-argive-farm",
-      "values": {},
-      "travels": false,
-      "standoffs": false,
-      "portrait": "assets/greek-drama/chthonic-orestes.png",
-      "persona": "Pylades carries the farmhouse source account, including the Dioscuri’s ending. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
-      "voice": "Pylades carries the farmhouse source account, including the Dioscuri’s ending.",
-      "tastes": {
-        "likes": "careful listening and kept promises",
-        "sore": "a witness given another person’s words",
-        "reason": "Pylades carries the farmhouse source account, including the Dioscuri’s ending."
-      },
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-v-open",
-          "value": true
-        },
-        {
-          "kind": "choice",
-          "key": "greek-atreid-account",
-          "value": "euripides"
-        }
-      ],
-      "canonicalPerson": "pylades"
-    },
-    "greek-hermione": {
-      "name": "Hermione",
-      "text": "Hermione introduces Euripides’s sixth-day Orestes as a separate song. Her present consent belongs to the game’s care scenes.",
-      "place": "greek-argos-refuge",
-      "home": "greek-argos-refuge",
-      "values": {},
-      "travels": false,
-      "standoffs": false,
-      "portrait": "assets/greek-drama/chthonic-electra.png",
-      "persona": "Hermione introduces Euripides’s sixth-day Orestes as a separate song. Her present consent belongs to the game’s care scenes. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
-      "voice": "Hermione introduces Euripides’s sixth-day Orestes as a separate song. Her present consent belongs to the game’s care scenes.",
-      "tastes": {
-        "likes": "careful listening and kept promises",
-        "sore": "a witness given another person’s words",
-        "reason": "Hermione introduces Euripides’s sixth-day Orestes as a separate song. Her present consent belongs to the game’s care scenes."
-      },
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-v-open",
-          "value": true
-        }
-      ]
-    },
-    "greek-phrygian-servant": {
-      "name": "The Phrygian Servant",
-      "text": "The servant gives his own account of the palace attack and may agree to a safe walk.",
-      "place": "greek-argos-refuge",
-      "home": "greek-argos-refuge",
-      "values": {},
-      "travels": false,
-      "standoffs": false,
-      "portrait": "assets/greek-drama/chthonic-singer.png",
-      "persona": "The servant gives his own account of the palace attack and may agree to a safe walk. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
-      "voice": "The servant gives his own account of the palace attack and may agree to a safe walk.",
-      "tastes": {
-        "likes": "careful listening and kept promises",
-        "sore": "a witness given another person’s words",
-        "reason": "The servant gives his own account of the palace attack and may agree to a safe walk."
-      },
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-v-open",
-          "value": true
-        }
-      ],
-      "journey": {
-        "after": "greek-v-orestes-agree-passage",
-        "path": [
-          "greek-argos-refuge",
-          "greek-argolid-road",
-          "greek-harbor"
-        ]
-      }
-    },
-    "greek-pythian-priestess": {
-      "name": "Pythian Priestess",
-      "text": "The priestess receives a refuge branch and introduces the Delphi opening of Eumenides.",
-      "place": "greek-delphi",
-      "home": "greek-delphi",
-      "values": {},
-      "travels": false,
-      "standoffs": false,
-      "portrait": "assets/greek-drama/chthonic-electra.png",
-      "persona": "The priestess receives a refuge branch and introduces the Delphi opening of Eumenides. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
-      "voice": "The priestess receives a refuge branch and introduces the Delphi opening of Eumenides.",
-      "tastes": {
-        "likes": "careful listening and kept promises",
-        "sore": "a witness given another person’s words",
-        "reason": "The priestess receives a refuge branch and introduces the Delphi opening of Eumenides."
-      },
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-v-open",
-          "value": true
-        }
-      ]
-    },
-    "greek-furies": {
-      "name": "The Furies",
-      "text": "The accusing chorus speaks as a group and can agree to bring its claim to Ares Hill.",
-      "place": "greek-delphi",
-      "home": "greek-delphi",
-      "values": {},
-      "travels": false,
-      "standoffs": false,
-      "portrait": "assets/greek-drama/chthonic-electra.png",
-      "persona": "The accusing chorus speaks as a group and can agree to bring its claim to Ares Hill. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
-      "voice": "The accusing chorus speaks as a group and can agree to bring its claim to Ares Hill.",
-      "tastes": {
-        "likes": "careful listening and kept promises",
-        "sore": "a witness given another person’s words",
-        "reason": "The accusing chorus speaks as a group and can agree to bring its claim to Ares Hill."
-      },
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-v-open",
-          "value": true
-        }
-      ],
-      "journey": {
-        "after": "greek-v-eumenides-agree-court",
-        "path": [
-          "greek-delphi",
-          "greek-athens",
-          "greek-ares-hill"
-        ]
-      }
-    },
-    "greek-athena": {
-      "name": "Athena",
-      "text": "Athena names the court’s source frame, its verdict and the separate settlement.",
-      "place": "greek-ares-hill",
-      "home": "greek-ares-hill",
-      "values": {},
-      "travels": false,
-      "standoffs": false,
-      "portrait": "assets/greek-drama/chthonic-electra.png",
-      "persona": "Athena names the court’s source frame, its verdict and the separate settlement. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
-      "voice": "Athena names the court’s source frame, its verdict and the separate settlement.",
-      "tastes": {
-        "likes": "careful listening and kept promises",
-        "sore": "a witness given another person’s words",
-        "reason": "Athena names the court’s source frame, its verdict and the separate settlement."
-      },
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-v-open",
-          "value": true
-        }
-      ]
-    },
-    "greek-iphigenia-tauris": {
-      "name": "Iphigenia",
-      "text": "Iphigenia tells the Tauris account in which Artemis saved her at Aulis. Every family recognition keeps this frame.",
-      "place": "greek-tauris",
-      "home": "greek-tauris",
-      "values": {},
-      "travels": false,
-      "standoffs": false,
-      "portrait": "assets/greek-drama/chthonic-electra.png",
-      "persona": "Iphigenia tells the Tauris account in which Artemis saved her at Aulis. Every family recognition keeps this frame. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
-      "voice": "Iphigenia tells the Tauris account in which Artemis saved her at Aulis. Every family recognition keeps this frame.",
-      "tastes": {
-        "likes": "careful listening and kept promises",
-        "sore": "a witness given another person’s words",
-        "reason": "Iphigenia tells the Tauris account in which Artemis saved her at Aulis. Every family recognition keeps this frame."
-      },
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-v-open",
-          "value": true
-        }
-      ]
-    },
-    "greek-thoas": {
-      "name": "Thoas",
-      "text": "Thoas hears the rite at the shore and gives his own answer to a new pact.",
-      "place": "greek-tauris-shore",
-      "home": "greek-tauris-shore",
-      "values": {},
-      "travels": false,
-      "standoffs": false,
-      "portrait": "assets/greek-drama/chthonic-orestes.png",
-      "persona": "Thoas hears the rite at the shore and gives his own answer to a new pact. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
-      "voice": "Thoas hears the rite at the shore and gives his own answer to a new pact.",
-      "tastes": {
-        "likes": "careful listening and kept promises",
-        "sore": "a witness given another person’s words",
-        "reason": "Thoas hears the rite at the shore and gives his own answer to a new pact."
-      },
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-v-open",
-          "value": true
-        }
-      ]
-    },
-    "greek-taurian-chorus": {
-      "name": "The Captive Women",
-      "text": "The captive Greek women keep their own claim to return and choose whether to join a new pact.",
-      "place": "greek-tauris",
-      "home": "greek-tauris",
-      "values": {},
-      "travels": false,
-      "standoffs": false,
-      "portrait": "assets/greek-drama/chthonic-electra.png",
-      "persona": "The captive Greek women keep their own claim to return and choose whether to join a new pact. Name the author and time of every recalled event. Speak from saved testimony and actual custody. Distinguish a source ending from a present game choice.",
-      "voice": "The captive Greek women keep their own claim to return and choose whether to join a new pact.",
-      "tastes": {
-        "likes": "careful listening and kept promises",
-        "sore": "a witness given another person’s words",
-        "reason": "The captive Greek women keep their own claim to return and choose whether to join a new pact."
-      },
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-v-open",
-          "value": true
-        }
-      ]
     },
     "greek-comedy-acharnians-dicaeopolis": {
       "name": "Dicaeopolis",
@@ -3334,10 +3087,7 @@
       },
       "journey": {
         "after": "greek-comedy-acharnians-shared-farmer-assent",
-        "path": [
-          "greek-acharnae",
-          "greek-comedy-acharnians-trading-lane"
-        ]
+        "path": ["greek-acharnae", "greek-comedy-acharnians-trading-lane"]
       }
     },
     "greek-comedy-acharnians-lamachus": {
@@ -4617,10 +4367,7 @@
       },
       "journey": {
         "after": "greek-book-iv-andromache-peleus-consent",
-        "path": [
-          "greek-book-iv-andromache-household",
-          "greek-thetis"
-        ]
+        "path": ["greek-book-iv-andromache-household", "greek-thetis"]
       }
     },
     "greek-book-iv-andromache-hermione": {
@@ -4794,10 +4541,7 @@
       },
       "journey": {
         "after": "greek-book-iv-medea-medea-consent",
-        "path": [
-          "greek-corinth",
-          "greek-book-iv-medea-quay"
-        ]
+        "path": ["greek-corinth", "greek-book-iv-medea-quay"]
       }
     },
     "greek-book-iv-medea-nurse": {
@@ -4825,10 +4569,7 @@
       },
       "journey": {
         "after": "greek-book-iv-medea-nurse-consent",
-        "path": [
-          "greek-corinth",
-          "greek-book-iv-medea-quay"
-        ]
+        "path": ["greek-corinth", "greek-book-iv-medea-quay"]
       }
     },
     "greek-book-iv-medea-jason": {
@@ -5001,10 +4742,7 @@
       },
       "journey": {
         "after": "greek-book-iv-ion-creusa-consent",
-        "path": [
-          "greek-book-iv-ion-guesthouse",
-          "greek-delphi"
-        ]
+        "path": ["greek-book-iv-ion-guesthouse", "greek-delphi"]
       }
     },
     "greek-book-iv-ion-xuthus": {
@@ -5075,10 +4813,7 @@
       },
       "journey": {
         "after": "greek-vii-cyclops-crew-consent",
-        "path": [
-          "greek-sicily",
-          "greek-vii-escape-shore"
-        ]
+        "path": ["greek-sicily", "greek-vii-escape-shore"]
       }
     },
     "greek-vii-satyr-chorus": {
@@ -5101,10 +4836,7 @@
       },
       "journey": {
         "after": "greek-vii-cyclops-satyr-consent",
-        "path": [
-          "greek-sicily",
-          "greek-vii-escape-shore"
-        ]
+        "path": ["greek-sicily", "greek-vii-escape-shore"]
       }
     },
     "greek-vii-polyphemus": {
@@ -5214,10 +4946,7 @@
       },
       "journey": {
         "after": "greek-vii-peace-pull",
-        "path": [
-          "greek-divine-heights",
-          "greek-attic-farm"
-        ]
+        "path": ["greek-divine-heights", "greek-attic-farm"]
       }
     },
     "greek-vii-smiths": {
@@ -37580,9 +37309,7 @@
         {
           "kind": "light",
           "item": "lamp",
-          "at": [
-            "greek-scythian-crag"
-          ],
+          "at": ["greek-scythian-crag"],
           "uncovered": true
         }
       ],
@@ -37689,9 +37416,7 @@
         {
           "kind": "light",
           "item": "lamp",
-          "at": [
-            "greek-vii-crag-camp"
-          ],
+          "at": ["greek-vii-crag-camp"],
           "uncovered": true
         },
         {
@@ -37763,14 +37488,10 @@
       "author": "Aeschylus",
       "title": "Persians",
       "era": "imperial-aftermath",
-      "placeIds": [
-        "greek-susa"
-      ],
+      "placeIds": ["greek-susa"],
       "premise": "A messenger's account of defeat must reach the grieving court without losing its source.",
       "status": "situated-hook",
-      "hookChoiceIds": [
-        "greek-inquire-aeschylus-persians"
-      ],
+      "hookChoiceIds": ["greek-inquire-aeschylus-persians"],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aeschylus",
@@ -37783,11 +37504,7 @@
       "author": "Aeschylus",
       "title": "Seven Against Thebes",
       "era": "theban-war",
-      "placeIds": [
-        "greek-gate",
-        "greek-courtyard",
-        "greek-palace"
-      ],
+      "placeIds": ["greek-gate", "greek-courtyard", "greek-palace"],
       "premise": "The city's defenders must answer rival claims to command while households seek protection.",
       "status": "branching-episode",
       "hookChoiceIds": [
@@ -37813,10 +37530,7 @@
       "author": "Aeschylus",
       "title": "Suppliant Women",
       "era": "heroic-households",
-      "placeIds": [
-        "greek-argos-sanctuary",
-        "greek-danaid-refuge-court"
-      ],
+      "placeIds": ["greek-argos-sanctuary", "greek-danaid-refuge-court"],
       "premise": "The Danaids seek protection against forced marriage, and the receiving city must decide what protection entails.",
       "status": "branching-episode",
       "hookChoiceIds": [
@@ -37850,16 +37564,10 @@
       "author": "Aeschylus",
       "title": "Prometheus Bound",
       "era": "divine-frontier",
-      "placeIds": [
-        "greek-scythian-crag",
-        "greek-vii-crag-camp",
-        "greek-susa"
-      ],
+      "placeIds": ["greek-scythian-crag", "greek-vii-crag-camp", "greek-susa"],
       "premise": "A punished benefactor can be approached, but neither prophecy nor release follows from a visitor's words alone.",
       "status": "branching-episode",
-      "hookChoiceIds": [
-        "greek-inquire-aeschylus-prometheus-bound"
-      ],
+      "hookChoiceIds": ["greek-inquire-aeschylus-prometheus-bound"],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aeschylus",
@@ -37900,10 +37608,7 @@
       "author": "Aeschylus",
       "title": "Libation Bearers",
       "era": "homecomings",
-      "placeIds": [
-        "greek-argos-tomb",
-        "greek-ares-hill"
-      ],
+      "placeIds": ["greek-argos-tomb", "greek-ares-hill"],
       "premise": "A meeting at a tomb raises claims of kinship and a demand for revenge.",
       "status": "branching-episode",
       "hookChoiceIds": [
@@ -37926,10 +37631,7 @@
       "author": "Aeschylus",
       "title": "Eumenides",
       "era": "homecomings",
-      "placeIds": [
-        "greek-delphi",
-        "greek-ares-hill"
-      ],
+      "placeIds": ["greek-delphi", "greek-ares-hill"],
       "premise": "Sanctuary and public judgment offer different answers to a pursuing claim of vengeance.",
       "status": "branching-episode",
       "hookChoiceIds": [
@@ -37989,14 +37691,10 @@
       "author": "Sophocles",
       "title": "Antigone",
       "era": "theban-aftermath",
-      "placeIds": [
-        "greek-gate"
-      ],
+      "placeIds": ["greek-gate"],
       "premise": "A sister seeks burial for the brother whom a public decree leaves exposed.",
       "status": "opening-episode",
-      "hookChoiceIds": [
-        "greek-inquire-sophocles-antigone"
-      ],
+      "hookChoiceIds": ["greek-inquire-sophocles-antigone"],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Sophocles",
@@ -38088,10 +37786,7 @@
       "author": "Sophocles",
       "title": "Electra",
       "era": "homecomings",
-      "placeIds": [
-        "greek-mycenae-palace",
-        "greek-ares-hill"
-      ],
+      "placeIds": ["greek-mycenae-palace", "greek-ares-hill"],
       "premise": "An excluded daughter demands an answer to her father's murder from the palace approach.",
       "status": "branching-episode",
       "hookChoiceIds": [
@@ -38114,14 +37809,10 @@
       "author": "Sophocles",
       "title": "Philoctetes",
       "era": "trojan-war",
-      "placeIds": [
-        "greek-lemnos"
-      ],
+      "placeIds": ["greek-lemnos"],
       "premise": "An army needs the help of a man it abandoned, and the request need not be honest.",
       "status": "situated-hook",
-      "hookChoiceIds": [
-        "greek-inquire-sophocles-philoctetes"
-      ],
+      "hookChoiceIds": ["greek-inquire-sophocles-philoctetes"],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Sophocles",
@@ -38134,9 +37825,7 @@
       "author": "Sophocles",
       "title": "Oedipus at Colonus",
       "era": "theban-exile",
-      "placeIds": [
-        "greek-colonus"
-      ],
+      "placeIds": ["greek-colonus"],
       "premise": "An old exile seeks a resting place while rival powers contest his presence.",
       "status": "branching-episode",
       "hookChoiceIds": [
@@ -38159,9 +37848,7 @@
       "author": "Euripides",
       "title": "Alcestis",
       "era": "heroic-households",
-      "placeIds": [
-        "greek-pherae"
-      ],
+      "placeIds": ["greek-pherae"],
       "premise": "Hospitality continues in a household mourning the person who paid for another's life.",
       "status": "branching-episode",
       "hookChoiceIds": [
@@ -38246,9 +37933,7 @@
       "author": "Euripides",
       "title": "Children of Heracles",
       "era": "heroic-aftermath",
-      "placeIds": [
-        "greek-marathon"
-      ],
+      "placeIds": ["greek-marathon"],
       "premise": "Pursued children seek protection at Zeus's altar against a powerful ruler's demands.",
       "status": "branching-episode",
       "hookChoiceIds": [
@@ -38355,14 +38040,10 @@
       "author": "Euripides",
       "title": "Hecuba",
       "era": "trojan-aftermath",
-      "placeIds": [
-        "greek-thrace"
-      ],
+      "placeIds": ["greek-thrace"],
       "premise": "A captive queen searches for reliable news of her children and a betrayed trust.",
       "status": "situated-hook",
-      "hookChoiceIds": [
-        "greek-inquire-euripides-hecuba"
-      ],
+      "hookChoiceIds": ["greek-inquire-euripides-hecuba"],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -38375,9 +38056,7 @@
       "author": "Euripides",
       "title": "Suppliant Women",
       "era": "theban-aftermath",
-      "placeIds": [
-        "greek-eleusis"
-      ],
+      "placeIds": ["greek-eleusis"],
       "premise": "Bereaved mothers seek help recovering their sons' remains from a defeated expedition.",
       "status": "branching-episode",
       "hookChoiceIds": [
@@ -38406,10 +38085,7 @@
       "author": "Euripides",
       "title": "Electra",
       "era": "homecomings",
-      "placeIds": [
-        "greek-argive-farm",
-        "greek-ares-hill"
-      ],
+      "placeIds": ["greek-argive-farm", "greek-ares-hill"],
       "premise": "The revenge claim is heard in a poor household beyond the royal city.",
       "status": "branching-episode",
       "hookChoiceIds": [
@@ -38476,14 +38152,10 @@
       "author": "Euripides",
       "title": "Trojan Women",
       "era": "trojan-aftermath",
-      "placeIds": [
-        "greek-troy"
-      ],
+      "placeIds": ["greek-troy"],
       "premise": "The conquered community struggles to preserve lives and relationships before dispersal.",
       "status": "situated-hook",
-      "hookChoiceIds": [
-        "greek-inquire-euripides-trojan-women"
-      ],
+      "hookChoiceIds": ["greek-inquire-euripides-trojan-women"],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -38496,10 +38168,7 @@
       "author": "Euripides",
       "title": "Iphigenia in Tauris",
       "era": "homecomings",
-      "placeIds": [
-        "greek-tauris",
-        "greek-tauris-shore"
-      ],
+      "placeIds": ["greek-tauris", "greek-tauris-shore"],
       "premise": "A ritual killing rule threatens travelers whose identities may change the priestess's obligations.",
       "status": "branching-episode",
       "hookChoiceIds": [
@@ -38612,11 +38281,7 @@
       "author": "Euripides",
       "title": "Phoenician Women",
       "era": "theban-war",
-      "placeIds": [
-        "greek-palace",
-        "greek-gate",
-        "greek-courtyard"
-      ],
+      "placeIds": ["greek-palace", "greek-gate", "greek-courtyard"],
       "premise": "A divided family tries to act while rival brothers bring armed claims to the city.",
       "status": "branching-episode",
       "hookChoiceIds": [
@@ -38640,10 +38305,7 @@
       "author": "Euripides",
       "title": "Orestes",
       "era": "homecomings",
-      "placeIds": [
-        "greek-argos-palace",
-        "greek-argos-refuge"
-      ],
+      "placeIds": ["greek-argos-palace", "greek-argos-refuge"],
       "premise": "A household facing judgment after matricide considers further desperate action.",
       "status": "branching-episode",
       "hookChoiceIds": [
@@ -38666,11 +38328,7 @@
       "author": "Euripides",
       "title": "Bacchae",
       "era": "early-thebes",
-      "placeIds": [
-        "greek-cithaeron",
-        "greek-well",
-        "greek-courtyard"
-      ],
+      "placeIds": ["greek-cithaeron", "greek-well", "greek-courtyard"],
       "premise": "Suppressed worship and a ruler's surveillance bring human authority against a disguised god.",
       "status": "branching-episode",
       "hookChoiceIds": [
@@ -38696,14 +38354,10 @@
       "author": "Euripides",
       "title": "Iphigenia at Aulis",
       "era": "trojan-departure",
-      "placeIds": [
-        "greek-aulis"
-      ],
+      "placeIds": ["greek-aulis"],
       "premise": "Commanders and soldiers press for a sacrifice that a father has the power to resist.",
       "status": "situated-hook",
-      "hookChoiceIds": [
-        "greek-inquire-euripides-iphigenia-at-aulis"
-      ],
+      "hookChoiceIds": ["greek-inquire-euripides-iphigenia-at-aulis"],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -38716,14 +38370,10 @@
       "author": "Euripides",
       "title": "Rhesus",
       "era": "trojan-war",
-      "placeIds": [
-        "greek-trojan-camp"
-      ],
+      "placeIds": ["greek-trojan-camp"],
       "premise": "An ally arrives at night while infiltrators and uncertain reports cross the camp.",
       "status": "situated-hook",
-      "hookChoiceIds": [
-        "greek-inquire-euripides-rhesus"
-      ],
+      "hookChoiceIds": ["greek-inquire-euripides-rhesus"],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -38743,9 +38393,7 @@
       ],
       "premise": "Captive satyrs and stranded travelers seek a way past a predatory host.",
       "status": "branching-episode",
-      "hookChoiceIds": [
-        "greek-inquire-euripides-cyclops"
-      ],
+      "hookChoiceIds": ["greek-inquire-euripides-cyclops"],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Euripides",
@@ -38857,9 +38505,7 @@
       ],
       "premise": "A farmer seeks peace while trades built on war face losing their customers.",
       "status": "branching-episode",
-      "hookChoiceIds": [
-        "greek-inquire-aristophanes-peace"
-      ],
+      "hookChoiceIds": ["greek-inquire-aristophanes-peace"],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aristophanes",
@@ -38879,9 +38525,7 @@
       ],
       "premise": "A refuge from civic life could become a new power controlling passage between gods and mortals.",
       "status": "branching-episode",
-      "hookChoiceIds": [
-        "greek-inquire-aristophanes-birds"
-      ],
+      "hookChoiceIds": ["greek-inquire-aristophanes-birds"],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aristophanes",
@@ -38940,14 +38584,10 @@
       "author": "Aristophanes",
       "title": "Frogs",
       "era": "civic-athens",
-      "placeIds": [
-        "greek-underworld"
-      ],
+      "placeIds": ["greek-underworld"],
       "premise": "A divine visitor seeks a poet whose art can answer the city's troubles.",
       "status": "situated-hook",
-      "hookChoiceIds": [
-        "greek-inquire-aristophanes-frogs"
-      ],
+      "hookChoiceIds": ["greek-inquire-aristophanes-frogs"],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aristophanes",
@@ -40234,10 +39874,7 @@
           "buried him",
           "his body lies in the grave"
         ],
-        "anyChoices": [
-          "greek-perform-burial",
-          "greek-perform-permitted-burial"
-        ]
+        "anyChoices": ["greek-perform-burial", "greek-perform-permitted-burial"]
       },
       {
         "phrases": [
@@ -40268,82 +39905,45 @@
           "the ashes were placed",
           "the urn was placed"
         ],
-        "anyChoices": [
-          "greek-open-door-lay-ashes"
-        ]
+        "anyChoices": ["greek-open-door-lay-ashes"]
       },
       {
-        "phrases": [
-          "the berth was prepared",
-          "a berth was reserved"
-        ],
+        "phrases": ["the berth was prepared", "a berth was reserved"],
         "anyChoices": [
           "greek-open-door-family-berth",
           "greek-open-door-open-berth"
         ]
       },
       {
-        "phrases": [
-          "i laid a blanket",
-          "the blanket was laid"
-        ],
-        "anyChoices": [
-          "greek-open-door-marathon-blanket"
-        ]
+        "phrases": ["i laid a blanket", "the blanket was laid"],
+        "anyChoices": ["greek-open-door-marathon-blanket"]
       },
       {
-        "phrases": [
-          "i set a cup beside her empty chair"
-        ],
-        "anyChoices": [
-          "greek-alcestis-set-cup"
-        ]
+        "phrases": ["i set a cup beside her empty chair"],
+        "anyChoices": ["greek-alcestis-set-cup"]
       },
       {
-        "phrases": [
-          "i gave our guest the name beneath the silence"
-        ],
-        "anyChoices": [
-          "greek-alcestis-tell-guest"
-        ]
+        "phrases": ["i gave our guest the name beneath the silence"],
+        "anyChoices": ["greek-alcestis-tell-guest"]
       },
       {
-        "phrases": [
-          "i poured the wine above the muffled weeping"
-        ],
-        "anyChoices": [
-          "greek-alcestis-serve-guest"
-        ]
+        "phrases": ["i poured the wine above the muffled weeping"],
+        "anyChoices": ["greek-alcestis-serve-guest"]
       },
       {
-        "phrases": [
-          "alcestis returned",
-          "the veiled return"
-        ],
-        "anyChoices": [
-          "greek-alcestis-witness-return"
-        ]
+        "phrases": ["alcestis returned", "the veiled return"],
+        "anyChoices": ["greek-alcestis-witness-return"]
       },
       {
-        "phrases": [
-          "we promised bread beside the children"
-        ],
-        "anyChoices": [
-          "greek-alcestis-pledge-children"
-        ]
+        "phrases": ["we promised bread beside the children"],
+        "anyChoices": ["greek-alcestis-pledge-children"]
       },
       {
-        "phrases": [
-          "we set the work among our waiting hands"
-        ],
-        "anyChoices": [
-          "greek-alcestis-pledge-shared"
-        ]
+        "phrases": ["we set the work among our waiting hands"],
+        "anyChoices": ["greek-alcestis-pledge-shared"]
       },
       {
-        "phrases": [
-          "acharnians"
-        ],
+        "phrases": ["acharnians"],
         "anyChoices": [
           "greek-comedy-acharnians-set-truce",
           "greek-comedy-acharnians-lay-boundary",
@@ -40354,9 +39954,7 @@
         ]
       },
       {
-        "phrases": [
-          "knights"
-        ],
+        "phrases": ["knights"],
         "anyChoices": [
           "greek-comedy-knights-bring-dish",
           "greek-comedy-knights-ring-handover",
@@ -40367,9 +39965,7 @@
         ]
       },
       {
-        "phrases": [
-          "wasps"
-        ],
+        "phrases": ["wasps"],
         "anyChoices": [
           "greek-comedy-wasps-set-court",
           "greek-comedy-wasps-record-verdict",
@@ -40380,9 +39976,7 @@
         ]
       },
       {
-        "phrases": [
-          "clouds"
-        ],
+        "phrases": ["clouds"],
         "anyChoices": [
           "greek-comedy-clouds-gather-debts",
           "greek-comedy-clouds-weigh-lesson",
@@ -40393,9 +39987,7 @@
         ]
       },
       {
-        "phrases": [
-          "lysistrata"
-        ],
+        "phrases": ["lysistrata"],
         "anyChoices": [
           "greek-comedy-lysistrata-oath-cup",
           "greek-comedy-lysistrata-treasury-supplies",
@@ -40406,9 +39998,7 @@
         ]
       },
       {
-        "phrases": [
-          "assemblywomen"
-        ],
+        "phrases": ["assemblywomen"],
         "anyChoices": [
           "greek-comedy-assemblywomen-return-loan",
           "greek-comedy-assemblywomen-count-goods",
@@ -40419,9 +40009,7 @@
         ]
       },
       {
-        "phrases": [
-          "wealth"
-        ],
+        "phrases": ["wealth"],
         "anyChoices": [
           "greek-comedy-wealth-welcome-arrival",
           "greek-comedy-wealth-record-healing",
@@ -40432,9 +40020,7 @@
         ]
       },
       {
-        "phrases": [
-          "women at the thesmophoria"
-        ],
+        "phrases": ["women at the thesmophoria"],
         "anyChoices": [
           "greek-comedy-thesmophoria-speakers-garland",
           "greek-comedy-thesmophoria-guarded-arrival",
@@ -43014,9 +42600,7 @@
     {
       "id": "greek-book-one",
       "name": "Theban Accounts and Care",
-      "places": [
-        "greek-cithaeron"
-      ],
+      "places": ["greek-cithaeron"],
       "requires": [
         {
           "kind": "flag",
@@ -43028,9 +42612,7 @@
     {
       "id": "greek-pherae-route",
       "name": "The Pherae Road",
-      "places": [
-        "greek-pherae"
-      ],
+      "places": ["greek-pherae"],
       "requires": [
         {
           "kind": "flag",
@@ -43058,10 +42640,7 @@
     {
       "id": "greek-danaid-shelter",
       "name": "The Door Chosen",
-      "places": [
-        "greek-argos-sanctuary",
-        "greek-danaid-refuge-court"
-      ],
+      "places": ["greek-argos-sanctuary", "greek-danaid-refuge-court"],
       "requires": [
         {
           "kind": "flag",
@@ -43073,10 +42652,7 @@
     {
       "id": "greek-trachis-account",
       "name": "The Gift and the Road",
-      "places": [
-        "greek-oeta",
-        "greek-trachis-canae-approach"
-      ],
+      "places": ["greek-oeta", "greek-trachis-canae-approach"],
       "requires": [
         {
           "kind": "flag",
@@ -43109,9 +42685,7 @@
     {
       "id": "greek-argolid-crossroads",
       "name": "The Argolid Crossroads",
-      "places": [
-        "greek-argolid-road"
-      ],
+      "places": ["greek-argolid-road"],
       "requires": [
         {
           "kind": "flag",
@@ -43219,10 +42793,7 @@
     {
       "id": "greek-book-iv-medea-section",
       "name": "The Faces of Home: Medea",
-      "places": [
-        "greek-book-iv-medea-palace",
-        "greek-book-iv-medea-quay"
-      ],
+      "places": ["greek-book-iv-medea-palace", "greek-book-iv-medea-quay"],
       "requires": [
         {
           "kind": "flag",
@@ -43249,11 +42820,7 @@
     {
       "id": "greek-book-iv-roads",
       "name": "The Faces of Home Roads",
-      "places": [
-        "greek-thetis",
-        "greek-corinth",
-        "greek-troezen"
-      ],
+      "places": ["greek-thetis", "greek-corinth", "greek-troezen"],
       "requires": [
         {
           "kind": "flag",
@@ -43265,9 +42832,7 @@
     {
       "id": "greek-trachis-shared-access",
       "name": "House at Trachis",
-      "places": [
-        "greek-trachis"
-      ],
+      "places": ["greek-trachis"],
       "requires": [
         {
           "kind": "flag",
@@ -43279,9 +42844,7 @@
     {
       "id": "greek-delphi-shared-access",
       "name": "Delphic Temple",
-      "places": [
-        "greek-delphi"
-      ],
+      "places": ["greek-delphi"],
       "requires": [
         {
           "kind": "flag",
@@ -43317,9 +42880,7 @@
     {
       "id": "greek-attic-farm-shared-access",
       "name": "The Attic Farm",
-      "places": [
-        "greek-attic-farm"
-      ],
+      "places": ["greek-attic-farm"],
       "requires": [
         {
           "kind": "flag",
@@ -43369,9 +42930,7 @@
           }
         ]
       },
-      "related": [
-        "greek-return-water-jar"
-      ]
+      "related": ["greek-return-water-jar"]
     },
     {
       "id": "story-quest-greek-burial",
@@ -43739,9 +43298,7 @@
           }
         ]
       },
-      "progress": [
-        "greek-open-door-set-provisions"
-      ],
+      "progress": ["greek-open-door-set-provisions"],
       "endings": [
         {
           "choice": "greek-open-door-family-berth"
@@ -44342,9 +43899,7 @@
         }
       ],
       "outcome": "Fulfilled",
-      "progress": [
-        "greek-ajax-hear-plea"
-      ]
+      "progress": ["greek-ajax-hear-plea"]
     },
     {
       "id": "story-quest-greek-ajax-burial",
@@ -45053,9 +44608,7 @@
         }
       ],
       "outcome": "Fulfilled",
-      "progress": [
-        "greek-alcestis-receive-guest"
-      ]
+      "progress": ["greek-alcestis-receive-guest"]
     },
     {
       "id": "story-quest-greek-alcestis-care",
@@ -45251,10 +44804,7 @@
           "choice": "greek-danaid-lay-branches"
         }
       ],
-      "progress": [
-        "greek-danaid-hear-terms",
-        "greek-danaid-hear-flight"
-      ]
+      "progress": ["greek-danaid-hear-terms", "greek-danaid-hear-flight"]
     },
     {
       "id": "story-quest-greek-danaid-pledge",
@@ -45274,9 +44824,7 @@
           "choice": "greek-danaid-set-provisions"
         }
       ],
-      "progress": [
-        "greek-danaid-offer-roof"
-      ]
+      "progress": ["greek-danaid-offer-roof"]
     },
     {
       "id": "story-quest-greek-danaid-journey",
@@ -45371,10 +44919,7 @@
         }
       ],
       "outcome": "Fulfilled",
-      "progress": [
-        "greek-trachis-hear-iole",
-        "greek-trachis-iole-silence"
-      ]
+      "progress": ["greek-trachis-hear-iole", "greek-trachis-iole-silence"]
     },
     {
       "id": "story-quest-greek-trachis-wool",
@@ -45525,9 +45070,7 @@
         }
       ],
       "outcome": "Fulfilled",
-      "progress": [
-        "greek-v-agamemnon-beacon"
-      ],
+      "progress": ["greek-v-agamemnon-beacon"],
       "created": {
         "latest": [
           {
@@ -45602,9 +45145,7 @@
         }
       ],
       "outcome": "Fulfilled",
-      "progress": [
-        "greek-v-agamemnon-cassandra"
-      ]
+      "progress": ["greek-v-agamemnon-cassandra"]
     },
     {
       "id": "story-quest-greek-v-agamemnon-voices",
@@ -45645,10 +45186,7 @@
         }
       ],
       "outcome": "Fulfilled",
-      "progress": [
-        "greek-v-agamemnon-doors",
-        "greek-v-agamemnon-agree-refuge"
-      ]
+      "progress": ["greek-v-agamemnon-doors", "greek-v-agamemnon-agree-refuge"]
     },
     {
       "id": "story-quest-greek-v-agamemnon-return",
@@ -45733,9 +45271,7 @@
         }
       ],
       "outcome": "Fulfilled",
-      "progress": [
-        "greek-v-libation-opening"
-      ],
+      "progress": ["greek-v-libation-opening"],
       "created": {
         "latest": [
           {
@@ -45810,9 +45346,7 @@
         }
       ],
       "outcome": "Fulfilled",
-      "progress": [
-        "greek-v-libation-recognition"
-      ]
+      "progress": ["greek-v-libation-recognition"]
     },
     {
       "id": "story-quest-greek-v-libation-answer",
@@ -45853,9 +45387,7 @@
         }
       ],
       "outcome": "Fulfilled",
-      "progress": [
-        "greek-v-libation-source-ending"
-      ]
+      "progress": ["greek-v-libation-source-ending"]
     },
     {
       "id": "story-quest-greek-v-libation-return",
@@ -45940,9 +45472,7 @@
         }
       ],
       "outcome": "Fulfilled",
-      "progress": [
-        "greek-v-palace-electra-opening"
-      ],
+      "progress": ["greek-v-palace-electra-opening"],
       "created": {
         "latest": [
           {
@@ -46017,9 +45547,7 @@
         }
       ],
       "outcome": "Fulfilled",
-      "progress": [
-        "greek-v-palace-electra-recognition"
-      ]
+      "progress": ["greek-v-palace-electra-recognition"]
     },
     {
       "id": "story-quest-greek-v-palace-electra-answer",
@@ -46060,9 +45588,7 @@
         }
       ],
       "outcome": "Fulfilled",
-      "progress": [
-        "greek-v-palace-electra-source-ending"
-      ]
+      "progress": ["greek-v-palace-electra-source-ending"]
     },
     {
       "id": "story-quest-greek-v-palace-electra-return",
@@ -46147,9 +45673,7 @@
         }
       ],
       "outcome": "Fulfilled",
-      "progress": [
-        "greek-v-farm-electra-opening"
-      ],
+      "progress": ["greek-v-farm-electra-opening"],
       "created": {
         "latest": [
           {
@@ -46224,9 +45748,7 @@
         }
       ],
       "outcome": "Fulfilled",
-      "progress": [
-        "greek-v-farm-electra-recognition"
-      ]
+      "progress": ["greek-v-farm-electra-recognition"]
     },
     {
       "id": "story-quest-greek-v-farm-electra-answer",
@@ -46267,9 +45789,7 @@
         }
       ],
       "outcome": "Fulfilled",
-      "progress": [
-        "greek-v-farm-electra-source-ending"
-      ]
+      "progress": ["greek-v-farm-electra-source-ending"]
     },
     {
       "id": "story-quest-greek-v-farm-electra-return",
@@ -46344,9 +45864,7 @@
         }
       ],
       "outcome": "Fulfilled",
-      "progress": [
-        "greek-v-orestes-opening"
-      ],
+      "progress": ["greek-v-orestes-opening"],
       "created": {
         "latest": [
           {
@@ -46388,9 +45906,7 @@
         }
       ],
       "outcome": "Fulfilled",
-      "progress": [
-        "greek-v-orestes-city"
-      ]
+      "progress": ["greek-v-orestes-city"]
     },
     {
       "id": "story-quest-greek-v-orestes-answer",
@@ -46505,9 +46021,7 @@
         }
       ],
       "outcome": "Fulfilled",
-      "progress": [
-        "greek-v-eumenides-delphi"
-      ],
+      "progress": ["greek-v-eumenides-delphi"],
       "created": {
         "latest": [
           {
@@ -46549,10 +46063,7 @@
         }
       ],
       "outcome": "Fulfilled",
-      "progress": [
-        "greek-v-eumenides-trial",
-        "greek-v-eumenides-agree-court"
-      ]
+      "progress": ["greek-v-eumenides-trial", "greek-v-eumenides-agree-court"]
     },
     {
       "id": "story-quest-greek-v-eumenides-answer",
@@ -46588,9 +46099,7 @@
         }
       ],
       "outcome": "Fulfilled",
-      "progress": [
-        "greek-v-eumenides-settlement"
-      ]
+      "progress": ["greek-v-eumenides-settlement"]
     },
     {
       "id": "story-quest-greek-v-eumenides-return",
@@ -46665,9 +46174,7 @@
         }
       ],
       "outcome": "Fulfilled",
-      "progress": [
-        "greek-v-tauris-letter"
-      ],
+      "progress": ["greek-v-tauris-letter"],
       "created": {
         "latest": [
           {
@@ -46709,9 +46216,7 @@
         }
       ],
       "outcome": "Fulfilled",
-      "progress": [
-        "greek-v-tauris-childhood"
-      ]
+      "progress": ["greek-v-tauris-childhood"]
     },
     {
       "id": "story-quest-greek-v-tauris-answer",
@@ -46747,10 +46252,7 @@
         }
       ],
       "outcome": "Fulfilled",
-      "progress": [
-        "greek-v-tauris-escape",
-        "greek-v-tauris-shore"
-      ]
+      "progress": ["greek-v-tauris-escape", "greek-v-tauris-shore"]
     },
     {
       "id": "story-quest-greek-v-tauris-return",
@@ -46940,9 +46442,7 @@
           }
         ]
       },
-      "progress": [
-        "greek-comedy-acharnians-signed-account"
-      ],
+      "progress": ["greek-comedy-acharnians-signed-account"],
       "endings": [
         {
           "choice": "greek-comedy-acharnians-return"
@@ -47098,9 +46598,7 @@
           }
         ]
       },
-      "progress": [
-        "greek-comedy-knights-signed-account"
-      ],
+      "progress": ["greek-comedy-knights-signed-account"],
       "endings": [
         {
           "choice": "greek-comedy-knights-return"
@@ -47275,9 +46773,7 @@
           }
         ]
       },
-      "progress": [
-        "greek-comedy-wasps-signed-account"
-      ],
+      "progress": ["greek-comedy-wasps-signed-account"],
       "endings": [
         {
           "choice": "greek-comedy-wasps-return"
@@ -47436,9 +46932,7 @@
           }
         ]
       },
-      "progress": [
-        "greek-comedy-clouds-signed-account"
-      ],
+      "progress": ["greek-comedy-clouds-signed-account"],
       "endings": [
         {
           "choice": "greek-comedy-clouds-return"
@@ -47608,9 +47102,7 @@
           }
         ]
       },
-      "progress": [
-        "greek-comedy-lysistrata-signed-account"
-      ],
+      "progress": ["greek-comedy-lysistrata-signed-account"],
       "endings": [
         {
           "choice": "greek-comedy-lysistrata-return"
@@ -47767,9 +47259,7 @@
           }
         ]
       },
-      "progress": [
-        "greek-comedy-assemblywomen-signed-account"
-      ],
+      "progress": ["greek-comedy-assemblywomen-signed-account"],
       "endings": [
         {
           "choice": "greek-comedy-assemblywomen-return"
@@ -47940,9 +47430,7 @@
           }
         ]
       },
-      "progress": [
-        "greek-comedy-wealth-signed-account"
-      ],
+      "progress": ["greek-comedy-wealth-signed-account"],
       "endings": [
         {
           "choice": "greek-comedy-wealth-return"
@@ -48107,9 +47595,7 @@
           }
         ]
       },
-      "progress": [
-        "greek-comedy-thesmophoria-signed-account"
-      ],
+      "progress": ["greek-comedy-thesmophoria-signed-account"],
       "endings": [
         {
           "choice": "greek-comedy-thesmophoria-return"
@@ -48248,9 +47734,7 @@
         }
       ],
       "outcome": "Fulfilled",
-      "progress": [
-        "greek-book-iv-andromache-hear-mother"
-      ]
+      "progress": ["greek-book-iv-andromache-hear-mother"]
     },
     {
       "id": "story-quest-greek-book-iv-andromache-defender",
@@ -48271,9 +47755,7 @@
         }
       ],
       "outcome": "Fulfilled",
-      "progress": [
-        "greek-book-iv-andromache-peleus-consent"
-      ]
+      "progress": ["greek-book-iv-andromache-peleus-consent"]
     },
     {
       "id": "story-quest-greek-book-iv-andromache-ending",
@@ -48474,9 +47956,7 @@
         }
       ],
       "outcome": "Fulfilled",
-      "progress": [
-        "greek-book-iv-medea-aegeus-oath"
-      ]
+      "progress": ["greek-book-iv-medea-aegeus-oath"]
     },
     {
       "id": "story-quest-greek-book-iv-medea-ending",
@@ -48741,10 +48221,7 @@
           "choice": "greek-vii-peace-private-store"
         }
       ],
-      "progress": [
-        "greek-vii-peace-pull",
-        "greek-vii-peace-farmers-arrived"
-      ],
+      "progress": ["greek-vii-peace-pull", "greek-vii-peace-farmers-arrived"],
       "outcome": "Fulfilled"
     },
     {
@@ -48771,9 +48248,7 @@
           "choice": "greek-vii-prometheus-terms"
         }
       ],
-      "progress": [
-        "greek-vii-prometheus-io-message-arrived"
-      ],
+      "progress": ["greek-vii-prometheus-io-message-arrived"],
       "outcome": "Fulfilled"
     }
   ],

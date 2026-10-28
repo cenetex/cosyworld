@@ -1,0 +1,432 @@
+{
+  "schemaVersion": 1,
+  "title": "House of Blood: Argive household portraits",
+  "date": "2026-10-28",
+  "generator": "Built-in image_gen.imagegen",
+  "draftBase": {
+    "branch": "codex/greek-house-of-blood",
+    "commit": "cf0eb94498bce71af700b5c08b77387c8651b52e",
+    "packageVersion": "1.2.5"
+  },
+  "sourceQueue": {
+    "path": "/private/tmp/house-of-blood-art-queue-cf0.json",
+    "repoPath": "v2/content/greek-drama/HOUSE-OF-BLOOD-ART.json",
+    "sha256": "189b063a4bbc05e70ebed1c423abe0ff9fd2cf751aff45e99920d92e2b0fe882"
+  },
+  "scope": "Portrait art draft. Source integration owns actor bindings, optimized variants, public assets, shared rules and release checks.",
+  "assets": [
+    {
+      "name": "argos-watchman",
+      "file": "argos-watchman.png",
+      "sourceFile": "argos-watchman.png",
+      "sourceName": "exec-e9feef62-0d8f-4180-a475-b22162691167.png",
+      "bindings": [
+        "greek-argos-watchman"
+      ],
+      "kind": "character-portrait",
+      "useCase": "historical-scene",
+      "nativeFacing": "left",
+      "transparentBackground": true,
+      "processing": "Original generated PNG copied byte for byte; native alpha preserved",
+      "prompt": "Use case: historical-scene.\nAsset type: full-body character portrait for CosyWorld's painted Greek drama card game.\nInput images: attached portraits are references for painterly detail, natural adult anatomy, woven cloth texture, full-body scale and gentle three-quarter staging. Create the named subject below with the specified face and clothing.\nStyle/medium: finely detailed painted storybook realism, earthy pigments, soft inner brushwork and an expressive readable adult face.\nComposition/framing: one living adult is the sole subject. Tall 1024 by 1536 canvas with genuine transparent background. Show the entire standing figure from crown of head through both complete feet and sandal soles. Give clear margins around the head, hands, hems and under the feet. The figure fills about 86 percent of canvas height. Body at a gentle three-quarter angle, uncovered face and eyes turned toward image-left. Both hands are empty; keep all hands, limbs and clothing inside the canvas.\nLighting/mood: soft neutral daylight with restrained highlights and natural volume, suitable for compositing over both day and night painted scenes.\nOutput: preserve native clear transparent alpha around the complete figure. Only this single adult and worn clothes occupy the illustration.\nSubject: the Argive Watchman, an adult man about fifty. He keeps the beacon account and listens carefully before he speaks. Lean weathered olive face, broad cheekbones, dark brown eyes, cropped dark hair with grey at the temples, and a short grizzled beard. Ordinary night-watch and travel clothes: knee-length unbleached linen tunic, a warm charcoal-grey wool cloak with simple edges, plain leather belt and brown leather sandals. One hand lightly gathers his cloak near the waist; the other opens low toward image-left in a small speaking gesture. He is attentive, tired and dependable. His head is bare, face clear and whole figure balanced.",
+      "references": [
+        {
+          "file": "v2/card-game/assets/greek-drama/chthonic-menelaus.png",
+          "path": "/Users/ratimics/.codex/worktrees/house-blood-court-art/cosyworld/v2/card-game/assets/greek-drama/chthonic-menelaus.png",
+          "role": "Painted adult anatomy, cloth, full-body scale and staging",
+          "sourceCommit": "cf0eb94498bce71af700b5c08b77387c8651b52e",
+          "sha256": "8f3ef20e63ee5138d7ae09bb3e90893c51f421aecdd3adea3fb94a4d61e4113b"
+        },
+        {
+          "file": "v2/card-game/assets/greek-drama/chthonic-attendant.png",
+          "path": "/Users/ratimics/.codex/worktrees/house-blood-court-art/cosyworld/v2/card-game/assets/greek-drama/chthonic-attendant.png",
+          "role": "Painted adult anatomy, cloth, full-body scale and staging",
+          "sourceCommit": "cf0eb94498bce71af700b5c08b77387c8651b52e",
+          "sha256": "61977265e6897bc973d582ec0487fa82a2b4c7e2baecc4571420c18047f55130"
+        }
+      ],
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "9cc88c785bc9bc3a6bcf1b9a73a9e17d52a04cd9163880f136763e4574e261d4",
+      "sha256": "9cc88c785bc9bc3a6bcf1b9a73a9e17d52a04cd9163880f136763e4574e261d4",
+      "bytes": 2309789,
+      "alpha": {
+        "clearPixels": 935529,
+        "partialPixels": 637335,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          91,
+          14,
+          920,
+          1507
+        ],
+        "visibleBoundsThreshold": 8
+      }
+    },
+    {
+      "name": "cassandra",
+      "file": "cassandra.png",
+      "sourceFile": "cassandra.png",
+      "sourceName": "exec-205dd08f-fed6-4b2f-bd66-89a4f5f7c57a.png",
+      "bindings": [
+        "greek-cassandra"
+      ],
+      "kind": "character-portrait",
+      "useCase": "historical-scene",
+      "nativeFacing": "left",
+      "transparentBackground": true,
+      "processing": "Original generated PNG copied byte for byte; native alpha preserved",
+      "prompt": "Use case: historical-scene.\nAsset type: full-body character portrait for CosyWorld's painted Greek drama card game.\nInput images: attached portraits are references for painterly detail, natural adult anatomy, woven cloth texture, full-body scale and gentle three-quarter staging. Create the named subject below with the specified face and clothing.\nStyle/medium: finely detailed painted storybook realism, earthy pigments, soft inner brushwork and an expressive readable adult face.\nComposition/framing: one living adult is the sole subject. Tall 1024 by 1536 canvas with genuine transparent background. Show the entire standing figure from crown of head through both complete feet and sandal soles. Give clear margins around the head, hands, hems and under the feet. The figure fills about 86 percent of canvas height. Body at a gentle three-quarter angle, uncovered face and eyes turned toward image-left. Both hands are empty; keep all hands, limbs and clothing inside the canvas.\nLighting/mood: soft neutral daylight with restrained highlights and natural volume, suitable for compositing over both day and night painted scenes.\nOutput: preserve native clear transparent alpha around the complete figure. Only this single adult and worn clothes occupy the illustration.\nSubject: Cassandra, a clearly adult Trojan woman about twenty-eight in Aeschylus's recalled homecoming before she enters the house. A long narrow olive face, high dark brows, deep brown eyes, straight nose, and long black hair gathered in two simple braids. A narrow woven hair ribbon keeps her face clear. She wears a plain ankle-length cream linen dress, a muted ochre wool wrap and practical brown leather sandals. One hand holds the wrap at her chest; the other opens calmly at mid-body as she gives her own account to a listener at image-left. Her expression is grave, alert and firmly present. The portrait depicts the living adult speaker in woven clothes.",
+      "references": [
+        {
+          "file": "v2/card-game/assets/greek-drama/chthonic-helen.png",
+          "path": "/Users/ratimics/.codex/worktrees/house-blood-court-art/cosyworld/v2/card-game/assets/greek-drama/chthonic-helen.png",
+          "role": "Painted adult anatomy, cloth, full-body scale and staging",
+          "sourceCommit": "cf0eb94498bce71af700b5c08b77387c8651b52e",
+          "sha256": "3c87d505fd801846e140405d3d5b84f562ddb9d00a1f015ad9c2814209a5986f"
+        },
+        {
+          "file": "v2/card-game/assets/greek-drama/chthonic-electra.png",
+          "path": "/Users/ratimics/.codex/worktrees/house-blood-court-art/cosyworld/v2/card-game/assets/greek-drama/chthonic-electra.png",
+          "role": "Painted adult anatomy, cloth, full-body scale and staging",
+          "sourceCommit": "cf0eb94498bce71af700b5c08b77387c8651b52e",
+          "sha256": "5239e39dbc53bfdca3ccbecbd3ac7fdf1eddc1b9a513ddc2310a44336d2ee66e"
+        }
+      ],
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "9ce7cc1508fdb139c5e805008889eb41eb89adbcee4a7b798968fb6cb5ff4dba",
+      "sha256": "9ce7cc1508fdb139c5e805008889eb41eb89adbcee4a7b798968fb6cb5ff4dba",
+      "bytes": 2210076,
+      "alpha": {
+        "clearPixels": 966120,
+        "partialPixels": 606744,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          121,
+          24,
+          869,
+          1501
+        ],
+        "visibleBoundsThreshold": 8
+      }
+    },
+    {
+      "name": "clytemnestra",
+      "file": "clytemnestra.png",
+      "sourceFile": "clytemnestra.png",
+      "sourceName": "exec-4afeda0f-0098-4546-9aa1-69116c24a66c.png",
+      "bindings": [
+        "greek-clytemnestra-aeschylus",
+        "greek-clytemnestra-euripides"
+      ],
+      "kind": "character-portrait",
+      "useCase": "historical-scene",
+      "nativeFacing": "left",
+      "transparentBackground": true,
+      "processing": "Original generated PNG copied byte for byte; native alpha preserved",
+      "prompt": "Use case: historical-scene.\nAsset type: full-body character portrait for CosyWorld's painted Greek drama card game.\nInput images: attached portraits are references for painterly detail, natural adult anatomy, woven cloth texture, full-body scale and gentle three-quarter staging. Create the named subject below with the specified face and clothing.\nStyle/medium: finely detailed painted storybook realism, earthy pigments, soft inner brushwork and an expressive readable adult face.\nComposition/framing: one living adult is the sole subject. Tall 1024 by 1536 canvas with genuine transparent background. Show the entire standing figure from crown of head through both complete feet and sandal soles. Give clear margins around the head, hands, hems and under the feet. The figure fills about 86 percent of canvas height. Body at a gentle three-quarter angle, uncovered face and eyes turned toward image-left. Both hands are empty; keep all hands, limbs and clothing inside the canvas.\nLighting/mood: soft neutral daylight with restrained highlights and natural volume, suitable for compositing over both day and night painted scenes.\nOutput: preserve native clear transparent alpha around the complete figure. Only this single adult and worn clothes occupy the illustration.\nSubject: Clytemnestra, the SAME mature adult woman shown in Image 1, now speaking in the Argive household accounts. Identity is the main invariant: preserve Image 1's exact facial structure, eyes, nose, mouth, warm olive complexion, auburn hair with silver at the temples, mature age and low gathered hairstyle. Keep her recognizable as the same approved Aulis woman. One canonical portrait serves her two author-account actor IDs. Dress her for a quiet palace hearing in a full-length warm ivory linen gown, a dark rust-red woven mantle with a restrained geometric border, a narrow woven belt and leather sandals. Preserve the small earrings and clear uncovered face from her approved identity. One hand holds her mantle; the other makes a controlled low open speaking gesture toward image-left. Expression: mature, attentive and self-possessed. Keep her face and entire living body whole and clean.",
+      "references": [
+        {
+          "file": "v2/card-game/assets/greek-drama/book-three-clytemnestra.png",
+          "path": "/Users/ratimics/.codex/worktrees/book-three-portraits/cosyworld/v2/card-game/assets/greek-drama/book-three-clytemnestra.png",
+          "role": "Approved Aulis identity: preserve the same mature face, eyes, nose, mouth, hairline and auburn hair with silver",
+          "sourceCommit": "ae1b181c92bec02d3fe46174915e714d96f25342",
+          "sourcePR": 1277,
+          "sha256": "de3702b884f8430a1f3db7c9e1ed3d94ec4ffedee31491e705fd3e33c7a0ef19"
+        },
+        {
+          "file": "v2/card-game/assets/greek-drama/chthonic-helen.png",
+          "path": "/Users/ratimics/.codex/worktrees/house-blood-court-art/cosyworld/v2/card-game/assets/greek-drama/chthonic-helen.png",
+          "role": "Secondary painted cloth and full-body style",
+          "sourceCommit": "cf0eb94498bce71af700b5c08b77387c8651b52e",
+          "sha256": "3c87d505fd801846e140405d3d5b84f562ddb9d00a1f015ad9c2814209a5986f"
+        }
+      ],
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "3beb9a8ff1fca061268f8bef5942a63b94de065dde5767eb0a44cdf02d2001a0",
+      "sha256": "3beb9a8ff1fca061268f8bef5942a63b94de065dde5767eb0a44cdf02d2001a0",
+      "bytes": 2380719,
+      "alpha": {
+        "clearPixels": 912832,
+        "partialPixels": 660032,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          107,
+          16,
+          932,
+          1504
+        ],
+        "visibleBoundsThreshold": 8
+      }
+    },
+    {
+      "name": "argos-housekeeper",
+      "file": "argos-housekeeper.png",
+      "sourceFile": "argos-housekeeper.png",
+      "sourceName": "exec-0d656e28-1622-4424-a024-122c8a2f9fa8.png",
+      "bindings": [
+        "greek-argos-housekeeper"
+      ],
+      "kind": "character-portrait",
+      "useCase": "historical-scene",
+      "nativeFacing": "left",
+      "transparentBackground": true,
+      "processing": "Original generated PNG copied byte for byte; native alpha preserved",
+      "prompt": "Use case: historical-scene.\nAsset type: full-body character portrait for CosyWorld's painted Greek drama card game.\nInput images: attached portraits are references for painterly detail, natural adult anatomy, woven cloth texture, full-body scale and gentle three-quarter staging. Create the named subject below with the specified face and clothing.\nStyle/medium: finely detailed painted storybook realism, earthy pigments, soft inner brushwork and an expressive readable adult face.\nComposition/framing: one living adult is the sole subject. Tall 1024 by 1536 canvas with genuine transparent background. Show the entire standing figure from crown of head through both complete feet and sandal soles. Give clear margins around the head, hands, hems and under the feet. The figure fills about 86 percent of canvas height. Body at a gentle three-quarter angle, uncovered face and eyes turned toward image-left. Both hands are empty; keep all hands, limbs and clothing inside the canvas.\nLighting/mood: soft neutral daylight with restrained highlights and natural volume, suitable for compositing over both day and night painted scenes.\nOutput: preserve native clear transparent alpha around the complete figure. Only this single adult and worn clothes occupy the illustration.\nSubject: the Argive Housekeeper, an original living adult woman about fifty-five, a surviving household witness with a voice and chosen shelter of her own. A sturdy middle-aged woman with a round broad olive face, kind deep brown eyes, a rounded nose and dark brown hair streaked with grey in a practical low bun. Plain household and travel clothes: a long soft blue-grey linen dress, a light unbleached linen waist apron, muted brown wool shoulder wrap and practical leather sandals. Her clean clothes show ordinary use. One hand holds the wrap at her waist; the other opens in a small steady speaking gesture toward image-left. Her expression combines thought, resolve and careful attention. Her face is distinct from the style references.",
+      "references": [
+        {
+          "file": "v2/card-game/assets/greek-drama/chthonic-baker.png",
+          "path": "/Users/ratimics/.codex/worktrees/house-blood-court-art/cosyworld/v2/card-game/assets/greek-drama/chthonic-baker.png",
+          "role": "Painted adult anatomy, cloth, full-body scale and staging",
+          "sourceCommit": "cf0eb94498bce71af700b5c08b77387c8651b52e",
+          "sha256": "c8e900ee50e1a3fe860e7f38e6625f7326a6715e6821e8a5db74d264c1bbd7e0"
+        },
+        {
+          "file": "v2/card-game/assets/greek-drama/chthonic-helen.png",
+          "path": "/Users/ratimics/.codex/worktrees/house-blood-court-art/cosyworld/v2/card-game/assets/greek-drama/chthonic-helen.png",
+          "role": "Painted adult anatomy, cloth, full-body scale and staging",
+          "sourceCommit": "cf0eb94498bce71af700b5c08b77387c8651b52e",
+          "sha256": "3c87d505fd801846e140405d3d5b84f562ddb9d00a1f015ad9c2814209a5986f"
+        }
+      ],
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "8c524ef926a33b11ac4d0e7fe480d1185b51ad22e193e7d23eb4952b9a22f32d",
+      "sha256": "8c524ef926a33b11ac4d0e7fe480d1185b51ad22e193e7d23eb4952b9a22f32d",
+      "bytes": 2332907,
+      "alpha": {
+        "clearPixels": 908013,
+        "partialPixels": 664851,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          74,
+          10,
+          852,
+          1489
+        ],
+        "visibleBoundsThreshold": 8
+      }
+    },
+    {
+      "name": "pylades",
+      "file": "pylades.png",
+      "sourceFile": "pylades.png",
+      "sourceName": "exec-2fd837cb-e584-4728-8517-f9fb27ce0d51.png",
+      "bindings": [
+        "greek-pylades-aeschylus",
+        "greek-pylades-euripides"
+      ],
+      "kind": "character-portrait",
+      "useCase": "historical-scene",
+      "nativeFacing": "left",
+      "transparentBackground": true,
+      "processing": "Original generated PNG copied byte for byte; native alpha preserved",
+      "prompt": "Use case: historical-scene.\nAsset type: full-body character portrait for CosyWorld's painted Greek drama card game.\nInput images: attached portraits are references for painterly detail, natural adult anatomy, woven cloth texture, full-body scale and gentle three-quarter staging. Create the named subject below with the specified face and clothing.\nStyle/medium: finely detailed painted storybook realism, earthy pigments, soft inner brushwork and an expressive readable adult face.\nComposition/framing: one living adult is the sole subject. Tall 1024 by 1536 canvas with genuine transparent background. Show the entire standing figure from crown of head through both complete feet and sandal soles. Give clear margins around the head, hands, hems and under the feet. The figure fills about 86 percent of canvas height. Body at a gentle three-quarter angle, uncovered face and eyes turned toward image-left. Both hands are empty; keep all hands, limbs and clothing inside the canvas.\nLighting/mood: soft neutral daylight with restrained highlights and natural volume, suitable for compositing over both day and night painted scenes.\nOutput: preserve native clear transparent alpha around the complete figure. Only this single adult and worn clothes occupy the illustration.\nSubject: Pylades, a clearly grown adult Greek traveller about twenty-eight. One canonical portrait serves his Aeschylus and Euripides account roles. A lean capable man with a long narrow warm olive face, hazel-brown eyes, a straight nose, short chestnut waves and a clean-shaven jaw. Give him his own individual face. He wears a simple knee-length natural linen tunic, a muted forest-green wool cloak, a plain woven belt and brown leather sandals. One hand holds the edge of the cloak near his shoulder; the other opens low toward image-left as he gives his own advice. His posture is balanced and at ease. Expression: thoughtful loyalty and calm adult judgement.",
+      "references": [
+        {
+          "file": "v2/card-game/assets/greek-drama/chthonic-orestes.png",
+          "path": "/Users/ratimics/.codex/worktrees/house-blood-court-art/cosyworld/v2/card-game/assets/greek-drama/chthonic-orestes.png",
+          "role": "Painted adult anatomy, cloth, full-body scale and staging",
+          "sourceCommit": "cf0eb94498bce71af700b5c08b77387c8651b52e",
+          "sha256": "612b5608fadf8f3c9e2e84dacda395eb05b057dfd0c562781f3c748a96b8da23"
+        },
+        {
+          "file": "v2/card-game/assets/greek-drama/chthonic-menelaus.png",
+          "path": "/Users/ratimics/.codex/worktrees/house-blood-court-art/cosyworld/v2/card-game/assets/greek-drama/chthonic-menelaus.png",
+          "role": "Painted adult anatomy, cloth, full-body scale and staging",
+          "sourceCommit": "cf0eb94498bce71af700b5c08b77387c8651b52e",
+          "sha256": "8f3ef20e63ee5138d7ae09bb3e90893c51f421aecdd3adea3fb94a4d61e4113b"
+        }
+      ],
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "aa6c44f23b64c4d933d9be86d74b60b9335592410880eae86f64edc34488b506",
+      "sha256": "aa6c44f23b64c4d933d9be86d74b60b9335592410880eae86f64edc34488b506",
+      "bytes": 2137131,
+      "alpha": {
+        "clearPixels": 1018555,
+        "partialPixels": 554309,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 0,
+        "visibleSubjectBounds": [
+          160,
+          14,
+          883,
+          1480
+        ],
+        "visibleBoundsThreshold": 8
+      }
+    },
+    {
+      "name": "cilissa",
+      "file": "cilissa.png",
+      "sourceFile": "cilissa.png",
+      "sourceName": "exec-6de96f2a-88dd-497d-9b05-58167fe99dfe.png",
+      "bindings": [
+        "greek-cilissa"
+      ],
+      "kind": "character-portrait",
+      "useCase": "historical-scene",
+      "nativeFacing": "left",
+      "transparentBackground": true,
+      "processing": "Original generated PNG copied byte for byte; native alpha preserved",
+      "prompt": "Use case: historical-scene.\nAsset type: full-body character portrait for CosyWorld's painted Greek drama card game.\nInput images: attached portraits are references for painterly detail, natural adult anatomy, woven cloth texture, full-body scale and gentle three-quarter staging. Create the named subject below with the specified face and clothing.\nStyle/medium: finely detailed painted storybook realism, earthy pigments, soft inner brushwork and an expressive readable adult face.\nComposition/framing: one living adult is the sole subject. Tall 1024 by 1536 canvas with genuine transparent background. Show the entire standing figure from crown of head through both complete feet and sandal soles. Give clear margins around the head, hands, hems and under the feet. The figure fills about 86 percent of canvas height. Body at a gentle three-quarter angle, uncovered face and eyes turned toward image-left. Both hands are empty; keep all hands, limbs and clothing inside the canvas.\nLighting/mood: soft neutral daylight with restrained highlights and natural volume, suitable for compositing over both day and night painted scenes.\nOutput: preserve native clear transparent alpha around the complete figure. Only this single adult and worn clothes occupy the illustration.\nSubject: Cilissa, an older adult nurse about sixty-eight who speaks for the work of household care. She has a generous, rounded olive face with deep laugh lines, attentive dark eyes, a broad gentle nose and soft silver-grey hair gathered in a loose low coil. A strong, slightly stooped older woman with an individual warm face. Plain clothes: ankle-length light oatmeal linen dress, a faded earth-red wool wrap pulled over the shoulders, a simple cloth waist tie and practical leather sandals. One hand holds her wrap near the chest; the other opens gently at mid-body toward image-left. Her expression is tired, caring and firm. The portrait shows the living adult nurse herself, with both empty hands and complete feet clear.",
+      "references": [
+        {
+          "file": "v2/card-game/assets/greek-drama/chthonic-baker.png",
+          "path": "/Users/ratimics/.codex/worktrees/house-blood-court-art/cosyworld/v2/card-game/assets/greek-drama/chthonic-baker.png",
+          "role": "Painted adult anatomy, cloth, full-body scale and staging",
+          "sourceCommit": "cf0eb94498bce71af700b5c08b77387c8651b52e",
+          "sha256": "c8e900ee50e1a3fe860e7f38e6625f7326a6715e6821e8a5db74d264c1bbd7e0"
+        },
+        {
+          "file": "v2/card-game/assets/greek-drama/chthonic-helen.png",
+          "path": "/Users/ratimics/.codex/worktrees/house-blood-court-art/cosyworld/v2/card-game/assets/greek-drama/chthonic-helen.png",
+          "role": "Painted adult anatomy, cloth, full-body scale and staging",
+          "sourceCommit": "cf0eb94498bce71af700b5c08b77387c8651b52e",
+          "sha256": "3c87d505fd801846e140405d3d5b84f562ddb9d00a1f015ad9c2814209a5986f"
+        }
+      ],
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "00d6f19f75ed12ed00093688a41199c981532684b8f0569dd9895a7149ae3cf7",
+      "sha256": "00d6f19f75ed12ed00093688a41199c981532684b8f0569dd9895a7149ae3cf7",
+      "bytes": 2307888,
+      "alpha": {
+        "clearPixels": 917328,
+        "partialPixels": 655536,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          147,
+          17,
+          854,
+          1499
+        ],
+        "visibleBoundsThreshold": 8
+      }
+    }
+  ],
+  "reviewBackgrounds": [
+    {
+      "file": "courtyard-day.webp",
+      "sha256": "c27b798ed993d2aa7bdfad03da26967556206fc86579934c595cbde93b1b0559",
+      "source": "Published Greek courtyard paintings used for lighting review",
+      "purpose": "Day/night painted lighting and alpha-edge review; chapter stage bindings belong to source integration"
+    },
+    {
+      "file": "courtyard-night.webp",
+      "sha256": "6dcf726a179a71f9155ef947b4e7ef97a590becc4837e976c6f998004455c5e8",
+      "source": "Published Greek courtyard paintings used for lighting review",
+      "purpose": "Day/night painted lighting and alpha-edge review; chapter stage bindings belong to source integration"
+    },
+    {
+      "file": "palace-day.webp",
+      "sha256": "c0b61fb49af9c98adbdf9fe7ac386f3611e13b23342a10791673871473928769",
+      "source": "Published Greek court paintings",
+      "purpose": "Day/night painted lighting and alpha-edge review; chapter stage bindings belong to source integration"
+    },
+    {
+      "file": "palace-night.webp",
+      "sha256": "6fef7d5cfcbd3c95f5f05395d95213a2b5760875487e37b98d2ffe5841abab06",
+      "source": "Published Greek court paintings",
+      "purpose": "Day/night painted lighting and alpha-edge review; chapter stage bindings belong to source integration"
+    },
+    {
+      "file": "palace-day.webp",
+      "sha256": "c0b61fb49af9c98adbdf9fe7ac386f3611e13b23342a10791673871473928769",
+      "source": "Published Greek court paintings used for lighting review",
+      "purpose": "Day/night painted lighting and alpha-edge review; chapter stage bindings belong to source integration"
+    },
+    {
+      "file": "palace-night.webp",
+      "sha256": "6fef7d5cfcbd3c95f5f05395d95213a2b5760875487e37b98d2ffe5841abab06",
+      "source": "Published Greek court paintings used for lighting review",
+      "purpose": "Day/night painted lighting and alpha-edge review; chapter stage bindings belong to source integration"
+    }
+  ],
+  "reviewSheets": [
+    {
+      "file": "house-blood-household-review.png",
+      "sha256": "17ccb457d57a102c535420a6013c843d5576f08bd17762327a572d3523896bcf",
+      "desktopWidth": 610,
+      "phoneSize": [
+        390,
+        580
+      ],
+      "subjects": [
+        "argos-watchman.png",
+        "argos-housekeeper.png"
+      ]
+    },
+    {
+      "file": "house-blood-cassandra-clytemnestra-review.png",
+      "sha256": "617f603c0ec772f81681dd4d1e94622ab28e5034e8916867f443f41ef3e8fad2",
+      "desktopWidth": 610,
+      "phoneSize": [
+        390,
+        580
+      ],
+      "subjects": [
+        "cassandra.png",
+        "clytemnestra.png"
+      ]
+    },
+    {
+      "file": "house-blood-pylades-cilissa-review.png",
+      "sha256": "eb0dcdaa3c9d3d06e9f1c2315897d8684430ec1e9c11a6df655e49935717a46b",
+      "desktopWidth": 610,
+      "phoneSize": [
+        390,
+        580
+      ],
+      "subjects": [
+        "pylades.png",
+        "cilissa.png"
+      ]
+    }
+  ],
+  "identityReviews": [
+    {
+      "file": "house-blood-clytemnestra-identity-review.png",
+      "sha256": "09c033f7369a67ba2593c360a712df271790d8466cce9200a79ea8ee53cb5c8b",
+      "referencePath": "/Users/ratimics/.codex/worktrees/book-three-portraits/cosyworld/v2/card-game/assets/greek-drama/book-three-clytemnestra.png",
+      "referenceSha256": "de3702b884f8430a1f3db7c9e1ed3d94ec4ffedee31491e705fd3e33c7a0ef19",
+      "subject": "clytemnestra.png"
+    }
+  ],
+  "visualReview": {
+    "result": "Passed",
+    "checks": [
+      "Single living adult figures and clear faces",
+      "Full heads, hands, hems and both feet",
+      "Desktop and 390 by 580 phone overlays in both light settings",
+      "Native clear alpha and readable cloth edges",
+      "Clytemnestra face continuity with the approved Aulis portrait"
+    ]
+  }
+}
