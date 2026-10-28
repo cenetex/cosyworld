@@ -35,13 +35,16 @@ signs the account. A carrier who knows that account can bring its paper to
 Dione. Her response names the chosen Trojan rite beside the earlier Theban
 deeds. The paper stays at the courtyard after the reading.
 
+Teucer's recorded words establish the plea and signed account. Each carrier
+learns his account through conversation and carries the actual paper.
+
 Eight original couplets cover the shield, plea, three burial forms and
 three return readings. Each couplet follows its own receipt. Repeated
 travel keeps the same earned poem.
 
 ## Source and adaptation
 
-Sophocles' _Ajax_ supplies the household, Teucer's burial claim and
+Sophocles' [_Ajax_](https://classics.mit.edu/Sophocles/ajax.html) supplies the household, Teucer's burial claim and
 Odysseus's support for a former rival. The chapter begins after Ajax's
 death. Its carried objects, player actions, household route, witnessed
 appeal and return to Dione are original CosyWorld adaptations. The
