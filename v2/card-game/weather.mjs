@@ -60,6 +60,7 @@ group("troad", "shelter", "ajax-household");
 group("troad", "open", "ajax-grave");
 group("thrace", "coast", "thrace");
 group("lemnos", "shelter", "lemnos");
+group("lemnos", "coast", "lemnos-landing");
 group("egypt", "court", "egypt-tomb");
 group("tauris", "court", "tauris");
 group("sicily", "shelter", "sicily");

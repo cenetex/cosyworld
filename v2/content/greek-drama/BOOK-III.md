@@ -81,6 +81,19 @@ Work `sophocles-philoctetes`; existing `greek-lemnos`.
 
 **New place:** `greek-lemnos-landing`. **New items:** `greek-lemnos-water`, `greek-lemnos-herb`, `greek-lemnos-bow`.
 
+The implemented home route sails to Athens Harbor, then follows the existing
+Athens, Delphi and Trachis places. It adds one Lemnian landing to the ship.
+The home ending is recorded at Trachis after the actual journey. The emptied
+care jug carries his arrival mark back to Myrto and Dione. The bow stays in
+Philoctetes’s hand through all three chosen journeys.
+
+The focused native proof journals the agreement, another carrier’s boarding,
+two different stops chosen by a human, the passenger’s wait, the agreed
+arrival, his published account and the physical return. It rejects stale
+companion and boarding plays without adding a journal entry. Checkpoint
+removal and database reopen restore the exact finished state. A second case
+preserves a full-access Lemnian visitor through the rules-20 upgrade.
+
 Three physical beats:
 
 1. Bring water and the local healing plant to the cave. Give care before asking for military help.

@@ -212,8 +212,14 @@ describe("Book III save continuity", () => {
     );
     expect(entityActive(world, "greek-aulis-iphigenia")).toBe(false);
     expect(exits(world, "greek-aulis")).toContain("greek-gate");
-    expect(Object.keys(world.actors)).toHaveLength(69);
-    expect(Object.keys(world.items)).toHaveLength(64);
+    // Rules 20 has 33 Greek residents and 26 Greek objects. Each new source
+    // identity adds one saved record beside every preserved earlier record.
+    expect(Object.keys(world.actors)).toHaveLength(
+      Object.keys(before.actors).length + Object.keys(pack.avatars).length - 33,
+    );
+    expect(Object.keys(world.items)).toHaveLength(
+      Object.keys(before.items).length + Object.keys(pack.items).length - 26,
+    );
     expect(reload(world)).toEqual(world);
     expect(bookMove(world, "greek-gate").actors.vale.place).toBe("greek-gate");
   });

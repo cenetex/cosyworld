@@ -330,7 +330,7 @@
           "Aristophanes": 11
         },
         "opening": "Before the Burial",
-        "status": "Ten plays have authored scenes across Before the Burial, The Open Door, Aulis, Ajax, and the Helen and Atreid accounts. The other thirty-four works have situated hooks for later sections."
+        "status": "Eleven plays have authored scenes across Before the Burial, The Open Door, Aulis, Ajax, Philoctetes, and the Helen and Atreid accounts. The other thirty-three works have situated hooks for later sections."
       },
       "places": {
         "greek-harbor": {
@@ -729,7 +729,6 @@
           "text": "A speaker names the Trojan account after Ajax’s death. Tents stand above the ships. Teucer carries a burial plea to the commanders.",
           "exits": [
             "greek-troy",
-            "greek-lemnos",
             "greek-ajax-landing",
             "greek-ajax-household",
             "greek-ajax-grave"
@@ -764,10 +763,10 @@
           "name": "The Lemnian Cave",
           "text": "A rough bed lies inside the cave. Footprints lead toward a bow wrapped against the salt air.",
           "exits": [
-            "greek-greek-camp"
+            "greek-lemnos-landing"
           ],
           "backdrop": "assets/greek-drama/sea.svg",
-          "persona": "A rough bed lies inside the cave. Footprints lead toward a bow wrapped against the salt air."
+          "persona": "This is the remembered Lemnian departure before Troy falls. Philoctetes keeps his own choice, bow and terms. Heracles’s promise concerns future healing. The earlier Ajax deeds and the chosen Helen and Atreid accounts retain their recorded times. The cave holds Philoctetes’s bed, water and the bow he trusts to a carrier."
         },
         "greek-thrace": {
           "name": "The Thracian Shore",
@@ -1084,6 +1083,15 @@
             "greek-aulis"
           ],
           "backdrop": "assets/greek-drama/ajax-camp-day.webp"
+        },
+        "greek-lemnos-landing": {
+          "name": "Lemnos Landing",
+          "text": "A worn path joins the cave to a sheltered landing. Neoptolemus waits beside the vessel’s empty mooring.",
+          "persona": "This is the remembered Lemnian departure before Troy falls. Philoctetes keeps his own choice, bow and terms. Heracles’s promise concerns future healing. The earlier Ajax deeds and the chosen Helen and Atreid accounts retain their recorded times. The shared ship has one actual position. A consent names a route; arrival completes it.",
+          "exits": [
+            "greek-lemnos"
+          ],
+          "backdrop": "assets/greek-drama/sea.svg"
         }
       },
       "avatars": {
@@ -1942,6 +1950,92 @@
             "sore": "a person’s belief changed into a different account",
             "reason": "This speaker belongs to the remembered Aulis departure."
           }
+        },
+        "greek-lemnos-philoctetes": {
+          "name": "Philoctetes",
+          "text": "He names his pain, the borrowed bow and the journey he is willing to make.",
+          "place": "greek-lemnos",
+          "home": "greek-lemnos",
+          "travels": false,
+          "standoffs": false,
+          "values": {
+            "greek-lemnos-bow": 5
+          },
+          "canonicalPerson": "greek-lemnos-philoctetes",
+          "persona": "This is the remembered Lemnian departure before Troy falls. Philoctetes keeps his own choice, bow and terms. Heracles’s promise concerns future healing. The earlier Ajax deeds and the chosen Helen and Atreid accounts retain their recorded times. He names his pain, the borrowed bow and the journey he is willing to make.",
+          "voice": "This is the remembered Lemnian departure before Troy falls. Philoctetes keeps his own choice, bow and terms. Heracles’s promise concerns future healing. The earlier Ajax deeds and the chosen Helen and Atreid accounts retain their recorded times. He names his pain, the borrowed bow and the journey he is willing to make.",
+          "portrait": "assets/greek-drama/book-three-philoctetes.png",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-lemnos-open",
+              "value": true
+            }
+          ],
+          "tastes": {
+            "likes": "care, a returned possession, and an agreement kept",
+            "sore": "an agreement treated as a finished arrival",
+            "reason": "He names his pain, the borrowed bow and the journey he is willing to make."
+          },
+          "journey": [
+            {
+              "after": "greek-lemnos-agree-troy",
+              "path": [
+                "greek-lemnos",
+                "greek-lemnos-landing",
+                "greek-ship",
+                "greek-ajax-landing",
+                "greek-greek-camp"
+              ]
+            },
+            {
+              "after": "greek-lemnos-agree-home",
+              "path": [
+                "greek-lemnos",
+                "greek-lemnos-landing",
+                "greek-ship",
+                "greek-athens-harbor",
+                "greek-athens",
+                "greek-delphi",
+                "greek-trachis"
+              ]
+            },
+            {
+              "after": "greek-lemnos-agree-repair",
+              "path": [
+                "greek-lemnos",
+                "greek-lemnos-landing",
+                "greek-ship",
+                "greek-ajax-landing",
+                "greek-greek-camp"
+              ]
+            }
+          ]
+        },
+        "greek-lemnos-neoptolemus": {
+          "name": "Neoptolemus",
+          "text": "He carries the army’s request and must answer for his own means.",
+          "place": "greek-lemnos-landing",
+          "home": "greek-lemnos-landing",
+          "travels": false,
+          "standoffs": false,
+          "values": {},
+          "canonicalPerson": "greek-lemnos-neoptolemus",
+          "persona": "This is the remembered Lemnian departure before Troy falls. Philoctetes keeps his own choice, bow and terms. Heracles’s promise concerns future healing. The earlier Ajax deeds and the chosen Helen and Atreid accounts retain their recorded times. He carries the army’s request and must answer for his own means.",
+          "voice": "This is the remembered Lemnian departure before Troy falls. Philoctetes keeps his own choice, bow and terms. Heracles’s promise concerns future healing. The earlier Ajax deeds and the chosen Helen and Atreid accounts retain their recorded times. He carries the army’s request and must answer for his own means.",
+          "portrait": "assets/greek-drama/book-three-neoptolemus.png",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-lemnos-open",
+              "value": true
+            }
+          ],
+          "tastes": {
+            "likes": "care, a returned possession, and an agreement kept",
+            "sore": "an agreement treated as a finished arrival",
+            "reason": "He carries the army’s request and must answer for his own means."
+          }
         }
       },
       "items": {
@@ -2345,6 +2439,53 @@
               "value": true
             }
           ]
+        },
+        "greek-lemnos-water": {
+          "name": "The Lemnian Water Jug",
+          "text": "Clean water serves the wound care. Its emptied jug later carries the signed arrival mark.",
+          "holder": "greek-lemnos-landing",
+          "persona": "This is the remembered Lemnian departure before Troy falls. Philoctetes keeps his own choice, bow and terms. Heracles’s promise concerns future healing. The earlier Ajax deeds and the chosen Helen and Atreid accounts retain their recorded times. Clean water serves the wound care. Its emptied jug later carries the signed arrival mark. Its saved custody records its actual use.",
+          "art": "assets/greek-drama/water-jar.svg",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-lemnos-open",
+              "value": true
+            }
+          ]
+        },
+        "greek-lemnos-herb": {
+          "name": "The Cooling Herb",
+          "text": "A clean leaf and cooling herb await the cave’s care.",
+          "holder": "greek-lemnos-landing",
+          "persona": "This is the remembered Lemnian departure before Troy falls. Philoctetes keeps his own choice, bow and terms. Heracles’s promise concerns future healing. The earlier Ajax deeds and the chosen Helen and Atreid accounts retain their recorded times. A clean leaf and cooling herb await the cave’s care. Its saved custody records its actual use.",
+          "art": "assets/greek-drama/household-token.svg",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-lemnos-open",
+              "value": true
+            }
+          ]
+        },
+        "greek-lemnos-bow": {
+          "name": "Heracles’s Bow",
+          "text": "Philoctetes owns this bow. A loan, a return and a voyage keep distinct receipts.",
+          "holder": "greek-lemnos",
+          "persona": "This is the remembered Lemnian departure before Troy falls. Philoctetes keeps his own choice, bow and terms. Heracles’s promise concerns future healing. The earlier Ajax deeds and the chosen Helen and Atreid accounts retain their recorded times. Philoctetes owns this bow. A loan, a return and a voyage keep distinct receipts. Its saved custody records its actual use.",
+          "art": "assets/greek-drama/book-three-bow.svg",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-lemnos-open",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "greek-lemnos-loan-heard",
+              "value": true
+            }
+          ]
         }
       },
       "routes": [
@@ -2478,6 +2619,28 @@
             {
               "kind": "flag",
               "key": "greek-aulis-open",
+              "value": false
+            }
+          ]
+        },
+        {
+          "from": "greek-lemnos",
+          "to": "greek-greek-camp",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-lemnos-open",
+              "value": false
+            }
+          ]
+        },
+        {
+          "from": "greek-greek-camp",
+          "to": "greek-lemnos",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-lemnos-open",
               "value": false
             }
           ]
@@ -8080,6 +8243,746 @@
             }
           ],
           "workId": "euripides-iphigenia-at-aulis"
+        },
+        {
+          "id": "greek-lemnos-invitation",
+          "subject": "greek-shipmaster",
+          "at": "greek-harbor",
+          "label": "Ask Myrto for the Lemnian account",
+          "text": "Myrto opens the remembered Lemnian departure after Vale has brought the Aulis account home.",
+          "textTemplate": "Myrto opens the remembered Lemnian departure after {actor} has brought the Aulis account home.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-aulis-returned",
+              "value": true
+            },
+            {
+              "kind": "choice_unset",
+              "key": "greek-lemnos-frame"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "choose",
+              "key": "greek-lemnos-frame",
+              "value": "remembered-departure"
+            },
+            {
+              "kind": "set_flag",
+              "key": "greek-lemnos-open",
+              "value": true
+            }
+          ],
+          "workId": "sophocles-philoctetes"
+        },
+        {
+          "id": "greek-lemnos-care",
+          "subject": "greek-lemnos-philoctetes",
+          "at": "greek-lemnos",
+          "label": "Set water and herb by Philoctetes",
+          "text": "Vale gives Philoctetes water and sets the cooling herb beside his wound. Care comes before the army’s request.",
+          "textTemplate": "{actor} gives Philoctetes water and sets the cooling herb beside his wound. Care comes before the army’s request.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-lemnos-open",
+              "value": true
+            },
+            {
+              "kind": "holding",
+              "item": "greek-lemnos-water",
+              "role": "actor"
+            },
+            {
+              "kind": "holding",
+              "item": "greek-lemnos-herb",
+              "role": "actor"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "place_item",
+              "item": "greek-lemnos-water",
+              "place": "greek-lemnos"
+            },
+            {
+              "kind": "place_item",
+              "item": "greek-lemnos-herb",
+              "place": "greek-lemnos"
+            },
+            {
+              "kind": "set_flag",
+              "key": "greek-lemnos-wound-care",
+              "value": true
+            }
+          ],
+          "workId": "sophocles-philoctetes"
+        },
+        {
+          "id": "greek-lemnos-hear-loan",
+          "subject": "greek-lemnos-philoctetes",
+          "at": "greek-lemnos",
+          "label": "Hear the bow owner’s trust",
+          "text": "Philoctetes permits Vale to carry his bow to Neoptolemus and bring it back. The bow remains his possession.",
+          "textTemplate": "Philoctetes permits {actor} to carry his bow to Neoptolemus and bring it back. The bow remains his possession.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-lemnos-wound-care",
+              "value": true
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "greek-lemnos-loan-heard",
+              "value": true
+            }
+          ],
+          "workId": "sophocles-philoctetes"
+        },
+        {
+          "id": "greek-lemnos-approach-truth",
+          "subject": "greek-lemnos-neoptolemus",
+          "at": "greek-lemnos-landing",
+          "label": "State the army’s request openly",
+          "text": "Neoptolemus and Vale agree to state the request for Troy openly.",
+          "textTemplate": "Neoptolemus and {actor} agree to state the request for Troy openly.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-lemnos-loan-heard",
+              "value": true
+            },
+            {
+              "kind": "holding",
+              "item": "greek-lemnos-bow",
+              "role": "actor"
+            },
+            {
+              "kind": "choice_unset",
+              "key": "greek-lemnos-approach"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "choose",
+              "key": "greek-lemnos-approach",
+              "value": "truth"
+            }
+          ],
+          "workId": "sophocles-philoctetes"
+        },
+        {
+          "id": "greek-lemnos-approach-deception",
+          "subject": "greek-lemnos-neoptolemus",
+          "at": "greek-lemnos-landing",
+          "label": "Record the failed deceptive approach",
+          "text": "Neoptolemus admits that the borrowed bow was sought through deception. Vale records that breach before asking for repair.",
+          "textTemplate": "Neoptolemus admits that the borrowed bow was sought through deception. {actor} records that breach before asking for repair.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-lemnos-loan-heard",
+              "value": true
+            },
+            {
+              "kind": "holding",
+              "item": "greek-lemnos-bow",
+              "role": "actor"
+            },
+            {
+              "kind": "choice_unset",
+              "key": "greek-lemnos-approach"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "choose",
+              "key": "greek-lemnos-approach",
+              "value": "deception"
+            }
+          ],
+          "workId": "sophocles-philoctetes"
+        },
+        {
+          "id": "greek-lemnos-hear-purpose",
+          "subject": "greek-lemnos-neoptolemus",
+          "at": "greek-lemnos-landing",
+          "label": "Hear Neoptolemus’s purpose",
+          "text": "Neoptolemus names the army’s demand for the man and the bow at Troy. Philoctetes must choose for himself.",
+          "textTemplate": "Neoptolemus names the army’s demand for the man and the bow at Troy. Philoctetes must choose for himself.",
+          "requires": [
+            {
+              "kind": "choice",
+              "key": "greek-lemnos-approach",
+              "value": "truth"
+            },
+            {
+              "kind": "holding",
+              "item": "greek-lemnos-bow",
+              "role": "actor"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "greek-lemnos-purpose-heard",
+              "value": true
+            },
+            {
+              "kind": "set_flag",
+              "key": "greek-lemnos-request-heard",
+              "value": true
+            }
+          ],
+          "workId": "sophocles-philoctetes"
+        },
+        {
+          "id": "greek-lemnos-hear-confession",
+          "subject": "greek-lemnos-neoptolemus",
+          "at": "greek-lemnos-landing",
+          "label": "Hear Neoptolemus’s confession",
+          "text": "Neoptolemus confesses his deception and accepts that the bow must return before any further agreement.",
+          "textTemplate": "Neoptolemus confesses his deception and accepts that the bow must return before any further agreement.",
+          "requires": [
+            {
+              "kind": "choice",
+              "key": "greek-lemnos-approach",
+              "value": "deception"
+            },
+            {
+              "kind": "holding",
+              "item": "greek-lemnos-bow",
+              "role": "actor"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "greek-lemnos-confession-heard",
+              "value": true
+            },
+            {
+              "kind": "set_flag",
+              "key": "greek-lemnos-request-heard",
+              "value": true
+            }
+          ],
+          "workId": "sophocles-philoctetes"
+        },
+        {
+          "id": "greek-lemnos-return-bow",
+          "subject": "greek-lemnos-philoctetes",
+          "at": "greek-lemnos",
+          "label": "Acknowledge the bow’s actual return",
+          "text": "Philoctetes holds his returned bow. Vale acknowledges his ownership before discussing a sail.",
+          "textTemplate": "Philoctetes holds his returned bow. {actor} acknowledges his ownership before discussing a sail.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-lemnos-wound-care",
+              "value": true
+            },
+            {
+              "kind": "holding",
+              "item": "greek-lemnos-bow",
+              "actor": "greek-lemnos-philoctetes"
+            },
+            {
+              "kind": "flag",
+              "key": "greek-lemnos-request-heard",
+              "value": true
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "greek-lemnos-bow-returned",
+              "value": true
+            }
+          ],
+          "workId": "sophocles-philoctetes"
+        },
+        {
+          "id": "greek-lemnos-hear-heracles",
+          "subject": "greek-lemnos-neoptolemus",
+          "at": "greek-lemnos-landing",
+          "label": "Hear the source account of Heracles",
+          "text": "Neoptolemus recounts Heracles’s appearance in Sophocles’s ending: both men must go to Troy; healing and victory are promised there, with mutual help and piety required at the city’s fall. The healing remains ahead.",
+          "textTemplate": "Neoptolemus recounts Heracles’s appearance in Sophocles’s ending: both men must go to Troy; healing and victory are promised there, with mutual help and piety required at the city’s fall. The healing remains ahead.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-lemnos-bow-returned",
+              "value": true
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "greek-lemnos-heracles-heard",
+              "value": true
+            }
+          ],
+          "workId": "sophocles-philoctetes"
+        },
+        {
+          "id": "greek-lemnos-agree-troy",
+          "subject": "greek-lemnos-philoctetes",
+          "at": "greek-lemnos",
+          "label": "Accept Philoctetes’s troy agreement",
+          "text": "Philoctetes freely agrees to go to Troy with his bow. Heracles’s source promise remains a future duty.",
+          "textTemplate": "Philoctetes freely agrees to go to Troy with his bow. Heracles’s source promise remains a future duty.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-lemnos-wound-care",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "greek-lemnos-bow-returned",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "greek-lemnos-heracles-heard",
+              "value": true
+            },
+            {
+              "kind": "choice",
+              "key": "greek-lemnos-approach",
+              "value": "truth"
+            },
+            {
+              "kind": "choice_unset",
+              "key": "greek-lemnos-consent"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "choose",
+              "key": "greek-lemnos-consent",
+              "value": "troy"
+            }
+          ],
+          "workId": "sophocles-philoctetes"
+        },
+        {
+          "id": "greek-lemnos-arrive-troy",
+          "subject": "greek-lemnos-philoctetes",
+          "at": "greek-greek-camp",
+          "label": "Hear Philoctetes confirm his arrival",
+          "text": "Philoctetes reaches the Greek camp at Troy with his bow through the agreed shared-ship journey. His healing remains a promised next duty. He marks the emptied water jug for Vale to carry home.",
+          "textTemplate": "Philoctetes reaches the Greek camp at Troy with his bow through the agreed shared-ship journey. His healing remains a promised next duty. He marks the emptied water jug for {actor} to carry home.",
+          "requires": [
+            {
+              "kind": "choice",
+              "key": "greek-lemnos-consent",
+              "value": "troy"
+            },
+            {
+              "kind": "holding",
+              "item": "greek-lemnos-bow",
+              "actor": "greek-lemnos-philoctetes"
+            },
+            {
+              "kind": "holding",
+              "item": "greek-lemnos-water",
+              "role": "actor"
+            },
+            {
+              "kind": "choice_unset",
+              "key": "greek-lemnos-ending"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "choose",
+              "key": "greek-lemnos-ending",
+              "value": "troy"
+            },
+            {
+              "kind": "set_flag",
+              "key": "greek-lemnos-arrived",
+              "value": true
+            },
+            {
+              "kind": "set_flag",
+              "key": "greek-lemnos-jug-marked",
+              "value": true
+            }
+          ],
+          "workId": "sophocles-philoctetes"
+        },
+        {
+          "id": "greek-lemnos-return-troy",
+          "subject": "greek-baker",
+          "at": "greek-courtyard",
+          "label": "Read the Lemnian arrival to Dione",
+          "text": "Vale gives Dione the marked water jug and reads Philoctetes’s actual troy arrival. His consent, bow and remaining duties enter the returning poem.",
+          "textTemplate": "{actor} gives Dione the marked water jug and reads Philoctetes’s actual troy arrival. His consent, bow and remaining duties enter the returning poem.",
+          "requires": [
+            {
+              "kind": "choice",
+              "key": "greek-lemnos-ending",
+              "value": "troy"
+            },
+            {
+              "kind": "flag",
+              "key": "greek-lemnos-manifest-checked",
+              "value": true
+            },
+            {
+              "kind": "holding",
+              "item": "greek-lemnos-water",
+              "role": "actor"
+            },
+            {
+              "kind": "knows",
+              "topic": "greek-lemnos-arrival-troy",
+              "role": "actor"
+            },
+            {
+              "kind": "choice_unset",
+              "key": "greek-lemnos-return"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "place_item",
+              "item": "greek-lemnos-water",
+              "place": "greek-courtyard"
+            },
+            {
+              "kind": "choose",
+              "key": "greek-lemnos-return",
+              "value": "troy"
+            },
+            {
+              "kind": "set_flag",
+              "key": "greek-lemnos-returned",
+              "value": true
+            }
+          ],
+          "workId": "sophocles-philoctetes"
+        },
+        {
+          "id": "greek-lemnos-agree-home",
+          "subject": "greek-lemnos-philoctetes",
+          "at": "greek-lemnos",
+          "label": "Accept Philoctetes’s home agreement",
+          "text": "Philoctetes chooses the invented home route through Athens and Delphi to Trachis near his father’s land. Neoptolemus’s homeward promise changes the war’s course.",
+          "textTemplate": "Philoctetes chooses the invented home route through Athens and Delphi to Trachis near his father’s land. Neoptolemus’s homeward promise changes the war’s course.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-lemnos-wound-care",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "greek-lemnos-bow-returned",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "greek-lemnos-heracles-heard",
+              "value": true
+            },
+            {
+              "kind": "choice",
+              "key": "greek-lemnos-approach",
+              "value": "truth"
+            },
+            {
+              "kind": "choice_unset",
+              "key": "greek-lemnos-consent"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "choose",
+              "key": "greek-lemnos-consent",
+              "value": "home"
+            }
+          ],
+          "workId": "sophocles-philoctetes"
+        },
+        {
+          "id": "greek-lemnos-arrive-home",
+          "subject": "greek-lemnos-philoctetes",
+          "at": "greek-trachis",
+          "label": "Hear Philoctetes confirm his arrival",
+          "text": "Philoctetes reaches Trachis through Athens and Delphi with his bow. This invented homecoming changes the army’s plans. He marks the emptied water jug for Vale to carry home.",
+          "textTemplate": "Philoctetes reaches Trachis through Athens and Delphi with his bow. This invented homecoming changes the army’s plans. He marks the emptied water jug for {actor} to carry home.",
+          "requires": [
+            {
+              "kind": "choice",
+              "key": "greek-lemnos-consent",
+              "value": "home"
+            },
+            {
+              "kind": "holding",
+              "item": "greek-lemnos-bow",
+              "actor": "greek-lemnos-philoctetes"
+            },
+            {
+              "kind": "holding",
+              "item": "greek-lemnos-water",
+              "role": "actor"
+            },
+            {
+              "kind": "choice_unset",
+              "key": "greek-lemnos-ending"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "choose",
+              "key": "greek-lemnos-ending",
+              "value": "home"
+            },
+            {
+              "kind": "set_flag",
+              "key": "greek-lemnos-arrived",
+              "value": true
+            },
+            {
+              "kind": "set_flag",
+              "key": "greek-lemnos-jug-marked",
+              "value": true
+            }
+          ],
+          "workId": "sophocles-philoctetes"
+        },
+        {
+          "id": "greek-lemnos-return-home",
+          "subject": "greek-baker",
+          "at": "greek-courtyard",
+          "label": "Read the Lemnian arrival to Dione",
+          "text": "Vale gives Dione the marked water jug and reads Philoctetes’s actual home arrival. His consent, bow and remaining duties enter the returning poem.",
+          "textTemplate": "{actor} gives Dione the marked water jug and reads Philoctetes’s actual home arrival. His consent, bow and remaining duties enter the returning poem.",
+          "requires": [
+            {
+              "kind": "choice",
+              "key": "greek-lemnos-ending",
+              "value": "home"
+            },
+            {
+              "kind": "flag",
+              "key": "greek-lemnos-manifest-checked",
+              "value": true
+            },
+            {
+              "kind": "holding",
+              "item": "greek-lemnos-water",
+              "role": "actor"
+            },
+            {
+              "kind": "knows",
+              "topic": "greek-lemnos-arrival-home",
+              "role": "actor"
+            },
+            {
+              "kind": "choice_unset",
+              "key": "greek-lemnos-return"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "place_item",
+              "item": "greek-lemnos-water",
+              "place": "greek-courtyard"
+            },
+            {
+              "kind": "choose",
+              "key": "greek-lemnos-return",
+              "value": "home"
+            },
+            {
+              "kind": "set_flag",
+              "key": "greek-lemnos-returned",
+              "value": true
+            }
+          ],
+          "workId": "sophocles-philoctetes"
+        },
+        {
+          "id": "greek-lemnos-agree-repair",
+          "subject": "greek-lemnos-philoctetes",
+          "at": "greek-lemnos",
+          "label": "Accept Philoctetes’s repair agreement",
+          "text": "Philoctetes accepts a repaired agreement for Troy after confession and the bow’s return. His care, ownership and right to name the terms remain binding.",
+          "textTemplate": "Philoctetes accepts a repaired agreement for Troy after confession and the bow’s return. His care, ownership and right to name the terms remain binding.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-lemnos-wound-care",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "greek-lemnos-bow-returned",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "greek-lemnos-heracles-heard",
+              "value": true
+            },
+            {
+              "kind": "choice",
+              "key": "greek-lemnos-approach",
+              "value": "deception"
+            },
+            {
+              "kind": "choice_unset",
+              "key": "greek-lemnos-consent"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "choose",
+              "key": "greek-lemnos-consent",
+              "value": "repair"
+            }
+          ],
+          "workId": "sophocles-philoctetes"
+        },
+        {
+          "id": "greek-lemnos-arrive-repair",
+          "subject": "greek-lemnos-philoctetes",
+          "at": "greek-greek-camp",
+          "label": "Hear Philoctetes confirm his arrival",
+          "text": "Philoctetes reaches the Greek camp with his returned bow under the repaired agreement. His promised care remains a next duty. He marks the emptied water jug for Vale to carry home.",
+          "textTemplate": "Philoctetes reaches the Greek camp with his returned bow under the repaired agreement. His promised care remains a next duty. He marks the emptied water jug for {actor} to carry home.",
+          "requires": [
+            {
+              "kind": "choice",
+              "key": "greek-lemnos-consent",
+              "value": "repair"
+            },
+            {
+              "kind": "holding",
+              "item": "greek-lemnos-bow",
+              "actor": "greek-lemnos-philoctetes"
+            },
+            {
+              "kind": "holding",
+              "item": "greek-lemnos-water",
+              "role": "actor"
+            },
+            {
+              "kind": "choice_unset",
+              "key": "greek-lemnos-ending"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "choose",
+              "key": "greek-lemnos-ending",
+              "value": "repair"
+            },
+            {
+              "kind": "set_flag",
+              "key": "greek-lemnos-arrived",
+              "value": true
+            },
+            {
+              "kind": "set_flag",
+              "key": "greek-lemnos-jug-marked",
+              "value": true
+            }
+          ],
+          "workId": "sophocles-philoctetes"
+        },
+        {
+          "id": "greek-lemnos-return-repair",
+          "subject": "greek-baker",
+          "at": "greek-courtyard",
+          "label": "Read the Lemnian arrival to Dione",
+          "text": "Vale gives Dione the marked water jug and reads Philoctetes’s actual repair arrival. His consent, bow and remaining duties enter the returning poem.",
+          "textTemplate": "{actor} gives Dione the marked water jug and reads Philoctetes’s actual repair arrival. His consent, bow and remaining duties enter the returning poem.",
+          "requires": [
+            {
+              "kind": "choice",
+              "key": "greek-lemnos-ending",
+              "value": "repair"
+            },
+            {
+              "kind": "flag",
+              "key": "greek-lemnos-manifest-checked",
+              "value": true
+            },
+            {
+              "kind": "holding",
+              "item": "greek-lemnos-water",
+              "role": "actor"
+            },
+            {
+              "kind": "knows",
+              "topic": "greek-lemnos-arrival-repair",
+              "role": "actor"
+            },
+            {
+              "kind": "choice_unset",
+              "key": "greek-lemnos-return"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "place_item",
+              "item": "greek-lemnos-water",
+              "place": "greek-courtyard"
+            },
+            {
+              "kind": "choose",
+              "key": "greek-lemnos-return",
+              "value": "repair"
+            },
+            {
+              "kind": "set_flag",
+              "key": "greek-lemnos-returned",
+              "value": true
+            }
+          ],
+          "workId": "sophocles-philoctetes"
+        },
+        {
+          "id": "greek-lemnos-check-manifest",
+          "subject": "greek-shipmaster",
+          "at": "greek-harbor",
+          "label": "Have Myrto check the marked arrival",
+          "text": "Myrto compares the marked water jug with the ship’s completed arrival. Vale carries a witnessed journey home.",
+          "textTemplate": "Myrto compares the marked water jug with the ship’s completed arrival. {actor} carries a witnessed journey home.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-lemnos-arrived",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "greek-lemnos-jug-marked",
+              "value": true
+            },
+            {
+              "kind": "holding",
+              "item": "greek-lemnos-water",
+              "role": "actor"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "greek-lemnos-manifest-checked",
+              "value": true
+            }
+          ],
+          "workId": "sophocles-philoctetes"
         }
       ],
       "works": [
@@ -8362,18 +9265,40 @@
           "title": "Philoctetes",
           "era": "trojan-war",
           "placeIds": [
-            "greek-lemnos"
+            "greek-lemnos",
+            "greek-lemnos-landing",
+            "greek-greek-camp",
+            "greek-trachis"
           ],
           "premise": "An army needs the help of a man it abandoned, and the request need not be honest.",
-          "status": "situated-hook",
+          "status": "branching-episode",
           "hookChoiceIds": [
-            "greek-inquire-sophocles-philoctetes"
+            "greek-inquire-sophocles-philoctetes",
+            "greek-lemnos-invitation",
+            "greek-lemnos-care",
+            "greek-lemnos-hear-loan",
+            "greek-lemnos-approach-truth",
+            "greek-lemnos-approach-deception",
+            "greek-lemnos-hear-purpose",
+            "greek-lemnos-hear-confession",
+            "greek-lemnos-return-bow",
+            "greek-lemnos-hear-heracles",
+            "greek-lemnos-agree-troy",
+            "greek-lemnos-arrive-troy",
+            "greek-lemnos-return-troy",
+            "greek-lemnos-agree-home",
+            "greek-lemnos-arrive-home",
+            "greek-lemnos-return-home",
+            "greek-lemnos-agree-repair",
+            "greek-lemnos-arrive-repair",
+            "greek-lemnos-return-repair",
+            "greek-lemnos-check-manifest"
           ],
           "source": {
             "catalogue": "https://greekdrama.johnhboyer.com/",
             "author": "Sophocles",
             "work": "Philoctetes",
-            "adaptation": "Original CosyWorld situation text; no translation passages are bundled."
+            "adaptation": "Original care, borrowed-bow and confession scenes lead to three consented journeys. The source-shaped Troy path retains Heracles’s direction and promised future healing. The invented home route reaches Trachis through Athens and Delphi. Repair follows the admitted deception and the actual return of the bow. The ship has one saved position; an arrival is recorded after the passenger’s own published account."
           }
         },
         {
@@ -9124,7 +10049,11 @@
           "greek-ajax-grave",
           "greek-aulis",
           "greek-aulis-household",
-          "greek-aulis-altar"
+          "greek-aulis-altar",
+          "greek-lemnos",
+          "greek-lemnos-landing",
+          "greek-delphi",
+          "greek-trachis"
         ],
         "avatars": [
           "greek-antigone",
@@ -9150,7 +10079,9 @@
           "greek-ajax-odysseus",
           "greek-aulis-iphigenia",
           "greek-aulis-clytemnestra",
-          "greek-aulis-achilles"
+          "greek-aulis-achilles",
+          "greek-lemnos-philoctetes",
+          "greek-lemnos-neoptolemus"
         ],
         "items": [
           "greek-water-jar",
@@ -9177,7 +10108,10 @@
           "greek-aulis-recall-letter",
           "greek-aulis-wedding-veil",
           "greek-aulis-offering-cloth",
-          "greek-aulis-departure-record"
+          "greek-aulis-departure-record",
+          "greek-lemnos-water",
+          "greek-lemnos-herb",
+          "greek-lemnos-bow"
         ],
         "choices": [
           "greek-return-water-jar",
@@ -9286,7 +10220,26 @@
           "greek-aulis-record-sacrifice",
           "greek-aulis-return-sacrifice",
           "greek-aulis-record-rescue",
-          "greek-aulis-return-rescue"
+          "greek-aulis-return-rescue",
+          "greek-lemnos-invitation",
+          "greek-lemnos-care",
+          "greek-lemnos-hear-loan",
+          "greek-lemnos-approach-truth",
+          "greek-lemnos-approach-deception",
+          "greek-lemnos-hear-purpose",
+          "greek-lemnos-hear-confession",
+          "greek-lemnos-return-bow",
+          "greek-lemnos-hear-heracles",
+          "greek-lemnos-agree-troy",
+          "greek-lemnos-arrive-troy",
+          "greek-lemnos-return-troy",
+          "greek-lemnos-agree-home",
+          "greek-lemnos-arrive-home",
+          "greek-lemnos-return-home",
+          "greek-lemnos-agree-repair",
+          "greek-lemnos-arrive-repair",
+          "greek-lemnos-return-repair",
+          "greek-lemnos-check-manifest"
         ]
       },
       "recital": {
@@ -9941,6 +10894,60 @@
               "Her mother’s doubt came with the reported light."
             ],
             "summons": true
+          },
+          {
+            "choice": "greek-lemnos-care",
+            "quest": "story-quest-greek-lemnos-care",
+            "lines": [
+              "I set clean water by the wounded man.",
+              "The cooling leaf came first before the sail."
+            ],
+            "summons": true
+          },
+          {
+            "choice": "greek-lemnos-return-bow",
+            "quest": "story-quest-greek-lemnos-bow",
+            "lines": [
+              "I saw the bow return into his hand.",
+              "His own voice named the terms of further trust."
+            ],
+            "summons": true
+          },
+          {
+            "choice": "greek-lemnos-check-manifest",
+            "quest": "story-quest-greek-lemnos-voyage",
+            "lines": [
+              "The vessel’s mark agreed with where he stood.",
+              "I carried home a journey that had reached its shore."
+            ],
+            "summons": true
+          },
+          {
+            "choice": "greek-lemnos-return-troy",
+            "quest": "story-quest-greek-lemnos-return",
+            "lines": [
+              "I brought the bowman’s marked arrival home.",
+              "His promised care stayed written by the bread."
+            ],
+            "summons": true
+          },
+          {
+            "choice": "greek-lemnos-return-home",
+            "quest": "story-quest-greek-lemnos-return",
+            "lines": [
+              "I brought the homeward man’s arrival home.",
+              "His bow and chosen road had reached his land."
+            ],
+            "summons": true
+          },
+          {
+            "choice": "greek-lemnos-return-repair",
+            "quest": "story-quest-greek-lemnos-return",
+            "lines": [
+              "I brought the mended promise to the bread.",
+              "His own hand kept the bow he chose to bear."
+            ],
+            "summons": true
           }
         ]
       },
@@ -10001,6 +11008,21 @@
             {
               "kind": "flag",
               "key": "greek-aulis-open",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "greek-lemnos-chapter",
+          "name": "The Offered Sail",
+          "places": [
+            "greek-lemnos",
+            "greek-lemnos-landing"
+          ],
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-lemnos-open",
               "value": true
             }
           ]
@@ -11222,6 +12244,111 @@
             "greek-aulis-record-sacrifice",
             "greek-aulis-record-rescue"
           ]
+        },
+        {
+          "id": "story-quest-greek-lemnos-care",
+          "group": "lemnos",
+          "line": "Bring water and the cooling herb.",
+          "holder": {
+            "kind": "avatar",
+            "id": "greek-lemnos-philoctetes"
+          },
+          "art": "greek-lemnos-water",
+          "start": {
+            "kind": "flag",
+            "key": "greek-lemnos-open",
+            "value": true
+          },
+          "endings": [
+            {
+              "choice": "greek-lemnos-care"
+            }
+          ],
+          "outcome": "Fulfilled",
+          "progress": []
+        },
+        {
+          "id": "story-quest-greek-lemnos-bow",
+          "group": "lemnos",
+          "line": "Return the trusted bow to its owner.",
+          "holder": {
+            "kind": "avatar",
+            "id": "greek-lemnos-philoctetes"
+          },
+          "art": "greek-lemnos-bow",
+          "start": {
+            "kind": "receipt",
+            "choice": "greek-lemnos-care"
+          },
+          "endings": [
+            {
+              "choice": "greek-lemnos-return-bow"
+            }
+          ],
+          "outcome": "Fulfilled",
+          "progress": [
+            "greek-lemnos-hear-loan",
+            "greek-lemnos-approach-truth",
+            "greek-lemnos-approach-deception",
+            "greek-lemnos-hear-purpose",
+            "greek-lemnos-hear-confession"
+          ]
+        },
+        {
+          "id": "story-quest-greek-lemnos-voyage",
+          "group": "lemnos",
+          "line": "Keep his chosen sail through its actual arrival.",
+          "holder": {
+            "kind": "avatar",
+            "id": "greek-lemnos-philoctetes"
+          },
+          "art": "greek-lemnos-bow",
+          "start": {
+            "kind": "receipt",
+            "choice": "greek-lemnos-return-bow"
+          },
+          "endings": [
+            {
+              "choice": "greek-lemnos-check-manifest"
+            }
+          ],
+          "outcome": "Fulfilled",
+          "progress": [
+            "greek-lemnos-hear-heracles",
+            "greek-lemnos-agree-troy",
+            "greek-lemnos-agree-home",
+            "greek-lemnos-agree-repair",
+            "greek-lemnos-arrive-troy",
+            "greek-lemnos-arrive-home",
+            "greek-lemnos-arrive-repair"
+          ]
+        },
+        {
+          "id": "story-quest-greek-lemnos-return",
+          "group": "lemnos",
+          "line": "Carry his marked arrival home.",
+          "holder": {
+            "kind": "avatar",
+            "id": "greek-lemnos-philoctetes"
+          },
+          "art": "greek-lemnos-water",
+          "start": {
+            "kind": "receipt",
+            "choice": "greek-lemnos-check-manifest"
+          },
+          "endings": [
+            {
+              "choice": "greek-lemnos-return-troy"
+            },
+            {
+              "choice": "greek-lemnos-return-home"
+            },
+            {
+              "choice": "greek-lemnos-return-repair"
+            }
+          ],
+          "outcome": "Shared",
+          "progress": []
         }
       ],
       "topics": [
@@ -11698,6 +12825,144 @@
             }
           ],
           "choiceId": "greek-aulis-record-rescue"
+        },
+        {
+          "id": "greek-lemnos-loan",
+          "speaker": "greek-lemnos-philoctetes",
+          "at": "greek-lemnos",
+          "text": "Philoctetes entrusts his bow for a short visit to Neoptolemus, with its return agreed.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-lemnos-wound-care",
+              "value": true
+            }
+          ],
+          "choiceId": "greek-lemnos-hear-loan"
+        },
+        {
+          "id": "greek-lemnos-purpose",
+          "speaker": "greek-lemnos-neoptolemus",
+          "at": "greek-lemnos-landing",
+          "text": "Neoptolemus names the army’s demand for the man and bow at Troy, and leaves the choice to Philoctetes.",
+          "requires": [
+            {
+              "kind": "choice",
+              "key": "greek-lemnos-approach",
+              "value": "truth"
+            },
+            {
+              "kind": "holding",
+              "item": "greek-lemnos-bow",
+              "role": "actor"
+            }
+          ],
+          "choiceId": "greek-lemnos-hear-purpose"
+        },
+        {
+          "id": "greek-lemnos-confession",
+          "speaker": "greek-lemnos-neoptolemus",
+          "at": "greek-lemnos-landing",
+          "text": "Neoptolemus confesses his deception and accepts that the bow must return before any further agreement.",
+          "requires": [
+            {
+              "kind": "choice",
+              "key": "greek-lemnos-approach",
+              "value": "deception"
+            },
+            {
+              "kind": "holding",
+              "item": "greek-lemnos-bow",
+              "role": "actor"
+            }
+          ],
+          "choiceId": "greek-lemnos-hear-confession"
+        },
+        {
+          "id": "greek-lemnos-heracles",
+          "speaker": "greek-lemnos-neoptolemus",
+          "at": "greek-lemnos-landing",
+          "text": "Neoptolemus reports Heracles’s direction to Troy, his promise of future healing and victory, and his demand for piety.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-lemnos-bow-returned",
+              "value": true
+            }
+          ],
+          "choiceId": "greek-lemnos-hear-heracles"
+        },
+        {
+          "id": "greek-lemnos-arrival-troy",
+          "speaker": "greek-lemnos-philoctetes",
+          "at": "greek-greek-camp",
+          "text": "Philoctetes confirms his arrival at Troy with his bow, while his promised healing remains ahead.",
+          "requires": [
+            {
+              "kind": "choice",
+              "key": "greek-lemnos-consent",
+              "value": "troy"
+            },
+            {
+              "kind": "holding",
+              "item": "greek-lemnos-bow",
+              "actor": "greek-lemnos-philoctetes"
+            },
+            {
+              "kind": "holding",
+              "item": "greek-lemnos-water",
+              "role": "actor"
+            }
+          ],
+          "choiceId": "greek-lemnos-arrive-troy"
+        },
+        {
+          "id": "greek-lemnos-arrival-home",
+          "speaker": "greek-lemnos-philoctetes",
+          "at": "greek-trachis",
+          "text": "Philoctetes confirms his chosen homecoming at Trachis with his bow after the journey through Athens and Delphi.",
+          "requires": [
+            {
+              "kind": "choice",
+              "key": "greek-lemnos-consent",
+              "value": "home"
+            },
+            {
+              "kind": "holding",
+              "item": "greek-lemnos-bow",
+              "actor": "greek-lemnos-philoctetes"
+            },
+            {
+              "kind": "holding",
+              "item": "greek-lemnos-water",
+              "role": "actor"
+            }
+          ],
+          "choiceId": "greek-lemnos-arrive-home"
+        },
+        {
+          "id": "greek-lemnos-arrival-repair",
+          "speaker": "greek-lemnos-philoctetes",
+          "at": "greek-greek-camp",
+          "text": "Philoctetes confirms his arrival at Troy with his bow under the repaired agreement and its promised care.",
+          "requires": [
+            {
+              "kind": "choice",
+              "key": "greek-lemnos-consent",
+              "value": "repair"
+            },
+            {
+              "kind": "holding",
+              "item": "greek-lemnos-bow",
+              "actor": "greek-lemnos-philoctetes"
+            },
+            {
+              "kind": "holding",
+              "item": "greek-lemnos-water",
+              "role": "actor"
+            }
+          ],
+          "choiceId": "greek-lemnos-arrive-repair"
         }
       ],
       "bridge": {
@@ -11858,6 +13123,28 @@
             "cardName": "Greek ship",
             "cardArt": "assets/greek-drama/ship-card.webp"
           }
+        },
+        {
+          "id": "greek-lemnos-ship",
+          "from": "greek-lemnos-landing",
+          "to": "pond",
+          "travelers": "any",
+          "travel": "aboard the ship",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-lemnos-open",
+              "value": true
+            }
+          ],
+          "transport": "greek-ship",
+          "travelLabel": "Board",
+          "scenery": {
+            "open": "The shared ship waits at the Lemnian landing.",
+            "closed": "The landing waits beside open water.",
+            "cardName": "Greek ship",
+            "cardArt": "assets/greek-drama/ship-card.webp"
+          }
         }
       ],
       "transports": {
@@ -11869,7 +13156,8 @@
             "greek-athens-harbor",
             "greek-piraeus",
             "greek-ajax-landing",
-            "greek-aulis"
+            "greek-aulis",
+            "greek-lemnos-landing"
           ],
           "at": "greek-harbor"
         }

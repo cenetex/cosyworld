@@ -152,6 +152,28 @@
         "cardName": "Greek ship",
         "cardArt": "assets/greek-drama/ship-card.webp"
       }
+    },
+    {
+      "id": "greek-lemnos-ship",
+      "from": "greek-lemnos-landing",
+      "to": "pond",
+      "travelers": "any",
+      "travel": "aboard the ship",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-lemnos-open",
+          "value": true
+        }
+      ],
+      "transport": "greek-ship",
+      "travelLabel": "Board",
+      "scenery": {
+        "open": "The shared ship waits at the Lemnian landing.",
+        "closed": "The landing waits beside open water.",
+        "cardName": "Greek ship",
+        "cardArt": "assets/greek-drama/ship-card.webp"
+      }
     }
   ],
   "transports": {
@@ -163,7 +185,8 @@
         "greek-athens-harbor",
         "greek-piraeus",
         "greek-ajax-landing",
-        "greek-aulis"
+        "greek-aulis",
+        "greek-lemnos-landing"
       ],
       "at": "greek-harbor"
     }
