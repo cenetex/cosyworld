@@ -105,7 +105,14 @@ export function upgradeSave(
   if (Object.values(s.life?.actors || {}).some((life) => life.collection))
     installSharedQuestRegistry(s);
   if (s?.schema === 7) publishQuestCompletions(s, syncStoryQuests(s));
-  if (s?.schema === 7) installKnowledge(s);
+  if (s?.schema === 7)
+    installKnowledge(
+      s,
+      undefined,
+      packDefinitions.flatMap((pack) =>
+        (pack.topics || []).map((topic) => ({ ...topic, packId: pack.id })),
+      ),
+    );
   return s;
 }
 

@@ -301,6 +301,39 @@ describe("saved public knowledge", () => {
     });
     expect(w.knowledge.known.vale[topic.id].teller).toBe("moth");
   });
+  it("keeps a topic's receipt from becoming a second news origin", () => {
+    const w = bare();
+    const topic = {
+      id: "public-petition",
+      speaker: "moth",
+      at: "station",
+      packId: "sample",
+      choiceId: "record-petition",
+      text: "The families ask the city for a burial.",
+    };
+    const entry = {
+      seq: ++w.eventSeq,
+      turn: 0,
+      kind: "action",
+      verb: "choose",
+      actorId: "vale",
+      locationId: "station",
+      cast: ["vale", "moth"],
+      text: topic.text,
+      packId: topic.packId,
+      choiceId: topic.choiceId,
+    };
+    expect(witnessKnowledge(w, entry, undefined, [topic])).toBeNull();
+    expect(Object.keys(w.knowledge.facts)).toEqual([]);
+    delete w.knowledge;
+    w.log = [entry];
+    installKnowledge(w, undefined, [topic]);
+    expect(Object.keys(w.knowledge.facts)).toEqual([]);
+    w.turn = 1;
+    const disclosure = talk(w, "moth", "vale", [topic]);
+    expect(speech(w, disclosure)).toHaveLength(1);
+    expect(Object.keys(w.knowledge.facts)).toEqual([topic.id]);
+  });
 });
 
 describe("Talk publication and learned quests", () => {
