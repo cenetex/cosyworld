@@ -16,6 +16,7 @@ import {
 } from "../v2/card-game/narrative.mjs";
 import { recitalPoem } from "../v2/card-game/pack-recital.mjs";
 import { questRecord } from "../v2/card-game/shared-quests.mjs";
+import { questHistoryCards } from "../v2/card-game/quest-cards.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { releasedCardEngine } from "./helpers/released-card-engine.mjs";
 import {
@@ -229,6 +230,49 @@ describe("Book I present care", () => {
 });
 
 describe("Book I shared learning and history", () => {
+  it("credits the first meeting after the invitation to the visiting player", () => {
+    let world = dispatchShared({
+      op: "create",
+      save: encodeSave(bookStart()),
+    }).world;
+    world.actors.mara.place = "greek-well";
+    const fields = {
+      world,
+      actor: "mara",
+      claimed: ["vale", "mara"],
+      present: ["vale", "mara"],
+    };
+    const action = dispatchShared({ op: "view", ...fields }).actions.find(
+      (a) => a.kind === "move" && a.target === "greek-palace",
+    );
+    const result = dispatchShared({ op: "play", ...fields, action });
+    expect(result.ok, result.error).toBe(true);
+    world = result.world;
+    for (const [part, beat] of [
+      ["phoenician", "truce"],
+      ["tyrannus", "care"],
+    ]) {
+      expect(story(world, part, beat).createdTurn).toBe(world.turn);
+      expect(story(world, part, beat).participants).toEqual(["mara"]);
+    }
+    expect(reload(world)).toEqual(world);
+  });
+
+  it("preserves every earlier action, source topic, story and earned verse", () => {
+    const oldPack = releasedCardEngine(20).packs.find(
+      (p) => p.id === "greek-drama",
+    );
+    for (const key of ["choices", "topics", "storyQuests"])
+      for (const entry of oldPack[key])
+        expect(
+          pack[key].find((e) => (e.key || e.id) === (entry.key || entry.id)),
+        ).toEqual(entry);
+    for (const verse of oldPack.recital.verses)
+      expect(
+        pack.recital.verses.find((v) => v.choice === verse.choice),
+      ).toEqual(verse);
+  });
+
   it("lets Mara learn Vale's finished deed and carry its account home under her own name", () => {
     const original = bookJourney("seven", "two-name-vigil", {
       returnHome: false,
@@ -262,6 +306,11 @@ describe("Book I shared learning and history", () => {
       return request("play", actor, { action });
     };
     act("mara", "take", { item: "greek-seven-shield-tablet" });
+    expect(
+      questHistoryCards(world, "mara").some(
+        (q) => q.key === "greek-drama:story-quest-greek-seven-return",
+      ),
+    ).toBe(true);
     act("mara", "move", { target: "greek-courtyard" });
     expect(offered(world, "greek-seven-return-two-name-vigil", "mara")).toBe(
       false,
@@ -325,7 +374,10 @@ describe("Book I shared learning and history", () => {
       expect(bookState(after)[key]).toEqual(bookState(before)[key]);
     for (const key of ["log", "knowledge"])
       expect(after[key]).toEqual(before[key]);
-    expect(after.quests).toEqual({...before.quests, hands:{...before.quests.hands,"greek-melea":[],"greek-melitta":[]}});
+    expect(after.quests).toEqual({
+      ...before.quests,
+      hands: { ...before.quests.hands, "greek-melea": [], "greek-melitta": [] },
+    });
     for (const [id, item] of Object.entries(before.items))
       expect(after.items[id]).toEqual(item);
     expect(recitalPoem(after, pack)).toEqual(

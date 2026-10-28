@@ -6,9 +6,11 @@ const willowsItems = Object.fromEntries(
     { holder: item.holder, history: [] },
   ]),
 );
-const ajaxItems = Object.fromEntries(
+const laterGreekItems = Object.fromEntries(
   Object.entries(currentPackDefinition("greek-drama").items)
-    .filter(([id]) => id.startsWith("greek-ajax-"))
+    .filter(([id]) =>
+      /greek-(ajax|seven|phoenician|tyrannus|bacchae)-/.test(id),
+    )
     .map(([id, item]) => [id, { holder: item.holder, history: [] }]),
 );
 import { readFileSync } from "node:fs";
@@ -63,17 +65,17 @@ describe("the household save upgrade", () => {
       const after = decodeSave(JSON.stringify(before));
       expect(after.packs["greek-drama"]).toEqual({
         ...before.packs["greek-drama"],
-        revision: 7,
+        revision: currentPackDefinition("greek-drama").revision,
       });
       expect(Object.keys(after.actors).length).toBe(
         Object.keys(before.actors).length +
-          10 +
+          12 +
           Object.keys(hoppycat.avatars).length,
       );
       expect(after.items).toEqual({
         ...before.items,
         ...willowsItems,
-        ...ajaxItems,
+        ...laterGreekItems,
         "boardyai-calling-card": { holder: "pond", history: [] },
         ...Object.fromEntries(
           Object.entries(hoppycat.items).map(([id, item]) => [
@@ -107,6 +109,8 @@ describe("the household save upgrade", () => {
             "greek-ajax-tecmessa": 0,
             "greek-ajax-teucer": 0,
             "greek-ajax-odysseus": 0,
+            "greek-melea": 0,
+            "greek-melitta": 0,
           },
         });
       for (const [id, memory] of Object.entries(before.memories))

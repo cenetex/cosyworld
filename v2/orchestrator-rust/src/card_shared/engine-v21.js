@@ -14437,7 +14437,35 @@
               {
                 choice: "greek-seven-set-shield-record"
               }
-            ]
+            ],
+            created: {
+              latest: [
+                {
+                  earliest: [
+                    {
+                      kind: "receipt",
+                      choice: "greek-book-one-invitation-burial"
+                    },
+                    {
+                      kind: "receipt",
+                      choice: "greek-book-one-invitation-concession"
+                    },
+                    {
+                      kind: "receipt",
+                      choice: "greek-book-one-invitation-refusal"
+                    },
+                    {
+                      kind: "receipt",
+                      choice: "greek-book-one-invitation-exposure"
+                    }
+                  ]
+                },
+                {
+                  kind: "met",
+                  actor: "greek-guard"
+                }
+              ]
+            }
           },
           {
             id: "story-quest-greek-seven-shelter",
@@ -14556,7 +14584,35 @@
               {
                 choice: "greek-phoenician-lodge-truce-copy"
               }
-            ]
+            ],
+            created: {
+              latest: [
+                {
+                  earliest: [
+                    {
+                      kind: "receipt",
+                      choice: "greek-book-one-invitation-burial"
+                    },
+                    {
+                      kind: "receipt",
+                      choice: "greek-book-one-invitation-concession"
+                    },
+                    {
+                      kind: "receipt",
+                      choice: "greek-book-one-invitation-refusal"
+                    },
+                    {
+                      kind: "receipt",
+                      choice: "greek-book-one-invitation-exposure"
+                    }
+                  ]
+                },
+                {
+                  kind: "met",
+                  actor: "greek-melea"
+                }
+              ]
+            }
           },
           {
             id: "story-quest-greek-phoenician-care",
@@ -14669,7 +14725,35 @@
               {
                 choice: "greek-tyrannus-deliver-care"
               }
-            ]
+            ],
+            created: {
+              latest: [
+                {
+                  earliest: [
+                    {
+                      kind: "receipt",
+                      choice: "greek-book-one-invitation-burial"
+                    },
+                    {
+                      kind: "receipt",
+                      choice: "greek-book-one-invitation-concession"
+                    },
+                    {
+                      kind: "receipt",
+                      choice: "greek-book-one-invitation-refusal"
+                    },
+                    {
+                      kind: "receipt",
+                      choice: "greek-book-one-invitation-exposure"
+                    }
+                  ]
+                },
+                {
+                  kind: "met",
+                  actor: "greek-melea"
+                }
+              ]
+            }
           },
           {
             id: "story-quest-greek-tyrannus-witnesses",
@@ -14793,7 +14877,35 @@
               {
                 choice: "greek-bacchae-deliver-account"
               }
-            ]
+            ],
+            created: {
+              latest: [
+                {
+                  earliest: [
+                    {
+                      kind: "receipt",
+                      choice: "greek-book-one-invitation-burial"
+                    },
+                    {
+                      kind: "receipt",
+                      choice: "greek-book-one-invitation-concession"
+                    },
+                    {
+                      kind: "receipt",
+                      choice: "greek-book-one-invitation-refusal"
+                    },
+                    {
+                      kind: "receipt",
+                      choice: "greek-book-one-invitation-exposure"
+                    }
+                  ]
+                },
+                {
+                  kind: "met",
+                  actor: "greek-melitta"
+                }
+              ]
+            }
           },
           {
             id: "story-quest-greek-bacchae-robe",

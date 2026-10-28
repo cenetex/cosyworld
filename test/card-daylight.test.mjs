@@ -24,6 +24,7 @@ const thebes = [
   "greek-gate",
   "greek-battlefield",
   "greek-sanctuary",
+  "greek-cithaeron",
   "greek-road-thebes",
 ];
 const night = (world, place) => backdrop(place, world).endsWith("-night.webp");

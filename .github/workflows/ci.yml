@@ -333,6 +333,7 @@ jobs:
           node v2/scripts/smoke-card-greek-travel.mjs
           node v2/scripts/smoke-card-greek-homecoming.mjs
           node v2/scripts/smoke-card-ajax.mjs
+          node v2/scripts/smoke-card-book-one.mjs
 
       - name: Check dialogue and movement
         if: matrix.mode == 'cards-dialogue'

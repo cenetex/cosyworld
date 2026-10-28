@@ -161,6 +161,34 @@
       "card": "assets/optimized/card/webp/greek-drama/attic-road.webp",
       "cardHash": "5eb59dff02be232a00002d0854b6ac0d9d381248d4a9eeb197e8e4956e3324b7"
     },
+    "assets/greek-drama/bacchae-cithaeron-day.webp": {
+      "sourceHash": "e9a09eaf250dac0a485655d04fe62bdab60409b770879dddbd2aaad9d4cf68f9",
+      "stage": "assets/greek-drama/bacchae-cithaeron-day.webp",
+      "stageHash": "e9a09eaf250dac0a485655d04fe62bdab60409b770879dddbd2aaad9d4cf68f9",
+      "card": "assets/optimized/card/webp/greek-drama/bacchae-cithaeron-day.webp",
+      "cardHash": "ec5a89c6b3629a9248aa886a1e3dbb533708d70274ac52a66f9d314c5fe8576a"
+    },
+    "assets/greek-drama/bacchae-cithaeron-night.webp": {
+      "sourceHash": "ecbab8ff347e1d42e0a0a8df1aa7f40d1aeaf4077295ba6287ec7f344f025acc",
+      "stage": "assets/greek-drama/bacchae-cithaeron-night.webp",
+      "stageHash": "ecbab8ff347e1d42e0a0a8df1aa7f40d1aeaf4077295ba6287ec7f344f025acc",
+      "card": "assets/optimized/card/webp/greek-drama/bacchae-cithaeron-night.webp",
+      "cardHash": "0537c6453c50b8756a1f85784cb2c68d010cf2232fb80a656c77024e462c9f3f"
+    },
+    "assets/greek-drama/book-one-melea.png": {
+      "sourceHash": "ab7e2587a956d944394afcad99d9d4941bdc9d553cadedd7f3219c35077ca607",
+      "stage": "assets/optimized/stage/png/greek-drama/book-one-melea.webp",
+      "stageHash": "e06eb4300cbd3c78e3bfeceafde73bfe6ae5a007e5a2f72b47a6e0bbaab63a3b",
+      "card": "assets/optimized/card/png/greek-drama/book-one-melea.webp",
+      "cardHash": "a9ca1c9262df4db694c425902e19fc6073290a9c6bcd61215dd72862cabc8981"
+    },
+    "assets/greek-drama/book-one-melitta.png": {
+      "sourceHash": "80087fefef01cdbb4f7d925a9d0c02d2fbfdf4f28f7dd68c107869f51437e50f",
+      "stage": "assets/optimized/stage/png/greek-drama/book-one-melitta.webp",
+      "stageHash": "491931b925001520ba649f128a8a09f2c0a96798e2b063d4c4cab94a66aea7e1",
+      "card": "assets/optimized/card/png/greek-drama/book-one-melitta.webp",
+      "cardHash": "5524d12f5de60179cce8e1706e03f1043d103e3981bde29b645c474b09dbb979"
+    },
     "assets/greek-drama/bread.png": {
       "sourceHash": "b9570b0b1db56c334ff070367afdc23cb3595cf0b87971b4c9c5c27ac587859e",
       "stage": "assets/optimized/stage/png/greek-drama/bread.webp",

@@ -5,9 +5,11 @@ const willowsItems = Object.fromEntries(
     { holder: item.holder, history: [] },
   ]),
 );
-const ajaxItems = Object.fromEntries(
+const laterGreekItems = Object.fromEntries(
   Object.entries(currentPackDefinition("greek-drama").items)
-    .filter(([id]) => id.startsWith("greek-ajax-"))
+    .filter(([id]) =>
+      /greek-(ajax|seven|phoenician|tyrannus|bacchae)-/.test(id),
+    )
     .map(([id, item]) => [id, { holder: item.holder, history: [] }]),
 );
 import { entityActive } from "../v2/card-game/pack-registry.mjs";
@@ -201,7 +203,9 @@ describe("the side roads in earlier saved worlds", () => {
       }
       expect(world.packs["greek-drama"].revision).toBe(3);
       const restored = decodeSave(JSON.stringify(world));
-      expect(restored.packs["greek-drama"].revision).toBe(7);
+      expect(restored.packs["greek-drama"].revision).toBe(
+        currentPackDefinition("greek-drama").revision,
+      );
       for (const key of ["choices", "flags", "receipts", "recitals"])
         expect(restored.packs["greek-drama"][key]).toEqual(
           world.packs["greek-drama"][key],
@@ -209,7 +213,7 @@ describe("the side roads in earlier saved worlds", () => {
       expect(restored.items).toEqual({
         ...world.items,
         ...willowsItems,
-        ...ajaxItems,
+        ...laterGreekItems,
         "boardyai-calling-card": { holder: "pond", history: [] },
         ...Object.fromEntries(
           Object.entries(hoppycat.items).map(([id, item]) => [

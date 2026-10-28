@@ -255,7 +255,7 @@ describe("frozen earned wording", () => {
 
 describe("story validation within one unchanged operation", () => {
   it("keeps output and saved authors equal to the released interpreter through real plays", () => {
-    let w = createWorld();
+    let w = previous.dispatch({ op: "create" }).world;
     delete w.opening;
     w.actors.vale.place = "greek-courtyard";
     w.crossings["pond-greek-harbor"].discovered = true;
@@ -265,7 +265,15 @@ describe("story validation within one unchanged operation", () => {
       (a) => a.kind === "wait",
       (a) => a.kind === "move" && a.target === "greek-well",
     ]) {
-      const action = legalActions(w).find(match);
+      const action = previous
+        .dispatch({
+          op: "view",
+          world: w,
+          actor: "vale",
+          claimed: ["vale"],
+          present: ["vale"],
+        })
+        .actions.find(match);
       expect(action).toBeDefined();
       const request = {
         op: "play",
@@ -275,9 +283,15 @@ describe("story validation within one unchanged operation", () => {
         present: ["vale"],
         action,
       };
-      expect(dispatchShared(request)).toEqual(previous.dispatch(request));
-      w = play(w, action).state;
-      expect(decodeSave(encodeSave(w))).toEqual(w);
+      const reference = previous.dispatch(request);
+      expect(reference.ok).toBe(true);
+      const current = dispatchShared(request);
+      expect(current.ok).toBe(true);
+      expect(current.world).toEqual(
+        decodeSave(JSON.stringify(reference.world)),
+      );
+      w = reference.world;
+      expect(decodeSave(encodeSave(current.world))).toEqual(current.world);
     }
     const p = greek(),
       record = w.packs[p.id].recitals["greek-return-water-jar"];
@@ -285,7 +299,7 @@ describe("story validation within one unchanged operation", () => {
     expect(record.actor).toBe("vale");
     record.actor = null;
     w.log = [];
-    const restored = decodeSave(encodeSave(w));
+    const restored = decodeSave(JSON.stringify(w));
     expect(
       restored.packs[p.id].recitals["greek-return-water-jar"].actor,
     ).toBeNull();
@@ -293,7 +307,7 @@ describe("story validation within one unchanged operation", () => {
     expect(recitalPoem(restored, p)).toEqual(previous.poem(restored, p));
     const older = previous.dispatch({
       op: "create",
-      save: JSON.stringify(restored),
+      save: JSON.stringify(w),
     }).world;
     delete older.packs[p.id].recitals;
     older.log = [];
