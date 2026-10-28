@@ -2780,14 +2780,7 @@
               "greek-trachis-canae-approach"
             ],
             backdrop: "assets/greek-drama/courtyard.svg",
-            persona: "A messenger's sandals dry beside the doorway. A folded garment waits on a workbench.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-trachis-open",
-                value: true
-              }
-            ]
+            persona: "A messenger's sandals dry beside the doorway. A folded garment waits on a workbench."
           },
           "greek-oeta": {
             name: "The Oeta Road",
@@ -2797,14 +2790,7 @@
               "greek-trachis-canae-approach"
             ],
             backdrop: "assets/greek-drama/grove.svg",
-            persona: "A steep road climbs above the trees. Bearers have set a litter beside a level patch of stone.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-trachis-open",
-                value: true
-              }
-            ]
+            persona: "A steep road climbs above the trees. Bearers have set a litter beside a level patch of stone."
           },
           "greek-pherae": {
             name: "Palace of Pherae",
@@ -15242,6 +15228,7 @@
             id: "greek-danaid-shelter",
             name: "The Door Chosen",
             places: [
+              "greek-argolid-road",
               "greek-argos-sanctuary",
               "greek-danaid-refuge-court"
             ],
@@ -22022,13 +22009,41 @@
     for (const pack of packDefinitions) {
       if (!pack.choices) continue;
       const state = world.packs[pack.id];
+      const choiceById = new Map(
+        pack.choices.map((choice) => [choice.id, choice])
+      );
+      let orderedReceipts;
+      const receiptHistory = () => orderedReceipts ??= Object.entries(state.receipts).sort(
+        (a, b) => a[1] - b[1]
+      );
+      const phaseFlags = /* @__PURE__ */ new Map();
+      for (const choice of pack.choices)
+        for (const effect of choice.effects)
+          if (effect.kind === "set_flag") {
+            if (!phaseFlags.has(effect.key))
+              phaseFlags.set(effect.key, /* @__PURE__ */ new Set());
+            phaseFlags.get(effect.key).add(effect.value);
+          }
+      const closingFlags = (id) => (pack.avatars[id]?.requires || []).filter(
+        (condition2) => condition2.kind === "flag" && phaseFlags.get(condition2.key)?.has(!condition2.value)
+      );
+      const lastClosure = (id) => {
+        const conditions = closingFlags(id);
+        let closed = null;
+        for (const [choiceId, turn] of receiptHistory())
+          if (choiceById.get(choiceId)?.effects.some(
+            (effect) => effect.kind === "set_flag" && conditions.some(
+              (condition2) => condition2.key === effect.key && condition2.value !== effect.value
+            )
+          ))
+            closed = turn;
+        return closed;
+      };
       const enabledAtMeeting = (id, turn) => {
         const choices2 = {}, flags2 = {};
-        for (const [choiceId, recorded] of Object.entries(state.receipts).sort(
-          (a, b) => a[1] - b[1]
-        )) {
+        for (const [choiceId, recorded] of receiptHistory()) {
           if (recorded > turn) break;
-          const event = pack.choices.find((entry) => entry.id === choiceId);
+          const event = choiceById.get(choiceId);
           for (const effect of event?.effects || []) {
             if (effect.kind === "choose") choices2[effect.key] = effect.value;
             if (effect.kind === "set_flag") flags2[effect.key] = effect.value;
@@ -22050,14 +22065,14 @@
         "scope",
         ...pack.recital ? ["recitals"] : []
       ].sort().join() || ![state.choices, state.flags, state.receipts, state.met].every(record4) || Object.entries(state.met).some(
-        ([id, turn]) => !owns3(pack.avatars, id) || !entityEnabled(world, id, true) && !enabledAtMeeting(id, turn) || world.opening && !sharedEnabled(world) && world.opening.met?.[id] !== turn || !Number.isSafeInteger(turn) || turn < 0 || turn > world.turn
+        ([id, turn]) => !owns3(pack.avatars, id) || !Number.isSafeInteger(turn) || turn < 0 || turn > world.turn || (closingFlags(id).length || !entityEnabled(world, id, true)) && !enabledAtMeeting(id, turn) || world.opening && !sharedEnabled(world) && world.opening.met?.[id] !== turn
       ))
         return false;
       if (world.opening && !sharedEnabled(world) && Object.keys(world.opening.met || {}).some(
         (id) => owns3(pack.avatars, id) && !owns3(state.met, id)
       ))
         return false;
-      const events = Object.entries(state.receipts).sort((a, b) => a[1] - b[1]);
+      const events = receiptHistory();
       const choices = {}, flags = {}, seenTurns = /* @__PURE__ */ new Set();
       const projection = {
         ...world,
@@ -22071,7 +22086,7 @@
         )
       );
       for (const [id, turn] of events) {
-        const c = pack.choices?.find((c2) => c2.id === id);
+        const c = choiceById.get(id);
         if (!c || state.scope === "opening" && pack.release && !pack.release.choices.includes(id) || !Number.isSafeInteger(turn) || turn < 1 || turn > world.turn || seenTurns.has(turn) || !sectionAllows(projection, pack, c.at, conditionsMet) || !sectionAllows(projection, pack, c.subject, conditionsMet) || !progressionMet(c.requires) || !progressionMet(pack.places[c.at].requires) || !progressionMet(packEntity(c.subject)?.requires) || (c.requires || []).some(
           (condition2) => condition2.kind === "met" && (!owns3(state.met, condition2.actor) || state.met[condition2.actor] >= turn)
         ))
@@ -22088,9 +22103,16 @@
       const equals = (a, b) => Object.keys(a).length === Object.keys(b).length && Object.entries(a).every(([k, v]) => owns3(b, k) && b[k] === v);
       if (!equals(choices, state.choices) || !equals(flags, state.flags))
         return false;
-      for (const [id, actor] of Object.entries(pack.avatars))
-        if (!entityEnabled(world, id, true) && !owns3(state.met, id) && (world.actors[id]?.place !== actor.place && !actor.previousHomes?.includes(world.actors[id]?.place) || world.actors[id]?.crossed !== 0 || world.actors[id]?.lastTalk !== -9 || owns3(state.met, id)))
+      for (const [id, actor] of Object.entries(pack.avatars)) {
+        const inactive = !entityEnabled(world, id, true);
+        if (inactive && owns3(state.met, id) && closingFlags(id).length) {
+          const closed = lastClosure(id), saved = world.actors[id];
+          if (closed === null || saved.lastTalk > closed || saved.crossed > (actor.journey ? actor.journey.path.length - 1 : 0) || actor.travels === false && !actor.journey && saved.place !== actor.place && !actor.previousHomes?.includes(saved.place))
+            return false;
+        }
+        if (inactive && !owns3(state.met, id) && (world.actors[id]?.place !== actor.place && !actor.previousHomes?.includes(world.actors[id]?.place) || world.actors[id]?.crossed !== 0 || world.actors[id]?.lastTalk !== -9 || owns3(state.met, id)))
           return false;
+      }
       for (const [id, item] of Object.entries(pack.items || {}))
         if (!entityEnabled(world, id) && (world.items[id]?.holder !== item.holder || world.items[id]?.history?.length !== 0))
           return false;

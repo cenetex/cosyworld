@@ -11,6 +11,20 @@ const ajaxItems = Object.fromEntries(
     .filter(([id]) => id.startsWith("greek-ajax-"))
     .map(([id, item]) => [id, { holder: item.holder, history: [] }]),
 );
+const bookTwoPrefixes = [
+  "greek-danaid-",
+  "greek-alcestis-",
+  "greek-heracles-",
+  "greek-trachis-",
+];
+const bookTwoActors = Object.keys(
+  currentPackDefinition("greek-drama").avatars,
+).filter((id) => bookTwoPrefixes.some((prefix) => id.startsWith(prefix)));
+const bookTwoItems = Object.fromEntries(
+  Object.entries(currentPackDefinition("greek-drama").items)
+    .filter(([id]) => bookTwoPrefixes.some((prefix) => id.startsWith(prefix)))
+    .map(([id, item]) => [id, { holder: item.holder, history: [] }]),
+);
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { describe, expect, it } from "vitest";
@@ -63,17 +77,19 @@ describe("the household save upgrade", () => {
       const after = decodeSave(JSON.stringify(before));
       expect(after.packs["greek-drama"]).toEqual({
         ...before.packs["greek-drama"],
-        revision: 7,
+        revision: 8,
       });
       expect(Object.keys(after.actors).length).toBe(
         Object.keys(before.actors).length +
           10 +
+          bookTwoActors.length +
           Object.keys(hoppycat.avatars).length,
       );
       expect(after.items).toEqual({
         ...before.items,
         ...willowsItems,
         ...ajaxItems,
+        ...bookTwoItems,
         "boardyai-calling-card": { holder: "pond", history: [] },
         ...Object.fromEntries(
           Object.entries(hoppycat.items).map(([id, item]) => [
@@ -94,6 +110,7 @@ describe("the household save upgrade", () => {
           ...actor,
           trust: {
             ...actor.trust,
+            ...Object.fromEntries(bookTwoActors.map((id) => [id, 0])),
             [witness]: 0,
             boardyai: 0,
             ...Object.fromEntries(

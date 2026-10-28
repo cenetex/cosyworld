@@ -335,28 +335,14 @@
         "greek-trachis-canae-approach"
       ],
       "backdrop": "assets/greek-drama/courtyard.svg",
-      "persona": "A messenger's sandals dry beside the doorway. A folded garment waits on a workbench.",
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-trachis-open",
-          "value": true
-        }
-      ]
+      "persona": "A messenger's sandals dry beside the doorway. A folded garment waits on a workbench."
     },
     "greek-oeta": {
       "name": "The Oeta Road",
       "text": "A steep road climbs above the trees. Bearers have set a litter beside a level patch of stone.",
       "exits": ["greek-trachis", "greek-trachis-canae-approach"],
       "backdrop": "assets/greek-drama/grove.svg",
-      "persona": "A steep road climbs above the trees. Bearers have set a litter beside a level patch of stone.",
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-trachis-open",
-          "value": true
-        }
-      ]
+      "persona": "A steep road climbs above the trees. Bearers have set a litter beside a level patch of stone."
     },
     "greek-pherae": {
       "name": "Palace of Pherae",
@@ -12480,7 +12466,11 @@
     {
       "id": "greek-danaid-shelter",
       "name": "The Door Chosen",
-      "places": ["greek-argos-sanctuary", "greek-danaid-refuge-court"],
+      "places": [
+        "greek-argolid-road",
+        "greek-argos-sanctuary",
+        "greek-danaid-refuge-court"
+      ],
       "requires": [
         {
           "kind": "flag",
