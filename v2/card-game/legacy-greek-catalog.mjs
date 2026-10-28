@@ -1,6 +1,6 @@
 // The published rules20 Greek catalog is the boundary for revision8 additions.
 export const greekRevisionSeven = {
-  "avatars": [
+  avatars: [
     "greek-antigone",
     "greek-ismene",
     "greek-creon",
@@ -33,9 +33,9 @@ export const greekRevisionSeven = {
     "greek-household-witness",
     "greek-ajax-tecmessa",
     "greek-ajax-teucer",
-    "greek-ajax-odysseus"
+    "greek-ajax-odysseus",
   ],
-  "items": [
+  items: [
     "greek-water-jar",
     "greek-bread",
     "greek-funeral-cloth",
@@ -61,9 +61,9 @@ export const greekRevisionSeven = {
     "greek-ajax-shield",
     "greek-ajax-plea",
     "greek-ajax-cloth",
-    "greek-ajax-tools"
+    "greek-ajax-tools",
   ],
-  "places": [
+  places: [
     "greek-harbor",
     "greek-courtyard",
     "greek-well",
@@ -126,6 +126,9 @@ export const greekRevisionSeven = {
     "greek-road-colonus-marathon",
     "greek-ajax-landing",
     "greek-ajax-household",
-    "greek-ajax-grave"
-  ]
+    "greek-ajax-grave",
+  ],
 };
+
+for (const ids of Object.values(greekRevisionSeven)) Object.freeze(ids);
+Object.freeze(greekRevisionSeven);

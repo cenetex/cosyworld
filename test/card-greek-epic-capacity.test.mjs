@@ -297,11 +297,15 @@ describe("story validation within one unchanged operation", () => {
     older.actors.vale.place = "greek-courtyard";
     older.items["greek-water-jar"].holder = "vale";
     older.crossings["pond-greek-harbor"].discovered = true;
-    const oldAction = previous.dispatch({ op: "view", world: older }).actions.find(
-      (action) => action.choiceId === "greek-return-water-jar",
-    );
+    const oldAction = previous
+      .dispatch({ op: "view", world: older })
+      .actions.find((action) => action.choiceId === "greek-return-water-jar");
     expect(oldAction).toBeDefined();
-    older = previous.dispatch({ op: "play", world: older, action: oldAction }).world;
+    older = previous.dispatch({
+      op: "play",
+      world: older,
+      action: oldAction,
+    }).world;
     delete older.packs[p.id].recitals;
     older.log = [];
     const upgraded = decodeSave(JSON.stringify(older));

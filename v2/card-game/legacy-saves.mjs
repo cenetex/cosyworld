@@ -331,6 +331,21 @@ export function upgradeGreekEpicSave(s) {
   const fresh = newMemories();
   for (const id of Object.keys(pack.places))
     if (!oldPlaces.has(id)) s.memories[id] ??= fresh[id];
+  if (pack.places["greek-vii-crag-camp"])
+    for (const [actor, edges] of Object.entries(s.routeKnowledge || {})) {
+      if (!Array.isArray(edges)) continue;
+      const expanded = edges.flatMap((edge) => {
+        if (!Array.isArray(edge) || edge.length !== 2) return [edge];
+        const [from, to] = edge;
+        return [from, to].includes("greek-susa") &&
+          [from, to].includes("greek-scythian-crag")
+          ? [[from, "greek-vii-crag-camp"], ["greek-vii-crag-camp", to]]
+          : [edge];
+      });
+      s.routeKnowledge[actor] = [...new Map(
+        expanded.map((edge) => [JSON.stringify(edge), edge]),
+      ).values()];
+    }
   saved.revision = 8;
 }
 
