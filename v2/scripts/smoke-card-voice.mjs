@@ -151,7 +151,7 @@ try {
       assert.equal(await page.locator("#speaker").innerText(), "Vale");
       assert.match(
         await page.locator("#dialogue-text").textContent(),
-        /It's cold up here/,
+        /The water is dark/,
       );
       assert.equal(requests.length, 0);
       await finish();
@@ -198,8 +198,8 @@ try {
         !saved.log.some((line) => line.text === reaction("light")),
         "Stale dialogue stays out of the current turn",
       );
-      await playCards("wait", ["attic"]);
-      await playCards("drop", ["lamp", "attic"]);
+      await playCards("wait", ["pond"]);
+      await playCards("drop", ["lamp", "pond"]);
       await playCards("take", ["lamp"]);
       if (width === 390) {
         // A quick first Light reply also crosses the discovery and quest cues.
@@ -211,6 +211,19 @@ try {
         await playCards("light", ["lamp"]);
       }
       if (width < 700) {
+        // Pip can answer after Vale at the pond. Read Vale's long reply for
+        // this scroll check, through the same history controls as a player.
+        for (
+          let line = 0;
+          line < 8 && (await page.locator("#speaker").innerText()) !== "Vale";
+          line++
+        ) {
+          await page.locator("#previous-line").click();
+        }
+        assert.match(
+          await page.locator("#dialogue-text").textContent(),
+          /My reaction to/,
+        );
         await page.locator("#dialogue-advance").focus();
         await page.keyboard.press("End");
         assert(
