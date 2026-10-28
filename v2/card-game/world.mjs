@@ -566,9 +566,10 @@ function captureHands(s, met) {
 // Each new program reads the programs chosen before it in the same round, so two
 // actors never pick goals against each other's stale wants.
 function ensurePrograms(s) {
+  const placesForGeneration = () => programPlaces(s);
   for (const actor of actorIds.filter((id) => !isPackActor(id))) {
     const p = s.actors[actor].progress;
-    if (ensureCollectedQuest(s, actor, programPlaces(s), things)) continue;
+    if (ensureCollectedQuest(s, actor, placesForGeneration, things)) continue;
     if (p.program >= programsFor(s, actor).length && !p.current) {
       p.completedHands ??= programsFor(s, actor).reduce(
         (n, program) => n + program.steps.length,
@@ -2361,7 +2362,7 @@ export function play(
     );
   }
   for (const id of knownActors(next))
-    collectExperienceQuests(next, id, programPlaces(next), things);
+    collectExperienceQuests(next, id, () => programPlaces(next), things);
   ensurePrograms(next);
   refreshStalledPrograms(next);
   for (const [id, allowance] of Object.entries(
