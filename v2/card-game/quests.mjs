@@ -157,7 +157,7 @@ export const desireFor = (s, actor) => {
         : ownerOf(s, id) !== actor,
     ).length *
       20 +
-    (h.conditions || []).filter((c) => !conditionMet(s, c)).length * 2 +
+    (h.conditions || []).filter((c) => !conditionMet(s, c, actor)).length * 2 +
     (h.conditions || []).filter(
       (c) =>
         c.kind === "heldBy" &&

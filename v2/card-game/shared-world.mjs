@@ -14,6 +14,7 @@ import {
   places,
   people,
   carried,
+  publishKnowledgeSpeech,
 } from "./world.mjs";
 import {
   humanAvatars,
@@ -247,6 +248,7 @@ export function dispatchShared(request) {
         locationId: room,
       });
       lines.push(world.log.at(-1));
+      publishKnowledgeSpeech(world, lines.at(-1), request.disclosures || []);
     }
     world.revision += 1;
     validateWorld(world);

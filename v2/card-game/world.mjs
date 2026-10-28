@@ -86,6 +86,13 @@ import {
 } from "./motives.mjs";
 import { newMemories, rememberEvent, validMemories } from "./memory.mjs";
 import {
+  installKnowledge,
+  witnessKnowledge,
+  reserveKnowledge,
+  acceptKnowledgeSpeech,
+  validKnowledge,
+} from "./knowledge.mjs";
+import {
   programsFor,
   knownActors,
   newProgress,
@@ -132,6 +139,7 @@ import {
   packExits,
   packChoices,
   applyPackChoice,
+  conditionsMet,
   validatePackLinks,
   packDefinition,
   packPeople,
@@ -218,6 +226,7 @@ export function createWorld({ opening = false, packScopes = {} } = {}) {
     world.packs[id].scope = scope;
   }
   installRoamingQuests(world, roamingActors, roamingAPI(world));
+  installKnowledge(world);
   rememberEvent(world, world.log[0]);
   return world;
 }
@@ -444,7 +453,7 @@ export function handStatus(s, actor, hand = desireFor(s, actor)) {
   }));
   const conditions = (hand.conditions || []).map((c) => ({
     ...c,
-    met: conditionMet(s, c),
+    met: conditionMet(s, c, actor),
   }));
   return {
     items,
@@ -734,7 +743,55 @@ export function addLog(s, speaker, text, detail = {}) {
       locationId: entry.locationId,
     };
   rememberEvent(s, entry);
+  witnessKnowledge(s, entry, (id) =>
+    entityActive(s, id) && (!controlledByHuman(s, id) || humanPresent(s, id)),
+  );
   trimLog(s);
+}
+
+const authoredKnowledgeTopics = () => packDefinitions.flatMap((pack) =>
+  (pack.topics || []).map((topic) => ({ ...topic, packId: pack.id })),
+);
+function talkKnowledge(s, action, entry) {
+  const pairs = controlledByHuman(s, action.actor)
+    ? [[action.target, action.actor], [action.actor, action.target]]
+    : [[action.actor, action.target], [action.target, action.actor]];
+  for (const [speaker, listener] of pairs) {
+    const topics = authoredKnowledgeTopics().filter((topic) =>
+      topic.speaker === speaker && entityActive(s, speaker) &&
+      conditionsMet(s, topic.packId, topic.requires || [], listener),
+    );
+    if (reserveKnowledge(s, speaker, listener, entry, topics)) break;
+  }
+}
+
+// Only recorded speech publishes a selected account and its authored effects.
+export function publishKnowledgeSpeech(s, entry, disclosures) {
+  const learned = acceptKnowledgeSpeech(s, entry, disclosures);
+  for (const { fact, listener } of learned) {
+    const topic = fact.source.topic;
+    if (!topic?.choiceId || !humanAvatar(listener) ||
+      Object.hasOwn(s.packs[topic.packId].receipts, topic.choiceId)) continue;
+    const action = packChoices(s, listener).find((a) =>
+      a.packId === topic.packId && a.choiceId === topic.choiceId,
+    );
+    if (!action) continue;
+    applyPackChoice(s, action);
+    addLog(s, "World", action.text, {
+      kind: "action", actorId: listener, verb: "choose",
+      packId: action.packId, choiceId: action.choiceId,
+      targetId: action.target, locationId: s.actors[listener].place,
+    });
+  }
+  if (learned.length) {
+    const met = new Map();
+    captureHands(s, met);
+    publishQuestCompletions(s, [
+      ...advancePrograms(s, met), ...syncStoryQuests(s, learned[0].listener),
+    ]);
+    settleQuestHands(s);
+  }
+  return learned;
 }
 // Rules read recent history, so generated words never shorten the authoritative
 // window. Each kind keeps its own limit; the same plays leave the same events.
@@ -1683,6 +1740,7 @@ function perform(s, a, capture = () => {}, round = null) {
       : {}),
     ...(a.kind === "attack" ? { locationId: here } : {}),
   });
+  if (a.kind === "talk") talkKnowledge(s, a, s.log.at(-1));
   recordLearning(
     s,
     a,
@@ -2041,7 +2099,12 @@ function basePlan(s, actor) {
     }
     if (hand.location && here !== hand.location)
       return choose(toward(s, actor, hand.location), reason);
-    for (const c of hand.conditions.filter((c) => !conditionMet(s, c))) {
+    for (const c of hand.conditions.filter((c) => !conditionMet(s, c, actor))) {
+      if (c.kind === "knows") {
+        const source = s.knowledge?.facts?.[c.topic]?.source.actorId;
+        if (source && s.actors[source].place !== here) return goMeet(source);
+        return choose(find("talk", undefined, source), "Ask for the shared news.");
+      }
       if (c.kind === "heldBy") {
         if (s.items[c.item].holder !== actor && rootHolder(s, c.item) === actor)
           return choose(
@@ -2407,6 +2470,8 @@ export function validateWorld(s) {
     !Number.isSafeInteger(s.revision) ||
     s.revision < s.turn
   )
+    fail();
+  if (!validKnowledge(s, actorIds, Object.keys(places), authoredKnowledgeTopics()))
     fail();
   if (
     !validSharedQuestRegistry(s, {
