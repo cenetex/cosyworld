@@ -48,7 +48,15 @@ export function locationDaylight(world, id) {
   if (willowsPlaces.has(id)) {
     const period = Math.floor(world.turn / WILLOWS_PHASE_TURNS);
     const phase = willowsPhases[period % willowsPhases.length];
-    return { phase, period, description: willowsLight[phase] };
+    return {
+      phase,
+      period,
+      description:
+        willowsLight[phase] +
+        (id === "willows-landing" && phase === "night"
+          ? " A Greek ship waits in the backwater, its lanterns reflected on the river."
+          : ""),
+    };
   }
   if (!Object.hasOwn(nightBackdrops, id)) return null;
   const period = Math.floor(world.turn / DAYLIGHT_TURNS);

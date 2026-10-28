@@ -73,6 +73,35 @@ async function build() {
     const file = files[next++];
     const source = await readFile(new URL(file, root));
     const sourceHash = hash(source);
+    const cached = old?.images?.[file];
+    if (
+      !check &&
+      JSON.stringify(old?.settings) === JSON.stringify(settings) &&
+      cached?.sourceHash === sourceHash
+    ) {
+      try {
+        const stageBody =
+          cached.stage === file
+            ? source
+            : await readFile(new URL(cached.stage, root));
+        const cardBody =
+          cached.card === cached.stage
+            ? stageBody
+            : await readFile(new URL(cached.card, root));
+        if (
+          hash(stageBody) === cached.stageHash &&
+          hash(cardBody) === cached.cardHash
+        ) {
+          records[file] = cached;
+          cardBytes += cardBody.length;
+          if (file.endsWith(".png")) {
+            pngBytes += source.length;
+            stagePngBytes += stageBody.length;
+          }
+          continue;
+        }
+      } catch {}
+    }
     const metadata = await sharp(source).metadata();
     const png = file.endsWith(".png");
     let stage = file,

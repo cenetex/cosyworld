@@ -61,6 +61,7 @@ try {
     async function load(place, turn) {
       const world = createWorld();
       world.actors.vale.place = place;
+      world.packs.willows.met["willows-swede"] = 0;
       world.turn = world.revision = turn;
       for (const item of [
         "paddle",
@@ -72,7 +73,7 @@ try {
         "spoon",
         "pipe",
       ])
-        world.items[`willows-${item}`].holder = "vale";
+        world.items[`willows-${item}`].holder = "willows-camp";
       enableMotives(world, { questPrograms: true, personalQuests: true });
       await page.evaluate(
         ({ key, save, seen }) => {
@@ -117,9 +118,12 @@ try {
         shader: el.querySelector(".weather-layer").dataset.shader,
       }));
       assert.equal(light.shader, "webgl");
-      if (daylight.phase === "night")
+      const paintedNight =
+        daylight.phase === "night" &&
+        ["willows-camp", "willows-landing"].includes(place);
+      if (daylight.phase === "night" && !paintedNight)
         assert(light.filter.includes("brightness(0.34)"));
-      if (daylight.phase !== "day")
+      if (daylight.phase !== "day" && !paintedNight)
         assert(light.sky.includes("linear-gradient"));
       assert(
         await page.evaluate(
@@ -186,11 +190,54 @@ try {
           .evaluate((img) => img.complete && img.naturalWidth > 0),
       );
       assert(
-        (await card.locator("img").first().getAttribute("src")).endsWith(
-          ".webp",
-        ),
+        new URL(
+          await card.locator("img").first().getAttribute("src"),
+          origin,
+        ).pathname.endsWith(".webp"),
       );
     }
+    for (const turn of [8, 32]) {
+      await load("willows-camp", turn);
+      for (const [id, suffix] of [
+        ["put-out-fire", "out"],
+        ["light-fire", "lit"],
+        ["put-out-fire", "out"],
+        ["light-fire", "lit"],
+      ]) {
+        await page.keyboard.press("Escape");
+        await selectCard(page, "willows-camp", { touch: width === 390 });
+        await page
+          .locator(`#card-actions [data-choice="willows-${id}"]`)
+          .click();
+        await page.waitForFunction(
+          ({ key, out }) =>
+            Boolean(
+              JSON.parse(localStorage.getItem(key)).packs.willows.flags[
+                "willows-fire-out"
+              ],
+            ) === out,
+          { key, out: suffix === "out" },
+        );
+        await page.waitForFunction(
+          () => !document.querySelector("#card-actions button[disabled]"),
+        );
+        const image = await page.locator("#backdrop").getAttribute("src");
+        assert(
+          image.includes(
+            suffix === "out"
+              ? "camp-out-"
+              : turn === 32
+                ? "camp-lit-night"
+                : "camp-day",
+          ),
+        );
+        await page.keyboard.press("Escape");
+        await page.screenshot({
+          path: new URL(`fire-${suffix}-${turn}-${width}.png`, output).pathname,
+        });
+      }
+    }
+    await load("willows-camp", 24);
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.locator("#stage > .weather-layer").evaluate((layer) => {
       delete layer.dataset.shader;

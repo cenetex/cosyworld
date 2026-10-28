@@ -152,3 +152,10 @@
 .stage[data-weather-region="danube"][data-time-of-day="night"] .portrait-body {
   filter: brightness(0.62) saturate(0.65);
 }
+
+/* These two places use painted night light, including the warm fire and ship. */
+[data-weather-region="danube"][data-time-of-day="night"][data-exposure="shelter"],
+[data-weather-region="danube"][data-time-of-day="night"][data-exposure="coast"] {
+  --daylight-light: brightness(1);
+  --daylight-sky: transparent;
+}

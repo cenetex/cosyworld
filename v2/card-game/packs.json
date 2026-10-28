@@ -11252,8 +11252,8 @@
         },
         "willows-camp": {
           "name": "River Camp",
-          "text": "A canvas tent shelters a food sack and a small cooking pot. The Swede watches the willow tops beyond the fire. A sandy path leads to the canoe.",
-          "persona": "Speak as the campsite in first person, through the tent canvas, fire warmth, cooking smells and disturbed sand. The Swede is the one resident. Let ordinary shelter feel small within the surrounding willows. Supplies are those named in the current facts; their condition follows recorded discoveries. Describe the people and objects present with care.",
+          "text": "A canvas tent shelters a food sack and a small cooking pot. A stone fire ring lies among the camping gear. The Swede watches the willow tops. A sandy path leads to the canoe.",
+          "persona": "Speak as the campsite in first person, through the tent canvas, fire warmth, cooking smells and disturbed sand. The Swede is the one resident. Let ordinary shelter feel small within the surrounding willows. Supplies are those named in the current facts; their condition follows recorded discoveries. Describe the people and objects present with care. The current fire facts describe its warmth or cold ash.",
           "exits": [
             "willows-landing",
             "willows-thicket"
@@ -11638,8 +11638,8 @@
           "subject": "willows-swede",
           "at": "willows-camp",
           "label": "Keep watch with the Swede",
-          "text": "The traveller chooses to keep watch with the Swede a while longer. They sit beside the fire. Beyond its warmth, the willows stir in a slow ring around the camp.",
-          "textTemplate": "{actor} chooses to keep watch with the Swede a while longer. They sit beside the fire. Beyond its warmth, the willows stir in a slow ring around the camp.",
+          "text": "The traveller chooses to keep watch with the Swede a while longer. They settle beside the tent. Around them, the willows stir in a slow ring around the camp.",
+          "textTemplate": "{actor} chooses to keep watch with the Swede a while longer. They settle beside the tent. Around them, the willows stir in a slow ring around the camp.",
           "summary": "The traveller chose to keep watch beside the Swede after they shared the strange discoveries.",
           "requires": [
             {
@@ -11657,6 +11657,54 @@
               "kind": "choose",
               "key": "willows-response",
               "value": "watch"
+            }
+          ]
+        },
+        {
+          "id": "willows-put-out-fire",
+          "subject": "willows-camp",
+          "at": "willows-camp",
+          "label": "Put out the campfire",
+          "text": "The traveller pours water over the campfire and stirs the ash until the logs are cold.",
+          "textTemplate": "{actor} pours water over the campfire and stirs the ash until the logs are cold.",
+          "summary": "The campfire was put out.",
+          "repeatable": true,
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "willows-fire-out",
+              "value": false
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "willows-fire-out",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "willows-light-fire",
+          "subject": "willows-camp",
+          "at": "willows-camp",
+          "label": "Light the campfire",
+          "text": "The traveller sets dry kindling in the fire ring and lights a small campfire.",
+          "textTemplate": "{actor} sets dry kindling in the fire ring and lights a small campfire.",
+          "summary": "The campfire was lit.",
+          "repeatable": true,
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "willows-fire-out",
+              "value": true
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "willows-fire-out",
+              "value": false
             }
           ]
         }

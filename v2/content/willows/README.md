@@ -37,7 +37,10 @@ discovery order and response choices are game adaptations.
 
 Four painted scenes and the Swede portrait were made with the built-in
 imagegen tool. Eight painted item cutouts use true transparency. Four daylight
-scene variants supply the base for changing light. The prompts and asset hashes
+scene variants supply the base for changing light. The camp has lit and unlit
+fire paintings in day and night. The Greek ship appears at the landing at night.
+The Swede sits by the fire, listens to the island, and folds his arms after
+the signs are shared. His standing pose appears beside the cold fire ring. The prompts and asset hashes
 are in `art-prompts.json`. Art lives in `v2/card-game/assets/willows/`.
 
 ## Checks
@@ -45,7 +48,9 @@ are in `art-prompts.json`. Art lives in `v2/card-game/assets/willows/`.
 `test/card-willows.test.mjs` covers discovery, custody, old saves, the two
 responses and shared play. The Rust Willows tests cover upgrades from released
 rules versions 16 and 17 and journal replay. `v2/scripts/smoke-card-willows.mjs` checks the
-play path at desktop and phone sizes.
+play path at desktop and phone sizes. `smoke-card-willows-atmosphere.mjs` checks
+the sky, fire choices, poses and item art. `smoke-card-music-follow.mjs` checks
+actual M4A playback and travel between rooms.
 
 ## Light and weather
 
@@ -56,6 +61,22 @@ Cloud, rain, mist and clear weather change every twelve accepted turns. River
 mist crosses the landing, rain taps the camp canvas, and leaves soften the
 weather in the thicket. Place dialogue receives the current light and weather.
 Reloads and shared views use that same saved turn.
+
+The camp card offers **Put out the campfire** and **Light the campfire**. The
+choice can be made each time. The saved flag supplies the scene, place card,
+Swede pose and current dialogue fact. Shared play and journal replay keep it.
+
+## Camp music
+
+During the day, River Camp can start one of the four supplied acid jazz songs:
+**Keep to the Bank**, **Keep to the Bank II**, **Don't Answer the Trees**, and
+**Keep to the Bank III**. The game serves the original M4A audio bytes. Its source
+names and hashes are in `assets/music/willows-provenance.json`.
+
+A room starts a song when music is idle. Each song follows the player until it
+ends, through travel and changing light. The current room then chooses the next
+song. River Camp starts songs during the day. Mute and hidden tabs pause the
+same song and keep its position for a later resume.
 
 ## Music ideas
 

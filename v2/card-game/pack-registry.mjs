@@ -355,7 +355,7 @@ function choiceFeasible(world, pack, choice, actor) {
   const state = packState(world, pack.id);
   if (
     !state ||
-    owns(state.receipts, choice.id) ||
+    (!choice.repeatable && owns(state.receipts, choice.id)) ||
     (pack.release &&
       state.scope !== "full" &&
       !pack.release.choices.includes(choice.id)) ||
@@ -591,7 +591,7 @@ export function validatePackStates(world) {
         seenTurns.has(turn) ||
         !sectionAllows(projection, pack, c.at, conditionsMet) ||
         !sectionAllows(projection, pack, c.subject, conditionsMet) ||
-        !progressionMet(c.requires) ||
+        (!c.repeatable && !progressionMet(c.requires)) ||
         !progressionMet(pack.places[c.at].requires) ||
         !progressionMet(packEntity(c.subject)?.requires) ||
         (c.requires || []).some(

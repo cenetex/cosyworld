@@ -3,10 +3,13 @@ import { roomTracks } from "./music.mjs";
 import { packMediaFiles } from "./pack-registry.mjs";
 import imageVariants from "./image-variants.json" with { type: "json" };
 import voiceCast from "./voices.json" with { type: "json" };
+import { willowsAssets } from "./willows-scenery.mjs";
 import { daylightAssets } from "./daylight.mjs";
 
 // The local server, release smoke, and Rust asset generator use this list.
 const files = [
+  "willows-scenery.mjs",
+  ...willowsAssets,
   "media.mjs",
   "images.mjs",
   "image-variants.json",
@@ -182,6 +185,7 @@ const types = {
   svg: "image/svg+xml",
   webp: "image/webp",
   mp3: "audio/mpeg",
+  m4a: "audio/mp4",
 };
 const aliases = Object.entries(musicStreams).map(([source, value]) => {
   if (

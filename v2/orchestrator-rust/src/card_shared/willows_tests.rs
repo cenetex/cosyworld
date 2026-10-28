@@ -178,6 +178,30 @@ fn willows_sky_upgrades_twenty_and_survives_journal_replay() {
         assert_eq!(scene["weather"]["condition"], "rain");
         assert_eq!(scene["weather"]["region"], "danube");
     }
+    for _ in 0..2 {
+        for choice in ["willows-put-out-fire", "willows-light-fire"] {
+            let view = world.project(0).unwrap();
+            let action = view["actions"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|a| a["choiceId"] == choice)
+                .unwrap()
+                .clone();
+            full_store::commit(
+                &c,
+                &id,
+                &mut world,
+                json!({"op":"play","actor":"vale","action":action}),
+                now(),
+            )
+            .unwrap();
+        }
+    }
+    assert_eq!(
+        world.game["packs"]["willows"]["flags"]["willows-fire-out"],
+        false
+    );
     let expected = world.clone();
     drop(c);
     let c = store::open(&path).unwrap();

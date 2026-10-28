@@ -184,6 +184,119 @@
         941
       ],
       "processing": "Built-in image_gen; WebP quality 94 with original alpha."
+    },
+    {
+      "asset": "swede-listening",
+      "prompt": "Use case: identity-preserve. Edit target: the supplied Swede character cutout. Make a new full-body pose of this exact man for The Willows game. Preserve his face, short moustache, light brown hair, age about forty, rolled cream linen sleeves, dark brown waistcoat, brown wool trousers and worn lace-up boots. He stands with his body in three-quarter view toward the left, head turned slightly farther left toward the river, one hand raised loosely near his chest as he listens, the other arm resting at his side. Alert and thoughtful. Complete figure including both boots and both hands, centered on a portrait canvas, clear margin around every edge. Same detailed realistic painted illustration, neutral soft daylight suitable for game lighting. Genuinely transparent alpha background. The man is the sole subject; text, scenery and ground shadow are absent.",
+      "file": "assets/willows/swede-listening.webp",
+      "references": [
+        "assets/willows/swede.webp"
+      ],
+      "sourceName": "exec-28e30b85-cbb2-49c3-b3f9-27b3e645b2e6.png",
+      "sourceSha256": "9d9664560379327d8420d18bdb4afdca8cd3c30996e70785ac50e8fa000693b0",
+      "sha256": "766e6b2cedabd2d735689ae3063dbab8180e9fabc2d372ad3b84236bcdf35a4f",
+      "size": [
+        1024,
+        1536
+      ],
+      "processing": "Built-in image_gen; WebP quality 94 with original alpha."
+    },
+    {
+      "asset": "swede-worried",
+      "prompt": "Use case: identity-preserve. Edit target: the supplied Swede character cutout. Make a new full-body pose of this exact man for The Willows game. Preserve his face, short moustache, light brown hair, age about forty, rolled cream linen sleeves, dark brown waistcoat, brown wool trousers and worn lace-up boots. He stands in three-quarter view toward the left with folded arms, shoulders drawn slightly inward, brow gently furrowed, looking toward his companion with restrained grave concern. Complete figure including both boots and hands, centered on a portrait canvas, clear margin around every edge. Same detailed realistic painted illustration, neutral soft daylight suitable for game lighting. Genuinely transparent alpha background. The man is the sole subject; text, scenery and ground shadow are absent.",
+      "file": "assets/willows/swede-worried.webp",
+      "references": [
+        "assets/willows/swede.webp"
+      ],
+      "sourceName": "exec-cd54ce0a-73ea-41fe-a328-d465371141ab.png",
+      "sourceSha256": "a699a8e566e61ba1760f9ba7f0f1b8f3123730e8c22a1e2884cf5992576c3338",
+      "sha256": "5c379121ab909a82d9710b20b8d0d8e82f5dde18e62d85621cca33be8036c6a0",
+      "size": [
+        1024,
+        1536
+      ],
+      "processing": "Built-in image_gen; WebP quality 94 with original alpha."
+    },
+    {
+      "asset": "swede-seated",
+      "prompt": "Use case: identity-preserve. Edit target: the supplied Swede character cutout. Make a new full-body pose of this exact man for The Willows game. Preserve his face, short moustache, light brown hair, age about forty, rolled cream linen sleeves, dark brown waistcoat, brown wool trousers and worn lace-up boots. He sits in a relaxed low camping crouch on his heels beside an implied fire, forearms resting on his bent knees, body in three-quarter view toward the left, hands loosely joined, looking thoughtfully up toward his companion. Keep a natural practical posture. Complete figure including both boots and hands, centered on a portrait canvas, clear margin around every edge. Same detailed realistic painted illustration, neutral soft daylight suitable for game lighting. Genuinely transparent alpha background. The man is the sole subject; text, scenery, seats and ground shadow are absent.",
+      "file": "assets/willows/swede-seated.webp",
+      "references": [
+        "assets/willows/swede.webp"
+      ],
+      "sourceName": "exec-4196a0d8-f335-48c6-bd9a-e68bcf019dfc.png",
+      "sourceSha256": "0b61bde3296d2704c36ca7fae2c7bf542a73c0ebb8db6dc22a1fbdd46511d7dd",
+      "sha256": "edc20cb2636b6e340f71591d334beb3b548dfee54294bb446db6ddc34f6ea7f6",
+      "size": [
+        1024,
+        1536
+      ],
+      "processing": "Built-in image_gen; WebP quality 94 with original alpha."
+    },
+    {
+      "asset": "camp-out-day",
+      "prompt": "Use case: precise-object-edit. Edit target: supplied Willows camp daylight painting. Change only the campfire into a fully extinguished fire: cold grey ash, dark spent logs and the existing stone ring. The air immediately above the ring is clear. Preserve the iron pot, all camping gear, tent, willows, sand, river, sky, camera, composition and detailed painted style exactly. Same pale neutral daylight and wide landscape format. Empty of people and text.",
+      "file": "assets/willows/camp-out-day.webp",
+      "references": [
+        "assets/willows/camp-day.webp"
+      ],
+      "sourceName": "exec-ec125197-fee7-405c-a67f-465cc4270886.png",
+      "sourceSha256": "8016d2dd884e8dc8ffe5d70c43f1cba69d8911ce1f44c8baebcfb3d766df3209",
+      "sha256": "434413185ab2a6d4cd33e6275b67376618334075213b98bd807e8b21791f13a0",
+      "size": [
+        1672,
+        941
+      ],
+      "processing": "Built-in image_gen; WebP quality 94 with original alpha."
+    },
+    {
+      "asset": "camp-lit-night",
+      "prompt": "Use case: lighting-weather. Edit target: supplied Willows camp daylight painting. Create the same exact camp at deep blue night. Preserve the camera, tent, camping gear, iron pot, willow shapes, sand, river and all prop locations. The campfire is fully lit with modest orange flames and gives a strong local warm glow to the nearby sand, pot, tent edge and leaves. Beyond that small circle the island is dark cool blue with faint soft natural sky light. Preserve readable shadow detail and the original detailed painted illustration. A dark ordinary sky with thin soft clouds. Empty of people and text. Same wide landscape format.",
+      "file": "assets/willows/camp-lit-night.webp",
+      "references": [
+        "assets/willows/camp-day.webp"
+      ],
+      "sourceName": "exec-276dc5c3-c6bc-4a8d-a130-360fd47945ea.png",
+      "sourceSha256": "a3d16546e7b1859baa0230d45e1ca22f63280019f8111a87b3cce7a77e1389e9",
+      "sha256": "3aeac8f45d6c1422f1ffb410a01a7709d607c25a4f9a4781e6fcef1ed41e2aef",
+      "size": [
+        1672,
+        941
+      ],
+      "processing": "Built-in image_gen; WebP quality 94 with original alpha."
+    },
+    {
+      "asset": "camp-out-night",
+      "prompt": "Use case: lighting-weather. Edit target: supplied Willows camp daylight painting. Create the same exact camp at deep blue night with the fire fully out. The stone ring contains cold grey ash and dark spent logs. The air above the fire ring is clear. Preserve the camera, tent, camping gear, iron pot, willow shapes, sand, river and all prop locations. Use cool blue ambient night light across the scene, with enough detail to read the path and tent. A dark ordinary sky with thin soft clouds. Preserve original detailed painted illustration. Empty of people and text. Same wide landscape format.",
+      "file": "assets/willows/camp-out-night.webp",
+      "references": [
+        "assets/willows/camp-day.webp"
+      ],
+      "sourceName": "exec-ae15d164-0bd5-49e4-a7f1-9514f4e298c1.png",
+      "sourceSha256": "e1b844caf1cda671bd66326d0a5cad4c758c477353c542d6312c2dfe72a1c601",
+      "sha256": "f9e1ea3e3cce0cb2354b9393d4f482876fd9add43f56dff046f8a455cbd55bfe",
+      "size": [
+        1672,
+        941
+      ],
+      "processing": "Built-in image_gen; WebP quality 94 with original alpha."
+    },
+    {
+      "asset": "landing-ship-night",
+      "prompt": "Use case: compositing. Image 1 is the edit target: The Willows river landing. Image 2 is a reference only for the Greek ship's design. Create image 1 at deep blue night and place this Greek ship close to the bank in the backwater at the right, its ornate curved wooden prow, cream square sail and small warm lanterns clearly visible. The ship feels like a quiet mysterious night arrival on the flooded Danube. Preserve image 1's upturned canoe on the left, sand, willow bushes, river channels, tree islands, camera angle, wide landscape format and realistic painted detail. The ship sits naturally in the water with lantern reflections. Use a dark blue sky and light river mist. Keep the foreground open. The reference's mirror and forest remain confined to the reference. Empty of people and text.",
+      "file": "assets/willows/landing-ship-night.webp",
+      "references": [
+        "assets/willows/landing-day.webp",
+        "assets/greek-drama/ship-card.webp"
+      ],
+      "sourceName": "exec-0073b384-3224-458e-b194-fd61a1715b6f.png",
+      "sourceSha256": "f5f08d339f85a50af18942f377f54bea727373bdd1a176bfadb1ca12c9d78419",
+      "sha256": "eccc07e492fe00237e93746026c69d88e515a91553cdc766cbdf97e0e102a887",
+      "size": [
+        1672,
+        941
+      ],
+      "processing": "Built-in image_gen; WebP quality 94 with original alpha."
     }
   ],
   "generated": "2026-10-28"

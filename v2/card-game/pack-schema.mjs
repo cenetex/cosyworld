@@ -831,7 +831,9 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "requires",
         "effects",
         "workId",
+        "repeatable",
       ]) &&
+        (c.repeatable === undefined || typeof c.repeatable === "boolean") &&
         idOk(c.id) &&
         !choiceIds.has(c.id) &&
         own.includes(c.subject) &&
@@ -845,6 +847,18 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     );
     choiceIds.add(c.id);
     requirements(c.requires, `choice ${c.id} requires`);
+    if (c.repeatable)
+      check(
+        c.effects.every((e) => e.kind === "set_flag") &&
+          (c.requires || []).length === c.effects.length &&
+          c.effects.every((e) =>
+            c.requires.some(
+              (r) =>
+                r.kind === "flag" && r.key === e.key && r.value !== e.value,
+            ),
+          ),
+        `repeatable choice ${c.id} needs opposite flag guards`,
+      );
     for (const e of c.effects) {
       let valid = false;
       if (e.kind === "choose") {

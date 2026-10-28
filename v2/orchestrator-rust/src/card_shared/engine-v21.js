@@ -13347,8 +13347,8 @@
           },
           "willows-camp": {
             name: "River Camp",
-            text: "A canvas tent shelters a food sack and a small cooking pot. The Swede watches the willow tops beyond the fire. A sandy path leads to the canoe.",
-            persona: "Speak as the campsite in first person, through the tent canvas, fire warmth, cooking smells and disturbed sand. The Swede is the one resident. Let ordinary shelter feel small within the surrounding willows. Supplies are those named in the current facts; their condition follows recorded discoveries. Describe the people and objects present with care.",
+            text: "A canvas tent shelters a food sack and a small cooking pot. A stone fire ring lies among the camping gear. The Swede watches the willow tops. A sandy path leads to the canoe.",
+            persona: "Speak as the campsite in first person, through the tent canvas, fire warmth, cooking smells and disturbed sand. The Swede is the one resident. Let ordinary shelter feel small within the surrounding willows. Supplies are those named in the current facts; their condition follows recorded discoveries. Describe the people and objects present with care. The current fire facts describe its warmth or cold ash.",
             exits: [
               "willows-landing",
               "willows-thicket"
@@ -13733,8 +13733,8 @@
             subject: "willows-swede",
             at: "willows-camp",
             label: "Keep watch with the Swede",
-            text: "The traveller chooses to keep watch with the Swede a while longer. They sit beside the fire. Beyond its warmth, the willows stir in a slow ring around the camp.",
-            textTemplate: "{actor} chooses to keep watch with the Swede a while longer. They sit beside the fire. Beyond its warmth, the willows stir in a slow ring around the camp.",
+            text: "The traveller chooses to keep watch with the Swede a while longer. They settle beside the tent. Around them, the willows stir in a slow ring around the camp.",
+            textTemplate: "{actor} chooses to keep watch with the Swede a while longer. They settle beside the tent. Around them, the willows stir in a slow ring around the camp.",
             summary: "The traveller chose to keep watch beside the Swede after they shared the strange discoveries.",
             requires: [
               {
@@ -13752,6 +13752,54 @@
                 kind: "choose",
                 key: "willows-response",
                 value: "watch"
+              }
+            ]
+          },
+          {
+            id: "willows-put-out-fire",
+            subject: "willows-camp",
+            at: "willows-camp",
+            label: "Put out the campfire",
+            text: "The traveller pours water over the campfire and stirs the ash until the logs are cold.",
+            textTemplate: "{actor} pours water over the campfire and stirs the ash until the logs are cold.",
+            summary: "The campfire was put out.",
+            repeatable: true,
+            requires: [
+              {
+                kind: "flag",
+                key: "willows-fire-out",
+                value: false
+              }
+            ],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "willows-fire-out",
+                value: true
+              }
+            ]
+          },
+          {
+            id: "willows-light-fire",
+            subject: "willows-camp",
+            at: "willows-camp",
+            label: "Light the campfire",
+            text: "The traveller sets dry kindling in the fire ring and lights a small campfire.",
+            textTemplate: "{actor} sets dry kindling in the fire ring and lights a small campfire.",
+            summary: "The campfire was lit.",
+            repeatable: true,
+            requires: [
+              {
+                kind: "flag",
+                key: "willows-fire-out",
+                value: true
+              }
+            ],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "willows-fire-out",
+                value: false
               }
             ]
           }
@@ -15660,12 +15708,22 @@
           "summary",
           "requires",
           "effects",
-          "workId"
-        ]) && idOk2(c.id) && !choiceIds.has(c.id) && own.includes(c.subject) && owns2(places2, c.at) && textOk2(c.label, 120) && textOk2(c.text, 600) && (c.textTemplate === void 0 || templateOk(c.textTemplate, 600, ["actor"])) && (c.summary === void 0 || textOk2(c.summary, 600)),
+          "workId",
+          "repeatable"
+        ]) && (c.repeatable === void 0 || typeof c.repeatable === "boolean") && idOk2(c.id) && !choiceIds.has(c.id) && own.includes(c.subject) && owns2(places2, c.at) && textOk2(c.label, 120) && textOk2(c.text, 600) && (c.textTemplate === void 0 || templateOk(c.textTemplate, 600, ["actor"])) && (c.summary === void 0 || textOk2(c.summary, 600)),
         `choice ${c.id} is invalid`
       );
       choiceIds.add(c.id);
       requirements(c.requires, `choice ${c.id} requires`);
+      if (c.repeatable)
+        check(
+          c.effects.every((e) => e.kind === "set_flag") && (c.requires || []).length === c.effects.length && c.effects.every(
+            (e) => c.requires.some(
+              (r) => r.kind === "flag" && r.key === e.key && r.value !== e.value
+            )
+          ),
+          `repeatable choice ${c.id} needs opposite flag guards`
+        );
       for (const e of c.effects) {
         let valid = false;
         if (e.kind === "choose") {
@@ -16699,7 +16757,7 @@
   }
   function choiceFeasible(world, pack, choice, actor) {
     const state = packState(world, pack.id);
-    if (!state || owns3(state.receipts, choice.id) || pack.release && state.scope !== "full" && !pack.release.choices.includes(choice.id) || world.actors[actor]?.place !== choice.at || !entityActive(world, choice.at) || !entityActive(world, choice.subject) || !conditionsMet(world, pack.id, choice.requires, actor))
+    if (!state || !choice.repeatable && owns3(state.receipts, choice.id) || pack.release && state.scope !== "full" && !pack.release.choices.includes(choice.id) || world.actors[actor]?.place !== choice.at || !entityActive(world, choice.at) || !entityActive(world, choice.subject) || !conditionsMet(world, pack.id, choice.requires, actor))
       return false;
     const subject = choice.subject;
     if (world.actors[subject] && world.actors[subject].place !== choice.at)
@@ -16844,7 +16902,7 @@
       );
       for (const [id, turn] of events) {
         const c = pack.choices?.find((c2) => c2.id === id);
-        if (!c || state.scope === "opening" && pack.release && !pack.release.choices.includes(id) || !Number.isSafeInteger(turn) || turn < 1 || turn > world.turn || seenTurns.has(turn) || !sectionAllows(projection, pack, c.at, conditionsMet) || !sectionAllows(projection, pack, c.subject, conditionsMet) || !progressionMet(c.requires) || !progressionMet(pack.places[c.at].requires) || !progressionMet(packEntity(c.subject)?.requires) || (c.requires || []).some(
+        if (!c || state.scope === "opening" && pack.release && !pack.release.choices.includes(id) || !Number.isSafeInteger(turn) || turn < 1 || turn > world.turn || seenTurns.has(turn) || !sectionAllows(projection, pack, c.at, conditionsMet) || !sectionAllows(projection, pack, c.subject, conditionsMet) || !c.repeatable && !progressionMet(c.requires) || !progressionMet(pack.places[c.at].requires) || !progressionMet(packEntity(c.subject)?.requires) || (c.requires || []).some(
           (condition2) => condition2.kind === "met" && (!owns3(state.met, condition2.actor) || state.met[condition2.actor] >= turn)
         ))
           return false;
@@ -22342,7 +22400,7 @@
       if (e.verb != null && !verbs.includes(e.verb)) fail();
       if (e.verb === "choose") {
         const pack = packDefinition(e.packId), choice = pack?.choices.find((c) => c.id === e.choiceId);
-        if (!choice || !humanAvatar(e.actorId) || e.targetId !== choice.subject || e.locationId !== choice.at || s.packs[e.packId].receipts[e.choiceId] !== e.turn)
+        if (!choice || !humanAvatar(e.actorId) || e.targetId !== choice.subject || e.locationId !== choice.at || (choice.repeatable ? !(s.packs[e.packId].receipts[e.choiceId] >= e.turn) : s.packs[e.packId].receipts[e.choiceId] !== e.turn))
           fail();
       } else if (e.packId !== void 0 || e.choiceId !== void 0) fail();
       if (e.destinationId != null && !Object.hasOwn(places, e.destinationId))
@@ -22603,7 +22661,11 @@
     if (willowsPlaces.has(id)) {
       const period2 = Math.floor(world.turn / WILLOWS_PHASE_TURNS);
       const phase2 = willowsPhases[period2 % willowsPhases.length];
-      return { phase: phase2, period: period2, description: willowsLight[phase2] };
+      return {
+        phase: phase2,
+        period: period2,
+        description: willowsLight[phase2] + (id === "willows-landing" && phase2 === "night" ? " A Greek ship waits in the backwater, its lanterns reflected on the river." : "")
+      };
     }
     if (!Object.hasOwn(nightBackdrops, id)) return null;
     const period = Math.floor(world.turn / DAYLIGHT_TURNS);
@@ -22620,10 +22682,44 @@
     return dockedNightBackdrops[file] || nightBackdrops[id] || file;
   }
 
+  // v2/card-game/willows-scenery.mjs
+  var art2 = (name) => `assets/willows/${name}.webp`;
+  var willowsAssets = [
+    "camp-out-day",
+    "camp-lit-night",
+    "camp-out-night",
+    "landing-ship-night",
+    "swede-listening",
+    "swede-worried",
+    "swede-seated"
+  ].map(art2);
+  var willowsFireLit = (world) => !world?.packs?.willows?.flags?.["willows-fire-out"];
+  function willowsBackdrop(world, id, file) {
+    if (!world) return file;
+    const night = locationDaylight(world, id)?.phase === "night";
+    if (id === "willows-landing" && night) return art2("landing-ship-night");
+    if (id === "willows-camp") {
+      if (night)
+        return art2(willowsFireLit(world) ? "camp-lit-night" : "camp-out-night");
+      if (!willowsFireLit(world)) return art2("camp-out-day");
+    }
+    return file;
+  }
+  function willowsSceneFacts(world, id) {
+    if (id !== "willows-camp" && id !== "willows-swede") return [];
+    return [
+      willowsFireLit(world) ? "The campfire is lit. Its warmth reaches the tent and the Swede." : "The campfire is out. Cold ash and dark logs lie inside the stone ring."
+    ];
+  }
+
   // v2/card-game/scene.mjs
   function backdrop(id, world = null) {
     const variant = world?.actors && visibleCrossing(world, id)?.scenery.backdrop;
-    const file = daylightBackdrop(world, id, variant || packPlaces[id]?.backdrop);
+    const file = daylightBackdrop(
+      world,
+      id,
+      willowsBackdrop(world, id, variant || packPlaces[id]?.backdrop)
+    );
     return file ? `./${file}` : `./assets/${id}.png`;
   }
   var visibleCrossing = (world, place) => crossings.find(
@@ -22634,7 +22730,8 @@
     const weather = locationWeather(world, id);
     const variant = weather ? `${crossing}:${weather.variant}` : crossing;
     const phase = locationDaylight(world, id)?.phase;
-    return phase && phase !== "day" ? `${variant}:${phase}` : variant;
+    const light = phase && phase !== "day" ? `${variant}:${phase}` : variant;
+    return id === "willows-camp" ? `${light}:fire-${willowsFireLit(world) ? "lit" : "out"}` : light;
   }
   var locationOverlay = (world, id) => {
     const f = visibleCrossing(world, id)?.scenery.overlay;
@@ -22930,6 +23027,7 @@
           ...learningFacts(world, id, nameOf),
           ...[...packFacts(world, id), ...continuity].filter((fact, index, all) => all.indexOf(fact) === index).slice(-4)
         ];
+        facts.push(...willowsSceneFacts(world, id));
         let desire = null;
         if (kind === "avatar") {
           if (hasTemperament(id)) {

@@ -16,6 +16,7 @@ import {
   currentScene,
   locationVariant,
   sceneScript,
+  portrait,
 } from "../v2/card-game/scene.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
@@ -94,7 +95,7 @@ describe("the Willows sky and item art", () => {
     expect(scene.daylight.phase).toBe("dusk");
     expect(scene.weather.condition).toBe("rain");
     expect(locationVariant(world, "willows-camp")).toBe(
-      "base:rain-shelter:dusk",
+      "base:rain-shelter:dusk:fire-lit",
     );
     expect(currentScene(decodeSave(encodeSave(world)))).toEqual(scene);
     const facts = narrativeContext(world).entities.find(
@@ -138,6 +139,116 @@ describe("the Willows sky and item art", () => {
       expect(views[0].weather.exposure).toBe("shelter");
       expect(views[1].weather.exposure).toBe("open");
     }
+  });
+
+  it("saves repeated fire choices, their paintings and the Swede's poses", () => {
+    let world = createWorld();
+    world.actors.vale.place = "willows-camp";
+    expect(portrait("willows-swede", null, world)).toContain(
+      "swede-seated.webp",
+    );
+    for (let cycle = 0; cycle < 3; cycle++)
+      for (const [choiceId, out] of [
+        ["willows-put-out-fire", true],
+        ["willows-light-fire", false],
+      ]) {
+        const action = legalActions(world).find((a) => a.choiceId === choiceId);
+        expect(action).toBeDefined();
+        const result = play(world, action);
+        expect(result.ok, result.error).toBe(true);
+        world = decodeSave(encodeSave(result.state));
+        expect(Boolean(world.packs.willows.flags["willows-fire-out"])).toBe(
+          out,
+        );
+        expect(backdrop("willows-camp", world)).toContain(
+          out ? "camp-out-day.webp" : "camp-day.webp",
+        );
+        expect(portrait("willows-swede", null, world)).toContain(
+          out ? "/swede.webp" : "/swede-seated.webp",
+        );
+        for (const id of ["willows-camp", "willows-swede"])
+          expect(
+            narrativeContext(world)
+              .entities.find((e) => e.id === id)
+              .facts.join(" "),
+          ).toContain(out ? "The campfire is out." : "The campfire is lit.");
+      }
+    world.turn = world.revision = 32;
+    expect(backdrop("willows-camp", world)).toContain("camp-lit-night.webp");
+    const result = play(
+      world,
+      legalActions(world).find((a) => a.choiceId === "willows-put-out-fire"),
+    );
+    expect(result.ok, result.error).toBe(true);
+    world = decodeSave(encodeSave(result.state));
+    expect(backdrop("willows-camp", world)).toContain("camp-out-night.webp");
+    expect(portrait("willows-swede", null, world)).toContain(
+      "swede-listening.webp",
+    );
+  });
+
+  it("shows the Greek ship at night and keeps the shared dock and riders intact", () => {
+    const world = createWorld();
+    const ship = structuredClone(world.transports["greek-ship"]);
+    for (const [turn, file] of [
+      [0, "landing-day.webp"],
+      [24, "landing-day.webp"],
+      [32, "landing-ship-night.webp"],
+      [47, "landing-ship-night.webp"],
+      [48, "landing-day.webp"],
+    ]) {
+      world.turn = world.revision = turn;
+      world.actors.vale.place = "willows-landing";
+      expect(backdrop("willows-landing", world)).toContain(file);
+      expect(world.transports["greek-ship"]).toEqual(ship);
+      if (turn === 32)
+        expect(
+          narrativeContext(world)
+            .entities.find((e) => e.id === "willows-landing")
+            .facts.join(" "),
+        ).toContain("A Greek ship waits in the backwater");
+    }
+  });
+
+  it("shares fire changes and rejects another player's old fire choice", () => {
+    const ask = bundled();
+    let world = dispatchShared({
+      op: "create",
+      save: encodeSave(createWorld()),
+    }).world;
+    world.actors.vale.place = world.actors.mara.place = "willows-camp";
+    const fields = { claimed: ["vale", "mara"], present: ["vale", "mara"] };
+    const stale = dispatchShared({
+      op: "view",
+      world,
+      actor: "mara",
+      ...fields,
+    }).actions.find((a) => a.choiceId === "willows-put-out-fire");
+    for (let cycle = 0; cycle < 2; cycle++)
+      for (const choiceId of ["willows-put-out-fire", "willows-light-fire"]) {
+        const actor = choiceId.endsWith("out-fire") ? "vale" : "mara";
+        const action = dispatchShared({
+          op: "view",
+          world,
+          actor,
+          ...fields,
+        }).actions.find((a) => a.choiceId === choiceId);
+        const request = { op: "play", world, actor, action, ...fields };
+        const result = dispatchShared(request);
+        expect(result.ok, result.error).toBe(true);
+        expect(ask(request)).toEqual(result);
+        world = decodeSave(encodeSave(result.world));
+        if (choiceId.endsWith("out-fire"))
+          expect(
+            dispatchShared({
+              op: "play",
+              world,
+              actor: "mara",
+              action: stale,
+              ...fields,
+            }).ok,
+          ).toBe(false);
+      }
   });
 
   it("publishes eight painted cutouts with transparent margins and visible subjects", async () => {

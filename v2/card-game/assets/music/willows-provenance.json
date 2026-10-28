@@ -1,0 +1,35 @@
+{
+  "supplied": "2026-10-28",
+  "source": "Project owner",
+  "processing": "Original complete M4A bytes.",
+  "tracks": [
+    {
+      "file": "willows-keep-to-bank-1.m4a",
+      "title": "Keep to the Bank",
+      "sourceName": "Keep to the Bank.m4a",
+      "sha256": "15f520e9eb1d473ecd27f0e9886206925b93e808b85ee56e8b3f1a290e017f6e",
+      "bytes": 4977915
+    },
+    {
+      "file": "willows-keep-to-bank-2.m4a",
+      "title": "Keep to the Bank II",
+      "sourceName": "Keep to the Bank-2.m4a",
+      "sha256": "f796213692183a9573c54e053cf78cbd749e5ea5831db50abb006661686f2363",
+      "bytes": 4771263
+    },
+    {
+      "file": "willows-dont-answer-trees.m4a",
+      "title": "Don't Answer the Trees",
+      "sourceName": "Don't Answer the Trees.m4a",
+      "sha256": "751bea6a33bdcdd82ae23591b3f5da20bbc58b4d60322935d885d4eb8ad5daa5",
+      "bytes": 3990416
+    },
+    {
+      "file": "willows-keep-to-bank-3.m4a",
+      "title": "Keep to the Bank III",
+      "sourceName": "Keep to the Bank-3.m4a",
+      "sha256": "4286f9743234c9cd8bda201c0022c166ba52513baeab04f09b4dc3e99a449e08",
+      "bytes": 3330781
+    }
+  ]
+}

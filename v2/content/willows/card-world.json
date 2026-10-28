@@ -33,8 +33,8 @@
     },
     "willows-camp": {
       "name": "River Camp",
-      "text": "A canvas tent shelters a food sack and a small cooking pot. The Swede watches the willow tops beyond the fire. A sandy path leads to the canoe.",
-      "persona": "Speak as the campsite in first person, through the tent canvas, fire warmth, cooking smells and disturbed sand. The Swede is the one resident. Let ordinary shelter feel small within the surrounding willows. Supplies are those named in the current facts; their condition follows recorded discoveries. Describe the people and objects present with care.",
+      "text": "A canvas tent shelters a food sack and a small cooking pot. A stone fire ring lies among the camping gear. The Swede watches the willow tops. A sandy path leads to the canoe.",
+      "persona": "Speak as the campsite in first person, through the tent canvas, fire warmth, cooking smells and disturbed sand. The Swede is the one resident. Let ordinary shelter feel small within the surrounding willows. Supplies are those named in the current facts; their condition follows recorded discoveries. Describe the people and objects present with care. The current fire facts describe its warmth or cold ash.",
       "exits": [
         "willows-landing",
         "willows-thicket"
@@ -419,8 +419,8 @@
       "subject": "willows-swede",
       "at": "willows-camp",
       "label": "Keep watch with the Swede",
-      "text": "The traveller chooses to keep watch with the Swede a while longer. They sit beside the fire. Beyond its warmth, the willows stir in a slow ring around the camp.",
-      "textTemplate": "{actor} chooses to keep watch with the Swede a while longer. They sit beside the fire. Beyond its warmth, the willows stir in a slow ring around the camp.",
+      "text": "The traveller chooses to keep watch with the Swede a while longer. They settle beside the tent. Around them, the willows stir in a slow ring around the camp.",
+      "textTemplate": "{actor} chooses to keep watch with the Swede a while longer. They settle beside the tent. Around them, the willows stir in a slow ring around the camp.",
       "summary": "The traveller chose to keep watch beside the Swede after they shared the strange discoveries.",
       "requires": [
         {
@@ -440,6 +440,54 @@
           "value": "watch"
         }
       ]
+    },
+    {
+      "id": "willows-put-out-fire",
+      "subject": "willows-camp",
+      "at": "willows-camp",
+      "label": "Put out the campfire",
+      "text": "The traveller pours water over the campfire and stirs the ash until the logs are cold.",
+      "textTemplate": "{actor} pours water over the campfire and stirs the ash until the logs are cold.",
+      "summary": "The campfire was put out.",
+      "repeatable": true,
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "willows-fire-out",
+          "value": false
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "willows-fire-out",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "willows-light-fire",
+      "subject": "willows-camp",
+      "at": "willows-camp",
+      "label": "Light the campfire",
+      "text": "The traveller sets dry kindling in the fire ring and lights a small campfire.",
+      "textTemplate": "{actor} sets dry kindling in the fire ring and lights a small campfire.",
+      "summary": "The campfire was lit.",
+      "repeatable": true,
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "willows-fire-out",
+          "value": true
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "willows-fire-out",
+          "value": false
+        }
+      ]
     }
   ],
   "readings": [
@@ -447,50 +495,50 @@
       "id": "willows-arrival-text",
       "actor": "willows-swede",
       "after": null,
-      "title": "Algernon Blackwood, The Willows (1907), I — The river island",
-      "text": "The change came suddenly, as when a series of bioscope pictures snaps down on the streets of a town and shifts without warning into the scenery of lake and forest. We entered the land of desolation on wings, and in less than half an hour there was neither boat nor fishing-hut nor red roof, nor any single sign of human habitation and civilization within sight. The sense of remoteness from the world of humankind, the utter isolation, the fascination of this singular world of willows, winds, and waters, instantly laid its spell upon us both, so that we allowed laughingly to one another that we ought by rights to have held some special kind of passport to admit us, and that we had, somewhat audaciously, come without asking leave into a separate little kingdom of wonder and magic—a kingdom that was reserved for the use of others who had a right to it, with everywhere unwritten warnings to trespassers for those who had the imagination to discover them."
+      "title": "Algernon Blackwood, The Willows (1907), I \u2014 The river island",
+      "text": "The change came suddenly, as when a series of bioscope pictures snaps down on the streets of a town and shifts without warning into the scenery of lake and forest. We entered the land of desolation on wings, and in less than half an hour there was neither boat nor fishing-hut nor red roof, nor any single sign of human habitation and civilization within sight. The sense of remoteness from the world of humankind, the utter isolation, the fascination of this singular world of willows, winds, and waters, instantly laid its spell upon us both, so that we allowed laughingly to one another that we ought by rights to have held some special kind of passport to admit us, and that we had, somewhat audaciously, come without asking leave into a separate little kingdom of wonder and magic\u2014a kingdom that was reserved for the use of others who had a right to it, with everywhere unwritten warnings to trespassers for those who had the imagination to discover them."
     },
     {
       "id": "willows-hull-text",
       "actor": "willows-swede",
       "after": "willows-examine-hull",
-      "title": "Algernon Blackwood, The Willows (1907), III — The damaged canoe",
+      "title": "Algernon Blackwood, The Willows (1907), III \u2014 The damaged canoe",
       "text": "There was a long, finely made tear in the bottom of the canoe where a little slither of wood had been neatly taken clean out; it looked as if the tooth of a sharp rock or snag had eaten down her length, and investigation showed that the hole went through. Had we launched out in her without observing it we must inevitably have foundered. At first the water would have made the wood swell so as to close the hole, but once out in mid-stream the water must have poured in, and the canoe, never more than two inches above the surface, would have filled and sunk very rapidly."
     },
     {
       "id": "willows-stores-text",
       "actor": "willows-swede",
       "after": "willows-count-stores",
-      "title": "Algernon Blackwood, The Willows (1907), IV — The missing bread",
-      "text": "“It’s gone. There is no bread. They’ve taken it!”"
+      "title": "Algernon Blackwood, The Willows (1907), IV \u2014 The missing bread",
+      "text": "\u201cIt\u2019s gone. There is no bread. They\u2019ve taken it!\u201d"
     },
     {
       "id": "willows-hollows-text",
       "actor": "willows-swede",
       "after": "willows-examine-hollows",
-      "title": "Algernon Blackwood, The Willows (1907), III — The sand hollows",
-      "text": "I made a hurried examination of the tent and its surroundings, but the measurements of the night remained the same. There were deep hollows formed in the sand I now noticed for the first time, basin-shaped and of various depths and sizes, varying from that of a tea-cup to a large bowl. The wind, no doubt, was responsible for these miniature craters, just as it was for lifting the paddle and tossing it towards the water. The rent in the canoe was the only thing that seemed quite inexplicable; and, after all, it _was_ conceivable that a sharp point had caught it when we landed. The examination I made of the shore did not assist this theory, but all the same I clung to it with that diminishing portion of my intelligence which I called my “reason.” An explanation of some kind was an absolute necessity, just as some working explanation of the universe is necessary—however absurd—to the happiness of every individual who seeks to do his duty in the world and face the problems of life. The simile seemed to me at the time an exact parallel."
+      "title": "Algernon Blackwood, The Willows (1907), III \u2014 The sand hollows",
+      "text": "I made a hurried examination of the tent and its surroundings, but the measurements of the night remained the same. There were deep hollows formed in the sand I now noticed for the first time, basin-shaped and of various depths and sizes, varying from that of a tea-cup to a large bowl. The wind, no doubt, was responsible for these miniature craters, just as it was for lifting the paddle and tossing it towards the water. The rent in the canoe was the only thing that seemed quite inexplicable; and, after all, it _was_ conceivable that a sharp point had caught it when we landed. The examination I made of the shore did not assist this theory, but all the same I clung to it with that diminishing portion of my intelligence which I called my \u201creason.\u201d An explanation of some kind was an absolute necessity, just as some working explanation of the universe is necessary\u2014however absurd\u2014to the happiness of every individual who seeks to do his duty in the world and face the problems of life. The simile seemed to me at the time an exact parallel."
     },
     {
       "id": "willows-humming-text",
       "actor": "willows-swede",
       "after": "willows-hear-humming",
-      "title": "Algernon Blackwood, The Willows (1907), IV — The humming",
-      "text": "We stood there, listening attentively together. At first I heard only the deep note of the water and the hissings rising from its turbulent surface. The willows, for once, were motionless and silent. Then a sound began to reach my ears faintly, a peculiar sound—something like the humming of a distant gong. It seemed to come across to us in the darkness from the waste of swamps and willows opposite. It was repeated at regular intervals, but it was certainly neither the sound of a bell nor the hooting of a distant steamer. I can liken it to nothing so much as to the sound of an immense gong, suspended far up in the sky, repeating incessantly its muffled metallic note, soft and musical, as it was repeatedly struck. My heart quickened as I listened."
+      "title": "Algernon Blackwood, The Willows (1907), IV \u2014 The humming",
+      "text": "We stood there, listening attentively together. At first I heard only the deep note of the water and the hissings rising from its turbulent surface. The willows, for once, were motionless and silent. Then a sound began to reach my ears faintly, a peculiar sound\u2014something like the humming of a distant gong. It seemed to come across to us in the darkness from the waste of swamps and willows opposite. It was repeated at regular intervals, but it was certainly neither the sound of a bell nor the hooting of a distant steamer. I can liken it to nothing so much as to the sound of an immense gong, suspended far up in the sky, repeating incessantly its muffled metallic note, soft and musical, as it was repeatedly struck. My heart quickened as I listened."
     },
     {
       "id": "willows-roots-text",
       "actor": "willows-swede",
       "after": "willows-look-beneath-roots",
-      "title": "Algernon Blackwood, The Willows (1907), V — The mark",
+      "title": "Algernon Blackwood, The Willows (1907), V \u2014 The mark",
       "text": "For just as the body swung round to the current the face and the exposed chest turned full towards us, and showed plainly how the skin and flesh were indented with small hollows, beautifully formed, and exactly similar in shape and kind to the sand-funnels that we had found all over the island."
     },
     {
       "id": "willows-understanding-text",
       "actor": "willows-swede",
       "after": "willows-compare-signs",
-      "title": "Algernon Blackwood, The Willows (1907), IV — The Swede understands",
-      "text": "“It’s _their_ sound,” he whispered gravely. “It’s the sound of their world, the humming in their region. The division here is so thin that it leaks through somehow. But, if you listen carefully, you’ll find it’s not above so much as around us. It’s in the willows. It’s the willows themselves humming, because here the willows have been made symbols of the forces that are against us.”"
+      "title": "Algernon Blackwood, The Willows (1907), IV \u2014 The Swede understands",
+      "text": "\u201cIt\u2019s _their_ sound,\u201d he whispered gravely. \u201cIt\u2019s the sound of their world, the humming in their region. The division here is so thin that it leaks through somehow. But, if you listen carefully, you\u2019ll find it\u2019s not above so much as around us. It\u2019s in the willows. It\u2019s the willows themselves humming, because here the willows have been made symbols of the forces that are against us.\u201d"
     }
   ],
   "sources": [
