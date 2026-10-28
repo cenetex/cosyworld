@@ -18,12 +18,12 @@ import {
 import { addQuestRecord } from "../v2/card-game/shared-quests.mjs";
 import { recordQuestCompletion } from "../v2/card-game/quest-completions.mjs";
 
-function releasedRoad(road) {
+function releasedRoad(road, version = 16) {
   const context = vm.createContext({});
   vm.runInContext(
     readFileSync(
       new URL(
-        "../v2/orchestrator-rust/src/card_shared/engine-v16.js",
+        `../v2/orchestrator-rust/src/card_shared/engine-v${version}.js`,
         import.meta.url,
       ),
       "utf8",
@@ -57,37 +57,42 @@ function releasedRoad(road) {
 
 describe("local town visits and road history", () => {
   it.each([
-    ["greek-road-thebes", "greek-harbor", "greek-courtyard"],
-    ["greek-road-athens-harbor", "greek-athens-harbor", "greek-athens"],
-  ])("continues a released visit on %s inside its town", (road, port, town) => {
-    const before = releasedRoad(road);
-    before.items.lamp.holder = road;
-    before.routeKnowledge.vale = [
-      [port, road],
-      [road, town],
-      [town, road],
-      [road, port],
-    ];
-    const current = decodeSave(JSON.stringify(before));
-    expect(current.actors.vale.place).toBe(port);
-    expect(current.actors.mara.place).toBe(port);
-    expect(current.items.lamp.holder).toBe(port);
-    expect(current.routeKnowledge.vale).toEqual([
-      [port, town],
-      [town, port],
-    ]);
-    expect(current.log).toEqual(before.log);
-    expect(current.memories[road]).toEqual(before.memories[road]);
-    expect(current.packs["greek-drama"].revision).toBe(6);
-    expect(exits(current, port, "vale")).toContain(town);
-    expect(
-      legalActions(current, "vale").some(
-        (a) => a.kind === "move" && a.target === town,
-      ),
-    ).toBe(true);
-    expect(availableCards(current)).not.toContain(road);
-    expect(decodeSave(encodeSave(current))).toEqual(current);
-  });
+    ["greek-road-thebes", "greek-harbor", "greek-courtyard", 16],
+    ["greek-road-athens-harbor", "greek-athens-harbor", "greek-athens", 16],
+    ["greek-road-thebes", "greek-harbor", "greek-courtyard", 17],
+    ["greek-road-athens-harbor", "greek-athens-harbor", "greek-athens", 17],
+  ])(
+    "continues a released visit on %s inside its town",
+    (road, port, town, version) => {
+      const before = releasedRoad(road, version);
+      before.items.lamp.holder = road;
+      before.routeKnowledge.vale = [
+        [port, road],
+        [road, town],
+        [town, road],
+        [road, port],
+      ];
+      const current = decodeSave(JSON.stringify(before));
+      expect(current.actors.vale.place).toBe(port);
+      expect(current.actors.mara.place).toBe(port);
+      expect(current.items.lamp.holder).toBe(port);
+      expect(current.routeKnowledge.vale).toEqual([
+        [port, town],
+        [town, port],
+      ]);
+      expect(current.log).toEqual(before.log);
+      expect(current.memories[road]).toMatchObject(before.memories[road]);
+      expect(current.packs["greek-drama"].revision).toBe(6);
+      expect(exits(current, port, "vale")).toContain(town);
+      expect(
+        legalActions(current, "vale").some(
+          (a) => a.kind === "move" && a.target === town,
+        ),
+      ).toBe(true);
+      expect(availableCards(current)).not.toContain(road);
+      expect(decodeSave(encodeSave(current))).toEqual(current);
+    },
+  );
 
   it("keeps a free place for a traveler when the port has four people", () => {
     const before = releasedRoad("greek-road-athens-harbor");

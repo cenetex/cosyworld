@@ -5,7 +5,7 @@ use super::{
 };
 use serde_json::json;
 
-fn assert_saved_actors(current: &Value, old: &Value) {
+pub(super) fn assert_saved_actors(current: &Value, old: &Value) {
     for (id, saved) in old.as_object().unwrap() {
         let mut actor = current[id].clone();
         actor["trust"]
@@ -19,7 +19,22 @@ fn assert_saved_actors(current: &Value, old: &Value) {
                     false
                 }
             });
+        if id == "boardyai" && saved["progress"].get("current").is_none() {
+            if let Some(program) = actor["progress"].as_object_mut().unwrap().remove("current") {
+                assert!(program["generated"].is_object());
+            }
+        }
         assert_eq!(&actor, saved, "saved actor {id}");
+    }
+}
+
+pub(super) fn assert_saved_memories(current: &Value, old: &Value) {
+    for (id, saved) in old.as_object().unwrap() {
+        let mut retained = current[id].clone();
+        if saved.get("seen").is_none() {
+            retained.as_object_mut().unwrap().remove("seen");
+        }
+        assert_eq!(&retained, saved, "saved memory {id}");
     }
 }
 

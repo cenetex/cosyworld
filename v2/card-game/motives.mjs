@@ -146,7 +146,7 @@ export function interest(s, actor) {
       reason: packPeople[actor].tastes.reason,
     };
   const resident = packPeople[actor];
-  if (resident) {
+  if (resident && !resident.personalQuests) {
     const wish = resident.desire,
       active = wish && conditionsMet(s, resident.packId, wish.requires);
     return {

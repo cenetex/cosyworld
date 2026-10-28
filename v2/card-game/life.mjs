@@ -6,7 +6,7 @@ import { collectionCards, focusedQuest } from "./shared-quests.mjs";
 import { rootOwner, questItemAvailable } from "./situations.mjs";
 import { profiles } from "./memory.mjs";
 import { humanAvatarIds } from "./human-cast.mjs";
-import { isPackActor } from "./pack-registry.mjs";
+import { isPackActor, packPeople } from "./pack-registry.mjs";
 
 export const LIFE_VERSION = 2;
 // Internal pacing. The card shows prose; these numbers stay out of sight.
@@ -38,7 +38,7 @@ export const questActive = (s, actor) => {
         focused.completedTurn === null &&
         !focused.retired,
     ) ||
-    (!isPackActor(actor) &&
+    ((!isPackActor(actor) || packPeople[actor]?.personalQuests) &&
       (!lifeOf(s, actor) || lifeOf(s, actor).phase === "active"))
   );
 };
@@ -133,7 +133,12 @@ function newLife(s, actor, profile) {
 // A mounted human joins the same save schema as the existing cast.
 export function installHumanLife(s, profileOf = () => null) {
   if (!s.life?.actors) return;
-  for (const id of humanAvatarIds) {
+  for (const id of [
+    ...new Set([
+      ...humanAvatarIds,
+      ...Object.keys(s.actors).filter((id) => profileOf(id)?.quests === true),
+    ]),
+  ]) {
     if (!s.actors[id] || s.life.actors[id]) continue;
     s.life.actors[id] =
       s.life.version === 1
@@ -530,7 +535,11 @@ export function settleLife(
 }
 
 function fitsMilestone(milestone, program) {
-  return !!milestone?.includes(program.generated?.situation);
+  return !!milestone?.includes(
+    program.generated?.situation === "introduction"
+      ? "gathering"
+      : program.generated?.situation,
+  );
 }
 export function finishPersonalQuest(
   s,

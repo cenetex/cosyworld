@@ -117,7 +117,7 @@ describe("the full world shared by human avatars", () => {
       expect(world.items[avatar.item.id].holder).toBe(avatar.home.id);
   });
   it("upgrades unused homes while preserving claimed avatars and existing item history", () => {
-    const old = shared();
+    const old = ask(shared(), "view").world;
     for (const avatar of humanAvatars.filter((a) => a.id !== "vale"))
       old.items[avatar.item.id].holder = avatar.id;
     const result = ask(old, "upgrade", "vale", {
@@ -133,10 +133,11 @@ describe("the full world shared by human avatars", () => {
     expect(result.world.turn).toBe(old.turn);
     expect(result.world.revision).toBe(old.revision + 1);
     expect(result.world.log).toEqual(old.log);
-    expect(result.world.actors).toEqual({
-      ...old.actors,
-      boardyai: { ...old.actors.boardyai, place: old.actors.vale.place },
-    });
+    const { boardyai: boardy, ...others } = result.world.actors;
+    const { boardyai: oldBoardy, ...oldOthers } = old.actors;
+    expect(others).toEqual(oldOthers);
+    expect(boardy).toMatchObject(oldBoardy);
+    expect(boardy.progress.current.generated.pair).toEqual(["vale", "mara"]);
   });
   it("imports the exact opening, fuel, progress, memory and life state", () => {
     let world = enableMotives(createWorld({ opening: true }), {

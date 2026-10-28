@@ -22,6 +22,11 @@ fn greek_ports_roads_and_waiting_replay_after_the_version_sixteen_upgrade() {
 }
 
 #[test]
+fn greek_ports_roads_and_waiting_replay_after_the_version_seventeen_upgrade() {
+    replay_journey(engine::SEVENTEENTH_VERSION);
+}
+
+#[test]
 fn local_road_visitors_and_belongings_continue_inside_the_town_after_replay() {
     for (road, port, town) in [
         ("greek-road-thebes", "greek-harbor", "greek-courtyard"),

@@ -72,9 +72,14 @@ describe("Greek section save upgrade", () => {
         ))
           expect(after.actors[id].trust[other]).toBe(0);
       }
-      for (const field of ["items", "memories", "peaceUntil"])
+      for (const field of ["items", "peaceUntil"])
         for (const [id, value] of Object.entries(before[field]))
           expect(after[field][id]).toEqual(value);
+      for (const [id, memory] of Object.entries(before.memories)) {
+        const { seen, ...retained } = after.memories[id];
+        expect(retained).toEqual(memory);
+        if (seen) expect(typeof seen).toBe("object");
+      }
       const pack = packDefinition("greek-drama");
       for (const [id, actor] of Object.entries(pack.avatars).filter(
         ([key]) => !before.actors[key],

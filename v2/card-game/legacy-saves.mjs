@@ -2,8 +2,13 @@ import { syncStoryQuests } from "./story-quests.mjs";
 import { publishQuestCompletions } from "./quest-completions.mjs";
 import { installSharedQuestRegistry } from "./shared-quests.mjs";
 import { newProgress, questPrograms } from "./quests.mjs";
-import { migrateMemories, newMemories, rememberEvent } from "./memory.mjs";
-import { migrateLife } from "./life.mjs";
+import {
+  migrateMemories,
+  newMemories,
+  rememberEvent,
+  upgradeSightings,
+} from "./memory.mjs";
+import { installHumanLife, migrateLife } from "./life.mjs";
 import { upgradeRecitals } from "./pack-recital.mjs";
 import {
   isPackActor,
@@ -108,7 +113,9 @@ export function upgradeSave(
     upgradeBoardingSave(s);
     upgradeRecitals(s, packDefinitions);
   }
+  upgradeSightings(s);
   migrateLife(s, profileOf);
+  installHumanLife(s, profileOf);
   if (Object.values(s.life?.actors || {}).some((life) => life.collection))
     installSharedQuestRegistry(s);
   if (s?.schema === 7) publishQuestCompletions(s, syncStoryQuests(s));

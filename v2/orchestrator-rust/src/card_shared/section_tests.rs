@@ -67,11 +67,12 @@ fn preserves_old_entities(after: &Value, before: &Value) {
             });
         assert_eq!(&actor, old, "saved actor {id}");
     }
-    for field in ["items", "memories", "peaceUntil"] {
+    for field in ["items", "peaceUntil"] {
         for (id, value) in before[field].as_object().unwrap() {
             assert_eq!(&after[field][id], value, "saved {field} {id}");
         }
     }
+    super::full_tests::assert_saved_memories(&after["memories"], &before["memories"]);
 }
 
 #[test]
