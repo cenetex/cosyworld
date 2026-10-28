@@ -10,6 +10,8 @@ import {
 } from "../v2/card-game/pack-registry.mjs";
 import { recitalPoem } from "../v2/card-game/pack-recital.mjs";
 import {
+  andromacheJourney,
+  hippolytusJourney,
   helenJourney,
   helenPrepared,
   ivStart,
@@ -62,4 +64,36 @@ describe("The Faces of Home: Helen", () => {
       ),
     ).toBe(false);
   });
+});
+
+describe("The Faces of Home: Andromache", () => {
+  it.each(["protection", "departure"])(
+    "finishes the %s road with mother, child and Delphic report",
+    (route) => {
+      const world = andromacheJourney(route),
+        id = (slug) => ivId("andromache", slug);
+      expect(world.packs["greek-drama"].choices[id("return")]).toBe(route);
+      for (const who of ["andromache", "molossus"])
+        expect(world.actors[id(who)].place).toBe(
+          id(route === "protection" ? "household" : "boundary"),
+        );
+      expect(world.items[id("account")].holder).toBe("greek-courtyard");
+      expect(decodeSave(encodeSave(world))).toEqual(world);
+    },
+  );
+});
+
+describe("The Faces of Home: Hippolytus", () => {
+  it.each(["hearing", "source"])(
+    "carries the %s result after its separate reports",
+    (route) => {
+      const world = hippolytusJourney(route),
+        id = (slug) => ivId("hippolytus", slug);
+      expect(world.packs["greek-drama"].choices[id("return")]).toBe(route);
+      expect(entityActive(world, id("phaedra"))).toBe(false);
+      expect(entityActive(world, id("hippolytus"))).toBe(route === "hearing");
+      expect(world.items[id("account")].holder).toBe("greek-courtyard");
+      expect(decodeSave(encodeSave(world))).toEqual(world);
+    },
+  );
 });

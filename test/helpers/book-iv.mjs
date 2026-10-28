@@ -3,6 +3,7 @@ import {
   narrativeContext,
   applyGeneratedText,
 } from "../../v2/card-game/narrative.mjs";
+import { packDefinition } from "../../v2/card-game/pack-registry.mjs";
 import { openDoorJourney, playOpenDoor } from "./open-door.mjs";
 export const ivId = (work, slug) => `greek-book-iv-${work}-${slug}`;
 export function ivPlay(world, kind, fields = {}, actor = "vale") {
@@ -16,6 +17,11 @@ export function ivPlay(world, kind, fields = {}, actor = "vale") {
     );
   const result = play(world, action, world.revision);
   if (!result.ok) throw new Error(result.error);
+  if (
+    kind === "accompany" &&
+    result.state.actors[fields.target].place !== fields.destination
+  )
+    throw new Error(`Refused journey: ${JSON.stringify(fields)}`);
   return result.state;
 }
 export const ivChoose = (world, work, slug) =>
@@ -124,4 +130,139 @@ export function helenJourney(route = "escape") {
     "greek-courtyard",
   );
   return ivChoose(world, "helen", `return-${route}`);
+}
+
+export function ivWalk(world, target) {
+  const paths = [[world.actors.vale.place]],
+    seen = new Set(paths[0]);
+  while (paths.length) {
+    const path = paths.shift(),
+      here = path.at(-1);
+    if (here === target)
+      return path.slice(1).reduce((s, to) => ivMove(s, to), world);
+    const nextPlaces =
+      here === "greek-ship"
+        ? packDefinition("greek-drama").transports["greek-ship"].docks
+        : exits(world, here, "vale");
+    for (const next of nextPlaces)
+      if (!seen.has(next)) {
+        seen.add(next);
+        paths.push([...path, next]);
+      }
+  }
+  throw new Error(`No road from ${world.actors.vale.place} to ${target}`);
+}
+export function andromacheEnding(route = "protection") {
+  const w = "andromache",
+    id = (slug) => ivId(w, slug);
+  let world = ivWalk(ivStart(), "greek-thetis");
+  for (const item of [id("food"), id("summons")]) world = ivTake(world, item);
+  world = ivTalk(world, id("andromache"), id("hear-mother-words"));
+  world = ivChoose(world, w, "feed-shrine");
+  world = ivMove(world, id("household"));
+  world = ivTalk(world, id("peleus"), id("peleus-consent-words"));
+  world = ivPlay(world, "accompany", {
+    target: id("peleus"),
+    destination: "greek-thetis",
+  });
+  world = ivTalk(world, id("peleus"), id("defender-arrival-words"));
+  world = ivTalk(world, id("andromache"), id("mother-consent-words"));
+  world = ivMove(world, id("refuge"));
+  world = ivTalk(world, id("molossus"), id("child-consent-words"));
+  world = ivPlay(world, "accompany", {
+    target: id("molossus"),
+    destination: "greek-thetis",
+  });
+  world = ivPlay(world, "accompany", {
+    target: id("molossus"),
+    destination: id("household"),
+  });
+  world = ivTalk(world, id("molossus"), id("child-home-words"));
+  world = ivMove(world, "greek-thetis");
+  world = ivPlay(world, "accompany", {
+    target: id("andromache"),
+    destination: id("household"),
+  });
+  world = ivTalk(world, id("andromache"), id("mother-home-words"));
+  for (const item of [id("pledge"), id("provisions")])
+    world = ivTake(world, item);
+  world = ivChoose(world, w, `plan-${route}`);
+  // Visit the report via the boundary’s public approach before the household result.
+  if (route === "departure") {
+    world = ivTalk(world, id("andromache"), id("departure-consent-words"));
+    world = ivPlay(world, "accompany", {
+      target: id("molossus"),
+      destination: id("boundary"),
+    });
+    world = ivTalk(world, id("molossus"), id("child-boundary-words"));
+    world = ivMove(world, id("household"));
+    world = ivPlay(world, "accompany", {
+      target: id("andromache"),
+      destination: id("boundary"),
+    });
+    world = ivTalk(world, id("andromache"), id("mother-boundary-words"));
+  } else world = ivWalk(world, id("boundary"));
+  world = ivTake(world, id("account"));
+  world = ivTalk(world, id("messenger"), id("delphic-report-words"));
+  if (route === "protection") world = ivMove(world, id("household"));
+  return ivTalk(world, id("andromache"), id(`finish-${route}-words`));
+}
+export function andromacheJourney(route = "protection") {
+  return ivChoose(
+    ivWalk(andromacheEnding(route), "greek-courtyard"),
+    "andromache",
+    `return-${route}`,
+  );
+}
+
+export function hippolytusPrepared() {
+  const w = "hippolytus",
+    id = (slug) => ivId(w, slug);
+  let world = ivWalk(ivStart(), "greek-troezen");
+  world = ivTake(world, id("water"));
+  world = ivMove(world, id("sickroom"));
+  world = ivTake(world, id("cloth"));
+  world = ivTalk(world, id("phaedra"), id("hear-phaedra-words"));
+  world = ivTalk(world, id("nurse"), id("hear-nurse-words"));
+  world = ivChoose(world, w, "cool-cloth");
+  world = ivTalk(world, id("nurse"), id("phaedra-death-words"));
+  world = ivTake(world, id("account"));
+  world = ivMove(world, "greek-troezen");
+  world = ivTake(world, id("accusation"));
+  world = ivTalk(world, id("hippolytus"), id("hear-oath-words"));
+  world = ivMove(world, id("sickroom"));
+  world = ivTalk(world, id("nurse"), id("nurse-witness-words"));
+  world = ivChoose(ivMove(world, "greek-troezen"), w, "set-evidence");
+  return world;
+}
+export function hippolytusEnding(route = "hearing") {
+  const w = "hippolytus",
+    id = (slug) => ivId(w, slug);
+  let world = ivChoose(hippolytusPrepared(), w, `plan-${route}`);
+  world = ivTake(world, id("account"));
+  if (route === "hearing") {
+    world = ivTake(world, id("delay"));
+    world = ivMove(world, id("sea-shrine"));
+    world = ivChoose(world, w, "deliver-delay");
+    world = ivTalk(world, id("messenger"), id("theseus-delay-words"));
+  } else {
+    world = ivTake(world, id("covering"));
+    world = ivMove(world, id("sea-shrine"));
+    world = ivTalk(world, id("messenger"), id("curse-report-words"));
+    world = ivTalk(world, id("messenger"), id("injury-report-words"));
+    world = ivChoose(ivMove(world, "greek-troezen"), w, "cover-son");
+    world = ivMove(world, id("sea-shrine"));
+    world = ivTalk(world, id("messenger"), id("summon-father-words"));
+    world = ivMove(world, "greek-troezen");
+    world = ivTalk(world, id("hippolytus"), id("son-forgives-words"));
+    world = ivMove(world, id("sea-shrine"));
+  }
+  return ivTalk(world, id("messenger"), id(`finish-${route}-words`));
+}
+export function hippolytusJourney(route = "hearing") {
+  return ivChoose(
+    ivWalk(hippolytusEnding(route), "greek-courtyard"),
+    "hippolytus",
+    `return-${route}`,
+  );
 }
