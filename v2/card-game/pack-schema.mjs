@@ -2,6 +2,8 @@
 // The build script and the browser registry both use this one validator, so
 // an authored pack either loads exactly as checked or does not load at all.
 
+import { EXPRESSION_TYPES } from "./expression.mjs";
+
 export const PACK_SCHEMA_VERSION = 1;
 // Resolved plays a signal step can match. Each is a verb the engine logs.
 export const SIGNAL_VERBS = [
@@ -429,6 +431,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "standoffs",
         "persona",
         "voice",
+        "expression",
         "tastes",
         "portrait",
         "temperament",
@@ -448,6 +451,10 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         textOk(a.voice) &&
         owns(places, a.place),
       `avatar ${id} needs a name, text, persona, voice and a home place in this pack`,
+    );
+    check(
+      a.expression === undefined || EXPRESSION_TYPES.includes(a.expression),
+      `avatar ${id} expression needs speech, movement or emoji`,
     );
     check(
       [a.travels, a.standoffs].every((v) => v === undefined || v === false) &&
