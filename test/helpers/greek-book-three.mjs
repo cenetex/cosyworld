@@ -1,0 +1,117 @@
+import { legalActions, play } from "../../v2/card-game/world.mjs";
+import {
+  narrativeContext,
+  applyGeneratedText,
+} from "../../v2/card-game/narrative.mjs";
+import { ajaxJourney } from "./greek-ajax.mjs";
+
+export function bookPlay(world, kind, fields = {}, actor = "vale") {
+  const action = legalActions(world, actor).find(
+    (candidate) =>
+      candidate.kind === kind &&
+      Object.entries(fields).every(([key, value]) => candidate[key] === value),
+  );
+  if (!action)
+    throw new Error(`${actor} needs ${kind} ${JSON.stringify(fields)}`);
+  const result = play(world, action, world.revision);
+  if (!result.ok) throw new Error(result.error);
+  return result.state;
+}
+
+export const bookMove = (world, ...places) =>
+  places.reduce((state, target) => bookPlay(state, "move", { target }), world);
+export const aulisChoice = (world, id) =>
+  bookPlay(world, "choose", { choiceId: `greek-aulis-${id}` });
+export const aulisState = (world) => world.packs["greek-drama"];
+
+export function bookTalk(world, speaker, topic, actor = "vale") {
+  const action = legalActions(world, actor).find(
+    (candidate) => candidate.kind === "talk" && candidate.target === speaker,
+  );
+  if (!action) throw new Error(`${actor} needs Talk with ${speaker}`);
+  const result = play(world, action, world.revision);
+  if (!result.ok) throw new Error(result.error);
+  const context = narrativeContext(result.state, action);
+  const disclosure = context.disclosures?.[0];
+  if (disclosure?.factId !== topic)
+    throw new Error(`Expected ${topic}, reserved ${disclosure?.factId}`);
+  return applyGeneratedText(result.state, context, {
+    revision: context.revision,
+    model: "fixture",
+    entries: context.entities.map(({ id }) => ({
+      id,
+      text: id === disclosure.speaker ? disclosure.text : "I hear the account.",
+    })),
+  });
+}
+
+let prior;
+export function aulisStart() {
+  prior ||= ajaxJourney();
+  let world = bookMove(structuredClone(prior), "greek-harbor");
+  world = aulisChoice(world, "invitation");
+  return bookMove(world, "greek-ship", "greek-aulis");
+}
+
+export function aulisWitness() {
+  let world = bookTalk(
+    aulisStart(),
+    "greek-aulis-achilles",
+    "greek-aulis-recall",
+  );
+  world = bookPlay(world, "take", { item: "greek-aulis-recall-letter" });
+  world = bookMove(world, "greek-aulis-household");
+  world = aulisChoice(world, "deliver-recall");
+  world = bookTalk(world, "greek-aulis-clytemnestra", "greek-aulis-purpose");
+  world = bookPlay(world, "take", { item: "greek-aulis-wedding-veil" });
+  world = aulisChoice(world, "tell-daughter");
+  world = bookTalk(world, "greek-aulis-iphigenia", "greek-aulis-daughter");
+  world = bookMove(world, "greek-aulis");
+  return aulisChoice(world, "secure-witness");
+}
+
+export function aulisPrepared(route = "rescue") {
+  let world = bookMove(aulisWitness(), "greek-aulis-household");
+  world = aulisChoice(world, `choose-${route}`);
+  world = bookPlay(world, "take", { item: "greek-aulis-offering-cloth" });
+  if (route === "escape")
+    return bookPlay(world, "accompany", {
+      target: "greek-aulis-iphigenia",
+      destination: "greek-aulis",
+    });
+  world = bookMove(world, "greek-aulis", "greek-aulis-altar");
+  world = aulisChoice(world, `prepare-${route}`);
+  if (route === "rescue") {
+    world = bookMove(world, "greek-aulis");
+    world = bookTalk(
+      world,
+      "greek-aulis-achilles",
+      "greek-aulis-rescue-report",
+    );
+    world = bookMove(world, "greek-aulis-altar");
+  }
+  return world;
+}
+
+export function aulisAccount(route = "rescue") {
+  let world = aulisChoice(aulisPrepared(route), `complete-${route}`);
+  if (route !== "escape") world = bookMove(world, "greek-aulis");
+  world = bookMove(world, "greek-aulis-household");
+  world = bookPlay(world, "take", { item: "greek-aulis-departure-record" });
+  return bookTalk(
+    world,
+    "greek-aulis-clytemnestra",
+    `greek-aulis-account-${route}`,
+  );
+}
+
+export function aulisJourney(route = "rescue") {
+  const world = bookMove(
+    aulisAccount(route),
+    "greek-aulis",
+    "greek-ship",
+    "greek-harbor",
+    "greek-courtyard",
+  );
+  return aulisChoice(world, `return-${route}`);
+}

@@ -2388,7 +2388,7 @@
         schemaVersion: 1,
         id: "greek-drama",
         packId: "cosyworld.greek-drama",
-        revision: 7,
+        revision: 8,
         name: "The Wine-Dark Sea",
         description: "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. Fixed roads lead through the Attic places where welcome becomes a growing poem.",
         tone: "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -2425,7 +2425,7 @@
             Aristophanes: 11
           },
           opening: "Before the Burial",
-          status: "Nine plays have authored scenes across Before the Burial, The Open Door, Ajax, and the Helen and Atreid accounts. The other thirty-five works have situated hooks for later sections."
+          status: "Ten plays have authored scenes across Before the Burial, The Open Door, Aulis, Ajax, and the Helen and Atreid accounts. The other thirty-four works have situated hooks for later sections."
         },
         places: {
           "greek-harbor": {
@@ -2478,8 +2478,7 @@
             exits: [
               "greek-courtyard",
               "greek-well",
-              "greek-battlefield",
-              "greek-aulis"
+              "greek-battlefield"
             ],
             backdrop: "assets/greek-drama/city-gate-day.webp",
             persona: "Fresh repairs cover the gate. A guard keeps the road to the fallen soldiers clear."
@@ -2514,13 +2513,13 @@
           },
           "greek-aulis": {
             name: "Aulis Anchorage",
-            text: "The ships lie motionless beside the shore. Soldiers wait outside the command tents.",
+            text: "The fleet waits beside a still shore. Achilles receives the remembered letters beneath the command awning.",
             exits: [
-              "greek-gate",
-              "greek-greek-camp"
+              "greek-aulis-household",
+              "greek-aulis-altar"
             ],
-            backdrop: "assets/greek-drama/harbor.svg",
-            persona: "The ships lie motionless beside the shore. Soldiers wait outside the command tents."
+            backdrop: "assets/greek-drama/ajax-camp-day.webp",
+            persona: "This is the remembered Aulis departure before the Trojan war. Its speakers keep their roles in that remembered scene. The chosen ending records Iphigenia\u2019s fate in this account. A later visit hears their remembered words. The Theban opening, Ajax\u2019s completed deeds, Helen\u2019s chosen account and the chosen Atreid author keep their own times. The anchorage, household and altar are local paths. The shared ship calls at this shore."
           },
           "greek-athens": {
             name: "Athenian Agora",
@@ -2824,7 +2823,6 @@
             name: "The Greek Camp at Troy",
             text: "A speaker names the Trojan account after Ajax\u2019s death. Tents stand above the ships. Teucer carries a burial plea to the commanders.",
             exits: [
-              "greek-aulis",
               "greek-troy",
               "greek-lemnos",
               "greek-ajax-landing",
@@ -3163,6 +3161,24 @@
                 value: true
               }
             ]
+          },
+          "greek-aulis-household": {
+            name: "The Aulis Household",
+            text: "Iphigenia and Clytemnestra wait beside the wedding veil. A path leads back to the ships.",
+            persona: "This is the remembered Aulis departure before the Trojan war. Its speakers keep their roles in that remembered scene. The chosen ending records Iphigenia\u2019s fate in this account. A later visit hears their remembered words. The Theban opening, Ajax\u2019s completed deeds, Helen\u2019s chosen account and the chosen Atreid author keep their own times. Mother and daughter speak their own words before the selected altar ending.",
+            exits: [
+              "greek-aulis"
+            ],
+            backdrop: "assets/greek-drama/ajax-camp-day.webp"
+          },
+          "greek-aulis-altar": {
+            name: "The Altar at Aulis",
+            text: "A stone altar stands above the anchorage. The prepared cloth lies where the account places it.",
+            persona: "This is the remembered Aulis departure before the Trojan war. Its speakers keep their roles in that remembered scene. The chosen ending records Iphigenia\u2019s fate in this account. A later visit hears their remembered words. The Theban opening, Ajax\u2019s completed deeds, Helen\u2019s chosen account and the chosen Atreid author keep their own times. A rite needs the actual cloth. The received rescue is a named messenger report, with Clytemnestra\u2019s doubt preserved.",
+            exits: [
+              "greek-aulis"
+            ],
+            backdrop: "assets/greek-drama/ajax-camp-day.webp"
           }
         },
         avatars: {
@@ -3939,6 +3955,88 @@
               sore: "a promise called a finished burial",
               reason: "Ajax\u2019s household and burial are at issue in this named Trojan account."
             }
+          },
+          "greek-aulis-iphigenia": {
+            name: "Iphigenia",
+            text: "She speaks her own fear, consent and remembered farewell.",
+            place: "greek-aulis-household",
+            home: "greek-aulis-household",
+            travels: false,
+            standoffs: false,
+            values: {},
+            canonicalPerson: "aulis-iphigenia",
+            persona: "This is the remembered Aulis departure before the Trojan war. Its speakers keep their roles in that remembered scene. The chosen ending records Iphigenia\u2019s fate in this account. A later visit hears their remembered words. The Theban opening, Ajax\u2019s completed deeds, Helen\u2019s chosen account and the chosen Atreid author keep their own times. She speaks her own fear, consent and remembered farewell.",
+            voice: "This is the remembered Aulis departure before the Trojan war. Its speakers keep their roles in that remembered scene. The chosen ending records Iphigenia\u2019s fate in this account. A later visit hears their remembered words. The Theban opening, Ajax\u2019s completed deeds, Helen\u2019s chosen account and the chosen Atreid author keep their own times. She speaks her own fear, consent and remembered farewell.",
+            portrait: "assets/greek-drama/antigone.svg",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-aulis-open",
+                value: true
+              }
+            ],
+            tastes: {
+              likes: "a named witness and a deed kept in its proper time",
+              sore: "a person\u2019s belief changed into a different account",
+              reason: "This speaker belongs to the remembered Aulis departure."
+            },
+            journey: {
+              after: "greek-aulis-choose-escape",
+              path: [
+                "greek-aulis-household",
+                "greek-aulis"
+              ]
+            }
+          },
+          "greek-aulis-clytemnestra": {
+            name: "Clytemnestra",
+            text: "She asks what the wedding summons conceals and keeps her own judgment of the ending.",
+            place: "greek-aulis-household",
+            home: "greek-aulis-household",
+            travels: false,
+            standoffs: false,
+            values: {},
+            canonicalPerson: "aulis-clytemnestra",
+            persona: "This is the remembered Aulis departure before the Trojan war. Its speakers keep their roles in that remembered scene. The chosen ending records Iphigenia\u2019s fate in this account. A later visit hears their remembered words. The Theban opening, Ajax\u2019s completed deeds, Helen\u2019s chosen account and the chosen Atreid author keep their own times. She asks what the wedding summons conceals and keeps her own judgment of the ending.",
+            voice: "This is the remembered Aulis departure before the Trojan war. Its speakers keep their roles in that remembered scene. The chosen ending records Iphigenia\u2019s fate in this account. A later visit hears their remembered words. The Theban opening, Ajax\u2019s completed deeds, Helen\u2019s chosen account and the chosen Atreid author keep their own times. She asks what the wedding summons conceals and keeps her own judgment of the ending.",
+            portrait: "assets/greek-drama/ismene.svg",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-aulis-open",
+                value: true
+              }
+            ],
+            tastes: {
+              likes: "a named witness and a deed kept in its proper time",
+              sore: "a person\u2019s belief changed into a different account",
+              reason: "This speaker belongs to the remembered Aulis departure."
+            }
+          },
+          "greek-aulis-achilles": {
+            name: "Achilles",
+            text: "He lends his name to a false marriage and then agrees to witness the daughter\u2019s answer.",
+            place: "greek-aulis",
+            home: "greek-aulis",
+            travels: false,
+            standoffs: false,
+            values: {},
+            canonicalPerson: "aulis-achilles",
+            persona: "This is the remembered Aulis departure before the Trojan war. Its speakers keep their roles in that remembered scene. The chosen ending records Iphigenia\u2019s fate in this account. A later visit hears their remembered words. The Theban opening, Ajax\u2019s completed deeds, Helen\u2019s chosen account and the chosen Atreid author keep their own times. He lends his name to a false marriage and then agrees to witness the daughter\u2019s answer.",
+            voice: "This is the remembered Aulis departure before the Trojan war. Its speakers keep their roles in that remembered scene. The chosen ending records Iphigenia\u2019s fate in this account. A later visit hears their remembered words. The Theban opening, Ajax\u2019s completed deeds, Helen\u2019s chosen account and the chosen Atreid author keep their own times. He lends his name to a false marriage and then agrees to witness the daughter\u2019s answer.",
+            portrait: "assets/greek-drama/guard.svg",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-aulis-open",
+                value: true
+              }
+            ],
+            tastes: {
+              likes: "a named witness and a deed kept in its proper time",
+              sore: "a person\u2019s belief changed into a different account",
+              reason: "This speaker belongs to the remembered Aulis departure."
+            }
           }
         },
         items: {
@@ -4281,6 +4379,67 @@
                 value: true
               }
             ]
+          },
+          "greek-aulis-recall-letter": {
+            name: "The Second Letter",
+            text: "Agamemnon\u2019s attempted recall bears the record of Menelaus\u2019s interception.",
+            holder: "greek-aulis",
+            persona: "This is the remembered Aulis departure before the Trojan war. Its speakers keep their roles in that remembered scene. The chosen ending records Iphigenia\u2019s fate in this account. A later visit hears their remembered words. The Theban opening, Ajax\u2019s completed deeds, Helen\u2019s chosen account and the chosen Atreid author keep their own times. Describe its actual custody and recorded use.",
+            art: "assets/greek-drama/decree.png",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-aulis-open",
+                value: true
+              },
+              {
+                kind: "flag",
+                key: "greek-aulis-recall-heard",
+                value: true
+              }
+            ]
+          },
+          "greek-aulis-wedding-veil": {
+            name: "The Wedding Veil",
+            text: "The promised wedding cloth lies beside the mother and daughter.",
+            holder: "greek-aulis-household",
+            persona: "This is the remembered Aulis departure before the Trojan war. Its speakers keep their roles in that remembered scene. The chosen ending records Iphigenia\u2019s fate in this account. A later visit hears their remembered words. The Theban opening, Ajax\u2019s completed deeds, Helen\u2019s chosen account and the chosen Atreid author keep their own times. Describe its actual custody and recorded use.",
+            art: "assets/greek-drama/funeral-cloth.svg",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-aulis-open",
+                value: true
+              }
+            ]
+          },
+          "greek-aulis-offering-cloth": {
+            name: "The Altar Cloth",
+            text: "A clean cloth can serve the chosen refuge or the remembered altar rite.",
+            holder: "greek-aulis-household",
+            persona: "This is the remembered Aulis departure before the Trojan war. Its speakers keep their roles in that remembered scene. The chosen ending records Iphigenia\u2019s fate in this account. A later visit hears their remembered words. The Theban opening, Ajax\u2019s completed deeds, Helen\u2019s chosen account and the chosen Atreid author keep their own times. Describe its actual custody and recorded use.",
+            art: "assets/greek-drama/funeral-cloth.svg",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-aulis-open",
+                value: true
+              }
+            ]
+          },
+          "greek-aulis-departure-record": {
+            name: "The Aulis Departure Record",
+            text: "A blank page awaits the chosen ending and Clytemnestra\u2019s own account.",
+            holder: "greek-aulis-household",
+            persona: "This is the remembered Aulis departure before the Trojan war. Its speakers keep their roles in that remembered scene. The chosen ending records Iphigenia\u2019s fate in this account. A later visit hears their remembered words. The Theban opening, Ajax\u2019s completed deeds, Helen\u2019s chosen account and the chosen Atreid author keep their own times. Describe its actual custody and recorded use.",
+            art: "assets/greek-drama/decree.png",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-aulis-open",
+                value: true
+              }
+            ]
           }
         },
         routes: [
@@ -4373,6 +4532,50 @@
           {
             from: "greek-argos-palace",
             to: "greek-argos-tomb"
+          },
+          {
+            from: "greek-gate",
+            to: "greek-aulis",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-aulis-open",
+                value: false
+              }
+            ]
+          },
+          {
+            from: "greek-aulis",
+            to: "greek-gate",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-aulis-open",
+                value: false
+              }
+            ]
+          },
+          {
+            from: "greek-greek-camp",
+            to: "greek-aulis",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-aulis-open",
+                value: false
+              }
+            ]
+          },
+          {
+            from: "greek-aulis",
+            to: "greek-greek-camp",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-aulis-open",
+                value: false
+              }
+            ]
           }
         ],
         choices: [
@@ -9101,6 +9304,877 @@
               }
             ],
             workId: "sophocles-ajax"
+          },
+          {
+            id: "greek-aulis-invitation",
+            subject: "greek-shipmaster",
+            at: "greek-harbor",
+            label: "Accept the remembered Aulis departure",
+            text: "Vale accepts Myrto\u2019s invitation to the remembered fleet at Aulis before the Trojan war. The shared ship gains its anchorage. Ajax\u2019s completed account keeps its own time.",
+            textTemplate: "{actor} accepts Myrto\u2019s invitation to the remembered fleet at Aulis before the Trojan war. The shared ship gains its anchorage. Ajax\u2019s completed account keeps its own time.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-ajax-returned",
+                value: true
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-aulis-frame"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-aulis-frame",
+                value: "remembered-departure"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-aulis-open",
+                value: true
+              }
+            ],
+            workId: "euripides-iphigenia-at-aulis"
+          },
+          {
+            id: "greek-aulis-hear-recall",
+            subject: "greek-aulis-achilles",
+            at: "greek-aulis",
+            label: "Hear the second letter\u2019s path",
+            text: "Achilles tells Vale that Agamemnon sent a second letter to recall the marriage summons. The old servant carried it; Menelaus intercepted it. The returned letter lies on the command bench.",
+            textTemplate: "Achilles tells {actor} that Agamemnon sent a second letter to recall the marriage summons. The old servant carried it; Menelaus intercepted it. The returned letter lies on the command bench.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-aulis-open",
+                value: true
+              }
+            ],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "greek-aulis-recall-heard",
+                value: true
+              }
+            ],
+            workId: "euripides-iphigenia-at-aulis"
+          },
+          {
+            id: "greek-aulis-deliver-recall",
+            subject: "greek-aulis-clytemnestra",
+            at: "greek-aulis-household",
+            label: "Carry the recall to Clytemnestra",
+            text: "Vale lays the intercepted recall before Clytemnestra. She compares its second command with the marriage summons.",
+            textTemplate: "{actor} lays the intercepted recall before Clytemnestra. She compares its second command with the marriage summons.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-aulis-open",
+                value: true
+              },
+              {
+                kind: "knows",
+                topic: "greek-aulis-recall",
+                role: "actor"
+              },
+              {
+                kind: "holding",
+                item: "greek-aulis-recall-letter",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "place_item",
+                item: "greek-aulis-recall-letter",
+                place: "greek-aulis-household"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-aulis-letter-delivered",
+                value: true
+              }
+            ],
+            workId: "euripides-iphigenia-at-aulis"
+          },
+          {
+            id: "greek-aulis-hear-purpose",
+            subject: "greek-aulis-clytemnestra",
+            at: "greek-aulis-household",
+            label: "Hear the summons\u2019 true purpose",
+            text: "Clytemnestra tells Vale that the marriage promise brought Iphigenia to the army\u2019s demand for sacrifice. She asks that her daughter hear the purpose and speak her own answer.",
+            textTemplate: "Clytemnestra tells {actor} that the marriage promise brought Iphigenia to the army\u2019s demand for sacrifice. She asks that her daughter hear the purpose and speak her own answer.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-aulis-open",
+                value: true
+              },
+              {
+                kind: "flag",
+                key: "greek-aulis-letter-delivered",
+                value: true
+              }
+            ],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "greek-aulis-purpose-heard",
+                value: true
+              }
+            ],
+            workId: "euripides-iphigenia-at-aulis"
+          },
+          {
+            id: "greek-aulis-tell-daughter",
+            subject: "greek-aulis-iphigenia",
+            at: "greek-aulis-household",
+            label: "Lay the wedding veil beside the true summons",
+            text: "Vale sets the wedding veil beside Iphigenia and tells her what the summons asks. She receives room to give her own answer.",
+            textTemplate: "{actor} sets the wedding veil beside Iphigenia and tells her what the summons asks. She receives room to give her own answer.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-aulis-open",
+                value: true
+              },
+              {
+                kind: "knows",
+                topic: "greek-aulis-purpose",
+                role: "actor"
+              },
+              {
+                kind: "holding",
+                item: "greek-aulis-wedding-veil",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "place_item",
+                item: "greek-aulis-wedding-veil",
+                place: "greek-aulis-household"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-aulis-informed",
+                value: true
+              }
+            ],
+            workId: "euripides-iphigenia-at-aulis"
+          },
+          {
+            id: "greek-aulis-hear-daughter",
+            subject: "greek-aulis-iphigenia",
+            at: "greek-aulis-household",
+            label: "Hear Iphigenia\u2019s own answer",
+            text: "Iphigenia tells Vale her first wish is to live. She asks Achilles to hear her answer before the chosen telling reaches its altar.",
+            textTemplate: "Iphigenia tells {actor} her first wish is to live. She asks Achilles to hear her answer before the chosen telling reaches its altar.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-aulis-open",
+                value: true
+              },
+              {
+                kind: "flag",
+                key: "greek-aulis-informed",
+                value: true
+              }
+            ],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "greek-aulis-daughter-heard",
+                value: true
+              }
+            ],
+            workId: "euripides-iphigenia-at-aulis"
+          },
+          {
+            id: "greek-aulis-secure-witness",
+            subject: "greek-aulis-achilles",
+            at: "greek-aulis",
+            label: "Ask Achilles to witness her answer",
+            text: "Vale brings Iphigenia\u2019s words to Achilles. He agrees to witness the answer given in the remembered Aulis account.",
+            textTemplate: "{actor} brings Iphigenia\u2019s words to Achilles. He agrees to witness the answer given in the remembered Aulis account.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-aulis-open",
+                value: true
+              },
+              {
+                kind: "knows",
+                topic: "greek-aulis-daughter",
+                role: "actor"
+              },
+              {
+                kind: "item_at",
+                item: "greek-aulis-wedding-veil",
+                place: "greek-aulis-household"
+              }
+            ],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "greek-aulis-witness",
+                value: true
+              }
+            ],
+            workId: "euripides-iphigenia-at-aulis"
+          },
+          {
+            id: "greek-aulis-choose-escape",
+            subject: "greek-aulis-iphigenia",
+            at: "greek-aulis-household",
+            label: "Accept Iphigenia\u2019s escape agreement",
+            text: "Iphigenia agrees to leave the household with Vale for the anchorage. Achilles has heard her choice. This changes the army\u2019s unity and the war\u2019s timing.",
+            textTemplate: "Iphigenia agrees to leave the household with {actor} for the anchorage. Achilles has heard her choice. This changes the army\u2019s unity and the war\u2019s timing.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-aulis-open",
+                value: true
+              },
+              {
+                kind: "flag",
+                key: "greek-aulis-witness",
+                value: true
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-aulis-route"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-aulis-route",
+                value: "escape"
+              }
+            ],
+            workId: "euripides-iphigenia-at-aulis"
+          },
+          {
+            id: "greek-aulis-choose-sacrifice",
+            subject: "greek-aulis-iphigenia",
+            at: "greek-aulis-household",
+            label: "Choose the sacrifice remembered",
+            text: "Iphigenia\u2019s remembered voice gives the farewell of the tragic sacrifice telling. Vale accepts that account for the altar rite.",
+            textTemplate: "Iphigenia\u2019s remembered voice gives the farewell of the tragic sacrifice telling. {actor} accepts that account for the altar rite.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-aulis-open",
+                value: true
+              },
+              {
+                kind: "flag",
+                key: "greek-aulis-witness",
+                value: true
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-aulis-route"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-aulis-route",
+                value: "sacrifice"
+              }
+            ],
+            workId: "euripides-iphigenia-at-aulis"
+          },
+          {
+            id: "greek-aulis-choose-rescue",
+            subject: "greek-aulis-iphigenia",
+            at: "greek-aulis-household",
+            label: "Choose the received Artemis rescue",
+            text: "Vale chooses the received rescue telling. Its messenger will report a hind at the altar. Clytemnestra will keep her own judgment of that report.",
+            textTemplate: "{actor} chooses the received rescue telling. Its messenger will report a hind at the altar. Clytemnestra will keep her own judgment of that report.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-aulis-open",
+                value: true
+              },
+              {
+                kind: "flag",
+                key: "greek-aulis-witness",
+                value: true
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-aulis-route"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-aulis-route",
+                value: "rescue"
+              }
+            ],
+            workId: "euripides-iphigenia-at-aulis"
+          },
+          {
+            id: "greek-aulis-prepare-sacrifice",
+            subject: "greek-aulis-altar",
+            at: "greek-aulis-altar",
+            label: "Prepare the remembered altar cloth",
+            text: "Vale lays the cloth beside the altar for the selected Aulis telling.",
+            textTemplate: "{actor} lays the cloth beside the altar for the selected Aulis telling.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-aulis-open",
+                value: true
+              },
+              {
+                kind: "choice",
+                key: "greek-aulis-route",
+                value: "sacrifice"
+              },
+              {
+                kind: "holding",
+                item: "greek-aulis-offering-cloth",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "place_item",
+                item: "greek-aulis-offering-cloth",
+                place: "greek-aulis-altar"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-aulis-cloth-laid",
+                value: true
+              }
+            ],
+            workId: "euripides-iphigenia-at-aulis"
+          },
+          {
+            id: "greek-aulis-prepare-rescue",
+            subject: "greek-aulis-altar",
+            at: "greek-aulis-altar",
+            label: "Prepare the remembered altar cloth",
+            text: "Vale lays the cloth beside the altar for the selected Aulis telling.",
+            textTemplate: "{actor} lays the cloth beside the altar for the selected Aulis telling.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-aulis-open",
+                value: true
+              },
+              {
+                kind: "choice",
+                key: "greek-aulis-route",
+                value: "rescue"
+              },
+              {
+                kind: "holding",
+                item: "greek-aulis-offering-cloth",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "place_item",
+                item: "greek-aulis-offering-cloth",
+                place: "greek-aulis-altar"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-aulis-cloth-laid",
+                value: true
+              }
+            ],
+            workId: "euripides-iphigenia-at-aulis"
+          },
+          {
+            id: "greek-aulis-hear-rescue-report",
+            subject: "greek-aulis-achilles",
+            at: "greek-aulis",
+            label: "Hear the received altar report",
+            text: "Achilles repeats the messenger\u2019s account for Vale: a hind lay at the altar where Iphigenia had stood. Calchas called it Artemis\u2019s rescue and urged the fleet to sail. This remains a named report until Clytemnestra gives her own response.",
+            textTemplate: "Achilles repeats the messenger\u2019s account for {actor}: a hind lay at the altar where Iphigenia had stood. Calchas called it Artemis\u2019s rescue and urged the fleet to sail. This remains a named report until Clytemnestra gives her own response.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-aulis-open",
+                value: true
+              },
+              {
+                kind: "choice",
+                key: "greek-aulis-route",
+                value: "rescue"
+              },
+              {
+                kind: "flag",
+                key: "greek-aulis-cloth-laid",
+                value: true
+              }
+            ],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "greek-aulis-rescue-report-heard",
+                value: true
+              }
+            ],
+            workId: "euripides-iphigenia-at-aulis"
+          },
+          {
+            id: "greek-aulis-complete-escape",
+            subject: "greek-aulis-iphigenia",
+            at: "greek-aulis",
+            label: "Complete the living daughter\u2019s refuge",
+            text: "Vale reaches the anchorage with Iphigenia through their agreed local journey and gives her the clean cloth. In this invented ending she lives, the fleet\u2019s unity breaks, and the war\u2019s timing changes.",
+            textTemplate: "{actor} reaches the anchorage with Iphigenia through their agreed local journey and gives her the clean cloth. In this invented ending she lives, the fleet\u2019s unity breaks, and the war\u2019s timing changes.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-aulis-open",
+                value: true
+              },
+              {
+                kind: "choice",
+                key: "greek-aulis-route",
+                value: "escape"
+              },
+              {
+                kind: "holding",
+                item: "greek-aulis-offering-cloth",
+                role: "actor"
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-aulis-ending"
+              }
+            ],
+            effects: [
+              {
+                kind: "place_item",
+                item: "greek-aulis-offering-cloth",
+                place: "greek-aulis"
+              },
+              {
+                kind: "choose",
+                key: "greek-aulis-ending",
+                value: "escape"
+              },
+              {
+                kind: "choose",
+                key: "greek-aulis-chosen-truth",
+                value: "alive-at-aulis"
+              },
+              {
+                kind: "choose",
+                key: "greek-aulis-fleet-account",
+                value: "unity-broken"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-aulis-ending-done",
+                value: true
+              }
+            ],
+            workId: "euripides-iphigenia-at-aulis"
+          },
+          {
+            id: "greek-aulis-complete-sacrifice",
+            subject: "greek-aulis-altar",
+            at: "greek-aulis-altar",
+            label: "Witness the tragic altar ending",
+            text: "Vale completes the remembered altar rite with its prepared cloth. This tragic telling records Iphigenia\u2019s death and the fleet\u2019s departure. Its grievance enters the household\u2019s later account.",
+            textTemplate: "{actor} completes the remembered altar rite with its prepared cloth. This tragic telling records Iphigenia\u2019s death and the fleet\u2019s departure. Its grievance enters the household\u2019s later account.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-aulis-open",
+                value: true
+              },
+              {
+                kind: "choice",
+                key: "greek-aulis-route",
+                value: "sacrifice"
+              },
+              {
+                kind: "flag",
+                key: "greek-aulis-cloth-laid",
+                value: true
+              },
+              {
+                kind: "item_at",
+                item: "greek-aulis-offering-cloth",
+                place: "greek-aulis-altar"
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-aulis-ending"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-aulis-ending",
+                value: "sacrifice"
+              },
+              {
+                kind: "choose",
+                key: "greek-aulis-chosen-truth",
+                value: "dead-at-aulis"
+              },
+              {
+                kind: "choose",
+                key: "greek-aulis-fleet-account",
+                value: "sacrifice"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-aulis-ending-done",
+                value: true
+              }
+            ],
+            workId: "euripides-iphigenia-at-aulis"
+          },
+          {
+            id: "greek-aulis-complete-rescue",
+            subject: "greek-aulis-altar",
+            at: "greek-aulis-altar",
+            label: "Keep the received rescue and its witness",
+            text: "Vale records the received Artemis rescue beside the prepared cloth. The chosen telling gives Iphigenia a living path with Artemis. The fleet\u2019s account is the messenger\u2019s reported hind; Clytemnestra will answer that report herself.",
+            textTemplate: "{actor} records the received Artemis rescue beside the prepared cloth. The chosen telling gives Iphigenia a living path with Artemis. The fleet\u2019s account is the messenger\u2019s reported hind; Clytemnestra will answer that report herself.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-aulis-open",
+                value: true
+              },
+              {
+                kind: "choice",
+                key: "greek-aulis-route",
+                value: "rescue"
+              },
+              {
+                kind: "flag",
+                key: "greek-aulis-cloth-laid",
+                value: true
+              },
+              {
+                kind: "item_at",
+                item: "greek-aulis-offering-cloth",
+                place: "greek-aulis-altar"
+              },
+              {
+                kind: "knows",
+                topic: "greek-aulis-rescue-report",
+                role: "actor"
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-aulis-ending"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-aulis-ending",
+                value: "rescue"
+              },
+              {
+                kind: "choose",
+                key: "greek-aulis-chosen-truth",
+                value: "alive-with-artemis"
+              },
+              {
+                kind: "choose",
+                key: "greek-aulis-fleet-account",
+                value: "hind-reported"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-aulis-ending-done",
+                value: true
+              }
+            ],
+            workId: "euripides-iphigenia-at-aulis"
+          },
+          {
+            id: "greek-aulis-record-escape",
+            subject: "greek-aulis-clytemnestra",
+            at: "greek-aulis-household",
+            label: "Hear Clytemnestra\u2019s departure account",
+            text: "Clytemnestra records the living daughter\u2019s refuge at the anchorage. She receives the returned escape account. The captains face a changed war departure. Vale receives her signed departure record.",
+            textTemplate: "Clytemnestra records the living daughter\u2019s refuge at the anchorage. She receives the returned escape account. The captains face a changed war departure. {actor} receives her signed departure record.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-aulis-open",
+                value: true
+              },
+              {
+                kind: "choice",
+                key: "greek-aulis-ending",
+                value: "escape"
+              },
+              {
+                kind: "holding",
+                item: "greek-aulis-departure-record",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-aulis-mother-belief",
+                value: "living-daughter"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-aulis-account-ready",
+                value: true
+              }
+            ],
+            workId: "euripides-iphigenia-at-aulis"
+          },
+          {
+            id: "greek-aulis-return-escape",
+            subject: "greek-baker",
+            at: "greek-courtyard",
+            label: "Read the Aulis record to Dione",
+            text: "Vale gives Dione Clytemnestra\u2019s signed Aulis account. The chosen ending, the fleet\u2019s report and the mother\u2019s own belief enter the returning poem beside the earlier deeds.",
+            textTemplate: "{actor} gives Dione Clytemnestra\u2019s signed Aulis account. The chosen ending, the fleet\u2019s report and the mother\u2019s own belief enter the returning poem beside the earlier deeds.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-aulis-ending",
+                value: "escape"
+              },
+              {
+                kind: "flag",
+                key: "greek-aulis-account-ready",
+                value: true
+              },
+              {
+                kind: "holding",
+                item: "greek-aulis-departure-record",
+                role: "actor"
+              },
+              {
+                kind: "knows",
+                topic: "greek-aulis-account-escape",
+                role: "actor"
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-aulis-return"
+              }
+            ],
+            effects: [
+              {
+                kind: "place_item",
+                item: "greek-aulis-departure-record",
+                place: "greek-courtyard"
+              },
+              {
+                kind: "choose",
+                key: "greek-aulis-return",
+                value: "escape"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-aulis-returned",
+                value: true
+              }
+            ],
+            workId: "euripides-iphigenia-at-aulis"
+          },
+          {
+            id: "greek-aulis-record-sacrifice",
+            subject: "greek-aulis-clytemnestra",
+            at: "greek-aulis-household",
+            label: "Hear Clytemnestra\u2019s departure account",
+            text: "Clytemnestra records her daughter\u2019s death in the tragic Aulis telling. The fleet\u2019s voyage carries a grievance that a later Atreid account must hear. Vale receives her signed departure record.",
+            textTemplate: "Clytemnestra records her daughter\u2019s death in the tragic Aulis telling. The fleet\u2019s voyage carries a grievance that a later Atreid account must hear. {actor} receives her signed departure record.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-aulis-open",
+                value: true
+              },
+              {
+                kind: "choice",
+                key: "greek-aulis-ending",
+                value: "sacrifice"
+              },
+              {
+                kind: "holding",
+                item: "greek-aulis-departure-record",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-aulis-mother-belief",
+                value: "daughter-dead"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-aulis-account-ready",
+                value: true
+              }
+            ],
+            workId: "euripides-iphigenia-at-aulis"
+          },
+          {
+            id: "greek-aulis-return-sacrifice",
+            subject: "greek-baker",
+            at: "greek-courtyard",
+            label: "Read the Aulis record to Dione",
+            text: "Vale gives Dione Clytemnestra\u2019s signed Aulis account. The chosen ending, the fleet\u2019s report and the mother\u2019s own belief enter the returning poem beside the earlier deeds.",
+            textTemplate: "{actor} gives Dione Clytemnestra\u2019s signed Aulis account. The chosen ending, the fleet\u2019s report and the mother\u2019s own belief enter the returning poem beside the earlier deeds.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-aulis-ending",
+                value: "sacrifice"
+              },
+              {
+                kind: "flag",
+                key: "greek-aulis-account-ready",
+                value: true
+              },
+              {
+                kind: "holding",
+                item: "greek-aulis-departure-record",
+                role: "actor"
+              },
+              {
+                kind: "knows",
+                topic: "greek-aulis-account-sacrifice",
+                role: "actor"
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-aulis-return"
+              }
+            ],
+            effects: [
+              {
+                kind: "place_item",
+                item: "greek-aulis-departure-record",
+                place: "greek-courtyard"
+              },
+              {
+                kind: "choose",
+                key: "greek-aulis-return",
+                value: "sacrifice"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-aulis-returned",
+                value: true
+              }
+            ],
+            workId: "euripides-iphigenia-at-aulis"
+          },
+          {
+            id: "greek-aulis-record-rescue",
+            subject: "greek-aulis-clytemnestra",
+            at: "greek-aulis-household",
+            label: "Hear Clytemnestra\u2019s departure account",
+            text: "Clytemnestra questions whether the messenger\u2019s rescue story was told to ease her grief. Agamemnon confirms the divine rescue and sends her home with the infant while the army prepares to sail. Her doubt stays beside the chosen rescue truth. Vale receives her signed departure record.",
+            textTemplate: "Clytemnestra questions whether the messenger\u2019s rescue story was told to ease her grief. Agamemnon confirms the divine rescue and sends her home with the infant while the army prepares to sail. Her doubt stays beside the chosen rescue truth. {actor} receives her signed departure record.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-aulis-open",
+                value: true
+              },
+              {
+                kind: "choice",
+                key: "greek-aulis-ending",
+                value: "rescue"
+              },
+              {
+                kind: "holding",
+                item: "greek-aulis-departure-record",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-aulis-mother-belief",
+                value: "questions-the-report"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-aulis-account-ready",
+                value: true
+              }
+            ],
+            workId: "euripides-iphigenia-at-aulis"
+          },
+          {
+            id: "greek-aulis-return-rescue",
+            subject: "greek-baker",
+            at: "greek-courtyard",
+            label: "Read the Aulis record to Dione",
+            text: "Vale gives Dione Clytemnestra\u2019s signed Aulis account. The chosen ending, the fleet\u2019s report and the mother\u2019s own belief enter the returning poem beside the earlier deeds.",
+            textTemplate: "{actor} gives Dione Clytemnestra\u2019s signed Aulis account. The chosen ending, the fleet\u2019s report and the mother\u2019s own belief enter the returning poem beside the earlier deeds.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-aulis-ending",
+                value: "rescue"
+              },
+              {
+                kind: "flag",
+                key: "greek-aulis-account-ready",
+                value: true
+              },
+              {
+                kind: "holding",
+                item: "greek-aulis-departure-record",
+                role: "actor"
+              },
+              {
+                kind: "knows",
+                topic: "greek-aulis-account-rescue",
+                role: "actor"
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-aulis-return"
+              }
+            ],
+            effects: [
+              {
+                kind: "place_item",
+                item: "greek-aulis-departure-record",
+                place: "greek-courtyard"
+              },
+              {
+                kind: "choose",
+                key: "greek-aulis-return",
+                value: "rescue"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-aulis-returned",
+                value: true
+              }
+            ],
+            workId: "euripides-iphigenia-at-aulis"
           }
         ],
         works: [
@@ -9777,18 +10851,42 @@
             title: "Iphigenia at Aulis",
             era: "trojan-departure",
             placeIds: [
-              "greek-aulis"
+              "greek-aulis",
+              "greek-aulis-household",
+              "greek-aulis-altar"
             ],
             premise: "Commanders and soldiers press for a sacrifice that a father has the power to resist.",
-            status: "situated-hook",
+            status: "branching-episode",
             hookChoiceIds: [
-              "greek-inquire-euripides-iphigenia-at-aulis"
+              "greek-inquire-euripides-iphigenia-at-aulis",
+              "greek-aulis-invitation",
+              "greek-aulis-hear-recall",
+              "greek-aulis-deliver-recall",
+              "greek-aulis-hear-purpose",
+              "greek-aulis-tell-daughter",
+              "greek-aulis-hear-daughter",
+              "greek-aulis-secure-witness",
+              "greek-aulis-choose-escape",
+              "greek-aulis-choose-sacrifice",
+              "greek-aulis-choose-rescue",
+              "greek-aulis-prepare-sacrifice",
+              "greek-aulis-prepare-rescue",
+              "greek-aulis-hear-rescue-report",
+              "greek-aulis-complete-escape",
+              "greek-aulis-complete-sacrifice",
+              "greek-aulis-complete-rescue",
+              "greek-aulis-record-escape",
+              "greek-aulis-return-escape",
+              "greek-aulis-record-sacrifice",
+              "greek-aulis-return-sacrifice",
+              "greek-aulis-record-rescue",
+              "greek-aulis-return-rescue"
             ],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Euripides",
               work: "Iphigenia at Aulis",
-              adaptation: "Original CosyWorld situation text; no translation passages are bundled."
+              adaptation: "A named remembered departure uses the second letter, the daughter\u2019s own answer, Achilles\u2019s witness, and the chosen altar deed. Escape is an invented change. Sacrifice is a tragic telling. The received rescue keeps the messenger\u2019s report, Clytemnestra\u2019s doubt and Agamemnon\u2019s confirmation distinct. Original CosyWorld words carry each physical deed home."
             }
           },
           {
@@ -10118,7 +11216,10 @@
             "greek-greek-camp",
             "greek-ajax-landing",
             "greek-ajax-household",
-            "greek-ajax-grave"
+            "greek-ajax-grave",
+            "greek-aulis",
+            "greek-aulis-household",
+            "greek-aulis-altar"
           ],
           avatars: [
             "greek-antigone",
@@ -10141,7 +11242,10 @@
             "greek-household-witness",
             "greek-ajax-tecmessa",
             "greek-ajax-teucer",
-            "greek-ajax-odysseus"
+            "greek-ajax-odysseus",
+            "greek-aulis-iphigenia",
+            "greek-aulis-clytemnestra",
+            "greek-aulis-achilles"
           ],
           items: [
             "greek-water-jar",
@@ -10164,7 +11268,11 @@
             "greek-ajax-shield",
             "greek-ajax-plea",
             "greek-ajax-cloth",
-            "greek-ajax-tools"
+            "greek-ajax-tools",
+            "greek-aulis-recall-letter",
+            "greek-aulis-wedding-veil",
+            "greek-aulis-offering-cloth",
+            "greek-aulis-departure-record"
           ],
           choices: [
             "greek-return-water-jar",
@@ -10251,7 +11359,29 @@
             "greek-ajax-return-household",
             "greek-ajax-bury-appeal",
             "greek-ajax-record-appeal",
-            "greek-ajax-return-appeal"
+            "greek-ajax-return-appeal",
+            "greek-aulis-invitation",
+            "greek-aulis-hear-recall",
+            "greek-aulis-deliver-recall",
+            "greek-aulis-hear-purpose",
+            "greek-aulis-tell-daughter",
+            "greek-aulis-hear-daughter",
+            "greek-aulis-secure-witness",
+            "greek-aulis-choose-escape",
+            "greek-aulis-choose-sacrifice",
+            "greek-aulis-choose-rescue",
+            "greek-aulis-prepare-sacrifice",
+            "greek-aulis-prepare-rescue",
+            "greek-aulis-hear-rescue-report",
+            "greek-aulis-complete-escape",
+            "greek-aulis-complete-sacrifice",
+            "greek-aulis-complete-rescue",
+            "greek-aulis-record-escape",
+            "greek-aulis-return-escape",
+            "greek-aulis-record-sacrifice",
+            "greek-aulis-return-sacrifice",
+            "greek-aulis-record-rescue",
+            "greek-aulis-return-rescue"
           ]
         },
         recital: {
@@ -10834,6 +11964,78 @@
                 "She heard how witnesses brought earth."
               ],
               summons: true
+            },
+            {
+              choice: "greek-aulis-deliver-recall",
+              quest: "story-quest-greek-aulis-letter",
+              lines: [
+                "I bore the father\u2019s second word through camp.",
+                "The wedding summons met the hidden price."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-aulis-secure-witness",
+              quest: "story-quest-greek-aulis-witness",
+              lines: [
+                "I brought her own reply before the ships.",
+                "Achilles stood to witness what she chose."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-aulis-complete-escape",
+              quest: "story-quest-greek-aulis-altar",
+              lines: [
+                "The sails hung still above a living daughter.",
+                "The captains learned the weight of waiting wind."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-aulis-complete-sacrifice",
+              quest: "story-quest-greek-aulis-altar",
+              lines: [
+                "The wind rose through the cloth beside the stone.",
+                "Each sail went white above a debt of blood."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-aulis-complete-rescue",
+              quest: "story-quest-greek-aulis-altar",
+              lines: [
+                "A messenger had named the fallen hind.",
+                "Her mother held the question in his words."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-aulis-return-escape",
+              quest: "story-quest-greek-aulis-return",
+              lines: [
+                "I read the living daughter\u2019s news at home.",
+                "Her mother\u2019s answer joined our listening bread."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-aulis-return-sacrifice",
+              quest: "story-quest-greek-aulis-return",
+              lines: [
+                "I read the mother\u2019s grief beside the bread.",
+                "The page kept faith with what her household lost."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-aulis-return-rescue",
+              quest: "story-quest-greek-aulis-return",
+              lines: [
+                "I carried home the tale of girl and hind.",
+                "Her mother\u2019s doubt came with the reported light."
+              ],
+              summons: true
             }
           ]
         },
@@ -10878,6 +12080,22 @@
               {
                 kind: "flag",
                 key: "greek-ajax-open",
+                value: true
+              }
+            ]
+          },
+          {
+            id: "greek-aulis",
+            name: "The Wind\u2019s Price",
+            places: [
+              "greek-aulis",
+              "greek-aulis-household",
+              "greek-aulis-altar"
+            ],
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-aulis-open",
                 value: true
               }
             ]
@@ -11973,6 +13191,132 @@
               "greek-ajax-record-household",
               "greek-ajax-record-appeal"
             ]
+          },
+          {
+            id: "story-quest-greek-aulis-letter",
+            group: "aulis",
+            line: "Bring the second letter to the household.",
+            holder: {
+              kind: "avatar",
+              id: "greek-aulis-clytemnestra"
+            },
+            art: "greek-aulis-recall-letter",
+            start: {
+              kind: "flag",
+              key: "greek-aulis-open",
+              value: true
+            },
+            endings: [
+              {
+                choice: "greek-aulis-deliver-recall"
+              }
+            ],
+            outcome: "Fulfilled",
+            progress: [
+              "greek-aulis-hear-recall"
+            ]
+          },
+          {
+            id: "story-quest-greek-aulis-witness",
+            group: "aulis",
+            line: "Give the daughter\u2019s answer its witness.",
+            holder: {
+              kind: "avatar",
+              id: "greek-aulis-iphigenia"
+            },
+            art: "greek-aulis-wedding-veil",
+            start: {
+              kind: "receipt",
+              choice: "greek-aulis-deliver-recall"
+            },
+            endings: [
+              {
+                choice: "greek-aulis-secure-witness"
+              }
+            ],
+            outcome: "Fulfilled",
+            progress: [
+              "greek-aulis-hear-purpose",
+              "greek-aulis-tell-daughter",
+              "greek-aulis-hear-daughter"
+            ]
+          },
+          {
+            id: "story-quest-greek-aulis-altar",
+            group: "aulis",
+            line: "Carry the chosen telling through its deed.",
+            holder: {
+              kind: "place",
+              id: "greek-aulis-altar"
+            },
+            art: "greek-aulis-offering-cloth",
+            start: {
+              kind: "receipt",
+              choice: "greek-aulis-secure-witness"
+            },
+            endings: [
+              {
+                choice: "greek-aulis-complete-escape"
+              },
+              {
+                choice: "greek-aulis-complete-sacrifice"
+              },
+              {
+                choice: "greek-aulis-complete-rescue"
+              }
+            ],
+            outcome: "Fulfilled",
+            progress: [
+              "greek-aulis-choose-escape",
+              "greek-aulis-choose-sacrifice",
+              "greek-aulis-choose-rescue",
+              "greek-aulis-prepare-sacrifice",
+              "greek-aulis-prepare-rescue",
+              "greek-aulis-hear-rescue-report"
+            ]
+          },
+          {
+            id: "story-quest-greek-aulis-return",
+            group: "aulis",
+            line: "Carry the mother\u2019s account home.",
+            holder: {
+              kind: "avatar",
+              id: "greek-aulis-clytemnestra"
+            },
+            art: "greek-aulis-departure-record",
+            start: {
+              any: [
+                {
+                  kind: "receipt",
+                  choice: "greek-aulis-complete-escape"
+                },
+                {
+                  kind: "receipt",
+                  choice: "greek-aulis-complete-sacrifice"
+                },
+                {
+                  kind: "receipt",
+                  choice: "greek-aulis-complete-rescue"
+                }
+              ]
+            },
+            endings: [
+              {
+                choice: "greek-aulis-return-escape"
+              },
+              {
+                choice: "greek-aulis-return-sacrifice"
+              },
+              {
+                choice: "greek-aulis-return-rescue"
+              }
+            ],
+            outcome: "Shared",
+            progress: [
+              "greek-aulis-record-escape",
+              "greek-aulis-record-sacrifice",
+              "greek-aulis-record-rescue"
+            ]
           }
         ],
         topics: [
@@ -12301,6 +13645,154 @@
               }
             ],
             choiceId: "greek-ajax-record-appeal"
+          },
+          {
+            id: "greek-aulis-recall",
+            speaker: "greek-aulis-achilles",
+            at: "greek-aulis",
+            text: "Achilles names the old servant as Agamemnon\u2019s recall carrier and Menelaus as its interceptor.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-aulis-open",
+                value: true
+              }
+            ],
+            choiceId: "greek-aulis-hear-recall"
+          },
+          {
+            id: "greek-aulis-purpose",
+            speaker: "greek-aulis-clytemnestra",
+            at: "greek-aulis-household",
+            text: "Clytemnestra says the marriage summons concealed the army\u2019s demand for sacrifice.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-aulis-open",
+                value: true
+              },
+              {
+                kind: "flag",
+                key: "greek-aulis-letter-delivered",
+                value: true
+              }
+            ],
+            choiceId: "greek-aulis-hear-purpose"
+          },
+          {
+            id: "greek-aulis-daughter",
+            speaker: "greek-aulis-iphigenia",
+            at: "greek-aulis-household",
+            text: "Iphigenia gives her own first wish to live and asks Achilles to witness her answer.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-aulis-open",
+                value: true
+              },
+              {
+                kind: "flag",
+                key: "greek-aulis-informed",
+                value: true
+              }
+            ],
+            choiceId: "greek-aulis-hear-daughter"
+          },
+          {
+            id: "greek-aulis-rescue-report",
+            speaker: "greek-aulis-achilles",
+            at: "greek-aulis",
+            text: "Achilles repeats the received messenger report of the hind and Calchas\u2019s call for the fleet to sail.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-aulis-open",
+                value: true
+              },
+              {
+                kind: "choice",
+                key: "greek-aulis-route",
+                value: "rescue"
+              },
+              {
+                kind: "flag",
+                key: "greek-aulis-cloth-laid",
+                value: true
+              }
+            ],
+            choiceId: "greek-aulis-hear-rescue-report"
+          },
+          {
+            id: "greek-aulis-account-escape",
+            speaker: "greek-aulis-clytemnestra",
+            at: "greek-aulis-household",
+            text: "Clytemnestra records the living daughter\u2019s refuge at Aulis and the captains\u2019 changed departure.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-aulis-open",
+                value: true
+              },
+              {
+                kind: "choice",
+                key: "greek-aulis-ending",
+                value: "escape"
+              },
+              {
+                kind: "holding",
+                item: "greek-aulis-departure-record",
+                role: "actor"
+              }
+            ],
+            choiceId: "greek-aulis-record-escape"
+          },
+          {
+            id: "greek-aulis-account-sacrifice",
+            speaker: "greek-aulis-clytemnestra",
+            at: "greek-aulis-household",
+            text: "Clytemnestra records her daughter\u2019s death at Aulis and the household grievance carried by the fleet\u2019s voyage.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-aulis-open",
+                value: true
+              },
+              {
+                kind: "choice",
+                key: "greek-aulis-ending",
+                value: "sacrifice"
+              },
+              {
+                kind: "holding",
+                item: "greek-aulis-departure-record",
+                role: "actor"
+              }
+            ],
+            choiceId: "greek-aulis-record-sacrifice"
+          },
+          {
+            id: "greek-aulis-account-rescue",
+            speaker: "greek-aulis-clytemnestra",
+            at: "greek-aulis-household",
+            text: "Clytemnestra questions the messenger\u2019s hind report, while Agamemnon confirms Artemis\u2019s rescue and sends her home with the infant as the fleet prepares to sail.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-aulis-open",
+                value: true
+              },
+              {
+                kind: "choice",
+                key: "greek-aulis-ending",
+                value: "rescue"
+              },
+              {
+                kind: "holding",
+                item: "greek-aulis-departure-record",
+                role: "actor"
+              }
+            ],
+            choiceId: "greek-aulis-record-rescue"
           }
         ],
         bridge: {
@@ -12439,6 +13931,28 @@
               cardName: "Greek ship",
               cardArt: "assets/greek-drama/ship-card.webp"
             }
+          },
+          {
+            id: "greek-aulis-ship",
+            from: "greek-aulis",
+            to: "pond",
+            travelers: "any",
+            travel: "aboard the ship",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-aulis-open",
+                value: true
+              }
+            ],
+            transport: "greek-ship",
+            travelLabel: "Board",
+            scenery: {
+              open: "The shared ship waits at the Aulis anchorage.",
+              closed: "The shared ship is sailing elsewhere. The anchorage waits for its return.",
+              cardName: "Greek ship",
+              cardArt: "assets/greek-drama/ship-card.webp"
+            }
           }
         ],
         transports: {
@@ -12449,7 +13963,8 @@
               "greek-harbor",
               "greek-athens-harbor",
               "greek-piraeus",
-              "greek-ajax-landing"
+              "greek-ajax-landing",
+              "greek-aulis"
             ],
             at: "greek-harbor"
           }
@@ -19815,6 +21330,7 @@
       upgradeGreekRoadSave(s);
       upgradeGreekTownSave(s);
       upgradeGreekAjaxSave(s);
+      upgradeGreekBookThreeSave(s);
       s.schema = 7;
       installPacks2(s);
     } else if (s?.schema === 7 && s.packs && typeof s.packs === "object" && s.crossings && typeof s.crossings === "object") {
@@ -19824,6 +21340,7 @@
       upgradeGreekRoadSave(s);
       upgradeGreekTownSave(s);
       upgradeGreekAjaxSave(s);
+      upgradeGreekBookThreeSave(s);
       installPacks2(s);
     }
     if (s?.schema === 7) {
@@ -19857,13 +21374,19 @@
         const [from, to] = edge;
         if (moved.has(from) && to === "station" || from === "station" && moved.has(to)) {
           changed = true;
-          return [[from, "pond"], ["pond", to]];
+          return [
+            [from, "pond"],
+            ["pond", to]
+          ];
         }
         return [edge];
       });
-      if (changed) s.routeKnowledge[actor] = [...new Map(
-        expanded.map((edge) => [JSON.stringify(edge), edge])
-      ).values()];
+      if (changed)
+        s.routeKnowledge[actor] = [
+          ...new Map(
+            expanded.map((edge) => [JSON.stringify(edge), edge])
+          ).values()
+        ];
     }
   }
   function upgradeGreekRoadSave(s) {
@@ -19991,6 +21514,82 @@
     ])
       s.memories[id] ??= fresh[id];
     saved.revision = 7;
+  }
+  function upgradeGreekBookThreeSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 8 || saved?.revision !== 7) return;
+    const avatars = [
+      "greek-aulis-iphigenia",
+      "greek-aulis-clytemnestra",
+      "greek-aulis-achilles",
+      "greek-lemnos-philoctetes",
+      "greek-lemnos-neoptolemus",
+      "greek-rhesus-hector",
+      "greek-rhesus-rhesus",
+      "greek-rhesus-charioteer",
+      "greek-troy-hecuba",
+      "greek-troy-andromache",
+      "greek-troy-talthybius",
+      "greek-thrace-hecuba",
+      "greek-thrace-polyxena",
+      "greek-thrace-polymestor",
+      "greek-susa-atossa",
+      "greek-susa-xerxes"
+    ];
+    const items2 = [
+      "greek-aulis-recall-letter",
+      "greek-aulis-wedding-veil",
+      "greek-aulis-offering-cloth",
+      "greek-aulis-departure-record",
+      "greek-lemnos-water",
+      "greek-lemnos-herb",
+      "greek-lemnos-bow",
+      "greek-rhesus-lamp",
+      "greek-rhesus-watchword",
+      "greek-rhesus-bandage",
+      "greek-rhesus-testimony",
+      "greek-troy-names",
+      "greek-troy-message-a",
+      "greek-troy-message-b",
+      "greek-troy-hector-shield",
+      "greek-troy-child-cloth",
+      "greek-troy-crew-pledge",
+      "greek-troy-berth-token",
+      "greek-thrace-polyxena-cloth",
+      "greek-thrace-polydorus-shroud",
+      "greek-thrace-entrusted-gold",
+      "greek-thrace-gold-record",
+      "greek-thrace-case-papers",
+      "greek-susa-broken-oar",
+      "greek-susa-dead-names",
+      "greek-susa-offering-water",
+      "greek-susa-cloak"
+    ];
+    const places2 = [
+      "greek-aulis-household",
+      "greek-aulis-altar",
+      "greek-lemnos-landing",
+      "greek-rhesus-allies",
+      "greek-rhesus-aid-tent",
+      "greek-troy-womens-tent",
+      "greek-troy-shield-ground",
+      "greek-thrace-summons-tent",
+      "greek-thrace-burial-ground",
+      "greek-susa-tomb",
+      "greek-susa-threshold",
+      "greek-susa-road"
+    ];
+    addGreekEntities(
+      s,
+      pack,
+      avatars.filter((id) => pack.avatars[id]),
+      items2.filter((id) => pack.items[id])
+    );
+    const fresh = newMemories();
+    for (const id of places2.filter((id2) => pack.places[id2]))
+      s.memories[id] ??= fresh[id];
+    saved.revision = 8;
   }
   function upgradeGreekSectionSave(s) {
     const pack = packDefinitions.find((p) => p.id === "greek-drama");

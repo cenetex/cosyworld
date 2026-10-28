@@ -96,6 +96,7 @@ export function upgradeSave(
     upgradeGreekRoadSave(s);
     upgradeGreekTownSave(s);
     upgradeGreekAjaxSave(s);
+    upgradeGreekBookThreeSave(s);
     s.schema = 7;
     installPacks(s);
   } else if (
@@ -111,6 +112,7 @@ export function upgradeSave(
     upgradeGreekRoadSave(s);
     upgradeGreekTownSave(s);
     upgradeGreekAjaxSave(s);
+    upgradeGreekBookThreeSave(s);
     // A pack mounted after this save was written joins it fresh.
     installPacks(s);
   }
@@ -146,16 +148,24 @@ export function upgradeShoreRouteSave(s) {
     const expanded = known.flatMap((edge) => {
       if (!Array.isArray(edge) || edge.length !== 2) return [edge];
       const [from, to] = edge;
-      if ((moved.has(from) && to === "station") ||
-          (from === "station" && moved.has(to))) {
+      if (
+        (moved.has(from) && to === "station") ||
+        (from === "station" && moved.has(to))
+      ) {
         changed = true;
-        return [[from, "pond"], ["pond", to]];
+        return [
+          [from, "pond"],
+          ["pond", to],
+        ];
       }
       return [edge];
     });
-    if (changed) s.routeKnowledge[actor] = [...new Map(
-      expanded.map((edge) => [JSON.stringify(edge), edge]),
-    ).values()];
+    if (changed)
+      s.routeKnowledge[actor] = [
+        ...new Map(
+          expanded.map((edge) => [JSON.stringify(edge), edge]),
+        ).values(),
+      ];
   }
 }
 
@@ -302,6 +312,84 @@ export function upgradeGreekAjaxSave(s) {
   ])
     s.memories[id] ??= fresh[id];
   saved.revision = 7;
+}
+
+// Revision 8 adds Book III's named scenes beside every earlier recorded deed.
+export function upgradeGreekBookThreeSave(s) {
+  const pack = packDefinitions.find((p) => p.id === "greek-drama");
+  const saved = s.packs?.[pack?.id];
+  if (!pack || pack.revision < 8 || saved?.revision !== 7) return;
+  const avatars = [
+    "greek-aulis-iphigenia",
+    "greek-aulis-clytemnestra",
+    "greek-aulis-achilles",
+    "greek-lemnos-philoctetes",
+    "greek-lemnos-neoptolemus",
+    "greek-rhesus-hector",
+    "greek-rhesus-rhesus",
+    "greek-rhesus-charioteer",
+    "greek-troy-hecuba",
+    "greek-troy-andromache",
+    "greek-troy-talthybius",
+    "greek-thrace-hecuba",
+    "greek-thrace-polyxena",
+    "greek-thrace-polymestor",
+    "greek-susa-atossa",
+    "greek-susa-xerxes",
+  ];
+  const items = [
+    "greek-aulis-recall-letter",
+    "greek-aulis-wedding-veil",
+    "greek-aulis-offering-cloth",
+    "greek-aulis-departure-record",
+    "greek-lemnos-water",
+    "greek-lemnos-herb",
+    "greek-lemnos-bow",
+    "greek-rhesus-lamp",
+    "greek-rhesus-watchword",
+    "greek-rhesus-bandage",
+    "greek-rhesus-testimony",
+    "greek-troy-names",
+    "greek-troy-message-a",
+    "greek-troy-message-b",
+    "greek-troy-hector-shield",
+    "greek-troy-child-cloth",
+    "greek-troy-crew-pledge",
+    "greek-troy-berth-token",
+    "greek-thrace-polyxena-cloth",
+    "greek-thrace-polydorus-shroud",
+    "greek-thrace-entrusted-gold",
+    "greek-thrace-gold-record",
+    "greek-thrace-case-papers",
+    "greek-susa-broken-oar",
+    "greek-susa-dead-names",
+    "greek-susa-offering-water",
+    "greek-susa-cloak",
+  ];
+  const places = [
+    "greek-aulis-household",
+    "greek-aulis-altar",
+    "greek-lemnos-landing",
+    "greek-rhesus-allies",
+    "greek-rhesus-aid-tent",
+    "greek-troy-womens-tent",
+    "greek-troy-shield-ground",
+    "greek-thrace-summons-tent",
+    "greek-thrace-burial-ground",
+    "greek-susa-tomb",
+    "greek-susa-threshold",
+    "greek-susa-road",
+  ];
+  addGreekEntities(
+    s,
+    pack,
+    avatars.filter((id) => pack.avatars[id]),
+    items.filter((id) => pack.items[id]),
+  );
+  const fresh = newMemories();
+  for (const id of places.filter((id) => pack.places[id]))
+    s.memories[id] ??= fresh[id];
+  saved.revision = 8;
 }
 
 // Revision 3 adds these residents and objects. Earlier records keep their

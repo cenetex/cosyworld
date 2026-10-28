@@ -5,7 +5,7 @@
   "rules": 21,
   "packId": "greek-drama",
   "targetRevision": 8,
-  "status": "draft-plan",
+  "status": "aulis-prototype",
   "baseline": {
     "source": "d0eed59f437f05467839f287d93c867f9da9d2d7",
     "rules": 21,
@@ -41,25 +41,17 @@
         "greek-aulis-offering-cloth",
         "greek-aulis-departure-record"
       ],
-      "newPlaces": [
-        "greek-aulis-household",
-        "greek-aulis-altar"
-      ]
+      "newPlaces": ["greek-aulis-household", "greek-aulis-altar"]
     },
     {
       "chapter": "Philoctetes",
-      "newActors": [
-        "greek-lemnos-philoctetes",
-        "greek-lemnos-neoptolemus"
-      ],
+      "newActors": ["greek-lemnos-philoctetes", "greek-lemnos-neoptolemus"],
       "newItems": [
         "greek-lemnos-water",
         "greek-lemnos-herb",
         "greek-lemnos-bow"
       ],
-      "newPlaces": [
-        "greek-lemnos-landing"
-      ]
+      "newPlaces": ["greek-lemnos-landing"]
     },
     {
       "chapter": "Rhesus",
@@ -74,10 +66,7 @@
         "greek-rhesus-bandage",
         "greek-rhesus-testimony"
       ],
-      "newPlaces": [
-        "greek-rhesus-allies",
-        "greek-rhesus-aid-tent"
-      ]
+      "newPlaces": ["greek-rhesus-allies", "greek-rhesus-aid-tent"]
     },
     {
       "chapter": "Trojan Women",
@@ -95,10 +84,7 @@
         "greek-troy-crew-pledge",
         "greek-troy-berth-token"
       ],
-      "newPlaces": [
-        "greek-troy-womens-tent",
-        "greek-troy-shield-ground"
-      ]
+      "newPlaces": ["greek-troy-womens-tent", "greek-troy-shield-ground"]
     },
     {
       "chapter": "Hecuba",
@@ -114,17 +100,11 @@
         "greek-thrace-gold-record",
         "greek-thrace-case-papers"
       ],
-      "newPlaces": [
-        "greek-thrace-summons-tent",
-        "greek-thrace-burial-ground"
-      ]
+      "newPlaces": ["greek-thrace-summons-tent", "greek-thrace-burial-ground"]
     },
     {
       "chapter": "Persians",
-      "newActors": [
-        "greek-susa-atossa",
-        "greek-susa-xerxes"
-      ],
+      "newActors": ["greek-susa-atossa", "greek-susa-xerxes"],
       "newItems": [
         "greek-susa-broken-oar",
         "greek-susa-dead-names",
@@ -210,7 +190,7 @@
   "ruleExtensions": [
     {
       "kind": "recalled-scene",
-      "status": "Aulis prototype first"
+      "status": "named remembered scene, three endings, real local escape, exact-ID revision-8 save upgrade; focused proof"
     },
     {
       "kind": "consenting-ship-passenger",
@@ -220,5 +200,25 @@
       "kind": "dock-bound",
       "status": "eleven named ports submitted for review"
     }
-  ]
+  ],
+  "actualGreekCatalog": {
+    "revision": 8,
+    "actors": 36,
+    "items": 30,
+    "places": 65,
+    "choices": 171,
+    "verses": 64,
+    "stories": 25,
+    "topics": 25,
+    "works": 44
+  },
+  "implementedWorks": ["euripides-iphigenia-at-aulis"],
+  "remainingWorks": [
+    "sophocles-philoctetes",
+    "euripides-rhesus",
+    "euripides-trojan-women",
+    "euripides-hecuba",
+    "aeschylus-persians"
+  ],
+  "prototypeArt": "existing Greek source art; approved portrait bindings follow in the next source commit"
 }

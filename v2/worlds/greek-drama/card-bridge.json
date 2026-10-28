@@ -130,6 +130,28 @@
         "cardName": "Greek ship",
         "cardArt": "assets/greek-drama/ship-card.webp"
       }
+    },
+    {
+      "id": "greek-aulis-ship",
+      "from": "greek-aulis",
+      "to": "pond",
+      "travelers": "any",
+      "travel": "aboard the ship",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-aulis-open",
+          "value": true
+        }
+      ],
+      "transport": "greek-ship",
+      "travelLabel": "Board",
+      "scenery": {
+        "open": "The shared ship waits at the Aulis anchorage.",
+        "closed": "The shared ship is sailing elsewhere. The anchorage waits for its return.",
+        "cardName": "Greek ship",
+        "cardArt": "assets/greek-drama/ship-card.webp"
+      }
     }
   ],
   "transports": {
@@ -140,7 +162,8 @@
         "greek-harbor",
         "greek-athens-harbor",
         "greek-piraeus",
-        "greek-ajax-landing"
+        "greek-ajax-landing",
+        "greek-aulis"
       ],
       "at": "greek-harbor"
     }
