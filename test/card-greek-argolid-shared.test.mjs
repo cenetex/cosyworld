@@ -3,6 +3,7 @@ import { decodeSave, encodeSave, exits } from "../v2/card-game/world.mjs";
 import { entityActive } from "../v2/card-game/pack-registry.mjs";
 import { ajaxStart } from "./helpers/greek-ajax.mjs";
 import { houseGo, housePlay } from "./helpers/greek-house-of-blood.mjs";
+import { ivStart } from "./helpers/book-iv.mjs";
 
 const road = "greek-argolid-road";
 const reload = (world) => decodeSave(encodeSave(world));
@@ -18,6 +19,24 @@ function invite(world, chapter) {
 }
 
 describe("the Argolid road shared by two invited chapters", () => {
+  it("opens the Faces of Home roads while preserving the other household frames", () => {
+    const world = ivStart();
+    for (const place of [
+      road,
+      "greek-pherae",
+      "greek-trachis",
+      "greek-delphi",
+    ])
+      expect(entityActive(world, place), place).toBe(true);
+    for (const actor of [
+      "greek-danaid-melia",
+      "greek-trachis-deianira",
+      "greek-argos-watchman",
+      "greek-pythian-priestess",
+    ])
+      expect(entityActive(world, actor), actor).toBe(false);
+    expect(reload(world)).toEqual(world);
+  });
   it.each(["danaid", "house"])(
     "opens through the %s invitation and preserves the other household gate",
     (chapter) => {

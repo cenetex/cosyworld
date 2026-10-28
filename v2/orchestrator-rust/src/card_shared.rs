@@ -6,6 +6,8 @@ mod boardy_tests;
 mod book_one_tests;
 #[cfg(test)]
 mod book_two_tests;
+#[cfg(test)]
+mod book_iv_tests;
 mod engine;
 #[cfg(test)]
 mod epic_capacity_tests;

@@ -114,6 +114,7 @@ const files = [
   "pack-registry.mjs",
   "pack-sections.mjs",
   "pack-journeys.mjs",
+  "pack-retirement.mjs",
   "pack-recital.mjs",
   "pack-rules.mjs",
   "pack-transport.mjs",

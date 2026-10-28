@@ -1,6 +1,11 @@
 import { recordRecital, recitalVisit, validRecitals } from "./pack-recital.mjs";
 import { boardyPack, BOARDY, boardyActive } from "./boardyai.mjs";
 import { sectionAllows } from "./pack-sections.mjs";
+import {
+  retirementTurn,
+  retireAfterReport,
+  validRetiredMeeting,
+} from "./pack-retirement.mjs";
 import { journeyNextPlace, validJourneyPlaces } from "./pack-journeys.mjs";
 // The compiled world packs mounted on the card table, indexed for the engine.
 // Packs supply data only; pack-rules.mjs applies the general rules they name.
@@ -291,6 +296,7 @@ function entityEnabled(world, id, saved = false) {
     state = packState(world, e.packId);
   if (
     !state ||
+    retirementTurn(world, pack, id) !== null ||
     !conditionsMet(
       world,
       e.packId,
@@ -424,6 +430,7 @@ export function applyPackChoice(world, action) {
     }
   }
   state.receipts[choice.id] = world.turn;
+  retireAfterReport(world, pack, choice, choiceText(choice, action.actor));
   recordRecital(world, pack, choice.id, action.actor);
   return choice;
 }
@@ -606,8 +613,10 @@ export function validatePackStates(world) {
           !Number.isSafeInteger(turn) ||
           turn < 0 ||
           turn > world.turn ||
-          ((closingFlags(id).length || !entityEnabled(world, id, true)) &&
-            !enabledAtMeeting(id, turn)) ||
+          (retirementTurn(world, pack, id) !== null
+            ? !validRetiredMeeting(world, pack, id, turn, conditionsMet)
+            : (closingFlags(id).length || !entityEnabled(world, id, true)) &&
+              !enabledAtMeeting(id, turn)) ||
           (world.opening &&
             !sharedEnabled(world) &&
             world.opening.met?.[id] !== turn),
@@ -679,8 +688,14 @@ export function validatePackStates(world) {
     if (!equals(choices, state.choices) || !equals(flags, state.flags))
       return false;
     for (const [id, actor] of Object.entries(pack.avatars)) {
-      const inactive = !entityEnabled(world, id, true);
-      if (inactive && owns(state.met, id) && closingFlags(id).length) {
+      const inactive = !entityEnabled(world, id, true),
+        retired = retirementTurn(world, pack, id);
+      if (
+        inactive &&
+        retired === null &&
+        owns(state.met, id) &&
+        closingFlags(id).length
+      ) {
         const closed = lastClosure(id),
           saved = world.actors[id];
         if (
@@ -696,12 +711,11 @@ export function validatePackStates(world) {
       }
       if (
         inactive &&
-        !owns(state.met, id) &&
+        (!owns(state.met, id) || retired !== null) &&
         ((world.actors[id]?.place !== actor.place &&
           !actor.previousHomes?.includes(world.actors[id]?.place)) ||
           world.actors[id]?.crossed !== 0 ||
-          world.actors[id]?.lastTalk !== -9 ||
-          owns(state.met, id))
+          world.actors[id]?.lastTalk !== -9)
       )
         return false;
     }

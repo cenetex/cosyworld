@@ -875,6 +875,9 @@ function talkKnowledge(s, action, entry) {
     const choices = packChoices(s, listener);
     const topics = authoredKnowledgeTopics()
       .filter((topic) =>
+        (topic.publicAccount === true &&
+          topic.choiceId !== undefined &&
+          Object.hasOwn(s.packs[topic.packId]?.receipts || {}, topic.choiceId)) ||
         conditionsMet(s, topic.packId, topic.requires || [], listener),
       )
       .map((topic) => ({

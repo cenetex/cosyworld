@@ -185,6 +185,35 @@ generated speech never advance a signal. Leaving the place resets progress.
 With `"consecutive": false`, other plays leave progress alone. A refresh
 play counts from anyone at the place while the crossing is open.
 
+### Lasting public accounts
+
+A linked spoken topic may use `"publicAccount": true` for an authorised public
+result. Its normal conditions govern the first publication. Once its own
+linked choice receipt is saved, a present speaker who knows that fact can
+teach it to a later listener. Earlier evidence may move after the report.
+The receiving listener still learns through published speech. A return action
+can require that listener’s own knowledge and the actual signed paper.
+
+Use this marker for the final public account that its author approves.
+Earlier clues and private scene work keep their own conditions.
+The marker has a boolean value and names a known linked choice through
+`choiceId`.
+
+### Fixed scene roles after a report
+
+A fixed NPC may name `"retireAfter": "witness-report-choice-id"`.
+The named choice belongs to a different scene witness. Its committed receipt
+gives the role a permanent closing date. The actor uses `"travels": false`
+and positive opening flags or account choices. Its original or previous home,
+`crossed: 0` and `lastTalk: -9` remain the saved position contract.
+
+After the report, earlier meetings, knowledge, trust and memories remain saved.
+Meeting validation checks the opening at that earlier turn. An appearance
+earlier on the report turn is valid. Directly held items move to the actor’s
+actual place and gain the report in their history. Contents such as a cloth
+around a lamp keep their own holder chain. A retiring speaker’s final scene
+words come before the witness. The witness carries later speech.
+
 ## Saves
 
 A save keeps `crossings` (per crossing: `discovered`, plus `phase` and

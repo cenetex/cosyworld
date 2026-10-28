@@ -108,6 +108,8 @@ describe("the Theban release and its ship", () => {
     ).toEqual(
       [
         ...openingPlaces,
+        "greek-egypt-tomb",
+        "greek-troy-beach",
         ...sectionPlaces.filter((id) => id !== "greek-road-athens-harbor"),
       ].sort(),
     );
@@ -141,7 +143,7 @@ describe("the Theban release and its ship", () => {
       expect(seen.has(pack.entry), start).toBe(true);
     }
   });
-  it("keeps the authored Heracles inquiry and withholds later branch menus", () => {
+  it("keeps the authored Heracles inquiry and offers the released Helen accounts at the harbor", () => {
     const s = createWorld();
     const storyInquiry = "greek-inquire-euripides-heracles";
     for (const place of pack.release.places) {
@@ -150,7 +152,11 @@ describe("the Theban release and its ship", () => {
       expect(ids.filter((id) => id.startsWith("greek-inquire-"))).toEqual(
         place === "greek-courtyard" ? [storyInquiry] : [],
       );
-      expect(ids.some((id) => id.startsWith("greek-helen-"))).toBe(false);
+      expect(ids.filter((id) => id.startsWith("greek-helen-"))).toEqual(
+        place === "greek-harbor"
+          ? ["greek-helen-egypt", "greek-helen-troy"]
+          : [],
+      );
     }
     s.actors.vale.place = "greek-courtyard";
     expect(packChoices(s).map((choice) => choice.choiceId)).not.toContain(

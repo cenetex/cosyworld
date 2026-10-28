@@ -472,6 +472,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "place",
         "travels",
         "journey",
+        "retireAfter",
         "roamingQuest",
         "personalQuests",
         "previousHomes",
@@ -875,6 +876,24 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     }
   }
   for (const [id, avatar] of Object.entries(avatars)) {
+    if (avatar.retireAfter === undefined) continue;
+    const report = choices.find((choice) => choice.id === avatar.retireAfter);
+    check(
+      idOk(avatar.retireAfter) &&
+        report &&
+        report.subject !== id &&
+        avatar.travels === false &&
+        avatar.journey === undefined &&
+        avatar.roamingQuest === undefined &&
+        avatar.personalQuests !== true &&
+        avatar.temperament === undefined &&
+        (avatar.requires || []).every(
+          (c) => c.kind === "choice" || (c.kind === "flag" && c.value === true),
+        ),
+      `avatar ${id} retirement needs a fixed role, positive opening and a witness report`,
+    );
+  }
+  for (const [id, avatar] of Object.entries(avatars)) {
     if (avatar.journey === undefined) continue;
     const journey = avatar.journey;
     const agreement = choices.find((c) => c.id === journey?.after);
@@ -917,7 +936,15 @@ export function packProblems(pack, hub, mountedPlaces = []) {
   const topicIds = new Set();
   for (const topic of pack.topics || []) {
     check(
-      keysOk(topic, ["id", "speaker", "at", "text", "requires", "choiceId"]) &&
+      keysOk(topic, [
+        "id",
+        "speaker",
+        "at",
+        "text",
+        "requires",
+        "choiceId",
+        "publicAccount",
+      ]) &&
         idOk(topic.id) &&
         !topicIds.has(topic.id) &&
         owns(avatars, topic.speaker) &&
@@ -925,6 +952,12 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         validFactText(topic.text) &&
         (topic.choiceId === undefined || choiceIds.has(topic.choiceId)),
       `topic ${topic.id} needs a unique id, speaker, place, sentence and valid choice`,
+    );
+    check(
+      topic.publicAccount === undefined ||
+        (typeof topic.publicAccount === "boolean" &&
+          topic.choiceId !== undefined),
+      `topic ${topic.id} public account needs a linked choice`,
     );
     topicIds.add(topic.id);
     requirements(topic.requires, `topic ${topic.id} requires`);
