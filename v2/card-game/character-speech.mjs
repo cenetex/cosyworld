@@ -1,10 +1,18 @@
 import cast from "./voices.json" with { type: "json" };
+import { packEntity } from "./pack-registry.mjs";
+import { expressionOf } from "./expression.mjs";
 import { playerOpenRouter } from "./openrouter.mjs";
 
 const MAX_BYTES = 2 * 1024 * 1024;
 const MAX_CLIPS = 32;
 const CACHE = "cosyworld.card-voices.v1";
-export const characterVoices = Object.freeze(cast.voices);
+export const characterVoices = Object.freeze(
+  Object.fromEntries(
+    Object.entries(cast.voices).filter(
+      ([id]) => expressionOf(packEntity(id)) === "speech",
+    ),
+  ),
+);
 
 function base64(bytes) {
   let text = "";

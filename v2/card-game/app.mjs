@@ -5,6 +5,7 @@ import { locationWeather } from "./weather.mjs";
 import { locationDaylight } from "./daylight.mjs";
 import { renderWeather } from "./weather-view.mjs";
 import { installToolbar, renderPlayers } from "./toolbar.mjs";
+import { expressionLabel, expressionOf } from "./expression.mjs";
 import {
   connectSharedWorld,
   createSharedPlaybackClock,
@@ -493,7 +494,11 @@ function updateSpeechControls(complete) {
 const reveal = createTextReveal({
   reduced: () => reducedMotion.matches,
   sound: (...args) => {
-    if (!document.hidden && !characterSpeech.speaks(args[0]))
+    if (
+      !document.hidden &&
+      expressionOf(people[args[0]]) === "speech" &&
+      !characterSpeech.speaks(args[0])
+    )
       speechSounds.syllable(...args);
   },
   frame: (value) => {
@@ -533,8 +538,10 @@ const reveal = createTextReveal({
       });
     }
     if (value.complete) {
-      $("speech-announcement").textContent =
-        `${nameOf(value.speaker)}: ${value.text}`;
+      $("speech-announcement").textContent = expressionLabel(
+        { ...people[value.speaker], name: nameOf(value.speaker) },
+        value.text,
+      );
       updateSpeechControls(true);
       completedSpeech.add(value.key);
       if (completedSpeech.size > 100)

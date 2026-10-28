@@ -372,6 +372,14 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/narrative.mjs"),
         ),
+        "expression.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/expression.mjs"),
+        ),
+        "emoji-symbols.json" => (
+            "application/json",
+            include_bytes!("../../card-game/emoji-symbols.json"),
+        ),
         "dialogue.mjs" => (
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/dialogue.mjs"),
@@ -1819,9 +1827,9 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "scene-video.css" => "\"3c6851ec825e734e3d8a084f4ed77f077bcb4402acbf61869a67b652c3afe4c5\"",
         "awakening.css" => "\"c7a68a23baf1e46934237a57f4b5f87d76bad87af85fdf57ee40abec646908b9\"",
-        "app.mjs" => "\"1b992311073bec985ce78d4a6395cad5d5597dd2721cff0d1687a7c00b85103f\"",
+        "app.mjs" => "\"a14968ed33ded306e563ed3efc847d87309ce732b56922323bef633a70ce6927\"",
         "world.mjs" => "\"2cdf7bbc9db556670de9c055c118717c259547cacc5a494be2a7f43772693522\"",
-        "scene.mjs" => "\"aba97eb70f26e75c9eaa4bcf71e3d8130f8bc5efc3df2b1a2567022959879d87\"",
+        "scene.mjs" => "\"4a66c439346c4f4b3cc9a5081460b10a61da3cb2eafa7910d69a4c00a9a08838\"",
         "weather.mjs" => "\"69a3e11642c43831f80581711f6113d814badd666ad2c3e3892a1a4c70a5fd27\"",
         "daylight.mjs" => "\"6e1bbbf92705e5e2ed904ca98666540ab9a91916c94e50749e649a0ba380170d\"",
         "assets/greek-drama/harbor-open-berth-night.webp" => {
@@ -1889,10 +1897,14 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "situations.mjs" => "\"1fff8b8ba954720b8a0a4450d6db2bf6e6d9378566ae0ca2668a44979f83c39d\"",
         "memory.mjs" => "\"73ce17a68e29678684d13458a87fa9e2274879a45680e53d7d83b562abac3dab\"",
         "learning.mjs" => "\"feb6faebe9c0470cfac7545e7e91587701b7434fecd176c9475fee778cb51175\"",
-        "narrative.mjs" => "\"1dd20c612150c1c2c41986377194a79a1f8fb5069448493bd3ef18c283c38aa2\"",
+        "narrative.mjs" => "\"231fc31517df6d16ff7ae07115b91b51f1560a61b99239d8eeeba550b15fdf60\"",
+        "expression.mjs" => "\"821dc690b00bd4bab145a22b30de6b173697a1e66c1c78a3c5de88f443c0a153\"",
+        "emoji-symbols.json" => {
+            "\"4309aa5174e51a83d139e4acfbc025d006faeda6dc30fe86d488e81b367d5bc1\""
+        }
         "dialogue.mjs" => "\"1f4965d3e2a36261973aace4534359c00c7cf8aeaf15548a08d29e364adcc7ad\"",
         "character-speech.mjs" => {
-            "\"d53e51f93d89a0073199f45dd83086417733d76980f6c3b22f875b3f642292b5\""
+            "\"de19a074bb1212cefb224a8f0df7f3f18852b280665cc6e43820e2de4193496f\""
         }
         "voices.json" => "\"9779065a6e1d8f4e6b3cc23ac3531b7915243388483fad9a31e5a819b7e0871f\"",
         "assets/voices/vale.mp3" => {
@@ -1913,9 +1925,9 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "assets/voices/greek-baker.mp3" => {
             "\"0dc315f6c54a2a48fab122a0c1b3dc5876121073b696b0ce4537c2d76d0b08a8\""
         }
-        "pack-schema.mjs" => "\"414ff33a89dcf7cb5b5bff49fb0adfd9748aad1a6c0a430b24f3f361eb3fc02a\"",
+        "pack-schema.mjs" => "\"8aa4008ff8bf3f9f63df549bef2d5858c657a5f951e62b7ff4c4691f2130201e\"",
         "pack-registry.mjs" => {
-            "\"cc6d9dfb3252589ca86af52e3c3221c81b23fbe508152469a85d401de518a6d6\""
+            "\"e892a650386fd7e343f41a8b9ea3e3bb67ce4fc48ba3d7c0cf697a85baa3534d\""
         }
         "pack-sections.mjs" => {
             "\"1230a3aa14a8e17e9eedaeeaead6717b77650111e8179306ad5e2a2d925d0f32\""

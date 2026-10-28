@@ -92,6 +92,8 @@ const files = [
   "memory.mjs",
   "learning.mjs",
   "narrative.mjs",
+  "expression.mjs",
+  "emoji-symbols.json",
   "dialogue.mjs",
   "character-speech.mjs",
   "voices.json",

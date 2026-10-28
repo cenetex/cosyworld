@@ -52,6 +52,13 @@ Commit the generated image map, WebP files, music stream map, media hashes, and
 
 ## Character voices
 
+Pack residents can set `expression` to `speech`, `movement`, or `emoji`.
+Speech is the default. Movement replies describe a small visible gesture and
+appear as narration. Emoji replies use two to five symbols from
+`emoji-symbols.json`; their English names supply the accessible reading.
+The server reads the expression type from the authored character profile.
+Spoken audio and letter sounds follow speech replies.
+
 Spoken character voices use the player's OpenRouter credits and account routing
 settings. Written dialogue uses the game's account. Provider retention follows
 the chosen account settings and provider policy. Temporary provider errors can

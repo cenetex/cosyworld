@@ -174,7 +174,7 @@ export const packProfiles = Object.fromEntries([
       name: a.name,
       persona: a.persona,
       voice: a.voice,
-      expression: a.expression || "speech",
+      ...(a.expression ? { expression: a.expression } : {}),
     },
   ]),
 ]);

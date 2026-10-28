@@ -1,4 +1,5 @@
 import { learningFacts } from "./learning.mjs";
+import { expressionKind, validExpression } from "./expression.mjs";
 import { questCarried } from "./quest-hands.mjs";
 import { BOARDY, boardyFacts } from "./boardyai.mjs";
 import { questRecord } from "./shared-quests.mjs";
@@ -711,6 +712,7 @@ export function applyGeneratedText(world, context, response) {
         !entry.text.trim() ||
         entry.text.length > 400 ||
         /[\u0000-\u001f\u007f]/u.test(entry.text) ||
+        !validExpression(profiles[entry.id], entry.text) ||
         (entry.model !== undefined &&
           (typeof entry.model !== "string" ||
             !entry.model.trim() ||
@@ -776,7 +778,7 @@ export function applyGeneratedText(world, context, response) {
     const avatar = profiles[id].kind === "avatar";
     const movement = changes.find((change) => change.actorId === id);
     addLog(next, profiles[id].name, text, {
-      kind: avatar ? "dialogue" : "narration",
+      kind: avatar ? expressionKind(profiles[id]) : "narration",
       actorId: avatar ? id : null,
       entityId: id,
       generated: true,
