@@ -6,6 +6,12 @@ pub(super) async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let boot_started = Instant::now();
     initialize_tracing();
 
+    if let Some(config) =
+        crate::routes::card_game::local::Config::from_env().map_err(io::Error::other)?
+    {
+        return crate::routes::card_game::local::run(config).await;
+    }
+
     configured_content_registry().map_err(io::Error::other)?;
     let drain_budget = configured_shutdown_drain_budget()?;
     let state = AppState::bootstrap().await?;

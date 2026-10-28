@@ -622,6 +622,32 @@ function validReflection(entry, world, context) {
   );
 }
 
+export function applyGeneratedReflections(world, context, response) {
+  if (
+    world.revision !== context.revision ||
+    world.turn !== context.turn ||
+    response?.revision !== context.revision
+  )
+    return null;
+  const entries = response.reflections;
+  if (
+    !Array.isArray(entries) ||
+    entries.length > context.entities.length ||
+    new Set(entries.map((entry) => entry?.id)).size !== entries.length ||
+    entries.some(
+      (entry) =>
+        !context.entities.some((entity) => entity.id === entry?.id) ||
+        !entry.reflection ||
+        !validReflection(entry, world, context),
+    )
+  )
+    throw new Error("The character update needs another try.");
+  const next = structuredClone(world);
+  for (const entry of entries)
+    saveReflection(next, context, entry, entry.model || "local-reflection");
+  return validateWorld(next);
+}
+
 function reflectionSources(world, context, id) {
   const selected = context.entities.find((e) => e.id === id)?.memories || [];
   return selected
@@ -705,7 +731,12 @@ export function applySharedReflections(world, entries) {
       saveReflection(world, context, entry, entry.model || "card-voices-v1");
 }
 
-export function applyGeneratedText(world, context, response) {
+export function applyGeneratedText(
+  world,
+  context,
+  response,
+  { incremental = false } = {},
+) {
   if (
     world.revision !== context.revision ||
     world.turn !== context.turn ||
@@ -792,6 +823,17 @@ export function applyGeneratedText(world, context, response) {
     context.focus,
     ...context.speakers,
   ].filter((id) => id && !omitted.includes(id))) {
+    if (
+      incremental &&
+      next.log.some(
+        (entry) =>
+          entry.generated &&
+          entry.turn === next.turn &&
+          entry.entityId === id &&
+          entry.locationId === context.location,
+      )
+    )
+      continue;
     const text = next.memories[id].text;
     const avatar = profiles[id].kind === "avatar";
     const movement = changes.find((change) => change.actorId === id);
@@ -844,8 +886,14 @@ export function partialEntries(source) {
   return entries;
 }
 
-export async function requestNarrative(context, signal, progress = () => {}) {
-  const response = await fetch("/card-game/text", {
+export async function requestNarrative(
+  context,
+  signal,
+  progress = () => {},
+  path = "/card-game/text",
+  validatedOnly = false,
+) {
+  const response = await fetch(path, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -897,10 +945,15 @@ export async function requestNarrative(context, signal, progress = () => {}) {
           text += event.text;
           if (text.length > 16 * 1024)
             throw new Error("Story text exceeded its limit.");
+          // The service sends a whole validated line followed by a newline.
+          const entries = validatedOnly
+            ? text
+                .split("\n")
+                .slice(0, -1)
+                .map((line) => JSON.parse(line))
+            : partialEntries(text);
           progress(
-            partialEntries(text).filter((entry) =>
-              context.speakers.includes(entry.id),
-            ),
+            entries.filter((entry) => context.speakers.includes(entry.id)),
           );
         }
       }
@@ -965,6 +1018,8 @@ export function createNarrator({
   started = () => {},
   request = requestNarrative,
   preview = () => {},
+  early = false,
+  reflect = null,
   budget = Number(
     globalThis.document?.querySelector('meta[name="cosy-story-budget-ms"]')
       ?.content,
@@ -974,9 +1029,11 @@ export function createNarrator({
     pending = null,
     failed = null,
     running = false,
-    controller;
+    controller,
+    reflectionController;
   async function write(context, version, signal) {
     const deadline = Date.now() + Math.max(30_000, Math.min(budget, 1_900_000));
+    const published = new Map();
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const response = await boundedRequest(
@@ -984,20 +1041,68 @@ export function createNarrator({
           context,
           signal,
           (entries) => {
-            if (version === ticket && getWorld().revision === context.revision)
+            if (
+              version === ticket &&
+              getWorld().revision === context.revision
+            ) {
               preview({ context, entries });
+              if (early && entries.length) {
+                for (const entry of entries)
+                  if (!published.has(entry.id)) published.set(entry.id, entry);
+                const value = {
+                  revision: context.revision,
+                  model: "card-voices-v1",
+                  entries: [...published.values()],
+                  omitted: context.entities
+                    .filter(({ id }) => !published.has(id))
+                    .map(({ id }) => id),
+                };
+                const next = applyGeneratedText(getWorld(), context, value, {
+                  incremental: true,
+                });
+                if (next) apply(next, { pending: true });
+              }
+            }
           },
           // The server can take 25 seconds. Keep its response alive inside the
           // shared 30-second budget; retry only with the time still remaining.
           Math.max(0, deadline - Date.now()),
         );
         if (version !== ticket) return;
-        const next = applyGeneratedText(getWorld(), context, response);
+        if (early)
+          response.entries = response.entries.map((entry) =>
+            published.has(entry.id)
+              ? { ...entry, text: published.get(entry.id).text }
+              : entry,
+          );
+        const next = applyGeneratedText(getWorld(), context, response, {
+          incremental: early,
+        });
         if (!next)
           throw new Error("The story response did not match this scene.");
         preview(null);
         apply(next);
         status("ready");
+        if (reflect) {
+          reflectionController = new AbortController();
+          void boundedRequest(
+            reflect,
+            context,
+            reflectionController.signal,
+            () => {},
+            60_000,
+          )
+            .then((value) => {
+              if (version !== ticket) return;
+              const updated = applyGeneratedReflections(
+                getWorld(),
+                context,
+                value,
+              );
+              if (updated) apply(updated, { reflection: true });
+            })
+            .catch(() => {});
+        }
         return;
       } catch (error) {
         if (signal.aborted || version !== ticket) return;
@@ -1039,6 +1144,7 @@ export function createNarrator({
     }
   }
   function changed(action = null) {
+    reflectionController?.abort();
     failed = null;
     pending = { action, version: ++ticket };
     preview(null);
@@ -1053,6 +1159,7 @@ export function createNarrator({
       return true;
     },
     invalidate() {
+      reflectionController?.abort();
       ticket += 1;
       pending = null;
       failed = null;
