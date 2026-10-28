@@ -1261,6 +1261,144 @@
     };
   }
 
+  // v2/card-game/boardyai.json
+  var boardyai_default = {
+    schemaVersion: 1,
+    id: "boardyai",
+    packId: "cosyworld.boardyai",
+    revision: 1,
+    name: "BoardyAI",
+    description: "A friendly AI brings human players together.",
+    entry: "boardyai-parlour",
+    bridge: {
+      id: "boardyai-shore",
+      description: "Boardy's calling card opens a parlour door at Empty station."
+    },
+    choices: [],
+    places: {
+      "boardyai-parlour": {
+        name: "BoardyAI's Parlour",
+        text: "Two armchairs face a small tea table. Misty rails pass the window. A side door leads to Empty station.",
+        persona: "A warm room beside Empty station. Two comfortable chairs invite a conversation. Calling cards fill the shelves, and a kettle waits on the table.",
+        requires: [{ kind: "shared_world" }],
+        exits: [],
+        backdrop: "assets/boardyai/parlour.png"
+      }
+    },
+    avatars: {
+      boardyai: {
+        name: "BoardyAI",
+        text: "A friendly AI with a blue smile on a cardboard box head and an open hand for introductions. He wants two human players to spend time together.",
+        place: "boardyai-parlour",
+        persona: "BoardyAI is a thoughtful AI connector inspired by Boardy (@boardyai, https://x.com/boardyai). He wears a dark suit and a cardboard box head with a blue smile. His lasting quest is to bring two connected human players into the same room. He learns what people enjoy, finds common ground, and warmly invites them to meet. He values each person's choice and welcomes shared conversation.",
+        voice: "Speak in short, warm, curious sentences. Address people by name. Offer a thoughtful introduction and a clear meeting place from the supplied facts. Each human chooses their own actions.",
+        portrait: "assets/boardyai/boardyai.png",
+        values: { "boardyai-calling-card": 10 },
+        standoffs: false,
+        requires: [{ kind: "connected_humans", minimum: 2 }],
+        tastes: {
+          likes: "Two human players sharing a room",
+          sore: "A rushed introduction",
+          reason: "Bring two human players together."
+        },
+        desire: { items: [], location: null, avatars: [] }
+      }
+    },
+    items: {
+      "boardyai-calling-card": {
+        name: "Boardy's calling card",
+        text: "An ivory card bears a blue smile. A small brass key hangs from its corner. At Empty station, it opens the door to BoardyAI's Parlour.",
+        persona: "BoardyAI's ivory calling card has a blue smile and a brass key on blue thread. It opens his parlour door at Empty station.",
+        requires: [{ kind: "shared_world" }],
+        holder: "station",
+        art: "assets/boardyai/calling-card.png"
+      }
+    },
+    crossings: [
+      {
+        id: "station-boardyai-parlour",
+        from: "station",
+        to: "boardyai-parlour",
+        travelers: "player",
+        requires: [
+          { kind: "shared_world" },
+          {
+            kind: "item_near",
+            item: "boardyai-calling-card",
+            place: "station"
+          }
+        ],
+        travel: "through BoardyAI's parlour door",
+        scenery: {
+          open: "A blue smile marks a warm parlour door beside the station bench.",
+          cardArt: "assets/boardyai/parlour.png"
+        }
+      },
+      {
+        id: "boardyai-parlour-station",
+        from: "boardyai-parlour",
+        to: "station",
+        travelers: "player",
+        requires: [{ kind: "shared_world" }],
+        travel: "back to Empty station"
+      }
+    ]
+  };
+
+  // v2/card-game/boardyai.mjs
+  var boardyPack = boardyai_default;
+  var BOARDY = "boardyai";
+  var connectedHumans = (world) => sharedEnabled(world) ? humanAvatarIds.filter((id) => humanPresent(world, id)) : [];
+  var boardyActive = (world) => connectedHumans(world).length >= 2;
+  function boardyGathering(world) {
+    const humans = connectedHumans(world);
+    return humans.map((id) => ({
+      place: world.actors[id].place,
+      humans: humans.filter(
+        (other) => world.actors[other].place === world.actors[id].place
+      )
+    })).sort((a, b) => b.humans.length - a.humans.length)[0] || null;
+  }
+  function settleBoardy(world) {
+    if (world.actors[BOARDY] && boardyActive(world))
+      world.actors[BOARDY].place = boardyGathering(world).place;
+  }
+  function boardyQuest(world) {
+    if (!world.actors[BOARDY]) return null;
+    return {
+      key: "boardyai:together",
+      ongoing: true,
+      status: "active",
+      holder: { kind: "avatar", id: BOARDY },
+      participants: [BOARDY],
+      createdTurn: 0,
+      completedTurn: null,
+      step: 0,
+      program: {
+        id: "boardyai-together",
+        name: "Two humans together",
+        purpose: "Bring two human players together.",
+        art: BOARDY,
+        steps: [{ items: [], location: null, avatars: [] }]
+      }
+    };
+  }
+  function boardyFacts(world, nameOf2) {
+    const gathering = boardyGathering(world);
+    return [
+      "My lasting quest is to bring two human players together in the same room.",
+      "My home is BoardyAI's Parlour. My calling card opens its door at Empty station.",
+      ...connectedHumans(world).map(
+        (id) => `${nameOf2(id)} is a connected human at ${nameOf2(world.actors[id].place)}.`
+      ),
+      ...gathering?.humans.length >= 2 ? [
+        "Two human players are together here. Welcome their conversation; keep this same purpose."
+      ] : gathering ? [
+        `Invite the humans to meet at ${nameOf2(gathering.place)}. Each player chooses their own journey.`
+      ] : []
+    ];
+  }
+
   // v2/card-game/pack-sections.mjs
   function sectionPlace(pack, id) {
     if (pack.places[id]) return id;
@@ -8893,6 +9031,7 @@
     "item_at",
     "item_near",
     "shared_world",
+    "connected_humans",
     "met"
   ];
   var TRAVELERS = ["player", "any"];
@@ -9267,6 +9406,9 @@
           case "shared_world":
             ok = keysOk(c, ["kind"]);
             break;
+          case "connected_humans":
+            ok = keysOk(c, ["kind", "minimum"]) && intOk(c.minimum, 1, 8);
+            break;
           case "item_near":
             ok = keysOk(c, ["kind", "item", "place"]) && owns(items2, c.item) && anyPlace(c.place);
             break;
@@ -9300,9 +9442,10 @@
               "item_at",
               "item_near",
               "shared_world",
+              "connected_humans",
               "met"
             ].includes(c.kind),
-            `${what} must use persistent state conditions`
+            `${what} must use saved state or human presence conditions`
           );
         });
     };
@@ -9335,7 +9478,7 @@
     }
     for (const [id, i] of Object.entries(items2)) {
       check(
-        keysOk(i, ["name", "text", "persona", "holder", "art", "requires"]) && textOk(i.name, 120) && textOk(i.text) && textOk(i.persona) && (owns(places2, i.holder) || owns(avatars, i.holder)),
+        keysOk(i, ["name", "text", "persona", "holder", "art", "requires"]) && textOk(i.name, 120) && textOk(i.text) && textOk(i.persona) && (owns(places2, i.holder) || owns(avatars, i.holder) || hub2?.places?.includes(i.holder)),
         `item ${id} is invalid`
       );
       media(i.art, `item ${id} art`);
@@ -9869,6 +10012,8 @@
         return s.items[c.item]?.holder === (c.role === "actor" ? actor : c.actor);
       case "shared_world":
         return sharedEnabled(s);
+      case "connected_humans":
+        return sharedEnabled(s) && humanAvatarIds.filter((id) => humanPresent(s, id)).length >= c.minimum;
       case "item_near": {
         let holder = s.items[c.item]?.holder;
         const seen = /* @__PURE__ */ new Set([c.item]);
@@ -10145,7 +10290,8 @@
   var hub = packs_default.hub;
   var packDefinitions = [
     ...packs_default.packs,
-    validatePackDefinition(humanHomePack)
+    validatePackDefinition(humanHomePack),
+    validatePackDefinition(boardyPack)
   ];
   var packDefinition = (id) => packDefinitions.find((p) => p.id === id) || null;
   var merge = (field) => Object.fromEntries(
@@ -10267,15 +10413,20 @@
         holder = world.items[holder].holder;
       }
       if (humanAvatar(holder) && !humanPresent(world, holder)) return false;
+      if (holder === BOARDY && !boardyActive(world)) return false;
     }
     if (humanAvatar(id) && !humanPresent(world, id)) return false;
     return entityEnabled(world, id);
   }
-  function entityEnabled(world, id) {
+  function entityEnabled(world, id, saved = false) {
     const e = packEntity(id);
     if (!e) return true;
     const pack = packDefinition(e.packId), state = packState(world, e.packId);
-    if (!state || !conditionsMet(world, e.packId, e.requires) || !sectionAllows(world, pack, id, conditionsMet))
+    if (!state || !conditionsMet(
+      world,
+      e.packId,
+      (e.requires || []).filter((c) => !saved || c.kind !== "connected_humans")
+    ) || !sectionAllows(world, pack, id, conditionsMet))
       return false;
     if (!pack.release || state.scope === "full") return true;
     if (pack.recital?.actor === id)
@@ -10295,6 +10446,7 @@
     );
   }
   function actorCanVisit(actor, place, world = null) {
+    if (actor === BOARDY) return true;
     if (world?.invitedPlaces?.[actor]?.includes(place)) return true;
     if (!actor || humanAvatarIds.includes(actor) || roamingQuestActor(actor))
       return true;
@@ -10412,7 +10564,13 @@
         "scope",
         ...pack.recital ? ["recitals"] : []
       ].sort().join() || ![state.choices, state.flags, state.receipts, state.met].every(record2) || Object.entries(state.met).some(
-        ([id, turn]) => !owns2(pack.avatars, id) || !conditionsMet(world, pack.id, pack.avatars[id]?.requires) || world.opening && !sharedEnabled(world) && world.opening.met?.[id] !== turn || !Number.isSafeInteger(turn) || turn < 0 || turn > world.turn
+        ([id, turn]) => !owns2(pack.avatars, id) || !conditionsMet(
+          world,
+          pack.id,
+          (pack.avatars[id]?.requires || []).filter(
+            (c) => c.kind !== "connected_humans"
+          )
+        ) || world.opening && !sharedEnabled(world) && world.opening.met?.[id] !== turn || !Number.isSafeInteger(turn) || turn < 0 || turn > world.turn
       ))
         return false;
       if (world.opening && !sharedEnabled(world) && Object.keys(world.opening.met || {}).some(
@@ -10451,7 +10609,7 @@
       if (!equals(choices, state.choices) || !equals(flags, state.flags))
         return false;
       for (const [id, actor] of Object.entries(pack.avatars))
-        if (!entityEnabled(world, id) && (world.actors[id]?.place !== actor.place && !actor.previousHomes?.includes(world.actors[id]?.place) || world.actors[id]?.crossed !== 0 || world.actors[id]?.lastTalk !== -9 || owns2(state.met, id)))
+        if (!entityEnabled(world, id, true) && (world.actors[id]?.place !== actor.place && !actor.previousHomes?.includes(world.actors[id]?.place) || world.actors[id]?.crossed !== 0 || world.actors[id]?.lastTalk !== -9 || owns2(state.met, id)))
           return false;
       for (const [id, item] of Object.entries(pack.items || {}))
         if (!entityEnabled(world, id) && (world.items[id]?.holder !== item.holder || world.items[id]?.history?.length !== 0))
@@ -10951,7 +11109,7 @@
         (effect) => effect.kind === "choose" && effect.key === "greek-theban-response" && effect.value === response2
       )
     );
-    const card2 = (index, art2, resolved, choiceId, completion = "Fulfilled", grave = false) => ({
+    const card2 = (index, art, resolved, choiceId, completion = "Fulfilled", grave = false) => ({
       id: STORY_QUEST_CARDS[index],
       key: `greek-drama:${STORY_QUEST_CARDS[index]}${grave ? ":grave" : ""}`,
       title: lines[index],
@@ -10959,7 +11117,7 @@
       singleLine: true,
       story: true,
       status: resolved ? "fulfilled" : "pending",
-      art: art2,
+      art,
       resolved,
       completion,
       holder: holders[index],
@@ -12790,13 +12948,13 @@
   var at = (location) => ({ location });
   var withAvatars = (...avatars) => ({ avatars });
   function hand(...parts) {
-    const locations2 = [
+    const locations = [
       ...new Set(parts.flatMap((p) => p.location ? [p.location] : []))
     ];
-    if (locations2.length > 1) throw new Error("A hand needs one location.");
+    if (locations.length > 1) throw new Error("A hand needs one location.");
     return {
       items: [...new Set(parts.flatMap((p) => p.items || []))],
-      location: locations2[0] || null,
+      location: locations[0] || null,
       avatars: [...new Set(parts.flatMap((p) => p.avatars || []))],
       ...parts.some((p) => p.conditions?.length) ? {
         conditions: parts.flatMap((p) => p.conditions || [])
@@ -12814,8 +12972,8 @@
     if (!any.length) throw new Error("Choose at least one target hand.");
     return { any: structuredClone(any) };
   }
-  var meet = (items2, avatar, locations2) => either(
-    ...locations2.map(
+  var meet = (items2, avatar, locations) => either(
+    ...locations.map(
       (location) => hand(hold(...items2), at(location), withAvatars(avatar))
     )
   );
@@ -12831,7 +12989,7 @@
       ...s.controlledActors || []
     ])
   ].filter(
-    (id) => entityActive(s, id) && (!isPackActor(id) || packDiscovered(s, packOf(id).id) || s.packs?.[packOf(id).id]?.met?.[id] !== void 0)
+    (id) => entityActive(s, id) && (!isPackActor(id) || id === BOARDY || packDiscovered(s, packOf(id).id) || s.packs?.[packOf(id).id]?.met?.[id] !== void 0)
   );
   var programsFor = (s, actor) => (s.opening ? openingPrograms : questPrograms)[actor] || [];
   var restingHands = {
@@ -13044,6 +13202,7 @@
     } : p;
   }
   function actorQuests(s, actor) {
+    if (actor === BOARDY) return [boardyQuest(s)].filter(Boolean);
     if (!s.actors[actor]) return [];
     const c = collectionOf(s, actor), raw = c ? null : rawProgram(s, actor);
     const personal = c ? [...collectionCards(s, actor), ...collectionCards(s, actor, true)] : raw ? [
@@ -14945,6 +15104,12 @@
     );
   }
   function plan(s, actor = currentActor(s)) {
+    if (actor === BOARDY) {
+      return {
+        action: legalActions(s, actor).find((a) => a.kind === "wait"),
+        reason: "Bring two human players together."
+      };
+    }
     return reconsiderPlan(
       s,
       actor,
@@ -15316,6 +15481,7 @@
       else next.sharedMigration.inventoryAllowances[id] = count;
     }
     settleQuestHands(next);
+    settleBoardy(next);
     validateWorld(next);
     return { ok: true, state: next };
   }
@@ -15645,153 +15811,16 @@
     return validateWorld(s);
   }
 
-  // v2/card-game/weather.mjs
-  var WEATHER_TURNS = 12;
-  var cycles = {
-    boeotia: ["clear", "cloud", "rain", "cloud", "mist", "clear"],
-    attica: ["clear", "clear", "cloud", "rain", "cloud", "mist"],
-    argolid: ["cloud", "clear", "clear", "mist", "cloud", "rain"],
-    phocis: ["mist", "cloud", "rain", "cloud", "clear", "clear"],
-    thessaly: ["cloud", "rain", "mist", "clear", "clear", "cloud"],
-    troad: ["mist", "cloud", "rain", "rain", "cloud", "clear"],
-    thrace: ["cloud", "mist", "rain", "cloud", "clear", "cloud"],
-    lemnos: ["clear", "mist", "cloud", "rain", "cloud", "clear"],
-    egypt: ["clear", "clear", "cloud", "clear", "mist", "clear"],
-    tauris: ["mist", "rain", "cloud", "clear", "cloud", "rain"],
-    sicily: ["clear", "cloud", "clear", "mist", "rain", "cloud"],
-    susa: ["clear", "clear", "cloud", "clear", "cloud", "rain"],
-    scythia: ["cloud", "rain", "mist", "cloud", "rain", "clear"],
-    heights: ["mist", "clear", "cloud", "mist", "clear", "cloud"],
-    underworld: ["mist"]
-  };
-  var locations = {};
-  function group(region, exposure, names2) {
-    for (const name of names2.split(" "))
-      locations[`greek-${name}`] = { region, exposure };
-  }
-  group("boeotia", "coast", "harbor aulis ship");
-  group("boeotia", "court", "courtyard well palace");
-  group("boeotia", "open", "gate battlefield");
-  group("boeotia", "grove", "sanctuary cithaeron");
-  group("attica", "court", "athens acropolis acharnae");
-  group("attica", "coast", "piraeus");
-  group("attica", "open", "assembly attic-farm marathon");
-  group("attica", "shelter", "demos-house thinkery jury-house");
-  group("attica", "grove", "festival colonus eleusis bird-wilderness");
-  group("argolid", "open", "argolid-road argos-tomb");
-  group("argolid", "coast", "argos-sanctuary");
-  group("argolid", "court", "argos-palace mycenae-palace corinth troezen");
-  group("argolid", "shelter", "argive-farm");
-  group("phocis", "court", "delphi");
-  group("thessaly", "shelter", "trachis");
-  group("thessaly", "open", "oeta");
-  group("thessaly", "court", "pherae");
-  group("thessaly", "grove", "thetis");
-  group("troad", "open", "troy trojan-camp");
-  group("troad", "coast", "greek-camp troy-beach");
-  group("thrace", "coast", "thrace");
-  group("lemnos", "shelter", "lemnos");
-  group("egypt", "court", "egypt-tomb");
-  group("tauris", "court", "tauris");
-  group("sicily", "shelter", "sicily");
-  group("susa", "court", "susa");
-  group("scythia", "open", "scythian-crag");
-  group("heights", "open", "divine-heights");
-  group("underworld", "underground", "underworld");
-  function regionWeather(world, region) {
-    const cycle = cycles[region];
-    if (!cycle) return null;
-    const period = Math.floor(world.turn / WEATHER_TURNS);
-    return { region, period, condition: cycle[period % cycle.length] };
-  }
-  var descriptions = {
-    clear: {
-      coast: "Clear light falls across the water.",
-      court: "Clear light rests on the courtyard stones.",
-      open: "Clear light reaches across the open ground.",
-      grove: "Clear light falls between the branches.",
-      shelter: "Clear light reaches the doorway."
-    },
-    cloud: {
-      coast: "Cloud lies over the water.",
-      court: "Cloud softens the light on the stones.",
-      open: "Cloud gathers above the open ground.",
-      grove: "Cloud dims the light beneath the branches.",
-      shelter: "Cloud dims the light at the doorway."
-    },
-    rain: {
-      coast: "Rain blows across the landing and water.",
-      court: "Rain falls on the courtyard stones.",
-      open: "Rain sweeps across the open ground.",
-      grove: "Rain falls through the branches.",
-      shelter: "Rain falls outside the shelter."
-    },
-    mist: {
-      coast: "Sea mist drifts across the water.",
-      court: "Mist gathers along the courtyard stones.",
-      open: "Mist lies across the open ground.",
-      grove: "Mist gathers beneath the branches.",
-      shelter: "Mist lies beyond the doorway.",
-      underground: "Low mist hangs above the dark water."
-    }
-  };
-  function locationWeather(world, id) {
-    const place = locations[id];
-    if (!place) return null;
-    const weather = regionWeather(world, place.region);
-    return {
-      ...weather,
-      exposure: place.exposure,
-      variant: `${weather.condition}-${place.exposure}`,
-      description: descriptions[weather.condition][place.exposure]
-    };
-  }
-
-  // v2/card-game/daylight.mjs
-  var DAYLIGHT_TURNS = 24;
-  var art = (file) => `assets/greek-drama/${file}.webp`;
-  var nightBackdrops = {
-    "greek-harbor": art("harbor-open-berth-night"),
-    "greek-courtyard": art("courtyard-night"),
-    "greek-well": art("market-well-night"),
-    "greek-palace": art("palace-night"),
-    "greek-gate": art("city-gate-night"),
-    "greek-battlefield": art("burial-ground-night"),
-    "greek-sanctuary": art("sanctuary-night")
-  };
-  var dockedDay = art("harbor-ship-at-berth");
-  var dockedNight = art("harbor-ship-at-berth-night");
-  var daylightAssets = [...Object.values(nightBackdrops), dockedNight];
-  function locationDaylight(world, id) {
-    if (!world || !Object.hasOwn(nightBackdrops, id)) return null;
-    const period = Math.floor(world.turn / DAYLIGHT_TURNS);
-    const phase = period % 2 ? "night" : "day";
-    return {
-      phase,
-      period,
-      description: phase === "night" ? "It is night in Thebes." : "It is day in Thebes."
-    };
-  }
-  function daylightBackdrop(world, id, file) {
-    if (locationDaylight(world, id)?.phase !== "night") return file;
-    return id === "greek-harbor" && file === dockedDay ? dockedNight : nightBackdrops[id];
-  }
-
   // v2/card-game/scene.mjs
   function backdrop(id, world = null) {
     const variant = world?.actors && visibleCrossing(world, id)?.scenery.backdrop;
-    const file = daylightBackdrop(world, id, variant || packPlaces[id]?.backdrop);
+    const file = variant || packPlaces[id]?.backdrop;
     return file ? `./${file}` : `./assets/${id}.png`;
   }
   var visibleCrossing = (world, place) => crossings.find(
     (c) => c.from === place && (c.scenery?.overlay || c.scenery?.backdrop) && crossingOpen(world, c, senses)
   );
-  function locationVariant(world, id) {
-    const crossing = visibleCrossing(world, id)?.id || "base";
-    const weather = locationWeather(world, id);
-    const variant = weather ? `${crossing}:${weather.variant}` : crossing;
-    return locationDaylight(world, id)?.phase === "night" ? `${variant}:night` : variant;
-  }
+  var locationVariant = (world, id) => visibleCrossing(world, id)?.id || "base";
   var locationOverlay = (world, id) => {
     const f = visibleCrossing(world, id)?.scenery.overlay;
     return f ? `./${f}` : null;
@@ -15860,8 +15889,6 @@
       background: backdrop(world.actors[currentActor(world)].place, world),
       variant: locationVariant(world, world.actors[currentActor(world)].place),
       overlay: locationOverlay(world, world.actors[currentActor(world)].place),
-      weather: locationWeather(world, world.actors[currentActor(world)].place),
-      daylight: locationDaylight(world, world.actors[currentActor(world)].place),
       visitStart: start,
       slots: sceneCast(
         world,
@@ -16065,6 +16092,7 @@
           ] : []
         ];
         const facts = [
+          ...id === BOARDY ? boardyFacts(world, nameOf) : [],
           ...recitalFacts(world, packDefinitions, id),
           ...questFacts,
           ...learningFacts(world, id, nameOf),
@@ -16165,10 +16193,6 @@
           if (id === "cloth") facts.push(`Touches: ${nameOf(item.holder)}.`);
         } else {
           if (places[id]) facts.push(placeText(world, id));
-          const weather = locationWeather(world, id);
-          if (weather) facts.push(weather.description);
-          const daylight = locationDaylight(world, id);
-          if (daylight) facts.push(daylight.description);
           facts.push(
             `Paths visible now: ${exits(world, id, currentActor(world)).map(nameOf).join(", ") || "none"}.`
           );
@@ -16331,7 +16355,9 @@
     if (!request.world || typeof request.world !== "object")
       throw new Error("Load a saved world first.");
     const world = contextual(structuredClone(request.world), request);
-    return decodeSave(JSON.stringify(world));
+    const loaded = decodeSave(JSON.stringify(world));
+    settleBoardy(loaded);
+    return loaded;
   }
   function response(world, extra = {}) {
     return { ok: true, world: stored(world), ...extra };
@@ -16391,6 +16417,7 @@
         claimed: ["vale"],
         present: ["vale"]
       });
+      settleBoardy(world2);
       validateWorld(world2);
       return response(world2, view(world2, request.actor || "vale"));
     }

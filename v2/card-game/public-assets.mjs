@@ -22,6 +22,8 @@ const files = [
   "toolbar.css",
   "shared-cast.json",
   "human-cast.mjs",
+  "boardyai.mjs",
+  "boardyai.json",
   "assets/greek-drama/harbor-day.webp",
   "assets/shared/places/pond.png",
   "assets/shared/characters/vale.png",

@@ -155,7 +155,10 @@ describe("the side roads in earlier saved worlds", () => {
         expect(restored.packs["greek-drama"][key]).toEqual(
           world.packs["greek-drama"][key],
         );
-      expect(restored.items).toEqual(world.items);
+      expect(restored.items).toEqual({
+        ...world.items,
+        "boardyai-calling-card": { holder: "station", history: [] },
+      });
       expect(restored.log).toEqual(world.log);
       expect(restored.actors["greek-household-witness"].place).toBe(
         "greek-eleusis",

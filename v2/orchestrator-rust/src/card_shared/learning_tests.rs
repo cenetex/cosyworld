@@ -55,8 +55,13 @@ fn shared_reflections_survive_restart_and_journal_rebuild_with_private_views() {
 #[test]
 fn version_twelve_history_replays_before_the_saved_learning_upgrade() {
     let (_path, c, id) = fixture();
-    let mut old = World::create(None).unwrap();
-    old.version = engine::TWELFTH_VERSION.into();
+    let seed = engine::reduce_version(engine::TWELFTH_VERSION, json!({"op":"create"})).unwrap();
+    let old = World {
+        version: engine::TWELFTH_VERSION.into(),
+        game: seed["world"].clone(),
+        claimed: [0; 8],
+        present: [0; 8],
+    };
     c.execute("DELETE FROM card_full_log WHERE world=?", [&id])
         .unwrap();
     c.execute("DELETE FROM card_full_checkpoints WHERE world=?", [&id])
@@ -65,8 +70,11 @@ fn version_twelve_history_replays_before_the_saved_learning_upgrade() {
     let upgraded = full_store::world(&c, &id, now()).unwrap();
     assert_eq!(upgraded.version, engine::VERSION);
     assert_eq!(upgraded.game["turn"], old.game["turn"]);
-    assert_eq!(upgraded.game["items"], old.game["items"]);
-    assert_eq!(upgraded.game["memories"], old.game["memories"]);
+    for field in ["items", "memories"] {
+        for (key, value) in old.game[field].as_object().unwrap() {
+            assert_eq!(&upgraded.game[field][key], value);
+        }
+    }
     c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
     assert_eq!(full_store::world(&c, &id, now()).unwrap(), upgraded);
 }
