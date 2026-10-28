@@ -76,6 +76,11 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Setup Node.js for saved-world journeys
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
       # Only main saves the Cargo cache; pull requests restore it. Saving a
       # new commit-keyed cache on every run cost about 45 seconds each.
       - name: Restore Cargo build cache
@@ -93,6 +98,15 @@ jobs:
 
       - name: Test Rust orchestrator
         run: bash v2/scripts/check-rust.sh test
+
+      - name: Check the full shared reading archive
+        run: >-
+          cargo test --manifest-path v2/orchestrator-rust/Cargo.toml
+          card_shared::reading_tests::readings_full_archive_and_forty_scene_history_fit_the_game_limits
+          -- --ignored --exact --nocapture --test-threads=1
+        env:
+          COSYWORLD_AUDIT_BASE_COMMIT: ${{ github.sha }}
+          COSYWORLD_READING_AUDIT_REPORT: ${{ runner.temp }}/reading-archive-audit.json
 
       - name: Save Cargo build cache
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
