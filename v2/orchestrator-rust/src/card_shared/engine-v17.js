@@ -16320,15 +16320,16 @@
     if (route)
       return actions.find((a) => a.kind === "move" && a.target === route[1]);
     if (target !== "attic" && here !== "attic") return;
+    const find = (kind, item) => actions.find((a) => a.kind === kind && a.item === item);
+    const take = find("take", "lamp");
+    if (take) return take;
+    if (covered(s, "lamp") && find("take", "cloth")) return find("take", "cloth");
+    if (!s.items.lamp.fuel && find("refill", "oil")) return find("refill", "oil");
+    if (!s.items.lamp.lit && find("light", "lamp")) return find("light", "lamp");
     if (here === "station")
       return actions.find((a) => a.kind === "move" && a.target === "pond");
-    if (!["pond", "attic"].includes(here)) return;
-    if (covered(s, "lamp"))
-      return actions.find((a) => a.kind === "take" && a.item === "cloth");
-    if (!s.items.lamp.fuel)
-      return actions.find((a) => a.kind === "refill" && a.item === "oil");
-    if (!s.items.lamp.lit)
-      return actions.find((a) => a.kind === "light" && a.item === "lamp");
+    if (here === "pond" && itemPlace2(s, "lamp") === "station")
+      return actions.find((a) => a.kind === "move" && a.target === "station");
   }
   function plan(s, actor = currentActor(s)) {
     const arrival2 = transportArrival(s, actor);
@@ -16431,7 +16432,7 @@
     const reason = `Seek this hand: ${handText(hand2)}.`;
     const waitingHere = (ids3) => ids3.find((id) => {
       const theirs = desireFor(s, id), there = s.actors[id].place;
-      return id !== actor && entityActive(s, id) && there !== here && routeBetween(s, here, there, actor) && theirs.avatars.includes(actor) && (theirs.location || there) === there && handStatus(s, id, theirs).items.every((e) => e.met) && theirs.avatars.every(
+      return id !== actor && entityActive(s, id) && there !== here && toward(s, actor, there) && theirs.avatars.includes(actor) && (theirs.location || there) === there && handStatus(s, id, theirs).items.every((e) => e.met) && theirs.avatars.every(
         (other) => other === actor || s.actors[other].place === there
       );
     });
@@ -16569,6 +16570,11 @@
     if (waiting) return goMeet(waiting);
     if (hand2.location && here !== hand2.location)
       return choose(toward(s, actor, hand2.location), reason);
+    const rescue = homeRescueExit(s, here, actor);
+    if (rescue && hand2.avatars.some(
+      (other) => s.actors[other].place !== here && !routeBetween(s, s.actors[other].place, here, other)
+    ))
+      return choose(find("move", void 0, rescue), "Meet the waiting travelers at the shore.");
     return idle(
       handStatus(s, actor).met ? "Hold the target hand." : `Wait for ${hand2.avatars.filter((id) => s.actors[id].place !== here).map(nameOf).join(" and ")} at ${nameOf(here)}.`
     );
