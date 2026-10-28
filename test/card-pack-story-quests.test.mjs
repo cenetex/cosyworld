@@ -55,6 +55,30 @@ const world = (receipts = {}) => ({
 });
 
 describe("authored pack stories", () => {
+  it("shows a pending card before any ending gate matches", () => {
+    const pack = orchard();
+    const story = pack.storyQuests[0];
+    story.defaultEnding = "orchard-decline";
+    for (const ending of story.endings)
+      ending.when = { kind: "flag", key: ending.choice, value: true };
+    expect(storyQuestProblems(pack, compiled.hub)).toEqual([]);
+    const before = world({ "orchard-ask": 2 });
+    expect(authoredStoryDefinitions(before, [pack])[0]).toMatchObject({
+      key: `orchard:${first}`,
+      choiceId: "orchard-decline",
+      createdTurn: 2,
+      resolved: false,
+      status: "pending",
+    });
+    before.packs.orchard.receipts["orchard-accept"] = 9;
+    expect(authoredStoryDefinitions(before, [pack])[0].resolved).toBe(false);
+    before.packs.orchard.flags["orchard-accept"] = true;
+    expect(authoredStoryDefinitions(before, [pack])[0]).toMatchObject({
+      choiceId: "orchard-accept",
+      resolved: true,
+      completion: "Fulfilled",
+    });
+  });
   it("runs a second pack's branches and dependent story from its data", () => {
     const pack = orchard();
     expect(storyQuestProblems(pack, compiled.hub)).toEqual([]);

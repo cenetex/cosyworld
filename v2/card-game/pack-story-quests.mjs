@@ -149,7 +149,9 @@ export function authoredStoryDefinitions(
         const ending =
           completed[0] ||
           endings.find((entry) => entry.choice === story.defaultEnding) ||
-          endings[0];
+          endings[0] ||
+          story.endings.find((entry) => entry.choice === story.defaultEnding) ||
+          story.endings[0];
         if (ending) {
           const created = story.created || {
             earliest: [

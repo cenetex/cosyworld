@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   AUTHORED_TOPIC_LIMIT,
+  packCompositionProblems,
   topicCompositionProblems,
 } from "../v2/card-game/pack-schema.mjs";
 import { KNOWLEDGE_FACT_LIMIT } from "../v2/card-game/knowledge.mjs";
@@ -14,6 +15,22 @@ const pack = (id, count) => ({
 });
 
 describe("mounted topic identities and budget", () => {
+  it("keeps story family IDs distinct across packs and shares them within a pack", () => {
+    const first = {
+      id: "orchard",
+      storyQuests: [
+        { id: "story-quest-help", key: "story-quest-help:first" },
+        { id: "story-quest-help", key: "story-quest-help:later" },
+      ],
+    };
+    expect(packCompositionProblems([first])).toEqual([]);
+    const second = { id: "harbor", storyQuests: [{ id: "story-quest-help" }] };
+    expect(packCompositionProblems([first, second])).toEqual([
+      "harbor: story family story-quest-help is also defined by orchard",
+    ]);
+    second.storyQuests[0].id = "story-quest-harbor-help";
+    expect(packCompositionProblems([first, second])).toEqual([]);
+  });
   it("accepts distinct topics across several packs", () => {
     expect(
       topicCompositionProblems([pack("orchard", 4), pack("harbor", 3)]),
