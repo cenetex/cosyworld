@@ -15,6 +15,7 @@ import { selectCard } from "./card-browser-helpers.mjs";
 function fixture() {
   const world = enableMotives(createWorld(), { personalQuests: true });
   world.actors.moth.place = world.actors.vale.place;
+  world.items.lamp.holder = "vale";
   for (const actor of ["vale", "moth"]) {
     installQuestCollection(world, actor);
     const collection = world.life.actors[actor].collection;
@@ -90,6 +91,13 @@ try {
       `http://127.0.0.1:${server.address().port}/?table=quest-stack-${width}`,
     );
     await selectCard(page, "vale");
+    assert.equal(
+      await page.evaluate(
+        (key) => JSON.parse(localStorage.getItem(key)).items.lamp.holder,
+        key,
+      ),
+      "vale",
+    );
     const frames = page.locator('#hand .quest-frame[data-holder="vale"]');
     assert.equal(await frames.count(), 2);
     assert.equal(await frames.nth(1).getAttribute("data-stacked"), "true");
