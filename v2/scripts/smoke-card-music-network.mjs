@@ -13,6 +13,78 @@ const requests = [];
 const responses = [];
 const received = [];
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function coldPlayback(path) {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  let receivedBytes = 0;
+  try {
+    await page.route(`${origin}/`, (route) =>
+      route.fulfill({
+        contentType: "text/html",
+        body: '<!doctype html><audio preload="none"></audio>',
+      }),
+    );
+    await page.goto(origin);
+    await page.evaluate(async (path) => {
+      const { mediaUrl } = await import("/card-game/media.mjs");
+      window.target = mediaUrl(path);
+      window.audio = document.querySelector("audio");
+      window.readyAt = null;
+      window.playError = null;
+      audio.addEventListener("playing", () => {
+        window.readyAt ??= performance.now();
+      });
+    }, path);
+    const cdp = await context.newCDPSession(page);
+    await cdp.send("Network.enable");
+    const media = new Set();
+    cdp.on("Network.requestWillBeSent", (event) => {
+      if (new URL(event.request.url).pathname.endsWith(".mp3"))
+        media.add(event.requestId);
+    });
+    cdp.on("Network.dataReceived", (event) => {
+      if (media.has(event.requestId)) receivedBytes += event.dataLength;
+    });
+    await cdp.send("Network.emulateNetworkConditions", {
+      offline: false,
+      latency: 120,
+      downloadThroughput: 128 * 1024,
+      uploadThroughput: 128 * 1024,
+    });
+    const start = await page.evaluate(() => {
+      const start = performance.now();
+      audio.src = window.target;
+      audio.load();
+      audio.play().catch((error) => {
+        window.playError = error.message;
+      });
+      return start;
+    });
+    await page.waitForFunction(
+      () => window.readyAt !== null || window.playError,
+      null,
+      { timeout: 60000 },
+    );
+    const result = await page.evaluate(
+      (start) => ({
+        playingMs: Math.round(window.readyAt - start),
+        duration: audio.duration,
+        error: window.playError,
+      }),
+      start,
+    );
+    assert.equal(result.error, null);
+    assert(Number.isFinite(result.duration) && result.duration > 30);
+    return {
+      playingMs: result.playingMs,
+      receivedBytes,
+      duration: result.duration,
+    };
+  } finally {
+    await context.close();
+  }
+}
 try {
   const page = await browser.newPage({
     viewport: { width: 390, height: 844 },
@@ -140,6 +212,12 @@ try {
   assert.equal(await page.evaluate(() => window.loads), loads);
   assert.equal(requests.length, beforeReplay);
   assert.deepEqual(errors, []);
+  const bufferedReplayLoads = (await page.evaluate(() => window.loads)) - loads;
+  const receivedBytes = received.reduce((sum, bytes) => sum + bytes, 0);
+  await page.close();
+  const original = await coldPlayback("assets/music/pond-1.mp3");
+  const stream = await coldPlayback("assets/music-stream/pond-1.mp3");
+  assert(Math.abs(original.duration - stream.duration) < 0.05);
   console.log(
     JSON.stringify({
       firstPlayReadyMs,
@@ -147,10 +225,11 @@ try {
       mutedDestinationRequests: 0,
       hiddenDestinationRequests: 0,
       bufferedReplayRequests: requests.length - beforeReplay,
-      bufferedReplayLoads: (await page.evaluate(() => window.loads)) - loads,
+      bufferedReplayLoads,
+      coldPlayback: { original, stream },
       requests,
       responses,
-      receivedBytes: received.reduce((sum, bytes) => sum + bytes, 0),
+      receivedBytes,
       browserErrors: errors.length,
     }),
   );
