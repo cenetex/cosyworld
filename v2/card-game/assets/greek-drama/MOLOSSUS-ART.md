@@ -33,14 +33,27 @@ catalog points only Molossus's portrait at the new PNG. A normal Talk action
 committed one turn at each width with fixture dialogue. Screenshots show the
 settled household and the child speaking. Browser and image checks passed.
 
-The current phone stage places Andromache over part of Molossus. The child
-card and the separate art sheets show him clearly. Book IV's source review
-should give the child a clearer phone position beside the adult cast.
+The first phone review showed Andromache over part of Molossus. The Book IV
+join gives this portrait `child` framing. His figure stands at layer 4, before
+the adult bodies, with a shared foot baseline in local scenes. Shared cast
+rows keep their own floor positions. The painted child height, stable seats
+and gaze directions stay the same.
 
 ## Chapter integration
 
 This draft targets `codex/greek-book-iv`, from the published female-binding
 correction at `fdb49630343b272a484a45957b593f762f9f4ba4`.
-The chapter owner binds the new PNG to Molossus in the source catalog, builds
-optimized variants and public/Rust assets, and runs the full game checks.
-The child's source story remains in the attributed chapter text.
+Book IV binds the new PNG to Molossus in the source catalog. The image builder
+keeps the original canvas and alpha in the stage variant. The card variant
+uses the normal 512-pixel width. Public assets and the current shared engine
+are built from the same source. The child's source story remains in the
+attributed chapter text.
+
+The join passed 70 focused scene, chapter, facing and image-streaming checks.
+Six browser cases use the actual protection and departure saves at 320,
+390 and 1440 pixels. Two further layout fixtures show six people at 390 and
+1440 pixels with the shared cast display setting. Each case checks an actual
+Talk action, Molossus's published reply, the child image and a saved reload.
+The dialogue service uses fixture text. The review keeps 24 screenshots.
+Catalog, image, music, public asset and current engine checks pass. The
+coordinator owns the full combined game checks and release.

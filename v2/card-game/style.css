@@ -1029,6 +1029,12 @@ body .cast[data-count] {
   bottom: var(--cast-bottom);
   height: auto;
 }
+/* Child portraits keep their painted height and stand before the adults.
+   Shared cast rows retain their own floor positions below. */
+body .cast .portrait[data-framing="child"] {
+  z-index: 4;
+  bottom: 0;
+}
 .controls-help {
   margin-bottom: 20px;
 }

@@ -3479,7 +3479,7 @@
             values: {},
             persona: "Molossus is Andromache\u2019s son with Neoptolemus. He asks to join his mother and agrees to his own protected journey. Astyanax belongs to her earlier family with Hector.",
             voice: "Speak in simple English from this named account and the recorded deeds. Answer the companion directly. Let your own care and interests guide your words.",
-            portrait: "assets/greek-drama/chthonic-attendant.png",
+            portrait: "assets/greek-drama/book-four-molossus.png",
             requires: [
               {
                 kind: "flag",
