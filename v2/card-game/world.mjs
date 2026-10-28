@@ -2040,10 +2040,10 @@ function toward(s, actor, target) {
   if (route)
     return actions.find((a) => a.kind === "move" && a.target === route[1]);
   // Attic journeys prepare their light at the shore before crossing the gate.
-  if (target !== "attic") return;
+  if (target !== "attic" && here !== "attic") return;
   if (here === "station")
     return actions.find((a) => a.kind === "move" && a.target === "pond");
-  if (here !== "pond") return;
+  if (!["pond", "attic"].includes(here)) return;
   if (covered(s, "lamp"))
     return actions.find((a) => a.kind === "take" && a.item === "cloth");
   if (!s.items.lamp.fuel)

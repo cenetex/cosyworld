@@ -123,7 +123,7 @@ describe("ordinary bard travel", () => {
     expect(s.actors[singer].place).toBe("pond");
     expect(s.roamingQuests[singer].target.locationId).toBe("greek-gate");
     expect(s.roamingQuests[singer].blocked).toBeNull();
-    expect(exits(s, "attic", singer)).toContain("pond");
+    expect(exits(s, "attic", singer)).toEqual([]);
     expect(decodeSave(encodeSave(s))).toEqual(s);
   });
   it("takes one legal offscreen step each turn and stays at an exact AI completion site", () => {

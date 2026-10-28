@@ -1819,8 +1819,8 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "scene-video.css" => "\"3c6851ec825e734e3d8a084f4ed77f077bcb4402acbf61869a67b652c3afe4c5\"",
         "awakening.css" => "\"c7a68a23baf1e46934237a57f4b5f87d76bad87af85fdf57ee40abec646908b9\"",
-        "app.mjs" => "\"1b992311073bec985ce78d4a6395cad5d5597dd2721cff0d1687a7c00b85103f\"",
-        "world.mjs" => "\"05e02eb8828b493329d48ce4b8d1bddac9ed8f60304269750ad2c5c57da6321f\"",
+        "app.mjs" => "\"bf9ec0bf4ed18a8880726530272b91eaa8de62b52be45cc2c6b4e0ce3c17f305\"",
+        "world.mjs" => "\"3f29971545c4e700da78fbb313a223b51954dd0e332335b07fa72e17cbfa3e7e\"",
         "scene.mjs" => "\"aba97eb70f26e75c9eaa4bcf71e3d8130f8bc5efc3df2b1a2567022959879d87\"",
         "weather.mjs" => "\"69a3e11642c43831f80581711f6113d814badd666ad2c3e3892a1a4c70a5fd27\"",
         "daylight.mjs" => "\"6e1bbbf92705e5e2ed904ca98666540ab9a91916c94e50749e649a0ba380170d\"",
@@ -1857,7 +1857,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "cards.mjs" => "\"d830242dc06693e8a0327f41a5b56e8ff8d5f2f054e47716e420131e79aee2f0\"",
         "lessons.mjs" => "\"d356ccfd6d4bb622ea7e325ebae519f3ff37433013b04874f07f83865b883705\"",
-        "motives.mjs" => "\"9e8b5b84a9a21761074c524f9295febaf1e03b92342f324a41e364c4d34950f1\"",
+        "motives.mjs" => "\"20e17369ab3ff347a7d28250d4f8f135898c9a627ba52949ab2456a277d52886\"",
         "life.mjs" => "\"96bacb8052c8b77e11eb733edfe075f25f2e6e38ceb8f153280f4d974cb74c5c\"",
         "quests.mjs" => "\"e60df2b0a9d3909078911eab2c57f16dc4ee7e87307dcbf65a83a95b853ec15e\"",
         "quest-offers.mjs" => {
@@ -1933,7 +1933,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "legacy-saves.mjs" => {
             "\"2e87a6002f709aa79439da42dca28632a36a561a96b3ea5bde721a7f6363b75a\""
         }
-        "forest.json" => "\"1716454c7d3a161db192ae054bc9667cd0515e8ef91f36fed2be1db0ba26655d\"",
+        "forest.json" => "\"be43360615850d460ecb291474250a82b486bb5bbccfa7cb9eeca5813cbc7702\"",
         "packs.json" => "\"6e2f98daf7ee7f1bcc245c17bd6b73bc61a111b3e8a978e7b817b245ee3ee862\"",
         "music.mjs" => "\"b60f61ecf558b2eed0aa2d907ca6a7a3dede4b0459541d3c59f633e25943bc22\"",
         "entity-profiles.json" => {
