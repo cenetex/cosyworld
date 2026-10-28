@@ -38,7 +38,7 @@ let fixture = enableMotives(
 );
 // Keep the first ship signal part of this story fixture's legal journey.
 fixture.actors["greek-rhapsode"].place = "attic";
-fixture = commit(commit(fixture, "light"), "move", "pond");
+fixture = commit(fixture, "light");
 fixture.items.cloth.holder = "vale";
 fixture.items.lamp.fuel = 12;
 fixture.items.oil.holder = "greek-harbor";

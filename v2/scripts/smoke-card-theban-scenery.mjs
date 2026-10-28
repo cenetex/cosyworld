@@ -29,7 +29,6 @@ function initial() {
   // Keep the ship at harbor until this scenery fixture completes the signal.
   s.actors["greek-rhapsode"].place = "attic";
   s = act(s, "light");
-  s = act(s, "move", { target: "pond" });
   s.items.cloth.holder = "vale";
   s.items.lamp.fuel = 12;
   s.items.bell.holder = "station";

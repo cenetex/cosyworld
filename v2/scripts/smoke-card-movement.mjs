@@ -1,3 +1,4 @@
+import { atticOpening } from "../../test/fixtures/card-attic-opening.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -13,7 +14,10 @@ import {
 import { enableMotives } from "../card-game/motives.mjs";
 
 function fixture(kind) {
-  let s = enableMotives(createWorld({ opening: true }), {
+  // The waiting resident also exercises travel from an older attic save.
+  const start =
+    kind === "resident" ? atticOpening() : createWorld({ opening: true });
+  let s = enableMotives(start, {
     questPrograms: true,
     personalQuests: true,
   });
@@ -21,15 +25,10 @@ function fixture(kind) {
     s,
     legalActions(s).find((a) => a.kind === "light"),
   ).state;
-  if (kind !== "resident") {
-    s = play(
-      s,
-      legalActions(s).find((a) => a.kind === "move" && a.target === "pond"),
-    ).state;
-    s.actors.vale.place = s.actors.moth.place = "attic";
-    s.items.lamp.holder = "vale";
-    s.items.lamp.fuel = 8;
-  }
+  s.actors.vale.place = "attic";
+  s.actors.moth.place = kind === "resident" ? "pond" : "attic";
+  s.items.lamp.holder = "vale";
+  s.items.lamp.fuel = 8;
   return s;
 }
 
@@ -172,12 +171,12 @@ try {
           key,
         );
         assert.equal(saved.turn, 0);
-        assert.equal(saved.actors.vale.place, "attic");
+        assert.equal(saved.actors.vale.place, "pond");
         assert.equal(
           await page.locator("#backdrop").getAttribute("src"),
           await page.evaluate(async () =>
             (await import("/card-game/images.mjs")).imageUrl(
-              "./assets/attic.png",
+              "./assets/pond.png",
             ),
           ),
         );
@@ -191,7 +190,7 @@ try {
         assert.equal(await card("vale").isDisabled(), false);
         assert.match(
           await page.locator("#dialogue-text").textContent(),
-          /It's cold up here/,
+          /The water is dark/,
         );
         assert.equal(
           saved.log.filter(
