@@ -511,16 +511,15 @@
   },
   "opening": {
     "discovery": {
-      "version": 2,
-      "crossed": true,
+      "version": 1,
+      "crossed": false,
       "met": {
-        "vale": 0,
-        "moth": 0
+        "vale": 0
       }
     },
     "actors": {
       "vale": {
-        "place": "pond"
+        "place": "attic"
       },
       "keeper": {
         "place": "station"
@@ -537,10 +536,9 @@
         "turn": 0,
         "kind": "narration",
         "actorId": null,
-        "locationId": "pond",
+        "locationId": "attic",
         "cast": [
-          "vale",
-          "moth"
+          "vale"
         ],
         "items": [
           {
@@ -548,15 +546,11 @@
             "holder": "vale",
             "fuel": 8,
             "lit": false
-          },
-          {
-            "id": "cloth",
-            "holder": "moth"
           }
         ],
         "light": false,
         "speaker": "World",
-        "text": "Vale stands beside Black pond, holding an unlit lamp. Pip waits by the water with a black cloth. A path leads along the shore to Empty station."
+        "text": "Vale stands alone in Mirror attic, holding an unlit lamp. A tall mirror reflects a black shore."
       }
     ]
   },

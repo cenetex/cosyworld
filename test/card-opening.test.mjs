@@ -25,10 +25,8 @@ import {
 } from "../v2/card-game/narrative.mjs";
 import { sceneCast, currentScene } from "../v2/card-game/scene.mjs";
 
-import { atticOpening } from "./fixtures/card-attic-opening.mjs";
-
 const fresh = () =>
-  enableMotives(atticOpening(), { questPrograms: true });
+  enableMotives(createWorld({ opening: true }), { questPrograms: true });
 const choose = (s, kind, fields = {}) => {
   const action = legalActions(s).find(
     (a) =>

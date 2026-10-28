@@ -14,9 +14,11 @@ import { knownActors, programFor } from "../v2/card-game/quests.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { humanAvatars, humanAvatarIds } from "../v2/card-game/human-cast.mjs";
 import { atticOpening } from "./fixtures/card-attic-opening.mjs";
+import { pondOpening } from "./fixtures/card-pond-opening.mjs";
+import { createLandingWorld } from "../v2/card-game/pack-landing.mjs";
+import { sceneCast } from "../v2/card-game/scene.mjs";
 
-const fresh = () =>
-  enableMotives(createWorld({ opening: true }), { questPrograms: true });
+const fresh = () => enableMotives(pondOpening(), { questPrograms: true });
 const act = (world, kind, target) => {
   const action = legalActions(world).find(
     (a) => a.kind === kind && (!target || a.target === target),
@@ -28,22 +30,44 @@ const act = (world, kind, target) => {
   return result.state;
 };
 
-describe("the pond opening and shore roads", () => {
-  it("starts solo and shared play beside Pip at Black pond", () => {
-    for (const world of [fresh(), dispatchShared({ op: "create" }).world]) {
-      expect(world.actors.vale.place).toBe("pond");
+describe("the attic opening and saved pond journeys", () => {
+  it("starts new local and shared worlds alone in the dark attic", () => {
+    for (const world of [
+      createLandingWorld(),
+      dispatchShared({ op: "create" }).world,
+    ]) {
+      expect(world.actors.vale.place).toBe("attic");
       expect(world.items.lamp).toMatchObject({ holder: "vale", lit: false });
       expect(world.opening).toEqual({
-        version: 2,
-        crossed: true,
-        met: { vale: 0, moth: 0 },
+        version: 1,
+        crossed: false,
+        met: { vale: 0 },
       });
-      expect(knownActors(world)).toEqual(expect.arrayContaining(["vale", "moth"]));
-      expect(programFor(world, "vale").id).toBe("shore-light");
+      expect(sceneCast(world)).toEqual(["vale", null]);
+      expect(world.actors.moth.place).toBe("pond");
+      expect(programFor(world, "vale").id).toBe("first-light");
+      expect(world.log[0]).toMatchObject({
+        locationId: "attic",
+        cast: ["vale"],
+        light: false,
+      });
       expect(decodeSave(encodeSave(world))).toEqual(world);
       for (const avatar of humanAvatars.filter((a) => a.id !== "vale"))
         expect(world.actors[avatar.id].place).toBe(avatar.home.id);
     }
+  });
+
+  it("keeps a released pond save beside Pip with its own opening purpose", () => {
+    const before = pondOpening();
+    const world = decodeSave(encodeSave(before));
+    expect(world).toEqual(before);
+    expect(world.actors.vale.place).toBe("pond");
+    expect(world.opening).toEqual({
+      version: 2,
+      crossed: true,
+      met: { vale: 0, moth: 0 },
+    });
+    expect(programFor(world, "vale").id).toBe("shore-light");
   });
 
   it("finishes the two opening purposes through the pond and station", () => {
@@ -59,6 +83,8 @@ describe("the pond opening and shore roads", () => {
     world = act(world, "move", "station");
     expect(world.actors.vale.progress.program).toBe(2);
     expect(world.opening.met.keeper).toBe(3);
+    for (let i = 0; i < 16 && !programFor(world, "vale"); i++)
+      world = act(world, "wait");
     expect(programFor(world, "vale").generated).toBeDefined();
     world = act(world, "move", "pond");
     expect(world.actors.vale.place).toBe("pond");
@@ -87,8 +113,14 @@ describe("the pond opening and shore roads", () => {
     world.actors.moth.progress = { program: 0, step: 1, marks: [1] };
     world.items.lamp.fuel = 0;
     world.items.bell.holder = "keeper";
-    expect(plan(world, "keeper").action).toMatchObject({ kind: "move", target: "pond" });
-    const next = play(world, legalActions(world).find((a) => a.kind === "wait")).state;
+    expect(plan(world, "keeper").action).toMatchObject({
+      kind: "move",
+      target: "pond",
+    });
+    const next = play(
+      world,
+      legalActions(world).find((a) => a.kind === "wait"),
+    ).state;
     expect(next.actors.keeper.place).toBe("pond");
     expect(next.items.oil.holder).toBe("keeper");
     expect(decodeSave(encodeSave(next))).toEqual(next);
@@ -114,7 +146,10 @@ describe("the pond opening and shore roads", () => {
     if (places["forest-cottage"]) {
       expect(exits(world, "attic", "vale")).toContain("forest-cottage");
       world = act(world, "move", "forest-cottage");
-      expect(plan(world).action).toMatchObject({ kind: "move", target: "attic" });
+      expect(plan(world).action).toMatchObject({
+        kind: "move",
+        target: "attic",
+      });
       world = act(world, "move", "attic");
       expect(exits(world, "attic", "vale")).toContain("pond");
     }
