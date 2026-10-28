@@ -1,4 +1,5 @@
 import { installInnerLife } from "./inner-life.mjs";
+import { installReadingReview } from "./reading-ui.mjs";
 import { imageUrl } from "./images.mjs";
 import { humanAvatars } from "./human-cast.mjs";
 import { levelOf } from "./quests.mjs";
@@ -58,7 +59,7 @@ export function renderPlayers() {
   refresh();
 }
 
-export function installToolbar({ session, getWorld }) {
+export function installToolbar({ session, getWorld, playReading }) {
   const toolbar = document.querySelector(".top-actions");
   toolbar.setAttribute("role", "group");
   toolbar.setAttribute("aria-label", "World controls");
@@ -99,6 +100,7 @@ export function installToolbar({ session, getWorld }) {
     menu.append(button);
   }
   installInnerLife(menu, getWorld);
+  installReadingReview(menu, getWorld, playReading);
   document.body.append(menu);
   toolbar.append(menuButton);
 

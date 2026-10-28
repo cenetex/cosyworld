@@ -528,7 +528,7 @@
     "greek-underworld": {
       "name": "The Underworld Landing",
       "text": "A ferry rests beside dark water. The keeper of the landing asks the purpose of each crossing.",
-      "exits": ["greek-colonus"],
+      "exits": ["greek-colonus", "greek-viii-poets-court"],
       "backdrop": "assets/greek-drama/harbor.svg",
       "persona": "A ferry rests beside dark water. The keeper of the landing asks the purpose of each crossing."
     },
@@ -1226,6 +1226,13 @@
       "persona": "A sheltered camp stands between the eastern road and Prometheus’s crag. Hermes waits here in the divine-frontier account. A carried lamp can be tended before the climb.",
       "exits": ["greek-susa", "greek-scythian-crag"],
       "backdrop": "assets/greek-drama/grove.svg"
+    },
+    "greek-viii-poets-court": {
+      "name": "The Poets’ Court",
+      "text": "Two poets stand beside verse scales. A tablet waits for the voice the company will carry home. The lower landing remains beside the dark water.",
+      "persona": "This court stages Aristophanes’s Frogs as a named comic account. Dionysus’s source choice brings back Aeschylus. The table can instead carry Euripides’s voice or the living chorus’s words home in a tablet. The poets hear only the pages read to their recorded company.",
+      "exits": ["greek-underworld"],
+      "backdrop": "assets/greek-drama/courtyard.svg"
     }
   },
   "avatars": {
@@ -5703,6 +5710,81 @@
           "until": "greek-susa-record-reckoning"
         }
       ]
+    },
+    "greek-viii-xanthias": {
+      "name": "Xanthias",
+      "text": "Xanthias waits at the landing in the Frogs account. He can hold the travel bag while the traveler enters the court. His burden remains in his actual hands.",
+      "place": "greek-underworld",
+      "home": "greek-underworld",
+      "travels": false,
+      "standoffs": false,
+      "values": {
+        "greek-viii-travel-bag": 9
+      },
+      "persona": "Xanthias waits at the landing in the Frogs account. He can hold the travel bag while the traveler enters the court. His burden remains in his actual hands. Speak from the actual pages heard by this company. Name each verse’s author separately from its reader.",
+      "voice": "Xanthias waits at the landing in the Frogs account. He can hold the travel bag while the traveler enters the court. His burden remains in his actual hands. Keep your answer brief and grounded in the present reading.",
+      "portrait": "assets/greek-drama/chthonic-attendant.png",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-vii-accounts-open",
+          "value": true
+        }
+      ],
+      "tastes": {
+        "likes": "a heard account and shared work",
+        "sore": "words credited to the wrong person",
+        "reason": "Xanthias waits at the landing in the Frogs account. He can hold the travel bag while the traveler enters the court. His burden remains in his actual hands."
+      },
+      "keeps": ["greek-viii-travel-bag"]
+    },
+    "greek-viii-aeschylus": {
+      "name": "Aeschylus",
+      "text": "Aeschylus stands beside the verse scales in Aristophanes’s Frogs. He weighs civic duty and the force of a line against the actual testimony read here.",
+      "place": "greek-viii-poets-court",
+      "home": "greek-viii-poets-court",
+      "travels": false,
+      "standoffs": false,
+      "values": {},
+      "persona": "Aeschylus stands beside the verse scales in Aristophanes’s Frogs. He weighs civic duty and the force of a line against the actual testimony read here. Speak from the actual pages heard by this company. Name each verse’s author separately from its reader.",
+      "voice": "Aeschylus stands beside the verse scales in Aristophanes’s Frogs. He weighs civic duty and the force of a line against the actual testimony read here. Keep your answer brief and grounded in the present reading.",
+      "portrait": "assets/greek-drama/chthonic-elder.png",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-vii-accounts-open",
+          "value": true
+        }
+      ],
+      "tastes": {
+        "likes": "a heard account and shared work",
+        "sore": "words credited to the wrong person",
+        "reason": "Aeschylus stands beside the verse scales in Aristophanes’s Frogs. He weighs civic duty and the force of a line against the actual testimony read here."
+      }
+    },
+    "greek-viii-euripides": {
+      "name": "Euripides",
+      "text": "Euripides stands beside Aeschylus in Aristophanes’s Frogs. He asks who speaks, whose work carries the account, and how its words bear on ordinary lives.",
+      "place": "greek-viii-poets-court",
+      "home": "greek-viii-poets-court",
+      "travels": false,
+      "standoffs": false,
+      "values": {},
+      "persona": "Euripides stands beside Aeschylus in Aristophanes’s Frogs. He asks who speaks, whose work carries the account, and how its words bear on ordinary lives. Speak from the actual pages heard by this company. Name each verse’s author separately from its reader.",
+      "voice": "Euripides stands beside Aeschylus in Aristophanes’s Frogs. He asks who speaks, whose work carries the account, and how its words bear on ordinary lives. Keep your answer brief and grounded in the present reading.",
+      "portrait": "assets/greek-drama/chthonic-singer.png",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-vii-accounts-open",
+          "value": true
+        }
+      ],
+      "tastes": {
+        "likes": "a heard account and shared work",
+        "sore": "words credited to the wrong person",
+        "reason": "Euripides stands beside Aeschylus in Aristophanes’s Frogs. He asks who speaks, whose work carries the account, and how its words bear on ordinary lives."
+      }
     }
   },
   "items": {
@@ -9233,6 +9315,48 @@
       "holder": "greek-scythian-crag",
       "persona": "Describe this material, its actual holder and its recorded use.",
       "art": "assets/greek-drama/testimony.png"
+    },
+    "greek-viii-travel-bag": {
+      "name": "The Travel Bag",
+      "text": "A packed bag makes the landing’s comic question of shared labor a real burden.",
+      "holder": "greek-underworld",
+      "persona": "Describe its actual holder and its recorded use.",
+      "art": "assets/greek-drama/testimony.png",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-vii-accounts-open",
+          "value": true
+        }
+      ]
+    },
+    "greek-viii-verse-scales": {
+      "name": "The Verse Scales",
+      "text": "The company sets these scales beside the pages read to both poets.",
+      "holder": "greek-viii-poets-court",
+      "persona": "Describe its actual holder and its recorded use.",
+      "art": "assets/greek-drama/testimony.png",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-vii-accounts-open",
+          "value": true
+        }
+      ]
+    },
+    "greek-viii-reading-tablet": {
+      "name": "The Reading Tablet",
+      "text": "This tablet carries the chosen voice and the final reading home to Dione.",
+      "holder": "greek-viii-poets-court",
+      "persona": "Describe its actual holder and its recorded use.",
+      "art": "assets/greek-drama/testimony.png",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-vii-accounts-open",
+          "value": true
+        }
+      ]
     }
   },
   "routes": [
@@ -37509,6 +37633,21 @@
           "kind": "set_flag",
           "key": "greek-attic-farm-open",
           "value": true
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-camp-road-open",
+          "value": true
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-troy-road-open",
+          "value": true
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-susa-road-open",
+          "value": true
         }
       ]
     },
@@ -37802,6 +37941,11 @@
           "kind": "place_item",
           "item": "greek-vii-escape-list",
           "place": "greek-vii-escape-shore"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-vii-cyclops-home-ready",
+          "value": true
         }
       ],
       "workId": "euripides-cyclops"
@@ -37844,6 +37988,11 @@
           "kind": "place_item",
           "item": "greek-vii-escape-list",
           "place": "greek-sicily"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-vii-cyclops-home-ready",
+          "value": true
         }
       ],
       "workId": "euripides-cyclops"
@@ -37886,6 +38035,11 @@
           "kind": "place_item",
           "item": "greek-vii-escape-list",
           "place": "greek-sicily"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-vii-cyclops-home-ready",
+          "value": true
         }
       ],
       "workId": "euripides-cyclops"
@@ -38088,6 +38242,11 @@
           "kind": "place_item",
           "item": "greek-vii-refuge-tablet",
           "place": "greek-vii-air-gate"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-vii-birds-home-ready",
+          "value": true
         }
       ],
       "workId": "aristophanes-birds"
@@ -38135,6 +38294,11 @@
           "kind": "place_item",
           "item": "greek-vii-refuge-tablet",
           "place": "greek-vii-bird-refuge"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-vii-birds-home-ready",
+          "value": true
         }
       ],
       "workId": "aristophanes-birds"
@@ -38182,6 +38346,11 @@
           "kind": "place_item",
           "item": "greek-vii-refuge-tablet",
           "place": "greek-vii-bird-refuge"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-vii-birds-home-ready",
+          "value": true
         }
       ],
       "workId": "aristophanes-birds"
@@ -38333,6 +38502,11 @@
           "kind": "place_item",
           "item": "greek-vii-peace-list",
           "place": "greek-attic-farm"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-vii-peace-home-ready",
+          "value": true
         }
       ],
       "workId": "aristophanes-peace"
@@ -38385,6 +38559,11 @@
           "kind": "place_item",
           "item": "greek-vii-peace-list",
           "place": "greek-vii-peace-workshop"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-vii-peace-home-ready",
+          "value": true
         }
       ],
       "workId": "aristophanes-peace"
@@ -38427,6 +38606,11 @@
           "kind": "place_item",
           "item": "greek-vii-peace-list",
           "place": "greek-divine-heights"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-vii-peace-home-ready",
+          "value": true
         }
       ],
       "workId": "aristophanes-peace"
@@ -38529,6 +38713,11 @@
           "kind": "place_item",
           "item": "greek-vii-storm-record",
           "place": "greek-scythian-crag"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-vii-prometheus-home-ready",
+          "value": true
         }
       ],
       "workId": "aeschylus-prometheus-bound"
@@ -38577,6 +38766,11 @@
           "kind": "place_item",
           "item": "greek-vii-storm-record",
           "place": "greek-vii-crag-camp"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-vii-prometheus-home-ready",
+          "value": true
         }
       ],
       "workId": "aeschylus-prometheus-bound"
@@ -38619,6 +38813,11 @@
           "kind": "place_item",
           "item": "greek-vii-storm-record",
           "place": "greek-vii-crag-camp"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-vii-prometheus-home-ready",
+          "value": true
         }
       ],
       "workId": "aeschylus-prometheus-bound"
@@ -40287,6 +40486,11 @@
           "kind": "set_flag",
           "key": "greek-rhesus-open",
           "value": true
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-troy-road-open",
+          "value": true
         }
       ],
       "workId": "euripides-rhesus"
@@ -40806,6 +41010,11 @@
         {
           "kind": "set_flag",
           "key": "greek-troy-open",
+          "value": true
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-troy-road-open",
           "value": true
         }
       ],
@@ -42965,6 +43174,11 @@
           "kind": "set_flag",
           "key": "greek-susa-open",
           "value": true
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-susa-road-open",
+          "value": true
         }
       ],
       "workId": "aeschylus-persians"
@@ -43562,6 +43776,325 @@
         }
       ],
       "workId": "aeschylus-persians"
+    },
+    {
+      "id": "greek-viii-frogs-carry-burden",
+      "subject": "greek-viii-aeschylus",
+      "at": "greek-viii-poets-court",
+      "label": "Carry the burden into the court",
+      "text": "The traveler brings the travel bag into the poets’ court. Xanthias remains at the lower landing. The company records who carried the weight.",
+      "textTemplate": "{actor} brings the travel bag into the poets’ court. Xanthias remains at the lower landing. The company records who carried the weight.",
+      "requires": [
+        {
+          "kind": "choice_unset",
+          "key": "greek-viii-frogs-burden"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-viii-travel-bag",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "greek-viii-frogs-burden",
+          "value": "carry"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-viii-frogs-ready",
+          "value": true
+        }
+      ],
+      "workId": "aristophanes-frogs"
+    },
+    {
+      "id": "greek-viii-frogs-share-burden",
+      "subject": "greek-viii-xanthias",
+      "at": "greek-underworld",
+      "label": "Leave the bag with Xanthias",
+      "text": "Xanthias holds the bag The traveler gave him. The traveler enters the poets’ court while that burden remains with its named bearer.",
+      "textTemplate": "Xanthias holds the bag {actor} gave him. The traveler enters the poets’ court while that burden remains with its named bearer.",
+      "requires": [
+        {
+          "kind": "choice_unset",
+          "key": "greek-viii-frogs-burden"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-viii-travel-bag",
+          "actor": "greek-viii-xanthias"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "greek-viii-frogs-burden",
+          "value": "xanthias"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-viii-frogs-ready",
+          "value": true
+        }
+      ],
+      "workId": "aristophanes-frogs"
+    },
+    {
+      "id": "greek-viii-frogs-weigh",
+      "subject": "greek-viii-aeschylus",
+      "at": "greek-viii-poets-court",
+      "label": "Finish weighing the heard account",
+      "text": "The traveler finishes the last page before both poets. The scales stand beside the account they all heard. Each stanza keeps its own earlier author.",
+      "textTemplate": "{actor} finishes the last page before both poets. The scales stand beside the account they all heard. Each stanza keeps its own earlier author.",
+      "requires": [
+        {
+          "kind": "reading_complete",
+          "site": "greek-viii-frogs-court"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-viii-frogs-weighed",
+          "value": true
+        }
+      ],
+      "workId": "aristophanes-frogs"
+    },
+    {
+      "id": "greek-viii-frogs-voice-aeschylus",
+      "subject": "greek-viii-aeschylus",
+      "at": "greek-viii-poets-court",
+      "label": "Aeschylus",
+      "text": "The traveler chooses Aeschylus’s call to civic duty for the return tablet after hearing the whole reading. The named account records this choice beside the poets; its words travel home with their carrier.",
+      "textTemplate": "{actor} chooses Aeschylus’s call to civic duty for the return tablet after hearing the whole reading. The named account records this choice beside the poets; its words travel home with their carrier.",
+      "requires": [
+        {
+          "kind": "reading_complete",
+          "site": "greek-viii-frogs-court"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-viii-frogs-return-voice"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-viii-reading-tablet",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "greek-viii-frogs-return-voice",
+          "value": "aeschylus"
+        },
+        {
+          "kind": "place_item",
+          "item": "greek-viii-reading-tablet",
+          "place": "greek-viii-poets-court"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-viii-frogs-home-ready",
+          "value": true
+        }
+      ],
+      "workId": "aristophanes-frogs"
+    },
+    {
+      "id": "greek-viii-frogs-voice-euripides",
+      "subject": "greek-viii-euripides",
+      "at": "greek-viii-poets-court",
+      "label": "Euripides",
+      "text": "The traveler chooses Euripides’s questions about ordinary lives for the return tablet after hearing the whole reading. The named account records this choice beside the poets; its words travel home with their carrier.",
+      "textTemplate": "{actor} chooses Euripides’s questions about ordinary lives for the return tablet after hearing the whole reading. The named account records this choice beside the poets; its words travel home with their carrier.",
+      "requires": [
+        {
+          "kind": "reading_complete",
+          "site": "greek-viii-frogs-court"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-viii-frogs-return-voice"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-viii-reading-tablet",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "greek-viii-frogs-return-voice",
+          "value": "euripides"
+        },
+        {
+          "kind": "place_item",
+          "item": "greek-viii-reading-tablet",
+          "place": "greek-viii-poets-court"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-viii-frogs-home-ready",
+          "value": true
+        }
+      ],
+      "workId": "aristophanes-frogs"
+    },
+    {
+      "id": "greek-viii-frogs-voice-living-chorus",
+      "subject": "greek-viii-aeschylus",
+      "at": "greek-viii-poets-court",
+      "label": "The living chorus",
+      "text": "The traveler chooses the living chorus’s shared account for the return tablet after hearing the whole reading. The named account records this choice beside the poets; its words travel home with their carrier.",
+      "textTemplate": "{actor} chooses the living chorus’s shared account for the return tablet after hearing the whole reading. The named account records this choice beside the poets; its words travel home with their carrier.",
+      "requires": [
+        {
+          "kind": "reading_complete",
+          "site": "greek-viii-frogs-court"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-viii-frogs-return-voice"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-viii-reading-tablet",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "greek-viii-frogs-return-voice",
+          "value": "living-chorus"
+        },
+        {
+          "kind": "place_item",
+          "item": "greek-viii-reading-tablet",
+          "place": "greek-viii-poets-court"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-viii-frogs-home-ready",
+          "value": true
+        }
+      ],
+      "workId": "aristophanes-frogs"
+    },
+    {
+      "id": "greek-vii-cyclops-read-home",
+      "subject": "greek-baker",
+      "at": "greek-courtyard",
+      "label": "Finish the Cyclops homecoming reading",
+      "text": "The traveler finishes the last required page at Dione’s table. The carried record rests beside the bread. The listeners keep the words they heard and the earlier authors’ names.",
+      "textTemplate": "{actor} finishes the last required page at Dione’s table. The carried record rests beside the bread. The listeners keep the words they heard and the earlier authors’ names.",
+      "requires": [
+        {
+          "kind": "reading_complete",
+          "site": "greek-vii-cyclops-homecoming"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-vii-cyclops-returned",
+          "value": true
+        }
+      ],
+      "workId": "euripides-cyclops"
+    },
+    {
+      "id": "greek-vii-birds-read-home",
+      "subject": "greek-baker",
+      "at": "greek-courtyard",
+      "label": "Finish the Birds homecoming reading",
+      "text": "The traveler finishes the last required page at Dione’s table. The carried record rests beside the bread. The listeners keep the words they heard and the earlier authors’ names.",
+      "textTemplate": "{actor} finishes the last required page at Dione’s table. The carried record rests beside the bread. The listeners keep the words they heard and the earlier authors’ names.",
+      "requires": [
+        {
+          "kind": "reading_complete",
+          "site": "greek-vii-birds-homecoming"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-vii-birds-returned",
+          "value": true
+        }
+      ],
+      "workId": "aristophanes-birds"
+    },
+    {
+      "id": "greek-vii-peace-read-home",
+      "subject": "greek-baker",
+      "at": "greek-courtyard",
+      "label": "Finish the Peace homecoming reading",
+      "text": "The traveler finishes the last required page at Dione’s table. The carried record rests beside the bread. The listeners keep the words they heard and the earlier authors’ names.",
+      "textTemplate": "{actor} finishes the last required page at Dione’s table. The carried record rests beside the bread. The listeners keep the words they heard and the earlier authors’ names.",
+      "requires": [
+        {
+          "kind": "reading_complete",
+          "site": "greek-vii-peace-homecoming"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-vii-peace-returned",
+          "value": true
+        }
+      ],
+      "workId": "aristophanes-peace"
+    },
+    {
+      "id": "greek-vii-prometheus-read-home",
+      "subject": "greek-baker",
+      "at": "greek-courtyard",
+      "label": "Finish the Prometheus homecoming reading",
+      "text": "The traveler finishes the last required page at Dione’s table. The carried record rests beside the bread. The listeners keep the words they heard and the earlier authors’ names.",
+      "textTemplate": "{actor} finishes the last required page at Dione’s table. The carried record rests beside the bread. The listeners keep the words they heard and the earlier authors’ names.",
+      "requires": [
+        {
+          "kind": "reading_complete",
+          "site": "greek-vii-prometheus-homecoming"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-vii-prometheus-returned",
+          "value": true
+        }
+      ],
+      "workId": "aeschylus-prometheus-bound"
+    },
+    {
+      "id": "greek-viii-frogs-read-home",
+      "subject": "greek-baker",
+      "at": "greek-courtyard",
+      "label": "Finish the Frogs homecoming reading",
+      "text": "The traveler finishes the last required page at Dione’s table. The carried record rests beside the bread. The listeners keep the words they heard and the earlier authors’ names.",
+      "textTemplate": "{actor} finishes the last required page at Dione’s table. The carried record rests beside the bread. The listeners keep the words they heard and the earlier authors’ names.",
+      "requires": [
+        {
+          "kind": "reading_complete",
+          "site": "greek-viii-frogs-homecoming"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-viii-frogs-returned",
+          "value": true
+        }
+      ],
+      "workId": "aristophanes-frogs"
     }
   ],
   "works": [
@@ -44826,10 +45359,14 @@
       "author": "Aristophanes",
       "title": "Frogs",
       "era": "civic-athens",
-      "placeIds": ["greek-underworld"],
+      "placeIds": ["greek-underworld", "greek-viii-poets-court"],
       "premise": "A divine visitor seeks a poet whose art can answer the city's troubles.",
-      "status": "situated-hook",
-      "hookChoiceIds": ["greek-inquire-aristophanes-frogs"],
+      "status": "branching-episode",
+      "hookChoiceIds": [
+        "greek-inquire-aristophanes-frogs",
+        "greek-viii-frogs-carry-burden",
+        "greek-viii-frogs-share-burden"
+      ],
       "source": {
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Aristophanes",
@@ -45080,7 +45617,9 @@
       "greek-thrace",
       "greek-susa-tomb",
       "greek-susa-threshold",
-      "greek-susa-road"
+      "greek-susa-road",
+      "greek-viii-poets-court",
+      "greek-underworld"
     ],
     "avatars": [
       "greek-antigone",
@@ -45247,7 +45786,11 @@
       "greek-thrace-polyxena",
       "greek-thrace-polymestor",
       "greek-susa-atossa",
-      "greek-susa-xerxes"
+      "greek-susa-xerxes",
+      "greek-viii-xanthias",
+      "greek-viii-aeschylus",
+      "greek-viii-euripides",
+      "greek-ferryman"
     ],
     "items": [
       "greek-water-jar",
@@ -45467,7 +46010,10 @@
       "greek-susa-broken-oar",
       "greek-susa-dead-names",
       "greek-susa-offering-water",
-      "greek-susa-cloak"
+      "greek-susa-cloak",
+      "greek-viii-travel-bag",
+      "greek-viii-verse-scales",
+      "greek-viii-reading-tablet"
     ],
     "choices": [
       "greek-return-water-jar",
@@ -46286,7 +46832,18 @@
       "greek-susa-record-private",
       "greek-susa-return-private",
       "greek-susa-record-reckoning",
-      "greek-susa-return-reckoning"
+      "greek-susa-return-reckoning",
+      "greek-viii-frogs-carry-burden",
+      "greek-viii-frogs-share-burden",
+      "greek-viii-frogs-weigh",
+      "greek-viii-frogs-voice-aeschylus",
+      "greek-viii-frogs-voice-euripides",
+      "greek-viii-frogs-voice-living-chorus",
+      "greek-vii-cyclops-read-home",
+      "greek-vii-birds-read-home",
+      "greek-vii-peace-read-home",
+      "greek-vii-prometheus-read-home",
+      "greek-viii-frogs-read-home"
     ]
   },
   "recital": {
@@ -49344,6 +49901,203 @@
           "The court sent names to households of the lost."
         ],
         "summons": true
+      },
+      {
+        "choice": "greek-viii-frogs-carry-burden",
+        "quest": "greek-viii-frogs",
+        "lines": [
+          "I brought the weight beside the waiting scales.",
+          "The bag bore witness to the hands that carried."
+        ],
+        "summons": false
+      },
+      {
+        "choice": "greek-viii-frogs-share-burden",
+        "quest": "greek-viii-frogs",
+        "lines": [
+          "I left the weight with Xanthias below.",
+          "His hands remained within the journey’s telling."
+        ],
+        "summons": false
+      },
+      {
+        "choice": "greek-viii-frogs-weigh",
+        "quest": "greek-viii-frogs",
+        "lines": [
+          "I read the earned account before both poets.",
+          "The scales held words and those who first had spoken."
+        ],
+        "summons": false
+      },
+      {
+        "choice": "greek-viii-frogs-voice-aeschylus",
+        "quest": "greek-viii-frogs",
+        "lines": [
+          "I chose the weight of Aeschylus’s voice.",
+          "The tablet bore his charge toward the city."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-viii-frogs-voice-euripides",
+        "quest": "greek-viii-frogs",
+        "lines": [
+          "I chose Euripides to question power.",
+          "The tablet carried daily lives toward home."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-viii-frogs-voice-living-chorus",
+        "quest": "greek-viii-frogs",
+        "lines": [
+          "I chose the living chorus for our road.",
+          "Its many voices kept the authors’ names."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-vii-cyclops-read-home",
+        "quest": "greek-vii-cyclops-return",
+        "lines": [
+          "I read the cave’s account beside the bread.",
+          "Each cohort kept its place within the telling."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-vii-birds-read-home",
+        "quest": "greek-vii-birds-return",
+        "lines": [
+          "I read the refuge’s record at the table.",
+          "The gate and food retained their actual keepers."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-vii-peace-read-home",
+        "quest": "greek-vii-peace-return",
+        "lines": [
+          "I read the common labor beside Dione.",
+          "The grain and tools still named their present holders."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-vii-prometheus-read-home",
+        "quest": "greek-vii-prometheus-return",
+        "lines": [
+          "I read the flame and message beside Dione.",
+          "The oil and words retained their separate costs."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-viii-frogs-read-home",
+        "quest": "greek-viii-frogs",
+        "lines": [
+          "I brought the chosen voice beside the bread.",
+          "The living table heard each earlier author."
+        ],
+        "summons": true
+      }
+    ],
+    "sites": [
+      {
+        "id": "greek-viii-frogs-court",
+        "title": "the poets’ court",
+        "label": "Begin the reading before both poets",
+        "at": "greek-viii-poets-court",
+        "listeners": ["greek-viii-aeschylus", "greek-viii-euripides"],
+        "item": "greek-viii-verse-scales",
+        "requires": [
+          {
+            "kind": "flag",
+            "key": "greek-viii-frogs-ready",
+            "value": true
+          }
+        ],
+        "completion": "greek-viii-frogs-weigh"
+      },
+      {
+        "id": "greek-vii-cyclops-homecoming",
+        "title": "Cyclops at home",
+        "label": "Read the Cyclops account to Dione",
+        "at": "greek-courtyard",
+        "listeners": ["greek-baker"],
+        "item": "greek-vii-escape-list",
+        "requires": [
+          {
+            "kind": "flag",
+            "key": "greek-vii-cyclops-home-ready",
+            "value": true
+          }
+        ],
+        "completion": "greek-vii-cyclops-read-home"
+      },
+      {
+        "id": "greek-vii-birds-homecoming",
+        "title": "Birds at home",
+        "label": "Read the Birds account to Dione",
+        "at": "greek-courtyard",
+        "listeners": ["greek-baker"],
+        "item": "greek-vii-refuge-tablet",
+        "requires": [
+          {
+            "kind": "flag",
+            "key": "greek-vii-birds-home-ready",
+            "value": true
+          }
+        ],
+        "completion": "greek-vii-birds-read-home"
+      },
+      {
+        "id": "greek-vii-peace-homecoming",
+        "title": "Peace at home",
+        "label": "Read the Peace account to Dione",
+        "at": "greek-courtyard",
+        "listeners": ["greek-baker"],
+        "item": "greek-vii-peace-list",
+        "requires": [
+          {
+            "kind": "flag",
+            "key": "greek-vii-peace-home-ready",
+            "value": true
+          }
+        ],
+        "completion": "greek-vii-peace-read-home"
+      },
+      {
+        "id": "greek-vii-prometheus-homecoming",
+        "title": "Prometheus at home",
+        "label": "Read the Prometheus account to Dione",
+        "at": "greek-courtyard",
+        "listeners": ["greek-baker"],
+        "item": "greek-vii-storm-record",
+        "requires": [
+          {
+            "kind": "flag",
+            "key": "greek-vii-prometheus-home-ready",
+            "value": true
+          }
+        ],
+        "completion": "greek-vii-prometheus-read-home"
+      },
+      {
+        "id": "greek-viii-frogs-homecoming",
+        "title": "Frogs at home",
+        "label": "Read the Frogs account to Dione",
+        "at": "greek-courtyard",
+        "listeners": ["greek-baker"],
+        "item": "greek-viii-reading-tablet",
+        "requires": [
+          {
+            "kind": "flag",
+            "key": "greek-viii-frogs-home-ready",
+            "value": true
+          }
+        ],
+        "completion": "greek-viii-frogs-read-home"
       }
     ]
   },
@@ -49378,10 +50132,7 @@
     {
       "id": "greek-ajax",
       "name": "Earth Beside the Ships",
-      "places": [
-        "greek-ajax-household",
-        "greek-ajax-grave"
-      ],
+      "places": ["greek-ajax-household", "greek-ajax-grave"],
       "requires": [
         {
           "kind": "flag",
@@ -49719,18 +50470,6 @@
       ]
     },
     {
-      "id": "greek-rhesus-city-approach",
-      "name": "The Trojan City Approach",
-      "places": ["greek-troy"],
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-rhesus-open",
-          "value": true
-        }
-      ]
-    },
-    {
       "id": "greek-troy-captives",
       "name": "What the Ships Will Carry",
       "places": ["greek-troy-womens-tent", "greek-troy-shield-ground"],
@@ -49761,12 +50500,7 @@
     {
       "id": "greek-susa-court",
       "name": "The Broken Oar",
-      "places": [
-        "greek-susa",
-        "greek-susa-tomb",
-        "greek-susa-threshold",
-        "greek-susa-road"
-      ],
+      "places": ["greek-susa-tomb", "greek-susa-threshold"],
       "requires": [
         {
           "kind": "flag",
@@ -49796,6 +50530,42 @@
           "kind": "choice",
           "key": "greek-helen-account",
           "value": "egypt"
+        }
+      ]
+    },
+    {
+      "id": "greek-troy-road-open",
+      "name": "The shared eastern road",
+      "places": ["greek-troy"],
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-troy-road-open",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-susa-road-open",
+      "name": "The shared eastern road",
+      "places": ["greek-susa", "greek-susa-road"],
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-susa-road-open",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-viii-last-voices",
+      "name": "The Last Voices",
+      "places": ["greek-viii-poets-court"],
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-vii-accounts-open",
+          "value": true
         }
       ]
     }
@@ -55835,6 +56605,124 @@
       ],
       "outcome": "Shared",
       "progress": []
+    },
+    {
+      "id": "greek-vii-cyclops-return",
+      "group": "sky-for-sale",
+      "line": "Carry the Cyclops account home and read it to Dione.",
+      "holder": {
+        "kind": "item",
+        "id": "greek-vii-escape-list"
+      },
+      "art": "greek-vii-escape-list",
+      "start": {
+        "kind": "flag",
+        "key": "greek-vii-cyclops-home-ready",
+        "value": true
+      },
+      "endings": [
+        {
+          "choice": "greek-vii-cyclops-read-home"
+        }
+      ],
+      "outcome": "Shared"
+    },
+    {
+      "id": "greek-vii-birds-return",
+      "group": "sky-for-sale",
+      "line": "Carry the Birds account home and read it to Dione.",
+      "holder": {
+        "kind": "item",
+        "id": "greek-vii-refuge-tablet"
+      },
+      "art": "greek-vii-refuge-tablet",
+      "start": {
+        "kind": "flag",
+        "key": "greek-vii-birds-home-ready",
+        "value": true
+      },
+      "endings": [
+        {
+          "choice": "greek-vii-birds-read-home"
+        }
+      ],
+      "outcome": "Shared"
+    },
+    {
+      "id": "greek-vii-peace-return",
+      "group": "sky-for-sale",
+      "line": "Carry the Peace account home and read it to Dione.",
+      "holder": {
+        "kind": "item",
+        "id": "greek-vii-peace-list"
+      },
+      "art": "greek-vii-peace-list",
+      "start": {
+        "kind": "flag",
+        "key": "greek-vii-peace-home-ready",
+        "value": true
+      },
+      "endings": [
+        {
+          "choice": "greek-vii-peace-read-home"
+        }
+      ],
+      "outcome": "Shared"
+    },
+    {
+      "id": "greek-vii-prometheus-return",
+      "group": "sky-for-sale",
+      "line": "Carry the Prometheus account home and read it to Dione.",
+      "holder": {
+        "kind": "item",
+        "id": "greek-vii-storm-record"
+      },
+      "art": "greek-vii-storm-record",
+      "start": {
+        "kind": "flag",
+        "key": "greek-vii-prometheus-home-ready",
+        "value": true
+      },
+      "endings": [
+        {
+          "choice": "greek-vii-prometheus-read-home"
+        }
+      ],
+      "outcome": "Shared"
+    },
+    {
+      "id": "greek-viii-frogs",
+      "group": "last-voices",
+      "line": "Read the earned account to both poets and carry the chosen voice home.",
+      "holder": {
+        "kind": "item",
+        "id": "greek-viii-reading-tablet"
+      },
+      "art": "greek-viii-reading-tablet",
+      "start": {
+        "any": [
+          {
+            "kind": "receipt",
+            "choice": "greek-viii-frogs-carry-burden"
+          },
+          {
+            "kind": "receipt",
+            "choice": "greek-viii-frogs-share-burden"
+          }
+        ]
+      },
+      "endings": [
+        {
+          "choice": "greek-viii-frogs-read-home"
+        }
+      ],
+      "progress": [
+        "greek-viii-frogs-weigh",
+        "greek-viii-frogs-voice-aeschylus",
+        "greek-viii-frogs-voice-euripides",
+        "greek-viii-frogs-voice-living-chorus"
+      ],
+      "outcome": "Shared"
     }
   ],
   "topics": [
@@ -62587,6 +63475,306 @@
         }
       ],
       "choiceId": "greek-susa-record-reckoning"
+    },
+    {
+      "id": "greek-vii-cyclops-account-all-home",
+      "speaker": "greek-vii-odysseus-crew",
+      "at": "greek-vii-escape-shore",
+      "text": "The escape list records both cohorts at the Sicilian shore; carry their account home to Dione.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-vii-cyclops-ending",
+          "value": "all-home"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-vii-escape-list",
+          "role": "actor"
+        }
+      ],
+      "choiceId": "greek-vii-cyclops-all-home",
+      "publicAccount": true
+    },
+    {
+      "id": "greek-vii-cyclops-account-crew-first",
+      "speaker": "greek-vii-satyr-chorus",
+      "at": "greek-sicily",
+      "text": "The escape list records the sailors at the shore and the satyrs left by the cave; carry that account to Dione.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-vii-cyclops-ending",
+          "value": "crew-first"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-vii-escape-list",
+          "role": "actor"
+        }
+      ],
+      "choiceId": "greek-vii-cyclops-crew-first",
+      "publicAccount": true
+    },
+    {
+      "id": "greek-vii-cyclops-account-satyrs-first",
+      "speaker": "greek-vii-odysseus-crew",
+      "at": "greek-sicily",
+      "text": "The escape list records the satyrs at the shore and the sailors left by the cave; carry that account to Dione.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-vii-cyclops-ending",
+          "value": "satyrs-first"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-vii-escape-list",
+          "role": "actor"
+        }
+      ],
+      "choiceId": "greek-vii-cyclops-satyrs-first",
+      "publicAccount": true
+    },
+    {
+      "id": "greek-vii-birds-account-throne",
+      "speaker": "greek-vii-hoopoe-chorus",
+      "at": "greek-vii-air-gate",
+      "text": "The refuge tablet records a keyholder’s passage and the chorus at the gate; carry that account home to Dione.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-vii-birds-ending",
+          "value": "throne"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-vii-refuge-tablet",
+          "role": "actor"
+        }
+      ],
+      "choiceId": "greek-vii-birds-throne",
+      "publicAccount": true
+    },
+    {
+      "id": "greek-vii-birds-account-open-flight",
+      "speaker": "greek-vii-hoopoe-chorus",
+      "at": "greek-vii-bird-refuge",
+      "text": "The refuge tablet records the chorus through an open gate with its food; carry that account home to Dione.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-vii-birds-ending",
+          "value": "open-flight"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-vii-refuge-tablet",
+          "role": "actor"
+        }
+      ],
+      "choiceId": "greek-vii-birds-open-flight",
+      "publicAccount": true
+    },
+    {
+      "id": "greek-vii-birds-account-broken-wall",
+      "speaker": "greek-vii-hoopoe-chorus",
+      "at": "greek-vii-bird-refuge",
+      "text": "The refuge tablet records a dismantled gate and the chorus holding its food and key; carry that account to Dione.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-vii-birds-ending",
+          "value": "broken-wall"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-vii-refuge-tablet",
+          "role": "actor"
+        }
+      ],
+      "choiceId": "greek-vii-birds-broken-wall",
+      "publicAccount": true
+    },
+    {
+      "id": "greek-vii-peace-account-harvest",
+      "speaker": "greek-vii-farmers",
+      "at": "greek-attic-farm",
+      "text": "The peace list records grain in the farmers’ hands; carry their harvest account home to Dione.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-vii-peace-ending",
+          "value": "harvest"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-vii-peace-list",
+          "role": "actor"
+        }
+      ],
+      "choiceId": "greek-vii-peace-harvest",
+      "publicAccount": true
+    },
+    {
+      "id": "greek-vii-peace-account-workshops",
+      "speaker": "greek-vii-smiths",
+      "at": "greek-vii-peace-workshop",
+      "text": "The peace list records grain with the farmers and tools with the smiths; carry their shared work home to Dione.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-vii-peace-ending",
+          "value": "workshops"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-vii-peace-list",
+          "role": "actor"
+        }
+      ],
+      "choiceId": "greek-vii-peace-workshops",
+      "publicAccount": true
+    },
+    {
+      "id": "greek-vii-peace-account-private-store",
+      "speaker": "greek-vii-trygaeus",
+      "at": "greek-divine-heights",
+      "text": "The peace list records a shared pull and grain held by Trygaeus; carry that account home to Dione.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-vii-peace-ending",
+          "value": "private-store"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-vii-peace-list",
+          "role": "actor"
+        }
+      ],
+      "choiceId": "greek-vii-peace-private-store",
+      "publicAccount": true
+    },
+    {
+      "id": "greek-vii-prometheus-account-stay",
+      "speaker": "greek-vii-oceanids",
+      "at": "greek-scythian-crag",
+      "text": "The storm record names Io’s received message and the witnesses remaining at the crag; carry that account to Dione.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-vii-prometheus-ending",
+          "value": "stay"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-vii-storm-record",
+          "role": "actor"
+        }
+      ],
+      "choiceId": "greek-vii-prometheus-stay",
+      "publicAccount": true
+    },
+    {
+      "id": "greek-vii-prometheus-account-gifts",
+      "speaker": "greek-vii-hermes",
+      "at": "greek-vii-crag-camp",
+      "text": "The storm record names Io’s received message and the flame laid at Hermes’s camp; carry that account to Dione.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-vii-prometheus-ending",
+          "value": "gifts"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-vii-storm-record",
+          "role": "actor"
+        }
+      ],
+      "choiceId": "greek-vii-prometheus-gifts",
+      "publicAccount": true
+    },
+    {
+      "id": "greek-vii-prometheus-account-terms",
+      "speaker": "greek-vii-hermes",
+      "at": "greek-vii-crag-camp",
+      "text": "The storm record names Io’s received message and the terms delivered to Hermes; carry that account to Dione.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-vii-prometheus-ending",
+          "value": "terms"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-vii-storm-record",
+          "role": "actor"
+        }
+      ],
+      "choiceId": "greek-vii-prometheus-terms",
+      "publicAccount": true
+    },
+    {
+      "id": "greek-viii-frogs-account-aeschylus",
+      "speaker": "greek-viii-aeschylus",
+      "at": "greek-viii-poets-court",
+      "text": "The reading tablet carries Aeschylus’s chosen voice after the full reading; bring its account home to Dione.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-viii-frogs-return-voice",
+          "value": "aeschylus"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-viii-reading-tablet",
+          "role": "actor"
+        }
+      ],
+      "choiceId": "greek-viii-frogs-voice-aeschylus",
+      "publicAccount": true
+    },
+    {
+      "id": "greek-viii-frogs-account-euripides",
+      "speaker": "greek-viii-euripides",
+      "at": "greek-viii-poets-court",
+      "text": "The reading tablet carries Euripides’s chosen voice after the full reading; bring its account home to Dione.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-viii-frogs-return-voice",
+          "value": "euripides"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-viii-reading-tablet",
+          "role": "actor"
+        }
+      ],
+      "choiceId": "greek-viii-frogs-voice-euripides",
+      "publicAccount": true
+    },
+    {
+      "id": "greek-viii-frogs-account-living-chorus",
+      "speaker": "greek-viii-aeschylus",
+      "at": "greek-viii-poets-court",
+      "text": "The reading tablet carries the living chorus’s chosen voice after the full reading; bring its account to Dione.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-viii-frogs-return-voice",
+          "value": "living-chorus"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-viii-reading-tablet",
+          "role": "actor"
+        }
+      ],
+      "choiceId": "greek-viii-frogs-voice-living-chorus",
+      "publicAccount": true
     }
   ]
 }

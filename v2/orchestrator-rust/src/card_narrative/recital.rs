@@ -6,6 +6,8 @@ use std::sync::OnceLock;
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(super) struct Poem {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub heard: Option<super::heard::Heard>,
     pub title: String,
     pub stanzas: Vec<Stanza>,
     pub new_lines: Vec<String>,
@@ -37,6 +39,7 @@ fn authored_recital(actor: &str) -> Option<&'static Value> {
 // speech checks and can reflect on any part of this context.
 pub(super) fn valid(actor: &str, poem: Option<&Poem>, turn: u64) -> bool {
     let Some(poem) = poem else { return true };
+    if poem.heard.is_some() { return super::heard::valid(actor, poem, turn); }
     let Some(recital) = authored_recital(actor) else {
         return false;
     };
@@ -76,6 +79,7 @@ pub(super) fn valid(actor: &str, poem: Option<&Poem>, turn: u64) -> bool {
 }
 
 pub(super) fn prompt_lines(poem: &Poem) -> Vec<String> {
+    if let Some(lines) = super::heard::prompt(poem) { return lines; }
     let mut lines = vec![format!("My earned poem: {}", poem.title)];
     lines.extend(
         poem.stanzas

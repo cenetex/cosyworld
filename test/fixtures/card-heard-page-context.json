@@ -1,0 +1,677 @@
+{
+  "revision": 98,
+  "turn": 98,
+  "privateTo": [
+    "vale",
+    "greek-viii-aeschylus",
+    "greek-viii-euripides"
+  ],
+  "hearing": [
+    "greek-drama",
+    "site:greek-viii-frogs-court:vale",
+    0,
+    98
+  ],
+  "outcome": {
+    "card": {
+      "kind": "read",
+      "target": "greek-viii-aeschylus",
+      "item": null,
+      "receive": null,
+      "destination": null,
+      "accepted": null
+    },
+    "avatars": [
+      {
+        "id": "vale",
+        "location": "greek-viii-poets-court",
+        "holding": [
+          "greek-viii-travel-bag"
+        ],
+        "travel": null
+      },
+      {
+        "id": "greek-viii-aeschylus",
+        "location": "greek-viii-poets-court",
+        "holding": [],
+        "travel": null
+      },
+      {
+        "id": "greek-viii-euripides",
+        "location": "greek-viii-poets-court",
+        "holding": [],
+        "travel": null
+      }
+    ],
+    "items": [
+      {
+        "id": "greek-viii-travel-bag",
+        "holder": "vale",
+        "location": "greek-viii-poets-court"
+      },
+      {
+        "id": "greek-viii-verse-scales",
+        "holder": "greek-viii-poets-court",
+        "location": "greek-viii-poets-court"
+      },
+      {
+        "id": "greek-viii-reading-tablet",
+        "holder": "greek-viii-poets-court",
+        "location": "greek-viii-poets-court"
+      }
+    ],
+    "observations": []
+  },
+  "location": "greek-viii-poets-court",
+  "scenery": false,
+  "focus": null,
+  "speakers": [
+    "vale",
+    "greek-viii-aeschylus"
+  ],
+  "action": "Vale read page 1 of 4 from the poets’ court.",
+  "events": [
+    "Vale read page 1 of 4 from the poets’ court."
+  ],
+  "conversation": [],
+  "entities": [
+    {
+      "id": "greek-viii-poets-court",
+      "poem": null,
+      "facts": [
+        "Vale brings the travel bag into the poets’ court. Xanthias remains at the lower landing. The company records who carried the weight.",
+        "Two poets stand beside verse scales. A tablet waits for the voice the company will carry home. The lower landing remains beside the dark water.",
+        "Low mist hangs above the dark water.",
+        "Paths visible now: The Underworld Landing.",
+        "At the dialogue scene: Vale, Aeschylus, Euripides. Items here: The Travel Bag, The Verse Scales, The Reading Tablet."
+      ],
+      "desire": null,
+      "memories": [
+        {
+          "seq": 166,
+          "turn": 94,
+          "kind": "event",
+          "text": "World: Vale goes to The Poets’ Court."
+        },
+        {
+          "seq": 167,
+          "turn": 95,
+          "kind": "event",
+          "text": "World: Vale brings the travel bag into the poets’ court. Xanthias remains at the lower landing. The company records who carried the weight."
+        },
+        {
+          "seq": 168,
+          "turn": 96,
+          "kind": "event",
+          "text": "World: Vale takes the The Verse Scales."
+        }
+      ],
+      "previous": null
+    },
+    {
+      "id": "vale",
+      "poem": {
+        "title": "Before the Burial",
+        "stanzas": [
+          {
+            "id": "greek-return-water-jar",
+            "turn": 15,
+            "authorId": "vale",
+            "authorName": "Vale",
+            "lines": [
+              "I set the water by her hands.",
+              "She kept a loaf of bread for me."
+            ]
+          },
+          {
+            "id": "greek-decline-burial",
+            "turn": 18,
+            "authorId": "vale",
+            "authorName": "Vale",
+            "lines": [
+              "I told her I would turn away.",
+              "Her brother waited by the wall."
+            ]
+          },
+          {
+            "id": "greek-courtyard-refusal",
+            "turn": 20,
+            "authorId": "vale",
+            "authorName": "Vale",
+            "lines": [
+              "I told her how I turned away.",
+              "She kept a place beside her table."
+            ]
+          },
+          {
+            "id": "greek-open-door-hear-mothers",
+            "turn": 29,
+            "authorId": "vale",
+            "authorName": "Vale",
+            "lines": [
+              "Their branches rested on my knees.",
+              "I heard the names beneath them."
+            ]
+          }
+        ],
+        "newLines": [
+          "I set the water by her hands.",
+          "She kept a loaf of bread for me.",
+          "I told her I would turn away.",
+          "Her brother waited by the wall.",
+          "I told her how I turned away.",
+          "She kept a place beside her table.",
+          "Their branches rested on my knees.",
+          "I heard the names beneath them."
+        ],
+        "heard": {
+          "pack": "greek-drama",
+          "catalog": "full-card-world/21#bdbfd9d9e18fab61",
+          "catalogDigest": "418309ff7708cfb1fa23806c293d619a5905e33b3875acf655863c63fbcc7642",
+          "readingId": "site:greek-viii-frogs-court:vale",
+          "reader": "vale",
+          "readingTurn": 97,
+          "through": 96,
+          "page": 0,
+          "pageCount": 4,
+          "stanzaCount": 16,
+          "publishedTurn": 98,
+          "poemDigest": "9d613e4d7151b7afdd9ffeff8556a0cf6867015e224def85c510114ded788af3",
+          "audience": [
+            "vale",
+            "greek-viii-aeschylus",
+            "greek-viii-euripides"
+          ],
+          "tuples": [
+            [
+              0,
+              15,
+              0,
+              0
+            ],
+            [
+              4,
+              18,
+              0,
+              0
+            ],
+            [
+              8,
+              20,
+              0,
+              0
+            ],
+            [
+              11,
+              29,
+              0,
+              0
+            ]
+          ],
+          "afterTurns": [
+            null,
+            null,
+            null,
+            null
+          ]
+        }
+      },
+      "facts": [
+        "I witnessed this earlier: Vale gives the The Quay Basket to Myrine of Argos.",
+        "I also want to pursue Along the shore; Bell journey.",
+        "I tried inviting Myrine of Argos to Piraeus Quays while seeking Piraeus Quays. That reached my goal. This was my first measured try at that approach.",
+        "Inviting Myrine of Argos to Piraeus Quays: 1 measured attempt. This approach helped reach my goal 1 time.",
+        "Vale brings the travel bag into the poets’ court. Xanthias remains at the lower landing. The company records who carried the weight.",
+        "Holding: The Travel Bag.",
+        "Location now: The Poets’ Court. Company now: Aeschylus, Euripides.",
+        "Interesting routes and a decent bargain",
+        "Current interest: Rest at Mirror attic.",
+        "I want to look after my friends at Mirror attic. Next I'd like to bring a friend what they need. I want to go home and rest.",
+        "Wants to be at Mirror attic; currently at The Poets’ Court.",
+        "At the dialogue scene: Vale, Aeschylus, Euripides. Items here: The Travel Bag, The Verse Scales, The Reading Tablet."
+      ],
+      "desire": {
+        "items": [],
+        "location": "attic",
+        "avatars": []
+      },
+      "memories": [
+        {
+          "seq": 150,
+          "turn": 84,
+          "kind": "event",
+          "text": "World: Vale lays the signed return list before Dione and chooses the earlier basket stanza from the song. Dione reads it, then reads Myrine’s words from Piraeus: “My household’s place was kept, and its basket passed to me.” Dione says, “A waiting basket has reached a person’s hands.”"
+        },
+        {
+          "seq": 152,
+          "turn": 85,
+          "kind": "event",
+          "text": "World: Dione names the later accounts beyond Piraeus: the Sicilian crew, the birds’ refuge, shared peace, the chained gift and the poets below. She asks Vale to return with the actual people, supplies and words each journey has earned."
+        },
+        {
+          "seq": 167,
+          "turn": 95,
+          "kind": "event",
+          "text": "World: Vale brings the travel bag into the poets’ court. Xanthias remains at the lower landing. The company records who carried the weight."
+        },
+        {
+          "seq": 168,
+          "turn": 96,
+          "kind": "event",
+          "text": "World: Vale takes the The Verse Scales."
+        },
+        {
+          "seq": 169,
+          "turn": 97,
+          "kind": "event",
+          "text": "World: Vale begin the reading before both poets."
+        },
+        {
+          "seq": 170,
+          "turn": 98,
+          "kind": "event",
+          "text": "World: Vale read page 1 of 4 from the poets’ court."
+        }
+      ],
+      "previous": null,
+      "inner_life": null
+    },
+    {
+      "id": "greek-viii-aeschylus",
+      "poem": {
+        "title": "Before the Burial",
+        "stanzas": [
+          {
+            "id": "greek-return-water-jar",
+            "turn": 15,
+            "authorId": "vale",
+            "authorName": "Vale",
+            "lines": [
+              "I set the water by her hands.",
+              "She kept a loaf of bread for me."
+            ]
+          },
+          {
+            "id": "greek-decline-burial",
+            "turn": 18,
+            "authorId": "vale",
+            "authorName": "Vale",
+            "lines": [
+              "I told her I would turn away.",
+              "Her brother waited by the wall."
+            ]
+          },
+          {
+            "id": "greek-courtyard-refusal",
+            "turn": 20,
+            "authorId": "vale",
+            "authorName": "Vale",
+            "lines": [
+              "I told her how I turned away.",
+              "She kept a place beside her table."
+            ]
+          },
+          {
+            "id": "greek-open-door-hear-mothers",
+            "turn": 29,
+            "authorId": "vale",
+            "authorName": "Vale",
+            "lines": [
+              "Their branches rested on my knees.",
+              "I heard the names beneath them."
+            ]
+          }
+        ],
+        "newLines": [
+          "I set the water by her hands.",
+          "She kept a loaf of bread for me.",
+          "I told her I would turn away.",
+          "Her brother waited by the wall.",
+          "I told her how I turned away.",
+          "She kept a place beside her table.",
+          "Their branches rested on my knees.",
+          "I heard the names beneath them."
+        ],
+        "heard": {
+          "pack": "greek-drama",
+          "catalog": "full-card-world/21#bdbfd9d9e18fab61",
+          "catalogDigest": "418309ff7708cfb1fa23806c293d619a5905e33b3875acf655863c63fbcc7642",
+          "readingId": "site:greek-viii-frogs-court:vale",
+          "reader": "vale",
+          "readingTurn": 97,
+          "through": 96,
+          "page": 0,
+          "pageCount": 4,
+          "stanzaCount": 16,
+          "publishedTurn": 98,
+          "poemDigest": "9d613e4d7151b7afdd9ffeff8556a0cf6867015e224def85c510114ded788af3",
+          "audience": [
+            "vale",
+            "greek-viii-aeschylus",
+            "greek-viii-euripides"
+          ],
+          "tuples": [
+            [
+              0,
+              15,
+              0,
+              0
+            ],
+            [
+              4,
+              18,
+              0,
+              0
+            ],
+            [
+              8,
+              20,
+              0,
+              0
+            ],
+            [
+              11,
+              29,
+              0,
+              0
+            ]
+          ],
+          "afterTurns": [
+            null,
+            null,
+            null,
+            null
+          ]
+        }
+      },
+      "facts": [
+        "Vale brings the travel bag into the poets’ court. Xanthias remains at the lower landing. The company records who carried the weight.",
+        "Holding: empty hands.",
+        "Location now: The Poets’ Court. Company now: Vale, Euripides.",
+        "a heard account and shared work",
+        "Current interest: a heard account and shared work.",
+        "Wants to be at The Poets’ Court; currently at The Poets’ Court.",
+        "At the dialogue scene: Vale, Aeschylus, Euripides. Items here: The Travel Bag, The Verse Scales, The Reading Tablet."
+      ],
+      "desire": {
+        "items": [],
+        "location": "greek-viii-poets-court",
+        "avatars": []
+      },
+      "memories": [
+        {
+          "seq": 167,
+          "turn": 95,
+          "kind": "event",
+          "text": "World: Vale brings the travel bag into the poets’ court. Xanthias remains at the lower landing. The company records who carried the weight."
+        },
+        {
+          "seq": 168,
+          "turn": 96,
+          "kind": "event",
+          "text": "World: Vale takes the The Verse Scales."
+        },
+        {
+          "seq": 169,
+          "turn": 97,
+          "kind": "event",
+          "text": "World: Vale begin the reading before both poets."
+        },
+        {
+          "seq": 170,
+          "turn": 98,
+          "kind": "event",
+          "text": "World: Vale read page 1 of 4 from the poets’ court."
+        }
+      ],
+      "previous": null,
+      "inner_life": null
+    },
+    {
+      "id": "greek-viii-euripides",
+      "poem": {
+        "title": "Before the Burial",
+        "stanzas": [
+          {
+            "id": "greek-return-water-jar",
+            "turn": 15,
+            "authorId": "vale",
+            "authorName": "Vale",
+            "lines": [
+              "I set the water by her hands.",
+              "She kept a loaf of bread for me."
+            ]
+          },
+          {
+            "id": "greek-decline-burial",
+            "turn": 18,
+            "authorId": "vale",
+            "authorName": "Vale",
+            "lines": [
+              "I told her I would turn away.",
+              "Her brother waited by the wall."
+            ]
+          },
+          {
+            "id": "greek-courtyard-refusal",
+            "turn": 20,
+            "authorId": "vale",
+            "authorName": "Vale",
+            "lines": [
+              "I told her how I turned away.",
+              "She kept a place beside her table."
+            ]
+          },
+          {
+            "id": "greek-open-door-hear-mothers",
+            "turn": 29,
+            "authorId": "vale",
+            "authorName": "Vale",
+            "lines": [
+              "Their branches rested on my knees.",
+              "I heard the names beneath them."
+            ]
+          }
+        ],
+        "newLines": [
+          "I set the water by her hands.",
+          "She kept a loaf of bread for me.",
+          "I told her I would turn away.",
+          "Her brother waited by the wall.",
+          "I told her how I turned away.",
+          "She kept a place beside her table.",
+          "Their branches rested on my knees.",
+          "I heard the names beneath them."
+        ],
+        "heard": {
+          "pack": "greek-drama",
+          "catalog": "full-card-world/21#bdbfd9d9e18fab61",
+          "catalogDigest": "418309ff7708cfb1fa23806c293d619a5905e33b3875acf655863c63fbcc7642",
+          "readingId": "site:greek-viii-frogs-court:vale",
+          "reader": "vale",
+          "readingTurn": 97,
+          "through": 96,
+          "page": 0,
+          "pageCount": 4,
+          "stanzaCount": 16,
+          "publishedTurn": 98,
+          "poemDigest": "9d613e4d7151b7afdd9ffeff8556a0cf6867015e224def85c510114ded788af3",
+          "audience": [
+            "vale",
+            "greek-viii-aeschylus",
+            "greek-viii-euripides"
+          ],
+          "tuples": [
+            [
+              0,
+              15,
+              0,
+              0
+            ],
+            [
+              4,
+              18,
+              0,
+              0
+            ],
+            [
+              8,
+              20,
+              0,
+              0
+            ],
+            [
+              11,
+              29,
+              0,
+              0
+            ]
+          ],
+          "afterTurns": [
+            null,
+            null,
+            null,
+            null
+          ]
+        }
+      },
+      "facts": [
+        "Holding: empty hands.",
+        "Location now: The Poets’ Court. Company now: Vale, Aeschylus.",
+        "a heard account and shared work",
+        "Current interest: a heard account and shared work.",
+        "Wants to be at The Poets’ Court; currently at The Poets’ Court.",
+        "At the dialogue scene: Vale, Aeschylus, Euripides. Items here: The Travel Bag, The Verse Scales, The Reading Tablet."
+      ],
+      "desire": {
+        "items": [],
+        "location": "greek-viii-poets-court",
+        "avatars": []
+      },
+      "memories": [
+        {
+          "seq": 167,
+          "turn": 95,
+          "kind": "event",
+          "text": "World: Vale brings the travel bag into the poets’ court. Xanthias remains at the lower landing. The company records who carried the weight."
+        },
+        {
+          "seq": 168,
+          "turn": 96,
+          "kind": "event",
+          "text": "World: Vale takes the The Verse Scales."
+        },
+        {
+          "seq": 169,
+          "turn": 97,
+          "kind": "event",
+          "text": "World: Vale begin the reading before both poets."
+        },
+        {
+          "seq": 170,
+          "turn": 98,
+          "kind": "event",
+          "text": "World: Vale read page 1 of 4 from the poets’ court."
+        }
+      ],
+      "previous": null,
+      "inner_life": null
+    },
+    {
+      "id": "greek-viii-travel-bag",
+      "poem": null,
+      "facts": [
+        "Held by or resting at: Vale.",
+        "At the dialogue scene: Vale, Aeschylus, Euripides. Items here: The Travel Bag, The Verse Scales, The Reading Tablet."
+      ],
+      "desire": null,
+      "memories": [
+        {
+          "seq": 165,
+          "turn": 93,
+          "kind": "event",
+          "text": "World: The Lower Ferryman asks Vale what they want."
+        },
+        {
+          "seq": 166,
+          "turn": 94,
+          "kind": "event",
+          "text": "World: Vale goes to The Poets’ Court."
+        },
+        {
+          "seq": 167,
+          "turn": 95,
+          "kind": "event",
+          "text": "World: Vale brings the travel bag into the poets’ court. Xanthias remains at the lower landing. The company records who carried the weight."
+        },
+        {
+          "seq": 168,
+          "turn": 96,
+          "kind": "event",
+          "text": "World: Vale takes the The Verse Scales."
+        }
+      ],
+      "previous": null
+    },
+    {
+      "id": "greek-viii-verse-scales",
+      "poem": null,
+      "facts": [
+        "Held by or resting at: The Poets’ Court.",
+        "At the dialogue scene: Vale, Aeschylus, Euripides. Items here: The Travel Bag, The Verse Scales, The Reading Tablet."
+      ],
+      "desire": null,
+      "memories": [
+        {
+          "seq": 166,
+          "turn": 94,
+          "kind": "event",
+          "text": "World: Vale goes to The Poets’ Court."
+        },
+        {
+          "seq": 167,
+          "turn": 95,
+          "kind": "event",
+          "text": "World: Vale brings the travel bag into the poets’ court. Xanthias remains at the lower landing. The company records who carried the weight."
+        },
+        {
+          "seq": 168,
+          "turn": 96,
+          "kind": "event",
+          "text": "World: Vale takes the The Verse Scales."
+        }
+      ],
+      "previous": null
+    },
+    {
+      "id": "greek-viii-reading-tablet",
+      "poem": null,
+      "facts": [
+        "Held by or resting at: The Poets’ Court.",
+        "At the dialogue scene: Vale, Aeschylus, Euripides. Items here: The Travel Bag, The Verse Scales, The Reading Tablet."
+      ],
+      "desire": null,
+      "memories": [
+        {
+          "seq": 166,
+          "turn": 94,
+          "kind": "event",
+          "text": "World: Vale goes to The Poets’ Court."
+        },
+        {
+          "seq": 167,
+          "turn": 95,
+          "kind": "event",
+          "text": "World: Vale brings the travel bag into the poets’ court. Xanthias remains at the lower landing. The company records who carried the weight."
+        },
+        {
+          "seq": 168,
+          "turn": 96,
+          "kind": "event",
+          "text": "World: Vale takes the The Verse Scales."
+        }
+      ],
+      "previous": null
+    }
+  ]
+}

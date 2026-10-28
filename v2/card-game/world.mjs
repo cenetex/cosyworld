@@ -1,6 +1,15 @@
 import { trustValue, validTrust } from "./trust.mjs";
 import { captureQuestHands, advanceQuestPrograms } from "./quest-progress.mjs";
 import { expressionOf } from "./expression.mjs";
+import {
+  readingActions,
+  resolveReadingReplay,
+  applyReadingAction,
+  validHearingRef,
+} from "./reading-actions.mjs";
+import { validPrivateAudience } from "./reading-privacy.mjs";
+import { validRecallRef } from "./reading-context.mjs";
+import { noteReadingDepartures } from "./poem-readings.mjs";
 import { recordLearning, beginLearning, reconsiderPlan } from "./learning.mjs";
 import {
   dropQuest,
@@ -149,7 +158,7 @@ import {
   isPackActor,
   staysPut,
   packJourneyDestination,
-  packJourneyKeepsItem,
+  packKeepsItem,
   packIndependentJourneyDestination,
   roamingQuestActor,
   avoidsStandoffs,
@@ -642,7 +651,7 @@ const accepts = (s, actor, item) =>
 export const valeStalled = (s) =>
   s.turn - (s.actors.vale.progress.marks.at(-1) || 0) >= 24;
 export function willingToGive(s, owner, item, recipient = null) {
-  if (packJourneyKeepsItem(s, owner, item)) return false;
+  if (packKeepsItem(s, owner, item)) return false;
   if (hasMotives(s) && recipient && resentment(s, owner, recipient))
     return false;
   if (!hasQuestPrograms(s) || lifeOf(s, owner))
@@ -661,11 +670,7 @@ export function willingToGive(s, owner, item, recipient = null) {
 }
 export function canTrade(s, actor, give, receive) {
   const other = s.items[receive]?.holder;
-  if (
-    packJourneyKeepsItem(s, actor, give) ||
-    packJourneyKeepsItem(s, other, receive)
-  )
-    return false;
+  if (packKeepsItem(s, actor, give) || packKeepsItem(s, other, receive)) return false;
   if (
     s.items[give]?.holder !== actor ||
     !actorIds.includes(other) ||
@@ -1438,7 +1443,7 @@ export function legalActions(s, actor = currentActor(s)) {
         ),
       );
     }
-    if (item.holder === actor && !packJourneyKeepsItem(s, actor, id)) {
+    if (item.holder === actor && !packKeepsItem(s, actor, id)) {
       out.push(
         offer(
           "drop",
@@ -1610,7 +1615,7 @@ export function legalActions(s, actor = currentActor(s)) {
       action.key += ":" + receive;
       out.push(action);
     }
-  out.push(...fixtureOffers(s, actor, sensesFor(s)), ...packChoices(s, actor));
+  out.push(...fixtureOffers(s, actor, sensesFor(s)), ...packChoices(s, actor), ...readingActions(s, actor));
   for (const action of out) {
     if (action.kind === "take" && things[s.items[action.item]?.holder])
       action.label = "Uncover";
@@ -1654,6 +1659,35 @@ const travel = (s, actor, destination) => travelParty(s, [actor], destination);
 
 function perform(s, a, capture = () => {}, round = null) {
   const who = nameOf(a.actor);
+  if (a.kind === "read") {
+    const result = applyReadingAction(s, a);
+    if (result.completion)
+      addLog(
+        s,
+        "World",
+        `${who} completes ${result.completion.label.toLowerCase()}.`,
+        {
+          kind: "action",
+          actorId: a.actor,
+          verb: "choose",
+          packId: a.packId,
+          choiceId: result.completion.id,
+          targetId: result.completion.subject,
+          locationId: result.completion.at,
+        },
+      );
+    addLog(s, "World", a.text, {
+      kind: "action",
+      actorId: a.actor,
+      verb: "read",
+      targetId: a.target,
+      privateTo: [...result.privateTo],
+      cast: [...result.privateTo],
+      ...(result.hearing ? { hearing: [...result.hearing, s.turn] } : {}),
+    });
+    capture();
+    return a.target;
+  }
   const firstCrossing = actorIds.every((id) => s.actors[id].crossed === 0);
   const here = s.actors[a.actor].place;
   const witnesses = [
@@ -2701,7 +2735,7 @@ export function play(
       state: s,
       error: "The world changed. Choose a current play.",
     };
-  const exact = legalActions(s, actor).find((a) => a.key === action?.key);
+  const exact = legalActions(s, actor).find((a) => a.key === action?.key) || resolveReadingReplay(s, actor, action?.key);
   if (!exact)
     return {
       ok: false,
@@ -2720,6 +2754,7 @@ export function play(
   const round = beginRound(s, sensesFor(s));
   next.turn += 1;
   next.revision += 1;
+  noteReadingDepartures(next);
   const reflectionSource = next.actors[actor].place;
   const wasOpen = reflectionOpen(next, reflectionSource);
   if (exact.kind === "wait")
@@ -2874,6 +2909,7 @@ export function play(
     else next.sharedMigration.inventoryAllowances[id] = count;
   }
   settleQuestHands(next);
+  noteReadingDepartures(next);
   validateWorld(next);
   return { ok: true, state: next };
 }
@@ -3006,6 +3042,7 @@ export function validateWorld(s) {
   };
   if (
     !s ||
+    s.readingView !== undefined ||
     s.schema !== 7 ||
     !Number.isSafeInteger(s.turn) ||
     s.turn < 0 ||
@@ -3525,9 +3562,13 @@ export function validateWorld(s) {
     "wait",
     "trade",
     "choose",
+    "read",
     "use",
   ];
   for (const e of s.log) {
+    if (!validPrivateAudience(s, e.privateTo)) fail();
+    if (!validRecallRef(s, e.recall, e.privateTo)) fail();
+    if (!validHearingRef(s, e.hearing, e.privateTo, e.turn, e.locationId)) fail();
     if (e.seq !== undefined) {
       if (!Number.isSafeInteger(e.seq) || e.seq <= seq || e.seq > s.eventSeq)
         fail();

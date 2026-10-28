@@ -1,4 +1,6 @@
 import { recordRecital, recitalVisit, validRecitals } from "./pack-recital.mjs";
+import { validPoemReadings, completedHeardReading, validReadingDecisions } from "./poem-readings.mjs";
+import { readingCatalogs } from "./poem-catalogs.mjs";
 import { boardyPack, BOARDY, boardyActive } from "./boardyai.mjs";
 import { sectionAllows } from "./pack-sections.mjs";
 import {
@@ -185,6 +187,8 @@ export const packJourneyDestination = (world, id) =>
   journeyNextPlace(world, packOf(id), id);
 export const packJourneyKeepsItem = (world, id, item) =>
   journeyKeepsItem(world, packOf(id), id, item);
+export const packKeepsItem = (world, id, item) =>
+  !!packPeople[id]?.keeps?.includes(item) || packJourneyKeepsItem(world, id, item);
 export const packIndependentJourneyDestination = (world, id) =>
   independentJourneyNextPlace(world, packOf(id), id);
 export const packJourneyReservations = (world) =>
@@ -413,7 +417,11 @@ export function packChoices(world, actor = "vale") {
   if (!controlledByHuman(world, actor)) return [];
   return packDefinitions.flatMap((pack) =>
     (pack.choices || [])
-      .filter((c) => choiceFeasible(world, pack, c, actor))
+      .filter(
+        (c) =>
+          !pack.recital?.sites?.some((site) => site.completion === c.id) &&
+          choiceFeasible(world, pack, c, actor),
+      )
       .map((c) => ({
         kind: "choose",
         actor,
@@ -434,6 +442,19 @@ export function applyPackChoice(world, action) {
   if (!choice || !choiceFeasible(world, pack, choice, action.actor))
     throw new Error("That choice is no longer available.");
   const state = packState(world, pack.id);
+  for (const condition of choice.requires || [])
+    if (condition.kind === "reading_complete") {
+      const id = completedHeardReading(
+        state.poemReadings,
+        condition.site,
+        action.actor,
+      );
+      if (!id)
+        throw new Error(
+          "Hear the complete reading before choosing its return voice.",
+        );
+      state.poemReadings.decisions[choice.id] = id;
+    }
   for (const e of choice.effects) {
     if (e.kind === "choose") state.choices[e.key] = e.value;
     if (e.kind === "set_flag") state.flags[e.key] = e.value;
@@ -606,6 +627,14 @@ export function validatePackStates(world) {
     if (
       !record(state) ||
       !validRecitals(world, pack) ||
+      !validReadingDecisions(world, pack) ||
+      (pack.recital?.sites?.length &&
+        !validPoemReadings(
+          world,
+          pack,
+          readingCatalogs[pack.id],
+          state.poemReadings,
+        )) ||
       !validJourneyPlaces(world, pack) ||
       state.revision !== pack.revision ||
       !["opening", "full"].includes(state.scope) ||
@@ -619,6 +648,7 @@ export function validatePackStates(world) {
           "met",
           "scope",
           ...(pack.recital ? ["recitals"] : []),
+          ...(pack.recital?.sites?.length ? ["poemReadings"] : []),
         ]
           .sort()
           .join() ||

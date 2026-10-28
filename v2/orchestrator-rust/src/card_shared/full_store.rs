@@ -247,6 +247,11 @@ pub(super) fn snapshot(c: &Connection, id: &str, user: &str, now: i64) -> Result
     } else {
         vec![]
     };
+    let history: Vec<Value> = history.into_iter().filter(|scene| {
+        scene.get("privateTo").is_none_or(|audience| {
+            audience.as_array().is_some_and(|ids| ids.iter().any(|id| *id == actor_id(a)))
+        })
+    }).collect();
     let nudge: Option<usize> = c
         .query_row(
             "SELECT sender FROM card_nudges WHERE world=? AND target=? AND at>?",

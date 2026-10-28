@@ -16,6 +16,8 @@ import {
   validPoemReadings,
   readingBlockBytes,
   readingLimits,
+  projectPoemReadings,
+  completedHeardReading,
 } from "../v2/card-game/poem-readings.mjs";
 
 const court = "greek-viii-poets-court";
@@ -325,6 +327,9 @@ describe("the complete reserved reading envelope", () => {
       `Full reading archive: ${bytes} / ${readingLimits.bytes} bytes.`,
     );
     expect(bytes).toBeLessThanOrEqual(readingLimits.bytes);
+    expect(
+      Buffer.byteLength(JSON.stringify(projectPoemReadings(f.state, "vale"))),
+    ).toBeLessThanOrEqual(readingLimits.bytes);
     expect(validPoemReadings(f.world, f.pack, f.catalogs, f.state)).toBe(true);
     expect(
       validPoemReadings(
@@ -338,6 +343,30 @@ describe("the complete reserved reading envelope", () => {
 });
 
 describe("required hearings and private guests", () => {
+  it("projects compact pages for each actual listener", () => {
+    const f = fixture(10);
+    setReadingDraft(f.world, f.pack, f.state, siteIds[0], "vale", ["mara"]);
+    const id = start(f);
+    const planned = projectPoemReadings(f.state, "vale");
+    expect(planned.readings[0].pages).toHaveLength(3);
+    expect(planned.readings[0].pages.every((page) => page[1] === null)).toBe(
+      true,
+    );
+    page(f, id);
+    f.world.actors.mara.place = "elsewhere";
+    page(f, id);
+    page(f, id);
+    const heard = projectPoemReadings(f.state, "mara");
+    expect(heard.readings[0].pages.map((page) => page[0])).toEqual([0]);
+    expect(heard.readings[0].audience).toBeUndefined();
+    expect(heard.stanzas).toHaveLength(4);
+    expect(projectPoemReadings(f.state, "ash")).toEqual({
+      stanzas: [],
+      readings: [],
+    });
+    expect(completedHeardReading(f.state, siteIds[0], "mara")).toBe(null);
+    expect(completedHeardReading(f.state, siteIds[0], "vale")).toBe(id);
+  });
   it("pins the first complete reading after the final required page", () => {
     const f = fixture(),
       id = start(f);
@@ -388,21 +417,43 @@ describe("required hearings and private guests", () => {
       ),
     ).toEqual([0]);
     f.world.playerActorId = "ash";
-    expect(sharedHeardPages(f.world, f.state, f.catalogs, poets[0])).toEqual(
-      [],
-    );
+    expect(
+      sharedHeardPages(
+        f.world,
+        f.state,
+        f.catalogs,
+        poets[0],
+        Object.keys(f.world.actors).filter(
+          (id) => f.world.actors[id].place === court,
+        ),
+      ),
+    ).toEqual([]);
     f.world.playerActorId = "vale";
-    expect(sharedHeardPages(f.world, f.state, f.catalogs, poets[0])).toEqual(
-      [],
-    );
+    expect(
+      sharedHeardPages(
+        f.world,
+        f.state,
+        f.catalogs,
+        poets[0],
+        Object.keys(f.world.actors).filter(
+          (id) => f.world.actors[id].place === court,
+        ),
+      ),
+    ).toEqual([]);
     for (const actor of humanAvatarIds.filter(
       (id) => !["vale", "mara"].includes(id),
     ))
       f.world.actors[actor].place = "elsewhere";
     expect(
-      sharedHeardPages(f.world, f.state, f.catalogs, poets[0])[0].pages.map(
-        (p) => p.index,
-      ),
+      sharedHeardPages(
+        f.world,
+        f.state,
+        f.catalogs,
+        poets[0],
+        Object.keys(f.world.actors).filter(
+          (id) => f.world.actors[id].place === court,
+        ),
+      )[0].pages.map((p) => p.index),
     ).toEqual([0]);
     const firstPublication = [...f.state.readings[id].pages[1]];
     for (const index of [1, 2]) {

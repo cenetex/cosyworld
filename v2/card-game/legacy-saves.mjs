@@ -15,6 +15,7 @@ import {
 } from "./memory.mjs";
 import { installHumanLife, migrateLife } from "./life.mjs";
 import { upgradeRecitals } from "./pack-recital.mjs";
+import { upgradeReadingArchives } from "./reading-actions.mjs";
 import {
   isPackActor,
   packDefinitions,
@@ -147,6 +148,7 @@ export function upgradeSave(
     upgradeShoreRouteSave(s);
     upgradeBoardingSave(s);
     upgradeRecitals(s, packDefinitions);
+    upgradeReadingArchives(s, packDefinitions);
   }
   upgradeSightings(s);
   migrateLife(s, profileOf);
@@ -407,6 +409,12 @@ export function upgradeGreekEpicSave(s) {
       carryQuest(s, carrier, ajaxReturn);
   }
   upgradeGreekSeaKnowledge(s);
+  for (const choice of pack.choices)
+    if (Object.hasOwn(saved.receipts || {}, choice.id))
+      for (const effect of choice.effects)
+        if (effect.kind === "set_flag" && [
+          "greek-camp-road-open", "greek-troy-road-open", "greek-susa-road-open",
+        ].includes(effect.key)) saved.flags[effect.key] = effect.value;
   saved.revision = 8;
 }
 

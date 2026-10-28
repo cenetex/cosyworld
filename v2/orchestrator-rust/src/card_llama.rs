@@ -19,7 +19,38 @@ use std::{
 };
 use tokio::sync::oneshot;
 
-static ENGINE: OnceLock<mpsc::SyncSender<Job>> = OnceLock::new();
+static ENGINE: OnceLock<mpsc::SyncSender<Command>> = OnceLock::new();
+
+enum Command {
+    Generate(Job),
+    Count {
+        system: String,
+        user: String,
+        deadline: Instant,
+        reply: oneshot::Sender<Result<usize, String>>,
+    },
+}
+
+pub(crate) async fn count_tokens(
+    system: &str,
+    user: &str,
+    timeout: Duration,
+) -> Result<usize, String> {
+    let sender = ENGINE.get().ok_or("Open the local dialogue model first.")?;
+    let (reply, waiting) = oneshot::channel();
+    sender
+        .try_send(Command::Count {
+            system: system.into(),
+            user: user.into(),
+            deadline: Instant::now() + timeout,
+            reply,
+        })
+        .map_err(|_| "The local dialogue is finishing its last line.")?;
+    tokio::time::timeout(timeout, waiting)
+        .await
+        .map_err(|_| "The reading needs another moment.")?
+        .map_err(|_| "Open the local dialogue model again.")?
+}
 
 struct Job {
     system: String,
@@ -107,7 +138,7 @@ pub(crate) async fn complete(
     let _cancel = Cancel(cancelled.clone());
     let (reply, waiting) = oneshot::channel();
     sender
-        .try_send(Job {
+        .try_send(Command::Generate(Job {
             system: request.system.into(),
             user: request.user.into(),
             max_tokens: request.max_tokens,
@@ -115,7 +146,7 @@ pub(crate) async fn complete(
             cancelled,
             deadline: started + request.timeout,
             reply,
-        })
+        }))
         .map_err(|_| failure("The local dialogue is finishing its last line.".into()))?;
     let output = tokio::time::timeout(request.timeout, waiting)
         .await
@@ -157,7 +188,7 @@ pub(crate) async fn complete(
 fn worker(
     path: PathBuf,
     context: u32,
-    receiver: mpsc::Receiver<Job>,
+    receiver: mpsc::Receiver<Command>,
     ready: &mut Option<oneshot::Sender<Result<(), String>>>,
 ) -> Result<(), String> {
     let started = Instant::now();
@@ -199,7 +230,22 @@ fn worker(
     if let Some(ready) = ready.take() {
         let _ = ready.send(Ok(()));
     }
-    for job in receiver {
+    for command in receiver {
+        let job = match command {
+            Command::Generate(job) => job,
+            Command::Count {
+                system,
+                user,
+                deadline,
+                reply,
+            } => {
+                if !reply.is_closed() && Instant::now() < deadline {
+                    let count = prompt_tokens(&model, &system, &user).map(|tokens| tokens.len());
+                    let _ = reply.send(count);
+                }
+                continue;
+            }
+        };
         if job.reply.is_closed() {
             continue;
         }
@@ -221,6 +267,19 @@ fn alive(job: &Job) -> Result<(), String> {
     }
 }
 
+fn prompt_tokens(model: &LlamaModel, system: &str, user: &str) -> Result<Vec<LlamaToken>, String> {
+    let template = model.chat_template(None).map_err(|e| e.to_string())?;
+    let chat = [
+        LlamaChatMessage::new("system".into(), system.into()).map_err(|e| e.to_string())?,
+        LlamaChatMessage::new("user".into(), user.into()).map_err(|e| e.to_string())?,
+    ];
+    let prompt = model
+        .apply_chat_template(&template, &chat, true)
+        .map_err(|e| e.to_string())?;
+    let vocab = model.vocab();
+    Ok(vocab.tokenize(prompt.as_bytes(), true, true))
+}
+
 fn generate(
     model: &LlamaModel,
     ctx: &mut LlamaContext<'_>,
@@ -228,16 +287,8 @@ fn generate(
     job: &Job,
 ) -> Result<Output, String> {
     alive(job)?;
-    let template = model.chat_template(None).map_err(|e| e.to_string())?;
-    let chat = [
-        LlamaChatMessage::new("system".into(), job.system.clone()).map_err(|e| e.to_string())?,
-        LlamaChatMessage::new("user".into(), job.user.clone()).map_err(|e| e.to_string())?,
-    ];
-    let prompt = model
-        .apply_chat_template(&template, &chat, true)
-        .map_err(|e| e.to_string())?;
+    let tokens = prompt_tokens(model, &job.system, &job.user)?;
     let vocab = model.vocab();
-    let tokens = vocab.tokenize(prompt.as_bytes(), true, true);
     if tokens.is_empty() || tokens.len() + job.max_tokens as usize > ctx.n_ctx() as usize {
         return Err("This scene needs a shorter dialogue context.".into());
     }

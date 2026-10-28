@@ -428,6 +428,11 @@ pub(super) fn take_work(state: &AppState, id: &str) -> Result<Option<Work>> {
         } else {
             json!({"play":key,"actor":actor_id(a),"room":destination,"turn":w.game["turn"],"context":result["context"],"profiles":result["profiles"],"events":result["events"],"lines":[],"starts_at":time,"until_at":time,"error":null,"browser_chat":false})
         };
+        for key in ["privateTo", "hearing", "recall"] {
+            if let Some(value) = context["context"].get(key).cloned() {
+                context[key] = value;
+            }
+        }
         context["browser_chat"] = json!(false);
         tx.execute(
             "UPDATE card_full_plays SET status='working',room=?,until_at=?,result=?,narrative=? WHERE id=?",
@@ -549,6 +554,9 @@ fn finish_work_attempt(
                     &mut w,
                     json!({"op":"speech","actor":actor_id(work.actor),"room":work.room,"lines":lines,
                     "disclosures":scene["context"]["disclosures"],
+                    "privateTo":scene["context"].get("privateTo"),
+                    "hearing":scene["context"].get("hearing"),
+                    "recall":scene["context"].get("recall"),
                     "entries":lines.as_array().into_iter().flatten().filter(|line| line["reflection"].is_object()).map(|line| json!({"id":line["entityId"],"model":line["model"],"reflection":line["reflection"]})).collect::<Vec<_>>()}),
                     time,
                 )?;

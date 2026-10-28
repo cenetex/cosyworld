@@ -66,6 +66,7 @@ export const CONDITION_KINDS = [
   "not",
   "choice",
   "choice_unset",
+  "reading_complete",
   "flag",
   "holding",
   "item_at",
@@ -475,6 +476,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "place",
         "travels",
         "journey",
+        "keeps",
         "retireAfter",
         "roamingQuest",
         "personalQuests",
@@ -495,6 +497,13 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "canonicalPerson",
       ]),
       `avatar ${id} has an unknown field`,
+    );
+    check(
+      a.keeps === undefined ||
+        (a.travels === false && Array.isArray(a.keeps) && a.keeps.length <= 8 &&
+          new Set(a.keeps).size === a.keeps.length &&
+          a.keeps.every((item) => owns(items, item))),
+      `avatar ${id} keeps needs up to eight distinct pack items and a fixed resident`,
     );
     check(
       a.personalQuests === undefined || typeof a.personalQuests === "boolean",
@@ -672,6 +681,12 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         case "choice_unset":
           ok = keysOk(c, ["kind", "key"]) && idOk(c.key);
           break;
+        case "reading_complete":
+          ok =
+            keysOk(c, ["kind", "site"]) &&
+            idOk(c.site) &&
+            (pack.recital?.sites || []).some((site) => site.id === c.site);
+          break;
         case "flag":
           ok =
             keysOk(c, ["kind", "key", "value"]) &&
@@ -738,9 +753,11 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         check(
           !persistent ||
             (choice && c.kind === "light") ||
+            (choice && c.kind === "not" && c.condition?.kind === "holding") ||
             [
               "choice",
               "choice_unset",
+              "reading_complete",
               "flag",
               "holding",
               "item_at",
@@ -1166,7 +1183,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
   if (pack.recital !== undefined) {
     const r = pack.recital;
     check(
-      keysOk(r, ["actor", "title", "verses", "claims"]) &&
+      keysOk(r, ["actor", "title", "verses", "claims", "sites"]) &&
         owns(avatars, r?.actor) &&
         (avatars[r.actor].travels === false ||
           avatars[r.actor].roamingQuest === "latest-completion") &&
@@ -1177,6 +1194,59 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         r.verses.length <= 512,
       "recital needs a singer, a title and up to 512 verses",
     );
+    if (r.sites !== undefined) {
+      check(
+        Array.isArray(r.sites) &&
+          r.sites.length <= 6 &&
+          new Set(r.sites.map((site) => site.id)).size === r.sites.length &&
+          new Set(r.sites.map((site) => site.completion)).size ===
+            r.sites.length,
+        "reading sites need distinct bounded identities and completions",
+      );
+      for (const site of Array.isArray(r.sites) ? r.sites : []) {
+        check(
+          keysOk(site, [
+            "id",
+            "title",
+            "label",
+            "at",
+            "listeners",
+            "item",
+            "requires",
+            "completion",
+          ]) &&
+            idOk(site.id) &&
+            textOk(site.title, 40) &&
+            textOk(site.label, 100) &&
+            owns(places, site.at) &&
+            owns(items, site.item) &&
+            choiceIds.has(site.completion) &&
+            Array.isArray(site.listeners) &&
+            site.listeners.length >= 1 &&
+            site.listeners.length <= 2 &&
+            new Set(site.listeners).size === site.listeners.length &&
+            site.listeners.every(
+              (id) => owns(avatars, id) && (avatars[id].travels === false ||
+                avatars[id].desire?.location === site.at),
+            ),
+          "reading sites need real material, fixed listeners and a completion",
+        );
+        requirements(site.requires, "reading site");
+        const completion = pack.choices?.find(
+          (choice) => choice.id === site.completion,
+        );
+        check(
+          completion?.at === site.at &&
+            site.listeners.includes(completion?.subject) &&
+            completion.requires?.some(
+              (condition) =>
+                condition.kind === "reading_complete" &&
+                condition.site === site.id,
+            ),
+          "reading completion needs its own fully heard site",
+        );
+      }
+    }
     const seen = new Set();
     const linesOk = (lines) =>
       Array.isArray(lines) &&
