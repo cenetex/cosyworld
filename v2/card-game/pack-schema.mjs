@@ -753,6 +753,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         check(
           !persistent ||
             (choice && c.kind === "light") ||
+            (choice && c.kind === "not" && c.condition?.kind === "holding") ||
             [
               "choice",
               "choice_unset",

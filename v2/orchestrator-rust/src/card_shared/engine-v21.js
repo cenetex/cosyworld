@@ -13107,122 +13107,6 @@
               "greek-scythian-crag"
             ],
             backdrop: "assets/greek-drama/grove.svg"
-<<<<<<< HEAD
-          },
-          "greek-aulis-household": {
-            name: "The Aulis Household",
-            text: "Iphigenia and Clytemnestra wait beside the wedding veil. A path leads back to the ships.",
-            persona: "This is the remembered Aulis departure before the Trojan war. Its speakers keep their roles in that remembered scene. The chosen ending records Iphigenia\u2019s fate in this account. A later visit hears their remembered words. The Theban opening, Ajax\u2019s completed deeds, Helen\u2019s chosen account and the chosen Atreid author keep their own times. Mother and daughter speak their own words before the selected altar ending.",
-            exits: [
-              "greek-aulis"
-            ],
-            backdrop: "assets/greek-drama/ajax-camp-day.webp"
-          },
-          "greek-aulis-altar": {
-            name: "The Altar at Aulis",
-            text: "A stone altar stands above the anchorage. The prepared cloth lies where the account places it.",
-            persona: "This is the remembered Aulis departure before the Trojan war. Its speakers keep their roles in that remembered scene. The chosen ending records Iphigenia\u2019s fate in this account. A later visit hears their remembered words. The Theban opening, Ajax\u2019s completed deeds, Helen\u2019s chosen account and the chosen Atreid author keep their own times. A rite needs the actual cloth. The received rescue is a named messenger report, with Clytemnestra\u2019s doubt preserved.",
-            exits: [
-              "greek-aulis"
-            ],
-            backdrop: "assets/greek-drama/ajax-camp-day.webp"
-          },
-          "greek-lemnos-landing": {
-            name: "Lemnos Landing",
-            text: "A worn path joins the cave to a sheltered landing. Neoptolemus waits beside the vessel\u2019s empty mooring.",
-            persona: "This is the remembered Lemnian departure before Troy falls. Philoctetes keeps his own choice, bow and terms. Heracles\u2019s promise concerns future healing. The earlier Ajax deeds and the chosen Helen and Atreid accounts retain their recorded times. The shared ship has one actual position. A consent names a route; arrival completes it.",
-            exits: [
-              "greek-lemnos"
-            ],
-            backdrop: "assets/greek-drama/book-three-lemnos-day.webp"
-          },
-          "greek-rhesus-allies": {
-            name: "The Thracian Allies\u2019 Ground",
-            text: "Fresh tents stand beyond Hector\u2019s watch. The arriving king waits for the sentries\u2019 word.",
-            persona: "This is the remembered Trojan night watch before the fall of Troy. The received play bears Euripides\u2019s name and its authorship is disputed. The saved ending names Rhesus\u2019s later fate before the later city-fall frame opens. Earlier Ajax deeds and the selected Helen and Atreid accounts keep their own times. Fresh tents stand beyond Hector\u2019s watch. The arriving king waits for the sentries\u2019 word.",
-            exits: [
-              "greek-trojan-camp"
-            ],
-            backdrop: "assets/greek-drama/ajax-camp-night.webp"
-          },
-          "greek-rhesus-aid-tent": {
-            name: "The Night Aid Tent",
-            text: "A clean bed and bandage wait beneath a lamp. The charioteer keeps his own account of the raid.",
-            persona: "This is the remembered Trojan night watch before the fall of Troy. The received play bears Euripides\u2019s name and its authorship is disputed. The saved ending names Rhesus\u2019s later fate before the later city-fall frame opens. Earlier Ajax deeds and the selected Helen and Atreid accounts keep their own times. A clean bed and bandage wait beneath a lamp. The charioteer keeps his own account of the raid.",
-            exits: [
-              "greek-trojan-camp"
-            ],
-            backdrop: "assets/greek-drama/ajax-camp-night.webp"
-          },
-          "greek-troy-womens-tent": {
-            name: "The Captive Women\u2019s Tent",
-            text: "A names roll lies beside the household bundles. Hecuba listens to the women\u2019s kin messages.",
-            persona: "This is the remembered fall of Troy, after the night-watch account. Hecuba is the same woman heard later on the Thracian shore. Andromache waits under Neoptolemus\u2019s recorded assignment. Astyanax is an offstage person under his mother\u2019s care; his place follows her actual journey in the rescue paths. The shield, cloth and letters are objects. Earlier Ajax deeds and the selected Helen and Atreid accounts retain their own times. A names roll lies beside the household bundles. Hecuba listens to the women\u2019s kin messages.",
-            exits: [
-              "greek-troy"
-            ],
-            backdrop: "assets/greek-drama/ajax-camp-day.webp"
-          },
-          "greek-troy-shield-ground": {
-            name: "Hector\u2019s Shield Ground",
-            text: "A clean patch of earth waits beside Hector\u2019s broad shield. The child\u2019s recorded status gives the cloth its use.",
-            persona: "This is the remembered fall of Troy, after the night-watch account. Hecuba is the same woman heard later on the Thracian shore. Andromache waits under Neoptolemus\u2019s recorded assignment. Astyanax is an offstage person under his mother\u2019s care; his place follows her actual journey in the rescue paths. The shield, cloth and letters are objects. Earlier Ajax deeds and the selected Helen and Atreid accounts retain their own times. A clean patch of earth waits beside Hector\u2019s broad shield. The child\u2019s recorded status gives the cloth its use.",
-            exits: [
-              "greek-troy"
-            ],
-            backdrop: "assets/greek-drama/burial-ground-dusk.webp"
-          },
-          "greek-thrace-summons-tent": {
-            name: "Polymestor\u2019s Summons Tent",
-            text: "A custody record waits beside the king\u2019s entrusted gold. Hecuba\u2019s charge needs an actual witness here.",
-            persona: "This is the remembered Thracian shore after Troy\u2019s chosen departure. Hecuba is the same person heard in the earlier Trojan frame. Polyxena is an adult. Her source death and Polydorus\u2019s death are reported person histories. Cloth, gold and case papers are physical objects. Agamemnon\u2019s judgment and Polymestor\u2019s prophecies belong to their named speakers; later Atreid choices keep their own authority. A custody record waits beside the king\u2019s entrusted gold. Hecuba\u2019s charge needs an actual witness here.",
-            exits: [
-              "greek-thrace",
-              "greek-thrace-burial-ground"
-            ],
-            backdrop: "assets/greek-drama/ajax-camp-day.webp"
-          },
-          "greek-thrace-burial-ground": {
-            name: "The Two Burial Grounds",
-            text: "Two marked resting places wait above the tide. Each child\u2019s named care must be completed.",
-            persona: "This is the remembered Thracian shore after Troy\u2019s chosen departure. Hecuba is the same person heard in the earlier Trojan frame. Polyxena is an adult. Her source death and Polydorus\u2019s death are reported person histories. Cloth, gold and case papers are physical objects. Agamemnon\u2019s judgment and Polymestor\u2019s prophecies belong to their named speakers; later Atreid choices keep their own authority. Two marked resting places wait above the tide. Each child\u2019s named care must be completed.",
-            exits: [
-              "greek-thrace",
-              "greek-thrace-summons-tent"
-            ],
-            backdrop: "assets/greek-drama/burial-ground-dusk.webp"
-          },
-          "greek-susa-tomb": {
-            name: "Darius\u2019s Royal Tomb",
-            text: "The offering stone stands beside the tomb. A broken oar and named dead give Atossa\u2019s prayer its present weight.",
-            persona: "This is a separate historical court account at Susa after Salamis in 480 BCE. The mythic Trojan road is the table\u2019s passage into this named historical frame. The messenger\u2019s dead, Darius\u2019s future Plataea warning and Xerxes\u2019s actual return have separate records. Atossa\u2019s private household consolation and the civic reckoning are original alternatives to the final public lament. The offering stone stands beside the tomb. A broken oar and named dead give Atossa\u2019s prayer its present weight.",
-            exits: [
-              "greek-susa"
-            ],
-            backdrop: "assets/greek-drama/palace-day.webp"
-          },
-          "greek-susa-threshold": {
-            name: "The King\u2019s Return Threshold",
-            text: "Xerxes waits in the remembered return with torn clothing and the losses of his army. A chosen audience waits ahead.",
-            persona: "This is a separate historical court account at Susa after Salamis in 480 BCE. The mythic Trojan road is the table\u2019s passage into this named historical frame. The messenger\u2019s dead, Darius\u2019s future Plataea warning and Xerxes\u2019s actual return have separate records. Atossa\u2019s private household consolation and the civic reckoning are original alternatives to the final public lament. Xerxes waits in the remembered return with torn clothing and the losses of his army. A chosen audience waits ahead.",
-            exits: [
-              "greek-susa"
-            ],
-            backdrop: "assets/greek-drama/palace-day.webp"
-          },
-          "greek-susa-road": {
-            name: "The Road to Susa",
-            text: "The fixed road joins the Trojan Walls and the Court at Susa. Its eastern end enters the named historical Salamis account.",
-            persona: "This is a separate historical court account at Susa after Salamis in 480 BCE. The mythic Trojan road is the table\u2019s passage into this named historical frame. The messenger\u2019s dead, Darius\u2019s future Plataea warning and Xerxes\u2019s actual return have separate records. Atossa\u2019s private household consolation and the civic reckoning are original alternatives to the final public lament. The fixed road joins the Trojan Walls and the Court at Susa. Its eastern end enters the named historical Salamis account.",
-            exits: [
-              "greek-troy",
-              "greek-susa"
-            ],
-            backdrop: "assets/greek-drama/attic-road.webp",
-            road: [
-              "greek-troy",
-              "greek-susa"
-            ]
           },
           "greek-viii-poets-court": {
             name: "The Poets\u2019 Court",
@@ -13232,8 +13116,6 @@
               "greek-underworld"
             ],
             backdrop: "assets/greek-drama/courtyard.svg"
-=======
->>>>>>> c76be776
           }
         },
         avatars: {
@@ -21432,460 +21314,6 @@
             holder: "greek-scythian-crag",
             persona: "Describe this material, its actual holder and its recorded use.",
             art: "assets/greek-drama/testimony.png"
-<<<<<<< HEAD
-          },
-          "greek-aulis-recall-letter": {
-            name: "The Second Letter",
-            text: "Agamemnon\u2019s attempted recall bears the record of Menelaus\u2019s interception.",
-            holder: "greek-aulis",
-            persona: "This is the remembered Aulis departure before the Trojan war. Its speakers keep their roles in that remembered scene. The chosen ending records Iphigenia\u2019s fate in this account. A later visit hears their remembered words. The Theban opening, Ajax\u2019s completed deeds, Helen\u2019s chosen account and the chosen Atreid author keep their own times. Describe its actual custody and recorded use.",
-            art: "assets/greek-drama/decree.png",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-aulis-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-aulis-recall-heard",
-                value: true
-              }
-            ]
-          },
-          "greek-aulis-wedding-veil": {
-            name: "The Wedding Veil",
-            text: "The promised wedding cloth lies beside the mother and daughter.",
-            holder: "greek-aulis-household",
-            persona: "This is the remembered Aulis departure before the Trojan war. Its speakers keep their roles in that remembered scene. The chosen ending records Iphigenia\u2019s fate in this account. A later visit hears their remembered words. The Theban opening, Ajax\u2019s completed deeds, Helen\u2019s chosen account and the chosen Atreid author keep their own times. Describe its actual custody and recorded use.",
-            art: "assets/greek-drama/funeral-cloth.svg",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-aulis-open",
-                value: true
-              }
-            ]
-          },
-          "greek-aulis-offering-cloth": {
-            name: "The Altar Cloth",
-            text: "A clean cloth can serve the chosen refuge or the remembered altar rite.",
-            holder: "greek-aulis-household",
-            persona: "This is the remembered Aulis departure before the Trojan war. Its speakers keep their roles in that remembered scene. The chosen ending records Iphigenia\u2019s fate in this account. A later visit hears their remembered words. The Theban opening, Ajax\u2019s completed deeds, Helen\u2019s chosen account and the chosen Atreid author keep their own times. Describe its actual custody and recorded use.",
-            art: "assets/greek-drama/funeral-cloth.svg",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-aulis-open",
-                value: true
-              }
-            ]
-          },
-          "greek-aulis-departure-record": {
-            name: "The Aulis Departure Record",
-            text: "A blank page awaits the chosen ending and Clytemnestra\u2019s own account.",
-            holder: "greek-aulis-household",
-            persona: "This is the remembered Aulis departure before the Trojan war. Its speakers keep their roles in that remembered scene. The chosen ending records Iphigenia\u2019s fate in this account. A later visit hears their remembered words. The Theban opening, Ajax\u2019s completed deeds, Helen\u2019s chosen account and the chosen Atreid author keep their own times. Describe its actual custody and recorded use.",
-            art: "assets/greek-drama/decree.png",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-aulis-open",
-                value: true
-              }
-            ]
-          },
-          "greek-lemnos-water": {
-            name: "The Lemnian Water Jug",
-            text: "Clean water serves the wound care. Its emptied jug later carries the signed arrival mark.",
-            holder: "greek-lemnos-landing",
-            persona: "This is the remembered Lemnian departure before Troy falls. Philoctetes keeps his own choice, bow and terms. Heracles\u2019s promise concerns future healing. The earlier Ajax deeds and the chosen Helen and Atreid accounts retain their recorded times. Clean water serves the wound care. Its emptied jug later carries the signed arrival mark. Its saved custody records its actual use.",
-            art: "assets/greek-drama/water-jar.svg",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-lemnos-open",
-                value: true
-              }
-            ]
-          },
-          "greek-lemnos-herb": {
-            name: "The Cooling Herb",
-            text: "A clean leaf and cooling herb await the cave\u2019s care.",
-            holder: "greek-lemnos-landing",
-            persona: "This is the remembered Lemnian departure before Troy falls. Philoctetes keeps his own choice, bow and terms. Heracles\u2019s promise concerns future healing. The earlier Ajax deeds and the chosen Helen and Atreid accounts retain their recorded times. A clean leaf and cooling herb await the cave\u2019s care. Its saved custody records its actual use.",
-            art: "assets/greek-drama/household-token.svg",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-lemnos-open",
-                value: true
-              }
-            ]
-          },
-          "greek-lemnos-bow": {
-            name: "Heracles\u2019s Bow",
-            text: "Philoctetes owns this bow. A loan, a return and a voyage keep distinct receipts.",
-            holder: "greek-lemnos",
-            persona: "This is the remembered Lemnian departure before Troy falls. Philoctetes keeps his own choice, bow and terms. Heracles\u2019s promise concerns future healing. The earlier Ajax deeds and the chosen Helen and Atreid accounts retain their recorded times. Philoctetes owns this bow. A loan, a return and a voyage keep distinct receipts. Its saved custody records its actual use.",
-            art: "assets/greek-drama/book-three-bow.svg",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-lemnos-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-lemnos-loan-heard",
-                value: true
-              }
-            ]
-          },
-          "greek-rhesus-lamp": {
-            name: "The Watch Lamp",
-            text: "A hooded lamp marks the allied watch.",
-            holder: "greek-trojan-camp",
-            persona: "This is the remembered Trojan night watch before the fall of Troy. The received play bears Euripides\u2019s name and its authorship is disputed. The saved ending names Rhesus\u2019s later fate before the later city-fall frame opens. Earlier Ajax deeds and the selected Helen and Atreid accounts keep their own times. A hooded lamp marks the allied watch. Its saved custody records its actual use.",
-            art: "assets/greek-drama/oil-flask.svg",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-rhesus-open",
-                value: true
-              }
-            ]
-          },
-          "greek-rhesus-watchword": {
-            name: "The Sentry\u2019s Watchword",
-            text: "A written watchword records the named sentry\u2019s challenge.",
-            holder: "greek-rhesus-allies",
-            persona: "This is the remembered Trojan night watch before the fall of Troy. The received play bears Euripides\u2019s name and its authorship is disputed. The saved ending names Rhesus\u2019s later fate before the later city-fall frame opens. Earlier Ajax deeds and the selected Helen and Atreid accounts keep their own times. A written watchword records the named sentry\u2019s challenge. Its saved custody records its actual use.",
-            art: "assets/greek-drama/decree.svg",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-rhesus-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-rhesus-word-heard",
-                value: true
-              }
-            ]
-          },
-          "greek-rhesus-bandage": {
-            name: "The Aid Bandage",
-            text: "Clean cloth serves the saved ally or the wounded driver.",
-            holder: "greek-rhesus-aid-tent",
-            persona: "This is the remembered Trojan night watch before the fall of Troy. The received play bears Euripides\u2019s name and its authorship is disputed. The saved ending names Rhesus\u2019s later fate before the later city-fall frame opens. Earlier Ajax deeds and the selected Helen and Atreid accounts keep their own times. Clean cloth serves the saved ally or the wounded driver. Its saved custody records its actual use.",
-            art: "assets/greek-drama/funeral-cloth.svg",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-rhesus-open",
-                value: true
-              }
-            ]
-          },
-          "greek-rhesus-testimony": {
-            name: "The Night Watch Account",
-            text: "The signed account keeps the witness, the king\u2019s answer and the later fate distinct.",
-            holder: "greek-rhesus-aid-tent",
-            persona: "This is the remembered Trojan night watch before the fall of Troy. The received play bears Euripides\u2019s name and its authorship is disputed. The saved ending names Rhesus\u2019s later fate before the later city-fall frame opens. Earlier Ajax deeds and the selected Helen and Atreid accounts keep their own times. The signed account keeps the witness, the king\u2019s answer and the later fate distinct. Its saved custody records its actual use.",
-            art: "assets/greek-drama/testimony.svg",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-rhesus-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-rhesus-record-ready",
-                value: true
-              }
-            ]
-          },
-          "greek-troy-names": {
-            name: "The Women\u2019s Names Roll",
-            text: "Hecuba\u2019s roll names Cassandra, Andromache and Astyanax, their kin and the captives\u2019 assigned destinations.",
-            holder: "greek-troy-womens-tent",
-            persona: "This is the remembered fall of Troy, after the night-watch account. Hecuba is the same woman heard later on the Thracian shore. Andromache waits under Neoptolemus\u2019s recorded assignment. Astyanax is an offstage person under his mother\u2019s care; his place follows her actual journey in the rescue paths. The shield, cloth and letters are objects. Earlier Ajax deeds and the selected Helen and Atreid accounts retain their own times. Hecuba\u2019s roll names Cassandra, Andromache and Astyanax, their kin and the captives\u2019 assigned destinations. Its saved custody records its actual use.",
-            art: "assets/greek-drama/decree.svg",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-troy-open",
-                value: true
-              }
-            ]
-          },
-          "greek-troy-message-a": {
-            name: "The Elder\u2019s Kin Letter",
-            text: "One actual copy belongs to Hecuba\u2019s departure and names the women left at the shore.",
-            holder: "greek-troy-womens-tent",
-            persona: "This is the remembered fall of Troy, after the night-watch account. Hecuba is the same woman heard later on the Thracian shore. Andromache waits under Neoptolemus\u2019s recorded assignment. Astyanax is an offstage person under his mother\u2019s care; his place follows her actual journey in the rescue paths. The shield, cloth and letters are objects. Earlier Ajax deeds and the selected Helen and Atreid accounts retain their own times. One actual copy belongs to Hecuba\u2019s departure and names the women left at the shore. Its saved custody records its actual use.",
-            art: "assets/greek-drama/testimony.svg",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-troy-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-troy-names-written",
-                value: true
-              }
-            ]
-          },
-          "greek-troy-message-b": {
-            name: "The Mother\u2019s Kin Letter",
-            text: "The second actual copy travels in Andromache\u2019s hand under the chosen agreement.",
-            holder: "greek-troy-womens-tent",
-            persona: "This is the remembered fall of Troy, after the night-watch account. Hecuba is the same woman heard later on the Thracian shore. Andromache waits under Neoptolemus\u2019s recorded assignment. Astyanax is an offstage person under his mother\u2019s care; his place follows her actual journey in the rescue paths. The shield, cloth and letters are objects. Earlier Ajax deeds and the selected Helen and Atreid accounts retain their own times. The second actual copy travels in Andromache\u2019s hand under the chosen agreement. Its saved custody records its actual use.",
-            art: "assets/greek-drama/testimony.svg",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-troy-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-troy-names-written",
-                value: true
-              }
-            ]
-          },
-          "greek-troy-hector-shield": {
-            name: "Hector\u2019s Shield",
-            text: "Hector\u2019s shield has its own identity beside Ajax\u2019s shield. It serves the source burial or an earlier protective shelter.",
-            holder: "greek-troy-shield-ground",
-            persona: "This is the remembered fall of Troy, after the night-watch account. Hecuba is the same woman heard later on the Thracian shore. Andromache waits under Neoptolemus\u2019s recorded assignment. Astyanax is an offstage person under his mother\u2019s care; his place follows her actual journey in the rescue paths. The shield, cloth and letters are objects. Earlier Ajax deeds and the selected Helen and Atreid accounts retain their own times. Hector\u2019s shield has its own identity beside Ajax\u2019s shield. It serves the source burial or an earlier protective shelter. Its saved custody records its actual use.",
-            art: "assets/greek-drama/ajax-shield.png",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-troy-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-troy-names-written",
-                value: true
-              }
-            ]
-          },
-          "greek-troy-child-cloth": {
-            name: "The Child\u2019s Clean Cloth",
-            text: "Clean cloth serves the recorded burial or the living child\u2019s care with Andromache.",
-            holder: "greek-troy-womens-tent",
-            persona: "This is the remembered fall of Troy, after the night-watch account. Hecuba is the same woman heard later on the Thracian shore. Andromache waits under Neoptolemus\u2019s recorded assignment. Astyanax is an offstage person under his mother\u2019s care; his place follows her actual journey in the rescue paths. The shield, cloth and letters are objects. Earlier Ajax deeds and the selected Helen and Atreid accounts retain their own times. Clean cloth serves the recorded burial or the living child\u2019s care with Andromache. Its saved custody records its actual use.",
-            art: "assets/greek-drama/funeral-cloth.svg",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-troy-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-troy-names-written",
-                value: true
-              }
-            ]
-          },
-          "greek-troy-crew-pledge": {
-            name: "The Refuge Crew\u2019s Pledge",
-            text: "Myrto\u2019s crew can accept a family at the Wine-Dark Harbor. The written pledge records an actual prepared welcome.",
-            holder: "greek-harbor",
-            persona: "This is the remembered fall of Troy, after the night-watch account. Hecuba is the same woman heard later on the Thracian shore. Andromache waits under Neoptolemus\u2019s recorded assignment. Astyanax is an offstage person under his mother\u2019s care; his place follows her actual journey in the rescue paths. The shield, cloth and letters are objects. Earlier Ajax deeds and the selected Helen and Atreid accounts retain their own times. Myrto\u2019s crew can accept a family at the Wine-Dark Harbor. The written pledge records an actual prepared welcome. Its saved custody records its actual use.",
-            art: "assets/greek-drama/household-token.svg",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-troy-open",
-                value: true
-              }
-            ]
-          },
-          "greek-troy-berth-token": {
-            name: "The Last Berth Token",
-            text: "This token can pay the family\u2019s reserved departure at the landing. Its giver stays ashore for that actual leg.",
-            holder: "greek-troy-womens-tent",
-            persona: "This is the remembered fall of Troy, after the night-watch account. Hecuba is the same woman heard later on the Thracian shore. Andromache waits under Neoptolemus\u2019s recorded assignment. Astyanax is an offstage person under his mother\u2019s care; his place follows her actual journey in the rescue paths. The shield, cloth and letters are objects. Earlier Ajax deeds and the selected Helen and Atreid accounts retain their own times. This token can pay the family\u2019s reserved departure at the landing. Its giver stays ashore for that actual leg. Its saved custody records its actual use.",
-            art: "assets/greek-drama/household-token.svg",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-troy-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-troy-names-written",
-                value: true
-              }
-            ]
-          },
-          "greek-thrace-polyxena-cloth": {
-            name: "Polyxena\u2019s Farewell Cloth",
-            text: "A clean cloth carries the adult daughter\u2019s expressed wishes into her named burial.",
-            holder: "greek-thrace",
-            persona: "This is the remembered Thracian shore after Troy\u2019s chosen departure. Hecuba is the same person heard in the earlier Trojan frame. Polyxena is an adult. Her source death and Polydorus\u2019s death are reported person histories. Cloth, gold and case papers are physical objects. Agamemnon\u2019s judgment and Polymestor\u2019s prophecies belong to their named speakers; later Atreid choices keep their own authority. A clean cloth carries the adult daughter\u2019s expressed wishes into her named burial. Its saved custody records its actual use.",
-            art: "assets/greek-drama/funeral-cloth.svg",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-thrace-open",
-                value: true
-              }
-            ]
-          },
-          "greek-thrace-polydorus-shroud": {
-            name: "Polydorus\u2019s Shore Shroud",
-            text: "A separate shroud serves the recovered son\u2019s care above the tide.",
-            holder: "greek-thrace-burial-ground",
-            persona: "This is the remembered Thracian shore after Troy\u2019s chosen departure. Hecuba is the same person heard in the earlier Trojan frame. Polyxena is an adult. Her source death and Polydorus\u2019s death are reported person histories. Cloth, gold and case papers are physical objects. Agamemnon\u2019s judgment and Polymestor\u2019s prophecies belong to their named speakers; later Atreid choices keep their own authority. A separate shroud serves the recovered son\u2019s care above the tide. Its saved custody records its actual use.",
-            art: "assets/greek-drama/funeral-cloth.svg",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-thrace-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-thrace-body-reported",
-                value: true
-              }
-            ]
-          },
-          "greek-thrace-entrusted-gold": {
-            name: "Polydorus\u2019s Entrusted Gold",
-            text: "The actual entrusted gold can remain with the king or pass through the public hearing.",
-            holder: "greek-thrace-polymestor",
-            persona: "This is the remembered Thracian shore after Troy\u2019s chosen departure. Hecuba is the same person heard in the earlier Trojan frame. Polyxena is an adult. Her source death and Polydorus\u2019s death are reported person histories. Cloth, gold and case papers are physical objects. Agamemnon\u2019s judgment and Polymestor\u2019s prophecies belong to their named speakers; later Atreid choices keep their own authority. The actual entrusted gold can remain with the king or pass through the public hearing. Its saved custody records its actual use.",
-            art: "assets/greek-drama/household-token.svg",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-thrace-open",
-                value: true
-              }
-            ]
-          },
-          "greek-thrace-gold-record": {
-            name: "The Gold Custody Record",
-            text: "The record names Priam\u2019s entrusted son, the king\u2019s protection and the gold he received.",
-            holder: "greek-thrace-summons-tent",
-            persona: "This is the remembered Thracian shore after Troy\u2019s chosen departure. Hecuba is the same person heard in the earlier Trojan frame. Polyxena is an adult. Her source death and Polydorus\u2019s death are reported person histories. Cloth, gold and case papers are physical objects. Agamemnon\u2019s judgment and Polymestor\u2019s prophecies belong to their named speakers; later Atreid choices keep their own authority. The record names Priam\u2019s entrusted son, the king\u2019s protection and the gold he received. Its saved custody records its actual use.",
-            art: "assets/greek-drama/decree.svg",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-thrace-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-thrace-king-statement",
-                value: true
-              }
-            ]
-          },
-          "greek-thrace-case-papers": {
-            name: "Hecuba\u2019s Case Papers",
-            text: "The actual case copy travels with Hecuba to the summons and the completed burials before another carrier can take it home.",
-            holder: "greek-thrace",
-            persona: "This is the remembered Thracian shore after Troy\u2019s chosen departure. Hecuba is the same person heard in the earlier Trojan frame. Polyxena is an adult. Her source death and Polydorus\u2019s death are reported person histories. Cloth, gold and case papers are physical objects. Agamemnon\u2019s judgment and Polymestor\u2019s prophecies belong to their named speakers; later Atreid choices keep their own authority. The actual case copy travels with Hecuba to the summons and the completed burials before another carrier can take it home. Its saved custody records its actual use.",
-            art: "assets/greek-drama/testimony.svg",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-thrace-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-thrace-case-prepared",
-                value: true
-              }
-            ]
-          },
-          "greek-susa-broken-oar": {
-            name: "The Broken Salamis Oar",
-            text: "The survivor\u2019s broken oar carries the fleet\u2019s defeat into the historical court account.",
-            holder: "greek-susa",
-            persona: "This is a separate historical court account at Susa after Salamis in 480 BCE. The mythic Trojan road is the table\u2019s passage into this named historical frame. The messenger\u2019s dead, Darius\u2019s future Plataea warning and Xerxes\u2019s actual return have separate records. Atossa\u2019s private household consolation and the civic reckoning are original alternatives to the final public lament. The survivor\u2019s broken oar carries the fleet\u2019s defeat into the historical court account. Its saved custody records its actual use.",
-            art: "assets/greek-drama/ship-card.webp",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-susa-open",
-                value: true
-              }
-            ]
-          },
-          "greek-susa-dead-names": {
-            name: "The Salamis Names Roll",
-            text: "The messenger\u2019s roll names Artembares, Dadaces and Tenagon, alongside the ordinary households named in the adapted lament.",
-            holder: "greek-susa",
-            persona: "This is a separate historical court account at Susa after Salamis in 480 BCE. The mythic Trojan road is the table\u2019s passage into this named historical frame. The messenger\u2019s dead, Darius\u2019s future Plataea warning and Xerxes\u2019s actual return have separate records. Atossa\u2019s private household consolation and the civic reckoning are original alternatives to the final public lament. The messenger\u2019s roll names Artembares, Dadaces and Tenagon, alongside the ordinary households named in the adapted lament. Its saved custody records its actual use.",
-            art: "assets/greek-drama/decree.svg",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-susa-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-susa-messenger-heard",
-                value: true
-              }
-            ]
-          },
-          "greek-susa-offering-water": {
-            name: "Atossa\u2019s Offering Water",
-            text: "A filled vessel must reach Darius\u2019s tomb in an actual carrier\u2019s hand before the libation.",
-            holder: "greek-susa",
-            persona: "This is a separate historical court account at Susa after Salamis in 480 BCE. The mythic Trojan road is the table\u2019s passage into this named historical frame. The messenger\u2019s dead, Darius\u2019s future Plataea warning and Xerxes\u2019s actual return have separate records. Atossa\u2019s private household consolation and the civic reckoning are original alternatives to the final public lament. A filled vessel must reach Darius\u2019s tomb in an actual carrier\u2019s hand before the libation. Its saved custody records its actual use.",
-            art: "assets/greek-drama/water-jar.svg",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-susa-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-susa-messenger-heard",
-                value: true
-              }
-            ]
-          },
-          "greek-susa-cloak": {
-            name: "The Returning King\u2019s Cloak",
-            text: "Atossa\u2019s prepared cloak can reach Xerxes\u2019s hand before he chooses his actual return audience.",
-            holder: "greek-susa",
-            persona: "This is a separate historical court account at Susa after Salamis in 480 BCE. The mythic Trojan road is the table\u2019s passage into this named historical frame. The messenger\u2019s dead, Darius\u2019s future Plataea warning and Xerxes\u2019s actual return have separate records. Atossa\u2019s private household consolation and the civic reckoning are original alternatives to the final public lament. Atossa\u2019s prepared cloak can reach Xerxes\u2019s hand before he chooses his actual return audience. Its saved custody records its actual use.",
-            art: "assets/greek-drama/funeral-cloth.svg",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-susa-open",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-susa-warning-heard",
-                value: true
-              }
-            ]
           },
           "greek-viii-travel-bag": {
             name: "The Travel Bag",
@@ -21928,8 +21356,6 @@
                 value: true
               }
             ]
-=======
->>>>>>> c76be776
           }
         },
         routes: [
@@ -51168,6 +50594,14 @@
                 kind: "holding",
                 item: "greek-vii-peace-list",
                 role: "actor"
+              },
+              {
+                kind: "not",
+                condition: {
+                  kind: "holding",
+                  item: "greek-vii-smith-tools",
+                  actor: "greek-vii-smiths"
+                }
               }
             ],
             effects: [
@@ -57214,7 +56648,7 @@
               catalogue: "https://greekdrama.johnhboyer.com/",
               author: "Sophocles",
               work: "Oedipus at Colonus",
-              adaptation: "A named remembered tale preserves the play\u2019s time and source events. Present gifts and the selected closing response are original CosyWorld actions; Marathon\u2019s hearing is an explicit alternate ending."
+              adaptation: "A named remembered tale preserves the play\u2019s time and source events. Present gifts and the selected closing response are original CosyWorld actions. The closing choices focus on the sanctuary\u2019s custom or the family\u2019s remembrance."
             }
           },
           {
@@ -80149,7 +79583,7 @@
         cs.forEach((c) => {
           condition2(c, what);
           check(
-            !persistent || choice && c.kind === "light" || [
+            !persistent || choice && c.kind === "light" || choice && c.kind === "not" && c.condition?.kind === "holding" || [
               "choice",
               "choice_unset",
               "reading_complete",
@@ -81650,7 +81084,6 @@
     return true;
   }
 
-<<<<<<< HEAD
   // v2/card-game/reading-privacy.mjs
   var privateAudienceAllows = (entry, audience) => !entry?.privateTo || audience.length > 0 && audience.every((id) => entry.privateTo.includes(id));
   var validPrivateAudience = (world, audience) => audience === void 0 || Array.isArray(audience) && audience.length > 0 && audience.length <= 10 && new Set(audience).size === audience.length && audience.every((id) => Object.hasOwn(world.actors, id));
@@ -82042,7 +81475,7 @@
       (run) => !spoken.includes(` ${run} `) || evidence.includes(` ${run} `)
     );
   }
-=======
+
   // v2/card-game/trust.mjs
   var trustValue = (world, actor, other) => world.actors[actor]?.trust?.[other] ?? 0;
   function validTrust(trust, actor, actorIds2) {
@@ -82051,7 +81484,6 @@
     );
   }
   var trustedActors = (world, actor, actorIds2) => actorIds2.filter((other) => trustValue(world, actor, other) > 0);
->>>>>>> c76be776
 
   // v2/card-game/adaptive-learning.mjs
   var TRIAL_LIMIT = 32;
@@ -86590,12 +86022,7 @@
   }
   function canTrade(s, actor, give, receive) {
     const other = s.items[receive]?.holder;
-<<<<<<< HEAD
-    if (packKeepsItem(s, other, receive)) return false;
-=======
-    if (packJourneyKeepsItem(s, actor, give) || packJourneyKeepsItem(s, other, receive))
-      return false;
->>>>>>> c76be776
+    if (packKeepsItem(s, actor, give) || packKeepsItem(s, other, receive)) return false;
     if (s.items[give]?.holder !== actor || !actorIds.includes(other) || !knownActors2(s).includes(other) || other === actor || controlledByHuman(s, other) || s.actors[actor].place !== s.actors[other].place)
       return false;
     if (hasMotives(s) ? !tradeDecision(s, actor, give, receive).accepted && !(hasQuestPrograms(s) && !s.life && !resentment(s, other, actor) && needed(s, other, give) && !needed(s, other, receive)) : !accepts(s, other, give) || needed(s, other, receive))
@@ -87173,7 +86600,7 @@
           )
         );
       }
-      if (item.holder === actor && !packJourneyKeepsItem(s, actor, id)) {
+      if (item.holder === actor && !packKeepsItem(s, actor, id)) {
         out.push(
           offer(
             "drop",
