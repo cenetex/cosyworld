@@ -23,6 +23,7 @@ const files = [
   "shared-cast.json",
   "human-cast.mjs",
   "boardyai.mjs",
+  "introductions.mjs",
   "boardyai.json",
   "assets/greek-drama/harbor-day.webp",
   "assets/shared/places/pond.png",

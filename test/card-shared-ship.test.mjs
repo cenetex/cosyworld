@@ -90,7 +90,7 @@ describe("shared ship boarding", () => {
   });
 
   it("uses authenticated passenger claims for an older shared voyage", () => {
-    const old = setup("greek-harbor");
+    const old = ask(setup("greek-harbor"), "vale").world;
     old.crossings["pond-greek-harbor"].discovered = false;
     old.actors.mara.place = "greek-ship";
     old.transports["greek-ship"].destination = "pond";
@@ -101,10 +101,7 @@ describe("shared ship boarding", () => {
     expect(npcOnly.crossings["pond-greek-harbor"].discovered).toBe(false);
     const humanVoyage = ask(old, "mara").world;
     expect(humanVoyage.crossings["pond-greek-harbor"].discovered).toBe(true);
-    expect(humanVoyage.actors).toEqual({
-      ...old.actors,
-      boardyai: { ...old.actors.boardyai, place: "greek-harbor" },
-    });
+    expect(humanVoyage.actors).toEqual(old.actors);
     expect(humanVoyage.transports).toEqual(old.transports);
   });
 

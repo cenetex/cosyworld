@@ -128,6 +128,9 @@ function personalQuestCards(world, actor = currentActor(world)) {
   return records.map((record) => {
     const program = record.program;
     const [title, purpose, art] =
+      (program.generated?.situation === "introduction"
+        ? [program.name, program.purpose, record.subjectActor || actor]
+        : null) ||
       authored[program.id] ||
       situations[program.generated?.situation] ||
       (program.generated?.solo
