@@ -29,6 +29,8 @@ mod custody;
 mod observations;
 #[path = "card_narrative/recital.rs"]
 pub(crate) mod recital;
+#[path = "card_narrative/reflection.rs"]
+mod reflection;
 
 const PER_MINUTE: RateLimit = RateLimit {
     max_hits: 30,
@@ -265,6 +267,8 @@ struct Desire {
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct Memory {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    seq: Option<u64>,
     turn: u64,
     kind: String,
     text: String,
@@ -308,11 +312,17 @@ struct Reflection {
     persona: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     dream: Option<String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    models: BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    evidence: Vec<u64>,
 }
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 struct SpokenLine {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    witnesses: Option<Vec<String>>,
     actor_id: String,
     text: String,
 }
@@ -421,10 +431,14 @@ fn valid(context: &Context) -> bool {
         && context.events.len() <= 8
         && context.events.iter().all(|text| bounded(text, 650))
         && context.conversation.len() <= 4
-        && context
-            .conversation
-            .iter()
-            .all(|line| kind(&line.actor_id, "avatar") && bounded(&line.text, 400))
+        && context.conversation.iter().all(|line| {
+            kind(&line.actor_id, "avatar")
+                && bounded(&line.text, 400)
+                && line
+                    .witnesses
+                    .as_ref()
+                    .is_none_or(|ids| ids.len() <= 64 && ids.iter().all(|id| kind(id, "avatar")))
+        })
         && (1..=3).contains(&context.speakers.len())
         && context.speakers.iter().collect::<BTreeSet<_>>().len() == context.speakers.len()
         && context
@@ -456,6 +470,8 @@ fn valid(context: &Context) -> bool {
                 && e.memories.len() <= 8
                 && e.memories.iter().all(|m| {
                     m.turn <= context.turn
+                        && m.seq
+                            .is_none_or(|seq| seq > 0 && seq <= 9_007_199_254_740_991)
                         && ["event", "expression"].contains(&m.kind.as_str())
                         && bounded(&m.text, 650)
                 })
@@ -772,18 +788,7 @@ async fn complete_selected(
         }
     }
     let deadline = tokio::time::Instant::now() + settings.scene_timeout;
-    let mut calls: Vec<_> = voiced.iter().map(|id| (id.clone(), Part::Line)).collect();
-    for id in voiced {
-        let entity = entity(context, id);
-        let (reflect, dream) = reflection_due(context, entity);
-        if reflect && reflections {
-            calls.push((id.clone(), Part::Thought));
-            calls.push((id.clone(), Part::Persona));
-            if dream {
-                calls.push((id.clone(), Part::Dream));
-            }
-        }
-    }
+    let calls: Vec<_> = voiced.iter().map(|id| (id.clone(), Part::Line)).collect();
     let jobs = calls.into_iter().map(|(id, part)| async move {
         let result = speak(
             config,
@@ -802,8 +807,6 @@ async fn complete_selected(
         settings.parallel.max(1),
     );
     let mut lines: BTreeMap<String, (String, String)> = BTreeMap::new();
-    let mut private: BTreeMap<(String, Part), String> = BTreeMap::new();
-    let mut failed_reflection = BTreeSet::new();
     let collected = tokio::time::timeout_at(deadline, async {
         while let Some((id, part, result)) = futures_util::StreamExt::next(&mut results).await {
             match (part, result) {
@@ -821,12 +824,7 @@ async fn complete_selected(
                     lines.insert(id, (text, model));
                 }
                 (Part::Line, Err(())) => {}
-                (part, Ok((text, _))) => {
-                    private.insert((id, part), text);
-                }
-                (_, Err(())) => {
-                    failed_reflection.insert(id);
-                }
+                _ => {}
             }
         }
         Ok(())
@@ -838,22 +836,38 @@ async fn complete_selected(
     if let Ok(Err(response)) = collected {
         return Err(response);
     }
+    let mut private = BTreeMap::new();
+    if reflections {
+        let reflection_ids: Vec<String> = voiced
+            .iter()
+            .filter(|id| lines.contains_key(*id))
+            .cloned()
+            .collect();
+        let jobs = reflection_ids.into_iter().map(|id| async move {
+            let value =
+                reflection::generate(config, context, character_models, settings, deadline, &id)
+                    .await;
+            (id, value)
+        });
+        let mut results = futures_util::StreamExt::buffer_unordered(
+            futures_util::stream::iter(jobs),
+            settings.parallel.max(1),
+        );
+        let _ = tokio::time::timeout_at(deadline, async {
+            while let Some((id, value)) = futures_util::StreamExt::next(&mut results).await {
+                if let Some(value) = value {
+                    private.insert(id, value);
+                }
+            }
+        })
+        .await;
+    }
     let mut entries = Vec::new();
     for id in voiced {
         let Some((text, model)) = lines.remove(id) else {
             continue;
         };
-        let reflection = (!failed_reflection.contains(id))
-            .then(|| {
-                let thought = private.remove(&(id.clone(), Part::Thought))?;
-                let persona = private.remove(&(id.clone(), Part::Persona))?;
-                Some(Reflection {
-                    thought,
-                    persona,
-                    dream: private.remove(&(id.clone(), Part::Dream)),
-                })
-            })
-            .flatten();
+        let reflection = private.remove(id);
         entries.push(Entry {
             id: id.clone(),
             text,
@@ -926,7 +940,7 @@ pub(crate) async fn shared_lines(
         .map_err(|_| "The story service needs its voice settings.")?
         .clone();
     settings.line_limit = 240;
-    let value = complete_selected(config, &context, models, &settings, ids, false, None)
+    let value = complete_selected(config, &context, models, &settings, ids, true, None)
         .await
         .map_err(|_| "The play is saved. Its words need another moment.")?;
     // Shared scenes require the selected actors; atmosphere may stay quiet.
@@ -1426,6 +1440,18 @@ fn transcript(context: &Context, entity: &Entity, part: Part) -> String {
         String::new(),
     ]);
     for line in &context.conversation {
+        let witnessed = line.witnesses.as_ref().map_or_else(
+            || {
+                entity.memories.iter().any(|m| {
+                    m.kind == "expression"
+                        && m.text == format!("{}: {}", name(&line.actor_id), line.text)
+                })
+            },
+            |ids| ids.contains(&entity.id),
+        );
+        if !witnessed {
+            continue;
+        }
         out.push(format!("{}: {}", name(&line.actor_id), line.text));
     }
     out.push(cue(&own, part));
@@ -2124,6 +2150,7 @@ mod tests {
         let mut c = context();
         c.outcome = Some(solo_departure());
         c.entities[0].memories.push(Memory {
+            seq: None,
             turn: 1,
             kind: "event".into(),
             text: "Vale received a gift.".into(),
@@ -2144,11 +2171,13 @@ mod tests {
     fn plain_replies_keep_the_words_and_drop_labels_quotes_and_directions() {
         let mut c = context();
         c.conversation.push(SpokenLine {
+            witnesses: Some(vec!["vale".into(), "moth".into(), "keeper".into()]),
             actor_id: "moth".into(),
             text: "Bring that lamp to the pond.".into(),
         });
         c.entities[3].previous = Some("My sleeves are dry.".into());
         c.entities[3].memories.push(Memory {
+            seq: None,
             turn: 2,
             kind: "event".into(),
             text: "The keeper polished the brass bell twice.".into(),
@@ -2349,6 +2378,7 @@ mod tests {
         let mut c = context();
         assert_eq!(reflection_due(&c, &c.entities[0]), (false, false));
         c.entities[0].memories.push(Memory {
+            seq: None,
             turn: 1,
             kind: "event".into(),
             text: "Vale received a gift.".into(),
@@ -2369,6 +2399,7 @@ mod tests {
         c.turn = 10;
         c.revision = 10;
         c.entities[0].memories.push(Memory {
+            seq: None,
             turn: 9,
             kind: "event".into(),
             text: "Vale shared the lamp.".into(),
@@ -3005,6 +3036,7 @@ mod tests {
         );
         let mut c = context();
         c.entities[0].memories.push(Memory {
+            seq: None,
             turn: 1,
             kind: "event".into(),
             text: "Vale private kindness memory.".into(),
@@ -3382,6 +3414,7 @@ mod tests {
     fn chosen_combat_sets_intent_even_after_an_earlier_apology() {
         let mut c = context();
         c.conversation.push(SpokenLine {
+            witnesses: Some(vec!["vale".into(), "moth".into(), "keeper".into()]),
             actor_id: "vale".into(),
             text: "I am sorry. I will ask gently.".into(),
         });
@@ -3532,6 +3565,7 @@ mod tests {
         let mut c = context();
         c.events = vec!["Pip leaves for Black pond.".into()];
         c.conversation = vec![SpokenLine {
+            witnesses: Some(vec!["vale".into(), "moth".into(), "keeper".into()]),
             actor_id: "vale".into(),
             text: "Where are you going?".into(),
         }];
@@ -3890,6 +3924,7 @@ mod tests {
         });
         let mut c = context();
         c.entities[0].memories.push(Memory {
+            seq: None,
             turn: 1,
             kind: "event".into(),
             text: "A friend visited.".into(),
@@ -4124,6 +4159,7 @@ mod tests {
         };
         let mut c = context();
         c.entities[0].memories.push(Memory {
+            seq: None,
             turn: 1,
             kind: "event".into(),
             text: "Vale received a gift.".into(),
@@ -4182,7 +4218,7 @@ mod tests {
         assert!(result["entries"][0].get("reflection").is_none());
         assert_eq!(result["omitted"], json!([]));
         let requests = seen.lock().unwrap().clone();
-        assert_eq!(requests.len(), 8);
+        assert_eq!(requests.len(), 7);
         assert_eq!(
             models_for(&requests, "Vale, who I am now:"),
             ["reflection-model", "reflection-model"]
@@ -4591,6 +4627,64 @@ mod tests {
         );
         assert_eq!(scene(&app, &context()).await.0, StatusCode::BAD_GATEWAY);
         assert!(seen.lock().unwrap().is_empty());
+        server.abort();
+    }
+    #[test]
+    fn later_arrivals_only_hear_lines_they_witnessed() {
+        let mut c = context();
+        c.conversation = vec![SpokenLine {
+            actor_id: "vale".into(),
+            text: "A secret between us.".into(),
+            witnesses: Some(vec!["vale".into()]),
+        }];
+        assert!(transcript(&c, &c.entities[0], Part::Line).contains("A secret between us."));
+        let moth = c.entities.iter().find(|e| e.id == "moth").unwrap();
+        assert!(!transcript(&c, moth, Part::Line).contains("A secret between us."));
+        c.conversation[0].witnesses = None;
+        assert!(!transcript(&c, &c.entities[0], Part::Line).contains("A secret between us."));
+    }
+
+    #[tokio::test]
+    async fn shared_reflections_use_the_new_thought_and_keep_evidence_and_models() {
+        let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
+        let provider = plain_provider(seen.clone(), |_, stem| stem_reply(stem));
+        let (address, server) = serve(provider).await;
+        let mut c = context();
+        c.entities[0].memories.push(Memory {
+            seq: Some(4),
+            turn: 1,
+            kind: "event".into(),
+            text: "The keeper declined my request.".into(),
+        });
+        let settings = VoiceSettings {
+            reflection_model: Some("reflection-model".into()),
+            ..VoiceSettings::hosted()
+        };
+        let config = tiered_config(address, &[("reflection-model", false)]);
+        let result = complete_selected(
+            &config,
+            &c,
+            &cast_models(),
+            &settings,
+            &["vale".into()],
+            true,
+            None,
+        )
+        .await
+        .unwrap();
+        let growth = &result["entries"][0]["reflection"];
+        assert_eq!(growth["evidence"], json!([4]));
+        assert_eq!(growth["models"]["thought"], "vale-model");
+        assert_eq!(growth["models"]["persona"], "reflection-model");
+        let requests = seen.lock().unwrap();
+        let revision = requests
+            .iter()
+            .find(|r| stem_of(r) == "Vale, who I am now:")
+            .unwrap();
+        assert!(revision["messages"][1]["content"]
+            .as_str()
+            .unwrap()
+            .contains("On my mind: I felt welcome."));
         server.abort();
     }
 }

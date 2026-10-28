@@ -73,14 +73,23 @@ fn boardy_calling_card_opens_the_parlour_from_empty_station() {
 
 #[test]
 fn boardy_upgrade_from_twelve_survives_checkpoints_and_journal_replay() {
+    assert_boardy_upgrade(engine::TWELFTH_VERSION);
+}
+
+#[test]
+fn boardy_upgrade_from_thirteen_survives_checkpoints_and_journal_replay() {
+    assert_boardy_upgrade(engine::THIRTEENTH_VERSION);
+}
+
+fn assert_boardy_upgrade(version: &str) {
     let path = std::env::temp_dir().join(format!("boardy-{}.sqlite", crate::random_hex(12)));
     let c = store::open(&path).unwrap();
     full_store::schema(&c).unwrap();
     let id = "e".repeat(48);
     store::create(&c, &id, "owner", now()).unwrap();
-    let seed = engine::reduce_version(engine::TWELFTH_VERSION, json!({"op":"create"})).unwrap();
+    let seed = engine::reduce_version(version, json!({"op":"create"})).unwrap();
     let old = World {
-        version: engine::TWELFTH_VERSION.into(),
+        version: version.into(),
         game: seed["world"].clone(),
         claimed: [1, 1, 0, 0, 0, 0, 0, 0],
         present: [1, 1, 0, 0, 0, 0, 0, 0],

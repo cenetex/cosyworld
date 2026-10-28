@@ -48,6 +48,10 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/toolbar.mjs"),
         ),
+        "inner-life.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/inner-life.mjs"),
+        ),
         "toolbar.css" => (
             "text/css; charset=utf-8",
             include_bytes!("../../card-game/toolbar.css"),
@@ -311,6 +315,10 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
         "memory.mjs" => (
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/memory.mjs"),
+        ),
+        "learning.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/learning.mjs"),
         ),
         "narrative.mjs" => (
             "text/javascript; charset=utf-8",
@@ -1594,8 +1602,9 @@ pub fn etag(path: &str) -> Option<&'static str> {
             "\"be6a52126ec58998a7b316b5f99b4d7ad435dd791de421d083fe1b9b8b3c4f82\""
         }
         "shared.css" => "\"5693c0a2aa0bcb130eda370b14251973072e641a646989c05e8c70beac387bfd\"",
-        "toolbar.mjs" => "\"c72c3edcb84354d87915dac63b391a3c157ca9741c339d6ae2ea9e7e3e8a7755\"",
-        "toolbar.css" => "\"14351afc00c5fbf48ca5bc8215bbd87bc13c9162e3c1768e19b0d6842d94b18d\"",
+        "toolbar.mjs" => "\"903a46e5ddee5756fb92f3b21cfb9145a9cdb7bc1f6cc4ef7ff465aef5f8c5af\"",
+        "inner-life.mjs" => "\"b27778f2cac4e9570a242d06084e04e5c2a06a495a81d01c216279f0c67450e0\"",
+        "toolbar.css" => "\"5f548f139b187d3176fcd853790347c3755e12e0c313a9b766c7f399066c57b1\"",
         "shared-cast.json" => {
             "\"d33acfa50480968d23f0ef43440f104ed8abdeeb0519a6504afcdbf1507ebd6e\""
         }
@@ -1707,7 +1716,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "scene-video.css" => "\"3c6851ec825e734e3d8a084f4ed77f077bcb4402acbf61869a67b652c3afe4c5\"",
         "awakening.css" => "\"c7a68a23baf1e46934237a57f4b5f87d76bad87af85fdf57ee40abec646908b9\"",
         "app.mjs" => "\"277caf8c2f5b4ec372af49bf6472cdf63887ec6b3584eccc9792614410a27cf1\"",
-        "world.mjs" => "\"66b915f690f0351278c83c4e8139d63aacd7b680f8ca22c06f09b392d4cd2d7d\"",
+        "world.mjs" => "\"711f4e9d068694da72e266d67655dcd5ed011fe6f441f5a1efa27215a90cbd32\"",
         "scene.mjs" => "\"635ee5038f8b73ae0425bb64de542fa2a9d034f3287802a1a5b3a8101b34edd1\"",
         "portrait-facing.mjs" => {
             "\"5cf323214a088c32a8dc0db977e10b8e4e37fe3ea2c25523783ddb553694b32c\""
@@ -1744,8 +1753,9 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "quest-cards.mjs" => "\"8960e4357997e63486ea61553d626821efb44cba9361190ecff7f7f4d12983c2\"",
         "situations.mjs" => "\"1fff8b8ba954720b8a0a4450d6db2bf6e6d9378566ae0ca2668a44979f83c39d\"",
-        "memory.mjs" => "\"a60b35aae48d30646331b3de96234fad605fb363a694db9ef7204851f85be14d\"",
-        "narrative.mjs" => "\"954d248d99fee002201f9999bd784afe98887c0c719b62b1b22c23ff0483f375\"",
+        "memory.mjs" => "\"73ce17a68e29678684d13458a87fa9e2274879a45680e53d7d83b562abac3dab\"",
+        "learning.mjs" => "\"feb6faebe9c0470cfac7545e7e91587701b7434fecd176c9475fee778cb51175\"",
+        "narrative.mjs" => "\"1b5869bdc28367e0d1303c6a8aa4a2a16d3673980d1e8d25246c96e399b25c98\"",
         "dialogue.mjs" => "\"1f4965d3e2a36261973aace4534359c00c7cf8aeaf15548a08d29e364adcc7ad\"",
         "character-speech.mjs" => {
             "\"d53e51f93d89a0073199f45dd83086417733d76980f6c3b22f875b3f642292b5\""

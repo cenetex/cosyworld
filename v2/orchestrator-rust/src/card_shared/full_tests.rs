@@ -2409,3 +2409,6 @@ fn each_shared_home_rescue_commits_through_c_and_replays() {
         assert_eq!(full_store::world(&c, &id, now()).unwrap(), w);
     }
 }
+
+#[path = "learning_tests.rs"]
+mod learning_tests;

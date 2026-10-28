@@ -267,3 +267,22 @@ The same home-gate rule serves the attic and all seven visitor homes. Shared
 rules version 10 adds the path. Versions 2 through 9 retain their released
 bytes for replay. Loading an earlier world records an upgrade to version 10
 after its journal has replayed; the upgrade preserves items and played time.
+
+## Learning and private reflection
+
+Shared rules version 13 saves each avatar's checked lessons and private
+reflections. A lesson links an expected answer, the observed answer, and a
+revised approach to one completed request. The server checks reflection evidence
+against that avatar's witnessed events before it records speech and reflection
+in the same journal command. A reload or journal-only rebuild restores both.
+
+Player views include their own thoughts, persona, dreams, reflection evidence
+and lessons. Other avatars supply public card text. This privacy check also
+applies when projecting a world that still uses an earlier interpreter.
+
+The current interpreter builder writes `engine-v14.js`. Version 14 adds BoardyAI,
+his parlour, and his calling card. Versions 12 and 13 keep their released rules.
+Existing worlds receive an explicit saved upgrade.
+
+A rules upgrade starts a fresh sync stream from the player’s current private
+view. Earlier cached view events are replaced at that boundary.

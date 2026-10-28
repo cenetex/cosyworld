@@ -1,3 +1,4 @@
+import { privateView } from "./learning.mjs";
 // One pure adapter for the browser model and the server's C-backed JS runtime.
 // The host supplies authenticated claims and presence on every operation.
 import {
@@ -23,7 +24,7 @@ import {
 import { installQuestCollection } from "./quests.mjs";
 import { profiles } from "./memory.mjs";
 import { enableMotives } from "./motives.mjs";
-import { narrativeContext } from "./narrative.mjs";
+import { narrativeContext, applySharedReflections } from "./narrative.mjs";
 import { currentScene } from "./scene.mjs";
 import { settleBoardy } from "./boardyai.mjs";
 
@@ -159,7 +160,10 @@ export function dispatchShared(request) {
     return response(world, view(world, actor));
   }
   if (request.op === "view")
-    return { ...response(world, view(world, actor)), world };
+    return {
+      ...response(world, view(world, actor)),
+      world: privateView(world, actor),
+    };
   if (request.op === "context")
     return response(world, {
       context: narrativeContext(world, request.action || null),
@@ -201,6 +205,13 @@ export function dispatchShared(request) {
       throw new Error("An exchange needs one or two lines.");
     const room = request.room || world.actors[actor].place;
     if (!places[room]) throw new Error("Choose a real room.");
+    if (
+      (request.entries || []).some(
+        (e) => !request.lines.some((l) => (l.actorId || l.entityId) === e.id),
+      )
+    )
+      throw new Error("Keep each reflection with its saved speaker.");
+    applySharedReflections(world, request.entries || []);
     const lines = [];
     for (const line of request.lines) {
       const scenic = line.actorId == null && line.entityId === room;

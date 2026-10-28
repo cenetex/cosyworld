@@ -44,6 +44,12 @@ fn context(scene: &Value, ids: Option<&[String]>) -> Result<(Context, Vec<String
             return Err("The saved scene needs its requested voices.".into());
         }
         context.acting_avatar = ids.first().cloned();
+        for entity in &mut context.entities {
+            if Some(&entity.id) != ids.first() {
+                entity.inner_life = None;
+                entity.facts.retain(|f| !f.starts_with("I expected "));
+            }
+        }
         context.speakers = ids
             .iter()
             .filter(|id| kind(id, "avatar"))
@@ -170,6 +176,17 @@ pub(crate) fn complete(
                     thought,
                     persona,
                     dream: cleaned.remove(&Part::Dream),
+                    models: [
+                        ("thought".into(), model(&models, id)),
+                        ("persona".into(), model(&models, id)),
+                    ]
+                    .into(),
+                    evidence: entity
+                        .memories
+                        .iter()
+                        .filter(|m| m.kind == "event")
+                        .filter_map(|m| m.seq)
+                        .collect(),
                 }),
                 _ => None,
             };
