@@ -8,10 +8,10 @@ import { journeyOptions } from "./pack-journeys.mjs";
 import { EXPRESSION_TYPES } from "./expression.mjs";
 
 export const PACK_SCHEMA_VERSION = 1;
-export const AUTHORED_TOPIC_LIMIT = 128;
+export const AUTHORED_TOPIC_LIMIT = 512;
 
-// Mounted packs keep distinct public identities. The topic budget leaves room
-// for witnessed events in the shared knowledge store.
+// Mounted packs keep distinct public identities. Stored facts have their own
+// bounded budget and retain authored facts while older event news is pruned.
 export function packCompositionProblems(packs) {
   const problems = [],
     seen = new Map(),
@@ -157,10 +157,12 @@ export function observationProblems(definitions, catalog) {
   });
 }
 
-// Media lives in the pack's own folder under the card table's assets.
+// Media lives in the pack's own folder or one named chapter folder.
 export const mediaPathOk = (pack, path) =>
   typeof path === "string" &&
-  (new RegExp(`^assets/${pack}/[a-z0-9-]+\\.(?:png|svg|webp)$`).test(path) ||
+  (new RegExp(
+    `^assets/${pack}/(?:[a-z0-9-]+/)?[a-z0-9-]+\\.(?:png|svg|webp)$`,
+  ).test(path) ||
     /^assets\/shared\/(characters|places|items)\/[a-z0-9-]+\.(png|webp)$/.test(
       path,
     ));
@@ -240,8 +242,8 @@ export function packProblems(pack, hub, mountedPlaces = []) {
   // Bound malformed author data before iterating nested collections.
   for (const [key, required, max] of [
     ["places", true, 128],
-    ["avatars", true, 128],
-    ["items", false, 128],
+    ["avatars", true, 256],
+    ["items", false, 256],
     ["fixtures", false, 32],
     ["transports", false, 8],
   ]) {
@@ -259,11 +261,11 @@ export function packProblems(pack, hub, mountedPlaces = []) {
   }
   for (const [key, max] of [
     ["routes", 256],
-    ["choices", 512],
+    ["choices", 1024],
     ["works", 128],
     ["crossings", 32],
     ["storyQuests", 256],
-    ["topics", 128],
+    ["topics", 512],
   ])
     if (
       pack[key] !== undefined &&
@@ -368,7 +370,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
   const media = (path, what) =>
     check(
       mediaPathOk(pack.id, path),
-      `${what} must be assets/${pack.id}/<file>.png`,
+      `${what} must be assets/${pack.id}/<file> or assets/${pack.id}/<chapter>/<file> (PNG, SVG or WebP)`,
     );
 
   for (const [id, p] of Object.entries(places)) {
@@ -473,6 +475,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "place",
         "travels",
         "journey",
+        "retireAfter",
         "roamingQuest",
         "personalQuests",
         "previousHomes",
@@ -678,7 +681,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         case "holding":
           ok =
             keysOk(c, ["kind", "item", "actor", "role"]) &&
-            owns(items, c.item) &&
+            (owns(items, c.item) || hub.items.includes(c.item)) &&
             (c.role === undefined
               ? c.actor === hub.player || owns(avatars, c.actor)
               : c.role === "actor" && c.actor === undefined);
@@ -704,8 +707,8 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         case "item_at":
           ok =
             keysOk(c, ["kind", "item", "place"]) &&
-            owns(items, c.item) &&
-            owns(places, c.place);
+            (owns(items, c.item) || hub.items.includes(c.item)) &&
+            anyPlace(c.place);
           break;
         case "met":
           ok = keysOk(c, ["kind", "actor"]) && owns(avatars, c.actor);
@@ -723,7 +726,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       `${what} must use the closed condition vocabulary with valid references`,
     );
   };
-  const requirements = (cs, what, persistent = true) => {
+  const requirements = (cs, what, persistent = true, choice = false) => {
     if (cs === undefined) return;
     check(
       Array.isArray(cs) && cs.length <= 12,
@@ -734,6 +737,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         condition(c, what);
         check(
           !persistent ||
+            (choice && c.kind === "light") ||
             [
               "choice",
               "choice_unset",
@@ -845,7 +849,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       `choice ${c.id} is invalid`,
     );
     choiceIds.add(c.id);
-    requirements(c.requires, `choice ${c.id} requires`);
+    requirements(c.requires, `choice ${c.id} requires`, true, true);
     for (const e of c.effects) {
       let valid = false;
       if (e.kind === "choose") {
@@ -874,6 +878,24 @@ export function packProblems(pack, hub, mountedPlaces = []) {
           );
       check(valid, `choice ${c.id} effect is unsupported or lacks custody`);
     }
+  }
+  for (const [id, avatar] of Object.entries(avatars)) {
+    if (avatar.retireAfter === undefined) continue;
+    const report = choices.find((choice) => choice.id === avatar.retireAfter);
+    check(
+      idOk(avatar.retireAfter) &&
+        report &&
+        report.subject !== id &&
+        avatar.travels === false &&
+        avatar.journey === undefined &&
+        avatar.roamingQuest === undefined &&
+        avatar.personalQuests !== true &&
+        avatar.temperament === undefined &&
+        (avatar.requires || []).every(
+          (c) => c.kind === "choice" || (c.kind === "flag" && c.value === true),
+        ),
+      `avatar ${id} retirement needs a fixed role, positive opening and a witness report`,
+    );
   }
   for (const [id, avatar] of Object.entries(avatars)) {
     if (avatar.journey === undefined) continue;
@@ -1022,7 +1044,15 @@ export function packProblems(pack, hub, mountedPlaces = []) {
   const topicIds = new Set();
   for (const topic of pack.topics || []) {
     check(
-      keysOk(topic, ["id", "speaker", "at", "text", "requires", "choiceId"]) &&
+      keysOk(topic, [
+        "id",
+        "speaker",
+        "at",
+        "text",
+        "requires",
+        "choiceId",
+        "publicAccount",
+      ]) &&
         idOk(topic.id) &&
         !topicIds.has(topic.id) &&
         owns(avatars, topic.speaker) &&
@@ -1030,6 +1060,12 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         validFactText(topic.text) &&
         (topic.choiceId === undefined || choiceIds.has(topic.choiceId)),
       `topic ${topic.id} needs a unique id, speaker, place, sentence and valid choice`,
+    );
+    check(
+      topic.publicAccount === undefined ||
+        (typeof topic.publicAccount === "boolean" &&
+          topic.choiceId !== undefined),
+      `topic ${topic.id} public account needs a linked choice`,
     );
     topicIds.add(topic.id);
     requirements(topic.requires, `topic ${topic.id} requires`);

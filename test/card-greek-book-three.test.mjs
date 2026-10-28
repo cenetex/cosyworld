@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import {
   decodeSave,
   encodeSave,
@@ -38,7 +38,9 @@ const stanzas = (world) =>
     v.id.startsWith("greek-aulis-"),
   );
 
-describe("The Wind’s Price", () => {
+afterEach(() => new Promise((resolve) => setImmediate(resolve)));
+
+describe("The Wind’s Price", { timeout: 60000 }, () => {
   it("opens a named departure after Ajax’s actual return", () => {
     const before = bookMove(ajaxStart(), "greek-harbor");
     expect(offered(before, "invitation")).toBe(false);

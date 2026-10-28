@@ -21,6 +21,7 @@ import { humanAvatarIds } from "./human-cast.mjs";
 import { passengers } from "./pack-transport.mjs";
 import { installKnowledge } from "./knowledge.mjs";
 import { newTemperament } from "./pack-rules.mjs";
+import { greekRevisionSeven } from "./legacy-greek-catalog.mjs";
 
 // Upgrade historical records before the world validates the current save.
 // World-owned helpers keep pack installation and generated quests on the same
@@ -96,7 +97,7 @@ export function upgradeSave(
     upgradeGreekRoadSave(s);
     upgradeGreekTownSave(s);
     upgradeGreekAjaxSave(s);
-    upgradeGreekBookThreeSave(s);
+    upgradeGreekEpicSave(s);
     s.schema = 7;
     installPacks(s);
   } else if (
@@ -112,7 +113,7 @@ export function upgradeSave(
     upgradeGreekRoadSave(s);
     upgradeGreekTownSave(s);
     upgradeGreekAjaxSave(s);
-    upgradeGreekBookThreeSave(s);
+    upgradeGreekEpicSave(s);
     // A pack mounted after this save was written joins it fresh.
     installPacks(s);
   }
@@ -314,81 +315,56 @@ export function upgradeGreekAjaxSave(s) {
   saved.revision = 7;
 }
 
-// Revision 8 adds Book III's named scenes beside every earlier recorded deed.
-export function upgradeGreekBookThreeSave(s) {
+// Revision8 adds the epic chapters around the exact published revision7 cast.
+// One catalog boundary lets each new chapter share this ordered migration.
+export function upgradeGreekEpicSave(s) {
   const pack = packDefinitions.find((p) => p.id === "greek-drama");
   const saved = s.packs?.[pack?.id];
   if (!pack || pack.revision < 8 || saved?.revision !== 7) return;
-  const avatars = [
-    "greek-aulis-iphigenia",
-    "greek-aulis-clytemnestra",
-    "greek-aulis-achilles",
-    "greek-lemnos-philoctetes",
-    "greek-lemnos-neoptolemus",
-    "greek-rhesus-hector",
-    "greek-rhesus-rhesus",
-    "greek-rhesus-charioteer",
-    "greek-troy-hecuba",
-    "greek-troy-andromache",
-    "greek-troy-talthybius",
-    "greek-thrace-hecuba",
-    "greek-thrace-polyxena",
-    "greek-thrace-polymestor",
-    "greek-susa-atossa",
-    "greek-susa-xerxes",
-  ];
-  const items = [
-    "greek-aulis-recall-letter",
-    "greek-aulis-wedding-veil",
-    "greek-aulis-offering-cloth",
-    "greek-aulis-departure-record",
-    "greek-lemnos-water",
-    "greek-lemnos-herb",
-    "greek-lemnos-bow",
-    "greek-rhesus-lamp",
-    "greek-rhesus-watchword",
-    "greek-rhesus-bandage",
-    "greek-rhesus-testimony",
-    "greek-troy-names",
-    "greek-troy-message-a",
-    "greek-troy-message-b",
-    "greek-troy-hector-shield",
-    "greek-troy-child-cloth",
-    "greek-troy-crew-pledge",
-    "greek-troy-berth-token",
-    "greek-thrace-polyxena-cloth",
-    "greek-thrace-polydorus-shroud",
-    "greek-thrace-entrusted-gold",
-    "greek-thrace-gold-record",
-    "greek-thrace-case-papers",
-    "greek-susa-broken-oar",
-    "greek-susa-dead-names",
-    "greek-susa-offering-water",
-    "greek-susa-cloak",
-  ];
-  const places = [
-    "greek-aulis-household",
-    "greek-aulis-altar",
-    "greek-lemnos-landing",
-    "greek-rhesus-allies",
-    "greek-rhesus-aid-tent",
-    "greek-troy-womens-tent",
-    "greek-troy-shield-ground",
-    "greek-thrace-summons-tent",
-    "greek-thrace-burial-ground",
-    "greek-susa-tomb",
-    "greek-susa-threshold",
-    "greek-susa-road",
-  ];
+  if (
+    !greekRevisionSeven.avatars.every(
+      (id) => s.actors?.[id] && s.memories?.[id],
+    ) ||
+    !greekRevisionSeven.items.every(
+      (id) => s.items?.[id] && s.memories?.[id],
+    ) ||
+    !greekRevisionSeven.places.every((id) => s.memories?.[id])
+  )
+    throw new Error(
+      "This earlier Greek save needs its original entity records.",
+    );
+  const oldActors = new Set(greekRevisionSeven.avatars);
+  const oldItems = new Set(greekRevisionSeven.items);
+  const oldPlaces = new Set(greekRevisionSeven.places);
   addGreekEntities(
     s,
     pack,
-    avatars.filter((id) => pack.avatars[id]),
-    items.filter((id) => pack.items[id]),
+    Object.keys(pack.avatars).filter((id) => !oldActors.has(id)),
+    Object.keys(pack.items || {}).filter((id) => !oldItems.has(id)),
   );
   const fresh = newMemories();
-  for (const id of places.filter((id) => pack.places[id]))
-    s.memories[id] ??= fresh[id];
+  for (const id of Object.keys(pack.places))
+    if (!oldPlaces.has(id)) s.memories[id] ??= fresh[id];
+  if (pack.places["greek-vii-crag-camp"])
+    for (const [actor, edges] of Object.entries(s.routeKnowledge || {})) {
+      if (!Array.isArray(edges)) continue;
+      const expanded = edges.flatMap((edge) => {
+        if (!Array.isArray(edge) || edge.length !== 2) return [edge];
+        const [from, to] = edge;
+        return [from, to].includes("greek-susa") &&
+          [from, to].includes("greek-scythian-crag")
+          ? [
+              [from, "greek-vii-crag-camp"],
+              ["greek-vii-crag-camp", to],
+            ]
+          : [edge];
+      });
+      s.routeKnowledge[actor] = [
+        ...new Map(
+          expanded.map((edge) => [JSON.stringify(edge), edge]),
+        ).values(),
+      ];
+    }
   saved.revision = 8;
 }
 

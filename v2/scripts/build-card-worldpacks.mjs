@@ -11,6 +11,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { frozenVerseProblems } from "./frozen-card-verses.mjs";
+import { compileReadingCatalogs } from "./card-reading-catalogs.mjs";
 import {
   packProblems,
   observationProblems,
@@ -156,3 +157,19 @@ if (check) {
   fs.writeFileSync(output, compiled);
   console.log(`Wrote v2/card-game/packs.json: ${table.packs.join(", ")}.`);
 }
+
+const catalogFile = path.join(v2, "card-game/poem-catalogs.json");
+const rules = fs
+  .readFileSync(
+    path.join(v2, "orchestrator-rust/src/card_shared/engine.rs"),
+    "utf8",
+  )
+  .match(/const VERSION: &str = "([^"]+)"/)?.[1];
+const priorCatalogs = fs.existsSync(catalogFile)
+  ? JSON.parse(fs.readFileSync(catalogFile, "utf8"))
+  : null;
+const catalogs = compileReadingCatalogs(packs, rules, priorCatalogs);
+if (check) {
+  if (JSON.stringify(priorCatalogs) !== JSON.stringify(catalogs))
+    throw new Error("Rebuild the published poem catalogs with the card packs.");
+} else fs.writeFileSync(catalogFile, JSON.stringify(catalogs, null, 2) + "\n");

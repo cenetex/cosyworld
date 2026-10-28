@@ -581,7 +581,8 @@ export function validLife(s, placeIds = null) {
   const place = (p) =>
     typeof p === "string" &&
     p.length > 0 &&
-    p.length <= 40 &&
+    // Authored pack IDs use the same 80-character bound for rooms and people.
+    p.length <= 80 &&
     (!placeIds || placeIds.includes(p));
   const validExperience = (e) =>
     e &&

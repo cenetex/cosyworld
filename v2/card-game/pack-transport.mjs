@@ -12,6 +12,13 @@ export const passengers = (s, id) =>
     .filter(([, a]) => a.place === transports[id].place)
     .map(([, a]) => a);
 
+export function transportDepartureDock(s, place) {
+  const id = Object.keys(transports).find(
+    (key) => transports[key].place === place,
+  );
+  return id ? s.transports[id].dock : null;
+}
+
 export function transportBoardingAllowed(s, actor, place) {
   if (!actor) return true;
   const found = Object.entries(transports).find(([, t]) => t.place === place);

@@ -120,7 +120,8 @@ describe("agreed resident journeys", () => {
         effects: [{ kind: "set_flag", key: flag, value: true }],
       });
     pack.release.choices.push(agreement, arrival);
-    pack.release.places.push("greek-argolid-road");
+    if (!pack.release.places.includes("greek-argolid-road"))
+      pack.release.places.push("greek-argolid-road");
   });
   afterEach(() => {
     pack.avatars[resident] = structuredClone(original.avatar);

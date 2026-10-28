@@ -24,6 +24,7 @@ const thebes = [
   "greek-gate",
   "greek-battlefield",
   "greek-sanctuary",
+  "greek-cithaeron",
   "greek-road-thebes",
 ];
 const night = (world, place) => backdrop(place, world).endsWith("-night.webp");
@@ -230,4 +231,32 @@ describe("day and night in Thebes", () => {
       ).toContain(`It is night at ${name}.`);
     }
   });
+});
+
+describe("Book II day and night", () => {
+  it.each([
+    ["greek-pherae", "book-two-pherae", "in Pherae"],
+    ["greek-trachis", "book-two-trachis", "at Trachis"],
+  ])(
+    "shows the matched paintings and local time at %s",
+    (place, image, where) => {
+      const world = createWorld({ packScopes: { "greek-drama": "full" } });
+      expect(backdrop(place, world)).toBe(
+        `./assets/greek-drama/${image}-day.webp`,
+      );
+      expect(locationDaylight(world, place).description).toBe(
+        `It is day ${where}.`,
+      );
+      world.turn = world.revision = DAYLIGHT_TURNS;
+      expect(backdrop(place, world)).toBe(
+        `./assets/greek-drama/${image}-night.webp`,
+      );
+      expect(locationDaylight(world, place).description).toBe(
+        `It is night ${where}.`,
+      );
+      expect(backdrop(place, decodeSave(encodeSave(world)))).toBe(
+        backdrop(place, world),
+      );
+    },
+  );
 });

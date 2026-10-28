@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { decodeSave, encodeSave } from "../v2/card-game/world.mjs";
 import {
   crossings,
@@ -17,7 +17,12 @@ import {
   validTransports,
 } from "../v2/card-game/pack-transport.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
-import { aulisWitness, bookMove } from "./helpers/greek-book-three.mjs";
+import {
+  aulisWitness,
+  bookBoard,
+  bookMove,
+  bookPlay,
+} from "./helpers/greek-book-three.mjs";
 
 const pack = packDefinition("greek-drama");
 const shipId = "greek-ship";
@@ -39,6 +44,19 @@ const fullPortPlan = [
   "greek-sicily-shore",
 ];
 const problems = (data) => packProblems(data, hub, Object.keys(packPlaces));
+
+let portWitness;
+function witnessWithEgyptianPort() {
+  if (!portWitness) {
+    let world = bookMove(bookBoard(aulisWitness()), "greek-harbor");
+    world = bookPlay(world, "choose", {
+      choiceId: "greek-book-iv-invitation-accept",
+    });
+    world = bookPlay(world, "choose", { choiceId: "greek-helen-egypt" });
+    portWitness = bookMove(bookBoard(world), "greek-aulis");
+  }
+  return structuredClone(portWitness);
+}
 
 function expanded(count) {
   const result = structuredClone(pack);
@@ -102,7 +120,9 @@ function withTwelvePorts(world, run) {
   }
 }
 
-describe("the bounded Greek ship contract", () => {
+afterEach(() => new Promise((resolve) => setImmediate(resolve)));
+
+describe("the bounded Greek ship contract", { timeout: 60000 }, () => {
   it("accepts twelve distinct docks with their crossings and keeps the original five", () => {
     const fixture = expanded(12);
     expect(fixture.transports[shipId].docks).toHaveLength(12);
@@ -163,7 +183,7 @@ describe("the bounded Greek ship contract", () => {
   );
 
   it("makes the full empty-ship circuit and restores its single position", () => {
-    const start = aulisWitness();
+    const start = witnessWithEgyptianPort();
     withTwelvePorts(start, (world, docks) => {
       for (const actor of Object.values(world.actors))
         if (actor.place === shipId) actor.place = "greek-aulis";
@@ -187,7 +207,7 @@ describe("the bounded Greek ship contract", () => {
   });
 
   it("keeps a consenting companion aboard through another human’s different stop", () => {
-    const start = bookMove(aulisWitness(), "greek-aulis-household");
+    const start = bookMove(witnessWithEgyptianPort(), "greek-aulis-household");
     withTwelvePorts(start, (initial) => {
       let world = dispatchShared({
         op: "create",

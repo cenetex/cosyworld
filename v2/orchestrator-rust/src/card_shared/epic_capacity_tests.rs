@@ -1,6 +1,44 @@
 use super::{engine, full_store, full_world::World, now, store};
 use serde_json::{json, Value};
 
+fn routes_through_crag_camp(previous: &Value) -> Value {
+    let mut routes = Vec::new();
+    for edge in previous.as_array().unwrap() {
+        let replacements = if (edge[0] == "greek-susa" && edge[1] == "greek-scythian-crag")
+            || (edge[1] == "greek-susa" && edge[0] == "greek-scythian-crag")
+        {
+            vec![
+                json!([edge[0], "greek-vii-crag-camp"]),
+                json!(["greek-vii-crag-camp", edge[1]]),
+            ]
+        } else {
+            vec![edge.clone()]
+        };
+        for route in replacements {
+            if !routes.contains(&route) {
+                routes.push(route);
+            }
+        }
+    }
+    json!(routes)
+}
+
+// Earlier saved fields retain their values. The eastern road gains its
+// authored camp, and the pack revision records the larger catalog.
+fn assert_retained(old: &Value, current: &Value, path: &str) {
+    if path.ends_with("packs.greek-drama.revision") {
+        assert!(current.as_u64().unwrap() >= old.as_u64().unwrap());
+    } else if path.contains("routeKnowledge.") && old.is_array() {
+        assert_eq!(current, &routes_through_crag_camp(old), "Retain {path}");
+    } else if let Some(fields) = old.as_object() {
+        for (key, value) in fields {
+            assert_retained(value, &current[key], &format!("{path}.{key}"));
+        }
+    } else {
+        assert_eq!(current, old, "Retain {path}");
+    }
+}
+
 fn select(world: &World, field: &str, value: &str) -> Value {
     world.project(0).unwrap()["actions"]
         .as_array()
@@ -11,11 +49,75 @@ fn select(world: &World, field: &str, value: &str) -> Value {
         .clone()
 }
 
+// New chapters add catalog entries while earlier saved records keep their values.
+fn assert_catalog_extension(old: &Value, current: &Value, fresh: bool) {
+    let mut retained = current.clone();
+    if fresh {
+        let expected_routes = routes_through_crag_camp(&old["routeKnowledge"]["greek-rhapsode"]);
+        let previous_routes = expected_routes.as_array().unwrap();
+        let routes = current["routeKnowledge"]["greek-rhapsode"]
+            .as_array()
+            .unwrap();
+        for route in previous_routes {
+            assert!(routes.contains(route));
+        }
+        retained["routeKnowledge"]["greek-rhapsode"] = expected_routes;
+    }
+    assert_retained(old, &retained, "");
+    let catalog: Value =
+        serde_json::from_str(include_str!("../../../card-game/packs.json")).unwrap();
+    let greek = catalog["packs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["id"] == "greek-drama")
+        .unwrap();
+    for (id, definition) in greek["avatars"].as_object().unwrap() {
+        if old["actors"].get(id).is_some() {
+            continue;
+        }
+        let actor = &current["actors"][id];
+        assert_eq!(actor["place"], definition["place"], "New resident {id}");
+        assert_eq!(actor["progress"], json!({"program":0,"step":0,"marks":[]}));
+        assert_eq!(actor["crossed"], 0);
+        assert_eq!(actor["lastTalk"], -9);
+        assert!(actor["trust"]
+            .as_object()
+            .unwrap()
+            .values()
+            .all(|value| value == 0));
+        assert_eq!(current["peaceUntil"][id], 0);
+        assert_eq!(current["motives"]["grievances"][id], json!([]));
+    }
+    for (id, definition) in greek["items"].as_object().unwrap() {
+        if old["items"].get(id).is_some() {
+            continue;
+        }
+        assert_eq!(
+            current["items"][id],
+            json!({"holder":definition["holder"],"history":[]})
+        );
+    }
+    for field in ["avatars", "items", "places"] {
+        for id in greek[field].as_object().unwrap().keys() {
+            if old["memories"].get(id).is_some() {
+                continue;
+            }
+            let memory = &current["memories"][id];
+            assert_eq!(memory["events"], json!([]));
+            assert_eq!(memory["landmarks"], json!([]));
+            assert!(memory["text"].is_null());
+            assert!(memory["turn"].is_null());
+        }
+    }
+}
+
 #[test]
-fn capacity_rules_match_twenty_for_existing_worlds_and_plays() {
+fn capacity_rules_extend_twenty_and_preserve_existing_plays() {
     let request = json!({"op":"create"});
     let old = engine::reduce_version(engine::TWENTIETH_VERSION, request.clone()).unwrap();
-    assert_eq!(engine::reduce(request).unwrap(), old);
+    let current = engine::reduce(request).unwrap();
+    assert_catalog_extension(&old["world"], &current["world"], true);
     let mut world = World {
         version: engine::TWENTIETH_VERSION.into(),
         game: old["world"].clone(),
@@ -25,11 +127,14 @@ fn capacity_rules_match_twenty_for_existing_worlds_and_plays() {
     let mut request = world.request("play", 0);
     request["action"] = select(&world, "kind", "light");
     let old = engine::reduce_version(engine::TWENTIETH_VERSION, request.clone()).unwrap();
-    assert_eq!(engine::reduce(request).unwrap(), old);
+    let current = engine::reduce(request).unwrap();
+    assert_catalog_extension(&old["world"], &current["world"], false);
     world.game = old["world"].clone();
-    assert_eq!(
-        engine::reduce(world.request("view", 0)).unwrap(),
-        engine::reduce_version(engine::TWENTIETH_VERSION, world.request("view", 0)).unwrap()
+    assert_retained(
+        &engine::reduce_version(engine::TWENTIETH_VERSION, world.request("view", 0)).unwrap()
+            ["world"],
+        &engine::reduce(world.request("view", 0)).unwrap()["world"],
+        "",
     );
 }
 
@@ -92,7 +197,7 @@ fn capacity_upgrade_keeps_earned_wording_and_authors_through_journal_rebuild() {
             "routeKnowledge",
             "questCompletions",
         ] {
-            assert_eq!(world.game[field], before[field], "Preserve {field}");
+            assert_retained(&before[field], &world.game[field], field);
         }
         let record = &world.game["packs"]["greek-drama"]["recitals"]["greek-return-water-jar"];
         assert_eq!(record.as_object().unwrap().len(), 2);

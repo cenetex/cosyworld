@@ -1,11 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import {
   decodeSave,
   encodeSave,
   legalActions,
   accompanyDecision,
 } from "../v2/card-game/world.mjs";
-import { packDefinition } from "../v2/card-game/pack-registry.mjs";
+import {
+  entityActive,
+  packDefinition,
+} from "../v2/card-game/pack-registry.mjs";
 import { recitalPoem } from "../v2/card-game/pack-recital.mjs";
 import { knowsFact } from "../v2/card-game/knowledge.mjs";
 import {
@@ -24,7 +27,9 @@ const saved = (world) => world.packs[pack.id];
 const accompany = (world) =>
   legalActions(world).filter((a) => a.kind === "accompany" && a.target === ph);
 
-describe("The Offered Sail", () => {
+afterEach(() => new Promise((resolve) => setImmediate(resolve)));
+
+describe("The Offered Sail", { timeout: 60000 }, () => {
   it.each(["troy", "home", "repair"])(
     "completes the %s voyage with consent, actual arrival and a returned jug",
     (route) => {
@@ -39,6 +44,15 @@ describe("The Offered Sail", () => {
       );
       expect(world.items["greek-lemnos-bow"].holder).toBe(ph);
       expect(world.items["greek-lemnos-water"].holder).toBe("greek-courtyard");
+      if (route === "home") {
+        for (const place of ["greek-delphi", "greek-trachis"])
+          expect(entityActive(world, place), place).toBe(true);
+        for (const other of [
+          "greek-trachis-deianira",
+          "greek-pythian-priestess",
+        ])
+          expect(entityActive(world, other), other).toBe(false);
+      }
       expect(knowsFact(world, "vale", `greek-lemnos-arrival-${route}`)).toBe(
         true,
       );

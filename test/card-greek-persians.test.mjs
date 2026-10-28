@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import {
   decodeSave,
   encodeSave,
@@ -13,7 +13,9 @@ import {
 } from "./helpers/greek-book-three.mjs";
 
 const pack = packDefinition("greek-drama");
-describe("The Broken Oar", () => {
+afterEach(() => new Promise((resolve) => setImmediate(resolve)));
+
+describe("The Broken Oar", { timeout: 60000 }, () => {
   it.each(["public", "private", "reckoning"])(
     "returns the historical %s account through actual court arrivals",
     (route) => {

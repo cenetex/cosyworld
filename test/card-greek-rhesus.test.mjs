@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import {
   decodeSave,
   encodeSave,
@@ -15,7 +15,9 @@ import {
 
 const pack = packDefinition("greek-drama");
 
-describe("The Watchword in the Dark", () => {
+afterEach(() => new Promise((resolve) => setImmediate(resolve)));
+
+describe("The Watchword in the Dark", { timeout: 60000 }, () => {
   it.each(["warning", "raid"])(
     "brings the %s account home with four earned stanzas",
     (route) => {

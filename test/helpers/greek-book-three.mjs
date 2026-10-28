@@ -23,6 +23,12 @@ export function traceBookJourney(run, openingChoice) {
   }
 }
 
+const earlierJourneys = new Map();
+function earlierJourney(id, build) {
+  if (!earlierJourneys.has(id)) earlierJourneys.set(id, build());
+  return structuredClone(earlierJourneys.get(id));
+}
+
 export function bookPlay(world, kind, fields = {}, actor = "vale") {
   const action = legalActions(world, actor).find(
     (candidate) =>
@@ -41,7 +47,7 @@ export const thraceChoice = (world, id) =>
   bookPlay(world, "choose", { choiceId: `greek-thrace-${id}` });
 
 export function thraceStart() {
-  let world = bookMove(troyJourney(), "greek-harbor");
+  let world = bookMove(earlierJourney("troy", troyJourney), "greek-harbor");
   world = thraceChoice(world, "invitation");
   return bookMove(bookBoard(world), "greek-thrace");
 }
@@ -129,7 +135,7 @@ export const susaChoice = (world, id) =>
   bookPlay(world, "choose", { choiceId: `greek-susa-${id}` });
 
 export function susaStart() {
-  let world = bookMove(thraceJourney(), "greek-harbor");
+  let world = bookMove(earlierJourney("thrace", thraceJourney), "greek-harbor");
   world = susaChoice(world, "invitation");
   return bookMove(
     bookBoard(world),
@@ -221,7 +227,7 @@ export const bookBoard = (world, actor = "vale") =>
   bookPlay(bookDocked(world, actor), "move", { target: "greek-ship" }, actor);
 
 export function lemnosStart() {
-  let world = bookMove(aulisJourney(), "greek-harbor");
+  let world = bookMove(earlierJourney("aulis", aulisJourney), "greek-harbor");
   world = lemnosChoice(world, "invitation");
   return bookMove(bookBoard(world), "greek-lemnos-landing");
 }
@@ -307,7 +313,7 @@ export const rhesusChoice = (world, id) =>
   bookPlay(world, "choose", { choiceId: `greek-rhesus-${id}` });
 
 export function rhesusStart() {
-  let world = bookMove(lemnosJourney(), "greek-harbor");
+  let world = bookMove(earlierJourney("lemnos", lemnosJourney), "greek-harbor");
   world = rhesusChoice(world, "invitation");
   return bookMove(
     bookBoard(world),
@@ -382,7 +388,7 @@ const troyToTent = (world) =>
   bookMove(world, "greek-greek-camp", "greek-troy", troyTent);
 
 export function troyStart(route = "witness") {
-  let world = bookMove(rhesusJourney(), "greek-harbor");
+  let world = bookMove(earlierJourney("rhesus", rhesusJourney), "greek-harbor");
   world = troyChoice(world, "invitation");
   if (route !== "witness") {
     world = bookPlay(world, "take", { item: "greek-troy-crew-pledge" });

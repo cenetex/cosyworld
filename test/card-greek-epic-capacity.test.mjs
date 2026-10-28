@@ -34,7 +34,7 @@ const problems = (pack) =>
 function capacityPack() {
   const p = greek();
   delete p.release;
-  while (p.choices.length < 512) {
+  while (p.choices.length < 1024) {
     const id = `scale-choice-${p.choices.length}`;
     p.choices.push({
       id,
@@ -48,7 +48,7 @@ function capacityPack() {
   }
   const verseChoices = new Set(p.recital.verses.map((v) => v.choice));
   for (const c of p.choices)
-    if (!verseChoices.has(c.id))
+    if (!verseChoices.has(c.id) && p.recital.verses.length < 512)
       p.recital.verses.push({
         choice: c.id,
         quest: `scale-quest-${p.recital.verses.length}`,
@@ -70,7 +70,7 @@ function capacityPack() {
 }
 
 describe("bounded room for the Greek epic", () => {
-  it("accepts 512 choices and verses with 256 story definitions", () => {
+  it("accepts 1024 choices, 512 verses and 256 story definitions", () => {
     const p = capacityPack();
     expect(p.recital.verses).toHaveLength(512);
     expect(problems(p)).toEqual([]);
@@ -255,28 +255,65 @@ describe("frozen earned wording", () => {
 
 describe("story validation within one unchanged operation", () => {
   it("keeps output and saved authors equal to the released interpreter through real plays", () => {
-    let w = createWorld();
-    delete w.opening;
-    w.actors.vale.place = "greek-courtyard";
-    w.crossings["pond-greek-harbor"].discovered = true;
-    w.items["greek-water-jar"].holder = "vale";
+    // Rust serializes saved maps in key order before calling a released engine.
+    const hostOrder = (value) =>
+      JSON.parse(
+        JSON.stringify(value, (_, v) =>
+          v && typeof v === "object" && !Array.isArray(v)
+            ? Object.fromEntries(
+                Object.keys(v)
+                  .sort()
+                  .map((key) => [key, v[key]]),
+              )
+            : v,
+        ),
+      );
+    let old = hostOrder(previous.dispatch({ op: "create" }).world);
+    delete old.opening;
+    old.actors.vale.place = "greek-courtyard";
+    old.crossings["pond-greek-harbor"].discovered = true;
+    old.items["greek-water-jar"].holder = "vale";
+    let w = decodeSave(JSON.stringify(old));
     for (const match of [
       (a) => a.choiceId === "greek-return-water-jar",
       (a) => a.kind === "wait",
       (a) => a.kind === "move" && a.target === "greek-well",
     ]) {
-      const action = legalActions(w).find(match);
-      expect(action).toBeDefined();
-      const request = {
-        op: "play",
-        world: w,
+      const view = previous.dispatch({
+        op: "view",
+        world: old,
         actor: "vale",
         claimed: ["vale"],
         present: ["vale"],
-        action,
-      };
-      expect(dispatchShared(request)).toEqual(previous.dispatch(request));
-      w = play(w, action).state;
+      });
+      const oldAction = view.actions.find(match),
+        action = legalActions(w).find(match);
+      expect(oldAction).toBeDefined();
+      expect(action).toBeDefined();
+      expect(action.key).toBe(oldAction.key);
+      const request = (world, chosen) => ({
+        op: "play",
+        world,
+        actor: "vale",
+        claimed: ["vale"],
+        present: ["vale"],
+        action: chosen,
+      });
+      const prior = previous.dispatch(request(old, oldAction));
+      const current = dispatchShared(request(w, action));
+      expect(prior.ok).toBe(true);
+      expect(current.ok).toBe(true);
+      old = hostOrder(prior.world);
+      w = current.world;
+      expect(w.turn).toBe(old.turn);
+      expect(w.log).toEqual(old.log);
+      expect(w.packs["greek-drama"].receipts).toEqual(
+        old.packs["greek-drama"].receipts,
+      );
+      expect(w.packs["greek-drama"].choices).toEqual(
+        old.packs["greek-drama"].choices,
+      );
+      expect(w.items).toMatchObject(old.items);
       expect(decodeSave(encodeSave(w))).toEqual(w);
     }
     const p = greek(),
@@ -285,16 +322,13 @@ describe("story validation within one unchanged operation", () => {
     expect(record.actor).toBe("vale");
     record.actor = null;
     w.log = [];
-    const restored = decodeSave(encodeSave(w));
+    const restored = decodeSave(JSON.stringify(w));
     expect(
       restored.packs[p.id].recitals["greek-return-water-jar"].actor,
     ).toBeNull();
     expect(validRecitals(restored, p)).toBe(true);
     expect(recitalPoem(restored, p)).toEqual(previous.poem(restored, p));
-    const older = previous.dispatch({
-      op: "create",
-      save: JSON.stringify(restored),
-    }).world;
+    const older = structuredClone(old);
     delete older.packs[p.id].recitals;
     older.log = [];
     const upgraded = decodeSave(JSON.stringify(older));
@@ -304,6 +338,33 @@ describe("story validation within one unchanged operation", () => {
     });
     expect(decodeSave(encodeSave(upgraded))).toEqual(upgraded);
     expect(recitalPoem(upgraded, p)).toEqual(previous.poem(restored, p));
+  });
+  it("matches the current bundled interpreter through real plays", () => {
+    const current = releasedCardEngine(21);
+    let world = createWorld();
+    delete world.opening;
+    world.actors.vale.place = "greek-courtyard";
+    world.crossings["pond-greek-harbor"].discovered = true;
+    world.items["greek-water-jar"].holder = "vale";
+    for (const match of [
+      (action) => action.choiceId === "greek-return-water-jar",
+      (action) => action.kind === "wait",
+      (action) => action.kind === "move" && action.target === "greek-well",
+    ]) {
+      const action = legalActions(world).find(match);
+      expect(action).toBeDefined();
+      const request = {
+        op: "play",
+        world,
+        actor: "vale",
+        claimed: ["vale"],
+        present: ["vale"],
+        action,
+      };
+      expect(dispatchShared(request)).toEqual(current.dispatch(request));
+      world = play(world, action).state;
+      expect(decodeSave(encodeSave(world))).toEqual(world);
+    }
   });
   it("uses one definition snapshot for the batch and a fresh one for the next operation", () => {
     const w = createWorld();

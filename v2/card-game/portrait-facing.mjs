@@ -35,6 +35,44 @@ const groups = {
     "assets/moth.png",
     "assets/keeper.png",
     "assets/greek-drama/myrine.webp",
+    "assets/greek-drama/book-one-melea.png",
+    "assets/greek-drama/book-one-melitta.png",
+    ...[
+      "melia",
+      "nera",
+      "alcestis",
+      "chloris",
+      "megara",
+      "amphitryon",
+      "deianira",
+      "iole",
+      "hyllus",
+      "lichas",
+    ].map((name) => `assets/greek-drama/book-two-${name}.png`),
+    "assets/greek-drama/hero-heracles.png",
+    "assets/greek-drama/helen-theonoe.png",
+    "assets/greek-drama/helen-theoclymenus.png",
+    ...[
+      "argos-watchman",
+      "cassandra",
+      "clytemnestra",
+      "argos-housekeeper",
+      "pylades",
+      "cilissa",
+      "chrysothemis",
+      "paedagogus",
+      "argive-farmer",
+      "electra-old-servant",
+      "hermione",
+      "phrygian-servant",
+      "pythian-priestess",
+      "furies",
+      "athena",
+      "iphigenia-tauris",
+      "thoas",
+      "taurian-chorus",
+    ].map((name) => `assets/greek-drama/house-of-blood/${name}.png`),
+    "assets/greek-drama/book-four-molossus.png",
     ...["tecmessa", "teucer", "odysseus"].map(
       (name) => `assets/greek-drama/ajax-${name}.png`,
     ),
@@ -108,5 +146,9 @@ const widePortraits = new Set([
   "assets/lonely-forest/skull.png",
   "assets/lonely-forest/whiskerwind.png",
 ]);
-export const portraitFraming = (cutout) =>
-  widePortraits.has(cutout.replace(/^\.\//, "")) ? "wide" : "standard";
+const childPortraits = new Set(["assets/greek-drama/book-four-molossus.png"]);
+export function portraitFraming(cutout) {
+  const file = cutout.replace(/^\.\//, "");
+  if (childPortraits.has(file)) return "child";
+  return widePortraits.has(file) ? "wide" : "standard";
+}

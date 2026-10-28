@@ -10,6 +10,14 @@ import {
 } from "../v2/card-game/portrait-facing.mjs";
 
 describe("stage portrait art directions", () => {
+  it("gives the child portrait its own foreground framing", () => {
+    const path = "assets/greek-drama/book-four-molossus.png";
+    expect(portraitFraming(path)).toBe("child");
+    expect(portraitFraming(`./${path}`)).toBe("child");
+    expect(nativePortraitFacing(path)).toBe("left");
+    expect(flipStagePortrait(path, "right")).toBe(true);
+  });
+
   it("frames broad forest animals on phones and keeps the other figures at their usual size", () => {
     for (const name of ["skull", "whiskerwind"]) {
       const path = `assets/lonely-forest/${name}.png`;

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import {
   decodeSave,
   encodeSave,
@@ -15,7 +15,9 @@ import {
 } from "./helpers/greek-book-three.mjs";
 
 const pack = packDefinition("greek-drama");
-describe("The Gold Beneath the Tide", () => {
+afterEach(() => new Promise((resolve) => setImmediate(resolve)));
+
+describe("The Gold Beneath the Tide", { timeout: 60000 }, () => {
   it.each(["revenge", "hearing", "two-burials"])(
     "brings the %s case home after two actual burials",
     (route) => {

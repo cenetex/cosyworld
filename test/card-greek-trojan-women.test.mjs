@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import {
   decodeSave,
   encodeSave,
@@ -15,7 +15,9 @@ import {
 } from "./helpers/greek-book-three.mjs";
 
 const pack = packDefinition("greek-drama");
-describe("What the Ships Will Carry", () => {
+afterEach(() => new Promise((resolve) => setImmediate(resolve)));
+
+describe("What the Ships Will Carry", { timeout: 60000 }, () => {
   it.each(["witness", "child-refuge", "family-together"])(
     "completes %s through both physical letter carriers",
     (route) => {

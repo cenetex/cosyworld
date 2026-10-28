@@ -132,6 +132,27 @@
       }
     },
     {
+      "id": "greek-book-iv-helen-landing-ship",
+      "from": "greek-book-iv-helen-landing",
+      "to": "pond",
+      "travelers": "any",
+      "travel": "aboard the ship",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-open",
+          "value": true
+        }
+      ],
+      "transport": "greek-ship",
+      "travelLabel": "Board",
+      "scenery": {
+        "open": "The shared Greek ship waits at this chapter’s shore.",
+        "cardName": "Greek ship",
+        "cardArt": "assets/greek-drama/ship-card.webp"
+      }
+    },
+    {
       "id": "greek-aulis-ship",
       "from": "greek-aulis",
       "to": "pond",
@@ -207,11 +228,18 @@
         "greek-athens-harbor",
         "greek-piraeus",
         "greek-ajax-landing",
+        "greek-book-iv-helen-landing",
         "greek-aulis",
         "greek-lemnos-landing",
         "greek-thrace"
       ],
       "at": "greek-harbor"
+    }
+  },
+  "values": {
+    "greek-book-iv-hippolytus-phaedra": {
+      "lamp": 3,
+      "cloth": 3
     }
   }
 }
