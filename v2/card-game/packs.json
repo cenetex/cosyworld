@@ -7627,6 +7627,1217 @@
           ]
         }
       ],
+      "storyQuests": [
+        {
+          "id": "story-quest-greek-table",
+          "group": "opening",
+          "line": "A place beside the bread.",
+          "holder": {
+            "kind": "avatar",
+            "id": "greek-baker"
+          },
+          "art": "greek-water-jar",
+          "start": {
+            "any": [
+              {
+                "kind": "met",
+                "actor": "greek-baker"
+              },
+              {
+                "kind": "flag",
+                "key": "greek-water-returned",
+                "value": true
+              }
+            ]
+          },
+          "endings": [
+            {
+              "choice": "greek-return-water-jar"
+            }
+          ],
+          "created": {
+            "first": [
+              {
+                "kind": "met",
+                "actor": "greek-baker"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-return-water-jar"
+              }
+            ]
+          },
+          "related": [
+            "greek-return-water-jar"
+          ]
+        },
+        {
+          "id": "story-quest-greek-burial",
+          "group": "opening",
+          "line": "Her brother waits for earth.",
+          "holder": {
+            "kind": "avatar",
+            "id": "greek-antigone"
+          },
+          "art": "greek-funeral-cloth",
+          "start": {
+            "any": [
+              {
+                "kind": "met",
+                "actor": "greek-antigone"
+              },
+              {
+                "kind": "flag",
+                "key": "greek-decree-known",
+                "value": true
+              },
+              {
+                "kind": "choice_set",
+                "key": "greek-theban-response"
+              },
+              {
+                "kind": "flag",
+                "key": "greek-burial-performed",
+                "value": true
+              }
+            ]
+          },
+          "defaultEnding": "greek-perform-burial",
+          "endings": [
+            {
+              "choice": "greek-perform-permitted-burial",
+              "when": {
+                "kind": "receipt",
+                "choice": "greek-perform-permitted-burial"
+              }
+            },
+            {
+              "choice": "greek-perform-burial"
+            },
+            {
+              "choice": "greek-decline-burial",
+              "when": {
+                "kind": "choice",
+                "key": "greek-theban-response",
+                "value": "refusal"
+              },
+              "outcome": "Declined"
+            },
+            {
+              "choice": "greek-report-plan",
+              "when": {
+                "kind": "choice",
+                "key": "greek-theban-response",
+                "value": "exposure"
+              },
+              "outcome": "Reported"
+            }
+          ],
+          "created": {
+            "first": [
+              {
+                "kind": "met",
+                "actor": "greek-antigone"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-hear-decree"
+              },
+              {
+                "first": [
+                  {
+                    "kind": "receipt",
+                    "choice": "greek-perform-permitted-burial"
+                  },
+                  {
+                    "kind": "receipt",
+                    "choice": "greek-perform-burial"
+                  },
+                  {
+                    "kind": "receipt",
+                    "choice": "greek-decline-burial"
+                  },
+                  {
+                    "kind": "receipt",
+                    "choice": "greek-report-plan"
+                  }
+                ]
+              }
+            ]
+          },
+          "related": [
+            "greek-hear-decree",
+            "greek-decline-burial",
+            "greek-report-plan",
+            "greek-prepare-burial-ground",
+            "greek-prepare-permitted-burial",
+            "greek-perform-burial",
+            "greek-perform-permitted-burial",
+            "greek-petition-burial"
+          ]
+        },
+        {
+          "id": "story-quest-greek-courtyard",
+          "group": "opening",
+          "line": "What words will you bring home?",
+          "holder": {
+            "kind": "place",
+            "id": "greek-courtyard"
+          },
+          "art": "greek-bread",
+          "start": {
+            "all": [
+              {
+                "kind": "choice",
+                "key": "greek-theban-response",
+                "value": "concession"
+              },
+              {
+                "kind": "flag",
+                "key": "greek-burial-performed",
+                "value": true
+              },
+              {
+                "kind": "flag",
+                "key": "greek-concession-public",
+                "value": true
+              }
+            ]
+          },
+          "endings": [
+            {
+              "choice": "greek-courtyard-permitted-burial"
+            }
+          ],
+          "outcome": "Shared",
+          "created": {
+            "latest": [
+              {
+                "first": [
+                  {
+                    "kind": "receipt",
+                    "choice": "greek-perform-permitted-burial"
+                  },
+                  {
+                    "kind": "receipt",
+                    "choice": "greek-perform-burial"
+                  }
+                ]
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-courtyard-concession"
+              }
+            ]
+          },
+          "related": "ending",
+          "key": "story-quest-greek-courtyard:grave"
+        },
+        {
+          "id": "story-quest-greek-courtyard",
+          "group": "opening",
+          "line": "What words will you bring home?",
+          "holder": {
+            "kind": "place",
+            "id": "greek-courtyard"
+          },
+          "art": "greek-bread",
+          "start": {
+            "kind": "choice_set",
+            "key": "greek-theban-response"
+          },
+          "endings": [
+            {
+              "choice": "greek-courtyard-burial",
+              "when": {
+                "kind": "choice",
+                "key": "greek-theban-response",
+                "value": "burial"
+              }
+            },
+            {
+              "choice": "greek-courtyard-concession",
+              "when": {
+                "kind": "choice",
+                "key": "greek-theban-response",
+                "value": "concession"
+              }
+            },
+            {
+              "choice": "greek-courtyard-refusal",
+              "when": {
+                "kind": "choice",
+                "key": "greek-theban-response",
+                "value": "refusal"
+              }
+            },
+            {
+              "choice": "greek-courtyard-exposure",
+              "when": {
+                "kind": "choice",
+                "key": "greek-theban-response",
+                "value": "exposure"
+              }
+            }
+          ],
+          "outcome": "Shared",
+          "created": {
+            "kind": "choice",
+            "key": "greek-theban-response"
+          },
+          "related": "ending",
+          "historicalWhen": {
+            "all": [
+              {
+                "kind": "choice",
+                "key": "greek-theban-response",
+                "value": "concession"
+              },
+              {
+                "kind": "flag",
+                "key": "greek-burial-performed",
+                "value": true
+              },
+              {
+                "kind": "flag",
+                "key": "greek-concession-public",
+                "value": true
+              }
+            ]
+          }
+        },
+        {
+          "id": "story-quest-greek-open-door-eleusis",
+          "group": "open-door",
+          "line": "Their sons need a road home.",
+          "holder": {
+            "kind": "avatar",
+            "id": "greek-aethra"
+          },
+          "art": "greek-burial-petition",
+          "start": {
+            "any": [
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-hear-mothers"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-hear-adrastus"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-lay-cloths"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-lay-ashes"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-hear-pyre"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-eleusis-pledge"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-eleusis-care"
+              }
+            ]
+          },
+          "progress": [
+            "greek-open-door-hear-adrastus",
+            "greek-open-door-lay-cloths",
+            "greek-open-door-lay-ashes",
+            "greek-open-door-hear-pyre"
+          ],
+          "endings": [
+            {
+              "choice": "greek-open-door-eleusis-pledge"
+            },
+            {
+              "choice": "greek-open-door-eleusis-care"
+            }
+          ]
+        },
+        {
+          "id": "story-quest-greek-open-door-agora",
+          "group": "open-door",
+          "line": "A city must answer.",
+          "holder": {
+            "kind": "avatar",
+            "id": "greek-theseus"
+          },
+          "art": "greek-burial-petition",
+          "start": {
+            "any": [
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-register-plea"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-request-truce"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-request-recovery"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-hear-truce-report"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-hear-recovery-report"
+              }
+            ]
+          },
+          "progress": [
+            "greek-open-door-request-truce",
+            "greek-open-door-request-recovery"
+          ],
+          "endings": [
+            {
+              "choice": "greek-open-door-hear-truce-report"
+            },
+            {
+              "choice": "greek-open-door-hear-recovery-report"
+            }
+          ]
+        },
+        {
+          "id": "story-quest-greek-open-door-piraeus",
+          "group": "open-door",
+          "line": "A berth beside the water.",
+          "holder": {
+            "kind": "avatar",
+            "id": "greek-quay-host"
+          },
+          "art": "greek-return-list",
+          "start": {
+            "any": [
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-hear-quay"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-set-provisions"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-family-berth"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-open-berth"
+              }
+            ]
+          },
+          "progress": [
+            "greek-open-door-set-provisions"
+          ],
+          "endings": [
+            {
+              "choice": "greek-open-door-family-berth"
+            },
+            {
+              "choice": "greek-open-door-open-berth"
+            }
+          ]
+        },
+        {
+          "id": "story-quest-greek-open-door-colonus",
+          "group": "open-door",
+          "line": "A stranger waits by the grove.",
+          "holder": {
+            "kind": "avatar",
+            "id": "greek-colonus-keeper"
+          },
+          "art": "greek-grove-cup",
+          "start": {
+            "any": [
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-colonus-enter"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-colonus-water"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-colonus-daughters"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-colonus-farewell"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-colonus-custom"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-colonus-family"
+              }
+            ]
+          },
+          "progress": [
+            "greek-open-door-colonus-water",
+            "greek-open-door-colonus-daughters",
+            "greek-open-door-colonus-farewell"
+          ],
+          "endings": [
+            {
+              "choice": "greek-open-door-colonus-custom"
+            },
+            {
+              "choice": "greek-open-door-colonus-family"
+            }
+          ]
+        },
+        {
+          "id": "story-quest-greek-open-door-marathon",
+          "group": "open-door",
+          "line": "The children need a place to rest.",
+          "holder": {
+            "kind": "avatar",
+            "id": "greek-marathon-keeper"
+          },
+          "art": "greek-shelter-blanket",
+          "start": {
+            "any": [
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-marathon-enter"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-marathon-blanket"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-marathon-daughter"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-marathon-battle"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-marathon-captive"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-marathon-hearing"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-marathon-alcmene"
+              }
+            ]
+          },
+          "progress": [
+            "greek-open-door-marathon-blanket",
+            "greek-open-door-marathon-daughter",
+            "greek-open-door-marathon-battle",
+            "greek-open-door-marathon-captive"
+          ],
+          "endings": [
+            {
+              "choice": "greek-open-door-marathon-hearing"
+            },
+            {
+              "choice": "greek-open-door-marathon-alcmene"
+            }
+          ]
+        },
+        {
+          "id": "story-quest-greek-open-door-return",
+          "group": "open-door",
+          "line": "What welcome will you bring home?",
+          "holder": {
+            "kind": "avatar",
+            "id": "greek-baker"
+          },
+          "art": "greek-bread",
+          "start": {
+            "any": [
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-eleusis-pledge"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-eleusis-care"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-hear-truce-report"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-hear-recovery-report"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-family-berth"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-open-berth"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-colonus-custom"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-colonus-family"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-marathon-hearing"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-marathon-alcmene"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-return-dione"
+              }
+            ]
+          },
+          "endings": [
+            {
+              "choice": "greek-open-door-return-dione"
+            }
+          ],
+          "created": {
+            "earliest": [
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-eleusis-pledge"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-eleusis-care"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-hear-truce-report"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-hear-recovery-report"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-family-berth"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-open-berth"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-colonus-custom"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-colonus-family"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-marathon-hearing"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-marathon-alcmene"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-return-dione"
+              }
+            ]
+          },
+          "related": "ending",
+          "outcome": "Shared"
+        },
+        {
+          "id": "story-quest-greek-homecoming-return",
+          "key": "story-quest-greek-homecoming-return:agora",
+          "group": "homecoming",
+          "keyedCard": true,
+          "line": "Bring the city's answer to Dione.",
+          "holder": {
+            "kind": "avatar",
+            "id": "greek-baker"
+          },
+          "art": "greek-bread",
+          "start": {
+            "any": [
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-hear-truce-report"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-hear-recovery-report"
+              }
+            ]
+          },
+          "endings": [
+            {
+              "choice": "greek-homecoming-report-agora-truce"
+            },
+            {
+              "choice": "greek-homecoming-report-agora-force"
+            },
+            {
+              "choice": "greek-open-door-return-dione"
+            }
+          ],
+          "endingOrder": "earliest",
+          "outcome": "Shared",
+          "created": {
+            "earliest": [
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-hear-truce-report"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-hear-recovery-report"
+              }
+            ]
+          },
+          "related": "start-and-ending"
+        },
+        {
+          "id": "story-quest-greek-homecoming-return",
+          "key": "story-quest-greek-homecoming-return:eleusis",
+          "group": "homecoming",
+          "keyedCard": true,
+          "line": "Bring the mothers' answer to Dione.",
+          "holder": {
+            "kind": "avatar",
+            "id": "greek-baker"
+          },
+          "art": "greek-bread",
+          "start": {
+            "any": [
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-eleusis-pledge"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-eleusis-care"
+              }
+            ]
+          },
+          "endings": [
+            {
+              "choice": "greek-homecoming-report-eleusis-pledge"
+            },
+            {
+              "choice": "greek-homecoming-report-eleusis-care"
+            },
+            {
+              "choice": "greek-open-door-return-dione"
+            }
+          ],
+          "endingOrder": "earliest",
+          "outcome": "Shared",
+          "created": {
+            "earliest": [
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-eleusis-pledge"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-eleusis-care"
+              }
+            ]
+          },
+          "related": "start-and-ending"
+        },
+        {
+          "id": "story-quest-greek-homecoming-return",
+          "key": "story-quest-greek-homecoming-return:piraeus",
+          "group": "homecoming",
+          "keyedCard": true,
+          "line": "Tell Dione who the berth will welcome.",
+          "holder": {
+            "kind": "avatar",
+            "id": "greek-baker"
+          },
+          "art": "greek-bread",
+          "start": {
+            "any": [
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-family-berth"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-open-berth"
+              }
+            ]
+          },
+          "endings": [
+            {
+              "choice": "greek-homecoming-report-piraeus-family"
+            },
+            {
+              "choice": "greek-homecoming-report-piraeus-open"
+            },
+            {
+              "choice": "greek-open-door-return-dione"
+            }
+          ],
+          "endingOrder": "earliest",
+          "outcome": "Shared",
+          "created": {
+            "earliest": [
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-family-berth"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-open-berth"
+              }
+            ]
+          },
+          "related": "start-and-ending"
+        },
+        {
+          "id": "story-quest-greek-homecoming-return",
+          "key": "story-quest-greek-homecoming-return:colonus",
+          "group": "homecoming",
+          "keyedCard": true,
+          "line": "Bring the grove's story to Dione.",
+          "holder": {
+            "kind": "avatar",
+            "id": "greek-baker"
+          },
+          "art": "greek-bread",
+          "start": {
+            "any": [
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-colonus-custom"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-colonus-family"
+              }
+            ]
+          },
+          "endings": [
+            {
+              "choice": "greek-homecoming-report-colonus-custom"
+            },
+            {
+              "choice": "greek-homecoming-report-colonus-family"
+            },
+            {
+              "choice": "greek-open-door-return-dione"
+            }
+          ],
+          "endingOrder": "earliest",
+          "outcome": "Shared",
+          "created": {
+            "earliest": [
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-colonus-custom"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-colonus-family"
+              }
+            ]
+          },
+          "related": "start-and-ending"
+        },
+        {
+          "id": "story-quest-greek-homecoming-return",
+          "key": "story-quest-greek-homecoming-return:marathon",
+          "group": "homecoming",
+          "keyedCard": true,
+          "line": "Bring the children's story to Dione.",
+          "holder": {
+            "kind": "avatar",
+            "id": "greek-baker"
+          },
+          "art": "greek-bread",
+          "start": {
+            "any": [
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-marathon-alcmene"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-marathon-hearing"
+              }
+            ]
+          },
+          "endings": [
+            {
+              "choice": "greek-homecoming-report-marathon-alcmene"
+            },
+            {
+              "choice": "greek-homecoming-report-marathon-hearing"
+            },
+            {
+              "choice": "greek-open-door-return-dione"
+            }
+          ],
+          "endingOrder": "earliest",
+          "outcome": "Shared",
+          "created": {
+            "earliest": [
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-marathon-alcmene"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-open-door-marathon-hearing"
+              }
+            ]
+          },
+          "related": "start-and-ending"
+        },
+        {
+          "id": "story-quest-greek-homecoming-household",
+          "group": "homecoming",
+          "keyedCard": false,
+          "line": "Bring Myrine to the waiting berth.",
+          "holder": {
+            "kind": "avatar",
+            "id": "greek-household-witness"
+          },
+          "art": "greek-return-list",
+          "start": {
+            "kind": "receipt",
+            "choice": "greek-homecoming-agree-journey"
+          },
+          "endings": [
+            {
+              "choice": "greek-homecoming-receive-family"
+            },
+            {
+              "choice": "greek-homecoming-receive-open"
+            }
+          ],
+          "endingOrder": "earliest",
+          "created": {
+            "kind": "receipt",
+            "choice": "greek-homecoming-agree-journey"
+          },
+          "related": "start-and-ending"
+        },
+        {
+          "id": "story-quest-greek-homecoming-witness",
+          "group": "homecoming",
+          "keyedCard": false,
+          "line": "Read Myrine's account beside your song.",
+          "holder": {
+            "kind": "avatar",
+            "id": "greek-baker"
+          },
+          "art": "greek-return-list",
+          "start": {
+            "any": [
+              {
+                "kind": "receipt",
+                "choice": "greek-homecoming-receive-family"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-homecoming-receive-open"
+              }
+            ]
+          },
+          "endings": [
+            {
+              "choice": "greek-homecoming-read-basket-family"
+            },
+            {
+              "choice": "greek-homecoming-read-basket-open"
+            },
+            {
+              "choice": "greek-homecoming-read-berth-family"
+            },
+            {
+              "choice": "greek-homecoming-read-berth-open"
+            }
+          ],
+          "endingOrder": "earliest",
+          "outcome": "Shared",
+          "created": {
+            "earliest": [
+              {
+                "kind": "receipt",
+                "choice": "greek-homecoming-receive-family"
+              },
+              {
+                "kind": "receipt",
+                "choice": "greek-homecoming-receive-open"
+              }
+            ]
+          },
+          "related": "start-and-ending"
+        }
+      ],
+      "topics": [
+        {
+          "id": "greek-hear-decree",
+          "speaker": "greek-guard",
+          "at": "greek-gate",
+          "text": "Creon's order forbids burial for Polyneices.",
+          "requires": [],
+          "choiceId": "greek-hear-decree"
+        },
+        {
+          "id": "greek-open-door-hear-mothers",
+          "speaker": "greek-aethra",
+          "at": "greek-eleusis",
+          "text": "The Argive mothers ask Athens to recover their sons' remains for burial.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-open-door-open",
+              "value": true
+            }
+          ],
+          "choiceId": "greek-open-door-hear-mothers"
+        },
+        {
+          "id": "greek-open-door-hear-adrastus",
+          "speaker": "greek-adrastus",
+          "at": "greek-eleusis",
+          "text": "Adrastus led the failed attack on Thebes and set aside a warning.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-open-door-open",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "greek-open-door-mothers-heard",
+              "value": true
+            }
+          ],
+          "choiceId": "greek-open-door-hear-adrastus"
+        },
+        {
+          "id": "greek-open-door-hear-quay",
+          "speaker": "greek-quay-host",
+          "at": "greek-piraeus",
+          "text": "The returning households need cloths, food and a berth assigned from the mothers' list.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-open-door-open",
+              "value": true
+            }
+          ],
+          "choiceId": "greek-open-door-hear-quay"
+        },
+        {
+          "id": "greek-open-door-hear-pyre",
+          "speaker": "greek-aethra",
+          "at": "greek-eleusis",
+          "text": "Evadne died at Capaneus's pyre despite Iphis's plea.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-open-door-open",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "greek-open-door-ashes-laid",
+              "value": true
+            }
+          ],
+          "choiceId": "greek-open-door-hear-pyre"
+        },
+        {
+          "id": "greek-open-door-colonus-enter",
+          "speaker": "greek-colonus-keeper",
+          "at": "greek-colonus",
+          "text": "In the earlier tale, Theseus gave Oedipus shelter at Colonus before the Theban brothers died.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-open-door-open",
+              "value": true
+            }
+          ],
+          "choiceId": "greek-open-door-colonus-enter"
+        },
+        {
+          "id": "greek-open-door-colonus-daughters",
+          "speaker": "greek-colonus-keeper",
+          "at": "greek-colonus",
+          "text": "In the earlier tale, Theseus recovered Oedipus's daughters and Oedipus refused his son's appeal for war.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-open-door-open",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "greek-open-door-colonus-water-set",
+              "value": true
+            }
+          ],
+          "choiceId": "greek-open-door-colonus-daughters"
+        },
+        {
+          "id": "greek-open-door-colonus-farewell",
+          "speaker": "greek-colonus-keeper",
+          "at": "greek-colonus",
+          "text": "In the earlier tale, Oedipus entrusted his final place to Theseus alone.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-open-door-open",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "greek-open-door-colonus-daughters-heard",
+              "value": true
+            }
+          ],
+          "choiceId": "greek-open-door-colonus-farewell"
+        },
+        {
+          "id": "greek-open-door-marathon-enter",
+          "speaker": "greek-marathon-keeper",
+          "at": "greek-marathon",
+          "text": "In the separate tale under Demophon, Heracles's children sought shelter and the king upheld their protection.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-open-door-open",
+              "value": true
+            }
+          ],
+          "choiceId": "greek-open-door-marathon-enter"
+        },
+        {
+          "id": "greek-open-door-marathon-daughter",
+          "speaker": "greek-marathon-keeper",
+          "at": "greek-marathon",
+          "text": "In the separate tale, Heracles's daughter offered her life for her siblings after Demophon refused to compel a household.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-open-door-open",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "greek-open-door-marathon-blanket-set",
+              "value": true
+            }
+          ],
+          "choiceId": "greek-open-door-marathon-daughter"
+        },
+        {
+          "id": "greek-open-door-marathon-battle",
+          "speaker": "greek-marathon-keeper",
+          "at": "greek-marathon",
+          "text": "In the separate tale, Athens won the battle after the daughter's sacrifice and Eurystheus was brought back alive.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-open-door-open",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "greek-open-door-marathon-daughter-heard",
+              "value": true
+            }
+          ],
+          "choiceId": "greek-open-door-marathon-battle"
+        },
+        {
+          "id": "greek-open-door-marathon-captive",
+          "speaker": "greek-marathon-keeper",
+          "at": "greek-marathon",
+          "text": "In the separate tale, Alcmene demanded Eurystheus's death while the city's rule protected a prisoner taken alive.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-open-door-open",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "greek-open-door-marathon-battle-heard",
+              "value": true
+            }
+          ],
+          "choiceId": "greek-open-door-marathon-captive"
+        },
+        {
+          "id": "greek-open-door-hear-truce-report",
+          "speaker": "greek-theseus",
+          "at": "greek-athens",
+          "text": "The herald confirmed that both sides accepted the burial truce and the Argive remains reached Eleusis under witness.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-open-door-open",
+              "value": true
+            },
+            {
+              "kind": "choice",
+              "key": "greek-open-door-recovery",
+              "value": "truce"
+            }
+          ],
+          "choiceId": "greek-open-door-hear-truce-report"
+        },
+        {
+          "id": "greek-open-door-hear-recovery-report",
+          "speaker": "greek-theseus",
+          "at": "greek-athens",
+          "text": "The messenger confirmed that Athens recovered the Argive remains by force after Thebes refused the demand.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-open-door-open",
+              "value": true
+            },
+            {
+              "kind": "choice",
+              "key": "greek-open-door-recovery",
+              "value": "force"
+            }
+          ],
+          "choiceId": "greek-open-door-hear-recovery-report"
+        }
+      ],
       "bridge": {
         "id": "shore-greek-drama",
         "description": "A shared ship serves Black Pond, the Wine-Dark Harbor, Athens Harbor and Piraeus Quays. The lamp signal calls it to the pond."
