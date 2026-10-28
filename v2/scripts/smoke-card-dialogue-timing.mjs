@@ -18,7 +18,7 @@ function fixture(kind) {
     questPrograms: true,
     personalQuests: true,
   });
-  for (const kind of ["light"])
+  for (const kind of ["light", "move"])
     world = play(
       world,
       legalActions(world).find(

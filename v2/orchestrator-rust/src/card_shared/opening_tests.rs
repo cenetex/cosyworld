@@ -4,6 +4,8 @@ use serde_json::json;
 #[test]
 fn new_shared_world_starts_in_the_dark_attic_and_moves_after_the_lamp() {
     let mut world = World::create(None).unwrap();
+    world.apply(&json!({"op":"claim","actor":"vale"})).unwrap();
+    world.apply(&json!({"op":"enter","actor":"vale"})).unwrap();
     assert_eq!(world.game["actors"]["vale"]["place"], "attic");
     assert_eq!(world.game["actors"]["moth"]["place"], "pond");
     assert_eq!(world.game["items"]["lamp"]["lit"], false);

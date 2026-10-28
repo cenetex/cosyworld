@@ -18,12 +18,33 @@ try {
     [1440, 900],
     [390, 844],
   ]) {
-    const seed = dispatchShared({
+    let seed = dispatchShared({
       op: "create",
       save: encodeSave(
         enableMotives(createWorld({ opening: true }), { personalQuests: true }),
       ),
     }).world;
+    const membership = {
+      actor: "vale",
+      claimed: ["vale", "mara"],
+      present: ["vale", "mara"],
+    };
+    for (const fields of [
+      { kind: "light" },
+      { kind: "move", target: "pond" },
+    ]) {
+      const view = dispatchShared({ op: "view", world: seed, ...membership });
+      const action = view.actions.find((a) =>
+        Object.entries(fields).every(([key, value]) => a[key] === value),
+      );
+      assert(action, JSON.stringify(fields));
+      seed = dispatchShared({
+        op: "play",
+        world: seed,
+        ...membership,
+        action,
+      }).world;
+    }
     const started = dispatchShared({
       op: "play",
       world: seed,
@@ -32,13 +53,12 @@ try {
       present: ["vale", "mara"],
       action: { key: "wait:vale::" },
     }).world;
-    const world = dispatchShared({
-      op: "view",
-      world: started,
-      actor: "vale",
-      claimed: ["vale", "mara"],
-      present: ["vale", "mara"],
-    }).world;
+    const world = {
+      ...started,
+      playerActorId: membership.actor,
+      controlledActors: membership.claimed,
+      presentActors: membership.present,
+    };
     assert.equal(world.actors.vale.place, "pond");
     const quest = questCardId(world, questCards(world, "boardyai")[0]);
     const table = `boardyai-${width}`;

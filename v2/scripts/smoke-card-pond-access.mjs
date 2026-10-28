@@ -22,6 +22,7 @@ let fixture = enableMotives(createWorld({ opening: true }), {
   questPrograms: true,
 });
 fixture = act(fixture, "light");
+fixture = act(fixture, "move", "pond");
 fixture.items.lamp.holder = "moth";
 fixture.items.lamp.fuel = 8;
 fixture = act(fixture, "wait");
