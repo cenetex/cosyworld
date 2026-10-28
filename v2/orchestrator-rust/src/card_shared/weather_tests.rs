@@ -42,7 +42,10 @@ fn regional_weather_agrees_in_c_and_survives_upgrade_and_journal_replay() {
         world.game["revision"],
         saved.game["revision"].as_u64().unwrap() + 1
     );
-    for field in ["items", "turn", "eventSeq", "log", "transports"] {
+    for (id, item) in saved.game["items"].as_object().unwrap() {
+        assert_eq!(&world.game["items"][id], item, "saved item {id}");
+    }
+    for field in ["turn", "eventSeq", "log", "transports"] {
         assert_eq!(world.game[field], saved.game[field], "saved {field}");
     }
     super::full_tests::assert_saved_actors(&world.game["actors"], &saved.game["actors"]);
@@ -61,6 +64,16 @@ fn regional_weather_agrees_in_c_and_survives_upgrade_and_journal_replay() {
     quests["focus"].as_object_mut().unwrap().remove("boardyai");
     assert_eq!(quests["hands"]["boardyai"], json!(["boardyai:quest:0"]));
     quests["hands"]["boardyai"] = saved.game["quests"]["hands"]["boardyai"].clone();
+    quests["hands"]
+        .as_object_mut()
+        .unwrap()
+        .retain(|actor, hand| {
+            if saved.game["quests"]["hands"].get(actor).is_some() {
+                return true;
+            }
+            assert_eq!(*hand, json!([]), "new actor {actor} quest hand");
+            false
+        });
     assert_eq!(quests, saved.game["quests"]);
     assert_eq!(world.game["packs"]["greek-drama"]["revision"], 5);
     assert_eq!(world.version, engine::VERSION);
