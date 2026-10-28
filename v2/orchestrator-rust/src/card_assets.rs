@@ -1955,7 +1955,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "scene-video.css" => "\"3c6851ec825e734e3d8a084f4ed77f077bcb4402acbf61869a67b652c3afe4c5\"",
         "awakening.css" => "\"c7a68a23baf1e46934237a57f4b5f87d76bad87af85fdf57ee40abec646908b9\"",
         "app.mjs" => "\"2de5cc7423e2cd22a5130ca5d0290fc07bcaa6c394469889004c6b2f3d4163e4\"",
-        "world.mjs" => "\"ed65caf5a28411f6f0370b0137ac3ce6c2f913d3998cfe131b9bdbbc31774b3f\"",
+        "world.mjs" => "\"fde362d5666e432ec7c4e8ad9a882539b2cc38a306718346f7eb6625ea6e1e3e\"",
         "scene.mjs" => "\"8bd47c2e4718d1f27358ec50d72a397d6cc5ce49d2cc70803b628e9567103383\"",
         "weather.mjs" => "\"69a3e11642c43831f80581711f6113d814badd666ad2c3e3892a1a4c70a5fd27\"",
         "daylight.mjs" => "\"6e1bbbf92705e5e2ed904ca98666540ab9a91916c94e50749e649a0ba380170d\"",

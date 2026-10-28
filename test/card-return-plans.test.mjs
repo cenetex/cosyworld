@@ -69,6 +69,39 @@ describe("return journeys and fixed meetings", () => {
     expect(world.items.bell.holder).toBe("vale");
   });
 
+  it("carries an accessible flask out and accepts a request before the lamp is refilled", () => {
+    let world = createWorld();
+    world.turn = world.revision = 40;
+    world.actors.vale.place = world.actors.moth.place = "pond";
+    world.actors.keeper.place = "attic";
+    world.actors.vale.progress = { program: 0, step: 2, marks: [1, 7] };
+    world.actors.moth.progress = { program: 1, step: 0, marks: [9, 31] };
+    world.actors.keeper.progress = { program: 0, step: 1, marks: [7] };
+    world.items.lamp.holder = "moth";
+    world.items.lamp.fuel = 0;
+    world.items.lamp.lit = false;
+    world.items.oil.holder = "attic";
+    world.items.oil.doses = 3;
+    world.items.cloth.holder = "keeper";
+    world.items.bell.holder = "vale";
+    expect(plan(world, "keeper").action).toMatchObject({ kind: "take", item: "oil" });
+    world = commit(world, "wait");
+    expect(world.items.oil.holder).toBe("keeper");
+    expect(plan(world, "keeper").action).toMatchObject({ kind: "move", target: "pond" });
+    world = commit(world, "wait");
+    expect(world.actors.keeper.place).toBe("pond");
+    expect(plan(world, "moth").action).toMatchObject({ kind: "ask", item: "oil", target: "keeper" });
+    world = commit(world, "wait");
+    expect(world.items.oil.holder).toBe("moth");
+    expect(world.log.findLast((e) => e.verb === "ask")).toMatchObject({
+      actorId: "moth", itemId: "oil", targetId: "keeper", accepted: true,
+    });
+    world = commit(world, "wait");
+    expect(world.items.lamp.fuel).toBe(4);
+    expect(world.items.oil.doses).toBe(2);
+    expect(world.items.lamp.holder).toBe("moth");
+  });
+
   it("lets an invited resident return from the cottage after the leader leaves", () => {
     let world = createWorld();
     world.actors.vale.place = world.actors.moth.place = "attic";
