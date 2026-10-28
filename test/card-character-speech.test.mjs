@@ -108,7 +108,7 @@ describe("the six card character voices", () => {
       expect(path).toBe("audio/speech");
       expect(request.body.model).toBe("fish-audio/drama-3");
       expect(request.body.input).toBe("A fair trade.");
-      expect(request.body.speed).toBe(speaker === "vale" ? 1.12 : 1);
+      expect(request.body.speed).toBe(1.12);
       expect(request.body.instructions).toBe(
         characterVoices[speaker].direction,
       );

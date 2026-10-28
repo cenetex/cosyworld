@@ -13,6 +13,7 @@
     },
     "mara": {
       "name": "Mara",
+      "speed": 1.12,
       "file": "assets/voices/mara.mp3",
       "transcript": "A quiet room, a good mask, and an audience of two. We can begin. Lend me the stage for one evening. I'll give your little part a magnificent entrance.",
       "direction": "An adult female voice with a warm middle pitch and lively theatrical range. Fluid phrasing, crisp words, a smile in the vowels, and a playful sense of timing. An inventive stage performer speaking intimately. Let the words guide the emotion.",
@@ -20,6 +21,7 @@
     },
     "moth": {
       "name": "Pip",
+      "speed": 1.12,
       "file": "assets/voices/moth.mp3",
       "transcript": "Oh, what a lovely warm glow. My wings feel quite at home beside it. A little space by the lamp, and I'll tell you what I saw in the water. A splendid exchange.",
       "direction": "A tiny adult moth creature with a bright high androgynous voice. Thin papery resonance, delicate breath, light fluttering vowels, quick precise consonants. Elaborately polite and proud. Every word is clear. Let the words guide the emotion.",
@@ -27,6 +29,7 @@
     },
     "keeper": {
       "name": "The Keeper",
+      "speed": 1.12,
       "file": "assets/voices/keeper.mp3",
       "transcript": "The bell is still. The platform is open. You may take your time. Bring the bell and a witness. I will consider one exception. Officially, once.",
       "direction": "An ageless clock-faced being with a deep masculine voice, hollow wooden and brass resonance, solemn dignity, exact words, and evenly spaced pauses. Dry understated humor. Clear conversational speech. Let the words guide the emotion.",
@@ -34,6 +37,7 @@
     },
     "badger": {
       "name": "Grumpy Badger",
+      "speed": 1.12,
       "file": "assets/voices/badger.mp3",
       "transcript": "Warm moss. Soft earth. A perfectly respectable place for a nap. Move that noisy business down the path, and I'll show you where the good mushrooms grow.",
       "direction": "A sleepy adult male badger creature with a very low chest rumble, thick rounded vowels, coarse vocal grain, soft snorting breath and blunt phrase endings. Heavy, warm, earthy and reluctantly helpful. Every word is clear. Let the words guide the emotion.",
@@ -41,6 +45,7 @@
     },
     "greek-baker": {
       "name": "Dione the Baker",
+      "speed": 1.12,
       "file": "assets/voices/greek-baker.mp3",
       "transcript": "The bread is warm. Set your jar by the door, and come sit with us. Bring the water back before dusk. I'll keep a loaf for you, and a place at the table.",
       "direction": "A middle-aged woman with a warm low alto, a gentle husky grain and grounded confidence. Natural direct speech, generous warmth, clear consonants and practical affection. Firm and brisk when she is cross. Let the words guide the emotion.",
