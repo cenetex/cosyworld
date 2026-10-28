@@ -1,0 +1,320 @@
+{
+  "schemaVersion": 1,
+  "title": "Book III Rhesus and Thracian court portraits",
+  "date": "2026-10-28",
+  "generator": "Built-in image_gen.imagegen",
+  "draftBase": {
+    "branch": "codex/greek-book-iii",
+    "commit": "cfd84dde44588a13120fbdb56eae71efda426218",
+    "packageVersion": "1.2.5"
+  },
+  "sourcePlanCommit": "0028c76f1e7acbcb73931713b0d6901747a828ad",
+  "sourceDocuments": [
+    {
+      "path": "/private/tmp/cosyworld-book-iii-handoff.md",
+      "sha256": "b4253d2e0f32264d3acbb3df415b031cec652aece0666bb4e89e9f7ec29955b4"
+    },
+    {
+      "path": "/private/tmp/cosyworld-book-iii-proposed-entities.json",
+      "sha256": "de3811210d6a7560c3269e50d0c79331d1877c3636bfea5e0e8cd7a8fed7e3c5"
+    }
+  ],
+  "scope": "Four living adult portraits. Chapter integration owns bindings, optimized assets, public assets, rules and release checks.",
+  "accountNotes": {
+    "commanders": "Hector and Rhesus are distinct adult commanders in the Rhesus account.",
+    "charioteer": "Ordinary travel clothes and a clean linen forearm wrap.",
+    "polymestor": "An older court host in the earlier hearing frame.",
+    "representation": "Wounds, deaths and later blinding remain in the attributed text. Separate bandage and testimony items retain chapter identities."
+  },
+  "assets": [
+    {
+      "name": "hector",
+      "file": "book-three-hector.png",
+      "sourceFile": "book-three-hector.png",
+      "sourceName": "exec-d84cdbd4-ec5b-404f-98b8-c9e82deb9ca7.png",
+      "bindings": [
+        "greek-rhesus-hector"
+      ],
+      "kind": "adult-character-portrait",
+      "useCase": "historical-scene",
+      "nativeFacing": "left",
+      "transparentBackground": true,
+      "processing": "Original native PNG copied byte for byte; generated alpha preserved",
+      "prompt": "Use case: historical-scene.\nAsset type: full-body character portrait for CosyWorld's painted Greek drama card game.\nInput images: attached adult portraits are style references for painterly detail, natural anatomy, full-body scale, cloth texture and soft three-quarter staging. Create the new named subject with his own face and the specified clothes.\nStyle/medium: finely detailed painted storybook realism; earthy pigments, expressive adult face, natural skin, woven cloth, soft inner brushwork and readable silhouette.\nComposition/framing: one living adult man is the sole subject. Tall 1024 by 1536 portrait canvas with genuine transparent background. Show the entire standing figure from crown of head through both complete feet and shoe soles. Keep clear margins on all four sides, especially under the feet. Use a gentle three-quarter standing pose, with uncovered head and face turned toward image-left. Keep every hand, limb and all clothing inside the canvas. The entire figure fills about 86 percent of canvas height.\nLighting/mood: soft neutral daylight on the figure, with gentle natural volume, suitable for compositing over both day and night paintings.\nOutput: native transparent alpha around the complete single figure. Only the man and his worn clothes or armor occupy the image. Both hands are empty. Every visible part of his body is whole and clean.\nSubject: Hector, a distinct adult Trojan commander about thirty-seven. A strong, compact man with warm olive skin, a broad angular face, straight dark brows, attentive brown eyes, short wavy black hair and a close black beard. His bare head and thoughtful face read clearly. He wears a weathered plain bronze cuirass over a knee-length natural linen tunic, a dark olive wool cloak fastened at one shoulder, a simple leather belt and practical leather sandals. Natural bronze wear gives the armor texture. One hand rests lightly near his plain belt; the other opens low toward a person at image-left while he speaks. His bearing is responsible, alert and grounded, with calm adult authority. His individual face, dark hair and olive cloak distinguish him from the reference portraits.",
+      "references": [
+        {
+          "file": "book-three-achilles.png",
+          "role": "Approved armor and painted full-body style",
+          "generationInputPath": "/Users/ratimics/.codex/worktrees/book-three-portraits/cosyworld/v2/card-game/assets/greek-drama/book-three-achilles.png",
+          "sha256": "fc6c481696dd63c7da09571cf0d8e7c2d5972e4ebf805ff208965a8983b35dfc"
+        },
+        {
+          "file": "chthonic-menelaus.png",
+          "role": "Adult anatomy, cloth and painted character style",
+          "generationInputPath": "/Users/ratimics/.codex/worktrees/book-three-rhesus-art/cosyworld/v2/card-game/assets/greek-drama/chthonic-menelaus.png",
+          "sha256": "8f3ef20e63ee5138d7ae09bb3e90893c51f421aecdd3adea3fb94a4d61e4113b"
+        }
+      ],
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "a4dbd50f6546dda4a754d480b73b025de579d1fce4f44f0d9cef624eaf4b74db",
+      "sha256": "a4dbd50f6546dda4a754d480b73b025de579d1fce4f44f0d9cef624eaf4b74db",
+      "bytes": 2204851,
+      "alpha": {
+        "clearPixels": 963954,
+        "partialPixels": 608910,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          106,
+          17,
+          937,
+          1476
+        ],
+        "visibleBoundsThreshold": 8
+      }
+    },
+    {
+      "name": "rhesus",
+      "file": "book-three-rhesus.png",
+      "sourceFile": "book-three-rhesus.png",
+      "sourceName": "exec-7ece076c-17b0-494c-a9a5-089aaa0ae74e.png",
+      "bindings": [
+        "greek-rhesus-rhesus"
+      ],
+      "kind": "adult-character-portrait",
+      "useCase": "historical-scene",
+      "nativeFacing": "left",
+      "transparentBackground": true,
+      "processing": "Original native PNG copied byte for byte; generated alpha preserved",
+      "prompt": "Use case: historical-scene.\nAsset type: full-body character portrait for CosyWorld's painted Greek drama card game.\nInput images: attached adult portraits are style references for painterly detail, natural anatomy, full-body scale, cloth texture and soft three-quarter staging. Create the new named subject with his own face and the specified clothes.\nStyle/medium: finely detailed painted storybook realism; earthy pigments, expressive adult face, natural skin, woven cloth, soft inner brushwork and readable silhouette.\nComposition/framing: one living adult man is the sole subject. Tall 1024 by 1536 portrait canvas with genuine transparent background. Show the entire standing figure from crown of head through both complete feet and shoe soles. Keep clear margins on all four sides, especially under the feet. Use a gentle three-quarter standing pose, with uncovered head and face turned toward image-left. Keep every hand, limb and all clothing inside the canvas. The entire figure fills about 86 percent of canvas height.\nLighting/mood: soft neutral daylight on the figure, with gentle natural volume, suitable for compositing over both day and night paintings.\nOutput: native transparent alpha around the complete single figure. Only the man and his worn clothes or armor occupy the image. Both hands are empty. Every visible part of his body is whole and clean.\nSubject: Rhesus, a distinct adult Thracian commander about forty-two, shown as a living man in the arriving-allies frame. He is tall and lean, with a long oval face, pale olive skin, light brown eyes, medium-length chestnut hair brushed back and a short auburn beard. His bare head and clear face remain fully visible. A long-sleeved earth-toned woven undertunic sits beneath worn bronze chest armor, with a muted burgundy wool cloak and a plain leather belt. The tunic hem falls above the knees; leather greaves and practical dark leather footwear show both complete feet. One hand gathers the cloak near his chest, and the other opens in a small low speaking gesture toward image-left. His bearing is assured and curious. His long face, chestnut hair, auburn beard, taller build and burgundy cloak form a separate identity.",
+      "references": [
+        {
+          "file": "book-three-achilles.png",
+          "role": "Approved armor and painted full-body style",
+          "generationInputPath": "/Users/ratimics/.codex/worktrees/book-three-portraits/cosyworld/v2/card-game/assets/greek-drama/book-three-achilles.png",
+          "sha256": "fc6c481696dd63c7da09571cf0d8e7c2d5972e4ebf805ff208965a8983b35dfc"
+        },
+        {
+          "file": "chthonic-menelaus.png",
+          "role": "Adult anatomy, cloth and painted character style",
+          "generationInputPath": "/Users/ratimics/.codex/worktrees/book-three-rhesus-art/cosyworld/v2/card-game/assets/greek-drama/chthonic-menelaus.png",
+          "sha256": "8f3ef20e63ee5138d7ae09bb3e90893c51f421aecdd3adea3fb94a4d61e4113b"
+        }
+      ],
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "6ae09ea374075f4fb0e65f73a44ff0ecf5a4c8fe19e28d56c773f47a06c98213",
+      "sha256": "6ae09ea374075f4fb0e65f73a44ff0ecf5a4c8fe19e28d56c773f47a06c98213",
+      "bytes": 2310207,
+      "alpha": {
+        "clearPixels": 944746,
+        "partialPixels": 628118,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          102,
+          17,
+          957,
+          1473
+        ],
+        "visibleBoundsThreshold": 8
+      }
+    },
+    {
+      "name": "charioteer",
+      "file": "book-three-charioteer.png",
+      "sourceFile": "book-three-charioteer.png",
+      "sourceName": "exec-e911675b-0505-4b6f-bc06-7059e4a476d0.png",
+      "bindings": [
+        "greek-rhesus-charioteer"
+      ],
+      "kind": "adult-character-portrait",
+      "useCase": "historical-scene",
+      "nativeFacing": "left",
+      "transparentBackground": true,
+      "processing": "Original native PNG copied byte for byte; generated alpha preserved",
+      "prompt": "Use case: historical-scene.\nAsset type: full-body character portrait for CosyWorld's painted Greek drama card game.\nInput images: attached adult portraits are style references for painterly detail, natural anatomy, full-body scale, cloth texture and soft three-quarter staging. Create the new named subject with his own face and the specified clothes.\nStyle/medium: finely detailed painted storybook realism; earthy pigments, expressive adult face, natural skin, woven cloth, soft inner brushwork and readable silhouette.\nComposition/framing: one living adult man is the sole subject. Tall 1024 by 1536 portrait canvas with genuine transparent background. Show the entire standing figure from crown of head through both complete feet and shoe soles. Keep clear margins on all four sides, especially under the feet. Use a gentle three-quarter standing pose, with uncovered head and face turned toward image-left. Keep every hand, limb and all clothing inside the canvas. The entire figure fills about 86 percent of canvas height.\nLighting/mood: soft neutral daylight on the figure, with gentle natural volume, suitable for compositing over both day and night paintings.\nOutput: native transparent alpha around the complete single figure. Only the man and his worn clothes or armor occupy the image. Both hands are empty. Every visible part of his body is whole and clean.\nSubject: Rhesus's charioteer, a living adult traveller about forty-four. A lean, sturdy man with weathered olive skin, a rounder face, a broad nose, dark brown eyes, short tight dark curls and a short beard with grey at the chin. His expression is tired yet attentive. Ordinary travel clothes: a plain knee-length flax linen tunic, a muted slate-brown wool shoulder wrap, a simple cloth belt and worn leather sandals. A neat clean linen wrap rests around his right forearm, leaving his hand and fingers clear; the linen is whole and clean. His free hand opens slightly toward image-left as he gives his account. His posture is balanced and adult, with both feet planted. The cloth wrap is the simple visible care detail. The portrait shows a whole living man in ordinary clothes.",
+      "references": [
+        {
+          "file": "chthonic-menelaus.png",
+          "role": "Adult anatomy, cloth and painted character style",
+          "generationInputPath": "/Users/ratimics/.codex/worktrees/book-three-rhesus-art/cosyworld/v2/card-game/assets/greek-drama/chthonic-menelaus.png",
+          "sha256": "8f3ef20e63ee5138d7ae09bb3e90893c51f421aecdd3adea3fb94a4d61e4113b"
+        },
+        {
+          "file": "chthonic-attendant.png",
+          "role": "Ordinary adult travel clothes and gentle staging",
+          "generationInputPath": "/Users/ratimics/.codex/worktrees/book-three-rhesus-art/cosyworld/v2/card-game/assets/greek-drama/chthonic-attendant.png",
+          "sha256": "61977265e6897bc973d582ec0487fa82a2b4c7e2baecc4571420c18047f55130"
+        }
+      ],
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "043533cfdf7719e2ae43a20224897361d18b3668c9e70ed6ef26bc38f3da1ceb",
+      "sha256": "043533cfdf7719e2ae43a20224897361d18b3668c9e70ed6ef26bc38f3da1ceb",
+      "bytes": 2159914,
+      "alpha": {
+        "clearPixels": 1005941,
+        "partialPixels": 566923,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          97,
+          22,
+          890,
+          1497
+        ],
+        "visibleBoundsThreshold": 8
+      }
+    },
+    {
+      "name": "polymestor",
+      "file": "book-three-polymestor.png",
+      "sourceFile": "book-three-polymestor.png",
+      "sourceName": "exec-5ed248af-eea1-41d1-894e-5fc2f0d8fb3f.png",
+      "bindings": [
+        "greek-thrace-polymestor"
+      ],
+      "kind": "adult-character-portrait",
+      "useCase": "historical-scene",
+      "nativeFacing": "left",
+      "transparentBackground": true,
+      "processing": "Original native PNG copied byte for byte; generated alpha preserved",
+      "prompt": "Use case: historical-scene.\nAsset type: full-body character portrait for CosyWorld's painted Greek drama card game.\nInput images: attached adult portraits are style references for painterly detail, natural anatomy, full-body scale, cloth texture and soft three-quarter staging. Create the new named subject with his own face and the specified clothes.\nStyle/medium: finely detailed painted storybook realism; earthy pigments, expressive adult face, natural skin, woven cloth, soft inner brushwork and readable silhouette.\nComposition/framing: one living adult man is the sole subject. Tall 1024 by 1536 portrait canvas with genuine transparent background. Show the entire standing figure from crown of head through both complete feet and shoe soles. Keep clear margins on all four sides, especially under the feet. Use a gentle three-quarter standing pose, with uncovered head and face turned toward image-left. Keep every hand, limb and all clothing inside the canvas. The entire figure fills about 86 percent of canvas height.\nLighting/mood: soft neutral daylight on the figure, with gentle natural volume, suitable for compositing over both day and night paintings.\nOutput: native transparent alpha around the complete single figure. Only the man and his worn clothes or armor occupy the image. Both hands are empty. Every visible part of his body is whole and clean.\nSubject: Polymestor, an older Thracian court host about sixty in the earlier public hearing frame. A substantial older man with a wide square olive face, a high forehead, deep-set clear dark eyes, carefully combed dark hair with grey at the temples and a broad trimmed salt-and-pepper beard. Both eyes, his face and bare head are fully visible and healthy. He wears a clean full-length cream woven tunic, a muted plum wool cloak with a narrow woven border, a simple fine leather belt with a small bronze clasp, and brown leather shoes. One hand holds the cloak edge at his waist; the other opens in a reserved low speaking gesture toward image-left. His expression is guarded and self-possessed, as a host answering a hearing. His mature face and court dress supply his identity in this earlier scene.",
+      "references": [
+        {
+          "file": "chthonic-menelaus.png",
+          "role": "Adult anatomy, cloth and painted character style",
+          "generationInputPath": "/Users/ratimics/.codex/worktrees/book-three-rhesus-art/cosyworld/v2/card-game/assets/greek-drama/chthonic-menelaus.png",
+          "sha256": "8f3ef20e63ee5138d7ae09bb3e90893c51f421aecdd3adea3fb94a4d61e4113b"
+        },
+        {
+          "file": "chthonic-attendant.png",
+          "role": "Older court host clothes and gentle staging",
+          "generationInputPath": "/Users/ratimics/.codex/worktrees/book-three-rhesus-art/cosyworld/v2/card-game/assets/greek-drama/chthonic-attendant.png",
+          "sha256": "61977265e6897bc973d582ec0487fa82a2b4c7e2baecc4571420c18047f55130"
+        }
+      ],
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "71931b2929a2d234e876f0ed210eff16773e91d254cbdfdf438b59aaa1d6cc10",
+      "sha256": "71931b2929a2d234e876f0ed210eff16773e91d254cbdfdf438b59aaa1d6cc10",
+      "bytes": 2387630,
+      "alpha": {
+        "clearPixels": 909909,
+        "partialPixels": 662955,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          94,
+          17,
+          852,
+          1503
+        ],
+        "visibleBoundsThreshold": 8
+      }
+    }
+  ],
+  "reviewBackgrounds": [
+    {
+      "file": "ajax-camp-day.webp",
+      "sha256": "846fd6875ded126c01eb4108247d5b94c5a0c6fbf2f9909ff42dafe21ebfbe77",
+      "source": "Approved Greek camp, PR #1265, commit 11f8801f9ed6ede6ea7fcacab0da7ae7b9697773",
+      "purpose": "Painted lighting and alpha-edge review; chapter stage bindings belong to the source owner"
+    },
+    {
+      "file": "ajax-camp-night.webp",
+      "sha256": "45dd0233ac83a755d6f4aa645683c77aa1959d4f68128668f4a11cb9a61a2bbb",
+      "source": "Approved Greek camp, PR #1265, commit 11f8801f9ed6ede6ea7fcacab0da7ae7b9697773",
+      "purpose": "Painted lighting and alpha-edge review; chapter stage bindings belong to the source owner"
+    },
+    {
+      "file": "ajax-camp-day.webp",
+      "sha256": "846fd6875ded126c01eb4108247d5b94c5a0c6fbf2f9909ff42dafe21ebfbe77",
+      "source": "Approved Greek camp, PR #1265",
+      "purpose": "Painted lighting and alpha-edge review; chapter stage bindings belong to the source owner"
+    },
+    {
+      "file": "ajax-camp-night.webp",
+      "sha256": "45dd0233ac83a755d6f4aa645683c77aa1959d4f68128668f4a11cb9a61a2bbb",
+      "source": "Approved Greek camp, PR #1265",
+      "purpose": "Painted lighting and alpha-edge review; chapter stage bindings belong to the source owner"
+    },
+    {
+      "file": "palace-day.webp",
+      "sha256": "c0b61fb49af9c98adbdf9fe7ac386f3611e13b23342a10791673871473928769",
+      "source": "Published Greek court paintings",
+      "purpose": "Painted lighting and alpha-edge review; chapter stage bindings belong to the source owner"
+    },
+    {
+      "file": "palace-night.webp",
+      "sha256": "6fef7d5cfcbd3c95f5f05395d95213a2b5760875487e37b98d2ffe5841abab06",
+      "source": "Published Greek court paintings",
+      "purpose": "Painted lighting and alpha-edge review; chapter stage bindings belong to the source owner"
+    }
+  ],
+  "reviewSheets": [
+    {
+      "file": "book-three-commanders-review.png",
+      "sha256": "03846a49528465168a3f0cf0729c9f1bb9f855fbf7340665bc1283e0d9525c13",
+      "desktopWidth": 610,
+      "phoneSize": [
+        390,
+        580
+      ],
+      "subjects": [
+        "book-three-hector.png",
+        "book-three-rhesus.png"
+      ]
+    },
+    {
+      "file": "book-three-charioteer-review.png",
+      "sha256": "303f1cc1d42cd2da436bc9fc216088d662085074e52c39a0e70ede919d983983",
+      "desktopWidth": 610,
+      "phoneSize": [
+        390,
+        580
+      ],
+      "subjects": [
+        "book-three-charioteer.png"
+      ]
+    },
+    {
+      "file": "book-three-polymestor-review.png",
+      "sha256": "32361fab7ed1105e5a167ff502def16e0a1327aca8ea17b18b7c64652d777963",
+      "desktopWidth": 610,
+      "phoneSize": [
+        390,
+        580
+      ],
+      "subjects": [
+        "book-three-polymestor.png"
+      ]
+    }
+  ],
+  "visualReview": {
+    "result": "Passed",
+    "checks": [
+      "One living adult per portrait",
+      "Distinct adult commander faces and clear uncovered faces",
+      "Ordinary charioteer clothes and clean linen forearm cloth",
+      "Polymestor in the earlier court hearing frame",
+      "Full heads, hands, hems and both feet",
+      "Native clear alpha in day and night overlays",
+      "Full figures in desktop and 390 by 580 phone views"
+    ]
+  }
+}

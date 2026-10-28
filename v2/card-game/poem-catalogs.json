@@ -3,7 +3,7 @@
   "currentVersion": "full-card-world/21",
   "packs": {
     "greek-drama": {
-      "current": "full-card-world/21#884585adffe6de70",
+      "current": "full-card-world/21#9452cc3b8ce040e9",
       "catalogs": {
         "full-card-world/21#b18f8b66c9b85b37": {
           "id": "full-card-world/21#b18f8b66c9b85b37",
@@ -3392,6 +3392,2963 @@
             }
           ],
           "digest": "32740c7c51a5eb4ab2adecb716d78b0f0479c2270ecbedb0e580ee6a1f79e923"
+        },
+        "full-card-world/21#9452cc3b8ce040e9": {
+          "id": "full-card-world/21#9452cc3b8ce040e9",
+          "pack": "greek-drama",
+          "title": "Before the Burial",
+          "rows": [
+            {
+              "choice": "greek-return-water-jar",
+              "lines": [
+                "I set the water by her hands.",
+                "She kept a loaf of bread for me."
+              ]
+            },
+            {
+              "choice": "greek-petition-burial",
+              "lines": [
+                "Creon has granted this one grave.",
+                "Her brother waits for earth."
+              ]
+            },
+            {
+              "choice": "greek-perform-burial",
+              "lines": [
+                "I laid her brother in the earth.",
+                "The king's words crossed the wind."
+              ]
+            },
+            {
+              "choice": "greek-perform-permitted-burial",
+              "lines": [
+                "Creon gave leave for this one grave.",
+                "I laid her brother in the earth."
+              ]
+            },
+            {
+              "choice": "greek-decline-burial",
+              "lines": [
+                "I told her I would turn away.",
+                "Her brother waited by the wall."
+              ]
+            },
+            {
+              "choice": "greek-report-plan",
+              "lines": [
+                "I gave the guard the hidden plan.",
+                "He held it with the king's command."
+              ]
+            },
+            {
+              "choice": "greek-courtyard-burial",
+              "lines": [
+                "I spoke of earth beside her table.",
+                "Dione heard me through."
+              ]
+            },
+            {
+              "choice": "greek-courtyard-concession",
+              "lines": [
+                "I spoke the promise of a grave.",
+                "His body waited in the sun."
+              ],
+              "after": {
+                "choice": "greek-perform-permitted-burial",
+                "lines": [
+                  "I told her of the king's consent.",
+                  "She heard the leave that he had given."
+                ]
+              }
+            },
+            {
+              "choice": "greek-courtyard-refusal",
+              "lines": [
+                "I told her how I turned away.",
+                "She kept a place beside her table."
+              ]
+            },
+            {
+              "choice": "greek-courtyard-exposure",
+              "lines": [
+                "I told her what the guard had heard.",
+                "My words lay open on the table."
+              ]
+            },
+            {
+              "choice": "greek-courtyard-permitted-burial",
+              "lines": [
+                "The grave I promised holds him now.",
+                "I brought that word to Dione."
+              ]
+            },
+            {
+              "choice": "greek-open-door-hear-mothers",
+              "lines": [
+                "Their branches rested on my knees.",
+                "I heard the names beneath them."
+              ]
+            },
+            {
+              "choice": "greek-open-door-register-plea",
+              "lines": [
+                "I laid their plea before the town.",
+                "The crowded square grew quiet."
+              ]
+            },
+            {
+              "choice": "greek-open-door-hear-truce-report",
+              "lines": [
+                "The herald named a road of peace.",
+                "The dead came home beneath it."
+              ]
+            },
+            {
+              "choice": "greek-open-door-hear-recovery-report",
+              "lines": [
+                "The messenger spoke over dust.",
+                "The dead came home behind the shields."
+              ]
+            },
+            {
+              "choice": "greek-open-door-set-provisions",
+              "lines": [
+                "I set the basket by the ropes.",
+                "The waiting cups stood ready."
+              ]
+            },
+            {
+              "choice": "greek-open-door-lay-cloths",
+              "lines": [
+                "The cloth lay clean upon the stone.",
+                "Their children gathered near it."
+              ]
+            },
+            {
+              "choice": "greek-open-door-lay-ashes",
+              "lines": [
+                "I set the ashes by their hands.",
+                "Each name was heavier than clay."
+              ]
+            },
+            {
+              "choice": "greek-open-door-hear-pyre",
+              "lines": [
+                "I heard the father’s second loss.",
+                "One chair stood empty by the stone."
+              ]
+            },
+            {
+              "choice": "greek-open-door-eleusis-pledge",
+              "lines": [
+                "I set a pledge beside the ashes.",
+                "Both banners cast a human shadow."
+              ]
+            },
+            {
+              "choice": "greek-open-door-eleusis-care",
+              "lines": [
+                "I stayed beside the living grief.",
+                "We wrote their needs beneath the names."
+              ]
+            },
+            {
+              "choice": "greek-open-door-family-berth",
+              "lines": [
+                "I laid their names beside the rope.",
+                "A place was kept for each of them."
+              ]
+            },
+            {
+              "choice": "greek-open-door-open-berth",
+              "lines": [
+                "I laid their names beside the rope.",
+                "We kept a space beyond the list."
+              ]
+            },
+            {
+              "choice": "greek-open-door-colonus-water",
+              "lines": [
+                "I set sweet water by the grove.",
+                "The keeper named an older road."
+              ]
+            },
+            {
+              "choice": "greek-open-door-colonus-farewell",
+              "lines": [
+                "The keeper sang of daughters walking.",
+                "The final place stayed with the king."
+              ]
+            },
+            {
+              "choice": "greek-open-door-colonus-custom",
+              "lines": [
+                "I wrote a welcome by the trees.",
+                "A stranger’s need could find a name."
+              ]
+            },
+            {
+              "choice": "greek-open-door-colonus-family",
+              "lines": [
+                "I set the daughters in the song.",
+                "Their hands had carried all those miles."
+              ]
+            },
+            {
+              "choice": "greek-open-door-marathon-blanket",
+              "lines": [
+                "I laid a blanket by the altar.",
+                "The old tale found a living task."
+              ]
+            },
+            {
+              "choice": "greek-open-door-marathon-daughter",
+              "lines": [
+                "The keeper gave the daughter voice.",
+                "Her empty place remained among them."
+              ]
+            },
+            {
+              "choice": "greek-open-door-marathon-alcmene",
+              "lines": [
+                "I heard old grief demand a death.",
+                "The altar held its troubling echo."
+              ]
+            },
+            {
+              "choice": "greek-open-door-marathon-hearing",
+              "lines": [
+                "I asked the tale to hold a hearing.",
+                "Her grief still waited at its gate."
+              ]
+            },
+            {
+              "choice": "greek-open-door-return-dione",
+              "lines": [
+                "I brought those names beside her bread.",
+                "We made room for the words they carried."
+              ]
+            },
+            {
+              "choice": "greek-homecoming-report-agora-truce",
+              "lines": [
+                "I told her how the herald spoke.",
+                "A road for the dead lay in his words."
+              ]
+            },
+            {
+              "choice": "greek-homecoming-report-agora-force",
+              "lines": [
+                "I told her what the shields brought home.",
+                "She heard the mothers through the noise."
+              ]
+            },
+            {
+              "choice": "greek-homecoming-report-eleusis-pledge",
+              "lines": [
+                "I spoke the pledge beside her bread.",
+                "The names of loss stayed in the room."
+              ]
+            },
+            {
+              "choice": "greek-homecoming-report-eleusis-care",
+              "lines": [
+                "I brought their needs beside her bread.",
+                "She heard the living with the dead."
+              ]
+            },
+            {
+              "choice": "greek-homecoming-report-piraeus-family",
+              "lines": [
+                "I told her where their names were kept.",
+                "The quay’s first promise reached the table."
+              ]
+            },
+            {
+              "choice": "greek-homecoming-report-piraeus-open",
+              "lines": [
+                "I told her of the wider place.",
+                "Its welcome carried work within it."
+              ]
+            },
+            {
+              "choice": "greek-homecoming-report-colonus-custom",
+              "lines": [
+                "I brought the grove’s old tale to her.",
+                "Its tablet spoke of guests to come."
+              ]
+            },
+            {
+              "choice": "greek-homecoming-report-colonus-family",
+              "lines": [
+                "I spoke the daughters’ patient work.",
+                "Their road reached Dione through the song."
+              ]
+            },
+            {
+              "choice": "greek-homecoming-report-marathon-alcmene",
+              "lines": [
+                "I brought the keeper’s ending home.",
+                "Its saved lives cast a troubled shadow."
+              ]
+            },
+            {
+              "choice": "greek-homecoming-report-marathon-hearing",
+              "lines": [
+                "I named the change within the tale.",
+                "Her empty place remained beside it."
+              ]
+            },
+            {
+              "choice": "greek-homecoming-receive-family",
+              "lines": [
+                "Her feet had reached the waiting quay.",
+                "Her household’s basket passed to her."
+              ]
+            },
+            {
+              "choice": "greek-homecoming-receive-open",
+              "lines": [
+                "She found her place beside the rope.",
+                "The basket stayed for other hands."
+              ]
+            },
+            {
+              "choice": "greek-homecoming-read-basket-family",
+              "lines": [
+                "I laid her words beside the bread.",
+                "Her hands had met the waiting basket."
+              ]
+            },
+            {
+              "choice": "greek-homecoming-read-berth-family",
+              "lines": [
+                "I chose the verse about her place.",
+                "Her written answer crossed the table."
+              ]
+            },
+            {
+              "choice": "greek-homecoming-read-basket-open",
+              "lines": [
+                "I laid her words beside the bread.",
+                "She offered hands to keep the welcome."
+              ]
+            },
+            {
+              "choice": "greek-homecoming-read-berth-open",
+              "lines": [
+                "I chose the verse about more guests.",
+                "Her answer named the work to come."
+              ]
+            },
+            {
+              "choice": "greek-ajax-deliver-shield",
+              "lines": [
+                "I set his shield beside the tent.",
+                "Tecmessa kept it for her child."
+              ]
+            },
+            {
+              "choice": "greek-ajax-deliver-plea",
+              "lines": [
+                "I brought his brother’s written plea.",
+                "A rival heard it by the ships."
+              ]
+            },
+            {
+              "choice": "greek-ajax-bury-public",
+              "lines": [
+                "His rival spoke; I broke the ground.",
+                "The camp laid down its quarrel."
+              ]
+            },
+            {
+              "choice": "greek-ajax-bury-household",
+              "lines": [
+                "I gave him earth beside the ships.",
+                "The household kept his shield."
+              ]
+            },
+            {
+              "choice": "greek-ajax-bury-appeal",
+              "lines": [
+                "I kept the vigil with their plea.",
+                "The witnessed rite gave Ajax earth."
+              ]
+            },
+            {
+              "choice": "greek-ajax-return-public",
+              "lines": [
+                "I laid his words beside the bread.",
+                "She held the rival’s plea with care."
+              ]
+            },
+            {
+              "choice": "greek-ajax-return-household",
+              "lines": [
+                "I laid his words beside the bread.",
+                "She named the household in the song."
+              ]
+            },
+            {
+              "choice": "greek-ajax-return-appeal",
+              "lines": [
+                "I laid his words beside the bread.",
+                "She heard how witnesses brought earth."
+              ]
+            },
+            {
+              "choice": "greek-vii-cyclops-provisions",
+              "lines": [
+                "Two baskets reached two waiting hands.",
+                "The shore still waited for their feet."
+              ]
+            },
+            {
+              "choice": "greek-vii-cyclops-force-exit",
+              "lines": [
+                "The timber opened pain and stone.",
+                "Each waiting group still needed feet."
+              ]
+            },
+            {
+              "choice": "greek-vii-cyclops-brace-exit",
+              "lines": [
+                "The cup bought room beside the rock.",
+                "Our timber held the narrow way."
+              ]
+            },
+            {
+              "choice": "greek-vii-cyclops-all-home",
+              "lines": [
+                "Two cohorts found the open shore.",
+                "The stone kept what the opening cost."
+              ]
+            },
+            {
+              "choice": "greek-vii-cyclops-crew-first",
+              "lines": [
+                "The sailors reached the waiting boat.",
+                "The satyrs stayed beside the stone."
+              ]
+            },
+            {
+              "choice": "greek-vii-cyclops-satyrs-first",
+              "lines": [
+                "The satyrs reached the waiting boat.",
+                "The sailors watched the closed rock way."
+              ]
+            },
+            {
+              "choice": "greek-vii-birds-refuge-agreement",
+              "lines": [
+                "We marked a place for weary wings.",
+                "Their feet still had to cross the gate."
+              ]
+            },
+            {
+              "choice": "greek-vii-birds-gate-throne",
+              "lines": [
+                "The key lay warm against my palm.",
+                "The birds stood on its farther side."
+              ]
+            },
+            {
+              "choice": "greek-vii-birds-gate-open",
+              "lines": [
+                "I left the key beside the gate.",
+                "The road made room for other feet."
+              ]
+            },
+            {
+              "choice": "greek-vii-birds-gate-dismantle",
+              "lines": [
+                "I took the gate’s small claim away.",
+                "The birds would hold its iron weight."
+              ]
+            },
+            {
+              "choice": "greek-vii-birds-throne",
+              "lines": [
+                "The keeper held the nesting meal.",
+                "The birds stood waiting at his gate."
+              ]
+            },
+            {
+              "choice": "greek-vii-birds-open-flight",
+              "lines": [
+                "The birds brought food inside the gate.",
+                "Their wings found room beside our words."
+              ]
+            },
+            {
+              "choice": "greek-vii-birds-broken-wall",
+              "lines": [
+                "The birds held food and fallen iron.",
+                "Their open shelter called for hands."
+              ]
+            },
+            {
+              "choice": "greek-vii-peace-harness",
+              "lines": [
+                "The harness reached the farmer’s hands.",
+                "A common rope still needed shoulders."
+              ]
+            },
+            {
+              "choice": "greek-vii-peace-pull",
+              "lines": [
+                "Our different hands drew one rope tight.",
+                "The store gave grain and tools to daylight."
+              ]
+            },
+            {
+              "choice": "greek-vii-peace-harvest",
+              "lines": [
+                "The farmers reached their field with grain.",
+                "The smiths still waited for their tools."
+              ]
+            },
+            {
+              "choice": "greek-vii-peace-workshops",
+              "lines": [
+                "The farmers held the first full sack.",
+                "The smiths took tools to serve the fields."
+              ]
+            },
+            {
+              "choice": "greek-vii-peace-private-store",
+              "lines": [
+                "We pulled together at the stone.",
+                "One keeper held the opened grain."
+              ]
+            },
+            {
+              "choice": "greek-vii-prometheus-flame-arrived",
+              "lines": [
+                "I carried fire beside the bound.",
+                "Its oil still counted every turn."
+              ]
+            },
+            {
+              "choice": "greek-vii-prometheus-io-message-arrived",
+              "lines": [
+                "The message crossed the eastern road.",
+                "Io received its words herself."
+              ]
+            },
+            {
+              "choice": "greek-vii-prometheus-stay",
+              "lines": [
+                "I stood beside the ones who stayed.",
+                "The storm kept faith with what they chose."
+              ]
+            },
+            {
+              "choice": "greek-vii-prometheus-gifts",
+              "lines": [
+                "The camp received a living flame.",
+                "Its oil would end; its light was real."
+              ]
+            },
+            {
+              "choice": "greek-vii-prometheus-terms",
+              "lines": [
+                "The terms reached Hermes at the camp.",
+                "Their seal still carried someone’s trust."
+              ]
+            },
+            {
+              "choice": "greek-seven-set-shield-record",
+              "lines": [
+                "I set the shield record by the gate.",
+                "The Guard named those who held it."
+              ]
+            },
+            {
+              "choice": "greek-seven-stock-shelter",
+              "lines": [
+                "I carried water through the town.",
+                "Dione set it by the waiting cloth."
+              ]
+            },
+            {
+              "choice": "greek-seven-two-name-vigil",
+              "lines": [
+                "I laid their names beside the gate.",
+                "The cloth held room for both."
+              ]
+            },
+            {
+              "choice": "greek-seven-state-remembrance",
+              "lines": [
+                "I laid the cloth before the throne.",
+                "The city spoke one brother’s name."
+              ]
+            },
+            {
+              "choice": "greek-seven-survivors-care",
+              "lines": [
+                "I brought the cloth beside the water.",
+                "The living found a place to rest."
+              ]
+            },
+            {
+              "choice": "greek-seven-return-two-name-vigil",
+              "lines": [
+                "I laid the account beside the bread.",
+                "Dione heard the deed I brought."
+              ]
+            },
+            {
+              "choice": "greek-seven-return-state-remembrance",
+              "lines": [
+                "I laid the account beside the bread.",
+                "Dione heard the deed I brought."
+              ]
+            },
+            {
+              "choice": "greek-seven-return-survivors-care",
+              "lines": [
+                "I laid the account beside the bread.",
+                "Dione heard the deed I brought."
+              ]
+            },
+            {
+              "choice": "greek-phoenician-lodge-truce-copy",
+              "lines": [
+                "I carried the mother’s copied plea.",
+                "The Guard received its older words."
+              ]
+            },
+            {
+              "choice": "greek-phoenician-deliver-care",
+              "lines": [
+                "I set the basket by the palace.",
+                "The waiting households had its care."
+              ]
+            },
+            {
+              "choice": "greek-phoenician-family-remembrance",
+              "lines": [
+                "I laid the cloth beside their names.",
+                "Melea’s telling kept its time."
+              ]
+            },
+            {
+              "choice": "greek-phoenician-living-households",
+              "lines": [
+                "I carried their account through grief.",
+                "The cloth found living hands."
+              ]
+            },
+            {
+              "choice": "greek-phoenician-return-family-remembrance",
+              "lines": [
+                "I laid the account beside the bread.",
+                "Dione heard the deed I brought."
+              ]
+            },
+            {
+              "choice": "greek-phoenician-return-living-households",
+              "lines": [
+                "I laid the account beside the bread.",
+                "Dione heard the deed I brought."
+              ]
+            },
+            {
+              "choice": "greek-tyrannus-deliver-care",
+              "lines": [
+                "I carried care beside the older tale.",
+                "The living shared the courtyard bread."
+              ]
+            },
+            {
+              "choice": "greek-tyrannus-compare-records",
+              "lines": [
+                "I laid two witnesses side by side.",
+                "Their words kept separate hands."
+              ]
+            },
+            {
+              "choice": "greek-tyrannus-public-care",
+              "lines": [
+                "I set the witnesses beside the well.",
+                "The basket came before their words."
+              ]
+            },
+            {
+              "choice": "greek-tyrannus-household-first",
+              "lines": [
+                "Her hearing came before the square.",
+                "I brought the same account to both."
+              ]
+            },
+            {
+              "choice": "greek-tyrannus-attributed-witnesses",
+              "lines": [
+                "Two keepers weighed the words I bore.",
+                "Each witness kept a name and voice."
+              ]
+            },
+            {
+              "choice": "greek-tyrannus-return-public-care",
+              "lines": [
+                "I laid the account beside the bread.",
+                "Dione heard the deed I brought."
+              ]
+            },
+            {
+              "choice": "greek-tyrannus-return-household-first",
+              "lines": [
+                "I laid the account beside the bread.",
+                "Dione heard the deed I brought."
+              ]
+            },
+            {
+              "choice": "greek-tyrannus-return-attributed-witnesses",
+              "lines": [
+                "I laid the account beside the bread.",
+                "Dione heard the deed I brought."
+              ]
+            },
+            {
+              "choice": "greek-bacchae-deliver-account",
+              "lines": [
+                "I brought the mountain’s older words.",
+                "The Elder heard their named account."
+              ]
+            },
+            {
+              "choice": "greek-bacchae-return-robe",
+              "lines": [
+                "I brought her robe along the slope.",
+                "Melitta took its present care."
+              ]
+            },
+            {
+              "choice": "greek-bacchae-family-memorial",
+              "lines": [
+                "I laid the cloth beneath the trees.",
+                "The older grief kept its own name."
+              ]
+            },
+            {
+              "choice": "greek-bacchae-local-gathering-agreement",
+              "lines": [
+                "Two voices chose the words I placed.",
+                "The path lay open by the gathering."
+              ]
+            },
+            {
+              "choice": "greek-bacchae-return-family-memorial",
+              "lines": [
+                "I laid the account beside the bread.",
+                "Dione heard the deed I brought."
+              ]
+            },
+            {
+              "choice": "greek-bacchae-return-local-gathering-agreement",
+              "lines": [
+                "I laid the account beside the bread.",
+                "Dione heard the deed I brought."
+              ]
+            },
+            {
+              "choice": "greek-alcestis-set-cup",
+              "lines": [
+                "I set a cup beside her empty chair.",
+                "The bread lay ready on the table."
+              ]
+            },
+            {
+              "choice": "greek-alcestis-tell-guest",
+              "lines": [
+                "I gave our guest the name beneath the silence.",
+                "Her name was spoken with the cup."
+              ]
+            },
+            {
+              "choice": "greek-alcestis-serve-guest",
+              "lines": [
+                "I poured the wine above the muffled weeping.",
+                "The household kept its grief beside us."
+              ]
+            },
+            {
+              "choice": "greek-alcestis-witness-return",
+              "lines": [
+                "Her silence held the doorway as we waited.",
+                "Her quiet hands were here beside us."
+              ]
+            },
+            {
+              "choice": "greek-alcestis-pledge-children",
+              "lines": [
+                "We promised bread beside the children's place.",
+                "Her chair stood ready for another dawn."
+              ]
+            },
+            {
+              "choice": "greek-alcestis-pledge-shared",
+              "lines": [
+                "We set the work among our waiting hands.",
+                "Her chair stood ready for another dawn."
+              ]
+            },
+            {
+              "choice": "greek-alcestis-report-children",
+              "lines": [
+                "I brought their promise to her bread.",
+                "She heard the children's place within it."
+              ]
+            },
+            {
+              "choice": "greek-alcestis-report-shared",
+              "lines": [
+                "I brought their promise to her bread.",
+                "She heard whose hands would share the work."
+              ]
+            },
+            {
+              "choice": "greek-heracles-deliver-help",
+              "lines": [
+                "I set the bread where Megara held her sons.",
+                "His father's plea reached the waiting table."
+              ]
+            },
+            {
+              "choice": "greek-heracles-prepare-care",
+              "lines": [
+                "I laid clean water by the broken door.",
+                "A clean cloth waited within his reach."
+              ]
+            },
+            {
+              "choice": "greek-heracles-remain-with-heracles",
+              "lines": [
+                "I walked beside the man who needed help.",
+                "His father kept the vigil for their dead."
+              ]
+            },
+            {
+              "choice": "greek-heracles-return-to-amphitryon",
+              "lines": [
+                "I came back to the father and their names.",
+                "I brought him bread and clean water."
+              ]
+            },
+            {
+              "choice": "greek-heracles-report-walk",
+              "lines": [
+                "I named the house beside her waiting bread.",
+                "She heard the road that held the friends."
+              ]
+            },
+            {
+              "choice": "greek-heracles-report-vigil",
+              "lines": [
+                "I brought their names beside her waiting bread.",
+                "She heard why I returned to keep the vigil."
+              ]
+            },
+            {
+              "choice": "greek-danaid-lay-branches",
+              "lines": [
+                "I set the water by her branch.",
+                "She named the shelter she would choose."
+              ]
+            },
+            {
+              "choice": "greek-danaid-set-provisions",
+              "lines": [
+                "I carried back the host’s own word.",
+                "Her promise came with bread."
+              ]
+            },
+            {
+              "choice": "greek-danaid-arrive-household",
+              "lines": [
+                "She chose the door beside the hearth.",
+                "Her host set bread within."
+              ]
+            },
+            {
+              "choice": "greek-danaid-arrive-common",
+              "lines": [
+                "She chose the court where others stayed.",
+                "We carried bread through its gate."
+              ]
+            },
+            {
+              "choice": "greek-danaid-receive-household",
+              "lines": [
+                "She chose the door beside the hearth.",
+                "Her host set bread within."
+              ]
+            },
+            {
+              "choice": "greek-danaid-receive-common",
+              "lines": [
+                "She chose the court where others stayed.",
+                "We carried bread through its gate."
+              ]
+            },
+            {
+              "choice": "greek-danaid-return-household",
+              "lines": [
+                "I read her answer by the bread.",
+                "Her chosen door had held."
+              ]
+            },
+            {
+              "choice": "greek-danaid-return-common",
+              "lines": [
+                "I read her answer by the bread.",
+                "The common court had kept her place."
+              ]
+            },
+            {
+              "choice": "greek-trachis-meal",
+              "lines": [
+                "The captive’s name was spoken with her meal.",
+                "I set it where her hands could reach."
+              ]
+            },
+            {
+              "choice": "greek-trachis-wool-early",
+              "lines": [
+                "The wool gave up its warning in the light.",
+                "We watched the threads break in the sun."
+              ]
+            },
+            {
+              "choice": "greek-trachis-wool-late",
+              "lines": [
+                "The wool gave up its warning in the light.",
+                "We watched the threads break in the sun."
+              ]
+            },
+            {
+              "choice": "greek-trachis-plain-ending",
+              "lines": [
+                "We brought plain cloth into the light.",
+                "Her hands could choose the gift again."
+              ]
+            },
+            {
+              "choice": "greek-trachis-recover-ending",
+              "lines": [
+                "We caught the robe before the shrine.",
+                "The road gave back its burden."
+              ]
+            },
+            {
+              "choice": "greek-trachis-care-ending",
+              "lines": [
+                "We carried water up the stony road.",
+                "Each step bore what love had sent."
+              ]
+            },
+            {
+              "choice": "greek-trachis-return-changed",
+              "lines": [
+                "I brought the changed gift’s story home.",
+                "Dione set the bread between us."
+              ]
+            },
+            {
+              "choice": "greek-trachis-return-recovered",
+              "lines": [
+                "I brought the parcel’s story home.",
+                "Dione set the bread between us."
+              ]
+            },
+            {
+              "choice": "greek-trachis-return-care",
+              "lines": [
+                "I brought the Oeta road back home.",
+                "Dione set the bread between us."
+              ]
+            },
+            {
+              "choice": "greek-v-agamemnon-supply-watch",
+              "lines": [
+                "I set the fuel beside the watch.",
+                "The herald’s words followed the flame."
+              ]
+            },
+            {
+              "choice": "greek-v-agamemnon-set-cup",
+              "lines": [
+                "I set a cup beside her hands.",
+                "I kept the words she chose to give."
+              ]
+            },
+            {
+              "choice": "greek-v-agamemnon-all-voices",
+              "lines": [
+                "I laid their words beside the stone.",
+                "Each voice retained its name."
+              ]
+            },
+            {
+              "choice": "greek-v-agamemnon-return-all-voices",
+              "lines": [
+                "I brought the record to her bread.",
+                "She heard its time and named its telling."
+              ]
+            },
+            {
+              "choice": "greek-v-agamemnon-daughter-first",
+              "lines": [
+                "I spoke the daughter’s name at dawn.",
+                "The other voices kept their place."
+              ]
+            },
+            {
+              "choice": "greek-v-agamemnon-return-daughter-first",
+              "lines": [
+                "I brought the record to her bread.",
+                "She heard its time and named its telling."
+              ]
+            },
+            {
+              "choice": "greek-v-agamemnon-refuge",
+              "lines": [
+                "I reached the shelter with the witness.",
+                "She gave her name beside the door."
+              ]
+            },
+            {
+              "choice": "greek-v-agamemnon-return-refuge",
+              "lines": [
+                "I brought the record to her bread.",
+                "She heard its time and named its telling."
+              ]
+            },
+            {
+              "choice": "greek-v-libation-care",
+              "lines": [
+                "I set the vessel by the stone.",
+                "She named the dead before the wine."
+              ]
+            },
+            {
+              "choice": "greek-v-libation-signs",
+              "lines": [
+                "She knew the pattern in the cloth.",
+                "I heard her speak her brother’s name."
+              ]
+            },
+            {
+              "choice": "greek-v-libation-hearing",
+              "lines": [
+                "I laid the witness before the hearing.",
+                "Its keeper answered in her name."
+              ]
+            },
+            {
+              "choice": "greek-v-libation-return-hearing",
+              "lines": [
+                "I brought the record to her bread.",
+                "She heard its time and named its telling."
+              ]
+            },
+            {
+              "choice": "greek-v-libation-refusal",
+              "lines": [
+                "I kept the witness on the table.",
+                "My answer left its words intact."
+              ]
+            },
+            {
+              "choice": "greek-v-libation-return-refusal",
+              "lines": [
+                "I brought the record to her bread.",
+                "She heard its time and named its telling."
+              ]
+            },
+            {
+              "choice": "greek-v-libation-revenge",
+              "lines": [
+                "I set the source beside the witness.",
+                "Its final words retained their time."
+              ]
+            },
+            {
+              "choice": "greek-v-libation-return-revenge",
+              "lines": [
+                "I brought the record to her bread.",
+                "She heard its time and named its telling."
+              ]
+            },
+            {
+              "choice": "greek-v-palace-electra-care",
+              "lines": [
+                "I brought the bread beside the wall.",
+                "Her sister gave a separate answer."
+              ]
+            },
+            {
+              "choice": "greek-v-palace-electra-signs",
+              "lines": [
+                "The signet answered in the tale.",
+                "The urn kept hold of borrowed grief."
+              ]
+            },
+            {
+              "choice": "greek-v-palace-electra-hearing",
+              "lines": [
+                "I laid the witness before the hearing.",
+                "Its keeper answered in her name."
+              ]
+            },
+            {
+              "choice": "greek-v-palace-electra-return-hearing",
+              "lines": [
+                "I brought the record to her bread.",
+                "She heard its time and named its telling."
+              ]
+            },
+            {
+              "choice": "greek-v-palace-electra-refusal",
+              "lines": [
+                "I kept the witness on the table.",
+                "My answer left its words intact."
+              ]
+            },
+            {
+              "choice": "greek-v-palace-electra-return-refusal",
+              "lines": [
+                "I brought the record to her bread.",
+                "She heard its time and named its telling."
+              ]
+            },
+            {
+              "choice": "greek-v-palace-electra-revenge",
+              "lines": [
+                "I set the source beside the witness.",
+                "Its final words retained their time."
+              ]
+            },
+            {
+              "choice": "greek-v-palace-electra-return-revenge",
+              "lines": [
+                "I brought the record to her bread.",
+                "She heard its time and named its telling."
+              ]
+            },
+            {
+              "choice": "greek-v-farm-electra-care",
+              "lines": [
+                "I set the water by their door.",
+                "The farmer made a place for me."
+              ]
+            },
+            {
+              "choice": "greek-v-farm-electra-signs",
+              "lines": [
+                "The old man named a childhood fall.",
+                "She knew the mark above his brow."
+              ]
+            },
+            {
+              "choice": "greek-v-farm-electra-hearing",
+              "lines": [
+                "I laid the witness before the hearing.",
+                "Its keeper answered in her name."
+              ]
+            },
+            {
+              "choice": "greek-v-farm-electra-return-hearing",
+              "lines": [
+                "I brought the record to her bread.",
+                "She heard its time and named its telling."
+              ]
+            },
+            {
+              "choice": "greek-v-farm-electra-refusal",
+              "lines": [
+                "I kept the witness on the table.",
+                "My answer left its words intact."
+              ]
+            },
+            {
+              "choice": "greek-v-farm-electra-return-refusal",
+              "lines": [
+                "I brought the record to her bread.",
+                "She heard its time and named its telling."
+              ]
+            },
+            {
+              "choice": "greek-v-farm-electra-revenge",
+              "lines": [
+                "I set the source beside the witness.",
+                "Its final words retained their time."
+              ]
+            },
+            {
+              "choice": "greek-v-farm-electra-return-revenge",
+              "lines": [
+                "I brought the record to her bread.",
+                "She heard its time and named its telling."
+              ]
+            },
+            {
+              "choice": "greek-v-orestes-water",
+              "lines": [
+                "I set the water by her telling.",
+                "She named the sister at the bed."
+              ]
+            },
+            {
+              "choice": "greek-v-orestes-petition",
+              "lines": [
+                "I laid the plea beside her hands.",
+                "The servant kept his separate voice."
+              ]
+            },
+            {
+              "choice": "greek-v-orestes-hearing",
+              "lines": [
+                "I laid the bundle by her claim.",
+                "She gave the hearing her own answer."
+              ]
+            },
+            {
+              "choice": "greek-v-orestes-return-hearing",
+              "lines": [
+                "I brought the record to her bread.",
+                "She heard its time and named its telling."
+              ]
+            },
+            {
+              "choice": "greek-v-orestes-passage",
+              "lines": [
+                "I reached the quay beside the witness.",
+                "His bundle waited by the rope."
+              ]
+            },
+            {
+              "choice": "greek-v-orestes-return-passage",
+              "lines": [
+                "I brought the record to her bread.",
+                "She heard its time and named its telling."
+              ]
+            },
+            {
+              "choice": "greek-v-orestes-source",
+              "lines": [
+                "I set the bundle by the telling.",
+                "The god’s command kept its sharp edge."
+              ]
+            },
+            {
+              "choice": "greek-v-orestes-return-source",
+              "lines": [
+                "I brought the record to her bread.",
+                "She heard its time and named its telling."
+              ]
+            },
+            {
+              "choice": "greek-v-eumenides-refuge",
+              "lines": [
+                "I set the branch before the shrine.",
+                "The claim remained beside the answer."
+              ]
+            },
+            {
+              "choice": "greek-v-eumenides-bowl",
+              "lines": [
+                "I set the bowl upon the hill.",
+                "Each speaker kept a place beside it."
+              ]
+            },
+            {
+              "choice": "greek-v-eumenides-source",
+              "lines": [
+                "I set the record by their place.",
+                "The elder powers accepted ground."
+              ]
+            },
+            {
+              "choice": "greek-v-eumenides-return-source",
+              "lines": [
+                "I brought the record to her bread.",
+                "She heard its time and named its telling."
+              ]
+            },
+            {
+              "choice": "greek-v-eumenides-dissent",
+              "lines": [
+                "I laid the judgment by the claim.",
+                "The losing voice retained its words."
+              ]
+            },
+            {
+              "choice": "greek-v-eumenides-return-dissent",
+              "lines": [
+                "I brought the record to her bread.",
+                "She heard its time and named its telling."
+              ]
+            },
+            {
+              "choice": "greek-v-eumenides-restitution",
+              "lines": [
+                "I gave the bowl to those who waited.",
+                "The promise kept its work to come."
+              ]
+            },
+            {
+              "choice": "greek-v-eumenides-return-restitution",
+              "lines": [
+                "I brought the record to her bread.",
+                "She heard its time and named its telling."
+              ]
+            },
+            {
+              "choice": "greek-v-tauris-copy",
+              "lines": [
+                "I kept her words beside the page.",
+                "Her brother’s name returned within them."
+              ]
+            },
+            {
+              "choice": "greek-v-tauris-cloth",
+              "lines": [
+                "She asked for words the house had kept.",
+                "His answer brought their childhood near."
+              ]
+            },
+            {
+              "choice": "greek-v-tauris-shore",
+              "lines": [
+                "I set the water by the shore.",
+                "The telling kept its turning sea."
+              ]
+            },
+            {
+              "choice": "greek-v-tauris-source",
+              "lines": [
+                "The messenger named the turning sea.",
+                "The goddess gave the women passage."
+              ]
+            },
+            {
+              "choice": "greek-v-tauris-return-source",
+              "lines": [
+                "I brought the record to her bread.",
+                "She heard its time and named its telling."
+              ]
+            },
+            {
+              "choice": "greek-v-tauris-pact",
+              "lines": [
+                "I set the pact beside the water.",
+                "Its keepers gave their names and terms."
+              ]
+            },
+            {
+              "choice": "greek-v-tauris-return-pact",
+              "lines": [
+                "I brought the record to her bread.",
+                "She heard its time and named its telling."
+              ]
+            },
+            {
+              "choice": "greek-v-tauris-keeper",
+              "lines": [
+                "She chose to keep the temple shore.",
+                "Her words awaited hands for home."
+              ]
+            },
+            {
+              "choice": "greek-v-tauris-return-keeper",
+              "lines": [
+                "I brought the record to her bread.",
+                "She heard its time and named its telling."
+              ]
+            },
+            {
+              "choice": "greek-comedy-acharnians-set-truce",
+              "lines": [
+                "I carried quiet years inside a jar.",
+                "The market heard the terms beneath its stopper."
+              ]
+            },
+            {
+              "choice": "greek-comedy-acharnians-lay-boundary",
+              "lines": [
+                "I set the stones beside the charcoal baskets.",
+                "The traders named the hunger at each gate."
+              ]
+            },
+            {
+              "choice": "greek-comedy-acharnians-end-private",
+              "lines": [
+                "I drank my peace from a private cup.",
+                "Beyond the stones, the shields still rang."
+              ]
+            },
+            {
+              "choice": "greek-comedy-acharnians-end-shared",
+              "lines": [
+                "We moved the stones beyond our door.",
+                "Peace smelled of onions, sweat, and rain."
+              ]
+            },
+            {
+              "choice": "greek-comedy-acharnians-end-care",
+              "lines": [
+                "I set the wounded soldier by the bread.",
+                "His bandage kept the war within our feast."
+              ]
+            },
+            {
+              "choice": "greek-comedy-knights-bring-dish",
+              "lines": [
+                "I lifted praise and found a borrowed meal.",
+                "The kitchen named the hands behind the dish."
+              ]
+            },
+            {
+              "choice": "greek-comedy-knights-ring-handover",
+              "lines": [
+                "The greasy page gave up its little god.",
+                "I saw whose hand received the master’s ring."
+              ]
+            },
+            {
+              "choice": "greek-comedy-knights-end-renewed",
+              "lines": [
+                "The seal passed to the seller of the sausages.",
+                "Demos returned to us, both young and crowned."
+              ]
+            },
+            {
+              "choice": "greek-comedy-knights-end-stores",
+              "lines": [
+                "We hung the keys beside the bowls.",
+                "Each hungry mouth could count the grain."
+              ]
+            },
+            {
+              "choice": "greek-comedy-knights-end-patronage",
+              "lines": [
+                "My sail grew fat on kitchen gold.",
+                "The steward named the praise he wished to hear."
+              ]
+            },
+            {
+              "choice": "greek-comedy-wasps-set-court",
+              "lines": [
+                "His sandals tapped against the chimney wall.",
+                "I set the voting pots upon the ground."
+              ]
+            },
+            {
+              "choice": "greek-comedy-wasps-record-verdict",
+              "lines": [
+                "A plate stood witness to the missing cheese.",
+                "The pebble held the weight we gave the hearing."
+              ]
+            },
+            {
+              "choice": "greek-comedy-wasps-end-tricked",
+              "lines": [
+                "We stole one sting from the old wasp.",
+                "I paid for bread his dancing scattered."
+              ]
+            },
+            {
+              "choice": "greek-comedy-wasps-end-open",
+              "lines": [
+                "The pebble fell where all could see.",
+                "Her fallen loaves received their counted price."
+              ]
+            },
+            {
+              "choice": "greek-comedy-wasps-end-hired",
+              "lines": [
+                "I bought a sting and called it law.",
+                "The baker kept the price upon her tongue."
+              ]
+            },
+            {
+              "choice": "greek-comedy-clouds-gather-debts",
+              "lines": [
+                "The horses slept; their hunger filled the room.",
+                "I laid two lenders’ claims beside the bed."
+              ]
+            },
+            {
+              "choice": "greek-comedy-clouds-weigh-lesson",
+              "lines": [
+                "I watched a clever word take human weight.",
+                "The lesson reached the father’s flesh and bone."
+              ]
+            },
+            {
+              "choice": "greek-comedy-clouds-end-evasion",
+              "lines": [
+                "I bent the truth around a coin.",
+                "The bent thing came to shape our house."
+              ]
+            },
+            {
+              "choice": "greek-comedy-clouds-end-repayment",
+              "lines": [
+                "We set the debt upon the table.",
+                "Both lenders heard the sum we chose to pay."
+              ]
+            },
+            {
+              "choice": "greek-comedy-clouds-end-fire",
+              "lines": [
+                "I carried fire to the schoolhouse door.",
+                "The debt stayed written under drifting ash."
+              ]
+            },
+            {
+              "choice": "greek-comedy-lysistrata-oath-cup",
+              "lines": [
+                "The cup passed slowly through our separate vows.",
+                "Each woman named the promise she would keep."
+              ]
+            },
+            {
+              "choice": "greek-comedy-lysistrata-treasury-supplies",
+              "lines": [
+                "We counted silver in the shuttered room.",
+                "The wool lay waiting for the scattered towns."
+              ]
+            },
+            {
+              "choice": "greek-comedy-lysistrata-end-feast",
+              "lines": [
+                "The bolts drew back; the lamps burned late.",
+                "Two cities learned one drunken tune."
+              ]
+            },
+            {
+              "choice": "greek-comedy-lysistrata-end-council",
+              "lines": [
+                "We wove our names into the peace.",
+                "The keys lay bright among the threads."
+              ]
+            },
+            {
+              "choice": "greek-comedy-lysistrata-end-narrow",
+              "lines": [
+                "I carried terms that favoured Athens first.",
+                "The allies kept their questions from the feast."
+              ]
+            },
+            {
+              "choice": "greek-comedy-assemblywomen-return-loan",
+              "lines": [
+                "At dawn the borrowed beards began to speak.",
+                "I carried back the cloak that won the hill."
+              ]
+            },
+            {
+              "choice": "greek-comedy-assemblywomen-count-goods",
+              "lines": [
+                "The carts rolled slowly past the waiting bowls.",
+                "One list kept count of what each doorway gave."
+              ]
+            },
+            {
+              "choice": "greek-comedy-assemblywomen-end-whole",
+              "lines": [
+                "We shared the bread, then claimed the bed.",
+                "The feast rang louder than their cries."
+              ]
+            },
+            {
+              "choice": "greek-comedy-assemblywomen-end-amended",
+              "lines": [
+                "We set one table in the square.",
+                "Each body kept its own front door."
+              ]
+            },
+            {
+              "choice": "greek-comedy-assemblywomen-end-hidden",
+              "lines": [
+                "My secret pot stayed full at home.",
+                "I praised the feast with borrowed teeth."
+              ]
+            },
+            {
+              "choice": "greek-comedy-wealth-welcome-arrival",
+              "lines": [
+                "A god took my hand beside the furrows.",
+                "I brought his supper to the healing door."
+              ]
+            },
+            {
+              "choice": "greek-comedy-wealth-record-healing",
+              "lines": [
+                "The sickle shone between our words of wealth.",
+                "I laid the cover where the god would rest."
+              ]
+            },
+            {
+              "choice": "greek-comedy-wealth-end-worthy",
+              "lines": [
+                "The god saw virtue through our eyes.",
+                "Our friends grew bright beneath his gaze."
+              ]
+            },
+            {
+              "choice": "greek-comedy-wealth-end-share",
+              "lines": [
+                "We counted hands beside the grain.",
+                "The harvest learned each worker’s name."
+              ]
+            },
+            {
+              "choice": "greek-comedy-wealth-end-farm",
+              "lines": [
+                "Our grain lay full within the farmer’s store.",
+                "The hungry learned our house by heart."
+              ]
+            },
+            {
+              "choice": "greek-comedy-thesmophoria-speakers-garland",
+              "lines": [
+                "The women laid their names beneath the flowers.",
+                "I kept the words each speaker chose to share."
+              ]
+            },
+            {
+              "choice": "greek-comedy-thesmophoria-guarded-arrival",
+              "lines": [
+                "A borrowed dress brought hidden speech to light.",
+                "The guarded stage held more than one account."
+              ]
+            },
+            {
+              "choice": "greek-comedy-thesmophoria-end-rescue",
+              "lines": [
+                "We slipped his kin through borrowed scenes.",
+                "The women kept the final laugh."
+              ]
+            },
+            {
+              "choice": "greek-comedy-thesmophoria-end-answer",
+              "lines": [
+                "She took her name from out his mouth.",
+                "The whole hall learned another tune."
+              ]
+            },
+            {
+              "choice": "greek-comedy-thesmophoria-end-judgment",
+              "lines": [
+                "We held the mask before the gathered crowd.",
+                "Its painted mouth gave room for living words."
+              ]
+            },
+            {
+              "choice": "greek-comedy-acharnians-return",
+              "lines": [
+                "I laid the market’s terms beside her bread.",
+                "She asked whose hunger waited by the stones."
+              ]
+            },
+            {
+              "choice": "greek-comedy-knights-return",
+              "lines": [
+                "I brought the kitchen’s count beside the bread.",
+                "She weighed the praise against the missing meal."
+              ]
+            },
+            {
+              "choice": "greek-comedy-wasps-return",
+              "lines": [
+                "I brought her counted losses to the bread.",
+                "The laughter left a bill upon the table."
+              ]
+            },
+            {
+              "choice": "greek-comedy-clouds-return",
+              "lines": [
+                "I brought the school’s account beside the bread.",
+                "She asked what truth survived the winning words."
+              ]
+            },
+            {
+              "choice": "greek-comedy-lysistrata-return",
+              "lines": [
+                "I brought the treaty’s names beside the bread.",
+                "She heard whose thread lay waiting at its edge."
+              ]
+            },
+            {
+              "choice": "greek-comedy-assemblywomen-return",
+              "lines": [
+                "I laid the feast’s decree beside the bread.",
+                "She asked whose hands had filled the common pot."
+              ]
+            },
+            {
+              "choice": "greek-comedy-wealth-return",
+              "lines": [
+                "I brought the first grain’s count beside the bread.",
+                "She asked which hands would fill the bowls tomorrow."
+              ]
+            },
+            {
+              "choice": "greek-comedy-thesmophoria-return",
+              "lines": [
+                "I brought their answer home beside the bread.",
+                "The poet heard another mouth begin."
+              ]
+            },
+            {
+              "choice": "greek-book-iv-helen-confirm-witness",
+              "lines": [
+                "I heard her name beside the tomb.",
+                "The sailor brought the vanished phantom’s words."
+              ]
+            },
+            {
+              "choice": "greek-book-iv-helen-hear-theonoe",
+              "lines": [
+                "I carried their appeal beyond the tomb.",
+                "Theonoe chose the silence she would keep."
+              ]
+            },
+            {
+              "choice": "greek-book-iv-helen-finish-escape",
+              "lines": [
+                "We mourned a living man to free his wife.",
+                "The wind took up the name that war had broken."
+              ]
+            },
+            {
+              "choice": "greek-book-iv-helen-return-escape",
+              "lines": [
+                "I brought the Nile’s own witness to the bread.",
+                "Her living name lay open on the table."
+              ]
+            },
+            {
+              "choice": "greek-book-iv-helen-finish-hearing",
+              "lines": [
+                "I set her written words before the throne.",
+                "The palace heard the woman at the tomb."
+              ]
+            },
+            {
+              "choice": "greek-book-iv-helen-return-hearing",
+              "lines": [
+                "I brought the Nile’s own witness to the bread.",
+                "Her living name lay open on the table."
+              ]
+            },
+            {
+              "choice": "greek-book-iv-helen-finish-sanctuary",
+              "lines": [
+                "She kept her ground beside the faithful tomb.",
+                "I left her shelter under many names."
+              ]
+            },
+            {
+              "choice": "greek-book-iv-helen-return-sanctuary",
+              "lines": [
+                "I brought the Nile’s own witness to the bread.",
+                "Her living name lay open on the table."
+              ]
+            },
+            {
+              "choice": "greek-book-iv-andromache-feed-shrine",
+              "lines": [
+                "I brought her bread beside the shrine.",
+                "She told me where her child was held."
+              ]
+            },
+            {
+              "choice": "greek-book-iv-andromache-defender-arrival",
+              "lines": [
+                "I brought an old man’s staff against their weapons.",
+                "His answer held the child beside the shrine."
+              ]
+            },
+            {
+              "choice": "greek-book-iv-andromache-finish-protection",
+              "lines": [
+                "An old hand held the doorway through the shouting.",
+                "The child slept while the palace counted heirs."
+              ]
+            },
+            {
+              "choice": "greek-book-iv-andromache-return-protection",
+              "lines": [
+                "I brought a mother’s word beside the bread.",
+                "She kept the child’s own name within the song."
+              ]
+            },
+            {
+              "choice": "greek-book-iv-andromache-finish-departure",
+              "lines": [
+                "Her child learned home from footsteps at her shoulder.",
+                "The road received the names the house had weighed."
+              ]
+            },
+            {
+              "choice": "greek-book-iv-andromache-return-departure",
+              "lines": [
+                "I brought a mother’s word beside the bread.",
+                "She kept the child’s own name within the song."
+              ]
+            },
+            {
+              "choice": "greek-book-iv-hippolytus-cool-cloth",
+              "lines": [
+                "I cooled the cloth upon her burning brow.",
+                "The nurse kept watch beside the quiet bed."
+              ]
+            },
+            {
+              "choice": "greek-book-iv-hippolytus-set-evidence",
+              "lines": [
+                "I set the sealed word beside its witness.",
+                "His oath lay heavy on the open table."
+              ]
+            },
+            {
+              "choice": "greek-book-iv-hippolytus-finish-hearing",
+              "lines": [
+                "The sea lay still beneath a father’s silence.",
+                "A living son stood waiting for his name."
+              ]
+            },
+            {
+              "choice": "greek-book-iv-hippolytus-return-hearing",
+              "lines": [
+                "I laid the sealed account beside the bread.",
+                "She heard the household’s names before her answer."
+              ]
+            },
+            {
+              "choice": "greek-book-iv-hippolytus-finish-source",
+              "lines": [
+                "The sea gave back the body of his judgment.",
+                "A son gave mercy with his final breath."
+              ]
+            },
+            {
+              "choice": "greek-book-iv-hippolytus-return-source",
+              "lines": [
+                "I laid the sealed account beside the bread.",
+                "She heard the household’s names before her answer."
+              ]
+            },
+            {
+              "choice": "greek-book-iv-medea-one-day-grant",
+              "lines": [
+                "I brought their food beneath a borrowed roof.",
+                "One promised dawn stood open at the door."
+              ]
+            },
+            {
+              "choice": "greek-book-iv-medea-carry-oath",
+              "lines": [
+                "I carried hope inside a stranger’s oath.",
+                "The road still waited for our living feet."
+              ]
+            },
+            {
+              "choice": "greek-book-iv-medea-finish-departure",
+              "lines": [
+                "Her anger left the gates among the living.",
+                "The city kept its crown; we kept their names."
+              ]
+            },
+            {
+              "choice": "greek-book-iv-medea-return-departure",
+              "lines": [
+                "I brought the nurse’s words beside the bread.",
+                "She kept the children’s names within her answer."
+              ]
+            },
+            {
+              "choice": "greek-book-iv-medea-finish-source",
+              "lines": [
+                "The gold shone once; the house grew dark around it.",
+                "I carried small names farther than the flames."
+              ]
+            },
+            {
+              "choice": "greek-book-iv-medea-return-source",
+              "lines": [
+                "I brought the nurse’s words beside the bread.",
+                "She kept the children’s names within her answer."
+              ]
+            },
+            {
+              "choice": "greek-book-iv-medea-finish-reckoning",
+              "lines": [
+                "I raised the cloth; the street heard what it held.",
+                "The truth won daylight, and the guards drew near."
+              ]
+            },
+            {
+              "choice": "greek-book-iv-medea-return-reckoning",
+              "lines": [
+                "I brought the nurse’s words beside the bread.",
+                "She kept the children’s names within her answer."
+              ]
+            },
+            {
+              "choice": "greek-book-iv-ion-sweep-temple",
+              "lines": [
+                "I swept the leaves beside the temple’s foundling.",
+                "He showed me where the priestess first had found him."
+              ]
+            },
+            {
+              "choice": "greek-book-iv-ion-hear-creusa",
+              "lines": [
+                "I set the cup aside and heard her sorrow.",
+                "Her words reached out beyond the silent feast."
+              ]
+            },
+            {
+              "choice": "greek-book-iv-ion-finish-private",
+              "lines": [
+                "She knew the stitch her younger hands had made.",
+                "Their joined hands held the tale they chose to keep."
+              ]
+            },
+            {
+              "choice": "greek-book-iv-ion-return-private",
+              "lines": [
+                "I told how care had kept a child alive.",
+                "She made a place for every chosen home."
+              ]
+            },
+            {
+              "choice": "greek-book-iv-ion-finish-public",
+              "lines": [
+                "She named the god beneath his own bright roof.",
+                "Her son stood near and heard his mother whole."
+              ]
+            },
+            {
+              "choice": "greek-book-iv-ion-return-public",
+              "lines": [
+                "I told how care had kept a child alive.",
+                "She made a place for every chosen home."
+              ]
+            },
+            {
+              "choice": "greek-book-iv-ion-finish-temple",
+              "lines": [
+                "He kept the broom that first had fed his hands.",
+                "His mother left a place for every home."
+              ]
+            },
+            {
+              "choice": "greek-book-iv-ion-return-temple",
+              "lines": [
+                "I told how care had kept a child alive.",
+                "She made a place for every chosen home."
+              ]
+            },
+            {
+              "choice": "greek-aulis-deliver-recall",
+              "lines": [
+                "I bore the father’s second word through camp.",
+                "The wedding summons met the hidden price."
+              ]
+            },
+            {
+              "choice": "greek-aulis-secure-witness",
+              "lines": [
+                "I brought her own reply before the ships.",
+                "Achilles stood to witness what she chose."
+              ]
+            },
+            {
+              "choice": "greek-aulis-complete-escape",
+              "lines": [
+                "The sails hung still above a living daughter.",
+                "The captains learned the weight of waiting wind."
+              ]
+            },
+            {
+              "choice": "greek-aulis-complete-sacrifice",
+              "lines": [
+                "The wind rose through the cloth beside the stone.",
+                "Each sail went white above a debt of blood."
+              ]
+            },
+            {
+              "choice": "greek-aulis-complete-rescue",
+              "lines": [
+                "A messenger had named the fallen hind.",
+                "Her mother held the question in his words."
+              ]
+            },
+            {
+              "choice": "greek-aulis-return-escape",
+              "lines": [
+                "I read the living daughter’s news at home.",
+                "Her mother’s answer joined our listening bread."
+              ]
+            },
+            {
+              "choice": "greek-aulis-return-sacrifice",
+              "lines": [
+                "I read the mother’s grief beside the bread.",
+                "The page kept faith with what her household lost."
+              ]
+            },
+            {
+              "choice": "greek-aulis-return-rescue",
+              "lines": [
+                "I carried home the tale of girl and hind.",
+                "Her mother’s doubt came with the reported light."
+              ]
+            },
+            {
+              "choice": "greek-lemnos-care",
+              "lines": [
+                "I set clean water by the wounded man.",
+                "The cooling leaf came first before the sail."
+              ]
+            },
+            {
+              "choice": "greek-lemnos-return-bow",
+              "lines": [
+                "I saw the bow return into his hand.",
+                "His own voice named the terms of further trust."
+              ]
+            },
+            {
+              "choice": "greek-lemnos-check-manifest",
+              "lines": [
+                "The vessel’s mark agreed with where he stood.",
+                "I carried home a journey that had reached its shore."
+              ]
+            },
+            {
+              "choice": "greek-lemnos-return-troy",
+              "lines": [
+                "I brought the bowman’s marked arrival home.",
+                "His promised care stayed written by the bread."
+              ]
+            },
+            {
+              "choice": "greek-lemnos-return-home",
+              "lines": [
+                "I brought the homeward man’s arrival home.",
+                "His bow and chosen road had reached his land."
+              ]
+            },
+            {
+              "choice": "greek-lemnos-return-repair",
+              "lines": [
+                "I brought the mended promise to the bread.",
+                "His own hand kept the bow he chose to bear."
+              ]
+            },
+            {
+              "choice": "greek-rhesus-set-lamp",
+              "lines": [
+                "I set a watch beside the arriving tents.",
+                "A shaded lamp made room for careful eyes."
+              ]
+            },
+            {
+              "choice": "greek-rhesus-compare-word",
+              "lines": [
+                "I brought the sentry’s word before the king.",
+                "A challenged voice could change the waiting night."
+              ]
+            },
+            {
+              "choice": "greek-rhesus-complete-warning",
+              "lines": [
+                "The living ally reached the sheltered bed.",
+                "His hands found work among the sheltered hurt."
+              ]
+            },
+            {
+              "choice": "greek-rhesus-complete-raid",
+              "lines": [
+                "I carried up the wounded driver’s claim.",
+                "The king gave care and named another dawn."
+              ]
+            },
+            {
+              "choice": "greek-rhesus-return-warning",
+              "lines": [
+                "I read the living ally’s duty home.",
+                "The bread held room for those the warning saved."
+              ]
+            },
+            {
+              "choice": "greek-rhesus-return-raid",
+              "lines": [
+                "I read the wounded driver’s answer home.",
+                "The dead and living kept their separate claims."
+              ]
+            },
+            {
+              "choice": "greek-troy-write-names",
+              "lines": [
+                "I wrote the women’s kin beside their names.",
+                "Each waiting household had a word to carry."
+              ]
+            },
+            {
+              "choice": "greek-troy-dress-shield",
+              "lines": [
+                "I brought the cloth to Hector’s waiting shield.",
+                "The elder dressed the child the herald washed."
+              ]
+            },
+            {
+              "choice": "greek-troy-prepare-refuge",
+              "lines": [
+                "The shield stood ready by the living child.",
+                "His mother took the cloth and named his care."
+              ]
+            },
+            {
+              "choice": "greek-troy-last-song",
+              "lines": [
+                "Both letters crossed and reached the waiting shore.",
+                "The parting song kept names beside the sea."
+              ]
+            },
+            {
+              "choice": "greek-troy-return-witness",
+              "lines": [
+                "I read the women’s names beside the bread.",
+                "The shield and emptied city kept their grief."
+              ]
+            },
+            {
+              "choice": "greek-troy-return-child-refuge",
+              "lines": [
+                "I read the mother’s reached refuge at home.",
+                "The child’s own care came with the carried names."
+              ]
+            },
+            {
+              "choice": "greek-troy-return-family-together",
+              "lines": [
+                "I read the family’s reached refuge at home.",
+                "The paid last berth had kept its giver ashore."
+              ]
+            },
+            {
+              "choice": "greek-thrace-lay-cloth",
+              "lines": [
+                "I laid the cloth beside the daughter’s words.",
+                "Her chosen farewell waited by the tide."
+              ]
+            },
+            {
+              "choice": "greek-thrace-compare-record",
+              "lines": [
+                "I brought the gold’s own record to the shore.",
+                "The broken trust was written with his name."
+              ]
+            },
+            {
+              "choice": "greek-thrace-bury-revenge",
+              "lines": [
+                "Two named cloths marked the children’s resting ground.",
+                "The mother’s source revenge kept its own cost."
+              ]
+            },
+            {
+              "choice": "greek-thrace-return-revenge",
+              "lines": [
+                "I read the signed shore case beside the bread.",
+                "The dead had names beyond the king’s last words."
+              ]
+            },
+            {
+              "choice": "greek-thrace-bury-hearing",
+              "lines": [
+                "Two named cloths marked the children’s resting ground.",
+                "The yielded gold had reached the mother’s hand."
+              ]
+            },
+            {
+              "choice": "greek-thrace-return-hearing",
+              "lines": [
+                "I read the signed shore case beside the bread.",
+                "The gold restored had joined the children’s names."
+              ]
+            },
+            {
+              "choice": "greek-thrace-bury-two-burials",
+              "lines": [
+                "Two named cloths marked the children’s resting ground.",
+                "The king kept gold beside the carried charge."
+              ]
+            },
+            {
+              "choice": "greek-thrace-return-two-burials",
+              "lines": [
+                "I read the signed shore case beside the bread.",
+                "The unpaid charge went home with both the names."
+              ]
+            },
+            {
+              "choice": "greek-susa-set-oar",
+              "lines": [
+                "I laid the broken oar beside the tomb.",
+                "The messenger’s dead names had reached the court."
+              ]
+            },
+            {
+              "choice": "greek-susa-pour-water",
+              "lines": [
+                "The names were read above the offered water.",
+                "The warning spoke of battles still to come."
+              ]
+            },
+            {
+              "choice": "greek-susa-receive-return",
+              "lines": [
+                "The living king had reached the court in cloth.",
+                "The waiting names had crossed the threshold too."
+              ]
+            },
+            {
+              "choice": "greek-susa-return-public",
+              "lines": [
+                "I read the Salamis names beside the bread.",
+                "The public mourning carried common grief."
+              ]
+            },
+            {
+              "choice": "greek-susa-return-private",
+              "lines": [
+                "I read the Salamis names beside the bread.",
+                "The private comfort kept its public duty."
+              ]
+            },
+            {
+              "choice": "greek-susa-return-reckoning",
+              "lines": [
+                "I read the Salamis names beside the bread.",
+                "The court sent names to households of the lost."
+              ]
+            }
+          ],
+          "authors": [
+            {
+              "id": "vale",
+              "name": "Vale"
+            },
+            {
+              "id": "mara",
+              "name": "Mara"
+            },
+            {
+              "id": "ash",
+              "name": "Ash"
+            },
+            {
+              "id": "nell",
+              "name": "Nell"
+            },
+            {
+              "id": "tavi",
+              "name": "Tavi"
+            },
+            {
+              "id": "rue",
+              "name": "Rue"
+            },
+            {
+              "id": "orin",
+              "name": "Orin"
+            },
+            {
+              "id": "ada",
+              "name": "Ada"
+            },
+            {
+              "id": "greek-antigone",
+              "name": "Antigone"
+            },
+            {
+              "id": "greek-ismene",
+              "name": "Ismene"
+            },
+            {
+              "id": "greek-creon",
+              "name": "Creon"
+            },
+            {
+              "id": "greek-guard",
+              "name": "The Gate Guard"
+            },
+            {
+              "id": "greek-baker",
+              "name": "Dione the Baker"
+            },
+            {
+              "id": "greek-elder",
+              "name": "The Chorus Elder"
+            },
+            {
+              "id": "greek-shipmaster",
+              "name": "Myrto the Shipmaster"
+            },
+            {
+              "id": "greek-rhapsode",
+              "name": "The Bard"
+            },
+            {
+              "id": "greek-market-neighbor",
+              "name": "The Agora Neighbor"
+            },
+            {
+              "id": "greek-temple-attendant",
+              "name": "The Delphic Attendant"
+            },
+            {
+              "id": "greek-ferryman",
+              "name": "The Lower Ferryman"
+            },
+            {
+              "id": "greek-helen-egypt",
+              "name": "Helen"
+            },
+            {
+              "id": "greek-menelaus-egypt",
+              "name": "Menelaus"
+            },
+            {
+              "id": "greek-helen-troy",
+              "name": "Helen"
+            },
+            {
+              "id": "greek-menelaus-troy",
+              "name": "Menelaus"
+            },
+            {
+              "id": "greek-electra-aeschylus",
+              "name": "Electra"
+            },
+            {
+              "id": "greek-orestes-aeschylus",
+              "name": "Orestes"
+            },
+            {
+              "id": "greek-electra-sophocles",
+              "name": "Electra"
+            },
+            {
+              "id": "greek-orestes-sophocles",
+              "name": "Orestes"
+            },
+            {
+              "id": "greek-electra-euripides",
+              "name": "Electra"
+            },
+            {
+              "id": "greek-orestes-euripides",
+              "name": "Orestes"
+            },
+            {
+              "id": "greek-aethra",
+              "name": "Aethra"
+            },
+            {
+              "id": "greek-adrastus",
+              "name": "Adrastus"
+            },
+            {
+              "id": "greek-argive-mother",
+              "name": "An Argive Mother"
+            },
+            {
+              "id": "greek-iphis",
+              "name": "Iphis"
+            },
+            {
+              "id": "greek-theseus",
+              "name": "Theseus"
+            },
+            {
+              "id": "greek-quay-host",
+              "name": "Thaleia the Quay Host"
+            },
+            {
+              "id": "greek-colonus-keeper",
+              "name": "The Grove Keeper"
+            },
+            {
+              "id": "greek-marathon-keeper",
+              "name": "The Altar Keeper"
+            },
+            {
+              "id": "greek-household-witness",
+              "name": "Myrine of Argos"
+            },
+            {
+              "id": "greek-ajax-tecmessa",
+              "name": "Tecmessa"
+            },
+            {
+              "id": "greek-ajax-teucer",
+              "name": "Teucer"
+            },
+            {
+              "id": "greek-ajax-odysseus",
+              "name": "Odysseus"
+            },
+            {
+              "id": "greek-vii-odysseus-crew",
+              "name": "Odysseus and the Surviving Crew"
+            },
+            {
+              "id": "greek-vii-satyr-chorus",
+              "name": "Silenus and the Satyr Chorus"
+            },
+            {
+              "id": "greek-vii-polyphemus",
+              "name": "Polyphemus"
+            },
+            {
+              "id": "greek-vii-hoopoe-chorus",
+              "name": "The Hoopoe and the Bird Chorus"
+            },
+            {
+              "id": "greek-vii-pisthetaerus",
+              "name": "Pisthetaerus"
+            },
+            {
+              "id": "greek-vii-trygaeus",
+              "name": "Trygaeus"
+            },
+            {
+              "id": "greek-vii-farmers",
+              "name": "The Farmers’ Chorus"
+            },
+            {
+              "id": "greek-vii-smiths",
+              "name": "The Smiths"
+            },
+            {
+              "id": "greek-vii-bound-prometheus",
+              "name": "Prometheus"
+            },
+            {
+              "id": "greek-vii-oceanids",
+              "name": "The Oceanid Witnesses"
+            },
+            {
+              "id": "greek-vii-io",
+              "name": "Io"
+            },
+            {
+              "id": "greek-vii-hermes",
+              "name": "Hermes"
+            },
+            {
+              "id": "greek-argos-watchman",
+              "name": "Argive Watchman"
+            },
+            {
+              "id": "greek-cassandra",
+              "name": "Cassandra"
+            },
+            {
+              "id": "greek-clytemnestra-aeschylus",
+              "name": "Clytemnestra"
+            },
+            {
+              "id": "greek-argos-housekeeper",
+              "name": "Argive Housekeeper"
+            },
+            {
+              "id": "greek-pylades-aeschylus",
+              "name": "Pylades"
+            },
+            {
+              "id": "greek-cilissa",
+              "name": "Cilissa"
+            },
+            {
+              "id": "greek-chrysothemis",
+              "name": "Chrysothemis"
+            },
+            {
+              "id": "greek-paedagogus",
+              "name": "The Tutor"
+            },
+            {
+              "id": "greek-argive-farmer",
+              "name": "The Farmer"
+            },
+            {
+              "id": "greek-electra-old-servant",
+              "name": "The Old Servant"
+            },
+            {
+              "id": "greek-clytemnestra-euripides",
+              "name": "Clytemnestra"
+            },
+            {
+              "id": "greek-pylades-euripides",
+              "name": "Pylades"
+            },
+            {
+              "id": "greek-hermione",
+              "name": "Hermione"
+            },
+            {
+              "id": "greek-phrygian-servant",
+              "name": "The Phrygian Servant"
+            },
+            {
+              "id": "greek-pythian-priestess",
+              "name": "Pythian Priestess"
+            },
+            {
+              "id": "greek-furies",
+              "name": "The Furies"
+            },
+            {
+              "id": "greek-athena",
+              "name": "Athena"
+            },
+            {
+              "id": "greek-iphigenia-tauris",
+              "name": "Iphigenia"
+            },
+            {
+              "id": "greek-thoas",
+              "name": "Thoas"
+            },
+            {
+              "id": "greek-taurian-chorus",
+              "name": "The Captive Women"
+            },
+            {
+              "id": "greek-melea",
+              "name": "Melea, Keeper of Accounts"
+            },
+            {
+              "id": "greek-melitta",
+              "name": "Melitta, Mountain Keeper"
+            },
+            {
+              "id": "greek-alcestis-chloris",
+              "name": "Chloris of Pherae"
+            },
+            {
+              "id": "greek-alcestis-heracles",
+              "name": "Heracles of Pherae"
+            },
+            {
+              "id": "greek-alcestis-alcestis",
+              "name": "Alcestis of Pherae"
+            },
+            {
+              "id": "greek-heracles-megara",
+              "name": "Megara · Earlier Heracles"
+            },
+            {
+              "id": "greek-heracles-amphitryon",
+              "name": "Amphitryon · Earlier Heracles"
+            },
+            {
+              "id": "greek-heracles-heracles",
+              "name": "Heracles · Earlier Thebes"
+            },
+            {
+              "id": "greek-heracles-theseus",
+              "name": "Theseus · Heracles Account"
+            },
+            {
+              "id": "greek-danaid-melia",
+              "name": "Melia of Argos"
+            },
+            {
+              "id": "greek-danaid-nera",
+              "name": "Nera"
+            },
+            {
+              "id": "greek-trachis-deianira",
+              "name": "Deianira"
+            },
+            {
+              "id": "greek-trachis-iole",
+              "name": "Iole"
+            },
+            {
+              "id": "greek-trachis-hyllus",
+              "name": "Hyllus"
+            },
+            {
+              "id": "greek-trachis-lichas",
+              "name": "Lichas"
+            },
+            {
+              "id": "greek-trachis-heracles",
+              "name": "Heracles"
+            },
+            {
+              "id": "greek-comedy-acharnians-dicaeopolis",
+              "name": "Dicaeopolis"
+            },
+            {
+              "id": "greek-comedy-acharnians-amphitheus",
+              "name": "Amphitheus"
+            },
+            {
+              "id": "greek-comedy-acharnians-dercetes",
+              "name": "Dercetes of Phyle"
+            },
+            {
+              "id": "greek-comedy-acharnians-lamachus",
+              "name": "Lamachus"
+            },
+            {
+              "id": "greek-comedy-acharnians-megarian",
+              "name": "the Megarian trader"
+            },
+            {
+              "id": "greek-comedy-acharnians-boeotian",
+              "name": "the Boeotian trader"
+            },
+            {
+              "id": "greek-comedy-knights-demos",
+              "name": "Demos"
+            },
+            {
+              "id": "greek-comedy-knights-agoracritus",
+              "name": "Agoracritus"
+            },
+            {
+              "id": "greek-comedy-knights-paphlagonian",
+              "name": "The Paphlagonian"
+            },
+            {
+              "id": "greek-comedy-knights-demosthenes",
+              "name": "Demosthenes"
+            },
+            {
+              "id": "greek-comedy-knights-nicias",
+              "name": "Nicias"
+            },
+            {
+              "id": "greek-comedy-wasps-philocleon",
+              "name": "Philocleon"
+            },
+            {
+              "id": "greek-comedy-wasps-bdelycleon",
+              "name": "Bdelycleon"
+            },
+            {
+              "id": "greek-comedy-wasps-xanthias",
+              "name": "Xanthias of the juror's house"
+            },
+            {
+              "id": "greek-comedy-wasps-labes",
+              "name": "Labes the dog"
+            },
+            {
+              "id": "greek-comedy-wasps-myrtia",
+              "name": "Myrtia the baker"
+            },
+            {
+              "id": "greek-comedy-wasps-claimant",
+              "name": "the injured claimant"
+            },
+            {
+              "id": "greek-comedy-clouds-strepsiades",
+              "name": "Strepsiades"
+            },
+            {
+              "id": "greek-comedy-clouds-phidippides",
+              "name": "Phidippides"
+            },
+            {
+              "id": "greek-comedy-clouds-socrates",
+              "name": "the comic Socrates"
+            },
+            {
+              "id": "greek-comedy-clouds-chaerephon",
+              "name": "Chaerephon of the Thinkery"
+            },
+            {
+              "id": "greek-comedy-clouds-pasias",
+              "name": "Pasias"
+            },
+            {
+              "id": "greek-comedy-clouds-amynias",
+              "name": "Amynias"
+            },
+            {
+              "id": "greek-comedy-lysistrata-lysistrata",
+              "name": "Lysistrata"
+            },
+            {
+              "id": "greek-comedy-lysistrata-lampito",
+              "name": "Lampito"
+            },
+            {
+              "id": "greek-comedy-lysistrata-myrrhine",
+              "name": "Myrrhine"
+            },
+            {
+              "id": "greek-comedy-lysistrata-magistrate",
+              "name": "the Magistrate"
+            },
+            {
+              "id": "greek-comedy-lysistrata-cinesias",
+              "name": "Cinesias"
+            },
+            {
+              "id": "greek-comedy-lysistrata-spartan-herald",
+              "name": "the Spartan herald"
+            },
+            {
+              "id": "greek-comedy-assemblywomen-praxagora",
+              "name": "Praxagora"
+            },
+            {
+              "id": "greek-comedy-assemblywomen-blepyrus",
+              "name": "Blepyrus"
+            },
+            {
+              "id": "greek-comedy-assemblywomen-contributor",
+              "name": "the contributing citizen"
+            },
+            {
+              "id": "greek-comedy-assemblywomen-withholder",
+              "name": "the withholding citizen"
+            },
+            {
+              "id": "greek-comedy-assemblywomen-older-woman",
+              "name": "the first older woman"
+            },
+            {
+              "id": "greek-comedy-assemblywomen-young-man",
+              "name": "the young man"
+            },
+            {
+              "id": "greek-comedy-wealth-chremylus",
+              "name": "Chremylus"
+            },
+            {
+              "id": "greek-comedy-wealth-carion",
+              "name": "Carion, called Cario in volume 2"
+            },
+            {
+              "id": "greek-comedy-wealth-plutus",
+              "name": "Plutus"
+            },
+            {
+              "id": "greek-comedy-wealth-poverty",
+              "name": "Poverty"
+            },
+            {
+              "id": "greek-comedy-wealth-just-man",
+              "name": "the just man"
+            },
+            {
+              "id": "greek-comedy-wealth-informer",
+              "name": "the informer"
+            },
+            {
+              "id": "greek-comedy-thesmophoria-euripides",
+              "name": "Euripides in the festival comedy"
+            },
+            {
+              "id": "greek-comedy-thesmophoria-mnesilochus",
+              "name": "Mnesilochus"
+            },
+            {
+              "id": "greek-comedy-thesmophoria-mica",
+              "name": "Mica"
+            },
+            {
+              "id": "greek-comedy-thesmophoria-critylla",
+              "name": "Critylla"
+            },
+            {
+              "id": "greek-comedy-thesmophoria-clisthenes",
+              "name": "Clisthenes"
+            },
+            {
+              "id": "greek-comedy-thesmophoria-scythian-guard",
+              "name": "the Scythian guard"
+            },
+            {
+              "id": "greek-book-iv-helen-theonoe",
+              "name": "Theonoe"
+            },
+            {
+              "id": "greek-book-iv-helen-theoclymenus",
+              "name": "Theoclymenus"
+            },
+            {
+              "id": "greek-book-iv-helen-messenger",
+              "name": "The Shipwreck Messenger"
+            },
+            {
+              "id": "greek-book-iv-andromache-andromache",
+              "name": "Andromache of Phthia"
+            },
+            {
+              "id": "greek-book-iv-andromache-molossus",
+              "name": "Molossus"
+            },
+            {
+              "id": "greek-book-iv-andromache-peleus",
+              "name": "Peleus"
+            },
+            {
+              "id": "greek-book-iv-andromache-hermione",
+              "name": "Hermione"
+            },
+            {
+              "id": "greek-book-iv-andromache-messenger",
+              "name": "The Delphic Messenger"
+            },
+            {
+              "id": "greek-book-iv-hippolytus-phaedra",
+              "name": "Phaedra"
+            },
+            {
+              "id": "greek-book-iv-hippolytus-nurse",
+              "name": "Phaedra’s Nurse"
+            },
+            {
+              "id": "greek-book-iv-hippolytus-hippolytus",
+              "name": "Hippolytus of Troezen"
+            },
+            {
+              "id": "greek-book-iv-hippolytus-messenger",
+              "name": "The Troezen Household Messenger"
+            },
+            {
+              "id": "greek-book-iv-medea-medea",
+              "name": "Medea of Corinth"
+            },
+            {
+              "id": "greek-book-iv-medea-nurse",
+              "name": "Medea’s Nurse"
+            },
+            {
+              "id": "greek-book-iv-medea-jason",
+              "name": "Jason of Corinth"
+            },
+            {
+              "id": "greek-book-iv-medea-creon",
+              "name": "Creon of Corinth"
+            },
+            {
+              "id": "greek-book-iv-medea-aegeus",
+              "name": "Aegeus"
+            },
+            {
+              "id": "greek-book-iv-medea-attendant",
+              "name": "The Children’s Attendant"
+            },
+            {
+              "id": "greek-book-iv-ion-ion",
+              "name": "Ion of Delphi"
+            },
+            {
+              "id": "greek-book-iv-ion-priestess",
+              "name": "The Pythian Priestess"
+            },
+            {
+              "id": "greek-book-iv-ion-creusa",
+              "name": "Creusa"
+            },
+            {
+              "id": "greek-book-iv-ion-xuthus",
+              "name": "Xuthus"
+            },
+            {
+              "id": "greek-book-iv-ion-servant",
+              "name": "Creusa’s Old Servant"
+            },
+            {
+              "id": "greek-aulis-iphigenia",
+              "name": "Iphigenia"
+            },
+            {
+              "id": "greek-aulis-clytemnestra",
+              "name": "Clytemnestra"
+            },
+            {
+              "id": "greek-aulis-achilles",
+              "name": "Achilles"
+            },
+            {
+              "id": "greek-lemnos-philoctetes",
+              "name": "Philoctetes"
+            },
+            {
+              "id": "greek-lemnos-neoptolemus",
+              "name": "Neoptolemus"
+            },
+            {
+              "id": "greek-rhesus-hector",
+              "name": "Hector"
+            },
+            {
+              "id": "greek-rhesus-rhesus",
+              "name": "Rhesus"
+            },
+            {
+              "id": "greek-rhesus-charioteer",
+              "name": "The Charioteer"
+            },
+            {
+              "id": "greek-troy-hecuba",
+              "name": "Hecuba"
+            },
+            {
+              "id": "greek-troy-andromache",
+              "name": "Andromache"
+            },
+            {
+              "id": "greek-troy-talthybius",
+              "name": "Talthybius"
+            },
+            {
+              "id": "greek-thrace-hecuba",
+              "name": "Hecuba"
+            },
+            {
+              "id": "greek-thrace-polyxena",
+              "name": "Polyxena"
+            },
+            {
+              "id": "greek-thrace-polymestor",
+              "name": "Polymestor"
+            },
+            {
+              "id": "greek-susa-atossa",
+              "name": "Atossa"
+            },
+            {
+              "id": "greek-susa-xerxes",
+              "name": "Xerxes"
+            }
+          ],
+          "digest": "db6a4ef90ebc3cce4410b33445fa1aa25f94c3c8d748a85ee82dd5470776d87e"
         }
       }
     }

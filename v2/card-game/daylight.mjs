@@ -3,6 +3,11 @@ export const DAYLIGHT_TURNS = 24;
 const art = (file) => `assets/greek-drama/${file}.webp`;
 const houseArt = (file) => `assets/greek-drama/house-of-blood/${file}.png`;
 const housePlaceWords = {
+  "greek-aulis": "at the remembered Aulis anchorage",
+  "greek-aulis-household": "at the remembered Aulis anchorage",
+  "greek-aulis-altar": "at the remembered Aulis anchorage",
+  "greek-lemnos": "on the remembered Lemnian shore",
+  "greek-lemnos-landing": "on the remembered Lemnian shore",
   "greek-ares-hill": "on Ares Hill",
   "greek-argos-refuge": "at the Argive Refuge",
   "greek-tauris-shore": "on the Taurian Shore",
@@ -31,6 +36,11 @@ const nightBackdrops = {
   "greek-ares-hill": houseArt("ares-hill-scene-night"),
   "greek-argos-refuge": houseArt("argos-refuge-scene-night"),
   "greek-tauris-shore": houseArt("tauris-shore-scene-night"),
+  "greek-aulis": art("ajax-camp-night"),
+  "greek-aulis-household": art("ajax-camp-night"),
+  "greek-aulis-altar": art("ajax-camp-night"),
+  "greek-lemnos": art("book-three-lemnos-night"),
+  "greek-lemnos-landing": art("book-three-lemnos-night"),
 };
 const dockedNightBackdrops = {
   [art("harbor-ship-at-berth")]: art("harbor-ship-at-berth-night"),

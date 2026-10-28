@@ -6,7 +6,13 @@ import {
   retireAfterReport,
   validRetiredMeeting,
 } from "./pack-retirement.mjs";
-import { journeyNextPlace, validJourneyPlaces } from "./pack-journeys.mjs";
+import {
+  journeyNextPlace,
+  independentJourneyNextPlace,
+  journeyReservation,
+  journeyKeepsItem,
+  validJourneyPlaces,
+} from "./pack-journeys.mjs";
 // The compiled world packs mounted on the card table, indexed for the engine.
 // Packs supply data only; pack-rules.mjs applies the general rules they name.
 import compiled from "./packs.json" with { type: "json" };
@@ -177,6 +183,16 @@ export const roamingQuestActor = (id) =>
 export const staysPut = (id) => packPeople[id]?.travels === false;
 export const packJourneyDestination = (world, id) =>
   journeyNextPlace(world, packOf(id), id);
+export const packJourneyKeepsItem = (world, id, item) =>
+  journeyKeepsItem(world, packOf(id), id, item);
+export const packIndependentJourneyDestination = (world, id) =>
+  independentJourneyNextPlace(world, packOf(id), id);
+export const packJourneyReservations = (world) =>
+  packDefinitions.flatMap((pack) =>
+    Object.keys(pack.avatars)
+      .map((id) => journeyReservation(world, pack, id))
+      .filter(Boolean),
+  );
 export const avoidsStandoffs = (id) => packPeople[id]?.standoffs === false;
 export const fixturesAt = (place) =>
   Object.entries(packFixtures)

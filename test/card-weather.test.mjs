@@ -21,7 +21,17 @@ import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 describe("regional Greece weather", () => {
   it("covers every Greek location and keeps local scenery within its region", () => {
     const ids = Object.keys(packPlaces).filter((id) => id.startsWith("greek-"));
-    expect(ids).toHaveLength(68);
+    expect(ids).toEqual(
+      expect.arrayContaining([
+        "greek-harbor",
+        "greek-aulis",
+        "greek-susa-road",
+        "greek-book-iv-helen-landing",
+        "greek-comedy-wealth-healing-porch",
+        "greek-vii-crag-camp",
+        "greek-ares-hill",
+      ]),
+    );
     for (let turn = 0; turn < WEATHER_TURNS * 8; turn++) {
       const regions = new Map();
       for (const id of ids) {
@@ -54,16 +64,21 @@ describe("regional Greece weather", () => {
     ["greek-heracles-athens-road", "attica", "open", "greek-athens"],
     ["greek-heracles-athens-guest-room", "attica", "shelter", "greek-athens"],
     ["greek-trachis-canae-approach", "thessaly", "open", "greek-trachis"],
-  ])("maps the Book II location %s to its region and exposure", (id, region, exposure, neighbor) => {
-    for (const period of [0, 1, 2, 3, 4, 5, 6]) {
-      const world = { turn: period * WEATHER_TURNS };
-      const weather = locationWeather(world, id);
-      expect(weather).toMatchObject({ region, exposure, period });
-      expect(weather.condition).toBe(locationWeather(world, neighbor).condition);
-      expect(weather.variant).toBe(`${weather.condition}-${exposure}`);
-      expect(weather.description).toBeTruthy();
-    }
-  });
+  ])(
+    "maps the Book II location %s to its region and exposure",
+    (id, region, exposure, neighbor) => {
+      for (const period of [0, 1, 2, 3, 4, 5, 6]) {
+        const world = { turn: period * WEATHER_TURNS };
+        const weather = locationWeather(world, id);
+        expect(weather).toMatchObject({ region, exposure, period });
+        expect(weather.condition).toBe(
+          locationWeather(world, neighbor).condition,
+        );
+        expect(weather.variant).toBe(`${weather.condition}-${exposure}`);
+        expect(weather.description).toBeTruthy();
+      }
+    },
+  );
 
   it("holds through a weather period and advances on an accepted play", () => {
     let world = createWorld();

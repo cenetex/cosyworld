@@ -1,5 +1,5 @@
 use super::{engine, full_store, full_world::World, now, store};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 const PHAEDRA: &str = "greek-book-iv-hippolytus-phaedra";
 const NURSE: &str = "greek-book-iv-hippolytus-nurse";
@@ -125,22 +125,20 @@ fn book_iv_retirement_report_recovers_a_prior_gift_and_rebuilds_from_the_journal
     for field in ["fuel", "lit"] {
         assert_eq!(world.game["items"]["lamp"][field], lamp[field]);
     }
-    assert!(
-        world.game["items"]["lamp"]["history"]
-            .as_array()
-            .unwrap()
-            .last()
-            .unwrap()
-            .as_str()
-            .unwrap()
-            .contains("Phaedra’s carried belongings")
-    );
+    assert!(world.game["items"]["lamp"]["history"]
+        .as_array()
+        .unwrap()
+        .last()
+        .unwrap()
+        .as_str()
+        .unwrap()
+        .contains("Phaedra’s carried belongings"));
     assert_eq!(world.game["knowledge"]["known"][PHAEDRA], known);
     assert_eq!(world.game["memories"][PHAEDRA]["text"], remembered);
-    let death_turn =
-        world.game["packs"]["greek-drama"]["receipts"]["greek-book-iv-hippolytus-phaedra-death"]
-            .as_u64()
-            .unwrap();
+    let death_turn = world.game["packs"]["greek-drama"]["receipts"]
+        ["greek-book-iv-hippolytus-phaedra-death"]
+        .as_u64()
+        .unwrap();
     let report = world.game["log"]
         .as_array()
         .unwrap()
@@ -148,13 +146,11 @@ fn book_iv_retirement_report_recovers_a_prior_gift_and_rebuilds_from_the_journal
         .find(|e| e["actorId"] == NURSE && e["generated"] == true && e["turn"] == death_turn)
         .unwrap();
     assert_eq!(report["actorId"], NURSE);
-    assert!(
-        !world.project(0).unwrap()["scene"]["slots"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|v| v == PHAEDRA)
-    );
+    assert!(!world.project(0).unwrap()["scene"]["slots"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|v| v == PHAEDRA));
     assert!(action(&world, &[("kind", "talk"), ("target", PHAEDRA)]).is_none());
     play(&c, &id, &mut world, &[("kind", "take"), ("item", "lamp")]);
     for stale in [
@@ -166,16 +162,14 @@ fn book_iv_retirement_report_recovers_a_prior_gift_and_rebuilds_from_the_journal
         let count: i64 = c
             .query_row("SELECT count(*) FROM card_full_log", [], |r| r.get(0))
             .unwrap();
-        assert!(
-            full_store::commit(
-                &c,
-                &id,
-                &mut world,
-                json!({"op":"play","actor":"vale","action":stale}),
-                now()
-            )
-            .is_err()
-        );
+        assert!(full_store::commit(
+            &c,
+            &id,
+            &mut world,
+            json!({"op":"play","actor":"vale","action":stale}),
+            now()
+        )
+        .is_err());
         assert_eq!(world, before);
         assert_eq!(
             c.query_row("SELECT count(*) FROM card_full_log", [], |r| r
@@ -247,11 +241,9 @@ fn book_iv_retirement_upgrade_preserves_a_released_twenty_visit_and_checkpoint_f
         );
     }
     assert!(current.game["actors"].get(PHAEDRA).is_some());
-    assert!(
-        current.game["packs"]["greek-drama"]["met"]
-            .get(PHAEDRA)
-            .is_none()
-    );
+    assert!(current.game["packs"]["greek-drama"]["met"]
+        .get(PHAEDRA)
+        .is_none());
     play(
         &c,
         &id,
@@ -307,11 +299,9 @@ fn book_iv_public_account_survives_moved_evidence_and_a_second_carrier_journal()
         "vale"
     );
     assert_eq!(world.game["items"][PAPER]["holder"], "mara");
-    assert!(
-        world.game["knowledge"]["known"]["mara"]
-            .get(TOPIC)
-            .is_none()
-    );
+    assert!(world.game["knowledge"]["known"]["mara"]
+        .get(TOPIC)
+        .is_none());
     // The next native play fulfils the already-earned singer visit.
     // Capture that settled visit before testing the later reader's speech.
     let original_stanza = world.game["packs"]["greek-drama"]["recitals"][ENDING].clone();
@@ -324,20 +314,16 @@ fn book_iv_public_account_survives_moved_evidence_and_a_second_carrier_journal()
     );
     let disclosures = spoken["context"]["disclosures"].clone();
     assert_eq!(disclosures[0]["factId"], TOPIC);
-    assert!(
-        world.game["knowledge"]["known"]["mara"]
-            .get(TOPIC)
-            .is_none()
-    );
+    assert!(world.game["knowledge"]["known"]["mara"]
+        .get(TOPIC)
+        .is_none());
     full_store::commit(&c,&id,&mut world,json!({
         "op":"speech","actor":"mara","room":COURT,"disclosures":disclosures,
         "lines":[{"actorId":"mara","text":"Please read this signed account."},{"actorId":KING,"text":disclosures[0]["text"]}]
     }),now()).unwrap();
-    assert!(
-        world.game["knowledge"]["known"]["mara"]
-            .get(TOPIC)
-            .is_some()
-    );
+    assert!(world.game["knowledge"]["known"]["mara"]
+        .get(TOPIC)
+        .is_some());
     assert_eq!(
         world.game["packs"]["greek-drama"]["receipts"][ENDING],
         original_receipt
@@ -399,8 +385,8 @@ fn book_iv_public_account_survives_moved_evidence_and_a_second_carrier_journal()
         1
     );
     assert_eq!(
-        world.game["quests"]["records"]["greek-drama:story-quest-greek-book-iv-helen-return"]["completion"]
-            ["actorId"],
+        world.game["quests"]["records"]["greek-drama:story-quest-greek-book-iv-helen-return"]
+            ["completion"]["actorId"],
         "mara"
     );
     let expected = world.clone();

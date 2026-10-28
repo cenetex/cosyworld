@@ -1,0 +1,334 @@
+{
+  "schemaVersion": 1,
+  "source": "d0eed59f437f05467839f287d93c867f9da9d2d7",
+  "packageVersion": "1.2.5",
+  "rules": 21,
+  "packId": "greek-drama",
+  "targetRevision": 8,
+  "status": "six-source-chapters-focused-validation",
+  "baseline": {
+    "source": "d0eed59f437f05467839f287d93c867f9da9d2d7",
+    "rules": 21,
+    "greek": {
+      "revision": 7,
+      "actors": 33,
+      "items": 26,
+      "places": 63,
+      "choices": 149,
+      "verses": 56,
+      "stories": 21,
+      "topics": 18,
+      "works": 44
+    },
+    "saved": {
+      "actors": 66,
+      "items": 60,
+      "placeDefinitions": 93,
+      "placeMemories": 93
+    }
+  },
+  "chapters": [
+    {
+      "chapter": "Iphigenia at Aulis",
+      "newActors": [
+        "greek-aulis-iphigenia",
+        "greek-aulis-clytemnestra",
+        "greek-aulis-achilles"
+      ],
+      "newItems": [
+        "greek-aulis-recall-letter",
+        "greek-aulis-wedding-veil",
+        "greek-aulis-offering-cloth",
+        "greek-aulis-departure-record"
+      ],
+      "newPlaces": [
+        "greek-aulis-household",
+        "greek-aulis-altar"
+      ]
+    },
+    {
+      "chapter": "Philoctetes",
+      "newActors": [
+        "greek-lemnos-philoctetes",
+        "greek-lemnos-neoptolemus"
+      ],
+      "newItems": [
+        "greek-lemnos-water",
+        "greek-lemnos-herb",
+        "greek-lemnos-bow"
+      ],
+      "newPlaces": [
+        "greek-lemnos-landing"
+      ]
+    },
+    {
+      "chapter": "Rhesus",
+      "newActors": [
+        "greek-rhesus-hector",
+        "greek-rhesus-rhesus",
+        "greek-rhesus-charioteer"
+      ],
+      "newItems": [
+        "greek-rhesus-lamp",
+        "greek-rhesus-watchword",
+        "greek-rhesus-bandage",
+        "greek-rhesus-testimony"
+      ],
+      "newPlaces": [
+        "greek-rhesus-allies",
+        "greek-rhesus-aid-tent"
+      ]
+    },
+    {
+      "chapter": "Trojan Women",
+      "newActors": [
+        "greek-troy-hecuba",
+        "greek-troy-andromache",
+        "greek-troy-talthybius"
+      ],
+      "newItems": [
+        "greek-troy-names",
+        "greek-troy-message-a",
+        "greek-troy-message-b",
+        "greek-troy-hector-shield",
+        "greek-troy-child-cloth",
+        "greek-troy-crew-pledge",
+        "greek-troy-berth-token"
+      ],
+      "newPlaces": [
+        "greek-troy-womens-tent",
+        "greek-troy-shield-ground"
+      ]
+    },
+    {
+      "chapter": "Hecuba",
+      "newActors": [
+        "greek-thrace-hecuba",
+        "greek-thrace-polyxena",
+        "greek-thrace-polymestor"
+      ],
+      "newItems": [
+        "greek-thrace-polyxena-cloth",
+        "greek-thrace-polydorus-shroud",
+        "greek-thrace-entrusted-gold",
+        "greek-thrace-gold-record",
+        "greek-thrace-case-papers"
+      ],
+      "newPlaces": [
+        "greek-thrace-summons-tent",
+        "greek-thrace-burial-ground"
+      ]
+    },
+    {
+      "chapter": "Persians",
+      "newActors": [
+        "greek-susa-atossa",
+        "greek-susa-xerxes"
+      ],
+      "newItems": [
+        "greek-susa-broken-oar",
+        "greek-susa-dead-names",
+        "greek-susa-offering-water",
+        "greek-susa-cloak"
+      ],
+      "newPlaces": [
+        "greek-susa-tomb",
+        "greek-susa-threshold",
+        "greek-susa-road"
+      ]
+    }
+  ],
+  "shipPlan": {
+    "transport": "greek-ship",
+    "currentDockBound": 12,
+    "proposedDockBound": 12,
+    "reviewStatus": "twelve-dock validator approved; later-book owned landing IDs are being bound",
+    "ports": [
+      {
+        "id": "pond",
+        "name": "Black Pond",
+        "status": "current"
+      },
+      {
+        "id": "greek-harbor",
+        "name": "The Wine-Dark Harbor",
+        "status": "current"
+      },
+      {
+        "id": "greek-athens-harbor",
+        "name": "Athens Harbor",
+        "status": "current"
+      },
+      {
+        "id": "greek-piraeus",
+        "name": "Piraeus Quays",
+        "status": "current"
+      },
+      {
+        "id": "greek-ajax-landing",
+        "name": "The Trojan Camp Landing",
+        "status": "current"
+      },
+      {
+        "id": "greek-aulis",
+        "name": "Aulis Anchorage",
+        "book": "III",
+        "status": "proposed"
+      },
+      {
+        "id": "greek-lemnos-landing",
+        "name": "Lemnos Landing",
+        "book": "III",
+        "status": "proposed"
+      },
+      {
+        "id": "greek-thrace",
+        "name": "The Thracian Shore",
+        "book": "III",
+        "status": "proposed"
+      },
+      {
+        "id": "greek-book-iv-helen-landing",
+        "name": "Egypt Landing",
+        "book": "IV",
+        "status": "proposed"
+      },
+      {
+        "id": "greek-tauris-shore",
+        "name": "Tauris Landing",
+        "book": "V",
+        "status": "proposed"
+      },
+      {
+        "id": "greek-sicily-shore",
+        "name": "Sicily Landing",
+        "book": "VII",
+        "status": "proposed"
+      }
+    ],
+    "actualPorts": [
+      "pond",
+      "greek-harbor",
+      "greek-athens-harbor",
+      "greek-piraeus",
+      "greek-ajax-landing",
+      "greek-aulis",
+      "greek-lemnos-landing"
+    ],
+    "homeRoute": {
+      "work": "sophocles-philoctetes",
+      "places": [
+        "greek-lemnos",
+        "greek-lemnos-landing",
+        "greek-ship",
+        "greek-athens-harbor",
+        "greek-athens",
+        "greek-delphi",
+        "greek-trachis"
+      ],
+      "status": "existing places; actual home arrival at Trachis; no added port"
+    }
+  },
+  "ruleExtensions": [
+    {
+      "kind": "recalled-scene",
+      "status": "named remembered scene, three endings, real local escape, exact-ID revision-8 save upgrade; focused proof"
+    },
+    {
+      "kind": "consenting-ship-passenger",
+      "status": "Existing Accompany and ship guards support authored transport edges; eight focused bound/circuit/passenger tests pass; native journal proof is queued."
+    },
+    {
+      "kind": "dock-bound",
+      "status": "Approved twelve-dock validator; twelve accepted, thirteen rejected, distinct/known/crossing guards retained."
+    },
+    {
+      "kind": "exclusive-authored-journeys",
+      "status": "Up to three mutually exclusive consent paths, each with two to eight distinct places; one current agreement; existing Accompany and ship movement."
+    },
+    {
+      "kind": "agreed-cargo",
+      "status": "Up to three carried objects stay with the consenting resident until the named physical arrival record; ordinary gifts and trades resume after that receipt."
+    }
+  ],
+  "actualGreekCatalog": {
+    "revision": 8,
+    "actors": 49,
+    "items": 53,
+    "places": 75,
+    "choices": 274,
+    "stories": 45,
+    "topics": 57,
+    "works": 44,
+    "verses": 97
+  },
+  "implementedWorks": [
+    "euripides-iphigenia-at-aulis",
+    "sophocles-philoctetes",
+    "euripides-rhesus",
+    "euripides-trojan-women",
+    "euripides-hecuba",
+    "aeschylus-persians"
+  ],
+  "remainingWorks": [],
+  "prototypeArt": "All fifteen approved portraits are bound to the sixteen Book III roles with their native facing directions.",
+  "crossBookContracts": {
+    "trojanFamily": {
+      "status": "implemented: actual adult carriers, mother’s care, completed disembarkation and Myrto’s published record",
+      "ending": {
+        "key": "greek-troy-ending",
+        "values": [
+          "witness",
+          "child-refuge",
+          "family-together"
+        ]
+      },
+      "assignment": {
+        "key": "greek-troy-andromache-assignment",
+        "values": [
+          "neoptolemus"
+        ]
+      },
+      "route": {
+        "key": "greek-troy-andromache-route",
+        "values": [
+          "captive-departure",
+          "refuge",
+          "family-passage"
+        ]
+      },
+      "astyanax": {
+        "key": "greek-troy-astyanax-fate",
+        "values": [
+          "dead",
+          "refuge"
+        ]
+      },
+      "arrival": {
+        "flag": "greek-troy-andromache-arrived",
+        "rule": "true after actual shared-ship disembarkation at the agreed refuge or departure shore"
+      },
+      "departureAgreementAt": "greek-ajax-landing"
+    }
+  },
+  "prototypeProof": {
+    "focusedTests": 35,
+    "aulisBrowserJourneys": 6,
+    "shipContractTests": 8,
+    "publicAssets": 681,
+    "nativeStatus": "passed: shared passenger agreement, two human-selected stops, stale companion and boarding rejection, physical arrival and return, checkpoint removal, database reopen, and rules-20 visit upgrade",
+    "lemnosBrowserJourneys": 6,
+    "nativeTests": 2,
+    "nativeSeconds": 67.35,
+    "rhesusFocusedTests": 3,
+    "rhesusCastWeatherDaylightTests": 26,
+    "trojanFocusedTests": 5,
+    "hecubaFocusedTests": 4,
+    "persiansFocusedTests": 4
+  },
+  "visualFollowup": [
+    "Lemnos day and night paintings are bound; the final rendered check and optimized image batch are queued.",
+    "Thrace and Susa use existing scenery during source validation. Their final art and desktop/phone journeys are queued.",
+    "Hector’s distinct shield, the broken Salamis oar and the returning king’s cloak need their final item artwork."
+  ]
+}

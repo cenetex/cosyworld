@@ -114,16 +114,36 @@ describe("day and night in Thebes", () => {
 
   it("keeps the other coastal places on their current paintings", () => {
     const world = createWorld({ packScopes: { "greek-drama": "full" } });
-    for (const place of [
-      "greek-aulis",
-      "greek-argos-sanctuary",
-      "greek-thrace",
-    ]) {
+    for (const place of ["greek-argos-sanctuary", "greek-thrace"]) {
       const day = backdrop(place, world);
       world.turn = world.revision = DAYLIGHT_TURNS;
       expect(locationDaylight(world, place)).toBeNull();
       expect(backdrop(place, world)).toBe(day);
       world.turn = world.revision = 0;
+    }
+  });
+
+  it("gives the Aulis household and altar the anchorage’s day and night", () => {
+    const world = createWorld({ packScopes: { "greek-drama": "full" } });
+    for (const place of [
+      "greek-aulis",
+      "greek-aulis-household",
+      "greek-aulis-altar",
+    ]) {
+      world.turn = world.revision = 0;
+      expect(backdrop(place, world)).toBe(
+        "./assets/greek-drama/ajax-camp-day.webp",
+      );
+      world.turn = world.revision = DAYLIGHT_TURNS;
+      expect(backdrop(place, world)).toBe(
+        "./assets/greek-drama/ajax-camp-night.webp",
+      );
+      expect(locationDaylight(world, place).description).toBe(
+        "It is night at the remembered Aulis anchorage.",
+      );
+      expect(backdrop(place, decodeSave(encodeSave(world)))).toBe(
+        backdrop(place, world),
+      );
     }
   });
 

@@ -3,6 +3,7 @@
 // Keep this module in the presentation layer so saved rule bundles stay stable.
 const groups = {
   right: [
+    "assets/greek-drama/book-three-philoctetes.png",
     "assets/boardyai/boardyai.png",
     ...["rati", "skull", "whiskerwind"].map(
       (name) => `assets/lonely-forest/${name}.png`,
@@ -14,6 +15,22 @@ const groups = {
     ),
   ],
   left: [
+    ...[
+      "iphigenia",
+      "clytemnestra",
+      "achilles",
+      "neoptolemus",
+      "hector",
+      "rhesus",
+      "charioteer",
+      "hecuba",
+      "andromache",
+      "talthybius",
+      "polyxena",
+      "polymestor",
+      "atossa",
+      "xerxes",
+    ].map((name) => `assets/greek-drama/book-three-${name}.png`),
     "assets/willows/swede.webp",
     "assets/moth.png",
     "assets/keeper.png",

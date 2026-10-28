@@ -1,0 +1,424 @@
+{
+  "schemaVersion": 1,
+  "title": "Book III Troy, Thrace and Persian court portraits",
+  "date": "2026-10-28",
+  "visualReview": {
+    "result": "Passed",
+    "checks": [
+      "One living adult per source portrait",
+      "Distinct adult faces and clear leftward gaze",
+      "One canonical Hecuba face for both actor bindings",
+      "Full heads, hands, hems and both feet",
+      "Native clear alpha over day and night paintings",
+      "Full figures in desktop and 390 by 580 phone overlays"
+    ]
+  },
+  "generator": "Built-in image_gen.imagegen",
+  "draftBase": {
+    "branch": "codex/greek-book-iii",
+    "commit": "a042d13df49ff3ce5c4683a9eadb853c8d336064",
+    "packageVersion": "1.2.5"
+  },
+  "sourcePlanCommit": "0028c76f1e7acbcb73931713b0d6901747a828ad",
+  "sourceDocuments": [
+    {
+      "path": "/private/tmp/cosyworld-book-iii-handoff.md",
+      "sha256": "b4253d2e0f32264d3acbb3df415b031cec652aece0666bb4e89e9f7ec29955b4"
+    },
+    {
+      "path": "/private/tmp/cosyworld-book-iii-proposed-entities.json",
+      "sha256": "de3811210d6a7560c3269e50d0c79331d1877c3636bfea5e0e8cd7a8fed7e3c5"
+    }
+  ],
+  "scope": "Six single-adult portraits. One canonical Hecuba image binds to both Troy and Thrace actor IDs. Chapter integration owns stage bindings, optimized assets, public assets, rules and release checks.",
+  "accountNotes": {
+    "troy": "Hecuba, Andromache and Talthybius in the selected Trojan Women account.",
+    "thrace": "The same Hecuba face and an adult Polyxena in the selected Hecuba account.",
+    "persia": "Atossa and Xerxes in the separately named historical Salamis account. Xerxes wears a worn return cloak.",
+    "representation": "Every image is one living adult. Children and offstage deaths remain in the spoken source account. The separate cloth, shield, message and cloak items retain their chapter identities."
+  },
+  "dressResearch": [
+    {
+      "url": "https://dia.org/collection/court-servant-covered-tray/56915",
+      "title": "Court Servant with a Covered Tray",
+      "institution": "Detroit Institute of Arts",
+      "use": "Text source for broad Achaemenid Persian long-sleeved garment and draped skirt shapes. The source is a male court-servant relief; Atossa and Xerxes are separate painted game interpretations."
+    },
+    {
+      "url": "https://www.britishmuseum.org/sites/default/files/2023-04/Luxury_and_power_large_print_guide.pdf",
+      "title": "Luxury and power: Persia to Greece",
+      "institution": "British Museum",
+      "use": "Search excerpt on the voluminous royal court robe informed the broad court clothing direction."
+    }
+  ],
+  "assets": [
+    {
+      "name": "hecuba",
+      "file": "book-three-hecuba.png",
+      "sourceFile": "book-three-hecuba.png",
+      "sourceName": "exec-75e871ae-763b-4797-b156-d18ff7a49f17.png",
+      "bindings": [
+        "greek-troy-hecuba",
+        "greek-thrace-hecuba"
+      ],
+      "kind": "adult-character-portrait",
+      "useCase": "historical-scene",
+      "nativeFacing": "left",
+      "transparentBackground": true,
+      "processing": "Original native PNG copied byte for byte; generated alpha preserved",
+      "prompt": "Use case: historical-scene.\nAsset type: full-body character portrait for CosyWorld's painted Greek drama card game.\nInput images: the attached portraits are style references for brush texture, natural anatomy, cloth detail, scale and gentle three-quarter staging. Create the new named subject with an individual face and the clothing specified below.\nStyle/medium: painterly, finely detailed storybook realism; earthy pigments, soft edges within the figure, readable expressive face, hand-painted woven cloth.\nComposition/framing: one adult is the sole subject. Tall 1024 by 1536 portrait canvas with genuine transparent background. Show the entire standing figure from crown of head through both complete feet and shoe soles, with generous clear margins on all four sides. Body at a gentle three-quarter angle; face and eyes look toward image-left. Place the feet on the same level and keep hands comfortably within the silhouette. The figure fills about 86 percent of the canvas height. All limbs belong to the same single person. Keep full figure and all draped cloth inside the canvas.\nLighting/mood: soft neutral daylight on the figure, restrained highlights and natural volume, suitable for compositing over both day and night paintings.\nOutput: clean native transparent alpha around the complete figure, with clear air around head, hands, hems and footwear. Only the single adult figure and their worn clothes occupy the image.\nSubject: Hecuba, an elderly Trojan woman about seventy, one canonical portrait used in two later chapters of the same life. A lean, slightly stooped yet dignified woman with deeply lined olive skin, a long narrow face, strong curved nose, dark tired eyes and silver-grey hair gathered in a loose low coil. Her age reads clearly. Plain travel and mourning clothes: undyed flax linen ankle-length dress, a broad weathered charcoal-brown wool wrap pulled around shoulders, plain leather sandals. Cloth is clean and worn from travel, with simple hems. One hand holds the wrap at her chest; the other reaches gently toward image-left in a small open speaking gesture. Expression: grief, careful attention and firm resolve. Her face stays fully visible. Her hands are empty. The portrait concerns the living adult woman herself.",
+      "references": [
+        {
+          "file": "chthonic-baker.png",
+          "role": "Painted character style, anatomy, cloth, scale and three-quarter staging",
+          "sha256": "c8e900ee50e1a3fe860e7f38e6625f7326a6715e6821e8a5db74d264c1bbd7e0"
+        },
+        {
+          "file": "chthonic-helen.png",
+          "role": "Painted character style, anatomy, cloth, scale and three-quarter staging",
+          "sha256": "3c87d505fd801846e140405d3d5b84f562ddb9d00a1f015ad9c2814209a5986f"
+        }
+      ],
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "c12c4673fb2b8f2b23419007f97ee3734e92dde35b47ad5e52c9213037f5ff4e",
+      "sha256": "c12c4673fb2b8f2b23419007f97ee3734e92dde35b47ad5e52c9213037f5ff4e",
+      "bytes": 2155437,
+      "alpha": {
+        "clearPixels": 989974,
+        "partialPixels": 582890,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          121,
+          30,
+          849,
+          1496
+        ],
+        "visibleBoundsThreshold": 8
+      }
+    },
+    {
+      "name": "andromache",
+      "file": "book-three-andromache.png",
+      "sourceFile": "book-three-andromache.png",
+      "sourceName": "exec-63af2b1a-6de6-470a-820c-b4cb6e6fd3de.png",
+      "bindings": [
+        "greek-troy-andromache"
+      ],
+      "kind": "adult-character-portrait",
+      "useCase": "historical-scene",
+      "nativeFacing": "left",
+      "transparentBackground": true,
+      "processing": "Original native PNG copied byte for byte; generated alpha preserved",
+      "prompt": "Use case: historical-scene.\nAsset type: full-body character portrait for CosyWorld's painted Greek drama card game.\nInput images: the attached portraits are style references for brush texture, natural anatomy, cloth detail, scale and gentle three-quarter staging. Create the new named subject with an individual face and the clothing specified below.\nStyle/medium: painterly, finely detailed storybook realism; earthy pigments, soft edges within the figure, readable expressive face, hand-painted woven cloth.\nComposition/framing: one adult is the sole subject. Tall 1024 by 1536 portrait canvas with genuine transparent background. Show the entire standing figure from crown of head through both complete feet and shoe soles, with generous clear margins on all four sides. Body at a gentle three-quarter angle; face and eyes look toward image-left. Place the feet on the same level and keep hands comfortably within the silhouette. The figure fills about 86 percent of the canvas height. All limbs belong to the same single person. Keep full figure and all draped cloth inside the canvas.\nLighting/mood: soft neutral daylight on the figure, restrained highlights and natural volume, suitable for compositing over both day and night paintings.\nOutput: clean native transparent alpha around the complete figure, with clear air around head, hands, hems and footwear. Only the single adult figure and their worn clothes occupy the image.\nSubject: Andromache, a Trojan adult woman about thirty-seven. A tall, sturdy woman with a distinctive long rectangular olive face, straight dark brows, a straight long nose, warm brown eyes and thick black hair in a simple braid gathered behind her shoulder. A quiet, steady grief and dignity show in her face. Plain travel and mourning clothes: a soft grey-green wool wrap around a long undyed linen dress, a simple woven belt, brown leather sandals. One hand secures her wrap near her waist; the other is open at mid-body as she speaks to a listener at image-left. The adult woman's hands are empty. Her uncovered face, head, hands and complete sandal-clad feet remain clear. The portrait concerns the living adult woman herself.",
+      "references": [
+        {
+          "file": "chthonic-helen.png",
+          "role": "Painted character style, anatomy, cloth, scale and three-quarter staging",
+          "sha256": "3c87d505fd801846e140405d3d5b84f562ddb9d00a1f015ad9c2814209a5986f"
+        },
+        {
+          "file": "chthonic-baker.png",
+          "role": "Painted character style, anatomy, cloth, scale and three-quarter staging",
+          "sha256": "c8e900ee50e1a3fe860e7f38e6625f7326a6715e6821e8a5db74d264c1bbd7e0"
+        }
+      ],
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "6125bce69f1e9341217262b0616ace1c39477e25e374d1ab4ec271b0dbd8abca",
+      "sha256": "6125bce69f1e9341217262b0616ace1c39477e25e374d1ab4ec271b0dbd8abca",
+      "bytes": 2231775,
+      "alpha": {
+        "clearPixels": 937771,
+        "partialPixels": 635093,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          139,
+          13,
+          845,
+          1518
+        ],
+        "visibleBoundsThreshold": 8
+      }
+    },
+    {
+      "name": "polyxena",
+      "file": "book-three-polyxena.png",
+      "sourceFile": "book-three-polyxena.png",
+      "sourceName": "exec-1a6ea972-52c8-4066-8674-0cdd76c3243d.png",
+      "bindings": [
+        "greek-thrace-polyxena"
+      ],
+      "kind": "adult-character-portrait",
+      "useCase": "historical-scene",
+      "nativeFacing": "left",
+      "transparentBackground": true,
+      "processing": "Original native PNG copied byte for byte; generated alpha preserved",
+      "prompt": "Use case: historical-scene.\nAsset type: full-body character portrait for CosyWorld's painted Greek drama card game.\nInput images: the attached portraits are style references for brush texture, natural anatomy, cloth detail, scale and gentle three-quarter staging. Create the new named subject with an individual face and the clothing specified below.\nStyle/medium: painterly, finely detailed storybook realism; earthy pigments, soft edges within the figure, readable expressive face, hand-painted woven cloth.\nComposition/framing: one adult is the sole subject. Tall 1024 by 1536 portrait canvas with genuine transparent background. Show the entire standing figure from crown of head through both complete feet and shoe soles, with generous clear margins on all four sides. Body at a gentle three-quarter angle; face and eyes look toward image-left. Place the feet on the same level and keep hands comfortably within the silhouette. The figure fills about 86 percent of the canvas height. All limbs belong to the same single person. Keep full figure and all draped cloth inside the canvas.\nLighting/mood: soft neutral daylight on the figure, restrained highlights and natural volume, suitable for compositing over both day and night paintings.\nOutput: clean native transparent alpha around the complete figure, with clear air around head, hands, hems and footwear. Only the single adult figure and their worn clothes occupy the image.\nSubject: Polyxena, a clearly grown adult Trojan woman about twenty-five, with mature adult proportions, a composed bearing and her own steady voice. Distinctive oval face with a broad brow, a strong chin, warm olive skin, dark brown eyes, and thick dark hair in a compact braided coil at the back of her head. Plain woven travel clothes: ankle-length natural linen dress, muted russet wool shoulder wrap with simple edges, narrow cloth waist tie and practical leather sandals. Her leftward speaking gesture is small and calm, with one empty palm slightly open; the other hand rests lightly on the wrap near her hip. Expression: thoughtful courage and adult self-possession. Keep her fully clothed and naturally proportioned, from visible crown of head through both complete feet. The portrait concerns the living adult woman herself.",
+      "references": [
+        {
+          "file": "chthonic-helen.png",
+          "role": "Painted character style, anatomy, cloth, scale and three-quarter staging",
+          "sha256": "3c87d505fd801846e140405d3d5b84f562ddb9d00a1f015ad9c2814209a5986f"
+        },
+        {
+          "file": "chthonic-baker.png",
+          "role": "Painted character style, anatomy, cloth, scale and three-quarter staging",
+          "sha256": "c8e900ee50e1a3fe860e7f38e6625f7326a6715e6821e8a5db74d264c1bbd7e0"
+        }
+      ],
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "0b20f07c94bf218f14798e40329980d83de39719565df0e53264e6c9727014c3",
+      "sha256": "0b20f07c94bf218f14798e40329980d83de39719565df0e53264e6c9727014c3",
+      "bytes": 2095450,
+      "alpha": {
+        "clearPixels": 992852,
+        "partialPixels": 580012,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 0,
+        "visibleSubjectBounds": [
+          141,
+          16,
+          825,
+          1494
+        ],
+        "visibleBoundsThreshold": 8
+      }
+    },
+    {
+      "name": "atossa",
+      "file": "book-three-atossa.png",
+      "sourceFile": "book-three-atossa.png",
+      "sourceName": "exec-55eb832e-7125-4163-9d91-9b60224b7b06.png",
+      "bindings": [
+        "greek-susa-atossa"
+      ],
+      "kind": "adult-character-portrait",
+      "useCase": "historical-scene",
+      "nativeFacing": "left",
+      "transparentBackground": true,
+      "processing": "Original native PNG copied byte for byte; generated alpha preserved",
+      "prompt": "Use case: historical-scene.\nAsset type: full-body character portrait for CosyWorld's painted Greek drama card game.\nInput images: the attached portraits are style references for brush texture, natural anatomy, cloth detail, scale and gentle three-quarter staging. Create the new named subject with an individual face and the clothing specified below.\nStyle/medium: painterly, finely detailed storybook realism; earthy pigments, soft edges within the figure, readable expressive face, hand-painted woven cloth.\nComposition/framing: one adult is the sole subject. Tall 1024 by 1536 portrait canvas with genuine transparent background. Show the entire standing figure from crown of head through both complete feet and shoe soles, with generous clear margins on all four sides. Body at a gentle three-quarter angle; face and eyes look toward image-left. Place the feet on the same level and keep hands comfortably within the silhouette. The figure fills about 86 percent of the canvas height. All limbs belong to the same single person. Keep full figure and all draped cloth inside the canvas.\nLighting/mood: soft neutral daylight on the figure, restrained highlights and natural volume, suitable for compositing over both day and night paintings.\nOutput: clean native transparent alpha around the complete figure, with clear air around head, hands, hems and footwear. Only the single adult figure and their worn clothes occupy the image.\nSubject: Atossa, a mature Persian queen mother about sixty-five, in a separately named Achaemenid Persian court account. She has a broad, dignified olive face with fine lines, dark eyes, a strong curved nose and black hair streaked with silver, dressed in neat braids around a low gathered knot. Persian woven court clothing: a full-length deep indigo draped robe with long sleeves, a woven belt, muted burgundy mantle and restrained gold-toned geometric bands at the cuffs and robe edge. The fabric feels heavy and carefully woven. A narrow woven headband rests above a clear uncovered face. The draped skirt falls to just above her closed soft leather shoes so both feet are visible. One empty hand holds the mantle at her waist; one opens in a gentle low speaking gesture toward image-left. Expression: attentive, grave and warmly human. Her visual identity is a mature Persian court woman in woven long-sleeved dress.",
+      "references": [
+        {
+          "file": "chthonic-baker.png",
+          "role": "Painted character style, anatomy, cloth, scale and three-quarter staging",
+          "sha256": "c8e900ee50e1a3fe860e7f38e6625f7326a6715e6821e8a5db74d264c1bbd7e0"
+        },
+        {
+          "file": "chthonic-helen.png",
+          "role": "Painted character style, anatomy, cloth, scale and three-quarter staging",
+          "sha256": "3c87d505fd801846e140405d3d5b84f562ddb9d00a1f015ad9c2814209a5986f"
+        }
+      ],
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "2904834694bb2f867353dd3502400ad5e3414d8e73e288a41bab602639f2c364",
+      "sha256": "2904834694bb2f867353dd3502400ad5e3414d8e73e288a41bab602639f2c364",
+      "bytes": 2340859,
+      "alpha": {
+        "clearPixels": 881982,
+        "partialPixels": 690882,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          114,
+          11,
+          849,
+          1501
+        ],
+        "visibleBoundsThreshold": 8
+      }
+    },
+    {
+      "name": "xerxes",
+      "file": "book-three-xerxes.png",
+      "sourceFile": "book-three-xerxes.png",
+      "sourceName": "exec-0515caf5-681b-45f7-b658-846b3f5adc3f.png",
+      "bindings": [
+        "greek-susa-xerxes"
+      ],
+      "kind": "adult-character-portrait",
+      "useCase": "historical-scene",
+      "nativeFacing": "left",
+      "transparentBackground": true,
+      "processing": "Original native PNG copied byte for byte; generated alpha preserved",
+      "prompt": "Use case: historical-scene.\nAsset type: full-body character portrait for CosyWorld's painted Greek drama card game.\nInput images: the attached portraits are style references for brush texture, natural anatomy, cloth detail, scale and gentle three-quarter staging. Create the new named subject with an individual face and the clothing specified below.\nStyle/medium: painterly, finely detailed storybook realism; earthy pigments, soft edges within the figure, readable expressive face, hand-painted woven cloth.\nComposition/framing: one adult is the sole subject. Tall 1024 by 1536 portrait canvas with genuine transparent background. Show the entire standing figure from crown of head through both complete feet and shoe soles, with generous clear margins on all four sides. Body at a gentle three-quarter angle; face and eyes look toward image-left. Place the feet on the same level and keep hands comfortably within the silhouette. The figure fills about 86 percent of the canvas height. All limbs belong to the same single person. Keep full figure and all draped cloth inside the canvas.\nLighting/mood: soft neutral daylight on the figure, restrained highlights and natural volume, suitable for compositing over both day and night paintings.\nOutput: clean native transparent alpha around the complete figure, with clear air around head, hands, hems and footwear. Only the single adult figure and their worn clothes occupy the image.\nSubject: Xerxes, a grown Persian ruler about forty-two returning from the failed expedition in the historical Persian court account. A tall, broad-shouldered man with olive skin, a long angular face, dark tired eyes, wavy black hair and a dense neatly shaped black beard with a few silver strands. Persian woven travel and court dress: a belted long-sleeved dull blue-grey tunic, practical loose woven trousers, closed brown leather shoes and a once-rich dark brown wool cloak with faded woven edging and frayed worn hems. His cloak shows the wear of the return journey while his skin and body appear whole. His head is bare and face clear. One empty hand draws the worn cloak toward his chest; the other opens low toward image-left during a quiet public lament. Expression: exhausted, humbled and present. The Persian clothes, mature beard, travel wear and weary posture define this individual.",
+      "references": [
+        {
+          "file": "chthonic-menelaus.png",
+          "role": "Painted character style, anatomy, cloth, scale and three-quarter staging",
+          "sha256": "8f3ef20e63ee5138d7ae09bb3e90893c51f421aecdd3adea3fb94a4d61e4113b"
+        },
+        {
+          "file": "chthonic-helen.png",
+          "role": "Painted character style, anatomy, cloth, scale and three-quarter staging",
+          "sha256": "3c87d505fd801846e140405d3d5b84f562ddb9d00a1f015ad9c2814209a5986f"
+        }
+      ],
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "5db67d752eab1688dcd48f4a6d0d80724406e963e1d2175d33f814fc381e1267",
+      "sha256": "5db67d752eab1688dcd48f4a6d0d80724406e963e1d2175d33f814fc381e1267",
+      "bytes": 2430620,
+      "alpha": {
+        "clearPixels": 882888,
+        "partialPixels": 689976,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          104,
+          14,
+          927,
+          1486
+        ],
+        "visibleBoundsThreshold": 8
+      }
+    },
+    {
+      "name": "talthybius",
+      "file": "book-three-talthybius.png",
+      "sourceFile": "book-three-talthybius.png",
+      "sourceName": "exec-533d21cb-1d5f-48ec-830b-99eaecebd1cd.png",
+      "bindings": [
+        "greek-troy-talthybius"
+      ],
+      "kind": "adult-character-portrait",
+      "useCase": "historical-scene",
+      "nativeFacing": "left",
+      "transparentBackground": true,
+      "processing": "Original native PNG copied byte for byte; generated alpha preserved",
+      "prompt": "Use case: historical-scene.\nAsset type: full-body character portrait for CosyWorld's painted Greek drama card game.\nInput images: the attached portraits are style references for brush texture, natural anatomy, cloth detail, scale and gentle three-quarter staging. Create the new named subject with an individual face and the clothing specified below.\nStyle/medium: painterly, finely detailed storybook realism; earthy pigments, soft edges within the figure, readable expressive face, hand-painted woven cloth.\nComposition/framing: one adult is the sole subject. Tall 1024 by 1536 portrait canvas with genuine transparent background. Show the entire standing figure from crown of head through both complete feet and shoe soles, with generous clear margins on all four sides. Body at a gentle three-quarter angle; face and eyes look toward image-left. Place the feet on the same level and keep hands comfortably within the silhouette. The figure fills about 86 percent of the canvas height. All limbs belong to the same single person. Keep full figure and all draped cloth inside the canvas.\nLighting/mood: soft neutral daylight on the figure, restrained highlights and natural volume, suitable for compositing over both day and night paintings.\nOutput: clean native transparent alpha around the complete figure, with clear air around head, hands, hems and footwear. Only the single adult figure and their worn clothes occupy the image.\nSubject: Talthybius, an adult Greek herald about fifty, lean and weathered. A broad square face, a slightly bent nose, thoughtful brown eyes, closely cropped dark hair with grey at the temples, and a short grey-brown beard. His bare head and uncovered face read clearly. Simple knee-length woven linen tunic, practical dusty navy wool shoulder cloak fastened with a plain bronze pin, leather belt and brown leather sandals. His hands are empty. One hand rests near his belt and the other opens low in a careful speaking gesture toward image-left. His face carries duty, compassion and the strain of bearing a hard message. This is the living adult herald, shown alone in ordinary travel clothes. Show the full adult figure with both complete bare lower legs and sandal-clad feet.",
+      "references": [
+        {
+          "file": "chthonic-menelaus.png",
+          "role": "Painted character style, anatomy, cloth, scale and three-quarter staging",
+          "sha256": "8f3ef20e63ee5138d7ae09bb3e90893c51f421aecdd3adea3fb94a4d61e4113b"
+        },
+        {
+          "file": "chthonic-baker.png",
+          "role": "Painted character style, anatomy, cloth, scale and three-quarter staging",
+          "sha256": "c8e900ee50e1a3fe860e7f38e6625f7326a6715e6821e8a5db74d264c1bbd7e0"
+        }
+      ],
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "400fd68d3d78fec88665de43873c221cb2f7ace977570eb4f6da81a726714424",
+      "sha256": "400fd68d3d78fec88665de43873c221cb2f7ace977570eb4f6da81a726714424",
+      "bytes": 2298217,
+      "alpha": {
+        "clearPixels": 941714,
+        "partialPixels": 631150,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          98,
+          22,
+          928,
+          1494
+        ],
+        "visibleBoundsThreshold": 8
+      }
+    }
+  ],
+  "reviewBackgrounds": [
+    {
+      "file": "ajax-camp-day.webp",
+      "sha256": "846fd6875ded126c01eb4108247d5b94c5a0c6fbf2f9909ff42dafe21ebfbe77",
+      "source": "Approved Greek camp, PR #1265, commit 11f8801f9ed6ede6ea7fcacab0da7ae7b9697773",
+      "purpose": "Painted lighting and alpha-edge review; chapter stage bindings belong to the source owner"
+    },
+    {
+      "file": "ajax-camp-night.webp",
+      "sha256": "45dd0233ac83a755d6f4aa645683c77aa1959d4f68128668f4a11cb9a61a2bbb",
+      "source": "Approved Greek camp, PR #1265, commit 11f8801f9ed6ede6ea7fcacab0da7ae7b9697773",
+      "purpose": "Painted lighting and alpha-edge review; chapter stage bindings belong to the source owner"
+    },
+    {
+      "file": "theban-harbor-road.webp",
+      "sha256": "02f068c0f388054541c0e74ee2235836e205742cd0941c5dfdbf22f608f1478f",
+      "source": "Published coastal-road paintings",
+      "purpose": "Painted lighting and alpha-edge review; chapter stage bindings belong to the source owner"
+    },
+    {
+      "file": "theban-harbor-road-night.webp",
+      "sha256": "9aeaa198d0aabf002a349a7b6c47732080034bc000e694c8729ef84c07f27018",
+      "source": "Published coastal-road paintings",
+      "purpose": "Painted lighting and alpha-edge review; chapter stage bindings belong to the source owner"
+    },
+    {
+      "file": "palace-day.webp",
+      "sha256": "c0b61fb49af9c98adbdf9fe7ac386f3611e13b23342a10791673871473928769",
+      "source": "Published Greek court paintings used to review the Persian figures under both light settings",
+      "purpose": "Painted lighting and alpha-edge review; chapter stage bindings belong to the source owner"
+    },
+    {
+      "file": "palace-night.webp",
+      "sha256": "6fef7d5cfcbd3c95f5f05395d95213a2b5760875487e37b98d2ffe5841abab06",
+      "source": "Published Greek court paintings used to review the Persian figures under both light settings",
+      "purpose": "Painted lighting and alpha-edge review; chapter stage bindings belong to the source owner"
+    }
+  ],
+  "reviewSheets": [
+    {
+      "file": "book-three-trojan-women-review.png",
+      "sha256": "2663ff3bba6fffc73c205ae6ca928989dacdcbba8b18dbf0e1ae8798a458277d",
+      "desktopWidth": 610,
+      "phoneSize": [
+        390,
+        580
+      ],
+      "subjects": [
+        "book-three-hecuba.png",
+        "book-three-andromache.png"
+      ]
+    },
+    {
+      "file": "book-three-thrace-herald-review.png",
+      "sha256": "30622b099510c8acb093a66eccdea83d3d4f31df78f2347a4c982cd2ab35b603",
+      "desktopWidth": 610,
+      "phoneSize": [
+        390,
+        580
+      ],
+      "subjects": [
+        "book-three-polyxena.png",
+        "book-three-talthybius.png"
+      ]
+    },
+    {
+      "file": "book-three-persian-cast-review.png",
+      "sha256": "d2f2b345af0cb84b2235f262bb4a6739786564eee4633422823bf168f3bd4928",
+      "desktopWidth": 610,
+      "phoneSize": [
+        390,
+        580
+      ],
+      "subjects": [
+        "book-three-atossa.png",
+        "book-three-xerxes.png"
+      ]
+    }
+  ]
+}

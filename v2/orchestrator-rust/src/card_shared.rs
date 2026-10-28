@@ -3,11 +3,13 @@ mod ajax_tests;
 #[cfg(test)]
 mod boardy_tests;
 #[cfg(test)]
+mod book_iv_tests;
+#[cfg(test)]
 mod book_one_tests;
 #[cfg(test)]
-mod book_two_tests;
+mod book_three_tests;
 #[cfg(test)]
-mod book_iv_tests;
+mod book_two_tests;
 mod engine;
 #[cfg(test)]
 mod epic_capacity_tests;
