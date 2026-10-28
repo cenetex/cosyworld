@@ -1,10 +1,13 @@
 import { roomTracks } from "./music.mjs";
 import { packMediaFiles } from "./pack-registry.mjs";
+import imageVariants from "./image-variants.json" with { type: "json" };
 import voiceCast from "./voices.json" with { type: "json" };
 
 // The local server, release smoke, and Rust asset generator use this list.
 const files = [
   "media.mjs",
+  "images.mjs",
+  "image-variants.json",
   "media-manifest.json",
   "shared.mjs",
   "shared-auth.mjs",
@@ -127,6 +130,8 @@ const files = [
 ];
 // A mounted pack can reuse an image already published by the card table.
 for (const file of packMediaFiles) if (!files.includes(file)) files.push(file);
+for (const { stage, card } of Object.values(imageVariants.images))
+  for (const file of [stage, card]) if (!files.includes(file)) files.push(file);
 const types = {
   html: "text/html; charset=utf-8",
   css: "text/css; charset=utf-8",

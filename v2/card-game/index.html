@@ -12,7 +12,15 @@
     <link rel="stylesheet" href="./toolbar.css" />
     <link rel="stylesheet" href="./openrouter.css" />
     <link rel="stylesheet" href="./scene-video.css" />
-    <link rel="preload" as="image" href="./assets/keeper-right.png" />
+    <!-- card-image-preload:start -->
+    <link
+      rel="preload"
+      as="image"
+      href="./assets/optimized/stage/png/keeper-right.webp?v=8dd96fb5ed6da2fa4f6fe152880af53cf2576ccc5f54c7a9c7a089959f790e58"
+      fetchpriority="high"
+      data-card-preload="keeper"
+    />
+    <!-- card-image-preload:end -->
     <script type="module" src="./entry.mjs"></script>
   </head>
   <body inert>
@@ -47,7 +55,13 @@
     <p id="notice" class="notice" role="status" hidden></p>
     <main>
       <section id="stage" class="stage" aria-label="Current scene">
-        <img id="backdrop" class="backdrop" alt="" />
+        <img
+          id="backdrop"
+          class="backdrop"
+          alt=""
+          decoding="async"
+          fetchpriority="high"
+        />
         <div class="scene-shade"></div>
         <!-- The place card carries what the scene once labelled; the heading
              stays for screen readers. -->

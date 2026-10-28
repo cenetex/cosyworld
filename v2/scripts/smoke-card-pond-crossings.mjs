@@ -239,7 +239,7 @@ try {
     assert.equal(await card("greek-harbor").count(), 1);
     assert.equal(await card("pond").count(), 0);
     assert.match(
-      await page.locator("#backdrop").getAttribute("src"),
+      new URL(await page.locator("#backdrop").getAttribute("src")).pathname,
       /ship-deck\.webp$/,
     );
     await shot("aboard-ship");
