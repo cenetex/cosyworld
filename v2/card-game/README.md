@@ -78,6 +78,15 @@ Badger, and Dione use 1.12× speed for a slightly quicker delivery. Voice settin
 are part of the cache key, so a pace adjustment produces fresh speech for that
 character.
 
+Each voice also has a delivery brief in its `direction` field. The shared aim
+is connected thoughts, clear words, gentle emphasis, brief natural pauses, and
+soft phrase endings. The dialogue guides the emotion. Vale has dry warmth;
+Mara has flowing theatrical phrasing; Pip has light, papery courtesy; the
+Keeper has measured dignity; Badger has rounded words and a warm rumble;
+Dione has direct warmth and calm assurance. These briefs travel in the existing
+speech request's `instructions` field. A direction change gives that character
+fresh generated clips through the voice cache key.
+
 Generated clips stay in this browser’s cache for replay and reload, up to
 32 clips and 16 MiB. Cached clips also play after disconnecting OpenRouter.
 Cache identity includes the model, reference hash, direction, transcript, and
