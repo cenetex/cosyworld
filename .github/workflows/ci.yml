@@ -303,6 +303,7 @@ jobs:
           node v2/scripts/smoke-card-hand.mjs
           node v2/scripts/smoke-card-music.mjs
           node v2/scripts/smoke-card-music-network.mjs
+          node v2/scripts/smoke-card-media-cache.mjs
           node v2/scripts/smoke-scene-video.mjs
 
       - name: Check card routes and actions
