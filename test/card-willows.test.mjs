@@ -46,7 +46,7 @@ function island() {
     personalQuests: true,
   });
   world = act(world, { kind: "light", item: "lamp" });
-  world = move(world, "pond");
+  expect(world.actors.vale.place).toBe("pond");
   world.crossings["pond-greek-harbor"].discovered = true;
   summonTransport(world, "greek-ship", "pond");
   world = move(world, "greek-ship");
