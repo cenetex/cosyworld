@@ -23,8 +23,10 @@ const dockedNightBackdrops = {
   [art("open-door-piraeus")]: art("piraeus-ship-at-berth-night"),
 };
 export const daylightAssets = [
-  ...Object.values(nightBackdrops),
-  ...Object.values(dockedNightBackdrops),
+  ...new Set([
+    ...Object.values(nightBackdrops),
+    ...Object.values(dockedNightBackdrops),
+  ]),
 ];
 
 export function locationDaylight(world, id) {

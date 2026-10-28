@@ -93,6 +93,9 @@ export function upgradeSave(
     upgradeTransportSave(s);
     upgradeGreekSectionSave(s);
     upgradeGreekHomecomingSave(s);
+    upgradeGreekRoadSave(s);
+    upgradeGreekTownSave(s);
+    upgradeGreekAjaxSave(s);
     s.schema = 7;
     installPacks(s);
   } else if (
@@ -105,13 +108,13 @@ export function upgradeSave(
     upgradeTransportSave(s);
     upgradeGreekSectionSave(s);
     upgradeGreekHomecomingSave(s);
+    upgradeGreekRoadSave(s);
+    upgradeGreekTownSave(s);
+    upgradeGreekAjaxSave(s);
     // A pack mounted after this save was written joins it fresh.
     installPacks(s);
   }
   if (s?.schema === 7) {
-    upgradeGreekRoadSave(s);
-    upgradeGreekTownSave(s);
-    upgradeGreekAjaxSave(s);
     upgradeShoreRouteSave(s);
     upgradeBoardingSave(s);
     upgradeRecitals(s, packDefinitions);

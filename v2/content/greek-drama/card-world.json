@@ -9486,7 +9486,12 @@
       "requires": [
         {
           "kind": "flag",
-          "key": "greek-ajax-plea-heard",
+          "key": "greek-ajax-open",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-ajax-shield-delivered",
           "value": true
         }
       ],
@@ -9499,14 +9504,19 @@
       "text": "Teucer’s signed Trojan account records Ajax’s public burial.",
       "requires": [
         {
-          "kind": "flag",
-          "key": "greek-ajax-account-ready",
-          "value": true
-        },
-        {
           "kind": "choice",
           "key": "greek-ajax-ending",
           "value": "public"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-ajax-buried",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-ajax-plea",
+          "role": "actor"
         }
       ],
       "choiceId": "greek-ajax-record-public"
@@ -9518,14 +9528,19 @@
       "text": "Teucer’s signed Trojan account records Ajax’s household burial.",
       "requires": [
         {
-          "kind": "flag",
-          "key": "greek-ajax-account-ready",
-          "value": true
-        },
-        {
           "kind": "choice",
           "key": "greek-ajax-ending",
           "value": "household"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-ajax-buried",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-ajax-plea",
+          "role": "actor"
         }
       ],
       "choiceId": "greek-ajax-record-household"
@@ -9537,14 +9552,19 @@
       "text": "Teucer’s signed Trojan account records Ajax’s witnessed-appeal burial.",
       "requires": [
         {
-          "kind": "flag",
-          "key": "greek-ajax-account-ready",
-          "value": true
-        },
-        {
           "kind": "choice",
           "key": "greek-ajax-ending",
           "value": "appeal"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-ajax-buried",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-ajax-plea",
+          "role": "actor"
         }
       ],
       "choiceId": "greek-ajax-record-appeal"
