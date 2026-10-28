@@ -120,6 +120,7 @@ const files = [
   "pack-transport.mjs",
   "legacy-saves.mjs",
   "legacy-greek-catalog.mjs",
+  "legacy-greek-seaways.mjs",
   "reading-digest.mjs",
   "poem-readings.mjs",
   "poem-catalogs.mjs",

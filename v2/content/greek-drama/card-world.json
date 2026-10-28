@@ -130,12 +130,7 @@
     "greek-piraeus": {
       "name": "Piraeus Quays",
       "text": "Folded cloth, a grain basket and a low bench stand beside the mooring ropes. A host waits for the names of returning families. Roads lead inland to Athens and along the coast to Eleusis.",
-      "exits": [
-        "greek-road-athens-piraeus",
-        "greek-tauris",
-        "greek-sicily",
-        "greek-road-piraeus-eleusis"
-      ],
+      "exits": ["greek-road-athens-piraeus", "greek-road-piraeus-eleusis"],
       "backdrop": "assets/greek-drama/piraeus-open-berth.webp",
       "persona": "These quays hold the practical work of welcome. A reserved berth records a promise and supplies at this quay. The host speaks about the actual list, cloth and basket and the traveler’s chosen terms."
     },
@@ -444,7 +439,7 @@
     "greek-troy-beach": {
       "name": "The Homecoming Beach",
       "text": "A small boat is drawn above the tideline. Its passengers compare what they remember of the war.",
-      "exits": [],
+      "exits": ["greek-ajax-landing"],
       "backdrop": "assets/greek-drama/sea.svg",
       "requires": [
         {
@@ -486,14 +481,14 @@
     "greek-tauris": {
       "name": "The Taurian Temple",
       "text": "A walled temple overlooks the landing place. An attendant counts the people brought ashore.",
-      "exits": ["greek-piraeus", "greek-tauris-shore"],
+      "exits": ["greek-tauris-shore"],
       "backdrop": "assets/greek-drama/palace.svg",
       "persona": "A walled temple overlooks the landing place. An attendant counts the people brought ashore."
     },
     "greek-sicily": {
       "name": "The Sicilian Cave",
       "text": "Sheep crowd a stone enclosure beside the cave. Wine jars stand beyond the shepherds' reach.",
-      "exits": ["greek-piraeus", "greek-vii-inner-cave", "greek-sicily-shore"],
+      "exits": ["greek-vii-inner-cave", "greek-sicily-shore"],
       "backdrop": "assets/greek-drama/grove.svg",
       "persona": "Sheep crowd a stone enclosure beside the cave. Wine jars stand beyond the shepherds' reach."
     },
@@ -645,17 +640,10 @@
     },
     "greek-ajax-landing": {
       "name": "The Trojan Camp Landing",
-      "text": "A wooden landing meets the ships below the tents. The Greek ship calls here for the named Trojan burial account.",
-      "persona": "This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. A wooden landing meets the ships below the tents. The Greek ship calls here for the named Trojan burial account.",
-      "exits": ["greek-greek-camp"],
-      "backdrop": "assets/greek-drama/ajax-camp-day.webp",
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-ajax-open",
-          "value": true
-        }
-      ]
+      "text": "A wooden landing meets the shared ship below the tents. Local paths reach the Greek camp and the homecoming beach.",
+      "persona": "This shared Trojan landing serves Ajax’s burial account and Helen’s Trojan homecoming. Each keeps its named time. Local paths reach the Greek camp and the homecoming beach.",
+      "exits": ["greek-greek-camp", "greek-troy-beach"],
+      "backdrop": "assets/greek-drama/ajax-camp-day.webp"
     },
     "greek-ajax-household": {
       "name": "Ajax’s Household Tent",
@@ -9249,36 +9237,6 @@
   },
   "routes": [
     {
-      "from": "greek-harbor",
-      "to": "greek-egypt-tomb",
-      "requires": [
-        {
-          "kind": "choice",
-          "key": "greek-helen-account",
-          "value": "egypt"
-        }
-      ]
-    },
-    {
-      "from": "greek-egypt-tomb",
-      "to": "greek-harbor"
-    },
-    {
-      "from": "greek-harbor",
-      "to": "greek-troy-beach",
-      "requires": [
-        {
-          "kind": "choice",
-          "key": "greek-helen-account",
-          "value": "troy"
-        }
-      ]
-    },
-    {
-      "from": "greek-troy-beach",
-      "to": "greek-harbor"
-    },
-    {
       "from": "greek-argolid-road",
       "to": "greek-argos-tomb",
       "requires": [
@@ -9510,72 +9468,6 @@
       ]
     },
     {
-      "from": "greek-gate",
-      "to": "greek-aulis",
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-aulis-open",
-          "value": false
-        }
-      ]
-    },
-    {
-      "from": "greek-aulis",
-      "to": "greek-gate",
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-aulis-open",
-          "value": false
-        }
-      ]
-    },
-    {
-      "from": "greek-greek-camp",
-      "to": "greek-aulis",
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-aulis-open",
-          "value": false
-        }
-      ]
-    },
-    {
-      "from": "greek-aulis",
-      "to": "greek-greek-camp",
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-aulis-open",
-          "value": false
-        }
-      ]
-    },
-    {
-      "from": "greek-lemnos",
-      "to": "greek-greek-camp",
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-lemnos-open",
-          "value": false
-        }
-      ]
-    },
-    {
-      "from": "greek-greek-camp",
-      "to": "greek-lemnos",
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-lemnos-open",
-          "value": false
-        }
-      ]
-    },
-    {
       "from": "greek-troy-shield-ground",
       "to": "greek-greek-camp",
       "requires": [
@@ -9594,28 +9486,6 @@
           "kind": "flag",
           "key": "greek-troy-care-prepared",
           "value": true
-        }
-      ]
-    },
-    {
-      "from": "greek-thrace",
-      "to": "greek-troy",
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-thrace-open",
-          "value": false
-        }
-      ]
-    },
-    {
-      "from": "greek-troy",
-      "to": "greek-thrace",
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-thrace-open",
-          "value": false
         }
       ]
     },
@@ -10157,6 +10027,11 @@
           "kind": "choose",
           "key": "greek-helen-account",
           "value": "troy"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-trojan-landing-open",
+          "value": true
         }
       ],
       "summary": "The Trojan account governs Helen's whereabouts and testimony. No phantom has been established in this history.",
@@ -13597,6 +13472,11 @@
         {
           "kind": "set_flag",
           "key": "greek-ajax-open",
+          "value": true
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-trojan-landing-open",
           "value": true
         }
       ],
@@ -49492,7 +49372,6 @@
       "name": "Earth Beside the Ships",
       "places": [
         "greek-greek-camp",
-        "greek-ajax-landing",
         "greek-ajax-household",
         "greek-ajax-grave"
       ],
@@ -49653,11 +49532,7 @@
     {
       "id": "greek-book-iv-helen-section",
       "name": "The Faces of Home: Helen",
-      "places": [
-        "greek-book-iv-helen-boat",
-        "greek-book-iv-helen-court",
-        "greek-book-iv-helen-landing"
-      ],
+      "places": ["greek-book-iv-helen-boat", "greek-book-iv-helen-court"],
       "requires": [
         {
           "kind": "flag",
@@ -49890,6 +49765,30 @@
           "kind": "flag",
           "key": "greek-susa-open",
           "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-trojan-landing",
+      "name": "The Trojan Landing",
+      "places": ["greek-ajax-landing"],
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-trojan-landing-open",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-egyptian-landing",
+      "name": "The Egyptian Landing",
+      "places": ["greek-book-iv-helen-landing"],
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
         }
       ]
     }

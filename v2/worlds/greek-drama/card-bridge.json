@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "shore-greek-drama",
   "pack": "greek-drama",
-  "description": "A shared ship serves Black Pond, the Wine-Dark Harbor, Athens Harbor and Piraeus Quays. The lamp signal calls it to the pond.",
+  "description": "One shared ship serves eleven Greek and forest landings. Local paths join each landing to its nearby scene.",
   "crossings": [
     {
       "id": "pond-greek-harbor",
@@ -115,13 +115,7 @@
       "to": "pond",
       "travelers": "any",
       "travel": "aboard the ship",
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-ajax-open",
-          "value": true
-        }
-      ],
+      "requires": [],
       "transport": "greek-ship",
       "travelLabel": "Board",
       "scenery": {
@@ -137,13 +131,7 @@
       "to": "pond",
       "travelers": "any",
       "travel": "aboard the ship",
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-book-iv-open",
-          "value": true
-        }
-      ],
+      "requires": [],
       "transport": "greek-ship",
       "travelLabel": "Board",
       "scenery": {
@@ -158,13 +146,7 @@
       "to": "pond",
       "travelers": "any",
       "travel": "aboard the ship",
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-aulis-open",
-          "value": true
-        }
-      ],
+      "requires": [],
       "transport": "greek-ship",
       "travelLabel": "Board",
       "scenery": {
@@ -180,13 +162,7 @@
       "to": "pond",
       "travelers": "any",
       "travel": "aboard the ship",
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-lemnos-open",
-          "value": true
-        }
-      ],
+      "requires": [],
       "transport": "greek-ship",
       "travelLabel": "Board",
       "scenery": {
@@ -202,17 +178,43 @@
       "to": "pond",
       "travelers": "any",
       "travel": "aboard the ship",
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-thrace-open",
-          "value": true
-        }
-      ],
+      "requires": [],
       "transport": "greek-ship",
       "travelLabel": "Board",
       "scenery": {
         "open": "The shared ship waits at the Thracian shore.",
+        "closed": "The landing waits beside open water.",
+        "cardName": "Greek ship",
+        "cardArt": "assets/greek-drama/ship-card.webp"
+      }
+    },
+    {
+      "id": "greek-tauris-shore-ship",
+      "from": "greek-tauris-shore",
+      "to": "pond",
+      "travelers": "any",
+      "travel": "aboard the shared ship",
+      "travelLabel": "Board",
+      "requires": [],
+      "transport": "greek-ship",
+      "scenery": {
+        "open": "The shared ship waits at the Taurian Shore.",
+        "closed": "The landing waits beside open water.",
+        "cardName": "Greek ship",
+        "cardArt": "assets/greek-drama/ship-card.webp"
+      }
+    },
+    {
+      "id": "greek-sicily-shore-ship",
+      "from": "greek-sicily-shore",
+      "to": "pond",
+      "travelers": "any",
+      "travel": "aboard the shared ship",
+      "travelLabel": "Board",
+      "requires": [],
+      "transport": "greek-ship",
+      "scenery": {
+        "open": "The shared ship waits at the Sicilian Landing.",
         "closed": "The landing waits beside open water.",
         "cardName": "Greek ship",
         "cardArt": "assets/greek-drama/ship-card.webp"
@@ -231,7 +233,9 @@
         "greek-book-iv-helen-landing",
         "greek-aulis",
         "greek-lemnos-landing",
-        "greek-thrace"
+        "greek-thrace",
+        "greek-tauris-shore",
+        "greek-sicily-shore"
       ],
       "at": "greek-harbor"
     }
