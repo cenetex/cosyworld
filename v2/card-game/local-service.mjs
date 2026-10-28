@@ -14,6 +14,9 @@ export async function setupLocalService({ fetcher = globalThis.fetch } = {}) {
   runtime = value;
   const account = document.querySelector(".openrouter-settings");
   if (account) account.hidden = true;
+  const status = document.getElementById("local-model-status");
+  if (status)
+    status.textContent = `Dialogue: ${value.dialogueModel}. Voices: Chatterbox ${value.voiceModel}.`;
   return true;
 }
 

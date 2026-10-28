@@ -308,6 +308,18 @@
           </details>
         </div>
       </section>
+      <section id="local-settings" hidden aria-labelledby="local-title">
+        <h3 id="local-title">Local game</h3>
+        <p id="local-model-status"></p>
+        <p>
+          Your game also saves to a file on this computer. The previous file
+          stays beside it.
+        </p>
+        <button id="local-export" type="button">Save backup</button>
+        <label for="local-import">Restore a backup</label>
+        <input id="local-import" type="file" accept=".json,application/json" />
+        <p id="local-save-status" role="status" aria-live="polite"></p>
+      </section>
       <p>
         Your game saves in this browser. Open Conversation to read what people
         have said.

@@ -8,7 +8,7 @@ import urllib.request
 import wave
 from pathlib import Path
 
-from chatterbox_service import create_server
+from chatterbox_service import CachedSpeech, create_server
 from run import local_environment
 
 
@@ -50,11 +50,13 @@ class ServicesTest(unittest.TestCase):
         with self.assertRaises(urllib.error.HTTPError) as error:
             self.request("another-token", {"speaker": "vale", "text": "Hello."})
         self.assertEqual(error.exception.code, 403)
+        error.exception.close()
 
     def test_bad_speakers_and_invalid_json_are_rejected(self):
         with self.assertRaises(urllib.error.HTTPError) as error:
             self.request("x" * 32, {"speaker": "unknown", "text": "Hello."})
         self.assertEqual(error.exception.code, 400)
+        error.exception.close()
 
     def test_launcher_isolates_local_models_from_hosted_settings(self):
         source = {"PATH": "/bin", "OPENROUTER_API_KEY": "private", "COSYWORLD_AI_REGISTRY_JSON": "hosted", "COSYWORLD_CARD_CHARACTER_MODELS_JSON": "hosted"}
@@ -63,6 +65,24 @@ class ServicesTest(unittest.TestCase):
         self.assertEqual(env["COSYWORLD_CARD_TEXT_PROFILE"], "local")
         self.assertNotIn("OPENROUTER_API_KEY", env)
         self.assertNotIn("COSYWORLD_AI_REGISTRY_JSON", env)
+
+    def test_disk_clips_survive_restart_and_track_reference_changes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            reference = root / "vale.wav"
+            reference.write_bytes(b"reference-one")
+            engine = Engine()
+            engine.voices = {"vale": {"file": "vale.wav"}}
+            engine.voice_root = root
+            engine.identity = lambda: "model-one"
+            first = CachedSpeech(engine, root / "cache")
+            audio = first.generate("vale", "Hello.")
+            engine.generate = lambda *_args: self.fail("The disk cache should supply this clip.")
+            self.assertEqual(CachedSpeech(engine, root / "cache").generate("vale", "Hello."), audio)
+            reference.write_bytes(b"reference-two")
+            engine.generate = Engine().generate
+            CachedSpeech(engine, root / "cache").generate("vale", "Hello.")
+            self.assertEqual(len(list((root / "cache").glob("*.wav"))), 2)
 
 
 if __name__ == "__main__":

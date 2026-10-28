@@ -56,7 +56,8 @@ def main():
     python = os.environ.get("COSYWORLD_CHATTERBOX_PYTHON", sys.executable)
     voice_command = [python, str(Path(__file__).with_name("chatterbox_service.py")),
                      "--port", str(speech_port), "--voices", str(ROOT / "v2/card-game/voices.json"),
-                     "--model", env["COSYWORLD_CHATTERBOX_MODEL"]]
+                     "--model", env["COSYWORLD_CHATTERBOX_MODEL"],
+                     "--cache-dir", str(data_dir / "voices")]
     if os.environ.get("COSYWORLD_CHATTERBOX_MODEL_DIR"):
         voice_command += ["--model-dir", os.environ["COSYWORLD_CHATTERBOX_MODEL_DIR"]]
     children = []

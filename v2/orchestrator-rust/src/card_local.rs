@@ -12,6 +12,9 @@ use serde::Deserialize;
 use serde_json::json;
 use std::{net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
 
+#[path = "card_local_saves.rs"]
+mod saves;
+
 #[derive(Clone)]
 pub(crate) struct Config {
     pub(crate) address: SocketAddr,
@@ -82,6 +85,7 @@ pub(crate) async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>
     let app = super::router::<()>(true)
         .merge(super::narrative::router(Arc::new(Some(ai))))
         .merge(api(state.clone()))
+        .merge(saves::router(state.data_dir.join("saves")))
         .layer(middleware::from_fn_with_state(state, local_origin));
     axum::serve(
         listener,
@@ -128,7 +132,7 @@ async fn local_origin(State(config): State<Arc<Config>>, request: Request, next:
 async fn settings(State(config): State<Arc<Config>>) -> Json<serde_json::Value> {
     Json(json!({
         "schema":1, "dialogueModel":config.model, "voiceModel":config.voice_model,
-        "voiceRevision":"chatterbox-v1", "voiceTimeoutMs":120000
+        "voiceRevision":"chatterbox-v1", "voiceTimeoutMs":120000, "backups":true
     }))
 }
 

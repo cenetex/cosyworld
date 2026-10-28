@@ -36,6 +36,22 @@ The launcher checks the chosen dialogue model, starts both game services,
 and closes its child processes on exit. All game requests use loopback.
 Model downloads happen during setup. Runtime voice loading uses local files.
 
+## Saves and voice clips
+
+Each local table also saves to `saves/` in the app's data folder. Each update
+writes a complete temporary file, then replaces the current file. A
+`previous.json` file keeps the earlier version. Revision checks protect a
+table when two windows save at once. A pending browser copy survives a
+restart and retries its file backup on the next launch.
+
+Open Menu to **Save backup** or **Restore a backup**. Imported saves pass the
+same game validation as browser saves. The browser keeps the outgoing copy.
+The desktop app uses a fixed local origin and its own persistent browser profile.
+
+Generated voice clips stay in `voices/`, up to 128 MiB. Their identity includes
+the model weights, voice reference, and spoken words. A fresh voice process
+can reuse them. A single speech queue keeps each character's voice together.
+
 ## Checks
 
 ```sh

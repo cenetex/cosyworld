@@ -17,6 +17,8 @@ import { createNarrator } from "./narrative.mjs";
 import { packMedia } from "./pack-registry.mjs";
 import { createRoomMusic } from "./music.mjs";
 import { createCharacterSpeech } from "./character-speech.mjs";
+import { localRuntime } from "./local-service.mjs";
+import { createLocalBackups, installBackupControls } from "./local-saves.mjs";
 import {
   createTextReveal,
   createSpeechSounds,
@@ -146,7 +148,16 @@ function notice(text) {
   $("notice").textContent = text;
   $("notice").hidden = !text;
 }
+const localBackups =
+  localRuntime()?.backups && !sharedSession
+    ? createLocalBackups({
+        slot: SAVE_KEY,
+        validate: decodeSave,
+        onError: notice,
+      })
+    : null;
 try {
+  await localBackups?.restore();
   const saved = sharedSession ? null : localStorage.getItem(SAVE_KEY);
   if (saved)
     world = enableMotives(decodeSave(saved), {
@@ -259,12 +270,25 @@ loadQuestSeen();
 function save() {
   if (saveBlocked || sharedSession) return;
   try {
-    localStorage.setItem(SAVE_KEY, encodeSave(world));
+    const encoded = encodeSave(world);
+    localStorage.setItem(SAVE_KEY, encoded);
+    void localBackups?.queue(encoded);
   } catch {
     notice(
       "This browser could not save the world. Keep this tab open to keep playing.",
     );
   }
+}
+if (localBackups) {
+  installBackupControls({
+    slot: SAVE_KEY,
+    backups: localBackups,
+    getSave: () => encodeSave(world),
+    validate: decodeSave,
+  });
+  window.addEventListener("pagehide", () => {
+    void localBackups.flush();
+  });
 }
 let storyStatus = "ready",
   storyRetrying = false,
@@ -2717,6 +2741,16 @@ installSharedControls({
   notice,
 });
 installToolbar({ session: sharedSession, getWorld: () => world });
+if (localRuntime()) {
+  for (const id of [
+    "owned-worlds-button",
+    "shared-worlds-button",
+    "scene-video-button",
+  ]) {
+    const button = $(id);
+    if (button) button.hidden = true;
+  }
+}
 installSceneVideo({
   getWorld: () => world,
   getScene: () => videoScene || currentScene(world),

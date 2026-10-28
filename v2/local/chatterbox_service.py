@@ -1,5 +1,6 @@
 """Local character speech. Run with Python 3.11 and chatterbox-tts installed."""
 import argparse
+import hashlib
 import io
 import json
 import os
@@ -33,6 +34,23 @@ class SpeechEngine:
             self.model = (ChatterboxTurboTTS.from_local(self.model_dir, **options)
                           if self.model_dir else ChatterboxTurboTTS.from_pretrained(**options))
 
+    def identity(self):
+        if self.model_dir is None:
+            from huggingface_hub import snapshot_download
+            self.model_dir = Path(snapshot_download(
+                repo_id="ResembleAI/chatterbox-" + self.model_name,
+                local_files_only=True))
+        files = sorted(Path(self.model_dir).glob("*.safetensors"))
+        digest = hashlib.sha256(b"chatterbox-5de7a54-pcm16-v1")
+        if not files:
+            raise ValueError("Prepare the Chatterbox model files first.")
+        for path in files:
+            digest.update(path.name.encode())
+            with path.open("rb") as file:
+                while block := file.read(1024 * 1024):
+                    digest.update(block)
+        return digest.hexdigest()
+
     def generate(self, speaker, text):
         if speaker not in self.voices or not isinstance(text, str) or not text.strip():
             raise ValueError("Choose a current character line.")
@@ -56,8 +74,57 @@ class SpeechEngine:
             return output.getvalue()
 
 
+class CachedSpeech:
+    def __init__(self, engine, directory, max_bytes=128 * 1024 * 1024):
+        self.engine = engine
+        self.directory = Path(directory)
+        self.max_bytes = max_bytes
+        self.model_identity = None
+        self.lock = threading.Lock()
+
+    def generate(self, speaker, text):
+        if speaker not in self.engine.voices or not isinstance(text, str) or not text.strip():
+            raise ValueError("Choose a current character line.")
+        if len(text) > 1200 or any(ord(char) < 32 for char in text):
+            raise ValueError("Choose a short character line.")
+        with self.lock:
+            if self.model_identity is None:
+                self.model_identity = self.engine.identity()
+            reference = self.engine.voice_root / self.engine.voices[speaker]["file"]
+            key = hashlib.sha256(json.dumps([
+                self.model_identity, speaker, hashlib.sha256(reference.read_bytes()).hexdigest(), text
+            ], ensure_ascii=False).encode()).hexdigest()
+            self.directory.mkdir(parents=True, exist_ok=True)
+            path = self.directory / (key + ".wav")
+            if path.exists():
+                try:
+                    audio = path.read_bytes()
+                    with wave.open(io.BytesIO(audio)) as saved:
+                        if saved.getnframes() <= 0 or len(audio) > 8 * 1024 * 1024:
+                            raise ValueError("Refresh this clip.")
+                    path.touch()
+                    return audio
+                except (OSError, ValueError, EOFError, wave.Error):
+                    path.unlink(missing_ok=True)
+            audio = self.engine.generate(speaker, text)
+            temporary = path.with_suffix(".pending")
+            temporary.write_bytes(audio)
+            temporary.replace(path)
+            size = 0
+            for item in sorted(self.directory.glob("*.wav"), key=lambda file: file.stat().st_mtime, reverse=True):
+                size += item.stat().st_size
+                if size > self.max_bytes:
+                    item.unlink()
+            return audio
+
+
 def create_server(address, token, engine):
+    capacity = threading.BoundedSemaphore(2)
     class Handler(BaseHTTPRequestHandler):
+        def setup(self):
+            super().setup()
+            self.connection.settimeout(5)
+
         def log_message(self, *_args):
             pass
 
@@ -89,7 +156,12 @@ def create_server(address, token, engine):
                 data = json.loads(self.rfile.read(size))
                 if not isinstance(data, dict):
                     raise ValueError("Choose a character line.")
-                audio = engine.generate(data.get("speaker"), data.get("text"))
+                if not capacity.acquire(blocking=False):
+                    return self.reply(429, b'{"error":"The local voice is busy."}')
+                try:
+                    audio = engine.generate(data.get("speaker"), data.get("text"))
+                finally:
+                    capacity.release()
                 self.reply(200, audio, "audio/wav")
             except (ValueError, KeyError, TypeError):
                 self.reply(400, b'{"error":"Choose a current character line."}')
@@ -109,12 +181,14 @@ def main():
     parser.add_argument("--model", choices=["turbo", "nano"], default="turbo")
     parser.add_argument("--device", default="auto")
     parser.add_argument("--model-dir", type=Path)
+    parser.add_argument("--cache-dir", type=Path, required=True)
     args = parser.parse_args()
     token = os.environ.get("COSYWORLD_CHATTERBOX_TOKEN", "")
     if len(token) < 32:
         parser.error("Start Chatterbox through the CosyWorld launcher.")
     os.environ["HF_HUB_OFFLINE"] = "1"
     engine = SpeechEngine(args.voices, args.model, args.device, args.model_dir)
+    engine = CachedSpeech(engine, args.cache_dir)
     server = create_server(("127.0.0.1", args.port), token, engine)
     print("CosyWorld voices ready on", server.server_port, flush=True)
     try:

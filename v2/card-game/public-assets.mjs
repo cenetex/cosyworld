@@ -43,6 +43,7 @@ const files = [
   "style.css",
   "entry.mjs",
   "local-service.mjs",
+  "local-saves.mjs",
   "openrouter.mjs",
   "openrouter-settings.mjs",
   "openrouter.css",

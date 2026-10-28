@@ -160,6 +160,10 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/local-service.mjs"),
         ),
+        "local-saves.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/local-saves.mjs"),
+        ),
         "openrouter.mjs" => (
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/openrouter.mjs"),
