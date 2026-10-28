@@ -1928,7 +1928,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "pack-rules.mjs" => "\"6bb4621ec8ccb1d66e64340ad50ca29e45c9148f95d6d56354af74cfb5ef87cf\"",
         "pack-transport.mjs" => {
-            "\"67204ed94b03f2ec636338cc6f78ab62d7c1b9d2b7c39463b10c73a763092beb\""
+            "\"4a930efedb8e283404abf4e5d0345e9336384d10a4e6e4e0fe7b243e95b65500\""
         }
         "legacy-saves.mjs" => {
             "\"2e87a6002f709aa79439da42dca28632a36a561a96b3ea5bde721a7f6363b75a\""

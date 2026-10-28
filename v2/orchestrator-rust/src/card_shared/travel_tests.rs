@@ -11,6 +11,11 @@ fn greek_ports_roads_and_waiting_replay_after_the_version_fourteen_upgrade() {
     replay_journey(engine::FOURTEENTH_VERSION);
 }
 
+#[test]
+fn greek_ports_roads_and_waiting_replay_after_the_version_fifteen_upgrade() {
+    replay_journey(engine::FIFTEENTH_VERSION);
+}
+
 fn replay_journey(version: &str) {
     let path = std::env::temp_dir().join(format!("greek-travel-{}.sqlite", crate::random_hex(12)));
     let c = store::open(&path).unwrap();

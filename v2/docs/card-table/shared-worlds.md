@@ -284,7 +284,7 @@ Player views include their own thoughts, persona, dreams, reflection evidence
 and lessons. Other avatars supply public card text. This privacy check also
 applies when projecting a world that still uses an earlier interpreter.
 
-The current interpreter builder writes `engine-v15.js`. Version 15 adds regional
+The released version 15 interpreter is `engine-v15.js`. Version 15 adds regional
 Greek weather and Thebes day and night views. Version 14 keeps BoardyAI, his
 parlour, and his calling card. Earlier versions keep their released rules.
 Existing worlds receive an explicit saved upgrade.

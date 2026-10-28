@@ -151,7 +151,7 @@ describe("Greek ports and fixed roads", () => {
     expect(w.transports["greek-ship"].destination).toBe(null);
   });
 
-  it.each([13, 14])(
+  it.each([13, 14, 15])(
     "upgrades a version %s voyage while preserving deeds, belongings and old memories",
     (version) => {
       const ctx = vm.createContext({});

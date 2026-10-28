@@ -2,6 +2,7 @@ import { controlledByHuman } from "./human-cast.mjs";
 import { BOARDY } from "./boardyai.mjs";
 import { transports, crossings, entityActive } from "./pack-registry.mjs";
 
+// Boardy follows the human gathering as it moves. Riders own the voyage.
 export const passengers = (s, id) =>
   Object.entries(s.actors)
     .filter(

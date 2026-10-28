@@ -275,13 +275,26 @@ fn agreed_household_journey_replays_after_released_history_with_both_care_choice
                 true
             );
             rejected(&c, &id, &mut world, "mara", arrival);
-            play(
-                &c,
-                &id,
-                &mut world,
-                1,
-                &[("kind", "move"), ("target", "greek-harbor")],
-            );
+            for _ in 0..32 {
+                if world.project(1).unwrap()["actions"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|a| a["kind"] == "move" && a["target"] == "greek-ship")
+                {
+                    break;
+                }
+                play(&c, &id, &mut world, 1, &[("kind", "wait")]);
+            }
+            for target in ["greek-ship", "greek-harbor"] {
+                play(
+                    &c,
+                    &id,
+                    &mut world,
+                    1,
+                    &[("kind", "move"), ("target", target)],
+                );
+            }
             assert_eq!(world.game["actors"][MYRINE]["place"], "greek-piraeus");
             c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
             assert_eq!(full_store::world(&c, &id, now()).unwrap(), world);

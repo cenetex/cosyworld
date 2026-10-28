@@ -1913,6 +1913,7 @@ fn shared_quest_receipts_drive_bard_travel_after_released_rules_upgrade_and_repl
             } else {
                 &[
                     "greek-harbor",
+                    "greek-road-thebes",
                     "greek-courtyard",
                     "greek-well",
                     "greek-well",
