@@ -1,0 +1,49 @@
+{
+  "generator": "Built-in image_gen tool",
+  "date": "2026-10-28",
+  "reference": "docs/art-direction/assets/visual-language.png",
+  "assets": [
+    {
+      "file": "rati.png",
+      "prompt": "Use case: illustration-story. Asset type: final CosyWorld game art. Use the provided art sheet only as a reference for character identity, painterly fantasy anime style, warm honey light, blue timber, old oak bark, moss, indigo shade, and tiny violet/mint dream details. Fine painted textures and clear silhouettes. This is a new individual production image, unlettered, no border, no logo, no watermark.\nPrimary request: Full-body isolated character portrait of RATi, a capable adult mousefolk woman cottage host. Rounded mouse ears, mature face with warm brown eyes, long dark wavy hair, subtle mouse muzzle, small tail. Worn blue knitted scarf, ochre linen dress, cream apron, sturdy brown shoes. Holds a plain teacup at waist height. Upright practical stance and dry warmth. Entire figure visible with space around ears, hands, tail and feet. Transparent background. Portrait 2:3.",
+      "transparent": true,
+      "sha256": "1e1597a5e03f3e3f40c2d88f35ac4bbed2a3e3eb07de85ea80d4f7006e1a340a"
+    },
+    {
+      "file": "skull.png",
+      "prompt": "Use case: illustration-story. Asset type: final CosyWorld game art. Use the provided art sheet only as a reference for character identity, painterly fantasy anime style, warm honey light, blue timber, old oak bark, moss, indigo shade, and tiny violet/mint dream details. Fine painted textures and clear silhouettes. This is a new individual production image, unlettered, no border, no logo, no watermark.\nPrimary request: Full-body isolated character portrait of Skull, a large living charcoal wolf with a silver muzzle, steady amber eyes, thick natural fur, powerful chest, heavy tail and four grounded paws. Quiet watchful standing pose, head slightly turned toward the viewer's right. Plain small leather collar. Natural wolf anatomy and restrained expression. Entire body and all paws visible with generous edge space. Transparent background. Portrait 2:3.",
+      "transparent": true,
+      "sha256": "000ddc75fc8b6f4cf00dfe126632b25cc03f9c967e4c8b05dbb054c0cfb80150"
+    },
+    {
+      "file": "whiskerwind.png",
+      "prompt": "Use case: illustration-story. Asset type: final CosyWorld game art. Use the provided art sheet only as a reference for character identity, painterly fantasy anime style, warm honey light, blue timber, old oak bark, moss, indigo shade, and tiny violet/mint dream details. Fine painted textures and clear silhouettes. This is a new individual production image, unlettered, no border, no logo, no watermark.\nPrimary request: Full-body isolated character portrait of Whiskerwind, a small golden catlike wind creature. Bright teal eyes, curling long whiskers, expressive upright sitting posture, a fluffy tail curling into a delicate breeze. Natural golden fur, cream chest and paws. Friendly playful intelligence, subtle wisps at tail and ears. Entire body visible with space around ears, paws and tail. Leave speech symbols to the game interface. Transparent background. Portrait 2:3.",
+      "transparent": true,
+      "sha256": "da2ed352ad88952bf111353552e9f009bef9682781529f88fd280a98780b7335"
+    },
+    {
+      "file": "cottage.png",
+      "prompt": "Use case: illustration-story. Asset type: final CosyWorld game art. Use the provided art sheet only as a reference for character identity, painterly fantasy anime style, warm honey light, blue timber, old oak bark, moss, indigo shade, and tiny violet/mint dream details. Fine painted textures and clear silhouettes. This is a new individual production image, unlettered, no border, no logo, no watermark.\nPrimary request: Wide 16:9 game location scene, the interior of Cosy Cottage beneath an immense old living oak. Low blue-painted timber walls, round rain-streaked window, amber hearth, worn table with three plain teacups, blue scarf and a wooden button beside a sewing basket. A broad oak root crosses the wall below the window. Open garden doorway on one side and a tall dark attic-like mirror on the other provide clear ways out. Welcoming lived-in home, a small violet star glints through oak leaves outside. Environment only; clear open foreground for game characters.",
+      "transparent": false,
+      "sha256": "2c1a039850274517cd201d1b6d3b60ccd6e3d11b276754323165f45d88c9380a"
+    },
+    {
+      "file": "garden.png",
+      "prompt": "Use case: illustration-story. Asset type: final CosyWorld game art. Use the provided art sheet only as a reference for character identity, painterly fantasy anime style, warm honey light, blue timber, old oak bark, moss, indigo shade, and tiny violet/mint dream details. Fine painted textures and clear silhouettes. This is a new individual production image, unlettered, no border, no logo, no watermark.\nPrimary request: Wide 16:9 game location scene, Rain-Soft Garden outside the same blue cottage beneath the huge oak canopy. Damp moss, rain-soft herbs, shallow water over stepping stones, a small leaf-clogged stone drain beside the path. Cottage's warm amber round window visible behind, a silver woodland trail on one side and broad roots of the old oak on the other. Tactile wet stones and worn fences. Indigo evening, warm window light, tiny mint glints in leaves. Environment only; clear open foreground for game characters.",
+      "transparent": false,
+      "sha256": "2e0adcb6fc458cd6b86e6678a2cc17fa5f642672a8c0d80856a4451cb3646b51"
+    },
+    {
+      "file": "trail.png",
+      "prompt": "Use case: illustration-story. Asset type: final CosyWorld game art. Use the provided art sheet only as a reference for character identity, painterly fantasy anime style, warm honey light, blue timber, old oak bark, moss, indigo shade, and tiny violet/mint dream details. Fine painted textures and clear silhouettes. This is a new individual production image, unlettered, no border, no logo, no watermark.\nPrimary request: Wide 16:9 game location scene, Moonlit Trail in the near woods beside the blue cottage's garden. A winding silver path, dark mossy trunks, a few clear wolf tracks in damp earth, low ferns, one plain wooden way marker with a carved pawprint rather than letters. A distant warm cottage window is visible through the trees. One oak leaf holds a tiny moon-like glow. Indigo moonlight with a trace of honey warmth, painterly dream forest. Environment only; open foreground for game characters.",
+      "transparent": false,
+      "sha256": "88477e70f8553b2eedc2e4b337821c077ff7dbc0551aced9ab3f22eea880d925"
+    },
+    {
+      "file": "oak.png",
+      "prompt": "Use case: illustration-story. Asset type: final CosyWorld game art. Use the provided art sheet only as a reference for character identity, painterly fantasy anime style, warm honey light, blue timber, old oak bark, moss, indigo shade, and tiny violet/mint dream details. Fine painted textures and clear silhouettes. This is a new individual production image, unlettered, no border, no logo, no watermark.\nPrimary request: Wide 16:9 game location scene, Old Oak Tree: an enormous ancient living oak with heavy spreading branches and deep ridged bark. Broad moss-covered roots surround a shallow hollow. Four subtle different knot patterns suggest Root, Ring, Leaf and Hollow as distinct expressions in natural bark. The blue cottage's warm window remains visible through lower branches. One hollow in the canopy holds a small repeating sky and a distant tiny oak, violet and mint. Solid tactile bark, calm awe, warm lantern at root level, indigo evening. Environment only; open foreground for game characters.",
+      "transparent": false,
+      "sha256": "05e33a3f5cdb096187c067fb1ba5cfdb2ee374abf1083ab8cca46d22db0570cc"
+    }
+  ]
+}
