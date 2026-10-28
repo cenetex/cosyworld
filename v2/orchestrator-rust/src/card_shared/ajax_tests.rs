@@ -265,7 +265,7 @@ fn ajax_appeal_custody_spoken_accounts_and_second_carrier_replay_from_the_journa
 
 #[test]
 fn ajax_upgrade_keeps_a_released_nineteen_camp_visit_and_replays_its_exit() {
-    let released = "full-card-world/19";
+    let released = engine::NINETEENTH_VERSION;
     for keep_checkpoint in [true, false] {
         let seed = engine::reduce_version(released, json!({"op":"create"})).unwrap();
         let mut old = World {

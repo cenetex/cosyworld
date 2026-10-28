@@ -2,7 +2,8 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
 
-// Released at main commit be94af7b. Journal commands keep these exact rules.
+// Rules 2–18 were released at be94af7b. Rules 19 were qualified at 1be7794b.
+// Journal commands keep these exact rules.
 const released = {
   2: "c494fb944d97cd8e214f09382add1501e98c93ab8f8d29b5c13f77caa59c3fef",
   3: "4029aec75de2792ad44a1a05693e50870685a0f459cdbe172094d762a798c4db",
@@ -21,15 +22,18 @@ const released = {
   16: "e5129d50676b54f489b16a4abd8506d5fb27e304cc28753736572fa43c4991dd",
   17: "68316e3ee4812dd416fe34bdcc9e8e6fc2a5c56c0669563f1f1a763d2845eddc",
   18: "db631d35fc0b2e6e50169e8f08c364e4d6a8bcec0971551bcf70a168cb97ef9c",
+  19: "9911a38a1f49db512521b84674dad4bf3843ddcc9938fbd608747a6c82e62eb3",
 };
 
-it("preserves every released interpreter for exact journal replay", () => {
+it("preserves every released and qualified interpreter for exact journal replay", () => {
   for (const [version, expected] of Object.entries(released)) {
     const path = new URL(
       `../v2/orchestrator-rust/src/card_shared/engine-v${version}.js`,
       import.meta.url,
     );
-    const actual = createHash("sha256").update(readFileSync(path)).digest("hex");
+    const actual = createHash("sha256")
+      .update(readFileSync(path))
+      .digest("hex");
     expect(actual, `Released shared rules ${version}`).toBe(expected);
   }
 });

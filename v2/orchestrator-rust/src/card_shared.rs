@@ -1,4 +1,6 @@
 #[cfg(test)]
+mod ajax_tests;
+#[cfg(test)]
 mod boardy_tests;
 mod engine;
 #[cfg(test)]
