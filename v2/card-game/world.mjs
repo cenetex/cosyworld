@@ -302,10 +302,7 @@ export const sensesFor = (s) => ({
   player: currentActor(s),
   ...(s.controlledActors ? { humanActors: s.controlledActors } : {}),
 });
-const baseExits = (s, place) =>
-  s.opening
-    ? places[place].exits.filter((to) => ![place, to].includes("attic"))
-    : places[place].exits;
+const baseExits = (_s, place) => places[place].exits;
 export const placeText = (s, place) =>
   [
     s.opening && place === "attic"
@@ -2737,7 +2734,7 @@ export function validateWorld(s) {
     const o = s.opening;
     if (
       !o ||
-      o.version !== 1 ||
+      ![1, 2].includes(o.version) ||
       typeof o.crossed !== "boolean" ||
       !o.met ||
       o.met.vale !== 0 ||
@@ -2752,12 +2749,14 @@ export function validateWorld(s) {
         (!Object.entries(homeGates).some(
           ([place, gate]) =>
             gate.opening &&
-            [place, gate.rescue].includes(s.actors?.vale?.place),
+            [place, gate.rescue, "station"].includes(s.actors?.vale?.place),
         ) ||
           Object.keys(o.met).some(
             (id) => id !== "vale" && !roamingActors.includes(id),
           ))) ||
-      (o.crossed && (!s.locations?.attic.anchored || o.met.moth === undefined))
+      (o.version === 1 && o.crossed && !s.locations?.attic.anchored) ||
+      (o.crossed && o.met.moth === undefined) ||
+      (o.version === 2 && !o.crossed)
     )
       fail();
   }

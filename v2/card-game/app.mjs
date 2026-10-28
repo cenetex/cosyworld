@@ -2569,7 +2569,9 @@ function resumeScene() {
     return;
   }
   if (!saveBlocked && world.opening && world.turn === 0 && !hasCurrentWords()) {
-    addLog(world, "Vale", "It's cold up here. I'll light the lamp.", {
+    addLog(world, "Vale", world.opening.version === 2
+      ? "The water is dark. I'll light the lamp."
+      : "It's cold up here. I'll light the lamp.", {
       actorId: currentActor(world),
       entityId: currentActor(world),
       kind: "dialogue",

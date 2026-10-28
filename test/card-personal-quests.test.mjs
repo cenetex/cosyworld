@@ -1,3 +1,4 @@
+import { atticOpening } from "./fixtures/card-attic-opening.mjs";
 import { describe, it, expect } from "vitest";
 import {
   createWorld,
@@ -53,7 +54,7 @@ import { cardPlay } from "../v2/card-game/cards.mjs";
 import { questHandKeys } from "../v2/card-game/quest-hands.mjs";
 
 const fresh = () =>
-  enableMotives(createWorld({ opening: true }), { personalQuests: true });
+  enableMotives(atticOpening(), { personalQuests: true });
 function act(s, kind, fields = {}) {
   const a = legalActions(s).find(
     (a) =>
@@ -657,7 +658,7 @@ describe("personal quests grow from life", () => {
   });
 
   it("retains old progress, possessions and memories when enabled on an earlier save", () => {
-    let old = enableMotives(createWorld({ opening: true }), {
+    let old = enableMotives(atticOpening(), {
       questPrograms: true,
     });
     old = act(old, "light");

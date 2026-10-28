@@ -185,7 +185,7 @@ export function narrativeContext(world, action = null) {
   // Earlier opening text could include the authored solution. Keep those lines
   // in the save while grounding this unrevealed scene in observations.
   const beforeFirstLight = Boolean(
-    world.opening && !world.locations.attic.anchored,
+    world.opening?.version === 1 && !world.locations.attic.anchored,
   );
   const known = knownActors(world);
   const present = Object.keys(world.actors).filter(

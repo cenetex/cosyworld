@@ -1,3 +1,4 @@
+import { atticOpening } from "./card-attic-opening.mjs";
 import { openingFixture } from "../helpers/greek-opening.mjs";
 import {
   createWorld,
@@ -54,7 +55,7 @@ export function narrativeContractCases() {
   const covered = playCard(echoed, "cover", "cloth", "bell");
   const secondRing = playCard(echoed, "ring", "bell");
   const clearing = playCard(secondRing, "move", null, "clearing");
-  const opening = enableMotives(createWorld({ opening: true }), {
+  const opening = enableMotives(atticOpening(), {
     questPrograms: true,
   });
   const lit = playCard(opening, "light", "lamp");

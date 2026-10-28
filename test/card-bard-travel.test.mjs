@@ -1,3 +1,4 @@
+import { atticOpening } from "./fixtures/card-attic-opening.mjs";
 import { generateProgram } from "../v2/card-game/quests.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
 import { openingFixture } from "./helpers/greek-opening.mjs";
@@ -92,7 +93,7 @@ describe("ordinary bard travel", () => {
     ).toBe(true);
   });
   it("records a real first-light visit and a later blocked attic passage", () => {
-    let s = enableMotives(createWorld({ opening: true }), {
+    let s = enableMotives(atticOpening(), {
       personalQuests: true,
     });
     s.crossings["pond-greek-harbor"].discovered = true;

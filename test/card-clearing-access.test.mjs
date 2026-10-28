@@ -1,3 +1,4 @@
+import { atticOpening } from "./fixtures/card-attic-opening.mjs";
 import { describe, expect, it } from "vitest";
 import {
   createWorld,
@@ -21,7 +22,7 @@ function act(s, kind, target) {
   return result.state;
 }
 function pond() {
-  let s = enableMotives(createWorld({ opening: true }));
+  let s = enableMotives(atticOpening());
   s = act(act(s, "light"), "move", "pond");
   s.actors.moth.place = "attic";
   s.items.lamp.holder = "moth";

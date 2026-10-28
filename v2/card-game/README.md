@@ -4,7 +4,7 @@
 
 `world.mjs` owns the card game's state, legal actions, resident turns, and save
 format. `forest.json` holds the forest catalog, starting state, and authored
-quests for the station and attic openings. `createWorld()` copies that data
+quests for the station, attic and pond openings. `createWorld()` copies that data
 for each game. `app.mjs` uses the engine in the browser. The modules beside it provide quests,
 motives, life, memory, pack rules, and presentation. Both the local server and
 the Rust asset server publish this same game.
@@ -346,19 +346,26 @@ The card rules still commit movement, trades, quest progress and inventory. The 
 
 Schema 6 saves include location changes, favours and lasting memories. Earlier saves keep their positions, items, current programs, earned steps and generated speech. Conversation exports include only the speaker and text of spoken lines.
 
-## Opening in the attic
+## Opening at Black pond
 
-New browser tables use `createWorld({ opening: true })`. Vale starts alone in Mirror attic with the lamp in hand and its flame off. The first target hand asks for the lamp alight in the attic. Playing Light completes that hand and reveals a Black pond location card. Vale stays in the attic until the player plays that card, then meets Pip at the pond. A lit, fueled, uncovered lamp at either Mirror attic or Black pond opens the mirror in both directions. The lamp can rest on the ground or be carried by someone at either end. When the lamp goes dark, is covered, or leaves both ends of the mirror, the destination card and travel offers disappear. Vale can become stranded in the attic when the fuel runs out. Previously selected moves and accompany requests are checked against the current state again at play time. Saved discovery records keep the same light requirement after reload.
+New browser tables and shared worlds use `createWorld({ opening: true })`.
+Vale starts at Black pond with an unlit lamp. Pip waits beside the water with
+the Black cloth. The first purpose asks for light at the pond. The next leads
+along the shore to Empty station and the keeper.
 
-Newly encountered cards join the hand without a modal or tutorial. Travel still
-fades between locations and loads the next scene before revealing it. Reduced
-motion skips the fade. The opening route stays the same: attic, pond, then station.
-The `v2:card:unveil:smoke` command checks discovery reveals, flights, glow,
-travel order, held items, reload, cancellation, and reduced motion.
+Empty station connects to Black pond. Mirror attic connects to the pond through
+the reflection. A lit, fueled, uncovered lamp at either end opens that mirror
+in both directions. A stranded traveler in the attic finds a narrow path to
+the pond when the room's resources have run out.
 
-The next program introduces company at the pond, then leads Vale to the station and the keeper. Each cast member joins the simulation when Vale first meets them and takes their first autonomous action on the following turn. Their introduction, quest progress, and route rules survive a reload. The menu and speech request use the discovered cast. The Light play records the fulfilled hand and revealed path in the attic. The later Travel play records the trip to the pond, so the scene and dialogue follow each card’s result.
+Each newly met card joins the hand through its discovery reveal. Travel loads
+the destination scene before its discoveries and dialogue. Reduced motion uses
+a brief still reveal.
 
-Existing saves keep their station start, original routes, authored programs, and earned progress. `createWorld()` retains the station start for existing fixtures; the browser chooses the attic opening for fresh tables and New game.
+Pond openings carry version 2. Existing version 1 attic openings retain their
+original purposes and discovery records. Saved positions, belongings, meetings
+and earned progress survive loading. The current routes apply to every save.
+`createWorld()` retains the station seed used by older simulation fixtures.
 
 ## Shore experiment
 
