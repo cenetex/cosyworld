@@ -38,14 +38,20 @@ describe("one public card asset list", () => {
     await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
     const base = `http://127.0.0.1:${server.address().port}`;
     try {
-      for (const { file, contentType } of publicAssets) {
+      for (const {
+        file,
+        contentType,
+        source = file,
+        offset = 0,
+      } of publicAssets) {
         const response = await fetch(`${base}/card-game/${file}`);
         expect(response.status, file).toBe(200);
         expect(response.headers.get("content-type"), file).toBe(contentType);
         const actual = Buffer.from(await response.arrayBuffer());
-        expect(actual.equals(readFileSync(new URL(file, root))), file).toBe(
-          true,
-        );
+        expect(
+          actual.equals(readFileSync(new URL(source, root)).subarray(offset)),
+          file,
+        ).toBe(true);
       }
       for (const file of ["serve.mjs", "public-assets.mjs", "README.md"]) {
         const response = await fetch(`${base}/card-game/${file}`);

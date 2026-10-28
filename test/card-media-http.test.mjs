@@ -15,24 +15,31 @@ import { pathToFileURL } from "node:url";
 import { createServer } from "../v2/card-game/serve.mjs";
 
 const digest = (value) => createHash("sha256").update(value).digest("hex");
-async function fixture(check) {
+async function fixture(check, { prefix = Buffer.alloc(0), assetList } = {}) {
   const directory = await mkdtemp(join(tmpdir(), "card-media-http-"));
   const song = Buffer.from(Array.from({ length: 4096 }, (_, i) => i % 251));
   const module = 'export const sample = "alpha";\n';
   await mkdir(join(directory, "assets/music"), { recursive: true });
-  await writeFile(join(directory, "assets/music/attic-1.mp3"), song);
+  await writeFile(
+    join(directory, "assets/music/attic-1.mp3"),
+    Buffer.concat([prefix, song]),
+  );
   await writeFile(join(directory, "shared.mjs"), module);
   await writeFile(
     join(directory, "index.html"),
     '<meta name="cosy-story-budget-ms" content="30000">',
   );
-  const server = createServer({ assetRoot: pathToFileURL(directory + sep) });
+  const server = createServer({
+    assetRoot: pathToFileURL(directory + sep),
+    ...(assetList ? { assetList } : {}),
+  });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   try {
     await check({
       origin: `http://127.0.0.1:${server.address().port}`,
       directory,
       song,
+      prefix,
       module,
     });
   } finally {
@@ -224,5 +231,133 @@ describe("card media HTTP delivery", () => {
         await result.arrayBuffer();
       }
     });
+  });
+});
+
+const sourceFile = "assets/music/attic-1.mp3";
+const audioFile = "assets/music/attic-1-stream.mp3";
+const emptyFile = "assets/music/empty-stream.mp3";
+const id3 = Buffer.concat([Buffer.from("ID3"), Buffer.alloc(8189, 73)]);
+const virtualAssets = [
+  { file: sourceFile, contentType: "audio/mpeg" },
+  {
+    file: audioFile,
+    source: sourceFile,
+    offset: id3.length,
+    contentType: "audio/mpeg",
+  },
+  {
+    file: emptyFile,
+    source: sourceFile,
+    offset: id3.length + 4096,
+    contentType: "audio/mpeg",
+  },
+];
+const virtualOptions = { prefix: id3, assetList: virtualAssets };
+
+describe("virtual card media", () => {
+  it("serves the audio slice and keeps the original public file", async () => {
+    await fixture(async ({ origin, song }) => {
+      const original = Buffer.concat([id3, song]);
+      const originalHash = digest(original);
+      const originalReply = await fetch(origin + "/card-game/" + sourceFile);
+      expect(originalReply.headers.get("etag")).toBe(`"${originalHash}"`);
+      expect(Buffer.from(await originalReply.arrayBuffer())).toEqual(original);
+      const hash = digest(song);
+      for (const path of ["/" + audioFile, "/card-game/" + audioFile]) {
+        const reply = await fetch(origin + path + "?v=" + hash);
+        expect(reply.status).toBe(200);
+        expect(reply.headers.get("cache-control")).toBe(
+          "public, max-age=31536000, immutable",
+        );
+        expect(reply.headers.get("etag")).toBe(`"${hash}"`);
+        expect(reply.headers.get("content-length")).toBe(String(song.length));
+        expect(Buffer.from(await reply.arrayBuffer())).toEqual(song);
+      }
+      const stale = await fetch(
+        origin + "/card-game/" + audioFile + "?v=" + originalHash,
+      );
+      expect(stale.headers.get("cache-control")).toBe("public, no-cache");
+      expect(Buffer.from(await stale.arrayBuffer())).toEqual(song);
+      const cached = await fetch(origin + "/card-game/" + audioFile, {
+        headers: { "If-None-Match": `"${hash}"` },
+      });
+      expect(cached.status).toBe(304);
+      expect((await cached.arrayBuffer()).byteLength).toBe(0);
+    }, virtualOptions);
+  });
+
+  it("keeps HEAD, seek ranges, and empty slices relative to the alias", async () => {
+    await fixture(async ({ origin, song }) => {
+      const url = origin + "/card-game/" + audioFile;
+      const etag = `"${digest(song)}"`;
+      for (const [range, start, end] of [
+        ["bytes=0-15", 0, 15],
+        ["bytes=4090-", 4090, 4095],
+        ["bytes=-32", 4064, 4095],
+      ]) {
+        const result = await fetch(url, {
+          headers: { Range: range, "If-Range": etag },
+        });
+        expect(result.status).toBe(206);
+        expect(result.headers.get("content-range")).toBe(
+          `bytes ${start}-${end}/${song.length}`,
+        );
+        expect(result.headers.get("content-length")).toBe(
+          String(end - start + 1),
+        );
+        expect(Buffer.from(await result.arrayBuffer())).toEqual(
+          song.subarray(start, end + 1),
+        );
+      }
+      const head = await fetch(url, {
+        method: "HEAD",
+        headers: { Range: "bytes=0-15" },
+      });
+      expect(head.status).toBe(200);
+      expect(head.headers.get("content-length")).toBe(String(song.length));
+      expect(head.headers.get("etag")).toBe(etag);
+      expect((await head.arrayBuffer()).byteLength).toBe(0);
+      const empty = await fetch(origin + "/card-game/" + emptyFile);
+      expect(empty.status).toBe(200);
+      expect(empty.headers.get("content-length")).toBe("0");
+      expect(empty.headers.get("etag")).toBe(`"${digest(Buffer.alloc(0))}"`);
+      expect((await empty.arrayBuffer()).byteLength).toBe(0);
+      const invalid = await fetch(origin + "/card-game/" + emptyFile, {
+        headers: { Range: "bytes=0-" },
+      });
+      expect(invalid.status).toBe(416);
+      expect(invalid.headers.get("content-range")).toBe("bytes */0");
+      expect((await invalid.arrayBuffer()).byteLength).toBe(0);
+    }, virtualOptions);
+  });
+
+  it("tracks source edits while hashing only the exposed audio frames", async () => {
+    await fixture(async ({ origin, directory, song }) => {
+      const url = origin + "/card-game/" + audioFile;
+      const hash = digest(song);
+      const first = await fetch(url);
+      expect(first.headers.get("etag")).toBe(`"${hash}"`);
+      await first.arrayBuffer();
+      const path = join(directory, sourceFile);
+      await writeFile(
+        path,
+        Buffer.concat([Buffer.alloc(id3.length, 65), song]),
+      );
+      const tagEdit = await fetch(url, {
+        headers: { "If-None-Match": `"${hash}"` },
+      });
+      expect(tagEdit.status).toBe(304);
+      expect((await tagEdit.arrayBuffer()).byteLength).toBe(0);
+      const changed = Buffer.from(song);
+      changed[0] = 99;
+      await writeFile(path, Buffer.concat([id3, changed]));
+      const audioEdit = await fetch(url, {
+        headers: { "If-None-Match": `"${hash}"` },
+      });
+      expect(audioEdit.status).toBe(200);
+      expect(audioEdit.headers.get("etag")).toBe(`"${digest(changed)}"`);
+      expect(Buffer.from(await audioEdit.arrayBuffer())).toEqual(changed);
+    }, virtualOptions);
   });
 });

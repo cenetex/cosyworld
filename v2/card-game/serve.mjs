@@ -6,13 +6,6 @@ import { pipeline } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
 import { publicAssets } from "./public-assets.mjs";
 
-const assets = new Map(
-  publicAssets.map(({ file, contentType }) => [
-    `/${file}`,
-    [file, contentType],
-  ]),
-);
-assets.set("/", assets.get("/index.html"));
 function storyBudget() {
   const value = Number(process.env.COSYWORLD_CARD_STORY_BUDGET_MS || 30_000);
   return Number.isFinite(value)
@@ -23,15 +16,17 @@ const fingerprints = new Map();
 const isMedia = (type) =>
   !type.startsWith("image/svg+xml") && /^(image|audio|video)\//.test(type);
 
-async function fingerprint(handle, key) {
+async function fingerprint(handle, key, offset) {
   const stat = await handle.stat({ bigint: true });
+  if (BigInt(offset) > stat.size)
+    throw new RangeError("The public asset offset exceeds its source.");
   const stamp = [stat.ino, stat.size, stat.mtimeNs, stat.ctimeNs].join(":");
   let cached = fingerprints.get(key);
   if (!cached || cached.stamp !== stamp) {
     const task = (async () => {
       const hash = createHash("sha256");
       for await (const chunk of handle.createReadStream({
-        start: 0,
+        start: offset,
         autoClose: false,
       }))
         hash.update(chunk);
@@ -41,7 +36,7 @@ async function fingerprint(handle, key) {
     fingerprints.set(key, cached);
   }
   try {
-    return { length: Number(stat.size), hash: await cached.task };
+    return { length: Number(stat.size) - offset, hash: await cached.task };
   } catch (error) {
     if (fingerprints.get(key) === cached) fingerprints.delete(key);
     throw error;
@@ -82,7 +77,16 @@ function byteRange(value, length) {
 
 export function createServer({
   assetRoot = new URL("./", import.meta.url),
+  assetList = publicAssets,
 } = {}) {
+  const assets = new Map(
+    assetList.map(({ file, contentType, source = file, offset = 0 }) => {
+      if (!Number.isSafeInteger(offset) || offset < 0)
+        throw new RangeError("A public asset needs a whole source offset.");
+      return [`/${file}`, { file, contentType, source, offset }];
+    }),
+  );
+  assets.set("/", assets.get("/index.html"));
   return http.createServer(async (req, res) => {
     const url = new URL(req.url, "http://localhost");
     const pathname = url.pathname;
@@ -166,19 +170,23 @@ export function createServer({
     }
     let handle;
     try {
-      const file = new URL(asset[0], assetRoot);
+      const file = new URL(asset.source, assetRoot);
       handle = await open(file);
       const headers = {
-        "Content-Type": asset[1],
+        "Content-Type": asset.contentType,
         "Cache-Control": "no-store",
         "X-Content-Type-Options": "nosniff",
         "Content-Security-Policy":
           "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://openrouter.ai; media-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self'",
         "Referrer-Policy": "no-referrer",
       };
-      if (asset[0] === "index.html") {
+      if (asset.file === "index.html") {
+        const source = await handle.readFile();
+        if (asset.offset > source.length)
+          throw new RangeError("The public asset offset exceeds its source.");
         const body = Buffer.from(
-          (await handle.readFile())
+          source
+            .subarray(asset.offset)
             .toString()
             .replace(
               'name="cosy-story-budget-ms" content="30000"',
@@ -189,9 +197,13 @@ export function createServer({
         res.end(req.method === "HEAD" ? undefined : body);
         return;
       }
-      const { length, hash } = await fingerprint(handle, file.href);
+      const { length, hash } = await fingerprint(
+        handle,
+        `${file.href}#offset=${asset.offset}`,
+        asset.offset,
+      );
       const etag = `"${hash}"`;
-      const media = isMedia(asset[1]);
+      const media = isMedia(asset.contentType);
       headers.ETag = media ? etag : `W/${etag}`;
       headers["Cache-Control"] =
         url.search === `?v=${hash}`
@@ -230,8 +242,8 @@ export function createServer({
       else
         await pipeline(
           handle.createReadStream({
-            start: range?.start || 0,
-            ...(range ? { end: range.end } : {}),
+            start: asset.offset + (range?.start || 0),
+            ...(range ? { end: asset.offset + range.end } : {}),
             autoClose: false,
           }),
           res,
