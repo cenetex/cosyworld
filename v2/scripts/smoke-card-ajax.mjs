@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
@@ -72,6 +72,7 @@ export async function checkAjax(browser, origin) {
         )
           failedAssets.push(`${response.status()} ${response.url()}`);
       });
+      let current;
       try {
         await page.addInitScript(
           ({ key, save, seen }) => {
@@ -153,6 +154,7 @@ export async function checkAjax(browser, origin) {
           }
         };
         const step = async ({ kind, ...fields }) => {
+          current = { kind, ...fields };
           await settle();
           if (kind === "move" && fields.target === "greek-ship") {
             for (
@@ -234,6 +236,25 @@ export async function checkAjax(browser, origin) {
           fullPage: true,
         });
         console.log(`Ajax ${route} journey passed at ${width}px.`);
+      } catch (error) {
+        await page.screenshot({
+          path: `${output}/failed-${route}-${width}.png`,
+          fullPage: true,
+        });
+        await writeFile(
+          `${output}/failed-${route}-${width}.json`,
+          JSON.stringify({
+            current,
+            save: await page.evaluate(
+              (key) => JSON.parse(localStorage.getItem(key)),
+              key,
+            ),
+            cards: await page
+              .locator("#hand [data-card]")
+              .evaluateAll((cards) => cards.map((card) => card.dataset.card)),
+          }),
+        );
+        throw error;
       } finally {
         await page.close();
       }
