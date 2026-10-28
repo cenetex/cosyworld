@@ -20098,28 +20098,35 @@
   function toward(s, actor, target) {
     const here = s.actors[actor].place;
     const route = routeBetween(s, here, target, actor);
-    const actions = legalActions(s, actor);
+    let actions;
+    const getActions = () => actions ??= legalActions(s, actor);
     if (route)
-      return actions.find((a) => a.kind === "move" && a.target === route[1]);
+      return getActions().find((a) => a.kind === "move" && a.target === route[1]);
     if (target === "attic" && !["attic", "pond", "station"].includes(here)) {
       const approach2 = routeBetween(s, here, "pond", actor);
       if (approach2?.length > 1)
-        return actions.find((a) => a.kind === "move" && a.target === approach2[1]);
+        return getActions().find((a) => a.kind === "move" && a.target === approach2[1]);
     }
     if (target !== "attic" && atticInterior.has(target) && !atticInterior.has(here))
       return toward(s, actor, "attic");
+    const rescueRoutes = /* @__PURE__ */ new Map();
+    const rescueRoute = (from) => {
+      if (!rescueRoutes.has(from))
+        rescueRoutes.set(from, routeBetween(s, from, target, actor));
+      return rescueRoutes.get(from);
+    };
     for (const [home, gate] of Object.entries(homeGates)) {
-      if (here === home || !routeBetween(s, gate.rescue, target, actor)) continue;
+      if (here === home || !rescueRoute(gate.rescue)) continue;
       const approach2 = routeBetween(s, here, home, actor);
       if (approach2?.length > 1)
-        return actions.find((a) => a.kind === "move" && a.target === approach2[1]);
+        return getActions().find((a) => a.kind === "move" && a.target === approach2[1]);
     }
     if (crossings.some((c) => c.from === here && !c.transport && c.requires.some((r) => r.kind === "sound" && r.at.includes(here)) && routeBetween(s, c.to, target, actor))) {
-      const sound = actions.find((a) => a.kind === "ring" && a.item === "bell");
-      if (sound) return covered(s, "bell") ? actions.find((a) => a.kind === "take" && a.item === "cloth") : sound;
+      const sound = getActions().find((a) => a.kind === "ring" && a.item === "bell");
+      if (sound) return covered(s, "bell") ? getActions().find((a) => a.kind === "take" && a.item === "cloth") : sound;
     }
     if (target !== "attic" && here !== "attic") return;
-    const find = (kind, item) => actions.find((a) => a.kind === kind && a.item === item);
+    const find = (kind, item) => getActions().find((a) => a.kind === kind && a.item === item);
     const take = find("take", "lamp");
     if (take) return take;
     if (covered(s, "lamp") && find("take", "cloth")) return find("take", "cloth");
@@ -20134,13 +20141,13 @@
         return find("ask", "oil");
       const tender = rootHolder(s, "oil");
       if (rootHolder(s, "lamp") === actor && !needed(s, actor, "lamp") && tender !== actor && s.actors[tender]?.place === here && !controlledByHuman(s, tender) && !staysPut(tender))
-        return actions.find((action) => action.kind === "give" && action.item === "lamp" && action.target === tender);
+        return getActions().find((action) => action.kind === "give" && action.item === "lamp" && action.target === tender);
     }
     if (!s.items.lamp.lit && find("light", "lamp")) return find("light", "lamp");
     if (here === "station")
-      return actions.find((a) => a.kind === "move" && a.target === "pond");
+      return getActions().find((a) => a.kind === "move" && a.target === "pond");
     if (here === "pond" && itemPlace2(s, "lamp") === "station")
-      return actions.find((a) => a.kind === "move" && a.target === "station");
+      return getActions().find((a) => a.kind === "move" && a.target === "station");
   }
   function plan(s, actor = currentActor(s)) {
     const arrival = transportArrival(s, actor);

@@ -97,7 +97,8 @@ function move(world, target) {
   ) {
     // Story fixtures keep the already signaled vessel at the departure shore.
     // The ship suites cover independent resident voyages and return timing.
-    summonTransport(world, "greek-ship", world.actors.vale.place);
+    if (world.transports["greek-ship"].dock !== world.actors.vale.place)
+      summonTransport(world, "greek-ship", world.actors.vale.place);
     for (
       let turn = 0;
       turn < 8 &&
