@@ -1,0 +1,145 @@
+{
+  "generated": "2026-10-28",
+  "tool": "built-in image_gen",
+  "sourceBase": "adf72465f7b9102b05c1b5031ba1d88bd91e56e8",
+  "style": "Detailed painted Greek cast realism, simple woven clothing and clear speaking gestures.",
+  "sourcePlan": {
+    "name": "cosyworld-book-one-source-plan.json",
+    "sourceCommit": "1be7794b7b686ac1cad4a0a26486ec6307dd40f7",
+    "sourceVersion": "1.2.3",
+    "sha256": "5d0f687484cb89be365aa44a1c60932086528f95b49100427551b581bdc85a83",
+    "roles": [
+      {
+        "id": "greek-melea",
+        "name": "Melea, keeper of accounts",
+        "place": "greek-palace",
+        "role": "Original present-day reader of the Phoenician and Sophoclean accounts; custodian of copied records and household provisions."
+      },
+      {
+        "id": "greek-melitta",
+        "name": "Melitta, mountain keeper",
+        "place": "greek-cithaeron",
+        "role": "Original present-day keeper of the herdsman's account and speaker for her present worshipping group; tells the older Bacchae account with each source voice named."
+      }
+    ]
+  },
+  "assets": [
+    {
+      "file": "book-one-melea.png",
+      "sourceFile": "book-one-melea.png",
+      "sourceName": "exec-4a8f121b-1270-42d6-a687-266ee7b61d14.png",
+      "generationId": "exec-4a8f121b-1270-42d6-a687-266ee7b61d14",
+      "actor": "greek-melea",
+      "place": "greek-palace",
+      "intent": "reference-based generation",
+      "transparentBackground": true,
+      "references": [
+        {
+          "file": "chthonic-baker.png",
+          "role": "style reference",
+          "sha256": "c8e900ee50e1a3fe860e7f38e6625f7326a6715e6821e8a5db74d264c1bbd7e0"
+        },
+        {
+          "file": "chthonic-attendant.png",
+          "role": "style reference",
+          "sha256": "61977265e6897bc973d582ec0487fa82a2b4c7e2baecc4571420c18047f55130"
+        }
+      ],
+      "processing": "Original generated PNG copied with its full native pixels and alpha channel.",
+      "prompt": "Use case: historical-scene.\nAsset type: a full-body transparent character portrait for Book I of the Wine-Dark Sea card game.\nInput images: image 1 and image 2 are style references from the approved Greek cast. Match their detailed painted realism, natural anatomy, handwoven linen and wool, simple bronze details and humane expressions. The new person has her own distinct face, hair and clothes.\nComposition: one adult woman standing in a calm three-quarter speaking pose on a tall 2:3 portrait canvas. Her entire head, both hands, the complete garment hem and both sandaled feet are visible. Leave clear margins on all sides. Give her a readable silhouette for small cards and full stage overlays.\nLighting: gentle warm light from upper left, with soft cool shading within the figure and cloth.\nBackground: true transparent alpha around the complete figure, including the spaces between limbs and props. The entire field outside the person and her held object is clear. Keep shading within the subject.\n\nSubject: Melea, keeper of written accounts at the Theban palace. She is an adult woman in her early forties, a thoughtful custodian of copied testimony and household provisions. She has a medium olive complexion, a long oval face, brown eyes, fine freckles across her nose and dark brown hair gathered into a neat low braided bun. Her expression is attentive and quietly assured. She wears a simple ankle-length stone-colored woven linen dress, a plain muted blue-grey shawl over one shoulder, a narrow leather belt and practical leather sandals. Her clothes are carefully kept and lived in. One hand and forearm hold a small wooden wax writing tablet near her waist, with its dark wax face and a few shallow scratched rows visible as texture. Her free hand opens gently as she explains an account. The tablet is a small personal prop with a clear outline.",
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "ab7e2587a956d944394afcad99d9d4941bdc9d553cadedd7f3219c35077ca607",
+      "sha256": "ab7e2587a956d944394afcad99d9d4941bdc9d553cadedd7f3219c35077ca607",
+      "bytes": 2084606,
+      "alpha": {
+        "clearPixels": 1016627,
+        "partialPixels": 556237,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          162,
+          26,
+          802,
+          1506
+        ],
+        "visibleBoundsThreshold": 8
+      }
+    },
+    {
+      "file": "book-one-melitta.png",
+      "sourceFile": "book-one-melitta.png",
+      "sourceName": "exec-d8615a9e-81e3-469a-841b-ef734fabaad7.png",
+      "generationId": "exec-d8615a9e-81e3-469a-841b-ef734fabaad7",
+      "actor": "greek-melitta",
+      "place": "greek-cithaeron",
+      "intent": "reference-based generation",
+      "transparentBackground": true,
+      "references": [
+        {
+          "file": "chthonic-baker.png",
+          "role": "style reference",
+          "sha256": "c8e900ee50e1a3fe860e7f38e6625f7326a6715e6821e8a5db74d264c1bbd7e0"
+        },
+        {
+          "file": "chthonic-attendant.png",
+          "role": "style reference",
+          "sha256": "61977265e6897bc973d582ec0487fa82a2b4c7e2baecc4571420c18047f55130"
+        }
+      ],
+      "processing": "Original generated PNG copied with its full native pixels and alpha channel.",
+      "prompt": "Use case: historical-scene.\nAsset type: a full-body transparent character portrait for Book I of the Wine-Dark Sea card game.\nInput images: image 1 and image 2 are style references from the approved Greek cast. Match their detailed painted realism, natural anatomy, handwoven linen and wool, simple bronze details and humane expressions. The new person has her own distinct face, hair and clothes.\nComposition: one adult woman standing in a calm three-quarter speaking pose on a tall 2:3 portrait canvas. Her entire head, both hands, the complete garment hem and both sandaled feet are visible. Leave clear margins on all sides. Give her a readable silhouette for small cards and full stage overlays.\nLighting: gentle warm light from upper left, with soft cool shading within the figure and cloth.\nBackground: true transparent alpha around the complete figure, including the spaces between limbs and props. The entire field outside the person and her held object is clear. Keep shading within the subject.\n\nSubject: Melitta, the mountain keeper at Cithaeron and a speaker for her present worshipping group. She is an adult woman in her fifties with a sun-worn olive complexion, a broad angular face, strong brows, warm dark eyes and dark wavy hair streaked with grey and tied into one loose braid. Her expression is steady and welcoming, with the resolve of someone who knows the mountain paths and listens to her neighbors. She wears a simple ankle-length everyday wool robe in muted moss green, an earthy brown wool wrap, a plain woven belt and sturdy leather sandals. Show the natural wool weave, a few worn hems and practical layers suited to a wooded Greek slope. One hand holds a modest leafy ivy branch low at her side; her other hand opens clearly as she speaks. Her everyday robe and branch have a simple, grounded silhouette.",
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "80087fefef01cdbb4f7d925a9d0c02d2fbfdf4f28f7dd68c107869f51437e50f",
+      "sha256": "80087fefef01cdbb4f7d925a9d0c02d2fbfdf4f28f7dd68c107869f51437e50f",
+      "bytes": 2378964,
+      "alpha": {
+        "clearPixels": 903997,
+        "partialPixels": 668867,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          120,
+          16,
+          920,
+          1493
+        ],
+        "visibleBoundsThreshold": 8
+      }
+    }
+  ],
+  "integration": "The Book I source owner will bind the exact actor and asset paths. Chapter integration owns optimized variants, public assets, shared rules and the final release version.",
+  "reviewBackgrounds": [
+    {
+      "file": "palace-day.webp",
+      "portrait": "book-one-melea.png",
+      "sha256": "c0b61fb49af9c98adbdf9fe7ac386f3611e13b23342a10791673871473928769",
+      "source": "Current combined palace stage"
+    },
+    {
+      "file": "palace-night.webp",
+      "portrait": "book-one-melea.png",
+      "sha256": "6fef7d5cfcbd3c95f5f05395d95213a2b5760875487e37b98d2ffe5841abab06",
+      "source": "Current combined palace stage"
+    },
+    {
+      "file": "bacchae-cithaeron-day.webp",
+      "portrait": "book-one-melitta.png",
+      "sha256": "e9a09eaf250dac0a485655d04fe62bdab60409b770879dddbd2aaad9d4cf68f9",
+      "source": "Greek scenery PR #1269, commit f79e09fda98c071c2e7e177e324e2ebb6855f2c3"
+    },
+    {
+      "file": "bacchae-cithaeron-night.webp",
+      "portrait": "book-one-melitta.png",
+      "sha256": "ecbab8ff347e1d42e0a0a8df1aa7f40d1aeaf4077295ba6287ec7f344f025acc",
+      "source": "Greek scenery PR #1269, commit f79e09fda98c071c2e7e177e324e2ebb6855f2c3"
+    }
+  ]
+}
