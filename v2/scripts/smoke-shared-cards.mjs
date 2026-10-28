@@ -1012,9 +1012,8 @@ try {
   for (const [i, page] of [vale, mara].entries()) {
     await until(
       async () =>
-        (await page.locator("#backdrop").getAttribute("src"))?.endsWith(
-          `assets/${i ? "station" : "pond"}.png`,
-        ),
+        (await page.locator("#backdrop").getAttribute("src")) ===
+        (i ? stationBackdrop : pondBackdrop),
       "reconnected game finishes rendering",
     );
     await page.locator("#toolbar-menu-button").waitFor({ state: "visible" });
