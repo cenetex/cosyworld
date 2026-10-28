@@ -323,7 +323,7 @@ jobs:
           node v2/scripts/smoke-shared-snapshot-order.mjs
           node v2/scripts/smoke-card-actions.mjs
 
-      - name: Check Greek drama, Thebes, and the Open Door
+      - name: Check Greek drama, Thebes, the Open Door, and Ajax
         if: matrix.mode == 'cards-drama'
         run: |
           node v2/scripts/smoke-card-greek-drama.mjs
@@ -332,6 +332,7 @@ jobs:
           node v2/scripts/smoke-card-open-door.mjs
           node v2/scripts/smoke-card-greek-travel.mjs
           node v2/scripts/smoke-card-greek-homecoming.mjs
+          node v2/scripts/smoke-card-ajax.mjs
 
       - name: Check dialogue and movement
         if: matrix.mode == 'cards-dialogue'
