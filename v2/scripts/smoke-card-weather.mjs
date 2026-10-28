@@ -154,22 +154,31 @@ try {
           expected.condition,
         );
       }
-      if (weather?.condition === "rain") {
-        const rain = await stage
+      if (weather) {
+        // The stage paints weather with a WebGL shader; cards reuse stills.
+        const shader = await stage
           .locator(":scope > .weather-layer")
           .evaluate((layer) => {
-            const style = getComputedStyle(layer, "::after");
+            const canvas = layer.querySelector("canvas");
+            const gl = canvas?.getContext("webgl");
+            const pixels = new Uint8Array(4 * 64);
+            gl?.readPixels(0, 0, 8, 8, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
             return {
-              display: style.display,
-              animation: style.animationName,
-              background: style.backgroundImage,
+              shader: layer.dataset.shader,
+              size: canvas ? [canvas.width, canvas.height] : null,
+              painted: pixels.some((value) => value > 0),
             };
           });
-        assert.equal(rain.display === "none", weather.exposure === "shelter");
-        if (weather.exposure !== "shelter") {
-          assert(rain.background.includes("repeating-linear-gradient"));
-          assert.equal(rain.animation, width === 390 ? "none" : "scene-rain");
-        }
+        assert.equal(shader.shader, "webgl");
+        assert(shader.size[0] > 0 && shader.size[1] > 0);
+        if (weather.condition !== "clear") assert(shader.painted);
+        if (weather.condition !== "clear")
+          assert.match(
+            await page
+              .locator(`#hand [data-card="${place}"] .art > .weather-layer`)
+              .evaluate((layer) => layer.style.backgroundImage),
+            /^url\("data:image\/png/,
+          );
       }
       assert(
         await page.evaluate(
