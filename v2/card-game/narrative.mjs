@@ -1,3 +1,4 @@
+import { learningFacts } from "./learning.mjs";
 import { questCarried } from "./quest-hands.mjs";
 import { questRecord } from "./shared-quests.mjs";
 import { recitalContext, recitalFacts } from "./pack-recital.mjs";
@@ -51,7 +52,7 @@ export function speechMemories(memory, { expressions = true } = {}) {
     : [];
   return [...lasting, ...recent, ...said]
     .sort((a, b) => a.seq - b.seq)
-    .map(({ turn, kind, text }) => ({ turn, kind, text }));
+    .map(({ seq, turn, kind, text }) => ({ seq, turn, kind, text }));
 }
 
 // Capture the resolved turn separately from wishes and remembered speech.
@@ -76,7 +77,14 @@ export function turnOutcome(world) {
       ...(!packEntity(here) ? known.filter((id) => !packEntity(id)) : []),
     ]),
   ]
-    .filter((id) => known.includes(id) && entityActive(world, id))
+    .filter(
+      (id) =>
+        known.includes(id) &&
+        entityActive(world, id) &&
+        (id === currentActor(world) ||
+          !world.controlledActors?.includes(id) ||
+          world.presentActors?.includes(id)),
+    )
     .slice(0, 8);
   const relevantItems = [
     ...new Set([
@@ -293,7 +301,13 @@ export function narrativeContext(world, action = null) {
             entry.turn < world.turn,
         )
         .slice(-4)
-        .map(({ actorId, text }) => ({ actorId, text }));
+        .map(({ actorId, text, cast, witnesses }) => ({
+          actorId,
+          text,
+          witnesses: [
+            ...new Set([actorId, ...(witnesses || []), ...(cast || [])]),
+          ],
+        }));
   return {
     revision: world.revision,
     turn: world.turn,
@@ -336,6 +350,7 @@ export function narrativeContext(world, action = null) {
       const facts = [
         ...recitalFacts(world, packDefinitions, id),
         ...questFacts,
+        ...learningFacts(world, id, nameOf),
         ...[...packFacts(world, id), ...continuity]
           .filter((fact, index, all) => all.indexOf(fact) === index)
           .slice(-4),
@@ -382,7 +397,9 @@ export function narrativeContext(world, action = null) {
             other !== id &&
             known.includes(other) &&
             entityActive(world, other) &&
-            world.actors[other].place === world.actors[id].place,
+            world.actors[other].place === world.actors[id].place &&
+            (!world.controlledActors?.includes(other) ||
+              world.presentActors?.includes(other)),
         );
         facts.push(
           `Location now: ${nameOf(world.actors[id].place)}. Company now: ${company.map(nameOf).join(", ") || "alone"}.`,
@@ -527,13 +544,43 @@ function validReflection(entry, world, context) {
   const r = entry.reflection;
   if (
     !r ||
-    Object.keys(r).some((key) => !["thought", "persona", "dream"].includes(key))
+    Object.keys(r).some(
+      (key) =>
+        !["thought", "persona", "dream", "models", "evidence"].includes(key),
+    )
   )
     return false;
   if (
     r.dream !== undefined &&
     previous.dreams.length &&
     world.turn < previous.dreams.at(-1).turn + 12
+  )
+    return false;
+  const sources = reflectionSources(world, context, entry.id);
+  if (
+    r.evidence !== undefined &&
+    (!Array.isArray(r.evidence) ||
+      r.evidence.join() !== sources.map((e) => e.seq).join())
+  )
+    return false;
+  if (
+    r.models !== undefined &&
+    (!r.models ||
+      typeof r.models !== "object" ||
+      Array.isArray(r.models) ||
+      !["thought", "persona"].every(
+        (k) =>
+          typeof r.models[k] === "string" &&
+          r.models[k].trim() &&
+          r.models[k].length <= 160,
+      ) ||
+      Object.entries(r.models).some(
+        ([k, v]) =>
+          !["thought", "persona", "dream"].includes(k) ||
+          typeof v !== "string" ||
+          !v.trim() ||
+          v.length > 160,
+      ))
   )
     return false;
   return validInnerLife(
@@ -545,6 +592,89 @@ function validReflection(entry, world, context) {
     },
     world.turn,
   );
+}
+
+function reflectionSources(world, context, id) {
+  const selected = context.entities.find((e) => e.id === id)?.memories || [];
+  return selected
+    .filter((e) => e.kind === "event")
+    .map((e) => {
+      const saved = [
+        ...world.memories[id].events,
+        ...(world.memories[id].landmarks || []),
+      ].find((m) =>
+        e.seq ? m.seq === e.seq : m.turn === e.turn && m.text === e.text,
+      );
+      return saved && { seq: saved.seq, turn: saved.turn, text: saved.text };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.seq - b.seq);
+}
+
+function saveReflection(world, context, entry, fallbackModel) {
+  const memory = world.memories[entry.id];
+  const previous = memory.innerLife || {
+    persona: null,
+    thoughts: [],
+    dreams: [],
+  };
+  const r = entry.reflection;
+  memory.reflections = [
+    ...(memory.reflections || []),
+    {
+      turn: world.turn,
+      previousPersona: previous.persona,
+      persona: r.persona,
+      thought: r.thought,
+      dream: r.dream || null,
+      sources: reflectionSources(world, context, entry.id),
+      models: r.models || {
+        thought: fallbackModel,
+        persona: fallbackModel,
+        ...(r.dream ? { dream: fallbackModel } : {}),
+      },
+    },
+  ].slice(-4);
+  memory.innerLife = {
+    persona: r.persona,
+    thoughts: [
+      ...previous.thoughts,
+      { turn: world.turn, text: r.thought },
+    ].slice(-4),
+    dreams: r.dream
+      ? [...previous.dreams, { turn: world.turn, text: r.dream }].slice(-4)
+      : previous.dreams,
+  };
+}
+
+// Shared publication checks against the saved world before committing its text.
+export function applySharedReflections(world, entries) {
+  const context = narrativeContext(world);
+  for (const entry of entries || [])
+    if (
+      world.actors[entry.id] &&
+      !context.entities.some((e) => e.id === entry.id)
+    )
+      context.entities.push({
+        id: entry.id,
+        memories: speechMemories(world.memories[entry.id]),
+      });
+  if (
+    !Array.isArray(entries) ||
+    entries.length > 2 ||
+    new Set(entries.map((e) => e.id)).size !== entries.length
+  )
+    throw new Error("Use the saved scene's character reflections.");
+  for (const entry of entries) {
+    if (
+      !context.entities.some((e) => e.id === entry.id) ||
+      !validReflection(entry, world, context)
+    )
+      throw new Error("Use a reflection grounded in the saved scene.");
+  }
+  for (const entry of entries)
+    if (entry.reflection)
+      saveReflection(world, context, entry, entry.model || "card-voices-v1");
 }
 
 export function applyGeneratedText(world, context, response) {
@@ -591,24 +721,8 @@ export function applyGeneratedText(world, context, response) {
       turn: next.turn,
       model: entry.model || response.model,
     });
-    if (entry.reflection) {
-      const previous = next.memories[entry.id].innerLife || {
-        persona: null,
-        thoughts: [],
-        dreams: [],
-      };
-      const r = entry.reflection;
-      next.memories[entry.id].innerLife = {
-        persona: r.persona,
-        thoughts: [
-          ...previous.thoughts,
-          { turn: next.turn, text: r.thought },
-        ].slice(-4),
-        dreams: r.dream
-          ? [...previous.dreams, { turn: next.turn, text: r.dream }].slice(-4)
-          : previous.dreams,
-      };
-    }
+    if (entry.reflection)
+      saveReflection(next, context, entry, entry.model || response.model);
   }
   // An unfinished crossing signal can get one small reply where it was made.
   const echo =

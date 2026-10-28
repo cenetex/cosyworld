@@ -284,7 +284,7 @@ describe("accompany card requests", () => {
       expect(entity.facts[0]).toContain(
         "Pip declined Vale's invitation to Mirror attic",
       );
-      expect(entity.facts.length).toBeLessThanOrEqual(8);
+      expect(entity.facts.length).toBeLessThanOrEqual(16);
       expect(entity.facts.every((fact) => fact.length <= 240)).toBe(true);
     }
     expect(context.entities.find((e) => e.id === "moth").previous).toContain(

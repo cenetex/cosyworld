@@ -121,9 +121,9 @@ pub(super) fn response(
     let mut chain = saved
         .as_deref()
         .and_then(|text| serde_json::from_str::<Chain>(text).ok());
-    let reset = chain
-        .as_ref()
-        .is_none_or(|chain| chain.state["actor"] != state["actor"]);
+    let reset = chain.as_ref().is_none_or(|chain| {
+        chain.state["actor"] != state["actor"] || chain.state["version"] != state["version"]
+    });
     if reset {
         let stream = crate::random_hex(16);
         let digest = hash(&stream, 0, "", &state.to_string());
