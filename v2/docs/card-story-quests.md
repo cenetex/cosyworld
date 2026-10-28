@@ -101,7 +101,9 @@ several cards in one family distinct in the card view.
 Each entry has `id`, `speaker`, `at`, `text` and optional `requires` and
 `choiceId`. The text is one complete sentence of at most 180 characters.
 Topic IDs are unique across every mounted pack. The mounted catalog supports
-128 authored topics, with room for witnessed events in the knowledge store.
+512 authored topics. The knowledge store holds up to 512 facts globally and
+for each person. Authored facts keep their identities; unprotected event news
+ages out in source order. Active quest facts retain their existing protection.
 Third-person wording keeps its subject clear when another character retells
 the fact. Requirements use the common pack condition vocabulary.
 

@@ -263,6 +263,30 @@ Its shield, spoken plea, three burial routes and signed return account are
 described in the [chapter guide](../content/greek-drama/AJAX.md).
 Run `node v2/scripts/smoke-card-ajax.mjs` for all three desktop and phone journeys.
 
+After an Athenian return, the civic chorus at the Agora invites the traveler
+into **The City Eats**. Its eight comedies are **Acharnians**, **Knights**,
+**Wasps**, **Clouds**, **Lysistrata**, **Assemblywomen**, **Wealth**, and
+**Women at the Thesmophoria**. Each has its own household, speakers, law, and
+chosen result. Two local rooms join each existing work site.
+
+Carry the truce jar, hand Demos’s ring to Agoracritus, cast the trial pebble,
+or deliver a lender’s settlement. The coalition needs a woven treaty and
+accepted replies. The common feast needs cooking. Plutus and the festival
+travelers agree their journeys before each arrival. Payments, care, and
+release terms keep the named recipients’ answers.
+
+Each comedy gives its result a signed paper. Learn the authorised account,
+carry its paper to Dione, and hand it over beside her bread. Another human
+can take the paper, learn the account from its named speakers, and complete
+that return. The poem keeps the earlier deeds and adds the carrier’s verse.
+Aristophanes’s reported endings and the game’s new alternatives each name
+their place in the account.
+
+The exact Book VI IDs are listed in
+[`BOOK-SIX-IDS.json`](../content/greek-drama/BOOK-SIX-IDS.json).
+`test/card-greek-book-six.test.mjs` covers the 24 results, carried returns,
+shared knowledge, physical evidence, and save upgrades.
+
 ## Personal quests and lasting hopes
 
 Personal and shared quest programs use `quest-progress.mjs` to capture evidence,

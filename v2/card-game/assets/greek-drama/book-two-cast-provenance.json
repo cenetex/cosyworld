@@ -1,0 +1,343 @@
+{
+  "generated": "2026-10-28",
+  "tool": "built-in image_gen",
+  "sourceBase": "aeda691649722caf8536afdd10ea6cc8d1652df4",
+  "sourcePlan": {
+    "name": "cosyworld-book-ii-design.md",
+    "sha256": "610a763a249eb5f78a179e02d4432ffd0541462ceb22d7acd02759d062bff75e",
+    "scope": "The six remaining adult cast portraits for the Heracles and Women of Trachis account roles."
+  },
+  "style": "Approved Greek cast realism, ordinary woven linen and wool, distinct adult faces and clear full-body silhouettes.",
+  "assets": [
+    {
+      "file": "book-two-megara.png",
+      "sourceFile": "book-two-megara.png",
+      "sourceName": "exec-0b493684-2796-45a6-afa9-55b76f86c6f8.png",
+      "generationId": "exec-0b493684-2796-45a6-afa9-55b76f86c6f8",
+      "plannedActorId": "greek-heracles-megara",
+      "accountGroup": "thebes",
+      "intent": "reference-based generation",
+      "transparentBackground": true,
+      "references": [
+        {
+          "file": "hero-heracles.png",
+          "role": "style reference",
+          "sourcePullRequest": 1271,
+          "sourceCommit": "81f1ddb13ee52ec5ad7bbce9b9a8d0f6d13d1d96",
+          "sha256": "0976bc6ee62ea8d2a882343b7ca28d78fe1042909d68973cdc06cebc66177832"
+        },
+        {
+          "file": "chthonic-baker.png",
+          "role": "style reference",
+          "sha256": "c8e900ee50e1a3fe860e7f38e6625f7326a6715e6821e8a5db74d264c1bbd7e0"
+        },
+        {
+          "file": "chthonic-helen.png",
+          "role": "style reference",
+          "sha256": "3c87d505fd801846e140405d3d5b84f562ddb9d00a1f015ad9c2814209a5986f"
+        }
+      ],
+      "processing": "Original generated PNG copied with its full native pixels and alpha channel.",
+      "prompt": "Use case: historical-scene.\nAsset type: a full-body transparent cast portrait for Book II of the Wine-Dark Sea card game.\nInput images: image 1 is the approved Heracles portrait; the other images are approved Greek cast. They supply the game's detailed painted realism, natural anatomy, ordinary woven clothes, aged materials and clear silhouette. The subject is a new distinct person described below.\nComposition: one adult in a calm three-quarter standing pose on a tall 2:3 canvas. Show the full head, both hands, complete garment hem, held prop and both sandaled feet. Leave generous clear margins on all sides. Use a readable silhouette for small cards and stage overlays.\nLighting: soft warm light from upper left and gentle cool shading within the figure.\nBackground: true transparent alpha across the field outside the complete person and prop, including gaps between limbs. Keep all shading within the subject. The image is a clean full-body cutout for day and night scenes.\n\nSubject: Megara in the earlier Theban household account of Heracles. She is an adult woman in her late thirties with a medium olive complexion, an angular face with strong cheekbones, dark watchful eyes and black hair gathered into a low braided coil. She wears an ordinary ankle-length ivory woven linen dress, a muted deep green wool mantle, a narrow woven belt and leather sandals. Her expression has dignity and protective resolve. One hand rests lightly near her chest while her other hand opens in a clear, calm speaking gesture. Her clothing is carefully kept and lived in. Give her a face and pose of her own.",
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "665a4c92c7f50892c2735580cbd603be30b2235e00d92664a47f3eee960a6398",
+      "sha256": "665a4c92c7f50892c2735580cbd603be30b2235e00d92664a47f3eee960a6398",
+      "bytes": 2291910,
+      "alpha": {
+        "clearPixels": 912968,
+        "partialPixels": 659896,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 2,
+        "visibleSubjectBounds": [
+          113,
+          5,
+          838,
+          1503
+        ],
+        "visibleBoundsThreshold": 8
+      }
+    },
+    {
+      "file": "book-two-amphitryon.png",
+      "sourceFile": "book-two-amphitryon.png",
+      "sourceName": "exec-520123f6-e0c7-4a51-bb88-aef4119759b4.png",
+      "generationId": "exec-520123f6-e0c7-4a51-bb88-aef4119759b4",
+      "plannedActorId": "greek-heracles-amphitryon",
+      "accountGroup": "thebes",
+      "intent": "reference-based generation",
+      "transparentBackground": true,
+      "references": [
+        {
+          "file": "hero-heracles.png",
+          "role": "style reference",
+          "sourcePullRequest": 1271,
+          "sourceCommit": "81f1ddb13ee52ec5ad7bbce9b9a8d0f6d13d1d96",
+          "sha256": "0976bc6ee62ea8d2a882343b7ca28d78fe1042909d68973cdc06cebc66177832"
+        },
+        {
+          "file": "chthonic-menelaus.png",
+          "role": "style reference",
+          "sha256": "8f3ef20e63ee5138d7ae09bb3e90893c51f421aecdd3adea3fb94a4d61e4113b"
+        }
+      ],
+      "processing": "Original generated PNG copied with its full native pixels and alpha channel.",
+      "prompt": "Use case: historical-scene.\nAsset type: a full-body transparent cast portrait for Book II of the Wine-Dark Sea card game.\nInput images: image 1 is the approved Heracles portrait; the other images are approved Greek cast. They supply the game's detailed painted realism, natural anatomy, ordinary woven clothes, aged materials and clear silhouette. The subject is a new distinct person described below.\nComposition: one adult in a calm three-quarter standing pose on a tall 2:3 canvas. Show the full head, both hands, complete garment hem, held prop and both sandaled feet. Leave generous clear margins on all sides. Use a readable silhouette for small cards and stage overlays.\nLighting: soft warm light from upper left and gentle cool shading within the figure.\nBackground: true transparent alpha across the field outside the complete person and prop, including gaps between limbs. Keep all shading within the subject. The image is a clean full-body cutout for day and night scenes.\n\nSubject: Amphitryon, the elderly adult father in the earlier Theban household account of Heracles. He is a man in his seventies with a lean weathered olive face, deep-set brown eyes, a high receding hairline, short white hair at the temples and a close white beard. He wears a plain long natural-linen tunic, a faded blue-grey wool mantle, a simple belt and worn leather sandals. He stands with gentle support from a tall plain wooden staff held upright in one hand; its full length and tip remain within the clear margins. His free hand opens quietly as he speaks. His expression is steady and compassionate, with the weight of long experience.",
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "8fe2a54750c97802d1c48bdc4a3c0d0c6713c8a54e24e7845f5eef5fa428d129",
+      "sha256": "8fe2a54750c97802d1c48bdc4a3c0d0c6713c8a54e24e7845f5eef5fa428d129",
+      "bytes": 2417711,
+      "alpha": {
+        "clearPixels": 893683,
+        "partialPixels": 679181,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          107,
+          17,
+          920,
+          1501
+        ],
+        "visibleBoundsThreshold": 8
+      }
+    },
+    {
+      "file": "book-two-deianira.png",
+      "sourceFile": "book-two-deianira.png",
+      "sourceName": "exec-523732ef-a7d2-48a2-b422-2b740039a414.png",
+      "generationId": "exec-523732ef-a7d2-48a2-b422-2b740039a414",
+      "plannedActorId": "greek-trachis-deianira",
+      "accountGroup": "trachis",
+      "intent": "reference-based generation",
+      "transparentBackground": true,
+      "references": [
+        {
+          "file": "hero-heracles.png",
+          "role": "style reference",
+          "sourcePullRequest": 1271,
+          "sourceCommit": "81f1ddb13ee52ec5ad7bbce9b9a8d0f6d13d1d96",
+          "sha256": "0976bc6ee62ea8d2a882343b7ca28d78fe1042909d68973cdc06cebc66177832"
+        },
+        {
+          "file": "chthonic-baker.png",
+          "role": "style reference",
+          "sha256": "c8e900ee50e1a3fe860e7f38e6625f7326a6715e6821e8a5db74d264c1bbd7e0"
+        },
+        {
+          "file": "chthonic-helen.png",
+          "role": "style reference",
+          "sha256": "3c87d505fd801846e140405d3d5b84f562ddb9d00a1f015ad9c2814209a5986f"
+        }
+      ],
+      "processing": "Original generated PNG copied with its full native pixels and alpha channel.",
+      "prompt": "Use case: historical-scene.\nAsset type: a full-body transparent cast portrait for Book II of the Wine-Dark Sea card game.\nInput images: image 1 is the approved Heracles portrait; the other images are approved Greek cast. They supply the game's detailed painted realism, natural anatomy, ordinary woven clothes, aged materials and clear silhouette. The subject is a new distinct person described below.\nComposition: one adult in a calm three-quarter standing pose on a tall 2:3 canvas. Show the full head, both hands, complete garment hem, held prop and both sandaled feet. Leave generous clear margins on all sides. Use a readable silhouette for small cards and stage overlays.\nLighting: soft warm light from upper left and gentle cool shading within the figure.\nBackground: true transparent alpha across the field outside the complete person and prop, including gaps between limbs. Keep all shading within the subject. The image is a clean full-body cutout for day and night scenes.\n\nSubject: Deianira at the House at Trachis, an adult woman in her forties. She has a warm olive complexion, a soft oval face, thoughtful brown eyes and dark chestnut hair with a little grey, gathered into a simple braid at the back. She wears an ordinary ankle-length muted slate-blue woven dress, an ivory wool wrap, a plain woven belt and leather sandals. One hand and forearm cradle a small neatly folded piece of undyed wool cloth near her waist. Her free hand opens gently in a careful speaking gesture. Her expression is thoughtful and concerned, with a humane quiet presence. Keep the cloth small, plain and fully visible.",
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "30252f6f01792ddbb0c2e634409631ff08eaac04c65c4408ee17b8f3ccbfcee5",
+      "sha256": "30252f6f01792ddbb0c2e634409631ff08eaac04c65c4408ee17b8f3ccbfcee5",
+      "bytes": 2304946,
+      "alpha": {
+        "clearPixels": 927091,
+        "partialPixels": 645773,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          126,
+          13,
+          870,
+          1491
+        ],
+        "visibleBoundsThreshold": 8
+      }
+    },
+    {
+      "file": "book-two-iole.png",
+      "sourceFile": "book-two-iole.png",
+      "sourceName": "exec-3c9997ee-f1f2-4fdd-91e7-03aa80516c3d.png",
+      "generationId": "exec-3c9997ee-f1f2-4fdd-91e7-03aa80516c3d",
+      "plannedActorId": "greek-trachis-iole",
+      "accountGroup": "trachis",
+      "intent": "reference-based generation",
+      "transparentBackground": true,
+      "references": [
+        {
+          "file": "hero-heracles.png",
+          "role": "style reference",
+          "sourcePullRequest": 1271,
+          "sourceCommit": "81f1ddb13ee52ec5ad7bbce9b9a8d0f6d13d1d96",
+          "sha256": "0976bc6ee62ea8d2a882343b7ca28d78fe1042909d68973cdc06cebc66177832"
+        },
+        {
+          "file": "chthonic-baker.png",
+          "role": "style reference",
+          "sha256": "c8e900ee50e1a3fe860e7f38e6625f7326a6715e6821e8a5db74d264c1bbd7e0"
+        },
+        {
+          "file": "chthonic-helen.png",
+          "role": "style reference",
+          "sha256": "3c87d505fd801846e140405d3d5b84f562ddb9d00a1f015ad9c2814209a5986f"
+        }
+      ],
+      "processing": "Original generated PNG copied with its full native pixels and alpha channel.",
+      "prompt": "Use case: historical-scene.\nAsset type: a full-body transparent cast portrait for Book II of the Wine-Dark Sea card game.\nInput images: image 1 is the approved Heracles portrait; the other images are approved Greek cast. They supply the game's detailed painted realism, natural anatomy, ordinary woven clothes, aged materials and clear silhouette. The subject is a new distinct person described below.\nComposition: one adult in a calm three-quarter standing pose on a tall 2:3 canvas. Show the full head, both hands, complete garment hem, held prop and both sandaled feet. Leave generous clear margins on all sides. Use a readable silhouette for small cards and stage overlays.\nLighting: soft warm light from upper left and gentle cool shading within the figure.\nBackground: true transparent alpha across the field outside the complete person and prop, including gaps between limbs. Keep all shading within the subject. The image is a clean full-body cutout for day and night scenes.\n\nSubject: Iole, a clearly adult woman in her mid-twenties in the Trachis account. She has a sun-touched light olive complexion, a distinct broad face, a straight prominent nose, dark hazel eyes and long wavy brown hair loosely plaited at the back. She wears a plain ankle-length sand-colored woven linen travel dress, a muted olive-grey wool wrap, a simple cord belt and practical leather sandals. One hand holds an edge of her wrap while the other rests open and relaxed near her side. Her closed-mouth expression is calm and self-possessed, with watchful dignity. Her pose leaves room for her own choice to speak. Keep her clothing simple and her fully adult features clear.",
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "2b8783bb8f52cab3dd1098d145f5317b2c5edca4d338bc35bbb221ab26173cc6",
+      "sha256": "2b8783bb8f52cab3dd1098d145f5317b2c5edca4d338bc35bbb221ab26173cc6",
+      "bytes": 2245872,
+      "alpha": {
+        "clearPixels": 962655,
+        "partialPixels": 610209,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          154,
+          17,
+          859,
+          1494
+        ],
+        "visibleBoundsThreshold": 8
+      }
+    },
+    {
+      "file": "book-two-hyllus.png",
+      "sourceFile": "book-two-hyllus.png",
+      "sourceName": "exec-d81d50ba-bd94-4f9b-827a-8d945d752dad.png",
+      "generationId": "exec-d81d50ba-bd94-4f9b-827a-8d945d752dad",
+      "plannedActorId": "greek-trachis-hyllus",
+      "accountGroup": "trachis",
+      "intent": "reference-based generation",
+      "transparentBackground": true,
+      "references": [
+        {
+          "file": "hero-heracles.png",
+          "role": "style reference",
+          "sourcePullRequest": 1271,
+          "sourceCommit": "81f1ddb13ee52ec5ad7bbce9b9a8d0f6d13d1d96",
+          "sha256": "0976bc6ee62ea8d2a882343b7ca28d78fe1042909d68973cdc06cebc66177832"
+        },
+        {
+          "file": "chthonic-menelaus.png",
+          "role": "style reference",
+          "sha256": "8f3ef20e63ee5138d7ae09bb3e90893c51f421aecdd3adea3fb94a4d61e4113b"
+        }
+      ],
+      "processing": "Original generated PNG copied with its full native pixels and alpha channel.",
+      "prompt": "Use case: historical-scene.\nAsset type: a full-body transparent cast portrait for Book II of the Wine-Dark Sea card game.\nInput images: image 1 is the approved Heracles portrait; the other images are approved Greek cast. They supply the game's detailed painted realism, natural anatomy, ordinary woven clothes, aged materials and clear silhouette. The subject is a new distinct person described below.\nComposition: one adult in a calm three-quarter standing pose on a tall 2:3 canvas. Show the full head, both hands, complete garment hem, held prop and both sandaled feet. Leave generous clear margins on all sides. Use a readable silhouette for small cards and stage overlays.\nLighting: soft warm light from upper left and gentle cool shading within the figure.\nBackground: true transparent alpha across the field outside the complete person and prop, including gaps between limbs. Keep all shading within the subject. The image is a clean full-body cutout for day and night scenes.\n\nSubject: Hyllus, Heracles's young grown son, a clearly adult man about twenty-two years old. Give him a natural athletic build, a youthful adult olive face, a strong jaw, a broad brow, warm brown eyes and short dark curly hair. His hair and brow carry a family resemblance to the approved Heracles reference, with his own lighter youthful face and clean-shaven jaw. He wears an ordinary knee-length undyed linen chiton, a faded brown wool cloak fastened at one shoulder, a plain leather belt and sandals. One hand rests near his belt and the other opens in a clear conversational gesture. His expression is earnest and attentive. Keep the stance grounded and the full feet visible.",
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "b0de87ffe5d83defbcc374595bc481c9b90673e82741d8521bf27d033bdae5ed",
+      "sha256": "b0de87ffe5d83defbcc374595bc481c9b90673e82741d8521bf27d033bdae5ed",
+      "bytes": 2302684,
+      "alpha": {
+        "clearPixels": 931897,
+        "partialPixels": 640967,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          75,
+          12,
+          923,
+          1504
+        ],
+        "visibleBoundsThreshold": 8
+      }
+    },
+    {
+      "file": "book-two-lichas.png",
+      "sourceFile": "book-two-lichas.png",
+      "sourceName": "exec-e0709e28-6626-48d0-8252-b92faddf7aed.png",
+      "generationId": "exec-e0709e28-6626-48d0-8252-b92faddf7aed",
+      "plannedActorId": "greek-trachis-lichas",
+      "accountGroup": "trachis",
+      "intent": "reference-based generation",
+      "transparentBackground": true,
+      "references": [
+        {
+          "file": "hero-heracles.png",
+          "role": "style reference",
+          "sourcePullRequest": 1271,
+          "sourceCommit": "81f1ddb13ee52ec5ad7bbce9b9a8d0f6d13d1d96",
+          "sha256": "0976bc6ee62ea8d2a882343b7ca28d78fe1042909d68973cdc06cebc66177832"
+        },
+        {
+          "file": "chthonic-menelaus.png",
+          "role": "style reference",
+          "sha256": "8f3ef20e63ee5138d7ae09bb3e90893c51f421aecdd3adea3fb94a4d61e4113b"
+        }
+      ],
+      "processing": "Original generated PNG copied with its full native pixels and alpha channel.",
+      "prompt": "Use case: historical-scene.\nAsset type: a full-body transparent cast portrait for Book II of the Wine-Dark Sea card game.\nInput images: image 1 is the approved Heracles portrait; the other images are approved Greek cast. They supply the game's detailed painted realism, natural anatomy, ordinary woven clothes, aged materials and clear silhouette. The subject is a new distinct person described below.\nComposition: one adult in a calm three-quarter standing pose on a tall 2:3 canvas. Show the full head, both hands, complete garment hem, held prop and both sandaled feet. Leave generous clear margins on all sides. Use a readable silhouette for small cards and stage overlays.\nLighting: soft warm light from upper left and gentle cool shading within the figure.\nBackground: true transparent alpha across the field outside the complete person and prop, including gaps between limbs. Keep all shading within the subject. The image is a clean full-body cutout for day and night scenes.\n\nSubject: Lichas, an adult courier in the Trachis account, a man in his forties. He has a long weathered olive face, a prominent nose, alert brown eyes, cropped dark brown hair and a short neatly kept brown beard. He wears a plain knee-length tan woven tunic, a muted russet wool travel cloak, a practical leather belt and worn sandals. One forearm holds a small sealed parcel: a modest wooden casket wrapped with plain linen and tied with cord, with one visible simple red wax seal. His other hand opens as he gives his message. His expression is composed and attentive. Keep the parcel and both hands fully visible with clear margins.",
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "73ef04cbbc1818cb45f78790c0798460f333da6db4296ea81ce19f07fb45dcaa",
+      "sha256": "73ef04cbbc1818cb45f78790c0798460f333da6db4296ea81ce19f07fb45dcaa",
+      "bytes": 2331745,
+      "alpha": {
+        "clearPixels": 929053,
+        "partialPixels": 643811,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          79,
+          11,
+          919,
+          1507
+        ],
+        "visibleBoundsThreshold": 8
+      }
+    }
+  ],
+  "integration": "The Book II source owner will bind these exact actor and asset paths. Chapter integration owns optimized variants, public assets, shared rules and final release versions.",
+  "reviewBackgrounds": [
+    {
+      "file": "palace-day.webp",
+      "sha256": "c0b61fb49af9c98adbdf9fe7ac386f3611e13b23342a10791673871473928769",
+      "source": "Current combined palace stage"
+    },
+    {
+      "file": "palace-night.webp",
+      "sha256": "6fef7d5cfcbd3c95f5f05395d95213a2b5760875487e37b98d2ffe5841abab06",
+      "source": "Current combined palace stage"
+    },
+    {
+      "file": "book-two-trachis-day.webp",
+      "sha256": "222c6059bb7bda10db354e2beaef4d436f08d330a5d6f88567c1f36b08af850d",
+      "source": "Book II art PR #1271, commit 81f1ddb13ee52ec5ad7bbce9b9a8d0f6d13d1d96"
+    },
+    {
+      "file": "book-two-trachis-night.webp",
+      "sha256": "c903fdcc81d55ee3dde11508edf0b9f592f83f38c35687cbbdf01f3c1a5562da",
+      "source": "Book II art PR #1271, commit 81f1ddb13ee52ec5ad7bbce9b9a8d0f6d13d1d96"
+    },
+    {
+      "file": "book-two-trachis-day.webp",
+      "sha256": "222c6059bb7bda10db354e2beaef4d436f08d330a5d6f88567c1f36b08af850d",
+      "source": "Book II art PR #1271, commit 81f1ddb13ee52ec5ad7bbce9b9a8d0f6d13d1d96"
+    },
+    {
+      "file": "book-two-trachis-night.webp",
+      "sha256": "c903fdcc81d55ee3dde11508edf0b9f592f83f38c35687cbbdf01f3c1a5562da",
+      "source": "Book II art PR #1271, commit 81f1ddb13ee52ec5ad7bbce9b9a8d0f6d13d1d96"
+    }
+  ]
+}

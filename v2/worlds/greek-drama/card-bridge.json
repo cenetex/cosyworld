@@ -130,6 +130,93 @@
         "cardName": "Greek ship",
         "cardArt": "assets/greek-drama/ship-card.webp"
       }
+    },
+    {
+      "id": "greek-book-iv-helen-landing-ship",
+      "from": "greek-book-iv-helen-landing",
+      "to": "pond",
+      "travelers": "any",
+      "travel": "aboard the ship",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-open",
+          "value": true
+        }
+      ],
+      "transport": "greek-ship",
+      "travelLabel": "Board",
+      "scenery": {
+        "open": "The shared Greek ship waits at this chapter’s shore.",
+        "cardName": "Greek ship",
+        "cardArt": "assets/greek-drama/ship-card.webp"
+      }
+    },
+    {
+      "id": "greek-aulis-ship",
+      "from": "greek-aulis",
+      "to": "pond",
+      "travelers": "any",
+      "travel": "aboard the ship",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-aulis-open",
+          "value": true
+        }
+      ],
+      "transport": "greek-ship",
+      "travelLabel": "Board",
+      "scenery": {
+        "open": "The shared ship waits at the Aulis anchorage.",
+        "closed": "The shared ship is sailing elsewhere. The anchorage waits for its return.",
+        "cardName": "Greek ship",
+        "cardArt": "assets/greek-drama/ship-card.webp"
+      }
+    },
+    {
+      "id": "greek-lemnos-ship",
+      "from": "greek-lemnos-landing",
+      "to": "pond",
+      "travelers": "any",
+      "travel": "aboard the ship",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-lemnos-open",
+          "value": true
+        }
+      ],
+      "transport": "greek-ship",
+      "travelLabel": "Board",
+      "scenery": {
+        "open": "The shared ship waits at the Lemnian landing.",
+        "closed": "The landing waits beside open water.",
+        "cardName": "Greek ship",
+        "cardArt": "assets/greek-drama/ship-card.webp"
+      }
+    },
+    {
+      "id": "greek-thrace-ship",
+      "from": "greek-thrace",
+      "to": "pond",
+      "travelers": "any",
+      "travel": "aboard the ship",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-thrace-open",
+          "value": true
+        }
+      ],
+      "transport": "greek-ship",
+      "travelLabel": "Board",
+      "scenery": {
+        "open": "The shared ship waits at the Thracian shore.",
+        "closed": "The landing waits beside open water.",
+        "cardName": "Greek ship",
+        "cardArt": "assets/greek-drama/ship-card.webp"
+      }
     }
   ],
   "transports": {
@@ -140,9 +227,19 @@
         "greek-harbor",
         "greek-athens-harbor",
         "greek-piraeus",
-        "greek-ajax-landing"
+        "greek-ajax-landing",
+        "greek-book-iv-helen-landing",
+        "greek-aulis",
+        "greek-lemnos-landing",
+        "greek-thrace"
       ],
       "at": "greek-harbor"
+    }
+  },
+  "values": {
+    "greek-book-iv-hippolytus-phaedra": {
+      "lamp": 3,
+      "cloth": 3
     }
   }
 }

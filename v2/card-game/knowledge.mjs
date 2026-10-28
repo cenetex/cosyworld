@@ -1,7 +1,7 @@
 // Public knowledge keeps the event and the person who passed it on.
 // Private thoughts and generated wording stay in character memory.
 export const KNOWLEDGE_VERSION = 1;
-export const KNOWLEDGE_FACT_LIMIT = 256;
+export const KNOWLEDGE_FACT_LIMIT = 512;
 export const KNOWLEDGE_PERSON_LIMIT = KNOWLEDGE_FACT_LIMIT;
 export const KNOWLEDGE_PENDING_LIMIT = 32;
 export const FACT_TEXT_LIMIT = 180;

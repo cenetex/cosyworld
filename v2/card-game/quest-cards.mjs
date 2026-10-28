@@ -215,8 +215,11 @@ function storyQuestCards(world, actor) {
     .filter((definition) => {
       const record = world.quests?.records[definition.key];
       return record
-        ? record.holder.id === actor || record.participants.includes(actor)
+        ? record.holder.id === actor ||
+            questHolderActor(world, record) === actor ||
+            record.participants.includes(actor)
         : definition.holder.id === actor ||
+            questHolderActor(world, definition) === actor ||
             storyActors(world, definition).includes(actor);
     })
     .map((definition) => {

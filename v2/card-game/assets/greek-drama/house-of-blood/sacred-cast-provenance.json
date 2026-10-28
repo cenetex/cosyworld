@@ -1,0 +1,477 @@
+{
+  "schemaVersion": 1,
+  "title": "House of Blood: Delphi, court and Tauris portraits",
+  "date": "2026-10-28",
+  "generator": "Built-in image_gen.imagegen",
+  "draftBase": {
+    "branch": "codex/greek-house-of-blood",
+    "commit": "cf0eb94498bce71af700b5c08b77387c8651b52e",
+    "packageVersion": "1.2.5"
+  },
+  "sourceQueue": {
+    "path": "/private/tmp/house-of-blood-art-queue-cf0.json",
+    "repoPath": "v2/content/greek-drama/HOUSE-OF-BLOOD-ART.json",
+    "sha256": "189b063a4bbc05e70ebed1c423abe0ff9fd2cf751aff45e99920d92e2b0fe882"
+  },
+  "scope": "Portrait art draft. Source integration owns actor bindings, optimized variants, public assets, shared rules and release checks.",
+  "assets": [
+    {
+      "name": "pythian-priestess",
+      "file": "pythian-priestess.png",
+      "sourceFile": "pythian-priestess.png",
+      "sourceName": "exec-8cad52fa-1bac-4fea-b205-1f2e297724af.png",
+      "bindings": [
+        "greek-pythian-priestess"
+      ],
+      "kind": "character-portrait",
+      "useCase": "historical-scene",
+      "nativeFacing": "left",
+      "transparentBackground": true,
+      "processing": "Original generated PNG copied byte for byte; native alpha preserved",
+      "prompt": "Use case: historical-scene.\nAsset type: full-body character portrait for CosyWorld's painted Greek drama card game.\nInput images: attached portraits are references for painterly detail, natural adult anatomy, woven cloth texture, full-body scale and gentle three-quarter staging. Create the named subject below with the specified face and clothing.\nStyle/medium: finely detailed painted storybook realism, earthy pigments, soft inner brushwork and an expressive readable adult face.\nComposition/framing: one living adult is the sole subject. Tall 1024 by 1536 canvas with genuine transparent background. Show the entire standing figure from crown of head through both complete feet and sandal soles. Give clear margins around the head, hands, hems and under the feet. The figure fills about 86 percent of canvas height. Body at a gentle three-quarter angle, uncovered face and eyes turned toward image-left. Both hands are empty; keep all hands, limbs and clothing inside the canvas.\nLighting/mood: soft neutral daylight with restrained highlights and natural volume, suitable for compositing over both day and night painted scenes.\nOutput: preserve native clear transparent alpha around the complete figure. Only this single adult and worn clothes occupy the illustration.\nSubject: the Pythian Priestess, an older adult woman about seventy, who receives a refuge branch and introduces the Delphi source frame. A narrow lined olive face, thoughtful dark brown eyes, a long straight nose and silver-white hair gathered into a neat low coil. She wears a full-length pale ceremonial linen robe with long loose sleeves, a simple undyed woven sash and practical leather sandals. A small fold of pale linen rests over one shoulder. Her face is uncovered. One empty hand is open low toward image-left, ready to hear a speaker; the other rests gently at her waist. Her expression is attentive and composed. Her age reads clearly and her whole adult figure is natural and dignified.",
+      "references": [
+        {
+          "file": "v2/card-game/assets/greek-drama/chthonic-baker.png",
+          "path": "/Users/ratimics/.codex/worktrees/house-blood-sacred-art/cosyworld/v2/card-game/assets/greek-drama/chthonic-baker.png",
+          "role": "Painted adult anatomy, woven cloth, full-body scale and staging",
+          "sourceCommit": "cf0eb94498bce71af700b5c08b77387c8651b52e",
+          "sha256": "c8e900ee50e1a3fe860e7f38e6625f7326a6715e6821e8a5db74d264c1bbd7e0"
+        },
+        {
+          "file": "v2/card-game/assets/greek-drama/chthonic-helen.png",
+          "path": "/Users/ratimics/.codex/worktrees/house-blood-sacred-art/cosyworld/v2/card-game/assets/greek-drama/chthonic-helen.png",
+          "role": "Painted adult anatomy, woven cloth, full-body scale and staging",
+          "sourceCommit": "cf0eb94498bce71af700b5c08b77387c8651b52e",
+          "sha256": "3c87d505fd801846e140405d3d5b84f562ddb9d00a1f015ad9c2814209a5986f"
+        }
+      ],
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "d875d9df0026f35762351d3cc740618066f2e8d98b393da3fb67f11f8413bce4",
+      "sha256": "d875d9df0026f35762351d3cc740618066f2e8d98b393da3fb67f11f8413bce4",
+      "bytes": 2285207,
+      "alpha": {
+        "clearPixels": 922986,
+        "partialPixels": 649878,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          123,
+          19,
+          883,
+          1505
+        ],
+        "visibleBoundsThreshold": 8
+      },
+      "adultFigureCount": 1
+    },
+    {
+      "name": "furies",
+      "file": "furies.png",
+      "sourceFile": "furies.png",
+      "sourceName": "exec-afcd2076-cd0c-4b58-88c0-6ce2f8dca9b5.png",
+      "bindings": [
+        "greek-furies"
+      ],
+      "kind": "character-portrait",
+      "useCase": "historical-scene",
+      "nativeFacing": "left",
+      "transparentBackground": true,
+      "processing": "Original generated PNG copied byte for byte; native alpha preserved",
+      "prompt": "Use case: historical-scene.\nAsset type: full-body character portrait for CosyWorld's painted Greek drama card game.\nInput images: attached portraits are references for painterly detail, natural adult anatomy, woven cloth texture, full-body scale and gentle three-quarter staging. Create the named subject below with the specified face and clothing.\nStyle/medium: finely detailed painted storybook realism, earthy pigments, soft inner brushwork and an expressive readable adult face.\nComposition/framing: exactly three clearly adult women form one compact standing chorus cutout. Tall 1024 by 1536 canvas with genuine transparent background. Show the entire standing figure from crown of head through both complete feet and sandal soles. Give clear margins around the head, hands, hems and under the feet. The compact group fills about 86 percent of canvas height. Body at a gentle three-quarter angle, uncovered face and eyes turned toward image-left. Each woman has two separate readable empty hands; keep all hands, limbs and clothing inside the canvas.\nLighting/mood: soft neutral daylight with restrained highlights and natural volume, suitable for compositing over both day and night painted scenes.\nOutput: preserve native clear transparent alpha around the complete figure. Only these three adult women and their worn clothes and small specified ornaments occupy the illustration.\nSubject: The Furies, a collective accusing chorus represented by one compact cutout of THREE adult women. One woman is about thirty with dark braided hair and a long face; the middle woman is about fifty with a broad strong face and dark hair streaked with grey; the third is about seventy with silver gathered hair and deeply lined cheeks. All three have distinct clear human adult faces, dark attentive eyes and composed firm expressions. Each wears opaque ash-grey and charcoal draped linen and wool clothes and practical leather sandals. Small bronze serpent-shaped hair or shoulder ornaments identify their chorus; the ornaments are restrained pieces of jewelry. Stand them close together at slightly staggered depths with all three complete bodies and all six feet on a common ground level. Keep their arms separate, readable empty hands visible, and each face fully clear. All three look gently toward image-left while the central woman makes a small low open speaking gesture. Preserve the collective human chorus feeling and clear space around the entire group.",
+      "references": [
+        {
+          "file": "v2/card-game/assets/greek-drama/chthonic-electra.png",
+          "path": "/Users/ratimics/.codex/worktrees/house-blood-sacred-art/cosyworld/v2/card-game/assets/greek-drama/chthonic-electra.png",
+          "role": "Painted adult anatomy, woven cloth, full-body scale and staging",
+          "sourceCommit": "cf0eb94498bce71af700b5c08b77387c8651b52e",
+          "sha256": "5239e39dbc53bfdca3ccbecbd3ac7fdf1eddc1b9a513ddc2310a44336d2ee66e"
+        },
+        {
+          "file": "v2/card-game/assets/greek-drama/chthonic-baker.png",
+          "path": "/Users/ratimics/.codex/worktrees/house-blood-sacred-art/cosyworld/v2/card-game/assets/greek-drama/chthonic-baker.png",
+          "role": "Painted adult anatomy, woven cloth, full-body scale and staging",
+          "sourceCommit": "cf0eb94498bce71af700b5c08b77387c8651b52e",
+          "sha256": "c8e900ee50e1a3fe860e7f38e6625f7326a6715e6821e8a5db74d264c1bbd7e0"
+        }
+      ],
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "8c9ea7135600a4a204388e586da8b4b39fa27b6663493f706d5d8c0d5788dcb9",
+      "sha256": "8c9ea7135600a4a204388e586da8b4b39fa27b6663493f706d5d8c0d5788dcb9",
+      "bytes": 3176244,
+      "alpha": {
+        "clearPixels": 449552,
+        "partialPixels": 1123312,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          33,
+          52,
+          1007,
+          1478
+        ],
+        "visibleBoundsThreshold": 8
+      },
+      "adultFigureCount": 3
+    },
+    {
+      "name": "athena",
+      "file": "athena.png",
+      "sourceFile": "athena.png",
+      "sourceName": "exec-4185c168-6b97-4b23-8e65-ed58b845dba4.png",
+      "bindings": [
+        "greek-athena"
+      ],
+      "kind": "character-portrait",
+      "useCase": "historical-scene",
+      "nativeFacing": "left",
+      "transparentBackground": true,
+      "processing": "Original generated PNG copied byte for byte; native alpha preserved",
+      "prompt": "Use case: precise-object-edit.\nAsset type: full-body transparent Athena portrait for CosyWorld.\nInput image: the current native Athena portrait is the edit target.\nReframe the same entire adult figure inside the same 1024 by 1536 transparent canvas. Reduce the figure and all worn clothes together to about 84 percent of canvas height so the COMPLETE blue helmet crest has generous clear air above it. Place the top of the completed crest around y=85 and the bottom of both complete sandal soles around y=1440. Keep a clear transparent margin on every side. Preserve the same adult Athena face, bronze helmet design, scaled aegis, pale robe, blue mantle, both empty hands, leftward gaze, pose and painterly style. The entire helmet including every crest tip, all fingers, hems and both complete feet fit within the canvas. Preserve genuine native transparent alpha and soft neutral lighting.",
+      "generationHistory": [
+        {
+          "sourceName": "exec-04549a84-bd6c-419d-9e42-07b5e3c09857.png",
+          "sourceFile": "sources/athena-initial.png",
+          "sha256": "2effb9b26eed4a9808d0207136cb0bceb8edd681580a837d1dc06eae0344a185",
+          "prompt": "Use case: historical-scene.\nAsset type: full-body character portrait for CosyWorld's painted Greek drama card game.\nInput images: attached portraits are references for painterly detail, natural adult anatomy, woven cloth texture, full-body scale and gentle three-quarter staging. Create the named subject below with the specified face and clothing.\nStyle/medium: finely detailed painted storybook realism, earthy pigments, soft inner brushwork and an expressive readable adult face.\nComposition/framing: one living adult is the sole subject. Tall 1024 by 1536 canvas with genuine transparent background. Show the entire standing figure from crown of head through both complete feet and sandal soles. Give clear margins around the head, hands, hems and under the feet. The figure fills about 86 percent of canvas height. Body at a gentle three-quarter angle, uncovered face and eyes turned toward image-left. Both hands are empty; keep all hands, limbs and clothing inside the canvas.\nLighting/mood: soft neutral daylight with restrained highlights and natural volume, suitable for compositing over both day and night painted scenes.\nOutput: preserve native clear transparent alpha around the complete figure. Only this single adult and worn clothes occupy the illustration.\nSubject: Athena, a composed clearly adult woman about thirty-five who names the court frame and settlement. A strong oval olive face, steady grey-brown eyes, a straight nose and dark hair gathered at the back. A weathered bronze helmet sits high so her whole face and eyes are clearly visible; keep its modest crest completely inside the canvas. She wears a short scaled aegis mantle over a full-length pale woven robe, a muted blue wool cloak, simple belt and leather sandals. Her whole adult body is natural and dignified. One empty hand rests near the belt; the other opens low toward image-left in a calm hearing gesture. Her expression is thoughtful authority and steady attention. The helmet and aegis are her worn symbols, with restrained bronze detail.",
+          "references": [
+            {
+              "file": "v2/card-game/assets/greek-drama/chthonic-electra.png",
+              "path": "/Users/ratimics/.codex/worktrees/house-blood-sacred-art/cosyworld/v2/card-game/assets/greek-drama/chthonic-electra.png",
+              "role": "Painted adult anatomy, woven cloth, full-body scale and staging",
+              "sourceCommit": "cf0eb94498bce71af700b5c08b77387c8651b52e",
+              "sha256": "5239e39dbc53bfdca3ccbecbd3ac7fdf1eddc1b9a513ddc2310a44336d2ee66e"
+            },
+            {
+              "file": "v2/card-game/assets/greek-drama/chthonic-helen.png",
+              "path": "/Users/ratimics/.codex/worktrees/house-blood-sacred-art/cosyworld/v2/card-game/assets/greek-drama/chthonic-helen.png",
+              "role": "Painted adult anatomy, woven cloth, full-body scale and staging",
+              "sourceCommit": "cf0eb94498bce71af700b5c08b77387c8651b52e",
+              "sha256": "3c87d505fd801846e140405d3d5b84f562ddb9d00a1f015ad9c2814209a5986f"
+            }
+          ],
+          "review": "A second native generation gives the full helmet crest clear margin"
+        }
+      ],
+      "references": [
+        {
+          "file": "exec-04549a84-bd6c-419d-9e42-07b5e3c09857.png",
+          "path": "/Users/ratimics/.codex/generated_images/01a180f3-1e33-7313-a85a-a1c6331f05c8/exec-04549a84-bd6c-419d-9e42-07b5e3c09857.png",
+          "role": "First native Athena used as full-canvas edit target",
+          "sha256": "2effb9b26eed4a9808d0207136cb0bceb8edd681580a837d1dc06eae0344a185"
+        }
+      ],
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "e459a198d5d53dc52171f837e7843fa9a87123fb6a4525926532348da3e4263a",
+      "sha256": "e459a198d5d53dc52171f837e7843fa9a87123fb6a4525926532348da3e4263a",
+      "bytes": 2126116,
+      "alpha": {
+        "clearPixels": 978897,
+        "partialPixels": 593967,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          146,
+          64,
+          881,
+          1490
+        ],
+        "visibleBoundsThreshold": 8
+      },
+      "adultFigureCount": 1
+    },
+    {
+      "name": "iphigenia-tauris",
+      "file": "iphigenia-tauris.png",
+      "sourceFile": "iphigenia-tauris.png",
+      "sourceName": "exec-dc61b78d-89b3-461b-ba1c-9f9b7a041e25.png",
+      "bindings": [
+        "greek-iphigenia-tauris"
+      ],
+      "kind": "character-portrait",
+      "useCase": "historical-scene",
+      "nativeFacing": "left",
+      "transparentBackground": true,
+      "processing": "Original generated PNG copied byte for byte; native alpha preserved",
+      "prompt": "Use case: historical-scene.\nAsset type: full-body character portrait for CosyWorld's painted Greek drama card game.\nInput images: attached portraits are references for painterly detail, natural adult anatomy, woven cloth texture, full-body scale and gentle three-quarter staging. Create the named subject below with the specified face and clothing.\nStyle/medium: finely detailed painted storybook realism, earthy pigments, soft inner brushwork and an expressive readable adult face.\nComposition/framing: one living adult is the sole subject. Tall 1024 by 1536 canvas with genuine transparent background. Show the entire standing figure from crown of head through both complete feet and sandal soles. Give clear margins around the head, hands, hems and under the feet. The figure fills about 86 percent of canvas height. Body at a gentle three-quarter angle, uncovered face and eyes turned toward image-left. Both hands are empty; keep all hands, limbs and clothing inside the canvas.\nLighting/mood: soft neutral daylight with restrained highlights and natural volume, suitable for compositing over both day and night painted scenes.\nOutput: preserve native clear transparent alpha around the complete figure. Only this single adult and worn clothes occupy the illustration.\nSubject: Iphigenia at Tauris, the SAME clearly adult woman shown in Image 1, now a mature adult priestess. Preserve her approved Aulis facial landmarks, eye shape and colour, nose, mouth, jaw, hairline, warm olive complexion and brown gathered hair. She is recognizable as the same person, with a calm, more experienced priestess bearing. Dress her in a full-length pale ivory ceremonial linen gown with simple sleeves, a sea-blue woven shoulder mantle, plain woven waist sash and practical leather sandals. Keep the clear uncovered face and small modest earrings from the reference identity. One empty hand holds the mantle near her waist; the other opens gently toward image-left as she tells her own account. Her expression is attentive, mature and quietly resolute. Preserve her whole living adult body and complete feet.",
+      "references": [
+        {
+          "file": "v2/card-game/assets/greek-drama/book-three-iphigenia.png",
+          "path": "/Users/ratimics/.codex/worktrees/book-three-portraits/cosyworld/v2/card-game/assets/greek-drama/book-three-iphigenia.png",
+          "role": "Approved Aulis identity: preserve the same facial landmarks, eyes, nose, mouth, hairline and brown gathered hair",
+          "sourceCommit": "ae1b181c92bec02d3fe46174915e714d96f25342",
+          "sourcePR": 1277,
+          "sha256": "a8b9176f8fd51aa48cbfaf37ef44c8fee51cc4138604c1c661d31ba3e86a10bb"
+        },
+        {
+          "file": "v2/card-game/assets/greek-drama/chthonic-helen.png",
+          "path": "/Users/ratimics/.codex/worktrees/house-blood-sacred-art/cosyworld/v2/card-game/assets/greek-drama/chthonic-helen.png",
+          "role": "Secondary painted cloth and full-body style",
+          "sourceCommit": "cf0eb94498bce71af700b5c08b77387c8651b52e",
+          "sha256": "3c87d505fd801846e140405d3d5b84f562ddb9d00a1f015ad9c2814209a5986f"
+        }
+      ],
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "271b15b0be837240e16fa5cd0d64c02575cf98e7ca5a9746cd82bca6c3b3aa60",
+      "sha256": "271b15b0be837240e16fa5cd0d64c02575cf98e7ca5a9746cd82bca6c3b3aa60",
+      "bytes": 2276114,
+      "alpha": {
+        "clearPixels": 907838,
+        "partialPixels": 665026,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          139,
+          10,
+          885,
+          1519
+        ],
+        "visibleBoundsThreshold": 8
+      },
+      "adultFigureCount": 1
+    },
+    {
+      "name": "thoas",
+      "file": "thoas.png",
+      "sourceFile": "thoas.png",
+      "sourceName": "exec-c27f83df-5bef-49ab-ba46-4e43e9d62db2.png",
+      "bindings": [
+        "greek-thoas"
+      ],
+      "kind": "character-portrait",
+      "useCase": "historical-scene",
+      "nativeFacing": "left",
+      "transparentBackground": true,
+      "processing": "Original generated PNG copied byte for byte; native alpha preserved",
+      "prompt": "Use case: historical-scene.\nAsset type: full-body character portrait for CosyWorld's painted Greek drama card game.\nInput images: attached portraits are references for painterly detail, natural adult anatomy, woven cloth texture, full-body scale and gentle three-quarter staging. Create the named subject below with the specified face and clothing.\nStyle/medium: finely detailed painted storybook realism, earthy pigments, soft inner brushwork and an expressive readable adult face.\nComposition/framing: one living adult is the sole subject. Tall 1024 by 1536 canvas with genuine transparent background. Show the entire standing figure from crown of head through both complete feet and sandal soles. Give clear margins around the head, hands, hems and under the feet. The figure fills about 86 percent of canvas height. Body at a gentle three-quarter angle, uncovered face and eyes turned toward image-left. Both hands are empty; keep all hands, limbs and clothing inside the canvas.\nLighting/mood: soft neutral daylight with restrained highlights and natural volume, suitable for compositing over both day and night painted scenes.\nOutput: preserve native clear transparent alpha around the complete figure. Only this single adult and worn clothes occupy the illustration.\nSubject: Thoas, a mature coastal king about fifty-five who hears a rite and gives his own answer to a pact. A broad weathered olive face, a prominent curved nose, dark brown eyes, thick dark grey-streaked hair brushed back and a dense trimmed salt-and-pepper beard. His bare head and clear face remain visible. He wears a full-length earth-grey woven tunic, a heavy dark sea-green wool cloak with a restrained woven border, a plain broad leather belt with a bronze clasp and soft closed leather shoes. One hand draws the heavy wool close to his chest; the other opens low toward image-left. His expression is wary, attentive and measured. His coastal clothes and mature individual face define the living adult speaker.",
+      "references": [
+        {
+          "file": "v2/card-game/assets/greek-drama/chthonic-menelaus.png",
+          "path": "/Users/ratimics/.codex/worktrees/house-blood-sacred-art/cosyworld/v2/card-game/assets/greek-drama/chthonic-menelaus.png",
+          "role": "Painted adult anatomy, woven cloth, full-body scale and staging",
+          "sourceCommit": "cf0eb94498bce71af700b5c08b77387c8651b52e",
+          "sha256": "8f3ef20e63ee5138d7ae09bb3e90893c51f421aecdd3adea3fb94a4d61e4113b"
+        },
+        {
+          "file": "v2/card-game/assets/greek-drama/chthonic-attendant.png",
+          "path": "/Users/ratimics/.codex/worktrees/house-blood-sacred-art/cosyworld/v2/card-game/assets/greek-drama/chthonic-attendant.png",
+          "role": "Painted adult anatomy, woven cloth, full-body scale and staging",
+          "sourceCommit": "cf0eb94498bce71af700b5c08b77387c8651b52e",
+          "sha256": "61977265e6897bc973d582ec0487fa82a2b4c7e2baecc4571420c18047f55130"
+        }
+      ],
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "dfdebedd153059fde2c627ddc9d1684961a4cacd305abdaad557ae0ea8aafc1e",
+      "sha256": "dfdebedd153059fde2c627ddc9d1684961a4cacd305abdaad557ae0ea8aafc1e",
+      "bytes": 2390576,
+      "alpha": {
+        "clearPixels": 863348,
+        "partialPixels": 709516,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 1,
+        "visibleSubjectBounds": [
+          90,
+          17,
+          904,
+          1499
+        ],
+        "visibleBoundsThreshold": 8
+      },
+      "adultFigureCount": 1
+    },
+    {
+      "name": "taurian-chorus",
+      "file": "taurian-chorus.png",
+      "sourceFile": "taurian-chorus.png",
+      "sourceName": "exec-0856f3e5-aa41-494f-a100-1122808ae146.png",
+      "bindings": [
+        "greek-taurian-chorus"
+      ],
+      "kind": "character-portrait",
+      "useCase": "historical-scene",
+      "nativeFacing": "left",
+      "transparentBackground": true,
+      "processing": "Original generated PNG copied byte for byte; native alpha preserved",
+      "prompt": "Use case: historical-scene.\nAsset type: full-body character portrait for CosyWorld's painted Greek drama card game.\nInput images: attached portraits are references for painterly detail, natural adult anatomy, woven cloth texture, full-body scale and gentle three-quarter staging. Create the named subject below with the specified face and clothing.\nStyle/medium: finely detailed painted storybook realism, earthy pigments, soft inner brushwork and an expressive readable adult face.\nComposition/framing: exactly three clearly adult women form one compact standing chorus cutout. Tall 1024 by 1536 canvas with genuine transparent background. Show the entire standing figure from crown of head through both complete feet and sandal soles. Give clear margins around the head, hands, hems and under the feet. The compact group fills about 86 percent of canvas height. Body at a gentle three-quarter angle, uncovered face and eyes turned toward image-left. Each woman has two separate readable empty hands; keep all hands, limbs and clothing inside the canvas.\nLighting/mood: soft neutral daylight with restrained highlights and natural volume, suitable for compositing over both day and night painted scenes.\nOutput: preserve native clear transparent alpha around the complete figure. Only these three adult women and their worn clothes and small specified ornaments occupy the illustration.\nSubject: The Captive Women, a collective Greek chorus represented by one compact cutout of THREE clearly adult women of varied ages: about twenty-six, forty-five and sixty-five. Give them distinct adult faces, natural olive complexions, different gathered dark or grey hair and individual thoughtful expressions. Their worn but whole clothes are practical ankle-length linen dresses and wool shoulder wraps in muted cream, earth brown, faded blue and grey. Each has practical leather sandals. They stand together at slightly staggered depths, all three complete bodies and all six feet visible on the same ground level. Keep their hands separate and readable, each woman's two hands empty. The central woman makes a small open speaking gesture toward image-left; the other two listen with steady attention. Their uncovered faces show dignity, care for one another and their own shared claim to return. Give clear transparent margins around the complete three-woman group.",
+      "references": [
+        {
+          "file": "v2/card-game/assets/greek-drama/chthonic-baker.png",
+          "path": "/Users/ratimics/.codex/worktrees/house-blood-sacred-art/cosyworld/v2/card-game/assets/greek-drama/chthonic-baker.png",
+          "role": "Painted adult anatomy, woven cloth, full-body scale and staging",
+          "sourceCommit": "cf0eb94498bce71af700b5c08b77387c8651b52e",
+          "sha256": "c8e900ee50e1a3fe860e7f38e6625f7326a6715e6821e8a5db74d264c1bbd7e0"
+        },
+        {
+          "file": "v2/card-game/assets/greek-drama/chthonic-helen.png",
+          "path": "/Users/ratimics/.codex/worktrees/house-blood-sacred-art/cosyworld/v2/card-game/assets/greek-drama/chthonic-helen.png",
+          "role": "Painted adult anatomy, woven cloth, full-body scale and staging",
+          "sourceCommit": "cf0eb94498bce71af700b5c08b77387c8651b52e",
+          "sha256": "3c87d505fd801846e140405d3d5b84f562ddb9d00a1f015ad9c2814209a5986f"
+        }
+      ],
+      "size": [
+        1024,
+        1536
+      ],
+      "sourceSha256": "ab2618088f45a6bf6bc7566858616f8ab467407fe3da525eaffaa25c3812f651",
+      "sha256": "ab2618088f45a6bf6bc7566858616f8ab467407fe3da525eaffaa25c3812f651",
+      "bytes": 3198077,
+      "alpha": {
+        "clearPixels": 422624,
+        "partialPixels": 1150240,
+        "opaquePixels": 0,
+        "maximum": 254,
+        "edgeMaximum": 3,
+        "visibleSubjectBounds": [
+          18,
+          42,
+          1018,
+          1499
+        ],
+        "visibleBoundsThreshold": 8
+      },
+      "adultFigureCount": 3
+    }
+  ],
+  "reviewBackgrounds": [
+    {
+      "file": "palace-day.webp",
+      "sha256": "c0b61fb49af9c98adbdf9fe7ac386f3611e13b23342a10791673871473928769",
+      "source": "Published Greek court paintings used for lighting review",
+      "purpose": "Day/night painted lighting and alpha-edge review; chapter stage bindings belong to source integration"
+    },
+    {
+      "file": "palace-night.webp",
+      "sha256": "6fef7d5cfcbd3c95f5f05395d95213a2b5760875487e37b98d2ffe5841abab06",
+      "source": "Published Greek court paintings used for lighting review",
+      "purpose": "Day/night painted lighting and alpha-edge review; chapter stage bindings belong to source integration"
+    },
+    {
+      "file": "theban-harbor-road.webp",
+      "sha256": "02f068c0f388054541c0e74ee2235836e205742cd0941c5dfdbf22f608f1478f",
+      "source": "Published Greek coastal-road paintings",
+      "purpose": "Day/night painted lighting and alpha-edge review; chapter stage bindings belong to source integration"
+    },
+    {
+      "file": "theban-harbor-road-night.webp",
+      "sha256": "9aeaa198d0aabf002a349a7b6c47732080034bc000e694c8729ef84c07f27018",
+      "source": "Published Greek coastal-road paintings",
+      "purpose": "Day/night painted lighting and alpha-edge review; chapter stage bindings belong to source integration"
+    },
+    {
+      "file": "palace-day.webp",
+      "sha256": "c0b61fb49af9c98adbdf9fe7ac386f3611e13b23342a10791673871473928769",
+      "source": "Published Greek court paintings used for lighting review",
+      "purpose": "Day/night painted lighting and alpha-edge review; chapter stage bindings belong to source integration"
+    },
+    {
+      "file": "palace-night.webp",
+      "sha256": "6fef7d5cfcbd3c95f5f05395d95213a2b5760875487e37b98d2ffe5841abab06",
+      "source": "Published Greek court paintings used for lighting review",
+      "purpose": "Day/night painted lighting and alpha-edge review; chapter stage bindings belong to source integration"
+    },
+    {
+      "file": "theban-harbor-road.webp",
+      "sha256": "02f068c0f388054541c0e74ee2235836e205742cd0941c5dfdbf22f608f1478f",
+      "source": "Published Greek coastal-road paintings used for lighting review",
+      "purpose": "Day/night painted lighting and alpha-edge review; chapter stage bindings belong to source integration"
+    },
+    {
+      "file": "theban-harbor-road-night.webp",
+      "sha256": "9aeaa198d0aabf002a349a7b6c47732080034bc000e694c8729ef84c07f27018",
+      "source": "Published Greek coastal-road paintings used for lighting review",
+      "purpose": "Day/night painted lighting and alpha-edge review; chapter stage bindings belong to source integration"
+    }
+  ],
+  "reviewSheets": [
+    {
+      "file": "house-blood-priestess-athena-review.png",
+      "sha256": "253784103bce6e13402b77e13fea3c8ba4535438a4ee69ea13de75a27d3180c1",
+      "desktopWidth": 610,
+      "phoneSize": [
+        390,
+        580
+      ],
+      "subjects": [
+        "pythian-priestess.png",
+        "athena.png"
+      ]
+    },
+    {
+      "file": "house-blood-iphigenia-thoas-review.png",
+      "sha256": "e0cef2b2c01757e613d55c98f50d5166c68a84432213f07a271f0e9bc0c44060",
+      "desktopWidth": 610,
+      "phoneSize": [
+        390,
+        580
+      ],
+      "subjects": [
+        "iphigenia-tauris.png",
+        "thoas.png"
+      ]
+    },
+    {
+      "file": "house-blood-furies-review.png",
+      "sha256": "2bd2bbfa4c23601360f53e357494976f1535d8a9a783d6a9e0724eb62b940c7d",
+      "desktopWidth": 610,
+      "phoneSize": [
+        390,
+        580
+      ],
+      "subjects": [
+        "furies.png"
+      ]
+    },
+    {
+      "file": "house-blood-captive-women-review.png",
+      "sha256": "1817fff8922b80451a82c182a7e37743f6a7d58e6ea7ea0dbcb30360c7589007",
+      "desktopWidth": 610,
+      "phoneSize": [
+        390,
+        580
+      ],
+      "subjects": [
+        "taurian-chorus.png"
+      ]
+    }
+  ],
+  "identityReviews": [
+    {
+      "file": "house-blood-iphigenia-identity-review.png",
+      "sha256": "4f52efcef216c87e4a3f3e059bbbbd642e050714ee48895f7adbd82e99d3866c",
+      "referencePath": "/Users/ratimics/.codex/worktrees/book-three-portraits/cosyworld/v2/card-game/assets/greek-drama/book-three-iphigenia.png",
+      "referenceSha256": "a8b9176f8fd51aa48cbfaf37ef44c8fee51cc4138604c1c661d31ba3e86a10bb",
+      "subject": "iphigenia-tauris.png"
+    }
+  ],
+  "visualReview": {
+    "result": "Passed",
+    "checks": [
+      "Adult priestess, Athena, Iphigenia and Thoas figures",
+      "Two compact collective cutouts with three distinct adult women each",
+      "Readable hands, full figures, complete feet and full helmet crest",
+      "Native alpha and visible margins over both light settings",
+      "Desktop and 390 by 580 phone overlays",
+      "Iphigenia facial landmarks compared with approved Aulis identity"
+    ]
+  }
+}

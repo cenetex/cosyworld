@@ -12,6 +12,9 @@ import { packProblems } from "../v2/card-game/pack-schema.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { homecomingJourney } from "./helpers/greek-homecoming.mjs";
+import { openDoorJourney } from "./helpers/open-door.mjs";
+import { houseGo } from "./helpers/greek-house-of-blood.mjs";
+import { entityActive } from "../v2/card-game/pack-registry.mjs";
 
 const GREEK = "greek-drama";
 function scene(place) {
@@ -41,6 +44,27 @@ const move = (world, target) => act(world, "move", { target });
 const choose = (world, choiceId) => act(world, "choose", { choiceId });
 const accompany = (world, target, destination) =>
   act(world, "accompany", { target, destination });
+
+describe("the shared Attic farm", () => {
+  it.each(["sky", "civic"])(
+    "opens through the %s invitation after the earlier return",
+    (chapter) => {
+      let world = openDoorJourney().world;
+      const civic = chapter === "civic";
+      world = houseGo(world, civic ? "greek-athens" : "greek-courtyard");
+      world = choose(
+        world,
+        civic ? "greek-comedy-invitation" : "greek-vii-open-accounts",
+      );
+      world = houseGo(world, "greek-attic-farm");
+      expect(world.actors.vale.place).toBe("greek-attic-farm");
+      expect(world.packs[GREEK].flags["greek-attic-farm-open"]).toBe(true);
+      expect(entityActive(world, "greek-comedy-wealth-chremylus")).toBe(civic);
+      expect(entityActive(world, "greek-vii-trygaeus")).toBe(!civic);
+      expect(decodeSave(encodeSave(world))).toEqual(world);
+    },
+  );
+});
 
 const cave = "greek-sicily";
 const inner = "greek-vii-inner-cave";

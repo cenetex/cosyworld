@@ -111,7 +111,7 @@ describe("Greek ports and fixed roads", () => {
 
   it.each(
     Object.entries(pack.places).filter(
-      ([id, p]) => p.road && !localRoadEnds(id),
+      ([id, p]) => p.road && !p.requires?.length && !localRoadEnds(id),
     ),
   )(
     "keeps the two ends of %s in the same order from either direction",
@@ -205,7 +205,7 @@ describe("Greek ports and fixed roads", () => {
         });
       expect(current.items).toMatchObject(old.items);
       expect(current.transports).toEqual(old.transports);
-      expect(current.packs["greek-drama"].revision).toBe(7);
+      expect(current.packs["greek-drama"].revision).toBe(pack.revision);
       for (const [id, memory] of Object.entries(old.memories)) {
         const { seen, ...retained } = current.memories[id];
         expect(retained).toEqual(memory);

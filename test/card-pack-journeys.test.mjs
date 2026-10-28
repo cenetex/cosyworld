@@ -48,6 +48,49 @@ function fixture(scope = "full") {
   world.actors.vale.place = path[0];
   return world;
 }
+function alternateJourney() {
+  const key = "test-journey-route";
+  const alternate = "test-journey-agree-well";
+  const first = pack.choices.find((choice) => choice.id === agreement);
+  first.effects.push({ kind: "choose", key, value: "harbor" });
+  pack.choices.push({
+    id: alternate,
+    at: path[0],
+    subject: resident,
+    label: "Choose the well journey",
+    text: "Dione agrees to visit the well.",
+    requires: [],
+    effects: [
+      { kind: "set_flag", key: "test-journey-agreed", value: true },
+      { kind: "choose", key, value: "well" },
+    ],
+  });
+  pack.release.choices.push(alternate);
+  const options = [
+    { after: agreement, path: [...path] },
+    { after: alternate, path: [path[0], "greek-well"] },
+  ];
+  pack.avatars[resident].journey = options;
+  packPeople[resident].journey = options;
+  return { alternate, options, key };
+}
+function independentSail() {
+  const journey = {
+    after: agreement,
+    path: [
+      "greek-courtyard",
+      "greek-harbor",
+      "greek-ship",
+      "greek-athens-harbor",
+    ],
+    independent: true,
+  };
+  pack.avatars[resident].journey = journey;
+  packPeople[resident].journey = journey;
+  const world = fixture();
+  world.crossings["pond-greek-harbor"].discovered = true;
+  return world;
+}
 const accompany = (world) =>
   legalActions(world).filter(
     (a) => a.kind === "accompany" && a.target === resident,
@@ -77,7 +120,8 @@ describe("agreed resident journeys", () => {
         effects: [{ kind: "set_flag", key: flag, value: true }],
       });
     pack.release.choices.push(agreement, arrival);
-    pack.release.places.push("greek-argolid-road");
+    if (!pack.release.places.includes("greek-argolid-road"))
+      pack.release.places.push("greek-argolid-road");
   });
   afterEach(() => {
     pack.avatars[resident] = structuredClone(original.avatar);
@@ -200,6 +244,201 @@ describe("agreed resident journeys", () => {
     expect(
       packProblems(pack, humanHub).some((p) =>
         p.includes("journey needs consent"),
+      ),
+    ).toBe(true);
+  });
+
+  it.each(["harbor", "well"])(
+    "follows only the %s path after the resident chooses between exclusive journeys",
+    (route) => {
+      const { alternate, options } = alternateJourney();
+      expect(packProblems(pack, hub, mountedPlaces)).toEqual([]);
+      let world = fixture();
+      expect(accompany(world)).toEqual([]);
+      world = act(world, "choose", {
+        choiceId: route === "harbor" ? agreement : alternate,
+      });
+      const selected = options[route === "harbor" ? 0 : 1].path;
+      expect(accompany(world).map((action) => action.destination)).toEqual([
+        selected[1],
+      ]);
+      const other = route === "harbor" ? "greek-well" : "greek-harbor";
+      expect(accompanyDecision(world, "vale", resident, other).accepted).toBe(
+        false,
+      );
+      for (const destination of selected.slice(1)) {
+        world = act(world, "accompany", { target: resident, destination });
+        world = decodeSave(encodeSave(world));
+        expect(world.actors[resident].place).toBe(destination);
+      }
+      expect(accompany(world)).toEqual([]);
+      world.actors[resident].place = other;
+      expect(validatePackStates(world)).toBe(false);
+    },
+  );
+
+  it("bounds the journey options and requires one shared exclusive consent key", () => {
+    const { options, key } = alternateJourney();
+    const tooMany = structuredClone(pack);
+    tooMany.avatars[resident].journey = [...options, ...options];
+    expect(
+      packProblems(tooMany, hub, mountedPlaces).some((problem) =>
+        problem.includes("one to three distinct agreements"),
+      ),
+    ).toBe(true);
+    const independent = structuredClone(pack);
+    independent.choices.find((choice) => choice.id === agreement).effects =
+      independent.choices
+        .find((choice) => choice.id === agreement)
+        .effects.filter((effect) => effect.key !== key);
+    expect(
+      packProblems(independent, hub, mountedPlaces).some((problem) =>
+        problem.includes("exclusive recorded consent"),
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects two recorded journey agreements for one resident", () => {
+    const { alternate } = alternateJourney();
+    const world = act(fixture(), "choose", { choiceId: agreement });
+    world.packs[pack.id].receipts[alternate] = world.turn;
+    expect(validatePackStates(world)).toBe(false);
+    expect(accompany(world)).toEqual([]);
+  });
+
+  it("lets a consenting resident make the actual voyage while the human stays ashore", () => {
+    let world = independentSail();
+    expect(packProblems(pack, hub, mountedPlaces)).toEqual([]);
+    world.items["greek-water-jar"].holder = resident;
+    for (let turn = 0; turn < 3; turn++) world = act(world, "wait");
+    expect(world.actors[resident].place).toBe("greek-courtyard");
+    world = act(world, "choose", { choiceId: agreement });
+    for (let turn = 0; turn < 5; turn++) {
+      world = act(world, "wait");
+      world = decodeSave(encodeSave(world));
+      expect(world.actors.vale.place).toBe("greek-courtyard");
+    }
+    expect(world.actors[resident].place).toBe("greek-athens-harbor");
+    expect(itemPlace(world, "greek-water-jar")).toBe("greek-athens-harbor");
+    expect(world.transports["greek-ship"].dock).toBe("greek-athens-harbor");
+    expect(
+      world.log
+        .filter((event) => event.actorId === resident && event.verb === "move")
+        .map((event) => event.targetId),
+    ).toEqual(["greek-harbor", "greek-ship", "greek-athens-harbor"]);
+    expect(plan(world, resident).action.kind).toBe("wait");
+  });
+
+  it("keeps an independent passenger aboard until the human chooses the agreed port", () => {
+    let world = act(independentSail(), "choose", { choiceId: agreement });
+    world = act(world, "move", { target: "greek-harbor" });
+    expect(world.actors[resident].place).toBe("greek-ship");
+    world = act(world, "move", { target: "greek-ship" });
+    world = act(world, "move", { target: "greek-piraeus" });
+    expect(world.actors[resident].place).toBe("greek-ship");
+    expect(plan(world, resident).action.kind).toBe("wait");
+    world = decodeSave(encodeSave(world));
+    world = act(world, "move", { target: "greek-ship" });
+    world = act(world, "move", { target: "greek-athens-harbor" });
+    expect(world.actors[resident].place).toBe("greek-athens-harbor");
+    expect(world.transports["greek-ship"].dock).toBe("greek-athens-harbor");
+  });
+
+  it("requires a declared vessel for an independent journey", () => {
+    pack.avatars[resident].journey.independent = true;
+    expect(
+      packProblems(pack, hub, mountedPlaces).some((problem) =>
+        problem.includes("simple connected path"),
+      ),
+    ).toBe(true);
+    independentSail();
+    pack.avatars[resident].journey.independent = "yes";
+    expect(
+      packProblems(pack, hub, mountedPlaces).some((problem) =>
+        problem.includes("simple connected path"),
+      ),
+    ).toBe(true);
+  });
+
+  it("keeps the reserved departure for the resident while the human waits ashore", () => {
+    let world = independentSail();
+    pack.avatars[resident].journey.exclusive = true;
+    packPeople[resident].journey.exclusive = true;
+    expect(packProblems(pack, hub, mountedPlaces)).toEqual([]);
+    world = act(world, "move", { target: "greek-harbor" });
+    const staleBoard = legalActions(world).find(
+      (a) => a.kind === "move" && a.target === "greek-ship",
+    );
+    expect(staleBoard).toBeDefined();
+    world = act(world, "move", { target: "greek-courtyard" });
+    world = act(world, "choose", { choiceId: agreement });
+    world = act(world, "move", { target: "greek-harbor" });
+    expect(world.actors[resident].place).toBe("greek-ship");
+    expect(
+      legalActions(world).some(
+        (a) => a.kind === "move" && a.target === "greek-ship",
+      ),
+    ).toBe(false);
+    const rejected = play(world, staleBoard, world.revision);
+    expect(rejected.ok).toBe(false);
+    expect(rejected.state).toEqual(world);
+    const forged = structuredClone(world);
+    forged.actors.vale.place = "greek-ship";
+    expect(() => decodeSave(JSON.stringify(forged))).toThrow();
+    for (
+      let turn = 0;
+      turn < 16 &&
+      !legalActions(world).some(
+        (a) => a.kind === "move" && a.target === "greek-ship",
+      );
+      turn++
+    )
+      world = act(world, "wait");
+    expect(world.actors[resident].place).toBe("greek-athens-harbor");
+    expect(world.actors.vale.place).toBe("greek-harbor");
+    world = act(world, "move", { target: "greek-ship" });
+    expect(world.actors.vale.place).toBe("greek-ship");
+  });
+
+  it("waits for the existing passengers to leave before the reserved voyage", () => {
+    let world = independentSail();
+    pack.avatars[resident].journey.exclusive = true;
+    packPeople[resident].journey.exclusive = true;
+    world = act(world, "choose", { choiceId: agreement });
+    // A second human can already be aboard when the agreement is recorded.
+    // This state isolates that boarding guard before the next legal move.
+    world.actors.vale.place = "greek-ship";
+    world.transports["greek-ship"].destination = "pond";
+    expect(
+      legalActions(world, resident).some(
+        (a) => a.kind === "move" && a.target === "greek-ship",
+      ),
+    ).toBe(false);
+    world = act(world, "move", { target: "pond" });
+    expect(world.actors[resident].place).toBe("greek-harbor");
+    world = act(world, "move", { target: "greek-ship" });
+    world = act(world, "move", { target: "greek-harbor" });
+    expect(world.actors[resident].place).toBe("greek-ship");
+    expect(world.actors.vale.place).toBe("greek-harbor");
+    world = act(world, "wait");
+    expect(world.actors[resident].place).toBe("greek-athens-harbor");
+  });
+
+  it("requires an independent shore-to-shore path for a reserved departure", () => {
+    independentSail();
+    const journey = pack.avatars[resident].journey;
+    journey.exclusive = true;
+    delete journey.independent;
+    expect(
+      packProblems(pack, hub, mountedPlaces).some((problem) =>
+        problem.includes("simple connected path"),
+      ),
+    ).toBe(true);
+    journey.independent = true;
+    journey.path.pop();
+    expect(
+      packProblems(pack, hub, mountedPlaces).some((problem) =>
+        problem.includes("simple connected path"),
       ),
     ).toBe(true);
   });

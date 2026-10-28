@@ -114,11 +114,20 @@ journeys between towns use roads. The Greek ship serves Athens Harbor,
 Piraeus, the Wine-Dark Harbor, Black Pond and the invited Trojan landing.
 Athens Harbor has an empty-water painting while the shared ship is away.
 
+## House of Blood
+
+The completed Open Door account also opens seven named House of Blood
+chapters. Carry objects into acts of care, keep each source account named,
+walk agreed journeys with witnesses, and bring their records home to Dione.
+The three saved household accounts retain their witnesses and commitments.
+Read the [Book V guide](HOUSE-OF-BLOOD.md) for source order, the 21 endings,
+the exact ID ledger, art bindings and current validation.
+
 ## Sources and runtime
 
-`card-world.json` is canonical author data: 63 places including the ship,
-33 residents, 26 objects, 149 typed choices and 44 work records. Nine works
-have developed scenes; 35 retain situated hooks for later releases.
+`card-world.json` is canonical author data: 66 places including the ship,
+53 residents, 52 objects, 263 typed choices and 44 work records. The Book V
+draft adds seven source chapters to the existing developed scenes.
 
 `release` lists the content in this release. `sections` groups places behind
 lasting story events. New saves begin with seven shore places and the ship.

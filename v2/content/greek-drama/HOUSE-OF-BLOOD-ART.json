@@ -1,0 +1,193 @@
+{
+  "status": "proposed bindings for the art queue; source still uses current art",
+  "portraitCount": 18,
+  "sceneryCount": 3,
+  "portraits": [
+    {
+      "id": "greek-argos-watchman",
+      "name": "Argive Watchman",
+      "current": "assets/greek-drama/chthonic-singer.png",
+      "proposed": "assets/greek-drama/house-of-blood/argos-watchman.png",
+      "brief": "A watchman keeps the beacon account and introduces the three separate household roads.",
+      "transparent": true
+    },
+    {
+      "id": "greek-cassandra",
+      "name": "Cassandra",
+      "current": "assets/greek-drama/chthonic-electra.png",
+      "proposed": "assets/greek-drama/house-of-blood/cassandra.png",
+      "brief": "Cassandra speaks within Aeschylus’s recalled homecoming, before she enters the house.",
+      "transparent": true
+    },
+    {
+      "id": "greek-clytemnestra-aeschylus",
+      "name": "Clytemnestra",
+      "current": "assets/greek-drama/chthonic-electra.png",
+      "proposed": "assets/greek-drama/house-of-blood/clytemnestra.png",
+      "brief": "Clytemnestra gives her own claim within the Aeschylus account.",
+      "transparent": true
+    },
+    {
+      "id": "greek-argos-housekeeper",
+      "name": "Argive Housekeeper",
+      "current": "assets/greek-drama/chthonic-singer.png",
+      "proposed": "assets/greek-drama/house-of-blood/argos-housekeeper.png",
+      "brief": "An original surviving witness keeps the household record and chooses her own shelter.",
+      "transparent": true
+    },
+    {
+      "id": "greek-pylades-aeschylus",
+      "name": "Pylades",
+      "current": "assets/greek-drama/chthonic-orestes.png",
+      "proposed": "assets/greek-drama/house-of-blood/pylades.png",
+      "brief": "Pylades tells his own advice and the later source ending in Aeschylus’s tomb account.",
+      "transparent": true
+    },
+    {
+      "id": "greek-cilissa",
+      "name": "Cilissa",
+      "current": "assets/greek-drama/chthonic-electra.png",
+      "proposed": "assets/greek-drama/house-of-blood/cilissa.png",
+      "brief": "The nurse remembers the palace message and speaks for the work of care.",
+      "transparent": true
+    },
+    {
+      "id": "greek-chrysothemis",
+      "name": "Chrysothemis",
+      "current": "assets/greek-drama/chthonic-electra.png",
+      "proposed": "assets/greek-drama/house-of-blood/chrysothemis.png",
+      "brief": "Chrysothemis gives her own answer to Electra in Sophocles’s palace account.",
+      "transparent": true
+    },
+    {
+      "id": "greek-paedagogus",
+      "name": "The Tutor",
+      "current": "assets/greek-drama/chthonic-singer.png",
+      "proposed": "assets/greek-drama/house-of-blood/paedagogus.png",
+      "brief": "The tutor names his false death report and the urn in Sophocles’s account.",
+      "transparent": true
+    },
+    {
+      "id": "greek-argive-farmer",
+      "name": "The Farmer",
+      "current": "assets/greek-drama/chthonic-singer.png",
+      "proposed": "assets/greek-drama/house-of-blood/argive-farmer.png",
+      "brief": "The farmer offers food and dignity in Euripides’s farmhouse account.",
+      "transparent": true
+    },
+    {
+      "id": "greek-electra-old-servant",
+      "name": "The Old Servant",
+      "current": "assets/greek-drama/chthonic-singer.png",
+      "proposed": "assets/greek-drama/house-of-blood/electra-old-servant.png",
+      "brief": "The old servant names the scar and its childhood cause in Euripides’s account.",
+      "transparent": true
+    },
+    {
+      "id": "greek-clytemnestra-euripides",
+      "name": "Clytemnestra",
+      "current": "assets/greek-drama/chthonic-electra.png",
+      "proposed": "assets/greek-drama/house-of-blood/clytemnestra.png",
+      "brief": "Clytemnestra gives her own answer in the farmhouse telling before its later ending is heard.",
+      "transparent": true
+    },
+    {
+      "id": "greek-pylades-euripides",
+      "name": "Pylades",
+      "current": "assets/greek-drama/chthonic-orestes.png",
+      "proposed": "assets/greek-drama/house-of-blood/pylades.png",
+      "brief": "Pylades carries the farmhouse source account, including the Dioscuri’s ending.",
+      "transparent": true
+    },
+    {
+      "id": "greek-hermione",
+      "name": "Hermione",
+      "current": "assets/greek-drama/chthonic-electra.png",
+      "proposed": "assets/greek-drama/house-of-blood/hermione.png",
+      "brief": "Hermione introduces Euripides’s sixth-day Orestes as a separate song. Her present consent belongs to the game’s care scenes.",
+      "transparent": true
+    },
+    {
+      "id": "greek-phrygian-servant",
+      "name": "The Phrygian Servant",
+      "current": "assets/greek-drama/chthonic-singer.png",
+      "proposed": "assets/greek-drama/house-of-blood/phrygian-servant.png",
+      "brief": "The servant gives his own account of the palace attack and may agree to a safe walk.",
+      "transparent": true
+    },
+    {
+      "id": "greek-pythian-priestess",
+      "name": "Pythian Priestess",
+      "current": "assets/greek-drama/chthonic-electra.png",
+      "proposed": "assets/greek-drama/house-of-blood/pythian-priestess.png",
+      "brief": "The priestess receives a refuge branch and introduces the Delphi opening of Eumenides.",
+      "transparent": true
+    },
+    {
+      "id": "greek-furies",
+      "name": "The Furies",
+      "current": "assets/greek-drama/chthonic-electra.png",
+      "proposed": "assets/greek-drama/house-of-blood/furies.png",
+      "brief": "The accusing chorus speaks as a group and can agree to bring its claim to Ares Hill.",
+      "transparent": true
+    },
+    {
+      "id": "greek-athena",
+      "name": "Athena",
+      "current": "assets/greek-drama/chthonic-electra.png",
+      "proposed": "assets/greek-drama/house-of-blood/athena.png",
+      "brief": "Athena names the court’s source frame, its verdict and the separate settlement.",
+      "transparent": true
+    },
+    {
+      "id": "greek-iphigenia-tauris",
+      "name": "Iphigenia",
+      "current": "assets/greek-drama/chthonic-electra.png",
+      "proposed": "assets/greek-drama/house-of-blood/iphigenia-tauris.png",
+      "brief": "Iphigenia tells the Tauris account in which Artemis saved her at Aulis. Every family recognition keeps this frame.",
+      "transparent": true
+    },
+    {
+      "id": "greek-thoas",
+      "name": "Thoas",
+      "current": "assets/greek-drama/chthonic-orestes.png",
+      "proposed": "assets/greek-drama/house-of-blood/thoas.png",
+      "brief": "Thoas hears the rite at the shore and gives his own answer to a new pact.",
+      "transparent": true
+    },
+    {
+      "id": "greek-taurian-chorus",
+      "name": "The Captive Women",
+      "current": "assets/greek-drama/chthonic-electra.png",
+      "proposed": "assets/greek-drama/house-of-blood/taurian-chorus.png",
+      "brief": "The captive Greek women keep their own claim to return and choose whether to join a new pact.",
+      "transparent": true
+    }
+  ],
+  "scenery": [
+    {
+      "id": "greek-ares-hill",
+      "name": "Ares Hill",
+      "current": "assets/greek-drama/palace.svg",
+      "proposed": "assets/greek-drama/house-of-blood/ares-hill-scene.png",
+      "brief": "A stone court stands above Athens. Each case names its speaker, time and claim.",
+      "transparent": false
+    },
+    {
+      "id": "greek-argos-refuge",
+      "name": "Argive Refuge",
+      "current": "assets/greek-drama/courtyard.svg",
+      "proposed": "assets/greek-drama/house-of-blood/argos-refuge-scene.png",
+      "brief": "A sheltered court receives witnesses. Hermione keeps the sixth-day play within its named song.",
+      "transparent": false
+    },
+    {
+      "id": "greek-tauris-shore",
+      "name": "Taurian Shore",
+      "current": "assets/greek-drama/harbor.svg",
+      "proposed": "assets/greek-drama/house-of-blood/tauris-shore-scene.png",
+      "brief": "Salt water reaches the temple steps. Thoas hears the rite and the keepers’ reply.",
+      "transparent": false
+    }
+  ]
+}

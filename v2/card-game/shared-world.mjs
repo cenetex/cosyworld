@@ -1,3 +1,4 @@
+import { entityActive } from "./pack-registry.mjs";
 import { privateView } from "./learning.mjs";
 import { expressionKind, validExpression } from "./expression.mjs";
 import { BOARDY } from "./boardyai.mjs";
@@ -227,6 +228,7 @@ export function dispatchShared(request) {
         (request.lines.length === 1 && speaker !== actor) ||
         (!scenic &&
           (!speaker ||
+            !entityActive(world, speaker) ||
             world.actors[speaker].place !== room ||
             (humanAvatar(speaker) &&
               !world.presentActors.includes(speaker) &&

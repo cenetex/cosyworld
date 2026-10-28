@@ -3,14 +3,15 @@
 // an authored pack either loads exactly as checked or does not load at all.
 import { storyQuestProblems } from "./pack-story-schema.mjs";
 import { validFactText } from "./knowledge.mjs";
+import { journeyOptions } from "./pack-journeys.mjs";
 
 import { EXPRESSION_TYPES } from "./expression.mjs";
 
 export const PACK_SCHEMA_VERSION = 1;
-export const AUTHORED_TOPIC_LIMIT = 128;
+export const AUTHORED_TOPIC_LIMIT = 512;
 
-// Mounted packs keep distinct public identities. The topic budget leaves room
-// for witnessed events in the shared knowledge store.
+// Mounted packs keep distinct public identities. Stored facts have their own
+// bounded budget and retain authored facts while older event news is pruned.
 export function packCompositionProblems(packs) {
   const problems = [],
     seen = new Map(),
@@ -157,10 +158,12 @@ export function observationProblems(definitions, catalog) {
   });
 }
 
-// Media lives in the pack's own folder under the card table's assets.
+// Media lives in the pack's own folder or one named chapter folder.
 export const mediaPathOk = (pack, path) =>
   typeof path === "string" &&
-  (new RegExp(`^assets/${pack}/[a-z0-9-]+\\.(?:png|svg|webp)$`).test(path) ||
+  (new RegExp(
+    `^assets/${pack}/(?:[a-z0-9-]+/)?[a-z0-9-]+\\.(?:png|svg|webp)$`,
+  ).test(path) ||
     /^assets\/shared\/(characters|places|items)\/[a-z0-9-]+\.(png|webp)$/.test(
       path,
     ));
@@ -240,8 +243,8 @@ export function packProblems(pack, hub, mountedPlaces = []) {
   // Bound malformed author data before iterating nested collections.
   for (const [key, required, max] of [
     ["places", true, 128],
-    ["avatars", true, 128],
-    ["items", false, 128],
+    ["avatars", true, 256],
+    ["items", false, 256],
     ["fixtures", false, 32],
     ["transports", false, 8],
   ]) {
@@ -259,11 +262,11 @@ export function packProblems(pack, hub, mountedPlaces = []) {
   }
   for (const [key, max] of [
     ["routes", 256],
-    ["choices", 512],
+    ["choices", 1024],
     ["works", 128],
     ["crossings", 32],
     ["storyQuests", 256],
-    ["topics", 128],
+    ["topics", 512],
   ])
     if (
       pack[key] !== undefined &&
@@ -368,7 +371,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
   const media = (path, what) =>
     check(
       mediaPathOk(pack.id, path),
-      `${what} must be assets/${pack.id}/<file>.png`,
+      `${what} must be assets/${pack.id}/<file> or assets/${pack.id}/<chapter>/<file> (PNG, SVG or WebP)`,
     );
 
   for (const [id, p] of Object.entries(places)) {
@@ -473,6 +476,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "place",
         "travels",
         "journey",
+        "retireAfter",
         "roamingQuest",
         "personalQuests",
         "previousHomes",
@@ -884,32 +888,154 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     }
   }
   for (const [id, avatar] of Object.entries(avatars)) {
-    if (avatar.journey === undefined) continue;
-    const journey = avatar.journey;
-    const agreement = choices.find((c) => c.id === journey?.after);
+    if (avatar.retireAfter === undefined) continue;
+    const report = choices.find((choice) => choice.id === avatar.retireAfter);
     check(
-      keysOk(journey, ["after", "path"]) &&
-        !hub.avatars.includes(id) &&
+      idOk(avatar.retireAfter) &&
+        report &&
+        report.subject !== id &&
         avatar.travels === false &&
+        avatar.journey === undefined &&
         avatar.roamingQuest === undefined &&
-        idOk(journey.after) &&
-        Array.isArray(journey.path) &&
-        journey.path.length >= 2 &&
-        journey.path.length <= 8 &&
-        new Set(journey.path).size === journey.path.length &&
-        journey.path[0] === avatar.place &&
-        journey.path.every((place) => owns(places, place)) &&
-        journey.path.slice(1).every((to, i) => {
-          const from = journey.path[i];
-          return (
-            places[from].exits.includes(to) ||
-            routes.some((route) => route.from === from && route.to === to)
-          );
-        }) &&
-        agreement?.subject === id &&
-        agreement.at === avatar.place,
-      `avatar ${id} journey needs consent at home and a simple connected path`,
+        avatar.personalQuests !== true &&
+        avatar.temperament === undefined &&
+        (avatar.requires || []).every(
+          (c) => c.kind === "choice" || (c.kind === "flag" && c.value === true),
+        ),
+      `avatar ${id} retirement needs a fixed role, positive opening and a witness report`,
     );
+  }
+  for (const [id, avatar] of Object.entries(avatars)) {
+    if (avatar.journey === undefined) continue;
+    const options = journeyOptions(avatar.journey);
+    if (
+      !check(
+        options.length >= 1 &&
+          options.length <= 3 &&
+          new Set(options.map((journey) => journey?.after)).size ===
+            options.length,
+        `avatar ${id} journey needs one to three distinct agreements`,
+      )
+    )
+      continue;
+    const agreements = options.map((journey) =>
+      choices.find((choice) => choice.id === journey?.after),
+    );
+    for (const [index, journey] of options.entries()) {
+      const agreement = agreements[index];
+      check(
+        keysOk(journey, [
+          "after",
+          "path",
+          "independent",
+          "exclusive",
+          "cargo",
+          "until",
+        ]) &&
+          (journey.independent === undefined ||
+            typeof journey.independent === "boolean") &&
+          (journey.exclusive === undefined ||
+            typeof journey.exclusive === "boolean") &&
+          (journey.exclusive !== true || journey.independent === true) &&
+          !hub.avatars.includes(id) &&
+          avatar.travels === false &&
+          avatar.roamingQuest === undefined &&
+          idOk(journey.after) &&
+          Array.isArray(journey.path) &&
+          journey.path.length >= 2 &&
+          journey.path.length <= 8 &&
+          new Set(journey.path).size === journey.path.length &&
+          journey.path[0] === avatar.place &&
+          journey.path.every((place) => owns(places, place)) &&
+          (journey.independent !== true ||
+            Object.values(pack.transports || {}).some((transport) =>
+              journey.path.includes(transport.place),
+            )) &&
+          (journey.exclusive !== true ||
+            (Object.values(pack.transports || {}).filter((transport) =>
+              journey.path.includes(transport.place),
+            ).length === 1 &&
+              Object.values(pack.transports || {}).every(
+                (transport) =>
+                  journey.path[0] !== transport.place &&
+                  journey.path.at(-1) !== transport.place,
+              ))) &&
+          journey.path.slice(1).every((to, i) => {
+            const from = journey.path[i];
+            return (
+              places[from].exits.includes(to) ||
+              routes.some((route) => route.from === from && route.to === to) ||
+              Object.values(pack.transports || {}).some(
+                (transport) =>
+                  Array.isArray(transport?.docks) &&
+                  ((to === transport.place && transport.docks.includes(from)) ||
+                    (from === transport.place && transport.docks.includes(to))),
+              )
+            );
+          }) &&
+          agreement?.subject === id &&
+          agreement.at === avatar.place &&
+          ((journey.cargo === undefined && journey.until === undefined) ||
+            (Array.isArray(journey.cargo) &&
+              journey.cargo.length >= 1 &&
+              journey.cargo.length <= 3 &&
+              new Set(journey.cargo).size === journey.cargo.length &&
+              journey.cargo.every(
+                (item) =>
+                  owns(items, item) &&
+                  agreement.requires?.some(
+                    (r) =>
+                      r.kind === "holding" && r.item === item && r.actor === id,
+                  ),
+              ) &&
+              choices.some(
+                (end) =>
+                  end.id === journey.until &&
+                  end.at === journey.path.at(-1) &&
+                  journey.cargo.every((item) =>
+                    end.requires?.some(
+                      (r) =>
+                        r.kind === "holding" &&
+                        r.item === item &&
+                        r.actor === id,
+                    ),
+                  ) &&
+                  (end.subject === id ||
+                    end.requires?.some(
+                      (r) =>
+                        r.kind === "item_near" &&
+                        journey.cargo.includes(r.item) &&
+                        r.place === end.at,
+                    )),
+              ))),
+        `avatar ${id} journey needs consent at home and a simple connected path`,
+      );
+    }
+    if (options.length > 1) {
+      const effects = (agreement) =>
+        Array.isArray(agreement?.effects) ? agreement.effects : [];
+      const exclusive = effects(agreements[0]).some(
+        (effect) =>
+          effect.kind === "choose" &&
+          new Set(
+            agreements.map(
+              (agreement) =>
+                effects(agreement).find(
+                  (candidate) =>
+                    candidate.kind === "choose" && candidate.key === effect.key,
+                )?.value,
+            ),
+          ).size === options.length &&
+          agreements.every(
+            (agreement) =>
+              effects(agreement).filter(
+                (candidate) =>
+                  candidate.kind === "choose" && candidate.key === effect.key,
+              ).length === 1,
+          ),
+      );
+      check(exclusive, `avatar ${id} journeys need exclusive recorded consent`);
+    }
   }
   const verifyRefs = (cs) =>
     (cs || []).forEach((c) => {
@@ -926,7 +1052,15 @@ export function packProblems(pack, hub, mountedPlaces = []) {
   const topicIds = new Set();
   for (const topic of pack.topics || []) {
     check(
-      keysOk(topic, ["id", "speaker", "at", "text", "requires", "choiceId"]) &&
+      keysOk(topic, [
+        "id",
+        "speaker",
+        "at",
+        "text",
+        "requires",
+        "choiceId",
+        "publicAccount",
+      ]) &&
         idOk(topic.id) &&
         !topicIds.has(topic.id) &&
         owns(avatars, topic.speaker) &&
@@ -934,6 +1068,12 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         validFactText(topic.text) &&
         (topic.choiceId === undefined || choiceIds.has(topic.choiceId)),
       `topic ${topic.id} needs a unique id, speaker, place, sentence and valid choice`,
+    );
+    check(
+      topic.publicAccount === undefined ||
+        (typeof topic.publicAccount === "boolean" &&
+          topic.choiceId !== undefined),
+      `topic ${topic.id} public account needs a linked choice`,
     );
     topicIds.add(topic.id);
     requirements(topic.requires, `topic ${topic.id} requires`);
@@ -1278,11 +1418,11 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         places[t.place]?.exits.length === 0 &&
         Array.isArray(t.docks) &&
         t.docks.length >= 2 &&
-        t.docks.length <= 8 &&
+        t.docks.length <= 12 &&
         new Set(t.docks).size === t.docks.length &&
         t.docks.every((p) => anyPlace(p) && p !== t.place) &&
         t.docks.includes(t.at),
-      `transport ${id} needs its own place, two to eight docks and an initial dock`,
+      `transport ${id} needs its own place, two to twelve docks and an initial dock`,
     );
     if (!valid) continue;
     transportPlaces.add(t.place);

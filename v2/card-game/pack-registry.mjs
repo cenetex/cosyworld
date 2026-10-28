@@ -3,7 +3,18 @@ import { validPoemReadings, completedHeardReading } from "./poem-readings.mjs";
 import { readingCatalogs } from "./poem-catalogs.mjs";
 import { boardyPack, BOARDY, boardyActive } from "./boardyai.mjs";
 import { sectionAllows } from "./pack-sections.mjs";
-import { journeyNextPlace, validJourneyPlaces } from "./pack-journeys.mjs";
+import {
+  retirementTurn,
+  retireAfterReport,
+  validRetiredMeeting,
+} from "./pack-retirement.mjs";
+import {
+  journeyNextPlace,
+  independentJourneyNextPlace,
+  journeyReservation,
+  journeyKeepsItem,
+  validJourneyPlaces,
+} from "./pack-journeys.mjs";
 // The compiled world packs mounted on the card table, indexed for the engine.
 // Packs supply data only; pack-rules.mjs applies the general rules they name.
 import compiled from "./packs.json" with { type: "json" };
@@ -174,6 +185,16 @@ export const roamingQuestActor = (id) =>
 export const staysPut = (id) => packPeople[id]?.travels === false;
 export const packJourneyDestination = (world, id) =>
   journeyNextPlace(world, packOf(id), id);
+export const packJourneyKeepsItem = (world, id, item) =>
+  journeyKeepsItem(world, packOf(id), id, item);
+export const packIndependentJourneyDestination = (world, id) =>
+  independentJourneyNextPlace(world, packOf(id), id);
+export const packJourneyReservations = (world) =>
+  packDefinitions.flatMap((pack) =>
+    Object.keys(pack.avatars)
+      .map((id) => journeyReservation(world, pack, id))
+      .filter(Boolean),
+  );
 export const avoidsStandoffs = (id) => packPeople[id]?.standoffs === false;
 export const fixturesAt = (place) =>
   Object.entries(packFixtures)
@@ -293,6 +314,7 @@ function entityEnabled(world, id, saved = false) {
     state = packState(world, e.packId);
   if (
     !state ||
+    retirementTurn(world, pack, id) !== null ||
     !conditionsMet(
       world,
       e.packId,
@@ -443,6 +465,7 @@ export function applyPackChoice(world, action) {
     }
   }
   state.receipts[choice.id] = world.turn;
+  retireAfterReport(world, pack, choice, choiceText(choice, action.actor));
   recordRecital(world, pack, choice.id, action.actor);
   return choice;
 }
@@ -538,6 +561,67 @@ export function validatePackStates(world) {
   for (const pack of packDefinitions) {
     if (!pack.choices) continue;
     const state = world.packs[pack.id];
+    const choiceById = new Map(
+      pack.choices.map((choice) => [choice.id, choice]),
+    );
+    let orderedReceipts;
+    const receiptHistory = () =>
+      (orderedReceipts ??= Object.entries(state.receipts).sort(
+        (a, b) => a[1] - b[1],
+      ));
+    const phaseFlags = new Map();
+    for (const choice of pack.choices)
+      for (const effect of choice.effects)
+        if (effect.kind === "set_flag") {
+          if (!phaseFlags.has(effect.key))
+            phaseFlags.set(effect.key, new Set());
+          phaseFlags.get(effect.key).add(effect.value);
+        }
+    const closingFlags = (id) =>
+      (pack.avatars[id]?.requires || []).filter(
+        (condition) =>
+          condition.kind === "flag" &&
+          phaseFlags.get(condition.key)?.has(!condition.value),
+      );
+    const lastClosure = (id) => {
+      const conditions = closingFlags(id);
+      let closed = null;
+      for (const [choiceId, turn] of receiptHistory())
+        if (
+          choiceById
+            .get(choiceId)
+            ?.effects.some(
+              (effect) =>
+                effect.kind === "set_flag" &&
+                conditions.some(
+                  (condition) =>
+                    condition.key === effect.key &&
+                    condition.value !== effect.value,
+                ),
+            )
+        )
+          closed = turn;
+      return closed;
+    };
+    // A resident can leave a scene after a later recorded event. Check the
+    // saved requirements at their meeting turn before accepting that history.
+    const enabledAtMeeting = (id, turn) => {
+      const choices = {},
+        flags = {};
+      for (const [choiceId, recorded] of receiptHistory()) {
+        if (recorded > turn) break;
+        const event = choiceById.get(choiceId);
+        for (const effect of event?.effects || []) {
+          if (effect.kind === "choose") choices[effect.key] = effect.value;
+          if (effect.kind === "set_flag") flags[effect.key] = effect.value;
+        }
+      }
+      const prior = {
+        ...world,
+        packs: { ...world.packs, [pack.id]: { ...state, choices, flags } },
+      };
+      return entityEnabled(prior, id, true);
+    };
     if (
       !record(state) ||
       !validRecitals(world, pack) ||
@@ -569,19 +653,16 @@ export function validatePackStates(world) {
       Object.entries(state.met).some(
         ([id, turn]) =>
           !owns(pack.avatars, id) ||
-          !conditionsMet(
-            world,
-            pack.id,
-            (pack.avatars[id]?.requires || []).filter(
-              (c) => c.kind !== "connected_humans",
-            ),
-          ) ||
-          (world.opening &&
-            !sharedEnabled(world) &&
-            world.opening.met?.[id] !== turn) ||
           !Number.isSafeInteger(turn) ||
           turn < 0 ||
-          turn > world.turn,
+          turn > world.turn ||
+          (retirementTurn(world, pack, id) !== null
+            ? !validRetiredMeeting(world, pack, id, turn, conditionsMet)
+            : (closingFlags(id).length || !entityEnabled(world, id, true)) &&
+              !enabledAtMeeting(id, turn)) ||
+          (world.opening &&
+            !sharedEnabled(world) &&
+            world.opening.met?.[id] !== turn),
       )
     )
       return false;
@@ -593,7 +674,7 @@ export function validatePackStates(world) {
       )
     )
       return false;
-    const events = Object.entries(state.receipts).sort((a, b) => a[1] - b[1]);
+    const events = receiptHistory();
     const choices = {},
       flags = {},
       seenTurns = new Set();
@@ -612,7 +693,7 @@ export function validatePackStates(world) {
         ),
       );
     for (const [id, turn] of events) {
-      const c = pack.choices?.find((c) => c.id === id);
+      const c = choiceById.get(id);
       if (
         !c ||
         (state.scope === "opening" &&
@@ -649,16 +730,38 @@ export function validatePackStates(world) {
       Object.entries(a).every(([k, v]) => owns(b, k) && b[k] === v);
     if (!equals(choices, state.choices) || !equals(flags, state.flags))
       return false;
-    for (const [id, actor] of Object.entries(pack.avatars))
+    for (const [id, actor] of Object.entries(pack.avatars)) {
+      const inactive = !entityEnabled(world, id, true),
+        retired = retirementTurn(world, pack, id);
       if (
-        !entityEnabled(world, id, true) &&
+        inactive &&
+        retired === null &&
+        owns(state.met, id) &&
+        closingFlags(id).length
+      ) {
+        const closed = lastClosure(id),
+          saved = world.actors[id];
+        if (
+          closed === null ||
+          saved.lastTalk > closed ||
+          saved.crossed > (actor.journey ? actor.journey.path.length - 1 : 0) ||
+          (actor.travels === false &&
+            !actor.journey &&
+            saved.place !== actor.place &&
+            !actor.previousHomes?.includes(saved.place))
+        )
+          return false;
+      }
+      if (
+        inactive &&
+        (!owns(state.met, id) || retired !== null) &&
         ((world.actors[id]?.place !== actor.place &&
           !actor.previousHomes?.includes(world.actors[id]?.place)) ||
           world.actors[id]?.crossed !== 0 ||
-          world.actors[id]?.lastTalk !== -9 ||
-          owns(state.met, id))
+          world.actors[id]?.lastTalk !== -9)
       )
         return false;
+    }
     for (const [id, item] of Object.entries(pack.items || {}))
       if (
         !entityEnabled(world, id) &&

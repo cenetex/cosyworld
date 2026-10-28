@@ -1,0 +1,257 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "3dd9e3e5f0d88c087e1fbd9cec4a2d8008bd6529",
+  "status": "read-only audit; dense representation retained",
+  "scope": "Shipping card-game source, trust data, shared persistence boundary and replay tests",
+  "method": "Search all trust references in v2/card-game source and JSON data, then inspect each direct access and its guard; inspect the shared Rust boundary and preservation tests.",
+  "directAccessSites": [
+    {
+      "path": "v2/card-game/forest.json",
+      "lines": [
+        427,
+        441,
+        455
+      ],
+      "kind": "initial data",
+      "current": "Six explicit zero relationships among the three forest actors.",
+      "futureRequirement": "Retain their resolved values through any future migration."
+    },
+    {
+      "path": "v2/card-game/world.mjs",
+      "lines": [
+        255
+      ],
+      "kind": "initial data copy",
+      "current": "createWorld clones forest.initialState.",
+      "futureRequirement": "New sparse worlds would need an explicit new format while older data stays validated."
+    },
+    {
+      "path": "v2/card-game/world.mjs",
+      "lines": [
+        302,
+        318
+      ],
+      "kind": "dense writes",
+      "current": "New pack actors get all other peer keys at zero; existing actors fill missing new peer keys.",
+      "futureRequirement": "Sparse installation would retain existing entries and use implicit zero for newly registered peers."
+    },
+    {
+      "path": "v2/card-game/legacy-saves.mjs",
+      "lines": [
+        83
+      ],
+      "kind": "historical dense write",
+      "current": "Schema 5 to 6 creates dense zero trust maps under that historical upgrade.",
+      "futureRequirement": "Keep the historical path intact; apply a later explicit representation migration."
+    },
+    {
+      "path": "v2/card-game/legacy-saves.mjs",
+      "lines": [
+        409
+      ],
+      "kind": "key presence guard",
+      "current": "The Greek cast installer requires trust maps and rejects keys for actors being newly installed.",
+      "futureRequirement": "Retain duplicate-entity and source-version checks in a sparse-aware installer."
+    },
+    {
+      "path": "v2/card-game/legacy-saves.mjs",
+      "lines": [
+        422,
+        436
+      ],
+      "kind": "dense writes",
+      "current": "Greek upgrades create every peer key and fill missing new peer keys with zero.",
+      "futureRequirement": "Stop adding zero keys only after the explicit sparse-format transition."
+    },
+    {
+      "path": "v2/card-game/world.mjs",
+      "lines": [
+        240,
+        3021,
+        3022,
+        3023
+      ],
+      "kind": "strict dense validation",
+      "current": "Each row must have exactly every other actor key; every value is an integer from zero through three.",
+      "futureRequirement": "A sparse-format validator needs bounded known peer IDs, no self keys and the same integer range. Validate older dense input before conversion."
+    },
+    {
+      "path": "v2/card-game/world.mjs",
+      "lines": [
+        615
+      ],
+      "kind": "positive comparison",
+      "current": "A spare can be shared when the owner trusts the recipient.",
+      "futureRequirement": "Missing registered peers compare like zero; use one explicit accessor for clarity."
+    },
+    {
+      "path": "v2/card-game/world.mjs",
+      "lines": [
+        768,
+        770
+      ],
+      "kind": "increment",
+      "current": "A quest effect writes min(3, current trust + 1).",
+      "futureRequirement": "A missing key needs an explicit zero default before addition; otherwise it becomes NaN."
+    },
+    {
+      "path": "v2/card-game/world.mjs",
+      "lines": [
+        1108
+      ],
+      "kind": "positive comparison",
+      "current": "An existing favour permits a detour.",
+      "futureRequirement": "Missing registered peers keep the zero-trust decision."
+    },
+    {
+      "path": "v2/card-game/world.mjs",
+      "lines": [
+        1687
+      ],
+      "kind": "guarded decrement",
+      "current": "An agreed favour consumes one trust point after accompanyDecision returned favor:true.",
+      "futureRequirement": "Preserve the positive decision guard and its same-action update."
+    },
+    {
+      "path": "v2/card-game/world.mjs",
+      "lines": [
+        1861,
+        1863
+      ],
+      "kind": "guarded decrement",
+      "current": "An accepted request consumes a favour only while trust is positive.",
+      "futureRequirement": "Keep that guard; a resolved zero value stays zero."
+    },
+    {
+      "path": "v2/card-game/motives.mjs",
+      "lines": [
+        111
+      ],
+      "kind": "default-zero read",
+      "current": "Trade pricing already reads missing trust as zero and caps the discount at two.",
+      "futureRequirement": "Retain the same resolved values and discount."
+    },
+    {
+      "path": "v2/card-game/motives.mjs",
+      "lines": [
+        129
+      ],
+      "kind": "positive comparison",
+      "current": "Gift acceptance uses a positive favour.",
+      "futureRequirement": "Missing registered peers keep the zero-trust decision."
+    },
+    {
+      "path": "v2/card-game/motives.mjs",
+      "lines": [
+        275
+      ],
+      "kind": "positive comparison",
+      "current": "Social travel can repay a positive favour.",
+      "futureRequirement": "Preserve the decision and the favour-consumption flag."
+    },
+    {
+      "path": "v2/card-game/motives.mjs",
+      "lines": [
+        340,
+        342
+      ],
+      "kind": "increment",
+      "current": "A gift writes min(3, current trust + 1).",
+      "futureRequirement": "A missing key needs an explicit zero default before addition."
+    },
+    {
+      "path": "v2/card-game/narrative.mjs",
+      "lines": [
+        479
+      ],
+      "kind": "positive-edge enumeration",
+      "current": "The voice context lists positive helpers by Object.entries order.",
+      "futureRequirement": "Preserve a stable helper order; sparse insertion order can differ from dense row order and Rust JSON key order."
+    },
+    {
+      "path": "v2/card-game/adaptive-learning.mjs",
+      "lines": [
+        57
+      ],
+      "kind": "default-zero read",
+      "current": "Observed goal trust already defaults a missing edge to zero.",
+      "futureRequirement": "Keep numeric observations, rewards and saved trials unchanged."
+    },
+    {
+      "path": "v2/card-game/learning.mjs",
+      "lines": [
+        21
+      ],
+      "kind": "default-zero read",
+      "current": "Request-condition fingerprints already default missing trust to zero.",
+      "futureRequirement": "Keep the same fingerprint for every earlier explicit value, including zero."
+    },
+    {
+      "path": "v2/card-game/situations.mjs",
+      "lines": [
+        122,
+        278,
+        312
+      ],
+      "kind": "trust effect definitions",
+      "current": "Quest consequences validate a named actor and reject self effects.",
+      "futureRequirement": "Keep the allowed actor IDs, effect identity and target rules."
+    },
+    {
+      "path": "v2/card-game/quest-progress.mjs",
+      "lines": [
+        157
+      ],
+      "kind": "effect identity",
+      "current": "Trust effects include the acting avatar in their receipt identity.",
+      "futureRequirement": "Keep the same effect receipts and one-time application."
+    }
+  ],
+  "persistence": {
+    "paths": [
+      "v2/orchestrator-rust/src/card_shared/full_world.rs",
+      "v2/orchestrator-rust/src/card_shared/full_store.rs"
+    ],
+    "finding": "Rust passes and journals the complete game Value; trust arithmetic belongs to the authored JavaScript. Exact serialized input also forms the host view-cache key."
+  },
+  "preservationTests": [
+    "v2/orchestrator-rust/src/card_shared/epic_capacity_tests.rs",
+    "v2/orchestrator-rust/src/card_shared/ajax_tests.rs",
+    "v2/orchestrator-rust/src/card_shared/book_two_tests.rs",
+    "v2/orchestrator-rust/src/card_shared/book_iv_tests.rs",
+    "v2/orchestrator-rust/src/card_shared/full_tests.rs",
+    "v2/orchestrator-rust/src/card_shared/section_tests.rs",
+    "v2/orchestrator-rust/src/card_shared/quest_core_tests.rs"
+  ],
+  "preservationContract": "Every earlier explicit trust value must resolve to the same integer after upgrade. Historical engines 2 through 20 and their pre-upgrade journal behavior stay exact. A future explicit migration would compare expanded peer-by-peer values, including every earlier zero, as well as real decisions, learning observations and replay.",
+  "measured172": {
+    "sharedSaveBytes": 907216,
+    "denseTrustRowsBytes": 798400,
+    "denseTrustKeyedMapBytes": 802897,
+    "nativeMaxPlayMs": 1522.176958,
+    "scope": "Fresh installed world and bounded cold calls at the fixed source head; long histories remain separate proof"
+  },
+  "planned203": {
+    "status": "Exact proposed ID calculation; actual combined world pending",
+    "actors": 203,
+    "directedEdges": 41006,
+    "zeroTrustRowsBytes": 1100093,
+    "zeroTrustKeyedMapBytes": 1105336,
+    "emptyKeyedRowsBytes": 5649,
+    "freshZeroEdgeSavingsBytes": 1099687
+  },
+  "conditionalPlan": [
+    "Measure the actual 203-actor source, real long played history and reading envelopes under the existing limits.",
+    "If payload or run time requires a representation change, use an explicit versioned migration after validating the earlier dense state.",
+    "Retain every earlier nonzero edge at its exact value; in the new sparse mode, resolve every omitted registered peer to zero so earlier explicit zero values also remain equal.",
+    "Use one zero-aware accessor for arithmetic and decisions, keep positive consumption guards, and give narrative helper lists a stable order.",
+    "Keep historical dense rules and earlier journal entries exact; prove restart, journal-only rebuild, client/server agreement, receipts and learning observations before release."
+  ],
+  "unchangedLimits": {
+    "heapBytes": 100663296,
+    "deadlineMs": 2000,
+    "saveImportBytes": 2097152,
+    "inputOutputBytes": 4194304
+  },
+  "roadAliasScope": "The root Susa/camp/crag known-road migration is separate from trust values and this audit."
+}

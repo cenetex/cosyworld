@@ -1,0 +1,846 @@
+{
+  "actors": 172,
+  "bounded_cache_options": {
+    "eight_maximum_legal_replies_and_keys": 33555456,
+    "forty_mib": 41943040,
+    "sixteen_mib": 16777216,
+    "twenty_four_mib": 25165824
+  },
+  "cache_after_second_pass": {
+    "byte_limit": 4194304,
+    "bytes": 3244703,
+    "entries": 3,
+    "entry_limit": 32
+  },
+  "cold_calls": [
+    {
+      "cache_hit": false,
+      "elapsed_ms": 786.821292,
+      "error": null,
+      "input_bytes": 15,
+      "op": "create",
+      "output_bytes": 1084314,
+      "sample": 0
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 788.2772500000001,
+      "error": null,
+      "input_bytes": 15,
+      "op": "create",
+      "output_bytes": 1084314,
+      "sample": 1
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 793.945875,
+      "error": null,
+      "input_bytes": 15,
+      "op": "create",
+      "output_bytes": 1084314,
+      "sample": 2
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 790.725667,
+      "error": null,
+      "input_bytes": 15,
+      "op": "create",
+      "output_bytes": 1084314,
+      "sample": 3
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 791.246083,
+      "error": null,
+      "input_bytes": 15,
+      "op": "create",
+      "output_bytes": 1084314,
+      "sample": 4
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 790.4833329999999,
+      "error": null,
+      "input_bytes": 15,
+      "op": "create",
+      "output_bytes": 1084314,
+      "sample": 5
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 793.172583,
+      "error": null,
+      "input_bytes": 15,
+      "op": "create",
+      "output_bytes": 1084314,
+      "sample": 6
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 790.588417,
+      "error": null,
+      "input_bytes": 15,
+      "op": "create",
+      "output_bytes": 1084314,
+      "sample": 7
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 791.114,
+      "error": null,
+      "input_bytes": 15,
+      "op": "create",
+      "output_bytes": 1084314,
+      "sample": 8
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 791.562125,
+      "error": null,
+      "input_bytes": 15,
+      "op": "create",
+      "output_bytes": 1084314,
+      "sample": 9
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 943.7385419999999,
+      "error": null,
+      "input_bytes": 907387,
+      "op": "validate",
+      "output_bytes": 907236,
+      "sample": 0
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 943.9600839999999,
+      "error": null,
+      "input_bytes": 907387,
+      "op": "validate",
+      "output_bytes": 907236,
+      "sample": 1
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 944.948875,
+      "error": null,
+      "input_bytes": 907387,
+      "op": "validate",
+      "output_bytes": 907236,
+      "sample": 2
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 943.3285,
+      "error": null,
+      "input_bytes": 907387,
+      "op": "validate",
+      "output_bytes": 907236,
+      "sample": 3
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 947.48225,
+      "error": null,
+      "input_bytes": 907387,
+      "op": "validate",
+      "output_bytes": 907236,
+      "sample": 4
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 942.7262079999999,
+      "error": null,
+      "input_bytes": 907387,
+      "op": "validate",
+      "output_bytes": 907236,
+      "sample": 5
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 943.634458,
+      "error": null,
+      "input_bytes": 907387,
+      "op": "validate",
+      "output_bytes": 907236,
+      "sample": 6
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 943.29,
+      "error": null,
+      "input_bytes": 907387,
+      "op": "validate",
+      "output_bytes": 907236,
+      "sample": 7
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 944.040416,
+      "error": null,
+      "input_bytes": 907387,
+      "op": "validate",
+      "output_bytes": 907236,
+      "sample": 8
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 944.480916,
+      "error": null,
+      "input_bytes": 907387,
+      "op": "validate",
+      "output_bytes": 907236,
+      "sample": 9
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1051.7116250000001,
+      "error": null,
+      "input_bytes": 907387,
+      "op": "view",
+      "output_bytes": 1084486,
+      "sample": 0
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1048.796,
+      "error": null,
+      "input_bytes": 907387,
+      "op": "view",
+      "output_bytes": 1084486,
+      "sample": 1
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1052.0879169999998,
+      "error": null,
+      "input_bytes": 907387,
+      "op": "view",
+      "output_bytes": 1084486,
+      "sample": 2
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1047.1657500000001,
+      "error": null,
+      "input_bytes": 907387,
+      "op": "view",
+      "output_bytes": 1084486,
+      "sample": 3
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1052.401333,
+      "error": null,
+      "input_bytes": 907387,
+      "op": "view",
+      "output_bytes": 1084486,
+      "sample": 4
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1047.497416,
+      "error": null,
+      "input_bytes": 907387,
+      "op": "view",
+      "output_bytes": 1084486,
+      "sample": 5
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1049.0055,
+      "error": null,
+      "input_bytes": 907387,
+      "op": "view",
+      "output_bytes": 1084486,
+      "sample": 6
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1049.372542,
+      "error": null,
+      "input_bytes": 907387,
+      "op": "view",
+      "output_bytes": 1084486,
+      "sample": 7
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1054.407459,
+      "error": null,
+      "input_bytes": 907387,
+      "op": "view",
+      "output_bytes": 1084486,
+      "sample": 8
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1049.617292,
+      "error": null,
+      "input_bytes": 907387,
+      "op": "view",
+      "output_bytes": 1084486,
+      "sample": 9
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1510.489,
+      "error": null,
+      "input_bytes": 907525,
+      "op": "play",
+      "output_bytes": 1121633,
+      "sample": 0
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1510.4692499999999,
+      "error": null,
+      "input_bytes": 907525,
+      "op": "play",
+      "output_bytes": 1121633,
+      "sample": 1
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1508.533625,
+      "error": null,
+      "input_bytes": 907525,
+      "op": "play",
+      "output_bytes": 1121633,
+      "sample": 2
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1522.176958,
+      "error": null,
+      "input_bytes": 907525,
+      "op": "play",
+      "output_bytes": 1121633,
+      "sample": 3
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1516.1106659999998,
+      "error": null,
+      "input_bytes": 907525,
+      "op": "play",
+      "output_bytes": 1121633,
+      "sample": 4
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1510.628458,
+      "error": null,
+      "input_bytes": 907525,
+      "op": "play",
+      "output_bytes": 1121633,
+      "sample": 5
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1506.9462919999999,
+      "error": null,
+      "input_bytes": 907525,
+      "op": "play",
+      "output_bytes": 1121633,
+      "sample": 6
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1510.239541,
+      "error": null,
+      "input_bytes": 907525,
+      "op": "play",
+      "output_bytes": 1121633,
+      "sample": 7
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1509.297,
+      "error": null,
+      "input_bytes": 907525,
+      "op": "play",
+      "output_bytes": 1121633,
+      "sample": 8
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1505.974958,
+      "error": null,
+      "input_bytes": 907525,
+      "op": "play",
+      "output_bytes": 1121633,
+      "sample": 9
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1065.088709,
+      "error": null,
+      "input_bytes": 127188,
+      "op": "upgrade",
+      "output_bytes": 914604,
+      "sample": 0
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1068.0855840000002,
+      "error": null,
+      "input_bytes": 127188,
+      "op": "upgrade",
+      "output_bytes": 914604,
+      "sample": 1
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1069.272208,
+      "error": null,
+      "input_bytes": 127188,
+      "op": "upgrade",
+      "output_bytes": 914604,
+      "sample": 2
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1068.924834,
+      "error": null,
+      "input_bytes": 127188,
+      "op": "upgrade",
+      "output_bytes": 914604,
+      "sample": 3
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1067.735917,
+      "error": null,
+      "input_bytes": 127188,
+      "op": "upgrade",
+      "output_bytes": 914604,
+      "sample": 4
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1070.678708,
+      "error": null,
+      "input_bytes": 127188,
+      "op": "upgrade",
+      "output_bytes": 914604,
+      "sample": 5
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1098.4722920000002,
+      "error": null,
+      "input_bytes": 127188,
+      "op": "upgrade",
+      "output_bytes": 914604,
+      "sample": 6
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1071.8104580000002,
+      "error": null,
+      "input_bytes": 127188,
+      "op": "upgrade",
+      "output_bytes": 914604,
+      "sample": 7
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1068.496625,
+      "error": null,
+      "input_bytes": 127188,
+      "op": "upgrade",
+      "output_bytes": 914604,
+      "sample": 8
+    },
+    {
+      "cache_hit": false,
+      "elapsed_ms": 1074.4245830000002,
+      "error": null,
+      "input_bytes": 127188,
+      "op": "upgrade",
+      "output_bytes": 914604,
+      "sample": 9
+    }
+  ],
+  "dense_trust_bytes": 798400,
+  "eight_cache_bytes_needed": 8655504,
+  "eight_key_bytes": 664,
+  "eight_reply_bytes": 8654840,
+  "fresh_shared_save_bytes": 907216,
+  "items": 208,
+  "limits": {
+    "cache_bytes": 4194304,
+    "cache_entries": 32,
+    "deadline_ms": 2000,
+    "heap_bytes": 100663296,
+    "input_output_bytes": 4194304,
+    "save_import_bytes": 2097152
+  },
+  "old_actors": 66,
+  "operations": [
+    {
+      "errors": [],
+      "max_input_bytes": 15,
+      "max_ms": 793.945875,
+      "max_output_bytes": 1084314,
+      "op": "create",
+      "p95_ms": 793.945875,
+      "samples": 10
+    },
+    {
+      "errors": [],
+      "max_input_bytes": 907387,
+      "max_ms": 947.48225,
+      "max_output_bytes": 907236,
+      "op": "validate",
+      "p95_ms": 947.48225,
+      "samples": 10
+    },
+    {
+      "errors": [],
+      "max_input_bytes": 907387,
+      "max_ms": 1054.407459,
+      "max_output_bytes": 1084486,
+      "op": "view",
+      "p95_ms": 1054.407459,
+      "samples": 10
+    },
+    {
+      "errors": [],
+      "max_input_bytes": 907525,
+      "max_ms": 1522.176958,
+      "max_output_bytes": 1121633,
+      "op": "play",
+      "p95_ms": 1522.176958,
+      "samples": 10
+    },
+    {
+      "errors": [],
+      "max_input_bytes": 127188,
+      "max_ms": 1098.4722920000002,
+      "max_output_bytes": 914604,
+      "op": "upgrade",
+      "p95_ms": 1098.4722920000002,
+      "samples": 10
+    }
+  ],
+  "rules": "full-card-world/21",
+  "scope": "Actual installed catalog and fresh eight-player views; final whole-catalog, long history and reading envelopes remain separate proof",
+  "source_commit": "3dd9e3e5f0d88c087e1fbd9cec4a2d8008bd6529",
+  "viewer_calls": [
+    {
+      "actor": "vale",
+      "cache_after": {
+        "byte_limit": 4194304,
+        "bytes": 1084565,
+        "entries": 1,
+        "entry_limit": 32
+      },
+      "cache_hit": false,
+      "cached_output_bytes": 1084482,
+      "elapsed_ms": 1057.412666,
+      "error": null,
+      "input_bytes": 907383,
+      "key_bytes": 83,
+      "output_bytes": 1084482,
+      "pass": 0
+    },
+    {
+      "actor": "mara",
+      "cache_after": {
+        "byte_limit": 4194304,
+        "bytes": 2166129,
+        "entries": 2,
+        "entry_limit": 32
+      },
+      "cache_hit": false,
+      "cached_output_bytes": 1081481,
+      "elapsed_ms": 1042.5555829999998,
+      "error": null,
+      "input_bytes": 907383,
+      "key_bytes": 83,
+      "output_bytes": 1081481,
+      "pass": 0
+    },
+    {
+      "actor": "ash",
+      "cache_after": {
+        "byte_limit": 4194304,
+        "bytes": 3247693,
+        "entries": 3,
+        "entry_limit": 32
+      },
+      "cache_hit": false,
+      "cached_output_bytes": 1081481,
+      "elapsed_ms": 1031.859875,
+      "error": null,
+      "input_bytes": 907382,
+      "key_bytes": 83,
+      "output_bytes": 1081481,
+      "pass": 0
+    },
+    {
+      "actor": "nell",
+      "cache_after": {
+        "byte_limit": 4194304,
+        "bytes": 3244688,
+        "entries": 3,
+        "entry_limit": 32
+      },
+      "cache_hit": false,
+      "cached_output_bytes": 1081477,
+      "elapsed_ms": 1026.91275,
+      "error": null,
+      "input_bytes": 907383,
+      "key_bytes": 83,
+      "output_bytes": 1081477,
+      "pass": 0
+    },
+    {
+      "actor": "tavi",
+      "cache_after": {
+        "byte_limit": 4194304,
+        "bytes": 3244672,
+        "entries": 3,
+        "entry_limit": 32
+      },
+      "cache_hit": false,
+      "cached_output_bytes": 1081465,
+      "elapsed_ms": 1034.875458,
+      "error": null,
+      "input_bytes": 907383,
+      "key_bytes": 83,
+      "output_bytes": 1081465,
+      "pass": 0
+    },
+    {
+      "actor": "rue",
+      "cache_after": {
+        "byte_limit": 4194304,
+        "bytes": 3244674,
+        "entries": 3,
+        "entry_limit": 32
+      },
+      "cache_hit": false,
+      "cached_output_bytes": 1081483,
+      "elapsed_ms": 1031.753084,
+      "error": null,
+      "input_bytes": 907382,
+      "key_bytes": 83,
+      "output_bytes": 1081483,
+      "pass": 0
+    },
+    {
+      "actor": "orin",
+      "cache_after": {
+        "byte_limit": 4194304,
+        "bytes": 3244696,
+        "entries": 3,
+        "entry_limit": 32
+      },
+      "cache_hit": false,
+      "cached_output_bytes": 1081499,
+      "elapsed_ms": 1030.4147500000001,
+      "error": null,
+      "input_bytes": 907383,
+      "key_bytes": 83,
+      "output_bytes": 1081499,
+      "pass": 0
+    },
+    {
+      "actor": "ada",
+      "cache_after": {
+        "byte_limit": 4194304,
+        "bytes": 3244703,
+        "entries": 3,
+        "entry_limit": 32
+      },
+      "cache_hit": false,
+      "cached_output_bytes": 1081472,
+      "elapsed_ms": 1028.786417,
+      "error": null,
+      "input_bytes": 907382,
+      "key_bytes": 83,
+      "output_bytes": 1081472,
+      "pass": 0
+    },
+    {
+      "actor": "vale",
+      "cache_after": {
+        "byte_limit": 4194304,
+        "bytes": 3247702,
+        "entries": 3,
+        "entry_limit": 32
+      },
+      "cache_hit": false,
+      "cached_output_bytes": 1084482,
+      "elapsed_ms": 1062.063333,
+      "error": null,
+      "input_bytes": 907383,
+      "key_bytes": 83,
+      "output_bytes": 1084482,
+      "pass": 1
+    },
+    {
+      "actor": "mara",
+      "cache_after": {
+        "byte_limit": 4194304,
+        "bytes": 3247684,
+        "entries": 3,
+        "entry_limit": 32
+      },
+      "cache_hit": false,
+      "cached_output_bytes": 1081481,
+      "elapsed_ms": 1031.963875,
+      "error": null,
+      "input_bytes": 907383,
+      "key_bytes": 83,
+      "output_bytes": 1081481,
+      "pass": 1
+    },
+    {
+      "actor": "ash",
+      "cache_after": {
+        "byte_limit": 4194304,
+        "bytes": 3247693,
+        "entries": 3,
+        "entry_limit": 32
+      },
+      "cache_hit": false,
+      "cached_output_bytes": 1081481,
+      "elapsed_ms": 1042.048667,
+      "error": null,
+      "input_bytes": 907382,
+      "key_bytes": 83,
+      "output_bytes": 1081481,
+      "pass": 1
+    },
+    {
+      "actor": "nell",
+      "cache_after": {
+        "byte_limit": 4194304,
+        "bytes": 3244688,
+        "entries": 3,
+        "entry_limit": 32
+      },
+      "cache_hit": false,
+      "cached_output_bytes": 1081477,
+      "elapsed_ms": 1028.765791,
+      "error": null,
+      "input_bytes": 907383,
+      "key_bytes": 83,
+      "output_bytes": 1081477,
+      "pass": 1
+    },
+    {
+      "actor": "tavi",
+      "cache_after": {
+        "byte_limit": 4194304,
+        "bytes": 3244672,
+        "entries": 3,
+        "entry_limit": 32
+      },
+      "cache_hit": false,
+      "cached_output_bytes": 1081465,
+      "elapsed_ms": 1030.752084,
+      "error": null,
+      "input_bytes": 907383,
+      "key_bytes": 83,
+      "output_bytes": 1081465,
+      "pass": 1
+    },
+    {
+      "actor": "rue",
+      "cache_after": {
+        "byte_limit": 4194304,
+        "bytes": 3244674,
+        "entries": 3,
+        "entry_limit": 32
+      },
+      "cache_hit": false,
+      "cached_output_bytes": 1081483,
+      "elapsed_ms": 1029.1674170000001,
+      "error": null,
+      "input_bytes": 907382,
+      "key_bytes": 83,
+      "output_bytes": 1081483,
+      "pass": 1
+    },
+    {
+      "actor": "orin",
+      "cache_after": {
+        "byte_limit": 4194304,
+        "bytes": 3244696,
+        "entries": 3,
+        "entry_limit": 32
+      },
+      "cache_hit": false,
+      "cached_output_bytes": 1081499,
+      "elapsed_ms": 1036.5866669999998,
+      "error": null,
+      "input_bytes": 907383,
+      "key_bytes": 83,
+      "output_bytes": 1081499,
+      "pass": 1
+    },
+    {
+      "actor": "ada",
+      "cache_after": {
+        "byte_limit": 4194304,
+        "bytes": 3244703,
+        "entries": 3,
+        "entry_limit": 32
+      },
+      "cache_hit": false,
+      "cached_output_bytes": 1081472,
+      "elapsed_ms": 1034.065583,
+      "error": null,
+      "input_bytes": 907382,
+      "key_bytes": 83,
+      "output_bytes": 1081472,
+      "pass": 1
+    }
+  ],
+  "measurement_profile": {
+    "rust_profile": "unoptimized test",
+    "build_workers": 1,
+    "test_workers": 1,
+    "architecture": "arm64",
+    "platform": "darwin",
+    "initial_compilation_seconds": 139,
+    "audit_seconds": 76.78
+  },
+  "measurement_definitions": {
+    "dense_trust_bytes": "Sum of each actor trust-row JSON, excluding the outer actor-keyed map",
+    "keyed_trust_map_bytes": "The complete JSON map from actor IDs to trust rows",
+    "p95": "Nearest rank; with ten samples p95 equals the maximum",
+    "operation_timing": "Elapsed around the shipped native reduce call, including input serialization and output parsing",
+    "cache_bytes": "Exact stored UTF-8 key and output string lengths"
+  },
+  "keyed_trust_map_bytes": 802897,
+  "source_comparison": {
+    "eight_view_output_bytes": 8654840,
+    "fresh_shared_save_bytes": 907216,
+    "keyed_trust_map_bytes": 802897,
+    "native_matches_source": true
+  },
+  "cache_proposal": {
+    "status": "proposal only; runtime cache remains 4 MiB",
+    "bytes": 41943040,
+    "entries": 32,
+    "current_eight_view_bytes": 8655504,
+    "eight_maximum_legal_replies_and_conservative_keys": 33555456,
+    "reason": "Hold one set of eight legal viewer replies, including long-history replies near the existing 4 MiB output bound; retain exact-input SHA keys and LRU behavior",
+    "additional_payload_budget_bytes": 37748736,
+    "configured_game_host_bytes": 2147483648,
+    "remaining_proof": [
+      "203-actor source",
+      "long real played history",
+      "reading request envelopes"
+    ]
+  },
+  "game_bundle_sha256": "129364e36f713ccb3d5526321dc08dea5ee81fb308ad64cc02615f96082bbf16",
+  "timing_scope": "Intermediate exact 3dd9e3e5 measurements; final whole-catalog acceptance still needs clear-window 203-actor, long-history and reading-envelope proof."
+}

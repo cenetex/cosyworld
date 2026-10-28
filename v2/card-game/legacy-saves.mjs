@@ -151,16 +151,24 @@ export function upgradeShoreRouteSave(s) {
     const expanded = known.flatMap((edge) => {
       if (!Array.isArray(edge) || edge.length !== 2) return [edge];
       const [from, to] = edge;
-      if ((moved.has(from) && to === "station") ||
-          (from === "station" && moved.has(to))) {
+      if (
+        (moved.has(from) && to === "station") ||
+        (from === "station" && moved.has(to))
+      ) {
         changed = true;
-        return [[from, "pond"], ["pond", to]];
+        return [
+          [from, "pond"],
+          ["pond", to],
+        ];
       }
       return [edge];
     });
-    if (changed) s.routeKnowledge[actor] = [...new Map(
-      expanded.map((edge) => [JSON.stringify(edge), edge]),
-    ).values()];
+    if (changed)
+      s.routeKnowledge[actor] = [
+        ...new Map(
+          expanded.map((edge) => [JSON.stringify(edge), edge]),
+        ).values(),
+      ];
   }
 }
 
@@ -316,11 +324,17 @@ export function upgradeGreekEpicSave(s) {
   const saved = s.packs?.[pack?.id];
   if (!pack || pack.revision < 8 || saved?.revision !== 7) return;
   if (
-    !greekRevisionSeven.avatars.every((id) => s.actors?.[id] && s.memories?.[id]) ||
-    !greekRevisionSeven.items.every((id) => s.items?.[id] && s.memories?.[id]) ||
+    !greekRevisionSeven.avatars.every(
+      (id) => s.actors?.[id] && s.memories?.[id],
+    ) ||
+    !greekRevisionSeven.items.every(
+      (id) => s.items?.[id] && s.memories?.[id],
+    ) ||
     !greekRevisionSeven.places.every((id) => s.memories?.[id])
   )
-    throw new Error("This earlier Greek save needs its original entity records.");
+    throw new Error(
+      "This earlier Greek save needs its original entity records.",
+    );
   const oldActors = new Set(greekRevisionSeven.avatars);
   const oldItems = new Set(greekRevisionSeven.items);
   const oldPlaces = new Set(greekRevisionSeven.places);
@@ -341,12 +355,17 @@ export function upgradeGreekEpicSave(s) {
         const [from, to] = edge;
         return [from, to].includes("greek-susa") &&
           [from, to].includes("greek-scythian-crag")
-          ? [[from, "greek-vii-crag-camp"], ["greek-vii-crag-camp", to]]
+          ? [
+              [from, "greek-vii-crag-camp"],
+              ["greek-vii-crag-camp", to],
+            ]
           : [edge];
       });
-      s.routeKnowledge[actor] = [...new Map(
-        expanded.map((edge) => [JSON.stringify(edge), edge]),
-      ).values()];
+      s.routeKnowledge[actor] = [
+        ...new Map(
+          expanded.map((edge) => [JSON.stringify(edge), edge]),
+        ).values(),
+      ];
     }
   saved.revision = 8;
 }
