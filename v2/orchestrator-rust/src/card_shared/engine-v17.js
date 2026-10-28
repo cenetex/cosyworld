@@ -9579,7 +9579,8 @@
               likes: "A careful account of the journey home",
               sore: "A claim that outruns the deed",
               reason: "Root, Ring, Leaf and Hollow each attend to a different part of the same journey."
-            }
+            },
+            presentation: "backdrop"
           }
         },
         items: {
@@ -10364,6 +10365,7 @@
           "persona",
           "voice",
           "expression",
+          "presentation",
           "tastes",
           "portrait",
           "temperament",
@@ -10383,6 +10385,10 @@
       check(
         a.expression === void 0 || EXPRESSION_TYPES.includes(a.expression),
         `avatar ${id} expression needs speech, movement or emoji`
+      );
+      check(
+        a.presentation === void 0 || a.presentation === "figure" || a.presentation === "backdrop" && a.travels === false,
+        `avatar ${id} presentation needs figure or a fixed backdrop resident`
       );
       check(
         [a.travels, a.standoffs].every((v) => v === void 0 || v === false) && (a.roamingQuest === void 0 || a.roamingQuest === "latest-completion" && a.travels !== false),

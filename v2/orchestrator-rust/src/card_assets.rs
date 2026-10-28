@@ -1922,7 +1922,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
             "\"225bf98853060dc121ea82d4d89430f27d049f7de70e3b0b8e30f2cd633b9d87\""
         }
         "index.html" => "\"d8839269af602550077f9bba8daef103fad3efa7784b29c8769ff9b2edcb3a52\"",
-        "style.css" => "\"000e9894d9cf2afd9a49880b89ef0c7f6044f2be9fcea0a5623b33dcfeb891d9\"",
+        "style.css" => "\"57a9eed41612f9a44b5624d8ed64c451b532e74efa9057d59b53ed258cc3568f\"",
         "entry.mjs" => "\"1a7995fada45e5bf544ec6e98a6cc9ea9019634cf9bae644d6f1766581314c89\"",
         "openrouter.mjs" => "\"1f1df94c46294aeefb95b37f58f63f3cf690b645927a74f78ea5cfb3e2734330\"",
         "openrouter-settings.mjs" => {
@@ -1947,9 +1947,9 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "scene-video.css" => "\"3c6851ec825e734e3d8a084f4ed77f077bcb4402acbf61869a67b652c3afe4c5\"",
         "awakening.css" => "\"c7a68a23baf1e46934237a57f4b5f87d76bad87af85fdf57ee40abec646908b9\"",
-        "app.mjs" => "\"70c3b2511ce06a3e6daf77711dfbbf9d723f1d233244a2b5a90df40faa2d57f4\"",
+        "app.mjs" => "\"ad23393ae412547aa59c961850d8e0e8b94d3cdb5dc35fa85d764580bfbdef9e\"",
         "world.mjs" => "\"c9cb460ab326f0e5253f6e528ba5a4a5e2068e7b00ccd7093e8181769de9b51d\"",
-        "scene.mjs" => "\"4a66c439346c4f4b3cc9a5081460b10a61da3cb2eafa7910d69a4c00a9a08838\"",
+        "scene.mjs" => "\"74d8a5b3030d4c8ee8150296f70c82d369efb7caa873e4e3cdc2d8fd2d0b5b81\"",
         "weather.mjs" => "\"69a3e11642c43831f80581711f6113d814badd666ad2c3e3892a1a4c70a5fd27\"",
         "daylight.mjs" => "\"6e1bbbf92705e5e2ed904ca98666540ab9a91916c94e50749e649a0ba380170d\"",
         "assets/greek-drama/harbor-open-berth-night.webp" => {
@@ -1981,7 +1981,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "weather.css" => "\"a79f649ad9c106ddbaaa00734695c83e49140c3da54e331a4c5ca3ec38fee348\"",
         "portrait-facing.mjs" => {
-            "\"5cf323214a088c32a8dc0db977e10b8e4e37fe3ea2c25523783ddb553694b32c\""
+            "\"95b3349fb411017fa18f24e8778c3dd52500976f0dc0227a3c6301e743e45c85\""
         }
         "cards.mjs" => "\"d830242dc06693e8a0327f41a5b56e8ff8d5f2f054e47716e420131e79aee2f0\"",
         "lessons.mjs" => "\"d356ccfd6d4bb622ea7e325ebae519f3ff37433013b04874f07f83865b883705\"",
@@ -2048,7 +2048,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "assets/voices/greek-baker.mp3" => {
             "\"0dc315f6c54a2a48fab122a0c1b3dc5876121073b696b0ce4537c2d76d0b08a8\""
         }
-        "pack-schema.mjs" => "\"b056a413056625bb4740b7ed5073b26153f4f0d73ced1f9cf6eae68292669c6f\"",
+        "pack-schema.mjs" => "\"b872e054eabdede00f925071899b6b022b6b2c0c6c57baab55f403cb72714e7f\"",
         "pack-registry.mjs" => {
             "\"e892a650386fd7e343f41a8b9ea3e3bb67ce4fc48ba3d7c0cf697a85baa3534d\""
         }
@@ -2069,7 +2069,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
             "\"2e87a6002f709aa79439da42dca28632a36a561a96b3ea5bde721a7f6363b75a\""
         }
         "forest.json" => "\"be43360615850d460ecb291474250a82b486bb5bbccfa7cb9eeca5813cbc7702\"",
-        "packs.json" => "\"6ff673d92335fd44a5247f75fe09bae25e8aed82fea5c512c4ddde41a329c3d1\"",
+        "packs.json" => "\"cf57f8baa0303ea9343ed5097260467575db89ed91da3f2ae2a8ddd8539a420e\"",
         "music.mjs" => "\"b60f61ecf558b2eed0aa2d907ca6a7a3dede4b0459541d3c59f633e25943bc22\"",
         "entity-profiles.json" => {
             "\"32bcfada78437fd92786bdb577da658828ff000563688180bd3848593f2e201e\""

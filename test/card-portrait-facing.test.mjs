@@ -6,9 +6,25 @@ import { portrait, sceneStaging } from "../v2/card-game/scene.mjs";
 import {
   nativePortraitFacing,
   flipStagePortrait,
+  portraitFraming,
 } from "../v2/card-game/portrait-facing.mjs";
 
 describe("stage portrait art directions", () => {
+  it("frames broad forest animals on phones and keeps the other figures at their usual size", () => {
+    for (const name of ["skull", "whiskerwind"]) {
+      const path = `assets/lonely-forest/${name}.png`;
+      expect(portraitFraming(`./${path}`)).toBe("wide");
+      expect(nativePortraitFacing(path)).toBe("right");
+      expect(flipStagePortrait(path, "left")).toBe(true);
+    }
+    for (const path of [
+      "assets/lonely-forest/rati.png",
+      "assets/shared/characters/vale.png",
+      "assets/moth.png",
+    ])
+      expect(portraitFraming(path)).toBe("standard");
+  });
+
   it("describes every avatar image, both Keeper cutouts, and portrait variant", () => {
     const images = Object.keys(people).flatMap((id) => [
       portrait(id, "left"),
