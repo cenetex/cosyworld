@@ -368,12 +368,13 @@ try {
       await finish();
       assert.equal(
         await page.locator("#hand .card").first().getAttribute("data-card"),
-        "station",
+        "vale",
       );
       const saved = await page.evaluate(
         (key) => localStorage.getItem(key),
         key,
       );
+      assert.equal(JSON.parse(saved).actors.vale.place, "station");
       await page.reload();
       await finish();
       assert.equal(
