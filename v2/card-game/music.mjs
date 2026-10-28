@@ -1,4 +1,5 @@
 import { packPlaces } from "./pack-registry.mjs";
+import { mediaUrl } from "./media.mjs";
 
 export const roomTracks = {
   "greek-harbor": [
@@ -76,6 +77,7 @@ export function createRoomMusic({
   const fadeSeconds = 1;
   let room = null,
     loadedFile = null,
+    restartOnVisit = false,
     unlocked = false,
     started = false,
     enabled = true,
@@ -189,17 +191,25 @@ export function createRoomMusic({
   function load() {
     pause();
     const next = track();
+    const buffered = next && loadedFile === next.file && !audio.error;
     loadedFile = next?.file || null;
+    restartOnVisit = false;
     ending = false;
-    if (next)
-      audio.src = new URL(`./assets/music/${next.file}`, import.meta.url).href;
-    else audio.removeAttribute("src");
-    audio.load();
+    if (buffered) audio.currentTime = 0;
+    else {
+      if (next) audio.src = mediaUrl(`./assets/music/${next.file}`);
+      else audio.removeAttribute("src");
+      audio.load();
+    }
     start();
   }
   function start() {
     if (!wanted() || pending || !audio.paused || transitionTimer !== null)
       return;
+    if (loadedFile !== track()?.file || restartOnVisit) {
+      load();
+      return;
+    }
     unlockGraph();
     ending = false;
     const attempt = ++generation;
@@ -228,8 +238,8 @@ export function createRoomMusic({
     transitionTimer = null;
     generation++;
     pending = false;
-    if (loadedFile !== (track()?.file || null)) afterFade(load);
-    else if (!wanted()) afterFade(pause);
+    if (!wanted()) afterFade(pause);
+    else if (loadedFile !== track()?.file || restartOnVisit) afterFade(load);
     else if (audio.paused) start();
     else if (!ending) fadeTo(volume, fadeSeconds);
   }
@@ -290,11 +300,10 @@ export function createRoomMusic({
       if (room === value) return;
       room = value;
       failures = 0;
-      if (randomPerVisit()) {
+      restartOnVisit = randomPerVisit();
+      if (restartOnVisit)
         positions.set(room, Math.floor(random() * roomTracks[room].length));
-        // Each visit starts its chosen song afresh, even when it repeats.
-        loadedFile = null;
-      }
+      // Each visit starts its chosen song afresh. A buffered repeat can seek.
       sync();
     },
     unlock() {

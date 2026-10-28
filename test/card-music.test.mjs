@@ -107,6 +107,71 @@ function player({ fallback = false, random = () => 0 } = {}) {
 }
 
 describe("room music fades", () => {
+  it("keeps the media source empty until the first accepted play", async () => {
+    const { audio, music } = player();
+    music.setStarted(false);
+    music.setRoom("attic");
+    music.unlock();
+    await advance(2000);
+    expect(audio.src).toBe("");
+    expect(audio.load).not.toHaveBeenCalled();
+    music.setStarted(true);
+    await advance(1000);
+    expect(new URL(audio.src).pathname).toMatch(/attic-1\.mp3$/);
+    expect(new URL(audio.src).searchParams.get("v")).toMatch(/^[a-f0-9]{64}$/);
+    expect(audio.paused).toBe(false);
+  });
+
+  it("keeps the media source empty while waiting for a gesture", async () => {
+    const { audio, music } = player();
+    music.setRoom("pond");
+    await advance(2000);
+    expect(audio.src).toBe("");
+    expect(audio.load).not.toHaveBeenCalled();
+    music.unlock();
+    await advance(1000);
+    expect(new URL(audio.src).pathname).toMatch(/pond-1\.mp3$/);
+    expect(audio.paused).toBe(false);
+  });
+
+  it("loads a muted destination when music resumes", async () => {
+    const { audio, music, begin } = player();
+    await begin("attic");
+    audio.currentTime = 35;
+    music.setEnabled(false);
+    await advance(1000);
+    const source = audio.src;
+    const loads = audio.load.mock.calls.length;
+    music.setRoom("pond");
+    music.unlock();
+    await advance(2000);
+    expect(audio.src).toBe(source);
+    expect(audio.load).toHaveBeenCalledTimes(loads);
+    expect(audio.currentTime).toBe(35);
+    music.setEnabled(true);
+    await advance(1000);
+    expect(new URL(audio.src).pathname).toMatch(/pond-1\.mp3$/);
+    expect(audio.load).toHaveBeenCalledTimes(loads + 1);
+    expect(audio.paused).toBe(false);
+  });
+
+  it("loads a hidden destination when the page returns", async () => {
+    const { audio, music, begin } = player();
+    await begin("attic");
+    music.setHidden(true);
+    await advance(1000);
+    const source = audio.src;
+    const loads = audio.load.mock.calls.length;
+    music.setRoom("pond");
+    await advance(2000);
+    expect(audio.src).toBe(source);
+    expect(audio.load).toHaveBeenCalledTimes(loads);
+    music.setHidden(false);
+    await advance(1000);
+    expect(new URL(audio.src).pathname).toMatch(/pond-1\.mp3$/);
+    expect(audio.load).toHaveBeenCalledTimes(loads + 1);
+  });
+
   it("remembers the item gesture while waiting for an accepted shared play", async () => {
     const { audio, music } = player();
     music.setStarted(false);
@@ -123,9 +188,9 @@ describe("room music fades", () => {
     const { audio, music, begin, ended, changed, level } = player({ random });
     await begin("pond");
     music.setRoom("greek-ship");
-    expect(audio.src).toMatch(/pond-1\.mp3$/);
+    expect(audio.src).toMatch(/pond-1\.mp3(?:\?|$)/);
     await advance(2000);
-    expect(audio.src).toMatch(/ship-3\.mp3$/);
+    expect(audio.src).toMatch(/ship-3\.mp3(?:\?|$)/);
     expect(changed.mock.lastCall[0].title).toBe("Wine-Dark-2");
     music.setRoom("greek-ship");
     music.setEnabled(false);
@@ -138,17 +203,17 @@ describe("room music fades", () => {
     audio.currentTime = audio.duration;
     ended();
     await advance(1000);
-    expect(audio.src).toMatch(/ship-3\.mp3$/);
+    expect(audio.src).toMatch(/ship-3\.mp3(?:\?|$)/);
     expect(audio.currentTime).toBe(0);
     expect(random).toHaveBeenCalledTimes(1);
     music.setRoom("greek-harbor");
     await advance(2000);
-    expect(audio.src).toMatch(/greek-harbor\.mp3$/);
+    expect(audio.src).toMatch(/greek-harbor\.mp3(?:\?|$)/);
     expect(level()).toBe(0.3);
     expect(audio.paused).toBe(false);
     music.setRoom("greek-ship");
     await advance(2000);
-    expect(audio.src).toMatch(/ship-4\.mp3$/);
+    expect(audio.src).toMatch(/ship-4\.mp3(?:\?|$)/);
     expect(changed.mock.lastCall[0].title).toBe("Wine-Dark-3");
     expect(audio.paused).toBe(false);
     expect(random).toHaveBeenCalledTimes(2);
@@ -162,19 +227,23 @@ describe("room music fades", () => {
   ])("can choose %s as %s for a crossing", async (choice, file) => {
     const { audio, begin } = player({ random: () => choice });
     await begin("greek-ship");
-    expect(audio.src.endsWith(file)).toBe(true);
+    expect(new URL(audio.src).pathname.endsWith(file)).toBe(true);
   });
 
   it("restarts a repeated song when boarding again during the outgoing fade", async () => {
     const { audio, music, begin } = player({ random: () => 0.3 });
     await begin("greek-ship");
+    const source = audio.src;
+    const loads = audio.load.mock.calls.length;
     audio.currentTime = 60;
     music.setRoom("greek-harbor");
     await advance(200);
     music.setRoom("greek-ship");
     await advance(2000);
-    expect(audio.src).toMatch(/ship-2\.mp3$/);
+    expect(audio.src).toMatch(/ship-2\.mp3(?:\?|$)/);
     expect(audio.currentTime).toBe(0);
+    expect(audio.src).toBe(source);
+    expect(audio.load).toHaveBeenCalledTimes(loads);
     expect(audio.paused).toBe(false);
   });
 
@@ -233,7 +302,7 @@ describe("room music fades", () => {
     const { audio, music, level, begin, pauseLevels, loadLevels } = player();
     await begin();
     music.setRoom("pond");
-    expect(audio.src).toMatch(/attic-1\.mp3$/);
+    expect(audio.src).toMatch(/attic-1\.mp3(?:\?|$)/);
     expect(audio.paused).toBe(false);
     await advance(500);
     expect(level()).toBeCloseTo(0.15);
@@ -241,10 +310,10 @@ describe("room music fades", () => {
     music.unlock();
     expect(level()).toBeCloseTo(0.15);
     await advance(500);
-    expect(audio.src).toMatch(/attic-1\.mp3$/);
+    expect(audio.src).toMatch(/attic-1\.mp3(?:\?|$)/);
     expect(level()).toBeCloseTo(0.075);
     await advance(500);
-    expect(audio.src).toMatch(/station-1\.mp3$/);
+    expect(audio.src).toMatch(/station-1\.mp3(?:\?|$)/);
     expect(level()).toBe(0);
     await advance(500);
     expect(level()).toBeCloseTo(0.15);
@@ -264,7 +333,7 @@ describe("room music fades", () => {
     await advance(500);
     expect(level()).toBeCloseTo(0.225);
     await advance(1000);
-    expect(audio.src).toMatch(/attic-1\.mp3$/);
+    expect(audio.src).toMatch(/attic-1\.mp3(?:\?|$)/);
     expect(audio.play).toHaveBeenCalledTimes(1);
   });
 
@@ -275,10 +344,10 @@ describe("room music fades", () => {
     music.setRoom("station");
     await advance(250);
     expect(level()).toBeCloseTo(0.15);
-    expect(audio.src).toMatch(/attic-1\.mp3$/);
+    expect(audio.src).toMatch(/attic-1\.mp3(?:\?|$)/);
     await advance(250);
     expect(level()).toBe(0);
-    expect(audio.src).toMatch(/station-1\.mp3$/);
+    expect(audio.src).toMatch(/station-1\.mp3(?:\?|$)/);
   });
 
   it("fades a song's ending and loops both tracks in order", async () => {
@@ -291,7 +360,7 @@ describe("room music fades", () => {
     await advance(500);
     expect(level()).toBe(0);
     ended();
-    expect(audio.src).toMatch(/pond-2\.mp3$/);
+    expect(audio.src).toMatch(/pond-2\.mp3(?:\?|$)/);
     await advance(500);
     expect(level()).toBeCloseTo(0.15);
     await advance(500);
@@ -299,9 +368,9 @@ describe("room music fades", () => {
     await advance(2000);
     music.setRoom("pond");
     await advance(2000);
-    expect(audio.src).toMatch(/pond-2\.mp3$/);
+    expect(audio.src).toMatch(/pond-2\.mp3(?:\?|$)/);
     ended();
-    expect(audio.src).toMatch(/pond-1\.mp3$/);
+    expect(audio.src).toMatch(/pond-1\.mp3(?:\?|$)/);
   });
 
   it("keeps the destination's first track when the old song ends during travel", async () => {
@@ -310,7 +379,7 @@ describe("room music fades", () => {
     music.setRoom("station");
     ended();
     await advance(2000);
-    expect(audio.src).toMatch(/station-1\.mp3$/);
+    expect(audio.src).toMatch(/station-1\.mp3(?:\?|$)/);
     expect(audio.play).toHaveBeenCalledTimes(2);
   });
 
@@ -333,7 +402,7 @@ describe("room music fades", () => {
     expect(audio.paused).toBe(true);
     music.setEnabled(true);
     await advance(1000);
-    expect(audio.src).toMatch(/pond-1\.mp3$/);
+    expect(audio.src).toMatch(/pond-1\.mp3(?:\?|$)/);
     expect(level()).toBeCloseTo(0.3);
   });
 
@@ -379,7 +448,7 @@ describe("room music fades", () => {
     music.setEnabled(false);
     finish();
     await advance(2000);
-    expect(audio.src).toMatch(/station-1\.mp3$/);
+    expect(audio.src).toMatch(/station-1\.mp3(?:\?|$)/);
     expect(audio.paused).toBe(true);
     expect(level()).toBe(0);
   });
@@ -389,7 +458,7 @@ describe("room music fades", () => {
     music.setRoom("attic");
     music.unlock();
     audio.dispatchEvent(new Event("error"));
-    expect(audio.src).toMatch(/attic-2\.mp3$/);
+    expect(audio.src).toMatch(/attic-2\.mp3(?:\?|$)/);
     audio.dispatchEvent(new Event("error"));
     music.unlock();
     expect(audio.play).toHaveBeenCalledTimes(2);
@@ -435,9 +504,9 @@ describe("room music fades", () => {
     music.setRoom("pond");
     await advance(500);
     expect(level()).toBeCloseTo(0.15);
-    expect(audio.src).toMatch(/attic-1\.mp3$/);
+    expect(audio.src).toMatch(/attic-1\.mp3(?:\?|$)/);
     await advance(1000);
-    expect(audio.src).toMatch(/pond-1\.mp3$/);
+    expect(audio.src).toMatch(/pond-1\.mp3(?:\?|$)/);
     expect(level()).toBeCloseTo(0.15);
     await advance(500);
     expect(level()).toBeCloseTo(0.3);
