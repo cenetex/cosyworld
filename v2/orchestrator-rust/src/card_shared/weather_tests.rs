@@ -62,7 +62,7 @@ fn regional_weather_agrees_in_c_and_survives_upgrade_and_journal_replay() {
     assert_eq!(quests["hands"]["boardyai"], json!(["boardyai:quest:0"]));
     quests["hands"]["boardyai"] = saved.game["quests"]["hands"]["boardyai"].clone();
     assert_eq!(quests, saved.game["quests"]);
-    assert_eq!(world.game["packs"]["greek-drama"]["revision"], 5);
+    assert_eq!(world.game["packs"]["greek-drama"]["revision"], 6);
     assert_eq!(world.version, engine::VERSION);
     assert_eq!(
         world.project(0).unwrap()["scene"]["weather"]["condition"],

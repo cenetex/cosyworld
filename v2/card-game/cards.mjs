@@ -1,6 +1,6 @@
 import { hasMotives, tradeDecision, interest } from "./motives.mjs";
 import { desireFor } from "./quests.mjs";
-import { entityActive, packThings } from "./pack-registry.mjs";
+import { entityActive, packThings, packPlaces } from "./pack-registry.mjs";
 import {
   currentActor,
   places,
@@ -33,16 +33,19 @@ export function availableCards(world) {
     items
       .filter((id) => world.items[id].holder === holder)
       .flatMap((id) => [id, ...after(id)]);
+  const destinations = exits(world, here, player).filter(
+    (place) =>
+      !world.presentActors ||
+      world.presentActors.filter((id) => world.actors[id]?.place === place)
+        .length < 4,
+  );
+  const road = packPlaces[here]?.road;
   return [
+    ...cast.flatMap((id) => [id, ...after(id)]),
+    ...(road && destinations.includes(road[0]) ? [road[0]] : []),
     here,
     ...after(here),
-    ...cast.flatMap((id) => [id, ...after(id)]),
-    ...exits(world, here, currentActor(world)).filter(
-      (place) =>
-        !world.presentActors ||
-        world.presentActors.filter((id) => world.actors[id]?.place === place)
-          .length < 4,
-    ),
+    ...destinations.filter((id) => !road || id !== road[0]),
   ];
 }
 export function cardType(id) {

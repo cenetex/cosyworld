@@ -130,6 +130,7 @@ import {
 } from "./situations.mjs";
 import {
   packPlaces,
+  canonicalPlace,
   packThings,
   entityActive,
   actorCanVisit,
@@ -2007,6 +2008,7 @@ function perform(s, a, capture = () => {}, round = null) {
 
 function roamingAPI(s) {
   return {
+    canonicalPlace,
     nameOf: (id) => (id ? nameOf(id) : "a traveler"),
     crossing: (from, to) => crossingBetween(from, to, s),
     itemPlace: (id) => itemPlace(s, id),

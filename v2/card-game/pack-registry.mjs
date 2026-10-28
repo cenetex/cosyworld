@@ -102,6 +102,19 @@ const merge = (field) =>
     ),
   );
 export const packPlaces = merge("places");
+// Earlier road IDs remain available to saved history. A direct local link
+// joins their two ends into the town's ordinary paths.
+const localRoads = new Map(
+  Object.entries(packPlaces)
+    .filter(([, place]) =>
+      place.road?.every((end, i) =>
+        packPlaces[end]?.exits.includes(place.road[1 - i]),
+      ),
+    )
+    .map(([id, place]) => [id, place.road]),
+);
+export const localRoadEnds = (id) => localRoads.get(id) || null;
+export const canonicalPlace = (id) => localRoadEnds(id)?.[0] || id;
 export const transports = merge("transports");
 export const packPeople = merge("avatars");
 export const packFixtures = merge("fixtures");
@@ -256,6 +269,7 @@ export function entityActive(world, id) {
   return entityEnabled(world, id);
 }
 function entityEnabled(world, id, saved = false) {
+  if (localRoads.has(id)) return false;
   const e = packEntity(id);
   if (!e) return true;
   const pack = packDefinition(e.packId),

@@ -13,6 +13,7 @@ import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import {
   packDefinition,
   entityActive,
+  localRoadEnds,
 } from "../v2/card-game/pack-registry.mjs";
 import { travelCard } from "../v2/card-game/scene.mjs";
 import { openDoorStart } from "./helpers/open-door.mjs";
@@ -93,13 +94,19 @@ describe("Greek ports and fixed roads", () => {
     expect(exits(before, "greek-ship", "vale")).toEqual(["pond"]);
     const after = openDoorStart();
     expect(entityActive(after, "greek-athens-harbor")).toBe(true);
-    expect(entityActive(after, "greek-road-athens-harbor")).toBe(true);
-    expect(exits(after, "greek-harbor", "vale")).toContain("greek-road-thebes");
+    expect(exits(after, "greek-athens-harbor", "vale")).toContain(
+      "greek-athens",
+    );
+    expect(exits(after, "greek-harbor", "vale")).toContain("greek-courtyard");
     expect(exits(after, "greek-harbor", "vale")).not.toContain("greek-athens");
     expect(exits(after, "greek-harbor", "vale")).not.toContain("greek-piraeus");
   });
 
-  it.each(Object.entries(pack.places).filter(([, p]) => p.road))(
+  it.each(
+    Object.entries(pack.places).filter(
+      ([id, p]) => p.road && !localRoadEnds(id),
+    ),
+  )(
     "keeps the two ends of %s in the same order from either direction",
     (id, road) => {
       for (const from of road.road) {
@@ -191,7 +198,7 @@ describe("Greek ports and fixed roads", () => {
         });
       expect(current.items).toMatchObject(old.items);
       expect(current.transports).toEqual(old.transports);
-      expect(current.packs["greek-drama"].revision).toBe(5);
+      expect(current.packs["greek-drama"].revision).toBe(6);
       for (const [id, memory] of Object.entries(old.memories)) {
         const { seen, ...retained } = current.memories[id];
         expect(retained).toEqual(memory);

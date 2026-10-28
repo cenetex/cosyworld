@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "greek-drama",
   "packId": "cosyworld.greek-drama",
-  "revision": 5,
+  "revision": 6,
   "name": "The Wine-Dark Sea",
   "description": "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. Fixed roads lead through the Attic places where welcome becomes a growing poem.",
   "tone": "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -38,7 +38,7 @@
     "greek-harbor": {
       "name": "The Wine-Dark Harbor",
       "text": "Worn steps climb from the stone landing toward the town.",
-      "exits": ["greek-road-thebes", "greek-argolid-road"],
+      "exits": ["greek-courtyard", "greek-road-thebes", "greek-argolid-road"],
       "backdrop": "assets/greek-drama/harbor-open-berth.webp",
       "persona": "Worn steps climb from the stone landing toward the town."
     },
@@ -46,6 +46,7 @@
       "name": "Theban Courtyard",
       "text": "Bread cools beneath a cloth. An empty place remains at the common table.",
       "exits": [
+        "greek-harbor",
         "greek-road-thebes",
         "greek-well",
         "greek-gate",
@@ -112,6 +113,7 @@
       "name": "Athenian Agora",
       "text": "A broad civic square opens beneath long painted colonnades. Marble steps rise toward the Acropolis above the roofs. A herald keeps a petition table beside the market.",
       "exits": [
+        "greek-athens-harbor",
         "greek-road-athens-piraeus",
         "greek-assembly",
         "greek-acropolis",
@@ -497,10 +499,10 @@
     },
     "greek-athens-harbor": {
       "name": "Athens Harbor",
-      "text": "Stone quays run beneath long warehouses. Merchant masts rise above the water. Beyond the harbor gate, the road climbs toward the walls and the Acropolis of Athens.",
-      "persona": "Athens Harbor is the ship’s landing for the great city. The Agora lies inland along the harbor road. Piraeus Quays is a separate stop with its own host and work of welcome.",
-      "exits": ["greek-road-athens-harbor"],
-      "backdrop": "assets/greek-drama/athens-harbor.webp"
+      "text": "Stone quays run beneath long warehouses. Beyond the harbor gate, city streets and steps climb toward the walls and the Acropolis of Athens.",
+      "persona": "Athens Harbor is the ship’s landing for the great city. City streets lead inland to the Agora. Piraeus Quays is a separate town with its own host and work of welcome.",
+      "exits": ["greek-athens", "greek-road-athens-harbor"],
+      "backdrop": "assets/greek-drama/athens-harbor-empty.webp"
     },
     "greek-road-thebes": {
       "name": "Theban Harbor Road",

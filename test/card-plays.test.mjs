@@ -19,10 +19,10 @@ describe("playing the world through cards", () => {
   it("offers reachable items, local avatars, exits and the current place", () => {
     let s = createWorld();
     expect(availableCards(s)).toEqual([
+      "vale",
       "station",
       "lamp",
       "bell",
-      "vale",
       "attic",
       "pond",
     ]);
@@ -31,11 +31,11 @@ describe("playing the world through cards", () => {
     expect(availableCards(s)).toContain("keeper");
     s = cards(s, "attic");
     expect(availableCards(s)).toEqual([
-      "attic",
       "vale",
       "lamp",
       "moth",
       "cloth",
+      "attic",
       "station",
     ]);
   });

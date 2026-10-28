@@ -400,7 +400,6 @@ try {
       await cards("greek-harbor");
       assert.equal((await state()).actors.vale.place, "greek-harbor");
       assert.equal((await state()).items.lamp.holder, "vale");
-      await cards("greek-road-thebes");
       await cards("greek-courtyard");
       await art();
       await page.locator("#toolbar-menu-button").click();

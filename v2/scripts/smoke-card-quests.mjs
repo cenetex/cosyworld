@@ -120,7 +120,7 @@ try {
         await page
           .locator("#hand .card")
           .evaluateAll((cards) => cards.map((card) => card.dataset.card)),
-        ["attic", "vale", "lamp", "player-quest"],
+        ["vale", "lamp", "player-quest", "attic"],
       );
       await page.screenshot({
         path: new URL(`rest-${width}.png`, output).pathname,
@@ -353,7 +353,7 @@ try {
       await page.locator('#card-actions [data-action="move"]').click();
       await finish();
       assert.equal(
-        await page.locator("#hand .card").first().getAttribute("data-card"),
+        await page.locator("#hand .location").first().getAttribute("data-card"),
         "pond",
       );
       await selectCard(page, "player-quest");

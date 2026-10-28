@@ -760,9 +760,9 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "image/webp",
             include_bytes!("../../card-game/assets/greek-drama/ship-card.webp"),
         ),
-        "assets/greek-drama/athens-harbor.webp" => (
+        "assets/greek-drama/athens-harbor-empty.webp" => (
             "image/webp",
-            include_bytes!("../../card-game/assets/greek-drama/athens-harbor.webp"),
+            include_bytes!("../../card-game/assets/greek-drama/athens-harbor-empty.webp"),
         ),
         "assets/greek-drama/attic-road.webp" => (
             "image/webp",
@@ -811,6 +811,10 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
         "assets/greek-drama/harbor-ship-at-berth.webp" => (
             "image/webp",
             include_bytes!("../../card-game/assets/greek-drama/harbor-ship-at-berth.webp"),
+        ),
+        "assets/greek-drama/athens-harbor.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/greek-drama/athens-harbor.webp"),
         ),
         "assets/greek-drama/chthonic-antigone.png" => (
             "image/png",
@@ -995,6 +999,10 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
         "assets/optimized/card/webp/greek-drama/athens-grand-agora.webp" => (
             "image/webp",
             include_bytes!("../../card-game/assets/optimized/card/webp/greek-drama/athens-grand-agora.webp"),
+        ),
+        "assets/optimized/card/webp/greek-drama/athens-harbor-empty.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/greek-drama/athens-harbor-empty.webp"),
         ),
         "assets/optimized/card/webp/greek-drama/athens-harbor.webp" => (
             "image/webp",
@@ -1699,10 +1707,10 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "media.mjs" => "\"9b56957b0e44c39ed8f3bfbb200ce3524646f62cf83fa775fc89dc2a62dc133b\"",
         "images.mjs" => "\"400bd04904821d5b21e24790f71cf89836e5a2aabb8662b963637de77b3fd612\"",
         "image-variants.json" => {
-            "\"a0d6262d456bd7c11e099dfde466da6366133e95e033fce9a9888aa7510ce5df\""
+            "\"36efa8c9e473fa6a67a42e1a50479d375352c96ee35c8842fb53d17f9437f207\""
         }
         "media-manifest.json" => {
-            "\"7d1dae843ed445c1febcba628ef2346875e044634bba2971cdbdeba1e5e28383\""
+            "\"1aac357934f745fdcafcd822e9331711d3462cac10baa25bdd9b344619de32bd\""
         }
         "music-streams.json" => {
             "\"187db53c1c129d1505da26c18fd2384e62b9b357c91e33fd2e954bf0b7a29904\""
@@ -1830,8 +1838,8 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "scene-video.css" => "\"3c6851ec825e734e3d8a084f4ed77f077bcb4402acbf61869a67b652c3afe4c5\"",
         "awakening.css" => "\"c7a68a23baf1e46934237a57f4b5f87d76bad87af85fdf57ee40abec646908b9\"",
-        "app.mjs" => "\"42e6606881baa67a604ed8ba7704a2f47cc68d44ffb9ddf30c5ade86848dda3d\"",
-        "world.mjs" => "\"91b93483d2d0dcdeba444f4f3bf89fbf63590412b9b63c25f530fd7e2beda429\"",
+        "app.mjs" => "\"2fa33a2c84dcbc6380dd23a321307ac10314035aaaea562d5b292c2da7ef09a5\"",
+        "world.mjs" => "\"272c1f34d3c65e073991d7d5b15156351f530620d13224b8f829b38bb1c01e0f\"",
         "scene.mjs" => "\"aba97eb70f26e75c9eaa4bcf71e3d8130f8bc5efc3df2b1a2567022959879d87\"",
         "weather.mjs" => "\"69a3e11642c43831f80581711f6113d814badd666ad2c3e3892a1a4c70a5fd27\"",
         "daylight.mjs" => "\"6e1bbbf92705e5e2ed904ca98666540ab9a91916c94e50749e649a0ba380170d\"",
@@ -1869,7 +1877,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "portrait-facing.mjs" => {
             "\"5cf323214a088c32a8dc0db977e10b8e4e37fe3ea2c25523783ddb553694b32c\""
         }
-        "cards.mjs" => "\"d830242dc06693e8a0327f41a5b56e8ff8d5f2f054e47716e420131e79aee2f0\"",
+        "cards.mjs" => "\"07d0aae06bc7ebe9ebb3488f8587cc8228656d3b851b6e0cf33d989c625ceb9e\"",
         "lessons.mjs" => "\"d356ccfd6d4bb622ea7e325ebae519f3ff37433013b04874f07f83865b883705\"",
         "motives.mjs" => "\"ad0d1881d52234756bfe3579f1a57de4cecb0181998b04788f06f8398ddcc288\"",
         "life.mjs" => "\"a85595a11e475412cad72cf237da96196003c85d37b5f466a71b9698012adca5\"",
@@ -1894,7 +1902,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
             "\"b97912558deeb5a499e8d25c403b14c08f6a83c82110e3826c41f85fcdda3552\""
         }
         "roaming-quests.mjs" => {
-            "\"8d78d47637d47eb4c48ed4dd46ce3cbc636221479c7fc3a3a26fa6428e4bc8b2\""
+            "\"8fdfd6afd18cb7a89ab3bbbf837e853c2a645f613929c3e2fb22882be602da13\""
         }
         "roaming-routes.mjs" => {
             "\"71b33e853f1a820e06ecb2c23be8cdd011a6f66fe44b21f13804fe5cdd5bab83\""
@@ -1929,7 +1937,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "pack-schema.mjs" => "\"3721262a6b3f519b2002a503359231748549296677128497ba8d5a7dc99dfc08\"",
         "pack-registry.mjs" => {
-            "\"26c87d6e7fc6b466b28f98d83e005c34803ff3308bdb357a5128f9a1f8b4c2d2\""
+            "\"689f153d2eb1e3a259ff68bd3232c0f2b91d58614345a2ee35fbb226aba60278\""
         }
         "pack-sections.mjs" => {
             "\"1230a3aa14a8e17e9eedaeeaead6717b77650111e8179306ad5e2a2d925d0f32\""
@@ -1945,10 +1953,10 @@ pub fn etag(path: &str) -> Option<&'static str> {
             "\"8e01f7a0cbb46e16c7443aca4ebb63cfe7d528e88ed25fe6c794464cddc5c4c3\""
         }
         "legacy-saves.mjs" => {
-            "\"0a6167366a0ea4705d2eea48d141f410bbb1f4ba355aa3a843044ef678cd248e\""
+            "\"87e6d13cd47664ea72503e5b7fe08457226b55b290517cccc52f21541d9ad6c0\""
         }
         "forest.json" => "\"12a2be7877e4daff53d3d1ad27c1703b2ca10dff51e6f371a5b3d1a7975afdfe\"",
-        "packs.json" => "\"6e2f98daf7ee7f1bcc245c17bd6b73bc61a111b3e8a978e7b817b245ee3ee862\"",
+        "packs.json" => "\"609779ccb455ea3619fbf637dd925b8ade5613f7e3758a31306c56e645ae98a2\"",
         "music.mjs" => "\"b60f61ecf558b2eed0aa2d907ca6a7a3dede4b0459541d3c59f633e25943bc22\"",
         "entity-profiles.json" => {
             "\"32bcfada78437fd92786bdb577da658828ff000563688180bd3848593f2e201e\""
@@ -2169,8 +2177,8 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "assets/greek-drama/ship-card.webp" => {
             "\"c7789a3163cbd45ac8cc9fccda27591f58d66c23dafb19e768545b68707fcd06\""
         }
-        "assets/greek-drama/athens-harbor.webp" => {
-            "\"339386bf42192929b742bb5a2e3ee2e48d9324512bcbdc7cc3aadef58825eb33\""
+        "assets/greek-drama/athens-harbor-empty.webp" => {
+            "\"b34bf1b84d8daaa93e7ebca73e706b97d2432f31bbf7751bdc731a3b0e498e67\""
         }
         "assets/greek-drama/attic-road.webp" => {
             "\"2e4c3f83653a90bbea9d4640b96fa3db979c1ea9c6fbdb5bee31f5bdeb3f7882\""
@@ -2207,6 +2215,9 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "assets/greek-drama/harbor-ship-at-berth.webp" => {
             "\"f71d5f64371f50b37059f0929db3489b0f808696494c64078ad5fbe958e1f1d0\""
+        }
+        "assets/greek-drama/athens-harbor.webp" => {
+            "\"339386bf42192929b742bb5a2e3ee2e48d9324512bcbdc7cc3aadef58825eb33\""
         }
         "assets/greek-drama/chthonic-antigone.png" => {
             "\"965adf97fdabebed518a124ea9ad7c297278bfec55d438ccfc958c80f7d9f536\""
@@ -2345,6 +2356,9 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "assets/optimized/card/webp/greek-drama/athens-grand-agora.webp" => {
             "\"e394df641dc2c1ec34229184aefe7d2c4794d39c098d63e81343b29855b3c0de\""
+        }
+        "assets/optimized/card/webp/greek-drama/athens-harbor-empty.webp" => {
+            "\"a065654b258d58926ecbbef82d68ad5185bebdeac5ea758b2830d51aa5f57614\""
         }
         "assets/optimized/card/webp/greek-drama/athens-harbor.webp" => {
             "\"f3ddf560ed98168fe1a1e702a23d155d5ced3b79b7309cf4dec234f5872d0618\""

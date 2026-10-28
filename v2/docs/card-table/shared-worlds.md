@@ -291,9 +291,9 @@ Player views include their own thoughts, persona, dreams, reflection evidence
 and lessons. Other avatars supply public card text. This privacy check also
 applies when projecting a world that still uses an earlier interpreter.
 
-The current interpreter is `engine-v17.js`. Version 17 adds introduction quests,
-remembered sightings, and Boardy’s turn-based visits. Released versions 15 and
-16 keep their exact bytes for replay. Version 15 adds regional
+The current interpreter is `engine-v18.js`. Version 17 adds introduction quests,
+remembered sightings, and Boardy’s turn-based visits. Released versions 15, 16
+and 17 keep their exact bytes for replay. Version 15 adds regional
 Greek weather and Thebes day and night views. Version 14 keeps BoardyAI, his
 parlour, and his calling card. Earlier versions keep their released rules.
 Existing worlds receive an explicit saved upgrade.
@@ -304,8 +304,7 @@ view. Earlier cached view events are replaced at that boundary.
 ## Greek ports and roads
 
 Shared rules version 16 adds Athens Harbor and Piraeus Quays to the Greek
-ship. Nine shared road scenes have two fixed ends. Destination cards name
-each end. An empty ship follows its circuit while a human waits at a port.
+ship. An empty ship follows its circuit while a human waits at a port.
 Resident passengers step ashore after arrival; a human aboard chooses the
 port before those companions leave the ship.
 
@@ -313,5 +312,12 @@ Greek pack revision 5 preserves positions, belongings, story choices and
 poems. It adds memories for the new port and roads, and expands earlier
 learned routes through their current road and ship scenes. Myrine's coast
 journey uses two Accompany plays. Versions 13, 14 and 15 keep their released
-bytes. The builder writes `engine-v16.js`; older journals replay with the
+bytes. The builder writes `engine-v18.js`; older journals replay with the
 recorded rules before the saved upgrade.
+
+Shared rules version 18 makes the harbor and Agora a direct local visit, and
+joins the Theban harbor directly to the courtyard. Seven roads connect the
+towns. Each road has two fixed ends, shown by destination cards. Earlier internal road IDs
+stay in saved history. Current visitors, belongings and unfinished purposes
+continue at a town endpoint. The migration uses the other endpoint when the
+port already holds four human avatars. Released versions 16 and 17 keep their exact bytes.
