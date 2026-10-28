@@ -1,3 +1,4 @@
+import { captureQuestHands, advanceQuestPrograms } from "./quest-progress.mjs";
 import {
   recordLearning,
   requestConditions,
@@ -39,8 +40,6 @@ import {
   joinQuest,
   canJoinQuest,
   shareQuest,
-  clearQuestFocus,
-  pruneSharedQuestHistory,
   validSharedQuestRegistry,
 } from "./shared-quests.mjs";
 import {
@@ -110,7 +109,6 @@ import {
   ensureCollectedQuest,
   collectExperienceQuests,
   pursueQuest,
-  recordQuestProgress,
 } from "./quests.mjs";
 import {
   lifeOf,
@@ -118,7 +116,6 @@ import {
   keepReason,
   stayingWith,
   recordLifeAction,
-  finishPersonalQuest,
   experienceKinds,
   validLife,
   installHumanLife,
@@ -563,98 +560,8 @@ export function tradeOffers(s, actor) {
           : valueOf(s, actor, id) <= 6),
   );
 }
-// Capture each fulfilled hand before another actor can leave or move an item.
-// Each collected card captures at most one step per round, before consequences run.
 function captureHands(s, met) {
-  if (!hasQuestPrograms(s)) return;
-  for (const actor of knownActors(s).filter((id) => !isPackActor(id))) {
-    const collection = lifeOf(s, actor)?.collection;
-    const cards = collection
-      ? collectionCards(s, actor).filter(
-          (q) =>
-            q.completedTurn === null &&
-            (questCarried(s, actor, q.key) ||
-              q.participants.some((id) => questCarried(s, id, q.key))),
-        )
-      : [
-          {
-            key: null,
-            program: programFor(s, actor),
-            step: s.actors[actor].progress.step,
-          },
-        ];
-    for (const card of cards) {
-      const key = card.key ? `${actor}/${card.key}` : actor;
-      const target = alternatives(card.program?.steps[card.step]).find(
-        (h) => handStatus(s, actor, h).met,
-      );
-      if (!met.has(key) && target) {
-        met.set(key, {
-          actor,
-          questKey: card.key,
-          capturedSeq: s.eventSeq || 0,
-          step: card.step,
-          target: structuredClone(target),
-          fulfillment: {
-            items: [...target.items],
-            location: s.actors[actor].place,
-            // Include the actual required participants, even before Vale meets
-            // them. Keep nearby witnesses within the receipt's two-person bound.
-            avatars: [
-              ...new Set([
-                ...target.avatars,
-                ...actorIds.filter(
-                  (id) =>
-                    id !== actor &&
-                    entityActive(s, id) &&
-                    s.actors[id].place === s.actors[actor].place,
-                ),
-              ]),
-            ]
-              .slice(0, 2)
-              .sort((a, b) => actorIds.indexOf(a) - actorIds.indexOf(b)),
-            ...((target.conditions || []).length
-              ? { conditions: handStatus(s, actor, target).conditions }
-              : {}),
-          },
-        });
-      }
-    }
-  }
-  for (const quest of questRecords(s).filter(
-    (q) => q.mode === "shared" && q.completedTurn === null && !q.retired,
-  )) {
-    if (met.has(quest.key)) continue;
-    const candidates = quest.subjectActor
-      ? [quest.subjectActor]
-      : quest.participants;
-    for (const actor of actorIds.filter(
-      (id) =>
-        candidates.includes(id) &&
-        entityActive(s, id) &&
-        questCarried(s, id, quest.key),
-    )) {
-      const target = alternatives(quest.program.steps[quest.step]).find(
-        (h) => handStatus(s, actor, h).met,
-      );
-      if (!target) continue;
-      met.set(quest.key, {
-        actor,
-        questKey: quest.key,
-        shared: true,
-        capturedSeq: s.eventSeq || 0,
-        step: quest.step,
-        target: structuredClone(target),
-        fulfillment: {
-          items: [...target.items],
-          location: s.actors[actor].place,
-          avatars: [...target.avatars],
-          participants: [...new Set([actor, ...target.avatars])].sort(),
-        },
-      });
-      break;
-    }
-  }
+  captureQuestHands(s, met, { actorIds, handStatus });
 }
 // Each new program reads the programs chosen before it in the same round, so two
 // actors never pick goals against each other's stale wants.
@@ -770,194 +677,21 @@ function applyConsequence(s, actor, target) {
   });
 }
 function advancePrograms(s, met) {
-  if (!hasQuestPrograms(s)) return [];
-  const receipts = [],
-    completions = [];
-  const consequences = new Set();
-  const captured = [...met.values()].sort(
-    (a, b) =>
-      a.capturedSeq - b.capturedSeq ||
-      ((a.questKey || a.actor) < (b.questKey || b.actor)
-        ? -1
-        : (a.questKey || a.actor) > (b.questKey || b.actor)
-          ? 1
-          : 0),
-  );
-  for (const evidence of captured) {
-    const actor = evidence.actor;
-    if (evidence.shared) {
-      const quest = questRecord(s, evidence.questKey);
-      if (
-        !quest ||
-        quest.completedTurn !== null ||
-        quest.retired ||
-        quest.step !== evidence.step ||
-        quest.lastProgressTurn === s.turn
-      )
-        continue;
-      quest.step += 1;
-      quest.lastProgressTurn = s.turn;
-      const complete = quest.step === quest.program.steps.length;
-      if (complete) {
-        quest.completedTurn = s.turn;
-        clearQuestFocus(s, quest.key);
-        const effect = evidence.target.consequence;
-        const effectKey =
-          effect &&
-          JSON.stringify([effect, effect.kind === "trust" ? actor : null]);
-        if (effect && !consequences.has(effectKey)) {
-          applyConsequence(s, actor, evidence.target);
-          consequences.add(effectKey);
-        }
-      }
-      addLog(
-        s,
-        "World",
-        `${nameOf(actor)} ${complete ? "completes" : "helps with"} ${quest.program.name}.`,
-        {
-          kind: "quest",
-          questMode: "shared",
-          program: structuredClone(quest.program),
-          actorId: actor,
-          locationId: evidence.fulfillment.location,
-          questKey: quest.key,
-          programId: quest.program.id,
-          step: evidence.step,
-          target: evidence.target,
-          fulfillment: evidence.fulfillment,
-        },
-      );
-      if (complete) {
-        completions.push({
-          questKey: quest.key,
-          capturedSeq: evidence.capturedSeq,
-          actorId: actor,
-          locationId: evidence.fulfillment.location,
-          participants: evidence.fulfillment.participants,
-          outcome: "fulfilled",
-        });
-        pruneSharedQuestHistory(s, quest.holder, quest.key);
-      }
-      continue;
-    }
-    const progress = s.actors[actor].progress;
-    const collection = lifeOf(s, actor)?.collection;
-    const card =
-      collection &&
-      collectionCards(s, actor).find((q) => q.key === evidence.questKey);
-    if (
-      card &&
-      (card.completedTurn !== null ||
-        card.lastProgressTurn === s.turn ||
-        card.step !== evidence.step)
-    )
-      continue;
-    const source = card?.program || programFor(s, actor);
-    const programIndex = progress.program;
-    const program = source.generated
-      ? {
-          ...source,
-          id: `generated-${actor}-${programIndex + 1}`,
-          generated: { ...source.generated, level: programIndex + 1 },
-        }
-      : source;
-    const step = card ? card.step : progress.step;
-    const complete = step + 1 === program.steps.length;
-    const focused = focusedQuest(s, actor);
-    const wasActive =
-      !collection ||
-      (collection.active === card.key &&
-        (!focused || focused.key === card.key));
-    progress.marks.push(s.turn);
-    progress.marks = progress.marks.slice(-32);
-    if (collection) recordQuestProgress(s, actor, complete, card.key);
-    else progress.step += 1;
-    if (complete) {
-      finishPersonalQuest(s, actor, program, sanctuaries, {
-        rest: wasActive || !collection?.active,
-      });
-      const effect = evidence.target.consequence;
-      const consequenceKey =
-        effect &&
-        JSON.stringify([effect, effect.kind === "trust" ? actor : null]);
-      if (effect && !consequences.has(consequenceKey)) {
-        applyConsequence(s, actor, evidence.target);
-        consequences.add(consequenceKey);
-      }
-      if (collection) progress.completedHands = collection.earned;
-      if (program.generated) {
-        if (!collection) progress.completedHands += program.steps.length;
-        if (program.generated.item)
-          progress.recent = [
-            ...(progress.recent || []),
-            program.generated.item,
-          ].slice(-4);
-        progress.recentKinds = [
-          ...(progress.recentKinds || []),
-          program.generated.situation || "bargain",
-        ].slice(-4);
-        if (wasActive) delete progress.current;
-      }
-      progress.program += 1;
-      if (wasActive) progress.step = 0;
-    }
-    receipts.push({
-      actor,
-      program,
-      step,
-      programIndex,
-      complete,
-      ...evidence,
-    });
-  }
-  ensurePrograms(s);
-  for (const {
-    actor,
-    program,
-    step,
-    programIndex,
-    complete,
-    target,
-    fulfillment,
-    questKey,
-    capturedSeq,
-  } of receipts) {
-    let text = `${nameOf(actor)} completes hand ${step + 1}/${program.steps.length} of ${program.name}.`;
-    if (complete) text += ` Level ${programIndex + 2}.`;
-    const life = lifeOf(s, actor);
-    if (complete && life?.milestones.at(-1) === s.turn)
-      text += ` Hope milestone: ${hopeOf(s, actor).milestones[life.milestones.length - 1].title}.`;
-    text += questActive(s, actor)
-      ? ` Next: ${handText(desireFor(s, actor))}.`
-      : lifeOf(s, actor)?.phase === "returning"
-        ? ` Next: rest at ${nameOf(lifeOf(s, actor).restAt)}.`
-        : " Time to rest and enjoy it.";
-    addLog(s, "World", text, {
-      kind: "quest",
-      actorId: actor,
-      programId: program.id,
-      program: structuredClone(program),
-      programIndex,
-      ...(questKey ? { questKey } : {}),
-      target,
-      fulfillment,
-      step,
-      level: programIndex + 1 + Number(complete),
-    });
-    if (complete && questKey) {
-      const quest = questRecord(s, questKey);
-      if (quest)
-        completions.push({
-          questKey,
-          capturedSeq,
-          actorId: actor,
-          locationId: fulfillment.location,
-          participants: [actor, ...target.avatars],
-          outcome: "fulfilled",
-        });
-    }
-  }
-  return completions;
+  return advanceQuestPrograms(s, met, {
+    applyConsequence,
+    ensurePrograms,
+    sanctuaries,
+    nameOf,
+    handText,
+    addLog,
+  });
+}
+
+// Accepted speech can reveal a new fact during the same saved turn.
+export function refreshQuestProgress(s) {
+  const met = new Map();
+  captureHands(s, met);
+  publishQuestCompletions(s, advancePrograms(s, met));
 }
 export function addLog(s, speaker, text, detail = {}) {
   const actorId =
