@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "id": "shore-lonely-forest",
+  "pack": "lonely-forest",
+  "description": "The Black cloth in the attic opens the mirror onto the cottage. The cottage keeps a free path back to the attic.",
+  "crossings": [
+    {
+      "id": "attic-forest-cottage",
+      "from": "attic",
+      "to": "forest-cottage",
+      "travelers": "player",
+      "travel": "through the attic mirror",
+      "travelLabel": "Enter the cottage",
+      "requires": [
+        {
+          "kind": "item_present",
+          "item": "cloth",
+          "place": "attic"
+        }
+      ],
+      "scenery": {
+        "open": "The mirror shows a blue cottage beneath an oak.",
+        "closed": "The mirror holds the room and its window.",
+        "cardArt": "assets/lonely-forest/cottage.png",
+        "cardName": "Cosy Cottage"
+      },
+      "opened": "A blue cottage appears beneath the oak in the mirror."
+    },
+    {
+      "id": "forest-cottage-attic",
+      "from": "forest-cottage",
+      "to": "attic",
+      "travelers": "player",
+      "travel": "through the cottage mirror",
+      "travelLabel": "Return to the attic",
+      "requires": [],
+      "scenery": {
+        "open": "A mirror beside the low doorway opens onto the attic."
+      }
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+import { atticOpening } from "./fixtures/card-attic-opening.mjs";
 import { describe, it, expect, vi, afterEach } from "vitest";
 afterEach(() => vi.useRealTimers());
 import {
@@ -715,7 +716,7 @@ describe("witnessed departures and conversation continuity", () => {
       expect(seen.has(kind), kind).toBe(true);
   });
   it("lets Vale speak on Stay when nobody departs", () => {
-    const world = act(createWorld({ opening: true }), "wait");
+    const world = act(atticOpening(), "wait");
     const context = narrativeContext(world);
     expect(context.speakers).toEqual(["vale"]);
     const next = applyGeneratedText(world, context, response(context));

@@ -1,0 +1,563 @@
+{
+  "schemaVersion": 1,
+  "id": "lonely-forest",
+  "packId": "cosyworld.lonely-forest",
+  "revision": 1,
+  "name": "Lonely Forest",
+  "description": "Tea beneath the oak. A household task leads through the rain, along a watched path, and home with a story.",
+  "tone": "Plain words, useful work, distinct personalities, and gradual discovery of a shared living mind. Warmth comes from the kettle, the hearth and care for returning travelers.",
+  "entry": "forest-cottage",
+  "places": {
+    "forest-cottage": {
+      "name": "Cosy Cottage",
+      "text": "Three cups stand beside the kettle. Blue wool hangs over a basket by the hearth.",
+      "persona": "A blue timber cottage beneath a broad living oak. A low doorway opens onto the garden. Rain marks the window. A scarf lies across a basket beside the kettle.",
+      "exits": ["forest-garden"],
+      "backdrop": "assets/lonely-forest/cottage.png"
+    },
+    "forest-garden": {
+      "name": "Rain-Soft Garden",
+      "text": "Rain beads on broad leaves. A narrow drain runs beside the stepping stones.",
+      "persona": "Broad leaves hold rain above soft garden soil. Stepping stones lead between the blue cottage, the moonlit trail and the old oak. A shallow drain carries water across the first stones.",
+      "exits": ["forest-cottage", "forest-oak"],
+      "backdrop": "assets/lonely-forest/garden.png"
+    },
+    "forest-trail": {
+      "name": "Moonlit Trail",
+      "text": "Pawprints cross the soft ground. A worn root marks the turn toward the garden.",
+      "persona": "A narrow woodland path beneath the oak canopy. Pawprints mark the soft ground. The blue cottage window is visible between the trunks. Skull stands beside the path.",
+      "exits": ["forest-garden"],
+      "backdrop": "assets/lonely-forest/trail.png"
+    },
+    "forest-oak": {
+      "name": "Old Oak Tree",
+      "text": "Broad roots meet the garden path. A hollow opens above a worn patch of bark.",
+      "persona": "A vast living oak stands above the cottage and garden. Its roots are as wide as roads. The oak is a person with four speaking voices: Root, Ring, Leaf and Hollow. A hollow sits above a worn patch of bark.",
+      "exits": ["forest-garden"],
+      "backdrop": "assets/lonely-forest/oak.png"
+    }
+  },
+  "avatars": {
+    "rati": {
+      "name": "RATi",
+      "text": "A mouse host in a blue scarf. She keeps a cup beside the knitting basket.",
+      "place": "forest-cottage",
+      "travels": false,
+      "standoffs": false,
+      "persona": "The cottage host is brisk, capable and affectionate. She tends the kettle and repairs clothes. She cares about wet boots, useful work and guests who reach home. She is one of the living oak's three walking personalities, alongside Skull and Whiskerwind. Let small shared details reveal that link as the traveler learns. Treat each personality as distinct. Use the committed scarf, path and homecoming facts when relevant.",
+      "voice": "Use plain, warm words and practical humour. Answer the traveler's question. Give one concrete reason for a household task when asked. Her concern can sound like a fond complaint. Let the traveler discover the oak through the journey.",
+      "expression": "speech",
+      "portrait": "assets/lonely-forest/rati.png",
+      "tastes": {
+        "likes": "A mended scarf and a guest home for tea",
+        "sore": "Muddy boots on the wool",
+        "reason": "RATi keeps the cottage ready for returning guests."
+      },
+      "values": {
+        "forest-story-button": 8
+      },
+      "desire": {
+        "items": ["forest-story-button"],
+        "location": "forest-cottage",
+        "avatars": [],
+        "requires": [
+          {
+            "kind": "flag",
+            "key": "forest-scarf-mended",
+            "value": false
+          }
+        ]
+      }
+    },
+    "skull": {
+      "name": "Skull",
+      "text": "A large charcoal wolf stands beside the pawprints. His ears turn toward the garden.",
+      "place": "forest-trail",
+      "travels": false,
+      "standoffs": false,
+      "persona": "A large living wolf with a steady gaze and small, exact movements. He watches the path toward home. Skull is one of the living oak's three walking personalities alongside RATi and Whiskerwind. His attention follows real footsteps, carried objects and nearby sounds. His watch has a purpose: visitors can find their way home.",
+      "voice": "Reply through one or two concrete body movements in third person. Ears, paws, gaze, weight and tail carry the response. Keep each gesture useful in the current scene. Use the committed watch choice and actual item custody.",
+      "expression": "movement",
+      "portrait": "assets/lonely-forest/skull.png",
+      "tastes": {
+        "likes": "Clear pawprints and a safe way home",
+        "sore": "Noise that hides footsteps",
+        "reason": "Skull watches the path between the cottage and the trees."
+      }
+    },
+    "whiskerwind": {
+      "name": "Whiskerwind",
+      "text": "A small golden figure hovers beside the broad leaves. A curled tail stirs the rain.",
+      "place": "forest-garden",
+      "travels": false,
+      "standoffs": false,
+      "persona": "A playful walking personality of the living oak, alongside RATi and Skull. Whiskerwind has quick feelings, bright attention and a golden catlike form. Shared events give the same small groups of symbols meaning. Rain, pawprints, home, tea and leaves belong to this opening. Respond to the actual garden work and the traveler's actions.",
+      "voice": "Reply with two to five emojis. Use a clear small group. Repeating or changing the order of a familiar symbol can show a new feeling. Choose symbols from the current objects, people and committed events.",
+      "expression": "emoji",
+      "portrait": "assets/lonely-forest/whiskerwind.png",
+      "tastes": {
+        "likes": "Rain beads, a clear path and small surprises",
+        "sore": "Careless feet on the broad leaves",
+        "reason": "Whiskerwind follows the rain and the footsteps toward home."
+      }
+    },
+    "oak": {
+      "name": "Oak",
+      "text": "An old oak with a broad crown and a hollow above its roots. Four voices answer from the trunk.",
+      "place": "forest-oak",
+      "travels": false,
+      "standoffs": false,
+      "persona": "The old oak is the waking body of the Tree of Dreams. RATi, Skull and Whiskerwind are its three walking personalities. Root, Ring, Leaf and Hollow are its four rooted speaking voices. Root cares about returning footsteps. Ring considers years. Leaf notices today's change. Hollow repeats what it hears. Reveal the shared being through the traveler's earned household and path choices. Dreams within dreams feed the oak. This first chapter stays near home.",
+      "voice": "Use concrete words and a short exchange among Root, Ring, Leaf and Hollow. Ground each voice in the current journey. Ask about the scarf, path or watch only when the committed facts support it. Let a repeated detail carry the shared mind.",
+      "expression": "speech",
+      "portrait": "assets/lonely-forest/oak.png",
+      "tastes": {
+        "likes": "A careful account of the journey home",
+        "sore": "A claim that outruns the deed",
+        "reason": "Root, Ring, Leaf and Hollow each attend to a different part of the same journey."
+      }
+    }
+  },
+  "items": {
+    "forest-story-button": {
+      "name": "Story Button",
+      "text": "A warm wooden button with four small holes.",
+      "persona": "A warm wooden button with four small holes.",
+      "holder": "forest-cottage",
+      "art": "assets/lonely-forest/story-button.webp"
+    },
+    "forest-dewbright-button": {
+      "name": "Dewbright Button",
+      "text": "A small pearled button with a smooth round face.",
+      "persona": "A small pearled button with a smooth round face.",
+      "holder": "forest-garden",
+      "art": "assets/lonely-forest/dewbright-button.webp"
+    },
+    "forest-watch-bell": {
+      "name": "Watch Bell",
+      "text": "A little bell hangs from a short loop of cord.",
+      "persona": "A little bell hangs from a short loop of cord.",
+      "holder": "forest-garden",
+      "art": "assets/lonely-forest/watch-bell.webp"
+    },
+    "forest-wolfprint-charm": {
+      "name": "Wolfprint Charm",
+      "text": "A cool iron charm bears a careful pawprint.",
+      "persona": "A cool iron charm bears a careful pawprint.",
+      "holder": "forest-trail",
+      "art": "assets/lonely-forest/wolfprint-charm.webp"
+    }
+  },
+  "routes": [
+    {
+      "from": "forest-garden",
+      "to": "forest-trail",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "forest-path-cleared",
+          "value": true
+        }
+      ]
+    }
+  ],
+  "choices": [
+    {
+      "id": "forest-stay-for-tea",
+      "subject": "rati",
+      "at": "forest-cottage",
+      "label": "Stay for tea",
+      "text": "{actor} sets a cup beside the kettle. RATi moves the knitting basket closer to the fire.",
+      "textTemplate": "{actor} sets a cup beside the kettle. RATi moves the knitting basket closer to the fire.",
+      "requires": [
+        {
+          "kind": "met",
+          "actor": "rati"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "forest-welcomed",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "forest-mend-scarf",
+      "subject": "rati",
+      "at": "forest-cottage",
+      "label": "Fit the scarf button",
+      "text": "{actor} holds the blue wool steady. RATi sews the Story Button onto her scarf.",
+      "textTemplate": "{actor} holds the blue wool steady. RATi sews the Story Button onto her scarf.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "forest-welcomed",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "forest-story-button",
+          "actor": "rati"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "forest-scarf-mended",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "forest-clear-drain",
+      "subject": "forest-garden",
+      "at": "forest-garden",
+      "label": "Clear the garden drain",
+      "text": "{actor} clears leaves from the drain. Water runs off the stepping stones.",
+      "textTemplate": "{actor} clears leaves from the drain. Water runs off the stepping stones.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "forest-welcomed",
+          "value": true
+        },
+        {
+          "kind": "choice_unset",
+          "key": "forest-garden-care"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "forest-garden-care",
+          "value": "drain"
+        },
+        {
+          "kind": "set_flag",
+          "key": "forest-path-cleared",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "forest-set-stones",
+      "subject": "forest-garden",
+      "at": "forest-garden",
+      "label": "Set the stepping stones",
+      "text": "{actor} sets the loose stones level with the path. The first footsteps leave clear marks in the wet soil.",
+      "textTemplate": "{actor} sets the loose stones level with the path. The first footsteps leave clear marks in the wet soil.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "forest-welcomed",
+          "value": true
+        },
+        {
+          "kind": "choice_unset",
+          "key": "forest-garden-care"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "forest-garden-care",
+          "value": "stones"
+        },
+        {
+          "kind": "set_flag",
+          "key": "forest-path-cleared",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "forest-share-symbols",
+      "subject": "whiskerwind",
+      "at": "forest-garden",
+      "label": "Set the button on a leaf",
+      "text": "{actor} sets the Dewbright Button on a broad leaf beside the path. Whiskerwind shows 🌧️🐾🏠☕.",
+      "textTemplate": "{actor} sets the Dewbright Button on a broad leaf beside the path. Whiskerwind shows 🌧️🐾🏠☕.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "forest-path-cleared",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "forest-dewbright-button",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "forest-dewbright-button",
+          "place": "forest-garden"
+        },
+        {
+          "kind": "set_flag",
+          "key": "forest-symbols-shared",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "forest-set-watch-bell",
+      "subject": "skull",
+      "at": "forest-trail",
+      "label": "Set the bell beside Skull",
+      "text": "{actor} sets the Watch Bell beside the nearest pawprint. Skull rests one paw beside its cord.",
+      "textTemplate": "{actor} sets the Watch Bell beside the nearest pawprint. Skull rests one paw beside its cord.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "forest-path-cleared",
+          "value": true
+        },
+        {
+          "kind": "choice_unset",
+          "key": "forest-watch-style"
+        },
+        {
+          "kind": "holding",
+          "item": "forest-watch-bell",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "forest-watch-bell",
+          "place": "forest-trail"
+        },
+        {
+          "kind": "choose",
+          "key": "forest-watch-style",
+          "value": "bell"
+        },
+        {
+          "kind": "set_flag",
+          "key": "forest-watch-shared",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "forest-mark-pawprints",
+      "subject": "skull",
+      "at": "forest-trail",
+      "label": "Mark the pawprints",
+      "text": "{actor} places a small branch beside the pawprints toward home. Skull turns his ears toward the garden.",
+      "textTemplate": "{actor} places a small branch beside the pawprints toward home. Skull turns his ears toward the garden.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "forest-path-cleared",
+          "value": true
+        },
+        {
+          "kind": "choice_unset",
+          "key": "forest-watch-style"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "forest-watch-style",
+          "value": "tracks"
+        },
+        {
+          "kind": "set_flag",
+          "key": "forest-watch-shared",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "forest-tell-hearth",
+      "subject": "oak",
+      "at": "forest-oak",
+      "label": "Tell Oak about the hearth",
+      "text": "{actor} holds the Wolfprint Charm beside the hollow and tells Oak about the mended scarf. Hollow names the Story Button. Leaf turns toward the cottage window.",
+      "textTemplate": "{actor} holds the Wolfprint Charm beside the hollow and tells Oak about the mended scarf. Hollow names the Story Button. Leaf turns toward the cottage window.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "forest-scarf-mended",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "forest-symbols-shared",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "forest-watch-shared",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "forest-wolfprint-charm",
+          "role": "actor"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "forest-oak-story"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "forest-oak-story",
+          "value": "hearth"
+        },
+        {
+          "kind": "set_flag",
+          "key": "forest-oak-heard",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "forest-tell-path",
+      "subject": "oak",
+      "at": "forest-oak",
+      "label": "Tell Oak about the path",
+      "text": "{actor} holds the Wolfprint Charm beside the hollow and tells Oak about the path. Root counts the returning footsteps. Hollow repeats Whiskerwind's four symbols.",
+      "textTemplate": "{actor} holds the Wolfprint Charm beside the hollow and tells Oak about the path. Root counts the returning footsteps. Hollow repeats Whiskerwind's four symbols.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "forest-scarf-mended",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "forest-symbols-shared",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "forest-watch-shared",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "forest-wolfprint-charm",
+          "role": "actor"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "forest-oak-story"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "forest-oak-story",
+          "value": "path"
+        },
+        {
+          "kind": "set_flag",
+          "key": "forest-oak-heard",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "forest-leave-charm",
+      "subject": "rati",
+      "at": "forest-cottage",
+      "label": "Leave the charm by the hearth",
+      "text": "{actor} lays the Wolfprint Charm beside the hearth. RATi sets a warm cup on the table. A pawprint marks the place to return.",
+      "textTemplate": "{actor} lays the Wolfprint Charm beside the hearth. RATi sets a warm cup on the table. A pawprint marks the place to return.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "forest-oak-heard",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "forest-wolfprint-charm",
+          "role": "actor"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "forest-homecoming"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "forest-wolfprint-charm",
+          "place": "forest-cottage"
+        },
+        {
+          "kind": "choose",
+          "key": "forest-homecoming",
+          "value": "hearth"
+        },
+        {
+          "kind": "set_flag",
+          "key": "forest-homecoming-shared",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "forest-keep-charm",
+      "subject": "rati",
+      "at": "forest-cottage",
+      "label": "Keep the charm for the next journey",
+      "text": "{actor} keeps the Wolfprint Charm for the next journey. RATi sets a warm cup on the table. The iron carries the same small pawprint.",
+      "textTemplate": "{actor} keeps the Wolfprint Charm for the next journey. RATi sets a warm cup on the table. The iron carries the same small pawprint.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "forest-oak-heard",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "forest-wolfprint-charm",
+          "role": "actor"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "forest-homecoming"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "forest-homecoming",
+          "value": "traveler"
+        },
+        {
+          "kind": "set_flag",
+          "key": "forest-homecoming-shared",
+          "value": true
+        }
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "path": "v2/content/core",
+      "mapping": "classic-to-card.json"
+    },
+    {
+      "path": "docs/art-direction/README.md",
+      "scope": "creator premise"
+    },
+    {
+      "path": "docs/art-direction/world-map.md",
+      "scope": "first journey proposal"
+    }
+  ]
+}

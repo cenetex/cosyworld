@@ -1,3 +1,4 @@
+import { atticOpening } from "./fixtures/card-attic-opening.mjs";
 import { describe, it, expect } from "vitest";
 import {
   createWorld,
@@ -73,7 +74,7 @@ describe("two carried quests", () => {
     },
   );
   it("offers Drop for the first quest before the first played turn", () => {
-    let w = enableMotives(createWorld({ opening: true }), {
+    let w = enableMotives(atticOpening(), {
       personalQuests: true,
     });
     expect(questCards(w)[0].key).toBe("vale:quest:0");

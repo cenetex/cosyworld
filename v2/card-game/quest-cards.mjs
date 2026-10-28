@@ -61,6 +61,11 @@ export function fulfilledQuests(before, after) {
 
 // Card copy describes a wish. The rules and steps remain in the quest engine.
 const authored = {
+  "shore-light": [
+    "Light by the water",
+    "A little warmth might bring this shore closer.",
+    "lamp",
+  ],
   "first-light": [
     "First light",
     "A little warmth might wake this empty room.",

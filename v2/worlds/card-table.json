@@ -3,14 +3,29 @@
   "description": "The card table's hub and the world packs mounted on it. Black pond is the hub's crossing point; each pack joins it through its own bridge.",
   "hub": {
     "player": "vale",
-    "places": ["station", "attic", "pond"],
-    "avatars": ["vale", "moth", "keeper"],
-    "items": ["lamp", "oil", "bell", "cloth"],
+    "places": [
+      "station",
+      "attic",
+      "pond"
+    ],
+    "avatars": [
+      "vale",
+      "moth",
+      "keeper"
+    ],
+    "items": [
+      "lamp",
+      "oil",
+      "bell",
+      "cloth"
+    ],
     "observations": [
       {
         "id": "lamp-flame",
         "entity": "lamp",
-        "subjects": ["lamp"],
+        "subjects": [
+          "lamp"
+        ],
         "source": {
           "kind": "item_flag",
           "field": "lit"
@@ -53,7 +68,9 @@
       {
         "id": "lamp-cover",
         "entity": "lamp",
-        "subjects": ["lamp"],
+        "subjects": [
+          "lamp"
+        ],
         "source": {
           "kind": "covered"
         },
@@ -61,16 +78,26 @@
           "true": {
             "fact": "The Lamp is covered. Its flame state is recorded separately.",
             "legacyToken": "covered",
-            "claims": ["is covered"]
+            "claims": [
+              "is covered"
+            ]
           },
           "false": {
             "fact": "The Lamp is uncovered.",
             "legacyToken": "uncovered",
-            "claims": ["is uncovered", "is not covered", "isn't covered"]
+            "claims": [
+              "is uncovered",
+              "is not covered",
+              "isn't covered"
+            ]
           }
         }
       }
     ]
   },
-  "packs": ["badger-forest", "greek-drama"]
+  "packs": [
+    "badger-forest",
+    "greek-drama",
+    "lonely-forest"
+  ]
 }

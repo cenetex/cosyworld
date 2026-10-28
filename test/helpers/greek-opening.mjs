@@ -1,3 +1,4 @@
+import { atticOpening } from "../fixtures/card-attic-opening.mjs";
 import { createWorld, legalActions, play } from "../../v2/card-game/world.mjs";
 import { enableMotives } from "../../v2/card-game/motives.mjs";
 import { greekTravelTargets } from "./greek-travel.mjs";
@@ -10,7 +11,7 @@ export function openingFixture(
   branch,
   { water = true, reportFirst = true } = {},
 ) {
-  let world = enableMotives(createWorld({ opening: true }), {
+  let world = enableMotives(atticOpening(), {
     questPrograms: true,
     personalQuests: true,
   });

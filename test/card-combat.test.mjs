@@ -1,3 +1,4 @@
+import { atticOpening } from "./fixtures/card-attic-opening.mjs";
 import { describe, it, expect } from "vitest";
 import {
   createWorld,
@@ -102,7 +103,7 @@ describe("card standoffs", () => {
     expect(s.peaceUntil.vale).toBe(s.turn + 3);
   });
   it("yields in a sealed attic with dropped custody and a valid shared save", () => {
-    const s = createWorld({ opening: true });
+    const s = atticOpening();
     s.turn = s.revision = 1;
     s.sharedVersion = 1;
     s.actors.moth.place = "attic";

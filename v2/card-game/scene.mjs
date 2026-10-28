@@ -16,6 +16,7 @@ import { desireFor, programFor, levelOf, knownActors } from "./quests.mjs";
 import { packPlaces, packPeople } from "./pack-registry.mjs";
 import { variantOf, crossingOpen } from "./pack-rules.mjs";
 import { locationWeather } from "./weather.mjs";
+import { expressionOf } from "./expression.mjs";
 import { daylightBackdrop, locationDaylight } from "./daylight.mjs";
 
 // Pack art lives in the pack's own asset folder and is named by its data.
@@ -651,6 +652,8 @@ export function isSceneText(entry, shared = false) {
   return Boolean(
     entry &&
       (entry.kind === "dialogue" ||
-        (shared && entry.generated === true && entry.kind === "narration")),
+        (entry.generated === true &&
+          entry.kind === "narration" &&
+          (shared || expressionOf(people[entry.actorId]) === "movement"))),
   );
 }

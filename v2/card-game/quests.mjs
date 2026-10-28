@@ -104,6 +104,7 @@ export const knownActors = (s) =>
         s.packs?.[packOf(id).id]?.met?.[id] !== undefined),
   );
 export const programsFor = (s, actor) =>
+  (s.opening?.version === 2 && forest.pondOpeningPrograms[actor]) ||
   (s.opening ? openingPrograms : questPrograms)[actor] || [];
 export const restingHands = {
   ...forest.restingHands,

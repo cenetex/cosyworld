@@ -2,6 +2,8 @@
 // The build script and the browser registry both use this one validator, so
 // an authored pack either loads exactly as checked or does not load at all.
 
+import { EXPRESSION_TYPES } from "./expression.mjs";
+
 export const PACK_SCHEMA_VERSION = 1;
 // Resolved plays a signal step can match. Each is a verb the engine logs.
 export const SIGNAL_VERBS = [
@@ -27,6 +29,7 @@ export const CONDITION_KINDS = [
   "flag",
   "holding",
   "item_at",
+  "item_present",
   "item_near",
   "shared_world",
   "connected_humans",
@@ -429,6 +432,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "standoffs",
         "persona",
         "voice",
+        "expression",
         "tastes",
         "portrait",
         "temperament",
@@ -448,6 +452,10 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         textOk(a.voice) &&
         owns(places, a.place),
       `avatar ${id} needs a name, text, persona, voice and a home place in this pack`,
+    );
+    check(
+      a.expression === undefined || EXPRESSION_TYPES.includes(a.expression),
+      `avatar ${id} expression needs speech, movement or emoji`,
     );
     check(
       [a.travels, a.standoffs].every((v) => v === undefined || v === false) &&
@@ -626,6 +634,12 @@ export function packProblems(pack, hub, mountedPlaces = []) {
           ok =
             keysOk(c, ["kind", "item", "place"]) &&
             owns(items, c.item) &&
+            anyPlace(c.place);
+          break;
+        case "item_present":
+          ok =
+            keysOk(c, ["kind", "item", "place"]) &&
+            (owns(items, c.item) || hub.items.includes(c.item)) &&
             anyPlace(c.place);
           break;
         case "item_at":

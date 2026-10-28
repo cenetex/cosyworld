@@ -1,3 +1,4 @@
+import { atticOpening } from "./fixtures/card-attic-opening.mjs";
 import {
   summonTransport,
   moveTransport,
@@ -35,7 +36,7 @@ import {
 } from "../v2/card-game/narrative.mjs";
 
 function pond({ lit = true, fuel = 12, place = "pond" } = {}) {
-  const s = createWorld({ opening: true });
+  const s = atticOpening();
   s.opening.crossed = true;
   s.opening.met.moth = 0;
   s.locations.attic.anchored = true;
@@ -358,7 +359,7 @@ test("the narration does not expose a partial ritual or claim a ship is present"
 // NPCs can fulfil their own meetings before the player knows the witness.
 import { enableMotives } from "../v2/card-game/motives.mjs";
 test("the ship crossing preserves an NPC receipt for a witness Vale has not met", () => {
-  let s = enableMotives(createWorld({ opening: true }), {
+  let s = enableMotives(atticOpening(), {
     questPrograms: true,
     personalQuests: true,
   });

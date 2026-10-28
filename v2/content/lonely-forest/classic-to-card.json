@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "sourcePack": "cosyworld.core",
+  "targetPack": "cosyworld.lonely-forest",
+  "places": {
+    "1": "forest-cottage",
+    "2": "forest-garden",
+    "3": "forest-trail",
+    "40": "forest-oak"
+  },
+  "avatars": {
+    "1001": "rati",
+    "1002": "whiskerwind",
+    "1003": "skull",
+    "1005": "oak"
+  },
+  "items": {
+    "2005": "forest-story-button",
+    "2002": "forest-dewbright-button",
+    "2007": "forest-watch-bell",
+    "2003": "forest-wolfprint-charm"
+  },
+  "adaptations": [
+    "Whiskerwind is the creator name for source actor 1002, named Gust in classic actor data.",
+    "The opening uses card choices and household care. The source evolution and combat rules retain their classic scope.",
+    "The garden drain and stepping stones adapt the source garden job to two saved choices.",
+    "The oak reveals the shared mind through a repeated household or path detail.",
+    "Each journey keeps a free cottage-to-attic return."
+  ]
+}

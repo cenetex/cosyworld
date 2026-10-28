@@ -1,3 +1,8 @@
+import {
+  FOREST_QUEST_CARDS,
+  forestDefinitions,
+  forestRelated,
+} from "./forest-quests.mjs";
 import { carryQuest } from "./quest-hands.mjs";
 import { packDefinition } from "./pack-registry.mjs";
 import {
@@ -21,6 +26,7 @@ export const STORY_QUEST_CARDS = [
   "story-quest-greek-courtyard",
   ...OPEN_DOOR_QUEST_CARDS,
   ...HOMECOMING_QUEST_CARDS,
+  ...FOREST_QUEST_CARDS,
 ];
 const lines = [
   "A place beside the bread.",
@@ -35,7 +41,7 @@ const holders = [
 
 export function storyDefinitions(world, history = false) {
   const state = world.packs?.["greek-drama"];
-  if (!state) return [];
+  if (!state) return forestDefinitions(world);
   const flags = state.flags || {},
     met = state.met || {},
     receipts = state.receipts || {};
@@ -138,10 +144,13 @@ export function storyDefinitions(world, history = false) {
     ...cards,
     ...openDoorDefinitions(world),
     ...homecomingDefinitions(world),
+    ...forestDefinitions(world),
   ];
 }
 
 const related = (definition, event) => {
+  if (definition.packId === "lonely-forest")
+    return forestRelated(definition, event);
   if (event.packId !== "greek-drama" || !event.choiceId) return false;
   if (HOMECOMING_QUEST_CARDS.includes(definition.id))
     return homecomingRelated(definition, event);
@@ -166,6 +175,7 @@ const related = (definition, event) => {
 // Saved action authors identify who discovered or contributed to a story card.
 // A viewer and a global meeting flag carry no personal participation evidence.
 export function storyActors(world, definition) {
+  const packId = definition.packId || "greek-drama";
   const events = (world.log || []).filter((event) =>
     related(definition, event),
   );
@@ -174,7 +184,7 @@ export function storyActors(world, definition) {
       (event) =>
         event.kind === "action" &&
         event.turn === definition.createdTurn &&
-        (event.packId === "greek-drama" ||
+        (event.packId === packId ||
           event.cast?.includes(definition.holder.id) ||
           (definition.holder.kind === "place" &&
             event.locationId === definition.holder.id)),
@@ -182,7 +192,7 @@ export function storyActors(world, definition) {
     .sort((a, b) => a.seq - b.seq)[0];
   if (discovery) events.push(discovery);
   const knownAuthor =
-    world.packs?.["greek-drama"]?.recitals?.[definition.choiceId]?.actor;
+    world.packs?.[packId]?.recitals?.[definition.choiceId]?.actor;
   return [
     ...new Set(
       [...events.map((event) => event.actorId), knownAuthor].filter(
@@ -199,8 +209,8 @@ export function syncStoryQuests(world, actorId = null) {
   if (!definitions.length) return [];
   const registry = installSharedQuestRegistry(world),
     completions = [];
-  const state = world.packs["greek-drama"];
   for (const definition of definitions) {
+    const state = world.packs[definition.packId || "greek-drama"];
     let quest = registry.records[definition.key];
     const created = !quest;
     if (!quest) {
@@ -292,7 +302,9 @@ export function validStoryQuest(world, quest) {
       !quest.retired &&
       quest.completedTurn ===
         (definition.resolved
-          ? world.packs["greek-drama"].receipts[definition.choiceId]
+          ? world.packs[definition.packId || "greek-drama"].receipts[
+              definition.choiceId
+            ]
           : null) &&
       (!quest.completion ||
         quest.completion.outcome === definition.completion.toLowerCase()),

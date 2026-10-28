@@ -13,7 +13,9 @@ import { enableMotives, recordReaction } from "../v2/card-game/motives.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { humanAvatars, humanAvatarIds } from "../v2/card-game/human-cast.mjs";
 
-const opening = () => createWorld({ opening: true });
+import { atticOpening } from "./fixtures/card-attic-opening.mjs";
+
+const opening = atticOpening;
 const view = (world, actor, present = humanAvatarIds) =>
   dispatchShared({
     op: "view",
@@ -38,23 +40,23 @@ describe("a path out of a stranded home", () => {
       expect(placeText(s, "attic")).not.toContain("narrow path");
     }
   });
-  it("offers the station after fuel runs dry and survives a solo save", () => {
+  it("offers the pond after fuel runs dry and survives a solo save", () => {
     let s = opening();
     s.items.lamp.fuel = 0;
     s.items.lamp.lit = false;
     s = decodeSave(encodeSave(s));
-    expect(exits(s, "attic", "vale")).toEqual(["station"]);
+    expect(exits(s, "attic", "vale")).toEqual(["pond"]);
     expect(placeText(s, "attic")).toContain(
-      "A narrow path leads to Empty station.",
+      "A narrow path leads to Black pond.",
     );
-    const result = play(s, move(s, "vale", "station"));
+    const result = play(s, move(s, "vale", "pond"));
     expect(result.ok).toBe(true);
-    expect(result.state.actors.vale.place).toBe("station");
+    expect(result.state.actors.vale.place).toBe("pond");
     expect(result.state.items.lamp.fuel).toBe(0);
     const restored = decodeSave(encodeSave(result.state));
-    const continued = play(restored, move(restored, "vale", "pond"));
+    const continued = play(restored, move(restored, "vale", "station"));
     expect(continued.ok).toBe(true);
-    expect(continued.state.actors.vale.place).toBe("pond");
+    expect(continued.state.actors.vale.place).toBe("station");
     expect(() => decodeSave(encodeSave(continued.state))).not.toThrow();
   });
   it("keeps local usable oil as recovery and spends it through the ordinary action", () => {
@@ -66,7 +68,7 @@ describe("a path out of a stranded home", () => {
     expect(refill).toBeDefined();
     expect(play(s, refill).state.items.lamp.fuel).toBeGreaterThan(0);
     s.items.oil.doses = 0;
-    expect(exits(s, "attic", "vale")).toEqual(["station"]);
+    expect(exits(s, "attic", "vale")).toEqual(["pond"]);
   });
   it("uses local floor and nested resources while distant resources leave a path", () => {
     const s = opening();
@@ -75,10 +77,10 @@ describe("a path out of a stranded home", () => {
     s.items.cloth.holder = "lamp";
     expect(exits(s, "attic", "vale")).toEqual([]);
     s.items.oil.holder = "station";
-    expect(exits(s, "attic", "vale")).toEqual(["station"]);
+    expect(exits(s, "attic", "vale")).toEqual(["pond"]);
     s.items.lamp.holder = "station";
     s.items.lamp.fuel = 8;
-    expect(exits(s, "attic", "vale")).toEqual(["station"]);
+    expect(exits(s, "attic", "vale")).toEqual(["pond"]);
   });
   it.each(humanAvatars.filter((a) => a.id !== "vale"))(
     "uses the same rule in $name's home",
@@ -89,9 +91,9 @@ describe("a path out of a stranded home", () => {
       expect(view(w, avatar.id).exits).toEqual([]);
       w.items[item].holder = "station";
       const stranded = view(w, avatar.id);
-      expect(stranded.exits).toEqual(["station"]);
+      expect(stranded.exits).toEqual(["pond"]);
       const action = stranded.actions.find(
-        (a) => a.kind === "move" && a.target === "station",
+        (a) => a.kind === "move" && a.target === "pond",
       );
       const result = dispatchShared({
         op: "play",
@@ -102,7 +104,7 @@ describe("a path out of a stranded home", () => {
         action,
       });
       expect(result.ok).toBe(true);
-      expect(result.world.actors[avatar.id].place).toBe("station");
+      expect(result.world.actors[avatar.id].place).toBe("pond");
       expect(result.world.items[item].holder).toBe("station");
       w.items[item].holder = home;
       expect(view(w, avatar.id).exits).toEqual([]);
@@ -117,24 +119,24 @@ describe("a path out of a stranded home", () => {
           avatar.id,
           humanAvatarIds.filter((a) => a !== "vale"),
         ).exits,
-      ).toEqual(["station"]);
+      ).toEqual(["pond"]);
       w.actors.vale.place = "pond";
-      expect(view(w, avatar.id).exits).toEqual(["station"]);
+      expect(view(w, avatar.id).exits).toEqual(["pond"]);
     },
   );
   it("counts present helpers' lamp and oil and keeps absence meaningful", () => {
-    const w = dispatchShared({ op: "create" }).world;
+    const w = dispatchShared({ op: "create", save: encodeSave(opening()) }).world;
     w.actors.mara.place = "attic";
     w.items.lamp.fuel = 0;
     w.items.oil.holder = "mara";
     expect(view(w, "vale").exits).toEqual([]);
-    expect(view(w, "vale", ["vale"]).exits).toEqual(["station"]);
+    expect(view(w, "vale", ["vale"]).exits).toEqual(["pond"]);
     w.items.oil.holder = "attic";
     w.items.lamp.holder = "mara";
     expect(view(w, "vale").exits).toEqual([]);
-    expect(view(w, "vale", ["vale"]).exits).toEqual(["station"]);
+    expect(view(w, "vale", ["vale"]).exits).toEqual(["pond"]);
   });
-  it("keeps crowding as a wait and respects station capacity", () => {
+  it("keeps crowding as a wait and respects pond capacity", () => {
     const w = shared();
     const a = humanAvatars[1];
     w.items[a.item.id].holder = a.id;
@@ -143,10 +145,10 @@ describe("a path out of a stranded home", () => {
     expect(view(w, a.id).exits).toEqual([]);
     w.items[a.item.id].holder = "attic";
     for (const id of ["vale", "ash", "nell", "tavi"])
-      w.actors[id].place = "station";
+      w.actors[id].place = "pond";
     expect(view(w, a.id).exits).toEqual([]);
-    w.actors.tavi.place = "pond";
-    expect(view(w, a.id).exits).toEqual(["station"]);
+    w.actors.tavi.place = "station";
+    expect(view(w, a.id).exits).toEqual(["pond"]);
   });
   it("keeps accepted resident gifts and trades as real recovery routes", () => {
     for (const kind of ["ask", "trade"]) {
@@ -186,12 +188,12 @@ describe("a path out of a stranded home", () => {
         (a) => a.kind === "trade" && a.receive === "lamp",
       ),
     ).toBe(false);
-    expect(exits(refused, "attic", "vale")).toEqual(["station"]);
+    expect(exits(refused, "attic", "vale")).toEqual(["pond"]);
   });
   it("offers rescue only for the human who stands in the queried home", () => {
     const s = opening();
     s.items.lamp.fuel = 0;
-    expect(exits(s, "attic", "vale")).toEqual(["station"]);
+    expect(exits(s, "attic", "vale")).toEqual(["pond"]);
     s.actors.vale.place = "station";
     expect(exits(s, "attic", "vale")).toEqual([]);
     expect(placeText(s, "attic")).not.toContain("narrow path");
@@ -201,6 +203,6 @@ describe("a path out of a stranded home", () => {
     s.items.lamp.fuel = 0;
     expect(exits(s, "attic", "moth")).toEqual([]);
     expect(exits(s, "pond", "vale")).toEqual(["station"]);
-    expect(move(s, "vale", "pond")).toBeUndefined();
+    expect(move(s, "vale", "pond")).toBeDefined();
   });
 });

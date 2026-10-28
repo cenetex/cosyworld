@@ -169,7 +169,13 @@ export const packProfiles = Object.fromEntries([
   ]),
   ...Object.entries(packPeople).map(([id, a]) => [
     id,
-    { kind: "avatar", name: a.name, persona: a.persona, voice: a.voice },
+    {
+      kind: "avatar",
+      name: a.name,
+      persona: a.persona,
+      voice: a.voice,
+      ...(a.expression ? { expression: a.expression } : {}),
+    },
   ]),
 ]);
 
