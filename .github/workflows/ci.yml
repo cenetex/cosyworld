@@ -363,6 +363,8 @@ jobs:
             output/badger-check/*.png
             output/theban-scenery/*.png
             output/theban-scenery/*.json
+            output/card-weather/*.png
+            output/card-weather/*.json
             output/image-first/*.png
             output/card-toolbar/*.png
             output/image-first/*.json
