@@ -112,9 +112,9 @@ fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
                     upgraded.game["actors"].as_object().unwrap().len(),
                     old.game["actors"].as_object().unwrap().len()
                         + if version == engine::ELEVENTH_VERSION {
-                            1
+                            2
                         } else {
-                            9
+                            10
                         }
                 );
                 assert_eq!(
