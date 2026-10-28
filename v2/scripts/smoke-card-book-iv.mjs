@@ -4,6 +4,7 @@ import { pathToFileURL } from "node:url";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { encodeSave, legalActions } from "../card-game/world.mjs";
+import { packDefinition } from "../card-game/pack-registry.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
 import {
@@ -28,9 +29,12 @@ export async function checkBookIV(browser, origin) {
     new URL("../../output/book-iv/", import.meta.url).pathname;
   await mkdir(output, { recursive: true });
   const selected = process.env.COSYWORLD_BOOK_IV_CHAPTERS?.split(",");
+  const selectedRoutes = process.env.COSYWORLD_BOOK_IV_ROUTES?.split(",");
   for (const [chapter, [journey, routes]] of Object.entries(chapters)) {
     if (selected && !selected.includes(chapter)) continue;
     for (const route of routes) {
+      if (selectedRoutes && !selectedRoutes.includes(`${chapter}:${route}`))
+        continue;
       const trace = traceIV(journey, route);
       for (const width of [1440, 390]) {
         const page = await browser.newPage({
@@ -115,7 +119,26 @@ export async function checkBookIV(browser, origin) {
                 (i) => i.complete && i.naturalWidth > 0,
               ),
             );
-            const here = (await state()).actors.vale.place;
+            const saved = await state();
+            const here = saved.actors.vale.place;
+            for (const [id, role] of Object.entries(
+              packDefinition("greek-drama").avatars,
+            )) {
+              if (
+                !role.retireAfter ||
+                !saved.packs["greek-drama"].receipts[role.retireAfter] ||
+                saved.actors[id].place !== here
+              )
+                continue;
+              await page.waitForFunction(
+                (id) =>
+                  !document.querySelector(
+                    `#hand [data-card="${id}"], #cast [data-avatar="${id}"]`,
+                  ),
+                id,
+                { timeout: 5000 },
+              );
+            }
             if (
               (here.startsWith("greek-book-iv-") ||
                 [
@@ -156,6 +179,8 @@ export async function checkBookIV(browser, origin) {
             const cards = action.cards?.length
               ? action.cards
               : [action.item || action.target || "vale"];
+            if (kind === "drop" && !cards.includes(action.target))
+              cards.push(action.target);
             for (const id of [...new Set(cards)])
               await selectCard(page, id, { touch: width === 390 });
             const selector = fields.choiceId
