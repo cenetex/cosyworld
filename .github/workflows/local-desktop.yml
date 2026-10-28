@@ -116,6 +116,8 @@ jobs:
           "$voice" --model nano --model-dir "$RUNNER_TEMP/cosy-nano" --voices "$refs" --cache-dir "$RUNNER_TEMP/cosy-clips" --device cpu --smoke-voice "$RUNNER_TEMP/cosy-voice.wav"
           python -c 'import os,wave; f=wave.open(os.environ["RUNNER_TEMP"]+"/cosy-voice.wav"); assert f.getnframes()>f.getframerate()'
       - name: Check the packaged game and file recovery in a browser
+        env:
+          GGML_METAL_DEVICES: "0"
         run: |
           npx playwright install chromium
           python v2/local/prepare.py --model gemma3:1b --directory "$RUNNER_TEMP/cosy-dialogue"
