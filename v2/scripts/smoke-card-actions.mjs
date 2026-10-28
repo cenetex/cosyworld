@@ -136,9 +136,9 @@ try {
     const labels = () => page.locator("#card-actions button").allTextContents();
     const shot = async (name) => {
       await page.waitForFunction(() =>
-        [...document.images].every(
-          (image) => image.complete && image.naturalWidth > 0,
-        ),
+        [...document.images]
+          .filter((image) => image.getClientRects().length > 0)
+          .every((image) => image.complete && image.naturalWidth > 0),
       );
       await page.screenshot({
         path: new URL(`${name}-${width}.png`, output).pathname,

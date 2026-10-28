@@ -73,7 +73,11 @@ try {
   };
   const decode = () =>
     page.evaluate(() =>
-      Promise.all([...document.images].map((image) => image.decode())),
+      Promise.all(
+        [...document.images]
+          .filter((image) => image.getClientRects().length > 0)
+          .map((image) => image.decode()),
+      ),
     );
   await mkdir("output/badger-check", { recursive: true });
   await page.goto(`${origin}/?table=badger-check`);
