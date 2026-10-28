@@ -126,29 +126,16 @@ try {
       await step("move", target);
       const road = packDefinition("greek-drama").places[target]?.road;
       if (road) {
-        assert.deepEqual(
-          await page
-            .locator("#road-ends button")
-            .evaluateAll((buttons) =>
-              buttons.map((b) => b.dataset.destination),
-            ),
-          road,
-        );
-        const boxes = await page
-          .locator("#road-ends button")
-          .evaluateAll((buttons) =>
-            buttons.map((b) => {
-              const r = b.getBoundingClientRect();
-              return {
-                left: r.left,
-                right: r.right,
-                top: r.top,
-                bottom: r.bottom,
-              };
-            }),
+        const ends = await page
+          .locator("#hand [data-card]")
+          .evaluateAll(
+            (cards, road) =>
+              cards
+                .map((card) => card.dataset.card)
+                .filter((id) => road.includes(id)),
+            road,
           );
-        assert.ok(boxes[0].right < boxes[1].left);
-        assert.ok(boxes.every((b) => b.left >= 0 && b.right <= width));
+        assert.deepEqual(ends, road);
       }
       if (
         [
@@ -159,7 +146,7 @@ try {
         ].includes(target)
       ) {
         await page.waitForFunction(() =>
-          [...document.querySelectorAll("#backdrop,#road-ends img")].every(
+          [...document.querySelectorAll("#backdrop")].every(
             (img) => img.complete && img.naturalWidth > 0,
           ),
         );
@@ -176,9 +163,7 @@ try {
           (await state()).actors.vale.place,
           before.actors.vale.place,
         );
-        await page
-          .locator('#road-ends [data-destination="greek-athens"]')
-          .click();
+        await selectCard(page, "greek-athens", { touch: width === 390 });
         assert.equal(
           await page
             .locator('#hand [data-card="greek-athens"]')

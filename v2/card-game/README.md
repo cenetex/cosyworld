@@ -165,13 +165,13 @@ roads for every traveler in the shared world. Athens Harbor and Piraeus join
 the ship’s stops. Athens Harbor has a road inland to the grand Agora.
 
 Nine shared road scenes connect the region. Each road has two fixed ends,
-shown on the left and right of its scene. Its entry card names the place ahead.
+shown by destination cards in a fixed order. Its entry card names the place ahead.
 Travelers can meet, wait and carry objects on the road. Myrine’s coast walk
 passes through the same road scene in two Accompany plays.
 
 Run `npm run v2:card:travel:smoke` for desktop and phone trips through Athens
 Harbor, the harbor road, the Agora, Piraeus and the return to Dione. The check
-also tests both road-end buttons, a reload on the road and waiting for the ship.
+also tests the destination cards, a reload on the road and waiting for the ship.
 
 At an open port, Wait lets the empty ship continue its circuit. Resident
 passengers use the same vessel. The first human passenger ashore chooses the
