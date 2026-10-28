@@ -89,5 +89,8 @@ images, original file hashes and transparency checks are recorded in the
 [court cast provenance](../../card-game/assets/greek-drama/house-of-blood/court-cast-provenance.json)
 and [witness cast provenance](../../card-game/assets/greek-drama/house-of-blood/witness-cast-provenance.json),
 with the final six in the [Delphi and Tauris provenance](../../card-game/assets/greek-drama/house-of-blood/sacred-cast-provenance.json).
-Objects and scenery use the existing Greek art
-credited above. The fixed art queue is in `HOUSE-OF-BLOOD-ART.json`.
+Eight generated scenery files cover the three new places by day and night,
+including both Tauris ship-at-berth views. Their complete prompts, references
+and native file hashes are in the [scene provenance](../../card-game/assets/greek-drama/house-of-blood/scene-provenance.json).
+Objects use the existing Greek art credited above. The fixed art queue is in
+`HOUSE-OF-BLOOD-ART.json`.

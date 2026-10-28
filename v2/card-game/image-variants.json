@@ -364,6 +364,20 @@
       "card": "assets/optimized/card/webp/greek-drama/harbor-ship-at-berth.webp",
       "cardHash": "c2810e0b0d9e960c6501fa7744d8201de052b4f370c03ae363c00001ba43dd0b"
     },
+    "assets/greek-drama/house-of-blood/ares-hill-scene-night.png": {
+      "sourceHash": "0a692715fa1ba85cf41ff57b040dd76cff6dd3d4f88138f115df6078d69c21f8",
+      "stage": "assets/optimized/stage/png/greek-drama/house-of-blood/ares-hill-scene-night.webp",
+      "stageHash": "77a683aeccb037b8f2a6730cf15f5dda80c20a691d1b77e4b42f467b8ce8f65c",
+      "card": "assets/optimized/card/png/greek-drama/house-of-blood/ares-hill-scene-night.webp",
+      "cardHash": "d89a5b6d8e1f363fa8d153df7f3f304a9a52789ab1eb183f1d3ecf41e5dc358c"
+    },
+    "assets/greek-drama/house-of-blood/ares-hill-scene.png": {
+      "sourceHash": "f6d91f48404b05d66fc25dfcb70d3a5efd2310fb0fc76afcd43e53dda56eed3b",
+      "stage": "assets/optimized/stage/png/greek-drama/house-of-blood/ares-hill-scene.webp",
+      "stageHash": "66eb2db2f0cc8e2b662d37928182199d886f322bbcd464757c857a437f6d5c2d",
+      "card": "assets/optimized/card/png/greek-drama/house-of-blood/ares-hill-scene.webp",
+      "cardHash": "509fbdc65ae3cc76c809466c4e58040fba6ed0556b0250ce60f92e0c16c5134c"
+    },
     "assets/greek-drama/house-of-blood/argive-farmer.png": {
       "sourceHash": "69ed6bd0e8f5d86bc6bb1885633a6ad2c89dd0f4d09b03b7c0af401f13b1b0e7",
       "stage": "assets/optimized/stage/png/greek-drama/house-of-blood/argive-farmer.webp",
@@ -377,6 +391,20 @@
       "stageHash": "864b67575602d6eab34c7125b0bb8fa7e27fc0c10f9153925d6e2abab6ff4676",
       "card": "assets/optimized/card/png/greek-drama/house-of-blood/argos-housekeeper.webp",
       "cardHash": "aa6a1b58477a0fa39521fb672fd12a5178081490384e9d82350380617d73e175"
+    },
+    "assets/greek-drama/house-of-blood/argos-refuge-scene-night.png": {
+      "sourceHash": "881338b67464e24fd54feb1fd930a50ce75732590b80cb28b3f581c99d3c92b5",
+      "stage": "assets/optimized/stage/png/greek-drama/house-of-blood/argos-refuge-scene-night.webp",
+      "stageHash": "1e2d5d2e1dcf4a8de595a14584d8ee7ab6de333943565acfb204e939909f42a8",
+      "card": "assets/optimized/card/png/greek-drama/house-of-blood/argos-refuge-scene-night.webp",
+      "cardHash": "b43127e22f98de68b1081a5de23e626c2fc3138754a1dd35f8dc342a33cb5a11"
+    },
+    "assets/greek-drama/house-of-blood/argos-refuge-scene.png": {
+      "sourceHash": "9bdc83e7bc726c2e623facb1aa202f1463bd289142ddde3376f53e511160fed9",
+      "stage": "assets/optimized/stage/png/greek-drama/house-of-blood/argos-refuge-scene.webp",
+      "stageHash": "35d84f7338509976f518fcb2d46cd09ff5d453cbb4268b8e0885b49dc67aaf07",
+      "card": "assets/optimized/card/png/greek-drama/house-of-blood/argos-refuge-scene.webp",
+      "cardHash": "0369018bcde0d003c0b50c559c96d7d1ea1604550a8c11eae75810a2c5c2cfd5"
     },
     "assets/greek-drama/house-of-blood/argos-watchman.png": {
       "sourceHash": "9cc88c785bc9bc3a6bcf1b9a73a9e17d52a04cd9163880f136763e4574e261d4",
@@ -482,6 +510,34 @@
       "stageHash": "d1361b9aa139626c9660b62e61e7957117a05476089982cae5c4773b7877a8ee",
       "card": "assets/optimized/card/png/greek-drama/house-of-blood/taurian-chorus.webp",
       "cardHash": "62125e4a57b449d079ca50d6a5ed9ae9fc4f9549c752b297105590fed199a122"
+    },
+    "assets/greek-drama/house-of-blood/tauris-shore-scene-night.png": {
+      "sourceHash": "8ff5813689e72315c3ba8fc0fcd7ce75381fbb167b8f6ae4beec56a93451a1c3",
+      "stage": "assets/optimized/stage/png/greek-drama/house-of-blood/tauris-shore-scene-night.webp",
+      "stageHash": "a0fd8955f1b445702668b97122d54a4f59e993e76817e6efc8bb4ee51ac5d899",
+      "card": "assets/optimized/card/png/greek-drama/house-of-blood/tauris-shore-scene-night.webp",
+      "cardHash": "23cffc7a2c4cfbb0f8d5a584b59b0c62f363a57cc7025f13dabac042bd3064e5"
+    },
+    "assets/greek-drama/house-of-blood/tauris-shore-scene.png": {
+      "sourceHash": "a8203a1f919fbd843e1f6ea6425c04dfa54988da8a98a148126c77ffc1c2d8cd",
+      "stage": "assets/optimized/stage/png/greek-drama/house-of-blood/tauris-shore-scene.webp",
+      "stageHash": "538f890fc6c131a9033581c7b834dcf986b6f48436a47caa65ec2532c0a2e4f7",
+      "card": "assets/optimized/card/png/greek-drama/house-of-blood/tauris-shore-scene.webp",
+      "cardHash": "9bc797c7ba64855f602ca5d4e53319998fe250fc140457b6a3c7f7ed22aacdc0"
+    },
+    "assets/greek-drama/house-of-blood/tauris-shore-ship-at-berth-night.png": {
+      "sourceHash": "df65995ac8c939c989caa95b9d74c30032a56114546e7d8b5f5e1c92cf6159c6",
+      "stage": "assets/optimized/stage/png/greek-drama/house-of-blood/tauris-shore-ship-at-berth-night.webp",
+      "stageHash": "3ed4936ffc66a4eb369e0cefac902d82dd5a93558883bc5d389b3e280adc9b71",
+      "card": "assets/optimized/card/png/greek-drama/house-of-blood/tauris-shore-ship-at-berth-night.webp",
+      "cardHash": "635e42d5a5adfde197cc98d07308797fed29f739cd792374e4c8c386cc14a15e"
+    },
+    "assets/greek-drama/house-of-blood/tauris-shore-ship-at-berth.png": {
+      "sourceHash": "d5eb29fc0fd8eab0c63f5c1a0b3d5ba2eabaecf75d20613ce99d6322821999b6",
+      "stage": "assets/optimized/stage/png/greek-drama/house-of-blood/tauris-shore-ship-at-berth.webp",
+      "stageHash": "b72c04c29fe05b4a6f1974b0715f585df7586509c0586f3f78da57f25e97a160",
+      "card": "assets/optimized/card/png/greek-drama/house-of-blood/tauris-shore-ship-at-berth.webp",
+      "cardHash": "3ef37b884a3426c902c7c1a2058daa8b78c1e91671cf8d8e8aa1dc14e58eb592"
     },
     "assets/greek-drama/house-of-blood/thoas.png": {
       "sourceHash": "dfdebedd153059fde2c627ddc9d1684961a4cacd305abdaad557ae0ea8aafc1e",

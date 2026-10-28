@@ -97,10 +97,13 @@ stage image and a smaller card image from each original.
 The source catalog compiles into `v2/card-game/packs.json`. The current rules
 21 interpreter and Rust card assets are generated from this source.
 [HOUSE-OF-BLOOD-ART.json](HOUSE-OF-BLOOD-ART.json) keeps the fixed queue of
-18 portrait files for the 20 roles and three scenery locations. The separate
-art handoff adds day and night views for each location and both ship views
-at Tauris. Objects and scenery use the existing Greek art while the eight
-scene files are prepared.
+18 portrait files for the 20 roles and three scenery locations. Eight native
+scene files from PR #1289 at `3d9d1a94b9d0c41ad9993dc7b28f2f1634f31289`
+cover Ares Hill, the Argive Refuge and the Taurian Shore by day and night,
+plus both ship-at-berth views. The three places follow the saved world clock
+and use their own place words. The occupied Tauris day image maps to its
+occupied night image. Both files are public for the combined ship crossing.
+Objects use the existing Greek art.
 The local temple/shore walk remains part of the Tauris chapter. The combined
 ship map will bind its landing to `greek-tauris-shore` and replace this draft
 branch's Piraeus/temple entry edge.
@@ -122,13 +125,15 @@ dialogue and verse are original paraphrases.
 
 - `node v2/scripts/build-card-worldpacks.mjs` — passed.
 - `node v2/scripts/build-card-shared-engine.mjs` — rebuilt rules 21.
-- `node v2/scripts/build-card-assets.mjs` — rebuilt 718 card assets.
-- `node v2/scripts/build-card-images.mjs --check` — all 214 image sources passed, including exact transparency checks for the eighteen new portraits and their display copies.
+- `node v2/scripts/build-card-assets.mjs` — rebuilt 742 card assets.
+- `node v2/scripts/build-card-images.mjs --check` — all 222 image sources passed, including exact transparency checks for the eighteen new portraits and their display copies, plus all eight scene sources.
 - `node node_modules/vitest/vitest.mjs run test/card-packs.test.mjs test/card-portrait-facing.test.mjs --maxWorkers=1 --minWorkers=1` — 29 passed. Chapter media paths stay inside their own pack folder.
 - `node node_modules/vitest/vitest.mjs run test/card-greek-house-of-blood.test.mjs --maxWorkers=1 --minWorkers=1` — 40 passed. These include all 21 endings and returns, six engine-20 household saves, actual arrival and custody, separate assent, first meeting authorship, second carrier publication, stable shared actor ordering and seven bundled-interpreter comparisons.
 - Targeted historical save cases in the Ajax, capacity, section-upgrade and travel test files — 11 passed.
 - `node v2/scripts/smoke-card-house-of-blood.mjs` — refuge and keeper paths passed at 1440px and 390px, with actual card pairing, published Talk, carried return, reload, viewport fit and loaded art.
 - A separate browser art check selected all twenty roles at 1440px and 390px. All 40 portrait bindings loaded, each page fit its viewport, and browser and asset errors stayed at zero. Screenshots cover the ten locations used by the three portrait batches.
+- `node node_modules/vitest/vitest.mjs run test/card-daylight.test.mjs test/card-greek-house-of-blood-art.test.mjs --maxWorkers=1 --minWorkers=1` — 13 passed. These cover accepted clock turns, saved scene reload, place facts, occupied day/night mapping, all eight native hashes and all published image copies. The latest focused run passed 82 tests across these files and the three pack, portrait and Book V files above.
+- `node v2/scripts/smoke-card-house-of-blood-art.mjs` — twelve saved-game scenes and four occupied-ship art previews passed at 1440px and 390px, with loaded art, viewport fit and zero browser or asset errors. The combined ship tests own actual dock selection.
 - `git diff --check` — passed.
 
 The native journal test is in `house_of_blood_tests.rs`. It covers the agreed

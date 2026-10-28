@@ -3174,7 +3174,7 @@
             exits: [
               "greek-athens"
             ],
-            backdrop: "assets/greek-drama/palace.svg"
+            backdrop: "assets/greek-drama/house-of-blood/ares-hill-scene.png"
           },
           "greek-argos-refuge": {
             name: "Argive Refuge",
@@ -3183,7 +3183,7 @@
             exits: [
               "greek-argolid-road"
             ],
-            backdrop: "assets/greek-drama/courtyard.svg"
+            backdrop: "assets/greek-drama/house-of-blood/argos-refuge-scene.png"
           },
           "greek-tauris-shore": {
             name: "Taurian Shore",
@@ -3192,7 +3192,7 @@
             exits: [
               "greek-tauris"
             ],
-            backdrop: "assets/greek-drama/harbor.svg"
+            backdrop: "assets/greek-drama/house-of-blood/tauris-shore-scene.png"
           }
         },
         avatars: {
@@ -31175,6 +31175,12 @@
   // v2/card-game/daylight.mjs
   var DAYLIGHT_TURNS = 24;
   var art = (file) => `assets/greek-drama/${file}.webp`;
+  var houseArt = (file) => `assets/greek-drama/house-of-blood/${file}.png`;
+  var housePlaceWords = {
+    "greek-ares-hill": "on Ares Hill",
+    "greek-argos-refuge": "at the Argive Refuge",
+    "greek-tauris-shore": "on the Taurian Shore"
+  };
   var nightBackdrops = {
     "greek-harbor": art("harbor-open-berth-night"),
     "greek-courtyard": art("courtyard-night"),
@@ -31189,16 +31195,23 @@
     "greek-greek-camp": art("ajax-camp-night"),
     "greek-ajax-landing": art("ajax-camp-night"),
     "greek-ajax-household": art("ajax-camp-night"),
-    "greek-ajax-grave": art("ajax-camp-night")
+    "greek-ajax-grave": art("ajax-camp-night"),
+    "greek-ares-hill": houseArt("ares-hill-scene-night"),
+    "greek-argos-refuge": houseArt("argos-refuge-scene-night"),
+    "greek-tauris-shore": houseArt("tauris-shore-scene-night")
   };
   var dockedNightBackdrops = {
     [art("harbor-ship-at-berth")]: art("harbor-ship-at-berth-night"),
     [art("athens-harbor")]: art("athens-harbor-ship-at-berth-night"),
-    [art("open-door-piraeus")]: art("piraeus-ship-at-berth-night")
+    [art("open-door-piraeus")]: art("piraeus-ship-at-berth-night"),
+    [houseArt("tauris-shore-ship-at-berth")]: houseArt(
+      "tauris-shore-ship-at-berth-night"
+    )
   };
   var daylightAssets = [
     .../* @__PURE__ */ new Set([
       ...Object.values(nightBackdrops),
+      ...Object.keys(dockedNightBackdrops),
       ...Object.values(dockedNightBackdrops)
     ])
   ];
@@ -31206,7 +31219,7 @@
     if (!world || !Object.hasOwn(nightBackdrops, id)) return null;
     const period = Math.floor(world.turn / DAYLIGHT_TURNS);
     const phase = period % 2 ? "night" : "day";
-    const where = id === "greek-athens-harbor" ? "at Athens Harbor" : id === "greek-piraeus" ? "at Piraeus Quays" : id === "greek-greek-camp" || id.startsWith("greek-ajax-") ? "at the Greek camp near Troy" : "in Thebes";
+    const where = housePlaceWords[id] || (id === "greek-athens-harbor" ? "at Athens Harbor" : id === "greek-piraeus" ? "at Piraeus Quays" : id === "greek-greek-camp" || id.startsWith("greek-ajax-") ? "at the Greek camp near Troy" : "in Thebes");
     return {
       phase,
       period,

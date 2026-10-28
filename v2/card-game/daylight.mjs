@@ -1,6 +1,12 @@
-// The Theban places and the ship's harbors share the saved world clock.
+// Greek places and the ship's harbors share the saved world clock.
 export const DAYLIGHT_TURNS = 24;
 const art = (file) => `assets/greek-drama/${file}.webp`;
+const houseArt = (file) => `assets/greek-drama/house-of-blood/${file}.png`;
+const housePlaceWords = {
+  "greek-ares-hill": "on Ares Hill",
+  "greek-argos-refuge": "at the Argive Refuge",
+  "greek-tauris-shore": "on the Taurian Shore",
+};
 const nightBackdrops = {
   "greek-harbor": art("harbor-open-berth-night"),
   "greek-courtyard": art("courtyard-night"),
@@ -16,15 +22,22 @@ const nightBackdrops = {
   "greek-ajax-landing": art("ajax-camp-night"),
   "greek-ajax-household": art("ajax-camp-night"),
   "greek-ajax-grave": art("ajax-camp-night"),
+  "greek-ares-hill": houseArt("ares-hill-scene-night"),
+  "greek-argos-refuge": houseArt("argos-refuge-scene-night"),
+  "greek-tauris-shore": houseArt("tauris-shore-scene-night"),
 };
 const dockedNightBackdrops = {
   [art("harbor-ship-at-berth")]: art("harbor-ship-at-berth-night"),
   [art("athens-harbor")]: art("athens-harbor-ship-at-berth-night"),
   [art("open-door-piraeus")]: art("piraeus-ship-at-berth-night"),
+  [houseArt("tauris-shore-ship-at-berth")]: houseArt(
+    "tauris-shore-ship-at-berth-night",
+  ),
 };
 export const daylightAssets = [
   ...new Set([
     ...Object.values(nightBackdrops),
+    ...Object.keys(dockedNightBackdrops),
     ...Object.values(dockedNightBackdrops),
   ]),
 ];
@@ -34,13 +47,14 @@ export function locationDaylight(world, id) {
   const period = Math.floor(world.turn / DAYLIGHT_TURNS);
   const phase = period % 2 ? "night" : "day";
   const where =
-    id === "greek-athens-harbor"
+    housePlaceWords[id] ||
+    (id === "greek-athens-harbor"
       ? "at Athens Harbor"
       : id === "greek-piraeus"
         ? "at Piraeus Quays"
         : id === "greek-greek-camp" || id.startsWith("greek-ajax-")
           ? "at the Greek camp near Troy"
-          : "in Thebes";
+          : "in Thebes");
   return {
     phase,
     period,

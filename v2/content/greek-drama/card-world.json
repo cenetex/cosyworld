@@ -636,21 +636,21 @@
       "text": "A stone court stands above Athens. Each case names its speaker, time and claim.",
       "persona": "A stone court stands above Athens. Each case names its speaker, time and claim.",
       "exits": ["greek-athens"],
-      "backdrop": "assets/greek-drama/palace.svg"
+      "backdrop": "assets/greek-drama/house-of-blood/ares-hill-scene.png"
     },
     "greek-argos-refuge": {
       "name": "Argive Refuge",
       "text": "A sheltered court receives witnesses. Hermione keeps the sixth-day play within its named song.",
       "persona": "A sheltered court receives witnesses. Hermione keeps the sixth-day play within its named song.",
       "exits": ["greek-argolid-road"],
-      "backdrop": "assets/greek-drama/courtyard.svg"
+      "backdrop": "assets/greek-drama/house-of-blood/argos-refuge-scene.png"
     },
     "greek-tauris-shore": {
       "name": "Taurian Shore",
       "text": "Salt water reaches the temple steps. Thoas hears the rite and the keepers’ reply.",
       "persona": "Salt water reaches the temple steps. Thoas hears the rite and the keepers’ reply.",
       "exits": ["greek-tauris"],
-      "backdrop": "assets/greek-drama/harbor.svg"
+      "backdrop": "assets/greek-drama/house-of-blood/tauris-shore-scene.png"
     }
   },
   "avatars": {

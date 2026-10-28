@@ -1,0 +1,484 @@
+{
+  "schemaVersion": 1,
+  "title": "House of Blood: three places in both light settings and both Tauris berth states",
+  "date": "2026-10-28",
+  "generator": "Built-in image_gen.imagegen",
+  "draftBase": {
+    "branch": "codex/greek-house-of-blood",
+    "commit": "cf0eb94498bce71af700b5c08b77387c8651b52e",
+    "packageVersion": "1.2.5"
+  },
+  "sourceQueue": {
+    "file": "v2/content/greek-drama/HOUSE-OF-BLOOD-ART.json",
+    "commit": "cf0eb94498bce71af700b5c08b77387c8651b52e",
+    "sha256": "189b063a4bbc05e70ebed1c423abe0ff9fd2cf751aff45e99920d92e2b0fe882"
+  },
+  "finalHandoff": {
+    "sourceThread": "01a18209-7398-7d13-ac46-8e59183e6e4e",
+    "date": "2026-10-28",
+    "scope": "The final chapter handoff expands the three original scene names with their night siblings and both occupied Tauris siblings.",
+    "exactFiles": [
+      "ares-hill-scene.png",
+      "ares-hill-scene-night.png",
+      "argos-refuge-scene.png",
+      "argos-refuge-scene-night.png",
+      "tauris-shore-scene.png",
+      "tauris-shore-scene-night.png",
+      "tauris-shore-ship-at-berth.png",
+      "tauris-shore-ship-at-berth-night.png"
+    ]
+  },
+  "bindings": [
+    {
+      "place": "greek-ares-hill",
+      "locationWords": "on Ares Hill",
+      "day": "ares-hill-scene.png",
+      "night": "ares-hill-scene-night.png"
+    },
+    {
+      "place": "greek-argos-refuge",
+      "locationWords": "at the Argive Refuge",
+      "day": "argos-refuge-scene.png",
+      "night": "argos-refuge-scene-night.png"
+    },
+    {
+      "place": "greek-tauris-shore",
+      "locationWords": "on the Taurian Shore",
+      "day": "tauris-shore-scene.png",
+      "night": "tauris-shore-scene-night.png",
+      "dockedDay": "tauris-shore-ship-at-berth.png",
+      "dockedNight": "tauris-shore-ship-at-berth-night.png"
+    }
+  ],
+  "sourceIntegration": {
+    "nightBackdrops": "Bind all three places to their night sibling.",
+    "dockedNightBackdrops": "Bind the occupied Taurian Shore night sibling.",
+    "ship": "Choose the occupied background from the saved greek-ship dock through crossing scenery.backdrop.",
+    "walk": "Preserve the existing greek-tauris to greek-tauris-shore local walk.",
+    "landing": "Book III ship source owns the landing and draft Piraeus-edge replacement.",
+    "release": "Chapter integration owns optimized variants, public assets, shared rules and full game checks."
+  },
+  "assets": [
+    {
+      "name": "ares-hill-day",
+      "file": "ares-hill-scene.png",
+      "sourceFile": "ares-hill-scene.png",
+      "sourceName": "exec-aedcec26-8d97-4a61-8517-0f3e7e7401a0.png",
+      "place": "greek-ares-hill",
+      "variant": "day",
+      "useCase": "historical-scene",
+      "prompt": "Use case: historical-scene.\nAsset type: native painted background scene for CosyWorld's Greek drama card game.\nInput images: references for the established warm painted Greek storybook style, natural stone, coastal water and architectural scale. Create the new place specified below.\nStyle/medium: finely detailed painterly storybook realism, hand-painted stone and nature, natural daylight, restrained warm earth and blue pigments, soft depth and readable landmarks.\nComposition/framing: one wide native landscape PNG, about 1536 by 1024. Eye-level wide establishing camera. Keep the central vertical strip useful when the wide painting is cropped into a 390 by 580 phone view. Place key location landmarks within that centre area. The bottom third is broad clear, nearly level stone or earth ground for the game's separate full-body cast and carried objects. Build location details toward the middle distance and edges. Only the place's architecture, natural landscape and water occupy this environment painting.\nLighting: clear natural daytime with soft warm sunlight and readable stone shadows. This is the daylight base for an exact-camera night sibling.\nOutput: complete opaque native PNG, with the entire original generated canvas preserved.\nPlace: Ares Hill, an open rocky court above Athens. A broad limestone outcrop holds a simple open hearing ground. Low irregular stone seats trace a loose semicircle in the middle distance; a few worn rock steps lead to it. The surrounding low roofs of Athens appear below the hill, with a distant classical temple on its raised rock. A few olive branches and dry grasses stay near the side edges. The court feels civic, open and human in scale. Keep the centre foreground broad, clear and walkable for Athena, the accusing chorus and carried objects. The low seats, rocky court edge, distant roofs and temple form clear stable landmarks. The central phone crop shows the hearing ground, low seats and distant city. This place reads as being on Ares Hill.",
+      "references": [
+        {
+          "file": "v2/card-game/assets/greek-drama/palace-day.webp",
+          "path": "/Users/ratimics/.codex/worktrees/house-blood-sacred-art/cosyworld/v2/card-game/assets/greek-drama/palace-day.webp",
+          "role": "Published Greek architectural painting style",
+          "sourceCommit": "cf0eb94498bce71af700b5c08b77387c8651b52e",
+          "sha256": "c0b61fb49af9c98adbdf9fe7ac386f3611e13b23342a10791673871473928769"
+        },
+        {
+          "file": "v2/card-game/assets/greek-drama/theban-harbor-road.webp",
+          "path": "/Users/ratimics/.codex/worktrees/house-blood-sacred-art/cosyworld/v2/card-game/assets/greek-drama/theban-harbor-road.webp",
+          "role": "Warm limestone, distant roofs and painted depth",
+          "sourceCommit": "cf0eb94498bce71af700b5c08b77387c8651b52e",
+          "sha256": "02f068c0f388054541c0e74ee2235836e205742cd0941c5dfdbf22f608f1478f"
+        }
+      ],
+      "size": [
+        1536,
+        1024
+      ],
+      "opaque": true,
+      "sourceSha256": "f6d91f48404b05d66fc25dfcb70d3a5efd2310fb0fc76afcd43e53dda56eed3b",
+      "sha256": "f6d91f48404b05d66fc25dfcb70d3a5efd2310fb0fc76afcd43e53dda56eed3b",
+      "bytes": 3466068,
+      "processing": "Original native PNG copied byte for byte; complete generated canvas preserved"
+    },
+    {
+      "name": "argos-refuge-day",
+      "file": "argos-refuge-scene.png",
+      "sourceFile": "argos-refuge-scene.png",
+      "sourceName": "exec-a431f3ca-6876-4778-a7b1-90bef539c307.png",
+      "place": "greek-argos-refuge",
+      "variant": "day",
+      "useCase": "historical-scene",
+      "prompt": "Use case: historical-scene.\nAsset type: native painted background scene for CosyWorld's Greek drama card game.\nInput images: references for the established warm painted Greek storybook style, natural stone, coastal water and architectural scale. Create the new place specified below.\nStyle/medium: finely detailed painterly storybook realism, hand-painted stone and nature, natural daylight, restrained warm earth and blue pigments, soft depth and readable landmarks.\nComposition/framing: one wide native landscape PNG, about 1536 by 1024. Eye-level wide establishing camera. Keep the central vertical strip useful when the wide painting is cropped into a 390 by 580 phone view. Place key location landmarks within that centre area. The bottom third is broad clear, nearly level stone or earth ground for the game's separate full-body cast and carried objects. Build location details toward the middle distance and edges. Only the place's architecture, natural landscape and water occupy this environment painting.\nLighting: clear natural daytime with soft warm sunlight and readable stone shadows. This is the daylight base for an exact-camera night sibling.\nOutput: complete opaque native PNG, with the entire original generated canvas preserved.\nPlace: the Argive Refuge, a sheltered low-walled court for witnesses and travellers. Worn warm limestone walls enclose a modest open courtyard. A broad clear entrance at the back leads toward distant Argive roofs. Low stone and wooden benches stand along the side walls, with a small patch of climbing vine at one corner and a simple woven shade along the left wall. The central ground is even, clear and broad, with ordinary stone paving and gentle wear. Keep the entrance, low walls and benches readable in the central phone crop. This is a calm practical refuge with room for Hermione, the Phrygian servant and carried objects. The architecture feels modest and cared for. The entrance, benches, vine corner and shade are stable landmarks for the night sibling. This place reads as being at the Argive Refuge.",
+      "references": [
+        {
+          "file": "v2/card-game/assets/greek-drama/courtyard-day.webp",
+          "path": "/Users/ratimics/.codex/worktrees/house-blood-sacred-art/cosyworld/v2/card-game/assets/greek-drama/courtyard-day.webp",
+          "role": "Published Greek courtyard painting style",
+          "sourceCommit": "cf0eb94498bce71af700b5c08b77387c8651b52e",
+          "sha256": "c27b798ed993d2aa7bdfad03da26967556206fc86579934c595cbde93b1b0559"
+        },
+        {
+          "file": "v2/card-game/assets/greek-drama/palace-day.webp",
+          "path": "/Users/ratimics/.codex/worktrees/house-blood-sacred-art/cosyworld/v2/card-game/assets/greek-drama/palace-day.webp",
+          "role": "Limestone and architectural materials",
+          "sourceCommit": "cf0eb94498bce71af700b5c08b77387c8651b52e",
+          "sha256": "c0b61fb49af9c98adbdf9fe7ac386f3611e13b23342a10791673871473928769"
+        }
+      ],
+      "size": [
+        1536,
+        1024
+      ],
+      "opaque": true,
+      "sourceSha256": "9bdc83e7bc726c2e623facb1aa202f1463bd289142ddde3376f53e511160fed9",
+      "sha256": "9bdc83e7bc726c2e623facb1aa202f1463bd289142ddde3376f53e511160fed9",
+      "bytes": 3320708,
+      "processing": "Original native PNG copied byte for byte; complete generated canvas preserved"
+    },
+    {
+      "name": "tauris-shore-day",
+      "file": "tauris-shore-scene.png",
+      "sourceFile": "tauris-shore-scene.png",
+      "sourceName": "exec-58167dcd-8a4a-4ed1-a0ca-946dd538943f.png",
+      "place": "greek-tauris-shore",
+      "variant": "day",
+      "useCase": "historical-scene",
+      "prompt": "Use case: historical-scene.\nAsset type: native painted background scene for CosyWorld's Greek drama card game.\nInput images: references for the established warm painted Greek storybook style, natural stone, coastal water and architectural scale. Create the new place specified below.\nStyle/medium: finely detailed painterly storybook realism, hand-painted stone and nature, natural daylight, restrained warm earth and blue pigments, soft depth and readable landmarks.\nComposition/framing: one wide native landscape PNG, about 1536 by 1024. Eye-level wide establishing camera. Keep the central vertical strip useful when the wide painting is cropped into a 390 by 580 phone view. Place key location landmarks within that centre area. The bottom third is broad clear, nearly level stone or earth ground for the game's separate full-body cast and carried objects. Build location details toward the middle distance and edges. Only the place's architecture, natural landscape and water occupy this environment painting.\nLighting: clear natural daytime with soft warm sunlight and readable stone shadows. This is the daylight base for an exact-camera night sibling.\nOutput: complete opaque native PNG, with the entire original generated canvas preserved.\nPlace: the Taurian Shore, a rocky coast below a Greek-style coastal temple. Broad worn temple steps descend from a modest pale stone portico in the upper left toward the shore. A clear accessible stone landing projects gently into a sheltered inlet at centre-right. The lower third is broad nearly level stone and sandy shore for Thoas, a traveller and carried objects. Sea water is clearly visible across the middle, especially inside the central phone crop. Coastal rocks frame the inlet and a distant dark headland closes the far horizon. The berth beside the landing faces clear open water. This is the open-berth view. Keep the temple steps, landing, inlet water, headland and rock shapes as strong stable landmarks. Place the landing near enough to the central crop that a later moored ship will read at phone width while the water remains visible. Only the shore, temple architecture, landing, rocks, sea and sky occupy the image. This place reads as being on the Taurian Shore.",
+      "references": [
+        {
+          "file": "v2/card-game/assets/greek-drama/theban-harbor-road.webp",
+          "path": "/Users/ratimics/.codex/worktrees/house-blood-sacred-art/cosyworld/v2/card-game/assets/greek-drama/theban-harbor-road.webp",
+          "role": "Published Greek coastal stone and water painting style",
+          "sourceCommit": "cf0eb94498bce71af700b5c08b77387c8651b52e",
+          "sha256": "02f068c0f388054541c0e74ee2235836e205742cd0941c5dfdbf22f608f1478f"
+        },
+        {
+          "file": "v2/card-game/assets/greek-drama/harbor-ship-at-berth.webp",
+          "path": "/Users/ratimics/.codex/worktrees/house-blood-sacred-art/cosyworld/v2/card-game/assets/greek-drama/harbor-ship-at-berth.webp",
+          "role": "Stone landing scale and shared Greek harbor material style",
+          "sourceCommit": "cf0eb94498bce71af700b5c08b77387c8651b52e",
+          "sha256": "f71d5f64371f50b37059f0929db3489b0f808696494c64078ad5fbe958e1f1d0"
+        }
+      ],
+      "size": [
+        1536,
+        1024
+      ],
+      "opaque": true,
+      "sourceSha256": "a8203a1f919fbd843e1f6ea6425c04dfa54988da8a98a148126c77ffc1c2d8cd",
+      "sha256": "a8203a1f919fbd843e1f6ea6425c04dfa54988da8a98a148126c77ffc1c2d8cd",
+      "bytes": 3405676,
+      "processing": "Original native PNG copied byte for byte; complete generated canvas preserved"
+    },
+    {
+      "name": "ares-hill-night",
+      "file": "ares-hill-scene-night.png",
+      "sourceFile": "ares-hill-scene-night.png",
+      "sourceName": "exec-6b60de66-0756-4790-b99c-8c5ae08c019d.png",
+      "place": "greek-ares-hill",
+      "variant": "night",
+      "useCase": "lighting-weather",
+      "prompt": "Use case: lighting-weather.\nAsset type: native painted night background for CosyWorld.\nInput image: the generated daylight greek-ares-hill scene is the edit target.\nChange only the lighting and time of day to a readable deep-blue moonlit night. Preserve the SAME entire 1536 by 1024 canvas, exact camera, horizon, stone edges, steps, seats or benches, entrance, temple, shore, landing, waterline, distant roofs, plants and every location landmark. Keep the clear cast/object foreground and the central phone crop composition identical. Use soft blue moonlight, dark indigo sky, a small pale moon and restrained warm oil-lamp light where the existing architecture can hold lamps. Maintain natural shadows and readable stone and water. The environment remains the same place with its original empty cast ground. For the Taurian Shore, the berth remains clear open water and the central inlet remains readable. Preserve the painted Greek style and return the complete native opaque PNG.",
+      "references": [
+        {
+          "file": "ares-hill-scene.png",
+          "path": "/Users/ratimics/.codex/generated_images/01a180f3-1e33-7313-a85a-a1c6331f05c8/exec-aedcec26-8d97-4a61-8517-0f3e7e7401a0.png",
+          "role": "Native daylight scene edit target: preserve camera, architecture, coastline and all landmarks",
+          "sha256": "f6d91f48404b05d66fc25dfcb70d3a5efd2310fb0fc76afcd43e53dda56eed3b"
+        }
+      ],
+      "size": [
+        1536,
+        1024
+      ],
+      "opaque": true,
+      "sourceSha256": "0a692715fa1ba85cf41ff57b040dd76cff6dd3d4f88138f115df6078d69c21f8",
+      "sha256": "0a692715fa1ba85cf41ff57b040dd76cff6dd3d4f88138f115df6078d69c21f8",
+      "bytes": 3114990,
+      "processing": "Original native PNG copied byte for byte; complete generated canvas preserved"
+    },
+    {
+      "name": "argos-refuge-night",
+      "file": "argos-refuge-scene-night.png",
+      "sourceFile": "argos-refuge-scene-night.png",
+      "sourceName": "exec-e6e0244c-9991-4d0d-830a-e43d6a688f7a.png",
+      "place": "greek-argos-refuge",
+      "variant": "night",
+      "useCase": "lighting-weather",
+      "prompt": "Use case: lighting-weather.\nAsset type: native painted night background for CosyWorld.\nInput image: the generated daylight greek-argos-refuge scene is the edit target.\nChange only the lighting and time of day to a readable deep-blue moonlit night. Preserve the SAME entire 1536 by 1024 canvas, exact camera, horizon, stone edges, steps, seats or benches, entrance, temple, shore, landing, waterline, distant roofs, plants and every location landmark. Keep the clear cast/object foreground and the central phone crop composition identical. Use soft blue moonlight, dark indigo sky, a small pale moon and restrained warm oil-lamp light where the existing architecture can hold lamps. Maintain natural shadows and readable stone and water. The environment remains the same place with its original empty cast ground. For the Taurian Shore, the berth remains clear open water and the central inlet remains readable. Preserve the painted Greek style and return the complete native opaque PNG.",
+      "references": [
+        {
+          "file": "argos-refuge-scene.png",
+          "path": "/Users/ratimics/.codex/generated_images/01a180f3-1e33-7313-a85a-a1c6331f05c8/exec-a431f3ca-6876-4778-a7b1-90bef539c307.png",
+          "role": "Native daylight scene edit target: preserve camera, architecture, coastline and all landmarks",
+          "sha256": "9bdc83e7bc726c2e623facb1aa202f1463bd289142ddde3376f53e511160fed9"
+        }
+      ],
+      "size": [
+        1536,
+        1024
+      ],
+      "opaque": true,
+      "sourceSha256": "881338b67464e24fd54feb1fd930a50ce75732590b80cb28b3f581c99d3c92b5",
+      "sha256": "881338b67464e24fd54feb1fd930a50ce75732590b80cb28b3f581c99d3c92b5",
+      "bytes": 3050988,
+      "processing": "Original native PNG copied byte for byte; complete generated canvas preserved"
+    },
+    {
+      "name": "tauris-shore-night",
+      "file": "tauris-shore-scene-night.png",
+      "sourceFile": "tauris-shore-scene-night.png",
+      "sourceName": "exec-20a44f84-e57d-4898-b81e-d4d398809e9e.png",
+      "place": "greek-tauris-shore",
+      "variant": "night",
+      "useCase": "lighting-weather",
+      "prompt": "Use case: lighting-weather.\nAsset type: native painted night background for CosyWorld.\nInput image: the generated daylight greek-tauris-shore scene is the edit target.\nChange only the lighting and time of day to a readable deep-blue moonlit night. Preserve the SAME entire 1536 by 1024 canvas, exact camera, horizon, stone edges, steps, seats or benches, entrance, temple, shore, landing, waterline, distant roofs, plants and every location landmark. Keep the clear cast/object foreground and the central phone crop composition identical. Use soft blue moonlight, dark indigo sky, a small pale moon and restrained warm oil-lamp light where the existing architecture can hold lamps. Maintain natural shadows and readable stone and water. The environment remains the same place with its original empty cast ground. For the Taurian Shore, the berth remains clear open water and the central inlet remains readable. Preserve the painted Greek style and return the complete native opaque PNG.",
+      "references": [
+        {
+          "file": "tauris-shore-scene.png",
+          "path": "/Users/ratimics/.codex/generated_images/01a180f3-1e33-7313-a85a-a1c6331f05c8/exec-58167dcd-8a4a-4ed1-a0ca-946dd538943f.png",
+          "role": "Native daylight scene edit target: preserve camera, architecture, coastline and all landmarks",
+          "sha256": "a8203a1f919fbd843e1f6ea6425c04dfa54988da8a98a148126c77ffc1c2d8cd"
+        }
+      ],
+      "size": [
+        1536,
+        1024
+      ],
+      "opaque": true,
+      "sourceSha256": "8ff5813689e72315c3ba8fc0fcd7ce75381fbb167b8f6ae4beec56a93451a1c3",
+      "sha256": "8ff5813689e72315c3ba8fc0fcd7ce75381fbb167b8f6ae4beec56a93451a1c3",
+      "bytes": 3136333,
+      "processing": "Original native PNG copied byte for byte; complete generated canvas preserved"
+    },
+    {
+      "name": "tauris-ship-day",
+      "file": "tauris-shore-ship-at-berth.png",
+      "sourceFile": "tauris-shore-ship-at-berth.png",
+      "sourceName": "exec-c6244365-f98d-4019-aef5-f2dba7521eac.png",
+      "place": "greek-tauris-shore",
+      "variant": "dockedDay",
+      "useCase": "compositing",
+      "prompt": "Use case: compositing.\nAsset type: native painted occupied-berth background for CosyWorld.\nInput image 1 is the Taurian Shore daylight scene and exact camera/landmark edit target. Input image 2 is the identity reference for the same shared Greek ship used elsewhere in the game.\nAdd that shared Greek ship moored beside the accessible stone landing of image 1, toward the centre-right middle distance. Use the SAME wooden hull, faded red side stripe, curved eye-painted prow pointing right, single mast, ropes and furled cream sail from image 2, scaled naturally to the landing. The moored ship occupies the water beside the landing; the foreground cast ground and broad temple steps stay clear and walkable. Keep visible inlet water inside the central phone crop, with the ship's hull and mast readable near that central crop.\nPreserve image 1's entire 1536 by 1024 canvas, exact camera, coastline, temple, steps, landing edge and mooring posts, headland, rocks, plants, waterline, sun angle and all location landmarks. This is the same shore at the same moment with the saved shared ship at its berth. Keep the painterly style, natural daylight and original environment details. Return the full opaque native PNG.",
+      "references": [
+        {
+          "file": "tauris-shore-scene.png",
+          "path": "/Users/ratimics/.codex/generated_images/01a180f3-1e33-7313-a85a-a1c6331f05c8/exec-58167dcd-8a4a-4ed1-a0ca-946dd538943f.png",
+          "role": "Native open-berth scene edit target: preserve its camera and all land/landing landmarks",
+          "sha256": "a8203a1f919fbd843e1f6ea6425c04dfa54988da8a98a148126c77ffc1c2d8cd"
+        },
+        {
+          "file": "v2/card-game/assets/greek-drama/harbor-ship-at-berth.webp",
+          "path": "/Users/ratimics/.codex/worktrees/house-blood-sacred-art/cosyworld/v2/card-game/assets/greek-drama/harbor-ship-at-berth.webp",
+          "role": "Shared greek-ship identity: same hull, red stripe, curved eye-painted prow, mast and furled sail",
+          "sourceCommit": "cf0eb94498bce71af700b5c08b77387c8651b52e",
+          "sha256": "f71d5f64371f50b37059f0929db3489b0f808696494c64078ad5fbe958e1f1d0"
+        }
+      ],
+      "size": [
+        1536,
+        1024
+      ],
+      "opaque": true,
+      "sourceSha256": "d5eb29fc0fd8eab0c63f5c1a0b3d5ba2eabaecf75d20613ce99d6322821999b6",
+      "sha256": "d5eb29fc0fd8eab0c63f5c1a0b3d5ba2eabaecf75d20613ce99d6322821999b6",
+      "bytes": 3288904,
+      "processing": "Original native PNG copied byte for byte; complete generated canvas preserved"
+    },
+    {
+      "name": "tauris-ship-night",
+      "file": "tauris-shore-ship-at-berth-night.png",
+      "sourceFile": "tauris-shore-ship-at-berth-night.png",
+      "sourceName": "exec-f9b51967-fab9-4d10-b7b7-64522aed0547.png",
+      "place": "greek-tauris-shore",
+      "variant": "dockedNight",
+      "useCase": "lighting-weather",
+      "prompt": "Use case: lighting-weather.\nAsset type: native painted occupied-berth night background for CosyWorld.\nInput image 1 is the occupied Taurian Shore daytime scene and exact geometry edit target. Input image 2 is the same shore's open-berth night lighting reference.\nChange only the light and time of day in image 1 to match image 2's deep-blue moonlit night, the same small pale moon location, warm temple/landing lamps and readable blue stone and water. Preserve the entire 1536 by 1024 canvas, exact camera, temple, steps, landing posts and edges, coastline, headland, rocks and plants. Keep the SAME shared Greek ship from image 1 moored in the identical place and scale, with its wooden hull, faded red stripe, curved eye-painted prow, single mast, ropes and furled cream sail all clear. Add restrained warm deck light that suits the existing ship. The clear cast/object foreground and visible central water remain the same. Keep all scene and ship landmarks in their exact positions. Preserve the painted style and return the complete opaque native PNG.",
+      "references": [
+        {
+          "file": "tauris-shore-ship-at-berth.png",
+          "path": "/Users/ratimics/.codex/generated_images/01a180f3-1e33-7313-a85a-a1c6331f05c8/exec-c6244365-f98d-4019-aef5-f2dba7521eac.png",
+          "role": "Occupied daytime scene edit target: preserve ship identity, exact camera and all scene landmarks",
+          "sha256": "d5eb29fc0fd8eab0c63f5c1a0b3d5ba2eabaecf75d20613ce99d6322821999b6"
+        },
+        {
+          "file": "tauris-shore-scene-night.png",
+          "path": "/Users/ratimics/.codex/generated_images/01a180f3-1e33-7313-a85a-a1c6331f05c8/exec-20a44f84-e57d-4898-b81e-d4d398809e9e.png",
+          "role": "Exact shore night lighting, moon placement and architectural lamp reference",
+          "sha256": "8ff5813689e72315c3ba8fc0fcd7ce75381fbb167b8f6ae4beec56a93451a1c3"
+        }
+      ],
+      "size": [
+        1536,
+        1024
+      ],
+      "opaque": true,
+      "sourceSha256": "df65995ac8c939c989caa95b9d74c30032a56114546e7d8b5f5e1c92cf6159c6",
+      "sha256": "df65995ac8c939c989caa95b9d74c30032a56114546e7d8b5f5e1c92cf6159c6",
+      "bytes": 3159801,
+      "processing": "Original native PNG copied byte for byte; complete generated canvas preserved"
+    }
+  ],
+  "castReferences": [
+    {
+      "id": "greek-furies",
+      "file": "v2/card-game/assets/greek-drama/house-of-blood/furies.png",
+      "path": "/Users/ratimics/.codex/worktrees/house-blood-sacred-art/cosyworld/v2/card-game/assets/greek-drama/house-of-blood/furies.png",
+      "commit": "1a741c78576fbe19fa6e9aca795c3ca5dfefc560",
+      "group": true,
+      "sha256": "8c9ea7135600a4a204388e586da8b4b39fa27b6663493f706d5d8c0d5788dcb9",
+      "sourcePlace": "greek-delphi",
+      "journey": {
+        "after": "greek-v-eumenides-agree-court",
+        "path": [
+          "greek-delphi",
+          "greek-athens",
+          "greek-ares-hill"
+        ]
+      }
+    },
+    {
+      "id": "greek-athena",
+      "file": "v2/card-game/assets/greek-drama/house-of-blood/athena.png",
+      "path": "/Users/ratimics/.codex/worktrees/house-blood-sacred-art/cosyworld/v2/card-game/assets/greek-drama/house-of-blood/athena.png",
+      "commit": "1a741c78576fbe19fa6e9aca795c3ca5dfefc560",
+      "group": false,
+      "sha256": "e459a198d5d53dc52171f837e7843fa9a87123fb6a4525926532348da3e4263a",
+      "sourcePlace": "greek-ares-hill",
+      "journey": null
+    },
+    {
+      "id": "greek-hermione",
+      "file": "v2/card-game/assets/greek-drama/house-of-blood/hermione.png",
+      "path": "/Users/ratimics/.codex/worktrees/house-blood-witness-art/cosyworld/v2/card-game/assets/greek-drama/house-of-blood/hermione.png",
+      "commit": "a8b5cd606266b41dd1a8509d263390b850780e5a",
+      "group": false,
+      "sha256": "e10aef057490e27b4af064b9667e16ddb1f9d204e0c33cf4c134f085f7ba91dd",
+      "sourcePlace": "greek-argos-refuge",
+      "journey": null
+    },
+    {
+      "id": "greek-phrygian-servant",
+      "file": "v2/card-game/assets/greek-drama/house-of-blood/phrygian-servant.png",
+      "path": "/Users/ratimics/.codex/worktrees/house-blood-witness-art/cosyworld/v2/card-game/assets/greek-drama/house-of-blood/phrygian-servant.png",
+      "commit": "a8b5cd606266b41dd1a8509d263390b850780e5a",
+      "group": false,
+      "sha256": "2d72c9696a5ad318ccedc3ff7f25eff468890c138e02b1bbadf96ccf3b249948",
+      "sourcePlace": "greek-argos-refuge",
+      "journey": {
+        "after": "greek-v-orestes-agree-passage",
+        "path": [
+          "greek-argos-refuge",
+          "greek-argolid-road",
+          "greek-harbor"
+        ]
+      }
+    },
+    {
+      "id": "greek-thoas",
+      "file": "v2/card-game/assets/greek-drama/house-of-blood/thoas.png",
+      "path": "/Users/ratimics/.codex/worktrees/house-blood-sacred-art/cosyworld/v2/card-game/assets/greek-drama/house-of-blood/thoas.png",
+      "commit": "1a741c78576fbe19fa6e9aca795c3ca5dfefc560",
+      "group": false,
+      "sha256": "dfdebedd153059fde2c627ddc9d1684961a4cacd305abdaad557ae0ea8aafc1e",
+      "sourcePlace": "greek-tauris-shore",
+      "journey": null
+    }
+  ],
+  "reviewSheets": [
+    {
+      "file": "house-blood-ares-hill-scene-review.png",
+      "sha256": "94d885d325e56e227e8822b36c890591514994838d6f55a3236bcf0df382fe0d",
+      "place": "greek-ares-hill",
+      "day": "ares-hill-scene.png",
+      "night": "ares-hill-scene-night.png",
+      "actors": [
+        "greek-furies",
+        "greek-athena"
+      ],
+      "desktopWidth": 610,
+      "phoneSize": [
+        390,
+        580
+      ]
+    },
+    {
+      "file": "house-blood-argos-refuge-scene-review.png",
+      "sha256": "9626e334cbfdd0e0768eb64a8c69e2c4b02c4a696f500106a3d2050657c19c9a",
+      "place": "greek-argos-refuge",
+      "day": "argos-refuge-scene.png",
+      "night": "argos-refuge-scene-night.png",
+      "actors": [
+        "greek-hermione",
+        "greek-phrygian-servant"
+      ],
+      "desktopWidth": 610,
+      "phoneSize": [
+        390,
+        580
+      ]
+    },
+    {
+      "file": "house-blood-tauris-open-scene-review.png",
+      "sha256": "73598b0a4a4fdca33b186fe9a873dcd7cf5e01a262e89d70d38ed38f68650856",
+      "place": "greek-tauris-shore",
+      "day": "tauris-shore-scene.png",
+      "night": "tauris-shore-scene-night.png",
+      "actors": [
+        "greek-thoas"
+      ],
+      "desktopWidth": 610,
+      "phoneSize": [
+        390,
+        580
+      ]
+    },
+    {
+      "file": "house-blood-tauris-docked-scene-review.png",
+      "sha256": "9af54bff0b0135caa506c80b9cde527484aca88642fdb18561ac92d84303e9e4",
+      "place": "greek-tauris-shore",
+      "day": "tauris-shore-ship-at-berth.png",
+      "night": "tauris-shore-ship-at-berth-night.png",
+      "actors": [
+        "greek-thoas"
+      ],
+      "desktopWidth": 610,
+      "phoneSize": [
+        390,
+        580
+      ]
+    },
+    {
+      "file": "house-blood-eight-scenes-review.png",
+      "sha256": "ba99415feab68e68b7468d565f02872fbb92ece46eba86d8d07c8c53d99edf97",
+      "purpose": "All eight native scene compositions and paired landmarks"
+    }
+  ],
+  "portraitQueueCoverage": {
+    "uniquePortraitPaths": 18,
+    "actorBindings": 20,
+    "exactQueueNames": true,
+    "sourceDrafts": [
+      {
+        "pr": 1285,
+        "head": "227399dda93f4ed476a1a797e2c2f98d46913115",
+        "provenance": "court-cast-provenance.json"
+      },
+      {
+        "pr": 1286,
+        "head": "a8b5cd606266b41dd1a8509d263390b850780e5a",
+        "provenance": "witness-cast-provenance.json"
+      },
+      {
+        "pr": 1287,
+        "head": "1a741c78576fbe19fa6e9aca795c3ca5dfefc560",
+        "provenance": "sacred-cast-provenance.json"
+      }
+    ]
+  },
+  "visualReview": {
+    "result": "Passed",
+    "checks": [
+      "All eight exact native PNG scene names",
+      "Day/night camera and main landmarks",
+      "Same shared Greek ship in both occupied Tauris views",
+      "Clear foreground for actual chapter cast and objects",
+      "Central water and visible ship in phone crops",
+      "Desktop and 390 by 580 phone overlays for all four scene/berth pairs"
+    ]
+  }
+}

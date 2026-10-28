@@ -1079,7 +1079,7 @@
           "exits": [
             "greek-athens"
           ],
-          "backdrop": "assets/greek-drama/palace.svg"
+          "backdrop": "assets/greek-drama/house-of-blood/ares-hill-scene.png"
         },
         "greek-argos-refuge": {
           "name": "Argive Refuge",
@@ -1088,7 +1088,7 @@
           "exits": [
             "greek-argolid-road"
           ],
-          "backdrop": "assets/greek-drama/courtyard.svg"
+          "backdrop": "assets/greek-drama/house-of-blood/argos-refuge-scene.png"
         },
         "greek-tauris-shore": {
           "name": "Taurian Shore",
@@ -1097,7 +1097,7 @@
           "exits": [
             "greek-tauris"
           ],
-          "backdrop": "assets/greek-drama/harbor.svg"
+          "backdrop": "assets/greek-drama/house-of-blood/tauris-shore-scene.png"
         }
       },
       "avatars": {
