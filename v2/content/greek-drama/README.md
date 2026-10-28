@@ -4,6 +4,8 @@ A Greek drama card-world pack reached from Black Pond. **Before the Burial**
 opens at seven painted places around Thebes. Dione's next invitation opens
 **The Open Door**, five places around Athens. Travelers keep their identities,
 belongings, memories and decisions across both local and shared games.
+The completed Athenian stories open **Earth Beside the Ships**, Ajax's
+household and burial account near Troy.
 
 ## Before the Burial
 
@@ -52,11 +54,30 @@ Her signed return list carries her own words to Dione. The traveler chooses
 an earned basket or berth stanza, and Dione answers the reading. Read the [full scene and source guide](OPEN-DOOR.md) for the
 route, choices, source endings and original alternatives.
 
+## Earth Beside the Ships
+
+After the four local endings and a return to Dione, Myrto offers a lasting
+ship invitation to the Trojan camp. This named account begins after Ajax's
+death. Carry his shield to Tecmessa for Eurysaces, hear Teucer's plea and
+bring its paper to Odysseus. Choose a public rite, a household rite or a
+witnessed appeal. Prepare the grave with the actual tools and cloth.
+
+The appeal closes after the witnessed support and burial. Teucer then
+signs the account. A traveler who has heard his words can carry the paper
+to Dione. Three story beats and a return card follow the journey. Four
+earned couplets grow from eight possible verses. Read the [chapter and
+source guide](AJAX.md) for the choices, objects and saved account.
+
+The camp's landing, household and grave have direct local paths. Longer
+journeys between towns use roads. The Greek ship serves Athens Harbor,
+Piraeus, the Wine-Dark Harbor, Black Pond and the invited Trojan landing.
+Athens Harbor has an empty-water painting while the shared ship is away.
+
 ## Sources and runtime
 
-`card-world.json` is canonical author data: 50 places including the ship,
-30 residents, 22 objects, 130 typed choices and 44 work records. Eight works
-have developed scenes; 36 retain situated hooks for later releases.
+`card-world.json` is canonical author data: 63 places including the ship,
+33 residents, 26 objects, 149 typed choices and 44 work records. Nine works
+have developed scenes; 35 retain situated hooks for later releases.
 
 `release` lists the content in this release. `sections` groups places behind
 lasting story events. New saves begin with seven shore places and the ship.
@@ -68,6 +89,8 @@ adds Myrine and her agreed journey. The upgrade preserves old custody,
 memories, flags, choices, receipts and poem. Shared rules version 12 records
 the new journey rule. Earlier versions retain their original interpreter
 bytes so accepted history can replay.
+Revision 7 adds the Ajax cast, four objects and three place memories.
+Earlier travelers keep their positions, custody, stories and poem.
 
 The Forest and Greek packs share the card table's schema, registry, rules,
 item custody, quests and save system. Choices use the closed effects
@@ -118,6 +141,9 @@ mirror and night setting.
 `assets/greek-drama/open-door-art.json` records the new art prompts, source
 hashes, dimensions and runtime hashes. Later repertoire places retain their
 original SVG scenery.
+The Ajax chapter adds day and night camp paintings, Tecmessa, Teucer,
+Odysseus and the shield. Its [art record](../../card-game/assets/greek-drama/AJAX-ART.md)
+lists the retained sources and prompt records.
 
 Card faces show large art and small names. Actions describe immediate deeds.
 Quest cards each show one short line. The Bard gives the growing poem.

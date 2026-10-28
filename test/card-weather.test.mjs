@@ -21,7 +21,7 @@ import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 describe("regional Greece weather", () => {
   it("covers every Greek location and keeps local scenery within its region", () => {
     const ids = Object.keys(packPlaces).filter((id) => id.startsWith("greek-"));
-    expect(ids).toHaveLength(60);
+    expect(ids).toHaveLength(63);
     for (let turn = 0; turn < WEATHER_TURNS * 8; turn++) {
       const regions = new Map();
       for (const id of ids) {
