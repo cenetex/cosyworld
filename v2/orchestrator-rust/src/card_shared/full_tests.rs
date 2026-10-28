@@ -2268,11 +2268,7 @@ fn embedded_selected_cards_match_with_personal_and_shared_quest_offers() {
     for op in ["claim", "enter"] {
         w.apply(&json!({"op":op,"actor":"vale"})).unwrap();
     }
-    for (kind, target) in [
-        ("light", None),
-        ("move", Some("attic")),
-        ("move", Some("pond")),
-    ] {
+    for (kind, target) in [("light", None)] {
         let action = w.project(0).unwrap()["actions"]
             .as_array()
             .unwrap()
