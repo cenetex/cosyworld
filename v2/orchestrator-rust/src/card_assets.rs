@@ -825,208 +825,536 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
 pub fn etag(path: &str) -> Option<&'static str> {
     Some(match path {
         "media.mjs" => "\"9b56957b0e44c39ed8f3bfbb200ce3524646f62cf83fa775fc89dc2a62dc133b\"",
-        "media-manifest.json" => "\"7541826bc2da4353a24df69088deda4f54d2f2f388e53fe0f2a3ace745d201bc\"",
+        "media-manifest.json" => {
+            "\"7541826bc2da4353a24df69088deda4f54d2f2f388e53fe0f2a3ace745d201bc\""
+        }
         "shared.mjs" => "\"3685803d1fce3d934dc97a6cb30b85e4f73d5188d5bf47d91cdfafa2f9e5ef28\"",
         "shared-auth.mjs" => "\"7a2aa390516a392fab967664a3cfed64d1f532ab851c5a3f43e0a4b6ba7fdbe2\"",
         "shared-sync.mjs" => "\"ff5433ac3092bdbabe2caab0f8b115b2c21a0a0274243eba61cada4046ca1ec7\"",
-        "shared-rules.mjs" => "\"be6a52126ec58998a7b316b5f99b4d7ad435dd791de421d083fe1b9b8b3c4f82\"",
+        "shared-rules.mjs" => {
+            "\"be6a52126ec58998a7b316b5f99b4d7ad435dd791de421d083fe1b9b8b3c4f82\""
+        }
         "shared.css" => "\"5693c0a2aa0bcb130eda370b14251973072e641a646989c05e8c70beac387bfd\"",
         "toolbar.mjs" => "\"4bbc195bd9c4cf3ef23232c2982dcafc0a94109c6dc851f6c8ef66cea91b3718\"",
         "toolbar.css" => "\"14351afc00c5fbf48ca5bc8215bbd87bc13c9162e3c1768e19b0d6842d94b18d\"",
-        "shared-cast.json" => "\"d33acfa50480968d23f0ef43440f104ed8abdeeb0519a6504afcdbf1507ebd6e\"",
+        "shared-cast.json" => {
+            "\"d33acfa50480968d23f0ef43440f104ed8abdeeb0519a6504afcdbf1507ebd6e\""
+        }
         "human-cast.mjs" => "\"925cddac4e0340e9620ca81118e1535323564787194df0fa4dfe1b74825d7152\"",
-        "assets/greek-drama/harbor-day.webp" => "\"b535244774382afc8a6440e292f1c51698375717d4473f3c70b5c16fff3e4425\"",
-        "assets/shared/places/pond.png" => "\"7c7cb3bfa8e2bfb24ee92b8665e06a2ff104d82e565700ed28568b3eeb8988b6\"",
-        "assets/shared/characters/vale.png" => "\"7e6dfd1bd18f9c6e7d548aeb27637284887b555373e2ad00109fdc233366d512\"",
-        "assets/shared/places/station.png" => "\"a34f1b27b05f15cb4868eeb74616f53c71b5c7faa95d70f858f2acc9322e9c31\"",
-        "assets/shared/items/lamp.png" => "\"1507da7bdb13cd082c323f9632d2bd6ae5c899609a8be46955bb9727b507f934\"",
-        "assets/shared/characters/mara.png" => "\"c182c00f2ab3d455e3228af72c67df061789ae8d050e187cc44d9e4bf67b76b1\"",
-        "assets/shared/places/theatre.png" => "\"8f6e772488774b223dfc7dc5704cd9321cf8a2c548c59f4e04e24d13cf18554f\"",
-        "assets/shared/items/mask.png" => "\"033006e9a38fcd8f2526abd6c086df91c35b8ee77a7d7e27c00ddad1690ca807\"",
-        "assets/shared/characters/ash.png" => "\"2592261ccbf329574da95ca83d88fedeb787a38d01335276c3d66d368fa8d285\"",
-        "assets/shared/places/belfry.png" => "\"cb522e38a8887757d62839616c8fbc7ba0647c7dd3c1b5c4762521050dc2a289\"",
-        "assets/shared/items/float.png" => "\"abc993c2e3a5d1a110a445e0ef530aa19e170a802b97e2c508922272c5702aeb\"",
-        "assets/shared/characters/nell.png" => "\"705a095b4f379338192290d4e6003d065b7d87c04b88b47706ff1f744471043f\"",
-        "assets/shared/places/glasshouse.png" => "\"08d2085a0d906052ba4899db1a9e076a2ce87905f09b1aebe553a04b7f704333\"",
-        "assets/shared/items/can.png" => "\"81c4ee06e82ed43dfd20f92504e334af2ef3c628de1f08392f2c60805e75d518\"",
-        "assets/shared/characters/tavi.png" => "\"6798af3ad543eab76109801ec0ad1ef953566f2975e43667882ec033d39f8a3a\"",
-        "assets/shared/places/hill.png" => "\"8bfb545e525068a3be27a428044b67bc9344a095475a5b4067593b6ef07d375a\"",
-        "assets/shared/items/kite.png" => "\"7874feca2a18a57ff1bfb030f8f89e557aa6b0f5fc9e529e63e7cfd121f0b211\"",
-        "assets/shared/characters/rue.png" => "\"e8655322dc5f4d5f13da698fb5f0664837f176b67ff9a954e09d9f6b2a52b633\"",
-        "assets/shared/places/train.png" => "\"604988d90be527cfbb24f4431cf447620b5b4acfc95a77ae4d13dab5e744a76b\"",
-        "assets/shared/items/routes.png" => "\"baa6be68f7bbb8b455f9ad94d8f52ad3a697a52b4a63fb59330e7e90b2ca0f02\"",
-        "assets/shared/characters/orin.png" => "\"909bd6f9b2a7e4e58b637a765e8059fc0474eb07e8767d45b1623c9dccccfba4\"",
-        "assets/shared/places/pavilion.png" => "\"ef20bbed9c76e35dbe54a385ce5a1bcea95de128f99bc9b0d3cb21df4a65d129\"",
-        "assets/shared/items/board.png" => "\"fc0fd13fc4a297a9d02b61933da7dee1de23246edce91d1da89ad8a031fde15d\"",
-        "assets/shared/characters/ada.png" => "\"4f3a53f874cd2d715b8edd7c704bb1fc1a54d182829ea03d2c6dfc5c83058512\"",
-        "assets/shared/places/loft.png" => "\"69008efdd4002437c41cb433efd1117f0b3d2698241318c094668feefd589e71\"",
-        "assets/shared/items/shears.png" => "\"225bf98853060dc121ea82d4d89430f27d049f7de70e3b0b8e30f2cd633b9d87\"",
+        "assets/greek-drama/harbor-day.webp" => {
+            "\"b535244774382afc8a6440e292f1c51698375717d4473f3c70b5c16fff3e4425\""
+        }
+        "assets/shared/places/pond.png" => {
+            "\"7c7cb3bfa8e2bfb24ee92b8665e06a2ff104d82e565700ed28568b3eeb8988b6\""
+        }
+        "assets/shared/characters/vale.png" => {
+            "\"7e6dfd1bd18f9c6e7d548aeb27637284887b555373e2ad00109fdc233366d512\""
+        }
+        "assets/shared/places/station.png" => {
+            "\"a34f1b27b05f15cb4868eeb74616f53c71b5c7faa95d70f858f2acc9322e9c31\""
+        }
+        "assets/shared/items/lamp.png" => {
+            "\"1507da7bdb13cd082c323f9632d2bd6ae5c899609a8be46955bb9727b507f934\""
+        }
+        "assets/shared/characters/mara.png" => {
+            "\"c182c00f2ab3d455e3228af72c67df061789ae8d050e187cc44d9e4bf67b76b1\""
+        }
+        "assets/shared/places/theatre.png" => {
+            "\"8f6e772488774b223dfc7dc5704cd9321cf8a2c548c59f4e04e24d13cf18554f\""
+        }
+        "assets/shared/items/mask.png" => {
+            "\"033006e9a38fcd8f2526abd6c086df91c35b8ee77a7d7e27c00ddad1690ca807\""
+        }
+        "assets/shared/characters/ash.png" => {
+            "\"2592261ccbf329574da95ca83d88fedeb787a38d01335276c3d66d368fa8d285\""
+        }
+        "assets/shared/places/belfry.png" => {
+            "\"cb522e38a8887757d62839616c8fbc7ba0647c7dd3c1b5c4762521050dc2a289\""
+        }
+        "assets/shared/items/float.png" => {
+            "\"abc993c2e3a5d1a110a445e0ef530aa19e170a802b97e2c508922272c5702aeb\""
+        }
+        "assets/shared/characters/nell.png" => {
+            "\"705a095b4f379338192290d4e6003d065b7d87c04b88b47706ff1f744471043f\""
+        }
+        "assets/shared/places/glasshouse.png" => {
+            "\"08d2085a0d906052ba4899db1a9e076a2ce87905f09b1aebe553a04b7f704333\""
+        }
+        "assets/shared/items/can.png" => {
+            "\"81c4ee06e82ed43dfd20f92504e334af2ef3c628de1f08392f2c60805e75d518\""
+        }
+        "assets/shared/characters/tavi.png" => {
+            "\"6798af3ad543eab76109801ec0ad1ef953566f2975e43667882ec033d39f8a3a\""
+        }
+        "assets/shared/places/hill.png" => {
+            "\"8bfb545e525068a3be27a428044b67bc9344a095475a5b4067593b6ef07d375a\""
+        }
+        "assets/shared/items/kite.png" => {
+            "\"7874feca2a18a57ff1bfb030f8f89e557aa6b0f5fc9e529e63e7cfd121f0b211\""
+        }
+        "assets/shared/characters/rue.png" => {
+            "\"e8655322dc5f4d5f13da698fb5f0664837f176b67ff9a954e09d9f6b2a52b633\""
+        }
+        "assets/shared/places/train.png" => {
+            "\"604988d90be527cfbb24f4431cf447620b5b4acfc95a77ae4d13dab5e744a76b\""
+        }
+        "assets/shared/items/routes.png" => {
+            "\"baa6be68f7bbb8b455f9ad94d8f52ad3a697a52b4a63fb59330e7e90b2ca0f02\""
+        }
+        "assets/shared/characters/orin.png" => {
+            "\"909bd6f9b2a7e4e58b637a765e8059fc0474eb07e8767d45b1623c9dccccfba4\""
+        }
+        "assets/shared/places/pavilion.png" => {
+            "\"ef20bbed9c76e35dbe54a385ce5a1bcea95de128f99bc9b0d3cb21df4a65d129\""
+        }
+        "assets/shared/items/board.png" => {
+            "\"fc0fd13fc4a297a9d02b61933da7dee1de23246edce91d1da89ad8a031fde15d\""
+        }
+        "assets/shared/characters/ada.png" => {
+            "\"4f3a53f874cd2d715b8edd7c704bb1fc1a54d182829ea03d2c6dfc5c83058512\""
+        }
+        "assets/shared/places/loft.png" => {
+            "\"69008efdd4002437c41cb433efd1117f0b3d2698241318c094668feefd589e71\""
+        }
+        "assets/shared/items/shears.png" => {
+            "\"225bf98853060dc121ea82d4d89430f27d049f7de70e3b0b8e30f2cd633b9d87\""
+        }
         "index.html" => "\"60725786f430c600f1dffa229801265eb22d77cd35b2ee77bfbdd30f4f418e21\"",
         "style.css" => "\"00c0b408d8521f41bb829de05053cce354886f1dcf8e9adcec8cff0975406278\"",
         "entry.mjs" => "\"1a7995fada45e5bf544ec6e98a6cc9ea9019634cf9bae644d6f1766581314c89\"",
         "openrouter.mjs" => "\"1f1df94c46294aeefb95b37f58f63f3cf690b645927a74f78ea5cfb3e2734330\"",
-        "openrouter-settings.mjs" => "\"d9ba78860b889393fca818f5580e1a94b0c733bb807e0ce7881bf61e3fa7bcc7\"",
+        "openrouter-settings.mjs" => {
+            "\"d9ba78860b889393fca818f5580e1a94b0c733bb807e0ce7881bf61e3fa7bcc7\""
+        }
         "openrouter.css" => "\"a4b02841085d755874b998e96df10db687e6cabaa5de6e70ac5e97e2999918bf\"",
-        "openrouter-connect.mjs" => "\"3ed2987a233d24c383d53d9b6596dea662f2776e2e44f85347dc9e3687940112\"",
-        "openrouter-callback.html" => "\"02586d96bd7a21e738bd759f7f31022cf4104c8b53130143d0446183e6567f1d\"",
-        "openrouter-callback.mjs" => "\"eb5e480fb584def62b12ad86da543dfbf39129e5bb1eb64d08882b53a637436b\"",
-        "openrouter-callback.css" => "\"81446bc481b594032038205fdeb5015ce33bf455efbcd4e77dcffdcd43b0a5ec\"",
+        "openrouter-connect.mjs" => {
+            "\"3ed2987a233d24c383d53d9b6596dea662f2776e2e44f85347dc9e3687940112\""
+        }
+        "openrouter-callback.html" => {
+            "\"02586d96bd7a21e738bd759f7f31022cf4104c8b53130143d0446183e6567f1d\""
+        }
+        "openrouter-callback.mjs" => {
+            "\"eb5e480fb584def62b12ad86da543dfbf39129e5bb1eb64d08882b53a637436b\""
+        }
+        "openrouter-callback.css" => {
+            "\"81446bc481b594032038205fdeb5015ce33bf455efbcd4e77dcffdcd43b0a5ec\""
+        }
         "scene-video.mjs" => "\"3388d9da46e602a1877294d67f55bff27dfbafe0947de5c21765a70a374479cd\"",
-        "scene-video-context.mjs" => "\"715dd5cc761714beee11a1e4787a5bc41ecb3611714f9d1c374d0317c5db8dbb\"",
+        "scene-video-context.mjs" => {
+            "\"715dd5cc761714beee11a1e4787a5bc41ecb3611714f9d1c374d0317c5db8dbb\""
+        }
         "scene-video.css" => "\"3c6851ec825e734e3d8a084f4ed77f077bcb4402acbf61869a67b652c3afe4c5\"",
         "awakening.css" => "\"c7a68a23baf1e46934237a57f4b5f87d76bad87af85fdf57ee40abec646908b9\"",
         "app.mjs" => "\"958098523308b772ba246e6d040ace9a3a20634912c22a8468c764e88f31f67e\"",
         "world.mjs" => "\"ea04a8b4b8a415a19ff21269779e5a5cdfe8adc991d84de47bdb5c17e25790e5\"",
         "scene.mjs" => "\"635ee5038f8b73ae0425bb64de542fa2a9d034f3287802a1a5b3a8101b34edd1\"",
-        "portrait-facing.mjs" => "\"092242aa43a1919d1469b9dfba6a50723504569fea480fd3f33fcb9f72bd23b1\"",
+        "portrait-facing.mjs" => {
+            "\"092242aa43a1919d1469b9dfba6a50723504569fea480fd3f33fcb9f72bd23b1\""
+        }
         "cards.mjs" => "\"d830242dc06693e8a0327f41a5b56e8ff8d5f2f054e47716e420131e79aee2f0\"",
         "lessons.mjs" => "\"d356ccfd6d4bb622ea7e325ebae519f3ff37433013b04874f07f83865b883705\"",
         "motives.mjs" => "\"9e8b5b84a9a21761074c524f9295febaf1e03b92342f324a41e364c4d34950f1\"",
         "life.mjs" => "\"96bacb8052c8b77e11eb733edfe075f25f2e6e38ceb8f153280f4d974cb74c5c\"",
         "quests.mjs" => "\"2d3654fc20f1281455119d907cae02a423f5ce860998e8eac0e122e584a74e0d\"",
-        "quest-offers.mjs" => "\"6f0ef71f7042254df8b93dde9c928c44e5ac5914f32acfee02617668dd7b4873\"",
+        "quest-offers.mjs" => {
+            "\"6f0ef71f7042254df8b93dde9c928c44e5ac5914f32acfee02617668dd7b4873\""
+        }
         "quest-hands.mjs" => "\"c7692977dd2195a1b19ace9724ed1dd344b8cf69fb59b1f2a652d98f89bfe2c4\"",
-        "shared-quests.mjs" => "\"9bdab1a2df233ad7b58da7358ac69e99de9e7f644a8792ffa913484964aec4e8\"",
-        "story-quests.mjs" => "\"ce2fcbc99fdeabdb11bcc0fb57c861bb6eb0fee1d321161947dceb28d813c3a9\"",
-        "open-door-quests.mjs" => "\"d4892be4215ebbf0d9079db72d572fdffa4b3cbd1dde15a8ec13692bf9cc80a6\"",
-        "homecoming-quests.mjs" => "\"12c99e2360a5fd07ded8875e6038a7d70454785045359b84acfc310db63f2b64\"",
-        "quest-completions.mjs" => "\"b97912558deeb5a499e8d25c403b14c08f6a83c82110e3826c41f85fcdda3552\"",
-        "roaming-quests.mjs" => "\"8d78d47637d47eb4c48ed4dd46ce3cbc636221479c7fc3a3a26fa6428e4bc8b2\"",
-        "roaming-routes.mjs" => "\"241f75cb48175b3d724979055ccfdd6866b9d972fe41a34ca5fdb352ca6d86d2\"",
+        "shared-quests.mjs" => {
+            "\"9bdab1a2df233ad7b58da7358ac69e99de9e7f644a8792ffa913484964aec4e8\""
+        }
+        "story-quests.mjs" => {
+            "\"ce2fcbc99fdeabdb11bcc0fb57c861bb6eb0fee1d321161947dceb28d813c3a9\""
+        }
+        "open-door-quests.mjs" => {
+            "\"d4892be4215ebbf0d9079db72d572fdffa4b3cbd1dde15a8ec13692bf9cc80a6\""
+        }
+        "homecoming-quests.mjs" => {
+            "\"12c99e2360a5fd07ded8875e6038a7d70454785045359b84acfc310db63f2b64\""
+        }
+        "quest-completions.mjs" => {
+            "\"b97912558deeb5a499e8d25c403b14c08f6a83c82110e3826c41f85fcdda3552\""
+        }
+        "roaming-quests.mjs" => {
+            "\"8d78d47637d47eb4c48ed4dd46ce3cbc636221479c7fc3a3a26fa6428e4bc8b2\""
+        }
+        "roaming-routes.mjs" => {
+            "\"241f75cb48175b3d724979055ccfdd6866b9d972fe41a34ca5fdb352ca6d86d2\""
+        }
         "quest-cards.mjs" => "\"81916b280064e9c9619fb01ee5ded358adf750374efdc10f5fbfa9c629ffeeb9\"",
         "situations.mjs" => "\"1fff8b8ba954720b8a0a4450d6db2bf6e6d9378566ae0ca2668a44979f83c39d\"",
         "memory.mjs" => "\"a60b35aae48d30646331b3de96234fad605fb363a694db9ef7204851f85be14d\"",
         "narrative.mjs" => "\"4d057d3f8bf168e8bf22e552517252dea9920927baaf763634a34f1fc1a64065\"",
         "dialogue.mjs" => "\"1f4965d3e2a36261973aace4534359c00c7cf8aeaf15548a08d29e364adcc7ad\"",
-        "character-speech.mjs" => "\"d011311933ed1164b560b655649151b3b8ad83c8059983afbbc988c0db113b01\"",
+        "character-speech.mjs" => {
+            "\"d011311933ed1164b560b655649151b3b8ad83c8059983afbbc988c0db113b01\""
+        }
         "voices.json" => "\"5cb58b9bf96fa6df236d6c987eed965ca9d0bb8f3800644229767fa561a829f7\"",
-        "assets/voices/vale.mp3" => "\"083024e8f77da085caaa10adb44a84684636039e1fe7b165cb93c57db77053f3\"",
-        "assets/voices/mara.mp3" => "\"0b6eddf93dc4a349ef85501f408666ce45c43d7e0b43d90225a0adf4b2feb1f0\"",
-        "assets/voices/moth.mp3" => "\"557bafdd84169ab55b2d7872479af437922e27f3fe3e8954a50d5dc71eaa0a5e\"",
-        "assets/voices/keeper.mp3" => "\"9574342e6673aa904918baffb916aefffc0e3d6746b7f16636762d631bfe788b\"",
-        "assets/voices/badger.mp3" => "\"f5492cf700d481d4e95a4c60191be42a937bbe4ca612878ce3b9267f20960362\"",
-        "assets/voices/greek-baker.mp3" => "\"0dc315f6c54a2a48fab122a0c1b3dc5876121073b696b0ce4537c2d76d0b08a8\"",
+        "assets/voices/vale.mp3" => {
+            "\"083024e8f77da085caaa10adb44a84684636039e1fe7b165cb93c57db77053f3\""
+        }
+        "assets/voices/mara.mp3" => {
+            "\"0b6eddf93dc4a349ef85501f408666ce45c43d7e0b43d90225a0adf4b2feb1f0\""
+        }
+        "assets/voices/moth.mp3" => {
+            "\"557bafdd84169ab55b2d7872479af437922e27f3fe3e8954a50d5dc71eaa0a5e\""
+        }
+        "assets/voices/keeper.mp3" => {
+            "\"9574342e6673aa904918baffb916aefffc0e3d6746b7f16636762d631bfe788b\""
+        }
+        "assets/voices/badger.mp3" => {
+            "\"f5492cf700d481d4e95a4c60191be42a937bbe4ca612878ce3b9267f20960362\""
+        }
+        "assets/voices/greek-baker.mp3" => {
+            "\"0dc315f6c54a2a48fab122a0c1b3dc5876121073b696b0ce4537c2d76d0b08a8\""
+        }
         "pack-schema.mjs" => "\"9829c6700e9f720e3c1e219725a35462a0de285b3b85c8836c541e3366cea0de\"",
-        "pack-registry.mjs" => "\"fe3ffd179a3f2fcbe11b39185da3f4599c211eb12fa230d610466f08ec044cf1\"",
-        "pack-sections.mjs" => "\"1230a3aa14a8e17e9eedaeeaead6717b77650111e8179306ad5e2a2d925d0f32\"",
-        "pack-journeys.mjs" => "\"996aece846b585757daeec24d490ed07f563016dd05e86866d58f5e5a9080466\"",
-        "pack-recital.mjs" => "\"69bb676f4fbe0591f81e473921b6ff8ae8c88cddbab5a1931d005f662d0ffcea\"",
+        "pack-registry.mjs" => {
+            "\"fe3ffd179a3f2fcbe11b39185da3f4599c211eb12fa230d610466f08ec044cf1\""
+        }
+        "pack-sections.mjs" => {
+            "\"1230a3aa14a8e17e9eedaeeaead6717b77650111e8179306ad5e2a2d925d0f32\""
+        }
+        "pack-journeys.mjs" => {
+            "\"996aece846b585757daeec24d490ed07f563016dd05e86866d58f5e5a9080466\""
+        }
+        "pack-recital.mjs" => {
+            "\"69bb676f4fbe0591f81e473921b6ff8ae8c88cddbab5a1931d005f662d0ffcea\""
+        }
         "pack-rules.mjs" => "\"3eeafd3fff5cede84496304073e5205a4ba8c6a31641c29da81c26d824832d52\"",
-        "pack-transport.mjs" => "\"929b862d00b5eb0cebb4953dce374483824ff559b71443946b15e1d1b9fe8a15\"",
-        "legacy-saves.mjs" => "\"388ce52d54f3f5be1e4b57555ac9c9f9b59500e986cd0b726972403adcf84ae2\"",
+        "pack-transport.mjs" => {
+            "\"929b862d00b5eb0cebb4953dce374483824ff559b71443946b15e1d1b9fe8a15\""
+        }
+        "legacy-saves.mjs" => {
+            "\"388ce52d54f3f5be1e4b57555ac9c9f9b59500e986cd0b726972403adcf84ae2\""
+        }
         "forest.json" => "\"12a2be7877e4daff53d3d1ad27c1703b2ca10dff51e6f371a5b3d1a7975afdfe\"",
         "packs.json" => "\"fe05d4fb9a5431eab3687ce86e4d62efbce4f58cec52faefeda70e8b22c173ec\"",
         "music.mjs" => "\"96fa3a9514a9558614a0d39803729beed6b618bdb45a96d64976c8a3e5a57582\"",
-        "entity-profiles.json" => "\"32bcfada78437fd92786bdb577da658828ff000563688180bd3848593f2e201e\"",
-        "assets/music/greek-harbor.mp3" => "\"f57d529d1724b22683e2cc7ed6ce3750ef0c131a617c06b3e3f88f9f1a81732e\"",
-        "assets/music/greek-courtyard.mp3" => "\"60ac8870acb7c3cc71aff040bddd623b2b07a7413bf72390063fdedac1176722\"",
-        "assets/music/greek-well.mp3" => "\"c2f409b2afbe5df1a929c11b0c273db892f03cfe6e0ed57e5b10923c67a6cedb\"",
-        "assets/music/lofi-drift.mp3" => "\"ce3b8aeaba7e5ffb56c5004cb31b1c7a2919a2b90193f6534dc6314eae46686c\"",
-        "assets/music/road-after-sunset.mp3" => "\"a91cded7fae8c5923de25fffa2147ecdfc05e2fb8509845b919baa7b854266a8\"",
-        "assets/music/drift-jam.mp3" => "\"353e1e40122f4ed2f62c148169e6deba87bc546340b36c8babb090e96b90d8c2\"",
-        "assets/music/lofi-belt-miners.mp3" => "\"00c643d54ede2f3798e69c8d3d444ae3e3f22e6fb4063c0b2f6cd4c23e896d9d\"",
-        "assets/music/attic-1.mp3" => "\"06a2b1c90cfaa6384898e9e14d8c0bd868925d92d64e31044797fde8753deeae\"",
-        "assets/music/station-2.mp3" => "\"67648d54c0ceefd1911079f5f842663f6c0cd4f5dc7da309807e4e63a4b1213d\"",
-        "assets/music/pond-2.mp3" => "\"5d9a1254fa729c9cda3ce0f3c46cf756d150f24199988557fa3ca2e94873bd96\"",
-        "assets/music/empty-seat.mp3" => "\"eedd8184fb42dfd84d4c4ba87a5aa0b24bc7fbdef59677bb97acc8476069f3c1\"",
-        "assets/music/fields-beyond-thornford.mp3" => "\"142b9e509cc0291aa8390e201a9840b4c193cd995fd8776561ccb91ddb4aae61\"",
-        "assets/music/small-change-tall-stories.mp3" => "\"5299108601c0c019dc853e267d1ebc724ff0da912c6f0c18f20d4839174f9a22\"",
-        "assets/music/rain-on-canvas.mp3" => "\"359b859aa95c324b7157098ca8ea95980b8879fb38b70e82cbdcfa5bca44aa69\"",
-        "assets/music/attic-2.mp3" => "\"58e26e429a4cb6cc57d287655da201782a75a56baed426f784473d3367adc53d\"",
-        "assets/music/pond-1.mp3" => "\"dad0ccc76d4defd4fc3f59f026cb47e4692a22086e11a1ab8cecba906c5d8ec4\"",
-        "assets/music/station-1.mp3" => "\"4d9ca91936030f3338295c17f6a1d271057d5fcb958c684a6646e59504b32a70\"",
-        "assets/music/ship-1.mp3" => "\"fbe7b5ce3b1dedc447f7ebdfbcb4dcbf33e66588b206fd8693ae7c3f0f26c535\"",
-        "assets/music/ship-2.mp3" => "\"41cd2d1e6015c3a4cdd5605016fd8caa52f3359fedbb0b2326c63cef96b6073d\"",
-        "assets/music/ship-3.mp3" => "\"0f43865d54bf6037b5874c2f48df9e8e5167c4fb7941ac89f5369a683b9f81a8\"",
-        "assets/music/ship-4.mp3" => "\"f74258754cb967ab5fe837477b621690dbaee5a3b6f821e6ef3f24c89791e3dc\"",
-        "assets/lamp-card.png" => "\"efb35f0a22872c049ef88e9afabced379fffff42db7f8d2f197ad69fb52a7934\"",
-        "assets/lamp-card.jpg" => "\"998fae864f9667c159673805ae952421af9417d62274cd981525c24adee1e07f\"",
-        "assets/oil-card.png" => "\"e6671231f130a8e00fcb9aa3223a8100efc6202fbd5cac185bfec87f947ef65e\"",
-        "assets/oil-card.jpg" => "\"0dbd786ea8e01b0f7c3e29e8a2e60bef91bacb2efe292e1d50871d000c33ce25\"",
-        "assets/bell-card.png" => "\"aa5405ab9f6d4ab3e7398e4c5383cdddadaee9dc215784e225475c33fb3ae763\"",
-        "assets/bell-card.jpg" => "\"a6a7ee493a849d4ddee772886eb457b5d0944c5cc9aa6e5ca4849122f1f93269\"",
-        "assets/cloth-card.png" => "\"9c4a2c383eeac4abeeed6d91f13ede9d0a82576e12a421fa8a4bb5d382e1adaf\"",
-        "assets/cloth-card.jpg" => "\"b1e334954f2182c2cb68b7c865873f0a84da1ca171b8f0ca2dc7039f74055dce\"",
-        "assets/station.png" => "\"7dacf532b00c33735860d19273366188d6f759df6ad2f5429f15d287c08d1a33\"",
-        "assets/attic.png" => "\"24ecf6100097986d8b72578a991d30f14a4b96070e320c78ddf2f83d41dcf18e\"",
+        "entity-profiles.json" => {
+            "\"32bcfada78437fd92786bdb577da658828ff000563688180bd3848593f2e201e\""
+        }
+        "assets/music/greek-harbor.mp3" => {
+            "\"f57d529d1724b22683e2cc7ed6ce3750ef0c131a617c06b3e3f88f9f1a81732e\""
+        }
+        "assets/music/greek-courtyard.mp3" => {
+            "\"60ac8870acb7c3cc71aff040bddd623b2b07a7413bf72390063fdedac1176722\""
+        }
+        "assets/music/greek-well.mp3" => {
+            "\"c2f409b2afbe5df1a929c11b0c273db892f03cfe6e0ed57e5b10923c67a6cedb\""
+        }
+        "assets/music/lofi-drift.mp3" => {
+            "\"ce3b8aeaba7e5ffb56c5004cb31b1c7a2919a2b90193f6534dc6314eae46686c\""
+        }
+        "assets/music/road-after-sunset.mp3" => {
+            "\"a91cded7fae8c5923de25fffa2147ecdfc05e2fb8509845b919baa7b854266a8\""
+        }
+        "assets/music/drift-jam.mp3" => {
+            "\"353e1e40122f4ed2f62c148169e6deba87bc546340b36c8babb090e96b90d8c2\""
+        }
+        "assets/music/lofi-belt-miners.mp3" => {
+            "\"00c643d54ede2f3798e69c8d3d444ae3e3f22e6fb4063c0b2f6cd4c23e896d9d\""
+        }
+        "assets/music/attic-1.mp3" => {
+            "\"06a2b1c90cfaa6384898e9e14d8c0bd868925d92d64e31044797fde8753deeae\""
+        }
+        "assets/music/station-2.mp3" => {
+            "\"67648d54c0ceefd1911079f5f842663f6c0cd4f5dc7da309807e4e63a4b1213d\""
+        }
+        "assets/music/pond-2.mp3" => {
+            "\"5d9a1254fa729c9cda3ce0f3c46cf756d150f24199988557fa3ca2e94873bd96\""
+        }
+        "assets/music/empty-seat.mp3" => {
+            "\"eedd8184fb42dfd84d4c4ba87a5aa0b24bc7fbdef59677bb97acc8476069f3c1\""
+        }
+        "assets/music/fields-beyond-thornford.mp3" => {
+            "\"142b9e509cc0291aa8390e201a9840b4c193cd995fd8776561ccb91ddb4aae61\""
+        }
+        "assets/music/small-change-tall-stories.mp3" => {
+            "\"5299108601c0c019dc853e267d1ebc724ff0da912c6f0c18f20d4839174f9a22\""
+        }
+        "assets/music/rain-on-canvas.mp3" => {
+            "\"359b859aa95c324b7157098ca8ea95980b8879fb38b70e82cbdcfa5bca44aa69\""
+        }
+        "assets/music/attic-2.mp3" => {
+            "\"58e26e429a4cb6cc57d287655da201782a75a56baed426f784473d3367adc53d\""
+        }
+        "assets/music/pond-1.mp3" => {
+            "\"dad0ccc76d4defd4fc3f59f026cb47e4692a22086e11a1ab8cecba906c5d8ec4\""
+        }
+        "assets/music/station-1.mp3" => {
+            "\"4d9ca91936030f3338295c17f6a1d271057d5fcb958c684a6646e59504b32a70\""
+        }
+        "assets/music/ship-1.mp3" => {
+            "\"fbe7b5ce3b1dedc447f7ebdfbcb4dcbf33e66588b206fd8693ae7c3f0f26c535\""
+        }
+        "assets/music/ship-2.mp3" => {
+            "\"41cd2d1e6015c3a4cdd5605016fd8caa52f3359fedbb0b2326c63cef96b6073d\""
+        }
+        "assets/music/ship-3.mp3" => {
+            "\"0f43865d54bf6037b5874c2f48df9e8e5167c4fb7941ac89f5369a683b9f81a8\""
+        }
+        "assets/music/ship-4.mp3" => {
+            "\"f74258754cb967ab5fe837477b621690dbaee5a3b6f821e6ef3f24c89791e3dc\""
+        }
+        "assets/lamp-card.png" => {
+            "\"efb35f0a22872c049ef88e9afabced379fffff42db7f8d2f197ad69fb52a7934\""
+        }
+        "assets/lamp-card.jpg" => {
+            "\"998fae864f9667c159673805ae952421af9417d62274cd981525c24adee1e07f\""
+        }
+        "assets/oil-card.png" => {
+            "\"e6671231f130a8e00fcb9aa3223a8100efc6202fbd5cac185bfec87f947ef65e\""
+        }
+        "assets/oil-card.jpg" => {
+            "\"0dbd786ea8e01b0f7c3e29e8a2e60bef91bacb2efe292e1d50871d000c33ce25\""
+        }
+        "assets/bell-card.png" => {
+            "\"aa5405ab9f6d4ab3e7398e4c5383cdddadaee9dc215784e225475c33fb3ae763\""
+        }
+        "assets/bell-card.jpg" => {
+            "\"a6a7ee493a849d4ddee772886eb457b5d0944c5cc9aa6e5ca4849122f1f93269\""
+        }
+        "assets/cloth-card.png" => {
+            "\"9c4a2c383eeac4abeeed6d91f13ede9d0a82576e12a421fa8a4bb5d382e1adaf\""
+        }
+        "assets/cloth-card.jpg" => {
+            "\"b1e334954f2182c2cb68b7c865873f0a84da1ca171b8f0ca2dc7039f74055dce\""
+        }
+        "assets/station.png" => {
+            "\"7dacf532b00c33735860d19273366188d6f759df6ad2f5429f15d287c08d1a33\""
+        }
+        "assets/attic.png" => {
+            "\"24ecf6100097986d8b72578a991d30f14a4b96070e320c78ddf2f83d41dcf18e\""
+        }
         "assets/pond.png" => "\"aa4b9600d32dc3cd043aa91eed47aa2a6f16fd422849a0563f05cb3b42478e75\"",
         "assets/vale.png" => "\"f6a79cda52b36495592c5dcf3f53e4e611cdcd4b9d6573b399270b42b7991079\"",
         "assets/moth.png" => "\"89a55a9fe6a3541c8c63bbf55673d04e1bdf18c6b1b186707846c1a12713dcd5\"",
-        "assets/keeper.png" => "\"5ef1a982a8bd921edb86ff8c3b7aec9ae11025bdad395561a2e7b2e6a3b92f88\"",
-        "assets/keeper-right.png" => "\"7b07a71e5ff2e3b47ee5b2b6c20071ef8531a15a91aa0f28fc31ae7bbea76a7e\"",
-        "assets/greek-drama/antigone.svg" => "\"2dcfdc5b1f5e394cf3293d1fc1db13ab9457a0c09cfde3cfc9dd0e9528b993b6\"",
-        "assets/greek-drama/baker.svg" => "\"3419e21fb2a805f7aaf4000cf0ef92d5ce696881565b5b26b3e833e3d8b00732\"",
-        "assets/greek-drama/bread.svg" => "\"4eb427c835b16d96d6469fef509fcb17f1ce0124f4f8fb1387635c743045793e\"",
-        "assets/greek-drama/creon.svg" => "\"1140fc6b478dea9860ba83acfc82c7477cb2c9049dc9227ecf82a5968683e727\"",
-        "assets/greek-drama/decree.svg" => "\"238d060da88b8977f5c03c82d2bf012c3bad0a27728fab14047c19f51951c2e3\"",
-        "assets/greek-drama/elder.svg" => "\"a85fa2cb8e2e18d5c27ae1eed92e7dcd944d84c2f0495b6b6f57e0fb34e1155d\"",
-        "assets/greek-drama/funeral-cloth.svg" => "\"c1886fbcf7ac9d58feeced1de542b929cc97e91bb411c22a6563c52f5dfae88c\"",
-        "assets/greek-drama/guard.svg" => "\"4d7d02ba0d8c0f05e9eb1da4164547a6417ab14f5fedf2856a2047a74e2c64cc\"",
-        "assets/greek-drama/guide.svg" => "\"63ce0a09721b3e2bae6286c023fbac3d89976acdefe2fcdcceede1f42a3fcf9b\"",
-        "assets/greek-drama/household-token.svg" => "\"bff5d182a13b9951db7488fda99c9580150ea80c3447d1508b803409fb4c0ccc\"",
-        "assets/greek-drama/ismene.svg" => "\"83c06d115924a9c99070440324d13a0c35189d93ea5a06efc4de3514df384177\"",
-        "assets/greek-drama/oil-flask.svg" => "\"32107f03c943f857ef2a4ffe9bfd7d3ff1b0c8415ceb07ab7279ec40ad53d5e5\"",
-        "assets/greek-drama/provisions.svg" => "\"ecb18f10a59291bdacbab936be8553614ea696d7fade57278cbdc106ce3c88b2\"",
-        "assets/greek-drama/shovel.svg" => "\"f271c771618f4c55dc91d92c87d04c7ee6080e2efa3c7743fcb59a8442971d5e\"",
-        "assets/greek-drama/testimony.svg" => "\"29ca519a49ab4e158a3b2b17e698b082f13e9290f6d8aa93d2d7ebe40f77fbe2\"",
-        "assets/greek-drama/water-jar.svg" => "\"5e3c460a7de5b1691027a8db16a800e13e4e0298b0e7a46825abd4d324d83ef0\"",
-        "assets/badger-forest/steam-clock-background.png" => "\"99640ed1e1a47ce05daeeb14679853fdcc160563ac0a61fb446d67605153b8d3\"",
-        "assets/badger-forest/badger-sleeping.png" => "\"36b36df7a5c50d6da1eab9b8fd96450fec4c2ae9844dc8e696e7af0ee5c4a9c0\"",
-        "assets/badger-forest/badger-grumpy.png" => "\"7c68d659f2ff827633095fbd98338ee1b9693645fb4e3eaad88bb6abf53f417f\"",
-        "assets/greek-drama/harbor-open-berth.webp" => "\"c389d9f8c137134a51789d6145e18b48feea3d266ccfd4e8329f0ee0969ddd75\"",
-        "assets/greek-drama/courtyard-day.webp" => "\"c27b798ed993d2aa7bdfad03da26967556206fc86579934c595cbde93b1b0559\"",
-        "assets/greek-drama/market-well-day.webp" => "\"ec31b6e5fafa30d070e705596f7714eaa1c0d779c6b29a01347b6b6bd8ef73dd\"",
-        "assets/greek-drama/palace-day.webp" => "\"c0b61fb49af9c98adbdf9fe7ac386f3611e13b23342a10791673871473928769\"",
-        "assets/greek-drama/city-gate-day.webp" => "\"6b40cfeb3a5b3ee0bd08ad2f3d815f07aaa4b08d6a208b1f8ca483024c2d1c33\"",
-        "assets/greek-drama/burial-ground-dusk.webp" => "\"a48b519c59a4bdea60ce1d843c8c475238e0fc4b83da7eef6ce8277ca234592f\"",
-        "assets/greek-drama/sanctuary-dawn.webp" => "\"d287fe8287369ba786b26abe14d2adb1a9082cc7f6cffbed5f52654d863ffba2\"",
-        "assets/greek-drama/grove.svg" => "\"8209e5db1d31827c23a1b0ae260554eb524fbb2f6858e5ffe6dabe67daa7602d\"",
-        "assets/greek-drama/harbor.svg" => "\"1bf4c0ba2ed2a058c2e7b20daf73d28e6e246e9bc4531e488af409fc927d6e93\"",
-        "assets/greek-drama/open-door-agora.webp" => "\"9052e12b1e43742f4de810f56e0f2a6f0c23d7f445744efc68cc259183cfdbf6\"",
-        "assets/greek-drama/open-door-piraeus.webp" => "\"9e5a564d282c2658140e9aee121d1a013d4cd22d105be16ba4d590a5a872953f\"",
-        "assets/greek-drama/palace.svg" => "\"b87f2d86939de92ac3066cd508f59c9fc2e68a8c5b3d669fad8d45b7af98f431\"",
-        "assets/greek-drama/courtyard.svg" => "\"9d4c4ee092e26393e918ce22519df9a9090e323d551976b6ad67a15e8f415a61\"",
-        "assets/greek-drama/open-door-colonus.webp" => "\"ce76091cd3f94db6dec9db104f6ab0d67fa81af1670089d731130a29e4625fb7\"",
-        "assets/greek-drama/open-door-eleusis.webp" => "\"e792c1dc93672b1f39dc8db45090a35238cb135e47649caafcf1733af6e170bb\"",
-        "assets/greek-drama/open-door-marathon.webp" => "\"f7a3475c47ce3fc8dfc7da4eee2231cbfe12bd1a74753b348098c9444d937314\"",
-        "assets/greek-drama/sea.svg" => "\"acedfe0d19fb43c4f1ce28307cbfd13aa0a9df1993ee671fa36d5bd21c45bea3\"",
-        "assets/greek-drama/ship-deck.webp" => "\"e09145506d279ba279abb94f716d93366b4a3584852e2ddc6f52584798425dbd\"",
-        "assets/greek-drama/ship-card.webp" => "\"c7789a3163cbd45ac8cc9fccda27591f58d66c23dafb19e768545b68707fcd06\"",
-        "assets/greek-drama/water-jar.png" => "\"6d52ae719a61b32c8e6815caa49595b1d6469ddc58bba82f7df614eac1ab9061\"",
-        "assets/greek-drama/bread.png" => "\"b9570b0b1db56c334ff070367afdc23cb3595cf0b87971b4c9c5c27ac587859e\"",
-        "assets/greek-drama/funeral-cloth.png" => "\"495f882672ce8513a65f789b919741ef3f49f22a76c73551847cefb5d217e0a0\"",
-        "assets/greek-drama/oil-flask.png" => "\"93a2cc9f0e8bfdc2b7da0077aa1f0f16f5e6768467f7a39489e9d3dc41dc6f3a\"",
-        "assets/greek-drama/shovel.png" => "\"090528f43290b6dd85cff02a538499aeb3d8af54f52bedb9bdb8c462addcfdc3\"",
-        "assets/greek-drama/decree.png" => "\"ed08e73661fcb7ed7f5cf653cfbb4c035784fdab0597b9f4de73eaf8ab9df877\"",
-        "assets/greek-drama/household-token.png" => "\"e5a4d2daa5726d0c70fb0e5f08c02130aeaa3175309bb320a24d9fa7be871e6f\"",
-        "assets/greek-drama/provisions.png" => "\"318f5f4a2fe860efb4d5b8b747d334a79eecc321368cccd51113b579222149f4\"",
-        "assets/greek-drama/testimony.png" => "\"98374962809e259ecba2e1aa26643f3397c37c038f7f0ab7dc6a42a43b24e7bf\"",
-        "assets/greek-drama/pond-ship-overlay.png" => "\"dde8685c9d694b49e81aac2cdf76415db9390224b5e35c624e15b5d89c170b55\"",
-        "assets/greek-drama/harbor-ship-at-berth.webp" => "\"f71d5f64371f50b37059f0929db3489b0f808696494c64078ad5fbe958e1f1d0\"",
-        "assets/greek-drama/chthonic-antigone.png" => "\"965adf97fdabebed518a124ea9ad7c297278bfec55d438ccfc958c80f7d9f536\"",
-        "assets/greek-drama/chthonic-ismene.png" => "\"73ea9c0504277380a52dcc04fbf4eac0df658dec278d9210f80430a0e37f16c5\"",
-        "assets/greek-drama/chthonic-creon.png" => "\"a4b3ca08129e861de9d61d21b98dcbe38278ffc1dc4d3bd5d15e99b33612df2f\"",
-        "assets/greek-drama/chthonic-guard.png" => "\"14b1fdce81b903d39726d75c5f16c4f1375ff5e5dc8f8d07496b87fbcc9a0402\"",
-        "assets/greek-drama/chthonic-baker.png" => "\"c8e900ee50e1a3fe860e7f38e6625f7326a6715e6821e8a5db74d264c1bbd7e0\"",
-        "assets/greek-drama/chthonic-elder.png" => "\"a5949e884b36493b902ed3168c58c051e27e87abe80380c669e93eebc1e71869\"",
-        "assets/greek-drama/chthonic-shipmaster.png" => "\"cc8a78bca8bd303988a38c693304556b52df632ed7f99f69111466028a894ed8\"",
-        "assets/greek-drama/chthonic-singer.png" => "\"6e5ae857c2efbe1d6a545675d4198b3b1d12b0cad2ca828eca6771ade6d6792a\"",
-        "assets/greek-drama/chthonic-neighbor.png" => "\"8d37d52aa924f1432fe751eb2c99daee8c6136c4507a36550f914b6948e34401\"",
-        "assets/greek-drama/chthonic-attendant.png" => "\"61977265e6897bc973d582ec0487fa82a2b4c7e2baecc4571420c18047f55130\"",
-        "assets/greek-drama/chthonic-ferryman.png" => "\"af8fdc32806113c750aa048e4f3eefb429013a24c457a75ad7dd1d89dce5d3a0\"",
-        "assets/greek-drama/chthonic-helen.png" => "\"3c87d505fd801846e140405d3d5b84f562ddb9d00a1f015ad9c2814209a5986f\"",
-        "assets/greek-drama/chthonic-menelaus.png" => "\"8f3ef20e63ee5138d7ae09bb3e90893c51f421aecdd3adea3fb94a4d61e4113b\"",
-        "assets/greek-drama/chthonic-electra.png" => "\"5239e39dbc53bfdca3ccbecbd3ac7fdf1eddc1b9a513ddc2310a44336d2ee66e\"",
-        "assets/greek-drama/chthonic-orestes.png" => "\"612b5608fadf8f3c9e2e84dacda395eb05b057dfd0c562781f3c748a96b8da23\"",
-        "assets/greek-drama/open-door-aethra.webp" => "\"d59c6048c876acb8167674b9119cb09c37d4a6d528fc286df7f792fb7ebae98a\"",
-        "assets/greek-drama/open-door-adrastus.webp" => "\"d8d915b76cd25d41b69a31e90f0d61795f34c342cc3f7c96f6da542c6a339ccd\"",
-        "assets/greek-drama/open-door-mother.webp" => "\"1da5523186407bc171be09784f63b68b494d916493a8877fa55981724a0b4880\"",
-        "assets/greek-drama/open-door-iphis.webp" => "\"8b384cbb30cad658eaff9952d8cbb556ca1114d170e25e7b0f1a7939a1cbad4a\"",
-        "assets/greek-drama/open-door-theseus.webp" => "\"a42d68565a9e216f9ce26bafb8ecb78becfe5da7f88d79e5d1a8425fa9b202fe\"",
-        "assets/greek-drama/open-door-quay-host.webp" => "\"e6c987ea74f4892491f0a91f764fb363d5d64f90045f5ba91fdc2a40d007dc4f\"",
-        "assets/greek-drama/open-door-grove-keeper.webp" => "\"5501fe74952d8e4e460837f0af1901b704370ebfebceaf32ea07f670d279652d\"",
-        "assets/greek-drama/open-door-altar-keeper.webp" => "\"8ad272e454c6d9d9337b0eeb87f9fc22bd1d661ea1338db5a295a651990e5968\"",
-        "assets/greek-drama/myrine.webp" => "\"e507850aa9959a4d1fedf42eb6ba17d1b70e8a1c2b25799c033e7926bb6ae0ec\"",
+        "assets/keeper.png" => {
+            "\"5ef1a982a8bd921edb86ff8c3b7aec9ae11025bdad395561a2e7b2e6a3b92f88\""
+        }
+        "assets/keeper-right.png" => {
+            "\"7b07a71e5ff2e3b47ee5b2b6c20071ef8531a15a91aa0f28fc31ae7bbea76a7e\""
+        }
+        "assets/greek-drama/antigone.svg" => {
+            "\"2dcfdc5b1f5e394cf3293d1fc1db13ab9457a0c09cfde3cfc9dd0e9528b993b6\""
+        }
+        "assets/greek-drama/baker.svg" => {
+            "\"3419e21fb2a805f7aaf4000cf0ef92d5ce696881565b5b26b3e833e3d8b00732\""
+        }
+        "assets/greek-drama/bread.svg" => {
+            "\"4eb427c835b16d96d6469fef509fcb17f1ce0124f4f8fb1387635c743045793e\""
+        }
+        "assets/greek-drama/creon.svg" => {
+            "\"1140fc6b478dea9860ba83acfc82c7477cb2c9049dc9227ecf82a5968683e727\""
+        }
+        "assets/greek-drama/decree.svg" => {
+            "\"238d060da88b8977f5c03c82d2bf012c3bad0a27728fab14047c19f51951c2e3\""
+        }
+        "assets/greek-drama/elder.svg" => {
+            "\"a85fa2cb8e2e18d5c27ae1eed92e7dcd944d84c2f0495b6b6f57e0fb34e1155d\""
+        }
+        "assets/greek-drama/funeral-cloth.svg" => {
+            "\"c1886fbcf7ac9d58feeced1de542b929cc97e91bb411c22a6563c52f5dfae88c\""
+        }
+        "assets/greek-drama/guard.svg" => {
+            "\"4d7d02ba0d8c0f05e9eb1da4164547a6417ab14f5fedf2856a2047a74e2c64cc\""
+        }
+        "assets/greek-drama/guide.svg" => {
+            "\"63ce0a09721b3e2bae6286c023fbac3d89976acdefe2fcdcceede1f42a3fcf9b\""
+        }
+        "assets/greek-drama/household-token.svg" => {
+            "\"bff5d182a13b9951db7488fda99c9580150ea80c3447d1508b803409fb4c0ccc\""
+        }
+        "assets/greek-drama/ismene.svg" => {
+            "\"83c06d115924a9c99070440324d13a0c35189d93ea5a06efc4de3514df384177\""
+        }
+        "assets/greek-drama/oil-flask.svg" => {
+            "\"32107f03c943f857ef2a4ffe9bfd7d3ff1b0c8415ceb07ab7279ec40ad53d5e5\""
+        }
+        "assets/greek-drama/provisions.svg" => {
+            "\"ecb18f10a59291bdacbab936be8553614ea696d7fade57278cbdc106ce3c88b2\""
+        }
+        "assets/greek-drama/shovel.svg" => {
+            "\"f271c771618f4c55dc91d92c87d04c7ee6080e2efa3c7743fcb59a8442971d5e\""
+        }
+        "assets/greek-drama/testimony.svg" => {
+            "\"29ca519a49ab4e158a3b2b17e698b082f13e9290f6d8aa93d2d7ebe40f77fbe2\""
+        }
+        "assets/greek-drama/water-jar.svg" => {
+            "\"5e3c460a7de5b1691027a8db16a800e13e4e0298b0e7a46825abd4d324d83ef0\""
+        }
+        "assets/badger-forest/steam-clock-background.png" => {
+            "\"99640ed1e1a47ce05daeeb14679853fdcc160563ac0a61fb446d67605153b8d3\""
+        }
+        "assets/badger-forest/badger-sleeping.png" => {
+            "\"36b36df7a5c50d6da1eab9b8fd96450fec4c2ae9844dc8e696e7af0ee5c4a9c0\""
+        }
+        "assets/badger-forest/badger-grumpy.png" => {
+            "\"7c68d659f2ff827633095fbd98338ee1b9693645fb4e3eaad88bb6abf53f417f\""
+        }
+        "assets/greek-drama/harbor-open-berth.webp" => {
+            "\"c389d9f8c137134a51789d6145e18b48feea3d266ccfd4e8329f0ee0969ddd75\""
+        }
+        "assets/greek-drama/courtyard-day.webp" => {
+            "\"c27b798ed993d2aa7bdfad03da26967556206fc86579934c595cbde93b1b0559\""
+        }
+        "assets/greek-drama/market-well-day.webp" => {
+            "\"ec31b6e5fafa30d070e705596f7714eaa1c0d779c6b29a01347b6b6bd8ef73dd\""
+        }
+        "assets/greek-drama/palace-day.webp" => {
+            "\"c0b61fb49af9c98adbdf9fe7ac386f3611e13b23342a10791673871473928769\""
+        }
+        "assets/greek-drama/city-gate-day.webp" => {
+            "\"6b40cfeb3a5b3ee0bd08ad2f3d815f07aaa4b08d6a208b1f8ca483024c2d1c33\""
+        }
+        "assets/greek-drama/burial-ground-dusk.webp" => {
+            "\"a48b519c59a4bdea60ce1d843c8c475238e0fc4b83da7eef6ce8277ca234592f\""
+        }
+        "assets/greek-drama/sanctuary-dawn.webp" => {
+            "\"d287fe8287369ba786b26abe14d2adb1a9082cc7f6cffbed5f52654d863ffba2\""
+        }
+        "assets/greek-drama/grove.svg" => {
+            "\"8209e5db1d31827c23a1b0ae260554eb524fbb2f6858e5ffe6dabe67daa7602d\""
+        }
+        "assets/greek-drama/harbor.svg" => {
+            "\"1bf4c0ba2ed2a058c2e7b20daf73d28e6e246e9bc4531e488af409fc927d6e93\""
+        }
+        "assets/greek-drama/open-door-agora.webp" => {
+            "\"9052e12b1e43742f4de810f56e0f2a6f0c23d7f445744efc68cc259183cfdbf6\""
+        }
+        "assets/greek-drama/open-door-piraeus.webp" => {
+            "\"9e5a564d282c2658140e9aee121d1a013d4cd22d105be16ba4d590a5a872953f\""
+        }
+        "assets/greek-drama/palace.svg" => {
+            "\"b87f2d86939de92ac3066cd508f59c9fc2e68a8c5b3d669fad8d45b7af98f431\""
+        }
+        "assets/greek-drama/courtyard.svg" => {
+            "\"9d4c4ee092e26393e918ce22519df9a9090e323d551976b6ad67a15e8f415a61\""
+        }
+        "assets/greek-drama/open-door-colonus.webp" => {
+            "\"ce76091cd3f94db6dec9db104f6ab0d67fa81af1670089d731130a29e4625fb7\""
+        }
+        "assets/greek-drama/open-door-eleusis.webp" => {
+            "\"e792c1dc93672b1f39dc8db45090a35238cb135e47649caafcf1733af6e170bb\""
+        }
+        "assets/greek-drama/open-door-marathon.webp" => {
+            "\"f7a3475c47ce3fc8dfc7da4eee2231cbfe12bd1a74753b348098c9444d937314\""
+        }
+        "assets/greek-drama/sea.svg" => {
+            "\"acedfe0d19fb43c4f1ce28307cbfd13aa0a9df1993ee671fa36d5bd21c45bea3\""
+        }
+        "assets/greek-drama/ship-deck.webp" => {
+            "\"e09145506d279ba279abb94f716d93366b4a3584852e2ddc6f52584798425dbd\""
+        }
+        "assets/greek-drama/ship-card.webp" => {
+            "\"c7789a3163cbd45ac8cc9fccda27591f58d66c23dafb19e768545b68707fcd06\""
+        }
+        "assets/greek-drama/water-jar.png" => {
+            "\"6d52ae719a61b32c8e6815caa49595b1d6469ddc58bba82f7df614eac1ab9061\""
+        }
+        "assets/greek-drama/bread.png" => {
+            "\"b9570b0b1db56c334ff070367afdc23cb3595cf0b87971b4c9c5c27ac587859e\""
+        }
+        "assets/greek-drama/funeral-cloth.png" => {
+            "\"495f882672ce8513a65f789b919741ef3f49f22a76c73551847cefb5d217e0a0\""
+        }
+        "assets/greek-drama/oil-flask.png" => {
+            "\"93a2cc9f0e8bfdc2b7da0077aa1f0f16f5e6768467f7a39489e9d3dc41dc6f3a\""
+        }
+        "assets/greek-drama/shovel.png" => {
+            "\"090528f43290b6dd85cff02a538499aeb3d8af54f52bedb9bdb8c462addcfdc3\""
+        }
+        "assets/greek-drama/decree.png" => {
+            "\"ed08e73661fcb7ed7f5cf653cfbb4c035784fdab0597b9f4de73eaf8ab9df877\""
+        }
+        "assets/greek-drama/household-token.png" => {
+            "\"e5a4d2daa5726d0c70fb0e5f08c02130aeaa3175309bb320a24d9fa7be871e6f\""
+        }
+        "assets/greek-drama/provisions.png" => {
+            "\"318f5f4a2fe860efb4d5b8b747d334a79eecc321368cccd51113b579222149f4\""
+        }
+        "assets/greek-drama/testimony.png" => {
+            "\"98374962809e259ecba2e1aa26643f3397c37c038f7f0ab7dc6a42a43b24e7bf\""
+        }
+        "assets/greek-drama/pond-ship-overlay.png" => {
+            "\"dde8685c9d694b49e81aac2cdf76415db9390224b5e35c624e15b5d89c170b55\""
+        }
+        "assets/greek-drama/harbor-ship-at-berth.webp" => {
+            "\"f71d5f64371f50b37059f0929db3489b0f808696494c64078ad5fbe958e1f1d0\""
+        }
+        "assets/greek-drama/chthonic-antigone.png" => {
+            "\"965adf97fdabebed518a124ea9ad7c297278bfec55d438ccfc958c80f7d9f536\""
+        }
+        "assets/greek-drama/chthonic-ismene.png" => {
+            "\"73ea9c0504277380a52dcc04fbf4eac0df658dec278d9210f80430a0e37f16c5\""
+        }
+        "assets/greek-drama/chthonic-creon.png" => {
+            "\"a4b3ca08129e861de9d61d21b98dcbe38278ffc1dc4d3bd5d15e99b33612df2f\""
+        }
+        "assets/greek-drama/chthonic-guard.png" => {
+            "\"14b1fdce81b903d39726d75c5f16c4f1375ff5e5dc8f8d07496b87fbcc9a0402\""
+        }
+        "assets/greek-drama/chthonic-baker.png" => {
+            "\"c8e900ee50e1a3fe860e7f38e6625f7326a6715e6821e8a5db74d264c1bbd7e0\""
+        }
+        "assets/greek-drama/chthonic-elder.png" => {
+            "\"a5949e884b36493b902ed3168c58c051e27e87abe80380c669e93eebc1e71869\""
+        }
+        "assets/greek-drama/chthonic-shipmaster.png" => {
+            "\"cc8a78bca8bd303988a38c693304556b52df632ed7f99f69111466028a894ed8\""
+        }
+        "assets/greek-drama/chthonic-singer.png" => {
+            "\"6e5ae857c2efbe1d6a545675d4198b3b1d12b0cad2ca828eca6771ade6d6792a\""
+        }
+        "assets/greek-drama/chthonic-neighbor.png" => {
+            "\"8d37d52aa924f1432fe751eb2c99daee8c6136c4507a36550f914b6948e34401\""
+        }
+        "assets/greek-drama/chthonic-attendant.png" => {
+            "\"61977265e6897bc973d582ec0487fa82a2b4c7e2baecc4571420c18047f55130\""
+        }
+        "assets/greek-drama/chthonic-ferryman.png" => {
+            "\"af8fdc32806113c750aa048e4f3eefb429013a24c457a75ad7dd1d89dce5d3a0\""
+        }
+        "assets/greek-drama/chthonic-helen.png" => {
+            "\"3c87d505fd801846e140405d3d5b84f562ddb9d00a1f015ad9c2814209a5986f\""
+        }
+        "assets/greek-drama/chthonic-menelaus.png" => {
+            "\"8f3ef20e63ee5138d7ae09bb3e90893c51f421aecdd3adea3fb94a4d61e4113b\""
+        }
+        "assets/greek-drama/chthonic-electra.png" => {
+            "\"5239e39dbc53bfdca3ccbecbd3ac7fdf1eddc1b9a513ddc2310a44336d2ee66e\""
+        }
+        "assets/greek-drama/chthonic-orestes.png" => {
+            "\"612b5608fadf8f3c9e2e84dacda395eb05b057dfd0c562781f3c748a96b8da23\""
+        }
+        "assets/greek-drama/open-door-aethra.webp" => {
+            "\"d59c6048c876acb8167674b9119cb09c37d4a6d528fc286df7f792fb7ebae98a\""
+        }
+        "assets/greek-drama/open-door-adrastus.webp" => {
+            "\"d8d915b76cd25d41b69a31e90f0d61795f34c342cc3f7c96f6da542c6a339ccd\""
+        }
+        "assets/greek-drama/open-door-mother.webp" => {
+            "\"1da5523186407bc171be09784f63b68b494d916493a8877fa55981724a0b4880\""
+        }
+        "assets/greek-drama/open-door-iphis.webp" => {
+            "\"8b384cbb30cad658eaff9952d8cbb556ca1114d170e25e7b0f1a7939a1cbad4a\""
+        }
+        "assets/greek-drama/open-door-theseus.webp" => {
+            "\"a42d68565a9e216f9ce26bafb8ecb78becfe5da7f88d79e5d1a8425fa9b202fe\""
+        }
+        "assets/greek-drama/open-door-quay-host.webp" => {
+            "\"e6c987ea74f4892491f0a91f764fb363d5d64f90045f5ba91fdc2a40d007dc4f\""
+        }
+        "assets/greek-drama/open-door-grove-keeper.webp" => {
+            "\"5501fe74952d8e4e460837f0af1901b704370ebfebceaf32ea07f670d279652d\""
+        }
+        "assets/greek-drama/open-door-altar-keeper.webp" => {
+            "\"8ad272e454c6d9d9337b0eeb87f9fc22bd1d661ea1338db5a295a651990e5968\""
+        }
+        "assets/greek-drama/myrine.webp" => {
+            "\"e507850aa9959a4d1fedf42eb6ba17d1b70e8a1c2b25799c033e7926bb6ae0ec\""
+        }
         _ => return None,
     })
 }

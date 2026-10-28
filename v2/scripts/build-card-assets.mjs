@@ -52,7 +52,17 @@ ${assets
 #[inline(never)]
 pub fn etag(path: &str) -> Option<&'static str> {
     Some(match path {
-${assets.map(({ file, hash }) => `        "${file}" => "\\"${hash}\\"",`).join("\n")}
+${assets
+  .map(({ file, hash }) => {
+    const value = JSON.stringify('"' + hash + '"');
+    const line = `        ${JSON.stringify(file)} => ${value},`;
+    return line.length <= 100
+      ? line
+      : `        ${JSON.stringify(file)} => {
+            ${value}
+        }`;
+  })
+  .join("\n")}
         _ => return None,
     })
 }
