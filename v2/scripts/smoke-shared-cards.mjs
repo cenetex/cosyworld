@@ -126,6 +126,16 @@ async function stop() {
   await ended;
 }
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+function serverDiagnostics() {
+  const warnings = processLog
+    .split("\n")
+    .filter((line) =>
+      /\b(?:WARN|ERROR)\b|Exception|shared card publication failed/u.test(line),
+    )
+    .slice(-20)
+    .join("\n");
+  return [warnings, processLog.slice(-3000)].filter(Boolean).join("\n");
+}
 async function until(test, label, rounds = 200, interval = 250) {
   for (let n = 0; n < rounds; n++) {
     try {
@@ -133,7 +143,7 @@ async function until(test, label, rounds = 200, interval = 250) {
     } catch {}
     await delay(interval);
   }
-  throw new Error(`Timed out: ${label}\n${processLog.slice(-3000)}`);
+  throw new Error(`Timed out: ${label}\n${serverDiagnostics()}`);
 }
 const ready = () =>
   until(async () => (await fetch(origin + "/health")).ok, "server starts");
@@ -306,6 +316,7 @@ async function expectSharedReveal(page, requestStart, speaker = "Vale") {
       JSON.stringify({
         expected,
         speaker,
+        server: serverDiagnostics(),
         observed: await page.evaluate(() => window.sharedReveals),
         history: (await snapshot(page)).history.slice(0, 5),
         provider: requests.slice(requestStart).map((request) => ({
@@ -1169,7 +1180,7 @@ try {
       fullPage: true,
     });
   }
-  console.error("Browser errors:", errors, "Server:", processLog.slice(-3000));
+  console.error("Browser errors:", errors, "Server:", serverDiagnostics());
   throw error;
 } finally {
   holdReplies = false;
