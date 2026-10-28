@@ -1826,7 +1826,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "scene-video.css" => "\"3c6851ec825e734e3d8a084f4ed77f077bcb4402acbf61869a67b652c3afe4c5\"",
         "awakening.css" => "\"c7a68a23baf1e46934237a57f4b5f87d76bad87af85fdf57ee40abec646908b9\"",
-        "app.mjs" => "\"1b992311073bec985ce78d4a6395cad5d5597dd2721cff0d1687a7c00b85103f\"",
+        "app.mjs" => "\"1e55792a276a142268c16cc16982649fe943f89d05c3a3cf44aff8f44f3e1150\"",
         "world.mjs" => "\"91b93483d2d0dcdeba444f4f3bf89fbf63590412b9b63c25f530fd7e2beda429\"",
         "scene.mjs" => "\"aba97eb70f26e75c9eaa4bcf71e3d8130f8bc5efc3df2b1a2567022959879d87\"",
         "weather.mjs" => "\"69a3e11642c43831f80581711f6113d814badd666ad2c3e3892a1a4c70a5fd27\"",
