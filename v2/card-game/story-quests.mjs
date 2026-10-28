@@ -43,19 +43,27 @@ export function storyActors(world, definition, includeDiscovery = true) {
   const state = world.packs?.[pack.id];
   const knownAuthor = state?.recitals?.[definition.choiceId]?.actor;
   const completedTurn = state?.receipts?.[definition.choiceId];
-  const readingSites = new Set(
+  const story = pack.storyQuests?.find(
+    (entry) => `${pack.id}:${entry.key || entry.id}` === definition.key,
+  );
+  const readingChoices = new Set([
+    definition.choiceId,
+    ...(story?.progress || []),
+  ]);
+  const readingSites = new Map(
     (pack.recital?.sites || [])
-      .filter((site) => site.completion === definition.choiceId)
-      .map((site) => site.id),
+      .filter((site) => readingChoices.has(site.completion))
+      .map((site) => [site.id, state?.receipts?.[site.completion]]),
   );
   // The saved reader keeps the task when the record rests on the table.
-  // Later readings retain their own archive credit after this task is complete.
+  // Later readings keep their archive credit after the recorded stage ends.
   const readers = readingSites.size
     ? Object.values(state?.poemReadings?.readings || {})
         .filter(
           (reading) =>
             readingSites.has(reading.site) &&
             reading.turn >= definition.createdTurn &&
+            reading.turn <= (readingSites.get(reading.site) ?? Infinity) &&
             (completedTurn === undefined || reading.turn <= completedTurn),
         )
         .map((reading) => reading.reader)
