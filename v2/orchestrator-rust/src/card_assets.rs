@@ -332,6 +332,10 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/story-quests.mjs"),
         ),
+        "forest-quests.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/forest-quests.mjs"),
+        ),
         "open-door-quests.mjs" => (
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/open-door-quests.mjs"),
@@ -371,6 +375,14 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
         "narrative.mjs" => (
             "text/javascript; charset=utf-8",
             include_bytes!("../../card-game/narrative.mjs"),
+        ),
+        "expression.mjs" => (
+            "text/javascript; charset=utf-8",
+            include_bytes!("../../card-game/expression.mjs"),
+        ),
+        "emoji-symbols.json" => (
+            "application/json",
+            include_bytes!("../../card-game/emoji-symbols.json"),
         ),
         "dialogue.mjs" => (
             "text/javascript; charset=utf-8",
@@ -900,6 +912,50 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "image/webp",
             include_bytes!("../../card-game/assets/greek-drama/myrine.webp"),
         ),
+        "assets/lonely-forest/cottage.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/lonely-forest/cottage.png"),
+        ),
+        "assets/lonely-forest/garden.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/lonely-forest/garden.png"),
+        ),
+        "assets/lonely-forest/trail.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/lonely-forest/trail.png"),
+        ),
+        "assets/lonely-forest/oak.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/lonely-forest/oak.png"),
+        ),
+        "assets/lonely-forest/story-button.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/lonely-forest/story-button.webp"),
+        ),
+        "assets/lonely-forest/dewbright-button.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/lonely-forest/dewbright-button.webp"),
+        ),
+        "assets/lonely-forest/watch-bell.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/lonely-forest/watch-bell.webp"),
+        ),
+        "assets/lonely-forest/wolfprint-charm.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/lonely-forest/wolfprint-charm.webp"),
+        ),
+        "assets/lonely-forest/rati.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/lonely-forest/rati.png"),
+        ),
+        "assets/lonely-forest/skull.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/lonely-forest/skull.png"),
+        ),
+        "assets/lonely-forest/whiskerwind.png" => (
+            "image/png",
+            include_bytes!("../../card-game/assets/lonely-forest/whiskerwind.png"),
+        ),
         "assets/boardyai/parlour.png" => (
             "image/png",
             include_bytes!("../../card-game/assets/boardyai/parlour.png"),
@@ -1356,6 +1412,78 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "image/webp",
             include_bytes!("../../card-game/assets/optimized/card/png/lamp-card.webp"),
         ),
+        "assets/optimized/stage/png/lonely-forest/cottage.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/stage/png/lonely-forest/cottage.webp"),
+        ),
+        "assets/optimized/card/png/lonely-forest/cottage.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/png/lonely-forest/cottage.webp"),
+        ),
+        "assets/optimized/card/webp/lonely-forest/dewbright-button.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/lonely-forest/dewbright-button.webp"),
+        ),
+        "assets/optimized/stage/png/lonely-forest/garden.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/stage/png/lonely-forest/garden.webp"),
+        ),
+        "assets/optimized/card/png/lonely-forest/garden.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/png/lonely-forest/garden.webp"),
+        ),
+        "assets/optimized/stage/png/lonely-forest/oak.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/stage/png/lonely-forest/oak.webp"),
+        ),
+        "assets/optimized/card/png/lonely-forest/oak.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/png/lonely-forest/oak.webp"),
+        ),
+        "assets/optimized/stage/png/lonely-forest/rati.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/stage/png/lonely-forest/rati.webp"),
+        ),
+        "assets/optimized/card/png/lonely-forest/rati.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/png/lonely-forest/rati.webp"),
+        ),
+        "assets/optimized/stage/png/lonely-forest/skull.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/stage/png/lonely-forest/skull.webp"),
+        ),
+        "assets/optimized/card/png/lonely-forest/skull.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/png/lonely-forest/skull.webp"),
+        ),
+        "assets/optimized/card/webp/lonely-forest/story-button.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/lonely-forest/story-button.webp"),
+        ),
+        "assets/optimized/stage/png/lonely-forest/trail.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/stage/png/lonely-forest/trail.webp"),
+        ),
+        "assets/optimized/card/png/lonely-forest/trail.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/png/lonely-forest/trail.webp"),
+        ),
+        "assets/optimized/card/webp/lonely-forest/watch-bell.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/lonely-forest/watch-bell.webp"),
+        ),
+        "assets/optimized/stage/png/lonely-forest/whiskerwind.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/stage/png/lonely-forest/whiskerwind.webp"),
+        ),
+        "assets/optimized/card/png/lonely-forest/whiskerwind.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/png/lonely-forest/whiskerwind.webp"),
+        ),
+        "assets/optimized/card/webp/lonely-forest/wolfprint-charm.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/lonely-forest/wolfprint-charm.webp"),
+        ),
         "assets/optimized/stage/png/moth.webp" => (
             "image/webp",
             include_bytes!("../../card-game/assets/optimized/stage/png/moth.webp"),
@@ -1691,10 +1819,10 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "media.mjs" => "\"9b56957b0e44c39ed8f3bfbb200ce3524646f62cf83fa775fc89dc2a62dc133b\"",
         "images.mjs" => "\"400bd04904821d5b21e24790f71cf89836e5a2aabb8662b963637de77b3fd612\"",
         "image-variants.json" => {
-            "\"a0d6262d456bd7c11e099dfde466da6366133e95e033fce9a9888aa7510ce5df\""
+            "\"1001a83651dd4712911e4f09495bb33450b214d8089ffc10d47f43e748a6485a\""
         }
         "media-manifest.json" => {
-            "\"7d1dae843ed445c1febcba628ef2346875e044634bba2971cdbdeba1e5e28383\""
+            "\"413b41cb75a93d202b60fcb8e82bc242345720477217b7129f28c5eefd4e5abf\""
         }
         "music-streams.json" => {
             "\"187db53c1c129d1505da26c18fd2384e62b9b357c91e33fd2e954bf0b7a29904\""
@@ -1710,11 +1838,11 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "inner-life.mjs" => "\"b27778f2cac4e9570a242d06084e04e5c2a06a495a81d01c216279f0c67450e0\"",
         "toolbar.css" => "\"5f548f139b187d3176fcd853790347c3755e12e0c313a9b766c7f399066c57b1\"",
         "shared-cast.json" => {
-            "\"d33acfa50480968d23f0ef43440f104ed8abdeeb0519a6504afcdbf1507ebd6e\""
+            "\"b93ecd5dec4747cc30a75dc42dcbbfba5f090dfa61255a9ebe6b4452ace86c7c\""
         }
-        "human-cast.mjs" => "\"925cddac4e0340e9620ca81118e1535323564787194df0fa4dfe1b74825d7152\"",
-        "boardyai.mjs" => "\"97ecdcdb2134d9083b52262e73748b4036542b4e9587b8d4b57c125241b19cd4\"",
-        "boardyai.json" => "\"af0d968fa961db126e218f8e90bc7f18c62499c8c5a9188cd5a7f23afbecaa5e\"",
+        "human-cast.mjs" => "\"1ab4fb373584ab3fec39ae856526d9118227dc94badf12b6f4648abaadac2ef8\"",
+        "boardyai.mjs" => "\"e52fcb0482c6674ab318192578a4eda1baa75edfd20ed902f0d28df81d4a1019\"",
+        "boardyai.json" => "\"8f30b565b2adbf62627510897484dcdaf1172a4f582666cda2b36f48e42a6bec\"",
         "assets/greek-drama/harbor-day.webp" => {
             "\"b535244774382afc8a6440e292f1c51698375717d4473f3c70b5c16fff3e4425\""
         }
@@ -1819,9 +1947,9 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "scene-video.css" => "\"3c6851ec825e734e3d8a084f4ed77f077bcb4402acbf61869a67b652c3afe4c5\"",
         "awakening.css" => "\"c7a68a23baf1e46934237a57f4b5f87d76bad87af85fdf57ee40abec646908b9\"",
-        "app.mjs" => "\"1b992311073bec985ce78d4a6395cad5d5597dd2721cff0d1687a7c00b85103f\"",
-        "world.mjs" => "\"2cdf7bbc9db556670de9c055c118717c259547cacc5a494be2a7f43772693522\"",
-        "scene.mjs" => "\"aba97eb70f26e75c9eaa4bcf71e3d8130f8bc5efc3df2b1a2567022959879d87\"",
+        "app.mjs" => "\"70c3b2511ce06a3e6daf77711dfbbf9d723f1d233244a2b5a90df40faa2d57f4\"",
+        "world.mjs" => "\"05e02eb8828b493329d48ce4b8d1bddac9ed8f60304269750ad2c5c57da6321f\"",
+        "scene.mjs" => "\"4a66c439346c4f4b3cc9a5081460b10a61da3cb2eafa7910d69a4c00a9a08838\"",
         "weather.mjs" => "\"69a3e11642c43831f80581711f6113d814badd666ad2c3e3892a1a4c70a5fd27\"",
         "daylight.mjs" => "\"6e1bbbf92705e5e2ed904ca98666540ab9a91916c94e50749e649a0ba380170d\"",
         "assets/greek-drama/harbor-open-berth-night.webp" => {
@@ -1859,7 +1987,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "lessons.mjs" => "\"d356ccfd6d4bb622ea7e325ebae519f3ff37433013b04874f07f83865b883705\"",
         "motives.mjs" => "\"9e8b5b84a9a21761074c524f9295febaf1e03b92342f324a41e364c4d34950f1\"",
         "life.mjs" => "\"96bacb8052c8b77e11eb733edfe075f25f2e6e38ceb8f153280f4d974cb74c5c\"",
-        "quests.mjs" => "\"ed09e244bea8986711df18b05baf9b376325afefc2ec111bc3f2cfc43c8b879d\"",
+        "quests.mjs" => "\"e60df2b0a9d3909078911eab2c57f16dc4ee7e87307dcbf65a83a95b853ec15e\"",
         "quest-offers.mjs" => {
             "\"6f0ef71f7042254df8b93dde9c928c44e5ac5914f32acfee02617668dd7b4873\""
         }
@@ -1868,7 +1996,10 @@ pub fn etag(path: &str) -> Option<&'static str> {
             "\"9bdab1a2df233ad7b58da7358ac69e99de9e7f644a8792ffa913484964aec4e8\""
         }
         "story-quests.mjs" => {
-            "\"ce2fcbc99fdeabdb11bcc0fb57c861bb6eb0fee1d321161947dceb28d813c3a9\""
+            "\"3d79742fcc34c9be22af9f342580da9b1457d857fdf32d0a5b9b8866fdaac6d6\""
+        }
+        "forest-quests.mjs" => {
+            "\"d1eb93d35e394851c31255295c346be6eeca150faf10e9ae3e383133d6bb468e\""
         }
         "open-door-quests.mjs" => {
             "\"d4892be4215ebbf0d9079db72d572fdffa4b3cbd1dde15a8ec13692bf9cc80a6\""
@@ -1885,14 +2016,18 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "roaming-routes.mjs" => {
             "\"71b33e853f1a820e06ecb2c23be8cdd011a6f66fe44b21f13804fe5cdd5bab83\""
         }
-        "quest-cards.mjs" => "\"8960e4357997e63486ea61553d626821efb44cba9361190ecff7f7f4d12983c2\"",
+        "quest-cards.mjs" => "\"cd96e465b0bbb17f72700baa848f2d6353fec3c953615267f58a9dbae941512a\"",
         "situations.mjs" => "\"1fff8b8ba954720b8a0a4450d6db2bf6e6d9378566ae0ca2668a44979f83c39d\"",
         "memory.mjs" => "\"73ce17a68e29678684d13458a87fa9e2274879a45680e53d7d83b562abac3dab\"",
         "learning.mjs" => "\"feb6faebe9c0470cfac7545e7e91587701b7434fecd176c9475fee778cb51175\"",
-        "narrative.mjs" => "\"1dd20c612150c1c2c41986377194a79a1f8fb5069448493bd3ef18c283c38aa2\"",
+        "narrative.mjs" => "\"2025523a94cf6b7639999dab03963a06d5549eedc5d5f89be6664d348a99c4d4\"",
+        "expression.mjs" => "\"821dc690b00bd4bab145a22b30de6b173697a1e66c1c78a3c5de88f443c0a153\"",
+        "emoji-symbols.json" => {
+            "\"4309aa5174e51a83d139e4acfbc025d006faeda6dc30fe86d488e81b367d5bc1\""
+        }
         "dialogue.mjs" => "\"1f4965d3e2a36261973aace4534359c00c7cf8aeaf15548a08d29e364adcc7ad\"",
         "character-speech.mjs" => {
-            "\"d53e51f93d89a0073199f45dd83086417733d76980f6c3b22f875b3f642292b5\""
+            "\"de19a074bb1212cefb224a8f0df7f3f18852b280665cc6e43820e2de4193496f\""
         }
         "voices.json" => "\"9779065a6e1d8f4e6b3cc23ac3531b7915243388483fad9a31e5a819b7e0871f\"",
         "assets/voices/vale.mp3" => {
@@ -1913,9 +2048,9 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "assets/voices/greek-baker.mp3" => {
             "\"0dc315f6c54a2a48fab122a0c1b3dc5876121073b696b0ce4537c2d76d0b08a8\""
         }
-        "pack-schema.mjs" => "\"414ff33a89dcf7cb5b5bff49fb0adfd9748aad1a6c0a430b24f3f361eb3fc02a\"",
+        "pack-schema.mjs" => "\"b056a413056625bb4740b7ed5073b26153f4f0d73ced1f9cf6eae68292669c6f\"",
         "pack-registry.mjs" => {
-            "\"cc6d9dfb3252589ca86af52e3c3221c81b23fbe508152469a85d401de518a6d6\""
+            "\"e892a650386fd7e343f41a8b9ea3e3bb67ce4fc48ba3d7c0cf697a85baa3534d\""
         }
         "pack-sections.mjs" => {
             "\"1230a3aa14a8e17e9eedaeeaead6717b77650111e8179306ad5e2a2d925d0f32\""
@@ -1926,15 +2061,15 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "pack-recital.mjs" => {
             "\"69bb676f4fbe0591f81e473921b6ff8ae8c88cddbab5a1931d005f662d0ffcea\""
         }
-        "pack-rules.mjs" => "\"6bb4621ec8ccb1d66e64340ad50ca29e45c9148f95d6d56354af74cfb5ef87cf\"",
+        "pack-rules.mjs" => "\"0f6499b019f190533e1ee027886b5c2a84847383a5d5da6ea322e846bf4c7611\"",
         "pack-transport.mjs" => {
             "\"4a930efedb8e283404abf4e5d0345e9336384d10a4e6e4e0fe7b243e95b65500\""
         }
         "legacy-saves.mjs" => {
             "\"2e87a6002f709aa79439da42dca28632a36a561a96b3ea5bde721a7f6363b75a\""
         }
-        "forest.json" => "\"12a2be7877e4daff53d3d1ad27c1703b2ca10dff51e6f371a5b3d1a7975afdfe\"",
-        "packs.json" => "\"6e2f98daf7ee7f1bcc245c17bd6b73bc61a111b3e8a978e7b817b245ee3ee862\"",
+        "forest.json" => "\"be43360615850d460ecb291474250a82b486bb5bbccfa7cb9eeca5813cbc7702\"",
+        "packs.json" => "\"6ff673d92335fd44a5247f75fe09bae25e8aed82fea5c512c4ddde41a329c3d1\"",
         "music.mjs" => "\"b60f61ecf558b2eed0aa2d907ca6a7a3dede4b0459541d3c59f633e25943bc22\"",
         "entity-profiles.json" => {
             "\"32bcfada78437fd92786bdb577da658828ff000563688180bd3848593f2e201e\""
@@ -2265,6 +2400,39 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "assets/greek-drama/myrine.webp" => {
             "\"e507850aa9959a4d1fedf42eb6ba17d1b70e8a1c2b25799c033e7926bb6ae0ec\""
+        }
+        "assets/lonely-forest/cottage.png" => {
+            "\"2c1a039850274517cd201d1b6d3b60ccd6e3d11b276754323165f45d88c9380a\""
+        }
+        "assets/lonely-forest/garden.png" => {
+            "\"2e0adcb6fc458cd6b86e6678a2cc17fa5f642672a8c0d80856a4451cb3646b51\""
+        }
+        "assets/lonely-forest/trail.png" => {
+            "\"88477e70f8553b2eedc2e4b337821c077ff7dbc0551aced9ab3f22eea880d925\""
+        }
+        "assets/lonely-forest/oak.png" => {
+            "\"05e33a3f5cdb096187c067fb1ba5cfdb2ee374abf1083ab8cca46d22db0570cc\""
+        }
+        "assets/lonely-forest/story-button.webp" => {
+            "\"87863813da73f1182d6179f4c6c5e82b67d235cf14470de38912c68fbccfbe5f\""
+        }
+        "assets/lonely-forest/dewbright-button.webp" => {
+            "\"0a39ab9d3f9e01c3e0b4170970ec505183d7a0806e0b6e69412d687c261c719b\""
+        }
+        "assets/lonely-forest/watch-bell.webp" => {
+            "\"480ae8626eabef04fc3a16718bb5d2338369692a25e92e26a123160d66472a1c\""
+        }
+        "assets/lonely-forest/wolfprint-charm.webp" => {
+            "\"7361599cbeac85c9177397348014444b2d9426436203f492799e667d8676901b\""
+        }
+        "assets/lonely-forest/rati.png" => {
+            "\"1e1597a5e03f3e3f40c2d88f35ac4bbed2a3e3eb07de85ea80d4f7006e1a340a\""
+        }
+        "assets/lonely-forest/skull.png" => {
+            "\"000ddc75fc8b6f4cf00dfe126632b25cc03f9c967e4c8b05dbb054c0cfb80150\""
+        }
+        "assets/lonely-forest/whiskerwind.png" => {
+            "\"da2ed352ad88952bf111353552e9f009bef9682781529f88fd280a98780b7335\""
         }
         "assets/boardyai/parlour.png" => {
             "\"5221b36927a1e97ae2eb14e3dd5eeb8ce01f1557f44078d0ee700883e187c33d\""
@@ -2607,6 +2775,60 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "assets/optimized/card/png/lamp-card.webp" => {
             "\"c19054288874cbc2ec546d609e8255f71164cf7cb0eebf6c550b16f105eeb849\""
+        }
+        "assets/optimized/stage/png/lonely-forest/cottage.webp" => {
+            "\"41f221745818c49985308790fd5d51e486604b898f630e999b9ce293481a940d\""
+        }
+        "assets/optimized/card/png/lonely-forest/cottage.webp" => {
+            "\"5baa3002a009fcad22c511ab98bf547abb5cd94b0c6977e879b0067202a0720a\""
+        }
+        "assets/optimized/card/webp/lonely-forest/dewbright-button.webp" => {
+            "\"0011016850df9d0ab3ddbb5354cd946cb3169a524141147aa7826a63c38027cf\""
+        }
+        "assets/optimized/stage/png/lonely-forest/garden.webp" => {
+            "\"883c19d1cb7f6f78793f2d992f6c34e195c585075f4ffbff7c1077b59bdb36c9\""
+        }
+        "assets/optimized/card/png/lonely-forest/garden.webp" => {
+            "\"d152138475b94e494da0da3a09d8b654da7c653292bd3bc5b4b23ba0e2f4a04f\""
+        }
+        "assets/optimized/stage/png/lonely-forest/oak.webp" => {
+            "\"f8cc25ddee501be60f2fad12038d31159eb6ce3a2997dbc8af6d086b6724b0e6\""
+        }
+        "assets/optimized/card/png/lonely-forest/oak.webp" => {
+            "\"f2872e0d85cd19678e8a1c786ac1be18ffb6b2973114d99f250a6cee11479673\""
+        }
+        "assets/optimized/stage/png/lonely-forest/rati.webp" => {
+            "\"d57646fbc7550c6be562bb7346479bce8fdd9f20453e608f1162f10f60f78418\""
+        }
+        "assets/optimized/card/png/lonely-forest/rati.webp" => {
+            "\"4044f83470c303311e2cd8ef9d0f2db0ab5f3dd5c5a91ca5e851c46b52a74afc\""
+        }
+        "assets/optimized/stage/png/lonely-forest/skull.webp" => {
+            "\"1d33d9442d99b7792e7a9a82b3c97b204232ecb12cf606d5dfde7e7873949e7e\""
+        }
+        "assets/optimized/card/png/lonely-forest/skull.webp" => {
+            "\"8cc51cc4165d34a6f466b30a1c442bda0aa60cc0aa1346764ef4599e533a8b6d\""
+        }
+        "assets/optimized/card/webp/lonely-forest/story-button.webp" => {
+            "\"060afd5887ca658cb9ee09c68daa7e7bc8b1bacc84a46744372cc6dd34595b1a\""
+        }
+        "assets/optimized/stage/png/lonely-forest/trail.webp" => {
+            "\"e370a76f92494c2c786ca2bc44fb78f60bffcef4a30b54d48d150246332273c5\""
+        }
+        "assets/optimized/card/png/lonely-forest/trail.webp" => {
+            "\"1fd429c0115734f816bffed533ff6925e6b12574cf0321af2537dab91d3c2159\""
+        }
+        "assets/optimized/card/webp/lonely-forest/watch-bell.webp" => {
+            "\"02883bbccd54a18e3bf1e2896b1c7f8011996f46a9fdcd4157921ddd1ef411ea\""
+        }
+        "assets/optimized/stage/png/lonely-forest/whiskerwind.webp" => {
+            "\"4aa881c37ab3db4b88074b98b890e80421d63ad9de88ea16f8743794622f4d19\""
+        }
+        "assets/optimized/card/png/lonely-forest/whiskerwind.webp" => {
+            "\"96521bc9e5d8dd01091acee8b8d18a6a52313b31ed2fcb6e8cc312305a579299\""
+        }
+        "assets/optimized/card/webp/lonely-forest/wolfprint-charm.webp" => {
+            "\"1d0c14dd3c275e97613341a68aa366e5b7903a7c8c8019449df460c7f8628bc2\""
         }
         "assets/optimized/stage/png/moth.webp" => {
             "\"ff0ea2501943c2e793d2f855fffcfa900ac04189c174cb5a109dd8208804cd97\""
