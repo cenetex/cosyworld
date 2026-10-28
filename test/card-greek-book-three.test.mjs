@@ -26,6 +26,7 @@ import {
   aulisChoice,
   aulisState,
   bookMove,
+  bookBoard,
   bookPlay,
 } from "./helpers/greek-book-three.mjs";
 
@@ -198,12 +199,22 @@ describe("Book III save continuity", () => {
       ),
       context,
     );
-    const before = JSON.parse(
-      context.cardShared(JSON.stringify({ op: "create" })),
-    ).world;
+    const old = (request) => {
+      const result = JSON.parse(context.cardShared(JSON.stringify(request)));
+      expect(result.ok, result.error).toBe(true);
+      return result;
+    };
+    let before = old({ op: "create" }).world;
     delete before.opening;
     before.packs["greek-drama"].scope = "full";
-    before.actors.vale.place = "greek-aulis";
+    before.actors.vale.place = "greek-gate";
+    before = old({ op: "validate", world: before }).world;
+    const visit = old({ op: "view", world: before }).actions.find(
+      (a) => a.kind === "move" && a.target === "greek-aulis",
+    );
+    expect(visit).toBeDefined();
+    before = old({ op: "play", world: before, action: visit }).world;
+    expect(before.actors.vale.place).toBe("greek-aulis");
     const world = decodeSave(JSON.stringify(before));
     expect(aulisState(world).revision).toBe(8);
     expect(world.actors.vale).toMatchObject(before.actors.vale);
@@ -213,7 +224,10 @@ describe("Book III save continuity", () => {
       before.packs["greek-drama"].receipts,
     );
     expect(entityActive(world, "greek-aulis-iphigenia")).toBe(false);
-    expect(exits(world, "greek-aulis")).toContain("greek-gate");
+    expect(exits(world, "greek-aulis")).toEqual(
+      expect.arrayContaining(["greek-aulis-household", "greek-aulis-altar"]),
+    );
+    expect(world.crossings["pond-greek-harbor"].discovered).toBe(true);
     // Rules 20 has 33 Greek residents and 26 Greek objects. Each new source
     // identity adds one saved record beside every preserved earlier record.
     expect(Object.keys(world.actors)).toHaveLength(
@@ -223,6 +237,15 @@ describe("Book III save continuity", () => {
       Object.keys(before.items).length + Object.keys(pack.items).length - 26,
     );
     expect(reload(world)).toEqual(world);
-    expect(bookMove(world, "greek-gate").actors.vale.place).toBe("greek-gate");
+    const aboard = bookBoard(reload(world));
+    expect(aboard.actors.vale.place).toBe("greek-ship");
+    const returned = bookMove(
+      reload(aboard),
+      "greek-harbor",
+      "greek-courtyard",
+      "greek-gate",
+    );
+    expect(returned.actors.vale.place).toBe("greek-gate");
+    expect(reload(returned)).toEqual(returned);
   });
 });

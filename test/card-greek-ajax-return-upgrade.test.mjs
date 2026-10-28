@@ -20,9 +20,8 @@ function releasedAccounts() {
   const old = releasedCardEngine(20);
   let world = old.dispatch({ op: "create" }).world;
   delete world.opening;
-  world.actors.vale.place = "greek-courtyard";
-  world.actors.mara.place = "greek-courtyard";
-  world.items.lamp.holder = "greek-courtyard";
+  world.actors.mara.place = "pond";
+  world.items.cloth.holder = "vale";
   const request = (op, actor, fields = {}) => {
     const result = old.dispatch({
       op,
@@ -61,6 +60,21 @@ function releasedAccounts() {
       ],
     });
   };
+  request("validate", "vale");
+  act("vale", "light", { item: "lamp" });
+  for (let flash = 0; flash < 2; flash++) {
+    act("vale", "cover", { item: "cloth", target: "lamp" });
+    act("vale", "take", { item: "cloth" });
+  }
+  expect(world.crossings["pond-greek-harbor"].discovered).toBe(true);
+  for (const actor of HUMANS) {
+    for (const target of ["greek-ship", "greek-harbor", "greek-courtyard"])
+      act(actor, "move", { target });
+    if (actor === "vale") {
+      act(actor, "drop", { item: "lamp" });
+      act(actor, "drop", { item: "cloth" });
+    }
+  }
   for (const [kind, fields] of [
     ["move", { target: "greek-gate" }],
     ["choose", { choiceId: "greek-hear-decree" }],

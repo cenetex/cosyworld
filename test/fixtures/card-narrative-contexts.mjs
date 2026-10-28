@@ -83,7 +83,24 @@ export function narrativeContractCases() {
   const legacyHarbor = structuredClone(harbor);
   legacyHarbor.packs["greek-drama"].scope = "full";
   const egypt = choose(legacyHarbor, "greek-helen-egypt");
-  const helen = playCard(egypt, "move", null, "greek-egypt-tomb");
+  let departure = egypt;
+  for (
+    let wait = 0;
+    wait < 32 &&
+    !legalActions(departure).some(
+      (a) => a.kind === "move" && a.target === "greek-ship",
+    );
+    wait++
+  )
+    departure = playCard(departure, "wait");
+  const egyptVoyage = playCard(departure, "move", null, "greek-ship");
+  const egyptLanding = playCard(
+    decodeSave(encodeSave(egyptVoyage)),
+    "move",
+    null,
+    "greek-book-iv-helen-landing",
+  );
+  const helen = playCard(egyptLanding, "move", null, "greek-egypt-tomb");
   const worlds = [
     ["opening", opening],
     ["first light", lit],
