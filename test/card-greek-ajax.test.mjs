@@ -203,37 +203,40 @@ describe("Earth Beside the Ships", () => {
 });
 
 describe("Ajax save continuity", () => {
-  it("adds the new cast to a released full-access camp visit", () => {
-    const context = vm.createContext({});
-    vm.runInContext(
-      readFileSync(
-        new URL(
-          "../v2/orchestrator-rust/src/card_shared/engine-v17.js",
-          import.meta.url,
+  it.each([17, 18, 19])(
+    "adds the new cast to a version-%s full-access camp visit",
+    (version) => {
+      const context = vm.createContext({});
+      vm.runInContext(
+        readFileSync(
+          new URL(
+            `../v2/orchestrator-rust/src/card_shared/engine-v${version}.js`,
+            import.meta.url,
+          ),
+          "utf8",
         ),
-        "utf8",
-      ),
-      context,
-    );
-    const before = JSON.parse(
-      context.cardShared(JSON.stringify({ op: "create" })),
-    ).world;
-    delete before.opening;
-    before.packs["greek-drama"].scope = "full";
-    before.actors.vale.place = "greek-greek-camp";
-    before.items.lamp.holder = "vale";
-    const after = decodeSave(JSON.stringify(before));
-    expect(after.packs["greek-drama"].revision).toBe(7);
-    expect(after.actors.vale.place).toBe("greek-greek-camp");
-    expect(after.items.lamp).toEqual(before.items.lamp);
-    expect(after.log).toEqual(before.log);
-    expect(after.packs["greek-drama"].receipts).toEqual(
-      before.packs["greek-drama"].receipts,
-    );
-    expect(entityActive(after, "greek-ajax-teucer")).toBe(false);
-    expect(exits(after, "greek-greek-camp").length).toBeGreaterThan(0);
-    expect(reload(after)).toEqual(after);
-  });
+        context,
+      );
+      const before = JSON.parse(
+        context.cardShared(JSON.stringify({ op: "create" })),
+      ).world;
+      delete before.opening;
+      before.packs["greek-drama"].scope = "full";
+      before.actors.vale.place = "greek-greek-camp";
+      before.items.lamp.holder = "vale";
+      const after = decodeSave(JSON.stringify(before));
+      expect(after.packs["greek-drama"].revision).toBe(7);
+      expect(after.actors.vale.place).toBe("greek-greek-camp");
+      expect(after.items.lamp).toEqual(before.items.lamp);
+      expect(after.log).toEqual(before.log);
+      expect(after.packs["greek-drama"].receipts).toEqual(
+        before.packs["greek-drama"].receipts,
+      );
+      expect(entityActive(after, "greek-ajax-teucer")).toBe(false);
+      expect(exits(after, "greek-greek-camp").length).toBeGreaterThan(0);
+      expect(reload(after)).toEqual(after);
+    },
+  );
 });
 
 describe("shared Ajax testimony", () => {
