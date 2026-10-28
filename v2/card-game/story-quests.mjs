@@ -21,8 +21,7 @@ const packFor = (definition) =>
 const related = (definition, event) =>
   authoredStoryRelated(packDefinitions, definition, event);
 
-// Saved action authors identify who discovered or contributed to a story card.
-// A viewer and a global meeting flag carry no personal participation evidence.
+// Saved deeds and required reading starts identify story participants.
 export function storyActors(world, definition, includeDiscovery = true) {
   const pack = packFor(definition);
   if (!pack) return [];
@@ -41,11 +40,27 @@ export function storyActors(world, definition, includeDiscovery = true) {
     )
     .sort((a, b) => a.seq - b.seq)[0];
   if (includeDiscovery && discovery) events.push(discovery);
-  const knownAuthor =
-    world.packs?.[pack.id]?.recitals?.[definition.choiceId]?.actor;
+  const state = world.packs?.[pack.id];
+  const knownAuthor = state?.recitals?.[definition.choiceId]?.actor;
+  const completedTurn = state?.receipts?.[definition.choiceId];
+  const readingSites = new Set(
+    (pack.recital?.sites || [])
+      .filter((site) => site.completion === definition.choiceId)
+      .map((site) => site.id),
+  );
+  // The saved reader keeps the task when the record rests on the table.
+  // Later readings retain their own archive credit after this task is complete.
+  const readers = Object.values(state?.poemReadings?.readings || {})
+    .filter(
+      (reading) =>
+        readingSites.has(reading.site) &&
+        reading.turn >= definition.createdTurn &&
+        (completedTurn === undefined || reading.turn <= completedTurn),
+    )
+    .map((reading) => reading.reader);
   return [
     ...new Set(
-      [...events.map((event) => event.actorId), knownAuthor].filter(
+      [...events.map((event) => event.actorId), knownAuthor, ...readers].filter(
         (id) => world.actors[id],
       ),
     ),
