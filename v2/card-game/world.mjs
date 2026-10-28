@@ -7,6 +7,8 @@ import {
   validHearingRef,
 } from "./reading-actions.mjs";
 import { validPrivateAudience } from "./reading-privacy.mjs";
+import { validRecallRef } from "./reading-context.mjs";
+import { noteReadingDepartures } from "./poem-readings.mjs";
 import { recordLearning, beginLearning, reconsiderPlan } from "./learning.mjs";
 import {
   dropQuest,
@@ -155,7 +157,7 @@ import {
   isPackActor,
   staysPut,
   packJourneyDestination,
-  packJourneyKeepsItem,
+  packKeepsItem,
   packIndependentJourneyDestination,
   roamingQuestActor,
   avoidsStandoffs,
@@ -661,7 +663,7 @@ const accepts = (s, actor, item) =>
 export const valeStalled = (s) =>
   s.turn - (s.actors.vale.progress.marks.at(-1) || 0) >= 24;
 export function willingToGive(s, owner, item, recipient = null) {
-  if (packJourneyKeepsItem(s, owner, item)) return false;
+  if (packKeepsItem(s, owner, item)) return false;
   if (hasMotives(s) && recipient && resentment(s, owner, recipient))
     return false;
   if (!hasQuestPrograms(s) || lifeOf(s, owner))
@@ -680,7 +682,7 @@ export function willingToGive(s, owner, item, recipient = null) {
 }
 export function canTrade(s, actor, give, receive) {
   const other = s.items[receive]?.holder;
-  if (packJourneyKeepsItem(s, other, receive)) return false;
+  if (packKeepsItem(s, other, receive)) return false;
   if (
     s.items[give]?.holder !== actor ||
     !actorIds.includes(other) ||
@@ -2761,6 +2763,7 @@ export function play(
   const round = beginRound(s, sensesFor(s));
   next.turn += 1;
   next.revision += 1;
+  noteReadingDepartures(next);
   const reflectionSource = next.actors[actor].place;
   const wasOpen = reflectionOpen(next, reflectionSource);
   if (exact.kind === "wait")
@@ -2915,6 +2918,7 @@ export function play(
     else next.sharedMigration.inventoryAllowances[id] = count;
   }
   settleQuestHands(next);
+  noteReadingDepartures(next);
   validateWorld(next);
   return { ok: true, state: next };
 }
@@ -3577,6 +3581,7 @@ export function validateWorld(s) {
   ];
   for (const e of s.log) {
     if (!validPrivateAudience(s, e.privateTo)) fail();
+    if (!validRecallRef(s, e.recall, e.privateTo)) fail();
     if (!validHearingRef(s, e.hearing, e.privateTo, e.turn, e.locationId)) fail();
     if (e.seq !== undefined) {
       if (!Number.isSafeInteger(e.seq) || e.seq <= seq || e.seq > s.eventSeq)

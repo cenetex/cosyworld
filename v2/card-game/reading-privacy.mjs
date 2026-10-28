@@ -20,6 +20,14 @@ export function audienceMemory(memory, audience) {
     landmarks: (memory.landmarks || []).filter((entry) =>
       privateAudienceAllows(entry, audience),
     ),
-    ...(visible ? {} : { text: null, turn: null, privateTo: undefined }),
+    ...(visible
+      ? {}
+      : {
+          text: null,
+          turn: null,
+          privateTo: undefined,
+          hearing: undefined,
+          recall: undefined,
+        }),
   };
 }

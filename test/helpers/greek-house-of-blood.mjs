@@ -1,5 +1,9 @@
 import { exits, legalActions, play } from "../../v2/card-game/world.mjs";
-import { packDefinition } from "../../v2/card-game/pack-registry.mjs";
+import {
+  packDefinition,
+  entityActive,
+} from "../../v2/card-game/pack-registry.mjs";
+import { transportUnlocked } from "../../v2/card-game/pack-transport.mjs";
 import { knowsFact } from "../../v2/card-game/knowledge.mjs";
 import {
   narrativeContext,
@@ -33,7 +37,11 @@ export function housePlay(world, kind, fields = {}) {
 // Plan a route through real roads and the established ship docks. Each step is
 // still selected from the current legal actions; a boat wait is an actual turn.
 export function houseGo(world, destination) {
-  const docks = ["greek-harbor", "greek-athens-harbor", "greek-piraeus"];
+  const docks = transportUnlocked(world, "greek-ship")
+    ? pack.transports["greek-ship"].docks.filter((id) =>
+        entityActive(world, id),
+      )
+    : [];
   const queue = [[world.actors.vale.place]],
     seen = new Set();
   while (queue.length) {

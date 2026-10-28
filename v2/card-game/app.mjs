@@ -1,4 +1,5 @@
 import { imageUrl } from "./images.mjs";
+import { resolveReadingReplay } from "./reading-actions.mjs";
 import { landingPack, createLandingWorld } from "./pack-landing.mjs";
 import { flipStagePortrait, portraitFraming } from "./portrait-facing.mjs";
 import { installSceneVideo } from "./scene-video.mjs";
@@ -2697,7 +2698,8 @@ async function submitSharedPlay(action) {
     )
   )
     return;
-  const current = legalActions(world).find((entry) => entry.key === action.key);
+  const current = legalActions(world).find((entry) => entry.key === action.key) ||
+    resolveReadingReplay(world, currentActor(world), action.key);
   if (!current) {
     notice("The table changed. Choose a current play.");
     render();
@@ -2832,7 +2834,9 @@ installSharedControls({
   },
   notice,
 });
-installToolbar({ session: sharedSession, getWorld: () => world });
+installToolbar({ session: sharedSession, getWorld: () => world,
+  playReading: (action) => commitAction(action, world.revision),
+});
 if (localRuntime()) {
   for (const id of ["owned-worlds-button", "shared-worlds-button"]) {
     const button = $(id);

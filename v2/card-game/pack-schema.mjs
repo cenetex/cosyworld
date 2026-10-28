@@ -476,6 +476,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "place",
         "travels",
         "journey",
+        "keeps",
         "retireAfter",
         "roamingQuest",
         "personalQuests",
@@ -496,6 +497,13 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "canonicalPerson",
       ]),
       `avatar ${id} has an unknown field`,
+    );
+    check(
+      a.keeps === undefined ||
+        (a.travels === false && Array.isArray(a.keeps) && a.keeps.length <= 8 &&
+          new Set(a.keeps).size === a.keeps.length &&
+          a.keeps.every((item) => owns(items, item))),
+      `avatar ${id} keeps needs up to eight distinct pack items and a fixed resident`,
     );
     check(
       a.personalQuests === undefined || typeof a.personalQuests === "boolean",
@@ -1203,7 +1211,8 @@ export function packProblems(pack, hub, mountedPlaces = []) {
             site.listeners.length <= 2 &&
             new Set(site.listeners).size === site.listeners.length &&
             site.listeners.every(
-              (id) => owns(avatars, id) && avatars[id].travels === false,
+              (id) => owns(avatars, id) && (avatars[id].travels === false ||
+                avatars[id].desire?.location === site.at),
             ),
           "reading sites need real material, fixed listeners and a completion",
         );

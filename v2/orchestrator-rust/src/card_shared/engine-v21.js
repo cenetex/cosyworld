@@ -1210,16 +1210,16 @@
       528734635,
       1541459225
     ];
-    const words = new Uint32Array(64);
+    const words2 = new Uint32Array(64);
     for (let block = 0; block < body.length; block += 64) {
-      for (let i = 0; i < 16; i++) words[i] = view2.getUint32(block + i * 4);
+      for (let i = 0; i < 16; i++) words2[i] = view2.getUint32(block + i * 4);
       for (let i = 16; i < 64; i++) {
-        const a2 = words[i - 15], b2 = words[i - 2];
-        words[i] = words[i - 16] + words[i - 7] + (rotate(a2, 7) ^ rotate(a2, 18) ^ a2 >>> 3) + (rotate(b2, 17) ^ rotate(b2, 19) ^ b2 >>> 10);
+        const a2 = words2[i - 15], b2 = words2[i - 2];
+        words2[i] = words2[i - 16] + words2[i - 7] + (rotate(a2, 7) ^ rotate(a2, 18) ^ a2 >>> 3) + (rotate(b2, 17) ^ rotate(b2, 19) ^ b2 >>> 10);
       }
       let [a, b, c, d, e, f, g, h] = hash2;
       for (let i = 0; i < 64; i++) {
-        const first = h + (rotate(e, 6) ^ rotate(e, 11) ^ rotate(e, 25)) + (e & f ^ ~e & g) + constants[i] + words[i] >>> 0;
+        const first = h + (rotate(e, 6) ^ rotate(e, 11) ^ rotate(e, 25)) + (e & f ^ ~e & g) + constants[i] + words2[i] >>> 0;
         const second = (rotate(a, 2) ^ rotate(a, 13) ^ rotate(a, 22)) + (a & b ^ a & c ^ b & c) >>> 0;
         h = g;
         g = f;
@@ -1460,11 +1460,45 @@
       stanzas: readingPage(state, reading, catalog, index)
     };
   }
+  function noteReadingDepartures(world) {
+    let changed = false;
+    for (const pack of Object.values(world.packs || {}))
+      for (const reading of Object.values(pack.poemReadings?.readings || {})) {
+        if (reading.complete) continue;
+        for (const [bit, actor] of reading.audience.entries()) {
+          const mask = 1 << bit;
+          if (!(reading.requiredMask & mask) && !(reading.departedMask & mask) && !actorHere(world, actor, reading.place)) {
+            reading.departedMask |= mask;
+            changed = true;
+          }
+        }
+      }
+    return changed;
+  }
   function completedHeardReading(state, site, actor) {
     return Object.entries(state?.readings || {}).filter(([, reading]) => {
       const bit = reading.audience.indexOf(actor);
       return reading.site === site && reading.complete && bit >= 0 && reading.pages.every((page) => page[2] & 1 << bit);
     }).sort(([, left], [, right]) => right.turn - left.turn)[0]?.[0] || null;
+  }
+  function validReadingDecisions(world, pack) {
+    const saved = world.packs[pack.id], state = saved.poemReadings;
+    if (!state) return !pack.recital?.sites?.length;
+    const required = pack.choices.filter(
+      (choice) => choice.requires?.some((condition2) => condition2.kind === "reading_complete")
+    );
+    if (Object.keys(state.decisions).some(
+      (id) => !required.some((choice) => choice.id === id) || !owns(saved.receipts, id)
+    ))
+      return false;
+    return required.every((choice) => {
+      if (!owns(saved.receipts, choice.id))
+        return !owns(state.decisions, choice.id);
+      const reading = state.readings[state.decisions[choice.id]];
+      const actor = saved.recitals[choice.id]?.actor;
+      const bit = reading?.audience.indexOf(actor);
+      return reading?.complete && actor && bit >= 0 && choice.requires.filter((condition2) => condition2.kind === "reading_complete").every((condition2) => condition2.site === reading.site) && reading.pages.every((page) => page[2] & 1 << bit) && saved.receipts[choice.id] >= reading.pages.at(-1)[0];
+    });
   }
   function projectPoemReadings(state, actor) {
     const stanzas = [], slots = /* @__PURE__ */ new Map(), readings = [];
@@ -1595,7 +1629,8 @@
           departed |= guests & ~page[1];
           lastTurn = page[0];
         }
-        if (reading.departedMask !== departed) return false;
+        if (!integer(reading.departedMask, 0, fullMask) || reading.departedMask & reading.requiredMask || (reading.departedMask & departed) !== departed)
+          return false;
         if (reading.complete) {
           const old = complete.get(reading.site);
           if (!old || lastTurn < old.turn || lastTurn === old.turn && id < old.id)
@@ -1622,7 +1657,7 @@
     currentVersion: "full-card-world/21",
     packs: {
       "greek-drama": {
-        current: "full-card-world/21#9452cc3b8ce040e9",
+        current: "full-card-world/21#bdbfd9d9e18fab61",
         catalogs: {
           "full-card-world/21#b18f8b66c9b85b37": {
             id: "full-card-world/21#b18f8b66c9b85b37",
@@ -7968,6 +8003,3052 @@
               }
             ],
             digest: "db6a4ef90ebc3cce4410b33445fa1aa25f94c3c8d748a85ee82dd5470776d87e"
+          },
+          "full-card-world/21#bdbfd9d9e18fab61": {
+            id: "full-card-world/21#bdbfd9d9e18fab61",
+            pack: "greek-drama",
+            title: "Before the Burial",
+            rows: [
+              {
+                choice: "greek-return-water-jar",
+                lines: [
+                  "I set the water by her hands.",
+                  "She kept a loaf of bread for me."
+                ]
+              },
+              {
+                choice: "greek-petition-burial",
+                lines: [
+                  "Creon has granted this one grave.",
+                  "Her brother waits for earth."
+                ]
+              },
+              {
+                choice: "greek-perform-burial",
+                lines: [
+                  "I laid her brother in the earth.",
+                  "The king's words crossed the wind."
+                ]
+              },
+              {
+                choice: "greek-perform-permitted-burial",
+                lines: [
+                  "Creon gave leave for this one grave.",
+                  "I laid her brother in the earth."
+                ]
+              },
+              {
+                choice: "greek-decline-burial",
+                lines: [
+                  "I told her I would turn away.",
+                  "Her brother waited by the wall."
+                ]
+              },
+              {
+                choice: "greek-report-plan",
+                lines: [
+                  "I gave the guard the hidden plan.",
+                  "He held it with the king's command."
+                ]
+              },
+              {
+                choice: "greek-courtyard-burial",
+                lines: [
+                  "I spoke of earth beside her table.",
+                  "Dione heard me through."
+                ]
+              },
+              {
+                choice: "greek-courtyard-concession",
+                lines: [
+                  "I spoke the promise of a grave.",
+                  "His body waited in the sun."
+                ],
+                after: {
+                  choice: "greek-perform-permitted-burial",
+                  lines: [
+                    "I told her of the king's consent.",
+                    "She heard the leave that he had given."
+                  ]
+                }
+              },
+              {
+                choice: "greek-courtyard-refusal",
+                lines: [
+                  "I told her how I turned away.",
+                  "She kept a place beside her table."
+                ]
+              },
+              {
+                choice: "greek-courtyard-exposure",
+                lines: [
+                  "I told her what the guard had heard.",
+                  "My words lay open on the table."
+                ]
+              },
+              {
+                choice: "greek-courtyard-permitted-burial",
+                lines: [
+                  "The grave I promised holds him now.",
+                  "I brought that word to Dione."
+                ]
+              },
+              {
+                choice: "greek-open-door-hear-mothers",
+                lines: [
+                  "Their branches rested on my knees.",
+                  "I heard the names beneath them."
+                ]
+              },
+              {
+                choice: "greek-open-door-register-plea",
+                lines: [
+                  "I laid their plea before the town.",
+                  "The crowded square grew quiet."
+                ]
+              },
+              {
+                choice: "greek-open-door-hear-truce-report",
+                lines: [
+                  "The herald named a road of peace.",
+                  "The dead came home beneath it."
+                ]
+              },
+              {
+                choice: "greek-open-door-hear-recovery-report",
+                lines: [
+                  "The messenger spoke over dust.",
+                  "The dead came home behind the shields."
+                ]
+              },
+              {
+                choice: "greek-open-door-set-provisions",
+                lines: [
+                  "I set the basket by the ropes.",
+                  "The waiting cups stood ready."
+                ]
+              },
+              {
+                choice: "greek-open-door-lay-cloths",
+                lines: [
+                  "The cloth lay clean upon the stone.",
+                  "Their children gathered near it."
+                ]
+              },
+              {
+                choice: "greek-open-door-lay-ashes",
+                lines: [
+                  "I set the ashes by their hands.",
+                  "Each name was heavier than clay."
+                ]
+              },
+              {
+                choice: "greek-open-door-hear-pyre",
+                lines: [
+                  "I heard the father\u2019s second loss.",
+                  "One chair stood empty by the stone."
+                ]
+              },
+              {
+                choice: "greek-open-door-eleusis-pledge",
+                lines: [
+                  "I set a pledge beside the ashes.",
+                  "Both banners cast a human shadow."
+                ]
+              },
+              {
+                choice: "greek-open-door-eleusis-care",
+                lines: [
+                  "I stayed beside the living grief.",
+                  "We wrote their needs beneath the names."
+                ]
+              },
+              {
+                choice: "greek-open-door-family-berth",
+                lines: [
+                  "I laid their names beside the rope.",
+                  "A place was kept for each of them."
+                ]
+              },
+              {
+                choice: "greek-open-door-open-berth",
+                lines: [
+                  "I laid their names beside the rope.",
+                  "We kept a space beyond the list."
+                ]
+              },
+              {
+                choice: "greek-open-door-colonus-water",
+                lines: [
+                  "I set sweet water by the grove.",
+                  "The keeper named an older road."
+                ]
+              },
+              {
+                choice: "greek-open-door-colonus-farewell",
+                lines: [
+                  "The keeper sang of daughters walking.",
+                  "The final place stayed with the king."
+                ]
+              },
+              {
+                choice: "greek-open-door-colonus-custom",
+                lines: [
+                  "I wrote a welcome by the trees.",
+                  "A stranger\u2019s need could find a name."
+                ]
+              },
+              {
+                choice: "greek-open-door-colonus-family",
+                lines: [
+                  "I set the daughters in the song.",
+                  "Their hands had carried all those miles."
+                ]
+              },
+              {
+                choice: "greek-open-door-marathon-blanket",
+                lines: [
+                  "I laid a blanket by the altar.",
+                  "The old tale found a living task."
+                ]
+              },
+              {
+                choice: "greek-open-door-marathon-daughter",
+                lines: [
+                  "The keeper gave the daughter voice.",
+                  "Her empty place remained among them."
+                ]
+              },
+              {
+                choice: "greek-open-door-marathon-alcmene",
+                lines: [
+                  "I heard old grief demand a death.",
+                  "The altar held its troubling echo."
+                ]
+              },
+              {
+                choice: "greek-open-door-marathon-hearing",
+                lines: [
+                  "I asked the tale to hold a hearing.",
+                  "Her grief still waited at its gate."
+                ]
+              },
+              {
+                choice: "greek-open-door-return-dione",
+                lines: [
+                  "I brought those names beside her bread.",
+                  "We made room for the words they carried."
+                ]
+              },
+              {
+                choice: "greek-homecoming-report-agora-truce",
+                lines: [
+                  "I told her how the herald spoke.",
+                  "A road for the dead lay in his words."
+                ]
+              },
+              {
+                choice: "greek-homecoming-report-agora-force",
+                lines: [
+                  "I told her what the shields brought home.",
+                  "She heard the mothers through the noise."
+                ]
+              },
+              {
+                choice: "greek-homecoming-report-eleusis-pledge",
+                lines: [
+                  "I spoke the pledge beside her bread.",
+                  "The names of loss stayed in the room."
+                ]
+              },
+              {
+                choice: "greek-homecoming-report-eleusis-care",
+                lines: [
+                  "I brought their needs beside her bread.",
+                  "She heard the living with the dead."
+                ]
+              },
+              {
+                choice: "greek-homecoming-report-piraeus-family",
+                lines: [
+                  "I told her where their names were kept.",
+                  "The quay\u2019s first promise reached the table."
+                ]
+              },
+              {
+                choice: "greek-homecoming-report-piraeus-open",
+                lines: [
+                  "I told her of the wider place.",
+                  "Its welcome carried work within it."
+                ]
+              },
+              {
+                choice: "greek-homecoming-report-colonus-custom",
+                lines: [
+                  "I brought the grove\u2019s old tale to her.",
+                  "Its tablet spoke of guests to come."
+                ]
+              },
+              {
+                choice: "greek-homecoming-report-colonus-family",
+                lines: [
+                  "I spoke the daughters\u2019 patient work.",
+                  "Their road reached Dione through the song."
+                ]
+              },
+              {
+                choice: "greek-homecoming-report-marathon-alcmene",
+                lines: [
+                  "I brought the keeper\u2019s ending home.",
+                  "Its saved lives cast a troubled shadow."
+                ]
+              },
+              {
+                choice: "greek-homecoming-report-marathon-hearing",
+                lines: [
+                  "I named the change within the tale.",
+                  "Her empty place remained beside it."
+                ]
+              },
+              {
+                choice: "greek-homecoming-receive-family",
+                lines: [
+                  "Her feet had reached the waiting quay.",
+                  "Her household\u2019s basket passed to her."
+                ]
+              },
+              {
+                choice: "greek-homecoming-receive-open",
+                lines: [
+                  "She found her place beside the rope.",
+                  "The basket stayed for other hands."
+                ]
+              },
+              {
+                choice: "greek-homecoming-read-basket-family",
+                lines: [
+                  "I laid her words beside the bread.",
+                  "Her hands had met the waiting basket."
+                ]
+              },
+              {
+                choice: "greek-homecoming-read-berth-family",
+                lines: [
+                  "I chose the verse about her place.",
+                  "Her written answer crossed the table."
+                ]
+              },
+              {
+                choice: "greek-homecoming-read-basket-open",
+                lines: [
+                  "I laid her words beside the bread.",
+                  "She offered hands to keep the welcome."
+                ]
+              },
+              {
+                choice: "greek-homecoming-read-berth-open",
+                lines: [
+                  "I chose the verse about more guests.",
+                  "Her answer named the work to come."
+                ]
+              },
+              {
+                choice: "greek-ajax-deliver-shield",
+                lines: [
+                  "I set his shield beside the tent.",
+                  "Tecmessa kept it for her child."
+                ]
+              },
+              {
+                choice: "greek-ajax-deliver-plea",
+                lines: [
+                  "I brought his brother\u2019s written plea.",
+                  "A rival heard it by the ships."
+                ]
+              },
+              {
+                choice: "greek-ajax-bury-public",
+                lines: [
+                  "His rival spoke; I broke the ground.",
+                  "The camp laid down its quarrel."
+                ]
+              },
+              {
+                choice: "greek-ajax-bury-household",
+                lines: [
+                  "I gave him earth beside the ships.",
+                  "The household kept his shield."
+                ]
+              },
+              {
+                choice: "greek-ajax-bury-appeal",
+                lines: [
+                  "I kept the vigil with their plea.",
+                  "The witnessed rite gave Ajax earth."
+                ]
+              },
+              {
+                choice: "greek-ajax-return-public",
+                lines: [
+                  "I laid his words beside the bread.",
+                  "She held the rival\u2019s plea with care."
+                ]
+              },
+              {
+                choice: "greek-ajax-return-household",
+                lines: [
+                  "I laid his words beside the bread.",
+                  "She named the household in the song."
+                ]
+              },
+              {
+                choice: "greek-ajax-return-appeal",
+                lines: [
+                  "I laid his words beside the bread.",
+                  "She heard how witnesses brought earth."
+                ]
+              },
+              {
+                choice: "greek-vii-cyclops-provisions",
+                lines: [
+                  "Two baskets reached two waiting hands.",
+                  "The shore still waited for their feet."
+                ]
+              },
+              {
+                choice: "greek-vii-cyclops-force-exit",
+                lines: [
+                  "The timber opened pain and stone.",
+                  "Each waiting group still needed feet."
+                ]
+              },
+              {
+                choice: "greek-vii-cyclops-brace-exit",
+                lines: [
+                  "The cup bought room beside the rock.",
+                  "Our timber held the narrow way."
+                ]
+              },
+              {
+                choice: "greek-vii-cyclops-all-home",
+                lines: [
+                  "Two cohorts found the open shore.",
+                  "The stone kept what the opening cost."
+                ]
+              },
+              {
+                choice: "greek-vii-cyclops-crew-first",
+                lines: [
+                  "The sailors reached the waiting boat.",
+                  "The satyrs stayed beside the stone."
+                ]
+              },
+              {
+                choice: "greek-vii-cyclops-satyrs-first",
+                lines: [
+                  "The satyrs reached the waiting boat.",
+                  "The sailors watched the closed rock way."
+                ]
+              },
+              {
+                choice: "greek-vii-birds-refuge-agreement",
+                lines: [
+                  "We marked a place for weary wings.",
+                  "Their feet still had to cross the gate."
+                ]
+              },
+              {
+                choice: "greek-vii-birds-gate-throne",
+                lines: [
+                  "The key lay warm against my palm.",
+                  "The birds stood on its farther side."
+                ]
+              },
+              {
+                choice: "greek-vii-birds-gate-open",
+                lines: [
+                  "I left the key beside the gate.",
+                  "The road made room for other feet."
+                ]
+              },
+              {
+                choice: "greek-vii-birds-gate-dismantle",
+                lines: [
+                  "I took the gate\u2019s small claim away.",
+                  "The birds would hold its iron weight."
+                ]
+              },
+              {
+                choice: "greek-vii-birds-throne",
+                lines: [
+                  "The keeper held the nesting meal.",
+                  "The birds stood waiting at his gate."
+                ]
+              },
+              {
+                choice: "greek-vii-birds-open-flight",
+                lines: [
+                  "The birds brought food inside the gate.",
+                  "Their wings found room beside our words."
+                ]
+              },
+              {
+                choice: "greek-vii-birds-broken-wall",
+                lines: [
+                  "The birds held food and fallen iron.",
+                  "Their open shelter called for hands."
+                ]
+              },
+              {
+                choice: "greek-vii-peace-harness",
+                lines: [
+                  "The harness reached the farmer\u2019s hands.",
+                  "A common rope still needed shoulders."
+                ]
+              },
+              {
+                choice: "greek-vii-peace-pull",
+                lines: [
+                  "Our different hands drew one rope tight.",
+                  "The store gave grain and tools to daylight."
+                ]
+              },
+              {
+                choice: "greek-vii-peace-harvest",
+                lines: [
+                  "The farmers reached their field with grain.",
+                  "The smiths still waited for their tools."
+                ]
+              },
+              {
+                choice: "greek-vii-peace-workshops",
+                lines: [
+                  "The farmers held the first full sack.",
+                  "The smiths took tools to serve the fields."
+                ]
+              },
+              {
+                choice: "greek-vii-peace-private-store",
+                lines: [
+                  "We pulled together at the stone.",
+                  "One keeper held the opened grain."
+                ]
+              },
+              {
+                choice: "greek-vii-prometheus-flame-arrived",
+                lines: [
+                  "I carried fire beside the bound.",
+                  "Its oil still counted every turn."
+                ]
+              },
+              {
+                choice: "greek-vii-prometheus-io-message-arrived",
+                lines: [
+                  "The message crossed the eastern road.",
+                  "Io received its words herself."
+                ]
+              },
+              {
+                choice: "greek-vii-prometheus-stay",
+                lines: [
+                  "I stood beside the ones who stayed.",
+                  "The storm kept faith with what they chose."
+                ]
+              },
+              {
+                choice: "greek-vii-prometheus-gifts",
+                lines: [
+                  "The camp received a living flame.",
+                  "Its oil would end; its light was real."
+                ]
+              },
+              {
+                choice: "greek-vii-prometheus-terms",
+                lines: [
+                  "The terms reached Hermes at the camp.",
+                  "Their seal still carried someone\u2019s trust."
+                ]
+              },
+              {
+                choice: "greek-seven-set-shield-record",
+                lines: [
+                  "I set the shield record by the gate.",
+                  "The Guard named those who held it."
+                ]
+              },
+              {
+                choice: "greek-seven-stock-shelter",
+                lines: [
+                  "I carried water through the town.",
+                  "Dione set it by the waiting cloth."
+                ]
+              },
+              {
+                choice: "greek-seven-two-name-vigil",
+                lines: [
+                  "I laid their names beside the gate.",
+                  "The cloth held room for both."
+                ]
+              },
+              {
+                choice: "greek-seven-state-remembrance",
+                lines: [
+                  "I laid the cloth before the throne.",
+                  "The city spoke one brother\u2019s name."
+                ]
+              },
+              {
+                choice: "greek-seven-survivors-care",
+                lines: [
+                  "I brought the cloth beside the water.",
+                  "The living found a place to rest."
+                ]
+              },
+              {
+                choice: "greek-seven-return-two-name-vigil",
+                lines: [
+                  "I laid the account beside the bread.",
+                  "Dione heard the deed I brought."
+                ]
+              },
+              {
+                choice: "greek-seven-return-state-remembrance",
+                lines: [
+                  "I laid the account beside the bread.",
+                  "Dione heard the deed I brought."
+                ]
+              },
+              {
+                choice: "greek-seven-return-survivors-care",
+                lines: [
+                  "I laid the account beside the bread.",
+                  "Dione heard the deed I brought."
+                ]
+              },
+              {
+                choice: "greek-phoenician-lodge-truce-copy",
+                lines: [
+                  "I carried the mother\u2019s copied plea.",
+                  "The Guard received its older words."
+                ]
+              },
+              {
+                choice: "greek-phoenician-deliver-care",
+                lines: [
+                  "I set the basket by the palace.",
+                  "The waiting households had its care."
+                ]
+              },
+              {
+                choice: "greek-phoenician-family-remembrance",
+                lines: [
+                  "I laid the cloth beside their names.",
+                  "Melea\u2019s telling kept its time."
+                ]
+              },
+              {
+                choice: "greek-phoenician-living-households",
+                lines: [
+                  "I carried their account through grief.",
+                  "The cloth found living hands."
+                ]
+              },
+              {
+                choice: "greek-phoenician-return-family-remembrance",
+                lines: [
+                  "I laid the account beside the bread.",
+                  "Dione heard the deed I brought."
+                ]
+              },
+              {
+                choice: "greek-phoenician-return-living-households",
+                lines: [
+                  "I laid the account beside the bread.",
+                  "Dione heard the deed I brought."
+                ]
+              },
+              {
+                choice: "greek-tyrannus-deliver-care",
+                lines: [
+                  "I carried care beside the older tale.",
+                  "The living shared the courtyard bread."
+                ]
+              },
+              {
+                choice: "greek-tyrannus-compare-records",
+                lines: [
+                  "I laid two witnesses side by side.",
+                  "Their words kept separate hands."
+                ]
+              },
+              {
+                choice: "greek-tyrannus-public-care",
+                lines: [
+                  "I set the witnesses beside the well.",
+                  "The basket came before their words."
+                ]
+              },
+              {
+                choice: "greek-tyrannus-household-first",
+                lines: [
+                  "Her hearing came before the square.",
+                  "I brought the same account to both."
+                ]
+              },
+              {
+                choice: "greek-tyrannus-attributed-witnesses",
+                lines: [
+                  "Two keepers weighed the words I bore.",
+                  "Each witness kept a name and voice."
+                ]
+              },
+              {
+                choice: "greek-tyrannus-return-public-care",
+                lines: [
+                  "I laid the account beside the bread.",
+                  "Dione heard the deed I brought."
+                ]
+              },
+              {
+                choice: "greek-tyrannus-return-household-first",
+                lines: [
+                  "I laid the account beside the bread.",
+                  "Dione heard the deed I brought."
+                ]
+              },
+              {
+                choice: "greek-tyrannus-return-attributed-witnesses",
+                lines: [
+                  "I laid the account beside the bread.",
+                  "Dione heard the deed I brought."
+                ]
+              },
+              {
+                choice: "greek-bacchae-deliver-account",
+                lines: [
+                  "I brought the mountain\u2019s older words.",
+                  "The Elder heard their named account."
+                ]
+              },
+              {
+                choice: "greek-bacchae-return-robe",
+                lines: [
+                  "I brought her robe along the slope.",
+                  "Melitta took its present care."
+                ]
+              },
+              {
+                choice: "greek-bacchae-family-memorial",
+                lines: [
+                  "I laid the cloth beneath the trees.",
+                  "The older grief kept its own name."
+                ]
+              },
+              {
+                choice: "greek-bacchae-local-gathering-agreement",
+                lines: [
+                  "Two voices chose the words I placed.",
+                  "The path lay open by the gathering."
+                ]
+              },
+              {
+                choice: "greek-bacchae-return-family-memorial",
+                lines: [
+                  "I laid the account beside the bread.",
+                  "Dione heard the deed I brought."
+                ]
+              },
+              {
+                choice: "greek-bacchae-return-local-gathering-agreement",
+                lines: [
+                  "I laid the account beside the bread.",
+                  "Dione heard the deed I brought."
+                ]
+              },
+              {
+                choice: "greek-alcestis-set-cup",
+                lines: [
+                  "I set a cup beside her empty chair.",
+                  "The bread lay ready on the table."
+                ]
+              },
+              {
+                choice: "greek-alcestis-tell-guest",
+                lines: [
+                  "I gave our guest the name beneath the silence.",
+                  "Her name was spoken with the cup."
+                ]
+              },
+              {
+                choice: "greek-alcestis-serve-guest",
+                lines: [
+                  "I poured the wine above the muffled weeping.",
+                  "The household kept its grief beside us."
+                ]
+              },
+              {
+                choice: "greek-alcestis-witness-return",
+                lines: [
+                  "Her silence held the doorway as we waited.",
+                  "Her quiet hands were here beside us."
+                ]
+              },
+              {
+                choice: "greek-alcestis-pledge-children",
+                lines: [
+                  "We promised bread beside the children's place.",
+                  "Her chair stood ready for another dawn."
+                ]
+              },
+              {
+                choice: "greek-alcestis-pledge-shared",
+                lines: [
+                  "We set the work among our waiting hands.",
+                  "Her chair stood ready for another dawn."
+                ]
+              },
+              {
+                choice: "greek-alcestis-report-children",
+                lines: [
+                  "I brought their promise to her bread.",
+                  "She heard the children's place within it."
+                ]
+              },
+              {
+                choice: "greek-alcestis-report-shared",
+                lines: [
+                  "I brought their promise to her bread.",
+                  "She heard whose hands would share the work."
+                ]
+              },
+              {
+                choice: "greek-heracles-deliver-help",
+                lines: [
+                  "I set the bread where Megara held her sons.",
+                  "His father's plea reached the waiting table."
+                ]
+              },
+              {
+                choice: "greek-heracles-prepare-care",
+                lines: [
+                  "I laid clean water by the broken door.",
+                  "A clean cloth waited within his reach."
+                ]
+              },
+              {
+                choice: "greek-heracles-remain-with-heracles",
+                lines: [
+                  "I walked beside the man who needed help.",
+                  "His father kept the vigil for their dead."
+                ]
+              },
+              {
+                choice: "greek-heracles-return-to-amphitryon",
+                lines: [
+                  "I came back to the father and their names.",
+                  "I brought him bread and clean water."
+                ]
+              },
+              {
+                choice: "greek-heracles-report-walk",
+                lines: [
+                  "I named the house beside her waiting bread.",
+                  "She heard the road that held the friends."
+                ]
+              },
+              {
+                choice: "greek-heracles-report-vigil",
+                lines: [
+                  "I brought their names beside her waiting bread.",
+                  "She heard why I returned to keep the vigil."
+                ]
+              },
+              {
+                choice: "greek-danaid-lay-branches",
+                lines: [
+                  "I set the water by her branch.",
+                  "She named the shelter she would choose."
+                ]
+              },
+              {
+                choice: "greek-danaid-set-provisions",
+                lines: [
+                  "I carried back the host\u2019s own word.",
+                  "Her promise came with bread."
+                ]
+              },
+              {
+                choice: "greek-danaid-arrive-household",
+                lines: [
+                  "She chose the door beside the hearth.",
+                  "Her host set bread within."
+                ]
+              },
+              {
+                choice: "greek-danaid-arrive-common",
+                lines: [
+                  "She chose the court where others stayed.",
+                  "We carried bread through its gate."
+                ]
+              },
+              {
+                choice: "greek-danaid-receive-household",
+                lines: [
+                  "She chose the door beside the hearth.",
+                  "Her host set bread within."
+                ]
+              },
+              {
+                choice: "greek-danaid-receive-common",
+                lines: [
+                  "She chose the court where others stayed.",
+                  "We carried bread through its gate."
+                ]
+              },
+              {
+                choice: "greek-danaid-return-household",
+                lines: [
+                  "I read her answer by the bread.",
+                  "Her chosen door had held."
+                ]
+              },
+              {
+                choice: "greek-danaid-return-common",
+                lines: [
+                  "I read her answer by the bread.",
+                  "The common court had kept her place."
+                ]
+              },
+              {
+                choice: "greek-trachis-meal",
+                lines: [
+                  "The captive\u2019s name was spoken with her meal.",
+                  "I set it where her hands could reach."
+                ]
+              },
+              {
+                choice: "greek-trachis-wool-early",
+                lines: [
+                  "The wool gave up its warning in the light.",
+                  "We watched the threads break in the sun."
+                ]
+              },
+              {
+                choice: "greek-trachis-wool-late",
+                lines: [
+                  "The wool gave up its warning in the light.",
+                  "We watched the threads break in the sun."
+                ]
+              },
+              {
+                choice: "greek-trachis-plain-ending",
+                lines: [
+                  "We brought plain cloth into the light.",
+                  "Her hands could choose the gift again."
+                ]
+              },
+              {
+                choice: "greek-trachis-recover-ending",
+                lines: [
+                  "We caught the robe before the shrine.",
+                  "The road gave back its burden."
+                ]
+              },
+              {
+                choice: "greek-trachis-care-ending",
+                lines: [
+                  "We carried water up the stony road.",
+                  "Each step bore what love had sent."
+                ]
+              },
+              {
+                choice: "greek-trachis-return-changed",
+                lines: [
+                  "I brought the changed gift\u2019s story home.",
+                  "Dione set the bread between us."
+                ]
+              },
+              {
+                choice: "greek-trachis-return-recovered",
+                lines: [
+                  "I brought the parcel\u2019s story home.",
+                  "Dione set the bread between us."
+                ]
+              },
+              {
+                choice: "greek-trachis-return-care",
+                lines: [
+                  "I brought the Oeta road back home.",
+                  "Dione set the bread between us."
+                ]
+              },
+              {
+                choice: "greek-v-agamemnon-supply-watch",
+                lines: [
+                  "I set the fuel beside the watch.",
+                  "The herald\u2019s words followed the flame."
+                ]
+              },
+              {
+                choice: "greek-v-agamemnon-set-cup",
+                lines: [
+                  "I set a cup beside her hands.",
+                  "I kept the words she chose to give."
+                ]
+              },
+              {
+                choice: "greek-v-agamemnon-all-voices",
+                lines: [
+                  "I laid their words beside the stone.",
+                  "Each voice retained its name."
+                ]
+              },
+              {
+                choice: "greek-v-agamemnon-return-all-voices",
+                lines: [
+                  "I brought the record to her bread.",
+                  "She heard its time and named its telling."
+                ]
+              },
+              {
+                choice: "greek-v-agamemnon-daughter-first",
+                lines: [
+                  "I spoke the daughter\u2019s name at dawn.",
+                  "The other voices kept their place."
+                ]
+              },
+              {
+                choice: "greek-v-agamemnon-return-daughter-first",
+                lines: [
+                  "I brought the record to her bread.",
+                  "She heard its time and named its telling."
+                ]
+              },
+              {
+                choice: "greek-v-agamemnon-refuge",
+                lines: [
+                  "I reached the shelter with the witness.",
+                  "She gave her name beside the door."
+                ]
+              },
+              {
+                choice: "greek-v-agamemnon-return-refuge",
+                lines: [
+                  "I brought the record to her bread.",
+                  "She heard its time and named its telling."
+                ]
+              },
+              {
+                choice: "greek-v-libation-care",
+                lines: [
+                  "I set the vessel by the stone.",
+                  "She named the dead before the wine."
+                ]
+              },
+              {
+                choice: "greek-v-libation-signs",
+                lines: [
+                  "She knew the pattern in the cloth.",
+                  "I heard her speak her brother\u2019s name."
+                ]
+              },
+              {
+                choice: "greek-v-libation-hearing",
+                lines: [
+                  "I laid the witness before the hearing.",
+                  "Its keeper answered in her name."
+                ]
+              },
+              {
+                choice: "greek-v-libation-return-hearing",
+                lines: [
+                  "I brought the record to her bread.",
+                  "She heard its time and named its telling."
+                ]
+              },
+              {
+                choice: "greek-v-libation-refusal",
+                lines: [
+                  "I kept the witness on the table.",
+                  "My answer left its words intact."
+                ]
+              },
+              {
+                choice: "greek-v-libation-return-refusal",
+                lines: [
+                  "I brought the record to her bread.",
+                  "She heard its time and named its telling."
+                ]
+              },
+              {
+                choice: "greek-v-libation-revenge",
+                lines: [
+                  "I set the source beside the witness.",
+                  "Its final words retained their time."
+                ]
+              },
+              {
+                choice: "greek-v-libation-return-revenge",
+                lines: [
+                  "I brought the record to her bread.",
+                  "She heard its time and named its telling."
+                ]
+              },
+              {
+                choice: "greek-v-palace-electra-care",
+                lines: [
+                  "I brought the bread beside the wall.",
+                  "Her sister gave a separate answer."
+                ]
+              },
+              {
+                choice: "greek-v-palace-electra-signs",
+                lines: [
+                  "The signet answered in the tale.",
+                  "The urn kept hold of borrowed grief."
+                ]
+              },
+              {
+                choice: "greek-v-palace-electra-hearing",
+                lines: [
+                  "I laid the witness before the hearing.",
+                  "Its keeper answered in her name."
+                ]
+              },
+              {
+                choice: "greek-v-palace-electra-return-hearing",
+                lines: [
+                  "I brought the record to her bread.",
+                  "She heard its time and named its telling."
+                ]
+              },
+              {
+                choice: "greek-v-palace-electra-refusal",
+                lines: [
+                  "I kept the witness on the table.",
+                  "My answer left its words intact."
+                ]
+              },
+              {
+                choice: "greek-v-palace-electra-return-refusal",
+                lines: [
+                  "I brought the record to her bread.",
+                  "She heard its time and named its telling."
+                ]
+              },
+              {
+                choice: "greek-v-palace-electra-revenge",
+                lines: [
+                  "I set the source beside the witness.",
+                  "Its final words retained their time."
+                ]
+              },
+              {
+                choice: "greek-v-palace-electra-return-revenge",
+                lines: [
+                  "I brought the record to her bread.",
+                  "She heard its time and named its telling."
+                ]
+              },
+              {
+                choice: "greek-v-farm-electra-care",
+                lines: [
+                  "I set the water by their door.",
+                  "The farmer made a place for me."
+                ]
+              },
+              {
+                choice: "greek-v-farm-electra-signs",
+                lines: [
+                  "The old man named a childhood fall.",
+                  "She knew the mark above his brow."
+                ]
+              },
+              {
+                choice: "greek-v-farm-electra-hearing",
+                lines: [
+                  "I laid the witness before the hearing.",
+                  "Its keeper answered in her name."
+                ]
+              },
+              {
+                choice: "greek-v-farm-electra-return-hearing",
+                lines: [
+                  "I brought the record to her bread.",
+                  "She heard its time and named its telling."
+                ]
+              },
+              {
+                choice: "greek-v-farm-electra-refusal",
+                lines: [
+                  "I kept the witness on the table.",
+                  "My answer left its words intact."
+                ]
+              },
+              {
+                choice: "greek-v-farm-electra-return-refusal",
+                lines: [
+                  "I brought the record to her bread.",
+                  "She heard its time and named its telling."
+                ]
+              },
+              {
+                choice: "greek-v-farm-electra-revenge",
+                lines: [
+                  "I set the source beside the witness.",
+                  "Its final words retained their time."
+                ]
+              },
+              {
+                choice: "greek-v-farm-electra-return-revenge",
+                lines: [
+                  "I brought the record to her bread.",
+                  "She heard its time and named its telling."
+                ]
+              },
+              {
+                choice: "greek-v-orestes-water",
+                lines: [
+                  "I set the water by her telling.",
+                  "She named the sister at the bed."
+                ]
+              },
+              {
+                choice: "greek-v-orestes-petition",
+                lines: [
+                  "I laid the plea beside her hands.",
+                  "The servant kept his separate voice."
+                ]
+              },
+              {
+                choice: "greek-v-orestes-hearing",
+                lines: [
+                  "I laid the bundle by her claim.",
+                  "She gave the hearing her own answer."
+                ]
+              },
+              {
+                choice: "greek-v-orestes-return-hearing",
+                lines: [
+                  "I brought the record to her bread.",
+                  "She heard its time and named its telling."
+                ]
+              },
+              {
+                choice: "greek-v-orestes-passage",
+                lines: [
+                  "I reached the quay beside the witness.",
+                  "His bundle waited by the rope."
+                ]
+              },
+              {
+                choice: "greek-v-orestes-return-passage",
+                lines: [
+                  "I brought the record to her bread.",
+                  "She heard its time and named its telling."
+                ]
+              },
+              {
+                choice: "greek-v-orestes-source",
+                lines: [
+                  "I set the bundle by the telling.",
+                  "The god\u2019s command kept its sharp edge."
+                ]
+              },
+              {
+                choice: "greek-v-orestes-return-source",
+                lines: [
+                  "I brought the record to her bread.",
+                  "She heard its time and named its telling."
+                ]
+              },
+              {
+                choice: "greek-v-eumenides-refuge",
+                lines: [
+                  "I set the branch before the shrine.",
+                  "The claim remained beside the answer."
+                ]
+              },
+              {
+                choice: "greek-v-eumenides-bowl",
+                lines: [
+                  "I set the bowl upon the hill.",
+                  "Each speaker kept a place beside it."
+                ]
+              },
+              {
+                choice: "greek-v-eumenides-source",
+                lines: [
+                  "I set the record by their place.",
+                  "The elder powers accepted ground."
+                ]
+              },
+              {
+                choice: "greek-v-eumenides-return-source",
+                lines: [
+                  "I brought the record to her bread.",
+                  "She heard its time and named its telling."
+                ]
+              },
+              {
+                choice: "greek-v-eumenides-dissent",
+                lines: [
+                  "I laid the judgment by the claim.",
+                  "The losing voice retained its words."
+                ]
+              },
+              {
+                choice: "greek-v-eumenides-return-dissent",
+                lines: [
+                  "I brought the record to her bread.",
+                  "She heard its time and named its telling."
+                ]
+              },
+              {
+                choice: "greek-v-eumenides-restitution",
+                lines: [
+                  "I gave the bowl to those who waited.",
+                  "The promise kept its work to come."
+                ]
+              },
+              {
+                choice: "greek-v-eumenides-return-restitution",
+                lines: [
+                  "I brought the record to her bread.",
+                  "She heard its time and named its telling."
+                ]
+              },
+              {
+                choice: "greek-v-tauris-copy",
+                lines: [
+                  "I kept her words beside the page.",
+                  "Her brother\u2019s name returned within them."
+                ]
+              },
+              {
+                choice: "greek-v-tauris-cloth",
+                lines: [
+                  "She asked for words the house had kept.",
+                  "His answer brought their childhood near."
+                ]
+              },
+              {
+                choice: "greek-v-tauris-shore",
+                lines: [
+                  "I set the water by the shore.",
+                  "The telling kept its turning sea."
+                ]
+              },
+              {
+                choice: "greek-v-tauris-source",
+                lines: [
+                  "The messenger named the turning sea.",
+                  "The goddess gave the women passage."
+                ]
+              },
+              {
+                choice: "greek-v-tauris-return-source",
+                lines: [
+                  "I brought the record to her bread.",
+                  "She heard its time and named its telling."
+                ]
+              },
+              {
+                choice: "greek-v-tauris-pact",
+                lines: [
+                  "I set the pact beside the water.",
+                  "Its keepers gave their names and terms."
+                ]
+              },
+              {
+                choice: "greek-v-tauris-return-pact",
+                lines: [
+                  "I brought the record to her bread.",
+                  "She heard its time and named its telling."
+                ]
+              },
+              {
+                choice: "greek-v-tauris-keeper",
+                lines: [
+                  "She chose to keep the temple shore.",
+                  "Her words awaited hands for home."
+                ]
+              },
+              {
+                choice: "greek-v-tauris-return-keeper",
+                lines: [
+                  "I brought the record to her bread.",
+                  "She heard its time and named its telling."
+                ]
+              },
+              {
+                choice: "greek-comedy-acharnians-set-truce",
+                lines: [
+                  "I carried quiet years inside a jar.",
+                  "The market heard the terms beneath its stopper."
+                ]
+              },
+              {
+                choice: "greek-comedy-acharnians-lay-boundary",
+                lines: [
+                  "I set the stones beside the charcoal baskets.",
+                  "The traders named the hunger at each gate."
+                ]
+              },
+              {
+                choice: "greek-comedy-acharnians-end-private",
+                lines: [
+                  "I drank my peace from a private cup.",
+                  "Beyond the stones, the shields still rang."
+                ]
+              },
+              {
+                choice: "greek-comedy-acharnians-end-shared",
+                lines: [
+                  "We moved the stones beyond our door.",
+                  "Peace smelled of onions, sweat, and rain."
+                ]
+              },
+              {
+                choice: "greek-comedy-acharnians-end-care",
+                lines: [
+                  "I set the wounded soldier by the bread.",
+                  "His bandage kept the war within our feast."
+                ]
+              },
+              {
+                choice: "greek-comedy-knights-bring-dish",
+                lines: [
+                  "I lifted praise and found a borrowed meal.",
+                  "The kitchen named the hands behind the dish."
+                ]
+              },
+              {
+                choice: "greek-comedy-knights-ring-handover",
+                lines: [
+                  "The greasy page gave up its little god.",
+                  "I saw whose hand received the master\u2019s ring."
+                ]
+              },
+              {
+                choice: "greek-comedy-knights-end-renewed",
+                lines: [
+                  "The seal passed to the seller of the sausages.",
+                  "Demos returned to us, both young and crowned."
+                ]
+              },
+              {
+                choice: "greek-comedy-knights-end-stores",
+                lines: [
+                  "We hung the keys beside the bowls.",
+                  "Each hungry mouth could count the grain."
+                ]
+              },
+              {
+                choice: "greek-comedy-knights-end-patronage",
+                lines: [
+                  "My sail grew fat on kitchen gold.",
+                  "The steward named the praise he wished to hear."
+                ]
+              },
+              {
+                choice: "greek-comedy-wasps-set-court",
+                lines: [
+                  "His sandals tapped against the chimney wall.",
+                  "I set the voting pots upon the ground."
+                ]
+              },
+              {
+                choice: "greek-comedy-wasps-record-verdict",
+                lines: [
+                  "A plate stood witness to the missing cheese.",
+                  "The pebble held the weight we gave the hearing."
+                ]
+              },
+              {
+                choice: "greek-comedy-wasps-end-tricked",
+                lines: [
+                  "We stole one sting from the old wasp.",
+                  "I paid for bread his dancing scattered."
+                ]
+              },
+              {
+                choice: "greek-comedy-wasps-end-open",
+                lines: [
+                  "The pebble fell where all could see.",
+                  "Her fallen loaves received their counted price."
+                ]
+              },
+              {
+                choice: "greek-comedy-wasps-end-hired",
+                lines: [
+                  "I bought a sting and called it law.",
+                  "The baker kept the price upon her tongue."
+                ]
+              },
+              {
+                choice: "greek-comedy-clouds-gather-debts",
+                lines: [
+                  "The horses slept; their hunger filled the room.",
+                  "I laid two lenders\u2019 claims beside the bed."
+                ]
+              },
+              {
+                choice: "greek-comedy-clouds-weigh-lesson",
+                lines: [
+                  "I watched a clever word take human weight.",
+                  "The lesson reached the father\u2019s flesh and bone."
+                ]
+              },
+              {
+                choice: "greek-comedy-clouds-end-evasion",
+                lines: [
+                  "I bent the truth around a coin.",
+                  "The bent thing came to shape our house."
+                ]
+              },
+              {
+                choice: "greek-comedy-clouds-end-repayment",
+                lines: [
+                  "We set the debt upon the table.",
+                  "Both lenders heard the sum we chose to pay."
+                ]
+              },
+              {
+                choice: "greek-comedy-clouds-end-fire",
+                lines: [
+                  "I carried fire to the schoolhouse door.",
+                  "The debt stayed written under drifting ash."
+                ]
+              },
+              {
+                choice: "greek-comedy-lysistrata-oath-cup",
+                lines: [
+                  "The cup passed slowly through our separate vows.",
+                  "Each woman named the promise she would keep."
+                ]
+              },
+              {
+                choice: "greek-comedy-lysistrata-treasury-supplies",
+                lines: [
+                  "We counted silver in the shuttered room.",
+                  "The wool lay waiting for the scattered towns."
+                ]
+              },
+              {
+                choice: "greek-comedy-lysistrata-end-feast",
+                lines: [
+                  "The bolts drew back; the lamps burned late.",
+                  "Two cities learned one drunken tune."
+                ]
+              },
+              {
+                choice: "greek-comedy-lysistrata-end-council",
+                lines: [
+                  "We wove our names into the peace.",
+                  "The keys lay bright among the threads."
+                ]
+              },
+              {
+                choice: "greek-comedy-lysistrata-end-narrow",
+                lines: [
+                  "I carried terms that favoured Athens first.",
+                  "The allies kept their questions from the feast."
+                ]
+              },
+              {
+                choice: "greek-comedy-assemblywomen-return-loan",
+                lines: [
+                  "At dawn the borrowed beards began to speak.",
+                  "I carried back the cloak that won the hill."
+                ]
+              },
+              {
+                choice: "greek-comedy-assemblywomen-count-goods",
+                lines: [
+                  "The carts rolled slowly past the waiting bowls.",
+                  "One list kept count of what each doorway gave."
+                ]
+              },
+              {
+                choice: "greek-comedy-assemblywomen-end-whole",
+                lines: [
+                  "We shared the bread, then claimed the bed.",
+                  "The feast rang louder than their cries."
+                ]
+              },
+              {
+                choice: "greek-comedy-assemblywomen-end-amended",
+                lines: [
+                  "We set one table in the square.",
+                  "Each body kept its own front door."
+                ]
+              },
+              {
+                choice: "greek-comedy-assemblywomen-end-hidden",
+                lines: [
+                  "My secret pot stayed full at home.",
+                  "I praised the feast with borrowed teeth."
+                ]
+              },
+              {
+                choice: "greek-comedy-wealth-welcome-arrival",
+                lines: [
+                  "A god took my hand beside the furrows.",
+                  "I brought his supper to the healing door."
+                ]
+              },
+              {
+                choice: "greek-comedy-wealth-record-healing",
+                lines: [
+                  "The sickle shone between our words of wealth.",
+                  "I laid the cover where the god would rest."
+                ]
+              },
+              {
+                choice: "greek-comedy-wealth-end-worthy",
+                lines: [
+                  "The god saw virtue through our eyes.",
+                  "Our friends grew bright beneath his gaze."
+                ]
+              },
+              {
+                choice: "greek-comedy-wealth-end-share",
+                lines: [
+                  "We counted hands beside the grain.",
+                  "The harvest learned each worker\u2019s name."
+                ]
+              },
+              {
+                choice: "greek-comedy-wealth-end-farm",
+                lines: [
+                  "Our grain lay full within the farmer\u2019s store.",
+                  "The hungry learned our house by heart."
+                ]
+              },
+              {
+                choice: "greek-comedy-thesmophoria-speakers-garland",
+                lines: [
+                  "The women laid their names beneath the flowers.",
+                  "I kept the words each speaker chose to share."
+                ]
+              },
+              {
+                choice: "greek-comedy-thesmophoria-guarded-arrival",
+                lines: [
+                  "A borrowed dress brought hidden speech to light.",
+                  "The guarded stage held more than one account."
+                ]
+              },
+              {
+                choice: "greek-comedy-thesmophoria-end-rescue",
+                lines: [
+                  "We slipped his kin through borrowed scenes.",
+                  "The women kept the final laugh."
+                ]
+              },
+              {
+                choice: "greek-comedy-thesmophoria-end-answer",
+                lines: [
+                  "She took her name from out his mouth.",
+                  "The whole hall learned another tune."
+                ]
+              },
+              {
+                choice: "greek-comedy-thesmophoria-end-judgment",
+                lines: [
+                  "We held the mask before the gathered crowd.",
+                  "Its painted mouth gave room for living words."
+                ]
+              },
+              {
+                choice: "greek-comedy-acharnians-return",
+                lines: [
+                  "I laid the market\u2019s terms beside her bread.",
+                  "She asked whose hunger waited by the stones."
+                ]
+              },
+              {
+                choice: "greek-comedy-knights-return",
+                lines: [
+                  "I brought the kitchen\u2019s count beside the bread.",
+                  "She weighed the praise against the missing meal."
+                ]
+              },
+              {
+                choice: "greek-comedy-wasps-return",
+                lines: [
+                  "I brought her counted losses to the bread.",
+                  "The laughter left a bill upon the table."
+                ]
+              },
+              {
+                choice: "greek-comedy-clouds-return",
+                lines: [
+                  "I brought the school\u2019s account beside the bread.",
+                  "She asked what truth survived the winning words."
+                ]
+              },
+              {
+                choice: "greek-comedy-lysistrata-return",
+                lines: [
+                  "I brought the treaty\u2019s names beside the bread.",
+                  "She heard whose thread lay waiting at its edge."
+                ]
+              },
+              {
+                choice: "greek-comedy-assemblywomen-return",
+                lines: [
+                  "I laid the feast\u2019s decree beside the bread.",
+                  "She asked whose hands had filled the common pot."
+                ]
+              },
+              {
+                choice: "greek-comedy-wealth-return",
+                lines: [
+                  "I brought the first grain\u2019s count beside the bread.",
+                  "She asked which hands would fill the bowls tomorrow."
+                ]
+              },
+              {
+                choice: "greek-comedy-thesmophoria-return",
+                lines: [
+                  "I brought their answer home beside the bread.",
+                  "The poet heard another mouth begin."
+                ]
+              },
+              {
+                choice: "greek-book-iv-helen-confirm-witness",
+                lines: [
+                  "I heard her name beside the tomb.",
+                  "The sailor brought the vanished phantom\u2019s words."
+                ]
+              },
+              {
+                choice: "greek-book-iv-helen-hear-theonoe",
+                lines: [
+                  "I carried their appeal beyond the tomb.",
+                  "Theonoe chose the silence she would keep."
+                ]
+              },
+              {
+                choice: "greek-book-iv-helen-finish-escape",
+                lines: [
+                  "We mourned a living man to free his wife.",
+                  "The wind took up the name that war had broken."
+                ]
+              },
+              {
+                choice: "greek-book-iv-helen-return-escape",
+                lines: [
+                  "I brought the Nile\u2019s own witness to the bread.",
+                  "Her living name lay open on the table."
+                ]
+              },
+              {
+                choice: "greek-book-iv-helen-finish-hearing",
+                lines: [
+                  "I set her written words before the throne.",
+                  "The palace heard the woman at the tomb."
+                ]
+              },
+              {
+                choice: "greek-book-iv-helen-return-hearing",
+                lines: [
+                  "I brought the Nile\u2019s own witness to the bread.",
+                  "Her living name lay open on the table."
+                ]
+              },
+              {
+                choice: "greek-book-iv-helen-finish-sanctuary",
+                lines: [
+                  "She kept her ground beside the faithful tomb.",
+                  "I left her shelter under many names."
+                ]
+              },
+              {
+                choice: "greek-book-iv-helen-return-sanctuary",
+                lines: [
+                  "I brought the Nile\u2019s own witness to the bread.",
+                  "Her living name lay open on the table."
+                ]
+              },
+              {
+                choice: "greek-book-iv-andromache-feed-shrine",
+                lines: [
+                  "I brought her bread beside the shrine.",
+                  "She told me where her child was held."
+                ]
+              },
+              {
+                choice: "greek-book-iv-andromache-defender-arrival",
+                lines: [
+                  "I brought an old man\u2019s staff against their weapons.",
+                  "His answer held the child beside the shrine."
+                ]
+              },
+              {
+                choice: "greek-book-iv-andromache-finish-protection",
+                lines: [
+                  "An old hand held the doorway through the shouting.",
+                  "The child slept while the palace counted heirs."
+                ]
+              },
+              {
+                choice: "greek-book-iv-andromache-return-protection",
+                lines: [
+                  "I brought a mother\u2019s word beside the bread.",
+                  "She kept the child\u2019s own name within the song."
+                ]
+              },
+              {
+                choice: "greek-book-iv-andromache-finish-departure",
+                lines: [
+                  "Her child learned home from footsteps at her shoulder.",
+                  "The road received the names the house had weighed."
+                ]
+              },
+              {
+                choice: "greek-book-iv-andromache-return-departure",
+                lines: [
+                  "I brought a mother\u2019s word beside the bread.",
+                  "She kept the child\u2019s own name within the song."
+                ]
+              },
+              {
+                choice: "greek-book-iv-hippolytus-cool-cloth",
+                lines: [
+                  "I cooled the cloth upon her burning brow.",
+                  "The nurse kept watch beside the quiet bed."
+                ]
+              },
+              {
+                choice: "greek-book-iv-hippolytus-set-evidence",
+                lines: [
+                  "I set the sealed word beside its witness.",
+                  "His oath lay heavy on the open table."
+                ]
+              },
+              {
+                choice: "greek-book-iv-hippolytus-finish-hearing",
+                lines: [
+                  "The sea lay still beneath a father\u2019s silence.",
+                  "A living son stood waiting for his name."
+                ]
+              },
+              {
+                choice: "greek-book-iv-hippolytus-return-hearing",
+                lines: [
+                  "I laid the sealed account beside the bread.",
+                  "She heard the household\u2019s names before her answer."
+                ]
+              },
+              {
+                choice: "greek-book-iv-hippolytus-finish-source",
+                lines: [
+                  "The sea gave back the body of his judgment.",
+                  "A son gave mercy with his final breath."
+                ]
+              },
+              {
+                choice: "greek-book-iv-hippolytus-return-source",
+                lines: [
+                  "I laid the sealed account beside the bread.",
+                  "She heard the household\u2019s names before her answer."
+                ]
+              },
+              {
+                choice: "greek-book-iv-medea-one-day-grant",
+                lines: [
+                  "I brought their food beneath a borrowed roof.",
+                  "One promised dawn stood open at the door."
+                ]
+              },
+              {
+                choice: "greek-book-iv-medea-carry-oath",
+                lines: [
+                  "I carried hope inside a stranger\u2019s oath.",
+                  "The road still waited for our living feet."
+                ]
+              },
+              {
+                choice: "greek-book-iv-medea-finish-departure",
+                lines: [
+                  "Her anger left the gates among the living.",
+                  "The city kept its crown; we kept their names."
+                ]
+              },
+              {
+                choice: "greek-book-iv-medea-return-departure",
+                lines: [
+                  "I brought the nurse\u2019s words beside the bread.",
+                  "She kept the children\u2019s names within her answer."
+                ]
+              },
+              {
+                choice: "greek-book-iv-medea-finish-source",
+                lines: [
+                  "The gold shone once; the house grew dark around it.",
+                  "I carried small names farther than the flames."
+                ]
+              },
+              {
+                choice: "greek-book-iv-medea-return-source",
+                lines: [
+                  "I brought the nurse\u2019s words beside the bread.",
+                  "She kept the children\u2019s names within her answer."
+                ]
+              },
+              {
+                choice: "greek-book-iv-medea-finish-reckoning",
+                lines: [
+                  "I raised the cloth; the street heard what it held.",
+                  "The truth won daylight, and the guards drew near."
+                ]
+              },
+              {
+                choice: "greek-book-iv-medea-return-reckoning",
+                lines: [
+                  "I brought the nurse\u2019s words beside the bread.",
+                  "She kept the children\u2019s names within her answer."
+                ]
+              },
+              {
+                choice: "greek-book-iv-ion-sweep-temple",
+                lines: [
+                  "I swept the leaves beside the temple\u2019s foundling.",
+                  "He showed me where the priestess first had found him."
+                ]
+              },
+              {
+                choice: "greek-book-iv-ion-hear-creusa",
+                lines: [
+                  "I set the cup aside and heard her sorrow.",
+                  "Her words reached out beyond the silent feast."
+                ]
+              },
+              {
+                choice: "greek-book-iv-ion-finish-private",
+                lines: [
+                  "She knew the stitch her younger hands had made.",
+                  "Their joined hands held the tale they chose to keep."
+                ]
+              },
+              {
+                choice: "greek-book-iv-ion-return-private",
+                lines: [
+                  "I told how care had kept a child alive.",
+                  "She made a place for every chosen home."
+                ]
+              },
+              {
+                choice: "greek-book-iv-ion-finish-public",
+                lines: [
+                  "She named the god beneath his own bright roof.",
+                  "Her son stood near and heard his mother whole."
+                ]
+              },
+              {
+                choice: "greek-book-iv-ion-return-public",
+                lines: [
+                  "I told how care had kept a child alive.",
+                  "She made a place for every chosen home."
+                ]
+              },
+              {
+                choice: "greek-book-iv-ion-finish-temple",
+                lines: [
+                  "He kept the broom that first had fed his hands.",
+                  "His mother left a place for every home."
+                ]
+              },
+              {
+                choice: "greek-book-iv-ion-return-temple",
+                lines: [
+                  "I told how care had kept a child alive.",
+                  "She made a place for every chosen home."
+                ]
+              },
+              {
+                choice: "greek-aulis-deliver-recall",
+                lines: [
+                  "I bore the father\u2019s second word through camp.",
+                  "The wedding summons met the hidden price."
+                ]
+              },
+              {
+                choice: "greek-aulis-secure-witness",
+                lines: [
+                  "I brought her own reply before the ships.",
+                  "Achilles stood to witness what she chose."
+                ]
+              },
+              {
+                choice: "greek-aulis-complete-escape",
+                lines: [
+                  "The sails hung still above a living daughter.",
+                  "The captains learned the weight of waiting wind."
+                ]
+              },
+              {
+                choice: "greek-aulis-complete-sacrifice",
+                lines: [
+                  "The wind rose through the cloth beside the stone.",
+                  "Each sail went white above a debt of blood."
+                ]
+              },
+              {
+                choice: "greek-aulis-complete-rescue",
+                lines: [
+                  "A messenger had named the fallen hind.",
+                  "Her mother held the question in his words."
+                ]
+              },
+              {
+                choice: "greek-aulis-return-escape",
+                lines: [
+                  "I read the living daughter\u2019s news at home.",
+                  "Her mother\u2019s answer joined our listening bread."
+                ]
+              },
+              {
+                choice: "greek-aulis-return-sacrifice",
+                lines: [
+                  "I read the mother\u2019s grief beside the bread.",
+                  "The page kept faith with what her household lost."
+                ]
+              },
+              {
+                choice: "greek-aulis-return-rescue",
+                lines: [
+                  "I carried home the tale of girl and hind.",
+                  "Her mother\u2019s doubt came with the reported light."
+                ]
+              },
+              {
+                choice: "greek-lemnos-care",
+                lines: [
+                  "I set clean water by the wounded man.",
+                  "The cooling leaf came first before the sail."
+                ]
+              },
+              {
+                choice: "greek-lemnos-return-bow",
+                lines: [
+                  "I saw the bow return into his hand.",
+                  "His own voice named the terms of further trust."
+                ]
+              },
+              {
+                choice: "greek-lemnos-check-manifest",
+                lines: [
+                  "The vessel\u2019s mark agreed with where he stood.",
+                  "I carried home a journey that had reached its shore."
+                ]
+              },
+              {
+                choice: "greek-lemnos-return-troy",
+                lines: [
+                  "I brought the bowman\u2019s marked arrival home.",
+                  "His promised care stayed written by the bread."
+                ]
+              },
+              {
+                choice: "greek-lemnos-return-home",
+                lines: [
+                  "I brought the homeward man\u2019s arrival home.",
+                  "His bow and chosen road had reached his land."
+                ]
+              },
+              {
+                choice: "greek-lemnos-return-repair",
+                lines: [
+                  "I brought the mended promise to the bread.",
+                  "His own hand kept the bow he chose to bear."
+                ]
+              },
+              {
+                choice: "greek-rhesus-set-lamp",
+                lines: [
+                  "I set a watch beside the arriving tents.",
+                  "A shaded lamp made room for careful eyes."
+                ]
+              },
+              {
+                choice: "greek-rhesus-compare-word",
+                lines: [
+                  "I brought the sentry\u2019s word before the king.",
+                  "A challenged voice could change the waiting night."
+                ]
+              },
+              {
+                choice: "greek-rhesus-complete-warning",
+                lines: [
+                  "The living ally reached the sheltered bed.",
+                  "His hands found work among the sheltered hurt."
+                ]
+              },
+              {
+                choice: "greek-rhesus-complete-raid",
+                lines: [
+                  "I carried up the wounded driver\u2019s claim.",
+                  "The king gave care and named another dawn."
+                ]
+              },
+              {
+                choice: "greek-rhesus-return-warning",
+                lines: [
+                  "I read the living ally\u2019s duty home.",
+                  "The bread held room for those the warning saved."
+                ]
+              },
+              {
+                choice: "greek-rhesus-return-raid",
+                lines: [
+                  "I read the wounded driver\u2019s answer home.",
+                  "The dead and living kept their separate claims."
+                ]
+              },
+              {
+                choice: "greek-troy-write-names",
+                lines: [
+                  "I wrote the women\u2019s kin beside their names.",
+                  "Each waiting household had a word to carry."
+                ]
+              },
+              {
+                choice: "greek-troy-dress-shield",
+                lines: [
+                  "I brought the cloth to Hector\u2019s waiting shield.",
+                  "The elder dressed the child the herald washed."
+                ]
+              },
+              {
+                choice: "greek-troy-prepare-refuge",
+                lines: [
+                  "The shield stood ready by the living child.",
+                  "His mother took the cloth and named his care."
+                ]
+              },
+              {
+                choice: "greek-troy-last-song",
+                lines: [
+                  "Both letters crossed and reached the waiting shore.",
+                  "The parting song kept names beside the sea."
+                ]
+              },
+              {
+                choice: "greek-troy-return-witness",
+                lines: [
+                  "I read the women\u2019s names beside the bread.",
+                  "The shield and emptied city kept their grief."
+                ]
+              },
+              {
+                choice: "greek-troy-return-child-refuge",
+                lines: [
+                  "I read the mother\u2019s reached refuge at home.",
+                  "The child\u2019s own care came with the carried names."
+                ]
+              },
+              {
+                choice: "greek-troy-return-family-together",
+                lines: [
+                  "I read the family\u2019s reached refuge at home.",
+                  "The paid last berth had kept its giver ashore."
+                ]
+              },
+              {
+                choice: "greek-thrace-lay-cloth",
+                lines: [
+                  "I laid the cloth beside the daughter\u2019s words.",
+                  "Her chosen farewell waited by the tide."
+                ]
+              },
+              {
+                choice: "greek-thrace-compare-record",
+                lines: [
+                  "I brought the gold\u2019s own record to the shore.",
+                  "The broken trust was written with his name."
+                ]
+              },
+              {
+                choice: "greek-thrace-bury-revenge",
+                lines: [
+                  "Two named cloths marked the children\u2019s resting ground.",
+                  "The mother\u2019s source revenge kept its own cost."
+                ]
+              },
+              {
+                choice: "greek-thrace-return-revenge",
+                lines: [
+                  "I read the signed shore case beside the bread.",
+                  "The dead had names beyond the king\u2019s last words."
+                ]
+              },
+              {
+                choice: "greek-thrace-bury-hearing",
+                lines: [
+                  "Two named cloths marked the children\u2019s resting ground.",
+                  "The yielded gold had reached the mother\u2019s hand."
+                ]
+              },
+              {
+                choice: "greek-thrace-return-hearing",
+                lines: [
+                  "I read the signed shore case beside the bread.",
+                  "The gold restored had joined the children\u2019s names."
+                ]
+              },
+              {
+                choice: "greek-thrace-bury-two-burials",
+                lines: [
+                  "Two named cloths marked the children\u2019s resting ground.",
+                  "The king kept gold beside the carried charge."
+                ]
+              },
+              {
+                choice: "greek-thrace-return-two-burials",
+                lines: [
+                  "I read the signed shore case beside the bread.",
+                  "The unpaid charge went home with both the names."
+                ]
+              },
+              {
+                choice: "greek-susa-set-oar",
+                lines: [
+                  "I laid the broken oar beside the tomb.",
+                  "The messenger\u2019s dead names had reached the court."
+                ]
+              },
+              {
+                choice: "greek-susa-pour-water",
+                lines: [
+                  "The names were read above the offered water.",
+                  "The warning spoke of battles still to come."
+                ]
+              },
+              {
+                choice: "greek-susa-receive-return",
+                lines: [
+                  "The living king had reached the court in cloth.",
+                  "The waiting names had crossed the threshold too."
+                ]
+              },
+              {
+                choice: "greek-susa-return-public",
+                lines: [
+                  "I read the Salamis names beside the bread.",
+                  "The public mourning carried common grief."
+                ]
+              },
+              {
+                choice: "greek-susa-return-private",
+                lines: [
+                  "I read the Salamis names beside the bread.",
+                  "The private comfort kept its public duty."
+                ]
+              },
+              {
+                choice: "greek-susa-return-reckoning",
+                lines: [
+                  "I read the Salamis names beside the bread.",
+                  "The court sent names to households of the lost."
+                ]
+              },
+              {
+                choice: "greek-viii-frogs-carry-burden",
+                lines: [
+                  "I brought the weight beside the waiting scales.",
+                  "The bag bore witness to the hands that carried."
+                ]
+              },
+              {
+                choice: "greek-viii-frogs-share-burden",
+                lines: [
+                  "I left the weight with Xanthias below.",
+                  "His hands remained within the journey\u2019s telling."
+                ]
+              },
+              {
+                choice: "greek-viii-frogs-weigh",
+                lines: [
+                  "I read the earned account before both poets.",
+                  "The scales held words and those who first had spoken."
+                ]
+              },
+              {
+                choice: "greek-viii-frogs-voice-aeschylus",
+                lines: [
+                  "I chose the weight of Aeschylus\u2019s voice.",
+                  "The tablet bore his charge toward the city."
+                ]
+              },
+              {
+                choice: "greek-viii-frogs-voice-euripides",
+                lines: [
+                  "I chose Euripides to question power.",
+                  "The tablet carried daily lives toward home."
+                ]
+              },
+              {
+                choice: "greek-viii-frogs-voice-living-chorus",
+                lines: [
+                  "I chose the living chorus for our road.",
+                  "Its many voices kept the authors\u2019 names."
+                ]
+              },
+              {
+                choice: "greek-vii-cyclops-read-home",
+                lines: [
+                  "I read the cave\u2019s account beside the bread.",
+                  "Each cohort kept its place within the telling."
+                ]
+              },
+              {
+                choice: "greek-vii-birds-read-home",
+                lines: [
+                  "I read the refuge\u2019s record at the table.",
+                  "The gate and food retained their actual keepers."
+                ]
+              },
+              {
+                choice: "greek-vii-peace-read-home",
+                lines: [
+                  "I read the common labor beside Dione.",
+                  "The grain and tools still named their present holders."
+                ]
+              },
+              {
+                choice: "greek-vii-prometheus-read-home",
+                lines: [
+                  "I read the flame and message beside Dione.",
+                  "The oil and words retained their separate costs."
+                ]
+              },
+              {
+                choice: "greek-viii-frogs-read-home",
+                lines: [
+                  "I brought the chosen voice beside the bread.",
+                  "The living table heard each earlier author."
+                ]
+              }
+            ],
+            authors: [
+              {
+                id: "vale",
+                name: "Vale"
+              },
+              {
+                id: "mara",
+                name: "Mara"
+              },
+              {
+                id: "ash",
+                name: "Ash"
+              },
+              {
+                id: "nell",
+                name: "Nell"
+              },
+              {
+                id: "tavi",
+                name: "Tavi"
+              },
+              {
+                id: "rue",
+                name: "Rue"
+              },
+              {
+                id: "orin",
+                name: "Orin"
+              },
+              {
+                id: "ada",
+                name: "Ada"
+              },
+              {
+                id: "greek-antigone",
+                name: "Antigone"
+              },
+              {
+                id: "greek-ismene",
+                name: "Ismene"
+              },
+              {
+                id: "greek-creon",
+                name: "Creon"
+              },
+              {
+                id: "greek-guard",
+                name: "The Gate Guard"
+              },
+              {
+                id: "greek-baker",
+                name: "Dione the Baker"
+              },
+              {
+                id: "greek-elder",
+                name: "The Chorus Elder"
+              },
+              {
+                id: "greek-shipmaster",
+                name: "Myrto the Shipmaster"
+              },
+              {
+                id: "greek-rhapsode",
+                name: "The Bard"
+              },
+              {
+                id: "greek-market-neighbor",
+                name: "The Agora Neighbor"
+              },
+              {
+                id: "greek-temple-attendant",
+                name: "The Delphic Attendant"
+              },
+              {
+                id: "greek-ferryman",
+                name: "The Lower Ferryman"
+              },
+              {
+                id: "greek-helen-egypt",
+                name: "Helen"
+              },
+              {
+                id: "greek-menelaus-egypt",
+                name: "Menelaus"
+              },
+              {
+                id: "greek-helen-troy",
+                name: "Helen"
+              },
+              {
+                id: "greek-menelaus-troy",
+                name: "Menelaus"
+              },
+              {
+                id: "greek-electra-aeschylus",
+                name: "Electra"
+              },
+              {
+                id: "greek-orestes-aeschylus",
+                name: "Orestes"
+              },
+              {
+                id: "greek-electra-sophocles",
+                name: "Electra"
+              },
+              {
+                id: "greek-orestes-sophocles",
+                name: "Orestes"
+              },
+              {
+                id: "greek-electra-euripides",
+                name: "Electra"
+              },
+              {
+                id: "greek-orestes-euripides",
+                name: "Orestes"
+              },
+              {
+                id: "greek-aethra",
+                name: "Aethra"
+              },
+              {
+                id: "greek-adrastus",
+                name: "Adrastus"
+              },
+              {
+                id: "greek-argive-mother",
+                name: "An Argive Mother"
+              },
+              {
+                id: "greek-iphis",
+                name: "Iphis"
+              },
+              {
+                id: "greek-theseus",
+                name: "Theseus"
+              },
+              {
+                id: "greek-quay-host",
+                name: "Thaleia the Quay Host"
+              },
+              {
+                id: "greek-colonus-keeper",
+                name: "The Grove Keeper"
+              },
+              {
+                id: "greek-marathon-keeper",
+                name: "The Altar Keeper"
+              },
+              {
+                id: "greek-household-witness",
+                name: "Myrine of Argos"
+              },
+              {
+                id: "greek-ajax-tecmessa",
+                name: "Tecmessa"
+              },
+              {
+                id: "greek-ajax-teucer",
+                name: "Teucer"
+              },
+              {
+                id: "greek-ajax-odysseus",
+                name: "Odysseus"
+              },
+              {
+                id: "greek-vii-odysseus-crew",
+                name: "Odysseus and the Surviving Crew"
+              },
+              {
+                id: "greek-vii-satyr-chorus",
+                name: "Silenus and the Satyr Chorus"
+              },
+              {
+                id: "greek-vii-polyphemus",
+                name: "Polyphemus"
+              },
+              {
+                id: "greek-vii-hoopoe-chorus",
+                name: "The Hoopoe and the Bird Chorus"
+              },
+              {
+                id: "greek-vii-pisthetaerus",
+                name: "Pisthetaerus"
+              },
+              {
+                id: "greek-vii-trygaeus",
+                name: "Trygaeus"
+              },
+              {
+                id: "greek-vii-farmers",
+                name: "The Farmers\u2019 Chorus"
+              },
+              {
+                id: "greek-vii-smiths",
+                name: "The Smiths"
+              },
+              {
+                id: "greek-vii-bound-prometheus",
+                name: "Prometheus"
+              },
+              {
+                id: "greek-vii-oceanids",
+                name: "The Oceanid Witnesses"
+              },
+              {
+                id: "greek-vii-io",
+                name: "Io"
+              },
+              {
+                id: "greek-vii-hermes",
+                name: "Hermes"
+              },
+              {
+                id: "greek-argos-watchman",
+                name: "Argive Watchman"
+              },
+              {
+                id: "greek-cassandra",
+                name: "Cassandra"
+              },
+              {
+                id: "greek-clytemnestra-aeschylus",
+                name: "Clytemnestra"
+              },
+              {
+                id: "greek-argos-housekeeper",
+                name: "Argive Housekeeper"
+              },
+              {
+                id: "greek-pylades-aeschylus",
+                name: "Pylades"
+              },
+              {
+                id: "greek-cilissa",
+                name: "Cilissa"
+              },
+              {
+                id: "greek-chrysothemis",
+                name: "Chrysothemis"
+              },
+              {
+                id: "greek-paedagogus",
+                name: "The Tutor"
+              },
+              {
+                id: "greek-argive-farmer",
+                name: "The Farmer"
+              },
+              {
+                id: "greek-electra-old-servant",
+                name: "The Old Servant"
+              },
+              {
+                id: "greek-clytemnestra-euripides",
+                name: "Clytemnestra"
+              },
+              {
+                id: "greek-pylades-euripides",
+                name: "Pylades"
+              },
+              {
+                id: "greek-hermione",
+                name: "Hermione"
+              },
+              {
+                id: "greek-phrygian-servant",
+                name: "The Phrygian Servant"
+              },
+              {
+                id: "greek-pythian-priestess",
+                name: "Pythian Priestess"
+              },
+              {
+                id: "greek-furies",
+                name: "The Furies"
+              },
+              {
+                id: "greek-athena",
+                name: "Athena"
+              },
+              {
+                id: "greek-iphigenia-tauris",
+                name: "Iphigenia"
+              },
+              {
+                id: "greek-thoas",
+                name: "Thoas"
+              },
+              {
+                id: "greek-taurian-chorus",
+                name: "The Captive Women"
+              },
+              {
+                id: "greek-melea",
+                name: "Melea, Keeper of Accounts"
+              },
+              {
+                id: "greek-melitta",
+                name: "Melitta, Mountain Keeper"
+              },
+              {
+                id: "greek-alcestis-chloris",
+                name: "Chloris of Pherae"
+              },
+              {
+                id: "greek-alcestis-heracles",
+                name: "Heracles of Pherae"
+              },
+              {
+                id: "greek-alcestis-alcestis",
+                name: "Alcestis of Pherae"
+              },
+              {
+                id: "greek-heracles-megara",
+                name: "Megara \xB7 Earlier Heracles"
+              },
+              {
+                id: "greek-heracles-amphitryon",
+                name: "Amphitryon \xB7 Earlier Heracles"
+              },
+              {
+                id: "greek-heracles-heracles",
+                name: "Heracles \xB7 Earlier Thebes"
+              },
+              {
+                id: "greek-heracles-theseus",
+                name: "Theseus \xB7 Heracles Account"
+              },
+              {
+                id: "greek-danaid-melia",
+                name: "Melia of Argos"
+              },
+              {
+                id: "greek-danaid-nera",
+                name: "Nera"
+              },
+              {
+                id: "greek-trachis-deianira",
+                name: "Deianira"
+              },
+              {
+                id: "greek-trachis-iole",
+                name: "Iole"
+              },
+              {
+                id: "greek-trachis-hyllus",
+                name: "Hyllus"
+              },
+              {
+                id: "greek-trachis-lichas",
+                name: "Lichas"
+              },
+              {
+                id: "greek-trachis-heracles",
+                name: "Heracles"
+              },
+              {
+                id: "greek-comedy-acharnians-dicaeopolis",
+                name: "Dicaeopolis"
+              },
+              {
+                id: "greek-comedy-acharnians-amphitheus",
+                name: "Amphitheus"
+              },
+              {
+                id: "greek-comedy-acharnians-dercetes",
+                name: "Dercetes of Phyle"
+              },
+              {
+                id: "greek-comedy-acharnians-lamachus",
+                name: "Lamachus"
+              },
+              {
+                id: "greek-comedy-acharnians-megarian",
+                name: "the Megarian trader"
+              },
+              {
+                id: "greek-comedy-acharnians-boeotian",
+                name: "the Boeotian trader"
+              },
+              {
+                id: "greek-comedy-knights-demos",
+                name: "Demos"
+              },
+              {
+                id: "greek-comedy-knights-agoracritus",
+                name: "Agoracritus"
+              },
+              {
+                id: "greek-comedy-knights-paphlagonian",
+                name: "The Paphlagonian"
+              },
+              {
+                id: "greek-comedy-knights-demosthenes",
+                name: "Demosthenes"
+              },
+              {
+                id: "greek-comedy-knights-nicias",
+                name: "Nicias"
+              },
+              {
+                id: "greek-comedy-wasps-philocleon",
+                name: "Philocleon"
+              },
+              {
+                id: "greek-comedy-wasps-bdelycleon",
+                name: "Bdelycleon"
+              },
+              {
+                id: "greek-comedy-wasps-xanthias",
+                name: "Xanthias of the juror's house"
+              },
+              {
+                id: "greek-comedy-wasps-labes",
+                name: "Labes the dog"
+              },
+              {
+                id: "greek-comedy-wasps-myrtia",
+                name: "Myrtia the baker"
+              },
+              {
+                id: "greek-comedy-wasps-claimant",
+                name: "the injured claimant"
+              },
+              {
+                id: "greek-comedy-clouds-strepsiades",
+                name: "Strepsiades"
+              },
+              {
+                id: "greek-comedy-clouds-phidippides",
+                name: "Phidippides"
+              },
+              {
+                id: "greek-comedy-clouds-socrates",
+                name: "the comic Socrates"
+              },
+              {
+                id: "greek-comedy-clouds-chaerephon",
+                name: "Chaerephon of the Thinkery"
+              },
+              {
+                id: "greek-comedy-clouds-pasias",
+                name: "Pasias"
+              },
+              {
+                id: "greek-comedy-clouds-amynias",
+                name: "Amynias"
+              },
+              {
+                id: "greek-comedy-lysistrata-lysistrata",
+                name: "Lysistrata"
+              },
+              {
+                id: "greek-comedy-lysistrata-lampito",
+                name: "Lampito"
+              },
+              {
+                id: "greek-comedy-lysistrata-myrrhine",
+                name: "Myrrhine"
+              },
+              {
+                id: "greek-comedy-lysistrata-magistrate",
+                name: "the Magistrate"
+              },
+              {
+                id: "greek-comedy-lysistrata-cinesias",
+                name: "Cinesias"
+              },
+              {
+                id: "greek-comedy-lysistrata-spartan-herald",
+                name: "the Spartan herald"
+              },
+              {
+                id: "greek-comedy-assemblywomen-praxagora",
+                name: "Praxagora"
+              },
+              {
+                id: "greek-comedy-assemblywomen-blepyrus",
+                name: "Blepyrus"
+              },
+              {
+                id: "greek-comedy-assemblywomen-contributor",
+                name: "the contributing citizen"
+              },
+              {
+                id: "greek-comedy-assemblywomen-withholder",
+                name: "the withholding citizen"
+              },
+              {
+                id: "greek-comedy-assemblywomen-older-woman",
+                name: "the first older woman"
+              },
+              {
+                id: "greek-comedy-assemblywomen-young-man",
+                name: "the young man"
+              },
+              {
+                id: "greek-comedy-wealth-chremylus",
+                name: "Chremylus"
+              },
+              {
+                id: "greek-comedy-wealth-carion",
+                name: "Carion, called Cario in volume 2"
+              },
+              {
+                id: "greek-comedy-wealth-plutus",
+                name: "Plutus"
+              },
+              {
+                id: "greek-comedy-wealth-poverty",
+                name: "Poverty"
+              },
+              {
+                id: "greek-comedy-wealth-just-man",
+                name: "the just man"
+              },
+              {
+                id: "greek-comedy-wealth-informer",
+                name: "the informer"
+              },
+              {
+                id: "greek-comedy-thesmophoria-euripides",
+                name: "Euripides in the festival comedy"
+              },
+              {
+                id: "greek-comedy-thesmophoria-mnesilochus",
+                name: "Mnesilochus"
+              },
+              {
+                id: "greek-comedy-thesmophoria-mica",
+                name: "Mica"
+              },
+              {
+                id: "greek-comedy-thesmophoria-critylla",
+                name: "Critylla"
+              },
+              {
+                id: "greek-comedy-thesmophoria-clisthenes",
+                name: "Clisthenes"
+              },
+              {
+                id: "greek-comedy-thesmophoria-scythian-guard",
+                name: "the Scythian guard"
+              },
+              {
+                id: "greek-book-iv-helen-theonoe",
+                name: "Theonoe"
+              },
+              {
+                id: "greek-book-iv-helen-theoclymenus",
+                name: "Theoclymenus"
+              },
+              {
+                id: "greek-book-iv-helen-messenger",
+                name: "The Shipwreck Messenger"
+              },
+              {
+                id: "greek-book-iv-andromache-andromache",
+                name: "Andromache of Phthia"
+              },
+              {
+                id: "greek-book-iv-andromache-molossus",
+                name: "Molossus"
+              },
+              {
+                id: "greek-book-iv-andromache-peleus",
+                name: "Peleus"
+              },
+              {
+                id: "greek-book-iv-andromache-hermione",
+                name: "Hermione"
+              },
+              {
+                id: "greek-book-iv-andromache-messenger",
+                name: "The Delphic Messenger"
+              },
+              {
+                id: "greek-book-iv-hippolytus-phaedra",
+                name: "Phaedra"
+              },
+              {
+                id: "greek-book-iv-hippolytus-nurse",
+                name: "Phaedra\u2019s Nurse"
+              },
+              {
+                id: "greek-book-iv-hippolytus-hippolytus",
+                name: "Hippolytus of Troezen"
+              },
+              {
+                id: "greek-book-iv-hippolytus-messenger",
+                name: "The Troezen Household Messenger"
+              },
+              {
+                id: "greek-book-iv-medea-medea",
+                name: "Medea of Corinth"
+              },
+              {
+                id: "greek-book-iv-medea-nurse",
+                name: "Medea\u2019s Nurse"
+              },
+              {
+                id: "greek-book-iv-medea-jason",
+                name: "Jason of Corinth"
+              },
+              {
+                id: "greek-book-iv-medea-creon",
+                name: "Creon of Corinth"
+              },
+              {
+                id: "greek-book-iv-medea-aegeus",
+                name: "Aegeus"
+              },
+              {
+                id: "greek-book-iv-medea-attendant",
+                name: "The Children\u2019s Attendant"
+              },
+              {
+                id: "greek-book-iv-ion-ion",
+                name: "Ion of Delphi"
+              },
+              {
+                id: "greek-book-iv-ion-priestess",
+                name: "The Pythian Priestess"
+              },
+              {
+                id: "greek-book-iv-ion-creusa",
+                name: "Creusa"
+              },
+              {
+                id: "greek-book-iv-ion-xuthus",
+                name: "Xuthus"
+              },
+              {
+                id: "greek-book-iv-ion-servant",
+                name: "Creusa\u2019s Old Servant"
+              },
+              {
+                id: "greek-aulis-iphigenia",
+                name: "Iphigenia"
+              },
+              {
+                id: "greek-aulis-clytemnestra",
+                name: "Clytemnestra"
+              },
+              {
+                id: "greek-aulis-achilles",
+                name: "Achilles"
+              },
+              {
+                id: "greek-lemnos-philoctetes",
+                name: "Philoctetes"
+              },
+              {
+                id: "greek-lemnos-neoptolemus",
+                name: "Neoptolemus"
+              },
+              {
+                id: "greek-rhesus-hector",
+                name: "Hector"
+              },
+              {
+                id: "greek-rhesus-rhesus",
+                name: "Rhesus"
+              },
+              {
+                id: "greek-rhesus-charioteer",
+                name: "The Charioteer"
+              },
+              {
+                id: "greek-troy-hecuba",
+                name: "Hecuba"
+              },
+              {
+                id: "greek-troy-andromache",
+                name: "Andromache"
+              },
+              {
+                id: "greek-troy-talthybius",
+                name: "Talthybius"
+              },
+              {
+                id: "greek-thrace-hecuba",
+                name: "Hecuba"
+              },
+              {
+                id: "greek-thrace-polyxena",
+                name: "Polyxena"
+              },
+              {
+                id: "greek-thrace-polymestor",
+                name: "Polymestor"
+              },
+              {
+                id: "greek-susa-atossa",
+                name: "Atossa"
+              },
+              {
+                id: "greek-susa-xerxes",
+                name: "Xerxes"
+              },
+              {
+                id: "greek-viii-xanthias",
+                name: "Xanthias"
+              },
+              {
+                id: "greek-viii-aeschylus",
+                name: "Aeschylus"
+              },
+              {
+                id: "greek-viii-euripides",
+                name: "Euripides"
+              }
+            ],
+            digest: "418309ff7708cfb1fa23806c293d619a5905e33b3875acf655863c63fbcc7642"
           }
         }
       }
@@ -9137,7 +12218,8 @@
             name: "The Underworld Landing",
             text: "A ferry rests beside dark water. The keeper of the landing asks the purpose of each crossing.",
             exits: [
-              "greek-colonus"
+              "greek-colonus",
+              "greek-viii-poets-court"
             ],
             backdrop: "assets/greek-drama/harbor.svg",
             persona: "A ferry rests beside dark water. The keeper of the landing asks the purpose of each crossing."
@@ -9316,7 +12398,7 @@
             requires: [
               {
                 kind: "flag",
-                key: "greek-ajax-open",
+                key: "greek-camp-road-open",
                 value: true
               }
             ]
@@ -10025,6 +13107,15 @@
               "greek-troy",
               "greek-susa"
             ]
+          },
+          "greek-viii-poets-court": {
+            name: "The Poets\u2019 Court",
+            text: "Two poets stand beside verse scales. A tablet waits for the voice the company will carry home. The lower landing remains beside the dark water.",
+            persona: "This court stages Aristophanes\u2019s Frogs as a named comic account. Dionysus\u2019s source choice brings back Aeschylus. The table can instead carry Euripides\u2019s voice or the living chorus\u2019s words home in a tablet. The poets hear only the pages read to their recorded company.",
+            exits: [
+              "greek-underworld"
+            ],
+            backdrop: "assets/greek-drama/courtyard.svg"
           }
         },
         avatars: {
@@ -14616,6 +17707,83 @@
                 until: "greek-susa-record-reckoning"
               }
             ]
+          },
+          "greek-viii-xanthias": {
+            name: "Xanthias",
+            text: "Xanthias waits at the landing in the Frogs account. He can hold the travel bag while the traveler enters the court. His burden remains in his actual hands.",
+            place: "greek-underworld",
+            home: "greek-underworld",
+            travels: false,
+            standoffs: false,
+            values: {
+              "greek-viii-travel-bag": 9
+            },
+            persona: "Xanthias waits at the landing in the Frogs account. He can hold the travel bag while the traveler enters the court. His burden remains in his actual hands. Speak from the actual pages heard by this company. Name each verse\u2019s author separately from its reader.",
+            voice: "Xanthias waits at the landing in the Frogs account. He can hold the travel bag while the traveler enters the court. His burden remains in his actual hands. Keep your answer brief and grounded in the present reading.",
+            portrait: "assets/greek-drama/chthonic-attendant.png",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-vii-accounts-open",
+                value: true
+              }
+            ],
+            tastes: {
+              likes: "a heard account and shared work",
+              sore: "words credited to the wrong person",
+              reason: "Xanthias waits at the landing in the Frogs account. He can hold the travel bag while the traveler enters the court. His burden remains in his actual hands."
+            },
+            keeps: [
+              "greek-viii-travel-bag"
+            ]
+          },
+          "greek-viii-aeschylus": {
+            name: "Aeschylus",
+            text: "Aeschylus stands beside the verse scales in Aristophanes\u2019s Frogs. He weighs civic duty and the force of a line against the actual testimony read here.",
+            place: "greek-viii-poets-court",
+            home: "greek-viii-poets-court",
+            travels: false,
+            standoffs: false,
+            values: {},
+            persona: "Aeschylus stands beside the verse scales in Aristophanes\u2019s Frogs. He weighs civic duty and the force of a line against the actual testimony read here. Speak from the actual pages heard by this company. Name each verse\u2019s author separately from its reader.",
+            voice: "Aeschylus stands beside the verse scales in Aristophanes\u2019s Frogs. He weighs civic duty and the force of a line against the actual testimony read here. Keep your answer brief and grounded in the present reading.",
+            portrait: "assets/greek-drama/chthonic-elder.png",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-vii-accounts-open",
+                value: true
+              }
+            ],
+            tastes: {
+              likes: "a heard account and shared work",
+              sore: "words credited to the wrong person",
+              reason: "Aeschylus stands beside the verse scales in Aristophanes\u2019s Frogs. He weighs civic duty and the force of a line against the actual testimony read here."
+            }
+          },
+          "greek-viii-euripides": {
+            name: "Euripides",
+            text: "Euripides stands beside Aeschylus in Aristophanes\u2019s Frogs. He asks who speaks, whose work carries the account, and how its words bear on ordinary lives.",
+            place: "greek-viii-poets-court",
+            home: "greek-viii-poets-court",
+            travels: false,
+            standoffs: false,
+            values: {},
+            persona: "Euripides stands beside Aeschylus in Aristophanes\u2019s Frogs. He asks who speaks, whose work carries the account, and how its words bear on ordinary lives. Speak from the actual pages heard by this company. Name each verse\u2019s author separately from its reader.",
+            voice: "Euripides stands beside Aeschylus in Aristophanes\u2019s Frogs. He asks who speaks, whose work carries the account, and how its words bear on ordinary lives. Keep your answer brief and grounded in the present reading.",
+            portrait: "assets/greek-drama/chthonic-singer.png",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-vii-accounts-open",
+                value: true
+              }
+            ],
+            tastes: {
+              likes: "a heard account and shared work",
+              sore: "words credited to the wrong person",
+              reason: "Euripides stands beside Aeschylus in Aristophanes\u2019s Frogs. He asks who speaks, whose work carries the account, and how its words bear on ordinary lives."
+            }
           }
         },
         items: {
@@ -18143,6 +21311,48 @@
               {
                 kind: "flag",
                 key: "greek-susa-warning-heard",
+                value: true
+              }
+            ]
+          },
+          "greek-viii-travel-bag": {
+            name: "The Travel Bag",
+            text: "A packed bag makes the landing\u2019s comic question of shared labor a real burden.",
+            holder: "greek-underworld",
+            persona: "Describe its actual holder and its recorded use.",
+            art: "assets/greek-drama/testimony.png",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-vii-accounts-open",
+                value: true
+              }
+            ]
+          },
+          "greek-viii-verse-scales": {
+            name: "The Verse Scales",
+            text: "The company sets these scales beside the pages read to both poets.",
+            holder: "greek-viii-poets-court",
+            persona: "Describe its actual holder and its recorded use.",
+            art: "assets/greek-drama/testimony.png",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-vii-accounts-open",
+                value: true
+              }
+            ]
+          },
+          "greek-viii-reading-tablet": {
+            name: "The Reading Tablet",
+            text: "This tablet carries the chosen voice and the final reading home to Dione.",
+            holder: "greek-viii-poets-court",
+            persona: "Describe its actual holder and its recorded use.",
+            art: "assets/greek-drama/testimony.png",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-vii-accounts-open",
                 value: true
               }
             ]
@@ -22498,6 +25708,11 @@
               {
                 kind: "set_flag",
                 key: "greek-ajax-open",
+                value: true
+              },
+              {
+                kind: "set_flag",
+                key: "greek-camp-road-open",
                 value: true
               }
             ],
@@ -46530,6 +49745,21 @@
                 kind: "set_flag",
                 key: "greek-attic-farm-open",
                 value: true
+              },
+              {
+                kind: "set_flag",
+                key: "greek-camp-road-open",
+                value: true
+              },
+              {
+                kind: "set_flag",
+                key: "greek-troy-road-open",
+                value: true
+              },
+              {
+                kind: "set_flag",
+                key: "greek-susa-road-open",
+                value: true
               }
             ]
           },
@@ -46823,6 +50053,11 @@
                 kind: "place_item",
                 item: "greek-vii-escape-list",
                 place: "greek-vii-escape-shore"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-vii-cyclops-home-ready",
+                value: true
               }
             ],
             workId: "euripides-cyclops"
@@ -46865,6 +50100,11 @@
                 kind: "place_item",
                 item: "greek-vii-escape-list",
                 place: "greek-sicily"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-vii-cyclops-home-ready",
+                value: true
               }
             ],
             workId: "euripides-cyclops"
@@ -46907,6 +50147,11 @@
                 kind: "place_item",
                 item: "greek-vii-escape-list",
                 place: "greek-sicily"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-vii-cyclops-home-ready",
+                value: true
               }
             ],
             workId: "euripides-cyclops"
@@ -47109,6 +50354,11 @@
                 kind: "place_item",
                 item: "greek-vii-refuge-tablet",
                 place: "greek-vii-air-gate"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-vii-birds-home-ready",
+                value: true
               }
             ],
             workId: "aristophanes-birds"
@@ -47156,6 +50406,11 @@
                 kind: "place_item",
                 item: "greek-vii-refuge-tablet",
                 place: "greek-vii-bird-refuge"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-vii-birds-home-ready",
+                value: true
               }
             ],
             workId: "aristophanes-birds"
@@ -47203,6 +50458,11 @@
                 kind: "place_item",
                 item: "greek-vii-refuge-tablet",
                 place: "greek-vii-bird-refuge"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-vii-birds-home-ready",
+                value: true
               }
             ],
             workId: "aristophanes-birds"
@@ -47346,6 +50606,11 @@
                 kind: "place_item",
                 item: "greek-vii-peace-list",
                 place: "greek-attic-farm"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-vii-peace-home-ready",
+                value: true
               }
             ],
             workId: "aristophanes-peace"
@@ -47398,6 +50663,11 @@
                 kind: "place_item",
                 item: "greek-vii-peace-list",
                 place: "greek-vii-peace-workshop"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-vii-peace-home-ready",
+                value: true
               }
             ],
             workId: "aristophanes-peace"
@@ -47440,6 +50710,11 @@
                 kind: "place_item",
                 item: "greek-vii-peace-list",
                 place: "greek-divine-heights"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-vii-peace-home-ready",
+                value: true
               }
             ],
             workId: "aristophanes-peace"
@@ -47544,6 +50819,11 @@
                 kind: "place_item",
                 item: "greek-vii-storm-record",
                 place: "greek-scythian-crag"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-vii-prometheus-home-ready",
+                value: true
               }
             ],
             workId: "aeschylus-prometheus-bound"
@@ -47594,6 +50874,11 @@
                 kind: "place_item",
                 item: "greek-vii-storm-record",
                 place: "greek-vii-crag-camp"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-vii-prometheus-home-ready",
+                value: true
               }
             ],
             workId: "aeschylus-prometheus-bound"
@@ -47636,6 +50921,11 @@
                 kind: "place_item",
                 item: "greek-vii-storm-record",
                 place: "greek-vii-crag-camp"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-vii-prometheus-home-ready",
+                value: true
               }
             ],
             workId: "aeschylus-prometheus-bound"
@@ -49304,6 +52594,11 @@
                 kind: "set_flag",
                 key: "greek-rhesus-open",
                 value: true
+              },
+              {
+                kind: "set_flag",
+                key: "greek-troy-road-open",
+                value: true
               }
             ],
             workId: "euripides-rhesus"
@@ -49823,6 +53118,11 @@
               {
                 kind: "set_flag",
                 key: "greek-troy-open",
+                value: true
+              },
+              {
+                kind: "set_flag",
+                key: "greek-troy-road-open",
                 value: true
               }
             ],
@@ -51982,6 +55282,11 @@
                 kind: "set_flag",
                 key: "greek-susa-open",
                 value: true
+              },
+              {
+                kind: "set_flag",
+                key: "greek-susa-road-open",
+                value: true
               }
             ],
             workId: "aeschylus-persians"
@@ -52579,6 +55884,325 @@
               }
             ],
             workId: "aeschylus-persians"
+          },
+          {
+            id: "greek-viii-frogs-carry-burden",
+            subject: "greek-viii-aeschylus",
+            at: "greek-viii-poets-court",
+            label: "Carry the burden into the court",
+            text: "The traveler brings the travel bag into the poets\u2019 court. Xanthias remains at the lower landing. The company records who carried the weight.",
+            textTemplate: "{actor} brings the travel bag into the poets\u2019 court. Xanthias remains at the lower landing. The company records who carried the weight.",
+            requires: [
+              {
+                kind: "choice_unset",
+                key: "greek-viii-frogs-burden"
+              },
+              {
+                kind: "holding",
+                item: "greek-viii-travel-bag",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-viii-frogs-burden",
+                value: "carry"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-viii-frogs-ready",
+                value: true
+              }
+            ],
+            workId: "aristophanes-frogs"
+          },
+          {
+            id: "greek-viii-frogs-share-burden",
+            subject: "greek-viii-xanthias",
+            at: "greek-underworld",
+            label: "Leave the bag with Xanthias",
+            text: "Xanthias holds the bag The traveler gave him. The traveler enters the poets\u2019 court while that burden remains with its named bearer.",
+            textTemplate: "Xanthias holds the bag {actor} gave him. The traveler enters the poets\u2019 court while that burden remains with its named bearer.",
+            requires: [
+              {
+                kind: "choice_unset",
+                key: "greek-viii-frogs-burden"
+              },
+              {
+                kind: "holding",
+                item: "greek-viii-travel-bag",
+                actor: "greek-viii-xanthias"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-viii-frogs-burden",
+                value: "xanthias"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-viii-frogs-ready",
+                value: true
+              }
+            ],
+            workId: "aristophanes-frogs"
+          },
+          {
+            id: "greek-viii-frogs-weigh",
+            subject: "greek-viii-aeschylus",
+            at: "greek-viii-poets-court",
+            label: "Finish weighing the heard account",
+            text: "The traveler finishes the last page before both poets. The scales stand beside the account they all heard. Each stanza keeps its own earlier author.",
+            textTemplate: "{actor} finishes the last page before both poets. The scales stand beside the account they all heard. Each stanza keeps its own earlier author.",
+            requires: [
+              {
+                kind: "reading_complete",
+                site: "greek-viii-frogs-court"
+              }
+            ],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "greek-viii-frogs-weighed",
+                value: true
+              }
+            ],
+            workId: "aristophanes-frogs"
+          },
+          {
+            id: "greek-viii-frogs-voice-aeschylus",
+            subject: "greek-viii-aeschylus",
+            at: "greek-viii-poets-court",
+            label: "Aeschylus",
+            text: "The traveler chooses Aeschylus\u2019s call to civic duty for the return tablet after hearing the whole reading. The named account records this choice beside the poets; its words travel home with their carrier.",
+            textTemplate: "{actor} chooses Aeschylus\u2019s call to civic duty for the return tablet after hearing the whole reading. The named account records this choice beside the poets; its words travel home with their carrier.",
+            requires: [
+              {
+                kind: "reading_complete",
+                site: "greek-viii-frogs-court"
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-viii-frogs-return-voice"
+              },
+              {
+                kind: "holding",
+                item: "greek-viii-reading-tablet",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-viii-frogs-return-voice",
+                value: "aeschylus"
+              },
+              {
+                kind: "place_item",
+                item: "greek-viii-reading-tablet",
+                place: "greek-viii-poets-court"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-viii-frogs-home-ready",
+                value: true
+              }
+            ],
+            workId: "aristophanes-frogs"
+          },
+          {
+            id: "greek-viii-frogs-voice-euripides",
+            subject: "greek-viii-euripides",
+            at: "greek-viii-poets-court",
+            label: "Euripides",
+            text: "The traveler chooses Euripides\u2019s questions about ordinary lives for the return tablet after hearing the whole reading. The named account records this choice beside the poets; its words travel home with their carrier.",
+            textTemplate: "{actor} chooses Euripides\u2019s questions about ordinary lives for the return tablet after hearing the whole reading. The named account records this choice beside the poets; its words travel home with their carrier.",
+            requires: [
+              {
+                kind: "reading_complete",
+                site: "greek-viii-frogs-court"
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-viii-frogs-return-voice"
+              },
+              {
+                kind: "holding",
+                item: "greek-viii-reading-tablet",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-viii-frogs-return-voice",
+                value: "euripides"
+              },
+              {
+                kind: "place_item",
+                item: "greek-viii-reading-tablet",
+                place: "greek-viii-poets-court"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-viii-frogs-home-ready",
+                value: true
+              }
+            ],
+            workId: "aristophanes-frogs"
+          },
+          {
+            id: "greek-viii-frogs-voice-living-chorus",
+            subject: "greek-viii-aeschylus",
+            at: "greek-viii-poets-court",
+            label: "The living chorus",
+            text: "The traveler chooses the living chorus\u2019s shared account for the return tablet after hearing the whole reading. The named account records this choice beside the poets; its words travel home with their carrier.",
+            textTemplate: "{actor} chooses the living chorus\u2019s shared account for the return tablet after hearing the whole reading. The named account records this choice beside the poets; its words travel home with their carrier.",
+            requires: [
+              {
+                kind: "reading_complete",
+                site: "greek-viii-frogs-court"
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-viii-frogs-return-voice"
+              },
+              {
+                kind: "holding",
+                item: "greek-viii-reading-tablet",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-viii-frogs-return-voice",
+                value: "living-chorus"
+              },
+              {
+                kind: "place_item",
+                item: "greek-viii-reading-tablet",
+                place: "greek-viii-poets-court"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-viii-frogs-home-ready",
+                value: true
+              }
+            ],
+            workId: "aristophanes-frogs"
+          },
+          {
+            id: "greek-vii-cyclops-read-home",
+            subject: "greek-baker",
+            at: "greek-courtyard",
+            label: "Finish the Cyclops homecoming reading",
+            text: "The traveler finishes the last required page at Dione\u2019s table. The carried record rests beside the bread. The listeners keep the words they heard and the earlier authors\u2019 names.",
+            textTemplate: "{actor} finishes the last required page at Dione\u2019s table. The carried record rests beside the bread. The listeners keep the words they heard and the earlier authors\u2019 names.",
+            requires: [
+              {
+                kind: "reading_complete",
+                site: "greek-vii-cyclops-homecoming"
+              }
+            ],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "greek-vii-cyclops-returned",
+                value: true
+              }
+            ],
+            workId: "euripides-cyclops"
+          },
+          {
+            id: "greek-vii-birds-read-home",
+            subject: "greek-baker",
+            at: "greek-courtyard",
+            label: "Finish the Birds homecoming reading",
+            text: "The traveler finishes the last required page at Dione\u2019s table. The carried record rests beside the bread. The listeners keep the words they heard and the earlier authors\u2019 names.",
+            textTemplate: "{actor} finishes the last required page at Dione\u2019s table. The carried record rests beside the bread. The listeners keep the words they heard and the earlier authors\u2019 names.",
+            requires: [
+              {
+                kind: "reading_complete",
+                site: "greek-vii-birds-homecoming"
+              }
+            ],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "greek-vii-birds-returned",
+                value: true
+              }
+            ],
+            workId: "aristophanes-birds"
+          },
+          {
+            id: "greek-vii-peace-read-home",
+            subject: "greek-baker",
+            at: "greek-courtyard",
+            label: "Finish the Peace homecoming reading",
+            text: "The traveler finishes the last required page at Dione\u2019s table. The carried record rests beside the bread. The listeners keep the words they heard and the earlier authors\u2019 names.",
+            textTemplate: "{actor} finishes the last required page at Dione\u2019s table. The carried record rests beside the bread. The listeners keep the words they heard and the earlier authors\u2019 names.",
+            requires: [
+              {
+                kind: "reading_complete",
+                site: "greek-vii-peace-homecoming"
+              }
+            ],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "greek-vii-peace-returned",
+                value: true
+              }
+            ],
+            workId: "aristophanes-peace"
+          },
+          {
+            id: "greek-vii-prometheus-read-home",
+            subject: "greek-baker",
+            at: "greek-courtyard",
+            label: "Finish the Prometheus homecoming reading",
+            text: "The traveler finishes the last required page at Dione\u2019s table. The carried record rests beside the bread. The listeners keep the words they heard and the earlier authors\u2019 names.",
+            textTemplate: "{actor} finishes the last required page at Dione\u2019s table. The carried record rests beside the bread. The listeners keep the words they heard and the earlier authors\u2019 names.",
+            requires: [
+              {
+                kind: "reading_complete",
+                site: "greek-vii-prometheus-homecoming"
+              }
+            ],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "greek-vii-prometheus-returned",
+                value: true
+              }
+            ],
+            workId: "aeschylus-prometheus-bound"
+          },
+          {
+            id: "greek-viii-frogs-read-home",
+            subject: "greek-baker",
+            at: "greek-courtyard",
+            label: "Finish the Frogs homecoming reading",
+            text: "The traveler finishes the last required page at Dione\u2019s table. The carried record rests beside the bread. The listeners keep the words they heard and the earlier authors\u2019 names.",
+            textTemplate: "{actor} finishes the last required page at Dione\u2019s table. The carried record rests beside the bread. The listeners keep the words they heard and the earlier authors\u2019 names.",
+            requires: [
+              {
+                kind: "reading_complete",
+                site: "greek-viii-frogs-homecoming"
+              }
+            ],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "greek-viii-frogs-returned",
+                value: true
+              }
+            ],
+            workId: "aristophanes-frogs"
           }
         ],
         works: [
@@ -53905,12 +57529,15 @@
             title: "Frogs",
             era: "civic-athens",
             placeIds: [
-              "greek-underworld"
+              "greek-underworld",
+              "greek-viii-poets-court"
             ],
             premise: "A divine visitor seeks a poet whose art can answer the city's troubles.",
-            status: "situated-hook",
+            status: "branching-episode",
             hookChoiceIds: [
-              "greek-inquire-aristophanes-frogs"
+              "greek-inquire-aristophanes-frogs",
+              "greek-viii-frogs-carry-burden",
+              "greek-viii-frogs-share-burden"
             ],
             source: {
               catalogue: "https://greekdrama.johnhboyer.com/",
@@ -54162,7 +57789,9 @@
             "greek-thrace",
             "greek-susa-tomb",
             "greek-susa-threshold",
-            "greek-susa-road"
+            "greek-susa-road",
+            "greek-viii-poets-court",
+            "greek-underworld"
           ],
           avatars: [
             "greek-antigone",
@@ -54329,7 +57958,11 @@
             "greek-thrace-polyxena",
             "greek-thrace-polymestor",
             "greek-susa-atossa",
-            "greek-susa-xerxes"
+            "greek-susa-xerxes",
+            "greek-viii-xanthias",
+            "greek-viii-aeschylus",
+            "greek-viii-euripides",
+            "greek-ferryman"
           ],
           items: [
             "greek-water-jar",
@@ -54549,7 +58182,10 @@
             "greek-susa-broken-oar",
             "greek-susa-dead-names",
             "greek-susa-offering-water",
-            "greek-susa-cloak"
+            "greek-susa-cloak",
+            "greek-viii-travel-bag",
+            "greek-viii-verse-scales",
+            "greek-viii-reading-tablet"
           ],
           choices: [
             "greek-return-water-jar",
@@ -55368,7 +59004,18 @@
             "greek-susa-record-private",
             "greek-susa-return-private",
             "greek-susa-record-reckoning",
-            "greek-susa-return-reckoning"
+            "greek-susa-return-reckoning",
+            "greek-viii-frogs-carry-burden",
+            "greek-viii-frogs-share-burden",
+            "greek-viii-frogs-weigh",
+            "greek-viii-frogs-voice-aeschylus",
+            "greek-viii-frogs-voice-euripides",
+            "greek-viii-frogs-voice-living-chorus",
+            "greek-vii-cyclops-read-home",
+            "greek-vii-birds-read-home",
+            "greek-vii-peace-read-home",
+            "greek-vii-prometheus-read-home",
+            "greek-viii-frogs-read-home"
           ]
         },
         recital: {
@@ -58480,6 +62127,216 @@
                 "The court sent names to households of the lost."
               ],
               summons: true
+            },
+            {
+              choice: "greek-viii-frogs-carry-burden",
+              quest: "greek-viii-frogs",
+              lines: [
+                "I brought the weight beside the waiting scales.",
+                "The bag bore witness to the hands that carried."
+              ],
+              summons: false
+            },
+            {
+              choice: "greek-viii-frogs-share-burden",
+              quest: "greek-viii-frogs",
+              lines: [
+                "I left the weight with Xanthias below.",
+                "His hands remained within the journey\u2019s telling."
+              ],
+              summons: false
+            },
+            {
+              choice: "greek-viii-frogs-weigh",
+              quest: "greek-viii-frogs",
+              lines: [
+                "I read the earned account before both poets.",
+                "The scales held words and those who first had spoken."
+              ],
+              summons: false
+            },
+            {
+              choice: "greek-viii-frogs-voice-aeschylus",
+              quest: "greek-viii-frogs",
+              lines: [
+                "I chose the weight of Aeschylus\u2019s voice.",
+                "The tablet bore his charge toward the city."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-viii-frogs-voice-euripides",
+              quest: "greek-viii-frogs",
+              lines: [
+                "I chose Euripides to question power.",
+                "The tablet carried daily lives toward home."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-viii-frogs-voice-living-chorus",
+              quest: "greek-viii-frogs",
+              lines: [
+                "I chose the living chorus for our road.",
+                "Its many voices kept the authors\u2019 names."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-vii-cyclops-read-home",
+              quest: "greek-vii-cyclops",
+              lines: [
+                "I read the cave\u2019s account beside the bread.",
+                "Each cohort kept its place within the telling."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-vii-birds-read-home",
+              quest: "greek-vii-birds",
+              lines: [
+                "I read the refuge\u2019s record at the table.",
+                "The gate and food retained their actual keepers."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-vii-peace-read-home",
+              quest: "greek-vii-peace",
+              lines: [
+                "I read the common labor beside Dione.",
+                "The grain and tools still named their present holders."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-vii-prometheus-read-home",
+              quest: "greek-vii-prometheus",
+              lines: [
+                "I read the flame and message beside Dione.",
+                "The oil and words retained their separate costs."
+              ],
+              summons: true
+            },
+            {
+              choice: "greek-viii-frogs-read-home",
+              quest: "greek-viii-frogs",
+              lines: [
+                "I brought the chosen voice beside the bread.",
+                "The living table heard each earlier author."
+              ],
+              summons: true
+            }
+          ],
+          sites: [
+            {
+              id: "greek-viii-frogs-court",
+              title: "the poets\u2019 court",
+              label: "Begin the reading before both poets",
+              at: "greek-viii-poets-court",
+              listeners: [
+                "greek-viii-aeschylus",
+                "greek-viii-euripides"
+              ],
+              item: "greek-viii-verse-scales",
+              requires: [
+                {
+                  kind: "flag",
+                  key: "greek-viii-frogs-ready",
+                  value: true
+                }
+              ],
+              completion: "greek-viii-frogs-weigh"
+            },
+            {
+              id: "greek-vii-cyclops-homecoming",
+              title: "Cyclops at home",
+              label: "Read the Cyclops account to Dione",
+              at: "greek-courtyard",
+              listeners: [
+                "greek-baker"
+              ],
+              item: "greek-vii-escape-list",
+              requires: [
+                {
+                  kind: "flag",
+                  key: "greek-vii-cyclops-home-ready",
+                  value: true
+                }
+              ],
+              completion: "greek-vii-cyclops-read-home"
+            },
+            {
+              id: "greek-vii-birds-homecoming",
+              title: "Birds at home",
+              label: "Read the Birds account to Dione",
+              at: "greek-courtyard",
+              listeners: [
+                "greek-baker"
+              ],
+              item: "greek-vii-refuge-tablet",
+              requires: [
+                {
+                  kind: "flag",
+                  key: "greek-vii-birds-home-ready",
+                  value: true
+                }
+              ],
+              completion: "greek-vii-birds-read-home"
+            },
+            {
+              id: "greek-vii-peace-homecoming",
+              title: "Peace at home",
+              label: "Read the Peace account to Dione",
+              at: "greek-courtyard",
+              listeners: [
+                "greek-baker"
+              ],
+              item: "greek-vii-peace-list",
+              requires: [
+                {
+                  kind: "flag",
+                  key: "greek-vii-peace-home-ready",
+                  value: true
+                }
+              ],
+              completion: "greek-vii-peace-read-home"
+            },
+            {
+              id: "greek-vii-prometheus-homecoming",
+              title: "Prometheus at home",
+              label: "Read the Prometheus account to Dione",
+              at: "greek-courtyard",
+              listeners: [
+                "greek-baker"
+              ],
+              item: "greek-vii-storm-record",
+              requires: [
+                {
+                  kind: "flag",
+                  key: "greek-vii-prometheus-home-ready",
+                  value: true
+                }
+              ],
+              completion: "greek-vii-prometheus-read-home"
+            },
+            {
+              id: "greek-viii-frogs-homecoming",
+              title: "Frogs at home",
+              label: "Read the Frogs account to Dione",
+              at: "greek-courtyard",
+              listeners: [
+                "greek-baker"
+              ],
+              item: "greek-viii-reading-tablet",
+              requires: [
+                {
+                  kind: "flag",
+                  key: "greek-viii-frogs-home-ready",
+                  value: true
+                }
+              ],
+              completion: "greek-viii-frogs-read-home"
             }
           ]
         },
@@ -58515,8 +62372,6 @@
             id: "greek-ajax",
             name: "Earth Beside the Ships",
             places: [
-              "greek-greek-camp",
-              "greek-ajax-landing",
               "greek-ajax-household",
               "greek-ajax-grave"
             ],
@@ -58893,20 +62748,6 @@
             ]
           },
           {
-            id: "greek-rhesus-city-approach",
-            name: "The Trojan City Approach",
-            places: [
-              "greek-troy"
-            ],
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-rhesus-open",
-                value: true
-              }
-            ]
-          },
-          {
             id: "greek-troy-captives",
             name: "What the Ships Will Carry",
             places: [
@@ -58941,15 +62782,71 @@
             id: "greek-susa-court",
             name: "The Broken Oar",
             places: [
-              "greek-susa",
               "greek-susa-tomb",
-              "greek-susa-threshold",
-              "greek-susa-road"
+              "greek-susa-threshold"
             ],
             requires: [
               {
                 kind: "flag",
                 key: "greek-susa-open",
+                value: true
+              }
+            ]
+          },
+          {
+            id: "greek-camp-road-open",
+            name: "The shared eastern road",
+            places: [
+              "greek-greek-camp",
+              "greek-ajax-landing"
+            ],
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-camp-road-open",
+                value: true
+              }
+            ]
+          },
+          {
+            id: "greek-troy-road-open",
+            name: "The shared eastern road",
+            places: [
+              "greek-troy"
+            ],
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-troy-road-open",
+                value: true
+              }
+            ]
+          },
+          {
+            id: "greek-susa-road-open",
+            name: "The shared eastern road",
+            places: [
+              "greek-susa",
+              "greek-susa-road"
+            ],
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-susa-road-open",
+                value: true
+              }
+            ]
+          },
+          {
+            id: "greek-viii-last-voices",
+            name: "The Last Voices",
+            places: [
+              "greek-viii-poets-court"
+            ],
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-vii-accounts-open",
                 value: true
               }
             ]
@@ -65091,6 +68988,40 @@
             ],
             outcome: "Shared",
             progress: []
+          },
+          {
+            id: "greek-viii-frogs",
+            group: "last-voices",
+            line: "Read the earned account to both poets and carry the chosen voice home.",
+            holder: {
+              kind: "place",
+              id: "greek-underworld"
+            },
+            art: "greek-viii-reading-tablet",
+            start: {
+              any: [
+                {
+                  kind: "receipt",
+                  choice: "greek-viii-frogs-carry-burden"
+                },
+                {
+                  kind: "receipt",
+                  choice: "greek-viii-frogs-share-burden"
+                }
+              ]
+            },
+            endings: [
+              {
+                choice: "greek-viii-frogs-read-home"
+              }
+            ],
+            progress: [
+              "greek-viii-frogs-weigh",
+              "greek-viii-frogs-voice-aeschylus",
+              "greek-viii-frogs-voice-euripides",
+              "greek-viii-frogs-voice-living-chorus"
+            ],
+            outcome: "Shared"
           }
         ],
         topics: [
@@ -71843,6 +75774,306 @@
               }
             ],
             choiceId: "greek-susa-record-reckoning"
+          },
+          {
+            id: "greek-vii-cyclops-account-all-home",
+            speaker: "greek-vii-odysseus-crew",
+            at: "greek-vii-escape-shore",
+            text: "The escape list records both cohorts at the Sicilian shore; carry their account home to Dione.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-vii-cyclops-ending",
+                value: "all-home"
+              },
+              {
+                kind: "holding",
+                item: "greek-vii-escape-list",
+                role: "actor"
+              }
+            ],
+            choiceId: "greek-vii-cyclops-all-home",
+            publicAccount: true
+          },
+          {
+            id: "greek-vii-cyclops-account-crew-first",
+            speaker: "greek-vii-satyr-chorus",
+            at: "greek-sicily",
+            text: "The escape list records the sailors at the shore and the satyrs left by the cave; carry that account to Dione.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-vii-cyclops-ending",
+                value: "crew-first"
+              },
+              {
+                kind: "holding",
+                item: "greek-vii-escape-list",
+                role: "actor"
+              }
+            ],
+            choiceId: "greek-vii-cyclops-crew-first",
+            publicAccount: true
+          },
+          {
+            id: "greek-vii-cyclops-account-satyrs-first",
+            speaker: "greek-vii-odysseus-crew",
+            at: "greek-sicily",
+            text: "The escape list records the satyrs at the shore and the sailors left by the cave; carry that account to Dione.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-vii-cyclops-ending",
+                value: "satyrs-first"
+              },
+              {
+                kind: "holding",
+                item: "greek-vii-escape-list",
+                role: "actor"
+              }
+            ],
+            choiceId: "greek-vii-cyclops-satyrs-first",
+            publicAccount: true
+          },
+          {
+            id: "greek-vii-birds-account-throne",
+            speaker: "greek-vii-hoopoe-chorus",
+            at: "greek-vii-air-gate",
+            text: "The refuge tablet records a keyholder\u2019s passage and the chorus at the gate; carry that account home to Dione.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-vii-birds-ending",
+                value: "throne"
+              },
+              {
+                kind: "holding",
+                item: "greek-vii-refuge-tablet",
+                role: "actor"
+              }
+            ],
+            choiceId: "greek-vii-birds-throne",
+            publicAccount: true
+          },
+          {
+            id: "greek-vii-birds-account-open-flight",
+            speaker: "greek-vii-hoopoe-chorus",
+            at: "greek-vii-bird-refuge",
+            text: "The refuge tablet records the chorus through an open gate with its food; carry that account home to Dione.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-vii-birds-ending",
+                value: "open-flight"
+              },
+              {
+                kind: "holding",
+                item: "greek-vii-refuge-tablet",
+                role: "actor"
+              }
+            ],
+            choiceId: "greek-vii-birds-open-flight",
+            publicAccount: true
+          },
+          {
+            id: "greek-vii-birds-account-broken-wall",
+            speaker: "greek-vii-hoopoe-chorus",
+            at: "greek-vii-bird-refuge",
+            text: "The refuge tablet records a dismantled gate and the chorus holding its food and key; carry that account to Dione.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-vii-birds-ending",
+                value: "broken-wall"
+              },
+              {
+                kind: "holding",
+                item: "greek-vii-refuge-tablet",
+                role: "actor"
+              }
+            ],
+            choiceId: "greek-vii-birds-broken-wall",
+            publicAccount: true
+          },
+          {
+            id: "greek-vii-peace-account-harvest",
+            speaker: "greek-vii-farmers",
+            at: "greek-attic-farm",
+            text: "The peace list records grain in the farmers\u2019 hands; carry their harvest account home to Dione.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-vii-peace-ending",
+                value: "harvest"
+              },
+              {
+                kind: "holding",
+                item: "greek-vii-peace-list",
+                role: "actor"
+              }
+            ],
+            choiceId: "greek-vii-peace-harvest",
+            publicAccount: true
+          },
+          {
+            id: "greek-vii-peace-account-workshops",
+            speaker: "greek-vii-smiths",
+            at: "greek-vii-peace-workshop",
+            text: "The peace list records grain with the farmers and tools with the smiths; carry their shared work home to Dione.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-vii-peace-ending",
+                value: "workshops"
+              },
+              {
+                kind: "holding",
+                item: "greek-vii-peace-list",
+                role: "actor"
+              }
+            ],
+            choiceId: "greek-vii-peace-workshops",
+            publicAccount: true
+          },
+          {
+            id: "greek-vii-peace-account-private-store",
+            speaker: "greek-vii-trygaeus",
+            at: "greek-divine-heights",
+            text: "The peace list records a shared pull and grain held by Trygaeus; carry that account home to Dione.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-vii-peace-ending",
+                value: "private-store"
+              },
+              {
+                kind: "holding",
+                item: "greek-vii-peace-list",
+                role: "actor"
+              }
+            ],
+            choiceId: "greek-vii-peace-private-store",
+            publicAccount: true
+          },
+          {
+            id: "greek-vii-prometheus-account-stay",
+            speaker: "greek-vii-oceanids",
+            at: "greek-scythian-crag",
+            text: "The storm record names Io\u2019s received message and the witnesses remaining at the crag; carry that account to Dione.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-vii-prometheus-ending",
+                value: "stay"
+              },
+              {
+                kind: "holding",
+                item: "greek-vii-storm-record",
+                role: "actor"
+              }
+            ],
+            choiceId: "greek-vii-prometheus-stay",
+            publicAccount: true
+          },
+          {
+            id: "greek-vii-prometheus-account-gifts",
+            speaker: "greek-vii-hermes",
+            at: "greek-vii-crag-camp",
+            text: "The storm record names Io\u2019s received message and the flame laid at Hermes\u2019s camp; carry that account to Dione.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-vii-prometheus-ending",
+                value: "gifts"
+              },
+              {
+                kind: "holding",
+                item: "greek-vii-storm-record",
+                role: "actor"
+              }
+            ],
+            choiceId: "greek-vii-prometheus-gifts",
+            publicAccount: true
+          },
+          {
+            id: "greek-vii-prometheus-account-terms",
+            speaker: "greek-vii-hermes",
+            at: "greek-vii-crag-camp",
+            text: "The storm record names Io\u2019s received message and the terms delivered to Hermes; carry that account to Dione.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-vii-prometheus-ending",
+                value: "terms"
+              },
+              {
+                kind: "holding",
+                item: "greek-vii-storm-record",
+                role: "actor"
+              }
+            ],
+            choiceId: "greek-vii-prometheus-terms",
+            publicAccount: true
+          },
+          {
+            id: "greek-viii-frogs-account-aeschylus",
+            speaker: "greek-viii-aeschylus",
+            at: "greek-viii-poets-court",
+            text: "The reading tablet carries Aeschylus\u2019s chosen voice after the full reading; bring its account home to Dione.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-viii-frogs-return-voice",
+                value: "aeschylus"
+              },
+              {
+                kind: "holding",
+                item: "greek-viii-reading-tablet",
+                role: "actor"
+              }
+            ],
+            choiceId: "greek-viii-frogs-voice-aeschylus",
+            publicAccount: true
+          },
+          {
+            id: "greek-viii-frogs-account-euripides",
+            speaker: "greek-viii-euripides",
+            at: "greek-viii-poets-court",
+            text: "The reading tablet carries Euripides\u2019s chosen voice after the full reading; bring its account home to Dione.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-viii-frogs-return-voice",
+                value: "euripides"
+              },
+              {
+                kind: "holding",
+                item: "greek-viii-reading-tablet",
+                role: "actor"
+              }
+            ],
+            choiceId: "greek-viii-frogs-voice-euripides",
+            publicAccount: true
+          },
+          {
+            id: "greek-viii-frogs-account-living-chorus",
+            speaker: "greek-viii-aeschylus",
+            at: "greek-viii-poets-court",
+            text: "The reading tablet carries the living chorus\u2019s chosen voice after the full reading; bring its account to Dione.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-viii-frogs-return-voice",
+                value: "living-chorus"
+              },
+              {
+                kind: "holding",
+                item: "greek-viii-reading-tablet",
+                role: "actor"
+              }
+            ],
+            choiceId: "greek-viii-frogs-voice-living-chorus",
+            publicAccount: true
           }
         ],
         bridge: {
@@ -71969,7 +76200,7 @@
             requires: [
               {
                 kind: "flag",
-                key: "greek-ajax-open",
+                key: "greek-camp-road-open",
                 value: true
               }
             ],
@@ -72068,6 +76299,28 @@
               cardName: "Greek ship",
               cardArt: "assets/greek-drama/ship-card.webp"
             }
+          },
+          {
+            id: "greek-sicily-shore-ship",
+            from: "greek-sicily-shore",
+            to: "pond",
+            travelers: "any",
+            travel: "aboard the ship",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-vii-accounts-open",
+                value: true
+              }
+            ],
+            transport: "greek-ship",
+            travelLabel: "Board",
+            scenery: {
+              open: "The shared ship waits beside the Sicilian shore.",
+              closed: "The Sicilian landing faces open water.",
+              cardName: "Greek ship",
+              cardArt: "assets/greek-drama/ship-card.webp"
+            }
           }
         ],
         transports: {
@@ -72082,7 +76335,8 @@
               "greek-book-iv-helen-landing",
               "greek-aulis",
               "greek-lemnos-landing",
-              "greek-thrace"
+              "greek-thrace",
+              "greek-sicily-shore"
             ],
             at: "greek-harbor"
           }
@@ -74313,12 +78567,12 @@
           return false;
       }
     }
-    function source(value, owner2, depth = 0) {
+    function source2(value, owner2, depth = 0) {
       if (!record2(value) || depth > 6) return false;
       if (value.first || value.earliest || value.latest) {
         const name2 = value.first ? "first" : value.earliest ? "earliest" : "latest";
         const list = value[name2];
-        return keysOk(value, [name2]) && Array.isArray(list) && list.length > 0 && list.length <= 64 && list.every((entry) => source(entry, owner2, depth + 1));
+        return keysOk(value, [name2]) && Array.isArray(list) && list.length > 0 && list.length <= 64 && list.every((entry) => source2(entry, owner2, depth + 1));
       }
       if (value.kind === "choice")
         return keysOk(value, ["kind", "key"]) && branches.has(value.key);
@@ -74368,7 +78622,7 @@
           );
       if (story.created !== void 0)
         check(
-          source(story.created, key),
+          source2(story.created, key),
           `story quest ${key} has an invalid created-turn source`
         );
       if (story.progress !== void 0)
@@ -74893,13 +79147,13 @@
       return ["observations must be a list of at most 32 states"];
     const seen = /* @__PURE__ */ new Set();
     return definitions.flatMap((d) => {
-      const source = d?.source;
-      const collection = source?.kind === "actor_flag" ? "avatars" : "items";
+      const source2 = d?.source;
+      const collection = source2?.kind === "actor_flag" ? "avatars" : "items";
       const valid = keysOk2(d, ["id", "entity", "subjects", "source", "values", "note"]) && idOk2(d.id) && !seen.has(d.id) && catalog[collection]?.includes(d.entity) && Array.isArray(d.subjects) && d.subjects.length > 0 && d.subjects.length <= 4 && d.subjects.every(
         (s) => typeof s === "string" && /^[a-z]+(?: [a-z]+)*$/.test(s) && s.length <= 80
-      ) && keysOk2(source, ["kind", "field"]) && ["item_flag", "item_positive", "actor_flag", "covered"].includes(
-        source.kind
-      ) && (source.kind === "covered" ? source.field === void 0 : idOk2(source.field)) && keysOk2(d.values, ["true", "false"]) && ["true", "false"].every((key) => {
+      ) && keysOk2(source2, ["kind", "field"]) && ["item_flag", "item_positive", "actor_flag", "covered"].includes(
+        source2.kind
+      ) && (source2.kind === "covered" ? source2.field === void 0 : idOk2(source2.field)) && keysOk2(d.values, ["true", "false"]) && ["true", "false"].every((key) => {
         const v = d.values[key];
         return keysOk2(v, ["fact", "claims", "legacyToken"]) && textOk2(v.fact, 240) && Array.isArray(v.claims) && v.claims.length > 0 && v.claims.length <= 16 && v.claims.every(
           (s) => typeof s === "string" && /^[a-z']+(?: [a-z']+)*$/.test(s) && s.length <= 80
@@ -75144,6 +79398,7 @@
           "place",
           "travels",
           "journey",
+          "keeps",
           "retireAfter",
           "roamingQuest",
           "personalQuests",
@@ -75164,6 +79419,10 @@
           "canonicalPerson"
         ]),
         `avatar ${id} has an unknown field`
+      );
+      check(
+        a.keeps === void 0 || a.travels === false && Array.isArray(a.keeps) && a.keeps.length <= 8 && new Set(a.keeps).size === a.keeps.length && a.keeps.every((item) => owns3(items2, item)),
+        `avatar ${id} keeps needs up to eight distinct pack items and a fixed resident`
       );
       check(
         a.personalQuests === void 0 || typeof a.personalQuests === "boolean",
@@ -75610,7 +79869,7 @@
               "requires",
               "completion"
             ]) && idOk2(site.id) && textOk2(site.title, 40) && textOk2(site.label, 100) && owns3(places2, site.at) && owns3(items2, site.item) && choiceIds.has(site.completion) && Array.isArray(site.listeners) && site.listeners.length >= 1 && site.listeners.length <= 2 && new Set(site.listeners).size === site.listeners.length && site.listeners.every(
-              (id) => owns3(avatars, id) && avatars[id].travels === false
+              (id) => owns3(avatars, id) && (avatars[id].travels === false || avatars[id].desire?.location === site.at)
             ),
             "reading sites need real material, fixed listeners and a completion"
           );
@@ -76306,7 +80565,8 @@
           "receipts",
           "met",
           "scope",
-          ...pack.recital ? ["recitals"] : []
+          ...pack.recital ? ["recitals"] : [],
+          ...pack.recital?.sites?.length ? ["poemReadings"] : []
         ] : ["revision", "sounds"]
       ) || record6.revision !== pack.revision || !exactKeys(
         record6.sounds,
@@ -76364,11 +80624,11 @@
   function observableStates(world, entityIds, definitions = observations) {
     const visible = new Set(entityIds);
     return definitions.filter((d) => visible.has(d.entity)).flatMap((d) => {
-      const source = d.source;
-      const entity = source.kind === "actor_flag" ? world.actors[d.entity] : world.items[d.entity];
+      const source2 = d.source;
+      const entity = source2.kind === "actor_flag" ? world.actors[d.entity] : world.items[d.entity];
       if (!entity) return [];
-      const raw = Object.hasOwn(entity, source.field) ? entity[source.field] : void 0;
-      const value = source.kind === "covered" ? Object.values(world.items).some((item) => item.holder === d.entity) : source.kind === "item_positive" ? typeof raw === "number" ? raw > 0 : null : typeof raw === "boolean" ? raw : null;
+      const raw = Object.hasOwn(entity, source2.field) ? entity[source2.field] : void 0;
+      const value = source2.kind === "covered" ? Object.values(world.items).some((item) => item.holder === d.entity) : source2.kind === "item_positive" ? typeof raw === "number" ? raw > 0 : null : typeof raw === "boolean" ? raw : null;
       return value === null ? [] : [{ id: d.id, value }];
     }).slice(0, 32);
   }
@@ -76435,6 +80695,7 @@
   var staysPut = (id) => packPeople[id]?.travels === false;
   var packJourneyDestination = (world, id) => journeyNextPlace(world, packOf(id), id);
   var packJourneyKeepsItem = (world, id, item) => journeyKeepsItem(world, packOf(id), id, item);
+  var packKeepsItem = (world, id, item) => !!packPeople[id]?.keeps?.includes(item) || packJourneyKeepsItem(world, id, item);
   var packIndependentJourneyDestination = (world, id) => independentJourneyNextPlace(world, packOf(id), id);
   var packJourneyReservations = (world) => packDefinitions.flatMap(
     (pack) => Object.keys(pack.avatars).map((id) => journeyReservation(world, pack, id)).filter(Boolean)
@@ -76744,7 +81005,7 @@
         };
         return entityEnabled(prior, id, true);
       };
-      if (!record5(state) || !validRecitals(world, pack) || pack.recital?.sites?.length && !validPoemReadings(
+      if (!record5(state) || !validRecitals(world, pack) || !validReadingDecisions(world, pack) || pack.recital?.sites?.length && !validPoemReadings(
         world,
         pack,
         readingCatalogs[pack.id],
@@ -76813,6 +81074,398 @@
           return false;
     }
     return true;
+  }
+
+  // v2/card-game/reading-privacy.mjs
+  var privateAudienceAllows = (entry, audience) => !entry?.privateTo || audience.length > 0 && audience.every((id) => entry.privateTo.includes(id));
+  var validPrivateAudience = (world, audience) => audience === void 0 || Array.isArray(audience) && audience.length > 0 && audience.length <= 10 && new Set(audience).size === audience.length && audience.every((id) => Object.hasOwn(world.actors, id));
+  function audienceMemory(memory, audience) {
+    const visible = privateAudienceAllows(memory, audience);
+    return {
+      ...memory,
+      events: memory.events.filter(
+        (entry) => privateAudienceAllows(entry, audience)
+      ),
+      landmarks: (memory.landmarks || []).filter(
+        (entry) => privateAudienceAllows(entry, audience)
+      ),
+      ...visible ? {} : {
+        text: null,
+        turn: null,
+        privateTo: void 0,
+        hearing: void 0,
+        recall: void 0
+      }
+    };
+  }
+
+  // v2/card-game/reading-actions.mjs
+  var name = (id) => humanAvatar(id)?.name || packEntity(id)?.name || id;
+  var at = (world, actor, place) => world.actors[actor]?.place === place && entityActive(world, actor) && (!humanAvatarIds.includes(actor) || humanPresent(world, actor));
+  var archive = (world, pack) => world.packs[pack.id]?.poemReadings;
+  var siteFor2 = (pack, id) => pack.recital?.sites?.find((site) => site.id === id);
+  function siteReady(world, pack, site, actor, stage = false) {
+    return at(world, actor, site.at) && entityActive(world, site.at) && conditionsMet(world, pack.id, site.requires, actor) && site.listeners.every((listener) => at(world, listener, site.at)) && (stage ? [actor, site.at] : [site.at]).includes(
+      world.items[site.item]?.holder
+    );
+  }
+  function card(actor, pack, site, op, value, label, extra = {}) {
+    return {
+      kind: "read",
+      actor,
+      packId: pack.id,
+      siteId: site.id,
+      readingOp: op,
+      item: null,
+      target: site.listeners[0],
+      key: `read:${actor}:${pack.id}:${op}:${encodeURIComponent(value)}`,
+      label,
+      text: `${name(actor)} ${label[0].toLowerCase() + label.slice(1)}.`,
+      cards: [site.listeners[0]],
+      ...extra
+    };
+  }
+  function readingActions(world, actor = currentActor(world)) {
+    if (world.readingView)
+      return world.readingView.actor === actor ? world.readingView.actions : [];
+    if (!humanPresent(world, actor)) return [];
+    const actions = [];
+    for (const pack of packDefinitions) {
+      const state = archive(world, pack);
+      if (!state) continue;
+      for (const site of pack.recital.sites) {
+        if (!siteReady(world, pack, site, actor, true)) continue;
+        const original = `site:${site.id}:${actor}`;
+        const guests = state.drafts[actor]?.site === site.id ? state.drafts[actor].invited : [];
+        const audienceReady = guests.every((guest) => at(world, guest, site.at));
+        if (!state.readings[original] && audienceReady)
+          actions.push(card(actor, pack, site, "start", site.id, site.label));
+        else if (state.readings[original] && audienceReady && Object.keys(state.readings).filter((id) => id.startsWith("optional:")).length < readingLimits.optional)
+          actions.push(
+            card(
+              actor,
+              pack,
+              site,
+              "later",
+              site.id,
+              `Begin a later ${site.title} reading`
+            )
+          );
+        if (guests.length)
+          actions.push(
+            card(
+              actor,
+              pack,
+              site,
+              "clear",
+              site.id,
+              `Use only the required ${site.title} listeners`
+            )
+          );
+        for (const guest of humanAvatarIds.filter(
+          (id) => id !== actor && at(world, id, site.at)
+        ))
+          actions.push(
+            card(
+              actor,
+              pack,
+              site,
+              "invite",
+              `${site.id}/${guest}`,
+              `${guests.includes(guest) ? "Release" : "Invite"} ${name(guest)} ${guests.includes(guest) ? "from" : "to"} the ${site.title} reading`,
+              { invitee: guest }
+            )
+          );
+        if (!siteReady(world, pack, site, actor)) continue;
+        for (const [id, reading] of Object.entries(state.readings))
+          if (reading.site === site.id && reading.reader === actor && !reading.complete)
+            actions.push(
+              card(
+                actor,
+                pack,
+                site,
+                "page",
+                id,
+                `Read page ${reading.pages.length + 1} of ${Math.max(1, Math.ceil(reading.selection.length / 4))} from ${site.title}`,
+                { readingId: id }
+              )
+            );
+      }
+    }
+    return actions;
+  }
+  function readingReplayAction(world, actor, packId, id, index, listener) {
+    const pack = packDefinition(packId);
+    const raw = pack && archive(world, pack);
+    const projected = world.readingView?.packs?.[packId]?.readings.find(
+      (r) => r.id === id
+    );
+    const reading = raw?.readings[id] || projected;
+    const site = reading && siteFor2(pack, reading.site);
+    const published = raw ? index < reading?.pages.length : projected?.pages.some((page) => page[0] === index && page[1] !== null);
+    if (!reading || !site || reading.reader !== actor || !Number.isInteger(index) || index < 0 || !published || !reading.audience.includes(listener) || listener === actor || !at(world, actor, site.at) || !at(world, listener, site.at) || world.items[site.item]?.holder !== site.at)
+      return null;
+    return card(
+      actor,
+      pack,
+      site,
+      "replay",
+      `${id}/${index}/${listener}`,
+      `Read page ${index + 1} of ${site.title} again to ${name(listener)}`,
+      { readingId: id, pageIndex: index, listener, target: listener }
+    );
+  }
+  function resolveReadingReplay(world, actor, key) {
+    const parts = typeof key === "string" ? key.split(":") : [];
+    if (parts.length !== 5 || parts[0] !== "read" || parts[1] !== actor || parts[3] !== "replay")
+      return null;
+    try {
+      const [id, index, listener] = decodeURIComponent(parts[4]).split("/");
+      const action = readingReplayAction(
+        world,
+        actor,
+        parts[2],
+        id,
+        Number(index),
+        listener
+      );
+      return action?.key === key ? action : null;
+    } catch {
+      return null;
+    }
+  }
+  function applyReadingAction(world, action) {
+    const pack = packDefinition(action.packId), site = siteFor2(pack, action.siteId);
+    const state = archive(world, pack), actor = action.actor;
+    if (!site || !state) throw new Error("Choose a current reading.");
+    if (action.readingOp === "clear") {
+      setReadingDraft(world, pack, state, site.id, actor, []);
+      return { privateTo: [actor] };
+    }
+    if (action.readingOp === "invite") {
+      const guests = (state.drafts[actor]?.site === site.id ? state.drafts[actor].invited : []).filter((id) => at(world, id, site.at));
+      setReadingDraft(
+        world,
+        pack,
+        state,
+        site.id,
+        actor,
+        guests.includes(action.invitee) ? guests.filter((id) => id !== action.invitee) : [...guests, action.invitee]
+      );
+      return { privateTo: [actor] };
+    }
+    if (["start", "later"].includes(action.readingOp)) {
+      const id = beginReading(
+        world,
+        pack,
+        currentReadingCatalog(pack.id),
+        state,
+        { site: site.id, reader: actor, optional: action.readingOp === "later" }
+      );
+      world.items[site.item].holder = site.at;
+      world.items[site.item].history = [
+        ...world.items[site.item].history,
+        `${name(actor)} lays it beside the ${site.title} reading.`
+      ].slice(-12);
+      return { privateTo: state.readings[id].audience };
+    }
+    const packet = action.readingOp === "page" ? publishReadingPage(
+      world,
+      state,
+      readingCatalogs[pack.id],
+      action.readingId,
+      actor
+    ) : replayReadingPage(
+      world,
+      state,
+      readingCatalogs[pack.id],
+      action.readingId,
+      actor,
+      action.pageIndex,
+      action.listener
+    );
+    const completion = packet.firstCompletion && !Object.hasOwn(world.packs[pack.id].receipts, site.completion) ? applyPackChoice(world, {
+      actor,
+      packId: pack.id,
+      choiceId: site.completion
+    }) : null;
+    return {
+      privateTo: packet.audience,
+      hearing: [pack.id, packet.id, packet.index],
+      completion
+    };
+  }
+  function projectReadingView(world, actor) {
+    const packs = {};
+    for (const pack of packDefinitions) {
+      const state = archive(world, pack);
+      if (state) packs[pack.id] = projectPoemReadings(state, actor);
+    }
+    return { actor, packs, actions: readingActions(world, actor) };
+  }
+  function upgradeReadingArchives(world, packs) {
+    for (const pack of packs) {
+      const state = world.packs?.[pack.id];
+      if (!pack.recital?.sites?.length || !state || state.poemReadings !== void 0)
+        continue;
+      if (pack.choices.some(
+        (choice) => Object.hasOwn(state.receipts || {}, choice.id) && choice.requires?.some(
+          (condition2) => condition2.kind === "reading_complete"
+        )
+      ))
+        continue;
+      state.poemReadings = {
+        version: 1,
+        stanzas: [],
+        readings: {},
+        drafts: {},
+        pins: {},
+        decisions: {}
+      };
+    }
+  }
+  function validHearingRef(world, ref, audience, turn, place) {
+    if (ref === void 0) return true;
+    try {
+      if (!Array.isArray(ref) || ref.length !== 4 || !Array.isArray(audience) || !Number.isSafeInteger(ref[2]) || ref[2] < 0 || !Number.isSafeInteger(ref[3]) || ref[3] > turn)
+        return false;
+      const reading = world.packs[ref[0]].poemReadings.readings[ref[1]];
+      const page = reading.pages[ref[2]];
+      if (!page || reading.place !== place || ref[3] < page[0]) return false;
+      const bits = audience.map((actor) => reading.audience.indexOf(actor));
+      if (bits.some((bit) => bit < 0)) return false;
+      const mask = bits.reduce((value, bit) => value | 1 << bit, 0);
+      return ref[3] === page[0] ? mask === page[1] : audience.length === 2 && audience.includes(reading.reader) && (mask & page[2]) === mask;
+    } catch {
+      return false;
+    }
+  }
+
+  // v2/card-game/reading-context.mjs
+  var maskFor = (reading, audience) => {
+    const bits = audience.map((id) => reading.audience.indexOf(id));
+    return bits.some((bit) => bit < 0) ? null : bits.reduce((mask, bit) => mask | 1 << bit, 0);
+  };
+  var source = (world, ref) => {
+    const state = world.packs?.[ref?.[0]]?.poemReadings;
+    const reading = state?.readings[ref?.[1]];
+    const page = reading?.pages[ref?.[2]];
+    return page ? { state, reading, page } : null;
+  };
+  function validRecallRef(world, ref, audience) {
+    if (ref === void 0) return true;
+    if (!Array.isArray(ref) || ref.length !== 3 || !audience?.length)
+      return false;
+    const saved = source(world, ref);
+    if (!saved) return false;
+    const mask = maskFor(saved.reading, audience);
+    return mask !== null && (saved.page[2] & mask) === mask;
+  }
+  function readingSpeechScope(world, played, audience) {
+    audience = audience.filter((id) => entityActive(world, id));
+    if (played?.privateTo)
+      return {
+        privateTo: [...played.privateTo],
+        ...played.hearing ? { hearing: [...played.hearing] } : {}
+      };
+    if (!audience.length) return {};
+    let latest = null;
+    for (const pack of packDefinitions) {
+      const state = world.packs[pack.id]?.poemReadings;
+      if (!state) continue;
+      for (const [id, reading] of Object.entries(state.readings)) {
+        const mask = maskFor(reading, audience);
+        if (mask === null) continue;
+        for (const [index, page] of reading.pages.entries())
+          if ((page[2] & mask) === mask && (!latest || page[0] > latest.turn))
+            latest = { turn: page[0], ref: [pack.id, id, index] };
+      }
+    }
+    return latest ? { privateTo: [...audience], recall: latest.ref } : {};
+  }
+  function readingPoem(world, scope, recipient) {
+    const ref = scope.hearing?.slice(0, 3) || scope.recall;
+    if (!ref || !scope.privateTo?.includes(recipient)) return null;
+    const saved = source(world, ref);
+    if (!saved || !validRecallRef(world, ref, scope.privateTo)) return null;
+    const { state, reading, page } = saved;
+    const catalog = readingCatalogs[ref[0]][reading.catalog];
+    const tuples = reading.selection.slice(ref[2] * 4, (ref[2] + 1) * 4).map((index) => [...state.stanzas[index]]);
+    const stanzas = readingPage(state, reading, catalog, ref[2]);
+    return {
+      title: catalog.title,
+      stanzas,
+      newLines: stanzas.flatMap((stanza) => stanza.lines),
+      heard: {
+        pack: ref[0],
+        catalog: catalog.id,
+        catalogDigest: catalog.digest,
+        readingId: ref[1],
+        reader: reading.reader,
+        readingTurn: reading.turn,
+        through: reading.through,
+        page: ref[2],
+        pageCount: Math.max(1, Math.ceil(reading.selection.length / 4)),
+        stanzaCount: reading.selection.length,
+        publishedTurn: page[0],
+        poemDigest: reading.poemDigest,
+        audience: [...scope.privateTo],
+        tuples,
+        afterTurns: tuples.map(([row]) => {
+          const prior = world.packs[ref[0]].receipts[catalog.rows[row].after?.choice];
+          return Number.isSafeInteger(prior) && prior <= reading.through ? prior : null;
+        })
+      }
+    };
+  }
+  var privateSpeechFields = (context) => context.privateTo ? {
+    privateTo: [...context.privateTo],
+    ...context.hearing ? { hearing: [...context.hearing] } : {},
+    ...context.recall ? { recall: [...context.recall] } : {}
+  } : {};
+  var words = (text2) => text2.toLowerCase().match(/[\p{L}\p{N}]+/gu)?.join(" ") || "";
+  var runs = (text2) => {
+    const all = words(text2).split(" ");
+    if (all.length < 4) return [];
+    const size = Math.min(6, all.length);
+    return Array.from(
+      { length: all.length - size + 1 },
+      (_, i) => all.slice(i, i + size).join(" ")
+    );
+  };
+  var canonical = null;
+  function canonicalRuns() {
+    if (!canonical)
+      canonical = [
+        ...new Set(
+          packDefinitions.flatMap((pack) => {
+            const catalog = currentReadingCatalog(pack.id);
+            return (catalog?.rows || []).flatMap(
+              (row) => [...row.lines, ...row.after?.lines || []].flatMap(runs)
+            );
+          })
+        )
+      ];
+    return canonical;
+  }
+  function readingQuoteAllowed(world, context, id, text2) {
+    if (!packDefinitions.some((pack) => world.packs[pack.id]?.poemReadings))
+      return true;
+    const entity = context.entities.find((entry) => entry.id === id);
+    const allowed = words(
+      [
+        ...(entity?.poem?.stanzas || []).flatMap((stanza) => stanza.lines),
+        ...(entity?.memories || []).map((memory) => memory.text),
+        entity?.previous || "",
+        ...context.events || [],
+        ...(context.conversation || []).map((line) => line.text)
+      ].join(" ")
+    );
+    const spoken = ` ${words(text2)} `;
+    const evidence = ` ${allowed} `;
+    return canonicalRuns().every(
+      (run) => !spoken.includes(` ${run} `) || evidence.includes(` ${run} `)
+    );
   }
 
   // v2/card-game/adaptive-learning.mjs
@@ -77116,267 +81769,8 @@
     if (!matchesObservation(trial.conditions, trial.before, actor, goal) || !matchesObservation(trial.afterConditions, trial.after, actor, goal))
       return false;
     if (JSON.parse(trial.conditions)[7] !== trial.intent) return false;
-    const source = world.log.find((e) => e.seq === trial.seq);
-    return !source || !source.generated && source.kind === "action" && source.actorId === actor && source.turn === trial.turn && source.verb === action.kind && (source.targetId || null) === action.target && (source.itemId || null) === action.item && (source.receiveId || null) === action.receive && (source.destinationId || null) === action.destination && source.text.slice(0, 650) === trial.evidence && (!["ask", "accompany"].includes(action.kind) || source.accepted === trial.after.met);
-  }
-
-  // v2/card-game/reading-privacy.mjs
-  var privateAudienceAllows = (entry, audience) => !entry?.privateTo || audience.length > 0 && audience.every((id) => entry.privateTo.includes(id));
-  var validPrivateAudience = (world, audience) => audience === void 0 || Array.isArray(audience) && audience.length > 0 && audience.length <= 10 && new Set(audience).size === audience.length && audience.every((id) => Object.hasOwn(world.actors, id));
-  function audienceMemory(memory, audience) {
-    const visible = privateAudienceAllows(memory, audience);
-    return {
-      ...memory,
-      events: memory.events.filter(
-        (entry) => privateAudienceAllows(entry, audience)
-      ),
-      landmarks: (memory.landmarks || []).filter(
-        (entry) => privateAudienceAllows(entry, audience)
-      ),
-      ...visible ? {} : { text: null, turn: null, privateTo: void 0 }
-    };
-  }
-
-  // v2/card-game/reading-actions.mjs
-  var name = (id) => humanAvatar(id)?.name || packEntity(id)?.name || id;
-  var at = (world, actor, place) => world.actors[actor]?.place === place && entityActive(world, actor) && (!humanAvatarIds.includes(actor) || humanPresent(world, actor));
-  var archive = (world, pack) => world.packs[pack.id]?.poemReadings;
-  var siteFor2 = (pack, id) => pack.recital?.sites?.find((site) => site.id === id);
-  function siteReady(world, pack, site, actor, stage = false) {
-    return at(world, actor, site.at) && entityActive(world, site.at) && conditionsMet(world, pack.id, site.requires, actor) && site.listeners.every((listener) => at(world, listener, site.at)) && (stage ? [actor, site.at] : [site.at]).includes(
-      world.items[site.item]?.holder
-    );
-  }
-  function card(actor, pack, site, op, value, label, extra = {}) {
-    return {
-      kind: "read",
-      actor,
-      packId: pack.id,
-      siteId: site.id,
-      readingOp: op,
-      item: null,
-      target: site.listeners[0],
-      key: `read:${actor}:${pack.id}:${op}:${encodeURIComponent(value)}`,
-      label,
-      text: `${name(actor)} ${label[0].toLowerCase() + label.slice(1)}.`,
-      cards: [site.listeners[0]],
-      ...extra
-    };
-  }
-  function readingActions(world, actor = currentActor(world)) {
-    if (world.readingView)
-      return world.readingView.actor === actor ? world.readingView.actions : [];
-    if (!humanPresent(world, actor)) return [];
-    const actions = [];
-    for (const pack of packDefinitions) {
-      const state = archive(world, pack);
-      if (!state) continue;
-      for (const site of pack.recital.sites) {
-        if (!siteReady(world, pack, site, actor, true)) continue;
-        const original = `site:${site.id}:${actor}`;
-        const guests = state.drafts[actor]?.site === site.id ? state.drafts[actor].invited : [];
-        const audienceReady = guests.every((guest) => at(world, guest, site.at));
-        if (!state.readings[original] && audienceReady)
-          actions.push(card(actor, pack, site, "start", site.id, site.label));
-        else if (state.readings[original] && audienceReady && Object.keys(state.readings).filter((id) => id.startsWith("optional:")).length < readingLimits.optional)
-          actions.push(
-            card(
-              actor,
-              pack,
-              site,
-              "later",
-              site.id,
-              `Begin a later ${site.title} reading`
-            )
-          );
-        if (guests.length)
-          actions.push(
-            card(
-              actor,
-              pack,
-              site,
-              "clear",
-              site.id,
-              `Use only the required ${site.title} listeners`
-            )
-          );
-        for (const guest of humanAvatarIds.filter(
-          (id) => id !== actor && at(world, id, site.at)
-        ))
-          actions.push(
-            card(
-              actor,
-              pack,
-              site,
-              "invite",
-              `${site.id}/${guest}`,
-              `${guests.includes(guest) ? "Release" : "Invite"} ${name(guest)} ${guests.includes(guest) ? "from" : "to"} the ${site.title} reading`,
-              { invitee: guest }
-            )
-          );
-        if (!siteReady(world, pack, site, actor)) continue;
-        for (const [id, reading] of Object.entries(state.readings))
-          if (reading.site === site.id && reading.reader === actor && !reading.complete)
-            actions.push(
-              card(
-                actor,
-                pack,
-                site,
-                "page",
-                id,
-                `Read page ${reading.pages.length + 1} of ${Math.max(1, Math.ceil(reading.selection.length / 4))} from ${site.title}`,
-                { readingId: id }
-              )
-            );
-      }
-    }
-    return actions;
-  }
-  function readingReplayAction(world, actor, packId, id, index, listener) {
-    const pack = packDefinition(packId);
-    const raw = pack && archive(world, pack);
-    const projected = world.readingView?.packs?.[packId]?.readings.find(
-      (r) => r.id === id
-    );
-    const reading = raw?.readings[id] || projected;
-    const site = reading && siteFor2(pack, reading.site);
-    const published = raw ? index < reading?.pages.length : projected?.pages.some((page) => page[0] === index && page[1] !== null);
-    if (!reading || !site || reading.reader !== actor || !Number.isInteger(index) || index < 0 || !published || !reading.audience.includes(listener) || listener === actor || !at(world, actor, site.at) || !at(world, listener, site.at) || world.items[site.item]?.holder !== site.at)
-      return null;
-    return card(
-      actor,
-      pack,
-      site,
-      "replay",
-      `${id}/${index}/${listener}`,
-      `Read page ${index + 1} of ${site.title} again to ${name(listener)}`,
-      { readingId: id, pageIndex: index, listener, target: listener }
-    );
-  }
-  function resolveReadingReplay(world, actor, key) {
-    const parts = typeof key === "string" ? key.split(":") : [];
-    if (parts.length !== 5 || parts[0] !== "read" || parts[1] !== actor || parts[3] !== "replay")
-      return null;
-    try {
-      const [id, index, listener] = decodeURIComponent(parts[4]).split("/");
-      const action = readingReplayAction(
-        world,
-        actor,
-        parts[2],
-        id,
-        Number(index),
-        listener
-      );
-      return action?.key === key ? action : null;
-    } catch {
-      return null;
-    }
-  }
-  function applyReadingAction(world, action) {
-    const pack = packDefinition(action.packId), site = siteFor2(pack, action.siteId);
-    const state = archive(world, pack), actor = action.actor;
-    if (!site || !state) throw new Error("Choose a current reading.");
-    if (action.readingOp === "clear") {
-      setReadingDraft(world, pack, state, site.id, actor, []);
-      return { privateTo: [actor] };
-    }
-    if (action.readingOp === "invite") {
-      const guests = (state.drafts[actor]?.site === site.id ? state.drafts[actor].invited : []).filter((id) => at(world, id, site.at));
-      setReadingDraft(
-        world,
-        pack,
-        state,
-        site.id,
-        actor,
-        guests.includes(action.invitee) ? guests.filter((id) => id !== action.invitee) : [...guests, action.invitee]
-      );
-      return { privateTo: [actor] };
-    }
-    if (["start", "later"].includes(action.readingOp)) {
-      const id = beginReading(
-        world,
-        pack,
-        currentReadingCatalog(pack.id),
-        state,
-        { site: site.id, reader: actor, optional: action.readingOp === "later" }
-      );
-      world.items[site.item].holder = site.at;
-      world.items[site.item].history = [
-        ...world.items[site.item].history,
-        `${name(actor)} lays it beside the ${site.title} reading.`
-      ].slice(-12);
-      return { privateTo: state.readings[id].audience };
-    }
-    const packet = action.readingOp === "page" ? publishReadingPage(
-      world,
-      state,
-      readingCatalogs[pack.id],
-      action.readingId,
-      actor
-    ) : replayReadingPage(
-      world,
-      state,
-      readingCatalogs[pack.id],
-      action.readingId,
-      actor,
-      action.pageIndex,
-      action.listener
-    );
-    const completion = packet.firstCompletion && !Object.hasOwn(world.packs[pack.id].receipts, site.completion) ? applyPackChoice(world, {
-      actor,
-      packId: pack.id,
-      choiceId: site.completion
-    }) : null;
-    return {
-      privateTo: packet.audience,
-      hearing: [pack.id, packet.id, packet.index],
-      completion
-    };
-  }
-  function projectReadingView(world, actor) {
-    const packs = {};
-    for (const pack of packDefinitions) {
-      const state = archive(world, pack);
-      if (state) packs[pack.id] = projectPoemReadings(state, actor);
-    }
-    return { actor, packs, actions: readingActions(world, actor) };
-  }
-  function upgradeReadingArchives(world, packs) {
-    for (const pack of packs) {
-      const state = world.packs?.[pack.id];
-      if (!pack.recital?.sites?.length || !state || state.poemReadings !== void 0)
-        continue;
-      if (pack.choices.some(
-        (choice) => Object.hasOwn(state.receipts || {}, choice.id) && choice.requires?.some(
-          (condition2) => condition2.kind === "reading_complete"
-        )
-      ))
-        continue;
-      state.poemReadings = {
-        version: 1,
-        stanzas: [],
-        readings: {},
-        drafts: {},
-        pins: {},
-        decisions: {}
-      };
-    }
-  }
-  function validHearingRef(world, ref, audience, turn, place) {
-    if (ref === void 0) return true;
-    try {
-      if (!Array.isArray(ref) || ref.length !== 4 || !Array.isArray(audience) || !Number.isSafeInteger(ref[2]) || ref[2] < 0 || !Number.isSafeInteger(ref[3]) || ref[3] > turn)
-        return false;
-      const reading = world.packs[ref[0]].poemReadings.readings[ref[1]];
-      const page = reading.pages[ref[2]];
-      if (!page || reading.place !== place || ref[3] < page[0]) return false;
-      const bits = audience.map((actor) => reading.audience.indexOf(actor));
-      if (bits.some((bit) => bit < 0)) return false;
-      const mask = bits.reduce((value, bit) => value | 1 << bit, 0);
-      return ref[3] === page[0] ? mask === page[1] : audience.length === 2 && audience.includes(reading.reader) && (mask & page[2]) === mask;
-    } catch {
-      return false;
-    }
+    const source2 = world.log.find((e) => e.seq === trial.seq);
+    return !source2 || !source2.generated && source2.kind === "action" && source2.actorId === actor && source2.turn === trial.turn && source2.verb === action.kind && (source2.targetId || null) === action.target && (source2.itemId || null) === action.item && (source2.receiveId || null) === action.receive && (source2.destinationId || null) === action.destination && source2.text.slice(0, 650) === trial.evidence && (!["ask", "accompany"].includes(action.kind) || source2.accepted === trial.after.met);
   }
 
   // v2/card-game/learning.mjs
@@ -77440,8 +81834,8 @@
         item: l.item,
         destination: l.destination
       };
-      const source = world.log.find((e) => e.seq === l.seq);
-      return (!l.followup || Number.isSafeInteger(l.followup.seq) && l.followup.seq > l.seq && l.followup.seq <= world.eventSeq && Number.isSafeInteger(l.followup.turn) && l.followup.turn >= l.turn && l.followup.turn <= world.turn && ["talk", "trade", "wait"].includes(l.followup.kind)) && Number.isSafeInteger(l.seq) && l.seq > 0 && l.seq <= world.eventSeq && (!i || lessons[i - 1].seq < l.seq) && Number.isSafeInteger(l.turn) && l.turn >= 0 && l.turn <= world.turn && kinds.includes(l.kind) && Boolean(world.actors[l.target]) && l.target !== actor && (l.item === null || Boolean(world.items[l.item])) && (l.destination === null || profiles2[l.destination]?.kind === "location") && (l.kind === "ask" ? l.item !== null && l.destination === null : l.destination !== null && l.item === null) && l.key === keyOf(action) && typeof l.expected === "boolean" && typeof l.observed === "boolean" && l.strategy === (l.observed ? "continue" : l.kind === "ask" ? "offer_trade" : "give_space") && typeof l.conditions === "string" && l.conditions.length <= 16e3 && typeof l.evidence === "string" && l.evidence.length > 0 && l.evidence.length <= 650 && (!source || !source.generated && source.actorId === actor && source.verb === l.kind && source.targetId === l.target && source.accepted === l.observed && source.text.slice(0, 650) === l.evidence);
+      const source2 = world.log.find((e) => e.seq === l.seq);
+      return (!l.followup || Number.isSafeInteger(l.followup.seq) && l.followup.seq > l.seq && l.followup.seq <= world.eventSeq && Number.isSafeInteger(l.followup.turn) && l.followup.turn >= l.turn && l.followup.turn <= world.turn && ["talk", "trade", "wait"].includes(l.followup.kind)) && Number.isSafeInteger(l.seq) && l.seq > 0 && l.seq <= world.eventSeq && (!i || lessons[i - 1].seq < l.seq) && Number.isSafeInteger(l.turn) && l.turn >= 0 && l.turn <= world.turn && kinds.includes(l.kind) && Boolean(world.actors[l.target]) && l.target !== actor && (l.item === null || Boolean(world.items[l.item])) && (l.destination === null || profiles2[l.destination]?.kind === "location") && (l.kind === "ask" ? l.item !== null && l.destination === null : l.destination !== null && l.item === null) && l.key === keyOf(action) && typeof l.expected === "boolean" && typeof l.observed === "boolean" && l.strategy === (l.observed ? "continue" : l.kind === "ask" ? "offer_trade" : "give_space") && typeof l.conditions === "string" && l.conditions.length <= 16e3 && typeof l.evidence === "string" && l.evidence.length > 0 && l.evidence.length <= 650 && (!source2 || !source2.generated && source2.actorId === actor && source2.verb === l.kind && source2.targetId === l.target && source2.accepted === l.observed && source2.text.slice(0, 650) === l.evidence);
     });
     return valid;
   }
@@ -79917,13 +84311,13 @@
         }
         continue;
       }
-      const source = record6.program;
+      const source2 = record6.program;
       const programIndex = progress.program;
-      const program = source.generated ? {
-        ...source,
+      const program = source2.generated ? {
+        ...source2,
         id: `generated-${actor}-${programIndex + 1}`,
-        generated: { ...source.generated, level: programIndex + 1 }
-      } : source;
+        generated: { ...source2.generated, level: programIndex + 1 }
+      } : source2;
       const focused = focusedQuest(s, actor);
       const wasActive = !collection || collection.active === card2.key && (!focused || focused.key === card2.key);
       progress.marks.push(s.turn);
@@ -80011,23 +84405,23 @@
   var owns5 = (value, key) => value && Object.hasOwn(value, key);
   var storyKey = (pack, story) => `${pack.id}:${story.key || story.id}`;
   var stateOf = (world, pack) => world.packs?.[pack.id];
-  function evidenceTurn(world, pack, source, resolve) {
+  function evidenceTurn(world, pack, source2, resolve) {
     const state = stateOf(world, pack);
-    if (source.first || source.earliest || source.latest) {
-      const mode = source.first ? "first" : source.earliest ? "earliest" : "latest";
-      const turns = source[mode].map((entry) => evidenceTurn(world, pack, entry, resolve)).filter((turn) => turn !== null);
+    if (source2.first || source2.earliest || source2.latest) {
+      const mode = source2.first ? "first" : source2.earliest ? "earliest" : "latest";
+      const turns = source2[mode].map((entry) => evidenceTurn(world, pack, entry, resolve)).filter((turn) => turn !== null);
       if (!turns.length) return null;
       return mode === "first" ? turns[0] : mode === "earliest" ? Math.min(...turns) : Math.max(...turns);
     }
-    if (source.kind === "receipt")
-      return state?.receipts?.[source.choice] ?? null;
-    if (source.kind === "met") return state?.met?.[source.actor] ?? null;
-    if (source.kind === "quest") return resolve(source.key)?.createdTurn ?? null;
-    if (source.kind === "choice") {
-      const value = state?.choices?.[source.key];
+    if (source2.kind === "receipt")
+      return state?.receipts?.[source2.choice] ?? null;
+    if (source2.kind === "met") return state?.met?.[source2.actor] ?? null;
+    if (source2.kind === "quest") return resolve(source2.key)?.createdTurn ?? null;
+    if (source2.kind === "choice") {
+      const value = state?.choices?.[source2.key];
       const action = pack.choices?.find(
         (choice) => choice.effects.some(
-          (effect) => effect.kind === "choose" && effect.key === source.key && effect.value === value
+          (effect) => effect.kind === "choose" && effect.key === source2.key && effect.value === value
         )
       );
       return action ? state?.receipts?.[action.id] ?? null : null;
@@ -81145,6 +85539,15 @@
           ).values()
         ];
       }
+    for (const choice of pack.choices)
+      if (Object.hasOwn(saved.receipts || {}, choice.id)) {
+        for (const effect of choice.effects)
+          if (effect.kind === "set_flag" && [
+            "greek-camp-road-open",
+            "greek-troy-road-open",
+            "greek-susa-road-open"
+          ].includes(effect.key)) saved.flags[effect.key] = effect.value;
+      }
     saved.revision = 8;
   }
   function upgradeGreekSectionSave(s) {
@@ -81600,7 +86003,7 @@
   );
   var valeStalled = (s) => s.turn - (s.actors.vale.progress.marks.at(-1) || 0) >= 24;
   function willingToGive(s, owner2, item, recipient = null) {
-    if (packJourneyKeepsItem(s, owner2, item)) return false;
+    if (packKeepsItem(s, owner2, item)) return false;
     if (hasMotives(s) && recipient && resentment(s, owner2, recipient))
       return false;
     if (!hasQuestPrograms(s) || lifeOf(s, owner2))
@@ -81609,7 +86012,7 @@
   }
   function canTrade(s, actor, give, receive) {
     const other = s.items[receive]?.holder;
-    if (packJourneyKeepsItem(s, other, receive)) return false;
+    if (packKeepsItem(s, other, receive)) return false;
     if (s.items[give]?.holder !== actor || !actorIds.includes(other) || !knownActors2(s).includes(other) || other === actor || controlledByHuman(s, other) || s.actors[actor].place !== s.actors[other].place)
       return false;
     if (hasMotives(s) ? !tradeDecision(s, actor, give, receive).accepted && !(hasQuestPrograms(s) && !s.life && !resentment(s, other, actor) && needed(s, other, give) && !needed(s, other, receive)) : !accepts(s, other, give) || needed(s, other, receive))
@@ -83114,10 +87517,10 @@
         return choose(toward(s, actor, hand2.location), reason);
       for (const c of hand2.conditions.filter((c2) => !conditionMet2(s, c2, actor))) {
         if (c.kind === "knows") {
-          const source = s.knowledge?.facts?.[c.topic]?.source.actorId;
-          if (source && s.actors[source].place !== here) return goMeet(source);
+          const source2 = s.knowledge?.facts?.[c.topic]?.source.actorId;
+          if (source2 && s.actors[source2].place !== here) return goMeet(source2);
           return choose(
-            find("talk", void 0, source),
+            find("talk", void 0, source2),
             "Ask for the shared news."
           );
         }
@@ -83212,6 +87615,7 @@
     const round2 = beginRound(s, sensesFor(s));
     next.turn += 1;
     next.revision += 1;
+    noteReadingDepartures(next);
     const reflectionSource = next.actors[actor].place;
     const wasOpen = reflectionOpen(next, reflectionSource);
     if (exact.kind === "wait")
@@ -83341,6 +87745,7 @@
       else next.sharedMigration.inventoryAllowances[id] = count;
     }
     settleQuestHands(next);
+    noteReadingDepartures(next);
     validateWorld(next);
     return { ok: true, state: next };
   }
@@ -83589,6 +87994,7 @@
     ];
     for (const e of s.log) {
       if (!validPrivateAudience(s, e.privateTo)) fail();
+      if (!validRecallRef(s, e.recall, e.privateTo)) fail();
       if (!validHearingRef(s, e.hearing, e.privateTo, e.turn, e.locationId)) fail();
       if (e.seq !== void 0) {
         if (!Number.isSafeInteger(e.seq) || e.seq <= seq || e.seq > s.eventSeq)
@@ -83763,7 +88169,7 @@
   group("susa", "open", "susa-road");
   group("scythia", "open", "scythian-crag");
   group("heights", "open", "divine-heights");
-  group("underworld", "underground", "underworld");
+  group("underworld", "underground", "underworld viii-poets-court");
   group(
     "attica",
     "court",
@@ -84121,7 +88527,7 @@
       world.opening?.version === 1 && !world.locations.attic.anchored
     );
     const known = knownActors(world);
-    const present = Object.keys(world.actors).filter(
+    let present = Object.keys(world.actors).filter(
       (id) => known.includes(id) && entityActive(world, id) && world.actors[id].place === location && (!world.controlledActors?.includes(id) || world.presentActors?.includes(id))
     );
     const localItems = Object.keys(world.items).filter(
@@ -84133,18 +88539,24 @@
     const introductions = present.filter(
       (id) => id !== currentActor(world) && awake(id) && world.opening?.met[id] === world.turn
     );
-    const audience = [.../* @__PURE__ */ new Set([...present, ...departing])];
+    let audience = [.../* @__PURE__ */ new Set([...present, ...departing])];
     const focus = localItems.includes(action?.item) ? action.item : null;
     const played = world.log.findLast(
       (entry) => entry.turn === world.turn && entry.kind === "action" && entry.actorId === currentActor(world)
     );
+    const scope = readingSpeechScope(world, played, audience);
+    if (scope.privateTo) {
+      audience = audience.filter((id) => scope.privateTo.includes(id));
+      present = present.filter((id) => scope.privateTo.includes(id));
+    }
+    const visibleMemory = (id) => audienceMemory(world.memories[id], audience);
     const target = action?.target || played?.targetId;
     const directPartner = audience.includes(target) && target !== currentActor(world) && awake(target);
     const partner = directPartner ? target : introductions[0] || departing[0] || present.find((id) => id !== currentActor(world) && awake(id));
     const movers = changes.map((change) => change.actorId);
     const chosen = new Set(
       [currentActor(world), partner, ...introductions, ...movers].filter(
-        (id) => id && awake(id)
+        (id) => id && awake(id) && (!scope.privateTo || scope.privateTo.includes(id))
       )
     );
     const speakers = [
@@ -84186,7 +88598,7 @@
       ids3.sort(beforeWitness);
     }
     const events = world.log.filter(
-      (entry) => entry.turn === world.turn && !entry.generated && entry.kind !== "quest" && !entry.questPlan && (entry.locationId === location || entry.fromLocationId === location || entry.witnesses?.includes(currentActor(world)))
+      (entry) => entry.turn === world.turn && !entry.generated && privateAudienceAllows(entry, audience) && entry.kind !== "quest" && !entry.questPlan && (entry.locationId === location || entry.fromLocationId === location || entry.witnesses?.includes(currentActor(world)))
     ).slice(-8).map((entry) => entry.text);
     const bellHandled = localItems.includes("bell") || [played?.itemId, played?.receiveId].includes("bell");
     const bellRang = world.log.some(
@@ -84195,7 +88607,7 @@
     const quietFact = bellHandled && !bellRang && !world.items.bell.ringing ? `The Bell made no sound this turn: it is ${covered(world, "bell") ? "wrapped in the Black cloth and " : ""}silent. Nobody rang it.` : null;
     const mindsNoise = (id) => /noise|ringing/i.test(tastes[id]?.sore || "");
     const conversation = beforeFirstLight ? [] : world.log.filter(
-      (entry) => entry.generated && entry.kind === "dialogue" && profiles[entry.actorId]?.kind === "avatar" && entry.locationId === location && entry.turn < world.turn
+      (entry) => entry.generated && privateAudienceAllows(entry, audience) && entry.kind === "dialogue" && profiles[entry.actorId]?.kind === "avatar" && entry.locationId === location && entry.turn < world.turn
     ).slice(-4).map(({ actorId, text: text2, cast, witnesses }) => ({
       actorId,
       text: text2,
@@ -84206,9 +88618,10 @@
     return {
       revision: world.revision,
       turn: world.turn,
+      ...privateSpeechFields(scope),
       outcome: turnOutcome(world),
       location,
-      scenery: sceneryDue(world.turn),
+      scenery: scope.privateTo ? false : sceneryDue(world.turn),
       focus,
       speakers,
       ...disclosures.length ? { disclosures } : {},
@@ -84359,13 +88772,13 @@
         return {
           id,
           ...packReadings(world, id).length ? { readings: packReadings(world, id) } : {},
-          poem: recitalContext(world, packDefinitions, id),
+          poem: readingPoem(world, scope, id) || recitalContext(world, packDefinitions, id),
           facts: facts.slice(0, 16).map((text2) => text2.slice(0, 240)),
           desire,
-          memories: speechMemories(world.memories[id], {
+          memories: speechMemories(visibleMemory(id), {
             expressions: !beforeFirstLight
           }),
-          previous: beforeFirstLight ? null : world.memories[id].text,
+          previous: beforeFirstLight ? null : visibleMemory(id).text,
           ...kind === "avatar" ? { inner_life: world.memories[id].innerLife || null } : {}
         };
       })
@@ -84373,6 +88786,7 @@
   }
   function validReflection(entry, world, context) {
     if (entry.reflection === void 0 || entry.reflection === null) return true;
+    if (context.privateTo) return false;
     if (profiles[entry.id]?.kind !== "avatar") return false;
     const previous = world.memories[entry.id].innerLife || {
       persona: null,
@@ -84455,8 +88869,8 @@
       dreams: r.dream ? [...previous.dreams, { turn: world.turn, text: r.dream }].slice(-4) : previous.dreams
     };
   }
-  function applySharedReflections(world, entries) {
-    const context = narrativeContext(world);
+  function applySharedReflections(world, entries, sourceContext = null) {
+    const context = sourceContext || narrativeContext(world);
     for (const entry of entries || [])
       if (world.actors[entry.id] && !context.entities.some((e) => e.id === entry.id))
         context.entities.push({
@@ -84571,6 +88985,11 @@
     if (request.op === "migrate") return migrate(request);
     const world = load(request);
     const actor = request.actor || "vale";
+    if (request.op === "attendance") {
+      if (noteReadingDepartures(world)) world.revision += 1;
+      validateWorld(world);
+      return response(world);
+    }
     if (request.op === "upgrade") {
       for (const id of Object.keys(world.actors))
         installQuestCollection(world, id);
@@ -84631,12 +89050,30 @@
         (e) => !request.lines.some((l) => (l.actorId || l.entityId) === e.id)
       ))
         throw new Error("Keep each reflection with its saved speaker.");
-      applySharedReflections(world, request.entries || []);
+      for (const key of ["privateTo", "hearing", "recall"])
+        if (request[key] === null) delete request[key];
+      const context = narrativeContext(world);
+      const scope = privateSpeechFields(request);
+      if (!validPrivateAudience(world, request.privateTo) || !validHearingRef(
+        world,
+        request.hearing,
+        request.privateTo,
+        world.turn,
+        room
+      ) || !validRecallRef(world, request.recall, request.privateTo) || (request.hearing || request.recall) && !request.privateTo)
+        throw new Error("Use this reading's saved audience.");
+      delete context.privateTo;
+      delete context.hearing;
+      delete context.recall;
+      Object.assign(context, scope);
+      for (const entity of context.entities)
+        entity.poem = readingPoem(world, scope, entity.id) || (entity.poem?.heard ? null : entity.poem);
+      applySharedReflections(world, request.entries || [], context);
       const lines = [];
       for (const line of request.lines) {
         const scenic = line.actorId == null && line.entityId === room;
         const speaker = scenic ? null : line.actorId || (people[line.entityId] ? line.entityId : null) || Object.keys(people).find((id) => people[id].name === line.speaker) || (people[line.speaker] ? line.speaker : null);
-        if (request.lines.length === 1 && speaker !== actor || !scenic && (!speaker || !entityActive(world, speaker) || world.actors[speaker].place !== room || humanAvatar(speaker) && !world.presentActors.includes(speaker) && !(speaker === actor && world.controlledActors.includes(speaker))) || typeof line.text !== "string" || !line.text.trim() || line.text.length > 600 || /[\u0000-\u001f\u007f]/u.test(line.text) || !validExpression(profiles[speaker], line.text))
+        if (request.lines.length === 1 && speaker !== actor || !scenic && (!speaker || !entityActive(world, speaker) || world.actors[speaker].place !== room || humanAvatar(speaker) && !world.presentActors.includes(speaker) && !(speaker === actor && world.controlledActors.includes(speaker))) || typeof line.text !== "string" || !line.text.trim() || line.text.length > 600 || /[\u0000-\u001f\u007f]/u.test(line.text) || !validExpression(profiles[speaker], line.text) || request.privateTo && speaker && !request.privateTo.includes(speaker) || !readingQuoteAllowed(world, context, speaker || room, line.text))
           throw new Error(
             "Each line needs a present speaker or the room, and clear text."
           );
@@ -84645,10 +89082,18 @@
           kind: scenic ? "narration" : expressionKind(profiles[speaker]),
           actorId: speaker,
           entityId: scenic ? room : speaker,
-          locationId: room
+          locationId: room,
+          ...request.privateTo ? { cast: [...request.privateTo] } : {},
+          ...scope
         });
         lines.push(world.log.at(-1));
-        publishKnowledgeSpeech(world, lines.at(-1), request.disclosures || []);
+        publishKnowledgeSpeech(
+          world,
+          lines.at(-1),
+          (request.disclosures || []).filter(
+            (disclosure) => !request.privateTo || world.knowledge?.facts[disclosure.factId]?.source.topic
+          )
+        );
       }
       world.revision += 1;
       validateWorld(world);

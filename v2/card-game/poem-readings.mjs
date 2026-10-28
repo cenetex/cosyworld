@@ -362,6 +362,27 @@ export function replayReadingPage(
   };
 }
 
+// Optional guests keep their departure even when they return between pages.
+export function noteReadingDepartures(world) {
+  let changed = false;
+  for (const pack of Object.values(world.packs || {}))
+    for (const reading of Object.values(pack.poemReadings?.readings || {})) {
+      if (reading.complete) continue;
+      for (const [bit, actor] of reading.audience.entries()) {
+        const mask = 1 << bit;
+        if (
+          !(reading.requiredMask & mask) &&
+          !(reading.departedMask & mask) &&
+          !actorHere(world, actor, reading.place)
+        ) {
+          reading.departedMask |= mask;
+          changed = true;
+        }
+      }
+    }
+  return changed;
+}
+
 export function heardReadingPages(state, catalogs, actor) {
   return Object.entries(state.readings).flatMap(([id, reading]) => {
     const bit = reading.audience.indexOf(actor);
@@ -399,14 +420,12 @@ export function heardReadingPages(state, catalogs, actor) {
 }
 
 // A public exchange can use a page only when every listener has heard it.
-export function sharedHeardPages(world, state, catalogs, recipient) {
+export function sharedHeardPages(world, state, catalogs, recipient, audience) {
   const place = world.actors[recipient]?.place;
   const viewer = currentActor(world);
   if (!humanAvatarIds.includes(viewer) || !actorHere(world, viewer, place))
     return [];
-  const audience = Object.keys(world.actors).filter((actor) =>
-    actorHere(world, actor, place),
-  );
+  if (!Array.isArray(audience) || !audience.length) return [];
   return heardReadingPages(state, catalogs, recipient).flatMap((view) => {
     const reading = state.readings[view.id];
     const bits = audience.map((actor) => reading.audience.indexOf(actor));
@@ -440,6 +459,40 @@ export function completedHeardReading(state, site, actor) {
       })
       .sort(([, left], [, right]) => right.turn - left.turn)[0]?.[0] || null
   );
+}
+
+export function validReadingDecisions(world, pack) {
+  const saved = world.packs[pack.id],
+    state = saved.poemReadings;
+  if (!state) return !pack.recital?.sites?.length;
+  const required = pack.choices.filter((choice) =>
+    choice.requires?.some((condition) => condition.kind === "reading_complete"),
+  );
+  if (
+    Object.keys(state.decisions).some(
+      (id) =>
+        !required.some((choice) => choice.id === id) ||
+        !owns(saved.receipts, id),
+    )
+  )
+    return false;
+  return required.every((choice) => {
+    if (!owns(saved.receipts, choice.id))
+      return !owns(state.decisions, choice.id);
+    const reading = state.readings[state.decisions[choice.id]];
+    const actor = saved.recitals[choice.id]?.actor;
+    const bit = reading?.audience.indexOf(actor);
+    return (
+      reading?.complete &&
+      actor &&
+      bit >= 0 &&
+      choice.requires
+        .filter((condition) => condition.kind === "reading_complete")
+        .every((condition) => condition.site === reading.site) &&
+      reading.pages.every((page) => page[2] & (1 << bit)) &&
+      saved.receipts[choice.id] >= reading.pages.at(-1)[0]
+    );
+  });
 }
 
 // Views share compact tuples. Each player receives only pages they heard;
@@ -665,7 +718,12 @@ export function validPoemReadings(world, pack, catalogs, state) {
         departed |= guests & ~page[1];
         lastTurn = page[0];
       }
-      if (reading.departedMask !== departed) return false;
+      if (
+        !integer(reading.departedMask, 0, fullMask) ||
+        reading.departedMask & reading.requiredMask ||
+        (reading.departedMask & departed) !== departed
+      )
+        return false;
       if (reading.complete) {
         const old = complete.get(reading.site);
         if (

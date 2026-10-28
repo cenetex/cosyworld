@@ -33,6 +33,14 @@ mod knowledge;
 mod observations;
 #[path = "card_narrative/readings.rs"]
 mod readings;
+#[path = "card_narrative/heard.rs"]
+mod heard;
+#[cfg(test)]
+#[path = "card_narrative/heard_tests.rs"]
+mod heard_tests;
+#[cfg(any(feature = "embedded-llama", test))]
+#[path = "card_narrative/heard_local.rs"]
+mod heard_local;
 #[path = "card_narrative/recital.rs"]
 pub(crate) mod recital;
 #[path = "card_narrative/reflection.rs"]
@@ -398,6 +406,12 @@ struct TurnOutcome {
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct Context {
+    #[serde(default, rename = "privateTo", skip_serializing_if = "Vec::is_empty")]
+    private_to: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    hearing: Option<(String, String, u64, u64)>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    recall: Option<(String, String, u64)>,
     #[serde(skip)]
     acting_avatar: Option<String>,
     revision: u64,
@@ -444,6 +458,7 @@ fn valid(context: &Context) -> bool {
         && context.outcome.as_ref().is_none_or(valid_outcome)
         && observations::valid(context)
         && knowledge::valid(context)
+        && heard::scope(context)
         && context.events.len() <= 8
         && context.events.iter().all(|text| bounded(text, 650))
         && context.conversation.len() <= 4
@@ -531,6 +546,7 @@ fn valid_outcome(outcome: &TurnOutcome) -> bool {
             | "guard"
             | "attack"
             | "choose"
+            | "read"
             | "pursue"
             | "join-quest"
             | "share-quest"
@@ -943,6 +959,7 @@ pub(crate) async fn shared_lines(
             .iter()
             .any(|id| !context.entities.iter().any(|e| &e.id == id))
         || !observations::valid(&context)
+        || !heard::scope(&context)
         || context
             .entities
             .iter()
@@ -1117,7 +1134,7 @@ pub(super) fn client_budget_ms() -> u128 {
 }
 
 fn reflection_due(context: &Context, entity: &Entity) -> (bool, bool) {
-    if !kind(&entity.id, "avatar") || context.turn == 0 {
+    if !kind(&entity.id, "avatar") || context.turn == 0 || !context.private_to.is_empty() {
         return (false, false);
     }
     let life = entity.inner_life.as_ref();
@@ -1651,6 +1668,11 @@ async fn speak(
             check.sentences = 1;
         }
     }
+    #[cfg(feature = "embedded-llama")]
+    if part == Part::Line && own.base_url == "embedded://llama"
+        && entity.poem.as_ref().is_some_and(|poem| poem.heard.is_some()) {
+        return heard_local::speak(&own, context, entity, settings, deadline, &system).await;
+    }
     voice_attempts(
         settings,
         deadline,
@@ -1983,6 +2005,9 @@ impl<'a> Check<'a> {
         }
         if !recital::consistent(&kept, &self.entity.id, self.entity.poem.as_ref()) {
             return Err("story_outcome");
+        }
+        if !heard::quote_allowed(&kept, self.context, self.entity) {
+            return Err("heard_page");
         }
         let lower = kept.to_lowercase();
         if ASSISTANT_SPEAK.iter().any(|phrase| lower.contains(phrase)) {

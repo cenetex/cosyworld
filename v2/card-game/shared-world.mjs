@@ -1,4 +1,13 @@
 import { entityActive } from "./pack-registry.mjs";
+import { validPrivateAudience } from "./reading-privacy.mjs";
+import { validHearingRef } from "./reading-actions.mjs";
+import { noteReadingDepartures } from "./poem-readings.mjs";
+import {
+  validRecallRef,
+  privateSpeechFields,
+  readingQuoteAllowed,
+  readingPoem,
+} from "./reading-context.mjs";
 import { privateView } from "./learning.mjs";
 import { expressionKind, validExpression } from "./expression.mjs";
 import { BOARDY } from "./boardyai.mjs";
@@ -144,6 +153,11 @@ export function dispatchShared(request) {
   if (request.op === "migrate") return migrate(request);
   const world = load(request);
   const actor = request.actor || "vale";
+  if (request.op === "attendance") {
+    if (noteReadingDepartures(world)) world.revision += 1;
+    validateWorld(world);
+    return response(world);
+  }
   if (request.op === "upgrade") {
     for (const id of Object.keys(world.actors))
       installQuestCollection(world, id);
@@ -214,7 +228,33 @@ export function dispatchShared(request) {
       )
     )
       throw new Error("Keep each reflection with its saved speaker.");
-    applySharedReflections(world, request.entries || []);
+    for (const key of ["privateTo", "hearing", "recall"])
+      if (request[key] === null) delete request[key];
+    const context = narrativeContext(world);
+    const scope = privateSpeechFields(request);
+    if (
+      !validPrivateAudience(world, request.privateTo) ||
+      !validHearingRef(
+        world,
+        request.hearing,
+        request.privateTo,
+        world.turn,
+        room,
+      ) ||
+      !validRecallRef(world, request.recall, request.privateTo) ||
+      ((request.hearing || request.recall) && !request.privateTo)
+    )
+      throw new Error("Use this reading's saved audience.");
+    // The host carries the original scene scope across a delayed publication.
+    delete context.privateTo;
+    delete context.hearing;
+    delete context.recall;
+    Object.assign(context, scope);
+    for (const entity of context.entities)
+      entity.poem =
+        readingPoem(world, scope, entity.id) ||
+        (entity.poem?.heard ? null : entity.poem);
+    applySharedReflections(world, request.entries || [], context);
     const lines = [];
     for (const line of request.lines) {
       const scenic = line.actorId == null && line.entityId === room;
@@ -239,7 +279,11 @@ export function dispatchShared(request) {
         !line.text.trim() ||
         line.text.length > 600 ||
         /[\u0000-\u001f\u007f]/u.test(line.text) ||
-        !validExpression(profiles[speaker], line.text)
+        !validExpression(profiles[speaker], line.text) ||
+        (request.privateTo &&
+          speaker &&
+          !request.privateTo.includes(speaker)) ||
+        !readingQuoteAllowed(world, context, speaker || room, line.text)
       )
         throw new Error(
           "Each line needs a present speaker or the room, and clear text.",
@@ -250,9 +294,19 @@ export function dispatchShared(request) {
         actorId: speaker,
         entityId: scenic ? room : speaker,
         locationId: room,
+        ...(request.privateTo ? { cast: [...request.privateTo] } : {}),
+        ...scope,
       });
       lines.push(world.log.at(-1));
-      publishKnowledgeSpeech(world, lines.at(-1), request.disclosures || []);
+      publishKnowledgeSpeech(
+        world,
+        lines.at(-1),
+        (request.disclosures || []).filter(
+          (disclosure) =>
+            !request.privateTo ||
+            world.knowledge?.facts[disclosure.factId]?.source.topic,
+        ),
+      );
     }
     world.revision += 1;
     validateWorld(world);

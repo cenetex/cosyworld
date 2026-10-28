@@ -417,21 +417,43 @@ describe("required hearings and private guests", () => {
       ),
     ).toEqual([0]);
     f.world.playerActorId = "ash";
-    expect(sharedHeardPages(f.world, f.state, f.catalogs, poets[0])).toEqual(
-      [],
-    );
+    expect(
+      sharedHeardPages(
+        f.world,
+        f.state,
+        f.catalogs,
+        poets[0],
+        Object.keys(f.world.actors).filter(
+          (id) => f.world.actors[id].place === court,
+        ),
+      ),
+    ).toEqual([]);
     f.world.playerActorId = "vale";
-    expect(sharedHeardPages(f.world, f.state, f.catalogs, poets[0])).toEqual(
-      [],
-    );
+    expect(
+      sharedHeardPages(
+        f.world,
+        f.state,
+        f.catalogs,
+        poets[0],
+        Object.keys(f.world.actors).filter(
+          (id) => f.world.actors[id].place === court,
+        ),
+      ),
+    ).toEqual([]);
     for (const actor of humanAvatarIds.filter(
       (id) => !["vale", "mara"].includes(id),
     ))
       f.world.actors[actor].place = "elsewhere";
     expect(
-      sharedHeardPages(f.world, f.state, f.catalogs, poets[0])[0].pages.map(
-        (p) => p.index,
-      ),
+      sharedHeardPages(
+        f.world,
+        f.state,
+        f.catalogs,
+        poets[0],
+        Object.keys(f.world.actors).filter(
+          (id) => f.world.actors[id].place === court,
+        ),
+      )[0].pages.map((p) => p.index),
     ).toEqual([0]);
     const firstPublication = [...f.state.readings[id].pages[1]];
     for (const index of [1, 2]) {

@@ -1,4 +1,8 @@
 import { learningFacts } from "./learning.mjs";
+import { audienceMemory, privateAudienceAllows } from "./reading-privacy.mjs";
+import {
+  readingSpeechScope, readingPoem, privateSpeechFields, readingQuoteAllowed,
+} from "./reading-context.mjs";
 import { knowledgeDisclosures, knowledgeFacts } from "./knowledge.mjs";
 import { expressionKind, validExpression } from "./expression.mjs";
 import { questCarried } from "./quest-hands.mjs";
@@ -193,7 +197,7 @@ export function narrativeContext(world, action = null) {
     world.opening?.version === 1 && !world.locations.attic.anchored,
   );
   const known = knownActors(world);
-  const present = Object.keys(world.actors).filter(
+  let present = Object.keys(world.actors).filter(
     (id) =>
       known.includes(id) &&
       entityActive(world, id) &&
@@ -215,7 +219,7 @@ export function narrativeContext(world, action = null) {
       awake(id) &&
       world.opening?.met[id] === world.turn,
   );
-  const audience = [...new Set([...present, ...departing])];
+  let audience = [...new Set([...present, ...departing])];
   const focus = localItems.includes(action?.item) ? action.item : null;
   const played = world.log.findLast(
     (entry) =>
@@ -223,6 +227,12 @@ export function narrativeContext(world, action = null) {
       entry.kind === "action" &&
       entry.actorId === currentActor(world),
   );
+  const scope = readingSpeechScope(world, played, audience);
+  if (scope.privateTo) {
+    audience = audience.filter((id) => scope.privateTo.includes(id));
+    present = present.filter((id) => scope.privateTo.includes(id));
+  }
+  const visibleMemory = (id) => audienceMemory(world.memories[id], audience);
   const target = action?.target || played?.targetId;
   const directPartner =
     audience.includes(target) &&
@@ -236,7 +246,7 @@ export function narrativeContext(world, action = null) {
   const movers = changes.map((change) => change.actorId);
   const chosen = new Set(
     [currentActor(world), partner, ...introductions, ...movers].filter(
-      (id) => id && awake(id),
+      (id) => id && awake(id) && (!scope.privateTo || scope.privateTo.includes(id)),
     ),
   );
   // Vale responds to every play. Other travellers keep their movement order.
@@ -292,6 +302,7 @@ export function narrativeContext(world, action = null) {
       (entry) =>
         entry.turn === world.turn &&
         !entry.generated &&
+        privateAudienceAllows(entry, audience) &&
         entry.kind !== "quest" &&
         !entry.questPlan &&
         (entry.locationId === location ||
@@ -325,6 +336,7 @@ export function narrativeContext(world, action = null) {
         .filter(
           (entry) =>
             entry.generated &&
+            privateAudienceAllows(entry, audience) &&
             entry.kind === "dialogue" &&
             profiles[entry.actorId]?.kind === "avatar" &&
             entry.locationId === location &&
@@ -341,9 +353,10 @@ export function narrativeContext(world, action = null) {
   return {
     revision: world.revision,
     turn: world.turn,
+    ...privateSpeechFields(scope),
     outcome: turnOutcome(world),
     location,
-    scenery: sceneryDue(world.turn),
+    scenery: scope.privateTo ? false : sceneryDue(world.turn),
     focus,
     speakers,
     ...(disclosures.length ? { disclosures } : {}),
@@ -551,13 +564,13 @@ export function narrativeContext(world, action = null) {
         ...(packReadings(world, id).length
           ? { readings: packReadings(world, id) }
           : {}),
-        poem: recitalContext(world, packDefinitions, id),
+        poem: readingPoem(world, scope, id) || recitalContext(world, packDefinitions, id),
         facts: facts.slice(0, 16).map((text) => text.slice(0, 240)),
         desire,
-        memories: speechMemories(world.memories[id], {
+        memories: speechMemories(visibleMemory(id), {
           expressions: !beforeFirstLight,
         }),
-        previous: beforeFirstLight ? null : world.memories[id].text,
+        previous: beforeFirstLight ? null : visibleMemory(id).text,
         ...(kind === "avatar"
           ? { inner_life: world.memories[id].innerLife || null }
           : {}),
@@ -568,6 +581,7 @@ export function narrativeContext(world, action = null) {
 
 function validReflection(entry, world, context) {
   if (entry.reflection === undefined || entry.reflection === null) return true;
+  if (context.privateTo) return false;
   if (profiles[entry.id]?.kind !== "avatar") return false;
   const previous = world.memories[entry.id].innerLife || {
     persona: null,
@@ -719,8 +733,8 @@ function saveReflection(world, context, entry, fallbackModel) {
 }
 
 // Shared publication checks against the saved world before committing its text.
-export function applySharedReflections(world, entries) {
-  const context = narrativeContext(world);
+export function applySharedReflections(world, entries, sourceContext = null) {
+  const context = sourceContext || narrativeContext(world);
   for (const entry of entries || [])
     if (
       world.actors[entry.id] &&
@@ -780,6 +794,7 @@ export function applyGeneratedText(
         entry.text.length > 400 ||
         /[\u0000-\u001f\u007f]/u.test(entry.text) ||
         !validExpression(profiles[entry.id], entry.text) ||
+        !readingQuoteAllowed(world, context, entry.id, entry.text) ||
         (entry.model !== undefined &&
           (typeof entry.model !== "string" ||
             !entry.model.trim() ||
@@ -797,7 +812,13 @@ export function applyGeneratedText(
       text: entry.text.trim(),
       turn: next.turn,
       model: entry.model || response.model,
+      ...privateSpeechFields(context),
     });
+    if (!context.privateTo) {
+      delete next.memories[entry.id].privateTo;
+      delete next.memories[entry.id].hearing;
+      delete next.memories[entry.id].recall;
+    }
     if (entry.reflection)
       saveReflection(next, context, entry, entry.model || response.model);
   }
@@ -862,11 +883,14 @@ export function applyGeneratedText(
       entityId: id,
       generated: true,
       locationId: context.location,
-      cast: [...cast],
+      cast: context.privateTo ? [...context.privateTo] : [...cast],
+      ...privateSpeechFields(context),
       ...(movement?.leaving ? { departureTo: movement.to } : {}),
       ...(movement && !movement.leaving ? { arrivalFrom: movement.from } : {}),
     });
-    publishKnowledgeSpeech(next, next.log.at(-1), context.disclosures || []);
+    publishKnowledgeSpeech(next, next.log.at(-1), (context.disclosures || []).filter(
+      (disclosure) => !context.privateTo || next.knowledge?.facts[disclosure.factId]?.source.topic,
+    ));
     if (movement?.leaving) cast.splice(cast.indexOf(id), 1);
   }
   return validateWorld(next);

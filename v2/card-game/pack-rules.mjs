@@ -481,6 +481,7 @@ export function validPackState(s, senses) {
               "met",
               "scope",
               ...(pack.recital ? ["recitals"] : []),
+              ...(pack.recital?.sites?.length ? ["poemReadings"] : []),
             ]
           : ["revision", "sounds"],
       ) ||

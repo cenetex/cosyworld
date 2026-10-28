@@ -124,6 +124,8 @@ const files = [
   "poem-readings.mjs",
   "reading-actions.mjs",
   "reading-privacy.mjs",
+  "reading-context.mjs",
+  "reading-ui.mjs",
   "poem-catalogs.mjs",
   "poem-catalogs.json",
   "forest.json",

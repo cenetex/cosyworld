@@ -15,14 +15,20 @@ import { homecomingJourney } from "./helpers/greek-homecoming.mjs";
 import { openDoorJourney } from "./helpers/open-door.mjs";
 import { houseGo } from "./helpers/greek-house-of-blood.mjs";
 import { entityActive } from "../v2/card-game/pack-registry.mjs";
+import { readHome } from "./helpers/greek-readings.mjs";
 
 const GREEK = "greek-drama";
 function scene(place) {
-  const world = enableMotives(
-    createWorld({ packScopes: { [GREEK]: "full" } }),
-    { questPrograms: true, personalQuests: true },
-  );
+  let world = enableMotives(createWorld({ packScopes: { [GREEK]: "full" } }), {
+    questPrograms: true,
+    personalQuests: true,
+  });
+  if (place !== "greek-vii-crag-camp") {
+    world.actors.vale.place = "greek-courtyard";
+    world = act(world, "choose", { choiceId: "greek-vii-open-accounts" });
+  }
   world.actors.vale.place = place;
+  world.crossings["pond-greek-harbor"].discovered = true;
   for (const item of Object.values(world.items))
     if (item.holder === "vale") item.holder = place;
   return world;
@@ -145,6 +151,10 @@ describe("Cyclops's physical departure", () => {
       expect(w.items["greek-vii-escape-list"].holder).toBe(atClosing);
       expect(exits(w, cave, "vale")).not.toContain(shore);
       expect(exits(w, shore, "vale")).toContain(cave);
+      w = readHome(w, "greek-vii-cyclops", "greek-vii-escape-list");
+      expect(w.packs[GREEK].receipts["greek-vii-cyclops-read-home"]).toBe(
+        w.turn,
+      );
       expect(decodeSave(encodeSave(w))).toEqual(w);
     },
   );
@@ -172,6 +182,8 @@ describe("Birds's actual passage and refuge", () => {
     expect(w.items[basket].holder).toBe(king);
     expect(w.actors[birds].place).toBe(gate);
     expect(w.items[tablet].holder).toBe(gate);
+    w = readHome(w, "greek-vii-birds", tablet);
+    expect(w.packs[GREEK].receipts["greek-vii-birds-read-home"]).toBe(w.turn);
   });
   it.each([
     ["open", "open-flight"],
@@ -192,6 +204,8 @@ describe("Birds's actual passage and refuge", () => {
       expect(w.items[tablet].holder).toBe(refuge);
       expect(exits(w, refuge, "vale")).toContain(gate);
       expect(exits(w, refuge, birds)).toContain(gate);
+      w = readHome(w, "greek-vii-birds", tablet);
+      expect(w.packs[GREEK].receipts["greek-vii-birds-read-home"]).toBe(w.turn);
       expect(decodeSave(encodeSave(w))).toEqual(w);
     },
   );
@@ -288,6 +302,8 @@ describe("Peace reaches actual workers and supplies", () => {
       if (ending === "workshops") expect(w.items[tools].holder).toBe(smiths);
       expect(w.items[peaceList].holder).toBe(w.actors.vale.place);
       expect(w.packs[GREEK].choices[peace("ending")]).toBe(ending);
+      w = readHome(w, "greek-vii-peace", peaceList);
+      expect(w.packs[GREEK].receipts["greek-vii-peace-read-home"]).toBe(w.turn);
       expect(decodeSave(encodeSave(w))).toEqual(w);
     },
   );

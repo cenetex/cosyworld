@@ -118,7 +118,7 @@
       "requires": [
         {
           "kind": "flag",
-          "key": "greek-ajax-open",
+          "key": "greek-camp-road-open",
           "value": true
         }
       ],
@@ -217,6 +217,28 @@
         "cardName": "Greek ship",
         "cardArt": "assets/greek-drama/ship-card.webp"
       }
+    },
+    {
+      "id": "greek-sicily-shore-ship",
+      "from": "greek-sicily-shore",
+      "to": "pond",
+      "travelers": "any",
+      "travel": "aboard the ship",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-vii-accounts-open",
+          "value": true
+        }
+      ],
+      "transport": "greek-ship",
+      "travelLabel": "Board",
+      "scenery": {
+        "open": "The shared ship waits beside the Sicilian shore.",
+        "closed": "The Sicilian landing faces open water.",
+        "cardName": "Greek ship",
+        "cardArt": "assets/greek-drama/ship-card.webp"
+      }
     }
   ],
   "transports": {
@@ -231,7 +253,8 @@
         "greek-book-iv-helen-landing",
         "greek-aulis",
         "greek-lemnos-landing",
-        "greek-thrace"
+        "greek-thrace",
+        "greek-sicily-shore"
       ],
       "at": "greek-harbor"
     }

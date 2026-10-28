@@ -1474,3 +1474,43 @@ body .card.quest[data-quest-status="fulfilled"] .art {
   opacity: 0.45;
   transition: opacity 600ms ease-out;
 }
+
+.reading-dialog {
+  width: min(42rem, calc(100vw - 24px));
+}
+.reading-dialog select {
+  width: 100%;
+  min-height: 44px;
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid var(--edge);
+  border-radius: 5px;
+  padding: 8px;
+  font: inherit;
+}
+.reading-dialog > div {
+  overflow-wrap: anywhere;
+}
+.reading-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+.reading-controls button {
+  flex: 1 1 12rem;
+}
+.reading-verses blockquote {
+  margin: 20px 0;
+  padding: 0 0 0 16px;
+  border-left: 2px solid var(--gold);
+}
+.reading-verses p {
+  white-space: pre-line;
+  line-height: 1.7;
+}
+.reading-verses footer,
+.reading-status {
+  color: var(--muted);
+  font-size: 0.85rem;
+}

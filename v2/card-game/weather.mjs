@@ -84,7 +84,7 @@ group("susa", "court", "susa-tomb susa-threshold");
 group("susa", "open", "susa-road");
 group("scythia", "open", "scythian-crag");
 group("heights", "open", "divine-heights");
-group("underworld", "underground", "underworld");
+group("underworld", "underground", "underworld viii-poets-court");
 
 group(
   "attica",
