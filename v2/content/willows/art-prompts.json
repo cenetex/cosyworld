@@ -20,6 +20,10 @@
     {
       "asset": "swede",
       "prompt": "Use case: historical-scene. Asset type: finished character card portrait for CosyWorld. A practical Swedish canoe traveller around 1907, male age forty, weather-worn face, light brown hair, short moustache, grey eyes. Plain rolled-sleeve linen shirt, dark brown waistcoat, wool trousers. Waist-up portrait, three-quarter view looking slightly left, hands resting naturally on his knees, sitting by a campfire on a sandy river island. Low silver-green willow shrubs and slate Danube water behind him. Expression thoughtful, alert, restrained concern, capable travelling companion. Richly detailed hand-painted gouache and ink illustration, natural skin texture, soft twilight and warm fire light. Portrait 3:4 composition with whole head and shoulders comfortably inside the frame. No text or interface."
+    },
+    {
+      "asset": "swede-transparent",
+      "prompt": "Use case: identity-preserve. Edit target: the supplied Swede portrait. Create a full-body transparent character cutout for the CosyWorld stage, retaining this exact man's face, age, short moustache, hair, plain cream linen rolled-sleeve shirt, dark brown waistcoat and brown wool trousers. Show him standing at ease, from head to both boots, in a three-quarter pose looking to the left, hands loose by his sides. Practical Swedish canoe traveller around 1907, calm but alert. Match the original detailed painted gouache and ink finish. Keep the whole figure inside a portrait canvas with a small clear margin at head and feet. The output background must be genuinely transparent, including all areas around his body. Preserve natural warm evening light on the figure. The only visible subject is the man, with no scenery, ground plane, frame, shadow rectangle, captions or text."
     }
   ]
 }

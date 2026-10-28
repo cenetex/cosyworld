@@ -7764,7 +7764,7 @@
       "entry": "willows-landing",
       "continuity": {
         "startingEra": "willows-island",
-        "policy": "The traveller joins the Swede on the island. The locations tell the landscape's side of the story. Discovered signs belong to the recorded choices. The response records a decision to return or keep watch; the quiet channel remains available for later visits.",
+        "policy": "The traveller joins the Swede on the island. The locations tell the landscape's side of the story. Discovered signs belong to the recorded choices. The response records a decision to return or keep watch; the river mist remains available for later visits.",
         "groups": [
           {
             "key": "willows-response",
@@ -7780,7 +7780,7 @@
         "willows-landing": {
           "name": "River Landing",
           "text": "An upturned canoe rests above the backwater. A paddle lies on the sand. Beyond the low willows, the Danube carries whole pieces of bank downstream.",
-          "persona": "Speak as the river landing in first person. Feel the canoe against your sand and the weight of the river beyond your edge. Describe small physical changes through sand, wood, spray and current. The canoe is fixed scenery. Its slit and any preparation become known through recorded discoveries. Black pond is reached through the shallow reflected channel; describe that crossing when its action is used.",
+          "persona": "Speak as the river landing in first person. Feel the canoe against your sand and the weight of the river beyond your edge. Describe small physical changes through sand, wood, spray and current. The canoe is fixed scenery. Its slit and any preparation become known through recorded discoveries. The Greek ship is reached through river mist beside the backwater; describe that crossing when its action is used.",
           "exits": [
             "willows-camp"
           ],
@@ -7825,8 +7825,8 @@
           "standoffs": false,
           "home": "willows-camp",
           "portrait": "assets/willows/swede.webp",
-          "persona": "The Swede is the experienced travelling companion from Algernon Blackwood's The Willows. He keeps the river camp and attends to ordinary practical work. He notices damaged gear, river changes and the strange pressure around the island. His fear grows as discoveries are recorded. He cares for his companion and wants them to leave with care. A direct question gets a plain answer drawn from his own observations and the supplied facts. The river and the locations carry the wider horror.",
-          "voice": "Speak in simple English with the steady warmth of a trusted travelling companion. Use short, concrete observations. Let concern show through a pause or a practical suggestion. Answer from the current facts, recorded discoveries and actual custody. When the signs have been shared, speak with restrained urgency. Let the powers beyond the island remain strange and unnamed.",
+          "persona": "The Swede is the experienced travelling companion from Algernon Blackwood's The Willows. He keeps the river camp and attends to ordinary practical work. He notices damaged gear, river changes and the strange pressure around the island. His fear grows as discoveries are recorded. He cares for his companion and wants them to leave with care. A direct question gets a plain answer drawn from his own observations and the supplied facts. The river and the locations carry the wider horror. The supplied source passages are the parts of his story revealed so far. Let each newly revealed passage shape his knowledge, mood and language. Recalled events stay distinct from the visiting player's current acts.",
+          "voice": "Speak in simple English with the steady warmth of a trusted travelling companion. Use short, concrete observations. Let concern show through a pause or a practical suggestion. Answer from the current facts, recorded discoveries and actual custody. When the signs have been shared, speak with restrained urgency. Let the powers beyond the island remain strange and unnamed. Draw words and observations from the revealed original passages. Keep the Swede's practical voice and respond to the current companion.",
           "tastes": {
             "likes": "A sound canoe, a warm meal and a companion who listens",
             "sore": "Careless noise among the willows",
@@ -8126,9 +8126,9 @@
           "subject": "willows-landing",
           "at": "willows-landing",
           "label": "Choose the quiet way home",
-          "text": "The traveller chooses the quiet channel back to Black pond. The gear lies ready beside the canoe. Across the river, a long strip of silver leaves turns toward the landing.",
-          "textTemplate": "{actor} chooses the quiet channel back to Black pond. The gear lies ready beside the canoe. Across the river, a long strip of silver leaves turns toward the landing.",
-          "summary": "The traveller chose the quiet channel home after sharing the discoveries with the Swede and laying out the canoe gear.",
+          "text": "The traveller chooses the river mist back to the Greek ship. The gear lies ready beside the canoe. Across the river, a long strip of silver leaves turns toward the landing.",
+          "textTemplate": "{actor} chooses the river mist back to the Greek ship. The gear lies ready beside the canoe. Across the river, a long strip of silver leaves turns toward the landing.",
+          "summary": "The traveller chose the river mist back to the ship after sharing the discoveries with the Swede and laying out the canoe gear.",
           "requires": [
             {
               "kind": "flag",
@@ -8197,9 +8197,67 @@
           ]
         }
       ],
+      "readings": [
+        {
+          "id": "willows-arrival-text",
+          "actor": "willows-swede",
+          "after": null,
+          "title": "Algernon Blackwood, The Willows (1907), I — The river island",
+          "text": "The change came suddenly, as when a series of bioscope pictures snaps down on the streets of a town and shifts without warning into the scenery of lake and forest. We entered the land of desolation on wings, and in less than half an hour there was neither boat nor fishing-hut nor red roof, nor any single sign of human habitation and civilization within sight. The sense of remoteness from the world of humankind, the utter isolation, the fascination of this singular world of willows, winds, and waters, instantly laid its spell upon us both, so that we allowed laughingly to one another that we ought by rights to have held some special kind of passport to admit us, and that we had, somewhat audaciously, come without asking leave into a separate little kingdom of wonder and magic—a kingdom that was reserved for the use of others who had a right to it, with everywhere unwritten warnings to trespassers for those who had the imagination to discover them."
+        },
+        {
+          "id": "willows-hull-text",
+          "actor": "willows-swede",
+          "after": "willows-examine-hull",
+          "title": "Algernon Blackwood, The Willows (1907), III — The damaged canoe",
+          "text": "There was a long, finely made tear in the bottom of the canoe where a little slither of wood had been neatly taken clean out; it looked as if the tooth of a sharp rock or snag had eaten down her length, and investigation showed that the hole went through. Had we launched out in her without observing it we must inevitably have foundered. At first the water would have made the wood swell so as to close the hole, but once out in mid-stream the water must have poured in, and the canoe, never more than two inches above the surface, would have filled and sunk very rapidly."
+        },
+        {
+          "id": "willows-stores-text",
+          "actor": "willows-swede",
+          "after": "willows-count-stores",
+          "title": "Algernon Blackwood, The Willows (1907), IV — The missing bread",
+          "text": "“It’s gone. There is no bread. They’ve taken it!”"
+        },
+        {
+          "id": "willows-hollows-text",
+          "actor": "willows-swede",
+          "after": "willows-examine-hollows",
+          "title": "Algernon Blackwood, The Willows (1907), III — The sand hollows",
+          "text": "I made a hurried examination of the tent and its surroundings, but the measurements of the night remained the same. There were deep hollows formed in the sand I now noticed for the first time, basin-shaped and of various depths and sizes, varying from that of a tea-cup to a large bowl. The wind, no doubt, was responsible for these miniature craters, just as it was for lifting the paddle and tossing it towards the water. The rent in the canoe was the only thing that seemed quite inexplicable; and, after all, it _was_ conceivable that a sharp point had caught it when we landed. The examination I made of the shore did not assist this theory, but all the same I clung to it with that diminishing portion of my intelligence which I called my “reason.” An explanation of some kind was an absolute necessity, just as some working explanation of the universe is necessary—however absurd—to the happiness of every individual who seeks to do his duty in the world and face the problems of life. The simile seemed to me at the time an exact parallel."
+        },
+        {
+          "id": "willows-humming-text",
+          "actor": "willows-swede",
+          "after": "willows-hear-humming",
+          "title": "Algernon Blackwood, The Willows (1907), IV — The humming",
+          "text": "We stood there, listening attentively together. At first I heard only the deep note of the water and the hissings rising from its turbulent surface. The willows, for once, were motionless and silent. Then a sound began to reach my ears faintly, a peculiar sound—something like the humming of a distant gong. It seemed to come across to us in the darkness from the waste of swamps and willows opposite. It was repeated at regular intervals, but it was certainly neither the sound of a bell nor the hooting of a distant steamer. I can liken it to nothing so much as to the sound of an immense gong, suspended far up in the sky, repeating incessantly its muffled metallic note, soft and musical, as it was repeatedly struck. My heart quickened as I listened."
+        },
+        {
+          "id": "willows-roots-text",
+          "actor": "willows-swede",
+          "after": "willows-look-beneath-roots",
+          "title": "Algernon Blackwood, The Willows (1907), V — The mark",
+          "text": "For just as the body swung round to the current the face and the exposed chest turned full towards us, and showed plainly how the skin and flesh were indented with small hollows, beautifully formed, and exactly similar in shape and kind to the sand-funnels that we had found all over the island."
+        },
+        {
+          "id": "willows-understanding-text",
+          "actor": "willows-swede",
+          "after": "willows-compare-signs",
+          "title": "Algernon Blackwood, The Willows (1907), IV — The Swede understands",
+          "text": "“It’s _their_ sound,” he whispered gravely. “It’s the sound of their world, the humming in their region. The division here is so thin that it leaks through somehow. But, if you listen carefully, you’ll find it’s not above so much as around us. It’s in the willows. It’s the willows themselves humming, because here the willows have been made symbols of the forces that are against us.”"
+        }
+      ],
+      "sources": [
+        {
+          "url": "https://www.gutenberg.org/ebooks/11438",
+          "name": "Algernon Blackwood, The Willows (1907)",
+          "use": "Original English passages, gradually revealed through arrival and recorded discoveries. The exact downloaded source is kept in source-text.txt."
+        }
+      ],
       "bridge": {
-        "id": "shore-willows",
-        "description": "A reflected backwater at Black pond leads to a small island in the Danube. The quiet channel keeps a path home."
+        "id": "greek-ship-willows",
+        "description": "River mist beside the Greek ship's rail opens onto a small Danube island. The same mist keeps a path back to the deck."
       },
       "values": {
         "willows-swede": {
@@ -8211,27 +8269,29 @@
       },
       "crossings": [
         {
-          "id": "pond-willows-landing",
-          "from": "pond",
+          "id": "greek-ship-willows-landing",
+          "from": "greek-ship",
           "to": "willows-landing",
           "travelers": "player",
-          "travel": "along the reflected backwater",
+          "travel": "through the river mist beside the rail",
           "requires": [],
           "scenery": {
-            "open": "A narrow backwater leads through the reflection to a willow island.",
+            "open": "River mist gathers beside the rail. Beyond it, a canoe rests on a sandy willow island.",
             "cardArt": "assets/willows/landing.webp"
-          }
+          },
+          "travelLabel": "Visit the Willows"
         },
         {
-          "id": "willows-landing-pond",
+          "id": "willows-landing-greek-ship",
           "from": "willows-landing",
-          "to": "pond",
+          "to": "greek-ship",
           "travelers": "player",
-          "travel": "along the quiet reflected channel",
+          "travel": "through the river mist to the ship",
           "requires": [],
           "scenery": {
-            "open": "A quiet channel reflects Black pond between the willow roots."
-          }
+            "open": "Beyond the quiet backwater, river mist parts onto the Greek ship's deck."
+          },
+          "travelLabel": "Return to the ship"
         }
       ]
     }

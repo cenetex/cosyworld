@@ -103,6 +103,11 @@ irritated variant inherits the awake portrait and greeting.
 
 A **crossing** joins one hub place and one pack place in one direction:
 
+A crossing can also join a place in another mounted pack. The compiler checks
+that the external place exists. A passage from a ship keeps the vessel's saved
+dock and its other passengers. The last passenger through a side passage
+settles any pending recall, and a return to the deck joins its current voyage.
+
 | Field              | Meaning                                                                                |
 | ------------------ | -------------------------------------------------------------------------------------- |
 | `id`               | Stable id; its saved state is keyed by it.                                             |
@@ -334,7 +339,17 @@ a ship at the pond when their old sequence includes the second uncover.
 ## The Willows
 
 The Willows is a four-place horror pack based on Algernon Blackwood's 1907
-story. A reflected backwater at Black pond leads to its landing. The places
+story. River mist beside the Greek ship's rail opens onto the island. Its places
 speak as the landscape; the Swede is its one resident. The landing keeps a
-path home. See [the pack guide](../content/willows/README.md) for the story
+path back to the ship. See [the pack guide](../content/willows/README.md) for the story
 choices, source text and art.
+
+### Source readings
+
+An optional `readings` list gives a resident exact source passages as the story
+unfolds. Each record has `id`, `actor`, `after`, `title` and `text`. `after`
+names a choice receipt; `null` reveals a passage on first entry. A pack can
+hold eight passages of up to 3,000 characters each. The browser sends the
+revealed ids and their turns. The server reads the exact text from its own
+catalog and gives those passages to that resident's dialogue. Saved receipts
+preserve the same knowledge after a reload and shared journal replay.

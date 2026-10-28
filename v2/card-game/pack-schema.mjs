@@ -171,6 +171,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       "observations",
       "transports",
       "recital",
+      "readings",
     ]),
     "has an unknown top-level field",
   );
@@ -549,7 +550,8 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       ),
     "bridge values map pack avatars to hub item values from 0 to 20",
   );
-  const anyPlace = (id) => owns(places, id) || hub?.places?.includes(id);
+  const anyPlace = (id) =>
+    owns(places, id) || hub?.places?.includes(id) || mountedPlaces.includes(id);
   const entity = (id) =>
     owns(places, id) ||
     owns(avatars, id) ||
@@ -1078,6 +1080,27 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     );
   }
   const crossings = Array.isArray(pack.crossings) ? pack.crossings : [];
+  if (pack.readings !== undefined) {
+    const ids = new Set();
+    check(
+      Array.isArray(pack.readings) &&
+        pack.readings.length <= 8 &&
+        pack.readings.every((r) => {
+          if (!record(r)) return false;
+          const valid =
+            keysOk(r, ["id", "actor", "after", "title", "text"]) &&
+            idOk(r.id) &&
+            !ids.has(r.id) &&
+            owns(avatars, r.actor) &&
+            (r.after === null || choiceIds.has(r.after)) &&
+            textOk(r.title, 120) &&
+            textOk(r.text, 3000);
+          ids.add(r.id);
+          return valid;
+        }),
+      "readings need distinct ids, a resident, a recorded choice or arrival, and bounded source text",
+    );
+  }
   check(
     Array.isArray(pack.crossings) && crossings.length > 0,
     "bridge needs crossings",
@@ -1155,7 +1178,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       anyPlace(c?.from) &&
         anyPlace(c?.to) &&
         owns(places, c.from) !== owns(places, c.to),
-      `${name} must join a hub place to a pack place`,
+      `${name} must join a hub place or mounted place to this pack`,
     );
     check(
       TRAVELERS.includes(c?.travelers) && textOk(c?.travel, 80),

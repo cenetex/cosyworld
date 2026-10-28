@@ -27,6 +27,8 @@ pub(crate) mod browser;
 mod custody;
 #[path = "card_narrative/observations.rs"]
 mod observations;
+#[path = "card_narrative/readings.rs"]
+mod readings;
 #[path = "card_narrative/recital.rs"]
 pub(crate) mod recital;
 #[path = "card_narrative/reflection.rs"]
@@ -278,6 +280,8 @@ struct Memory {
 struct Entity {
     id: String,
     facts: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    readings: Vec<readings::Reading>,
     #[serde(default)]
     poem: Option<recital::Poem>,
     desire: Option<Desire>,
@@ -452,6 +456,7 @@ fn valid(context: &Context) -> bool {
         && context.entities.iter().all(|e| {
             profiles().get(&e.id).is_some()
                 && recital::valid(&e.id, e.poem.as_ref(), context.turn)
+                && readings::valid(&e.id, &e.readings, context.turn)
                 && e.facts.len() <= 16
                 && e.facts.iter().all(|s| bounded(s, 240))
                 && e.previous.as_ref().is_none_or(|s| bounded(s, 400))
@@ -1393,6 +1398,7 @@ fn transcript(context: &Context, entity: &Entity, part: Part) -> String {
             && (fact.starts_with("Just arrived from ") || fact.starts_with("Leaving "))
     };
     lines.extend(entity.facts.iter().filter(|f| !restated(f)).cloned());
+    lines.extend(readings::facts(&entity.id, &entity.readings));
     for fact in observations::facts(context)
         .as_array()
         .into_iter()

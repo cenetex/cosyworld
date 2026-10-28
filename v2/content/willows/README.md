@@ -4,7 +4,11 @@ A small card world based on Algernon Blackwood's 1907 story.
 
 Source: [The Willows, original English text](https://www.gutenberg.org/files/11438/11438-h/11438-h.htm).
 Project Gutenberg lists the original story as public domain in the USA.
-The pack uses new prose and new art.
+The pack uses the original English passages and new art. Source passages
+enter the Swede's knowledge on arrival and through recorded discoveries.
+The exact source is in `source-text.txt`; `card-world.json` names each
+passage and its reveal. Later passages become available as play reaches them.
+The location and action descriptions connect the story to the game.
 
 The locations tell the landscape's side of the story in first person.
 The Swede is the one resident. The player joins him as a visiting companion.
@@ -12,9 +16,10 @@ The drowned man is a discovery in the bank scene.
 
 ## Play
 
-At Black pond, follow the reflected backwater to River Landing.
+Aboard the Greek ship, choose Visit the Willows. River mist beside the rail
+leads to River Landing.
 The island has a landing, a camp, a willow thicket and a crumbling bank.
-The return channel is at the landing.
+At the landing, choose Return to the ship.
 
 Examine the canoe and count the food. Study the sand hollows, listen at the
 bank, and look beneath the roots. Greet the Swede, then compare the signs.
@@ -25,7 +30,7 @@ The decisions and discoveries stay in the save.
 The canoe, tent and fire are scenery. Carried objects use the normal custody
 rules. Laying out gear records preparation for work on the canoe.
 The marked corpse, the damaged paddle, missing bread and humming come from
-Blackwood's story. The reflected crossing, four-place map, visiting player,
+Blackwood's story. The mist crossing, four-place map, visiting player,
 discovery order and response choices are game adaptations.
 
 ## Art

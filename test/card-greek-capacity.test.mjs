@@ -1,3 +1,10 @@
+import { packDefinition as currentPackDefinition } from "../v2/card-game/pack-registry.mjs";
+const willowsItems = Object.fromEntries(
+  Object.entries(currentPackDefinition("willows").items).map(([id, item]) => [
+    id,
+    { holder: item.holder, history: [] },
+  ]),
+);
 import { entityActive } from "../v2/card-game/pack-registry.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 import { readFileSync } from "node:fs";
@@ -195,6 +202,7 @@ describe("the side roads in earlier saved worlds", () => {
         );
       expect(restored.items).toEqual({
         ...world.items,
+        ...willowsItems,
         "boardyai-calling-card": { holder: "station", history: [] },
       });
       expect(restored.log).toEqual(world.log);

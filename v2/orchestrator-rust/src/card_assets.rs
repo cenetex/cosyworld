@@ -900,6 +900,58 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "image/webp",
             include_bytes!("../../card-game/assets/greek-drama/myrine.webp"),
         ),
+        "assets/willows/landing.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/willows/landing.webp"),
+        ),
+        "assets/willows/camp.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/willows/camp.webp"),
+        ),
+        "assets/willows/thicket.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/willows/thicket.webp"),
+        ),
+        "assets/willows/bank.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/willows/bank.webp"),
+        ),
+        "assets/willows/paddle.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/willows/paddle.svg"),
+        ),
+        "assets/willows/map.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/willows/map.svg"),
+        ),
+        "assets/willows/rope.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/willows/rope.svg"),
+        ),
+        "assets/willows/sheet.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/willows/sheet.svg"),
+        ),
+        "assets/willows/provisions.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/willows/provisions.svg"),
+        ),
+        "assets/willows/pot.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/willows/pot.svg"),
+        ),
+        "assets/willows/spoon.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/willows/spoon.svg"),
+        ),
+        "assets/willows/pipe.svg" => (
+            "image/svg+xml",
+            include_bytes!("../../card-game/assets/willows/pipe.svg"),
+        ),
+        "assets/willows/swede.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/willows/swede.webp"),
+        ),
         "assets/boardyai/parlour.png" => (
             "image/png",
             include_bytes!("../../card-game/assets/boardyai/parlour.png"),
@@ -1596,6 +1648,26 @@ pub fn get(path: &str) -> Option<(&'static str, &'static [u8])> {
             "image/webp",
             include_bytes!("../../card-game/assets/optimized/card/png/vale.webp"),
         ),
+        "assets/optimized/card/webp/willows/bank.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/willows/bank.webp"),
+        ),
+        "assets/optimized/card/webp/willows/camp.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/willows/camp.webp"),
+        ),
+        "assets/optimized/card/webp/willows/landing.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/willows/landing.webp"),
+        ),
+        "assets/optimized/card/webp/willows/swede.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/willows/swede.webp"),
+        ),
+        "assets/optimized/card/webp/willows/thicket.webp" => (
+            "image/webp",
+            include_bytes!("../../card-game/assets/optimized/card/webp/willows/thicket.webp"),
+        ),
         "assets/music-stream/attic-1.mp3" => {
             let (_, bytes) = get("assets/music/attic-1.mp3")?;
             ("audio/mpeg", &bytes[21274..])
@@ -1691,10 +1763,10 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "media.mjs" => "\"9b56957b0e44c39ed8f3bfbb200ce3524646f62cf83fa775fc89dc2a62dc133b\"",
         "images.mjs" => "\"400bd04904821d5b21e24790f71cf89836e5a2aabb8662b963637de77b3fd612\"",
         "image-variants.json" => {
-            "\"a0d6262d456bd7c11e099dfde466da6366133e95e033fce9a9888aa7510ce5df\""
+            "\"366af7d0b1c98ed0ebb8a40daad77fab156dc944a35df5dd4bf469f3cc81a76f\""
         }
         "media-manifest.json" => {
-            "\"7d1dae843ed445c1febcba628ef2346875e044634bba2971cdbdeba1e5e28383\""
+            "\"1898ba838dae3d7aeaab4e03dbbdbdce1d5d0d59580839516a01903ac6647294\""
         }
         "music-streams.json" => {
             "\"187db53c1c129d1505da26c18fd2384e62b9b357c91e33fd2e954bf0b7a29904\""
@@ -1853,7 +1925,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "weather.css" => "\"a79f649ad9c106ddbaaa00734695c83e49140c3da54e331a4c5ca3ec38fee348\"",
         "portrait-facing.mjs" => {
-            "\"5cf323214a088c32a8dc0db977e10b8e4e37fe3ea2c25523783ddb553694b32c\""
+            "\"83951789895420e1d6fc8d1feb03fd0fbad6e3de15add533ffb751005b2238ee\""
         }
         "cards.mjs" => "\"d830242dc06693e8a0327f41a5b56e8ff8d5f2f054e47716e420131e79aee2f0\"",
         "lessons.mjs" => "\"d356ccfd6d4bb622ea7e325ebae519f3ff37433013b04874f07f83865b883705\"",
@@ -1889,7 +1961,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "situations.mjs" => "\"1fff8b8ba954720b8a0a4450d6db2bf6e6d9378566ae0ca2668a44979f83c39d\"",
         "memory.mjs" => "\"73ce17a68e29678684d13458a87fa9e2274879a45680e53d7d83b562abac3dab\"",
         "learning.mjs" => "\"feb6faebe9c0470cfac7545e7e91587701b7434fecd176c9475fee778cb51175\"",
-        "narrative.mjs" => "\"1dd20c612150c1c2c41986377194a79a1f8fb5069448493bd3ef18c283c38aa2\"",
+        "narrative.mjs" => "\"9891055484160d2aa392897e9e3f8ac8e68d4fdc60f1a5e4bcf662adc5580ff4\"",
         "dialogue.mjs" => "\"1f4965d3e2a36261973aace4534359c00c7cf8aeaf15548a08d29e364adcc7ad\"",
         "character-speech.mjs" => {
             "\"d53e51f93d89a0073199f45dd83086417733d76980f6c3b22f875b3f642292b5\""
@@ -1913,9 +1985,9 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "assets/voices/greek-baker.mp3" => {
             "\"0dc315f6c54a2a48fab122a0c1b3dc5876121073b696b0ce4537c2d76d0b08a8\""
         }
-        "pack-schema.mjs" => "\"414ff33a89dcf7cb5b5bff49fb0adfd9748aad1a6c0a430b24f3f361eb3fc02a\"",
+        "pack-schema.mjs" => "\"bf9361678cf9ef66c662148a6a7e5fb196e420e0630660a62315ae943188f623\"",
         "pack-registry.mjs" => {
-            "\"cc6d9dfb3252589ca86af52e3c3221c81b23fbe508152469a85d401de518a6d6\""
+            "\"75cee5b7bb04925ecb4a498d750804d50a4f3939e02b4c24382a30151208e131\""
         }
         "pack-sections.mjs" => {
             "\"1230a3aa14a8e17e9eedaeeaead6717b77650111e8179306ad5e2a2d925d0f32\""
@@ -1928,13 +2000,13 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "pack-rules.mjs" => "\"6bb4621ec8ccb1d66e64340ad50ca29e45c9148f95d6d56354af74cfb5ef87cf\"",
         "pack-transport.mjs" => {
-            "\"4a930efedb8e283404abf4e5d0345e9336384d10a4e6e4e0fe7b243e95b65500\""
+            "\"e6ee15fa28faad0f636a1a322e4e3851521362c09770e51f894556684202d3b3\""
         }
         "legacy-saves.mjs" => {
             "\"2e87a6002f709aa79439da42dca28632a36a561a96b3ea5bde721a7f6363b75a\""
         }
         "forest.json" => "\"12a2be7877e4daff53d3d1ad27c1703b2ca10dff51e6f371a5b3d1a7975afdfe\"",
-        "packs.json" => "\"6e2f98daf7ee7f1bcc245c17bd6b73bc61a111b3e8a978e7b817b245ee3ee862\"",
+        "packs.json" => "\"d28c0695dfe9379d5965065ada8f7adaec7f042fa8873361314d9de0bbceb5fe\"",
         "music.mjs" => "\"b60f61ecf558b2eed0aa2d907ca6a7a3dede4b0459541d3c59f633e25943bc22\"",
         "entity-profiles.json" => {
             "\"32bcfada78437fd92786bdb577da658828ff000563688180bd3848593f2e201e\""
@@ -2265,6 +2337,45 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "assets/greek-drama/myrine.webp" => {
             "\"e507850aa9959a4d1fedf42eb6ba17d1b70e8a1c2b25799c033e7926bb6ae0ec\""
+        }
+        "assets/willows/landing.webp" => {
+            "\"589d52b6c0d24168c7f57952f2fae3aa6550726c7e1897eef7616979fff55804\""
+        }
+        "assets/willows/camp.webp" => {
+            "\"b45b2f36bca38d187e277b57704bbb9a7600a087d9cb4dcb6406049c74e10314\""
+        }
+        "assets/willows/thicket.webp" => {
+            "\"ac2324c2edd0d98f8d7ecf11f3b30ccdd891261ba0b5514896305b41064cd95c\""
+        }
+        "assets/willows/bank.webp" => {
+            "\"1b7d169860245febcaccad142b6ee7ecba37d8d302ff75e8128e6584bc07ca19\""
+        }
+        "assets/willows/paddle.svg" => {
+            "\"6a9c6067327c1bb30302383c9e2033e7a86e937c18f9832f5aea01d7dfdd2539\""
+        }
+        "assets/willows/map.svg" => {
+            "\"4777867bd8038c2e36dd840836500d34a78848dc4ec02b2ab927801f6ed77716\""
+        }
+        "assets/willows/rope.svg" => {
+            "\"b3043aaaeaf8331d1b7116fb2ccbfd5ac04d4c60402c0d2d51542035d05dd83a\""
+        }
+        "assets/willows/sheet.svg" => {
+            "\"6c1ca7c08c67ed91cd39aad804838f9b14dcb43e1d55dd734c9925b8013925e5\""
+        }
+        "assets/willows/provisions.svg" => {
+            "\"adf7366c8c6eaccac6160838352e8f404cbb1bd9b2c2f578f77d30aa939686f7\""
+        }
+        "assets/willows/pot.svg" => {
+            "\"38c676d7bed9c3a271c73c3451e7dc60eec75a5a26f47659f6d08c8442ffb517\""
+        }
+        "assets/willows/spoon.svg" => {
+            "\"dcc0fa798d9fa05a4ac2aea40b7f7384ecbe9418ad1fd2a56b84cfa1e0239087\""
+        }
+        "assets/willows/pipe.svg" => {
+            "\"faaecf72cc918006ea84819ef8f56e2b14034195f6edb46b302f01b509deb8a3\""
+        }
+        "assets/willows/swede.webp" => {
+            "\"891fbaf90aef1e610015ccb9f61505c655b68ebcbffe426661c343fc5d0379da\""
         }
         "assets/boardyai/parlour.png" => {
             "\"5221b36927a1e97ae2eb14e3dd5eeb8ce01f1557f44078d0ee700883e187c33d\""
@@ -2787,6 +2898,21 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "assets/optimized/card/png/vale.webp" => {
             "\"62ba8b48ac3a2bb0ce5872670282551e1666053f69da62305b03d5156c7e5f9e\""
+        }
+        "assets/optimized/card/webp/willows/bank.webp" => {
+            "\"abdc2d0d01a27a4cc0892cf9dd890fd3f0606194b175f2ab69929bd8cd59add8\""
+        }
+        "assets/optimized/card/webp/willows/camp.webp" => {
+            "\"e889169ffbcfe684c0cfbb21e662e05040296a99a2810c2af574072057a9f13d\""
+        }
+        "assets/optimized/card/webp/willows/landing.webp" => {
+            "\"18b60f08718ce5279594703c9412225680f64d9f89d0fe535d17c581dce9af04\""
+        }
+        "assets/optimized/card/webp/willows/swede.webp" => {
+            "\"c9c6a62c19da4dbb8a19bcab99b7e54472e9891d1b9106cf90480e24733c0892\""
+        }
+        "assets/optimized/card/webp/willows/thicket.webp" => {
+            "\"1e86395ab9425d4083a138e3e7fe2a72fbd71370685182d309c20c2b1b4c3646\""
         }
         "assets/music-stream/attic-1.mp3" => {
             "\"6d4e91b167bef9a75e5458f345b019b690699eb8d101ef4e1bd5e0e22ba5c32e\""

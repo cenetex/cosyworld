@@ -10,13 +10,15 @@ fn willows_upgrades_version_sixteen_and_replays_discoveries_custody_and_return()
     store::create(&c, &id, "owner", now()).unwrap();
     let released =
         engine::reduce_version(engine::SIXTEENTH_VERSION, json!({"op":"create"})).unwrap();
-    let old = World {
+    let mut old = World {
         version: engine::SIXTEENTH_VERSION.into(),
         game: released["world"].clone(),
         claimed: [1, 1, 0, 0, 0, 0, 0, 0],
         present: [1, 1, 0, 0, 0, 0, 0, 0],
     };
     assert!(old.game["packs"].get("willows").is_none());
+    old.game["crossings"]["pond-greek-harbor"]["discovered"] = json!(true);
+    old.game["transports"]["greek-ship"]["dock"] = json!("pond");
     full_store::seed(&c, &id, &old, "before-willows", now()).unwrap();
     let mut world = full_store::world(&c, &id, now()).unwrap();
     assert_eq!(world.version, engine::VERSION);
@@ -29,6 +31,7 @@ fn willows_upgrades_version_sixteen_and_replays_discoveries_custody_and_return()
     for (field, value) in [
         ("kind", "light"),
         ("target", "pond"),
+        ("target", "greek-ship"),
         ("target", "willows-landing"),
         ("choiceId", "willows-examine-hull"),
         ("target", "willows-camp"),
@@ -49,7 +52,7 @@ fn willows_upgrades_version_sixteen_and_replays_discoveries_custody_and_return()
         ("item", "willows-paddle"),
         ("choiceId", "willows-set-paddle"),
         ("choiceId", "willows-choose-departure"),
-        ("target", "pond"),
+        ("target", "greek-ship"),
     ] {
         let view = world.project(0).unwrap();
         let action = view["actions"]
@@ -81,7 +84,7 @@ fn willows_upgrades_version_sixteen_and_replays_discoveries_custody_and_return()
         )
         .unwrap();
     }
-    assert_eq!(world.game["actors"]["vale"]["place"], "pond");
+    assert_eq!(world.game["actors"]["vale"]["place"], "greek-ship");
     assert_eq!(
         world.game["actors"]["willows-swede"]["place"],
         "willows-camp"

@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "id": "shore-willows",
+  "id": "greek-ship-willows",
   "pack": "willows",
-  "description": "A reflected backwater at Black pond leads to a small island in the Danube. The quiet channel keeps a path home.",
+  "description": "River mist beside the Greek ship's rail opens onto a small Danube island. The same mist keeps a path back to the deck.",
   "values": {
     "willows-swede": {
       "lamp": 5,
@@ -13,27 +13,29 @@
   },
   "crossings": [
     {
-      "id": "pond-willows-landing",
-      "from": "pond",
+      "id": "greek-ship-willows-landing",
+      "from": "greek-ship",
       "to": "willows-landing",
       "travelers": "player",
-      "travel": "along the reflected backwater",
+      "travel": "through the river mist beside the rail",
       "requires": [],
       "scenery": {
-        "open": "A narrow backwater leads through the reflection to a willow island.",
+        "open": "River mist gathers beside the rail. Beyond it, a canoe rests on a sandy willow island.",
         "cardArt": "assets/willows/landing.webp"
-      }
+      },
+      "travelLabel": "Visit the Willows"
     },
     {
-      "id": "willows-landing-pond",
+      "id": "willows-landing-greek-ship",
       "from": "willows-landing",
-      "to": "pond",
+      "to": "greek-ship",
       "travelers": "player",
-      "travel": "along the quiet reflected channel",
+      "travel": "through the river mist to the ship",
       "requires": [],
       "scenery": {
-        "open": "A quiet channel reflects Black pond between the willow roots."
-      }
+        "open": "Beyond the quiet backwater, river mist parts onto the Greek ship's deck."
+      },
+      "travelLabel": "Return to the ship"
     }
   ]
 }

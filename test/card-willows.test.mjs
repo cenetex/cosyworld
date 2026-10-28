@@ -1,4 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { narrativeContext } from "../v2/card-game/narrative.mjs";
+import { summonTransport } from "../v2/card-game/pack-transport.mjs";
 import {
   createWorld,
   legalActions,
@@ -11,6 +14,7 @@ import { enableMotives } from "../v2/card-game/motives.mjs";
 import {
   packDefinitions,
   packProfiles,
+  packReadings,
   packFacts,
 } from "../v2/card-game/pack-registry.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
@@ -43,6 +47,9 @@ function island() {
   });
   world = act(world, { kind: "light", item: "lamp" });
   world = move(world, "pond");
+  world.crossings["pond-greek-harbor"].discovered = true;
+  summonTransport(world, "greek-ship", "pond");
+  world = move(world, "greek-ship");
   world = move(world, "willows-landing");
   return world;
 }
@@ -61,6 +68,87 @@ function discoveries() {
 }
 
 describe("The Willows", () => {
+  it("reveals exact source passages to the Swede through the recorded story", () => {
+    const normalize = (s) => s.replace(/\s+/g, " ").trim();
+    const original = normalize(
+      readFileSync(
+        new URL("../v2/content/willows/source-text.txt", import.meta.url),
+        "utf8",
+      ),
+    );
+    for (const reading of pack.readings)
+      expect(original).toContain(normalize(reading.text));
+    const fresh = createWorld();
+    expect(packReadings(fresh, "willows-swede")).toEqual([]);
+    let world = island();
+    expect(packReadings(world, "willows-swede").map((r) => r.id)).toEqual([
+      "willows-arrival-text",
+    ]);
+    world = choose(world, "examine-hull");
+    expect(packReadings(world, "willows-swede").map((r) => r.id)).toEqual([
+      "willows-arrival-text",
+      "willows-hull-text",
+    ]);
+    world = discoveries();
+    const revealed = packReadings(world, "willows-swede");
+    expect(revealed).toHaveLength(7);
+    expect(
+      packReadings(decodeSave(encodeSave(world)), "willows-swede"),
+    ).toEqual(revealed);
+    expect(
+      narrativeContext(world).entities.find((e) => e.id === "willows-swede")
+        .readings,
+    ).toEqual(revealed);
+    expect(packReadings(world, "vale")).toEqual([]);
+  });
+
+  it("shares the ship side passage while preserving riders, dock and pending recall", () => {
+    let world = dispatchShared({
+      op: "create",
+      save: encodeSave(createWorld()),
+    }).world;
+    world.actors.vale.place = world.actors.mara.place = "pond";
+    world.crossings["pond-greek-harbor"].discovered = true;
+    summonTransport(world, "greek-ship", "pond");
+    const request = { claimed: ["vale", "mara"], present: ["vale", "mara"] };
+    const go = (actor, target) => {
+      const view = dispatchShared({ op: "view", world, ...request, actor });
+      const action = view.actions.find(
+        (a) => a.kind === "move" && a.target === target,
+      );
+      expect(action, `${actor} to ${target}`).toBeDefined();
+      const result = dispatchShared({
+        op: "play",
+        world,
+        ...request,
+        actor,
+        action,
+      });
+      expect(result.ok, result.error).toBe(true);
+      world = decodeSave(encodeSave(result.world));
+    };
+    go("vale", "greek-ship");
+    go("mara", "greek-ship");
+    const voyage = structuredClone(world.transports["greek-ship"]);
+    go("vale", "willows-landing");
+    expect(world.transports["greek-ship"]).toEqual(voyage);
+    expect(world.actors.mara.place).toBe("greek-ship");
+    go("mara", "greek-harbor");
+    expect(world.transports["greek-ship"].dock).toBe("greek-harbor");
+    go("vale", "greek-ship");
+    expect(world.transports["greek-ship"].dock).toBe("greek-harbor");
+    summonTransport(world, "greek-ship", "pond");
+    go("vale", "willows-landing");
+    expect(world.transports["greek-ship"]).toMatchObject({
+      dock: "pond",
+      destination: null,
+      recall: null,
+    });
+    expect(packReadings(world, "willows-swede").map((r) => r.id)).toEqual([
+      "willows-arrival-text",
+    ]);
+  });
+
   it("gives the four locations their voices and the Swede the one resident role", () => {
     expect(Object.keys(pack.avatars)).toEqual(["willows-swede"]);
     expect(Object.keys(pack.places)).toHaveLength(4);
@@ -76,8 +164,8 @@ describe("The Willows", () => {
     }
     expect(
       exits(decodeSave(encodeSave(world)), "willows-landing", "vale"),
-    ).toContain("pond");
-    expect(move(world, "pond").actors.vale.place).toBe("pond");
+    ).toContain("greek-ship");
+    expect(move(world, "greek-ship").actors.vale.place).toBe("greek-ship");
   });
 
   it("records each discovery before it becomes a fact for the landscape or Swede", () => {
@@ -100,7 +188,7 @@ describe("The Willows", () => {
     expect(world.packs.willows.choices["willows-response"]).toBe("watch");
     expect(world.actors["willows-swede"].place).toBe("willows-camp");
     world = move(world, "willows-landing");
-    expect(exits(world, "willows-landing", "vale")).toContain("pond");
+    expect(exits(world, "willows-landing", "vale")).toContain("greek-ship");
     expect(
       decodeSave(encodeSave(world)).packs.willows.choices["willows-response"],
     ).toBe("watch");
@@ -126,7 +214,7 @@ describe("The Willows", () => {
     ).toBeUndefined();
     world = choose(ready, "choose-departure");
     expect(world.packs.willows.choices["willows-response"]).toBe("depart");
-    world = move(world, "pond");
+    world = move(world, "greek-ship");
     world = move(move(world, "willows-landing"), "willows-camp");
     expect(find(world, { choiceId: "willows-choose-watch" })).toBeUndefined();
     expect(decodeSave(encodeSave(world)).packs.willows).toEqual(

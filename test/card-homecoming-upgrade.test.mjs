@@ -1,3 +1,10 @@
+import { packDefinition as currentPackDefinition } from "../v2/card-game/pack-registry.mjs";
+const willowsItems = Object.fromEntries(
+  Object.entries(currentPackDefinition("willows").items).map(([id, item]) => [
+    id,
+    { holder: item.holder, history: [] },
+  ]),
+);
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { describe, expect, it } from "vitest";
@@ -53,10 +60,11 @@ describe("the household save upgrade", () => {
         revision: 5,
       });
       expect(Object.keys(after.actors).length).toBe(
-        Object.keys(before.actors).length + 2,
+        Object.keys(before.actors).length + 3,
       );
       expect(after.items).toEqual({
         ...before.items,
+        ...willowsItems,
         "boardyai-calling-card": { holder: "station", history: [] },
       });
       for (const key of ["turn", "revision", "eventSeq", "log", "transports"])
@@ -65,7 +73,12 @@ describe("the household save upgrade", () => {
       for (const [id, actor] of Object.entries(before.actors))
         expect(after.actors[id]).toEqual({
           ...actor,
-          trust: { ...actor.trust, [witness]: 0, boardyai: 0 },
+          trust: {
+            ...actor.trust,
+            [witness]: 0,
+            boardyai: 0,
+            "willows-swede": 0,
+          },
         });
       for (const key of ["memories", "peaceUntil"])
         for (const [id, value] of Object.entries(before[key]))
