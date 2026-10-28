@@ -38433,6 +38433,14 @@
           "kind": "holding",
           "item": "greek-vii-peace-list",
           "role": "actor"
+        },
+        {
+          "kind": "not",
+          "condition": {
+            "kind": "holding",
+            "item": "greek-vii-smith-tools",
+            "actor": "greek-vii-smiths"
+          }
         }
       ],
       "effects": [
@@ -44083,7 +44091,7 @@
         "catalogue": "https://greekdrama.johnhboyer.com/",
         "author": "Sophocles",
         "work": "Oedipus at Colonus",
-        "adaptation": "A named remembered tale preserves the play’s time and source events. Present gifts and the selected closing response are original CosyWorld actions; Marathon’s hearing is an explicit alternate ending."
+        "adaptation": "A named remembered tale preserves the play’s time and source events. Present gifts and the selected closing response are original CosyWorld actions. The closing choices focus on the sanctuary’s custom or the family’s remembrance."
       }
     },
     {
