@@ -117,7 +117,9 @@ try {
                 .locator("img")
                 .first()
                 .evaluate((img) => getComputedStyle(img).filter)
-            ).includes("brightness(0.68)"),
+            ).includes(
+              `brightness(${weather.exposure === "shelter" ? "0.92" : "0.68"})`,
+            ),
           );
       }
       for (const art of await page

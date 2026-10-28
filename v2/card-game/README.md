@@ -553,4 +553,5 @@ the departure dock. Shared rules version 8 records this change; older journal
 actions replay with their original rules.
 
 See the Greek pack README and `test/card-theban-release.test.mjs`; the scene
-journey is `v2/scripts/smoke-card-theban-scenery.mjs`.
+journey is `v2/scripts/smoke-card-theban-scenery.mjs`. The weather journey is
+`node v2/scripts/smoke-card-weather.mjs`.

@@ -326,6 +326,7 @@ jobs:
         run: |
           node v2/scripts/smoke-card-greek-drama.mjs
           node v2/scripts/smoke-card-theban-scenery.mjs
+          node v2/scripts/smoke-card-weather.mjs
           node v2/scripts/smoke-card-open-door.mjs
           node v2/scripts/smoke-card-greek-homecoming.mjs
 
