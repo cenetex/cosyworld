@@ -18742,6 +18742,21 @@
   })();
   var ids = Object.keys(things);
   var actorIds = [...Object.keys(forest_default.people), ...packActorIds];
+  var planReads = null;
+  function planningReadsFor(world) {
+    if (!planReads) return null;
+    let reads = planReads.get(world);
+    if (!reads) {
+      reads = {};
+      planReads.set(world, reads);
+    }
+    return reads;
+  }
+  function knownActors2(world) {
+    const reads = planningReadsFor(world);
+    if (!reads) return knownActors(world);
+    return (reads.knownActors ??= knownActors(world)).slice();
+  }
   var expectedTrustKeys = Object.fromEntries(
     actorIds.map((id) => [
       id,
@@ -18849,7 +18864,7 @@
   ].join(" ");
   function localGateResource(s, place, item, actor) {
     return Boolean(
-      s.items[item] && entityActive(s, item) && itemPlace2(s, item) === place && (canUse(s, actor, item) || controlledByHuman(s, rootHolder(s, item)) && humanPresent(s, rootHolder(s, item)) || knownActors(s).includes(rootHolder(s, item)) && (willingToGive(s, rootHolder(s, item), item, actor) || carried(s, actor).some(
+      s.items[item] && entityActive(s, item) && itemPlace2(s, item) === place && (canUse(s, actor, item) || controlledByHuman(s, rootHolder(s, item)) && humanPresent(s, rootHolder(s, item)) || knownActors2(s).includes(rootHolder(s, item)) && (willingToGive(s, rootHolder(s, item), item, actor) || carried(s, actor).some(
         (payment) => canTrade(s, actor, payment, item)
       )))
     );
@@ -18889,7 +18904,7 @@
   function homeRescueExit(s, place, actor = currentActor(s), previous = null) {
     const gate = homeGates[place];
     actor ||= currentActor(s);
-    return gate && (controlledByHuman(s, actor) || gate.opening && knownActors(s).includes(actor)) && s.actors[actor]?.place === place && !ordinaryRouteHome(s, place, gate.rescue, actor, previous) && !homeGateRecoverable(s, place, gate, actor) ? gate.rescue : null;
+    return gate && (controlledByHuman(s, actor) || gate.opening && knownActors2(s).includes(actor)) && s.actors[actor]?.place === place && !ordinaryRouteHome(s, place, gate.rescue, actor, previous) && !homeGateRecoverable(s, place, gate, actor) ? gate.rescue : null;
   }
   function insideLampRemedy(s, actor) {
     const here = s.actors[actor].place, lamp = itemPlace2(s, "lamp"), oil = itemPlace2(s, "oil");
@@ -18904,9 +18919,9 @@
   function pondRescueExit(s, place, actor, previous) {
     actor ||= currentActor(s);
     const lamp = itemPlace2(s, "lamp"), oil = itemPlace2(s, "oil");
-    if (place !== "pond" || s.actors[actor]?.place !== place || !controlledByHuman(s, actor) && !knownActors(s).includes(actor) || !(atticInterior.has(lamp) || s.items.oil.doses > 0 && atticInterior.has(oil)) || ordinaryRouteHome(s, place, "attic", actor, previous)) return null;
+    if (place !== "pond" || s.actors[actor]?.place !== place || !controlledByHuman(s, actor) && !knownActors2(s).includes(actor) || !(atticInterior.has(lamp) || s.items.oil.doses > 0 && atticInterior.has(oil)) || ordinaryRouteHome(s, place, "attic", actor, previous)) return null;
     if (ordinaryRouteHome(s, place, lamp, actor, previous) && (s.items.lamp.fuel > 0 || s.items.oil.doses > 0 && ordinaryRouteHome(s, place, oil, actor, previous))) return null;
-    if (knownActors(s).some((id) => (!controlledByHuman(s, id) || humanPresent(s, id)) && (insideLampRemedy(s, id) || !atticInterior.has(lamp) && s.actors[id].place === "attic" && homeRescueExit(s, "attic", id) && localGateResource(s, "attic", "oil", id)))) return null;
+    if (knownActors2(s).some((id) => (!controlledByHuman(s, id) || humanPresent(s, id)) && (insideLampRemedy(s, id) || !atticInterior.has(lamp) && s.actors[id].place === "attic" && homeRescueExit(s, "attic", id) && localGateResource(s, "attic", "oil", id)))) return null;
     return "attic";
   }
   function exits(s, place, actor = null, previous = null) {
@@ -19002,7 +19017,7 @@
   }
   function canTrade(s, actor, give, receive) {
     const other = s.items[receive]?.holder;
-    if (s.items[give]?.holder !== actor || !actorIds.includes(other) || !knownActors(s).includes(other) || other === actor || controlledByHuman(s, other) || s.actors[actor].place !== s.actors[other].place)
+    if (s.items[give]?.holder !== actor || !actorIds.includes(other) || !knownActors2(s).includes(other) || other === actor || controlledByHuman(s, other) || s.actors[actor].place !== s.actors[other].place)
       return false;
     if (hasMotives(s) ? !tradeDecision(s, actor, give, receive).accepted && !(hasQuestPrograms(s) && !s.life && !resentment(s, other, actor) && needed(s, other, give) && !needed(s, other, receive)) : !accepts(s, other, give) || needed(s, other, receive))
       return false;
@@ -19038,7 +19053,7 @@
   }
   function refreshStalledPrograms(s) {
     if (!hasQuestPrograms(s)) return;
-    for (const actor of knownActors(s).filter(
+    for (const actor of knownActors2(s).filter(
       (id) => !controlledByHuman(s, id) && personalQuestActor(id)
     )) {
       const p = s.actors[actor].progress, current = programFor(s, actor);
@@ -19145,7 +19160,7 @@
       kind: detail.kind || (speaker === "You" ? "input" : actorId ? "dialogue" : "narration"),
       actorId,
       locationId,
-      cast: knownActors(s).filter(
+      cast: knownActors2(s).filter(
         (id) => s.actors[id].place === locationId && (!controlledByHuman(s, id) || humanPresent(s, id))
       ),
       items: ids.filter((id) => entityActive(s, id) && itemPlace2(s, id) === locationId).map((id) => {
@@ -19462,7 +19477,7 @@
       const through = !baseExits(s, here).includes(to);
       const crossing = crossingBetween(here, to, s);
       const way = through ? ` ${homeRescueExit(s, here, actor) === to || pondRescueExit(s, here, actor) === to ? "along a narrow path" : crossing?.travel || "through the reflection"}` : "";
-      for (const other of knownActors(s).filter(
+      for (const other of knownActors2(s).filter(
         (id) => (crossing?.travelers !== "player" || controlledByHuman(s, actor)) && id !== actor && !controlledByHuman(s, id) && (!staysPut(id) || packJourneyDestination(s, id) === to) && s.actors[id].place === here
       )) {
         const request = offer(
@@ -19500,7 +19515,7 @@
         );
       }
     }
-    for (const other of knownActors(s).filter(
+    for (const other of knownActors2(s).filter(
       (id) => id !== actor && s.actors[id].place === here
     )) {
       if (hasTemperament(other)) {
@@ -19558,7 +19573,7 @@
     }
     for (const id of ids) {
       const item = s.items[id];
-      if (!entityActive(s, id) || itemPlace2(s, id) !== here || actorIds.includes(rootHolder(s, id)) && !knownActors(s).includes(rootHolder(s, id)))
+      if (!entityActive(s, id) || itemPlace2(s, id) !== here || actorIds.includes(rootHolder(s, id)) && !knownActors2(s).includes(rootHolder(s, id)))
         continue;
       if (canReach(s, actor, id) && item.holder !== actor && hasSpace(s, actor, id)) {
         out.push(
@@ -19583,7 +19598,7 @@
             [id]
           )
         );
-        for (const other of knownActors(s).filter(
+        for (const other of knownActors2(s).filter(
           (p) => p !== actor && s.actors[p].place === here && (accepts(s, p, id) || targetsFor(s, actor).some(
             (h) => h.conditions?.some(
               (c) => c.kind === "heldBy" && c.item === id && c.avatar === p
@@ -19693,7 +19708,7 @@
     }
     const payments = ids.filter((id) => s.items[id].holder === actor);
     const tradePartners = new Set(
-      payments.length ? knownActors(s).filter(
+      payments.length ? knownActors2(s).filter(
         (other) => other !== actor && !controlledByHuman(s, other) && s.actors[other].place === here
       ) : []
     );
@@ -20082,6 +20097,18 @@
     };
   }
   function routeBetween(s, from, target, actor = null) {
+    const reads = planningReadsFor(s);
+    if (!reads) return readRouteBetween(s, from, target, actor);
+    const routes = reads.routes ??= /* @__PURE__ */ new Map();
+    if (!routes.has(actor)) routes.set(actor, /* @__PURE__ */ new Map());
+    const origins = routes.get(actor);
+    if (!origins.has(from)) origins.set(from, /* @__PURE__ */ new Map());
+    const destinations = origins.get(from);
+    if (!destinations.has(target))
+      destinations.set(target, readRouteBetween(s, from, target, actor));
+    return destinations.get(target)?.slice();
+  }
+  function readRouteBetween(s, from, target, actor = null) {
     const queue = [[from]], visited = /* @__PURE__ */ new Set([from]);
     while (queue.length) {
       const route = queue.shift();
@@ -20150,6 +20177,15 @@
       return getActions().find((a) => a.kind === "move" && a.target === "station");
   }
   function plan(s, actor = currentActor(s)) {
+    const previousReads = planReads;
+    planReads = /* @__PURE__ */ new WeakMap();
+    try {
+      return readPlan(s, actor);
+    } finally {
+      planReads = previousReads;
+    }
+  }
+  function readPlan(s, actor) {
     const arrival = transportArrival(s, actor);
     const landing = arrival && legalActions(s, actor).find(
       (a) => a.kind === "move" && a.target === arrival
@@ -20206,7 +20242,7 @@
         willingToGive
       });
     }
-    if (!knownActors(s).includes(actor))
+    if (!knownActors2(s).includes(actor))
       return {
         action: legalActions(s, actor)[0],
         reason: "Wait for a first meeting."
@@ -20270,7 +20306,7 @@
     const destinations = [
       ...missing.map((id) => itemPlace2(s, id)),
       ...!collecting ? [hand2.location, ...hand2.avatars.map((id) => s.actors[id].place)] : [],
-      ...!collecting ? knownActors(s).filter((id) => id !== actor && s.actors[id].place === here && handStatus(s, id).items.every((item) => item.met)).map((id) => desireFor(s, id).location) : []
+      ...!collecting ? knownActors2(s).filter((id) => id !== actor && s.actors[id].place === here && handStatus(s, id).items.every((item) => item.met)).map((id) => desireFor(s, id).location) : []
     ];
     for (const destination of new Set(destinations)) {
       if (!destination || destination === here || routeBetween(s, here, destination, actor)) continue;
@@ -20485,7 +20521,7 @@
     if (entityActive(next, BOARDY) && lifeOf(next, BOARDY))
       ensureCollectedQuest(next, BOARDY, () => programPlaces(next), things);
     const previousHopes = Object.fromEntries(
-      knownActors(s).map((id) => [id, lifeOf(s, id)?.milestones.length || 0])
+      knownActors2(s).map((id) => [id, lifeOf(s, id)?.milestones.length || 0])
     );
     const round2 = beginRound(s, sensesFor(s));
     next.turn += 1;
@@ -20497,7 +20533,7 @@
     const met = /* @__PURE__ */ new Map();
     if (exact.kind === "pursue") pursueQuest(next, actor, exact.questKey);
     captureHands(next, met);
-    const active = knownActors(next);
+    const active = knownActors2(next);
     const respondent = perform(next, exact, () => captureHands(next, met), round2);
     captureHands(next, met);
     if (next.opening && !next.locations.attic.anchored && exact.kind === "light" && next.actors.vale.place === "attic") {
@@ -20576,7 +20612,7 @@
     }
     if (exact.kind === "wait")
       waitForTransport(next, next.actors[actor].place, actor);
-    for (const actor2 of knownActors(next)) {
+    for (const actor2 of knownActors2(next)) {
       const life = lifeOf(next, actor2);
       if (life && life.milestones.length > (previousHopes[actor2] || 0)) {
         const hope = hopeOf(next, actor2);
@@ -20590,7 +20626,7 @@
     }
     for (const actor2 of settleLife(
       next,
-      knownActors(next).filter(
+      knownActors2(next).filter(
         (id) => !controlledByHuman(next, id) || id === exact.actor
       ),
       sanctuaries
@@ -20606,7 +20642,7 @@
         { actorId: actor2, questPlan: structuredClone(program) }
       );
     }
-    for (const id of knownActors(next))
+    for (const id of knownActors2(next))
       collectExperienceQuests(next, id, () => programPlaces(next), things);
     ensurePrograms(next);
     refreshStalledPrograms(next);

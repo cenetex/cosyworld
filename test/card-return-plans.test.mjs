@@ -18,6 +18,25 @@ function commit(world, kind, fields = {}) {
 }
 
 describe("return journeys and fixed meetings", () => {
+  it("reads a changed lamp afresh on the next plan", () => {
+    const world = createWorld();
+    world.turn = world.revision = 100;
+    world.actors.vale.place = "attic";
+    world.actors.moth.place = "station";
+    world.actors.vale.progress = { program: 1, step: 1, marks: [1, 9, 66, 67] };
+    for (const item of ["lamp", "bell", "oil"]) world.items[item].holder = "vale";
+    world.items.lamp.fuel = 3;
+    world.items.lamp.lit = true;
+    const before = structuredClone(world);
+    expect(plan(world).action).toMatchObject({ kind: "move", target: "pond" });
+    expect(world).toEqual(before);
+    world.items.lamp.fuel = 0;
+    world.items.lamp.lit = false;
+    const after = structuredClone(world);
+    expect(plan(world).action).toMatchObject({ kind: "refill", item: "oil" });
+    expect(world).toEqual(after);
+  });
+
   it("fetches the cottage key before recovering a lamp beyond its door", () => {
     let world = createWorld();
     world.turn = world.revision = 400;

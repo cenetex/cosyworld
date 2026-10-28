@@ -92,7 +92,7 @@ import {
 import {
   programsFor,
   personalQuestActor,
-  knownActors,
+  knownActors as readKnownActors,
   newProgress,
   programFor,
   savedProgramFor,
@@ -221,6 +221,22 @@ const atticInterior = (() => {
 })();
 const ids = Object.keys(things);
 const actorIds = [...Object.keys(forest.people), ...packActorIds];
+let planReads = null;
+function planningReadsFor(world) {
+  if (!planReads) return null;
+  let reads = planReads.get(world);
+  if (!reads) {
+    reads = {};
+    planReads.set(world, reads);
+  }
+  return reads;
+}
+function knownActors(world) {
+  const reads = planningReadsFor(world);
+  if (!reads) return readKnownActors(world);
+  return (reads.knownActors ??= readKnownActors(world)).slice();
+}
+
 const expectedTrustKeys = Object.fromEntries(
   actorIds.map((id) => [
     id,
@@ -1936,6 +1952,18 @@ function roamingAPI(s) {
 
 // Routes use the exits available to the actor who is planning the trip.
 function routeBetween(s, from, target, actor = null) {
+  const reads = planningReadsFor(s);
+  if (!reads) return readRouteBetween(s, from, target, actor);
+  const routes = (reads.routes ??= new Map());
+  if (!routes.has(actor)) routes.set(actor, new Map());
+  const origins = routes.get(actor);
+  if (!origins.has(from)) origins.set(from, new Map());
+  const destinations = origins.get(from);
+  if (!destinations.has(target))
+    destinations.set(target, readRouteBetween(s, from, target, actor));
+  return destinations.get(target)?.slice();
+}
+function readRouteBetween(s, from, target, actor = null) {
   const queue = [[from]],
     visited = new Set([from]);
   while (queue.length) {
@@ -2017,6 +2045,15 @@ function toward(s, actor, target) {
     return getActions().find((a) => a.kind === "move" && a.target === "station");
 }
 export function plan(s, actor = currentActor(s)) {
+  const previousReads = planReads;
+  planReads = new WeakMap();
+  try {
+    return readPlan(s, actor);
+  } finally {
+    planReads = previousReads;
+  }
+}
+function readPlan(s, actor) {
   const arrival = transportArrival(s, actor);
   const landing =
     arrival &&

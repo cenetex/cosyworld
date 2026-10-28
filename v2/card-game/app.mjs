@@ -304,6 +304,7 @@ let storyStatus = "ready",
   renderedHand = "",
   renderedHandRevision = null,
   renderedHandPlace = null,
+  renderedHandState = null,
   renderedQuest = null,
   actionPanelMotion = null,
   speechKey = null,
@@ -2292,9 +2293,16 @@ function render() {
     [...questRead],
     [...expandedQuestHolders],
   ]);
+  const handCards = questHand(world, personalNotice());
+  // Published speech can unlock cards and plays during the current turn.
+  const handState = JSON.stringify([
+    handCards,
+    legalActions(world).map((action) => action.key),
+  ]);
   const handKey = JSON.stringify([
     questKey,
     world.revision,
+    handState,
     selected,
     [...expandedHolders],
     [...fresh],
@@ -2304,6 +2312,7 @@ function render() {
     const sameWorld =
         renderedHand &&
         renderedHandRevision === world.revision &&
+        renderedHandState === handState &&
         renderedQuest === questKey,
       samePlace =
         renderedHand &&
@@ -2327,12 +2336,10 @@ function render() {
     renderedQuest = questKey;
     renderedHandRevision = world.revision;
     renderedHandPlace = world.actors[currentActor(world)].place;
+    renderedHandState = handState;
     if (sameWorld)
       for (const frame of $("hand").children) updateCardSelection(frame);
-    else
-      $("hand").replaceChildren(
-        ...questHand(world, personalNotice()).map(card),
-      );
+    else $("hand").replaceChildren(...handCards.map(card));
     $("hand").scrollLeft = samePlace ? scroll : 0;
     renderActions(animate);
     if (arriving) revealHandCard(renderedHandPlace, true, true);
