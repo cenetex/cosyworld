@@ -10,6 +10,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { frozenVerseProblems } from "./frozen-card-verses.mjs";
 import {
   packProblems,
   observationProblems,
@@ -57,9 +58,12 @@ const packs = (table.packs || []).map((id) => {
 });
 
 const seen = new Map();
+const frozenVerses = read("content/greek-drama/recital-rules20.json");
 problems.push(...packCompositionProblems(packs));
 const observationIds = new Set((table.hub.observations || []).map((d) => d.id));
 for (const pack of packs) {
+  if (pack.id === frozenVerses.packId)
+    problems.push(...frozenVerseProblems(pack, frozenVerses));
   for (const d of pack.observations || []) {
     if (observationIds.has(d.id))
       problems.push(`duplicate observation ${d.id}`);

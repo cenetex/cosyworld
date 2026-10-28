@@ -130,9 +130,22 @@ export function syncStoryQuests(world, actorId = null) {
 }
 
 export function validStoryQuest(world, quest) {
-  const definition = storyDefinitions(world, true).find(
-    (card) => card.key === quest.key,
-  );
+  return createStoryQuestValidator(world)(quest);
+}
+
+// Use one validator while this world stays unchanged. Each later operation
+// builds its own definitions from the receipts and account choices then present.
+export function createStoryQuestValidator(world) {
+  let definitions;
+  return (quest) => {
+    definitions ??= new Map(
+      storyDefinitions(world, true).map((card) => [card.key, card]),
+    );
+    return matchesStoryQuest(world, quest, definitions.get(quest.key));
+  };
+}
+
+function matchesStoryQuest(world, quest, definition) {
   const state = definition && world.packs[packFor(definition).id];
   return Boolean(
     definition &&

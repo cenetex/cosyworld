@@ -25,8 +25,8 @@ export function storyQuestProblems(pack, hub) {
   };
   if (
     !check(
-      Array.isArray(pack.storyQuests) && pack.storyQuests.length <= 128,
-      "storyQuests must contain at most 128 definitions",
+      Array.isArray(pack.storyQuests) && pack.storyQuests.length <= 256,
+      "storyQuests must contain at most 256 definitions",
     )
   )
     return problems;

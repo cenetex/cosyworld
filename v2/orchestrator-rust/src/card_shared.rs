@@ -4,6 +4,8 @@ mod ajax_tests;
 mod boardy_tests;
 mod engine;
 #[cfg(test)]
+mod epic_capacity_tests;
+#[cfg(test)]
 mod forest_tests;
 pub(crate) const RULES_VERSION: &str = engine::VERSION;
 mod full;

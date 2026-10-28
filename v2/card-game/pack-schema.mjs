@@ -258,10 +258,10 @@ export function packProblems(pack, hub, mountedPlaces = []) {
   }
   for (const [key, max] of [
     ["routes", 256],
-    ["choices", 256],
+    ["choices", 512],
     ["works", 128],
     ["crossings", 32],
-    ["storyQuests", 128],
+    ["storyQuests", 256],
     ["topics", 128],
   ])
     if (
@@ -1019,8 +1019,8 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         textOk(r.title, 80) &&
         Array.isArray(r.verses) &&
         r.verses.length > 0 &&
-        r.verses.length <= 64,
-      "recital needs a singer, a title and up to 64 verses",
+        r.verses.length <= 512,
+      "recital needs a singer, a title and up to 512 verses",
     );
     const seen = new Set();
     const linesOk = (lines) =>
@@ -1047,7 +1047,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     if (r.claims !== undefined) {
       check(
         Array.isArray(r.claims) &&
-          r.claims.length <= 16 &&
+          r.claims.length <= 64 &&
           r.claims.every(
             (claim) =>
               keysOk(claim, ["phrases", "anyChoices"]) &&
@@ -1060,7 +1060,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
               ) &&
               Array.isArray(claim.anyChoices) &&
               claim.anyChoices.length > 0 &&
-              claim.anyChoices.length <= 64 &&
+              claim.anyChoices.length <= 512 &&
               claim.anyChoices.every((choice) => seen.has(choice)),
           ),
         "recital claims need bounded phrases and supporting verse choices",

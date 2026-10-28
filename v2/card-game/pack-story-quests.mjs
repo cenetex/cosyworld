@@ -123,13 +123,16 @@ export function authoredStoryDefinitions(
   return packs.flatMap((pack) => {
     if (!stateOf(world, pack)) return [];
     const stories = pack.storyQuests || [];
+    const byKey = new Map(
+      stories.map((story) => [story.key || story.id, story]),
+    );
     const cache = new Map(),
       visiting = new Set();
     const resolve = (key) => {
       if (cache.has(key)) return cache.get(key);
       // The validator rejects cycles; this also bounds unchecked test data.
       if (visiting.has(key)) return null;
-      const story = stories.find((entry) => (entry.key || entry.id) === key);
+      const story = byKey.get(key);
       if (!story) return null;
       visiting.add(key);
       const met = (rule) => requirementMet(world, pack, rule, resolve);

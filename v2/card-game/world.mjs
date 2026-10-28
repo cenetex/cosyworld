@@ -11,7 +11,7 @@ import {
   settleQuestHands,
   validQuestHands,
 } from "./quest-hands.mjs";
-import { syncStoryQuests, validStoryQuest } from "./story-quests.mjs";
+import { syncStoryQuests, createStoryQuestValidator } from "./story-quests.mjs";
 import {
   installRoamingQuests,
   roamingPlan,
@@ -2830,7 +2830,7 @@ export function validateWorld(s) {
       places: Object.keys(places),
       program: (p, actor) => validProgram(p, actor, s, true),
       origin: (value) => validQuestOrigin(s, value),
-      story: (quest) => validStoryQuest(s, quest),
+      story: createStoryQuestValidator(s),
     }) ||
     !validQuestHands(s) ||
     !validQuestCompletions(s, actorIds, Object.keys(places))

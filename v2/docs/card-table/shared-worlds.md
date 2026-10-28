@@ -189,7 +189,7 @@ Completing the active quest begins a rest at a place marked `sanctuary: true`.
 The station and attic are sanctuaries. Human rest counts that person's own turns
 in a shared world. Resident rest counts world rounds.
 
-The shared interpreter builder writes `engine-v20.js`. Earlier interpreters stay
+The shared interpreter builder writes `engine-v21.js`. Earlier interpreters stay
 frozen. Upgrade tests cover checkpoints, journal-only rebuilds, saved drops,
 quest hand limits, and completion receipts.
 
@@ -290,7 +290,13 @@ Player views include their own thoughts, persona, dreams, reflection evidence
 and lessons. Other avatars supply public card text. This privacy check also
 applies when projecting a world that still uses an earlier interpreter.
 
-The current interpreter is `engine-v20.js`. Version 20 adds Ajax’s named Trojan
+The current interpreter is `engine-v21.js`. Version 21 makes room for the Greek
+epic and validates story definitions once per unchanged operation. A frozen
+catalog keeps all 56 earlier verse definitions, including conditional lines and
+their selection rules. Changed wording earns a new choice identity. Saved
+recital authors and visits keep their current format.
+
+Version 20 adds Ajax’s named Trojan
 account, its lasting ship invitation, three burial routes, and the signed
 return to Dione. Greek pack revision 7 adds the cast, objects and place memories
 while preserving earlier custody, choices and visits. Version 19 adds the Hoppy Cat pack,
@@ -319,7 +325,7 @@ Greek pack revision 5 preserves positions, belongings, story choices and
 poems. It adds memories for the new port and roads, and expands earlier
 learned routes through their current road and ship scenes. Myrine's coast
 journey uses two Accompany plays. Versions 13, 14 and 15 keep their released
-bytes. The builder writes `engine-v20.js`; older journals replay with the
+bytes. The builder writes `engine-v21.js`; older journals replay with the
 recorded rules before the saved upgrade.
 
 Shared rules version 19 makes the harbor and Agora a direct local visit, and
@@ -343,7 +349,7 @@ a changed situation or a completed goal ends that link. Saves and journal replay
 preserve the measured attempts, including exploration choices. Each player
 receives their own learning records through the existing private view.
 
-The builder writes `engine-v20.js`. Versions 2–19 keep their pinned bytes.
+The builder writes `engine-v21.js`. Versions 2–20 keep their pinned bytes.
 Existing worlds receive an explicit saved upgrade before new plays use these
 rules. Earlier lessons remain readable; new completed plays establish the new
 estimates.
