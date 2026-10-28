@@ -1226,7 +1226,7 @@ fn shared_speech_publication_retries_a_write_lock_with_the_original_reply() {
         )
         .unwrap();
     assert_eq!(status, "playing");
-    assert_eq!(retries, work.attempt);
+    assert_eq!(retries, 0, "The original speech attempt stays unchanged.");
     assert_eq!(
         c.query_row("SELECT count(*) FROM card_full_scenes", [], |row| row
             .get::<_, i64>(0))
@@ -1286,7 +1286,7 @@ fn shared_speech_publication_reports_an_exhausted_write_lock_budget() {
         )
         .unwrap();
     assert_eq!(status, "working");
-    assert_eq!(retries, work.attempt);
+    assert_eq!(retries, 0, "A lock timeout keeps the original speech attempt.");
     assert_eq!(
         c.query_row("SELECT count(*) FROM card_full_scenes", [], |row| row
             .get::<_, i64>(0))
