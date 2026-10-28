@@ -200,6 +200,15 @@ export const things = { ...packThings, ...forest.things };
 validatePackLinks(places, people, things);
 const ids = Object.keys(things);
 const actorIds = [...Object.keys(forest.people), ...packActorIds];
+const expectedTrustKeys = Object.fromEntries(
+  actorIds.map((id) => [
+    id,
+    actorIds
+      .filter((other) => other !== id)
+      .sort()
+      .join(),
+  ]),
+);
 export const nameOf = (id) =>
   places[id]?.name || people[id]?.name || things[id]?.name || "the world";
 export function createWorld({ opening = false, packScopes = {} } = {}) {
@@ -1620,7 +1629,7 @@ export function legalActions(s, actor = currentActor(s)) {
       }
     }
   }
-  for (const give of ids)
+  for (const give of ids.filter((id) => s.items[id].holder === actor))
     for (const receive of ids) {
       if (!canTrade(s, actor, give, receive)) continue;
       const other = s.items[receive].holder;
@@ -2920,11 +2929,7 @@ export function validateWorld(s) {
   for (const [id, a] of Object.entries(s.actors)) {
     if (
       !a.trust ||
-      Object.keys(a.trust).sort().join() !==
-        actorIds
-          .filter((other) => other !== id)
-          .sort()
-          .join() ||
+      Object.keys(a.trust).sort().join() !== expectedTrustKeys[id] ||
       Object.values(a.trust).some((n) => !Number.isInteger(n) || n < 0 || n > 3)
     )
       fail();

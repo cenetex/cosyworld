@@ -48,6 +48,7 @@ fn assert_saved_packs(current: &Value, old: &Value) {
     let mut expected = old.clone();
     expected["greek-drama"]["revision"] = json!(6);
     expected["boardyai"] = current["boardyai"].clone();
+    expected["hoppycat-archive"] = current["hoppycat-archive"].clone();
     assert_eq!(current, &expected);
 }
 fn fixture() -> (std::path::PathBuf, rusqlite::Connection, String) {
@@ -2427,3 +2428,151 @@ fn each_shared_home_rescue_commits_through_c_and_replays() {
 
 #[path = "learning_tests.rs"]
 mod learning_tests;
+
+#[test]
+fn hoppycat_upgrade_keeps_released_history_and_replays_new_story_choices() {
+    for (previous_version, keep_checkpoint) in [
+        (engine::SIXTEENTH_VERSION, true),
+        (engine::SIXTEENTH_VERSION, false),
+        (engine::SEVENTEENTH_VERSION, true),
+        (engine::SEVENTEENTH_VERSION, false),
+    ] {
+        let path =
+            std::env::temp_dir().join(format!("hoppycat-upgrade-{}.sqlite", crate::random_hex(12)));
+        let c = store::open(&path).unwrap();
+        full_store::schema(&c).unwrap();
+        let id = "f".repeat(48);
+        store::create(&c, &id, "owner", now()).unwrap();
+        let seed = engine::reduce_version(previous_version, json!({"op":"create"})).unwrap();
+        let mut old = World {
+            version: previous_version.into(),
+            game: seed["world"].clone(),
+            claimed: [1, 1, 0, 0, 0, 0, 0, 0],
+            present: [1, 1, 0, 0, 0, 0, 0, 0],
+        };
+        old.game.as_object_mut().unwrap().remove("opening");
+        old.game["actors"]["vale"]["place"] = json!("pond");
+        old.game["actors"]["moth"]["place"] = json!("attic");
+        old.game["actors"]["keeper"]["place"] = json!("station");
+        old.game["items"]["bell"]["holder"] = json!("vale");
+        old.game["items"]["lamp"]["holder"] = json!("vale");
+        assert!(old.game["packs"].get("hoppycat-archive").is_none());
+        full_store::seed(&c, &id, &old, "before-hoppycat-refresh", now()).unwrap();
+
+        // Produce item history and accepted plays with the released interpreter.
+        for kind in ["drop", "take"] {
+            let action = old.project(0).unwrap()["actions"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|action| action["kind"] == kind && action["item"] == "bell")
+                .unwrap()
+                .clone();
+            full_store::commit(
+                &c,
+                &id,
+                &mut old,
+                json!({"op":"play","actor":"vale","action":action}),
+                now(),
+            )
+            .unwrap();
+        }
+        assert_eq!(old.game["items"]["bell"]["holder"], "vale");
+        assert_eq!(
+            old.game["items"]["bell"]["history"]
+                .as_array()
+                .unwrap()
+                .len(),
+            2
+        );
+        let count = || -> i64 {
+            c.query_row(
+                "SELECT COUNT(*) FROM card_full_log WHERE world=?",
+                [&id],
+                |row| row.get(0),
+            )
+            .unwrap()
+        };
+        let before_upgrade = count();
+        if !keep_checkpoint {
+            c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+        }
+        let mut world = full_store::world(&c, &id, now()).unwrap();
+        assert_eq!(world.version, engine::VERSION);
+        assert_eq!(world.claimed, old.claimed);
+        assert_eq!(world.present, old.present);
+        assert_eq!(world.game["turn"], old.game["turn"]);
+        assert_eq!(
+            world.game["revision"].as_u64().unwrap(),
+            old.game["revision"].as_u64().unwrap() + 1
+        );
+        assert_saved_actors(&world.game["actors"], &old.game["actors"]);
+        assert_saved_items(&world.game["items"], &old.game["items"]);
+        assert_saved_memories(&world.game["memories"], &old.game["memories"]);
+        for field in ["packs", "crossings"] {
+            for (key, saved) in old.game[field].as_object().unwrap() {
+                assert_eq!(&world.game[field][key], saved, "saved {field}/{key}");
+            }
+        }
+        assert_eq!(world.game["log"], old.game["log"]);
+        assert_eq!(world.game["packs"]["hoppycat-archive"]["revision"], 1);
+        assert_eq!(
+            world.game["actors"]["hoppycat-hoppy-cat"]["place"],
+            "hoppycat-halfway-tea-garden"
+        );
+        assert_eq!(
+            world.game["items"]["hoppycat-halfway-cup"]["holder"],
+            "hoppycat-halfway-tea-garden"
+        );
+        assert_eq!(count(), before_upgrade + 1);
+        assert_eq!(full_store::world(&c, &id, now()).unwrap(), world);
+        assert_eq!(count(), before_upgrade + 1);
+
+        // Enter the new pack, use its custody rule, commit a story receipt,
+        // then return through the bridge using the current C-hosted rules.
+        for (kind, field, value) in [
+            ("move", "target", "hoppycat-halfway-tea-garden"),
+            ("take", "item", "hoppycat-halfway-cup"),
+            ("choose", "choiceId", "hoppycat-welcome"),
+            ("move", "target", "pond"),
+        ] {
+            let action = world.project(0).unwrap()["actions"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|action| action["kind"] == kind && action[field] == value)
+                .unwrap()
+                .clone();
+            full_store::commit(
+                &c,
+                &id,
+                &mut world,
+                json!({"op":"play","actor":"vale","action":action}),
+                now(),
+            )
+            .unwrap();
+        }
+        assert_eq!(world.game["actors"]["vale"]["place"], "pond");
+        assert_eq!(
+            world.game["packs"]["hoppycat-archive"]["flags"]["hoppycat-welcome"],
+            true
+        );
+        assert!(world.game["packs"]["hoppycat-archive"]["receipts"]["hoppycat-welcome"].is_u64());
+        assert_eq!(
+            world.game["items"]["hoppycat-halfway-cup"]["holder"],
+            "vale"
+        );
+        let views = [world.project(0).unwrap(), world.project(1).unwrap()];
+        drop(c);
+        let c = store::open(&path).unwrap();
+        full_store::schema(&c).unwrap();
+        assert_eq!(full_store::world(&c, &id, now()).unwrap(), world);
+        c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+        let replay = full_store::world(&c, &id, now()).unwrap();
+        assert_eq!(replay, world);
+        assert_eq!(replay.project(0).unwrap(), views[0]);
+        assert_eq!(replay.project(1).unwrap(), views[1]);
+        drop(c);
+        std::fs::remove_file(path).unwrap();
+    }
+}

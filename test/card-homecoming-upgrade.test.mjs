@@ -1,3 +1,4 @@
+import hoppycat from "../v2/content/hoppycat-archive/card-world.json" with { type: "json" };
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { describe, expect, it } from "vitest";
@@ -53,11 +54,19 @@ describe("the household save upgrade", () => {
         revision: 6,
       });
       expect(Object.keys(after.actors).length).toBe(
-        Object.keys(before.actors).length + 2,
+        Object.keys(before.actors).length +
+          2 +
+          Object.keys(hoppycat.avatars).length,
       );
       expect(after.items).toEqual({
         ...before.items,
         "boardyai-calling-card": { holder: "station", history: [] },
+        ...Object.fromEntries(
+          Object.entries(hoppycat.items).map(([id, item]) => [
+            id,
+            { holder: item.holder, history: [] },
+          ]),
+        ),
       });
       for (const key of ["turn", "revision", "eventSeq", "log", "transports"])
         expect(after[key]).toEqual(before[key]);
@@ -65,7 +74,14 @@ describe("the household save upgrade", () => {
       for (const [id, actor] of Object.entries(before.actors))
         expect(after.actors[id]).toEqual({
           ...actor,
-          trust: { ...actor.trust, [witness]: 0, boardyai: 0 },
+          trust: {
+            ...actor.trust,
+            [witness]: 0,
+            boardyai: 0,
+            ...Object.fromEntries(
+              Object.keys(hoppycat.avatars).map((id) => [id, 0]),
+            ),
+          },
         });
       for (const [id, memory] of Object.entries(before.memories))
         expect(after.memories[id]).toMatchObject(memory);

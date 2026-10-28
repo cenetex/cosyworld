@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "id": "shore-hoppycat-archive",
+  "pack": "hoppycat-archive",
+  "description": "A red thread at Black pond leads to the Halfway Tea Garden. Both shores keep the path open.",
+  "values": {},
+  "crossings": [
+    {
+      "id": "hoppycat-pond-garden",
+      "from": "pond",
+      "to": "hoppycat-halfway-tea-garden",
+      "travelers": "any",
+      "travel": "along the red thread",
+      "requires": [],
+      "scenery": {
+        "open": "A red thread follows the water to a garden of kettle trees."
+      }
+    },
+    {
+      "id": "hoppycat-garden-pond",
+      "from": "hoppycat-halfway-tea-garden",
+      "to": "pond",
+      "travelers": "any",
+      "travel": "along the red thread",
+      "requires": [],
+      "scenery": {
+        "open": "A red thread follows the water to Black pond."
+      }
+    }
+  ]
+}

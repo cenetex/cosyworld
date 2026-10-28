@@ -66,6 +66,8 @@ const files = [
   "scene-video.css",
   "awakening.css",
   "app.mjs",
+  "pack-landing.mjs",
+  "pack-landings.json",
   "world.mjs",
   "scene.mjs",
   "weather.mjs",

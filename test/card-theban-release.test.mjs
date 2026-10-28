@@ -212,6 +212,7 @@ describe("the Theban release and its ship", () => {
         "routes",
         "shears",
         ...openDoorItems,
+        ...Object.keys(packDefinition("hoppycat-archive").items),
       ].sort(),
     );
     expect(after.memories).toMatchObject(before.memories);

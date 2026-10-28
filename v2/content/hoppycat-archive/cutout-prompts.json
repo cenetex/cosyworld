@@ -1,0 +1,163 @@
+{
+  "mode": "built-in image generation",
+  "transparent_background": true,
+  "date": "2026-10-28",
+  "assets": [
+    {
+      "id": "hoppycat-hoppy-cat",
+      "reference": "assets/cards/hoppycat-hoppy-cat.webp",
+      "output": "../../card-game/assets/hoppycat-archive/hoppycat-hoppy-cat-cutout.png",
+      "prompt": "Use case: background-extraction. Asset type: full body character cutout for the CosyWorld game. Edit target: the supplied Hoppy Cat portrait. Extract only Hoppy Cat with her microphone, bag, clothing and shoes. Preserve her exact face, green hair, pose, colours, full body and painted style. Keep every part of her visible, with a little clear space around the silhouette. The entire setting becomes real transparent alpha. Fine clean hair edges. Output one portrait PNG cutout."
+    },
+    {
+      "id": "hoppycat-tapi-lilt",
+      "reference": "assets/cards/hoppycat-tapi-lilt.webp",
+      "output": "../../card-game/assets/hoppycat-archive/hoppycat-tapi-lilt-cutout.png",
+      "prompt": "Use case: background-extraction. Asset type: full body game character cutout. Edit target: the supplied portrait of tapi lilt. Keep this exact character, face, species, pose, outfit and carried props in the same painted style. Extract the complete figure, including feet, tail, wings and antennae where present. Centre the figure with clear margins. All space outside the figure must have alpha 0, including space between limbs. The figure itself is fully opaque with fine clean edges. Output one transparent portrait PNG."
+    },
+    {
+      "id": "hoppycat-penny-vellum",
+      "reference": "assets/cards/hoppycat-penny-vellum.webp",
+      "output": "../../card-game/assets/hoppycat-archive/hoppycat-penny-vellum-cutout.png",
+      "prompt": "Use case: background-extraction. Asset type: full body game character cutout. Edit target: the supplied portrait of penny vellum. Keep this exact character, face, species, pose, outfit and carried props in the same painted style. Extract the complete figure, including feet, tail, wings and antennae where present. Centre the figure with clear margins. All space outside the figure must have alpha 0, including space between limbs. The figure itself is fully opaque with fine clean edges. Output one transparent portrait PNG."
+    },
+    {
+      "id": "hoppycat-rill-current",
+      "reference": "assets/cards/hoppycat-rill-current.webp",
+      "output": "../../card-game/assets/hoppycat-archive/hoppycat-rill-current-cutout.png",
+      "prompt": "Use case: background-extraction. Asset type: full body game character cutout. Edit target: the supplied portrait of rill current. Keep this exact character, face, species, pose, outfit and carried props in the same painted style. Extract the complete figure, including feet, tail, wings and antennae where present. Centre the figure with clear margins. All space outside the figure must have alpha 0, including space between limbs. The figure itself is fully opaque with fine clean edges. Output one transparent portrait PNG."
+    },
+    {
+      "id": "hoppycat-patch-fern",
+      "reference": "assets/cards/hoppycat-patch-fern.webp",
+      "output": "../../card-game/assets/hoppycat-archive/hoppycat-patch-fern-cutout.png",
+      "prompt": "Use case: background-extraction. Asset type: full body game character cutout. Edit target: the supplied portrait of patch fern. Keep this exact character, face, species, pose, outfit and carried props in the same painted style. Extract the complete figure, including feet, tail, wings and antennae where present. Centre the figure with clear margins. All space outside the figure must have alpha 0, including space between limbs. The figure itself is fully opaque with fine clean edges. Output one transparent portrait PNG."
+    },
+    {
+      "id": "hoppycat-lumen-facet",
+      "reference": "assets/cards/hoppycat-lumen-facet.webp",
+      "output": "../../card-game/assets/hoppycat-archive/hoppycat-lumen-facet-cutout.png",
+      "prompt": "Use case: background-extraction. Asset type: full body game character cutout. Edit target: the supplied portrait of lumen facet. Preserve this exact character, face, species, pose, outfit and carried props in the same painted style. Extract the complete figure with its feet, tail and wings where present. For Glim keep the goldfish, glass bowl, water, brass walking legs and attached bags together. Centre the figure with clear margins. All space outside the figure has alpha 0, including space between limbs. The figure has solid colour with fine clean edges. Output one transparent portrait PNG."
+    },
+    {
+      "id": "hoppycat-mira-meraki",
+      "reference": "assets/cards/hoppycat-mira-meraki.webp",
+      "output": "../../card-game/assets/hoppycat-archive/hoppycat-mira-meraki-cutout.png",
+      "prompt": "Use case: background-extraction. Asset type: full body game character cutout. Edit target: the supplied portrait of mira meraki. Preserve this exact character, face, species, pose, outfit and carried props in the same painted style. Extract the complete figure with its feet, tail and wings where present. For Glim keep the goldfish, glass bowl, water, brass walking legs and attached bags together. Centre the figure with clear margins. All space outside the figure has alpha 0, including space between limbs. The figure has solid colour with fine clean edges. Output one transparent portrait PNG."
+    },
+    {
+      "id": "hoppycat-glim-twice",
+      "reference": "assets/cards/hoppycat-glim-twice.webp",
+      "output": "../../card-game/assets/hoppycat-archive/hoppycat-glim-twice-cutout.png",
+      "prompt": "Use case: background-extraction. Asset type: full body game character cutout. Edit target: the supplied portrait of glim twice. Preserve this exact character, face, species, pose, outfit and carried props in the same painted style. Extract the complete figure with its feet, tail and wings where present. For Glim keep the goldfish, glass bowl, water, brass walking legs and attached bags together. Centre the figure with clear margins. All space outside the figure has alpha 0, including space between limbs. The figure has solid colour with fine clean edges. Output one transparent portrait PNG."
+    },
+    {
+      "id": "hoppycat-nix-fermata",
+      "reference": "assets/cards/hoppycat-nix-fermata.webp",
+      "output": "../../card-game/assets/hoppycat-archive/hoppycat-nix-fermata-cutout.png",
+      "prompt": "Use case: background-extraction. Asset type: full body game character cutout. Edit target: the supplied portrait of nix fermata. Preserve this exact character, face, species, pose, outfit and carried props in the same painted style. Extract the complete figure with its feet, tail and wings where present. For Glim keep the goldfish, glass bowl, water, brass walking legs and attached bags together. Centre the figure with clear margins. All space outside the figure has alpha 0, including space between limbs. The figure has solid colour with fine clean edges. Output one transparent portrait PNG."
+    },
+    {
+      "id": "hoppycat-fable",
+      "reference": "assets/cards/hoppycat-fable.webp",
+      "output": "../../card-game/assets/hoppycat-archive/hoppycat-fable-cutout.png",
+      "prompt": "Use case: background-extraction. Asset type: full body game character cutout. Edit target: the supplied portrait of fable. Preserve this exact character, face, species, pose, outfit and carried props in the same painted style. Extract the complete figure with its feet and hair. Centre the figure with clear margins. All space outside the figure has alpha 0, including space between limbs. The figure has solid colour with fine clean edges. Output one transparent portrait PNG."
+    },
+    {
+      "id": "hoppycat-phase-two",
+      "reference": "assets/cards/hoppycat-phase-two.webp",
+      "output": "../../card-game/assets/hoppycat-archive/hoppycat-phase-two-cutout.png",
+      "prompt": "Use case: background-extraction. Asset type: full body game character cutout. Edit target: the supplied portrait of phase-two. Preserve this exact character, face, species, pose, outfit and carried props in the same painted style. Extract the complete figure with its feet and hair. Centre the figure with clear margins. All space outside the figure has alpha 0, including space between limbs. The figure has solid colour with fine clean edges. Output one transparent portrait PNG."
+    },
+    {
+      "id": "hoppycat-arc",
+      "reference": "assets/cards/hoppycat-arc.webp",
+      "output": "../../card-game/assets/hoppycat-archive/hoppycat-arc-cutout.png",
+      "prompt": "Use case: background-extraction. Asset type: full body game character cutout. Edit target: the supplied portrait of arc. Preserve this exact character, face, species, pose, outfit and carried props in the same painted style. Extract the complete figure with its feet and hair. Centre the figure with clear margins. All space outside the figure has alpha 0, including space between limbs. The figure has solid colour with fine clean edges. Output one transparent portrait PNG."
+    },
+    {
+      "id": "hoppycat-staticwashere",
+      "reference": "assets/cards/hoppycat-staticwashere.webp",
+      "output": "../../card-game/assets/hoppycat-archive/hoppycat-staticwashere-cutout.png",
+      "prompt": "Use case: background-extraction. Asset type: full body game character cutout. Edit target: the supplied portrait of staticwashere. Preserve this exact character, face, pose, outfit and carried props in the same painted style. Extract the complete figure with its feet and hair. Centre the figure with clear margins. All space outside the figure has alpha 0, including space between limbs. The figure has solid colour with fine clean edges. Output one transparent portrait PNG."
+    },
+    {
+      "id": "hoppycat-solwashere",
+      "reference": "assets/cards/hoppycat-solwashere.webp",
+      "output": "../../card-game/assets/hoppycat-archive/hoppycat-solwashere-cutout.png",
+      "prompt": "Use case: background-extraction. Asset type: full body game character cutout. Edit target: the supplied portrait of solwashere. Preserve this exact character, face, pose, outfit and carried props in the same painted style. Extract the complete figure with its feet and hair. Centre the figure with clear margins. All space outside the figure has alpha 0, including space between limbs. The figure has solid colour with fine clean edges. Output one transparent portrait PNG."
+    },
+    {
+      "id": "hoppycat-ledger-opus",
+      "reference": "assets/cards/hoppycat-ledger-opus.webp",
+      "output": "../../card-game/assets/hoppycat-archive/hoppycat-ledger-opus-cutout.png",
+      "prompt": "Use case: background-extraction. Asset type: full body game character cutout. Edit target: the supplied portrait of ledger-opus. Preserve this exact character, face, pose, outfit and carried props in the same painted style. Extract the complete figure with its feet and hair. Centre the figure with clear margins. All space outside the figure has alpha 0, including space between limbs. The figure has solid colour with fine clean edges. Output one transparent portrait PNG."
+    },
+    {
+      "id": "hoppycat-ledger-sonnet",
+      "reference": "assets/cards/hoppycat-ledger-sonnet.webp",
+      "output": "../../card-game/assets/hoppycat-archive/hoppycat-ledger-sonnet-cutout.png",
+      "prompt": "Use case: background-extraction. Asset type: full body game character cutout. Edit target: the supplied portrait of ledger-sonnet. Preserve this exact character, face, pose, outfit and carried props in the same painted style. Extract the complete figure with its feet and hair. Centre the figure with clear margins. All space outside the figure has alpha 0, including space between limbs. The figure has solid colour with fine clean edges. Output one transparent portrait PNG."
+    },
+    {
+      "id": "hoppycat-red-thread-spool",
+      "reference": "assets/cards/hoppycat-red-thread-spool.webp",
+      "output": "../../card-game/assets/hoppycat-archive/hoppycat-red-thread-spool-cutout.png",
+      "prompt": "Use case: background-extraction. Asset type: single game inventory item cutout. Edit target: the supplied red-thread-spool. Extract only the central item, including its attached cord or stand. Preserve its exact design, materials, colours, proportions and painted style. Keep the complete object centred with clear margins. Preserve blank fields on paper. All space outside the object has alpha 0, including holes and gaps. Fine clean edges. Output one transparent square PNG."
+    },
+    {
+      "id": "hoppycat-provenance-card",
+      "reference": "assets/cards/hoppycat-provenance-card.webp",
+      "output": "../../card-game/assets/hoppycat-archive/hoppycat-provenance-card-cutout.png",
+      "prompt": "Use case: background-extraction. Asset type: single game inventory item cutout. Edit target: the supplied provenance-card. Extract only the central item, including its attached cord or stand. Preserve its exact design, materials, colours, proportions and painted style. Keep the complete object centred with clear margins. Preserve blank fields on paper. All space outside the object has alpha 0, including holes and gaps. Fine clean edges. Output one transparent square PNG."
+    },
+    {
+      "id": "hoppycat-unfinished-prism",
+      "reference": "assets/cards/hoppycat-unfinished-prism.webp",
+      "output": "../../card-game/assets/hoppycat-archive/hoppycat-unfinished-prism-cutout.png",
+      "prompt": "Use case: background-extraction. Asset type: single game inventory item cutout. Edit target: the supplied unfinished-prism. Extract only the central item, including its attached cord or stand. Preserve its exact design, materials, colours, proportions and painted style. Keep the complete object centred with clear margins. Preserve blank fields on paper. All space outside the object has alpha 0, including holes and gaps. Fine clean edges. Output one transparent square PNG."
+    },
+    {
+      "id": "hoppycat-context-seed",
+      "reference": "assets/cards/hoppycat-context-seed.webp",
+      "output": "../../card-game/assets/hoppycat-archive/hoppycat-context-seed-cutout.png",
+      "prompt": "Use case: background-extraction. Asset type: single game inventory item cutout. Edit target: the supplied context-seed. Extract only the central item, including its attached cord or stand. Preserve its exact design, materials, colours, proportions and painted style. Keep the complete object centred with clear margins. Preserve blank fields on paper. All space outside the object has alpha 0, including holes and gaps. Fine clean edges. Output one transparent square PNG."
+    },
+    {
+      "id": "hoppycat-concordance-compass",
+      "reference": "assets/cards/hoppycat-concordance-compass.webp",
+      "output": "../../card-game/assets/hoppycat-archive/hoppycat-concordance-compass-cutout.png",
+      "prompt": "Use case: background-extraction. Asset type: single game inventory item cutout. Edit target: the supplied concordance-compass. Extract only the central item. Preserve its exact design, materials, colours, proportions and painted style. Keep the complete object centred with clear margins. All space outside the object has alpha 0, including holes and gaps. Fine clean edges. Output one transparent square PNG."
+    },
+    {
+      "id": "hoppycat-meraki-brush",
+      "reference": "assets/cards/hoppycat-meraki-brush.webp",
+      "output": "../../card-game/assets/hoppycat-archive/hoppycat-meraki-brush-cutout.png",
+      "prompt": "Use case: background-extraction. Asset type: single game inventory item cutout. Edit target: the supplied meraki-brush. Extract only the central item. Preserve its exact design, materials, colours, proportions and painted style. Keep the complete object centred with clear margins. All space outside the object has alpha 0, including holes and gaps. Fine clean edges. Output one transparent square PNG."
+    },
+    {
+      "id": "hoppycat-loop-token",
+      "reference": "assets/cards/hoppycat-loop-token.webp",
+      "output": "../../card-game/assets/hoppycat-archive/hoppycat-loop-token-cutout.png",
+      "prompt": "Use case: background-extraction. Asset type: single game inventory item cutout. Edit target: the supplied loop-token. Extract only the central item. Preserve its exact design, materials, colours, proportions and painted style. Keep the complete object centred with clear margins. All space outside the object has alpha 0, including holes and gaps. Fine clean edges. Output one transparent square PNG."
+    },
+    {
+      "id": "hoppycat-fermata-clapper",
+      "reference": "assets/cards/hoppycat-fermata-clapper.webp",
+      "output": "../../card-game/assets/hoppycat-archive/hoppycat-fermata-clapper-cutout.png",
+      "prompt": "Use case: background-extraction. Asset type: single game inventory item cutout. Edit target: the supplied fermata-clapper. Extract only the central item, including its attached cord or handles. Preserve its exact design, materials, colours, proportions and painted style. Keep the complete object centred with clear margins. Preserve the paper checklist and route marks. All space outside the object has alpha 0, including holes and gaps. Fine clean edges. Output one transparent square PNG."
+    },
+    {
+      "id": "hoppycat-halfway-cup",
+      "reference": "assets/cards/hoppycat-halfway-cup.webp",
+      "output": "../../card-game/assets/hoppycat-archive/hoppycat-halfway-cup-cutout.png",
+      "prompt": "Use case: background-extraction. Asset type: single game inventory item cutout. Edit target: the supplied halfway-cup. Extract only the central item, including its attached cord or handles. Preserve its exact design, materials, colours, proportions and painted style. Keep the complete object centred with clear margins. Preserve the paper checklist and route marks. All space outside the object has alpha 0, including holes and gaps. Fine clean edges. Output one transparent square PNG."
+    },
+    {
+      "id": "hoppycat-return-path-checklist",
+      "reference": "assets/cards/hoppycat-return-path-checklist.webp",
+      "output": "../../card-game/assets/hoppycat-archive/hoppycat-return-path-checklist-cutout.png",
+      "prompt": "Use case: background-extraction. Asset type: single game inventory item cutout. Edit target: the supplied return-path-checklist. Extract only the central item, including its attached cord or handles. Preserve its exact design, materials, colours, proportions and painted style. Keep the complete object centred with clear margins. Preserve the paper checklist and route marks. All space outside the object has alpha 0, including holes and gaps. Fine clean edges. Output one transparent square PNG."
+    }
+  ]
+}

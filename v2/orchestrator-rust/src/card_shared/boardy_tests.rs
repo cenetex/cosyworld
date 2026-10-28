@@ -217,7 +217,9 @@ fn boardy_version_sixteen_upgrade_preserves_sightings_and_replays() {
         world.game["actors"]["boardyai"]["place"],
         old.game["actors"]["boardyai"]["place"]
     );
-    assert_eq!(world.game["items"], old.game["items"]);
+    for (key, item) in old.game["items"].as_object().unwrap() {
+        assert_eq!(&world.game["items"][key], item, "saved item {key}");
+    }
     assert_eq!(world.game["log"], old.game["log"]);
     for _ in 0..4 {
         let view = world.project(0).unwrap();
