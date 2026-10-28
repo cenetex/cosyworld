@@ -60,7 +60,11 @@ describe("browser dialogue history contract", () => {
     world.turn++;
     world.revision++;
     expect(narrativeContext(world).conversation).toEqual(
-      [1, 2, 3, 4].map((i) => ({ actorId: "vale", text: `Avatar line ${i}` })),
+      [1, 2, 3, 4].map((i) => ({
+        actorId: "vale",
+        text: `Avatar line ${i}`,
+        witnesses: ["vale"],
+      })),
     );
   });
 });

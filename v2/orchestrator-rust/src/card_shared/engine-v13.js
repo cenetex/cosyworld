@@ -29,6 +29,11 @@
     ]);
   }
   function recordLearning(world, action, accepted, conditions, event) {
+    const prior = world.memories[action.actor]?.learning?.findLast(
+      (l) => !l.observed && !l.followup
+    );
+    if (prior && event.seq > prior.seq && (action.kind === "wait" || action.kind === "talk" && action.target === prior.target || action.kind === "trade" && action.receive === prior.item))
+      prior.followup = { seq: event.seq, turn: event.turn, kind: action.kind };
     if (!kinds.includes(action.kind) || typeof accepted !== "boolean") return;
     const memory = world.memories[action.actor];
     const previous = (memory.learning || []).findLast(
@@ -56,7 +61,7 @@
     const lesson = (world.memories[actor].learning || []).findLast(
       (l) => l.key === keyOf(action) && l.conditions === requestConditions(world, action)
     );
-    if (!lesson || lesson.observed) return selected;
+    if (!lesson || lesson.observed || lesson.followup) return selected;
     const trade = action.kind === "ask" && actions.find((a) => a.kind === "trade" && a.receive === action.item);
     const alternative = trade || actions.find((a) => a.kind === "talk" && a.target === action.target) || actions.find((a) => a.kind === "wait");
     return alternative ? {
@@ -76,7 +81,7 @@
   function validLearning(world, actor, lessons, profiles2) {
     if (lessons === void 0) return true;
     const valid = Array.isArray(lessons) && lessons.length <= LEARNING_LIMIT && lessons.every((l, i) => {
-      if (!l || Object.keys(l).length !== 12) return false;
+      if (!l || Object.keys(l).length !== (l.followup ? 13 : 12)) return false;
       const action = {
         kind: l.kind,
         target: l.target,
@@ -84,7 +89,7 @@
         destination: l.destination
       };
       const source = world.log.find((e) => e.seq === l.seq);
-      return Number.isSafeInteger(l.seq) && l.seq > 0 && l.seq <= world.eventSeq && (!i || lessons[i - 1].seq < l.seq) && Number.isSafeInteger(l.turn) && l.turn >= 0 && l.turn <= world.turn && kinds.includes(l.kind) && Boolean(world.actors[l.target]) && l.target !== actor && (l.item === null || Boolean(world.items[l.item])) && (l.destination === null || profiles2[l.destination]?.kind === "location") && (l.kind === "ask" ? l.item !== null && l.destination === null : l.destination !== null && l.item === null) && l.key === keyOf(action) && typeof l.expected === "boolean" && typeof l.observed === "boolean" && l.strategy === (l.observed ? "continue" : l.kind === "ask" ? "offer_trade" : "give_space") && typeof l.conditions === "string" && l.conditions.length <= 16e3 && typeof l.evidence === "string" && l.evidence.length > 0 && l.evidence.length <= 650 && (!source || !source.generated && source.actorId === actor && source.verb === l.kind && source.targetId === l.target && source.accepted === l.observed && source.text.slice(0, 650) === l.evidence);
+      return (!l.followup || Number.isSafeInteger(l.followup.seq) && l.followup.seq > l.seq && l.followup.seq <= world.eventSeq && Number.isSafeInteger(l.followup.turn) && l.followup.turn >= l.turn && l.followup.turn <= world.turn && ["talk", "trade", "wait"].includes(l.followup.kind)) && Number.isSafeInteger(l.seq) && l.seq > 0 && l.seq <= world.eventSeq && (!i || lessons[i - 1].seq < l.seq) && Number.isSafeInteger(l.turn) && l.turn >= 0 && l.turn <= world.turn && kinds.includes(l.kind) && Boolean(world.actors[l.target]) && l.target !== actor && (l.item === null || Boolean(world.items[l.item])) && (l.destination === null || profiles2[l.destination]?.kind === "location") && (l.kind === "ask" ? l.item !== null && l.destination === null : l.destination !== null && l.item === null) && l.key === keyOf(action) && typeof l.expected === "boolean" && typeof l.observed === "boolean" && l.strategy === (l.observed ? "continue" : l.kind === "ask" ? "offer_trade" : "give_space") && typeof l.conditions === "string" && l.conditions.length <= 16e3 && typeof l.evidence === "string" && l.evidence.length > 0 && l.evidence.length <= 650 && (!source || !source.generated && source.actorId === actor && source.verb === l.kind && source.targetId === l.target && source.accepted === l.observed && source.text.slice(0, 650) === l.evidence);
     });
     return valid;
   }

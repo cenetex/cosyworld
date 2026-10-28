@@ -4216,7 +4216,7 @@ mod tests {
         assert!(result["entries"][0].get("reflection").is_none());
         assert_eq!(result["omitted"], json!([]));
         let requests = seen.lock().unwrap().clone();
-        assert_eq!(requests.len(), 8);
+        assert_eq!(requests.len(), 7);
         assert_eq!(
             models_for(&requests, "Vale, who I am now:"),
             ["reflection-model", "reflection-model"]
@@ -4625,6 +4625,64 @@ mod tests {
         );
         assert_eq!(scene(&app, &context()).await.0, StatusCode::BAD_GATEWAY);
         assert!(seen.lock().unwrap().is_empty());
+        server.abort();
+    }
+    #[test]
+    fn later_arrivals_only_hear_lines_they_witnessed() {
+        let mut c = context();
+        c.conversation = vec![SpokenLine {
+            actor_id: "vale".into(),
+            text: "A secret between us.".into(),
+            witnesses: Some(vec!["vale".into()]),
+        }];
+        assert!(transcript(&c, &c.entities[0], Part::Line).contains("A secret between us."));
+        let moth = c.entities.iter().find(|e| e.id == "moth").unwrap();
+        assert!(!transcript(&c, moth, Part::Line).contains("A secret between us."));
+        c.conversation[0].witnesses = None;
+        assert!(!transcript(&c, &c.entities[0], Part::Line).contains("A secret between us."));
+    }
+
+    #[tokio::test]
+    async fn shared_reflections_use_the_new_thought_and_keep_evidence_and_models() {
+        let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
+        let provider = plain_provider(seen.clone(), |_, stem| stem_reply(stem));
+        let (address, server) = serve(provider).await;
+        let mut c = context();
+        c.entities[0].memories.push(Memory {
+            seq: Some(4),
+            turn: 1,
+            kind: "event".into(),
+            text: "The keeper declined my request.".into(),
+        });
+        let settings = VoiceSettings {
+            reflection_model: Some("reflection-model".into()),
+            ..VoiceSettings::hosted()
+        };
+        let config = tiered_config(address, &[("reflection-model", false)]);
+        let result = complete_selected(
+            &config,
+            &c,
+            &cast_models(),
+            &settings,
+            &["vale".into()],
+            true,
+            None,
+        )
+        .await
+        .unwrap();
+        let growth = &result["entries"][0]["reflection"];
+        assert_eq!(growth["evidence"], json!([4]));
+        assert_eq!(growth["models"]["thought"], "vale-model");
+        assert_eq!(growth["models"]["persona"], "reflection-model");
+        let requests = seen.lock().unwrap();
+        let revision = requests
+            .iter()
+            .find(|r| stem_of(r) == "Vale, who I am now:")
+            .unwrap();
+        assert!(revision["messages"][1]["content"]
+            .as_str()
+            .unwrap()
+            .contains("On my mind: I felt welcome."));
         server.abort();
     }
 }

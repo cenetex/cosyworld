@@ -47,6 +47,7 @@ fn context(scene: &Value, ids: Option<&[String]>) -> Result<(Context, Vec<String
         for entity in &mut context.entities {
             if Some(&entity.id) != ids.first() {
                 entity.inner_life = None;
+                entity.facts.retain(|f| !f.starts_with("I expected "));
             }
         }
         context.speakers = ids
