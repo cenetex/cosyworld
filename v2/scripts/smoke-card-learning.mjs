@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
+import { resolve } from "node:path";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import {
@@ -47,7 +48,7 @@ world.memories.keeper.innerLife = {
 };
 const output =
   process.env.COSYWORLD_LEARNING_SCREENSHOTS ||
-  "/private/tmp/cosyworld-avatar-learning-ui";
+  resolve("output/card-learning");
 await mkdir(output, { recursive: true });
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));

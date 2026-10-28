@@ -365,6 +365,7 @@ jobs:
             output/theban-scenery/*.json
             output/image-first/*.png
             output/card-toolbar/*.png
+            output/card-learning/*.png
             output/image-first/*.json
             output/pond-crossings-check/*.png
             output/pond-crossings-check/*.json
