@@ -1,5 +1,7 @@
 import { canCarryQuest, questCarried, questDropQuiet } from "./quest-hands.mjs";
-import { BOARDY, boardyQuest } from "./boardyai.mjs";
+import { BOARDY, connectedHumans } from "./boardyai.mjs";
+import { introductionPrograms } from "./introductions.mjs";
+import { crossingExits } from "./pack-rules.mjs";
 import { canOfferQuest } from "./quest-offers.mjs";
 import {
   collectionCards,
@@ -16,6 +18,7 @@ import {
   humanQuestPrograms,
   humanAvatar,
   humanAvatarIds,
+  humanPresent,
   controlledByHuman,
   sharedEnabled,
 } from "./human-cast.mjs";
@@ -103,6 +106,8 @@ export const knownActors = (s) =>
         packDiscovered(s, packOf(id).id) ||
         s.packs?.[packOf(id).id]?.met?.[id] !== undefined),
   );
+export const personalQuestActor = (actor) =>
+  !isPackActor(actor) || packPeople[actor]?.personalQuests === true;
 export const programsFor = (s, actor) =>
   (s.opening?.version === 2 && forest.pondOpeningPrograms[actor]) ||
   (s.opening ? openingPrograms : questPrograms)[actor] || [];
@@ -134,7 +139,7 @@ export const targetsFor = (s, actor) => {
   const focused = focusedQuest(s, actor);
   if (focused && focused.completedTurn === null && !focused.retired)
     return alternatives(focused.program.steps[focused.step]);
-  return hasQuestPrograms(s) && !isPackActor(actor)
+  return hasQuestPrograms(s) && personalQuestActor(actor)
     ? alternatives(programFor(s, actor)?.steps[s.actors[actor].progress.step])
     : [interest(s, actor)];
 };
@@ -189,7 +194,7 @@ export function generateProgram(
   { independent = false, solo = false } = {},
 ) {
   const progress = s.actors[actor].progress;
-  const actors = knownActors(s).filter((id) => !isPackActor(id)),
+  const actors = knownActors(s).filter(personalQuestActor),
     ids = Object.keys(s.items).filter((id) => entityActive(s, id));
   const here = s.actors[actor].place;
   const traversed = [here];
@@ -197,6 +202,13 @@ export function generateProgram(
     for (const next of [
       ...places[traversed[i]].exits,
       ...packExits(s, traversed[i], actor),
+      ...(packPeople[actor]?.personalQuests
+        ? crossingExits(s, traversed[i], actor, {
+            player: "vale",
+            humanActors: s.controlledActors,
+            baseSoundAt: () => false,
+          })
+        : []),
     ])
       if (
         entityActive(s, next) &&
@@ -207,7 +219,12 @@ export function generateProgram(
   // Travel through added regions can lead home, but shore programs must not
   // ask a resident to attend a meeting outside that resident's domain.
   const reachable = traversed
-    .filter((id) => (sharedEnabled(s) && humanAvatar(actor)) || !packPlaces[id])
+    .filter(
+      (id) =>
+        (sharedEnabled(s) &&
+          (humanAvatar(actor) || packPeople[actor]?.personalQuests)) ||
+        !packPlaces[id],
+    )
     .slice(0, 6);
   const placeOf = (item) =>
     s.actors[ownerOf(s, item)]?.place || ownerOf(s, item);
@@ -359,13 +376,33 @@ export function generateProgram(
       things[id]?.name ||
       places[id]?.name ||
       { vale: "Vale", moth: "Pip", keeper: "the keeper" }[id] ||
-      humanAvatar(id)?.name,
+      humanAvatar(id)?.name ||
+      packPeople[id]?.name,
   });
+  if (lifeOf(s, actor))
+    catalog.push(
+      ...introductionPrograms(
+        s,
+        actor,
+        base,
+        (actor === BOARDY ? connectedHumans(s) : actors).filter(
+          (id) =>
+            id !== actor &&
+            (actor === BOARDY || reachable.includes(s.actors[id].place)) &&
+            (!humanAvatar(id) || humanPresent(s, id)),
+        ),
+        (id) =>
+          humanAvatar(id)?.name ||
+          packPeople[id]?.name ||
+          (id === "moth" ? "Pip" : id === "keeper" ? "the keeper" : id),
+      ),
+    );
   const preferences = {
     vale: ["crossing", "answer", "delivery", "gathering", "bargain"],
     moth: ["delivery", "gathering", "crossing", "answer", "bargain"],
     keeper: ["answer", "delivery", "crossing", "gathering", "bargain"],
   }[actor] || ["delivery", "gathering", "crossing", "answer", "bargain"];
+  if (!preferences.includes("introduction")) preferences.push("introduction");
   catalog.push({
     ...base,
     purpose: `Make a bargain for the ${things[item].name}, then choose where to carry it and whom to meet.`,
@@ -386,7 +423,8 @@ export function generateProgram(
       ? distinct
       : fresh;
   const rank = (p) =>
-    personalQuestRank(s, actor, p) +
+    (actor === BOARDY && kindOf(p) === "introduction" ? -10 : 0) +
+    personalQuestRank(s, actor, p) / (actor === BOARDY ? 50 : 1) +
     preferences.indexOf(kindOf(p)) +
     recentKinds.reduce(
       (n, kind, i) => n + (kind === kindOf(p) ? 5 + i * 2 : 0),
@@ -432,7 +470,6 @@ function currentProgram(s, actor, card) {
     : p;
 }
 export function actorQuests(s, actor) {
-  if (actor === BOARDY) return [boardyQuest(s)].filter(Boolean);
   if (!s.actors[actor]) return [];
   const c = collectionOf(s, actor),
     raw = c ? null : rawProgram(s, actor);
@@ -480,6 +517,7 @@ export function actorQuests(s, actor) {
 export const activeQuestKey = (s, actor) =>
   actorQuests(s, actor).find((q) => q.status === "active")?.key || null;
 export function installQuestCollection(s, actor) {
+  if (isPackActor(actor) && !entityActive(s, actor)) return;
   const life = lifeOf(s, actor);
   if (!life) return;
   if (life.collection) {
@@ -601,6 +639,9 @@ export function recordQuestProgress(
             ? {
                 generated: {
                   situation: old.program.generated.situation,
+                  ...(old.program.generated.pair
+                    ? { pair: old.program.generated.pair }
+                    : {}),
                   ...(old.program.generated.solo ? { solo: true } : {}),
                 },
               }

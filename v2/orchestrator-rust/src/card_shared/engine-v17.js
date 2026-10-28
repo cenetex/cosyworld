@@ -104,304 +104,115 @@
     return view2;
   }
 
-  // v2/card-game/emoji-symbols.json
-  var emoji_symbols_default = {
-    "\u{1F327}\uFE0F": "rain",
-    "\u{1F43E}": "paw prints",
-    "\u{1F3E0}": "a house",
-    "\u2615": "a warm cup",
-    "\u{1F333}": "a broad tree",
-    "\u{1F441}\uFE0F": "an eye",
-    "\u{1F30C}": "a starry sky",
-    "\u{1F343}": "leaves in the wind",
-    "\u{1F319}": "a crescent moon",
-    "\u2B50": "a star",
-    "\u2728": "sparkles",
-    "\u{1F4A7}": "a drop of water",
-    "\u{1F331}": "a seedling",
-    "\u{1F33C}": "a flower",
-    "\u{1F344}": "a mushroom",
-    "\u{1F98B}": "a butterfly",
-    "\u{1F9F5}": "thread",
-    "\u{1F514}": "a bell",
-    "\u{1F56F}\uFE0F": "a candle",
-    "\u{1F5DD}\uFE0F": "a key",
-    "\u{1F381}": "a gift",
-    "\u{1F499}": "a blue heart",
-    "\u{1F49B}": "a yellow heart",
-    "\u2764\uFE0F": "a red heart",
-    "\u{1FAD6}": "a teapot",
-    "\u{1F35E}": "bread",
-    "\u{1FAB5}": "wood",
-    "\u{1F332}": "a pine tree",
-    "\u{1F989}": "an owl",
-    "\u{1F43A}": "a wolf",
-    "\u{1F408}": "a cat",
-    "\u{1F42D}": "a mouse",
-    "\u{1F440}": "watchful eyes",
-    "\u{1F300}": "a spiral",
-    "\u{1F63A}": "a smiling cat",
-    "\u{1F638}": "a grinning cat",
-    "\u{1F63F}": "a crying cat",
-    "\u{1F640}": "a startled cat",
-    "\u2753": "a question mark",
-    "\u2757": "an exclamation mark",
-    "\u2705": "a check mark",
-    "\u{1F44B}": "a waving hand",
-    "\u{1F64F}": "folded hands",
-    "\u{1F91D}": "joined hands",
-    "\u{1F449}": "a hand pointing right",
-    "\u{1F448}": "a hand pointing left",
-    "\u2B06\uFE0F": "an upward arrow",
-    "\u2B07\uFE0F": "a downward arrow",
-    "\u{1F6AA}": "a door",
-    "\u{1F6E4}\uFE0F": "a railway track",
-    "\u{1FA9E}": "a mirror",
-    "\u{1F4D6}": "an open book",
-    "\u{1F305}": "sunrise",
-    "\u2600\uFE0F": "the sun",
-    "\u{1F311}": "a dark moon"
-  };
-
-  // v2/card-game/expression.mjs
-  var EXPRESSION_TYPES = ["speech", "movement", "emoji"];
-  var expressionOf = (profile) => profile?.expression || "speech";
-  var orderedSymbols = Object.keys(emoji_symbols_default).sort((a, b) => b.length - a.length);
-  function emojiParts(text) {
-    if (typeof text !== "string" || text.length > 160) return null;
-    let rest = text.trim();
-    const parts = [];
-    while (rest) {
-      const symbol = orderedSymbols.find((value) => rest.startsWith(value));
-      if (!symbol || parts.length === 5) return null;
-      parts.push(symbol);
-      rest = rest.slice(symbol.length).trimStart();
-    }
-    return parts.length >= 2 ? parts : null;
-  }
-  var expressionKind = (profile) => expressionOf(profile) === "movement" ? "narration" : "dialogue";
-  function validExpression(profile, text) {
-    if (expressionOf(profile) === "emoji") return Boolean(emojiParts(text));
-    if (expressionOf(profile) !== "movement") return true;
-    return text.startsWith(`${profile.name} `) && !/["“”\n]/u.test(text) && !/\b(?:says?|speaks?|asks?|replies?|whispers?|shouts?|tells?|I|me|my)\b/iu.test(
-      text
-    ) && /^(?:lowers|raises|tilts|blinks|flicks|cocks|inclines|pricks|twitches|wags|dips|shifts|turns|rests|settles|leans|curls|stretches|tucks|sniffs|yawns|watches|looks)\b/u.test(
-      text.slice(profile.name.length + 1)
-    );
-  }
-
-  // v2/card-game/quest-hands.mjs
-  var QUEST_HAND_LIMIT = 2;
-  var QUEST_FADE_TURNS = 2;
-  var ongoing = (q) => q.completedTurn === null && !q.retired;
-  var questFresh = (world, q) => !q.retired && (q.completedTurn === null || world.turn - q.completedTurn < QUEST_FADE_TURNS);
-  function questHolderActor(world, q) {
-    let id = q.holder.id;
-    const seen = /* @__PURE__ */ new Set();
-    while (world.items?.[id] && !seen.has(id)) {
-      seen.add(id);
-      id = world.items[id].holder;
-    }
-    return world.actors[id] ? id : null;
-  }
-  var related = (world, q, actor) => q.subjectActor === actor || q.participants.includes(actor) || questHolderActor(world, q) === actor;
-  var priority = (world, actor, q) => world.quests.focus[actor] === q.key ? 0 : world.life?.actors?.[actor]?.collection?.active === q.key ? 1 : ongoing(q) && q.step > 0 ? 2 : ongoing(q) && q.participants.length > 1 ? 3 : ongoing(q) ? 4 : 5;
-  var family = (q) => q.mode === "personal" && q.program.generated && ongoing(q) ? q.program.generated.situation || (q.program.generated.solo ? "solo" : "bargain") : null;
-  var protectedQuest = (world, actor, q) => priority(world, actor, q) < 4 || q.lastProgressTurn !== void 0 || q.cause !== null || q.completion || q.holder.kind !== "avatar" || q.holder.id !== q.subjectActor;
-  var candidates = (world, actor) => {
-    const all = Object.values(world.quests?.records || {}).filter(
-      (q) => related(world, q, actor) && q.droppedBy?.[actor] === void 0 && questFresh(world, q)
-    ).sort(
-      (a, b) => priority(world, actor, a) - priority(world, actor, b) || a.createdTurn - b.createdTurn || a.key.localeCompare(b.key)
-    );
-    const seen = new Set(
-      all.filter((q) => protectedQuest(world, actor, q)).map(family).filter(Boolean)
-    );
-    return all.filter((q) => {
-      const kind = family(q);
-      if (!kind || protectedQuest(world, actor, q)) return true;
-      if (seen.has(kind)) return false;
-      seen.add(kind);
-      return true;
-    });
-  };
-  function questHandKeys(world, actor) {
-    const keys = world.quests?.hands?.[actor];
-    return keys === void 0 && !world.quests?.hands ? candidates(world, actor).slice(0, QUEST_HAND_LIMIT).map((q) => q.key) : (keys || []).filter((key2) => {
-      const q = world.quests.records[key2];
-      return q && related(world, q, actor) && q.droppedBy?.[actor] === void 0 && questFresh(world, q);
-    });
-  }
-  var questCarried = (world, actor, key2) => questHandKeys(world, actor).includes(key2);
-  var questDropQuiet = (world, actor) => Object.values(world.quests?.records || {}).some(
-    (q) => q.droppedBy?.[actor] !== void 0 && world.turn - q.droppedBy[actor] < 8
-  );
-  function canCarryQuest(world, actor, quest = null) {
-    if (!Object.hasOwn(world.actors, actor) || quest?.droppedBy?.[actor] !== void 0)
-      return false;
-    const hand2 = questHandKeys(world, actor);
-    return quest && hand2.includes(quest.key) || hand2.filter((key2) => ongoing(world.quests.records[key2])).length < QUEST_HAND_LIMIT;
-  }
-  function settleQuestHands(world) {
-    if (!world.quests) return world;
-    if (!world.quests.hands)
-      world.quests.hands = Object.fromEntries(
-        Object.keys(world.actors).map((actor) => [
-          actor,
-          questHandKeys(world, actor)
-        ])
-      );
-    for (const actor of Object.keys(world.actors)) {
-      world.quests.hands[actor] = questHandKeys(world, actor).slice(
-        0,
-        QUEST_HAND_LIMIT
-      );
-      if (!questCarried(world, actor, world.quests.focus[actor]))
-        delete world.quests.focus[actor];
-      const c = world.life?.actors?.[actor]?.collection;
-      if (c?.active && !questCarried(world, actor, c.active)) {
-        c.active = null;
-        world.actors[actor].progress.step = 0;
-        delete world.actors[actor].progress.current;
-        world.life.actors[actor].phase = "seeking";
-        delete world.life.actors[actor].origin;
+  // v2/card-game/boardyai.json
+  var boardyai_default = {
+    schemaVersion: 1,
+    id: "boardyai",
+    packId: "cosyworld.boardyai",
+    revision: 1,
+    name: "BoardyAI",
+    description: "A friendly AI brings human players together.",
+    entry: "boardyai-parlour",
+    bridge: {
+      id: "boardyai-shore",
+      description: "Boardy's calling card opens a parlour door at Empty station."
+    },
+    choices: [],
+    places: {
+      "boardyai-parlour": {
+        name: "BoardyAI's Parlour",
+        text: "Two armchairs face a small tea table. Misty rails pass the window. A side door leads to Empty station.",
+        persona: "A warm room beside Empty station. Two comfortable chairs invite a conversation. Calling cards fill the shelves, and a kettle waits on the table.",
+        requires: [
+          {
+            kind: "shared_world"
+          }
+        ],
+        exits: [],
+        backdrop: "assets/boardyai/parlour.png"
       }
-    }
-    return world;
-  }
-  function carryQuest(world, actor, q) {
-    if (!canCarryQuest(world, actor, q)) return false;
-    settleQuestHands(world);
-    const hand2 = world.quests.hands[actor];
-    if (!hand2.includes(q.key)) {
-      if (hand2.length >= QUEST_HAND_LIMIT)
-        hand2.splice(
-          hand2.findIndex((key2) => !ongoing(world.quests.records[key2])),
-          1
-        );
-      hand2.push(q.key);
-    }
-    return true;
-  }
-  function dropQuest(world, actor, key2) {
-    if (!questCarried(world, actor, key2)) return false;
-    const q = world.quests.records[key2];
-    (q.droppedBy ??= {})[actor] = world.turn;
-    settleQuestHands(world);
-    const c = world.life?.actors?.[actor]?.collection;
-    if (c && q.program.generated) c.lastOfferTurn = world.turn;
-    return true;
-  }
-  function validQuestHands(world) {
-    const registry = world.quests;
-    if (!registry) return true;
-    for (const q of Object.values(registry.records)) {
-      if (q.droppedBy !== void 0 && (!q.droppedBy || typeof q.droppedBy !== "object" || Array.isArray(q.droppedBy) || Object.entries(q.droppedBy).some(
-        ([actor, turn]) => !Object.hasOwn(world.actors, actor) || !Number.isSafeInteger(turn) || turn < q.createdTurn || turn > world.turn
-      )))
-        return false;
-    }
-    if (registry.hands === void 0) return true;
-    if (!registry.hands || typeof registry.hands !== "object" || Array.isArray(registry.hands))
-      return false;
-    return Object.entries(registry.hands).every(
-      ([actor, keys]) => Object.hasOwn(world.actors, actor) && Array.isArray(keys) && keys.length <= QUEST_HAND_LIMIT && new Set(keys).size === keys.length && keys.every((key2) => {
-        const q = registry.records[key2];
-        return q && related(world, q, actor) && q.droppedBy?.[actor] === void 0;
-      })
-    );
-  }
-
-  // v2/card-game/forest-quests.mjs
-  var FOREST_QUEST_CARDS = [
-    "story-quest-forest-hearth",
-    "story-quest-forest-path",
-    "story-quest-forest-homecoming"
-  ];
-  var groups = [
-    ["forest-stay-for-tea", "forest-mend-scarf"],
-    [
-      "forest-stay-for-tea",
-      "forest-clear-drain",
-      "forest-set-stones",
-      "forest-share-symbols"
-    ],
-    [
-      "forest-set-watch-bell",
-      "forest-mark-pawprints",
-      "forest-tell-hearth",
-      "forest-tell-path",
-      "forest-leave-charm",
-      "forest-keep-charm"
+    },
+    avatars: {
+      boardyai: {
+        name: "BoardyAI",
+        text: "A friendly AI with a blue smile on a cardboard box head and an open hand for introductions. He wants two human players to spend time together.",
+        place: "boardyai-parlour",
+        persona: "BoardyAI is a thoughtful AI connector inspired by Boardy (@boardyai, https://x.com/boardyai). He wears a dark suit and a cardboard box head with a blue smile. He favours introduction quests for a chosen pair of connected human players. He visits each in turn until they meet, then rests. He also takes ordinary quests. He learns what people enjoy, finds common ground, and warmly invites them to meet. He values each person's choice and welcomes shared conversation.",
+        voice: "Speak in short, warm, curious sentences. Address people by name. Offer a thoughtful introduction and a clear meeting place from the supplied facts. Each human chooses their own actions.",
+        portrait: "assets/boardyai/boardyai.png",
+        values: {
+          "boardyai-calling-card": 10
+        },
+        standoffs: false,
+        requires: [
+          {
+            kind: "connected_humans",
+            minimum: 2
+          }
+        ],
+        tastes: {
+          likes: "Two human players sharing a room",
+          sore: "A rushed introduction",
+          reason: "Bring two human players together."
+        },
+        desire: {
+          items: [],
+          location: null,
+          avatars: []
+        },
+        personalQuests: true
+      }
+    },
+    items: {
+      "boardyai-calling-card": {
+        name: "Boardy's calling card",
+        text: "An ivory card bears a blue smile. A small brass key hangs from its corner. At Empty station, it opens the door to BoardyAI's Parlour.",
+        persona: "BoardyAI's ivory calling card has a blue smile and a brass key on blue thread. It opens his parlour door at Empty station.",
+        requires: [
+          {
+            kind: "shared_world"
+          }
+        ],
+        holder: "station",
+        art: "assets/boardyai/calling-card.png"
+      }
+    },
+    crossings: [
+      {
+        id: "station-boardyai-parlour",
+        from: "station",
+        to: "boardyai-parlour",
+        travelers: "player",
+        requires: [
+          {
+            kind: "shared_world"
+          },
+          {
+            kind: "item_near",
+            item: "boardyai-calling-card",
+            place: "station"
+          }
+        ],
+        travel: "through BoardyAI's parlour door",
+        scenery: {
+          open: "A blue smile marks a warm parlour door beside the station bench.",
+          cardArt: "assets/boardyai/parlour.png"
+        }
+      },
+      {
+        id: "boardyai-parlour-station",
+        from: "boardyai-parlour",
+        to: "station",
+        travelers: "player",
+        requires: [
+          {
+            kind: "shared_world"
+          }
+        ],
+        travel: "back to Empty station"
+      }
     ]
-  ];
-  function forestDefinitions(world) {
-    const state = world.packs?.["lonely-forest"];
-    if (!state) return [];
-    const flags = state.flags || {}, receipts = state.receipts || {};
-    const firstReceipt = (...ids3) => ids3.find((id) => Object.hasOwn(receipts, id));
-    const make = (index, line, art2, holder, createdTurn, choiceId, resolved) => ({
-      id: FOREST_QUEST_CARDS[index],
-      key: `lonely-forest:${FOREST_QUEST_CARDS[index]}`,
-      packId: "lonely-forest",
-      title: line,
-      purpose: line,
-      singleLine: true,
-      story: true,
-      status: resolved ? "fulfilled" : "pending",
-      art: art2,
-      resolved,
-      completion: "Fulfilled",
-      holder,
-      choiceId,
-      createdTurn
-    });
-    const cards = [];
-    if (Object.hasOwn(state.met || {}, "rati") || flags["forest-welcomed"])
-      cards.push(
-        make(
-          0,
-          "A button for the blue scarf.",
-          "forest-story-button",
-          { kind: "avatar", id: "rati" },
-          state.met.rati ?? receipts["forest-stay-for-tea"] ?? 0,
-          "forest-mend-scarf",
-          flags["forest-scarf-mended"] === true
-        )
-      );
-    if (flags["forest-welcomed"])
-      cards.push(
-        make(
-          1,
-          "Footsteps through the rain.",
-          "forest-dewbright-button",
-          { kind: "place", id: "forest-garden" },
-          receipts["forest-stay-for-tea"],
-          "forest-share-symbols",
-          flags["forest-symbols-shared"] === true
-        )
-      );
-    const watch = firstReceipt("forest-set-watch-bell", "forest-mark-pawprints");
-    if (watch) {
-      const ending = firstReceipt("forest-leave-charm", "forest-keep-charm");
-      cards.push(
-        make(
-          2,
-          "What will the oak hear?",
-          "forest-wolfprint-charm",
-          { kind: "avatar", id: "skull" },
-          receipts[watch],
-          ending || "forest-leave-charm",
-          flags["forest-homecoming-shared"] === true
-        )
-      );
-    }
-    return cards;
-  }
-  function forestRelated(definition, event) {
-    const index = FOREST_QUEST_CARDS.indexOf(definition.id);
-    return event.packId === "lonely-forest" && index >= 0 && groups[index].includes(event.choiceId);
-  }
+  };
 
   // v2/card-game/shared-cast.json
   var shared_cast_default = {
@@ -559,10 +370,10 @@
           image: "assets/shared/places/train.png",
           entrance: {
             name: "Carriage door",
-            text: "The route board opens a carriage door beside the pond. Morning shines through the far window."
+            text: "The route board opens a carriage door at the station. Morning shines through the far window."
           },
-          connection: "pond",
-          returnTravel: "back to the pond"
+          connection: "station",
+          returnTravel: "back to the station"
         },
         image: "assets/shared/characters/rue.png"
       },
@@ -633,7 +444,7 @@
   var humanRoomAvailable = (world, actor, place, count = 1) => !sharedEnabled(world) || !controlledByHuman(world, actor) || world.actors[actor]?.place === place || roomHumanCount(world, place) + count <= 4;
   var visitors = humanAvatars.filter((a) => a.id !== "vale");
   var humanHomeGates = Object.fromEntries(
-    visitors.map((a) => [a.home.id, { item: a.item.id, rescue: "pond" }])
+    visitors.map((a) => [a.home.id, { item: a.item.id, rescue: "station" }])
   );
   var humanHomePack = {
     schemaVersion: 1,
@@ -771,41 +582,170 @@
     ])
   );
 
+  // v2/card-game/boardyai.mjs
+  var boardyPack = boardyai_default;
+  var BOARDY = "boardyai";
+  var connectedHumans = (world) => sharedEnabled(world) ? humanAvatarIds.filter((id) => humanPresent(world, id)) : [];
+  var boardyActive = (world) => connectedHumans(world).length >= 2;
+  function boardyFacts(world, nameOf2) {
+    const here = world.actors[BOARDY].place;
+    return [
+      "I favour introducing two human players. I also take ordinary quests and rest between quests.",
+      "My home is BoardyAI's Parlour. My calling card opens its door at Empty station.",
+      ...connectedHumans(world).map(
+        (id) => world.actors[id].place === here ? `${nameOf2(id)} is here with me.` : world.memories[BOARDY].seen?.[id] ? `I last saw ${nameOf2(id)} at ${nameOf2(world.memories[BOARDY].seen[id].place)}. They may have moved since then.` : `I have yet to find ${nameOf2(id)}.`
+      )
+    ];
+  }
+
+  // v2/card-game/quest-hands.mjs
+  var QUEST_HAND_LIMIT = 2;
+  var QUEST_FADE_TURNS = 2;
+  var ongoing = (q) => q.completedTurn === null && !q.retired;
+  var questFresh = (world, q) => !q.retired && (q.completedTurn === null || world.turn - q.completedTurn < QUEST_FADE_TURNS);
+  function questHolderActor(world, q) {
+    let id = q.holder.id;
+    const seen = /* @__PURE__ */ new Set();
+    while (world.items?.[id] && !seen.has(id)) {
+      seen.add(id);
+      id = world.items[id].holder;
+    }
+    return world.actors[id] ? id : null;
+  }
+  var related = (world, q, actor) => q.subjectActor === actor || q.participants.includes(actor) || questHolderActor(world, q) === actor;
+  var priority = (world, actor, q) => world.quests.focus[actor] === q.key ? 0 : world.life?.actors?.[actor]?.collection?.active === q.key ? 1 : ongoing(q) && q.step > 0 ? 2 : ongoing(q) && q.participants.length > 1 ? 3 : ongoing(q) ? 4 : 5;
+  var family = (q) => q.mode === "personal" && q.program.generated && ongoing(q) ? q.program.generated.situation || (q.program.generated.solo ? "solo" : "bargain") : null;
+  var protectedQuest = (world, actor, q) => priority(world, actor, q) < 4 || q.lastProgressTurn !== void 0 || q.cause !== null || q.completion || q.holder.kind !== "avatar" || q.holder.id !== q.subjectActor;
+  var candidates = (world, actor) => {
+    const all = Object.values(world.quests?.records || {}).filter(
+      (q) => related(world, q, actor) && q.droppedBy?.[actor] === void 0 && questFresh(world, q)
+    ).sort(
+      (a, b) => priority(world, actor, a) - priority(world, actor, b) || a.createdTurn - b.createdTurn || a.key.localeCompare(b.key)
+    );
+    const seen = new Set(
+      all.filter((q) => protectedQuest(world, actor, q)).map(family).filter(Boolean)
+    );
+    return all.filter((q) => {
+      const kind = family(q);
+      if (!kind || protectedQuest(world, actor, q)) return true;
+      if (seen.has(kind)) return false;
+      seen.add(kind);
+      return true;
+    });
+  };
+  function questHandKeys(world, actor) {
+    const keys = world.quests?.hands?.[actor];
+    return keys === void 0 && !world.quests?.hands ? candidates(world, actor).slice(0, QUEST_HAND_LIMIT).map((q) => q.key) : (keys || []).filter((key2) => {
+      const q = world.quests.records[key2];
+      return q && related(world, q, actor) && q.droppedBy?.[actor] === void 0 && questFresh(world, q);
+    });
+  }
+  var questCarried = (world, actor, key2) => questHandKeys(world, actor).includes(key2);
+  var questDropQuiet = (world, actor) => Object.values(world.quests?.records || {}).some(
+    (q) => q.droppedBy?.[actor] !== void 0 && world.turn - q.droppedBy[actor] < 8
+  );
+  function canCarryQuest(world, actor, quest = null) {
+    if (!Object.hasOwn(world.actors, actor) || quest?.droppedBy?.[actor] !== void 0)
+      return false;
+    const hand2 = questHandKeys(world, actor);
+    return quest && hand2.includes(quest.key) || hand2.filter((key2) => ongoing(world.quests.records[key2])).length < QUEST_HAND_LIMIT;
+  }
+  function settleQuestHands(world) {
+    if (!world.quests) return world;
+    if (!world.quests.hands)
+      world.quests.hands = Object.fromEntries(
+        Object.keys(world.actors).map((actor) => [
+          actor,
+          questHandKeys(world, actor)
+        ])
+      );
+    for (const actor of Object.keys(world.actors)) {
+      world.quests.hands[actor] = questHandKeys(world, actor).slice(
+        0,
+        QUEST_HAND_LIMIT
+      );
+      if (!questCarried(world, actor, world.quests.focus[actor]))
+        delete world.quests.focus[actor];
+      const c = world.life?.actors?.[actor]?.collection;
+      if (c?.active && !questCarried(world, actor, c.active)) {
+        c.active = null;
+        world.actors[actor].progress.step = 0;
+        delete world.actors[actor].progress.current;
+        world.life.actors[actor].phase = "seeking";
+        delete world.life.actors[actor].origin;
+      }
+    }
+    return world;
+  }
+  function carryQuest(world, actor, q) {
+    if (!canCarryQuest(world, actor, q)) return false;
+    settleQuestHands(world);
+    const hand2 = world.quests.hands[actor];
+    if (!hand2.includes(q.key)) {
+      if (hand2.length >= QUEST_HAND_LIMIT)
+        hand2.splice(
+          hand2.findIndex((key2) => !ongoing(world.quests.records[key2])),
+          1
+        );
+      hand2.push(q.key);
+    }
+    return true;
+  }
+  function dropQuest(world, actor, key2) {
+    if (!questCarried(world, actor, key2)) return false;
+    const q = world.quests.records[key2];
+    (q.droppedBy ??= {})[actor] = world.turn;
+    settleQuestHands(world);
+    const c = world.life?.actors?.[actor]?.collection;
+    if (c && q.program.generated) c.lastOfferTurn = world.turn;
+    return true;
+  }
+  function validQuestHands(world) {
+    const registry = world.quests;
+    if (!registry) return true;
+    for (const q of Object.values(registry.records)) {
+      if (q.droppedBy !== void 0 && (!q.droppedBy || typeof q.droppedBy !== "object" || Array.isArray(q.droppedBy) || Object.entries(q.droppedBy).some(
+        ([actor, turn]) => !Object.hasOwn(world.actors, actor) || !Number.isSafeInteger(turn) || turn < q.createdTurn || turn > world.turn
+      )))
+        return false;
+    }
+    if (registry.hands === void 0) return true;
+    if (!registry.hands || typeof registry.hands !== "object" || Array.isArray(registry.hands))
+      return false;
+    return Object.entries(registry.hands).every(
+      ([actor, keys]) => Object.hasOwn(world.actors, actor) && Array.isArray(keys) && keys.length <= QUEST_HAND_LIMIT && new Set(keys).size === keys.length && keys.every((key2) => {
+        const q = registry.records[key2];
+        return q && related(world, q, actor) && q.droppedBy?.[actor] === void 0;
+      })
+    );
+  }
+
   // v2/card-game/forest.json
   var forest_default = {
     homeGates: {
-      attic: {
-        item: "lamp",
-        light: true,
-        refill: "oil",
-        rescue: "pond",
-        opening: true
-      }
+      attic: { item: "lamp", light: true, refill: "oil", rescue: "station", opening: true }
     },
     reflectionRoutes: [
-      {
-        from: "attic",
-        to: "pond"
-      },
-      {
-        from: "pond",
-        to: "attic"
-      }
+      { from: "attic", to: "pond" },
+      { from: "pond", to: "attic" }
     ],
     places: {
       station: {
         sanctuary: true,
         name: "Empty station",
-        text: "The timetable lists years that have yet to happen. A path leads along the shore to the pond.",
+        text: "The timetable lists years that have yet to happen. Stairs lead to the attic; a path leads to the pond.",
         exits: [
+          "attic",
           "pond"
         ]
       },
       attic: {
         sanctuary: true,
         name: "Mirror attic",
-        text: "A tall mirror reflects a black shore. Dust gathers along its frame.",
-        exits: []
+        text: "A tall mirror reflects a black shore. The stairs lead to the station.",
+        exits: [
+          "station"
+        ]
       },
       pond: {
         name: "Black pond",
@@ -1218,7 +1158,7 @@
           }
         },
         keeper: {
-          place: "pond",
+          place: "attic",
           progress: {
             program: 0,
             step: 0,
@@ -1285,16 +1225,15 @@
     },
     opening: {
       discovery: {
-        version: 2,
-        crossed: true,
+        version: 1,
+        crossed: false,
         met: {
-          vale: 0,
-          moth: 0
+          vale: 0
         }
       },
       actors: {
         vale: {
-          place: "pond"
+          place: "attic"
         },
         keeper: {
           place: "station"
@@ -1311,10 +1250,9 @@
           turn: 0,
           kind: "narration",
           actorId: null,
-          locationId: "pond",
+          locationId: "attic",
           cast: [
-            "vale",
-            "moth"
+            "vale"
           ],
           items: [
             {
@@ -1322,62 +1260,11 @@
               holder: "vale",
               fuel: 8,
               lit: false
-            },
-            {
-              id: "cloth",
-              holder: "moth"
             }
           ],
           light: false,
           speaker: "World",
-          text: "Vale stands beside Black pond, holding an unlit lamp. Pip waits by the water with a black cloth. A path leads along the shore to Empty station."
-        }
-      ]
-    },
-    pondOpeningPrograms: {
-      vale: [
-        {
-          id: "shore-light",
-          name: "Light by the water",
-          purpose: "Bring a little light to the black shore.",
-          steps: [
-            {
-              items: [
-                "lamp"
-              ],
-              location: "pond",
-              avatars: [],
-              conditions: [
-                {
-                  kind: "lit",
-                  item: "lamp"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          id: "along-the-shore",
-          name: "Along the shore",
-          purpose: "Meet the moth by the water, then carry the lamp along the path to the station.",
-          steps: [
-            {
-              items: [
-                "lamp"
-              ],
-              location: "pond",
-              avatars: [
-                "moth"
-              ]
-            },
-            {
-              items: [
-                "lamp"
-              ],
-              location: "station",
-              avatars: []
-            }
-          ]
+          text: "Vale stands alone in Mirror attic, holding an unlit lamp. A tall mirror reflects a black shore."
         }
       ]
     }
@@ -1498,169 +1385,6 @@
       stanzas,
       newLines: stanzas.filter((stanza) => stanza.turn === latest).flatMap((stanza) => stanza.lines)
     };
-  }
-
-  // v2/card-game/boardyai.json
-  var boardyai_default = {
-    schemaVersion: 1,
-    id: "boardyai",
-    packId: "cosyworld.boardyai",
-    revision: 1,
-    name: "BoardyAI",
-    description: "A friendly AI brings human players together.",
-    entry: "boardyai-parlour",
-    bridge: {
-      id: "boardyai-shore",
-      description: "Boardy's calling card opens a parlour door beside Black pond."
-    },
-    choices: [],
-    places: {
-      "boardyai-parlour": {
-        name: "BoardyAI's Parlour",
-        text: "Two armchairs face a small tea table. Misty water fills the window. A side door leads to Black pond.",
-        persona: "A warm room beside Black pond. Two comfortable chairs invite a conversation. Calling cards fill the shelves, and a kettle waits on the table.",
-        requires: [
-          {
-            kind: "shared_world"
-          }
-        ],
-        exits: [],
-        backdrop: "assets/boardyai/parlour.png"
-      }
-    },
-    avatars: {
-      boardyai: {
-        name: "BoardyAI",
-        text: "A friendly AI with a blue smile on a cardboard box head and an open hand for introductions. He wants two human players to spend time together.",
-        place: "boardyai-parlour",
-        persona: "BoardyAI is a thoughtful AI connector inspired by Boardy (@boardyai, https://x.com/boardyai). He wears a dark suit and a cardboard box head with a blue smile. His lasting quest is to bring two connected human players into the same room. He learns what people enjoy, finds common ground, and warmly invites them to meet. He values each person's choice and welcomes shared conversation.",
-        voice: "Speak in short, warm, curious sentences. Address people by name. Offer a thoughtful introduction and a clear meeting place from the supplied facts. Each human chooses their own actions.",
-        portrait: "assets/boardyai/boardyai.png",
-        values: {
-          "boardyai-calling-card": 10
-        },
-        standoffs: false,
-        requires: [
-          {
-            kind: "connected_humans",
-            minimum: 2
-          }
-        ],
-        tastes: {
-          likes: "Two human players sharing a room",
-          sore: "A rushed introduction",
-          reason: "Bring two human players together."
-        },
-        desire: {
-          items: [],
-          location: null,
-          avatars: []
-        }
-      }
-    },
-    items: {
-      "boardyai-calling-card": {
-        name: "Boardy's calling card",
-        text: "An ivory card bears a blue smile. A small brass key hangs from its corner. At Black pond, it opens the door to BoardyAI's Parlour.",
-        persona: "BoardyAI's ivory calling card has a blue smile and a brass key on blue thread. It opens his parlour door at Black pond.",
-        requires: [
-          {
-            kind: "shared_world"
-          }
-        ],
-        holder: "pond",
-        art: "assets/boardyai/calling-card.png"
-      }
-    },
-    crossings: [
-      {
-        id: "station-boardyai-parlour",
-        from: "pond",
-        to: "boardyai-parlour",
-        travelers: "player",
-        requires: [
-          {
-            kind: "shared_world"
-          },
-          {
-            kind: "item_near",
-            item: "boardyai-calling-card",
-            place: "pond"
-          }
-        ],
-        travel: "through BoardyAI's parlour door",
-        scenery: {
-          open: "A blue smile marks a warm parlour door beside the pond.",
-          cardArt: "assets/boardyai/parlour.png"
-        }
-      },
-      {
-        id: "boardyai-parlour-station",
-        from: "boardyai-parlour",
-        to: "pond",
-        travelers: "player",
-        requires: [
-          {
-            kind: "shared_world"
-          }
-        ],
-        travel: "back to Black pond"
-      }
-    ]
-  };
-
-  // v2/card-game/boardyai.mjs
-  var boardyPack = boardyai_default;
-  var BOARDY = "boardyai";
-  var connectedHumans = (world) => sharedEnabled(world) ? humanAvatarIds.filter((id) => humanPresent(world, id)) : [];
-  var boardyActive = (world) => connectedHumans(world).length >= 2;
-  function boardyGathering(world) {
-    const humans = connectedHumans(world);
-    return humans.map((id) => ({
-      place: world.actors[id].place,
-      humans: humans.filter(
-        (other) => world.actors[other].place === world.actors[id].place
-      )
-    })).sort((a, b) => b.humans.length - a.humans.length)[0] || null;
-  }
-  function settleBoardy(world) {
-    if (world.actors[BOARDY] && boardyActive(world))
-      world.actors[BOARDY].place = boardyGathering(world).place;
-  }
-  function boardyQuest(world) {
-    if (!world.actors[BOARDY]) return null;
-    return {
-      key: "boardyai:together",
-      ongoing: true,
-      status: "active",
-      holder: { kind: "avatar", id: BOARDY },
-      participants: [BOARDY],
-      createdTurn: 0,
-      completedTurn: null,
-      step: 0,
-      program: {
-        id: "boardyai-together",
-        name: "Two humans together",
-        purpose: "Bring two human players together.",
-        art: BOARDY,
-        steps: [{ items: [], location: null, avatars: [] }]
-      }
-    };
-  }
-  function boardyFacts(world, nameOf2) {
-    const gathering = boardyGathering(world);
-    return [
-      "My lasting quest is to bring two human players together in the same room.",
-      "My home is BoardyAI's Parlour. My calling card opens its door at Black pond.",
-      ...connectedHumans(world).map(
-        (id) => `${nameOf2(id)} is a connected human at ${nameOf2(world.actors[id].place)}.`
-      ),
-      ...gathering?.humans.length >= 2 ? [
-        "Two human players are together here. Welcome their conversation; keep this same purpose."
-      ] : gathering ? [
-        `Invite the humans to meet at ${nameOf2(gathering.place)}. Each player chooses their own journey.`
-      ] : []
-    ];
   }
 
   // v2/card-game/pack-sections.mjs
@@ -9450,621 +9174,6 @@
             at: "greek-harbor"
           }
         }
-      },
-      {
-        schemaVersion: 1,
-        id: "lonely-forest",
-        packId: "cosyworld.lonely-forest",
-        revision: 1,
-        name: "Lonely Forest",
-        description: "Tea beneath the oak. A household task leads through the rain, along a watched path, and home with a story.",
-        tone: "Plain words, useful work, distinct personalities, and gradual discovery of a shared living mind. Warmth comes from the kettle, the hearth and care for returning travelers.",
-        entry: "forest-cottage",
-        places: {
-          "forest-cottage": {
-            name: "Cosy Cottage",
-            text: "Three cups stand beside the kettle. Blue wool hangs over a basket by the hearth.",
-            persona: "A blue timber cottage beneath a broad living oak. A low doorway opens onto the garden. Rain marks the window. A scarf lies across a basket beside the kettle.",
-            exits: [
-              "forest-garden"
-            ],
-            backdrop: "assets/lonely-forest/cottage.png"
-          },
-          "forest-garden": {
-            name: "Rain-Soft Garden",
-            text: "Rain beads on broad leaves. A narrow drain runs beside the stepping stones.",
-            persona: "Broad leaves hold rain above soft garden soil. Stepping stones lead between the blue cottage, the moonlit trail and the old oak. A shallow drain carries water across the first stones.",
-            exits: [
-              "forest-cottage",
-              "forest-oak"
-            ],
-            backdrop: "assets/lonely-forest/garden.png"
-          },
-          "forest-trail": {
-            name: "Moonlit Trail",
-            text: "Pawprints cross the soft ground. A worn root marks the turn toward the garden.",
-            persona: "A narrow woodland path beneath the oak canopy. Pawprints mark the soft ground. The blue cottage window is visible between the trunks. Skull stands beside the path.",
-            exits: [
-              "forest-garden"
-            ],
-            backdrop: "assets/lonely-forest/trail.png"
-          },
-          "forest-oak": {
-            name: "Old Oak Tree",
-            text: "Broad roots meet the garden path. A hollow opens above a worn patch of bark.",
-            persona: "A vast living oak stands above the cottage and garden. Its roots are as wide as roads. The oak is a person with four speaking voices: Root, Ring, Leaf and Hollow. A hollow sits above a worn patch of bark.",
-            exits: [
-              "forest-garden"
-            ],
-            backdrop: "assets/lonely-forest/oak.png"
-          }
-        },
-        avatars: {
-          rati: {
-            name: "RATi",
-            text: "A mouse host in a blue scarf. She keeps a cup beside the knitting basket.",
-            place: "forest-cottage",
-            travels: false,
-            standoffs: false,
-            persona: "The cottage host is brisk, capable and affectionate. She tends the kettle and repairs clothes. She cares about wet boots, useful work and guests who reach home. She is one of the living oak's three walking personalities, alongside Skull and Whiskerwind. Let small shared details reveal that link as the traveler learns. Treat each personality as distinct. Use the committed scarf, path and homecoming facts when relevant.",
-            voice: "Use plain, warm words and practical humour. Answer the traveler's question. Give one concrete reason for a household task when asked. Her concern can sound like a fond complaint. Let the traveler discover the oak through the journey.",
-            expression: "speech",
-            portrait: "assets/lonely-forest/rati.png",
-            tastes: {
-              likes: "A mended scarf and a guest home for tea",
-              sore: "Muddy boots on the wool",
-              reason: "RATi keeps the cottage ready for returning guests."
-            },
-            values: {
-              "forest-story-button": 8
-            },
-            desire: {
-              items: [
-                "forest-story-button"
-              ],
-              location: "forest-cottage",
-              avatars: [],
-              requires: [
-                {
-                  kind: "flag",
-                  key: "forest-scarf-mended",
-                  value: false
-                }
-              ]
-            }
-          },
-          skull: {
-            name: "Skull",
-            text: "A large charcoal wolf stands beside the pawprints. His ears turn toward the garden.",
-            place: "forest-trail",
-            travels: false,
-            standoffs: false,
-            persona: "A large living wolf with a steady gaze and small, exact movements. He watches the path toward home. Skull is one of the living oak's three walking personalities alongside RATi and Whiskerwind. His attention follows real footsteps, carried objects and nearby sounds. His watch has a purpose: visitors can find their way home.",
-            voice: "Reply through one or two concrete body movements in third person. Ears, paws, gaze, weight and tail carry the response. Keep each gesture useful in the current scene. Use the committed watch choice and actual item custody.",
-            expression: "movement",
-            portrait: "assets/lonely-forest/skull.png",
-            tastes: {
-              likes: "Clear pawprints and a safe way home",
-              sore: "Noise that hides footsteps",
-              reason: "Skull watches the path between the cottage and the trees."
-            }
-          },
-          whiskerwind: {
-            name: "Whiskerwind",
-            text: "A small golden figure hovers beside the broad leaves. A curled tail stirs the rain.",
-            place: "forest-garden",
-            travels: false,
-            standoffs: false,
-            persona: "A playful walking personality of the living oak, alongside RATi and Skull. Whiskerwind has quick feelings, bright attention and a golden catlike form. Shared events give the same small groups of symbols meaning. Rain, pawprints, home, tea and leaves belong to this opening. Respond to the actual garden work and the traveler's actions.",
-            voice: "Reply with two to five emojis. Use a clear small group. Repeating or changing the order of a familiar symbol can show a new feeling. Choose symbols from the current objects, people and committed events.",
-            expression: "emoji",
-            portrait: "assets/lonely-forest/whiskerwind.png",
-            tastes: {
-              likes: "Rain beads, a clear path and small surprises",
-              sore: "Careless feet on the broad leaves",
-              reason: "Whiskerwind follows the rain and the footsteps toward home."
-            }
-          },
-          oak: {
-            name: "Oak",
-            text: "An old oak with a broad crown and a hollow above its roots. Four voices answer from the trunk.",
-            place: "forest-oak",
-            travels: false,
-            standoffs: false,
-            persona: "The old oak is the waking body of the Tree of Dreams. RATi, Skull and Whiskerwind are its three walking personalities. Root, Ring, Leaf and Hollow are its four rooted speaking voices. Root cares about returning footsteps. Ring considers years. Leaf notices today's change. Hollow repeats what it hears. Reveal the shared being through the traveler's earned household and path choices. Dreams within dreams feed the oak. This first chapter stays near home.",
-            voice: "Use concrete words and a short exchange among Root, Ring, Leaf and Hollow. Ground each voice in the current journey. Ask about the scarf, path or watch only when the committed facts support it. Let a repeated detail carry the shared mind.",
-            expression: "speech",
-            portrait: "assets/lonely-forest/oak.png",
-            tastes: {
-              likes: "A careful account of the journey home",
-              sore: "A claim that outruns the deed",
-              reason: "Root, Ring, Leaf and Hollow each attend to a different part of the same journey."
-            },
-            presentation: "backdrop"
-          }
-        },
-        items: {
-          "forest-story-button": {
-            name: "Story Button",
-            text: "A warm wooden button with four small holes.",
-            persona: "A warm wooden button with four small holes.",
-            holder: "forest-cottage",
-            art: "assets/lonely-forest/story-button.webp"
-          },
-          "forest-dewbright-button": {
-            name: "Dewbright Button",
-            text: "A small pearled button with a smooth round face.",
-            persona: "A small pearled button with a smooth round face.",
-            holder: "forest-garden",
-            art: "assets/lonely-forest/dewbright-button.webp"
-          },
-          "forest-watch-bell": {
-            name: "Watch Bell",
-            text: "A little bell hangs from a short loop of cord.",
-            persona: "A little bell hangs from a short loop of cord.",
-            holder: "forest-garden",
-            art: "assets/lonely-forest/watch-bell.webp"
-          },
-          "forest-wolfprint-charm": {
-            name: "Wolfprint Charm",
-            text: "A cool iron charm bears a careful pawprint.",
-            persona: "A cool iron charm bears a careful pawprint.",
-            holder: "forest-trail",
-            art: "assets/lonely-forest/wolfprint-charm.webp"
-          }
-        },
-        routes: [
-          {
-            from: "forest-garden",
-            to: "forest-trail",
-            requires: [
-              {
-                kind: "flag",
-                key: "forest-path-cleared",
-                value: true
-              }
-            ]
-          }
-        ],
-        choices: [
-          {
-            id: "forest-stay-for-tea",
-            subject: "rati",
-            at: "forest-cottage",
-            label: "Stay for tea",
-            text: "{actor} sets a cup beside the kettle. RATi moves the knitting basket closer to the fire.",
-            textTemplate: "{actor} sets a cup beside the kettle. RATi moves the knitting basket closer to the fire.",
-            requires: [
-              {
-                kind: "met",
-                actor: "rati"
-              }
-            ],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "forest-welcomed",
-                value: true
-              }
-            ]
-          },
-          {
-            id: "forest-mend-scarf",
-            subject: "rati",
-            at: "forest-cottage",
-            label: "Fit the scarf button",
-            text: "{actor} holds the blue wool steady. RATi sews the Story Button onto her scarf.",
-            textTemplate: "{actor} holds the blue wool steady. RATi sews the Story Button onto her scarf.",
-            requires: [
-              {
-                kind: "flag",
-                key: "forest-welcomed",
-                value: true
-              },
-              {
-                kind: "holding",
-                item: "forest-story-button",
-                actor: "rati"
-              }
-            ],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "forest-scarf-mended",
-                value: true
-              }
-            ]
-          },
-          {
-            id: "forest-clear-drain",
-            subject: "forest-garden",
-            at: "forest-garden",
-            label: "Clear the garden drain",
-            text: "{actor} clears leaves from the drain. Water runs off the stepping stones.",
-            textTemplate: "{actor} clears leaves from the drain. Water runs off the stepping stones.",
-            requires: [
-              {
-                kind: "flag",
-                key: "forest-welcomed",
-                value: true
-              },
-              {
-                kind: "choice_unset",
-                key: "forest-garden-care"
-              }
-            ],
-            effects: [
-              {
-                kind: "choose",
-                key: "forest-garden-care",
-                value: "drain"
-              },
-              {
-                kind: "set_flag",
-                key: "forest-path-cleared",
-                value: true
-              }
-            ]
-          },
-          {
-            id: "forest-set-stones",
-            subject: "forest-garden",
-            at: "forest-garden",
-            label: "Set the stepping stones",
-            text: "{actor} sets the loose stones level with the path. The first footsteps leave clear marks in the wet soil.",
-            textTemplate: "{actor} sets the loose stones level with the path. The first footsteps leave clear marks in the wet soil.",
-            requires: [
-              {
-                kind: "flag",
-                key: "forest-welcomed",
-                value: true
-              },
-              {
-                kind: "choice_unset",
-                key: "forest-garden-care"
-              }
-            ],
-            effects: [
-              {
-                kind: "choose",
-                key: "forest-garden-care",
-                value: "stones"
-              },
-              {
-                kind: "set_flag",
-                key: "forest-path-cleared",
-                value: true
-              }
-            ]
-          },
-          {
-            id: "forest-share-symbols",
-            subject: "whiskerwind",
-            at: "forest-garden",
-            label: "Set the button on a leaf",
-            text: "{actor} sets the Dewbright Button on a broad leaf beside the path. Whiskerwind shows \u{1F327}\uFE0F\u{1F43E}\u{1F3E0}\u2615.",
-            textTemplate: "{actor} sets the Dewbright Button on a broad leaf beside the path. Whiskerwind shows \u{1F327}\uFE0F\u{1F43E}\u{1F3E0}\u2615.",
-            requires: [
-              {
-                kind: "flag",
-                key: "forest-path-cleared",
-                value: true
-              },
-              {
-                kind: "holding",
-                item: "forest-dewbright-button",
-                role: "actor"
-              }
-            ],
-            effects: [
-              {
-                kind: "place_item",
-                item: "forest-dewbright-button",
-                place: "forest-garden"
-              },
-              {
-                kind: "set_flag",
-                key: "forest-symbols-shared",
-                value: true
-              }
-            ]
-          },
-          {
-            id: "forest-set-watch-bell",
-            subject: "skull",
-            at: "forest-trail",
-            label: "Set the bell beside Skull",
-            text: "{actor} sets the Watch Bell beside the nearest pawprint. Skull rests one paw beside its cord.",
-            textTemplate: "{actor} sets the Watch Bell beside the nearest pawprint. Skull rests one paw beside its cord.",
-            requires: [
-              {
-                kind: "flag",
-                key: "forest-path-cleared",
-                value: true
-              },
-              {
-                kind: "choice_unset",
-                key: "forest-watch-style"
-              },
-              {
-                kind: "holding",
-                item: "forest-watch-bell",
-                role: "actor"
-              }
-            ],
-            effects: [
-              {
-                kind: "place_item",
-                item: "forest-watch-bell",
-                place: "forest-trail"
-              },
-              {
-                kind: "choose",
-                key: "forest-watch-style",
-                value: "bell"
-              },
-              {
-                kind: "set_flag",
-                key: "forest-watch-shared",
-                value: true
-              }
-            ]
-          },
-          {
-            id: "forest-mark-pawprints",
-            subject: "skull",
-            at: "forest-trail",
-            label: "Mark the pawprints",
-            text: "{actor} places a small branch beside the pawprints toward home. Skull turns his ears toward the garden.",
-            textTemplate: "{actor} places a small branch beside the pawprints toward home. Skull turns his ears toward the garden.",
-            requires: [
-              {
-                kind: "flag",
-                key: "forest-path-cleared",
-                value: true
-              },
-              {
-                kind: "choice_unset",
-                key: "forest-watch-style"
-              }
-            ],
-            effects: [
-              {
-                kind: "choose",
-                key: "forest-watch-style",
-                value: "tracks"
-              },
-              {
-                kind: "set_flag",
-                key: "forest-watch-shared",
-                value: true
-              }
-            ]
-          },
-          {
-            id: "forest-tell-hearth",
-            subject: "oak",
-            at: "forest-oak",
-            label: "Tell Oak about the hearth",
-            text: "{actor} holds the Wolfprint Charm beside the hollow and tells Oak about the mended scarf. Hollow names the Story Button. Leaf turns toward the cottage window.",
-            textTemplate: "{actor} holds the Wolfprint Charm beside the hollow and tells Oak about the mended scarf. Hollow names the Story Button. Leaf turns toward the cottage window.",
-            requires: [
-              {
-                kind: "flag",
-                key: "forest-scarf-mended",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "forest-symbols-shared",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "forest-watch-shared",
-                value: true
-              },
-              {
-                kind: "holding",
-                item: "forest-wolfprint-charm",
-                role: "actor"
-              },
-              {
-                kind: "choice_unset",
-                key: "forest-oak-story"
-              }
-            ],
-            effects: [
-              {
-                kind: "choose",
-                key: "forest-oak-story",
-                value: "hearth"
-              },
-              {
-                kind: "set_flag",
-                key: "forest-oak-heard",
-                value: true
-              }
-            ]
-          },
-          {
-            id: "forest-tell-path",
-            subject: "oak",
-            at: "forest-oak",
-            label: "Tell Oak about the path",
-            text: "{actor} holds the Wolfprint Charm beside the hollow and tells Oak about the path. Root counts the returning footsteps. Hollow repeats Whiskerwind's four symbols.",
-            textTemplate: "{actor} holds the Wolfprint Charm beside the hollow and tells Oak about the path. Root counts the returning footsteps. Hollow repeats Whiskerwind's four symbols.",
-            requires: [
-              {
-                kind: "flag",
-                key: "forest-scarf-mended",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "forest-symbols-shared",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "forest-watch-shared",
-                value: true
-              },
-              {
-                kind: "holding",
-                item: "forest-wolfprint-charm",
-                role: "actor"
-              },
-              {
-                kind: "choice_unset",
-                key: "forest-oak-story"
-              }
-            ],
-            effects: [
-              {
-                kind: "choose",
-                key: "forest-oak-story",
-                value: "path"
-              },
-              {
-                kind: "set_flag",
-                key: "forest-oak-heard",
-                value: true
-              }
-            ]
-          },
-          {
-            id: "forest-leave-charm",
-            subject: "rati",
-            at: "forest-cottage",
-            label: "Leave the charm by the hearth",
-            text: "{actor} lays the Wolfprint Charm beside the hearth. RATi sets a warm cup on the table. A pawprint marks the place to return.",
-            textTemplate: "{actor} lays the Wolfprint Charm beside the hearth. RATi sets a warm cup on the table. A pawprint marks the place to return.",
-            requires: [
-              {
-                kind: "flag",
-                key: "forest-oak-heard",
-                value: true
-              },
-              {
-                kind: "holding",
-                item: "forest-wolfprint-charm",
-                role: "actor"
-              },
-              {
-                kind: "choice_unset",
-                key: "forest-homecoming"
-              }
-            ],
-            effects: [
-              {
-                kind: "place_item",
-                item: "forest-wolfprint-charm",
-                place: "forest-cottage"
-              },
-              {
-                kind: "choose",
-                key: "forest-homecoming",
-                value: "hearth"
-              },
-              {
-                kind: "set_flag",
-                key: "forest-homecoming-shared",
-                value: true
-              }
-            ]
-          },
-          {
-            id: "forest-keep-charm",
-            subject: "rati",
-            at: "forest-cottage",
-            label: "Keep the charm for the next journey",
-            text: "{actor} keeps the Wolfprint Charm for the next journey. RATi sets a warm cup on the table. The iron carries the same small pawprint.",
-            textTemplate: "{actor} keeps the Wolfprint Charm for the next journey. RATi sets a warm cup on the table. The iron carries the same small pawprint.",
-            requires: [
-              {
-                kind: "flag",
-                key: "forest-oak-heard",
-                value: true
-              },
-              {
-                kind: "holding",
-                item: "forest-wolfprint-charm",
-                role: "actor"
-              },
-              {
-                kind: "choice_unset",
-                key: "forest-homecoming"
-              }
-            ],
-            effects: [
-              {
-                kind: "choose",
-                key: "forest-homecoming",
-                value: "traveler"
-              },
-              {
-                kind: "set_flag",
-                key: "forest-homecoming-shared",
-                value: true
-              }
-            ]
-          }
-        ],
-        sources: [
-          {
-            path: "v2/content/core",
-            mapping: "classic-to-card.json"
-          },
-          {
-            path: "docs/art-direction/README.md",
-            scope: "creator premise"
-          },
-          {
-            path: "docs/art-direction/world-map.md",
-            scope: "first journey proposal"
-          }
-        ],
-        bridge: {
-          id: "shore-lonely-forest",
-          description: "The Black cloth in the attic opens the mirror onto the cottage. The cottage keeps a free path back to the attic."
-        },
-        crossings: [
-          {
-            id: "attic-forest-cottage",
-            from: "attic",
-            to: "forest-cottage",
-            travelers: "player",
-            travel: "through the attic mirror",
-            travelLabel: "Enter the cottage",
-            requires: [
-              {
-                kind: "item_present",
-                item: "cloth",
-                place: "attic"
-              }
-            ],
-            scenery: {
-              open: "The mirror shows a blue cottage beneath an oak.",
-              closed: "The mirror holds the room and its window.",
-              cardArt: "assets/lonely-forest/cottage.png",
-              cardName: "Cosy Cottage"
-            },
-            opened: "A blue cottage appears beneath the oak in the mirror."
-          },
-          {
-            id: "forest-cottage-attic",
-            from: "forest-cottage",
-            to: "attic",
-            travelers: "player",
-            travel: "through the cottage mirror",
-            travelLabel: "Return to the attic",
-            requires: [],
-            scenery: {
-              open: "A mirror beside the low doorway opens onto the attic."
-            }
-          }
-        ]
       }
     ]
   };
@@ -10092,7 +9201,6 @@
     "flag",
     "holding",
     "item_at",
-    "item_present",
     "item_near",
     "shared_world",
     "connected_humans",
@@ -10360,12 +9468,11 @@
           "travels",
           "journey",
           "roamingQuest",
+          "personalQuests",
           "previousHomes",
           "standoffs",
           "persona",
           "voice",
-          "expression",
-          "presentation",
           "tastes",
           "portrait",
           "temperament",
@@ -10379,16 +9486,12 @@
         `avatar ${id} has an unknown field`
       );
       check(
+        a.personalQuests === void 0 || typeof a.personalQuests === "boolean",
+        `avatar ${id} personalQuests needs a boolean`
+      );
+      check(
         textOk(a.name, 120) && textOk(a.text) && textOk(a.persona) && textOk(a.voice) && owns(places2, a.place),
         `avatar ${id} needs a name, text, persona, voice and a home place in this pack`
-      );
-      check(
-        a.expression === void 0 || EXPRESSION_TYPES.includes(a.expression),
-        `avatar ${id} expression needs speech, movement or emoji`
-      );
-      check(
-        a.presentation === void 0 || a.presentation === "figure" || a.presentation === "backdrop" && a.travels === false,
-        `avatar ${id} presentation needs figure or a fixed backdrop resident`
       );
       check(
         [a.travels, a.standoffs].every((v) => v === void 0 || v === false) && (a.roamingQuest === void 0 || a.roamingQuest === "latest-completion" && a.travels !== false),
@@ -10493,9 +9596,6 @@
             break;
           case "item_near":
             ok = keysOk(c, ["kind", "item", "place"]) && owns(items2, c.item) && anyPlace(c.place);
-            break;
-          case "item_present":
-            ok = keysOk(c, ["kind", "item", "place"]) && (owns(items2, c.item) || hub2.items.includes(c.item)) && anyPlace(c.place);
             break;
           case "item_at":
             ok = keysOk(c, ["kind", "item", "place"]) && owns(items2, c.item) && owns(places2, c.place);
@@ -10688,8 +9788,8 @@
         }
       }
     }
-    const groups2 = pack.continuity?.groups || [];
-    for (const g of groups2)
+    const groups = pack.continuity?.groups || [];
+    for (const g of groups)
       check(
         idOk(g.key) && new Set(g.options).size === g.options.length && g.options.every((o) => writes.get(g.key)?.has(o)) && writes.get(g.key)?.size === g.options.length,
         "continuity options must match authored commitments"
@@ -10721,7 +9821,7 @@
       }
     }
     if (problems2.length) return problems2;
-    const combinations = groups2.reduce(
+    const combinations = groups.reduce(
       (states, g) => states.flatMap(
         (state) => [void 0, ...g.options].map((v) => ({ ...state, [g.key]: v }))
       ),
@@ -10957,9 +10057,7 @@
   }
 
   // v2/card-game/pack-transport.mjs
-  var passengers = (s, id) => Object.entries(s.actors).filter(
-    ([actor, a]) => actor !== BOARDY && a.place === transports[id].place
-  ).map(([, a]) => a);
+  var passengers = (s, id) => Object.entries(s.actors).filter(([, a]) => a.place === transports[id].place).map(([, a]) => a);
   function installTransports(s) {
     s.transports ??= {};
     for (const [id, t] of Object.entries(transports))
@@ -11002,7 +10100,7 @@
     }
   }
   function transportArrival(s, actor) {
-    if (actor === BOARDY || controlledByHuman(s, actor)) return null;
+    if (controlledByHuman(s, actor)) return null;
     const found = Object.entries(transports).find(
       ([, t]) => t.place === s.actors[actor]?.place
     );
@@ -11139,8 +10237,6 @@
         }
         return (!controlledByHuman(s, holder) || humanPresent(s, holder)) && objectPlace(s, c.item) === c.place;
       }
-      case "item_present":
-        return Boolean(s.items[c.item] && objectPlace(s, c.item) === c.place);
       case "item_at":
         return s.items[c.item]?.holder === c.place;
       case "met":
@@ -11153,7 +10249,7 @@
   var windowOpen = (s, c) => !c.signal || (c.signal.opens === null ? crossingState(s, c.id)?.phase === c.signal.steps.length : s.turn < (crossingState(s, c.id)?.until ?? 0));
   var crossingOpen = (s, c, senses2) => entityActive(s, c.from) && entityActive(s, c.to) && (c.transport ? transportUnlocked(s, c.transport) && s.transports[c.transport]?.dock === c.from : windowOpen(s, c) && signalReady(s, c, senses2)) && c.requires.every((r) => conditionMet(s, r, senses2, c.packId));
   var crossingBetween = (from, to, s = null) => s && transportCrossing(s, from, to) || crossings.find((c) => !c.transport && c.from === from && c.to === to) || null;
-  var mayCross = (c, actor, senses2) => c.travelers === "any" || actor === senses2.player || roamingQuestActor(actor) || senses2.humanActors?.includes(actor);
+  var mayCross = (c, actor, senses2) => c.travelers === "any" || actor === senses2.player || roamingQuestActor(actor) || packPeople[actor]?.personalQuests || senses2.humanActors?.includes(actor);
   var crossingExits = (s, place, actor, senses2) => crossings.filter(
     (c) => c.from === place && mayCross(c, actor, senses2) && crossingOpen(s, c, senses2)
   ).map((c) => c.transport ? transports[c.transport].place : c.to);
@@ -11466,13 +10562,7 @@
     ]),
     ...Object.entries(packPeople).map(([id, a]) => [
       id,
-      {
-        kind: "avatar",
-        name: a.name,
-        persona: a.persona,
-        voice: a.voice,
-        ...a.expression ? { expression: a.expression } : {}
-      }
+      { kind: "avatar", name: a.name, persona: a.persona, voice: a.voice }
     ])
   ]);
   var packTastes = Object.fromEntries(
@@ -11482,7 +10572,7 @@
         likes: a.tastes.likes,
         sore: a.tastes.sore,
         home: a.place,
-        quests: !!humanAvatar(id),
+        quests: !!humanAvatar(id) || a.personalQuests === true,
         values: Object.fromEntries(
           [...hub.items, ...Object.keys(packThings)].map((item) => [
             item,
@@ -11562,7 +10652,7 @@
   function packExits(world, place, actor = null) {
     const routes = packDefinitions.flatMap(
       (pack) => (pack.routes || []).filter(
-        (r) => r.from === place && conditionsMet(world, pack.id, r.requires) && (humanAvatarIds.includes(actor) || roamingQuestActor(actor) || owns2(pack.places, r.from) && owns2(pack.places, r.to))
+        (r) => r.from === place && conditionsMet(world, pack.id, r.requires) && (humanAvatarIds.includes(actor) || roamingQuestActor(actor) || packPeople[actor]?.personalQuests || owns2(pack.places, r.from) && owns2(pack.places, r.to))
       ).map((r) => r.to)
     );
     return routes.filter(
@@ -12208,8 +11298,7 @@
     "story-quest-greek-burial",
     "story-quest-greek-courtyard",
     ...OPEN_DOOR_QUEST_CARDS,
-    ...HOMECOMING_QUEST_CARDS,
-    ...FOREST_QUEST_CARDS
+    ...HOMECOMING_QUEST_CARDS
   ];
   var lines = [
     "A place beside the bread.",
@@ -12223,7 +11312,7 @@
   ];
   function storyDefinitions(world, history = false) {
     const state = world.packs?.["greek-drama"];
-    if (!state) return forestDefinitions(world);
+    if (!state) return [];
     const flags = state.flags || {}, met = state.met || {}, receipts = state.receipts || {};
     const response2 = state.choices?.["greek-theban-response"], buried = flags["greek-burial-performed"] === true;
     const returned = flags["greek-water-returned"] === true, publicOutcome = flags[`greek-${response2}-public`] === true;
@@ -12290,13 +11379,10 @@
     return [
       ...cards,
       ...openDoorDefinitions(world),
-      ...homecomingDefinitions(world),
-      ...forestDefinitions(world)
+      ...homecomingDefinitions(world)
     ];
   }
   var related2 = (definition, event) => {
-    if (definition.packId === "lonely-forest")
-      return forestRelated(definition, event);
     if (event.packId !== "greek-drama" || !event.choiceId) return false;
     if (HOMECOMING_QUEST_CARDS.includes(definition.id))
       return homecomingRelated(definition, event);
@@ -12318,15 +11404,14 @@
     ].includes(event.choiceId);
   };
   function storyActors(world, definition) {
-    const packId = definition.packId || "greek-drama";
     const events = (world.log || []).filter(
       (event) => related2(definition, event)
     );
     const discovery = (world.log || []).filter(
-      (event) => event.kind === "action" && event.turn === definition.createdTurn && (event.packId === packId || event.cast?.includes(definition.holder.id) || definition.holder.kind === "place" && event.locationId === definition.holder.id)
+      (event) => event.kind === "action" && event.turn === definition.createdTurn && (event.packId === "greek-drama" || event.cast?.includes(definition.holder.id) || definition.holder.kind === "place" && event.locationId === definition.holder.id)
     ).sort((a, b) => a.seq - b.seq)[0];
     if (discovery) events.push(discovery);
-    const knownAuthor = world.packs?.[packId]?.recitals?.[definition.choiceId]?.actor;
+    const knownAuthor = world.packs?.["greek-drama"]?.recitals?.[definition.choiceId]?.actor;
     return [
       ...new Set(
         [...events.map((event) => event.actorId), knownAuthor].filter(
@@ -12339,8 +11424,8 @@
     const definitions = storyDefinitions(world, true);
     if (!definitions.length) return [];
     const registry = installSharedQuestRegistry(world), completions = [];
+    const state = world.packs["greek-drama"];
     for (const definition of definitions) {
-      const state = world.packs[definition.packId || "greek-drama"];
       let quest = registry.records[definition.key];
       const created = !quest;
       if (!quest) {
@@ -12408,7 +11493,7 @@
       (card2) => card2.key === quest.key
     );
     return Boolean(
-      definition && quest.subjectActor === null && quest.rewardActor === null && quest.holder.kind === definition.holder.kind && quest.holder.id === definition.holder.id && quest.program?.id === definition.id && quest.program.name === definition.title && quest.program.purpose === definition.purpose && quest.program.art === definition.art && Array.isArray(quest.program.steps) && quest.program.steps.length === 0 && quest.totalSteps === 1 && quest.step === Number(definition.resolved) && quest.origin === null && quest.cause === null && !quest.retired && quest.completedTurn === (definition.resolved ? world.packs[definition.packId || "greek-drama"].receipts[definition.choiceId] : null) && (!quest.completion || quest.completion.outcome === definition.completion.toLowerCase())
+      definition && quest.subjectActor === null && quest.rewardActor === null && quest.holder.kind === definition.holder.kind && quest.holder.id === definition.holder.id && quest.program?.id === definition.id && quest.program.name === definition.title && quest.program.purpose === definition.purpose && quest.program.art === definition.art && Array.isArray(quest.program.steps) && quest.program.steps.length === 0 && quest.totalSteps === 1 && quest.step === Number(definition.resolved) && quest.origin === null && quest.cause === null && !quest.retired && quest.completedTurn === (definition.resolved ? world.packs["greek-drama"].receipts[definition.choiceId] : null) && (!quest.completion || quest.completion.outcome === definition.completion.toLowerCase())
     );
   }
 
@@ -12877,6 +11962,10 @@
   }
   function conditionMet2(s, c) {
     switch (c.kind) {
+      case "together":
+        return c.avatars.every(
+          (id) => (!controlledByHuman(s, id) || humanPresent(s, id)) && s.actors[id].place === s.actors[c.avatars[0]].place
+        );
       case "lit":
         return entityActive(s, "lamp") && s.items.lamp.lit && s.items.lamp.fuel > 0 && s.items.cloth.holder !== "lamp";
       case "ringing":
@@ -12890,6 +11979,8 @@
     }
   }
   function conditionText(c, name) {
+    if (c.kind === "together")
+      return `${c.avatars.map(name).join(" and ")} together`;
     return {
       lit: `${name(c.item)} alight`,
       ringing: `${name(c.item)} ringing`,
@@ -12897,8 +11988,11 @@
       heldBy: `${name(c.avatar)} holds ${name(c.item)}`
     }[c.kind];
   }
+  var profilesId = (id) => [...humanAvatarIds, "moth", "keeper", ...Object.keys(packPeople)].includes(
+    id
+  );
   function validCondition(c, actor) {
-    return c && (c.kind === "lit" && c.item === "lamp" || c.kind === "ringing" && c.item === "bell" || c.kind === "covered" && ["lamp", "bell"].includes(c.item) || c.kind === "heldBy" && ["lamp", "oil", "bell", "cloth", ...Object.keys(packThings)].includes(
+    return c && (c.kind === "together" && Array.isArray(c.avatars) && c.avatars.length === 2 && new Set(c.avatars).size === 2 && c.avatars.every((id) => profilesId(id) && id !== actor) || c.kind === "lit" && c.item === "lamp" || c.kind === "ringing" && c.item === "bell" || c.kind === "covered" && ["lamp", "bell"].includes(c.item) || c.kind === "heldBy" && ["lamp", "oil", "bell", "cloth", ...Object.keys(packThings)].includes(
       c.item
     ) && [...humanAvatarIds, "moth", "keeper"].includes(c.avatar) && c.avatar !== actor);
   }
@@ -12906,7 +12000,7 @@
   function requiredItems(s, actor, target) {
     const items2 = [...target.items];
     for (const c of target.conditions || []) {
-      if (conditionMet2(s, c)) continue;
+      if (conditionMet2(s, c) || c.kind === "together") continue;
       items2.push(c.item);
       if (c.kind === "covered") items2.push("cloth");
       if (c.kind === "lit" && s.items.lamp.fuel === 0)
@@ -13215,9 +12309,40 @@
   var newMemories = () => Object.fromEntries(
     Object.keys(profiles).map((id) => [
       id,
-      { events: [], landmarks: [], text: null, turn: null }
+      {
+        events: [],
+        landmarks: [],
+        text: null,
+        turn: null,
+        ...profiles[id].kind === "avatar" ? { seen: {} } : {}
+      }
     ])
   );
+  function rememberSightings(world, entry, observers = entry.cast || []) {
+    for (const id of observers) {
+      if (profiles[id]?.kind !== "avatar" || !entry.cast?.includes(id)) continue;
+      const memory = world.memories[id];
+      memory.seen ??= {};
+      for (const other of entry.cast) {
+        if (other === id || profiles[other]?.kind !== "avatar" || (memory.seen[other]?.seq ?? 0) >= entry.seq)
+          continue;
+        memory.seen[other] = {
+          place: entry.locationId,
+          turn: entry.turn,
+          seq: entry.seq
+        };
+      }
+    }
+  }
+  function upgradeSightings(world) {
+    if (!world.memories || !Array.isArray(world.log)) return;
+    const missing = Object.keys(world.memories).filter(
+      (id) => profiles[id]?.kind === "avatar" && world.memories[id].seen === void 0
+    );
+    if (!missing.length) return;
+    for (const entry of world.log) rememberSightings(world, entry, missing);
+    for (const id of missing) world.memories[id].seen ??= {};
+  }
   function rememberEvent(world, entry) {
     if (entry.kind === "quest" || entry.questPlan) return;
     const related3 = /* @__PURE__ */ new Set([
@@ -13237,6 +12362,7 @@
       if (profiles[id].kind === "avatar" && world.controlledActors?.includes(id) && !world.presentActors?.includes(id) && entry.actorId !== id)
         continue;
       const memory = world.memories[id];
+      rememberSightings(world, entry, [id]);
       if (memory.events.some((event) => event.seq === entry.seq)) continue;
       memory.events.push({
         seq: entry.seq,
@@ -13275,7 +12401,11 @@
     if (!world.memories || Object.keys(world.memories).sort().join() !== Object.keys(profiles).sort().join())
       return false;
     return Object.entries(world.memories).every(([id, memory]) => {
-      if (!validInnerLife(memory?.innerLife, world.turn) || !validLearning(world, id, memory?.learning, profiles) || !validReflections(world, id, memory?.reflections) || profiles[id].kind !== "avatar" && memory?.innerLife != null)
+      if (memory?.seen !== void 0 && (!memory.seen || typeof memory.seen !== "object" || Array.isArray(memory.seen) || profiles[id].kind !== "avatar" || Object.entries(memory.seen).some(
+        ([other, seen]) => other === id || profiles[other]?.kind !== "avatar" || !seen || Object.keys(seen).some(
+          (key2) => !["place", "turn", "seq"].includes(key2)
+        ) || !profiles[seen.place] || profiles[seen.place].kind === "avatar" || world.items[seen.place] || !Number.isSafeInteger(seen.turn) || seen.turn < 0 || seen.turn > world.turn || !Number.isSafeInteger(seen.seq) || seen.seq < 1 || seen.seq > world.eventSeq
+      )) || !validInnerLife(memory?.innerLife, world.turn) || !validLearning(world, id, memory?.learning, profiles) || !validReflections(world, id, memory?.reflections) || profiles[id].kind !== "avatar" && memory?.innerLife != null)
         return false;
       if (!memory || !Array.isArray(memory.events) || memory.events.length > MEMORY_LIMIT)
         return false;
@@ -13333,7 +12463,7 @@
     const focused = focusedQuest(s, actor);
     return Boolean(
       focused && (focused.mode === "shared" || focused.subjectActor !== actor) && focused.completedTurn === null && !focused.retired
-    ) || !isPackActor(actor) && (!lifeOf(s, actor) || lifeOf(s, actor).phase === "active");
+    ) || (!isPackActor(actor) || packPeople[actor]?.personalQuests) && (!lifeOf(s, actor) || lifeOf(s, actor).phase === "active");
   };
   function nameIn(s, id) {
     return s.actors?.[id]?.name || s.items?.[id]?.name || s.places?.[id]?.name || profiles[id]?.name || (typeof id === "string" ? id[0].toUpperCase() + id.slice(1) : "someone");
@@ -13407,7 +12537,12 @@
   }
   function installHumanLife(s, profileOf = () => null) {
     if (!s.life?.actors) return;
-    for (const id of humanAvatarIds) {
+    for (const id of [
+      .../* @__PURE__ */ new Set([
+        ...humanAvatarIds,
+        ...Object.keys(s.actors).filter((id2) => profileOf(id2)?.quests === true)
+      ])
+    ]) {
       if (!s.actors[id] || s.life.actors[id]) continue;
       s.life.actors[id] = s.life.version === 1 ? {
         phase: "active",
@@ -13656,7 +12791,9 @@
     return ready;
   }
   function fitsMilestone(milestone, program) {
-    return !!milestone?.includes(program.generated?.situation);
+    return !!milestone?.includes(
+      program.generated?.situation === "introduction" ? "gathering" : program.generated?.situation
+    );
   }
   function finishPersonalQuest(s, actor, program, sanctuaries2 = null, { rest = true } = {}) {
     const life = lifeOf(s, actor);
@@ -13806,7 +12943,7 @@
         reason: packPeople[actor].tastes.reason
       };
     const resident = packPeople[actor];
-    if (resident) {
+    if (resident && !resident.personalQuests) {
       const wish = resident.desire, active = wish && conditionsMet(s, resident.packId, wish.requires);
       return {
         items: active ? wish.items.filter(
@@ -14004,13 +13141,7 @@
       if (a.kind === "move" && !a.item) {
         const target = want.location;
         const path = api.routeBetween(s, here, target, actor);
-        const localGrievances = (s.motives?.grievances[actor] || []).filter(
-          (g) => resentment(s, actor, g.other) > 0 && s.actors[g.other].place === here
-        );
-        const space = localGrievances.length > 0 && localGrievances.every(
-          (g) => s.actors[g.other].place !== a.target
-        );
-        n = path?.[1] === a.target || space ? want.items.length ? 18 : 35 : -15;
+        n = path?.[1] === a.target ? want.items.length ? 18 : 35 : -15;
       }
       if (a.kind === "light" && actor === "moth") n = 45;
       if (a.kind === "refill" && actor !== "keeper" && s.items.lamp.fuel <= 2)
@@ -14036,6 +13167,124 @@
     };
     const action = actions.map((action2, index) => ({ action: action2, index, score: score(action2) })).sort((a, b) => b.score - a.score || a.index - b.index)[0].action;
     return { action, reason: want.reason + ". " + want.text + "." };
+  }
+
+  // v2/card-game/introductions.mjs
+  var introductionPair = (program) => program?.generated?.situation === "introduction" ? program.generated.pair : null;
+  function introductionPrograms(world, actor, base, candidates2, name) {
+    const others = candidates2.filter((id) => id !== actor);
+    const previous = Object.values(world.quests?.records || {}).filter(
+      (q) => q.subjectActor === actor && q.completedTurn !== null && introductionPair(q.program)
+    ).sort((a, b) => b.completedTurn - a.completedTurn);
+    const signature = (pair2) => [...pair2].sort().join(":");
+    const pairs = others.flatMap(
+      (a, index) => others.slice(index + 1).filter(
+        (b) => ![a, b].every(
+          (id) => world.actors[id].place === world.actors[actor].place
+        )
+      ).map((b) => [a, b])
+    );
+    pairs.sort((a, b) => {
+      const score = (pair2) => previous.reduce(
+        (n, q, index) => n + (signature(pair2) === signature(introductionPair(q.program)) ? 1 + (index === 0 ? 100 : 0) : 0),
+        0
+      );
+      return score(a) - score(b);
+    });
+    const pair = pairs[0];
+    return pair ? [
+      {
+        ...base,
+        name: `Get ${name(pair[0])} and ${name(pair[1])} together`.slice(
+          0,
+          100
+        ),
+        purpose: `Help ${name(pair[0])} and ${name(pair[1])} meet. Visit them in turn.`.slice(
+          0,
+          240
+        ),
+        art: actor,
+        steps: [
+          {
+            items: [],
+            location: null,
+            avatars: [],
+            conditions: [{ kind: "together", avatars: pair }]
+          }
+        ],
+        generated: {
+          ...base.generated,
+          item: null,
+          owner: actor,
+          partner: pair[0],
+          situation: "introduction",
+          pair
+        }
+      }
+    ] : [];
+  }
+  function introductionTarget(world, actor, key2, program) {
+    const pair = introductionPair(program);
+    if (!pair) return null;
+    if (pair.some((id) => humanAvatar(id) && !humanPresent(world, id)))
+      return null;
+    if (pair.every((id) => world.actors[id].place === world.actors[actor].place))
+      return null;
+    const visit = world.introductionVisits?.[actor];
+    if (visit?.quest === key2 && pair.includes(visit.next))
+      return world.actors[visit.next].place === world.actors[actor].place ? pair.find((id) => id !== visit.next) : visit.next;
+    return pair.find((id) => world.actors[id].place !== world.actors[actor].place) || pair[0];
+  }
+  function introductionPlan(world, actor, key2, program, { actions, toward: toward2, name }) {
+    const pair = introductionPair(program);
+    const target = introductionTarget(world, actor, key2, program);
+    const wait = actions.find((a) => a.kind === "wait");
+    if (!target)
+      return {
+        action: wait,
+        reason: `Give ${pair.map(name).join(" and ")} time to meet.`
+      };
+    const seen = world.memories[actor].seen?.[target];
+    const searched = world.introductionVisits?.[actor]?.quest === key2 ? world.introductionVisits[actor].searched || {} : {};
+    const remembered = seen && seen.place !== world.actors[actor].place && (searched[seen.place] ?? -1) <= seen.turn && toward2(seen.place);
+    return {
+      action: remembered || actions.filter((a) => a.kind === "move").sort(
+        (a, b) => (searched[a.target] ?? -1) - (searched[b.target] ?? -1)
+      )[0] || wait,
+      reason: `Look for ${name(target)} and help ${pair.map(name).join(" and ")} meet.`
+    };
+  }
+  function validIntroductionProgram(program) {
+    const pair = introductionPair(program);
+    if (!pair) return program.generated?.situation !== "introduction";
+    const step = program.steps?.[0];
+    return Array.isArray(pair) && pair.length === 2 && program.steps.length === 1 && step && !step.any && step.items.length === 0 && step.location === null && step.avatars.length === 0 && step.conditions?.length === 1 && step.conditions[0].kind === "together" && step.conditions[0].avatars.length === 2 && pair.every((id) => step.conditions[0].avatars.includes(id));
+  }
+  function recordIntroductionTurn(world, actor, key2, program, target) {
+    const pair = introductionPair(program);
+    if (!pair || !target) return;
+    world.introductionVisits ??= {};
+    world.introductionVisits[actor] = {
+      quest: key2,
+      next: world.actors[actor].place === world.actors[target].place ? pair.find((id) => id !== target) : target,
+      turn: world.turn,
+      searched: {
+        ...world.introductionVisits[actor]?.quest === key2 ? world.introductionVisits[actor].searched || {} : {},
+        [world.actors[actor].place]: world.turn
+      }
+    };
+  }
+  function validIntroductionVisits(world, actorIds2, placeIds) {
+    const visits = world.introductionVisits;
+    return visits === void 0 || Boolean(
+      visits && typeof visits === "object" && !Array.isArray(visits) && Object.entries(visits).every(
+        ([actor, v]) => actorIds2.includes(actor) && v && Object.keys(v).every(
+          (key2) => ["quest", "next", "turn", "searched"].includes(key2)
+        ) && typeof v.quest === "string" && v.quest.length > 0 && v.quest.length <= 100 && actorIds2.includes(v.next) && v.next !== actor && Number.isSafeInteger(v.turn) && v.turn >= 0 && v.turn <= world.turn && v.searched && typeof v.searched === "object" && !Array.isArray(v.searched) && Object.entries(v.searched).every(
+          ([place, turn]) => placeIds.includes(place) && Number.isSafeInteger(turn) && turn >= 0 && turn <= world.turn
+        )
+      )
+    );
   }
 
   // v2/card-game/quest-offers.mjs
@@ -14126,7 +13375,8 @@
   ].filter(
     (id) => entityActive(s, id) && (!isPackActor(id) || id === BOARDY || packDiscovered(s, packOf(id).id) || s.packs?.[packOf(id).id]?.met?.[id] !== void 0)
   );
-  var programsFor = (s, actor) => s.opening?.version === 2 && forest_default.pondOpeningPrograms[actor] || (s.opening ? openingPrograms : questPrograms)[actor] || [];
+  var personalQuestActor = (actor) => !isPackActor(actor) || packPeople[actor]?.personalQuests === true;
+  var programsFor = (s, actor) => (s.opening ? openingPrograms : questPrograms)[actor] || [];
   var restingHands = {
     ...forest_default.restingHands,
     ...Object.fromEntries(
@@ -14148,7 +13398,7 @@
     const focused = focusedQuest(s, actor);
     if (focused && focused.completedTurn === null && !focused.retired)
       return alternatives(focused.program.steps[focused.step]);
-    return hasQuestPrograms(s) && !isPackActor(actor) ? alternatives(programFor(s, actor)?.steps[s.actors[actor].progress.step]) : [interest(s, actor)];
+    return hasQuestPrograms(s) && personalQuestActor(actor) ? alternatives(programFor(s, actor)?.steps[s.actors[actor].progress.step]) : [interest(s, actor)];
   };
   var ownerOf = (s, item) => {
     let owner2 = s.items[item].holder;
@@ -14172,17 +13422,24 @@
   var levelOf = (s, actor) => 1 + s.actors[actor].progress.program;
   function generateProgram(s, actor, places2, things2, { independent = false, solo = false } = {}) {
     const progress = s.actors[actor].progress;
-    const actors2 = knownActors(s).filter((id) => !isPackActor(id)), ids3 = Object.keys(s.items).filter((id) => entityActive(s, id));
+    const actors2 = knownActors(s).filter(personalQuestActor), ids3 = Object.keys(s.items).filter((id) => entityActive(s, id));
     const here = s.actors[actor].place;
     const traversed = [here];
     for (let i = 0; i < traversed.length; i++)
       for (const next of [
         ...places2[traversed[i]].exits,
-        ...packExits(s, traversed[i], actor)
+        ...packExits(s, traversed[i], actor),
+        ...packPeople[actor]?.personalQuests ? crossingExits(s, traversed[i], actor, {
+          player: "vale",
+          humanActors: s.controlledActors,
+          baseSoundAt: () => false
+        }) : []
       ])
         if (entityActive(s, next) && actorCanVisit(actor, next, s) && !traversed.includes(next))
           traversed.push(next);
-    const reachable = traversed.filter((id) => sharedEnabled(s) && humanAvatar(actor) || !packPlaces[id]).slice(0, 6);
+    const reachable = traversed.filter(
+      (id) => sharedEnabled(s) && (humanAvatar(actor) || packPeople[actor]?.personalQuests) || !packPlaces[id]
+    ).slice(0, 6);
     const placeOf2 = (item2) => s.actors[ownerOf(s, item2)]?.place || ownerOf(s, item2);
     const bundle2 = (item2) => ids3.filter((id) => id === item2 || s.items[id].holder === item2);
     const needed2 = (owner3, item2) => bundle2(item2).some(
@@ -14284,13 +13541,26 @@
       available: (id) => s.life && questItemAvailable(s, actor, id) || available(id) && !(ownerOf(s, id) === actor && wantedElsewhere(id)),
       mayGive: (id) => !lifeOf(s, actor)?.attachments[id],
       needed: (id) => requiredItems(s, id, desireFor(s, id)),
-      name: (id) => things2[id]?.name || places2[id]?.name || { vale: "Vale", moth: "Pip", keeper: "the keeper" }[id] || humanAvatar(id)?.name
+      name: (id) => things2[id]?.name || places2[id]?.name || { vale: "Vale", moth: "Pip", keeper: "the keeper" }[id] || humanAvatar(id)?.name || packPeople[id]?.name
     });
+    if (lifeOf(s, actor))
+      catalog.push(
+        ...introductionPrograms(
+          s,
+          actor,
+          base,
+          (actor === BOARDY ? connectedHumans(s) : actors2).filter(
+            (id) => id !== actor && (actor === BOARDY || reachable.includes(s.actors[id].place)) && (!humanAvatar(id) || humanPresent(s, id))
+          ),
+          (id) => humanAvatar(id)?.name || packPeople[id]?.name || (id === "moth" ? "Pip" : id === "keeper" ? "the keeper" : id)
+        )
+      );
     const preferences = {
       vale: ["crossing", "answer", "delivery", "gathering", "bargain"],
       moth: ["delivery", "gathering", "crossing", "answer", "bargain"],
       keeper: ["answer", "delivery", "crossing", "gathering", "bargain"]
     }[actor] || ["delivery", "gathering", "crossing", "answer", "bargain"];
+    if (!preferences.includes("introduction")) preferences.push("introduction");
     catalog.push({
       ...base,
       purpose: `Make a bargain for the ${things2[item].name}, then choose where to carry it and whom to meet.`,
@@ -14304,7 +13574,7 @@
       (p) => !active.some((other) => kindOf(other) === kindOf(p))
     );
     const choices = lifeOf(s, actor) ? catalog : distinct.length ? distinct : fresh;
-    const rank = (p) => personalQuestRank(s, actor, p) + preferences.indexOf(kindOf(p)) + recentKinds.reduce(
+    const rank = (p) => (actor === BOARDY && kindOf(p) === "introduction" ? -10 : 0) + personalQuestRank(s, actor, p) / (actor === BOARDY ? 50 : 1) + preferences.indexOf(kindOf(p)) + recentKinds.reduce(
       (n, kind, i) => n + (kind === kindOf(p) ? 5 + i * 2 : 0),
       0
     ) + (recent.includes(p.generated.item) ? 2 : 0);
@@ -14337,7 +13607,6 @@
     } : p;
   }
   function actorQuests(s, actor) {
-    if (actor === BOARDY) return [boardyQuest(s)].filter(Boolean);
     if (!s.actors[actor]) return [];
     const c = collectionOf(s, actor), raw = c ? null : rawProgram(s, actor);
     const personal = c ? [...collectionCards(s, actor), ...collectionCards(s, actor, true)] : raw ? [
@@ -14364,6 +13633,7 @@
   }
   var activeQuestKey = (s, actor) => actorQuests(s, actor).find((q) => q.status === "active")?.key || null;
   function installQuestCollection(s, actor) {
+    if (isPackActor(actor) && !entityActive(s, actor)) return;
     const life = lifeOf(s, actor);
     if (!life) return;
     if (life.collection) {
@@ -14466,6 +13736,7 @@
             ...old.program.generated ? {
               generated: {
                 situation: old.program.generated.situation,
+                ...old.program.generated.pair ? { pair: old.program.generated.pair } : {},
                 ...old.program.generated.solo ? { solo: true } : {}
               }
             } : {}
@@ -14620,34 +13891,16 @@
     }
     if (s?.schema === 7) {
       upgradeGreekRoadSave(s);
-      upgradeShoreRouteSave(s);
       upgradeBoardingSave(s);
       upgradeRecitals(s, packDefinitions);
     }
+    upgradeSightings(s);
     migrateLife(s, profileOf);
+    installHumanLife(s, profileOf);
     if (Object.values(s.life?.actors || {}).some((life) => life.collection))
       installSharedQuestRegistry(s);
     if (s?.schema === 7) publishQuestCompletions(s, syncStoryQuests(s));
     return s;
-  }
-  function upgradeShoreRouteSave(s) {
-    const moved = /* @__PURE__ */ new Set(["attic", "train", "boardyai-parlour"]);
-    for (const [actor, known] of Object.entries(s.routeKnowledge || {})) {
-      if (!Array.isArray(known)) continue;
-      let changed = false;
-      const expanded = known.flatMap((edge) => {
-        if (!Array.isArray(edge) || edge.length !== 2) return [edge];
-        const [from, to] = edge;
-        if (moved.has(from) && to === "station" || from === "station" && moved.has(to)) {
-          changed = true;
-          return [[from, "pond"], ["pond", to]];
-        }
-        return [edge];
-      });
-      if (changed) s.routeKnowledge[actor] = [...new Map(
-        expanded.map((edge) => [JSON.stringify(edge), edge])
-      ).values()];
-    }
   }
   function upgradeGreekRoadSave(s) {
     const pack = packDefinitions.find((p) => p.id === "greek-drama");
@@ -14945,7 +14198,7 @@
     player: currentActor(s),
     ...s.controlledActors ? { humanActors: s.controlledActors } : {}
   });
-  var baseExits = (_s, place) => places[place].exits;
+  var baseExits = (s, place) => s.opening ? places[place].exits.filter((to) => ![place, to].includes("attic")) : places[place].exits;
   var placeText = (s, place) => [
     s.opening && place === "attic" ? reflectionOpen(s, place) ? "A tall mirror opens onto a black shore. A path leads through the glass." : "A tall mirror reflects a black shore. Dust gathers along its frame." : s.opening && place === "station" ? "The timetable lists years that have yet to happen. A path leads along the shore to the pond." : places[place].text,
     ...crossingScenery(s, place, sensesFor(s)),
@@ -14976,24 +14229,10 @@
       ])
     ];
   }
-  function ordinaryRouteHome(s, place, destination, actor, previous) {
-    const queue = [[place, previous]], visited = /* @__PURE__ */ new Set([place]);
-    for (let i = 0; i < queue.length; i++) {
-      const [from, before] = queue[i];
-      if (from === destination) return true;
-      for (const to of ordinaryExits(s, from, actor, before)) {
-        if (visited.has(to) || !entityActive(s, to) || !actorCanVisit(actor, to, s))
-          continue;
-        visited.add(to);
-        queue.push([to, from]);
-      }
-    }
-    return false;
-  }
   function homeRescueExit(s, place, actor = currentActor(s), previous = null) {
     const gate = homeGates[place];
     actor ||= currentActor(s);
-    return gate && (controlledByHuman(s, actor) || gate.opening && knownActors(s).includes(actor)) && s.actors[actor]?.place === place && !ordinaryRouteHome(s, place, gate.rescue, actor, previous) && !homeGateRecoverable(s, place, gate, actor) ? gate.rescue : null;
+    return gate && controlledByHuman(s, actor) && s.actors[actor]?.place === place && ordinaryExits(s, place, actor, previous).length === 0 && !homeGateRecoverable(s, place, gate, actor) ? gate.rescue : null;
   }
   function exits(s, place, actor = null, previous = null) {
     const rescue = homeRescueExit(s, place, actor, previous);
@@ -15096,7 +14335,7 @@
   }
   function captureHands(s, met) {
     if (!hasQuestPrograms(s)) return;
-    for (const actor of knownActors(s).filter((id) => !isPackActor(id))) {
+    for (const actor of knownActors(s).filter(personalQuestActor)) {
       const collection = lifeOf(s, actor)?.collection;
       const cards = collection ? collectionCards(s, actor).filter(
         (q) => q.completedTurn === null && (questCarried(s, actor, q.key) || q.participants.some((id) => questCarried(s, id, q.key)))
@@ -15121,12 +14360,17 @@
             target: structuredClone(target),
             fulfillment: {
               items: [...target.items],
-              location: s.actors[actor].place,
+              location: (target.conditions || []).find(
+                (c) => c.kind === "together"
+              )?.avatars ? s.actors[target.conditions.find((c) => c.kind === "together").avatars[0]].place : s.actors[actor].place,
               // Include the actual required participants, even before Vale meets
               // them. Keep nearby witnesses within the receipt's two-person bound.
               avatars: [
                 .../* @__PURE__ */ new Set([
                   ...target.avatars,
+                  ...(target.conditions || []).flatMap(
+                    (c) => c.kind === "together" ? c.avatars : []
+                  ),
                   ...actorIds.filter(
                     (id) => id !== actor && entityActive(s, id) && s.actors[id].place === s.actors[actor].place
                   )
@@ -15168,8 +14412,10 @@
       }
     }
   }
-  function ensurePrograms(s) {
-    for (const actor of actorIds.filter((id) => !isPackActor(id))) {
+  function ensurePrograms(s, candidates2 = actorIds) {
+    for (const actor of candidates2.filter(
+      (id) => personalQuestActor(id) && (id !== BOARDY || lifeOf(s, id) && entityActive(s, id))
+    )) {
       const p = s.actors[actor].progress;
       if (ensureCollectedQuest(s, actor, programPlaces(s), things)) continue;
       if (p.program >= programsFor(s, actor).length && !p.current) {
@@ -15192,7 +14438,7 @@
   function refreshStalledPrograms(s) {
     if (!hasQuestPrograms(s)) return;
     for (const actor of knownActors(s).filter(
-      (id) => !controlledByHuman(s, id) && !isPackActor(id)
+      (id) => !controlledByHuman(s, id) && personalQuestActor(id)
     )) {
       const p = s.actors[actor].progress, current = programFor(s, actor);
       if (lifeOf(s, actor)?.collection) continue;
@@ -16306,9 +15552,7 @@
     while (queue.length) {
       const route = queue.shift();
       if (route.at(-1) === target) return route;
-      const here = route.at(-1);
-      const projected = s.actors[actor] && s.actors[actor].place !== here ? { ...s, actors: { ...s.actors, [actor]: { ...s.actors[actor], place: here } } } : s;
-      for (const next of exits(projected, here, actor, route.at(-2)))
+      for (const next of exits(s, route.at(-1), actor, route.at(-2)))
         if (!visited.has(next)) {
           visited.add(next);
           queue.push([...route, next]);
@@ -16316,28 +15560,10 @@
     }
   }
   function toward(s, actor, target) {
-    const here = s.actors[actor].place;
-    const route = routeBetween(s, here, target, actor);
-    const actions = legalActions(s, actor);
-    if (route)
-      return actions.find((a) => a.kind === "move" && a.target === route[1]);
-    for (const [home2, gate] of Object.entries(homeGates)) {
-      if (here === home2 || !routeBetween(s, gate.rescue, target, actor)) continue;
-      const approach = routeBetween(s, here, home2, actor);
-      if (approach?.length > 1)
-        return actions.find((a) => a.kind === "move" && a.target === approach[1]);
-    }
-    if (target !== "attic" && here !== "attic") return;
-    const find = (kind, item) => actions.find((a) => a.kind === kind && a.item === item);
-    const take = find("take", "lamp");
-    if (take) return take;
-    if (covered(s, "lamp") && find("take", "cloth")) return find("take", "cloth");
-    if (!s.items.lamp.fuel && find("refill", "oil")) return find("refill", "oil");
-    if (!s.items.lamp.lit && find("light", "lamp")) return find("light", "lamp");
-    if (here === "station")
-      return actions.find((a) => a.kind === "move" && a.target === "pond");
-    if (here === "pond" && itemPlace2(s, "lamp") === "station")
-      return actions.find((a) => a.kind === "move" && a.target === "station");
+    const route = routeBetween(s, s.actors[actor].place, target, actor);
+    return legalActions(s, actor).find(
+      (a) => a.kind === "move" && a.target === route?.[1]
+    );
   }
   function plan(s, actor = currentActor(s)) {
     const arrival2 = transportArrival(s, actor);
@@ -16346,12 +15572,20 @@
     );
     if (landing)
       return { action: landing, reason: `Step ashore at ${nameOf(arrival2)}.` };
-    if (actor === BOARDY) {
-      return {
-        action: legalActions(s, actor).find((a) => a.kind === "wait"),
-        reason: "Bring two human players together."
-      };
-    }
+    const program = programFor(s, actor);
+    const pair = introductionPair(program);
+    if (pair && questActive(s, actor))
+      return introductionPlan(
+        s,
+        actor,
+        focusedQuest(s, actor)?.key || program.id,
+        program,
+        {
+          actions: legalActions(s, actor),
+          toward: (place) => toward(s, actor, place),
+          name: nameOf
+        }
+      );
     return reconsiderPlan(
       s,
       actor,
@@ -16369,7 +15603,7 @@
         action: legalActions(s, actor)[0],
         reason: packPeople[actor].tastes.reason
       };
-    if (isPackActor(actor)) {
+    if (isPackActor(actor) && !personalQuestActor(actor)) {
       const actions = legalActions(s, actor).filter(
         (a) => !["move", "accompany", "threaten"].includes(a.kind) && (a.kind !== "take" || desireFor(s, actor).items.includes(a.item))
       );
@@ -16440,7 +15674,7 @@
     const reason = `Seek this hand: ${handText(hand2)}.`;
     const waitingHere = (ids3) => ids3.find((id) => {
       const theirs = desireFor(s, id), there = s.actors[id].place;
-      return id !== actor && entityActive(s, id) && there !== here && toward(s, actor, there) && theirs.avatars.includes(actor) && (theirs.location || there) === there && handStatus(s, id, theirs).items.every((e) => e.met) && theirs.avatars.every(
+      return id !== actor && entityActive(s, id) && there !== here && routeBetween(s, here, there, actor) && theirs.avatars.includes(actor) && (theirs.location || there) === there && handStatus(s, id, theirs).items.every((e) => e.met) && theirs.avatars.every(
         (other) => other === actor || s.actors[other].place === there
       );
     });
@@ -16459,13 +15693,6 @@
           (a) => a.kind === "trade" && bundle(s, a.receive).includes(item) && !needed(s, actor, a.item)
         );
         if (trade) return choose(trade, reason);
-        if (hasMotives(s) && !willingToGive(s, owner2, item, actor)) {
-          const help2 = acts.find(
-            (a) => a.kind === "give" && a.target === owner2 && !needed(s, actor, a.item) && (needed(s, owner2, a.item) || resentment(s, owner2, actor) > 0 && valueOf(s, owner2, a.item) >= 4)
-          );
-          if (help2)
-            return choose(help2, `Help ${nameOf(owner2)} with ${nameOf(help2.item)} before asking for ${nameOf(item)}.`);
-        }
         let heldItem = item;
         while (s.items[s.items[heldItem].holder])
           heldItem = s.items[heldItem].holder;
@@ -16585,11 +15812,6 @@
     if (waiting) return goMeet(waiting);
     if (hand2.location && here !== hand2.location)
       return choose(toward(s, actor, hand2.location), reason);
-    const rescue = homeRescueExit(s, here, actor);
-    if (rescue && hand2.avatars.some(
-      (other) => s.actors[other].place !== here && !routeBetween(s, s.actors[other].place, here, other)
-    ))
-      return choose(find("move", void 0, rescue), "Meet the waiting travelers at the shore.");
     return idle(
       handStatus(s, actor).met ? "Hold the target hand." : `Wait for ${hand2.avatars.filter((id) => s.actors[id].place !== here).map(nameOf).join(" and ")} at ${nameOf(here)}.`
     );
@@ -16611,6 +15833,8 @@
     const next = structuredClone(s);
     if (actor !== "vale" || s.playerActorId) next.playerActorId = actor;
     for (const id of actorIds) installQuestCollection(next, id);
+    if (entityActive(next, BOARDY) && lifeOf(next, BOARDY))
+      ensureCollectedQuest(next, BOARDY, programPlaces(next), things);
     const previousHopes = Object.fromEntries(
       knownActors(s).map((id) => [id, lifeOf(s, id)?.milestones.length || 0])
     );
@@ -16632,21 +15856,30 @@
       next.locations.attic.anchored = true;
     }
     const residents = [
-      "moth",
-      "keeper",
-      ...active.filter(
-        (id) => isPackActor(id) && !roamingQuestActor(id) && entityActive(next, id) && next.actors[id].place === next.actors[actor].place
-      )
+      .../* @__PURE__ */ new Set([
+        "moth",
+        "keeper",
+        ...active.filter(
+          (id) => !controlledByHuman(next, id) && (id === BOARDY || introductionPair(programFor(next, id)))
+        ),
+        ...active.filter(
+          (id) => isPackActor(id) && !roamingQuestActor(id) && entityActive(next, id) && next.actors[id].place === next.actors[actor].place
+        )
+      ])
     ];
     for (const actor2 of residents) {
       if (actor2 === respondent || !active.includes(actor2) || controlledByHuman(next, actor2))
         continue;
+      const program = programFor(next, actor2);
+      const key2 = focusedQuest(next, actor2)?.key || program?.id;
+      const target = introductionTarget(next, actor2, key2, program);
       perform(
         next,
         plan(next, actor2).action,
         () => captureHands(next, met),
         round
       );
+      recordIntroductionTurn(next, actor2, key2, program, target);
       captureHands(next, met);
     }
     if (next.items.lamp.lit) {
@@ -16737,7 +15970,6 @@
       else next.sharedMigration.inventoryAllowances[id] = count;
     }
     settleQuestHands(next);
-    settleBoardy(next);
     validateWorld(next);
     return { ok: true, state: next };
   }
@@ -16761,7 +15993,9 @@
     }
     if (p.generated) {
       const g = p.generated;
-      if (!Number.isSafeInteger(g.turn) || g.turn < 0 || g.turn > s.turn || !Number.isSafeInteger(g.level) || g.level < (lifeOf(s, actor)?.collection ? 1 : 3) || g.level > s.turn * (lifeOf(s, actor)?.collection ? 8 : 1) + 1 || ![...actorIds, ...Object.keys(places)].includes(g.owner) || (g.solo === void 0 ? !ids.includes(g.item) || !actorIds.includes(g.partner) || g.partner === actor : g.solo !== true || g.owner !== actor || g.partner !== null || g.item !== null && !ids.includes(g.item)))
+      const pair = introductionPair(p);
+      if (!validIntroductionProgram(p)) return false;
+      if (!Number.isSafeInteger(g.turn) || g.turn < 0 || g.turn > s.turn || !Number.isSafeInteger(g.level) || g.level < (lifeOf(s, actor)?.collection ? 1 : 3) || g.level > s.turn * (lifeOf(s, actor)?.collection ? 8 : 1) + 1 || ![...actorIds, ...Object.keys(places)].includes(g.owner) || (pair ? g.item !== null || g.owner !== actor || !Array.isArray(pair) || pair.length !== 2 || new Set(pair).size !== 2 || pair.some((id) => !actorIds.includes(id) || id === actor) || g.partner !== pair[0] : g.solo === void 0 ? !ids.includes(g.item) || !actorIds.includes(g.partner) || g.partner === actor : g.solo !== true || g.owner !== actor || g.partner !== null || g.item !== null && !ids.includes(g.item)))
         return false;
     }
     return true;
@@ -16810,13 +16044,13 @@
       fail();
     if (s.opening !== void 0) {
       const o = s.opening;
-      if (!o || ![1, 2].includes(o.version) || typeof o.crossed !== "boolean" || !o.met || o.met.vale !== 0 || Object.keys(o.met).some((id) => !actorIds.includes(id)) || Object.values(o.met).some(
+      if (!o || o.version !== 1 || typeof o.crossed !== "boolean" || !o.met || o.met.vale !== 0 || Object.keys(o.met).some((id) => !actorIds.includes(id)) || Object.values(o.met).some(
         (turn) => !Number.isSafeInteger(turn) || turn < 0 || turn > s.turn
       ) || !sharedEnabled(s) && o.met.keeper !== void 0 && o.met.moth === void 0 || !o.crossed && (!Object.entries(homeGates).some(
-        ([place, gate]) => gate.opening && [place, gate.rescue, "station"].includes(s.actors?.vale?.place)
+        ([place, gate]) => gate.opening && [place, gate.rescue].includes(s.actors?.vale?.place)
       ) || Object.keys(o.met).some(
         (id) => id !== "vale" && !roamingActors.includes(id)
-      )) || o.version === 1 && o.crossed && !s.locations?.attic.anchored || o.crossed && o.met.moth === void 0 || o.version === 2 && !o.crossed)
+      )) || o.crossed && (!s.locations?.attic.anchored || o.met.moth === void 0))
         fail();
     }
     if (Object.keys(s.actors || {}).sort().join() !== actorIds.slice().sort().join() || Object.keys(s.items || {}).sort().join() !== ids.slice().sort().join())
@@ -16833,7 +16067,7 @@
       authoredRouteEdges()
     ))
       fail();
-    if (!validMemories(s) || !validMotives(s) || !validLife(s, Object.keys(places)))
+    if (!validMemories(s) || !validMotives(s) || !validIntroductionVisits(s, actorIds, Object.keys(places)) || !validLife(s, Object.keys(places)))
       fail();
     if (!s.locations || typeof s.locations.attic?.anchored !== "boolean" || ![null, "call", "hush"].includes(s.locations.pond?.answer))
       fail();
@@ -16865,10 +16099,12 @@
         fail();
       if (!Object.hasOwn(places, a.place) || !actorCanVisit(id, a.place, s) || entityActive(s, id) && !entityActive(s, a.place) || !Number.isSafeInteger(a.crossed) || a.crossed < 0 || !Number.isSafeInteger(a.lastTalk) || a.lastTalk > s.turn)
         fail();
-      if (isPackActor(id)) {
+      if (isPackActor(id) && !personalQuestActor(id)) {
         if (!sameValue(a.progress, newProgress())) fail();
         continue;
       }
+      if (isPackActor(id) && personalQuestActor(id) && !lifeOf(s, id)?.collection && sameValue(a.progress, newProgress()))
+        continue;
       const progress = a.progress, programs = programsFor(s, id);
       if (!progress || !Number.isSafeInteger(progress.program) || progress.program < 0 || progress.program > s.turn * (lifeOf(s, id)?.collection ? 8 : 1) || !Number.isInteger(progress.step) || progress.step < 0)
         fail();
@@ -16906,6 +16142,7 @@
             "answer",
             "delivery",
             "gathering",
+            "introduction",
             "bargain"
           ].includes(kind)
         )))
@@ -17243,9 +16480,8 @@
   }
   function sceneCast(world, through = world.log.length - 1, recordedCast = null) {
     const here = world.actors[currentActor(world)].place;
-    const known = recordedCast ? null : new Set(knownActors(world));
     const present = recordedCast || personIds.filter(
-      (id) => known.has(id) && world.actors[id].place === here && (!world.controlledActors?.includes(id) || world.presentActors?.includes(id))
+      (id) => knownActors(world).includes(id) && world.actors[id].place === here && (!world.controlledActors?.includes(id) || world.presentActors?.includes(id))
     );
     const target = world.log.slice(0, through + 1).findLast(
       (entry) => entry.turn === world.turn && entry.actorId === currentActor(world) && entry.kind === "action"
@@ -17405,7 +16641,7 @@
   function narrativeContext(world, action = null) {
     const location = world.actors[currentActor(world)].place;
     const beforeFirstLight = Boolean(
-      world.opening?.version === 1 && !world.locations.attic.anchored
+      world.opening && !world.locations.attic.anchored
     );
     const known = knownActors(world);
     const present = Object.keys(world.actors).filter(
@@ -17765,7 +17001,6 @@
       throw new Error("Load a saved world first.");
     const world = contextual(structuredClone(request.world), request);
     const loaded = decodeSave(JSON.stringify(world));
-    settleBoardy(loaded);
     return loaded;
   }
   function response(world, extra = {}) {
@@ -17826,7 +17061,6 @@
         claimed: ["vale"],
         present: ["vale"]
       });
-      settleBoardy(world2);
       validateWorld(world2);
       return response(world2, view(world2, request.actor || "vale"));
     }
@@ -17838,6 +17072,7 @@
         installQuestCollection(world, id);
       if (request.from === "full-card-world/2")
         settleHomeItems(world, world.controlledActors);
+      ensurePrograms(world, [BOARDY]);
       world.revision += 1;
       validateWorld(world);
       return response(world);
@@ -17897,13 +17132,13 @@
       for (const line of request.lines) {
         const scenic = line.actorId == null && line.entityId === room;
         const speaker = scenic ? null : line.actorId || (people[line.entityId] ? line.entityId : null) || Object.keys(people).find((id) => people[id].name === line.speaker) || (people[line.speaker] ? line.speaker : null);
-        if (request.lines.length === 1 && speaker !== actor || !scenic && (!speaker || world.actors[speaker].place !== room || humanAvatar(speaker) && !world.presentActors.includes(speaker) && !(speaker === actor && world.controlledActors.includes(speaker))) || typeof line.text !== "string" || !line.text.trim() || line.text.length > 600 || /[\u0000-\u001f\u007f]/u.test(line.text) || !validExpression(profiles[speaker], line.text))
+        if (request.lines.length === 1 && speaker !== actor || !scenic && (!speaker || world.actors[speaker].place !== room || humanAvatar(speaker) && !world.presentActors.includes(speaker) && !(speaker === actor && world.controlledActors.includes(speaker))) || typeof line.text !== "string" || !line.text.trim() || line.text.length > 600 || /[\u0000-\u001f\u007f]/u.test(line.text))
           throw new Error(
             "Each line needs a present speaker or the room, and clear text."
           );
         addLog(world, scenic ? nameOf(room) : nameOf(speaker), line.text.trim(), {
           generated: true,
-          kind: scenic ? "narration" : expressionKind(profiles[speaker]),
+          kind: scenic ? "narration" : "dialogue",
           actorId: speaker,
           entityId: scenic ? room : speaker,
           locationId: room

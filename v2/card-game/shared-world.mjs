@@ -1,9 +1,11 @@
 import { privateView } from "./learning.mjs";
 import { expressionKind, validExpression } from "./expression.mjs";
+import { BOARDY } from "./boardyai.mjs";
 // One pure adapter for the browser model and the server's C-backed JS runtime.
 // The host supplies authenticated claims and presence on every operation.
 import {
   createWorld,
+  ensurePrograms,
   decodeSave,
   validateWorld,
   legalActions,
@@ -27,7 +29,6 @@ import { profiles } from "./memory.mjs";
 import { enableMotives } from "./motives.mjs";
 import { narrativeContext, applySharedReflections } from "./narrative.mjs";
 import { currentScene } from "./scene.mjs";
-import { settleBoardy } from "./boardyai.mjs";
 
 function ids(value, fallback = []) {
   const result = value === undefined ? fallback : value;
@@ -65,7 +66,6 @@ function load(request) {
     throw new Error("Load a saved world first.");
   const world = contextual(structuredClone(request.world), request);
   const loaded = decodeSave(JSON.stringify(world));
-  settleBoardy(loaded);
   return loaded;
 }
 function response(world, extra = {}) {
@@ -136,7 +136,6 @@ export function dispatchShared(request) {
       claimed: ["vale"],
       present: ["vale"],
     });
-    settleBoardy(world);
     validateWorld(world);
     return response(world, view(world, request.actor || "vale"));
   }
@@ -148,6 +147,7 @@ export function dispatchShared(request) {
       installQuestCollection(world, id);
     if (request.from === "full-card-world/2")
       settleHomeItems(world, world.controlledActors);
+    ensurePrograms(world, [BOARDY]);
     world.revision += 1;
     validateWorld(world);
     return response(world);

@@ -30,7 +30,7 @@
       "name": "BoardyAI",
       "text": "A friendly AI with a blue smile on a cardboard box head and an open hand for introductions. He wants two human players to spend time together.",
       "place": "boardyai-parlour",
-      "persona": "BoardyAI is a thoughtful AI connector inspired by Boardy (@boardyai, https://x.com/boardyai). He wears a dark suit and a cardboard box head with a blue smile. His lasting quest is to bring two connected human players into the same room. He learns what people enjoy, finds common ground, and warmly invites them to meet. He values each person's choice and welcomes shared conversation.",
+      "persona": "BoardyAI is a thoughtful AI connector inspired by Boardy (@boardyai, https://x.com/boardyai). He wears a dark suit and a cardboard box head with a blue smile. He favours introduction quests for a chosen pair of connected human players. He visits each in turn until they meet, then rests. He also takes ordinary quests. He learns what people enjoy, finds common ground, and warmly invites them to meet. He values each person's choice and welcomes shared conversation.",
       "voice": "Speak in short, warm, curious sentences. Address people by name. Offer a thoughtful introduction and a clear meeting place from the supplied facts. Each human chooses their own actions.",
       "portrait": "assets/boardyai/boardyai.png",
       "values": {
@@ -52,7 +52,8 @@
         "items": [],
         "location": null,
         "avatars": []
-      }
+      },
+      "personalQuests": true
     }
   },
   "items": {

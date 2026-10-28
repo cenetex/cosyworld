@@ -1529,7 +1529,10 @@ function questCard(id) {
   img.decoding = "async";
   img.fetchPriority = "low";
   img.src = imageUrl(
-    packMedia(quest.art, "art") || `./assets/${quest.art}-card.png`,
+    packMedia(quest.art, "art") ||
+      (world.actors[quest.art]
+        ? portrait(quest.art, null, world)
+        : `./assets/${quest.art}-card.png`),
     "card",
   );
   img.alt = "";

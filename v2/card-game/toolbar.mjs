@@ -1,7 +1,6 @@
 import { installInnerLife } from "./inner-life.mjs";
 import { imageUrl } from "./images.mjs";
 import { humanAvatars } from "./human-cast.mjs";
-import { places } from "./world.mjs";
 import { levelOf } from "./quests.mjs";
 
 const icons = {
@@ -39,11 +38,11 @@ export function onlinePlayers(state) {
     .flatMap((avatar, index) => {
       if (state?.present?.[index] !== 1 || state?.claimed?.[index] !== 1)
         return [];
-      const place = state.world?.actors?.[avatar.id]?.place;
       return [
         {
-          ...avatar,
-          location: places[place]?.name || "Exploring the world",
+          id: avatar.id,
+          name: avatar.name,
+          image: avatar.image,
           level: levelOf(state.world, avatar.id),
           self: avatar.id === state.actor,
         },
@@ -129,12 +128,12 @@ export function installToolbar({ session, getWorld }) {
   summary.id = "players-summary";
   summary.setAttribute("role", "status");
   const list = element("ul", "players-list");
-  list.setAttribute("aria-label", "Player locations");
+  list.setAttribute("aria-label", "Online players");
   const hint = element(
     "p",
     "players-hint",
     session
-      ? "Locations update as players explore."
+      ? "These players are connected to this world."
       : "Share this world to invite friends.",
   );
   dialog.append(heading, summary, list, hint);
@@ -162,8 +161,6 @@ export function installToolbar({ session, getWorld }) {
             ...humanAvatars[0],
             self: true,
             level: levelOf(local, "vale"),
-            location:
-              places[local.actors.vale.place]?.name || "Exploring the world",
           },
         ];
     const key = JSON.stringify([Boolean(reconnecting), players]);
@@ -182,7 +179,7 @@ export function installToolbar({ session, getWorld }) {
           : "Players, local world",
     );
     summary.textContent = reconnecting
-      ? "Reconnecting… Player locations will refresh when the connection returns."
+      ? "Reconnecting… The player list will refresh when the connection returns."
       : session
         ? `${players.length} ${players.length === 1 ? "player" : "players"} online · This world`
         : "Local play · Your world";
@@ -199,10 +196,7 @@ export function installToolbar({ session, getWorld }) {
       const name = element("strong", "player-name", player.name);
       if (player.self) name.append(element("span", "player-you", "You"));
       const details = element("span", "player-details");
-      details.append(
-        element("span", "player-level", `Level ${player.level}`),
-        element("span", "player-location", player.location),
-      );
+      details.append(element("span", "player-level", `Level ${player.level}`));
       copy.append(name, details);
       row.append(portrait, copy);
       list.append(row);

@@ -1,13 +1,10 @@
 import { controlledByHuman } from "./human-cast.mjs";
-import { BOARDY } from "./boardyai.mjs";
 import { transports, crossings, entityActive } from "./pack-registry.mjs";
 
-// Boardy follows the human gathering as it moves. Riders own the voyage.
+// Every rider shares the ship’s voyage.
 export const passengers = (s, id) =>
   Object.entries(s.actors)
-    .filter(
-      ([actor, a]) => actor !== BOARDY && a.place === transports[id].place,
-    )
+    .filter(([, a]) => a.place === transports[id].place)
     .map(([, a]) => a);
 
 export function installTransports(s) {
@@ -69,7 +66,7 @@ export function waitForTransport(s, place, actor) {
 }
 
 export function transportArrival(s, actor) {
-  if (actor === BOARDY || controlledByHuman(s, actor)) return null;
+  if (controlledByHuman(s, actor)) return null;
   const found = Object.entries(transports).find(
     ([, t]) => t.place === s.actors[actor]?.place,
   );

@@ -11,12 +11,9 @@ import {
   entityActive,
   validatePackDefinition,
 } from "../v2/card-game/pack-registry.mjs";
+import { enableMotives } from "../v2/card-game/motives.mjs";
 import { questCards } from "../v2/card-game/quest-cards.mjs";
-import {
-  boardyPack,
-  boardyFacts,
-  boardyGathering,
-} from "../v2/card-game/boardyai.mjs";
+import { boardyPack, boardyFacts } from "../v2/card-game/boardyai.mjs";
 
 const view = (world, present = ["vale", "mara"], actor = "vale") =>
   dispatchShared({
@@ -27,107 +24,43 @@ const view = (world, present = ["vale", "mara"], actor = "vale") =>
     present,
   });
 const fresh = () =>
-  dispatchShared({ op: "create", save: encodeSave(createWorld()) }).world;
+  dispatchShared({
+    op: "create",
+    save: encodeSave(enableMotives(createWorld(), { personalQuests: true })),
+  }).world;
 
-describe("BoardyAI's lasting quest", () => {
-  it("uses connected humans to decide when he appears", () => {
+describe("BoardyAI's quests and home", () => {
+  it("appears for two connected humans and keeps his physical place", () => {
     const world = fresh();
-    expect(entityActive(createWorld(), "boardyai")).toBe(false);
-    for (const present of [[], ["vale"]]) {
-      const result = view(world, present);
-      expect(entityActive(result.world, "boardyai")).toBe(false);
-      expect(availableCards(result.world)).not.toContain("boardyai");
-      expect(result.actions.some((a) => a.target === "boardyai")).toBe(false);
-    }
-    const result = view(world);
-    expect(availableCards(result.world)).toContain("boardyai");
-    expect(
-      result.actions.some((a) => a.kind === "talk" && a.target === "boardyai"),
-    ).toBe(true);
-    expect(result.world.actors.boardyai.place).toBe(world.actors.vale.place);
+    for (const present of [[], ["vale"]])
+      expect(entityActive(view(world, present).world, "boardyai")).toBe(false);
+    expect(entityActive(view(world).world, "boardyai")).toBe(true);
+    expect(view(world).world.actors.boardyai.place).toBe("boardyai-parlour");
+    world.actors.vale.place = "boardyai-parlour";
+    expect(availableCards(view(world).world)).toContain("boardyai");
   });
 
-  it("gives every reader the same gathering and follows the largest human group", () => {
+  it("keeps the same position and search state across readers and reloads", () => {
     const world = fresh();
-    world.actors.mara.place = world.actors.ash.place = "pond";
-    const present = ["vale", "mara", "ash"];
-    const vale = view(world, present);
-    const mara = view(world, [...present].reverse(), "mara");
-    expect(vale.world.actors.boardyai.place).toBe("pond");
-    expect(mara.world.actors.boardyai).toEqual(vale.world.actors.boardyai);
-    expect(boardyGathering(mara.world).humans).toEqual(["mara", "ash"]);
-    expect(availableCards(mara.world)).toContain("boardyai");
-    for (const id of ["vale", "mara", "ash", "nell"])
-      world.actors[id].place = "pond";
-    expect(
-      availableCards(view(world, ["vale", "mara", "ash", "nell"]).world),
-    ).toContain("boardyai");
+    world.actors.boardyai.place = "pond";
+    const before = encodeSave(world);
+    const a = view(world);
+    const b = view(world, ["mara", "vale"], "mara");
+    expect(a.world.actors.boardyai).toEqual(b.world.actors.boardyai);
+    expect(a.world.actors.boardyai.place).toBe("pond");
+    expect(encodeSave(world)).toBe(before);
+    expect(view(decodeSave(before)).world.actors.boardyai.place).toBe("pond");
   });
 
-  it("keeps the same quest through shared plays, reloads, meetings and departures", () => {
-    let world = fresh();
-    const originalPlaces = Object.fromEntries(
-      ["vale", "mara"].map((id) => [id, world.actors[id].place]),
-    );
-    const quest = questCards(view(world).world, "boardyai")[0];
-    expect(quest).toMatchObject({
-      key: "boardyai:together",
-      purpose: "Bring two human players together.",
-      status: "active",
-      ongoing: true,
-    });
-    for (let turn = 0; turn < 12; turn++) {
-      const v = view(world);
-      world = dispatchShared({
-        op: "play",
-        world,
-        actor: "vale",
-        claimed: ["vale", "mara"],
-        present: ["vale", "mara"],
-        action: v.actions.find((a) => a.kind === "wait"),
-      }).world;
-      expect(
-        questCards(view(decodeSave(encodeSave(world))).world, "boardyai"),
-      ).toEqual([quest]);
-    }
-    for (const [id, place] of Object.entries(originalPlaces))
-      expect(world.actors[id].place).toBe(place);
-    world.actors.mara.place = world.actors.vale.place;
-    expect(boardyFacts(view(world).world, nameOf).join(" ")).toContain(
-      "Two human players are together here",
-    );
-    expect(questCards(view(world).world, "boardyai")).toEqual([quest]);
-    const absent = view(world, ["vale"]);
-    expect(availableCards(absent.world)).not.toContain("boardyai");
-    expect(questCards(view(absent.world).world, "boardyai")).toEqual([quest]);
-  });
-
-  it("gives dialogue the connected humans and their real meeting places", () => {
+  it("keeps human locations out of his facts until he has seen them", () => {
     const world = fresh();
-    const result = view(world);
-    const response = dispatchShared({
-      op: "play",
-      world,
-      actor: "vale",
-      claimed: ["vale", "mara"],
-      present: ["vale", "mara"],
-      action: result.actions.find(
-        (a) => a.kind === "talk" && a.target === "boardyai",
-      ),
-    });
-    expect(response.ok).toBe(true);
-    const boardy = response.context.entities.find((e) => e.id === "boardyai");
-    expect(boardy.facts.join(" ")).toContain(
-      "Mara is a connected human at Paper theatre",
+    world.actors.boardyai.place = "station";
+    const context = view(world).world;
+    expect(boardyFacts(context, nameOf).join(" ")).toContain(
+      "I have yet to find Mara",
     );
-    expect(boardy.facts.join(" ")).toContain(
-      `Invite the humans to meet at ${nameOf(world.actors.vale.place)}`,
-    );
-    expect(boardy.facts.join(" ")).toContain(
-      "My active purpose is Two humans together",
-    );
-    expect(boardy.facts.join(" ")).toContain(
-      "My calling card opens its door at Black pond",
+    expect(boardyFacts(context, nameOf).join(" ")).not.toContain(
+      "Paper theatre",
     );
   });
 

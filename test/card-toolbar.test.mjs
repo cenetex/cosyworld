@@ -26,30 +26,33 @@ describe("players in the shared world", () => {
       name: "Mara",
       level: 4,
       self: true,
-      location: "Black pond",
     });
     expect(rows[1]).toMatchObject({
       name: "Vale",
       level: 1,
       self: false,
-      location: "Empty station",
     });
   });
-  it("follows movement and expired presence in fresh snapshots", () => {
+  it("keeps locations private while levels and online status update", () => {
     const state = snapshot();
+    const before = onlinePlayers(state);
     state.world.actors.vale.place = "pond";
+    expect(onlinePlayers(state)).toEqual(before);
     state.world.actors.vale.progress.program = 2;
     expect(onlinePlayers(state)[1].level).toBe(3);
-    expect(onlinePlayers(state)[1].location).toBe("Black pond");
+    expect(onlinePlayers(state).every((row) => !("location" in row))).toBe(
+      true,
+    );
     state.present[0] = 0;
     expect(onlinePlayers(state).map(({ id }) => id)).toEqual(["mara"]);
     state.present[1] = 0;
     expect(onlinePlayers(state)).toEqual([]);
   });
-  it("handles an empty snapshot and a place awaiting a label", () => {
+  it("handles an empty snapshot and keeps unknown places private", () => {
     expect(onlinePlayers({})).toEqual([]);
     const state = snapshot();
     state.world.actors.vale.place = "new-place";
-    expect(onlinePlayers(state)[1].location).toBe("Exploring the world");
+    expect(onlinePlayers(state)[1]).not.toHaveProperty("location");
+    expect(onlinePlayers(state)[1]).not.toHaveProperty("home");
   });
 });
