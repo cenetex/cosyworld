@@ -97,7 +97,7 @@ fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
                 }
                 let upgraded = full_store::world(&c, &id, now()).unwrap();
                 assert_eq!(upgraded.version, engine::VERSION);
-                assert_eq!(upgraded.game["packs"]["greek-drama"]["revision"], 6);
+                assert_eq!(upgraded.game["packs"]["greek-drama"]["revision"], 7);
                 assert_eq!(upgraded.claimed, old.claimed);
                 assert_eq!(upgraded.present, old.present);
                 preserves_old_entities(&upgraded.game, &old.game);
@@ -117,6 +117,7 @@ fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
                     upgraded.game["actors"].as_object().unwrap().len(),
                     old.game["actors"].as_object().unwrap().len()
                         + 16
+                        + 3
                         + 4
                         + if version == engine::ELEVENTH_VERSION {
                             3
@@ -128,6 +129,7 @@ fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
                     upgraded.game["items"].as_object().unwrap().len(),
                     old.game["items"].as_object().unwrap().len()
                         + 10
+                        + 4
                         + 4
                         + if version == engine::ELEVENTH_VERSION {
                             9
