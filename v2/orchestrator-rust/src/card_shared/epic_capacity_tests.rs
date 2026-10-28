@@ -53,6 +53,15 @@ fn select(world: &World, field: &str, value: &str) -> Value {
 fn assert_catalog_extension(old: &Value, current: &Value, fresh: bool) {
     let mut retained = current.clone();
     if fresh {
+        // Fresh rules21 rows resolve absent peers to zero. Imported rows stay exact.
+        for (id, actor) in old["actors"].as_object().unwrap() {
+            for (other, value) in actor["trust"].as_object().unwrap() {
+                if retained["actors"][id]["trust"].get(other).is_none() {
+                    assert_eq!(value, &json!(0));
+                    retained["actors"][id]["trust"][other] = json!(0);
+                }
+            }
+        }
         let expected_routes = routes_through_crag_camp(&old["routeKnowledge"]["greek-rhapsode"]);
         let previous_routes = expected_routes.as_array().unwrap();
         let routes = current["routeKnowledge"]["greek-rhapsode"]

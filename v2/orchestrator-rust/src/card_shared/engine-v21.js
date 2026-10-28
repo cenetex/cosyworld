@@ -69840,6 +69840,15 @@
     return true;
   }
 
+  // v2/card-game/trust.mjs
+  var trustValue = (world, actor, other) => world.actors[actor]?.trust?.[other] ?? 0;
+  function validTrust(trust, actor, actorIds2) {
+    return trust !== null && typeof trust === "object" && !Array.isArray(trust) && Object.entries(trust).every(
+      ([other, value]) => other !== actor && actorIds2.has(other) && Number.isInteger(value) && value >= 0 && value <= 3
+    );
+  }
+  var trustedActors = (world, actor, actorIds2) => actorIds2.filter((other) => trustValue(world, actor, other) > 0);
+
   // v2/card-game/adaptive-learning.mjs
   var TRIAL_LIMIT = 32;
   var horizon = 4;
@@ -69889,7 +69898,7 @@
       met: goal.kind === "ask" ? holder(world, goal.item) === actor : [actor, goal.target].every(
         (id) => world.actors[id]?.place === goal.destination
       ),
-      trust: world.actors[goal.target]?.trust?.[actor] || 0,
+      trust: trustValue(world, goal.target, actor),
       held: Object.values(world.items).filter((item) => item.holder === actor).length,
       strain: Math.min(
         3,
@@ -70152,7 +70161,7 @@
     const target = world.actors[action.target];
     return JSON.stringify([
       target?.place,
-      target?.trust?.[action.actor] || 0,
+      trustValue(world, action.target, action.actor),
       (world.motives?.grievances[action.target] || []).map((g) => [
         g.other,
         g.kind,
@@ -71578,7 +71587,7 @@
   function tradeDecision(s, requester, give, receive) {
     const seller = owner(s, receive);
     const premium = resentment(s, seller, requester) * 2;
-    const favour = Math.min(2, s.actors[seller].trust[requester] || 0);
+    const favour = Math.min(2, trustValue(s, seller, requester));
     const accepted = bundleValue(s, seller, give) >= bundleValue(s, seller, receive) + (lifeOf(s, seller) ? 0 : 1) + premium - favour;
     return {
       accepted,
@@ -71588,7 +71597,7 @@
   function giftDecision(s, giver, item, recipient) {
     const annoyed = resentment(s, giver, recipient);
     const spare = bundleValue(s, giver, item) <= 3;
-    const favour = s.actors[giver].trust[recipient] > 0 && bundleValue(s, giver, item) <= 6;
+    const favour = trustValue(s, giver, recipient) > 0 && bundleValue(s, giver, item) <= 6;
     return {
       accepted: !annoyed && !keepReason(s, giver, item) && (spare || favour),
       reason: annoyed ? `${names[giver]} is still annoyed with ${names[recipient]}.` : keepReason(s, giver, item) || `${names[giver]} wants to keep the ${names[item]}.`
@@ -71697,7 +71706,7 @@
         accepted: true,
         reason: carriedWant ? `Stay near the wanted ${names[want.items.find((id) => owner(s, id) === requester)]}.` : want.reason
       };
-    if (s.actors[companion].trust[requester] > 0)
+    if (trustValue(s, companion, requester) > 0)
       return {
         accepted: true,
         favor: true,
@@ -71753,7 +71762,7 @@
       s.motives.grievances[a.target] = s.motives.grievances[a.target].map((g) => g.other === a.actor ? { ...g, weight: g.weight - 1 } : g).filter((g) => g.weight > 0);
       s.actors[a.target].trust[a.actor] = Math.min(
         3,
-        s.actors[a.target].trust[a.actor] + 1
+        trustValue(s, a.target, a.actor) + 1
       );
     }
   }
@@ -73621,6 +73630,14 @@
 
   // v2/card-game/legacy-saves.mjs
   function upgradeSave(s, { actorIds: actorIds2, ensurePrograms: ensurePrograms2, installPacks: installPacks2, profileOf }) {
+    if (s?.schema === 6 || s?.schema === 7 && s.packs?.["greek-drama"]?.revision < 8) {
+      const ids3 = new Set(Object.keys(s.actors || {}));
+      for (const [id, actor] of Object.entries(s.actors || {}))
+        if (!validTrust(actor?.trust, id, ids3) || Object.keys(actor.trust).length !== ids3.size - 1)
+          throw new Error(
+            "This earlier save needs its original entity records and trust records."
+          );
+    }
     if (s?.schema === 1 && s.actors && typeof s.actors === "object") {
       s.schema = 2;
       for (const actor of Object.values(s.actors)) {
@@ -73948,16 +73965,13 @@
       throw new Error(
         "This earlier Greek save needs its original entity records."
       );
-    const actorIds2 = [...Object.keys(s.actors), ...avatars];
     for (const id of avatars) {
       s.actors[id] = {
         place: pack.avatars[id].place,
         progress: newProgress(),
         crossed: 0,
         lastTalk: -9,
-        trust: Object.fromEntries(
-          actorIds2.filter((other) => other !== id).map((other) => [other, 0])
-        ),
+        trust: {},
         ...newTemperament(id)
       };
       s.peaceUntil[id] = 0;
@@ -73968,8 +73982,6 @@
       s.items[id] = { holder: pack.items[id].holder, history: [] };
       s.memories[id] = fresh[id];
     }
-    for (const [id, actor] of Object.entries(s.actors))
-      for (const other of avatars) if (other !== id) actor.trust[other] ??= 0;
   }
   function upgradeBoardingSave(s) {
     for (const [id, transport] of Object.entries(transports)) {
@@ -74096,12 +74108,7 @@
     if (!reads) return knownActors(world);
     return (reads.knownActors ??= knownActors(world)).slice();
   }
-  var expectedTrustKeys = Object.fromEntries(
-    actorIds.map((id) => [
-      id,
-      actorIds.filter((other) => other !== id).sort().join()
-    ])
-  );
+  var trustActorIds = new Set(actorIds);
   var nameOf = (id) => places[id]?.name || people[id]?.name || things[id]?.name || "the world";
   function createWorld({ opening = false, packScopes = {} } = {}) {
     const world = {
@@ -74148,9 +74155,7 @@
           progress: newProgress(),
           crossed: 0,
           lastTalk: -9,
-          trust: Object.fromEntries(
-            actorIds.filter((other) => other !== id).map((other) => [other, 0])
-          ),
+          trust: {},
           ...newTemperament(id)
         };
         s.peaceUntil[id] = 0;
@@ -74162,9 +74167,6 @@
         s.items[id] = { holder: item.holder, history: [] };
         s.memories[id] = fresh[id];
       }
-      for (const [id, actor] of Object.entries(s.actors))
-        for (const other of Object.keys(pack.avatars))
-          if (other !== id) actor.trust[other] ??= 0;
       for (const id of Object.keys(pack.places)) s.memories[id] ??= fresh[id];
     }
     installHumanLife(s, (id) => tastes[id]);
@@ -74361,7 +74363,7 @@
       return false;
     if (!hasQuestPrograms(s) || lifeOf(s, owner2))
       return !controlledByHuman(s, owner2) && recipient !== null && giftDecision(s, owner2, item, recipient).accepted;
-    return !controlledByHuman(s, owner2) && !needed(s, owner2, item) && (handStatus(s, owner2).items.every((e) => e.met) || recipient && s.actors[owner2].trust[recipient] > 0 || recipient === "vale" && valeStalled(s));
+    return !controlledByHuman(s, owner2) && !needed(s, owner2, item) && (handStatus(s, owner2).items.every((e) => e.met) || recipient && trustValue(s, owner2, recipient) > 0 || recipient === "vale" && valeStalled(s));
   }
   function canTrade(s, actor, give, receive) {
     const other = s.items[receive]?.holder;
@@ -74469,7 +74471,7 @@
       case "trust":
         s.actors[effect.avatar].trust[actor] = Math.min(
           3,
-          s.actors[effect.avatar].trust[actor] + 1
+          trustValue(s, effect.avatar, actor) + 1
         );
         text2 = `${nameOf(effect.avatar)} remembers ${nameOf(actor)}'s help. They will share spare items sooner and accept a detour in their company.`;
         break;
@@ -74733,7 +74735,7 @@
       if (company.every((id) => s.actors[id].place === destination))
         return agree(`Travel in ${nameOf(actor)}'s company.`);
     }
-    if (s.actors[companion].trust[actor] > 0)
+    if (trustValue(s, companion, actor) > 0)
       return {
         ...agree(`Remember ${nameOf(actor)}'s help and share this detour.`),
         favor: true
@@ -75205,7 +75207,8 @@
             respondentConflict.answered = true;
         }
         invitation = accompanyDecision(s, a.actor, a.target, a.destination, true);
-        if (invitation.favor) s.actors[a.target].trust[a.actor] -= 1;
+        if (invitation.favor)
+          s.actors[a.target].trust[a.actor] = trustValue(s, a.target, a.actor) - 1;
         s.actors[a.actor].lastTalk = s.turn;
         if (invitation.accepted) {
           const visits = s.invitedPlaces ??= {};
@@ -75363,8 +75366,8 @@
         const willing = willingToGive(s, a.target, a.item, a.actor);
         requestAccepted = willing;
         if (willing) {
-          if (!handStatus(s, a.target).items.every((e) => e.met) && s.actors[a.target].trust[a.actor] > 0)
-            s.actors[a.target].trust[a.actor] -= 1;
+          if (!handStatus(s, a.target).items.every((e) => e.met) && trustValue(s, a.target, a.actor) > 0)
+            s.actors[a.target].trust[a.actor] = trustValue(s, a.target, a.actor) - 1;
           text2 = `${nameOf(a.target)} hands the ${nameOf(a.item)} to ${who}.`;
           transfer(s, a.item, a.actor, text2);
         } else {
@@ -76195,8 +76198,7 @@
         fail();
     }
     for (const [id, a] of Object.entries(s.actors)) {
-      if (!a.trust || Object.keys(a.trust).sort().join() !== expectedTrustKeys[id] || Object.values(a.trust).some((n) => !Number.isInteger(n) || n < 0 || n > 3))
-        fail();
+      if (!validTrust(a.trust, id, trustActorIds)) fail();
       if (!Object.hasOwn(places, a.place) || !actorCanVisit(id, a.place, s) || entityActive(s, id) && !entityActive(s, a.place) || !Number.isSafeInteger(a.crossed) || a.crossed < 0 || !Number.isSafeInteger(a.lastTalk) || a.lastTalk > s.turn)
         fail();
       if (isPackActor(id) && !personalQuestActor(id)) {
@@ -76745,6 +76747,7 @@
   }
 
   // v2/card-game/narrative.mjs
+  var trustActorOrder = Object.keys(people);
   function speechMemories(memory, { expressions = true } = {}) {
     const concrete = (e) => e.kind === "event" && !/completes hand|finds a new purpose:| Level \d/u.test(e.text);
     const recent = memory.events.filter(concrete).slice(-4);
@@ -77026,7 +77029,7 @@
             facts.push(
               `${conditionMet2(world, c, id) ? "Already true" : "Still hoped for"}: ${conditionText(c, nameOf)}.`
             );
-          const helpers = Object.entries(world.actors[id].trust).filter(([, n]) => n > 0).map(([other]) => nameOf(other));
+          const helpers = trustedActors(world, id, trustActorOrder).map(nameOf);
           if (helpers.length)
             facts.push(
               `Owes a favour to ${helpers.join(" and ")}; willing to share a spare or take a detour with them.`

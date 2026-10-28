@@ -19,6 +19,13 @@ keeps the useful ideas from the retired standalone engine, with its source
 revision for reference. Existing player saves use `world.mjs` and
 `legacy-saves.mjs`; keep their migrations with changes to the save format.
 
+Rules 21 stores new trust relationships when a favour is earned. A missing
+registered peer means zero trust. Saved entries, including explicit zeros,
+keep their values through import and catalog upgrades. Earlier dense rows
+receive a full peer check before their catalog upgrade. `trust.mjs` supplies
+the same numeric reads for decisions, rewards, and learning. Dialogue lists
+helpers in the authored actor order.
+
 ## Public assets
 
 `public-assets.mjs` defines the public files and their content types. It includes

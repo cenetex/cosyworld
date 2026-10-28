@@ -1,3 +1,4 @@
+import { trustValue } from "../v2/card-game/trust.mjs";
 import { describe, expect, it } from "vitest";
 import {
   decodeSave,
@@ -438,7 +439,7 @@ describe("Book I shared learning and history", () => {
     for (const id of ["greek-melea", "greek-melitta"]) {
       expect(after.actors[id]).toBeTruthy();
       expect(after.memories[id]).toBeTruthy();
-      expect(after.actors.vale.trust[id]).toBe(0);
+      expect(trustValue(after, "vale", id)).toBe(0);
       expect(entityActive(after, id)).toBe(false);
     }
     expect(reload(after)).toEqual(after);
