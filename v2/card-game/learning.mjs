@@ -7,6 +7,8 @@ import {
   TRIAL_LIMIT,
   learningIntent,
 } from "./adaptive-learning.mjs";
+import { audienceMemory, privateAudienceAllows } from "./reading-privacy.mjs";
+import { projectReadingView } from "./reading-actions.mjs";
 // Lessons come from completed requests. The same rules record and use them in
 // solo play and the shared interpreter.
 export const LEARNING_LIMIT = 8;
@@ -148,7 +150,14 @@ export function validLearning(world, actor, lessons, profiles) {
 // belongs to that player; resident inner life stays with the simulation.
 export function privateView(world, actor) {
   const view = structuredClone(world);
+  const readingView = projectReadingView(world, actor);
+  if (Object.keys(readingView.packs).length) {
+    view.readingView = readingView;
+    for (const state of Object.values(view.packs)) delete state.poemReadings;
+  }
+  view.log = view.log.filter((entry) => privateAudienceAllows(entry, [actor]));
   for (const [id, memory] of Object.entries(view.memories)) {
+    Object.assign(memory, audienceMemory(memory, [actor]));
     if (id === actor) continue;
     delete memory.innerLife;
     delete memory.reflections;

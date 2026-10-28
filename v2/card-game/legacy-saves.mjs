@@ -10,6 +10,7 @@ import {
 } from "./memory.mjs";
 import { installHumanLife, migrateLife } from "./life.mjs";
 import { upgradeRecitals } from "./pack-recital.mjs";
+import { upgradeReadingArchives } from "./reading-actions.mjs";
 import {
   isPackActor,
   packDefinitions,
@@ -121,6 +122,7 @@ export function upgradeSave(
     upgradeShoreRouteSave(s);
     upgradeBoardingSave(s);
     upgradeRecitals(s, packDefinitions);
+    upgradeReadingArchives(s, packDefinitions);
   }
   upgradeSightings(s);
   migrateLife(s, profileOf);

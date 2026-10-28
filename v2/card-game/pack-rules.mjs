@@ -6,6 +6,7 @@ import {
   sharedEnabled,
 } from "./human-cast.mjs";
 import { knowsFact } from "./knowledge.mjs";
+import { emptyPoemReadings, completedHeardReading } from "./poem-readings.mjs";
 // General rules over world-pack data: crossings and their signals, fixtures
 // that sound, and residents with a temperament. No rule here names a pack,
 // place, resident or hub object; the compiled packs supply every name.
@@ -46,6 +47,7 @@ export const newCrossingState = (c) =>
 export const newPackRecord = (pack) => ({
   revision: pack.revision,
   ...(pack.recital ? { recitals: {} } : {}),
+  ...(pack.recital?.sites?.length ? { poemReadings: emptyPoemReadings() } : {}),
   ...(pack.choices
     ? {
         choices: {},
@@ -102,6 +104,17 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
       return state?.choices?.[c.key] === c.value;
     case "choice_unset":
       return !!state && !Object.hasOwn(state.choices || {}, c.key);
+    case "reading_complete":
+      return s.readingView
+        ? s.readingView.actor === (actor || currentActor(s)) &&
+            !!s.readingView.packs[packId]?.readings.some(
+              (reading) => reading.site === c.site && reading.heardAll,
+            )
+        : !!completedHeardReading(
+            state?.poemReadings,
+            c.site,
+            actor || currentActor(s),
+          );
     case "flag":
       return (state?.flags?.[c.key] ?? false) === c.value;
     case "knows":

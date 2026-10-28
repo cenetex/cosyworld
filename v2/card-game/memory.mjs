@@ -1,4 +1,5 @@
 import { validLearning } from "./learning.mjs";
+import { validPrivateAudience } from "./reading-privacy.mjs";
 import baseProfiles from "./entity-profiles.json" with { type: "json" };
 import { packProfiles } from "./pack-registry.mjs";
 
@@ -54,7 +55,7 @@ export function upgradeSightings(world) {
 // A place and its contents retain events there. Avatars retain witnessed events.
 export function rememberEvent(world, entry) {
   if (entry.kind === "quest" || entry.questPlan) return;
-  const related = new Set([
+  const related = new Set(entry.privateTo || [
     entry.locationId,
     entry.fromLocationId,
     entry.actorId,
@@ -84,6 +85,7 @@ export function rememberEvent(world, entry) {
       turn: entry.turn,
       kind: entry.generated ? "expression" : "event",
       text: `${entry.speaker}: ${entry.text}`.slice(0, 650),
+      ...(entry.privateTo ? { privateTo: [...entry.privateTo] } : {}),
     });
     memory.events = memory.events.slice(-MEMORY_LIMIT);
     if (
@@ -146,6 +148,7 @@ export function validMemories(world) {
   )
     return false;
   return Object.entries(world.memories).every(([id, memory]) => {
+    if (!validPrivateAudience(world, memory?.privateTo)) return false;
     if (
       (memory?.seen !== undefined &&
         (!memory.seen ||
@@ -188,6 +191,7 @@ export function validMemories(world) {
       memory.landmarks.some(
         (event, index) =>
           !event ||
+          !validPrivateAudience(world, event.privateTo) ||
           !Number.isSafeInteger(event.seq) ||
           event.seq < 1 ||
           event.seq > world.eventSeq ||
@@ -223,6 +227,7 @@ export function validMemories(world) {
     return memory.events.every(
       (event, index) =>
         event &&
+        validPrivateAudience(world, event.privateTo) &&
         Number.isSafeInteger(event.seq) &&
         event.seq > 0 &&
         event.seq <= world.eventSeq &&

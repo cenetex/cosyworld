@@ -426,6 +426,72 @@ export function sharedHeardPages(world, state, catalogs, recipient) {
   });
 }
 
+export function completedHeardReading(state, site, actor) {
+  return (
+    Object.entries(state?.readings || {})
+      .filter(([, reading]) => {
+        const bit = reading.audience.indexOf(actor);
+        return (
+          reading.site === site &&
+          reading.complete &&
+          bit >= 0 &&
+          reading.pages.every((page) => page[2] & (1 << bit))
+        );
+      })
+      .sort(([, left], [, right]) => right.turn - left.turn)[0]?.[0] || null
+  );
+}
+
+// Views share compact tuples. Each player receives only pages they heard;
+// the original reader can also review their own frozen planned pages.
+export function projectPoemReadings(state, actor) {
+  const stanzas = [],
+    slots = new Map(),
+    readings = [];
+  const intern = (index) => {
+    if (!slots.has(index)) {
+      slots.set(index, stanzas.length);
+      stanzas.push([...state.stanzas[index]]);
+    }
+    return slots.get(index);
+  };
+  for (const [id, reading] of Object.entries(state.readings)) {
+    const bit = reading.audience.indexOf(actor);
+    if (bit < 0) continue;
+    const owner = actor === reading.reader;
+    const pages = Array.from({ length: pageCount(reading) }, (_, index) => {
+      const receipt = reading.pages[index];
+      if (!owner && !(receipt?.[2] & (1 << bit))) return null;
+      return [
+        index,
+        receipt?.[0] ?? null,
+        reading.selection
+          .slice(
+            index * readingLimits.pageSize,
+            (index + 1) * readingLimits.pageSize,
+          )
+          .map(intern),
+      ];
+    }).filter(Boolean);
+    if (!owner && !pages.length) continue;
+    readings.push({
+      id,
+      site: reading.site,
+      reader: reading.reader,
+      catalog: reading.catalog,
+      readingTurn: reading.turn,
+      through: reading.through,
+      complete: reading.complete,
+      pageCount: pageCount(reading),
+      pages,
+      heardAll:
+        reading.complete && reading.pages.every((page) => page[2] & (1 << bit)),
+      ...(owner ? { audience: [...reading.audience] } : {}),
+    });
+  }
+  return { stanzas, readings };
+}
+
 export function validPoemReadings(world, pack, catalogs, state) {
   try {
     if (

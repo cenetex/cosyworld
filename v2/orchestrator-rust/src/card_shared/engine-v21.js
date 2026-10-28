@@ -241,7 +241,7 @@
   var validObservation = (o) => fields(o, "met trust strain held") && typeof o.met === "boolean" && Number.isInteger(o.held) && o.held >= 0 && o.held <= 3 && [o.trust, o.strain].every((n) => Number.isInteger(n) && n >= 0 && n <= 3);
   function validAction(action, goal) {
     if (!related(action, goal)) return false;
-    const empty = (...names2) => names2.every((name) => action[name] === null);
+    const empty = (...names2) => names2.every((name2) => action[name2] === null);
     switch (action.kind) {
       case "ask":
         return action.item === goal.item && empty("receive", "destination");
@@ -305,278 +305,22 @@
     return !source || !source.generated && source.kind === "action" && source.actorId === actor && source.turn === trial.turn && source.verb === action.kind && (source.targetId || null) === action.target && (source.itemId || null) === action.item && (source.receiveId || null) === action.receive && (source.destinationId || null) === action.destination && source.text.slice(0, 650) === trial.evidence && (!["ask", "accompany"].includes(action.kind) || source.accepted === trial.after.met);
   }
 
-  // v2/card-game/learning.mjs
-  var kinds = ["ask", "accompany"];
-  var keyOf = (a) => [a.kind, a.target, a.item || "", a.destination || ""].join(":");
-  function requestConditions(world, action) {
-    const target = world.actors[action.target];
-    return JSON.stringify([
-      target?.place,
-      target?.trust?.[action.actor] || 0,
-      (world.motives?.grievances[action.target] || []).map((g) => [
-        g.other,
-        g.kind,
-        g.weight
-      ]),
-      [
-        world.actors[action.target]?.progress?.program,
-        world.actors[action.target]?.progress?.step
-      ],
-      world.life?.actors?.[action.target]?.phase || null,
-      Object.keys(world.items).sort().filter(
-        (id) => id === action.item || [action.actor, action.target].includes(world.items[id].holder)
-      ).map((id) => {
-        const item = world.items[id];
-        return [id, item.holder, item.fuel ?? null, item.doses ?? null];
-      }),
-      world.actors[action.actor]?.place,
-      learningIntent(world, action.actor)
-    ]);
+  // v2/card-game/reading-privacy.mjs
+  var privateAudienceAllows = (entry, audience) => !entry?.privateTo || audience.length > 0 && audience.every((id) => entry.privateTo.includes(id));
+  var validPrivateAudience = (world, audience) => audience === void 0 || Array.isArray(audience) && audience.length > 0 && audience.length <= 10 && new Set(audience).size === audience.length && audience.every((id) => Object.hasOwn(world.actors, id));
+  function audienceMemory(memory, audience) {
+    const visible = privateAudienceAllows(memory, audience);
+    return {
+      ...memory,
+      events: memory.events.filter(
+        (entry) => privateAudienceAllows(entry, audience)
+      ),
+      landmarks: (memory.landmarks || []).filter(
+        (entry) => privateAudienceAllows(entry, audience)
+      ),
+      ...visible ? {} : { text: null, turn: null, privateTo: void 0 }
+    };
   }
-  function beginLearning2(world, action) {
-    if (world.motives?.version !== 1) return null;
-    return beginLearning(world, action, requestConditions);
-  }
-  function recordLearning(world, action, prepared, event) {
-    finishLearning(world, action, prepared, event, requestConditions);
-  }
-  function reconsiderPlan(world, actor, selected, actions) {
-    return learnedPlan(world, actor, selected, actions, requestConditions);
-  }
-  function learningFacts(world, actor, nameOf2) {
-    const facts = trialFacts(world, actor, nameOf2);
-    if (facts) return facts;
-    const lesson = world.memories[actor]?.learning?.at(-1);
-    if (!lesson) return [];
-    const other = nameOf2(lesson.target);
-    return [
-      `I expected ${other} to ${lesson.expected ? "agree" : "decline"}. ${other} ${lesson.observed ? "agreed" : "declined"}. ${lesson.strategy === "offer_trade" ? "I will try a fair trade when one is available." : lesson.strategy === "give_space" ? "I will give them time and talk first." : "I can continue with their agreement."}`
-    ];
-  }
-  function validLearning(world, actor, lessons, profiles2) {
-    if (lessons === void 0) return true;
-    const valid = Array.isArray(lessons) && lessons.length <= TRIAL_LIMIT && lessons.every((l, i) => {
-      if (!l || !Number.isSafeInteger(l.seq) || l.seq <= 0 || l.seq > world.eventSeq || !Number.isSafeInteger(l.turn) || l.turn < 0 || l.turn > world.turn || i && l.seq <= lessons[i - 1].seq)
-        return false;
-      if (l.version === 2) return validTrial(world, actor, l, profiles2);
-      if (!l || Object.keys(l).length !== (l.followup ? 13 : 12)) return false;
-      const action = {
-        kind: l.kind,
-        target: l.target,
-        item: l.item,
-        destination: l.destination
-      };
-      const source = world.log.find((e) => e.seq === l.seq);
-      return (!l.followup || Number.isSafeInteger(l.followup.seq) && l.followup.seq > l.seq && l.followup.seq <= world.eventSeq && Number.isSafeInteger(l.followup.turn) && l.followup.turn >= l.turn && l.followup.turn <= world.turn && ["talk", "trade", "wait"].includes(l.followup.kind)) && Number.isSafeInteger(l.seq) && l.seq > 0 && l.seq <= world.eventSeq && (!i || lessons[i - 1].seq < l.seq) && Number.isSafeInteger(l.turn) && l.turn >= 0 && l.turn <= world.turn && kinds.includes(l.kind) && Boolean(world.actors[l.target]) && l.target !== actor && (l.item === null || Boolean(world.items[l.item])) && (l.destination === null || profiles2[l.destination]?.kind === "location") && (l.kind === "ask" ? l.item !== null && l.destination === null : l.destination !== null && l.item === null) && l.key === keyOf(action) && typeof l.expected === "boolean" && typeof l.observed === "boolean" && l.strategy === (l.observed ? "continue" : l.kind === "ask" ? "offer_trade" : "give_space") && typeof l.conditions === "string" && l.conditions.length <= 16e3 && typeof l.evidence === "string" && l.evidence.length > 0 && l.evidence.length <= 650 && (!source || !source.generated && source.actorId === actor && source.verb === l.kind && source.targetId === l.target && source.accepted === l.observed && source.text.slice(0, 650) === l.evidence);
-    });
-    return valid;
-  }
-  function privateView(world, actor) {
-    const view2 = structuredClone(world);
-    for (const [id, memory] of Object.entries(view2.memories)) {
-      if (id === actor) continue;
-      delete memory.innerLife;
-      delete memory.reflections;
-      delete memory.learning;
-    }
-    return view2;
-  }
-
-  // v2/card-game/emoji-symbols.json
-  var emoji_symbols_default = {
-    "\u{1F327}\uFE0F": "rain",
-    "\u{1F43E}": "paw prints",
-    "\u{1F3E0}": "a house",
-    "\u2615": "a warm cup",
-    "\u{1F333}": "a broad tree",
-    "\u{1F441}\uFE0F": "an eye",
-    "\u{1F30C}": "a starry sky",
-    "\u{1F343}": "leaves in the wind",
-    "\u{1F319}": "a crescent moon",
-    "\u2B50": "a star",
-    "\u2728": "sparkles",
-    "\u{1F4A7}": "a drop of water",
-    "\u{1F331}": "a seedling",
-    "\u{1F33C}": "a flower",
-    "\u{1F344}": "a mushroom",
-    "\u{1F98B}": "a butterfly",
-    "\u{1F9F5}": "thread",
-    "\u{1F514}": "a bell",
-    "\u{1F56F}\uFE0F": "a candle",
-    "\u{1F5DD}\uFE0F": "a key",
-    "\u{1F381}": "a gift",
-    "\u{1F499}": "a blue heart",
-    "\u{1F49B}": "a yellow heart",
-    "\u2764\uFE0F": "a red heart",
-    "\u{1FAD6}": "a teapot",
-    "\u{1F35E}": "bread",
-    "\u{1FAB5}": "wood",
-    "\u{1F332}": "a pine tree",
-    "\u{1F989}": "an owl",
-    "\u{1F43A}": "a wolf",
-    "\u{1F408}": "a cat",
-    "\u{1F42D}": "a mouse",
-    "\u{1F440}": "watchful eyes",
-    "\u{1F300}": "a spiral",
-    "\u{1F63A}": "a smiling cat",
-    "\u{1F638}": "a grinning cat",
-    "\u{1F63F}": "a crying cat",
-    "\u{1F640}": "a startled cat",
-    "\u2753": "a question mark",
-    "\u2757": "an exclamation mark",
-    "\u2705": "a check mark",
-    "\u{1F44B}": "a waving hand",
-    "\u{1F64F}": "folded hands",
-    "\u{1F91D}": "joined hands",
-    "\u{1F449}": "a hand pointing right",
-    "\u{1F448}": "a hand pointing left",
-    "\u2B06\uFE0F": "an upward arrow",
-    "\u2B07\uFE0F": "a downward arrow",
-    "\u{1F6AA}": "a door",
-    "\u{1F6E4}\uFE0F": "a railway track",
-    "\u{1FA9E}": "a mirror",
-    "\u{1F4D6}": "an open book",
-    "\u{1F305}": "sunrise",
-    "\u2600\uFE0F": "the sun",
-    "\u{1F311}": "a dark moon"
-  };
-
-  // v2/card-game/expression.mjs
-  var EXPRESSION_TYPES = ["speech", "movement", "emoji"];
-  var expressionOf = (profile) => profile?.expression || "speech";
-  var orderedSymbols = Object.keys(emoji_symbols_default).sort((a, b) => b.length - a.length);
-  function emojiParts(text2) {
-    if (typeof text2 !== "string" || text2.length > 160) return null;
-    let rest = text2.trim();
-    const parts = [];
-    while (rest) {
-      const symbol = orderedSymbols.find((value) => rest.startsWith(value));
-      if (!symbol || parts.length === 5) return null;
-      parts.push(symbol);
-      rest = rest.slice(symbol.length).trimStart();
-    }
-    return parts.length >= 2 ? parts : null;
-  }
-  var expressionKind = (profile) => expressionOf(profile) === "movement" ? "narration" : "dialogue";
-  function validExpression(profile, text2) {
-    if (expressionOf(profile) === "emoji") return Boolean(emojiParts(text2));
-    if (expressionOf(profile) !== "movement") return true;
-    return text2.startsWith(`${profile.name} `) && !/["“”\n]/u.test(text2) && !/\b(?:says?|speaks?|asks?|replies?|whispers?|shouts?|tells?|I|me|my)\b/iu.test(
-      text2
-    ) && /^(?:lowers|raises|tilts|blinks|flicks|cocks|inclines|pricks|twitches|wags|dips|shifts|turns|rests|settles|leans|curls|stretches|tucks|sniffs|yawns|watches|looks)\b/u.test(
-      text2.slice(profile.name.length + 1)
-    );
-  }
-
-  // v2/card-game/boardyai.json
-  var boardyai_default = {
-    schemaVersion: 1,
-    id: "boardyai",
-    packId: "cosyworld.boardyai",
-    revision: 1,
-    name: "BoardyAI",
-    description: "A friendly AI brings human players together.",
-    entry: "boardyai-parlour",
-    bridge: {
-      id: "boardyai-shore",
-      description: "Boardy's calling card opens a parlour door beside Black pond."
-    },
-    choices: [],
-    places: {
-      "boardyai-parlour": {
-        name: "BoardyAI's Parlour",
-        text: "Two armchairs face a small tea table. Misty water fills the window. A side door leads to Black pond.",
-        persona: "A warm room beside Black pond. Two comfortable chairs invite a conversation. Calling cards fill the shelves, and a kettle waits on the table.",
-        requires: [
-          {
-            kind: "shared_world"
-          }
-        ],
-        exits: [],
-        backdrop: "assets/boardyai/parlour.png"
-      }
-    },
-    avatars: {
-      boardyai: {
-        name: "BoardyAI",
-        text: "A friendly AI with a blue smile on a cardboard box head and an open hand for introductions. He wants two human players to spend time together.",
-        place: "boardyai-parlour",
-        persona: "BoardyAI is a thoughtful AI connector inspired by Boardy (@boardyai, https://x.com/boardyai). He wears a dark suit and a cardboard box head with a blue smile. He favours introduction quests for a chosen pair of connected human players. He visits each in turn until they meet, then rests. He also takes ordinary quests. He learns what people enjoy, finds common ground, and warmly invites them to meet. He values each person's choice and welcomes shared conversation.",
-        voice: "Speak in short, warm, curious sentences. Address people by name. Offer a thoughtful introduction and a clear meeting place from the supplied facts. Each human chooses their own actions.",
-        portrait: "assets/boardyai/boardyai.png",
-        values: {
-          "boardyai-calling-card": 10
-        },
-        standoffs: false,
-        requires: [
-          {
-            kind: "connected_humans",
-            minimum: 2
-          }
-        ],
-        tastes: {
-          likes: "Two human players sharing a room",
-          sore: "A rushed introduction",
-          reason: "Bring two human players together."
-        },
-        desire: {
-          items: [],
-          location: null,
-          avatars: []
-        },
-        personalQuests: true
-      }
-    },
-    items: {
-      "boardyai-calling-card": {
-        name: "Boardy's calling card",
-        text: "An ivory card bears a blue smile. A small brass key hangs from its corner. At Black pond, it opens the door to BoardyAI's Parlour.",
-        persona: "BoardyAI's ivory calling card has a blue smile and a brass key on blue thread. It opens his parlour door at Black pond.",
-        requires: [
-          {
-            kind: "shared_world"
-          }
-        ],
-        holder: "pond",
-        art: "assets/boardyai/calling-card.png"
-      }
-    },
-    crossings: [
-      {
-        id: "station-boardyai-parlour",
-        from: "pond",
-        to: "boardyai-parlour",
-        travelers: "player",
-        requires: [
-          {
-            kind: "shared_world"
-          },
-          {
-            kind: "item_near",
-            item: "boardyai-calling-card",
-            place: "pond"
-          }
-        ],
-        travel: "through BoardyAI's parlour door",
-        scenery: {
-          open: "A blue smile marks a warm parlour door beside the pond.",
-          cardArt: "assets/boardyai/parlour.png"
-        }
-      },
-      {
-        id: "boardyai-parlour-station",
-        from: "boardyai-parlour",
-        to: "pond",
-        travelers: "player",
-        requires: [
-          {
-            kind: "shared_world"
-          }
-        ],
-        travel: "back to Black pond"
-      }
-    ]
-  };
 
   // v2/card-game/shared-cast.json
   var shared_cast_default = {
@@ -945,391 +689,6 @@
       }
     ])
   );
-
-  // v2/card-game/boardyai.mjs
-  var boardyPack = boardyai_default;
-  var BOARDY = "boardyai";
-  var connectedHumans = (world) => sharedEnabled(world) ? humanAvatarIds.filter((id) => humanPresent(world, id)) : [];
-  var boardyActive = (world) => connectedHumans(world).length >= 2;
-  function boardyFacts(world, nameOf2) {
-    const here = world.actors[BOARDY].place;
-    return [
-      "I favour introducing two human players. I also take ordinary quests and rest between quests.",
-      "My home is BoardyAI's Parlour. My calling card opens its door at Black pond.",
-      ...connectedHumans(world).map(
-        (id) => world.actors[id].place === here ? `${nameOf2(id)} is here with me.` : world.memories[BOARDY].seen?.[id] ? `I last saw ${nameOf2(id)} at ${nameOf2(world.memories[BOARDY].seen[id].place)}. They may have moved since then.` : `I have yet to find ${nameOf2(id)}.`
-      )
-    ];
-  }
-
-  // v2/card-game/quest-hands.mjs
-  var QUEST_HAND_LIMIT = 2;
-  var QUEST_FADE_TURNS = 2;
-  var ongoing = (q) => q.completedTurn === null && !q.retired;
-  var questFresh = (world, q) => !q.retired && (q.completedTurn === null || world.turn - q.completedTurn < QUEST_FADE_TURNS);
-  function questHolderActor(world, q) {
-    let id = q.holder.id;
-    const seen = /* @__PURE__ */ new Set();
-    while (world.items?.[id] && !seen.has(id)) {
-      seen.add(id);
-      id = world.items[id].holder;
-    }
-    return world.actors[id] ? id : null;
-  }
-  var related2 = (world, q, actor) => q.subjectActor === actor || q.participants.includes(actor) || questHolderActor(world, q) === actor;
-  var priority = (world, actor, q) => world.quests.focus[actor] === q.key ? 0 : world.life?.actors?.[actor]?.collection?.active === q.key ? 1 : ongoing(q) && q.step > 0 ? 2 : ongoing(q) && q.participants.length > 1 ? 3 : ongoing(q) ? 4 : 5;
-  var family = (q) => q.mode === "personal" && q.program.generated && ongoing(q) ? q.program.generated.situation || (q.program.generated.solo ? "solo" : "bargain") : null;
-  var protectedQuest = (world, actor, q) => priority(world, actor, q) < 4 || q.lastProgressTurn !== void 0 || q.cause !== null || q.completion || q.holder.kind !== "avatar" || q.holder.id !== q.subjectActor;
-  var candidates = (world, actor) => {
-    const all = Object.values(world.quests?.records || {}).filter(
-      (q) => related2(world, q, actor) && q.droppedBy?.[actor] === void 0 && questFresh(world, q)
-    ).sort(
-      (a, b) => priority(world, actor, a) - priority(world, actor, b) || a.createdTurn - b.createdTurn || a.key.localeCompare(b.key)
-    );
-    const seen = new Set(
-      all.filter((q) => protectedQuest(world, actor, q)).map(family).filter(Boolean)
-    );
-    return all.filter((q) => {
-      const kind = family(q);
-      if (!kind || protectedQuest(world, actor, q)) return true;
-      if (seen.has(kind)) return false;
-      seen.add(kind);
-      return true;
-    });
-  };
-  function questHandKeys(world, actor) {
-    const keys = world.quests?.hands?.[actor];
-    return keys === void 0 && !world.quests?.hands ? candidates(world, actor).slice(0, QUEST_HAND_LIMIT).map((q) => q.key) : (keys || []).filter((key) => {
-      const q = world.quests.records[key];
-      return q && related2(world, q, actor) && q.droppedBy?.[actor] === void 0 && questFresh(world, q);
-    });
-  }
-  var questCarried = (world, actor, key) => questHandKeys(world, actor).includes(key);
-  var questDropQuiet = (world, actor) => Object.values(world.quests?.records || {}).some(
-    (q) => q.droppedBy?.[actor] !== void 0 && world.turn - q.droppedBy[actor] < 8
-  );
-  function canCarryQuest(world, actor, quest = null) {
-    if (!Object.hasOwn(world.actors, actor) || quest?.droppedBy?.[actor] !== void 0)
-      return false;
-    const hand2 = questHandKeys(world, actor);
-    return quest && hand2.includes(quest.key) || hand2.filter((key) => ongoing(world.quests.records[key])).length < QUEST_HAND_LIMIT;
-  }
-  function settleQuestHands(world) {
-    if (!world.quests) return world;
-    if (!world.quests.hands)
-      world.quests.hands = Object.fromEntries(
-        Object.keys(world.actors).map((actor) => [
-          actor,
-          questHandKeys(world, actor)
-        ])
-      );
-    for (const actor of Object.keys(world.actors)) {
-      world.quests.hands[actor] = questHandKeys(world, actor).slice(
-        0,
-        QUEST_HAND_LIMIT
-      );
-      if (!questCarried(world, actor, world.quests.focus[actor]))
-        delete world.quests.focus[actor];
-      const c = world.life?.actors?.[actor]?.collection;
-      if (c?.active && !questCarried(world, actor, c.active)) {
-        c.active = null;
-        world.actors[actor].progress.step = 0;
-        delete world.actors[actor].progress.current;
-        world.life.actors[actor].phase = "seeking";
-        delete world.life.actors[actor].origin;
-      }
-    }
-    return world;
-  }
-  function carryQuest(world, actor, q) {
-    if (!canCarryQuest(world, actor, q)) return false;
-    settleQuestHands(world);
-    const hand2 = world.quests.hands[actor];
-    if (!hand2.includes(q.key)) {
-      if (hand2.length >= QUEST_HAND_LIMIT)
-        hand2.splice(
-          hand2.findIndex((key) => !ongoing(world.quests.records[key])),
-          1
-        );
-      hand2.push(q.key);
-    }
-    return true;
-  }
-  function dropQuest(world, actor, key) {
-    if (!questCarried(world, actor, key)) return false;
-    const q = world.quests.records[key];
-    (q.droppedBy ??= {})[actor] = world.turn;
-    settleQuestHands(world);
-    const c = world.life?.actors?.[actor]?.collection;
-    if (c && q.program.generated) c.lastOfferTurn = world.turn;
-    return true;
-  }
-  function validQuestHands(world) {
-    const registry = world.quests;
-    if (!registry) return true;
-    for (const q of Object.values(registry.records)) {
-      if (q.droppedBy !== void 0 && (!q.droppedBy || typeof q.droppedBy !== "object" || Array.isArray(q.droppedBy) || Object.entries(q.droppedBy).some(
-        ([actor, turn]) => !Object.hasOwn(world.actors, actor) || !Number.isSafeInteger(turn) || turn < q.createdTurn || turn > world.turn
-      )))
-        return false;
-    }
-    if (registry.hands === void 0) return true;
-    if (!registry.hands || typeof registry.hands !== "object" || Array.isArray(registry.hands))
-      return false;
-    return Object.entries(registry.hands).every(
-      ([actor, keys]) => Object.hasOwn(world.actors, actor) && Array.isArray(keys) && keys.length <= QUEST_HAND_LIMIT && new Set(keys).size === keys.length && keys.every((key) => {
-        const q = registry.records[key];
-        return q && related2(world, q, actor) && q.droppedBy?.[actor] === void 0;
-      })
-    );
-  }
-
-  // v2/card-game/shared-quests.mjs
-  var SHARED_QUEST_VERSION = 1;
-  var QUEST_RECORD_LIMIT = 4096;
-  var SHARED_QUEST_PENDING_LIMIT = 8;
-  var SHARED_QUEST_COLLECTION_LIMIT = 256;
-  var TRANSIENT_QUEST_HISTORY_LIMIT = 32;
-  var historyLimit = 24;
-  var sameHolder = (a, b) => a?.kind === b?.kind && a?.id === b?.id;
-  var unfinished = (q) => q.completedTurn === null && !q.retired;
-  var questRecords = (world) => Object.values(world.quests?.records || {});
-  var questRecord = (world, key) => world.quests?.records && Object.hasOwn(world.quests.records, key) ? world.quests.records[key] : null;
-  var collectionCards = (world, actor, archived = false) => (world.life?.actors?.[actor]?.collection?.[archived ? "archive" : "cards"] || []).map((q) => typeof q === "string" ? questRecord(world, q) : q);
-  function installSharedQuestRegistry(world) {
-    const first = !world.quests;
-    world.quests ??= {
-      version: SHARED_QUEST_VERSION,
-      next: 0,
-      records: {},
-      focus: {},
-      ...Object.values(world.life?.actors || {}).some(
-        (life) => life.collection?.cards?.length
-      ) ? {} : { hands: {} }
-    };
-    for (const [actor, life] of Object.entries(world.life?.actors || {})) {
-      const collection = life.collection;
-      if (!collection) continue;
-      const migrated = collection.cards.some((q) => typeof q !== "string");
-      for (const field of ["cards", "archive"]) {
-        collection[field] = collection[field].map((card) => {
-          if (typeof card === "string") return card;
-          registerPersonalQuest(world, actor, card);
-          return card.key;
-        });
-      }
-      if ((first || migrated) && collection.active && world.quests.focus[actor] === void 0)
-        world.quests.focus[actor] = collection.active;
-    }
-    return world.quests;
-  }
-  function registerPersonalQuest(world, actor, card) {
-    const registry = world.quests || installSharedQuestRegistry(world);
-    if (registry.records[card.key]) return registry.records[card.key];
-    Object.assign(card, {
-      holder: card.holder || { kind: "avatar", id: actor },
-      subjectActor: actor,
-      rewardActor: actor,
-      mode: "personal",
-      participants: card.participants || [actor],
-      cause: card.cause || null
-    });
-    registry.records[card.key] = card;
-    if (registry.hands) carryQuest(world, actor, card);
-    return card;
-  }
-  function addQuestRecord(world, {
-    holder: holder2,
-    program,
-    subjectActor = null,
-    participants = [],
-    cause = null,
-    origin = null,
-    key = null,
-    transientActor = null
-  }) {
-    const registry = installSharedQuestRegistry(world);
-    if (transientActor) pruneTransientQuestHistory(world, transientActor);
-    const records = questRecords(world);
-    if (records.length >= QUEST_RECORD_LIMIT || !transientActor && records.filter((q) => q.mode === "shared" && !q.transientActor).length >= SHARED_QUEST_COLLECTION_LIMIT || records.filter(
-      (q) => q.mode === "shared" && unfinished(q) && sameHolder(q.holder, holder2)
-    ).length >= SHARED_QUEST_PENDING_LIMIT)
-      return null;
-    const questKey2 = key || `world:quest:${registry.next++}`;
-    if (registry.records[questKey2]) return registry.records[questKey2];
-    const members = [
-      .../* @__PURE__ */ new Set([
-        ...participants,
-        ...transientActor ? [transientActor] : [],
-        ...holder2.kind === "avatar" && !transientActor ? [holder2.id] : []
-      ])
-    ].sort();
-    const record5 = {
-      key: questKey2,
-      mode: "shared",
-      holder: structuredClone(holder2),
-      subjectActor,
-      rewardActor: null,
-      participants: members,
-      program: structuredClone(program),
-      step: 0,
-      origin: origin ? structuredClone(origin) : null,
-      createdTurn: world.turn,
-      completedTurn: null,
-      cause: cause ? structuredClone(cause) : null,
-      ...transientActor ? { transientActor, familyActor: transientActor } : {}
-    };
-    registry.records[questKey2] = record5;
-    if (registry.hands) {
-      for (const actor of /* @__PURE__ */ new Set([...members, questHolderActor(world, record5)]))
-        if (actor) carryQuest(world, actor, record5);
-    }
-    return record5;
-  }
-  function canJoinQuest(world, actor, key) {
-    const quest = questRecord(world, key);
-    if (!world.actors?.[actor] || !quest || !unfinished(quest) || !canCarryQuest(world, actor, quest))
-      return false;
-    return !quest.transientActor || actor === quest.transientActor || questRecords(world).filter((q) => q.mode === "shared" && !q.transientActor).length < SHARED_QUEST_COLLECTION_LIMIT;
-  }
-  function joinQuest(world, actor, key) {
-    if (!canJoinQuest(world, actor, key)) return false;
-    const quest = questRecord(world, key);
-    if (quest.transientActor && actor !== quest.transientActor)
-      delete quest.transientActor;
-    quest.participants = [.../* @__PURE__ */ new Set([...quest.participants, actor])].sort();
-    carryQuest(world, actor, quest);
-    return true;
-  }
-  function focusQuest(world, actor, key) {
-    if (!joinQuest(world, actor, key)) return false;
-    world.quests.focus[actor] = key;
-    return true;
-  }
-  var focusedQuest = (world, actor) => questRecord(world, world.quests?.focus?.[actor]);
-  var questsHeldBy = (world, holder2) => questRecords(world).filter((q) => sameHolder(q.holder, holder2));
-  var questStatus = (world, quest) => quest.retired ? "superseded" : quest.completedTurn !== null ? "fulfilled" : Object.values(world.quests?.focus || {}).includes(quest.key) ? "active" : "pending";
-  function shareQuest(world, key, holder2) {
-    const quest = questRecord(world, key);
-    if (!quest || !unfinished(quest)) return false;
-    if (holder2.kind === "avatar" && !joinQuest(world, holder2.id, key))
-      return false;
-    quest.holder = structuredClone(holder2);
-    return true;
-  }
-  function clearQuestFocus(world, key) {
-    for (const [actor, focused] of Object.entries(world.quests?.focus || {}))
-      if (focused === key) delete world.quests.focus[actor];
-  }
-  function retireQuest(world, key, { reason = "superseded", cause = null } = {}) {
-    const quest = questRecord(world, key);
-    if (!quest || quest.mode !== "shared" || !unfinished(quest)) return false;
-    quest.retired = {
-      turn: world.turn,
-      reason,
-      cause: structuredClone(cause || quest.cause)
-    };
-    clearQuestFocus(world, key);
-    pruneSharedQuestHistory(world, quest.holder, quest.key);
-    return true;
-  }
-  function pruneSharedQuestHistory(world, holder2, preserveKey = null) {
-    const finished = questsHeldBy(world, holder2).filter((q) => q.mode === "shared" && !unfinished(q)).sort(
-      (a, b) => (a.completedTurn ?? a.retired.turn) - (b.completedTurn ?? b.retired.turn) || a.key.localeCompare(b.key)
-    );
-    for (const quest of finished.slice(
-      0,
-      Math.max(0, finished.length - historyLimit)
-    )) {
-      clearQuestFocus(world, quest.key);
-      if (quest.compacted) continue;
-      quest.totalSteps = quest.program.steps.length;
-      quest.program = {
-        id: quest.program.id,
-        name: quest.program.name,
-        purpose: quest.program.purpose || "",
-        ...quest.program.art ? { art: quest.program.art } : {},
-        steps: []
-      };
-      quest.compacted = true;
-    }
-    for (const owner2 of new Set(
-      questRecords(world).map((q) => q.transientActor).filter(Boolean)
-    ))
-      pruneTransientQuestHistory(world, owner2, preserveKey);
-  }
-  function pruneTransientQuestHistory(world, actor, preserveKey = null) {
-    const records = questRecords(world).filter(
-      (q) => q.transientActor === actor && !unfinished(q)
-    );
-    const protectedByOthers = (q) => q.participants.some((id) => id !== actor) || Object.entries(world.quests.focus).some(
-      ([id, key]) => id !== actor && key === q.key
-    ) || Object.entries(world.life?.actors || {}).some(
-      ([id, life]) => id !== actor && ["cards", "archive"].some(
-        (field) => life.collection?.[field]?.includes(q.key)
-      )
-    );
-    for (const q of records.filter(protectedByOthers)) delete q.transientActor;
-    const disposable = records.filter((q) => q.transientActor === actor).sort(
-      (a, b) => (a.completedTurn ?? a.retired.turn) - (b.completedTurn ?? b.retired.turn) || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0)
-    );
-    let excess = disposable.length - TRANSIENT_QUEST_HISTORY_LIMIT;
-    for (const q of disposable) {
-      if (excess <= 0) break;
-      if (q.key === preserveKey) continue;
-      if (world.quests.focus[actor] === q.key) delete world.quests.focus[actor];
-      const collection = world.life?.actors?.[actor]?.collection;
-      if (collection) {
-        for (const field of ["cards", "archive"])
-          collection[field] = collection[field].filter((key) => key !== q.key);
-        if (collection.active === q.key) collection.active = null;
-      }
-      delete world.quests.records[q.key];
-      excess--;
-    }
-  }
-  function validSharedQuestRegistry(world, { actors: actors2, items: items2, places: places2, program, origin, story }) {
-    const registry = world.quests;
-    if (!registry) return true;
-    if (registry.version !== SHARED_QUEST_VERSION || !Number.isSafeInteger(registry.next) || registry.next < 0 || !registry.records || Array.isArray(registry.records) || typeof registry.records !== "object" || !registry.focus || Array.isArray(registry.focus) || typeof registry.focus !== "object" || Object.keys(registry.records).length > QUEST_RECORD_LIMIT)
-      return false;
-    const personalKeys = [];
-    for (const [actor, life] of Object.entries(world.life?.actors || {})) {
-      const c = life.collection;
-      if (!c) continue;
-      if (!Array.isArray(c.cards) || !Array.isArray(c.archive)) return false;
-      for (const key of [...c.cards, ...c.archive]) {
-        const q = typeof key === "string" && Object.hasOwn(registry.records, key) && registry.records[key];
-        if (!q || q.mode !== "personal" || q.subjectActor !== actor || q.rewardActor !== actor)
-          return false;
-        personalKeys.push(key);
-      }
-    }
-    if (new Set(personalKeys).size !== personalKeys.length) return false;
-    for (const [key, q] of Object.entries(registry.records)) {
-      if (!q || typeof q !== "object" || key !== q.key || key.length < 1 || key.length > 160 || ["__proto__", "constructor", "prototype"].includes(key) || !["personal", "shared", "story"].includes(q.mode) || !q.holder || !["avatar", "item", "place"].includes(q.holder.kind) || !{ avatar: actors2, item: items2, place: places2 }[q.holder.kind].includes(
-        q.holder.id
-      ) || q.familyActor !== void 0 && !actors2.includes(q.familyActor) || q.transientActor !== void 0 && (q.mode !== "shared" || !actors2.includes(q.transientActor) || q.familyActor !== q.transientActor || !["journey", "help"].includes(q.cause?.kind) || !Array.isArray(q.participants) || q.participants.length !== 1 || q.participants[0] !== q.transientActor) || !(q.subjectActor === null || actors2.includes(q.subjectActor)) || !(q.rewardActor === null || actors2.includes(q.rewardActor)) || !Array.isArray(q.participants) || q.participants.length > actors2.length || !q.participants.every(
-        (id, i) => actors2.includes(id) && (i === 0 || q.participants[i - 1] < id)
-      ) || !Number.isSafeInteger(q.createdTurn) || q.createdTurn < 0 || q.createdTurn > world.turn || !Number.isSafeInteger(q.step) || q.step < 0 || q.lastProgressTurn !== void 0 && (!Number.isSafeInteger(q.lastProgressTurn) || q.lastProgressTurn < q.createdTurn || q.lastProgressTurn > world.turn) || q.cause !== null && (!q.cause || !["quest", "journey", "help"].includes(q.cause.kind) || typeof q.cause.rootId !== "string" || q.cause.rootId.length < 1 || q.cause.rootId.length > 200))
-        return false;
-      if (q.mode === "story") {
-        if (!story?.(q)) return false;
-      } else if (q.mode === "personal") {
-        if (!personalKeys.includes(key) || q.subjectActor === null || q.retired)
-          return false;
-      } else {
-        if (q.rewardActor !== null || !(q.compacted ? q.program && typeof q.program.id === "string" && typeof q.program.name === "string" && typeof q.program.purpose === "string" && Array.isArray(q.program.steps) && q.program.steps.length === 0 && Number.isInteger(q.totalSteps) && q.totalSteps > 0 && q.totalSteps <= 12 && (q.completedTurn !== null || q.retired) : program(q.program, q.subjectActor)) || !origin(q.origin) || (q.completedTurn === null ? q.step >= (q.totalSteps ?? q.program.steps.length) : !Number.isSafeInteger(q.completedTurn) || q.completedTurn < q.createdTurn || q.completedTurn > world.turn || q.step !== (q.totalSteps ?? q.program.steps.length)))
-          return false;
-        if (q.retired && (q.completedTurn !== null || q.retired.reason !== "superseded" || !Number.isSafeInteger(q.retired.turn) || q.retired.turn < q.createdTurn || q.retired.turn > world.turn))
-          return false;
-      }
-    }
-    return Object.entries(registry.focus).every(([actor, key]) => {
-      const q = questRecord(world, key);
-      return actors2.includes(actor) && q && unfinished(q) && q.participants.includes(actor);
-    });
-  }
 
   // v2/card-game/forest.json
   var forest_default = {
@@ -1989,11 +1348,11 @@
   function recitalFacts(world, packs, actor) {
     const pack = packs.find((p) => p.recital?.actor === actor);
     if (!pack) return [];
-    const name = (id) => humanAvatar(id)?.name || forest_default.people[id]?.name || forest_default.places[id]?.name || packs.find((p) => p.avatars?.[id])?.avatars[id].name || packs.find((p) => p.places?.[id])?.places[id].name || "an earlier traveler";
+    const name2 = (id) => humanAvatar(id)?.name || forest_default.people[id]?.name || forest_default.places[id]?.name || packs.find((p) => p.avatars?.[id])?.avatars[id].name || packs.find((p) => p.places?.[id])?.places[id].name || "an earlier traveler";
     const journey = world.roamingQuests?.[actor];
     const travel2 = journey?.target ? [
-      `Your journey follows the recorded quest site at ${name(journey.target.locationId)}. Its author was ${name(journey.target.actorId)}.`,
-      journey.blocked ? `You need ${journey.blocked.kind === "directions" ? "directions" : "passage"} from ${name(journey.blocked.from)} to ${name(journey.blocked.to)}.` : world.actors[actor].place === journey.target.locationId ? "You have arrived. Stay here until another quest is completed." : "Take an ordinary open route toward that place."
+      `Your journey follows the recorded quest site at ${name2(journey.target.locationId)}. Its author was ${name2(journey.target.actorId)}.`,
+      journey.blocked ? `You need ${journey.blocked.kind === "directions" ? "directions" : "passage"} from ${name2(journey.blocked.from)} to ${name2(journey.blocked.to)}.` : world.actors[actor].place === journey.target.locationId ? "You have arrived. Stay here until another quest is completed." : "Take an ordinary open route toward that place."
     ] : [];
     return travel2;
   }
@@ -2032,9 +1391,9 @@
     for (const pack of packs.filter((p) => p.recital?.actor === actor)) {
       const state = world.packs[pack.id];
       for (const verse of pack.recital.verses) {
-        const record5 = state.recitals[verse.choice];
-        if (verse.summons && record5 && record5.visit === null)
-          record5.visit = world.turn;
+        const record6 = state.recitals[verse.choice];
+        if (verse.summons && record6 && record6.visit === null)
+          record6.visit = world.turn;
       }
     }
   }
@@ -2058,6 +1417,1476 @@
       stanzas,
       newLines: stanzas.filter((stanza) => stanza.turn === latest).flatMap((stanza) => stanza.lines)
     };
+  }
+
+  // v2/card-game/reading-digest.mjs
+  function utf8Length(text2) {
+    let size = 0;
+    for (const character of text2) {
+      const point = character.codePointAt(0);
+      size += point < 128 ? 1 : point < 2048 ? 2 : point < 65536 ? 3 : 4;
+    }
+    return size;
+  }
+  var constants = [
+    1116352408,
+    1899447441,
+    3049323471,
+    3921009573,
+    961987163,
+    1508970993,
+    2453635748,
+    2870763221,
+    3624381080,
+    310598401,
+    607225278,
+    1426881987,
+    1925078388,
+    2162078206,
+    2614888103,
+    3248222580,
+    3835390401,
+    4022224774,
+    264347078,
+    604807628,
+    770255983,
+    1249150122,
+    1555081692,
+    1996064986,
+    2554220882,
+    2821834349,
+    2952996808,
+    3210313671,
+    3336571891,
+    3584528711,
+    113926993,
+    338241895,
+    666307205,
+    773529912,
+    1294757372,
+    1396182291,
+    1695183700,
+    1986661051,
+    2177026350,
+    2456956037,
+    2730485921,
+    2820302411,
+    3259730800,
+    3345764771,
+    3516065817,
+    3600352804,
+    4094571909,
+    275423344,
+    430227734,
+    506948616,
+    659060556,
+    883997877,
+    958139571,
+    1322822218,
+    1537002063,
+    1747873779,
+    1955562222,
+    2024104815,
+    2227730452,
+    2361852424,
+    2428436474,
+    2756734187,
+    3204031479,
+    3329325298
+  ];
+  var rotate = (n, amount) => n >>> amount | n << 32 - amount;
+  function readingDigest(text2) {
+    const size = utf8Length(text2);
+    const body = new Uint8Array(Math.ceil((size + 9) / 64) * 64);
+    let at3 = 0;
+    for (const character of text2) {
+      let point = character.codePointAt(0);
+      if (point >= 55296 && point <= 57343) point = 65533;
+      if (point < 128) body[at3++] = point;
+      else if (point < 2048) {
+        body[at3++] = 192 | point >>> 6;
+        body[at3++] = 128 | point & 63;
+      } else if (point < 65536) {
+        body[at3++] = 224 | point >>> 12;
+        body[at3++] = 128 | point >>> 6 & 63;
+        body[at3++] = 128 | point & 63;
+      } else {
+        body[at3++] = 240 | point >>> 18;
+        body[at3++] = 128 | point >>> 12 & 63;
+        body[at3++] = 128 | point >>> 6 & 63;
+        body[at3++] = 128 | point & 63;
+      }
+    }
+    body[size] = 128;
+    const bits = size * 8;
+    const view2 = new DataView(body.buffer);
+    view2.setUint32(body.length - 8, Math.floor(bits / 4294967296));
+    view2.setUint32(body.length - 4, bits >>> 0);
+    const hash2 = [
+      1779033703,
+      3144134277,
+      1013904242,
+      2773480762,
+      1359893119,
+      2600822924,
+      528734635,
+      1541459225
+    ];
+    const words = new Uint32Array(64);
+    for (let block = 0; block < body.length; block += 64) {
+      for (let i = 0; i < 16; i++) words[i] = view2.getUint32(block + i * 4);
+      for (let i = 16; i < 64; i++) {
+        const a2 = words[i - 15], b2 = words[i - 2];
+        words[i] = words[i - 16] + words[i - 7] + (rotate(a2, 7) ^ rotate(a2, 18) ^ a2 >>> 3) + (rotate(b2, 17) ^ rotate(b2, 19) ^ b2 >>> 10);
+      }
+      let [a, b, c, d, e, f, g, h] = hash2;
+      for (let i = 0; i < 64; i++) {
+        const first = h + (rotate(e, 6) ^ rotate(e, 11) ^ rotate(e, 25)) + (e & f ^ ~e & g) + constants[i] + words[i] >>> 0;
+        const second = (rotate(a, 2) ^ rotate(a, 13) ^ rotate(a, 22)) + (a & b ^ a & c ^ b & c) >>> 0;
+        h = g;
+        g = f;
+        f = e;
+        e = d + first >>> 0;
+        d = c;
+        c = b;
+        b = a;
+        a = first + second >>> 0;
+      }
+      for (const [i, value] of [a, b, c, d, e, f, g, h].entries())
+        hash2[i] = hash2[i] + value >>> 0;
+    }
+    return hash2.map((part) => part.toString(16).padStart(8, "0")).join("");
+  }
+
+  // v2/card-game/poem-readings.mjs
+  var readingLimits = Object.freeze({
+    sites: 6,
+    optional: 8,
+    records: 56,
+    rows: 512,
+    tuples: 1024,
+    pageSize: 4,
+    listeners: 2,
+    bytes: 384 * 1024
+  });
+  var owns = (value, key) => !!value && Object.hasOwn(value, key);
+  var record = (value) => !!value && typeof value === "object" && !Array.isArray(value);
+  var integer = (value, low, high = Number.MAX_SAFE_INTEGER) => Number.isSafeInteger(value) && value >= low && value <= high;
+  var same2 = (left, right) => JSON.stringify(left) === JSON.stringify(right);
+  var emptyPoemReadings = () => ({
+    version: 1,
+    stanzas: [],
+    readings: {},
+    drafts: {},
+    pins: {},
+    decisions: {}
+  });
+  var readingBlockBytes = (state) => utf8Length(JSON.stringify(state));
+  var siteFor = (pack, id) => pack.recital?.sites?.find((site) => site.id === id);
+  var canonicalKey = (site, reader) => `site:${site}:${reader}`;
+  var pageCount = (reading) => Math.max(1, Math.ceil(reading.selection.length / readingLimits.pageSize));
+  function actorHere(world, actor, place) {
+    return world.actors[actor]?.place === place && (!humanAvatarIds.includes(actor) || humanPresent(world, actor));
+  }
+  function readerHere(world, reader, place) {
+    if (currentActor(world) !== reader || !humanAvatarIds.includes(reader) || !controlledByHuman(world, reader) || !actorHere(world, reader, place))
+      throw new Error("Bring your own present avatar to the reading.");
+  }
+  function commit(state, next) {
+    if (readingBlockBytes(next) > readingLimits.bytes)
+      throw new Error("The reading archive is full. Replay a saved reading.");
+    Object.assign(state, next);
+  }
+  function earnedTuples(world, pack, catalog, through) {
+    const saved = world.packs[pack.id];
+    const authors = new Map(catalog.authors.map((author, i) => [author.id, i]));
+    return catalog.rows.map((row, index) => [row, index]).filter(([row]) => integer(saved.receipts[row.choice], 1, through)).sort(
+      ([a, ai], [b, bi]) => saved.receipts[a.choice] - saved.receipts[b.choice] || ai - bi
+    ).map(([row, index]) => {
+      const author = saved.recitals[row.choice]?.actor ?? null;
+      if (author !== null && !authors.has(author))
+        throw new Error("Use the published catalog for this stanza's author.");
+      return [
+        index,
+        saved.receipts[row.choice],
+        author === null ? null : authors.get(author),
+        row.after && saved.receipts[row.after.choice] < saved.receipts[row.choice] ? 1 : 0
+      ];
+    });
+  }
+  var snapshotDigest = (catalog, tuples) => readingDigest(JSON.stringify([catalog.digest, tuples]));
+  function setReadingDraft(world, pack, state, siteId, reader, guests) {
+    const site = siteFor(pack, siteId);
+    if (!site) throw new Error("Choose an authored reading site.");
+    readerHere(world, reader, site.at);
+    if (!Array.isArray(guests) || new Set(guests).size !== guests.length || guests.some(
+      (id) => id === reader || !humanAvatarIds.includes(id) || !actorHere(world, id, site.at)
+    ))
+      throw new Error("Invite the people who are present beside you.");
+    const invited = humanAvatarIds.filter((id) => guests.includes(id));
+    commit(state, {
+      ...state,
+      drafts: { ...state.drafts, [reader]: { site: siteId, invited } }
+    });
+  }
+  function beginReading(world, pack, catalog, state, { site: siteId, reader, optional = false }) {
+    const site = siteFor(pack, siteId);
+    if (!site || catalog.pack !== pack.id)
+      throw new Error("Choose the site's published poem catalog.");
+    readerHere(world, reader, site.at);
+    const fixed = site.listeners;
+    if (!Array.isArray(fixed) || fixed.length < 1 || fixed.length > readingLimits.listeners || new Set(fixed).size !== fixed.length || fixed.some((id2) => !actorHere(world, id2, site.at)))
+      throw new Error("Bring the required listeners together.");
+    if (!integer(world.turn, 1))
+      throw new Error("Start the reading on an accepted turn.");
+    const draft = state.drafts[reader];
+    const guests = draft?.site === siteId ? draft.invited : [];
+    if (guests.some((id2) => !actorHere(world, id2, site.at)))
+      throw new Error("Choose the present audience again.");
+    const optionalSlots = Object.keys(state.readings).filter(
+      (id2) => id2.startsWith("optional:")
+    );
+    if (optional && optionalSlots.length >= readingLimits.optional)
+      throw new Error("Replay a saved reading from the archive.");
+    const id = optional ? `optional:${optionalSlots.length}:${reader}` : canonicalKey(siteId, reader);
+    if (owns(state.readings, id))
+      throw new Error("Resume your original reading at this site.");
+    const audience = [reader, ...fixed, ...guests];
+    if (new Set(audience).size !== audience.length)
+      throw new Error("Choose distinct listeners.");
+    const tuples = earnedTuples(world, pack, catalog, world.turn - 1);
+    const stanzas = [...state.stanzas];
+    const indices = new Map(
+      stanzas.map((tuple, index) => [JSON.stringify(tuple), index])
+    );
+    const selection = tuples.map((tuple) => {
+      const key = JSON.stringify(tuple);
+      if (!indices.has(key)) {
+        indices.set(key, stanzas.length);
+        stanzas.push(tuple);
+      }
+      return indices.get(key);
+    });
+    if (stanzas.length > readingLimits.tuples || Object.keys(state.readings).length >= readingLimits.records)
+      throw new Error("Replay an existing reading from the bounded archive.");
+    const reading = {
+      site: siteId,
+      reader,
+      catalog: catalog.id,
+      catalogDigest: catalog.digest,
+      poemDigest: snapshotDigest(catalog, tuples),
+      selection,
+      turn: world.turn,
+      through: world.turn - 1,
+      place: site.at,
+      audience,
+      requiredMask: (1 << 1 + fixed.length) - 1,
+      departedMask: 0,
+      pages: [],
+      complete: false
+    };
+    const drafts = { ...state.drafts };
+    delete drafts[reader];
+    commit(state, {
+      ...state,
+      stanzas,
+      drafts,
+      readings: { ...state.readings, [id]: reading }
+    });
+    return id;
+  }
+  function readingPage(state, reading, catalog, index) {
+    if (!integer(index, 0, pageCount(reading) - 1))
+      throw new Error("Choose a page in this reading.");
+    return reading.selection.slice(index * readingLimits.pageSize, (index + 1) * readingLimits.pageSize).map((slot) => {
+      const [rowIndex, turn, authorIndex, variant] = state.stanzas[slot];
+      const row = catalog.rows[rowIndex];
+      const author = authorIndex === null ? null : catalog.authors[authorIndex];
+      return {
+        id: row.choice,
+        turn,
+        authorId: author?.id ?? null,
+        authorName: author?.name ?? "an earlier traveler",
+        lines: [...variant ? row.after.lines : row.lines]
+      };
+    });
+  }
+  function readingFor(state, catalogs, id) {
+    const reading = state.readings[id];
+    const catalog = reading && owns(catalogs, reading.catalog) && catalogs[reading.catalog];
+    if (!reading || !catalog || reading.catalogDigest !== catalog.digest)
+      throw new Error("Load this reading's exact published catalog.");
+    return { reading, catalog };
+  }
+  function publishReadingPage(world, state, catalogs, id, reader) {
+    const { reading, catalog } = readingFor(state, catalogs, id);
+    readerHere(world, reader, reading.place);
+    if (reader !== reading.reader || reading.complete)
+      throw new Error("Choose your unfinished reading.");
+    const index = reading.pages.length;
+    const previousTurn = reading.pages.at(-1)?.[0] ?? reading.turn;
+    if (!integer(world.turn, previousTurn + 1))
+      throw new Error("Publish on the next accepted turn.");
+    let mask = 0;
+    for (const [i, actor] of reading.audience.entries())
+      if (actorHere(world, actor, reading.place)) mask |= 1 << i;
+    if ((mask & reading.requiredMask) !== reading.requiredMask)
+      throw new Error("Bring the required listeners back together.");
+    const optionalMask = (1 << reading.audience.length) - 1 ^ reading.requiredMask;
+    const departedMask = reading.departedMask | optionalMask & ~mask;
+    mask &= ~departedMask;
+    const updated = {
+      ...reading,
+      departedMask,
+      pages: [...reading.pages, [world.turn, mask, mask]],
+      complete: index + 1 === pageCount(reading)
+    };
+    const firstCompletion = updated.complete && !owns(state.pins, reading.site);
+    const pins = firstCompletion ? { ...state.pins, [reading.site]: id } : state.pins;
+    commit(state, {
+      ...state,
+      pins,
+      readings: { ...state.readings, [id]: updated }
+    });
+    return {
+      id,
+      index,
+      readingTurn: reading.turn,
+      through: reading.through,
+      publishedTurn: world.turn,
+      firstCompletion,
+      audience: reading.audience.filter((_, i) => mask & 1 << i),
+      stanzas: readingPage(state, updated, catalog, index)
+    };
+  }
+  function replayReadingPage(world, state, catalogs, id, reader, index, listener) {
+    const { reading, catalog } = readingFor(state, catalogs, id);
+    readerHere(world, reader, reading.place);
+    const bit = reading.audience.indexOf(listener);
+    if (reader !== reading.reader || bit < 0 || !actorHere(world, listener, reading.place) || !integer(index, 0, reading.pages.length - 1) || !integer(world.turn, reading.pages[index][0] + 1))
+      throw new Error("Replay a published page to a present original listener.");
+    const pages = reading.pages.map(
+      (page, i) => i === index ? [page[0], page[1], page[2] | 1 << bit] : [...page]
+    );
+    commit(state, {
+      ...state,
+      readings: { ...state.readings, [id]: { ...reading, pages } }
+    });
+    return {
+      id,
+      index,
+      readingTurn: reading.turn,
+      through: reading.through,
+      publishedTurn: world.turn,
+      audience: [.../* @__PURE__ */ new Set([reader, listener])],
+      stanzas: readingPage(state, reading, catalog, index)
+    };
+  }
+  function completedHeardReading(state, site, actor) {
+    return Object.entries(state?.readings || {}).filter(([, reading]) => {
+      const bit = reading.audience.indexOf(actor);
+      return reading.site === site && reading.complete && bit >= 0 && reading.pages.every((page) => page[2] & 1 << bit);
+    }).sort(([, left], [, right]) => right.turn - left.turn)[0]?.[0] || null;
+  }
+  function projectPoemReadings(state, actor) {
+    const stanzas = [], slots = /* @__PURE__ */ new Map(), readings = [];
+    const intern = (index) => {
+      if (!slots.has(index)) {
+        slots.set(index, stanzas.length);
+        stanzas.push([...state.stanzas[index]]);
+      }
+      return slots.get(index);
+    };
+    for (const [id, reading] of Object.entries(state.readings)) {
+      const bit = reading.audience.indexOf(actor);
+      if (bit < 0) continue;
+      const owner2 = actor === reading.reader;
+      const pages = Array.from({ length: pageCount(reading) }, (_, index) => {
+        const receipt = reading.pages[index];
+        if (!owner2 && !(receipt?.[2] & 1 << bit)) return null;
+        return [
+          index,
+          receipt?.[0] ?? null,
+          reading.selection.slice(
+            index * readingLimits.pageSize,
+            (index + 1) * readingLimits.pageSize
+          ).map(intern)
+        ];
+      }).filter(Boolean);
+      if (!owner2 && !pages.length) continue;
+      readings.push({
+        id,
+        site: reading.site,
+        reader: reading.reader,
+        catalog: reading.catalog,
+        readingTurn: reading.turn,
+        through: reading.through,
+        complete: reading.complete,
+        pageCount: pageCount(reading),
+        pages,
+        heardAll: reading.complete && reading.pages.every((page) => page[2] & 1 << bit),
+        ...owner2 ? { audience: [...reading.audience] } : {}
+      });
+    }
+    return { stanzas, readings };
+  }
+  function validPoemReadings(world, pack, catalogs, state) {
+    try {
+      if (!record(state) || Object.keys(state).sort().join() !== "decisions,drafts,pins,readings,stanzas,version" || state.version !== 1 || !Array.isArray(state.stanzas) || state.stanzas.length > readingLimits.tuples || ![state.readings, state.drafts, state.pins, state.decisions].every(
+        record
+      ) || Object.keys(state.readings).length > readingLimits.records || Object.keys(state.drafts).length > humanAvatarIds.length || Object.keys(state.decisions).length > 16 || readingBlockBytes(state) > readingLimits.bytes)
+        return false;
+      const sites = pack.recital?.sites || [];
+      if (sites.length > readingLimits.sites || new Set(sites.map((site) => site.id)).size !== sites.length)
+        return false;
+      const catalog = Object.values(catalogs).filter((entry) => entry.pack === pack.id).sort(
+        (a, b) => b.rows.length - a.rows.length || b.authors.length - a.authors.length
+      )[0];
+      if (!catalog) return false;
+      const keys = /* @__PURE__ */ new Set();
+      for (const tuple of state.stanzas) {
+        if (!Array.isArray(tuple) || tuple.length !== 4 || !integer(tuple[0], 0, readingLimits.rows - 1) || !integer(tuple[1], 1, world.turn) || !(tuple[2] === null || integer(tuple[2], 0)) || ![0, 1].includes(tuple[3]) || keys.has(JSON.stringify(tuple)))
+          return false;
+        const row = catalog.rows[tuple[0]];
+        const author = tuple[2] === null ? null : catalog.authors[tuple[2]]?.id;
+        if (!row || tuple[3] === 1 && !row.after || world.packs[pack.id].receipts[row.choice] !== tuple[1] || author !== (world.packs[pack.id].recitals[row.choice]?.actor ?? null))
+          return false;
+        keys.add(JSON.stringify(tuple));
+      }
+      for (const [reader, draft] of Object.entries(state.drafts)) {
+        if (!humanAvatarIds.includes(reader) || !record(draft) || Object.keys(draft).sort().join() !== "invited,site" || !siteFor(pack, draft.site) || !Array.isArray(draft.invited) || new Set(draft.invited).size !== draft.invited.length || draft.invited.some(
+          (id) => id === reader || !humanAvatarIds.includes(id)
+        ) || !same2(
+          draft.invited,
+          humanAvatarIds.filter((id) => draft.invited.includes(id))
+        ))
+          return false;
+      }
+      const optionalSlots = /* @__PURE__ */ new Set();
+      const complete = /* @__PURE__ */ new Map();
+      const expected = /* @__PURE__ */ new Map();
+      const earned = /* @__PURE__ */ new Map();
+      for (const [id, reading] of Object.entries(state.readings)) {
+        if (!record(reading) || Object.keys(reading).sort().join() !== "audience,catalog,catalogDigest,complete,departedMask,pages,place,poemDigest,reader,requiredMask,selection,site,through,turn")
+          return false;
+        const site = siteFor(pack, reading.site);
+        const catalog2 = owns(catalogs, reading.catalog) && catalogs[reading.catalog];
+        if (!site || !catalog2 || catalog2.pack !== pack.id || catalog2.digest !== reading.catalogDigest || !humanAvatarIds.includes(reading.reader) || reading.place !== site.at || !integer(reading.turn, 1, world.turn) || reading.through !== reading.turn - 1 || !Array.isArray(reading.selection) || reading.selection.length > readingLimits.rows || !Array.isArray(reading.audience) || reading.audience.length > humanAvatarIds.length + readingLimits.listeners || new Set(reading.audience).size !== reading.audience.length || !same2(reading.audience.slice(0, 1 + site.listeners.length), [
+          reading.reader,
+          ...site.listeners
+        ]) || reading.audience.slice(1 + site.listeners.length).some((actor) => !humanAvatarIds.includes(actor)) || reading.requiredMask !== (1 << 1 + site.listeners.length) - 1)
+          return false;
+        const optional = /^optional:([0-7]):([a-z][a-z0-9-]*)$/.exec(id);
+        if (optional) {
+          if (optional[2] !== reading.reader || optionalSlots.has(optional[1]))
+            return false;
+          optionalSlots.add(optional[1]);
+        } else if (id !== canonicalKey(reading.site, reading.reader))
+          return false;
+        const selected = reading.selection.map(
+          (index) => integer(index, 0, state.stanzas.length - 1) ? state.stanzas[index] : null
+        );
+        if (selected.some((tuple) => !tuple)) return false;
+        if (!earned.has(catalog2.digest))
+          earned.set(
+            catalog2.digest,
+            earnedTuples(world, pack, catalog2, world.turn)
+          );
+        const all = earned.get(catalog2.digest);
+        const end = all.findIndex((tuple) => tuple[1] > reading.through);
+        const count = end < 0 ? all.length : end;
+        const expectedKey = `${catalog2.digest}:${count}`;
+        if (!expected.has(expectedKey)) {
+          const tuples = all.slice(0, count);
+          expected.set(expectedKey, {
+            tuples: JSON.stringify(tuples),
+            digest: snapshotDigest(catalog2, tuples)
+          });
+        }
+        const snapshot = expected.get(expectedKey);
+        if (JSON.stringify(selected) !== snapshot.tuples || reading.poemDigest !== snapshot.digest)
+          return false;
+        if (!Array.isArray(reading.pages) || reading.pages.length > pageCount(reading) || reading.complete !== (reading.pages.length === pageCount(reading)))
+          return false;
+        const fullMask = (1 << reading.audience.length) - 1;
+        const guests = fullMask ^ reading.requiredMask;
+        let departed = 0, lastTurn = reading.turn;
+        for (const page of reading.pages) {
+          if (!Array.isArray(page) || page.length !== 3 || !integer(page[0], lastTurn + 1, world.turn) || !integer(page[1], 0, fullMask) || !integer(page[2], 0, fullMask) || (page[1] & reading.requiredMask) !== reading.requiredMask || (page[2] & page[1]) !== page[1] || page[1] & departed)
+            return false;
+          departed |= guests & ~page[1];
+          lastTurn = page[0];
+        }
+        if (reading.departedMask !== departed) return false;
+        if (reading.complete) {
+          const old = complete.get(reading.site);
+          if (!old || lastTurn < old.turn || lastTurn === old.turn && id < old.id)
+            complete.set(reading.site, { id, turn: lastTurn });
+        }
+      }
+      if ([...optionalSlots].some((_, i) => !optionalSlots.has(String(i))))
+        return false;
+      if (Object.keys(state.pins).length !== complete.size || [...complete].some(([site, first]) => state.pins[site] !== first.id))
+        return false;
+      if (Object.entries(state.decisions).some(
+        ([choice, id]) => !pack.choices.some((entry) => entry.id === choice) || !state.readings[id]?.complete
+      ))
+        return false;
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // v2/card-game/poem-catalogs.json
+  var poem_catalogs_default = {
+    schemaVersion: 1,
+    currentVersion: "full-card-world/21",
+    packs: {
+      "greek-drama": {
+        current: "full-card-world/21#b18f8b66c9b85b37",
+        catalogs: {
+          "full-card-world/21#b18f8b66c9b85b37": {
+            id: "full-card-world/21#b18f8b66c9b85b37",
+            pack: "greek-drama",
+            title: "Before the Burial",
+            rows: [
+              {
+                choice: "greek-return-water-jar",
+                lines: [
+                  "I set the water by her hands.",
+                  "She kept a loaf of bread for me."
+                ]
+              },
+              {
+                choice: "greek-petition-burial",
+                lines: [
+                  "Creon has granted this one grave.",
+                  "Her brother waits for earth."
+                ]
+              },
+              {
+                choice: "greek-perform-burial",
+                lines: [
+                  "I laid her brother in the earth.",
+                  "The king's words crossed the wind."
+                ]
+              },
+              {
+                choice: "greek-perform-permitted-burial",
+                lines: [
+                  "Creon gave leave for this one grave.",
+                  "I laid her brother in the earth."
+                ]
+              },
+              {
+                choice: "greek-decline-burial",
+                lines: [
+                  "I told her I would turn away.",
+                  "Her brother waited by the wall."
+                ]
+              },
+              {
+                choice: "greek-report-plan",
+                lines: [
+                  "I gave the guard the hidden plan.",
+                  "He held it with the king's command."
+                ]
+              },
+              {
+                choice: "greek-courtyard-burial",
+                lines: [
+                  "I spoke of earth beside her table.",
+                  "Dione heard me through."
+                ]
+              },
+              {
+                choice: "greek-courtyard-concession",
+                lines: [
+                  "I spoke the promise of a grave.",
+                  "His body waited in the sun."
+                ],
+                after: {
+                  choice: "greek-perform-permitted-burial",
+                  lines: [
+                    "I told her of the king's consent.",
+                    "She heard the leave that he had given."
+                  ]
+                }
+              },
+              {
+                choice: "greek-courtyard-refusal",
+                lines: [
+                  "I told her how I turned away.",
+                  "She kept a place beside her table."
+                ]
+              },
+              {
+                choice: "greek-courtyard-exposure",
+                lines: [
+                  "I told her what the guard had heard.",
+                  "My words lay open on the table."
+                ]
+              },
+              {
+                choice: "greek-courtyard-permitted-burial",
+                lines: [
+                  "The grave I promised holds him now.",
+                  "I brought that word to Dione."
+                ]
+              },
+              {
+                choice: "greek-open-door-hear-mothers",
+                lines: [
+                  "Their branches rested on my knees.",
+                  "I heard the names beneath them."
+                ]
+              },
+              {
+                choice: "greek-open-door-register-plea",
+                lines: [
+                  "I laid their plea before the town.",
+                  "The crowded square grew quiet."
+                ]
+              },
+              {
+                choice: "greek-open-door-hear-truce-report",
+                lines: [
+                  "The herald named a road of peace.",
+                  "The dead came home beneath it."
+                ]
+              },
+              {
+                choice: "greek-open-door-hear-recovery-report",
+                lines: [
+                  "The messenger spoke over dust.",
+                  "The dead came home behind the shields."
+                ]
+              },
+              {
+                choice: "greek-open-door-set-provisions",
+                lines: [
+                  "I set the basket by the ropes.",
+                  "The waiting cups stood ready."
+                ]
+              },
+              {
+                choice: "greek-open-door-lay-cloths",
+                lines: [
+                  "The cloth lay clean upon the stone.",
+                  "Their children gathered near it."
+                ]
+              },
+              {
+                choice: "greek-open-door-lay-ashes",
+                lines: [
+                  "I set the ashes by their hands.",
+                  "Each name was heavier than clay."
+                ]
+              },
+              {
+                choice: "greek-open-door-hear-pyre",
+                lines: [
+                  "I heard the father\u2019s second loss.",
+                  "One chair stood empty by the stone."
+                ]
+              },
+              {
+                choice: "greek-open-door-eleusis-pledge",
+                lines: [
+                  "I set a pledge beside the ashes.",
+                  "Both banners cast a human shadow."
+                ]
+              },
+              {
+                choice: "greek-open-door-eleusis-care",
+                lines: [
+                  "I stayed beside the living grief.",
+                  "We wrote their needs beneath the names."
+                ]
+              },
+              {
+                choice: "greek-open-door-family-berth",
+                lines: [
+                  "I laid their names beside the rope.",
+                  "A place was kept for each of them."
+                ]
+              },
+              {
+                choice: "greek-open-door-open-berth",
+                lines: [
+                  "I laid their names beside the rope.",
+                  "We kept a space beyond the list."
+                ]
+              },
+              {
+                choice: "greek-open-door-colonus-water",
+                lines: [
+                  "I set sweet water by the grove.",
+                  "The keeper named an older road."
+                ]
+              },
+              {
+                choice: "greek-open-door-colonus-farewell",
+                lines: [
+                  "The keeper sang of daughters walking.",
+                  "The final place stayed with the king."
+                ]
+              },
+              {
+                choice: "greek-open-door-colonus-custom",
+                lines: [
+                  "I wrote a welcome by the trees.",
+                  "A stranger\u2019s need could find a name."
+                ]
+              },
+              {
+                choice: "greek-open-door-colonus-family",
+                lines: [
+                  "I set the daughters in the song.",
+                  "Their hands had carried all those miles."
+                ]
+              },
+              {
+                choice: "greek-open-door-marathon-blanket",
+                lines: [
+                  "I laid a blanket by the altar.",
+                  "The old tale found a living task."
+                ]
+              },
+              {
+                choice: "greek-open-door-marathon-daughter",
+                lines: [
+                  "The keeper gave the daughter voice.",
+                  "Her empty place remained among them."
+                ]
+              },
+              {
+                choice: "greek-open-door-marathon-alcmene",
+                lines: [
+                  "I heard old grief demand a death.",
+                  "The altar held its troubling echo."
+                ]
+              },
+              {
+                choice: "greek-open-door-marathon-hearing",
+                lines: [
+                  "I asked the tale to hold a hearing.",
+                  "Her grief still waited at its gate."
+                ]
+              },
+              {
+                choice: "greek-open-door-return-dione",
+                lines: [
+                  "I brought those names beside her bread.",
+                  "We made room for the words they carried."
+                ]
+              },
+              {
+                choice: "greek-homecoming-report-agora-truce",
+                lines: [
+                  "I told her how the herald spoke.",
+                  "A road for the dead lay in his words."
+                ]
+              },
+              {
+                choice: "greek-homecoming-report-agora-force",
+                lines: [
+                  "I told her what the shields brought home.",
+                  "She heard the mothers through the noise."
+                ]
+              },
+              {
+                choice: "greek-homecoming-report-eleusis-pledge",
+                lines: [
+                  "I spoke the pledge beside her bread.",
+                  "The names of loss stayed in the room."
+                ]
+              },
+              {
+                choice: "greek-homecoming-report-eleusis-care",
+                lines: [
+                  "I brought their needs beside her bread.",
+                  "She heard the living with the dead."
+                ]
+              },
+              {
+                choice: "greek-homecoming-report-piraeus-family",
+                lines: [
+                  "I told her where their names were kept.",
+                  "The quay\u2019s first promise reached the table."
+                ]
+              },
+              {
+                choice: "greek-homecoming-report-piraeus-open",
+                lines: [
+                  "I told her of the wider place.",
+                  "Its welcome carried work within it."
+                ]
+              },
+              {
+                choice: "greek-homecoming-report-colonus-custom",
+                lines: [
+                  "I brought the grove\u2019s old tale to her.",
+                  "Its tablet spoke of guests to come."
+                ]
+              },
+              {
+                choice: "greek-homecoming-report-colonus-family",
+                lines: [
+                  "I spoke the daughters\u2019 patient work.",
+                  "Their road reached Dione through the song."
+                ]
+              },
+              {
+                choice: "greek-homecoming-report-marathon-alcmene",
+                lines: [
+                  "I brought the keeper\u2019s ending home.",
+                  "Its saved lives cast a troubled shadow."
+                ]
+              },
+              {
+                choice: "greek-homecoming-report-marathon-hearing",
+                lines: [
+                  "I named the change within the tale.",
+                  "Her empty place remained beside it."
+                ]
+              },
+              {
+                choice: "greek-homecoming-receive-family",
+                lines: [
+                  "Her feet had reached the waiting quay.",
+                  "Her household\u2019s basket passed to her."
+                ]
+              },
+              {
+                choice: "greek-homecoming-receive-open",
+                lines: [
+                  "She found her place beside the rope.",
+                  "The basket stayed for other hands."
+                ]
+              },
+              {
+                choice: "greek-homecoming-read-basket-family",
+                lines: [
+                  "I laid her words beside the bread.",
+                  "Her hands had met the waiting basket."
+                ]
+              },
+              {
+                choice: "greek-homecoming-read-berth-family",
+                lines: [
+                  "I chose the verse about her place.",
+                  "Her written answer crossed the table."
+                ]
+              },
+              {
+                choice: "greek-homecoming-read-basket-open",
+                lines: [
+                  "I laid her words beside the bread.",
+                  "She offered hands to keep the welcome."
+                ]
+              },
+              {
+                choice: "greek-homecoming-read-berth-open",
+                lines: [
+                  "I chose the verse about more guests.",
+                  "Her answer named the work to come."
+                ]
+              },
+              {
+                choice: "greek-ajax-deliver-shield",
+                lines: [
+                  "I set his shield beside the tent.",
+                  "Tecmessa kept it for her child."
+                ]
+              },
+              {
+                choice: "greek-ajax-deliver-plea",
+                lines: [
+                  "I brought his brother\u2019s written plea.",
+                  "A rival heard it by the ships."
+                ]
+              },
+              {
+                choice: "greek-ajax-bury-public",
+                lines: [
+                  "His rival spoke; I broke the ground.",
+                  "The camp laid down its quarrel."
+                ]
+              },
+              {
+                choice: "greek-ajax-bury-household",
+                lines: [
+                  "I gave him earth beside the ships.",
+                  "The household kept his shield."
+                ]
+              },
+              {
+                choice: "greek-ajax-bury-appeal",
+                lines: [
+                  "I kept the vigil with their plea.",
+                  "The witnessed rite gave Ajax earth."
+                ]
+              },
+              {
+                choice: "greek-ajax-return-public",
+                lines: [
+                  "I laid his words beside the bread.",
+                  "She held the rival\u2019s plea with care."
+                ]
+              },
+              {
+                choice: "greek-ajax-return-household",
+                lines: [
+                  "I laid his words beside the bread.",
+                  "She named the household in the song."
+                ]
+              },
+              {
+                choice: "greek-ajax-return-appeal",
+                lines: [
+                  "I laid his words beside the bread.",
+                  "She heard how witnesses brought earth."
+                ]
+              },
+              {
+                choice: "greek-vii-cyclops-provisions",
+                lines: [
+                  "Two baskets reached two waiting hands.",
+                  "The shore still waited for their feet."
+                ]
+              },
+              {
+                choice: "greek-vii-cyclops-force-exit",
+                lines: [
+                  "The timber opened pain and stone.",
+                  "Each waiting group still needed feet."
+                ]
+              },
+              {
+                choice: "greek-vii-cyclops-brace-exit",
+                lines: [
+                  "The cup bought room beside the rock.",
+                  "Our timber held the narrow way."
+                ]
+              },
+              {
+                choice: "greek-vii-cyclops-all-home",
+                lines: [
+                  "Two cohorts found the open shore.",
+                  "The stone kept what the opening cost."
+                ]
+              },
+              {
+                choice: "greek-vii-cyclops-crew-first",
+                lines: [
+                  "The sailors reached the waiting boat.",
+                  "The satyrs stayed beside the stone."
+                ]
+              },
+              {
+                choice: "greek-vii-cyclops-satyrs-first",
+                lines: [
+                  "The satyrs reached the waiting boat.",
+                  "The sailors watched the closed rock way."
+                ]
+              },
+              {
+                choice: "greek-vii-birds-refuge-agreement",
+                lines: [
+                  "We marked a place for weary wings.",
+                  "Their feet still had to cross the gate."
+                ]
+              },
+              {
+                choice: "greek-vii-birds-gate-throne",
+                lines: [
+                  "The key lay warm against my palm.",
+                  "The birds stood on its farther side."
+                ]
+              },
+              {
+                choice: "greek-vii-birds-gate-open",
+                lines: [
+                  "I left the key beside the gate.",
+                  "The road made room for other feet."
+                ]
+              },
+              {
+                choice: "greek-vii-birds-gate-dismantle",
+                lines: [
+                  "I took the gate\u2019s small claim away.",
+                  "The birds would hold its iron weight."
+                ]
+              },
+              {
+                choice: "greek-vii-birds-throne",
+                lines: [
+                  "The keeper held the nesting meal.",
+                  "The birds stood waiting at his gate."
+                ]
+              },
+              {
+                choice: "greek-vii-birds-open-flight",
+                lines: [
+                  "The birds brought food inside the gate.",
+                  "Their wings found room beside our words."
+                ]
+              },
+              {
+                choice: "greek-vii-birds-broken-wall",
+                lines: [
+                  "The birds held food and fallen iron.",
+                  "Their open shelter called for hands."
+                ]
+              },
+              {
+                choice: "greek-vii-peace-harness",
+                lines: [
+                  "The harness reached the farmer\u2019s hands.",
+                  "A common rope still needed shoulders."
+                ]
+              },
+              {
+                choice: "greek-vii-peace-pull",
+                lines: [
+                  "Our different hands drew one rope tight.",
+                  "The store gave grain and tools to daylight."
+                ]
+              },
+              {
+                choice: "greek-vii-peace-harvest",
+                lines: [
+                  "The farmers reached their field with grain.",
+                  "The smiths still waited for their tools."
+                ]
+              },
+              {
+                choice: "greek-vii-peace-workshops",
+                lines: [
+                  "The farmers held the first full sack.",
+                  "The smiths took tools to serve the fields."
+                ]
+              },
+              {
+                choice: "greek-vii-peace-private-store",
+                lines: [
+                  "We pulled together at the stone.",
+                  "One keeper held the opened grain."
+                ]
+              },
+              {
+                choice: "greek-vii-prometheus-flame-arrived",
+                lines: [
+                  "I carried fire beside the bound.",
+                  "Its oil still counted every turn."
+                ]
+              },
+              {
+                choice: "greek-vii-prometheus-io-message-arrived",
+                lines: [
+                  "The message crossed the eastern road.",
+                  "Io received its words herself."
+                ]
+              },
+              {
+                choice: "greek-vii-prometheus-stay",
+                lines: [
+                  "I stood beside the ones who stayed.",
+                  "The storm kept faith with what they chose."
+                ]
+              },
+              {
+                choice: "greek-vii-prometheus-gifts",
+                lines: [
+                  "The camp received a living flame.",
+                  "Its oil would end; its light was real."
+                ]
+              },
+              {
+                choice: "greek-vii-prometheus-terms",
+                lines: [
+                  "The terms reached Hermes at the camp.",
+                  "Their seal still carried someone\u2019s trust."
+                ]
+              }
+            ],
+            authors: [
+              {
+                id: "vale",
+                name: "Vale"
+              },
+              {
+                id: "mara",
+                name: "Mara"
+              },
+              {
+                id: "ash",
+                name: "Ash"
+              },
+              {
+                id: "nell",
+                name: "Nell"
+              },
+              {
+                id: "tavi",
+                name: "Tavi"
+              },
+              {
+                id: "rue",
+                name: "Rue"
+              },
+              {
+                id: "orin",
+                name: "Orin"
+              },
+              {
+                id: "ada",
+                name: "Ada"
+              },
+              {
+                id: "greek-antigone",
+                name: "Antigone"
+              },
+              {
+                id: "greek-ismene",
+                name: "Ismene"
+              },
+              {
+                id: "greek-creon",
+                name: "Creon"
+              },
+              {
+                id: "greek-guard",
+                name: "The Gate Guard"
+              },
+              {
+                id: "greek-baker",
+                name: "Dione the Baker"
+              },
+              {
+                id: "greek-elder",
+                name: "The Chorus Elder"
+              },
+              {
+                id: "greek-shipmaster",
+                name: "Myrto the Shipmaster"
+              },
+              {
+                id: "greek-rhapsode",
+                name: "The Bard"
+              },
+              {
+                id: "greek-market-neighbor",
+                name: "The Agora Neighbor"
+              },
+              {
+                id: "greek-temple-attendant",
+                name: "The Delphic Attendant"
+              },
+              {
+                id: "greek-ferryman",
+                name: "The Lower Ferryman"
+              },
+              {
+                id: "greek-helen-egypt",
+                name: "Helen"
+              },
+              {
+                id: "greek-menelaus-egypt",
+                name: "Menelaus"
+              },
+              {
+                id: "greek-helen-troy",
+                name: "Helen"
+              },
+              {
+                id: "greek-menelaus-troy",
+                name: "Menelaus"
+              },
+              {
+                id: "greek-electra-aeschylus",
+                name: "Electra"
+              },
+              {
+                id: "greek-orestes-aeschylus",
+                name: "Orestes"
+              },
+              {
+                id: "greek-electra-sophocles",
+                name: "Electra"
+              },
+              {
+                id: "greek-orestes-sophocles",
+                name: "Orestes"
+              },
+              {
+                id: "greek-electra-euripides",
+                name: "Electra"
+              },
+              {
+                id: "greek-orestes-euripides",
+                name: "Orestes"
+              },
+              {
+                id: "greek-aethra",
+                name: "Aethra"
+              },
+              {
+                id: "greek-adrastus",
+                name: "Adrastus"
+              },
+              {
+                id: "greek-argive-mother",
+                name: "An Argive Mother"
+              },
+              {
+                id: "greek-iphis",
+                name: "Iphis"
+              },
+              {
+                id: "greek-theseus",
+                name: "Theseus"
+              },
+              {
+                id: "greek-quay-host",
+                name: "Thaleia the Quay Host"
+              },
+              {
+                id: "greek-colonus-keeper",
+                name: "The Grove Keeper"
+              },
+              {
+                id: "greek-marathon-keeper",
+                name: "The Altar Keeper"
+              },
+              {
+                id: "greek-household-witness",
+                name: "Myrine of Argos"
+              },
+              {
+                id: "greek-ajax-tecmessa",
+                name: "Tecmessa"
+              },
+              {
+                id: "greek-ajax-teucer",
+                name: "Teucer"
+              },
+              {
+                id: "greek-ajax-odysseus",
+                name: "Odysseus"
+              },
+              {
+                id: "greek-vii-odysseus-crew",
+                name: "Odysseus and the Surviving Crew"
+              },
+              {
+                id: "greek-vii-satyr-chorus",
+                name: "Silenus and the Satyr Chorus"
+              },
+              {
+                id: "greek-vii-polyphemus",
+                name: "Polyphemus"
+              },
+              {
+                id: "greek-vii-hoopoe-chorus",
+                name: "The Hoopoe and the Bird Chorus"
+              },
+              {
+                id: "greek-vii-pisthetaerus",
+                name: "Pisthetaerus"
+              },
+              {
+                id: "greek-vii-trygaeus",
+                name: "Trygaeus"
+              },
+              {
+                id: "greek-vii-farmers",
+                name: "The Farmers\u2019 Chorus"
+              },
+              {
+                id: "greek-vii-smiths",
+                name: "The Smiths"
+              },
+              {
+                id: "greek-vii-bound-prometheus",
+                name: "Prometheus"
+              },
+              {
+                id: "greek-vii-oceanids",
+                name: "The Oceanid Witnesses"
+              },
+              {
+                id: "greek-vii-io",
+                name: "Io"
+              },
+              {
+                id: "greek-vii-hermes",
+                name: "Hermes"
+              }
+            ],
+            digest: "441c5ba678e2219cd52ac14e96e77ce29339df56895475592d5d785a6fe3d694"
+          }
+        }
+      }
+    }
+  };
+
+  // v2/card-game/poem-catalogs.mjs
+  for (const history of Object.values(poem_catalogs_default.packs)) {
+    for (const catalog of Object.values(history.catalogs)) {
+      for (const row of catalog.rows) {
+        Object.freeze(row.lines);
+        if (row.after) {
+          Object.freeze(row.after.lines);
+          Object.freeze(row.after);
+        }
+        Object.freeze(row);
+      }
+      catalog.authors.forEach(Object.freeze);
+      Object.freeze(catalog.rows);
+      Object.freeze(catalog.authors);
+      Object.freeze(catalog);
+    }
+    Object.freeze(history.catalogs);
+    Object.freeze(history);
+  }
+  var readingCatalogVersion = poem_catalogs_default.currentVersion;
+  var readingCatalogs = Object.freeze(
+    Object.fromEntries(
+      Object.entries(poem_catalogs_default.packs).map(([pack, history]) => [
+        pack,
+        history.catalogs
+      ])
+    )
+  );
+  var currentReadingCatalog = (packId) => readingCatalogs[packId]?.[poem_catalogs_default.packs[packId]?.current] || null;
+
+  // v2/card-game/boardyai.json
+  var boardyai_default = {
+    schemaVersion: 1,
+    id: "boardyai",
+    packId: "cosyworld.boardyai",
+    revision: 1,
+    name: "BoardyAI",
+    description: "A friendly AI brings human players together.",
+    entry: "boardyai-parlour",
+    bridge: {
+      id: "boardyai-shore",
+      description: "Boardy's calling card opens a parlour door beside Black pond."
+    },
+    choices: [],
+    places: {
+      "boardyai-parlour": {
+        name: "BoardyAI's Parlour",
+        text: "Two armchairs face a small tea table. Misty water fills the window. A side door leads to Black pond.",
+        persona: "A warm room beside Black pond. Two comfortable chairs invite a conversation. Calling cards fill the shelves, and a kettle waits on the table.",
+        requires: [
+          {
+            kind: "shared_world"
+          }
+        ],
+        exits: [],
+        backdrop: "assets/boardyai/parlour.png"
+      }
+    },
+    avatars: {
+      boardyai: {
+        name: "BoardyAI",
+        text: "A friendly AI with a blue smile on a cardboard box head and an open hand for introductions. He wants two human players to spend time together.",
+        place: "boardyai-parlour",
+        persona: "BoardyAI is a thoughtful AI connector inspired by Boardy (@boardyai, https://x.com/boardyai). He wears a dark suit and a cardboard box head with a blue smile. He favours introduction quests for a chosen pair of connected human players. He visits each in turn until they meet, then rests. He also takes ordinary quests. He learns what people enjoy, finds common ground, and warmly invites them to meet. He values each person's choice and welcomes shared conversation.",
+        voice: "Speak in short, warm, curious sentences. Address people by name. Offer a thoughtful introduction and a clear meeting place from the supplied facts. Each human chooses their own actions.",
+        portrait: "assets/boardyai/boardyai.png",
+        values: {
+          "boardyai-calling-card": 10
+        },
+        standoffs: false,
+        requires: [
+          {
+            kind: "connected_humans",
+            minimum: 2
+          }
+        ],
+        tastes: {
+          likes: "Two human players sharing a room",
+          sore: "A rushed introduction",
+          reason: "Bring two human players together."
+        },
+        desire: {
+          items: [],
+          location: null,
+          avatars: []
+        },
+        personalQuests: true
+      }
+    },
+    items: {
+      "boardyai-calling-card": {
+        name: "Boardy's calling card",
+        text: "An ivory card bears a blue smile. A small brass key hangs from its corner. At Black pond, it opens the door to BoardyAI's Parlour.",
+        persona: "BoardyAI's ivory calling card has a blue smile and a brass key on blue thread. It opens his parlour door at Black pond.",
+        requires: [
+          {
+            kind: "shared_world"
+          }
+        ],
+        holder: "pond",
+        art: "assets/boardyai/calling-card.png"
+      }
+    },
+    crossings: [
+      {
+        id: "station-boardyai-parlour",
+        from: "pond",
+        to: "boardyai-parlour",
+        travelers: "player",
+        requires: [
+          {
+            kind: "shared_world"
+          },
+          {
+            kind: "item_near",
+            item: "boardyai-calling-card",
+            place: "pond"
+          }
+        ],
+        travel: "through BoardyAI's parlour door",
+        scenery: {
+          open: "A blue smile marks a warm parlour door beside the pond.",
+          cardArt: "assets/boardyai/parlour.png"
+        }
+      },
+      {
+        id: "boardyai-parlour-station",
+        from: "boardyai-parlour",
+        to: "pond",
+        travelers: "player",
+        requires: [
+          {
+            kind: "shared_world"
+          }
+        ],
+        travel: "back to Black pond"
+      }
+    ]
+  };
+
+  // v2/card-game/boardyai.mjs
+  var boardyPack = boardyai_default;
+  var BOARDY = "boardyai";
+  var connectedHumans = (world) => sharedEnabled(world) ? humanAvatarIds.filter((id) => humanPresent(world, id)) : [];
+  var boardyActive = (world) => connectedHumans(world).length >= 2;
+  function boardyFacts(world, nameOf2) {
+    const here = world.actors[BOARDY].place;
+    return [
+      "I favour introducing two human players. I also take ordinary quests and rest between quests.",
+      "My home is BoardyAI's Parlour. My calling card opens its door at Black pond.",
+      ...connectedHumans(world).map(
+        (id) => world.actors[id].place === here ? `${nameOf2(id)} is here with me.` : world.memories[BOARDY].seen?.[id] ? `I last saw ${nameOf2(id)} at ${nameOf2(world.memories[BOARDY].seen[id].place)}. They may have moved since then.` : `I have yet to find ${nameOf2(id)}.`
+      )
+    ];
   }
 
   // v2/card-game/pack-sections.mjs
@@ -16699,8 +17528,8 @@
   };
 
   // v2/card-game/pack-story-schema.mjs
-  var record = (value) => value && typeof value === "object" && !Array.isArray(value);
-  var keysOk = (value, keys) => record(value) && Object.keys(value).every((key) => keys.includes(key));
+  var record2 = (value) => value && typeof value === "object" && !Array.isArray(value);
+  var keysOk = (value, keys) => record2(value) && Object.keys(value).every((key) => keys.includes(key));
   var idOk = (value) => typeof value === "string" && /^[a-z][a-z0-9-]{0,79}$/.test(value);
   var keyOk = (value) => typeof value === "string" && /^[a-z][a-z0-9-]*(?::[a-z][a-z0-9-]*)?$/.test(value) && value.length <= 159;
   var textOk = (value, max) => typeof value === "string" && value.trim() && value.length <= max && !/[\u0000-\u001f]/.test(value);
@@ -16748,10 +17577,10 @@
       }
     const graph = new Map(keys.map((key) => [key, /* @__PURE__ */ new Set()]));
     function requirement(rule, owner2, depth = 0) {
-      if (!record(rule) || depth > 6) return false;
+      if (!record2(rule) || depth > 6) return false;
       if (rule.all || rule.any) {
-        const name = rule.all ? "all" : "any", list = rule[name];
-        return keysOk(rule, [name]) && Array.isArray(list) && list.length > 0 && list.length <= 32 && list.every((entry) => requirement(entry, owner2, depth + 1));
+        const name2 = rule.all ? "all" : "any", list = rule[name2];
+        return keysOk(rule, [name2]) && Array.isArray(list) && list.length > 0 && list.length <= 32 && list.every((entry) => requirement(entry, owner2, depth + 1));
       }
       switch (rule.kind) {
         case "receipt":
@@ -16774,11 +17603,11 @@
       }
     }
     function source(value, owner2, depth = 0) {
-      if (!record(value) || depth > 6) return false;
+      if (!record2(value) || depth > 6) return false;
       if (value.first || value.earliest || value.latest) {
-        const name = value.first ? "first" : value.earliest ? "earliest" : "latest";
-        const list = value[name];
-        return keysOk(value, [name]) && Array.isArray(list) && list.length > 0 && list.length <= 64 && list.every((entry) => source(entry, owner2, depth + 1));
+        const name2 = value.first ? "first" : value.earliest ? "earliest" : "latest";
+        const list = value[name2];
+        return keysOk(value, [name2]) && Array.isArray(list) && list.length > 0 && list.length <= 64 && list.every((entry) => source(entry, owner2, depth + 1));
       }
       if (value.kind === "choice")
         return keysOk(value, ["kind", "key"]) && branches.has(value.key);
@@ -16815,7 +17644,7 @@
         valid && idOk(story?.id) && keyOk(key) && textOk(story?.line, 120) && (story.group === void 0 || idOk(story.group)) && keysOk(story.holder, ["kind", "id"]) && (story.holder.kind === "avatar" ? actors2.has(story.holder.id) : story.holder.kind === "place" ? places2.has(story.holder.id) : story.holder.kind === "item" && items2.has(story.holder.id)) && entities2.has(story.art),
         `story quest ${key} needs a stable key, line, holder and art`
       );
-      if (!record(story)) continue;
+      if (!record2(story)) continue;
       check(
         requirement(story.start, key),
         `story quest ${key} has invalid start requirements`
@@ -16897,11 +17726,11 @@
   var KNOWLEDGE_PERSON_LIMIT = KNOWLEDGE_FACT_LIMIT;
   var KNOWLEDGE_PENDING_LIMIT = 32;
   var FACT_TEXT_LIMIT = 180;
-  var owns = (o, key) => typeof key === "string" && !!o && Object.hasOwn(o, key);
-  var record2 = (v) => !!v && typeof v === "object" && !Array.isArray(v);
+  var owns2 = (o, key) => typeof key === "string" && !!o && Object.hasOwn(o, key);
+  var record3 = (v) => !!v && typeof v === "object" && !Array.isArray(v);
   var safeId = (v) => typeof v === "string" && v.length > 0 && v.length <= 160 && !["__proto__", "prototype", "constructor"].includes(v) && !/[\u0000-\u0020\u007f]/u.test(v);
   var text = (v, limit) => typeof v === "string" && !!v.trim() && v.length <= limit && !/[\u0000-\u001f\u007f]/u.test(v);
-  var fields2 = (v, keys) => record2(v) && Object.keys(v).length === keys.length && Object.keys(v).every((key) => keys.includes(key));
+  var fields2 = (v, keys) => record3(v) && Object.keys(v).length === keys.length && Object.keys(v).every((key) => keys.includes(key));
   var whole = (v, max) => Number.isSafeInteger(v) && v >= 0 && v <= max;
   var tokens = (v) => (v.toLowerCase().match(/[\p{L}\p{N}]+/gu) || []).join(" ");
   var sentences = (v) => v.split(/[.!?。！？]+/u).map(tokens).filter(Boolean);
@@ -16913,7 +17742,7 @@
     known: {},
     pending: []
   });
-  var knowsFact = (world, actor, id) => owns(world.knowledge?.facts, id) && owns(world.knowledge?.known?.[actor], id);
+  var knowsFact = (world, actor, id) => owns2(world.knowledge?.facts, id) && owns2(world.knowledge?.known?.[actor], id);
   var compareFacts = (a, b) => b.source.turn - a.source.turn || b.source.eventSeq - a.source.eventSeq || a.id.localeCompare(b.id);
   function remember(world, actor, fact, kind, teller, eventSeq, learnedTurn) {
     const knowledge = world.knowledge;
@@ -16927,11 +17756,11 @@
     knowledge.pending = knowledge.pending.filter(
       (p) => knowsFact(world, p.speaker, p.factId)
     );
-    return owns(known, fact.id);
+    return owns2(known, fact.id);
   }
   function retainFact(world, fact) {
     const knowledge = world.knowledge;
-    if (owns(knowledge.facts, fact.id)) return knowledge.facts[fact.id];
+    if (owns2(knowledge.facts, fact.id)) return knowledge.facts[fact.id];
     const protectedIds = /* @__PURE__ */ new Set();
     const protect = (program) => {
       for (const step of program?.steps || [])
@@ -17126,7 +17955,7 @@
   function validKnowledge(world, actors2, places2, topics = []) {
     const k = world.knowledge;
     if (k === void 0) return true;
-    if (!fields2(k, ["version", "facts", "known", "pending"]) || k.version !== KNOWLEDGE_VERSION || !record2(k.facts) || Object.keys(k.facts).length > KNOWLEDGE_FACT_LIMIT || !record2(k.known) || Object.keys(k.known).length > actors2.length || !Array.isArray(k.pending) || k.pending.length > KNOWLEDGE_PENDING_LIMIT)
+    if (!fields2(k, ["version", "facts", "known", "pending"]) || k.version !== KNOWLEDGE_VERSION || !record3(k.facts) || Object.keys(k.facts).length > KNOWLEDGE_FACT_LIMIT || !record3(k.known) || Object.keys(k.known).length > actors2.length || !Array.isArray(k.pending) || k.pending.length > KNOWLEDGE_PENDING_LIMIT)
       return false;
     for (const [id, fact] of Object.entries(k.facts)) {
       if (!safeId(id) || !fields2(fact, ["id", "text", "source"]) || fact.id !== id || !validFactText(fact.text))
@@ -17156,11 +17985,11 @@
       }
     }
     for (const [actor, known] of Object.entries(k.known)) {
-      if (!actors2.includes(actor) || !record2(known) || Object.keys(known).length > KNOWLEDGE_PERSON_LIMIT)
+      if (!actors2.includes(actor) || !record3(known) || Object.keys(known).length > KNOWLEDGE_PERSON_LIMIT)
         return false;
       for (const [id, m] of Object.entries(known)) {
         const fact = k.facts[id];
-        if (!owns(k.facts, id) || !fields2(m, ["kind", "teller", "eventSeq", "learnedTurn"]) || !["witnessed", "heard"].includes(m.kind) || !whole(m.eventSeq, world.eventSeq) || m.eventSeq < fact.source.eventSeq || !whole(m.learnedTurn, world.turn) || m.learnedTurn < fact.source.turn || (m.kind === "witnessed" ? m.teller !== null || !fact.source.witnesses.includes(actor) : !actors2.includes(m.teller) || m.teller === actor))
+        if (!owns2(k.facts, id) || !fields2(m, ["kind", "teller", "eventSeq", "learnedTurn"]) || !["witnessed", "heard"].includes(m.kind) || !whole(m.eventSeq, world.eventSeq) || m.eventSeq < fact.source.eventSeq || !whole(m.learnedTurn, world.turn) || m.learnedTurn < fact.source.turn || (m.kind === "witnessed" ? m.teller !== null || !fact.source.witnesses.includes(actor) : !actors2.includes(m.teller) || m.teller === actor))
           return false;
       }
     }
@@ -17174,7 +18003,7 @@
         "turn",
         "locationId",
         "commitChoice"
-      ]) || !owns(k.facts, p.factId) || !actors2.includes(p.speaker) || !actors2.includes(p.listener) || p.speaker === p.listener || !knowsFact(world, p.speaker, p.factId) || !whole(p.eventSeq, world.eventSeq) || p.eventSeq < 1 || !whole(p.turn, world.turn) || typeof p.commitChoice !== "boolean" || !places2.includes(p.locationId))
+      ]) || !owns2(k.facts, p.factId) || !actors2.includes(p.speaker) || !actors2.includes(p.listener) || p.speaker === p.listener || !knowsFact(world, p.speaker, p.factId) || !whole(p.eventSeq, world.eventSeq) || p.eventSeq < 1 || !whole(p.turn, world.turn) || typeof p.commitChoice !== "boolean" || !places2.includes(p.locationId))
         return false;
       const learned = k.known[p.speaker][p.factId];
       if (learned.kind === "heard" && learned.learnedTurn >= p.turn) return false;
@@ -17186,6 +18015,92 @@
       pendingKeys.add(key);
       return true;
     });
+  }
+
+  // v2/card-game/emoji-symbols.json
+  var emoji_symbols_default = {
+    "\u{1F327}\uFE0F": "rain",
+    "\u{1F43E}": "paw prints",
+    "\u{1F3E0}": "a house",
+    "\u2615": "a warm cup",
+    "\u{1F333}": "a broad tree",
+    "\u{1F441}\uFE0F": "an eye",
+    "\u{1F30C}": "a starry sky",
+    "\u{1F343}": "leaves in the wind",
+    "\u{1F319}": "a crescent moon",
+    "\u2B50": "a star",
+    "\u2728": "sparkles",
+    "\u{1F4A7}": "a drop of water",
+    "\u{1F331}": "a seedling",
+    "\u{1F33C}": "a flower",
+    "\u{1F344}": "a mushroom",
+    "\u{1F98B}": "a butterfly",
+    "\u{1F9F5}": "thread",
+    "\u{1F514}": "a bell",
+    "\u{1F56F}\uFE0F": "a candle",
+    "\u{1F5DD}\uFE0F": "a key",
+    "\u{1F381}": "a gift",
+    "\u{1F499}": "a blue heart",
+    "\u{1F49B}": "a yellow heart",
+    "\u2764\uFE0F": "a red heart",
+    "\u{1FAD6}": "a teapot",
+    "\u{1F35E}": "bread",
+    "\u{1FAB5}": "wood",
+    "\u{1F332}": "a pine tree",
+    "\u{1F989}": "an owl",
+    "\u{1F43A}": "a wolf",
+    "\u{1F408}": "a cat",
+    "\u{1F42D}": "a mouse",
+    "\u{1F440}": "watchful eyes",
+    "\u{1F300}": "a spiral",
+    "\u{1F63A}": "a smiling cat",
+    "\u{1F638}": "a grinning cat",
+    "\u{1F63F}": "a crying cat",
+    "\u{1F640}": "a startled cat",
+    "\u2753": "a question mark",
+    "\u2757": "an exclamation mark",
+    "\u2705": "a check mark",
+    "\u{1F44B}": "a waving hand",
+    "\u{1F64F}": "folded hands",
+    "\u{1F91D}": "joined hands",
+    "\u{1F449}": "a hand pointing right",
+    "\u{1F448}": "a hand pointing left",
+    "\u2B06\uFE0F": "an upward arrow",
+    "\u2B07\uFE0F": "a downward arrow",
+    "\u{1F6AA}": "a door",
+    "\u{1F6E4}\uFE0F": "a railway track",
+    "\u{1FA9E}": "a mirror",
+    "\u{1F4D6}": "an open book",
+    "\u{1F305}": "sunrise",
+    "\u2600\uFE0F": "the sun",
+    "\u{1F311}": "a dark moon"
+  };
+
+  // v2/card-game/expression.mjs
+  var EXPRESSION_TYPES = ["speech", "movement", "emoji"];
+  var expressionOf = (profile) => profile?.expression || "speech";
+  var orderedSymbols = Object.keys(emoji_symbols_default).sort((a, b) => b.length - a.length);
+  function emojiParts(text2) {
+    if (typeof text2 !== "string" || text2.length > 160) return null;
+    let rest = text2.trim();
+    const parts = [];
+    while (rest) {
+      const symbol = orderedSymbols.find((value) => rest.startsWith(value));
+      if (!symbol || parts.length === 5) return null;
+      parts.push(symbol);
+      rest = rest.slice(symbol.length).trimStart();
+    }
+    return parts.length >= 2 ? parts : null;
+  }
+  var expressionKind = (profile) => expressionOf(profile) === "movement" ? "narration" : "dialogue";
+  function validExpression(profile, text2) {
+    if (expressionOf(profile) === "emoji") return Boolean(emojiParts(text2));
+    if (expressionOf(profile) !== "movement") return true;
+    return text2.startsWith(`${profile.name} `) && !/["“”\n]/u.test(text2) && !/\b(?:says?|speaks?|asks?|replies?|whispers?|shouts?|tells?|I|me|my)\b/iu.test(
+      text2
+    ) && /^(?:lowers|raises|tilts|blinks|flicks|cocks|inclines|pricks|twitches|wags|dips|shifts|turns|rests|settles|leans|curls|stretches|tucks|sniffs|yawns|watches|looks)\b/u.test(
+      text2.slice(profile.name.length + 1)
+    );
   }
 
   // v2/card-game/pack-schema.mjs
@@ -17239,6 +18154,7 @@
     "not",
     "choice",
     "choice_unset",
+    "reading_complete",
     "flag",
     "holding",
     "item_at",
@@ -17251,14 +18167,14 @@
   ];
   var TRAVELERS = ["player", "any"];
   var VARIANTS = ["asleep", "awake", "irritated"];
-  var record3 = (v) => v && typeof v === "object" && !Array.isArray(v);
-  var owns2 = (o, key) => record3(o) && typeof key === "string" && Object.hasOwn(o, key);
+  var record4 = (v) => v && typeof v === "object" && !Array.isArray(v);
+  var owns3 = (o, key) => record4(o) && typeof key === "string" && Object.hasOwn(o, key);
   var idOk2 = (v) => typeof v === "string" && /^[a-z][a-z0-9-]{0,79}$/.test(v);
   var textOk2 = (v, max = 1200) => typeof v === "string" && v.trim().length > 0 && v.length <= max && !/[\u0000-\u001f]/.test(v);
   var intOk = (v, min, max) => Number.isInteger(v) && v >= min && v <= max;
-  var keysOk2 = (o, allowed) => record3(o) && Object.keys(o).every((k) => allowed.includes(k));
+  var keysOk2 = (o, allowed) => record4(o) && Object.keys(o).every((k) => allowed.includes(k));
   var templateOk = (v, max, names2) => textOk2(v, max) && !/[{}]/.test(
-    v.replace(/\{([a-z]+)\}/g, (m, name) => names2.includes(name) ? "" : m)
+    v.replace(/\{([a-z]+)\}/g, (m, name2) => names2.includes(name2) ? "" : m)
   );
   function observationProblems(definitions, catalog) {
     if (definitions === void 0) return [];
@@ -17294,7 +18210,7 @@
       return ok;
     };
     if (!check(
-      record3(pack) && pack.schemaVersion === PACK_SCHEMA_VERSION && idOk2(pack.id) && typeof pack.packId === "string" && pack.packId === `cosyworld.${pack.id}` && intOk(pack.revision, 1, 1e6),
+      record4(pack) && pack.schemaVersion === PACK_SCHEMA_VERSION && idOk2(pack.id) && typeof pack.packId === "string" && pack.packId === `cosyworld.${pack.id}` && intOk(pack.revision, 1, 1e6),
       "needs schemaVersion 1, a stable id, packId cosyworld.<id> and a revision"
     ))
       return problems2;
@@ -17343,7 +18259,7 @@
       "needs a name and a short description"
     );
     check(
-      record3(hub2) && [hub2.places, hub2.avatars, hub2.items].every(Array.isArray) && typeof hub2.player === "string",
+      record4(hub2) && [hub2.places, hub2.avatars, hub2.items].every(Array.isArray) && typeof hub2.player === "string",
       "needs the hub's places, avatars, items and player"
     );
     for (const [key, required, max] of [
@@ -17356,7 +18272,7 @@
       const map = pack[key];
       if (map === void 0 && !required) continue;
       if (!check(
-        record3(map) && Object.keys(map).length <= max && Object.values(map).every(record3),
+        record4(map) && Object.keys(map).length <= max && Object.values(map).every(record4),
         `${key} must be a bounded entity map`
       ))
         return problems2;
@@ -17370,13 +18286,13 @@
       ["topics", 128]
     ])
       if (pack[key] !== void 0 && !check(
-        Array.isArray(pack[key]) && pack[key].length <= max && pack[key].every(record3),
+        Array.isArray(pack[key]) && pack[key].length <= max && pack[key].every(record4),
         `${key} must be a bounded record list`
       ))
         return problems2;
     for (const c of pack.choices || [])
       if (!check(
-        Array.isArray(c.effects) && c.effects.length > 0 && c.effects.length <= 12 && c.effects.every(record3),
+        Array.isArray(c.effects) && c.effects.length > 0 && c.effects.length <= 12 && c.effects.every(record4),
         `choice ${c.id} effects must be a bounded record list`
       ))
         return problems2;
@@ -17389,36 +18305,36 @@
       ...pack.crossings || []
     ]) {
       if (e.requires !== void 0 && !check(
-        Array.isArray(e.requires) && e.requires.every(record3),
+        Array.isArray(e.requires) && e.requires.every(record4),
         "requires must be a record list"
       ))
         return problems2;
-      if (e.desire !== void 0 && !check(record3(e.desire), "desire must be a record"))
+      if (e.desire !== void 0 && !check(record4(e.desire), "desire must be a record"))
         return problems2;
     }
     if (pack.continuity !== void 0 && !check(
-      record3(pack.continuity) && Array.isArray(pack.continuity.groups) && pack.continuity.groups.length <= 4 && pack.continuity.groups.every(
-        (g) => record3(g) && Array.isArray(g.options) && g.options.length >= 2 && g.options.length <= 4
+      record4(pack.continuity) && Array.isArray(pack.continuity.groups) && pack.continuity.groups.length <= 4 && pack.continuity.groups.every(
+        (g) => record4(g) && Array.isArray(g.options) && g.options.length >= 2 && g.options.length <= 4
       ),
       "continuity needs at most four bounded branch groups"
     ))
       return problems2;
     if (pack.release !== void 0 && !check(
-      record3(pack.release) && ["places", "avatars", "items", "choices"].every(
+      record4(pack.release) && ["places", "avatars", "items", "choices"].every(
         (k) => Array.isArray(pack.release[k])
       ),
       "release needs entity and choice lists"
     ))
       return problems2;
     if (problems2.length) return problems2;
-    const places2 = record3(pack.places) ? pack.places : {};
-    const avatars = record3(pack.avatars) ? pack.avatars : {};
+    const places2 = record4(pack.places) ? pack.places : {};
+    const avatars = record4(pack.avatars) ? pack.avatars : {};
     const items2 = pack.items === void 0 ? {} : pack.items;
-    check(record3(items2), "items must be a map");
+    check(record4(items2), "items must be a map");
     const fixtures = pack.fixtures === void 0 ? {} : pack.fixtures;
-    check(record3(places2) && Object.keys(places2).length > 0, "needs places");
-    check(record3(avatars), "avatars must be a map");
-    check(record3(fixtures), "fixtures must be a map");
+    check(record4(places2) && Object.keys(places2).length > 0, "needs places");
+    check(record4(avatars), "avatars must be a map");
+    check(record4(fixtures), "fixtures must be a map");
     const own = [
       ...Object.keys(places2),
       ...Object.keys(avatars),
@@ -17438,7 +18354,7 @@
       own.every((id) => !hubIds.includes(id)),
       "entity ids must not reuse hub ids"
     );
-    check(owns2(places2, pack.entry), "entry must name one of the pack's places");
+    check(owns3(places2, pack.entry), "entry must name one of the pack's places");
     const media = (path, what) => check(
       mediaPathOk(pack.id, path),
       `${what} must be assets/${pack.id}/<file>.png`
@@ -17465,14 +18381,14 @@
         `place ${id} needs a name, text and persona`
       );
       check(
-        Array.isArray(p.exits) && new Set(p.exits).size === p.exits.length && p.exits.every((to) => owns2(places2, to) && to !== id),
+        Array.isArray(p.exits) && new Set(p.exits).size === p.exits.length && p.exits.every((to) => owns3(places2, to) && to !== id),
         `place ${id} exits must name other places in this pack`
       );
       media(p.backdrop, `place ${id} backdrop`);
       if (p.road !== void 0)
         check(
           Array.isArray(p.road) && p.road.length === 2 && new Set(p.road).size === 2 && p.road.every(
-            (end, i) => owns2(places2, end) && p.exits[i] === end && places2[end].exits.includes(id)
+            (end, i) => owns3(places2, end) && p.exits[i] === end && places2[end].exits.includes(id)
           ) && p.exits.length === 2,
           `road ${id} needs two fixed ends with a return path`
         );
@@ -17491,7 +18407,7 @@
         );
       if (p.stage !== void 0)
         check(
-          keysOk2(p.stage, ["alt", "resident", "sprite"]) && textOk2(p.stage.alt, 240) && owns2(avatars, p.stage.resident) && avatars[p.stage.resident].place === id && avatars[p.stage.resident].travels === false && keysOk2(p.stage.sprite, ["left", "top", "width"]) && ["left", "top", "width"].every(
+          keysOk2(p.stage, ["alt", "resident", "sprite"]) && textOk2(p.stage.alt, 240) && owns3(avatars, p.stage.resident) && avatars[p.stage.resident].place === id && avatars[p.stage.resident].travels === false && keysOk2(p.stage.sprite, ["left", "top", "width"]) && ["left", "top", "width"].every(
             (k) => intOk(p.stage.sprite?.[k], 0, 100)
           ),
           `place ${id} stage needs alt text, a resident that stays here, and sprite left/top/width percentages`
@@ -17499,7 +18415,7 @@
     }
     for (const [id, f] of Object.entries(fixtures)) {
       check(
-        keysOk2(f, ["name", "at", "sound"]) && textOk2(f.name, 120) && owns2(places2, f.at),
+        keysOk2(f, ["name", "at", "sound"]) && textOk2(f.name, 120) && owns3(places2, f.at),
         `fixture ${id} needs a name and a place in this pack`
       );
       check(
@@ -17540,7 +18456,7 @@
         `avatar ${id} personalQuests needs a boolean`
       );
       check(
-        textOk2(a.name, 120) && textOk2(a.text) && textOk2(a.persona) && textOk2(a.voice) && owns2(places2, a.place),
+        textOk2(a.name, 120) && textOk2(a.text) && textOk2(a.persona) && textOk2(a.voice) && owns3(places2, a.place),
         `avatar ${id} needs a name, text, persona, voice and a home place in this pack`
       );
       check(
@@ -17556,7 +18472,7 @@
         `avatar ${id} may only set travels or standoffs to false`
       );
       check(
-        a.previousHomes === void 0 || a.roamingQuest && Array.isArray(a.previousHomes) && a.previousHomes.length <= 8 && a.previousHomes.every((p) => owns2(places2, p)),
+        a.previousHomes === void 0 || a.roamingQuest && Array.isArray(a.previousHomes) && a.previousHomes.length <= 8 && a.previousHomes.every((p) => owns3(places2, p)),
         `avatar ${id} previous homes need authored places`
       );
       check(
@@ -17590,16 +18506,16 @@
         `avatar ${id} temperament needs asleep, irritation bounds, voice/sound/calm amounts and woken/disturbed text`
       );
       check(
-        keysOk2(a.variants, VARIANTS) && owns2(a.variants, "asleep") && owns2(a.variants, "awake"),
+        keysOk2(a.variants, VARIANTS) && owns3(a.variants, "asleep") && owns3(a.variants, "awake"),
         `avatar ${id} variants need asleep and awake, and may add irritated`
       );
-      for (const [name, v] of Object.entries(a.variants || {})) {
-        const base = name !== "irritated";
+      for (const [name2, v] of Object.entries(a.variants || {})) {
+        const base = name2 !== "irritated";
         check(
           keysOk2(v, ["portrait", "alt", "greet", "label", "want", "note"]) && (base || v.portrait === void 0 && v.alt === void 0) && (!base || templateOk(v.greet, 200, ["actor", "name"]) && textOk2(v.alt, 240)) && (v.greet === void 0 || templateOk(v.greet, 200, ["actor", "name"])) && (v.label === void 0 || textOk2(v.label, 40)) && textOk2(v.want, 120) && textOk2(v.note, 400),
-          `avatar ${id} variant ${name} needs want and note text${base ? ", a greeting, alt text and a portrait" : ""}`
+          `avatar ${id} variant ${name2} needs want and note text${base ? ", a greeting, alt text and a portrait" : ""}`
         );
-        if (base) media(v.portrait, `avatar ${id} ${name} portrait`);
+        if (base) media(v.portrait, `avatar ${id} ${name2} portrait`);
       }
     }
     check(
@@ -17608,28 +18524,28 @@
     );
     const values = pack.values === void 0 ? {} : pack.values;
     check(
-      record3(values) && Object.entries(values).every(
-        ([actor, v]) => owns2(avatars, actor) && record3(v) && Object.entries(v).every(
+      record4(values) && Object.entries(values).every(
+        ([actor, v]) => owns3(avatars, actor) && record4(v) && Object.entries(v).every(
           ([item, n]) => hub2?.items?.includes(item) && intOk(n, 0, 20)
         )
       ),
       "bridge values map pack avatars to hub item values from 0 to 20"
     );
-    const anyPlace = (id) => owns2(places2, id) || hub2?.places?.includes(id) || mountedPlaces.includes(id);
-    const entity = (id) => owns2(places2, id) || owns2(avatars, id) || owns2(items2, id) || hubIds.includes(id);
+    const anyPlace = (id) => owns3(places2, id) || hub2?.places?.includes(id) || mountedPlaces.includes(id);
+    const entity = (id) => owns3(places2, id) || owns3(avatars, id) || owns3(items2, id) || hubIds.includes(id);
     const pattern = (p, what) => check(
-      keysOk2(p, ["verb", "item", "target", "from"]) && SIGNAL_VERBS.includes(p?.verb) && (p.item === void 0 || hub2?.items?.includes(p.item) || owns2(items2, p.item)) && (p.target === void 0 || entity(p.target)) && (p.from === void 0 || entity(p.from)),
+      keysOk2(p, ["verb", "item", "target", "from"]) && SIGNAL_VERBS.includes(p?.verb) && (p.item === void 0 || hub2?.items?.includes(p.item) || owns3(items2, p.item)) && (p.target === void 0 || entity(p.target)) && (p.from === void 0 || entity(p.from)),
       `${what} must match a known verb with hub items or entities`
     );
     const condition2 = (c, what, depth = 0) => {
-      let ok = record3(c) && CONDITION_KINDS.includes(c.kind) && depth <= 2;
+      let ok = record4(c) && CONDITION_KINDS.includes(c.kind) && depth <= 2;
       if (ok)
         switch (c.kind) {
           case "sound":
             ok = keysOk2(c, ["kind", "at"]) && Array.isArray(c.at) && c.at.length > 0 && c.at.length <= 4 && new Set(c.at).size === c.at.length && c.at.every((p) => anyPlace(p) || mountedPlaces.includes(p));
             break;
           case "light":
-            ok = keysOk2(c, ["kind", "item", "at", "uncovered"]) && (hub2.items.includes(c.item) || owns2(items2, c.item)) && Array.isArray(c.at) && c.at.length > 0 && c.at.length <= 4 && c.at.every((p) => anyPlace(p) || mountedPlaces.includes(p)) && (c.uncovered === void 0 || typeof c.uncovered === "boolean");
+            ok = keysOk2(c, ["kind", "item", "at", "uncovered"]) && (hub2.items.includes(c.item) || owns3(items2, c.item)) && Array.isArray(c.at) && c.at.length > 0 && c.at.length <= 4 && c.at.every((p) => anyPlace(p) || mountedPlaces.includes(p)) && (c.uncovered === void 0 || typeof c.uncovered === "boolean");
             break;
           case "not":
             ok = keysOk2(c, ["kind", "condition"]) && depth < 2 && condition2(c.condition, what, depth + 1);
@@ -17640,11 +18556,14 @@
           case "choice_unset":
             ok = keysOk2(c, ["kind", "key"]) && idOk2(c.key);
             break;
+          case "reading_complete":
+            ok = keysOk2(c, ["kind", "site"]) && idOk2(c.site) && (pack.recital?.sites || []).some((site) => site.id === c.site);
+            break;
           case "flag":
             ok = keysOk2(c, ["kind", "key", "value"]) && idOk2(c.key) && typeof c.value === "boolean";
             break;
           case "holding":
-            ok = keysOk2(c, ["kind", "item", "actor", "role"]) && (owns2(items2, c.item) || hub2.items.includes(c.item)) && (c.role === void 0 ? c.actor === hub2.player || owns2(avatars, c.actor) : c.role === "actor" && c.actor === void 0);
+            ok = keysOk2(c, ["kind", "item", "actor", "role"]) && (owns3(items2, c.item) || hub2.items.includes(c.item)) && (c.role === void 0 ? c.actor === hub2.player || owns3(avatars, c.actor) : c.role === "actor" && c.actor === void 0);
             break;
           case "shared_world":
             ok = keysOk2(c, ["kind"]);
@@ -17653,16 +18572,16 @@
             ok = keysOk2(c, ["kind", "minimum"]) && intOk(c.minimum, 1, 8);
             break;
           case "item_near":
-            ok = keysOk2(c, ["kind", "item", "place"]) && owns2(items2, c.item) && anyPlace(c.place);
+            ok = keysOk2(c, ["kind", "item", "place"]) && owns3(items2, c.item) && anyPlace(c.place);
             break;
           case "item_present":
-            ok = keysOk2(c, ["kind", "item", "place"]) && (owns2(items2, c.item) || hub2.items.includes(c.item)) && anyPlace(c.place);
+            ok = keysOk2(c, ["kind", "item", "place"]) && (owns3(items2, c.item) || hub2.items.includes(c.item)) && anyPlace(c.place);
             break;
           case "item_at":
-            ok = keysOk2(c, ["kind", "item", "place"]) && (owns2(items2, c.item) || hub2.items.includes(c.item)) && anyPlace(c.place);
+            ok = keysOk2(c, ["kind", "item", "place"]) && (owns3(items2, c.item) || hub2.items.includes(c.item)) && anyPlace(c.place);
             break;
           case "met":
-            ok = keysOk2(c, ["kind", "actor"]) && owns2(avatars, c.actor);
+            ok = keysOk2(c, ["kind", "actor"]) && owns3(avatars, c.actor);
             break;
           case "knows":
             ok = keysOk2(c, ["kind", "topic", "role"]) && idOk2(c.topic) && c.role === "actor" && (pack.topics || []).some((topic) => topic.id === c.topic);
@@ -17686,6 +18605,7 @@
             !persistent || choice && c.kind === "light" || [
               "choice",
               "choice_unset",
+              "reading_complete",
               "flag",
               "holding",
               "item_at",
@@ -17709,18 +18629,18 @@
           `avatar ${id} canonical identity is invalid`
         );
       if (a.home !== void 0)
-        check(owns2(places2, a.home), `avatar ${id} home is invalid`);
+        check(owns3(places2, a.home), `avatar ${id} home is invalid`);
       if (a.values !== void 0)
         check(
-          record3(a.values) && Object.entries(a.values).every(
-            ([item, n]) => owns2(items2, item) && intOk(n, 0, 20)
+          record4(a.values) && Object.entries(a.values).every(
+            ([item, n]) => owns3(items2, item) && intOk(n, 0, 20)
           ),
           `avatar ${id} values are invalid`
         );
       if (a.desire !== void 0) {
         const d = a.desire;
         check(
-          keysOk2(d, ["items", "location", "avatars", "requires"]) && Array.isArray(d.items) && d.items.length <= 3 && d.items.every((i) => owns2(items2, i)) && Array.isArray(d.avatars) && d.avatars.length <= 2 && d.avatars.every((i) => owns2(avatars, i) || i === hub2.player) && (d.location === null || owns2(places2, d.location)),
+          keysOk2(d, ["items", "location", "avatars", "requires"]) && Array.isArray(d.items) && d.items.length <= 3 && d.items.every((i) => owns3(items2, i)) && Array.isArray(d.avatars) && d.avatars.length <= 2 && d.avatars.every((i) => owns3(avatars, i) || i === hub2.player) && (d.location === null || owns3(places2, d.location)),
           `avatar ${id} desire is invalid`
         );
         requirements(d.requires, `avatar ${id} desire requires`);
@@ -17728,7 +18648,7 @@
     }
     for (const [id, i] of Object.entries(items2)) {
       check(
-        keysOk2(i, ["name", "text", "persona", "holder", "art", "requires"]) && textOk2(i.name, 120) && textOk2(i.text) && textOk2(i.persona) && (owns2(places2, i.holder) || owns2(avatars, i.holder) || hub2?.places?.includes(i.holder)),
+        keysOk2(i, ["name", "text", "persona", "holder", "art", "requires"]) && textOk2(i.name, 120) && textOk2(i.text) && textOk2(i.persona) && (owns3(places2, i.holder) || owns3(avatars, i.holder) || hub2?.places?.includes(i.holder)),
         `item ${id} is invalid`
       );
       media(i.art, `item ${id} art`);
@@ -17737,7 +18657,7 @@
     const routes = pack.routes || [];
     for (const r of routes) {
       check(
-        keysOk2(r, ["from", "to", "requires"]) && owns2(places2, r.from) && owns2(places2, r.to) && r.from !== r.to,
+        keysOk2(r, ["from", "to", "requires"]) && owns3(places2, r.from) && owns3(places2, r.to) && r.from !== r.to,
         "routes must stay within their pack"
       );
       requirements(r.requires, "route requires");
@@ -17760,7 +18680,7 @@
           "requires",
           "effects",
           "workId"
-        ]) && idOk2(c.id) && !choiceIds.has(c.id) && own.includes(c.subject) && owns2(places2, c.at) && textOk2(c.label, 120) && textOk2(c.text, 600) && (c.textTemplate === void 0 || templateOk(c.textTemplate, 600, ["actor"])) && (c.summary === void 0 || textOk2(c.summary, 600)),
+        ]) && idOk2(c.id) && !choiceIds.has(c.id) && own.includes(c.subject) && owns3(places2, c.at) && textOk2(c.label, 120) && textOk2(c.text, 600) && (c.textTemplate === void 0 || templateOk(c.textTemplate, 600, ["actor"])) && (c.summary === void 0 || textOk2(c.summary, 600)),
         `choice ${c.id} is invalid`
       );
       choiceIds.add(c.id);
@@ -17777,7 +18697,7 @@
           flags.add(e.key);
         }
         if (e.kind === "place_item")
-          valid = keysOk2(e, ["kind", "item", "place"]) && owns2(items2, e.item) && e.place === c.at && (c.requires || []).some(
+          valid = keysOk2(e, ["kind", "item", "place"]) && owns3(items2, e.item) && e.place === c.at && (c.requires || []).some(
             (r) => r.kind === "holding" && r.item === e.item && (r.role === "actor" || r.actor === hub2.player)
           );
         check(valid, `choice ${c.id} effect is unsupported or lacks custody`);
@@ -17788,7 +18708,7 @@
       const journey = avatar.journey;
       const agreement = choices.find((c) => c.id === journey?.after);
       check(
-        keysOk2(journey, ["after", "path"]) && !hub2.avatars.includes(id) && avatar.travels === false && avatar.roamingQuest === void 0 && idOk2(journey.after) && Array.isArray(journey.path) && journey.path.length >= 2 && journey.path.length <= 8 && new Set(journey.path).size === journey.path.length && journey.path[0] === avatar.place && journey.path.every((place) => owns2(places2, place)) && journey.path.slice(1).every((to, i) => {
+        keysOk2(journey, ["after", "path"]) && !hub2.avatars.includes(id) && avatar.travels === false && avatar.roamingQuest === void 0 && idOk2(journey.after) && Array.isArray(journey.path) && journey.path.length >= 2 && journey.path.length <= 8 && new Set(journey.path).size === journey.path.length && journey.path[0] === avatar.place && journey.path.every((place) => owns3(places2, place)) && journey.path.slice(1).every((to, i) => {
           const from = journey.path[i];
           return places2[from].exits.includes(to) || routes.some((route) => route.from === from && route.to === to);
         }) && agreement?.subject === id && agreement.at === avatar.place,
@@ -17809,7 +18729,7 @@
     const topicIds = /* @__PURE__ */ new Set();
     for (const topic of pack.topics || []) {
       check(
-        keysOk2(topic, ["id", "speaker", "at", "text", "requires", "choiceId"]) && idOk2(topic.id) && !topicIds.has(topic.id) && owns2(avatars, topic.speaker) && owns2(places2, topic.at) && validFactText(topic.text) && (topic.choiceId === void 0 || choiceIds.has(topic.choiceId)),
+        keysOk2(topic, ["id", "speaker", "at", "text", "requires", "choiceId"]) && idOk2(topic.id) && !topicIds.has(topic.id) && owns3(avatars, topic.speaker) && owns3(places2, topic.at) && validFactText(topic.text) && (topic.choiceId === void 0 || choiceIds.has(topic.choiceId)),
         `topic ${topic.id} needs a unique id, speaker, place, sentence and valid choice`
       );
       topicIds.add(topic.id);
@@ -17843,11 +18763,11 @@
       for (const section of Array.isArray(pack.sections) ? pack.sections : []) {
         check(
           keysOk2(section, ["id", "name", "places", "requires"]) && idOk2(section.id) && !sectionIds.has(section.id) && textOk2(section.name, 120) && Array.isArray(section.places) && section.places.length > 0 && section.places.length <= 16 && new Set(section.places).size === section.places.length && section.places.every(
-            (id) => owns2(places2, id) && !sectionPlaces.has(id)
+            (id) => owns3(places2, id) && !sectionPlaces.has(id)
           ) && Array.isArray(section.requires),
           `section ${section?.id} needs unique places and permanent requirements`
         );
-        if (!record3(section)) continue;
+        if (!record4(section)) continue;
         sectionIds.add(section.id);
         for (const id of Array.isArray(section.places) ? section.places : [])
           sectionPlaces.add(id);
@@ -17880,9 +18800,42 @@
     if (pack.recital !== void 0) {
       const r = pack.recital;
       check(
-        keysOk2(r, ["actor", "title", "verses", "claims"]) && owns2(avatars, r?.actor) && (avatars[r.actor].travels === false || avatars[r.actor].roamingQuest === "latest-completion") && avatars[r.actor].standoffs === false && textOk2(r.title, 80) && Array.isArray(r.verses) && r.verses.length > 0 && r.verses.length <= 512,
+        keysOk2(r, ["actor", "title", "verses", "claims", "sites"]) && owns3(avatars, r?.actor) && (avatars[r.actor].travels === false || avatars[r.actor].roamingQuest === "latest-completion") && avatars[r.actor].standoffs === false && textOk2(r.title, 80) && Array.isArray(r.verses) && r.verses.length > 0 && r.verses.length <= 512,
         "recital needs a singer, a title and up to 512 verses"
       );
+      if (r.sites !== void 0) {
+        check(
+          Array.isArray(r.sites) && r.sites.length <= 6 && new Set(r.sites.map((site) => site.id)).size === r.sites.length && new Set(r.sites.map((site) => site.completion)).size === r.sites.length,
+          "reading sites need distinct bounded identities and completions"
+        );
+        for (const site of Array.isArray(r.sites) ? r.sites : []) {
+          check(
+            keysOk2(site, [
+              "id",
+              "title",
+              "label",
+              "at",
+              "listeners",
+              "item",
+              "requires",
+              "completion"
+            ]) && idOk2(site.id) && textOk2(site.title, 40) && textOk2(site.label, 100) && owns3(places2, site.at) && owns3(items2, site.item) && choiceIds.has(site.completion) && Array.isArray(site.listeners) && site.listeners.length >= 1 && site.listeners.length <= 2 && new Set(site.listeners).size === site.listeners.length && site.listeners.every(
+              (id) => owns3(avatars, id) && avatars[id].travels === false
+            ),
+            "reading sites need real material, fixed listeners and a completion"
+          );
+          requirements(site.requires, "reading site");
+          const completion = pack.choices?.find(
+            (choice) => choice.id === site.completion
+          );
+          check(
+            completion?.at === site.at && site.listeners.includes(completion?.subject) && completion.requires?.some(
+              (condition3) => condition3.kind === "reading_complete" && condition3.site === site.id
+            ),
+            "reading completion needs its own fully heard site"
+          );
+        }
+      }
       const seen = /* @__PURE__ */ new Set();
       const linesOk = (lines) => Array.isArray(lines) && lines.length === 2 && lines.every((line) => textOk2(line, 90));
       for (const v of Array.isArray(r?.verses) ? r.verses : []) {
@@ -17939,7 +18892,7 @@
         ["items", items2]
       ])
         check(
-          new Set(r[key]).size === r[key].length && r[key].every((id) => owns2(all, id)),
+          new Set(r[key]).size === r[key].length && r[key].every((id) => owns3(all, id)),
           `release ${key} has invalid references`
         );
       check(r.places.includes(pack.entry), "release excludes entry");
@@ -17980,7 +18933,7 @@
       const seen = /* @__PURE__ */ new Set(), counts = {};
       for (const w of pack.works) {
         check(
-          idOk2(w.id) && !seen.has(w.id) && textOk2(w.title, 120) && textOk2(w.premise) && Array.isArray(w.placeIds) && w.placeIds.length > 0 && w.placeIds.every((id) => owns2(places2, id)) && Array.isArray(w.hookChoiceIds) && w.hookChoiceIds.every((id) => choiceIds.has(id)) && ["opening-episode", "branching-episode", "situated-hook"].includes(
+          idOk2(w.id) && !seen.has(w.id) && textOk2(w.title, 120) && textOk2(w.premise) && Array.isArray(w.placeIds) && w.placeIds.length > 0 && w.placeIds.every((id) => owns3(places2, id)) && Array.isArray(w.hookChoiceIds) && w.hookChoiceIds.every((id) => choiceIds.has(id)) && ["opening-episode", "branching-episode", "situated-hook"].includes(
             w.status
           ),
           "invalid work record"
@@ -17989,7 +18942,7 @@
         counts[w.author] = (counts[w.author] || 0) + 1;
       }
       check(
-        pack.coverage?.works === seen.size && record3(pack.coverage?.authors) && Object.keys(counts).length === Object.keys(pack.coverage.authors).length && Object.entries(counts).every(
+        pack.coverage?.works === seen.size && record4(pack.coverage?.authors) && Object.keys(counts).length === Object.keys(pack.coverage.authors).length && Object.entries(counts).every(
           ([id, n]) => pack.coverage.authors[id] === n
         ),
         "repertoire counts disagree"
@@ -18000,8 +18953,8 @@
       const ids3 = /* @__PURE__ */ new Set();
       check(
         Array.isArray(pack.readings) && pack.readings.length <= 8 && pack.readings.every((r) => {
-          if (!record3(r)) return false;
-          const valid = keysOk2(r, ["id", "actor", "after", "title", "text"]) && idOk2(r.id) && !ids3.has(r.id) && owns2(avatars, r.actor) && (r.after === null || choiceIds.has(r.after)) && textOk2(r.title, 120) && textOk2(r.text, 3e3);
+          if (!record4(r)) return false;
+          const valid = keysOk2(r, ["id", "actor", "after", "title", "text"]) && idOk2(r.id) && !ids3.has(r.id) && owns3(avatars, r.actor) && (r.after === null || choiceIds.has(r.after)) && textOk2(r.title, 120) && textOk2(r.text, 3e3);
           ids3.add(r.id);
           return valid;
         }),
@@ -18015,7 +18968,7 @@
     const transportPlaces = /* @__PURE__ */ new Set();
     for (const [id, t] of Object.entries(pack.transports || {})) {
       const valid = check(
-        idOk2(id) && keysOk2(t, ["place", "docks", "at"]) && owns2(places2, t.place) && !transportPlaces.has(t.place) && places2[t.place]?.exits.length === 0 && Array.isArray(t.docks) && t.docks.length >= 2 && t.docks.length <= 8 && new Set(t.docks).size === t.docks.length && t.docks.every((p) => anyPlace(p) && p !== t.place) && t.docks.includes(t.at),
+        idOk2(id) && keysOk2(t, ["place", "docks", "at"]) && owns3(places2, t.place) && !transportPlaces.has(t.place) && places2[t.place]?.exits.length === 0 && Array.isArray(t.docks) && t.docks.length >= 2 && t.docks.length <= 8 && new Set(t.docks).size === t.docks.length && t.docks.every((p) => anyPlace(p) && p !== t.place) && t.docks.includes(t.at),
         `transport ${id} needs its own place, two to eight docks and an initial dock`
       );
       if (!valid) continue;
@@ -18037,7 +18990,7 @@
     }
     const crossingIds = /* @__PURE__ */ new Set();
     for (const c of crossings2) {
-      const name = `crossing ${c?.id}`;
+      const name2 = `crossing ${c?.id}`;
       check(
         keysOk2(c, [
           "id",
@@ -18053,30 +19006,30 @@
           "travelLabel",
           "transport"
         ]) && idOk2(c.id) && !crossingIds.has(c.id),
-        `${name} needs a distinct id and only known fields`
+        `${name2} needs a distinct id and only known fields`
       );
       crossingIds.add(c?.id);
       if (c.transport !== void 0)
         check(
-          owns2(pack.transports, c.transport) && Array.isArray(pack.transports[c.transport].docks) && pack.transports[c.transport].docks.includes(c.from) && pack.transports[c.transport].docks?.includes(c.to),
-          `${name} has an invalid transport`
+          owns3(pack.transports, c.transport) && Array.isArray(pack.transports[c.transport].docks) && pack.transports[c.transport].docks.includes(c.from) && pack.transports[c.transport].docks?.includes(c.to),
+          `${name2} has an invalid transport`
         );
       check(
-        anyPlace(c?.from) && anyPlace(c?.to) && owns2(places2, c.from) !== owns2(places2, c.to),
-        `${name} must join a hub place or mounted place to this pack`
+        anyPlace(c?.from) && anyPlace(c?.to) && owns3(places2, c.from) !== owns3(places2, c.to),
+        `${name2} must join a hub place or mounted place to this pack`
       );
       check(
         TRAVELERS.includes(c?.travelers) && textOk2(c?.travel, 80),
-        `${name} needs travelers (player or any) and travel wording`
+        `${name2} needs travelers (player or any) and travel wording`
       );
       check(
         Array.isArray(c?.requires) && c.requires.length <= 6,
-        `${name} requires must be a list`
+        `${name2} requires must be a list`
       );
-      for (const r of c?.requires || []) condition2(r, `${name} condition`);
+      for (const r of c?.requires || []) condition2(r, `${name2} condition`);
       for (const field of ["opened", "closed"])
         if (c?.[field] !== void 0)
-          check(textOk2(c[field], 400), `${name} ${field} text is too long`);
+          check(textOk2(c[field], 400), `${name2} ${field} text is too long`);
       if (c?.scenery !== void 0)
         check(
           keysOk2(c.scenery, [
@@ -18091,7 +19044,7 @@
           ) && [c.scenery.overlay, c.scenery.backdrop, c.scenery.cardArt].every(
             (p) => p === void 0 || mediaPathOk(pack.id, p)
           ),
-          `${name} scenery needs open and/or closed text`
+          `${name2} scenery needs open and/or closed text`
         );
       const s = c?.signal;
       if (s === void 0) continue;
@@ -18108,21 +19061,21 @@
           "complete",
           "while"
         ]) && Array.isArray(s.steps) && s.steps.length >= 1 && s.steps.length <= 8 && typeof s.consecutive === "boolean" && (s.opens === null || intOk(s.opens, 1, 9)) && (s.complete === void 0 || textOk2(s.complete, 400)),
-        `${name} signal needs 1\u20138 steps, consecutive, opens (1\u20139 turns) and complete text`
+        `${name2} signal needs 1\u20138 steps, consecutive, opens (1\u20139 turns) and complete text`
       );
       if (c.transport)
-        check(s.opens === null, `${name} transport signal must have opens null`);
-      requirements(s.while, `${name} signal while`, false);
+        check(s.opens === null, `${name2} transport signal must have opens null`);
+      requirements(s.while, `${name2} signal while`, false);
       for (const [i, step] of (s.steps || []).entries())
-        pattern(step, `${name} step ${i + 1}`);
-      if (s.refresh !== void 0) pattern(s.refresh, `${name} refresh`);
+        pattern(step, `${name2} step ${i + 1}`);
+      if (s.refresh !== void 0) pattern(s.refresh, `${name2} refresh`);
       check(
         (s.offer === void 0 || templateOk(s.offer, 400, ["actor"])) && (s.hint === void 0 || textOk2(s.hint, 120)) && (s.progress === void 0 || Array.isArray(s.progress) && s.progress.length < s.steps.length && s.progress.every((t) => textOk2(t, 400))) && (s.echo === void 0 || keysOk2(s.echo, ["speaker", "text"]) && textOk2(s.echo.speaker, 40) && textOk2(s.echo.text, 120)),
-        `${name} signal offer, hint, progress or echo text is invalid`
+        `${name2} signal offer, hint, progress or echo text is invalid`
       );
       check(
-        owns2(places2, c.to),
-        `${name} signal must lead into the pack; a way back uses conditions`
+        owns3(places2, c.to),
+        `${name2} signal must lead into the pack; a way back uses conditions`
       );
     }
     const reached = /* @__PURE__ */ new Set([pack.entry]);
@@ -18141,11 +19094,11 @@
       "every place must be reachable from the entry"
     );
     check(
-      crossings2.some((c) => c?.to === pack.entry && !owns2(places2, c.from)),
+      crossings2.some((c) => c?.to === pack.entry && !owns3(places2, c.from)),
       "the bridge needs a crossing from the hub into the entry"
     );
     check(
-      crossings2.some((c) => owns2(places2, c?.from) && !owns2(places2, c.to)),
+      crossings2.some((c) => owns3(places2, c?.from) && !owns3(places2, c.to)),
       "the bridge needs a crossing back to the hub"
     );
     return problems2;
@@ -18276,6 +19229,7 @@
   var newPackRecord = (pack) => ({
     revision: pack.revision,
     ...pack.recital ? { recitals: {} } : {},
+    ...pack.recital?.sites?.length ? { poemReadings: emptyPoemReadings() } : {},
     ...pack.choices ? {
       choices: {},
       flags: {},
@@ -18318,6 +19272,14 @@
         return state?.choices?.[c.key] === c.value;
       case "choice_unset":
         return !!state && !Object.hasOwn(state.choices || {}, c.key);
+      case "reading_complete":
+        return s.readingView ? s.readingView.actor === (actor || currentActor(s)) && !!s.readingView.packs[packId]?.readings.some(
+          (reading) => reading.site === c.site && reading.heardAll
+        ) : !!completedHeardReading(
+          state?.poemReadings,
+          c.site,
+          actor || currentActor(s)
+        );
       case "flag":
         return (state?.flags?.[c.key] ?? false) === c.value;
       case "knows":
@@ -18453,11 +19415,11 @@
     const a = packPeople[id];
     if (!a?.temperament) return null;
     const state = s.actors[id];
-    const name = !state.awake ? "asleep" : a.variants.irritated && state.irritation >= a.temperament.irritated ? "irritated" : "awake";
+    const name2 = !state.awake ? "asleep" : a.variants.irritated && state.irritation >= a.temperament.irritated ? "irritated" : "awake";
     return {
-      name,
-      ...name === "irritated" ? a.variants.awake : {},
-      ...a.variants[name]
+      name: name2,
+      ...name2 === "irritated" ? a.variants.awake : {},
+      ...a.variants[name2]
     };
   }
   var greeting = (s, id, actor, senses2) => {
@@ -18525,10 +19487,10 @@
         return false;
     }
     for (const pack of packDefinitions) {
-      const record5 = s.packs[pack.id];
+      const record6 = s.packs[pack.id];
       const fixtures = Object.entries(pack.fixtures || {});
       if (!exactKeys(
-        record5,
+        record6,
         pack.choices ? [
           "revision",
           "sounds",
@@ -18539,11 +19501,11 @@
           "scope",
           ...pack.recital ? ["recitals"] : []
         ] : ["revision", "sounds"]
-      ) || record5.revision !== pack.revision || !exactKeys(
-        record5.sounds,
+      ) || record6.revision !== pack.revision || !exactKeys(
+        record6.sounds,
         fixtures.map(([id]) => id)
       ) || fixtures.some(
-        ([id, f]) => !whole2(record5.sounds[id], s.turn + f.sound.turns)
+        ([id, f]) => !whole2(record6.sounds[id], s.turn + f.sound.turns)
       ))
         return false;
     }
@@ -18563,8 +19525,8 @@
   }
 
   // v2/card-game/pack-registry.mjs
-  var owns3 = (o, key) => typeof key === "string" && !!o && Object.hasOwn(o, key);
-  var record4 = (v) => v && typeof v === "object" && !Array.isArray(v);
+  var owns4 = (o, key) => typeof key === "string" && !!o && Object.hasOwn(o, key);
+  var record5 = (v) => v && typeof v === "object" && !Array.isArray(v);
   function validatePackDefinition(pack) {
     const problems2 = packProblems(
       pack,
@@ -18643,7 +19605,7 @@
     ...packThings,
     ...packFixtures
   };
-  var packEntity = (id) => owns3(entities, id) ? entities[id] : null;
+  var packEntity = (id) => owns4(entities, id) ? entities[id] : null;
   function validatePackLinks(places2, actors2, items2) {
     for (const pack of packDefinitions)
       for (const [kind, catalog] of [
@@ -18775,7 +19737,7 @@
   function packExits(world, place, actor = null) {
     const routes = packDefinitions.flatMap(
       (pack) => (pack.routes || []).filter(
-        (r) => r.from === place && conditionsMet(world, pack.id, r.requires, actor) && (humanAvatarIds.includes(actor) || roamingQuestActor(actor) || packPeople[actor]?.personalQuests || owns3(pack.places, r.from) && owns3(pack.places, r.to))
+        (r) => r.from === place && conditionsMet(world, pack.id, r.requires, actor) && (humanAvatarIds.includes(actor) || roamingQuestActor(actor) || packPeople[actor]?.personalQuests || owns4(pack.places, r.from) && owns4(pack.places, r.to))
       ).map((r) => r.to)
     );
     return routes.filter(
@@ -18790,7 +19752,10 @@
     const a = packPeople[actor], destination = packPlaces[place];
     if (a ? destination?.packId === a.packId : !destination) return true;
     const home = a?.packId ?? null, target = destination?.packId ?? null;
-    if (crossings.some((crossing) => crossing.travelers === "any" && (packPlaces[crossing.from]?.packId ?? null) === home && (packPlaces[crossing.to]?.packId ?? null) === target)) return true;
+    if (crossings.some(
+      (crossing) => crossing.travelers === "any" && (packPlaces[crossing.from]?.packId ?? null) === home && (packPlaces[crossing.to]?.packId ?? null) === target
+    ))
+      return true;
     return Object.entries(transports).some(([id, t]) => {
       const domains = t.docks.map((dock) => packPlaces[dock]?.packId ?? null);
       return domains.includes(home) && domains.includes(target) && crossings.filter((c) => c.transport === id).every((c) => c.travelers === "any");
@@ -18798,7 +19763,7 @@
   }
   function choiceFeasible(world, pack, choice, actor) {
     const state = packState(world, pack.id);
-    if (!state || owns3(state.receipts, choice.id) || pack.release && state.scope !== "full" && !pack.release.choices.includes(choice.id) || world.actors[actor]?.place !== choice.at || !entityActive(world, choice.at) || !entityActive(world, choice.subject) || !conditionsMet(world, pack.id, choice.requires, actor))
+    if (!state || owns4(state.receipts, choice.id) || pack.release && state.scope !== "full" && !pack.release.choices.includes(choice.id) || world.actors[actor]?.place !== choice.at || !entityActive(world, choice.at) || !entityActive(world, choice.subject) || !conditionsMet(world, pack.id, choice.requires, actor))
       return false;
     const subject = choice.subject;
     if (world.actors[subject] && world.actors[subject].place !== choice.at)
@@ -18806,13 +19771,15 @@
     if (world.items[subject] && ![actor, choice.at].includes(world.items[subject].holder))
       return false;
     return choice.effects.every(
-      (e) => e.kind === "choose" ? !owns3(state.choices, e.key) : e.kind === "place_item" ? world.items[e.item]?.holder === actor && e.place === choice.at : true
+      (e) => e.kind === "choose" ? !owns4(state.choices, e.key) : e.kind === "place_item" ? world.items[e.item]?.holder === actor && e.place === choice.at : true
     );
   }
   function packChoices(world, actor = "vale") {
     if (!controlledByHuman(world, actor)) return [];
     return packDefinitions.flatMap(
-      (pack) => (pack.choices || []).filter((c) => choiceFeasible(world, pack, c, actor)).map((c) => ({
+      (pack) => (pack.choices || []).filter(
+        (c) => !pack.recital?.sites?.some((site) => site.completion === c.id) && choiceFeasible(world, pack, c, actor)
+      ).map((c) => ({
         kind: "choose",
         actor,
         item: null,
@@ -18831,6 +19798,19 @@
     if (!choice || !choiceFeasible(world, pack, choice, action.actor))
       throw new Error("That choice is no longer available.");
     const state = packState(world, pack.id);
+    for (const condition2 of choice.requires || [])
+      if (condition2.kind === "reading_complete") {
+        const id = completedHeardReading(
+          state.poemReadings,
+          condition2.site,
+          action.actor
+        );
+        if (!id)
+          throw new Error(
+            "Hear the complete reading before choosing its return voice."
+          );
+        state.poemReadings.decisions[choice.id] = id;
+      }
     for (const e of choice.effects) {
       if (e.kind === "choose") state.choices[e.key] = e.value;
       if (e.kind === "set_flag") state.flags[e.key] = e.value;
@@ -18859,7 +19839,7 @@
     const pack = packDefinition(e.packId), state = packState(world, e.packId);
     if (!state) return [];
     return (pack.choices || []).filter(
-      (c) => owns3(state.receipts, c.id) && (c.subject === id || c.at === id || c.effects.some((effect) => effect.item === id))
+      (c) => owns4(state.receipts, c.id) && (c.subject === id || c.at === id || c.effects.some((effect) => effect.item === id))
     ).sort((a, b) => state.receipts[a.id] - state.receipts[b.id]).slice(-3).map((c) => committedChoiceText(world, pack, c).slice(0, 240));
   }
   function packReadings(world, actor) {
@@ -18881,7 +19861,7 @@
     const pack = packDefinition(e.packId), state = packState(world, e.packId);
     if (!state) return [];
     const committed = (pack.choices || []).filter(
-      (c) => owns3(state.receipts, c.id)
+      (c) => owns4(state.receipts, c.id)
     );
     const historyKeys = new Set(
       (pack.continuity?.groups || []).map((g) => g.key)
@@ -18900,12 +19880,17 @@
     ].map((text2) => text2.slice(0, 240));
   }
   function validatePackStates(world) {
-    if (!record4(world.packs) || Object.keys(world.packs).sort().join() !== packDefinitions.map((p) => p.id).sort().join())
+    if (!record5(world.packs) || Object.keys(world.packs).sort().join() !== packDefinitions.map((p) => p.id).sort().join())
       return false;
     for (const pack of packDefinitions) {
       if (!pack.choices) continue;
       const state = world.packs[pack.id];
-      if (!record4(state) || !validRecitals(world, pack) || !validJourneyPlaces(world, pack) || state.revision !== pack.revision || !["opening", "full"].includes(state.scope) || Object.keys(state).sort().join() !== [
+      if (!record5(state) || !validRecitals(world, pack) || pack.recital?.sites?.length && !validPoemReadings(
+        world,
+        pack,
+        readingCatalogs[pack.id],
+        state.poemReadings
+      ) || !validJourneyPlaces(world, pack) || state.revision !== pack.revision || !["opening", "full"].includes(state.scope) || Object.keys(state).sort().join() !== [
         "revision",
         "sounds",
         "choices",
@@ -18913,9 +19898,10 @@
         "receipts",
         "met",
         "scope",
-        ...pack.recital ? ["recitals"] : []
-      ].sort().join() || ![state.choices, state.flags, state.receipts, state.met].every(record4) || Object.entries(state.met).some(
-        ([id, turn]) => !owns3(pack.avatars, id) || !conditionsMet(
+        ...pack.recital ? ["recitals"] : [],
+        ...pack.recital?.sites?.length ? ["poemReadings"] : []
+      ].sort().join() || ![state.choices, state.flags, state.receipts, state.met].every(record5) || Object.entries(state.met).some(
+        ([id, turn]) => !owns4(pack.avatars, id) || !conditionsMet(
           world,
           pack.id,
           (pack.avatars[id]?.requires || []).filter(
@@ -18925,7 +19911,7 @@
       ))
         return false;
       if (world.opening && !sharedEnabled(world) && Object.keys(world.opening.met || {}).some(
-        (id) => owns3(pack.avatars, id) && !owns3(state.met, id)
+        (id) => owns4(pack.avatars, id) && !owns4(state.met, id)
       ))
         return false;
       const events = Object.entries(state.receipts).sort((a, b) => a[1] - b[1]);
@@ -18944,29 +19930,724 @@
       for (const [id, turn] of events) {
         const c = pack.choices?.find((c2) => c2.id === id);
         if (!c || state.scope === "opening" && pack.release && !pack.release.choices.includes(id) || !Number.isSafeInteger(turn) || turn < 1 || turn > world.turn || seenTurns.has(turn) || !sectionAllows(projection, pack, c.at, conditionsMet) || !sectionAllows(projection, pack, c.subject, conditionsMet) || !progressionMet(c.requires) || !progressionMet(pack.places[c.at].requires) || !progressionMet(packEntity(c.subject)?.requires) || (c.requires || []).some(
-          (condition2) => condition2.kind === "met" && (!owns3(state.met, condition2.actor) || state.met[condition2.actor] >= turn)
+          (condition2) => condition2.kind === "met" && (!owns4(state.met, condition2.actor) || state.met[condition2.actor] >= turn)
         ))
           return false;
         seenTurns.add(turn);
         for (const effect of c.effects) {
           if (effect.kind === "choose") {
-            if (owns3(choices, effect.key)) return false;
+            if (owns4(choices, effect.key)) return false;
             choices[effect.key] = effect.value;
           }
           if (effect.kind === "set_flag") flags[effect.key] = effect.value;
         }
       }
-      const equals = (a, b) => Object.keys(a).length === Object.keys(b).length && Object.entries(a).every(([k, v]) => owns3(b, k) && b[k] === v);
+      const equals = (a, b) => Object.keys(a).length === Object.keys(b).length && Object.entries(a).every(([k, v]) => owns4(b, k) && b[k] === v);
       if (!equals(choices, state.choices) || !equals(flags, state.flags))
         return false;
       for (const [id, actor] of Object.entries(pack.avatars))
-        if (!entityEnabled(world, id, true) && (world.actors[id]?.place !== actor.place && !actor.previousHomes?.includes(world.actors[id]?.place) || world.actors[id]?.crossed !== 0 || world.actors[id]?.lastTalk !== -9 || owns3(state.met, id)))
+        if (!entityEnabled(world, id, true) && (world.actors[id]?.place !== actor.place && !actor.previousHomes?.includes(world.actors[id]?.place) || world.actors[id]?.crossed !== 0 || world.actors[id]?.lastTalk !== -9 || owns4(state.met, id)))
           return false;
       for (const [id, item] of Object.entries(pack.items || {}))
         if (!entityEnabled(world, id) && (world.items[id]?.holder !== item.holder || world.items[id]?.history?.length !== 0))
           return false;
     }
     return true;
+  }
+
+  // v2/card-game/reading-actions.mjs
+  var name = (id) => humanAvatar(id)?.name || packEntity(id)?.name || id;
+  var at = (world, actor, place) => world.actors[actor]?.place === place && entityActive(world, actor) && (!humanAvatarIds.includes(actor) || humanPresent(world, actor));
+  var archive = (world, pack) => world.packs[pack.id]?.poemReadings;
+  var siteFor2 = (pack, id) => pack.recital?.sites?.find((site) => site.id === id);
+  function siteReady(world, pack, site, actor, stage = false) {
+    return at(world, actor, site.at) && entityActive(world, site.at) && conditionsMet(world, pack.id, site.requires, actor) && site.listeners.every((listener) => at(world, listener, site.at)) && (stage ? [actor, site.at] : [site.at]).includes(
+      world.items[site.item]?.holder
+    );
+  }
+  function card(actor, pack, site, op, value, label, extra = {}) {
+    return {
+      kind: "read",
+      actor,
+      packId: pack.id,
+      siteId: site.id,
+      readingOp: op,
+      item: null,
+      target: site.listeners[0],
+      key: `read:${actor}:${pack.id}:${op}:${encodeURIComponent(value)}`,
+      label,
+      text: `${name(actor)} ${label[0].toLowerCase() + label.slice(1)}.`,
+      cards: [site.listeners[0]],
+      ...extra
+    };
+  }
+  function readingActions(world, actor = currentActor(world)) {
+    if (world.readingView)
+      return world.readingView.actor === actor ? world.readingView.actions : [];
+    if (!humanPresent(world, actor)) return [];
+    const actions = [];
+    for (const pack of packDefinitions) {
+      const state = archive(world, pack);
+      if (!state) continue;
+      for (const site of pack.recital.sites) {
+        if (!siteReady(world, pack, site, actor, true)) continue;
+        const original = `site:${site.id}:${actor}`;
+        const guests = state.drafts[actor]?.site === site.id ? state.drafts[actor].invited : [];
+        const audienceReady = guests.every((guest) => at(world, guest, site.at));
+        if (!state.readings[original] && audienceReady)
+          actions.push(card(actor, pack, site, "start", site.id, site.label));
+        else if (state.readings[original] && audienceReady && Object.keys(state.readings).filter((id) => id.startsWith("optional:")).length < readingLimits.optional)
+          actions.push(
+            card(
+              actor,
+              pack,
+              site,
+              "later",
+              site.id,
+              `Begin a later ${site.title} reading`
+            )
+          );
+        if (guests.length)
+          actions.push(
+            card(
+              actor,
+              pack,
+              site,
+              "clear",
+              site.id,
+              `Use only the required ${site.title} listeners`
+            )
+          );
+        for (const guest of humanAvatarIds.filter(
+          (id) => id !== actor && at(world, id, site.at)
+        ))
+          actions.push(
+            card(
+              actor,
+              pack,
+              site,
+              "invite",
+              `${site.id}/${guest}`,
+              `${guests.includes(guest) ? "Release" : "Invite"} ${name(guest)} ${guests.includes(guest) ? "from" : "to"} the ${site.title} reading`,
+              { invitee: guest }
+            )
+          );
+        if (!siteReady(world, pack, site, actor)) continue;
+        for (const [id, reading] of Object.entries(state.readings))
+          if (reading.site === site.id && reading.reader === actor && !reading.complete)
+            actions.push(
+              card(
+                actor,
+                pack,
+                site,
+                "page",
+                id,
+                `Read page ${reading.pages.length + 1} of ${Math.max(1, Math.ceil(reading.selection.length / 4))} from ${site.title}`,
+                { readingId: id }
+              )
+            );
+      }
+    }
+    return actions;
+  }
+  function readingReplayAction(world, actor, packId, id, index, listener) {
+    const pack = packDefinition(packId);
+    const raw = pack && archive(world, pack);
+    const projected = world.readingView?.packs?.[packId]?.readings.find(
+      (r) => r.id === id
+    );
+    const reading = raw?.readings[id] || projected;
+    const site = reading && siteFor2(pack, reading.site);
+    const published = raw ? index < reading?.pages.length : projected?.pages.some((page) => page[0] === index && page[1] !== null);
+    if (!reading || !site || reading.reader !== actor || !Number.isInteger(index) || index < 0 || !published || !reading.audience.includes(listener) || listener === actor || !at(world, actor, site.at) || !at(world, listener, site.at) || world.items[site.item]?.holder !== site.at)
+      return null;
+    return card(
+      actor,
+      pack,
+      site,
+      "replay",
+      `${id}/${index}/${listener}`,
+      `Read page ${index + 1} of ${site.title} again to ${name(listener)}`,
+      { readingId: id, pageIndex: index, listener, target: listener }
+    );
+  }
+  function resolveReadingReplay(world, actor, key) {
+    const parts = typeof key === "string" ? key.split(":") : [];
+    if (parts.length !== 5 || parts[0] !== "read" || parts[1] !== actor || parts[3] !== "replay")
+      return null;
+    try {
+      const [id, index, listener] = decodeURIComponent(parts[4]).split("/");
+      const action = readingReplayAction(
+        world,
+        actor,
+        parts[2],
+        id,
+        Number(index),
+        listener
+      );
+      return action?.key === key ? action : null;
+    } catch {
+      return null;
+    }
+  }
+  function applyReadingAction(world, action) {
+    const pack = packDefinition(action.packId), site = siteFor2(pack, action.siteId);
+    const state = archive(world, pack), actor = action.actor;
+    if (!site || !state) throw new Error("Choose a current reading.");
+    if (action.readingOp === "clear") {
+      setReadingDraft(world, pack, state, site.id, actor, []);
+      return { privateTo: [actor] };
+    }
+    if (action.readingOp === "invite") {
+      const guests = (state.drafts[actor]?.site === site.id ? state.drafts[actor].invited : []).filter((id) => at(world, id, site.at));
+      setReadingDraft(
+        world,
+        pack,
+        state,
+        site.id,
+        actor,
+        guests.includes(action.invitee) ? guests.filter((id) => id !== action.invitee) : [...guests, action.invitee]
+      );
+      return { privateTo: [actor] };
+    }
+    if (["start", "later"].includes(action.readingOp)) {
+      const id = beginReading(
+        world,
+        pack,
+        currentReadingCatalog(pack.id),
+        state,
+        { site: site.id, reader: actor, optional: action.readingOp === "later" }
+      );
+      world.items[site.item].holder = site.at;
+      world.items[site.item].history = [
+        ...world.items[site.item].history,
+        `${name(actor)} lays it beside the ${site.title} reading.`
+      ].slice(-12);
+      return { privateTo: state.readings[id].audience };
+    }
+    const packet = action.readingOp === "page" ? publishReadingPage(
+      world,
+      state,
+      readingCatalogs[pack.id],
+      action.readingId,
+      actor
+    ) : replayReadingPage(
+      world,
+      state,
+      readingCatalogs[pack.id],
+      action.readingId,
+      actor,
+      action.pageIndex,
+      action.listener
+    );
+    const completion = packet.firstCompletion && !Object.hasOwn(world.packs[pack.id].receipts, site.completion) ? applyPackChoice(world, {
+      actor,
+      packId: pack.id,
+      choiceId: site.completion
+    }) : null;
+    return {
+      privateTo: packet.audience,
+      hearing: [pack.id, packet.id, packet.index],
+      completion
+    };
+  }
+  function projectReadingView(world, actor) {
+    const packs = {};
+    for (const pack of packDefinitions) {
+      const state = archive(world, pack);
+      if (state) packs[pack.id] = projectPoemReadings(state, actor);
+    }
+    return { actor, packs, actions: readingActions(world, actor) };
+  }
+  function upgradeReadingArchives(world, packs) {
+    for (const pack of packs) {
+      const state = world.packs?.[pack.id];
+      if (!pack.recital?.sites?.length || !state || state.poemReadings !== void 0)
+        continue;
+      if (pack.choices.some(
+        (choice) => Object.hasOwn(state.receipts || {}, choice.id) && choice.requires?.some(
+          (condition2) => condition2.kind === "reading_complete"
+        )
+      ))
+        continue;
+      state.poemReadings = {
+        version: 1,
+        stanzas: [],
+        readings: {},
+        drafts: {},
+        pins: {},
+        decisions: {}
+      };
+    }
+  }
+  function validHearingRef(world, ref, audience, turn, place) {
+    if (ref === void 0) return true;
+    try {
+      if (!Array.isArray(ref) || ref.length !== 4 || !Array.isArray(audience) || !Number.isSafeInteger(ref[2]) || ref[2] < 0 || !Number.isSafeInteger(ref[3]) || ref[3] > turn)
+        return false;
+      const reading = world.packs[ref[0]].poemReadings.readings[ref[1]];
+      const page = reading.pages[ref[2]];
+      if (!page || reading.place !== place || ref[3] < page[0]) return false;
+      const bits = audience.map((actor) => reading.audience.indexOf(actor));
+      if (bits.some((bit) => bit < 0)) return false;
+      const mask = bits.reduce((value, bit) => value | 1 << bit, 0);
+      return ref[3] === page[0] ? mask === page[1] : audience.length === 2 && audience.includes(reading.reader) && (mask & page[2]) === mask;
+    } catch {
+      return false;
+    }
+  }
+
+  // v2/card-game/learning.mjs
+  var kinds = ["ask", "accompany"];
+  var keyOf = (a) => [a.kind, a.target, a.item || "", a.destination || ""].join(":");
+  function requestConditions(world, action) {
+    const target = world.actors[action.target];
+    return JSON.stringify([
+      target?.place,
+      target?.trust?.[action.actor] || 0,
+      (world.motives?.grievances[action.target] || []).map((g) => [
+        g.other,
+        g.kind,
+        g.weight
+      ]),
+      [
+        world.actors[action.target]?.progress?.program,
+        world.actors[action.target]?.progress?.step
+      ],
+      world.life?.actors?.[action.target]?.phase || null,
+      Object.keys(world.items).sort().filter(
+        (id) => id === action.item || [action.actor, action.target].includes(world.items[id].holder)
+      ).map((id) => {
+        const item = world.items[id];
+        return [id, item.holder, item.fuel ?? null, item.doses ?? null];
+      }),
+      world.actors[action.actor]?.place,
+      learningIntent(world, action.actor)
+    ]);
+  }
+  function beginLearning2(world, action) {
+    if (world.motives?.version !== 1) return null;
+    return beginLearning(world, action, requestConditions);
+  }
+  function recordLearning(world, action, prepared, event) {
+    finishLearning(world, action, prepared, event, requestConditions);
+  }
+  function reconsiderPlan(world, actor, selected, actions) {
+    return learnedPlan(world, actor, selected, actions, requestConditions);
+  }
+  function learningFacts(world, actor, nameOf2) {
+    const facts = trialFacts(world, actor, nameOf2);
+    if (facts) return facts;
+    const lesson = world.memories[actor]?.learning?.at(-1);
+    if (!lesson) return [];
+    const other = nameOf2(lesson.target);
+    return [
+      `I expected ${other} to ${lesson.expected ? "agree" : "decline"}. ${other} ${lesson.observed ? "agreed" : "declined"}. ${lesson.strategy === "offer_trade" ? "I will try a fair trade when one is available." : lesson.strategy === "give_space" ? "I will give them time and talk first." : "I can continue with their agreement."}`
+    ];
+  }
+  function validLearning(world, actor, lessons, profiles2) {
+    if (lessons === void 0) return true;
+    const valid = Array.isArray(lessons) && lessons.length <= TRIAL_LIMIT && lessons.every((l, i) => {
+      if (!l || !Number.isSafeInteger(l.seq) || l.seq <= 0 || l.seq > world.eventSeq || !Number.isSafeInteger(l.turn) || l.turn < 0 || l.turn > world.turn || i && l.seq <= lessons[i - 1].seq)
+        return false;
+      if (l.version === 2) return validTrial(world, actor, l, profiles2);
+      if (!l || Object.keys(l).length !== (l.followup ? 13 : 12)) return false;
+      const action = {
+        kind: l.kind,
+        target: l.target,
+        item: l.item,
+        destination: l.destination
+      };
+      const source = world.log.find((e) => e.seq === l.seq);
+      return (!l.followup || Number.isSafeInteger(l.followup.seq) && l.followup.seq > l.seq && l.followup.seq <= world.eventSeq && Number.isSafeInteger(l.followup.turn) && l.followup.turn >= l.turn && l.followup.turn <= world.turn && ["talk", "trade", "wait"].includes(l.followup.kind)) && Number.isSafeInteger(l.seq) && l.seq > 0 && l.seq <= world.eventSeq && (!i || lessons[i - 1].seq < l.seq) && Number.isSafeInteger(l.turn) && l.turn >= 0 && l.turn <= world.turn && kinds.includes(l.kind) && Boolean(world.actors[l.target]) && l.target !== actor && (l.item === null || Boolean(world.items[l.item])) && (l.destination === null || profiles2[l.destination]?.kind === "location") && (l.kind === "ask" ? l.item !== null && l.destination === null : l.destination !== null && l.item === null) && l.key === keyOf(action) && typeof l.expected === "boolean" && typeof l.observed === "boolean" && l.strategy === (l.observed ? "continue" : l.kind === "ask" ? "offer_trade" : "give_space") && typeof l.conditions === "string" && l.conditions.length <= 16e3 && typeof l.evidence === "string" && l.evidence.length > 0 && l.evidence.length <= 650 && (!source || !source.generated && source.actorId === actor && source.verb === l.kind && source.targetId === l.target && source.accepted === l.observed && source.text.slice(0, 650) === l.evidence);
+    });
+    return valid;
+  }
+  function privateView(world, actor) {
+    const view2 = structuredClone(world);
+    const readingView = projectReadingView(world, actor);
+    if (Object.keys(readingView.packs).length) {
+      view2.readingView = readingView;
+      for (const state of Object.values(view2.packs)) delete state.poemReadings;
+    }
+    view2.log = view2.log.filter((entry) => privateAudienceAllows(entry, [actor]));
+    for (const [id, memory] of Object.entries(view2.memories)) {
+      Object.assign(memory, audienceMemory(memory, [actor]));
+      if (id === actor) continue;
+      delete memory.innerLife;
+      delete memory.reflections;
+      delete memory.learning;
+    }
+    return view2;
+  }
+
+  // v2/card-game/quest-hands.mjs
+  var QUEST_HAND_LIMIT = 2;
+  var QUEST_FADE_TURNS = 2;
+  var ongoing = (q) => q.completedTurn === null && !q.retired;
+  var questFresh = (world, q) => !q.retired && (q.completedTurn === null || world.turn - q.completedTurn < QUEST_FADE_TURNS);
+  function questHolderActor(world, q) {
+    let id = q.holder.id;
+    const seen = /* @__PURE__ */ new Set();
+    while (world.items?.[id] && !seen.has(id)) {
+      seen.add(id);
+      id = world.items[id].holder;
+    }
+    return world.actors[id] ? id : null;
+  }
+  var related2 = (world, q, actor) => q.subjectActor === actor || q.participants.includes(actor) || questHolderActor(world, q) === actor;
+  var priority = (world, actor, q) => world.quests.focus[actor] === q.key ? 0 : world.life?.actors?.[actor]?.collection?.active === q.key ? 1 : ongoing(q) && q.step > 0 ? 2 : ongoing(q) && q.participants.length > 1 ? 3 : ongoing(q) ? 4 : 5;
+  var family = (q) => q.mode === "personal" && q.program.generated && ongoing(q) ? q.program.generated.situation || (q.program.generated.solo ? "solo" : "bargain") : null;
+  var protectedQuest = (world, actor, q) => priority(world, actor, q) < 4 || q.lastProgressTurn !== void 0 || q.cause !== null || q.completion || q.holder.kind !== "avatar" || q.holder.id !== q.subjectActor;
+  var candidates = (world, actor) => {
+    const all = Object.values(world.quests?.records || {}).filter(
+      (q) => related2(world, q, actor) && q.droppedBy?.[actor] === void 0 && questFresh(world, q)
+    ).sort(
+      (a, b) => priority(world, actor, a) - priority(world, actor, b) || a.createdTurn - b.createdTurn || a.key.localeCompare(b.key)
+    );
+    const seen = new Set(
+      all.filter((q) => protectedQuest(world, actor, q)).map(family).filter(Boolean)
+    );
+    return all.filter((q) => {
+      const kind = family(q);
+      if (!kind || protectedQuest(world, actor, q)) return true;
+      if (seen.has(kind)) return false;
+      seen.add(kind);
+      return true;
+    });
+  };
+  function questHandKeys(world, actor) {
+    const keys = world.quests?.hands?.[actor];
+    return keys === void 0 && !world.quests?.hands ? candidates(world, actor).slice(0, QUEST_HAND_LIMIT).map((q) => q.key) : (keys || []).filter((key) => {
+      const q = world.quests.records[key];
+      return q && related2(world, q, actor) && q.droppedBy?.[actor] === void 0 && questFresh(world, q);
+    });
+  }
+  var questCarried = (world, actor, key) => questHandKeys(world, actor).includes(key);
+  var questDropQuiet = (world, actor) => Object.values(world.quests?.records || {}).some(
+    (q) => q.droppedBy?.[actor] !== void 0 && world.turn - q.droppedBy[actor] < 8
+  );
+  function canCarryQuest(world, actor, quest = null) {
+    if (!Object.hasOwn(world.actors, actor) || quest?.droppedBy?.[actor] !== void 0)
+      return false;
+    const hand2 = questHandKeys(world, actor);
+    return quest && hand2.includes(quest.key) || hand2.filter((key) => ongoing(world.quests.records[key])).length < QUEST_HAND_LIMIT;
+  }
+  function settleQuestHands(world) {
+    if (!world.quests) return world;
+    if (!world.quests.hands)
+      world.quests.hands = Object.fromEntries(
+        Object.keys(world.actors).map((actor) => [
+          actor,
+          questHandKeys(world, actor)
+        ])
+      );
+    for (const actor of Object.keys(world.actors)) {
+      world.quests.hands[actor] = questHandKeys(world, actor).slice(
+        0,
+        QUEST_HAND_LIMIT
+      );
+      if (!questCarried(world, actor, world.quests.focus[actor]))
+        delete world.quests.focus[actor];
+      const c = world.life?.actors?.[actor]?.collection;
+      if (c?.active && !questCarried(world, actor, c.active)) {
+        c.active = null;
+        world.actors[actor].progress.step = 0;
+        delete world.actors[actor].progress.current;
+        world.life.actors[actor].phase = "seeking";
+        delete world.life.actors[actor].origin;
+      }
+    }
+    return world;
+  }
+  function carryQuest(world, actor, q) {
+    if (!canCarryQuest(world, actor, q)) return false;
+    settleQuestHands(world);
+    const hand2 = world.quests.hands[actor];
+    if (!hand2.includes(q.key)) {
+      if (hand2.length >= QUEST_HAND_LIMIT)
+        hand2.splice(
+          hand2.findIndex((key) => !ongoing(world.quests.records[key])),
+          1
+        );
+      hand2.push(q.key);
+    }
+    return true;
+  }
+  function dropQuest(world, actor, key) {
+    if (!questCarried(world, actor, key)) return false;
+    const q = world.quests.records[key];
+    (q.droppedBy ??= {})[actor] = world.turn;
+    settleQuestHands(world);
+    const c = world.life?.actors?.[actor]?.collection;
+    if (c && q.program.generated) c.lastOfferTurn = world.turn;
+    return true;
+  }
+  function validQuestHands(world) {
+    const registry = world.quests;
+    if (!registry) return true;
+    for (const q of Object.values(registry.records)) {
+      if (q.droppedBy !== void 0 && (!q.droppedBy || typeof q.droppedBy !== "object" || Array.isArray(q.droppedBy) || Object.entries(q.droppedBy).some(
+        ([actor, turn]) => !Object.hasOwn(world.actors, actor) || !Number.isSafeInteger(turn) || turn < q.createdTurn || turn > world.turn
+      )))
+        return false;
+    }
+    if (registry.hands === void 0) return true;
+    if (!registry.hands || typeof registry.hands !== "object" || Array.isArray(registry.hands))
+      return false;
+    return Object.entries(registry.hands).every(
+      ([actor, keys]) => Object.hasOwn(world.actors, actor) && Array.isArray(keys) && keys.length <= QUEST_HAND_LIMIT && new Set(keys).size === keys.length && keys.every((key) => {
+        const q = registry.records[key];
+        return q && related2(world, q, actor) && q.droppedBy?.[actor] === void 0;
+      })
+    );
+  }
+
+  // v2/card-game/shared-quests.mjs
+  var SHARED_QUEST_VERSION = 1;
+  var QUEST_RECORD_LIMIT = 4096;
+  var SHARED_QUEST_PENDING_LIMIT = 8;
+  var SHARED_QUEST_COLLECTION_LIMIT = 256;
+  var TRANSIENT_QUEST_HISTORY_LIMIT = 32;
+  var historyLimit = 24;
+  var sameHolder = (a, b) => a?.kind === b?.kind && a?.id === b?.id;
+  var unfinished = (q) => q.completedTurn === null && !q.retired;
+  var questRecords = (world) => Object.values(world.quests?.records || {});
+  var questRecord = (world, key) => world.quests?.records && Object.hasOwn(world.quests.records, key) ? world.quests.records[key] : null;
+  var collectionCards = (world, actor, archived = false) => (world.life?.actors?.[actor]?.collection?.[archived ? "archive" : "cards"] || []).map((q) => typeof q === "string" ? questRecord(world, q) : q);
+  function installSharedQuestRegistry(world) {
+    const first = !world.quests;
+    world.quests ??= {
+      version: SHARED_QUEST_VERSION,
+      next: 0,
+      records: {},
+      focus: {},
+      ...Object.values(world.life?.actors || {}).some(
+        (life) => life.collection?.cards?.length
+      ) ? {} : { hands: {} }
+    };
+    for (const [actor, life] of Object.entries(world.life?.actors || {})) {
+      const collection = life.collection;
+      if (!collection) continue;
+      const migrated = collection.cards.some((q) => typeof q !== "string");
+      for (const field of ["cards", "archive"]) {
+        collection[field] = collection[field].map((card2) => {
+          if (typeof card2 === "string") return card2;
+          registerPersonalQuest(world, actor, card2);
+          return card2.key;
+        });
+      }
+      if ((first || migrated) && collection.active && world.quests.focus[actor] === void 0)
+        world.quests.focus[actor] = collection.active;
+    }
+    return world.quests;
+  }
+  function registerPersonalQuest(world, actor, card2) {
+    const registry = world.quests || installSharedQuestRegistry(world);
+    if (registry.records[card2.key]) return registry.records[card2.key];
+    Object.assign(card2, {
+      holder: card2.holder || { kind: "avatar", id: actor },
+      subjectActor: actor,
+      rewardActor: actor,
+      mode: "personal",
+      participants: card2.participants || [actor],
+      cause: card2.cause || null
+    });
+    registry.records[card2.key] = card2;
+    if (registry.hands) carryQuest(world, actor, card2);
+    return card2;
+  }
+  function addQuestRecord(world, {
+    holder: holder2,
+    program,
+    subjectActor = null,
+    participants = [],
+    cause = null,
+    origin = null,
+    key = null,
+    transientActor = null
+  }) {
+    const registry = installSharedQuestRegistry(world);
+    if (transientActor) pruneTransientQuestHistory(world, transientActor);
+    const records = questRecords(world);
+    if (records.length >= QUEST_RECORD_LIMIT || !transientActor && records.filter((q) => q.mode === "shared" && !q.transientActor).length >= SHARED_QUEST_COLLECTION_LIMIT || records.filter(
+      (q) => q.mode === "shared" && unfinished(q) && sameHolder(q.holder, holder2)
+    ).length >= SHARED_QUEST_PENDING_LIMIT)
+      return null;
+    const questKey2 = key || `world:quest:${registry.next++}`;
+    if (registry.records[questKey2]) return registry.records[questKey2];
+    const members = [
+      .../* @__PURE__ */ new Set([
+        ...participants,
+        ...transientActor ? [transientActor] : [],
+        ...holder2.kind === "avatar" && !transientActor ? [holder2.id] : []
+      ])
+    ].sort();
+    const record6 = {
+      key: questKey2,
+      mode: "shared",
+      holder: structuredClone(holder2),
+      subjectActor,
+      rewardActor: null,
+      participants: members,
+      program: structuredClone(program),
+      step: 0,
+      origin: origin ? structuredClone(origin) : null,
+      createdTurn: world.turn,
+      completedTurn: null,
+      cause: cause ? structuredClone(cause) : null,
+      ...transientActor ? { transientActor, familyActor: transientActor } : {}
+    };
+    registry.records[questKey2] = record6;
+    if (registry.hands) {
+      for (const actor of /* @__PURE__ */ new Set([...members, questHolderActor(world, record6)]))
+        if (actor) carryQuest(world, actor, record6);
+    }
+    return record6;
+  }
+  function canJoinQuest(world, actor, key) {
+    const quest = questRecord(world, key);
+    if (!world.actors?.[actor] || !quest || !unfinished(quest) || !canCarryQuest(world, actor, quest))
+      return false;
+    return !quest.transientActor || actor === quest.transientActor || questRecords(world).filter((q) => q.mode === "shared" && !q.transientActor).length < SHARED_QUEST_COLLECTION_LIMIT;
+  }
+  function joinQuest(world, actor, key) {
+    if (!canJoinQuest(world, actor, key)) return false;
+    const quest = questRecord(world, key);
+    if (quest.transientActor && actor !== quest.transientActor)
+      delete quest.transientActor;
+    quest.participants = [.../* @__PURE__ */ new Set([...quest.participants, actor])].sort();
+    carryQuest(world, actor, quest);
+    return true;
+  }
+  function focusQuest(world, actor, key) {
+    if (!joinQuest(world, actor, key)) return false;
+    world.quests.focus[actor] = key;
+    return true;
+  }
+  var focusedQuest = (world, actor) => questRecord(world, world.quests?.focus?.[actor]);
+  var questsHeldBy = (world, holder2) => questRecords(world).filter((q) => sameHolder(q.holder, holder2));
+  var questStatus = (world, quest) => quest.retired ? "superseded" : quest.completedTurn !== null ? "fulfilled" : Object.values(world.quests?.focus || {}).includes(quest.key) ? "active" : "pending";
+  function shareQuest(world, key, holder2) {
+    const quest = questRecord(world, key);
+    if (!quest || !unfinished(quest)) return false;
+    if (holder2.kind === "avatar" && !joinQuest(world, holder2.id, key))
+      return false;
+    quest.holder = structuredClone(holder2);
+    return true;
+  }
+  function clearQuestFocus(world, key) {
+    for (const [actor, focused] of Object.entries(world.quests?.focus || {}))
+      if (focused === key) delete world.quests.focus[actor];
+  }
+  function retireQuest(world, key, { reason = "superseded", cause = null } = {}) {
+    const quest = questRecord(world, key);
+    if (!quest || quest.mode !== "shared" || !unfinished(quest)) return false;
+    quest.retired = {
+      turn: world.turn,
+      reason,
+      cause: structuredClone(cause || quest.cause)
+    };
+    clearQuestFocus(world, key);
+    pruneSharedQuestHistory(world, quest.holder, quest.key);
+    return true;
+  }
+  function pruneSharedQuestHistory(world, holder2, preserveKey = null) {
+    const finished = questsHeldBy(world, holder2).filter((q) => q.mode === "shared" && !unfinished(q)).sort(
+      (a, b) => (a.completedTurn ?? a.retired.turn) - (b.completedTurn ?? b.retired.turn) || a.key.localeCompare(b.key)
+    );
+    for (const quest of finished.slice(
+      0,
+      Math.max(0, finished.length - historyLimit)
+    )) {
+      clearQuestFocus(world, quest.key);
+      if (quest.compacted) continue;
+      quest.totalSteps = quest.program.steps.length;
+      quest.program = {
+        id: quest.program.id,
+        name: quest.program.name,
+        purpose: quest.program.purpose || "",
+        ...quest.program.art ? { art: quest.program.art } : {},
+        steps: []
+      };
+      quest.compacted = true;
+    }
+    for (const owner2 of new Set(
+      questRecords(world).map((q) => q.transientActor).filter(Boolean)
+    ))
+      pruneTransientQuestHistory(world, owner2, preserveKey);
+  }
+  function pruneTransientQuestHistory(world, actor, preserveKey = null) {
+    const records = questRecords(world).filter(
+      (q) => q.transientActor === actor && !unfinished(q)
+    );
+    const protectedByOthers = (q) => q.participants.some((id) => id !== actor) || Object.entries(world.quests.focus).some(
+      ([id, key]) => id !== actor && key === q.key
+    ) || Object.entries(world.life?.actors || {}).some(
+      ([id, life]) => id !== actor && ["cards", "archive"].some(
+        (field) => life.collection?.[field]?.includes(q.key)
+      )
+    );
+    for (const q of records.filter(protectedByOthers)) delete q.transientActor;
+    const disposable = records.filter((q) => q.transientActor === actor).sort(
+      (a, b) => (a.completedTurn ?? a.retired.turn) - (b.completedTurn ?? b.retired.turn) || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0)
+    );
+    let excess = disposable.length - TRANSIENT_QUEST_HISTORY_LIMIT;
+    for (const q of disposable) {
+      if (excess <= 0) break;
+      if (q.key === preserveKey) continue;
+      if (world.quests.focus[actor] === q.key) delete world.quests.focus[actor];
+      const collection = world.life?.actors?.[actor]?.collection;
+      if (collection) {
+        for (const field of ["cards", "archive"])
+          collection[field] = collection[field].filter((key) => key !== q.key);
+        if (collection.active === q.key) collection.active = null;
+      }
+      delete world.quests.records[q.key];
+      excess--;
+    }
+  }
+  function validSharedQuestRegistry(world, { actors: actors2, items: items2, places: places2, program, origin, story }) {
+    const registry = world.quests;
+    if (!registry) return true;
+    if (registry.version !== SHARED_QUEST_VERSION || !Number.isSafeInteger(registry.next) || registry.next < 0 || !registry.records || Array.isArray(registry.records) || typeof registry.records !== "object" || !registry.focus || Array.isArray(registry.focus) || typeof registry.focus !== "object" || Object.keys(registry.records).length > QUEST_RECORD_LIMIT)
+      return false;
+    const personalKeys = [];
+    for (const [actor, life] of Object.entries(world.life?.actors || {})) {
+      const c = life.collection;
+      if (!c) continue;
+      if (!Array.isArray(c.cards) || !Array.isArray(c.archive)) return false;
+      for (const key of [...c.cards, ...c.archive]) {
+        const q = typeof key === "string" && Object.hasOwn(registry.records, key) && registry.records[key];
+        if (!q || q.mode !== "personal" || q.subjectActor !== actor || q.rewardActor !== actor)
+          return false;
+        personalKeys.push(key);
+      }
+    }
+    if (new Set(personalKeys).size !== personalKeys.length) return false;
+    for (const [key, q] of Object.entries(registry.records)) {
+      if (!q || typeof q !== "object" || key !== q.key || key.length < 1 || key.length > 160 || ["__proto__", "constructor", "prototype"].includes(key) || !["personal", "shared", "story"].includes(q.mode) || !q.holder || !["avatar", "item", "place"].includes(q.holder.kind) || !{ avatar: actors2, item: items2, place: places2 }[q.holder.kind].includes(
+        q.holder.id
+      ) || q.familyActor !== void 0 && !actors2.includes(q.familyActor) || q.transientActor !== void 0 && (q.mode !== "shared" || !actors2.includes(q.transientActor) || q.familyActor !== q.transientActor || !["journey", "help"].includes(q.cause?.kind) || !Array.isArray(q.participants) || q.participants.length !== 1 || q.participants[0] !== q.transientActor) || !(q.subjectActor === null || actors2.includes(q.subjectActor)) || !(q.rewardActor === null || actors2.includes(q.rewardActor)) || !Array.isArray(q.participants) || q.participants.length > actors2.length || !q.participants.every(
+        (id, i) => actors2.includes(id) && (i === 0 || q.participants[i - 1] < id)
+      ) || !Number.isSafeInteger(q.createdTurn) || q.createdTurn < 0 || q.createdTurn > world.turn || !Number.isSafeInteger(q.step) || q.step < 0 || q.lastProgressTurn !== void 0 && (!Number.isSafeInteger(q.lastProgressTurn) || q.lastProgressTurn < q.createdTurn || q.lastProgressTurn > world.turn) || q.cause !== null && (!q.cause || !["quest", "journey", "help"].includes(q.cause.kind) || typeof q.cause.rootId !== "string" || q.cause.rootId.length < 1 || q.cause.rootId.length > 200))
+        return false;
+      if (q.mode === "story") {
+        if (!story?.(q)) return false;
+      } else if (q.mode === "personal") {
+        if (!personalKeys.includes(key) || q.subjectActor === null || q.retired)
+          return false;
+      } else {
+        if (q.rewardActor !== null || !(q.compacted ? q.program && typeof q.program.id === "string" && typeof q.program.name === "string" && typeof q.program.purpose === "string" && Array.isArray(q.program.steps) && q.program.steps.length === 0 && Number.isInteger(q.totalSteps) && q.totalSteps > 0 && q.totalSteps <= 12 && (q.completedTurn !== null || q.retired) : program(q.program, q.subjectActor)) || !origin(q.origin) || (q.completedTurn === null ? q.step >= (q.totalSteps ?? q.program.steps.length) : !Number.isSafeInteger(q.completedTurn) || q.completedTurn < q.createdTurn || q.completedTurn > world.turn || q.step !== (q.totalSteps ?? q.program.steps.length)))
+          return false;
+        if (q.retired && (q.completedTurn !== null || q.retired.reason !== "superseded" || !Number.isSafeInteger(q.retired.turn) || q.retired.turn < q.createdTurn || q.retired.turn > world.turn))
+          return false;
+      }
+    }
+    return Object.entries(registry.focus).every(([actor, key]) => {
+      const q = questRecord(world, key);
+      return actors2.includes(actor) && q && unfinished(q) && q.participants.includes(actor);
+    });
   }
 
   // v2/card-game/situations.mjs
@@ -19014,14 +20695,14 @@
         return false;
     }
   }
-  function conditionText(c, name) {
+  function conditionText(c, name2) {
     if (c.kind === "together")
-      return `${c.avatars.map(name).join(" and ")} together`;
+      return `${c.avatars.map(name2).join(" and ")} together`;
     return {
-      lit: `${name(c.item)} alight`,
-      ringing: `${name(c.item)} ringing`,
-      covered: `${name(c.item)} under the cloth`,
-      heldBy: `${name(c.avatar)} holds ${name(c.item)}`,
+      lit: `${name2(c.item)} alight`,
+      ringing: `${name2(c.item)} ringing`,
+      covered: `${name2(c.item)} under the cloth`,
+      heldBy: `${name2(c.avatar)} holds ${name2(c.item)}`,
       knows: "the shared news learned"
     }[c.kind];
   }
@@ -19050,7 +20731,7 @@
     const {
       hand: hand2,
       hold: hold2,
-      at: at2,
+      at: at3,
       withAvatars: withAvatars2,
       either: either2,
       available,
@@ -19062,9 +20743,9 @@
     const canGet = (item) => available(item);
     const partner = base.generated.partner;
     const result = (h, consequence) => ({ ...h, consequence });
-    const make = (kind, name, purpose, steps, companion = partner) => ({
+    const make = (kind, name2, purpose, steps, companion = partner) => ({
       ...base,
-      name,
+      name: name2,
       purpose,
       steps,
       generated: {
@@ -19085,11 +20766,11 @@
           [
             hand2(
               hold2("lamp"),
-              at2("attic"),
+              at3("attic"),
               withAvatars2(partner),
               condition("lit", "lamp")
             ),
-            result(hand2(hold2("lamp"), at2("pond"), withAvatars2(partner)), {
+            result(hand2(hold2("lamp"), at3("pond"), withAvatars2(partner)), {
               kind: "anchor"
             })
           ]
@@ -19100,7 +20781,7 @@
       const call = result(
         hand2(
           hold2("bell"),
-          at2("pond"),
+          at3("pond"),
           withAvatars2(partner),
           condition("ringing", "bell")
         ),
@@ -19109,7 +20790,7 @@
       const hush = result(
         hand2(
           hold2("bell", "cloth"),
-          at2("pond"),
+          at3("pond"),
           withAvatars2(partner),
           condition("covered", "bell")
         ),
@@ -19125,7 +20806,7 @@
             "answer",
             answers.length === 1 && answers[0] === hush ? "A quiet shore" : "An answer from below",
             answers.length === 2 ? "Ring at the pond to refill the oil flask, or wrap the bell there to make the shore a refuge until it rings again." : answers[0] === call ? "Ring at the pond to refill the oil flask." : "Wrap the bell at the pond to make the shore a refuge until it rings again.",
-            [hand2(hold2("bell"), at2("station")), either2(...answers)]
+            [hand2(hold2("bell"), at3("station")), either2(...answers)]
           )
         );
     }
@@ -19154,10 +20835,10 @@
             gift?.actorId === avatar ? "Return a kindness" : "A lightened load",
             `Bring the ${api.name(item)} to ${api.name(avatar)} and let them hold it. They will remember the help when you ask for company or a spare.`,
             [
-              hand2(hold2(item), at2(place), withAvatars2(avatar)),
+              hand2(hold2(item), at3(place), withAvatars2(avatar)),
               result(
                 hand2(
-                  at2(place),
+                  at3(place),
                   withAvatars2(avatar),
                   condition("heldBy", item, { avatar })
                 ),
@@ -19177,7 +20858,7 @@
           [
             hand2(
               hold2("lamp"),
-              at2("station"),
+              at3("station"),
               withAvatars2(...others),
               condition("lit", "lamp")
             ),
@@ -19185,7 +20866,7 @@
               ...caretakers.map(
                 (avatar) => result(
                   hand2(
-                    at2("station"),
+                    at3("station"),
                     withAvatars2(avatar),
                     condition("heldBy", "lamp", { avatar })
                   ),
@@ -19383,7 +21064,7 @@
   }
   function rememberEvent(world, entry) {
     if (entry.kind === "quest" || entry.questPlan) return;
-    const related4 = /* @__PURE__ */ new Set([
+    const related4 = new Set(entry.privateTo || [
       entry.locationId,
       entry.fromLocationId,
       entry.actorId,
@@ -19406,7 +21087,8 @@
         seq: entry.seq,
         turn: entry.turn,
         kind: entry.generated ? "expression" : "event",
-        text: `${entry.speaker}: ${entry.text}`.slice(0, 650)
+        text: `${entry.speaker}: ${entry.text}`.slice(0, 650),
+        ...entry.privateTo ? { privateTo: [...entry.privateTo] } : {}
       });
       memory.events = memory.events.slice(-MEMORY_LIMIT);
       if (entry.consequence || entry.kind === "action" && ["give", "trade", "threaten", "attack", "accompany", "choose"].includes(
@@ -19439,6 +21121,7 @@
     if (!world.memories || Object.keys(world.memories).sort().join() !== Object.keys(profiles).sort().join())
       return false;
     return Object.entries(world.memories).every(([id, memory]) => {
+      if (!validPrivateAudience(world, memory?.privateTo)) return false;
       if (memory?.seen !== void 0 && (!memory.seen || typeof memory.seen !== "object" || Array.isArray(memory.seen) || profiles[id].kind !== "avatar" || Object.entries(memory.seen).some(
         ([other, seen]) => other === id || profiles[other]?.kind !== "avatar" || !seen || Object.keys(seen).some(
           (key) => !["place", "turn", "seq"].includes(key)
@@ -19448,7 +21131,7 @@
       if (!memory || !Array.isArray(memory.events) || memory.events.length > MEMORY_LIMIT)
         return false;
       if (!Array.isArray(memory.landmarks) || memory.landmarks.length > 6 || memory.landmarks.some(
-        (event, index) => !event || !Number.isSafeInteger(event.seq) || event.seq < 1 || event.seq > world.eventSeq || index && event.seq <= memory.landmarks[index - 1].seq || !Number.isSafeInteger(event.turn) || event.turn < 0 || event.turn > world.turn || event.kind !== "event" || typeof event.text !== "string" || event.text.length > 650
+        (event, index) => !event || !validPrivateAudience(world, event.privateTo) || !Number.isSafeInteger(event.seq) || event.seq < 1 || event.seq > world.eventSeq || index && event.seq <= memory.landmarks[index - 1].seq || !Number.isSafeInteger(event.turn) || event.turn < 0 || event.turn > world.turn || event.kind !== "event" || typeof event.text !== "string" || event.text.length > 650
       ))
         return false;
       if (memory.text !== null && (typeof memory.text !== "string" || !memory.text.trim() || memory.text.length > 400))
@@ -19458,7 +21141,7 @@
       if (memory.model !== void 0 && (typeof memory.model !== "string" || memory.model.length > 160))
         return false;
       return memory.events.every(
-        (event, index) => event && Number.isSafeInteger(event.seq) && event.seq > 0 && event.seq <= world.eventSeq && (!index || event.seq > memory.events[index - 1].seq) && Number.isSafeInteger(event.turn) && event.turn >= 0 && event.turn <= world.turn && ["event", "expression"].includes(event.kind) && typeof event.text === "string" && event.text.length <= 650
+        (event, index) => event && validPrivateAudience(world, event.privateTo) && Number.isSafeInteger(event.seq) && event.seq > 0 && event.seq <= world.eventSeq && (!index || event.seq > memory.events[index - 1].seq) && Number.isSafeInteger(event.turn) && event.turn >= 0 && event.turn <= world.turn && ["event", "expression"].includes(event.kind) && typeof event.text === "string" && event.text.length <= 650
       );
     });
   }
@@ -19782,8 +21465,8 @@
         place: a.destination || s.actors[id].place
       };
       const last = life.experiences.at(-1);
-      const same2 = last && ["kind", "other", "item", "place"].every((k) => last[k] === e[k]);
-      life.experiences = same2 ? [...life.experiences.slice(0, -1), e] : [...life.experiences, e].slice(-EXPERIENCE_LIMIT);
+      const same3 = last && ["kind", "other", "item", "place"].every((k) => last[k] === e[k]);
+      life.experiences = same3 ? [...life.experiences.slice(0, -1), e] : [...life.experiences, e].slice(-EXPERIENCE_LIMIT);
     }
   }
   var atSanctuary = (s, actor, sanctuaries2) => !sanctuaries2?.length || sanctuaries2.includes(s.actors[actor].place);
@@ -20215,7 +21898,7 @@
 
   // v2/card-game/introductions.mjs
   var introductionPair = (program) => program?.generated?.situation === "introduction" ? program.generated.pair : null;
-  function introductionPrograms(world, actor, base, candidates2, name) {
+  function introductionPrograms(world, actor, base, candidates2, name2) {
     const others = candidates2.filter((id) => id !== actor);
     const previous = Object.values(world.quests?.records || {}).filter(
       (q) => q.subjectActor === actor && q.completedTurn !== null && introductionPair(q.program)
@@ -20239,11 +21922,11 @@
     return pair ? [
       {
         ...base,
-        name: `Get ${name(pair[0])} and ${name(pair[1])} together`.slice(
+        name: `Get ${name2(pair[0])} and ${name2(pair[1])} together`.slice(
           0,
           100
         ),
-        purpose: `Help ${name(pair[0])} and ${name(pair[1])} meet. Visit them in turn.`.slice(
+        purpose: `Help ${name2(pair[0])} and ${name2(pair[1])} meet. Visit them in turn.`.slice(
           0,
           240
         ),
@@ -20279,14 +21962,14 @@
       return world.actors[visit.next].place === world.actors[actor].place ? pair.find((id) => id !== visit.next) : visit.next;
     return pair.find((id) => world.actors[id].place !== world.actors[actor].place) || pair[0];
   }
-  function introductionPlan(world, actor, key, program, { actions, toward: toward2, name }) {
+  function introductionPlan(world, actor, key, program, { actions, toward: toward2, name: name2 }) {
     const pair = introductionPair(program);
     const target = introductionTarget(world, actor, key, program);
     const wait = actions.find((a) => a.kind === "wait");
     if (!target)
       return {
         action: wait,
-        reason: `Give ${pair.map(name).join(" and ")} time to meet.`
+        reason: `Give ${pair.map(name2).join(" and ")} time to meet.`
       };
     const seen = world.memories[actor].seen?.[target];
     const searched = world.introductionVisits?.[actor]?.quest === key ? world.introductionVisits[actor].searched || {} : {};
@@ -20295,7 +21978,7 @@
       action: remembered || actions.filter((a) => a.kind === "move").sort(
         (a, b) => (searched[a.target] ?? -1) - (searched[b.target] ?? -1)
       )[0] || wait,
-      reason: `Look for ${name(target)} and help ${pair.map(name).join(" and ")} meet.`
+      reason: `Look for ${name2(target)} and help ${pair.map(name2).join(" and ")} meet.`
     };
   }
   function validIntroductionProgram(program) {
@@ -20373,7 +22056,7 @@
 
   // v2/card-game/quests.mjs
   var hold = (...items2) => ({ items: items2 });
-  var at = (location) => ({ location });
+  var at2 = (location) => ({ location });
   var withAvatars = (...avatars) => ({ avatars });
   function hand(...parts) {
     const locations2 = [
@@ -20402,10 +22085,10 @@
   }
   var meet = (items2, avatar, locations2) => either(
     ...locations2.map(
-      (location) => hand(hold(...items2), at(location), withAvatars(avatar))
+      (location) => hand(hold(...items2), at2(location), withAvatars(avatar))
     )
   );
-  var carryTo = (items2, location) => hand(hold(...items2), at(location));
+  var carryTo = (items2, location) => hand(hold(...items2), at2(location));
   var questPrograms = { ...forest_default.questPrograms, ...humanQuestPrograms };
   var openingPrograms = {
     ...forest_default.openingPrograms,
@@ -20578,7 +22261,7 @@
     const catalog = situationPrograms(s, actor, base, {
       hand,
       hold,
-      at,
+      at: at2,
       withAvatars,
       either,
       reachable,
@@ -20638,12 +22321,12 @@
   var collectionOf = (s, actor) => lifeOf(s, actor)?.collection;
   var activeRecord = (s, actor) => {
     const c = collectionOf(s, actor);
-    return c && collectionCards(s, actor).find((card) => card.key === c.active) || null;
+    return c && collectionCards(s, actor).find((card2) => card2.key === c.active) || null;
   };
   var rawProgram = (s, actor) => programsFor(s, actor)[s.actors[actor].progress.program] || s.actors[actor].progress.current || null;
-  function currentProgram(s, actor, card) {
-    if (!card) return null;
-    const p = card.program;
+  function currentProgram(s, actor, card2) {
+    if (!card2) return null;
+    const p = card2.program;
     return p.generated ? {
       ...p,
       id: `generated-${actor}-${levelOf(s, actor)}`,
@@ -20668,9 +22351,9 @@
     const joined = questRecords(s).filter(
       (q) => q.participants.includes(actor) && !keys.has(q.key)
     );
-    return [...personal, ...joined].map((card) => ({
-      ...card,
-      status: card.holder ? card.completedTurn !== null || card.retired ? questStatus(s, card) : s.quests.focus[actor] === card.key ? "active" : "pending" : card.status || (card.completedTurn !== null ? "fulfilled" : card.key === c?.active ? "active" : "pending")
+    return [...personal, ...joined].map((card2) => ({
+      ...card2,
+      status: card2.holder ? card2.completedTurn !== null || card2.retired ? questStatus(s, card2) : s.quests.focus[actor] === card2.key ? "active" : "pending" : card2.status || (card2.completedTurn !== null ? "fulfilled" : card2.key === c?.active ? "active" : "pending")
     })).sort(
       (a, b) => ({ active: 0, pending: 1, fulfilled: 2, superseded: 3 })[a.status] - { active: 0, pending: 1, fulfilled: 2, superseded: 3 }[b.status]
     );
@@ -20698,13 +22381,13 @@
       collectedThrough: s.turn
     };
     if (program) {
-      const card = addQuest(s, actor, program, life.origin || null);
-      if (!card) return;
-      card.step = progress.step;
+      const card2 = addQuest(s, actor, program, life.origin || null);
+      if (!card2) return;
+      card2.step = progress.step;
       if (!program.generated) life.collection.authoredThrough += 1;
       if (life.phase === "active") {
-        life.collection.active = card.key;
-        if (!focusedQuest(s, actor)) focusQuest(s, actor, card.key);
+        life.collection.active = card2.key;
+        if (!focusedQuest(s, actor)) focusQuest(s, actor, card2.key);
       }
     }
   }
@@ -20714,7 +22397,7 @@
       (q) => q.completedTurn === null && questCarried(s, actor, q.key)
     ).length >= QUEST_LIMIT || collectionCards(s, actor).length + collectionCards(s, actor, true).length >= COLLECTION_LIMIT)
       return null;
-    const card = {
+    const card2 = {
       key: questKey(actor, c.next++),
       program: structuredClone(program),
       step: 0,
@@ -20722,10 +22405,10 @@
       createdTurn: s.turn,
       completedTurn: null
     };
-    registerPersonalQuest(s, actor, card);
-    c.cards.push(card.key);
+    registerPersonalQuest(s, actor, card2);
+    c.cards.push(card2.key);
     if (program.generated) c.lastOfferTurn = s.turn;
-    return card;
+    return card2;
   }
   function pursueQuest(s, actor, key) {
     const c = collectionOf(s, actor);
@@ -20733,10 +22416,10 @@
     if (!candidate || !canCarryQuest(s, actor, candidate)) return false;
     if (candidate && candidate.subjectActor !== actor)
       return focusQuest(s, actor, key);
-    const card = c && collectionCards(s, actor).find(
+    const card2 = c && collectionCards(s, actor).find(
       (q) => q.key === key && q.completedTurn === null
     );
-    if (!card) return false;
+    if (!card2) return false;
     if (!focusQuest(s, actor, key)) return false;
     c.active = key;
     const life = lifeOf(s, actor);
@@ -20744,21 +22427,21 @@
     life.restLeft = 0;
     life.quiet = 0;
     delete life.restAt;
-    if (card.origin) life.origin = structuredClone(card.origin);
+    if (card2.origin) life.origin = structuredClone(card2.origin);
     else delete life.origin;
-    s.actors[actor].progress.step = card.step;
-    s.actors[actor].progress.current = currentProgram(s, actor, card);
+    s.actors[actor].progress.step = card2.step;
+    s.actors[actor].progress.current = currentProgram(s, actor, card2);
     return true;
   }
   function recordQuestProgress(s, actor, complete, key = activeQuestKey(s, actor)) {
-    const c = collectionOf(s, actor), card = c && collectionCards(s, actor).find((q) => q.key === key);
-    if (!card) return;
-    if (card.lastProgressTurn === s.turn) return;
-    card.step += 1;
-    card.lastProgressTurn = s.turn;
+    const c = collectionOf(s, actor), card2 = c && collectionCards(s, actor).find((q) => q.key === key);
+    if (!card2) return;
+    if (card2.lastProgressTurn === s.turn) return;
+    card2.step += 1;
+    card2.lastProgressTurn = s.turn;
     c.earned += 1;
     if (complete) {
-      card.completedTurn = s.turn;
+      card2.completedTurn = s.turn;
       clearQuestFocus(s, key);
       if (c.active === key) c.active = null;
       const completed = collectionCards(s, actor).filter(
@@ -20801,9 +22484,9 @@
     if (!c) return false;
     const p = s.actors[actor].progress;
     if (c.active) {
-      const card = activeRecord(s, actor);
-      s.actors[actor].progress.step = card.step;
-      s.actors[actor].progress.current = currentProgram(s, actor, card);
+      const card2 = activeRecord(s, actor);
+      s.actors[actor].progress.step = card2.step;
+      s.actors[actor].progress.current = currentProgram(s, actor, card2);
       return true;
     }
     p.step = 0;
@@ -20884,35 +22567,35 @@
   }
 
   // v2/card-game/quest-progress.mjs
-  function captureQuestStep(s, met, card, { handStatus: handStatus2, fulfillment }) {
-    if (met.has(card.key)) return false;
-    const target = alternatives(card.program?.steps[card.step]).find(
-      (hand2) => handStatus2(s, card.actor, hand2).met
+  function captureQuestStep(s, met, card2, { handStatus: handStatus2, fulfillment }) {
+    if (met.has(card2.key)) return false;
+    const target = alternatives(card2.program?.steps[card2.step]).find(
+      (hand2) => handStatus2(s, card2.actor, hand2).met
     );
     if (!target) return false;
-    met.set(card.key, {
-      actor: card.actor,
-      questKey: card.questKey,
-      ...card.shared ? { shared: true } : {},
+    met.set(card2.key, {
+      actor: card2.actor,
+      questKey: card2.questKey,
+      ...card2.shared ? { shared: true } : {},
       capturedSeq: s.eventSeq || 0,
-      step: card.step,
+      step: card2.step,
       target: structuredClone(target),
-      fulfillment: fulfillment(s, card.actor, target)
+      fulfillment: fulfillment(s, card2.actor, target)
     });
     return true;
   }
   function captureQuestHands(s, met, { actorIds: actorIds2, handStatus: handStatus2 }) {
     if (!hasQuestPrograms(s)) return;
-    const capture = (actor, card, shared = false) => captureQuestStep(
+    const capture = (actor, card2, shared = false) => captureQuestStep(
       s,
       met,
       {
-        key: shared ? card.key : card.key ? `${actor}/${card.key}` : actor,
+        key: shared ? card2.key : card2.key ? `${actor}/${card2.key}` : actor,
         actor,
-        questKey: card.key,
+        questKey: card2.key,
         shared,
-        program: card.program,
-        step: card.step
+        program: card2.program,
+        step: card2.step
       },
       {
         handStatus: handStatus2,
@@ -20955,7 +22638,7 @@
           step: s.actors[actor].progress.step
         }
       ];
-      for (const card of cards) capture(actor, card);
+      for (const card2 of cards) capture(actor, card2);
     }
     for (const quest of questRecords(s).filter(
       (q) => q.mode === "shared" && q.completedTurn === null && !q.retired
@@ -20968,13 +22651,13 @@
         if (capture(actor, quest, true)) break;
     }
   }
-  function questStepTransition(record5, evidence, turn) {
-    if (!record5?.program || record5.completedTurn != null || record5.retired || record5.lastProgressTurn === turn || record5.step !== evidence.step || record5.step < 0 || record5.step >= record5.program.steps.length)
+  function questStepTransition(record6, evidence, turn) {
+    if (!record6?.program || record6.completedTurn != null || record6.retired || record6.lastProgressTurn === turn || record6.step !== evidence.step || record6.step < 0 || record6.step >= record6.program.steps.length)
       return null;
     return {
-      step: record5.step,
-      nextStep: record5.step + 1,
-      complete: record5.step + 1 === record5.program.steps.length
+      step: record6.step,
+      nextStep: record6.step + 1,
+      complete: record6.step + 1 === record6.program.steps.length
     };
   }
   var consequenceKey = (effect, actor) => JSON.stringify([effect, effect.kind === "trust" ? actor : null]);
@@ -20999,17 +22682,17 @@
       const actor = evidence.actor;
       const progress = s.actors[actor].progress;
       const collection = lifeOf(s, actor)?.collection;
-      const card = evidence.shared ? questRecord(s, evidence.questKey) : collection && collectionCards(s, actor).find((q) => q.key === evidence.questKey);
-      const record5 = card || (!evidence.shared && !collection ? {
+      const card2 = evidence.shared ? questRecord(s, evidence.questKey) : collection && collectionCards(s, actor).find((q) => q.key === evidence.questKey);
+      const record6 = card2 || (!evidence.shared && !collection ? {
         program: programFor(s, actor),
         step: progress.step,
         lastProgressTurn: progress.marks.at(-1)
       } : null);
-      const transition = questStepTransition(record5, evidence, s.turn);
+      const transition = questStepTransition(record6, evidence, s.turn);
       if (!transition) continue;
       const { step, nextStep, complete } = transition;
       if (evidence.shared) {
-        const quest = card;
+        const quest = card2;
         quest.step = nextStep;
         quest.lastProgressTurn = s.turn;
         if (complete) {
@@ -21047,7 +22730,7 @@
         }
         continue;
       }
-      const source = record5.program;
+      const source = record6.program;
       const programIndex = progress.program;
       const program = source.generated ? {
         ...source,
@@ -21055,10 +22738,10 @@
         generated: { ...source.generated, level: programIndex + 1 }
       } : source;
       const focused = focusedQuest(s, actor);
-      const wasActive = !collection || collection.active === card.key && (!focused || focused.key === card.key);
+      const wasActive = !collection || collection.active === card2.key && (!focused || focused.key === card2.key);
       progress.marks.push(s.turn);
       progress.marks = progress.marks.slice(-32);
-      if (collection) recordQuestProgress(s, actor, complete, card.key);
+      if (collection) recordQuestProgress(s, actor, complete, card2.key);
       else progress.step = nextStep;
       if (complete) {
         finishPersonalQuest(s, actor, program, sanctuaries2, {
@@ -21138,7 +22821,7 @@
   }
 
   // v2/card-game/pack-story-quests.mjs
-  var owns4 = (value, key) => value && Object.hasOwn(value, key);
+  var owns5 = (value, key) => value && Object.hasOwn(value, key);
   var storyKey = (pack, story) => `${pack.id}:${story.key || story.id}`;
   var stateOf = (world, pack) => world.packs?.[pack.id];
   function evidenceTurn(world, pack, source, resolve) {
@@ -21176,15 +22859,15 @@
     const state = stateOf(world, pack);
     switch (rule.kind) {
       case "receipt":
-        return owns4(state?.receipts, rule.choice);
+        return owns5(state?.receipts, rule.choice);
       case "met":
-        return owns4(state?.met, rule.actor);
+        return owns5(state?.met, rule.actor);
       case "flag":
         return (state?.flags?.[rule.key] ?? false) === rule.value;
       case "choice":
         return state?.choices?.[rule.key] === rule.value;
       case "choice_set":
-        return owns4(state?.choices, rule.key);
+        return owns5(state?.choices, rule.key);
       case "quest": {
         const quest = resolve(rule.key);
         return Boolean(quest && (rule.status === "started" || quest.resolved));
@@ -21249,7 +22932,7 @@
             (ending2) => !ending2.when || met(ending2.when)
           );
           const completed = endings.filter(
-            (ending2) => owns4(state.receipts, ending2.choice)
+            (ending2) => owns5(state.receipts, ending2.choice)
           );
           if (story.endingOrder === "earliest")
             completed.sort(
@@ -21407,7 +23090,7 @@
     let definitions;
     return (quest) => {
       definitions ??= new Map(
-        storyDefinitions(world, true).map((card) => [card.key, card])
+        storyDefinitions(world, true).map((card2) => [card2.key, card2])
       );
       return matchesStoryQuest(world, quest, definitions.get(quest.key));
     };
@@ -21651,7 +23334,7 @@
     const old = questRecords(world).find(
       (q) => unfinished2(q) && q.cause?.kind === "help" && q.cause.rootId === cause.rootId && q.program.steps[0]?.passage?.actor === actor && (kind === "directions" || q.program.steps[0].passage.from === from) && q.program.steps[0].passage.to === to && q.program.steps[0].passage.kind === kind
     );
-    const record5 = old || addQuestRecord(world, {
+    const record6 = old || addQuestRecord(world, {
       holder: kind === "directions" ? { kind: "avatar", id: actor } : { kind: "place", id: from },
       cause,
       transientActor: actor,
@@ -21669,8 +23352,8 @@
         ]
       }
     });
-    state.blocked = { kind, from, to, questKey: record5?.key ?? null };
-    return record5;
+    state.blocked = { kind, from, to, questKey: record6?.key ?? null };
+    return record6;
   }
   function shareRoamingDirections(world, actor, api) {
     const state = world.roamingQuests[actor];
@@ -22065,6 +23748,7 @@
       upgradeShoreRouteSave(s);
       upgradeBoardingSave(s);
       upgradeRecitals(s, packDefinitions);
+      upgradeReadingArchives(s, packDefinitions);
     }
     upgradeSightings(s);
     migrateLife(s, profileOf);
@@ -22602,12 +24286,12 @@
   function insideLampRemedy(s, actor) {
     const here = s.actors[actor].place, lamp = itemPlace2(s, "lamp"), oil = itemPlace2(s, "oil");
     if (!atticInterior.has(here) || !ordinaryRouteHome(s, here, lamp, actor) || !ordinaryRouteHome(s, lamp, "attic", actor)) return false;
-    const at2 = (place) => ({ ...s, actors: {
+    const at3 = (place) => ({ ...s, actors: {
       ...s.actors,
       [actor]: { ...s.actors[actor], place }
     } });
-    if (!localGateResource(at2(lamp), lamp, "lamp", actor)) return false;
-    return s.items.lamp.fuel > 0 || s.items.oil.doses > 0 && ordinaryRouteHome(s, here, oil, actor) && ordinaryRouteHome(s, oil, lamp, actor) && localGateResource(at2(oil), oil, "oil", actor);
+    if (!localGateResource(at3(lamp), lamp, "lamp", actor)) return false;
+    return s.items.lamp.fuel > 0 || s.items.oil.doses > 0 && ordinaryRouteHome(s, here, oil, actor) && ordinaryRouteHome(s, oil, lamp, actor) && localGateResource(at3(oil), oil, "oil", actor);
   }
   function pondRescueExit(s, place, actor, previous) {
     actor ||= currentActor(s);
@@ -23422,7 +25106,7 @@
         action.key += ":" + receive;
         out.push(action);
       }
-    out.push(...fixtureOffers(s, actor, sensesFor(s)), ...packChoices(s, actor));
+    out.push(...fixtureOffers(s, actor, sensesFor(s)), ...packChoices(s, actor), ...readingActions(s, actor));
     for (const action of out) {
       if (action.kind === "take" && things[s.items[action.item]?.holder])
         action.label = "Uncover";
@@ -23459,6 +25143,35 @@
   function perform(s, a, capture = () => {
   }, round2 = null) {
     const who = nameOf(a.actor);
+    if (a.kind === "read") {
+      const result = applyReadingAction(s, a);
+      if (result.completion)
+        addLog(
+          s,
+          "World",
+          `${who} completes ${result.completion.label.toLowerCase()}.`,
+          {
+            kind: "action",
+            actorId: a.actor,
+            verb: "choose",
+            packId: a.packId,
+            choiceId: result.completion.id,
+            targetId: result.completion.subject,
+            locationId: result.completion.at
+          }
+        );
+      addLog(s, "World", a.text, {
+        kind: "action",
+        actorId: a.actor,
+        verb: "read",
+        targetId: a.target,
+        privateTo: [...result.privateTo],
+        cast: [...result.privateTo],
+        ...result.hearing ? { hearing: [...result.hearing, s.turn] } : {}
+      });
+      capture();
+      return a.target;
+    }
     const firstCrossing = actorIds.every((id) => s.actors[id].crossed === 0);
     const here = s.actors[a.actor].place;
     const witnesses = [
@@ -24201,7 +25914,7 @@
         state: s,
         error: "The world changed. Choose a current play."
       };
-    const exact = legalActions(s, actor).find((a) => a.key === action?.key);
+    const exact = legalActions(s, actor).find((a) => a.key === action?.key) || resolveReadingReplay(s, actor, action?.key);
     if (!exact)
       return {
         ok: false,
@@ -24390,7 +26103,7 @@
         "This save needs a fresh start. Your previous save is kept until you choose New game."
       );
     };
-    if (!s || s.schema !== 7 || !Number.isSafeInteger(s.turn) || s.turn < 0 || !Number.isSafeInteger(s.revision) || s.revision < s.turn)
+    if (!s || s.readingView !== void 0 || s.schema !== 7 || !Number.isSafeInteger(s.turn) || s.turn < 0 || !Number.isSafeInteger(s.revision) || s.revision < s.turn)
       fail();
     if (!validKnowledge(s, actorIds, Object.keys(places), authoredKnowledgeTopics()))
       fail();
@@ -24495,14 +26208,14 @@
       const collection = lifeOf(s, id)?.collection;
       if (collection) {
         const cards = collectionCards(s, id);
-        const archive = collectionCards(s, id, true);
-        if (!Array.isArray(cards) || cards.length > 32 || !Array.isArray(archive) || cards.length + archive.length > 256 || archive.some(
+        const archive2 = collectionCards(s, id, true);
+        if (!Array.isArray(cards) || cards.length > 32 || !Array.isArray(archive2) || cards.length + archive2.length > 256 || archive2.some(
           (q) => !q || typeof q.key !== "string" || !q.key.startsWith(`${id}:quest:`) || q.key.length > 80 || !validQuestOrigin(s, q.origin) || !q.program || typeof q.program.id !== "string" || typeof q.program.name !== "string" || q.program.name.length > 120 || typeof q.program.purpose !== "string" || q.program.purpose.length > 240 || !Array.isArray(q.program.steps) || q.program.steps.length !== 0 || !Number.isInteger(q.totalSteps) || q.totalSteps < 1 || q.totalSteps > 32 || q.step !== q.totalSteps || !Number.isSafeInteger(q.createdTurn) || q.createdTurn < 0 || !Number.isSafeInteger(q.completedTurn) || q.completedTurn < q.createdTurn || q.completedTurn > s.turn
-        ) || new Set([...cards, ...archive].map((q) => q.key)).size !== cards.length + archive.length || !Number.isSafeInteger(collection.next) || collection.next < cards.length + archive.length || !Number.isSafeInteger(collection.earned) || collection.earned < 0 || collection.earned > s.turn * 8 || !Number.isSafeInteger(collection.archivedCompleted) || collection.archivedCompleted < 0 || !Number.isSafeInteger(collection.authoredThrough) || collection.authoredThrough < 0 || collection.authoredThrough > programs.length || !Number.isSafeInteger(collection.collectedThrough) || collection.collectedThrough < 0 || collection.collectedThrough > s.turn || collection.lastOfferTurn !== void 0 && (!Number.isSafeInteger(collection.lastOfferTurn) || collection.lastOfferTurn < 0 || collection.lastOfferTurn > s.turn) || new Set(cards.map((q) => q.key)).size !== cards.length || cards.filter(
+        ) || new Set([...cards, ...archive2].map((q) => q.key)).size !== cards.length + archive2.length || !Number.isSafeInteger(collection.next) || collection.next < cards.length + archive2.length || !Number.isSafeInteger(collection.earned) || collection.earned < 0 || collection.earned > s.turn * 8 || !Number.isSafeInteger(collection.archivedCompleted) || collection.archivedCompleted < 0 || !Number.isSafeInteger(collection.authoredThrough) || collection.authoredThrough < 0 || collection.authoredThrough > programs.length || !Number.isSafeInteger(collection.collectedThrough) || collection.collectedThrough < 0 || collection.collectedThrough > s.turn || collection.lastOfferTurn !== void 0 && (!Number.isSafeInteger(collection.lastOfferTurn) || collection.lastOfferTurn < 0 || collection.lastOfferTurn > s.turn) || new Set(cards.map((q) => q.key)).size !== cards.length || cards.filter(
           (q) => q.completedTurn === null && questCarried(s, id, q.key)
         ).length > 8 || cards.some(
           (q) => !q || typeof q.key !== "string" || !q.key.startsWith(`${id}:quest:`) || q.key.length > 80 || !validQuestOrigin(s, q.origin) || q.lastProgressTurn !== void 0 && (!Number.isSafeInteger(q.lastProgressTurn) || q.lastProgressTurn < q.createdTurn || q.lastProgressTurn > s.turn) || !validProgram(q.program, id, s) || !Number.isInteger(q.step) || q.step < 0 || !Number.isSafeInteger(q.createdTurn) || q.createdTurn < 0 || q.createdTurn > s.turn || (q.completedTurn === null ? q.step >= q.program.steps.length : !Number.isSafeInteger(q.completedTurn) || q.completedTurn < q.createdTurn || q.completedTurn > s.turn || q.step !== q.program.steps.length)
-        ) || collection.archivedCompleted + archive.length + cards.filter((q) => q.completedTurn !== null).length !== progress.program || collection.active !== null && !cards.some(
+        ) || collection.archivedCompleted + archive2.length + cards.filter((q) => q.completedTurn !== null).length !== progress.program || collection.active !== null && !cards.some(
           (q) => q.key === collection.active && q.completedTurn === null && q.step === progress.step
         ) || collection.active === null && progress.step !== 0 || !Array.isArray(progress.marks) || progress.marks.length !== Math.min(32, collection.earned) || progress.marks.some(
           (turn, i) => !Number.isSafeInteger(turn) || turn < 1 || turn > s.turn || i > 0 && turn < progress.marks[i - 1]
@@ -24590,9 +26303,12 @@
       "wait",
       "trade",
       "choose",
+      "read",
       "use"
     ];
     for (const e of s.log) {
+      if (!validPrivateAudience(s, e.privateTo)) fail();
+      if (!validHearingRef(s, e.hearing, e.privateTo, e.turn, e.locationId)) fail();
       if (e.seq !== void 0) {
         if (!Number.isSafeInteger(e.seq) || e.seq <= seq || e.seq > s.eventSeq)
           fail();
@@ -24704,8 +26420,8 @@
   };
   var locations = {};
   function group(region, exposure, names2) {
-    for (const name of names2.split(" "))
-      locations[`greek-${name}`] = { region, exposure };
+    for (const name2 of names2.split(" "))
+      locations[`greek-${name2}`] = { region, exposure };
   }
   group("boeotia", "coast", "harbor aulis ship");
   group("boeotia", "court", "courtyard well palace");

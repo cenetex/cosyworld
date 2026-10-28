@@ -1,4 +1,6 @@
 import { recordRecital, recitalVisit, validRecitals } from "./pack-recital.mjs";
+import { validPoemReadings, completedHeardReading } from "./poem-readings.mjs";
+import { readingCatalogs } from "./poem-catalogs.mjs";
 import { boardyPack, BOARDY, boardyActive } from "./boardyai.mjs";
 import { sectionAllows } from "./pack-sections.mjs";
 import { journeyNextPlace, validJourneyPlaces } from "./pack-journeys.mjs";
@@ -337,9 +339,15 @@ export function actorCanVisit(actor, place, world = null) {
   if (a ? destination?.packId === a.packId : !destination) return true;
   const home = a?.packId ?? null,
     target = destination?.packId ?? null;
-  if (crossings.some((crossing) => crossing.travelers === "any" &&
-    (packPlaces[crossing.from]?.packId ?? null) === home &&
-    (packPlaces[crossing.to]?.packId ?? null) === target)) return true;
+  if (
+    crossings.some(
+      (crossing) =>
+        crossing.travelers === "any" &&
+        (packPlaces[crossing.from]?.packId ?? null) === home &&
+        (packPlaces[crossing.to]?.packId ?? null) === target,
+    )
+  )
+    return true;
   return Object.entries(transports).some(([id, t]) => {
     const domains = t.docks.map((dock) => packPlaces[dock]?.packId ?? null);
     return (
@@ -385,7 +393,11 @@ export function packChoices(world, actor = "vale") {
   if (!controlledByHuman(world, actor)) return [];
   return packDefinitions.flatMap((pack) =>
     (pack.choices || [])
-      .filter((c) => choiceFeasible(world, pack, c, actor))
+      .filter(
+        (c) =>
+          !pack.recital?.sites?.some((site) => site.completion === c.id) &&
+          choiceFeasible(world, pack, c, actor),
+      )
       .map((c) => ({
         kind: "choose",
         actor,
@@ -406,6 +418,19 @@ export function applyPackChoice(world, action) {
   if (!choice || !choiceFeasible(world, pack, choice, action.actor))
     throw new Error("That choice is no longer available.");
   const state = packState(world, pack.id);
+  for (const condition of choice.requires || [])
+    if (condition.kind === "reading_complete") {
+      const id = completedHeardReading(
+        state.poemReadings,
+        condition.site,
+        action.actor,
+      );
+      if (!id)
+        throw new Error(
+          "Hear the complete reading before choosing its return voice.",
+        );
+      state.poemReadings.decisions[choice.id] = id;
+    }
   for (const e of choice.effects) {
     if (e.kind === "choose") state.choices[e.key] = e.value;
     if (e.kind === "set_flag") state.flags[e.key] = e.value;
@@ -516,6 +541,13 @@ export function validatePackStates(world) {
     if (
       !record(state) ||
       !validRecitals(world, pack) ||
+      (pack.recital?.sites?.length &&
+        !validPoemReadings(
+          world,
+          pack,
+          readingCatalogs[pack.id],
+          state.poemReadings,
+        )) ||
       !validJourneyPlaces(world, pack) ||
       state.revision !== pack.revision ||
       !["opening", "full"].includes(state.scope) ||
@@ -529,6 +561,7 @@ export function validatePackStates(world) {
           "met",
           "scope",
           ...(pack.recital ? ["recitals"] : []),
+          ...(pack.recital?.sites?.length ? ["poemReadings"] : []),
         ]
           .sort()
           .join() ||
