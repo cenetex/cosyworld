@@ -1387,6 +1387,11 @@ body[data-place="attic"][data-lamplit="true"] .scene-shade::after {
 body[data-place="attic"] .cast[data-count="1"] .portrait[data-avatar="vale"] {
   left: 75%;
 }
+@media (max-width: 700px) {
+  body[data-place="attic"] .cast[data-count="1"] .portrait[data-avatar="vale"] {
+    left: 50%;
+  }
+}
 body[data-place="attic"] .card {
   background-color: #0d131c;
   border-color: #847961;
