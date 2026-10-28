@@ -110,6 +110,8 @@ let world = sharedSession
   shownItems = {},
   savedHandChoices = "",
   frontQuests = {},
+  frontLocations = {},
+  expandedLocations = new Set(),
   shownHolders = new Set(),
   currentHandLayout = new Map(),
   expandedHolders = new Set(),
@@ -814,8 +816,18 @@ function keepHandChoices() {
   for (const [holder, item] of Object.entries(shownItems))
     if (!world.items[item] || rootHolder(world, item) !== holder)
       delete shownItems[holder];
+  for (const holder of shownHolders)
+    if (!available.has(holder)) shownHolders.delete(holder);
+  for (const [holder, key] of Object.entries(frontQuests))
+    if (!questCards(world, holder).some((quest) => quest.key === key))
+      delete frontQuests[holder];
   for (const holder of expandedHolders)
     if (!available.has(holder)) expandedHolders.delete(holder);
+  const here = world.actors[currentActor(world)].place;
+  for (const holder of expandedLocations)
+    if (holder !== here) expandedLocations.delete(holder);
+  if (frontLocations[here] && !available.has(frontLocations[here]))
+    delete frontLocations[here];
   for (const holder of expandedQuestHolders)
     if (!available.has(holder)) expandedQuestHolders.delete(holder);
   selectionRevision = world.revision;
@@ -841,16 +853,22 @@ function choose(id) {
     !info.expanded &&
     !selected.includes(id)
   ) {
-    (quest ? expandedQuestHolders : expandedHolders).add(info.holder);
+    (info.kind === "location"
+      ? expandedLocations
+      : quest
+        ? expandedQuestHolders
+        : expandedHolders
+    ).add(info.holder);
     shownHolders.add(info.holder);
     render();
     revealHandCard(id);
     return;
   }
-  if (people[id] || places[id]) {
+  if (people[id] || id === world.actors[currentActor(world)].place) {
     shownHolders.add(id);
     expandedHolders.delete(id);
     expandedQuestHolders.delete(id);
+    expandedLocations.delete(id);
   }
   if (!selected.includes(id) && selected.length >= 2) {
     render();
@@ -870,7 +888,10 @@ function choose(id) {
       : [...selected, id],
   );
   const holder = things[id] ? rootHolder(world, id) : null;
-  if (people[holder] && selected.includes(id)) shownItems[holder] = id;
+  if ((people[holder] || places[holder]) && selected.includes(id))
+    shownItems[holder] = id;
+  if (info?.kind === "location" && selected.includes(id))
+    frontLocations[info.holder] = id;
   selectionRevision = world.revision;
   render();
   $("hand")
@@ -1407,6 +1428,18 @@ function sharedQueuePortrait(actor) {
   frameFigure(image);
   return image;
 }
+function frontItemChoices() {
+  const choices = { ...shownItems };
+  for (const [id, info] of currentHandLayout)
+    if (
+      info.kind === "item" &&
+      info.front &&
+      !info.hidden &&
+      people[info.holder]
+    )
+      choices[info.holder] ??= id;
+  return choices;
+}
 function renderActions(animate = false) {
   const row = $("card-actions"),
     panel = document.querySelector(".action-panel"),
@@ -1424,7 +1457,7 @@ function renderActions(animate = false) {
         ),
         hint: quest.purpose,
       }
-    : cardActions(world, selected, shownItems);
+    : cardActions(world, selected, frontItemChoices());
   const selectionName = quest ? quest.title : selected.map(nameOf).join(" + ");
   $("selection-name").textContent = selected.length
     ? selectionName
@@ -1437,7 +1470,8 @@ function renderActions(animate = false) {
     selected.length > 0 ||
       dragging.length > 0 ||
       expandedHolders.size > 0 ||
-      expandedQuestHolders.size > 0,
+      expandedQuestHolders.size > 0 ||
+      expandedLocations.size > 0,
   );
   const revision = world.revision;
   const nudgeTarget =
@@ -1522,6 +1556,8 @@ function updateCardSelection(frame) {
       : fresh.has(id),
   );
   const info = currentHandLayout.get(id);
+  if (info?.holder) frame.dataset.holder = info.holder;
+  else delete frame.dataset.holder;
   frame.hidden = Boolean(info?.hidden);
   frame.dataset.stacked = String(Boolean(info?.stacked));
   frame.dataset.stackIndex = String(info?.index || 0);
@@ -2335,6 +2371,8 @@ function render() {
       selected,
       shownItems,
       shownQuests: frontQuests,
+      frontLocations,
+      expandedLocations,
       shownHolders,
       expandedHolders,
       expandedQuestHolders,
@@ -2355,6 +2393,8 @@ function render() {
     selected,
     shownItems,
     frontQuests,
+    frontLocations,
+    [...expandedLocations],
     [...shownHolders],
     [...expandedHolders],
     [...fresh],
@@ -2556,6 +2596,7 @@ document.addEventListener("keydown", (e) => {
     selected = [];
     expandedHolders.clear();
     expandedQuestHolders.clear();
+    expandedLocations.clear();
     render();
   }
 });
@@ -2640,6 +2681,8 @@ $("confirm-reset").onclick = () => {
   selected = [];
   shownItems = {};
   frontQuests = {};
+  frontLocations = {};
+  expandedLocations.clear();
   shownHolders.clear();
   expandedHolders.clear();
   expandedQuestHolders.clear();
@@ -2885,7 +2928,7 @@ try {
   const saved = JSON.parse(localStorage.getItem(`${SAVE_KEY}.hand`) || "{}");
   for (const [holder, item] of Object.entries(saved.items || {}))
     if (
-      people[holder] &&
+      (people[holder] || places[holder]) &&
       things[item] &&
       world.items[item] &&
       rootHolder(world, item) === holder
@@ -2893,6 +2936,8 @@ try {
       shownItems[holder] = item;
   for (const [holder, key] of Object.entries(saved.quests || {}))
     if (people[holder] && typeof key === "string") frontQuests[holder] = key;
+  for (const [holder, place] of Object.entries(saved.locations || {}))
+    if (places[holder] && places[place]) frontLocations[holder] = place;
   shownHolders = new Set(
     (Array.isArray(saved.holders) ? saved.holders : []).filter(
       (id) => people[id] || places[id],
@@ -2903,6 +2948,7 @@ function rememberHandChoices() {
   const value = JSON.stringify({
     items: shownItems,
     quests: frontQuests,
+    locations: frontLocations,
     holders: [...shownHolders],
   });
   if (value === savedHandChoices) return;

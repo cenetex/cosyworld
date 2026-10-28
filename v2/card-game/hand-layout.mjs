@@ -1,4 +1,4 @@
-import { things, rootHolder } from "./world.mjs";
+import { places, things, rootHolder, currentActor } from "./world.mjs";
 import { isQuestCard, questForCard } from "./quest-cards.mjs";
 
 // Each collection has a front card. Opening a stack only changes its layout.
@@ -7,16 +7,22 @@ export function handLayout(world, cards, view, notice = null) {
     selected,
     shownItems,
     shownQuests,
+    frontLocations,
+    expandedLocations,
     shownHolders,
     expandedHolders,
     expandedQuestHolders,
   } = view;
+  const here = world.actors[currentActor(world)].place;
   const groups = new Map();
   const layout = new Map();
   for (const id of cards) {
     const quest = isQuestCard(id) ? questForCard(world, id, notice) : null;
-    const holder = quest?.actor || (things[id] ? rootHolder(world, id) : null);
-    const kind = quest ? "quest" : "item";
+    const destination = places[id] && id !== here;
+    const holder =
+      quest?.actor ||
+      (destination ? here : things[id] ? rootHolder(world, id) : null);
+    const kind = quest ? "quest" : destination ? "location" : "item";
     layout.set(id, {
       holder,
       hidden: false,
@@ -34,17 +40,24 @@ export function handLayout(world, cards, view, notice = null) {
     const front =
       kind === "item"
         ? shownItems[holder]
-        : deck.find(
-            (id) =>
-              questForCard(world, id, notice)?.key === shownQuests[holder],
-          );
+        : kind === "location"
+          ? frontLocations[holder]
+          : deck.find(
+              (id) =>
+                questForCard(world, id, notice)?.key === shownQuests[holder],
+            );
     const expanded = (
-      kind === "item" ? expandedHolders : expandedQuestHolders
+      kind === "item"
+        ? expandedHolders
+        : kind === "location"
+          ? expandedLocations
+          : expandedQuestHolders
     ).has(holder);
     const shown =
       shownHolders.has(holder) ||
       selected.includes(holder) ||
       Boolean(shownItems[holder]) ||
+      Boolean(shownQuests[holder]) ||
       deck.some((id) => selected.includes(id));
     const sorted = expanded
       ? deck

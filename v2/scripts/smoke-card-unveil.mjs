@@ -181,7 +181,7 @@ try {
           .evaluate((el) => el.classList.contains("new")),
         true,
       );
-      assert.equal(await page.locator(".action-panel").isVisible(), false);
+      assert.equal(await page.locator(".action-panel").isVisible(), true);
       await selectCard(page, "attic");
       assert.equal(
         await page

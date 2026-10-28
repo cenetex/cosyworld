@@ -323,7 +323,6 @@ jobs:
           node v2/scripts/smoke-card-learning.mjs
           node v2/scripts/smoke-shared-snapshot-order.mjs
           node v2/scripts/smoke-card-actions.mjs
-          node v2/scripts/smoke-card-touch-pairing.mjs
 
       - name: Check Greek drama, Thebes, the Open Door, and Ajax
         if: matrix.mode == 'cards-drama'

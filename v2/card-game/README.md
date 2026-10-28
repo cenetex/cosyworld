@@ -120,8 +120,8 @@ its selection. A pair stays raised until a selected card is tapped again or
 Escape clears it. A third card gives the pair a small glow. Completed plays
 keep selected cards that remain in the current hand.
 Selecting a card or pair shows named actions in the row below.
-Tapping an action button plays it. The current place leads the hand, followed
-by items lying there, avatars with their carried items, and travel destinations.
+Tapping an action button plays it. The hand groups each avatar with their
+cards. The current place groups loose items and travel destinations.
 Arrival starts the hand at the new current place. Selection keeps its scroll position.
 On wide screens, the resting hand occupies two card widths at the right. Dialogue
 sits at the left. Selecting a card opens the hand across the screen and moves
@@ -139,7 +139,10 @@ stack shows its front card and the edges of the other cards. Tap a stack to
 spread that collection, then tap a card to select it. Tap the avatar again to
 fold both stacks. The chosen front item and quest stay with their avatar while
 you select other cards. Front choices survive a reload. Item custody controls
-which avatar owns each item stack.
+which avatar owns each item stack. The current place uses the same pattern:
+its items form one stack and its open paths form another. Tap the place to show
+these stacks, spread either stack, then choose an item or destination. Tapping
+the current place folds its stacks. The chosen front item stays with that place.
 
 The latest selected carried item appears in the player's avatar hand.
 Clicking the scene keeps the active pair. Tap a raised card again or press

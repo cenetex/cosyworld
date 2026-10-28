@@ -264,6 +264,120 @@ try {
       await page.close();
     }
   }
+  for (const width of [1440, 390]) {
+    const world = enableMotives(createWorld(), { personalQuests: true });
+    world.actors.vale.place = "greek-gate";
+    world.crossings["pond-greek-harbor"].discovered = true;
+    world.items.lamp.holder = world.items.oil.holder = "greek-gate";
+    const table = `location-stacks-${width}`;
+    const key = `cosyworld.reflected-shore.v1.${table}`;
+    const page = await browser.newPage({
+      viewport: { width, height: width === 390 ? 844 : 900 },
+      hasTouch: width === 390,
+      reducedMotion: "reduce",
+    });
+    const errors = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.addInitScript(
+      ({ key, save, seen, quests }) => {
+        localStorage.setItem(key, save);
+        localStorage.setItem(`${key}.seen`, JSON.stringify(seen));
+        localStorage.setItem(
+          `${key}.quests`,
+          JSON.stringify({ seen: quests, read: quests }),
+        );
+        localStorage.setItem("cosyworld.dialogue.sound", "off");
+        localStorage.setItem(
+          "cosyworld.room-music",
+          JSON.stringify({ enabled: false }),
+        );
+      },
+      {
+        key,
+        save: encodeSave(world),
+        seen: availableCards(world),
+        quests: Object.keys(people).flatMap((id) =>
+          questCards(world, id).map((q) => q.key),
+        ),
+      },
+    );
+    await page.route("**/card-game/text", (route) =>
+      route.fulfill({ status: 503, json: { error: "fixture" } }),
+    );
+    const card = (id) => page.locator(`#hand [data-card="${id}"]`);
+    const frame = (id) => card(id).locator("..");
+    const tap = async (id) => {
+      await card(id).scrollIntoViewIfNeeded();
+      if (width === 390) await card(id).tap();
+      else await card(id).click();
+    };
+    try {
+      await page.goto(
+        `http://127.0.0.1:${server.address().port}/?table=${table}`,
+      );
+      await card("greek-gate").waitFor();
+      assert.equal(await card("greek-well").isVisible(), false);
+      await tap("greek-gate");
+      assert.equal(await card("lamp").isVisible(), true);
+      assert.equal(await frame("oil").getAttribute("data-stacked"), "true");
+      assert.equal(
+        await frame("greek-well").getAttribute("data-stacked"),
+        "true",
+      );
+      const itemFront = await page
+        .locator(
+          '#hand [data-holder="greek-gate"][data-stack-kind="item"][data-stack-index="0"] .card',
+        )
+        .getAttribute("data-card");
+      await tap(itemFront);
+      assert.equal(await frame("oil").getAttribute("data-stacked"), "false");
+      assert.equal(
+        await frame("greek-well").getAttribute("data-stacked"),
+        "true",
+      );
+      await tap("greek-courtyard");
+      assert.equal(
+        await frame("greek-well").getAttribute("data-stacked"),
+        "false",
+      );
+      await tap("oil");
+      await tap("greek-gate");
+      assert.equal(await frame("oil").getAttribute("data-stack-index"), "0");
+      assert.equal(await frame("lamp").getAttribute("data-stacked"), "true");
+      assert.equal(
+        await frame("greek-well").getAttribute("data-stacked"),
+        "true",
+      );
+      await tap("oil");
+      await tap("greek-courtyard");
+      await tap("greek-well");
+      assert.equal(
+        await page.locator('#card-actions [data-action="move"]').innerText(),
+        "Travel",
+      );
+      await page.screenshot({
+        path: new URL(`location-stacks-${width}.png`, output).pathname,
+      });
+      await page.locator('#card-actions [data-action="move"]').click();
+      await page.waitForFunction(
+        (key) =>
+          JSON.parse(localStorage.getItem(key)).actors.vale.place ===
+          "greek-well",
+        key,
+      );
+      assert.deepEqual(errors, []);
+      console.log(
+        `${browserName} ${width}px: current place, separate item and route stacks, folding, front item and travel passed.`,
+      );
+    } catch (error) {
+      await page.screenshot({
+        path: new URL(`location-failure-${width}.png`, output).pathname,
+      });
+      throw error;
+    } finally {
+      await page.close();
+    }
+  }
 } finally {
   await browser.close();
   server.closeAllConnections();
