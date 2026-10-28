@@ -358,4 +358,87 @@ describe("agreed resident journeys", () => {
       ),
     ).toBe(true);
   });
+
+  it("keeps the reserved departure for the resident while the human waits ashore", () => {
+    let world = independentSail();
+    pack.avatars[resident].journey.exclusive = true;
+    packPeople[resident].journey.exclusive = true;
+    expect(packProblems(pack, hub, mountedPlaces)).toEqual([]);
+    world = act(world, "move", { target: "greek-harbor" });
+    const staleBoard = legalActions(world).find(
+      (a) => a.kind === "move" && a.target === "greek-ship",
+    );
+    expect(staleBoard).toBeDefined();
+    world = act(world, "move", { target: "greek-courtyard" });
+    world = act(world, "choose", { choiceId: agreement });
+    world = act(world, "move", { target: "greek-harbor" });
+    expect(world.actors[resident].place).toBe("greek-ship");
+    expect(
+      legalActions(world).some(
+        (a) => a.kind === "move" && a.target === "greek-ship",
+      ),
+    ).toBe(false);
+    const rejected = play(world, staleBoard, world.revision);
+    expect(rejected.ok).toBe(false);
+    expect(rejected.state).toEqual(world);
+    const forged = structuredClone(world);
+    forged.actors.vale.place = "greek-ship";
+    expect(() => decodeSave(JSON.stringify(forged))).toThrow();
+    for (
+      let turn = 0;
+      turn < 16 &&
+      !legalActions(world).some(
+        (a) => a.kind === "move" && a.target === "greek-ship",
+      );
+      turn++
+    )
+      world = act(world, "wait");
+    expect(world.actors[resident].place).toBe("greek-athens-harbor");
+    expect(world.actors.vale.place).toBe("greek-harbor");
+    world = act(world, "move", { target: "greek-ship" });
+    expect(world.actors.vale.place).toBe("greek-ship");
+  });
+
+  it("waits for the existing passengers to leave before the reserved voyage", () => {
+    let world = independentSail();
+    pack.avatars[resident].journey.exclusive = true;
+    packPeople[resident].journey.exclusive = true;
+    world = act(world, "choose", { choiceId: agreement });
+    // A second human can already be aboard when the agreement is recorded.
+    // This state isolates that boarding guard before the next legal move.
+    world.actors.vale.place = "greek-ship";
+    world.transports["greek-ship"].destination = "pond";
+    expect(
+      legalActions(world, resident).some(
+        (a) => a.kind === "move" && a.target === "greek-ship",
+      ),
+    ).toBe(false);
+    world = act(world, "move", { target: "pond" });
+    expect(world.actors[resident].place).toBe("greek-harbor");
+    world = act(world, "move", { target: "greek-ship" });
+    world = act(world, "move", { target: "greek-harbor" });
+    expect(world.actors[resident].place).toBe("greek-ship");
+    expect(world.actors.vale.place).toBe("greek-harbor");
+    world = act(world, "wait");
+    expect(world.actors[resident].place).toBe("greek-athens-harbor");
+  });
+
+  it("requires an independent shore-to-shore path for a reserved departure", () => {
+    independentSail();
+    const journey = pack.avatars[resident].journey;
+    journey.exclusive = true;
+    delete journey.independent;
+    expect(
+      packProblems(pack, hub, mountedPlaces).some((problem) =>
+        problem.includes("simple connected path"),
+      ),
+    ).toBe(true);
+    journey.independent = true;
+    journey.path.pop();
+    expect(
+      packProblems(pack, hub, mountedPlaces).some((problem) =>
+        problem.includes("simple connected path"),
+      ),
+    ).toBe(true);
+  });
 });

@@ -179,6 +179,7 @@ import {
   transportExits,
   waitForTransport,
   transportArrival,
+  transportBoardingAllowed,
   preserveTransportAccess,
 } from "./pack-transport.mjs";
 import { upgradeSave } from "./legacy-saves.mjs";
@@ -483,6 +484,7 @@ export function exits(s, place, actor = null, previous = null) {
     (to) =>
       entityActive(s, to) &&
       actorCanVisit(actor, to, s) &&
+      transportBoardingAllowed(s, actor, to) &&
       humanRoomAvailable(s, actor, to),
   );
 }

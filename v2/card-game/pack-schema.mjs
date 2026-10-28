@@ -894,9 +894,12 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     for (const [index, journey] of options.entries()) {
       const agreement = agreements[index];
       check(
-        keysOk(journey, ["after", "path", "independent"]) &&
+        keysOk(journey, ["after", "path", "independent", "exclusive"]) &&
           (journey.independent === undefined ||
             typeof journey.independent === "boolean") &&
+          (journey.exclusive === undefined ||
+            typeof journey.exclusive === "boolean") &&
+          (journey.exclusive !== true || journey.independent === true) &&
           !hub.avatars.includes(id) &&
           avatar.travels === false &&
           avatar.roamingQuest === undefined &&
@@ -911,6 +914,15 @@ export function packProblems(pack, hub, mountedPlaces = []) {
             Object.values(pack.transports || {}).some((transport) =>
               journey.path.includes(transport.place),
             )) &&
+          (journey.exclusive !== true ||
+            (Object.values(pack.transports || {}).filter((transport) =>
+              journey.path.includes(transport.place),
+            ).length === 1 &&
+              Object.values(pack.transports || {}).every(
+                (transport) =>
+                  journey.path[0] !== transport.place &&
+                  journey.path.at(-1) !== transport.place,
+              ))) &&
           journey.path.slice(1).every((to, i) => {
             const from = journey.path[i];
             return (

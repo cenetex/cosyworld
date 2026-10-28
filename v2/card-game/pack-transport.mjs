@@ -1,11 +1,32 @@
 import { controlledByHuman } from "./human-cast.mjs";
-import { transports, crossings, entityActive } from "./pack-registry.mjs";
+import {
+  transports,
+  crossings,
+  entityActive,
+  packJourneyReservations,
+} from "./pack-registry.mjs";
 
 // Every rider shares the ship’s voyage.
 export const passengers = (s, id) =>
   Object.entries(s.actors)
     .filter(([, a]) => a.place === transports[id].place)
     .map(([, a]) => a);
+
+export function transportBoardingAllowed(s, actor, place) {
+  if (!actor) return true;
+  const found = Object.entries(transports).find(([, t]) => t.place === place);
+  if (!found) return true;
+  const [id] = found;
+  const reservations = packJourneyReservations(s).filter(
+    (r) => r.place === place,
+  );
+  const reserved =
+    reservations.find((r) => r.aboard) ||
+    reservations.find((r) => r.from === s.transports[id].dock);
+  return (
+    !reserved || (reserved.actor === actor && passengers(s, id).length === 0)
+  );
+}
 
 export function installTransports(s) {
   s.transports ??= {};

@@ -352,6 +352,13 @@ for the vessel at its saved dock. A human aboard chooses the shared arrival
 first. The resident steps ashore when that arrival matches the agreed path.
 After arrival they remain at the path's end. The other journeys use Accompany.
 
+For a paid reserved departure, an independent journey can set `exclusive: true`.
+It starts and ends ashore with one vessel between them. The resident boards
+after the existing passengers leave. The vessel carries that resident through
+the reserved leg while everyone else waits ashore. Ordinary boarding opens
+again after arrival. This uses the ship's saved position and the resident's
+agreed path. Save validation keeps that reserved voyage consistent.
+
 When a human waits at a port, an empty ship advances through its open docks.
 An occupied ship keeps its voyage and passengers. Reload restores that same
 position, destination, and waiting party.

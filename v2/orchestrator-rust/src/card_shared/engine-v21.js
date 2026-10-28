@@ -2091,11 +2091,26 @@
     const agreed = agreedJourneys(world, pack, id);
     return agreed.length === 1 && agreed[0].independent === true ? journeyNextPlace(world, pack, id) : null;
   }
+  function journeyReservation(world, pack, id) {
+    const agreed = agreedJourneys(world, pack, id);
+    if (agreed.length !== 1 || agreed[0].exclusive !== true) return null;
+    const from = world.actors[id]?.place;
+    const next = journeyNextPlace(world, pack, id);
+    const vessel = Object.values(pack.transports || {}).find(
+      (transport) => transport.place === from || transport.place === next
+    );
+    return vessel ? { actor: id, place: vessel.place, from, aboard: from === vessel.place } : null;
+  }
   function validJourneyPlaces(world, pack) {
     return Object.entries(pack.avatars).every(([id, avatar]) => {
       if (!avatar.journey) return true;
       const agreed = agreedJourneys(world, pack, id);
       const place = world.actors[id]?.place;
+      const reservation = journeyReservation(world, pack, id);
+      if (reservation?.aboard && Object.entries(world.actors).some(
+        ([other, actor]) => other !== id && actor.place === reservation.place
+      ))
+        return false;
       return agreed.length ? agreed.length === 1 && agreed[0].path.includes(place) : place === avatar.place;
     });
   }
@@ -19498,8 +19513,12 @@
       for (const [index, journey] of options.entries()) {
         const agreement = agreements[index];
         check(
-          keysOk2(journey, ["after", "path", "independent"]) && (journey.independent === void 0 || typeof journey.independent === "boolean") && !hub2.avatars.includes(id) && avatar.travels === false && avatar.roamingQuest === void 0 && idOk2(journey.after) && Array.isArray(journey.path) && journey.path.length >= 2 && journey.path.length <= 8 && new Set(journey.path).size === journey.path.length && journey.path[0] === avatar.place && journey.path.every((place) => owns2(places2, place)) && (journey.independent !== true || Object.values(pack.transports || {}).some(
+          keysOk2(journey, ["after", "path", "independent", "exclusive"]) && (journey.independent === void 0 || typeof journey.independent === "boolean") && (journey.exclusive === void 0 || typeof journey.exclusive === "boolean") && (journey.exclusive !== true || journey.independent === true) && !hub2.avatars.includes(id) && avatar.travels === false && avatar.roamingQuest === void 0 && idOk2(journey.after) && Array.isArray(journey.path) && journey.path.length >= 2 && journey.path.length <= 8 && new Set(journey.path).size === journey.path.length && journey.path[0] === avatar.place && journey.path.every((place) => owns2(places2, place)) && (journey.independent !== true || Object.values(pack.transports || {}).some(
             (transport) => journey.path.includes(transport.place)
+          )) && (journey.exclusive !== true || Object.values(pack.transports || {}).filter(
+            (transport) => journey.path.includes(transport.place)
+          ).length === 1 && Object.values(pack.transports || {}).every(
+            (transport) => journey.path[0] !== transport.place && journey.path.at(-1) !== transport.place
           )) && journey.path.slice(1).every((to, i) => {
             const from = journey.path[i];
             return places2[from].exits.includes(to) || routes.some((route) => route.from === from && route.to === to) || Object.values(pack.transports || {}).some(
@@ -19885,6 +19904,17 @@
 
   // v2/card-game/pack-transport.mjs
   var passengers = (s, id) => Object.entries(s.actors).filter(([, a]) => a.place === transports[id].place).map(([, a]) => a);
+  function transportBoardingAllowed(s, actor, place) {
+    if (!actor) return true;
+    const found = Object.entries(transports).find(([, t]) => t.place === place);
+    if (!found) return true;
+    const [id] = found;
+    const reservations = packJourneyReservations(s).filter(
+      (r) => r.place === place
+    );
+    const reserved = reservations.find((r) => r.aboard) || reservations.find((r) => r.from === s.transports[id].dock);
+    return !reserved || reserved.actor === actor && passengers(s, id).length === 0;
+  }
   function installTransports(s) {
     s.transports ??= {};
     for (const [id, t] of Object.entries(transports))
@@ -20398,6 +20428,11 @@
   var staysPut = (id) => packPeople[id]?.travels === false;
   var packJourneyDestination = (world, id) => journeyNextPlace(world, packOf(id), id);
   var packIndependentJourneyDestination = (world, id) => independentJourneyNextPlace(world, packOf(id), id);
+  var packJourneyReservations = (world) => packDefinitions.flatMap(
+    (pack) => Object.keys(pack.avatars).map(
+      (id) => journeyReservation(world, pack, id)
+    ).filter(Boolean)
+  );
   var avoidsStandoffs = (id) => packPeople[id]?.standoffs === false;
   var fixturesAt = (place) => Object.entries(packFixtures).filter(([, f]) => f.at === place).map(([id, f]) => ({ id, ...f }));
   var packProfiles = Object.fromEntries([
@@ -24273,7 +24308,7 @@
       ...rescue ? [rescue] : [],
       ...returnPath ? [returnPath] : []
     ].filter(
-      (to) => entityActive(s, to) && actorCanVisit(actor, to, s) && humanRoomAvailable(s, actor, to)
+      (to) => entityActive(s, to) && actorCanVisit(actor, to, s) && transportBoardingAllowed(s, actor, to) && humanRoomAvailable(s, actor, to)
     );
   }
   var programPlaces = (s) => s.opening ? Object.fromEntries(

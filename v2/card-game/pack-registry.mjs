@@ -4,6 +4,7 @@ import { sectionAllows } from "./pack-sections.mjs";
 import {
   journeyNextPlace,
   independentJourneyNextPlace,
+  journeyReservation,
   validJourneyPlaces,
 } from "./pack-journeys.mjs";
 // The compiled world packs mounted on the card table, indexed for the engine.
@@ -178,6 +179,11 @@ export const packJourneyDestination = (world, id) =>
   journeyNextPlace(world, packOf(id), id);
 export const packIndependentJourneyDestination = (world, id) =>
   independentJourneyNextPlace(world, packOf(id), id);
+export const packJourneyReservations = (world) => packDefinitions.flatMap(
+  (pack) => Object.keys(pack.avatars).map(
+    (id) => journeyReservation(world, pack, id),
+  ).filter(Boolean),
+);
 export const avoidsStandoffs = (id) => packPeople[id]?.standoffs === false;
 export const fixturesAt = (place) =>
   Object.entries(packFixtures)
