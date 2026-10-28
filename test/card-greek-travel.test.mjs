@@ -15,6 +15,7 @@ import {
   packDefinition,
   entityActive,
   localRoadEnds,
+  transports,
 } from "../v2/card-game/pack-registry.mjs";
 import { travelCard } from "../v2/card-game/scene.mjs";
 import { openDoorStart } from "./helpers/open-door.mjs";
@@ -69,7 +70,9 @@ describe("Greek ports and fixed roads", () => {
       w = move(w, "mara", "greek-ship");
       expect(ask(w, "vale").exits).toEqual([
         "willows-landing",
-        ...docks.filter((d) => d !== from),
+        ...transports["greek-ship"].docks.filter(
+          (dock) => dock !== from && entityActive(w, dock),
+        ),
       ]);
       const stale = ask(w, "mara").actions.find(
         (a) =>

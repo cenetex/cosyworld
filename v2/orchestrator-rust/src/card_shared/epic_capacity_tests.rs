@@ -24,14 +24,19 @@ fn routes_through_crag_camp(previous: &Value) -> Value {
 }
 
 fn sorted_routes(previous: &Value) -> Vec<String> {
-    let mut routes: Vec<_> = previous.as_array().unwrap().iter().map(Value::to_string).collect();
+    let mut routes: Vec<_> = previous
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(Value::to_string)
+        .collect();
     routes.sort();
     routes
 }
 
 // Earlier saved fields retain their values. The eastern road gains its
 // authored camp, and the pack revision records the larger catalog.
-fn assert_retained(old: &Value, current: &Value, path: &str) {
+pub(super) fn assert_retained(old: &Value, current: &Value, path: &str) {
     if path.ends_with("packs.greek-drama.revision") {
         assert!(current.as_u64().unwrap() >= old.as_u64().unwrap());
     } else if path.contains("routeKnowledge.") && old.is_array() {

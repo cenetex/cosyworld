@@ -6,6 +6,7 @@ import { decodeSave, encodeSave, exits } from "../v2/card-game/world.mjs";
 import {
   entityActive,
   packDefinition,
+  crossings,
 } from "../v2/card-game/pack-registry.mjs";
 
 const context = vm.createContext({});
@@ -62,18 +63,10 @@ describe("Greek section save upgrade", () => {
       for (const field of ["turn", "revision", "eventSeq", "log", "transports"])
         expect(after[field]).toEqual(before[field]);
       expect(after.crossings).toEqual({
+        ...Object.fromEntries(
+          crossings.map(({ id }) => [id, { discovered: false }]),
+        ),
         ...before.crossings,
-        "greek-ship-willows-landing": { discovered: false },
-        "willows-landing-greek-ship": { discovered: false },
-        "station-boardyai-parlour": { discovered: false },
-        "boardyai-parlour-station": { discovered: false },
-        "greek-athens-harbor-ship": { discovered: false },
-        "greek-piraeus-ship": { discovered: false },
-        "greek-ajax-landing-ship": { discovered: false },
-        "hoppycat-pond-garden": { discovered: false },
-        "hoppycat-garden-pond": { discovered: false },
-        "attic-forest-cottage": { discovered: false },
-        "forest-cottage-attic": { discovered: false },
       });
       for (const [id, actor] of Object.entries(before.actors)) {
         expect(after.actors[id]).toMatchObject(actor);

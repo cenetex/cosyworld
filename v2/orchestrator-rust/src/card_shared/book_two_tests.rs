@@ -1,4 +1,6 @@
-use super::{engine, full_store, full_world::World, now, store};
+use super::{
+    engine, epic_capacity_tests::assert_retained, full_store, full_world::World, now, store,
+};
 use rusqlite::Connection;
 use serde_json::{json, Value};
 
@@ -189,13 +191,31 @@ fn book_two_upgrades_rules_twenty_and_replays_the_agreed_danaid_journey() {
     let mut expected_pack = before.game["packs"]["greek-drama"].clone();
     expected_pack["revision"] = json!(8);
     assert_eq!(world.game["packs"]["greek-drama"], expected_pack);
+    let catalog: Value =
+        serde_json::from_str(include_str!("../../../card-game/packs.json")).unwrap();
+    let greek = catalog["packs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|pack| pack["id"] == "greek-drama")
+        .unwrap();
+    let added = |catalog_field: &str, saved_field: &str| -> Vec<String> {
+        greek[catalog_field]
+            .as_object()
+            .unwrap()
+            .keys()
+            .filter(|id| before.game[saved_field].get(*id).is_none())
+            .cloned()
+            .collect()
+    };
+    let added_actors = added("avatars", "actors");
+    let added_items = added("items", "items");
+    let added_places = added("places", "memories");
     for field in [
         "turn",
         "eventSeq",
         "log",
         "transports",
-        "crossings",
-        "routeKnowledge",
         "invitedPlaces",
     ] {
         assert_eq!(
@@ -203,8 +223,23 @@ fn book_two_upgrades_rules_twenty_and_replays_the_agreed_danaid_journey() {
             "Preserve released {field}"
         );
     }
+    let mut expected_crossings = before.game["crossings"].clone();
+    for pack in catalog["packs"].as_array().unwrap() {
+        for crossing in pack["crossings"].as_array().unwrap() {
+            let key = crossing["id"].as_str().unwrap();
+            if expected_crossings.get(key).is_none() {
+                expected_crossings[key] = json!({"discovered":false});
+            }
+        }
+    }
+    assert_eq!(world.game["crossings"], expected_crossings);
+    assert_retained(
+        &before.game["routeKnowledge"],
+        &world.game["routeKnowledge"],
+        "routeKnowledge",
+    );
     let mut expected_quests = before.game["quests"].clone();
-    for actor in NEW_ACTORS {
+    for actor in &added_actors {
         assert!(before.game["quests"]["hands"].get(actor).is_none());
         assert_eq!(world.game["quests"]["hands"][actor], json!([]));
         expected_quests["hands"][actor] = json!([]);
@@ -226,25 +261,21 @@ fn book_two_upgrades_rules_twenty_and_replays_the_agreed_danaid_journey() {
     }
     assert_eq!(
         world.game["actors"].as_object().unwrap().len(),
-        before.game["actors"].as_object().unwrap().len() + 14
+        before.game["actors"].as_object().unwrap().len() + added_actors.len()
     );
     assert_eq!(
         world.game["items"].as_object().unwrap().len(),
-        before.game["items"].as_object().unwrap().len() + 20
+        before.game["items"].as_object().unwrap().len() + added_items.len()
     );
     assert_eq!(
         world.game["memories"].as_object().unwrap().len(),
-        before.game["memories"].as_object().unwrap().len() + 39
+        before.game["memories"].as_object().unwrap().len()
+            + added_actors.len()
+            + added_items.len()
+            + added_places.len()
     );
-    let catalog: Value =
-        serde_json::from_str(include_str!("../../../card-game/packs.json")).unwrap();
-    let greek = catalog["packs"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|pack| pack["id"] == "greek-drama")
-        .unwrap();
     for actor in NEW_ACTORS {
+        assert!(added_actors.iter().any(|id| id == actor));
         assert!(before.game["actors"].get(actor).is_none());
         assert_eq!(
             world.game["actors"][actor]["place"],
@@ -262,6 +293,7 @@ fn book_two_upgrades_rules_twenty_and_replays_the_agreed_danaid_journey() {
         );
     }
     for item in NEW_ITEMS {
+        assert!(added_items.iter().any(|id| id == item));
         assert!(before.game["items"].get(item).is_none());
         assert_eq!(
             world.game["items"][item],
@@ -269,6 +301,7 @@ fn book_two_upgrades_rules_twenty_and_replays_the_agreed_danaid_journey() {
         );
     }
     for place in NEW_PLACES {
+        assert!(added_places.iter().any(|id| id == place));
         assert!(before.game["memories"].get(place).is_none());
         assert_eq!(
             world.game["memories"][place],
