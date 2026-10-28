@@ -70,11 +70,12 @@ fn version_twelve_history_replays_before_the_saved_learning_upgrade() {
     let upgraded = full_store::world(&c, &id, now()).unwrap();
     assert_eq!(upgraded.version, engine::VERSION);
     assert_eq!(upgraded.game["turn"], old.game["turn"]);
-    for field in ["items", "memories"] {
+    for field in ["items"] {
         for (key, value) in old.game[field].as_object().unwrap() {
             assert_eq!(&upgraded.game[field][key], value);
         }
     }
+    assert_saved_memories(&upgraded.game["memories"], &old.game["memories"]);
     c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
     assert_eq!(full_store::world(&c, &id, now()).unwrap(), upgraded);
 }

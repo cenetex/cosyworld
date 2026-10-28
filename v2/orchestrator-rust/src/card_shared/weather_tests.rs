@@ -42,20 +42,24 @@ fn regional_weather_agrees_in_c_and_survives_upgrade_and_journal_replay() {
         world.game["revision"],
         saved.game["revision"].as_u64().unwrap() + 1
     );
-    for field in [
-        "actors",
-        "items",
-        "turn",
-        "eventSeq",
-        "log",
-        "transports",
-        "quests",
-    ] {
+    for field in ["items", "turn", "eventSeq", "log", "transports"] {
         assert_eq!(world.game[field], saved.game[field], "saved {field}");
     }
-    for (id, memory) in saved.game["memories"].as_object().unwrap() {
-        assert_eq!(&world.game["memories"][id], memory, "saved memory {id}");
-    }
+    super::full_tests::assert_saved_actors(&world.game["actors"], &saved.game["actors"]);
+    super::full_tests::assert_saved_memories(&world.game["memories"], &saved.game["memories"]);
+    let mut quests = world.game["quests"].clone();
+    quests["records"]
+        .as_object_mut()
+        .unwrap()
+        .retain(|key, record| {
+            if saved.game["quests"]["records"].get(key).is_some() {
+                return true;
+            }
+            assert_eq!(record["subjectActor"], "boardyai");
+            false
+        });
+    quests["focus"].as_object_mut().unwrap().remove("boardyai");
+    assert_eq!(quests, saved.game["quests"]);
     assert_eq!(world.game["packs"]["greek-drama"]["revision"], 5);
     assert_eq!(world.version, engine::VERSION);
     assert_eq!(
