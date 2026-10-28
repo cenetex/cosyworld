@@ -91,6 +91,7 @@ impl World {
                 engine::NINTH_VERSION,
                 engine::TENTH_VERSION,
                 engine::ELEVENTH_VERSION,
+                engine::TWELFTH_VERSION,
                 engine::VERSION,
             ];
             let allowed = versions
@@ -122,6 +123,7 @@ impl World {
             engine::NINTH_VERSION,
             engine::TENTH_VERSION,
             engine::ELEVENTH_VERSION,
+            engine::TWELFTH_VERSION,
         ]
         .contains(&self.version.as_str())
         {
@@ -176,6 +178,19 @@ impl World {
         Ok(result)
     }
     pub fn project(&self, a: usize) -> Result<Value> {
-        engine::reduce_version(&self.version, self.request("view", a))
+        let mut view = engine::reduce_version(&self.version, self.request("view", a))?;
+        // Apply privacy to every released interpreter, including older saves.
+        if let Some(memories) = view["world"]["memories"].as_object_mut() {
+            for (id, memory) in memories {
+                if id != actor_id(a) {
+                    if let Some(memory) = memory.as_object_mut() {
+                        for key in ["innerLife", "reflections", "learning"] {
+                            memory.remove(key);
+                        }
+                    }
+                }
+            }
+        }
+        Ok(view)
     }
 }

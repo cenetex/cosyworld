@@ -1,4 +1,9 @@
 import {
+  recordLearning,
+  requestConditions,
+  reconsiderPlan,
+} from "./learning.mjs";
+import {
   dropQuest,
   questCarried,
   carryQuest,
@@ -1928,12 +1933,19 @@ function perform(s, a, capture = () => {}, round = null) {
     ...(affected ? { entityId: affected } : {}),
     targetId: a.target,
     ...(a.receive ? { receiveId: a.receive } : {}),
-    ...(hasMotives(s) && a.kind === "ask" ? { accepted: requestAccepted } : {}),
+    ...(a.kind === "ask" ? { accepted: requestAccepted } : {}),
     ...(invitation
       ? { destinationId: a.destination, accepted: invitation.accepted }
       : {}),
     ...(a.kind === "attack" ? { locationId: here } : {}),
   });
+  recordLearning(
+    s,
+    a,
+    invitation?.accepted ?? requestAccepted,
+    requestConditions(s, a),
+    s.log.at(-1),
+  );
   for (const visit of recitals)
     addLog(
       s,
@@ -2004,6 +2016,9 @@ function toward(s, actor, target) {
   );
 }
 export function plan(s, actor = currentActor(s)) {
+  return reconsiderPlan(s, actor, basePlan(s, actor), legalActions(s, actor));
+}
+function basePlan(s, actor) {
   const help = !staysPut(actor) && roamingHelpPlan(s, actor, roamingAPI(s));
   if (help) return help;
   // A resident who never leaves home keeps to it.
