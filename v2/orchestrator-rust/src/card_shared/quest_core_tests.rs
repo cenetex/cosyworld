@@ -61,12 +61,21 @@ fn assert_saved_values(saved: &Value, current: &Value, path: &str) {
 
 #[test]
 fn quest_core_v17_upgrade_preserves_old_deeds_and_long_history_during_journal_replay() {
-    let (path, c, id, mut old) = fixture(engine::SEVENTEENTH_VERSION);
+    quest_history_upgrade(engine::SEVENTEENTH_VERSION);
+}
+
+#[test]
+fn quest_core_v18_upgrade_preserves_old_deeds_and_long_history_during_journal_replay() {
+    quest_history_upgrade(engine::EIGHTEENTH_VERSION);
+}
+
+fn quest_history_upgrade(version: &str) {
+    let (path, c, id, mut old) = fixture(version);
     old.claimed[0] = 1;
     old.present[0] = 1;
     c.execute("DELETE FROM card_full_log", []).unwrap();
     c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
-    full_store::seed(&c, &id, &old, "released-seventeen", now()).unwrap();
+    full_store::seed(&c, &id, &old, "released-quest-history", now()).unwrap();
     let choice = action(
         &old,
         &[("kind", "choose"), ("choiceId", "greek-hear-decree")],

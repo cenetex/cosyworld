@@ -2584,6 +2584,8 @@ fn hoppycat_upgrade_keeps_released_history_and_replays_new_story_choices() {
         (engine::SIXTEENTH_VERSION, false),
         (engine::SEVENTEENTH_VERSION, true),
         (engine::SEVENTEENTH_VERSION, false),
+        (engine::EIGHTEENTH_VERSION, true),
+        (engine::EIGHTEENTH_VERSION, false),
     ] {
         let path =
             std::env::temp_dir().join(format!("hoppycat-upgrade-{}.sqlite", crate::random_hex(12)));

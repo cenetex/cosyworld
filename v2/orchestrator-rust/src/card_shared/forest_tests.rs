@@ -11,6 +11,11 @@ fn forest_crossing_upgrades_from_seventeen_and_replays_with_two_humans() {
     forest_crossing_upgrade_replays_with_two_humans(engine::SEVENTEENTH_VERSION);
 }
 
+#[test]
+fn forest_crossing_upgrades_from_eighteen_and_replays_with_two_humans() {
+    forest_crossing_upgrade_replays_with_two_humans(engine::EIGHTEENTH_VERSION);
+}
+
 fn forest_crossing_upgrade_replays_with_two_humans(version: &str) {
     let path =
         std::env::temp_dir().join(format!("forest-crossing-{}.sqlite", crate::random_hex(12)));

@@ -11,6 +11,11 @@ fn willows_upgrades_version_seventeen_and_replays_discoveries_custody_and_return
     replay_willows(engine::SEVENTEENTH_VERSION);
 }
 
+#[test]
+fn willows_upgrades_version_eighteen_and_replays_discoveries_custody_and_return() {
+    replay_willows(engine::EIGHTEENTH_VERSION);
+}
+
 fn replay_willows(version: &str) {
     let path = std::env::temp_dir().join(format!("willows-{}.sqlite", crate::random_hex(12)));
     let c = store::open(&path).unwrap();

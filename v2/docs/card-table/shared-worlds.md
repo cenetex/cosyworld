@@ -189,7 +189,7 @@ Completing the active quest begins a rest at a place marked `sanctuary: true`.
 The station and attic are sanctuaries. Human rest counts that person's own turns
 in a shared world. Resident rest counts world rounds.
 
-The shared interpreter builder writes `engine-v18.js`. Earlier interpreters stay
+The shared interpreter builder writes `engine-v19.js`. Earlier interpreters stay
 frozen. Upgrade tests cover checkpoints, journal-only rebuilds, saved drops,
 quest hand limits, and completion receipts.
 
@@ -290,10 +290,10 @@ Player views include their own thoughts, persona, dreams, reflection evidence
 and lessons. Other avatars supply public card text. This privacy check also
 applies when projecting a world that still uses an earlier interpreter.
 
-The current interpreter is `engine-v18.js`. Version 18 adds the Hoppy Cat pack,
+The current interpreter is `engine-v19.js`. Version 19 adds the Hoppy Cat pack,
 the Willows island, source readings, learning from measured plays, the common
 quest core, and spoken knowledge.
-It also adds day and night ship
+It also adds the forest chapter and pond opening. Version 18 keeps day and night ship
 views at Athens Harbor and Piraeus Quays, plus the painted Theban Harbor Road.
 Town travel keeps the older road IDs in saved memories and completed deeds.
 Version 17 keeps introduction quests, remembered sightings, and Boardy’s visits.
@@ -316,7 +316,7 @@ Greek pack revision 5 preserves positions, belongings, story choices and
 poems. It adds memories for the new port and roads, and expands earlier
 learned routes through their current road and ship scenes. Myrine's coast
 journey uses two Accompany plays. Versions 13, 14 and 15 keep their released
-bytes. The builder writes `engine-v18.js`; older journals replay with the
+bytes. The builder writes `engine-v19.js`; older journals replay with the
 recorded rules before the saved upgrade.
 
 Shared rules version 18 makes the harbor and Agora a direct local visit, and
@@ -328,7 +328,7 @@ port already holds four human avatars. Released versions 16 and 17 keep their ex
 
 ## Learning from outcomes
 
-Shared rules version 18 records measured attempts for item and companionship
+Shared rules version 19 records measured attempts for item and companionship
 goals. The same action chooser runs in the browser and the C interpreter. Each
 avatar's retained results set its action values. The chooser compares estimates
 and gives less-tried legal approaches room to establish a record. The authored
@@ -340,14 +340,14 @@ a changed situation or a completed goal ends that link. Saves and journal replay
 preserve the measured attempts, including exploration choices. Each player
 receives their own learning records through the existing private view.
 
-The builder writes `engine-v18.js`. Versions 2–17 keep their released bytes.
+The builder writes `engine-v19.js`. Versions 2–18 keep their released bytes.
 Existing worlds receive an explicit saved upgrade before new plays use these
 rules. Earlier lessons remain readable; new completed plays establish the new
 estimates.
 
 ## Quest core and spoken knowledge
 
-Shared rules version 18 uses common step capture and advancement for personal
+Shared rules version 19 uses common step capture and advancement for personal
 and shared quests. Each saved step keeps its evidence, source turn and card key.
 Repeated checks in one turn preserve the single-step and single-effect rules.
 
