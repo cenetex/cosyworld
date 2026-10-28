@@ -262,7 +262,13 @@ export function narrativeContext(world, action = null) {
         (id === location || audience.includes(id) || localItems.includes(id)),
     )
     .slice(0, 8);
-  const disclosures = knowledgeDisclosures(world, speakers, ids, location, played?.seq);
+  const disclosures = knowledgeDisclosures(
+    world,
+    speakers,
+    ids,
+    location,
+    played?.seq,
+  );
   const events = world.log
     .filter(
       (entry) =>
@@ -355,7 +361,10 @@ export function narrativeContext(world, action = null) {
           : []),
       ];
       const facts = [
-        ...knowledgeFacts(world, id, nameOf,
+        ...knowledgeFacts(
+          world,
+          id,
+          nameOf,
           disclosures.filter((d) => d.speaker === id).map((d) => d.factId),
         ),
         ...(id === BOARDY ? boardyFacts(world, nameOf) : []),

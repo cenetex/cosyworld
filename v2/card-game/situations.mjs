@@ -77,8 +77,11 @@ export function conditionText(c, name) {
 export function validCondition(c, actor) {
   return (
     c &&
-    ((c.kind === "knows" && c.role === "actor" &&
-      typeof c.topic === "string" && c.topic.length > 0 && c.topic.length <= 160 &&
+    ((c.kind === "knows" &&
+      c.role === "actor" &&
+      typeof c.topic === "string" &&
+      c.topic.length > 0 &&
+      c.topic.length <= 160 &&
       !/[\u0000-\u0020\u007f]/u.test(c.topic)) ||
       (c.kind === "lit" && c.item === "lamp") ||
       (c.kind === "ringing" && c.item === "bell") ||
