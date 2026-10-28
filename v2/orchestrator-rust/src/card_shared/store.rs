@@ -5,8 +5,11 @@ use std::{path::Path, time::Duration};
 
 pub(super) type Result<T> = std::result::Result<T, String>;
 pub(super) fn open(path: &Path) -> Result<Connection> {
-    let c = Connection::open(path).map_err(err)?;
-    c.busy_timeout(Duration::from_secs(5)).map_err(err)?;
+    open_sqlite(path, Duration::from_secs(5)).map_err(err)
+}
+pub(super) fn open_sqlite(path: &Path, busy_timeout: Duration) -> rusqlite::Result<Connection> {
+    let c = Connection::open(path)?;
+    c.busy_timeout(busy_timeout)?;
     c.execute_batch("
       CREATE TABLE IF NOT EXISTS card_tables(id TEXT PRIMARY KEY, owner TEXT NOT NULL, created INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS card_members(world TEXT NOT NULL, actor INTEGER NOT NULL, user TEXT NOT NULL, seen INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(world,actor), UNIQUE(world,user));
@@ -22,7 +25,7 @@ pub(super) fn open(path: &Path) -> Result<Connection> {
       CREATE TABLE IF NOT EXISTS card_scenes(seq INTEGER PRIMARY KEY AUTOINCREMENT, world TEXT NOT NULL, room INTEGER NOT NULL, play TEXT NOT NULL UNIQUE, content TEXT NOT NULL);
       CREATE INDEX IF NOT EXISTS card_scenes_room ON card_scenes(world,room,seq);
       CREATE TABLE IF NOT EXISTS card_nudges(world TEXT NOT NULL, target INTEGER NOT NULL, sender INTEGER NOT NULL, at INTEGER NOT NULL, PRIMARY KEY(world,target));
-    ").map_err(err)?;
+    ")?;
     Ok(c)
 }
 fn err(e: impl std::fmt::Display) -> String {

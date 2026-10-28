@@ -17,6 +17,7 @@ use axum::{
 use rusqlite::{params, OptionalExtension, TransactionBehavior};
 use serde::Deserialize;
 use serde_json::{json, Value};
+use std::time::{Duration, Instant};
 #[path = "full_browser.rs"]
 mod browser;
 
@@ -475,76 +476,123 @@ pub(super) fn finish_work(
     work: Work,
     lines: Result<Value>,
 ) -> Result<()> {
-    let mut c = db(state)?;
-    store::schema(&c)?;
-    let tx = c
-        .transaction_with_behavior(TransactionBehavior::Immediate)
-        .map_err(sql_error)?;
-    let (status, attempt): (String, i32) = tx
-        .query_row(
-            "SELECT status,retries FROM card_full_plays WHERE id=?",
-            [&work.id],
-            |r| Ok((r.get(0)?, r.get(1)?)),
-        )
-        .map_err(sql_error)?;
-    if status != "working" || attempt != work.attempt {
-        return Ok(());
+    finish_work_with_lock_budget(state, id, work, lines, Duration::from_secs(8))
+}
+
+// The provider has already finished. Keep those exact words while short-lived
+// poll transactions release the database, then fence this attempt again.
+pub(super) fn finish_work_with_lock_budget(
+    state: &AppState,
+    id: &str,
+    work: Work,
+    lines: Result<Value>,
+    budget: Duration,
+) -> Result<()> {
+    let started = Instant::now();
+    loop {
+        let remaining = budget.saturating_sub(started.elapsed());
+        match finish_work_attempt(
+            state,
+            id,
+            &work,
+            &lines,
+            remaining.min(Duration::from_millis(100)),
+        ) {
+            Ok(result) => return result,
+            Err(error) => {
+                let busy = matches!(&error, rusqlite::Error::SqliteFailure(failure, _)
+                    if matches!(failure.code, rusqlite::ErrorCode::DatabaseBusy | rusqlite::ErrorCode::DatabaseLocked));
+                let remaining = budget.saturating_sub(started.elapsed());
+                if !busy || remaining.is_zero() {
+                    return Err(sql_error(error));
+                }
+                std::thread::sleep(remaining.min(Duration::from_millis(25)));
+            }
+        }
     }
-    let time = now();
-    let mut scene = work.context;
-    let ok = lines.is_ok();
-    match lines {
-        Ok(lines) => {
-            let mut w = store::world(&tx, id, time)?;
-            let result = store::commit(
-                &tx,
-                id,
-                &mut w,
-                json!({"op":"speech","actor":actor_id(work.actor),"room":work.room,"lines":lines,
+}
+
+fn finish_work_attempt(
+    state: &AppState,
+    id: &str,
+    work: &Work,
+    lines: &Result<Value>,
+    busy_timeout: Duration,
+) -> rusqlite::Result<Result<()>> {
+    let Some(path) = state.event_store_path.as_deref() else {
+        return Ok(Err("Shared worlds need the saved-world service.".into()));
+    };
+    let mut c = super::store::open_sqlite(path, busy_timeout)?;
+    store::schema_sqlite(&c)?;
+    let tx = c.transaction_with_behavior(TransactionBehavior::Immediate)?;
+    tx.busy_timeout(Duration::from_secs(5))?;
+    Ok((|| -> Result<()> {
+        let (status, attempt): (String, i32) = tx
+            .query_row(
+                "SELECT status,retries FROM card_full_plays WHERE id=?",
+                [&work.id],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .map_err(sql_error)?;
+        if status != "working" || attempt != work.attempt {
+            return Ok(());
+        }
+        let time = now();
+        let mut scene = work.context.clone();
+        let ok = lines.is_ok();
+        match lines {
+            Ok(lines) => {
+                let mut w = store::world(&tx, id, time)?;
+                let result = store::commit(
+                    &tx,
+                    id,
+                    &mut w,
+                    json!({"op":"speech","actor":actor_id(work.actor),"room":work.room,"lines":lines,
                     "disclosures":scene["context"]["disclosures"],
                     "entries":lines.as_array().into_iter().flatten().filter(|line| line["reflection"].is_object()).map(|line| json!({"id":line["entityId"],"model":line["model"],"reflection":line["reflection"]})).collect::<Vec<_>>()}),
-                time,
-            )?;
-            scene["lines"] = result["lines"].clone();
+                    time,
+                )?;
+                scene["lines"] = result["lines"].clone();
+            }
+            Err(error) => scene["error"] = json!(error),
         }
-        Err(error) => scene["error"] = json!(error),
-    }
-    for key in ["context", "profiles", "events"] {
-        scene
-            .as_object_mut()
-            .ok_or("The scene needs attention.")?
-            .remove(key);
-    }
-    scene["starts_at"] = json!(time);
-    let duration = if ok {
-        scene["lines"]
-            .as_array()
-            .ok_or("The scene needs attention.")?
-            .iter()
-            .map(|l| {
-                ((l["text"].as_str().unwrap_or("").chars().count() as i64) * 45 + 1500)
-                    .clamp(3500, 9000)
-            })
-            .sum::<i64>()
-    } else {
-        2000
-    };
-    scene["until_at"] = json!(time + duration);
-    tx.execute(
-        "UPDATE card_full_plays SET status=?,until_at=?,result=? WHERE id=?",
-        params![
-            if ok { "playing" } else { "failed" },
-            time + duration,
-            scene.to_string(),
-            work.id
-        ],
-    )
-    .map_err(sql_error)?;
-    tx.execute(
+        for key in ["context", "profiles", "events"] {
+            scene
+                .as_object_mut()
+                .ok_or("The scene needs attention.")?
+                .remove(key);
+        }
+        scene["starts_at"] = json!(time);
+        let duration = if ok {
+            scene["lines"]
+                .as_array()
+                .ok_or("The scene needs attention.")?
+                .iter()
+                .map(|l| {
+                    ((l["text"].as_str().unwrap_or("").chars().count() as i64) * 45 + 1500)
+                        .clamp(3500, 9000)
+                })
+                .sum::<i64>()
+        } else {
+            2000
+        };
+        scene["until_at"] = json!(time + duration);
+        tx.execute(
+            "UPDATE card_full_plays SET status=?,until_at=?,result=? WHERE id=?",
+            params![
+                if ok { "playing" } else { "failed" },
+                time + duration,
+                scene.to_string(),
+                work.id
+            ],
+        )
+        .map_err(sql_error)?;
+        tx.execute(
         "INSERT INTO card_full_scenes(world,room,play,content) VALUES(?,?,?,?) ON CONFLICT(play) DO UPDATE SET content=excluded.content",
         params![id, work.room, work.id, scene.to_string()],
     )
     .map_err(sql_error)?;
-    tx.commit().map_err(sql_error)?;
-    Ok(())
+        tx.commit().map_err(sql_error)?;
+        Ok(())
+    })())
 }
