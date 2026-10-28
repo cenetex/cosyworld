@@ -18,6 +18,7 @@ import { recitalPoem } from "../v2/card-game/pack-recital.mjs";
 import { questRecord } from "../v2/card-game/shared-quests.mjs";
 import { questHistoryCards } from "../v2/card-game/quest-cards.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
+import { bookReplay } from "./fixtures/card-book-one-replay.mjs";
 import { releasedCardEngine } from "./helpers/released-card-engine.mjs";
 import {
   bookStart,
@@ -230,6 +231,39 @@ describe("Book I present care", () => {
 });
 
 describe("Book I shared learning and history", () => {
+  it.each(["seven", "tyrannus", "bacchae"])(
+    "keeps %s gossip and deeds exact when the host reorders JSON keys",
+    (part) => {
+      const sorted = (value) =>
+        JSON.parse(
+          JSON.stringify(value, (_, v) =>
+            v && typeof v === "object" && !Array.isArray(v)
+              ? Object.fromEntries(
+                  Object.keys(v)
+                    .sort()
+                    .map((key) => [key, v[key]]),
+                )
+              : v,
+          ),
+        );
+      const fixture = bookReplay(part);
+      let world = sorted(JSON.parse(fixture.save));
+      for (const command of fixture.commands) {
+        const result = dispatchShared(
+          sorted({
+            ...command,
+            world,
+            claimed: fixture.claimed,
+            present: fixture.claimed,
+          }),
+        );
+        expect(result.ok, result.error).toBe(true);
+        world = sorted(result.world);
+      }
+      expect(world).toEqual(fixture.expected);
+    },
+  );
+
   it("credits the first meeting after the invitation to the visiting player", () => {
     let world = dispatchShared({
       op: "create",

@@ -1,6 +1,29 @@
 use super::{full_store, full_world::World, now, store};
 use serde_json::Value;
 
+fn assert_same(expected: &Value, actual: &Value, path: &str) {
+    match expected {
+        Value::Object(fields) => {
+            assert_eq!(
+                actual.as_object().unwrap().len(),
+                fields.len(),
+                "Keys at {path}"
+            );
+            for (key, value) in fields {
+                assert_same(value, &actual[key], &format!("{path}.{key}"));
+            }
+        }
+        Value::Array(entries) => {
+            let observed = actual.as_array().unwrap();
+            assert_eq!(observed.len(), entries.len(), "Length at {path}");
+            for (index, value) in entries.iter().enumerate() {
+                assert_same(value, &observed[index], &format!("{path}[{index}]"));
+            }
+        }
+        _ => assert_eq!(actual, expected, "Value at {path}"),
+    }
+}
+
 #[test]
 fn book_one_spoken_sources_carried_returns_and_route_choices_rebuild_from_the_journal() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -35,10 +58,7 @@ fn book_one_spoken_sources_carried_returns_and_route_choices_rebuild_from_the_jo
         for command in fixture["commands"].as_array().unwrap() {
             full_store::commit(&c, &id, &mut world, command.clone(), now()).unwrap();
         }
-        assert_eq!(
-            world.game, fixture["expected"],
-            "{part} matches the source model"
-        );
+        assert_same(&fixture["expected"], &world.game, part);
         let expected = world.clone();
         drop(c);
         let c = store::open(&path).unwrap();

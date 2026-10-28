@@ -255,7 +255,20 @@ describe("frozen earned wording", () => {
 
 describe("story validation within one unchanged operation", () => {
   it("keeps output and saved authors equal to the released interpreter through real plays", () => {
-    let w = previous.dispatch({ op: "create" }).world;
+    // Rust serializes saved maps in key order before calling a released engine.
+    const hostOrder = (value) =>
+      JSON.parse(
+        JSON.stringify(value, (_, v) =>
+          v && typeof v === "object" && !Array.isArray(v)
+            ? Object.fromEntries(
+                Object.keys(v)
+                  .sort()
+                  .map((key) => [key, v[key]]),
+              )
+            : v,
+        ),
+      );
+    let w = hostOrder(previous.dispatch({ op: "create" }).world);
     delete w.opening;
     w.actors.vale.place = "greek-courtyard";
     w.crossings["pond-greek-harbor"].discovered = true;
@@ -290,7 +303,7 @@ describe("story validation within one unchanged operation", () => {
       expect(current.world).toEqual(
         decodeSave(JSON.stringify(reference.world)),
       );
-      w = reference.world;
+      w = hostOrder(reference.world);
       expect(decodeSave(encodeSave(current.world))).toEqual(current.world);
     }
     const p = greek(),

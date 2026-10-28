@@ -21782,14 +21782,18 @@
     ...forest_default.openingPrograms,
     ...humanQuestPrograms
   };
-  var knownActors = (s) => [
-    .../* @__PURE__ */ new Set([
-      ...Object.keys(sharedEnabled(s) ? s.actors : s.opening?.met || s.actors),
-      ...s.controlledActors || []
-    ])
-  ].filter(
-    (id) => entityActive(s, id) && (!isPackActor(id) || id === BOARDY || packDiscovered(s, packOf(id).id) || s.packs?.[packOf(id).id]?.met?.[id] !== void 0)
-  );
+  function knownActors(s) {
+    const actors2 = [
+      .../* @__PURE__ */ new Set([
+        ...Object.keys(sharedEnabled(s) ? s.actors : s.opening?.met || s.actors),
+        ...s.controlledActors || []
+      ])
+    ];
+    if (sharedEnabled(s)) actors2.sort();
+    return actors2.filter(
+      (id) => entityActive(s, id) && (!isPackActor(id) || id === BOARDY || packDiscovered(s, packOf(id).id) || s.packs?.[packOf(id).id]?.met?.[id] !== void 0)
+    );
+  }
   var personalQuestActor = (actor) => !isPackActor(actor) || packPeople[actor]?.personalQuests === true;
   var programsFor = (s, actor) => s.opening?.version === 2 && forest_default.pondOpeningPrograms[actor] || (s.opening ? openingPrograms : questPrograms)[actor] || [];
   var restingHands = {

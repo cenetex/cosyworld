@@ -92,13 +92,16 @@ export const openingPrograms = {
   ...humanQuestPrograms,
 };
 // A pack's residents become known once the player has found a way in.
-export const knownActors = (s) =>
-  [
+export function knownActors(s) {
+  const actors = [
     ...new Set([
       ...Object.keys(sharedEnabled(s) ? s.actors : s.opening?.met || s.actors),
       ...(s.controlledActors || []),
     ]),
-  ].filter(
+  ];
+  // Shared hosts can reorder JSON map keys. Keep their NPC partner choices stable.
+  if (sharedEnabled(s)) actors.sort();
+  return actors.filter(
     (id) =>
       entityActive(s, id) &&
       (!isPackActor(id) ||
@@ -106,11 +109,13 @@ export const knownActors = (s) =>
         packDiscovered(s, packOf(id).id) ||
         s.packs?.[packOf(id).id]?.met?.[id] !== undefined),
   );
+}
 export const personalQuestActor = (actor) =>
   !isPackActor(actor) || packPeople[actor]?.personalQuests === true;
 export const programsFor = (s, actor) =>
   (s.opening?.version === 2 && forest.pondOpeningPrograms[actor]) ||
-  (s.opening ? openingPrograms : questPrograms)[actor] || [];
+  (s.opening ? openingPrograms : questPrograms)[actor] ||
+  [];
 export const restingHands = {
   ...forest.restingHands,
   ...Object.fromEntries(
