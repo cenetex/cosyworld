@@ -639,6 +639,14 @@ The shared game, local saves, dialogue facts, and scene exports all read the sam
 turn. Reloading keeps the current weather. Shared rules version 18 adds the
 harbor and road views. Each earlier rule bundle keeps its contents for replay.
 
+The Willows shares one Danube weather cycle across its four places. River
+mist, cloud, rain and clear light each last twelve accepted turns. Dawn lasts
+eight turns, day sixteen, dusk eight, and night sixteen. The forty-eight-turn
+light cycle repeats from the saved world turn. Place cards, scenes, shared
+views, dialogue facts and scene exports use the same light and weather.
+The pack's [guide](../content/willows/README.md) holds its art and music briefs.
+Shared rules version 21 adds these views and the painted item cutouts.
+
 `weather-shader.mjs` paints the weather with one WebGL fragment shader. The
 scene animates parallax rain sheets with gusts and ground splashes, drifting
 cloud shadow, and folding mist banks. Each exposure sets its own slant, rain

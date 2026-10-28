@@ -13,7 +13,10 @@
     "groups": [
       {
         "key": "willows-response",
-        "options": ["depart", "watch"],
+        "options": [
+          "depart",
+          "watch"
+        ],
         "initial": "uncommitted"
       }
     ]
@@ -23,29 +26,39 @@
       "name": "River Landing",
       "text": "An upturned canoe rests above the backwater. A paddle lies on the sand. Beyond the low willows, the Danube carries whole pieces of bank downstream.",
       "persona": "Speak as the river landing in first person. Feel the canoe against your sand and the weight of the river beyond your edge. Describe small physical changes through sand, wood, spray and current. The canoe is fixed scenery. Its slit and any preparation become known through recorded discoveries. The Greek ship is reached through river mist beside the backwater; describe that crossing when its action is used.",
-      "exits": ["willows-camp"],
-      "backdrop": "assets/willows/landing.webp"
+      "exits": [
+        "willows-camp"
+      ],
+      "backdrop": "assets/willows/landing-day.webp"
     },
     "willows-camp": {
       "name": "River Camp",
       "text": "A canvas tent shelters a food sack and a small cooking pot. The Swede watches the willow tops beyond the fire. A sandy path leads to the canoe.",
       "persona": "Speak as the campsite in first person, through the tent canvas, fire warmth, cooking smells and disturbed sand. The Swede is the one resident. Let ordinary shelter feel small within the surrounding willows. Supplies are those named in the current facts; their condition follows recorded discoveries. Describe the people and objects present with care.",
-      "exits": ["willows-landing", "willows-thicket"],
-      "backdrop": "assets/willows/camp.webp"
+      "exits": [
+        "willows-landing",
+        "willows-thicket"
+      ],
+      "backdrop": "assets/willows/camp-day.webp"
     },
     "willows-thicket": {
       "name": "Willow Thicket",
       "text": "Low willow branches crowd a narrow track. Smooth little hollows mark the sand between their roots. The camp shows through one gap; the riverbank lies beyond another.",
       "persona": "Speak as the willow thicket in first person. Use the feel of narrow stems, silver leaf undersides, soft sand and the spaces between roots. A rustle can travel against the wind. The hollows become a known clue when examined. Keep the powers beyond the island distant and strange; express their nearness through the landscape and committed discoveries.",
-      "exits": ["willows-camp", "willows-bank"],
-      "backdrop": "assets/willows/thicket.webp"
+      "exits": [
+        "willows-camp",
+        "willows-bank"
+      ],
+      "backdrop": "assets/willows/thicket-day.webp"
     },
     "willows-bank": {
       "name": "Crumbling Bank",
       "text": "Bare roots hang over the flood. Loose sand drops into the current. Across the water, willows cover every island to the horizon.",
       "persona": "Speak as the riverbank in first person. Feel the current pull grains from your edge. Use exposed roots, water pressure and the reach of the opposite willows. The distant humming and the discovery below the roots belong to their recorded actions. Give each discovery its own moment. The four authored places remain the paths the traveller can choose.",
-      "exits": ["willows-thicket"],
-      "backdrop": "assets/willows/bank.webp"
+      "exits": [
+        "willows-thicket"
+      ],
+      "backdrop": "assets/willows/bank-day.webp"
     }
   },
   "avatars": {
@@ -84,56 +97,56 @@
       "text": "One wooden paddle remains beside the canoe. Its blade has been scraped strangely thin.",
       "persona": "A long wooden canoe paddle with a blade worn thin. It can be carried and laid beside the canoe. Its condition is a clue in the hull discovery.",
       "holder": "willows-landing",
-      "art": "assets/willows/paddle.svg"
+      "art": "assets/willows/paddle.webp"
     },
     "willows-map": {
       "name": "River Map",
       "text": "The Danube divides into more channels than this creased map can show.",
       "persona": "A creased paper river map of the Danube below Pressburg, with channels and sandbanks marked in ink.",
       "holder": "willows-camp",
-      "art": "assets/willows/map.svg"
+      "art": "assets/willows/map.webp"
     },
     "willows-rope": {
       "name": "Tent Rope",
       "text": "A spare length of rope lies coiled beside the tent.",
       "persona": "A spare coil of sound hemp rope. The preparation action uses it together with the waterproof sheet at the landing.",
       "holder": "willows-camp",
-      "art": "assets/willows/rope.svg"
+      "art": "assets/willows/rope.webp"
     },
     "willows-sheet": {
       "name": "Waterproof Sheet",
       "text": "A folded waterproof sheet keeps the camping gear above the damp sand.",
       "persona": "A folded dark waterproof camping sheet. The preparation action lays it beneath the canoe, together with rope.",
       "holder": "willows-camp",
-      "art": "assets/willows/sheet.svg"
+      "art": "assets/willows/sheet.webp"
     },
     "willows-provisions": {
       "name": "Food Sack",
       "text": "A canvas sack holds oatmeal, potatoes, onions and tea. Its tied mouth smells faintly of smoke.",
       "persona": "A canvas food sack holding the remaining camp provisions: oatmeal, potatoes, onions and tea. Counting the stores records the missing bread. Actual custody follows the current world facts.",
       "holder": "willows-camp",
-      "art": "assets/willows/provisions.svg"
+      "art": "assets/willows/provisions.webp"
     },
     "willows-pot": {
       "name": "Stew Pot",
       "text": "An iron pot carries the smell of onions and yesterday's stew.",
       "persona": "A small black iron stew-pot, cold enough to carry. The smell of camp cooking clings to it.",
       "holder": "willows-camp",
-      "art": "assets/willows/pot.svg"
+      "art": "assets/willows/pot.webp"
     },
     "willows-spoon": {
       "name": "Wooden Spoon",
       "text": "The long handle has darkened with years of cooking over open fires.",
       "persona": "A plain wooden cooking spoon with a long, smoke-darkened handle.",
       "holder": "willows-camp",
-      "art": "assets/willows/spoon.svg"
+      "art": "assets/willows/spoon.webp"
     },
     "willows-pipe": {
       "name": "The Swede's Pipe",
       "text": "A worn briar pipe. The Swede turns it in his fingers while he listens.",
       "persona": "The Swede's well-used briar pipe. Its holder is supplied by the world facts.",
       "holder": "willows-swede",
-      "art": "assets/willows/pipe.svg"
+      "art": "assets/willows/pipe.webp"
     }
   },
   "choices": [

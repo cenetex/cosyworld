@@ -134,6 +134,20 @@ const files = [
   ...["station", "attic", "pond", "vale", "moth", "keeper", "keeper-right"].map(
     (id) => `assets/${id}.png`,
   ),
+  // Keep the art URLs used by released Willows worlds.
+  ...[
+    "paddle",
+    "map",
+    "rope",
+    "sheet",
+    "provisions",
+    "pot",
+    "spoon",
+    "pipe",
+  ].map((id) => `assets/willows/${id}.svg`),
+  ...["landing", "camp", "thicket", "bank"].map(
+    (id) => `assets/willows/${id}.webp`,
+  ),
   // Keep the art URLs published by earlier Rust releases.
   ...[
     "antigone",

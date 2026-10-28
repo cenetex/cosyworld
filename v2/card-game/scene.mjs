@@ -60,9 +60,8 @@ export function locationVariant(world, id) {
   const crossing = visibleCrossing(world, id)?.id || "base";
   const weather = locationWeather(world, id);
   const variant = weather ? `${crossing}:${weather.variant}` : crossing;
-  return locationDaylight(world, id)?.phase === "night"
-    ? `${variant}:night`
-    : variant;
+  const phase = locationDaylight(world, id)?.phase;
+  return phase && phase !== "day" ? `${variant}:${phase}` : variant;
 }
 export const locationOverlay = (world, id) => {
   const f = visibleCrossing(world, id)?.scenery.overlay;

@@ -1,5 +1,19 @@
-// The Theban places and the ship's harbors share the saved world clock.
+// Places resolve their light from the saved world clock.
 export const DAYLIGHT_TURNS = 24;
+export const WILLOWS_PHASE_TURNS = 8;
+const willowsPlaces = new Set([
+  "willows-landing",
+  "willows-camp",
+  "willows-thicket",
+  "willows-bank",
+]);
+const willowsPhases = ["dawn", "day", "day", "dusk", "night", "night"];
+const willowsLight = {
+  dawn: "Dawn brings pale light to the Danube island.",
+  day: "It is day on the Danube island.",
+  dusk: "Dusk settles over the Danube island.",
+  night: "It is night on the Danube island.",
+};
 const art = (file) => `assets/greek-drama/${file}.webp`;
 const nightBackdrops = {
   "greek-harbor": art("harbor-open-berth-night"),
@@ -30,7 +44,13 @@ export const daylightAssets = [
 ];
 
 export function locationDaylight(world, id) {
-  if (!world || !Object.hasOwn(nightBackdrops, id)) return null;
+  if (!world) return null;
+  if (willowsPlaces.has(id)) {
+    const period = Math.floor(world.turn / WILLOWS_PHASE_TURNS);
+    const phase = willowsPhases[period % willowsPhases.length];
+    return { phase, period, description: willowsLight[phase] };
+  }
+  if (!Object.hasOwn(nightBackdrops, id)) return null;
   const period = Math.floor(world.turn / DAYLIGHT_TURNS);
   const phase = period % 2 ? "night" : "day";
   const where =
@@ -50,5 +70,5 @@ export function locationDaylight(world, id) {
 
 export function daylightBackdrop(world, id, file) {
   if (locationDaylight(world, id)?.phase !== "night") return file;
-  return dockedNightBackdrops[file] || nightBackdrops[id];
+  return dockedNightBackdrops[file] || nightBackdrops[id] || file;
 }

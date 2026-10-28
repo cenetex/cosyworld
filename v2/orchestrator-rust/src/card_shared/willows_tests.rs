@@ -129,3 +129,59 @@ fn replay_willows(version: &str) {
         .unwrap();
     assert_eq!(upgrades, 1);
 }
+
+#[test]
+fn willows_sky_upgrades_twenty_and_survives_journal_replay() {
+    let path = std::env::temp_dir().join(format!("willows-sky-{}.sqlite", crate::random_hex(12)));
+    let c = store::open(&path).unwrap();
+    full_store::schema(&c).unwrap();
+    let id = "b".repeat(48);
+    store::create(&c, &id, "owner", now()).unwrap();
+    let released =
+        engine::reduce_version(engine::TWENTIETH_VERSION, json!({"op":"create"})).unwrap();
+    let mut old = World {
+        version: engine::TWENTIETH_VERSION.into(),
+        game: released["world"].clone(),
+        claimed: [1, 1, 0, 0, 0, 0, 0, 0],
+        present: [1, 1, 0, 0, 0, 0, 0, 0],
+    };
+    old.game["actors"]["vale"]["place"] = json!("willows-camp");
+    old.game["actors"]["mara"]["place"] = json!("willows-bank");
+    old.game["items"]["willows-rope"]["holder"] = json!("mara");
+    old.game["turn"] = json!(23);
+    old.game["revision"] = json!(23);
+    assert!(old.project(0).unwrap()["scene"]["daylight"].is_null());
+    full_store::seed(&c, &id, &old, "before-sky", now()).unwrap();
+    let mut world = full_store::world(&c, &id, now()).unwrap();
+    assert_eq!(world.version, engine::VERSION);
+    assert_eq!(world.game["items"], old.game["items"]);
+    assert_eq!(world.game["packs"], old.game["packs"]);
+    let view = world.project(0).unwrap();
+    let action = view["actions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|a| a["kind"] == "wait")
+        .unwrap()
+        .clone();
+    full_store::commit(
+        &c,
+        &id,
+        &mut world,
+        json!({"op":"play","actor":"vale","action":action}),
+        now(),
+    )
+    .unwrap();
+    for actor in [0, 1] {
+        let scene = world.project(actor).unwrap()["scene"].clone();
+        assert_eq!(scene["daylight"]["phase"], "dusk");
+        assert_eq!(scene["weather"]["condition"], "rain");
+        assert_eq!(scene["weather"]["region"], "danube");
+    }
+    let expected = world.clone();
+    drop(c);
+    let c = store::open(&path).unwrap();
+    assert_eq!(full_store::world(&c, &id, now()).unwrap(), expected);
+    c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+    assert_eq!(full_store::world(&c, &id, now()).unwrap(), expected);
+}
