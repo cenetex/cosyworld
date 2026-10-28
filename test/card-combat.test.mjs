@@ -85,17 +85,17 @@ describe("card standoffs", () => {
     // Guard reduces Pip's two damage to one and lasts for one reply.
     s = act(s, "guard", "moth");
     expect(standoffFor(s, "vale").resolve.vale).toBe(1);
-    expect(exits(s, "station", "vale")).toContain("attic");
+    expect(exits(s, "station", "vale")).toEqual(["pond"]);
     s = act(s, "attack", "moth");
     expect(standoffFor(s, "vale")).toBeUndefined();
-    expect(s.actors.vale.place).toBe("attic");
+    expect(s.actors.vale.place).toBe("pond");
     expect(narrativeContext(s).outcome).toMatchObject({
       card: { kind: "attack", target: "moth" },
       avatars: expect.arrayContaining([
         expect.objectContaining({
           id: "vale",
-          location: "attic",
-          travel: { from: "station", to: "attic", companions: [] },
+          location: "pond",
+          travel: { from: "station", to: "pond", companions: [] },
         }),
       ]),
     });
@@ -172,7 +172,7 @@ describe("card standoffs", () => {
   });
   it("ends a standoff when either avatar travels and keeps items with their owner", () => {
     let s = act(meeting(), "threaten", "moth");
-    s = act(s, "move", "attic");
+    s = act(s, "move", "pond");
     expect(s.standoffs).toEqual([]);
     expect(s.items.lamp.holder).toBe("moth");
   });
@@ -182,7 +182,7 @@ describe("card standoffs", () => {
     expect(act(restored, "attack", "moth")).toEqual(act(s, "attack", "moth"));
     const attack = legalActions(s).find((a) => a.kind === "attack");
     expect(play(s, attack, s.revision - 1).ok).toBe(false);
-    const departed = act(s, "move", "attic");
+    const departed = act(s, "move", "pond");
     expect(play(departed, attack).ok).toBe(false);
     for (const patch of [
       { resolve: { vale: 99, moth: 4 } },
@@ -255,14 +255,16 @@ describe("card standoffs", () => {
     s = act(s, "attack", "moth");
     expect(s.items.lamp.holder).toBe("station");
     expect(s.items.cloth.holder).toBe("moth");
-    expect(s.actors.moth.place).toBe("attic");
+    expect(s.actors.moth.place).toBe("pond");
     expect(s.standoffs).toEqual([]);
     expect(levelOf(s, "vale")).toBe(2);
     s = act(s, "take", null, "lamp");
     expect(s.items.lamp.holder).toBe("vale");
   });
   it("carries the threat, guard and combat facts into each witness's model context", () => {
-    const s = act(meeting(), "threaten", "moth");
+    const start = meeting();
+    start.items.bell.holder = "station";
+    const s = act(start, "threaten", "moth");
     const context = narrativeContext(s, { target: "moth" });
     expect(context.speakers).toEqual(["vale", "moth", "keeper"]);
     expect(

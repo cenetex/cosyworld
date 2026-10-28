@@ -35,8 +35,10 @@ import {
   STORY_QUEST_CARDS,
   fulfilledQuests,
 } from "../v2/card-game/quest-cards.mjs";
+import { atticOpening } from "./fixtures/card-attic-opening.mjs";
+
 const fresh = (opening = true) =>
-  enableMotives(createWorld({ opening }), {
+  enableMotives(opening ? atticOpening() : createWorld(), {
     questPrograms: true,
     personalQuests: true,
   });

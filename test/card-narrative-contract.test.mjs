@@ -63,7 +63,7 @@ describe("browser dialogue history contract", () => {
       [1, 2, 3, 4].map((i) => ({
         actorId: "vale",
         text: `Avatar line ${i}`,
-        witnesses: ["vale"],
+        witnesses: ["vale", "moth"],
       })),
     );
   });

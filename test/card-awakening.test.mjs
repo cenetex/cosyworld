@@ -99,12 +99,12 @@ describe("the bell crossing to the Steam Clock", () => {
         e.text.includes("forest clearing"),
       ),
     ).toBe(true);
-    // Only Vale sees the way, and no one can be asked along it.
+    // Vale sees the crossing, and companion offers follow the local cast.
     expect(exits(heard, "pond", "vale")).toContain("clearing");
     expect(exits(heard, "pond")).not.toContain("clearing");
     expect(
       legalActions(heard).some(
-        (a) => a.kind === "accompany" && a.destination === "clearing",
+        (a) => a.kind === "move" && a.target === "clearing",
       ),
     ).toBe(true);
     expect(decodeSave(encodeSave(heard))).toEqual(heard);
