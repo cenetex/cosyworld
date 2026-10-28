@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "book": "iv",
+  "base": "d0eed59f437f05467839f287d93c867f9da9d2d7",
+  "avatars": [
+    "greek-book-iv-helen-messenger",
+    "greek-book-iv-helen-theoclymenus",
+    "greek-book-iv-helen-theonoe"
+  ],
+  "items": [
+    "greek-book-iv-helen-account",
+    "greek-book-iv-helen-appeal",
+    "greek-book-iv-helen-cloth",
+    "greek-book-iv-helen-provisions"
+  ],
+  "places": [
+    "greek-book-iv-helen-boat",
+    "greek-book-iv-helen-court",
+    "greek-book-iv-helen-landing"
+  ],
+  "choices": [
+    "greek-book-iv-helen-confirm-witness",
+    "greek-book-iv-helen-finish-escape",
+    "greek-book-iv-helen-finish-hearing",
+    "greek-book-iv-helen-finish-sanctuary",
+    "greek-book-iv-helen-hear-helen",
+    "greek-book-iv-helen-hear-messenger",
+    "greek-book-iv-helen-hear-theonoe",
+    "greek-book-iv-helen-helen-consent",
+    "greek-book-iv-helen-menelaus-consent",
+    "greek-book-iv-helen-place-hearing",
+    "greek-book-iv-helen-plan-escape",
+    "greek-book-iv-helen-plan-hearing",
+    "greek-book-iv-helen-plan-sanctuary",
+    "greek-book-iv-helen-prepare-voyage",
+    "greek-book-iv-helen-public-consent",
+    "greek-book-iv-helen-return-escape",
+    "greek-book-iv-helen-return-hearing",
+    "greek-book-iv-helen-return-sanctuary",
+    "greek-book-iv-helen-supply-sanctuary",
+    "greek-book-iv-invitation-accept"
+  ],
+  "topics": [
+    "greek-book-iv-helen-finish-escape-words",
+    "greek-book-iv-helen-finish-hearing-words",
+    "greek-book-iv-helen-finish-sanctuary-words",
+    "greek-book-iv-helen-hear-helen-words",
+    "greek-book-iv-helen-hear-messenger-words",
+    "greek-book-iv-helen-hear-theonoe-words",
+    "greek-book-iv-helen-helen-consent-words",
+    "greek-book-iv-helen-menelaus-consent-words",
+    "greek-book-iv-helen-public-consent-words"
+  ],
+  "storyQuests": [
+    "story-quest-greek-book-iv-helen-aid",
+    "story-quest-greek-book-iv-helen-ending",
+    "story-quest-greek-book-iv-helen-return",
+    "story-quest-greek-book-iv-helen-witness"
+  ],
+  "verses": [
+    "greek-book-iv-helen-confirm-witness",
+    "greek-book-iv-helen-hear-theonoe",
+    "greek-book-iv-helen-finish-escape",
+    "greek-book-iv-helen-return-escape",
+    "greek-book-iv-helen-finish-hearing",
+    "greek-book-iv-helen-return-hearing",
+    "greek-book-iv-helen-finish-sanctuary",
+    "greek-book-iv-helen-return-sanctuary"
+  ],
+  "counts": {
+    "avatars": 3,
+    "items": 4,
+    "places": 3,
+    "choices": 20,
+    "topics": 9,
+    "storyQuests": 4,
+    "verses": 8
+  }
+}

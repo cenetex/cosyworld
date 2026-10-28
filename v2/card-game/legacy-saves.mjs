@@ -96,6 +96,7 @@ export function upgradeSave(
     upgradeGreekRoadSave(s);
     upgradeGreekTownSave(s);
     upgradeGreekAjaxSave(s);
+    upgradeGreekBookIVSave(s);
     s.schema = 7;
     installPacks(s);
   } else if (
@@ -111,6 +112,7 @@ export function upgradeSave(
     upgradeGreekRoadSave(s);
     upgradeGreekTownSave(s);
     upgradeGreekAjaxSave(s);
+    upgradeGreekBookIVSave(s);
     // A pack mounted after this save was written joins it fresh.
     installPacks(s);
   }
@@ -146,16 +148,24 @@ export function upgradeShoreRouteSave(s) {
     const expanded = known.flatMap((edge) => {
       if (!Array.isArray(edge) || edge.length !== 2) return [edge];
       const [from, to] = edge;
-      if ((moved.has(from) && to === "station") ||
-          (from === "station" && moved.has(to))) {
+      if (
+        (moved.has(from) && to === "station") ||
+        (from === "station" && moved.has(to))
+      ) {
         changed = true;
-        return [[from, "pond"], ["pond", to]];
+        return [
+          [from, "pond"],
+          ["pond", to],
+        ];
       }
       return [edge];
     });
-    if (changed) s.routeKnowledge[actor] = [...new Map(
-      expanded.map((edge) => [JSON.stringify(edge), edge]),
-    ).values()];
+    if (changed)
+      s.routeKnowledge[actor] = [
+        ...new Map(
+          expanded.map((edge) => [JSON.stringify(edge), edge]),
+        ).values(),
+      ];
   }
 }
 
@@ -302,6 +312,36 @@ export function upgradeGreekAjaxSave(s) {
   ])
     s.memories[id] ??= fresh[id];
   saved.revision = 7;
+}
+
+// Book IV revision eight. Install only this batch's new identities.
+export function upgradeGreekBookIVSave(s) {
+  const pack = packDefinitions.find((p) => p.id === "greek-drama");
+  const saved = s.packs?.[pack?.id];
+  if (!pack || pack.revision < 8 || saved?.revision !== 7) return;
+  addGreekEntities(
+    s,
+    pack,
+    [
+      "greek-book-iv-helen-messenger",
+      "greek-book-iv-helen-theoclymenus",
+      "greek-book-iv-helen-theonoe",
+    ],
+    [
+      "greek-book-iv-helen-account",
+      "greek-book-iv-helen-appeal",
+      "greek-book-iv-helen-cloth",
+      "greek-book-iv-helen-provisions",
+    ],
+  );
+  const fresh = newMemories();
+  for (const id of [
+    "greek-book-iv-helen-boat",
+    "greek-book-iv-helen-court",
+    "greek-book-iv-helen-landing",
+  ])
+    s.memories[id] ??= fresh[id];
+  saved.revision = 8;
 }
 
 // Revision 3 adds these residents and objects. Earlier records keep their

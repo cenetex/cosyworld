@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "greek-drama",
   "packId": "cosyworld.greek-drama",
-  "revision": 7,
+  "revision": 8,
   "name": "The Wine-Dark Sea",
   "description": "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. Fixed roads lead through the Attic places where welcome becomes a growing poem.",
   "tone": "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -417,8 +417,8 @@
     "greek-egypt-tomb": {
       "name": "Proteus's Tomb in Egypt",
       "text": "A tomb stands beside the Egyptian palace. A woman receives visitors from the sea.",
-      "exits": [],
-      "backdrop": "assets/greek-drama/palace.svg",
+      "exits": ["greek-book-iv-helen-court", "greek-book-iv-helen-landing"],
+      "backdrop": "assets/greek-drama/helen-egypt-tomb-day.webp",
       "requires": [
         {
           "kind": "choice",
@@ -622,6 +622,48 @@
           "kind": "flag",
           "key": "greek-ajax-open",
           "value": true
+        }
+      ]
+    },
+    "greek-book-iv-helen-court": {
+      "name": "Proteus’s Household Court",
+      "text": "In Helen’s Egyptian account, a petition bench stands between the palace and Proteus’s tomb. Theonoe and Theoclymenus answer for their own choices.",
+      "persona": "In Helen’s Egyptian account, a petition bench stands between the palace and Proteus’s tomb. Theonoe and Theoclymenus answer for their own choices.",
+      "exits": ["greek-egypt-tomb"],
+      "backdrop": "assets/greek-drama/helen-egypt-tomb-day.webp",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        }
+      ]
+    },
+    "greek-book-iv-helen-landing": {
+      "name": "Egyptian Landing",
+      "text": "In Helen’s Egyptian account, wreck timbers and an unused sail lie above the Nile-mouth tide. The shipwreck messenger keeps his own account.",
+      "persona": "In Helen’s Egyptian account, wreck timbers and an unused sail lie above the Nile-mouth tide. The shipwreck messenger keeps his own account.",
+      "exits": ["greek-egypt-tomb"],
+      "backdrop": "assets/greek-drama/helen-egypt-tomb-day.webp",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        }
+      ]
+    },
+    "greek-book-iv-helen-boat": {
+      "name": "The Empty Funeral Boat",
+      "text": "In Helen’s Egyptian account, a local boat waits for an empty funeral cloth. It holds this chapter’s travellers and supplies. The shared Greek ship serves the landing.",
+      "persona": "In Helen’s Egyptian account, a local boat waits for an empty funeral cloth. It holds this chapter’s travellers and supplies. The shared Greek ship serves the landing.",
+      "exits": ["greek-book-iv-helen-landing"],
+      "backdrop": "assets/greek-drama/helen-egypt-tomb-day.webp",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
         }
       ]
     }
@@ -855,7 +897,9 @@
       "text": "She checks the traveler's account against a witness tablet.",
       "place": "greek-egypt-tomb",
       "home": "greek-egypt-tomb",
-      "values": {},
+      "values": {
+        "greek-egypt-testimony": 3
+      },
       "persona": "Helen in the committed Egyptian account: she remained with Proteus while a phantom went to Troy. This is the only active Helen. Speak from this account and current events, without predicting an escape, marriage, or death.",
       "voice": "Helen in the committed Egyptian account: she remained with Proteus while a phantom went to Troy. This is the only active Helen. Speak from this account and current events, without predicting an escape, marriage, or death.",
       "portrait": "assets/greek-drama/chthonic-helen.png",
@@ -871,6 +915,34 @@
         "likes": "being heard in her own words",
         "sore": "others deciding her identity from a rumor",
         "reason": "She checks the traveler's account against a witness tablet."
+      },
+      "standoffs": false,
+      "desire": {
+        "items": [],
+        "location": "greek-book-iv-helen-boat",
+        "avatars": [],
+        "requires": [
+          {
+            "kind": "flag",
+            "key": "greek-book-iv-open",
+            "value": true
+          },
+          {
+            "kind": "choice",
+            "key": "greek-helen-account",
+            "value": "egypt"
+          },
+          {
+            "kind": "flag",
+            "key": "greek-book-iv-helen-helen-consent",
+            "value": true
+          },
+          {
+            "kind": "flag",
+            "key": "greek-book-iv-helen-voyage-prepared",
+            "value": true
+          }
+        ]
       }
     },
     "greek-menelaus-egypt": {
@@ -894,6 +966,34 @@
         "likes": "a reliable witness, provisions for the crew",
         "sore": "confident claims without a source",
         "reason": "Salt stains his cloak. He has kept the ship's passenger tally."
+      },
+      "standoffs": false,
+      "desire": {
+        "items": [],
+        "location": "greek-book-iv-helen-boat",
+        "avatars": [],
+        "requires": [
+          {
+            "kind": "flag",
+            "key": "greek-book-iv-open",
+            "value": true
+          },
+          {
+            "kind": "choice",
+            "key": "greek-helen-account",
+            "value": "egypt"
+          },
+          {
+            "kind": "flag",
+            "key": "greek-book-iv-helen-menelaus-consent",
+            "value": true
+          },
+          {
+            "kind": "flag",
+            "key": "greek-book-iv-helen-voyage-prepared",
+            "value": true
+          }
+        ]
       }
     },
     "greek-helen-troy": {
@@ -1391,6 +1491,93 @@
         "sore": "a promise called a finished burial",
         "reason": "Ajax’s household and burial are at issue in this named Trojan account."
       }
+    },
+    "greek-book-iv-helen-theonoe": {
+      "name": "Theonoe",
+      "text": "Theonoe speaks in Helen’s Egyptian account.",
+      "place": "greek-book-iv-helen-court",
+      "home": "greek-book-iv-helen-court",
+      "travels": false,
+      "standoffs": false,
+      "values": {},
+      "persona": "Theonoe speaks in Helen’s Egyptian account. She weighs her father Proteus’s justice against the danger from her brother. Her own recorded answer gives aid.",
+      "voice": "Speak in simple English from this named account and the recorded deeds. Answer the companion directly. Let your own care and interests guide your words.",
+      "portrait": "assets/greek-drama/helen-theonoe.png",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        }
+      ],
+      "tastes": {
+        "likes": "careful work and a trustworthy account",
+        "sore": "a promise treated as a finished deed",
+        "reason": "Theonoe speaks in Helen’s Egyptian account. She weighs her father Proteus’s justice against the danger from her brother. Her own recorded answer gives aid."
+      }
+    },
+    "greek-book-iv-helen-theoclymenus": {
+      "name": "Theoclymenus",
+      "text": "Theoclymenus rules in Helen’s Egyptian account.",
+      "place": "greek-book-iv-helen-court",
+      "home": "greek-book-iv-helen-court",
+      "travels": false,
+      "standoffs": false,
+      "values": {},
+      "persona": "Theoclymenus rules in Helen’s Egyptian account. A public hearing and a protection pledge are new alternatives to the play’s escape. His recorded answer gives their actual terms.",
+      "voice": "Speak in simple English from this named account and the recorded deeds. Answer the companion directly. Let your own care and interests guide your words.",
+      "portrait": "assets/greek-drama/helen-theoclymenus.png",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        }
+      ],
+      "tastes": {
+        "likes": "careful work and a trustworthy account",
+        "sore": "a promise treated as a finished deed",
+        "reason": "Theoclymenus rules in Helen’s Egyptian account. A public hearing and a protection pledge are new alternatives to the play’s escape. His recorded answer gives their actual terms."
+      }
+    },
+    "greek-book-iv-helen-messenger": {
+      "name": "The Shipwreck Messenger",
+      "text": "The shipwreck messenger speaks in Helen’s Egyptian account.",
+      "place": "greek-book-iv-helen-landing",
+      "home": "greek-book-iv-helen-landing",
+      "travels": false,
+      "standoffs": false,
+      "values": {},
+      "persona": "The shipwreck messenger speaks in Helen’s Egyptian account. He witnessed the phantom vanish. The later escape report names the Egyptian crew’s loss.",
+      "voice": "Speak in simple English from this named account and the recorded deeds. Answer the companion directly. Let your own care and interests guide your words.",
+      "portrait": "assets/greek-drama/chthonic-ferryman.png",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        }
+      ],
+      "tastes": {
+        "likes": "careful work and a trustworthy account",
+        "sore": "a promise treated as a finished deed",
+        "reason": "The shipwreck messenger speaks in Helen’s Egyptian account. He witnessed the phantom vanish. The later escape report names the Egyptian crew’s loss."
+      }
     }
   },
   "items": {
@@ -1733,6 +1920,82 @@
           "value": true
         }
       ]
+    },
+    "greek-book-iv-helen-appeal": {
+      "name": "Helen’s Written Appeal",
+      "text": "Helen’s appeal asks Theonoe for aid in the Egyptian account.",
+      "holder": "greek-egypt-tomb",
+      "art": "assets/greek-drama/decree.png",
+      "persona": "Describe this object, its actual holder and its recorded use in the named account.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        }
+      ]
+    },
+    "greek-book-iv-helen-cloth": {
+      "name": "The Empty Funeral Cloth",
+      "text": "This cloth prepares the feigned funeral in Helen’s Egyptian account.",
+      "holder": "greek-book-iv-helen-landing",
+      "art": "assets/greek-drama/funeral-cloth.png",
+      "persona": "Describe this object, its actual holder and its recorded use in the named account.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        }
+      ]
+    },
+    "greek-book-iv-helen-provisions": {
+      "name": "Egyptian Voyage Provisions",
+      "text": "Bread and water wait for Helen’s local boat.",
+      "holder": "greek-book-iv-helen-landing",
+      "art": "assets/greek-drama/provisions.png",
+      "persona": "Describe this object, its actual holder and its recorded use in the named account.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        }
+      ]
+    },
+    "greek-book-iv-helen-account": {
+      "name": "Helen’s Return Account",
+      "text": "The tablet waits for the chosen Egyptian result and Helen’s authorised return words.",
+      "holder": "greek-egypt-tomb",
+      "art": "assets/greek-drama/decree.png",
+      "persona": "Describe this object, its actual holder and its recorded use in the named account.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        }
+      ]
     }
   },
   "routes": [
@@ -1825,6 +2088,17 @@
     {
       "from": "greek-argos-palace",
       "to": "greek-argos-tomb"
+    },
+    {
+      "from": "greek-book-iv-helen-landing",
+      "to": "greek-book-iv-helen-boat",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-helen-voyage-prepared",
+          "value": true
+        }
+      ]
     }
   ],
   "choices": [
@@ -6553,6 +6827,890 @@
         }
       ],
       "workId": "sophocles-ajax"
+    },
+    {
+      "id": "greek-book-iv-invitation-accept",
+      "subject": "greek-shipmaster",
+      "at": "greek-harbor",
+      "label": "Visit the five Faces of Home accounts",
+      "text": "Vale accepts Myrto’s invitation to five named accounts of home. Helen’s chosen Egypt or Troy account keeps its own history. The household tales and Ion’s earlier Delphi each name their own time.",
+      "textTemplate": "{actor} accepts Myrto’s invitation to five named accounts of home. Helen’s chosen Egypt or Troy account keeps its own history. The household tales and Ion’s earlier Delphi each name their own time.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-open-door-returned",
+          "value": true
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-book-iv-frame"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "greek-book-iv-frame",
+          "value": "faces-of-home"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-book-iv-open",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-book-iv-helen-hear-helen",
+      "subject": "greek-helen-egypt",
+      "at": "greek-egypt-tomb",
+      "label": "Hear Helen on this account",
+      "text": "Helen says she lived in Egypt while a phantom went to Troy.",
+      "textTemplate": "Helen says she lived in Egypt while a phantom went to Troy.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-book-iv-helen-helen-heard",
+          "value": true
+        }
+      ],
+      "workId": "euripides-helen"
+    },
+    {
+      "id": "greek-book-iv-helen-hear-messenger",
+      "subject": "greek-book-iv-helen-messenger",
+      "at": "greek-book-iv-helen-landing",
+      "label": "Hear The Shipwreck Messenger on this account",
+      "text": "The shipwreck messenger witnessed the phantom vanish from the cave.",
+      "textTemplate": "The shipwreck messenger witnessed the phantom vanish from the cave.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-book-iv-helen-messenger-heard",
+          "value": true
+        }
+      ],
+      "workId": "euripides-helen"
+    },
+    {
+      "id": "greek-book-iv-helen-confirm-witness",
+      "subject": "greek-helen-egypt",
+      "at": "greek-egypt-tomb",
+      "label": "Compare the tablet with both witnesses",
+      "text": "Vale compares the Egyptian witness tablet with Helen’s and the sailor’s recorded words.",
+      "textTemplate": "{actor} compares the Egyptian witness tablet with Helen’s and the sailor’s recorded words.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-book-iv-helen-hear-helen-words",
+          "role": "actor"
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-book-iv-helen-hear-messenger-words",
+          "role": "actor"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-egypt-testimony",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-book-iv-helen-witness-confirmed",
+          "value": true
+        }
+      ],
+      "workId": "euripides-helen"
+    },
+    {
+      "id": "greek-book-iv-helen-hear-theonoe",
+      "subject": "greek-book-iv-helen-theonoe",
+      "at": "greek-book-iv-helen-court",
+      "label": "Hear Theonoe on this account",
+      "text": "Theonoe chooses to aid Helen and accepts the danger from her brother.",
+      "textTemplate": "Theonoe chooses to aid Helen and accepts the danger from her brother.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-helen-witness-confirmed",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-book-iv-helen-appeal",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-book-iv-helen-appeal",
+          "place": "greek-book-iv-helen-court"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-book-iv-helen-aid",
+          "value": true
+        }
+      ],
+      "workId": "euripides-helen"
+    },
+    {
+      "id": "greek-book-iv-helen-plan-escape",
+      "subject": "greek-helen-egypt",
+      "at": "greek-egypt-tomb",
+      "label": "Propose the empty funeral voyage",
+      "text": "Vale proposes the escape response within Helen’s Egyptian account.",
+      "textTemplate": "{actor} proposes the escape response within Helen’s Egyptian account.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-helen-aid",
+          "value": true
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-book-iv-helen-plan"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "greek-book-iv-helen-plan",
+          "value": "escape"
+        }
+      ],
+      "workId": "euripides-helen"
+    },
+    {
+      "id": "greek-book-iv-helen-plan-hearing",
+      "subject": "greek-helen-egypt",
+      "at": "greek-egypt-tomb",
+      "label": "Seek a public household hearing",
+      "text": "Vale proposes the hearing response within Helen’s Egyptian account.",
+      "textTemplate": "{actor} proposes the hearing response within Helen’s Egyptian account.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-helen-aid",
+          "value": true
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-book-iv-helen-plan"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "greek-book-iv-helen-plan",
+          "value": "hearing"
+        }
+      ],
+      "workId": "euripides-helen"
+    },
+    {
+      "id": "greek-book-iv-helen-plan-sanctuary",
+      "subject": "greek-helen-egypt",
+      "at": "greek-egypt-tomb",
+      "label": "Support Helen’s chosen sanctuary",
+      "text": "Vale proposes the sanctuary response within Helen’s Egyptian account.",
+      "textTemplate": "{actor} proposes the sanctuary response within Helen’s Egyptian account.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-helen-aid",
+          "value": true
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-book-iv-helen-plan"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "greek-book-iv-helen-plan",
+          "value": "sanctuary"
+        }
+      ],
+      "workId": "euripides-helen"
+    },
+    {
+      "id": "greek-book-iv-helen-helen-consent",
+      "subject": "greek-helen-egypt",
+      "at": "greek-egypt-tomb",
+      "label": "Hear Helen on this account",
+      "text": "Helen agrees to travel to the local funeral boat with Menelaus.",
+      "textTemplate": "Helen agrees to travel to the local funeral boat with Menelaus.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        },
+        {
+          "kind": "choice",
+          "key": "greek-book-iv-helen-plan",
+          "value": "escape"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-book-iv-helen-helen-consent",
+          "value": true
+        }
+      ],
+      "workId": "euripides-helen"
+    },
+    {
+      "id": "greek-book-iv-helen-menelaus-consent",
+      "subject": "greek-menelaus-egypt",
+      "at": "greek-egypt-tomb",
+      "label": "Hear Menelaus on this account",
+      "text": "Menelaus agrees to join Helen in the local funeral boat.",
+      "textTemplate": "Menelaus agrees to join Helen in the local funeral boat.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        },
+        {
+          "kind": "choice",
+          "key": "greek-book-iv-helen-plan",
+          "value": "escape"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-book-iv-helen-menelaus-consent",
+          "value": true
+        }
+      ],
+      "workId": "euripides-helen"
+    },
+    {
+      "id": "greek-book-iv-helen-public-consent",
+      "subject": "greek-helen-egypt",
+      "at": "greek-egypt-tomb",
+      "label": "Hear Helen on this account",
+      "text": "Helen authorises the household hearing of her written Egyptian account.",
+      "textTemplate": "Helen authorises the household hearing of her written Egyptian account.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        },
+        {
+          "kind": "choice",
+          "key": "greek-book-iv-helen-plan",
+          "value": "hearing"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-book-iv-helen-public-consent",
+          "value": true
+        }
+      ],
+      "workId": "euripides-helen"
+    },
+    {
+      "id": "greek-book-iv-helen-prepare-voyage",
+      "subject": "greek-book-iv-helen-landing",
+      "at": "greek-book-iv-helen-landing",
+      "label": "Lay the empty cloth and provisions aboard",
+      "text": "Vale lays the empty funeral cloth and provisions aboard the local boat.",
+      "textTemplate": "{actor} lays the empty funeral cloth and provisions aboard the local boat.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        },
+        {
+          "kind": "choice",
+          "key": "greek-book-iv-helen-plan",
+          "value": "escape"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-helen-helen-consent",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-helen-menelaus-consent",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-book-iv-helen-cloth",
+          "role": "actor"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-book-iv-helen-provisions",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-book-iv-helen-cloth",
+          "place": "greek-book-iv-helen-landing"
+        },
+        {
+          "kind": "place_item",
+          "item": "greek-book-iv-helen-provisions",
+          "place": "greek-book-iv-helen-landing"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-book-iv-helen-voyage-prepared",
+          "value": true
+        }
+      ],
+      "workId": "euripides-helen"
+    },
+    {
+      "id": "greek-book-iv-helen-finish-escape",
+      "subject": "greek-menelaus-egypt",
+      "at": "greek-book-iv-helen-boat",
+      "label": "Hear Menelaus on this account",
+      "text": "Menelaus records their escape in Helen’s Egyptian account and the Egyptian crew’s deaths.",
+      "textTemplate": "Menelaus records their escape in Helen’s Egyptian account and the Egyptian crew’s deaths.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-helen-voyage-prepared",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-helen-helen-consent",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-helen-menelaus-consent",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-egypt-testimony",
+          "actor": "greek-helen-egypt"
+        },
+        {
+          "kind": "item_near",
+          "item": "greek-egypt-testimony",
+          "place": "greek-book-iv-helen-boat"
+        },
+        {
+          "kind": "item_at",
+          "item": "greek-book-iv-helen-cloth",
+          "place": "greek-book-iv-helen-landing"
+        },
+        {
+          "kind": "item_at",
+          "item": "greek-book-iv-helen-provisions",
+          "place": "greek-book-iv-helen-landing"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-book-iv-helen-account",
+          "role": "actor"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-book-iv-helen-ending"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "greek-book-iv-helen-ending",
+          "value": "escape"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-book-iv-helen-done",
+          "value": true
+        }
+      ],
+      "workId": "euripides-helen"
+    },
+    {
+      "id": "greek-book-iv-helen-return-escape",
+      "subject": "greek-baker",
+      "at": "greek-courtyard",
+      "label": "Read the signed helen account to Dione",
+      "text": "Vale lays the signed helen account beside Dione’s bread. Menelaus records their escape in Helen’s Egyptian account and the Egyptian crew’s deaths. Dione receives these authorised words in their own named time.",
+      "textTemplate": "{actor} lays the signed helen account beside Dione’s bread. Menelaus records their escape in Helen’s Egyptian account and the Egyptian crew’s deaths. Dione receives these authorised words in their own named time.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-book-iv-helen-ending",
+          "value": "escape"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-book-iv-helen-account",
+          "role": "actor"
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-book-iv-helen-finish-escape-words",
+          "role": "actor"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-book-iv-helen-return"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-book-iv-helen-account",
+          "place": "greek-courtyard"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-book-iv-helen-return",
+          "value": "escape"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-book-iv-helen-returned",
+          "value": true
+        }
+      ],
+      "workId": "euripides-helen"
+    },
+    {
+      "id": "greek-book-iv-helen-place-hearing",
+      "subject": "greek-book-iv-helen-theoclymenus",
+      "at": "greek-book-iv-helen-court",
+      "label": "Present Helen’s authorised tablet",
+      "text": "Vale places Helen’s Egyptian witness tablet before Theoclymenus for a public answer.",
+      "textTemplate": "{actor} places Helen’s Egyptian witness tablet before Theoclymenus for a public answer.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        },
+        {
+          "kind": "choice",
+          "key": "greek-book-iv-helen-plan",
+          "value": "hearing"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-helen-public-consent",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-egypt-testimony",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-egypt-testimony",
+          "place": "greek-book-iv-helen-court"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-book-iv-helen-public-evidence",
+          "value": true
+        }
+      ],
+      "workId": "euripides-helen"
+    },
+    {
+      "id": "greek-book-iv-helen-finish-hearing",
+      "subject": "greek-book-iv-helen-theoclymenus",
+      "at": "greek-book-iv-helen-court",
+      "label": "Hear Theoclymenus on this account",
+      "text": "Theoclymenus accepts a witnessed public protection pledge for Helen in the Egyptian account.",
+      "textTemplate": "Theoclymenus accepts a witnessed public protection pledge for Helen in the Egyptian account.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        },
+        {
+          "kind": "choice",
+          "key": "greek-book-iv-helen-plan",
+          "value": "hearing"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-helen-public-evidence",
+          "value": true
+        },
+        {
+          "kind": "item_at",
+          "item": "greek-egypt-testimony",
+          "place": "greek-book-iv-helen-court"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-book-iv-helen-account",
+          "role": "actor"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-book-iv-helen-ending"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "greek-book-iv-helen-ending",
+          "value": "hearing"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-book-iv-helen-done",
+          "value": true
+        }
+      ],
+      "workId": "euripides-helen"
+    },
+    {
+      "id": "greek-book-iv-helen-return-hearing",
+      "subject": "greek-baker",
+      "at": "greek-courtyard",
+      "label": "Read the signed helen account to Dione",
+      "text": "Vale lays the signed helen account beside Dione’s bread. Theoclymenus accepts a witnessed public protection pledge for Helen in the Egyptian account. Dione receives these authorised words in their own named time.",
+      "textTemplate": "{actor} lays the signed helen account beside Dione’s bread. Theoclymenus accepts a witnessed public protection pledge for Helen in the Egyptian account. Dione receives these authorised words in their own named time.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-book-iv-helen-ending",
+          "value": "hearing"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-book-iv-helen-account",
+          "role": "actor"
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-book-iv-helen-finish-hearing-words",
+          "role": "actor"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-book-iv-helen-return"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-book-iv-helen-account",
+          "place": "greek-courtyard"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-book-iv-helen-return",
+          "value": "hearing"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-book-iv-helen-returned",
+          "value": true
+        }
+      ],
+      "workId": "euripides-helen"
+    },
+    {
+      "id": "greek-book-iv-helen-supply-sanctuary",
+      "subject": "greek-helen-egypt",
+      "at": "greek-egypt-tomb",
+      "label": "Set provisions beside Helen’s sanctuary",
+      "text": "Vale sets provisions beside Helen and records the protection she has chosen.",
+      "textTemplate": "{actor} sets provisions beside Helen and records the protection she has chosen.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        },
+        {
+          "kind": "choice",
+          "key": "greek-book-iv-helen-plan",
+          "value": "sanctuary"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-book-iv-helen-provisions",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-book-iv-helen-provisions",
+          "place": "greek-egypt-tomb"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-book-iv-helen-sanctuary-supplied",
+          "value": true
+        }
+      ],
+      "workId": "euripides-helen"
+    },
+    {
+      "id": "greek-book-iv-helen-finish-sanctuary",
+      "subject": "greek-helen-egypt",
+      "at": "greek-egypt-tomb",
+      "label": "Hear Helen on this account",
+      "text": "Helen chooses to remain beside Proteus’s tomb under the accepted Egyptian protection pledge.",
+      "textTemplate": "Helen chooses to remain beside Proteus’s tomb under the accepted Egyptian protection pledge.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        },
+        {
+          "kind": "choice",
+          "key": "greek-book-iv-helen-plan",
+          "value": "sanctuary"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-helen-sanctuary-supplied",
+          "value": true
+        },
+        {
+          "kind": "item_at",
+          "item": "greek-book-iv-helen-provisions",
+          "place": "greek-egypt-tomb"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-book-iv-helen-account",
+          "role": "actor"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-book-iv-helen-ending"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "greek-book-iv-helen-ending",
+          "value": "sanctuary"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-book-iv-helen-done",
+          "value": true
+        }
+      ],
+      "workId": "euripides-helen"
+    },
+    {
+      "id": "greek-book-iv-helen-return-sanctuary",
+      "subject": "greek-baker",
+      "at": "greek-courtyard",
+      "label": "Read the signed helen account to Dione",
+      "text": "Vale lays the signed helen account beside Dione’s bread. Helen chooses to remain beside Proteus’s tomb under the accepted Egyptian protection pledge. Dione receives these authorised words in their own named time.",
+      "textTemplate": "{actor} lays the signed helen account beside Dione’s bread. Helen chooses to remain beside Proteus’s tomb under the accepted Egyptian protection pledge. Dione receives these authorised words in their own named time.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-book-iv-helen-ending",
+          "value": "sanctuary"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-book-iv-helen-account",
+          "role": "actor"
+        },
+        {
+          "kind": "knows",
+          "topic": "greek-book-iv-helen-finish-sanctuary-words",
+          "role": "actor"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-book-iv-helen-return"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "place_item",
+          "item": "greek-book-iv-helen-account",
+          "place": "greek-courtyard"
+        },
+        {
+          "kind": "choose",
+          "key": "greek-book-iv-helen-return",
+          "value": "sanctuary"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-book-iv-helen-returned",
+          "value": true
+        }
+      ],
+      "workId": "euripides-helen"
     }
   ],
   "works": [
@@ -7404,7 +8562,12 @@
       "greek-greek-camp",
       "greek-ajax-landing",
       "greek-ajax-household",
-      "greek-ajax-grave"
+      "greek-ajax-grave",
+      "greek-book-iv-helen-boat",
+      "greek-book-iv-helen-court",
+      "greek-book-iv-helen-landing",
+      "greek-egypt-tomb",
+      "greek-troy-beach"
     ],
     "avatars": [
       "greek-antigone",
@@ -7427,7 +8590,14 @@
       "greek-household-witness",
       "greek-ajax-tecmessa",
       "greek-ajax-teucer",
-      "greek-ajax-odysseus"
+      "greek-ajax-odysseus",
+      "greek-book-iv-helen-messenger",
+      "greek-book-iv-helen-theoclymenus",
+      "greek-book-iv-helen-theonoe",
+      "greek-helen-egypt",
+      "greek-menelaus-egypt",
+      "greek-helen-troy",
+      "greek-menelaus-troy"
     ],
     "items": [
       "greek-water-jar",
@@ -7450,7 +8620,13 @@
       "greek-ajax-shield",
       "greek-ajax-plea",
       "greek-ajax-cloth",
-      "greek-ajax-tools"
+      "greek-ajax-tools",
+      "greek-book-iv-helen-account",
+      "greek-book-iv-helen-appeal",
+      "greek-book-iv-helen-cloth",
+      "greek-book-iv-helen-provisions",
+      "greek-egypt-testimony",
+      "greek-troy-testimony"
     ],
     "choices": [
       "greek-return-water-jar",
@@ -7537,7 +8713,35 @@
       "greek-ajax-return-household",
       "greek-ajax-bury-appeal",
       "greek-ajax-record-appeal",
-      "greek-ajax-return-appeal"
+      "greek-ajax-return-appeal",
+      "greek-book-iv-helen-confirm-witness",
+      "greek-book-iv-helen-finish-escape",
+      "greek-book-iv-helen-finish-hearing",
+      "greek-book-iv-helen-finish-sanctuary",
+      "greek-book-iv-helen-hear-helen",
+      "greek-book-iv-helen-hear-messenger",
+      "greek-book-iv-helen-hear-theonoe",
+      "greek-book-iv-helen-helen-consent",
+      "greek-book-iv-helen-menelaus-consent",
+      "greek-book-iv-helen-place-hearing",
+      "greek-book-iv-helen-plan-escape",
+      "greek-book-iv-helen-plan-hearing",
+      "greek-book-iv-helen-plan-sanctuary",
+      "greek-book-iv-helen-prepare-voyage",
+      "greek-book-iv-helen-public-consent",
+      "greek-book-iv-helen-return-escape",
+      "greek-book-iv-helen-return-hearing",
+      "greek-book-iv-helen-return-sanctuary",
+      "greek-book-iv-helen-supply-sanctuary",
+      "greek-book-iv-invitation-accept",
+      "greek-helen-egypt",
+      "greek-helen-troy",
+      "greek-hear-helen-egypt",
+      "greek-helen-egypt-passage",
+      "greek-helen-egypt-shelter",
+      "greek-hear-helen-troy",
+      "greek-helen-troy-passage",
+      "greek-helen-troy-shelter"
     ]
   },
   "recital": {
@@ -8107,6 +9311,78 @@
           "She heard how witnesses brought earth."
         ],
         "summons": true
+      },
+      {
+        "choice": "greek-book-iv-helen-confirm-witness",
+        "quest": "greek-book-iv-helen-witness",
+        "lines": [
+          "I heard her name beside the tomb.",
+          "The sailor brought the vanished phantom’s words."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-book-iv-helen-hear-theonoe",
+        "quest": "greek-book-iv-helen-aid",
+        "lines": [
+          "I carried their appeal beyond the tomb.",
+          "Theonoe chose the silence she would keep."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-book-iv-helen-finish-escape",
+        "quest": "greek-book-iv-helen-ending",
+        "lines": [
+          "We mourned a living man to free his wife.",
+          "The wind took up the name that war had broken."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-book-iv-helen-return-escape",
+        "quest": "greek-book-iv-helen-return",
+        "lines": [
+          "I brought the Nile’s own witness to the bread.",
+          "Her living name lay open on the table."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-book-iv-helen-finish-hearing",
+        "quest": "greek-book-iv-helen-ending",
+        "lines": [
+          "I set her written words before the throne.",
+          "The palace heard the woman at the tomb."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-book-iv-helen-return-hearing",
+        "quest": "greek-book-iv-helen-return",
+        "lines": [
+          "I brought the Nile’s own witness to the bread.",
+          "Her living name lay open on the table."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-book-iv-helen-finish-sanctuary",
+        "quest": "greek-book-iv-helen-ending",
+        "lines": [
+          "She kept her ground beside the faithful tomb.",
+          "I left her shelter under many names."
+        ],
+        "summons": true
+      },
+      {
+        "choice": "greek-book-iv-helen-return-sanctuary",
+        "quest": "greek-book-iv-helen-return",
+        "lines": [
+          "I brought the Nile’s own witness to the bread.",
+          "Her living name lay open on the table."
+        ],
+        "summons": true
       }
     ]
   },
@@ -8151,6 +9427,22 @@
         {
           "kind": "flag",
           "key": "greek-ajax-open",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-book-iv-helen-section",
+      "name": "The Faces of Home: Helen",
+      "places": [
+        "greek-book-iv-helen-boat",
+        "greek-book-iv-helen-court",
+        "greek-book-iv-helen-landing"
+      ],
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-open",
           "value": true
         }
       ]
@@ -9240,6 +10532,118 @@
         "greek-ajax-record-household",
         "greek-ajax-record-appeal"
       ]
+    },
+    {
+      "id": "story-quest-greek-book-iv-helen-witness",
+      "group": "book-iv-helen",
+      "line": "Bring the two witnesses to Helen’s tablet.",
+      "holder": {
+        "kind": "avatar",
+        "id": "greek-helen-egypt"
+      },
+      "art": "greek-egypt-testimony",
+      "start": {
+        "all": [
+          {
+            "kind": "receipt",
+            "choice": "greek-book-iv-invitation-accept"
+          },
+          {
+            "kind": "choice",
+            "key": "greek-helen-account",
+            "value": "egypt"
+          }
+        ]
+      },
+      "endings": [
+        {
+          "choice": "greek-book-iv-helen-confirm-witness"
+        }
+      ],
+      "outcome": "Fulfilled",
+      "progress": [
+        "greek-book-iv-helen-hear-helen",
+        "greek-book-iv-helen-hear-messenger"
+      ]
+    },
+    {
+      "id": "story-quest-greek-book-iv-helen-aid",
+      "group": "book-iv-helen",
+      "line": "Carry Helen’s appeal to Theonoe.",
+      "holder": {
+        "kind": "avatar",
+        "id": "greek-book-iv-helen-theonoe"
+      },
+      "art": "greek-book-iv-helen-appeal",
+      "start": {
+        "kind": "receipt",
+        "choice": "greek-book-iv-helen-confirm-witness"
+      },
+      "endings": [
+        {
+          "choice": "greek-book-iv-helen-hear-theonoe"
+        }
+      ],
+      "outcome": "Fulfilled"
+    },
+    {
+      "id": "story-quest-greek-book-iv-helen-ending",
+      "group": "book-iv-helen",
+      "line": "Prepare the response Helen has chosen.",
+      "holder": {
+        "kind": "place",
+        "id": "greek-egypt-tomb"
+      },
+      "art": "greek-book-iv-helen-cloth",
+      "start": {
+        "kind": "receipt",
+        "choice": "greek-book-iv-helen-hear-theonoe"
+      },
+      "endings": [
+        {
+          "choice": "greek-book-iv-helen-finish-escape"
+        },
+        {
+          "choice": "greek-book-iv-helen-finish-hearing"
+        },
+        {
+          "choice": "greek-book-iv-helen-finish-sanctuary"
+        }
+      ],
+      "outcome": "Fulfilled",
+      "progress": [
+        "greek-book-iv-helen-prepare-voyage",
+        "greek-book-iv-helen-place-hearing",
+        "greek-book-iv-helen-supply-sanctuary",
+        "greek-book-iv-helen-helen-consent",
+        "greek-book-iv-helen-menelaus-consent"
+      ]
+    },
+    {
+      "id": "story-quest-greek-book-iv-helen-return",
+      "group": "book-iv-helen",
+      "line": "Carry Helen’s authorised account to Dione.",
+      "holder": {
+        "kind": "avatar",
+        "id": "greek-helen-egypt"
+      },
+      "art": "greek-book-iv-helen-account",
+      "start": {
+        "kind": "choice_set",
+        "key": "greek-book-iv-helen-ending"
+      },
+      "endings": [
+        {
+          "choice": "greek-book-iv-helen-return-escape"
+        },
+        {
+          "choice": "greek-book-iv-helen-return-hearing"
+        },
+        {
+          "choice": "greek-book-iv-helen-return-sanctuary"
+        }
+      ],
+      "outcome": "Shared"
     }
   ],
   "topics": [
@@ -9568,6 +10972,294 @@
         }
       ],
       "choiceId": "greek-ajax-record-appeal"
+    },
+    {
+      "id": "greek-book-iv-helen-hear-helen-words",
+      "speaker": "greek-helen-egypt",
+      "at": "greek-egypt-tomb",
+      "text": "Helen says she lived in Egypt while a phantom went to Troy.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        }
+      ],
+      "choiceId": "greek-book-iv-helen-hear-helen"
+    },
+    {
+      "id": "greek-book-iv-helen-hear-messenger-words",
+      "speaker": "greek-book-iv-helen-messenger",
+      "at": "greek-book-iv-helen-landing",
+      "text": "The shipwreck messenger witnessed the phantom vanish from the cave.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        }
+      ],
+      "choiceId": "greek-book-iv-helen-hear-messenger"
+    },
+    {
+      "id": "greek-book-iv-helen-hear-theonoe-words",
+      "speaker": "greek-book-iv-helen-theonoe",
+      "at": "greek-book-iv-helen-court",
+      "text": "Theonoe chooses to aid Helen and accepts the danger from her brother.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-helen-witness-confirmed",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-book-iv-helen-appeal",
+          "role": "actor"
+        }
+      ],
+      "choiceId": "greek-book-iv-helen-hear-theonoe"
+    },
+    {
+      "id": "greek-book-iv-helen-helen-consent-words",
+      "speaker": "greek-helen-egypt",
+      "at": "greek-egypt-tomb",
+      "text": "Helen agrees to travel to the local funeral boat with Menelaus.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        },
+        {
+          "kind": "choice",
+          "key": "greek-book-iv-helen-plan",
+          "value": "escape"
+        }
+      ],
+      "choiceId": "greek-book-iv-helen-helen-consent"
+    },
+    {
+      "id": "greek-book-iv-helen-menelaus-consent-words",
+      "speaker": "greek-menelaus-egypt",
+      "at": "greek-egypt-tomb",
+      "text": "Menelaus agrees to join Helen in the local funeral boat.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        },
+        {
+          "kind": "choice",
+          "key": "greek-book-iv-helen-plan",
+          "value": "escape"
+        }
+      ],
+      "choiceId": "greek-book-iv-helen-menelaus-consent"
+    },
+    {
+      "id": "greek-book-iv-helen-public-consent-words",
+      "speaker": "greek-helen-egypt",
+      "at": "greek-egypt-tomb",
+      "text": "Helen authorises the household hearing of her written Egyptian account.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        },
+        {
+          "kind": "choice",
+          "key": "greek-book-iv-helen-plan",
+          "value": "hearing"
+        }
+      ],
+      "choiceId": "greek-book-iv-helen-public-consent"
+    },
+    {
+      "id": "greek-book-iv-helen-finish-escape-words",
+      "speaker": "greek-menelaus-egypt",
+      "at": "greek-book-iv-helen-boat",
+      "text": "Menelaus records their escape in Helen’s Egyptian account and the Egyptian crew’s deaths.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-helen-voyage-prepared",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-helen-helen-consent",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-helen-menelaus-consent",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "greek-egypt-testimony",
+          "actor": "greek-helen-egypt"
+        },
+        {
+          "kind": "item_near",
+          "item": "greek-egypt-testimony",
+          "place": "greek-book-iv-helen-boat"
+        },
+        {
+          "kind": "item_at",
+          "item": "greek-book-iv-helen-cloth",
+          "place": "greek-book-iv-helen-landing"
+        },
+        {
+          "kind": "item_at",
+          "item": "greek-book-iv-helen-provisions",
+          "place": "greek-book-iv-helen-landing"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-book-iv-helen-account",
+          "role": "actor"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-book-iv-helen-ending"
+        }
+      ],
+      "choiceId": "greek-book-iv-helen-finish-escape"
+    },
+    {
+      "id": "greek-book-iv-helen-finish-hearing-words",
+      "speaker": "greek-book-iv-helen-theoclymenus",
+      "at": "greek-book-iv-helen-court",
+      "text": "Theoclymenus accepts a witnessed public protection pledge for Helen in the Egyptian account.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        },
+        {
+          "kind": "choice",
+          "key": "greek-book-iv-helen-plan",
+          "value": "hearing"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-helen-public-evidence",
+          "value": true
+        },
+        {
+          "kind": "item_at",
+          "item": "greek-egypt-testimony",
+          "place": "greek-book-iv-helen-court"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-book-iv-helen-account",
+          "role": "actor"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-book-iv-helen-ending"
+        }
+      ],
+      "choiceId": "greek-book-iv-helen-finish-hearing"
+    },
+    {
+      "id": "greek-book-iv-helen-finish-sanctuary-words",
+      "speaker": "greek-helen-egypt",
+      "at": "greek-egypt-tomb",
+      "text": "Helen chooses to remain beside Proteus’s tomb under the accepted Egyptian protection pledge.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-open",
+          "value": true
+        },
+        {
+          "kind": "choice",
+          "key": "greek-helen-account",
+          "value": "egypt"
+        },
+        {
+          "kind": "choice",
+          "key": "greek-book-iv-helen-plan",
+          "value": "sanctuary"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-book-iv-helen-sanctuary-supplied",
+          "value": true
+        },
+        {
+          "kind": "item_at",
+          "item": "greek-book-iv-helen-provisions",
+          "place": "greek-egypt-tomb"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-book-iv-helen-account",
+          "role": "actor"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "greek-book-iv-helen-ending"
+        }
+      ],
+      "choiceId": "greek-book-iv-helen-finish-sanctuary"
     }
   ]
 }
