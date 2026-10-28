@@ -245,6 +245,7 @@ describe("adaptive action learning", () => {
     expect(
       reconsiderPlan(w, "vale", selected, legalActions(w)).learning,
     ).toBeDefined();
+    w.quests ??= { focus: {}, records: {} };
     w.quests.focus.vale = "another-shared-hand";
     expect(reconsiderPlan(w, "vale", selected, legalActions(w))).toEqual(
       selected,
