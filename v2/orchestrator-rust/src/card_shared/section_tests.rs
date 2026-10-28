@@ -19,6 +19,7 @@ fn old_fixture(version: &str, scope: &str) -> (rusqlite::Connection, String, Wor
     old.game["actors"]["vale"]["place"] = json!("greek-courtyard");
     old.game["actors"]["mara"]["place"] = json!("greek-harbor");
     old.game["items"]["greek-water-jar"]["holder"] = json!("vale");
+    old.game["crossings"]["pond-greek-harbor"]["discovered"] = json!(true);
     old.project(0).unwrap();
     full_store::seed(&c, &id, &old, "earlier-greek-world", now()).unwrap();
     (c, id, old)
@@ -133,11 +134,16 @@ fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
                     upgraded.game["items"]["greek-burial-petition"]["holder"],
                     "greek-eleusis"
                 );
+                let mut voyage = upgraded.clone();
+                voyage.game["actors"]["mara"]["place"] = json!("greek-ship");
+                voyage.game["transports"]["greek-ship"] = json!({
+                    "version":2, "dock":"greek-harbor", "destination":"pond", "recall":null
+                });
                 assert_eq!(
-                    upgraded.project(1).unwrap()["exits"]
+                    voyage.project(1).unwrap()["exits"]
                         .as_array()
                         .unwrap()
-                        .contains(&json!("greek-athens")),
+                        .contains(&json!("greek-athens-harbor")),
                     scope == "full"
                 );
                 assert!(!upgraded.project(1).unwrap()["exits"]
@@ -197,10 +203,6 @@ fn a_shared_section_opens_from_an_accepted_invitation_and_replays_for_both_peopl
         world.game["packs"]["greek-drama"]["flags"]["greek-open-door-open"],
         true
     );
-    assert!(world.project(1).unwrap()["exits"]
-        .as_array()
-        .unwrap()
-        .contains(&json!("greek-ship")));
     for target in [
         "greek-ship",
         "greek-athens-harbor",
@@ -209,6 +211,18 @@ fn a_shared_section_opens_from_an_accepted_invitation_and_replays_for_both_peopl
         "greek-road-athens-piraeus",
         "greek-piraeus",
     ] {
+        if target == "greek-ship" {
+            for _ in 0..32 {
+                if world.project(1).unwrap()["exits"]
+                    .as_array()
+                    .unwrap()
+                    .contains(&json!(target))
+                {
+                    break;
+                }
+                play(&c, &id, &mut world, 1, "kind", "wait");
+            }
+        }
         play(&c, &id, &mut world, 1, "target", target);
     }
     c.execute("DELETE FROM card_full_checkpoints", []).unwrap();

@@ -92,6 +92,7 @@ fn released_berth(c: &rusqlite::Connection, id: &str) -> World {
     world.game["actors"]["vale"]["place"] = json!("greek-courtyard");
     world.game["actors"]["mara"]["place"] = json!("greek-eleusis");
     world.game["items"]["greek-water-jar"]["holder"] = json!("vale");
+    world.game["crossings"]["pond-greek-harbor"]["discovered"] = json!(true);
     full_store::seed(c, id, &world, "released-open-door", now()).unwrap();
     let steps = [
         ("choose", "choiceId", "greek-return-water-jar"),

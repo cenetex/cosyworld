@@ -6,6 +6,7 @@ import { createServer } from "node:http";
 import { spawn } from "node:child_process";
 import { chromium } from "playwright";
 import { encodeSave } from "../card-game/world.mjs";
+import { greekTravelTargets } from "../../test/helpers/greek-travel.mjs";
 import {
   agoraVisitors,
   agoraView,
@@ -162,9 +163,11 @@ try {
     );
     pages.push(page);
     if (avatar === "vale") {
+      const saved = crowdedAgoraWorld();
+      saved.actors.vale.place = "greek-road-athens-eleusis";
       const result = await request(
         page,
-        { save: encodeSave(crowdedAgoraWorld()) },
+        { save: encodeSave(saved) },
         "/card-game/shared/worlds",
       );
       assert.equal(result.status, 200, JSON.stringify(result.body));
@@ -172,12 +175,46 @@ try {
     } else await command(page, { op: "claim", avatar });
   }
   const [vale, , , , tavi] = pages;
+  const presentPages = new Set(pages);
+  async function step(kind, target) {
+    for (const page of presentPages) await command(page, { op: "heartbeat" });
+    const state = await view(vale);
+    const action = state.actions.find(
+      (a) => a.kind === kind && (!target || a.target === target),
+    );
+    assert.ok(action, `${kind} ${target || "at the port"} is offered`);
+    await command(vale, { op: "play", key: crypto.randomUUID(), action });
+    await until(
+      async () => !(await view(vale)).queue.length,
+      `${kind} ${target || "at the port"} commits`,
+      2000,
+    );
+  }
+  async function move(to) {
+    const from = (await view(vale)).world.actors.vale.place;
+    for (const target of greekTravelTargets(from, to)) {
+      if (target === "greek-ship")
+        for (let n = 0; n < 32; n++) {
+          if (
+            (await view(vale)).actions.some(
+              (a) => a.kind === "move" && a.target === target,
+            )
+          )
+            break;
+          await step("wait");
+        }
+      await step("move", target);
+      assert.equal((await view(vale)).world.actors.vale.place, target);
+    }
+  }
   const blocked = await view(vale);
   assert.equal(blocked.world.presentActors.length, 5);
-  assert.equal(blocked.world.actors.vale.place, "greek-eleusis");
+  assert.equal(blocked.world.actors.vale.place, "greek-road-athens-eleusis");
   assert.ok(!blocked.exits.includes("greek-athens"));
-  assert.ok(blocked.exits.includes("greek-piraeus"));
-  const oldAction = agoraView(crowdedAgoraWorld(), ["vale"]).actions.find(
+  assert.ok(blocked.exits.includes("greek-eleusis"));
+  const earlier = crowdedAgoraWorld();
+  earlier.actors.vale.place = "greek-road-athens-eleusis";
+  const oldAction = agoraView(earlier, ["vale"]).actions.find(
     (a) => a.kind === "move" && a.target === "greek-athens",
   );
   const denied = await request(vale, {
@@ -187,7 +224,7 @@ try {
   });
   assert.equal(denied.status, 409, JSON.stringify(denied.body));
   evidence.checks.push({
-    name: "five authenticated members; full Agora preserves the coastal road",
+    name: "five authenticated members; full Agora keeps the return to Eleusis open",
     present: blocked.world.presentActors,
     exits: blocked.exits,
     denied,
@@ -197,6 +234,7 @@ try {
   // Traverse every spoke with the four other people still in Agora.
   // Every return segment is one of the authored roads to the harbor.
   for (const destination of [
+    "eleusis",
     "colonus",
     "marathon",
     "colonus",
@@ -206,19 +244,9 @@ try {
     "piraeus",
     "eleusis",
   ]) {
-    for (const page of pages) await command(page, { op: "heartbeat" });
     const state = await view(vale);
     assert.ok(!state.exits.includes("greek-athens"));
-    const action = state.actions.find(
-      (a) => a.kind === "move" && a.target === `greek-${destination}`,
-    );
-    assert.ok(action, `the side road to ${destination} is offered`);
-    await command(vale, { op: "play", key: crypto.randomUUID(), action });
-    await until(
-      async () => !(await view(vale)).queue.length,
-      `side road to ${destination}`,
-      2000,
-    );
+    await move(`greek-${destination}`);
     const next = await view(vale);
     assert.equal(next.world.actors.vale.place, `greek-${destination}`);
     for (const id of agoraVisitors.slice(1))
@@ -228,30 +256,22 @@ try {
     name: "four spokes connect to the harbor around four present people in Agora",
     passed: true,
   });
+  await move("greek-road-athens-eleusis");
   await command(tavi, { op: "leave" });
+  presentPages.delete(tavi);
   const open = await view(vale);
   assert.ok(open.exits.includes("greek-athens"));
-  const action = open.actions.find(
-    (a) => a.kind === "move" && a.target === "greek-athens",
-  );
-  await command(vale, { op: "play", key: crypto.randomUUID(), action });
-  await until(async () => !(await view(vale)).queue.length, "move commits");
+  await step("move", "greek-athens");
   const arrived = await view(vale);
   assert.equal(arrived.world.actors.vale.place, "greek-athens");
   await command(tavi, { op: "enter" });
   assert.equal((await view(tavi)).world.presentActors.includes("tavi"), false);
-  const depart = arrived.actions.find(
-    (a) => a.kind === "move" && a.target === "greek-eleusis",
-  );
-  await command(vale, { op: "play", key: crypto.randomUUID(), action: depart });
-  await until(
-    async () => !(await view(vale)).queue.length,
-    "return to Eleusis commits",
-    2000,
-  );
+  await step("move", "greek-road-athens-eleusis");
   await command(tavi, { op: "enter" });
   assert.equal((await view(tavi)).world.presentActors.includes("tavi"), true);
+  presentPages.add(tavi);
   assert.ok(!(await view(vale)).exits.includes("greek-athens"));
+  await step("move", "greek-eleusis");
   evidence.checks.push({
     name: "leave restores road; full room delays re-entry; freed place admits re-entry",
     passed: true,
