@@ -6133,7 +6133,7 @@
             values: {},
             persona: "Andromache speaks in the household after Troy. Molossus is her son with Neoptolemus. Astyanax is her son with Hector in the separate Trojan account. Her own consent governs this road.",
             voice: "Speak in simple English from this named account and the recorded deeds. Answer the companion directly. Let your own care and interests guide your words.",
-            portrait: "assets/greek-drama/chthonic-attendant.png",
+            portrait: "assets/greek-drama/chthonic-electra.png",
             requires: [
               {
                 kind: "flag",
@@ -6165,7 +6165,7 @@
             values: {},
             persona: "Molossus is Andromache\u2019s son with Neoptolemus. He asks to join his mother and agrees to his own protected journey. Astyanax belongs to her earlier family with Hector.",
             voice: "Speak in simple English from this named account and the recorded deeds. Answer the companion directly. Let your own care and interests guide your words.",
-            portrait: "assets/greek-drama/chthonic-attendant.png",
+            portrait: "assets/greek-drama/book-four-molossus.png",
             requires: [
               {
                 kind: "flag",
@@ -6229,7 +6229,7 @@
             values: {},
             persona: "Hermione speaks for her fear and her part in the Phthian threat. Her account names Orestes\u2019s later departure with her as a source report.",
             voice: "Speak in simple English from this named account and the recorded deeds. Answer the companion directly. Let your own care and interests guide your words.",
-            portrait: "assets/greek-drama/chthonic-attendant.png",
+            portrait: "assets/greek-drama/chthonic-ismene.png",
             requires: [
               {
                 kind: "flag",
@@ -6558,7 +6558,7 @@
             values: {},
             persona: "The Pythian priestess raised the found child Ion. She entrusts the saved basket after Creusa names its signs. Athena\u2019s closing instruction belongs to the private recognition scene.",
             voice: "Speak in simple English from this named account and the recorded deeds. Answer the companion directly. Let your own care and interests guide your words.",
-            portrait: "assets/greek-drama/chthonic-attendant.png",
+            portrait: "assets/greek-drama/chthonic-neighbor.png",
             requires: [
               {
                 kind: "flag",

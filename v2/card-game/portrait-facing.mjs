@@ -55,6 +55,7 @@ const groups = {
       "thoas",
       "taurian-chorus",
     ].map((name) => `assets/greek-drama/house-of-blood/${name}.png`),
+    "assets/greek-drama/book-four-molossus.png",
     ...["tecmessa", "teucer", "odysseus"].map(
       (name) => `assets/greek-drama/ajax-${name}.png`,
     ),
@@ -128,5 +129,9 @@ const widePortraits = new Set([
   "assets/lonely-forest/skull.png",
   "assets/lonely-forest/whiskerwind.png",
 ]);
-export const portraitFraming = (cutout) =>
-  widePortraits.has(cutout.replace(/^\.\//, "")) ? "wide" : "standard";
+const childPortraits = new Set(["assets/greek-drama/book-four-molossus.png"]);
+export function portraitFraming(cutout) {
+  const file = cutout.replace(/^\.\//, "");
+  if (childPortraits.has(file)) return "child";
+  return widePortraits.has(file) ? "wide" : "standard";
+}

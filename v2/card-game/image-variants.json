@@ -175,6 +175,13 @@
       "card": "assets/optimized/card/webp/greek-drama/bacchae-cithaeron-night.webp",
       "cardHash": "0537c6453c50b8756a1f85784cb2c68d010cf2232fb80a656c77024e462c9f3f"
     },
+    "assets/greek-drama/book-four-molossus.png": {
+      "sourceHash": "9c91bc2fb20172aaf078f5cfebd65a91d1cc150169280cfc829354970d3f83c1",
+      "stage": "assets/optimized/stage/png/greek-drama/book-four-molossus.webp",
+      "stageHash": "2e402398b488e4d19a533b7c3ccb8c446f56b125ac6f568b3233ad52b4c70e54",
+      "card": "assets/optimized/card/png/greek-drama/book-four-molossus.webp",
+      "cardHash": "759af3df6e137d04ae3112f343b1ddf8711f99563e878d7e4383a584bdbded78"
+    },
     "assets/greek-drama/book-one-melea.png": {
       "sourceHash": "ab7e2587a956d944394afcad99d9d4941bdc9d553cadedd7f3219c35077ca607",
       "stage": "assets/optimized/stage/png/greek-drama/book-one-melea.webp",
