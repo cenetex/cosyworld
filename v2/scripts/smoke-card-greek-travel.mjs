@@ -24,6 +24,9 @@ try {
     const key = `cosyworld.reflected-shore.v1.${table}`;
     const fixture = openDoorStart();
     fixture.playerActorId = "mara";
+    fixture.sharedVersion = 1;
+    fixture.controlledActors = ["vale", "mara"];
+    fixture.presentActors = ["mara"];
     fixture.actors.mara.place = "greek-athens-harbor";
     const page = await browser.newPage({
       viewport: { width, height: width === 390 ? 844 : 900 },

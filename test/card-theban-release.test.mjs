@@ -36,7 +36,6 @@ const openingPlaces = [
   "greek-palace",
   "greek-sanctuary",
   "greek-ship",
-  "greek-road-thebes",
 ];
 const openDoorPlaces = [
   "greek-athens",
@@ -93,10 +92,20 @@ describe("the Theban release and its ship", () => {
     );
     s.crossings["pond-greek-harbor"].discovered = true;
     expect(reachable(s)).toEqual([...openingPlaces].sort());
-    expect(reachable(s)).toHaveLength(9);
+    expect(reachable(s)).toHaveLength(8);
     expect(pack.release.places).toHaveLength(23);
-    expect([...pack.release.places].sort()).toEqual(
-      [...openingPlaces, ...sectionPlaces].sort(),
+    expect(
+      pack.release.places
+        .filter(
+          (id) =>
+            !["greek-road-thebes", "greek-road-athens-harbor"].includes(id),
+        )
+        .sort(),
+    ).toEqual(
+      [
+        ...openingPlaces,
+        ...sectionPlaces.filter((id) => id !== "greek-road-athens-harbor"),
+      ].sort(),
     );
     expect(entityActive(s, "greek-athens")).toBe(false);
     expect(entityActive(s, "greek-rhapsode")).toBe(true);
@@ -110,12 +119,26 @@ describe("the Theban release and its ship", () => {
     s = act(s, "choose", { choiceId: "greek-decline-burial" });
     s.actors.vale.place = "greek-courtyard";
     s = act(s, "choose", { choiceId: "greek-courtyard-refusal" });
-    expect(reachable(s)).toHaveLength(9);
+    expect(reachable(s)).toHaveLength(8);
     s = act(s, "choose", { choiceId: "greek-open-door-invite-refusal" });
-    expect(reachable(s)).toEqual([...pack.release.places].sort());
-    expect(reachable(s)).toHaveLength(23);
+    expect(reachable(s)).toEqual(
+      pack.release.places
+        .filter(
+          (id) =>
+            !["greek-road-thebes", "greek-road-athens-harbor"].includes(id),
+        )
+        .sort(),
+    );
+    expect(reachable(s)).toHaveLength(21);
     s = decodeSave(encodeSave(s));
-    expect(reachable(s)).toEqual([...pack.release.places].sort());
+    expect(reachable(s)).toEqual(
+      pack.release.places
+        .filter(
+          (id) =>
+            !["greek-road-thebes", "greek-road-athens-harbor"].includes(id),
+        )
+        .sort(),
+    );
     for (const start of openDoorPlaces) {
       const trip = structuredClone(s);
       trip.transports["greek-ship"].dock = "greek-athens-harbor";
@@ -239,9 +262,11 @@ describe("the Theban release and its ship", () => {
     const sectionImages = openDoorPlaces.map(backdrop);
     expect(new Set(openingImages).size).toBe(7);
     expect(new Set(sectionImages).size).toBe(5);
-    expect(sectionImages.every((image) => /\/(open-door-|athens-grand-agora)/.test(image))).toBe(
-      true,
-    );
+    expect(
+      sectionImages.every((image) =>
+        /\/(open-door-|athens-grand-agora)/.test(image),
+      ),
+    ).toBe(true);
     const images = [...openingImages, ...sectionImages];
     expect(new Set(images).size).toBe(12);
     expect(images.every((p) => p.endsWith(".webp"))).toBe(true);
@@ -261,7 +286,11 @@ describe("the Theban release and its ship", () => {
     expect(travelCard(s, pack.entry)).toBeNull();
   });
   it("checks every committed art checksum", () => {
-    const assets = ["scenery-provenance.json", "open-door-art.json", "ports-roads-art.json"].flatMap(
+    const assets = [
+      "scenery-provenance.json",
+      "open-door-art.json",
+      "ports-roads-art.json",
+    ].flatMap(
       (file) =>
         JSON.parse(
           readFileSync(

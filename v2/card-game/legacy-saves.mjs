@@ -217,7 +217,11 @@ export function upgradeGreekTownSave(s) {
   for (const state of Object.values(s.roamingQuests || {})) {
     if (state.target)
       state.target.locationId = canonicalPlace(state.target.locationId);
-    state.blocked = null;
+    if (
+      state.blocked &&
+      [state.blocked.from, state.blocked.to].some(localRoadEnds)
+    )
+      state.blocked = null;
   }
   s.standoffs = (s.standoffs || []).filter(
     (conflict) => !localRoadEnds(conflict.location),

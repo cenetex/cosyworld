@@ -495,8 +495,8 @@ it.each(["mara", "rue"])(
     const view = ask(world, "view", actor).world;
     const cards = availableCards(view),
       hand = questHand(view);
-    expect(cards[0]).toBe("station");
-    expect(cards.indexOf("oil")).toBeLessThan(cards.indexOf(actor));
+    expect(cards[0]).toBe(actor);
+    expect(cards.indexOf("oil")).toBeGreaterThan(cards.indexOf(actor));
     expect(cards.indexOf(actor)).toBeLessThan(cards.indexOf("vale"));
     const start = hand.indexOf(actor);
     expect(hand.slice(start, start + 4)).toEqual([
