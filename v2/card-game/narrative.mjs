@@ -1,3 +1,4 @@
+import { trustedActors } from "./trust.mjs";
 import { learningFacts } from "./learning.mjs";
 import { audienceMemory, privateAudienceAllows } from "./reading-privacy.mjs";
 import {
@@ -38,6 +39,7 @@ import {
   opponentOf,
   placeText,
   places,
+  people,
   publishKnowledgeSpeech,
 } from "./world.mjs";
 import { actorQuests, desireFor, knownActors } from "./quests.mjs";
@@ -47,6 +49,8 @@ import {
   conditionText,
   questItemAvailable,
 } from "./situations.mjs";
+
+const trustActorOrder = Object.keys(people);
 
 // Keep a few lasting encounters beside fresh facts. Speech stays secondary to
 // witnessed events. Hidden puzzle bookkeeping is not dialogue material.
@@ -489,9 +493,7 @@ export function narrativeContext(world, action = null) {
           facts.push(
             `${conditionMet(world, c, id) ? "Already true" : "Still hoped for"}: ${conditionText(c, nameOf)}.`,
           );
-        const helpers = Object.entries(world.actors[id].trust)
-          .filter(([, n]) => n > 0)
-          .map(([other]) => nameOf(other));
+        const helpers = trustedActors(world, id, trustActorOrder).map(nameOf);
         if (helpers.length)
           facts.push(
             `Owes a favour to ${helpers.join(" and ")}; willing to share a spare or take a detour with them.`,

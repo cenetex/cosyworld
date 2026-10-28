@@ -211,12 +211,8 @@ fn book_two_upgrades_rules_twenty_and_replays_the_agreed_danaid_journey() {
     }
     assert_eq!(world.game["quests"], expected_quests);
     for (actor, saved) in before.game["actors"].as_object().unwrap() {
-        let mut expected = saved.clone();
-        for added in NEW_ACTORS {
-            expected["trust"][added] = json!(0);
-        }
         assert_eq!(
-            world.game["actors"][actor], expected,
+            &world.game["actors"][actor], saved,
             "Preserve released actor {actor}"
         );
     }

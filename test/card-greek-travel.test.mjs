@@ -192,17 +192,7 @@ describe("Greek ports and fixed roads", () => {
       };
       const current = decodeSave(JSON.stringify(old));
       for (const [id, actor] of Object.entries(old.actors))
-        expect(current.actors[id]).toEqual({
-          ...actor,
-          trust: {
-            ...actor.trust,
-            ...Object.fromEntries(
-              Object.keys(current.actors)
-                .filter((added) => !old.actors[added])
-                .map((added) => [added, 0]),
-            ),
-          },
-        });
+        expect(current.actors[id]).toEqual(actor);
       expect(current.items).toMatchObject(old.items);
       expect(current.transports).toEqual(old.transports);
       expect(current.packs["greek-drama"].revision).toBe(pack.revision);

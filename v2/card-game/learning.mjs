@@ -1,3 +1,4 @@
+import { trustValue } from "./trust.mjs";
 import {
   beginLearning as prepare,
   finishLearning,
@@ -20,7 +21,7 @@ export function requestConditions(world, action) {
   const target = world.actors[action.target];
   return JSON.stringify([
     target?.place,
-    target?.trust?.[action.actor] || 0,
+    trustValue(world, action.target, action.actor),
     (world.motives?.grievances[action.target] || []).map((g) => [
       g.other,
       g.kind,

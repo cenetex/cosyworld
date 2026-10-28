@@ -3,6 +3,13 @@ export const DAYLIGHT_TURNS = 24;
 const art = (file) => `assets/greek-drama/${file}.webp`;
 const houseArt = (file) => `assets/greek-drama/house-of-blood/${file}.png`;
 const housePlaceWords = {
+  "greek-thrace": "on the remembered Thracian shore",
+  "greek-thrace-summons-tent": "on the remembered Thracian shore",
+  "greek-thrace-burial-ground": "on the remembered Thracian shore",
+  "greek-susa": "at the historical court at Susa",
+  "greek-susa-tomb": "at the historical court at Susa",
+  "greek-susa-threshold": "at the historical court at Susa",
+  "greek-susa-road": "at the historical court at Susa",
   "greek-aulis": "at the remembered Aulis anchorage",
   "greek-aulis-household": "at the remembered Aulis anchorage",
   "greek-aulis-altar": "at the remembered Aulis anchorage",
@@ -41,6 +48,12 @@ const nightBackdrops = {
   "greek-aulis-altar": art("ajax-camp-night"),
   "greek-lemnos": art("book-three-lemnos-night"),
   "greek-lemnos-landing": art("book-three-lemnos-night"),
+  "greek-thrace": art("book-three-thrace-night"),
+  "greek-thrace-summons-tent": art("book-three-thrace-night"),
+  "greek-thrace-burial-ground": art("book-three-thrace-night"),
+  "greek-susa": art("book-three-susa-night"),
+  "greek-susa-tomb": art("book-three-susa-night"),
+  "greek-susa-threshold": art("book-three-susa-night"),
 };
 const dockedNightBackdrops = {
   [art("harbor-ship-at-berth")]: art("harbor-ship-at-berth-night"),

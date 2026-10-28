@@ -276,6 +276,25 @@ function sharedPull() {
   return choose(w, peace("pull"));
 }
 describe("Peace reaches actual workers and supplies", () => {
+  it("records the workshop result when the tools arrive before the harvest account", () => {
+    let w = sharedPull();
+    w = take(take(take(w, grain), peaceList), tools);
+    w = accompany(w, farmers, farm);
+    w = choose(w, peace("farmers-arrived"));
+    w = give(w, grain, farmers);
+    w = give(move(w, workshop), tools, smiths);
+    w = move(w, farm);
+    expect(
+      legalActions(w).some((action) => action.choiceId === peace("harvest")),
+    ).toBe(false);
+    w = decodeSave(encodeSave(w));
+    expect(w.items[grain].holder).toBe(farmers);
+    expect(w.items[tools].holder).toBe(smiths);
+    w = choose(move(w, workshop), peace("workshops"));
+    expect(w.packs[GREEK].choices[peace("ending")]).toBe("workshops");
+    expect(decodeSave(encodeSave(w))).toEqual(w);
+  });
+
   it.each(["harvest", "workshops", "private-store"])(
     "earns %s from real holders",
     (ending) => {

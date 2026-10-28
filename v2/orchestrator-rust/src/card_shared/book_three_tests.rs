@@ -65,6 +65,13 @@ fn reject_stale(
 }
 
 fn fixture() -> (std::path::PathBuf, rusqlite::Connection, String, World) {
+    journey_fixture("lemnosReady", LANDING)
+}
+
+fn journey_fixture(
+    helper: &str,
+    landing: &str,
+) -> (std::path::PathBuf, rusqlite::Connection, String, World) {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap()
@@ -72,8 +79,8 @@ fn fixture() -> (std::path::PathBuf, rusqlite::Connection, String, World) {
         .unwrap();
     let output = std::process::Command::new("node")
         .current_dir(root)
-        .args(["--input-type=module", "-e", "import {lemnosReady} from './test/helpers/greek-book-three.mjs'; console.log(JSON.stringify(lemnosReady()));"])
-        .output().expect("Node 24 creates the completed care and bow-return fixture");
+        .args(["--input-type=module", "-e", &format!("import {{{helper}}} from './test/helpers/greek-book-three.mjs'; console.log(JSON.stringify({helper}()));")])
+        .output().expect("Node 24 creates the completed authored consent fixture");
     assert!(
         output.status.success(),
         "{}",
@@ -82,8 +89,8 @@ fn fixture() -> (std::path::PathBuf, rusqlite::Connection, String, World) {
     let mut world = World::create(Some(&String::from_utf8(output.stdout).unwrap())).unwrap();
     world.claimed = [1, 1, 1, 0, 0, 0, 0, 0];
     world.present = world.claimed;
-    world.game["actors"]["mara"]["place"] = json!(LANDING);
-    world.game["actors"]["ash"]["place"] = json!(LANDING);
+    world.game["actors"]["mara"]["place"] = json!(landing);
+    world.game["actors"]["ash"]["place"] = json!(landing);
     for actor in 0..3 {
         world.project(actor).unwrap();
     }
@@ -95,6 +102,149 @@ fn fixture() -> (std::path::PathBuf, rusqlite::Connection, String, World) {
     store::create(&c, &id, "owner", now()).unwrap();
     full_store::seed(&c, &id, &world, "book-three-care-and-returned-bow", now()).unwrap();
     (path, c, id, world)
+}
+
+#[test]
+fn book_three_reserved_family_sails_with_both_letters_while_three_humans_wait_and_replays() {
+    const PORT: &str = "greek-ajax-landing";
+    const MOTHER: &str = "greek-troy-andromache";
+    const ELDER: &str = "greek-troy-hecuba";
+    const TOKEN: &str = "greek-troy-berth-token";
+    let (path, c, id, mut world) = journey_fixture("troyFamilyReady", PORT);
+    let stale_consent = action(
+        &world,
+        0,
+        &[("choiceId", "greek-troy-agree-andromache-family-together")],
+    )
+    .unwrap();
+    let stale_board = action(&world, 0, &[("kind", "move"), ("target", "greek-ship")]).unwrap();
+    play(
+        &c,
+        &id,
+        &mut world,
+        0,
+        &[("kind", "give"), ("item", TOKEN), ("target", "mara")],
+    );
+    reject_stale(&c, &id, &mut world, 0, stale_consent);
+    play(
+        &c,
+        &id,
+        &mut world,
+        1,
+        &[("kind", "give"), ("item", TOKEN), ("target", "vale")],
+    );
+    play(
+        &c,
+        &id,
+        &mut world,
+        0,
+        &[("choiceId", "greek-troy-agree-andromache-family-together")],
+    );
+    reject_stale(&c, &id, &mut world, 0, stale_board);
+    let mut replayed_aboard = false;
+    for _ in 0..40 {
+        for human in ["vale", "mara", "ash"] {
+            assert_eq!(world.game["actors"][human]["place"], PORT);
+        }
+        assert_eq!(world.game["items"]["greek-troy-message-a"]["holder"], ELDER);
+        assert_eq!(
+            world.game["items"]["greek-troy-message-b"]["holder"],
+            MOTHER
+        );
+        assert_eq!(
+            world.game["items"]["greek-troy-child-cloth"]["holder"],
+            MOTHER
+        );
+        if world.game["actors"][MOTHER]["place"] == "greek-ship" {
+            assert!(action(&world, 0, &[("kind", "move"), ("target", "greek-ship")]).is_none());
+            if !replayed_aboard {
+                c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+                assert_eq!(full_store::world(&c, &id, now()).unwrap(), world);
+                replayed_aboard = true;
+            }
+        }
+        if world.game["actors"][MOTHER]["place"] == "greek-harbor"
+            && world.game["actors"][ELDER]["place"] == "greek-harbor"
+        {
+            break;
+        }
+        play(&c, &id, &mut world, 0, &[("kind", "wait")]);
+    }
+    assert!(replayed_aboard, "Replay the actual reserved leg");
+    for actor in [MOTHER, ELDER] {
+        assert_eq!(world.game["actors"][actor]["place"], "greek-harbor");
+    }
+    assert!(world.game["packs"]["greek-drama"]["choices"]
+        .get("greek-troy-ending")
+        .is_none());
+    assert_eq!(world.game["items"][TOKEN]["holder"], PORT);
+    for _ in 0..16 {
+        if action(&world, 0, &[("kind", "move"), ("target", "greek-ship")]).is_some() {
+            break;
+        }
+        play(&c, &id, &mut world, 0, &[("kind", "wait")]);
+    }
+    for target in ["greek-ship", "greek-harbor"] {
+        play(
+            &c,
+            &id,
+            &mut world,
+            0,
+            &[("kind", "move"), ("target", target)],
+        );
+    }
+    let result = play(
+        &c,
+        &id,
+        &mut world,
+        0,
+        &[("kind", "talk"), ("target", "greek-shipmaster")],
+    );
+    let disclosures = result["context"]["disclosures"].clone();
+    assert_eq!(
+        disclosures[0]["factId"],
+        "greek-troy-account-family-together"
+    );
+    full_store::commit(&c, &id, &mut world, json!({"op":"speech", "actor":"vale", "room":"greek-harbor", "disclosures":disclosures, "lines":[{"actorId":"vale", "text":"Tell Dione who arrived."}, {"actorId":"greek-shipmaster", "text":disclosures[0]["text"]}]}), now()).unwrap();
+    play(
+        &c,
+        &id,
+        &mut world,
+        0,
+        &[("choiceId", "greek-troy-last-song")],
+    );
+    play(
+        &c,
+        &id,
+        &mut world,
+        0,
+        &[("kind", "move"), ("target", "greek-courtyard")],
+    );
+    play(
+        &c,
+        &id,
+        &mut world,
+        0,
+        &[("choiceId", "greek-troy-return-family-together")],
+    );
+    assert_eq!(
+        world.game["packs"]["greek-drama"]["choices"]["greek-troy-ending"],
+        "family-together"
+    );
+    assert_eq!(
+        world.game["packs"]["greek-drama"]["choices"]["greek-troy-astyanax-fate"],
+        "refuge"
+    );
+    assert_eq!(
+        world.game["items"]["greek-troy-names"]["holder"],
+        "greek-courtyard"
+    );
+    let expected = world.clone();
+    c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+    assert_eq!(full_store::world(&c, &id, now()).unwrap(), expected);
+    drop(c);
+    let reopened = store::open(&path).unwrap();
+    assert_eq!(full_store::world(&reopened, &id, now()).unwrap(), expected);
 }
 
 #[test]

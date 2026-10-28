@@ -217,6 +217,13 @@
       "card": "assets/optimized/card/png/greek-drama/book-three-atossa.webp",
       "cardHash": "a15542900dceebc1ce021839159a4942a3fda1e4974a60b4b62198fc4b850afa"
     },
+    "assets/greek-drama/book-three-broken-oar.png": {
+      "sourceHash": "ecb413bba46f2c38a95019a79e89b358533fcb7788404f97de2fe959d898ea5f",
+      "stage": "assets/optimized/stage/png/greek-drama/book-three-broken-oar.webp",
+      "stageHash": "b3493da187b14056c3ed81015e4ef6ab7a19e34c19ee5f4cd24d834f514767c3",
+      "card": "assets/optimized/card/png/greek-drama/book-three-broken-oar.webp",
+      "cardHash": "71980edd499536336e072e26096cdb22081bd60c92d58040598b2b67ae0b9951"
+    },
     "assets/greek-drama/book-three-charioteer.png": {
       "sourceHash": "043533cfdf7719e2ae43a20224897361d18b3668c9e70ed6ef26bc38f3da1ceb",
       "stage": "assets/optimized/stage/png/greek-drama/book-three-charioteer.webp",
@@ -230,6 +237,13 @@
       "stageHash": "574b718183b636e3e1e19fb9c675fbfad70f51240d3b1f1d18c807c040edbb92",
       "card": "assets/optimized/card/png/greek-drama/book-three-clytemnestra.webp",
       "cardHash": "2181dcb978f53c37a743f07fb3b0551ba2a8d34c6ee54cf0d9da12b0390855bc"
+    },
+    "assets/greek-drama/book-three-hector-shield.png": {
+      "sourceHash": "cfa06800fbb6126ad88bc6df32e55e115fb1d8b02b15cdc31ca0629d4dce80d3",
+      "stage": "assets/optimized/stage/png/greek-drama/book-three-hector-shield.webp",
+      "stageHash": "adfb5097f12666b24e0dc33cacc169feb7245c4a1b556207a18a8b50147684c3",
+      "card": "assets/optimized/card/png/greek-drama/book-three-hector-shield.webp",
+      "cardHash": "fe6379d3c66b5889d32b403197409aa8e7005020e2a52d1a389662593a6a491d"
     },
     "assets/greek-drama/book-three-hector.png": {
       "sourceHash": "a4dbd50f6546dda4a754d480b73b025de579d1fce4f44f0d9cef624eaf4b74db",
@@ -301,12 +315,47 @@
       "card": "assets/optimized/card/png/greek-drama/book-three-rhesus.webp",
       "cardHash": "4be1012701d4de77a61b10dec137a292d03587375adc42092205fad5fece8365"
     },
+    "assets/greek-drama/book-three-susa-day.webp": {
+      "sourceHash": "67fdb625eb21ba74606c48509418e171296b027d001321a3b332c799066aa1b1",
+      "stage": "assets/greek-drama/book-three-susa-day.webp",
+      "stageHash": "67fdb625eb21ba74606c48509418e171296b027d001321a3b332c799066aa1b1",
+      "card": "assets/optimized/card/webp/greek-drama/book-three-susa-day.webp",
+      "cardHash": "cf1d251f95d99a6f610f98f997021586d51b59165d867ec53a002038be2419ad"
+    },
+    "assets/greek-drama/book-three-susa-night.webp": {
+      "sourceHash": "d0095e071d2cee5add755770a55ec47b3995146484327c81a295f1afe8bc98a3",
+      "stage": "assets/greek-drama/book-three-susa-night.webp",
+      "stageHash": "d0095e071d2cee5add755770a55ec47b3995146484327c81a295f1afe8bc98a3",
+      "card": "assets/optimized/card/webp/greek-drama/book-three-susa-night.webp",
+      "cardHash": "acbc42ccb093fec798f3f1494bb44bed8dfc072db353abf5a281bf67b6e785e5"
+    },
     "assets/greek-drama/book-three-talthybius.png": {
       "sourceHash": "400fd68d3d78fec88665de43873c221cb2f7ace977570eb4f6da81a726714424",
       "stage": "assets/optimized/stage/png/greek-drama/book-three-talthybius.webp",
       "stageHash": "f24c062c4d788c4bca035b7209d3352a95adf534224e475188c924c9120acb44",
       "card": "assets/optimized/card/png/greek-drama/book-three-talthybius.webp",
       "cardHash": "e72af063a1c6b03b01ccf1aba509edb8a1d3e03fcff1d669e79a3f96d80e2462"
+    },
+    "assets/greek-drama/book-three-thrace-day.webp": {
+      "sourceHash": "d8413d1c3b7d59ea353612c71a0cf1b66f11118d6c9ff4edf5aa035b2068a2e7",
+      "stage": "assets/greek-drama/book-three-thrace-day.webp",
+      "stageHash": "d8413d1c3b7d59ea353612c71a0cf1b66f11118d6c9ff4edf5aa035b2068a2e7",
+      "card": "assets/optimized/card/webp/greek-drama/book-three-thrace-day.webp",
+      "cardHash": "7e250218a8a039a231b2dad94c1e254f5edbfccf0e2c629ad7efc9381ad580a4"
+    },
+    "assets/greek-drama/book-three-thrace-night.webp": {
+      "sourceHash": "8b8ad2859e77b41c4a3c880abcacfee8e992aad7eeefe845c6084eb76d94f279",
+      "stage": "assets/greek-drama/book-three-thrace-night.webp",
+      "stageHash": "8b8ad2859e77b41c4a3c880abcacfee8e992aad7eeefe845c6084eb76d94f279",
+      "card": "assets/optimized/card/webp/greek-drama/book-three-thrace-night.webp",
+      "cardHash": "715277d1dfe38110e87a88c7786d896f5daa307c9c3ce66b39db89c9765917a9"
+    },
+    "assets/greek-drama/book-three-xerxes-cloak.png": {
+      "sourceHash": "74697a7ac7eae51dd36c6c1536dc8146bc69ba2d5aef5f09166a69c55fe0d809",
+      "stage": "assets/optimized/stage/png/greek-drama/book-three-xerxes-cloak.webp",
+      "stageHash": "668fad8332799403a60eb725e9e46a6da3332876cbe849eaee9b23cca0774ecd",
+      "card": "assets/optimized/card/png/greek-drama/book-three-xerxes-cloak.webp",
+      "cardHash": "2506f3265007b7a9e534364d1ef3229cb7b5d332cb3088fa1879f2c43fa1fda3"
     },
     "assets/greek-drama/book-three-xerxes.png": {
       "sourceHash": "5db67d752eab1688dcd48f4a6d0d80724406e963e1d2175d33f814fc381e1267",

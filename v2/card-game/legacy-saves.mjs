@@ -23,6 +23,7 @@ import { passengers } from "./pack-transport.mjs";
 import { installKnowledge } from "./knowledge.mjs";
 import { newTemperament } from "./pack-rules.mjs";
 import { greekRevisionSeven } from "./legacy-greek-catalog.mjs";
+import { validTrust } from "./trust.mjs";
 
 // Upgrade historical records before the world validates the current save.
 // World-owned helpers keep pack installation and generated quests on the same
@@ -31,6 +32,21 @@ export function upgradeSave(
   s,
   { actorIds, ensurePrograms, installPacks, profileOf },
 ) {
+  // Earlier catalogs stored every peer. Check those records before adding IDs.
+  if (
+    s?.schema === 6 ||
+    (s?.schema === 7 && s.packs?.["greek-drama"]?.revision < 8)
+  ) {
+    const ids = new Set(Object.keys(s.actors || {}));
+    for (const [id, actor] of Object.entries(s.actors || {}))
+      if (
+        !validTrust(actor?.trust, id, ids) ||
+        Object.keys(actor.trust).length !== ids.size - 1
+      )
+        throw new Error(
+          "This earlier save needs its original entity records and trust records.",
+        );
+  }
   if (s?.schema === 1 && s.actors && typeof s.actors === "object") {
     s.schema = 2;
     for (const actor of Object.values(s.actors)) {
@@ -440,16 +456,13 @@ function addGreekEntities(s, pack, avatars, items) {
     throw new Error(
       "This earlier Greek save needs its original entity records.",
     );
-  const actorIds = [...Object.keys(s.actors), ...avatars];
   for (const id of avatars) {
     s.actors[id] = {
       place: pack.avatars[id].place,
       progress: newProgress(),
       crossed: 0,
       lastTalk: -9,
-      trust: Object.fromEntries(
-        actorIds.filter((other) => other !== id).map((other) => [other, 0]),
-      ),
+      trust: {},
       ...newTemperament(id),
     };
     s.peaceUntil[id] = 0;
@@ -460,8 +473,6 @@ function addGreekEntities(s, pack, avatars, items) {
     s.items[id] = { holder: pack.items[id].holder, history: [] };
     s.memories[id] = fresh[id];
   }
-  for (const [id, actor] of Object.entries(s.actors))
-    for (const other of avatars) if (other !== id) actor.trust[other] ??= 0;
 }
 
 // Earlier occupied ships used a null dock. Keep their saved destination and

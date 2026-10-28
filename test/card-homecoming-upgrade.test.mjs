@@ -93,13 +93,7 @@ describe("the household save upgrade", () => {
         expect(after[key]).toEqual(before[key]);
       expect(after.crossings).toMatchObject(before.crossings);
       for (const [id, actor] of Object.entries(before.actors))
-        expect(after.actors[id]).toEqual({
-          ...actor,
-          trust: {
-            ...actor.trust,
-            ...Object.fromEntries(newActors.map((added) => [added, 0])),
-          },
-        });
+        expect(after.actors[id]).toEqual(actor);
       for (const [id, memory] of Object.entries(before.memories))
         expect(after.memories[id]).toMatchObject(memory);
       for (const [id, peace] of Object.entries(before.peaceUntil))

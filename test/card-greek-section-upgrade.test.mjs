@@ -1,3 +1,4 @@
+import { trustValue } from "../v2/card-game/trust.mjs";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { describe, expect, it } from "vitest";
@@ -79,7 +80,7 @@ describe("Greek section save upgrade", () => {
         for (const other of Object.keys(after.actors).filter(
           (key) => !before.actors[key],
         ))
-          expect(after.actors[id].trust[other]).toBe(0);
+          expect(trustValue(after, id, other)).toBe(0);
       }
       for (const field of ["items", "peaceUntil"])
         for (const [id, value] of Object.entries(before[field]))
