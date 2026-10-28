@@ -30,6 +30,13 @@ export function rememberEvent(world, entry) {
   ]);
   for (const id of related) {
     if (!profiles[id]) continue;
+    if (
+      profiles[id].kind === "avatar" &&
+      world.controlledActors?.includes(id) &&
+      !world.presentActors?.includes(id) &&
+      entry.actorId !== id
+    )
+      continue;
     const memory = world.memories[id];
     if (memory.events.some((event) => event.seq === entry.seq)) continue;
     memory.events.push({

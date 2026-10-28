@@ -1670,7 +1670,7 @@ pub fn etag(path: &str) -> Option<&'static str> {
         "scene-video.css" => "\"3c6851ec825e734e3d8a084f4ed77f077bcb4402acbf61869a67b652c3afe4c5\"",
         "awakening.css" => "\"c7a68a23baf1e46934237a57f4b5f87d76bad87af85fdf57ee40abec646908b9\"",
         "app.mjs" => "\"71fc94f09d48266f4f8fc7648eb12d929f0ce400929da11933bd034311a59cfe\"",
-        "world.mjs" => "\"0a88eab72f0296bb2530fb41c79bec33e5ea88b77df40d48ef3b4f95f3ffcd07\"",
+        "world.mjs" => "\"2c0b16981ffeb9e22f46a5a1aabe4f16a345c3119ca5af3abb150bd6b71268cb\"",
         "scene.mjs" => "\"635ee5038f8b73ae0425bb64de542fa2a9d034f3287802a1a5b3a8101b34edd1\"",
         "portrait-facing.mjs" => {
             "\"092242aa43a1919d1469b9dfba6a50723504569fea480fd3f33fcb9f72bd23b1\""
@@ -1707,9 +1707,9 @@ pub fn etag(path: &str) -> Option<&'static str> {
         }
         "quest-cards.mjs" => "\"81916b280064e9c9619fb01ee5ded358adf750374efdc10f5fbfa9c629ffeeb9\"",
         "situations.mjs" => "\"1fff8b8ba954720b8a0a4450d6db2bf6e6d9378566ae0ca2668a44979f83c39d\"",
-        "memory.mjs" => "\"684c68e3505a0d0f9e2f1a710b3d3472420d4b1a1ee4143701e6d0fa1114c63e\"",
+        "memory.mjs" => "\"73ce17a68e29678684d13458a87fa9e2274879a45680e53d7d83b562abac3dab\"",
         "learning.mjs" => "\"feb6faebe9c0470cfac7545e7e91587701b7434fecd176c9475fee778cb51175\"",
-        "narrative.mjs" => "\"2964b38e70322d9f3ce502a08a705a0edcec4126de9b44bf1a007de62c713572\"",
+        "narrative.mjs" => "\"57a50bdcbdcb97f6078fa9b6fea440665563291f12c1411d691c1658cabf46df\"",
         "dialogue.mjs" => "\"1f4965d3e2a36261973aace4534359c00c7cf8aeaf15548a08d29e364adcc7ad\"",
         "character-speech.mjs" => {
             "\"d53e51f93d89a0073199f45dd83086417733d76980f6c3b22f875b3f642292b5\""

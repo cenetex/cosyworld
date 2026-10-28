@@ -163,3 +163,26 @@ fn shared_request_lessons_replay_from_their_completed_action() {
     c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
     assert_eq!(full_store::world(&c, &id, now()).unwrap(), w);
 }
+
+#[test]
+fn shared_interpreter_keeps_absent_players_out_of_witnessed_memory() {
+    let mut w = World::create(None).unwrap();
+    w.game["actors"]["mara"]["place"] = w.game["actors"]["vale"]["place"].clone();
+    for actor in ["vale", "mara"] {
+        w.apply(&json!({"op":"claim","actor":actor})).unwrap();
+    }
+    w.apply(&json!({"op":"enter","actor":"vale"})).unwrap();
+    let action = home_action(&w, 0, "light");
+    w.apply(&json!({"op":"play","actor":"vale","action":action}))
+        .unwrap();
+    let room = w.room(0).unwrap().to_string();
+    w.apply(&json!({"op":"speech","actor":"vale","room":room,"lines":[{"actorId":"vale","text":"A quiet story for this room."}]})).unwrap();
+    assert!(w.game["memories"]["mara"]["events"]
+        .as_array()
+        .unwrap()
+        .is_empty());
+    let own = w.game["memories"]["vale"]["events"].as_array().unwrap();
+    assert!(own
+        .iter()
+        .any(|e| e["text"].as_str().unwrap().contains("quiet story")));
+}

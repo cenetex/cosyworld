@@ -204,4 +204,24 @@ describe("avatar learning", () => {
         .memories.some((m) => m.text.includes("quiet story")),
     ).toBe(false);
   });
+  it("keeps an absent shared player out of witnessed conversation", () => {
+    const world = createWorld();
+    world.sharedVersion = 1;
+    world.controlledActors = ["vale", "mara"];
+    world.presentActors = ["vale"];
+    world.actors.mara.place = world.actors.vale.place;
+    addLog(world, "Vale", "The keeper shared a quiet story.", {
+      kind: "dialogue",
+      generated: true,
+      actorId: "vale",
+    });
+    world.turn = 1;
+    world.revision = 1;
+    const context = narrativeContext(world);
+    expect(context.conversation[0].witnesses).toEqual(["vale"]);
+    expect(
+      world.memories.mara.events.some((e) => e.text.includes("quiet story")),
+    ).toBe(false);
+    expect(context.outcome.avatars.some((a) => a.id === "mara")).toBe(false);
+  });
 });

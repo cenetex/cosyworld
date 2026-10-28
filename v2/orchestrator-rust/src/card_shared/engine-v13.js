@@ -11947,6 +11947,8 @@
     ]);
     for (const id of related3) {
       if (!profiles[id]) continue;
+      if (profiles[id].kind === "avatar" && world.controlledActors?.includes(id) && !world.presentActors?.includes(id) && entry.actorId !== id)
+        continue;
       const memory = world.memories[id];
       if (memory.events.some((event) => event.seq === entry.seq)) continue;
       memory.events.push({
@@ -14068,7 +14070,9 @@
       kind: detail.kind || (speaker === "You" ? "input" : actorId ? "dialogue" : "narration"),
       actorId,
       locationId,
-      cast: knownActors(s).filter((id) => s.actors[id].place === locationId),
+      cast: knownActors(s).filter(
+        (id) => s.actors[id].place === locationId && (!controlledByHuman(s, id) || humanPresent(s, id))
+      ),
       items: ids.filter((id) => entityActive(s, id) && itemPlace2(s, id) === locationId).map((id) => {
         const { history, ...item } = s.items[id];
         return { id, ...item };
@@ -14606,7 +14610,7 @@
     const here = s.actors[a.actor].place;
     const witnesses = [
       ...actorIds.filter(
-        (id) => entityActive(s, id) && s.actors[id].place === here
+        (id) => entityActive(s, id) && s.actors[id].place === here && (!controlledByHuman(s, id) || humanPresent(s, id))
       ),
       ...ids.filter((id) => entityActive(s, id) && itemPlace2(s, id) === here)
     ];
@@ -15758,7 +15762,9 @@
         ...sceneChanges(world).map((change) => change.actorId),
         ...!packEntity(here) ? known.filter((id) => !packEntity(id)) : []
       ])
-    ].filter((id) => known.includes(id) && entityActive(world, id)).slice(0, 8);
+    ].filter(
+      (id) => known.includes(id) && entityActive(world, id) && (id === currentActor(world) || !world.controlledActors?.includes(id) || world.presentActors?.includes(id))
+    ).slice(0, 8);
     const relevantItems = [
       .../* @__PURE__ */ new Set([
         played?.itemId,
@@ -15950,7 +15956,7 @@
               `${nameOf(played.targetId)} ${played.accepted ? "agreed to" : "declined"} ${nameOf(played.actorId)}'s invitation to ${nameOf(played.destinationId)}. This is the recorded answer for this play.`
             );
           const company = Object.keys(world.actors).filter(
-            (other) => other !== id && known.includes(other) && entityActive(world, other) && world.actors[other].place === world.actors[id].place
+            (other) => other !== id && known.includes(other) && entityActive(world, other) && world.actors[other].place === world.actors[id].place && (!world.controlledActors?.includes(other) || world.presentActors?.includes(other))
           );
           facts.push(
             `Location now: ${nameOf(world.actors[id].place)}. Company now: ${company.map(nameOf).join(", ") || "alone"}.`

@@ -77,7 +77,14 @@ export function turnOutcome(world) {
       ...(!packEntity(here) ? known.filter((id) => !packEntity(id)) : []),
     ]),
   ]
-    .filter((id) => known.includes(id) && entityActive(world, id))
+    .filter(
+      (id) =>
+        known.includes(id) &&
+        entityActive(world, id) &&
+        (id === currentActor(world) ||
+          !world.controlledActors?.includes(id) ||
+          world.presentActors?.includes(id)),
+    )
     .slice(0, 8);
   const relevantItems = [
     ...new Set([
@@ -390,7 +397,9 @@ export function narrativeContext(world, action = null) {
             other !== id &&
             known.includes(other) &&
             entityActive(world, other) &&
-            world.actors[other].place === world.actors[id].place,
+            world.actors[other].place === world.actors[id].place &&
+            (!world.controlledActors?.includes(other) ||
+              world.presentActors?.includes(other)),
         );
         facts.push(
           `Location now: ${nameOf(world.actors[id].place)}. Company now: ${company.map(nameOf).join(", ") || "alone"}.`,

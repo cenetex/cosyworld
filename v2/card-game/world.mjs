@@ -969,7 +969,11 @@ export function addLog(s, speaker, text, detail = {}) {
       (speaker === "You" ? "input" : actorId ? "dialogue" : "narration"),
     actorId,
     locationId,
-    cast: knownActors(s).filter((id) => s.actors[id].place === locationId),
+    cast: knownActors(s).filter(
+      (id) =>
+        s.actors[id].place === locationId &&
+        (!controlledByHuman(s, id) || humanPresent(s, id)),
+    ),
     items: ids
       .filter((id) => entityActive(s, id) && itemPlace(s, id) === locationId)
       .map((id) => {
@@ -1653,7 +1657,10 @@ function perform(s, a, capture = () => {}, round = null) {
   const here = s.actors[a.actor].place;
   const witnesses = [
     ...actorIds.filter(
-      (id) => entityActive(s, id) && s.actors[id].place === here,
+      (id) =>
+        entityActive(s, id) &&
+        s.actors[id].place === here &&
+        (!controlledByHuman(s, id) || humanPresent(s, id)),
     ),
     ...ids.filter((id) => entityActive(s, id) && itemPlace(s, id) === here),
   ];
