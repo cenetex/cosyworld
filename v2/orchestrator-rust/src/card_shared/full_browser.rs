@@ -16,7 +16,7 @@ pub(super) async fn chat(
     h: HeaderMap,
     Json(body): Json<BrowserChat>,
 ) -> Response {
-    let result = blocking(move || {
+    let result = blocking(state.event_store_path.clone(), move || {
         valid_id(&id)?;
         let u = user(&state, &h, true)?;
         admit(&u)?;
