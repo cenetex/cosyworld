@@ -66,7 +66,11 @@ fn forest_crossing_upgrade_replays_with_two_humans(version: &str) {
     for (key, value) in old.game["items"].as_object().unwrap() {
         assert_eq!(&w.game["items"][key], value);
     }
-    assert_eq!(w.game["packs"]["lonely-forest"]["revision"], 1);
+    assert_eq!(w.game["packs"]["lonely-forest"]["revision"], 2);
+    assert_eq!(
+        w.game["packs"]["lonely-forest"]["personalQuests"]["forest-rati-scarf"],
+        json!({"legacy":false,"version":1,"records":{}})
+    );
     for actor in ["rati", "skull", "whiskerwind", "oak"] {
         assert!(w.game["actors"].get(actor).is_some());
     }
@@ -92,6 +96,11 @@ fn forest_crossing_upgrade_replays_with_two_humans(version: &str) {
     assert_eq!(w.game["items"]["cloth"]["holder"], "vale");
     move_to(&mut w, "vale", 0, "forest-cottage");
     assert_eq!(w.game["actors"]["mara"]["place"], "forest-cottage");
+    let records =
+        &w.game["packs"]["lonely-forest"]["personalQuests"]["forest-rati-scarf"]["records"];
+    for actor in ["mara", "vale"] {
+        assert_eq!(records[actor]["meeting"]["place"], "forest-cottage");
+    }
     let loaded = full_store::world(&c, &id, now()).unwrap();
     assert_eq!(loaded, w);
     move_to(&mut w, "mara", 1, "attic");
