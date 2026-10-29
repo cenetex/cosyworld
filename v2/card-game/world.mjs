@@ -556,9 +556,25 @@ function personalQuestApi() {
     },
   };
 }
+function announcePersonalMeetings(s, meetings) {
+  for (const meeting of meetings) {
+    const quest = packDefinition(meeting.pack).personalQuests.find((q) => q.id === meeting.quest);
+    addLog(s, "World", `${nameOf(quest.host)} welcomes ${nameOf(meeting.player)}. The ${nameOf(meeting.item)} waits beyond ${nameOf(quest.at)}.`, {
+      kind: "narration", actorId: meeting.player, targetId: quest.host,
+      itemId: meeting.item, locationId: quest.at,
+    });
+  }
+}
+export function recordPersonalAttendance(s) {
+  const meetings = beginPersonalMeetings(s, packDefinitions, personalQuestApi());
+  if (!meetings.length) return false;
+  announcePersonalMeetings(s, meetings);
+  publishQuestCompletions(s, syncStoryQuests(s));
+  return true;
+}
 function resolvePersonalQuests(s, action) {
   const api = personalQuestApi();
-  beginPersonalMeetings(s, packDefinitions, api);
+  announcePersonalMeetings(s, beginPersonalMeetings(s, packDefinitions, api));
   // Pack receipts have one event per turn; defer other choices to the next turn.
   if (action.kind === "choose") return;
   for (const done of advancePersonalQuests(s, packDefinitions, api, action)) {

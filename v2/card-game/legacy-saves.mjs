@@ -125,6 +125,7 @@ export function upgradeSave(
     upgradeGreekTownSave(s);
     upgradeGreekAjaxSave(s);
     upgradeGreekEpicSave(s);
+    upgradePersonalQuestPacks(s);
     s.schema = 7;
     installPacks(s);
   } else if (

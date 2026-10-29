@@ -31,6 +31,7 @@ import {
   people,
   carried,
   publishKnowledgeSpeech,
+  recordPersonalAttendance,
 } from "./world.mjs";
 import {
   humanAvatars,
@@ -160,7 +161,9 @@ function dispatch(request) {
   const world = load(request);
   const actor = request.actor || "vale";
   if (request.op === "attendance") {
-    if (noteReadingDepartures(world)) world.revision += 1;
+    const departures = noteReadingDepartures(world);
+    const meetings = recordPersonalAttendance(world);
+    if (departures || meetings) world.revision += 1;
     validateWorld(world);
     return response(world);
   }

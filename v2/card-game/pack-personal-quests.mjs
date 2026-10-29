@@ -135,7 +135,10 @@ export function beginPersonalMeetings(world, packs, api) {
       const result = startAuthoredPlayerQuest(quest, questState(state), row.player,
         ioFor(world, pack, quest, api, row.player));
       commit(state, result, world);
-      if (result.started) started.push({ pack: pack.id, quest: quest.id, player: row.player, item: row.button });
+      if (result.started) {
+        world.packs[pack.id].met[quest.host] ??= world.turn;
+        started.push({ pack: pack.id, quest: quest.id, player: row.player, item: row.button });
+      }
     }
   }
   return started;
