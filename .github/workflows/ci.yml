@@ -420,6 +420,8 @@ jobs:
           name: cosyworld-browser-${{ matrix.mode }}
           path: |
             output/shared-cards/*.png
+            output/shared-cards/*.json
+            output/shared-cards/server.log
             output/greek-homecoming/*.png
             output/greek-homecoming/*.json
             output/greek-capacity/*.png
