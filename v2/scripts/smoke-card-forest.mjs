@@ -189,7 +189,8 @@ try {
           .map((a) => `${a.kind}:${a.target || a.item || a.choiceId}`)
           .join(", ")}`,
       );
-      for (const card of action.cards || [])
+      const cards = kind === "wait" ? ["vale"] : action.cards || [];
+      for (const card of cards)
         await selectCard(page, card, { touch: width === 390 });
       const selector = action.choiceId
         ? `#card-actions [data-choice="${action.choiceId}"]`
@@ -433,7 +434,12 @@ try {
         "STATE",
         JSON.stringify({
           place: failed.actors.vale.place,
-          items: failed.items,
+          items: Object.fromEntries(
+            ["lamp", "oil", "cloth", personalButton, scarf].map((id) => [
+              id,
+              failed.items[id],
+            ]),
+          ),
           latest: failed.log.slice(-6),
         }),
       );
