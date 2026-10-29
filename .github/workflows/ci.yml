@@ -64,7 +64,9 @@ jobs:
   runtime:
     name: Rust build and tests
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    # Allow 20 minutes to compile, 60 for replay, 20 for the archive,
+    # and 20 for setup and cache work.
+    timeout-minutes: 120
     env:
       CI: true
       RUST_TEST_THREADS: "2"
@@ -101,13 +103,27 @@ jobs:
         run: bash v2/scripts/check-rust.sh test
 
       - name: Check the full shared reading archive
-        run: >-
-          cargo test --manifest-path v2/orchestrator-rust/Cargo.toml
-          card_shared::reading_tests::readings_full_archive_and_forty_scene_history_fit_the_game_limits
-          -- --ignored --exact --nocapture --test-threads=1
+        timeout-minutes: 20
+        shell: bash
+        run: |
+          cargo test --manifest-path v2/orchestrator-rust/Cargo.toml \
+            card_shared::reading_tests::readings_full_archive_and_forty_scene_history_fit_the_game_limits \
+            -- --ignored --exact --nocapture --test-threads=1 \
+            2>&1 | tee "$RUNNER_TEMP/reading-archive-audit.log"
         env:
           COSYWORLD_AUDIT_BASE_COMMIT: ${{ github.sha }}
           COSYWORLD_READING_AUDIT_REPORT: ${{ runner.temp }}/reading-archive-audit.json
+
+      - name: Keep the shared reading archive proof
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: reading-archive-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/reading-archive-audit.json
+            ${{ runner.temp }}/reading-archive-audit.log
+          retention-days: 90
+          if-no-files-found: warn
 
       - name: Save Cargo build cache
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'

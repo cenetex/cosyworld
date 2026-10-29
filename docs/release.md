@@ -19,6 +19,19 @@ The workflow deploys `fly.toml` to the primary app and
 same committed release with independent volumes and WebAuthn relying-party
 domains.
 
+The Rust gate waits for CI results from that exact commit. Its separate wait
+job observes CI for up to 120 minutes. A pending or unreadable status at the
+deadline ends the gate with a retry error. After CI finishes, failed or
+cancelled checks can use the fallback job. An absent check gets a three-minute
+grace period before fallback.
+
+The CI Rust job has 120 minutes for compilation, the 60-minute replay suite,
+the 20-minute reading archive audit, and setup. The fallback has its own
+150-minute budget, including Rust lint. Both paths run the full reading archive
+audit and retain its JSON report and log for 90 days in a
+`reading-archive-<commit>-<attempt>` Actions artifact. The report names the
+source commit. Game operations keep their two-second and 96 MiB limits.
+
 ## Volume headroom
 
 Both Fly data volumes extend automatically at 80% usage in 1 GB increments,

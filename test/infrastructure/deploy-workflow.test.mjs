@@ -161,7 +161,8 @@ describe("deploy workflow", () => {
   });
 
   it("blocks deployment on the real v2 gates before either Fly job runs", () => {
-    const nodeGate = job("production-node-gate", "production-rust-gate");
+    const nodeGate = job("production-node-gate", "production-rust-ci");
+    const ciWait = job("production-rust-ci", "production-rust-gate");
     const rustGate = job("production-rust-gate", "production-gate");
     const gate = job("production-gate", "primary-fly");
     expect(nodeGate).toContain("npm run v2:worldpack");
@@ -171,9 +172,10 @@ describe("deploy workflow", () => {
       "npx vitest run test/infrastructure/deploy-workflow.test.mjs",
     );
     expect(nodeGate).not.toContain("npm test");
-    expect(rustGate).toContain("node scripts/await-ci-rust.mjs");
-    expect(rustGate).toContain("checks: read");
-    expect(rustGate).toContain("if: steps.ci.outputs.reuse != 'true'");
+    expect(ciWait).toContain("node scripts/await-ci-rust.mjs");
+    expect(ciWait).toContain("checks: read");
+    expect(rustGate).toContain("needs: [deployment-impact, release-owner, production-rust-ci]");
+    expect(rustGate).toContain("if: needs.production-rust-ci.outputs.reuse != 'true'");
     expect(rustGate).toContain("bash v2/scripts/check-rust.sh test");
     expect(rustGate).toContain("bash v2/scripts/check-main-size.sh");
     expect(rustGate).toContain("bash v2/scripts/check-rust-lint.sh");
@@ -197,6 +199,42 @@ describe("deploy workflow", () => {
     expect(
       workflow.indexOf("Guard primary worldpack bundle compatibility"),
     ).toBeLessThan(workflow.indexOf("Create rollback backup"));
+  });
+
+  it("gives CI waiting and fallback tests separate bounded budgets", () => {
+    const runtime = ciWorkflow.split("  runtime:")[1].split("  smoke-binary:")[0];
+    const ciWait = job("production-rust-ci", "production-rust-gate");
+    const fallback = job("production-rust-gate", "production-gate");
+    const minutes = (section) => Number(section.match(/timeout-minutes: (\d+)/)[1]);
+    const waitSeconds = Number(ciWait.match(/COSYWORLD_CI_WAIT_SECS: "(\d+)"/)[1]);
+    expect(waitSeconds).toBeGreaterThanOrEqual(minutes(runtime) * 60);
+    expect(minutes(ciWait) * 60).toBeGreaterThan(waitSeconds);
+    // The fallback reserves compile, replay, archive, lint and setup time.
+    expect(minutes(fallback)).toBeGreaterThanOrEqual(20 + 60 + 20 + 20 + 30);
+    expect(ciWait).toContain('node-version: "24"');
+    expect(fallback).toContain('node-version: "24"');
+  });
+
+  it("runs and retains the same full archive audit in CI and the deployment fallback", () => {
+    const runtime = ciWorkflow.split("  runtime:")[1].split("  smoke-binary:")[0];
+    const fallback = job("production-rust-gate", "production-gate");
+    const audit = (section) => section.match(
+      /cargo test --manifest-path[\s\S]*?2>&1 \| tee "\$RUNNER_TEMP\/reading-archive-audit.log"/,
+    )?.[0];
+    expect(audit(runtime)).toBeTruthy();
+    expect(audit(fallback)).toBe(audit(runtime));
+    for (const section of [runtime, fallback]) {
+      expect(section).toContain("readings_full_archive_and_forty_scene_history_fit_the_game_limits");
+      expect(section).toContain("-- --ignored --exact --nocapture --test-threads=1");
+      expect(section).toContain("COSYWORLD_AUDIT_BASE_COMMIT: ${{ github.sha }}");
+      expect(section).toContain("COSYWORLD_READING_AUDIT_REPORT: ${{ runner.temp }}/reading-archive-audit.json");
+      expect(section).toContain("actions/upload-artifact@v7");
+      expect(section).toContain("name: reading-archive-${{ github.sha }}-${{ github.run_attempt }}");
+      expect(section).toContain("${{ runner.temp }}/reading-archive-audit.json");
+      expect(section).toContain("${{ runner.temp }}/reading-archive-audit.log");
+      expect(section).toContain("retention-days: 90");
+      expect(section).toContain("always()");
+    }
   });
 
   it("shares a commit image while each app keeps its own registry and rollout gates", () => {
