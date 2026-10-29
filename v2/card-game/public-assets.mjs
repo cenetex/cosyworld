@@ -124,6 +124,7 @@ const files = [
   "pack-personal-quests.mjs",
   "pack-personal-quest-schema.mjs",
   "authored-player-quests.mjs",
+  "authored-player-story-quests.mjs",
   "pack-transport.mjs",
   "legacy-saves.mjs",
   "legacy-greek-catalog.mjs",

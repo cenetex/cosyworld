@@ -57,6 +57,14 @@ export function personalItem(world, packs, item) {
   return entry.legacy ? { kind: "legacy", active: state.legacy }
     : authoredPlayerQuestItem(entry.quest, questState(state), item);
 }
+export function personalHostAccepts(world, packs, host, item) {
+  const entry = indexFor(packs).items.get(item);
+  if (!entry || entry.legacy || entry.quest.host !== host) return false;
+  const state = stateFor(world, entry.pack, entry.quest);
+  if (!state) return false;
+  const info = authoredPlayerQuestItem(entry.quest, questState(state), item);
+  return !!info && info.kind === "button" && info.active;
+}
 export function personalNesting(world, packs, item, holder) {
   const entry = indexFor(packs).items.get(item);
   if (!entry || entry.legacy) return false;

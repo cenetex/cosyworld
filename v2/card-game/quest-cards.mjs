@@ -226,6 +226,8 @@ function storyQuestCards(world, actor) {
       const record = world.quests?.records[definition.key];
       return {
         ...definition,
+        art: definition.displayArt || definition.art,
+        purpose: definition.displayPurpose || definition.purpose,
         completedTurn: record?.completedTurn ?? null,
         expiresTurn:
           record?.completedTurn == null ? null : record.completedTurn + 2,

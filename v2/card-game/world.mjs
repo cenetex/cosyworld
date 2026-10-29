@@ -1,4 +1,4 @@
-import { beginPersonalMeetings, advancePersonalQuests, personalNesting, personalItem } from "./pack-personal-quests.mjs";
+import { beginPersonalMeetings, advancePersonalQuests, personalNesting, personalItem, personalHostAccepts } from "./pack-personal-quests.mjs";
 import { trustValue, validTrust } from "./trust.mjs";
 import { captureQuestHands, advanceQuestPrograms } from "./quest-progress.mjs";
 import { expressionOf } from "./expression.mjs";
@@ -1519,7 +1519,8 @@ export function legalActions(s, actor = currentActor(s)) {
         (p) =>
           p !== actor &&
           s.actors[p].place === here &&
-          (accepts(s, p, id) ||
+          (personalHostAccepts(s, packDefinitions, p, id) ||
+            accepts(s, p, id) ||
             targetsFor(s, actor).some((h) =>
               h.conditions?.some(
                 (c) => c.kind === "heldBy" && c.item === id && c.avatar === p,
