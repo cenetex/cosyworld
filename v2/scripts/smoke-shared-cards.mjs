@@ -723,7 +723,12 @@ try {
   await perform(mara, "take", undefined, "mask");
   await perform(mara, "move", "pond");
   await ownAvatarFirst(mara);
-  await perform(vale, "light", undefined, "lamp");
+  if (!(await snapshot(vale)).world.items.lamp.lit)
+    await perform(vale, "light", undefined, "lamp");
+  const mirrorLamp = (await snapshot(vale)).world.items.lamp;
+  assert.equal(mirrorLamp.lit, true, "The mirror route has lamplight.");
+  assert(mirrorLamp.fuel > 0, "The mirror lamp has fuel.");
+  assert.equal(mirrorLamp.holder, "vale", "Vale holds the mirror lamp.");
   await perform(mara, "move", "attic");
   assert.equal(
     (await snapshot(mara)).world.actors.mara.place,
