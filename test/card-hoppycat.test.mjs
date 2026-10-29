@@ -174,6 +174,13 @@ describe("Hoppy Cat refresh", () => {
     const action = view.actions.find((a) => a.choiceId === id("welcome"));
     expect(action).toBeDefined();
     const command = { ...request, op: "play", action };
-    expect(ask(command)).toEqual(dispatchShared(command));
+    // Released rules keep the same state; dialogue context is narration only
+    // and follows the current bundle.
+    const { context: released, ...releasedPlay } = ask(command);
+    const { context: current, ...currentPlay } = dispatchShared(command);
+    expect(releasedPlay).toEqual(currentPlay);
+    expect(released.entities.map((e) => e.id)).toEqual(
+      current.entities.map((e) => e.id),
+    );
   });
 });

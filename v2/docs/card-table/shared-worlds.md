@@ -168,7 +168,8 @@ saves keep the focused purpose first, then meaningful progress and participation
 with stable ordering for remaining choices. Other records remain in the saved
 collection and history.
 
-Quest cards offer **Drop**. Dropping a card removes it from that avatar's hand
+The rules offer `drop-quest`. The browser shows no quest cards or Drop control;
+quests reach players through Talk context. Dropping a card removes it from that avatar's hand
 and focus while retaining its record, progress, participants, receipts, and earned
 rewards. The saved drop keeps that identity out of the avatar's hand. Automatic
 personal offers wait eight turns after a drop. New offers and joins respect the

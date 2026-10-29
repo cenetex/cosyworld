@@ -1,7 +1,7 @@
 import { learningFacts } from "./learning.mjs";
 import { knowledgeDisclosures, knowledgeFacts } from "./knowledge.mjs";
 import { expressionKind, validExpression } from "./expression.mjs";
-import { questCarried } from "./quest-hands.mjs";
+import { questTalkFacts, questTopics } from "./quest-talk.mjs";
 import { BOARDY, boardyFacts } from "./boardyai.mjs";
 import { questRecord } from "./shared-quests.mjs";
 import { recitalContext, recitalFacts } from "./pack-recital.mjs";
@@ -35,7 +35,7 @@ import {
   places,
   publishKnowledgeSpeech,
 } from "./world.mjs";
-import { actorQuests, desireFor, knownActors } from "./quests.mjs";
+import { desireFor, knownActors } from "./quests.mjs";
 import { hasTemperament, variantOf, signalEcho } from "./pack-rules.mjs";
 import {
   conditionMet,
@@ -346,28 +346,16 @@ export function narrativeContext(world, action = null) {
         kind === "location" || id === currentActor(world)
           ? packSceneFacts(world, location)
           : [];
-      const quests = kind === "avatar" ? actorQuests(world, id) : [];
-      const activeQuest = quests.find((quest) => quest.status === "active");
-      const pendingQuests = quests.filter(
-        (quest) =>
-          quest.status === "pending" && questCarried(world, id, quest.key),
-      );
-      const questFacts = [
-        ...(activeQuest
-          ? [`My active purpose is ${activeQuest.program.name}.`]
-          : []),
-        ...(pendingQuests.length
-          ? [
-              `I also want to pursue ${pendingQuests.map((quest) => quest.program.name).join("; ")}.`,
-            ]
-          : []),
-      ];
+      // Quests reach the player through Talk: what this speaker wants, what
+      // else they carry, and which help or story is open here. Narration only.
+      const questFacts = kind === "avatar" ? questTalkFacts(world, id) : [];
       const facts = [
         ...knowledgeFacts(
           world,
           id,
           nameOf,
           disclosures.filter((d) => d.speaker === id).map((d) => d.factId),
+          kind === "avatar" ? questTopics(world, id) : [],
         ),
         ...(id === BOARDY ? boardyFacts(world, nameOf) : []),
         ...recitalFacts(world, packDefinitions, id),

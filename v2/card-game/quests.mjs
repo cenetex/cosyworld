@@ -25,6 +25,7 @@ import {
 import forest from "./forest.json" with { type: "json" };
 import { hasQuestPrograms, interest } from "./motives.mjs";
 import { questActive, lifeOf, personalQuestRank, hopeOf } from "./life.mjs";
+import { openStoryNeeds, storyLean } from "./story-life.mjs";
 import {
   packPeople,
   packOf,
@@ -41,6 +42,7 @@ import {
   questItemAvailable,
   requiredItems,
   situationPrograms,
+  packSituationPrograms,
 } from "./situations.mjs";
 import { packDiscovered } from "./pack-rules.mjs";
 export { condition } from "./situations.mjs";
@@ -110,7 +112,8 @@ export const personalQuestActor = (actor) =>
   !isPackActor(actor) || packPeople[actor]?.personalQuests === true;
 export const programsFor = (s, actor) =>
   (s.opening?.version === 2 && forest.pondOpeningPrograms[actor]) ||
-  (s.opening ? openingPrograms : questPrograms)[actor] || [];
+  (s.opening ? openingPrograms : questPrograms)[actor] ||
+  [];
 export const restingHands = {
   ...forest.restingHands,
   ...Object.fromEntries(
@@ -313,54 +316,74 @@ export function generateProgram(
     );
   };
   const item = candidates.sort((a, b) => score(b) - score(a))[0];
-  if (!item)
-    return generateProgram(s, actor, places, things, {
-      independent,
-      solo: true,
-    });
-  const owner = ownerOf(s, item);
-  const others = actors.filter((id) => id !== actor);
-  const partner =
-    s.actors[owner] && owner !== actor
-      ? owner
-      : others[(progress.program + actors.indexOf(actor)) % others.length];
-  const payment =
-    owner !== actor && s.actors[owner]
-      ? requiredItems(s, owner, desireFor(s, owner)).find(
-          (id) => ownerOf(s, id) !== owner && id !== item && available(id),
-        )
-      : null;
-  const destinations = reachable.filter((id) => id !== placeOf(item));
-  const destination =
-    destinations[
-      (progress.program + actors.indexOf(actor)) % destinations.length
-    ] || here;
-  const extra =
-    levelOf(s, actor) >= 5
-      ? held.find(
-          (id) => id !== item && id !== payment && !bundle(item).includes(id),
-        )
-      : null;
-  const finalItems = [
-    item,
-    ...(extra && new Set([...bundle(item), extra]).size <= 3 ? [extra] : []),
-  ];
-  const gathering = hand(hold(payment || item));
-  const meeting = meet([item], partner, reachable);
-  const journey = carryTo(finalItems, destination);
-  const base = {
-    id: `generated-${actor}-${progress.program + 1}`,
-    name: payment
-      ? `A trade with ${humanAvatar(partner)?.name || (partner === "moth" ? "Pip" : "the keeper")}`
-      : `${things[item].name} journey`,
-    steps: sequence(
-      gathering,
-      ...(progress.program % 2 ? [journey, meeting] : [meeting, journey]),
-    ),
-    generated: { turn: s.turn, level: levelOf(s, actor), item, owner, partner },
-  };
+  // Without a free item, a pack situation nearby can still give a purpose.
+  const errand = item
+    ? null
+    : generateProgram(s, actor, places, things, { independent, solo: true });
+  if (errand && (independent || !s.locations)) return errand;
+  const base = item
+    ? bargainBase()
+    : {
+        ...errand,
+        generated: {
+          turn: s.turn,
+          level: levelOf(s, actor),
+          item: null,
+          owner: actor,
+          partner: null,
+        },
+      };
+  function bargainBase() {
+    const owner = ownerOf(s, item);
+    const others = actors.filter((id) => id !== actor);
+    const partner =
+      s.actors[owner] && owner !== actor
+        ? owner
+        : others[(progress.program + actors.indexOf(actor)) % others.length];
+    const payment =
+      owner !== actor && s.actors[owner]
+        ? requiredItems(s, owner, desireFor(s, owner)).find(
+            (id) => ownerOf(s, id) !== owner && id !== item && available(id),
+          )
+        : null;
+    const destinations = reachable.filter((id) => id !== placeOf(item));
+    const destination =
+      destinations[
+        (progress.program + actors.indexOf(actor)) % destinations.length
+      ] || here;
+    const extra =
+      levelOf(s, actor) >= 5
+        ? held.find(
+            (id) => id !== item && id !== payment && !bundle(item).includes(id),
+          )
+        : null;
+    const finalItems = [
+      item,
+      ...(extra && new Set([...bundle(item), extra]).size <= 3 ? [extra] : []),
+    ];
+    const gathering = hand(hold(payment || item));
+    const meeting = meet([item], partner, reachable);
+    const journey = carryTo(finalItems, destination);
+    return {
+      id: `generated-${actor}-${progress.program + 1}`,
+      name: payment
+        ? `A trade with ${humanAvatar(partner)?.name || (partner === "moth" ? "Pip" : "the keeper")}`
+        : `${things[item].name} journey`,
+      steps: sequence(
+        gathering,
+        ...(progress.program % 2 ? [journey, meeting] : [meeting, journey]),
+      ),
+      generated: {
+        turn: s.turn,
+        level: levelOf(s, actor),
+        item,
+        owner,
+        partner,
+      },
+    };
+  }
   if (independent || !s.locations) return base;
-  const catalog = situationPrograms(s, actor, base, {
+  const api = {
     hand,
     hold,
     at,
@@ -372,14 +395,33 @@ export function generateProgram(
       (available(id) && !(ownerOf(s, id) === actor && wantedElsewhere(id))),
     mayGive: (id) => !lifeOf(s, actor)?.attachments[id],
     needed: (id) => requiredItems(s, id, desireFor(s, id)),
+    // Pack situations use every place the avatar can walk to now.
+    explored: traversed.slice(0, 12),
+    known: knownActors(s),
+    reach: (id) => {
+      if (s.life && questItemAvailable(s, actor, id)) return true;
+      const owner = ownerOf(s, id);
+      if (owner === actor) return !wantedElsewhere(id);
+      if (s.items[s.items[id].holder]) return false;
+      if (!s.actors[owner]) return traversed.includes(owner);
+      return (
+        knownActors(s).includes(owner) &&
+        traversed.includes(s.actors[owner].place) &&
+        !needed(owner, id)
+      );
+    },
     name: (id) =>
       things[id]?.name ||
       places[id]?.name ||
       { vale: "Vale", moth: "Pip", keeper: "the keeper" }[id] ||
       humanAvatar(id)?.name ||
       packPeople[id]?.name,
-  });
-  if (lifeOf(s, actor))
+  };
+  const catalog = item
+    ? situationPrograms(s, actor, base, api)
+    : packSituationPrograms(s, actor, base, api);
+  if (!item && !catalog.length) return errand;
+  if (item && lifeOf(s, actor))
     catalog.push(
       ...introductionPrograms(
         s,
@@ -403,11 +445,12 @@ export function generateProgram(
     keeper: ["answer", "delivery", "crossing", "gathering", "bargain"],
   }[actor] || ["delivery", "gathering", "crossing", "answer", "bargain"];
   if (!preferences.includes("introduction")) preferences.push("introduction");
-  catalog.push({
-    ...base,
-    purpose: `Make a bargain for the ${things[item].name}, then choose where to carry it and whom to meet.`,
-    generated: { ...base.generated, situation: "bargain" },
-  });
+  if (item)
+    catalog.push({
+      ...base,
+      purpose: `Make a bargain for the ${things[item].name}, then choose where to carry it and whom to meet.`,
+      generated: { ...base.generated, situation: "bargain" },
+    });
   const recentKinds = progress.recentKinds || [];
   const kindOf = (p) => p.generated?.situation || "bargain";
   // Prefer a different purpose from the cast's active programs. Shared items
@@ -422,8 +465,20 @@ export function generateProgram(
     : distinct.length
       ? distinct
       : fresh;
+  // A pack resident named in an open story leans toward bringing its need.
+  const stories = openStoryNeeds(s, actor);
+  // Inside a pack, its own situations break ties with the hub's.
+  const region = packPlaces[here]?.packId;
+  const local = (p) =>
+    Boolean(region) &&
+    kindOf(p) !== "bargain" &&
+    p.steps.some((step) =>
+      alternatives(step).some((h) => packPlaces[h.location]?.packId === region),
+    );
   const rank = (p) =>
+    storyLean(s, actor, p, stories) +
     (actor === BOARDY && kindOf(p) === "introduction" ? -10 : 0) +
+    (local(p) ? -0.5 : 0) +
     personalQuestRank(s, actor, p) / (actor === BOARDY ? 50 : 1) +
     preferences.indexOf(kindOf(p)) +
     recentKinds.reduce(

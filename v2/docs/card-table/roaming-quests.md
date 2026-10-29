@@ -27,9 +27,12 @@ beyond the known map, the avatar can explore a known frontier one step at a time
 
 A blocked edge produces a shared passage card at that place. Missing directions
 produce a card held by the traveler. The same cause and edge reuse one card.
-People can join these cards through **Help**. A present helper can share known
-routes, carry an object that opens a door, or bring a vessel through the ordinary
-travel rules. Eligible AI helpers use the same legal choices. The card's saved
+The rules let people join these cards with the `join-quest` action. Residents
+choose it themselves. The player has no Help control: people at the same place
+hear about the card in Talk context ("Help needed here"), and the player helps
+through ordinary plays. A present helper can share known routes, carry an object
+that opens a door, or bring a vessel through the ordinary travel rules. Eligible
+AI helpers use the same legal choices. The card's saved
 cause links it to the original completion.
 
 ## Retention and replay

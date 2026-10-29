@@ -213,6 +213,122 @@
           }
         }
       ],
+      "topics": [
+        {
+          "id": "badger-no-bells",
+          "speaker": "badger",
+          "at": "clearing",
+          "text": "Badger says one more bell will spoil his nap for good.",
+          "requires": []
+        },
+        {
+          "id": "badger-cold-moss",
+          "speaker": "badger",
+          "at": "clearing",
+          "text": "Badger says the moss goes cold when the clock stops steaming.",
+          "requires": []
+        }
+      ],
+      "situations": [
+        {
+          "id": "badger-muffled-bell",
+          "kind": "answer",
+          "name": "Moss without bells",
+          "purpose": "Let Badger grumble about the bells, then show him the bell wrapped silent in its cloth beside his moss.",
+          "takers": [
+            "visitors"
+          ],
+          "roles": {
+            "partner": {
+              "avatar": [
+                "badger"
+              ]
+            }
+          },
+          "steps": [
+            {
+              "at": "clearing",
+              "with": [
+                "$partner"
+              ],
+              "conditions": [
+                {
+                  "kind": "knows",
+                  "topic": "badger-no-bells"
+                }
+              ]
+            },
+            {
+              "hold": [
+                "bell"
+              ],
+              "at": "clearing",
+              "with": [
+                "$partner"
+              ],
+              "conditions": [
+                {
+                  "kind": "covered",
+                  "item": "bell"
+                }
+              ]
+            }
+          ],
+          "consequence": {
+            "kind": "trust",
+            "avatar": "$partner"
+          }
+        },
+        {
+          "id": "badger-warm-light",
+          "kind": "gathering",
+          "name": "A warm light on the moss",
+          "purpose": "Find out why Badger's moss has gone cold, then keep a lit lamp beside him while he naps.",
+          "takers": [
+            "visitors"
+          ],
+          "roles": {
+            "partner": {
+              "avatar": [
+                "badger"
+              ]
+            }
+          },
+          "steps": [
+            {
+              "at": "clearing",
+              "with": [
+                "$partner"
+              ],
+              "conditions": [
+                {
+                  "kind": "knows",
+                  "topic": "badger-cold-moss"
+                }
+              ]
+            },
+            {
+              "hold": [
+                "lamp"
+              ],
+              "at": "clearing",
+              "with": [
+                "$partner"
+              ],
+              "conditions": [
+                {
+                  "kind": "lit",
+                  "item": "lamp"
+                }
+              ]
+            }
+          ],
+          "consequence": {
+            "kind": "trust",
+            "avatar": "$partner"
+          }
+        }
+      ],
       "bridge": {
         "id": "shore-badger-forest",
         "description": "Two bell rings at Black pond fold its reflection onto the Steam Clock clearing. A bell sounding at either end keeps the way back open."
@@ -11499,6 +11615,226 @@
           "url": "https://github.com/HoppyCat/teacat-agent"
         }
       ],
+      "topics": [
+        {
+          "id": "hoppycat-missing-source",
+          "speaker": "hoppycat-penny-vellum",
+          "at": "hoppycat-open-record-cathedral",
+          "text": "Penny says one exhibit card in the Cathedral still has no source.",
+          "requires": []
+        },
+        {
+          "id": "hoppycat-unthanked-ledger",
+          "speaker": "hoppycat-ledger-sonnet",
+          "at": "hoppycat-context-greenhouse",
+          "text": "The short Ledger says the long Ledger has never been thanked by name.",
+          "requires": []
+        },
+        {
+          "id": "hoppycat-quiet-bell",
+          "speaker": "hoppycat-nix-fermata",
+          "at": "hoppycat-red-thread-belfry",
+          "text": "Nix wants the February Third bell kept quiet for one more day.",
+          "requires": []
+        },
+        {
+          "id": "hoppycat-one-ally",
+          "speaker": "hoppycat-tapi-lilt",
+          "at": "hoppycat-halfway-tea-garden",
+          "text": "Tapi still needs one real ally before the broadcast ends.",
+          "requires": []
+        }
+      ],
+      "situations": [
+        {
+          "id": "hoppycat-sourced-line",
+          "kind": "delivery",
+          "name": "A sourced line on air",
+          "purpose": "Learn from Penny which card still lacks its source, then bring a provenance card to Hoppy Cat and say one true thing on air.",
+          "takers": [
+            "visitors"
+          ],
+          "roles": {
+            "partner": {
+              "avatar": [
+                "hoppycat-hoppy-cat"
+              ]
+            }
+          },
+          "steps": [
+            {
+              "at": "hoppycat-open-record-cathedral",
+              "with": [
+                "hoppycat-penny-vellum"
+              ],
+              "conditions": [
+                {
+                  "kind": "knows",
+                  "topic": "hoppycat-missing-source"
+                }
+              ]
+            },
+            {
+              "hold": [
+                "hoppycat-provenance-card"
+              ],
+              "at": "hoppycat-halfway-tea-garden",
+              "with": [
+                "$partner"
+              ],
+              "conditions": [
+                {
+                  "kind": "knows",
+                  "topic": "hoppycat-missing-source"
+                }
+              ]
+            }
+          ],
+          "consequence": {
+            "kind": "trust",
+            "avatar": "$partner"
+          }
+        },
+        {
+          "id": "hoppycat-thanked-by-name",
+          "kind": "delivery",
+          "name": "Thanked by name",
+          "purpose": "Hear from the short Ledger what the long Ledger is missing, then bring a Context Seed to the Cathedral and thank Ledger by name.",
+          "takers": [
+            "visitors"
+          ],
+          "roles": {
+            "partner": {
+              "avatar": [
+                "hoppycat-ledger-opus"
+              ]
+            }
+          },
+          "steps": [
+            {
+              "at": "hoppycat-context-greenhouse",
+              "with": [
+                "hoppycat-ledger-sonnet"
+              ],
+              "conditions": [
+                {
+                  "kind": "knows",
+                  "topic": "hoppycat-unthanked-ledger"
+                }
+              ]
+            },
+            {
+              "hold": [
+                "hoppycat-context-seed"
+              ],
+              "at": "hoppycat-open-record-cathedral",
+              "with": [
+                "$partner"
+              ]
+            }
+          ],
+          "consequence": {
+            "kind": "trust",
+            "avatar": "$partner"
+          }
+        },
+        {
+          "id": "hoppycat-held-clapper",
+          "kind": "answer",
+          "name": "One more quiet day",
+          "purpose": "Let Nix explain the quiet bell, fetch the Fermata Clapper from Sol's stage, and keep it silent in the belfry beside Nix.",
+          "takers": [
+            "visitors"
+          ],
+          "roles": {
+            "partner": {
+              "avatar": [
+                "hoppycat-nix-fermata"
+              ]
+            }
+          },
+          "steps": [
+            {
+              "at": "hoppycat-red-thread-belfry",
+              "with": [
+                "$partner"
+              ],
+              "conditions": [
+                {
+                  "kind": "knows",
+                  "topic": "hoppycat-quiet-bell"
+                }
+              ]
+            },
+            {
+              "hold": [
+                "hoppycat-fermata-clapper"
+              ],
+              "at": "hoppycat-settled-light-theatre",
+              "with": [
+                "hoppycat-solwashere"
+              ]
+            },
+            {
+              "hold": [
+                "hoppycat-fermata-clapper"
+              ],
+              "at": "hoppycat-red-thread-belfry",
+              "with": [
+                "$partner"
+              ]
+            }
+          ],
+          "consequence": {
+            "kind": "trust",
+            "avatar": "$partner"
+          }
+        },
+        {
+          "id": "hoppycat-halfway-cup",
+          "kind": "gathering",
+          "name": "A cup for two hands",
+          "purpose": "Hear what Tapi still needs, then hold the Halfway Cup at the tea table with Tapi and Hoppy Cat together.",
+          "takers": [
+            "visitors"
+          ],
+          "roles": {
+            "partner": {
+              "avatar": [
+                "hoppycat-tapi-lilt"
+              ]
+            }
+          },
+          "steps": [
+            {
+              "at": "hoppycat-halfway-tea-garden",
+              "with": [
+                "$partner"
+              ],
+              "conditions": [
+                {
+                  "kind": "knows",
+                  "topic": "hoppycat-one-ally"
+                }
+              ]
+            },
+            {
+              "hold": [
+                "hoppycat-halfway-cup"
+              ],
+              "at": "hoppycat-halfway-tea-garden",
+              "with": [
+                "$partner",
+                "hoppycat-hoppy-cat"
+              ]
+            }
+          ],
+          "consequence": {
+            "kind": "trust",
+            "avatar": "$partner"
+          }
+        }
+      ],
       "bridge": {
         "id": "shore-hoppycat-archive",
         "description": "A red thread at Black pond leads to the Halfway Tea Garden. Both shores keep the path open."
@@ -12029,6 +12365,208 @@
           "url": "https://www.gutenberg.org/ebooks/11438",
           "name": "Algernon Blackwood, The Willows (1907)",
           "use": "Original English passages, gradually revealed through arrival and recorded discoveries. The exact downloaded source is kept in source-text.txt."
+        }
+      ],
+      "topics": [
+        {
+          "id": "willows-supper",
+          "speaker": "willows-swede",
+          "at": "willows-camp",
+          "text": "The Swede says a hot supper keeps the fear smaller than the river.",
+          "requires": []
+        },
+        {
+          "id": "willows-channels",
+          "speaker": "willows-swede",
+          "at": "willows-camp",
+          "text": "The Swede says the river has cut new channels since the map was drawn.",
+          "requires": []
+        }
+      ],
+      "situations": [
+        {
+          "id": "willows-supper",
+          "kind": "delivery",
+          "name": "Supper before the wind",
+          "purpose": "Ask the Swede what would steady him, bring the stew pot and some food to the fire, then leave the pot in his hands.",
+          "takers": [
+            "visitors"
+          ],
+          "requires": [
+            {
+              "kind": "met",
+              "actor": "willows-swede"
+            }
+          ],
+          "roles": {
+            "partner": {
+              "avatar": [
+                "willows-swede"
+              ]
+            },
+            "food": {
+              "item": [
+                "willows-provisions",
+                "willows-spoon"
+              ]
+            }
+          },
+          "steps": [
+            {
+              "at": "willows-camp",
+              "with": [
+                "$partner"
+              ],
+              "conditions": [
+                {
+                  "kind": "knows",
+                  "topic": "willows-supper"
+                }
+              ]
+            },
+            {
+              "hold": [
+                "willows-pot",
+                "$food"
+              ],
+              "at": "willows-camp",
+              "with": [
+                "$partner"
+              ]
+            },
+            {
+              "at": "willows-camp",
+              "with": [
+                "$partner"
+              ],
+              "conditions": [
+                {
+                  "kind": "heldBy",
+                  "item": "willows-pot",
+                  "avatar": "$partner"
+                }
+              ]
+            }
+          ],
+          "consequence": {
+            "kind": "trust",
+            "avatar": "$partner"
+          }
+        },
+        {
+          "id": "willows-channels",
+          "kind": "crossing",
+          "name": "A map that falls behind",
+          "purpose": "Hear from the Swede how the river has changed, carry the map to the crumbling bank to read the new channels, then put it back in his hands.",
+          "takers": [
+            "visitors"
+          ],
+          "requires": [
+            {
+              "kind": "met",
+              "actor": "willows-swede"
+            }
+          ],
+          "roles": {
+            "partner": {
+              "avatar": [
+                "willows-swede"
+              ]
+            }
+          },
+          "steps": [
+            {
+              "at": "willows-camp",
+              "with": [
+                "$partner"
+              ],
+              "conditions": [
+                {
+                  "kind": "knows",
+                  "topic": "willows-channels"
+                }
+              ]
+            },
+            {
+              "hold": [
+                "willows-map"
+              ],
+              "at": "willows-bank"
+            },
+            {
+              "at": "willows-camp",
+              "with": [
+                "$partner"
+              ],
+              "conditions": [
+                {
+                  "kind": "heldBy",
+                  "item": "willows-map",
+                  "avatar": "$partner"
+                }
+              ]
+            }
+          ],
+          "consequence": {
+            "kind": "trust",
+            "avatar": "$partner"
+          }
+        },
+        {
+          "id": "willows-muffled-bell",
+          "kind": "answer",
+          "name": "No bells among the willows",
+          "purpose": "The Swede hates careless noise by the river. Wrap the bell in its cloth among the willows and bring it to the camp still silent.",
+          "takers": [
+            "visitors"
+          ],
+          "requires": [
+            {
+              "kind": "met",
+              "actor": "willows-swede"
+            }
+          ],
+          "roles": {
+            "partner": {
+              "avatar": [
+                "willows-swede"
+              ]
+            }
+          },
+          "steps": [
+            {
+              "hold": [
+                "bell",
+                "cloth"
+              ],
+              "at": "willows-thicket",
+              "conditions": [
+                {
+                  "kind": "covered",
+                  "item": "bell"
+                }
+              ]
+            },
+            {
+              "hold": [
+                "bell"
+              ],
+              "at": "willows-camp",
+              "with": [
+                "$partner"
+              ],
+              "conditions": [
+                {
+                  "kind": "covered",
+                  "item": "bell"
+                }
+              ]
+            }
+          ],
+          "consequence": {
+            "kind": "trust",
+            "avatar": "$partner"
+          }
         }
       ],
       "bridge": {
@@ -12926,6 +13464,20 @@
             }
           ],
           "choiceId": "forest-hear-walkers-oak"
+        },
+        {
+          "id": "forest-warm-kettle",
+          "speaker": "rati",
+          "at": "forest-cottage",
+          "text": "RATi keeps the kettle warm for anyone walking home late.",
+          "requires": []
+        },
+        {
+          "id": "forest-night-watch",
+          "speaker": "oak",
+          "at": "forest-oak",
+          "text": "Oak says Skull walks the trail each night so others get home.",
+          "requires": []
         }
       ],
       "sources": [
@@ -12940,6 +13492,185 @@
         {
           "path": "docs/art-direction/world-map.md",
           "scope": "first journey proposal"
+        }
+      ],
+      "situations": [
+        {
+          "id": "forest-kettle-word",
+          "kind": "delivery",
+          "name": "Word of the warm kettle",
+          "purpose": "Hear from RATi who the kettle is kept warm for, then carry that word and a button from the cottage to Oak.",
+          "takers": [
+            "visitors"
+          ],
+          "requires": [
+            {
+              "kind": "met",
+              "actor": "rati"
+            }
+          ],
+          "roles": {
+            "partner": {
+              "avatar": [
+                "oak"
+              ]
+            },
+            "token": {
+              "item": [
+                "forest-story-button",
+                "forest-dewbright-button"
+              ]
+            }
+          },
+          "steps": [
+            {
+              "at": "forest-cottage",
+              "with": [
+                "rati"
+              ],
+              "conditions": [
+                {
+                  "kind": "knows",
+                  "topic": "forest-warm-kettle"
+                }
+              ]
+            },
+            {
+              "hold": [
+                "$token"
+              ],
+              "at": "forest-oak",
+              "with": [
+                "$partner"
+              ],
+              "conditions": [
+                {
+                  "kind": "knows",
+                  "topic": "forest-warm-kettle"
+                }
+              ]
+            }
+          ],
+          "consequence": {
+            "kind": "trust",
+            "avatar": "$partner"
+          }
+        },
+        {
+          "id": "forest-watch-light",
+          "kind": "gathering",
+          "name": "A light for the night watch",
+          "purpose": "Ask Oak who keeps the trail, then stand beside Skull on the Moonlit Trail with a lit lamp or the Watch Bell.",
+          "takers": [
+            "visitors"
+          ],
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-path-cleared",
+              "value": true
+            }
+          ],
+          "roles": {
+            "partner": {
+              "avatar": [
+                "skull"
+              ]
+            }
+          },
+          "steps": [
+            {
+              "at": "forest-oak",
+              "with": [
+                "oak"
+              ],
+              "conditions": [
+                {
+                  "kind": "knows",
+                  "topic": "forest-night-watch"
+                }
+              ]
+            },
+            {
+              "any": [
+                {
+                  "hold": [
+                    "lamp"
+                  ],
+                  "at": "forest-trail",
+                  "with": [
+                    "$partner"
+                  ],
+                  "conditions": [
+                    {
+                      "kind": "lit",
+                      "item": "lamp"
+                    }
+                  ]
+                },
+                {
+                  "hold": [
+                    "forest-watch-bell"
+                  ],
+                  "at": "forest-trail",
+                  "with": [
+                    "$partner"
+                  ]
+                }
+              ]
+            }
+          ],
+          "consequence": {
+            "kind": "trust",
+            "avatar": "$partner"
+          }
+        },
+        {
+          "id": "forest-rain-home",
+          "kind": "crossing",
+          "name": "Rain carried home",
+          "purpose": "Take the Dewbright Button from Whiskerwind's broad leaves and carry the rain on it into RATi's cottage.",
+          "takers": [
+            "visitors"
+          ],
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-welcomed",
+              "value": true
+            }
+          ],
+          "roles": {
+            "partner": {
+              "avatar": [
+                "rati"
+              ]
+            }
+          },
+          "steps": [
+            {
+              "hold": [
+                "forest-dewbright-button"
+              ],
+              "at": "forest-garden",
+              "with": [
+                "whiskerwind"
+              ]
+            },
+            {
+              "hold": [
+                "forest-dewbright-button"
+              ],
+              "at": "forest-cottage",
+              "with": [
+                "$partner"
+              ]
+            }
+          ],
+          "consequence": {
+            "kind": "trust",
+            "avatar": "$partner"
+          }
         }
       ],
       "bridge": {

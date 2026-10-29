@@ -230,6 +230,8 @@ try {
         discoveries: window.discoveries,
         flights: window.flights,
       }));
+      // Only people, items and places are unveiled; quests reach Talk instead.
+      assert(events.discoveries.every((event) => !event.isQuest));
       assert.equal(
         events.discoveries.filter((event) => !event.isQuest)[0].id,
         "pond",

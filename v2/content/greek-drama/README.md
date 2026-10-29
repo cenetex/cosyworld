@@ -146,7 +146,7 @@ Odysseus and the shield. Its [art record](../../card-game/assets/greek-drama/AJA
 lists the retained sources and prompt records.
 
 Card faces show large art and small names. Actions describe immediate deeds.
-Quest cards each show one short line. The Bard gives the growing poem.
+Each story has one short line, which the cast uses in Talk. The Bard gives the growing poem.
 Conversation history preserves spoken lines. Accessibility descriptions
 follow the same visible facts as the scene.
 

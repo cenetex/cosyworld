@@ -1,9 +1,9 @@
 # Before the Burial: cards and the bard
 
-## Exact quest card text
+## Exact story lines
 
-Each card shows its art, a small Quest or completion label, and one line.
-The same line remains through each branch and its closing moment.
+Each story has one line. The hand shows no quest cards; the cast uses this
+line in Talk context. The same line remains through each branch.
 
 | Quest  | Exact line                      |
 | ------ | ------------------------------- |

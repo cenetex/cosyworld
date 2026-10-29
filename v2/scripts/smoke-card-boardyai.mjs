@@ -5,7 +5,7 @@ import { createServer } from "../card-game/serve.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
-import { questCards, questCardId } from "../card-game/quest-cards.mjs";
+import { questCards } from "../card-game/quest-cards.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
 
 const server = createServer();
@@ -61,7 +61,8 @@ try {
     };
     assert.equal(world.actors.vale.place, "pond");
     const startTurn = world.turn;
-    const quest = questCardId(world, questCards(world, "boardyai")[0]);
+    const quest = questCards(world, "boardyai")[0];
+    assert.match(quest.purpose, /Help Vale and Mara meet/);
     const table = `boardyai-${width}`;
     const key = `cosyworld.reflected-shore.v1.${table}`;
     const page = await browser.newPage({
@@ -81,8 +82,10 @@ try {
       },
       { key, save: encodeSave(world) },
     );
+    const requests = [];
     await page.route("**/card-game/text", (route) => {
       const input = route.request().postDataJSON();
+      requests.push(input);
       return route.fulfill({
         json: {
           revision: input.revision,
@@ -100,23 +103,11 @@ try {
     await page.locator('#hand [data-card="boardyai"]').waitFor();
     await page.locator('#cast [data-avatar="boardyai"]').waitFor();
     await selectCard(page, "boardyai");
-    await selectCard(page, quest);
-    const card = page.locator(`#hand [data-card="${quest}"]`);
+    // His introduction quest has no card; Talk context carries it.
+    assert.equal(await page.locator("#hand .quest-frame").count(), 0);
     await page
       .locator("#hand img")
       .evaluateAll((images) => Promise.all(images.map((img) => img.decode())));
-    assert(
-      await card.evaluate((face) => {
-        const purpose = face
-          .querySelector(".quest-purpose")
-          .getBoundingClientRect();
-        const bounds = face.getBoundingClientRect();
-        return purpose.bottom <= bounds.bottom && purpose.bottom <= innerHeight;
-      }),
-      "the selected quest fits on screen",
-    );
-    assert.equal(await card.getAttribute("data-quest-status"), "active");
-    assert.match(await card.textContent(), /Help Vale and Mara meet/);
     const portrait = page.locator('#cast [data-avatar="boardyai"] img').first();
     assert(
       await portrait.evaluate((img) => img.complete && img.naturalWidth > 0),
@@ -141,6 +132,18 @@ try {
         );
       },
       { key, turn: startTurn + 1 },
+    );
+    const told = requests
+      .flatMap((input) => input.entities)
+      .filter((entity) => entity.id === "boardyai")
+      .at(-1);
+    assert(
+      told.facts.some(
+        (fact) =>
+          fact.startsWith("What I want most now: ") &&
+          fact.includes("Help Vale and Mara meet"),
+      ),
+      "BoardyAI's Talk context names his introduction quest",
     );
     const settle = async () => {
       for (let i = 0; i < 180; i++) {

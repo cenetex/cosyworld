@@ -1099,9 +1099,6 @@ body .cast[data-count] {
   }
 }
 @media (max-height: 440px) {
-  body .quest-frame[data-raised="true"] {
-    --card-width: 154px;
-  }
   :root {
     --card-height: 140px;
     --card-width: 112px;
@@ -1268,107 +1265,6 @@ body .card.new {
     0 0 14px #e7ca8655;
 }
 
-/* Each avatar keeps a stack of collected wishes after their belongings. */
-.quest-preview {
-  position: absolute;
-  inset: 0;
-  border: 1px solid #d6be89;
-  border-radius: 13px;
-  background: #0d131c;
-  box-shadow:
-    inset 0 0 0 4px #0d131c,
-    inset 0 0 0 5px #d6be8955;
-  transform: translate(
-      calc(13px + var(--quest-offset, 0) * 5px),
-      calc(-6px - var(--quest-offset, 0) * 3px)
-    )
-    rotate(calc(5deg + var(--quest-offset, 0) * 2deg));
-  pointer-events: none;
-}
-.card-frame[data-expanded="true"] .quest-preview {
-  display: none;
-}
-body .card.quest {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 18px 10px 25%;
-  color: #ece2cf;
-  background: #0d131c;
-  border-color: #d6be89;
-  box-shadow:
-    inset 0 0 0 4px #0d131c,
-    inset 0 0 0 5px #d6be8955;
-}
-body .card.quest .art {
-  position: relative;
-  flex: 0 0 42%;
-  width: 75%;
-  border-radius: 0;
-  background: radial-gradient(ellipse, #b38b4530, transparent 70%);
-}
-body .card.quest .art img {
-  object-fit: contain;
-  filter: sepia(0.3) brightness(0.8);
-}
-body .card.quest .name {
-  position: static;
-  padding: 7px 0 0;
-  background: none;
-  font-size: 18px;
-}
-.quest-mark {
-  position: absolute;
-  inset: 10px 6px auto;
-  font:
-    10px/1.2 system-ui,
-    sans-serif;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #d6be89;
-}
-.quest-purpose {
-  display: none;
-  white-space: pre-line;
-  padding-top: 8px;
-  font:
-    14px/1.3 Georgia,
-    serif;
-  text-wrap: balance;
-}
-body .card.quest[aria-pressed="true"],
-body .unveil .card.quest {
-  padding: 25px 13px 14px;
-}
-body .card.quest[aria-pressed="true"] .art {
-  flex-basis: 24%;
-  min-height: 0;
-}
-.card.quest[aria-pressed="true"] .quest-purpose,
-.unveil .quest-purpose {
-  display: block;
-}
-body .unveil .card.quest .art {
-  flex-basis: 35%;
-}
-body .unveil .card.quest .name {
-  font-size: 23px;
-}
-.unveil .quest-purpose {
-  font-size: 16px;
-}
-.card.quest[data-fulfilled="true"] .quest-mark {
-  color: #f6e2b6;
-}
-body .card.quest[data-fulfilled="true"] {
-  opacity: 1;
-  box-shadow:
-    inset 0 0 0 4px #0d131c,
-    inset 0 0 0 5px #d6be8988,
-    0 0 20px #d6be8933;
-}
-
 /* The attic keeps its mirror in view as the room warms. */
 body[data-place="attic"] #backdrop {
   object-position: 64% center;
@@ -1401,36 +1297,6 @@ body[data-place="attic"] .card {
   background-color: #0d131c;
   border-color: #847961;
 }
-body[data-place="attic"] .card.quest {
-  border-color: #d6be89;
-}
-@media (max-height: 640px) {
-  body .card.quest .name {
-    font-size: 16px;
-  }
-  .quest-purpose {
-    font-size: 12px;
-    padding-top: 5px;
-  }
-  body .card.quest[aria-pressed="true"] {
-    padding: 24px 9px 12px;
-  }
-  body .card.quest[aria-pressed="true"] .art {
-    display: none;
-  }
-}
-@media (max-height: 440px) {
-  body .card.quest[aria-pressed="true"] .name {
-    font-size: 14px;
-  }
-  body .card.quest[aria-pressed="true"] .quest-purpose {
-    font-size: 11px;
-    line-height: 1.2;
-  }
-  body .card.quest[aria-pressed="true"] {
-    padding: 22px 8px 8px;
-  }
-}
 @media (max-width: 380px) {
   .topbar {
     padding-inline: 6px;
@@ -1448,23 +1314,4 @@ body[data-place="attic"] .card.quest {
   body[data-place="attic"] .scene-shade::after {
     transition: none;
   }
-}
-
-body .quest-frame[data-stacked="true"] {
-  margin-left: calc(14px - var(--card-width));
-  transform: translateY(4px);
-}
-body .quest-frame[data-raised="true"] {
-  transform: translateY(-10px);
-}
-body .card.quest[data-quest-status="pending"] {
-  border-color: #a48d6380;
-}
-body .card.quest[data-quest-status="fulfilled"] .art {
-  opacity: 0.6;
-}
-
-.quest-frame[data-fading="true"] {
-  opacity: 0.45;
-  transition: opacity 600ms ease-out;
 }

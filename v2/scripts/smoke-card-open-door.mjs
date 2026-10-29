@@ -4,12 +4,9 @@ import { pathToFileURL } from "node:url";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { encodeSave, legalActions } from "../card-game/world.mjs";
-import {
-  questCards,
-  questHistoryCards,
-  questCardId,
-} from "../card-game/quest-cards.mjs";
+import { questCards, questHistoryCards } from "../card-game/quest-cards.mjs";
 import { profiles } from "../card-game/memory.mjs";
+import { questTalkFacts } from "../card-game/quest-talk.mjs";
 import { openingFixture } from "../../test/helpers/greek-opening.mjs";
 import {
   OPEN_DOOR_PLACES,
@@ -200,24 +197,16 @@ export async function checkOpenDoor(browser, origin) {
               card.key === "greek-drama:story-quest-greek-open-door-eleusis",
           );
           assert.ok(quest, "Aethra holds the mothers' story card");
-          const id = questCardId(world, quest);
-          await selectCard(page, id, { touch: width === 390 });
-          const card = page.locator(`#hand [data-card="${id}"]`);
-          assert.equal(
-            await card.locator(".name").textContent(),
-            "Their sons need a road home.",
-          );
-          assert.equal(await card.locator(".quest-purpose").count(), 0);
-          assert.ok(
-            await card.evaluate(
-              (element) => element.scrollHeight <= element.clientHeight + 1,
-            ),
+          // Aethra's story has no hand card; she says it in Talk.
+          assert.equal(await page.locator("#hand [data-quest]").count(), 0);
+          assert.match(
+            questTalkFacts(world, "greek-aethra").join(" "),
+            /Their sons need a road home\./,
           );
           await page.screenshot({
             path: new URL(`eleusis-quest-${width}.png`, output).pathname,
             fullPage: true,
           });
-          await page.keyboard.press("Escape");
         }
         if (action.choiceId === "greek-open-door-hear-pyre")
           await page.screenshot({

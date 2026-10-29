@@ -114,7 +114,7 @@ import {
   keepReason,
   stayingWith,
   recordLifeAction,
-  experienceKinds,
+  validExperience,
   validLife,
   installHumanLife,
   hopeOf,
@@ -181,6 +181,7 @@ import {
   preserveTransportAccess,
 } from "./pack-transport.mjs";
 import { upgradeSave } from "./legacy-saves.mjs";
+import { shareStoryEndings } from "./story-life.mjs";
 import forest from "./forest.json" with { type: "json" };
 import { BOARDY } from "./boardyai.mjs";
 import {
@@ -794,7 +795,20 @@ function advancePrograms(s, met) {
 export function refreshQuestProgress(s) {
   const met = new Map();
   captureHands(s, met);
-  publishQuestCompletions(s, advancePrograms(s, met));
+  publishCompletions(s, advancePrograms(s, met));
+}
+// Story endings written this turn also reach lives and shared news.
+function publishCompletions(s, completions) {
+  shareStoryEndings(s, publishQuestCompletions(s, completions), {
+    nameOf,
+    present: (place) =>
+      knownActors(s).filter(
+        (id) =>
+          s.actors[id].place === place &&
+          entityActive(s, id) &&
+          (!controlledByHuman(s, id) || humanPresent(s, id)),
+      ),
+  });
 }
 export function addLog(s, speaker, text, detail = {}) {
   const actorId =
@@ -917,7 +931,7 @@ export function publishKnowledgeSpeech(s, entry, disclosures) {
   if (learned.length) {
     const met = new Map();
     captureHands(s, met);
-    publishQuestCompletions(s, [
+    publishCompletions(s, [
       ...advancePrograms(s, met),
       ...syncStoryQuests(s, learned[0].listener),
     ]);
@@ -2623,7 +2637,7 @@ export function play(
           : "The attic mirror's path to the pond closes.",
       { locationId: reflectionSource },
     );
-  publishQuestCompletions(next, [
+  publishCompletions(next, [
     ...advancePrograms(next, met),
     ...syncStoryQuests(next, exact.actor),
   ]);
@@ -2710,18 +2724,7 @@ function validHand(h, actor) {
 }
 function validQuestOrigin(s, origin) {
   return (
-    origin === null ||
-    (origin &&
-      Object.keys(origin).every((key) =>
-        ["kind", "turn", "other", "item", "place"].includes(key),
-      ) &&
-      experienceKinds.includes(origin.kind) &&
-      Number.isSafeInteger(origin.turn) &&
-      origin.turn >= 0 &&
-      origin.turn <= s.turn &&
-      (origin.other === null || actorIds.includes(origin.other)) &&
-      (origin.item === null || ids.includes(origin.item)) &&
-      (origin.place === null || Object.hasOwn(places, origin.place)))
+    origin === null || validExperience(s, origin, Object.keys(places))
   );
 }
 function validProgram(p, actor, s, shared = false) {

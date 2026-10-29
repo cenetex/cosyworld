@@ -16,7 +16,7 @@ import {
   createNarrator,
 } from "../v2/card-game/narrative.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
-import { actorQuests } from "../v2/card-game/quests.mjs";
+import { questCards } from "../v2/card-game/quest-cards.mjs";
 import { profiles } from "../v2/card-game/memory.mjs";
 import { sceneScript, currentScene } from "../v2/card-game/scene.mjs";
 
@@ -41,7 +41,7 @@ const response = (context) => ({
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe("entity memories and model text", () => {
-  it("grounds active and competing purposes in the collected quests", () => {
+  it("grounds active and competing purposes in the carried quest cards", () => {
     const world = enableMotives(createWorld(), {
       questPrograms: true,
       personalQuests: true,
@@ -50,16 +50,13 @@ describe("entity memories and model text", () => {
     for (const entity of context.entities.filter(
       (entry) => world.actors[entry.id],
     )) {
-      const quests = actorQuests(world, entity.id);
-      const active = quests.find((quest) => quest.status === "active");
-      if (active)
-        expect(entity.facts[0]).toBe(
-          `My active purpose is ${active.program.name}.`,
-        );
-      for (const pending of quests.filter(
-        (quest) => quest.status === "pending",
-      ))
-        expect(entity.facts.join(" ")).toContain(pending.program.name);
+      const open = questCards(world, entity.id).filter((card) =>
+        ["active", "pending"].includes(card.status),
+      );
+      if (open.length)
+        expect(entity.facts[0]).toMatch(/^What I want most now: /u);
+      for (const card of open)
+        expect(entity.facts.join(" ")).toContain(card.title);
     }
   });
 

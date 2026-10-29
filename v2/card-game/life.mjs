@@ -13,7 +13,16 @@ export const LIFE_VERSION = 2;
 export const REST_TURNS = 3;
 export const STALL_TURNS = 6;
 const EXPERIENCE_LIMIT = 16;
-const weight = { help: 3, gift: 3, journey: 3, care: 2, talk: 1, trade: 1 };
+// A story ending outweighs everyday deeds: it is the memory a rest returns to.
+const weight = {
+  story: 4,
+  help: 3,
+  gift: 3,
+  journey: 3,
+  care: 2,
+  talk: 1,
+  trade: 1,
+};
 export const experienceKinds = Object.keys(weight);
 // An experience shapes the kind of purpose it seeds.
 export const affinity = {
@@ -24,6 +33,18 @@ export const affinity = {
   care: "gathering",
   trade: "bargain",
 };
+// A story ending seeds a purpose that answers how it ended. An ending that
+// came true gathers people; a refusal leaves a trouble to settle; a report
+// or shared account sends something on to a friend.
+export const storyAffinity = {
+  fulfilled: "gathering",
+  declined: "answer",
+  reported: "delivery",
+  shared: "delivery",
+};
+export const storyOutcomes = Object.keys(storyAffinity);
+export const affinityOf = (e) =>
+  e?.kind === "story" ? storyAffinity[e.outcome] : affinity[e?.kind];
 // A hope is a home place, a favourite thing and an ordered set of situations.
 const hopeSteps = [["delivery"], ["gathering"], ["answer", "crossing"]];
 const situations = new Set(hopeSteps.flat());
@@ -173,6 +194,9 @@ export function enablePersonalQuests(s, profileOf = () => null) {
 // experience seeds the next purpose. One with no points starts fresh. A
 // resting avatar keeps its remaining rest; away from a sanctuary it heads to
 // one at the next round.
+// Story experiences add two fields to the version 2 shape. A version 2 save
+// written before them needs no change, so the version stays 2: released
+// worlds and their journals keep loading as they are.
 export function migrateLife(s, profileOf = () => null) {
   if (s?.life?.version !== 1 || !s.life.actors) return s;
   for (const [id, old] of Object.entries(s.life.actors)) {
@@ -236,9 +260,19 @@ function originOf(s, actor) {
   const life = lifeOf(s, actor);
   return life?.phase === "active" ? life.origin || null : null;
 }
+const storyPhrase = {
+  fulfilled: "the story that came true",
+  declined: "the refusal",
+  reported: "the report",
+  shared: "the account shared",
+};
 function sparkPhrase(s, e) {
   const other = e.other ? inline(s, e.other) : "a friend";
   switch (e.kind) {
+    case "story":
+      return e.place
+        ? `${storyPhrase[e.outcome]} at ${inline(s, e.place)}`
+        : storyPhrase[e.outcome];
     case "gift":
       return `${e.other ? possessive(s, e.other) : "a"} gift`;
     case "help":
@@ -391,13 +425,26 @@ const shiningLights = (s) =>
 
 // Record what happened to each participant. Experiences are memories, not
 // points: the first meaningful one after a rest seeds the next purpose.
+const lifeParticipant = (s, id) =>
+  lifeOf(s, id) !== undefined &&
+  (!s.opening ||
+    s.opening.met[id] !== undefined ||
+    s.controlledActors?.includes(id));
+function remember(life, e) {
+  const last = life.experiences.at(-1);
+  // A repeated exchange refreshes its memory instead of adding another.
+  const same =
+    last &&
+    ["kind", "other", "item", "place", "story", "outcome"].every(
+      (k) => last[k] === e[k],
+    );
+  life.experiences = same
+    ? [...life.experiences.slice(0, -1), e]
+    : [...life.experiences, e].slice(-EXPERIENCE_LIMIT);
+}
 export function recordLifeAction(s, a, accepted, usefulGift = false) {
   if (!s.life) return;
-  const participant = (id) =>
-    lifeOf(s, id) !== undefined &&
-    (!s.opening ||
-      s.opening.met[id] !== undefined ||
-      s.controlledActors?.includes(id));
+  const participant = (id) => lifeParticipant(s, id);
   const social =
     ["give", "trade", "talk"].includes(a.kind) ||
     (["ask", "accompany"].includes(a.kind) && accepted);
@@ -468,14 +515,30 @@ export function recordLifeAction(s, a, accepted, usefulGift = false) {
       item: item && s.items[item] ? item : null,
       place: a.destination || s.actors[id].place,
     };
-    const last = life.experiences.at(-1);
-    // A repeated exchange refreshes its memory instead of adding another.
-    const same =
-      last && ["kind", "other", "item", "place"].every((k) => last[k] === e[k]);
-    life.experiences = same
-      ? [...life.experiences.slice(0, -1), e]
-      : [...life.experiences, e].slice(-EXPERIENCE_LIMIT);
+    remember(life, e);
   }
+}
+
+// A resolved story stays with the people who shaped or saw its ending. The
+// ending's outcome is kept, so a refusal and a fulfilled story seed different
+// purposes after the next rest. `ending` is a story completion receipt.
+export function recordStoryLife(s, ids, ending, holder = null) {
+  if (!s.life || !storyOutcomes.includes(ending.outcome)) return [];
+  const recorded = [];
+  for (const id of [...new Set(ids)].sort()) {
+    if (!lifeParticipant(s, id)) continue;
+    remember(lifeOf(s, id), {
+      kind: "story",
+      turn: ending.turn,
+      other: holder && holder !== id && s.actors[holder] ? holder : null,
+      item: null,
+      place: ending.locationId,
+      story: ending.questKey,
+      outcome: ending.outcome,
+    });
+    recorded.push(id);
+  }
+  return recorded;
 }
 
 // Rest happens only in a sanctuary: a place whose data declares
@@ -568,7 +631,42 @@ export function personalQuestRank(s, actor, program) {
   const shaping = life.origin || sparkOf(s, actor) || life.experiences.at(-1);
   return (
     (fitsMilestone(milestone, program) ? -100 : 0) +
-    (kind === affinity[shaping?.kind] ? -8 : 0)
+    (kind === affinityOf(shaping) ? -8 : 0)
+  );
+}
+
+// A story memory also names its story card and the ending's outcome.
+export function validExperience(s, e, placeIds = null) {
+  const story = e?.kind === "story";
+  const keys = [
+    "kind",
+    "turn",
+    "other",
+    "item",
+    "place",
+    ...(story ? ["story", "outcome"] : []),
+  ];
+  return Boolean(
+    e &&
+      typeof e === "object" &&
+      Object.keys(e).length === keys.length &&
+      Object.keys(e).every((k) => keys.includes(k)) &&
+      experienceKinds.includes(e.kind) &&
+      Number.isSafeInteger(e.turn) &&
+      e.turn >= 0 &&
+      e.turn <= s.turn &&
+      (e.other === null || Object.hasOwn(s.actors || {}, e.other)) &&
+      (e.item === null || Object.hasOwn(s.items || {}, e.item)) &&
+      (e.place === null ||
+        (typeof e.place === "string" &&
+          e.place.length > 0 &&
+          e.place.length <= 40 &&
+          (!placeIds || placeIds.includes(e.place)))) &&
+      (!story ||
+        (typeof e.story === "string" &&
+          e.story.length > 0 &&
+          e.story.length <= 160 &&
+          storyOutcomes.includes(e.outcome))),
   );
 }
 
@@ -583,16 +681,7 @@ export function validLife(s, placeIds = null) {
     p.length > 0 &&
     p.length <= 40 &&
     (!placeIds || placeIds.includes(p));
-  const validExperience = (e) =>
-    e &&
-    Object.keys(e).every((k) =>
-      ["kind", "turn", "other", "item", "place"].includes(k),
-    ) &&
-    experienceKinds.includes(e.kind) &&
-    whole(e.turn, s.turn) &&
-    (e.other === null || actorIds.includes(e.other)) &&
-    (e.item === null || itemIds.includes(e.item)) &&
-    (e.place === null || place(e.place));
+  const experience = (e) => validExperience(s, e, placeIds);
   return (
     l?.version === LIFE_VERSION &&
     s.motives?.questPrograms === true &&
@@ -623,7 +712,7 @@ export function validLife(s, placeIds = null) {
             kinds.every((k) => situations.has(k)),
         ) &&
         (p.origin === undefined ||
-          (p.phase === "active" && validExperience(p.origin))) &&
+          (p.phase === "active" && experience(p.origin))) &&
         Array.isArray(p.milestones) &&
         p.milestones.length <= steps.length &&
         p.milestones.every(
@@ -647,7 +736,7 @@ export function validLife(s, placeIds = null) {
         ) &&
         Array.isArray(p.experiences) &&
         p.experiences.length <= EXPERIENCE_LIMIT &&
-        p.experiences.every(validExperience)
+        p.experiences.every(experience)
       );
     })
   );

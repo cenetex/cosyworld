@@ -486,5 +486,207 @@
       "name": "Algernon Blackwood, The Willows (1907)",
       "use": "Original English passages, gradually revealed through arrival and recorded discoveries. The exact downloaded source is kept in source-text.txt."
     }
+  ],
+  "topics": [
+    {
+      "id": "willows-supper",
+      "speaker": "willows-swede",
+      "at": "willows-camp",
+      "text": "The Swede says a hot supper keeps the fear smaller than the river.",
+      "requires": []
+    },
+    {
+      "id": "willows-channels",
+      "speaker": "willows-swede",
+      "at": "willows-camp",
+      "text": "The Swede says the river has cut new channels since the map was drawn.",
+      "requires": []
+    }
+  ],
+  "situations": [
+    {
+      "id": "willows-supper",
+      "kind": "delivery",
+      "name": "Supper before the wind",
+      "purpose": "Ask the Swede what would steady him, bring the stew pot and some food to the fire, then leave the pot in his hands.",
+      "takers": [
+        "visitors"
+      ],
+      "requires": [
+        {
+          "kind": "met",
+          "actor": "willows-swede"
+        }
+      ],
+      "roles": {
+        "partner": {
+          "avatar": [
+            "willows-swede"
+          ]
+        },
+        "food": {
+          "item": [
+            "willows-provisions",
+            "willows-spoon"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "at": "willows-camp",
+          "with": [
+            "$partner"
+          ],
+          "conditions": [
+            {
+              "kind": "knows",
+              "topic": "willows-supper"
+            }
+          ]
+        },
+        {
+          "hold": [
+            "willows-pot",
+            "$food"
+          ],
+          "at": "willows-camp",
+          "with": [
+            "$partner"
+          ]
+        },
+        {
+          "at": "willows-camp",
+          "with": [
+            "$partner"
+          ],
+          "conditions": [
+            {
+              "kind": "heldBy",
+              "item": "willows-pot",
+              "avatar": "$partner"
+            }
+          ]
+        }
+      ],
+      "consequence": {
+        "kind": "trust",
+        "avatar": "$partner"
+      }
+    },
+    {
+      "id": "willows-channels",
+      "kind": "crossing",
+      "name": "A map that falls behind",
+      "purpose": "Hear from the Swede how the river has changed, carry the map to the crumbling bank to read the new channels, then put it back in his hands.",
+      "takers": [
+        "visitors"
+      ],
+      "requires": [
+        {
+          "kind": "met",
+          "actor": "willows-swede"
+        }
+      ],
+      "roles": {
+        "partner": {
+          "avatar": [
+            "willows-swede"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "at": "willows-camp",
+          "with": [
+            "$partner"
+          ],
+          "conditions": [
+            {
+              "kind": "knows",
+              "topic": "willows-channels"
+            }
+          ]
+        },
+        {
+          "hold": [
+            "willows-map"
+          ],
+          "at": "willows-bank"
+        },
+        {
+          "at": "willows-camp",
+          "with": [
+            "$partner"
+          ],
+          "conditions": [
+            {
+              "kind": "heldBy",
+              "item": "willows-map",
+              "avatar": "$partner"
+            }
+          ]
+        }
+      ],
+      "consequence": {
+        "kind": "trust",
+        "avatar": "$partner"
+      }
+    },
+    {
+      "id": "willows-muffled-bell",
+      "kind": "answer",
+      "name": "No bells among the willows",
+      "purpose": "The Swede hates careless noise by the river. Wrap the bell in its cloth among the willows and bring it to the camp still silent.",
+      "takers": [
+        "visitors"
+      ],
+      "requires": [
+        {
+          "kind": "met",
+          "actor": "willows-swede"
+        }
+      ],
+      "roles": {
+        "partner": {
+          "avatar": [
+            "willows-swede"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "hold": [
+            "bell",
+            "cloth"
+          ],
+          "at": "willows-thicket",
+          "conditions": [
+            {
+              "kind": "covered",
+              "item": "bell"
+            }
+          ]
+        },
+        {
+          "hold": [
+            "bell"
+          ],
+          "at": "willows-camp",
+          "with": [
+            "$partner"
+          ],
+          "conditions": [
+            {
+              "kind": "covered",
+              "item": "bell"
+            }
+          ]
+        }
+      ],
+      "consequence": {
+        "kind": "trust",
+        "avatar": "$partner"
+      }
+    }
   ]
 }

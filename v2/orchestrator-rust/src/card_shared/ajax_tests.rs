@@ -368,27 +368,10 @@ fn ajax_upgrade_keeps_a_released_nineteen_camp_visit_and_replays_its_exit() {
 // keeps its completed story through the rules 22 upgrade and a journal rebuild.
 #[test]
 fn ajax_shield_delivered_under_rules_twenty_one_stays_complete_after_upgrade() {
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap();
-    let output = std::process::Command::new("node")
-        .current_dir(root)
-        .args([
-            "--input-type=module",
-            "-e",
-            "import { ajaxCamp, ajaxMove } from './test/helpers/greek-ajax.mjs'; import { playOpenDoor } from './test/helpers/open-door.mjs'; let w = playOpenDoor(ajaxCamp(), 'take', { item: 'greek-ajax-shield' }); console.log(JSON.stringify(ajaxMove(w, 'greek-ajax-household')));",
-        ])
-        .output()
-        .expect("Node 24 creates the Ajax household fixture");
-    assert!(
-        output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let save = String::from_utf8(output.stdout).unwrap();
-    let mut old = World::create(Some(&save)).unwrap();
+    // Saved by the released rules 21 code (main at 1348ab52), so this world
+    // is exactly what a rules 21 player could have had.
+    let save = include_str!("../../../../test/fixtures/ajax-household-rules-21.json");
+    let mut old = World::create(Some(save)).unwrap();
     old.version = engine::TWENTY_FIRST_VERSION.into();
     old.claimed = [1, 0, 0, 0, 0, 0, 0, 0];
     old.present = old.claimed;

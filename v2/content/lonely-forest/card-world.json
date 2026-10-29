@@ -772,6 +772,20 @@
         }
       ],
       "choiceId": "forest-hear-walkers-oak"
+    },
+    {
+      "id": "forest-warm-kettle",
+      "speaker": "rati",
+      "at": "forest-cottage",
+      "text": "RATi keeps the kettle warm for anyone walking home late.",
+      "requires": []
+    },
+    {
+      "id": "forest-night-watch",
+      "speaker": "oak",
+      "at": "forest-oak",
+      "text": "Oak says Skull walks the trail each night so others get home.",
+      "requires": []
     }
   ],
   "sources": [
@@ -786,6 +800,185 @@
     {
       "path": "docs/art-direction/world-map.md",
       "scope": "first journey proposal"
+    }
+  ],
+  "situations": [
+    {
+      "id": "forest-kettle-word",
+      "kind": "delivery",
+      "name": "Word of the warm kettle",
+      "purpose": "Hear from RATi who the kettle is kept warm for, then carry that word and a button from the cottage to Oak.",
+      "takers": [
+        "visitors"
+      ],
+      "requires": [
+        {
+          "kind": "met",
+          "actor": "rati"
+        }
+      ],
+      "roles": {
+        "partner": {
+          "avatar": [
+            "oak"
+          ]
+        },
+        "token": {
+          "item": [
+            "forest-story-button",
+            "forest-dewbright-button"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "at": "forest-cottage",
+          "with": [
+            "rati"
+          ],
+          "conditions": [
+            {
+              "kind": "knows",
+              "topic": "forest-warm-kettle"
+            }
+          ]
+        },
+        {
+          "hold": [
+            "$token"
+          ],
+          "at": "forest-oak",
+          "with": [
+            "$partner"
+          ],
+          "conditions": [
+            {
+              "kind": "knows",
+              "topic": "forest-warm-kettle"
+            }
+          ]
+        }
+      ],
+      "consequence": {
+        "kind": "trust",
+        "avatar": "$partner"
+      }
+    },
+    {
+      "id": "forest-watch-light",
+      "kind": "gathering",
+      "name": "A light for the night watch",
+      "purpose": "Ask Oak who keeps the trail, then stand beside Skull on the Moonlit Trail with a lit lamp or the Watch Bell.",
+      "takers": [
+        "visitors"
+      ],
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "forest-path-cleared",
+          "value": true
+        }
+      ],
+      "roles": {
+        "partner": {
+          "avatar": [
+            "skull"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "at": "forest-oak",
+          "with": [
+            "oak"
+          ],
+          "conditions": [
+            {
+              "kind": "knows",
+              "topic": "forest-night-watch"
+            }
+          ]
+        },
+        {
+          "any": [
+            {
+              "hold": [
+                "lamp"
+              ],
+              "at": "forest-trail",
+              "with": [
+                "$partner"
+              ],
+              "conditions": [
+                {
+                  "kind": "lit",
+                  "item": "lamp"
+                }
+              ]
+            },
+            {
+              "hold": [
+                "forest-watch-bell"
+              ],
+              "at": "forest-trail",
+              "with": [
+                "$partner"
+              ]
+            }
+          ]
+        }
+      ],
+      "consequence": {
+        "kind": "trust",
+        "avatar": "$partner"
+      }
+    },
+    {
+      "id": "forest-rain-home",
+      "kind": "crossing",
+      "name": "Rain carried home",
+      "purpose": "Take the Dewbright Button from Whiskerwind's broad leaves and carry the rain on it into RATi's cottage.",
+      "takers": [
+        "visitors"
+      ],
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "forest-welcomed",
+          "value": true
+        }
+      ],
+      "roles": {
+        "partner": {
+          "avatar": [
+            "rati"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "hold": [
+            "forest-dewbright-button"
+          ],
+          "at": "forest-garden",
+          "with": [
+            "whiskerwind"
+          ]
+        },
+        {
+          "hold": [
+            "forest-dewbright-button"
+          ],
+          "at": "forest-cottage",
+          "with": [
+            "$partner"
+          ]
+        }
+      ],
+      "consequence": {
+        "kind": "trust",
+        "avatar": "$partner"
+      }
     }
   ]
 }

@@ -5,6 +5,8 @@ import { createServer } from "../card-game/serve.mjs";
 import { encodeSave, legalActions } from "../card-game/world.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { questCards, questCardId } from "../card-game/quest-cards.mjs";
+import { narrativeContext } from "../card-game/narrative.mjs";
+import { questTalkFacts } from "../card-game/quest-talk.mjs";
 import { openingFixture } from "../../test/helpers/greek-opening.mjs";
 import {
   openDoorAction,
@@ -154,30 +156,30 @@ try {
         await reportPage.waitForSelector('#hand[data-cooling="false"] .card');
         await reportPage.reload();
         await reportPage.waitForSelector('#hand[data-cooling="false"] .card');
-        for (const [index, report] of reports.entries()) {
-          const id = ids[index];
-          const card = reportPage.locator(`#hand [data-card="${id}"]`);
-          assert.equal(await card.count(), 1, "a return card renders once");
-          await selectCard(reportPage, id, { touch: width === 390 });
-          assert.equal(await card.getAttribute("data-quest"), report.key);
+        // Both return reports stay saved; neither becomes a hand card.
+        assert.equal(await reportPage.locator("#hand [data-quest]").count(), 0);
+        for (const id of ids)
           assert.equal(
-            await card.locator(".name").textContent(),
-            report.purpose,
+            await reportPage.locator(`#hand [data-card="${id}"]`).count(),
+            0,
           );
-          assert.equal(
-            await reportPage.locator("#selection-name").textContent(),
-            report.purpose,
-            "selection resolves this report's own purpose",
+        const facts = narrativeContext(saved)
+          .entities.find((entity) => entity.id === "vale")
+          .facts.join(" ");
+        for (const report of reports)
+          assert.ok(
+            facts.includes(report.title),
+            "Vale's Talk context names each return report",
           );
-          assert.equal(await card.getAttribute("aria-pressed"), "true");
-          await reportPage.screenshot({
-            path: new URL(
-              `report-${index === 0 ? "agora" : "eleusis"}-${width}.png`,
-              output,
-            ).pathname,
-            fullPage: true,
-          });
-        }
+        const reloaded = await reportPage.evaluate(
+          (key) => JSON.parse(localStorage.getItem(key)),
+          reportKey,
+        );
+        assert.deepEqual(reloaded.quests.hands.vale, saved.quests.hands.vale);
+        await reportPage.screenshot({
+          path: new URL(`reports-${width}.png`, output).pathname,
+          fullPage: true,
+        });
       } finally {
         await reportPage.close();
       }
@@ -259,18 +261,14 @@ try {
               card.key === "greek-drama:story-quest-greek-homecoming-household",
           );
           assert.ok(quest, "Myrine holds her journey card");
-          const id = questCardId(world, quest);
-          await selectCard(page, id, { touch: width === 390 });
-          const card = page.locator(`#hand [data-card="${id}"]`);
           assert.equal(
-            await card.locator(".name").textContent(),
-            "Bring Myrine to the waiting berth.",
+            await page.locator("#hand [data-quest]").count(),
+            0,
+            "Myrine's journey stays out of the hand",
           );
-          assert.ok(
-            await card.evaluate(
-              (element) => element.scrollHeight <= element.clientHeight + 1,
-            ),
-            "journey card fits",
+          assert.match(
+            questTalkFacts(world, "greek-household-witness").join(" "),
+            /Bring Myrine to the waiting berth\./,
           );
           await capture("myrine-quest");
           await page.keyboard.press("Escape");
