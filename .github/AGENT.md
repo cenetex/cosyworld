@@ -106,6 +106,10 @@ Do not edit or commit these directly:
 - `.env`, `.env.*`, keys, wallet files, bearer tokens, logs, or runtime SQLite
   and snapshot data;
 - `v2/content/official/**` except as output from the worldpack compiler;
+- released shared rules `v2/orchestrator-rust/src/card_shared/engine-v*.js`
+  and their version wiring. After rebasing a branch that changes rule modules,
+  run `npm run v2:card:shared:next`; it restores main's live rules and claims
+  the next version once;
 - `v2/worlds/official/pack.lock.json` except through the lock command;
 - `package-lock.json` except through an intentional dependency/version update;
 - `v2/tests/visual-baselines/**` except for a reviewed UI change using the

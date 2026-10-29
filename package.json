@@ -1,6 +1,6 @@
 {
   "name": "cosyworld",
-  "version": "1.2.8",
+  "version": "1.2.9",
   "description": "A persistent card world with local and shared play",
   "type": "module",
   "private": true,
@@ -73,6 +73,7 @@
     "v2:card:assets:check": "node v2/scripts/build-card-assets.mjs --check",
     "v2:card:shared:build": "node v2/scripts/build-card-shared-engine.mjs",
     "v2:card:shared:check": "node v2/scripts/build-card-shared-engine.mjs --check",
+    "v2:card:shared:next": "node v2/scripts/next-shared-rules.mjs && npm run v2:card:assets:build",
     "play:cards:local": "bash v2/scripts/play-cards-local.sh",
     "local:test": "python3 -m unittest discover -s v2/local -p \"test_*.py\"",
     "desktop:build": "python3 v2/desktop/build.py",
