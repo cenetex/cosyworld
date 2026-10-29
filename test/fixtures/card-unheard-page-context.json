@@ -1,6 +1,6 @@
 {
-  "revision": 99,
-  "turn": 99,
+  "revision": 112,
+  "turn": 112,
   "outcome": {
     "card": {
       "kind": "talk",
@@ -65,19 +65,18 @@
     "observations": []
   },
   "location": "greek-viii-poets-court",
-  "scenery": false,
+  "scenery": true,
   "focus": null,
   "speakers": [
     "vale",
-    "greek-viii-aeschylus",
-    "ash"
+    "greek-viii-aeschylus"
   ],
   "disclosures": [
     {
       "factId": "event:134",
       "speaker": "vale",
       "listener": "greek-viii-aeschylus",
-      "eventSeq": 173,
+      "eventSeq": 205,
       "text": "Vale gives the The Quay Basket to Myrine of Argos."
     }
   ],
@@ -100,12 +99,6 @@
       "desire": null,
       "memories": [
         {
-          "seq": 166,
-          "turn": 94,
-          "kind": "event",
-          "text": "World: Vale goes to The Poets’ Court."
-        },
-        {
           "seq": 167,
           "turn": 95,
           "kind": "event",
@@ -118,8 +111,14 @@
           "text": "World: Vale takes the The Verse Scales."
         },
         {
-          "seq": 173,
-          "turn": 99,
+          "seq": 202,
+          "turn": 111,
+          "kind": "event",
+          "text": "World: Ash goes to The Poets’ Court."
+        },
+        {
+          "seq": 205,
+          "turn": 112,
           "kind": "event",
           "text": "World: Vale asks Aeschylus what they want."
         }
@@ -163,12 +162,6 @@
           "text": "World: Dione names the later accounts beyond Piraeus: the Sicilian crew, the birds’ refuge, shared peace, the chained gift and the poets below. She asks Vale to return with the actual people, supplies and words each journey has earned."
         },
         {
-          "seq": 166,
-          "turn": 94,
-          "kind": "event",
-          "text": "World: Vale goes to The Poets’ Court."
-        },
-        {
           "seq": 167,
           "turn": 95,
           "kind": "event",
@@ -181,8 +174,14 @@
           "text": "World: Vale takes the The Verse Scales."
         },
         {
-          "seq": 173,
-          "turn": 99,
+          "seq": 202,
+          "turn": 111,
+          "kind": "event",
+          "text": "World: Ash goes to The Poets’ Court."
+        },
+        {
+          "seq": 205,
+          "turn": 112,
           "kind": "event",
           "text": "World: Vale asks Aeschylus what they want."
         }
@@ -209,12 +208,6 @@
       },
       "memories": [
         {
-          "seq": 166,
-          "turn": 94,
-          "kind": "event",
-          "text": "World: Vale goes to The Poets’ Court."
-        },
-        {
           "seq": 167,
           "turn": 95,
           "kind": "event",
@@ -227,42 +220,14 @@
           "text": "World: Vale takes the The Verse Scales."
         },
         {
-          "seq": 173,
-          "turn": 99,
+          "seq": 202,
+          "turn": 111,
           "kind": "event",
-          "text": "World: Vale asks Aeschylus what they want."
-        }
-      ],
-      "previous": null,
-      "inner_life": null
-    },
-    {
-      "id": "ash",
-      "poem": null,
-      "facts": [
-        "My active purpose is A first visit.",
-        "Holding: Diving float.",
-        "Location now: The Poets’ Court. Company now: Vale, Aeschylus, Euripides.",
-        "Look beneath the surface.",
-        "Current interest: Look beneath the surface..",
-        "I want to look after my friends at Sunken belfry. Next I'd like to bring a friend what they need. I know what I want to do now.",
-        "The Diving float is my favourite. I keep it close.",
-        "This is your first meeting with Vale. You were already here when Vale arrived. Greet this newcomer in your own voice.",
-        "Already holds the wanted Diving float.",
-        "Wants to be at Black pond; currently at The Poets’ Court.",
-        "At the dialogue scene: Vale, Aeschylus, Euripides, Ash. Items here: The Travel Bag, The Verse Scales, The Reading Tablet, Diving float."
-      ],
-      "desire": {
-        "items": [
-          "float"
-        ],
-        "location": "pond",
-        "avatars": []
-      },
-      "memories": [
+          "text": "World: Ash goes to The Poets’ Court."
+        },
         {
-          "seq": 173,
-          "turn": 99,
+          "seq": 205,
+          "turn": 112,
           "kind": "event",
           "text": "World: Vale asks Aeschylus what they want."
         }
@@ -288,12 +253,6 @@
       },
       "memories": [
         {
-          "seq": 166,
-          "turn": 94,
-          "kind": "event",
-          "text": "World: Vale goes to The Poets’ Court."
-        },
-        {
           "seq": 167,
           "turn": 95,
           "kind": "event",
@@ -306,8 +265,62 @@
           "text": "World: Vale takes the The Verse Scales."
         },
         {
-          "seq": 173,
-          "turn": 99,
+          "seq": 202,
+          "turn": 111,
+          "kind": "event",
+          "text": "World: Ash goes to The Poets’ Court."
+        },
+        {
+          "seq": 205,
+          "turn": 112,
+          "kind": "event",
+          "text": "World: Vale asks Aeschylus what they want."
+        }
+      ],
+      "previous": null,
+      "inner_life": null
+    },
+    {
+      "id": "ash",
+      "poem": null,
+      "facts": [
+        "I also want to pursue A visit to the station; The Mothers’ Petition journey.",
+        "Holding: Diving float.",
+        "Location now: The Poets’ Court. Company now: Vale, Aeschylus, Euripides.",
+        "Look beneath the surface.",
+        "Current interest: Look beneath the surface..",
+        "I want to look after my friends at Sunken belfry. Next I'd like to bring a friend what they need. I want to go to Empty station and rest.",
+        "The Diving float is my favourite. I keep it close.",
+        "Wants to be at Sunken belfry; currently at The Poets’ Court.",
+        "At the dialogue scene: Vale, Aeschylus, Euripides, Ash. Items here: The Travel Bag, The Verse Scales, The Reading Tablet, Diving float."
+      ],
+      "desire": {
+        "items": [],
+        "location": "belfry",
+        "avatars": []
+      },
+      "memories": [
+        {
+          "seq": 199,
+          "turn": 110,
+          "kind": "event",
+          "text": "World: Ash goes to The Underworld Landing."
+        },
+        {
+          "seq": 201,
+          "turn": 110,
+          "kind": "event",
+          "text": "World: The Lower Ferryman asks Ash what they want."
+        },
+        {
+          "seq": 202,
+          "turn": 111,
+          "kind": "event",
+          "text": "World: Ash goes to The Poets’ Court."
+        },
+        {
+          "seq": 205,
+          "turn": 112,
           "kind": "event",
           "text": "World: Vale asks Aeschylus what they want."
         }
@@ -325,12 +338,6 @@
       "desire": null,
       "memories": [
         {
-          "seq": 166,
-          "turn": 94,
-          "kind": "event",
-          "text": "World: Vale goes to The Poets’ Court."
-        },
-        {
           "seq": 167,
           "turn": 95,
           "kind": "event",
@@ -343,8 +350,14 @@
           "text": "World: Vale takes the The Verse Scales."
         },
         {
-          "seq": 173,
-          "turn": 99,
+          "seq": 202,
+          "turn": 111,
+          "kind": "event",
+          "text": "World: Ash goes to The Poets’ Court."
+        },
+        {
+          "seq": 205,
+          "turn": 112,
           "kind": "event",
           "text": "World: Vale asks Aeschylus what they want."
         }
@@ -361,12 +374,6 @@
       "desire": null,
       "memories": [
         {
-          "seq": 166,
-          "turn": 94,
-          "kind": "event",
-          "text": "World: Vale goes to The Poets’ Court."
-        },
-        {
           "seq": 167,
           "turn": 95,
           "kind": "event",
@@ -379,8 +386,14 @@
           "text": "World: Vale takes the The Verse Scales."
         },
         {
-          "seq": 173,
-          "turn": 99,
+          "seq": 202,
+          "turn": 111,
+          "kind": "event",
+          "text": "World: Ash goes to The Poets’ Court."
+        },
+        {
+          "seq": 205,
+          "turn": 112,
           "kind": "event",
           "text": "World: Vale asks Aeschylus what they want."
         }
@@ -397,12 +410,6 @@
       "desire": null,
       "memories": [
         {
-          "seq": 166,
-          "turn": 94,
-          "kind": "event",
-          "text": "World: Vale goes to The Poets’ Court."
-        },
-        {
           "seq": 167,
           "turn": 95,
           "kind": "event",
@@ -415,8 +422,14 @@
           "text": "World: Vale takes the The Verse Scales."
         },
         {
-          "seq": 173,
-          "turn": 99,
+          "seq": 202,
+          "turn": 111,
+          "kind": "event",
+          "text": "World: Ash goes to The Poets’ Court."
+        },
+        {
+          "seq": 205,
+          "turn": 112,
           "kind": "event",
           "text": "World: Vale asks Aeschylus what they want."
         }
