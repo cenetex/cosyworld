@@ -47,6 +47,9 @@ fn assert_saved_items(current: &Value, old: &Value) {
 fn assert_saved_packs(current: &Value, old: &Value) {
     let mut expected = old.clone();
     expected["greek-drama"]["revision"] = json!(8);
+    expected["greek-drama"]["poemReadings"] = json!({
+        "version":1,"stanzas":[],"readings":{},"drafts":{},"pins":{},"decisions":{}
+    });
     expected["boardyai"] = current["boardyai"].clone();
     expected["hoppycat-archive"] = current["hoppycat-archive"].clone();
     expected["willows"] = current["willows"].clone();
