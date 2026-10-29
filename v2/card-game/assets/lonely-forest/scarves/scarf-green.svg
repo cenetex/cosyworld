@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="scarf-green-title scarf-green-desc">
+  <title id="scarf-green-title">Green knitted scarf</title>
+  <desc id="scarf-green-desc">A soft green scarf with knitted stitches, short fringed ends, and a small wooden button with four holes.</desc>
+  <g stroke="#544D43" stroke-width="3.5" stroke-linejoin="round">
+    <path fill="#4D865C" d="m73 91 47 14-22 116-46-11Z"/>
+    <path fill="#4D865C" d="m139 99 44-13 28 118-47 13Z"/>
+    <path fill="#356344" d="m139 99 44-13 9 37-45 14Z"/>
+    <path fill="#4D865C" d="M48 53C78 26 174 26 205 53l-5 43c-32 25-119 25-147-2Z"/>
+    <path fill="#356344" d="M49 54c36 24 122 25 155 0-29-24-122-25-155 0Z"/>
+  </g>
+  <g fill="none" stroke="#D2E7C4" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity=".65">
+    <path d="M60 78c34 21 100 22 132 1"/>
+    <path d="m65 89 5 7 6-5m14 4 5 7 6-6m15-1 5 7 6-7m15-1 5 7 6-8"/>
+    <path d="m74 124 5 8 7-5m-17 17 5 8 7-5m-16 17 5 8 7-5m-16 17 5 8 7-5m-16 17 5 8 7-5"/>
+    <path d="m160 139 7 6 5-8m-7 21 7 6 5-8m-8 21 7 6 5-8m-7 21 7 6 5-8"/>
+  </g>
+  <g fill="none" stroke="#356344" stroke-width="5" stroke-linecap="round">
+    <path d="M56 212l-3 12M66 214l-3 12M76 217l-3 12M86 219l-3 12M96 221l-3 12"/>
+    <path d="m167 217 3 12m8-15 3 12m8-15 3 12m8-15 3 12"/>
+  </g>
+  <circle cx="173" cy="86" r="11" fill="#B98045" stroke="#5D402B" stroke-width="2"/>
+  <circle cx="170" cy="83" r="1.6" fill="#5D402B"/>
+  <circle cx="176" cy="83" r="1.6" fill="#5D402B"/>
+  <circle cx="170" cy="89" r="1.6" fill="#5D402B"/>
+  <circle cx="176" cy="89" r="1.6" fill="#5D402B"/>
+</svg>
