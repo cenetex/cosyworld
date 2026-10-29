@@ -431,6 +431,7 @@ export function packChoices(world, actor = "vale") {
     (pack.choices || [])
       .filter(
         (c) =>
+          world.actors[actor]?.place === c.at &&
           !personalSharedChoice(packDefinitions, pack.id, c.id) &&
           !pack.recital?.sites?.some((site) => site.completion === c.id) &&
           choiceFeasible(world, pack, c, actor),
