@@ -66658,56 +66658,56 @@
           "text": "A white wool scarf RATi sewed for Vale. A warm wooden button holds its ends together.",
           "persona": "A soft white wool scarf made for Vale, with a warm wooden four-hole button sewn at one end. It appears after RATi completes Vale's saved sewing task. Use its actual holder and the attached button's saved custody when describing its place or a transfer.",
           "holder": "rati",
-          "art": "assets/lonely-forest/scarves/scarf-white.svg"
+          "art": "assets/lonely-forest/scarves/scarf-white.png"
         },
         "forest-rati-scarf-mara": {
           "name": "Mara's Green Scarf",
           "text": "A green wool scarf RATi sewed for Mara. A warm wooden button holds its ends together.",
           "persona": "A soft green wool scarf made for Mara, with a warm wooden four-hole button sewn at one end. It appears after RATi completes Mara's saved sewing task. Use its actual holder and the attached button's saved custody when describing its place or a transfer.",
           "holder": "rati",
-          "art": "assets/lonely-forest/scarves/scarf-green.svg"
+          "art": "assets/lonely-forest/scarves/scarf-green.png"
         },
         "forest-rati-scarf-ash": {
           "name": "Ash's Blue Scarf",
           "text": "A blue wool scarf RATi sewed for Ash. A warm wooden button holds its ends together.",
           "persona": "A soft blue wool scarf made for Ash, with a warm wooden four-hole button sewn at one end. It appears after RATi completes Ash's saved sewing task. Use its actual holder and the attached button's saved custody when describing its place or a transfer.",
           "holder": "rati",
-          "art": "assets/lonely-forest/scarves/scarf-blue.svg"
+          "art": "assets/lonely-forest/scarves/scarf-blue.png"
         },
         "forest-rati-scarf-nell": {
           "name": "Nell's Violet Scarf",
           "text": "A violet wool scarf RATi sewed for Nell. A warm wooden button holds its ends together.",
           "persona": "A soft violet wool scarf made for Nell, with a warm wooden four-hole button sewn at one end. It appears after RATi completes Nell's saved sewing task. Use its actual holder and the attached button's saved custody when describing its place or a transfer.",
           "holder": "rati",
-          "art": "assets/lonely-forest/scarves/scarf-violet.svg"
+          "art": "assets/lonely-forest/scarves/scarf-violet.png"
         },
         "forest-rati-scarf-tavi": {
           "name": "Tavi's Red Scarf",
           "text": "A red wool scarf RATi sewed for Tavi. A warm wooden button holds its ends together.",
           "persona": "A soft red wool scarf made for Tavi, with a warm wooden four-hole button sewn at one end. It appears after RATi completes Tavi's saved sewing task. Use its actual holder and the attached button's saved custody when describing its place or a transfer.",
           "holder": "rati",
-          "art": "assets/lonely-forest/scarves/scarf-red.svg"
+          "art": "assets/lonely-forest/scarves/scarf-red.png"
         },
         "forest-rati-scarf-rue": {
           "name": "Rue's Orange Scarf",
           "text": "An orange wool scarf RATi sewed for Rue. A warm wooden button holds its ends together.",
           "persona": "A soft orange wool scarf made for Rue, with a warm wooden four-hole button sewn at one end. It appears after RATi completes Rue's saved sewing task. Use its actual holder and the attached button's saved custody when describing its place or a transfer.",
           "holder": "rati",
-          "art": "assets/lonely-forest/scarves/scarf-orange.svg"
+          "art": "assets/lonely-forest/scarves/scarf-orange.png"
         },
         "forest-rati-scarf-orin": {
           "name": "Orin's Amber Scarf",
           "text": "An amber wool scarf RATi sewed for Orin. A warm wooden button holds its ends together.",
           "persona": "A soft amber wool scarf made for Orin, with a warm wooden four-hole button sewn at one end. It appears after RATi completes Orin's saved sewing task. Use its actual holder and the attached button's saved custody when describing its place or a transfer.",
           "holder": "rati",
-          "art": "assets/lonely-forest/scarves/scarf-amber.svg"
+          "art": "assets/lonely-forest/scarves/scarf-amber.png"
         },
         "forest-rati-scarf-ada": {
           "name": "Ada's Yellow Scarf",
           "text": "A yellow wool scarf RATi sewed for Ada. A warm wooden button holds its ends together.",
           "persona": "A soft yellow wool scarf made for Ada, with a warm wooden four-hole button sewn at one end. It appears after RATi completes Ada's saved sewing task. Use its actual holder and the attached button's saved custody when describing its place or a transfer.",
           "holder": "rati",
-          "art": "assets/lonely-forest/scarves/scarf-yellow.svg"
+          "art": "assets/lonely-forest/scarves/scarf-yellow.png"
         }
       },
       "routes": [
@@ -67259,7 +67259,7 @@
           "id": "story-quest-forest-personal-hearth",
           "group": "forest",
           "line": "A scarf for the next journey.",
-          "art": "forest-story-button",
+          "art": "forest-rati-scarf-vale",
           "holder": {
             "kind": "avatar",
             "id": "rati"
