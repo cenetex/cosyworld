@@ -203,9 +203,21 @@ try {
         );
         await playCard("greek-ship");
       }
+      assert.ok(
+        legalActions(await state()).some(
+          (action) => action.kind === "move" && action.target === id,
+        ),
+        `physical route from ${(await state()).actors.vale.place} to ${id}`,
+      );
       await playCard(id);
       assert.equal((await state()).actors.vale.place, id, `travel to ${id}`);
       assert.equal(await page.textContent("#place-title"), places[id].name);
+      if (before.actors.vale.place === "greek-ship")
+        assert.equal(
+          (await state()).transports["greek-ship"].dock,
+          id,
+          "the ship reaches the arrival shore",
+        );
       if (boarding && (await state()).items.lamp.lit) await playCard("lamp");
     };
     const choose = async (choiceId) => {
@@ -318,12 +330,19 @@ try {
     const branch = width === 1440 ? "egypt" : "troy";
     const destination =
       branch === "egypt" ? "greek-egypt-tomb" : "greek-troy-beach";
+    const landing =
+      branch === "egypt"
+        ? "greek-book-iv-helen-landing"
+        : "greek-ajax-landing";
     const opposite =
       branch === "egypt" ? "greek-troy-beach" : "greek-egypt-tomb";
     const evidence = `greek-${branch}-testimony`;
     await travel("greek-harbor");
     await choose(`greek-helen-${branch}`);
     assert.equal(await card(opposite).count(), 0);
+    // Each account uses its real landing, then the local path to the witness.
+    await travel("greek-ship");
+    await travel(landing);
     await travel(destination);
     await playCard(evidence);
     assert.equal(rootHolder(await state(), evidence), "vale");
@@ -335,6 +354,8 @@ try {
       path: new URL(`helen-${branch}-${width}.png`, output).pathname,
       fullPage: true,
     });
+    await travel(landing);
+    await travel("greek-ship");
     await travel("greek-harbor");
     assert.equal(await card(opposite).count(), 0);
     await travel("pond");
