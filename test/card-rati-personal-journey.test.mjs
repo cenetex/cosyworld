@@ -28,9 +28,10 @@ import {
   legalActions,
   play,
   carried,
+  nameOf,
 } from "../v2/card-game/world.mjs";
 import { storyDefinitions } from "../v2/card-game/story-quests.mjs";
-import { availableCards } from "../v2/card-game/cards.mjs";
+import { availableCards, cardObservation } from "../v2/card-game/cards.mjs";
 import { questCards, questHistoryCards } from "../v2/card-game/quest-cards.mjs";
 import {
   entityActive,
@@ -330,6 +331,9 @@ describe("RATi's personal scarf in the real world model", () => {
       expect(fulfilled.art).toBe(row.reward);
       expect(packMedia(fulfilled.art, "art")).toBe(art);
       expect(packMedia(row.reward, "art")).toBe(art);
+      expect(cardObservation(world, row.reward)).toBe(
+        `Carried by ${nameOf(owner)}.`,
+      );
       expect(world.packs[PACK].flags["forest-scarf-mended"]).toBe(true);
       expect(reload(world)).toEqual(world);
     },
