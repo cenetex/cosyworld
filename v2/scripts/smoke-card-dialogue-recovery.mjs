@@ -155,7 +155,8 @@ try {
     // Invalid JSON content must fail visibly too, and a later play can recover.
     mode = "invalid";
     const pond = person;
-    await pond.click();
+    if ((await pond.getAttribute("aria-pressed")) !== "true")
+      await pond.click();
     await page.locator("#card-actions .card-primary").click();
     await page.waitForFunction(
       () => !document.querySelector("#story-retry").hidden,
@@ -180,7 +181,8 @@ try {
     assert.doesNotMatch(await page.locator("#messages").innerText(), /Turn \d/);
     // Slow words release the hand rather than holding it.
     mode = "hang";
-    await pond.click();
+    if ((await pond.getAttribute("aria-pressed")) !== "true")
+      await pond.click();
     await page.locator("#card-actions .card-primary").click();
     await page.waitForFunction(
       () => document.querySelector("#hand").dataset.cooling === "false",
@@ -195,7 +197,8 @@ try {
       true,
     );
     mode = "ready";
-    await pond.click();
+    if ((await pond.getAttribute("aria-pressed")) !== "true")
+      await pond.click();
     await page.locator("#card-actions .card-primary").click();
     await ready();
     assert.equal((await state()).turn, before.turn + 3);

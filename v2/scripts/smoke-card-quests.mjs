@@ -272,6 +272,7 @@ try {
         .locator('#hand [data-fulfilled="true"]')
         .getAttribute("data-quest");
       for (let turns = 1; turns <= 2; turns++) {
+        await page.keyboard.press("Escape");
         await selectCard(page, "vale");
         await page.locator('#card-actions [data-action="wait"]').click();
         await finish();

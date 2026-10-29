@@ -1562,14 +1562,17 @@ function updateCardSelection(frame) {
   frame.dataset.stackIndex = String(info?.index || 0);
   frame.dataset.stackCount = String(info?.count || 1);
   frame.dataset.stackKind = info?.kind || "";
+  frame.dataset.stackExpanded = String(Boolean(info?.expanded));
   frame.style.setProperty("--stack-index", String(info?.index || 0));
   frame.style.zIndex = String(
     raised ? 100 : info?.stacked ? 20 - info.index : 30,
   );
   frame.dataset.shownItem = String(shownItems[info?.holder] === id);
-  if (info?.holder && info.count > 1)
-    button.setAttribute("aria-expanded", String(info.expanded));
-  if (isQuestCard(id)) return;
+  if (isQuestCard(id)) {
+    if (info?.count > 1)
+      button.setAttribute("aria-expanded", String(info.expanded));
+    return;
+  }
   const collection = [...currentHandLayout.values()].filter(
     (entry) => entry.holder === id,
   );
@@ -1578,6 +1581,8 @@ function updateCardSelection(frame) {
     frame.dataset.expanded = String(disclosed);
     button.setAttribute("aria-expanded", String(disclosed));
   }
+  if (info?.holder && info.count > 1)
+    button.setAttribute("aria-expanded", String(info.expanded));
   button.querySelector(".sr-only").textContent =
     cardObservation(world, id) +
     (label ? ` ${label}.` : "") +

@@ -131,6 +131,7 @@ try {
     };
     const playCard = async (id) => {
       await ready();
+      await page.keyboard.press("Escape");
 
       await selectCard(page, id);
       await page.locator("#card-actions .card-primary").click();
@@ -138,6 +139,7 @@ try {
     };
     const pair = async (one, two) => {
       await ready();
+      await page.keyboard.press("Escape");
 
       await selectCard(page, one);
 
@@ -207,6 +209,7 @@ try {
     };
     const choose = async (choiceId) => {
       await ready();
+      await page.keyboard.press("Escape");
       const action = legalActions(await state()).find(
         (a) => a.choiceId === choiceId,
       );

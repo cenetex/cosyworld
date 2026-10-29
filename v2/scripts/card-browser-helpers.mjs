@@ -20,7 +20,7 @@ export async function revealCard(page, id) {
   }
   if (
     Number(await frame.getAttribute("data-stack-count")) > 1 &&
-    (await card.getAttribute("aria-expanded")) === "false" &&
+    (await frame.getAttribute("data-stack-expanded")) === "false" &&
     (await card.getAttribute("aria-pressed")) !== "true"
   ) {
     const holder = await frame.getAttribute("data-holder");
