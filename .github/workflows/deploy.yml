@@ -127,17 +127,50 @@ jobs:
           npm run v2:syntax
           npx vitest run test/infrastructure/deploy-workflow.test.mjs --reporter=dot
 
-  production-rust-gate:
-    name: Production Rust gate
+  production-rust-ci:
+    name: Wait for CI Rust checks
     needs: [deployment-impact, release-owner]
     if: >-
       needs.deployment-impact.outputs.deploy == 'true' &&
       needs.release-owner.outputs.owns == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    # Observe the 120-minute CI job, with five minutes for setup and polling.
+    timeout-minutes: 125
     permissions:
       contents: read
       checks: read
+    outputs:
+      reuse: ${{ steps.ci.outputs.reuse }}
+    steps:
+      - name: Checkout committed release
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      # The fallback starts after this job observes a finished or absent CI
+      # run. An active or unreadable check at the deadline fails this gate.
+      - name: Reuse CI Rust checks for this commit
+        id: ci
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COSYWORLD_CI_WAIT_SECS: "7200"
+        run: node scripts/await-ci-rust.mjs >> "$GITHUB_OUTPUT"
+
+  production-rust-gate:
+    name: Production Rust gate
+    needs: [deployment-impact, release-owner, production-rust-ci]
+    if: >-
+      needs.deployment-impact.outputs.deploy == 'true' &&
+      needs.release-owner.outputs.owns == 'true'
+    runs-on: ubuntu-latest
+    # The CI wait has its own job. Allow 20 minutes to compile, 60 for replay,
+    # 20 for the archive, 20 for lint, and 30 for setup and cache work.
+    timeout-minutes: 150
     env:
       CI: true
       RUST_TEST_THREADS: "2"
@@ -147,21 +180,18 @@ jobs:
         with:
           fetch-depth: 1
 
-      # CI runs the same Rust tests and lint on every main commit. Reuse its
-      # result for this exact commit; run the checks here only when CI did not
-      # run them, was cancelled, or failed.
-      - name: Reuse CI Rust checks for this commit
-        id: ci
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: node scripts/await-ci-rust.mjs >> "$GITHUB_OUTPUT"
+      - name: Setup Node.js for saved-world journeys
+        if: needs.production-rust-ci.outputs.reuse != 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
 
       - name: Setup Rust
-        if: steps.ci.outputs.reuse != 'true'
+        if: needs.production-rust-ci.outputs.reuse != 'true'
         uses: dtolnay/rust-toolchain@stable
 
       - name: Restore Cargo build cache
-        if: steps.ci.outputs.reuse != 'true'
+        if: needs.production-rust-ci.outputs.reuse != 'true'
         uses: actions/cache@v6
         with:
           path: |
@@ -175,11 +205,36 @@ jobs:
             ${{ runner.os }}-cargo-compact-v1-
 
       - name: Verify Rust orchestrator tests
-        if: steps.ci.outputs.reuse != 'true'
+        if: needs.production-rust-ci.outputs.reuse != 'true'
         run: bash v2/scripts/check-rust.sh test
 
+      - name: Check the full shared reading archive
+        if: needs.production-rust-ci.outputs.reuse != 'true'
+        timeout-minutes: 20
+        shell: bash
+        run: |
+          cargo test --manifest-path v2/orchestrator-rust/Cargo.toml \
+            card_shared::reading_tests::readings_full_archive_and_forty_scene_history_fit_the_game_limits \
+            -- --ignored --exact --nocapture --test-threads=1 \
+            2>&1 | tee "$RUNNER_TEMP/reading-archive-audit.log"
+        env:
+          COSYWORLD_AUDIT_BASE_COMMIT: ${{ github.sha }}
+          COSYWORLD_READING_AUDIT_REPORT: ${{ runner.temp }}/reading-archive-audit.json
+
+      - name: Keep the shared reading archive proof
+        if: ${{ always() && needs.production-rust-ci.outputs.reuse != 'true' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: reading-archive-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/reading-archive-audit.json
+            ${{ runner.temp }}/reading-archive-audit.log
+          retention-days: 90
+          if-no-files-found: warn
+
       - name: Check Rust architecture
-        if: steps.ci.outputs.reuse != 'true'
+        if: needs.production-rust-ci.outputs.reuse != 'true'
+        timeout-minutes: 20
         run: |
           bash v2/scripts/check-main-size.sh
           bash v2/scripts/check-rust-lint.sh
