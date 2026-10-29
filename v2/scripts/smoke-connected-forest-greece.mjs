@@ -66,6 +66,7 @@ const commands = [];
 const requests = [];
 const requestRecords = new WeakMap();
 const lastSnapshotAt = new Map();
+const snapshotReads = new Map();
 const snapshotIntervalMs = 3000;
 let browser,
   child,
@@ -188,7 +189,13 @@ async function checked(page, body, path) {
   assert.equal(result.status, 200, JSON.stringify(result.body));
   return result.body;
 }
-async function read(actor) {
+function read(actor) {
+  const pending = snapshotReads.get(actor) ?? Promise.resolve();
+  const result = pending.then(() => readSnapshot(actor));
+  snapshotReads.set(actor, result);
+  return result;
+}
+async function readSnapshot(actor) {
   // Leave room for the app's polling, presence heartbeats, and card plays.
   const remaining =
     (lastSnapshotAt.get(actor) ?? -Infinity) +
