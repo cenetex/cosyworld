@@ -7,6 +7,8 @@ import {
   exits,
   legalActions,
   play,
+  people,
+  things,
 } from "../v2/card-game/world.mjs";
 import {
   entityActive,
@@ -159,12 +161,20 @@ describe("The Wind’s Price", { timeout: 60000 }, () => {
     expect(frozenVerseProblems(pack, frozen)).toEqual([]);
   });
 
-  it("loads the chosen rescue through the compiled rules-21 boundary", () => {
+  it("loads the chosen rescue through the current compiled rules boundary", () => {
+    const engineFile = readFileSync(
+      new URL(
+        "../v2/orchestrator-rust/src/card_shared/engine.rs",
+        import.meta.url,
+      ),
+      "utf8",
+    ).match(/const SOURCE: &str = include_str!\("(engine-v\d+\.js)"\)/)?.[1];
+    expect(engineFile).toBeDefined();
     const context = vm.createContext({});
     vm.runInContext(
       readFileSync(
         new URL(
-          "../v2/orchestrator-rust/src/card_shared/engine-v21.js",
+          `../v2/orchestrator-rust/src/card_shared/${engineFile}`,
           import.meta.url,
         ),
         "utf8",
@@ -228,14 +238,19 @@ describe("Book III save continuity", () => {
       expect.arrayContaining(["greek-aulis-household", "greek-aulis-altar"]),
     );
     expect(world.crossings["pond-greek-harbor"].discovered).toBe(true);
-    // Rules 20 has 33 Greek residents and 26 Greek objects. Each new source
-    // identity adds one saved record beside every preserved earlier record.
-    expect(Object.keys(world.actors)).toHaveLength(
-      Object.keys(before.actors).length + Object.keys(pack.avatars).length - 33,
-    );
-    expect(Object.keys(world.items)).toHaveLength(
-      Object.keys(before.items).length + Object.keys(pack.items).length - 26,
-    );
+    // The current catalogs add their new identities beside every old record.
+    for (const [records, previous, catalog] of [
+      [world.actors, before.actors, people],
+      [world.items, before.items, things],
+    ]) {
+      expect(Object.keys(records).sort()).toEqual(
+        [
+          ...new Set([...Object.keys(previous), ...Object.keys(catalog)]),
+        ].sort(),
+      );
+      for (const [id, record] of Object.entries(previous))
+        expect(records[id]).toEqual(record);
+    }
     expect(reload(world)).toEqual(world);
     const aboard = bookBoard(reload(world));
     expect(aboard.actors.vale.place).toBe("greek-ship");
