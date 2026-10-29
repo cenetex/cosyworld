@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
-import { createWorld, encodeSave } from "../card-game/world.mjs";
+import { createWorld, encodeSave, addLog } from "../card-game/world.mjs";
+import { profiles } from "../card-game/memory.mjs";
+import { questCards } from "../card-game/quest-cards.mjs";
+import { mkdir, writeFile } from "node:fs/promises";
 import { selectCard } from "./card-browser-helpers.mjs";
 
 const server = createServer();
@@ -174,7 +177,225 @@ async function checkPlayRecovery(width, scenario) {
     await page.close();
   }
 }
+async function checkQueuedReveal(width) {
+  const page = await browser.newPage({
+    viewport: { width, height: width === 390 ? 844 : 900 },
+    reducedMotion: "no-preference",
+  });
+  page.setDefaultTimeout(15000);
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  const world = dispatchShared({
+    op: "create",
+    save: encodeSave(createWorld()),
+  }).world;
+  const actors = ["vale", "mara", "ash", "nell"];
+  for (const actor of actors) world.actors[actor].place = "pond";
+  world.actors.keeper.place = "attic";
+  world.actors.moth.place = "station";
+  const line = (actor, text) => {
+    addLog(world, actor[0].toUpperCase() + actor.slice(1), text, {
+      actorId: actor,
+      entityId: actor,
+      locationId: "pond",
+      kind: "dialogue",
+      generated: true,
+      cast: actors,
+    });
+    world.revision++;
+    return structuredClone(world.log.at(-1));
+  };
+  const old = line("nell", "Our earlier conversation has ended.");
+  const oldScene = {
+    actor: "nell",
+    play: "old",
+    room: "pond",
+    starts_at: Date.now() - 30000,
+    lines: [old],
+  };
+  let value = {
+    world: structuredClone(world),
+    actor: "vale",
+    actions: [],
+    claimed: [1, 1, 1, 1, 0, 0, 0, 0],
+    present: [1, 1, 1, 1, 0, 0, 0, 0],
+    queue: [],
+    history: [oldScene],
+    now: Date.now(),
+  };
+  const seen = Object.keys(profiles);
+  const quests = Object.keys(world.actors).flatMap((id) =>
+    questCards(world, id).map((quest) => quest.key),
+  );
+  await page.addInitScript(
+    ({ seen, quests }) => {
+      const key = "cosyworld.reflected-shore.v1.shared.queued-reveal.vale";
+      localStorage.setItem(key + ".seen", JSON.stringify(seen));
+      localStorage.setItem(
+        key + ".quests",
+        JSON.stringify({ seen: quests, read: quests }),
+      );
+      localStorage.setItem("cosyworld.dialogue.sound", "off");
+      localStorage.setItem(
+        "cosyworld.room-music",
+        JSON.stringify({ enabled: false }),
+      );
+      window.queuedReveals = [];
+      window.addEventListener("DOMContentLoaded", () => {
+        const text = document.getElementById("dialogue-text");
+        new MutationObserver(() => {
+          const total = text.querySelectorAll(".speech-letter").length;
+          const shown = text.querySelectorAll(".speech-letter.revealed").length;
+          if (shown > 0 && shown < total)
+            window.queuedReveals.push({
+              text: text.textContent,
+              speaker: document.getElementById("speaker").textContent.trim(),
+              shown,
+            });
+        }).observe(text, {
+          subtree: true,
+          childList: true,
+          attributes: true,
+          attributeFilter: ["class"],
+        });
+      });
+    },
+    { seen, quests },
+  );
+  await page.route("**/auth/account", (route) =>
+    route.fulfill({ json: { authenticated: true } }),
+  );
+  await page.route("**/card-game/shared/worlds/queued-reveal**", (route) =>
+    route.fulfill({ json: value }),
+  );
+  const publish = async () => {
+    value = { ...value, world: structuredClone(world), now: Date.now() };
+    await page.waitForFunction(
+      (revision) =>
+        document.getElementById("stage").dataset.presentedRevision ===
+        String(revision),
+      world.revision,
+    );
+  };
+  const expectLetters = (speaker, text) =>
+    page.waitForFunction(
+      ({ speaker, text }) =>
+        new Set(
+          window.queuedReveals
+            .filter(
+              (sample) => sample.speaker === speaker && sample.text === text,
+            )
+            .map((sample) => sample.shown),
+        ).size >= 2,
+      { speaker, text },
+    );
+  const expectPortrait = (actor) =>
+    page.waitForFunction((actor) => {
+      const box = document.getElementById("speaker-portrait");
+      const image = box.querySelector("img");
+      return (
+        box.dataset.entity === actor &&
+        image?.complete &&
+        image.naturalWidth > 0
+      );
+    }, actor);
+  try {
+    await page.goto(`${origin}/?world=queued-reveal`);
+    await page.waitForFunction(() => document.body.inert === false);
+    await page.waitForFunction(
+      () =>
+        document.getElementById("dialogue-advance").dataset.revealing ===
+        "false",
+    );
+    world.turn++;
+    world.revision++;
+    value.queue = [{ id: "vale", actor: "vale", status: "working" }];
+    await publish();
+    assert.equal(await page.locator("#dialogue-text").textContent(), "");
+    const valeText = "Vale's accepted reply reaches the room.";
+    const vale = line("vale", valeText);
+    const valeScene = {
+      actor: "vale",
+      play: "vale",
+      room: "pond",
+      starts_at: Date.now() - 1000,
+      lines: [vale],
+    };
+    world.turn++;
+    world.revision++;
+    value.history = [valeScene, oldScene];
+    value.queue = [{ id: "mara", actor: "mara", status: "working" }];
+    await publish();
+    await expectLetters("Vale", valeText);
+    assert.equal(await page.locator("#speaker").innerText(), "Vale");
+    await expectPortrait("vale");
+    const output = new URL("../../output/shared-cards/", import.meta.url);
+    await mkdir(output, { recursive: true });
+    await page.screenshot({
+      path: new URL(`delayed-vale-${width}.png`, output).pathname,
+    });
+    await page.waitForFunction(
+      () =>
+        document.getElementById("dialogue-text").textContent === "" &&
+        document.getElementById("story-status").hidden === false,
+    );
+    assert.equal(await page.locator("#speaker").innerText(), "Mara");
+    await expectPortrait("mara");
+    await page.screenshot({
+      path: new URL(`delayed-waiting-${width}.png`, output).pathname,
+    });
+    const maraText = "Mara's accepted reply follows Vale's.";
+    const mara = line("mara", maraText);
+    value.history = [
+      {
+        actor: "mara",
+        play: "mara",
+        room: "pond",
+        starts_at: Date.now(),
+        lines: [mara],
+      },
+      valeScene,
+      oldScene,
+    ];
+    value.queue = [];
+    await publish();
+    await expectLetters("Mara", maraText);
+    assert.equal(await page.locator("#speaker").innerText(), "Mara");
+    await expectPortrait("mara");
+    const order = await page.evaluate(() => [
+      ...new Set(
+        window.queuedReveals
+          .filter((sample) => ["Vale", "Mara"].includes(sample.speaker))
+          .map((sample) => sample.speaker),
+      ),
+    ]);
+    assert.deepEqual(order, ["Vale", "Mara"]);
+    assert.deepEqual(errors, []);
+    await writeFile(
+      new URL(`delayed-dialogue-${width}.json`, output),
+      JSON.stringify(
+        {
+          width,
+          order,
+          actualSpeaker: "Vale",
+          nextWaitingSpeaker: "Mara",
+          errors,
+          partialLetters: await page.evaluate(() => window.queuedReveals),
+        },
+        null,
+        2,
+      ),
+    );
+    console.log(
+      `Shared queued replies reveal in order while the next turn prepares at ${width}px.`,
+    );
+  } finally {
+    await page.close();
+  }
+}
+
 try {
+  for (const width of [1440, 390]) await checkQueuedReveal(width);
   for (const width of [1440, 390]) {
     let world = dispatchShared({
       op: "create",

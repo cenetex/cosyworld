@@ -2169,11 +2169,25 @@ function renderScene() {
           )?.actor,
         })
       : pendingSpeaker;
+  const speaker =
+    scene.line?.entityId || scene.line?.actorId || scene.locationId;
+  const lineKey = JSON.stringify([
+    scene.line?.seq,
+    speaker,
+    scene.line?.text,
+    replay,
+  ]);
+  // A queued reply keeps its first reading while the next turn prepares.
+  const unreadSharedLine =
+    sharedSession &&
+    sharedLineKey === `${scene.locationId}:${scene.line?.seq}` &&
+    !completedSpeech.has(lineKey);
   const spoken =
     isSceneText(scene.line, Boolean(sharedSession)) &&
     (reviewing ||
       scene.line.turn === world.turn ||
-      (sharedSession && storyStatus !== "pending"));
+      (sharedSession && storyStatus !== "pending") ||
+      unreadSharedLine);
   $("speaker").textContent = spoken
     ? scene.line.speaker
     : waitingSpeaker
@@ -2218,8 +2232,6 @@ function renderScene() {
     }
   }
   const text = spoken ? scene.line.text : "";
-  const speaker =
-    scene.line?.entityId || scene.line?.actorId || scene.locationId;
   const spokenLines = scene.lines.filter((entry) =>
     isSceneText(entry, Boolean(sharedSession)),
   );
@@ -2241,9 +2253,8 @@ function renderScene() {
   $("dialogue-advance").hidden = !text;
   $("speech-hint").hidden = true;
   if (text) {
-    const key = JSON.stringify([scene.line.seq, speaker, text, replay]);
-    reveal.show(key, text, speaker, {
-      instant: completedSpeech.has(key),
+    reveal.show(lineKey, text, speaker, {
+      instant: completedSpeech.has(lineKey),
     });
   } else {
     reveal.cancel();
