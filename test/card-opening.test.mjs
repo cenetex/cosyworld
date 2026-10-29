@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { runCancellableAttempt } from "./helpers/cancellable-attempt.mjs";
 import {
   createWorld,
   legalActions,
@@ -294,53 +295,65 @@ describe("the first light in the attic", () => {
     }
   });
 
-  it("keeps trading and levelling through cooperative play after the opening", () => {
-    for (const seedStart of [7, 42, 1729]) {
-      let s = meetEveryone(),
-        seed = seedStart,
-        trades = 0;
-      for (let i = 0; i < 240; i++) {
-        seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
-        const acts = legalActions(s).filter((a) =>
-            [
-              "wait",
-              "move",
-              "take",
-              "give",
-              "trade",
-              "accompany",
-              "talk",
-              "light",
-              "refill",
-            ].includes(a.kind),
-          ),
-          a = i % 3 ? plan(s).action : acts[seed % acts.length];
-        const result = play(s, a);
-        if (i % 20 === 0)
-          expect(play(decodeSave(encodeSave(s)), a)).toEqual(result);
-        expect(result.ok).toBe(true);
-        s = result.state;
-        trades += s.log.filter(
-          (e) => e.turn === s.turn && e.verb === "trade",
-        ).length;
-      }
-      expect(levelOf(s, "moth")).toBeGreaterThan(3);
-      expect(levelOf(s, "keeper")).toBeGreaterThan(3);
-      expect(trades).toBeGreaterThan(3);
-      expect(decodeSave(encodeSave(s))).toEqual(s);
-    }
-  }, 60_000);
-  it("preserves the world through mixed combat, item use, and travel after discovery", () => {
-    let s = meetEveryone(),
-      seed = 7;
-    for (let i = 0; i < 1000; i++) {
-      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
-      const actions = legalActions(s),
-        action = actions[seed % actions.length];
-      const result = play(s, action);
-      expect(result.ok).toBe(true);
-      s = result.state;
-      if (i % 50 === 0) expect(decodeSave(encodeSave(s))).toEqual(s);
-    }
-  }, 60_000);
+  it(
+    "keeps trading and levelling through cooperative play after the opening",
+    (context) =>
+      runCancellableAttempt(context, async (checkpoint) => {
+        for (const seedStart of [7, 42, 1729]) {
+          let s = meetEveryone(),
+            seed = seedStart,
+            trades = 0;
+          for (let i = 0; i < 240; i++) {
+            if (i % 20 === 0) await checkpoint();
+            seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+            const acts = legalActions(s).filter((a) =>
+                [
+                  "wait",
+                  "move",
+                  "take",
+                  "give",
+                  "trade",
+                  "accompany",
+                  "talk",
+                  "light",
+                  "refill",
+                ].includes(a.kind),
+              ),
+              a = i % 3 ? plan(s).action : acts[seed % acts.length];
+            const result = play(s, a);
+            if (i % 20 === 0)
+              expect(play(decodeSave(encodeSave(s)), a)).toEqual(result);
+            expect(result.ok).toBe(true);
+            s = result.state;
+            trades += s.log.filter(
+              (e) => e.turn === s.turn && e.verb === "trade",
+            ).length;
+          }
+          expect(levelOf(s, "moth")).toBeGreaterThan(3);
+          expect(levelOf(s, "keeper")).toBeGreaterThan(3);
+          expect(trades).toBeGreaterThan(3);
+          expect(decodeSave(encodeSave(s))).toEqual(s);
+        }
+      }),
+    60_000,
+  );
+  it(
+    "preserves the world through mixed combat, item use, and travel after discovery",
+    (context) =>
+      runCancellableAttempt(context, async (checkpoint) => {
+        let s = meetEveryone(),
+          seed = 7;
+        for (let i = 0; i < 1000; i++) {
+          if (i % 20 === 0) await checkpoint();
+          seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+          const actions = legalActions(s),
+            action = actions[seed % actions.length];
+          const result = play(s, action);
+          expect(result.ok).toBe(true);
+          s = result.state;
+          if (i % 50 === 0) expect(decodeSave(encodeSave(s))).toEqual(s);
+        }
+      }),
+    60_000,
+  );
 });
