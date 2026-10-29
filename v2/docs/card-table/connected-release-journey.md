@@ -40,7 +40,9 @@ per player. This leaves room for the app's usual polling, presence heartbeats,
 and card plays. Every shared HTTP request records its player, time, kind,
 app or harness source, and response status in `requests.jsonl`. Shared HTTP
 errors fail the check. Plays keep their single button activation and acceptance
-check.
+check. Every full snapshot checks that both players remain present. The report
+includes each player's highest request count in a rolling minute, with app and
+harness counts for that window.
 
 Every play uses the current cards. Real resource actions prepare the lamp and
 cloth. Both people board the same ship and reach the Greek harbor. Mara carries

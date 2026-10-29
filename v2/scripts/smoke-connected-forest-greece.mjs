@@ -12,6 +12,7 @@ import { chromium } from "playwright";
 import { decodeSave, encodeSave } from "../card-game/world.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
 import { cardActions } from "../card-game/cards.mjs";
+import sharedCast from "../card-game/shared-cast.json" with { type: "json" };
 import { selectCard } from "./card-browser-helpers.mjs";
 import {
   connectedJourney,
@@ -61,6 +62,7 @@ const report = {
   pageErrors: [],
   failedAssets: [],
   sharedRequestErrors: [],
+  presenceChecks: 0,
 };
 const commands = [];
 const requests = [];
@@ -205,6 +207,11 @@ async function readSnapshot(actor) {
   lastSnapshotAt.set(actor, performance.now());
   const value = await checked(players.get(actor).page);
   assert.equal(value.actor, actor);
+  for (const player of PLAYERS) {
+    const slot = sharedCast.avatars.findIndex((avatar) => avatar.id === player);
+    assert.ok(slot >= 0 && value.present?.[slot], `${player} stays present`);
+  }
+  report.presenceChecks++;
   return { ...value, world: contextWorld(value) };
 }
 async function settle(actor) {
@@ -733,6 +740,28 @@ try {
     join(output, "requests.jsonl"),
     requests.map((request) => JSON.stringify(request)).join("\n") + "\n",
   );
+  report.requestCounts = PLAYERS.map((actor) => {
+    const rows = requests.filter((request) => request.actor === actor);
+    let first = 0,
+      peak = [];
+    for (let last = 0; last < rows.length; last++) {
+      while (rows[first].startedMs <= rows[last].startedMs - 60000) first++;
+      if (last - first + 1 > peak.length) peak = rows.slice(first, last + 1);
+    }
+    return {
+      actor,
+      total: rows.length,
+      app: rows.filter((request) => request.source === "app").length,
+      harness: rows.filter((request) => request.source === "harness").length,
+      peakRollingMinute: {
+        total: peak.length,
+        firstAt: peak[0]?.at,
+        lastAt: peak.at(-1)?.at,
+        app: peak.filter((request) => request.source === "app").length,
+        harness: peak.filter((request) => request.source === "harness").length,
+      },
+    };
+  });
   await writeFile(join(output, "server.log"), processLog);
   await writeFile(
     join(output, "report.json"),
