@@ -40,7 +40,7 @@ COPY v2/orchestrator-rust /app/v2/orchestrator-rust
 # Small builders use one worker; CI can set this to match its memory budget.
 RUN --mount=type=cache,id=cosyworld-release-target-v1,target=/app/v2/orchestrator-rust/target,from=dependencies,source=/app/v2/orchestrator-rust/target,sharing=locked \
   touch build.rs \
-  && find src ../ai-model-rust/src ../core-c ../content ../card-game ../media -type f -exec touch {} + \
+  && find src vendor ../ai-model-rust/src ../core-c ../content ../card-game ../media -type f -exec touch {} + \
   && touch ../content-engine-version.txt \
   && CARGO_INCREMENTAL=1 CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS} cargo build --release --locked \
   && mkdir -p /app/bin \

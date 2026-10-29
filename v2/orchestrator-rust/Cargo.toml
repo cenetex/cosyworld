@@ -45,3 +45,11 @@ tower = { version = "0.5", features = ["util"] }
 [patch.crates-io]
 # QuickJS 0.16.2: release the current array-search value once on interruption.
 rquickjs-sys = { path = "vendor/rquickjs-sys" }
+
+# Shared requests use a wall-clock deadline in every build. Compile their C
+# interpreter with optimization while keeping its assertions and Rust checks.
+[profile.dev.package.rquickjs-sys]
+opt-level = 2
+
+[profile.test.package.rquickjs-sys]
+opt-level = 2

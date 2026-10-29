@@ -22,3 +22,8 @@ execution deadline and saved rules. The native regression checks successful
 searches and safe error recovery after interrupted searches. A future upstream
 release containing this correction can replace this local source copy after
 the same checks pass.
+
+Development and test builds compile this C interpreter at optimization level
+2. Rust application code keeps its normal development and test settings. The
+interpreter's assertions stay enabled, and each shared operation keeps its
+two-second deadline. Production retains its existing release profile.
