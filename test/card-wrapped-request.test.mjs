@@ -87,6 +87,22 @@ describe("a covered cloth request", () => {
       ),
     ).toBe(true);
   });
+  it("keeps a human owner's cloth until they choose to give it", () => {
+    const before = seed();
+    before.items.bell.holder = "vale";
+    const after = choose(
+      before,
+      ["cloth", "vale"],
+      (a) => a.kind === "ask" && a.item === "cloth",
+    );
+    expect(after.items.cloth.holder).toBe("bell");
+    expect(after.items.bell.holder).toBe("vale");
+    expect(
+      after.log.some(
+        (e) => e.verb === "ask" && e.itemId === "cloth" && e.accepted === false,
+      ),
+    ).toBe(true);
+  });
   it("requires room for the cloth", () => {
     const before = seed({ full: true });
     expect(
