@@ -71,6 +71,8 @@ jobs:
       CI: true
       RUST_TEST_THREADS: "2"
       RUST_MIN_STACK: "16777216"
+      RUST_TEST_NOCAPTURE: "1"
+      RUST_BACKTRACE: "1"
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -99,6 +101,15 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-compact-v1-${{ hashFiles('v2/orchestrator-rust/Cargo.lock') }}-
             ${{ runner.os }}-cargo-compact-v1-
+
+      # Keep the first native failure visible even if a later C assertion
+      # stops the test process before Rust can print its captured output.
+      - name: Check a cold shared world on one worker
+        timeout-minutes: 20
+        run: >-
+          cargo test --manifest-path v2/orchestrator-rust/Cargo.toml
+          card_shared::boardy_tests::boardy_calling_card_opens_the_parlour_from_black_pond
+          -- --exact --nocapture --test-threads=1
 
       - name: Test Rust orchestrator
         run: bash v2/scripts/check-rust.sh test
