@@ -191,8 +191,9 @@ try {
       );
       const cards = kind === "wait" ? ["vale"] : [...(action.cards || [])];
       if (
-        ["light", "snuff", "ring"].includes(kind) &&
-        before.items[action.item].holder !== "vale"
+        kind === "drop" ||
+        (["light", "snuff", "ring"].includes(kind) &&
+          before.items[action.item].holder !== "vale")
       )
         cards.push(before.actors.vale.place);
       assert.ok(
