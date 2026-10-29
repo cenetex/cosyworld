@@ -81426,15 +81426,16 @@
             )
           );
         }
-      } else if (actorIds.includes(item2.holder) && item2.holder !== actor && hasSpace(s, actor, id3)) {
+      } else if (actorIds.includes(rootHolder(s, id3)) && rootHolder(s, id3) !== actor && (item2.holder === rootHolder(s, id3) || id3 === "cloth") && hasSpace(s, actor, id3)) {
+        const owner2 = rootHolder(s, id3);
         out.push(
           offer(
             "ask",
             actor,
             id3,
-            item2.holder,
-            `${nameOf2(actor)} asks ${nameOf2(item2.holder)} for the ${nameOf2(id3)}.`,
-            [id3, item2.holder]
+            owner2,
+            `${nameOf2(actor)} asks ${nameOf2(owner2)} for the ${nameOf2(id3)}.`,
+            [id3, owner2]
           )
         );
       }
