@@ -287,6 +287,17 @@ describe("bounded authored player quests", () => {
     expect(f.world.state.records.vale.button.delivery.giver).toBe("vale");
   });
 
+  it("accepts exact legacy metadata without changing personal state", () => {
+    const f = fixture(); f.world.items["forest-story-button"] = { holder: at, history: [] };
+    const authored = { ...definition, legacy: { item: "forest-story-button",
+      choice: "forest-mend-scarf", story: "story-quest-forest-hearth" } };
+    expect(validateAuthoredPlayerQuestDefinition(authored, f.io())).toBe(authored);
+    expect(startAuthoredPlayerQuest(authored, f.world.state, "vale", f.io()).state)
+      .toEqual(startAuthoredPlayerQuest(definition, f.world.state, "vale", f.io()).state);
+    expect(() => validateAuthoredPlayerQuestDefinition({ ...authored,
+      legacy: { ...authored.legacy, unknown: true } }, f.io())).toThrow();
+  });
+
   it("allows only the exact authored sewn pair and rejects custody cycles", () => {
     const f = fixture(); f.start(); f.deliver(); f.finish();
     expect(authoredPlayerQuestNesting(definition, f.world.state, row("vale").button, row("mara").reward)).toBe(false);

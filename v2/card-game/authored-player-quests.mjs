@@ -31,7 +31,8 @@ function timing(io) {
 
 export function validateAuthoredPlayerQuestDefinition(definition, io) {
   require(exact(definition, ["id", "host", "at", "locations", "playerItems",
-    ...(Object.hasOwn(definition, "sharedCompletion") ? ["sharedCompletion"] : [])]) &&
+    ...(Object.hasOwn(definition, "sharedCompletion") ? ["sharedCompletion"] : []),
+    ...(Object.hasOwn(definition, "legacy") ? ["legacy"] : [])]) &&
     id(definition.id) && id(definition.host) && id(definition.at), "Use an exact authored quest definition.");
   require(call(io, "isActor", definition.host) && !call(io, "isPlayer", definition.host) &&
     call(io, "isLocation", definition.at), "Use a resident host and an authored host room.");
@@ -49,6 +50,10 @@ export function validateAuthoredPlayerQuestDefinition(definition, io) {
   if (Object.hasOwn(definition, "sharedCompletion"))
     require(id(definition.sharedCompletion) && call(io, "isSharedChoice", definition.sharedCompletion),
       "Use an authored shared completion choice.");
+  if (Object.hasOwn(definition, "legacy"))
+    require(exact(definition.legacy, ["item", "choice", "story"]) &&
+      [definition.legacy.item, definition.legacy.choice, definition.legacy.story].every(id) &&
+      call(io, "isItem", definition.legacy.item), "Use exact authored legacy references.");
   const players = definition.playerItems.map((row) => row.player);
   const items = definition.playerItems.flatMap((row) => [row.button, row.reward]);
   require(new Set(players).size === players.length && new Set(items).size === items.length,
