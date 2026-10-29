@@ -29,11 +29,13 @@ function shared() {
 }
 
 describe("the existing card table seen by a shared avatar", () => {
-  it("keeps Vale's solo viewpoint and original art", () => {
+  it("keeps Vale's solo viewpoint and black shared portrait", () => {
     const world = createWorld();
     expect(currentActor(world)).toBe("vale");
     expect(currentScene(world).background).toBe("./assets/station.png");
-    expect(portrait("vale", null, world)).toBe("./assets/vale.png");
+    expect(portrait("vale", null, world)).toBe(
+      "./assets/shared/characters/vale.png",
+    );
   });
   it("uses the claimed person's room without changing Vale's location", () => {
     const world = shared();

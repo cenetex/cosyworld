@@ -37,7 +37,7 @@ export function backdrop(id, world = null) {
 }
 export function portrait(id, facing = null, world = null) {
   const human = humanAvatar(id);
-  if (human && id !== "vale") return `./${human.image}`;
+  if (human) return `./${human.image}`;
   const resident = packPeople[id];
   if (resident)
     return `./${
