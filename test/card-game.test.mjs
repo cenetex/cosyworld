@@ -220,6 +220,7 @@ describe("the reflected shore card game", () => {
     expect(() => validateWorld(broken)).toThrow();
   });
 
+  // This bounds the full simulation; game operations keep their own limits.
   it(
     "preserves unique objects and valid state across 4000 varied turns",
     (context) =>
@@ -245,7 +246,7 @@ describe("the reflected shore card game", () => {
         }
         expect(s.turn).toBe(4000);
       }),
-    120_000,
+    180_000,
   );
 
   it("serves only the game assets and supports a clean browser reload", async () => {

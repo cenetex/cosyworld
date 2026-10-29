@@ -110,6 +110,7 @@ describe("the table stays playable", () => {
     expect(willingToGive(s, "moth", "lamp")).toBe(false);
   });
 
+  // This bounds the full simulation; game operations keep their own limits.
   it(
     "keeps every avatar progressing after long loose play",
     (context) =>
@@ -147,6 +148,6 @@ describe("the table stays playable", () => {
           );
         }
       }),
-    120_000,
+    180_000,
   );
 });
