@@ -38,7 +38,8 @@ work. Cooperation uses the shared world's normal custody and action rules.
 ## Story cards
 
 Each traveler gets a personal scarf card after meeting RATi. The card follows
-that traveler's button and shows when their scarf is ready. The first personal
+that traveler's button and shows when their scarf is ready. The finished card
+and the scarf item share that traveler's scarf illustration. The first personal
 scarf adds a shared hearth story for Oak. Earlier saved blue-scarf stories keep
 their original records.
 
