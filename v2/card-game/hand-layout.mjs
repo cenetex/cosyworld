@@ -82,5 +82,27 @@ export function handLayout(world, cards, view, notice = null) {
       });
     });
   }
-  return { cards: ordered, layout };
+  const children = new Map();
+  const membership = new Set(ordered);
+  for (const id of ordered) {
+    const holder = layout.get(id).holder;
+    if (!membership.has(holder)) continue;
+    if (!children.has(holder)) children.set(holder, []);
+    children.get(holder).push(id);
+  }
+  const rank = { item: 0, quest: 1, location: 2 };
+  const grouped = [],
+    seen = new Set();
+  const append = (id) => {
+    if (seen.has(id)) return;
+    seen.add(id);
+    grouped.push(id);
+    const deck = children.get(id) || [];
+    deck.sort((a, b) => rank[layout.get(a).kind] - rank[layout.get(b).kind]);
+    for (const child of deck) append(child);
+  };
+  for (const id of ordered)
+    if (!membership.has(layout.get(id).holder)) append(id);
+  for (const id of ordered) append(id);
+  return { cards: grouped, layout };
 }

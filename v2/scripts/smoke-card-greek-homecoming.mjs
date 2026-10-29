@@ -155,6 +155,7 @@ try {
         await reportPage.reload();
         await reportPage.waitForSelector('#hand[data-cooling="false"] .card');
         for (const [index, report] of reports.entries()) {
+          await reportPage.keyboard.press("Escape");
           const id = ids[index];
           const card = reportPage.locator(`#hand [data-card="${id}"]`);
           assert.equal(await card.count(), 1, "a return card renders once");

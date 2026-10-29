@@ -56,6 +56,7 @@ import {
   currentScene,
   isSceneText,
   sceneCast,
+  pendingReplySpeaker,
   movementCaption,
   sceneStaging,
   selectedHandItem,
@@ -741,7 +742,9 @@ const narrator = createNarrator({
     : null,
   started: (context) => {
     if (localRuntime()) characterSpeech.clear();
-    pendingSpeaker = context.speakers[0] || null;
+    pendingSpeaker = pendingReplySpeaker(world, {
+      fallback: context.speakers[0],
+    });
     renderScene();
   },
   apply: (next, { pending = false, reflection = false } = {}) => {
@@ -2149,21 +2152,31 @@ function renderScene() {
       });
     }
   });
-  const spoken =
-    isSceneText(scene.line, Boolean(sharedSession)) &&
-    (sharedSession || reviewing || scene.line.turn === world.turn);
-  $("speaker").textContent = spoken
-    ? scene.line.speaker
-    : pendingSpeaker
-      ? nameOf(pendingSpeaker)
-      : "";
-  const movement = reviewing || !cardsCooling ? "" : movementCaption(world);
-  $("movement-caption").textContent = movement;
-  $("movement-caption").hidden = !movement;
   const sharedSpeech = sharedSession
     ? sharedSpeechState(sharedSession.state, scene.locationId)
     : null;
   if (sharedSpeech) storyStatus = sharedSpeech.status;
+  const waitingSpeaker =
+    sharedSpeech?.status === "pending"
+      ? pendingReplySpeaker(world, {
+          actor: sharedSession.state.queue.find(
+            (entry) => entry.status === "working",
+          )?.actor,
+        })
+      : pendingSpeaker;
+  const spoken =
+    isSceneText(scene.line, Boolean(sharedSession)) &&
+    (reviewing ||
+      scene.line.turn === world.turn ||
+      (sharedSession && storyStatus !== "pending"));
+  $("speaker").textContent = spoken
+    ? scene.line.speaker
+    : waitingSpeaker
+      ? nameOf(waitingSpeaker)
+      : "";
+  const movement = reviewing || !cardsCooling ? "" : movementCaption(world);
+  $("movement-caption").textContent = movement;
+  $("movement-caption").hidden = !movement;
   const wordsFailed = storyStatus === "retry";
   const canRetryWords = !sharedSession || Boolean(sharedSpeech.retryKey);
   $("story-status").hidden =
@@ -2177,7 +2190,7 @@ function renderScene() {
   retryWords.setAttribute("aria-label", retryWords.title);
   const portraitId = spoken
     ? scene.line.entityId || scene.line.actorId || scene.locationId
-    : pendingSpeaker;
+    : waitingSpeaker;
   const portraitBox = $("speaker-portrait");
   if (portraitBox.dataset.entity !== (portraitId || "")) {
     portraitBox.dataset.entity = portraitId || "";
@@ -2370,6 +2383,7 @@ function render() {
   const focused = document.activeElement?.dataset.card,
     scroll = $("hand").scrollLeft;
   $("hand").dataset.presentedRevision = String(world.revision);
+  $("hand").dataset.presentedTurn = String(world.turn);
   $("place-title").textContent = nameOf(
     world.actors[currentActor(world)].place,
   );

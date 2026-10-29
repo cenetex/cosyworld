@@ -7,7 +7,7 @@ export const topicForChoice = (choiceId) =>
     .find((topic) => topic.choiceId === choiceId);
 
 // Use the same holder reveal and selection gestures as a player.
-const revisions = new WeakMap();
+const turns = new WeakMap();
 export async function revealCard(page, id) {
   const card = page.locator(`#hand [data-card="${id}"]`);
   const frame = card.locator("..");
@@ -44,12 +44,13 @@ export async function revealCard(page, id) {
   return card;
 }
 export async function selectCard(page, id, { touch = false } = {}) {
-  const revision = await page
-    .locator("#hand")
-    .getAttribute("data-presented-revision");
-  if (revisions.has(page) && revisions.get(page) !== revision)
+  await page.waitForFunction(
+    () => document.querySelector("#hand")?.dataset.presentedTurn !== undefined,
+  );
+  const turn = await page.locator("#hand").getAttribute("data-presented-turn");
+  if (turns.has(page) && turns.get(page) !== turn)
     await page.keyboard.press("Escape");
-  revisions.set(page, revision);
+  turns.set(page, turn);
   const card = await revealCard(page, id);
   if (touch) await card.tap();
   else await card.click();
