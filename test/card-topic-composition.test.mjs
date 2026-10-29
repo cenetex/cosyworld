@@ -4,7 +4,13 @@ import {
   packCompositionProblems,
   topicCompositionProblems,
 } from "../v2/card-game/pack-schema.mjs";
-import { KNOWLEDGE_FACT_LIMIT } from "../v2/card-game/knowledge.mjs";
+import {
+  KNOWLEDGE_FACT_LIMIT,
+  newKnowledge,
+  reserveKnowledge,
+  validKnowledge,
+  witnessKnowledge,
+} from "../v2/card-game/knowledge.mjs";
 import { packDefinitions } from "../v2/card-game/pack-registry.mjs";
 
 const pack = (id, count) => ({
@@ -47,18 +53,81 @@ describe("mounted topic identities and budget", () => {
     ]);
   });
 
-  it("keeps an event budget when several packs fill their own topic lists", () => {
-    expect(AUTHORED_TOPIC_LIMIT).toBeLessThanOrEqual(KNOWLEDGE_FACT_LIMIT / 2);
+  it("enforces the current topic boundary across mounted packs", () => {
+    expect(AUTHORED_TOPIC_LIMIT).toBe(512);
+    expect(AUTHORED_TOPIC_LIMIT).toBeLessThanOrEqual(KNOWLEDGE_FACT_LIMIT);
     expect(
-      topicCompositionProblems([pack("orchard", 64), pack("harbor", 64)]),
+      topicCompositionProblems([pack("orchard", 255), pack("harbor", 256)]),
     ).toEqual([]);
     expect(
-      topicCompositionProblems([pack("orchard", 65), pack("harbor", 64)]),
-    ).toEqual(["mounted packs have 129 topics; the shared limit is 128"]);
+      topicCompositionProblems([pack("orchard", 256), pack("harbor", 256)]),
+    ).toEqual([]);
     expect(
-      topicCompositionProblems([pack("orchard", 128), pack("harbor", 128)])
-        .length,
-    ).toBeGreaterThan(0);
+      topicCompositionProblems([pack("orchard", 257), pack("harbor", 256)]),
+    ).toEqual(["mounted packs have 513 topics; the shared limit is 512"]);
+  });
+
+  it("retains authored facts and rotates news within the saved fact budget", () => {
+    const topics = [pack("orchard", 256), pack("harbor", 255)].flatMap((p) =>
+      p.topics.map((topic) => ({
+        ...topic,
+        packId: p.id,
+        speaker: "moth",
+        at: "station",
+        text: "The keeper recorded the earlier orchard account.",
+      })),
+    );
+    expect(topicCompositionProblems([{ id: "mounted", topics }])).toEqual([]);
+    const world = {
+      turn: 1,
+      eventSeq: 1,
+      actors: { moth: { place: "station" }, vale: { place: "station" } },
+      knowledge: newKnowledge(),
+    };
+    reserveKnowledge(world, "moth", "vale", { seq: 1, turn: 1 }, topics);
+    expect(Object.keys(world.knowledge.facts)).toHaveLength(511);
+    const news = () =>
+      witnessKnowledge(world, {
+        seq: ++world.eventSeq,
+        turn: world.turn,
+        kind: "action",
+        verb: "give",
+        actorId: "moth",
+        locationId: "station",
+        cast: ["moth"],
+        text: "Pip carried a shell to the pond.",
+      });
+    const earlier = news();
+    expect(earlier).toBeTruthy();
+    expect(Object.keys(world.knowledge.facts)).toHaveLength(
+      KNOWLEDGE_FACT_LIMIT,
+    );
+    const later = news();
+    expect(later).toBeTruthy();
+    expect(Object.keys(world.knowledge.facts)).toHaveLength(
+      KNOWLEDGE_FACT_LIMIT,
+    );
+    expect(world.knowledge.facts[earlier.id]).toBeUndefined();
+    expect(world.knowledge.known.moth[earlier.id]).toBeUndefined();
+    expect(world.knowledge.facts[later.id]).toEqual(later);
+    for (const topic of topics)
+      expect(world.knowledge.facts[topic.id]?.source.kind, topic.id).toBe(
+        "topic",
+      );
+    expect(
+      validKnowledge(world, ["moth", "vale"], ["station"], topics),
+    ).toBe(true);
+
+    const oversized = structuredClone(world),
+      eventSeq = ++oversized.eventSeq;
+    oversized.knowledge.facts[`event:${eventSeq}`] = {
+      ...later,
+      id: `event:${eventSeq}`,
+      source: { ...later.source, eventSeq },
+    };
+    expect(
+      validKnowledge(oversized, ["moth", "vale"], ["station"], topics),
+    ).toBe(false);
   });
 
   it("accepts packs whose content has no authored topics", () => {

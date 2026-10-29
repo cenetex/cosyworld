@@ -137,12 +137,32 @@ describe("local town visits and road history", () => {
     );
   });
 
-  it("offers seven roads between towns and direct visits inside each town", () => {
+  it("offers eight exact roads and direct visits inside each town", () => {
     const w = createWorld({ packScopes: { "greek-drama": "full" } });
     const roads = Object.entries(packDefinition("greek-drama").places).filter(
       ([id, p]) => p.road && entityActive(w, id),
     );
-    expect(roads).toHaveLength(7);
+    expect(Object.fromEntries(roads.map(([id, p]) => [id, p.road]))).toEqual({
+      "greek-road-athens-piraeus": ["greek-piraeus", "greek-athens"],
+      "greek-road-athens-colonus": ["greek-athens", "greek-colonus"],
+      "greek-road-athens-eleusis": ["greek-athens", "greek-eleusis"],
+      "greek-road-athens-marathon": ["greek-athens", "greek-marathon"],
+      "greek-road-piraeus-eleusis": ["greek-piraeus", "greek-eleusis"],
+      "greek-road-colonus-eleusis": ["greek-colonus", "greek-eleusis"],
+      "greek-road-colonus-marathon": ["greek-colonus", "greek-marathon"],
+      "greek-susa-road": ["greek-troy", "greek-susa"],
+    });
+    for (const [id, road] of roads) {
+      expect(exits(w, id, "vale").sort(), id).toEqual([...road.road].sort());
+      for (const endpoint of road.road)
+        expect(exits(w, endpoint, "vale"), endpoint).toContain(id);
+    }
+    expect(exits(w, "greek-vii-crag-camp", "vale")).toEqual([
+      "greek-susa",
+      "greek-scythian-crag",
+    ]);
+    for (const endpoint of ["greek-susa", "greek-scythian-crag"])
+      expect(exits(w, endpoint, "vale")).toContain("greek-vii-crag-camp");
     expect(exits(w, "greek-athens-harbor", "vale")).toContain("greek-athens");
     expect(exits(w, "greek-harbor", "vale")).toContain("greek-courtyard");
   });
