@@ -277,6 +277,9 @@ export async function connectedJourney(driver, seed) {
     await move(actor, "greek-courtyard");
     await move(actor, "greek-well");
   }
+  state = await read("mara");
+  if (state.world.items.oil.holder === "mara")
+    await act("mara", { kind: "give", item: "oil", target: "vale" });
   await act("mara", { kind: "take", item: "greek-water-jar" });
   state = await read();
   assert.equal(state.world.items["greek-water-jar"].holder, "mara");
