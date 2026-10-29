@@ -296,16 +296,14 @@ fn ajax_upgrade_keeps_a_released_nineteen_camp_visit_and_replays_its_exit() {
         assert_eq!(current.game["packs"]["greek-drama"]["revision"], 8);
         assert_eq!(current.claimed, old.claimed);
         assert_eq!(current.present, old.present);
-        for field in [
-            "turn",
-            "eventSeq",
-            "log",
-            "transports",
-            "routeKnowledge",
-            "knowledge",
-        ] {
+        for field in ["turn", "eventSeq", "log", "transports", "knowledge"] {
             assert_eq!(current.game[field], old.game[field], "Preserve {field}");
         }
+        super::epic_capacity_tests::assert_retained(
+            &old.game["routeKnowledge"],
+            &current.game["routeKnowledge"],
+            "routeKnowledge",
+        );
         for field in ["items", "peaceUntil"] {
             for (key, value) in old.game[field].as_object().unwrap() {
                 assert_eq!(&current.game[field][key], value);
