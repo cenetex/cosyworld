@@ -663,6 +663,14 @@ async fn command_response_json_contract(request: Request, next: Next) -> Respons
 }
 
 pub(super) async fn action_response_http_status(response: Response) -> Response {
+    // Embedded catalog files use the public asset byte and cache contract.
+    if response
+        .extensions()
+        .get::<card_game::EmbeddedAsset>()
+        .is_some()
+    {
+        return response;
+    }
     let (mut parts, body) = response.into_parts();
     let is_json = parts
         .headers
@@ -1028,5 +1036,101 @@ mod tests {
             payload.error_kind,
             Some(CommandErrorKind::ResponseEncodingFailed)
         );
+    }
+
+    #[tokio::test]
+    async fn embedded_json_catalog_keeps_its_bytes_and_cache_contract() {
+        let app = card_game::router::<()>(true)
+            .layer(middleware::map_response(action_response_http_status));
+        let expected = cosyworld_orchestrator::card_assets::get("packs.json")
+            .unwrap()
+            .1;
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/card-game/packs.json")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.headers()[header::CONTENT_TYPE], "application/json");
+        assert_eq!(
+            response.headers()[header::CACHE_CONTROL],
+            "public, no-cache"
+        );
+        let etag = response.headers()[header::ETAG].clone();
+        let body = to_bytes(response.into_body(), expected.len())
+            .await
+            .unwrap();
+        assert_eq!(&body[..], expected);
+
+        let cached = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/card-game/packs.json")
+                    .header(header::IF_NONE_MATCH, etag.clone())
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(cached.status(), StatusCode::NOT_MODIFIED);
+        assert_eq!(cached.headers()[header::ETAG], etag);
+        assert!(to_bytes(cached.into_body(), 0).await.unwrap().is_empty());
+
+        let head = app
+            .oneshot(
+                Request::builder()
+                    .method("HEAD")
+                    .uri("/card-game/packs.json")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(head.status(), StatusCode::OK);
+        assert_eq!(
+            head.headers()[header::CONTENT_LENGTH],
+            expected.len().to_string()
+        );
+        assert!(to_bytes(head.into_body(), 0).await.unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn dynamic_json_actions_keep_the_exact_two_mib_limit() {
+        let limit = 2 * 1024 * 1024;
+        let fixed = serde_json::to_vec(&json!({"status":200,"padding":""}))
+            .unwrap()
+            .len();
+        for extra in [0, 1] {
+            let bytes = serde_json::to_vec(&json!({
+                "status":200,"padding":"x".repeat(limit-fixed+extra)
+            }))
+            .unwrap();
+            assert_eq!(bytes.len(), limit + extra);
+            let response = Response::builder()
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(bytes.clone()))
+                .unwrap();
+            let response = action_response_http_status(response).await;
+            if extra == 0 {
+                assert_eq!(response.status(), StatusCode::OK);
+                assert_eq!(
+                    &to_bytes(response.into_body(), limit).await.unwrap()[..],
+                    bytes.as_slice()
+                );
+            } else {
+                let payload =
+                    assert_command_error(response, StatusCode::INTERNAL_SERVER_ERROR).await;
+                assert_eq!(
+                    payload.error_kind,
+                    Some(CommandErrorKind::ResponseEncodingFailed)
+                );
+            }
+        }
     }
 }
