@@ -63,7 +63,8 @@ let browser,
   processLog = "",
   childError,
   worldId,
-  database;
+  database,
+  model;
 const players = new Map();
 const delay = (ms) => new Promise((done) => setTimeout(done, ms));
 async function until(check, label, rounds = 90) {
@@ -265,6 +266,15 @@ async function playUI(actor, action, before) {
   else await button.click();
   const accepted = await response,
     body = accepted.request().postDataJSON();
+  if (accepted.status() !== 200) {
+    (report.rejectedPlays ??= []).push({
+      actor,
+      action,
+      turn: before.world.turn,
+      status: accepted.status(),
+      error: (await accepted.text()).slice(0, 1000),
+    });
+  }
   assert.equal(accepted.status(), 200, (await accepted.text()).slice(0, 1000));
   commands.push({ actor, ...body });
   let after;
@@ -580,6 +590,7 @@ async function sharedRun() {
 try {
   if (values["model-only"]) {
     const driver = await modelDriver();
+    model = driver;
     const result = await connectedJourney(driver, seed);
     report.waterReturn = result.waterReturn;
     report.finalSave = join(output, "final-save.json");
@@ -593,6 +604,15 @@ try {
   report.ok = true;
 } catch (error) {
   report.error = error.stack;
+  const failed =
+    model?.snapshot() ||
+    (database && worldId
+      ? (await storedWorld().catch(() => null))?.checkpoint.game
+      : null);
+  if (failed) {
+    report.failedSave = join(output, "failed-save.json");
+    await writeFile(report.failedSave, encodeSave(failed) + "\n");
+  }
   for (const actor of players.keys())
     await capture(actor, "failure").catch(() => {});
   process.exitCode = 1;
