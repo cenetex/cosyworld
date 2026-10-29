@@ -1,4 +1,5 @@
 import {
+  humanAvatar,
   humanAvatarIds,
   controlledByHuman,
   humanPresent,
@@ -10,8 +11,11 @@ import {
   entityActive,
   packThings,
   packPeople,
+  packDefinitions,
+  conditionsMet,
 } from "./pack-registry.mjs";
 import { knowsFact } from "./knowledge.mjs";
+import { BOARDY } from "./boardyai.mjs";
 export const condition = (kind, item, extra = {}) => ({
   conditions: [{ kind, item, ...extra }],
 });
@@ -112,7 +116,12 @@ export function validCondition(c, actor) {
         ["lamp", "oil", "bell", "cloth", ...Object.keys(packThings)].includes(
           c.item,
         ) &&
-        [...humanAvatarIds, "moth", "keeper"].includes(c.avatar) &&
+        [
+          ...humanAvatarIds,
+          "moth",
+          "keeper",
+          ...Object.keys(packPeople),
+        ].includes(c.avatar) &&
         c.avatar !== actor))
   );
 }
@@ -120,7 +129,12 @@ export const validConsequence = (c, actor) =>
   c &&
   (["anchor", "oil", "hush"].includes(c.kind) ||
     (c.kind === "trust" &&
-      [...humanAvatarIds, "moth", "keeper"].includes(c.avatar) &&
+      [
+        ...humanAvatarIds,
+        "moth",
+        "keeper",
+        ...Object.keys(packPeople),
+      ].includes(c.avatar) &&
       c.avatar !== actor));
 export function requiredItems(s, actor, target) {
   const items = [...target.items];
@@ -317,5 +331,191 @@ export function situationPrograms(s, actor, base, api) {
       ),
     );
   }
-  return choices;
+  return [...choices, ...packSituationPrograms(s, actor, base, api)];
 }
+
+// Mounted packs declare their own situations as data (pack-situation-schema).
+// A visiting avatar takes one inside the places it can walk to now. Roles pick
+// the first fitting entity in authored order, so the same state gives the same
+// program. The result is a plain program; saves never read the template again.
+export function packSituationPrograms(s, actor, base, api) {
+  const {
+    hand,
+    hold,
+    at,
+    withAvatars,
+    either,
+    explored = [],
+    known = [],
+    reach = () => false,
+    mayGive = () => true,
+  } = api;
+  const visitor =
+    actor !== BOARDY &&
+    (controlledByHuman(s, actor) ||
+      Boolean(humanAvatar(actor)) ||
+      packPeople[actor]?.personalQuests === true);
+  const near = (place) => explored.includes(place) && entityActive(s, place);
+  const meetable = (id) =>
+    id !== actor &&
+    Boolean(s.actors[id]) &&
+    entityActive(s, id) &&
+    known.includes(id) &&
+    (!controlledByHuman(s, id) || humanPresent(s, id)) &&
+    near(s.actors[id].place);
+  const gettable = (id) =>
+    Boolean(s.items[id]) && entityActive(s, id) && reach(id);
+  const programs = [];
+  const templates = packDefinitions.flatMap((pack) =>
+    (pack.situations || []).map((t) => ({ pack, t })),
+  );
+  // Rotate equal templates so successive purposes visit different ones.
+  const turn = s.actors[actor].progress.program % (templates.length || 1);
+  for (const { pack, t } of [
+    ...templates.slice(turn),
+    ...templates.slice(0, turn),
+  ]) {
+    if (
+      !t.takers.includes(actor) &&
+      !(visitor && t.takers.includes("visitors"))
+    )
+      continue;
+    if (!conditionsMet(s, pack.id, t.requires || [], actor)) continue;
+    // Spoken news needs dialogue. An avatar with a life gets a fresh purpose
+    // after a quiet spell, so only it takes a situation that waits on Talk.
+    if (
+      !s.life?.actors?.[actor] &&
+      t.steps.some((step) =>
+        (step.any || [step]).some((h) =>
+          (h.conditions || []).some((c) => c.kind === "knows"),
+        ),
+      )
+    )
+      continue;
+    const roles = {};
+    let ok = true;
+    for (const [name, spec] of Object.entries(t.roles)) {
+      let value = null;
+      if (spec.item) value = spec.item.find(gettable) ?? null;
+      else if (spec.avatar) value = spec.avatar.find(meetable) ?? null;
+      else if (spec.place) value = spec.place.find(near) ?? null;
+      else if (spec.holder) {
+        const owner = rootOwner(s, roles[spec.holder.slice(1)]);
+        value = meetable(owner) ? owner : null;
+      } else if (spec.placeOf) {
+        const id = roles[spec.placeOf.slice(1)];
+        const place = s.actors[id]
+          ? s.actors[id].place
+          : s.actors[rootOwner(s, id)]?.place || rootOwner(s, id);
+        value = near(place) ? place : null;
+      }
+      if (value === null) {
+        ok = false;
+        break;
+      }
+      roles[name] = value;
+    }
+    if (!ok) continue;
+    const pick = (v) => (v.startsWith("$") ? roles[v.slice(1)] : v);
+    const topicOf = (id) => (pack.topics || []).find((x) => x.id === id);
+    const conditionReady = (c) => {
+      switch (c.kind) {
+        case "heldBy":
+          return (
+            rootOwner(s, c.item) !== c.avatar &&
+            gettable(c.item) &&
+            (rootOwner(s, c.item) !== actor || mayGive(c.item)) &&
+            meetable(c.avatar)
+          );
+        case "knows":
+          return (
+            knowsFact(s, actor, c.topic) ||
+            (near(topicOf(c.topic).at) && meetable(topicOf(c.topic).speaker))
+          );
+        case "together":
+          return c.avatars.every(meetable);
+        case "lit":
+          return (
+            gettable("lamp") &&
+            (s.items.lamp.fuel > 0 ||
+              (s.items.oil.doses > 0 && gettable("oil")))
+          );
+        case "ringing":
+          return gettable("bell");
+        case "covered":
+          return gettable(c.item) && gettable("cloth");
+        default:
+          return false;
+      }
+    };
+    const compile = (h, last) => {
+      const items = (h.hold || []).map(pick);
+      const avatars = (h.with || []).map(pick);
+      const conditions = (h.conditions || []).map((c) =>
+        c.kind === "knows"
+          ? { kind: "knows", topic: c.topic, role: "actor" }
+          : c.kind === "heldBy"
+            ? { kind: "heldBy", item: pick(c.item), avatar: pick(c.avatar) }
+            : c.kind === "together"
+              ? { kind: "together", avatars: c.avatars.map(pick) }
+              : { kind: c.kind, item: c.item },
+      );
+      const place = pick(h.at);
+      if (
+        !near(place) ||
+        !items.every(gettable) ||
+        !avatars.every(meetable) ||
+        !conditions.every((c) => validCondition(c, actor) && conditionReady(c))
+      )
+        return null;
+      const target = hand(
+        hold(...items),
+        at(place),
+        withAvatars(...avatars),
+        ...(conditions.length ? [{ conditions }] : []),
+      );
+      if (last && t.consequence) {
+        const consequence = {
+          kind: "trust",
+          avatar: pick(t.consequence.avatar),
+        };
+        if (!validConsequence(consequence, actor)) return null;
+        target.consequence = consequence;
+      }
+      return target;
+    };
+    const steps = [];
+    for (const [i, step] of t.steps.entries()) {
+      const last = i === t.steps.length - 1;
+      const options = (step.any || [step])
+        .map((h) => compile(h, last))
+        .filter(Boolean);
+      if (!options.length) {
+        ok = false;
+        break;
+      }
+      steps.push(options.length === 1 ? options[0] : either(...options));
+    }
+    if (!ok) continue;
+    const first = alternativesOf(steps).flatMap((h) => [
+      ...h.items,
+      ...(h.conditions || []).flatMap((c) => (c.item ? [c.item] : [])),
+    ])[0];
+    if (!first) continue;
+    programs.push({
+      ...base,
+      name: t.name,
+      purpose: t.purpose,
+      steps,
+      generated: {
+        ...base.generated,
+        item: first,
+        owner: rootOwner(s, first),
+        partner: roles.partner,
+        situation: t.kind,
+      },
+    });
+  }
+  return programs;
+}
+const alternativesOf = (steps) => steps.flatMap((step) => step.any || [step]);
