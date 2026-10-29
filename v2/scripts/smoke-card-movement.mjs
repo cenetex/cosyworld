@@ -14,7 +14,7 @@ import {
 import { enableMotives } from "../card-game/motives.mjs";
 
 function fixture(kind) {
-  // The waiting resident uses the same saved attic and pond journey.
+  // The waiting resident is met on the first trip from the lit attic.
   const start =
     kind === "resident" ? atticOpening() : createWorld({ opening: true });
   let s = enableMotives(start, {
@@ -25,7 +25,7 @@ function fixture(kind) {
     s,
     legalActions(s).find((a) => a.kind === "light"),
   ).state;
-  for (const target of ["pond", "attic"]) {
+  for (const target of kind === "resident" ? [] : ["pond", "attic"]) {
     const move = legalActions(s).find(
       (action) => action.kind === "move" && action.target === target,
     );
