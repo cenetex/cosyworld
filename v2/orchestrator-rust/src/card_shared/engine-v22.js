@@ -1164,7 +1164,7 @@
         ...holder2.kind === "avatar" && !transientActor ? [holder2.id] : []
       ])
     ].sort();
-    const record5 = {
+    const record6 = {
       key: questKey2,
       mode: "shared",
       holder: structuredClone(holder2),
@@ -1179,12 +1179,12 @@
       cause: cause ? structuredClone(cause) : null,
       ...transientActor ? { transientActor, familyActor: transientActor } : {}
     };
-    registry.records[questKey2] = record5;
+    registry.records[questKey2] = record6;
     if (registry.hands) {
-      for (const actor of /* @__PURE__ */ new Set([...members, questHolderActor(world, record5)]))
-        if (actor) carryQuest(world, actor, record5);
+      for (const actor of /* @__PURE__ */ new Set([...members, questHolderActor(world, record6)]))
+        if (actor) carryQuest(world, actor, record6);
     }
-    return record5;
+    return record6;
   }
   function canJoinQuest(world, actor, key) {
     const quest = questRecord(world, key);
@@ -2026,9 +2026,9 @@
     for (const pack of packs.filter((p) => p.recital?.actor === actor)) {
       const state = world.packs[pack.id];
       for (const verse of pack.recital.verses) {
-        const record5 = state.recitals[verse.choice];
-        if (verse.summons && record5 && record5.visit === null)
-          record5.visit = world.turn;
+        const record6 = state.recitals[verse.choice];
+        if (verse.summons && record6 && record6.visit === null)
+          record6.visit = world.turn;
       }
     }
   }
@@ -2299,6 +2299,122 @@
                   "isn't awake"
                 ]
               }
+            }
+          }
+        ],
+        topics: [
+          {
+            id: "badger-no-bells",
+            speaker: "badger",
+            at: "clearing",
+            text: "Badger says one more bell will spoil his nap for good.",
+            requires: []
+          },
+          {
+            id: "badger-cold-moss",
+            speaker: "badger",
+            at: "clearing",
+            text: "Badger says the moss goes cold when the clock stops steaming.",
+            requires: []
+          }
+        ],
+        situations: [
+          {
+            id: "badger-muffled-bell",
+            kind: "answer",
+            name: "Moss without bells",
+            purpose: "Let Badger grumble about the bells, then show him the bell wrapped silent in its cloth beside his moss.",
+            takers: [
+              "visitors"
+            ],
+            roles: {
+              partner: {
+                avatar: [
+                  "badger"
+                ]
+              }
+            },
+            steps: [
+              {
+                at: "clearing",
+                with: [
+                  "$partner"
+                ],
+                conditions: [
+                  {
+                    kind: "knows",
+                    topic: "badger-no-bells"
+                  }
+                ]
+              },
+              {
+                hold: [
+                  "bell"
+                ],
+                at: "clearing",
+                with: [
+                  "$partner"
+                ],
+                conditions: [
+                  {
+                    kind: "covered",
+                    item: "bell"
+                  }
+                ]
+              }
+            ],
+            consequence: {
+              kind: "trust",
+              avatar: "$partner"
+            }
+          },
+          {
+            id: "badger-warm-light",
+            kind: "gathering",
+            name: "A warm light on the moss",
+            purpose: "Find out why Badger's moss has gone cold, then keep a lit lamp beside him while he naps.",
+            takers: [
+              "visitors"
+            ],
+            roles: {
+              partner: {
+                avatar: [
+                  "badger"
+                ]
+              }
+            },
+            steps: [
+              {
+                at: "clearing",
+                with: [
+                  "$partner"
+                ],
+                conditions: [
+                  {
+                    kind: "knows",
+                    topic: "badger-cold-moss"
+                  }
+                ]
+              },
+              {
+                hold: [
+                  "lamp"
+                ],
+                at: "clearing",
+                with: [
+                  "$partner"
+                ],
+                conditions: [
+                  {
+                    kind: "lit",
+                    item: "lamp"
+                  }
+                ]
+              }
+            ],
+            consequence: {
+              kind: "trust",
+              avatar: "$partner"
             }
           }
         ],
@@ -13588,6 +13704,226 @@
             url: "https://github.com/HoppyCat/teacat-agent"
           }
         ],
+        topics: [
+          {
+            id: "hoppycat-missing-source",
+            speaker: "hoppycat-penny-vellum",
+            at: "hoppycat-open-record-cathedral",
+            text: "Penny says one exhibit card in the Cathedral still has no source.",
+            requires: []
+          },
+          {
+            id: "hoppycat-unthanked-ledger",
+            speaker: "hoppycat-ledger-sonnet",
+            at: "hoppycat-context-greenhouse",
+            text: "The short Ledger says the long Ledger has never been thanked by name.",
+            requires: []
+          },
+          {
+            id: "hoppycat-quiet-bell",
+            speaker: "hoppycat-nix-fermata",
+            at: "hoppycat-red-thread-belfry",
+            text: "Nix wants the February Third bell kept quiet for one more day.",
+            requires: []
+          },
+          {
+            id: "hoppycat-one-ally",
+            speaker: "hoppycat-tapi-lilt",
+            at: "hoppycat-halfway-tea-garden",
+            text: "Tapi still needs one real ally before the broadcast ends.",
+            requires: []
+          }
+        ],
+        situations: [
+          {
+            id: "hoppycat-sourced-line",
+            kind: "delivery",
+            name: "A sourced line on air",
+            purpose: "Learn from Penny which card still lacks its source, then bring a provenance card to Hoppy Cat and say one true thing on air.",
+            takers: [
+              "visitors"
+            ],
+            roles: {
+              partner: {
+                avatar: [
+                  "hoppycat-hoppy-cat"
+                ]
+              }
+            },
+            steps: [
+              {
+                at: "hoppycat-open-record-cathedral",
+                with: [
+                  "hoppycat-penny-vellum"
+                ],
+                conditions: [
+                  {
+                    kind: "knows",
+                    topic: "hoppycat-missing-source"
+                  }
+                ]
+              },
+              {
+                hold: [
+                  "hoppycat-provenance-card"
+                ],
+                at: "hoppycat-halfway-tea-garden",
+                with: [
+                  "$partner"
+                ],
+                conditions: [
+                  {
+                    kind: "knows",
+                    topic: "hoppycat-missing-source"
+                  }
+                ]
+              }
+            ],
+            consequence: {
+              kind: "trust",
+              avatar: "$partner"
+            }
+          },
+          {
+            id: "hoppycat-thanked-by-name",
+            kind: "delivery",
+            name: "Thanked by name",
+            purpose: "Hear from the short Ledger what the long Ledger is missing, then bring a Context Seed to the Cathedral and thank Ledger by name.",
+            takers: [
+              "visitors"
+            ],
+            roles: {
+              partner: {
+                avatar: [
+                  "hoppycat-ledger-opus"
+                ]
+              }
+            },
+            steps: [
+              {
+                at: "hoppycat-context-greenhouse",
+                with: [
+                  "hoppycat-ledger-sonnet"
+                ],
+                conditions: [
+                  {
+                    kind: "knows",
+                    topic: "hoppycat-unthanked-ledger"
+                  }
+                ]
+              },
+              {
+                hold: [
+                  "hoppycat-context-seed"
+                ],
+                at: "hoppycat-open-record-cathedral",
+                with: [
+                  "$partner"
+                ]
+              }
+            ],
+            consequence: {
+              kind: "trust",
+              avatar: "$partner"
+            }
+          },
+          {
+            id: "hoppycat-held-clapper",
+            kind: "answer",
+            name: "One more quiet day",
+            purpose: "Let Nix explain the quiet bell, fetch the Fermata Clapper from Sol's stage, and keep it silent in the belfry beside Nix.",
+            takers: [
+              "visitors"
+            ],
+            roles: {
+              partner: {
+                avatar: [
+                  "hoppycat-nix-fermata"
+                ]
+              }
+            },
+            steps: [
+              {
+                at: "hoppycat-red-thread-belfry",
+                with: [
+                  "$partner"
+                ],
+                conditions: [
+                  {
+                    kind: "knows",
+                    topic: "hoppycat-quiet-bell"
+                  }
+                ]
+              },
+              {
+                hold: [
+                  "hoppycat-fermata-clapper"
+                ],
+                at: "hoppycat-settled-light-theatre",
+                with: [
+                  "hoppycat-solwashere"
+                ]
+              },
+              {
+                hold: [
+                  "hoppycat-fermata-clapper"
+                ],
+                at: "hoppycat-red-thread-belfry",
+                with: [
+                  "$partner"
+                ]
+              }
+            ],
+            consequence: {
+              kind: "trust",
+              avatar: "$partner"
+            }
+          },
+          {
+            id: "hoppycat-halfway-cup",
+            kind: "gathering",
+            name: "A cup for two hands",
+            purpose: "Hear what Tapi still needs, then hold the Halfway Cup at the tea table with Tapi and Hoppy Cat together.",
+            takers: [
+              "visitors"
+            ],
+            roles: {
+              partner: {
+                avatar: [
+                  "hoppycat-tapi-lilt"
+                ]
+              }
+            },
+            steps: [
+              {
+                at: "hoppycat-halfway-tea-garden",
+                with: [
+                  "$partner"
+                ],
+                conditions: [
+                  {
+                    kind: "knows",
+                    topic: "hoppycat-one-ally"
+                  }
+                ]
+              },
+              {
+                hold: [
+                  "hoppycat-halfway-cup"
+                ],
+                at: "hoppycat-halfway-tea-garden",
+                with: [
+                  "$partner",
+                  "hoppycat-hoppy-cat"
+                ]
+              }
+            ],
+            consequence: {
+              kind: "trust",
+              avatar: "$partner"
+            }
+          }
+        ],
         bridge: {
           id: "shore-hoppycat-archive",
           description: "A red thread at Black pond leads to the Halfway Tea Garden. Both shores keep the path open."
@@ -14118,6 +14454,208 @@
             url: "https://www.gutenberg.org/ebooks/11438",
             name: "Algernon Blackwood, The Willows (1907)",
             use: "Original English passages, gradually revealed through arrival and recorded discoveries. The exact downloaded source is kept in source-text.txt."
+          }
+        ],
+        topics: [
+          {
+            id: "willows-supper",
+            speaker: "willows-swede",
+            at: "willows-camp",
+            text: "The Swede says a hot supper keeps the fear smaller than the river.",
+            requires: []
+          },
+          {
+            id: "willows-channels",
+            speaker: "willows-swede",
+            at: "willows-camp",
+            text: "The Swede says the river has cut new channels since the map was drawn.",
+            requires: []
+          }
+        ],
+        situations: [
+          {
+            id: "willows-supper",
+            kind: "delivery",
+            name: "Supper before the wind",
+            purpose: "Ask the Swede what would steady him, bring the stew pot and some food to the fire, then leave the pot in his hands.",
+            takers: [
+              "visitors"
+            ],
+            requires: [
+              {
+                kind: "met",
+                actor: "willows-swede"
+              }
+            ],
+            roles: {
+              partner: {
+                avatar: [
+                  "willows-swede"
+                ]
+              },
+              food: {
+                item: [
+                  "willows-provisions",
+                  "willows-spoon"
+                ]
+              }
+            },
+            steps: [
+              {
+                at: "willows-camp",
+                with: [
+                  "$partner"
+                ],
+                conditions: [
+                  {
+                    kind: "knows",
+                    topic: "willows-supper"
+                  }
+                ]
+              },
+              {
+                hold: [
+                  "willows-pot",
+                  "$food"
+                ],
+                at: "willows-camp",
+                with: [
+                  "$partner"
+                ]
+              },
+              {
+                at: "willows-camp",
+                with: [
+                  "$partner"
+                ],
+                conditions: [
+                  {
+                    kind: "heldBy",
+                    item: "willows-pot",
+                    avatar: "$partner"
+                  }
+                ]
+              }
+            ],
+            consequence: {
+              kind: "trust",
+              avatar: "$partner"
+            }
+          },
+          {
+            id: "willows-channels",
+            kind: "crossing",
+            name: "A map that falls behind",
+            purpose: "Hear from the Swede how the river has changed, carry the map to the crumbling bank to read the new channels, then put it back in his hands.",
+            takers: [
+              "visitors"
+            ],
+            requires: [
+              {
+                kind: "met",
+                actor: "willows-swede"
+              }
+            ],
+            roles: {
+              partner: {
+                avatar: [
+                  "willows-swede"
+                ]
+              }
+            },
+            steps: [
+              {
+                at: "willows-camp",
+                with: [
+                  "$partner"
+                ],
+                conditions: [
+                  {
+                    kind: "knows",
+                    topic: "willows-channels"
+                  }
+                ]
+              },
+              {
+                hold: [
+                  "willows-map"
+                ],
+                at: "willows-bank"
+              },
+              {
+                at: "willows-camp",
+                with: [
+                  "$partner"
+                ],
+                conditions: [
+                  {
+                    kind: "heldBy",
+                    item: "willows-map",
+                    avatar: "$partner"
+                  }
+                ]
+              }
+            ],
+            consequence: {
+              kind: "trust",
+              avatar: "$partner"
+            }
+          },
+          {
+            id: "willows-muffled-bell",
+            kind: "answer",
+            name: "No bells among the willows",
+            purpose: "The Swede hates careless noise by the river. Wrap the bell in its cloth among the willows and bring it to the camp still silent.",
+            takers: [
+              "visitors"
+            ],
+            requires: [
+              {
+                kind: "met",
+                actor: "willows-swede"
+              }
+            ],
+            roles: {
+              partner: {
+                avatar: [
+                  "willows-swede"
+                ]
+              }
+            },
+            steps: [
+              {
+                hold: [
+                  "bell",
+                  "cloth"
+                ],
+                at: "willows-thicket",
+                conditions: [
+                  {
+                    kind: "covered",
+                    item: "bell"
+                  }
+                ]
+              },
+              {
+                hold: [
+                  "bell"
+                ],
+                at: "willows-camp",
+                with: [
+                  "$partner"
+                ],
+                conditions: [
+                  {
+                    kind: "covered",
+                    item: "bell"
+                  }
+                ]
+              }
+            ],
+            consequence: {
+              kind: "trust",
+              avatar: "$partner"
+            }
           }
         ],
         bridge: {
@@ -15015,6 +15553,20 @@
               }
             ],
             choiceId: "forest-hear-walkers-oak"
+          },
+          {
+            id: "forest-warm-kettle",
+            speaker: "rati",
+            at: "forest-cottage",
+            text: "RATi keeps the kettle warm for anyone walking home late.",
+            requires: []
+          },
+          {
+            id: "forest-night-watch",
+            speaker: "oak",
+            at: "forest-oak",
+            text: "Oak says Skull walks the trail each night so others get home.",
+            requires: []
           }
         ],
         sources: [
@@ -15029,6 +15581,185 @@
           {
             path: "docs/art-direction/world-map.md",
             scope: "first journey proposal"
+          }
+        ],
+        situations: [
+          {
+            id: "forest-kettle-word",
+            kind: "delivery",
+            name: "Word of the warm kettle",
+            purpose: "Hear from RATi who the kettle is kept warm for, then carry that word and a button from the cottage to Oak.",
+            takers: [
+              "visitors"
+            ],
+            requires: [
+              {
+                kind: "met",
+                actor: "rati"
+              }
+            ],
+            roles: {
+              partner: {
+                avatar: [
+                  "oak"
+                ]
+              },
+              token: {
+                item: [
+                  "forest-story-button",
+                  "forest-dewbright-button"
+                ]
+              }
+            },
+            steps: [
+              {
+                at: "forest-cottage",
+                with: [
+                  "rati"
+                ],
+                conditions: [
+                  {
+                    kind: "knows",
+                    topic: "forest-warm-kettle"
+                  }
+                ]
+              },
+              {
+                hold: [
+                  "$token"
+                ],
+                at: "forest-oak",
+                with: [
+                  "$partner"
+                ],
+                conditions: [
+                  {
+                    kind: "knows",
+                    topic: "forest-warm-kettle"
+                  }
+                ]
+              }
+            ],
+            consequence: {
+              kind: "trust",
+              avatar: "$partner"
+            }
+          },
+          {
+            id: "forest-watch-light",
+            kind: "gathering",
+            name: "A light for the night watch",
+            purpose: "Ask Oak who keeps the trail, then stand beside Skull on the Moonlit Trail with a lit lamp or the Watch Bell.",
+            takers: [
+              "visitors"
+            ],
+            requires: [
+              {
+                kind: "flag",
+                key: "forest-path-cleared",
+                value: true
+              }
+            ],
+            roles: {
+              partner: {
+                avatar: [
+                  "skull"
+                ]
+              }
+            },
+            steps: [
+              {
+                at: "forest-oak",
+                with: [
+                  "oak"
+                ],
+                conditions: [
+                  {
+                    kind: "knows",
+                    topic: "forest-night-watch"
+                  }
+                ]
+              },
+              {
+                any: [
+                  {
+                    hold: [
+                      "lamp"
+                    ],
+                    at: "forest-trail",
+                    with: [
+                      "$partner"
+                    ],
+                    conditions: [
+                      {
+                        kind: "lit",
+                        item: "lamp"
+                      }
+                    ]
+                  },
+                  {
+                    hold: [
+                      "forest-watch-bell"
+                    ],
+                    at: "forest-trail",
+                    with: [
+                      "$partner"
+                    ]
+                  }
+                ]
+              }
+            ],
+            consequence: {
+              kind: "trust",
+              avatar: "$partner"
+            }
+          },
+          {
+            id: "forest-rain-home",
+            kind: "crossing",
+            name: "Rain carried home",
+            purpose: "Take the Dewbright Button from Whiskerwind's broad leaves and carry the rain on it into RATi's cottage.",
+            takers: [
+              "visitors"
+            ],
+            requires: [
+              {
+                kind: "flag",
+                key: "forest-welcomed",
+                value: true
+              }
+            ],
+            roles: {
+              partner: {
+                avatar: [
+                  "rati"
+                ]
+              }
+            },
+            steps: [
+              {
+                hold: [
+                  "forest-dewbright-button"
+                ],
+                at: "forest-garden",
+                with: [
+                  "whiskerwind"
+                ]
+              },
+              {
+                hold: [
+                  "forest-dewbright-button"
+                ],
+                at: "forest-cottage",
+                with: [
+                  "$partner"
+                ]
+              }
+            ],
+            consequence: {
+              kind: "trust",
+              avatar: "$partner"
+            }
           }
         ],
         bridge: {
@@ -15377,6 +16108,148 @@
     return problems2;
   }
 
+  // v2/card-game/pack-situation-schema.mjs
+  var SITUATION_LIMIT = 16;
+  var SITUATION_KINDS = ["delivery", "gathering", "crossing", "answer"];
+  var SITUATION_TAKERS = ["visitors"];
+  var record2 = (v) => v && typeof v === "object" && !Array.isArray(v);
+  var idOk2 = (v) => typeof v === "string" && /^[a-z][a-z0-9-]{0,79}$/.test(v);
+  var roleOk = (v) => typeof v === "string" && /^[a-z][a-z0-9]{0,23}$/.test(v);
+  var textOk2 = (v, max) => typeof v === "string" && v.trim().length > 0 && v.length <= max && !/[\u0000-\u001f{}]/.test(v);
+  var keysOk2 = (o, allowed) => record2(o) && Object.keys(o).every((k) => allowed.includes(k));
+  var listOk = (v, min, max) => Array.isArray(v) && v.length >= min && v.length <= max && new Set(v).size === v.length;
+  var ROLE_FIELDS = {
+    item: "item",
+    avatar: "avatar",
+    place: "place",
+    holder: "avatar",
+    placeOf: "place"
+  };
+  function situationProblems(pack, hub2, requirements = () => {
+  }) {
+    if (pack?.situations === void 0) return [];
+    const problems2 = [];
+    const check = (ok, message) => {
+      if (!ok) problems2.push(`${pack.id}: ${message}`);
+      return ok;
+    };
+    if (!check(
+      Array.isArray(pack.situations) && pack.situations.length <= SITUATION_LIMIT && pack.situations.every(record2),
+      `situations must be a list of at most ${SITUATION_LIMIT} records`
+    ))
+      return problems2;
+    const own = (field) => Object.keys(record2(pack[field]) ? pack[field] : {});
+    const literals = {
+      item: [...own("items"), ...hub2?.items || []],
+      avatar: [...own("avatars"), ...hub2?.avatars || []],
+      place: [...own("places"), ...hub2?.places || []]
+    };
+    const topics = new Set((pack.topics || []).map((t) => t?.id));
+    const ids3 = /* @__PURE__ */ new Set();
+    for (const t of pack.situations) {
+      const what = `situation ${typeof t.id === "string" ? t.id : "template"}`;
+      if (!check(
+        keysOk2(t, [
+          "id",
+          "kind",
+          "name",
+          "purpose",
+          "takers",
+          "requires",
+          "roles",
+          "steps",
+          "consequence"
+        ]) && idOk2(t.id) && !ids3.has(t.id) && SITUATION_KINDS.includes(t.kind) && textOk2(t.name, 100) && textOk2(t.purpose, 200),
+        `${what} needs a unique id, a known kind, a name and a purpose`
+      ))
+        continue;
+      ids3.add(t.id);
+      check(
+        listOk(t.takers, 1, 8) && t.takers.every(
+          (id) => SITUATION_TAKERS.includes(id) || literals.avatar.includes(id)
+        ),
+        `${what} takers must name visitors or known avatars`
+      );
+      requirements(t.requires, `${what} requires`);
+      const roles = {};
+      const roleList = record2(t.roles) ? Object.entries(t.roles) : null;
+      if (!check(
+        roleList && roleList.length <= 8,
+        `${what} roles must be a map of at most eight roles`
+      ))
+        continue;
+      for (const [name, spec] of roleList) {
+        const fields3 = record2(spec) ? Object.keys(spec) : [];
+        const field = fields3[0];
+        const type = ROLE_FIELDS[field];
+        let ok = roleOk(name) && fields3.length === 1 && Boolean(type);
+        if (ok && ["item", "avatar", "place"].includes(field))
+          ok = listOk(spec[field], 1, 6) && spec[field].every((id) => literals[field].includes(id));
+        else if (ok && field === "holder")
+          ok = roles[ref(spec.holder)] === "item";
+        else if (ok && field === "placeOf")
+          ok = ["item", "avatar"].includes(roles[ref(spec.placeOf)]);
+        if (check(ok, `${what} role ${name} must name known entities or roles`))
+          roles[name] = type;
+      }
+      check(
+        roles.partner === "avatar",
+        `${what} needs a partner role that names an avatar`
+      );
+      const resolves = (value, type) => typeof value === "string" && (value.startsWith("$") ? roles[value.slice(1)] === type : literals[type].includes(value));
+      let items2 = 0, avatars = 0, changes = 0;
+      const handOk = (h) => {
+        if (!keysOk2(h, ["hold", "at", "with", "conditions"]) || !resolves(h.at, "place") || h.hold !== void 0 && !(listOk(h.hold, 1, 3) && h.hold.every((v) => resolves(v, "item"))) || h.with !== void 0 && !(listOk(h.with, 1, 2) && h.with.every((v) => resolves(v, "avatar"))) || h.conditions !== void 0 && !(Array.isArray(h.conditions) && h.conditions.length <= 3))
+          return false;
+        items2 += h.hold?.length || 0;
+        avatars += h.with?.length || 0;
+        return (h.conditions || []).every((c) => {
+          changes += 1;
+          switch (record2(c) && c.kind) {
+            case "heldBy":
+              items2 += 1;
+              avatars += 1;
+              return keysOk2(c, ["kind", "item", "avatar"]) && resolves(c.item, "item") && resolves(c.avatar, "avatar");
+            case "knows":
+              return keysOk2(c, ["kind", "topic"]) && topics.has(c.topic);
+            case "together":
+              avatars += 2;
+              return keysOk2(c, ["kind", "avatars"]) && listOk(c.avatars, 2, 2) && c.avatars.every((v) => resolves(v, "avatar"));
+            case "lit":
+              return keysOk2(c, ["kind", "item"]) && c.item === "lamp";
+            case "ringing":
+              return keysOk2(c, ["kind", "item"]) && c.item === "bell";
+            case "covered":
+              return keysOk2(c, ["kind", "item"]) && ["lamp", "bell"].includes(c.item);
+            default:
+              return false;
+          }
+        });
+      };
+      check(
+        Array.isArray(t.steps) && t.steps.length >= 1 && t.steps.length <= 4 && t.steps.every(
+          (step) => record2(step) && step.any !== void 0 ? keysOk2(step, ["any"]) && Array.isArray(step.any) && step.any.length >= 2 && step.any.length <= 4 && step.any.every(handOk) : handOk(step)
+        ),
+        `${what} steps must be one to four hands with a place, known items, people and conditions`
+      );
+      if (t.consequence !== void 0) {
+        changes += 1;
+        check(
+          keysOk2(t.consequence, ["kind", "avatar"]) && t.consequence.kind === "trust" && resolves(t.consequence.avatar, "avatar"),
+          `${what} consequence must be trust with a known avatar`
+        );
+      }
+      check(
+        items2 > 0 && avatars > 0 && changes > 0,
+        `${what} needs an item, a person and a condition or consequence`
+      );
+    }
+    return problems2;
+  }
+  function ref(value) {
+    return typeof value === "string" && value.startsWith("$") ? value.slice(1) : null;
+  }
+
   // v2/card-game/knowledge.mjs
   var KNOWLEDGE_VERSION = 1;
   var KNOWLEDGE_FACT_LIMIT = 256;
@@ -15384,10 +16257,10 @@
   var KNOWLEDGE_PENDING_LIMIT = 32;
   var FACT_TEXT_LIMIT = 180;
   var owns = (o, key) => typeof key === "string" && !!o && Object.hasOwn(o, key);
-  var record2 = (v) => !!v && typeof v === "object" && !Array.isArray(v);
+  var record3 = (v) => !!v && typeof v === "object" && !Array.isArray(v);
   var safeId = (v) => typeof v === "string" && v.length > 0 && v.length <= 160 && !["__proto__", "prototype", "constructor"].includes(v) && !/[\u0000-\u0020\u007f]/u.test(v);
   var text = (v, limit) => typeof v === "string" && !!v.trim() && v.length <= limit && !/[\u0000-\u001f\u007f]/u.test(v);
-  var fields2 = (v, keys) => record2(v) && Object.keys(v).length === keys.length && Object.keys(v).every((key) => keys.includes(key));
+  var fields2 = (v, keys) => record3(v) && Object.keys(v).length === keys.length && Object.keys(v).every((key) => keys.includes(key));
   var whole = (v, max) => Number.isSafeInteger(v) && v >= 0 && v <= max;
   var tokens = (v) => (v.toLowerCase().match(/[\p{L}\p{N}]+/gu) || []).join(" ");
   var sentences = (v) => v.split(/[.!?。！？]+/u).map(tokens).filter(Boolean);
@@ -15612,7 +16485,7 @@
   function validKnowledge(world, actors2, places2, topics = []) {
     const k = world.knowledge;
     if (k === void 0) return true;
-    if (!fields2(k, ["version", "facts", "known", "pending"]) || k.version !== KNOWLEDGE_VERSION || !record2(k.facts) || Object.keys(k.facts).length > KNOWLEDGE_FACT_LIMIT || !record2(k.known) || Object.keys(k.known).length > actors2.length || !Array.isArray(k.pending) || k.pending.length > KNOWLEDGE_PENDING_LIMIT)
+    if (!fields2(k, ["version", "facts", "known", "pending"]) || k.version !== KNOWLEDGE_VERSION || !record3(k.facts) || Object.keys(k.facts).length > KNOWLEDGE_FACT_LIMIT || !record3(k.known) || Object.keys(k.known).length > actors2.length || !Array.isArray(k.pending) || k.pending.length > KNOWLEDGE_PENDING_LIMIT)
       return false;
     for (const [id, fact] of Object.entries(k.facts)) {
       if (!safeId(id) || !fields2(fact, ["id", "text", "source"]) || fact.id !== id || !validFactText(fact.text))
@@ -15642,7 +16515,7 @@
       }
     }
     for (const [actor, known] of Object.entries(k.known)) {
-      if (!actors2.includes(actor) || !record2(known) || Object.keys(known).length > KNOWLEDGE_PERSON_LIMIT)
+      if (!actors2.includes(actor) || !record3(known) || Object.keys(known).length > KNOWLEDGE_PERSON_LIMIT)
         return false;
       for (const [id, m] of Object.entries(known)) {
         const fact = k.facts[id];
@@ -15737,13 +16610,13 @@
   ];
   var TRAVELERS = ["player", "any"];
   var VARIANTS = ["asleep", "awake", "irritated"];
-  var record3 = (v) => v && typeof v === "object" && !Array.isArray(v);
-  var owns2 = (o, key) => record3(o) && typeof key === "string" && Object.hasOwn(o, key);
-  var idOk2 = (v) => typeof v === "string" && /^[a-z][a-z0-9-]{0,79}$/.test(v);
-  var textOk2 = (v, max = 1200) => typeof v === "string" && v.trim().length > 0 && v.length <= max && !/[\u0000-\u001f]/.test(v);
+  var record4 = (v) => v && typeof v === "object" && !Array.isArray(v);
+  var owns2 = (o, key) => record4(o) && typeof key === "string" && Object.hasOwn(o, key);
+  var idOk3 = (v) => typeof v === "string" && /^[a-z][a-z0-9-]{0,79}$/.test(v);
+  var textOk3 = (v, max = 1200) => typeof v === "string" && v.trim().length > 0 && v.length <= max && !/[\u0000-\u001f]/.test(v);
   var intOk = (v, min, max) => Number.isInteger(v) && v >= min && v <= max;
-  var keysOk2 = (o, allowed) => record3(o) && Object.keys(o).every((k) => allowed.includes(k));
-  var templateOk = (v, max, names2) => textOk2(v, max) && !/[{}]/.test(
+  var keysOk3 = (o, allowed) => record4(o) && Object.keys(o).every((k) => allowed.includes(k));
+  var templateOk = (v, max, names2) => textOk3(v, max) && !/[{}]/.test(
     v.replace(/\{([a-z]+)\}/g, (m, name) => names2.includes(name) ? "" : m)
   );
   function observationProblems(definitions, catalog) {
@@ -15754,18 +16627,18 @@
     return definitions.flatMap((d) => {
       const source = d?.source;
       const collection = source?.kind === "actor_flag" ? "avatars" : "items";
-      const valid = keysOk2(d, ["id", "entity", "subjects", "source", "values", "note"]) && idOk2(d.id) && !seen.has(d.id) && catalog[collection]?.includes(d.entity) && Array.isArray(d.subjects) && d.subjects.length > 0 && d.subjects.length <= 4 && d.subjects.every(
+      const valid = keysOk3(d, ["id", "entity", "subjects", "source", "values", "note"]) && idOk3(d.id) && !seen.has(d.id) && catalog[collection]?.includes(d.entity) && Array.isArray(d.subjects) && d.subjects.length > 0 && d.subjects.length <= 4 && d.subjects.every(
         (s) => typeof s === "string" && /^[a-z]+(?: [a-z]+)*$/.test(s) && s.length <= 80
-      ) && keysOk2(source, ["kind", "field"]) && ["item_flag", "item_positive", "actor_flag", "covered"].includes(
+      ) && keysOk3(source, ["kind", "field"]) && ["item_flag", "item_positive", "actor_flag", "covered"].includes(
         source.kind
-      ) && (source.kind === "covered" ? source.field === void 0 : idOk2(source.field)) && keysOk2(d.values, ["true", "false"]) && ["true", "false"].every((key) => {
+      ) && (source.kind === "covered" ? source.field === void 0 : idOk3(source.field)) && keysOk3(d.values, ["true", "false"]) && ["true", "false"].every((key) => {
         const v = d.values[key];
-        return keysOk2(v, ["fact", "claims", "legacyToken"]) && textOk2(v.fact, 240) && Array.isArray(v.claims) && v.claims.length > 0 && v.claims.length <= 16 && v.claims.every(
+        return keysOk3(v, ["fact", "claims", "legacyToken"]) && textOk3(v.fact, 240) && Array.isArray(v.claims) && v.claims.length > 0 && v.claims.length <= 16 && v.claims.every(
           (s) => typeof s === "string" && /^[a-z']+(?: [a-z']+)*$/.test(s) && s.length <= 80
         ) && (v.legacyToken === void 0 || /^[a-z]+$/.test(v.legacyToken));
       }) && !d.values.true.claims.some(
         (claim) => d.values.false.claims.includes(claim)
-      ) && (d.values.true.legacyToken === void 0 || d.values.true.legacyToken !== d.values.false.legacyToken) && (d.note === void 0 || textOk2(d.note, 300));
+      ) && (d.values.true.legacyToken === void 0 || d.values.true.legacyToken !== d.values.false.legacyToken) && (d.note === void 0 || textOk3(d.note, 300));
       seen.add(d?.id);
       return valid ? [] : [`invalid observation ${d?.id || "definition"}`];
     });
@@ -15780,12 +16653,12 @@
       return ok;
     };
     if (!check(
-      record3(pack) && pack.schemaVersion === PACK_SCHEMA_VERSION && idOk2(pack.id) && typeof pack.packId === "string" && pack.packId === `cosyworld.${pack.id}` && intOk(pack.revision, 1, 1e6),
+      record4(pack) && pack.schemaVersion === PACK_SCHEMA_VERSION && idOk3(pack.id) && typeof pack.packId === "string" && pack.packId === `cosyworld.${pack.id}` && intOk(pack.revision, 1, 1e6),
       "needs schemaVersion 1, a stable id, packId cosyworld.<id> and a revision"
     ))
       return problems2;
     check(
-      keysOk2(pack, [
+      keysOk3(pack, [
         "schemaVersion",
         "id",
         "packId",
@@ -15814,7 +16687,8 @@
         "recital",
         "readings",
         "storyQuests",
-        "topics"
+        "topics",
+        "situations"
       ]),
       "has an unknown top-level field"
     );
@@ -15825,11 +16699,11 @@
       })
     );
     check(
-      textOk2(pack.name, 80) && textOk2(pack.description, 400),
+      textOk3(pack.name, 80) && textOk3(pack.description, 400),
       "needs a name and a short description"
     );
     check(
-      record3(hub2) && [hub2.places, hub2.avatars, hub2.items].every(Array.isArray) && typeof hub2.player === "string",
+      record4(hub2) && [hub2.places, hub2.avatars, hub2.items].every(Array.isArray) && typeof hub2.player === "string",
       "needs the hub's places, avatars, items and player"
     );
     for (const [key, required, max] of [
@@ -15842,7 +16716,7 @@
       const map = pack[key];
       if (map === void 0 && !required) continue;
       if (!check(
-        record3(map) && Object.keys(map).length <= max && Object.values(map).every(record3),
+        record4(map) && Object.keys(map).length <= max && Object.values(map).every(record4),
         `${key} must be a bounded entity map`
       ))
         return problems2;
@@ -15856,13 +16730,13 @@
       ["topics", 128]
     ])
       if (pack[key] !== void 0 && !check(
-        Array.isArray(pack[key]) && pack[key].length <= max && pack[key].every(record3),
+        Array.isArray(pack[key]) && pack[key].length <= max && pack[key].every(record4),
         `${key} must be a bounded record list`
       ))
         return problems2;
     for (const c of pack.choices || [])
       if (!check(
-        Array.isArray(c.effects) && c.effects.length > 0 && c.effects.length <= 12 && c.effects.every(record3),
+        Array.isArray(c.effects) && c.effects.length > 0 && c.effects.length <= 12 && c.effects.every(record4),
         `choice ${c.id} effects must be a bounded record list`
       ))
         return problems2;
@@ -15875,36 +16749,36 @@
       ...pack.crossings || []
     ]) {
       if (e.requires !== void 0 && !check(
-        Array.isArray(e.requires) && e.requires.every(record3),
+        Array.isArray(e.requires) && e.requires.every(record4),
         "requires must be a record list"
       ))
         return problems2;
-      if (e.desire !== void 0 && !check(record3(e.desire), "desire must be a record"))
+      if (e.desire !== void 0 && !check(record4(e.desire), "desire must be a record"))
         return problems2;
     }
     if (pack.continuity !== void 0 && !check(
-      record3(pack.continuity) && Array.isArray(pack.continuity.groups) && pack.continuity.groups.length <= 4 && pack.continuity.groups.every(
-        (g) => record3(g) && Array.isArray(g.options) && g.options.length >= 2 && g.options.length <= 4
+      record4(pack.continuity) && Array.isArray(pack.continuity.groups) && pack.continuity.groups.length <= 4 && pack.continuity.groups.every(
+        (g) => record4(g) && Array.isArray(g.options) && g.options.length >= 2 && g.options.length <= 4
       ),
       "continuity needs at most four bounded branch groups"
     ))
       return problems2;
     if (pack.release !== void 0 && !check(
-      record3(pack.release) && ["places", "avatars", "items", "choices"].every(
+      record4(pack.release) && ["places", "avatars", "items", "choices"].every(
         (k) => Array.isArray(pack.release[k])
       ),
       "release needs entity and choice lists"
     ))
       return problems2;
     if (problems2.length) return problems2;
-    const places2 = record3(pack.places) ? pack.places : {};
-    const avatars = record3(pack.avatars) ? pack.avatars : {};
+    const places2 = record4(pack.places) ? pack.places : {};
+    const avatars = record4(pack.avatars) ? pack.avatars : {};
     const items2 = pack.items === void 0 ? {} : pack.items;
-    check(record3(items2), "items must be a map");
+    check(record4(items2), "items must be a map");
     const fixtures = pack.fixtures === void 0 ? {} : pack.fixtures;
-    check(record3(places2) && Object.keys(places2).length > 0, "needs places");
-    check(record3(avatars), "avatars must be a map");
-    check(record3(fixtures), "fixtures must be a map");
+    check(record4(places2) && Object.keys(places2).length > 0, "needs places");
+    check(record4(avatars), "avatars must be a map");
+    check(record4(fixtures), "fixtures must be a map");
     const own = [
       ...Object.keys(places2),
       ...Object.keys(avatars),
@@ -15917,7 +16791,7 @@
       ...hub2?.items || []
     ];
     check(
-      new Set(own).size === own.length && own.every(idOk2),
+      new Set(own).size === own.length && own.every(idOk3),
       "entity ids must be distinct, lowercase and hyphenated"
     );
     check(
@@ -15931,7 +16805,7 @@
     );
     for (const [id, p] of Object.entries(places2)) {
       check(
-        keysOk2(p, [
+        keysOk3(p, [
           "name",
           "text",
           "persona",
@@ -15947,7 +16821,7 @@
         `place ${id} has an unknown field`
       );
       check(
-        textOk2(p.name, 120) && textOk2(p.text) && textOk2(p.persona),
+        textOk3(p.name, 120) && textOk3(p.text) && textOk3(p.persona),
         `place ${id} needs a name, text and persona`
       );
       check(
@@ -15966,7 +16840,7 @@
       if (p.music !== void 0)
         check(
           Array.isArray(p.music) && p.music.length > 0 && p.music.length <= 16 && p.music.every(
-            (track) => keysOk2(track, ["file", "title"]) && typeof track.file === "string" && /^[a-z0-9][a-z0-9-]*\.mp3$/.test(track.file) && textOk2(track.title, 120)
+            (track) => keysOk3(track, ["file", "title"]) && typeof track.file === "string" && /^[a-z0-9][a-z0-9-]*\.mp3$/.test(track.file) && textOk3(track.title, 120)
           ),
           `place ${id} music needs 1\u201316 MP3 filenames and titles`
         );
@@ -15977,7 +16851,7 @@
         );
       if (p.stage !== void 0)
         check(
-          keysOk2(p.stage, ["alt", "resident", "sprite"]) && textOk2(p.stage.alt, 240) && owns2(avatars, p.stage.resident) && avatars[p.stage.resident].place === id && avatars[p.stage.resident].travels === false && keysOk2(p.stage.sprite, ["left", "top", "width"]) && ["left", "top", "width"].every(
+          keysOk3(p.stage, ["alt", "resident", "sprite"]) && textOk3(p.stage.alt, 240) && owns2(avatars, p.stage.resident) && avatars[p.stage.resident].place === id && avatars[p.stage.resident].travels === false && keysOk3(p.stage.sprite, ["left", "top", "width"]) && ["left", "top", "width"].every(
             (k) => intOk(p.stage.sprite?.[k], 0, 100)
           ),
           `place ${id} stage needs alt text, a resident that stays here, and sprite left/top/width percentages`
@@ -15985,17 +16859,17 @@
     }
     for (const [id, f] of Object.entries(fixtures)) {
       check(
-        keysOk2(f, ["name", "at", "sound"]) && textOk2(f.name, 120) && owns2(places2, f.at),
+        keysOk3(f, ["name", "at", "sound"]) && textOk3(f.name, 120) && owns2(places2, f.at),
         `fixture ${id} needs a name and a place in this pack`
       );
       check(
-        keysOk2(f.sound, ["label", "text", "turns"]) && textOk2(f.sound?.label, 40) && templateOk(f.sound?.text, 400, ["actor"]) && intOk(f.sound?.turns, 1, 9),
+        keysOk3(f.sound, ["label", "text", "turns"]) && textOk3(f.sound?.label, 40) && templateOk(f.sound?.text, 400, ["actor"]) && intOk(f.sound?.turns, 1, 9),
         `fixture ${id} sound needs a label, text with only {actor}, and 1\u20139 turns`
       );
     }
     for (const [id, a] of Object.entries(avatars)) {
       check(
-        keysOk2(a, [
+        keysOk3(a, [
           "name",
           "text",
           "place",
@@ -16026,7 +16900,7 @@
         `avatar ${id} personalQuests needs a boolean`
       );
       check(
-        textOk2(a.name, 120) && textOk2(a.text) && textOk2(a.persona) && textOk2(a.voice) && owns2(places2, a.place),
+        textOk3(a.name, 120) && textOk3(a.text) && textOk3(a.persona) && textOk3(a.voice) && owns2(places2, a.place),
         `avatar ${id} needs a name, text, persona, voice and a home place in this pack`
       );
       check(
@@ -16046,7 +16920,7 @@
         `avatar ${id} previous homes need authored places`
       );
       check(
-        keysOk2(a.tastes, ["likes", "sore", "reason", "noise"]) && textOk2(a.tastes?.likes, 120) && textOk2(a.tastes?.sore, 120) && textOk2(a.tastes?.reason, 240) && (a.tastes?.noise === void 0 || templateOk(a.tastes.noise, 240, ["actor"])),
+        keysOk3(a.tastes, ["likes", "sore", "reason", "noise"]) && textOk3(a.tastes?.likes, 120) && textOk3(a.tastes?.sore, 120) && textOk3(a.tastes?.reason, 240) && (a.tastes?.noise === void 0 || templateOk(a.tastes.noise, 240, ["actor"])),
         `avatar ${id} tastes need likes, sore and reason`
       );
       const t = a.temperament;
@@ -16063,7 +16937,7 @@
         `avatar ${id} with a temperament takes portraits from its variants`
       );
       check(
-        keysOk2(t, [
+        keysOk3(t, [
           "asleep",
           "irritation",
           "irritated",
@@ -16072,30 +16946,30 @@
           "calm",
           "woken",
           "disturbed"
-        ]) && typeof t.asleep === "boolean" && intOk(t.irritation, 1, 9) && intOk(t.irritated, 1, t.irritation) && ["voice", "sound", "calm"].every((k) => intOk(t[k], 0, t.irritation)) && textOk2(t.woken, 240) && textOk2(t.disturbed, 240),
+        ]) && typeof t.asleep === "boolean" && intOk(t.irritation, 1, 9) && intOk(t.irritated, 1, t.irritation) && ["voice", "sound", "calm"].every((k) => intOk(t[k], 0, t.irritation)) && textOk3(t.woken, 240) && textOk3(t.disturbed, 240),
         `avatar ${id} temperament needs asleep, irritation bounds, voice/sound/calm amounts and woken/disturbed text`
       );
       check(
-        keysOk2(a.variants, VARIANTS) && owns2(a.variants, "asleep") && owns2(a.variants, "awake"),
+        keysOk3(a.variants, VARIANTS) && owns2(a.variants, "asleep") && owns2(a.variants, "awake"),
         `avatar ${id} variants need asleep and awake, and may add irritated`
       );
       for (const [name, v] of Object.entries(a.variants || {})) {
         const base = name !== "irritated";
         check(
-          keysOk2(v, ["portrait", "alt", "greet", "label", "want", "note"]) && (base || v.portrait === void 0 && v.alt === void 0) && (!base || templateOk(v.greet, 200, ["actor", "name"]) && textOk2(v.alt, 240)) && (v.greet === void 0 || templateOk(v.greet, 200, ["actor", "name"])) && (v.label === void 0 || textOk2(v.label, 40)) && textOk2(v.want, 120) && textOk2(v.note, 400),
+          keysOk3(v, ["portrait", "alt", "greet", "label", "want", "note"]) && (base || v.portrait === void 0 && v.alt === void 0) && (!base || templateOk(v.greet, 200, ["actor", "name"]) && textOk3(v.alt, 240)) && (v.greet === void 0 || templateOk(v.greet, 200, ["actor", "name"])) && (v.label === void 0 || textOk3(v.label, 40)) && textOk3(v.want, 120) && textOk3(v.note, 400),
           `avatar ${id} variant ${name} needs want and note text${base ? ", a greeting, alt text and a portrait" : ""}`
         );
         if (base) media(v.portrait, `avatar ${id} ${name} portrait`);
       }
     }
     check(
-      keysOk2(pack.bridge, ["id", "description"]) && idOk2(pack.bridge?.id) && textOk2(pack.bridge?.description, 400),
+      keysOk3(pack.bridge, ["id", "description"]) && idOk3(pack.bridge?.id) && textOk3(pack.bridge?.description, 400),
       "bridge needs an id and description"
     );
     const values = pack.values === void 0 ? {} : pack.values;
     check(
-      record3(values) && Object.entries(values).every(
-        ([actor, v]) => owns2(avatars, actor) && record3(v) && Object.entries(v).every(
+      record4(values) && Object.entries(values).every(
+        ([actor, v]) => owns2(avatars, actor) && record4(v) && Object.entries(v).every(
           ([item, n]) => hub2?.items?.includes(item) && intOk(n, 0, 20)
         )
       ),
@@ -16104,60 +16978,60 @@
     const anyPlace = (id) => owns2(places2, id) || hub2?.places?.includes(id) || mountedPlaces.includes(id);
     const entity = (id) => owns2(places2, id) || owns2(avatars, id) || owns2(items2, id) || hubIds.includes(id);
     const pattern = (p, what) => check(
-      keysOk2(p, ["verb", "item", "target", "from"]) && SIGNAL_VERBS.includes(p?.verb) && (p.item === void 0 || hub2?.items?.includes(p.item) || owns2(items2, p.item)) && (p.target === void 0 || entity(p.target)) && (p.from === void 0 || entity(p.from)),
+      keysOk3(p, ["verb", "item", "target", "from"]) && SIGNAL_VERBS.includes(p?.verb) && (p.item === void 0 || hub2?.items?.includes(p.item) || owns2(items2, p.item)) && (p.target === void 0 || entity(p.target)) && (p.from === void 0 || entity(p.from)),
       `${what} must match a known verb with hub items or entities`
     );
     const condition2 = (c, what, depth = 0) => {
-      let ok = record3(c) && CONDITION_KINDS.includes(c.kind) && depth <= 2;
+      let ok = record4(c) && CONDITION_KINDS.includes(c.kind) && depth <= 2;
       if (ok)
         switch (c.kind) {
           case "sound":
-            ok = keysOk2(c, ["kind", "at"]) && Array.isArray(c.at) && c.at.length > 0 && c.at.length <= 4 && new Set(c.at).size === c.at.length && c.at.every((p) => anyPlace(p) || mountedPlaces.includes(p));
+            ok = keysOk3(c, ["kind", "at"]) && Array.isArray(c.at) && c.at.length > 0 && c.at.length <= 4 && new Set(c.at).size === c.at.length && c.at.every((p) => anyPlace(p) || mountedPlaces.includes(p));
             break;
           case "light":
-            ok = keysOk2(c, ["kind", "item", "at", "uncovered"]) && (hub2.items.includes(c.item) || owns2(items2, c.item)) && Array.isArray(c.at) && c.at.length > 0 && c.at.length <= 4 && c.at.every((p) => anyPlace(p) || mountedPlaces.includes(p)) && (c.uncovered === void 0 || typeof c.uncovered === "boolean");
+            ok = keysOk3(c, ["kind", "item", "at", "uncovered"]) && (hub2.items.includes(c.item) || owns2(items2, c.item)) && Array.isArray(c.at) && c.at.length > 0 && c.at.length <= 4 && c.at.every((p) => anyPlace(p) || mountedPlaces.includes(p)) && (c.uncovered === void 0 || typeof c.uncovered === "boolean");
             break;
           case "not":
-            ok = keysOk2(c, ["kind", "condition"]) && depth < 2 && condition2(c.condition, what, depth + 1);
+            ok = keysOk3(c, ["kind", "condition"]) && depth < 2 && condition2(c.condition, what, depth + 1);
             break;
           case "choice":
-            ok = keysOk2(c, ["kind", "key", "value"]) && idOk2(c.key) && idOk2(c.value);
+            ok = keysOk3(c, ["kind", "key", "value"]) && idOk3(c.key) && idOk3(c.value);
             break;
           case "choice_unset":
-            ok = keysOk2(c, ["kind", "key"]) && idOk2(c.key);
+            ok = keysOk3(c, ["kind", "key"]) && idOk3(c.key);
             break;
           case "flag":
-            ok = keysOk2(c, ["kind", "key", "value"]) && idOk2(c.key) && typeof c.value === "boolean";
+            ok = keysOk3(c, ["kind", "key", "value"]) && idOk3(c.key) && typeof c.value === "boolean";
             break;
           case "holding":
-            ok = keysOk2(c, ["kind", "item", "actor", "role"]) && owns2(items2, c.item) && (c.role === void 0 ? c.actor === hub2.player || owns2(avatars, c.actor) : c.role === "actor" && c.actor === void 0);
+            ok = keysOk3(c, ["kind", "item", "actor", "role"]) && owns2(items2, c.item) && (c.role === void 0 ? c.actor === hub2.player || owns2(avatars, c.actor) : c.role === "actor" && c.actor === void 0);
             break;
           case "shared_world":
-            ok = keysOk2(c, ["kind"]);
+            ok = keysOk3(c, ["kind"]);
             break;
           case "connected_humans":
-            ok = keysOk2(c, ["kind", "minimum"]) && intOk(c.minimum, 1, 8);
+            ok = keysOk3(c, ["kind", "minimum"]) && intOk(c.minimum, 1, 8);
             break;
           case "item_near":
-            ok = keysOk2(c, ["kind", "item", "place"]) && owns2(items2, c.item) && anyPlace(c.place);
+            ok = keysOk3(c, ["kind", "item", "place"]) && owns2(items2, c.item) && anyPlace(c.place);
             break;
           case "item_present":
-            ok = keysOk2(c, ["kind", "item", "place"]) && (owns2(items2, c.item) || hub2.items.includes(c.item)) && anyPlace(c.place);
+            ok = keysOk3(c, ["kind", "item", "place"]) && (owns2(items2, c.item) || hub2.items.includes(c.item)) && anyPlace(c.place);
             break;
           case "item_at":
-            ok = keysOk2(c, ["kind", "item", "place"]) && owns2(items2, c.item) && owns2(places2, c.place);
+            ok = keysOk3(c, ["kind", "item", "place"]) && owns2(items2, c.item) && owns2(places2, c.place);
             break;
           case "met":
-            ok = keysOk2(c, ["kind", "actor"]) && owns2(avatars, c.actor);
+            ok = keysOk3(c, ["kind", "actor"]) && owns2(avatars, c.actor);
             break;
           case "knows": {
             const named = Array.isArray(c.topics) ? c.topics : [c.topic];
-            ok = (c.topics === void 0 ? keysOk2(c, ["kind", "topic", "role"]) : keysOk2(c, ["kind", "topics", "role"]) && named.length >= 2 && named.length <= 4 && new Set(named).size === named.length && new Set(
+            ok = (c.topics === void 0 ? keysOk3(c, ["kind", "topic", "role"]) : keysOk3(c, ["kind", "topics", "role"]) && named.length >= 2 && named.length <= 4 && new Set(named).size === named.length && new Set(
               named.map(
                 (id) => (pack.topics || []).find((topic) => topic.id === id)?.speaker
               )
             ).size === named.length) && c.role === "actor" && named.every(
-              (id) => idOk2(id) && (pack.topics || []).some((topic) => topic.id === id)
+              (id) => idOk3(id) && (pack.topics || []).some((topic) => topic.id === id)
             );
             break;
           }
@@ -16199,14 +17073,14 @@
       requirements(a.requires, `avatar ${id} requires`);
       if (a.canonicalPerson !== void 0)
         check(
-          idOk2(a.canonicalPerson),
+          idOk3(a.canonicalPerson),
           `avatar ${id} canonical identity is invalid`
         );
       if (a.home !== void 0)
         check(owns2(places2, a.home), `avatar ${id} home is invalid`);
       if (a.values !== void 0)
         check(
-          record3(a.values) && Object.entries(a.values).every(
+          record4(a.values) && Object.entries(a.values).every(
             ([item, n]) => owns2(items2, item) && intOk(n, 0, 20)
           ),
           `avatar ${id} values are invalid`
@@ -16214,7 +17088,7 @@
       if (a.desire !== void 0) {
         const d = a.desire;
         check(
-          keysOk2(d, ["items", "location", "avatars", "requires"]) && Array.isArray(d.items) && d.items.length <= 3 && d.items.every((i) => owns2(items2, i)) && Array.isArray(d.avatars) && d.avatars.length <= 2 && d.avatars.every((i) => owns2(avatars, i) || i === hub2.player) && (d.location === null || owns2(places2, d.location)),
+          keysOk3(d, ["items", "location", "avatars", "requires"]) && Array.isArray(d.items) && d.items.length <= 3 && d.items.every((i) => owns2(items2, i)) && Array.isArray(d.avatars) && d.avatars.length <= 2 && d.avatars.every((i) => owns2(avatars, i) || i === hub2.player) && (d.location === null || owns2(places2, d.location)),
           `avatar ${id} desire is invalid`
         );
         requirements(d.requires, `avatar ${id} desire requires`);
@@ -16222,7 +17096,7 @@
     }
     for (const [id, i] of Object.entries(items2)) {
       check(
-        keysOk2(i, ["name", "text", "persona", "holder", "art", "requires"]) && textOk2(i.name, 120) && textOk2(i.text) && textOk2(i.persona) && (owns2(places2, i.holder) || owns2(avatars, i.holder) || hub2?.places?.includes(i.holder)),
+        keysOk3(i, ["name", "text", "persona", "holder", "art", "requires"]) && textOk3(i.name, 120) && textOk3(i.text) && textOk3(i.persona) && (owns2(places2, i.holder) || owns2(avatars, i.holder) || hub2?.places?.includes(i.holder)),
         `item ${id} is invalid`
       );
       media(i.art, `item ${id} art`);
@@ -16231,7 +17105,7 @@
     const routes = pack.routes || [];
     for (const r of routes) {
       check(
-        keysOk2(r, ["from", "to", "requires"]) && owns2(places2, r.from) && owns2(places2, r.to) && r.from !== r.to,
+        keysOk3(r, ["from", "to", "requires"]) && owns2(places2, r.from) && owns2(places2, r.to) && r.from !== r.to,
         "routes must stay within their pack"
       );
       requirements(r.requires, "route requires");
@@ -16243,7 +17117,7 @@
     const choices = pack.choices || [], choiceIds = /* @__PURE__ */ new Set(), writes2 = /* @__PURE__ */ new Map(), flags = /* @__PURE__ */ new Set();
     for (const c of choices) {
       check(
-        keysOk2(c, [
+        keysOk3(c, [
           "id",
           "subject",
           "at",
@@ -16254,7 +17128,7 @@
           "requires",
           "effects",
           "workId"
-        ]) && idOk2(c.id) && !choiceIds.has(c.id) && own.includes(c.subject) && owns2(places2, c.at) && textOk2(c.label, 120) && textOk2(c.text, 600) && (c.textTemplate === void 0 || templateOk(c.textTemplate, 600, ["actor"])) && (c.summary === void 0 || textOk2(c.summary, 600)),
+        ]) && idOk3(c.id) && !choiceIds.has(c.id) && own.includes(c.subject) && owns2(places2, c.at) && textOk3(c.label, 120) && textOk3(c.text, 600) && (c.textTemplate === void 0 || templateOk(c.textTemplate, 600, ["actor"])) && (c.summary === void 0 || textOk3(c.summary, 600)),
         `choice ${c.id} is invalid`
       );
       choiceIds.add(c.id);
@@ -16262,16 +17136,16 @@
       for (const e of c.effects) {
         let valid = false;
         if (e.kind === "choose") {
-          valid = keysOk2(e, ["kind", "key", "value"]) && idOk2(e.key) && idOk2(e.value);
+          valid = keysOk3(e, ["kind", "key", "value"]) && idOk3(e.key) && idOk3(e.value);
           if (!writes2.has(e.key)) writes2.set(e.key, /* @__PURE__ */ new Set());
           writes2.get(e.key).add(e.value);
         }
         if (e.kind === "set_flag") {
-          valid = keysOk2(e, ["kind", "key", "value"]) && idOk2(e.key) && typeof e.value === "boolean";
+          valid = keysOk3(e, ["kind", "key", "value"]) && idOk3(e.key) && typeof e.value === "boolean";
           flags.add(e.key);
         }
         if (e.kind === "place_item")
-          valid = keysOk2(e, ["kind", "item", "place"]) && owns2(items2, e.item) && e.place === c.at && (c.requires || []).some(
+          valid = keysOk3(e, ["kind", "item", "place"]) && owns2(items2, e.item) && e.place === c.at && (c.requires || []).some(
             (r) => r.kind === "holding" && r.item === e.item && (r.role === "actor" || r.actor === hub2.player)
           );
         check(valid, `choice ${c.id} effect is unsupported or lacks custody`);
@@ -16282,7 +17156,7 @@
       const journey = avatar.journey;
       const agreement = choices.find((c) => c.id === journey?.after);
       check(
-        keysOk2(journey, ["after", "path"]) && !hub2.avatars.includes(id) && avatar.travels === false && avatar.roamingQuest === void 0 && idOk2(journey.after) && Array.isArray(journey.path) && journey.path.length >= 2 && journey.path.length <= 8 && new Set(journey.path).size === journey.path.length && journey.path[0] === avatar.place && journey.path.every((place) => owns2(places2, place)) && journey.path.slice(1).every((to, i) => {
+        keysOk3(journey, ["after", "path"]) && !hub2.avatars.includes(id) && avatar.travels === false && avatar.roamingQuest === void 0 && idOk3(journey.after) && Array.isArray(journey.path) && journey.path.length >= 2 && journey.path.length <= 8 && new Set(journey.path).size === journey.path.length && journey.path[0] === avatar.place && journey.path.every((place) => owns2(places2, place)) && journey.path.slice(1).every((to, i) => {
           const from = journey.path[i];
           return places2[from].exits.includes(to) || routes.some((route) => route.from === from && route.to === to);
         }) && agreement?.subject === id && agreement.at === avatar.place,
@@ -16303,7 +17177,7 @@
     const topicIds = /* @__PURE__ */ new Set();
     for (const topic of pack.topics || []) {
       check(
-        keysOk2(topic, ["id", "speaker", "at", "text", "requires", "choiceId"]) && idOk2(topic.id) && !topicIds.has(topic.id) && owns2(avatars, topic.speaker) && owns2(places2, topic.at) && validFactText(topic.text) && (topic.choiceId === void 0 || choiceIds.has(topic.choiceId)),
+        keysOk3(topic, ["id", "speaker", "at", "text", "requires", "choiceId"]) && idOk3(topic.id) && !topicIds.has(topic.id) && owns2(avatars, topic.speaker) && owns2(places2, topic.at) && validFactText(topic.text) && (topic.choiceId === void 0 || choiceIds.has(topic.choiceId)),
         `topic ${topic.id} needs a unique id, speaker, place, sentence and valid choice`
       );
       topicIds.add(topic.id);
@@ -16318,6 +17192,12 @@
       }
     }
     problems2.push(...storyQuestProblems(pack, hub2));
+    problems2.push(
+      ...situationProblems(pack, hub2, (cs, what) => {
+        requirements(cs, what);
+        verifyRefs(cs);
+      })
+    );
     [
       ...Object.values(places2),
       ...Object.values(avatars),
@@ -16336,12 +17216,12 @@
       const sectionIds = /* @__PURE__ */ new Set(), sectionPlaces = /* @__PURE__ */ new Set();
       for (const section of Array.isArray(pack.sections) ? pack.sections : []) {
         check(
-          keysOk2(section, ["id", "name", "places", "requires"]) && idOk2(section.id) && !sectionIds.has(section.id) && textOk2(section.name, 120) && Array.isArray(section.places) && section.places.length > 0 && section.places.length <= 16 && new Set(section.places).size === section.places.length && section.places.every(
+          keysOk3(section, ["id", "name", "places", "requires"]) && idOk3(section.id) && !sectionIds.has(section.id) && textOk3(section.name, 120) && Array.isArray(section.places) && section.places.length > 0 && section.places.length <= 16 && new Set(section.places).size === section.places.length && section.places.every(
             (id) => owns2(places2, id) && !sectionPlaces.has(id)
           ) && Array.isArray(section.requires),
           `section ${section?.id} needs unique places and permanent requirements`
         );
-        if (!record3(section)) continue;
+        if (!record4(section)) continue;
         sectionIds.add(section.id);
         for (const id of Array.isArray(section.places) ? section.places : [])
           sectionPlaces.add(id);
@@ -16368,20 +17248,20 @@
     const groups = pack.continuity?.groups || [];
     for (const g of groups)
       check(
-        idOk2(g.key) && new Set(g.options).size === g.options.length && g.options.every((o) => writes2.get(g.key)?.has(o)) && writes2.get(g.key)?.size === g.options.length,
+        idOk3(g.key) && new Set(g.options).size === g.options.length && g.options.every((o) => writes2.get(g.key)?.has(o)) && writes2.get(g.key)?.size === g.options.length,
         "continuity options must match authored commitments"
       );
     if (pack.recital !== void 0) {
       const r = pack.recital;
       check(
-        keysOk2(r, ["actor", "title", "verses", "claims"]) && owns2(avatars, r?.actor) && (avatars[r.actor].travels === false || avatars[r.actor].roamingQuest === "latest-completion") && avatars[r.actor].standoffs === false && textOk2(r.title, 80) && Array.isArray(r.verses) && r.verses.length > 0 && r.verses.length <= 64,
+        keysOk3(r, ["actor", "title", "verses", "claims"]) && owns2(avatars, r?.actor) && (avatars[r.actor].travels === false || avatars[r.actor].roamingQuest === "latest-completion") && avatars[r.actor].standoffs === false && textOk3(r.title, 80) && Array.isArray(r.verses) && r.verses.length > 0 && r.verses.length <= 64,
         "recital needs a singer, a title and up to 64 verses"
       );
       const seen = /* @__PURE__ */ new Set();
-      const linesOk = (lines) => Array.isArray(lines) && lines.length === 2 && lines.every((line) => textOk2(line, 90));
+      const linesOk = (lines) => Array.isArray(lines) && lines.length === 2 && lines.every((line) => textOk3(line, 90));
       for (const v of Array.isArray(r?.verses) ? r.verses : []) {
         check(
-          keysOk2(v, ["choice", "quest", "lines", "summons", "after"]) && choiceIds.has(v?.choice) && !seen.has(v.choice) && idOk2(v.quest) && linesOk(v.lines) && typeof v.summons === "boolean" && (v.after === void 0 || keysOk2(v.after, ["choice", "lines"]) && choiceIds.has(v.after.choice) && v.after.choice !== v.choice && linesOk(v.after.lines)),
+          keysOk3(v, ["choice", "quest", "lines", "summons", "after"]) && choiceIds.has(v?.choice) && !seen.has(v.choice) && idOk3(v.quest) && linesOk(v.lines) && typeof v.summons === "boolean" && (v.after === void 0 || keysOk3(v.after, ["choice", "lines"]) && choiceIds.has(v.after.choice) && v.after.choice !== v.choice && linesOk(v.after.lines)),
           "recital verse needs a unique choice, quest, couplet and summons flag; after may select an earlier deed"
         );
         seen.add(v?.choice);
@@ -16389,8 +17269,8 @@
       if (r.claims !== void 0) {
         check(
           Array.isArray(r.claims) && r.claims.length <= 16 && r.claims.every(
-            (claim) => keysOk2(claim, ["phrases", "anyChoices"]) && Array.isArray(claim.phrases) && claim.phrases.length > 0 && claim.phrases.length <= 16 && claim.phrases.every(
-              (phrase) => textOk2(phrase, 160) && phrase === phrase.toLowerCase()
+            (claim) => keysOk3(claim, ["phrases", "anyChoices"]) && Array.isArray(claim.phrases) && claim.phrases.length > 0 && claim.phrases.length <= 16 && claim.phrases.every(
+              (phrase) => textOk3(phrase, 160) && phrase === phrase.toLowerCase()
             ) && Array.isArray(claim.anyChoices) && claim.anyChoices.length > 0 && claim.anyChoices.length <= 64 && claim.anyChoices.every((choice) => seen.has(choice))
           ),
           "recital claims need bounded phrases and supporting verse choices"
@@ -16424,7 +17304,7 @@
     if (pack.release !== void 0) {
       const r = pack.release;
       check(
-        keysOk2(r, ["places", "avatars", "items", "choices"]),
+        keysOk3(r, ["places", "avatars", "items", "choices"]),
         "release has unknown fields"
       );
       for (const [key, all] of [
@@ -16474,7 +17354,7 @@
       const seen = /* @__PURE__ */ new Set(), counts = {};
       for (const w of pack.works) {
         check(
-          idOk2(w.id) && !seen.has(w.id) && textOk2(w.title, 120) && textOk2(w.premise) && Array.isArray(w.placeIds) && w.placeIds.length > 0 && w.placeIds.every((id) => owns2(places2, id)) && Array.isArray(w.hookChoiceIds) && w.hookChoiceIds.every((id) => choiceIds.has(id)) && ["opening-episode", "branching-episode", "situated-hook"].includes(
+          idOk3(w.id) && !seen.has(w.id) && textOk3(w.title, 120) && textOk3(w.premise) && Array.isArray(w.placeIds) && w.placeIds.length > 0 && w.placeIds.every((id) => owns2(places2, id)) && Array.isArray(w.hookChoiceIds) && w.hookChoiceIds.every((id) => choiceIds.has(id)) && ["opening-episode", "branching-episode", "situated-hook"].includes(
             w.status
           ),
           "invalid work record"
@@ -16483,7 +17363,7 @@
         counts[w.author] = (counts[w.author] || 0) + 1;
       }
       check(
-        pack.coverage?.works === seen.size && record3(pack.coverage?.authors) && Object.keys(counts).length === Object.keys(pack.coverage.authors).length && Object.entries(counts).every(
+        pack.coverage?.works === seen.size && record4(pack.coverage?.authors) && Object.keys(counts).length === Object.keys(pack.coverage.authors).length && Object.entries(counts).every(
           ([id, n]) => pack.coverage.authors[id] === n
         ),
         "repertoire counts disagree"
@@ -16494,8 +17374,8 @@
       const ids3 = /* @__PURE__ */ new Set();
       check(
         Array.isArray(pack.readings) && pack.readings.length <= 8 && pack.readings.every((r) => {
-          if (!record3(r)) return false;
-          const valid = keysOk2(r, ["id", "actor", "after", "title", "text"]) && idOk2(r.id) && !ids3.has(r.id) && owns2(avatars, r.actor) && (r.after === null || choiceIds.has(r.after)) && textOk2(r.title, 120) && textOk2(r.text, 3e3);
+          if (!record4(r)) return false;
+          const valid = keysOk3(r, ["id", "actor", "after", "title", "text"]) && idOk3(r.id) && !ids3.has(r.id) && owns2(avatars, r.actor) && (r.after === null || choiceIds.has(r.after)) && textOk3(r.title, 120) && textOk3(r.text, 3e3);
           ids3.add(r.id);
           return valid;
         }),
@@ -16509,7 +17389,7 @@
     const transportPlaces = /* @__PURE__ */ new Set();
     for (const [id, t] of Object.entries(pack.transports || {})) {
       const valid = check(
-        idOk2(id) && keysOk2(t, ["place", "docks", "at"]) && owns2(places2, t.place) && !transportPlaces.has(t.place) && places2[t.place]?.exits.length === 0 && Array.isArray(t.docks) && t.docks.length >= 2 && t.docks.length <= 8 && new Set(t.docks).size === t.docks.length && t.docks.every((p) => anyPlace(p) && p !== t.place) && t.docks.includes(t.at),
+        idOk3(id) && keysOk3(t, ["place", "docks", "at"]) && owns2(places2, t.place) && !transportPlaces.has(t.place) && places2[t.place]?.exits.length === 0 && Array.isArray(t.docks) && t.docks.length >= 2 && t.docks.length <= 8 && new Set(t.docks).size === t.docks.length && t.docks.every((p) => anyPlace(p) && p !== t.place) && t.docks.includes(t.at),
         `transport ${id} needs its own place, two to eight docks and an initial dock`
       );
       if (!valid) continue;
@@ -16533,7 +17413,7 @@
     for (const c of crossings2) {
       const name = `crossing ${c?.id}`;
       check(
-        keysOk2(c, [
+        keysOk3(c, [
           "id",
           "from",
           "to",
@@ -16546,7 +17426,7 @@
           "closed",
           "travelLabel",
           "transport"
-        ]) && idOk2(c.id) && !crossingIds.has(c.id),
+        ]) && idOk3(c.id) && !crossingIds.has(c.id),
         `${name} needs a distinct id and only known fields`
       );
       crossingIds.add(c?.id);
@@ -16560,7 +17440,7 @@
         `${name} must join a hub place or mounted place to this pack`
       );
       check(
-        TRAVELERS.includes(c?.travelers) && textOk2(c?.travel, 80),
+        TRAVELERS.includes(c?.travelers) && textOk3(c?.travel, 80),
         `${name} needs travelers (player or any) and travel wording`
       );
       check(
@@ -16570,10 +17450,10 @@
       for (const r of c?.requires || []) condition2(r, `${name} condition`);
       for (const field of ["opened", "closed"])
         if (c?.[field] !== void 0)
-          check(textOk2(c[field], 400), `${name} ${field} text is too long`);
+          check(textOk3(c[field], 400), `${name} ${field} text is too long`);
       if (c?.scenery !== void 0)
         check(
-          keysOk2(c.scenery, [
+          keysOk3(c.scenery, [
             "open",
             "closed",
             "overlay",
@@ -16581,7 +17461,7 @@
             "cardArt",
             "cardName"
           ]) && [c.scenery.open, c.scenery.closed, c.scenery.cardName].every(
-            (t) => t === void 0 || textOk2(t, 400)
+            (t) => t === void 0 || textOk3(t, 400)
           ) && [c.scenery.overlay, c.scenery.backdrop, c.scenery.cardArt].every(
             (p) => p === void 0 || mediaPathOk(pack.id, p)
           ),
@@ -16590,7 +17470,7 @@
       const s = c?.signal;
       if (s === void 0) continue;
       check(
-        keysOk2(s, [
+        keysOk3(s, [
           "steps",
           "consecutive",
           "opens",
@@ -16601,7 +17481,7 @@
           "echo",
           "complete",
           "while"
-        ]) && Array.isArray(s.steps) && s.steps.length >= 1 && s.steps.length <= 8 && typeof s.consecutive === "boolean" && (s.opens === null || intOk(s.opens, 1, 9)) && (s.complete === void 0 || textOk2(s.complete, 400)),
+        ]) && Array.isArray(s.steps) && s.steps.length >= 1 && s.steps.length <= 8 && typeof s.consecutive === "boolean" && (s.opens === null || intOk(s.opens, 1, 9)) && (s.complete === void 0 || textOk3(s.complete, 400)),
         `${name} signal needs 1\u20138 steps, consecutive, opens (1\u20139 turns) and complete text`
       );
       if (c.transport)
@@ -16611,7 +17491,7 @@
         pattern(step, `${name} step ${i + 1}`);
       if (s.refresh !== void 0) pattern(s.refresh, `${name} refresh`);
       check(
-        (s.offer === void 0 || templateOk(s.offer, 400, ["actor"])) && (s.hint === void 0 || textOk2(s.hint, 120)) && (s.progress === void 0 || Array.isArray(s.progress) && s.progress.length < s.steps.length && s.progress.every((t) => textOk2(t, 400))) && (s.echo === void 0 || keysOk2(s.echo, ["speaker", "text"]) && textOk2(s.echo.speaker, 40) && textOk2(s.echo.text, 120)),
+        (s.offer === void 0 || templateOk(s.offer, 400, ["actor"])) && (s.hint === void 0 || textOk3(s.hint, 120)) && (s.progress === void 0 || Array.isArray(s.progress) && s.progress.length < s.steps.length && s.progress.every((t) => textOk3(t, 400))) && (s.echo === void 0 || keysOk3(s.echo, ["speaker", "text"]) && textOk3(s.echo.speaker, 40) && textOk3(s.echo.text, 120)),
         `${name} signal offer, hint, progress or echo text is invalid`
       );
       check(
@@ -17021,10 +17901,10 @@
         return false;
     }
     for (const pack of packDefinitions) {
-      const record5 = s.packs[pack.id];
+      const record6 = s.packs[pack.id];
       const fixtures = Object.entries(pack.fixtures || {});
       if (!exactKeys(
-        record5,
+        record6,
         pack.choices ? [
           "revision",
           "sounds",
@@ -17035,11 +17915,11 @@
           "scope",
           ...pack.recital ? ["recitals"] : []
         ] : ["revision", "sounds"]
-      ) || record5.revision !== pack.revision || !exactKeys(
-        record5.sounds,
+      ) || record6.revision !== pack.revision || !exactKeys(
+        record6.sounds,
         fixtures.map(([id]) => id)
       ) || fixtures.some(
-        ([id, f]) => !whole2(record5.sounds[id], s.turn + f.sound.turns)
+        ([id, f]) => !whole2(record6.sounds[id], s.turn + f.sound.turns)
       ))
         return false;
     }
@@ -17060,7 +17940,7 @@
 
   // v2/card-game/pack-registry.mjs
   var owns3 = (o, key) => typeof key === "string" && !!o && Object.hasOwn(o, key);
-  var record4 = (v) => v && typeof v === "object" && !Array.isArray(v);
+  var record5 = (v) => v && typeof v === "object" && !Array.isArray(v);
   function validatePackDefinition(pack) {
     const problems2 = packProblems(
       pack,
@@ -17396,12 +18276,12 @@
     ].map((text2) => text2.slice(0, 240));
   }
   function validatePackStates(world) {
-    if (!record4(world.packs) || Object.keys(world.packs).sort().join() !== packDefinitions.map((p) => p.id).sort().join())
+    if (!record5(world.packs) || Object.keys(world.packs).sort().join() !== packDefinitions.map((p) => p.id).sort().join())
       return false;
     for (const pack of packDefinitions) {
       if (!pack.choices) continue;
       const state = world.packs[pack.id];
-      if (!record4(state) || !validRecitals(world, pack) || !validJourneyPlaces(world, pack) || state.revision !== pack.revision || !["opening", "full"].includes(state.scope) || Object.keys(state).sort().join() !== [
+      if (!record5(state) || !validRecitals(world, pack) || !validJourneyPlaces(world, pack) || state.revision !== pack.revision || !["opening", "full"].includes(state.scope) || Object.keys(state).sort().join() !== [
         "revision",
         "sounds",
         "choices",
@@ -17410,7 +18290,7 @@
         "met",
         "scope",
         ...pack.recital ? ["recitals"] : []
-      ].sort().join() || ![state.choices, state.flags, state.receipts, state.met].every(record4) || Object.entries(state.met).some(
+      ].sort().join() || ![state.choices, state.flags, state.receipts, state.met].every(record5) || Object.entries(state.met).some(
         ([id, turn]) => !owns3(pack.avatars, id) || !conditionsMet(
           world,
           pack.id,
@@ -17527,9 +18407,19 @@
   function validCondition(c, actor) {
     return c && (c.kind === "knows" && c.role === "actor" && typeof c.topic === "string" && c.topic.length > 0 && c.topic.length <= 160 && !/[\u0000-\u0020\u007f]/u.test(c.topic) || c.kind === "together" && Array.isArray(c.avatars) && c.avatars.length === 2 && new Set(c.avatars).size === 2 && c.avatars.every((id) => profilesId(id) && id !== actor) || c.kind === "lit" && c.item === "lamp" || c.kind === "ringing" && c.item === "bell" || c.kind === "covered" && ["lamp", "bell"].includes(c.item) || c.kind === "heldBy" && ["lamp", "oil", "bell", "cloth", ...Object.keys(packThings)].includes(
       c.item
-    ) && [...humanAvatarIds, "moth", "keeper"].includes(c.avatar) && c.avatar !== actor);
+    ) && [
+      ...humanAvatarIds,
+      "moth",
+      "keeper",
+      ...Object.keys(packPeople)
+    ].includes(c.avatar) && c.avatar !== actor);
   }
-  var validConsequence = (c, actor) => c && (["anchor", "oil", "hush"].includes(c.kind) || c.kind === "trust" && [...humanAvatarIds, "moth", "keeper"].includes(c.avatar) && c.avatar !== actor);
+  var validConsequence = (c, actor) => c && (["anchor", "oil", "hush"].includes(c.kind) || c.kind === "trust" && [
+    ...humanAvatarIds,
+    "moth",
+    "keeper",
+    ...Object.keys(packPeople)
+  ].includes(c.avatar) && c.avatar !== actor);
   function requiredItems(s, actor, target) {
     const items2 = [...target.items];
     for (const c of target.conditions || []) {
@@ -17693,8 +18583,142 @@
         )
       );
     }
-    return choices;
+    return [...choices, ...packSituationPrograms(s, actor, base, api)];
   }
+  function packSituationPrograms(s, actor, base, api) {
+    const {
+      hand: hand2,
+      hold: hold2,
+      at: at2,
+      withAvatars: withAvatars2,
+      either: either2,
+      explored = [],
+      known = [],
+      reach = () => false,
+      mayGive = () => true
+    } = api;
+    const visitor = actor !== BOARDY && (controlledByHuman(s, actor) || Boolean(humanAvatar(actor)) || packPeople[actor]?.personalQuests === true);
+    const near = (place) => explored.includes(place) && entityActive(s, place);
+    const meetable = (id) => id !== actor && Boolean(s.actors[id]) && entityActive(s, id) && known.includes(id) && (!controlledByHuman(s, id) || humanPresent(s, id)) && near(s.actors[id].place);
+    const gettable = (id) => Boolean(s.items[id]) && entityActive(s, id) && reach(id);
+    const programs = [];
+    const templates = packDefinitions.flatMap(
+      (pack) => (pack.situations || []).map((t) => ({ pack, t }))
+    );
+    const turn = s.actors[actor].progress.program % (templates.length || 1);
+    for (const { pack, t } of [
+      ...templates.slice(turn),
+      ...templates.slice(0, turn)
+    ]) {
+      if (!t.takers.includes(actor) && !(visitor && t.takers.includes("visitors")))
+        continue;
+      if (!conditionsMet(s, pack.id, t.requires || [], actor)) continue;
+      if (!s.life?.actors?.[actor] && t.steps.some(
+        (step) => (step.any || [step]).some(
+          (h) => (h.conditions || []).some((c) => c.kind === "knows")
+        )
+      ))
+        continue;
+      const roles = {};
+      let ok = true;
+      for (const [name, spec] of Object.entries(t.roles)) {
+        let value = null;
+        if (spec.item) value = spec.item.find(gettable) ?? null;
+        else if (spec.avatar) value = spec.avatar.find(meetable) ?? null;
+        else if (spec.place) value = spec.place.find(near) ?? null;
+        else if (spec.holder) {
+          const owner2 = rootOwner(s, roles[spec.holder.slice(1)]);
+          value = meetable(owner2) ? owner2 : null;
+        } else if (spec.placeOf) {
+          const id = roles[spec.placeOf.slice(1)];
+          const place = s.actors[id] ? s.actors[id].place : s.actors[rootOwner(s, id)]?.place || rootOwner(s, id);
+          value = near(place) ? place : null;
+        }
+        if (value === null) {
+          ok = false;
+          break;
+        }
+        roles[name] = value;
+      }
+      if (!ok) continue;
+      const pick = (v) => v.startsWith("$") ? roles[v.slice(1)] : v;
+      const topicOf = (id) => (pack.topics || []).find((x) => x.id === id);
+      const conditionReady = (c) => {
+        switch (c.kind) {
+          case "heldBy":
+            return rootOwner(s, c.item) !== c.avatar && gettable(c.item) && (rootOwner(s, c.item) !== actor || mayGive(c.item)) && meetable(c.avatar);
+          case "knows":
+            return knowsFact(s, actor, c.topic) || near(topicOf(c.topic).at) && meetable(topicOf(c.topic).speaker);
+          case "together":
+            return c.avatars.every(meetable);
+          case "lit":
+            return gettable("lamp") && (s.items.lamp.fuel > 0 || s.items.oil.doses > 0 && gettable("oil"));
+          case "ringing":
+            return gettable("bell");
+          case "covered":
+            return gettable(c.item) && gettable("cloth");
+          default:
+            return false;
+        }
+      };
+      const compile = (h, last) => {
+        const items2 = (h.hold || []).map(pick);
+        const avatars = (h.with || []).map(pick);
+        const conditions = (h.conditions || []).map(
+          (c) => c.kind === "knows" ? { kind: "knows", topic: c.topic, role: "actor" } : c.kind === "heldBy" ? { kind: "heldBy", item: pick(c.item), avatar: pick(c.avatar) } : c.kind === "together" ? { kind: "together", avatars: c.avatars.map(pick) } : { kind: c.kind, item: c.item }
+        );
+        const place = pick(h.at);
+        if (!near(place) || !items2.every(gettable) || !avatars.every(meetable) || !conditions.every((c) => validCondition(c, actor) && conditionReady(c)))
+          return null;
+        const target = hand2(
+          hold2(...items2),
+          at2(place),
+          withAvatars2(...avatars),
+          ...conditions.length ? [{ conditions }] : []
+        );
+        if (last && t.consequence) {
+          const consequence = {
+            kind: "trust",
+            avatar: pick(t.consequence.avatar)
+          };
+          if (!validConsequence(consequence, actor)) return null;
+          target.consequence = consequence;
+        }
+        return target;
+      };
+      const steps = [];
+      for (const [i, step] of t.steps.entries()) {
+        const last = i === t.steps.length - 1;
+        const options = (step.any || [step]).map((h) => compile(h, last)).filter(Boolean);
+        if (!options.length) {
+          ok = false;
+          break;
+        }
+        steps.push(options.length === 1 ? options[0] : either2(...options));
+      }
+      if (!ok) continue;
+      const first = alternativesOf(steps).flatMap((h) => [
+        ...h.items,
+        ...(h.conditions || []).flatMap((c) => c.item ? [c.item] : [])
+      ])[0];
+      if (!first) continue;
+      programs.push({
+        ...base,
+        name: t.name,
+        purpose: t.purpose,
+        steps,
+        generated: {
+          ...base.generated,
+          item: first,
+          owner: rootOwner(s, first),
+          partner: roles.partner,
+          situation: t.kind
+        }
+      });
+    }
+    return programs;
+  }
+  var alternativesOf = (steps) => steps.flatMap((step) => step.any || [step]);
 
   // v2/card-game/entity-profiles.json
   var entity_profiles_default = {
@@ -18982,24 +20006,24 @@
     ).slice(0, 6);
     const placeOf2 = (item2) => s.actors[ownerOf(s, item2)]?.place || ownerOf(s, item2);
     const bundle2 = (item2) => ids3.filter((id) => id === item2 || s.items[id].holder === item2);
-    const needed2 = (owner3, item2) => bundle2(item2).some(
-      (id) => requiredItems(s, owner3, desireFor(s, owner3)).includes(id)
+    const needed2 = (owner2, item2) => bundle2(item2).some(
+      (id) => requiredItems(s, owner2, desireFor(s, owner2)).includes(id)
     );
     const wantedElsewhere = (item2) => !controlledByHuman(s, actor) && actors2.some((other) => other !== actor && needed2(other, item2));
     const held = ids3.filter(
       (id) => ownerOf(s, id) === actor && !wantedElsewhere(id)
     );
     const available = (item2) => {
-      const owner3 = ownerOf(s, item2);
-      return (!s.actors[owner3] || actors2.includes(owner3)) && (!independent || !controlledByHuman(s, owner3)) && reachable.includes(placeOf2(item2)) && (!s.actors[owner3] || owner3 === actor || !needed2(owner3, item2));
+      const owner2 = ownerOf(s, item2);
+      return (!s.actors[owner2] || actors2.includes(owner2)) && (!independent || !controlledByHuman(s, owner2)) && reachable.includes(placeOf2(item2)) && (!s.actors[owner2] || owner2 === actor || !needed2(owner2, item2));
     };
     if (solo || !actors2.some((id) => id !== actor)) {
       const away = reachable.filter((id) => id !== here);
-      const destination2 = away[(progress.program + actors2.indexOf(actor)) % away.length] || here;
+      const destination = away[(progress.program + actors2.indexOf(actor)) % away.length] || here;
       return {
         id: `generated-${actor}-${progress.program + 1}`,
         name: "An errand alone",
-        steps: [carryTo(held.slice(0, 2), destination2)],
+        steps: [carryTo(held.slice(0, 2), destination)],
         generated: {
           turn: s.turn,
           level: levelOf(s, actor),
@@ -19013,14 +20037,14 @@
     const rotation = (progress.program + actors2.indexOf(actor)) % ids3.length;
     const rotated = [...ids3.slice(rotation), ...ids3.slice(0, rotation)];
     const candidates2 = rotated.filter((id) => {
-      const owner3 = ownerOf(s, id);
+      const owner2 = ownerOf(s, id);
       if (s.items[s.items[id].holder] || !available(id)) return false;
-      if (owner3 === actor && wantedElsewhere(id)) return false;
-      if (!independent || !s.actors[owner3] || owner3 === actor) return true;
-      const payment2 = requiredItems(s, owner3, desireFor(s, owner3)).filter(
-        (item2) => ownerOf(s, item2) !== owner3
+      if (owner2 === actor && wantedElsewhere(id)) return false;
+      if (!independent || !s.actors[owner2] || owner2 === actor) return true;
+      const payment = requiredItems(s, owner2, desireFor(s, owner2)).filter(
+        (item2) => ownerOf(s, item2) !== owner2
       );
-      return !payment2.length || payment2.some(available);
+      return !payment.length || payment.some(available);
     });
     if (!candidates2.length)
       candidates2.push(
@@ -19031,47 +20055,62 @@
     const recent = progress.recent || [];
     const active = actors2.filter((id) => id !== actor).map((id) => programFor(s, id)).filter(Boolean);
     const score = (item2) => {
-      const owner3 = ownerOf(s, item2);
-      let value = owner3 === actor ? 0 : s.actors[owner3] ? 6 : 4;
-      if (!controlledByHuman(s, actor) && controlledByHuman(s, owner3))
+      const owner2 = ownerOf(s, item2);
+      let value = owner2 === actor ? 0 : s.actors[owner2] ? 6 : 4;
+      if (!controlledByHuman(s, actor) && controlledByHuman(s, owner2))
         value = progress.program % 3 === 0 ? 10 : -2;
       return value - (recent.includes(item2) ? 3 : 0) - active.filter((p) => p.generated?.item === item2).length * 4;
     };
     const item = candidates2.sort((a, b) => score(b) - score(a))[0];
-    if (!item)
-      return generateProgram(s, actor, places2, things2, {
-        independent,
-        solo: true
-      });
-    const owner2 = ownerOf(s, item);
-    const others = actors2.filter((id) => id !== actor);
-    const partner = s.actors[owner2] && owner2 !== actor ? owner2 : others[(progress.program + actors2.indexOf(actor)) % others.length];
-    const payment = owner2 !== actor && s.actors[owner2] ? requiredItems(s, owner2, desireFor(s, owner2)).find(
-      (id) => ownerOf(s, id) !== owner2 && id !== item && available(id)
-    ) : null;
-    const destinations = reachable.filter((id) => id !== placeOf2(item));
-    const destination = destinations[(progress.program + actors2.indexOf(actor)) % destinations.length] || here;
-    const extra = levelOf(s, actor) >= 5 ? held.find(
-      (id) => id !== item && id !== payment && !bundle2(item).includes(id)
-    ) : null;
-    const finalItems = [
-      item,
-      ...extra && (/* @__PURE__ */ new Set([...bundle2(item), extra])).size <= 3 ? [extra] : []
-    ];
-    const gathering = hand(hold(payment || item));
-    const meeting = meet([item], partner, reachable);
-    const journey = carryTo(finalItems, destination);
-    const base = {
-      id: `generated-${actor}-${progress.program + 1}`,
-      name: payment ? `A trade with ${humanAvatar(partner)?.name || (partner === "moth" ? "Pip" : "the keeper")}` : `${things2[item].name} journey`,
-      steps: sequence2(
-        gathering,
-        ...progress.program % 2 ? [journey, meeting] : [meeting, journey]
-      ),
-      generated: { turn: s.turn, level: levelOf(s, actor), item, owner: owner2, partner }
+    const errand = item ? null : generateProgram(s, actor, places2, things2, { independent, solo: true });
+    if (errand && (independent || !s.locations)) return errand;
+    const base = item ? bargainBase() : {
+      ...errand,
+      generated: {
+        turn: s.turn,
+        level: levelOf(s, actor),
+        item: null,
+        owner: actor,
+        partner: null
+      }
     };
+    function bargainBase() {
+      const owner2 = ownerOf(s, item);
+      const others = actors2.filter((id) => id !== actor);
+      const partner = s.actors[owner2] && owner2 !== actor ? owner2 : others[(progress.program + actors2.indexOf(actor)) % others.length];
+      const payment = owner2 !== actor && s.actors[owner2] ? requiredItems(s, owner2, desireFor(s, owner2)).find(
+        (id) => ownerOf(s, id) !== owner2 && id !== item && available(id)
+      ) : null;
+      const destinations = reachable.filter((id) => id !== placeOf2(item));
+      const destination = destinations[(progress.program + actors2.indexOf(actor)) % destinations.length] || here;
+      const extra = levelOf(s, actor) >= 5 ? held.find(
+        (id) => id !== item && id !== payment && !bundle2(item).includes(id)
+      ) : null;
+      const finalItems = [
+        item,
+        ...extra && (/* @__PURE__ */ new Set([...bundle2(item), extra])).size <= 3 ? [extra] : []
+      ];
+      const gathering = hand(hold(payment || item));
+      const meeting = meet([item], partner, reachable);
+      const journey = carryTo(finalItems, destination);
+      return {
+        id: `generated-${actor}-${progress.program + 1}`,
+        name: payment ? `A trade with ${humanAvatar(partner)?.name || (partner === "moth" ? "Pip" : "the keeper")}` : `${things2[item].name} journey`,
+        steps: sequence2(
+          gathering,
+          ...progress.program % 2 ? [journey, meeting] : [meeting, journey]
+        ),
+        generated: {
+          turn: s.turn,
+          level: levelOf(s, actor),
+          item,
+          owner: owner2,
+          partner
+        }
+      };
+    }
     if (independent || !s.locations) return base;
-    const catalog = situationPrograms(s, actor, base, {
+    const api = {
       hand,
       hold,
       at,
@@ -19081,9 +20120,22 @@
       available: (id) => s.life && questItemAvailable(s, actor, id) || available(id) && !(ownerOf(s, id) === actor && wantedElsewhere(id)),
       mayGive: (id) => !lifeOf(s, actor)?.attachments[id],
       needed: (id) => requiredItems(s, id, desireFor(s, id)),
+      // Pack situations use every place the avatar can walk to now.
+      explored: traversed.slice(0, 12),
+      known: knownActors(s),
+      reach: (id) => {
+        if (s.life && questItemAvailable(s, actor, id)) return true;
+        const owner2 = ownerOf(s, id);
+        if (owner2 === actor) return !wantedElsewhere(id);
+        if (s.items[s.items[id].holder]) return false;
+        if (!s.actors[owner2]) return traversed.includes(owner2);
+        return knownActors(s).includes(owner2) && traversed.includes(s.actors[owner2].place) && !needed2(owner2, id);
+      },
       name: (id) => things2[id]?.name || places2[id]?.name || { vale: "Vale", moth: "Pip", keeper: "the keeper" }[id] || humanAvatar(id)?.name || packPeople[id]?.name
-    });
-    if (lifeOf(s, actor))
+    };
+    const catalog = item ? situationPrograms(s, actor, base, api) : packSituationPrograms(s, actor, base, api);
+    if (!item && !catalog.length) return errand;
+    if (item && lifeOf(s, actor))
       catalog.push(
         ...introductionPrograms(
           s,
@@ -19101,11 +20153,12 @@
       keeper: ["answer", "delivery", "crossing", "gathering", "bargain"]
     }[actor] || ["delivery", "gathering", "crossing", "answer", "bargain"];
     if (!preferences.includes("introduction")) preferences.push("introduction");
-    catalog.push({
-      ...base,
-      purpose: `Make a bargain for the ${things2[item].name}, then choose where to carry it and whom to meet.`,
-      generated: { ...base.generated, situation: "bargain" }
-    });
+    if (item)
+      catalog.push({
+        ...base,
+        purpose: `Make a bargain for the ${things2[item].name}, then choose where to carry it and whom to meet.`,
+        generated: { ...base.generated, situation: "bargain" }
+      });
     const recentKinds = progress.recentKinds || [];
     const kindOf = (p) => p.generated?.situation || "bargain";
     const unseen = catalog.filter((p) => !recentKinds.includes(kindOf(p)));
@@ -19114,7 +20167,11 @@
       (p) => !active.some((other) => kindOf(other) === kindOf(p))
     );
     const choices = lifeOf(s, actor) ? catalog : distinct.length ? distinct : fresh;
-    const rank = (p) => (actor === BOARDY && kindOf(p) === "introduction" ? -10 : 0) + personalQuestRank(s, actor, p) / (actor === BOARDY ? 50 : 1) + preferences.indexOf(kindOf(p)) + recentKinds.reduce(
+    const region = packPlaces[here]?.packId;
+    const local = (p) => Boolean(region) && kindOf(p) !== "bargain" && p.steps.some(
+      (step) => alternatives(step).some((h) => packPlaces[h.location]?.packId === region)
+    );
+    const rank = (p) => (actor === BOARDY && kindOf(p) === "introduction" ? -10 : 0) + (local(p) ? -0.5 : 0) + personalQuestRank(s, actor, p) / (actor === BOARDY ? 50 : 1) + preferences.indexOf(kindOf(p)) + recentKinds.reduce(
       (n, kind, i) => n + (kind === kindOf(p) ? 5 + i * 2 : 0),
       0
     ) + (recent.includes(p.generated.item) ? 2 : 0);
@@ -19464,13 +20521,13 @@
         if (capture(actor, quest, true)) break;
     }
   }
-  function questStepTransition(record5, evidence, turn) {
-    if (!record5?.program || record5.completedTurn != null || record5.retired || record5.lastProgressTurn === turn || record5.step !== evidence.step || record5.step < 0 || record5.step >= record5.program.steps.length)
+  function questStepTransition(record6, evidence, turn) {
+    if (!record6?.program || record6.completedTurn != null || record6.retired || record6.lastProgressTurn === turn || record6.step !== evidence.step || record6.step < 0 || record6.step >= record6.program.steps.length)
       return null;
     return {
-      step: record5.step,
-      nextStep: record5.step + 1,
-      complete: record5.step + 1 === record5.program.steps.length
+      step: record6.step,
+      nextStep: record6.step + 1,
+      complete: record6.step + 1 === record6.program.steps.length
     };
   }
   var consequenceKey = (effect, actor) => JSON.stringify([effect, effect.kind === "trust" ? actor : null]);
@@ -19496,12 +20553,12 @@
       const progress = s.actors[actor].progress;
       const collection = lifeOf(s, actor)?.collection;
       const card = evidence.shared ? questRecord(s, evidence.questKey) : collection && collectionCards(s, actor).find((q) => q.key === evidence.questKey);
-      const record5 = card || (!evidence.shared && !collection ? {
+      const record6 = card || (!evidence.shared && !collection ? {
         program: programFor(s, actor),
         step: progress.step,
         lastProgressTurn: progress.marks.at(-1)
       } : null);
-      const transition = questStepTransition(record5, evidence, s.turn);
+      const transition = questStepTransition(record6, evidence, s.turn);
       if (!transition) continue;
       const { step, nextStep, complete } = transition;
       if (evidence.shared) {
@@ -19543,7 +20600,7 @@
         }
         continue;
       }
-      const source = record5.program;
+      const source = record6.program;
       const programIndex = progress.program;
       const program = source.generated ? {
         ...source,
@@ -20138,7 +21195,7 @@
     const old = questRecords(world).find(
       (q) => unfinished2(q) && q.cause?.kind === "help" && q.cause.rootId === cause.rootId && q.program.steps[0]?.passage?.actor === actor && (kind === "directions" || q.program.steps[0].passage.from === from) && q.program.steps[0].passage.to === to && q.program.steps[0].passage.kind === kind
     );
-    const record5 = old || addQuestRecord(world, {
+    const record6 = old || addQuestRecord(world, {
       holder: kind === "directions" ? { kind: "avatar", id: actor } : { kind: "place", id: from },
       cause,
       transientActor: actor,
@@ -20156,8 +21213,8 @@
         ]
       }
     });
-    state.blocked = { kind, from, to, questKey: record5?.key ?? null };
-    return record5;
+    state.blocked = { kind, from, to, questKey: record6?.key ?? null };
+    return record6;
   }
   function shareRoamingDirections(world, actor, api) {
     const state = world.roamingQuests[actor];

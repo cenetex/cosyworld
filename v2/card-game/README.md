@@ -290,6 +290,12 @@ that fulfils the next milestone records its completion turn. The hope and its
 completed milestones stay with the avatar through later quests. Earlier
 authored quests keep their order as the opening story.
 
+Inside a mounted pack, generated quests also come from the pack's own
+`situations` (see the [pack guide](../docs/card-packs.md)). The Willows, the
+Steam Clock, the Hoppy Cat archive and the Lonely Forest each supply a few,
+such as learning news from a resident through Talk and then carrying an item
+to someone else. Inside a pack, its own situations win ties with the hub's.
+
 Favourite belongings have lasting value. A received gift gains a saved
 attachment to its giver. These reasons affect gifts, prices and autonomous
 handover choices. An explicit delivery quest can give an attached item a new

@@ -33,6 +33,36 @@ Packs can also supply `storyQuests` and `topics`. The
 [story quest guide](card-story-quests.md) covers saved evidence, branches,
 spoken clues and ordered knowledge requirements.
 
+### Personal quest situations
+
+`situations` gives visitors generated personal quests that belong to the pack.
+`v2/card-game/pack-situation-schema.mjs` checks them in the build and on load.
+Each template has:
+
+- `id`, `name` and a `purpose` sentence of at most 200 characters;
+- `kind`: `delivery`, `gathering`, `crossing` or `answer`, so hopes count it
+  like the hub situations;
+- `takers`: `"visitors"` (the player, shared human avatars and pack residents
+  with `personalQuests`) or named avatars;
+- `requires`: optional pack conditions that must hold before it is offered;
+- `roles`: a map with a required `partner`. A role is one of
+  `{"item": [ids]}`, `{"avatar": [ids]}`, `{"place": [ids]}`,
+  `{"holder": "$itemRole"}` or `{"placeOf": "$role"}`. The first fitting id in
+  the list wins;
+- `steps`: one to four hands, or `{"any": [hands]}` with two to four hands.
+  A hand has `at` (required), `hold` (up to three items), `with` (up to two
+  people) and `conditions` (up to three of `heldBy`, `knows` with a pack topic,
+  `together`, and `lit`, `ringing` or `covered` with the hub lamp or bell);
+- `consequence`: optional `{"kind": "trust", "avatar": ...}` on the last step.
+
+Hands name pack or hub ids directly, or a role as `"$name"`. A template needs
+an item, a person and a condition or consequence. A visitor gets a template
+only when every place, person and item in it is within reach now; an `any`
+step keeps its reachable hands. Steps with `knows` wait for Talk, so only an
+avatar with a personal life (whose quiet spells bring a fresh purpose) takes
+them. The result is an ordinary saved program, so later template changes do
+not change saved quests.
+
 ## The pack source
 
 ```jsonc
