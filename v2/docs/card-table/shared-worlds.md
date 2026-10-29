@@ -79,6 +79,15 @@ bundle after changing any module it imports. The check mode compares the bundle
 with its sources. The Rust service embeds the bundle, so a deployed server and
 its browser assets come from one release.
 
+Every merge to `main` deploys, so main's newest bundle is live and its bytes
+are fixed. A branch that changes rule modules runs `npm run v2:card:shared:next`
+after it rebases on or merges `main`. The script restores main's released
+bundles and version wiring, rebuilds the rules, and adds the next version only
+when the bytes differ from main's. It pins the live bundle's hash in
+`test/card-released-rules.test.mjs`. Run it again after each later rebase; it
+gives the same result. Then rebuild the card assets and bump the release
+version. Do not resolve bundle conflicts by hand.
+
 ## Event sync
 
 Each browser keeps a sequence number and SHA-256 hash for its shared view.
