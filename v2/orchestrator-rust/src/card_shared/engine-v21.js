@@ -1357,7 +1357,9 @@
         sanctuary: true,
         name: "Empty station",
         text: "The timetable lists years that have yet to happen. A path leads along the shore to the pond.",
-        exits: ["pond"]
+        exits: [
+          "pond"
+        ]
       },
       attic: {
         sanctuary: true,
@@ -1368,7 +1370,9 @@
       pond: {
         name: "Black pond",
         text: "Something vast breathes beneath the reflection. A path leads to the station.",
-        exits: ["station"]
+        exits: [
+          "station"
+        ]
       }
     },
     people: {
@@ -1410,19 +1414,31 @@
           name: "Borrowed light",
           steps: [
             {
-              items: ["lamp"],
+              items: [
+                "lamp"
+              ],
               location: "station",
-              avatars: ["moth"]
+              avatars: [
+                "moth"
+              ]
             },
             {
-              items: ["oil"],
+              items: [
+                "oil"
+              ],
               location: "attic",
-              avatars: ["keeper"]
+              avatars: [
+                "keeper"
+              ]
             },
             {
-              items: ["cloth"],
+              items: [
+                "cloth"
+              ],
               location: "pond",
-              avatars: ["moth"]
+              avatars: [
+                "moth"
+              ]
             }
           ]
         },
@@ -1431,14 +1447,23 @@
           name: "The bell below",
           steps: [
             {
-              items: ["bell"],
+              items: [
+                "bell"
+              ],
               location: "pond",
-              avatars: ["keeper"]
+              avatars: [
+                "keeper"
+              ]
             },
             {
-              items: ["lamp", "bell"],
+              items: [
+                "lamp",
+                "bell"
+              ],
               location: "station",
-              avatars: ["moth"]
+              avatars: [
+                "moth"
+              ]
             }
           ]
         }
@@ -1449,14 +1474,22 @@
           name: "A light and a witness",
           steps: [
             {
-              items: ["lamp"],
+              items: [
+                "lamp"
+              ],
               location: "pond",
-              avatars: ["vale"]
+              avatars: [
+                "vale"
+              ]
             },
             {
-              items: ["oil"],
+              items: [
+                "oil"
+              ],
               location: "attic",
-              avatars: ["keeper"]
+              avatars: [
+                "keeper"
+              ]
             }
           ]
         },
@@ -1465,14 +1498,22 @@
           name: "A veil for the eye",
           steps: [
             {
-              items: ["cloth"],
+              items: [
+                "cloth"
+              ],
               location: "pond",
-              avatars: ["vale"]
+              avatars: [
+                "vale"
+              ]
             },
             {
-              items: ["lamp"],
+              items: [
+                "lamp"
+              ],
               location: "station",
-              avatars: ["keeper"]
+              avatars: [
+                "keeper"
+              ]
             }
           ]
         }
@@ -1483,14 +1524,22 @@
           name: "The quiet hour",
           steps: [
             {
-              items: ["bell"],
+              items: [
+                "bell"
+              ],
               location: "attic",
-              avatars: ["vale"]
+              avatars: [
+                "vale"
+              ]
             },
             {
-              items: ["cloth"],
+              items: [
+                "cloth"
+              ],
               location: "attic",
-              avatars: ["moth"]
+              avatars: [
+                "moth"
+              ]
             }
           ]
         },
@@ -1499,14 +1548,22 @@
           name: "The hour below",
           steps: [
             {
-              items: ["bell"],
+              items: [
+                "bell"
+              ],
               location: "pond",
-              avatars: ["vale"]
+              avatars: [
+                "vale"
+              ]
             },
             {
-              items: ["oil"],
+              items: [
+                "oil"
+              ],
               location: "station",
-              avatars: ["moth"]
+              avatars: [
+                "moth"
+              ]
             }
           ]
         }
@@ -1520,7 +1577,9 @@
           purpose: "Bring light to the attic.",
           steps: [
             {
-              items: ["lamp"],
+              items: [
+                "lamp"
+              ],
               location: "attic",
               avatars: [],
               conditions: [
@@ -1538,12 +1597,18 @@
           purpose: "Meet the moth by the water, then carry the lamp along the path to the station.",
           steps: [
             {
-              items: ["lamp"],
+              items: [
+                "lamp"
+              ],
               location: "pond",
-              avatars: ["moth"]
+              avatars: [
+                "moth"
+              ]
             },
             {
-              items: ["lamp"],
+              items: [
+                "lamp"
+              ],
               location: "station",
               avatars: []
             }
@@ -1556,14 +1621,22 @@
           name: "A light and a witness",
           steps: [
             {
-              items: ["lamp"],
+              items: [
+                "lamp"
+              ],
               location: "pond",
-              avatars: ["vale"]
+              avatars: [
+                "vale"
+              ]
             },
             {
-              items: ["oil"],
+              items: [
+                "oil"
+              ],
               location: "station",
-              avatars: ["keeper"]
+              avatars: [
+                "keeper"
+              ]
             }
           ]
         },
@@ -1572,14 +1645,22 @@
           name: "A veil for the eye",
           steps: [
             {
-              items: ["cloth"],
+              items: [
+                "cloth"
+              ],
               location: "pond",
-              avatars: ["vale"]
+              avatars: [
+                "vale"
+              ]
             },
             {
-              items: ["lamp"],
+              items: [
+                "lamp"
+              ],
               location: "station",
-              avatars: ["keeper"]
+              avatars: [
+                "keeper"
+              ]
             }
           ]
         }
@@ -1590,14 +1671,22 @@
           name: "The quiet hour",
           steps: [
             {
-              items: ["bell"],
+              items: [
+                "bell"
+              ],
               location: "station",
-              avatars: ["vale"]
+              avatars: [
+                "vale"
+              ]
             },
             {
-              items: ["cloth"],
+              items: [
+                "cloth"
+              ],
               location: "pond",
-              avatars: ["moth"]
+              avatars: [
+                "moth"
+              ]
             }
           ]
         },
@@ -1606,14 +1695,22 @@
           name: "The hour below",
           steps: [
             {
-              items: ["bell"],
+              items: [
+                "bell"
+              ],
               location: "pond",
-              avatars: ["vale"]
+              avatars: [
+                "vale"
+              ]
             },
             {
-              items: ["oil"],
+              items: [
+                "oil"
+              ],
               location: "station",
-              avatars: ["moth"]
+              avatars: [
+                "moth"
+              ]
             }
           ]
         }
@@ -1724,7 +1821,9 @@
           kind: "narration",
           actorId: null,
           locationId: "station",
-          cast: ["vale"],
+          cast: [
+            "vale"
+          ],
           items: [
             {
               id: "lamp",
@@ -1772,7 +1871,9 @@
           kind: "narration",
           actorId: null,
           locationId: "attic",
-          cast: ["vale"],
+          cast: [
+            "vale"
+          ],
           items: [
             {
               id: "lamp",
@@ -1795,7 +1896,9 @@
           purpose: "Bring a little light to the black shore.",
           steps: [
             {
-              items: ["lamp"],
+              items: [
+                "lamp"
+              ],
               location: "pond",
               avatars: [],
               conditions: [
@@ -1813,12 +1916,18 @@
           purpose: "Meet the moth by the water, then carry the lamp along the path to the station.",
           steps: [
             {
-              items: ["lamp"],
+              items: [
+                "lamp"
+              ],
               location: "pond",
-              avatars: ["moth"]
+              avatars: [
+                "moth"
+              ]
             },
             {
-              items: ["lamp"],
+              items: [
+                "lamp"
+              ],
               location: "station",
               avatars: []
             }

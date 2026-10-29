@@ -79,7 +79,7 @@ try {
         () => document.querySelector("#hand").dataset.cooling === "false",
       );
     const finish = async () => {
-      for (let i = 0; i < 150; i++) {
+      for (let i = 0; i < 300; i++) {
         if (await page.locator("#unveil-dialog[open]").count())
           await page.keyboard.press("Escape");
         else if (await page.locator("#dialogue-advance").isVisible())
@@ -100,7 +100,7 @@ try {
       assert.equal(await page.locator("#speaker").innerText(), "Vale");
       assert.match(
         await page.locator("#dialogue-text").textContent(),
-        /The water is dark/,
+        /It's cold up here/,
       );
       assert.equal(await page.locator("#unveil-dialog[open]").count(), 0);
       await page.waitForSelector("#unveil-dialog[open] [data-quest]");
@@ -110,7 +110,7 @@ try {
       );
       assert.equal(
         await page.locator("#unveil-take .quest-purpose").innerText(),
-        "A little warmth might bring this shore closer.",
+        "A little warmth might wake this empty room.",
       );
       assert.equal(await card("vale").isDisabled(), true);
       await page.keyboard.press("Escape");
@@ -124,12 +124,7 @@ try {
         "lamp",
         "player-quest",
       ]);
-      for (const id of ["moth", "cloth", "pond", "station"])
-        assert(openingHand.includes(id));
-      assert(
-        !openingHand.includes("attic"),
-        "The unlit opening keeps its mirror closed",
-      );
+      assert.deepEqual(openingHand, ["vale", "lamp", "player-quest", "attic"]);
       await page.screenshot({
         path: new URL(`rest-${width}.png`, output).pathname,
       });
@@ -166,7 +161,7 @@ try {
       );
       assert.equal(
         await page.locator("body").getAttribute("data-place"),
-        "pond",
+        "attic",
       );
       assert.equal(
         await page.locator("body").getAttribute("data-lamplit"),
@@ -188,7 +183,7 @@ try {
       await page.waitForFunction(
         () =>
           document.querySelector("#unveil-dialog").open &&
-          document.querySelector("#unveil-take").dataset.card === "attic",
+          document.querySelector("#unveil-take").dataset.card === "pond",
       );
       assert.equal(
         await page.locator("body").getAttribute("data-lamplit"),
@@ -336,10 +331,10 @@ try {
           turn: world.turn,
           kind: "dialogue",
           actorId: "vale",
-          locationId: "pond",
+          locationId: world.actors.vale.place,
           speaker: "Vale",
           generated: true,
-          text: "I wonder who is waiting beyond the water.",
+          text: "I wonder who is waiting beyond the mirror.",
         });
         const value = JSON.stringify(world);
         localStorage.setItem(key, value);
@@ -363,6 +358,9 @@ try {
         "Along the shore",
       );
       await page.keyboard.press("Escape");
+      await selectCard(page, "pond");
+      await page.locator('#card-actions [data-action="move"]').click();
+      await finish();
       await selectCard(page, "station");
       await page.locator('#card-actions [data-action="move"]').click();
       await finish();

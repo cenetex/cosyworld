@@ -82,10 +82,11 @@ try {
   await mkdir("output/badger-check", { recursive: true });
   await page.goto(`${origin}/?table=badger-check`);
   await page.locator('[data-card="lamp"]').waitFor({ state: "attached" });
+  assert.equal((await state()).actors.vale.place, "attic");
   await play("lamp");
-  // The opening begins at the pond; light reveals the attic mirror.
-  assert.equal((await state()).actors.vale.place, "pond");
-  assert.ok(await page.locator('[data-card="attic"]').count());
+  assert.equal((await state()).actors.vale.place, "attic");
+  assert.ok(await page.locator('[data-card="pond"]').count());
+  await play("pond");
   await play("station");
   await play("bell");
   assert.equal((await state()).items.bell.holder, "vale");
@@ -212,7 +213,7 @@ try {
   assert.equal(await page.evaluate(() => document.body.scrollWidth), 320);
   assert.deepEqual(errors, []);
   console.log(
-    "Steam Clock browser check passed: pond start, revealed paths, bell pickup, two rings, reload, wake, keyboard, return, revisit, shared inventory, speech, and phone layouts.",
+    "Steam Clock browser check passed: attic start, revealed paths, bell pickup, two rings, reload, wake, keyboard, return, revisit, shared inventory, speech, and phone layouts.",
   );
 } finally {
   await browser?.close();
