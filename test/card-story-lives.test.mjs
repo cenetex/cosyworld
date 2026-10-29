@@ -305,27 +305,47 @@ describe("hopes lean on open stories", () => {
 });
 
 describe("earlier life saves", () => {
-  it("upgrades a version 2 save without changing its quests, items, memories or levels", () => {
-    const s = act(structuredClone(opening.water), "wait");
-    const json = JSON.parse(encodeSave(s));
-    expect(json.life.version).toBe(LIFE_VERSION);
-    json.life.version = 2;
-    const loaded = decodeSave(JSON.stringify(json));
-    expect(loaded.life.version).toBe(3);
-    const { life, ...rest } = loaded;
-    const { life: savedLife, ...savedRest } = s;
-    expect(rest).toEqual(savedRest);
-    expect(life.actors).toEqual(savedLife.actors);
-    for (const id of Object.keys(s.actors)) {
-      expect(loaded.actors[id].progress).toEqual(s.actors[id].progress);
-      expect(actorQuests(loaded, id)).toEqual(actorQuests(s, id));
+  // A save written before story experiences: the same world without them.
+  function earlier(world) {
+    const json = JSON.parse(encodeSave(world));
+    for (const life of Object.values(json.life.actors)) {
+      life.experiences = life.experiences.filter((e) => e.kind !== "story");
+      if (life.origin?.kind === "story") delete life.origin;
     }
-    // The upgraded save then records new story endings as usual.
-    let world = loaded;
-    const choose = legalActions(world).find(
-      (a) => a.kind === "choose" && a.choiceId === "greek-hear-decree",
+    for (const id of Object.keys(json.knowledge.facts))
+      if (id.startsWith("ending:")) {
+        delete json.knowledge.facts[id];
+        for (const known of Object.values(json.knowledge.known))
+          delete known[id];
+      }
+    json.knowledge.pending = json.knowledge.pending.filter(
+      (p) => !p.factId.startsWith("ending:"),
     );
-    if (choose) world = play(world, choose).state;
-    expect(reload(world)).toEqual(world);
+    return json;
+  }
+
+  it("loads a version 2 save without changing its quests, items, memories or levels", () => {
+    const json = earlier(opening.decree);
+    expect(json.life.version).toBe(2);
+    expect(LIFE_VERSION).toBe(2);
+    const loaded = decodeSave(JSON.stringify(json));
+    expect(JSON.parse(encodeSave(loaded))).toEqual(json);
+    for (const id of Object.keys(json.actors)) {
+      expect(loaded.actors[id].progress).toEqual(json.actors[id].progress);
+      expect(
+        actorQuests(loaded, id).map((q) => [q.key, q.status, q.step]),
+      ).toEqual(
+        actorQuests(opening.decree, id).map((q) => [q.key, q.status, q.step]),
+      );
+    }
+    expect(loaded.items).toEqual(json.items);
+    expect(loaded.memories).toEqual(json.memories);
+    // The loaded save then records its next story ending as usual.
+    const next = act(loaded, "choose", { choiceId: "greek-decline-burial" });
+    expect(lifeOf(next, "vale").experiences.at(-1)).toMatchObject({
+      story: BURIAL,
+      outcome: "declined",
+    });
+    expect(next.knowledge.facts[`ending:${BURIAL}`]).toBeTruthy();
   });
 });

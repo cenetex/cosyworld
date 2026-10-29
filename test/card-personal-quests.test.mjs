@@ -710,7 +710,7 @@ describe("personal quests grow from life", () => {
       },
     };
     const loaded = decodeSave(JSON.stringify(json));
-    expect(loaded.life.version).toBe(3);
+    expect(loaded.life.version).toBe(2);
     for (const life of Object.values(loaded.life.actors)) {
       expect(life).not.toHaveProperty("inspiration");
       expect(life.hope.steps).toHaveLength(3);
