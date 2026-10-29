@@ -1,3 +1,4 @@
+import { personalItem } from "./pack-personal-quests.mjs";
 import { canCarryQuest, questCarried, questDropQuiet } from "./quest-hands.mjs";
 import { BOARDY, connectedHumans } from "./boardyai.mjs";
 import { introductionPrograms } from "./introductions.mjs";
@@ -27,6 +28,7 @@ import { hasQuestPrograms, interest } from "./motives.mjs";
 import { questActive, lifeOf, personalQuestRank, hopeOf } from "./life.mjs";
 import {
   packPeople,
+  packDefinitions,
   packOf,
   packThings,
   packPlaces,
@@ -173,7 +175,7 @@ export const desireFor = (s, actor) => {
       (c) =>
         c.kind === "heldBy" &&
         ownerOf(s, c.item) !== c.avatar &&
-        Object.keys(s.items).filter((id) => ownerOf(s, id) === c.avatar)
+        Object.keys(s.items).filter((id) => personalItem(s, packDefinitions, id)?.active !== false && ownerOf(s, id) === c.avatar)
           .length >= 3,
     ).length *
       30 +

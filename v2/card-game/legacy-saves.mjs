@@ -1,3 +1,4 @@
+import { initialPersonalQuests } from "./pack-personal-quests.mjs";
 import { syncStoryQuests } from "./story-quests.mjs";
 import { publishQuestCompletions } from "./quest-completions.mjs";
 import { installSharedQuestRegistry } from "./shared-quests.mjs";
@@ -124,6 +125,7 @@ export function upgradeSave(
     upgradeGreekTownSave(s);
     upgradeGreekAjaxSave(s);
     upgradeGreekEpicSave(s);
+    upgradePersonalQuestPacks(s);
     s.schema = 7;
     installPacks(s);
   } else if (
@@ -140,6 +142,7 @@ export function upgradeSave(
     upgradeGreekTownSave(s);
     upgradeGreekAjaxSave(s);
     upgradeGreekEpicSave(s);
+    upgradePersonalQuestPacks(s);
     // A pack mounted after this save was written joins it fresh.
     installPacks(s);
   }
@@ -504,6 +507,29 @@ function addGreekEntities(s, pack, avatars, items) {
   for (const id of items) {
     s.items[id] = { holder: pack.items[id].holder, history: [] };
     s.memories[id] = fresh[id];
+  }
+}
+
+// Add personal quest entities to an earlier pack without changing its history.
+function upgradePersonalQuestPacks(s) {
+  const fresh = newMemories();
+  for (const pack of packDefinitions) {
+    const old = s.packs?.[pack.id];
+    if (!old || !pack.personalQuests?.length || old.revision === pack.revision) continue;
+    if (old.revision !== pack.revision - 1 || old.personalQuests !== undefined)
+      throw new Error("This earlier pack needs its original revision.");
+    const ids = pack.personalQuests.flatMap((quest) =>
+      quest.playerItems.flatMap((row) => [row.button, row.reward]));
+    if (new Set(ids).size !== ids.length || ids.some((id) =>
+      !pack.items[id] || s.items[id] || s.memories[id] || !fresh[id]))
+      throw new Error("This earlier pack needs its original item records.");
+    for (const id of ids) {
+      s.items[id] = { holder: pack.items[id].holder, history: [] };
+      s.memories[id] = fresh[id];
+    }
+    old.personalQuests = initialPersonalQuests(pack);
+    for (const quest of pack.personalQuests) old.personalQuests[quest.id].legacy = true;
+    old.revision = pack.revision;
   }
 }
 

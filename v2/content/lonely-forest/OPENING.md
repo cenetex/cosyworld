@@ -12,10 +12,11 @@ reveals their link through a familiar detail repeated at the oak.
 
 ## The journey
 
-1. Talk to RATi in the cottage and choose **Stay for tea**.
-2. Take the Story Button and give it to RATi. Choose **Fit the scarf
-   button** beside her. RATi keeps the button. The sewn scarf becomes a
-   saved fact.
+1. Meet RATi in the cottage. A personal Story Button appears somewhere
+   reachable beyond the cottage. Each traveler has their own button.
+2. Find the button and give it to RATi. A friend can carry or deliver it.
+   RATi sews it into a scarf and gives the scarf to its owner. The button
+   stays attached to that scarf. Choose **Stay for tea** beside her.
 3. In the garden, choose **Clear the garden drain** or **Set the stepping
    stones**. Each choice opens the Moonlit Trail. The chosen work stays in
    the world history.
@@ -36,17 +37,19 @@ work. Cooperation uses the shared world's normal custody and action rules.
 
 ## Story cards
 
-The chapter uses three short card lines:
+Each traveler gets a personal scarf card after meeting RATi. The card follows
+that traveler's button and shows when their scarf is ready. The first personal
+scarf adds a shared hearth story for Oak. Earlier saved blue-scarf stories keep
+their original records.
 
-- **A button for the blue scarf.** appears after meeting RATi and ends with
-  the scarf repair.
+The chapter also keeps these shared card lines:
 - **Footsteps through the rain.** appears after the tea invitation and ends
   with the shared symbols at the repaired path.
 - **What will the oak hear?** appears after helping Skull and ends with the
   chosen charm homecoming.
 
-Each card uses an existing item illustration. Saved choices and receipts
-own the result. The shared story registry keeps actual participants and
+Saved choices and receipts own the shared results. Personal meeting and
+sewing records keep each traveler's result. The shared story registry keeps actual participants and
 the completion turn through reload and trimmed conversation history.
 
 ## Mirror crossing
@@ -71,7 +74,8 @@ The four item illustrations are unchanged copies of the established core
 WebPs under `v2/card-game/assets/lonely-forest/`. Their source names are
 `cosy-story-button.webp`, `cosy-dewbright-button.webp`,
 `cosy-watch-bell.webp` and `cosy-wolfprint-charm.webp`. Character and place
-art joins those files in the same pack asset folder.
+art joins those files in the same pack asset folder. The `scarves/` folder
+contains eight colored scarf illustrations.
 
 The existing forest art guide records later dream proposals. A later
 chapter can choose a first dream and a clear route home.

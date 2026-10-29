@@ -1,4 +1,10 @@
 import { carryQuest } from "./quest-hands.mjs";
+import { personalLegacyCardVisible } from "./pack-personal-quests.mjs";
+import {
+  authoredPlayerStoryIds,
+  authoredPlayerStoryDefinitions,
+  matchesAuthoredPlayerStory,
+} from "./authored-player-story-quests.mjs";
 import { packDefinitions } from "./pack-registry.mjs";
 import {
   authoredStoryIds,
@@ -10,16 +16,24 @@ import {
   clearQuestFocus,
 } from "./shared-quests.mjs";
 
-export const STORY_QUEST_CARDS = authoredStoryIds(packDefinitions);
+export const STORY_QUEST_CARDS = [
+  ...authoredStoryIds(packDefinitions),
+  ...authoredPlayerStoryIds(packDefinitions),
+];
 
 export function storyDefinitions(world, history = false) {
-  return authoredStoryDefinitions(world, packDefinitions, { history });
+  return [
+    ...authoredStoryDefinitions(world, packDefinitions, { history }),
+    ...authoredPlayerStoryDefinitions(world, packDefinitions),
+  ];
 }
 
 const packFor = (definition) =>
   packDefinitions.find((pack) => definition.key.startsWith(`${pack.id}:`));
 const relation = (definition) =>
-  authoredStoryRelation(packDefinitions, definition);
+  definition.personalOwner
+    ? (event) => event.questKey === definition.key
+    : authoredStoryRelation(packDefinitions, definition);
 
 // Saved deeds and required reading starts identify story participants.
 export function storyActors(
@@ -28,6 +42,7 @@ export function storyActors(
   includeDiscovery = true,
   related = relation(definition),
 ) {
+  if (definition.personalOwner) return [...definition.completionParticipants];
   const pack = packFor(definition);
   if (!pack) return [];
   const events = (world.log || []).filter(related);
@@ -87,9 +102,22 @@ export function syncStoryQuests(world, actorId = null) {
   if (!definitions.length) return [];
   const registry = installSharedQuestRegistry(world),
     completions = [];
+  // A hidden earlier household request keeps its record and frees its hand slot.
+  for (const [actor, hand] of Object.entries(registry.hands || {}))
+    registry.hands[actor] = hand.filter((key) => {
+      const quest = registry.records[key];
+      return !quest || quest.mode !== "story" || quest.completedTurn !== null ||
+        personalLegacyCardVisible(world, packDefinitions, quest.program.id, actor);
+    });
   for (const definition of definitions) {
-    const state = world.packs[packFor(definition).id];
+    const pack = packFor(definition);
+    const state = world.packs[pack.id];
     let quest = registry.records[definition.key];
+    // Finished cards in an upgraded household keep their exact saved record.
+    // Validation still checks every field against its original definition.
+    if (quest?.completion && quest.completedTurn !== null &&
+      (definition.personalOwner || pack.personalQuests?.some((entry) => entry.legacy)))
+      continue;
     const created = !quest;
     if (!quest) {
       quest = registry.records[definition.key] = {
@@ -122,6 +150,7 @@ export function syncStoryQuests(world, actorId = null) {
     const knownAuthor = state.recitals?.[definition.choiceId]?.actor;
     if (
       created &&
+      !definition.personalOwner &&
       actorId &&
       world.actors[actorId] &&
       definition.createdTurn === world.turn
@@ -134,24 +163,34 @@ export function syncStoryQuests(world, actorId = null) {
     if (registry.hands) {
       for (const actor of quest.participants.filter((id) => !previous.has(id)))
         carryQuest(world, actor, quest);
-      if (created && quest.holder.kind === "avatar")
+      if ((created && quest.holder.kind === "avatar") ||
+        (definition.personalOwner && !definition.resolved))
         carryQuest(world, quest.holder.id, quest);
     }
     if (!definition.resolved) continue;
-    const event = events.find(
-      (entry) => entry.choiceId === definition.choiceId,
-    );
+    const event = events.find((entry) => definition.personalOwner
+      ? entry.verb === "personal-quest-complete" &&
+        entry.seq === definition.completionSeq
+      : entry.choiceId === definition.choiceId);
     quest.step = 1;
-    quest.completedTurn = state.receipts[definition.choiceId];
+    quest.completedTurn = definition.personalOwner
+      ? definition.completedTurn
+      : state.receipts[definition.choiceId];
     clearQuestFocus(world, quest.key);
     if (!quest.completion)
       completions.push({
         questKey: quest.key,
         capturedSeq: event?.seq || 0,
         turn: quest.completedTurn,
-        actorId: event?.actorId || knownAuthor || null,
-        locationId: event?.locationId || null,
-        participants: [...new Set(recorded)].sort(),
+        actorId: definition.personalOwner
+          ? definition.completionActorId
+          : event?.actorId || knownAuthor || null,
+        locationId: definition.personalOwner
+          ? definition.completionLocationId
+          : event?.locationId || null,
+        participants: definition.personalOwner
+          ? [...definition.completionParticipants]
+          : [...new Set(recorded)].sort(),
         outcome: definition.completion.toLowerCase(),
       });
   }
@@ -194,7 +233,10 @@ function matchesStoryQuest(world, quest, definition) {
       quest.cause === null &&
       !quest.retired &&
       quest.completedTurn ===
-        (definition.resolved ? state.receipts[definition.choiceId] : null) &&
+        (definition.personalOwner
+          ? definition.completedTurn
+          : definition.resolved ? state.receipts[definition.choiceId] : null) &&
+      matchesAuthoredPlayerStory(quest, definition) &&
       (!quest.completion ||
         quest.completion.outcome === definition.completion.toLowerCase()),
   );

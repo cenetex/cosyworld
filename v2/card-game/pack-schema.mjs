@@ -2,6 +2,7 @@
 // The build script and the browser registry both use this one validator, so
 // an authored pack either loads exactly as checked or does not load at all.
 import { storyQuestProblems } from "./pack-story-schema.mjs";
+import { personalQuestProblems } from "./pack-personal-quest-schema.mjs";
 import { validFactText } from "./knowledge.mjs";
 import { journeyOptions } from "./pack-journeys.mjs";
 
@@ -15,7 +16,8 @@ export const AUTHORED_TOPIC_LIMIT = 512;
 export function packCompositionProblems(packs) {
   const problems = [],
     seen = new Map(),
-    families = new Map();
+    families = new Map(),
+    personalFamilies = new Map();
   let count = 0;
   for (const pack of packs) {
     const stories = Array.isArray(pack?.storyQuests) ? pack.storyQuests : [];
@@ -26,6 +28,12 @@ export function packCompositionProblems(packs) {
           `${pack.id}: story family ${id} is also defined by ${families.get(id)}`,
         );
       else families.set(id, pack.id);
+    }
+    for (const quest of Array.isArray(pack?.personalQuests) ? pack.personalQuests : []) {
+      if (typeof quest?.id !== "string") continue;
+      if (personalFamilies.has(quest.id))
+        problems.push(`${pack.id}: personal quest ${quest.id} is also defined by ${personalFamilies.get(quest.id)}`);
+      else personalFamilies.set(quest.id, pack.id);
     }
     if (!Array.isArray(pack?.topics)) continue;
     for (const topic of pack.topics) {
@@ -220,6 +228,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
       "recital",
       "readings",
       "storyQuests",
+      "personalQuests",
       "topics",
     ]),
     "has an unknown top-level field",
@@ -266,6 +275,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     ["works", 128],
     ["crossings", 32],
     ["storyQuests", 256],
+    ["personalQuests", 8],
     ["topics", 512],
   ])
     if (
@@ -1117,6 +1127,7 @@ export function packProblems(pack, hub, mountedPlaces = []) {
     }
   }
   problems.push(...storyQuestProblems(pack, hub));
+  problems.push(...personalQuestProblems(pack, hub));
   [
     ...Object.values(places),
     ...Object.values(avatars),

@@ -1,3 +1,7 @@
+import {
+  personalItem, personalNesting, personalLegacyAllowed,
+  personalSharedChoice, validPersonalQuests,
+} from "./pack-personal-quests.mjs";
 import { recordRecital, recitalVisit, validRecitals } from "./pack-recital.mjs";
 import {
   validPoemReadings,
@@ -300,6 +304,8 @@ export function choiceText(choice, actor) {
 }
 
 export function entityActive(world, id) {
+  const personal = personalItem(world, packDefinitions, id);
+  if (personal && !personal.active) return false;
   if (world.items?.[id]) {
     let holder = world.items[id].holder;
     const seen = new Set([id]);
@@ -392,6 +398,7 @@ function choiceFeasible(world, pack, choice, actor) {
   const state = packState(world, pack.id);
   if (
     !state ||
+    !personalLegacyAllowed(world, packDefinitions, "choice", choice.id, actor) ||
     (!choice.repeatable && owns(state.receipts, choice.id)) ||
     (pack.release &&
       state.scope !== "full" &&
@@ -424,6 +431,7 @@ export function packChoices(world, actor = "vale") {
     (pack.choices || [])
       .filter(
         (c) =>
+          !personalSharedChoice(packDefinitions, pack.id, c.id) &&
           !pack.recital?.sites?.some((site) => site.completion === c.id) &&
           choiceFeasible(world, pack, c, actor),
       )
@@ -646,6 +654,7 @@ export function validatePackStates(world) {
       Object.keys(state).sort().join() !==
         [
           "revision",
+          ...(pack.personalQuests?.length ? ["personalQuests"] : []),
           "sounds",
           "choices",
           "flags",
@@ -772,11 +781,15 @@ export function validatePackStates(world) {
     }
     for (const [id, item] of Object.entries(pack.items || {}))
       if (
+        !personalNesting(world, packDefinitions, id, world.items[id]?.holder) &&
         !entityEnabled(world, id) &&
         (world.items[id]?.holder !== item.holder ||
           world.items[id]?.history?.length !== 0)
       )
         return false;
   }
-  return true;
+  return validPersonalQuests(world, packDefinitions, {
+    isPlayer: (id) => !!humanAvatar(id),
+    isLocation: (id) => hub.places.includes(id) || !!packPlaces[id],
+  });
 }

@@ -30,6 +30,8 @@ mod kernel;
 #[cfg(test)]
 mod opening_tests;
 #[cfg(test)]
+mod personal_entry_tests;
+#[cfg(test)]
 mod quest_core_tests;
 #[cfg(test)]
 mod reading_tests;

@@ -1,7 +1,14 @@
 import { describe, it, expect } from "vitest";
 import { createWorld, addLog, people } from "../v2/card-game/world.mjs";
-import { humanAvatarIds } from "../v2/card-game/human-cast.mjs";
-import { packPeople } from "../v2/card-game/pack-registry.mjs";
+import {
+  humanAvatarIds,
+  humanAvatars,
+  humanHomePack,
+} from "../v2/card-game/human-cast.mjs";
+import {
+  packPeople,
+  validatePackDefinition,
+} from "../v2/card-game/pack-registry.mjs";
 import { portrait, sceneStaging } from "../v2/card-game/scene.mjs";
 import {
   nativePortraitFacing,
@@ -10,6 +17,29 @@ import {
 } from "../v2/card-game/portrait-facing.mjs";
 
 describe("stage portrait art directions", () => {
+  it.each([
+    ["vale", "black", "white"],
+    ["mara", "red", "green"],
+    ["ash", "orange", "blue"],
+    ["nell", "yellow", "violet"],
+    ["tavi", "green", "red"],
+    ["rue", "blue", "orange"],
+    ["orin", "indigo", "amber"],
+    ["ada", "violet", "yellow"],
+  ])("keeps %s's color and scarf beside the shared portrait", (id, color, scarfColor) => {
+    const avatar = humanAvatars.find((entry) => entry.id === id);
+    expect(avatar).toMatchObject({ color, scarfColor });
+    const image = `./assets/shared/characters/${id}.png`;
+    expect(avatar.image).toBe(image.slice(2));
+    for (const facing of ["left", "right"])
+      expect(portrait(id, facing)).toBe(image);
+  });
+
+  it("accepts the shared palette through the mounted home validator", () => {
+    expect(humanAvatars).toHaveLength(8);
+    expect(validatePackDefinition(humanHomePack)).toBe(humanHomePack);
+  });
+
   it("gives the child portrait its own foreground framing", () => {
     const path = "assets/greek-drama/book-four-molossus.png";
     expect(portraitFraming(path)).toBe("child");

@@ -28,6 +28,7 @@ export const rootOwner = (s, item) => {
 // A friendly companion can keep an item while it serves a shared quest.
 // Custody rules for card plays and explicit deliveries still use rootOwner.
 export function questItemAvailable(s, actor, item) {
+  if (!entityActive(s, item)) return false;
   const owner = rootOwner(s, item);
   if (owner === actor) return true;
   return Boolean(
@@ -69,7 +70,7 @@ export function conditionMet(s, c, actor = s.playerActorId || "vale") {
     case "covered":
       return s.items.cloth.holder === c.item;
     case "heldBy":
-      return rootOwner(s, c.item) === c.avatar;
+      return entityActive(s, c.item) && rootOwner(s, c.item) === c.avatar;
     case "knows":
       return knowsFact(s, actor, c.topic);
     default:

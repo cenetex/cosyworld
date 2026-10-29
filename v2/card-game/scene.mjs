@@ -37,7 +37,7 @@ export function backdrop(id, world = null) {
 }
 export function portrait(id, facing = null, world = null) {
   const human = humanAvatar(id);
-  if (human && id !== "vale") return `./${human.image}`;
+  if (human) return `./${human.image}`;
   const resident = packPeople[id];
   if (resident)
     return `./${
@@ -405,6 +405,7 @@ export function sceneStaging(
       );
       const act = events.findLast((e) => e.actorId === id && e.verb);
       const props = items.filter((item) => {
+        if (!entityActive(world, item.id)) return false;
         let holder = item.holder;
         const seen = new Set([item.id]);
         while (
@@ -470,7 +471,7 @@ export function sceneStaging(
         items: props.map(({ id, lit, fuel, ringing, holder }) => ({
           id,
           holder,
-          covered: items.some((item) => item.holder === id),
+          covered: items.some((item) => entityActive(world, item.id) && item.holder === id),
           ...(lit !== undefined ? { lit, fuel } : {}),
           ...(ringing !== undefined ? { ringing } : {}),
         })),
