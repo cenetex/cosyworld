@@ -773,7 +773,7 @@ export function canTrade(s, actor, give, receive) {
 export function tradeOffers(s, actor) {
   return ids.filter(
     (id) =>
-      entityActive(s, id) && s.items[id].holder === actor &&
+      s.items[id].holder === actor && entityActive(s, id) &&
       (s.life
         ? !keepReason(s, actor, id)
         : hasQuestPrograms(s)
@@ -1405,7 +1405,7 @@ export function legalActions(s, actor = currentActor(s)) {
         [to],
       ),
     );
-    for (const id of ids.filter((id) => entityActive(s, id) && s.items[id].holder === actor)) {
+    for (const id of ids.filter((id) => s.items[id].holder === actor && entityActive(s, id))) {
       out.push(
         offer(
           "move",
@@ -1461,12 +1461,12 @@ export function legalActions(s, actor = currentActor(s)) {
     ) {
       const stake =
         ids.find(
-          (id) => entityActive(s, id) && s.items[id].holder === other && needed(s, actor, id),
+          (id) => s.items[id].holder === other && entityActive(s, id) && needed(s, actor, id),
         ) ||
-        ids.find((id) => entityActive(s, id) && s.items[id].holder === other) ||
+        ids.find((id) => s.items[id].holder === other && entityActive(s, id)) ||
         null;
       const stakes = [
-        ...new Set([stake, ...ids.filter((id) => entityActive(s, id) && rootHolder(s, id) === other)]),
+        ...new Set([stake, ...ids.filter((id) => rootHolder(s, id) === other && entityActive(s, id))]),
       ];
       for (const item of stakes)
         out.push(
@@ -1662,7 +1662,7 @@ export function legalActions(s, actor = currentActor(s)) {
       }
     }
   }
-  const payments = ids.filter((id) => entityActive(s, id) && s.items[id].holder === actor);
+  const payments = ids.filter((id) => s.items[id].holder === actor && entityActive(s, id));
   const tradePartners = new Set(
     payments.length
       ? knownActors(s).filter(
@@ -1673,7 +1673,7 @@ export function legalActions(s, actor = currentActor(s)) {
         )
       : [],
   );
-  const tradeGoods = ids.filter((id) => entityActive(s, id) && tradePartners.has(s.items[id].holder));
+  const tradeGoods = ids.filter((id) => tradePartners.has(s.items[id].holder) && entityActive(s, id));
   for (const give of payments)
     for (const receive of tradeGoods) {
       if (!canTrade(s, actor, give, receive)) continue;
@@ -2233,6 +2233,31 @@ function toward(s, actor, target) {
   }
   if (!s.items.lamp.fuel && s.items.oil.doses > 0) {
     if (find("refill", "oil")) return find("refill", "oil");
+    const lampOwner = rootHolder(s, "lamp");
+    if (
+      actorIds.includes(lampOwner) &&
+      lampOwner !== actor &&
+      !controlledByHuman(s, lampOwner) &&
+      knownActors(s).includes(lampOwner) &&
+      s.actors[lampOwner].place === here
+    ) {
+      if (rootHolder(s, "oil") === actor && find("drop", "oil")) {
+        // Ask the holder's normal planner what it would do with oil on the
+        // floor. It runs on a separate view and never changes real custody.
+        const offered = {
+          ...s,
+          items: { ...s.items, oil: { ...s.items.oil, holder: here } },
+        };
+        const response = plan(offered, lampOwner).action;
+        if (response.item === "oil" && ["take", "refill"].includes(response.kind))
+          return find("drop", "oil");
+      }
+      if (s.items.oil.holder === here && find("take", "oil")) {
+        const response = plan(s, lampOwner).action;
+        if (response.kind === "refill" && response.item === "oil")
+          return getActions().find((a) => a.kind === "wait");
+      }
+    }
     if (find("take", "oil")) return find("take", "oil");
     if (
       find("ask", "oil") &&
