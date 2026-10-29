@@ -325,7 +325,15 @@ try {
       );
       await card("greek-gate").waitFor();
       assert.equal(await card("greek-well").isVisible(), false);
+      assert.equal(
+        await card("greek-gate").getAttribute("aria-expanded"),
+        "false",
+      );
       await tap("greek-gate");
+      assert.equal(
+        await card("greek-gate").getAttribute("aria-expanded"),
+        "true",
+      );
       assert.equal(await card("lamp").isVisible(), true);
       assert.equal(await frame("oil").getAttribute("data-stacked"), "true");
       assert.equal(

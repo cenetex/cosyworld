@@ -1570,9 +1570,13 @@ function updateCardSelection(frame) {
   if (info?.holder && info.count > 1)
     button.setAttribute("aria-expanded", String(info.expanded));
   if (isQuestCard(id)) return;
-  if (held.length || questCards(world, id).length) {
-    frame.dataset.expanded = String(shownHolders.has(id));
-    button.setAttribute("aria-expanded", String(shownHolders.has(id)));
+  const collection = [...currentHandLayout.values()].filter(
+    (entry) => entry.holder === id,
+  );
+  if (collection.length) {
+    const disclosed = collection.some((entry) => !entry.hidden);
+    frame.dataset.expanded = String(disclosed);
+    button.setAttribute("aria-expanded", String(disclosed));
   }
   button.querySelector(".sr-only").textContent =
     cardObservation(world, id) +
@@ -1584,6 +1588,9 @@ function updateCardSelection(frame) {
       ? ` Quests: ${questCards(world, id)
           .map((quest) => quest.title)
           .join(", ")}.`
+      : "") +
+    (collection.some((entry) => entry.kind === "location")
+      ? " Select to show ways out."
       : "");
 }
 const handMotions = new Map();
