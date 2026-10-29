@@ -82021,6 +82021,8 @@
     const take = find("take", "lamp");
     if (take) return take;
     if (covered(s, "lamp") && find("take", "cloth")) return find("take", "cloth");
+    if (!s.items.lamp.fuel && !s.items.oil.doses && covered(s, "bell") && find("take", "cloth"))
+      return find("take", "cloth");
     if (!s.items.lamp.fuel && !s.items.oil.doses && here === "pond") {
       const call2 = find("ring", "bell");
       if (call2) return call2;
@@ -82364,6 +82366,13 @@
       );
       const waiting2 = !offered && waitingHere(actorIds);
       return waiting2 ? goMeet(waiting2) : idle(reason);
+    }
+    if (!controlledByHuman(s, actor) && programFor(s, actor)?.generated) {
+      const overdue = knownActors2(s).filter(
+        (other) => other !== actor && entityActive(s, other) && questActive(s, other) && !programFor(s, other)?.generated && s.turn - (s.actors[other].progress.marks.at(-1) || 0) >= 24 && handStatus(s, other).conditions.every((condition2) => condition2.met)
+      );
+      const waiting2 = waitingHere(overdue);
+      if (waiting2) return goMeet(waiting2);
     }
     if (hand2.conditions?.length) {
       if (hand2.conditions.some((c) => c.kind === "lit") && !s.items.lamp.fuel && !s.items.oil.doses) {
