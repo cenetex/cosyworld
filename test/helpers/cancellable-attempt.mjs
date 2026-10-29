@@ -13,7 +13,7 @@ export function runCancellableAttempt(context, run) {
     checkpoints++;
     if (checkpoints % 10 === 0) {
       const cpu = process.cpuUsage(cpuStart);
-      console.log(JSON.stringify({ test: context.task.name, checkpoints, elapsedMs: Number(process.hrtime.bigint() - started) / 1e6, cpuMs: (cpu.user + cpu.system) / 1000 }));
+      process.stdout.write(JSON.stringify({ test: context.task.name, checkpoints, elapsedMs: Number(process.hrtime.bigint() - started) / 1e6, cpuMs: (cpu.user + cpu.system) / 1000 }) + "\n");
     }
   };
   const work = Promise.resolve().then(() => run(checkpoint));
