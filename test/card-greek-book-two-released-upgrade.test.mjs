@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { decodeSave, encodeSave } from "../v2/card-game/world.mjs";
 import {
   packDefinition,
+  packDefinitions,
   entityActive,
   crossings,
 } from "../v2/card-game/pack-registry.mjs";
@@ -16,7 +17,12 @@ const released = releasedCardEngine(20);
 const oldGreek = released.packs.find((pack) => pack.id === "greek-drama");
 const currentGreek = packDefinition("greek-drama");
 const newCatalogIds = (field) =>
-  Object.keys(currentGreek[field]).filter((id) => !oldGreek[field][id]);
+  packDefinitions.flatMap((pack) => {
+    const previous = released.packs.find((old) => old.id === pack.id);
+    return Object.keys(pack[field] || {}).filter(
+      (id) => !previous?.[field]?.[id],
+    );
+  });
 const humans = ["vale", "mara"];
 const actors = [
   "greek-danaid-melia",
@@ -225,8 +231,24 @@ function expectRetainedRecords(world, before) {
       ...new Map(expected.map((edge) => [JSON.stringify(edge), edge])).values(),
     ]);
   }
-  for (const [id, record] of Object.entries(before.packs))
-    if (id !== "greek-drama") expect(world.packs[id]).toEqual(record);
+  for (const [id, record] of Object.entries(before.packs)) {
+    if (id === "greek-drama") continue;
+    const pack = packDefinition(id);
+    expect(world.packs[id]).toEqual(
+      pack.personalQuests?.length
+        ? {
+            ...record,
+            revision: pack.revision,
+            personalQuests: Object.fromEntries(
+              pack.personalQuests.map((quest) => [
+                quest.id,
+                { legacy: true, version: 1, records: {} },
+              ]),
+            ),
+          }
+        : record,
+    );
+  }
   expect(recitalPoem(world, currentGreek)).toEqual(
     released.poem(before, oldGreek),
   );

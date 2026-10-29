@@ -218,10 +218,11 @@ describe("the side roads in earlier saved worlds", () => {
             { holder: item.holder, history: [] },
           ]),
         ),
-        "forest-story-button": { holder: "forest-cottage", history: [] },
-        "forest-dewbright-button": { holder: "forest-garden", history: [] },
-        "forest-watch-bell": { holder: "forest-garden", history: [] },
-        "forest-wolfprint-charm": { holder: "forest-trail", history: [] },
+        ...Object.fromEntries(
+          Object.entries(currentPackDefinition("lonely-forest").items)
+            .filter(([id]) => !world.items[id])
+            .map(([id, item]) => [id, { holder: item.holder, history: [] }]),
+        ),
       });
       expect(restored.log).toEqual(world.log);
       expect(restored.actors["greek-household-witness"].place).toBe(

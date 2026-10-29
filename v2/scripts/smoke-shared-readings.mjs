@@ -10,6 +10,8 @@ import { packDefinition } from "../card-game/pack-registry.mjs";
 import { recitalPoem } from "../card-game/pack-recital.mjs";
 import {
   courtJourney,
+  readingPlay,
+  readingWalk,
   COURT,
   FROGS,
 } from "../../test/helpers/greek-readings.mjs";
@@ -17,9 +19,18 @@ import {
 const dir = await mkdtemp(join(tmpdir(), "shared-readings-"));
 const output = resolve("output/shared-readings");
 await mkdir(output, { recursive: true });
-const initial = courtJourney();
-initial.actors.mara.place = COURT;
-initial.actors.ash.place = "greek-underworld";
+let initial = courtJourney();
+initial.sharedVersion = 1;
+initial.controlledActors = ["vale", "mara", "ash"];
+initial.presentActors = ["vale", "mara", "ash"];
+for (const [actor, item, destination] of [
+  ["mara", "mask", COURT],
+  ["ash", "float", "greek-underworld"],
+]) {
+  if (initial.items[item].holder !== actor)
+    initial = readingPlay(initial, "take", { item }, actor);
+  initial = readingWalk(initial, actor, destination);
+}
 const secretLines = recitalPoem(initial, packDefinition("greek-drama"))
   .stanzas[0].lines;
 const quote = secretLines.join(" ");
