@@ -1,10 +1,11 @@
-import { defineConfig } from "vitest/config";
+import rootConfig from "../../vitest.config.js";
 
-export default defineConfig({
+export default {
+  ...rootConfig,
   test: {
+    ...rootConfig.test,
     include: ["test/fixtures/runner-update-error-probe.mjs"],
-    setupFiles: ["test/setup.mjs"],
     maxWorkers: 1,
     minWorkers: 1,
   },
-});
+};
