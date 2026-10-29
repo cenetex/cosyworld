@@ -20,6 +20,9 @@ use serde_json::{json, Value};
 use std::time::{Duration, Instant};
 #[path = "full_browser.rs"]
 mod browser;
+#[path = "full_database.rs"]
+mod database;
+use database::blocking;
 
 pub(super) fn router() -> Router<AppState> {
     Router::new()
@@ -45,14 +48,9 @@ struct Create {
     #[serde(default)]
     save: Option<String>,
 }
-async fn blocking(f: impl FnOnce() -> Result<Value> + Send + 'static) -> Result<Value> {
-    tokio::task::spawn_blocking(f)
-        .await
-        .map_err(|_| "The shared world is taking a moment.".to_string())?
-}
 async fn list(State(state): State<AppState>, h: HeaderMap) -> Response {
     reply(
-        blocking(move || {
+        blocking(state.event_store_path.clone(), move || {
             let u = user(&state, &h, false)?;
             let mut value = super::store::list(&db(&state)?, &u)?;
             for row in value["worlds"]
@@ -69,7 +67,7 @@ async fn list(State(state): State<AppState>, h: HeaderMap) -> Response {
     )
 }
 async fn create(State(state): State<AppState>, h: HeaderMap, Json(body): Json<Create>) -> Response {
-    let result = blocking(move || {
+    let result = blocking(state.event_store_path.clone(), move || {
         let u = user(&state, &h, true)?;
         admit(&u)?;
         let mut c = db(&state)?;
@@ -98,7 +96,7 @@ async fn create(State(state): State<AppState>, h: HeaderMap, Json(body): Json<Cr
 async fn view(State(state): State<AppState>, Path(id): Path<String>, h: HeaderMap) -> Response {
     let worker = state.clone();
     let wid = id.clone();
-    let result = blocking(move || {
+    let result = blocking(state.event_store_path.clone(), move || {
         let state = worker;
         let id = wid;
         valid_id(&id)?;
@@ -152,7 +150,7 @@ async fn command(
 ) -> Response {
     let worker = state.clone();
     let wid = id.clone();
-    let result = blocking(move || {
+    let result = blocking(state.event_store_path.clone(), move || {
         let state = worker;
         let id = wid;
         valid_id(&id)?;
@@ -460,13 +458,17 @@ fn kick(state: AppState, id: String) {
         loop {
             let s = state.clone();
             let wid = id.clone();
-            let work = tokio::task::spawn_blocking(move || take_work(&s, &wid)).await;
-            let Ok(Ok(Some(work))) = work else { break };
+            let work = blocking(state.event_store_path.clone(), move || take_work(&s, &wid)).await;
+            let Ok(Some(work)) = work else { break };
             let lines = super::full_speech::generate(&state, work.actor, &work.context).await;
             let s = state.clone();
             let wid = id.clone();
-            match tokio::task::spawn_blocking(move || finish_work(&s, &wid, work, lines)).await {
-                Ok(Ok(())) => {}
+            match blocking(state.event_store_path.clone(), move || {
+                finish_work(&s, &wid, work, lines)
+            })
+            .await
+            {
+                Ok(()) => {}
                 other => {
                     tracing::warn!(result=?other,"shared card publication failed");
                     break;

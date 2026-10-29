@@ -79435,14 +79435,18 @@
     );
   }
   function knownRoute(world, actor, from, to, allowed = () => true) {
-    const queue = [[from]], seen = /* @__PURE__ */ new Set([from]);
     const edges = world.routeKnowledge?.[actor] || [];
+    if (from === to) return [from];
+    const queue = [[from]], seen = /* @__PURE__ */ new Set([from]), outgoing = /* @__PURE__ */ new Map();
+    for (const [start, end] of edges) {
+      if (!outgoing.has(start)) outgoing.set(start, []);
+      outgoing.get(start).push(end);
+    }
     while (queue.length) {
       const path = queue.shift(), here = path.at(-1);
       if (here === to) return path;
-      for (const [start, end] of edges) {
-        if (start !== here || seen.has(end) || !allowed(start, end, path.at(-2)))
-          continue;
+      for (const end of outgoing.get(here) || []) {
+        if (seen.has(end) || !allowed(here, end, path.at(-2))) continue;
         seen.add(end);
         queue.push([...path, end]);
       }
@@ -82090,6 +82094,20 @@
         }
       );
     const selected = basePlan(s, actor);
+    const spaceHolder = selected.action.kind === "move" && !selected.action.item && !controlledByHuman(s, actor) && questActive(s, actor) && !standoffFor(s, actor) && s.peaceUntil[actor] <= s.turn && actorIds.find(
+      (other) => other !== actor && s.actors[other].place === selected.action.target && (s.motives?.grievances[other] || []).some(
+        (g) => g.other === actor && g.weight > 0 && s.turn - g.turn <= 4
+      ) && s.log.some(
+        (e) => e.actorId === other && e.verb === "move" && e.fromLocationId === s.actors[actor].place && s.turn - e.turn <= 4
+      ) && requiredItems(s, actor, desireFor(s, actor)).some(
+        (item2) => rootHolder(s, item2) === other
+      )
+    );
+    if (spaceHolder)
+      return {
+        action: legalActions(s, actor).find((a) => a.kind === "wait"),
+        reason: `Give ${nameOf2(spaceHolder)} some space.`
+      };
     const destination = selected.action.kind === "wait" && transportResidentDestination(s, actor);
     const continuation = destination && legalActions(s, actor).find(
       (a) => a.kind === "move" && !a.item && a.target === destination
