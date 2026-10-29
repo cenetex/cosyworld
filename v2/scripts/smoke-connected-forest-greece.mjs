@@ -65,6 +65,8 @@ const report = {
 const commands = [];
 const requests = [];
 const requestRecords = new WeakMap();
+const lastSnapshotAt = new Map();
+const snapshotIntervalMs = 3000;
 let browser,
   child,
   provider,
@@ -187,17 +189,14 @@ async function checked(page, body, path) {
   return result.body;
 }
 async function read(actor) {
-  const started = performance.now();
-  const response = await players.get(actor).page.waitForResponse((value) => {
-    const request = value.request();
-    return (
-      request.method() === "GET" &&
-      new URL(value.url()).pathname === `/card-game/shared/worlds/${worldId}` &&
-      requestRecords.get(request)?.startedMs >= started
-    );
-  });
-  const value = await response.json();
-  assert.equal(response.status(), 200, JSON.stringify(value));
+  // Leave room for the app's polling, presence heartbeats, and card plays.
+  const remaining =
+    (lastSnapshotAt.get(actor) ?? -Infinity) +
+    snapshotIntervalMs -
+    performance.now();
+  if (remaining > 0) await delay(Math.ceil(remaining));
+  lastSnapshotAt.set(actor, performance.now());
+  const value = await checked(players.get(actor).page);
   assert.equal(value.actor, actor);
   return { ...value, world: contextWorld(value) };
 }
@@ -394,6 +393,7 @@ async function sharedRun() {
   database = join(runtime, "events.sqlite");
   report.binary = { path: binary, sha256: await shaFile(binary) };
   report.runtime = runtime;
+  report.snapshotIntervalMs = snapshotIntervalMs;
   const engine = await readFile(
     join(root, "v2/orchestrator-rust/src/card_shared/engine.rs"),
     "utf8",
@@ -682,7 +682,6 @@ async function sharedRun() {
   for (const actor of PLAYERS) await capture(actor, "after-server-restart");
   assert.deepEqual(report.pageErrors, []);
   assert.deepEqual(report.failedAssets, []);
-  assert.deepEqual(report.sharedRequestErrors, []);
 }
 
 try {
@@ -694,6 +693,7 @@ try {
     report.finalSave = join(output, "final-save.json");
     await writeFile(report.finalSave, encodeSave(driver.snapshot()) + "\n");
   } else await sharedRun();
+  assert.deepEqual(report.sharedRequestErrors, []);
   assert.equal(
     hash(await readFile(savePath)),
     originalHash,

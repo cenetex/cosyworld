@@ -35,12 +35,12 @@ the queue, C rules, physical movement and the action journal use the actual
 service. The script creates a separate temporary database. It keeps that
 runtime folder for review.
 
-State checks observe fresh responses from each browser's usual shared-world
-polling. The app sends its own presence heartbeats. This keeps the check within
-the same request budget as the two players. Every shared HTTP request records
-its player, time, kind, app or harness source, and response status in
-`requests.jsonl`. Shared HTTP errors fail the check. Plays keep their single
-button activation and acceptance check.
+State checks request a fresh full snapshot at most once every three seconds
+per player. This leaves room for the app's usual polling, presence heartbeats,
+and card plays. Every shared HTTP request records its player, time, kind,
+app or harness source, and response status in `requests.jsonl`. Shared HTTP
+errors fail the check. Plays keep their single button activation and acceptance
+check.
 
 Every play uses the current cards. Real resource actions prepare the lamp and
 cloth. Both people board the same ship and reach the Greek harbor. Mara carries
