@@ -24,12 +24,14 @@ const describe = (card) => {
   return purpose && purpose !== name ? `${name} ${purpose}` : name;
 };
 
+// A knows rule names one topic or several alternatives.
+const topicsOf = (condition) => condition.topics || [condition.topic];
 const knowsTopics = (q) =>
   (q.program?.steps || []).flatMap((step) =>
     (step?.any || [step]).flatMap((hand) =>
       (hand?.conditions || [])
         .filter((condition) => condition.kind === "knows")
-        .map((condition) => condition.topic),
+        .flatMap(topicsOf),
     ),
   );
 
@@ -40,8 +42,10 @@ function heardTurn(world, actor, q) {
   for (const step of q.program?.steps || [])
     for (const hand of step?.any || [step])
       for (const condition of hand?.conditions || [])
-        if (condition.kind === "knows" && known[condition.topic])
-          turn = Math.max(turn, known[condition.topic].learnedTurn ?? -1);
+        if (condition.kind === "knows")
+          for (const topic of topicsOf(condition))
+            if (known[topic])
+              turn = Math.max(turn, known[topic].learnedTurn ?? -1);
   return turn;
 }
 
