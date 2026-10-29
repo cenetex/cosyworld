@@ -1172,12 +1172,15 @@ export function accompanyDecision(
     return { accepted: false, reason: "Attend to the standoff first." };
   if (s.peaceUntil[companion] > s.turn)
     return { accepted: false, reason: "Catch a breath after the standoff." };
+  // An arrived ship offers its current dock. A human can also choose the
+  // next port for an accompanied trip before the ship has arrived there.
   if (packPeople[companion]?.journey)
     return invited &&
       packJourneyDestination(s, companion) === destination &&
-      exits(s, here, companion, transportDepartureDock(s, here)).includes(
-        destination,
-      )
+      (exits(s, here, companion).includes(destination) ||
+        exits(s, here, companion, transportDepartureDock(s, here)).includes(
+          destination,
+        ))
       ? { accepted: true, reason: "Follow the road we agreed to take." }
       : { accepted: false, reason: "Keep to the agreed journey." };
   if (hasMotives(s)) {
