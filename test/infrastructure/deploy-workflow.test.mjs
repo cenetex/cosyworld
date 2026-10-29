@@ -218,14 +218,24 @@ describe("deploy workflow", () => {
   it("runs and retains the same full archive audit in CI and the deployment fallback", () => {
     const runtime = ciWorkflow.split("  runtime:")[1].split("  smoke-binary:")[0];
     const fallback = job("production-rust-gate", "production-gate");
-    const audit = (section) => section.match(
-      /cargo test --manifest-path[\s\S]*?2>&1 \| tee "\$RUNNER_TEMP\/reading-archive-audit.log"/,
-    )?.[0];
-    expect(audit(runtime)).toBeTruthy();
+    const audit = (section) => {
+      const steps = section.split(/^      - /m).filter((step) =>
+        step.startsWith("name: Check the full shared reading archive\n"),
+      );
+      expect(steps).toHaveLength(1);
+      const command = steps[0].match(
+        /^        run: \|\n((?: {10}[^\n]*\n|[ \t]*\n)+)/m,
+      )?.[1];
+      expect(command).toBeTruthy();
+      return command.trim();
+    };
     expect(audit(fallback)).toBe(audit(runtime));
     for (const section of [runtime, fallback]) {
-      expect(section).toContain("readings_full_archive_and_forty_scene_history_fit_the_game_limits");
-      expect(section).toContain("-- --ignored --exact --nocapture --test-threads=1");
+      const command = audit(section);
+      expect(command).toContain("cargo test --manifest-path v2/orchestrator-rust/Cargo.toml");
+      expect(command).toContain("readings_full_archive_and_forty_scene_history_fit_the_game_limits");
+      expect(command).toContain("-- --ignored --exact --nocapture --test-threads=1");
+      expect(command).toContain('2>&1 | tee "$RUNNER_TEMP/reading-archive-audit.log"');
       expect(section).toContain("COSYWORLD_AUDIT_BASE_COMMIT: ${{ github.sha }}");
       expect(section).toContain("COSYWORLD_READING_AUDIT_REPORT: ${{ runner.temp }}/reading-archive-audit.json");
       expect(section).toContain("actions/upload-artifact@v7");
