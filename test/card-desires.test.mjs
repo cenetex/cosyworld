@@ -308,7 +308,10 @@ describe("card trade rules", () => {
       receive: "bell",
       target: "keeper",
     });
-    expect(cardPlay(s, ["cloth"]).hint).toContain("Bell");
+    expect(cardPlay(s, ["cloth"])).toMatchObject({
+      action: { kind: "ask", item: "cloth", target: "keeper" },
+      hint: "Vale asks The keeper for the Black cloth.",
+    });
   });
   it("uses the cloth on the ringing bell when several objects can be covered", () => {
     const s = createWorld();
