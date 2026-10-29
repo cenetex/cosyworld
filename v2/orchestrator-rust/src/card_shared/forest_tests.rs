@@ -66,7 +66,7 @@ fn forest_crossing_upgrade_replays_with_two_humans(version: &str) {
     for (key, value) in old.game["items"].as_object().unwrap() {
         assert_eq!(&w.game["items"][key], value);
     }
-    assert_eq!(w.game["packs"]["lonely-forest"]["revision"], 1);
+    assert_eq!(w.game["packs"]["lonely-forest"]["revision"], 2);
     for actor in ["rati", "skull", "whiskerwind", "oak"] {
         assert!(w.game["actors"].get(actor).is_some());
     }
