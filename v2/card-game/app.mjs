@@ -68,7 +68,6 @@ import {
 import {
   availableCards,
   cardType,
-  cardPlay,
   playLabel,
   cardActions,
   cardObservation,
@@ -901,12 +900,12 @@ function choose(id) {
 }
 function commit(cards, revision) {
   if (selectionBlocked()) return;
-  const resolved = cardPlay(world, cards);
-  if (!resolved.action) {
+  const action = cardActions(world, cards, frontItemChoices()).actions[0];
+  if (!action) {
     $("play-readout").textContent = "That cannot be used here.";
     return;
   }
-  commitAction(resolved.action, revision);
+  commitAction(action, revision);
 }
 function commitAction(action, revision) {
   if (selectionBlocked()) return;
@@ -1539,7 +1538,7 @@ function updateCardSelection(frame) {
     raised = selected.includes(id),
     label =
       raised && !isQuestCard(id)
-        ? playLabel(cardPlay(world, selected).action)
+        ? playLabel(cardActions(world, selected, frontItemChoices()).actions[0])
         : "",
     held =
       people[id] || places[id]
@@ -1672,7 +1671,9 @@ function card(id) {
     crossingFace = type === "location" ? travelCard(world, id) : null,
     def = crossingFace ? { ...base, name: crossingFace.name } : base;
   const raised = selected.includes(id);
-  const chosen = raised ? cardPlay(world, selected) : null;
+  const chosen = raised
+    ? cardActions(world, selected, frontItemChoices()).actions[0]
+    : null;
   const el = node("button", undefined, `card ${type}`);
   el.type = "button";
   el.classList.toggle("new", fresh.has(id));
@@ -1731,7 +1732,7 @@ function card(id) {
       graphic.append(cloth);
     }
   }
-  const label = playLabel(chosen?.action);
+  const label = playLabel(chosen);
   const observation = node("span", cardObservation(world, id), "sr-only");
   observation.id = `card-detail-${id}`;
   if (raised && label) observation.textContent += ` ${label}.`;
@@ -1748,7 +1749,9 @@ function card(id) {
     selectionRevision = world.revision;
     e.dataTransfer.setData("text/plain", JSON.stringify(dragging));
     e.dataTransfer.effectAllowed = "move";
-    $("stage").dataset.play = playLabel(cardPlay(world, dragging).action) || "";
+    $("stage").dataset.play =
+      playLabel(cardActions(world, dragging, frontItemChoices()).actions[0]) ||
+      "";
     $("stage").classList.add("ready");
   });
   el.addEventListener("dragend", () => {

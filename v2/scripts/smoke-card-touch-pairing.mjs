@@ -199,7 +199,15 @@ try {
       await tap("moth");
       await tap("vale");
       assert.equal(await threat.innerText(), "Threaten Pip for Oil flask");
-      await threat.click();
+      assert.match(
+        await card("vale").locator(".sr-only").innerText(),
+        /Threaten Pip for Oil flask/,
+      );
+      if (width === 1440)
+        await card("vale").dragTo(page.locator("#stage"), {
+          targetPosition: { x: width / 2, y: 100 },
+        });
+      else await threat.click();
       await page.waitForFunction(
         ({ key, before }) =>
           JSON.parse(localStorage.getItem(key)).turn > before,
