@@ -27,6 +27,7 @@ const { values } = parseArgs({
     port: { type: "string", default: "4214" },
     output: { type: "string", default: "output/connected-forest-greece" },
     "model-only": { type: "boolean", default: false },
+    "first-play-only": { type: "boolean", default: false },
   },
 });
 assert.ok(values.save, "Pass the successful forest UI save with --save");
@@ -46,7 +47,11 @@ const originalHash = hash(bytes),
 await mkdir(output, { recursive: true });
 const report = {
   ok: false,
-  mode: values["model-only"] ? "local-model" : "shared-server-and-browser",
+  mode: values["model-only"]
+    ? "local-model"
+    : values["first-play-only"]
+      ? "shared-first-play"
+      : "shared-server-and-browser",
   source,
   input: { path: savePath, sha256: originalHash, bytes: bytes.length },
   dialogueProvider: "local text fixture",
@@ -388,7 +393,9 @@ async function sharedRun() {
         model: input.model,
         choices: [
           {
-            message: { content: "I am ready to continue our journey." },
+            message: {
+              content: `I pause for ${providerRequests} quiet breaths.`,
+            },
             finish_reason: "stop",
           },
         ],
@@ -536,6 +543,25 @@ async function sharedRun() {
       for (const actor of PLAYERS) await capture(actor, label);
     },
   };
+  if (values["first-play-only"]) {
+    const before = await read("mara");
+    const take = before.actions.find(
+      (action) => action.kind === "take" && action.item === "mask",
+    );
+    assert.ok(take, "Mara can take her mask at home");
+    const after = await playUI("mara", take, before);
+    assert.equal(after.world.turn, before.world.turn + 1);
+    assert.equal(after.world.items.mask.holder, "mara");
+    assertForestContract(after.world, fixed);
+    report.finalSave = join(output, "final-save.json");
+    await writeFile(
+      report.finalSave,
+      encodeSave((await storedWorld()).checkpoint.game) + "\n",
+    );
+    report.providerRequests = providerRequests;
+    await capture("mara", "first-shared-play");
+    return;
+  }
   const journey = await connectedJourney(driver, seed);
   report.waterReturn = journey.waterReturn;
   const before = await storedWorld();

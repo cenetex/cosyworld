@@ -55,3 +55,8 @@ node v2/scripts/smoke-connected-forest-greece.mjs \
 
 The model report identifies its mode. The shared run supplies the passkey,
 browser, C and restart evidence.
+
+Use `--first-play-only` with a supplied binary to isolate the first shared
+action during a quiet test window. Its report uses mode `shared-first-play`.
+That run imports the same save, creates both passkeys, and takes Mara's mask
+through her phone controls. The full journey uses the default mode.
