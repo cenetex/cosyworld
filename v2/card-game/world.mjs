@@ -1737,7 +1737,7 @@ function travelParty(s, actors, destination) {
     for (const id of carried(s, actor))
       remember(s, id, `${nameOf(actor)} carried it to ${nameOf(destination)}.`);
   }
-  moveTransport(s, from, destination);
+  moveTransport(s, from, destination, actors);
   return through;
 }
 const travel = (s, actor, destination) => travelParty(s, [actor], destination);
@@ -1932,7 +1932,7 @@ function perform(s, a, capture = () => {}, round = null) {
         if (retreat) {
           markCrossed(s, here, retreat);
           s.actors[a.target].place = retreat;
-          moveTransport(s, here, retreat);
+          moveTransport(s, here, retreat, [a.target]);
           for (const id of carried(s, a.target))
             remember(
               s,
