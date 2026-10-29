@@ -4,7 +4,7 @@ import { chromium, webkit } from "playwright";
 import { execFileSync } from "node:child_process";
 import { createServer } from "../card-game/serve.mjs";
 import { legalActions, exits, encodeSave } from "../card-game/world.mjs";
-import { availableCards } from "../card-game/cards.mjs";
+import { availableCards, cardActions } from "../card-game/cards.mjs";
 import { packDefinition } from "../card-game/pack-registry.mjs";
 import { questHistoryCards } from "../card-game/quest-cards.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
@@ -189,7 +189,16 @@ try {
           .map((a) => `${a.kind}:${a.target || a.item || a.choiceId}`)
           .join(", ")}`,
       );
-      const cards = kind === "wait" ? ["vale"] : action.cards || [];
+      const cards = kind === "wait" ? ["vale"] : [...(action.cards || [])];
+      if (
+        ["light", "snuff", "ring"].includes(kind) &&
+        before.items[action.item].holder !== "vale"
+      )
+        cards.push(before.actors.vale.place);
+      assert.ok(
+        cardActions(before, cards).actions.some((offer) => offer.key === action.key),
+        `${kind} is offered for ${cards.join(" + ")}`,
+      );
       for (const card of cards)
         await selectCard(page, card, { touch: width === 390 });
       const selector = action.choiceId
