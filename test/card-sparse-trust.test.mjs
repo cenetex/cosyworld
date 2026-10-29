@@ -17,6 +17,7 @@ import { addQuestRecord } from "../v2/card-game/shared-quests.mjs";
 import { at, hand } from "../v2/card-game/quests.mjs";
 import { trustValue } from "../v2/card-game/trust.mjs";
 import { releasedCardEngine } from "./helpers/released-card-engine.mjs";
+import forest from "../v2/card-game/forest.json" with { type: "json" };
 
 function expanded(world) {
   const copy = structuredClone(world);
@@ -38,9 +39,13 @@ function setup() {
 }
 function sparse(world) {
   const copy = structuredClone(world);
-  for (const actor of Object.values(copy.actors))
+  for (const [id, actor] of Object.entries(copy.actors))
     actor.trust = Object.fromEntries(
-      Object.entries(actor.trust).filter(([, value]) => value > 0),
+      Object.entries(actor.trust).filter(
+        ([other, value]) =>
+          value > 0 ||
+          Object.hasOwn(forest.initialState.actors[id]?.trust || {}, other),
+      ),
     );
   return copy;
 }
@@ -137,7 +142,7 @@ describe("rules21 sparse zero trust", () => {
 
   it("adds a quest reward from an absent zero exactly once", () => {
     const world = enableMotives(setup(), { questPrograms: true });
-    delete world.actors.keeper.trust.vale;
+    expect(world.actors.mara.trust).toEqual({});
     const quest = addQuestRecord(world, {
       holder: { kind: "avatar", id: "vale" },
       subjectActor: "vale",
@@ -147,7 +152,7 @@ describe("rules21 sparse zero trust", () => {
         steps: [
           {
             ...hand(at("station")),
-            consequence: { kind: "trust", avatar: "keeper" },
+            consequence: { kind: "trust", avatar: "mara" },
           },
         ],
       },
@@ -155,7 +160,7 @@ describe("rules21 sparse zero trust", () => {
     world.turn++;
     world.revision++;
     refreshQuestProgress(world);
-    expect(world.actors.keeper.trust.vale).toBe(1);
+    expect(world.actors.mara.trust.vale).toBe(1);
     expect(quest.completion).toBeDefined();
     const completed = roundTrip(world);
     refreshQuestProgress(world);
