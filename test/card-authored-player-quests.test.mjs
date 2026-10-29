@@ -183,6 +183,47 @@ describe("bounded authored player quests", () => {
     expect(f.world.items[row("vale").reward].holder).toBe("vale");
   });
 
+  it("keeps the latest assisted Give through transfers, retries and pruned logs", () => {
+    const f = fixture(); f.start(); f.world.present.delete("vale");
+    f.deliver("vale", "mara");
+    expect(f.finish("vale").waitingForOwner).toBe(true);
+    const first = structuredClone(f.world.delivery);
+    expect(f.world.state.records.vale.button.delivery.giver).toBe("mara");
+
+    // The real item can leave RATi and arrive in another traveler's hands.
+    f.world.items[row("vale").button].holder = "nell";
+    validateAuthoredPlayerQuestState(definition, f.world.state, f.io());
+    f.deliver("vale", "nell");
+    expect(f.finish("vale").waitingForOwner).toBe(true);
+    const latest = { giver: "nell", turn: 12, seq: 102 };
+    expect(f.world.state.records.vale.button.delivery).toEqual(latest);
+    const pending = structuredClone(f.world.state);
+    f.finish("vale"); // The same event is safe to observe twice.
+    expect(f.world.state).toEqual(pending);
+    f.world.delivery = first; // A stale callback keeps the newer saved evidence.
+    f.finish("vale");
+    expect(f.world.state).toEqual(pending);
+
+    f.world.delivery = null;
+    f.world.turn = 20; f.world.eventSeq = 150;
+    f.finish("vale");
+    expect(f.world.state).toEqual(pending);
+    f.world.present.add("vale");
+    expect(f.finish("vale").completed).toBe(true);
+    expect(f.world.state.records.vale.button.delivery).toEqual(latest);
+    expect(f.world.state.records.vale.button.consumedTurn).toBe(20);
+    expect(f.world.items[row("vale").reward].holder).toBe("vale");
+  });
+
+  it("checks each new handover before replacing pending Give evidence", () => {
+    const f = fixture(); f.start(); f.world.present.delete("vale");
+    f.deliver("vale", "mara"); f.finish("vale");
+    f.deliver("vale", "nell"); f.world.delivery.accepted = false;
+    const before = structuredClone(f.world);
+    expect(() => f.finish("vale")).toThrow(/accepted ordinary Give/);
+    expect(f.world).toEqual(before);
+  });
+
   it("handles full inventory atomically and leaves the physical Give available for later sewing", () => {
     const f = fixture(); f.start(); f.deliver();
     for (const key of ["lamp", "oil", "bell"]) f.world.items[key] = { holder: "vale", history: [] };

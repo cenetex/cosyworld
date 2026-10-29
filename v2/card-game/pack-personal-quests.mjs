@@ -94,7 +94,7 @@ export function personalSharedChoice(packs, packId, id) {
   return packs.some((pack) => pack.id === packId &&
     (pack.personalQuests || []).some((quest) => quest.sharedCompletion === id));
 }
-function ioFor(world, pack, quest, api, player, delivery = null) {
+function ioFor(world, pack, quest, api, player, delivery = null, sharedReady = true) {
   return {
     turn: world.turn,
     eventSeq: world.eventSeq,
@@ -111,7 +111,7 @@ function ioFor(world, pack, quest, api, player, delivery = null) {
     firstMeeting: () => ({ turn: world.turn, seq: world.eventSeq, place: quest.at }),
     reachableActiveLocations: (id) => api.reachable(world, id, quest.at),
     delivery: () => delivery,
-    canAward: ({ player: owner }) => api.canAward(world, owner),
+    canAward: ({ player: owner }) => sharedReady && api.canAward(world, owner),
     hasSharedReceipt: (id) => Object.hasOwn(world.packs[pack.id].receipts, id),
   };
 }
@@ -166,7 +166,7 @@ export function beginPersonalMeetings(world, packs, api) {
   return started;
 }
 export function advancePersonalQuests(world, packs, api, action = null) {
-  const completed = [], sharedPending = new Set();
+  const completed = [], sharedPending = new Set(), reservedPacks = new Set();
   for (const pack of packs) for (const quest of pack.personalQuests || []) {
     const state = stateFor(world, pack, quest);
     if (!state) continue;
@@ -180,14 +180,18 @@ export function advancePersonalQuests(world, packs, api, action = null) {
       const delivery = accepted ? { actor: action.actor, item: row.button, target: quest.host,
         accepted: true, turn: world.turn, seq: accepted.seq } : null;
       if (!record.button.delivery && !delivery) continue;
+      const needsSharedReceipt = quest.sharedCompletion &&
+        !Object.hasOwn(world.packs[pack.id].receipts, quest.sharedCompletion);
       const result = finishAuthoredPlayerQuest(quest, questState(state), row.player,
-        ioFor(world, pack, quest, api, row.player, delivery));
+        ioFor(world, pack, quest, api, row.player, delivery,
+          !needsSharedReceipt || !reservedPacks.has(pack.id)));
       commit(state, result, world);
       if (result.completed) {
         const sharedChoices = result.sharedChoices.filter((choice) => {
           const key = `${pack.id}:${choice.choice}`;
           if (sharedPending.has(key)) return false;
           sharedPending.add(key);
+          reservedPacks.add(pack.id);
           return true;
         });
         completed.push({ pack: pack.id, quest: quest.id,

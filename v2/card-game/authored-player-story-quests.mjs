@@ -1,3 +1,4 @@
+import { personalItem } from "./pack-personal-quests.mjs";
 import forest from "./forest.json" with { type: "json" };
 import { humanAvatar } from "./human-cast.mjs";
 
@@ -9,6 +10,19 @@ const nameOf = (packs, id) => {
       if (pack[field]?.[id]?.name) return pack[field][id].name;
   return humanAvatar(id)?.name || forest.places[id]?.name || id;
 };
+
+function heldCount(world, packs, actor) {
+  return Object.entries(world.items || {}).filter(([id, item]) => {
+    if (personalItem(world, packs, id)?.active === false) return false;
+    const seen = new Set([id]);
+    let holder = item.holder;
+    while (world.items[holder] && !seen.has(holder)) {
+      seen.add(holder);
+      holder = world.items[holder].holder;
+    }
+    return holder === actor;
+  }).length;
+}
 
 export const authoredPlayerStoryIds = (packs) => [
   ...new Set(packs.flatMap((pack) => (pack.personalQuests || []).map((quest) => quest.id))),
@@ -46,7 +60,11 @@ export function authoredPlayerStoryDefinitions(world, packs) {
         instruction = `${host} sewed ${reward}. Its button is attached.`;
       } else if (holder === quest.host && delivery) {
         stage = "delivered";
-        instruction = `${host} has ${button}. Return beside ${host} to finish ${reward}.`;
+        instruction = world.actors[row.player].place === quest.at && world.actors[quest.host]?.place === quest.at
+          ? heldCount(world, packs, row.player) >= 3
+            ? `${host} has ${button}. Make room for ${reward}, then talk or wait beside ${host}.`
+            : `${host} has ${button}. Talk or wait beside ${host} to receive ${reward}.`
+          : `${host} has ${button}. Return beside ${host} to finish ${reward}.`;
       } else if (holder === row.player) {
         stage = "return";
         instruction = `Bring ${button} back to ${host}.`;

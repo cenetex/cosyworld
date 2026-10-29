@@ -185,16 +185,20 @@ export function finishAuthoredPlayerQuest(definition, state, player, io) {
   require(item(io, row.button).holder === definition.host,
     "Give this player's own button to the host first.");
   let delivery = record.button.delivery;
-  if (delivery === null) {
-    const delivered = call(io, "delivery", player, row.button, definition.host);
+  const delivered = call(io, "delivery", player, row.button, definition.host);
+  if (delivered !== null && delivered !== undefined) {
     require(exact(delivered, ["actor", "item", "target", "accepted", "turn", "seq"]) &&
       call(io, "isActor", delivered.actor) && delivered.actor !== definition.host &&
       delivered.item === row.button &&
       delivered.target === definition.host && delivered.accepted === true &&
       validDelivery({ giver: delivered.actor, turn: delivered.turn, seq: delivered.seq }, record.meeting, io),
     "Use the accepted ordinary Give of this button from committed game history.");
-    delivery = { giver: delivered.actor, turn: delivered.turn, seq: delivered.seq };
+    // A later physical handover owns the current delivery. Retries retain
+    // that evidence after the transient Give event has aged out of the log.
+    if (delivery === null || delivered.seq > delivery.seq)
+      delivery = { giver: delivered.actor, turn: delivered.turn, seq: delivered.seq };
   }
+  require(delivery !== null, "Keep the accepted Give evidence before sewing this button.");
   const pending = structuredClone(state);
   pending.records[player].button.delivery = structuredClone(delivery);
   if (!call(io, "isPresent", player) || call(io, "actorPlace", player) !== definition.at ||
