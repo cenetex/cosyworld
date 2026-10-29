@@ -103,6 +103,13 @@ fn sorted_routes(previous: &Value) -> Vec<String> {
 pub(super) fn assert_retained(old: &Value, current: &Value, path: &str) {
     if path.ends_with("packs.greek-drama.revision") {
         assert!(current.as_u64().unwrap() >= old.as_u64().unwrap());
+    } else if path.ends_with("packs.lonely-forest.revision") {
+        // The personal scarf migration advances this pack from revision 1 to 2.
+        if old == &json!(1) {
+            assert_eq!(current, &json!(2));
+        } else {
+            assert_eq!(current, old, "Retain {path}");
+        }
     } else if path.contains("routeKnowledge.") && old.is_array() {
         // A normal turn sorts learned roads through rememberRoutes. Compare
         // every saved edge after the route expansion, including multiplicity.
@@ -134,6 +141,44 @@ fn select(world: &World, field: &str, value: &str) -> Value {
 fn assert_catalog_extension(old: &Value, current: &Value, fresh: bool) {
     let mut retained = current.clone();
     if fresh {
+        // Fresh worlds start in the attic. The older Pond opening remains part
+        // of the frozen interpreter and imported saves keep their own history.
+        assert_eq!(old["actors"]["vale"]["place"], "pond");
+        assert_eq!(current["actors"]["vale"]["place"], "attic");
+        assert_eq!(
+            old["opening"],
+            json!({"version":2,"crossed":true,"met":{"vale":0,"moth":0}})
+        );
+        assert_eq!(
+            current["opening"],
+            json!({"version":1,"crossed":false,"met":{"vale":0}})
+        );
+        let text = "Vale stands alone in Mirror attic, holding an unlit lamp. A tall mirror reflects a black shore.";
+        assert_eq!(
+            current["log"],
+            json!([{
+                "seq":1,"turn":0,"kind":"narration","actorId":null,"locationId":"attic",
+                "cast":["vale"],"items":[{"id":"lamp","holder":"vale","fuel":8,"lit":false}],
+                "light":false,"speaker":"World","text":text
+            }])
+        );
+        let event = json!({"seq":1,"turn":0,"kind":"event","text":format!("World: {text}")});
+        for id in ["vale", "moth", "lamp", "cloth", "attic", "pond"] {
+            let events = if ["vale", "lamp", "attic"].contains(&id) {
+                json!([event.clone()])
+            } else {
+                json!([])
+            };
+            let mut expected = json!({"events":events,"landmarks":[],"text":null,"turn":null});
+            if ["vale", "moth"].contains(&id) {
+                expected["seen"] = json!({});
+            }
+            assert_eq!(current["memories"][id], expected, "Opening memory {id}");
+            retained["memories"][id] = old["memories"][id].clone();
+        }
+        retained["actors"]["vale"]["place"] = old["actors"]["vale"]["place"].clone();
+        retained["opening"] = old["opening"].clone();
+        retained["log"] = old["log"].clone();
         // Fresh rules21 rows resolve absent peers to zero. Imported rows stay exact.
         for (id, actor) in old["actors"].as_object().unwrap() {
             for (other, value) in actor["trust"].as_object().unwrap() {
@@ -154,6 +199,10 @@ fn assert_catalog_extension(old: &Value, current: &Value, fresh: bool) {
         retained["routeKnowledge"]["greek-rhapsode"] = expected_routes;
     }
     assert_retained(old, &retained, "");
+    assert_eq!(
+        current["packs"]["lonely-forest"]["personalQuests"]["forest-rati-scarf"],
+        json!({"legacy":!fresh,"version":1,"records":{}})
+    );
     let catalog: Value =
         serde_json::from_str(include_str!("../../../card-game/packs.json")).unwrap();
     let greek = catalog["packs"]
@@ -289,6 +338,10 @@ fn capacity_upgrade_keeps_earned_wording_and_authors_through_journal_rebuild() {
         ] {
             assert_retained(&before[field], &world.game[field], field);
         }
+        assert_eq!(
+            world.game["packs"]["lonely-forest"]["personalQuests"]["forest-rati-scarf"],
+            json!({"legacy":true,"version":1,"records":{}})
+        );
         let record = &world.game["packs"]["greek-drama"]["recitals"]["greek-return-water-jar"];
         assert_eq!(record.as_object().unwrap().len(), 2);
         assert_eq!(

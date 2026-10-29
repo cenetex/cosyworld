@@ -47,6 +47,9 @@ fn assert_saved_items(current: &Value, old: &Value) {
 fn assert_saved_packs(current: &Value, old: &Value) {
     let mut expected = old.clone();
     expected["greek-drama"]["revision"] = json!(8);
+    expected["greek-drama"]["poemReadings"] = json!({
+        "version":1,"stanzas":[],"readings":{},"drafts":{},"pins":{},"decisions":{}
+    });
     expected["boardyai"] = current["boardyai"].clone();
     expected["hoppycat-archive"] = current["hoppycat-archive"].clone();
     expected["willows"] = current["willows"].clone();
@@ -2664,6 +2667,9 @@ fn hoppycat_upgrade_keeps_released_history_and_replays_new_story_choices() {
                 let mut expected = saved.clone();
                 if field == "packs" && key == "greek-drama" {
                     expected["revision"] = json!(8);
+                    expected["poemReadings"] = json!({
+                        "version":1,"stanzas":[],"readings":{},"drafts":{},"pins":{},"decisions":{}
+                    });
                 }
                 assert_eq!(world.game[field][key], expected, "saved {field}/{key}");
             }

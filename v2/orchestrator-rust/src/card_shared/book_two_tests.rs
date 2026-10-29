@@ -214,6 +214,52 @@ fn book_two_upgrades_rules_twenty_and_replays_the_agreed_danaid_journey() {
     let added_actors = added("avatars", "actors");
     let added_items = added("items", "items");
     let added_places = added("places", "memories");
+    // The forest's personal scarf quest adds one button and scarf per human.
+    // Check each authored item and its empty memory alongside the Greek catalog.
+    let forest = catalog["packs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|pack| pack["id"] == "lonely-forest")
+        .unwrap();
+    let forest_items: Vec<&str> = forest["personalQuests"][0]["playerItems"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .flat_map(|row| {
+            [
+                row["button"].as_str().unwrap(),
+                row["reward"].as_str().unwrap(),
+            ]
+        })
+        .collect();
+    assert_eq!(forest_items.len(), 16);
+    assert_eq!(
+        forest_items
+            .iter()
+            .copied()
+            .collect::<std::collections::BTreeSet<_>>()
+            .len(),
+        16
+    );
+    for item in &forest_items {
+        assert!(before.game["items"].get(*item).is_none());
+        assert!(before.game["memories"].get(*item).is_none());
+        assert_eq!(
+            world.game["items"][*item],
+            json!({"holder":forest["items"][*item]["holder"],"history":[]})
+        );
+        assert_eq!(
+            world.game["memories"][*item],
+            json!({"events":[],"landmarks":[],"text":null,"turn":null})
+        );
+    }
+    let mut expected_forest = before.game["packs"]["lonely-forest"].clone();
+    expected_forest["revision"] = json!(2);
+    expected_forest["personalQuests"] = json!({
+        "forest-rati-scarf":{"legacy":true,"version":1,"records":{}}
+    });
+    assert_eq!(world.game["packs"]["lonely-forest"], expected_forest);
     for field in ["turn", "eventSeq", "log", "transports", "invitedPlaces"] {
         assert_eq!(
             world.game[field], before.game[field],
@@ -262,7 +308,7 @@ fn book_two_upgrades_rules_twenty_and_replays_the_agreed_danaid_journey() {
     );
     assert_eq!(
         world.game["items"].as_object().unwrap().len(),
-        before.game["items"].as_object().unwrap().len() + added_items.len()
+        before.game["items"].as_object().unwrap().len() + added_items.len() + forest_items.len()
     );
     assert_eq!(
         world.game["memories"].as_object().unwrap().len(),
@@ -270,6 +316,7 @@ fn book_two_upgrades_rules_twenty_and_replays_the_agreed_danaid_journey() {
             + added_actors.len()
             + added_items.len()
             + added_places.len()
+            + forest_items.len()
     );
     for actor in NEW_ACTORS {
         assert!(added_actors.iter().any(|id| id == actor));
