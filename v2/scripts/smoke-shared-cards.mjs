@@ -201,11 +201,11 @@ let seed = enableMotives(createWorld({ opening: true }), {
   questPrograms: true,
   personalQuests: true,
 });
-for (const kind of ["light"]) {
+for (const kind of ["light", "move"]) {
   const action = legalActions(seed).find(
     (a) => a.kind === kind && (kind !== "move" || a.target === "pond"),
   );
-  assert(action, "the pond opening lights its lamp");
+  assert(action, "the attic opening lights its lamp and crosses to the pond");
   const result = play(seed, action);
   assert(result.ok);
   seed = result.state;

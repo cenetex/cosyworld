@@ -20,6 +20,7 @@ const act = (s, kind, target) => {
 };
 let fixture = enableMotives(createWorld({ opening: true }));
 fixture = act(fixture, "light");
+fixture = act(fixture, "move", "pond");
 fixture.actors.moth.place = "attic";
 fixture.items.lamp.holder = "moth";
 fixture.items.bell.holder = "vale";

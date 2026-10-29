@@ -37,6 +37,7 @@ function pond() {
   // The separate bard smoke covers his fresh-harbor voyage.
   s.actors["greek-rhapsode"].place = "attic";
   s = action(s, "light", "lamp");
+  s = action(s, "move", null, "pond");
   // Only stage initial possessions; exercise the real transition and save rules.
   s.items.cloth.holder = "vale";
   s.items.lamp.fuel = 12;

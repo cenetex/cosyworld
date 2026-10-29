@@ -73,11 +73,17 @@ try {
   await page.waitForTimeout(500);
   assert(await page.locator("#room-music").evaluate((audio) => audio.paused));
   await page.locator('[data-close="menu-dialog"]').click();
-  // Lighting the lamp opens the attic mirror and starts the pond music.
+  // Lighting the lamp starts the attic music and reveals the pond path.
   await playCard("lamp");
   await page.waitForFunction(() =>
-    document.querySelector('#hand [data-card="attic"]'),
+    document.querySelector('#hand [data-card="pond"]'),
   );
+  await takeUnveiled();
+  await page.waitForFunction((file) => {
+    const audio = document.querySelector("#room-music");
+    return new URL(audio.src).pathname.endsWith(file) && audio.currentTime > 0;
+  }, roomTracks.attic[0].file);
+  await playCard("pond");
   await takeUnveiled();
   await page.waitForFunction((file) => {
     const audio = document.querySelector("#room-music");

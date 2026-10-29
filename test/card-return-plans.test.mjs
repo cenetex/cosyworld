@@ -285,6 +285,8 @@ describe("return journeys and fixed meetings", () => {
 
   it("keeps a promised gift at its meeting place while the recipient approaches", () => {
     let world = enableMotives(createWorld({ opening: true }), { questPrograms: true });
+    world = commit(world, "light");
+    world = commit(world, "move", { target: "pond" });
     world.turn = world.revision = 20;
     world.opening.met.keeper = 0;
     world.actors.moth.place = "pond";

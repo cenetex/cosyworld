@@ -162,6 +162,7 @@ function pond(scope = "full") {
     },
   );
   world = act(world, "light");
+  world = act(world, "move", { target: "pond" });
   world.items.cloth.holder = "vale";
   world.items.oil.holder = HARBOR;
   world.items.lamp.fuel = 12;
