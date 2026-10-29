@@ -12,6 +12,7 @@ import { recitalPoem } from "../v2/card-game/pack-recital.mjs";
 import { knowsFact } from "../v2/card-game/knowledge.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { releasedCardEngine } from "./helpers/released-card-engine.mjs";
+import { expectedEpicGreekEntry } from "./helpers/greek-released-contract.mjs";
 import { ajaxStart } from "./helpers/greek-ajax.mjs";
 import {
   comedyId,
@@ -117,7 +118,7 @@ describe("The City Eats", () => {
     for (const choice of earlier.choices)
       expect(
         comedyPack.choices.find((entry) => entry.id === choice.id),
-      ).toEqual(choice);
+      ).toEqual(expectedEpicGreekEntry("choices", choice));
     expect(comedyPack.avatars[comedyId("wasps", "labes")].expression).toBe(
       "movement",
     );

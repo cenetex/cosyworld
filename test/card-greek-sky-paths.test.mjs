@@ -379,18 +379,9 @@ function carriedFlame() {
   for (const id of ["lamp", "oil", "cloth"]) w.items[id].holder = camp;
   Object.assign(w.items.lamp, { fuel: 0, lit: false });
   w.items.oil.doses = 3;
-  const road = [
-    east,
-    "greek-troy",
-    "greek-greek-camp",
-    "greek-aulis",
-    "greek-gate",
-    "greek-courtyard",
-  ];
-  for (const to of road) w = move(w, to);
+  w = houseGo(w, "greek-courtyard");
   w = choose(w, "greek-vii-open-accounts");
-  for (const to of [...road.slice(0, -1)].reverse()) w = move(w, to);
-  w = move(w, camp);
+  w = houseGo(w, camp);
   w = take(w, "oil");
   w = act(w, "refill", { item: "oil", target: "lamp" });
   w = act(w, "refill", { item: "oil", target: "lamp" });

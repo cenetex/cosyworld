@@ -21,6 +21,7 @@ import { questHistoryCards } from "../v2/card-game/quest-cards.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { bookReplay } from "./fixtures/card-book-one-replay.mjs";
 import { releasedCardEngine } from "./helpers/released-card-engine.mjs";
+import { expectedEpicGreekEntry } from "./helpers/greek-released-contract.mjs";
 import {
   bookStart,
   bookJourney,
@@ -309,7 +310,7 @@ describe("Book I shared learning and history", () => {
       for (const entry of oldPack[key])
         expect(
           pack[key].find((e) => (e.key || e.id) === (entry.key || entry.id)),
-        ).toEqual(entry);
+        ).toEqual(expectedEpicGreekEntry(key, entry));
     for (const verse of oldPack.recital.verses)
       expect(
         pack.recital.verses.find((v) => v.choice === verse.choice),

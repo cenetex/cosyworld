@@ -17,6 +17,7 @@ import { knownActors } from "../v2/card-game/quests.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { knowsFact } from "../v2/card-game/knowledge.mjs";
 import { releasedCardEngine } from "./helpers/released-card-engine.mjs";
+import { expectedEpicGreekEntry } from "./helpers/greek-released-contract.mjs";
 import {
   HOUSE_PARTS,
   houseState,
@@ -46,7 +47,9 @@ describe("House of Blood source and journeys", () => {
     expect(old.recital.verses).toHaveLength(56);
     expect(pack.recital.verses.slice(0, 56)).toEqual(old.recital.verses);
     for (const choice of old.choices)
-      expect(pack.choices.find((c) => c.id === choice.id)).toEqual(choice);
+      expect(pack.choices.find((c) => c.id === choice.id)).toEqual(
+        expectedEpicGreekEntry("choices", choice),
+      );
     for (const kind of [
       "places",
       "avatars",
@@ -63,7 +66,9 @@ describe("House of Blood source and journeys", () => {
       for (const id of ledger.added[kind]) expect(ids).toContain(id);
     }
     expect(
-      pack.recital.verses.filter((verse) => verse.choice.startsWith("greek-v-")),
+      pack.recital.verses.filter((verse) =>
+        verse.choice.startsWith("greek-v-"),
+      ),
     ).toHaveLength(ledger.totals.verses - old.recital.verses.length);
   });
 
