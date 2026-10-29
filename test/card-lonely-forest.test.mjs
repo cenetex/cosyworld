@@ -316,7 +316,7 @@ describe("Tea beneath the oak", () => {
     expect(action).toBeTruthy();
     response = dispatchShared({
       op: "play",
-      world: response.world,
+      world,
       actor: "mara",
       claimed: ["vale", "mara"],
       present: ["vale", "mara"],
