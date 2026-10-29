@@ -148,6 +148,6 @@ describe("the table stays playable", () => {
           );
         }
       }),
-    180_000,
+    300_000,
   );
 });

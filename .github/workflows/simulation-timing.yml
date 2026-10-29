@@ -6,7 +6,7 @@ jobs:
   measure:
     if: github.head_ref == 'codex/hosted-simulation-measure'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 13
     env:
       CI: true
     steps:
@@ -16,7 +16,28 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci --prefer-offline --no-audit --no-fund
-      - name: Verify long simulations under final limits
+      - name: Record runner and verify source identity
+        shell: bash
+        run: |
+          node --version
+          uname -a
+          nproc
+          lscpu | head -25
+          free -h
+          git fetch --no-tags --depth=1 origin d508c0b97f6f57722aac2106fd90bb54a6f2709a
+          git diff --exit-code FETCH_HEAD -- v2/card-game v2/worlds v2/orchestrator-rust/src/card_shared vitest.config.js
+          python3 - <<'PY'
+          import hashlib, pathlib, subprocess
+          for name in ['test/card-game.test.mjs', 'test/card-liveness.test.mjs']:
+              original = subprocess.check_output(['git', 'show', 'FETCH_HEAD:' + name])
+              diagnostic = pathlib.Path(name).read_bytes()
+              assert diagnostic == original.replace(b'    180_000,', b'    300_000,', 1), name
+              print(name, 'release_sha256', hashlib.sha256(original).hexdigest(), 'diagnostic_sha256', hashlib.sha256(diagnostic).hexdigest(), 'only_change=whole_test_timeout')
+          for name in ['v2/card-game', 'v2/worlds', 'v2/orchestrator-rust/src/card_shared']:
+              print(name, 'release_tree', subprocess.check_output(['git', 'rev-parse', 'FETCH_HEAD:' + name], text=True).strip(), 'diagnostic_tree', subprocess.check_output(['git', 'rev-parse', 'HEAD:' + name], text=True).strip())
+          print('Diagnostic helper adds checkpoint progress and CPU timing; game code is unchanged.')
+          PY
+      - name: Measure full simulations
         run: >-
           npx vitest run test/card-game.test.mjs test/card-liveness.test.mjs
           -t 'preserves unique objects and valid state across 4000 varied turns|keeps every avatar progressing after long loose play'
