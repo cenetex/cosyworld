@@ -28,13 +28,15 @@ import {
   legalActions,
   play,
   carried,
+  nameOf,
 } from "../v2/card-game/world.mjs";
 import { storyDefinitions } from "../v2/card-game/story-quests.mjs";
-import { availableCards } from "../v2/card-game/cards.mjs";
+import { availableCards, cardObservation } from "../v2/card-game/cards.mjs";
 import { questCards, questHistoryCards } from "../v2/card-game/quest-cards.mjs";
 import {
   entityActive,
   packDefinition,
+  packMedia,
 } from "../v2/card-game/pack-registry.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { releasedCardEngine } from "./helpers/released-card-engine.mjs";
@@ -312,6 +314,26 @@ describe("RATi's personal scarf in the real world model", () => {
         locationId: COTTAGE,
         participants: [owner],
       });
+      const colors = {
+        vale: "white",
+        mara: "green",
+        ash: "blue",
+        nell: "violet",
+        tavi: "red",
+        rue: "orange",
+        orin: "amber",
+        ada: "yellow",
+      };
+      const art = `./assets/lonely-forest/scarves/scarf-${colors[owner]}.png`;
+      const fulfilled = questHistoryCards(world).find(
+        (card) => card.key === questKey,
+      );
+      expect(fulfilled.art).toBe(row.reward);
+      expect(packMedia(fulfilled.art, "art")).toBe(art);
+      expect(packMedia(row.reward, "art")).toBe(art);
+      expect(cardObservation(world, row.reward)).toBe(
+        `Carried by ${nameOf(owner)}.`,
+      );
       expect(world.packs[PACK].flags["forest-scarf-mended"]).toBe(true);
       expect(reload(world)).toEqual(world);
     },

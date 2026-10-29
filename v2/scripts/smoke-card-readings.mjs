@@ -10,7 +10,7 @@ import { courtJourney, FROGS } from "../../test/helpers/greek-readings.mjs";
 export async function checkReadings(browser, origin) {
   const output =
     process.env.COSYWORLD_READING_EVIDENCE ||
-    "/private/tmp/cosyworld-reading-browser";
+    new URL("../../output/card-readings/", import.meta.url).pathname;
   await mkdir(output, { recursive: true });
   const initial = courtJourney(),
     id = `site:${FROGS}-court:vale`,

@@ -368,7 +368,7 @@ export function cardObservation(world, id) {
         item.ringing > 0 && !covered(world, id) ? "Ringing" : "Silent",
       );
     const cover = Object.keys(world.items).find(
-      (other) => world.items[other].holder === id,
+      (other) => world.items[other].holder === id && entityActive(world, other),
     );
     if (cover) observations.push(`Covered by ${nameOf(cover)}`);
     observations.push(

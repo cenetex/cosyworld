@@ -269,6 +269,12 @@ try {
         await page.locator(`#hand [data-card="${scarf}"]`).count(),
         1,
       );
+      const scarfCard = page.locator(`#hand [data-card="${scarf}"]`);
+      assert.match(
+        await scarfCard.locator("img").first().getAttribute("src"),
+        /scarf-white/,
+      );
+      assert.equal(await scarfCard.locator(".object-cover").count(), 0);
     };
     try {
       await page.goto(`${origin}/?table=${table}`);
@@ -341,6 +347,16 @@ try {
       );
       assert.equal(personalRecord(sewn).reward.awardedTurn, sewn.turn);
       await checkScarf(sewn);
+      await selectCard(page, scarf, { touch: width === 390 });
+      const heldScarf = page.locator(
+        `.portrait-held-item[data-item="${scarf}"]`,
+      );
+      await heldScarf.waitFor({ state: "visible" });
+      assert.equal(await heldScarf.locator(".object-cover").count(), 0);
+      assert.match(
+        await heldScarf.locator("img").getAttribute("src"),
+        /scarf-white/,
+      );
       await shot("cottage-scarf");
       await step("move", { target: "forest-garden" });
       await step("choose", {

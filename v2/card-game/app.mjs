@@ -51,7 +51,7 @@ import {
   decodeSave,
   legalActions,
 } from "./world.mjs";
-import { packPlaces, packOf } from "./pack-registry.mjs";
+import { packPlaces, packOf, entityActive } from "./pack-registry.mjs";
 import { variantOf } from "./pack-rules.mjs";
 import {
   currentScene,
@@ -1738,7 +1738,7 @@ function card(id) {
     if (typeof item.ringing === "number")
       el.dataset.ringing = String(item.ringing > 0 && !covered(world, id));
     const covering = Object.keys(world.items).find(
-      (other) => world.items[other].holder === id,
+      (other) => world.items[other].holder === id && entityActive(world, other),
     );
     if (covering) {
       el.dataset.covered = "true";
@@ -1958,7 +1958,7 @@ function renderHeldItem(figure, actor, itemId) {
   }
   const item = world.items[itemId];
   const covering = Object.keys(world.items).find(
-    (id) => world.items[id].holder === itemId,
+    (id) => world.items[id].holder === itemId && entityActive(world, id),
   );
   const key = JSON.stringify([itemId, covering]);
   if (preview.dataset.key !== key) {

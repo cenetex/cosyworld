@@ -86,7 +86,7 @@ let child,
 const pages = [],
   errors = [],
   outsiderReplies = [];
-const evidence = { origin, checks: [] };
+const evidence = { origin, checks: [], steps: [] };
 const delay = (ms) => new Promise((done) => setTimeout(done, ms));
 function start() {
   child = spawn(
@@ -169,7 +169,9 @@ async function act(page, fields) {
   assert(action, JSON.stringify(fields));
   await checked(page, { op: "play", key: crypto.randomUUID(), action });
   await idle(page);
-  return view(page);
+  const after = await view(page);
+  evidence.steps.push({ ...fields, turn: after.world.turn });
+  return after;
 }
 const reading = (state) =>
   state.world.readingView.packs["greek-drama"].readings.find(
@@ -182,7 +184,13 @@ async function review(page) {
     else if (await page.locator("#dialogue-advance").isVisible())
       await page.locator("#dialogue-advance").click();
     else if (!(await page.evaluate(() => document.body.inert))) break;
-    assert.equal(await page.locator("#story-retry").isVisible(), false);
+    assert.equal(
+      await page.locator("#story-retry").isVisible(),
+      false,
+      await page
+        .locator("#story-retry")
+        .evaluate((node) => node.parentElement.textContent),
+    );
     await delay(50);
   }
   await page.locator("#toolbar-menu-button").click();
@@ -342,6 +350,21 @@ try {
   console.log(
     "Shared readings: three passkeys, private pages, guest return, explicit replay, one lost-response commit, phone reload and server restart passed.",
   );
+} catch (error) {
+  evidence.error = error.message;
+  for (const [index, page] of pages.entries()) {
+    await page
+      .screenshot({ path: join(output, `failure-${index}.png`) })
+      .catch(() => {});
+    const state = await view(page).catch((failure) => ({
+      error: failure.message,
+    }));
+    await writeFile(
+      join(output, `failure-${index}.json`),
+      JSON.stringify(state, null, 2),
+    );
+  }
+  throw error;
 } finally {
   await writeFile(
     join(output, "report.json"),
