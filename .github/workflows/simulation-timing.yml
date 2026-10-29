@@ -16,8 +16,12 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci --prefer-offline --no-audit --no-fund
-      - name: Measure complete 4000-turn test
-        run: >-
-          npx vitest run test/card-game.test.mjs
-          -t 'preserves unique objects and valid state across 4000 varied turns'
-          --retry=0 --reporter=verbose
+      - name: Measure Book I attempts separately
+        shell: bash
+        run: |
+          result=0
+          for attempt in 1 2; do
+            echo "Book I attempt ${attempt}"
+            npx vitest run test/card-greek-book-one.test.mjs -t 'replays ordered dialogue and deeds through the bundled shared rules' --retry=0 --reporter=verbose || result=1
+          done
+          exit "$result"
