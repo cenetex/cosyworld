@@ -8344,6 +8344,12 @@
         ]
       },
       "defaultEnding": "greek-perform-burial",
+      "progress": [
+        "greek-hear-decree",
+        "greek-petition-burial",
+        "greek-prepare-burial-ground",
+        "greek-prepare-permitted-burial"
+      ],
       "endings": [
         {
           "choice": "greek-perform-permitted-burial",

@@ -6,7 +6,11 @@ import {
   legalActions,
 } from "../v2/card-game/world.mjs";
 import { packDefinition } from "../v2/card-game/pack-registry.mjs";
-import { storyQuestProblems } from "../v2/card-game/pack-story-schema.mjs";
+import {
+  storyQuestProblems,
+  storyQuestWarnings,
+} from "../v2/card-game/pack-story-schema.mjs";
+import { packProblems } from "../v2/card-game/pack-schema.mjs";
 import { knowsFact } from "../v2/card-game/knowledge.mjs";
 import { questRecord } from "../v2/card-game/shared-quests.mjs";
 import {
@@ -24,6 +28,7 @@ import {
 
 const greek = packDefinition("greek-drama");
 const forest = packDefinition("lonely-forest");
+const mounted = compiled.packs.flatMap((p) => Object.keys(p.places));
 const reload = (world) => decodeSave(encodeSave(world));
 const SHIELD = "greek-drama:story-quest-greek-ajax-shield";
 const offered = (world, id) =>
@@ -108,6 +113,44 @@ describe("story returns", () => {
   });
 });
 
+describe("story middles", () => {
+  it("gives every new spoken gate two or more independent sources", () => {
+    const advice = [greek, forest].flatMap(storyQuestWarnings).join("\n");
+    for (const key of [
+      "story-quest-greek-ajax-shield",
+      "story-quest-forest-walkers",
+      "story-quest-forest-hearth",
+      "story-quest-forest-path",
+      "story-quest-greek-burial",
+    ])
+      expect(advice).not.toContain(`${key} `);
+    // Earlier single-speaker accounts stay visible as authoring advice.
+    expect(advice).toContain(
+      "story-quest-greek-ajax-plea gate greek-ajax-deliver-plea has one source",
+    );
+    expect(advice).toContain("story-quest-greek-table is a single card");
+  });
+
+  it("rejects a topics gate whose facts share one speaker", () => {
+    const source = compiled.packs.find((p) => p.id === "greek-drama");
+    const pack = structuredClone(source);
+    const deliver = pack.choices.find(
+      (c) => c.id === "greek-ajax-deliver-shield",
+    );
+    const gate = deliver.requires.find((c) => c.kind === "knows");
+    expect(packProblems(pack, compiled.hub, mounted)).toEqual([]);
+    pack.topics.find((t) => t.id === gate.topics[1]).speaker =
+      "greek-ajax-teucer";
+    pack.topics.find((t) => t.id === gate.topics[1]).at = "greek-greek-camp";
+    pack.choices.find(
+      (c) => c.id === "greek-ajax-learn-shield-odysseus",
+    ).subject = "greek-ajax-teucer";
+    expect(packProblems(pack, compiled.hub, mounted).join()).toMatch(
+      /closed condition vocabulary/,
+    );
+  });
+});
+
 describe("the child's shield has a spoken middle", () => {
   it.each([
     ["Teucer", "greek-ajax-teucer", "greek-ajax-shield-teucer", false],
@@ -164,9 +207,7 @@ describe("the child's shield has a spoken middle", () => {
       (c) => c.id === "greek-ajax-deliver-shield",
     );
     const current = deliver.requires;
-    deliver.requires = current.filter(
-      (c) => c.kind !== "knows",
-    );
+    deliver.requires = current.filter((c) => c.kind !== "knows");
     try {
       world = ajaxChoice(world, "deliver-shield");
     } finally {

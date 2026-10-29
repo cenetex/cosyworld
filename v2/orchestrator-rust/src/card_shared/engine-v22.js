@@ -11067,6 +11067,12 @@
               ]
             },
             defaultEnding: "greek-perform-burial",
+            progress: [
+              "greek-hear-decree",
+              "greek-petition-burial",
+              "greek-prepare-burial-ground",
+              "greek-prepare-permitted-burial"
+            ],
             endings: [
               {
                 choice: "greek-perform-permitted-burial",
@@ -14846,6 +14852,9 @@
               "forest-stay-for-tea",
               "forest-mend-scarf"
             ],
+            progress: [
+              "forest-stay-for-tea"
+            ],
             endings: [
               {
                 choice: "forest-mend-scarf"
@@ -14875,6 +14884,10 @@
               "forest-clear-drain",
               "forest-set-stones",
               "forest-share-symbols"
+            ],
+            progress: [
+              "forest-clear-drain",
+              "forest-set-stones"
             ],
             endings: [
               {
@@ -16139,7 +16152,11 @@
             break;
           case "knows": {
             const named = Array.isArray(c.topics) ? c.topics : [c.topic];
-            ok = (c.topics === void 0 ? keysOk2(c, ["kind", "topic", "role"]) : keysOk2(c, ["kind", "topics", "role"]) && named.length >= 2 && named.length <= 4 && new Set(named).size === named.length) && c.role === "actor" && named.every(
+            ok = (c.topics === void 0 ? keysOk2(c, ["kind", "topic", "role"]) : keysOk2(c, ["kind", "topics", "role"]) && named.length >= 2 && named.length <= 4 && new Set(named).size === named.length && new Set(
+              named.map(
+                (id) => (pack.topics || []).find((topic) => topic.id === id)?.speaker
+              )
+            ).size === named.length) && c.role === "actor" && named.every(
               (id) => idOk2(id) && (pack.topics || []).some((topic) => topic.id === id)
             );
             break;

@@ -137,6 +137,11 @@ link a hidden `choiceId` so the first telling leaves a receipt for the
 story's `progress`. Personal knowledge is not part of receipt validation,
 so a save that already holds the ending receipt stays complete.
 
+The topics in one `topics` list must have different speakers. The pack
+build prints advice for a story with no `progress` and no `return`, and for
+an ending or progress action whose `knows` gate has one source. Advice does
+not fail the build.
+
 The Ajax shield uses Teucer and Odysseus at the camp and Tecmessa in the
 household tent. The forest's evening watch uses RATi at the cottage and
 Root at the oak.

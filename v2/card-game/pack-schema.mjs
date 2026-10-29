@@ -719,7 +719,14 @@ export function packProblems(pack, hub, mountedPlaces = []) {
               : keysOk(c, ["kind", "topics", "role"]) &&
                 named.length >= 2 &&
                 named.length <= 4 &&
-                new Set(named).size === named.length) &&
+                new Set(named).size === named.length &&
+                new Set(
+                  named.map(
+                    (id) =>
+                      (pack.topics || []).find((topic) => topic.id === id)
+                        ?.speaker,
+                  ),
+                ).size === named.length) &&
             c.role === "actor" &&
             named.every(
               (id) =>

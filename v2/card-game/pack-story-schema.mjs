@@ -273,6 +273,39 @@ export function storyQuestProblems(pack, hub) {
   return problems;
 }
 
+// Authoring advice that does not block a build. A story whose only step is
+// its ending has no middle. A fact gate with one speaker can stall the story
+// on one missed conversation; `knows` with `topics` gives it more sources.
+export function storyQuestWarnings(pack) {
+  const warnings = [];
+  const choices = new Map((pack.choices || []).map((c) => [c.id, c]));
+  const topics = new Map((pack.topics || []).map((t) => [t.id, t]));
+  for (const story of pack.storyQuests || []) {
+    const key = story.key || story.id;
+    const actions = [
+      ...(story.progress || []),
+      ...(story.endings || []).map((e) => e.choice),
+    ];
+    if (!story.progress?.length && !story.return)
+      warnings.push(`${pack.id}: story quest ${key} is a single card`);
+    for (const id of actions)
+      for (const c of choices.get(id)?.requires || []) {
+        if (c.kind !== "knows") continue;
+        const sources = new Set(
+          (c.topics || [c.topic]).map((t) => {
+            const topic = topics.get(t);
+            return topic ? `${topic.speaker}@${topic.at}` : t;
+          }),
+        );
+        if (sources.size < 2)
+          warnings.push(
+            `${pack.id}: story quest ${key} gate ${id} has one source for ${c.topic || c.topics[0]}`,
+          );
+      }
+  }
+  return warnings;
+}
+
 // A return carries an earlier outcome home. `from` names the earlier local
 // stories; `carries` names the saved evidence they wrote. Every ending must
 // depend on that evidence, directly or through the choices that set it.

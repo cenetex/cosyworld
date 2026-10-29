@@ -8978,6 +8978,12 @@
             ]
           },
           "defaultEnding": "greek-perform-burial",
+          "progress": [
+            "greek-hear-decree",
+            "greek-petition-burial",
+            "greek-prepare-burial-ground",
+            "greek-prepare-permitted-burial"
+          ],
           "endings": [
             {
               "choice": "greek-perform-permitted-burial",
@@ -12757,6 +12763,9 @@
             "forest-stay-for-tea",
             "forest-mend-scarf"
           ],
+          "progress": [
+            "forest-stay-for-tea"
+          ],
           "endings": [
             {
               "choice": "forest-mend-scarf"
@@ -12786,6 +12795,10 @@
             "forest-clear-drain",
             "forest-set-stones",
             "forest-share-symbols"
+          ],
+          "progress": [
+            "forest-clear-drain",
+            "forest-set-stones"
           ],
           "endings": [
             {
