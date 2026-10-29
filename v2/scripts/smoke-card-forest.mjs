@@ -1,10 +1,52 @@
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
-import { chromium } from "playwright";
+import { chromium, webkit } from "playwright";
+import { execFileSync } from "node:child_process";
 import { createServer } from "../card-game/serve.mjs";
-import { legalActions } from "../card-game/world.mjs";
+import { legalActions, exits, encodeSave } from "../card-game/world.mjs";
+import { availableCards } from "../card-game/cards.mjs";
+import { packDefinition } from "../card-game/pack-registry.mjs";
+import { questHistoryCards } from "../card-game/quest-cards.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
-const out = new URL("../../output/card-forest/", import.meta.url).pathname;
+const browserName = process.env.CARD_BROWSER || "chromium";
+const browserType = { chromium, webkit }[browserName];
+assert.ok(browserType, `Supported browser: ${browserName}`);
+const sourceCommit = execFileSync("git", ["rev-parse", "HEAD"], {
+  cwd: new URL("../../", import.meta.url),
+  encoding: "utf8",
+}).trim();
+const PACK = "lonely-forest";
+const scarfQuest = packDefinition(PACK).personalQuests.find(
+  (quest) => quest.id === "forest-rati-scarf",
+);
+const { button: personalButton, reward: scarf } = scarfQuest.playerItems.find(
+  (row) => row.player === "vale",
+);
+const personalKey = `${PACK}:${scarfQuest.id}:vale`;
+const personalRecord = (world) =>
+  world.packs[PACK].personalQuests[scarfQuest.id].records.vale;
+function routeTo(world, goal) {
+  const start = world.actors.vale.place,
+    queue = [[start]],
+    seen = new Set([start]);
+  while (queue.length) {
+    const path = queue.shift(),
+      at = path.at(-1);
+    if (at === goal) return path.slice(1);
+    const preview = {
+      ...world,
+      actors: { ...world.actors, vale: { ...world.actors.vale, place: at } },
+    };
+    for (const next of exits(preview, at, "vale"))
+      if (!seen.has(next)) {
+        seen.add(next);
+        queue.push([...path, next]);
+      }
+  }
+  return null;
+}
+const out = new URL(`../../output/card-forest-${browserName}/`, import.meta.url)
+  .pathname;
 await mkdir(out, { recursive: true });
 const server = createServer();
 await new Promise((resolve, reject) => {
@@ -16,8 +58,9 @@ let browser;
 const reports = [];
 try {
   try {
-    browser = await chromium.launch({ headless: true });
+    browser = await browserType.launch({ headless: true });
   } catch (error) {
+    if (browserName !== "chromium") throw error;
     console.log("Standard Chromium launch:", error.message.split("\n")[0]);
     browser = await chromium.launch({
       headless: true,
@@ -35,6 +78,8 @@ try {
     const table = `forest-fresh-${width}-${Date.now()}`;
     const key = `cosyworld.reflected-shore.v1.${table}`;
     const report = {
+      browser: browserName,
+      sourceCommit,
       width,
       table,
       errors: [],
@@ -70,7 +115,7 @@ try {
                 : id === "skull"
                   ? "Skull turns his ears toward the path."
                   : id === "rati"
-                    ? "The blue wool is beside the basket."
+                    ? "The white wool is ready for your scarf."
                     : id === "oak"
                       ? "Root counts the footsteps beside the garden."
                       : "I can see the path from here."),
@@ -150,7 +195,8 @@ try {
         ? `#card-actions [data-choice="${action.choiceId}"]`
         : `#card-actions [data-action="${kind}"]`;
       const button = page.locator(selector).filter({ visible: true });
-      await button.first().click();
+      if (width === 390) await button.first().tap();
+      else await button.first().click();
       await settle();
       const after = await state();
       assert.equal(after.turn, before.turn + 1, "One click commits one turn");
@@ -162,6 +208,50 @@ try {
         place: after.actors.vale.place,
       });
       console.log(JSON.stringify({ width, step: report.steps.at(-1) }));
+    };
+    const travel = async (target) => {
+      for (let count = 0; count < 32; count++) {
+        const world = await state();
+        if (world.actors.vale.place === target) return;
+        const path = routeTo(world, target);
+        assert.ok(
+          path?.length,
+          `Route from ${world.actors.vale.place} to ${target}`,
+        );
+        await step("move", { target: path[0] });
+      }
+      throw new Error(`Travel exceeded 32 plays to ${target}`);
+    };
+    const checkScarf = async (world) => {
+      const record = personalRecord(world);
+      assert.equal(
+        world.packs[PACK].personalQuests[scarfQuest.id].legacy,
+        false,
+      );
+      assert.equal(record.button.delivery.giver, "vale");
+      assert.equal(record.button.consumedTurn, record.reward.awardedTurn);
+      assert.equal(world.items[personalButton].holder, scarf);
+      assert.equal(world.items[scarf].holder, "vale");
+      assert.equal(
+        packDefinition(PACK).items[scarf].name,
+        "Vale's White Scarf",
+      );
+      assert.equal(world.packs[PACK].flags["forest-scarf-mended"], true);
+      assert.equal(
+        world.quests.records[personalKey].completedTurn,
+        record.reward.awardedTurn,
+      );
+      assert.ok(!availableCards(world).includes(personalButton));
+      assert.equal(
+        await page.locator(`#hand [data-card="${personalButton}"]`).count(),
+        0,
+        "The sewn button has left the playable hand",
+      );
+      assert.ok(availableCards(world).includes(scarf));
+      assert.equal(
+        await page.locator(`#hand [data-card="${scarf}"]`).count(),
+        1,
+      );
     };
     try {
       await page.goto(`${origin}/?table=${table}`);
@@ -182,17 +272,13 @@ try {
       );
       await shot("fresh-attic");
       await step("light", { item: "lamp" });
+      await step("wait");
       await step("move", { target: "pond" });
-      await step("give", { item: "lamp", target: "moth" });
-      if ((await state()).items.cloth.holder !== "vale")
-        await step("ask", {
-          item: "cloth",
-          target: (await state()).items.cloth.holder,
-        });
+      await step("trade", { item: "lamp", receive: "cloth" });
       assert.equal(
         (await state()).items.cloth.holder,
         "vale",
-        "Pip hands over the cloth after the gift",
+        "Pip exchanges the cloth for the lamp",
       );
       await step("move", { target: "attic" });
       await shot("attic-cloth-gate");
@@ -200,9 +286,33 @@ try {
       await shot("cottage-arrival");
       await step("talk", { target: "rati" });
       await step("choose", { choiceId: "forest-stay-for-tea" });
-      await step("take", { item: "forest-story-button" });
-      await step("give", { item: "forest-story-button", target: "rati" });
-      await step("choose", { choiceId: "forest-mend-scarf" });
+      const search = personalRecord(await state());
+      assert.ok(search.eligiblePlaces.includes(search.button.placedAt));
+      assert.equal(
+        (await state()).items[personalButton].holder,
+        search.button.placedAt,
+      );
+      report.buttonPlacedAt = search.button.placedAt;
+      await travel(search.button.placedAt);
+      await shot("button-found");
+      await step("take", { item: personalButton });
+      assert.equal((await state()).items[personalButton].holder, "vale");
+      await travel("forest-cottage");
+      await step("give", { item: personalButton, target: "rati" });
+      const sewn = await state();
+      assert.ok(
+        sewn.log.some(
+          (event) =>
+            event.turn === sewn.turn &&
+            event.verb === "give" &&
+            event.actorId === "vale" &&
+            event.itemId === personalButton &&
+            event.targetId === "rati",
+        ),
+        "The accepted Give records Vale's physical delivery",
+      );
+      assert.equal(personalRecord(sewn).reward.awardedTurn, sewn.turn);
+      await checkScarf(sewn);
       await shot("cottage-scarf");
       await step("move", { target: "forest-garden" });
       await step("choose", {
@@ -254,10 +364,17 @@ try {
         await page.locator("#hand [data-card=oak]").count(),
         "Oak keeps his card",
       );
-      const beforeReload = (await state()).packs["lonely-forest"];
+      const beforeReload = await state();
       await page.reload();
       await settle();
-      assert.deepEqual((await state()).packs["lonely-forest"], beforeReload);
+      const restored = await state();
+      assert.deepEqual(restored.packs[PACK], beforeReload.packs[PACK]);
+      assert.deepEqual(restored.items, beforeReload.items);
+      assert.deepEqual(
+        restored.quests.records[personalKey],
+        beforeReload.quests.records[personalKey],
+      );
+      await checkScarf(restored);
       await step("move", { target: "forest-garden" });
       await step("move", { target: "forest-cottage" });
       await step("choose", {
@@ -271,8 +388,35 @@ try {
         final.packs["lonely-forest"].flags["forest-homecoming-shared"],
         true,
       );
+      await checkScarf(final);
+      const history = questHistoryCards(final).filter(
+        (card) => card.packId === PACK,
+      );
+      assert.deepEqual(
+        new Set(history.map((card) => card.key)),
+        new Set([
+          `${PACK}:story-quest-forest-path`,
+          `${PACK}:story-quest-forest-homecoming`,
+          `${PACK}:story-quest-forest-personal-hearth`,
+          personalKey,
+        ]),
+      );
+      assert.ok(
+        history.every(
+          (card) =>
+            card.status === "fulfilled" && card.participants.includes("vale"),
+        ),
+      );
+      report.history = history.map(({ key, status, participants }) => ({
+        key,
+        status,
+        participants,
+      }));
+      report.personalScarf = personalRecord(final);
       assert.equal(report.errors.length, 0);
       assert.deepEqual(report.failedAssets, []);
+      report.finalSave = `${out}/final-save-${width}.json`;
+      await writeFile(report.finalSave, encodeSave(final) + "\n");
       report.ok = true;
       report.finalTurn = final.turn;
       report.ending = final.packs["lonely-forest"].choices["forest-homecoming"];
