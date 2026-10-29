@@ -29,6 +29,9 @@ use axum::{
 
 const CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://openrouter.ai; media-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self'";
 
+#[derive(Clone, Copy)]
+pub(super) struct EmbeddedAsset;
+
 pub(super) fn router<S: Clone + Send + Sync + 'static>(primary: bool) -> Router<S> {
     Router::new()
         .route(
@@ -83,14 +86,16 @@ async fn asset(
     let Some(etag) = cosyworld_orchestrator::card_assets::etag(&path) else {
         return StatusCode::NOT_FOUND.into_response();
     };
-    media_http::serve(
+    let mut response = media_http::serve(
         content_type,
         bytes,
         etag,
         query.as_deref(),
         &method,
         &headers,
-    )
+    );
+    response.extensions_mut().insert(EmbeddedAsset);
+    response
 }
 
 fn serve(path: &str) -> Response {
