@@ -1,5 +1,6 @@
+import { personalLegacyCardVisible } from "./pack-personal-quests.mjs";
 import { questCarried, questFresh, questHolderActor } from "./quest-hands.mjs";
-import { packDefinition } from "./pack-registry.mjs";
+import { packDefinition, packDefinitions } from "./pack-registry.mjs";
 import { recitalPoem } from "./pack-recital.mjs";
 import { questRecords, questStatus } from "./shared-quests.mjs";
 import { questOfferFamily } from "./quest-offers.mjs";
@@ -213,6 +214,7 @@ function questOfferTitle(world, record, records, title) {
 function storyQuestCards(world, actor) {
   return storyDefinitions(world, true)
     .filter((definition) => {
+      if (!personalLegacyCardVisible(world, packDefinitions, definition.id, actor)) return false;
       const record = world.quests?.records[definition.key];
       return record
         ? record.holder.id === actor ||

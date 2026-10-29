@@ -96,7 +96,9 @@ describe("authored player story cards", () => {
     expect(definition(world)).toMatchObject({
       key: key("vale"), createdTurn: 2, stage: "find", keyedCard: true,
       holder: { kind: "avatar", id: "vale" },
+      displayPurpose: "Find vale's Story Button. It is hidden beyond the cottage.",
     });
+    expect(definition(world).displayPurpose).not.toContain("Rain-Soft Garden");
     expect(definition(world, "mara")).toBeUndefined();
     expect(JSON.stringify(world)).toBe(before);
   });
@@ -129,7 +131,8 @@ describe("authored player story cards", () => {
     expect(definition(world)).toMatchObject({ stage: "held", holder: { id: "vale" } });
     expect(definition(world).displayPurpose).toContain("Mara carries");
     world.items[row.button].holder = "station";
-    expect(definition(world).displayPurpose).toContain("Empty station");
+    expect(definition(world).displayPurpose).toBe("Find vale's Story Button. It is hidden beyond the cottage.");
+    expect(definition(world).displayPurpose).not.toContain("Empty station");
   });
 
   it("keeps a delivered button pending until the helper records the completed scarf", () => {

@@ -164,7 +164,12 @@ impl World {
                 next.present[a] = 1;
                 // Newer rules record personal meetings as the player enters.
                 // Released rules retain their original journal behavior.
-                if self.version != "full-card-world/21" && !engine::historical(&self.version) {
+                if self
+                    .version
+                    .strip_prefix("full-card-world/")
+                    .and_then(|version| version.parse::<u32>().ok())
+                    .is_some_and(|version| version >= 22)
+                {
                     let attendance =
                         engine::reduce_version(&self.version, next.request("attendance", a))?;
                     next.game = attendance["world"].clone();

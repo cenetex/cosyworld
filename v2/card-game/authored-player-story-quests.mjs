@@ -54,7 +54,7 @@ export function authoredPlayerStoryDefinitions(world, packs) {
         stage = "held";
         instruction = `${nameOf(packs, holder)} carries ${button}. Arrange its delivery to ${host}.`;
       } else {
-        instruction = `Find ${button} at ${nameOf(packs, holder || record.button.placedAt)}.`;
+        instruction = `Find ${button}. It is hidden beyond the cottage.`;
       }
       const key = `${pack.id}:${quest.id}:${row.player}`;
       const event = resolved && (world.log || []).find((entry) =>

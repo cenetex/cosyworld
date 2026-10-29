@@ -54,8 +54,11 @@ export function personalItem(world, packs, item) {
   if (!entry) return null;
   const state = stateFor(world, entry.pack, entry.quest);
   if (!state) return { active: false };
-  return entry.legacy ? { kind: "legacy", active: state.legacy }
-    : authoredPlayerQuestItem(entry.quest, questState(state), item);
+  if (entry.legacy) {
+    const finished = Object.hasOwn(world.packs[entry.pack.id].receipts, entry.quest.legacy.choice);
+    return { kind: "legacy", active: state.legacy && !finished && Object.keys(state.records).length === 0 };
+  }
+  return authoredPlayerQuestItem(entry.quest, questState(state), item);
 }
 export function personalHostAccepts(world, packs, host, item) {
   const entry = indexFor(packs).items.get(item);
@@ -71,10 +74,21 @@ export function personalNesting(world, packs, item, holder) {
   const state = stateFor(world, entry.pack, entry.quest);
   return !!state && authoredPlayerQuestNesting(entry.quest, questState(state), item, holder);
 }
-export function personalLegacyAllowed(world, packs, kind, id) {
+export function personalLegacyAllowed(world, packs, kind, id, actor = null) {
   const entries = kind === "choice" ? indexFor(packs).legacyChoices : indexFor(packs).legacyStories;
   const entry = entries.get(id);
-  return !entry || !!stateFor(world, entry.pack, entry.quest)?.legacy;
+  if (!entry) return true;
+  const state = stateFor(world, entry.pack, entry.quest);
+  if (!state?.legacy) return false;
+  if (kind !== "choice" || !actor) return true;
+  return Object.keys(state.records).length === 0;
+}
+export function personalLegacyCardVisible(world, packs, id, actor) {
+  const entry = indexFor(packs).legacyStories.get(id);
+  if (!entry) return true;
+  const state = stateFor(world, entry.pack, entry.quest);
+  const finished = Object.hasOwn(world.packs[entry.pack.id].receipts, entry.quest.legacy.choice);
+  return !!state?.legacy && (finished || Object.keys(state.records).length === 0);
 }
 export function personalSharedChoice(packs, packId, id) {
   return packs.some((pack) => pack.id === packId &&

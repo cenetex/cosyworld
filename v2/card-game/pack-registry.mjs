@@ -398,7 +398,7 @@ function choiceFeasible(world, pack, choice, actor) {
   const state = packState(world, pack.id);
   if (
     !state ||
-    !personalLegacyAllowed(world, packDefinitions, "choice", choice.id) ||
+    !personalLegacyAllowed(world, packDefinitions, "choice", choice.id, actor) ||
     (!choice.repeatable && owns(state.receipts, choice.id)) ||
     (pack.release &&
       state.scope !== "full" &&

@@ -28,6 +28,8 @@ mod homecoming_tests;
 mod house_of_blood_tests;
 mod kernel;
 #[cfg(test)]
+mod personal_entry_tests;
+#[cfg(test)]
 mod quest_core_tests;
 #[cfg(test)]
 mod reading_tests;
