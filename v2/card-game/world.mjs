@@ -2332,6 +2332,37 @@ function readPlan(s, actor) {
       },
     );
   const selected = basePlan(s, actor);
+  // Give a recent departing item holder a few turns of space before following.
+  const spaceHolder =
+    selected.action.kind === "move" &&
+    !selected.action.item &&
+    !controlledByHuman(s, actor) &&
+    questActive(s, actor) &&
+    !standoffFor(s, actor) &&
+    s.peaceUntil[actor] <= s.turn &&
+    actorIds.find(
+      (other) =>
+        other !== actor &&
+        s.actors[other].place === selected.action.target &&
+        (s.motives?.grievances[other] || []).some(
+          (g) => g.other === actor && g.weight > 0 && s.turn - g.turn <= 4,
+        ) &&
+        s.log.some(
+          (e) =>
+            e.actorId === other &&
+            e.verb === "move" &&
+            e.fromLocationId === s.actors[actor].place &&
+            s.turn - e.turn <= 4,
+        ) &&
+        requiredItems(s, actor, desireFor(s, actor)).some(
+          (item) => rootHolder(s, item) === other,
+        ),
+    );
+  if (spaceHolder)
+    return {
+      action: legalActions(s, actor).find((a) => a.kind === "wait"),
+      reason: `Give ${nameOf(spaceHolder)} some space.`,
+    };
   const destination =
     selected.action.kind === "wait" && transportResidentDestination(s, actor);
   const continuation =
