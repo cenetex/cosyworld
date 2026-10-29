@@ -1,3 +1,4 @@
+import { personalLegacyAllowed } from "./pack-personal-quests.mjs";
 // Authored stories read saved evidence. Their cards keep stable identities while
 // the pack's choices continue to own deeds, branches and object custody.
 const owns = (value, key) => value && Object.hasOwn(value, key);
@@ -122,7 +123,8 @@ export function authoredStoryDefinitions(
 ) {
   return packs.flatMap((pack) => {
     if (!stateOf(world, pack)) return [];
-    const stories = pack.storyQuests || [];
+    const stories = (pack.storyQuests || []).filter((story) =>
+      personalLegacyAllowed(world, packs, "story", story.id));
     const byKey = new Map(
       stories.map((story) => [story.key || story.id, story]),
     );

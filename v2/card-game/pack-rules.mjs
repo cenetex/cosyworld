@@ -1,3 +1,4 @@
+import { initialPersonalQuests } from "./pack-personal-quests.mjs";
 import {
   currentActor,
   controlledByHuman,
@@ -46,6 +47,7 @@ export const newCrossingState = (c) =>
   c.signal ? { discovered: false, phase: 0, until: 0 } : { discovered: false };
 export const newPackRecord = (pack) => ({
   revision: pack.revision,
+  ...(pack.personalQuests?.length ? { personalQuests: initialPersonalQuests(pack) } : {}),
   ...(pack.recital ? { recitals: {} } : {}),
   ...(pack.recital?.sites?.length ? { poemReadings: emptyPoemReadings() } : {}),
   ...(pack.choices
@@ -474,6 +476,7 @@ export function validPackState(s, senses) {
         pack.choices
           ? [
               "revision",
+              ...(pack.personalQuests?.length ? ["personalQuests"] : []),
               "sounds",
               "choices",
               "flags",

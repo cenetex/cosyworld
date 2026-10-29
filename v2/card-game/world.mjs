@@ -1,3 +1,4 @@
+import { beginPersonalMeetings, advancePersonalQuests, personalNesting, personalItem } from "./pack-personal-quests.mjs";
 import { trustValue, validTrust } from "./trust.mjs";
 import { captureQuestHands, advanceQuestPrograms } from "./quest-progress.mjs";
 import { expressionOf } from "./expression.mjs";
@@ -340,8 +341,9 @@ export function rootHolder(s, id) {
 }
 export const itemPlace = (s, id) =>
   s.actors[rootHolder(s, id)]?.place || rootHolder(s, id);
+const countableItem = (s, id) => personalItem(s, packDefinitions, id)?.active !== false;
 export const carried = (s, actor) =>
-  ids.filter((id) => rootHolder(s, id) === actor);
+  ids.filter((id) => countableItem(s, id) && rootHolder(s, id) === actor);
 export const covered = (s, id) => s.items.cloth.holder === id;
 export const shining = (s) =>
   entityActive(s, "lamp") &&
@@ -533,6 +535,48 @@ export function exits(s, place, actor = null, previous = null) {
   );
 }
 
+function personalQuestApi() {
+  return {
+    isPlayer: (id) => !!humanAvatar(id),
+    isPresent: (s, id) => controlledByHuman(s, id) && humanPresent(s, id),
+    isLocation: (id) => !!places[id],
+    active: entityActive,
+    canAward: (s, id) => carried(s, id).length < 3,
+    reachable: (s, actor, from) => {
+      const seen = new Set([from]), queue = [from];
+      while (queue.length && seen.size <= 128) {
+        const at = queue.shift();
+        const view = { ...s, actors: { ...s.actors, [actor]: { ...s.actors[actor], place: at } } };
+        for (const next of exits(view, at, actor)) if (!seen.has(next)) {
+          seen.add(next);
+          queue.push(next);
+        }
+      }
+      return [...seen].sort().slice(0, 128);
+    },
+  };
+}
+function resolvePersonalQuests(s, action) {
+  const api = personalQuestApi();
+  beginPersonalMeetings(s, packDefinitions, api);
+  // Pack receipts have one event per turn; defer other choices to the next turn.
+  if (action.kind === "choose") return;
+  for (const done of advancePersonalQuests(s, packDefinitions, api, action)) {
+    for (const event of done.sharedChoices) {
+      const choice = applyPackChoice(s, { packId: done.pack, choiceId: event.choice, actor: event.actor });
+      addLog(s, "World", choice.textTemplate.replaceAll("{actor}", nameOf(event.actor)), {
+        kind: "action", actorId: event.actor, verb: "choose", packId: done.pack,
+        choiceId: event.choice, targetId: choice.subject, locationId: choice.at,
+      });
+    }
+    addLog(s, "World", `${nameOf(done.player)} receives the ${nameOf(done.reward)}.`, {
+      kind: "action", actorId: done.player, verb: "personal-quest-complete",
+      targetId: packDefinition(done.pack).personalQuests.find((q) => q.id === done.quest).host,
+      itemId: done.reward, questKey: `${done.pack}:${done.quest}:${done.player}`,
+    });
+  }
+}
+
 const programPlaces = (s) =>
   s.opening
     ? Object.fromEntries(
@@ -704,7 +748,7 @@ export function canTrade(s, actor, give, receive) {
 export function tradeOffers(s, actor) {
   return ids.filter(
     (id) =>
-      s.items[id].holder === actor &&
+      entityActive(s, id) && s.items[id].holder === actor &&
       (s.life
         ? !keepReason(s, actor, id)
         : hasQuestPrograms(s)
@@ -1336,7 +1380,7 @@ export function legalActions(s, actor = currentActor(s)) {
         [to],
       ),
     );
-    for (const id of ids.filter((id) => s.items[id].holder === actor)) {
+    for (const id of ids.filter((id) => entityActive(s, id) && s.items[id].holder === actor)) {
       out.push(
         offer(
           "move",
@@ -1392,9 +1436,9 @@ export function legalActions(s, actor = currentActor(s)) {
     ) {
       const stake =
         ids.find(
-          (id) => s.items[id].holder === other && needed(s, actor, id),
+          (id) => entityActive(s, id) && s.items[id].holder === other && needed(s, actor, id),
         ) ||
-        ids.find((id) => s.items[id].holder === other) ||
+        ids.find((id) => entityActive(s, id) && s.items[id].holder === other) ||
         null;
       out.push(
         offer(
@@ -1588,7 +1632,7 @@ export function legalActions(s, actor = currentActor(s)) {
       }
     }
   }
-  const payments = ids.filter((id) => s.items[id].holder === actor);
+  const payments = ids.filter((id) => entityActive(s, id) && s.items[id].holder === actor);
   const tradePartners = new Set(
     payments.length
       ? knownActors(s).filter(
@@ -1599,7 +1643,7 @@ export function legalActions(s, actor = currentActor(s)) {
         )
       : [],
   );
-  const tradeGoods = ids.filter((id) => tradePartners.has(s.items[id].holder));
+  const tradeGoods = ids.filter((id) => entityActive(s, id) && tradePartners.has(s.items[id].holder));
   for (const give of payments)
     for (const receive of tradeGoods) {
       if (!canTrade(s, actor, give, receive)) continue;
@@ -2771,6 +2815,7 @@ export function play(
   captureHands(next, met);
   const active = knownActors(next);
   const respondent = perform(next, exact, () => captureHands(next, met), round);
+  resolvePersonalQuests(next, exact);
   captureHands(next, met);
   if (
     next.opening &&
@@ -3466,6 +3511,7 @@ export function validateWorld(s) {
   for (const [id, item] of Object.entries(s.items)) {
     if (
       !itemHolders.has(item.holder) &&
+      !personalNesting(s, packDefinitions, id, item.holder) &&
       !(id === "cloth" && ["lamp", "bell"].includes(item.holder))
     )
       fail();
@@ -3480,8 +3526,10 @@ export function validateWorld(s) {
       item.history.some((t) => typeof t !== "string" || t.length > 400)
     )
       fail();
-    const holder = rootHolder(s, id);
-    heldCounts.set(holder, (heldCounts.get(holder) || 0) + 1);
+    if (countableItem(s, id)) {
+      const holder = rootHolder(s, id);
+      heldCounts.set(holder, (heldCounts.get(holder) || 0) + 1);
+    }
   }
   for (const actor of actorIds) {
     const allowance = s.sharedMigration?.inventoryAllowances?.[actor];
@@ -3549,6 +3597,7 @@ export function validateWorld(s) {
     fail();
   let seq = 0;
   const verbs = [
+    "personal-quest-complete",
     "drop-quest",
     "join-quest",
     "share-quest",
