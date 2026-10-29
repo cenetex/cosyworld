@@ -13,6 +13,7 @@ import {
   play,
 } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
+import { privateView } from "../card-game/learning.mjs";
 import { humanAvatars } from "../card-game/human-cast.mjs";
 import { currentScene } from "../card-game/scene.mjs";
 
@@ -513,7 +514,7 @@ try {
     shared.world.actors["greek-antigone"] &&
       shared.world.items["greek-water-jar"],
   );
-  for (const [id, pack] of Object.entries(seed.packs))
+  for (const [id, pack] of Object.entries(privateView(seed, "vale").packs))
     assert.deepEqual(shared.world.packs[id], pack);
   await vale.locator("#stage").waitFor({ state: "visible" });
   const pondBackdrop = await vale.evaluate(async () =>
