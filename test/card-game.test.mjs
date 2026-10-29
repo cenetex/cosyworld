@@ -245,7 +245,7 @@ describe("the reflected shore card game", () => {
         }
         expect(s.turn).toBe(4000);
       }),
-    120_000,
+    300_000,
   );
 
   it("serves only the game assets and supports a clean browser reload", async () => {

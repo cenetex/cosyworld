@@ -1,0 +1,23 @@
+name: Diagnostic simulation timing
+on:
+  pull_request:
+    branches: [codex/greek-epic-complete]
+jobs:
+  measure:
+    if: github.head_ref == 'codex/hosted-simulation-measure'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      CI: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --prefer-offline --no-audit --no-fund
+      - name: Measure complete 4000-turn test
+        run: >-
+          npx vitest run test/card-game.test.mjs
+          -t 'preserves unique objects and valid state across 4000 varied turns'
+          --retry=0 --reporter=verbose
