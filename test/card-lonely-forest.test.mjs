@@ -50,7 +50,12 @@ import {
 } from "../v2/card-game/narrative.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 
-const PACK = "lonely-forest";
+const PACK = "lonely-forest",
+  SCARF_QUEST = "forest-rati-scarf";
+const scarfQuest = () =>
+  packDefinition(PACK).personalQuests.find((quest) => quest.id === SCARF_QUEST);
+const valeScarf = () =>
+  scarfQuest().playerItems.find((row) => row.player === "vale");
 const COTTAGE = "forest-cottage",
   GARDEN = "forest-garden",
   TRAIL = "forest-trail",
@@ -72,24 +77,63 @@ const move = (world, target) => act(world, "move", { target });
 const take = (world, item) => act(world, "take", { item });
 const choose = (world, choiceId) => act(world, "choose", { choiceId });
 function attic() {
-  const world = enableMotives(createWorld(), {
+  let world = enableMotives(createWorld({ opening: true }), {
     questPrograms: true,
     personalQuests: true,
   });
-  world.actors.vale.place = "attic";
+  world = act(world, "light");
+  world = move(world, "pond");
+  world = move(world, "attic");
+  // Prepare the cloth crossing with enough carried light for the button search.
   world.items.cloth.holder = "vale";
-  world.items.lamp.holder = "station";
-  world.items.lamp.lit = false;
-  world.items.lamp.fuel = 0;
+  world.items.lamp.fuel = 12;
+  return reload(world);
+}
+function route(world, target) {
+  const start = world.actors.vale.place,
+    seen = new Set([start]),
+    queue = [[start]];
+  while (queue.length) {
+    const path = queue.shift(),
+      at = path.at(-1);
+    if (at === target) return path.slice(1);
+    const preview = {
+      ...world,
+      actors: {
+        ...world.actors,
+        vale: { ...world.actors.vale, place: at },
+      },
+    };
+    for (const next of exits(preview, at, "vale"))
+      if (!seen.has(next)) {
+        seen.add(next);
+        queue.push([...path, next]);
+      }
+  }
+  return null;
+}
+function travel(world, target) {
+  for (let step = 0; world.actors.vale.place !== target && step < 32; step++) {
+    const path = route(world, target);
+    expect(
+      path,
+      `Vale can reach ${target} from ${world.actors.vale.place}`,
+    ).toBeTruthy();
+    world = move(world, path[0]);
+  }
+  expect(world.actors.vale.place).toBe(target);
   return world;
 }
 function welcome() {
   let world = move(attic(), COTTAGE);
   world = act(world, "talk", { target: "rati" });
   world = choose(world, "forest-stay-for-tea");
-  world = take(world, "forest-story-button");
-  world = act(world, "give", { item: "forest-story-button", target: "rati" });
-  return choose(world, "forest-mend-scarf");
+  const record = state(world).personalQuests[SCARF_QUEST].records.vale;
+  const { button } = valeScarf();
+  world = travel(world, record.button.placedAt);
+  world = take(world, button);
+  world = travel(world, COTTAGE);
+  return act(world, "give", { item: button, target: "rati" });
 }
 function chapter({
   path = "forest-clear-drain",
@@ -97,7 +141,10 @@ function chapter({
   account = "forest-tell-hearth",
   ending = "forest-leave-charm",
 } = {}) {
-  let world = move(welcome(), GARDEN);
+  let world = welcome();
+  // Leave the travel lamp at the cottage so Vale can carry the chapter's objects.
+  world = act(world, "drop", { item: "lamp" });
+  world = move(world, GARDEN);
   world = choose(world, path);
   world = take(world, "forest-dewbright-button");
   world = choose(world, "forest-share-symbols");
@@ -177,7 +224,10 @@ describe("Tea beneath the oak", () => {
     expect(new Set(Object.values(map.places))).toEqual(
       new Set(Object.keys(pack.places)),
     );
-    expect(new Set(Object.values(map.items))).toEqual(
+    const personalItems = pack.personalQuests.flatMap((quest) =>
+      quest.playerItems.flatMap(({ button, reward }) => [button, reward]),
+    );
+    expect(new Set([...Object.values(map.items), ...personalItems])).toEqual(
       new Set(Object.keys(pack.items)),
     );
   });
@@ -266,16 +316,27 @@ describe("Tea beneath the oak", () => {
         "forest-homecoming": homecoming,
       });
       expect(state(world).flags["forest-homecoming-shared"]).toBe(true);
-      expect(world.items["forest-story-button"].holder).toBe("rati");
+      const { button, reward } = valeScarf();
+      expect(state(world).personalQuests[SCARF_QUEST].legacy).toBe(false);
+      expect(world.items[button].holder).toBe(reward);
+      expect(world.items[reward].holder).toBe("vale");
+      expect(state(world).flags["forest-scarf-mended"]).toBe(true);
       expect(world.items["forest-wolfprint-charm"].holder).toBe(
         homecoming === "hearth" ? COTTAGE : "vale",
       );
-      expect(forestDefinitions(world).map((q) => q.id)).toEqual(
-        FOREST_QUEST_CARDS,
+      const currentCards = FOREST_QUEST_CARDS.filter(
+        (id) => id !== scarfQuest().legacy.story,
       );
+      expect(forestDefinitions(world).map((q) => q.id)).toEqual(currentCards);
       expect(forestDefinitions(world).every((q) => q.resolved)).toBe(true);
       const history = questHistoryCards(world).filter((q) => q.packId === PACK);
-      expect(history).toHaveLength(3);
+      expect(history).toHaveLength(4);
+      expect(new Set(history.map((q) => q.key))).toEqual(
+        new Set([
+          ...currentCards.map((id) => `${PACK}:${id}`),
+          `${PACK}:${SCARF_QUEST}:vale`,
+        ]),
+      );
       expect(
         history.every(
           (q) => q.status === "fulfilled" && q.participants.includes("vale"),
@@ -288,7 +349,9 @@ describe("Tea beneath the oak", () => {
         questHistoryCards(world)
           .filter((q) => q.packId === PACK)
           .map((q) => q.status),
-      ).toEqual(["fulfilled", "fulfilled", "fulfilled"]);
+      ).toEqual(["fulfilled", "fulfilled", "fulfilled", "fulfilled"]);
+      expect(world.items[button].holder).toBe(reward);
+      expect(world.items[reward].holder).toBe("vale");
       expect(legalActions(world).some((a) => a.choiceId === ending)).toBe(
         false,
       );
