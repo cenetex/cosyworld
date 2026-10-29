@@ -2634,12 +2634,18 @@ mod tests {
                 "{choice}"
             );
             assert_eq!(
-                check
-                    .clean("Creon gave leave for this one grave.", true)
-                    .is_ok(),
+                check.clean("Creon granted permission.", true).is_ok(),
                 permitted,
                 "{choice}"
             );
+            if choice == "greek-petition-burial" {
+                // The permission can be described. A later verse still needs
+                // its own earned or heard record before it can be quoted.
+                assert_eq!(
+                    check.clean("Creon gave leave for this one grave.", true),
+                    Err("heard_page")
+                );
+            }
             assert!(check
                 .clean("I wonder what that choice will mean tomorrow.", true)
                 .is_ok());
@@ -2670,7 +2676,9 @@ mod tests {
         })).collect();
         let poem: recital::Poem = serde_json::from_value(json!({"title":recital["title"],"stanzas":stanzas,"newLines":verses.last().unwrap()["lines"]})).unwrap();
         assert!(poem.stanzas.len() > 8);
-        assert!(recital::valid("greek-rhapsode", Some(&poem), 100));
+        let turn = verses.len() as u64;
+        assert!(recital::valid("greek-rhapsode", Some(&poem), turn));
+        assert!(!recital::valid("greek-rhapsode", Some(&poem), turn - 1));
         let prompt = recital::prompt_lines(&poem).join("\n");
         assert!(prompt.len() > 240);
         for stanza in &poem.stanzas {
