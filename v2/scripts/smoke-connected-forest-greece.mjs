@@ -12,6 +12,7 @@ import { chromium } from "playwright";
 import { decodeSave, encodeSave } from "../card-game/world.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
 import { cardActions } from "../card-game/cards.mjs";
+import sharedCast from "../card-game/shared-cast.json" with { type: "json" };
 import { selectCard } from "./card-browser-helpers.mjs";
 import {
   connectedJourney,
@@ -60,8 +61,15 @@ const report = {
   screenshots: [],
   pageErrors: [],
   failedAssets: [],
+  sharedRequestErrors: [],
+  presenceChecks: 0,
 };
 const commands = [];
+const requests = [];
+const requestRecords = new WeakMap();
+const lastSnapshotAt = new Map();
+const snapshotReads = new Map();
+const snapshotIntervalMs = 3000;
 let browser,
   child,
   provider,
@@ -155,10 +163,16 @@ async function request(page, body, path) {
       const response = await fetch(
         path,
         body === undefined
-          ? { cache: "no-store" }
+          ? {
+              cache: "no-store",
+              headers: { "X-CosyWorld-Journey": "harness" },
+            }
           : {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: {
+                "Content-Type": "application/json",
+                "X-CosyWorld-Journey": "harness",
+              },
               body: JSON.stringify(body),
             },
       );
@@ -177,9 +191,27 @@ async function checked(page, body, path) {
   assert.equal(result.status, 200, JSON.stringify(result.body));
   return result.body;
 }
-async function read(actor) {
+function read(actor) {
+  const pending = snapshotReads.get(actor) ?? Promise.resolve();
+  const result = pending.then(() => readSnapshot(actor));
+  snapshotReads.set(actor, result);
+  return result;
+}
+async function readSnapshot(actor) {
+  // Leave room for the app's polling, presence heartbeats, and card plays.
+  const remaining =
+    (lastSnapshotAt.get(actor) ?? -Infinity) +
+    snapshotIntervalMs -
+    performance.now();
+  if (remaining > 0) await delay(Math.ceil(remaining));
+  lastSnapshotAt.set(actor, performance.now());
   const value = await checked(players.get(actor).page);
   assert.equal(value.actor, actor);
+  for (const player of PLAYERS) {
+    const slot = sharedCast.avatars.findIndex((avatar) => avatar.id === player);
+    assert.ok(slot >= 0 && value.present?.[slot], `${player} stays present`);
+  }
+  report.presenceChecks++;
   return { ...value, world: contextWorld(value) };
 }
 async function settle(actor) {
@@ -256,8 +288,6 @@ async function reload(actor) {
 }
 async function playUI(actor, action, before) {
   const { page, phone } = players.get(actor);
-  for (const member of players.values())
-    await checked(member.page, { op: "heartbeat" });
   await settle(actor);
   const cards = cardsForAction(actor, action, before);
   for (const card of cards) await selectCard(page, card, { touch: phone });
@@ -377,6 +407,7 @@ async function sharedRun() {
   database = join(runtime, "events.sqlite");
   report.binary = { path: binary, sha256: await shaFile(binary) };
   report.runtime = runtime;
+  report.snapshotIntervalMs = snapshotIntervalMs;
   const engine = await readFile(
     join(root, "v2/orchestrator-rust/src/card_shared/engine.rs"),
     "utf8",
@@ -494,10 +525,40 @@ async function sharedRun() {
     });
     const page = await context.newPage();
     page.setDefaultTimeout(30000);
+    page.on("request", (request) => {
+      const path = new URL(request.url()).pathname;
+      if (!path.startsWith("/card-game/shared/")) return;
+      const body = request.postDataJSON();
+      const record = {
+        actor,
+        at: new Date().toISOString(),
+        startedMs: performance.now(),
+        source:
+          request.headers()["x-cosyworld-journey"] === "harness"
+            ? "harness"
+            : "app",
+        method: request.method(),
+        kind: body?.op || (request.method() === "GET" ? "state" : "create"),
+        path: path.replace(/\/worlds\/[a-f0-9]{48}/u, "/worlds/:world"),
+      };
+      requests.push(record);
+      requestRecords.set(request, record);
+    });
+    page.on("requestfailed", (request) => {
+      const record = requestRecords.get(request);
+      if (record) record.failure = request.failure()?.errorText;
+    });
     page.on("pageerror", (error) =>
       report.pageErrors.push({ actor, message: error.message }),
     );
     page.on("response", (response) => {
+      const record = requestRecords.get(response.request());
+      if (record) {
+        record.status = response.status();
+        record.responseAt = new Date().toISOString();
+        record.responseMs = Math.round(performance.now() - record.startedMs);
+        if (record.status >= 400) report.sharedRequestErrors.push(record);
+      }
       if (response.status() >= 400 && response.url().includes("/assets/"))
         report.failedAssets.push({
           actor,
@@ -646,6 +707,7 @@ try {
     report.finalSave = join(output, "final-save.json");
     await writeFile(report.finalSave, encodeSave(driver.snapshot()) + "\n");
   } else await sharedRun();
+  assert.deepEqual(report.sharedRequestErrors, []);
   assert.equal(
     hash(await readFile(savePath)),
     originalHash,
@@ -674,6 +736,32 @@ try {
     join(output, "commands.jsonl"),
     commands.map((command) => JSON.stringify(command)).join("\n") + "\n",
   );
+  await writeFile(
+    join(output, "requests.jsonl"),
+    requests.map((request) => JSON.stringify(request)).join("\n") + "\n",
+  );
+  report.requestCounts = PLAYERS.map((actor) => {
+    const rows = requests.filter((request) => request.actor === actor);
+    let first = 0,
+      peak = [];
+    for (let last = 0; last < rows.length; last++) {
+      while (rows[first].startedMs <= rows[last].startedMs - 60000) first++;
+      if (last - first + 1 > peak.length) peak = rows.slice(first, last + 1);
+    }
+    return {
+      actor,
+      total: rows.length,
+      app: rows.filter((request) => request.source === "app").length,
+      harness: rows.filter((request) => request.source === "harness").length,
+      peakRollingMinute: {
+        total: peak.length,
+        firstAt: peak[0]?.at,
+        lastAt: peak.at(-1)?.at,
+        app: peak.filter((request) => request.source === "app").length,
+        harness: peak.filter((request) => request.source === "harness").length,
+      },
+    };
+  });
   await writeFile(join(output, "server.log"), processLog);
   await writeFile(
     join(output, "report.json"),
