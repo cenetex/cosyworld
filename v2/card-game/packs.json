@@ -6241,6 +6241,105 @@
           "workId": "sophocles-ajax"
         },
         {
+          "id": "greek-ajax-learn-shield-teucer",
+          "subject": "greek-ajax-teucer",
+          "at": "greek-greek-camp",
+          "label": "Hear Teucer name the shield’s keeper",
+          "text": "Teucer tells Vale that Ajax left his shield for his son Eurysaces in Tecmessa’s tent. This is testimony within the named Trojan account.",
+          "textTemplate": "Teucer tells {actor} that Ajax left his shield for his son Eurysaces in Tecmessa’s tent. This is testimony within the named Trojan account.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-ajax-open",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "greek-ajax-shield-delivered",
+              "value": false
+            },
+            {
+              "kind": "flag",
+              "key": "greek-ajax-shield-keeper-heard",
+              "value": false
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "greek-ajax-shield-keeper-heard",
+              "value": true
+            }
+          ],
+          "workId": "sophocles-ajax"
+        },
+        {
+          "id": "greek-ajax-learn-shield-odysseus",
+          "subject": "greek-ajax-odysseus",
+          "at": "greek-greek-camp",
+          "label": "Hear Odysseus name the shield’s keeper",
+          "text": "Odysseus tells Vale that the shield belongs with Eurysaces in Tecmessa’s care. This is testimony within the named Trojan account.",
+          "textTemplate": "Odysseus tells {actor} that the shield belongs with Eurysaces in Tecmessa’s care. This is testimony within the named Trojan account.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-ajax-open",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "greek-ajax-shield-delivered",
+              "value": false
+            },
+            {
+              "kind": "flag",
+              "key": "greek-ajax-shield-keeper-heard",
+              "value": false
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "greek-ajax-shield-keeper-heard",
+              "value": true
+            }
+          ],
+          "workId": "sophocles-ajax"
+        },
+        {
+          "id": "greek-ajax-learn-shield-tecmessa",
+          "subject": "greek-ajax-tecmessa",
+          "at": "greek-ajax-household",
+          "label": "Hear Tecmessa speak for Eurysaces",
+          "text": "Tecmessa tells Vale that Ajax wanted their son Eurysaces to keep the shield. This is testimony within the named Trojan account.",
+          "textTemplate": "Tecmessa tells {actor} that Ajax wanted their son Eurysaces to keep the shield. This is testimony within the named Trojan account.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-ajax-open",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "greek-ajax-shield-delivered",
+              "value": false
+            },
+            {
+              "kind": "flag",
+              "key": "greek-ajax-shield-keeper-heard",
+              "value": false
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "greek-ajax-shield-keeper-heard",
+              "value": true
+            }
+          ],
+          "workId": "sophocles-ajax"
+        },
+        {
           "id": "greek-ajax-deliver-shield",
           "subject": "greek-ajax-tecmessa",
           "at": "greek-ajax-household",
@@ -6256,6 +6355,15 @@
             {
               "kind": "holding",
               "item": "greek-ajax-shield",
+              "role": "actor"
+            },
+            {
+              "kind": "knows",
+              "topics": [
+                "greek-ajax-shield-teucer",
+                "greek-ajax-shield-odysseus",
+                "greek-ajax-shield-tecmessa"
+              ],
               "role": "actor"
             }
           ],
@@ -7172,6 +7280,9 @@
           "hookChoiceIds": [
             "greek-inquire-sophocles-ajax",
             "greek-ajax-invitation",
+            "greek-ajax-learn-shield-teucer",
+            "greek-ajax-learn-shield-odysseus",
+            "greek-ajax-learn-shield-tecmessa",
             "greek-ajax-deliver-shield",
             "greek-ajax-hear-plea",
             "greek-ajax-deliver-plea",
@@ -8139,6 +8250,9 @@
           "greek-homecoming-read-basket-open",
           "greek-homecoming-read-berth-open",
           "greek-ajax-invitation",
+          "greek-ajax-learn-shield-teucer",
+          "greek-ajax-learn-shield-odysseus",
+          "greek-ajax-learn-shield-tecmessa",
           "greek-ajax-deliver-shield",
           "greek-ajax-hear-plea",
           "greek-ajax-deliver-plea",
@@ -8864,6 +8978,12 @@
             ]
           },
           "defaultEnding": "greek-perform-burial",
+          "progress": [
+            "greek-hear-decree",
+            "greek-petition-burial",
+            "greek-prepare-burial-ground",
+            "greek-prepare-permitted-burial"
+          ],
           "endings": [
             {
               "choice": "greek-perform-permitted-burial",
@@ -8992,7 +9112,18 @@
             ]
           },
           "related": "ending",
-          "key": "story-quest-greek-courtyard:grave"
+          "key": "story-quest-greek-courtyard:grave",
+          "return": {
+            "from": [
+              "story-quest-greek-burial"
+            ],
+            "carries": [
+              {
+                "kind": "flag",
+                "key": "greek-burial-performed"
+              }
+            ]
+          }
         },
         {
           "id": "story-quest-greek-courtyard",
@@ -9063,6 +9194,17 @@
                 "kind": "flag",
                 "key": "greek-concession-public",
                 "value": true
+              }
+            ]
+          },
+          "return": {
+            "from": [
+              "story-quest-greek-burial"
+            ],
+            "carries": [
+              {
+                "kind": "choice",
+                "key": "greek-theban-response"
               }
             ]
           }
@@ -9428,7 +9570,33 @@
             ]
           },
           "related": "ending",
-          "outcome": "Shared"
+          "outcome": "Shared",
+          "return": {
+            "from": [
+              "story-quest-greek-open-door-eleusis",
+              "story-quest-greek-open-door-piraeus",
+              "story-quest-greek-open-door-colonus",
+              "story-quest-greek-open-door-marathon"
+            ],
+            "carries": [
+              {
+                "kind": "flag",
+                "key": "greek-open-door-eleusis-done"
+              },
+              {
+                "kind": "flag",
+                "key": "greek-open-door-piraeus-done"
+              },
+              {
+                "kind": "flag",
+                "key": "greek-open-door-colonus-done"
+              },
+              {
+                "kind": "flag",
+                "key": "greek-open-door-marathon-done"
+              }
+            ]
+          }
         },
         {
           "id": "story-quest-greek-homecoming-return",
@@ -9478,7 +9646,18 @@
               }
             ]
           },
-          "related": "start-and-ending"
+          "related": "start-and-ending",
+          "return": {
+            "from": [
+              "story-quest-greek-open-door-agora"
+            ],
+            "carries": [
+              {
+                "kind": "choice",
+                "key": "greek-open-door-recovery"
+              }
+            ]
+          }
         },
         {
           "id": "story-quest-greek-homecoming-return",
@@ -9528,7 +9707,22 @@
               }
             ]
           },
-          "related": "start-and-ending"
+          "related": "start-and-ending",
+          "return": {
+            "from": [
+              "story-quest-greek-open-door-eleusis"
+            ],
+            "carries": [
+              {
+                "kind": "choice",
+                "key": "greek-open-door-eleusis"
+              },
+              {
+                "kind": "flag",
+                "key": "greek-open-door-eleusis-done"
+              }
+            ]
+          }
         },
         {
           "id": "story-quest-greek-homecoming-return",
@@ -9578,7 +9772,22 @@
               }
             ]
           },
-          "related": "start-and-ending"
+          "related": "start-and-ending",
+          "return": {
+            "from": [
+              "story-quest-greek-open-door-piraeus"
+            ],
+            "carries": [
+              {
+                "kind": "choice",
+                "key": "greek-open-door-berth"
+              },
+              {
+                "kind": "flag",
+                "key": "greek-open-door-piraeus-done"
+              }
+            ]
+          }
         },
         {
           "id": "story-quest-greek-homecoming-return",
@@ -9628,7 +9837,22 @@
               }
             ]
           },
-          "related": "start-and-ending"
+          "related": "start-and-ending",
+          "return": {
+            "from": [
+              "story-quest-greek-open-door-colonus"
+            ],
+            "carries": [
+              {
+                "kind": "choice",
+                "key": "greek-open-door-colonus"
+              },
+              {
+                "kind": "flag",
+                "key": "greek-open-door-colonus-done"
+              }
+            ]
+          }
         },
         {
           "id": "story-quest-greek-homecoming-return",
@@ -9678,7 +9902,22 @@
               }
             ]
           },
-          "related": "start-and-ending"
+          "related": "start-and-ending",
+          "return": {
+            "from": [
+              "story-quest-greek-open-door-marathon"
+            ],
+            "carries": [
+              {
+                "kind": "choice",
+                "key": "greek-open-door-marathon"
+              },
+              {
+                "kind": "flag",
+                "key": "greek-open-door-marathon-done"
+              }
+            ]
+          }
         },
         {
           "id": "story-quest-greek-homecoming-household",
@@ -9759,7 +9998,18 @@
               }
             ]
           },
-          "related": "start-and-ending"
+          "related": "start-and-ending",
+          "return": {
+            "from": [
+              "story-quest-greek-homecoming-household"
+            ],
+            "carries": [
+              {
+                "kind": "choice",
+                "key": "greek-homecoming-care"
+              }
+            ]
+          }
         },
         {
           "id": "story-quest-greek-ajax-shield",
@@ -9775,6 +10025,11 @@
             "key": "greek-ajax-open",
             "value": true
           },
+          "progress": [
+            "greek-ajax-learn-shield-teucer",
+            "greek-ajax-learn-shield-odysseus",
+            "greek-ajax-learn-shield-tecmessa"
+          ],
           "endings": [
             {
               "choice": "greek-ajax-deliver-shield"
@@ -10206,6 +10461,63 @@
             }
           ],
           "choiceId": "greek-ajax-record-appeal"
+        },
+        {
+          "id": "greek-ajax-shield-teucer",
+          "speaker": "greek-ajax-teucer",
+          "at": "greek-greek-camp",
+          "text": "Teucer says Ajax left his shield for his son Eurysaces, who stays with Tecmessa in the household tent.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-ajax-open",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "greek-ajax-shield-delivered",
+              "value": false
+            }
+          ],
+          "choiceId": "greek-ajax-learn-shield-teucer"
+        },
+        {
+          "id": "greek-ajax-shield-odysseus",
+          "speaker": "greek-ajax-odysseus",
+          "at": "greek-greek-camp",
+          "text": "Odysseus says the shield should go to Eurysaces, the son Ajax left in Tecmessa’s care at the household tent.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-ajax-open",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "greek-ajax-shield-delivered",
+              "value": false
+            }
+          ],
+          "choiceId": "greek-ajax-learn-shield-odysseus"
+        },
+        {
+          "id": "greek-ajax-shield-tecmessa",
+          "speaker": "greek-ajax-tecmessa",
+          "at": "greek-ajax-household",
+          "text": "Tecmessa says Ajax asked that their son Eurysaces keep his shield in the household tent.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-ajax-open",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "greek-ajax-shield-delivered",
+              "value": false
+            }
+          ],
+          "choiceId": "greek-ajax-learn-shield-tecmessa"
         }
       ],
       "bridge": {
@@ -12317,6 +12629,99 @@
               "value": true
             }
           ]
+        },
+        {
+          "id": "forest-hear-walkers-rati",
+          "subject": "rati",
+          "at": "forest-cottage",
+          "label": "Hear RATi on the three walkers",
+          "text": "RATi tells Vale where the three walkers sleep. She tops up the kettle and points toward the oak.",
+          "textTemplate": "RATi tells {actor} where the three walkers sleep. She tops up the kettle and points toward the oak.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-homecoming-shared",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "forest-walkers-heard",
+              "value": false
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "forest-walkers-heard",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "forest-hear-walkers-oak",
+          "subject": "oak",
+          "at": "forest-oak",
+          "label": "Hear Root on the three walkers",
+          "text": "Root tells Vale about the three walkers. Leaf shakes a little rain onto the path.",
+          "textTemplate": "Root tells {actor} about the three walkers. Leaf shakes a little rain onto the path.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-homecoming-shared",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "forest-walkers-heard",
+              "value": false
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "forest-walkers-heard",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "forest-sit-watch",
+          "subject": "skull",
+          "at": "forest-trail",
+          "label": "Sit the evening watch with Skull",
+          "text": "Vale sits the evening watch beside Skull. He turns his head toward the oak, then settles with his back to its roots.",
+          "textTemplate": "{actor} sits the evening watch beside Skull. He turns his head toward the oak, then settles with his back to its roots.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-homecoming-shared",
+              "value": true
+            },
+            {
+              "kind": "knows",
+              "topics": [
+                "forest-walkers-rati",
+                "forest-walkers-oak"
+              ],
+              "role": "actor"
+            },
+            {
+              "kind": "choice_unset",
+              "key": "forest-evening-watch"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "choose",
+              "key": "forest-evening-watch",
+              "value": "kept"
+            },
+            {
+              "kind": "set_flag",
+              "key": "forest-watch-kept",
+              "value": true
+            }
+          ]
         }
       ],
       "storyQuests": [
@@ -12358,6 +12763,9 @@
             "forest-stay-for-tea",
             "forest-mend-scarf"
           ],
+          "progress": [
+            "forest-stay-for-tea"
+          ],
           "endings": [
             {
               "choice": "forest-mend-scarf"
@@ -12387,6 +12795,10 @@
             "forest-clear-drain",
             "forest-set-stones",
             "forest-share-symbols"
+          ],
+          "progress": [
+            "forest-clear-drain",
+            "forest-set-stones"
           ],
           "endings": [
             {
@@ -12443,7 +12855,77 @@
             {
               "choice": "forest-keep-charm"
             }
+          ],
+          "return": {
+            "from": [
+              "story-quest-forest-hearth",
+              "story-quest-forest-path"
+            ],
+            "carries": [
+              {
+                "kind": "flag",
+                "key": "forest-scarf-mended"
+              },
+              {
+                "kind": "flag",
+                "key": "forest-symbols-shared"
+              }
+            ]
+          }
+        },
+        {
+          "id": "story-quest-forest-walkers",
+          "group": "forest-walkers",
+          "line": "Three walkers, one old root.",
+          "art": "forest-oak",
+          "holder": {
+            "kind": "avatar",
+            "id": "skull"
+          },
+          "start": {
+            "kind": "flag",
+            "key": "forest-homecoming-shared",
+            "value": true
+          },
+          "progress": [
+            "forest-hear-walkers-rati",
+            "forest-hear-walkers-oak"
+          ],
+          "endings": [
+            {
+              "choice": "forest-sit-watch"
+            }
           ]
+        }
+      ],
+      "topics": [
+        {
+          "id": "forest-walkers-rati",
+          "speaker": "rati",
+          "at": "forest-cottage",
+          "text": "RATi says she, Skull and Whiskerwind all wake from the old oak and walk back to it at dusk.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-homecoming-shared",
+              "value": true
+            }
+          ],
+          "choiceId": "forest-hear-walkers-rati"
+        },
+        {
+          "id": "forest-walkers-oak",
+          "speaker": "oak",
+          "at": "forest-oak",
+          "text": "Root says three walkers carry the oak’s warmth, with RATi at the kettle, Skull on the trail and Whiskerwind in the leaves.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-homecoming-shared",
+              "value": true
+            }
+          ],
+          "choiceId": "forest-hear-walkers-oak"
         }
       ],
       "sources": [

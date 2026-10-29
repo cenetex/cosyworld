@@ -13,7 +13,9 @@ their own records.
 
 1. **The child's shield.** Carry Ajax's shield from the camp to Tecmessa's
    household tent. Set it there for Eurysaces. Tecmessa speaks for her own
-   care of the household. Eurysaces appears in her account.
+   care of the household. Eurysaces appears in her account. The carrier
+   first learns through Talk that the shield belongs to Eurysaces. Teucer,
+   Odysseus or Tecmessa can each say so.
 2. **A rival's word.** Hear Teucer, take his written plea and carry it to
    Odysseus. The carrier must know the plea and hold its actual paper.
 3. **Earth beside the ships.** Choose a public rite, a household rite, or a

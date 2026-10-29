@@ -21,11 +21,17 @@ export function ajaxStart() {
 }
 
 // Publish the reserved source words through the same path as recorded Talk.
-export function ajaxTalk(world, topicId, actor = "vale", words) {
+export function ajaxTalk(
+  world,
+  topicId,
+  actor = "vale",
+  words,
+  target = "greek-ajax-teucer",
+) {
   const action = legalActions(world, actor).find(
-    (a) => a.kind === "talk" && a.target === "greek-ajax-teucer",
+    (a) => a.kind === "talk" && a.target === target,
   );
-  if (!action) throw new Error(`Missing Teucer Talk for ${actor}`);
+  if (!action) throw new Error(`Missing ${target} Talk for ${actor}`);
   const result = play(world, action, world.revision);
   if (!result.ok) throw new Error(result.error);
   const context = narrativeContext(result.state, action);
@@ -56,8 +62,14 @@ export function ajaxCamp() {
   );
 }
 
+// Any of Teucer, Odysseus or Tecmessa can say where the shield belongs.
+export function ajaxShieldKeeper(world) {
+  return ajaxTalk(world, "greek-ajax-shield-teucer");
+}
+
 export function ajaxPlea(route = "public") {
-  let world = playOpenDoor(ajaxCamp(), "take", { item: "greek-ajax-shield" });
+  let world = ajaxShieldKeeper(ajaxCamp());
+  world = playOpenDoor(world, "take", { item: "greek-ajax-shield" });
   world = ajaxMove(world, "greek-ajax-household");
   world = ajaxChoice(world, "deliver-shield");
   world = ajaxMove(world, "greek-greek-camp");

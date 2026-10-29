@@ -274,7 +274,9 @@ describe("Tea beneath the oak", () => {
         FOREST_QUEST_CARDS,
       );
       expect(forestDefinitions(world).every((q) => q.resolved)).toBe(true);
-      const history = questHistoryCards(world).filter((q) => q.packId === PACK);
+      const chapterCard = (q) =>
+        FOREST_QUEST_CARDS.some((id) => q.key === `${PACK}:${id}`);
+      const history = questHistoryCards(world).filter(chapterCard);
       expect(history).toHaveLength(3);
       expect(
         history.every(
@@ -286,7 +288,7 @@ describe("Tea beneath the oak", () => {
       expect(state(world).choices["forest-homecoming"]).toBe(homecoming);
       expect(
         questHistoryCards(world)
-          .filter((q) => q.packId === PACK)
+          .filter(chapterCard)
           .map((q) => q.status),
       ).toEqual(["fulfilled", "fulfilled", "fulfilled"]);
       expect(legalActions(world).some((a) => a.choiceId === ending)).toBe(
@@ -340,6 +342,63 @@ describe("Tea beneath the oak", () => {
     });
     expect(
       current.actions.some((a) => a.choiceId === "forest-clear-drain"),
+    ).toBe(false);
+  });
+});
+
+// The three walkers: a Talk middle with two independent speakers.
+function hear(world, speaker, fact) {
+  world = act(world, "talk", { target: speaker });
+  const context = narrativeContext(world);
+  const disclosure = context.disclosures?.[0];
+  expect(disclosure?.factId).toBe(fact);
+  return applyGeneratedText(world, context, {
+    revision: context.revision,
+    model: "forest-walkers-test",
+    entries: context.entities.map(({ id }) => ({
+      id,
+      text: id === speaker ? disclosure.text : "I will remember that.",
+    })),
+  });
+}
+const walkers = (world) =>
+  world.quests.records["lonely-forest:story-quest-forest-walkers"];
+
+describe("Three walkers, one old root", () => {
+  it.each([
+    ["rati", "forest-walkers-rati", [], [GARDEN, TRAIL]],
+    ["oak", "forest-walkers-oak", [GARDEN, OAK], [GARDEN, TRAIL]],
+  ])(
+    "learns the walkers from %s before the watch with Skull",
+    (speaker, fact, road, trail) => {
+      let world = chapter();
+      expect(walkers(world).completedTurn).toBeNull();
+      for (const target of road) world = move(world, target);
+      world = hear(world, speaker, fact);
+      expect(state(world).flags["forest-walkers-heard"]).toBe(true);
+      world = reload(world);
+      for (const target of trail) world = move(world, target);
+      expect(cardChoices(world, "skull").map((a) => a.choiceId)).toContain(
+        "forest-sit-watch",
+      );
+      world = choose(world, "forest-sit-watch");
+      expect(state(world).choices["forest-evening-watch"]).toBe("kept");
+      expect(walkers(world).completedTurn).toBe(
+        state(world).receipts["forest-sit-watch"],
+      );
+      expect(walkers(world).participants).toContain("vale");
+    },
+  );
+
+  it("keeps the watch closed until someone has told the walkers' story", () => {
+    const world = move(move(chapter(), GARDEN), TRAIL);
+    expect(
+      legalActions(world).some((a) => a.choiceId === "forest-sit-watch"),
+    ).toBe(false);
+    expect(
+      cardChoices(move(world, GARDEN), "whiskerwind").some((a) =>
+        a.choiceId?.startsWith("forest-hear-walkers"),
+      ),
     ).toBe(false);
   });
 });

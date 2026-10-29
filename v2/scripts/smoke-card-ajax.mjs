@@ -20,6 +20,7 @@ function steps(route) {
     move("greek-ship"),
     move("greek-ajax-landing"),
     move("greek-greek-camp"),
+    choose("learn-shield-teucer"),
     take("shield"),
     move("greek-ajax-household"),
     choose("deliver-shield"),

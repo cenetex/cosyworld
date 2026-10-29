@@ -45,7 +45,13 @@ The chapter uses three short card lines:
 - **What will the oak hear?** appears after helping Skull and ends with the
   chosen charm homecoming.
 
-Each card uses an existing item illustration. Saved choices and receipts
+After the homecoming, a fourth card, **Three walkers, one old root.**,
+asks who the three walkers are. RATi at the cottage or Root at the oak can
+tell it through Talk. Anyone who knows it can then choose **Sit the evening
+watch with Skull** on the trail. The charm homecoming is a story return: it
+carries the mended scarf and the shared symbols home.
+
+The first three cards use existing item illustrations; the fourth uses the oak. Saved choices and receipts
 own the result. The shared story registry keeps actual participants and
 the completion turn through reload and trimmed conversation history.
 
