@@ -2233,6 +2233,13 @@ function toward(s, actor, target) {
   const take = find("take", "lamp");
   if (take) return take;
   if (covered(s, "lamp") && find("take", "cloth")) return find("take", "cloth");
+  if (
+    !s.items.lamp.fuel &&
+    !s.items.oil.doses &&
+    covered(s, "bell") &&
+    find("take", "cloth")
+  )
+    return find("take", "cloth");
   if (!s.items.lamp.fuel && !s.items.oil.doses && here === "pond") {
     const call = find("ring", "bell");
     if (call) return call;
@@ -2778,6 +2785,21 @@ function basePlan(s, actor) {
     );
     const waiting = !offered && waitingHere(actorIds);
     return waiting ? goMeet(waiting) : idle(reason);
+  }
+  // Give a long-stalled authored meeting priority over a generated errand
+  // when this traveler is the only missing companion.
+  if (!controlledByHuman(s, actor) && programFor(s, actor)?.generated) {
+    const overdue = knownActors(s).filter(
+      (other) =>
+        other !== actor &&
+        entityActive(s, other) &&
+        questActive(s, other) &&
+        !programFor(s, other)?.generated &&
+        s.turn - (s.actors[other].progress.marks.at(-1) || 0) >= 24 &&
+        handStatus(s, other).conditions.every((condition) => condition.met),
+    );
+    const waiting = waitingHere(overdue);
+    if (waiting) return goMeet(waiting);
   }
   // Timing matters: reach the meeting place before using a brief sound or light.
   if (hand.conditions?.length) {
