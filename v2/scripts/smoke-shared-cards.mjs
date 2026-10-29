@@ -665,8 +665,9 @@ try {
   await idle(mara);
   await mara.locator('#hand [data-card="pond"]').waitFor();
   const earlierTravel = await actionFor(mara, "move", "pond");
+  await mara.keyboard.press("Escape");
   await selectCard(mara, "mask");
-  await mara.locator('#hand [data-card="theatre"]').click();
+  await selectCard(mara, "theatre");
   await mara.getByRole("button", { name: "Put down", exact: true }).click();
   await until(
     async () => (await snapshot(mara)).world.items.mask.holder === "theatre",

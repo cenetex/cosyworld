@@ -30,6 +30,8 @@ mod homecoming_tests;
 mod house_of_blood_tests;
 mod kernel;
 #[cfg(test)]
+mod lamp_tests;
+#[cfg(test)]
 mod opening_tests;
 #[cfg(test)]
 mod personal_entry_tests;

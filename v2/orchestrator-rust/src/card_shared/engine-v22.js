@@ -75349,7 +75349,7 @@
     if (!controlledByHuman(world, actor)) return [];
     return packDefinitions.flatMap(
       (pack) => (pack.choices || []).filter(
-        (c) => !personalSharedChoice(packDefinitions, pack.id, c.id) && !pack.recital?.sites?.some((site) => site.completion === c.id) && choiceFeasible(world, pack, c, actor)
+        (c) => world.actors[actor]?.place === c.at && !personalSharedChoice(packDefinitions, pack.id, c.id) && !pack.recital?.sites?.some((site) => site.completion === c.id) && choiceFeasible(world, pack, c, actor)
       ).map((c) => ({
         kind: "choose",
         actor,
@@ -81304,7 +81304,7 @@
           [to]
         )
       );
-      for (const id3 of ids.filter((id4) => entityActive(s, id4) && s.items[id4].holder === actor)) {
+      for (const id3 of ids.filter((id4) => s.items[id4].holder === actor && entityActive(s, id4))) {
         out.push(
           offer(
             "move",
@@ -81348,10 +81348,10 @@
         );
       } else if (!(sharedEnabled(s) && controlledByHuman(s, other)) && !avoidsStandoffs(other) && !conflict && !standoffFor(s, other) && s.peaceUntil[actor] <= s.turn && s.peaceUntil[other] <= s.turn) {
         const stake = ids.find(
-          (id3) => entityActive(s, id3) && s.items[id3].holder === other && needed(s, actor, id3)
-        ) || ids.find((id3) => entityActive(s, id3) && s.items[id3].holder === other) || null;
+          (id3) => s.items[id3].holder === other && entityActive(s, id3) && needed(s, actor, id3)
+        ) || ids.find((id3) => s.items[id3].holder === other && entityActive(s, id3)) || null;
         const stakes = [
-          .../* @__PURE__ */ new Set([stake, ...ids.filter((id3) => entityActive(s, id3) && rootHolder(s, id3) === other)])
+          .../* @__PURE__ */ new Set([stake, ...ids.filter((id3) => rootHolder(s, id3) === other && entityActive(s, id3))])
         ];
         for (const item2 of stakes)
           out.push(
@@ -81512,13 +81512,13 @@
         }
       }
     }
-    const payments = ids.filter((id3) => entityActive(s, id3) && s.items[id3].holder === actor);
+    const payments = ids.filter((id3) => s.items[id3].holder === actor && entityActive(s, id3));
     const tradePartners = new Set(
       payments.length ? knownActors2(s).filter(
         (other) => other !== actor && !controlledByHuman(s, other) && s.actors[other].place === here
       ) : []
     );
-    const tradeGoods = ids.filter((id3) => entityActive(s, id3) && tradePartners.has(s.items[id3].holder));
+    const tradeGoods = ids.filter((id3) => tradePartners.has(s.items[id3].holder) && entityActive(s, id3));
     for (const give of payments)
       for (const receive of tradeGoods) {
         if (!canTrade(s, actor, give, receive)) continue;
@@ -82019,6 +82019,23 @@
     }
     if (!s.items.lamp.fuel && s.items.oil.doses > 0) {
       if (find("refill", "oil")) return find("refill", "oil");
+      const lampOwner = rootHolder(s, "lamp");
+      if (actorIds.includes(lampOwner) && lampOwner !== actor && !controlledByHuman(s, lampOwner) && knownActors2(s).includes(lampOwner) && s.actors[lampOwner].place === here) {
+        if (rootHolder(s, "oil") === actor && find("drop", "oil")) {
+          const offered = {
+            ...s,
+            items: { ...s.items, oil: { ...s.items.oil, holder: here } }
+          };
+          const response2 = plan(offered, lampOwner).action;
+          if (response2.item === "oil" && ["take", "refill"].includes(response2.kind))
+            return find("drop", "oil");
+        }
+        if (s.items.oil.holder === here && find("take", "oil")) {
+          const response2 = plan(s, lampOwner).action;
+          if (response2.kind === "refill" && response2.item === "oil")
+            return getActions().find((a) => a.kind === "wait");
+        }
+      }
       if (find("take", "oil")) return find("take", "oil");
       if (find("ask", "oil") && willingToGive(s, rootHolder(s, "oil"), "oil", actor))
         return find("ask", "oil");

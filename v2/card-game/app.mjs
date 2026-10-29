@@ -2226,6 +2226,7 @@ function renderScene() {
   const at = spokenLines.findIndex(
     (entry) => entry.index === scene.line?.index,
   );
+  const previousAt = spoken ? at - 1 : sharedSession ? at : -1;
   nextSceneSeq =
     at >= 0 && at < spokenLines.length - 1 ? spokenLines[at + 1].seq : null;
   if (exchange.active) nextSceneSeq = exchange.hasNext ? nextSceneSeq : null;
@@ -2236,7 +2237,7 @@ function renderScene() {
   document.querySelector(".dialogue").hidden =
     !hasSpeech && !movement && !sharedSession?.state.queue?.length;
   $("speech-row").hidden = !hasSpeech;
-  document.querySelector(".line-controls").hidden = !text;
+  document.querySelector(".line-controls").hidden = !text && previousAt < 0;
   $("dialogue-advance").hidden = !text;
   $("speech-hint").hidden = true;
   if (text) {
@@ -2255,11 +2256,11 @@ function renderScene() {
     $("dialogue-text").replaceChildren();
     $("speech-announcement").textContent = "";
   }
-  $("previous-line").disabled = cardsCooling || at <= 0;
+  $("previous-line").disabled = cardsCooling || previousAt < 0;
   updateSpeechControls(reveal.complete);
   $("previous-line").onclick = () => {
     reviewing = true;
-    lineSeq = spokenLines[at - 1].seq;
+    lineSeq = spokenLines[previousAt].seq;
     renderScene();
   };
   const advance = () => {

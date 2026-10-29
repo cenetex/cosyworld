@@ -5,6 +5,7 @@ import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
 import { summonTransport } from "../card-game/pack-transport.mjs";
+import { selectCard } from "./card-browser-helpers.mjs";
 
 // Each browser has its own claimed avatar. The fixture replaces account and
 // queue IO; every move runs through the shipping shared-world reducer.
@@ -106,16 +107,28 @@ try {
         pages.push(page);
         page.on("pageerror", (error) => errors.push(error.message));
         await page.goto(`${origin}/?world=ship-fixture`);
-        await page.locator('#hand [data-card="greek-ship"]').waitFor();
+        await page
+          .locator('#hand [data-card="greek-ship"]')
+          .waitFor({ state: "attached" });
       }
       const [vale, mara, ash] = pages;
       async function move(page, actor, target) {
         await page.waitForFunction(
-          () => document.querySelector("#hand")?.dataset.cooling === "false",
+          ({ place, turn }) => {
+            const hand = document.querySelector("#hand");
+            return (
+              document.body.dataset.place === place &&
+              hand?.dataset.presentedTurn === String(turn) &&
+              hand.dataset.cooling === "false" &&
+              hand.getAttribute("aria-busy") === "false"
+            );
+          },
+          { place: world.actors[actor].place, turn: world.turn },
         );
         // A shared update can repaint the hand while another player boards.
         // The locator click follows the current card through that repaint.
-        await page.locator(`#hand [data-card="${target}"]`).click();
+        await page.keyboard.press("Escape");
+        await selectCard(page, target);
         await page
           .getByRole("button", {
             name: target === "greek-ship" ? "Board" : "Disembark",
@@ -130,7 +143,9 @@ try {
       }
       await move(vale, "vale", "greek-ship");
       assert.equal(world.transports["greek-ship"].dock, "pond");
-      await mara.locator('#hand [data-card="greek-ship"]').waitFor();
+      await mara
+        .locator('#hand [data-card="greek-ship"]')
+        .waitFor({ state: "attached" });
       await mara.waitForFunction(
         () => document.querySelector("#location-overlay")?.hidden === false,
       );
@@ -148,12 +163,18 @@ try {
           !document.querySelector("#location-overlay") ||
           document.querySelector("#location-overlay").hidden,
       );
-      await mara.locator('#hand [data-card="greek-harbor"]').waitFor();
+      await mara
+        .locator('#hand [data-card="greek-harbor"]')
+        .waitFor({ state: "attached" });
       await move(vale, "vale", "greek-ship");
       assert.equal(world.actors.mara.place, "greek-ship");
-      await mara.locator('#hand [data-card="pond"]').waitFor();
+      await mara
+        .locator('#hand [data-card="pond"]')
+        .waitFor({ state: "attached" });
       await move(vale, "vale", "pond");
-      await ash.locator('#hand [data-card="greek-ship"]').waitFor();
+      await ash
+        .locator('#hand [data-card="greek-ship"]')
+        .waitFor({ state: "attached" });
       await move(ash, "ash", "greek-ship");
       await move(ash, "ash", "greek-harbor");
       await move(mara, "mara", "greek-harbor");

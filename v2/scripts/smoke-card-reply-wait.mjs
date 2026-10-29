@@ -186,6 +186,16 @@ try {
       );
       await shared.goto(`${origin}/?world=reply-wait`);
       await waitingFor(shared, "moth");
+      await shared.locator("#previous-line").click();
+      assert.equal(await shared.locator("#speaker").innerText(), "Vale");
+      assert.equal(
+        await shared.locator("#dialogue-text").innerText(),
+        "An earlier line from Vale.",
+      );
+      await shared
+        .getByRole("button", { name: /^Return to live dialogue/ })
+        .click();
+      await waitingFor(shared, "moth");
       // The next visible partner replaces the old wait, even with old Vale speech saved.
       snapshot = structuredClone(snapshot);
       const next = structuredClone(committed);
