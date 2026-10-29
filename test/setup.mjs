@@ -7,7 +7,11 @@
  */
 
 import { beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
+import { setImmediate as nodeSetImmediate } from 'node:timers';
 import dotenv from 'dotenv';
+
+// Capture the real timer before a test can install fake timers.
+const realSetImmediate = nodeSetImmediate;
 
 // Load test environment variables
 dotenv.config({ path: '.env.test' });
@@ -50,7 +54,10 @@ beforeEach(() => {
 });
 
 // Cleanup after each test
-afterEach(() => {
-  // Clear all mocks
+afterEach(async () => {
+  // Give worker messages a chance to travel in both directions between tests.
+  await new Promise((resolve) => realSetImmediate(resolve));
+  await new Promise((resolve) => realSetImmediate(resolve));
+  // Clear calls made by callbacks that ran during the yield.
   vi.clearAllMocks();
 });
