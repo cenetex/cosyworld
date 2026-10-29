@@ -7,9 +7,11 @@ import {
   exits,
   legalActions,
   play,
+  plan,
 } from "../v2/card-game/world.mjs";
 import { packDefinition, transports } from "../v2/card-game/pack-registry.mjs";
 import { legacyGreekSeaPaths } from "../v2/card-game/legacy-greek-seaways.mjs";
+import { passengers } from "../v2/card-game/pack-transport.mjs";
 import { authoredRouteEdges } from "../v2/card-game/roaming-routes.mjs";
 
 const pack = packDefinition("greek-drama");
@@ -92,6 +94,31 @@ function board(world, actor = "vale") {
     world = step(world, "wait", null, actor);
   return step(world, "move", "greek-ship", actor);
 }
+function twoShoreVoyage() {
+  let world = decodeSave(
+    JSON.stringify(releasedVisit("greek-harbor", "greek-egypt-tomb", "egypt")),
+  );
+  world.controlledActors = ["vale", "mara"];
+  world.presentActors = ["vale", "mara"];
+  world.actors.mara.place = "greek-book-iv-helen-landing";
+  world = decodeSave(encodeSave(world));
+  world = step(world, "move", "greek-book-iv-helen-landing");
+  world = board(world);
+  world = board(world, "mara");
+  for (const actor of ["vale", "mara"])
+    world = step(world, "move", "greek-sicily-shore", actor);
+  world = board(world, "mara");
+  world = step(world, "move", "pond", "mara");
+  return world;
+}
+function savedSoloLeg() {
+  let world = step(twoShoreVoyage(), "wait");
+  // A saved leg from the earlier planner can leave its goal's owner ashore.
+  world.actors.moth.place = "greek-ship";
+  world.transports["greek-ship"].destination = "pond";
+  return decodeSave(encodeSave(world));
+}
+
 afterEach(() => new Promise((resolve) => setImmediate(resolve)));
 
 const visits = [
@@ -207,30 +234,110 @@ describe("the eleven-port Greek seaways", { timeout: 60000 }, () => {
     expect(world.actors.mara.place).toBe("greek-harbor");
   });
 
-  it("makes the actual eleven-stop empty circuit through committed waits and reloads", () => {
-    let world = decodeSave(
-      JSON.stringify(
-        releasedVisit("greek-harbor", "greek-egypt-tomb", "egypt"),
+  it("keeps Pip beside a shared quest item until its owner travels or gives custody", () => {
+    let world = step(twoShoreVoyage(), "wait");
+    expect(world.actors.moth.place).toBe("greek-sicily-shore");
+    expect(world.items.lamp.holder).toBe("vale");
+    for (let turn = 0; turn < 12; turn++) {
+      expect(plan(world, "moth").action.target).not.toBe("greek-ship");
+      world = step(world, "wait");
+      expect(world.actors.moth.place).toBe("greek-sicily-shore");
+      expect(world.actors.vale.place).toBe("greek-sicily-shore");
+      expect(world.items.lamp.holder).toBe("vale");
+      expect(passengers(world, "greek-ship")).toHaveLength(0);
+    }
+  });
+
+  it("finishes a saved resident leg at its legal dock while its larger goal waits ashore", () => {
+    let world = savedSoloLeg();
+    const progress = structuredClone(world.actors.moth.progress);
+    expect(plan(world, "moth").action).toMatchObject({
+      kind: "move",
+      target: "pond",
+    });
+    world = step(world, "talk", "greek-rhapsode");
+    expect(world.actors.moth.place).toBe("pond");
+    expect(world.actors.moth.progress).toEqual(progress);
+    expect(world.actors.vale.place).toBe("greek-sicily-shore");
+    expect(world.actors.mara.place).toBe("pond");
+    expect(world.items.lamp.holder).toBe("vale");
+    expect(world.transports["greek-ship"].dock).toBe("pond");
+    expect(passengers(world, "greek-ship")).toHaveLength(0);
+    expect(
+      world.log.some(
+        (e) =>
+          e.actorId === "moth" && e.verb === "move" && e.targetId === "pond",
       ),
+    ).toBe(true);
+  });
+
+  it("keeps the human’s port choice ahead of a resident’s saved leg", () => {
+    let world = savedSoloLeg();
+    const stale = plan(world, "moth").action;
+    world = step(world, "move", "greek-ship");
+    expect(world.actors.moth.place).toBe("greek-ship");
+    expect(legalActions(world, "moth").some((a) => a.kind === "move")).toBe(
+      false,
     );
-    world.controlledActors = ["vale", "mara"];
-    world.presentActors = ["vale", "mara"];
-    world.actors.mara.place = "greek-book-iv-helen-landing";
-    world = decodeSave(encodeSave(world));
-    world = step(world, "move", "greek-book-iv-helen-landing");
-    world = board(world);
-    world = board(world, "mara");
-    for (const actor of ["vale", "mara"])
-      world = step(world, "move", "greek-sicily-shore", actor);
-    world = board(world, "mara");
-    world = step(world, "move", "pond", "mara");
+    expect(play(world, stale, world.revision, "moth").ok).toBe(false);
+    const ship = structuredClone(world.transports["greek-ship"]);
+    world = step(world, "wait", null, "mara");
+    expect(world.transports["greek-ship"]).toEqual(ship);
+    expect(world.actors.moth.place).toBe("greek-ship");
+    expect(world.actors.vale.place).toBe("greek-ship");
+    world = step(world, "move", "greek-athens-harbor");
+    expect(world.actors.vale.place).toBe("greek-athens-harbor");
+    expect(world.actors.moth.place).toBe("greek-athens-harbor");
+    expect(world.actors.mara.place).toBe("pond");
+    expect(world.transports["greek-ship"].dock).toBe("greek-athens-harbor");
+  });
+
+  it("lets Pip sail alone after an actual gift puts the needed lamp in his custody", () => {
+    let world = step(twoShoreVoyage(), "wait");
+    const gift = legalActions(world, "vale").find(
+      (a) => a.kind === "give" && a.item === "lamp" && a.target === "moth",
+    );
+    expect(gift).toBeDefined();
+    const given = play(world, gift, world.revision, "vale");
+    expect(given.ok, given.error).toBe(true);
+    world = decodeSave(encodeSave(given.state));
+    for (let turn = 0; turn < 12 && world.actors.moth.place !== "pond"; turn++)
+      world = step(world, "wait");
+    expect(world.items.lamp.holder).toBe("moth");
+    expect(world.actors.moth.place).toBe("pond");
+    expect(world.actors.vale.place).toBe("greek-sicily-shore");
+    expect(world.actors.mara.place).toBe("pond");
+    expect(passengers(world, "greek-ship")).toHaveLength(0);
+    expect(
+      world.log
+        .filter((e) => e.actorId === "moth" && e.verb === "move")
+        .map((e) => e.targetId),
+    ).toEqual(expect.arrayContaining(["greek-ship", "pond"]));
+  });
+
+  it("makes the actual eleven-stop empty circuit through committed waits and reloads", () => {
+    let world = twoShoreVoyage();
+    expect(passengers(world, "greek-ship").length).toBeGreaterThan(0);
+    for (
+      let turn = 0;
+      turn < 24 && passengers(world, "greek-ship").length;
+      turn++
+    )
+      world = step(world, "wait");
+    expect(world.actors.moth.place).toBe("greek-sicily-shore");
+    expect(passengers(world, "greek-ship")).toHaveLength(0);
+    world = step(world, "wait", null, "mara");
+    expect(world.transports["greek-ship"].dock).toBe("pond");
+    expect(passengers(world, "greek-ship")).toHaveLength(0);
     const visited = [world.transports["greek-ship"].dock];
     for (
       let index = 1;
       index < transports["greek-ship"].docks.length;
       index++
     ) {
+      expect(passengers(world, "greek-ship")).toHaveLength(0);
       world = step(world, "wait");
+      expect(passengers(world, "greek-ship")).toHaveLength(0);
       visited.push(world.transports["greek-ship"].dock);
       expect(world.actors.vale.place).toBe("greek-sicily-shore");
       expect(world.actors.mara.place).toBe("pond");
