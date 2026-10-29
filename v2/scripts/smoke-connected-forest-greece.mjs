@@ -11,6 +11,7 @@ import { spawn, execFileSync } from "node:child_process";
 import { chromium } from "playwright";
 import { decodeSave, encodeSave } from "../card-game/world.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
+import { cardActions } from "../card-game/cards.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
 import {
   connectedJourney,
@@ -96,6 +97,7 @@ async function modelDriver() {
   };
   return {
     read,
+    snapshot: () => world,
     play: async (actor, action) => {
       const result = dispatchShared({
         op: "play",
@@ -234,7 +236,19 @@ async function playUI(actor, action, before) {
   for (const member of players.values())
     await checked(member.page, { op: "heartbeat" });
   await settle(actor);
-  const cards = action.cards?.length ? action.cards : [actor];
+  const cards = action.cards?.length ? [...action.cards] : [actor];
+  if (
+    action.kind === "drop" ||
+    (["light", "snuff", "ring"].includes(action.kind) &&
+      before.world.items[action.item].holder !== actor)
+  )
+    cards.push(before.world.actors[actor].place);
+  assert.ok(
+    cardActions(before.world, cards).actions.some(
+      (offer) => offer.key === action.key,
+    ),
+    `${actor}'s ${action.kind} is offered for ${cards.join(" + ")}`,
+  );
   for (const card of cards) await selectCard(page, card, { touch: phone });
   const selector = action.choiceId
     ? `#card-actions [data-choice="${action.choiceId}"]`
@@ -247,7 +261,8 @@ async function playUI(actor, action, before) {
     const body = value.request().postDataJSON();
     return body?.op === "play" && body.action?.key === action.key;
   });
-  await button.click();
+  if (phone) await button.tap();
+  else await button.click();
   const accepted = await response,
     body = accepted.request().postDataJSON();
   assert.equal(accepted.status(), 200, (await accepted.text()).slice(0, 1000));
@@ -552,6 +567,11 @@ async function sharedRun() {
       })
       .join("\n") + "\n",
   );
+  report.finalSave = join(output, "final-save.json");
+  await writeFile(
+    report.finalSave,
+    encodeSave(restored.checkpoint.game) + "\n",
+  );
   for (const actor of PLAYERS) await capture(actor, "after-server-restart");
   assert.deepEqual(report.pageErrors, []);
   assert.deepEqual(report.failedAssets, []);
@@ -559,8 +579,11 @@ async function sharedRun() {
 
 try {
   if (values["model-only"]) {
-    const result = await connectedJourney(await modelDriver(), seed);
+    const driver = await modelDriver();
+    const result = await connectedJourney(driver, seed);
     report.waterReturn = result.waterReturn;
+    report.finalSave = join(output, "final-save.json");
+    await writeFile(report.finalSave, encodeSave(driver.snapshot()) + "\n");
   } else await sharedRun();
   assert.equal(
     hash(await readFile(savePath)),
