@@ -26,6 +26,8 @@
 !v2/orchestrator-rust/build.rs
 !v2/orchestrator-rust/src/
 !v2/orchestrator-rust/src/**
+!v2/orchestrator-rust/vendor/
+!v2/orchestrator-rust/vendor/**
 
 v2/orchestrator-rust/target/
 v2/orchestrator-rust/.runtime/

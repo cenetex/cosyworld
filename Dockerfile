@@ -18,6 +18,8 @@ COPY v2/core-c /app/v2/core-c
 COPY v2/ai-model-rust /app/v2/ai-model-rust
 
 # Cache third-party Rust dependencies in a separate layer.
+# The local QuickJS correction supplies the native sources used by its build.
+COPY v2/orchestrator-rust/vendor /app/v2/orchestrator-rust/vendor
 RUN cargo chef cook --release --recipe-path /app/recipe.json
 
 FROM dependencies AS build
