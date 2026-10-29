@@ -77,6 +77,7 @@ fn preserves_old_entities(after: &Value, before: &Value) {
 
 #[test]
 fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
+    let current_catalog = engine::reduce(json!({"op":"create"})).unwrap()["world"].clone();
     for (version, through_tenth) in [
         (engine::NINTH_VERSION, false),
         (engine::TENTH_VERSION, false),
@@ -113,32 +114,19 @@ fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
                         old.game["packs"]["greek-drama"][field]
                     );
                 }
-                assert_eq!(
-                    upgraded.game["actors"].as_object().unwrap().len(),
-                    old.game["actors"].as_object().unwrap().len()
-                        + 14 // Book II actors
-                        + 16
-                        + 3
-                        + 4
-                        + if version == engine::ELEVENTH_VERSION {
-                            3
-                        } else {
-                            11
-                        }
-                );
-                assert_eq!(
-                    upgraded.game["items"].as_object().unwrap().len(),
-                    old.game["items"].as_object().unwrap().len()
-                        + 20 // Book II items
-                        + 10
-                        + 4
-                        + 4
-                        + if version == engine::ELEVENTH_VERSION {
-                            9
-                        } else {
-                            18
-                        }
-                );
+                // Every current catalog entry joins the retained saved entries.
+                // The field checks above preserve each earlier actor and item.
+                for field in ["actors", "items"] {
+                    let expected: std::collections::BTreeSet<_> = current_catalog[field]
+                        .as_object()
+                        .unwrap()
+                        .keys()
+                        .chain(old.game[field].as_object().unwrap().keys())
+                        .collect();
+                    let actual: std::collections::BTreeSet<_> =
+                        upgraded.game[field].as_object().unwrap().keys().collect();
+                    assert_eq!(actual, expected, "Upgrade the full {field} catalog");
+                }
                 assert_eq!(
                     upgraded.game["items"]["greek-burial-petition"]["holder"],
                     "greek-eleusis"
