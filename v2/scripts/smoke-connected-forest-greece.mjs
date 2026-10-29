@@ -396,7 +396,21 @@ async function sharedRun() {
     let text = "";
     for await (const chunk of req) text += chunk;
     const input = JSON.parse(text);
-    providerRequests++;
+    report.providerRequests = ++providerRequests;
+    const disclosure = input.messages
+      .flatMap((message) => message.content.split("\n"))
+      .map(
+        (line) =>
+          line.match(
+            /^I tell .+ this recorded fact as one complete sentence, using these words: (.+) I may add one short sentence in my own voice\.$/u,
+          )?.[1],
+      )
+      .find(Boolean);
+    if (disclosure)
+      report.disclosureReplies = (report.disclosureReplies || 0) + 1;
+    // The fixture speaks the exact fact assigned to this voice by the rules.
+    const content =
+      disclosure || `I pause for ${providerRequests} quiet breaths.`;
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(
       JSON.stringify({
@@ -404,7 +418,7 @@ async function sharedRun() {
         choices: [
           {
             message: {
-              content: `I pause for ${providerRequests} quiet breaths.`,
+              content,
             },
             finish_reason: "stop",
           },
