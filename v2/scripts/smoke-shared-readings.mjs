@@ -36,16 +36,16 @@ const secretLines = recitalPoem(initial, packDefinition("greek-drama"))
 const quote = secretLines.join(" ");
 const privateWordsAbsent = (text) =>
   secretLines.every((line) => !text.includes(line));
+let providerReplies = 0;
 const provider = createServer(async (req, res) => {
   let body = "";
   for await (const part of req) body += part;
   const input = JSON.parse(body);
-  const heard = input.messages.some((message) =>
-    message.content.includes(quote),
-  );
-  const content = heard
-    ? `I heard these words: ${quote}`
-    : "I am listening to the account.";
+  const lines = input.messages.flatMap((message) => message.content.split("\n"));
+  const page = lines.findIndex((line) => line.startsWith("Heard page "));
+  const stanza = page < 0 ? null : lines[page + 1]?.match(/^[^:]+: (.+)$/u)?.[1];
+  // This speaker can quote the current page. Quiet replies use fresh words.
+  const content = stanza || `I pause for ${++providerReplies} quiet breaths.`;
   res.writeHead(200, { "Content-Type": "application/json" });
   res.end(
     JSON.stringify({
