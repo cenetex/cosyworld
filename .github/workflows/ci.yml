@@ -70,6 +70,7 @@ jobs:
     env:
       CI: true
       RUST_TEST_THREADS: "2"
+      RUST_MIN_STACK: "16777216"
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -405,6 +406,8 @@ jobs:
           node v2/scripts/smoke-card-quests.mjs
           node v2/scripts/smoke-card-quest-collection.mjs
           node v2/scripts/smoke-card-forest.mjs
+          node v2/scripts/smoke-connected-forest-greece.mjs --save output/card-forest-chromium/final-save-1440.json --binary "$COSYWORLD_SMOKE_BINARY" --output output/connected-forest-greece-1440
+          node v2/scripts/smoke-connected-forest-greece.mjs --save output/card-forest-chromium/final-save-390.json --binary "$COSYWORLD_SMOKE_BINARY" --output output/connected-forest-greece-390
           node v2/scripts/smoke-card-shared-discovery.mjs
           node v2/scripts/smoke-card-bard-travel.mjs
           node v2/scripts/smoke-card-shared-quests.mjs
@@ -447,6 +450,10 @@ jobs:
             output/card-holder-collapse/*.png
             output/card-forest-*/*.png
             output/card-forest-*/*.json
+            output/connected-forest-greece-*/*.png
+            output/connected-forest-greece-*/*.json
+            output/connected-forest-greece-*/*.jsonl
+            output/connected-forest-greece-*/server.log
             output/book-*/*.png
             output/book-*/*.json
             output/card-book-two/*.png
