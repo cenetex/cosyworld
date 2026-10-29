@@ -249,9 +249,6 @@ export async function connectedJourney(driver, seed) {
   assert.equal(state.world.items[home.item.id].holder, home.home.id);
   await stage("shared-import-and-real-home");
   await act("mara", { kind: "take", item: home.item.id });
-  state = await read("mara");
-  if (state.actions.some((a) => a.kind === "use" && a.item === home.item.id))
-    await act("mara", { kind: "use", item: home.item.id });
   await move("mara", "pond");
   await act("mara", { kind: "drop", item: home.item.id, target: "pond" });
 

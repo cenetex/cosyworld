@@ -88,6 +88,22 @@ function contextWorld(snapshot) {
     presentActors: PLAYERS,
   };
 }
+function cardsForAction(actor, action, before) {
+  const cards = action.cards?.length ? [...action.cards] : [actor];
+  if (
+    action.kind === "drop" ||
+    (["light", "snuff", "ring"].includes(action.kind) &&
+      before.world.items[action.item].holder !== actor)
+  )
+    cards.push(before.world.actors[actor].place);
+  assert.ok(
+    cardActions(before.world, cards).actions.some(
+      (offer) => offer.key === action.key,
+    ),
+    `${actor}'s ${action.kind} is offered for ${cards.join(" + ")}`,
+  );
+  return cards;
+}
 async function modelDriver() {
   let world = dispatchShared({ op: "create", save: raw }).world;
   const read = async (actor) => {
@@ -104,7 +120,8 @@ async function modelDriver() {
   return {
     read,
     snapshot: () => world,
-    play: async (actor, action) => {
+    play: async (actor, action, before) => {
+      cardsForAction(actor, action, before);
       const result = dispatchShared({
         op: "play",
         world,
@@ -242,19 +259,7 @@ async function playUI(actor, action, before) {
   for (const member of players.values())
     await checked(member.page, { op: "heartbeat" });
   await settle(actor);
-  const cards = action.cards?.length ? [...action.cards] : [actor];
-  if (
-    action.kind === "drop" ||
-    (["light", "snuff", "ring"].includes(action.kind) &&
-      before.world.items[action.item].holder !== actor)
-  )
-    cards.push(before.world.actors[actor].place);
-  assert.ok(
-    cardActions(before.world, cards).actions.some(
-      (offer) => offer.key === action.key,
-    ),
-    `${actor}'s ${action.kind} is offered for ${cards.join(" + ")}`,
-  );
+  const cards = cardsForAction(actor, action, before);
   for (const card of cards) await selectCard(page, card, { touch: phone });
   const selector = action.choiceId
     ? `#card-actions [data-choice="${action.choiceId}"]`
