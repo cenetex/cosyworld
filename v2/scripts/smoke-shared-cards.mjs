@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { selectCard } from "./card-browser-helpers.mjs";
-import { mkdtemp, mkdir } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createServer } from "node:http";
@@ -1164,37 +1164,67 @@ try {
     "Shared original world: progressed save, eight passkeys, original pond/station/attic, NPCs, packs, quests, room capacity, shared speech, item handoff, nudge, restart, desktop and phone passed.",
   );
 } catch (error) {
-  console.error(
-    "Held provider timing",
+  console.error("Shared smoke failure:", error);
+  const heldProviderTiming = [...providerTiming.values()].filter(
+    (timing) => timing.held,
+  );
+  const history =
+    worldId && pages[0]
+      ? await snapshot(pages[0])
+          .then((state) => state.history.slice(0, 5))
+          .catch((failure) => ({ error: failure.message }))
+      : [];
+  await writeFile(
+    join(output, "failure.json"),
     JSON.stringify(
-      [...providerTiming.values()].filter((timing) => timing.held),
+      {
+        error: { message: error.message, stack: error.stack },
+        worldCreated: Boolean(worldId),
+        browserErrors: errors,
+        history,
+        heldProviderTiming,
+        server: serverDiagnostics(),
+      },
+      null,
+      2,
     ),
+  ).catch((failure) => console.error("Failure report:", failure.message));
+  await writeFile(join(output, "server.log"), processLog).catch((failure) =>
+    console.error("Server log:", failure.message),
   );
-  console.error(
-    "Latest shared history",
-    JSON.stringify((await snapshot(pages[0])).history.slice(0, 5)),
-  );
+  console.error("Held provider timing", JSON.stringify(heldProviderTiming));
+  console.error("Latest shared history", JSON.stringify(history));
   for (const [index, page] of pages.entries()) {
     console.error(
       names[index],
       page.url(),
-      await page.locator("body").innerText(),
+      await page
+        .locator("body")
+        .innerText()
+        .catch((failure) => failure.message),
     );
     if (index < 2)
       console.error(
         "Stage:",
-        await page.locator("#cast .portrait").evaluateAll((figures) =>
-          figures.map((figure) => ({
-            actor: figure.dataset.avatar,
-            size: figure.style.getPropertyValue("--stage-size"),
-            depth: figure.dataset.depth,
-          })),
-        ),
+        await page
+          .locator("#cast .portrait")
+          .evaluateAll((figures) =>
+            figures.map((figure) => ({
+              actor: figure.dataset.avatar,
+              size: figure.style.getPropertyValue("--stage-size"),
+              depth: figure.dataset.depth,
+            })),
+          )
+          .catch((failure) => failure.message),
       );
-    await page.screenshot({
-      path: join(output, `failure-${names[index]}.png`),
-      fullPage: true,
-    });
+    await page
+      .screenshot({
+        path: join(output, `failure-${names[index]}.png`),
+        fullPage: true,
+      })
+      .catch((failure) =>
+        console.error("Failure screenshot:", failure.message),
+      );
   }
   console.error("Browser errors:", errors, "Server:", serverDiagnostics());
   throw error;
