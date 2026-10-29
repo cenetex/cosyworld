@@ -2664,6 +2664,9 @@ fn hoppycat_upgrade_keeps_released_history_and_replays_new_story_choices() {
                 let mut expected = saved.clone();
                 if field == "packs" && key == "greek-drama" {
                     expected["revision"] = json!(8);
+                    expected["poemReadings"] = json!({
+                        "version":1,"stanzas":[],"readings":{},"drafts":{},"pins":{},"decisions":{}
+                    });
                 }
                 assert_eq!(world.game[field][key], expected, "saved {field}/{key}");
             }
