@@ -1,3 +1,5 @@
+import { spawnSync } from "node:child_process";
+import { resolve } from "node:path";
 import { setImmediate as nodeSetImmediate } from "node:timers";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 
@@ -61,4 +63,21 @@ describe("nested cleanup ordering", () => {
 
 it("runs nested cleanup before the next case", () => {
   expect(cleanupOrder).toEqual(["body", "nested", "queued"]);
+});
+
+it("keeps worker update errors fatal", () => {
+  const run = spawnSync(
+    process.execPath,
+    [
+      resolve("node_modules/vitest/vitest.mjs"),
+      "run",
+      "--config",
+      "test/fixtures/runner-update-error.config.mjs",
+      "--reporter=default",
+      "--reporter=./test/fixtures/runner-update-error-reporter.mjs",
+    ],
+    { cwd: process.cwd(), encoding: "utf8", timeout: 20_000 },
+  );
+  expect(run.status).toBe(1);
+  expect(run.stdout + run.stderr).toContain("worker-update-error-sentinel");
 });
