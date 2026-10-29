@@ -266,6 +266,7 @@ async function playUI(actor, action, before) {
     : `#card-actions [data-action="${action.kind}"]`;
   const button = page.locator(selector).filter({ visible: true }).first();
   await button.waitFor();
+  const started = performance.now();
   const response = page.waitForResponse((value) => {
     if (!value.url().endsWith(`/card-game/shared/worlds/${worldId}/command`))
       return false;
@@ -276,12 +277,14 @@ async function playUI(actor, action, before) {
   else await button.click();
   const accepted = await response,
     body = accepted.request().postDataJSON();
+  const acceptMs = Math.round(performance.now() - started);
   if (accepted.status() !== 200) {
     (report.rejectedPlays ??= []).push({
       actor,
       action,
       turn: before.world.turn,
       status: accepted.status(),
+      acceptMs,
       error: (await accepted.text()).slice(0, 1000),
     });
   }
@@ -295,6 +298,8 @@ async function playUI(actor, action, before) {
   const step = {
     actor,
     key: body.key,
+    acceptMs,
+    sceneMs: Math.round(performance.now() - started),
     action: body.action,
     turn: after.world.turn,
     from: before.world.actors[actor].place,
