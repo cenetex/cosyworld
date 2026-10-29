@@ -103,6 +103,7 @@ try {
       );
       await page.goto(`${origin}/?table=${table}`);
       await selectCard(page, "moth");
+      if (kind === "ask") await selectCard(page, "lamp");
       const requested = page.waitForRequest("**/card-game/text");
       requested.catch(() => {});
       await page
