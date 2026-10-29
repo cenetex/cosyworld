@@ -5,7 +5,14 @@
 import { questRecord, questRecords } from "./shared-quests.mjs";
 import { questCards, questHistoryCards } from "./quest-cards.mjs";
 import { entityActive } from "./pack-registry.mjs";
-import { itemPlace, nameOf } from "./world.mjs";
+import { itemPlace, nameOf, rootHolder } from "./world.mjs";
+import {
+  alternatives,
+  knownActors,
+  personalQuestActor,
+  programFor,
+  targetsFor,
+} from "./quests.mjs";
 
 // The dialogue request allows 16 facts of 240 characters per entity.
 export const QUEST_TALK_LIMIT = 3;
@@ -113,12 +120,16 @@ export function talkQuests(world, actor) {
   };
 }
 
-// Compact narration lines: what I want, what else I carry or just finished,
-// and what help or story waits at this place.
+// Compact narration lines: what I want, where I fit someone else's quest,
+// what else I carry or just finished, and what help or story waits here.
 export function questTalkFacts(world, actor) {
   const { own, finished, nearby } = talkQuests(world, actor);
   const facts = [];
   if (own[0]) facts.push(`What I want most now: ${describe(own[0])}`);
+  // Another person's step that needs this speaker comes next, so a resident
+  // can point the way even when their own wishes fill the rest.
+  const leads = questLeads(world, actor);
+  if (leads.length) facts.push(leads.join(" "));
   const more = [
     ...(own.length > 1
       ? [
@@ -162,4 +173,50 @@ export function questTopics(world, actor) {
       ),
     ),
   ];
+}
+
+// Leads: where this speaker fits another person's current quest step. Each
+// line comes from saved custody, company and knowledge, so a resident can
+// point the way without inventing a fact. At most two people are named.
+export function questLeads(world, actor) {
+  const lines = [];
+  const known = world.knowledge?.known?.[actor] || {};
+  for (const other of knownActors(world)) {
+    if (lines.length >= 2) break;
+    if (other === actor || !personalQuestActor(other)) continue;
+    const program = programFor(world, other);
+    if (!program) continue;
+    const hands = targetsFor(world, other).flatMap(alternatives);
+    const who = nameOf(other);
+    const title = sentence(program.name).replace(/\.$/u, "");
+    const needsMe = hands.some((h) => h?.avatars?.includes(actor));
+    const mine = [
+      ...new Set(
+        hands.flatMap((h) =>
+          (h?.items || []).filter(
+            (item) => world.items[item] && rootHolder(world, item) === actor,
+          ),
+        ),
+      ),
+    ];
+    const heard = hands.some((h) =>
+      (h?.conditions || []).some(
+        (c) => c.kind === "knows" && topicsOf(c).some((topic) => known[topic]),
+      ),
+    );
+    if (!needsMe && !mine.length && !heard) continue;
+    lines.push(
+      [
+        `${who} is pursuing ${title}.`,
+        ...(needsMe ? [`It needs me there.`] : []),
+        ...(mine.length
+          ? [
+              `I hold ${mine.map((item) => `the ${nameOf(item)}`).join(" and ")} it needs.`,
+            ]
+          : []),
+        ...(heard ? [`I know something ${who} needs to hear for it.`] : []),
+      ].join(" "),
+    );
+  }
+  return lines;
 }
