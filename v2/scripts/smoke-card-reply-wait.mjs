@@ -157,8 +157,6 @@ try {
         world,
         legalActions(world).find((a) => a.kind === kind && a.target === "moth"),
       ).state;
-      // Keep this reply partner on stage for the shared view check.
-      committed.actors.moth.place = "station";
       let snapshot = {
         actor,
         world: committed,
@@ -197,7 +195,6 @@ try {
       );
       assert(reply, "The next reply partner is present");
       snapshot.world = play(next, reply).state;
-      snapshot.world.actors.keeper.place = "station";
       snapshot.now++;
       await shared.evaluate(() => globalThis.syncReply());
       await waitingFor(shared, "keeper");
