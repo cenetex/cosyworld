@@ -113,7 +113,12 @@ try {
       change(snapshot.world);
       snapshot.world.revision++;
       snapshot.now = Math.max(Date.now(), snapshot.now + 1);
-      await page.evaluate(() => window.discoveryProbe.sync());
+      // Start the poll without returning its promise to Playwright. Under a
+      // slow CI runner an awaited page promise can fail as a "destroyed
+      // context" without any navigation; the revision wait below is the check.
+      await page.evaluate(() => {
+        void window.discoveryProbe.sync();
+      });
       await page.waitForFunction(
         (revision) => window.discoveryProbe.state().revision === revision,
         snapshot.world.revision,
@@ -267,7 +272,9 @@ try {
     );
     // Move the room clock past both lines; Live joins the latest line.
     snapshot.now += 12000;
-    await page.evaluate(() => window.discoveryProbe.sync());
+    await page.evaluate(() => {
+      void window.discoveryProbe.sync();
+    });
     await page.waitForTimeout(250);
     await page.locator("#live-line").click();
     await page.waitForFunction(
