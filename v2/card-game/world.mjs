@@ -1556,18 +1556,21 @@ export function legalActions(s, actor = currentActor(s)) {
         );
       }
     } else if (
-      actorIds.includes(item.holder) &&
-      item.holder !== actor &&
+      actorIds.includes(rootHolder(s, id)) &&
+      rootHolder(s, id) !== actor &&
+      (item.holder === rootHolder(s, id) || id === "cloth") &&
       hasSpace(s, actor, id)
     ) {
+      // A wrapped cloth still belongs to the person holding its container.
+      const owner = rootHolder(s, id);
       out.push(
         offer(
           "ask",
           actor,
           id,
-          item.holder,
-          `${nameOf(actor)} asks ${nameOf(item.holder)} for the ${nameOf(id)}.`,
-          [id, item.holder],
+          owner,
+          `${nameOf(actor)} asks ${nameOf(owner)} for the ${nameOf(id)}.`,
+          [id, owner],
         ),
       );
     }
