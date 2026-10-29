@@ -116,6 +116,10 @@ context:
 - **What I want most now** — the carried quest the speaker most recently
   advanced or heard news about (a learned topic that its step asks for). With
   no such quest, the rules' saved focus leads, then the newest card.
+- **Leads** — where the speaker fits another person's current step: "Vale is
+  pursuing Supper before the wind. It needs me there." It also says when the
+  speaker holds an item that step needs, or knows a fact it asks for. Up to
+  two people are named.
 - **I also want to pursue** — the other carried quest, and any quest the
   speaker finished in the last two turns with its outcome.
 - **Help needed here** and **Open story here** — unfinished help, story and
@@ -306,6 +310,11 @@ facts; each listener keeps the source and teller. A checked spoken reply teaches
 the fact and can unlock an authored scene or a quest step. Later Talk can pass
 heard news to another person. Greece's spoken clues now use this path, including
 the mothers' plea, the decree and the returning reports.
+
+A remembered fact is told with an age band (just now, a little while ago, some
+time ago, long ago) and its place. A witnessed event six or more turns old adds
+"Things may have changed since," so old news about who carried what stays
+honest. Authored topics and finished stories do not go stale.
 
 The browser enables `personalQuests` alongside motives. The first quest gives
 each avatar a starting purpose. A completed quest earns a level. The avatar then

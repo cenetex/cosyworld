@@ -6,7 +6,13 @@ import {
   encodeSave,
 } from "../v2/card-game/world.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
-import { installQuestCollection, hand, at } from "../v2/card-game/quests.mjs";
+import {
+  installQuestCollection,
+  hand,
+  at,
+  hold,
+  withAvatars,
+} from "../v2/card-game/quests.mjs";
 import { lifeOf } from "../v2/card-game/life.mjs";
 import {
   addQuestRecord,
@@ -17,6 +23,7 @@ import {
 import { recordQuestCompletion } from "../v2/card-game/quest-completions.mjs";
 import {
   QUEST_TALK_LIMIT,
+  questLeads,
   questTalkFacts,
 } from "../v2/card-game/quest-talk.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
@@ -61,7 +68,7 @@ describe("quests in Talk context", () => {
     world.quests.records["vale:quest:1"].lastProgressTurn = 3;
     const facts = questTalkFacts(world, "vale");
     expect(facts[0]).toMatch(/^What I want most now: The second wish\./u);
-    expect(facts[1]).toBe("I also want to pursue The first wish.");
+    expect(facts).toContain("I also want to pursue The first wish.");
     // Narration never moves the rules' saved focus.
     expect(world.quests.focus.vale).toBe("vale:quest:0");
   });
@@ -208,5 +215,28 @@ describe("quests in Talk context", () => {
     expect(facts).toContain("The ferry left before dawn.");
     expect(facts).toContain("The keeper rang the bell.");
     expect(facts).not.toContain("Pip lit a lamp.");
+  });
+
+  it("lets a resident point the way to another person's quest step", () => {
+    const world = fresh();
+    deck(world, "vale", [
+      {
+        id: "bell",
+        name: "A bell for the pond",
+        steps: [hand(hold("bell"), at("pond"), withAvatars("moth"))],
+      },
+    ]);
+    world.items.bell.holder = "moth";
+    const before = encodeSave(world);
+    const leads = questLeads(world, "moth");
+    expect(leads[0]).toBe(
+      "Vale is pursuing A bell for the pond. It needs me there. I hold the Bell it needs.",
+    );
+    expect(questTalkFacts(world, "moth")[1]).toBe(leads.join(" "));
+    // The keeper is not part of Vale's step, so the keeper names no lead for it.
+    expect(
+      questLeads(world, "keeper").some((line) => line.startsWith("Vale")),
+    ).toBe(false);
+    expect(encodeSave(world)).toBe(before);
   });
 });

@@ -11,6 +11,8 @@ import {
   validKnowledge,
   validFactText,
   KNOWLEDGE_FACT_LIMIT,
+  knowledgeFacts,
+  ageText,
 } from "../v2/card-game/knowledge.mjs";
 import {
   addLog,
@@ -541,5 +543,38 @@ describe("authored topics keep their saved deed identity", () => {
     expect(
       decodeSave(encodeSave(world)).packs[pack.id].receipts[choice.id],
     ).toBe(world.turn);
+  });
+});
+
+describe("told facts by age", () => {
+  const names = { moth: "Pip", station: "the Station" };
+  const nameOf = (id) => names[id] || id;
+
+  it("names an age band and the place, and warns once news is stale", () => {
+    const w = bare();
+    source(w);
+    expect(knowledgeFacts(w, "moth", nameOf)).toEqual([
+      `I witnessed this just now at the Station: ${clause}`,
+    ]);
+    w.turn = 4;
+    expect(knowledgeFacts(w, "moth", nameOf)[0]).toMatch(
+      /^I witnessed this a little while ago at the Station: /u,
+    );
+    w.turn = 12;
+    expect(knowledgeFacts(w, "moth", nameOf)[0]).toBe(
+      `I witnessed this some time ago at the Station: ${clause} Things may have changed since.`,
+    );
+  });
+
+  it("uses bands, not turn numbers", () => {
+    expect([0, 1, 2, 5, 6, 20, 21].map(ageText)).toEqual([
+      "just now",
+      "just now",
+      "a little while ago",
+      "a little while ago",
+      "some time ago",
+      "some time ago",
+      "long ago",
+    ]);
   });
 });

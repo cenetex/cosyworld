@@ -413,9 +413,37 @@ export function knowledgeFacts(
         memory.kind === "witnessed"
           ? "I witnessed"
           : `${nameOf(memory.teller)} told me`;
-      return `${origin} this earlier: ${fact.text}`.slice(0, 240);
+      const age = world.turn - (memory.learnedTurn ?? fact.source.turn);
+      const place =
+        fact.source.kind === "topic" ? null : fact.source.locationId;
+      const where =
+        place && !fact.text.includes(nameOf(place))
+          ? ` at ${nameOf(place)}`
+          : "";
+      // Authored topics and finished stories hold. Witnessed events, such as
+      // who carried what where, can go stale, and saying so keeps an old
+      // account honest instead of a quiet lie.
+      const stale =
+        fact.source.kind === "event" && age >= STALE_TURNS
+          ? " Things may have changed since."
+          : "";
+      return `${origin} this ${ageText(age)}${where}: ${fact.text}${stale}`.slice(
+        0,
+        240,
+      );
     });
 }
+
+// Old news is told by age band, not turn number.
+const STALE_TURNS = 6;
+export const ageText = (turns) =>
+  turns <= 1
+    ? "just now"
+    : turns < STALE_TURNS
+      ? "a little while ago"
+      : turns <= 20
+        ? "some time ago"
+        : "long ago";
 
 export function validKnowledge(world, actors, places, topics = []) {
   const k = world.knowledge;
