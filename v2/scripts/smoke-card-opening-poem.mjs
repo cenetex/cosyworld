@@ -149,6 +149,7 @@ export async function checkOpeningPoem(browser, origin) {
         await page.screenshot({
           path: new URL(`${branch}-card-${width}.png`, output).pathname,
         });
+        await page.keyboard.press("Escape");
         await selectCard(page, "greek-baker", { touch: width < 700 });
         const choice =
           branch === "concession"
