@@ -97,13 +97,14 @@ export function assertForestContract(world, fixed) {
 
 export async function connectedJourney(driver, seed) {
   const fixed = forestContract(seed);
+  const traveler = fixed.homecoming === "traveler";
   let latest;
   const read = async (actor = "vale") => {
     latest = await driver.read(actor);
     assertForestContract(latest.world, fixed);
     return latest;
   };
-  const act = async (actor, fields) => {
+  const act = async (actor, fields, { travelAccepted = true } = {}) => {
     const before = await read(actor);
     const action = before.actions.find((entry) => matches(entry, fields));
     assert.ok(
@@ -119,8 +120,16 @@ export async function connectedJourney(driver, seed) {
     if (fields.kind === "move")
       assert.equal(after.world.actors[actor].place, fields.target);
     if (fields.kind === "accompany") {
-      assert.equal(after.world.actors[actor].place, fields.destination);
-      assert.equal(after.world.actors[fields.target].place, fields.destination);
+      for (const member of [actor, fields.target])
+        assert.equal(
+          after.world.actors[member].place,
+          travelAccepted
+            ? fields.destination
+            : before.world.actors[member].place,
+          travelAccepted
+            ? "The agreed party travels together"
+            : "The invitation keeps its refusal",
+        );
     }
     if (["take", "trade"].includes(fields.kind))
       assert.equal(
@@ -176,6 +185,7 @@ export async function connectedJourney(driver, seed) {
   assert.equal(state.world.actors.mara.place, home.home.id);
   assert.equal(state.world.items[home.item.id].holder, home.home.id);
   await stage("shared-import-and-real-home");
+  if (traveler) await act("vale", { kind: "wait" });
   await act("mara", { kind: "take", item: home.item.id });
   await move("mara", "pond");
   await act("mara", { kind: "drop", item: home.item.id, target: "pond" });
@@ -186,10 +196,21 @@ export async function connectedJourney(driver, seed) {
   // Prepare the signal through the cast's trades, gifts, and agreed requests.
   await act("mara", { kind: "take", item: home.item.id });
   await move("mara", "station");
+  if (traveler) await act("mara", { kind: "refill", item: "oil" });
   await act("mara", { kind: "ask", item: "oil", target: "moth" });
   assert.equal((await read()).world.items.oil.holder, "mara");
   await move("mara", "pond");
-  await move("mara", "station");
+  if (traveler) {
+    await move("vale", "station");
+    await act("vale", { kind: "light", item: "lamp" });
+    const invitation = {
+      kind: "accompany",
+      target: "keeper",
+      destination: "pond",
+    };
+    await act("vale", invitation, { travelAccepted: false });
+    await act("vale", invitation);
+  } else await move("mara", "station");
   await act("mara", {
     kind: "trade",
     item: "oil",
@@ -205,19 +226,25 @@ export async function connectedJourney(driver, seed) {
   assert.equal(state.world.items.cloth.holder, "mara");
   assert.equal(state.world.items.bell.holder, "keeper");
   await stage("agreed-cloth-transfer");
-  await act("mara", { kind: "drop", item: home.item.id, target: "station" });
-  await act("mara", { kind: "ask", item: "lamp", target: "keeper" });
-  assert.equal(
-    (await read()).world.items.lamp.holder,
-    "keeper",
-    "The keeper keeps his gift until an agreed trade",
-  );
   await act("mara", {
-    kind: "accompany",
-    target: "keeper",
-    destination: "pond",
+    kind: "drop",
+    item: home.item.id,
+    target: state.world.actors.mara.place,
   });
-  await act("mara", { kind: "wait" });
+  if (!traveler) {
+    await act("mara", { kind: "ask", item: "lamp", target: "keeper" });
+    assert.equal(
+      (await read()).world.items.lamp.holder,
+      "keeper",
+      "The keeper keeps his gift until an agreed trade",
+    );
+    await act("mara", {
+      kind: "accompany",
+      target: "keeper",
+      destination: "pond",
+    });
+    await act("mara", { kind: "wait" });
+  }
   await act("mara", {
     kind: "trade",
     item: "oil",
@@ -226,6 +253,7 @@ export async function connectedJourney(driver, seed) {
   });
   await act("mara", { kind: "refill", item: "oil" });
   await act("mara", { kind: "refill", item: "oil" });
+  if (traveler) await act("mara", { kind: "light", item: "lamp" });
   state = await read();
   assert.equal(state.world.items.lamp.lit, true);
   assert.ok(
