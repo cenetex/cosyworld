@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { setImmediate as yieldToRunner } from "node:timers/promises";
+import { runCancellableAttempt } from "./helpers/cancellable-attempt.mjs";
 import {
   createWorld,
   legalActions,
@@ -110,33 +110,43 @@ describe("the table stays playable", () => {
     expect(willingToGive(s, "moth", "lamp")).toBe(false);
   });
 
-  it("keeps every avatar progressing after long loose play", async () => {
-    // These seeds left the whole world frozen before the liveness rules.
-    for (let seed = 1; seed <= 10; seed++) {
-      let x = (seed * 2654435761) >>> 0,
-        s = createWorld();
-      for (let i = 0; i < 400; i++) {
-        // Let the runner record progress while all 5,600 turns stay covered.
-        if (i % 100 === 0) await yieldToRunner();
-        x = (Math.imul(x, 1664525) + 1013904223) >>> 0;
-        const acts = legalActions(s);
-        s = play(s, i % 2 === 0 ? plan(s).action : acts[x % acts.length]).state;
-      }
-      const before = progressOf(s);
-      const completed = new Set();
-      for (let i = 0; i < 160; i++) {
-        if (i % 100 === 0) await yieldToRunner();
-        const next = play(s, plan(s).action).state;
-        for (const id of actors)
-          if (
-            next.actors[id].progress.marks.at(-1) !==
-            s.actors[id].progress.marks.at(-1)
-          )
-            completed.add(id);
-        s = next;
-      }
-      expect(progressOf(s), `seed ${seed}`).not.toEqual(before);
-      expect([...completed].sort(), `seed ${seed}`).toEqual([...actors].sort());
-    }
-  }, 120_000);
+  it(
+    "keeps every avatar progressing after long loose play",
+    (context) =>
+      runCancellableAttempt(context, async (checkpoint) => {
+        // These seeds left the whole world frozen before the liveness rules.
+        for (let seed = 1; seed <= 10; seed++) {
+          let x = (seed * 2654435761) >>> 0,
+            s = createWorld();
+          for (let i = 0; i < 400; i++) {
+            // Let the runner record progress while all 5,600 turns stay covered.
+            if (i % 100 === 0) await checkpoint();
+            x = (Math.imul(x, 1664525) + 1013904223) >>> 0;
+            const acts = legalActions(s);
+            s = play(
+              s,
+              i % 2 === 0 ? plan(s).action : acts[x % acts.length],
+            ).state;
+          }
+          const before = progressOf(s);
+          const completed = new Set();
+          for (let i = 0; i < 160; i++) {
+            if (i % 100 === 0) await checkpoint();
+            const next = play(s, plan(s).action).state;
+            for (const id of actors)
+              if (
+                next.actors[id].progress.marks.at(-1) !==
+                s.actors[id].progress.marks.at(-1)
+              )
+                completed.add(id);
+            s = next;
+          }
+          expect(progressOf(s), `seed ${seed}`).not.toEqual(before);
+          expect([...completed].sort(), `seed ${seed}`).toEqual(
+            [...actors].sort(),
+          );
+        }
+      }),
+    120_000,
+  );
 });

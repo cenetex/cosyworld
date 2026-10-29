@@ -61,8 +61,8 @@ export default defineConfig({
     restoreMocks: true,
     clearMocks: true,
     
-    // Keep room for native and browser checks alongside the larger game suite.
-    maxWorkers: 2,
+    // Keep hosted tests on one worker; local runs keep room for other checks.
+    maxWorkers: process.env.CI === 'true' ? 1 : 2,
     minWorkers: 1,
     
     // Retry failed tests once
