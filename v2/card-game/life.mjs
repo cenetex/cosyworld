@@ -8,7 +8,7 @@ import { profiles } from "./memory.mjs";
 import { humanAvatarIds } from "./human-cast.mjs";
 import { isPackActor, packPeople } from "./pack-registry.mjs";
 
-export const LIFE_VERSION = 3;
+export const LIFE_VERSION = 2;
 // Internal pacing. The card shows prose; these numbers stay out of sight.
 export const REST_TURNS = 3;
 export const STALL_TURNS = 6;
@@ -194,16 +194,11 @@ export function enablePersonalQuests(s, profileOf = () => null) {
 // experience seeds the next purpose. One with no points starts fresh. A
 // resting avatar keeps its remaining rest; away from a sanctuary it heads to
 // one at the next round.
-// Version 3 lets a story ending join the remembered experiences. A version 2
-// save already has the version 3 shape, so its quests, steps, memories and
-// levels carry over unchanged.
+// Story experiences add two fields to the version 2 shape. A version 2 save
+// written before them needs no change, so the version stays 2: released
+// worlds and their journals keep loading as they are.
 export function migrateLife(s, profileOf = () => null) {
-  if (!s?.life?.actors) return s;
-  if (s.life.version === 1) migrateFirstLife(s, profileOf);
-  if (s.life.version === 2) s.life.version = LIFE_VERSION;
-  return s;
-}
-function migrateFirstLife(s, profileOf) {
+  if (s?.life?.version !== 1 || !s.life.actors) return s;
   for (const [id, old] of Object.entries(s.life.actors)) {
     if (!old || typeof old !== "object" || !s.actors?.[id]) continue;
     const restUntil = Number.isSafeInteger(old.restUntil) ? old.restUntil : 0;
@@ -243,7 +238,8 @@ function migrateFirstLife(s, profileOf) {
       hope: generateHope(s, id, profileOf(id)),
     };
   }
-  s.life.version = 2;
+  s.life.version = LIFE_VERSION;
+  return s;
 }
 
 // The most meaningful experience since the last quest ended, earliest first.

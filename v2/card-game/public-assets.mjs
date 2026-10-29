@@ -90,6 +90,7 @@ const files = [
   "quest-hands.mjs",
   "shared-quests.mjs",
   "story-quests.mjs",
+  "story-life.mjs",
   "pack-story-quests.mjs",
   "pack-story-schema.mjs",
   "forest-quests.mjs",

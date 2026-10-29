@@ -329,8 +329,9 @@ delivery. The ending also becomes a witnessed fact for those present, so Talk
 can pass it on as heard news. A pack resident with personal quests who is
 named in an open story leans toward a generated program that brings a needed
 item or person to that story's place. Only the people's own choices finish a
-story. Life version 3 adds story experiences; a version 2 save loads with its
-quests, steps, items, memories and levels unchanged.
+story. Story experiences only add fields to life version 2, so earlier saves
+and released shared worlds load with their quests, steps, items, memories and
+levels unchanged.
 
 Favourite belongings have lasting value. A received gift gains a saved
 attachment to its giver. These reasons affect gifts, prices and autonomous
