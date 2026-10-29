@@ -514,8 +514,29 @@ try {
     shared.world.actors["greek-antigone"] &&
       shared.world.items["greek-water-jar"],
   );
-  for (const [id, pack] of Object.entries(privateView(seed, "vale").packs))
+  for (const [id, pack] of Object.entries(privateView(seed, "vale").packs)) {
     assert.deepEqual(shared.world.packs[id], pack);
+    assert.equal(Object.hasOwn(shared.world.packs[id], "poemReadings"), false);
+  }
+  const { DatabaseSync } = await import("node:sqlite");
+  const database = new DatabaseSync(env.COSYWORLD_V2_EVENT_DB_PATH, {
+    readOnly: true,
+  });
+  try {
+    const checkpoint = database
+      .prepare("SELECT state FROM card_full_checkpoints WHERE world=?")
+      .get(worldId);
+    const original = database
+      .prepare(
+        "SELECT command FROM card_full_log WHERE world=? AND json_extract(command,'$.op')='seed'",
+      )
+      .get(worldId);
+    assert(checkpoint && original, "The shared world keeps its save and seed.");
+    assert.deepEqual(JSON.parse(checkpoint.state).game.packs, seed.packs);
+    assert.deepEqual(JSON.parse(original.command).state.game.packs, seed.packs);
+  } finally {
+    database.close();
+  }
   await vale.locator("#stage").waitFor({ state: "visible" });
   const pondBackdrop = await vale.evaluate(async () =>
     (await import("/card-game/images.mjs")).imageUrl("./assets/pond.png"),
