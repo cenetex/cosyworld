@@ -9,6 +9,7 @@ import { addQuestRecord } from "../card-game/shared-quests.mjs";
 import { questCards, questCardId } from "../card-game/quest-cards.mjs";
 import { openingFixture } from "../../test/helpers/greek-opening.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
+import { privateView } from "../card-game/learning.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
 
 const output = new URL("../../output/card-shared-quests/", import.meta.url);
@@ -165,13 +166,22 @@ try {
       op: "create",
       save: encodeSave(openingFixture("refusal").waterOffer),
     }).world;
-    const remote = dispatchShared({
+    const remoteView = dispatchShared({
       world: travelled,
       op: "view",
       actor: "mara",
       claimed: ["vale", "mara"],
       present: ["vale", "mara"],
     }).world;
+    const remote = {
+      ...structuredClone(travelled),
+      playerActorId: "mara",
+      controlledActors: ["vale", "mara"],
+      presentActors: ["vale", "mara"],
+    };
+    const remoteSave = encodeSave(remote);
+    assert.throws(() => encodeSave(remoteView));
+    assert.deepEqual(privateView(decodeSave(remoteSave), "mara"), remoteView);
     const remoteTable = `remote-quest-${width}`;
     const remoteKey = `cosyworld.reflected-shore.v1.${remoteTable}`;
     const remotePage = await browser.newPage({
@@ -187,7 +197,7 @@ try {
           JSON.stringify({ enabled: false }),
         );
       },
-      { key: remoteKey, save: encodeSave(remote) },
+      { key: remoteKey, save: remoteSave },
     );
     await remotePage.route("**/card-game/text", (route) => {
       const input = route.request().postDataJSON();
