@@ -25,6 +25,8 @@ keep their values through import and catalog upgrades. Earlier dense rows
 receive a full peer check before their catalog upgrade. `trust.mjs` supplies
 the same numeric reads for decisions, rewards, and learning. Dialogue lists
 helpers in the authored actor order.
+The six original forest trust fields remain required. New pack residents can
+start with empty trust rows, including in a table that has yet to mount Greece.
 
 ## Public assets
 

@@ -258,6 +258,12 @@ function knownActors(world) {
 }
 
 const trustActorIds = new Set(actorIds);
+const originalTrustPeers = Object.fromEntries(
+  Object.entries(forest.initialState.actors).map(([id, actor]) => [
+    id,
+    Object.keys(actor.trust),
+  ]),
+);
 export const nameOf = (id) =>
   places[id]?.name || people[id]?.name || things[id]?.name || "the world";
 export function createWorld({ opening = false, packScopes = {} } = {}) {
@@ -3252,7 +3258,13 @@ export function validateWorld(s) {
       fail();
   }
   for (const [id, a] of Object.entries(s.actors)) {
-    if (!validTrust(a.trust, id, trustActorIds)) fail();
+    if (
+      !validTrust(a.trust, id, trustActorIds) ||
+      (originalTrustPeers[id] || []).some(
+        (other) => !Object.hasOwn(a.trust, other),
+      )
+    )
+      fail();
     if (
       !Object.hasOwn(places, a.place) ||
       !actorCanVisit(id, a.place, s) ||

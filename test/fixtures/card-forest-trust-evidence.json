@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "baseCommit": "4de3eda1f3c2da8bce815c31b8a28c7f84f0c598",
+  "branch": "codex/forest-trust-fields",
+  "change": "Require the six original forest trust keys declared in forest.initialState.actors. New pack peers can remain implicit zero.",
+  "requiredKeys": {
+    "vale": [
+      "moth",
+      "keeper"
+    ],
+    "moth": [
+      "vale",
+      "keeper"
+    ],
+    "keeper": [
+      "vale",
+      "moth"
+    ]
+  },
+  "validation": {
+    "workerLimit": 1,
+    "passed": 71,
+    "failed": 0,
+    "logs": [
+      {
+        "path": "/private/tmp/cosyworld-forest-trust-focused.log",
+        "passed": 40,
+        "failed": 0,
+        "sha256": "2c4b7b86ef3a5ca382c80769062f1fe1e9b6f49a978ec1266ff62fbf4ccb4247"
+      },
+      {
+        "path": "/private/tmp/cosyworld-forest-trust-first-mount.log",
+        "passed": 1,
+        "failed": 0,
+        "sha256": "f6d6397262c21bdf822b73aadbc4f56283dce3e48209e85ae21eded4aeae499b"
+      },
+      {
+        "path": "/private/tmp/cosyworld-forest-trust-learning-upgrade.log",
+        "passed": 30,
+        "failed": 0,
+        "sha256": "faf3ee10e833eef12f1a9a0c12e9e526f2e2bbbc88577281fa45ac814b72fd3c"
+      }
+    ],
+    "commands": [
+      "vitest run test/card-forest-trust.test.mjs test/card-forest-trust-composition.test.mjs test/card-sparse-trust.test.mjs --maxWorkers=1 --minWorkers=1",
+      "vitest run test/card-greek-drama.test.mjs --maxWorkers=1 --minWorkers=1 -t 'adds the pack once to an earlier shore save'",
+      "vitest run test/card-adaptive-learning.test.mjs test/card-learning.test.mjs test/card-greek-epic-upgrade.test.mjs --maxWorkers=1 --minWorkers=1"
+    ]
+  },
+  "evidence": [
+    "Each original field, including Vale to Pip, is required for validate, export and import.",
+    "Every original trust value 0 through 3 survives a save round trip.",
+    "Current Mara and Badger rows stay empty and new peers resolve to zero.",
+    "A current table with only Badger mounted passes local and shared round trips.",
+    "Sparse and dense pre-Greek compositions mount Greece while retaining all earlier stored trust entries.",
+    "Deletion of each original field is rejected during the first Greek mount.",
+    "All actual released rules20 trust entries retain their values through upgrade; an incomplete released dense row is rejected.",
+    "The reported earlier-shore first-mount test passes; learning and current epic-upgrade checks pass."
+  ],
+  "formatHistory": {
+    "firstSchema7Commit": "4466362f",
+    "firstGreekMountCommit": "454c3d52",
+    "finding": "Both older dense saves and current sparse tables can omit Greece. Pack absence alone is not a format marker."
+  },
+  "releaseHandoff": "Source and focused JS evidence only. The release coordinator owns generated rules22/assets, version changes, native/browser checks, full CI and release ordering."
+}
