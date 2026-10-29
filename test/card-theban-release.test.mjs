@@ -47,6 +47,7 @@ const openDoorPlaces = [
 const sectionPlaces = pack.sections.flatMap((section) => section.places);
 const openDoorReleasedPlaces = [
   ...openingPlaces,
+  "greek-underworld",
   ...pack.sections
     .find((section) => section.id === "greek-open-door")
     .places.filter((id) => id !== "greek-road-athens-harbor"),
@@ -89,6 +90,26 @@ const reachable = (s) => {
   return [...seen].sort();
 };
 describe("the Theban release and its ship", () => {
+  it("releases all 119 current places with a return from the poets' court", () => {
+    const source = JSON.parse(
+      readFileSync(
+        new URL("../v2/content/greek-drama/card-world.json", import.meta.url),
+        "utf8",
+      ),
+    );
+    const declared = Object.keys(source.places).sort();
+    expect(declared).toHaveLength(119);
+    expect(Object.keys(pack.places).sort()).toEqual(declared);
+    expect([...pack.release.places].sort()).toEqual(declared);
+    expect(pack.release.places).toContain("greek-viii-poets-court");
+    const world = createWorld({ packScopes: { "greek-drama": "full" } });
+    expect(exits(world, "greek-underworld", "vale")).toContain(
+      "greek-viii-poets-court",
+    );
+    expect(exits(world, "greek-viii-poets-court", "vale")).toEqual([
+      "greek-underworld",
+    ]);
+  });
   it("opens seven shore places, then the ship after its first signal", () => {
     const s = createWorld();
     expect(s.packs[pack.id].scope).toBe("opening");
@@ -110,6 +131,7 @@ describe("the Theban release and its ship", () => {
         ...openingPlaces,
         "greek-egypt-tomb",
         "greek-troy-beach",
+        "greek-underworld",
         ...sectionPlaces.filter((id) => id !== "greek-road-athens-harbor"),
       ].sort(),
     );
@@ -128,7 +150,9 @@ describe("the Theban release and its ship", () => {
     expect(reachable(s)).toHaveLength(8);
     s = act(s, "choose", { choiceId: "greek-open-door-invite-refusal" });
     expect(reachable(s)).toEqual([...openDoorReleasedPlaces].sort());
-    expect(reachable(s)).toHaveLength(21);
+    expect(reachable(s)).toHaveLength(22);
+    expect(entityActive(s, "greek-underworld")).toBe(true);
+    expect(entityActive(s, "greek-viii-poets-court")).toBe(false);
     for (const id of laterAccountEntries)
       expect(entityActive(s, id), id).toBe(false);
     s = decodeSave(encodeSave(s));
