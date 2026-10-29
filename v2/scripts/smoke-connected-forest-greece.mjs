@@ -230,11 +230,10 @@ async function takeDiscovery(actor) {
   });
   if (!shown?.card) return false;
   const attr = (name, value) => `[${name}=${JSON.stringify(value)}]`;
-  let take = page.locator(
-    `#unveil-dialog[open]${attr("data-direction", shown.direction)} #unveil-take${attr("data-card", shown.card)}${attr("data-owner", shown.owner)}`,
+  // Each reveal replaces this face; the outer button is shared by later cards.
+  const take = page.locator(
+    `#unveil-dialog[open]${attr("data-direction", shown.direction)} #unveil-take${attr("data-owner", shown.owner)} .card${attr("data-card", shown.card)}${shown.quest ? attr("data-quest", shown.quest) : ""}`,
   );
-  if (shown.quest)
-    take = take.filter({ has: page.locator(attr("data-quest", shown.quest)) });
   try {
     await take.click({ timeout: 2000 });
   } catch (error) {
