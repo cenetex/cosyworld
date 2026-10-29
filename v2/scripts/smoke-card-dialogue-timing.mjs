@@ -110,10 +110,11 @@ try {
         );
         report.pendingSpeaker = await page.locator("#speaker").innerText();
         report.pendingMs = Math.round(performance.now() - start);
-        assert.equal(report.pendingSpeaker, "Vale");
+        const pendingActor = { ask: "moth", talk: "keeper" }[kind] || "vale";
+        assert.equal(report.pendingSpeaker, nameOf(pendingActor));
         assert.equal(
           await page.locator("#speaker-portrait").getAttribute("data-entity"),
-          "vale",
+          pendingActor,
         );
         assert.equal(await page.locator("#dialogue-text").textContent(), "");
         assert.equal(request.input.speakers[0], "vale");
@@ -125,7 +126,10 @@ try {
         await page.waitForFunction(
           () => document.querySelector("#hand").dataset.cooling === "false",
         );
-        assert.equal(await page.locator("#speaker").innerText(), "Vale");
+        assert.equal(
+          await page.locator("#speaker").innerText(),
+          nameOf(pendingActor),
+        );
         await request.route.fulfill({
           status: 200,
           contentType: "application/json",
