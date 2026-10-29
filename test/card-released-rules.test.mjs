@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
 
 // Rules 2–18 were released at be94af7b. Rules 19 were qualified at 1be7794b.
-// Rules 20 shipped in v1.2.4 rules 21 in v1.2.5, and rules 22 in v1.2.7.
+// Rules 20 shipped in v1.2.4, 21 in v1.2.5, 22 in v1.2.7 and 23 in v1.2.8.
 // Journal commands keep these exact rules.
 const released = {
   2: "c494fb944d97cd8e214f09382add1501e98c93ab8f8d29b5c13f77caa59c3fef",
@@ -27,6 +27,7 @@ const released = {
   20: "1e2c2195f737c60265be71cb772654ceda3248d02ab5728862dc5ac8d455aa24",
   21: "50439e212fe89fd79424defb3f7ba47e4d45ad6f52ed91a575f8a879f6b1a6b0",
   22: "3f4f8d1d91b73539b4a500c8fb95062f1787600cab9338f84f61b6e6ce31a11d",
+  23: "abf9b7e5666c53ed18e91e1209b345729216704b27b01fb42ed8469ac288fe53",
 };
 
 it("preserves every released and qualified interpreter for exact journal replay", () => {
