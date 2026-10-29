@@ -1578,7 +1578,7 @@ function questCard(id) {
   face.setAttribute("aria-pressed", String(raised));
   face.setAttribute(
     "aria-label",
-    `${quest.title}, ${nameOf(quest.actor)}'s quest, ${quest.status === "fulfilled" ? quest.completion || "Fulfilled" : quest.status === "superseded" ? "Set aside" : quest.status}`,
+    `${quest.title}, ${nameOf(quest.actor)}'s quest, ${quest.status === "fulfilled" ? quest.completion || "Fulfilled" : quest.status === "superseded" ? "Set aside" : quest.availableOffer ? "Available request" : quest.status}`,
   );
   const detailId = `card-detail-${encodeURIComponent(id)}`;
   if (!quest.singleLine) face.setAttribute("aria-describedby", detailId);
@@ -1605,7 +1605,7 @@ function questCard(id) {
       {
         active: quest.focused ? "Active quest" : "Quest",
         superseded: "Set aside",
-        pending: "Quest",
+        pending: quest.availableOffer ? "Request" : "Quest",
         fulfilled: quest.completion || "Fulfilled",
       }[quest.status],
       "quest-mark",

@@ -1,4 +1,5 @@
 import { carryQuest } from "./quest-hands.mjs";
+import { personalLegacyCardVisible } from "./pack-personal-quests.mjs";
 import {
   authoredPlayerStoryIds,
   authoredPlayerStoryDefinitions,
@@ -101,6 +102,13 @@ export function syncStoryQuests(world, actorId = null) {
   if (!definitions.length) return [];
   const registry = installSharedQuestRegistry(world),
     completions = [];
+  // A hidden earlier household request keeps its record and frees its hand slot.
+  for (const [actor, hand] of Object.entries(registry.hands || {}))
+    registry.hands[actor] = hand.filter((key) => {
+      const quest = registry.records[key];
+      return !quest || quest.mode !== "story" || quest.completedTurn !== null ||
+        personalLegacyCardVisible(world, packDefinitions, quest.program.id, actor);
+    });
   for (const definition of definitions) {
     const pack = packFor(definition);
     const state = world.packs[pack.id];
@@ -155,7 +163,8 @@ export function syncStoryQuests(world, actorId = null) {
     if (registry.hands) {
       for (const actor of quest.participants.filter((id) => !previous.has(id)))
         carryQuest(world, actor, quest);
-      if (created && quest.holder.kind === "avatar")
+      if ((created && quest.holder.kind === "avatar") ||
+        (definition.personalOwner && !definition.resolved))
         carryQuest(world, quest.holder.id, quest);
     }
     if (!definition.resolved) continue;

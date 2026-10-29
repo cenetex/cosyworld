@@ -541,7 +541,9 @@ function personalQuestApi() {
     isPresent: (s, id) => controlledByHuman(s, id) && humanPresent(s, id),
     isLocation: (id) => !!places[id],
     active: entityActive,
-    canAward: (s, id) => carried(s, id).length < 3,
+    canAward: (s, id) => carried(s, id).length < 3 &&
+      !Object.values(s.packs).some((pack) =>
+        Object.values(pack.receipts || {}).includes(s.turn)),
     reachable: (s, actor, from) => {
       const seen = new Set([from]), queue = [from];
       while (queue.length && seen.size <= 128) {
@@ -2066,6 +2068,7 @@ function perform(s, a, capture = () => {}, round = null) {
   });
   if (a.kind === "talk") talkKnowledge(s, a, s.log.at(-1));
   recordLearning(s, a, learningStart, s.log.at(-1));
+  if (a.kind === "give") resolvePersonalQuests(s, a);
   for (const visit of recitals)
     addLog(
       s,
@@ -2925,6 +2928,7 @@ export function play(
     ...advancePrograms(next, met),
     ...syncStoryQuests(next, exact.actor),
   ]);
+  const priorPersonalSeq = next.eventSeq;
   installRoamingQuests(next, roamingActors, roamingAPI(next));
   for (const id of roamingActors) {
     if (controlledByHuman(next, id)) continue;
@@ -2933,6 +2937,9 @@ export function play(
     if (action) perform(next, action, () => {}, round);
     settleRoamingArrival(next, id, roamingAPI(next));
   }
+  if (next.log.some((entry) => entry.seq > priorPersonalSeq &&
+      entry.verb === "personal-quest-complete"))
+    publishQuestCompletions(next, syncStoryQuests(next, exact.actor));
   if (exact.kind === "wait")
     waitForTransport(next, next.actors[actor].place, actor);
 

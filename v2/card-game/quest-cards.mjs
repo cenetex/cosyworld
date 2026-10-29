@@ -264,8 +264,8 @@ export function questHistoryCards(world, actor = currentActor(world)) {
 }
 
 export function questCards(world, actor = currentActor(world)) {
-  return questHistoryCards(world, actor)
-    .filter((card) => {
+  const history = questHistoryCards(world, actor);
+  const carried = history.filter((card) => {
       if (card.ongoing) return true;
       const q = world.quests?.records?.[card.key];
       if (!q) return !world.life?.actors?.[actor]?.collection && !card.story;
@@ -273,8 +273,14 @@ export function questCards(world, actor = currentActor(world)) {
       if (world.actors[actor]) return questCarried(world, actor, q.key);
       const holder = questHolderActor(world, q);
       return holder ? questCarried(world, holder, q.key) : true;
-    })
-    .slice(0, 2);
+    }).slice(0, 2);
+  const offers = history.filter((card) => {
+    const quest = world.quests?.records?.[card.key];
+    return card.personalOwner === actor && quest &&
+      !questCarried(world, actor, card.key) && quest.droppedBy?.[actor] === undefined &&
+      questFresh(world, quest);
+  }).map((card) => ({ ...card, availableOffer: !card.resolved }));
+  return [...carried, ...offers];
 }
 
 export function playerQuest(world) {
