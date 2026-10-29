@@ -15,6 +15,16 @@ export function forestContract(seed) {
     "The forest UI ends in the attic",
   );
   const forest = seed.packs[FOREST];
+  for (const key of [
+    `${FOREST}:forest-rati-scarf:vale`,
+    `${FOREST}:story-quest-forest-path`,
+    `${FOREST}:story-quest-forest-homecoming`,
+    `${FOREST}:story-quest-forest-personal-hearth`,
+  ])
+    assert.ok(
+      Number.isSafeInteger(seed.quests.records[key]?.completedTurn),
+      `${key} is complete in the forest save`,
+    );
   assert.equal(forest.flags["forest-homecoming-shared"], true);
   const personal = forest.personalQuests[PERSONAL].records.vale;
   assert.ok(Number.isSafeInteger(personal.reward.awardedTurn));
@@ -31,7 +41,11 @@ export function forestContract(seed) {
     ),
     completed: Object.fromEntries(
       Object.entries(seed.quests.records)
-        .filter(([, record]) => Number.isSafeInteger(record.completedTurn))
+        .filter(
+          ([key, record]) =>
+            key.startsWith(`${FOREST}:`) &&
+            Number.isSafeInteger(record.completedTurn),
+        )
         .map(([key, record]) => [
           key,
           {
@@ -42,7 +56,7 @@ export function forestContract(seed) {
         ]),
     ),
     homecoming: forest.choices["forest-homecoming"],
-    homecomingTurn: forest.receipts["forest-homecoming-shared"],
+    receipts: forest.receipts,
   });
 }
 
@@ -70,6 +84,12 @@ export function assertForestContract(world, fixed) {
       `${key} keeps its original completion`,
     );
   }
+  for (const [choice, turn] of Object.entries(fixed.receipts))
+    assert.equal(
+      world.packs[FOREST].receipts[choice],
+      turn,
+      `${choice} keeps its original turn`,
+    );
   assert.equal(
     world.packs[FOREST].choices["forest-homecoming"],
     fixed.homecoming,
