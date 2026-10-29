@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "lonely-forest",
   "packId": "cosyworld.lonely-forest",
-  "revision": 1,
+  "revision": 2,
   "name": "Lonely Forest",
   "description": "Tea beneath the oak. A household task leads through the rain, along a watched path, and home with a story.",
   "tone": "Plain words, useful work, distinct personalities, and gradual discovery of a shared living mind. Warmth comes from the kettle, the hearth and care for returning travelers.",
@@ -147,6 +147,118 @@
       "persona": "A cool iron charm bears a careful pawprint.",
       "holder": "forest-trail",
       "art": "assets/lonely-forest/wolfprint-charm.webp"
+    },
+    "forest-rati-button-vale": {
+      "name": "Vale's Story Button",
+      "text": "A warm wooden Story Button with four holes, chosen for Vale's white scarf.",
+      "persona": "A warm wooden sewing button with four holes and a smooth worn rim. It is the button named in Vale's personal task for a white scarf. Its saved holder gives its actual place. A holder of forest-rati-scarf-vale means the button is sewn into that scarf. Keep its loose and sewn states distinct.",
+      "holder": "forest-garden",
+      "art": "assets/lonely-forest/story-button.webp"
+    },
+    "forest-rati-button-mara": {
+      "name": "Mara's Story Button",
+      "text": "A warm wooden Story Button with four holes, chosen for Mara's green scarf.",
+      "persona": "A warm wooden sewing button with four holes and a smooth worn rim. It is the button named in Mara's personal task for a green scarf. Its saved holder gives its actual place. A holder of forest-rati-scarf-mara means the button is sewn into that scarf. Keep its loose and sewn states distinct.",
+      "holder": "forest-garden",
+      "art": "assets/lonely-forest/story-button.webp"
+    },
+    "forest-rati-button-ash": {
+      "name": "Ash's Story Button",
+      "text": "A warm wooden Story Button with four holes, chosen for Ash's blue scarf.",
+      "persona": "A warm wooden sewing button with four holes and a smooth worn rim. It is the button named in Ash's personal task for a blue scarf. Its saved holder gives its actual place. A holder of forest-rati-scarf-ash means the button is sewn into that scarf. Keep its loose and sewn states distinct.",
+      "holder": "forest-garden",
+      "art": "assets/lonely-forest/story-button.webp"
+    },
+    "forest-rati-button-nell": {
+      "name": "Nell's Story Button",
+      "text": "A warm wooden Story Button with four holes, chosen for Nell's violet scarf.",
+      "persona": "A warm wooden sewing button with four holes and a smooth worn rim. It is the button named in Nell's personal task for a violet scarf. Its saved holder gives its actual place. A holder of forest-rati-scarf-nell means the button is sewn into that scarf. Keep its loose and sewn states distinct.",
+      "holder": "forest-garden",
+      "art": "assets/lonely-forest/story-button.webp"
+    },
+    "forest-rati-button-tavi": {
+      "name": "Tavi's Story Button",
+      "text": "A warm wooden Story Button with four holes, chosen for Tavi's red scarf.",
+      "persona": "A warm wooden sewing button with four holes and a smooth worn rim. It is the button named in Tavi's personal task for a red scarf. Its saved holder gives its actual place. A holder of forest-rati-scarf-tavi means the button is sewn into that scarf. Keep its loose and sewn states distinct.",
+      "holder": "forest-garden",
+      "art": "assets/lonely-forest/story-button.webp"
+    },
+    "forest-rati-button-rue": {
+      "name": "Rue's Story Button",
+      "text": "A warm wooden Story Button with four holes, chosen for Rue's orange scarf.",
+      "persona": "A warm wooden sewing button with four holes and a smooth worn rim. It is the button named in Rue's personal task for a orange scarf. Its saved holder gives its actual place. A holder of forest-rati-scarf-rue means the button is sewn into that scarf. Keep its loose and sewn states distinct.",
+      "holder": "forest-garden",
+      "art": "assets/lonely-forest/story-button.webp"
+    },
+    "forest-rati-button-orin": {
+      "name": "Orin's Story Button",
+      "text": "A warm wooden Story Button with four holes, chosen for Orin's amber scarf.",
+      "persona": "A warm wooden sewing button with four holes and a smooth worn rim. It is the button named in Orin's personal task for a amber scarf. Its saved holder gives its actual place. A holder of forest-rati-scarf-orin means the button is sewn into that scarf. Keep its loose and sewn states distinct.",
+      "holder": "forest-garden",
+      "art": "assets/lonely-forest/story-button.webp"
+    },
+    "forest-rati-button-ada": {
+      "name": "Ada's Story Button",
+      "text": "A warm wooden Story Button with four holes, chosen for Ada's yellow scarf.",
+      "persona": "A warm wooden sewing button with four holes and a smooth worn rim. It is the button named in Ada's personal task for a yellow scarf. Its saved holder gives its actual place. A holder of forest-rati-scarf-ada means the button is sewn into that scarf. Keep its loose and sewn states distinct.",
+      "holder": "forest-garden",
+      "art": "assets/lonely-forest/story-button.webp"
+    },
+    "forest-rati-scarf-vale": {
+      "name": "Vale's White Scarf",
+      "text": "A white wool scarf RATi sewed for Vale. A warm wooden button holds its ends together.",
+      "persona": "A soft white wool scarf made for Vale, with a warm wooden four-hole button sewn at one end. It appears after RATi completes Vale's saved sewing task. Use its actual holder and the attached button's saved custody when describing its place or a transfer.",
+      "holder": "rati",
+      "art": "assets/lonely-forest/scarves/scarf-white.svg"
+    },
+    "forest-rati-scarf-mara": {
+      "name": "Mara's Green Scarf",
+      "text": "A green wool scarf RATi sewed for Mara. A warm wooden button holds its ends together.",
+      "persona": "A soft green wool scarf made for Mara, with a warm wooden four-hole button sewn at one end. It appears after RATi completes Mara's saved sewing task. Use its actual holder and the attached button's saved custody when describing its place or a transfer.",
+      "holder": "rati",
+      "art": "assets/lonely-forest/scarves/scarf-green.svg"
+    },
+    "forest-rati-scarf-ash": {
+      "name": "Ash's Blue Scarf",
+      "text": "A blue wool scarf RATi sewed for Ash. A warm wooden button holds its ends together.",
+      "persona": "A soft blue wool scarf made for Ash, with a warm wooden four-hole button sewn at one end. It appears after RATi completes Ash's saved sewing task. Use its actual holder and the attached button's saved custody when describing its place or a transfer.",
+      "holder": "rati",
+      "art": "assets/lonely-forest/scarves/scarf-blue.svg"
+    },
+    "forest-rati-scarf-nell": {
+      "name": "Nell's Violet Scarf",
+      "text": "A violet wool scarf RATi sewed for Nell. A warm wooden button holds its ends together.",
+      "persona": "A soft violet wool scarf made for Nell, with a warm wooden four-hole button sewn at one end. It appears after RATi completes Nell's saved sewing task. Use its actual holder and the attached button's saved custody when describing its place or a transfer.",
+      "holder": "rati",
+      "art": "assets/lonely-forest/scarves/scarf-violet.svg"
+    },
+    "forest-rati-scarf-tavi": {
+      "name": "Tavi's Red Scarf",
+      "text": "A red wool scarf RATi sewed for Tavi. A warm wooden button holds its ends together.",
+      "persona": "A soft red wool scarf made for Tavi, with a warm wooden four-hole button sewn at one end. It appears after RATi completes Tavi's saved sewing task. Use its actual holder and the attached button's saved custody when describing its place or a transfer.",
+      "holder": "rati",
+      "art": "assets/lonely-forest/scarves/scarf-red.svg"
+    },
+    "forest-rati-scarf-rue": {
+      "name": "Rue's Orange Scarf",
+      "text": "An orange wool scarf RATi sewed for Rue. A warm wooden button holds its ends together.",
+      "persona": "A soft orange wool scarf made for Rue, with a warm wooden four-hole button sewn at one end. It appears after RATi completes Rue's saved sewing task. Use its actual holder and the attached button's saved custody when describing its place or a transfer.",
+      "holder": "rati",
+      "art": "assets/lonely-forest/scarves/scarf-orange.svg"
+    },
+    "forest-rati-scarf-orin": {
+      "name": "Orin's Amber Scarf",
+      "text": "An amber wool scarf RATi sewed for Orin. A warm wooden button holds its ends together.",
+      "persona": "A soft amber wool scarf made for Orin, with a warm wooden four-hole button sewn at one end. It appears after RATi completes Orin's saved sewing task. Use its actual holder and the attached button's saved custody when describing its place or a transfer.",
+      "holder": "rati",
+      "art": "assets/lonely-forest/scarves/scarf-amber.svg"
+    },
+    "forest-rati-scarf-ada": {
+      "name": "Ada's Yellow Scarf",
+      "text": "A yellow wool scarf RATi sewed for Ada. A warm wooden button holds its ends together.",
+      "persona": "A soft yellow wool scarf made for Ada, with a warm wooden four-hole button sewn at one end. It appears after RATi completes Ada's saved sewing task. Use its actual holder and the attached button's saved custody when describing its place or a transfer.",
+      "holder": "rati",
+      "art": "assets/lonely-forest/scarves/scarf-yellow.svg"
     }
   },
   "routes": [
@@ -545,6 +657,27 @@
           "value": true
         }
       ]
+    },
+    {
+      "id": "forest-rati-first-scarf",
+      "subject": "rati",
+      "at": "forest-cottage",
+      "label": "The first personal scarf",
+      "text": "{actor} receives a scarf with their returned button sewn into the wool. RATi puts the needle away. The cottage keeps this first finished scarf in its story.",
+      "textTemplate": "{actor} receives a scarf with their returned button sewn into the wool. RATi puts the needle away. The cottage keeps this first finished scarf in its story.",
+      "requires": [
+        {
+          "kind": "met",
+          "actor": "rati"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "forest-scarf-mended",
+          "value": true
+        }
+      ]
     }
   ],
   "storyQuests": [
@@ -616,6 +749,32 @@
         { "choice": "forest-leave-charm" },
         { "choice": "forest-keep-charm" }
       ]
+    },
+    {
+      "id": "story-quest-forest-personal-hearth",
+      "group": "forest",
+      "line": "A scarf for the next journey.",
+      "art": "forest-story-button",
+      "holder": {
+        "kind": "avatar",
+        "id": "rati"
+      },
+      "start": {
+        "kind": "receipt",
+        "choice": "forest-rati-first-scarf"
+      },
+      "created": {
+        "kind": "receipt",
+        "choice": "forest-rati-first-scarf"
+      },
+      "related": [
+        "forest-rati-first-scarf"
+      ],
+      "endings": [
+        {
+          "choice": "forest-rati-first-scarf"
+        }
+      ]
     }
   ],
   "sources": [
@@ -630,6 +789,69 @@
     {
       "path": "docs/art-direction/world-map.md",
       "scope": "first journey proposal"
+    }
+  ],
+  "personalQuests": [
+    {
+      "id": "forest-rati-scarf",
+      "host": "rati",
+      "at": "forest-cottage",
+      "locations": [
+        "forest-garden",
+        "forest-trail",
+        "forest-oak",
+        "attic",
+        "station",
+        "pond"
+      ],
+      "sharedCompletion": "forest-rati-first-scarf",
+      "playerItems": [
+        {
+          "player": "vale",
+          "button": "forest-rati-button-vale",
+          "reward": "forest-rati-scarf-vale"
+        },
+        {
+          "player": "mara",
+          "button": "forest-rati-button-mara",
+          "reward": "forest-rati-scarf-mara"
+        },
+        {
+          "player": "ash",
+          "button": "forest-rati-button-ash",
+          "reward": "forest-rati-scarf-ash"
+        },
+        {
+          "player": "nell",
+          "button": "forest-rati-button-nell",
+          "reward": "forest-rati-scarf-nell"
+        },
+        {
+          "player": "tavi",
+          "button": "forest-rati-button-tavi",
+          "reward": "forest-rati-scarf-tavi"
+        },
+        {
+          "player": "rue",
+          "button": "forest-rati-button-rue",
+          "reward": "forest-rati-scarf-rue"
+        },
+        {
+          "player": "orin",
+          "button": "forest-rati-button-orin",
+          "reward": "forest-rati-scarf-orin"
+        },
+        {
+          "player": "ada",
+          "button": "forest-rati-button-ada",
+          "reward": "forest-rati-scarf-ada"
+        }
+      ],
+      "legacy": {
+        "item": "forest-story-button",
+        "choice": "forest-mend-scarf",
+        "story": "story-quest-forest-hearth"
+      }
     }
   ]
 }
