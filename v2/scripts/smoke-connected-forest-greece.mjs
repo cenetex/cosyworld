@@ -60,8 +60,11 @@ const report = {
   screenshots: [],
   pageErrors: [],
   failedAssets: [],
+  sharedRequestErrors: [],
 };
 const commands = [];
+const requests = [];
+const requestRecords = new WeakMap();
 let browser,
   child,
   provider,
@@ -155,10 +158,16 @@ async function request(page, body, path) {
       const response = await fetch(
         path,
         body === undefined
-          ? { cache: "no-store" }
+          ? {
+              cache: "no-store",
+              headers: { "X-CosyWorld-Journey": "harness" },
+            }
           : {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: {
+                "Content-Type": "application/json",
+                "X-CosyWorld-Journey": "harness",
+              },
               body: JSON.stringify(body),
             },
       );
@@ -178,7 +187,17 @@ async function checked(page, body, path) {
   return result.body;
 }
 async function read(actor) {
-  const value = await checked(players.get(actor).page);
+  const started = performance.now();
+  const response = await players.get(actor).page.waitForResponse((value) => {
+    const request = value.request();
+    return (
+      request.method() === "GET" &&
+      new URL(value.url()).pathname === `/card-game/shared/worlds/${worldId}` &&
+      requestRecords.get(request)?.startedMs >= started
+    );
+  });
+  const value = await response.json();
+  assert.equal(response.status(), 200, JSON.stringify(value));
   assert.equal(value.actor, actor);
   return { ...value, world: contextWorld(value) };
 }
@@ -256,8 +275,6 @@ async function reload(actor) {
 }
 async function playUI(actor, action, before) {
   const { page, phone } = players.get(actor);
-  for (const member of players.values())
-    await checked(member.page, { op: "heartbeat" });
   await settle(actor);
   const cards = cardsForAction(actor, action, before);
   for (const card of cards) await selectCard(page, card, { touch: phone });
@@ -494,10 +511,40 @@ async function sharedRun() {
     });
     const page = await context.newPage();
     page.setDefaultTimeout(30000);
+    page.on("request", (request) => {
+      const path = new URL(request.url()).pathname;
+      if (!path.startsWith("/card-game/shared/")) return;
+      const body = request.postDataJSON();
+      const record = {
+        actor,
+        at: new Date().toISOString(),
+        startedMs: performance.now(),
+        source:
+          request.headers()["x-cosyworld-journey"] === "harness"
+            ? "harness"
+            : "app",
+        method: request.method(),
+        kind: body?.op || (request.method() === "GET" ? "state" : "create"),
+        path: path.replace(/\/worlds\/[a-f0-9]{48}/u, "/worlds/:world"),
+      };
+      requests.push(record);
+      requestRecords.set(request, record);
+    });
+    page.on("requestfailed", (request) => {
+      const record = requestRecords.get(request);
+      if (record) record.failure = request.failure()?.errorText;
+    });
     page.on("pageerror", (error) =>
       report.pageErrors.push({ actor, message: error.message }),
     );
     page.on("response", (response) => {
+      const record = requestRecords.get(response.request());
+      if (record) {
+        record.status = response.status();
+        record.responseAt = new Date().toISOString();
+        record.responseMs = Math.round(performance.now() - record.startedMs);
+        if (record.status >= 400) report.sharedRequestErrors.push(record);
+      }
       if (response.status() >= 400 && response.url().includes("/assets/"))
         report.failedAssets.push({
           actor,
@@ -635,6 +682,7 @@ async function sharedRun() {
   for (const actor of PLAYERS) await capture(actor, "after-server-restart");
   assert.deepEqual(report.pageErrors, []);
   assert.deepEqual(report.failedAssets, []);
+  assert.deepEqual(report.sharedRequestErrors, []);
 }
 
 try {
@@ -673,6 +721,10 @@ try {
   await writeFile(
     join(output, "commands.jsonl"),
     commands.map((command) => JSON.stringify(command)).join("\n") + "\n",
+  );
+  await writeFile(
+    join(output, "requests.jsonl"),
+    requests.map((request) => JSON.stringify(request)).join("\n") + "\n",
   );
   await writeFile(join(output, "server.log"), processLog);
   await writeFile(
