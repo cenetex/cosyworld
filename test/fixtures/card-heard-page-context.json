@@ -166,8 +166,8 @@
         ],
         "heard": {
           "pack": "greek-drama",
-          "catalog": "full-card-world/21#bdbfd9d9e18fab61",
-          "catalogDigest": "418309ff7708cfb1fa23806c293d619a5905e33b3875acf655863c63fbcc7642",
+          "catalog": "full-card-world/22#b979ef61544735fb",
+          "catalogDigest": "9f9806364e200fc956266252088bfc34f0d776ce0b5aa309b1c5a60db382ca4c",
           "readingId": "site:greek-viii-frogs-court:vale",
           "reader": "vale",
           "readingTurn": 97,
@@ -176,7 +176,7 @@
           "pageCount": 4,
           "stanzaCount": 16,
           "publishedTurn": 98,
-          "poemDigest": "9d613e4d7151b7afdd9ffeff8556a0cf6867015e224def85c510114ded788af3",
+          "poemDigest": "c17f974182be8061d16e7db6d63bb67adc31428185b3efe45c488edcf6543bd7",
           "audience": [
             "vale",
             "greek-viii-aeschylus",
@@ -267,7 +267,7 @@
           "text": "World: Vale begin the reading before both poets."
         },
         {
-          "seq": 170,
+          "seq": 172,
           "turn": 98,
           "kind": "event",
           "text": "World: Vale read page 1 of 4 from the poets’ court."
@@ -334,8 +334,8 @@
         ],
         "heard": {
           "pack": "greek-drama",
-          "catalog": "full-card-world/21#bdbfd9d9e18fab61",
-          "catalogDigest": "418309ff7708cfb1fa23806c293d619a5905e33b3875acf655863c63fbcc7642",
+          "catalog": "full-card-world/22#b979ef61544735fb",
+          "catalogDigest": "9f9806364e200fc956266252088bfc34f0d776ce0b5aa309b1c5a60db382ca4c",
           "readingId": "site:greek-viii-frogs-court:vale",
           "reader": "vale",
           "readingTurn": 97,
@@ -344,7 +344,7 @@
           "pageCount": 4,
           "stanzaCount": 16,
           "publishedTurn": 98,
-          "poemDigest": "9d613e4d7151b7afdd9ffeff8556a0cf6867015e224def85c510114ded788af3",
+          "poemDigest": "c17f974182be8061d16e7db6d63bb67adc31428185b3efe45c488edcf6543bd7",
           "audience": [
             "vale",
             "greek-viii-aeschylus",
@@ -418,7 +418,7 @@
           "text": "World: Vale begin the reading before both poets."
         },
         {
-          "seq": 170,
+          "seq": 172,
           "turn": 98,
           "kind": "event",
           "text": "World: Vale read page 1 of 4 from the poets’ court."
@@ -485,8 +485,8 @@
         ],
         "heard": {
           "pack": "greek-drama",
-          "catalog": "full-card-world/21#bdbfd9d9e18fab61",
-          "catalogDigest": "418309ff7708cfb1fa23806c293d619a5905e33b3875acf655863c63fbcc7642",
+          "catalog": "full-card-world/22#b979ef61544735fb",
+          "catalogDigest": "9f9806364e200fc956266252088bfc34f0d776ce0b5aa309b1c5a60db382ca4c",
           "readingId": "site:greek-viii-frogs-court:vale",
           "reader": "vale",
           "readingTurn": 97,
@@ -495,7 +495,7 @@
           "pageCount": 4,
           "stanzaCount": 16,
           "publishedTurn": 98,
-          "poemDigest": "9d613e4d7151b7afdd9ffeff8556a0cf6867015e224def85c510114ded788af3",
+          "poemDigest": "c17f974182be8061d16e7db6d63bb67adc31428185b3efe45c488edcf6543bd7",
           "audience": [
             "vale",
             "greek-viii-aeschylus",
@@ -568,7 +568,7 @@
           "text": "World: Vale begin the reading before both poets."
         },
         {
-          "seq": 170,
+          "seq": 172,
           "turn": 98,
           "kind": "event",
           "text": "World: Vale read page 1 of 4 from the poets’ court."
