@@ -67,11 +67,19 @@ export function publishQuestCompletions(world, completions) {
         a.capturedSeq - b.capturedSeq ||
         (a.questKey < b.questKey ? -1 : a.questKey > b.questKey ? 1 : 0),
     );
-  for (const receipt of ordered)
-    recordQuestCompletion(world, world.quests.records[receipt.questKey], {
-      ...receipt,
-      eventSeq: receipt.capturedSeq,
-    });
+  // Returns the receipts this call wrote, in their recorded order.
+  const written = [];
+  for (const receipt of ordered) {
+    const quest = world.quests.records[receipt.questKey];
+    if (quest.completion) continue;
+    written.push(
+      recordQuestCompletion(world, quest, {
+        ...receipt,
+        eventSeq: receipt.capturedSeq,
+      }),
+    );
+  }
+  return written;
 }
 
 export function questCompletions(world) {

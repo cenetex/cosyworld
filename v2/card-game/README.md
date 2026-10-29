@@ -290,6 +290,18 @@ that fulfils the next milestone records its completion turn. The hope and its
 completed milestones stay with the avatar through later quests. Earlier
 authored quests keep their order as the opening story.
 
+Pack stories and generated lives meet in `story-life.mjs`. When a story
+resolves, its participants and the people present keep a story experience
+with the ending's outcome. It outweighs everyday deeds, so it can seed the
+next purpose after rest. A fulfilled story favours a gathering, a refusal
+favours settling a trouble, and a report or shared account favours a
+delivery. The ending also becomes a witnessed fact for those present, so Talk
+can pass it on as heard news. A pack resident with personal quests who is
+named in an open story leans toward a generated program that brings a needed
+item or person to that story's place. Only the people's own choices finish a
+story. Life version 3 adds story experiences; a version 2 save loads with its
+quests, steps, items, memories and levels unchanged.
+
 Favourite belongings have lasting value. A received gift gains a saved
 attachment to its giver. These reasons affect gifts, prices and autonomous
 handover choices. An explicit delivery quest can give an attached item a new

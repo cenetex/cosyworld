@@ -1482,7 +1482,7 @@ fn old_rule_history_upgrades_once_and_replays_with_either_checkpoint_path() {
             assert_saved_actors(&upgraded.game["actors"], &old.game["actors"]);
             assert_saved_items(&upgraded.game["items"], &old.game["items"]);
             assert_eq!(upgraded.game["log"], old.game["log"]);
-            assert_eq!(upgraded.game["life"]["version"], 2);
+            assert_eq!(upgraded.game["life"]["version"], 3);
             assert_eq!(
                 upgraded.game["life"]["actors"]["vale"]["experiences"][0],
                 json!({"kind":"care","turn":1,"other":null,"item":"lamp","place":"station"})

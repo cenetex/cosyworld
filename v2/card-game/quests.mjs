@@ -25,6 +25,7 @@ import {
 import forest from "./forest.json" with { type: "json" };
 import { hasQuestPrograms, interest } from "./motives.mjs";
 import { questActive, lifeOf, personalQuestRank, hopeOf } from "./life.mjs";
+import { openStoryNeeds, storyLean } from "./story-life.mjs";
 import {
   packPeople,
   packOf,
@@ -422,7 +423,10 @@ export function generateProgram(
     : distinct.length
       ? distinct
       : fresh;
+  // A pack resident named in an open story leans toward bringing its need.
+  const stories = openStoryNeeds(s, actor);
   const rank = (p) =>
+    storyLean(s, actor, p, stories) +
     (actor === BOARDY && kindOf(p) === "introduction" ? -10 : 0) +
     personalQuestRank(s, actor, p) / (actor === BOARDY ? 50 : 1) +
     preferences.indexOf(kindOf(p)) +
