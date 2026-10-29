@@ -2384,9 +2384,16 @@ function basePlan(s, actor) {
       );
   }
   const resources = requiredItems(s, actor, hand);
+  const borrowed = resources.some(
+    (id) =>
+      hand.items.includes(id) &&
+      rootHolder(s, id) !== actor &&
+      questItemAvailable(s, actor, id),
+  );
   const meeting =
-    hand.location ||
-    hand.avatars.map((id) => s.actors[id].place).find((place) => place !== here);
+    borrowed &&
+    (hand.location ||
+      hand.avatars.map((id) => s.actors[id].place).find((place) => place !== here));
   const nextPlace =
     meeting && meeting !== here && routeBetween(s, here, meeting, actor)?.[1];
   const boarding = nextPlace && transportDepartureDock(s, nextPlace) !== null;
