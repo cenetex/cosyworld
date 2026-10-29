@@ -80782,7 +80782,7 @@
   var canReach = (s, actor, item2) => itemPlace2(s, item2) === s.actors[actor].place && !actorIds.includes(rootHolder(s, item2)) || rootHolder(s, item2) === actor;
   var canUse = (s, actor, item2) => canReach(s, actor, item2) || questItemAvailable(s, actor, item2);
   var loadOf = (s, id3) => 1 + (s.items.cloth.holder === id3 ? 1 : 0);
-  var hasSpace = (s, actor, id3) => carried(s, actor).length + (rootHolder(s, id3) === actor ? 0 : loadOf(s, id3)) <= 3;
+  var hasSpace = (s, actor, id3, count = carried(s, actor).length) => count + (rootHolder(s, id3) === actor ? 0 : loadOf(s, id3)) <= 3;
   function handStatus(s, actor, hand2 = desireFor(s, actor)) {
     const held = carried(s, actor), here = s.actors[actor].place;
     const items2 = hand2.items.map((id3) => ({
@@ -81269,6 +81269,11 @@
     if (!s.actors[actor] || !entityActive(s, actor) && !roamingQuestActor(actor))
       return [];
     const here = s.actors[actor].place;
+    const heldCounts = /* @__PURE__ */ new Map();
+    const hasRoom = (who, id3) => {
+      if (!heldCounts.has(who)) heldCounts.set(who, carried(s, who).length);
+      return hasSpace(s, who, id3, heldCounts.get(who));
+    };
     const out = [
       offer("wait", actor, null, null, `${nameOf2(actor)} waits one turn.`, [])
     ];
@@ -81286,10 +81291,10 @@
       });
     }
     out.push(...sharedQuestActions(s, actor));
-    const carried2 = questHandKeys(s, actor).map((key) => s.quests.records[key]);
+    const carriedQuests = questHandKeys(s, actor).map((key) => s.quests.records[key]);
     if (lifeOf(s, actor) && !lifeOf(s, actor).collection && canCarryQuest(s, actor))
-      carried2.push(...actorQuests(s, actor).filter((q) => !q.holder));
-    for (const q of carried2) {
+      carriedQuests.push(...actorQuests(s, actor).filter((q) => !q.holder));
+    for (const q of carriedQuests) {
       const key = q.key;
       out.push({
         kind: "drop-quest",
@@ -81410,7 +81415,7 @@
       const item2 = s.items[id3];
       if (!entityActive(s, id3) || itemPlace2(s, id3) !== here || actorIds.includes(rootHolder(s, id3)) && !knownActors2(s).includes(rootHolder(s, id3)))
         continue;
-      if (canReach(s, actor, id3) && item2.holder !== actor && hasSpace(s, actor, id3)) {
+      if (canReach(s, actor, id3) && item2.holder !== actor && hasRoom(actor, id3)) {
         out.push(
           offer(
             "take",
@@ -81438,7 +81443,7 @@
             (h) => h.conditions?.some(
               (c) => c.kind === "heldBy" && c.item === id3 && c.avatar === p
             )
-          )) && hasSpace(s, p, id3)
+          )) && hasRoom(p, id3)
         )) {
           out.push(
             offer(
@@ -81451,7 +81456,7 @@
             )
           );
         }
-      } else if (actorIds.includes(rootHolder(s, id3)) && rootHolder(s, id3) !== actor && (item2.holder === rootHolder(s, id3) || id3 === "cloth") && hasSpace(s, actor, id3)) {
+      } else if (actorIds.includes(rootHolder(s, id3)) && rootHolder(s, id3) !== actor && (item2.holder === rootHolder(s, id3) || id3 === "cloth") && hasRoom(actor, id3)) {
         const owner2 = rootHolder(s, id3);
         out.push(
           offer(
@@ -81527,7 +81532,7 @@
       }
       if (id3 === "cloth" && canReach(s, actor, id3) && item2.holder !== "lamp" && item2.holder !== "bell") {
         for (const target of ["lamp", "bell"].filter(
-          (t) => itemPlace2(s, t) === here && canReach(s, actor, t) && (rootHolder(s, t) !== actor || hasSpace(s, actor, id3))
+          (t) => itemPlace2(s, t) === here && canReach(s, actor, t) && (rootHolder(s, t) !== actor || hasRoom(actor, id3))
         )) {
           out.push(
             offer(
