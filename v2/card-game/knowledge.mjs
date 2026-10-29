@@ -351,16 +351,16 @@ export function knowledgeFacts(
   actor,
   nameOf = (id) => id,
   priority = [],
+  relevant = [],
 ) {
+  // Facts about to be told lead, then facts an open quest asks about.
+  const rank = (id) =>
+    priority.includes(id) ? 2 : relevant.includes(id) ? 1 : 0;
   const known = world.knowledge?.known?.[actor] || {};
   return Object.keys(known)
     .map((id) => world.knowledge.facts[id])
     .filter(Boolean)
-    .sort(
-      (a, b) =>
-        Number(priority.includes(b.id)) - Number(priority.includes(a.id)) ||
-        compareFacts(a, b),
-    )
+    .sort((a, b) => rank(b.id) - rank(a.id) || compareFacts(a, b))
     .slice(0, 2)
     .map((fact) => {
       const memory = known[fact.id];

@@ -9,7 +9,7 @@ import {
   registerPersonalQuest,
   collectionCards,
 } from "../card-game/shared-quests.mjs";
-import { questCards, questCardId } from "../card-game/quest-cards.mjs";
+import { questCards } from "../card-game/quest-cards.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
 
 function fixture() {
@@ -50,8 +50,6 @@ try {
     const world = fixture();
     const player = questCards(world),
       npc = questCards(world, "moth");
-    const pending = questCardId(world, player[1]),
-      npcTop = questCardId(world, npc[0]);
     const key = `cosyworld.reflected-shore.v1.quest-stack-${width}`;
     const page = await browser.newPage({
       viewport: { width, height },
@@ -74,8 +72,10 @@ try {
       },
       { key, save: encodeSave(world), seen: player.map((q) => q.key) },
     );
+    const requests = [];
     await page.route("**/card-game/text", (route) => {
       const input = route.request().postDataJSON();
+      requests.push(input);
       return route.fulfill({
         json: {
           revision: input.revision,
@@ -98,23 +98,19 @@ try {
       ),
       "vale",
     );
-    const frames = page.locator('#hand .quest-frame[data-holder="vale"]');
-    assert.equal(await frames.count(), 2);
-    assert.equal(await frames.nth(1).getAttribute("data-stacked"), "true");
+    // The hand holds people, items and places only.
+    assert.equal(await page.locator("#hand .quest-frame").count(), 0);
+    assert.equal(await page.locator("#hand [data-quest]").count(), 0);
+    assert.equal(await page.locator("#hand .quest-preview").count(), 0);
     const order = await page
       .locator("#hand [data-card]")
       .evaluateAll((cards) => cards.map((card) => card.dataset.card));
-    assert(order.indexOf("lamp") < order.indexOf("player-quest"));
-    assert(order.indexOf("player-quest") < order.indexOf(pending));
-    await page.screenshot({
-      path: new URL(`stack-${width}.png`, output).pathname,
-    });
-    await selectCard(page, "player-quest");
-    assert.equal(await frames.nth(1).getAttribute("data-stacked"), "false");
-    await selectCard(page, pending);
+    assert(order.includes("lamp"));
+    assert(!order.some((id) => id.startsWith("quest-card:")));
+    assert(!order.includes("player-quest"));
     assert.equal(
       await page.locator('#card-actions [data-action="drop-quest"]').count(),
-      1,
+      0,
     );
     assert.equal(
       await page.evaluate(
@@ -124,49 +120,60 @@ try {
       world.revision,
     );
     await page.screenshot({
-      path: new URL(`browse-${width}.png`, output).pathname,
+      path: new URL(`hand-${width}.png`, output).pathname,
     });
+    // Talk carries the quests to the model as narration facts.
+    await page.keyboard.press("Escape");
     await selectCard(page, "moth");
-    await selectCard(page, npcTop);
-    assert.equal(
-      await page.locator('#card-actions [data-action="drop-quest"]').count(),
-      0,
-    );
-    assert.equal(
-      await page.locator('#hand .quest-frame[data-holder="moth"]').count(),
-      2,
-    );
-    await selectCard(page, "player-quest");
-    await selectCard(page, pending);
-    await page.locator('#card-actions [data-action="drop-quest"]').click();
+    const before = requests.length;
+    await page.locator('#card-actions [data-action="talk"]').click();
     await page.waitForFunction(
-      ({ key, active }) =>
-        JSON.parse(localStorage.getItem(key)).quests.records[active].droppedBy
-          ?.vale !== undefined,
-      { key, active: player[1].key },
+      ({ key, revision }) =>
+        JSON.parse(localStorage.getItem(key)).revision > revision,
+      { key, revision: world.revision },
     );
+    for (let i = 0; i < 100 && requests.length === before; i++)
+      await page.waitForTimeout(50);
+    const talk = requests.at(-1);
+    assert(talk, "Talk sent a dialogue request");
+    for (const [actor, cards] of [
+      ["vale", player],
+      ["moth", npc],
+    ]) {
+      const facts = talk.entities.find((e) => e.id === actor).facts;
+      assert(
+        facts.some((fact) => fact.startsWith("What I want most now: ")),
+        `${actor} says what they want`,
+      );
+      for (const card of cards.filter((c) =>
+        ["active", "pending"].includes(c.status),
+      ))
+        assert(facts.join(" ").includes(card.title), card.title);
+      assert(facts.length <= 16);
+    }
     const saved = await page.evaluate(
       (key) => JSON.parse(localStorage.getItem(key)),
       key,
     );
-    assert(saved.life.actors.vale.collection.cards.includes(player[0].key));
-    assert.equal(questCards(saved).length, 1);
-    assert.equal(questCards(saved)[0].key, player[0].key);
+    for (const quest of player)
+      assert(saved.life.actors.vale.collection.cards.includes(quest.key));
+    assert.equal(questCards(saved).length, 2);
     await page.reload();
-    await selectCard(page, "vale");
-    assert.equal(
-      await page.locator('#hand .quest-frame[data-holder="vale"]').count(),
-      1,
+    await page.waitForSelector('#hand [data-card="vale"]');
+    assert.equal(await page.locator("#hand .quest-frame").count(), 0);
+    const reloaded = await page.evaluate(
+      (key) => JSON.parse(localStorage.getItem(key)),
+      key,
     );
-    assert.equal(
-      collectionCards(saved, "vale").find((q) => q.key === player[1].key).step,
-      0,
+    assert.deepEqual(
+      collectionCards(reloaded, "vale").map((q) => q.key),
+      collectionCards(saved, "vale").map((q) => q.key),
     );
     assert.deepEqual(errors, []);
     await page.close();
   }
   console.log(
-    "Two-card quest stacks, Drop, saved history, reload and NPC browsing passed at desktop and phone widths.",
+    "Quest-free hand, Talk quest facts, saved quests and reload passed at desktop and phone widths.",
   );
 } finally {
   await browser.close();

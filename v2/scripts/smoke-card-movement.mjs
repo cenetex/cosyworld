@@ -165,8 +165,12 @@ try {
         await page.locator("#menu-button").click();
         await page.locator("#new-game").click();
         await page.locator("#confirm-reset").click();
-        await page.waitForSelector("#unveil-dialog[open] [data-quest]");
-        await page.keyboard.press("Escape");
+        // A new game opens on the attic without a quest reveal.
+        await page.waitForFunction(
+          (key) => JSON.parse(localStorage.getItem(key)).turn === 0,
+          key,
+        );
+        assert.equal(await page.locator("#unveil-dialog[open]").count(), 0);
         await page.waitForFunction(
           () => document.querySelector("#hand").dataset.cooling === "false",
         );

@@ -31,21 +31,6 @@ try {
         "cosyworld.room-music",
         JSON.stringify({ enabled: false }),
       );
-      window.fulfilled = [];
-      window.addEventListener("DOMContentLoaded", () => {
-        new MutationObserver(() => {
-          const quest = document.querySelector(
-            '#unveil-dialog[open][data-direction="fulfill"] [data-fulfilled="true"]',
-          );
-          if (quest && !window.fulfilled.includes(quest.dataset.quest))
-            window.fulfilled.push(quest.dataset.quest);
-        }).observe(document.body, {
-          subtree: true,
-          childList: true,
-          attributes: true,
-          attributeFilter: ["data-raised"],
-        });
-      });
     });
     const reaction = (kind) =>
       `My reaction to ${kind}. The room holds a little warmth. I wonder who has passed through that mirror, and whether they left a light burning for someone to find their way home.`;
@@ -179,10 +164,23 @@ try {
       assert.equal(await page.locator("#speaker").innerText(), "Vale");
       assert.equal(await page.locator("#dialogue-text").textContent(), "");
       await playCards("snuff", ["lamp"]);
-      assert.deepEqual(
-        await page.evaluate(() => window.fulfilled),
-        [openingQuest.key],
-        "A replaced slow reply preserves the quest completion cue",
+      // A replaced slow reply keeps the completion; the next Talk context
+      // names it instead of a completion dialog.
+      assert.notEqual(
+        await page.evaluate(
+          ({ key, quest }) =>
+            JSON.parse(localStorage.getItem(key)).quests.records[quest]
+              .completedTurn,
+          { key, quest: openingQuest.key },
+        ),
+        null,
+      );
+      assert.match(
+        requests
+          .at(-1)
+          .entities.find((e) => e.id === "vale")
+          .facts.join(" "),
+        new RegExp(`I just finished ${openingQuest.title}`),
       );
       await heldLight.route
         .fulfill({

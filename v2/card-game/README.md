@@ -101,17 +101,46 @@ spoken words. Audio stays separate from saves and shared world history.
 Shared viewers hear their own copy of the room dialogue in order. Reference
 and generated audio are checked through `test/card-character-speech.test.mjs`.
 
-## Collected quest cards
+## Quests through Talk
 
-Each avatar keeps a collection of quest cards after their carried items. The
-active quest sits on top. Select it to spread the collection, then select a
-card to read its purpose. A player's pending cards offer **Pursue**.
-That action changes the active quest through the usual local or shared turn.
-Browsing cards is free. Residents expose their own collections for reading.
-Fulfilled cards remain at the bottom as part of the avatar's history.
+Cards choose things; the world chooses the verb. The hand therefore holds only
+people, items and places. Quests have no cards, stack, buttons or reveal
+dialog. Each avatar still keeps its saved quest collection, focus, hand of at
+most two carried quests, progress, receipts and history. Old saves load with
+all of it.
 
-Run `node v2/scripts/smoke-card-quest-collection.mjs` to check the stack,
-browsing, focus changes, and resident cards at desktop and phone sizes.
+The cast tells the player about quests in conversation. `quest-talk.mjs` reads
+saved state and adds up to three first-person facts to each avatar's Talk
+context:
+
+- **What I want most now** — the carried quest the speaker most recently
+  advanced or heard news about (a learned topic that its step asks for). With
+  no such quest, the rules' saved focus leads, then the newest card.
+- **I also want to pursue** — the other carried quest, and any quest the
+  speaker finished in the last two turns with its outcome.
+- **Help needed here** and **Open story here** — unfinished help, story and
+  shared quests whose holder is at the speaker's place. A person holding one is
+  named.
+
+Talk keeps two learned facts per speaker. A fact that is about to be told
+leads, then a known fact that an open quest asks about (a `knows` topic in its
+steps), then the newest news. The speaker's spark ("It started with …") and
+missing items, places and company still come from the motive and desire facts.
+
+These facts use the public card wording from `quest-cards.mjs`. Step lists and
+authored purposes stay in the rules. The text is narration context only: the
+rules still decide legality, progress, focus and rewards, and building the
+context never changes the world.
+
+The rules keep their quest actions (`pursue`, `join-quest`, `share-quest` and
+`drop-quest`) for residents, journal replay and shared play. Residents still
+choose them. Ordinary plays advance every matching carried quest, so the
+player needs no focus control.
+
+Run `node v2/scripts/smoke-card-quest-collection.mjs` to check that the hand
+has no quest cards, that saved quests survive reload, and that Talk sends the
+quest facts at desktop and phone sizes. `test/card-quest-talk.test.mjs` checks
+the facts, their order and their bounds.
 
 ## Image-first presentation
 
@@ -242,11 +271,12 @@ keep their own verses. A later permitted burial opens the return to Dione
 again. The [exact copy list](../content/greek-drama/OPENING-POEM.md) records
 every verse and the three card lines.
 
-Story cards sit with the player's belongings beside the personal quest.
-Each has its own art, selection, first reveal, and closing moment. They stay
-with the traveler through a trip home and the rest between personal quests.
-Existing saves derive cards from their recorded meetings, choices, and flags.
-Completed stories remain complete after reload.
+Story quests have no card in the hand. Their lines reach the player through
+Talk: the people who carry a story, or stand where it is held, mention it in
+conversation. Saved story records stay with the traveler through a trip home
+and the rest between personal quests. Existing saves derive them from their
+recorded meetings, choices, and flags. Completed stories remain complete after
+reload.
 
 The Open Door adds six story cards with one short line each. The mothers’
 petition leads from Eleusis to Athens and the quay. The keepers at Colonus
@@ -297,7 +327,7 @@ purpose. Talking, giving, trading and accepted invitations create three turns
 of shared time. Residents can tend items or talk during this time. A grievance
 still lets them seek space. The player chooses Vale's actions throughout.
 
-Cards show the current purpose. Personal relationships and lasting hopes may
+Talk carries the current purpose. Personal relationships and lasting hopes may
 inform speech.
 
 Schema 6 saves gain validated `life` state. Life version 2 records experiences,
@@ -357,7 +387,7 @@ are saved in `output/badger-check/`.
 
 Every avatar, item, and location has a profile in `entity-profiles.json` and a saved memory in the browser world. A memory holds the latest 16 witnessed events, six lasting encounters, and the latest generated text. Gifts, trades, threats, shared trips and quest effects can become lasting encounters. Card plays record events for the actors and objects present, the item used, and both places during travel. Generated speech and descriptions are marked as expressions, so the next prompt can distinguish them from game events. Speech receives recent facts and a few lasting encounters. Earlier quest counters stay in saved history. Each avatar's voice, beliefs and fears give its request or response a personal reason.
 
-Speech receives visible facts, current wants, and witnessed results. Entity profiles describe appearance and personality. Quest purposes and hidden interaction rules stay in the simulation. A revealed path joins the location cards; travel happens when its card is played. Earlier opening expressions stay in saved history while fresh speech uses observations until the first light.
+Speech receives visible facts, current wants, and witnessed results. Entity profiles describe appearance and personality. Quest step lists, authored purposes and hidden interaction rules stay in the simulation; each avatar's facts include the public quest lines described in [Quests through Talk](#quests-through-talk). A revealed path joins the location cards; travel happens when its card is played. Earlier opening expressions stay in saved history while fresh speech uses observations until the first light.
 
 When a play calls for speech, the browser sends the current local entities and departing avatars, their facts, avatar interests, and eight recent memories, witnessed events, and the four latest spoken lines to `POST /card-game/text`. The Rust service adds the authored profiles and uses the existing AI gateway. The deployed character map sends each avatar to its own exact OpenRouter model. Items and places each have their own voice call. These calls run together inside one bounded scene request. Each call returns a brief plain-text reply, which the service validates before publication. A short unpunctuated reply can pass when the provider confirms it finished. A trailing continuation mark or an unfinished first line triggers the usual retry. Complete sentences and voluntary quotations keep their wording. Each entry carries its own model attribution. Raising a card prepares a play and keeps the current conversation. Playing a card commits the action; social actions and travel can start an exchange, while ordinary object manipulation can remain silent. The place, played item, and chosen speakers also receive scene beats. A quiet turn with departures gives the farewell to the moving cast, without an automatic Vale recap. A Stay without departures keeps Vale available. Direct interactions, combat, travel and introductions retain their relevant speakers. A departing avatar says where they are going and why; their recorded farewell belongs to the source scene. The prompt includes the completed card play so their lines form a question and answer or a shared reaction. A separate resolved-turn record gives the played verb and outcome, every avatar's final location and holdings, exact travel companions, and final item ownership. Accepted accompany plays record both travellers; independent trips record an empty companion list. Current results take priority over desires and remembered speech. When Vale speaks on a wait play, the words stay at the place where Vale stayed. A solo farewell frames desired company as a hope for later.
 

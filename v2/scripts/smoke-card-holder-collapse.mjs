@@ -197,22 +197,12 @@ try {
         await page.keyboard.press("Escape");
         assert.deepEqual(await selected(), []);
         assert.equal(await frame("cloth").getAttribute("hidden"), "");
+        // Quests have no cards; Vale's stack holds only belongings.
         await tap("vale");
-        const quest = page
-          .locator('#hand .quest-frame[data-holder="vale"] .card')
-          .first();
-        await quest.scrollIntoViewIfNeeded();
-        await quest.click();
-        assert.equal(await quest.getAttribute("aria-pressed"), "true");
-        assert(await quest.isVisible());
-        await collapsed();
-        assert.equal(await frame("lamp").getAttribute("hidden"), "");
-        await page.screenshot({
-          path: new URL(`${table}-quest.png`, output).pathname,
-        });
+        assert.equal(await page.locator("#hand .quest-frame").count(), 0);
+        assert.equal(await page.locator("#hand .quest-preview").count(), 0);
         await page.locator("#stage").click({ position: { x: 20, y: 200 } });
         assert.deepEqual(await selected(), []);
-        assert.equal(await quest.isVisible(), false);
         await collapsed();
         assert.deepEqual(
           await page
@@ -228,7 +218,7 @@ try {
         assert.deepEqual(requests, []);
         assert.deepEqual(errors, []);
         console.log(
-          `${table}: avatar stack, chosen child, cross-holder pair, quest reading, Escape and outside reset passed`,
+          `${table}: avatar stack, chosen child, cross-holder pair, quest-free stacks, Escape and outside reset passed`,
         );
       } catch (error) {
         await page.screenshot({

@@ -13,6 +13,7 @@ import {
 import { dropQuest } from "../card-game/quest-hands.mjs";
 import { joinQuest } from "../card-game/shared-quests.mjs";
 import { profiles } from "../card-game/memory.mjs";
+import { narrativeContext } from "../card-game/narrative.mjs";
 import { openingFixture } from "../../test/helpers/greek-opening.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
 
@@ -117,35 +118,21 @@ export async function checkOpeningPoem(browser, origin) {
           ),
           "The toolbar fits the screen",
         );
-        // The quest face has one line, including when it is selected.
-        await selectCard(page, "story-quest-greek-courtyard", {
-          touch: width < 700,
-        });
-        const face = page.locator(
-          '#hand [data-card="story-quest-greek-courtyard"]',
-        );
-        await page.waitForFunction(
-          () => {
-            const card = document.querySelector(
-              '#hand [data-card="story-quest-greek-courtyard"]',
-            );
-            const hand = document.querySelector("#hand");
-            const bounds = card.getBoundingClientRect(),
-              room = hand.getBoundingClientRect();
-            return bounds.left >= room.left && bounds.right <= room.right + 1;
-          },
-          null,
-          { timeout: 3000 },
-        );
-        assert.equal(await face.locator(".quest-purpose").count(), 0);
+        // The story has no card. Its one line reaches Vale's Talk context.
         assert.equal(
-          await face.locator(".name").textContent(),
-          "What words will you bring home?",
+          await page
+            .locator('#hand [data-card="story-quest-greek-courtyard"]')
+            .count(),
+          0,
+        );
+        assert.equal(await page.locator("#hand [data-quest]").count(), 0);
+        assert.match(
+          narrativeContext(world)
+            .entities.find((entity) => entity.id === "vale")
+            .facts.join(" "),
+          /What words will you bring home\?/,
         );
         assert.equal(await page.locator("#poem-button").count(), 0);
-        assert.ok(
-          await face.evaluate((el) => el.scrollHeight <= el.clientHeight + 1),
-        );
         await page.screenshot({
           path: new URL(`${branch}-card-${width}.png`, output).pathname,
         });
@@ -205,7 +192,7 @@ export async function checkOpeningPoem(browser, origin) {
         await speak();
         assert.deepEqual(errors, []);
         console.log(
-          `Opening poem: ${branch}, ${width}px, single-line card, quest-site bard, full song context, talk, and reload passed.`,
+          `Opening poem: ${branch}, ${width}px, story line in Talk, quest-site bard, full song context, talk, and reload passed.`,
         );
       } finally {
         await page.close();

@@ -230,30 +230,17 @@ try {
       await page.evaluate(() => window.discoveryProbe.state().pending),
       false,
     );
-    // A quest presentation holds this viewer's reading clock while the room
-    // clock advances. Speech keeps its first line when the card closes.
-    await page.evaluate(() => {
-      const key =
-        "cosyworld.reflected-shore.v1.shared.discovery-fixture.vale.quests";
-      localStorage.setItem(key, JSON.stringify({ seen: [], read: [] }));
-    });
+    // Quests have no reveal. A reload of this viewer opens no quest card
+    // and the room's next lines play in order.
     await page.reload();
     await page.waitForFunction(() => Boolean(window.discoveryProbe));
     await publish(() => {});
-    await page.waitForFunction(
-      () =>
-        document.querySelector("#unveil-dialog").open &&
-        document
-          .querySelector("#unveil-take")
-          .getAttribute("aria-label")
-          ?.startsWith("New quest."),
+    await page.waitForTimeout(300);
+    assert.equal(
+      await page.locator("#unveil-dialog[open] [data-quest]").count(),
+      0,
     );
-    await page.evaluate(() => {
-      document.querySelector("#history-dialog").showModal();
-      document.dispatchEvent(new Event("shared-dialog-change"));
-    });
-    const first =
-      "I can hear the pond while this new quest finds its place in my hand.";
+    const first = "I can hear the pond while we talk about what we want.";
     const second = "I will wait here beside the water.";
     const startsAt = Math.max(Date.now(), snapshot.now + 1);
     const lines = [
@@ -274,25 +261,14 @@ try {
     ];
     snapshot.now = startsAt;
     await publish(() => {});
-    // Move the authoritative room clock past both lines while the card is held.
+    await page.waitForFunction(
+      (first) => document.querySelector("#dialogue-text").textContent === first,
+      first,
+    );
+    // Move the room clock past both lines; Live joins the latest line.
     snapshot.now += 12000;
     await page.evaluate(() => window.discoveryProbe.sync());
     await page.waitForTimeout(250);
-    await page.evaluate(() =>
-      document.querySelector("#history-dialog").close(),
-    );
-    await dismiss();
-    await page.waitForFunction(
-      ({ first, reduced }) => {
-        const text = document.querySelector("#dialogue-text");
-        const shown = text.querySelectorAll(".speech-letter.revealed").length;
-        const total = text.querySelectorAll(".speech-letter").length;
-        return (
-          text.textContent === first && shown > 0 && (reduced || shown < total)
-        );
-      },
-      { first, reduced: width === 390 },
-    );
     await page.locator("#live-line").click();
     await page.waitForFunction(
       (second) =>
