@@ -103,6 +103,25 @@ export function transportArrival(s, actor) {
   return state.dock === state.destination ? state.dock : null;
 }
 
+// A resident with a blocked larger goal can finish the current vessel leg.
+// Human passengers keep the choice of port while they are aboard.
+export function transportResidentDestination(s, actor) {
+  if (controlledByHuman(s, actor)) return null;
+  const found = Object.entries(transports).find(
+    ([, t]) => t.place === s.actors[actor]?.place,
+  );
+  if (!found) return null;
+  const [id, transport] = found;
+  if (
+    Object.entries(s.actors).some(
+      ([who, state]) =>
+        state.place === transport.place && controlledByHuman(s, who),
+    )
+  )
+    return null;
+  return s.transports[id].destination;
+}
+
 // Boarding starts a leg while the ship stays at its departure dock. The first
 // passenger ashore moves the dock; later boarders can start the return leg with
 // riders still aboard. A recall waits until the vessel is empty.

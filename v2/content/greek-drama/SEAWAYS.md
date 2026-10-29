@@ -29,6 +29,17 @@ Helen’s local funeral boat is a separate story scene beside the Egyptian
 landing. Its loading and escort belong to that episode. The shared ship
 carries the actual voyage between the eleven landings.
 
+## Resident voyages
+
+A resident can use a friendly companion’s item at their shared meeting.
+Boarding for another meeting place needs custody of that item. A resident
+can follow its owner when the owner boards through an actual travel play.
+
+A resident already aboard can finish the saved leg through a legal arrival
+when its larger goal becomes blocked. Human passengers choose the port first.
+The empty circuit begins after all actual passengers step ashore. Each circuit
+wait checks the vessel’s real passengers and restores the resulting save.
+
 ## Earlier shore visits
 
 Rules 20 and Greek revision 7 had direct distant links at Egypt, Helen’s
@@ -44,19 +55,16 @@ landing, wait for the vessel, board, sail home and reload. A separate case
 uses Mara’s saved visit. The empty-circuit case commits each wait through
 the ordinary rules and restores every step from its save.
 
-## Draft checkpoint
+## Source proof
 
-The last focused run passed eight cases. Earlier Troy beach and Trojan camp
-visits found an extra gate on their local landing. The source now clears that
-gate. Its rerun awaits the shared test window. The new eleven-stop circuit
-case also awaits its first run.
+The fifteen seaway checks cover the eight validated rules-20 shore visits,
+a second human’s earlier visit, the authored port map and the actual empty
+circuit. Four resident cases cover a shared quest item ashore, a saved solo
+leg, the human’s choice of port and a real gift before a solo voyage.
+Each circuit stop checks actual passengers and restores its saved state.
 
-The source checkpoint leaves the generated pack, rules-21 bundle and public
-asset embedding at their earlier committed versions. Their owning builders
-will refresh them in the next test window. The final join will use the shared
-camp access flag from the later books for the Trojan landing.
-
-The final check covers the shore continuations, all eleven actual stops,
-chapter travel helpers, rendered journeys and native journal rebuilds.
-Released interpreters 2–20 retain their exact bytes. The current production
-release is identified by `/meta`.
+The combined release owner refreshes the rules-21 bundle and public asset
+embedding during the release checks. The full check also covers chapter
+travel helpers, rendered journeys and native journal rebuilds. Released
+interpreters 2–20 retain their exact bytes. The current production release
+is identified by `/meta`.

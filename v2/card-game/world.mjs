@@ -190,6 +190,7 @@ import {
   transportExits,
   waitForTransport,
   transportArrival,
+  transportResidentDestination,
   transportDepartureDock,
   transportBoardingAllowed,
   preserveTransportAccess,
@@ -2235,6 +2236,18 @@ function readPlan(s, actor) {
       },
     );
   const selected = basePlan(s, actor);
+  const destination =
+    selected.action.kind === "wait" && transportResidentDestination(s, actor);
+  const continuation =
+    destination &&
+    legalActions(s, actor).find(
+      (a) => a.kind === "move" && !a.item && a.target === destination,
+    );
+  if (continuation)
+    return {
+      action: continuation,
+      reason: `Finish the voyage at ${nameOf(destination)}.`,
+    };
   // Earlier authored programs keep their recorded route and turn order.
   if (!hasMotives(s)) return selected;
   const futureItems = new Set(
@@ -2371,9 +2384,18 @@ function basePlan(s, actor) {
       );
   }
   const resources = requiredItems(s, actor, hand);
+  const meeting =
+    hand.location ||
+    hand.avatars.map((id) => s.actors[id].place).find((place) => place !== here);
+  const nextPlace =
+    meeting && meeting !== here && routeBetween(s, here, meeting, actor)?.[1];
+  const boarding = nextPlace && transportDepartureDock(s, nextPlace) !== null;
+  // Boarding needs custody of a shared quest item. Its owner can join the
+  // vessel through an actual play, and the resident can then follow.
   const missing = resources.filter((id) =>
     hand.items.includes(id)
-      ? !questItemAvailable(s, actor, id)
+      ? !questItemAvailable(s, actor, id) ||
+        (boarding && rootHolder(s, id) !== actor)
       : rootHolder(s, id) !== actor,
   );
   const reason = `Seek this hand: ${handText(hand)}.`;
