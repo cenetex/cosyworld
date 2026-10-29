@@ -197,7 +197,9 @@ try {
       )
         cards.push(before.actors.vale.place);
       assert.ok(
-        cardActions(before, cards).actions.some((offer) => offer.key === action.key),
+        cardActions(before, cards).actions.some(
+          (offer) => offer.key === action.key,
+        ),
         `${kind} is offered for ${cards.join(" + ")}`,
       );
       for (const card of cards)
