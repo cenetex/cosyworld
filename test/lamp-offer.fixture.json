@@ -1,0 +1,217 @@
+{
+  "actors": {
+    "vale": {
+      "place": "station",
+      "progress": {
+        "program": 24,
+        "step": 1,
+        "marks": [
+          111, 119, 120, 121, 122, 123, 187, 189, 191, 209, 210, 215, 217, 227,
+          231, 232, 233, 234, 235, 237, 255, 256, 257, 265, 277, 279, 280, 281,
+          282, 283, 284, 285
+        ],
+        "completedHands": 57,
+        "recent": ["cloth", "lamp", "cloth", "oil"],
+        "recentKinds": ["delivery", "gathering", "delivery", "bargain"],
+        "current": {
+          "id": "generated-vale-25",
+          "name": "Oil flask journey",
+          "steps": [
+            {
+              "items": ["oil"],
+              "location": null,
+              "avatars": []
+            },
+            {
+              "any": [
+                {
+                  "items": ["oil"],
+                  "location": "attic",
+                  "avatars": ["moth"]
+                }
+              ]
+            },
+            {
+              "items": ["oil"],
+              "location": "attic",
+              "avatars": []
+            }
+          ],
+          "generated": {
+            "turn": 284,
+            "level": 25,
+            "item": "oil",
+            "owner": "vale",
+            "partner": "moth",
+            "situation": "bargain"
+          },
+          "purpose": "Make a bargain for the Oil flask, then choose where to carry it and whom to meet."
+        }
+      },
+      "crossed": 60,
+      "lastTalk": 392,
+      "trust": {
+        "moth": 0,
+        "keeper": 0
+      }
+    },
+    "moth": {
+      "place": "pond",
+      "progress": {
+        "program": 68,
+        "step": 1,
+        "marks": [
+          361, 362, 363, 364, 365, 366, 367, 368, 369, 370, 371, 372, 373, 374,
+          375, 376, 377, 382, 383, 385, 386, 387, 388, 389, 390, 391, 392, 393,
+          394, 395, 398, 399
+        ],
+        "completedHands": 173,
+        "recent": ["bell", "bell", "bell", "bell"],
+        "recentKinds": ["bargain", "bargain", "bargain", "answer"],
+        "current": {
+          "id": "generated-moth-69",
+          "name": "A quiet shore",
+          "steps": [
+            {
+              "items": ["bell"],
+              "location": "station",
+              "avatars": []
+            },
+            {
+              "any": [
+                {
+                  "items": ["bell", "cloth"],
+                  "location": "pond",
+                  "avatars": ["keeper"],
+                  "conditions": [
+                    {
+                      "kind": "covered",
+                      "item": "bell"
+                    }
+                  ],
+                  "consequence": {
+                    "kind": "hush"
+                  }
+                }
+              ]
+            }
+          ],
+          "generated": {
+            "turn": 398,
+            "level": 69,
+            "item": "bell",
+            "owner": "moth",
+            "partner": "keeper",
+            "situation": "answer"
+          },
+          "purpose": "Wrap the bell at the pond to make the shore a refuge until it rings again."
+        }
+      },
+      "crossed": 14,
+      "lastTalk": 378,
+      "trust": {
+        "vale": 1,
+        "keeper": 3
+      }
+    },
+    "keeper": {
+      "place": "station",
+      "progress": {
+        "program": 71,
+        "step": 0,
+        "marks": [
+          364, 365, 366, 367, 368, 369, 370, 371, 372, 373, 374, 375, 376, 377,
+          378, 379, 380, 381, 382, 383, 384, 385, 386, 387, 388, 389, 390, 391,
+          392, 393, 394, 396
+        ],
+        "completedHands": 186,
+        "recent": ["lamp", "lamp", "lamp", "lamp"],
+        "recentKinds": ["bargain", "bargain", "bargain", "bargain"],
+        "current": {
+          "id": "generated-keeper-72",
+          "name": "Keep a light for everyone",
+          "steps": [
+            {
+              "items": ["lamp"],
+              "location": "station",
+              "avatars": ["vale", "moth"],
+              "conditions": [
+                {
+                  "kind": "lit",
+                  "item": "lamp"
+                }
+              ]
+            },
+            {
+              "any": [
+                {
+                  "items": [],
+                  "location": "station",
+                  "avatars": ["moth"],
+                  "conditions": [
+                    {
+                      "kind": "heldBy",
+                      "item": "lamp",
+                      "avatar": "moth"
+                    }
+                  ],
+                  "consequence": {
+                    "kind": "trust",
+                    "avatar": "moth"
+                  }
+                }
+              ]
+            }
+          ],
+          "generated": {
+            "turn": 396,
+            "level": 72,
+            "item": "lamp",
+            "owner": "keeper",
+            "partner": "moth",
+            "situation": "gathering"
+          },
+          "purpose": "Bring everyone to the station around a lit lamp, then leave it in someone else's care. That person will remember your help."
+        }
+      },
+      "crossed": 22,
+      "lastTalk": 399,
+      "trust": {
+        "vale": 0,
+        "moth": 3
+      }
+    }
+  },
+  "items": {
+    "lamp": {
+      "holder": "keeper",
+      "fuel": 0,
+      "lit": false,
+      "history": []
+    },
+    "oil": {
+      "holder": "vale",
+      "doses": 3,
+      "history": []
+    },
+    "cloth": {
+      "holder": "moth",
+      "history": []
+    },
+    "bell": {
+      "holder": "moth",
+      "ringing": 1,
+      "history": []
+    }
+  },
+  "locations": {
+    "attic": {
+      "anchored": true
+    },
+    "pond": {
+      "answer": "call"
+    }
+  },
+  "turn": 400,
+  "revision": 400
+}
