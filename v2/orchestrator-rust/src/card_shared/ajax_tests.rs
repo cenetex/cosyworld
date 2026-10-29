@@ -378,7 +378,7 @@ fn ajax_shield_delivered_under_rules_twenty_one_stays_complete_after_upgrade() {
         .args([
             "--input-type=module",
             "-e",
-            "import { ajaxCamp, ajaxMove } from './test/helpers/greek-ajax.mjs'; import { playOpenDoor } from './test/helpers/open-door.mjs'; let w = playOpenDoor(ajaxCamp(), 'take', { item: 'greek-ajax-shield' }); w = ajaxMove(w, 'greek-ajax-household'); for (const [id, f] of Object.entries(w.knowledge.facts)) if (f.source.kind === 'ending') { delete w.knowledge.facts[id]; for (const k of Object.values(w.knowledge.known)) delete k[id]; } for (const a of Object.values(w.life?.actors || {})) a.experiences = a.experiences.filter((e) => e.kind !== 'story'); console.log(JSON.stringify(w));",
+            "import { ajaxCamp, ajaxMove } from './test/helpers/greek-ajax.mjs'; import { playOpenDoor } from './test/helpers/open-door.mjs'; let w = playOpenDoor(ajaxCamp(), 'take', { item: 'greek-ajax-shield' }); w = ajaxMove(w, 'greek-ajax-household'); for (const [id, f] of Object.entries(w.knowledge.facts)) if (f.source.kind === 'ending') { delete w.knowledge.facts[id]; for (const k of Object.values(w.knowledge.known)) delete k[id]; } w.knowledge.pending = w.knowledge.pending.filter((p) => !p.factId.startsWith('ending:')); for (const a of Object.values(w.life?.actors || {})) a.experiences = a.experiences.filter((e) => e.kind !== 'story'); console.log(JSON.stringify(w));",
         ])
         .output()
         .expect("Node 24 creates the Ajax household fixture");
