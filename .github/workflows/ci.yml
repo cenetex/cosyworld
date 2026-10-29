@@ -320,6 +320,7 @@ jobs:
           node v2/scripts/check-card-awakening.mjs
           node v2/scripts/smoke-card-unveil.mjs
           node v2/scripts/smoke-card-hand.mjs
+          node v2/scripts/smoke-card-holder-collapse.mjs
           node v2/scripts/smoke-card-boardyai.mjs
           node v2/scripts/smoke-card-music.mjs
           node v2/scripts/smoke-card-music-network.mjs
@@ -378,6 +379,7 @@ jobs:
         run: |
           node v2/scripts/smoke-card-dialogue-recovery.mjs
           node v2/scripts/smoke-card-dialogue-timing.mjs
+          node v2/scripts/smoke-card-reply-wait.mjs
           node v2/scripts/smoke-card-movement.mjs
 
       - name: Check quests, shared discovery, and voice
@@ -385,6 +387,7 @@ jobs:
         run: |
           node v2/scripts/smoke-card-quests.mjs
           node v2/scripts/smoke-card-quest-collection.mjs
+          node v2/scripts/smoke-card-forest.mjs
           node v2/scripts/smoke-card-shared-discovery.mjs
           node v2/scripts/smoke-card-bard-travel.mjs
           node v2/scripts/smoke-card-shared-quests.mjs
@@ -423,6 +426,20 @@ jobs:
             output/card-quests-chromium/*.json
             output/card-voice-chromium/*.png
             output/card-facing/*.png
+            output/card-touch-pairing-*/*.png
+            output/card-holder-collapse/*.png
+            output/card-forest-*/*.png
+            output/card-forest-*/*.json
+            output/book-*/*.png
+            output/book-*/*.json
+            output/card-book-two/*.png
+            output/card-book-two/*.json
+            output/house-of-blood*/*.png
+            output/house-of-blood*/*.json
+            output/card-readings/*.png
+            output/card-readings/*.json
+            output/shared-readings/*.png
+            output/shared-readings/*.json
           if-no-files-found: ignore
           retention-days: 7
 
