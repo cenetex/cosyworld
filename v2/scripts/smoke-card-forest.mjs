@@ -202,6 +202,10 @@ try {
       const after = await state();
       assert.equal(after.turn, before.turn + 1, "One click commits one turn");
       if (kind === "move") assert.equal(after.actors.vale.place, fields.target);
+      if (kind === "accompany") {
+        assert.equal(after.actors.vale.place, fields.destination);
+        assert.equal(after.actors[fields.target].place, fields.destination);
+      }
       report.steps.push({
         turn: after.turn,
         kind,
@@ -298,7 +302,16 @@ try {
       await shot("button-found");
       await step("take", { item: personalButton });
       assert.equal((await state()).items[personalButton].holder, "vale");
+      if (!routeTo(await state(), "forest-cottage")) {
+        await travel("station");
+        if (!(await state()).items.lamp.lit)
+          await step("light", { item: "lamp" });
+        await step("accompany", { target: "moth", destination: "pond" });
+      }
       await travel("forest-cottage");
+      await step("move", { target: "attic" });
+      await step("drop", { item: "cloth" });
+      await step("move", { target: "forest-cottage" });
       await step("give", { item: personalButton, target: "rati" });
       const sewn = await state();
       assert.ok(
