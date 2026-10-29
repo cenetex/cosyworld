@@ -315,6 +315,8 @@ try {
         await travel("station");
         if (!(await state()).items.lamp.lit)
           await step("light", { item: "lamp" });
+        await step("talk", { target: "moth" });
+        await step("wait");
         await step("accompany", { target: "moth", destination: "pond" });
       }
       await travel("forest-cottage");
