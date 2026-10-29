@@ -9,6 +9,12 @@ has a phone view and starts in her actual theatre. Both create passkeys through
 the running service. The original save text is sent as the shared-world input.
 Its file hash stays fixed through the run.
 
+The accepted desktop save chooses the hearth ending at turn 39. The accepted
+phone save chooses the traveler ending at turn 38. The route follows each
+save's existing resident state. In the traveler route, Vale helps light the
+Keeper's lamp through the Lamp and Station cards. The test checks the Keeper's
+first refusal and his later agreement to travel.
+
 Run Node 24 from the exact combined source. Pass the supplied server binary:
 
 ```sh
@@ -41,7 +47,10 @@ must match the saved game before it. The earlier journal stays as an exact
 prefix of the reopened journal.
 
 The output folder holds `report.json`, the posted plays in `commands.jsonl`,
-the real journal in `journal.jsonl`, `server.log`, and desktop/phone captures.
+the real journal in `journal.jsonl`, `server.log`, `final-save.json`, and
+desktop/phone captures. A failed run retains `failed-save.json` for review.
+Each play records the time from button activation to acceptance and to the
+finished dialogue queue.
 These files belong with the local release evidence. The report names the
 original save hash and any failure.
 
