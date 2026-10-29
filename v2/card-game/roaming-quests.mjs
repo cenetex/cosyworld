@@ -31,16 +31,21 @@ export function rememberRoutes(world, actor, edges) {
   );
 }
 export function knownRoute(world, actor, from, to, allowed = () => true) {
-  const queue = [[from]],
-    seen = new Set([from]);
   const edges = world.routeKnowledge?.[actor] || [];
+  if (from === to) return [from];
+  const queue = [[from]],
+    seen = new Set([from]),
+    outgoing = new Map();
+  for (const [start, end] of edges) {
+    if (!outgoing.has(start)) outgoing.set(start, []);
+    outgoing.get(start).push(end);
+  }
   while (queue.length) {
     const path = queue.shift(),
       here = path.at(-1);
     if (here === to) return path;
-    for (const [start, end] of edges) {
-      if (start !== here || seen.has(end) || !allowed(start, end, path.at(-2)))
-        continue;
+    for (const end of outgoing.get(here) || []) {
+      if (seen.has(end) || !allowed(here, end, path.at(-2))) continue;
       seen.add(end);
       queue.push([...path, end]);
     }
