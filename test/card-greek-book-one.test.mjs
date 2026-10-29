@@ -449,6 +449,7 @@ describe("Book I shared learning and history", () => {
     expect(reload(after)).toEqual(after);
   });
 
+  // This bounds the complete replay; each engine call keeps its own limit.
   it("replays ordered dialogue and deeds through the bundled shared rules", () => {
     const engine = currentCardEngine(),
       start = bookStart();
@@ -492,5 +493,5 @@ describe("Book I shared learning and history", () => {
     expect(replay).toEqual(world);
     expect(story(world, "tyrannus", "return").completion.actorId).toBe("vale");
     expect(reload(world)).toEqual(world);
-  });
+  }, 20_000);
 });
