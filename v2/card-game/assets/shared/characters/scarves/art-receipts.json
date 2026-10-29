@@ -1,0 +1,105 @@
+{
+  "generator": "Built-in image_gen tool",
+  "date": "2026-10-28",
+  "base_commit": "5f3c359d1107d74225434f36578b9e39d994508d",
+  "assets": [
+    {
+      "id": "vale",
+      "color": "white",
+      "file": "vale.png",
+      "characterReference": "assets/shared/characters/vale.png",
+      "scarfReference": "assets/lonely-forest/scarves/scarf-white.png",
+      "prompt": "Use case: identity-preserve. Asset type: CosyWorld full-body character portrait variant, transparent PNG, same portrait 2:3 framing as image 1. Image 1 is the edit target and exact character identity reference. Image 2 is a supporting scarf design and color reference. Primary request: draw the exact character Vale from image 1 wearing their new WHITE knitted scarf naturally around their neck. Match image 2's thick wool stitches, short fringed ends, and small warm brown four-hole wooden fastening button. Fit the scarf at normal wearable scale: loop near the neck, short ends draped on the upper chest, small button visible. Preserve the original person's face, age, hair, skin tone, facial expression, body proportions, exact pose, gaze, hands, original clothing colors, boots, accessories, outline, painterly texture, warm lighting, and full-body placement from image 1. The added scarf is the only wardrobe change. Keep the entire head, hands and footwear inside the image. Preserve clean transparent edges and the original canvas framing. A finished game character illustration, unlettered.",
+      "sha256": "12809488fe5388dff0cf08f6898d1fc134e53ce82ba86cfb0e77620cf369d899",
+      "characterSha256": "7e6dfd1bd18f9c6e7d548aeb27637284887b555373e2ad00109fdc233366d512",
+      "scarfSha256": "e9e4e2993c998e23d05af9ccc3f16eda8ae93c6b9c1253ee84ad1958bb55e364",
+      "transparent": true
+    },
+    {
+      "id": "mara",
+      "color": "green",
+      "file": "mara.png",
+      "characterReference": "assets/shared/characters/mara.png",
+      "scarfReference": "assets/lonely-forest/scarves/scarf-green.png",
+      "prompt": "Use case: identity-preserve. Asset type: CosyWorld full-body character portrait variant, transparent PNG, same portrait 2:3 framing as image 1. Image 1 is the edit target and exact character identity reference. Image 2 is a supporting scarf design and color reference. Primary request: draw the exact character Mara from image 1 wearing their new GREEN knitted scarf naturally around their neck. Match image 2's thick wool stitches, short fringed ends, and small warm brown four-hole wooden fastening button. Fit the scarf at normal wearable scale: loop near the neck, short ends draped on the upper chest, small button visible. Preserve the original person's face, age, hair, skin tone, facial expression, body proportions, exact pose, gaze, hands, original clothing colors, boots, accessories, outline, painterly texture, warm lighting, and full-body placement from image 1. The added scarf is the only wardrobe change. Keep the entire head, hands and footwear inside the image. Preserve clean transparent edges and the original canvas framing. A finished game character illustration, unlettered.",
+      "cleanupPrompt": "Use case: precise-object-edit. Edit target: the supplied full-body mara character wearing the green knitted scarf. Refine only the scarf's hanging ends. Make exactly TWO clear fringed scarf ends at the upper chest: one at center-left and one at center-right. The small third fringed flap at the outer right becomes a smooth continuation of the neck loop. Preserve the scarf's color, chunky knit stitches and small brown wooden button. Preserve every other part of the portrait, face, hair, skin, expression, hands, body, clothing, boots, pose, lighting, framing and alpha background. Full-body portrait 2:3, clean transparent background.",
+      "sha256": "f9f06c71a59d3a55b867c203c6d0a771d08dbb053425819c34352b57e3b63d10",
+      "characterSha256": "c182c00f2ab3d455e3228af72c67df061789ae8d050e187cc44d9e4bf67b76b1",
+      "scarfSha256": "f2db17d7617fe65c3a7e6780385765e13ee0c37577e230edf1e84e1d832f0002",
+      "transparent": true
+    },
+    {
+      "id": "ash",
+      "color": "blue",
+      "file": "ash.png",
+      "characterReference": "assets/shared/characters/ash.png",
+      "scarfReference": "assets/lonely-forest/scarves/scarf-blue.png",
+      "prompt": "Use case: identity-preserve. Asset type: CosyWorld full-body character portrait variant, transparent PNG, same portrait 2:3 framing as image 1. Image 1 is the edit target and exact character identity reference. Image 2 is a supporting scarf design and color reference. Primary request: draw the exact character Ash from image 1 wearing their new BLUE knitted scarf naturally around their neck. Match image 2's thick wool stitches, short fringed ends, and small warm brown four-hole wooden fastening button. Fit the scarf at normal wearable scale: loop near the neck, short ends draped on the upper chest, small button visible. Preserve the original person's face, age, hair, skin tone, facial expression, body proportions, exact pose, gaze, hands, original clothing colors, boots, accessories, outline, painterly texture, warm lighting, and full-body placement from image 1. The added scarf is the only wardrobe change. Keep the entire head, hands and footwear inside the image. Preserve clean transparent edges and the original canvas framing. A finished game character illustration, unlettered.",
+      "sha256": "e80e6396e7f523924f27318772af9a9e548331747bcbea2f900f9041da9b0d3d",
+      "characterSha256": "2592261ccbf329574da95ca83d88fedeb787a38d01335276c3d66d368fa8d285",
+      "scarfSha256": "4920252a9ea5706b1d90c8fa2efab11fa4f1784e98418d811039de63b8ae744a",
+      "transparent": true
+    },
+    {
+      "id": "nell",
+      "color": "violet",
+      "file": "nell.png",
+      "characterReference": "assets/shared/characters/nell.png",
+      "scarfReference": "assets/lonely-forest/scarves/scarf-violet.png",
+      "prompt": "Use case: identity-preserve. Asset type: CosyWorld full-body character portrait variant, transparent PNG, same portrait 2:3 framing as image 1. Image 1 is the edit target and exact character identity reference. Image 2 is a supporting scarf design and color reference. Primary request: draw the exact character Nell from image 1 wearing their new VIOLET knitted scarf naturally around their neck. Match image 2's thick wool stitches, short fringed ends, and small warm brown four-hole wooden fastening button. Fit the scarf at normal wearable scale: loop near the neck, short ends draped on the upper chest, small button visible. Preserve the original person's face, age, hair, skin tone, facial expression, body proportions, exact pose, gaze, hands, original clothing colors, boots, accessories, outline, painterly texture, warm lighting, and full-body placement from image 1. The added scarf is the only wardrobe change. Keep the entire head, hands and footwear inside the image. Preserve clean transparent edges and the original canvas framing. A finished game character illustration, unlettered.",
+      "sha256": "294d4a68453d4d51ce49e96edabe01d348792010f71907ec36ed03486f738d7f",
+      "characterSha256": "705a095b4f379338192290d4e6003d065b7d87c04b88b47706ff1f744471043f",
+      "scarfSha256": "7ba3d797d2acb4c7597692afefdd1305a2ab3ce3f659e3bc38e027e8f24877fc",
+      "transparent": true
+    },
+    {
+      "id": "tavi",
+      "color": "red",
+      "file": "tavi.png",
+      "characterReference": "assets/shared/characters/tavi.png",
+      "scarfReference": "assets/lonely-forest/scarves/scarf-red.png",
+      "prompt": "Use case: identity-preserve. Asset type: CosyWorld full-body character portrait variant, transparent PNG, same portrait 2:3 framing as image 1. Image 1 is the edit target and exact character identity reference. Image 2 is a supporting scarf design and color reference. Primary request: draw the exact character Tavi from image 1 wearing their new RED knitted scarf naturally around their neck. Match image 2's thick wool stitches, two short fringed ends, and small warm brown four-hole wooden fastening button. Fit the scarf at normal wearable scale: loop near the neck, short ends draped on the upper chest, small button visible. Preserve the original person's face, age, hair, skin tone, facial expression, body proportions, exact pose, gaze, hands, original clothing colors, boots, accessories, outline, painterly texture, warm lighting, and full-body placement from image 1. Keep Tavi's sweeping green cape, its full silhouette and clasp. Fit the new red wool scarf over the green cape collar. Keep the entire head, hands and footwear inside the image. Preserve clean transparent edges and the original canvas framing. A finished game character illustration, unlettered.",
+      "cleanupPrompt": "Use case: precise-object-edit. Edit target: the supplied full-body tavi character wearing the red knitted scarf. Refine only the scarf's hanging ends. Make exactly TWO clear fringed scarf ends at the upper chest: one at center-left and one at center-right. The small third fringed flap at the outer right becomes a smooth continuation of the neck loop. Preserve the scarf's color, chunky knit stitches and small brown wooden button. Preserve every other part of the portrait, face, hair, skin, expression, hands, body, clothing, sweeping green cape, boots, pose, lighting, framing and alpha background. Full-body portrait 2:3, clean transparent background.",
+      "sha256": "9f2be5f35ac2cc73d33850da995076b266846f8a61b1b4c0cb6f29151754356e",
+      "characterSha256": "6798af3ad543eab76109801ec0ad1ef953566f2975e43667882ec033d39f8a3a",
+      "scarfSha256": "c1b8faa4c745688cdfac52287de44695ccc7a097cb140da0299b44cafaf591b7",
+      "transparent": true
+    },
+    {
+      "id": "rue",
+      "color": "orange",
+      "file": "rue.png",
+      "characterReference": "assets/shared/characters/rue.png",
+      "scarfReference": "assets/lonely-forest/scarves/scarf-orange.png",
+      "prompt": "Use case: identity-preserve. Asset type: CosyWorld full-body character portrait variant, transparent PNG, same portrait 2:3 framing as image 1. Image 1 is the edit target and exact character identity reference. Image 2 is a supporting scarf design and color reference. Primary request: draw the exact character Rue from image 1 wearing their new ORANGE knitted scarf naturally around their neck. Match image 2's thick wool stitches, two short fringed ends, and small warm brown four-hole wooden fastening button. Fit the scarf at normal wearable scale: loop near the neck, short ends draped on the upper chest, small button visible. Preserve the original person's face, age, hair, skin tone, facial expression, body proportions, exact pose, gaze, hands, original clothing colors, boots, accessories, outline, painterly texture, warm lighting, and full-body placement from image 1. Preserve Rue's blue conductor coat, cap at the hip, exact hand gesture and upright stance. Keep the entire head, hands and footwear inside the image. Preserve clean transparent edges and the original canvas framing. A finished game character illustration, unlettered.",
+      "sha256": "b07a5f25827a4ef725c8db00a8529cc2e28eeb135c6a4f5b09113f06dbed9590",
+      "characterSha256": "e8655322dc5f4d5f13da698fb5f0664837f176b67ff9a954e09d9f6b2a52b633",
+      "scarfSha256": "5fec862fe89a828f46fa2a1698ac1c417107631cfe6942de742188affa8ffb18",
+      "transparent": true
+    },
+    {
+      "id": "orin",
+      "color": "amber",
+      "file": "orin.png",
+      "characterReference": "assets/shared/characters/orin.png",
+      "scarfReference": "assets/lonely-forest/scarves/scarf-amber.png",
+      "prompt": "Use case: identity-preserve. Asset type: CosyWorld full-body character portrait variant, transparent PNG, same portrait 2:3 framing as image 1. Image 1 is the edit target and exact character identity reference. Image 2 is a supporting scarf design and color reference. Primary request: draw the exact character Orin from image 1 wearing their new AMBER knitted scarf naturally around their neck. Match image 2's thick wool stitches, two short fringed ends, and small warm brown four-hole wooden fastening button. Fit the scarf at normal wearable scale: loop near the neck, short ends draped on the upper chest, small button visible. Preserve the original person's face, age, hair, skin tone, facial expression, body proportions, exact pose, gaze, hands, original clothing colors, boots, accessories, outline, painterly texture, warm lighting, and full-body placement from image 1. Preserve Orin's glasses and exact gently steepled hand pose. Drape the scarf ends naturally behind or above the hands so every original finger remains visible. Keep the entire head, hands and footwear inside the image. Preserve clean transparent edges and the original canvas framing. A finished game character illustration, unlettered.",
+      "sha256": "a32cce4c65d9f8a4abad48c49f7228e056fe4d3012d2f55a13a5fb0eec93d004",
+      "characterSha256": "909bd6f9b2a7e4e58b637a765e8059fc0474eb07e8767d45b1623c9dccccfba4",
+      "scarfSha256": "4edc4fc9e20044fbb46f37ed4c6db8c5bf59c24d369ccdcfd2dd12e9823ff68d",
+      "transparent": true
+    },
+    {
+      "id": "ada",
+      "color": "yellow",
+      "file": "ada.png",
+      "characterReference": "assets/shared/characters/ada.png",
+      "scarfReference": "assets/lonely-forest/scarves/scarf-yellow.png",
+      "prompt": "Use case: identity-preserve. Asset type: CosyWorld full-body character portrait variant, transparent PNG, same portrait 2:3 framing as image 1. Image 1 is the edit target and exact character identity reference. Image 2 is a supporting scarf design and color reference. Primary request: draw the exact character Ada from image 1 wearing their new YELLOW knitted scarf naturally around their neck. Match image 2's thick wool stitches, two short fringed ends, and small warm brown four-hole wooden fastening button. Fit the scarf at normal wearable scale: loop near the neck, short ends draped on the upper chest, small button visible. Preserve the original person's face, age, hair, skin tone, facial expression, body proportions, exact pose, gaze, hands, original clothing colors, boots, accessories, outline, painterly texture, warm lighting, and full-body placement from image 1. Preserve Ada's seated pose and her entire hand-powered wooden and brass wheelchair, both wheels, hand rims, footrest and boots. Replace the existing small violet neck kerchief with the new yellow knitted scarf; keep the violet blouse and trousers. Keep the entire head, hands and footwear inside the image. Preserve clean transparent edges and the original canvas framing. A finished game character illustration, unlettered.",
+      "sha256": "a33d0da5ca7042c048915dc6c450cd3cf605eb788c9edad4c0b1f32fa627aa8a",
+      "characterSha256": "4f3a53f874cd2d715b8edd7c704bb1fc1a54d182829ea03d2c6dfc5c83058512",
+      "scarfSha256": "6f1b516aefb26d949f8173599127db983e63449de426961ea5aecdd6fcd17d00",
+      "transparent": true
+    }
+  ]
+}
