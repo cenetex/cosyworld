@@ -709,13 +709,25 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         case "met":
           ok = keysOk(c, ["kind", "actor"]) && owns(avatars, c.actor);
           break;
-        case "knows":
+        case "knows": {
+          // `topics` accepts any one of several facts, so a needed fact can
+          // come from more than one person or place.
+          const named = Array.isArray(c.topics) ? c.topics : [c.topic];
           ok =
-            keysOk(c, ["kind", "topic", "role"]) &&
-            idOk(c.topic) &&
+            (c.topics === undefined
+              ? keysOk(c, ["kind", "topic", "role"])
+              : keysOk(c, ["kind", "topics", "role"]) &&
+                named.length >= 2 &&
+                named.length <= 4 &&
+                new Set(named).size === named.length) &&
             c.role === "actor" &&
-            (pack.topics || []).some((topic) => topic.id === c.topic);
+            named.every(
+              (id) =>
+                idOk(id) &&
+                (pack.topics || []).some((topic) => topic.id === id),
+            );
           break;
+        }
       }
     return check(
       ok,

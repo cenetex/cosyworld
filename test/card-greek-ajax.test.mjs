@@ -28,6 +28,7 @@ import {
 import {
   ajaxStart,
   ajaxCamp,
+  ajaxShieldKeeper,
   ajaxPlea,
   ajaxGrave,
   ajaxAccount,
@@ -49,7 +50,8 @@ const verses = (world) =>
   );
 
 function shieldDelivered() {
-  let world = playOpenDoor(ajaxCamp(), "take", { item: "greek-ajax-shield" });
+  let world = ajaxShieldKeeper(ajaxCamp());
+  world = playOpenDoor(world, "take", { item: "greek-ajax-shield" });
   world = ajaxMove(world, "greek-ajax-household");
   return ajaxMove(ajaxChoice(world, "deliver-shield"), "greek-greek-camp");
 }

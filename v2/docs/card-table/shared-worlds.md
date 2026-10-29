@@ -290,7 +290,12 @@ Player views include their own thoughts, persona, dreams, reflection evidence
 and lessons. Other avatars supply public card text. This privacy check also
 applies when projecting a world that still uses an earlier interpreter.
 
-The current interpreter is `engine-v20.js`. Version 20 adds Ajax’s named Trojan
+The current interpreter is `engine-v22.js`. Version 22 adds spoken story
+middles: the Ajax shield's carrier learns from Teucer, Odysseus or Tecmessa
+where it belongs, and the forest adds the three walkers' evening watch. A
+`knows` condition may name several topics. Version 21 restores the dark-attic
+new game. Released versions 20 and 21 keep their exact bytes for replay.
+Version 20 adds Ajax’s named Trojan
 account, its lasting ship invitation, three burial routes, and the signed
 return to Dione. Greek pack revision 7 adds the cast, objects and place memories
 while preserving earlier custody, choices and visits. Version 19 adds the Hoppy Cat pack,

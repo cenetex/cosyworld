@@ -261,7 +261,7 @@ describe("pack disclosure declarations", () => {
   it("validates every migrated story and disclosure", () => {
     expect(problems(greek())).toEqual([]);
     expect(greek().storyQuests).toHaveLength(21);
-    expect(greek().topics).toHaveLength(18);
+    expect(greek().topics).toHaveLength(21);
   });
   it("allows an authored choice to require its actor's learned topic", () => {
     const pack = greek();
@@ -271,6 +271,23 @@ describe("pack disclosure declarations", () => {
       role: "actor",
     });
     expect(problems(pack)).toEqual([]);
+  });
+  it("allows a choice to require any one of several learned topics", () => {
+    const pack = greek();
+    const named = (topics) => ({ kind: "knows", topics, role: "actor" });
+    pack.choices[0].requires.push(
+      named([pack.topics[0].id, pack.topics[1].id]),
+    );
+    expect(problems(pack)).toEqual([]);
+    for (const topics of [
+      [pack.topics[0].id],
+      [pack.topics[0].id, pack.topics[0].id],
+      [pack.topics[0].id, "missing-topic"],
+    ]) {
+      const bad = greek();
+      bad.choices[0].requires.push(named(topics));
+      expect(problems(bad).join()).toMatch(/closed condition vocabulary/);
+    }
   });
   it.each([
     [

@@ -363,3 +363,71 @@ fn ajax_upgrade_keeps_a_released_nineteen_camp_visit_and_replays_its_exit() {
         assert_eq!(upgrades, 1);
     }
 }
+
+// Rules 21 delivered the shield without a spoken step. A world that did so
+// keeps its completed story through the rules 22 upgrade and a journal rebuild.
+#[test]
+fn ajax_shield_delivered_under_rules_twenty_one_stays_complete_after_upgrade() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap();
+    let output = std::process::Command::new("node")
+        .current_dir(root)
+        .args([
+            "--input-type=module",
+            "-e",
+            "import { ajaxCamp, ajaxMove } from './test/helpers/greek-ajax.mjs'; import { playOpenDoor } from './test/helpers/open-door.mjs'; let w = playOpenDoor(ajaxCamp(), 'take', { item: 'greek-ajax-shield' }); console.log(JSON.stringify(ajaxMove(w, 'greek-ajax-household')));",
+        ])
+        .output()
+        .expect("Node 24 creates the Ajax household fixture");
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let save = String::from_utf8(output.stdout).unwrap();
+    let mut old = World::create(Some(&save)).unwrap();
+    old.version = engine::TWENTY_FIRST_VERSION.into();
+    old.claimed = [1, 0, 0, 0, 0, 0, 0, 0];
+    old.present = old.claimed;
+    let path = std::env::temp_dir().join(format!("ajax-shield-{}.sqlite", crate::random_hex(12)));
+    let c = store::open(&path).unwrap();
+    full_store::schema(&c).unwrap();
+    let id = "d".repeat(48);
+    store::create(&c, &id, "owner", now()).unwrap();
+    full_store::seed(&c, &id, &old, "rules-twenty-one-shield", now()).unwrap();
+    play(
+        &c,
+        &id,
+        &mut old,
+        0,
+        &[("choiceId", "greek-ajax-deliver-shield")],
+    );
+    assert_eq!(old.version, engine::TWENTY_FIRST_VERSION);
+    let key = "greek-drama:story-quest-greek-ajax-shield";
+    let completed = old.game["quests"]["records"][key]["completedTurn"].clone();
+    assert!(completed.is_number());
+    assert!(old.game["packs"]["greek-drama"]["flags"]
+        .get("greek-ajax-shield-keeper-heard")
+        .is_none());
+    let current = full_store::world(&c, &id, now()).unwrap();
+    assert_eq!(current.version, engine::VERSION);
+    assert_eq!(
+        current.game["packs"]["greek-drama"]["receipts"],
+        old.game["packs"]["greek-drama"]["receipts"]
+    );
+    assert_eq!(
+        current.game["quests"]["records"][key]["completedTurn"],
+        completed
+    );
+    assert_eq!(
+        current.game["quests"]["records"][key]["completion"],
+        old.game["quests"]["records"][key]["completion"]
+    );
+    c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+    assert_eq!(full_store::world(&c, &id, now()).unwrap(), current);
+    drop(c);
+    let _ = std::fs::remove_file(path);
+}

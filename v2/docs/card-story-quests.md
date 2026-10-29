@@ -78,6 +78,69 @@ Personal knowledge belongs in an action's requirements. For example,
 use an action after learning that topic. The action's receipt can then
 start a shared story with a stable world identity.
 
+## Returns
+
+A return brings an earlier outcome home. Mark it with `return`:
+
+```json
+{
+  "id": "story-quest-orchard-return",
+  "start": {
+    "kind": "quest",
+    "key": "story-quest-orchard-help",
+    "status": "resolved"
+  },
+  "endings": [{ "choice": "orchard-report", "outcome": "Shared" }],
+  "return": {
+    "from": ["story-quest-orchard-help"],
+    "carries": [{ "kind": "choice", "key": "orchard-answer" }]
+  }
+}
+```
+
+`from` names one to eight earlier stories in the same pack. A return cannot
+depart from itself. `carries` names one to eight pieces of saved evidence:
+a branch (`{"kind":"choice","key":...}`), a true flag
+(`{"kind":"flag","key":...}`) or a receipt (`{"kind":"receipt","choice":...}`).
+Validation checks that:
+
+- a choice in a `from` story writes each carried item, and no ending of the
+  return itself writes it;
+- each `from` story supplies at least one carried item;
+- every ending of the return depends on a carried item. The ending's
+  `requires`, or its `when`, reads the item directly or reads something that
+  only choices depending on the item can set.
+
+The rule records the difference between departure and return. A report that
+could finish without the earlier outcome is rejected. Saved receipts still
+decide completion, so marking an existing story as a return keeps its saves.
+The Greek table's Theban and grave reports, the Open Door account, the five
+early reports, Myrine's reading and the forest's charm homecoming are returns.
+
+## Middles made of Talk
+
+A story's middle can be something the player learns from a person. Give the
+needed fact to two or three people or places as separate `topics`. The ending
+action then requires any one of them:
+
+```json
+{
+  "kind": "knows",
+  "topics": ["orchard-well-host", "orchard-well-child"],
+  "role": "actor"
+}
+```
+
+`topics` names two to four topics; one is enough. This follows the three
+clue rule: a missed conversation does not stall the story. Each topic may
+link a hidden `choiceId` so the first telling leaves a receipt for the
+story's `progress`. Personal knowledge is not part of receipt validation,
+so a save that already holds the ending receipt stays complete.
+
+The Ajax shield uses Teucer and Odysseus at the camp and Tecmessa in the
+household tent. The forest's evening watch uses RATi at the cottage and
+Root at the oak.
+
 ## Time and participation
 
 The default creation turn is the earliest saved evidence from the start,

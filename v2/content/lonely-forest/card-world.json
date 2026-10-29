@@ -545,6 +545,96 @@
           "value": true
         }
       ]
+    },
+    {
+      "id": "forest-hear-walkers-rati",
+      "subject": "rati",
+      "at": "forest-cottage",
+      "label": "Hear RATi on the three walkers",
+      "text": "RATi tells Vale where the three walkers sleep. She tops up the kettle and points toward the oak.",
+      "textTemplate": "RATi tells {actor} where the three walkers sleep. She tops up the kettle and points toward the oak.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "forest-homecoming-shared",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "forest-walkers-heard",
+          "value": false
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "forest-walkers-heard",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "forest-hear-walkers-oak",
+      "subject": "oak",
+      "at": "forest-oak",
+      "label": "Hear Root on the three walkers",
+      "text": "Root tells Vale about the three walkers. Leaf shakes a little rain onto the path.",
+      "textTemplate": "Root tells {actor} about the three walkers. Leaf shakes a little rain onto the path.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "forest-homecoming-shared",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "forest-walkers-heard",
+          "value": false
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "forest-walkers-heard",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "forest-sit-watch",
+      "subject": "skull",
+      "at": "forest-trail",
+      "label": "Sit the evening watch with Skull",
+      "text": "Vale sits the evening watch beside Skull. He turns his head toward the oak, then settles with his back to its roots.",
+      "textTemplate": "{actor} sits the evening watch beside Skull. He turns his head toward the oak, then settles with his back to its roots.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "forest-homecoming-shared",
+          "value": true
+        },
+        {
+          "kind": "knows",
+          "topics": ["forest-walkers-rati", "forest-walkers-oak"],
+          "role": "actor"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "forest-evening-watch"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "forest-evening-watch",
+          "value": "kept"
+        },
+        {
+          "kind": "set_flag",
+          "key": "forest-watch-kept",
+          "value": true
+        }
+      ]
     }
   ],
   "storyQuests": [
@@ -615,7 +705,71 @@
       "endings": [
         { "choice": "forest-leave-charm" },
         { "choice": "forest-keep-charm" }
+      ],
+      "return": {
+        "from": ["story-quest-forest-hearth", "story-quest-forest-path"],
+        "carries": [
+          {
+            "kind": "flag",
+            "key": "forest-scarf-mended"
+          },
+          {
+            "kind": "flag",
+            "key": "forest-symbols-shared"
+          }
+        ]
+      }
+    },
+    {
+      "id": "story-quest-forest-walkers",
+      "group": "forest-walkers",
+      "line": "Three walkers, one old root.",
+      "art": "forest-oak",
+      "holder": {
+        "kind": "avatar",
+        "id": "skull"
+      },
+      "start": {
+        "kind": "flag",
+        "key": "forest-homecoming-shared",
+        "value": true
+      },
+      "progress": ["forest-hear-walkers-rati", "forest-hear-walkers-oak"],
+      "endings": [
+        {
+          "choice": "forest-sit-watch"
+        }
       ]
+    }
+  ],
+  "topics": [
+    {
+      "id": "forest-walkers-rati",
+      "speaker": "rati",
+      "at": "forest-cottage",
+      "text": "RATi says she, Skull and Whiskerwind all wake from the old oak and walk back to it at dusk.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "forest-homecoming-shared",
+          "value": true
+        }
+      ],
+      "choiceId": "forest-hear-walkers-rati"
+    },
+    {
+      "id": "forest-walkers-oak",
+      "speaker": "oak",
+      "at": "forest-oak",
+      "text": "Root says three walkers carry the oak’s warmth, with RATi at the kettle, Skull on the trail and Whiskerwind in the leaves.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "forest-homecoming-shared",
+          "value": true
+        }
+      ],
+      "choiceId": "forest-hear-walkers-oak"
     }
   ],
   "sources": [

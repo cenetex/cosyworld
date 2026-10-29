@@ -104,8 +104,10 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
       return !!state && !Object.hasOwn(state.choices || {}, c.key);
     case "flag":
       return (state?.flags?.[c.key] ?? false) === c.value;
-    case "knows":
-      return knowsFact(s, actor || senses?.player || currentActor(s), c.topic);
+    case "knows": {
+      const who = actor || senses?.player || currentActor(s);
+      return (c.topics || [c.topic]).some((topic) => knowsFact(s, who, topic));
+    }
     case "holding":
       return s.items[c.item]?.holder === (c.role === "actor" ? actor : c.actor);
     case "shared_world":
