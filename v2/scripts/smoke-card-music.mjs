@@ -87,8 +87,19 @@ try {
     const audio = document.querySelector("#room-music");
     return new URL(audio.src).pathname.endsWith(file) && audio.currentTime > 0;
   }, roomTracks.attic[0].file);
+  const atticSong = await page.locator("#room-music").getAttribute("src");
   await playCard("pond");
   await takeUnveiled();
+  await page.waitForFunction(() => document.body.dataset.place === "pond");
+  assert.equal(
+    await page.locator("#room-music").getAttribute("src"),
+    atticSong,
+  );
+  assert(await page.locator("#room-music").evaluate((audio) => !audio.paused));
+  // The opening song follows Vale to the pond, then its last notes fade.
+  await page.locator("#room-music").evaluate((audio) => {
+    audio.currentTime = audio.duration - 1.25;
+  });
   await page.waitForFunction((file) => {
     const audio = document.querySelector("#room-music");
     return new URL(audio.src).pathname.endsWith(file) && audio.currentTime > 0;

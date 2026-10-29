@@ -112,6 +112,7 @@ try {
       "Conversation",
       "Settings",
       "Inner life",
+      "Shared readings",
     ]);
     await page.screenshot({
       path: new URL(`menu-${width}.png`, output).pathname,
