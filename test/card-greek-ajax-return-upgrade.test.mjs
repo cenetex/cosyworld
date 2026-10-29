@@ -192,7 +192,7 @@ describe("released Ajax return card saves", () => {
       const upgraded = dispatchShared({
         op: "upgrade",
         from: "full-card-world/20",
-        to: "full-card-world/21",
+        to: "full-card-world/22",
         world: before,
         actor: "mara",
         claimed: HUMANS,

@@ -163,7 +163,7 @@ describe("512 stored facts with protected source knowledge", () => {
       op: "upgrade",
       world,
       from: "full-card-world/20",
-      to: "full-card-world/21",
+      to: "full-card-world/22",
     });
     expect(result.ok, result.error).toBe(true);
     expect(result.world.knowledge).toEqual(before);

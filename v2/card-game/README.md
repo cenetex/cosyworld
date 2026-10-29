@@ -404,12 +404,13 @@ The card rules still commit movement, trades, quest progress and inventory. The 
 
 Schema 6 saves include location changes, favours and lasting memories. Earlier saves keep their positions, items, current programs, earned steps and generated speech. Conversation exports include only the speaker and text of spoken lines.
 
-## Opening at Black pond
+## Opening in Mirror attic
 
 New browser tables and shared worlds use `createWorld({ opening: true })`.
-Vale starts at Black pond with an unlit lamp. Pip waits beside the water with
-the Black cloth. The first purpose asks for light at the pond. The next leads
-along the shore to Empty station and the keeper.
+Vale starts alone in the dark attic with an unlit lamp. The first purpose
+asks for light in the attic. Lighting the lamp reveals the path through
+the mirror. Vale reaches Black pond by playing that path card, meets Pip,
+and can follow the shore to Empty station and the keeper.
 
 Empty station connects to Black pond. Mirror attic connects to the pond through
 the reflection. A lit, fueled, uncovered lamp at either end opens that mirror
@@ -420,8 +421,8 @@ Each newly met card joins the hand through its discovery reveal. Travel loads
 the destination scene before its discoveries and dialogue. Reduced motion uses
 a brief still reveal.
 
-Pond openings carry version 2. Existing version 1 attic openings retain their
-original purposes and discovery records. Saved positions, belongings, meetings
+New attic openings carry version 1. Saved pond openings carry version 2 and
+retain their original purposes and discovery records. Saved positions, belongings, meetings
 and earned progress survive loading. The current routes apply to every save.
 `createWorld()` retains the station seed used by older simulation fixtures.
 

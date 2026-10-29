@@ -13,7 +13,7 @@ import { enableMotives } from "../card-game/motives.mjs";
 let fixture = enableMotives(createWorld({ opening: true }), {
   questPrograms: true,
 });
-for (const kind of ["light"])
+for (const kind of ["light", "move"])
   fixture = play(
     fixture,
     legalActions(fixture).find(

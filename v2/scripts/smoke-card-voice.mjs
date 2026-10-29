@@ -151,7 +151,7 @@ try {
       assert.equal(await page.locator("#speaker").innerText(), "Vale");
       assert.match(
         await page.locator("#dialogue-text").textContent(),
-        /The water is dark/,
+        /It's cold up here/,
       );
       assert.equal(requests.length, 0);
       await finish();
@@ -168,6 +168,8 @@ try {
         "Reload keeps one opening line",
       );
       assert.equal(opening.turn, 0);
+      assert.equal(opening.actors.vale.place, "attic");
+      assert.equal(opening.items.lamp.lit, false);
       const openingQuest = playerQuest(opening);
       assert(openingQuest, "The opening has an active quest");
       await selectCard(page, "lamp");
@@ -198,8 +200,8 @@ try {
         !saved.log.some((line) => line.text === reaction("light")),
         "Stale dialogue stays out of the current turn",
       );
-      await playCards("wait", ["pond"]);
-      await playCards("drop", ["lamp", "pond"]);
+      await playCards("wait", ["attic"]);
+      await playCards("drop", ["lamp", "attic"]);
       await playCards("take", ["lamp"]);
       if (width === 390) {
         // A quick first Light reply also crosses the discovery and quest cues.
@@ -211,8 +213,7 @@ try {
         await playCards("light", ["lamp"]);
       }
       if (width < 700) {
-        // Pip can answer after Vale at the pond. Read Vale's long reply for
-        // this scroll check, through the same history controls as a player.
+        // Read Vale's long reply through the player history controls.
         for (
           let line = 0;
           line < 8 && (await page.locator("#speaker").innerText()) !== "Vale";

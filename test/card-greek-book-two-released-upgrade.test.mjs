@@ -276,7 +276,7 @@ describe("Book II keeps released rules-20 deeds", () => {
       const upgraded = dispatchShared({
         op: "upgrade",
         from: "full-card-world/20",
-        to: "full-card-world/21",
+        to: "full-card-world/22",
         actor: "vale",
         world: replayed,
         claimed: humans,

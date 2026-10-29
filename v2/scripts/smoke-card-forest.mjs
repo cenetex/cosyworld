@@ -168,10 +168,11 @@ try {
       await settle();
       const initial = await state();
       assert.equal(initial.turn, 0);
-      assert.equal(initial.actors.vale.place, "pond");
+      assert.equal(initial.actors.vale.place, "attic");
+      assert.equal(initial.items.lamp.lit, false);
       assert.ok(
         legalActions(initial).some(
-          (a) => a.kind === "move" && a.target === "station",
+          (a) => a.kind === "light" && a.item === "lamp",
         ),
       );
       assert.ok(
@@ -179,8 +180,9 @@ try {
           (a) => a.kind === "move" && a.target === "forest-cottage",
         ),
       );
-      await shot("fresh-pond");
+      await shot("fresh-attic");
       await step("light", { item: "lamp" });
+      await step("move", { target: "pond" });
       await step("give", { item: "lamp", target: "moth" });
       if ((await state()).items.cloth.holder !== "vale")
         await step("ask", {

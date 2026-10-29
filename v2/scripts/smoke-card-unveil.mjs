@@ -111,7 +111,7 @@ try {
         id,
       );
     const finish = async () => {
-      for (let i = 0; i < 100; i++) {
+      for (let i = 0; i < 300; i++) {
         if (await page.locator("#unveil-dialog[open]").count())
           await page.keyboard.press("Escape");
         else if (await page.locator("#dialogue-advance").isVisible())
@@ -122,18 +122,23 @@ try {
           return;
         await page.waitForTimeout(50);
       }
-      throw Error("The exchange stayed busy");
+      throw Error(`The exchange stayed busy at ${width}px (${motion})`);
     };
     try {
       await page.goto(
         `http://127.0.0.1:${server.address().port}/?table=${table}`,
       );
       await ready();
+      assert.equal((await state()).actors.vale.place, "attic");
+      assert.equal((await state()).items.lamp.lit, false);
       assert.equal(await page.locator("#unveil-dialog[open]").count(), 0);
+      await page.screenshot({
+        path: new URL(`attic-start-${width}.png`, output).pathname,
+      });
       await selectCard(page, "lamp");
       await page.locator("#card-actions .card-primary").click();
-      await unveil("attic");
-      assert.equal((await state()).actors.vale.place, "pond");
+      await unveil("pond");
+      assert.equal((await state()).actors.vale.place, "attic");
       assert.equal(
         await page.locator('#hand [data-card="vale"]').isDisabled(),
         true,
@@ -177,19 +182,23 @@ try {
       await ready();
       assert.equal(
         await page
-          .locator('#hand [data-card="attic"]')
+          .locator('#hand [data-card="pond"]')
           .evaluate((el) => el.classList.contains("new")),
         true,
       );
       assert.equal(await page.locator(".action-panel").isVisible(), false);
-      await selectCard(page, "attic");
+      await selectCard(page, "pond");
       assert.equal(
         await page
-          .locator('#hand [data-card="attic"]')
+          .locator('#hand [data-card="pond"]')
           .evaluate((el) => el.classList.contains("new")),
         false,
       );
       await page.keyboard.press("Escape");
+      await selectCard(page, "pond");
+      await page.locator("#card-actions .card-primary").click();
+      await finish();
+      assert.equal((await state()).actors.vale.place, "pond");
       await selectCard(page, "station");
       await page.locator("#card-actions .card-primary").click();
       if (motion !== "reduce") {
@@ -223,7 +232,7 @@ try {
       }));
       assert.equal(
         events.discoveries.filter((event) => !event.isQuest)[0].id,
-        "attic",
+        "pond",
       );
       assert(
         events.discoveries.findIndex((e) => e.id === "keeper") <
@@ -240,7 +249,7 @@ try {
       );
       if (motion === "reduce") assert.equal(events.flights.length, 0);
       else {
-        assert(events.flights.some((f) => f.id === "attic"));
+        assert(events.flights.some((f) => f.id === "pond"));
         assert(events.flights.some((f) => f.id === "oil"));
         assert(
           events.flights
@@ -260,9 +269,11 @@ try {
       await page.locator("#new-game").click();
       await page.locator("#confirm-reset").click();
       await ready();
+      assert.equal((await state()).actors.vale.place, "attic");
+      assert.equal((await state()).items.lamp.lit, false);
       await selectCard(page, "lamp");
       await page.locator("#card-actions .card-primary").click();
-      await unveil("attic");
+      await unveil("pond");
       await page.evaluate(
         ({ key, save }) => {
           localStorage.setItem(key, save);

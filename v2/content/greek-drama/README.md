@@ -210,6 +210,9 @@ follow the same visible facts as the scene.
 ## Checks
 
 The card pack compiler also writes `v2/card-game/poem-catalogs.json`.
+Rules 22 starts the published reading archive with all 331 current stanzas.
+The four earlier rules-21 catalogs were draft builds. The separate attic
+release keeps its exact rules 21 and the earlier recital words.
 Each poem catalog has its rules version, a content identity and a full digest.
 It keeps earlier catalogs when later deeds or rules add new verses. Saved
 readings retain their original words, author names and stanza order. Published

@@ -14,7 +14,7 @@ import {
 import { enableMotives } from "../card-game/motives.mjs";
 
 function fixture(kind) {
-  // The waiting resident also exercises travel from an older attic save.
+  // The waiting resident is met on the first trip from the lit attic.
   const start =
     kind === "resident" ? atticOpening() : createWorld({ opening: true });
   let s = enableMotives(start, {
@@ -25,7 +25,15 @@ function fixture(kind) {
     s,
     legalActions(s).find((a) => a.kind === "light"),
   ).state;
-  s.actors.vale.place = "attic";
+  for (const target of kind === "resident" ? [] : ["pond", "attic"]) {
+    const move = legalActions(s).find(
+      (action) => action.kind === "move" && action.target === target,
+    );
+    assert.ok(move, `The opening reaches ${target}.`);
+    const result = play(s, move);
+    assert.ok(result.ok, result.error);
+    s = result.state;
+  }
   s.actors.moth.place = kind === "resident" ? "pond" : "attic";
   s.items.lamp.holder = "vale";
   s.items.lamp.fuel = 8;
@@ -171,12 +179,13 @@ try {
           key,
         );
         assert.equal(saved.turn, 0);
-        assert.equal(saved.actors.vale.place, "pond");
+        assert.equal(saved.actors.vale.place, "attic");
+        assert.equal(saved.items.lamp.lit, false);
         assert.equal(
           await page.locator("#backdrop").getAttribute("src"),
           await page.evaluate(async () =>
             (await import("/card-game/images.mjs")).imageUrl(
-              "./assets/pond.png",
+              "./assets/attic.png",
             ),
           ),
         );
@@ -190,7 +199,7 @@ try {
         assert.equal(await card("vale").isDisabled(), false);
         assert.match(
           await page.locator("#dialogue-text").textContent(),
-          /The water is dark/,
+          /It's cold up here/,
         );
         assert.equal(
           saved.log.filter(

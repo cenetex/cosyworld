@@ -219,7 +219,7 @@ fn readings_keep_disconnects_in_the_journal_and_filter_raw_history_and_cached_vi
     let rebuilt = full_store::world(&c, &id, now()).unwrap();
     assert_eq!(rebuilt, world);
     let _ = std::fs::remove_file(path);
-    assert_eq!(engine::VERSION, "full-card-world/21");
+    assert_eq!(engine::VERSION, "full-card-world/22");
 }
 
 #[test]
