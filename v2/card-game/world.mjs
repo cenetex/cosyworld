@@ -640,8 +640,8 @@ const canReach = (s, actor, item) =>
 const canUse = (s, actor, item) =>
   canReach(s, actor, item) || questItemAvailable(s, actor, item);
 const loadOf = (s, id) => 1 + (s.items.cloth.holder === id ? 1 : 0);
-const hasSpace = (s, actor, id) =>
-  carried(s, actor).length +
+const hasSpace = (s, actor, id, count = carried(s, actor).length) =>
+  count +
     (rootHolder(s, id) === actor ? 0 : loadOf(s, id)) <=
   3;
 export function handStatus(s, actor, hand = desireFor(s, actor)) {
@@ -1328,6 +1328,12 @@ export function legalActions(s, actor = currentActor(s)) {
   )
     return [];
   const here = s.actors[actor].place;
+  // A list of available plays reads the same custody throughout this call.
+  const heldCounts = new Map();
+  const hasRoom = (who, id) => {
+    if (!heldCounts.has(who)) heldCounts.set(who, carried(s, who).length);
+    return hasSpace(s, who, id, heldCounts.get(who));
+  };
   const out = [
     offer("wait", actor, null, null, `${nameOf(actor)} waits one turn.`, []),
   ];
@@ -1345,14 +1351,14 @@ export function legalActions(s, actor = currentActor(s)) {
     });
   }
   out.push(...sharedQuestActions(s, actor));
-  const carried = questHandKeys(s, actor).map((key) => s.quests.records[key]);
+  const carriedQuests = questHandKeys(s, actor).map((key) => s.quests.records[key]);
   if (
     lifeOf(s, actor) &&
     !lifeOf(s, actor).collection &&
     canCarryQuest(s, actor)
   )
-    carried.push(...actorQuests(s, actor).filter((q) => !q.holder));
-  for (const q of carried) {
+    carriedQuests.push(...actorQuests(s, actor).filter((q) => !q.holder));
+  for (const q of carriedQuests) {
     const key = q.key;
     out.push({
       kind: "drop-quest",
@@ -1507,7 +1513,7 @@ export function legalActions(s, actor = currentActor(s)) {
     if (
       canReach(s, actor, id) &&
       item.holder !== actor &&
-      hasSpace(s, actor, id)
+      hasRoom(actor, id)
     ) {
       out.push(
         offer(
@@ -1542,7 +1548,7 @@ export function legalActions(s, actor = currentActor(s)) {
                 (c) => c.kind === "heldBy" && c.item === id && c.avatar === p,
               ),
             )) &&
-          hasSpace(s, p, id),
+          hasRoom(p, id),
       )) {
         out.push(
           offer(
@@ -1559,7 +1565,7 @@ export function legalActions(s, actor = currentActor(s)) {
       actorIds.includes(rootHolder(s, id)) &&
       rootHolder(s, id) !== actor &&
       (item.holder === rootHolder(s, id) || id === "cloth") &&
-      hasSpace(s, actor, id)
+      hasRoom(actor, id)
     ) {
       // A wrapped cloth still belongs to the person holding its container.
       const owner = rootHolder(s, id);
@@ -1653,7 +1659,7 @@ export function legalActions(s, actor = currentActor(s)) {
         (t) =>
           itemPlace(s, t) === here &&
           canReach(s, actor, t) &&
-          (rootHolder(s, t) !== actor || hasSpace(s, actor, id)),
+          (rootHolder(s, t) !== actor || hasRoom(actor, id)),
       )) {
         out.push(
           offer(
