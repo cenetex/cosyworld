@@ -123,13 +123,27 @@ export function transportResidentDestination(s, actor) {
 }
 
 // Boarding starts a leg while the ship stays at its departure dock. The first
-// passenger ashore moves the dock; later boarders can start the return leg with
-// riders still aboard. A recall waits until the vessel is empty.
-export function moveTransport(s, from, to) {
+// passenger ashore moves the dock; later human boarders can start a return leg.
+// Residents joining an arrived ship keep the port for humans still aboard.
+// A recall waits until the vessel is empty.
+export function moveTransport(s, from, to, travelers = []) {
   for (const [id, t] of Object.entries(transports)) {
     const state = s.transports[id];
     if (to === t.place) {
-      if (state.dock === from || state.destination === null)
+      const residentBoardsAtArrival =
+        travelers.length > 0 &&
+        travelers.every((actor) => !controlledByHuman(s, actor)) &&
+        state.dock === state.destination &&
+        Object.entries(s.actors).some(
+          ([actor, position]) =>
+            !travelers.includes(actor) &&
+            position.place === t.place &&
+            controlledByHuman(s, actor),
+        );
+      if (
+        !residentBoardsAtArrival &&
+        (state.dock === from || state.destination === null)
+      )
         state.destination = t.docks.find((dock) => dock !== state.dock);
     } else if (from === t.place) {
       if (t.docks.includes(to)) {
