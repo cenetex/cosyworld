@@ -150,6 +150,22 @@ export async function connectedJourney(driver, seed) {
     }
     throw Error(`The shared ship needs to reach ${actor}'s actual shore`);
   };
+  const landTogether = async (target) => {
+    await move("vale", target);
+    const state = await read("mara");
+    assert.equal(state.world.transports["greek-ship"].dock, target);
+    assert.equal(state.world.actors.mara.place, "greek-ship");
+    assert.ok(
+      state.actions.some(
+        (action) =>
+          action.kind === "move" &&
+          action.target === target &&
+          action.item === null,
+      ),
+      `Mara can finish landing at ${target} after Vale; ship ${JSON.stringify(state.world.transports["greek-ship"])}`,
+    );
+    await move("mara", target);
+  };
   const stage = async (label) => {
     await read();
     await driver.checkpoint?.(label, latest.world);
@@ -227,12 +243,7 @@ export async function connectedJourney(driver, seed) {
   await board("mara");
   await stage("two-humans-aboard");
   await driver.reload?.("mara");
-  await move("vale", "greek-harbor");
-  state = await read("mara");
-  assert.ok(
-    !state.actions.some((a) => a.kind === "move" && a.target === "pond"),
-  );
-  await move("mara", "greek-harbor");
+  await landTogether("greek-harbor");
   await stage("shared-greek-arrival");
   for (const actor of PLAYERS) {
     await move(actor, "greek-courtyard");
@@ -253,8 +264,7 @@ export async function connectedJourney(driver, seed) {
   await stage("dione-water-return");
   for (const actor of PLAYERS) await move(actor, "greek-harbor");
   for (const actor of PLAYERS) await board(actor);
-  await move("vale", "pond");
-  await move("mara", "pond");
+  await landTogether("pond");
   for (const actor of PLAYERS) await driver.reload?.(actor);
   await stage("shared-forest-return");
   state = await read();
