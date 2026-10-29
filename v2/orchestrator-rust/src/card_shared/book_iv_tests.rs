@@ -205,16 +205,14 @@ fn book_iv_retirement_upgrade_preserves_a_released_twenty_visit_and_checkpoint_f
     assert_eq!(current.version, engine::VERSION);
     assert_eq!(current.game["packs"]["greek-drama"]["revision"], 8);
     assert_eq!(current.game["actors"]["vale"]["place"], "greek-corinth");
-    for field in [
-        "turn",
-        "eventSeq",
-        "log",
-        "transports",
-        "routeKnowledge",
-        "knowledge",
-    ] {
+    for field in ["turn", "eventSeq", "log", "transports", "knowledge"] {
         assert_eq!(current.game[field], old.game[field], "Preserve {field}");
     }
+    super::epic_capacity_tests::assert_retained(
+        &old.game["routeKnowledge"],
+        &current.game["routeKnowledge"],
+        "routeKnowledge",
+    );
     for (key, item) in old.game["items"].as_object().unwrap() {
         assert_eq!(&current.game["items"][key], item);
     }
