@@ -81350,16 +81350,20 @@
         const stake = ids.find(
           (id3) => entityActive(s, id3) && s.items[id3].holder === other && needed(s, actor, id3)
         ) || ids.find((id3) => entityActive(s, id3) && s.items[id3].holder === other) || null;
-        out.push(
-          offer(
-            "threaten",
-            actor,
-            stake,
-            other,
-            `${nameOf2(actor)} threatens ${nameOf2(other)}${stake ? ` over the ${nameOf2(stake)}` : ""}.`,
-            [other]
-          )
-        );
+        const stakes = [
+          .../* @__PURE__ */ new Set([stake, ...ids.filter((id3) => entityActive(s, id3) && rootHolder(s, id3) === other)])
+        ];
+        for (const item2 of stakes)
+          out.push(
+            offer(
+              "threaten",
+              actor,
+              item2,
+              other,
+              `${nameOf2(actor)} threatens ${nameOf2(other)}${item2 ? ` over the ${nameOf2(item2)}` : ""}.`,
+              [other]
+            )
+          );
       }
       if (!hasTemperament(other))
         out.push(

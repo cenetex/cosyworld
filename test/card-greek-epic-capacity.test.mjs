@@ -20,7 +20,10 @@ import {
   play,
 } from "../v2/card-game/world.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
-import { releasedCardEngine } from "./helpers/released-card-engine.mjs";
+import {
+  releasedCardEngine,
+  currentCardEngine,
+} from "./helpers/released-card-engine.mjs";
 
 const previous = releasedCardEngine();
 const greek = () =>
@@ -340,7 +343,7 @@ describe("story validation within one unchanged operation", () => {
     expect(recitalPoem(upgraded, p)).toEqual(previous.poem(restored, p));
   });
   it("matches the current bundled interpreter through real plays", () => {
-    const current = releasedCardEngine(21);
+    const current = currentCardEngine();
     let world = createWorld();
     delete world.opening;
     world.actors.vale.place = "greek-courtyard";

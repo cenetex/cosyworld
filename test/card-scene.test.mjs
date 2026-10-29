@@ -14,6 +14,7 @@ import {
 } from "../v2/card-game/world.mjs";
 import {
   sceneCast,
+  pendingReplySpeaker,
   sceneLines,
   sceneStaging,
   selectedHandItem,
@@ -49,6 +50,38 @@ function act(s, kind, item, target) {
     ),
   ).state;
 }
+describe("the waiting reply portrait", () => {
+  it("follows the person addressed by Talk", () => {
+    const world = act(gathered(), "talk", null, "moth");
+    expect(pendingReplySpeaker(world)).toBe("moth");
+  });
+  it("follows an Ask reply for Rue", () => {
+    const world = gathered();
+    world.playerActorId = "rue";
+    world.sharedVersion = 1;
+    world.controlledActors = ["rue"];
+    world.presentActors = ["rue"];
+    world.actors.rue.place = "station";
+    world.items.lamp.holder = "moth";
+    const next = act(world, "ask", "lamp", "moth");
+    expect(pendingReplySpeaker(next)).toBe("moth");
+  });
+  it("uses the current actor after an earlier reply turn", () => {
+    const world = act(gathered(), "talk", null, "moth");
+    world.turn++;
+    world.actors.moth.place = "pond";
+    expect(pendingReplySpeaker(world)).toBe("vale");
+    expect(pendingReplySpeaker(world, { fallback: "moth" })).toBeNull();
+  });
+  it("keeps a witnessed reply partner during their departure", () => {
+    let world = gathered();
+    world.items.lamp.holder = "moth";
+    world = act(world, "wait");
+    world = act(world, "ask", "lamp", "moth");
+    expect(world.actors.moth.place).toBe("pond");
+    expect(pendingReplySpeaker(world)).toBe("moth");
+  });
+});
 describe("the presented physical snapshot", () => {
   it("uses current holdings while reviewing earlier speech", () => {
     const world = gathered();

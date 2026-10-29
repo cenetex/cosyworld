@@ -1,5 +1,6 @@
 :root {
   color-scheme: dark;
+  overscroll-behavior-x: none;
   --ink: #f1e8d5;
   --muted: #b9b6bc;
   --gold: #dfc38d;
@@ -802,6 +803,34 @@ main {
   scrollbar-color: #ad97744d transparent;
   scroll-padding-inline: 5px;
   scroll-snap-type: x proximity;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x;
+}
+.hand-scroll {
+  position: absolute;
+  top: 35%;
+  z-index: 120;
+  width: 44px;
+  height: 48px;
+  padding: 0;
+  border-radius: 24px;
+  background: #10151bef;
+  border-color: #baa37c99;
+  color: #f2e3c4;
+  font-size: 32px;
+  box-shadow: 0 3px 12px #0008;
+}
+.hand-scroll[hidden] {
+  display: none;
+}
+.hand-scroll:disabled {
+  opacity: 0.25;
+}
+.hand-previous {
+  left: -12px;
+}
+.hand-next {
+  right: -12px;
 }
 /* Keep the chosen card at the position set by revealHandCard. */
 .hand:has(.card-frame[data-raised="true"]) {
@@ -822,10 +851,6 @@ body .card-frame {
 body .card-frame[data-raised="true"] {
   transform: translateY(-10px);
 }
-/* Lift the full stack while the face keeps its shadow on the same layer. */
-#hand:not([aria-busy="true"]) .card-frame:has(> .card:hover) {
-  top: -2px;
-}
 body .card {
   position: relative;
   width: 100%;
@@ -840,8 +865,14 @@ body .card {
   touch-action: pan-x;
   box-shadow: 0 6px 20px #0006;
 }
-body .card:hover {
-  background: #181b22;
+@media (hover: hover) and (pointer: fine) {
+  /* Lift the face and its preview stack on the same layer. */
+  #hand:not([aria-busy="true"]) .card-frame:has(> .card:hover) {
+    top: -2px;
+  }
+  body .card:hover {
+    background: #181b22;
+  }
 }
 body .card[aria-pressed="true"] {
   border-color: #f2dba6;
@@ -1459,9 +1490,9 @@ body[data-place="attic"] .card.quest {
   }
 }
 
-body .quest-frame[data-stacked="true"] {
-  margin-left: calc(14px - var(--card-width));
-  transform: translateY(4px);
+body .card-frame[data-stacked="true"] {
+  margin-left: calc(-2px - var(--card-width));
+  transform: translateY(calc(4px * var(--stack-index, 1)));
 }
 body .quest-frame[data-raised="true"] {
   transform: translateY(-10px);

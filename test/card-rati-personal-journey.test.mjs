@@ -330,6 +330,18 @@ describe("RATi's personal scarf in the real world model", () => {
     ).toEqual(["mara", "vale"]);
     expect(world.items[vale.reward].holder).toBe("vale");
     expect(world.items[vale.button].holder).toBe(vale.reward);
+    // A completed scarf in a resident's hand remains one visible object.
+    const residentHand = structuredClone(world);
+    residentHand.actors.vale.place = residentHand.actors.moth.place;
+    for (const item of Object.values(residentHand.items))
+      if (item.holder === "moth") item.holder = residentHand.actors.moth.place;
+    residentHand.items[vale.reward].holder = "moth";
+    expect(() => encodeSave(residentHand)).not.toThrow();
+    const demands = legalActions(residentHand, "vale").filter(
+      (action) => action.kind === "threaten" && action.target === "moth",
+    );
+    expect(demands.map((action) => action.item)).toContain(vale.reward);
+    expect(demands.map((action) => action.item)).not.toContain(vale.button);
     expect(personal(world).records.mara.button.id).toBe(mara.button);
     expect(personal(world).records.mara.reward.awardedTurn).toBeNull();
     expect(entityActive(world, mara.reward)).toBe(false);

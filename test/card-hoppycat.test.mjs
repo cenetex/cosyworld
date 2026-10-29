@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import vm from "node:vm";
+import { currentCardEngine } from "./helpers/released-card-engine.mjs";
 import {
   createWorld,
   decodeSave,
@@ -144,19 +144,8 @@ describe("Hoppy Cat refresh", () => {
   });
 
   it("keeps browser and bundled shared play in agreement", () => {
-    const runtime = vm.createContext({ structuredClone });
-    vm.runInContext(
-      readFileSync(
-        new URL(
-          "../v2/orchestrator-rust/src/card_shared/engine-v21.js",
-          import.meta.url,
-        ),
-        "utf8",
-      ),
-      runtime,
-    );
-    const ask = (request) =>
-      JSON.parse(runtime.cardShared(JSON.stringify(request)));
+    const engine = currentCardEngine();
+    const ask = (request) => engine.dispatch(request);
     let world = dispatchShared({
       op: "create",
       save: encodeSave(createLandingWorld(pack)),

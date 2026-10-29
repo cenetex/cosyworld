@@ -136,7 +136,7 @@ try {
             Math.abs(resting.hand.width - (resting.cardWidth * 2 + 46)) < 2,
           );
         }
-        assert.equal(await page.locator(".hand-scroll").count(), 0);
+        assert.equal(await page.locator(".hand-scroll").count(), 2);
         await page.screenshot({
           path: new URL(`resting-${width}-${stale}.png`, output).pathname,
         });
@@ -209,8 +209,10 @@ try {
           await page.waitForFunction(
             () =>
               document.querySelectorAll('#hand .card[aria-pressed="true"]')
-                .length === 0,
+                .length === 1,
           );
+          for (let attempt = 0; attempt < 100 && plays.length < 2; attempt++)
+            await page.waitForTimeout(100);
           assert.equal(plays.length, 2);
           assert.equal(world.turn, 2);
           await page.waitForTimeout(1100);

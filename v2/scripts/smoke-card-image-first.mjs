@@ -310,7 +310,8 @@ try {
       assert(geometry.art / geometry.card > 0.9, JSON.stringify(geometry));
       await page.keyboard.press("Escape");
       await cards("cloth", "lamp");
-      await assertHeldItem(null);
+      await assertHeldItem("lamp");
+      await page.keyboard.press("Escape");
       assert.equal((await state()).crossings["pond-greek-harbor"].phase, 1);
       assert.equal(await card("lamp").getAttribute("data-covered"), "true");
       await selectCard(page, "lamp");
@@ -437,7 +438,7 @@ try {
         targetPosition: { x: width / 2, y: 110 },
       });
       await ready();
-      await assertHeldItem(null);
+      await assertHeldItem("lamp");
       assert.equal(
         (await state()).items.cloth.holder,
         "lamp",

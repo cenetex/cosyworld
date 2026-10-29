@@ -222,7 +222,28 @@ try {
         `http://127.0.0.1:${server.address().port}/?table=${table}`,
       );
       await selectCard(page, "moth");
+      assert.equal(
+        await page
+          .locator('#hand [data-card="moth"]')
+          .getAttribute("aria-pressed"),
+        "true",
+        "Pip is selected before choosing the carriage",
+      );
       await selectCard(page, "train");
+      assert.equal(
+        await page.locator('#card-actions [data-action="accompany"]').count(),
+        1,
+        JSON.stringify(
+          await page.evaluate(() => ({
+            selected: [
+              ...document.querySelectorAll('#hand .card[aria-pressed="true"]'),
+            ].map((card) => card.dataset.card),
+            readout: document.querySelector("#play-readout").textContent,
+            place: document.body.dataset.place,
+            notice: document.querySelector("#notice").textContent,
+          })),
+        ),
+      );
       await page.locator('#card-actions [data-action="accompany"]').click();
       await page.waitForFunction(
         (key) =>
@@ -304,6 +325,7 @@ try {
     await page.screenshot({
       path: new URL(`journey-${width}.png`, output).pathname,
     });
+    await page.keyboard.press("Escape");
     await selectCard(page, "theatre");
     await selectCard(page, questCardId(world, helpCard));
     assert.deepEqual(
@@ -321,6 +343,7 @@ try {
         ].participants.includes("vale"),
       { key, helpKey },
     );
+    await page.keyboard.press("Escape");
     await selectCard(page, "mask");
     await page.locator('#card-actions [data-action="take"]').click();
     await page.waitForFunction(

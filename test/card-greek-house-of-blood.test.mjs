@@ -16,7 +16,10 @@ import { questHistoryCards } from "../v2/card-game/quest-cards.mjs";
 import { knownActors } from "../v2/card-game/quests.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { knowsFact } from "../v2/card-game/knowledge.mjs";
-import { releasedCardEngine } from "./helpers/released-card-engine.mjs";
+import {
+  releasedCardEngine,
+  currentCardEngine,
+} from "./helpers/released-card-engine.mjs";
 import { expectedEpicGreekEntry } from "./helpers/greek-released-contract.mjs";
 import {
   HOUSE_PARTS,
@@ -323,7 +326,7 @@ describe("House of Blood compiled rules", () => {
   it.each(Object.keys(HOUSE_PARTS))(
     "validates and continues the %s return in the bundled interpreter",
     (part) => {
-      const bundle = releasedCardEngine(21);
+      const bundle = currentCardEngine();
       const save = encodeSave(houseJourney(part));
       const original = dispatchShared({ op: "create", save });
       const compiled = bundle.dispatch({ op: "create", save });

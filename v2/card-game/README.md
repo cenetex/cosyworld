@@ -125,27 +125,47 @@ browsing, focus changes, and resident cards at desktop and phone sizes.
 ## Image-first presentation
 
 Card faces contain the illustration and a small name. Tapping a card toggles
-its selection. Selecting a card or pair shows named actions in the row below.
-Tapping an action button plays it. The current place leads the hand, followed
-by items lying there, avatars with their carried items, and travel destinations.
+its selection. A pair stays raised until a selected card is tapped again or
+Escape clears it. A third card gives the pair a small glow. Completed plays
+keep selected cards that remain in the current hand.
+Selecting a card or pair shows named actions in the row below.
+Tapping an action button plays it. The hand groups each avatar with their
+cards. The current place groups loose items and travel destinations.
 Hover lifts a card and its preview stack together.
 Arrival starts the hand at the new current place. Selection keeps its scroll position.
 On wide screens, the resting hand occupies two card widths at the right. Dialogue
 sits at the left. Selecting a card opens the hand across the screen and moves
-dialogue above it. Swipe, use the wheel, or use the arrow keys to reach more cards.
+dialogue above it. Arrow buttons beside the hand reach more cards. Touch
+scrolling, the wheel and keyboard arrows also browse the hand. Horizontal wheel
+input stays within the hand at both ends.
 Play stays available during an exchange. A waiting play shows **Queued**;
 tapping it again cancels it. Selecting another card clears the waiting play.
 Shared play waits for the player's current turn to finish, then checks the
 chosen action against the current table before sending it.
 Selection, cancellation,
 drag pairing and keyboard navigation spend no turn; only a committed play does.
+Tap an avatar to show a compact item stack and quest stack beside them. Each
+stack shows its front card and the edges of the other cards. Tap a stack to
+spread that collection, then tap a card to select it. Tap the avatar again to
+fold both stacks. The chosen front item and quest stay with their avatar while
+you select other cards. Front choices survive a reload. Item custody controls
+which avatar owns each item stack. The current place uses the same pattern:
+its items form one stack and its open paths form another. Tap the place to show
+these stacks, spread either stack, then choose an item or destination. Tapping
+the current place folds its stacks. The chosen front item stays with that place.
+
 The latest selected carried item appears in the player's avatar hand.
-Clicking the scene keeps that item selected and held. Tap its card again or
-press Escape to clear it.
+Clicking the scene keeps the active pair. Tap a raised card again or press
+Escape to clear the active selection.
 The preview follows the figure's facing and movement and shows the item's light,
 ringing, and covering. Lowering that card returns to the other selected item;
-clearing the selection clears the preview. Giving or dropping the item clears it
-as soon as custody changes.
+clearing the active selection clears the scene preview. The chosen card stays
+at the front of its avatar's item stack. Giving or dropping the item clears
+that front choice as soon as custody changes.
+
+An opponent's item card offers a named Threaten action. The avatar pair uses
+that opponent's chosen front item for its demand. Shared rules version 21 adds
+these item choices and retains each earlier rule bundle for saved journal replay.
 
 No card face or hover text exposes quest checklists, levels, hope fractions,
 Inspiration, fuel arithmetic, ringing deadlines, or ritual phases. Each newly
@@ -395,7 +415,7 @@ Speech receives visible facts, current wants, and witnessed results. Entity prof
 
 When a play calls for speech, the browser sends the current local entities and departing avatars, their facts, avatar interests, and eight recent memories, witnessed events, and the four latest spoken lines to `POST /card-game/text`. The Rust service adds the authored profiles and uses the existing AI gateway. The deployed character map sends each avatar to its own exact OpenRouter model. Items and places each have their own voice call. These calls run together inside one bounded scene request. Each call returns a brief plain-text reply, which the service validates before publication. A short unpunctuated reply can pass when the provider confirms it finished. A trailing continuation mark or an unfinished first line triggers the usual retry. Complete sentences and voluntary quotations keep their wording. Each entry carries its own model attribution. Raising a card prepares a play and keeps the current conversation. Playing a card commits the action; social actions and travel can start an exchange, while ordinary object manipulation can remain silent. The place, played item, and chosen speakers also receive scene beats. A quiet turn with departures gives the farewell to the moving cast, without an automatic Vale recap. A Stay without departures keeps Vale available. Direct interactions, combat, travel and introductions retain their relevant speakers. A departing avatar says where they are going and why; their recorded farewell belongs to the source scene. The prompt includes the completed card play so their lines form a question and answer or a shared reaction. A separate resolved-turn record gives the played verb and outcome, every avatar's final location and holdings, exact travel companions, and final item ownership. Accepted accompany plays record both travellers; independent trips record an empty companion list. Current results take priority over desires and remembered speech. When Vale speaks on a wait play, the words stay at the place where Vale stayed. A solo farewell frames desired company as a hope for later.
 
-The conversation shows the current spoken line; earlier words are available in the optional Conversation panel. The browser buffers each exchange until it passes validation, then reveals complete letters on a local clock with short pauses at punctuation. The selected speakers take their turns in order. Each exchange advances after a reading pause. Tap the text to finish a line, then tap again to hear the next speaker. The hand pauses for up to 2.5 seconds while words are generated. A slow request can be replaced by another play. Once a complete reply arrives, the hand locks through scene preparation and every speaker, then becomes ready after the last reply. A blinking cursor marks the end. Earlier scene lines can be replayed with the line controls and History. A replayed line stages the avatars present now; a speaker who has left keeps the words and stays off the stage. Vale, Mara, Pip, the Keeper, Badger, and Dione speak with their original cloned voices when OpenRouter is connected. Settings toggles voices. Other speakers keep their soft, pitched voice sounds. Reduced motion shows full lines at once. Hidden tabs and open menus pause playback, including the rest of a punctuation pause. Text reveals on browser paint frames. Each visible line keeps its own height, and portraits stay mounted when the speaker changes. Empty prior replies and speech rows collapse. A scene with no words shows a compact loading line. A spoken card play immediately shows its first speaker with a loading mark. Ask and Talk show Vale while the reply is being written. The browser saves complete text before playback begins. Fresh tables request an opening exchange. Reloading resumes saved dialogue from the current turn. Action records remain in the saved world and scene export.
+The conversation shows the current spoken line; earlier words are available in the optional Conversation panel. The browser buffers each exchange until it passes validation, then reveals complete letters on a local clock with short pauses at punctuation. The selected speakers take their turns in order. Each exchange advances after a reading pause. Tap the text to finish a line, then tap again to hear the next speaker. The hand pauses for up to 2.5 seconds while words are generated. A slow request can be replaced by another play. Once a complete reply arrives, the hand locks through scene preparation and every speaker, then becomes ready after the last reply. A blinking cursor marks the end. Earlier scene lines can be replayed with the line controls and History. A replayed line stages the avatars present now; a speaker who has left keeps the words and stays off the stage. Vale, Mara, Pip, the Keeper, Badger, and Dione speak with their original cloned voices when OpenRouter is connected. Settings toggles voices. Other speakers keep their soft, pitched voice sounds. Reduced motion shows full lines at once. Hidden tabs and open menus pause playback, including the rest of a punctuation pause. Text reveals on browser paint frames. Each visible line keeps its own height, and portraits stay mounted when the speaker changes. Empty prior replies and speech rows collapse. A scene with no words shows a compact loading line. A spoken card play immediately shows its first speaker with a loading mark. Ask and Talk show the visible reply partner while their words are being written. Shared play uses the same waiting portrait, and each accepted speaker keeps their place in the exchange. The browser saves complete text before playback begins. Fresh tables request an opening exchange. Reloading resumes saved dialogue from the current turn. Action records remain in the saved world and scene export.
 
 The stage holds up to three avatars. Vale stands in the foreground, with the other two farther back. The composition mirrors when Vale returns from the other side of a route. Seats and sizes stay fixed throughout an exchange. The speaker and listener face each other; another witness looks toward the speaker. The keeper has a separate right-facing cutout, so the clock face keeps its painted detail. A soft lean and light change mark the speaker. Carried item symbols follow recorded custody, including covered items. Actual arrivals fade in together for an accepted accompany play. A farewell finishes before its avatar fades out of its seat. Quiet actions update the stage cast immediately to match the hand and current locations. Reduced motion uses still poses. The scene script exports each actor's position, depth, scale, facing, gaze, pose, travel companions, and carried items for each beat. The browser uses `portrait-facing.mjs` to match each painted portrait to that gaze. This presentation-only map covers the human cast, pack portraits and Keeper variants; add new portrait files here with their native direction. Hand thumbnails keep their native artwork.
 
@@ -542,9 +562,9 @@ Talk and item trades stay available during a standoff. Travel ends it; releasing
 
 The cast guards, responds to attacks, or leaves. Threats, hits, releases, and retreats enter witnessed memories. A threat also leaves a personal grievance. Earlier saves gain an empty standoff state.
 
-Card selection keeps the current card elements in place and leaves keyboard focus on the tapped card. The hand and action row open together over 220 milliseconds; held items slide out from their owner. A play in the same place refreshes the cards as the hand lowers, with each name moving into its resting position. Travel changes the hand under the scene veil. Rapid taps reverse the current motion. Reduced motion applies the final layout at once. Menu and Conversation keep the selected cards and open items, and Escape closes the active panel before lowering the hand. Short landscape screens keep the hand inside the viewport.
+Card selection keeps the current card elements in place and leaves keyboard focus on the tapped card. The hand and action row open together over 220 milliseconds; stacks spread beside their owner and fold around their chosen front card. A play in the same place refreshes the cards and preserves the active pair. Travel changes the hand under the scene veil. Rapid taps reverse the current motion. Reduced motion applies the final layout at once. Menu and Conversation keep the selected cards and open items, and Escape closes the active panel before lowering the hand. Short landscape screens keep the hand inside the viewport.
 
-Run `node v2/scripts/smoke-card-actions.mjs` for Chromium controls, or `CARD_BROWSER=webkit node v2/scripts/smoke-card-actions.mjs` for WebKit. The checks cover desktop, phone, short landscape, reduced motion, fast taps, panel dismissal, and save updates.
+Run `node v2/scripts/smoke-card-touch-pairing.mjs` for Chromium controls, or `CARD_BROWSER=webkit node v2/scripts/smoke-card-touch-pairing.mjs` for WebKit. The checks cover desktop, phone, short landscape, reduced motion, separate item and quest stacks, panel dismissal, the two card limit, chosen item threats, persistent pairs and scroll arrows.
 
 When the lamp or oil is trapped beyond the attic, a narrow path can open from Black pond. It appears after reachable lamp remedies are exhausted. A traveler inside can still tend the lamp through the usual item plays. Every object keeps its holder until a play changes it. The Black cloth still opens the cottage from the attic.
 

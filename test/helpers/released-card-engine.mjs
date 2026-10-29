@@ -1,6 +1,22 @@
 import { readFileSync } from "node:fs";
 import { createContext, Script } from "node:vm";
 
+export function currentCardEngine() {
+  const owner = readFileSync(
+    new URL(
+      "../../v2/orchestrator-rust/src/card_shared/engine.rs",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  const version = owner.match(
+    /const SOURCE: &str = include_str!\("engine-v(\d+)\.js"\)/,
+  )?.[1];
+  if (!version)
+    throw new Error("The current shared engine needs its source bundle.");
+  return releasedCardEngine(Number(version));
+}
+
 // Inspect the frozen interpreter in a test realm. The checked-in bytes stay exact.
 export function releasedCardEngine(version = 20) {
   const source = readFileSync(

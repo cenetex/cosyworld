@@ -151,7 +151,11 @@ try {
                 .filter((id) => ids.includes(id)),
             ["mara", road[0], target, road[1]],
           );
-        assert.deepEqual(visibleOrder, ["mara", road[0], target, road[1]]);
+        assert.deepEqual(visibleOrder.slice(0, 2), ["mara", target]);
+        assert.deepEqual(
+          visibleOrder.slice(2).sort(),
+          [road[0], road[1]].sort(),
+        );
       }
       if (
         [

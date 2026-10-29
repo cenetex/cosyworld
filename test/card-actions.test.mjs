@@ -126,4 +126,20 @@ describe("named card actions", () => {
       moved.slice(moved.indexOf("moth"), moved.indexOf("moth") + 3),
     ).toEqual(["moth", "lamp", "cloth"]);
   });
+  it("threatens for the chosen opponent item through its card or the avatar pair", () => {
+    const world = meeting();
+    world.items.oil.holder = "moth";
+    const choices = cardActions(world, ["vale", "moth"], { moth: "oil" });
+    const threat = choices.actions.find((action) => action.kind === "threaten");
+    expect(threat).toMatchObject({ target: "moth", item: "oil" });
+    expect(playLabel(threat)).toBe("Threaten Pip for Oil flask");
+    for (const pair of [["oil"], ["oil", "vale"], ["oil", "moth"]])
+      expect(cardActions(world, pair).actions).toContainEqual(threat);
+    expect(legalActions(world)).toContainEqual(threat);
+    const result = play(world, threat);
+    expect(result.ok).toBe(true);
+    expect(
+      result.state.log.find((entry) => entry.verb === "threaten"),
+    ).toMatchObject({ itemId: "oil" });
+  });
 });

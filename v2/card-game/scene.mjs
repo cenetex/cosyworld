@@ -211,6 +211,34 @@ export function sceneCast(
   return slots;
 }
 
+// The waiting portrait follows a reply partner seen during this play.
+export function pendingReplySpeaker(
+  world,
+  { actor = currentActor(world), fallback = actor } = {},
+) {
+  const visible = sceneCast(world);
+  const action = world.log.findLast(
+    (entry) =>
+      entry.turn === world.turn &&
+      entry.kind === "action" &&
+      entry.actorId === actor,
+  );
+  const here = world.actors[currentActor(world)].place;
+  const witnessed =
+    action?.locationId === here &&
+    action.cast?.includes(action.targetId) &&
+    (actor === currentActor(world) ||
+      action.witnesses?.includes(currentActor(world))) &&
+    entityActive(world, action.targetId);
+  if (
+    ["talk", "ask"].includes(action?.verb) &&
+    action.targetId !== actor &&
+    (visible.includes(action.targetId) || witnessed)
+  )
+    return action.targetId;
+  return visible.includes(fallback) ? fallback : null;
+}
+
 function exchangeCast(world, line) {
   return [
     ...new Set(

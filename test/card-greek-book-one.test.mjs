@@ -20,7 +20,10 @@ import { questRecord } from "../v2/card-game/shared-quests.mjs";
 import { questHistoryCards } from "../v2/card-game/quest-cards.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { bookReplay } from "./fixtures/card-book-one-replay.mjs";
-import { releasedCardEngine } from "./helpers/released-card-engine.mjs";
+import {
+  releasedCardEngine,
+  currentCardEngine,
+} from "./helpers/released-card-engine.mjs";
 import { expectedEpicGreekEntry } from "./helpers/greek-released-contract.mjs";
 import {
   bookStart,
@@ -447,7 +450,7 @@ describe("Book I shared learning and history", () => {
   });
 
   it("replays ordered dialogue and deeds through the bundled shared rules", () => {
-    const engine = releasedCardEngine(21),
+    const engine = currentCardEngine(),
       start = bookStart();
     const { trace } = bookJourney("tyrannus", "attributed-witnesses", {
       world: start,
