@@ -63,6 +63,7 @@ const report = {
   failedAssets: [],
   sharedRequestErrors: [],
   presenceChecks: 0,
+  completedReveals: [],
 };
 const commands = [];
 const requests = [];
@@ -214,15 +215,65 @@ async function readSnapshot(actor) {
   report.presenceChecks++;
   return { ...value, world: contextWorld(value) };
 }
+async function takeDiscovery(actor) {
+  const page = players.get(actor).page;
+  const shown = await page.evaluate(() => {
+    const dialog = document.querySelector("#unveil-dialog");
+    const button = document.querySelector("#unveil-take");
+    if (!dialog?.open || !button?.checkVisibility()) return null;
+    return {
+      card: button.dataset.card,
+      owner: button.dataset.owner,
+      quest: button.querySelector("[data-quest]")?.dataset.quest || "",
+      direction: dialog.dataset.direction,
+    };
+  });
+  if (!shown?.card) return false;
+  const attr = (name, value) => `[${name}=${JSON.stringify(value)}]`;
+  let take = page.locator(
+    `#unveil-dialog[open]${attr("data-direction", shown.direction)} #unveil-take${attr("data-card", shown.card)}${attr("data-owner", shown.owner)}`,
+  );
+  if (shown.quest)
+    take = take.filter({ has: page.locator(attr("data-quest", shown.quest)) });
+  try {
+    await take.click({ timeout: 2000 });
+  } catch (error) {
+    if (error.name !== "TimeoutError" || shown.direction !== "discover")
+      throw error;
+    // The reveal timer can finish Take while Playwright waits for stability.
+    const completed = await page.evaluate((shown) => {
+      const dialog = document.querySelector("#unveil-dialog");
+      const button = document.querySelector("#unveil-take");
+      const sameReveal =
+        dialog?.open &&
+        dialog.dataset.direction === shown.direction &&
+        button?.dataset.card === shown.card &&
+        button.dataset.owner === shown.owner &&
+        (button.querySelector("[data-quest]")?.dataset.quest || "") ===
+          shown.quest;
+      const held = [...document.querySelectorAll("#hand [data-card]")].find(
+        (card) =>
+          shown.quest
+            ? card.dataset.quest === shown.quest &&
+              card.closest(".card-frame")?.dataset.holder === shown.owner
+            : card.dataset.card === shown.card,
+      );
+      return !sameReveal && held ? { card: held.dataset.card } : null;
+    }, shown);
+    if (!completed) throw error;
+    report.completedReveals.push({ actor, ...shown, handCard: completed.card });
+  }
+  return true;
+}
 async function settle(actor) {
   const page = players.get(actor).page;
   for (let turn = 0; turn < 240; turn++) {
-    if (await page.locator("#unveil-take").isVisible())
-      await page.locator("#unveil-take").click();
-    else if (await page.locator("#dialogue-advance").isVisible())
-      await page.locator("#dialogue-advance").click();
-    else if (await page.locator("#unveil-dialog[open]").count())
-      await page.keyboard.press("Escape");
+    if (!(await takeDiscovery(actor))) {
+      if (await page.locator("#dialogue-advance").isVisible())
+        await page.locator("#dialogue-advance").click();
+      else if (await page.locator("#unveil-dialog[open]").count())
+        await page.keyboard.press("Escape");
+    }
     assert.equal(
       await page.locator("#story-retry").isVisible(),
       false,
