@@ -5362,10 +5362,17 @@
     const holder2 = pack.items?.[id3]?.holder;
     return holder2 && (pack.places[holder2] ? holder2 : pack.avatars[holder2]?.place);
   }
-  function sectionAllows(world, pack, id3, conditionsMet2) {
+  function indexSections(pack) {
+    const index = /* @__PURE__ */ new Map();
+    for (const section of pack.sections || [])
+      for (const place of section.places)
+        if (!index.has(place)) index.set(place, section);
+    return index;
+  }
+  function sectionAllows(world, pack, id3, conditionsMet2, index = null) {
     if (world.packs?.[pack.id]?.scope === "full") return true;
     const place = sectionPlace(pack, id3);
-    const section = pack.sections?.find((part) => part.places.includes(place));
+    const section = index ? index.get(place) : pack.sections?.find((part) => part.places.includes(place));
     return !section || conditionsMet2(world, pack.id, section.requires);
   }
 
@@ -75142,7 +75149,10 @@
     throw new Error(
       `Invalid card world composition: ${compositionProblems.join("; ")}`
     );
-  var packDefinition = (id3) => packDefinitions.find((p) => p.id === id3) || null;
+  var packsById = /* @__PURE__ */ new Map();
+  for (const pack of packDefinitions)
+    if (!packsById.has(pack.id)) packsById.set(pack.id, pack);
+  var packDefinition = (id3) => packsById.get(id3) || null;
   var merge = (field) => Object.fromEntries(
     packDefinitions.flatMap(
       (pack) => Object.entries(pack[field] || {}).map(([id3, entity]) => [
@@ -75290,7 +75300,12 @@
     if (humanAvatar(id3) && !humanPresent(world, id3)) return false;
     return entityEnabled(world, id3);
   }
-  function entityEnabled(world, id3, saved = false) {
+  function indexedSections(pack, indexes2) {
+    if (!indexes2) return null;
+    if (!indexes2.has(pack)) indexes2.set(pack, indexSections(pack));
+    return indexes2.get(pack);
+  }
+  function entityEnabled(world, id3, saved = false, sectionIndexes = null) {
     if (localRoads.has(id3)) return false;
     const e = packEntity(id3);
     if (!e) return true;
@@ -75299,11 +75314,17 @@
       world,
       e.packId,
       (e.requires || []).filter((c) => !saved || c.kind !== "connected_humans")
-    ) || !sectionAllows(world, pack, id3, conditionsMet))
+    ) || !sectionAllows(
+      world,
+      pack,
+      id3,
+      conditionsMet,
+      indexedSections(pack, sectionIndexes)
+    ))
       return false;
     if (!pack.release || state.scope === "full") return true;
     if (pack.recital?.actor === id3)
-      return (roamingQuestActor(id3) || !!recitalVisit(world, pack)) && entityEnabled(world, world.actors[id3].place);
+      return (roamingQuestActor(id3) || !!recitalVisit(world, pack)) && entityEnabled(world, world.actors[id3].place, false, sectionIndexes);
     return [pack.release.places, pack.release.avatars, pack.release.items].some(
       (ids3) => ids3.includes(id3)
     );
@@ -75457,6 +75478,7 @@
   function validatePackStates(world) {
     if (!record6(world.packs) || Object.keys(world.packs).sort().join() !== packDefinitions.map((p) => p.id).sort().join())
       return false;
+    const sectionIndexes = /* @__PURE__ */ new Map();
     for (const pack of packDefinitions) {
       if (!pack.choices) continue;
       const state = world.packs[pack.id];
@@ -75504,7 +75526,7 @@
           ...world,
           packs: { ...world.packs, [pack.id]: { ...state, choices: choices2, flags: flags2 } }
         };
-        return entityEnabled(prior, id3, true);
+        return entityEnabled(prior, id3, true, sectionIndexes);
       };
       if (!record6(state) || !validRecitals(world, pack) || !validReadingDecisions(world, pack) || pack.recital?.sites?.length && !validPoemReadings(
         world,
@@ -75523,7 +75545,7 @@
         ...pack.recital ? ["recitals"] : [],
         ...pack.recital?.sites?.length ? ["poemReadings"] : []
       ].sort().join() || ![state.choices, state.flags, state.receipts, state.met].every(record6) || Object.entries(state.met).some(
-        ([id3, turn]) => !owns5(pack.avatars, id3) || !Number.isSafeInteger(turn) || turn < 0 || turn > world.turn || (retirementTurn(world, pack, id3) !== null ? !validRetiredMeeting(world, pack, id3, turn, conditionsMet) : (closingFlags(id3).length || !entityEnabled(world, id3, true)) && !enabledAtMeeting(id3, turn)) || world.opening && !sharedEnabled(world) && world.opening.met?.[id3] !== turn
+        ([id3, turn]) => !owns5(pack.avatars, id3) || !Number.isSafeInteger(turn) || turn < 0 || turn > world.turn || (retirementTurn(world, pack, id3) !== null ? !validRetiredMeeting(world, pack, id3, turn, conditionsMet) : (closingFlags(id3).length || !entityEnabled(world, id3, true, sectionIndexes)) && !enabledAtMeeting(id3, turn)) || world.opening && !sharedEnabled(world) && world.opening.met?.[id3] !== turn
       ))
         return false;
       if (world.opening && !sharedEnabled(world) && Object.keys(world.opening.met || {}).some(
@@ -75562,7 +75584,7 @@
       if (!equals(choices, state.choices) || !equals(flags, state.flags))
         return false;
       for (const [id3, actor] of Object.entries(pack.avatars)) {
-        const inactive = !entityEnabled(world, id3, true), retired = retirementTurn(world, pack, id3);
+        const inactive = !entityEnabled(world, id3, true, sectionIndexes), retired = retirementTurn(world, pack, id3);
         if (inactive && retired === null && owns5(state.met, id3) && closingFlags(id3).length) {
           const closed = lastClosure(id3), saved = world.actors[id3];
           if (closed === null || saved.lastTalk > closed || saved.crossed > (actor.journey ? actor.journey.path.length - 1 : 0) || actor.travels === false && !actor.journey && saved.place !== actor.place && !actor.previousHomes?.includes(saved.place))
@@ -75572,7 +75594,7 @@
           return false;
       }
       for (const [id3, item2] of Object.entries(pack.items || {}))
-        if (!personalNesting(world, packDefinitions, id3, world.items[id3]?.holder) && !entityEnabled(world, id3) && (world.items[id3]?.holder !== item2.holder || world.items[id3]?.history?.length !== 0))
+        if ((world.items[id3]?.holder !== item2.holder || world.items[id3]?.history?.length !== 0) && !personalNesting(world, packDefinitions, id3, world.items[id3]?.holder) && !entityEnabled(world, id3, false, sectionIndexes))
           return false;
     }
     return validPersonalQuests(world, packDefinitions, {
