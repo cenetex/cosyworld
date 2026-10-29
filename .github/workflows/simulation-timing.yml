@@ -6,7 +6,7 @@ jobs:
   measure:
     if: github.head_ref == 'codex/hosted-simulation-measure'
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 10
     env:
       CI: true
     steps:
@@ -16,12 +16,8 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci --prefer-offline --no-audit --no-fund
-      - name: Measure Book I attempts separately
-        shell: bash
-        run: |
-          result=0
-          for attempt in 1 2; do
-            echo "Book I attempt ${attempt}"
-            npx vitest run test/card-greek-book-one.test.mjs -t 'replays ordered dialogue and deeds through the bundled shared rules' --retry=0 --reporter=verbose || result=1
-          done
-          exit "$result"
+      - name: Verify long simulations under final limits
+        run: >-
+          npx vitest run test/card-game.test.mjs test/card-liveness.test.mjs
+          -t 'preserves unique objects and valid state across 4000 varied turns|keeps every avatar progressing after long loose play'
+          --retry=0 --reporter=verbose
