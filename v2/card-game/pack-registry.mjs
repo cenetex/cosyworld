@@ -10,7 +10,7 @@ import {
 } from "./poem-readings.mjs";
 import { readingCatalogs } from "./poem-catalogs.mjs";
 import { boardyPack, BOARDY, boardyActive } from "./boardyai.mjs";
-import { sectionAllows } from "./pack-sections.mjs";
+import { indexSections, sectionAllows } from "./pack-sections.mjs";
 import {
   retirementTurn,
   retireAfterReport,
@@ -119,8 +119,10 @@ if (compositionProblems.length)
   throw new Error(
     `Invalid card world composition: ${compositionProblems.join("; ")}`,
   );
-export const packDefinition = (id) =>
-  packDefinitions.find((p) => p.id === id) || null;
+const packsById = new Map();
+for (const pack of packDefinitions)
+  if (!packsById.has(pack.id)) packsById.set(pack.id, pack);
+export const packDefinition = (id) => packsById.get(id) || null;
 
 const merge = (field) =>
   Object.fromEntries(
@@ -319,7 +321,12 @@ export function entityActive(world, id) {
   if (humanAvatar(id) && !humanPresent(world, id)) return false;
   return entityEnabled(world, id);
 }
-function entityEnabled(world, id, saved = false) {
+function indexedSections(pack, indexes) {
+  if (!indexes) return null;
+  if (!indexes.has(pack)) indexes.set(pack, indexSections(pack));
+  return indexes.get(pack);
+}
+function entityEnabled(world, id, saved = false, sectionIndexes = null) {
   if (localRoads.has(id)) return false;
   const e = packEntity(id);
   if (!e) return true;
@@ -333,14 +340,20 @@ function entityEnabled(world, id, saved = false) {
       e.packId,
       (e.requires || []).filter((c) => !saved || c.kind !== "connected_humans"),
     ) ||
-    !sectionAllows(world, pack, id, conditionsMet)
+    !sectionAllows(
+      world,
+      pack,
+      id,
+      conditionsMet,
+      indexedSections(pack, sectionIndexes),
+    )
   )
     return false;
   if (!pack.release || state.scope === "full") return true;
   if (pack.recital?.actor === id)
     return (
       (roamingQuestActor(id) || !!recitalVisit(world, pack)) &&
-      entityEnabled(world, world.actors[id].place)
+      entityEnabled(world, world.actors[id].place, false, sectionIndexes)
     );
   return [pack.release.places, pack.release.avatars, pack.release.items].some(
     (ids) => ids.includes(id),
@@ -574,6 +587,7 @@ export function validatePackStates(world) {
         .join()
   )
     return false;
+  const sectionIndexes = new Map();
   for (const pack of packDefinitions) {
     if (!pack.choices) continue;
     const state = world.packs[pack.id];
@@ -636,7 +650,7 @@ export function validatePackStates(world) {
         ...world,
         packs: { ...world.packs, [pack.id]: { ...state, choices, flags } },
       };
-      return entityEnabled(prior, id, true);
+      return entityEnabled(prior, id, true, sectionIndexes);
     };
     if (
       !record(state) ||
@@ -676,7 +690,8 @@ export function validatePackStates(world) {
           turn > world.turn ||
           (retirementTurn(world, pack, id) !== null
             ? !validRetiredMeeting(world, pack, id, turn, conditionsMet)
-            : (closingFlags(id).length || !entityEnabled(world, id, true)) &&
+            : (closingFlags(id).length ||
+                !entityEnabled(world, id, true, sectionIndexes)) &&
               !enabledAtMeeting(id, turn)) ||
           (world.opening &&
             !sharedEnabled(world) &&
@@ -749,7 +764,7 @@ export function validatePackStates(world) {
     if (!equals(choices, state.choices) || !equals(flags, state.flags))
       return false;
     for (const [id, actor] of Object.entries(pack.avatars)) {
-      const inactive = !entityEnabled(world, id, true),
+      const inactive = !entityEnabled(world, id, true, sectionIndexes),
         retired = retirementTurn(world, pack, id);
       if (
         inactive &&
@@ -782,10 +797,10 @@ export function validatePackStates(world) {
     }
     for (const [id, item] of Object.entries(pack.items || {}))
       if (
-        !personalNesting(world, packDefinitions, id, world.items[id]?.holder) &&
-        !entityEnabled(world, id) &&
         (world.items[id]?.holder !== item.holder ||
-          world.items[id]?.history?.length !== 0)
+          world.items[id]?.history?.length !== 0) &&
+        !personalNesting(world, packDefinitions, id, world.items[id]?.holder) &&
+        !entityEnabled(world, id, false, sectionIndexes)
       )
         return false;
   }
