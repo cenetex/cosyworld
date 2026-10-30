@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
-import { chromium } from "playwright";
+import { chromium, webkit } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave, people } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
@@ -9,11 +9,17 @@ import { questCards } from "../card-game/quest-cards.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { humanAvatarIds } from "../card-game/human-cast.mjs";
 
-const output = new URL("../../output/card-holder-collapse/", import.meta.url);
+const browserName = process.env.CARD_BROWSER || "chromium";
+const browserType = { chromium, webkit }[browserName];
+assert(browserType, `Unknown CARD_BROWSER: ${browserName}`);
+const output = new URL(
+  `../../output/card-holder-collapse${browserName === "chromium" ? "" : `-${browserName}`}/`,
+  import.meta.url,
+);
 await mkdir(output, { recursive: true });
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-const browser = await chromium.launch({ headless: true });
+const browser = await browserType.launch({ headless: true });
 try {
   for (const width of [1440, 390]) {
     for (const reducedMotion of ["no-preference", "reduce"]) {
@@ -73,10 +79,7 @@ try {
         page
           .locator('#hand .card[aria-pressed="true"]')
           .evaluateAll((cards) => cards.map((c) => c.dataset.card).sort());
-      async function collapsed() {
-        assert.equal(await card("vale").getAttribute("aria-expanded"), "false");
-        assert.equal(await frame("cloth").getAttribute("hidden"), "");
-        await card("vale").scrollIntoViewIfNeeded();
+      async function settleHand() {
         await page.locator("#hand").evaluate(async (hand) => {
           await Promise.allSettled(
             hand
@@ -89,6 +92,12 @@ try {
           await new Promise(requestAnimationFrame);
           await new Promise(requestAnimationFrame);
         });
+      }
+      async function collapsed() {
+        assert.equal(await card("vale").getAttribute("aria-expanded"), "false");
+        assert.equal(await frame("cloth").getAttribute("hidden"), "");
+        await card("vale").scrollIntoViewIfNeeded();
+        await settleHand();
         // Inspect the painted preview stack, including overlap and front-to-back order.
         const stack = await frame("vale").evaluate((frame) => {
           const card = frame.querySelector(".card"),
@@ -132,6 +141,32 @@ try {
           ),
           JSON.stringify(stack),
         );
+        if (width === 1440) {
+          const previewOffsets = () =>
+            frame("vale").evaluate((frame) => {
+              const face = frame.querySelector(".card").getBoundingClientRect();
+              return [...frame.querySelectorAll(".held-preview")].map(
+                (preview) => {
+                  const rect = preview.getBoundingClientRect();
+                  return { x: rect.left - face.left, y: rect.top - face.top };
+                },
+              );
+            });
+          await page.mouse.move(4, 100);
+          await settleHand();
+          const resting = await previewOffsets();
+          await card("vale").hover();
+          await settleHand();
+          const hovered = await previewOffsets();
+          assert(
+            hovered.every(
+              (offset, i) =>
+                Math.abs(offset.x - resting[i].x) < 0.5 &&
+                Math.abs(offset.y - resting[i].y) < 0.5,
+            ),
+            `Hover keeps the front card and its preview stack together: ${JSON.stringify({ resting, hovered })}`,
+          );
+        }
       }
       try {
         await page.goto(
