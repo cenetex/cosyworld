@@ -168,7 +168,7 @@ quests already use the shared quest ledger.
 
 ## Talk carries everything
 
-Everything the player learns arrives through Talk context (`quest-talk.mjs`,
+Everything the player learns arrives through Talk context (`want-talk.mjs`,
 `knowledge.mjs`, narrative context) and the existing noun cards. The AI never
 decides legality or rewards; the rules do.
 

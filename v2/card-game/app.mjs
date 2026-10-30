@@ -74,8 +74,8 @@ import {
   cardObservation,
 } from "./cards.mjs";
 import { knownActors } from "./quests.mjs";
-// Quests stay in the saved world and reach the cast through Talk context
-// (quest-talk.mjs). The hand holds only people, items and places.
+// Quests stay in the saved world; a person's want reaches the cast through
+// Talk context (want-talk.mjs). The hand holds only people, items and places.
 const $ = (id) => document.getElementById(id);
 const tableName = new URLSearchParams(window.location.search).get("table");
 const startingPack = landingPack(window.location.href);
