@@ -18,6 +18,12 @@ export async function revealCard(page, id) {
   await card.scrollIntoViewIfNeeded();
   return card;
 }
+// A held item stays raised through plays and new targets (#1417, #1435), so
+// a scripted step that names its own cards first lowers it, as Escape does.
+export async function clearSelection(page) {
+  if (await page.locator('#hand .card[aria-pressed="true"]').count())
+    await page.keyboard.press("Escape");
+}
 export async function selectCard(page, id, { touch = false } = {}) {
   const frame = page.locator(`#hand [data-card="${id}"]`).locator("..");
   const holder =

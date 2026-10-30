@@ -13,7 +13,11 @@ import { profiles } from "../card-game/memory.mjs";
 import { packDefinition } from "../card-game/pack-registry.mjs";
 import { recitalPoem } from "../card-game/pack-recital.mjs";
 import { ajaxStart } from "../../test/helpers/greek-ajax.mjs";
-import { selectCard, topicForChoice } from "./card-browser-helpers.mjs";
+import {
+  clearSelection,
+  selectCard,
+  topicForChoice,
+} from "./card-browser-helpers.mjs";
 
 function steps(route) {
   const move = (target) => ({ kind: "move", target });
@@ -192,6 +196,7 @@ export async function checkAjax(browser, origin) {
                 Object.entries(fields).every(([k, v]) => a[k] === v),
           );
           assert.ok(action, `Offer ${kind} ${JSON.stringify(fields)}`);
+          await clearSelection(page);
           await selectCard(
             page,
             action.cards?.[0] || action.item || action.target || "vale",

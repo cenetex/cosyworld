@@ -17,7 +17,11 @@ import {
   openDoorInvitation,
 } from "../../test/helpers/open-door.mjs";
 import { homecomingSteps } from "../../test/helpers/greek-homecoming.mjs";
-import { selectCard, topicForChoice } from "./card-browser-helpers.mjs";
+import {
+  clearSelection,
+  selectCard,
+  topicForChoice,
+} from "./card-browser-helpers.mjs";
 
 const output = new URL("../../output/greek-homecoming/", import.meta.url);
 await mkdir(output, { recursive: true });
@@ -167,14 +171,15 @@ try {
             await reportPage.locator(`#hand [data-card="${id}"]`).count(),
             0,
           );
+        // Since #1451 Talk carries one want line, not the report titles; the
+        // reports stay in Vale's saved hand, checked after the reload below.
         const facts = narrativeContext(saved)
           .entities.find((entity) => entity.id === "vale")
           .facts.join(" ");
-        for (const report of reports)
-          assert.ok(
-            facts.includes(report.title),
-            "Vale's Talk context names each return report",
-          );
+        assert.doesNotMatch(
+          facts,
+          /What I want most now|I also want to pursue/,
+        );
         const reloaded = await reportPage.evaluate(
           (key) => JSON.parse(localStorage.getItem(key)),
           reportKey,
@@ -218,6 +223,7 @@ try {
         : [action.item || action.target || "vale"];
       if (kind === "drop" && !cards.includes(fields.target))
         cards.push(fields.target);
+      await clearSelection(page);
       for (const id of [...new Set(cards)])
         await selectCard(page, id, { touch: width === 390 });
       const selector = topic
