@@ -36,8 +36,10 @@ discovery order and response choices are game adaptations.
 ## Art
 
 Four painted scenes and the Swede portrait were made with the built-in
-imagegen tool. The prompts are in `art-prompts.json`. The item icons extend
-the game's simple SVG item style. Art lives in `v2/card-game/assets/willows/`.
+imagegen tool. The prompts are in `art-prompts.json`. The eight transparent
+item paintings were supplied by the owner on 2026-10-30, made with built-in
+image generation; their prompts and source hashes are also in
+`art-prompts.json`. Art lives in `v2/card-game/assets/willows/`.
 
 ## Checks
 

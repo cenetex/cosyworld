@@ -12036,56 +12036,56 @@
           "text": "One wooden paddle remains beside the canoe. Its blade has been scraped strangely thin.",
           "persona": "A long wooden canoe paddle with a blade worn thin. It can be carried and laid beside the canoe. Its condition is a clue in the hull discovery.",
           "holder": "willows-landing",
-          "art": "assets/willows/paddle.svg"
+          "art": "assets/willows/paddle.png"
         },
         "willows-map": {
           "name": "River Map",
           "text": "The Danube divides into more channels than this creased map can show.",
           "persona": "A creased paper river map of the Danube below Pressburg, with channels and sandbanks marked in ink.",
           "holder": "willows-camp",
-          "art": "assets/willows/map.svg"
+          "art": "assets/willows/map.png"
         },
         "willows-rope": {
           "name": "Tent Rope",
           "text": "A spare length of rope lies coiled beside the tent.",
           "persona": "A spare coil of sound hemp rope. The preparation action uses it together with the waterproof sheet at the landing.",
           "holder": "willows-camp",
-          "art": "assets/willows/rope.svg"
+          "art": "assets/willows/rope.png"
         },
         "willows-sheet": {
           "name": "Waterproof Sheet",
           "text": "A folded waterproof sheet keeps the camping gear above the damp sand.",
           "persona": "A folded dark waterproof camping sheet. The preparation action lays it beneath the canoe, together with rope.",
           "holder": "willows-camp",
-          "art": "assets/willows/sheet.svg"
+          "art": "assets/willows/sheet.png"
         },
         "willows-provisions": {
           "name": "Food Sack",
           "text": "A canvas sack holds oatmeal, potatoes, onions and tea. Its tied mouth smells faintly of smoke.",
           "persona": "A canvas food sack holding the remaining camp provisions: oatmeal, potatoes, onions and tea. Counting the stores records the missing bread. Actual custody follows the current world facts.",
           "holder": "willows-camp",
-          "art": "assets/willows/provisions.svg"
+          "art": "assets/willows/provisions.png"
         },
         "willows-pot": {
           "name": "Stew Pot",
           "text": "An iron pot carries the smell of onions and yesterday's stew.",
           "persona": "A small black iron stew-pot, cold enough to carry. The smell of camp cooking clings to it.",
           "holder": "willows-camp",
-          "art": "assets/willows/pot.svg"
+          "art": "assets/willows/pot.png"
         },
         "willows-spoon": {
           "name": "Wooden Spoon",
           "text": "The long handle has darkened with years of cooking over open fires.",
           "persona": "A plain wooden cooking spoon with a long, smoke-darkened handle.",
           "holder": "willows-camp",
-          "art": "assets/willows/spoon.svg"
+          "art": "assets/willows/spoon.png"
         },
         "willows-pipe": {
           "name": "The Swede's Pipe",
           "text": "A worn briar pipe. The Swede turns it in his fingers while he listens.",
           "persona": "The Swede's well-used briar pipe. Its holder is supplied by the world facts.",
           "holder": "willows-swede",
-          "art": "assets/willows/pipe.svg"
+          "art": "assets/willows/pipe.png"
         }
       },
       "choices": [
