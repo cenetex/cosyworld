@@ -180,9 +180,16 @@ try {
         await page.screenshot({
           path: new URL(`speech-${width}-${motion}.png`, output).pathname,
         });
+        // A speaker who left this turn speaks at the destination (#1437), so
+        // only the speakers still in this room take a turn here.
+        const committed = await state();
+        const speakers = request.input.speakers.filter(
+          (id) => committed.actors[id]?.place === request.input.location,
+        );
+        assert.equal(speakers[0], "vale");
         const spoken = [];
         let queuedTurn = null;
-        for (const [i, speaker] of request.input.speakers.entries()) {
+        for (const [i, speaker] of speakers.entries()) {
           spoken.push(await page.locator("#speaker").innerText());
           assert.equal(spoken.at(-1), nameOf(speaker));
           assert.equal(
@@ -196,7 +203,7 @@ try {
           )
             await page.locator("#dialogue-advance").click();
           assert.equal(await card("vale").isDisabled(), false);
-          if (kind === "wait" && i === request.input.speakers.length - 1) {
+          if (kind === "wait" && i === speakers.length - 1) {
             queuedTurn = (await state()).turn;
             await selectCard(page, "vale");
             await page.locator("#card-actions .card-primary").click();
@@ -207,7 +214,7 @@ try {
             assert.equal((await state()).turn, queuedTurn);
           }
           await page.locator("#dialogue-advance").click();
-          if (i < request.input.speakers.length - 1) {
+          if (i < speakers.length - 1) {
             if (motion !== "reduce") {
               assert.equal(
                 await page.locator("#speaker").innerText(),
@@ -217,7 +224,7 @@ try {
             }
             await page.waitForFunction(
               (name) => document.querySelector("#speaker").textContent === name,
-              nameOf(request.input.speakers[i + 1]),
+              nameOf(speakers[i + 1]),
             );
           }
         }
