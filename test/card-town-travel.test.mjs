@@ -57,9 +57,7 @@ function releasedRoad(road, version = 16) {
 
 describe("local town visits and road history", () => {
   it.each([
-    ["greek-road-thebes", "greek-harbor", "greek-courtyard", 16],
     ["greek-road-athens-harbor", "greek-athens-harbor", "greek-athens", 16],
-    ["greek-road-thebes", "greek-harbor", "greek-courtyard", 17],
     ["greek-road-athens-harbor", "greek-athens-harbor", "greek-athens", 17],
   ])(
     "continues a released visit on %s inside its town",
@@ -95,6 +93,74 @@ describe("local town visits and road history", () => {
       expect(decodeSave(encodeSave(current))).toEqual(current);
     },
   );
+
+  it.each([16, 17])(
+    "keeps a released rules %i visit on the Theban Harbor Road",
+    (version) => {
+      const road = "greek-road-thebes";
+      const before = releasedRoad(road, version);
+      before.items.lamp.holder = road;
+      const known = [
+        ["greek-harbor", road],
+        [road, "greek-courtyard"],
+      ];
+      before.routeKnowledge.vale = known;
+      const current = decodeSave(JSON.stringify(before));
+      expect(current.actors.vale.place).toBe(road);
+      expect(current.actors.mara.place).toBe(road);
+      expect(current.items.lamp.holder).toBe(road);
+      expect(current.routeKnowledge.vale).toEqual(known);
+      expect(current.packs["greek-drama"].revision).toBe(8);
+      expect(exits(current, road, "vale")).toEqual([
+        "greek-harbor",
+        "greek-courtyard",
+      ]);
+      expect(decodeSave(encodeSave(current))).toEqual(current);
+    },
+  );
+
+  it("sends a remembered harbor-to-Thebes step along the revived road", () => {
+    const road = "greek-road-thebes";
+    const before = releasedRoad("greek-harbor", 25);
+    expect(before.packs["greek-drama"].revision).toBe(7);
+    before.routeKnowledge.vale = [
+      ["greek-harbor", "greek-courtyard"],
+      ["greek-courtyard", "greek-harbor"],
+      ["greek-harbor", road],
+    ];
+    const help = addQuestRecord(before, {
+      holder: { kind: "place", id: "greek-harbor" },
+      program: {
+        id: "help:greek-rhapsode:old",
+        name: "Open the way to Theban Courtyard",
+        steps: [
+          {
+            items: [],
+            avatars: [],
+            location: "greek-harbor",
+            passage: {
+              actor: "greek-rhapsode",
+              from: "greek-harbor",
+              to: "greek-courtyard",
+              kind: "passage",
+            },
+          },
+        ],
+      },
+    });
+    const current = decodeSave(JSON.stringify(before));
+    expect(current.packs["greek-drama"].revision).toBe(8);
+    expect(current.routeKnowledge.vale).toEqual([
+      ["greek-harbor", road],
+      [road, "greek-courtyard"],
+      ["greek-courtyard", road],
+      [road, "greek-harbor"],
+    ]);
+    expect(current.quests.records[help.key].program.steps[0].passage.to).toBe(
+      road,
+    );
+    expect(decodeSave(encodeSave(current))).toEqual(current);
+  });
 
   it("keeps a free place for a traveler when the port has four people", () => {
     const before = releasedRoad("greek-road-athens-harbor");
@@ -162,8 +228,36 @@ describe("local town visits and road history", () => {
       expect.arrayContaining(["greek-athens", "greek-marathon"]),
     );
     expect(exits(w, "greek-piraeus", "vale")).toContain("greek-eleusis");
+    expect(roads.map(([id]) => id).sort()).toEqual([
+      "greek-road-athens-piraeus",
+      "greek-road-thebes",
+    ]);
     expect(exits(w, "greek-athens-harbor", "vale")).toContain("greek-athens");
-    expect(exits(w, "greek-harbor", "vale")).toContain("greek-courtyard");
+  });
+
+  it("the Wine-Dark Harbor reaches Thebes only by the Theban Harbor Road", () => {
+    const w = createWorld({ packScopes: { "greek-drama": "full" } });
+    w.crossings["pond-greek-harbor"].discovered = true;
+    const road = "greek-road-thebes";
+    expect(entityActive(w, road)).toBe(true);
+    expect(exits(w, "greek-harbor", "vale")).not.toContain("greek-courtyard");
+    expect(exits(w, "greek-courtyard", "vale")).not.toContain("greek-harbor");
+    expect(exits(w, "greek-harbor", "vale")).toEqual(
+      expect.arrayContaining([road, "greek-argolid-road"]),
+    );
+    expect(exits(w, road, "vale")).toEqual(["greek-harbor", "greek-courtyard"]);
+    w.actors.vale.place = "greek-harbor";
+    let s = w;
+    for (const target of [road, "greek-courtyard"]) {
+      const move = legalActions(s, "vale").find(
+        (a) => a.kind === "move" && a.target === target,
+      );
+      expect(move, target).toBeTruthy();
+      const result = play(s, move);
+      expect(result.ok, result.error).toBe(true);
+      s = result.state;
+      expect(s.actors.vale.place).toBe(target);
+    }
   });
 
   it("gives every walkable road its own painting", () => {

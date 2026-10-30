@@ -38,7 +38,7 @@
     "greek-harbor": {
       "name": "The Wine-Dark Harbor",
       "text": "Worn steps climb from the stone landing toward the town.",
-      "exits": ["greek-courtyard", "greek-road-thebes", "greek-argolid-road"],
+      "exits": ["greek-road-thebes", "greek-argolid-road"],
       "backdrop": "assets/greek-drama/harbor-open-berth.webp",
       "persona": "Worn steps climb from the stone landing toward the town."
     },
@@ -46,7 +46,6 @@
       "name": "Theban Courtyard",
       "text": "Bread cools beneath a cloth. An empty place remains at the common table.",
       "exits": [
-        "greek-harbor",
         "greek-road-thebes",
         "greek-well",
         "greek-gate",

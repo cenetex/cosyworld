@@ -149,6 +149,7 @@ try {
       "greek-athens-harbor",
       "greek-ship",
       "greek-harbor",
+      "greek-road-thebes",
       "greek-courtyard",
     ]) {
       await step("move", target);

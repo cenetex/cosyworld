@@ -152,16 +152,24 @@ export function upgradeShoreRouteSave(s) {
     const expanded = known.flatMap((edge) => {
       if (!Array.isArray(edge) || edge.length !== 2) return [edge];
       const [from, to] = edge;
-      if ((moved.has(from) && to === "station") ||
-          (from === "station" && moved.has(to))) {
+      if (
+        (moved.has(from) && to === "station") ||
+        (from === "station" && moved.has(to))
+      ) {
         changed = true;
-        return [[from, "pond"], ["pond", to]];
+        return [
+          [from, "pond"],
+          ["pond", to],
+        ];
       }
       return [edge];
     });
-    if (changed) s.routeKnowledge[actor] = [...new Map(
-      expanded.map((edge) => [JSON.stringify(edge), edge]),
-    ).values()];
+    if (changed)
+      s.routeKnowledge[actor] = [
+        ...new Map(
+          expanded.map((edge) => [JSON.stringify(edge), edge]),
+        ).values(),
+      ];
   }
 }
 
@@ -175,15 +183,19 @@ export function upgradeBoardyStationSave(s) {
   if (card?.holder === "pond") card.holder = "station";
   for (const [actor, known] of Object.entries(s.routeKnowledge || {})) {
     if (!Array.isArray(known)) continue;
-    s.routeKnowledge[actor] = [...new Map(known.map((edge) => {
-      if (Array.isArray(edge) && edge.length === 2) {
-        if (edge[0] === "pond" && edge[1] === "boardyai-parlour")
-          edge = ["station", "boardyai-parlour"];
-        else if (edge[0] === "boardyai-parlour" && edge[1] === "pond")
-          edge = ["boardyai-parlour", "station"];
-      }
-      return [JSON.stringify(edge), edge];
-    })).values()];
+    s.routeKnowledge[actor] = [
+      ...new Map(
+        known.map((edge) => {
+          if (Array.isArray(edge) && edge.length === 2) {
+            if (edge[0] === "pond" && edge[1] === "boardyai-parlour")
+              edge = ["station", "boardyai-parlour"];
+            else if (edge[0] === "boardyai-parlour" && edge[1] === "pond")
+              edge = ["boardyai-parlour", "station"];
+          }
+          return [JSON.stringify(edge), edge];
+        }),
+      ).values(),
+    ];
   }
   saved.revision = 2;
 }
@@ -249,14 +261,52 @@ export function upgradeGreekTownSave(s) {
   saved.revision = 6;
 }
 
-// Revision 8 keeps one Attic road, from Athens to Piraeus. The other Attic
-// roads are retired; their towns link Colonus, Marathon and Eleusis directly.
+// Revision 8 joins towns by one road each. Inside a town places link
+// directly; between towns there is one road or a sea lane.
+// - Attica keeps one road, from Athens to Piraeus. The other Attic roads are
+//   retired; Colonus, Marathon and Eleusis are direct visits in their towns.
+// - The Theban Harbor Road is the only way between the harbor and Thebes.
 export function upgradeGreekOneRoadSave(s) {
   const pack = packDefinitions.find((p) => p.id === "greek-drama");
   const saved = s.packs?.[pack?.id];
   if (!pack || pack.revision < 8 || saved?.revision !== 7) return;
+  restoreThebanRoad(s, pack);
   foldRetiredRoads(s);
   saved.revision = 8;
+}
+
+// The Theban Harbor Road is again the only way between the harbor and Thebes.
+// Known direct steps pass along the road, and an open request for passage
+// between the two asks for the road instead.
+function restoreThebanRoad(s, pack) {
+  const road = "greek-road-thebes";
+  const [harbor, town] = pack.places[road].road;
+  const direct = (from, to) =>
+    (from === harbor && to === town) || (from === town && to === harbor);
+  for (const [actor, edges] of Object.entries(s.routeKnowledge || {})) {
+    if (!Array.isArray(edges)) continue;
+    const paths = edges.flatMap((edge) =>
+      Array.isArray(edge) && direct(...edge)
+        ? [
+            [edge[0], road],
+            [road, edge[1]],
+          ]
+        : [edge],
+    );
+    s.routeKnowledge[actor] = [
+      ...new Map(paths.map((edge) => [JSON.stringify(edge), edge])).values(),
+    ];
+  }
+  for (const quest of Object.values(s.quests?.records || {}))
+    if (quest.completedTurn === null && !quest.retired)
+      for (const step of quest.program?.steps || []) {
+        const passage = step.passage;
+        if (passage?.kind === "passage" && direct(passage.from, passage.to))
+          passage.to = road;
+      }
+  for (const state of Object.values(s.roamingQuests || {}))
+    if (state.blocked && direct(state.blocked.from, state.blocked.to))
+      state.blocked = null;
 }
 
 // A known step between two Greek places that no exit or route joins any more

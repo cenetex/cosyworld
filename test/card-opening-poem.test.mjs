@@ -31,8 +31,9 @@ const courtyard = (world) =>
   storyQuests(world).find((q) => q.id === STORY_QUEST_CARDS[2]);
 const act = (world, kind, target) => {
   if (kind === "move") {
-    const steps=greekTravelTargets(world.actors.vale.place,target);
-    if(steps.length>1) return steps.reduce((w,to)=>act(w,"move",to),world);
+    const steps = greekTravelTargets(world.actors.vale.place, target);
+    if (steps.length > 1)
+      return steps.reduce((w, to) => act(w, "move", to), world);
   }
   const action = legalActions(world).find(
     (a) => a.kind === kind && (!target || a.target === target),
@@ -109,20 +110,24 @@ describe("the opening poem", () => {
 
   it("reaches the completed quest site and stays when the player leaves", () => {
     const s = openingFixture("refusal");
-    expect(latestQuestCompletion(s.water).locationId).toBe("greek-courtyard");
-    expect(s.water.roamingQuests[bard].target.locationId).toBe(
-      "greek-courtyard",
+    // Keep the shore cast's own quests from naming a newer site while the
+    // Bard sails back; the walk through the Theban road takes a turn.
+    const offer = structuredClone(s.waterOffer);
+    offer.actors.moth.place = offer.actors.keeper.place = "greek-battlefield";
+    const jar = legalActions(offer).find(
+      (a) => a.choiceId === "greek-return-water-jar",
     );
-    // The Bard is still at sea. Keep the shore cast's own quests from
-    // naming a newer site while he sails back.
-    const water = structuredClone(s.water);
-    water.actors.moth.place = water.actors.keeper.place = "greek-battlefield";
+    const chosen = play(offer, jar);
+    expect(chosen.ok, chosen.error).toBe(true);
+    const water = chosen.state;
+    expect(latestQuestCompletion(water).locationId).toBe("greek-courtyard");
+    expect(water.roamingQuests[bard].target.locationId).toBe("greek-courtyard");
     const arrived = untilBard(act(reload(water), "wait"), "greek-courtyard");
     expect(arrived.actors[bard].place).toBe("greek-courtyard");
     const waiting = act(reload(arrived), "wait");
     expect(waiting.actors[bard].place).toBe("greek-courtyard");
     expect(poemText(act(waiting, "talk", bard))).toContain(
-      lines(s.water).join(" "),
+      lines(water).join(" "),
     );
     const away = act(reload(waiting), "move", "greek-well");
     expect(away.actors[bard].place).toBe("greek-courtyard");
@@ -357,6 +362,7 @@ describe("the opening poem", () => {
     act((a) => a.choiceId === "greek-return-water-jar");
     const poem = openingPoem(world);
     expect(poem.stanzas.at(-1).id).toBe("greek-return-water-jar");
+    act((a) => a.kind === "move" && a.target === "greek-road-thebes");
     act((a) => a.kind === "move" && a.target === "greek-harbor");
     act((a) => a.kind === "wait");
     expect(openingPoem(reload(world))).toEqual(poem);

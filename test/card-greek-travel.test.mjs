@@ -128,7 +128,10 @@ describe("Greek ports and fixed roads", () => {
     expect(exits(after, "greek-athens-harbor", "vale")).toContain(
       "greek-athens",
     );
-    expect(exits(after, "greek-harbor", "vale")).toContain("greek-courtyard");
+    expect(exits(after, "greek-harbor", "vale")).toContain("greek-road-thebes");
+    expect(exits(after, "greek-harbor", "vale")).not.toContain(
+      "greek-courtyard",
+    );
     expect(exits(after, "greek-harbor", "vale")).not.toContain("greek-athens");
     expect(exits(after, "greek-harbor", "vale")).not.toContain("greek-piraeus");
   });

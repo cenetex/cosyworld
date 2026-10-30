@@ -196,8 +196,8 @@ ritual reload, visible state, travel and conversation without paid model calls.
 ## World packs and the Wine-Dark Sea
 
 At quiet Black Pond, the fueled Lamp and Black cloth can summon a ship.
-Board it, then disembark at **The Wine-Dark Harbor**. The local path leads
-to **Before the Burial**. The ship keeps its dock and passengers in the same
+Board it, then disembark at **The Wine-Dark Harbor**. The Theban Harbor Road
+leads to Thebes and **Before the Burial**. The ship keeps its dock and passengers in the same
 saved world. Once summoned, it remains available for later crossings.
 
 After a public Theban response, Dione offers the next journey at her table.
@@ -206,14 +206,15 @@ Grove, Eleusinian Sanctuary, and Marathon Altar. The invitation opens the
 roads for every traveler in the shared world. Athens Harbor and Piraeus join
 the ship’s stops. Athens Harbor connects directly to the grand Agora through city streets.
 
-Roads join towns, not the places inside a town. In Attica one shared road
-scene, the Athens–Piraeus Road, joins Athens and Piraeus. Colonus and
-Marathon are direct visits from the Agora; Eleusis is a direct visit from
-Piraeus. A road has two fixed ends, shown by destination cards in a fixed
-order. Avatars come first in the hand, followed by the first end, the road,
-and the other end. Its entry card names the place ahead. Travelers can meet,
-wait and carry objects on the road. Myrine walks from Eleusis to Piraeus in
-one Accompany play.
+Roads separate towns, and places inside a town link directly. Between two
+towns there is one road or a sea lane. In Attica one shared road scene, the
+Athens–Piraeus Road, joins Athens and Piraeus. Colonus and Marathon are direct
+visits from the Agora; Eleusis is a direct visit from Piraeus. The Theban
+Harbor Road is the only way between the Wine-Dark Harbor and Thebes. A road
+has two fixed ends, shown by destination cards in a fixed order. Avatars come
+first in the hand, followed by the first end, the road, and the other end. Its
+entry card names the place ahead. Travelers can meet, wait and carry objects on
+the road. Myrine walks from Eleusis to Piraeus in one Accompany play.
 
 A pack marks an old road `retired: true` to keep its ID for saved history.
 No exit leads onto a retired road. A save that stands on one continues at

@@ -766,6 +766,19 @@ fn earlier_completed_quests_gain_a_pending_bard_visit_after_recorded_upgrade() {
         .unwrap();
         assert_eq!(
             upgraded.game["actors"]["greek-rhapsode"]["place"],
+            "greek-road-thebes"
+        );
+        let action = home_action(&upgraded, 0, "wait");
+        full_store::commit(
+            &c,
+            &id,
+            &mut upgraded,
+            json!({"op":"play","actor":"vale","action":action}),
+            now(),
+        )
+        .unwrap();
+        assert_eq!(
+            upgraded.game["actors"]["greek-rhapsode"]["place"],
             "greek-courtyard"
         );
         assert_eq!(
@@ -2095,6 +2108,7 @@ fn shared_quest_receipts_drive_bard_travel_after_released_rules_upgrade_and_repl
             } else {
                 &[
                     "greek-harbor",
+                    "greek-road-thebes",
                     "greek-courtyard",
                     "greek-well",
                     "greek-well",

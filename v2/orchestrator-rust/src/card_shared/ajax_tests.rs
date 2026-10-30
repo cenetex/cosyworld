@@ -221,6 +221,7 @@ fn ajax_appeal_custody_spoken_accounts_and_second_carrier_replay_from_the_journa
         "greek-ajax-landing",
         "greek-ship",
         "greek-harbor",
+        "greek-road-thebes",
         "greek-courtyard",
     ] {
         if target == "greek-ship" {
@@ -310,28 +311,34 @@ fn ajax_upgrade_keeps_a_released_nineteen_camp_visit_and_replays_its_exit() {
         for field in ["turn", "eventSeq", "log", "knowledge"] {
             assert_eq!(current.game[field], old.game[field], "Preserve {field}");
         }
-        // Known steps onto a retired road become walkable paths; every other
-        // known step stays.
-        let walked = |edges: &Value| -> Vec<Value> {
-            edges.as_array().unwrap().iter().cloned().collect()
-        };
+        // Greek revision 8 sends a remembered harbor-to-Thebes step along the
+        // Theban Harbor Road, and a known step onto a retired road becomes a
+        // walkable path. Every other known step stays.
+        let walkable = ["greek-road-athens-piraeus", "greek-road-thebes"];
+        let walked =
+            |edges: &Value| -> Vec<Value> { edges.as_array().unwrap().iter().cloned().collect() };
         for (who, edges) in old.game["routeKnowledge"].as_object().unwrap() {
             let now_known = walked(&current.game["routeKnowledge"][who]);
             for edge in walked(edges) {
-                let onto_road = edge
-                    .as_array()
-                    .unwrap()
-                    .iter()
-                    .any(|end| end.as_str().unwrap().starts_with("greek-road-"));
-                if !onto_road {
-                    assert!(now_known.contains(&edge), "{who} still knows {edge}");
+                let (from, to) = (edge[0].as_str().unwrap(), edge[1].as_str().unwrap());
+                let expected = match (from, to) {
+                    ("greek-harbor", "greek-courtyard") | ("greek-courtyard", "greek-harbor") => {
+                        vec![json!([from, walkable[1]]), json!([walkable[1], to])]
+                    }
+                    _ if from.starts_with("greek-road-") || to.starts_with("greek-road-") => {
+                        vec![]
+                    }
+                    _ => vec![edge.clone()],
+                };
+                for step in expected {
+                    assert!(now_known.contains(&step), "{who} knows {step}");
                 }
             }
             for edge in &now_known {
                 for end in edge.as_array().unwrap() {
                     let end = end.as_str().unwrap();
                     assert!(
-                        !end.starts_with("greek-road-") || end == "greek-road-athens-piraeus",
+                        !end.starts_with("greek-road-") || walkable.contains(&end),
                         "{who} knows a step onto retired {end}"
                     );
                 }

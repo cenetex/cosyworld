@@ -149,19 +149,41 @@ describe("the household reaches its berth", () => {
       ["move", { target: "greek-road-athens-piraeus" }],
       ["move", { target: "greek-athens" }],
       ["move", { target: "greek-athens-harbor" }],
-      ["wait", {}],
-      ["wait", {}],
-      ["wait", {}],
-      ["move", { target: "greek-ship" }],
+      ["board", {}],
       // Athens Harbor has no lane to the Wine-Dark Harbor: sail by the pond.
       ["course", { target: "pond" }],
       ["wait", {}],
       ["course", { target: "greek-harbor" }],
       ["wait", {}],
       ["move", { target: "greek-harbor" }],
+      ["move", { target: "greek-road-thebes" }],
       ["move", { target: "greek-courtyard" }],
       ["choose", { choiceId: "greek-homecoming-read-berth-family" }],
     ]) {
+      if (kind === "board") {
+        // Wait at Athens Harbor until the ship calls, then go aboard.
+        for (let turn = 0; turn < 12; turn += 1) {
+          const view = shared(world, "mara", ["mara"]);
+          let board = null;
+          try {
+            board = openDoorAction(view.world, "move", {
+              target: "greek-ship",
+            });
+          } catch {
+            board = null;
+          }
+          const next = board || openDoorAction(view.world, "wait", {});
+          const result = shared(world, "mara", ["mara"], {
+            op: "play",
+            action: next,
+          });
+          expect(result.ok).toBe(true);
+          world = result.world;
+          if (board) break;
+        }
+        expect(world.actors.mara.place).toBe("greek-ship");
+        continue;
+      }
       const view = shared(world, "mara", ["mara"]);
       const action = openDoorAction(view.world, kind, fields);
       const result = shared(world, "mara", ["mara"], { op: "play", action });

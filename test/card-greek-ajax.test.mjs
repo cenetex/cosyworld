@@ -296,6 +296,7 @@ describe("shared Ajax testimony", () => {
       "greek-ajax-landing",
       "greek-ship",
       "greek-harbor",
+      "greek-road-thebes",
       "greek-courtyard",
     ]) {
       if (target === "greek-ship") {

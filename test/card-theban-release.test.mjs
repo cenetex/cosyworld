@@ -36,6 +36,7 @@ const openingPlaces = [
   "greek-battlefield",
   "greek-palace",
   "greek-sanctuary",
+  "greek-road-thebes",
   "greek-ship",
 ];
 const openDoorPlaces = [
@@ -53,10 +54,7 @@ const ajaxPlaces = pack.sections.find(
 const retired = (id) => pack.places[id]?.retired === true;
 const openDoorReleasedPlaces = pack.release.places.filter(
   (id) =>
-    !retired(id) &&
-    !["greek-road-thebes", "greek-road-athens-harbor", ...ajaxPlaces].includes(
-      id,
-    ),
+    !retired(id) && !["greek-road-athens-harbor", ...ajaxPlaces].includes(id),
 );
 const openDoorItems = [
   "greek-burial-petition",
@@ -99,7 +97,7 @@ const reachable = (s) => {
   return [...seen].sort();
 };
 describe("the Theban release and its ship", () => {
-  it("opens seven shore places, then the ship after its first signal", () => {
+  it("opens seven shore places and the harbor road, then the ship after its first signal", () => {
     const s = createWorld();
     expect(s.packs[pack.id].scope).toBe("opening");
     expect(reachable(s)).toEqual(
@@ -107,15 +105,11 @@ describe("the Theban release and its ship", () => {
     );
     s.crossings["pond-greek-harbor"].discovered = true;
     expect(reachable(s)).toEqual([...openingPlaces].sort());
-    expect(reachable(s)).toHaveLength(8);
+    expect(reachable(s)).toHaveLength(9);
     expect(pack.release.places).toHaveLength(27);
     expect(
       pack.release.places
-        .filter(
-          (id) =>
-            !retired(id) &&
-            !["greek-road-thebes", "greek-road-athens-harbor"].includes(id),
-        )
+        .filter((id) => !retired(id) && id !== "greek-road-athens-harbor")
         .sort(),
     ).toEqual(
       [
@@ -135,10 +129,10 @@ describe("the Theban release and its ship", () => {
     s = act(s, "choose", { choiceId: "greek-decline-burial" });
     s.actors.vale.place = "greek-courtyard";
     s = act(s, "choose", { choiceId: "greek-courtyard-refusal" });
-    expect(reachable(s)).toHaveLength(8);
+    expect(reachable(s)).toHaveLength(9);
     s = act(s, "choose", { choiceId: "greek-open-door-invite-refusal" });
     expect(reachable(s)).toEqual([...openDoorReleasedPlaces].sort());
-    expect(reachable(s)).toHaveLength(15);
+    expect(reachable(s)).toHaveLength(16);
     s = decodeSave(encodeSave(s));
     expect(reachable(s)).toEqual([...openDoorReleasedPlaces].sort());
     for (const start of openDoorPlaces) {

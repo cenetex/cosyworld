@@ -2542,7 +2542,6 @@
             name: "The Wine-Dark Harbor",
             text: "Worn steps climb from the stone landing toward the town.",
             exits: [
-              "greek-courtyard",
               "greek-road-thebes",
               "greek-argolid-road"
             ],
@@ -2553,7 +2552,6 @@
             name: "Theban Courtyard",
             text: "Bread cools beneath a cloth. An empty place remains at the common table.",
             exits: [
-              "greek-harbor",
               "greek-road-thebes",
               "greek-well",
               "greek-gate",
@@ -22143,8 +22141,36 @@
     const pack = packDefinitions.find((p) => p.id === "greek-drama");
     const saved = s.packs?.[pack?.id];
     if (!pack || pack.revision < 8 || saved?.revision !== 7) return;
+    restoreThebanRoad(s, pack);
     foldRetiredRoads(s);
     saved.revision = 8;
+  }
+  function restoreThebanRoad(s, pack) {
+    const road = "greek-road-thebes";
+    const [harbor, town] = pack.places[road].road;
+    const direct = (from, to) => from === harbor && to === town || from === town && to === harbor;
+    for (const [actor, edges] of Object.entries(s.routeKnowledge || {})) {
+      if (!Array.isArray(edges)) continue;
+      const paths = edges.flatMap(
+        (edge) => Array.isArray(edge) && direct(...edge) ? [
+          [edge[0], road],
+          [road, edge[1]]
+        ] : [edge]
+      );
+      s.routeKnowledge[actor] = [
+        ...new Map(paths.map((edge) => [JSON.stringify(edge), edge])).values()
+      ];
+    }
+    for (const quest of Object.values(s.quests?.records || {}))
+      if (quest.completedTurn === null && !quest.retired)
+        for (const step of quest.program?.steps || []) {
+          const passage = step.passage;
+          if (passage?.kind === "passage" && direct(passage.from, passage.to))
+            passage.to = road;
+        }
+    for (const state of Object.values(s.roamingQuests || {}))
+      if (state.blocked && direct(state.blocked.from, state.blocked.to))
+        state.blocked = null;
   }
   function walkablePath(from, to) {
     const edges = authoredRouteEdges().filter(
