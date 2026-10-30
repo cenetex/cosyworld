@@ -167,8 +167,12 @@ Clicking the scene keeps that item selected and held. Tap its card again or
 press Escape to clear it.
 The preview follows the figure's facing and movement and shows the item's light,
 ringing, and covering. Lowering that card returns to the other selected item;
-clearing the selection clears the preview. Giving or dropping the item clears it
-as soon as custody changes.
+clearing the selection clears the preview. A play that leaves the item in the
+player's hands, such as Light or Cover, keeps it raised with the player's card,
+so the row offers the next play, like Put out. Choosing a third card while the
+item is raised replaces the other card and keeps the item. Giving, dropping or
+trading the item clears it as soon as custody changes. For half a second after
+a play, the redrawn row ignores taps, so a double tap cannot reach the new slot.
 
 No card face or hover text exposes quest checklists, levels, hope fractions,
 Inspiration, fuel arithmetic, ringing deadlines, or ritual phases. Each newly

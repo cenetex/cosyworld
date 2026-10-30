@@ -310,10 +310,9 @@ try {
       assert(geometry.art / geometry.card > 0.9, JSON.stringify(geometry));
       await page.keyboard.press("Escape");
       await cards("cloth", "lamp");
-      await assertHeldItem(null);
+      // Covering keeps both items in hand, so the covered lamp stays raised.
       assert.equal((await state()).crossings["pond-greek-harbor"].phase, 1);
       assert.equal(await card("lamp").getAttribute("data-covered"), "true");
-      await selectCard(page, "lamp");
       await assertHeldItem("lamp");
       assert.equal(await heldPreview.getAttribute("data-covered"), "true");
       assert.equal(await heldPreview.locator(".object-cover").count(), 1);
@@ -352,6 +351,7 @@ try {
         "halfway save restored",
       );
       await cards("cloth", "lamp");
+      await page.keyboard.press("Escape");
       await cards("cloth");
       assert.equal((await state()).crossings["pond-greek-harbor"].phase, 4);
       await card("greek-ship").waitFor({ state: "attached" });
@@ -443,7 +443,8 @@ try {
         targetPosition: { x: width / 2, y: 110 },
       });
       await ready();
-      await assertHeldItem(null);
+      // Both items stay in Vale's hands, so the lamp stays held.
+      await assertHeldItem("lamp");
       assert.equal(
         (await state()).items.cloth.holder,
         "lamp",

@@ -100,6 +100,8 @@ try {
     await card("clearing").waitFor({ state: "attached" });
     await ready();
     const use = async (id) => {
+      // A held item stays raised after its play; start each play fresh.
+      await page.keyboard.press("Escape");
       await selectCard(page, id);
       await page.locator("#card-actions .card-primary").click();
       await ready();
