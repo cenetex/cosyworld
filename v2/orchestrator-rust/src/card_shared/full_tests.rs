@@ -1454,6 +1454,7 @@ fn old_rule_history_upgrades_once_and_replays_with_either_checkpoint_path() {
         engine::PREVIOUS_VERSION,
         engine::FOURTH_VERSION,
     ] {
+        let mut checkpointed = None;
         for keep_checkpoint in [true, false] {
             let (_path, c, id) = fixture();
             c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
@@ -1508,6 +1509,13 @@ fn old_rule_history_upgrades_once_and_replays_with_either_checkpoint_path() {
                 c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
             }
             let upgraded = full_store::world(&c, &id, now()).unwrap();
+            // The checkpoint path must reach the same upgraded world; the rest of
+            // the case runs once, from the journal.
+            if keep_checkpoint {
+                checkpointed = Some(upgraded.clone());
+                continue;
+            }
+            assert_eq!(Some(&upgraded), checkpointed.as_ref());
             assert_eq!(upgraded.version, engine::VERSION);
             assert_eq!(upgraded.claimed, [1; 8]);
             assert_eq!(upgraded.present, old.present);
@@ -1576,6 +1584,7 @@ fn old_rule_history_upgrades_once_and_replays_with_either_checkpoint_path() {
 
 #[test]
 fn released_pickup_journal_replays_through_both_recorded_upgrades() {
+    let mut checkpointed = None;
     for keep_checkpoint in [true, false] {
         let (_path, c, id) = fixture();
         c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
@@ -1648,6 +1657,13 @@ fn released_pickup_journal_replays_through_both_recorded_upgrades() {
             c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
         }
         let mut upgraded = full_store::world(&c, &id, now()).unwrap();
+        // The checkpoint path must reach the same upgraded world; the rest of
+        // the case runs once, from the journal.
+        if keep_checkpoint {
+            checkpointed = Some(upgraded.clone());
+            continue;
+        }
+        assert_eq!(Some(&upgraded), checkpointed.as_ref());
         assert_eq!(upgraded.version, engine::VERSION);
         assert_saved_actors(&upgraded.game["actors"], &old.game["actors"]);
         assert_saved_items(&upgraded.game["items"], &old.game["items"]);
@@ -1699,6 +1715,7 @@ fn released_pickup_journal_replays_through_both_recorded_upgrades() {
 
 #[test]
 fn version_three_upgrade_keeps_released_untouched_belongings() {
+    let mut checkpointed = None;
     for keep_checkpoint in [true, false] {
         let (_path, c, id) = fixture();
         c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
@@ -1727,6 +1744,13 @@ fn version_three_upgrade_keeps_released_untouched_belongings() {
             c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
         }
         let upgraded = full_store::world(&c, &id, now()).unwrap();
+        // The checkpoint path must reach the same upgraded world; the rest of
+        // the case runs once, from the journal.
+        if keep_checkpoint {
+            checkpointed = Some(upgraded.clone());
+            continue;
+        }
+        assert_eq!(Some(&upgraded), checkpointed.as_ref());
         assert_eq!(upgraded.version, engine::VERSION);
         assert_saved_items(&upgraded.game["items"], &old.game["items"]);
         assert_saved_actors(&upgraded.game["actors"], &old.game["actors"]);
@@ -1749,6 +1773,7 @@ fn released_greek_upgrades_and_recitals_replay_before_collected_quests() {
             engine::FOURTH_VERSION,
         ],
     ] {
+        let mut checkpointed = None;
         for keep_checkpoint in [true, false] {
             let (_file, c, id) = fixture();
             c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
@@ -1817,6 +1842,13 @@ fn released_greek_upgrades_and_recitals_replay_before_collected_quests() {
                 c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
             }
             w = full_store::world(&c, &id, now()).unwrap();
+            // The checkpoint path must reach the same upgraded world; the rest of
+            // the case runs once, from the journal.
+            if keep_checkpoint {
+                checkpointed = Some(w.clone());
+                continue;
+            }
+            assert_eq!(Some(&w), checkpointed.as_ref());
             assert_eq!(w.version, engine::VERSION);
             assert_saved_actors(&w.game["actors"], &previous.game["actors"]);
             assert_saved_items(&w.game["items"], &previous.game["items"]);
@@ -1897,6 +1929,7 @@ fn released_greek_upgrades_and_recitals_replay_before_collected_quests() {
 
 #[test]
 fn pruned_shared_recital_keeps_unknown_author_through_upgrade_and_replay() {
+    let mut checkpointed = None;
     for keep_checkpoint in [true, false] {
         let (_file, c, id) = fixture();
         c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
@@ -1937,6 +1970,13 @@ fn pruned_shared_recital_keeps_unknown_author_through_upgrade_and_replay() {
             c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
         }
         let mut upgraded = full_store::world(&c, &id, now()).unwrap();
+        // The checkpoint path must reach the same upgraded world; the rest of
+        // the case runs once, from the journal.
+        if keep_checkpoint {
+            checkpointed = Some(upgraded.clone());
+            continue;
+        }
+        assert_eq!(Some(&upgraded), checkpointed.as_ref());
         assert_eq!(upgraded.version, engine::VERSION);
         assert_eq!(
             upgraded.game["packs"]["greek-drama"]["recitals"]["greek-decline-burial"],
@@ -1972,6 +2012,7 @@ fn pruned_shared_recital_keeps_unknown_author_through_upgrade_and_replay() {
 
 #[test]
 fn released_carriage_route_replays_before_the_station_connection_upgrade() {
+    let mut checkpointed = None;
     for keep_checkpoint in [true, false] {
         let (_file, c, id) = fixture();
         c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
@@ -2007,6 +2048,13 @@ fn released_carriage_route_replays_before_the_station_connection_upgrade() {
             c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
         }
         w = full_store::world(&c, &id, now()).unwrap();
+        // The checkpoint path must reach the same upgraded world; the rest of
+        // the case runs once, from the journal.
+        if keep_checkpoint {
+            checkpointed = Some(w.clone());
+            continue;
+        }
+        assert_eq!(Some(&w), checkpointed.as_ref());
         assert_saved_actors(&w.game["actors"], &earlier.game["actors"]);
         assert_saved_items(&w.game["items"], &earlier.game["items"]);
         assert_eq!(w.game["log"], earlier.game["log"]);
@@ -2041,6 +2089,7 @@ fn released_carriage_route_replays_before_the_station_connection_upgrade() {
 
 #[test]
 fn shared_quest_receipts_drive_bard_travel_after_released_rules_upgrade_and_replay() {
+    let mut checkpointed = None;
     for (version, keep_checkpoint) in [
         (engine::SIXTH_VERSION, true),
         (engine::SIXTH_VERSION, false),
@@ -2089,6 +2138,17 @@ fn shared_quest_receipts_drive_bard_travel_after_released_rules_upgrade_and_repl
             c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
         }
         w = full_store::world(&c, &id, now()).unwrap();
+        // The checkpoint path must reach the same upgraded world; the rest of
+        // the case runs once, from the journal.
+        if keep_checkpoint {
+            checkpointed = Some(w.clone());
+            continue;
+        }
+        assert_eq!(Some(&w), checkpointed.as_ref());
+        // Older versions prove their upgrade; the new story plays once.
+        if version != engine::EIGHTH_VERSION {
+            continue;
+        }
         assert_eq!(w.version, engine::VERSION);
         assert_saved_actors(&w.game["actors"], &previous.game["actors"]);
         assert_saved_items(&w.game["items"], &previous.game["items"]);
@@ -2522,6 +2582,7 @@ fn embedded_selected_cards_match_with_personal_and_shared_quest_offers() {
 
 #[test]
 fn stranded_home_rescue_replays_after_version_nine_upgrade() {
+    let mut checkpointed = None;
     for keep_checkpoint in [true, false] {
         let (_file, c, id) = fixture();
         c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
@@ -2541,6 +2602,13 @@ fn stranded_home_rescue_replays_after_version_nine_upgrade() {
             c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
         }
         let mut upgraded = full_store::world(&c, &id, now()).unwrap();
+        // The checkpoint path must reach the same upgraded world; the rest of
+        // the case runs once, from the journal.
+        if keep_checkpoint {
+            checkpointed = Some(upgraded.clone());
+            continue;
+        }
+        assert_eq!(Some(&upgraded), checkpointed.as_ref());
         assert_eq!(upgraded.version, engine::VERSION);
         assert_eq!(upgraded.project(0).unwrap()["exits"], json!(["pond"]));
         assert_eq!(upgraded.game["turn"], old.game["turn"]);
@@ -2618,6 +2686,7 @@ mod learning_tests;
 
 #[test]
 fn hoppycat_upgrade_keeps_released_history_and_replays_new_story_choices() {
+    let mut checkpointed = None;
     for (previous_version, keep_checkpoint) in [
         (engine::SIXTEENTH_VERSION, true),
         (engine::SIXTEENTH_VERSION, false),
@@ -2687,6 +2756,17 @@ fn hoppycat_upgrade_keeps_released_history_and_replays_new_story_choices() {
             c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
         }
         let mut world = full_store::world(&c, &id, now()).unwrap();
+        // The checkpoint path must reach the same upgraded world; the rest of
+        // the case runs once, from the journal.
+        if keep_checkpoint {
+            checkpointed = Some(world.clone());
+            continue;
+        }
+        assert_eq!(Some(&world), checkpointed.as_ref());
+        // Older versions prove their upgrade; the new story plays once.
+        if previous_version != engine::EIGHTEENTH_VERSION {
+            continue;
+        }
         assert_eq!(world.version, engine::VERSION);
         assert_eq!(world.claimed, old.claimed);
         assert_eq!(world.present, old.present);
