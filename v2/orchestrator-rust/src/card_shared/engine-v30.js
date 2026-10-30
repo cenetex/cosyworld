@@ -2626,7 +2626,7 @@
             exits: [
               "greek-gate"
             ],
-            backdrop: "assets/greek-drama/aulis-anchorage-day.webp",
+            backdrop: "assets/greek-drama/harbor.svg",
             persona: "The ships lie motionless beside the shore. Soldiers wait outside the command tents."
           },
           "greek-athens": {
@@ -2921,7 +2921,7 @@
               "greek-thrace",
               "greek-road-royal"
             ],
-            backdrop: "assets/greek-drama/trojan-walls-day.webp",
+            backdrop: "assets/greek-drama/palace.svg",
             persona: "The city road runs between battered walls. Soldiers and displaced households share the remaining wells."
           },
           "greek-greek-camp": {
@@ -2943,14 +2943,14 @@
             exits: [
               "greek-troy"
             ],
-            backdrop: "assets/greek-drama/trojan-night-camp-day.webp",
+            backdrop: "assets/greek-drama/grove.svg",
             persona: "Watch fires mark the edge of the camp. A newly arrived ally waits for a guide."
           },
           "greek-troy-beach": {
             name: "The Homecoming Beach",
             text: "A small boat is drawn above the tideline. Its passengers compare what they remember of the war.",
             exits: [],
-            backdrop: "assets/greek-drama/homecoming-beach-day.webp",
+            backdrop: "assets/greek-drama/sea.svg",
             requires: [
               {
                 kind: "choice",
@@ -2966,7 +2966,7 @@
             exits: [
               "greek-greek-camp"
             ],
-            backdrop: "assets/greek-drama/lemnian-cave-day.webp",
+            backdrop: "assets/greek-drama/sea.svg",
             persona: "A rough bed lies inside the cave. Footprints lead toward a bow wrapped against the salt air."
           },
           "greek-thrace": {
@@ -2976,7 +2976,7 @@
               "greek-troy",
               "greek-road-black-sea"
             ],
-            backdrop: "assets/greek-drama/thracian-shore-day.webp",
+            backdrop: "assets/greek-drama/sea.svg",
             persona: "A fleet waits beyond the breakers. Captive households search among the new arrivals."
           },
           "greek-egypt-tomb": {
@@ -4189,7 +4189,7 @@
             text: "The account records Helen's journey from Troy. It makes no claim that a phantom took her place.",
             holder: "greek-troy-beach",
             persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
-            art: "assets/greek-drama/troy-testimony.png",
+            art: "assets/greek-drama/testimony.png",
             requires: [
               {
                 kind: "choice",
@@ -4203,7 +4203,7 @@
             text: "The testimony begins with offerings and a meeting at Agamemnon's tomb.",
             holder: "greek-argos-tomb",
             persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
-            art: "assets/greek-drama/tomb-testimony.png",
+            art: "assets/greek-drama/testimony.png",
             requires: [
               {
                 kind: "choice",
@@ -4217,7 +4217,7 @@
             text: "The testimony begins with Electra waiting outside the Mycenaean palace.",
             holder: "greek-mycenae-palace",
             persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
-            art: "assets/greek-drama/palace-testimony.png",
+            art: "assets/greek-drama/testimony.png",
             requires: [
               {
                 kind: "choice",
@@ -4231,7 +4231,7 @@
             text: "The testimony begins in a poor household in the Argive countryside.",
             holder: "greek-argive-farm",
             persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
-            art: "assets/greek-drama/farm-testimony.png",
+            art: "assets/greek-drama/testimony.png",
             requires: [
               {
                 kind: "choice",
@@ -4244,7 +4244,7 @@
             name: "The Mothers\u2019 Petition",
             text: "An olive branch lies across a tablet bearing the mothers\u2019 request. Aethra has left room for the city\u2019s answer.",
             holder: "greek-eleusis",
-            art: "assets/greek-drama/burial-petition.png",
+            art: "assets/greek-drama/decree.png",
             persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds.",
             requires: [
               {
@@ -4263,7 +4263,7 @@
             name: "Clean Burial Cloths",
             text: "Clean folded cloths wait at the quay. Thaleia has set them aside for the rite at Eleusis.",
             holder: "greek-piraeus",
-            art: "assets/greek-drama/return-cloths.png",
+            art: "assets/greek-drama/funeral-cloth.png",
             persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds.",
             requires: [
               {
@@ -4277,7 +4277,7 @@
             name: "The Quay Basket",
             text: "Grain, bread and cups fill a basket. Thaleia needs it beside the resting place at this quay.",
             holder: "greek-piraeus",
-            art: "assets/greek-drama/provision-basket.png",
+            art: "assets/greek-drama/provisions.png",
             persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds.",
             requires: [
               {
@@ -4291,7 +4291,7 @@
             name: "The Funeral Urn",
             text: "A covered urn holds ashes entrusted to the mothers after the recorded recovery and funeral. Its clay is cool.",
             holder: "greek-eleusis",
-            art: "assets/greek-drama/ash-urn.png",
+            art: "assets/greek-drama/water-jar.png",
             persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds.",
             requires: [
               {
@@ -4315,7 +4315,7 @@
             name: "The Return List",
             text: "The mothers\u2019 return list names households who need rest on the homeward road. Its margin leaves room for the quay\u2019s reply.",
             holder: "greek-eleusis",
-            art: "assets/greek-drama/return-list.png",
+            art: "assets/greek-drama/testimony.png",
             persona: "Describe the list, its actual holder and its recorded use. Myrine signs the margin only after her arrival and care at Piraeus. Her signed account records what she saw there. A later reading carries her words to Dione.",
             requires: [
               {
@@ -4334,7 +4334,7 @@
             name: "The Grove Cup",
             text: "Fresh spring water fills a small cup. The keeper has set it beside the grove boundary.",
             holder: "greek-colonus",
-            art: "assets/greek-drama/grove-cup.png",
+            art: "assets/greek-drama/water-jar.png",
             persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds.",
             requires: [
               {
@@ -4348,7 +4348,7 @@
             name: "Honey for the Grove",
             text: "A sealed pot holds honey for the grove\u2019s offering.",
             holder: "greek-colonus",
-            art: "assets/greek-drama/grove-honey.png",
+            art: "assets/greek-drama/oil-flask.png",
             persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds.",
             requires: [
               {
@@ -4362,7 +4362,7 @@
             name: "The Shelter Blanket",
             text: "A thick clean blanket is folded beside the cargo baskets. The altar keeper at Marathon has asked for it.",
             holder: "greek-piraeus",
-            art: "assets/greek-drama/shelter-blanket.png",
+            art: "assets/greek-drama/funeral-cloth.png",
             persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds.",
             requires: [
               {
@@ -4376,7 +4376,7 @@
             name: "The Refuge Tablet",
             text: "A blank wax tablet waits at the public table. The keeper at Colonus can use it to record the grove\u2019s duty to guests.",
             holder: "greek-athens",
-            art: "assets/greek-drama/refuge-tablet.png",
+            art: "assets/greek-drama/decree.png",
             persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds.",
             requires: [
               {
@@ -4405,7 +4405,7 @@
             text: "Teucer\u2019s burial plea has room for the witnesses\u2019 signed account of the completed rite.",
             holder: "greek-greek-camp",
             persona: "This is a named Trojan account, beginning after Ajax\u2019s death. Its deeds belong to that telling. The Theban opening keeps its own time. Describe its actual holder and recorded use.",
-            art: "assets/greek-drama/ajax-plea.png",
+            art: "assets/greek-drama/decree.png",
             requires: [
               {
                 kind: "flag",
@@ -4424,7 +4424,7 @@
             text: "Clean linen is set aside for Ajax\u2019s burial in the Trojan account.",
             holder: "greek-greek-camp",
             persona: "This is a named Trojan account, beginning after Ajax\u2019s death. Its deeds belong to that telling. The Theban opening keeps its own time. Describe its actual holder and recorded use.",
-            art: "assets/greek-drama/ajax-cloth.png",
+            art: "assets/greek-drama/funeral-cloth.png",
             requires: [
               {
                 kind: "flag",
@@ -4438,7 +4438,7 @@
             text: "A short shovel and grave tools wait beside the tents.",
             holder: "greek-greek-camp",
             persona: "This is a named Trojan account, beginning after Ajax\u2019s death. Its deeds belong to that telling. The Theban opening keeps its own time. Describe its actual holder and recorded use.",
-            art: "assets/greek-drama/ajax-tools.png",
+            art: "assets/greek-drama/shovel.png",
             requires: [
               {
                 kind: "flag",
@@ -18975,7 +18975,7 @@
       (avatar) => needed2(avatar).filter((item) => own2(item) && mayGive(item)).map((item) => ({ avatar, item }))
     );
     const gift = s.log.findLast(
-      (e) => e.verb === "give" && e.targetId === actor && e.actorId !== actor
+      (e) => e.verb === "give" && e.accepted !== false && e.targetId === actor && e.actorId !== actor
     );
     deliveries.sort(
       (a, b) => Number(b.avatar === gift?.actorId) - Number(a.avatar === gift?.actorId)
@@ -19735,7 +19735,7 @@
   function recordLifeAction(s, a, accepted, usefulGift = false) {
     if (!s.life) return;
     const participant = (id) => lifeParticipant(s, id);
-    const social = ["give", "trade", "talk"].includes(a.kind) || ["ask", "accompany"].includes(a.kind) && accepted;
+    const social = a.kind === "talk" || ["ask", "accompany", "give", "trade"].includes(a.kind) && accepted;
     if (social && s.actors[a.target]) {
       for (const [id, other] of [
         [a.actor, a.target],
@@ -19745,7 +19745,7 @@
         lifeOf(s, id).company[other] = s.turn + REST_TURNS;
       }
     }
-    if (a.kind === "give" && participant(a.target))
+    if (a.kind === "give" && accepted && participant(a.target))
       lifeOf(s, a.target).attachments[a.item] = { from: a.actor, turn: s.turn };
     for (const id of Object.keys(s.life.actors))
       for (const item of Object.keys(lifeOf(s, id).attachments))
@@ -19753,7 +19753,7 @@
     const kindFor = (id) => {
       if (a.kind === "give" && usefulGift)
         return id === a.actor ? "help" : "gift";
-      if (a.kind === "trade") return "trade";
+      if (a.kind === "trade" && accepted) return "trade";
       if (a.kind === "talk") return "talk";
       if (a.kind === "accompany" && accepted) return "journey";
       if (a.kind === "refill") return "care";
@@ -20156,7 +20156,7 @@
         `${names[a.actor]} kept asking for the same belongings.`,
         "pestering"
       );
-    if (a.kind === "give") {
+    if (a.kind === "give" && accepted) {
       s.motives.grievances[a.target] = s.motives.grievances[a.target].map((g) => g.other === a.actor ? { ...g, weight: g.weight - 1 } : g).filter((g) => g.weight > 0);
       s.actors[a.target].trust[a.actor] = Math.min(
         3,
@@ -22854,15 +22854,44 @@
       return !controlledByHuman(s, owner2) && recipient !== null && giftDecision(s, owner2, item, recipient).accepted;
     return !controlledByHuman(s, owner2) && !needed(s, owner2, item) && (handStatus(s, owner2).items.every((e) => e.met) || recipient && s.actors[owner2].trust[recipient] > 0 || recipient === "vale" && valeStalled(s));
   }
-  function canTrade(s, actor, give, receive) {
+  function tradePossible(s, actor, give, receive) {
     const other = s.items[receive]?.holder;
     if (s.items[give]?.holder !== actor || !actorIds.includes(other) || !knownActors2(s).includes(other) || other === actor || controlledByHuman(s, other) || s.actors[actor].place !== s.actors[other].place)
-      return false;
-    if (hasMotives(s) ? !tradeDecision(s, actor, give, receive).accepted && !(hasQuestPrograms(s) && !s.life && !resentment(s, other, actor) && needed(s, other, give) && !needed(s, other, receive)) : !accepts(s, other, give) || needed(s, other, receive))
       return false;
     const outgoing = loadOf(s, give), incoming = loadOf(s, receive);
     return carried(s, actor).length - outgoing + incoming <= 3 && carried(s, other).length - incoming + outgoing <= 3;
   }
+  function tradeWilling(s, actor, give, receive) {
+    const other = s.items[receive].holder;
+    return hasMotives(s) ? tradeDecision(s, actor, give, receive).accepted || hasQuestPrograms(s) && !s.life && !resentment(s, other, actor) && needed(s, other, give) && !needed(s, other, receive) : accepts(s, other, give) && !needed(s, other, receive);
+  }
+  function canTrade(s, actor, give, receive) {
+    return tradePossible(s, actor, give, receive) && tradeWilling(s, actor, give, receive);
+  }
+  function giftWilling(s, actor, item, recipient) {
+    return accepts(s, recipient, item) || targetsFor(s, actor).some(
+      (h) => h.conditions?.some(
+        (c) => c.kind === "heldBy" && c.item === item && c.avatar === recipient
+      )
+    );
+  }
+  var REFUSAL_REASONS = ["grudge", "needs-it", "wants-something-else"];
+  function refusalReason(s, a) {
+    const other = a.kind === "trade" ? s.items[a.receive].holder : a.target;
+    if (hasMotives(s) && resentment(s, other, a.actor)) return "grudge";
+    if (a.kind === "trade" && needed(s, other, a.receive)) return "needs-it";
+    return "wants-something-else";
+  }
+  function expects(s, a) {
+    if (a.kind === "give") return giftWilling(s, a.actor, a.item, a.target);
+    if (a.kind === "trade") return tradeWilling(s, a.actor, a.item, a.receive);
+    return true;
+  }
+  var refusalText = {
+    grudge: (other, actor) => `${other} is still annoyed with ${actor}.`,
+    "needs-it": (other, actor, a) => `${other} needs the ${nameOf(a.receive)}.`,
+    "wants-something-else": (other) => `${other} wants something else.`
+  };
   function captureHands(s, met) {
     captureQuestHands(s, met, { actorIds, handStatus });
   }
@@ -23500,11 +23529,7 @@
           )
         );
         for (const other of knownActors2(s).filter(
-          (p) => p !== actor && s.actors[p].place === here && (accepts(s, p, id) || targetsFor(s, actor).some(
-            (h) => h.conditions?.some(
-              (c) => c.kind === "heldBy" && c.item === id && c.avatar === p
-            )
-          )) && hasSpace(s, p, id)
+          (p) => p !== actor && s.actors[p].place === here && hasSpace(s, p, id)
         )) {
           out.push(
             offer(
@@ -23616,7 +23641,7 @@
     const tradeGoods = ids.filter((id) => tradePartners.has(s.items[id].holder));
     for (const give of payments)
       for (const receive of tradeGoods) {
-        if (!canTrade(s, actor, give, receive)) continue;
+        if (!tradePossible(s, actor, give, receive)) continue;
         const other = s.items[receive].holder;
         const action = offer(
           "trade",
@@ -23639,7 +23664,7 @@
         if (crossing?.travelLabel) action.label = crossing.travelLabel;
       }
     }
-    return out;
+    return planReads ? out.filter((a) => expects(s, a)) : out;
   }
   function matchingActions(s, selected, actor = currentActor(s)) {
     const set = [...new Set(selected)].filter((id) => id !== actor);
@@ -23734,6 +23759,7 @@
     const usefulGift = a.kind === "give" && (valueOf(s, a.target, a.item) >= 5 || needed(s, a.target, a.item));
     let text2 = a.text;
     let requestAccepted = false;
+    let refusal = null;
     let affected = null, arrival = null, invitation = null;
     switch (a.kind) {
       case "use":
@@ -23850,12 +23876,18 @@
         transfer(s, a.item, here, a.text);
         break;
       case "give":
+      case "trade": {
+        requestAccepted = expects(s, a);
+        if (!requestAccepted) {
+          refusal = refusalReason(s, a);
+          text2 = a.kind === "give" ? `${who} offers the ${nameOf(a.item)} to ${nameOf(a.target)}.` : `${who} offers the ${nameOf(a.item)} for ${nameOf(a.target)}\u2019s ${nameOf(a.receive)}.`;
+          text2 += ` ${nameOf(a.target)} declines. ${refusalText[refusal](nameOf(a.target), who, a)}`;
+          break;
+        }
         transfer(s, a.item, a.target, a.text);
+        if (a.kind === "trade") transfer(s, a.receive, a.actor, a.text);
         break;
-      case "trade":
-        transfer(s, a.item, a.target, a.text);
-        transfer(s, a.receive, a.actor, a.text);
-        break;
+      }
       case "light":
         if (s.opening && !s.opening.crossed && a.actor === "vale" && here === "attic" && s.items.lamp.holder === "attic")
           transfer(
@@ -23932,7 +23964,12 @@
     meetCast(s);
     capture();
     recordReaction(s, a, witnesses, requestAccepted);
-    recordLifeAction(s, a, invitation?.accepted ?? requestAccepted, usefulGift);
+    recordLifeAction(
+      s,
+      a,
+      invitation?.accepted ?? requestAccepted,
+      usefulGift && requestAccepted
+    );
     addLog(s, "World", text2, {
       kind: "action",
       actorId: a.actor,
@@ -23944,7 +23981,8 @@
       ...affected ? { entityId: affected } : {},
       targetId: a.target,
       ...a.receive ? { receiveId: a.receive } : {},
-      ...a.kind === "ask" ? { accepted: requestAccepted } : {},
+      ...["ask", "give", "trade"].includes(a.kind) ? { accepted: requestAccepted } : {},
+      ...refusal ? { reason: refusal } : {},
       ...invitation ? { destinationId: a.destination, accepted: invitation.accepted } : {},
       ...a.kind === "attack" ? { locationId: here } : {}
     });
@@ -24860,6 +24898,8 @@
       if (e.destinationId != null && !Object.hasOwn(places, e.destinationId))
         fail();
       if (e.accepted !== void 0 && typeof e.accepted !== "boolean") fail();
+      if (e.reason !== void 0 && (!["give", "trade"].includes(e.verb) || e.accepted !== false || !REFUSAL_REASONS.includes(e.reason)))
+        fail();
       if (e.verb === "accompany" && (!actorIds.includes(e.actorId) || !actorIds.includes(e.targetId) || e.targetId === e.actorId || !Object.hasOwn(places, e.destinationId) || !Object.hasOwn(places, e.fromLocationId) || e.destinationId === e.fromLocationId || typeof e.accepted !== "boolean" || e.locationId !== (e.accepted ? e.destinationId : e.fromLocationId)))
         fail();
       if (e.itemId != null && !ids.includes(e.itemId)) fail();
@@ -25374,12 +25414,6 @@
     "greek-road-piraeus-eleusis": art("attic-road-night"),
     "greek-road-colonus-eleusis": art("attic-road-night"),
     "greek-road-colonus-marathon": art("attic-road-night"),
-    "greek-aulis": art("aulis-anchorage-night"),
-    "greek-troy": art("trojan-walls-night"),
-    "greek-trojan-camp": art("trojan-night-camp-night"),
-    "greek-lemnos": art("lemnian-cave-night"),
-    "greek-thrace": art("thracian-shore-night"),
-    "greek-troy-beach": art("homecoming-beach-night"),
     "greek-greek-camp": art("ajax-camp-night"),
     "greek-ajax-landing": art("ajax-camp-night"),
     "greek-ajax-household": art("ajax-camp-night"),
@@ -25397,12 +25431,6 @@
     "greek-colonus": "in Colonus Grove",
     "greek-eleusis": "at the Eleusinian Sanctuary",
     "greek-marathon": "at Marathon Altar",
-    "greek-aulis": "at Aulis Anchorage",
-    "greek-troy": "by the Trojan walls",
-    "greek-trojan-camp": "at the Trojan camp",
-    "greek-lemnos": "at the Lemnian Cave",
-    "greek-thrace": "on the Thracian shore",
-    "greek-troy-beach": "on the Homecoming Beach",
     "greek-ship": "aboard the Greek ship"
   };
   var daylightAssets = [
@@ -25527,6 +25555,11 @@
   }
 
   // v2/card-game/narrative.mjs
+  var REFUSAL_WORDS = {
+    grudge: "a grudge",
+    "needs-it": "they need what was asked for",
+    "wants-something-else": "they want something else"
+  };
   function speechMemories(memory, { expressions = true } = {}) {
     const concrete = (e) => e.kind === "event" && !/completes hand|finds a new purpose:| Level \d/u.test(e.text);
     const recent = memory.events.filter(concrete).slice(-4);
@@ -25747,7 +25780,11 @@
               state.awake ? `Awake.${state.wakeCause ? ` First woken by ${state.wakeCause}.` : ""} ${mood.note}` : mood.note
             );
           }
-          if (played?.verb === "trade" && [played.actorId, played.targetId].includes(id)) {
+          if (["give", "trade"].includes(played?.verb) && played.accepted === false && [played.actorId, played.targetId].includes(id))
+            facts.unshift(
+              `${nameOf(played.targetId)} refused ${nameOf(played.actorId)}'s offer of ${nameOf(played.itemId)}: ${REFUSAL_WORDS[played.reason] || "not now"}. Nothing changed hands. Say why in your own words.`
+            );
+          else if (played?.verb === "trade" && [played.actorId, played.targetId].includes(id)) {
             const giving = id === played.actorId ? played.itemId : played.receiveId;
             const receiving = id === played.actorId ? played.receiveId : played.itemId;
             const other = id === played.actorId ? played.targetId : played.actorId;

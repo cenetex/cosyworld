@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "shore-hoppycat-archive",
   "pack": "hoppycat-archive",
-  "description": "A red thread at Black pond leads to the Halfway Tea Garden. Both shores keep the path open.",
+  "description": "A red thread from the Halfway Tea Garden leads back to Black pond. Ships for the Signal Jetty leave from Piraeus. The pond's own thread into the garden stays open only where it was already found.",
   "values": {},
   "crossings": [
     {
@@ -14,7 +14,8 @@
       "requires": [],
       "scenery": {
         "open": "A red thread follows the water to a garden of kettle trees."
-      }
+      },
+      "retired": true
     },
     {
       "id": "hoppycat-garden-pond",

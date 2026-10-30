@@ -19,6 +19,7 @@ import {
   packPeople,
   packPlaces,
   packFixtures,
+  packThings,
   crossings,
   transports,
   fixturesAt,
@@ -134,6 +135,14 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
       return Boolean(s.items[c.item] && objectPlace(s, c.item) === c.place);
     case "item_at":
       return s.items[c.item]?.holder === c.place;
+    // Any thing from that world in the place: carried there or resting there.
+    case "pack_item_present":
+      return Object.keys(s.items).some(
+        (id) =>
+          packThings[id]?.packId === c.pack &&
+          entityActive(s, id) &&
+          objectPlace(s, id) === c.place,
+      );
     case "met":
       return !!state?.met && Object.hasOwn(state.met, c.actor);
     default:
@@ -147,7 +156,9 @@ const windowOpen = (s, c) =>
   (c.signal.opens === null
     ? crossingState(s, c.id)?.phase === c.signal.steps.length
     : s.turn < (crossingState(s, c.id)?.until ?? 0));
+// A retired crossing stays open only in saves that had already found it.
 export const crossingOpen = (s, c, senses) =>
+  (!c.retired || Boolean(crossingState(s, c.id)?.discovered)) &&
   entityActive(s, c.from) &&
   entityActive(s, c.to) &&
   (c.transport

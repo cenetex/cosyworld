@@ -488,6 +488,14 @@ Pip values warm light and fine clothes. The Keeper values quiet, the bell, and r
 
 Trades compare each character’s value for both objects, including attached cloth. A grievance raises the requested price. A favour can lower it. Ringing beside the Keeper, spoiling Pip’s light, threats, and repeated requests can create grievances. Only witnesses remember a slight. A useful gift softens the receiver’s grievances toward its giver and earns a bounded favour. Grievances retain the other avatar, incident, turn, and strength across reloads.
 
+Give and Trade are always offered when the item fits in the other person's
+hands; a trade needs room on both sides. The answer comes when the card is
+played. The same willingness tests as before decide it. A refusal takes the
+turn and moves nothing. It records `accepted: false` and one reason: `grudge`,
+`needs-it` or `wants-something-else`. The narrator brief passes that reason to
+the cast, so the refusal is spoken in dialogue. The residents' planner reads
+`expects(s, action)` and makes only the offers it expects to be accepted.
+
 Accompany requests use current interests, the items carried by the requester, favours, and grievances. An agreed trip moves both avatars and their belongings through the usual rules. A refusal leaves both in place for that exchange. The other cast member takes its own turn.
 
 Schema 6 gains optional `motives` state. The browser activates this state for both fresh games and restored games. Earlier progress, earned levels, inventory, and memories remain in the save. The browser enables quest programs alongside personal motives at every new-game and load entry point. Saved progress continues from its recorded step. Completing a program earns a level and starts three quiet turns. Meaningful experiences and the avatar’s lasting hope shape the next purpose after sanctuary rest. Tastes shape prices; a remembered grievance can raise a price, refuse company, or prompt a retreat. Quest items also carry value in a fair exchange. The interests-only simulation remains available through `enableMotives()` for comparison; the browser passes `questPrograms: true`. Generated speech receives current interests, exact outcomes, and witnessed grievances.

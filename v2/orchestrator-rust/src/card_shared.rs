@@ -14,6 +14,8 @@ mod full_tests;
 mod full_world;
 #[cfg(test)]
 mod homecoming_tests;
+#[cfg(test)]
+mod hoppycat_tests;
 mod kernel;
 #[cfg(test)]
 mod opening_tests;

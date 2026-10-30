@@ -20,7 +20,11 @@ import {
 } from "./pack-registry.mjs";
 import { authoredRouteEdges } from "./roaming-routes.mjs";
 import { humanAvatarIds } from "./human-cast.mjs";
-import { passengers, upgradeTransportState } from "./pack-transport.mjs";
+import {
+  learnLane,
+  passengers,
+  upgradeTransportState,
+} from "./pack-transport.mjs";
 import { installKnowledge } from "./knowledge.mjs";
 import { newTemperament } from "./pack-rules.mjs";
 
@@ -121,6 +125,7 @@ export function upgradeSave(
   if (s?.schema === 7) {
     upgradeShoreRouteSave(s);
     upgradeBoardyStationSave(s);
+    upgradeHoppyCatSeaSave(s);
     upgradeBoardingSave(s);
     upgradeRecitals(s, packDefinitions);
   }
@@ -197,6 +202,38 @@ export function upgradeBoardyStationSave(s) {
       ).values(),
     ];
   }
+  saved.revision = 2;
+}
+
+// Hoppy Cat revision 2 is reached by ship from Piraeus to the Signal Jetty.
+// The red thread from Black pond is retired: it stays open only in saves that
+// already found it, so the crossing record and every learned route are kept.
+// Anyone who has been in Hoppy Cat learns the Piraeus lane from that visit.
+export function upgradeHoppyCatSeaSave(s) {
+  const pack = packDefinitions.find((p) => p.id === "hoppycat-archive");
+  const saved = s.packs?.[pack?.id];
+  if (!pack || pack.revision < 2 || saved?.revision !== 1) return;
+  const home = (place) => Object.hasOwn(pack.places, place);
+  const ships = new Set(Object.values(transports).map((t) => t.place));
+  const visited = (actor) =>
+    home(s.actors[actor]?.place) ||
+    (s.log || []).some(
+      (e) =>
+        e?.actorId === actor && (home(e.locationId) || home(e.fromLocationId)),
+    ) ||
+    Object.values(s.memories?.[actor]?.seen || {}).some((v) =>
+      home(v?.place),
+    ) ||
+    // A walked route into or out of Hoppy Cat; the new ship berth is no visit.
+    (s.routeKnowledge?.[actor] || []).some(
+      (edge) =>
+        Array.isArray(edge) &&
+        edge.some(home) &&
+        !edge.some((p) => ships.has(p)),
+    );
+  for (const actor of Object.keys(s.actors || {}).sort())
+    if (!Object.hasOwn(pack.avatars, actor) && visited(actor))
+      learnLane(s, actor, "greek-piraeus", "hoppycat-signal-jetty");
   saved.revision = 2;
 }
 

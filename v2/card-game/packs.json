@@ -10821,6 +10821,22 @@
             "cardName": "Greek ship",
             "cardArt": "assets/greek-drama/ship-card.webp"
           }
+        },
+        {
+          "id": "hoppycat-signal-jetty-ship",
+          "from": "hoppycat-signal-jetty",
+          "to": "greek-piraeus",
+          "travelers": "any",
+          "travel": "aboard the ship",
+          "requires": [],
+          "transport": "greek-ship",
+          "travelLabel": "Board",
+          "scenery": {
+            "open": "The Greek ship waits at the end of the jetty.",
+            "closed": "The shared ship is sailing elsewhere. The jetty points out over open water.",
+            "cardName": "Greek ship",
+            "cardArt": "assets/greek-drama/ship-card.webp"
+          }
         }
       ],
       "transports": {
@@ -10831,7 +10847,8 @@
             "greek-harbor",
             "greek-athens-harbor",
             "greek-piraeus",
-            "greek-ajax-landing"
+            "greek-ajax-landing",
+            "hoppycat-signal-jetty"
           ],
           "lanes": [
             {
@@ -10853,6 +10870,17 @@
             {
               "from": "greek-athens-harbor",
               "to": "greek-piraeus"
+            },
+            {
+              "from": "greek-piraeus",
+              "to": "hoppycat-signal-jetty",
+              "opensWith": [
+                {
+                  "kind": "pack_item_present",
+                  "pack": "hoppycat-archive",
+                  "place": "greek-ship"
+                }
+              ]
             }
           ],
           "at": "greek-harbor",
@@ -10864,7 +10892,7 @@
       "schemaVersion": 1,
       "id": "hoppycat-archive",
       "packId": "cosyworld.hoppycat-archive",
-      "revision": 1,
+      "revision": 2,
       "name": "Hoppy Cat: February Third",
       "description": "A tea garden caught on February Second. Carry a memory, prepare a credited show, and help the forest welcome tomorrow.",
       "entry": "hoppycat-halfway-tea-garden",
@@ -11909,7 +11937,7 @@
       ],
       "bridge": {
         "id": "shore-hoppycat-archive",
-        "description": "A red thread at Black pond leads to the Halfway Tea Garden. Both shores keep the path open."
+        "description": "A red thread from the Halfway Tea Garden leads back to Black pond. Ships for the Signal Jetty leave from Piraeus. The pond's own thread into the garden stays open only where it was already found."
       },
       "values": {},
       "crossings": [
@@ -11922,7 +11950,8 @@
           "requires": [],
           "scenery": {
             "open": "A red thread follows the water to a garden of kettle trees."
-          }
+          },
+          "retired": true
         },
         {
           "id": "hoppycat-garden-pond",
