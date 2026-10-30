@@ -287,6 +287,62 @@ describe("player OpenRouter connection", () => {
     });
   });
   it.each([
+    [
+      "failed",
+      { message: "Content policy rejected the prompt." },
+      "Content policy rejected the prompt.",
+    ],
+    ["cancelled", "Cancelled by the provider.", "Cancelled by the provider."],
+    ["expired", null, "Check OpenRouter activity."],
+  ])(
+    "stops a %s video job with OpenRouter's reason",
+    async (status, error, reason) => {
+      const f = fixture();
+      f.fetcher.mockResolvedValueOnce(
+        Response.json({ id: "video-9", status, error }),
+      );
+      const failure = await f.client
+        .video("video-model", "A shore.")
+        .catch((value) => value);
+      expect(failure.message).toBe(
+        `The video needs a fresh request (${status}). ${reason}`,
+      );
+      expect(f.fetcher).toHaveBeenCalledTimes(1);
+    },
+  );
+  it.each([
+    [400, "Check the model settings in OpenRouter, then try again."],
+    [422, "Check the model settings in OpenRouter, then try again."],
+    [503, "OpenRouter needs another moment (503). Try again."],
+  ])("adds OpenRouter's message to HTTP %i", async (status, message) => {
+    const f = fixture();
+    f.fetcher.mockResolvedValueOnce(
+      Response.json(
+        { error: { message: "duration must be 4, 6 or 8 seconds" } },
+        { status },
+      ),
+    );
+    await expect(
+      f.client.request("videos", { body: { model: "video" } }),
+    ).rejects.toMatchObject({
+      status,
+      message: `${message} duration must be 4, 6 or 8 seconds`,
+    });
+  });
+  it("keeps the plain message when OpenRouter sends no detail", async () => {
+    const f = fixture();
+    f.fetcher.mockResolvedValueOnce(new Response("", { status: 402 }));
+    await expect(f.client.request("videos", {})).rejects.toThrow(
+      /^Add credits in OpenRouter, then try again\.$/u,
+    );
+    f.fetcher.mockResolvedValueOnce(
+      Response.json({ error: { message: "Key revoked" } }, { status: 401 }),
+    );
+    await expect(f.client.request("videos", {})).rejects.toThrow(
+      /^Connect OpenRouter again in Settings\.$/u,
+    );
+  });
+  it.each([
     [400, false],
     [401, false],
     [402, false],
