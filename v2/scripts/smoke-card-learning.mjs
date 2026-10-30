@@ -10,6 +10,7 @@ import {
   encodeSave,
 } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
+import { rest } from "../../test/fixtures/card-rest.mjs";
 import {
   narrativeContext,
   applyGeneratedText,
@@ -56,6 +57,9 @@ world = play(
   world,
   legalActions(world).find((a) => a.kind === "ask" && a.item === "oil"),
 ).state;
+// Thoughts and dreams come only on a Wait (#1427), so Vale rests until a
+// thought and a dream are both due before the reflection is written.
+world = rest(world, { dream: true });
 const context = narrativeContext(world);
 world = applyGeneratedText(world, context, {
   revision: context.revision,
