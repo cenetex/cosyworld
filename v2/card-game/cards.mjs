@@ -1,4 +1,4 @@
-import { hasMotives, tradeDecision, interest } from "./motives.mjs";
+import { hasMotives, interest } from "./motives.mjs";
 import { desireFor } from "./quests.mjs";
 import {
   entityActive,
@@ -216,7 +216,7 @@ export function cardPlay(world, selected) {
   if (item && avatar)
     return result(
       find("give", item, avatar) || find("ask", item, avatar),
-      `${nameOf(avatar)} seeks a different item, or needs carrying space.`,
+      `${nameOf(avatar)} needs carrying space for that.`,
     );
   const trade = actions.find(
     (a) => a.kind === "trade" && cards.every((id) => a.cards.includes(id)),
@@ -239,20 +239,8 @@ export function cardPlay(world, selected) {
       (id) => things[id] && world.items[id].holder === currentActor(world),
     );
     const other = rootHolder(world, heldByOther);
-    if (give) {
-      const decision = tradeDecision(
-        world,
-        currentActor(world),
-        give,
-        heldByOther,
-      );
-      return result(
-        null,
-        decision.accepted
-          ? "Make room for both sides of the exchange."
-          : decision.reason,
-      );
-    }
+    // Trade is offered whenever both sides have room, so only space is missing.
+    if (give) return result(null, "Make room for both sides of the exchange.");
     return result(null, `${nameOf(other)}: ${interest(world, other).text}.`);
   }
   if (!action && heldByOther)

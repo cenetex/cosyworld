@@ -31,8 +31,11 @@ holder's group. Transfers move the cards into the new holder's group.
 | Carried item + destination                | Carry there                                  |
 | Lamp or bell resting here + current place | Light, Put out, or Ring in place             |
 
-The world rules decide which plays are available. Invitations can be
-accepted or declined. Threats name the item chosen by the world rules.
+The world rules decide which plays are available. Give is offered whenever
+the person here has room for the item, and Trade whenever both sides have room.
+The other side's answer is the outcome: a refused offer still takes the turn,
+nothing changes hands, and they say why. Invitations can be accepted or
+declined. Threats name the item chosen by the world rules.
 Story choices use supplies already in the inventory.
 
 Pairs work in either order. Arrow keys move between visible cards. Enter

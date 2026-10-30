@@ -266,7 +266,11 @@ export function situationPrograms(s, actor, base, api) {
   );
   // A recent gift supplies a reason to return a useful item to that person.
   const gift = s.log.findLast(
-    (e) => e.verb === "give" && e.targetId === actor && e.actorId !== actor,
+    (e) =>
+      e.verb === "give" &&
+      e.accepted !== false &&
+      e.targetId === actor &&
+      e.actorId !== actor,
   );
   deliveries.sort(
     (a, b) =>

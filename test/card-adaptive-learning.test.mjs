@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   createWorld,
+  expects,
   legalActions,
   play,
   encodeSave,
@@ -40,16 +41,13 @@ function act(w, kind, item, target) {
 }
 const history = (w) => w.memories.vale.learning || [];
 function choice(w, item = "oil", kind = "ask") {
-  const action = legalActions(w).find(
+  // The planner only weighs offers it expects the other side to accept.
+  const offers = legalActions(w).filter((a) => expects(w, a));
+  const action = offers.find(
     (a) => a.kind === kind && (kind === "trade" ? a.receive : a.item) === item,
   );
   expect(action).toBeDefined();
-  return reconsiderPlan(
-    w,
-    "vale",
-    { action, reason: "Seek the item." },
-    legalActions(w),
-  );
+  return reconsiderPlan(w, "vale", { action, reason: "Seek the item." }, offers);
 }
 // A controlled evaluation holds the present state and legal choices fixed.
 // Only the retained records from real completed plays change between probes.

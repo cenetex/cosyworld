@@ -634,7 +634,9 @@ export function willingToGive(s, owner, item, recipient = null) {
       (recipient === "vale" && valeStalled(s)))
   );
 }
-export function canTrade(s, actor, give, receive) {
+// A trade is possible when both items are in hand and both sides have room.
+// Whether the other side agrees is decided when the trade is played.
+export function tradePossible(s, actor, give, receive) {
   const other = s.items[receive]?.holder;
   if (
     s.items[give]?.holder !== actor ||
@@ -645,19 +647,6 @@ export function canTrade(s, actor, give, receive) {
     s.actors[actor].place !== s.actors[other].place
   )
     return false;
-  if (
-    hasMotives(s)
-      ? !tradeDecision(s, actor, give, receive).accepted &&
-        !(
-          hasQuestPrograms(s) &&
-          !s.life &&
-          !resentment(s, other, actor) &&
-          needed(s, other, give) &&
-          !needed(s, other, receive)
-        )
-      : !accepts(s, other, give) || needed(s, other, receive)
-  )
-    return false;
   const outgoing = loadOf(s, give),
     incoming = loadOf(s, receive);
   return (
@@ -665,6 +654,54 @@ export function canTrade(s, actor, give, receive) {
     carried(s, other).length - incoming + outgoing <= 3
   );
 }
+function tradeWilling(s, actor, give, receive) {
+  const other = s.items[receive].holder;
+  return hasMotives(s)
+    ? tradeDecision(s, actor, give, receive).accepted ||
+        (hasQuestPrograms(s) &&
+          !s.life &&
+          !resentment(s, other, actor) &&
+          needed(s, other, give) &&
+          !needed(s, other, receive))
+    : accepts(s, other, give) && !needed(s, other, receive);
+}
+export function canTrade(s, actor, give, receive) {
+  return (
+    tradePossible(s, actor, give, receive) &&
+    tradeWilling(s, actor, give, receive)
+  );
+}
+function giftWilling(s, actor, item, recipient) {
+  return (
+    accepts(s, recipient, item) ||
+    targetsFor(s, actor).some((h) =>
+      h.conditions?.some(
+        (c) => c.kind === "heldBy" && c.item === item && c.avatar === recipient,
+      ),
+    )
+  );
+}
+// Refusal reasons are recorded on the play so the cast can say them.
+export const REFUSAL_REASONS = ["grudge", "needs-it", "wants-something-else"];
+function refusalReason(s, a) {
+  const other = a.kind === "trade" ? s.items[a.receive].holder : a.target;
+  if (hasMotives(s) && resentment(s, other, a.actor)) return "grudge";
+  if (a.kind === "trade" && needed(s, other, a.receive)) return "needs-it";
+  return "wants-something-else";
+}
+// What the other side will say to a Give or Trade. The residents' planner
+// uses this so it only makes offers it expects to be accepted.
+export function expects(s, a) {
+  if (a.kind === "give") return giftWilling(s, a.actor, a.item, a.target);
+  if (a.kind === "trade") return tradeWilling(s, a.actor, a.item, a.receive);
+  return true;
+}
+const refusalText = {
+  grudge: (other, actor) => `${other} is still annoyed with ${actor}.`,
+  "needs-it": (other, actor, a) =>
+    `${other} needs the ${nameOf(a.receive)}.`,
+  "wants-something-else": (other) => `${other} wants something else.`,
+};
 export function tradeOffers(s, actor) {
   return ids.filter(
     (id) =>
@@ -1509,12 +1546,6 @@ export function legalActions(s, actor = currentActor(s)) {
         (p) =>
           p !== actor &&
           s.actors[p].place === here &&
-          (accepts(s, p, id) ||
-            targetsFor(s, actor).some((h) =>
-              h.conditions?.some(
-                (c) => c.kind === "heldBy" && c.item === id && c.avatar === p,
-              ),
-            )) &&
           hasSpace(s, p, id),
       )) {
         out.push(
@@ -1652,7 +1683,7 @@ export function legalActions(s, actor = currentActor(s)) {
   const tradeGoods = ids.filter((id) => tradePartners.has(s.items[id].holder));
   for (const give of payments)
     for (const receive of tradeGoods) {
-      if (!canTrade(s, actor, give, receive)) continue;
+      if (!tradePossible(s, actor, give, receive)) continue;
       const other = s.items[receive].holder;
       const action = offer(
         "trade",
@@ -1675,7 +1706,9 @@ export function legalActions(s, actor = currentActor(s)) {
       if (crossing?.travelLabel) action.label = crossing.travelLabel;
     }
   }
-  return out;
+  // Every Give and Trade is offered. While planning, residents only consider
+  // the offers they expect the other side to accept.
+  return planReads ? out.filter((a) => expects(s, a)) : out;
 }
 export function matchingActions(s, selected, actor = currentActor(s)) {
   const set = [...new Set(selected)].filter((id) => id !== actor);
@@ -1782,6 +1815,7 @@ function perform(s, a, capture = () => {}, round = null) {
     (valueOf(s, a.target, a.item) >= 5 || needed(s, a.target, a.item));
   let text = a.text;
   let requestAccepted = false;
+  let refusal = null;
   let affected = null,
     arrival = null,
     invitation = null;
@@ -1904,12 +1938,21 @@ function perform(s, a, capture = () => {}, round = null) {
       transfer(s, a.item, here, a.text);
       break;
     case "give":
+    case "trade": {
+      requestAccepted = expects(s, a);
+      if (!requestAccepted) {
+        refusal = refusalReason(s, a);
+        text =
+          a.kind === "give"
+            ? `${who} offers the ${nameOf(a.item)} to ${nameOf(a.target)}.`
+            : `${who} offers the ${nameOf(a.item)} for ${nameOf(a.target)}’s ${nameOf(a.receive)}.`;
+        text += ` ${nameOf(a.target)} declines. ${refusalText[refusal](nameOf(a.target), who, a)}`;
+        break;
+      }
       transfer(s, a.item, a.target, a.text);
+      if (a.kind === "trade") transfer(s, a.receive, a.actor, a.text);
       break;
-    case "trade":
-      transfer(s, a.item, a.target, a.text);
-      transfer(s, a.receive, a.actor, a.text);
-      break;
+    }
     case "light":
       if (
         s.opening &&
@@ -2004,7 +2047,12 @@ function perform(s, a, capture = () => {}, round = null) {
   // Reactions can change who is willing to share on the following play.
   capture();
   recordReaction(s, a, witnesses, requestAccepted);
-  recordLifeAction(s, a, invitation?.accepted ?? requestAccepted, usefulGift);
+  recordLifeAction(
+    s,
+    a,
+    invitation?.accepted ?? requestAccepted,
+    usefulGift && requestAccepted,
+  );
   addLog(s, "World", text, {
     kind: "action",
     actorId: a.actor,
@@ -2016,7 +2064,10 @@ function perform(s, a, capture = () => {}, round = null) {
     ...(affected ? { entityId: affected } : {}),
     targetId: a.target,
     ...(a.receive ? { receiveId: a.receive } : {}),
-    ...(a.kind === "ask" ? { accepted: requestAccepted } : {}),
+    ...(["ask", "give", "trade"].includes(a.kind)
+      ? { accepted: requestAccepted }
+      : {}),
+    ...(refusal ? { reason: refusal } : {}),
     ...(invitation
       ? { destinationId: a.destination, accepted: invitation.accepted }
       : {}),
@@ -3544,6 +3595,13 @@ export function validateWorld(s) {
     if (e.destinationId != null && !Object.hasOwn(places, e.destinationId))
       fail();
     if (e.accepted !== undefined && typeof e.accepted !== "boolean") fail();
+    if (
+      e.reason !== undefined &&
+      (!["give", "trade"].includes(e.verb) ||
+        e.accepted !== false ||
+        !REFUSAL_REASONS.includes(e.reason))
+    )
+      fail();
     if (
       e.verb === "accompany" &&
       (!actorIds.includes(e.actorId) ||

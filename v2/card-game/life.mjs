@@ -446,8 +446,8 @@ export function recordLifeAction(s, a, accepted, usefulGift = false) {
   if (!s.life) return;
   const participant = (id) => lifeParticipant(s, id);
   const social =
-    ["give", "trade", "talk"].includes(a.kind) ||
-    (["ask", "accompany"].includes(a.kind) && accepted);
+    a.kind === "talk" ||
+    (["ask", "accompany", "give", "trade"].includes(a.kind) && accepted);
   if (social && s.actors[a.target]) {
     for (const [id, other] of [
       [a.actor, a.target],
@@ -458,7 +458,7 @@ export function recordLifeAction(s, a, accepted, usefulGift = false) {
       lifeOf(s, id).company[other] = s.turn + REST_TURNS;
     }
   }
-  if (a.kind === "give" && participant(a.target))
+  if (a.kind === "give" && accepted && participant(a.target))
     lifeOf(s, a.target).attachments[a.item] = { from: a.actor, turn: s.turn };
   for (const id of Object.keys(s.life.actors))
     for (const item of Object.keys(lifeOf(s, id).attachments))
@@ -467,7 +467,7 @@ export function recordLifeAction(s, a, accepted, usefulGift = false) {
   const kindFor = (id) => {
     if (a.kind === "give" && usefulGift)
       return id === a.actor ? "help" : "gift";
-    if (a.kind === "trade") return "trade";
+    if (a.kind === "trade" && accepted) return "trade";
     if (a.kind === "talk") return "talk";
     if (a.kind === "accompany" && accepted) return "journey";
     if (a.kind === "refill") return "care";
