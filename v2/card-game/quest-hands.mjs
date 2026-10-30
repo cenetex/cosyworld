@@ -1,6 +1,6 @@
 // Hand membership is saved separately from the complete quest history.
-export const QUEST_HAND_LIMIT = 2;
-export const QUEST_FADE_TURNS = 2;
+const QUEST_HAND_LIMIT = 2;
+const QUEST_FADE_TURNS = 2;
 const ongoing = (q) => q.completedTurn === null && !q.retired;
 export const questFresh = (world, q) =>
   !q.retired &&

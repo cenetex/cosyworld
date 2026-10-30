@@ -59,17 +59,19 @@ fn assert_saved_values(saved: &Value, current: &Value, path: &str) {
     }
 }
 
+// Both versions upgrade through the same command; the long history (over a
+// hundred log lines) is played once, under the newest.
 #[test]
-fn quest_core_v17_upgrade_preserves_old_deeds_and_long_history_during_journal_replay() {
-    quest_history_upgrade(engine::SEVENTEENTH_VERSION);
+fn quest_core_v17_upgrade_preserves_old_deeds_during_journal_replay() {
+    quest_history_upgrade(engine::SEVENTEENTH_VERSION, 3);
 }
 
 #[test]
 fn quest_core_v18_upgrade_preserves_old_deeds_and_long_history_during_journal_replay() {
-    quest_history_upgrade(engine::EIGHTEENTH_VERSION);
+    quest_history_upgrade(engine::EIGHTEENTH_VERSION, 55);
 }
 
-fn quest_history_upgrade(version: &str) {
+fn quest_history_upgrade(version: &str, speeches: usize) {
     let (path, c, id, mut old) = fixture(version);
     old.claimed[0] = 1;
     old.present[0] = 1;
@@ -88,7 +90,7 @@ fn quest_history_upgrade(version: &str) {
         now(),
     )
     .unwrap();
-    for speech in 0..55 {
+    for speech in 0..speeches {
         full_store::commit(
             &c,
             &id,
@@ -106,7 +108,7 @@ fn quest_history_upgrade(version: &str) {
             )
         });
     }
-    assert!(old.game["log"].as_array().unwrap().len() > 100);
+    assert!(old.game["log"].as_array().unwrap().len() > speeches.min(50) * 2);
     assert!(old.game.get("knowledge").is_none());
     assert!(old.game["packs"]["greek-drama"]["receipts"]["greek-hear-decree"].is_number());
     let upgraded = full_store::world(&c, &id, now()).unwrap();

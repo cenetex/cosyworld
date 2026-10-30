@@ -74,8 +74,8 @@ import {
   cardObservation,
 } from "./cards.mjs";
 import { knownActors } from "./quests.mjs";
-// Quests stay in the saved world and reach the cast through Talk context
-// (quest-talk.mjs). The hand holds only people, items and places.
+// Quests stay in the saved world; a person's want reaches the cast through
+// Talk context (want-talk.mjs). The hand holds only people, items and places.
 const $ = (id) => document.getElementById(id);
 const tableName = new URLSearchParams(window.location.search).get("table");
 const startingPack = landingPack(window.location.href);
@@ -776,6 +776,15 @@ function keepHeldSelection(before, action = null) {
 function selectCards(cards) {
   for (const id of selected)
     if (people[id] && !cards.includes(id)) expandedHolders.delete(id);
+  // A place stays open, and raised, only while it is chosen or holds a
+  // chosen thing.
+  for (const id of expandedHolders)
+    if (
+      places[id] &&
+      !cards.includes(id) &&
+      !cards.some((card) => things[card] && rootHolder(world, card) === id)
+    )
+      expandedHolders.delete(id);
   selected = cards;
 }
 function choose(id) {
@@ -1615,8 +1624,9 @@ function renderHeldItem(figure, actor, itemId) {
   preview.dataset.ringing = String(item.ringing > 0 && !covering);
 }
 
-// Things lying here rest on the floor in the hand's card style. They are
-// pictures only; the hand cards remain the way to play them.
+// Things lying here stand on the painted floor behind the cast as cutouts of
+// the hand card art. They are scenery only; the hand cards remain the way to
+// play them.
 function renderFloorItems(items) {
   const floor = $("floor-items");
   const existing = new Map(
@@ -1624,17 +1634,16 @@ function renderFloorItems(items) {
   );
   floor.dataset.count = String(items.length);
   floor.replaceChildren(
-    ...items.map(({ id, cover, lit, ringing }) => {
-      let tile = existing.get(id);
-      if (!tile) {
-        tile = node("span", undefined, "floor-item");
-        tile.dataset.item = id;
-        tile.append(node("span", undefined, "art"));
+    ...items.map(({ id, cover, lit, ringing, spots }) => {
+      let prop = existing.get(id);
+      if (!prop) {
+        prop = node("span", undefined, "floor-item");
+        prop.dataset.item = id;
       }
       const key = JSON.stringify([id, cover]);
-      if (tile.dataset.key !== key) {
-        tile.dataset.key = key;
-        tile.firstChild.replaceChildren(
+      if (prop.dataset.key !== key) {
+        prop.dataset.key = key;
+        prop.replaceChildren(
           ...[id, cover].filter(Boolean).map((art, index) => {
             const image = node("img", undefined, index ? "object-cover" : "");
             image.decoding = "async";
@@ -1648,10 +1657,16 @@ function renderFloorItems(items) {
           }),
         );
       }
-      tile.dataset.lit = lit === undefined ? "" : String(lit);
-      tile.dataset.covered = String(Boolean(cover));
-      tile.dataset.ringing = String(Boolean(ringing));
-      return tile;
+      for (const [layout, spot] of Object.entries(spots)) {
+        prop.dataset[layout] = String(Boolean(spot));
+        if (!spot) continue;
+        prop.style.setProperty(`--${layout}-x`, `${spot.x}%`);
+        prop.style.setProperty(`--${layout}-lift`, String(spot.lift));
+      }
+      prop.dataset.lit = lit === undefined ? "" : String(lit);
+      prop.dataset.covered = String(Boolean(cover));
+      prop.dataset.ringing = String(Boolean(ringing));
+      return prop;
     }),
   );
 }

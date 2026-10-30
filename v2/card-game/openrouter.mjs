@@ -280,55 +280,6 @@ export function createOpenRouter({
   };
 }
 
-export async function browserChat(prepared, signal) {
-  const client = playerOpenRouter();
-  if (!client.connection()?.key)
-    throw new Error("Connect OpenRouter in Settings, then retry your play.");
-  const answers = [];
-  // Two calls at a time keeps a scene responsive and bounds account use.
-  for (let i = 0; i < prepared.calls.length; i += 2) {
-    const pair = await Promise.all(
-      prepared.calls.slice(i, i + 2).map(async (call) => {
-        try {
-          const reply = await client.request("chat/completions", {
-            body: call.request,
-            signal,
-          });
-          const choice = reply.choices?.[0];
-          return {
-            id: call.id,
-            part: call.part,
-            text: choice?.message?.content || "",
-            finish: choice?.finish_reason || "",
-          };
-        } catch (error) {
-          if (signal?.aborted || ["line"].includes(call.part)) throw error;
-          return { id: call.id, part: call.part, text: "", finish: "error" };
-        }
-      }),
-    );
-    answers.push(...pair);
-  }
-  return answers;
-}
-
-export async function requestBrowserNarrative(context, signal) {
-  const post = async (path, body) => {
-    const response = await fetch(path, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      signal,
-    });
-    if (!response.ok)
-      throw new Error("Your character's words need another try.");
-    return response.json();
-  };
-  const prepared = await post("/card-game/text/prepare", context);
-  const answers = await browserChat(prepared, signal);
-  return post("/card-game/text/complete", { context, answers });
-}
-
 let client;
 export function playerOpenRouter() {
   if (!client) {

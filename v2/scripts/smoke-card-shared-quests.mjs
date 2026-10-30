@@ -7,7 +7,6 @@ import { enableMotives } from "../card-game/motives.mjs";
 import { installQuestCollection } from "../card-game/quests.mjs";
 import { addQuestRecord } from "../card-game/shared-quests.mjs";
 import { questCards } from "../card-game/quest-cards.mjs";
-import { questTalkFacts } from "../card-game/quest-talk.mjs";
 import { openingFixture } from "../../test/helpers/greek-opening.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
@@ -113,9 +112,6 @@ try {
     // The saved item and participant views share one physical owned card.
     for (const holder of ["vale", "lamp"])
       assert.equal(view(state, holder).key, quest.key);
-    // Vale and Pip both carry it, so Talk names it for each of them.
-    for (const actor of ["vale", "moth"])
-      assert.match(questTalkFacts(state, actor).join(" "), /Meet by the water/);
     await page.screenshot({
       path: new URL(`holder-${width}.png`, output).pathname,
     });
@@ -133,10 +129,6 @@ try {
     state = await saved();
     for (const holder of ["vale", "lamp"])
       assert.equal(view(state, holder).status, "fulfilled");
-    assert.match(
-      questTalkFacts(state, "vale").join(" "),
-      /I just finished Meet by the water \(fulfilled\)\./,
-    );
     assert.equal(state.quests.records[quest.key].step, 1);
     assert.deepEqual(state.quests.records[quest.key].holder, {
       kind: "item",

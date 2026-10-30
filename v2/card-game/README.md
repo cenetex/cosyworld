@@ -109,32 +109,21 @@ dialog. Each avatar still keeps its saved quest collection, focus, hand of at
 most two carried quests, progress, receipts and history. Old saves load with
 all of it.
 
-The cast tells the player about quests in conversation. `quest-talk.mjs` reads
-saved state and adds up to three first-person facts to each avatar's Talk
-context:
+A person's want reaches the player only through Talk. `want-talk.mjs` reads
+the speaker's want (`actor.want`, or the authored `want` until the rules keep
+one) and adds one first-person fact to the Talk context: "I want the Lamp.",
+"I want to be at Old Oak Tree." or "I want to see Pip." It goes to the
+player's own avatar and to the person on the other side of a Talk play; a
+bystander's want stays unsaid, and a want already met is not said. Quest
+collections no longer add facts to dialogue.
 
-- **What I want most now** — the carried quest the speaker most recently
-  advanced or heard news about (a learned topic that its step asks for). With
-  no such quest, the rules' saved focus leads, then the newest card.
-- **Leads** — where the speaker fits another person's current step: "Vale is
-  pursuing Supper before the wind. It needs me there." It also says when the
-  speaker holds an item that step needs, or knows a fact it asks for. Up to
-  two people are named.
-- **I also want to pursue** — the other carried quest, and any quest the
-  speaker finished in the last two turns with its outcome.
-- **Help needed here** and **Open story here** — unfinished help, story and
-  shared quests whose holder is at the speaker's place. A person holding one is
-  named.
-
-Talk keeps two learned facts per speaker. A fact that is about to be told
-leads, then a known fact that an open quest asks about (a `knows` topic in its
-steps), then the newest news. The speaker's spark ("It started with …") and
+Talk keeps two learned facts per speaker: a fact that is about to be told
+leads, then the newest news. The speaker's spark ("It started with …") and
 missing items, places and company still come from the motive and desire facts.
 
-These facts use the public card wording from `quest-cards.mjs`. Step lists and
-authored purposes stay in the rules. The text is narration context only: the
-rules still decide legality, progress, focus and rewards, and building the
-context never changes the world.
+The text is narration context only: the rules still decide legality,
+progress, focus and rewards, and building the context never changes the
+world.
 
 The rules keep their quest actions (`pursue`, `join-quest`, `share-quest` and
 `drop-quest`) for residents, journal replay and shared play. Residents still
@@ -143,8 +132,8 @@ player needs no focus control.
 
 Run `node v2/scripts/smoke-card-quest-collection.mjs` to check that the hand
 has no quest cards, that saved quests survive reload, and that Talk sends the
-quest facts at desktop and phone sizes. `test/card-quest-talk.test.mjs` checks
-the facts, their order and their bounds.
+want fact at desktop and phone sizes. `test/card-want-talk.test.mjs` checks
+the fact, who hears it and that no quest facts remain.
 
 ## Image-first presentation
 
@@ -441,13 +430,13 @@ are saved in `output/badger-check/`.
 
 Every avatar, item, and location has a profile in `entity-profiles.json` and a saved memory in the browser world. A memory holds the latest 16 witnessed events, six lasting encounters, and the latest generated text. Gifts, trades, threats, shared trips and quest effects can become lasting encounters. Card plays record events for the actors and objects present, the item used, and both places during travel. Generated speech and descriptions are marked as expressions, so the next prompt can distinguish them from game events. Speech receives recent facts and a few lasting encounters. Earlier quest counters stay in saved history. Each avatar's voice, beliefs and fears give its request or response a personal reason.
 
-Speech receives visible facts, current wants, and witnessed results. Entity profiles describe appearance and personality. Quest step lists, authored purposes and hidden interaction rules stay in the simulation; each avatar's facts include the public quest lines described in [Quests through Talk](#quests-through-talk). A revealed path joins the location cards; travel happens when its card is played. Earlier opening expressions stay in saved history while fresh speech uses observations until the first light.
+Speech receives visible facts, current wants, and witnessed results. Entity profiles describe appearance and personality. Quest step lists, authored purposes and hidden interaction rules stay in the simulation; each avatar's facts can include the want line described in [Quests through Talk](#quests-through-talk). A revealed path joins the location cards; travel happens when its card is played. Earlier opening expressions stay in saved history while fresh speech uses observations until the first light.
 
 When a play calls for speech, the browser sends the current local entities and departing avatars, their facts, avatar interests, and eight recent memories, witnessed events, and the four latest spoken lines to `POST /card-game/text`. The Rust service adds the authored profiles and uses the existing AI gateway. The deployed character map sends each avatar to its own exact OpenRouter model. Items and places each have their own voice call. These calls run together inside one bounded scene request. Each call returns a brief plain-text reply, which the service validates before publication. A short unpunctuated reply can pass when the provider confirms it finished. A trailing continuation mark or an unfinished first line triggers the usual retry. Complete sentences and voluntary quotations keep their wording. Each entry carries its own model attribution. Raising a card prepares a play and keeps the current conversation. Playing a card commits the action; social actions and travel can start an exchange, while ordinary object manipulation can remain silent. The place, played item, and chosen speakers also receive scene beats. A quiet turn with departures gives the words to the moving cast, without an automatic Vale recap. A Stay without departures keeps Vale available. Direct interactions, combat, travel and introductions retain their relevant speakers. The departure action stays in the source scene. Words are written after the move commits, so a departed avatar's line is recorded at the destination with that place's cast; a player left at the source never sees it, and the waiting portrait does not name them there. The prompt includes the completed card play so their lines form a question and answer or a shared reaction. A separate resolved-turn record gives the played verb and outcome, every avatar's final location and holdings, exact travel companions, and final item ownership. Accepted accompany plays record both travellers; independent trips record an empty companion list. Current results take priority over desires and remembered speech. When Vale speaks on a wait play, the words stay at the place where Vale stayed. A solo farewell frames desired company as a hope for later.
 
 The conversation shows the current spoken line; earlier words are available in the optional Conversation panel. The browser buffers each exchange until it passes validation, then reveals complete letters on a local clock with short pauses at punctuation. The selected speakers take their turns in order. Each exchange advances after a reading pause. Tap the text to finish a line, then tap again to hear the next speaker. The hand pauses for up to 2.5 seconds while words are generated. A slow request can be replaced by another play. Once a complete reply arrives, the hand locks through scene preparation and every speaker, then becomes ready after the last reply. A blinking cursor marks the end. Earlier scene lines can be replayed with the line controls and History. A replayed line stages the avatars present now; a speaker who has left keeps the words and stays off the stage. Vale, Mara, Pip, the Keeper, Badger, and Dione speak with their original cloned voices when OpenRouter is connected. Settings toggles voices. Other speakers keep their soft, pitched voice sounds. Reduced motion shows full lines at once. Hidden tabs and open menus pause playback, including the rest of a punctuation pause. Text reveals on browser paint frames. Each visible line keeps its own height, and portraits stay mounted when the speaker changes. Empty prior replies and speech rows collapse. A scene with no words shows a compact loading line. A spoken card play immediately shows its first speaker with a loading mark. The waiting portrait names whoever speaks next, in speaking order: after Talk or Ask, the player's avatar thinks first, then the reply partner thinks while a streamed reply is still being written. Shared play waits on the acting avatar. The browser saves complete text before playback begins. Fresh tables request an opening exchange: at turn 0 the browser asks `/card-game/text` for Vale's first line, with no action and Vale as the only speaker. The World narration from `forest.json` stays as the authored scene-setting event. If that request fails or times out, the browser shows the authored opening line, saved with `fallback: true`. Retry dialogue or a reload removes it and asks the model again. Shared worlds have no browser opening line; their server publishes speech. Reloading resumes saved dialogue from the current turn. Action records remain in the saved world and scene export.
 
-The stage holds up to three avatars. Vale stands in the foreground, with the other two farther back. The composition mirrors when Vale returns from the other side of a route. Seats and sizes stay fixed throughout an exchange. The speaker and listener face each other; another witness looks toward the speaker. The keeper has a separate right-facing cutout, so the clock face keeps its painted detail. A soft lean and light change mark the speaker. Carried item symbols follow recorded custody, including covered items. Things lying in the current place, whether put down or there from the start, rest on the stage as small untappable copies of their hand cards: up to six beside the floor on wide screens, and up to three at the upper left on narrower ones. Every such thing keeps its hand card, and a picture leaves the stage as soon as someone takes it. Actual arrivals fade in together for an accepted accompany play. Quiet actions update the stage cast immediately to match the hand and current locations. Reduced motion uses still poses. The scene script exports each actor's position, depth, scale, facing, gaze, pose, travel companions, and carried items for each beat, plus the floor items. The browser uses `portrait-facing.mjs` to match each painted portrait to that gaze. This presentation-only map covers the human cast, pack portraits and Keeper variants; add new portrait files here with their native direction. Hand thumbnails keep their native artwork.
+The stage holds up to three avatars. Vale stands in the foreground, with the other two farther back. The composition mirrors when Vale returns from the other side of a route. Seats and sizes stay fixed throughout an exchange. The speaker and listener face each other; another witness looks toward the speaker. The keeper has a separate right-facing cutout, so the clock face keeps its painted detail. A soft lean and light change mark the speaker. Carried item symbols follow recorded custody, including covered items. Things lying in the current place, whether put down or there from the start, stand on the painted floor as untappable props: the bare item cutout from the hand card, hand-sized beside the cast, behind the avatars and clear of the dialogue. Each keeps a stable spot from its id and the place. Wide screens show up to six; narrow and short ones show up to three. Every such thing keeps its hand card, and a prop leaves the stage as soon as someone takes it. Actual arrivals fade in together for an accepted accompany play. Quiet actions update the stage cast immediately to match the hand and current locations. Reduced motion uses still poses. The scene script exports each actor's position, depth, scale, facing, gaze, pose, travel companions, and carried items for each beat, plus the floor items and their spots. The browser uses `portrait-facing.mjs` to match each painted portrait to that gaze. This presentation-only map covers the human cast, pack portraits and Keeper variants; add new portrait files here with their native direction. Hand thumbnails keep their native artwork.
 
 A raised card keeps the current conversation in place. Playing a destination starts the new visit. Room memories and the previous response follow that visit; earlier visits stay available through History and the line arrows. Fresh dialogue waits for the backdrop, avatar images, and entrance motion to settle. The travel screen fully covers the source before the destination is drawn. Arrivals begin after that screen clears, and dialogue begins after the arrivals finish. Agreed companions enter together; independent followers enter a moment after Vale. A short caption distinguishes followers, companions, waiting residents, and departures, including with reduced motion. The same order applies when reopening a saved game. Media waits have a time limit. A reset or a save update cancels the travel screen and its waiting entrances.
 
@@ -501,6 +490,8 @@ Accompany requests use current interests, the items carried by the requester, fa
 Schema 6 gains optional `motives` state. The browser activates this state for both fresh games and restored games. Earlier progress, earned levels, inventory, and memories remain in the save. The browser enables quest programs alongside personal motives at every new-game and load entry point. Saved progress continues from its recorded step. Completing a program earns a level and starts three quiet turns. Meaningful experiences and the avatar’s lasting hope shape the next purpose after sanctuary rest. Tastes shape prices; a remembered grievance can raise a price, refuse company, or prompt a retreat. Quest items also carry value in a fair exchange. The interests-only simulation remains available through `enableMotives()` for comparison; the browser passes `questPrograms: true`. Generated speech receives current interests, exact outcomes, and witnessed grievances.
 
 At the station, Vale can take the bell. The Keeper values the bell more than the oil and accepts that pair. Ring the bell beside the Keeper first and the price rises. Pip values the lamp more than the cloth. These competing tastes let the same objects support several bargains.
+
+The hub cast's tastes, home and item values live in `forest.json` under `people`, beside the pack residents' `tastes` and `values` in their card worlds. Each named avatar also has one authored `want`, `{ "kind": "item" | "place" | "person", "target": id }`, which names what it seeks first: Vale and Pip want the lamp, the keeper wants the bell. Pack residents with a `desire` carry a matching `want`, which the pack schema checks against the pack's and hub's items, places and avatars. The rules don't read `want` yet.
 
 ## Local play
 

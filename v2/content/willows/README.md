@@ -41,6 +41,13 @@ item paintings were supplied by the owner on 2026-10-30, made with built-in
 image generation; their prompts and source hashes are also in
 `art-prompts.json`. Art lives in `v2/card-game/assets/willows/`.
 
+River Landing and River Camp share the saved world clock with the Greek
+places: every twenty-four accepted turns, day turns to night. At night the
+landing shows the Greek ship's lanterns in the backwater and the camp shows
+its lit fire under a dark sky. These two night paintings came from closed
+PR #1293; their prompts are in `art-prompts.json`. The thicket and the bank
+keep their single painting.
+
 ## Checks
 
 `test/card-willows.test.mjs` covers discovery, custody, old saves, the two

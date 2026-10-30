@@ -11,7 +11,6 @@ import { needsVoyage, nextVoyagePlay } from "../../test/helpers/voyage.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { questCards, questCardId } from "../card-game/quest-cards.mjs";
 import { narrativeContext } from "../card-game/narrative.mjs";
-import { questTalkFacts } from "../card-game/quest-talk.mjs";
 import { openingFixture } from "../../test/helpers/greek-opening.mjs";
 import {
   openDoorAction,
@@ -277,10 +276,6 @@ try {
             await page.locator("#hand [data-quest]").count(),
             0,
             "Myrine's journey stays out of the hand",
-          );
-          assert.match(
-            questTalkFacts(world, "greek-household-witness").join(" "),
-            /Bring Myrine to the waiting berth\./,
           );
           await capture("myrine-quest");
           await page.keyboard.press("Escape");

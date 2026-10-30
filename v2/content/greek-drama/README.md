@@ -146,15 +146,19 @@ mirror and night setting.
 
 `assets/greek-drama/scenery-provenance.json` records the opening scenery.
 `assets/greek-drama/open-door-art.json` records the new art prompts, source
-hashes, dimensions and runtime hashes. Most later repertoire places retain their
-original SVG scenery.
+hashes, dimensions and runtime hashes. Seven later places have daytime
+paintings salvaged from closed art PRs: Cithaeron Slopes, the Argive Shore
+Sanctuary, Pherae, Trachis, Proteus's Tomb, the Court at Susa and the Taurian
+Temple. The salvaged Lemnos and Thrace paintings are stored but not currently
+assigned; Trojan Shores paints those two places.
+`assets/greek-drama/salvaged-backdrops-provenance.json` keeps each original
+record. The other later places keep their SVG scenery for now.
 The Ajax chapter adds day and night camp paintings, Tecmessa, Teucer,
 Odysseus and the shield. Its [art record](../../card-game/assets/greek-drama/AJAX-ART.md)
 lists the retained sources and prompt records.
 
 Trojan Shores adds matching day and night paintings for Aulis Anchorage,
-the Trojan Walls, the Trojan Night Camp, the Lemnian Cave, the Thracian Shore
-and the Homecoming Beach. Sixteen inventory objects gain their own transparent
+the Trojan Walls, the Trojan Night Camp and the Homecoming Beach. Sixteen inventory objects gain their own transparent
 paintings, including the separate witness accounts, petitions, cloths, vessels
 and grave tools. The scenery uses lossless WebP; the item PNGs keep their
 original alpha channels. The [art record](../../card-game/assets/greek-drama/trojan-shores-art-provenance.json)

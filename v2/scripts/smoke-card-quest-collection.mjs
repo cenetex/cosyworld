@@ -48,8 +48,7 @@ try {
     [390, 844],
   ]) {
     const world = fixture();
-    const player = questCards(world),
-      npc = questCards(world, "moth");
+    const player = questCards(world);
     const key = `cosyworld.reflected-shore.v1.quest-stack-${width}`;
     const page = await browser.newPage({
       viewport: { width, height },
@@ -122,7 +121,7 @@ try {
     await page.screenshot({
       path: new URL(`hand-${width}.png`, output).pathname,
     });
-    // Talk carries the quests to the model as narration facts.
+    // Talk carries a want to the model as one narration fact.
     await page.keyboard.press("Escape");
     await selectCard(page, "moth");
     const before = requests.length;
@@ -136,19 +135,18 @@ try {
       await page.waitForTimeout(50);
     const talk = requests.at(-1);
     assert(talk, "Talk sent a dialogue request");
-    for (const [actor, cards] of [
-      ["vale", player],
-      ["moth", npc],
+    // Vale holds the lamp, so only Pip still wants it.
+    for (const [actor, want] of [
+      ["vale", null],
+      ["moth", "lamp"],
     ]) {
       const facts = talk.entities.find((e) => e.id === actor).facts;
-      assert(
-        facts.some((fact) => fact.startsWith("What I want most now: ")),
+      assert.equal(
+        facts.includes("I want the Lamp."),
+        want !== null,
         `${actor} says what they want`,
       );
-      for (const card of cards.filter((c) =>
-        ["active", "pending"].includes(c.status),
-      ))
-        assert(facts.join(" ").includes(card.title), card.title);
+      assert(!facts.some((fact) => fact.startsWith("What I want most now")));
       assert(facts.length <= 16);
     }
     const saved = await page.evaluate(
@@ -173,7 +171,7 @@ try {
     await page.close();
   }
   console.log(
-    "Quest-free hand, Talk quest facts, saved quests and reload passed at desktop and phone widths.",
+    "Quest-free hand, the Talk want fact, saved quests and reload passed at desktop and phone widths.",
   );
 } finally {
   await browser.close();

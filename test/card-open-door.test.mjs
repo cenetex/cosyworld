@@ -13,7 +13,7 @@ import {
   packDefinition,
 } from "../v2/card-game/pack-registry.mjs";
 import { questCards, questHistoryCards } from "../v2/card-game/quest-cards.mjs";
-import { openDoorDefinitions } from "../v2/card-game/open-door-quests.mjs";
+import { storyGroupDefinitions } from "./helpers/story-groups.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { recitalPoem, recitalContext } from "../v2/card-game/pack-recital.mjs";
 import { questRecord } from "../v2/card-game/shared-quests.mjs";
@@ -246,7 +246,7 @@ describe("the Open Door", () => {
       });
       expect(accessible(world)).toEqual(OPEN_DOOR_PLACES);
       expect(state(world).choices["greek-theban-response"]).toBe(branch);
-      expect(openDoorDefinitions(world)).toEqual([]);
+      expect(storyGroupDefinitions(world, "open-door")).toEqual([]);
       expect(play(world, invitation).ok).toBe(false);
       world = openDoorWalk(reload(world), "harbor", "athens");
       expect(exits(world, "greek-athens", "vale")).toEqual(
@@ -320,7 +320,7 @@ describe("the Open Door", () => {
     let world = openDoorJourney().after["greek-open-door-eleusis-care"];
     world = openDoorWalk(world, "athens", "harbor", "courtyard");
     expect(
-      openDoorDefinitions(world).find(
+      storyGroupDefinitions(world, "open-door").find(
         (card) => card.key === storyKey("return"),
       ),
     ).toMatchObject({ resolved: false, completion: "Shared" });

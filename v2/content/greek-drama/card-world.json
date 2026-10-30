@@ -98,7 +98,7 @@
       "name": "Cithaeron Slopes",
       "text": "Goat paths cross the wooded slope. A distant drum carries between the trees.",
       "exits": ["greek-sanctuary"],
-      "backdrop": "assets/greek-drama/grove.svg",
+      "backdrop": "assets/greek-drama/bacchae-cithaeron-day.webp",
       "persona": "Goat paths cross the wooded slope. A distant drum carries between the trees."
     },
     "greek-aulis": {
@@ -228,7 +228,7 @@
       "name": "Argive Shore Sanctuary",
       "text": "Suppliant branches rest beside a coastal altar. A lookout watches an approaching ship.",
       "exits": ["greek-argolid-road"],
-      "backdrop": "assets/greek-drama/harbor.svg",
+      "backdrop": "assets/greek-drama/suppliants-argive-shore-day.webp",
       "persona": "Suppliant branches rest beside a coastal altar. A lookout watches an approaching ship."
     },
     "greek-argos-palace": {
@@ -312,7 +312,7 @@
       "name": "House at Trachis",
       "text": "A messenger's sandals dry beside the doorway. A folded garment waits on a workbench.",
       "exits": ["greek-oeta", "greek-pherae"],
-      "backdrop": "assets/greek-drama/courtyard.svg",
+      "backdrop": "assets/greek-drama/book-two-trachis-day.webp",
       "persona": "A messenger's sandals dry beside the doorway. A folded garment waits on a workbench."
     },
     "greek-oeta": {
@@ -327,7 +327,7 @@
       "name": "Palace of Pherae",
       "text": "Guests arrive at a house in mourning. A servant hesitates before opening the inner door.",
       "exits": ["greek-trachis", "greek-thetis"],
-      "backdrop": "assets/greek-drama/palace.svg",
+      "backdrop": "assets/greek-drama/book-two-pherae-day.webp",
       "persona": "Guests arrive at a house in mourning. A servant hesitates before opening the inner door."
     },
     "greek-thetis": {
@@ -401,7 +401,7 @@
       "name": "Proteus's Tomb in Egypt",
       "text": "A tomb stands beside the Egyptian palace. A woman receives visitors from the sea.",
       "exits": [],
-      "backdrop": "assets/greek-drama/palace.svg",
+      "backdrop": "assets/greek-drama/helen-egypt-tomb-day.webp",
       "requires": [
         {
           "kind": "choice",
@@ -415,7 +415,7 @@
       "name": "The Taurian Temple",
       "text": "A walled temple overlooks the landing place. An attendant counts the people brought ashore.",
       "exits": ["greek-road-black-sea", "greek-scythian-crag"],
-      "backdrop": "assets/greek-drama/palace.svg",
+      "backdrop": "assets/greek-drama/tauris-shore-scene.webp",
       "persona": "A walled temple overlooks the landing place. An attendant counts the people brought ashore."
     },
     "greek-sicily": {
@@ -429,7 +429,7 @@
       "name": "The Court at Susa",
       "text": "Officials wait beside the royal tomb. The last dispatch from the fleet lies unopened.",
       "exits": ["greek-road-royal"],
-      "backdrop": "assets/greek-drama/palace.svg",
+      "backdrop": "assets/greek-drama/book-three-susa-day.webp",
       "persona": "Officials wait beside the royal tomb. The last dispatch from the fleet lies unopened."
     },
     "greek-scythian-crag": {
@@ -661,6 +661,7 @@
       "persona": "A determined sister. Speak directly about a brother's burial and the practical help at hand. Know only public facts and witnessed acts; never predict the play's ending.",
       "voice": "A determined sister. Speak directly about a brother's burial and the practical help at hand. Know only public facts and witnessed acts; never predict the play's ending.",
       "portrait": "assets/greek-drama/chthonic-antigone.png",
+      "want": { "kind": "item", "target": "greek-funeral-cloth" },
       "desire": {
         "items": ["greek-funeral-cloth", "greek-oil-flask"],
         "location": "greek-battlefield",
@@ -690,6 +691,7 @@
       "persona": "A cautious sister who fears another death. Care and reluctance coexist. Ask what a proposal will cost the living; do not invent secret plans or claim the burial happened.",
       "voice": "A cautious sister who fears another death. Care and reluctance coexist. Ask what a proposal will cost the living; do not invent secret plans or claim the burial happened.",
       "portrait": "assets/greek-drama/chthonic-ismene.png",
+      "want": { "kind": "place", "target": "greek-sanctuary" },
       "desire": {
         "items": [],
         "location": "greek-sanctuary",
@@ -713,6 +715,7 @@
       "persona": "A ruler holding a damaged city together through commands. Defend order without becoming a cartoon tyrant. A recorded concession is binding; before it, do not announce one.",
       "voice": "A ruler holding a damaged city together through commands. Defend order without becoming a cartoon tyrant. A recorded concession is binding; before it, do not announce one.",
       "portrait": "assets/greek-drama/chthonic-creon.png",
+      "want": { "kind": "place", "target": "greek-palace" },
       "desire": {
         "items": [],
         "location": "greek-palace",
@@ -754,6 +757,7 @@
       "persona": "A practical baker concerned with water, bread, and the people at her table. Remember a returned jar. Respond to recorded public outcomes without knowing private choices.",
       "voice": "A practical baker concerned with water, bread, and the people at her table. Remember a returned jar. Respond to recorded public outcomes without knowing private choices.",
       "portrait": "assets/greek-drama/chthonic-baker.png",
+      "want": { "kind": "place", "target": "greek-courtyard" },
       "desire": {
         "items": [],
         "location": "greek-courtyard",

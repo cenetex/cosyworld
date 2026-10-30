@@ -1,0 +1,99 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`want data > keeps the hub tastes and decisions 1`] = `
+{
+  "keeper": {
+    "home": "station",
+    "likes": "Quiet hours and properly returned things",
+    "sore": "Unnecessary ringing",
+    "values": {
+      "bell": 10,
+      "cloth": 6,
+      "lamp": 3,
+      "oil": 8,
+    },
+  },
+  "moth": {
+    "home": "pond",
+    "likes": "Warm light and a splendid waistcoat",
+    "sore": "Someone spoiling the light",
+    "values": {
+      "bell": 1,
+      "cloth": 6,
+      "lamp": 12,
+      "oil": 3,
+    },
+  },
+  "vale": {
+    "home": "attic",
+    "likes": "Interesting routes and a decent bargain",
+    "sore": "Changed terms",
+    "values": {
+      "bell": 5,
+      "cloth": 4,
+      "lamp": 8,
+      "oil": 5,
+    },
+  },
+}
+`;
+
+exports[`want data > keeps the hub tastes and decisions 2`] = `
+{
+  "trades": [
+    true,
+    false,
+    false,
+    false,
+  ],
+  "values": {
+    "keeper": [
+      3,
+      8,
+      10,
+      6,
+    ],
+    "moth": [
+      12,
+      3,
+      1,
+      6,
+    ],
+    "vale": [
+      8,
+      5,
+      5,
+      4,
+    ],
+  },
+  "wants": {
+    "keeper": {
+      "avatars": [],
+      "items": [
+        "bell",
+      ],
+      "location": "station",
+      "reason": "Quiet hours and properly returned things",
+      "text": "Interested in the Bell",
+    },
+    "moth": {
+      "avatars": [],
+      "items": [
+        "lamp",
+      ],
+      "location": "station",
+      "reason": "Warm light and a splendid waistcoat",
+      "text": "Interested in the Lamp",
+    },
+    "vale": {
+      "avatars": [],
+      "items": [
+        "lamp",
+      ],
+      "location": "station",
+      "reason": "Interesting routes and a decent bargain",
+      "text": "Interested in the Lamp",
+    },
+  },
+}
+`;
