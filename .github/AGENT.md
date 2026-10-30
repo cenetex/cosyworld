@@ -34,7 +34,9 @@ npm run version:bump   # bumps package.json, package-lock.json, and the
 ```
 
 `npm run check:version` also fails early when the Rust crate version drifts
-from `package.json`, so run it after any manual version edit.
+from `package.json`, so run it after any manual version edit. The pre-push hook
+runs only `npm run check:version`; run `npm run check` by hand for the full
+local gate.
 
 Then run every row that matches the change:
 
@@ -99,7 +101,8 @@ changing application behavior.
   unrelated baseline churn.
 - Full V2 smoke checks start local processes and use fixed runtime files; stop
   stale instances before diagnosing product failures.
-- Pushes to `main` run the production gate and deploy only the primary Fly app.
+- Pushes to `main` deploy only the primary Fly app, as soon as its image is
+  built, without the production gate or a primary backup.
   Release tags deploy both the primary and Lonely Forest Fly apps, then create
   a GitHub release. AWS retains DNS, static-site, and rollback infrastructure;
   feature branches never target production.

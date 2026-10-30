@@ -45,8 +45,10 @@ allowed deployment refs on the `lonelyforest-production` GitHub environment so
 manual production dispatches receive an approval gate.
 
 The separate jobs and app-scoped tokens prevent a primary-app release from
-implicitly touching Lonely Forest. Both jobs first pass the real v2 Node,
-worldpack, C-kernel, and Rust checks in the shared production gate. The Rust gate reuses CI's `Rust build and tests` and
+implicitly touching Lonely Forest. For tags and dispatches, both jobs first
+pass the real v2 Node, worldpack, C-kernel, and Rust checks in the shared
+production gate. A push to `main` skips that gate and the primary backup and
+deploys `.dev` as soon as its image is built. The Rust gate reuses CI's `Rust build and tests` and
 `Rust architecture and lint` results for the same commit through
 `scripts/await-ci-rust.mjs`: it waits while they run, and runs the checks
 itself when CI did not run them, was cancelled, or failed.

@@ -4,13 +4,15 @@
 
 | Site | Purpose | Release path |
 | --- | --- | --- |
-| [cosyworld.fly.dev](https://cosyworld.fly.dev/) | Testing | Game changes on `main` deploy automatically after the checks pass |
+| [cosyworld.fly.dev](https://cosyworld.fly.dev/) | Testing | Game changes on `main` deploy automatically as soon as the image is built |
 | [lonelyforest.com](https://lonelyforest.com/) | Production | Deliberate versioned releases |
 
 The [Deploy workflow](../../.github/workflows/deploy.yml) owns releases.
 A `v*` tag deploys both apps. A manual run selects `primary` for the testing
 site, `lonelyforest` for production, or `both`. Each app has its own token,
-image, compatibility checks, volume backup, and readiness checks.
+image, compatibility checks, volume backup, and readiness checks. A push to
+`main` skips the production gates and the primary backup, so `.dev` rolls out
+as soon as its image is built; CI still checks the same commit.
 
 The root [Dockerfile](../../Dockerfile) builds the Rust service.
 [fly.toml](../../fly.toml) configures the testing app;
@@ -43,7 +45,8 @@ npm run v2:status
 npm run v2:stop
 ```
 
-`npm run check` runs the main code and content gate. `npm run check:local`
+`npm run check` runs the main code and content gate; run it by hand, since the
+pre-push hook runs only `npm run check:version`. `npm run check:local`
 adds the local runtime and browser checks. The full local setup also needs the
 Rust `wasm32-unknown-unknown` target and the pinned SRD source described in the
 [rules reference guide](../../reference-library/rpg-systems/README.md).

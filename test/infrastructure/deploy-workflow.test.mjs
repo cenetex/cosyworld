@@ -199,6 +199,66 @@ describe("deploy workflow", () => {
     ).toBeLessThan(workflow.indexOf("Create rollback backup"));
   });
 
+  it("deploys a main push to .dev as soon as its image is built", () => {
+    const fullRelease =
+      "(github.event_name != 'push' || startsWith(github.ref, 'refs/tags/'))";
+    const nodeGate = job("production-node-gate", "production-rust-gate");
+    const rustGate = job("production-rust-gate", "production-gate");
+    const gate = job("production-gate", "primary-fly");
+    const primaryBackup = job("primary-backup", "primary-fly");
+    const primaryFly = job("primary-fly", "lonelyforest-image");
+
+    // Main pushes skip the Node and Rust gates; tags and dispatches run them.
+    expect(nodeGate).toContain(`needs.release-owner.outputs.owns == 'true' &&\n      ${fullRelease}`);
+    expect(rustGate).toContain(`needs.release-owner.outputs.owns == 'true' &&\n      ${fullRelease}`);
+    expect(gate).toContain(`FULL_RELEASE: \${{ ${fullRelease} }}`);
+    expect(gate.indexOf('if [ "$FULL_RELEASE" != true ]')).toBeLessThan(
+      gate.indexOf('test "$NODE_RESULT" = success'),
+    );
+
+    // The primary backup runs only for tags and primary dispatches.
+    expect(primaryBackup).toContain("startsWith(github.ref, 'refs/tags/') ||");
+    expect(primaryBackup).toContain(
+      "(github.event_name == 'workflow_dispatch' &&\n        (inputs.target == 'both' || inputs.target == 'primary'))",
+    );
+    expect(primaryBackup).not.toContain("github.event_name == 'push' ||");
+
+    // The rollout waits only for the image on main; otherwise for the gate and backup.
+    expect(primaryFly).toContain("!cancelled()");
+    expect(primaryFly).toContain("needs.primary-image.result == 'success'");
+    expect(primaryFly).toContain(
+      "((github.event_name == 'push' && github.ref == 'refs/heads/main') ||\n" +
+        "       (needs.production-gate.result == 'success' &&\n" +
+        "        needs.primary-backup.result == 'success'))",
+    );
+  });
+
+  it("keeps every Lonely Forest gate and backup for tags and dispatches", () => {
+    const forestBackup = job("lonelyforest-backup", "lonelyforest-fly");
+    const forestFly = job("lonelyforest-fly", "deploy-outcome");
+    for (const forestJob of [forestBackup, forestFly]) {
+      expect(forestJob).toContain("startsWith(github.ref, 'refs/tags/v')");
+      expect(forestJob).toContain("github.event_name == 'workflow_dispatch'");
+      expect(forestJob).not.toContain("refs/heads/main");
+    }
+    expect(forestFly).toContain("needs.production-gate.result == 'success'");
+    expect(forestFly).toContain("needs.lonelyforest-backup.result == 'success'");
+    expect(forestFly).toContain("needs.lonelyforest-image.result == 'success'");
+  });
+
+  it("keeps the pre-push hook to fast checks", () => {
+    const hook = readFileSync(
+      new URL("../../git-hooks/pre-push", import.meta.url),
+      "utf8",
+    );
+    expect(hook).toContain("# cosyworld-version-hook");
+    expect(hook).toContain("npm run check:version");
+    expect(hook).not.toMatch(/^\s*npm run check\s*$/m);
+    expect(hook).not.toContain("v2:rust:test");
+    expect(hook).not.toContain("v2:kernel");
+    expect(packageScripts.check).toContain("v2:rust:test");
+  });
+
   it("shares a commit image while each app keeps its own registry and rollout gates", () => {
     const primary = job("primary-image", "primary-backup");
     const forest = job("lonelyforest-image", "lonelyforest-backup");
