@@ -1,0 +1,4 @@
+/sources/*
+!/sources/.gitignore
+/raw/*
+!/raw/.gitignore
