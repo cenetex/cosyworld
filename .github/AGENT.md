@@ -117,7 +117,9 @@ Do not edit or commit these directly:
 - released shared rules `v2/orchestrator-rust/src/card_shared/engine-v*.js`
   and their version wiring. After rebasing a branch that changes rule modules,
   run `npm run v2:card:shared:next`; it restores main's live rules and claims
-  the next version once;
+  the next version once. To land a prepared branch, `npm run land -- <branch>`
+  applies its own work onto main, regenerates the rules bundle, asset manifest
+  and version, and commits; it stops only on a conflict in the branch's work;
 - `v2/worlds/official/pack.lock.json` except through the lock command;
 - `package-lock.json` except through an intentional dependency/version update;
 - `v2/tests/visual-baselines/**` except for a reviewed UI change using the
