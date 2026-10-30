@@ -141,7 +141,8 @@ Card faces contain the illustration and a small name. Tapping a card toggles
 its selection. Selecting a card or pair shows named actions in the row below.
 Tapping an action button plays it. The current place leads the hand, followed
 by items lying there, avatars with their carried items, and travel destinations.
-Hover lifts a card and its preview stack together.
+Hover lifts a card and its preview stack together. The name shade reaches the
+card edge, so a raised card clipped by the folded row shows no stray art.
 Arrival starts the hand at the new current place. Selection keeps its scroll position.
 On wide screens, the resting hand occupies two card widths at the right. Dialogue
 sits at the left. Selecting a card opens the hand across the screen and moves
