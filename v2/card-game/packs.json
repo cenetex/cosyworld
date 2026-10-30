@@ -12734,7 +12734,7 @@
       "schemaVersion": 1,
       "id": "lonely-forest",
       "packId": "cosyworld.lonely-forest",
-      "revision": 1,
+      "revision": 2,
       "name": "Lonely Forest",
       "description": "Tea beneath the oak. A household task leads through the rain, along a watched path, and home with a story.",
       "tone": "Plain words, useful work, distinct personalities, and gradual discovery of a shared living mind. Warmth comes from the kettle, the hearth and care for returning travelers.",
@@ -12790,30 +12790,9 @@
           "expression": "speech",
           "portrait": "assets/lonely-forest/rati.png",
           "tastes": {
-            "likes": "A mended scarf and a guest home for tea",
+            "likes": "A traveler's own button sewn into a warm scarf",
             "sore": "Muddy boots on the wool",
             "reason": "RATi keeps the cottage ready for returning guests."
-          },
-          "values": {
-            "forest-story-button": 8
-          },
-          "want": {
-            "kind": "item",
-            "target": "forest-story-button"
-          },
-          "desire": {
-            "items": [
-              "forest-story-button"
-            ],
-            "location": "forest-cottage",
-            "avatars": [],
-            "requires": [
-              {
-                "kind": "flag",
-                "key": "forest-scarf-mended",
-                "value": false
-              }
-            ]
           }
         },
         "skull": {
@@ -12867,33 +12846,276 @@
         }
       },
       "items": {
-        "forest-story-button": {
-          "name": "Story Button",
-          "text": "A warm wooden button with four small holes.",
-          "persona": "A warm wooden button with four small holes.",
-          "holder": "forest-cottage",
-          "art": "assets/lonely-forest/story-button.webp"
-        },
-        "forest-dewbright-button": {
-          "name": "Dewbright Button",
-          "text": "A small pearled button with a smooth round face.",
-          "persona": "A small pearled button with a smooth round face.",
-          "holder": "forest-garden",
-          "art": "assets/lonely-forest/dewbright-button.webp"
-        },
-        "forest-watch-bell": {
-          "name": "Watch Bell",
-          "text": "A little bell hangs from a short loop of cord.",
-          "persona": "A little bell hangs from a short loop of cord.",
-          "holder": "forest-garden",
-          "art": "assets/lonely-forest/watch-bell.webp"
-        },
         "forest-wolfprint-charm": {
           "name": "Wolfprint Charm",
           "text": "A cool iron charm bears a careful pawprint.",
           "persona": "A cool iron charm bears a careful pawprint.",
           "holder": "forest-trail",
           "art": "assets/lonely-forest/wolfprint-charm.webp"
+        },
+        "forest-button-vale": {
+          "name": "Vale's Black Button",
+          "text": "A small black button with four thread holes.",
+          "persona": "A small black button with four thread holes. It belongs to Vale.",
+          "holder": "forest-cottage",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-button-vale-hidden",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "forest-scarf-vale-sewn",
+              "value": false
+            }
+          ],
+          "art": "assets/lonely-forest/button-vale.png"
+        },
+        "forest-button-mara": {
+          "name": "Mara's Red Button",
+          "text": "A small red button with four thread holes.",
+          "persona": "A small red button with four thread holes. It belongs to Mara.",
+          "holder": "forest-cottage",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-button-mara-hidden",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "forest-scarf-mara-sewn",
+              "value": false
+            }
+          ],
+          "art": "assets/lonely-forest/button-mara.png"
+        },
+        "forest-button-ash": {
+          "name": "Ash's Orange Button",
+          "text": "A small orange button with four thread holes.",
+          "persona": "A small orange button with four thread holes. It belongs to Ash.",
+          "holder": "forest-cottage",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-button-ash-hidden",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "forest-scarf-ash-sewn",
+              "value": false
+            }
+          ],
+          "art": "assets/lonely-forest/button-ash.png"
+        },
+        "forest-button-nell": {
+          "name": "Nell's Yellow Button",
+          "text": "A small yellow button with four thread holes.",
+          "persona": "A small yellow button with four thread holes. It belongs to Nell.",
+          "holder": "forest-cottage",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-button-nell-hidden",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "forest-scarf-nell-sewn",
+              "value": false
+            }
+          ],
+          "art": "assets/lonely-forest/button-nell.png"
+        },
+        "forest-button-tavi": {
+          "name": "Tavi's Green Button",
+          "text": "A small green button with four thread holes.",
+          "persona": "A small green button with four thread holes. It belongs to Tavi.",
+          "holder": "forest-cottage",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-button-tavi-hidden",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "forest-scarf-tavi-sewn",
+              "value": false
+            }
+          ],
+          "art": "assets/lonely-forest/button-tavi.png"
+        },
+        "forest-button-rue": {
+          "name": "Rue's Blue Button",
+          "text": "A small blue button with four thread holes.",
+          "persona": "A small blue button with four thread holes. It belongs to Rue.",
+          "holder": "forest-cottage",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-button-rue-hidden",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "forest-scarf-rue-sewn",
+              "value": false
+            }
+          ],
+          "art": "assets/lonely-forest/button-rue.png"
+        },
+        "forest-button-orin": {
+          "name": "Orin's Indigo Button",
+          "text": "A small indigo button with four thread holes.",
+          "persona": "A small indigo button with four thread holes. It belongs to Orin.",
+          "holder": "forest-cottage",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-button-orin-hidden",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "forest-scarf-orin-sewn",
+              "value": false
+            }
+          ],
+          "art": "assets/lonely-forest/button-orin.png"
+        },
+        "forest-button-ada": {
+          "name": "Ada's Violet Button",
+          "text": "A small violet button with four thread holes.",
+          "persona": "A small violet button with four thread holes. It belongs to Ada.",
+          "holder": "forest-cottage",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-button-ada-hidden",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "forest-scarf-ada-sewn",
+              "value": false
+            }
+          ],
+          "art": "assets/lonely-forest/button-ada.png"
+        },
+        "forest-scarf-vale": {
+          "name": "Vale's White Scarf",
+          "text": "A soft white knitted scarf fastened with a black button.",
+          "persona": "A soft white knitted scarf RATi sewed for Vale. Vale's own black button fastens it.",
+          "holder": "forest-cottage",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-scarf-vale-sewn",
+              "value": true
+            }
+          ],
+          "art": "assets/lonely-forest/scarf-white.png"
+        },
+        "forest-scarf-mara": {
+          "name": "Mara's Green Scarf",
+          "text": "A soft green knitted scarf fastened with a red button.",
+          "persona": "A soft green knitted scarf RATi sewed for Mara. Mara's own red button fastens it.",
+          "holder": "forest-cottage",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-scarf-mara-sewn",
+              "value": true
+            }
+          ],
+          "art": "assets/lonely-forest/scarf-green.png"
+        },
+        "forest-scarf-ash": {
+          "name": "Ash's Blue Scarf",
+          "text": "A soft blue knitted scarf fastened with a orange button.",
+          "persona": "A soft blue knitted scarf RATi sewed for Ash. Ash's own orange button fastens it.",
+          "holder": "forest-cottage",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-scarf-ash-sewn",
+              "value": true
+            }
+          ],
+          "art": "assets/lonely-forest/scarf-blue.png"
+        },
+        "forest-scarf-nell": {
+          "name": "Nell's Violet Scarf",
+          "text": "A soft violet knitted scarf fastened with a yellow button.",
+          "persona": "A soft violet knitted scarf RATi sewed for Nell. Nell's own yellow button fastens it.",
+          "holder": "forest-cottage",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-scarf-nell-sewn",
+              "value": true
+            }
+          ],
+          "art": "assets/lonely-forest/scarf-violet.png"
+        },
+        "forest-scarf-tavi": {
+          "name": "Tavi's Red Scarf",
+          "text": "A soft red knitted scarf fastened with a green button.",
+          "persona": "A soft red knitted scarf RATi sewed for Tavi. Tavi's own green button fastens it.",
+          "holder": "forest-cottage",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-scarf-tavi-sewn",
+              "value": true
+            }
+          ],
+          "art": "assets/lonely-forest/scarf-red.png"
+        },
+        "forest-scarf-rue": {
+          "name": "Rue's Orange Scarf",
+          "text": "A soft orange knitted scarf fastened with a blue button.",
+          "persona": "A soft orange knitted scarf RATi sewed for Rue. Rue's own blue button fastens it.",
+          "holder": "forest-cottage",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-scarf-rue-sewn",
+              "value": true
+            }
+          ],
+          "art": "assets/lonely-forest/scarf-orange.png"
+        },
+        "forest-scarf-orin": {
+          "name": "Orin's Amber Scarf",
+          "text": "A soft amber knitted scarf fastened with a indigo button.",
+          "persona": "A soft amber knitted scarf RATi sewed for Orin. Orin's own indigo button fastens it.",
+          "holder": "forest-cottage",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-scarf-orin-sewn",
+              "value": true
+            }
+          ],
+          "art": "assets/lonely-forest/scarf-amber.png"
+        },
+        "forest-scarf-ada": {
+          "name": "Ada's Yellow Scarf",
+          "text": "A soft yellow knitted scarf fastened with a violet button.",
+          "persona": "A soft yellow knitted scarf RATi sewed for Ada. Ada's own violet button fastens it.",
+          "holder": "forest-cottage",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-scarf-ada-sewn",
+              "value": true
+            }
+          ],
+          "art": "assets/lonely-forest/scarf-yellow.png"
         }
       },
       "routes": [
@@ -12927,33 +13149,6 @@
             {
               "kind": "set_flag",
               "key": "forest-welcomed",
-              "value": true
-            }
-          ]
-        },
-        {
-          "id": "forest-mend-scarf",
-          "subject": "rati",
-          "at": "forest-cottage",
-          "label": "Fit the scarf button",
-          "text": "{actor} holds the blue wool steady. RATi sews the Story Button onto her scarf.",
-          "textTemplate": "{actor} holds the blue wool steady. RATi sews the Story Button onto her scarf.",
-          "requires": [
-            {
-              "kind": "flag",
-              "key": "forest-welcomed",
-              "value": true
-            },
-            {
-              "kind": "holding",
-              "item": "forest-story-button",
-              "actor": "rati"
-            }
-          ],
-          "effects": [
-            {
-              "kind": "set_flag",
-              "key": "forest-scarf-mended",
               "value": true
             }
           ]
@@ -13021,79 +13216,6 @@
           ]
         },
         {
-          "id": "forest-share-symbols",
-          "subject": "whiskerwind",
-          "at": "forest-garden",
-          "label": "Set the button on a leaf",
-          "text": "{actor} sets the Dewbright Button on a broad leaf beside the path. Whiskerwind shows 🌧️🐾🏠☕.",
-          "textTemplate": "{actor} sets the Dewbright Button on a broad leaf beside the path. Whiskerwind shows 🌧️🐾🏠☕.",
-          "requires": [
-            {
-              "kind": "flag",
-              "key": "forest-path-cleared",
-              "value": true
-            },
-            {
-              "kind": "holding",
-              "item": "forest-dewbright-button",
-              "role": "actor"
-            }
-          ],
-          "effects": [
-            {
-              "kind": "place_item",
-              "item": "forest-dewbright-button",
-              "place": "forest-garden"
-            },
-            {
-              "kind": "set_flag",
-              "key": "forest-symbols-shared",
-              "value": true
-            }
-          ]
-        },
-        {
-          "id": "forest-set-watch-bell",
-          "subject": "skull",
-          "at": "forest-trail",
-          "label": "Set the bell beside Skull",
-          "text": "{actor} sets the Watch Bell beside the nearest pawprint. Skull rests one paw beside its cord.",
-          "textTemplate": "{actor} sets the Watch Bell beside the nearest pawprint. Skull rests one paw beside its cord.",
-          "requires": [
-            {
-              "kind": "flag",
-              "key": "forest-path-cleared",
-              "value": true
-            },
-            {
-              "kind": "choice_unset",
-              "key": "forest-watch-style"
-            },
-            {
-              "kind": "holding",
-              "item": "forest-watch-bell",
-              "role": "actor"
-            }
-          ],
-          "effects": [
-            {
-              "kind": "place_item",
-              "item": "forest-watch-bell",
-              "place": "forest-trail"
-            },
-            {
-              "kind": "choose",
-              "key": "forest-watch-style",
-              "value": "bell"
-            },
-            {
-              "kind": "set_flag",
-              "key": "forest-watch-shared",
-              "value": true
-            }
-          ]
-        },
-        {
           "id": "forest-mark-pawprints",
           "subject": "skull",
           "at": "forest-trail",
@@ -13129,19 +13251,9 @@
           "subject": "oak",
           "at": "forest-oak",
           "label": "Tell Oak about the hearth",
-          "text": "{actor} holds the Wolfprint Charm beside the hollow and tells Oak about the mended scarf. Hollow names the Story Button. Leaf turns toward the cottage window.",
-          "textTemplate": "{actor} holds the Wolfprint Charm beside the hollow and tells Oak about the mended scarf. Hollow names the Story Button. Leaf turns toward the cottage window.",
+          "text": "Vale holds the Wolfprint Charm beside the hollow and tells Oak about the kettle and the hearth. Hollow repeats the word home. Leaf turns toward the cottage window.",
+          "textTemplate": "{actor} holds the Wolfprint Charm beside the hollow and tells Oak about the kettle and the hearth. Hollow repeats the word home. Leaf turns toward the cottage window.",
           "requires": [
-            {
-              "kind": "flag",
-              "key": "forest-scarf-mended",
-              "value": true
-            },
-            {
-              "kind": "flag",
-              "key": "forest-symbols-shared",
-              "value": true
-            },
             {
               "kind": "flag",
               "key": "forest-watch-shared",
@@ -13175,19 +13287,9 @@
           "subject": "oak",
           "at": "forest-oak",
           "label": "Tell Oak about the path",
-          "text": "{actor} holds the Wolfprint Charm beside the hollow and tells Oak about the path. Root counts the returning footsteps. Hollow repeats Whiskerwind's four symbols.",
-          "textTemplate": "{actor} holds the Wolfprint Charm beside the hollow and tells Oak about the path. Root counts the returning footsteps. Hollow repeats Whiskerwind's four symbols.",
+          "text": "Vale holds the Wolfprint Charm beside the hollow and tells Oak about the path. Root counts the returning footsteps. Hollow repeats the rain on the broad leaves.",
+          "textTemplate": "{actor} holds the Wolfprint Charm beside the hollow and tells Oak about the path. Root counts the returning footsteps. Hollow repeats the rain on the broad leaves.",
           "requires": [
-            {
-              "kind": "flag",
-              "key": "forest-scarf-mended",
-              "value": true
-            },
-            {
-              "kind": "flag",
-              "key": "forest-symbols-shared",
-              "value": true
-            },
             {
               "kind": "flag",
               "key": "forest-watch-shared",
@@ -13385,61 +13487,470 @@
               "value": true
             }
           ]
-        }
-      ],
-      "storyQuests": [
+        },
         {
-          "id": "story-quest-forest-hearth",
-          "group": "forest",
-          "line": "A button for the blue scarf.",
-          "art": "forest-story-button",
-          "holder": {
-            "kind": "avatar",
-            "id": "rati"
-          },
-          "start": {
-            "any": [
-              {
-                "kind": "met",
-                "actor": "rati"
-              },
-              {
-                "kind": "flag",
-                "key": "forest-welcomed",
-                "value": true
-              }
-            ]
-          },
-          "created": {
-            "first": [
-              {
-                "kind": "met",
-                "actor": "rati"
-              },
-              {
-                "kind": "receipt",
-                "choice": "forest-stay-for-tea"
-              }
-            ]
-          },
-          "related": [
-            "forest-stay-for-tea",
-            "forest-mend-scarf"
-          ],
-          "progress": [
-            "forest-stay-for-tea"
-          ],
-          "endings": [
+          "id": "forest-hide-button-vale",
+          "subject": "rati",
+          "at": "forest-cottage",
+          "on": "meet",
+          "for": "vale",
+          "label": "Vale meets RATi",
+          "text": "RATi looks at Vale's coat and finds a thread where a black button should be. Somewhere in the world, the button has gone.",
+          "requires": [],
+          "effects": [
             {
-              "choice": "forest-mend-scarf"
+              "kind": "set_flag",
+              "key": "forest-button-vale-hidden",
+              "value": true
+            },
+            {
+              "kind": "hide_item",
+              "item": "forest-button-vale"
             }
           ]
         },
         {
+          "id": "forest-hide-button-mara",
+          "subject": "rati",
+          "at": "forest-cottage",
+          "on": "meet",
+          "for": "mara",
+          "label": "Mara meets RATi",
+          "text": "RATi looks at Mara's coat and finds a thread where a red button should be. Somewhere in the world, the button has gone.",
+          "requires": [],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "forest-button-mara-hidden",
+              "value": true
+            },
+            {
+              "kind": "hide_item",
+              "item": "forest-button-mara"
+            }
+          ]
+        },
+        {
+          "id": "forest-hide-button-ash",
+          "subject": "rati",
+          "at": "forest-cottage",
+          "on": "meet",
+          "for": "ash",
+          "label": "Ash meets RATi",
+          "text": "RATi looks at Ash's coat and finds a thread where a orange button should be. Somewhere in the world, the button has gone.",
+          "requires": [],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "forest-button-ash-hidden",
+              "value": true
+            },
+            {
+              "kind": "hide_item",
+              "item": "forest-button-ash"
+            }
+          ]
+        },
+        {
+          "id": "forest-hide-button-nell",
+          "subject": "rati",
+          "at": "forest-cottage",
+          "on": "meet",
+          "for": "nell",
+          "label": "Nell meets RATi",
+          "text": "RATi looks at Nell's coat and finds a thread where a yellow button should be. Somewhere in the world, the button has gone.",
+          "requires": [],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "forest-button-nell-hidden",
+              "value": true
+            },
+            {
+              "kind": "hide_item",
+              "item": "forest-button-nell"
+            }
+          ]
+        },
+        {
+          "id": "forest-hide-button-tavi",
+          "subject": "rati",
+          "at": "forest-cottage",
+          "on": "meet",
+          "for": "tavi",
+          "label": "Tavi meets RATi",
+          "text": "RATi looks at Tavi's coat and finds a thread where a green button should be. Somewhere in the world, the button has gone.",
+          "requires": [],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "forest-button-tavi-hidden",
+              "value": true
+            },
+            {
+              "kind": "hide_item",
+              "item": "forest-button-tavi"
+            }
+          ]
+        },
+        {
+          "id": "forest-hide-button-rue",
+          "subject": "rati",
+          "at": "forest-cottage",
+          "on": "meet",
+          "for": "rue",
+          "label": "Rue meets RATi",
+          "text": "RATi looks at Rue's coat and finds a thread where a blue button should be. Somewhere in the world, the button has gone.",
+          "requires": [],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "forest-button-rue-hidden",
+              "value": true
+            },
+            {
+              "kind": "hide_item",
+              "item": "forest-button-rue"
+            }
+          ]
+        },
+        {
+          "id": "forest-hide-button-orin",
+          "subject": "rati",
+          "at": "forest-cottage",
+          "on": "meet",
+          "for": "orin",
+          "label": "Orin meets RATi",
+          "text": "RATi looks at Orin's coat and finds a thread where a indigo button should be. Somewhere in the world, the button has gone.",
+          "requires": [],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "forest-button-orin-hidden",
+              "value": true
+            },
+            {
+              "kind": "hide_item",
+              "item": "forest-button-orin"
+            }
+          ]
+        },
+        {
+          "id": "forest-hide-button-ada",
+          "subject": "rati",
+          "at": "forest-cottage",
+          "on": "meet",
+          "for": "ada",
+          "label": "Ada meets RATi",
+          "text": "RATi looks at Ada's coat and finds a thread where a violet button should be. Somewhere in the world, the button has gone.",
+          "requires": [],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "forest-button-ada-hidden",
+              "value": true
+            },
+            {
+              "kind": "hide_item",
+              "item": "forest-button-ada"
+            }
+          ]
+        },
+        {
+          "id": "forest-sew-scarf-vale",
+          "subject": "rati",
+          "at": "forest-cottage",
+          "for": "vale",
+          "label": "RATi sews your black button",
+          "text": "Vale gives RATi the black button. She sews it into a white scarf and wraps the scarf around Vale's neck.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-button-vale-hidden",
+              "value": true
+            },
+            {
+              "kind": "holding",
+              "item": "forest-button-vale",
+              "role": "actor"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "retire_item",
+              "item": "forest-button-vale"
+            },
+            {
+              "kind": "give_item",
+              "item": "forest-scarf-vale"
+            },
+            {
+              "kind": "set_flag",
+              "key": "forest-scarf-vale-sewn",
+              "value": true
+            }
+          ],
+          "on": "give"
+        },
+        {
+          "id": "forest-sew-scarf-mara",
+          "subject": "rati",
+          "at": "forest-cottage",
+          "for": "mara",
+          "label": "RATi sews your red button",
+          "text": "Mara gives RATi the red button. She sews it into a green scarf and wraps the scarf around Mara's neck.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-button-mara-hidden",
+              "value": true
+            },
+            {
+              "kind": "holding",
+              "item": "forest-button-mara",
+              "role": "actor"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "retire_item",
+              "item": "forest-button-mara"
+            },
+            {
+              "kind": "give_item",
+              "item": "forest-scarf-mara"
+            },
+            {
+              "kind": "set_flag",
+              "key": "forest-scarf-mara-sewn",
+              "value": true
+            }
+          ],
+          "on": "give"
+        },
+        {
+          "id": "forest-sew-scarf-ash",
+          "subject": "rati",
+          "at": "forest-cottage",
+          "for": "ash",
+          "label": "RATi sews your orange button",
+          "text": "Ash gives RATi the orange button. She sews it into a blue scarf and wraps the scarf around Ash's neck.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-button-ash-hidden",
+              "value": true
+            },
+            {
+              "kind": "holding",
+              "item": "forest-button-ash",
+              "role": "actor"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "retire_item",
+              "item": "forest-button-ash"
+            },
+            {
+              "kind": "give_item",
+              "item": "forest-scarf-ash"
+            },
+            {
+              "kind": "set_flag",
+              "key": "forest-scarf-ash-sewn",
+              "value": true
+            }
+          ],
+          "on": "give"
+        },
+        {
+          "id": "forest-sew-scarf-nell",
+          "subject": "rati",
+          "at": "forest-cottage",
+          "for": "nell",
+          "label": "RATi sews your yellow button",
+          "text": "Nell gives RATi the yellow button. She sews it into a violet scarf and wraps the scarf around Nell's neck.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-button-nell-hidden",
+              "value": true
+            },
+            {
+              "kind": "holding",
+              "item": "forest-button-nell",
+              "role": "actor"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "retire_item",
+              "item": "forest-button-nell"
+            },
+            {
+              "kind": "give_item",
+              "item": "forest-scarf-nell"
+            },
+            {
+              "kind": "set_flag",
+              "key": "forest-scarf-nell-sewn",
+              "value": true
+            }
+          ],
+          "on": "give"
+        },
+        {
+          "id": "forest-sew-scarf-tavi",
+          "subject": "rati",
+          "at": "forest-cottage",
+          "for": "tavi",
+          "label": "RATi sews your green button",
+          "text": "Tavi gives RATi the green button. She sews it into a red scarf and wraps the scarf around Tavi's neck.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-button-tavi-hidden",
+              "value": true
+            },
+            {
+              "kind": "holding",
+              "item": "forest-button-tavi",
+              "role": "actor"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "retire_item",
+              "item": "forest-button-tavi"
+            },
+            {
+              "kind": "give_item",
+              "item": "forest-scarf-tavi"
+            },
+            {
+              "kind": "set_flag",
+              "key": "forest-scarf-tavi-sewn",
+              "value": true
+            }
+          ],
+          "on": "give"
+        },
+        {
+          "id": "forest-sew-scarf-rue",
+          "subject": "rati",
+          "at": "forest-cottage",
+          "for": "rue",
+          "label": "RATi sews your blue button",
+          "text": "Rue gives RATi the blue button. She sews it into a orange scarf and wraps the scarf around Rue's neck.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-button-rue-hidden",
+              "value": true
+            },
+            {
+              "kind": "holding",
+              "item": "forest-button-rue",
+              "role": "actor"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "retire_item",
+              "item": "forest-button-rue"
+            },
+            {
+              "kind": "give_item",
+              "item": "forest-scarf-rue"
+            },
+            {
+              "kind": "set_flag",
+              "key": "forest-scarf-rue-sewn",
+              "value": true
+            }
+          ],
+          "on": "give"
+        },
+        {
+          "id": "forest-sew-scarf-orin",
+          "subject": "rati",
+          "at": "forest-cottage",
+          "for": "orin",
+          "label": "RATi sews your indigo button",
+          "text": "Orin gives RATi the indigo button. She sews it into a amber scarf and wraps the scarf around Orin's neck.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-button-orin-hidden",
+              "value": true
+            },
+            {
+              "kind": "holding",
+              "item": "forest-button-orin",
+              "role": "actor"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "retire_item",
+              "item": "forest-button-orin"
+            },
+            {
+              "kind": "give_item",
+              "item": "forest-scarf-orin"
+            },
+            {
+              "kind": "set_flag",
+              "key": "forest-scarf-orin-sewn",
+              "value": true
+            }
+          ],
+          "on": "give"
+        },
+        {
+          "id": "forest-sew-scarf-ada",
+          "subject": "rati",
+          "at": "forest-cottage",
+          "for": "ada",
+          "label": "RATi sews your violet button",
+          "text": "Ada gives RATi the violet button. She sews it into a yellow scarf and wraps the scarf around Ada's neck.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-button-ada-hidden",
+              "value": true
+            },
+            {
+              "kind": "holding",
+              "item": "forest-button-ada",
+              "role": "actor"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "retire_item",
+              "item": "forest-button-ada"
+            },
+            {
+              "kind": "give_item",
+              "item": "forest-scarf-ada"
+            },
+            {
+              "kind": "set_flag",
+              "key": "forest-scarf-ada-sewn",
+              "value": true
+            }
+          ],
+          "on": "give"
+        }
+      ],
+      "storyQuests": [
+        {
           "id": "story-quest-forest-path",
           "group": "forest",
           "line": "Footsteps through the rain.",
-          "art": "forest-dewbright-button",
+          "art": "forest-garden",
           "holder": {
             "kind": "place",
             "id": "forest-garden"
@@ -13456,16 +13967,14 @@
           "related": [
             "forest-stay-for-tea",
             "forest-clear-drain",
-            "forest-set-stones",
-            "forest-share-symbols"
-          ],
-          "progress": [
-            "forest-clear-drain",
             "forest-set-stones"
           ],
           "endings": [
             {
-              "choice": "forest-share-symbols"
+              "choice": "forest-clear-drain"
+            },
+            {
+              "choice": "forest-set-stones"
             }
           ]
         },
@@ -13479,31 +13988,14 @@
             "id": "skull"
           },
           "start": {
-            "any": [
-              {
-                "kind": "receipt",
-                "choice": "forest-set-watch-bell"
-              },
-              {
-                "kind": "receipt",
-                "choice": "forest-mark-pawprints"
-              }
-            ]
+            "kind": "receipt",
+            "choice": "forest-mark-pawprints"
           },
           "created": {
-            "first": [
-              {
-                "kind": "receipt",
-                "choice": "forest-set-watch-bell"
-              },
-              {
-                "kind": "receipt",
-                "choice": "forest-mark-pawprints"
-              }
-            ]
+            "kind": "receipt",
+            "choice": "forest-mark-pawprints"
           },
           "related": [
-            "forest-set-watch-bell",
             "forest-mark-pawprints",
             "forest-tell-hearth",
             "forest-tell-path",
@@ -13521,17 +14013,12 @@
           ],
           "return": {
             "from": [
-              "story-quest-forest-hearth",
               "story-quest-forest-path"
             ],
             "carries": [
               {
                 "kind": "flag",
-                "key": "forest-scarf-mended"
-              },
-              {
-                "kind": "flag",
-                "key": "forest-symbols-shared"
+                "key": "forest-path-cleared"
               }
             ]
           }
@@ -13603,6 +14090,150 @@
           "at": "forest-oak",
           "text": "Oak says Skull walks the trail each night so others get home.",
           "requires": []
+        },
+        {
+          "id": "forest-button-vale",
+          "speaker": "rati",
+          "at": "forest-cottage",
+          "text": "RATi says she would sew Vale's black button into a white scarf, once Vale finds where it has gone.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-button-vale-hidden",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "forest-scarf-vale-sewn",
+              "value": false
+            }
+          ]
+        },
+        {
+          "id": "forest-button-mara",
+          "speaker": "rati",
+          "at": "forest-cottage",
+          "text": "RATi says she would sew Mara's red button into a green scarf, once Mara finds where it has gone.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-button-mara-hidden",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "forest-scarf-mara-sewn",
+              "value": false
+            }
+          ]
+        },
+        {
+          "id": "forest-button-ash",
+          "speaker": "rati",
+          "at": "forest-cottage",
+          "text": "RATi says she would sew Ash's orange button into a blue scarf, once Ash finds where it has gone.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-button-ash-hidden",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "forest-scarf-ash-sewn",
+              "value": false
+            }
+          ]
+        },
+        {
+          "id": "forest-button-nell",
+          "speaker": "rati",
+          "at": "forest-cottage",
+          "text": "RATi says she would sew Nell's yellow button into a violet scarf, once Nell finds where it has gone.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-button-nell-hidden",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "forest-scarf-nell-sewn",
+              "value": false
+            }
+          ]
+        },
+        {
+          "id": "forest-button-tavi",
+          "speaker": "rati",
+          "at": "forest-cottage",
+          "text": "RATi says she would sew Tavi's green button into a red scarf, once Tavi finds where it has gone.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-button-tavi-hidden",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "forest-scarf-tavi-sewn",
+              "value": false
+            }
+          ]
+        },
+        {
+          "id": "forest-button-rue",
+          "speaker": "rati",
+          "at": "forest-cottage",
+          "text": "RATi says she would sew Rue's blue button into a orange scarf, once Rue finds where it has gone.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-button-rue-hidden",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "forest-scarf-rue-sewn",
+              "value": false
+            }
+          ]
+        },
+        {
+          "id": "forest-button-orin",
+          "speaker": "rati",
+          "at": "forest-cottage",
+          "text": "RATi says she would sew Orin's indigo button into a amber scarf, once Orin finds where it has gone.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-button-orin-hidden",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "forest-scarf-orin-sewn",
+              "value": false
+            }
+          ]
+        },
+        {
+          "id": "forest-button-ada",
+          "speaker": "rati",
+          "at": "forest-cottage",
+          "text": "RATi says she would sew Ada's violet button into a yellow scarf, once Ada finds where it has gone.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "forest-button-ada-hidden",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "forest-scarf-ada-sewn",
+              "value": false
+            }
+          ]
         }
       ],
       "sources": [
@@ -13624,7 +14255,7 @@
           "id": "forest-kettle-word",
           "kind": "delivery",
           "name": "Word of the warm kettle",
-          "purpose": "Hear from RATi who the kettle is kept warm for, then carry that word and a button from the cottage to Oak.",
+          "purpose": "Hear from RATi who the kettle is kept warm for, then carry that word and the Wolfprint Charm to Oak.",
           "takers": [
             "visitors"
           ],
@@ -13642,8 +14273,7 @@
             },
             "token": {
               "item": [
-                "forest-story-button",
-                "forest-dewbright-button"
+                "forest-wolfprint-charm"
               ]
             }
           },
@@ -13685,7 +14315,7 @@
           "id": "forest-watch-light",
           "kind": "gathering",
           "name": "A light for the night watch",
-          "purpose": "Ask Oak who keeps the trail, then stand beside Skull on the Moonlit Trail with a lit lamp or the Watch Bell.",
+          "purpose": "Ask Oak who keeps the trail, then stand beside Skull on the Moonlit Trail with a lit lamp.",
           "takers": [
             "visitors"
           ],
@@ -13717,78 +14347,18 @@
               ]
             },
             {
-              "any": [
-                {
-                  "hold": [
-                    "lamp"
-                  ],
-                  "at": "forest-trail",
-                  "with": [
-                    "$partner"
-                  ],
-                  "conditions": [
-                    {
-                      "kind": "lit",
-                      "item": "lamp"
-                    }
-                  ]
-                },
-                {
-                  "hold": [
-                    "forest-watch-bell"
-                  ],
-                  "at": "forest-trail",
-                  "with": [
-                    "$partner"
-                  ]
-                }
-              ]
-            }
-          ],
-          "consequence": {
-            "kind": "trust",
-            "avatar": "$partner"
-          }
-        },
-        {
-          "id": "forest-rain-home",
-          "kind": "crossing",
-          "name": "Rain carried home",
-          "purpose": "Take the Dewbright Button from Whiskerwind's broad leaves and carry the rain on it into RATi's cottage.",
-          "takers": [
-            "visitors"
-          ],
-          "requires": [
-            {
-              "kind": "flag",
-              "key": "forest-welcomed",
-              "value": true
-            }
-          ],
-          "roles": {
-            "partner": {
-              "avatar": [
-                "rati"
-              ]
-            }
-          },
-          "steps": [
-            {
               "hold": [
-                "forest-dewbright-button"
+                "lamp"
               ],
-              "at": "forest-garden",
-              "with": [
-                "whiskerwind"
-              ]
-            },
-            {
-              "hold": [
-                "forest-dewbright-button"
-              ],
-              "at": "forest-cottage",
+              "at": "forest-trail",
               "with": [
                 "$partner"
+              ],
+              "conditions": [
+                {
+                  "kind": "lit",
+                  "item": "lamp"
+                }
               ]
             }
           ],

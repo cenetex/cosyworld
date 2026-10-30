@@ -57,7 +57,6 @@ describe("want data", () => {
       "greek-creon": { kind: "place", target: "greek-palace" },
       "greek-baker": { kind: "place", target: "greek-courtyard" },
       "willows-swede": { kind: "place", target: "willows-landing" },
-      rati: { kind: "item", target: "forest-story-button" },
       boardyai: { kind: "connect", target: "humans" },
     });
   });

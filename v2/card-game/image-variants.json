@@ -1358,6 +1358,62 @@
       "card": "assets/optimized/card/png/lamp-card.webp",
       "cardHash": "c19054288874cbc2ec546d609e8255f71164cf7cb0eebf6c550b16f105eeb849"
     },
+    "assets/lonely-forest/button-ada.png": {
+      "sourceHash": "4fdb80d97cef1fe2c20b87440ad8e8edf2a28e508f773e6e5d76813afa73b8d7",
+      "stage": "assets/optimized/stage/png/lonely-forest/button-ada.webp",
+      "stageHash": "55bed21298e38c6a7e5f5043fa94a167d08460f5ea01ce599e4c531757a4e679",
+      "card": "assets/optimized/card/png/lonely-forest/button-ada.webp",
+      "cardHash": "9348ebe1b5a57ae9724302a5e3ae91351114d32dc27e61d4ee5e9fbce93a5086"
+    },
+    "assets/lonely-forest/button-ash.png": {
+      "sourceHash": "5fe808fc3f2a46166593f2b76980640b39f940244cf3000d5f10675bdee01758",
+      "stage": "assets/optimized/stage/png/lonely-forest/button-ash.webp",
+      "stageHash": "7d8322231fc7e8e3d3826c68f540c795c713fba8ae0525514398bc40ae57329f",
+      "card": "assets/optimized/card/png/lonely-forest/button-ash.webp",
+      "cardHash": "18c56a632ee9ba8a8d66cadcbce7a8a72661a2b21e0688455f68c68a5bead788"
+    },
+    "assets/lonely-forest/button-mara.png": {
+      "sourceHash": "0457116c4d66cf4f7679ccec30cf640780b4ad72c54a6c66e53a4fdc99f194a2",
+      "stage": "assets/optimized/stage/png/lonely-forest/button-mara.webp",
+      "stageHash": "557c058481e994f00c8bbebc77a8cb735e668fea8bd0413839735c96b7b194fa",
+      "card": "assets/optimized/card/png/lonely-forest/button-mara.webp",
+      "cardHash": "a012461141d9d43ffff2c90cc4fb8752310ff96447e30263979e5f8a24e147de"
+    },
+    "assets/lonely-forest/button-nell.png": {
+      "sourceHash": "777a14a0e1067c68de63014fa57720f86e95f23b9943eafed96cb8c3c535c31d",
+      "stage": "assets/optimized/stage/png/lonely-forest/button-nell.webp",
+      "stageHash": "1c7eaa8477d08d3769d98bf0f5ce2036578125840415fbbdcdb5aea964c10f49",
+      "card": "assets/optimized/card/png/lonely-forest/button-nell.webp",
+      "cardHash": "ed26ee54d7b2857ad11893019f628ef9b0ba6bb7cbe1842d5cfdf2aa647f577f"
+    },
+    "assets/lonely-forest/button-orin.png": {
+      "sourceHash": "c5f7667a28a1bf0c3e9f6441da5eccd72cae7a1d3fd1d3c69697824dc5832dee",
+      "stage": "assets/optimized/stage/png/lonely-forest/button-orin.webp",
+      "stageHash": "6bb58e571a6e1cc97dca513418b3078b7f37cb7e15a1b399afe711f8963ec9c3",
+      "card": "assets/optimized/card/png/lonely-forest/button-orin.webp",
+      "cardHash": "af0d48fe6d055ac1b87119eabbfff1f198728c36c923a08081a341d5bc7f27c9"
+    },
+    "assets/lonely-forest/button-rue.png": {
+      "sourceHash": "4a7e70f4ab34dae52fa8abd835fded670965e9d8e74303137a241a447c631e30",
+      "stage": "assets/optimized/stage/png/lonely-forest/button-rue.webp",
+      "stageHash": "f5a62c2490e47385bf9acb799622715892c3687e424a9d9e73a828fe2ab46430",
+      "card": "assets/optimized/card/png/lonely-forest/button-rue.webp",
+      "cardHash": "5cfc228fc63fa80973eb07b3532309ea667d6ed02c609569a8009755136178be"
+    },
+    "assets/lonely-forest/button-tavi.png": {
+      "sourceHash": "7195fcb28f4391020ea40a7f7088e119fa62cabcff3c3b9ef240a4f1a0ef4fa0",
+      "stage": "assets/optimized/stage/png/lonely-forest/button-tavi.webp",
+      "stageHash": "e61f09d27058a9389b6ab4029ba393ddc01c1d92973cf0425404720e6d04e5f2",
+      "card": "assets/optimized/card/png/lonely-forest/button-tavi.webp",
+      "cardHash": "acecbe09517a99cad7057eecf21e78159b5fa1f7ede71038e594430996dad3aa"
+    },
+    "assets/lonely-forest/button-vale.png": {
+      "sourceHash": "0ea8244b300d3c1784513f454a6f083881927797e350e2d3ce879732314d9a13",
+      "stage": "assets/optimized/stage/png/lonely-forest/button-vale.webp",
+      "stageHash": "75986f0effbea68c107cb5192fef8e266971aadcc9709ba1094cc69ad1e958a1",
+      "card": "assets/optimized/card/png/lonely-forest/button-vale.webp",
+      "cardHash": "6e841b4e097b7002a744d6b9854bfe8105160b5daa9731727e02e471b1022932"
+    },
     "assets/lonely-forest/cottage.png": {
       "sourceHash": "2c1a039850274517cd201d1b6d3b60ccd6e3d11b276754323165f45d88c9380a",
       "stage": "assets/optimized/stage/png/lonely-forest/cottage.webp",
@@ -1392,6 +1448,62 @@
       "stageHash": "d57646fbc7550c6be562bb7346479bce8fdd9f20453e608f1162f10f60f78418",
       "card": "assets/optimized/card/png/lonely-forest/rati.webp",
       "cardHash": "4044f83470c303311e2cd8ef9d0f2db0ab5f3dd5c5a91ca5e851c46b52a74afc"
+    },
+    "assets/lonely-forest/scarf-amber.png": {
+      "sourceHash": "4edc4fc9e20044fbb46f37ed4c6db8c5bf59c24d369ccdcfd2dd12e9823ff68d",
+      "stage": "assets/optimized/stage/png/lonely-forest/scarf-amber.webp",
+      "stageHash": "48a15db8b598283bb6d0f7015bc7ebed831b6832af8877607a29ddb2c3c3c71b",
+      "card": "assets/optimized/card/png/lonely-forest/scarf-amber.webp",
+      "cardHash": "9fdf1b9bbf203e50f2d0a5b9279eafaff6647790af1751ada1221534f7e3b833"
+    },
+    "assets/lonely-forest/scarf-blue.png": {
+      "sourceHash": "4920252a9ea5706b1d90c8fa2efab11fa4f1784e98418d811039de63b8ae744a",
+      "stage": "assets/optimized/stage/png/lonely-forest/scarf-blue.webp",
+      "stageHash": "c431676f07521afbe1d26ed6b919881c51c37d2e1bb9844e4702475bf1eb153b",
+      "card": "assets/optimized/card/png/lonely-forest/scarf-blue.webp",
+      "cardHash": "8d1ff8d892a98f55d2ae1373aab2d4da0ba858a1596256562f8e9d95d7025231"
+    },
+    "assets/lonely-forest/scarf-green.png": {
+      "sourceHash": "f2db17d7617fe65c3a7e6780385765e13ee0c37577e230edf1e84e1d832f0002",
+      "stage": "assets/optimized/stage/png/lonely-forest/scarf-green.webp",
+      "stageHash": "6225f28669ea87e3a6247dda8f0ebc85cc35e68a3ec8016e03fff1792dd4bdfc",
+      "card": "assets/optimized/card/png/lonely-forest/scarf-green.webp",
+      "cardHash": "93bb84cbde928d3ad2236fe7df385cd75b8f7e3a2f86340ccd0df36850fae820"
+    },
+    "assets/lonely-forest/scarf-orange.png": {
+      "sourceHash": "5fec862fe89a828f46fa2a1698ac1c417107631cfe6942de742188affa8ffb18",
+      "stage": "assets/optimized/stage/png/lonely-forest/scarf-orange.webp",
+      "stageHash": "a2e5227a4f4fa7e711e180afc7ef3ef08075f5fc69c2ccb86c595c4ac3cb7346",
+      "card": "assets/optimized/card/png/lonely-forest/scarf-orange.webp",
+      "cardHash": "c1e15137f6f714b8a35f596cc89f66bf5aeea1a08b18dfba4098995dc1061c99"
+    },
+    "assets/lonely-forest/scarf-red.png": {
+      "sourceHash": "c1b8faa4c745688cdfac52287de44695ccc7a097cb140da0299b44cafaf591b7",
+      "stage": "assets/optimized/stage/png/lonely-forest/scarf-red.webp",
+      "stageHash": "91958253efad54fa246978047650986c0c3003f774295ff15f4ee66c54ff0380",
+      "card": "assets/optimized/card/png/lonely-forest/scarf-red.webp",
+      "cardHash": "ad1cba5d58717b02e8fc2f0994aa6df74a8221393ca169eac3d707c74a5d5c27"
+    },
+    "assets/lonely-forest/scarf-violet.png": {
+      "sourceHash": "7ba3d797d2acb4c7597692afefdd1305a2ab3ce3f659e3bc38e027e8f24877fc",
+      "stage": "assets/optimized/stage/png/lonely-forest/scarf-violet.webp",
+      "stageHash": "685108c5122ceedfcf35c289bf5c90538fbb071aaaa00b917c94d7267b63ae6d",
+      "card": "assets/optimized/card/png/lonely-forest/scarf-violet.webp",
+      "cardHash": "aa0b6e011890c4bde1fde6373e3de0681ada2c79ebd40e306c9baaa4976efda6"
+    },
+    "assets/lonely-forest/scarf-white.png": {
+      "sourceHash": "e9e4e2993c998e23d05af9ccc3f16eda8ae93c6b9c1253ee84ad1958bb55e364",
+      "stage": "assets/optimized/stage/png/lonely-forest/scarf-white.webp",
+      "stageHash": "f74c98e35c39b54adae0936e01de5f870651a0904a604a2ddd6ddbbe583d2958",
+      "card": "assets/optimized/card/png/lonely-forest/scarf-white.webp",
+      "cardHash": "d1183d4b26c541fbdc5ae9d0e7dfda506582bc8027d9331b18d9c708e103d02c"
+    },
+    "assets/lonely-forest/scarf-yellow.png": {
+      "sourceHash": "6f1b516aefb26d949f8173599127db983e63449de426961ea5aecdd6fcd17d00",
+      "stage": "assets/optimized/stage/png/lonely-forest/scarf-yellow.webp",
+      "stageHash": "f146eef3824e8a080faf4344c91d738f94632d55d9bb5407a9a47ff98a4b77a4",
+      "card": "assets/optimized/card/png/lonely-forest/scarf-yellow.webp",
+      "cardHash": "00f1509d854e85d7d932bea635eb06dd4b3604c85054865d81981ba41befd64b"
     },
     "assets/lonely-forest/skull.png": {
       "sourceHash": "000ddc75fc8b6f4cf00dfe126632b25cc03f9c967e4c8b05dbb054c0cfb80150",
