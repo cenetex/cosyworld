@@ -59,6 +59,20 @@ fn released_pond_opening_keeps_its_place_and_progress_through_upgrade_and_journa
     // BoardyAI revision 2 carries his card from the pond to the station door.
     let mut expected = old.clone();
     expected["items"]["boardyai-calling-card"]["holder"] = json!("station");
+    // Lonely Forest revision 2 retires three things and adds the buttons
+    // and scarves, all unseen at the cottage.
+    let items = expected["items"].as_object_mut().unwrap();
+    for id in ["forest-story-button", "forest-dewbright-button", "forest-watch-bell"] {
+        items.remove(id);
+    }
+    for who in ["vale", "mara", "ash", "nell", "tavi", "rue", "orin", "ada"] {
+        for kind in ["button", "scarf"] {
+            items.insert(
+                format!("forest-{kind}-{who}"),
+                json!({"holder": "forest-cottage", "history": []}),
+            );
+        }
+    }
     for field in ["actors", "items", "opening", "log", "turn"] {
         assert_eq!(world.game[field], expected[field], "{field}");
     }

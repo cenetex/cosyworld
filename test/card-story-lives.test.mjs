@@ -248,6 +248,13 @@ describe("hopes lean on open stories", () => {
     w = act(w, "move", { target: "forest-cottage" });
     w = act(w, "talk", { target: "rati" });
     w = act(w, "choose", { choiceId: "forest-stay-for-tea" });
+    // Clear the path and mark the watch, so the homecoming story opens.
+    w = act(w, "move", { target: "forest-garden" });
+    w = act(w, "choose", { choiceId: "forest-clear-drain" });
+    w = act(w, "move", { target: "forest-trail" });
+    w = act(w, "choose", { choiceId: "forest-mark-pawprints" });
+    w = act(w, "move", { target: "forest-garden" });
+    w = act(w, "move", { target: "forest-cottage" });
     // A pack that opts its host into personal quests in a shared world.
     packPeople.rati.personalQuests = true;
     installHumanLife(w, (id) =>
@@ -262,10 +269,10 @@ describe("hopes lean on open stories", () => {
     const needs = openStoryNeeds(w, "rati");
     expect(needs).toEqual([
       {
-        key: "lonely-forest:story-quest-forest-hearth",
-        holder: { kind: "avatar", id: "rati" },
+        key: "lonely-forest:story-quest-forest-homecoming",
+        holder: { kind: "avatar", id: "skull" },
         places: ["forest-cottage"],
-        items: ["forest-story-button"],
+        items: ["forest-wolfprint-charm"],
       },
     ]);
     const before = structuredClone(w);
@@ -294,7 +301,7 @@ describe("hopes lean on open stories", () => {
     packPeople.rati.personalQuests = true;
     expect(openStoryNeeds(w, "vale")).toEqual([]);
     const done = structuredClone(w);
-    done.packs["lonely-forest"].receipts["forest-mend-scarf"] = done.turn;
+    done.packs["lonely-forest"].receipts["forest-leave-charm"] = done.turn;
     expect(openStoryNeeds(done, "rati")).toEqual([]);
     expect(
       storyLean(done, "rati", {

@@ -341,9 +341,15 @@ export function actorCanVisit(actor, place, world = null) {
   if (a ? destination?.packId === a.packId : !destination) return true;
   const home = a?.packId ?? null,
     target = destination?.packId ?? null;
-  if (crossings.some((crossing) => crossing.travelers === "any" &&
-    (packPlaces[crossing.from]?.packId ?? null) === home &&
-    (packPlaces[crossing.to]?.packId ?? null) === target)) return true;
+  if (
+    crossings.some(
+      (crossing) =>
+        crossing.travelers === "any" &&
+        (packPlaces[crossing.from]?.packId ?? null) === home &&
+        (packPlaces[crossing.to]?.packId ?? null) === target,
+    )
+  )
+    return true;
   return Object.entries(transports).some(([id, t]) => {
     const domains = t.docks.map((dock) => packPlaces[dock]?.packId ?? null);
     return (
@@ -355,11 +361,13 @@ export function actorCanVisit(actor, place, world = null) {
     );
   });
 }
-function choiceFeasible(world, pack, choice, actor) {
+function choiceFeasible(world, pack, choice, actor, mode = null) {
   const state = packState(world, pack.id);
   if (
     !state ||
     owns(state.receipts, choice.id) ||
+    (choice.on ?? null) !== mode ||
+    (choice.for !== undefined && choice.for !== actor) ||
     (pack.release &&
       state.scope !== "full" &&
       !pack.release.choices.includes(choice.id)) ||
@@ -404,13 +412,96 @@ export function packChoices(world, actor = "vale") {
       })),
   );
 }
-export function applyPackChoice(world, action) {
+// A hidden thing can rest in any place the world holds, near or far, except
+// the room its finder stands in. The pick is a stable hash of the choice and
+// traveler over the sorted places, so every replay hides it in the same spot.
+function hidingPlace(world, choice, actor, placeIds) {
+  const here = world.actors[actor].place;
+  const places = placeIds
+    .filter((id) => id !== here && entityActive(world, id))
+    .sort();
+  if (!places.length) return choice.at;
+  let hash = 2166136261;
+  for (const ch of `${choice.id}:${actor}`)
+    hash = Math.imul(hash ^ ch.charCodeAt(0), 16777619) >>> 0;
+  return places[hash % places.length];
+}
+// Choices marked "on": "meet" are never offered. They apply the first time
+// their traveler shares a room with the choice's subject.
+export function applyMeetingChoices(world, actor, placeIds) {
+  const applied = [];
+  for (const pack of packDefinitions)
+    for (const c of pack.choices || []) {
+      if (c.on !== "meet" || !choiceFeasible(world, pack, c, actor, "meet"))
+        continue;
+      // Pack receipts keep one choice per turn; a meeting that coincides with
+      // another choice waits for the traveler's next play in the room.
+      if (
+        Object.values(packState(world, pack.id).receipts).includes(world.turn)
+      )
+        continue;
+      applied.push(
+        applyPackChoice(
+          world,
+          { packId: pack.id, choiceId: c.id, actor },
+          { mode: "meet", placeIds },
+        ),
+      );
+    }
+  return applied;
+}
+// Choices marked "on": "give" are the effect of giving their subject the
+// item the choice needs the actor to hold. They are never offered as cards.
+export function packGiveChoice(world, action) {
+  for (const pack of packDefinitions)
+    for (const c of pack.choices || [])
+      if (
+        c.on === "give" &&
+        c.subject === action.target &&
+        c.requires.some(
+          (r) =>
+            r.kind === "holding" && r.role === "actor" && r.item === action.item,
+        ) &&
+        choiceFeasible(world, pack, c, action.actor, "give")
+      )
+        return { packId: pack.id, choiceId: c.id, actor: action.actor };
+  return null;
+}
+export function applyPackChoice(
+  world,
+  action,
+  { mode = null, placeIds = [] } = {},
+) {
   const pack = packDefinition(action.packId),
     choice = pack?.choices?.find((c) => c.id === action.choiceId);
-  if (!choice || !choiceFeasible(world, pack, choice, action.actor))
+  if (!choice || !choiceFeasible(world, pack, choice, action.actor, mode))
     throw new Error("That choice is no longer available.");
   const state = packState(world, pack.id);
+  const note = (id) => {
+    world.items[id].history.push(
+      choiceText(choice, action.actor).slice(0, 400),
+    );
+    world.items[id].history = world.items[id].history.slice(-12);
+  };
   for (const e of choice.effects) {
+    // A retired item leaves play. It waits, unseen, at its authored holder.
+    if (e.kind === "retire_item") {
+      world.items[e.item].holder = pack.items[e.item].holder;
+      world.items[e.item].history = [];
+    }
+    if (e.kind === "give_item") {
+      world.items[e.item].holder = action.actor;
+      note(e.item);
+    }
+    if (e.kind === "hide_item") {
+      world.items[e.item].holder = hidingPlace(
+        world,
+        choice,
+        action.actor,
+        placeIds,
+      );
+      note(e.item);
+    }
     if (e.kind === "choose") state.choices[e.key] = e.value;
     if (e.kind === "set_flag") state.flags[e.key] = e.value;
     if (e.kind === "place_item") {

@@ -13,47 +13,70 @@ reveals their link through a familiar detail repeated at the oak.
 ## The journey
 
 1. Talk to RATi in the cottage and choose **Stay for tea**.
-2. Take the Story Button and give it to RATi. Choose **Fit the scarf
-   button** beside her. RATi keeps the button. The sewn scarf becomes a
-   saved fact.
-3. In the garden, choose **Clear the garden drain** or **Set the stepping
+2. In the garden, choose **Clear the garden drain** or **Set the stepping
    stones**. Each choice opens the Moonlit Trail. The chosen work stays in
    the world history.
-4. Take the Dewbright Button. Beside Whiskerwind, choose **Set the button
-   on a leaf**. Whiskerwind shares rain, pawprints, home and tea.
-5. Visit Skull on the trail. Choose **Set the bell beside Skull** while
-   carrying the Watch Bell, or choose **Mark the pawprints**. Each gives
-   the watch a saved form. Take the Wolfprint Charm.
-6. At Oak, choose **Tell Oak about the hearth** or **Tell Oak about the
-   path**. The scarf, symbols and watch give the account its facts. Hollow
-   repeats a detail from the journey.
-7. Return to RATi with the charm. Choose **Leave the charm by the hearth**
+3. Visit Skull on the trail and choose **Mark the pawprints**. The watch is
+   saved. Take the Wolfprint Charm.
+4. At Oak, choose **Tell Oak about the hearth** or **Tell Oak about the
+   path**. The watch gives the account its facts. Hollow repeats a detail
+   from the journey.
+5. Return to RATi with the charm. Choose **Leave the charm by the hearth**
    or **Keep the charm for the next journey**. A warm cup closes the visit.
 
-The two path choices, two watch choices, two oak accounts and two charm
-endings each keep their own result. A later visitor meets the completed
-work. Cooperation uses the shared world's normal custody and action rules.
+The two path choices, two oak accounts and two charm endings each keep
+their own result. A later visitor meets the completed work. Cooperation
+uses the shared world's normal custody and action rules.
+
+## A button in your own colour
+
+Each traveler has a button in their own colour. The first time a traveler
+shares a room with RATi, their button is hidden. It can be anywhere in the
+world, including other worlds behind closed lanes, but never in the room
+where they met her. The rules pick the place with a stable hash, so every
+replay agrees. Nothing guarantees the button is easy to reach. Finding it
+is part of the mystery.
+
+RATi's Talk says she would sew the button into a scarf of the complementary
+colour. A traveler who brings their own button to the cottage and gives it
+to RATi gets their scarf. The Give triggers the sewing choice. The button
+leaves the world, and RATi wraps the scarf around them. She refuses
+someone else's button.
+
+| Traveler | Button | Scarf |
+| --- | --- | --- |
+| Vale | black | white |
+| Mara | red | green |
+| Ash | orange | blue |
+| Nell | yellow | violet |
+| Tavi | green | red |
+| Rue | blue | orange |
+| Orin | indigo | amber |
+| Ada | violet | yellow |
+
+Buttons open no ports or lanes. Revision 2 removed the shared Story Button
+and its scarf repair, along with the Dewbright Button and the Watch Bell.
+The save upgrade drops them and their choices. A Watch Bell set beside
+Skull becomes the pawprint watch.
 
 ## Story cards
 
-The chapter uses three short card lines:
+The chapter uses two short card lines:
 
-- **A button for the blue scarf.** appears after meeting RATi and ends with
-  the scarf repair.
 - **Footsteps through the rain.** appears after the tea invitation and ends
-  with the shared symbols at the repaired path.
+  with the repaired path.
 - **What will the oak hear?** appears after helping Skull and ends with the
   chosen charm homecoming.
 
-After the homecoming, a fourth card, **Three walkers, one old root.**,
+After the homecoming, a third card, **Three walkers, one old root.**,
 asks who the three walkers are. RATi at the cottage or Root at the oak can
 tell it through Talk. Anyone who knows it can then choose **Sit the evening
 watch with Skull** on the trail. The charm homecoming is a story return: it
-carries the mended scarf and the shared symbols home.
+carries the cleared path home.
 
-The first three cards use existing item illustrations; the fourth uses the oak. Saved choices and receipts
-own the result. The shared story registry keeps actual participants and
-the completion turn through reload and trimmed conversation history.
+Saved choices and receipts own the result. The shared story registry keeps
+actual participants and the completion turn through reload and trimmed
+conversation history.
 
 ## Mirror crossing
 
@@ -73,11 +96,11 @@ The source actors, locations, objects and room features live in
 `v2/content/core/`. The garden work adapts the source garden job. The card
 chapter owns its choices and outcomes.
 
-The four item illustrations are unchanged copies of the established core
-WebPs under `v2/card-game/assets/lonely-forest/`. Their source names are
-`cosy-story-button.webp`, `cosy-dewbright-button.webp`,
-`cosy-watch-bell.webp` and `cosy-wolfprint-charm.webp`. Character and place
-art joins those files in the same pack asset folder.
+The Wolfprint Charm illustration is an unchanged copy of the core
+`cosy-wolfprint-charm.webp`. The buttons use
+`button-<character>.png` and the scarves use `scarf-<colour>.png` in
+`v2/card-game/assets/lonely-forest/` (#1441). Character and place art joins
+those files in the same pack asset folder.
 
 The existing forest art guide records later dream proposals. A later
 chapter can choose a first dream and a clear route home.

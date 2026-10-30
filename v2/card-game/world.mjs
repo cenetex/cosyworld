@@ -140,6 +140,9 @@ import {
   packExits,
   packChoices,
   applyPackChoice,
+  applyMeetingChoices,
+  packGiveChoice,
+  choiceText,
   conditionsMet,
   validatePackLinks,
   packDefinition,
@@ -520,6 +523,8 @@ function meetCast(s) {
   for (const [id, a] of Object.entries(packPeople))
     if (entityActive(s, id) && s.actors[id].place === s.actors[player].place)
       s.packs[a.packId].met && (s.packs[a.packId].met[id] ??= s.turn);
+  if (controlledByHuman(s, player))
+    applyMeetingChoices(s, player, Object.keys(places));
   if (!s.opening || (player !== "vale" && !s.opening.crossed)) return;
   if (player === "vale" && s.actors.vale.place === "pond")
     s.opening.crossed = true;
@@ -1944,6 +1949,13 @@ function perform(s, a, capture = () => {}, round = null) {
       break;
     case "give":
     case "trade": {
+      // A pack can make a gift the trigger of one authored choice.
+      const gift = a.kind === "give" ? packGiveChoice(s, a) : null;
+      if (gift) {
+        requestAccepted = true;
+        text = choiceText(applyPackChoice(s, gift, { mode: "give" }), a.actor);
+        break;
+      }
       requestAccepted = expects(s, a);
       if (!requestAccepted) {
         refusal = refusalReason(s, a);

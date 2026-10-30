@@ -17,6 +17,7 @@ import {
   canonicalPlace,
   localRoadEnds,
   packPlaces,
+  choiceText,
 } from "./pack-registry.mjs";
 import { authoredRouteEdges } from "./roaming-routes.mjs";
 import { humanAvatarIds } from "./human-cast.mjs";
@@ -127,6 +128,7 @@ export function upgradeSave(
     upgradeBoardyStationSave(s);
     upgradeHoppyCatSeaSave(s);
     upgradeBoardingSave(s);
+    upgradeForestButtonsSave(s);
     upgradeRecitals(s, packDefinitions);
   }
   upgradeSightings(s);
@@ -743,4 +745,132 @@ export function upgradeSteamClockSave(s) {
     s.crossings["greek-harbor-pond"] = { discovered: false };
   }
   if (s.locations?.pond) delete s.locations.pond.shipSignal;
+}
+
+// Lonely Forest revision 2 replaces the shared Story Button with one button
+// per traveler. The Story Button, the Dewbright Button and the Watch Bell
+// leave the world, with the choices and story card that needed them. A Watch
+// Bell set beside Skull becomes the pawprint watch it stood for.
+const FOREST_RETIRED_ITEMS = [
+  "forest-story-button",
+  "forest-dewbright-button",
+  "forest-watch-bell",
+];
+const FOREST_RETIRED_CHOICES = ["forest-mend-scarf", "forest-share-symbols"];
+const FOREST_RETIRED_FLAGS = ["forest-scarf-mended", "forest-symbols-shared"];
+export function upgradeForestButtonsSave(s) {
+  const pack = packDefinitions.find((p) => p.id === "lonely-forest");
+  const saved = s.packs?.[pack?.id];
+  if (!pack || pack.revision < 2 || saved?.revision !== 1) return;
+  const retired = new Set(FOREST_RETIRED_ITEMS);
+  for (const id of FOREST_RETIRED_ITEMS) {
+    delete s.items?.[id];
+    delete s.memories?.[id];
+  }
+  const fresh = newMemories();
+  for (const [id, item] of Object.entries(pack.items)) {
+    if (s.items[id]) continue;
+    s.items[id] = { holder: item.holder, history: [] };
+    s.memories[id] ??= fresh[id];
+  }
+  const bell = "forest-set-watch-bell",
+    tracks = "forest-mark-pawprints";
+  if (Object.hasOwn(saved.receipts, bell)) {
+    saved.receipts[tracks] = saved.receipts[bell];
+    delete saved.receipts[bell];
+    if (saved.choices["forest-watch-style"] === "bell")
+      saved.choices["forest-watch-style"] = "tracks";
+    if (saved.recitals?.[bell]) {
+      saved.recitals[tracks] = saved.recitals[bell];
+      delete saved.recitals[bell];
+    }
+  }
+  for (const id of FOREST_RETIRED_CHOICES) {
+    delete saved.receipts[id];
+    if (saved.recitals) delete saved.recitals[id];
+  }
+  for (const key of FOREST_RETIRED_FLAGS) delete saved.flags[key];
+  // The journal keeps every deed that still names a living thing.
+  s.log = (s.log || []).flatMap((entry) => {
+    if (
+      (entry.packId === pack.id &&
+        FOREST_RETIRED_CHOICES.includes(entry.choiceId)) ||
+      retired.has(entry.itemId) ||
+      retired.has(entry.receiveId) ||
+      /forest-(story|dewbright)-button|forest-watch-bell/.test(
+        JSON.stringify([entry.questPlan, entry.program, entry.target]),
+      )
+    )
+      return [];
+    const next = { ...entry };
+    if (next.packId === pack.id && next.choiceId === bell) {
+      next.choiceId = tracks;
+      next.text = choiceText(
+        pack.choices.find((c) => c.id === tracks),
+        next.actorId,
+      );
+    }
+    if (retired.has(next.entityId)) delete next.entityId;
+    if (retired.has(next.targetId)) delete next.targetId;
+    if (Array.isArray(next.items))
+      next.items = next.items.filter(
+        (item) => !retired.has(item?.id) && !retired.has(item?.holder),
+      );
+    if (next.witnesses)
+      next.witnesses = next.witnesses.filter((id) => !retired.has(id));
+    return [next];
+  });
+  // Experiences and hopes keep their moment without the retired thing.
+  const forget = (value) => {
+    if (Array.isArray(value)) value.forEach(forget);
+    else if (value && typeof value === "object") {
+      if (retired.has(value.item)) value.item = null;
+      Object.values(value).forEach(forget);
+    }
+  };
+  for (const life of Object.values(s.life?.actors || {})) {
+    for (const id of FOREST_RETIRED_ITEMS) delete life.attachments?.[id];
+    forget(life);
+  }
+  const quests = s.quests;
+  if (quests?.records) {
+    const named = /forest-(story|dewbright)-button|forest-watch-bell/;
+    const dropped = Object.values(quests.records)
+      .filter(
+        (q) =>
+          q.key === "lonely-forest:story-quest-forest-hearth" ||
+          (q.mode === "personal" && named.test(JSON.stringify(q.program))),
+      )
+      .map((q) => q.key);
+    for (const key of dropped) {
+      delete quests.records[key];
+      for (const [actor, focused] of Object.entries(quests.focus || {}))
+        if (focused === key) delete quests.focus[actor];
+      for (const hand of Object.values(quests.hands || {}))
+        if (Array.isArray(hand) && hand.includes(key))
+          hand.splice(hand.indexOf(key), 1);
+      for (const [actor, life] of Object.entries(s.life?.actors || {})) {
+        const c = life.collection;
+        if (!c) continue;
+        c.cards = c.cards.filter((card) => card !== key);
+        c.archive = c.archive.filter((card) => card !== key);
+        if (c.active === key) {
+          c.active = null;
+          s.actors[actor].progress.step = 0;
+        }
+      }
+    }
+    for (const q of Object.values(quests.records)) forget(q.origin);
+    const path = quests.records["lonely-forest:story-quest-forest-path"];
+    if (path) {
+      path.program.art = "forest-garden";
+      if (path.completedTurn !== null) {
+        const ending = ["forest-clear-drain", "forest-set-stones"].find((id) =>
+          Object.hasOwn(saved.receipts, id),
+        );
+        path.completedTurn = saved.receipts[ending];
+      }
+    }
+  }
+  saved.revision = 2;
 }

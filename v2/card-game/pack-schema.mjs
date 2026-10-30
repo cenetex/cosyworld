@@ -6,6 +6,7 @@ import { situationProblems } from "./pack-situation-schema.mjs";
 import { validFactText } from "./knowledge.mjs";
 
 import { EXPRESSION_TYPES } from "./expression.mjs";
+import { humanAvatarIds } from "./human-cast.mjs";
 
 export const PACK_SCHEMA_VERSION = 1;
 export const AUTHORED_TOPIC_LIMIT = 128;
@@ -907,8 +908,18 @@ export function packProblems(pack, hub, mountedPlaces = []) {
         "requires",
         "effects",
         "workId",
+        "on",
+        "for",
       ]) &&
         idOk(c.id) &&
+        (c.on === undefined ||
+          c.on === "meet" ||
+          (c.on === "give" &&
+            (c.requires || []).some(
+              (r) => r.kind === "holding" && r.role === "actor",
+            ) &&
+            Boolean(avatars[c.subject]))) &&
+        (c.for === undefined || humanAvatarIds.includes(c.for)) &&
         !choiceIds.has(c.id) &&
         own.includes(c.subject) &&
         owns(places, c.at) &&
@@ -946,6 +957,23 @@ export function packProblems(pack, hub, mountedPlaces = []) {
               r.kind === "holding" &&
               r.item === e.item &&
               (r.role === "actor" || r.actor === hub.player),
+          );
+      // A meeting hides one of the pack's things somewhere in the world.
+      if (e.kind === "hide_item")
+        valid =
+          keysOk(e, ["kind", "item"]) && owns(items, e.item) && c.on === "meet";
+      if (e.kind === "give_item")
+        valid =
+          keysOk(e, ["kind", "item"]) &&
+          owns(items, e.item) &&
+          c.on !== "meet";
+      if (e.kind === "retire_item")
+        valid =
+          keysOk(e, ["kind", "item"]) &&
+          owns(items, e.item) &&
+          (c.requires || []).some(
+            (r) =>
+              r.kind === "holding" && r.item === e.item && r.role === "actor",
           );
       check(valid, `choice ${c.id} effect is unsupported or lacks custody`);
     }

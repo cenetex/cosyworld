@@ -206,10 +206,6 @@ describe("the Theban release and its ship", () => {
         "boardyai-calling-card",
         "can",
         "float",
-        "forest-story-button",
-        "forest-dewbright-button",
-        "forest-watch-bell",
-        "forest-wolfprint-charm",
         "kite",
         "mask",
         "routes",
@@ -218,6 +214,7 @@ describe("the Theban release and its ship", () => {
         ...Object.keys(pack.items).filter((id) => id.startsWith("greek-ajax-")),
         ...Object.keys(packDefinition("hoppycat-archive").items),
         ...Object.keys(packDefinition("willows").items),
+        ...Object.keys(packDefinition("lonely-forest").items),
       ].sort(),
     );
     expect(after.memories).toMatchObject(before.memories);

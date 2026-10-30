@@ -86,23 +86,16 @@ function attic() {
 function welcome() {
   let world = move(attic(), COTTAGE);
   world = act(world, "talk", { target: "rati" });
-  world = choose(world, "forest-stay-for-tea");
-  world = take(world, "forest-story-button");
-  world = act(world, "give", { item: "forest-story-button", target: "rati" });
-  return choose(world, "forest-mend-scarf");
+  return choose(world, "forest-stay-for-tea");
 }
 function chapter({
   path = "forest-clear-drain",
-  watch = "forest-set-watch-bell",
+  watch = "forest-mark-pawprints",
   account = "forest-tell-hearth",
   ending = "forest-leave-charm",
 } = {}) {
   let world = move(welcome(), GARDEN);
   world = choose(world, path);
-  world = take(world, "forest-dewbright-button");
-  world = choose(world, "forest-share-symbols");
-  if (watch === "forest-set-watch-bell")
-    world = take(world, "forest-watch-bell");
   world = move(world, TRAIL);
   world = choose(world, watch);
   world = take(world, "forest-wolfprint-charm");
@@ -177,9 +170,8 @@ describe("Tea beneath the oak", () => {
     expect(new Set(Object.values(map.places))).toEqual(
       new Set(Object.keys(pack.places)),
     );
-    expect(new Set(Object.values(map.items))).toEqual(
-      new Set(Object.keys(pack.items)),
-    );
+    for (const item of Object.values(map.items))
+      expect(Object.keys(pack.items)).toContain(item);
   });
 
   it("opens with the cloth in the attic and keeps the cottage return after the cloth moves", () => {
@@ -200,8 +192,10 @@ describe("Tea beneath the oak", () => {
 
   it("keeps all choices grounded in work, custody and the resident's place", () => {
     let world = move(attic(), COTTAGE);
+    // Vale's button is somewhere else, so RATi cannot sew it yet.
+    expect(world.items["forest-button-vale"].holder).not.toBe(COTTAGE);
     expect(
-      legalActions(world).some((a) => a.choiceId === "forest-mend-scarf"),
+      legalActions(world).some((a) => a.choiceId === "forest-sew-scarf-vale"),
     ).toBe(false);
     world = act(world, "talk", { target: "rati" });
     world = choose(world, "forest-stay-for-tea");
@@ -212,27 +206,22 @@ describe("Tea beneath the oak", () => {
     expect(
       legalActions(world).some((a) => a.choiceId === "forest-set-stones"),
     ).toBe(false);
+    world = move(world, TRAIL);
     expect(
-      legalActions(world).some((a) => a.choiceId === "forest-share-symbols"),
-    ).toBe(false);
-    world = take(world, "forest-dewbright-button");
-    expect(
-      cardChoices(world, "whiskerwind").some(
-        (a) => a.choiceId === "forest-share-symbols",
+      cardChoices(world, "skull").some(
+        (a) => a.choiceId === "forest-mark-pawprints",
       ),
     ).toBe(true);
-    world = choose(world, "forest-share-symbols");
-    expect(world.items["forest-dewbright-button"].holder).toBe(GARDEN);
   });
 
   it.each([
     [
       "forest-clear-drain",
-      "forest-set-watch-bell",
+      "forest-mark-pawprints",
       "forest-tell-hearth",
       "forest-leave-charm",
       "drain",
-      "bell",
+      "tracks",
       "hearth",
       "hearth",
     ],
@@ -266,7 +255,6 @@ describe("Tea beneath the oak", () => {
         "forest-homecoming": homecoming,
       });
       expect(state(world).flags["forest-homecoming-shared"]).toBe(true);
-      expect(world.items["forest-story-button"].holder).toBe("rati");
       expect(world.items["forest-wolfprint-charm"].holder).toBe(
         homecoming === "hearth" ? COTTAGE : "vale",
       );
@@ -277,7 +265,7 @@ describe("Tea beneath the oak", () => {
       const chapterCard = (q) =>
         FOREST_QUEST_CARDS.some((id) => q.key === `${PACK}:${id}`);
       const history = questHistoryCards(world).filter(chapterCard);
-      expect(history).toHaveLength(3);
+      expect(history).toHaveLength(FOREST_QUEST_CARDS.length);
       expect(
         history.every(
           (q) => q.status === "fulfilled" && q.participants.includes("vale"),
@@ -290,7 +278,7 @@ describe("Tea beneath the oak", () => {
         questHistoryCards(world)
           .filter(chapterCard)
           .map((q) => q.status),
-      ).toEqual(["fulfilled", "fulfilled", "fulfilled"]);
+      ).toEqual(FOREST_QUEST_CARDS.map(() => "fulfilled"));
       expect(legalActions(world).some((a) => a.choiceId === ending)).toBe(
         false,
       );
@@ -328,7 +316,7 @@ describe("Tea beneath the oak", () => {
     world = reload(response.world);
     expect(state(world).choices["forest-garden-care"]).toBe("stones");
     const record =
-      world.quests.records[`lonely-forest:${FOREST_QUEST_CARDS[1]}`];
+      world.quests.records["lonely-forest:story-quest-forest-path"];
     expect(record.participants).toContain("mara");
     expect(
       world.log.find((e) => e.choiceId === "forest-set-stones")?.actorId,

@@ -63,10 +63,16 @@ fn forest_crossing_upgrade_replays_with_two_humans(version: &str) {
     assert_eq!(w.game["turn"], old.game["turn"]);
     assert_eq!(w.claimed, old.claimed);
     assert_eq!(w.present, old.present);
+    // Lonely Forest revision 2 retires the shared buttons and the bell.
+    let retired = ["forest-story-button", "forest-dewbright-button", "forest-watch-bell"];
     for (key, value) in old.game["items"].as_object().unwrap() {
-        assert_eq!(&w.game["items"][key], value);
+        if retired.contains(&key.as_str()) {
+            assert!(w.game["items"].get(key).is_none(), "{key}");
+        } else {
+            assert_eq!(&w.game["items"][key], value);
+        }
     }
-    assert_eq!(w.game["packs"]["lonely-forest"]["revision"], 1);
+    assert_eq!(w.game["packs"]["lonely-forest"]["revision"], 2);
     for actor in ["rati", "skull", "whiskerwind", "oak"] {
         assert!(w.game["actors"].get(actor).is_some());
     }
@@ -92,6 +98,14 @@ fn forest_crossing_upgrade_replays_with_two_humans(version: &str) {
     assert_eq!(w.game["items"]["cloth"]["holder"], "vale");
     move_to(&mut w, "vale", 0, "forest-cottage");
     assert_eq!(w.game["actors"]["mara"]["place"], "forest-cottage");
+    // Each traveler who meets RATi has their own button hidden elsewhere.
+    for who in ["vale", "mara"] {
+        let button = &w.game["items"][format!("forest-button-{who}")];
+        assert_ne!(button["holder"], "forest-cottage", "{who}");
+        assert!(w.game["packs"]["lonely-forest"]["receipts"]
+            .get(format!("forest-hide-button-{who}"))
+            .is_some());
+    }
     let loaded = full_store::world(&c, &id, now()).unwrap();
     assert_eq!(loaded, w);
     move_to(&mut w, "mara", 1, "attic");

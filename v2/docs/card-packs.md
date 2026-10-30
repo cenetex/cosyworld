@@ -267,7 +267,26 @@ supplies this role. A condition with an explicit `actor` keeps that named
 character as its subject. Choices can supply `textTemplate` with `{actor}`
 for the acting avatar's name; ordinary `text` remains literal.
 
-Effects remain choose, set_flag and custody-checked place_item. Canonical
+Effects are choose, set_flag, custody-checked place_item, and three item
+moves. `give_item` hands a pack item to the acting avatar. `retire_item`
+needs the actor to hold the item; it returns the item, unseen, to its
+authored holder with an empty history. `hide_item` belongs only to a
+meeting choice.
+
+A choice with `"for": "<human avatar>"` is offered only to that traveler.
+A choice with `"on": "meet"` is never offered as a card. The rules apply it
+the first time its traveler shares a room with the choice's subject, unless
+a choice receipt already holds that turn; then it waits for the next play
+in the room. Its `hide_item` effect places the item in any active place in
+the world except the traveler's room. The pick is a stable FNV-1a hash of
+the choice and traveler over the sorted place ids. There is no reachability
+test. A choice with `"on": "give"` is also never a card. It is the effect
+of the actor giving its subject the item the choice needs them to hold. The
+Give is accepted, the choice text is the outcome, and nothing else moves.
+The Lonely Forest buttons use both rules (see
+`v2/content/lonely-forest/OPENING.md`).
+
+Canonical
 person identities prevent incompatible embodiments being active together.
 Ordered receipts recompute saved choices/flags on loading.
 

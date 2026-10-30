@@ -184,18 +184,18 @@ describe("pack situations", () => {
     withTemplate("lonely-forest", watch, () => {
       expect(generate(s).name).not.toBe(watch.name);
       s.packs["lonely-forest"].flags["forest-path-cleared"] = true;
-      const bellOnly = generate(s);
-      expect(bellOnly.name).toBe(watch.name);
-      // The lamp is out of reach, so only the Watch Bell answers the watch.
-      expect(bellOnly.steps[1]).toEqual({
-        items: ["forest-watch-bell"],
-        location: "forest-trail",
-        avatars: ["skull"],
-        consequence: { kind: "trust", avatar: "skull" },
-      });
+      // The lamp is out of reach, so nothing answers the watch yet.
+      expect(generate(s).name).not.toBe(watch.name);
       s.items.lamp.holder = "vale";
       s.items.lamp.fuel = 2;
-      expect(generate(s).steps[1].any).toHaveLength(2);
+      const lamp = generate(s);
+      expect(lamp.name).toBe(watch.name);
+      expect(lamp.steps[1]).toMatchObject({
+        items: ["lamp"],
+        location: "forest-trail",
+        avatars: ["skull"],
+        conditions: [{ kind: "lit", item: "lamp" }],
+      });
       // A closed path removes the purpose again.
       s.packs["lonely-forest"].flags["forest-path-cleared"] = false;
       expect(generate(s).name).not.toBe(watch.name);

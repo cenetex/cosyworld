@@ -68,7 +68,7 @@ describe("story returns", () => {
     expect(storyQuestProblems(pack, compiled.hub)).toEqual([
       "lonely-forest: story quest story-quest-forest-homecoming return ending forest-leave-charm does not depend on a carried earlier outcome",
     ]);
-    expect(homecoming.return.carries).toHaveLength(2);
+    expect(homecoming.return.carries).toHaveLength(1);
   });
 
   it("rejects carried evidence the departure did not write", () => {
@@ -100,16 +100,22 @@ describe("story returns", () => {
   });
 
   it("follows carried evidence through the choices that set it", () => {
-    // Oak's account needs the mended scarf, so the charm endings carry it
-    // even though they read only the oak-heard flag.
+    // The charm endings read only the oak-heard flag. Oak's account needs the
+    // watch, and the watch needs the cleared path, so the endings carry it.
     const pack = copy(forest);
     const homecoming = storyOf(pack, "story-quest-forest-homecoming");
-    homecoming.return.carries = [{ kind: "flag", key: "forest-scarf-mended" }];
-    expect(storyQuestProblems(pack, compiled.hub)).toEqual([
-      "lonely-forest: story quest story-quest-forest-homecoming return cites story-quest-forest-path without carrying its outcome",
+    expect(homecoming.return.carries).toEqual([
+      { kind: "flag", key: "forest-path-cleared" },
     ]);
-    homecoming.return.from = ["story-quest-forest-hearth"];
     expect(storyQuestProblems(pack, compiled.hub)).toEqual([]);
+    const pawprints = pack.choices.find((c) => c.id === "forest-mark-pawprints");
+    pawprints.requires = pawprints.requires.filter(
+      (c) => c.key !== "forest-path-cleared",
+    );
+    expect(storyQuestProblems(pack, compiled.hub)).toEqual([
+      "lonely-forest: story quest story-quest-forest-homecoming return ending forest-leave-charm does not depend on a carried earlier outcome",
+      "lonely-forest: story quest story-quest-forest-homecoming return ending forest-keep-charm does not depend on a carried earlier outcome",
+    ]);
   });
 });
 
@@ -119,8 +125,6 @@ describe("story middles", () => {
     for (const key of [
       "story-quest-greek-ajax-shield",
       "story-quest-forest-walkers",
-      "story-quest-forest-hearth",
-      "story-quest-forest-path",
       "story-quest-greek-burial",
     ])
       expect(advice).not.toContain(`${key} `);
