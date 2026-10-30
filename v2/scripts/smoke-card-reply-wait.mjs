@@ -32,8 +32,7 @@ function fixture(actor) {
   world.sharedVersion = 1;
   world.controlledActors = [actor];
   world.presentActors = [actor];
-  for (const id of [actor, "moth", "keeper"])
-    world.actors[id].place = place;
+  for (const id of [actor, "moth", "keeper"]) world.actors[id].place = place;
   world.items.lamp.holder = "moth";
   addLog(world, "Vale", "An earlier line from Vale.", {
     generated: true,
@@ -81,6 +80,17 @@ async function waitingFor(page, id) {
   );
   assert.equal(await page.locator("#speaker").innerText(), nameOf(id));
   assert.equal(await page.locator("#dialogue-text").innerText(), "");
+}
+// Previous reviews the last accepted line, then the wait comes back.
+async function reviewsEarlierLine(page, id) {
+  await page.locator("#previous-line").click();
+  assert.equal(await page.locator("#speaker").innerText(), "Vale");
+  assert.equal(
+    await page.locator("#dialogue-text").innerText(),
+    "An earlier line from Vale.",
+  );
+  await page.getByRole("button", { name: /^Return to live dialogue/ }).click();
+  await waitingFor(page, id);
 }
 const reports = [];
 // Stream the story by hand so each line arrives when the check says.
@@ -180,6 +190,7 @@ async function localCheck(width, actor, kind, mode) {
     );
   // The player's avatar speaks first, so it thinks first.
   await waitingFor(page, actor);
+  await reviewsEarlierLine(page, actor);
   if (mode === "streamed") {
     await page.evaluate(
       ([id, text]) => globalThis.story.line(id, text),
@@ -248,6 +259,7 @@ try {
       await shared.goto(`${origin}/?world=reply-wait`);
       // A shared exchange arrives whole, so the acting avatar thinks first.
       await waitingFor(shared, actor);
+      await reviewsEarlierLine(shared, actor);
       // The next play's wait replaces the old one, even with old Vale speech saved.
       snapshot = structuredClone(snapshot);
       const next = structuredClone(committed);

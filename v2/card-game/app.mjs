@@ -1981,6 +1981,19 @@ function renderScene() {
   const at = spokenLines.findIndex(
     (entry) => entry.index === scene.line?.index,
   );
+  // While a reply is pending, Previous reviews the last accepted line.
+  const localWaiting =
+    !sharedSession &&
+    Boolean(exchange.preparing || awaitingNext || storyStatus === "pending");
+  const replyPending = !spoken && Boolean(sharedSession || localWaiting);
+  // A held local scene has no current line, so review starts at the latest.
+  const previousAt = spoken
+    ? at - 1
+    : replyPending
+      ? at >= 0
+        ? at
+        : spokenLines.length - 1
+      : -1;
   nextSceneSeq =
     at >= 0 && at < spokenLines.length - 1 ? spokenLines[at + 1].seq : null;
   if (exchange.active) nextSceneSeq = exchange.hasNext ? nextSceneSeq : null;
@@ -1991,7 +2004,7 @@ function renderScene() {
   document.querySelector(".dialogue").hidden =
     !hasSpeech && !movement && !sharedSession?.state.queue?.length;
   $("speech-row").hidden = !hasSpeech;
-  document.querySelector(".line-controls").hidden = !text;
+  document.querySelector(".line-controls").hidden = !text && previousAt < 0;
   $("dialogue-advance").hidden = !text;
   $("speech-hint").hidden = true;
   if (text) {
@@ -2010,11 +2023,13 @@ function renderScene() {
     $("dialogue-text").replaceChildren();
     $("speech-announcement").textContent = "";
   }
-  $("previous-line").disabled = cardsCooling || at <= 0;
+  $("previous-line").disabled =
+    (cardsCooling && !localWaiting) || previousAt < 0;
   updateSpeechControls(reveal.complete);
+  if (!text) $("next-line").disabled = true;
   $("previous-line").onclick = () => {
     reviewing = true;
-    lineSeq = spokenLines[at - 1].seq;
+    lineSeq = spokenLines[previousAt].seq;
     renderScene();
   };
   const advance = () => {
@@ -2056,7 +2071,20 @@ function renderScene() {
   $("next-line").onclick = advance;
   const liveButton = $("live-line");
   liveButton.hidden = !sharedSession;
-  if (sharedSession) {
+  if (!sharedSession) {
+    // Local play rejoins its pending reply after reviewing earlier lines.
+    const pending = reviewing && localWaiting;
+    const actor = pendingSpeaker || currentActor(world);
+    liveButton.hidden = !pending;
+    liveButton.dataset.live = "false";
+    liveButton.title = `Return to live dialogue · ${nameOf(actor)}`;
+    liveButton.setAttribute("aria-label", liveButton.title);
+    if (pending && liveButton.dataset.actor !== actor) {
+      liveButton.dataset.actor = actor;
+      liveButton.replaceChildren(sharedQueuePortrait(actor));
+    }
+    liveButton.onclick = returnToLive;
+  } else {
     const actor = sharedNextActor(
       sharedSession.state,
       sharedSession.now(),
