@@ -1,6 +1,6 @@
 {
   "name": "cosyworld",
-  "version": "1.2.42",
+  "version": "1.2.43",
   "description": "A persistent card world with local and shared play",
   "type": "module",
   "private": true,
@@ -99,13 +99,13 @@
   "license": "MIT",
   "dependencies": {
     "@solana/web3.js": "^1.98.4",
-    "ajv": "^8.17.1",
+    "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
     "better-sqlite3": "^13.0.3",
     "bs58": "^6.0.0",
     "dotenv": "^16.4.5",
     "replicate": "^1.0.1",
-    "sharp": "^0.33.5",
+    "sharp": "^0.35.5",
     "tweetnacl": "^1.0.3"
   },
   "devDependencies": {
