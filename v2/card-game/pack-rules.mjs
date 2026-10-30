@@ -152,6 +152,9 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
       return isNight(s);
     case "weather":
       return locationWeather(s, c.place)?.condition === c.condition;
+    // A transport docked (or just arrived) at a port, not at sea.
+    case "ship_at":
+      return shipDock(s, c.transport) === c.dock;
     default:
       return false;
   }

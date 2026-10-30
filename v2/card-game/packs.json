@@ -12692,7 +12692,7 @@
       ],
       "bridge": {
         "id": "greek-ship-willows",
-        "description": "On a misty night, river mist beside the Greek ship's rail opens onto a small Danube island. The same dark mist keeps a path back to the deck; when it lifts, the island and the deck lose each other until the next misty night."
+        "description": "On a misty night, while the Greek ship lies at Black Pond, river mist beside its rail opens onto a small Danube island. The same dark mist keeps a path back to the deck; when it lifts or the ship leaves the pond, the island and the deck lose each other until the ship lies there again on a misty night."
       },
       "values": {
         "willows-swede": {
@@ -12717,6 +12717,11 @@
               "kind": "weather",
               "place": "greek-ship",
               "condition": "mist"
+            },
+            {
+              "kind": "ship_at",
+              "transport": "greek-ship",
+              "dock": "pond"
             }
           ],
           "scenery": {
@@ -12739,6 +12744,11 @@
               "kind": "weather",
               "place": "greek-ship",
               "condition": "mist"
+            },
+            {
+              "kind": "ship_at",
+              "transport": "greek-ship",
+              "dock": "pond"
             }
           ],
           "scenery": {

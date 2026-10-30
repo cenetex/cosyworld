@@ -149,10 +149,20 @@ describe("The Willows", () => {
     go("mara", null, "wait");
     go("mara", "greek-harbor");
     expect(world.transports["greek-ship"].dock).toBe("greek-harbor");
-    go("vale", "greek-ship");
-    expect(world.transports["greek-ship"].dock).toBe("greek-harbor");
-    mist(world);
+    // The ship has left Black Pond: Vale waits on the island, mist or not.
+    expect(
+      dispatchShared({
+        op: "view",
+        world,
+        ...request,
+        actor: "vale",
+      }).actions.some((a) => a.kind === "move" && a.target === "greek-ship"),
+    ).toBe(false);
+    // The lamp calls the empty ship home; the next dark mist reopens the way.
     summonTransport(world, "greek-ship", "pond");
+    mist(world);
+    go("vale", "greek-ship");
+    expect(world.transports["greek-ship"].dock).toBe("pond");
     go("vale", "willows-landing");
     expect(world.transports["greek-ship"]).toMatchObject({
       dock: "pond",
@@ -192,7 +202,8 @@ describe("The Willows", () => {
     world.crossings["pond-greek-harbor"].discovered = true;
     summonTransport(world, "greek-ship", "pond");
     world = move(world, "greek-ship");
-    const at = (turn) => Object.assign(structuredClone(world), { turn, revision: turn });
+    const at = (turn) =>
+      Object.assign(structuredClone(world), { turn, revision: turn });
     const deck = (w) => exits(w, "greek-ship", "vale");
     // Night is every other block of 24 turns; the deck's mist is Boeotian.
     const day = at(0);
@@ -213,6 +224,17 @@ describe("The Willows", () => {
     expect(night.turn).toBe(120);
     expect(deck(night)).toContain("willows-landing");
     expect(availableCards(night)).toContain("willows-landing");
+    // Only at Black Pond: the same dark mist at the Wine-Dark Harbor, or at
+    // sea, raises nothing.
+    for (const ship of [
+      { dock: "greek-harbor", phase: "docked" },
+      { dock: "pond", phase: "sea" },
+    ]) {
+      const elsewhere = structuredClone(night);
+      Object.assign(elsewhere.transports["greek-ship"], ship);
+      expect(deck(elsewhere)).not.toContain("willows-landing");
+      expect(availableCards(elsewhere)).not.toContain("willows-landing");
+    }
     // The same clock decides it after a reload and in a shared view.
     expect(deck(decodeSave(encodeSave(night)))).toContain("willows-landing");
     // Ashore when the mist lifts: no way back until the next misty night.

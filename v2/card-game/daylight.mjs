@@ -5,9 +5,15 @@ export const DAYLIGHT_TURNS = 24;
 // Night is every other block of DAYLIGHT_TURNS on the saved world clock.
 export const isNight = (world) =>
   Math.floor((world?.turn ?? 0) / DAYLIGHT_TURNS) % 2 === 1;
-// The Willows mist rises beside the ship's rail only on a misty night.
+// Dark mist: night, and mist on the ship's deck.
 export const darkMist = (world) =>
   isNight(world) && locationWeather(world, "greek-ship")?.condition === "mist";
+// The Willows mist rises beside the ship's rail only in dark mist while the
+// ship lies at Black Pond.
+export const willowsMist = (world) => {
+  const ship = world?.transports?.["greek-ship"];
+  return darkMist(world) && ship?.phase !== "sea" && ship?.dock === "pond";
+};
 const art = (file) => `assets/greek-drama/${file}.webp`;
 const willows = (file) => `assets/willows/${file}.webp`;
 // The ship shows at the Willows landing only in dark mist.
@@ -104,7 +110,7 @@ export function locationDaylight(world, id) {
 
 export function daylightBackdrop(world, id, file) {
   if (Object.hasOwn(darkMistBackdrops, id))
-    return darkMist(world) ? darkMistBackdrops[id] : file;
+    return willowsMist(world) ? darkMistBackdrops[id] : file;
   if (locationDaylight(world, id)?.phase !== "night") return file;
   return dockedNightBackdrops[file] || nightBackdrops[id];
 }
