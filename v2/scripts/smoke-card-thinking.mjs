@@ -215,3 +215,5 @@ try {
   await new Promise((resolve) => server.close(resolve));
 }
 console.log(JSON.stringify(reports));
+
+await import("./smoke-card-reply-wait.mjs");
