@@ -1,0 +1,74 @@
+{
+  "generator": "built-in image_gen",
+  "date": "2026-10-29",
+  "source_commit": "36390982939fb3a39f4b8d840e9a3979f1d0533a",
+  "encoding": "WebP, quality 94; full native canvas, no resizing or cropping",
+  "images": [
+    {
+      "file": "athens-grand-agora-night.webp",
+      "source": "athens-grand-agora.webp",
+      "source_sha256": "ee9a3d4508a892c7ab6440658512be35be2854491bf69601be35977657cd7585",
+      "generation": "exec-55419f5d-d63c-48b0-ade3-f7bc70d6edb5.png",
+      "generation_sha256": "95939fda6a6aed446efc0d9e74f0d4a96ca88de1cf31a5cc067219f9d009b8a7",
+      "prompt": "Use case: lighting-weather. Asset type: Cosyworld Greek game scene night variant. EDIT THE PROVIDED IMAGE ONLY. Image 1 is the exact edit target, the Athens Grand Agora daytime scene. Produce the identical scene at clear moonlit NIGHT. Preserve the complete full 1672 x 941 canvas, aspect ratio, camera position, field of view, perspective and crop, with no reframing or trimming. Preserve every building, column, painted frieze, statue, pedestal, banner, tree, basket, bench, amphora, paving stone, stair, distant house and Acropolis landmark in exactly the same placement and scale. Keep the existing crisp detailed painterly environment style and texture. Change lighting and sky illumination only: an unmistakably deep indigo night sky, existing light clouds now faint and silver-blue, soft off-frame moonlight across pale marble and the open central square, cool shadow beneath the colonnades, gentle restrained amber glow from a few existing building interiors. Do not add lamp objects or torches. Keep the architecture and paving readable in shadow, with subtle atmospheric depth and small warm accents; no black crushed foreground and no lingering daytime sunlight. Preserve the current clear weather, existing cloud distribution, dry paving, vegetation and season; do not add rain, mist, fog or snow. The moonlight source is outside the frame, so do not add a new moon or celestial spectacle. No new people, animals, objects, boats or buildings. Do not remove anything. No text, labels, logo, interface or border. This must be recognizably the exact supplied Athens Agora scene in the game with only a day-to-night lighting transformation.",
+      "width": 1672,
+      "height": 941,
+      "sha256": "02831f4308b245d042f09dfa4755bbb18e8f7726da41fa696a9b4866fa522419"
+    },
+    {
+      "file": "attic-road-night.webp",
+      "source": "attic-road.webp",
+      "source_sha256": "2e4c3f83653a90bbea9d4640b96fa3db979c1ea9c6fbdb5bee31f5bdeb3f7882",
+      "generation": "exec-7faa869f-72ec-4cea-9d8b-131fe16636de.png",
+      "generation_sha256": "5b11509d0482336b2ff798e3010a7ffc8b96af6bbc4ffdaa4a5c698aecd50d8e",
+      "prompt": "Use case: lighting-weather. Edit target: this exact existing CosyWorld Attic Road daylight painting. Create the matching NIGHT painting, changing only time of day and illumination. Preserve the entire original 1672 by 941 wide canvas, exact camera, crop, perspective, landscape, object geometry and fine painterly detail. Keep the great olive tree and hanging foliage at upper left, stone bench at left, clay jar at lower left, the broad foreground road junction, both winding road exits, low stone walls, cypresses, olives, grass and flowers, blue bay, distant mountains and Athens Acropolis on the right horizon in precisely the same positions. Turn the bright daylight sky into a deep indigo night sky with subtle small stars and soft cloud shapes. Gentle silver moonlight picks out the pale roadway, olive leaves, bench, walls and calm sea. The road and foreground stage should remain clearly navigable in the darkness. Tiny warm window lights may appear only in the existing distant city. Keep the foreground rural and unlit by lamps: do not add lanterns, torches, people, buildings or any new props. Quiet, mysterious, welcoming chthonic Greek night, preserving the source's original clear weather so game overlays can add weather independently. A complete opaque full-canvas scene, no crop, no zoom, no montage, no lettering, UI, border or watermark.",
+      "width": 1672,
+      "height": 941,
+      "sha256": "08a875ff553fd920af31a8bc58bcd0c1da9855078e3baa4f752e8e6fbf64917e"
+    },
+    {
+      "file": "open-door-colonus-night.webp",
+      "source": "open-door-colonus.webp",
+      "source_sha256": "ce76091cd3f94db6dec9db104f6ab0d67fa81af1670089d731130a29e4625fb7",
+      "generation": "exec-634bfe5b-3cff-49f4-8136-f320d1c92365.png",
+      "generation_sha256": "c50aafdf25fd68a25a0374c6c9df2d74531ab6ea16b5563c7b71b8b90268c6a4",
+      "prompt": "Use case: lighting-weather. Asset type: Cosyworld Greek game scene night variant. EDIT THE PROVIDED IMAGE ONLY. Image 1 is the exact edit target, the Colonus olive grove daytime scene. Make this exact scene a clear, peaceful moonlit NIGHT version. Preserve the complete full 1672 x 941 canvas, aspect ratio, camera, perspective, field of view and crop with no reframing or trimming. Keep the olive trunks and overhead branches, every rock, all flowers and foliage, the left-hand stone spring with flowing water and trough, the open dirt foreground, the curving descending path, the standing stone on the right, all cypresses, distant houses and the Acropolis in precisely their current positions, shapes and scale. Keep the original richly detailed painterly environment style. Change illumination only: deep indigo sky visible through the same gaps in the canopy, existing clouds dim and cool, silver moonlight catching olive leaves, white flowers, stone edges and the spring water, soft blue-violet shadow under the trees, enough reflected moonlight to keep the spring and walkable path plainly readable. A few tiny restrained amber glows may come from existing distant house interiors only. Do not add lanterns, candles, torches, people, animals, fireflies, new objects or architecture. Moon is outside the frame: no new visible moon. Retain the original clear weather, cloud placement, dry earth, season and exact vegetation; no rain, mist, fog or snow. Remove the warm daylight and sunbeams convincingly while preserving delicate texture and visual depth. Hushed, ancient and inviting, matching the supplied game art. No text, label, watermark, logo, UI or border.",
+      "width": 1672,
+      "height": 941,
+      "sha256": "3edc92247cce47f1b28e8c5c3d05222703980cb18e8b1cffa8721944913d710e"
+    },
+    {
+      "file": "open-door-eleusis-night.webp",
+      "source": "open-door-eleusis.webp",
+      "source_sha256": "e792c1dc93672b1f39dc8db45090a35238cb135e47649caafcf1733af6e170bb",
+      "generation": "exec-aa2aedfa-8034-4dee-aa9a-b9ea78906c2c.png",
+      "generation_sha256": "75475efef1c5381aa1785e2ed9e6096b3d6cf404bb6c8279eef24f3a3d7e6305",
+      "prompt": "Use case: lighting-weather. Edit the supplied Eleusis image into its NIGHT variant for the Cosyworld game. This reference is the exact edit target. Change ONLY the time of day and resulting illumination. Preserve the entire full uncropped 1672 by 941 canvas and wide aspect ratio, precisely the same camera, lens, framing, perspective, geometry, architecture, tree branches, leaves, clouds, distant hills and buildings, temple at upper right, red temple door, altar and its carvings, all stone steps, bowl braziers, offerings, cloth on the left bench, baskets, pottery, plants and every object's original position and scale. Keep the original detailed painterly finish and surface textures unchanged. Turn the existing bright daytime sky into deep indigo night and retain the existing cloud shapes as subdued blue-grey forms; use cool silver-blue moonlight from outside the frame. Keep the foreground, paths, altar and temple legible while convincingly nocturnal. Give only the existing bowl lamps/braziers a few small contained warm amber flames and localized soft warm pools of light. Do not invent or add any lamp fixtures or other objects. Do not add a visible moon, extra stars, people, figures, animals, text, UI, lettering, symbols, buildings, effects, fog, rain, snow or other new weather. Do not move, remove, replace, redesign or crop any feature. One finished scene, opaque image, no border, no watermark.",
+      "width": 1672,
+      "height": 941,
+      "sha256": "683c290fab7bb78b534d3c024b01ed1f549a7f7ee18f933fc05d2e535297cd71"
+    },
+    {
+      "file": "open-door-marathon-night.webp",
+      "source": "open-door-marathon.webp",
+      "source_sha256": "f7a3475c47ce3fc8dfc7da4eee2231cbfe12bd1a74753b348098c9444d937314",
+      "generation": "exec-77d4a1d2-a240-4c5d-96cc-b515505c4806.png",
+      "generation_sha256": "cdc98c9a97e96a9409f395a0cffa8a2769f0349cecf4dc1728984c9e69d3cf07",
+      "prompt": "Use case: lighting-weather. Edit the supplied Marathon image into its NIGHT variant for the Cosyworld game. This reference is the exact edit target. Change ONLY the time of day and resulting illumination. Preserve the entire full uncropped 1672 by 941 canvas and wide aspect ratio, precisely the same camera, lens, framing, perspective, geometry and every feature's position and scale: olive tree and its overhanging branches at upper left, columned small shrine with the statue at left, shrine roof and stone steps, existing pots and small oil lamps, adjacent reed awning and hanging woven screen, baskets and tied bundles, foreground flagstones and open pathway, rocks and vegetation, winding distant road, coastline, bay, islands and mountain silhouettes. Keep the original detailed painterly finish and surface textures unchanged. Turn the blue daytime sky into deep indigo night, keeping the existing cloud shapes subdued and blue-grey. Use cool silver-blue moonlight from outside the frame, including a restrained moonlit sheen on the existing sea. Keep the foreground, path, shrine and distant shoreline legible while convincingly nocturnal. Light only a few of the tiny existing oil lamps on the shrine ledge, with restrained amber light warming the statue and nearby stone. Do not add lamp fixtures, candles or other objects. Do not add a visible moon, extra stars, people, figures, animals, text, UI, lettering, symbols, buildings, effects, fog, rain, snow or other new weather. Do not move, remove, replace, redesign or crop any feature. One finished scene, opaque image, no border, no watermark.",
+      "width": 1672,
+      "height": 941,
+      "sha256": "cac72e9996f8af29207068f9215265dd5d489d939ff2839904e4b020df92d462"
+    },
+    {
+      "file": "ship-deck-night.webp",
+      "source": "ship-deck.webp",
+      "source_sha256": "e09145506d279ba279abb94f716d93366b4a3584852e2ddc6f52584798425dbd",
+      "generation": "exec-6061fa19-d112-48e8-9be1-905bc8861007.png",
+      "generation_sha256": "35a9d45964794d87059550ec49256020a915a16e805f42cbb64abb9d4edc6b42",
+      "prompt": "Use case: lighting-weather. Edit target: this exact existing CosyWorld Greek ship deck painting. Make its matching DEEP NIGHT variant by changing the twilight lighting only. Preserve the original full 1672 by 941 wide canvas, exact camera, perspective, crop, painterly finish and every object and landmark. Keep the large left mast, cream sail across the top, all rigging and knots, deck planks, cargo corner, the two existing golden lanterns, carved curled prow, rails, coiled ropes, mountain coastlines and open middle of the deck in exactly their existing positions and shapes. Remove the rosy sunset/dawn glow from the horizon and make the entire sky a cool deep midnight indigo with delicate stars and the same thin cloud forms. Soft silvery moonlight from off canvas catches the sail, wood grain and quiet water. The two existing lanterns cast restrained warm amber light on the deck and rails; keep their positions. Preserve the quiet readable atmosphere and existing distant mist without adding weather. Night is unmistakable yet the deck remains readable for gameplay. One complete opaque landscape painting, same full canvas and scene, no crop, no zoom, no new people, ships, props, extra lamps, text, UI, border or watermark.",
+      "width": 1672,
+      "height": 941,
+      "sha256": "b942c80b09b6b52e7eb36b43706bfba2f23c6058d549f68725e9244527888d9c"
+    }
+  ]
+}

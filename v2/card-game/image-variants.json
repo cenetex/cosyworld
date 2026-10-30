@@ -112,6 +112,13 @@
       "card": "assets/optimized/card/png/greek-drama/ajax-teucer.webp",
       "cardHash": "ee7d0b06053bf03cec21df4475cf4109daed90f83fe0ec1681e6b7887c642942"
     },
+    "assets/greek-drama/athens-grand-agora-night.webp": {
+      "sourceHash": "02831f4308b245d042f09dfa4755bbb18e8f7726da41fa696a9b4866fa522419",
+      "stage": "assets/greek-drama/athens-grand-agora-night.webp",
+      "stageHash": "02831f4308b245d042f09dfa4755bbb18e8f7726da41fa696a9b4866fa522419",
+      "card": "assets/optimized/card/webp/greek-drama/athens-grand-agora-night.webp",
+      "cardHash": "1b5d0a1833d4c8bfbc793f3ba338b63275d850d8af0e0b6c5809c440205ded10"
+    },
     "assets/greek-drama/athens-grand-agora.webp": {
       "sourceHash": "ee9a3d4508a892c7ab6440658512be35be2854491bf69601be35977657cd7585",
       "stage": "assets/greek-drama/athens-grand-agora.webp",
@@ -153,6 +160,13 @@
       "stageHash": "339386bf42192929b742bb5a2e3ee2e48d9324512bcbdc7cc3aadef58825eb33",
       "card": "assets/optimized/card/webp/greek-drama/athens-harbor.webp",
       "cardHash": "f3ddf560ed98168fe1a1e702a23d155d5ced3b79b7309cf4dec234f5872d0618"
+    },
+    "assets/greek-drama/attic-road-night.webp": {
+      "sourceHash": "08a875ff553fd920af31a8bc58bcd0c1da9855078e3baa4f752e8e6fbf64917e",
+      "stage": "assets/greek-drama/attic-road-night.webp",
+      "stageHash": "08a875ff553fd920af31a8bc58bcd0c1da9855078e3baa4f752e8e6fbf64917e",
+      "card": "assets/optimized/card/webp/greek-drama/attic-road-night.webp",
+      "cardHash": "5ec6ac003b39375ba6268e40016824b1a47c95a8c820e96c565ee4b1dc728c05"
     },
     "assets/greek-drama/attic-road.webp": {
       "sourceHash": "2e4c3f83653a90bbea9d4640b96fa3db979c1ea9c6fbdb5bee31f5bdeb3f7882",
@@ -427,12 +441,26 @@
       "card": "assets/optimized/card/webp/greek-drama/open-door-altar-keeper.webp",
       "cardHash": "59f50fb22dee5b79bf0746346a7fa851c29a30a37b6d94b8947b2154b328c06d"
     },
+    "assets/greek-drama/open-door-colonus-night.webp": {
+      "sourceHash": "3edc92247cce47f1b28e8c5c3d05222703980cb18e8b1cffa8721944913d710e",
+      "stage": "assets/greek-drama/open-door-colonus-night.webp",
+      "stageHash": "3edc92247cce47f1b28e8c5c3d05222703980cb18e8b1cffa8721944913d710e",
+      "card": "assets/optimized/card/webp/greek-drama/open-door-colonus-night.webp",
+      "cardHash": "4153625a3c226ddc38253333560deb855672772df1f662bd2e03713cff5179cd"
+    },
     "assets/greek-drama/open-door-colonus.webp": {
       "sourceHash": "ce76091cd3f94db6dec9db104f6ab0d67fa81af1670089d731130a29e4625fb7",
       "stage": "assets/greek-drama/open-door-colonus.webp",
       "stageHash": "ce76091cd3f94db6dec9db104f6ab0d67fa81af1670089d731130a29e4625fb7",
       "card": "assets/optimized/card/webp/greek-drama/open-door-colonus.webp",
       "cardHash": "19c9bae99e6538be1c7e8723ad6552d6a2e21f6f999717fec002a147f2745fbb"
+    },
+    "assets/greek-drama/open-door-eleusis-night.webp": {
+      "sourceHash": "683c290fab7bb78b534d3c024b01ed1f549a7f7ee18f933fc05d2e535297cd71",
+      "stage": "assets/greek-drama/open-door-eleusis-night.webp",
+      "stageHash": "683c290fab7bb78b534d3c024b01ed1f549a7f7ee18f933fc05d2e535297cd71",
+      "card": "assets/optimized/card/webp/greek-drama/open-door-eleusis-night.webp",
+      "cardHash": "cd491ea27aa44fc4aa470fad445b5d456c71de1ac3a1de48e72b1dc13674f1e7"
     },
     "assets/greek-drama/open-door-eleusis.webp": {
       "sourceHash": "e792c1dc93672b1f39dc8db45090a35238cb135e47649caafcf1733af6e170bb",
@@ -454,6 +482,13 @@
       "stageHash": "8b384cbb30cad658eaff9952d8cbb556ca1114d170e25e7b0f1a7939a1cbad4a",
       "card": "assets/optimized/card/webp/greek-drama/open-door-iphis.webp",
       "cardHash": "5b10370121695d6cc39d311b6c84150b5424a5f5517381f2e53237fe694c922f"
+    },
+    "assets/greek-drama/open-door-marathon-night.webp": {
+      "sourceHash": "cac72e9996f8af29207068f9215265dd5d489d939ff2839904e4b020df92d462",
+      "stage": "assets/greek-drama/open-door-marathon-night.webp",
+      "stageHash": "cac72e9996f8af29207068f9215265dd5d489d939ff2839904e4b020df92d462",
+      "card": "assets/optimized/card/webp/greek-drama/open-door-marathon-night.webp",
+      "cardHash": "13593c13c4c388fb49a2f336f4be9b9935327b4e13f24ecef682d9609bf754de"
     },
     "assets/greek-drama/open-door-marathon.webp": {
       "sourceHash": "f7a3475c47ce3fc8dfc7da4eee2231cbfe12bd1a74753b348098c9444d937314",
@@ -559,6 +594,13 @@
       "stageHash": "c7789a3163cbd45ac8cc9fccda27591f58d66c23dafb19e768545b68707fcd06",
       "card": "assets/optimized/card/webp/greek-drama/ship-card.webp",
       "cardHash": "46fcdc6b13261f34f960a31e3a1fd9bddd6d84ee48a1139b1f5b3ce1472207bf"
+    },
+    "assets/greek-drama/ship-deck-night.webp": {
+      "sourceHash": "b942c80b09b6b52e7eb36b43706bfba2f23c6058d549f68725e9244527888d9c",
+      "stage": "assets/greek-drama/ship-deck-night.webp",
+      "stageHash": "b942c80b09b6b52e7eb36b43706bfba2f23c6058d549f68725e9244527888d9c",
+      "card": "assets/optimized/card/webp/greek-drama/ship-deck-night.webp",
+      "cardHash": "0cccbd69a2a00177bf1a84295d18663e7b67e611041030eb71f877cbf02e59a1"
     },
     "assets/greek-drama/ship-deck.webp": {
       "sourceHash": "e09145506d279ba279abb94f716d93366b4a3584852e2ddc6f52584798425dbd",
