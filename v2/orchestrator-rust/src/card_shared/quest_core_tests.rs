@@ -124,6 +124,8 @@ fn quest_history_upgrade(version: &str) {
         .unwrap();
     let mut expected_packs = old.game["packs"].clone();
     expected_packs["greek-drama"]["revision"] = greek["revision"].clone();
+    // BoardyAI revision 2 moved his parlour door back to the station.
+    expected_packs["boardyai"]["revision"] = json!(2);
     assert_saved_values(&expected_packs, &upgraded.game["packs"], "packs");
     for field in [
         "actors",

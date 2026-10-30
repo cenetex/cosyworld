@@ -23,10 +23,12 @@ reloads and journal replay. Presence uses the usual reconnect grace.
 The online list shows names, levels, and connection status. Players discover
 each other's locations through encounters in the world.
 
-Boardy's calling card rests at Black pond. Its blue smile opens a door to
-**BoardyAI's Parlour** while the card is at the pond or carried there by a
-present human. Take the card along for the trip. Two armchairs and a tea table
-wait inside. The parlour door leads back to Black pond.
+Boardy's calling card rests at Empty station. Its blue smile opens a door to
+**BoardyAI's Parlour** while the card is in the station: left there, or carried
+there by a present human. Take the card along for the trip. Two armchairs and a
+tea table wait inside. The parlour door leads back to Empty station. Saves from
+pack revision 1 move a card still resting at the pond to the station and keep
+each traveller's known parlour route.
 
 The seven new humans start in their homes with their signature items on the floor.
 Picking up the item opens the path to Black pond. Putting it down closes that

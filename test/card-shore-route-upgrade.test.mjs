@@ -27,10 +27,10 @@ function earlierPlay(place) {
   return { world, request };
 }
 describe("earlier station route knowledge", () => {
-  for (const place of ["attic", "station", "train", "boardyai-parlour"]) {
+  for (const place of ["attic", "station", "train"]) {
     it(`upgrades an accepted old14 play at ${place} through the pond`, () => {
       const { world, request } = earlierPlay(place);
-      const moved = ["attic", "train", "boardyai-parlour"];
+      const moved = ["attic", "train"];
       const expectedOld = place === "station" ? moved.map((to) => [place, to]) : [[place, "station"]];
       for (const edge of expectedOld) expect(world.routeKnowledge["greek-rhapsode"]).toContainEqual(edge);
       const next = dispatchShared(request("upgrade", { from: "full-card-world/14", to: "full-card-world/17" })).world;
@@ -47,6 +47,14 @@ describe("earlier station route knowledge", () => {
       expect(next).toEqual(before);
     });
   }
+  it("keeps an old14 parlour route at the station", () => {
+    const { world, request } = earlierPlay("boardyai-parlour");
+    expect(world.routeKnowledge["greek-rhapsode"]).toContainEqual(["boardyai-parlour", "station"]);
+    const next = dispatchShared(request("upgrade", { from: "full-card-world/14", to: "full-card-world/17" })).world;
+    expect(next.routeKnowledge["greek-rhapsode"]).toContainEqual(["boardyai-parlour", "station"]);
+    expect(next.routeKnowledge["greek-rhapsode"]).not.toContainEqual(["boardyai-parlour", "pond"]);
+    expect(next.log).toEqual(world.log);
+  });
   it("deduplicates shared steps and preserves unrelated knowledge and history", () => {
     const world = { routeKnowledge: { bard: [["station", "attic"], ["station", "train"], ["station", "pond"]] }, log: [{ text: "An earlier walk." }] };
     upgradeShoreRouteSave(world);

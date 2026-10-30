@@ -56,8 +56,11 @@ fn released_pond_opening_keeps_its_place_and_progress_through_upgrade_and_journa
         now(),
     )
     .unwrap();
+    // BoardyAI revision 2 carries his card from the pond to the station door.
+    let mut expected = old.clone();
+    expected["items"]["boardyai-calling-card"]["holder"] = json!("station");
     for field in ["actors", "items", "opening", "log", "turn"] {
-        assert_eq!(world.game[field], old[field], "{field}");
+        assert_eq!(world.game[field], expected[field], "{field}");
     }
     c.execute("DELETE FROM card_full_checkpoints WHERE world=?", [&id])
         .unwrap();

@@ -306,8 +306,11 @@ fn ajax_upgrade_keeps_a_released_nineteen_camp_visit_and_replays_its_exit() {
         ] {
             assert_eq!(current.game[field], old.game[field], "Preserve {field}");
         }
+        // BoardyAI revision 2 carries his card from the pond to the station door.
+        let mut saved = old.game.clone();
+        saved["items"]["boardyai-calling-card"]["holder"] = json!("station");
         for field in ["items", "peaceUntil"] {
-            for (key, value) in old.game[field].as_object().unwrap() {
+            for (key, value) in saved[field].as_object().unwrap() {
                 assert_eq!(&current.game[field][key], value);
             }
         }
@@ -371,8 +374,18 @@ fn ajax_shield_delivered_under_rules_twenty_one_stays_complete_after_upgrade() {
     // Saved by the released rules 21 code (main at 1348ab52), so this world
     // is exactly what a rules 21 player could have had.
     let save = include_str!("../../../../test/fixtures/ajax-household-rules-21.json");
-    let mut old = World::create(Some(save)).unwrap();
-    old.version = engine::TWENTY_FIRST_VERSION.into();
+    // Load it with rules 21 too; current rules would upgrade it first.
+    let mut old = World {
+        version: engine::TWENTY_FIRST_VERSION.into(),
+        game: engine::reduce_version(
+            engine::TWENTY_FIRST_VERSION,
+            json!({"op":"create","save":save}),
+        )
+        .unwrap()["world"]
+            .clone(),
+        claimed: [0; 8],
+        present: [0; 8],
+    };
     old.claimed = [1, 0, 0, 0, 0, 0, 0, 0];
     old.present = old.claimed;
     let path = std::env::temp_dir().join(format!("ajax-shield-{}.sqlite", crate::random_hex(12)));
