@@ -1,4 +1,5 @@
 import { atticOpening } from "./fixtures/card-attic-opening.mjs";
+import { rest } from "./fixtures/card-rest.mjs";
 import { describe, it, expect, vi, afterEach } from "vitest";
 afterEach(() => vi.useRealTimers());
 import {
@@ -1074,7 +1075,7 @@ describe("speech grounding in resolved card plays", () => {
 
 describe("saved character inner lives", () => {
   it("saves separate model attribution, dreams and evolving personas and recalls them after reload", () => {
-    const world = act(createWorld(), "take", "lamp");
+    const world = rest(act(createWorld(), "take", "lamp"), { dream: true });
     const context = narrativeContext(world);
     const generated = response(context);
     const vale = generated.entries.find((entry) => entry.id === "vale");
@@ -1109,7 +1110,24 @@ describe("saved character inner lives", () => {
   });
 
   it("rejects early repeated growth, invalid private text and reflections on scenery", () => {
-    let world = act(createWorld(), "take", "lamp");
+    // Only the avatar who waited reflects; a first thought comes without a dream.
+    const busy = act(createWorld(), "take", "lamp");
+    const busyContext = narrativeContext(busy);
+    const early = response(busyContext);
+    early.entries.find((e) => e.id === "vale").reflection = {
+      thought: "I felt welcome.",
+      persona: "I am learning to share.",
+    };
+    expect(() => applyGeneratedText(busy, busyContext, early)).toThrow();
+    const first = rest(busy);
+    const firstContext = narrativeContext(first);
+    const dreamy = response(firstContext);
+    dreamy.entries.find((e) => e.id === "vale").reflection = {
+      ...early.entries.find((e) => e.id === "vale").reflection,
+      dream: "A lamp floated above the pond.",
+    };
+    expect(() => applyGeneratedText(first, firstContext, dreamy)).toThrow();
+    let world = rest(busy, { dream: true });
     let context = narrativeContext(world);
     let generated = response(context);
     const reflection = {

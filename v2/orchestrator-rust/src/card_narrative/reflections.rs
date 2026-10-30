@@ -127,6 +127,7 @@ mod tests {
             kind: "event".into(),
             text: "A friend visited.".into(),
         });
+        super::super::tests::resting(&mut c);
         let config = super::super::tests::test_config(address);
         super::super::complete(&config, &c, &BTreeMap::new(), &VoiceSettings::local(), None)
             .await

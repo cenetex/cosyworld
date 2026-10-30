@@ -25,6 +25,8 @@ mod atmosphere;
 pub(crate) mod browser;
 #[path = "card_narrative/custody.rs"]
 mod custody;
+#[path = "card_narrative/dream.rs"]
+mod dream;
 #[path = "card_narrative/expression.rs"]
 mod expression;
 #[path = "card_narrative/knowledge.rs"]
@@ -298,6 +300,16 @@ struct Entity {
     previous: Option<String>,
     #[serde(default)]
     inner_life: Option<InnerLife>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    hope: Option<Hope>,
+}
+
+/// The avatar's rule-owned hope, in their own words.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct Hope {
+    wish: String,
+    next: String,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -407,6 +419,9 @@ struct Context {
     scenery: bool,
     focus: Option<String>,
     speakers: Vec<String>,
+    /// The avatar who chose to wait this turn; only they may reflect.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    resting: Option<String>,
     #[serde(default)]
     action: Option<String>,
     entities: Vec<Entity>,
@@ -465,6 +480,10 @@ fn valid(context: &Context) -> bool {
             .focus
             .as_ref()
             .is_none_or(|id| kind(id, "item") && ids.contains(id.as_str()))
+        && context
+            .resting
+            .as_ref()
+            .is_none_or(|id| context.speakers.first() == Some(id))
         && context.entities.iter().all(|e| {
             profiles().get(&e.id).is_some()
                 && recital::valid(&e.id, e.poem.as_ref(), context.turn)
@@ -472,6 +491,9 @@ fn valid(context: &Context) -> bool {
                 && e.facts.len() <= 16
                 && e.facts.iter().all(|s| bounded(s, 240))
                 && e.previous.as_ref().is_none_or(|s| bounded(s, 400))
+                && e.hope.as_ref().is_none_or(|hope| {
+                    kind(&e.id, "avatar") && bounded(&hope.wish, 240) && bounded(&hope.next, 240)
+                })
                 && e.inner_life.as_ref().is_none_or(|life| {
                     kind(&e.id, "avatar")
                         && life.persona.as_ref().is_none_or(|text| bounded(text, 600))
@@ -1116,8 +1138,18 @@ pub(super) fn client_budget_ms() -> u128 {
         .as_millis()
 }
 
+const THOUGHT_GAP: u64 = 6;
+const DREAM_GAP: u64 = 24;
+const THOUGHTS_PER_DREAM: usize = 2;
+
+/// Mirrors `reflectionDue` in the card rules: only the avatar who waited
+/// thinks, after something new happened to them. A dream also needs two
+/// thoughts since the last dream.
 fn reflection_due(context: &Context, entity: &Entity) -> (bool, bool) {
-    if !kind(&entity.id, "avatar") || context.turn == 0 {
+    if !kind(&entity.id, "avatar")
+        || context.turn == 0
+        || context.resting.as_deref() != Some(entity.id.as_str())
+    {
         return (false, false);
     }
     let life = entity.inner_life.as_ref();
@@ -1126,11 +1158,18 @@ fn reflection_due(context: &Context, entity: &Entity) -> (bool, bool) {
         .memories
         .iter()
         .any(|m| m.kind == "event" && last.is_none_or(|turn| m.turn > turn));
-    let reflect = changed && last.is_none_or(|turn| context.turn >= turn.saturating_add(6));
+    let reflect =
+        changed && last.is_none_or(|turn| context.turn >= turn.saturating_add(THOUGHT_GAP));
+    let dreamt = life.and_then(|l| l.dreams.last()).map(|m| m.turn);
+    let settled = life.map_or(0, |l| {
+        l.thoughts
+            .iter()
+            .filter(|m| dreamt.is_none_or(|turn| m.turn > turn))
+            .count()
+    });
     let dream = reflect
-        && life
-            .and_then(|l| l.dreams.last())
-            .is_none_or(|m| context.turn >= m.turn.saturating_add(12));
+        && settled >= THOUGHTS_PER_DREAM
+        && dreamt.is_none_or(|turn| context.turn >= turn.saturating_add(DREAM_GAP));
     (reflect, dream)
 }
 
@@ -1174,6 +1213,9 @@ fn names(ids: &[String]) -> String {
 fn idiolect(entity: &Entity, part: Part) -> String {
     if kind(&entity.id, "location") {
         return atmosphere::voice();
+    }
+    if part == Part::Dream {
+        return String::new();
     }
     let profile = &profiles()[&entity.id];
     let mut text = profile["idiolect"]
@@ -1316,6 +1358,9 @@ fn transcript(context: &Context, entity: &Entity, part: Part) -> String {
     if kind(&entity.id, "location") {
         return atmosphere::transcript(context, entity);
     }
+    if part == Part::Dream {
+        return dream::transcript(context, entity);
+    }
     let id = entity.id.as_str();
     let own = name(id);
     let avatar = kind(id, "avatar");
@@ -1446,12 +1491,22 @@ fn transcript(context: &Context, entity: &Entity, part: Part) -> String {
             _ => format!("I remember: {text}"),
         });
     }
+    // A thought colours speech for a few turns; a dream only on waking.
+    // Reflection itself sees every kept thought.
     if let Some(life) = &entity.inner_life {
-        if let Some(thought) = life.thoughts.last() {
+        let fresh = |m: &&InnerMoment, turns: u64| {
+            part != Part::Line || context.turn <= m.turn.saturating_add(turns)
+        };
+        if let Some(thought) = life.thoughts.last().filter(|m| fresh(m, THOUGHT_GAP)) {
             lines.push(format!("On my mind: {}", thought.text));
         }
-        if let Some(dream) = life.dreams.last() {
+        if let Some(dream) = life.dreams.last().filter(|m| fresh(m, 2)) {
             lines.push(format!("I dreamed: {}", dream.text));
+        }
+    }
+    if part != Part::Line {
+        if let Some(hope) = &entity.hope {
+            lines.push(format!("What I hope for: {} {}", hope.wish, hope.next));
         }
     }
     if avatar && part == Part::Line {
@@ -1499,7 +1554,7 @@ fn transcript(context: &Context, entity: &Entity, part: Part) -> String {
 /// style examples on retry helps small models leave copied examples behind.
 fn attempt_transcript(context: &Context, entity: &Entity, part: Part, attempt: u8) -> String {
     let prompt = transcript(context, entity, part);
-    if attempt == 0 || kind(&entity.id, "location") {
+    if attempt == 0 || kind(&entity.id, "location") || part == Part::Dream {
         return prompt;
     }
     let current = prompt
@@ -1671,7 +1726,11 @@ async fn speak(
                     capability: ModelCapability::WorldContent,
                     system,
                     user: &user,
-                    temperature: 1.0 - 0.1 * f64::from(attempt),
+                    temperature: if part == Part::Dream {
+                        1.2
+                    } else {
+                        1.0 - 0.1 * f64::from(attempt)
+                    },
                     max_tokens: if part == Part::Persona { 160 } else { 96 },
                     timeout,
                     max_attempts: 1,
@@ -2083,6 +2142,35 @@ mod tests {
     };
     use tower::ServiceExt;
 
+    /// Vale chose Wait: due a first thought, not yet a dream.
+    pub(super) fn resting(c: &mut Context) {
+        c.resting = Some("vale".into());
+    }
+
+    /// Vale waited with two thoughts settled since any dream, so a thought
+    /// and a dream are both due. Earlier events count as new since then.
+    pub(super) fn dream_due(c: &mut Context) {
+        resting(c);
+        c.turn = c.turn.max(20);
+        c.revision = c.revision.max(c.turn);
+        let vale = &mut c.entities[0];
+        for m in vale.memories.iter_mut().filter(|m| m.kind == "event") {
+            m.turn = m.turn.max(12);
+        }
+        vale.inner_life
+            .get_or_insert_with(InnerLife::default)
+            .thoughts = vec![
+            InnerMoment {
+                turn: 2,
+                text: "The road is long.".into(),
+            },
+            InnerMoment {
+                turn: 9,
+                text: "Someone kept a light on.".into(),
+            },
+        ];
+    }
+
     pub(super) fn context() -> Context {
         serde_json::from_value(json!({"revision":4,"turn":4,"location":"station","focus":"lamp","speakers":["vale","moth"],"action":"Vale asks Pip what they want.","entities":[
             {"id":"vale","facts":["Holding the lamp."],"desire":{"items":["oil"],"location":"attic","avatars":["keeper"]},"memories":[],"previous":null},
@@ -2469,6 +2557,7 @@ mod tests {
     #[test]
     fn reflections_follow_witnessed_experience_and_keep_a_bounded_cadence() {
         let mut c = context();
+        let vale = c.entities[0].id.clone();
         assert_eq!(reflection_due(&c, &c.entities[0]), (false, false));
         c.entities[0].memories.push(Memory {
             seq: None,
@@ -2476,31 +2565,96 @@ mod tests {
             kind: "event".into(),
             text: "Vale received a gift.".into(),
         });
-        assert_eq!(reflection_due(&c, &c.entities[0]), (true, true));
+        // Something happened, but only a Wait turns the avatar inward.
+        assert_eq!(reflection_due(&c, &c.entities[0]), (false, false));
+        c.resting = Some(vale.clone());
+        assert!(valid(&c));
+        // A first thought never arrives with a dream: two must settle first.
+        assert_eq!(reflection_due(&c, &c.entities[0]), (true, false));
         c.entities[0].inner_life = Some(InnerLife {
             persona: Some("I am learning to trust gifts.".into()),
             thoughts: vec![InnerMoment {
-                turn: 4,
+                turn: 1,
                 text: "That was generous.".into(),
             }],
-            dreams: vec![InnerMoment {
-                turn: 4,
-                text: "A lamp became a small sun.".into(),
-            }],
+            dreams: vec![],
         });
         assert_eq!(reflection_due(&c, &c.entities[0]), (false, false));
-        c.turn = 10;
-        c.revision = 10;
+        c.turn = 7;
+        c.revision = 7;
         c.entities[0].memories.push(Memory {
             seq: None,
-            turn: 9,
+            turn: 6,
             kind: "event".into(),
             text: "Vale shared the lamp.".into(),
         });
         assert_eq!(reflection_due(&c, &c.entities[0]), (true, false));
-        c.turn = 16;
-        c.revision = 16;
+        let life = c.entities[0].inner_life.as_mut().unwrap();
+        life.thoughts.push(InnerMoment {
+            turn: 7,
+            text: "Sharing felt easy.".into(),
+        });
+        c.turn = 13;
+        c.revision = 13;
+        c.entities[0].memories.push(Memory {
+            seq: None,
+            turn: 12,
+            kind: "event".into(),
+            text: "Vale crossed the pond.".into(),
+        });
         assert_eq!(reflection_due(&c, &c.entities[0]), (true, true));
+        // After a dream, two more thoughts and a long night must pass.
+        let life = c.entities[0].inner_life.as_mut().unwrap();
+        life.dreams.push(InnerMoment {
+            turn: 13,
+            text: "A lamp became a small sun.".into(),
+        });
+        life.thoughts.push(InnerMoment {
+            turn: 13,
+            text: "The water held still.".into(),
+        });
+        c.turn = 19;
+        c.revision = 19;
+        c.entities[0].memories.last_mut().unwrap().turn = 18;
+        assert_eq!(reflection_due(&c, &c.entities[0]), (true, false));
+        c.entities[0]
+            .inner_life
+            .as_mut()
+            .unwrap()
+            .thoughts
+            .push(InnerMoment {
+                turn: 19,
+                text: "Again the pond.".into(),
+            });
+        c.turn = 25;
+        c.revision = 25;
+        c.entities[0].memories.last_mut().unwrap().turn = 24;
+        // Two thoughts since the dream, but the night is not over yet.
+        assert_eq!(reflection_due(&c, &c.entities[0]), (true, false));
+        c.entities[0]
+            .inner_life
+            .as_mut()
+            .unwrap()
+            .thoughts
+            .push(InnerMoment {
+                turn: 25,
+                text: "The lamp again.".into(),
+            });
+        // Saves keep the four newest thoughts.
+        c.entities[0]
+            .inner_life
+            .as_mut()
+            .unwrap()
+            .thoughts
+            .remove(0);
+        c.turn = 37;
+        c.revision = 37;
+        c.entities[0].memories.last_mut().unwrap().turn = 36;
+        assert_eq!(reflection_due(&c, &c.entities[0]), (true, true));
+        // Another avatar's Wait does not make Vale think.
+        c.resting = Some("moth".into());
+        assert_eq!(reflection_due(&c, &c.entities[0]), (false, false));
+        c.resting = Some(vale);
         assert!(valid(&c));
         c.entities[0].inner_life.as_mut().unwrap().dreams[0].turn = 99;
         assert!(!valid(&c));
@@ -3012,7 +3166,10 @@ mod tests {
                 let reply = reply.clone();
                 async move {
                     seen.lock().unwrap().push(body.clone());
-                    let user = body["messages"][1]["content"].as_str().unwrap();
+                    // A raw dream sends its user turn without a system voice.
+                    let user = body["messages"].as_array().unwrap().last().unwrap()["content"]
+                        .as_str()
+                        .unwrap();
                     let stem = user.lines().last().unwrap().to_string();
                     let text = reply(&body, &stem);
                     Json(json!({"model":body["model"],"choices":[{"message":{"content":text},"finish_reason":"stop"}]}))
@@ -3079,7 +3236,7 @@ mod tests {
         let requests = seen.lock().unwrap().clone();
         assert_eq!(requests.len(), 4);
         assert!(requests.iter().all(|body| {
-            let cue = body["messages"][1]["content"]
+            let cue = body["messages"].as_array().unwrap().last().unwrap()["content"]
                 .as_str()
                 .unwrap()
                 .lines()
@@ -3094,7 +3251,9 @@ mod tests {
     async fn character_models_keep_their_own_memories_and_return_private_growth() {
         let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
         let provider = plain_provider(seen.clone(), |body, stem| {
-            let user = body["messages"][1]["content"].as_str().unwrap();
+            let user = body["messages"].as_array().unwrap().last().unwrap()["content"]
+                .as_str()
+                .unwrap();
             if user.contains("Fail this place") && stem == "Empty station:" {
                 return String::new();
             }
@@ -3134,6 +3293,7 @@ mod tests {
             kind: "event".into(),
             text: "Vale private kindness memory.".into(),
         });
+        dream_due(&mut c);
         c.entities[3].inner_life = Some(InnerLife {
             persona: Some("Moth private persona sentinel.".into()),
             thoughts: vec![],
@@ -3212,11 +3372,13 @@ mod tests {
                         seen.push(body.clone());
                         seen.iter().filter(|b| {
                             b["messages"][1]["content"].as_str().and_then(|text| text.lines().last())
-                                == body["messages"][1]["content"].as_str().and_then(|text| text.lines().last())
+                                == body["messages"].as_array().unwrap().last().unwrap()["content"].as_str().and_then(|text| text.lines().last())
                         }).count()
                     };
                     now.fetch_sub(1, SeqCst);
-                    let user = body["messages"][1]["content"].as_str().unwrap();
+                    let user = body["messages"].as_array().unwrap().last().unwrap()["content"]
+                .as_str()
+                .unwrap();
                     let stem = user.lines().last().unwrap();
                     let mute = (user.contains("Mute speaker")
                         && (stem == "Vale:" || stem == "Pip:"))
@@ -3730,7 +3892,9 @@ mod tests {
             assert_eq!(body["model"], "test-entity-model");
             assert!(body.get("response_format").is_none());
             let system = body["messages"][0]["content"].as_str().unwrap();
-            let user = body["messages"][1]["content"].as_str().unwrap();
+            let user = body["messages"].as_array().unwrap().last().unwrap()["content"]
+                .as_str()
+                .unwrap();
             if stem == "Empty station:" {
                 assert!(system.contains("atmospheric caption"));
                 assert!(!user.contains("Just now:"));
@@ -4004,7 +4168,7 @@ mod tests {
         let provider = Router::new().route("/chat/completions", post(move |Json(body): Json<Value>| {
             let seen = capture.clone();
             async move {
-                let stem = body["messages"][1]["content"].as_str().unwrap().lines().last().unwrap().to_string();
+                let stem = body["messages"].as_array().unwrap().last().unwrap()["content"].as_str().unwrap().lines().last().unwrap().to_string();
                 seen.lock().unwrap().push(stem.clone());
                 if stem == "Vale:" || stem.contains("to myself") { tokio::time::sleep(Duration::from_millis(500)).await; }
                 Json(json!({"model":body["model"],"choices":[{"message":{"content":stem_reply(&stem)},"finish_reason":"stop"}]}))
@@ -4211,7 +4375,7 @@ mod tests {
 
     /// The cue a captured request ends with, such as `Pip:`.
     fn stem_of(body: &Value) -> String {
-        body["messages"][1]["content"]
+        body["messages"].as_array().unwrap().last().unwrap()["content"]
             .as_str()
             .unwrap()
             .lines()
@@ -4232,7 +4396,9 @@ mod tests {
     async fn personas_run_on_the_reflection_model_while_lines_keep_their_own() {
         let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
         let provider = plain_provider(seen.clone(), |body, stem| {
-            let user = body["messages"][1]["content"].as_str().unwrap();
+            let user = body["messages"].as_array().unwrap().last().unwrap()["content"]
+                .as_str()
+                .unwrap();
             if stem.ends_with(", who I am now:")
                 && user.contains("Mute persona")
                 && body["model"] != "escalation-model"
@@ -4257,6 +4423,7 @@ mod tests {
             kind: "event".into(),
             text: "Vale received a gift.".into(),
         });
+        dream_due(&mut c);
         let persona = "I am still proud, but I am learning to accept help.";
         // With a character map and without one, only the persona moves.
         for (models, line_model) in [
@@ -4310,8 +4477,9 @@ mod tests {
         assert_eq!(result["entries"][0]["model"], "vale-model");
         assert!(result["entries"][0].get("reflection").is_none());
         assert_eq!(result["omitted"], json!([]));
+        // The dream runs beside the persona, so it is asked for either way.
         let requests = seen.lock().unwrap().clone();
-        assert_eq!(requests.len(), 7);
+        assert_eq!(requests.len(), 8);
         assert_eq!(
             models_for(&requests, "Vale, who I am now:"),
             ["reflection-model", "reflection-model"]
@@ -4373,7 +4541,11 @@ mod tests {
         let prompts: Vec<_> = requests
             .iter()
             .filter(|body| stem_of(body) == "Pip:")
-            .map(|body| body["messages"][1]["content"].as_str().unwrap())
+            .map(|body| {
+                body["messages"].as_array().unwrap().last().unwrap()["content"]
+                    .as_str()
+                    .unwrap()
+            })
             .collect();
         assert!(prompts[0].starts_with("My voice samples:"));
         let facts = prompts[0].split_once("Current scene:\n").unwrap().1;
@@ -4749,6 +4921,7 @@ mod tests {
             kind: "event".into(),
             text: "The keeper declined my request.".into(),
         });
+        resting(&mut c);
         let settings = VoiceSettings {
             reflection_model: Some("reflection-model".into()),
             ..VoiceSettings::hosted()
