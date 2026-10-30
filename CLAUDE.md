@@ -32,8 +32,8 @@ The source map distinguishes the card pack compiler from the classic compiler.
    and client/server agreement at the real authority boundary.
 4. Rebuild the public asset list after adding a public file. Rebuild the shared
    engine after changing an imported rule module. Commit generated outputs.
-5. Update the closest current guide and bump the package and Rust crate version
-   together with `npm run version:bump`.
+5. Update the closest current guide and name the version bump with
+   `npm run version:change -- "summary"`. Main folds it into the version.
 6. Commit and push the branch. Keep at most one open PR in the repository;
    wait for any open PR to merge or close before opening yours. Merge once
    local targeted tests pass, without waiting for CI, and fix a red main forward
@@ -48,7 +48,7 @@ COSYWORLD_PRIMARY_GAME=cards npm run dev
 npm test
 npm run docs:check
 npm run check:local
-npm run version:bump
+npm run version:change -- "summary"
 npm run check:version
 git diff --check
 ```

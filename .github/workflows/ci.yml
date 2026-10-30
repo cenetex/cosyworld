@@ -7,6 +7,8 @@ on:
     types: [opened, synchronize, reopened, labeled]
   push:
     branches: [main, develop]
+  # The Version workflow dispatches CI for its bump commit.
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -171,7 +173,7 @@ jobs:
         run: bash v2/scripts/check-rust.sh shard fast ${{ matrix.index }} 3
 
       - name: Save Cargo build cache
-        if: matrix.index == 1 && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: matrix.index == 1 && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         uses: actions/cache/save@v6
         with:
           path: |
@@ -246,7 +248,7 @@ jobs:
   # Main runs these after merge; a pull request runs them with `full-ci`.
   smoke-binary:
     name: Smoke-test binary
-    if: ${{ github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'full-ci') }}
+    if: ${{ github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci') }}
     runs-on: ubuntu-latest
     env:
       CI: true
@@ -327,7 +329,7 @@ jobs:
           bash v2/scripts/check-rust-lint.sh
 
       - name: Save Clippy build cache
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         uses: actions/cache/save@v6
         with:
           path: |
@@ -521,7 +523,7 @@ jobs:
 
   publication:
     name: Referee guide publication
-    if: ${{ github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'full-ci') }}
+    if: ${{ github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci') }}
     runs-on: ubuntu-latest
     env:
       CI: true

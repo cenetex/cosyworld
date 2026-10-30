@@ -1,0 +1,1 @@
+Run a two-minute pull-request gate, run the long checks on main, and name version bumps in .changes

@@ -28,10 +28,15 @@ Always run:
 
 ```sh
 git diff --check
-npm run version:bump   # bumps package.json, package-lock.json, and the
-                       # orchestrator Cargo.toml/Cargo.lock together; CI's
-                       # check:version then accepts the PR
+npm run version:change -- "One-line summary"   # writes .changes/<branch>.patch;
+                       # CI's check:version then accepts the PR
 ```
+
+Pull requests do not edit the version files, so parallel branches never
+conflict on them. Use `minor` or `major` before the summary for a larger bump.
+After merge, the Version workflow folds every pending `.changes/` file into one
+bump commit on `main` and deploys that commit; the merge commit itself does not
+deploy while changes are pending. See [.changes/README.md](../.changes/README.md).
 
 `npm run check:version` also fails early when the Rust crate version drifts
 from `package.json`, so run it after any manual version edit.
@@ -83,8 +88,8 @@ changing application behavior.
 - Merge as soon as local targeted tests pass; don't wait for CI. The deploy
   workflow runs its own gates, so a red main keeps .dev on the last good build.
   If main goes red, the next PR fixes it forward before anything else.
-- Bump `package.json` and the root versions in `package-lock.json`; CI rejects a
-  PR whose version matches the base branch.
+- Add a `.changes/` file with `npm run version:change`; CI rejects a PR that
+  neither adds one nor bumps the version.
 
 ## Known traps
 

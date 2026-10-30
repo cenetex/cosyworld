@@ -40,7 +40,7 @@ const withVersion = (file, source, version) => {
 };
 
 describe('deployment impact check', () => {
-  it('ignores docs plus the required release-only version bump', () => {
+  it('ignores docs, change files, and the release-only version bump', () => {
     const before = Object.fromEntries(
       versionFiles.map((file) => [
         file,
@@ -48,7 +48,7 @@ describe('deployment impact check', () => {
       ])
     );
     const result = hasDeploymentImpact(
-      ['docs/systems/example.md', ...versionFiles],
+      ['docs/systems/example.md', '.changes/fast-ci.patch', ...versionFiles],
       (side, file) => (side === 'base' ? before[file] : current[file]) ?? null
     );
 

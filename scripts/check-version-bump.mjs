@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import { isChangeFile, pendingChanges } from './version-changes.mjs';
 
 function runGit(args, { allowFailure = false, trim = true } = {}) {
   try {
@@ -212,8 +213,19 @@ function main() {
   }
 
   if (currentVersion === baseVersion) {
+    // A pull request names its bump in .changes/ instead; main folds it in.
+    const baseChanges = new Set(
+      (runGit(['ls-tree', '--name-only', `${referenceUsed}:.changes`], { allowFailure: true }) || '')
+        .split('\n')
+        .filter(isChangeFile)
+    );
+    const added = pendingChanges(repoRoot).filter((change) => !baseChanges.has(change.name));
+    if (added.length) {
+      console.log(`[version-check] ${added.map((change) => `.changes/${change.name}`).join(', ')} names this change's version bump.`);
+      return 0;
+    }
     console.error(
-      `[version-check] ${versionFile} version (${currentVersion}) matches ${referenceUsed}. Please bump the version before committing.`
+      `[version-check] ${versionFile} version (${currentVersion}) matches ${referenceUsed}. Add a change file with \`npm run version:change -- "summary"\`.`
     );
     return 1;
   }

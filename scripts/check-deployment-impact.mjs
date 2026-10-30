@@ -3,6 +3,7 @@
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { pendingChanges } from './version-changes.mjs';
 
 const VERSION_FILES = new Set([
   'package.json',
@@ -41,6 +42,7 @@ export function normalizeVersionFile(file, source) {
 export function isKnownNonProductionPath(file) {
   return (
     file.endsWith('.md') ||
+    file.startsWith('.changes/') ||
     file.startsWith('docs/') ||
     file.startsWith('sites/') ||
     file.startsWith('test/') ||
@@ -94,6 +96,14 @@ function git(args, { allowFailure = false } = {}) {
 
 function main() {
   const [base, head] = process.argv.slice(2);
+  // The Version workflow folds pending changes into a bump commit and deploys
+  // that, so production never runs new code under the previous version.
+  const pending = pendingChanges();
+  if (pending.length) {
+    console.log('deploy=false');
+    console.log(`reason=the version commit for ${pending.map((change) => change.name).join(', ')} deploys this change`);
+    return;
+  }
   if (!base || !head || /^0+$/.test(base)) {
     console.log('deploy=true');
     console.log('reason=no comparable previous release');

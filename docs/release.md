@@ -48,8 +48,11 @@ The Terraform state remains stored in:
 ## Cutting a Release
 
 The package and Rust crate versions must already match the final release version.
-The Mac shell and game helper share this version. `npm run version:bump` updates
-the package and both Cargo manifests and lock files. `npm run check:version`
+The Mac shell and game helper share this version. Pull requests add `.changes/`
+files, and the Version workflow folds them into one bump commit on `main` with
+`npm run version:bump`, which updates the package and both Cargo manifests and
+lock files. Run `npm run version:bump -- X.Y.Z` yourself only for an explicit
+release version. `npm run check:version`
 checks their agreement. The **Local desktop app** workflow builds the same
 commit on `main` and release tags. Its package check verifies the app version,
 shared rules, voice references, and public game files against the web source.

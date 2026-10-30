@@ -277,7 +277,7 @@ describe("deploy workflow", () => {
 
   it("keeps the pull-request gate fast and runs the smoke suites on main", () => {
     const mainOnly =
-      "if: ${{ github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'full-ci') }}";
+      "if: ${{ github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci') }}";
     expect(ciJob("smoke-binary", "rust-quality")).toContain(mainOnly);
     expect(ciJob("publication", "build")).toContain(mainOnly);
     expect(ciJob("rust-rules", "runtime")).toContain(
@@ -301,6 +301,25 @@ describe("deploy workflow", () => {
     expect(ciJob("runtime", "smoke-binary")).toContain(
       'test "$RULES_RESULT" = success',
     );
+  });
+
+  it("folds pending version changes into one commit that deploys only the primary app", () => {
+    const version = readFileSync(
+      new URL("../../.github/workflows/version.yml", import.meta.url),
+      "utf8",
+    );
+    expect(version).toContain('paths: [".changes/**"]');
+    expect(version).toContain("cancel-in-progress: false");
+    expect(version).toContain("node scripts/version-changes.mjs apply");
+    expect(version).toContain("gh workflow run ci.yml --ref main");
+    expect(version).toContain("gh workflow run deploy.yml --ref main -f target=primary");
+    expect(version).not.toContain("lonelyforest");
+    expect(ciWorkflow).toContain("workflow_dispatch:");
+    expect(ciWorkflow).not.toContain("github.event_name == 'push'");
+    expect(readFileSync(
+      new URL("../../scripts/check-deployment-impact.mjs", import.meta.url),
+      "utf8",
+    )).toContain("pendingChanges()");
   });
 
   it("saves the Cargo cache only from main", () => {

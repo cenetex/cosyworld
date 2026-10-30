@@ -23,6 +23,7 @@ const files = [
   "v2/desktop/src-tauri/tauri.conf.json",
   "scripts/bump-version.mjs",
   "scripts/check-version-bump.mjs",
+  "scripts/version-changes.mjs",
 ];
 const fixtureEnv = (inherited = process.env) =>
   Object.fromEntries(
@@ -94,6 +95,62 @@ describe("one release version for web and Mac", () => {
       readFileSync(join(folder, "v2/desktop/src-tauri/Cargo.lock"), "utf8"),
     ).toContain('name = "cosyworld-desktop"\nversion = "2.3.4"');
   });
+  it("accepts a change file in place of a version bump", () => {
+    const folder = fixture();
+    const git = (...args) =>
+      execFileSync(
+        "git",
+        ["-c", "user.name=t", "-c", "user.email=t@t", ...args],
+        { cwd: folder, env: fixtureEnv() },
+      );
+    git("add", "-A");
+    git("commit", "--quiet", "-m", "base");
+    git("checkout", "--quiet", "-b", "feature");
+    const result = check(folder);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("npm run version:change");
+    mkdirSync(join(folder, ".changes"));
+    writeFileSync(join(folder, ".changes/feature.patch"), "Fix a thing\n");
+    expect(check(folder).status).toBe(0);
+    // A change file already on the base branch does not count again.
+    git("add", "-A");
+    git("commit", "--quiet", "-m", "change");
+    git("branch", "--quiet", "-f", "main");
+    expect(check(folder).status).toBe(1);
+  });
+
+  it("folds pending changes into one bump with the highest level", () => {
+    const folder = fixture();
+    const version = JSON.parse(readFileSync(join(folder, "package.json"))).version;
+    const [major, minor] = version.split(".").map(Number);
+    mkdirSync(join(folder, ".changes"));
+    writeFileSync(join(folder, ".changes/a.patch"), "Fix a thing\n");
+    writeFileSync(join(folder, ".changes/b.minor"), "Add a place\n");
+    writeFileSync(join(folder, ".changes/README.md"), "Kept\n");
+    const message = join(folder, "message.txt");
+    const printed = execFileSync(
+      process.execPath,
+      ["scripts/version-changes.mjs", "apply", message],
+      { cwd: folder, encoding: "utf8" },
+    ).trim();
+    expect(printed).toBe(`${major}.${minor + 1}.0`);
+    expect(JSON.parse(readFileSync(join(folder, "package.json"))).version).toBe(
+      printed,
+    );
+    expect(check(folder).status).toBe(0);
+    expect(readFileSync(message, "utf8")).toBe(
+      `Release ${printed}\n\n- Fix a thing\n- Add a place\n`,
+    );
+    expect(readFileSync(join(folder, ".changes/README.md"), "utf8")).toBe("Kept\n");
+    expect(
+      execFileSync(
+        process.execPath,
+        ["scripts/version-changes.mjs", "apply", message],
+        { cwd: folder, encoding: "utf8" },
+      ),
+    ).toBe("");
+  });
+
   for (const file of files.slice(0, 7)) {
     it(`catches a stale version in ${file}`, () => {
       const folder = fixture();

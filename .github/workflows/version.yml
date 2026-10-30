@@ -1,0 +1,71 @@
+name: Version
+
+# Pull requests name their bump in .changes/ instead of editing the version
+# files, so parallel branches never conflict. After merge, this folds every
+# pending change into one bump commit on main, then runs CI and the primary
+# deploy for it. Pushes made with the workflow token start no workflows, so
+# both are dispatched. The merge commit itself does not deploy while changes
+# are pending (scripts/check-deployment-impact.mjs).
+on:
+  push:
+    branches: [main]
+    paths: [".changes/**"]
+
+concurrency:
+  group: version-${{ github.repository }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  release-version:
+    name: Fold pending changes into one version
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - name: Commit the version bump
+        id: bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3 4; do
+            git fetch --depth=1 origin main
+            git reset --hard origin/main
+            version="$(node scripts/version-changes.mjs apply "$RUNNER_TEMP/message.txt")"
+            if [ -z "$version" ]; then
+              echo "No pending changes."
+              exit 0
+            fi
+            git add -A .changes package.json package-lock.json \
+              v2/orchestrator-rust/Cargo.toml v2/orchestrator-rust/Cargo.lock \
+              v2/desktop/src-tauri/Cargo.toml v2/desktop/src-tauri/Cargo.lock
+            git commit --quiet --file "$RUNNER_TEMP/message.txt"
+            if git push origin HEAD:main; then
+              echo "version=$version" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            # Main moved; fold again on top of it.
+            sleep $((attempt * 2))
+          done
+          exit 1
+
+      - name: Run CI and the primary deploy for the version commit
+        if: steps.bump.outputs.version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run ci.yml --ref main
+          gh workflow run deploy.yml --ref main -f target=primary
