@@ -74,11 +74,7 @@ describe("the attic opening and saved pond journeys", () => {
     let world = fresh();
     world = act(world, "light");
     expect(world.actors.vale.progress.program).toBe(1);
-    expect(exits(world, "pond")).toEqual([
-      "station",
-      "attic",
-      "hoppycat-halfway-tea-garden",
-    ]);
+    expect(exits(world, "pond")).toEqual(["station", "attic"]);
     world = act(world, "wait");
     world = act(world, "move", "station");
     expect(world.actors.vale.progress.program).toBe(2);

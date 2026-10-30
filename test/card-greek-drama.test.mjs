@@ -97,8 +97,7 @@ function move(world, target) {
   ) {
     // Story fixtures keep the already signaled vessel at the departure shore.
     // The ship suites cover independent resident voyages and return timing.
-    if (world.transports["greek-ship"].dock !== world.actors.vale.place)
-      summonTransport(world, "greek-ship", world.actors.vale.place);
+    // A roaming bard may have sailed it away; call it again each round.
     for (
       let turn = 0;
       turn < 8 &&
@@ -106,8 +105,16 @@ function move(world, target) {
         (a) => a.kind === "move" && a.target === "greek-ship",
       );
       turn++
-    )
-      world = act(world, "wait");
+    ) {
+      if (world.transports["greek-ship"].dock !== world.actors.vale.place)
+        summonTransport(world, "greek-ship", world.actors.vale.place);
+      if (
+        !legalActions(world).some(
+          (a) => a.kind === "move" && a.target === "greek-ship",
+        )
+      )
+        world = act(world, "wait");
+    }
     world = act(world, "move", { target: "greek-ship" });
     // The destination card sets the course; the voyage takes a round at sea.
     const course = cardPlay(world, [target]).action;

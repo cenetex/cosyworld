@@ -21,6 +21,7 @@ import { travelCard } from "../v2/card-game/scene.mjs";
 import {
   lanePath,
   lanesFrom,
+  laneGated,
   learnLane,
 } from "../v2/card-game/pack-transport.mjs";
 import { openDoorStart } from "./helpers/open-door.mjs";
@@ -81,8 +82,9 @@ describe("Greek ports and fixed roads", () => {
       // Course cards are the boarding port's lanes, never the port itself.
       expect(ask(w, "vale").exits).toEqual([
         "willows-landing",
-        ...lanesFrom(transports["greek-ship"], from).filter((d) =>
-          entityActive(w, d),
+        // A gated lane (the Signal Jetty) waits for a thing from its world.
+        ...lanesFrom(transports["greek-ship"], from).filter(
+          (d) => entityActive(w, d) && !laneGated(from, d),
         ),
       ]);
       const path = lanePath(w, "greek-ship", from, to);
