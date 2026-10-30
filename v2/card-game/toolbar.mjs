@@ -1,6 +1,7 @@
 import { installInnerLife } from "./inner-life.mjs";
 import { imageUrl } from "./images.mjs";
 import { humanAvatars } from "./human-cast.mjs";
+import { avatarImage } from "./scarves.mjs";
 import { levelOf } from "./quests.mjs";
 
 const icons = {
@@ -42,7 +43,7 @@ export function onlinePlayers(state) {
         {
           id: avatar.id,
           name: avatar.name,
-          image: avatar.image,
+          image: avatarImage(state.world, avatar.id),
           level: levelOf(state.world, avatar.id),
           self: avatar.id === state.actor,
         },

@@ -1,6 +1,5 @@
 import {
   currentActor,
-  humanAvatar,
   people,
   places,
   nameOf,
@@ -19,6 +18,7 @@ import { variantOf, crossingOpen } from "./pack-rules.mjs";
 import { locationWeather } from "./weather.mjs";
 import { expressionOf } from "./expression.mjs";
 import { daylightBackdrop, locationDaylight } from "./daylight.mjs";
+import { avatarImage } from "./scarves.mjs";
 
 // Pack art lives in the pack's own asset folder and is named by its data.
 const darkAttic = (world, id) =>
@@ -30,8 +30,8 @@ export function backdrop(id, world = null) {
   return file ? `./${file}` : `./assets/${id}.png`;
 }
 export function portrait(id, facing = null, world = null) {
-  const human = humanAvatar(id);
-  if (human) return `./${human.image}`;
+  const human = avatarImage(world, id);
+  if (human) return `./${human}`;
   const resident = packPeople[id];
   if (resident)
     return `./${
