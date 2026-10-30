@@ -18,7 +18,11 @@ import {
   openDoorInvitation,
   openDoorSteps,
 } from "../../test/helpers/open-door.mjs";
-import { selectCard, topicForChoice } from "./card-browser-helpers.mjs";
+import {
+  clearSelection,
+  selectCard,
+  topicForChoice,
+} from "./card-browser-helpers.mjs";
 
 export async function checkOpenDoor(browser, origin) {
   const output = new URL("../../output/open-door/", import.meta.url);
@@ -165,6 +169,7 @@ export async function checkOpenDoor(browser, origin) {
           ? openDoorAction(before, "talk", { target: topic.speaker })
           : openDoorAction(before, kind, fields);
         const id = action.cards?.[0] || action.item || action.target || "vale";
+        await clearSelection(page);
         await selectCard(page, id, { touch: width === 390 });
         if (kind === "drop")
           await selectCard(page, fields.target, { touch: width === 390 });
