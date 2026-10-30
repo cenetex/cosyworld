@@ -76,6 +76,8 @@ try {
     };
     const playCards = async (kind, ids) => {
       const before = requests.length;
+      // A held item stays raised after its play; start each play fresh.
+      await page.keyboard.press("Escape");
       for (const id of ids) await selectCard(page, id);
       await page.locator(`#card-actions [data-action="${kind}"]`).click();
       await finish();

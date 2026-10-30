@@ -163,6 +163,8 @@ try {
         ),
         true,
       );
+      // The lit lamp stays in hand; lower it before choosing Wait.
+      await page.keyboard.press("Escape");
       await selectCard(page, "vale");
       await page.locator('#card-actions [data-action="wait"]').click();
       await finish();

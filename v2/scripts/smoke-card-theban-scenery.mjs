@@ -118,6 +118,8 @@ try {
           return;
         }
       }
+      // A held item stays raised after its play; start each play fresh.
+      await page.keyboard.press("Escape");
       for (const id of ids) {
         await selectCard(page, id);
       }

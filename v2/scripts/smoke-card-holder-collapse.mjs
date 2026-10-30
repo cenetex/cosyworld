@@ -178,9 +178,11 @@ try {
         await tap("pond");
         assert.deepEqual(
           await selected(),
-          ["pond"],
-          "an unrelated third card starts a new selection",
+          ["lamp", "pond"],
+          "a held item stays raised when a third card replaces its partner",
         );
+        await tap("lamp");
+        assert.deepEqual(await selected(), ["pond"]);
         assert.equal(await frame("oil").getAttribute("hidden"), null);
         await tap("oil");
         assert.deepEqual(await selected(), ["oil", "pond"]);
@@ -216,9 +218,89 @@ try {
           "browsing preserves the saved world",
         );
         assert.deepEqual(requests, []);
+        // A held item stays raised until the player lowers it or it leaves
+        // their hands.
+        const action = (kind) =>
+          page.locator(`#card-actions [data-action="${kind}"]`);
+        const settled = () =>
+          page.waitForFunction(
+            () =>
+              !document.querySelector('#card-actions [data-queued="true"]') &&
+              document.querySelector("#hand").dataset.cooling === "false" &&
+              document.querySelector("#hand").getAttribute("aria-busy") ===
+                "false",
+          );
+        await tap("vale");
+        await tap("lamp");
+        assert.deepEqual(await selected(), ["lamp", "vale"]);
+        await action("light").click();
+        await settled();
+        await action("snuff").waitFor();
+        assert.deepEqual(
+          await selected(),
+          ["lamp", "vale"],
+          "lighting the lamp keeps it in hand",
+        );
+        assert.equal(await action("light").count(), 0);
+        await page.waitForTimeout(600);
+        await action("snuff").click();
+        await settled();
+        await action("light").waitFor();
+        assert.deepEqual(await selected(), ["lamp", "vale"]);
+        await page.waitForTimeout(600);
+        // The Light slot becomes Put out; a quick second tap must not land on it.
+        if (width === 390) {
+          await action("light").tap();
+          await action("snuff").tap();
+        } else await action("light").dblclick();
+        await page.waitForTimeout(1200);
+        await settled();
+        assert.equal(await action("snuff").count(), 1, "the lamp stays lit");
+        assert.equal(await action("light").count(), 0);
+        assert.deepEqual(await selected(), ["lamp", "vale"]);
+        await page.keyboard.press("Escape");
+        assert.deepEqual(await selected(), []);
+        // An outside click keeps a held item but still lowers other cards.
+        await tap("vale");
+        await tap("lamp");
+        await page.locator("#stage").click({ position: { x: 20, y: 200 } });
+        assert.deepEqual(await selected(), ["lamp", "vale"]);
+        await page.keyboard.press("Escape");
+        await tap("moth");
+        await page.locator("#stage").click({ position: { x: 20, y: 200 } });
+        assert.deepEqual(await selected(), []);
+        await tap("vale");
+        await tap("lamp");
+        await tap("moth");
+        assert.deepEqual(
+          await selected(),
+          ["lamp", "moth"],
+          "a new target keeps the held item",
+        );
+        assert.equal(await action("give").count(), 1);
+        await page.waitForTimeout(600);
+        await action("give").click();
+        await settled();
+        assert(
+          !(await selected()).includes("lamp"),
+          "a given item leaves the selection",
+        );
+        await page.keyboard.press("Escape");
+        await tap("vale");
+        await tap("cloth");
+        await tap("pond");
+        assert.deepEqual(await selected(), ["cloth", "pond"]);
+        await page.waitForTimeout(600);
+        await action("drop").click();
+        await settled();
+        assert.deepEqual(
+          await selected(),
+          [],
+          "a put-down item leaves the selection",
+        );
         assert.deepEqual(errors, []);
         console.log(
-          `${table}: avatar stack, chosen child, cross-holder pair, quest-free stacks, Escape and outside reset passed`,
+          `${table}: avatar stack, chosen child, cross-holder pair, quest-free stacks, Escape and outside reset, held item through Light, Give and Put down passed`,
         );
       } catch (error) {
         await page.screenshot({

@@ -132,14 +132,15 @@ try {
     };
     const playCard = async (id) => {
       await ready();
-
+      // A held item stays raised after its play; start each play fresh.
+      await page.keyboard.press("Escape");
       await selectCard(page, id);
       await page.locator("#card-actions .card-primary").click();
       await ready();
     };
     const pair = async (one, two) => {
       await ready();
-
+      await page.keyboard.press("Escape");
       await selectCard(page, one);
 
       await selectCard(page, two);

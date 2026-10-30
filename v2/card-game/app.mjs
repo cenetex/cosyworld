@@ -706,6 +706,25 @@ $("story-retry").onclick = async () => {
     renderScene();
   }
 };
+// The row keeps a held item after a play, so its slots can change under a
+// finger. A second tap on a slot redrawn by that play must not become a new
+// play. Choosing a card ends the pause.
+let lastPlayAt = -Infinity;
+const SETTLE_MS = 500;
+// A held item stays raised until it leaves the player's hands. Cards that
+// arrive through the play, such as the other side of a trade, are lowered.
+function heldSelection() {
+  return selected.filter((id) => selectedHandItem(world, [id]));
+}
+function keepHeldSelection(heldBefore) {
+  const actor = currentActor(world);
+  const held = heldBefore.filter((id) => selectedHandItem(world, [id]));
+  const keepActor = held.length > 0 && selected.includes(actor);
+  const expanded = keepActor && expandedHolders.has(actor);
+  selected = keepActor ? [actor, ...held] : held;
+  expandedHolders.clear();
+  if (expanded) expandedHolders.add(actor);
+}
 function selectCards(cards) {
   for (const id of selected)
     if (people[id] && !cards.includes(id)) expandedHolders.delete(id);
@@ -714,6 +733,7 @@ function selectCards(cards) {
 function choose(id) {
   if (selectionBlocked()) return;
   playQueue.clear();
+  lastPlayAt = -Infinity;
   fresh.delete(id);
   if (places[id] && expandedHolders.has(id)) {
     expandedHolders.delete(id);
@@ -734,7 +754,9 @@ function choose(id) {
         : selected.length >= 2
           ? selected.includes(holder)
             ? selected.map((cardId) => (cardId === holder ? id : cardId))
-            : [id]
+            : selectedHandItem(world, selected)
+              ? [selectedHandItem(world, selected), id]
+              : [id]
           : [...selected, id],
     );
   }
@@ -754,8 +776,10 @@ function commit(cards, revision) {
   }
   commitAction(resolved.action, revision);
 }
-function commitAction(action, revision) {
+function commitAction(action, revision, renderedAt = -Infinity) {
   if (selectionBlocked()) return;
+  if (renderedAt >= lastPlayAt && performance.now() - lastPlayAt < SETTLE_MS)
+    return;
   if (playQueue.pending?.action.key === action.key) playQueue.clear();
   else playQueue.submit(action, revision);
 }
@@ -764,8 +788,6 @@ function performAction(action, revision) {
   const result = play(world, action, revision);
   if (!result.ok) {
     notice(result.error);
-    selected = [];
-    expandedHolders.clear();
     render();
     return;
   }
@@ -776,6 +798,7 @@ function performAction(action, revision) {
   exchange.cancel();
   storyStatus = "pending";
   const from = world.actors[currentActor(world)].place;
+  const heldBefore = heldSelection();
   world = result.state;
   music.setRoom(world.actors[currentActor(world)].place);
   music.setStarted(musicHasStarted());
@@ -785,8 +808,8 @@ function performAction(action, revision) {
   dragging = [];
   $("stage").classList.remove("ready", "drag-over");
   exchange.begin();
-  selected = [];
-  expandedHolders.clear();
+  lastPlayAt = performance.now();
+  keepHeldSelection(heldBefore);
   lineSeq = null;
   notice("");
   save();
@@ -1191,7 +1214,8 @@ function renderActions(animate = false) {
         button.dataset.choice = action.choiceId;
         button.dataset.pack = action.packId;
       }
-      button.onclick = () => commitAction(action, revision);
+      const renderedAt = performance.now();
+      button.onclick = () => commitAction(action, revision, renderedAt);
       return button;
     }),
   );
@@ -2331,14 +2355,15 @@ async function submitSharedPlay(action) {
     return;
   }
   const selection = JSON.stringify(selected);
+  const heldBefore = heldSelection();
   sharedPlayback.reset();
   sharedSending = true;
   renderActions();
   try {
     await sharedSession.play(current);
+    lastPlayAt = performance.now();
     if (!playQueue.pending && JSON.stringify(selected) === selection) {
-      selected = [];
-      expandedHolders.clear();
+      keepHeldSelection(heldBefore);
       reviewing = false;
     }
     if (!playQueue.pending) notice("");

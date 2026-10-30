@@ -186,7 +186,13 @@ try {
           .evaluate((el) => el.classList.contains("new")),
         true,
       );
-      assert.equal(await page.locator(".action-panel").isVisible(), false);
+      // The lit lamp stays in hand and offers Put out until it is lowered.
+      assert.equal(
+        await page.locator('#card-actions [data-action="snuff"]').count(),
+        1,
+      );
+      await page.keyboard.press("Escape");
+      await page.locator(".action-panel").waitFor({ state: "hidden" });
       await selectCard(page, "pond");
       assert.equal(
         await page
