@@ -4,7 +4,7 @@ import {
   encodeSave,
   legalActions,
 } from "../v2/card-game/world.mjs";
-import { homecomingDefinitions } from "../v2/card-game/homecoming-quests.mjs";
+import { storyGroupDefinitions } from "./helpers/story-groups.mjs";
 import {
   questCards,
   questHistoryCards,
@@ -44,9 +44,9 @@ describe("homecoming story cards", () => {
     for (const { kind, ...fields } of openDoorSteps()) {
       world = playOpenDoor(world, kind, fields);
       if (fields.choiceId === "greek-open-door-hear-truce-report") {
-        expect(homecomingDefinitions(world).map(({ key }) => key)).toEqual([
-          key("agora"),
-        ]);
+        expect(
+          storyGroupDefinitions(world, "homecoming").map(({ key }) => key),
+        ).toEqual([key("agora")]);
         world = openDoorWalk(world, "harbor", "courtyard");
         world = report(world, "agora-truce");
         firstReceipt = structuredClone(
@@ -75,7 +75,7 @@ describe("homecoming story cards", () => {
       expect(questCards(world).length).toBeLessThanOrEqual(2);
     }
     expect(world.quests.records[key("agora")].completion).toEqual(firstReceipt);
-    const reports = homecomingDefinitions(world);
+    const reports = storyGroupDefinitions(world, "homecoming");
     expect(reports).toHaveLength(5);
     expect(reports.every(({ resolved }) => resolved)).toBe(true);
     expect(reports.find(({ key: k }) => k === key("agora")).choiceId).toBe(

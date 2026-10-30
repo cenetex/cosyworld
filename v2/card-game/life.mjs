@@ -23,7 +23,7 @@ const weight = {
   talk: 1,
   trade: 1,
 };
-export const experienceKinds = Object.keys(weight);
+const experienceKinds = Object.keys(weight);
 // An experience shapes the kind of purpose it seeds.
 export const affinity = {
   help: "delivery",
@@ -36,14 +36,14 @@ export const affinity = {
 // A story ending seeds a purpose that answers how it ended. An ending that
 // came true gathers people; a refusal leaves a trouble to settle; a report
 // or shared account sends something on to a friend.
-export const storyAffinity = {
+const storyAffinity = {
   fulfilled: "gathering",
   declined: "answer",
   reported: "delivery",
   shared: "delivery",
 };
-export const storyOutcomes = Object.keys(storyAffinity);
-export const affinityOf = (e) =>
+const storyOutcomes = Object.keys(storyAffinity);
+const affinityOf = (e) =>
   e?.kind === "story" ? storyAffinity[e.outcome] : affinity[e?.kind];
 // A hope is a home place, a favourite thing and an ordered set of situations.
 const hopeSteps = [["delivery"], ["gathering"], ["answer", "crossing"]];
@@ -86,7 +86,7 @@ function hash(text) {
 }
 // Build a hope from profile data: { home, values: { item: number } }.
 // Missing data falls back to the avatar's place and no favourite.
-export function generateHope(s, actor, profile = null) {
+function generateHope(s, actor, profile = null) {
   const values = profile?.values || {};
   const item =
     Object.keys(values)
@@ -547,7 +547,7 @@ export function recordStoryLife(s, ids, ending, holder = null) {
 const atSanctuary = (s, actor, sanctuaries) =>
   !sanctuaries?.length || sanctuaries.includes(s.actors[actor].place);
 // Home when home is a sanctuary, otherwise the first declared sanctuary.
-export function restPlaceFor(s, actor, sanctuaries) {
+function restPlaceFor(s, actor, sanctuaries) {
   const home = lifeOf(s, actor).hope.place;
   return sanctuaries.includes(home) ? home : sanctuaries[0];
 }
