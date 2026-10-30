@@ -6,7 +6,10 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::{
     collections::VecDeque,
-    sync::{Mutex, OnceLock},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex, OnceLock,
+    },
     time::{Duration, Instant},
 };
 
@@ -187,18 +190,35 @@ pub(super) fn reduce_version(version: &str, request: Value) -> Result<Value> {
     let runtime = Runtime::new().map_err(engine_error)?;
     runtime.set_memory_limit(96 * 1024 * 1024);
     runtime.set_max_stack_size(1024 * 1024);
+    // The deadline bounds one request. When it fires, QuickJS throws an
+    // uncatchable interrupt; record it so a slow host is reported as a
+    // timeout rather than as the rules rejecting a stale play.
     let deadline = Instant::now() + Duration::from_secs(2);
-    runtime.set_interrupt_handler(Some(Box::new(move || Instant::now() > deadline)));
+    let interrupted = Arc::new(AtomicBool::new(false));
+    let flag = interrupted.clone();
+    runtime.set_interrupt_handler(Some(Box::new(move || {
+        let expired = Instant::now() > deadline;
+        if expired {
+            flag.store(true, Ordering::Relaxed);
+        }
+        expired
+    })));
     let context = Context::full(&runtime).map_err(engine_error)?;
     let output = context.with(|ctx| -> Result<String> {
         ctx.eval::<(), _>("globalThis.structuredClone = value => JSON.parse(JSON.stringify(value)); globalThis.Date = undefined; Math.random = () => { throw new Error('Randomness must come from the saved world.'); };")
             .map_err(engine_error)?;
         ctx.eval::<(), _>(source).map_err(|error| {
+            if interrupted.load(Ordering::Relaxed) {
+                return deadline_error(version);
+            }
             tracing::error!(error=%error, exception=?ctx.catch(), "shared rules failed to load");
             "The shared-world rules need attention.".to_string()
         })?;
         let entry: Function = ctx.globals().get("cardShared").map_err(engine_error)?;
         entry.call((input.as_str(),)).map_err(|error| {
+            if interrupted.load(Ordering::Relaxed) {
+                return deadline_error(version);
+            }
             tracing::warn!(error=%error, exception=?ctx.catch(), "shared rules rejected a request");
             "The scene changed. Choose from the current cards.".to_string()
         })
@@ -222,6 +242,11 @@ pub(super) fn reduce_version(version: &str, request: Value) -> Result<Value> {
         }
     }
     Ok(value)
+}
+const DEADLINE_ERROR: &str = "The shared world is taking a moment. Try again.";
+fn deadline_error(version: &str) -> String {
+    tracing::warn!(version, "shared rules reached the interpreter deadline");
+    DEADLINE_ERROR.into()
 }
 fn engine_error(error: impl std::fmt::Display) -> String {
     tracing::warn!(error=%error, "shared C interpreter error");

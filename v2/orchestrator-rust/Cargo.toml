@@ -1,6 +1,6 @@
 [package]
 name = "cosyworld-orchestrator"
-version = "1.2.16"
+version = "1.2.17"
 edition = "2021"
 publish = false
 
@@ -41,3 +41,10 @@ llama-cpp-2 = { version = "=0.1.160", optional = true, default-features = false,
 [dev-dependencies]
 tokio = { version = "1", features = ["test-util"] }
 tower = { version = "0.5", features = ["util"] }
+
+# Debug and test builds otherwise compile the QuickJS C interpreter at -O0,
+# which makes released-rule replay run several times slower than production
+# and pushes busy test hosts past the per-request interpreter deadline.
+# Optimizing only this C dependency keeps the deadline and the rules unchanged.
+[profile.dev.package.rquickjs-sys]
+opt-level = 3
