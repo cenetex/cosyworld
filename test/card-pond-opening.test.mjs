@@ -176,7 +176,7 @@ describe("the attic opening and saved pond journeys", () => {
     expect(result.state.items.lamp.holder).toBe("moth");
   });
 
-  it("gives the station exactly one neighbor throughout the shared world", () => {
+  it("gives the station one path, plus the parlour door while the card is there", () => {
     const world = dispatchShared({ op: "create" }).world;
     world.sharedVersion = 1;
     world.controlledActors = humanAvatarIds;
@@ -192,7 +192,9 @@ describe("the attic opening and saved pond journeys", () => {
       if (place === "station") expect(roads).toEqual(["pond"]);
       if (roads.includes("station")) neighbors.push(place);
     }
-    expect(neighbors).toEqual(["pond"]);
+    expect(neighbors).toEqual(["pond", "boardyai-parlour"]);
+    world.items["boardyai-calling-card"].holder = "station";
+    expect(exits(world, "station", "vale").sort()).toEqual(["boardyai-parlour", "pond"]);
   });
 
   it("preserves saved attic purposes, positions, possessions and history", () => {

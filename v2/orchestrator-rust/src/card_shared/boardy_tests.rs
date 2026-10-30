@@ -42,18 +42,18 @@ fn boardy_follows_authenticated_presence_in_the_c_host() {
 }
 
 #[test]
-fn boardy_calling_card_opens_the_parlour_from_black_pond() {
+fn boardy_calling_card_opens_the_parlour_from_empty_station() {
     let mut world = World::create(None).unwrap();
     world.game.as_object_mut().unwrap().remove("opening");
-    world.game["actors"]["vale"]["place"] = json!("pond");
+    world.game["actors"]["vale"]["place"] = json!("station");
     for actor in ["vale", "mara"] {
         world.apply(&json!({"op":"claim", "actor":actor})).unwrap();
         world.apply(&json!({"op":"enter", "actor":actor})).unwrap();
     }
     for (kind, field, value, destination) in [
-        ("take", "item", "boardyai-calling-card", "pond"),
+        ("take", "item", "boardyai-calling-card", "station"),
         ("move", "target", "boardyai-parlour", "boardyai-parlour"),
-        ("move", "target", "pond", "pond"),
+        ("move", "target", "station", "station"),
     ] {
         let view = world.project(0).unwrap();
         let action = view["actions"]
@@ -107,7 +107,7 @@ fn assert_boardy_upgrade(version: &str) {
     }
     assert_eq!(
         world.game["items"]["boardyai-calling-card"]["holder"],
-        "pond"
+        "station"
     );
     assert_eq!(world.game["log"], old.game["log"]);
     assert!(world.game["actors"]["boardyai"].is_object());
@@ -138,7 +138,7 @@ fn assert_boardy_upgrade(version: &str) {
 fn boardy_searches_and_alternates_visits_in_the_c_host() {
     assert_boardy_search_visits(
         World::create(None).unwrap(),
-        ["pond", "station", "pond", "station", "pond", "station"],
+        ["station", "pond", "station", "pond", "station", "pond"],
     );
 }
 

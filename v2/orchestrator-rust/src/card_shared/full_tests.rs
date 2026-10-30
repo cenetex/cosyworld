@@ -2665,6 +2665,9 @@ fn hoppycat_upgrade_keeps_released_history_and_replays_new_story_choices() {
                 if field == "packs" && key == "greek-drama" {
                     expected["revision"] = json!(7);
                 }
+                if field == "packs" && key == "boardyai" {
+                    expected["revision"] = json!(2);
+                }
                 assert_eq!(world.game[field][key], expected, "saved {field}/{key}");
             }
         }

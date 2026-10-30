@@ -116,6 +116,7 @@ export function upgradeSave(
   }
   if (s?.schema === 7) {
     upgradeShoreRouteSave(s);
+    upgradeBoardyStationSave(s);
     upgradeBoardingSave(s);
     upgradeRecitals(s, packDefinitions);
   }
@@ -136,10 +137,11 @@ export function upgradeSave(
   return s;
 }
 
-// Earlier station links to the attic, carriage, and parlour pass through the pond.
+// Earlier station links to the attic and carriage pass through the pond.
 // Keep just the routes each traveler already knew, and preserve their journal.
+// The parlour door returned to the station in BoardyAI revision 2.
 export function upgradeShoreRouteSave(s) {
-  const moved = new Set(["attic", "train", "boardyai-parlour"]);
+  const moved = new Set(["attic", "train"]);
   for (const [actor, known] of Object.entries(s.routeKnowledge || {})) {
     if (!Array.isArray(known)) continue;
     let changed = false;
@@ -157,6 +159,29 @@ export function upgradeShoreRouteSave(s) {
       expanded.map((edge) => [JSON.stringify(edge), edge]),
     ).values()];
   }
+}
+
+// BoardyAI revision 2 moves the parlour door from the pond back to the station.
+// A card still resting at the pond moves with it; held cards stay held.
+export function upgradeBoardyStationSave(s) {
+  const pack = packDefinitions.find((p) => p.id === "boardyai");
+  const saved = s.packs?.[pack?.id];
+  if (!pack || pack.revision < 2 || saved?.revision !== 1) return;
+  const card = s.items?.["boardyai-calling-card"];
+  if (card?.holder === "pond") card.holder = "station";
+  for (const [actor, known] of Object.entries(s.routeKnowledge || {})) {
+    if (!Array.isArray(known)) continue;
+    s.routeKnowledge[actor] = [...new Map(known.map((edge) => {
+      if (Array.isArray(edge) && edge.length === 2) {
+        if (edge[0] === "pond" && edge[1] === "boardyai-parlour")
+          edge = ["station", "boardyai-parlour"];
+        else if (edge[0] === "boardyai-parlour" && edge[1] === "pond")
+          edge = ["boardyai-parlour", "station"];
+      }
+      return [JSON.stringify(edge), edge];
+    })).values()];
+  }
+  saved.revision = 2;
 }
 
 // Revision 5 adds port and road memories. Every earlier position and deed

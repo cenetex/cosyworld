@@ -74,7 +74,7 @@ describe("the household save upgrade", () => {
         ...before.items,
         ...willowsItems,
         ...ajaxItems,
-        "boardyai-calling-card": { holder: "pond", history: [] },
+        "boardyai-calling-card": { holder: "station", history: [] },
         ...Object.fromEntries(
           Object.entries(hoppycat.items).map(([id, item]) => [
             id,

@@ -148,7 +148,12 @@ describe("Hoppy Cat refresh", () => {
     vm.runInContext(
       readFileSync(
         new URL(
-          "../v2/orchestrator-rust/src/card_shared/engine-v20.js",
+          `../v2/orchestrator-rust/src/card_shared/engine-v${
+            readFileSync(
+              new URL("../v2/orchestrator-rust/src/card_shared/engine.rs", import.meta.url),
+              "utf8",
+            ).match(/const VERSION: &str = "full-card-world\/(\d+)"/)[1]
+          }.js`,
           import.meta.url,
         ),
         "utf8",

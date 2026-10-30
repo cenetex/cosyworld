@@ -210,7 +210,7 @@ describe("the side roads in earlier saved worlds", () => {
         ...world.items,
         ...willowsItems,
         ...ajaxItems,
-        "boardyai-calling-card": { holder: "pond", history: [] },
+        "boardyai-calling-card": { holder: "station", history: [] },
         ...Object.fromEntries(
           Object.entries(hoppycat.items).map(([id, item]) => [
             id,
