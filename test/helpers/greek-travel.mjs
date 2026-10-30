@@ -6,16 +6,10 @@ import {
 // Expand a named journey into the actual cards played along its road or ship.
 export function greekTravelTargets(from, to) {
   if (packPlaces[from]?.exits.includes(to)) return [to];
-  // A traveller from the shore knows the Black Pond lanes, so the sea way
-  // between the Wine-Dark Harbor and Piraeus passes Athens Harbor.
+  // Black Pond sails only to the Wine-Dark Harbor. The opening fixture's
+  // traveller has heard the harbour's lanes on to Piraeus and Athens Harbor.
   if (from === "greek-harbor" && to === "greek-piraeus")
-    return [
-      "greek-ship",
-      "greek-athens-harbor",
-      "greek-athens",
-      "greek-road-athens-piraeus",
-      to,
-    ];
+    return ["greek-ship", to];
   // From Piraeus an idle ship sails its first lane, to the Wine-Dark Harbor.
   if (from === "greek-piraeus" && to === "greek-harbor")
     return ["greek-ship", to];

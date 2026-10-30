@@ -59,9 +59,9 @@ marked one-way.
 
 | Port | Dock id | Lanes |
 | --- | --- | --- |
-| Black Pond | `pond` | Wine-Dark Harbor, Athens Harbor |
+| Black Pond | `pond` | Wine-Dark Harbor |
 | Wine-Dark Harbor | `greek-harbor` | Black Pond, Piraeus, Trojan camp landing, Willows landing |
-| Athens Harbor | `greek-athens-harbor` | Black Pond, Piraeus |
+| Athens Harbor | `greek-athens-harbor` | Piraeus |
 | Piraeus Quays | `greek-piraeus` | Wine-Dark Harbor, Athens Harbor, Signal Jetty |
 | Signal Jetty (Hoppy Cat) | `hoppycat-signal-jetty` | Piraeus |
 | Trojan camp landing | `greek-ajax-landing` | Wine-Dark Harbor |
@@ -69,13 +69,17 @@ marked one-way.
 
 ```text
                      Black Pond
-                    /          \
-       Wine-Dark Harbor      Athens Harbor
-        /      |      \          /
-   Trojan   Willows    Piraeus Quays
-   camp     landing         |
-   landing              Signal Jetty
+                         |
+                  Wine-Dark Harbor
+                 /       |        \
+           Trojan    Willows    Piraeus Quays
+           camp      landing     /         \
+           landing        Athens Harbor  Signal Jetty
 ```
+
+From Black Pond the only lane is the Wine-Dark Harbor (owner decision,
+2026-10-30). A traveller from the shore knows that lane alone. The way on to
+Piraeus and Athens Harbor is learned by sailing it or through Talk.
 
 Distant worlds are several lanes away. A player needs the thing **and** must
 find which port sails there.

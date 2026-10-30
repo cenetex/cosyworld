@@ -21,6 +21,7 @@ import {
 } from "../v2/card-game/pack-registry.mjs";
 import { packProblems } from "../v2/card-game/pack-schema.mjs";
 import { conditionMet } from "../v2/card-game/pack-rules.mjs";
+import { learnLane } from "../v2/card-game/pack-transport.mjs";
 import {
   backdrop,
   locationOverlay,
@@ -131,6 +132,11 @@ describe("the Theban release and its ship", () => {
     s = act(s, "choose", { choiceId: "greek-courtyard-refusal" });
     expect(reachable(s)).toHaveLength(9);
     s = act(s, "choose", { choiceId: "greek-open-door-invite-refusal" });
+    // Black Pond sails only to the Wine-Dark Harbor: the way on to Athens
+    // stays unknown until someone tells Vale the harbour's lanes.
+    expect(reachable(s)).toHaveLength(9);
+    learnLane(s, "vale", "greek-harbor", "greek-piraeus");
+    learnLane(s, "vale", "greek-piraeus", "greek-athens-harbor");
     expect(reachable(s)).toEqual([...openDoorReleasedPlaces].sort());
     expect(reachable(s)).toHaveLength(16);
     s = decodeSave(encodeSave(s));
