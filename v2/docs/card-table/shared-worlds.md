@@ -66,8 +66,12 @@ The browser and server use the authored rules in `world.mjs` and its rule module
 
 The server runs a checked-in bundle of those modules in QuickJS, a C interpreter.
 Rust supplies JSON and handles authentication, storage, queues, and provider IO.
-The interpreter has bounded memory and execution time. Its runtime exposes only
-the saved game and the authored rules. A C session guard checks claims, presence,
+The interpreter has bounded memory and execution time. Each request has a
+two-second deadline. A request that reaches it returns "The shared world is
+taking a moment. Try again." It is never reported as a changed scene. Debug and
+test builds compile the interpreter with optimization, so replay tests on a busy
+host run near production speed. The interpreter's runtime exposes only the
+saved game and the authored rules. A C session guard checks claims, presence,
 room capacity, and the actor allowed to make a play.
 
 This is the shared card game's authority boundary: the authored rules execute in
