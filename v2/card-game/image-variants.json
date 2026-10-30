@@ -1134,60 +1134,60 @@
       "card": "assets/optimized/card/png/lonely-forest/rati.webp",
       "cardHash": "4044f83470c303311e2cd8ef9d0f2db0ab5f3dd5c5a91ca5e851c46b52a74afc"
     },
-    "assets/lonely-forest/scarves/scarf-amber.png": {
+    "assets/lonely-forest/scarf-amber.png": {
       "sourceHash": "4edc4fc9e20044fbb46f37ed4c6db8c5bf59c24d369ccdcfd2dd12e9823ff68d",
-      "stage": "assets/optimized/stage/png/lonely-forest/scarves/scarf-amber.webp",
+      "stage": "assets/optimized/stage/png/lonely-forest/scarf-amber.webp",
       "stageHash": "68203bab71ada9b31f953cc9fd1eb17fcd1e6dabb2f52a128376a1166f848ee5",
-      "card": "assets/optimized/card/png/lonely-forest/scarves/scarf-amber.webp",
+      "card": "assets/optimized/card/png/lonely-forest/scarf-amber.webp",
       "cardHash": "917aa6f95d6964c1f44d7fe9f846ad5b02f54829c8b8eb89c1a8aaf99dab5aaf"
     },
-    "assets/lonely-forest/scarves/scarf-blue.png": {
+    "assets/lonely-forest/scarf-blue.png": {
       "sourceHash": "4920252a9ea5706b1d90c8fa2efab11fa4f1784e98418d811039de63b8ae744a",
-      "stage": "assets/optimized/stage/png/lonely-forest/scarves/scarf-blue.webp",
+      "stage": "assets/optimized/stage/png/lonely-forest/scarf-blue.webp",
       "stageHash": "8be41403c5a3efdd0d62bdc5f1ec0d4e801d30124c8dccdfbcce200ecd2fb07c",
-      "card": "assets/optimized/card/png/lonely-forest/scarves/scarf-blue.webp",
+      "card": "assets/optimized/card/png/lonely-forest/scarf-blue.webp",
       "cardHash": "c6de575bdd210817ed3677d0f0cdf8f16e43465d8f7c5244047faad8d6055d5f"
     },
-    "assets/lonely-forest/scarves/scarf-green.png": {
+    "assets/lonely-forest/scarf-green.png": {
       "sourceHash": "f2db17d7617fe65c3a7e6780385765e13ee0c37577e230edf1e84e1d832f0002",
-      "stage": "assets/optimized/stage/png/lonely-forest/scarves/scarf-green.webp",
+      "stage": "assets/optimized/stage/png/lonely-forest/scarf-green.webp",
       "stageHash": "45cbdb59a8bd5042e85ed87b8b06e6e255b37bacf586a89e810724fbb61ea28a",
-      "card": "assets/optimized/card/png/lonely-forest/scarves/scarf-green.webp",
+      "card": "assets/optimized/card/png/lonely-forest/scarf-green.webp",
       "cardHash": "f80a95a1f2d6d493a18854c0708c3b0e1a287b59f36e65d422e9c07f6b0c420f"
     },
-    "assets/lonely-forest/scarves/scarf-orange.png": {
+    "assets/lonely-forest/scarf-orange.png": {
       "sourceHash": "5fec862fe89a828f46fa2a1698ac1c417107631cfe6942de742188affa8ffb18",
-      "stage": "assets/optimized/stage/png/lonely-forest/scarves/scarf-orange.webp",
+      "stage": "assets/optimized/stage/png/lonely-forest/scarf-orange.webp",
       "stageHash": "0a405514f34e0f1ef434b83e56f29abc8f997bc703a826b590a9a5716aec6290",
-      "card": "assets/optimized/card/png/lonely-forest/scarves/scarf-orange.webp",
+      "card": "assets/optimized/card/png/lonely-forest/scarf-orange.webp",
       "cardHash": "81de2e2aefa315767793ff04e1084acda279b566178696d2c8b8fc2f88a370bb"
     },
-    "assets/lonely-forest/scarves/scarf-red.png": {
+    "assets/lonely-forest/scarf-red.png": {
       "sourceHash": "c1b8faa4c745688cdfac52287de44695ccc7a097cb140da0299b44cafaf591b7",
-      "stage": "assets/optimized/stage/png/lonely-forest/scarves/scarf-red.webp",
+      "stage": "assets/optimized/stage/png/lonely-forest/scarf-red.webp",
       "stageHash": "ecc1c510bd3298a4c7a72a75faa60805a7da1c6dca4b6386bbb71b38023b4059",
-      "card": "assets/optimized/card/png/lonely-forest/scarves/scarf-red.webp",
+      "card": "assets/optimized/card/png/lonely-forest/scarf-red.webp",
       "cardHash": "c1def70f1cf4ac3c3e2e0f079e403496deeb9a48f3695c7839cbfa1ffa89824a"
     },
-    "assets/lonely-forest/scarves/scarf-violet.png": {
+    "assets/lonely-forest/scarf-violet.png": {
       "sourceHash": "7ba3d797d2acb4c7597692afefdd1305a2ab3ce3f659e3bc38e027e8f24877fc",
-      "stage": "assets/optimized/stage/png/lonely-forest/scarves/scarf-violet.webp",
+      "stage": "assets/optimized/stage/png/lonely-forest/scarf-violet.webp",
       "stageHash": "ff8ce85d8b981807c10e3be67ddf9e7aaad2ad029045ce049ce81bb3b9fe8379",
-      "card": "assets/optimized/card/png/lonely-forest/scarves/scarf-violet.webp",
+      "card": "assets/optimized/card/png/lonely-forest/scarf-violet.webp",
       "cardHash": "b7fc23396a43eda9db9cdfab34eb2baaf06c559101ba8087db1f9f56e5ee1010"
     },
-    "assets/lonely-forest/scarves/scarf-white.png": {
+    "assets/lonely-forest/scarf-white.png": {
       "sourceHash": "e9e4e2993c998e23d05af9ccc3f16eda8ae93c6b9c1253ee84ad1958bb55e364",
-      "stage": "assets/optimized/stage/png/lonely-forest/scarves/scarf-white.webp",
+      "stage": "assets/optimized/stage/png/lonely-forest/scarf-white.webp",
       "stageHash": "432d9a35dcf899a17be1efc230ea995375c72448ee4d3787957e48443d7c44d1",
-      "card": "assets/optimized/card/png/lonely-forest/scarves/scarf-white.webp",
+      "card": "assets/optimized/card/png/lonely-forest/scarf-white.webp",
       "cardHash": "71481ce9d365fcb0b4152bfe79106140e13262275d3bf59052411f3bb54c6840"
     },
-    "assets/lonely-forest/scarves/scarf-yellow.png": {
+    "assets/lonely-forest/scarf-yellow.png": {
       "sourceHash": "6f1b516aefb26d949f8173599127db983e63449de426961ea5aecdd6fcd17d00",
-      "stage": "assets/optimized/stage/png/lonely-forest/scarves/scarf-yellow.webp",
+      "stage": "assets/optimized/stage/png/lonely-forest/scarf-yellow.webp",
       "stageHash": "2b8f2ab21fe620dd6df04e89ff89e0edbd95cc70f1c3f95e0e44e6e317c3077e",
-      "card": "assets/optimized/card/png/lonely-forest/scarves/scarf-yellow.webp",
+      "card": "assets/optimized/card/png/lonely-forest/scarf-yellow.webp",
       "cardHash": "b647eb418f78c13c7369622befe1a46dab132f0896a6491f6043e52fa7e8e35c"
     },
     "assets/lonely-forest/skull.png": {
@@ -1253,12 +1253,26 @@
       "card": "assets/optimized/card/png/pond.webp",
       "cardHash": "d5978146fba1928ea2952d73a8945027f10b2b8f7b2a2d221c8fa8ff9bae17e8"
     },
+    "assets/shared/characters/ada-scarf.png": {
+      "sourceHash": "a33d0da5ca7042c048915dc6c450cd3cf605eb788c9edad4c0b1f32fa627aa8a",
+      "stage": "assets/optimized/stage/png/shared/characters/ada-scarf.webp",
+      "stageHash": "fd73a41b0518c52f086675a1f3279b35d575b34992ba4b5b4034e9fc8e4d8220",
+      "card": "assets/optimized/card/png/shared/characters/ada-scarf.webp",
+      "cardHash": "3e2939c24d4fd29d10840e97e3484c4c0c87995b4e3d1ea8072cc609ed970421"
+    },
     "assets/shared/characters/ada.png": {
       "sourceHash": "4f3a53f874cd2d715b8edd7c704bb1fc1a54d182829ea03d2c6dfc5c83058512",
       "stage": "assets/optimized/stage/png/shared/characters/ada.webp",
       "stageHash": "22a5f256f2646ab4ebfe6d71172bb56f95df1803c52518d5edd78cb25aec2558",
       "card": "assets/optimized/card/png/shared/characters/ada.webp",
       "cardHash": "ab6d8b14dd49c6ac8347588dbeadd4abca1d88f93f04e61607687b4d03a52994"
+    },
+    "assets/shared/characters/ash-scarf.png": {
+      "sourceHash": "e80e6396e7f523924f27318772af9a9e548331747bcbea2f900f9041da9b0d3d",
+      "stage": "assets/optimized/stage/png/shared/characters/ash-scarf.webp",
+      "stageHash": "1156212d12a7b232dbd591773326191b93f6e52ac6bec09a80492a6016f2d96f",
+      "card": "assets/optimized/card/png/shared/characters/ash-scarf.webp",
+      "cardHash": "f7d95838c34a4615df35407ec3eecc7268bcb370f6619f7426e1d1da1e63cc32"
     },
     "assets/shared/characters/ash.png": {
       "sourceHash": "2592261ccbf329574da95ca83d88fedeb787a38d01335276c3d66d368fa8d285",
@@ -1267,12 +1281,26 @@
       "card": "assets/optimized/card/png/shared/characters/ash.webp",
       "cardHash": "2b55677dd39a3755cd53f8bc21bf8677576f0b44808e818b48f4fb449bbbdfda"
     },
+    "assets/shared/characters/mara-scarf.png": {
+      "sourceHash": "f9f06c71a59d3a55b867c203c6d0a771d08dbb053425819c34352b57e3b63d10",
+      "stage": "assets/optimized/stage/png/shared/characters/mara-scarf.webp",
+      "stageHash": "b701690216a595c57cd0bc284bbf56ce8b3e1eb7c0501c05d23b9a0183bdf230",
+      "card": "assets/optimized/card/png/shared/characters/mara-scarf.webp",
+      "cardHash": "6bb059066fbf495c62f1163eea95d1337158abd31ece4b91fcd59c74d67b57ed"
+    },
     "assets/shared/characters/mara.png": {
       "sourceHash": "c182c00f2ab3d455e3228af72c67df061789ae8d050e187cc44d9e4bf67b76b1",
       "stage": "assets/optimized/stage/png/shared/characters/mara.webp",
       "stageHash": "cf64eb3c62e41258d0dc76799569bf7f126984cec0a4799fcb321e82dbb0e19c",
       "card": "assets/optimized/card/png/shared/characters/mara.webp",
       "cardHash": "930def66dff6eecc4dcb3e685c8f354e7710cf3b58650fe16b50bdb81859ecb9"
+    },
+    "assets/shared/characters/nell-scarf.png": {
+      "sourceHash": "294d4a68453d4d51ce49e96edabe01d348792010f71907ec36ed03486f738d7f",
+      "stage": "assets/optimized/stage/png/shared/characters/nell-scarf.webp",
+      "stageHash": "7f9711227f524d1c21358aa97afe41e6cbeeef22db16e5a04941c4e651fc2da5",
+      "card": "assets/optimized/card/png/shared/characters/nell-scarf.webp",
+      "cardHash": "8de28ff0eab44c65b7b25f3d2389349348f41b0f29d7f583279e16a972e82549"
     },
     "assets/shared/characters/nell.png": {
       "sourceHash": "705a095b4f379338192290d4e6003d065b7d87c04b88b47706ff1f744471043f",
@@ -1281,12 +1309,26 @@
       "card": "assets/optimized/card/png/shared/characters/nell.webp",
       "cardHash": "8080018d7003f6065d829d525d8245381cee876e7a5d8123b1c661e27b4a22c9"
     },
+    "assets/shared/characters/orin-scarf.png": {
+      "sourceHash": "a32cce4c65d9f8a4abad48c49f7228e056fe4d3012d2f55a13a5fb0eec93d004",
+      "stage": "assets/optimized/stage/png/shared/characters/orin-scarf.webp",
+      "stageHash": "1323f38a9f862b0e99d279c1e5efa2565a3f28000244920d9574ed7b09a0905f",
+      "card": "assets/optimized/card/png/shared/characters/orin-scarf.webp",
+      "cardHash": "aaa32f4d4b19c53e711317a0991e7acb5e9930540c2e3c772e576d64edf39c85"
+    },
     "assets/shared/characters/orin.png": {
       "sourceHash": "909bd6f9b2a7e4e58b637a765e8059fc0474eb07e8767d45b1623c9dccccfba4",
       "stage": "assets/optimized/stage/png/shared/characters/orin.webp",
       "stageHash": "2681ad8ff46bca37222ed73b10c1fb78b42d9de8d1b16edab645ce94f238025b",
       "card": "assets/optimized/card/png/shared/characters/orin.webp",
       "cardHash": "e2a05276c6b01c200bfe3310e1ca6081d5fec610f3f8f919963f341eded5124c"
+    },
+    "assets/shared/characters/rue-scarf.png": {
+      "sourceHash": "b07a5f25827a4ef725c8db00a8529cc2e28eeb135c6a4f5b09113f06dbed9590",
+      "stage": "assets/optimized/stage/png/shared/characters/rue-scarf.webp",
+      "stageHash": "65fa878122b0fae5b30045c68441bcecef26ae0a53a90d8246d8d2b241370706",
+      "card": "assets/optimized/card/png/shared/characters/rue-scarf.webp",
+      "cardHash": "a9445195858815e8ff3bd618abf82499dcede2ec2e1c7ec1ae2455f0e0c1d1b5"
     },
     "assets/shared/characters/rue.png": {
       "sourceHash": "e8655322dc5f4d5f13da698fb5f0664837f176b67ff9a954e09d9f6b2a52b633",
@@ -1295,61 +1337,12 @@
       "card": "assets/optimized/card/png/shared/characters/rue.webp",
       "cardHash": "39f4e053c6d04ade741dca99140f50e682d85803226758024e45aa284a049339"
     },
-    "assets/shared/characters/scarves/ada.png": {
-      "sourceHash": "a33d0da5ca7042c048915dc6c450cd3cf605eb788c9edad4c0b1f32fa627aa8a",
-      "stage": "assets/optimized/stage/png/shared/characters/scarves/ada.webp",
-      "stageHash": "fd73a41b0518c52f086675a1f3279b35d575b34992ba4b5b4034e9fc8e4d8220",
-      "card": "assets/optimized/card/png/shared/characters/scarves/ada.webp",
-      "cardHash": "3e2939c24d4fd29d10840e97e3484c4c0c87995b4e3d1ea8072cc609ed970421"
-    },
-    "assets/shared/characters/scarves/ash.png": {
-      "sourceHash": "e80e6396e7f523924f27318772af9a9e548331747bcbea2f900f9041da9b0d3d",
-      "stage": "assets/optimized/stage/png/shared/characters/scarves/ash.webp",
-      "stageHash": "1156212d12a7b232dbd591773326191b93f6e52ac6bec09a80492a6016f2d96f",
-      "card": "assets/optimized/card/png/shared/characters/scarves/ash.webp",
-      "cardHash": "f7d95838c34a4615df35407ec3eecc7268bcb370f6619f7426e1d1da1e63cc32"
-    },
-    "assets/shared/characters/scarves/mara.png": {
-      "sourceHash": "f9f06c71a59d3a55b867c203c6d0a771d08dbb053425819c34352b57e3b63d10",
-      "stage": "assets/optimized/stage/png/shared/characters/scarves/mara.webp",
-      "stageHash": "b701690216a595c57cd0bc284bbf56ce8b3e1eb7c0501c05d23b9a0183bdf230",
-      "card": "assets/optimized/card/png/shared/characters/scarves/mara.webp",
-      "cardHash": "6bb059066fbf495c62f1163eea95d1337158abd31ece4b91fcd59c74d67b57ed"
-    },
-    "assets/shared/characters/scarves/nell.png": {
-      "sourceHash": "294d4a68453d4d51ce49e96edabe01d348792010f71907ec36ed03486f738d7f",
-      "stage": "assets/optimized/stage/png/shared/characters/scarves/nell.webp",
-      "stageHash": "7f9711227f524d1c21358aa97afe41e6cbeeef22db16e5a04941c4e651fc2da5",
-      "card": "assets/optimized/card/png/shared/characters/scarves/nell.webp",
-      "cardHash": "8de28ff0eab44c65b7b25f3d2389349348f41b0f29d7f583279e16a972e82549"
-    },
-    "assets/shared/characters/scarves/orin.png": {
-      "sourceHash": "a32cce4c65d9f8a4abad48c49f7228e056fe4d3012d2f55a13a5fb0eec93d004",
-      "stage": "assets/optimized/stage/png/shared/characters/scarves/orin.webp",
-      "stageHash": "1323f38a9f862b0e99d279c1e5efa2565a3f28000244920d9574ed7b09a0905f",
-      "card": "assets/optimized/card/png/shared/characters/scarves/orin.webp",
-      "cardHash": "aaa32f4d4b19c53e711317a0991e7acb5e9930540c2e3c772e576d64edf39c85"
-    },
-    "assets/shared/characters/scarves/rue.png": {
-      "sourceHash": "b07a5f25827a4ef725c8db00a8529cc2e28eeb135c6a4f5b09113f06dbed9590",
-      "stage": "assets/optimized/stage/png/shared/characters/scarves/rue.webp",
-      "stageHash": "65fa878122b0fae5b30045c68441bcecef26ae0a53a90d8246d8d2b241370706",
-      "card": "assets/optimized/card/png/shared/characters/scarves/rue.webp",
-      "cardHash": "a9445195858815e8ff3bd618abf82499dcede2ec2e1c7ec1ae2455f0e0c1d1b5"
-    },
-    "assets/shared/characters/scarves/tavi.png": {
+    "assets/shared/characters/tavi-scarf.png": {
       "sourceHash": "9f2be5f35ac2cc73d33850da995076b266846f8a61b1b4c0cb6f29151754356e",
-      "stage": "assets/optimized/stage/png/shared/characters/scarves/tavi.webp",
+      "stage": "assets/optimized/stage/png/shared/characters/tavi-scarf.webp",
       "stageHash": "433799a75136f305d15e5cca3352255bacffb8534a89a0652b5d844e5cdc5f07",
-      "card": "assets/optimized/card/png/shared/characters/scarves/tavi.webp",
+      "card": "assets/optimized/card/png/shared/characters/tavi-scarf.webp",
       "cardHash": "bd1cc2618808388fb169bbefbc8892575b38d5bef3890bd11435990b791ea56c"
-    },
-    "assets/shared/characters/scarves/vale.png": {
-      "sourceHash": "12809488fe5388dff0cf08f6898d1fc134e53ce82ba86cfb0e77620cf369d899",
-      "stage": "assets/optimized/stage/png/shared/characters/scarves/vale.webp",
-      "stageHash": "20434041d08d72cbcf986fdc9f6d1ff9f06df545caa0b9d07bdb04d3d0c864e9",
-      "card": "assets/optimized/card/png/shared/characters/scarves/vale.webp",
-      "cardHash": "b4e67f1c37fd160d643bef8cd48e7bf19dbf21e4fce2b9b53764121c95126e79"
     },
     "assets/shared/characters/tavi.png": {
       "sourceHash": "6798af3ad543eab76109801ec0ad1ef953566f2975e43667882ec033d39f8a3a",
@@ -1357,6 +1350,13 @@
       "stageHash": "5dfa43cfd411dddd7d33f6abc4e672bf9f767f2f218bffefa16fb2dbe93b8ef3",
       "card": "assets/optimized/card/png/shared/characters/tavi.webp",
       "cardHash": "7f1dbe4ff29be311407da74c846117cdf012493085b80c21c828aea09c02d832"
+    },
+    "assets/shared/characters/vale-scarf.png": {
+      "sourceHash": "12809488fe5388dff0cf08f6898d1fc134e53ce82ba86cfb0e77620cf369d899",
+      "stage": "assets/optimized/stage/png/shared/characters/vale-scarf.webp",
+      "stageHash": "20434041d08d72cbcf986fdc9f6d1ff9f06df545caa0b9d07bdb04d3d0c864e9",
+      "card": "assets/optimized/card/png/shared/characters/vale-scarf.webp",
+      "cardHash": "b4e67f1c37fd160d643bef8cd48e7bf19dbf21e4fce2b9b53764121c95126e79"
     },
     "assets/shared/characters/vale.png": {
       "sourceHash": "7e6dfd1bd18f9c6e7d548aeb27637284887b555373e2ad00109fdc233366d512",
