@@ -48,8 +48,11 @@ const sectionPlaces = pack.sections.flatMap((section) => section.places);
 const ajaxPlaces = pack.sections.find(
   (section) => section.id === "greek-ajax",
 ).places;
+// Retired roads keep their IDs in the release for saved history only.
+const retired = (id) => pack.places[id]?.retired === true;
 const openDoorReleasedPlaces = pack.release.places.filter(
   (id) =>
+    !retired(id) &&
     !["greek-road-thebes", "greek-road-athens-harbor", ...ajaxPlaces].includes(
       id,
     ),
@@ -107,6 +110,7 @@ describe("the Theban release and its ship", () => {
       pack.release.places
         .filter(
           (id) =>
+            !retired(id) &&
             !["greek-road-thebes", "greek-road-athens-harbor"].includes(id),
         )
         .sort(),
@@ -131,7 +135,7 @@ describe("the Theban release and its ship", () => {
     expect(reachable(s)).toHaveLength(8);
     s = act(s, "choose", { choiceId: "greek-open-door-invite-refusal" });
     expect(reachable(s)).toEqual([...openDoorReleasedPlaces].sort());
-    expect(reachable(s)).toHaveLength(21);
+    expect(reachable(s)).toHaveLength(15);
     s = decodeSave(encodeSave(s));
     expect(reachable(s)).toEqual([...openDoorReleasedPlaces].sort());
     for (const start of openDoorPlaces) {

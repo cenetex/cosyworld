@@ -10,26 +10,6 @@ fn play(
     actor: usize,
     fields: &[(&str, &str)],
 ) -> Value {
-    if !engine::historical(&world.version)
-        && fields.iter().any(|(k, v)| *k == "kind" && *v == "move")
-    {
-        if let Some((_, target)) = fields.iter().find(|(k, _)| *k == "target") {
-            let from = world.game["actors"][if actor == 0 { "vale" } else { "mara" }]["place"]
-                .as_str()
-                .unwrap();
-            if (from == "greek-eleusis" && *target == "greek-piraeus")
-                || (from == "greek-piraeus" && *target == "greek-eleusis")
-            {
-                play(
-                    c,
-                    id,
-                    world,
-                    actor,
-                    &[("kind", "move"), ("target", "greek-road-piraeus-eleusis")],
-                );
-            }
-        }
-    }
     let step = format!(
         "{} turn {} actor {actor} at {} playing {fields:?}",
         world.version,
@@ -212,17 +192,6 @@ fn agreed_household_journey_replays_after_released_history_with_both_care_choice
             assert_eq!(world.game["actors"][MYRINE]["place"], "greek-eleusis");
             c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
             assert_eq!(full_store::world(&c, &id, now()).unwrap(), world);
-            play(
-                &c,
-                &id,
-                &mut world,
-                1,
-                &[
-                    ("kind", "accompany"),
-                    ("target", MYRINE),
-                    ("destination", "greek-road-piraeus-eleusis"),
-                ],
-            );
             let travel = play(
                 &c,
                 &id,

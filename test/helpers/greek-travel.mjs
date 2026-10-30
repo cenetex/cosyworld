@@ -1,4 +1,7 @@
-import { packPlaces } from "../../v2/card-game/pack-registry.mjs";
+import {
+  localRoadEnds,
+  packPlaces,
+} from "../../v2/card-game/pack-registry.mjs";
 
 // Expand a named journey into the actual cards played along its road or ship.
 export function greekTravelTargets(from, to) {
@@ -12,10 +15,24 @@ export function greekTravelTargets(from, to) {
     return ["greek-ship", "greek-athens-harbor", to];
   if (from === "greek-athens" && to === "greek-harbor")
     return ["greek-athens-harbor", "greek-ship", to];
-  const road = packPlaces[from]?.exits.find((id) =>
-    packPlaces[id]?.road?.includes(to),
-  );
-  return road ? [road, to] : [to];
+  return walk(from, to) || [to];
+}
+
+// The shortest walk over the pack's live exits, skipping retired roads.
+function walk(from, to) {
+  const queue = [[from]],
+    seen = new Set([from]);
+  while (queue.length) {
+    const path = queue.shift(),
+      here = path.at(-1);
+    if (here === to) return path.slice(1);
+    for (const next of packPlaces[here]?.exits || [])
+      if (!seen.has(next) && !localRoadEnds(next)) {
+        seen.add(next);
+        queue.push([...path, next]);
+      }
+  }
+  return null;
 }
 
 export function greekMoveSteps(start) {

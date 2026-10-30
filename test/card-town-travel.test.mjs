@@ -82,7 +82,9 @@ describe("local town visits and road history", () => {
       ]);
       expect(current.log).toEqual(before.log);
       expect(current.memories[road]).toMatchObject(before.memories[road]);
-      expect(current.packs["greek-drama"].revision).toBe(7);
+      expect(current.packs["greek-drama"].revision).toBe(
+        packDefinition("greek-drama").revision,
+      );
       expect(exits(current, port, "vale")).toContain(town);
       expect(
         legalActions(current, "vale").some(
@@ -135,14 +137,41 @@ describe("local town visits and road history", () => {
     );
   });
 
-  it("offers seven roads between towns and direct visits inside each town", () => {
+  it("keeps one road out of Athens and direct visits inside each town", () => {
     const w = createWorld({ packScopes: { "greek-drama": "full" } });
     const roads = Object.entries(packDefinition("greek-drama").places).filter(
       ([id, p]) => p.road && entityActive(w, id),
     );
-    expect(roads).toHaveLength(7);
+    const attic = [
+      "greek-athens",
+      "greek-piraeus",
+      "greek-colonus",
+      "greek-eleusis",
+      "greek-marathon",
+      "greek-athens-harbor",
+    ];
+    expect(
+      roads
+        .filter(([, p]) => p.road.some((end) => attic.includes(end)))
+        .map(([id]) => id),
+    ).toEqual(["greek-road-athens-piraeus"]);
+    expect(exits(w, "greek-athens", "vale")).toEqual(
+      expect.arrayContaining(["greek-road-athens-piraeus", "greek-colonus"]),
+    );
+    expect(exits(w, "greek-colonus", "vale")).toEqual(
+      expect.arrayContaining(["greek-athens", "greek-marathon"]),
+    );
+    expect(exits(w, "greek-piraeus", "vale")).toContain("greek-eleusis");
     expect(exits(w, "greek-athens-harbor", "vale")).toContain("greek-athens");
     expect(exits(w, "greek-harbor", "vale")).toContain("greek-courtyard");
+  });
+
+  it("gives every walkable road its own painting", () => {
+    const w = createWorld({ packScopes: { "greek-drama": "full" } });
+    const paintings = Object.entries(packDefinition("greek-drama").places)
+      .filter(([id, p]) => p.road && entityActive(w, id))
+      .map(([, p]) => p.backdrop || p.art);
+    expect(new Set(paintings).size).toBe(paintings.length);
   });
 
   it("lets the Bard visit a completed deed from an earlier internal road", () => {

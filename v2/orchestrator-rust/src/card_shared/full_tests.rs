@@ -5,6 +5,19 @@ use super::{
 };
 use serde_json::json;
 
+// The authored Greek pack revision that an upgraded save should reach.
+pub(super) fn greek_revision() -> Value {
+    let catalog: Value =
+        serde_json::from_str(include_str!("../../../card-game/packs.json")).unwrap();
+    catalog["packs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|pack| pack["id"] == "greek-drama")
+        .unwrap()["revision"]
+        .clone()
+}
+
 pub(super) fn assert_saved_actors(current: &Value, old: &Value) {
     for (id, saved) in old.as_object().unwrap() {
         let mut actor = current[id].clone();

@@ -25,11 +25,6 @@ export function homecomingSteps({ berth = "family", reading = "basket" } = {}) {
     {
       kind: "accompany",
       target: "greek-household-witness",
-      destination: "greek-road-piraeus-eleusis",
-    },
-    {
-      kind: "accompany",
-      target: "greek-household-witness",
       destination: "greek-piraeus",
     },
     ...(berth === "family"
