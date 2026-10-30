@@ -168,6 +168,29 @@ describe("the first light in the attic", () => {
     expect(sceneCast(s)).toEqual(["vale", "moth"]);
   });
 
+  it("asks the model for Vale's first line with no action and Vale alone", () => {
+    const s = fresh();
+    const context = narrativeContext(s);
+    expect(context.turn).toBe(0);
+    expect(context.action).toBeNull();
+    expect(context.speakers).toEqual(["vale"]);
+    expect(JSON.stringify(context)).not.toMatch(/light the lamp/i);
+    const next = applyGeneratedText(s, context, {
+      revision: context.revision,
+      model: "fixture-model",
+      entries: context.entities.map(({ id }) => ({
+        id,
+        text: id === "vale" ? "Dust, and a dark mirror." : "Dust settles.",
+      })),
+    });
+    const words = next.log.filter(
+      (entry) => entry.generated && entry.actorId === "vale",
+    );
+    expect(words.map((entry) => [entry.turn, entry.text])).toEqual([
+      [0, "Dust, and a dark mirror."],
+    ]);
+  });
+
   it("grounds the unrevealed opening in observations, including after older speech was saved", () => {
     let s = fresh();
     const context = narrativeContext(s);

@@ -97,8 +97,12 @@ try {
       assert.equal(await page.locator("#speaker").innerText(), "Vale");
       assert.match(
         await page.locator("#dialogue-text").textContent(),
-        /It's cold up here/,
+        /There is time to look around\./,
       );
+      // Vale's first line comes from the model, with the opening quest in view.
+      assert.equal(requests[0].turn, 0);
+      assert.deepEqual(requests[0].speakers, ["vale"]);
+      assert.match(valeFacts(), /What I want most now: First light\./);
       // The opening quest has no card, reveal or button. Vale says it.
       await ready();
       assert.equal(await page.locator("#unveil-dialog[open]").count(), 0);
