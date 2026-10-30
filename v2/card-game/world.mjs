@@ -951,10 +951,12 @@ function talkKnowledge(s, action, entry) {
           (a) => a.packId === topic.packId && a.choiceId === topic.choiceId,
         ),
       }));
-    // At a port or aboard, talk turns to the ships; elsewhere a lane is told
-    // when there is nothing newer to say.
+    // At a port or aboard, talk turns to the ships unless an authored story
+    // choice is ready here; elsewhere a lane is told when there is nothing
+    // newer to say.
     const lane = laneToTell(s, speaker, listener);
-    const port = lane && atPort(s, speaker);
+    const port =
+      lane && atPort(s, speaker) && !topics.some((topic) => topic.choiceReady);
     if (port && reserveLaneKnowledge(s, speaker, listener, entry, lane)) break;
     if (reserveKnowledge(s, speaker, listener, entry, topics)) break;
     if (lane && !port && reserveLaneKnowledge(s, speaker, listener, entry, lane))
