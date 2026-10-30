@@ -19,12 +19,21 @@ files keep their published bytes.
 Build the images, then update their content hashes and the Rust asset list:
 
 ```sh
-node v2/scripts/build-card-images.mjs
+npm run v2:card:images:build
 npm run v2:card:assets:build
 ```
 
+The build encodes only new or changed sources. It reuses the committed scene
+and card files when the source hash and encode settings match
+`image-variants.json` and the committed files still match their recorded
+hashes. It still checks the reused files' dimensions and alpha values. A sharp
+upgrade or a different platform's encoder therefore leaves unchanged art and
+its cached URLs alone. To re-encode every image on purpose, run
+`npm run v2:card:images:build -- --reencode` in its own change.
+
 Check the source hashes, output hashes, dimensions, alpha values, and image
-preload with `node v2/scripts/build-card-images.mjs --check`.
+preload with `npm run v2:card:images:check`. CI and the Docker build run only
+this check.
 
 `image-variants.json` records the source and output hashes. The browser's
 `images.mjs` selects the scene or card file, then adds its content hash through
