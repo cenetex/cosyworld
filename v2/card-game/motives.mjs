@@ -18,27 +18,17 @@ import {
   entityActive,
 } from "./pack-registry.mjs";
 import { hasTemperament, variantOf } from "./pack-rules.mjs";
+import forest from "./forest.json" with { type: "json" };
 // Personal interests are derived from the shared world. Grievances retain the
 // witnessed incident, so a reload and a later visit preserve the same opinion.
+// The hub cast's tastes are authored in forest.json beside the pack residents'.
 export const tastes = {
-  vale: {
-    likes: "Interesting routes and a decent bargain",
-    sore: "Changed terms",
-    home: "attic",
-    values: { lamp: 8, oil: 5, bell: 5, cloth: 4 },
-  },
-  moth: {
-    likes: "Warm light and a splendid waistcoat",
-    sore: "Someone spoiling the light",
-    home: "pond",
-    values: { lamp: 12, oil: 3, bell: 1, cloth: 6 },
-  },
-  keeper: {
-    likes: "Quiet hours and properly returned things",
-    sore: "Unnecessary ringing",
-    home: "station",
-    values: { lamp: 3, oil: 8, bell: 10, cloth: 6 },
-  },
+  ...Object.fromEntries(
+    Object.entries(forest.people).map(([id, p]) => [
+      id,
+      { ...p.tastes, home: p.home, values: p.values },
+    ]),
+  ),
   ...packTastes,
 };
 const actors = Object.keys(tastes);

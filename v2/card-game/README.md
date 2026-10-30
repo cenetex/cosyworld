@@ -502,6 +502,8 @@ Schema 6 gains optional `motives` state. The browser activates this state for bo
 
 At the station, Vale can take the bell. The Keeper values the bell more than the oil and accepts that pair. Ring the bell beside the Keeper first and the price rises. Pip values the lamp more than the cloth. These competing tastes let the same objects support several bargains.
 
+The hub cast's tastes, home and item values live in `forest.json` under `people`, beside the pack residents' `tastes` and `values` in their card worlds. Each named avatar also has one authored `want`, `{ "kind": "item" | "place" | "person", "target": id }`, which names what it seeks first: Vale and Pip want the lamp, the keeper wants the bell. Pack residents with a `desire` carry a matching `want`, which the pack schema checks against the pack's and hub's items, places and avatars. The rules don't read `want` yet.
+
 ## Local play
 
 Run the Rust server with `COSYWORLD_PRIMARY_GAME=cards` and the normal AI provider configuration. It serves both the game and the text route. For the lightweight card server, set `COSYWORLD_CARD_TEXT_ORIGIN` to the Rust server's origin before running `npm run play:cards`. Provider credentials stay in the Rust service. `COSYWORLD_CARD_TEXT_MODEL` selects a registered world-content model for this card table. Both production sites use `openai/gpt-6-luna` with `COSYWORLD_CARD_TEXT_REASONING_EFFORT=none` for short scene text.
