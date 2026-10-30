@@ -843,17 +843,13 @@ export function applyGeneratedText(
     return validateWorld(next);
   }
   const changes = sceneChanges(next);
-  const cast = [
-    ...new Set([
-      ...Object.keys(next.actors).filter(
-        (id) =>
-          entityActive(next, id) && next.actors[id].place === context.location,
-      ),
-      ...changes
-        .filter((change) => change.leaving)
-        .map((change) => change.actorId),
-    ]),
-  ];
+  // Words are written after the play commits, so a speaker who left this turn
+  // already stands at the destination. The line belongs to that scene's cast.
+  const castAt = (place) =>
+    Object.keys(next.actors).filter(
+      (id) => entityActive(next, id) && next.actors[id].place === place,
+    );
+  const cast = castAt(context.location);
   // Descriptions stay on cards; the current place, played item and speakers also
   // become scene beats, with the same cast and item snapshot as other events.
   for (const id of [
@@ -861,6 +857,8 @@ export function applyGeneratedText(
     context.focus,
     ...context.speakers,
   ].filter((id) => id && !omitted.includes(id))) {
+    const movement = changes.find((change) => change.actorId === id);
+    const place = movement ? movement.to : context.location;
     if (
       incremental &&
       next.log.some(
@@ -868,25 +866,22 @@ export function applyGeneratedText(
           entry.generated &&
           entry.turn === next.turn &&
           entry.entityId === id &&
-          entry.locationId === context.location,
+          entry.locationId === place,
       )
     )
       continue;
     const text = next.memories[id].text;
     const avatar = profiles[id].kind === "avatar";
-    const movement = changes.find((change) => change.actorId === id);
     addLog(next, profiles[id].name, text, {
       kind: avatar ? expressionKind(profiles[id]) : "narration",
       actorId: avatar ? id : null,
       entityId: id,
       generated: true,
-      locationId: context.location,
-      cast: [...cast],
-      ...(movement?.leaving ? { departureTo: movement.to } : {}),
-      ...(movement && !movement.leaving ? { arrivalFrom: movement.from } : {}),
+      locationId: place,
+      cast: place === context.location ? [...cast] : castAt(place),
+      ...(movement ? { arrivalFrom: movement.from } : {}),
     });
     publishKnowledgeSpeech(next, next.log.at(-1), context.disclosures || []);
-    if (movement?.leaving) cast.splice(cast.indexOf(id), 1);
   }
   return validateWorld(next);
 }
