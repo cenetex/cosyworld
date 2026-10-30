@@ -97,7 +97,7 @@ fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
                 }
                 let upgraded = full_store::world(&c, &id, now()).unwrap();
                 assert_eq!(upgraded.version, engine::VERSION);
-                assert_eq!(upgraded.game["packs"]["greek-drama"]["revision"], 7);
+                assert_eq!(upgraded.game["packs"]["greek-drama"]["revision"], 8);
                 assert_eq!(upgraded.claimed, old.claimed);
                 assert_eq!(upgraded.present, old.present);
                 preserves_old_entities(&upgraded.game, &old.game);

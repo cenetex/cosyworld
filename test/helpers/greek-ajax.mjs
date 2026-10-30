@@ -4,13 +4,18 @@ import {
   applyGeneratedText,
 } from "../../v2/card-game/narrative.mjs";
 import { openDoorJourney, playOpenDoor } from "./open-door.mjs";
+import { greekTravelTargets } from "./greek-travel.mjs";
 
 export const ajaxState = (world) => world.packs["greek-drama"];
 export const ajaxChoice = (world, id) =>
   playOpenDoor(world, "choose", { choiceId: `greek-ajax-${id}` });
 export const ajaxMove = (world, ...places) =>
   places.reduce(
-    (state, target) => playOpenDoor(state, "move", { target }),
+    (state, place) =>
+      greekTravelTargets(state.actors.vale.place, place).reduce(
+        (next, target) => playOpenDoor(next, "move", { target }),
+        state,
+      ),
     world,
   );
 

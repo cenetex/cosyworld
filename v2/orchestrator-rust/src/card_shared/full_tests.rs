@@ -46,7 +46,7 @@ fn assert_saved_items(current: &Value, old: &Value) {
 
 fn assert_saved_packs(current: &Value, old: &Value) {
     let mut expected = old.clone();
-    expected["greek-drama"]["revision"] = json!(7);
+    expected["greek-drama"]["revision"] = json!(8);
     expected["boardyai"] = current["boardyai"].clone();
     expected["hoppycat-archive"] = current["hoppycat-archive"].clone();
     expected["willows"] = current["willows"].clone();
@@ -738,6 +738,19 @@ fn earlier_completed_quests_gain_a_pending_bard_visit_after_recorded_upgrade() {
         assert_eq!(
             upgraded.game["actors"]["greek-rhapsode"]["place"],
             "greek-harbor"
+        );
+        let action = home_action(&upgraded, 0, "wait");
+        full_store::commit(
+            &c,
+            &id,
+            &mut upgraded,
+            json!({"op":"play","actor":"vale","action":action}),
+            now(),
+        )
+        .unwrap();
+        assert_eq!(
+            upgraded.game["actors"]["greek-rhapsode"]["place"],
+            "greek-road-thebes"
         );
         let action = home_action(&upgraded, 0, "wait");
         full_store::commit(
@@ -2079,6 +2092,7 @@ fn shared_quest_receipts_drive_bard_travel_after_released_rules_upgrade_and_repl
             } else {
                 &[
                     "greek-harbor",
+                    "greek-road-thebes",
                     "greek-courtyard",
                     "greek-well",
                     "greek-well",
@@ -2663,7 +2677,7 @@ fn hoppycat_upgrade_keeps_released_history_and_replays_new_story_choices() {
             for (key, saved) in old.game[field].as_object().unwrap() {
                 let mut expected = saved.clone();
                 if field == "packs" && key == "greek-drama" {
-                    expected["revision"] = json!(7);
+                    expected["revision"] = json!(8);
                 }
                 if field == "packs" && key == "boardyai" {
                     expected["revision"] = json!(2);

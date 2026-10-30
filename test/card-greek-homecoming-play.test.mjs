@@ -154,6 +154,7 @@ describe("the household reaches its berth", () => {
       ["wait", {}],
       ["move", { target: "greek-ship" }],
       ["move", { target: "greek-harbor" }],
+      ["move", { target: "greek-road-thebes" }],
       ["move", { target: "greek-courtyard" }],
       ["choose", { choiceId: "greek-homecoming-read-berth-family" }],
     ]) {

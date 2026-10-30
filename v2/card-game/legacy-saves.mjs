@@ -96,6 +96,7 @@ export function upgradeSave(
     upgradeGreekRoadSave(s);
     upgradeGreekTownSave(s);
     upgradeGreekAjaxSave(s);
+    upgradeGreekHarborRoadSave(s);
     s.schema = 7;
     installPacks(s);
   } else if (
@@ -111,6 +112,7 @@ export function upgradeSave(
     upgradeGreekRoadSave(s);
     upgradeGreekTownSave(s);
     upgradeGreekAjaxSave(s);
+    upgradeGreekHarborRoadSave(s);
     // A pack mounted after this save was written joins it fresh.
     installPacks(s);
   }
@@ -327,6 +329,44 @@ export function upgradeGreekAjaxSave(s) {
   ])
     s.memories[id] ??= fresh[id];
   saved.revision = 7;
+}
+
+// Revision 8 restores the Theban Harbor Road as the only way between the
+// harbor and Thebes. Known direct steps now pass along the road, and an open
+// request for passage between the two asks for the road instead.
+export function upgradeGreekHarborRoadSave(s) {
+  const pack = packDefinitions.find((p) => p.id === "greek-drama");
+  const saved = s.packs?.[pack?.id];
+  if (!pack || pack.revision < 8 || saved?.revision !== 7) return;
+  const road = "greek-road-thebes";
+  const [harbor, town] = pack.places[road].road;
+  const direct = (from, to) =>
+    (from === harbor && to === town) || (from === town && to === harbor);
+  for (const [actor, edges] of Object.entries(s.routeKnowledge || {})) {
+    if (!Array.isArray(edges)) continue;
+    const paths = edges.flatMap((edge) =>
+      Array.isArray(edge) && direct(...edge)
+        ? [
+            [edge[0], road],
+            [road, edge[1]],
+          ]
+        : [edge],
+    );
+    s.routeKnowledge[actor] = [
+      ...new Map(paths.map((edge) => [JSON.stringify(edge), edge])).values(),
+    ];
+  }
+  for (const quest of Object.values(s.quests?.records || {}))
+    if (quest.completedTurn === null && !quest.retired)
+      for (const step of quest.program?.steps || []) {
+        const passage = step.passage;
+        if (passage?.kind === "passage" && direct(passage.from, passage.to))
+          passage.to = road;
+      }
+  for (const state of Object.values(s.roamingQuests || {}))
+    if (state.blocked && direct(state.blocked.from, state.blocked.to))
+      state.blocked = null;
+  saved.revision = 8;
 }
 
 // Revision 3 adds these residents and objects. Earlier records keep their

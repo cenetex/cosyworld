@@ -113,6 +113,7 @@ describe("ordinary bard travel", () => {
       "pond",
       "greek-ship",
       "greek-harbor",
+      "greek-road-thebes",
       "greek-courtyard",
       "greek-gate",
     ])
@@ -136,7 +137,7 @@ describe("ordinary bard travel", () => {
     s.items.bell.holder = "pond";
     s.actors.keeper.place = "station";
     const trace = [];
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 5; i++) {
       const before = s.actors[singer].place;
       const legal = exits(s, before, singer);
       s = act(s);
@@ -152,6 +153,7 @@ describe("ordinary bard travel", () => {
     }
     expect(trace).toEqual([
       "greek-harbor",
+      "greek-road-thebes",
       "greek-courtyard",
       "greek-well",
       "greek-well",
@@ -159,7 +161,7 @@ describe("ordinary bard travel", () => {
     expect(s.roamingQuests[singer].target).toEqual(receipt);
     expect(
       s.quests.records[s.roamingQuests[singer].questKey].completedTurn,
-    ).toBe(3);
+    ).toBe(4);
   });
   it("uses the actual ship, waits for its return, and preserves destination through reload", () => {
     let s = createWorld();
@@ -219,7 +221,8 @@ describe("ordinary bard travel", () => {
     rememberRoutes(s, "keeper", [
       ["pond", "greek-ship"],
       ["greek-ship", "greek-harbor"],
-      ["greek-harbor", "greek-courtyard"],
+      ["greek-harbor", "greek-road-thebes"],
+      ["greek-road-thebes", "greek-courtyard"],
       ["greek-courtyard", "greek-well"],
     ]);
     complete(s, "greek-well");
@@ -256,7 +259,8 @@ describe("ordinary bard travel", () => {
     rememberRoutes(s, "vale", [
       ["pond", "greek-ship"],
       ["greek-ship", "greek-harbor"],
-      ["greek-harbor", "greek-courtyard"],
+      ["greek-harbor", "greek-road-thebes"],
+      ["greek-road-thebes", "greek-courtyard"],
       ["greek-courtyard", "greek-well"],
     ]);
     s.transports["greek-ship"].dock = "pond";

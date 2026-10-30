@@ -196,8 +196,8 @@ ritual reload, visible state, travel and conversation without paid model calls.
 ## World packs and the Wine-Dark Sea
 
 At quiet Black Pond, the fueled Lamp and Black cloth can summon a ship.
-Board it, then disembark at **The Wine-Dark Harbor**. The local path leads
-to **Before the Burial**. The ship keeps its dock and passengers in the same
+Board it, then disembark at **The Wine-Dark Harbor**. The Theban Harbor Road
+leads to Thebes and **Before the Burial**. The ship keeps its dock and passengers in the same
 saved world. Once summoned, it remains available for later crossings.
 
 After a public Theban response, Dione offers the next journey at her table.
@@ -206,7 +206,8 @@ Grove, Eleusinian Sanctuary, and Marathon Altar. The invitation opens the
 roads for every traveler in the shared world. Athens Harbor and Piraeus join
 the ship’s stops. Athens Harbor connects directly to the grand Agora through city streets.
 
-Seven shared road scenes connect the towns. Each road has two fixed ends,
+Roads separate towns, and places inside a town link directly. Eight shared
+road scenes connect the towns. Each road has two fixed ends,
 shown by destination cards in a fixed order. Avatars come first in the hand,
 followed by the first end, the road, and the other end. Its entry card names the place ahead.
 Travelers can meet, wait and carry objects on the road. Myrine’s coast walk

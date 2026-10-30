@@ -69,7 +69,8 @@ export function narrativeContractCases() {
   const ship = playCard(secondCover, "take", "cloth");
   const aboard = playCard(ship, "move", null, "greek-ship");
   const harbor = playCard(aboard, "move", null, "greek-harbor");
-  const courtyard = playCard(harbor, "move", null, "greek-courtyard");
+  const road = playCard(harbor, "move", null, "greek-road-thebes");
+  const courtyard = playCard(road, "move", null, "greek-courtyard");
   const gate = playCard(courtyard, "move", null, "greek-gate");
   const choose = (world, choiceId) => {
     const action = legalActions(world).find((a) => a.choiceId === choiceId);

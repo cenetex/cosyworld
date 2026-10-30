@@ -221,6 +221,7 @@ fn ajax_appeal_custody_spoken_accounts_and_second_carrier_replay_from_the_journa
         "greek-ajax-landing",
         "greek-ship",
         "greek-harbor",
+        "greek-road-thebes",
         "greek-courtyard",
     ] {
         if target == "greek-ship" {
@@ -293,19 +294,35 @@ fn ajax_upgrade_keeps_a_released_nineteen_camp_visit_and_replays_its_exit() {
         }
         let mut current = full_store::world(&c, &id, now()).unwrap();
         assert_eq!(current.version, engine::VERSION);
-        assert_eq!(current.game["packs"]["greek-drama"]["revision"], 7);
+        assert_eq!(current.game["packs"]["greek-drama"]["revision"], 8);
         assert_eq!(current.claimed, old.claimed);
         assert_eq!(current.present, old.present);
-        for field in [
-            "turn",
-            "eventSeq",
-            "log",
-            "transports",
-            "routeKnowledge",
-            "knowledge",
-        ] {
+        for field in ["turn", "eventSeq", "log", "transports", "knowledge"] {
             assert_eq!(current.game[field], old.game[field], "Preserve {field}");
         }
+        // Greek revision 8 sends each remembered harbor-to-Thebes step along
+        // the revived Theban Harbor Road. Other routes stay as they were.
+        let road = "greek-road-thebes";
+        let mut routes = old.game["routeKnowledge"].clone();
+        for edges in routes.as_object_mut().unwrap().values_mut() {
+            let mut seen = Vec::new();
+            for edge in edges.as_array().unwrap() {
+                let (from, to) = (edge[0].as_str().unwrap(), edge[1].as_str().unwrap());
+                let steps = match (from, to) {
+                    ("greek-harbor", "greek-courtyard") | ("greek-courtyard", "greek-harbor") => {
+                        vec![json!([from, road]), json!([road, to])]
+                    }
+                    _ => vec![edge.clone()],
+                };
+                for step in steps {
+                    if !seen.contains(&step) {
+                        seen.push(step);
+                    }
+                }
+            }
+            *edges = json!(seen);
+        }
+        assert_eq!(current.game["routeKnowledge"], routes, "Route knowledge");
         // BoardyAI revision 2 carries his card from the pond to the station door.
         let mut saved = old.game.clone();
         saved["items"]["boardyai-calling-card"]["holder"] = json!("station");

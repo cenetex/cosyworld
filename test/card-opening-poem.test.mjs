@@ -346,6 +346,7 @@ describe("the opening poem", () => {
     act((a) => a.choiceId === "greek-return-water-jar");
     const poem = openingPoem(world);
     expect(poem.stanzas.at(-1).id).toBe("greek-return-water-jar");
+    act((a) => a.kind === "move" && a.target === "greek-road-thebes");
     act((a) => a.kind === "move" && a.target === "greek-harbor");
     act((a) => a.kind === "wait");
     expect(openingPoem(reload(world))).toEqual(poem);

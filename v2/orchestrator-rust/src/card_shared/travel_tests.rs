@@ -33,14 +33,11 @@ fn greek_ports_roads_and_waiting_replay_after_the_version_eighteen_upgrade() {
 
 #[test]
 fn local_road_visitors_and_belongings_continue_inside_the_town_after_replay() {
-    for (road, port, town) in [
-        ("greek-road-thebes", "greek-harbor", "greek-courtyard"),
-        (
-            "greek-road-athens-harbor",
-            "greek-athens-harbor",
-            "greek-athens",
-        ),
-    ] {
+    for (road, port, town) in [(
+        "greek-road-athens-harbor",
+        "greek-athens-harbor",
+        "greek-athens",
+    )] {
         let path =
             std::env::temp_dir().join(format!("town-travel-{}.sqlite", crate::random_hex(12)));
         let c = store::open(&path).unwrap();
@@ -115,7 +112,7 @@ fn replay_journey(version: &str) {
     for (id, item) in old.game["items"].as_object().unwrap() {
         assert_eq!(&w.game["items"][id], item);
     }
-    assert_eq!(w.game["packs"]["greek-drama"]["revision"], 7);
+    assert_eq!(w.game["packs"]["greek-drama"]["revision"], 8);
     for target in [
         "greek-ship",
         "greek-athens-harbor",
@@ -124,6 +121,7 @@ fn replay_journey(version: &str) {
         "greek-piraeus",
         "greek-ship",
         "greek-harbor",
+        "greek-road-thebes",
         "greek-courtyard",
     ] {
         for _ in 0..32 {

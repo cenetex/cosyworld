@@ -346,6 +346,12 @@ stay in saved history. Current visitors, belongings and unfinished purposes
 continue at a town endpoint. The migration uses the other endpoint when the
 port already holds four human avatars. Released versions 16 and 17 keep their exact bytes.
 
+Shared rules version 26 and Greek pack revision 8 restore the Theban Harbor
+Road. Roads separate towns, so the Wine-Dark Harbor reaches Thebes only by that
+road. A remembered direct step between the harbor and the courtyard becomes two
+steps along the road, and an open request for passage between them asks for
+the road. Visitors already on the road in an earlier save stay there.
+
 ## Learning from outcomes
 
 Shared rules version 19 records measured attempts for item and companionship

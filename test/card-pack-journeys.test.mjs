@@ -22,7 +22,12 @@ const pack = packDefinition("greek-drama");
 const resident = "greek-baker";
 const agreement = "test-journey-agree";
 const arrival = "test-journey-arrive";
-const path = ["greek-courtyard", "greek-harbor", "greek-argolid-road"];
+const path = [
+  "greek-courtyard",
+  "greek-road-thebes",
+  "greek-harbor",
+  "greek-argolid-road",
+];
 const original = structuredClone({
   avatar: pack.avatars[resident],
   person: packPeople[resident],
@@ -152,7 +157,7 @@ describe("agreed resident journeys", () => {
     pack.sections.push({
       id: "test-harbor",
       name: "Harbor",
-      places: ["greek-harbor"],
+      places: [path[1]],
       requires: [{ kind: "flag", key: "greek-open-door-open", value: true }],
     });
     let world = act(fixture("opening"), "choose", { choiceId: agreement });

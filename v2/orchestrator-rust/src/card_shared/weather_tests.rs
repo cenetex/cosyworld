@@ -86,7 +86,7 @@ fn regional_weather_agrees_in_c_and_survives_upgrade_and_journal_replay() {
             false
         });
     assert_eq!(quests, saved.game["quests"]);
-    assert_eq!(world.game["packs"]["greek-drama"]["revision"], 7);
+    assert_eq!(world.game["packs"]["greek-drama"]["revision"], 8);
     assert_eq!(world.version, engine::VERSION);
     assert_eq!(
         world.project(0).unwrap()["scene"]["weather"]["condition"],
@@ -206,11 +206,11 @@ fn harbor_night_views_follow_the_shared_ship_and_replay_from_version_seventeen()
     for (id, item) in saved.game["items"].as_object().unwrap() {
         assert_eq!(&world.game["items"][id], item, "saved item {id}");
     }
-    let mut actors = saved.game["actors"].clone();
-    actors["ash"]["place"] = json!("greek-harbor");
-    super::full_tests::assert_saved_actors(&world.game["actors"], &actors);
+    // The Theban Harbor Road is a real road again, so Ash stays on it.
+    assert_eq!(world.game["actors"]["ash"]["place"], "greek-road-thebes");
+    super::full_tests::assert_saved_actors(&world.game["actors"], &saved.game["actors"]);
     super::full_tests::assert_saved_memories(&world.game["memories"], &saved.game["memories"]);
-    assert_eq!(world.game["packs"]["greek-drama"]["revision"], 7);
+    assert_eq!(world.game["packs"]["greek-drama"]["revision"], 8);
     assert_eq!(world.game["packs"]["hoppycat-archive"]["revision"], 1);
     assert_eq!(world.game["packs"]["willows"]["revision"], 1);
     assert!(world.game["knowledge"].is_object());
@@ -244,7 +244,7 @@ fn harbor_night_views_follow_the_shared_ship_and_replay_from_version_seventeen()
         assert_eq!(views[0]["scene"]["daylight"]["phase"], "night");
         assert_eq!(
             views[2]["scene"]["background"],
-            "./assets/greek-drama/harbor-open-berth-night.webp"
+            "./assets/greek-drama/theban-harbor-road-night.webp"
         );
         if kind == "wait" {
             assert_eq!(
