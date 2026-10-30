@@ -62,14 +62,19 @@ changing application behavior.
   `Preserve room state across journal replay`.
 - Keep one coherent behavior or extraction per PR. Split unrelated deployment,
   content, and feature changes.
+- Keep at most one open PR in the repository. Before opening a PR, run
+  `gh pr list --state open`. If one is open, finish your work on a pushed branch
+  and wait until that PR merges or closes. Do not stack PRs on other PR
+  branches. Put dependent changes in the same PR, or open them one after another.
 - The body must contain:
   - `## Summary` with the user-visible or architectural outcome;
   - `Closes #<issue>` for work that fully satisfies an issue;
   - `## Validation` listing exact commands and observed results;
   - migration, generated-file, deployment, or compatibility notes when relevant;
   - a short review checklist confirming tests and generated artifacts.
-- Open as draft until local validation is complete. Do not merge with failing or
-  pending required checks.
+- Merge as soon as local targeted tests pass; don't wait for CI. The deploy
+  workflow runs its own gates, so a red main keeps .dev on the last good build.
+  If main goes red, the next PR fixes it forward before anything else.
 - Bump `package.json` and the root versions in `package-lock.json`; CI rejects a
   PR whose version matches the base branch.
 
