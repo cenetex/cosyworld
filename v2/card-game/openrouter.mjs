@@ -8,6 +8,13 @@ const encode = (bytes) =>
     .replaceAll("/", "_")
     .replaceAll("=", "");
 
+// Provider text is shown as one short, plain line.
+function errorText(value) {
+  if (typeof value !== "string") return "";
+  const text = value.replace(/\s+/gu, " ").trim();
+  return text.length > 300 ? `${text.slice(0, 299)}…` : text;
+}
+
 export function createOpenRouter({
   storage,
   crypto = globalThis.crypto,
@@ -60,13 +67,23 @@ export function createOpenRouter({
               : response.status === 400 || response.status === 422
                 ? "Check the model settings in OpenRouter, then try again."
                 : `OpenRouter needs another moment (${response.status}). Try again.`;
-      throw Object.assign(new Error(message), {
-        status: response.status,
-        retryable:
-          response.status === 408 ||
-          response.status === 429 ||
-          response.status >= 500,
-      });
+      // Show OpenRouter's own words for request and provider failures.
+      const reason =
+        response.status === 400 ||
+        response.status === 422 ||
+        response.status >= 500
+          ? errorText(detail?.error?.message)
+          : "";
+      throw Object.assign(
+        new Error(reason ? `${message} ${reason}` : message),
+        {
+          status: response.status,
+          retryable:
+            response.status === 408 ||
+            response.status === 429 ||
+            response.status >= 500,
+        },
+      );
     }
     return raw ? response.blob() : response.json();
   }
@@ -232,10 +249,12 @@ export function createOpenRouter({
       const path = `videos/${encodeURIComponent(job.id)}`;
       const deadline = now() + 15 * 60_000;
       while (job.status !== "completed") {
-        if (job.status === "failed")
+        if (["failed", "cancelled", "expired"].includes(job.status)) {
+          const reason = errorText(job.error?.message ?? job.error);
           throw new Error(
-            "The video needs a fresh request. Check OpenRouter activity.",
+            `The video needs a fresh request (${job.status}). ${reason || "Check OpenRouter activity."}`,
           );
+        }
         if (now() > deadline)
           throw new Error(
             "Your video is still processing. Check OpenRouter activity.",

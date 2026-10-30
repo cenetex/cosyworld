@@ -585,6 +585,8 @@ model lists come from OpenRouter. Each Create button uses the player's credits.
 Audio uses `/audio/speech`. Video uses `/videos`, polls the job, and fetches
 the fixed OpenRouter content path. The player can play and save the result.
 Stop waiting ends browser polling; submitted work remains in OpenRouter activity.
+A failed, cancelled or expired job stops polling and shows OpenRouter's reason.
+Rejected requests (400, 422) and provider errors (5xx) add OpenRouter's message.
 
 ## Threats and standoffs
 
