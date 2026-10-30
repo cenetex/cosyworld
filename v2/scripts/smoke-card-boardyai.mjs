@@ -45,16 +45,9 @@ try {
         action,
       }).world;
     }
-    const started = dispatchShared({
-      op: "play",
-      world: seed,
-      actor: "vale",
-      claimed: ["vale", "mara"],
-      present: ["vale", "mara"],
-      action: { key: "wait:vale::" },
-    }).world;
+    // Boardy steps out of his station door and meets Vale at the pond.
     const world = {
-      ...started,
+      ...seed,
       playerActorId: membership.actor,
       controlledActors: membership.claimed,
       presentActors: membership.present,
@@ -164,9 +157,10 @@ try {
     };
     await settle();
     for (const [id, kind, turn, place] of [
-      ["boardyai-calling-card", "take", startTurn + 2, "pond"],
-      ["boardyai-parlour", "move", startTurn + 3, "boardyai-parlour"],
-      ["pond", "move", startTurn + 4, "pond"],
+      ["station", "move", startTurn + 2, "station"],
+      ["boardyai-calling-card", "take", startTurn + 3, "station"],
+      ["boardyai-parlour", "move", startTurn + 4, "boardyai-parlour"],
+      ["station", "move", startTurn + 5, "station"],
     ]) {
       await page.keyboard.press("Escape");
       await selectCard(page, id);
@@ -196,13 +190,13 @@ try {
         (key) => JSON.parse(localStorage.getItem(key)).turn,
         key,
       ),
-      startTurn + 4,
+      startTurn + 5,
     );
     const saved = await page.evaluate(
       (key) => JSON.parse(localStorage.getItem(key)),
       key,
     );
-    assert.equal(saved.actors.vale.place, "pond");
+    assert.equal(saved.actors.vale.place, "station");
     assert.equal(saved.items["boardyai-calling-card"].holder, "vale");
     assert.equal(
       await page.locator('#hand [data-card="boardyai-calling-card"]').count(),
