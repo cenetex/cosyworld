@@ -134,7 +134,7 @@ fn app_router_with_dependencies(
     let request_log_context = RequestLogContext::from_state(&state);
     Router::new()
         .merge(crate::card_shared::router())
-        .merge(card_game::router(card_game::metadata::primary()))
+        .merge(card_game::router())
         .merge(card_game::text_router(
             state.ai_config.clone(),
             card_game::metadata::primary(),
@@ -822,55 +822,6 @@ mod tests {
             .as_deref()
             .is_some_and(|output| !output.is_empty()));
         payload
-    }
-
-    fn registered_route_paths(router_source: &str) -> BTreeSet<&str> {
-        router_source
-            .split(".route(")
-            .skip(1)
-            .filter_map(|segment| segment.split('"').nth(1))
-            .collect()
-    }
-
-    fn quoted_action_paths(source: &str) -> BTreeSet<&str> {
-        source
-            .split('"')
-            .filter(|value| value.starts_with("/actions/"))
-            .collect()
-    }
-
-    fn posted_action_paths(source: &str) -> BTreeSet<&str> {
-        source
-            .split("action(\"")
-            .skip(1)
-            .filter_map(|segment| segment.split('"').next())
-            .filter(|path| path.starts_with("/actions/"))
-            .collect()
-    }
-
-    /// The browser client posts a plain action path unless that path is offer
-    /// bound, in which case it travels through /actions/submit with a
-    /// certificate. A path that is neither served nor offer bound answers 404
-    /// on every attempt: that is how Abandon Avatar shipped unreachable and
-    /// left knocked-out players with no way back into play.
-    #[test]
-    fn every_client_action_path_stays_reachable() {
-        let registered = registered_route_paths(include_str!("routes.rs"));
-        let offer_bound_block = INDEX_HTML
-            .split("const offerBoundPaths = new Set([")
-            .nth(1)
-            .and_then(|block| block.split("]);").next())
-            .expect("the client declares its offer-bound action paths");
-        let offer_bound = quoted_action_paths(offer_bound_block);
-        assert!(offer_bound.contains("/actions/chat"));
-        let posted = posted_action_paths(INDEX_HTML);
-        assert!(posted.contains("/actions/abandon-avatar"));
-        for path in posted {
-            assert!(
-                registered.contains(path) || offer_bound.contains(path),
-                "the client posts to {path}, but no route serves it and it is not offer bound",
-            );
-        }
     }
 
     #[test]

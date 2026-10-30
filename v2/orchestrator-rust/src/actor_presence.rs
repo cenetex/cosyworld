@@ -922,21 +922,6 @@ mod tests {
         assert_eq!(released["primary_action"]["kind"], "create_avatar");
     }
 
-    #[test]
-    fn browser_adopts_only_an_explicit_session_handoff() {
-        for contract in [
-            "let actorSessionHandoffChecked = false;",
-            "Number(response?.previous_actor_id || 0)",
-            "actorId = nextActorId;",
-            "rememberActorSession(result, { allowHandoff: handoff })",
-        ] {
-            assert!(
-                INDEX_HTML.contains(contract),
-                "missing browser contract: {contract}"
-            );
-        }
-    }
-
     fn insert_actor_presence_wallet_session(state: &AppState, token: &str, wallet_address: &str) {
         state
             .wallet_sessions

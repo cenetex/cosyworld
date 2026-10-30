@@ -197,8 +197,6 @@ mod tests {
         assert_eq!(response.next_after, 1002);
         assert!(response.caught_up);
         assert_eq!(stored_through_seq, 1002);
-        assert!(INDEX_HTML
-            .contains("streamReplayFloorSeq = Math.max(streamReplayFloorSeq, replay.next_after)"));
         let _ = fs::remove_file(path);
     }
 

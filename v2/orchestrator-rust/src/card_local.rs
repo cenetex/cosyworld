@@ -92,7 +92,7 @@ pub(crate) async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>
     std::fs::create_dir_all(&config.data_dir)?;
     let listener = tokio::net::TcpListener::bind(config.address).await?;
     let state = Arc::new(config);
-    let app = super::router::<()>(true)
+    let app = super::router::<()>()
         .merge(super::narrative::router(Arc::new(Some(ai))))
         .merge(api(state.clone()))
         .merge(saves::router(state.data_dir.join("saves")))
@@ -287,7 +287,7 @@ mod tests {
     #[tokio::test]
     async fn local_assets_keep_the_web_bytes_and_cache_policy() {
         let state = config();
-        let app = super::super::router::<()>(true)
+        let app = super::super::router::<()>()
             .merge(api(state.clone()))
             .layer(middleware::from_fn_with_state(state, local_origin));
         let path = "forest.json";
