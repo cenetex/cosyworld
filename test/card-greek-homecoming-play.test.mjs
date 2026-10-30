@@ -153,6 +153,11 @@ describe("the household reaches its berth", () => {
       ["wait", {}],
       ["wait", {}],
       ["move", { target: "greek-ship" }],
+      // Athens Harbor has no lane to the Wine-Dark Harbor: sail by the pond.
+      ["course", { target: "pond" }],
+      ["wait", {}],
+      ["course", { target: "greek-harbor" }],
+      ["wait", {}],
       ["move", { target: "greek-harbor" }],
       ["move", { target: "greek-courtyard" }],
       ["choose", { choiceId: "greek-homecoming-read-berth-family" }],

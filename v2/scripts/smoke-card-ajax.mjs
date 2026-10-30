@@ -3,7 +3,12 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { encodeSave, legalActions } from "../card-game/world.mjs";
+import {
+  currentActor,
+  encodeSave,
+  legalActions,
+} from "../card-game/world.mjs";
+import { needsVoyage, nextVoyagePlay } from "../../test/helpers/voyage.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { packDefinition } from "../card-game/pack-registry.mjs";
 import { recitalPoem } from "../card-game/pack-recital.mjs";
@@ -157,6 +162,14 @@ export async function checkAjax(browser, origin) {
         const step = async ({ kind, ...fields }) => {
           current = { kind, ...fields };
           await settle();
+          // Aboard, a port is a voyage: the course card, a round at sea, Disembark.
+          for (let n = 0; n < 12 && kind === "move"; n++) {
+            const world = await state();
+            if (!needsVoyage(world, currentActor(world), fields.target)) break;
+            const next = nextVoyagePlay(world, currentActor(world), fields.target);
+            await step(next.target ? next : { kind: next.kind });
+          }
+          current = { kind, ...fields };
           if (kind === "move" && fields.target === "greek-ship") {
             for (
               let wait = 0;

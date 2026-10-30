@@ -126,38 +126,23 @@ fn replay_journey(version: &str) {
         "greek-harbor",
         "greek-courtyard",
     ] {
+        // Waiting brings the ship; aboard, a port is a voyage of course cards
+        // and rounds at sea along the lanes.
         for _ in 0..32 {
-            let view = w.project(0).unwrap();
-            let action = view["actions"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .find(|a| a["kind"] == "move" && a["target"] == target)
-                .cloned();
-            if let Some(action) = action {
-                full_store::commit(
-                    &c,
-                    &id,
-                    &mut w,
-                    json!({"op":"play","actor":"vale","action":action}),
-                    now(),
-                )
-                .unwrap();
+            if w.game["actors"]["vale"]["place"] == target {
                 break;
             }
-            assert_eq!(target, "greek-ship");
-            let wait = view["actions"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .find(|a| a["kind"] == "wait")
-                .unwrap()
-                .clone();
+            let action = super::sea_steps::toward(&w.project(0).unwrap()["actions"], target);
+            if action["kind"] == "wait" || action["kind"] == "course" {
+                assert!(
+                    target == "greek-ship" || w.game["actors"]["vale"]["place"] == "greek-ship"
+                );
+            }
             full_store::commit(
                 &c,
                 &id,
                 &mut w,
-                json!({"op":"play","actor":"vale","action":wait}),
+                json!({"op":"play","actor":"vale","action":action}),
                 now(),
             )
             .unwrap();

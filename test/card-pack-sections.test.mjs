@@ -1,3 +1,4 @@
+import { needsVoyage, sailTo } from "./helpers/voyage.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
@@ -37,6 +38,8 @@ const act = (world, kind, fields = {}) => {
     const steps = greekTravelTargets(world.actors.vale.place, fields.target);
     if (steps.length > 1)
       return steps.reduce((w, target) => act(w, "move", { target }), world);
+    if (needsVoyage(world, "vale", fields.target))
+      return sailTo(world, fields.target);
     if (fields.target === "greek-ship")
       for (
         let n = 0;

@@ -16,7 +16,8 @@ fn play(
         if let Some((_, target)) = fields.iter().find(|(k, _)| *k == "target") {
             let from = world.game["actors"][if actor == 0 { "vale" } else { "mara" }]["place"]
                 .as_str()
-                .unwrap();
+                .unwrap()
+                .to_string();
             if (from == "greek-eleusis" && *target == "greek-piraeus")
                 || (from == "greek-piraeus" && *target == "greek-eleusis")
             {
@@ -27,6 +28,26 @@ fn play(
                     actor,
                     &[("kind", "move"), ("target", "greek-road-piraeus-eleusis")],
                 );
+            }
+            // Aboard, a dock is a voyage: course, a round at sea, Disembark.
+            if from == "greek-ship" && *target != "greek-ship" {
+                let who = if actor == 0 { "vale" } else { "mara" };
+                for _ in 0..8 {
+                    let action =
+                        super::sea_steps::toward(&world.project(actor).unwrap()["actions"], target);
+                    full_store::commit(
+                        c,
+                        id,
+                        world,
+                        json!({"op":"play", "actor":who, "action":action}),
+                        now(),
+                    )
+                    .unwrap();
+                    if world.game["actors"][who]["place"] == *target {
+                        return action;
+                    }
+                }
+                panic!("{who} never reached {target}");
             }
         }
     }
@@ -169,7 +190,8 @@ fn agreed_household_journey_replays_after_released_history_with_both_care_choice
             let mut world = full_store::world(&c, &id, now()).unwrap();
             assert_eq!(world.version, engine::VERSION);
             assert_eq!(world.game["actors"][MYRINE]["place"], "greek-eleusis");
-            for key in ["turn", "eventSeq", "log", "transports"] {
+            super::sea_steps::assert_upgraded_ship(&world.game, &old.game);
+            for key in ["turn", "eventSeq", "log"] {
                 assert_eq!(world.game[key], old.game[key]);
             }
             for field in ["items", "crossings"] {

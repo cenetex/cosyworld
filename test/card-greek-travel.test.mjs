@@ -15,8 +15,10 @@ import {
   packDefinition,
   entityActive,
   localRoadEnds,
+  transports,
 } from "../v2/card-game/pack-registry.mjs";
 import { travelCard } from "../v2/card-game/scene.mjs";
+import { lanePath, lanesFrom } from "../v2/card-game/pack-transport.mjs";
 import { openDoorStart } from "./helpers/open-door.mjs";
 
 const docks = ["pond", "greek-harbor", "greek-athens-harbor", "greek-piraeus"];
@@ -67,18 +69,31 @@ describe("Greek ports and fixed roads", () => {
       w.items.lamp.holder = "vale";
       w = move(w, "vale", "greek-ship");
       w = move(w, "mara", "greek-ship");
+      // Course cards are the boarding port's lanes, never the port itself.
       expect(ask(w, "vale").exits).toEqual([
         "willows-landing",
-        ...docks.filter((d) => d !== from),
+        ...lanesFrom(transports["greek-ship"], from).filter((d) =>
+          entityActive(w, d),
+        ),
       ]);
-      const stale = ask(w, "mara").actions.find(
-        (a) =>
-          a.kind === "move" &&
-          a.target === docks.find((d) => d !== from && d !== to),
-      );
+      const path = lanePath(w, "greek-ship", from, to);
+      for (const lane of path.slice(1)) {
+        const stale = ask(w, "mara").actions.find(
+          (a) => a.kind === "course" && a.target !== lane,
+        );
+        w = play(w, "vale", "course", { target: lane });
+        if (stale)
+          expect(ask(w, "mara", { op: "play", action: stale }).ok).toBe(false);
+        expect(ask(w, "mara").exits).toEqual(["willows-landing"]);
+        w = play(w, "mara", "wait", {});
+        expect(w.transports["greek-ship"]).toMatchObject({
+          phase: "arrived",
+          dock: lane,
+        });
+      }
+      expect(ask(w, "mara").exits).toContain(to);
       w = move(w, "vale", to);
-      expect(ask(w, "mara").exits).toEqual(["willows-landing", to]);
-      expect(ask(w, "mara", { op: "play", action: stale }).ok).toBe(false);
+      expect(ask(w, "mara").exits).toContain(to);
       w = move(w, "mara", to);
       expect(w.transports["greek-ship"]).toMatchObject({
         dock: to,
@@ -152,13 +167,15 @@ describe("Greek ports and fixed roads", () => {
   it("gives a human aboard the first choice of port ahead of resident passengers", () => {
     let w = shared("greek-harbor");
     w.actors.moth.place = "greek-ship";
-    w.transports["greek-ship"].destination = "pond";
     w = move(w, "vale", "greek-ship");
     expect(
       legalActions(ask(w, "vale").world, "moth").filter(
-        (a) => a.kind === "move",
+        (a) =>
+          ["move", "course"].includes(a.kind) && a.target !== "willows-landing",
       ),
     ).toEqual([]);
+    w = play(w, "vale", "course", { target: "greek-piraeus" });
+    w = play(w, "vale", "wait", {});
     w = move(w, "vale", "greek-piraeus");
     expect(w.actors.moth.place).toBe("greek-piraeus");
     expect(w.actors.boardyai.place).toBe("boardyai-parlour");
@@ -204,7 +221,16 @@ describe("Greek ports and fixed roads", () => {
           },
         });
       expect(current.items).toMatchObject(old.items);
-      expect(current.transports).toEqual(old.transports);
+      // The version 2 leg becomes a docked ship waiting for its course.
+      expect(current.transports["greek-ship"]).toEqual({
+        version: 3,
+        phase: "docked",
+        dock: "pond",
+        destination: null,
+        riders: [],
+        since: current.turn,
+        recall: null,
+      });
       expect(current.packs["greek-drama"].revision).toBe(7);
       for (const [id, memory] of Object.entries(old.memories)) {
         const { seen, ...retained } = current.memories[id];

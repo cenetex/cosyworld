@@ -86,7 +86,12 @@ describe("the household save upgrade", () => {
         "forest-watch-bell": { holder: "forest-garden", history: [] },
         "forest-wolfprint-charm": { holder: "forest-trail", history: [] },
       });
-      for (const key of ["turn", "revision", "eventSeq", "log", "transports"])
+      // The version 2 ship keeps its dock as a version 3 record.
+      expect(after.transports["greek-ship"]).toMatchObject({
+        version: 3,
+        dock: before.transports["greek-ship"].dock,
+      });
+      for (const key of ["turn", "revision", "eventSeq", "log"])
         expect(after[key]).toEqual(before[key]);
       expect(after.crossings).toMatchObject(before.crossings);
       for (const [id, actor] of Object.entries(before.actors))

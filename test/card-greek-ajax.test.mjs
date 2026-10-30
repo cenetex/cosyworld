@@ -307,6 +307,11 @@ describe("shared Ajax testimony", () => {
         )
           act("mara", "wait");
       }
+      if (target === "greek-harbor") {
+        // The course card, then one round at sea.
+        act("mara", "course", { target });
+        act("mara", "wait");
+      }
       act("mara", "move", { target });
     }
     act("mara", "choose", { choiceId: "greek-ajax-return-public" });

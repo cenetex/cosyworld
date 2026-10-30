@@ -515,6 +515,7 @@ fn valid_outcome(outcome: &TurnOutcome) -> bool {
         "arrive"
             | "wait"
             | "move"
+            | "course"
             | "accompany"
             | "talk"
             | "ask"

@@ -109,24 +109,38 @@ try {
         await page.locator('#hand [data-card="greek-ship"]').waitFor();
       }
       const [vale, mara, ash] = pages;
-      async function move(page, actor, target) {
+      async function playCard(page, card, name) {
         await page.waitForFunction(
           () => document.querySelector("#hand")?.dataset.cooling === "false",
         );
+        const turn = world.turn;
         // A shared update can repaint the hand while another player boards.
         // The locator click follows the current card through that repaint.
-        await page.locator(`#hand [data-card="${target}"]`).click();
-        await page
-          .getByRole("button", {
-            name: target === "greek-ship" ? "Board" : "Disembark",
-            exact: true,
-          })
-          .click();
+        await page.locator(`#hand [data-card="${card}"]`).click();
+        await page.getByRole("button", { name, exact: true }).click();
+        for (let n = 0; n < 200 && world.turn === turn; n++)
+          await page.waitForTimeout(25);
+        assert.equal(world.turn, turn + 1, `${name} ${card} commits`);
+      }
+      async function move(page, actor, target) {
+        await playCard(
+          page,
+          target,
+          target === "greek-ship" ? "Board" : "Disembark",
+        );
         await page.waitForFunction(
           (place) => document.body.dataset.place === place,
           target,
         );
         assert.equal(world.actors[actor].place, target);
+      }
+      // The port card aboard sets the course; the deck card waits a round.
+      async function sail(page, port) {
+        await playCard(page, port, "Set course");
+        assert.equal(world.transports["greek-ship"].phase, "sea");
+        await playCard(page, "greek-ship", "Wait");
+        assert.equal(world.transports["greek-ship"].phase, "arrived");
+        assert.equal(world.transports["greek-ship"].dock, port);
       }
       await move(vale, "vale", "greek-ship");
       assert.equal(world.transports["greek-ship"].dock, "pond");
@@ -138,8 +152,8 @@ try {
         path: new URL(`boarding-${width}.png`, output).pathname,
       });
       await move(mara, "mara", "greek-ship");
-      await move(vale, "vale", "greek-harbor");
-      assert.equal(world.transports["greek-ship"].dock, "greek-harbor");
+      await playCard(vale, "greek-harbor", "Set course");
+      // At sea the ship has left the pond.
       await ash
         .locator('#hand [data-card="greek-ship"]')
         .waitFor({ state: "detached" });
@@ -148,14 +162,21 @@ try {
           !document.querySelector("#location-overlay") ||
           document.querySelector("#location-overlay").hidden,
       );
+      await vale.screenshot({
+        path: new URL(`at-sea-${width}.png`, output).pathname,
+      });
+      await playCard(vale, "greek-ship", "Wait");
+      await move(vale, "vale", "greek-harbor");
+      assert.equal(world.transports["greek-ship"].dock, "greek-harbor");
       await mara.locator('#hand [data-card="greek-harbor"]').waitFor();
       await move(vale, "vale", "greek-ship");
       assert.equal(world.actors.mara.place, "greek-ship");
       await mara.locator('#hand [data-card="pond"]').waitFor();
+      await sail(vale, "pond");
       await move(vale, "vale", "pond");
       await ash.locator('#hand [data-card="greek-ship"]').waitFor();
       await move(ash, "ash", "greek-ship");
-      await move(ash, "ash", "greek-harbor");
+      await sail(ash, "greek-harbor");
       await move(mara, "mara", "greek-harbor");
       await mara.screenshot({
         path: new URL(`arrival-${width}.png`, output).pathname,

@@ -70,6 +70,22 @@ describe("roads around a full Agora", () => {
           expect(result.ok).toBe(true);
           world = result.world;
         }
+        // Aboard, the destination card sets the course; a round at sea follows.
+        if (world.actors.vale.place === "greek-ship")
+          for (const kind of ["course", "wait"]) {
+            const action = agoraView(world).actions.find(
+              (a) => a.kind === kind && (kind === "wait" || a.target === next),
+            );
+            expect(action, `${kind} toward ${next}`).toBeDefined();
+            world = dispatchShared({
+              op: "play",
+              world,
+              actor: "vale",
+              claimed: agoraVisitors,
+              present: agoraVisitors,
+              action,
+            }).world;
+          }
         const view = agoraView(decodeSave(encodeSave(world)));
         expect(view.world.presentActors).toHaveLength(5);
         expect(view.exits).not.toContain("greek-athens");
@@ -141,9 +157,12 @@ describe("roads around a full Agora", () => {
     const open = crowdedAgoraWorld();
     open.actors.vale.place = "greek-ship";
     open.transports["greek-ship"] = {
-      version: 2,
+      version: 3,
+      phase: "docked",
       dock: "greek-harbor",
-      destination: "pond",
+      destination: null,
+      riders: [],
+      since: open.turn,
       recall: null,
     };
     expect(agoraView(decodeSave(encodeSave(open))).exits).toContain(

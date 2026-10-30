@@ -1,3 +1,4 @@
+import { needsVoyage, sailTo } from "./helpers/voyage.mjs";
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
@@ -76,6 +77,8 @@ const legacy = (name) =>
     ),
   );
 const act = (s, kind, fields = {}) => {
+  if (kind === "move" && needsVoyage(s, "vale", fields.target))
+    return sailTo(s, fields.target);
   const a = legalActions(s).find(
     (a) =>
       a.kind === kind && Object.entries(fields).every(([k, v]) => a[k] === v),

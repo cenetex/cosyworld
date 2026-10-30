@@ -397,6 +397,10 @@ try {
       await ready();
       assert.equal((await state()).actors.vale.place, "greek-ship");
       assert.equal(await card("pond").count(), 0);
+      // The harbor card sets the course; a round at sea, then Disembark.
+      await cards("greek-harbor");
+      assert.equal((await state()).transports["greek-ship"].phase, "sea");
+      await cards("vale");
       await cards("greek-harbor");
       assert.equal((await state()).actors.vale.place, "greek-harbor");
       assert.equal((await state()).items.lamp.holder, "vale");

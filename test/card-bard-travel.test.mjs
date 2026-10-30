@@ -23,7 +23,14 @@ import { addQuestRecord, joinQuest } from "../v2/card-game/shared-quests.mjs";
 import { recordQuestCompletion } from "../v2/card-game/quest-completions.mjs";
 import { rememberRoutes } from "../v2/card-game/roaming-quests.mjs";
 import { humanAvatarIds } from "../v2/card-game/human-cast.mjs";
+import { needsVoyage, sailTo } from "./helpers/voyage.mjs";
 const singer = "greek-rhapsode";
+// A voyage takes a world round, so a sea crossing takes a few plays.
+function untilSinger(s, place, limit = 8) {
+  for (let turn = 0; turn < limit && s.actors[singer].place !== place; turn++)
+    s = act(s);
+  return s;
+}
 function complete(
   s,
   location,
@@ -43,6 +50,12 @@ function complete(
   return recordQuestCompletion(s, q, { actorId: actor, locationId: location });
 }
 function act(s, kind = "wait", fields = {}, actor = "vale") {
+  if (
+    kind === "move" &&
+    Object.keys(fields).join() === "target" &&
+    needsVoyage(s, actor, fields.target)
+  )
+    return sailTo(s, fields.target, { actor });
   const action = legalActions(s, actor).find(
     (a) =>
       a.kind === kind && Object.entries(fields).every(([k, v]) => a[k] === v),
@@ -98,14 +111,14 @@ describe("ordinary bard travel", () => {
     });
     s.crossings["pond-greek-harbor"].discovered = true;
     s = act(s, "light", { item: "lamp" });
-    s = act(s);
-    s = act(s);
+    s = untilSinger(s, "attic");
     expect(s.actors[singer].place).toBe("attic");
-    expect(s.opening.met[singer]).toBe(3);
+    const firstMet = s.turn;
+    expect(s.opening.met[singer]).toBe(firstMet);
     const nextPurpose = generateProgram(s, "vale", places, things);
     expect(nextPurpose.generated.solo).toBe(true);
     expect(nextPurpose.steps.every((h) => h.avatars.length === 0)).toBe(true);
-    expect(s.packs["greek-drama"].met[singer]).toBe(3);
+    expect(s.packs["greek-drama"].met[singer]).toBe(firstMet);
     expect(
       legalActions(s).some((a) => a.kind === "talk" && a.target === singer),
     ).toBe(true);
@@ -161,29 +174,35 @@ describe("ordinary bard travel", () => {
       s.quests.records[s.roamingQuests[singer].questKey].completedTurn,
     ).toBe(3);
   });
-  it("uses the actual ship, waits for its return, and preserves destination through reload", () => {
+  it("calls the actual ship, sails it, and preserves destination through reload", () => {
     let s = createWorld();
-    s.actors.vale.place = "pond";
+    // Vale waits away from the ship, so the Bard may call it.
+    s.actors.vale.place = "station";
     s.actors[singer].place = "greek-harbor";
     complete(s, "pond");
     s.transports["greek-ship"].dock = "pond";
     s.crossings["pond-greek-harbor"].discovered = true;
+    // Waiting at the harbor, the Bard asks for passage and calls the ship
+    // one lane closer.
     s = act(s);
     expect(s.actors[singer].place).toBe("greek-harbor");
-    const help = s.roamingQuests[singer].blocked.questKey;
-    s = act(s);
-    expect(s.roamingQuests[singer].blocked.questKey).toBe(help);
-    s = act(s, "move", { target: "greek-ship" });
-    expect(s.actors[singer].place).toBe("greek-harbor");
-    s = act(s, "move", { target: "greek-harbor" });
-    expect(s.actors[singer].place).toBe("greek-ship");
+    expect(s.roamingQuests[singer].blocked.questKey).toBeTruthy();
     expect(s.transports["greek-ship"]).toMatchObject({
+      phase: "docked",
       dock: "greek-harbor",
-      destination: "pond",
     });
     s = act(s);
+    expect(s.actors[singer].place).toBe("greek-ship");
+    s = decodeSave(encodeSave(s));
+    // Alone aboard, the Bard sets the course and lands after a round at sea.
+    s = act(s);
+    expect(s.transports["greek-ship"]).toMatchObject({
+      phase: "sea",
+      destination: "pond",
+    });
+    s = untilSinger(s, "pond", 3);
     expect(s.actors[singer].place).toBe("pond");
-    expect(s.transports["greek-ship"].dock).toBe("greek-harbor");
+    expect(s.transports["greek-ship"].dock).toBe("pond");
   });
   it("keeps a player-only home door subject to the real item gate and rejects stale travel", () => {
     let s = shared();
@@ -270,8 +289,13 @@ describe("ordinary bard travel", () => {
     s.actors.mara.place = "theatre";
     s = act(s);
     expect(s.roamingQuests[singer].target).toEqual(latest);
-    expect(s.actors[singer].place).toBe("greek-harbor");
-    // A ship's committed destination remains fixed while someone is aboard.
+    // A boarder cannot step straight back ashore: the Bard sails out to the
+    // harbor and back, then lands at the pond on the way to the station.
+    s = untilSinger(s, "pond", 6);
+    expect(s.actors[singer].place).toBe("pond");
+    expect(
+      s.log.some((e) => e.text === "Greek ship docks at The Wine-Dark Harbor."),
+    ).toBe(true);
     expect(s.roamingQuests[singer].history.length).toBeGreaterThan(0);
   });
   it("retains a joined helper's compact card through more than32 retargets and reload", () => {

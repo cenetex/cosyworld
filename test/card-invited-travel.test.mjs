@@ -63,6 +63,21 @@ describe("invited companion travel", () => {
     s.transports["greek-ship"].dock = "pond";
     s.crossings["pond-greek-harbor"].discovered = true;
     for (const destination of ["greek-ship", "greek-harbor"]) {
+      if (destination === "greek-harbor") {
+        // Rue sets the course; the party rides one round at sea.
+        for (const kind of ["course", "wait"])
+          s = play(
+            s,
+            legalActions(s, "rue").find((a) => a.kind === kind),
+            s.revision,
+            "rue",
+          ).state;
+        expect(s.transports["greek-ship"]).toMatchObject({
+          phase: "arrived",
+          dock: "greek-harbor",
+          riders: ["moth", "rue"],
+        });
+      }
       const action = legalActions(s, "rue").find(
         (a) =>
           a.kind === "accompany" &&
@@ -75,17 +90,20 @@ describe("invited companion travel", () => {
       expect(s.actors.moth.place).toBe(destination);
       expect(decodeSave(encodeSave(s))).toEqual(s);
       if (destination === "greek-ship")
-        expect(s.transports["greek-ship"]).toEqual({
-          version: 2,
+        expect(s.transports["greek-ship"]).toMatchObject({
+          version: 3,
+          phase: "docked",
           dock: "pond",
-          destination: "greek-harbor",
+          destination: null,
           recall: null,
         });
     }
-    expect(s.transports["greek-ship"]).toEqual({
-      version: 2,
+    expect(s.transports["greek-ship"]).toMatchObject({
+      version: 3,
+      phase: "docked",
       dock: "greek-harbor",
       destination: null,
+      riders: [],
       recall: null,
     });
     expect(s.actors.rue.crossed).toBe(2);

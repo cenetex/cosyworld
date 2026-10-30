@@ -18,7 +18,7 @@ import {
   localRoadEnds,
 } from "./pack-registry.mjs";
 import { humanAvatarIds } from "./human-cast.mjs";
-import { passengers } from "./pack-transport.mjs";
+import { passengers, upgradeTransportState } from "./pack-transport.mjs";
 import { installKnowledge } from "./knowledge.mjs";
 import { newTemperament } from "./pack-rules.mjs";
 
@@ -437,6 +437,17 @@ function upgradeBoardingSave(s) {
     if (occupied)
       state.dock = transport.docks.find((dock) => dock !== state.destination);
     state.version = 2;
+  }
+  // Version 3 ships sail lanes and take a world round at sea.
+  for (const id of Object.keys(transports)) {
+    const state = s.transports?.[id];
+    if (state?.version !== 2) continue;
+    if (
+      Object.keys(state).sort().join() !== "destination,dock,recall,version" ||
+      !transports[id].docks.includes(state.dock)
+    )
+      throw new Error("This save has an invalid ship record.");
+    s.transports[id] = upgradeTransportState(s, id, state);
   }
 }
 

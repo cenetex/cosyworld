@@ -56,7 +56,12 @@ describe("Greek section save upgrade", () => {
         ...before.packs["greek-drama"],
         revision: 7,
       });
-      for (const field of ["turn", "revision", "eventSeq", "log", "transports"])
+      // The version 2 ship keeps its dock as a version 3 record.
+      expect(after.transports["greek-ship"]).toMatchObject({
+        version: 3,
+        dock: before.transports["greek-ship"].dock,
+      });
+      for (const field of ["turn", "revision", "eventSeq", "log"])
         expect(after[field]).toEqual(before[field]);
       expect(after.crossings).toEqual({
         ...before.crossings,

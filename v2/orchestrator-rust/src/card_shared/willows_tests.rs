@@ -67,6 +67,29 @@ fn replay_willows(version: &str) {
         ("choiceId", "willows-choose-departure"),
         ("target", "greek-ship"),
     ] {
+        // A resident may have called the empty ship away; waiting at the
+        // pond brings it back one lane a round.
+        if field == "target" && value == "greek-ship" {
+            for _ in 0..8 {
+                let view = world.project(0).unwrap();
+                let actions = view["actions"].as_array().unwrap();
+                if actions
+                    .iter()
+                    .any(|a| a["kind"] == "move" && a["target"] == value)
+                {
+                    break;
+                }
+                let wait = actions.iter().find(|a| a["kind"] == "wait").unwrap().clone();
+                full_store::commit(
+                    &c,
+                    &id,
+                    &mut world,
+                    json!({"op":"play","actor":"vale","action":wait}),
+                    now(),
+                )
+                .unwrap();
+            }
+        }
         let view = world.project(0).unwrap();
         let action = view["actions"]
             .as_array()

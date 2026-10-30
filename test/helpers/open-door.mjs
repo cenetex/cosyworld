@@ -1,4 +1,9 @@
-import { legalActions, play } from "../../v2/card-game/world.mjs";
+import {
+  currentActor,
+  legalActions,
+  play,
+} from "../../v2/card-game/world.mjs";
+import { needsVoyage, sailTo } from "./voyage.mjs";
 import { packDefinition } from "../../v2/card-game/pack-registry.mjs";
 import { openingFixture } from "./greek-opening.mjs";
 import { greekTravelTargets, greekMoveSteps } from "./greek-travel.mjs";
@@ -25,6 +30,12 @@ export function openDoorAction(world, kind, fields = {}) {
 }
 
 export function playOpenDoor(world, kind, fields = {}) {
+  if (
+    kind === "move" &&
+    Object.keys(fields).join() === "target" &&
+    needsVoyage(world, currentActor(world), fields.target)
+  )
+    return sailTo(world, fields.target);
   if (kind === "move" && fields.target === "greek-ship") {
     for (
       let wait = 0;

@@ -166,9 +166,12 @@ describe("introduction quests", () => {
     w.actors.boardyai.place = "pond";
     w.crossings["pond-greek-harbor"].discovered = true;
     w.transports["greek-ship"] = {
-      version: 2,
+      version: 3,
+      phase: "docked",
       dock: "pond",
       destination: null,
+      riders: [],
+      since: w.turn,
       recall: null,
     };
     w.memories.boardyai.seen.vale = {
@@ -179,9 +182,12 @@ describe("introduction quests", () => {
     w.introductionVisits.boardyai.next = "vale";
     w = step(w);
     expect(w.actors.boardyai.place).toBe("greek-ship");
-    expect(w.transports["greek-ship"].destination).toBe("greek-harbor");
     expect(decodeSave(encodeSave(w))).toEqual(w);
+    // Alone aboard, Boardy sets the course and lands after a round at sea.
     w = step(w);
+    expect(w.transports["greek-ship"].destination).toBe("greek-harbor");
+    for (let n = 0; n < 3 && w.actors.boardyai.place !== "greek-harbor"; n++)
+      w = step(w);
     expect(w.actors.boardyai.place).toBe("greek-harbor");
     expect(w.transports["greek-ship"].destination).toBeNull();
   });

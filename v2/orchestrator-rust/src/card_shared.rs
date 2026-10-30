@@ -20,6 +20,8 @@ mod opening_tests;
 #[cfg(test)]
 mod quest_core_tests;
 #[cfg(test)]
+mod sea_steps;
+#[cfg(test)]
 mod section_tests;
 #[cfg(test)]
 mod speech;

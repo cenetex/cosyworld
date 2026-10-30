@@ -43,6 +43,12 @@ const act = (world, kind, target) => {
   return result.state;
 };
 const bard = "greek-rhapsode";
+// The Bard may still be at sea; a voyage takes a world round.
+const untilBard = (world, place) => {
+  for (let turn = 0; turn < 8 && world.actors[bard].place !== place; turn++)
+    world = act(reload(world), "wait");
+  return world;
+};
 const facts = (world) =>
   narrativeContext(world).entities.find((e) => e.id === bard)?.facts || [];
 
@@ -107,7 +113,11 @@ describe("the opening poem", () => {
     expect(s.water.roamingQuests[bard].target.locationId).toBe(
       "greek-courtyard",
     );
-    const arrived = act(reload(s.water), "wait");
+    // The Bard is still at sea. Keep the shore cast's own quests from
+    // naming a newer site while he sails back.
+    const water = structuredClone(s.water);
+    water.actors.moth.place = water.actors.keeper.place = "greek-battlefield";
+    const arrived = untilBard(act(reload(water), "wait"), "greek-courtyard");
     expect(arrived.actors[bard].place).toBe("greek-courtyard");
     const waiting = act(reload(arrived), "wait");
     expect(waiting.actors[bard].place).toBe("greek-courtyard");
@@ -125,7 +135,7 @@ describe("the opening poem", () => {
     "carries the whole %s poem into a later conversation",
     (branch) => {
       const s = openingFixture(branch);
-      const next = act(reload(s.closed), "wait");
+      const next = untilBard(act(reload(s.closed), "wait"), "greek-courtyard");
       expect(next.actors[bard].place).toBe("greek-courtyard");
       const talked = act(reload(next), "talk", bard);
       const context = narrativeContext(talked);
@@ -147,11 +157,12 @@ describe("the opening poem", () => {
     },
   );
 
-  it("adds the report when the bard reaches its saved site in the same turn", () => {
+  it("adds the report when the bard reaches its saved site", () => {
     const s = openingFixture("refusal");
     expect(poemText(s.returning)).toContain("I told her I would turn away.");
-    expect(s.closed.actors[bard].place).toBe("greek-courtyard");
-    expect(poemText(act(s.closed, "talk", bard))).toContain(
+    const closed = untilBard(s.closed, "greek-courtyard");
+    expect(closed.actors[bard].place).toBe("greek-courtyard");
+    expect(poemText(act(closed, "talk", bard))).toContain(
       "I told her how I turned away.",
     );
   });

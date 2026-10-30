@@ -231,6 +231,17 @@ fn ajax_appeal_custody_spoken_accounts_and_second_carrier_replay_from_the_journa
                 play(&c, &id, &mut world, 1, &[("kind", "wait")]);
             }
         }
+        if target == "greek-harbor" {
+            // The course card, then one round at sea before Disembark.
+            play(
+                &c,
+                &id,
+                &mut world,
+                1,
+                &[("kind", "course"), ("target", target)],
+            );
+            play(&c, &id, &mut world, 1, &[("kind", "wait")]);
+        }
         play(
             &c,
             &id,
@@ -296,19 +307,13 @@ fn ajax_upgrade_keeps_a_released_nineteen_camp_visit_and_replays_its_exit() {
         assert_eq!(current.game["packs"]["greek-drama"]["revision"], 7);
         assert_eq!(current.claimed, old.claimed);
         assert_eq!(current.present, old.present);
-        for field in [
-            "turn",
-            "eventSeq",
-            "log",
-            "transports",
-            "routeKnowledge",
-            "knowledge",
-        ] {
+        for field in ["turn", "eventSeq", "log", "routeKnowledge", "knowledge"] {
             assert_eq!(current.game[field], old.game[field], "Preserve {field}");
         }
         // BoardyAI revision 2 carries his card from the pond to the station door.
         let mut saved = old.game.clone();
         saved["items"]["boardyai-calling-card"]["holder"] = json!("station");
+        super::sea_steps::assert_upgraded_ship(&current.game, &old.game);
         for field in ["items", "peaceUntil"] {
             for (key, value) in saved[field].as_object().unwrap() {
                 assert_eq!(&current.game[field][key], value);

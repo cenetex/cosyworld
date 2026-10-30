@@ -250,21 +250,22 @@ fn first_ship_signal_unlocks_shared_round_trips_and_replays() {
     )
     .unwrap();
     for target in ["greek-ship", "greek-harbor", "greek-ship", "pond"] {
-        let action = w.project(1).unwrap()["actions"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|a| a["kind"] == "move" && a["target"] == target)
-            .unwrap()
-            .clone();
-        full_store::commit(
-            &c,
-            &id,
-            &mut w,
-            json!({"op":"play","actor":"mara","action":action}),
-            now(),
-        )
-        .unwrap();
+        // A voyage is a course card, a round at sea and the Disembark card.
+        for _ in 0..8 {
+            if w.game["actors"]["mara"]["place"] == target {
+                break;
+            }
+            let action = super::sea_steps::toward(&w.project(1).unwrap()["actions"], target);
+            full_store::commit(
+                &c,
+                &id,
+                &mut w,
+                json!({"op":"play","actor":"mara","action":action}),
+                now(),
+            )
+            .unwrap();
+        }
+        assert_eq!(w.game["actors"]["mara"]["place"], target);
     }
     assert_eq!(w.game["actors"]["mara"]["place"], "pond");
     assert_eq!(w.game["items"]["lamp"]["lit"], false);
@@ -356,21 +357,22 @@ fn occupied_ship_upgrade_preserves_shared_boarding_return_riders_and_replay() {
         w.game["transports"]["greek-ship"]["dock"] = json!("pond");
         full_store::seed(&c, &id, &w, "released-ship", now()).unwrap();
         let sail = |world: &mut World, actor: usize, target: &str| {
-            let action = world.project(actor).unwrap()["actions"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .find(|a| a["kind"] == "move" && a["target"] == target)
-                .unwrap()
-                .clone();
-            full_store::commit(
-                &c,
-                &id,
-                world,
-                json!({"op":"play","actor":actor_id(actor),"action":action}),
-                now(),
-            )
-            .unwrap();
+            for _ in 0..8 {
+                if world.game["actors"][actor_id(actor)]["place"] == target {
+                    return;
+                }
+                let action =
+                    super::sea_steps::toward(&world.project(actor).unwrap()["actions"], target);
+                full_store::commit(
+                    &c,
+                    &id,
+                    world,
+                    json!({"op":"play","actor":actor_id(actor),"action":action}),
+                    now(),
+                )
+                .unwrap();
+            }
+            panic!("{} never reached {target}", actor_id(actor));
         };
         sail(&mut w, 0, "greek-ship");
         assert!(w.game["transports"]["greek-ship"]["dock"].is_null());
@@ -383,8 +385,9 @@ fn occupied_ship_upgrade_preserves_shared_boarding_return_riders_and_replay() {
         sail(&mut w, 0, "greek-harbor");
         assert_eq!(w.game["transports"]["greek-ship"]["dock"], "greek-harbor");
         sail(&mut w, 0, "greek-ship");
+        // Mara rode in and stays aboard; Vale boarded here and sets the course.
         assert_eq!(w.game["actors"]["mara"]["place"], "greek-ship");
-        assert_eq!(w.game["transports"]["greek-ship"]["destination"], "pond");
+        assert_eq!(w.game["transports"]["greek-ship"]["phase"], "arrived");
         sail(&mut w, 0, "pond");
         sail(&mut w, 1, "pond");
         c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
@@ -2322,7 +2325,8 @@ fn bard_passage_help_uses_authoritative_home_and_ship_actions_and_replays() {
         w.game["actors"]["moth"]["place"] = json!("greek-battlefield");
         w.game["actors"]["keeper"]["place"] = json!("greek-battlefield");
         let start = if sea { "greek-harbor" } else { "theatre" };
-        w.game["actors"]["vale"]["place"] = json!(if sea { "pond" } else { "theatre" });
+        // Vale waits away from the ship, so the Bard may call it.
+        w.game["actors"]["vale"]["place"] = json!(if sea { "station" } else { "theatre" });
         w.game["actors"]["greek-rhapsode"]["place"] = json!(start);
         w.game["items"]["mask"]["holder"] = json!("theatre");
         w.game["items"]["lamp"]["holder"] = json!("vale");
@@ -2364,17 +2368,22 @@ fn bard_passage_help_uses_authoritative_home_and_ship_actions_and_replays() {
             .as_str()
             .unwrap()
             .to_string();
-        play(&mut w, "wait", "", "");
-        assert_eq!(
-            w.game["roamingQuests"]["greek-rhapsode"]["blocked"]["questKey"],
-            help
-        );
         if sea {
-            play(&mut w, "move", "target", "greek-ship");
-            play(&mut w, "move", "target", "greek-harbor");
-            assert_eq!(w.game["actors"]["greek-rhapsode"]["place"], "greek-ship");
-            play(&mut w, "wait", "", "");
+            // Waiting to board, the Bard calls the empty ship one lane to the
+            // harbor, boards, sets his own course and spends a round at sea.
+            assert_eq!(w.game["transports"]["greek-ship"]["dock"], "greek-harbor");
+            for _ in 0..6 {
+                if w.game["actors"]["greek-rhapsode"]["place"] == "pond" {
+                    break;
+                }
+                play(&mut w, "wait", "", "");
+            }
         } else {
+            play(&mut w, "wait", "", "");
+            assert_eq!(
+                w.game["roamingQuests"]["greek-rhapsode"]["blocked"]["questKey"],
+                help
+            );
             play(&mut w, "join-quest", "questKey", &help);
             play(&mut w, "take", "item", "mask");
         }

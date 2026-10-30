@@ -6,6 +6,7 @@ import { createServer } from "node:http";
 import { spawn } from "node:child_process";
 import { chromium } from "playwright";
 import { encodeSave } from "../card-game/world.mjs";
+import { courseToward } from "../card-game/pack-transport.mjs";
 import { greekTravelTargets } from "../../test/helpers/greek-travel.mjs";
 import {
   agoraVisitors,
@@ -203,6 +204,19 @@ try {
             break;
           await step("wait");
         }
+      // Aboard, a port is a voyage: course cards and rounds at sea.
+      for (let n = 0; n < 12; n++) {
+        const here = await view(vale);
+        if (
+          here.world.actors.vale.place !== "greek-ship" ||
+          here.actions.some((a) => a.kind === "move" && a.target === target)
+        )
+          break;
+        const lane = courseToward(here.world, "greek-ship", target);
+        if (here.actions.some((a) => a.kind === "course" && a.target === lane))
+          await step("course", lane);
+        else await step("wait");
+      }
       await step("move", target);
       assert.equal((await view(vale)).world.actors.vale.place, target);
     }
