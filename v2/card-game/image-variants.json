@@ -593,7 +593,7 @@
       "stage": "assets/greek-drama/open-door-colonus-night.webp",
       "stageHash": "3edc92247cce47f1b28e8c5c3d05222703980cb18e8b1cffa8721944913d710e",
       "card": "assets/optimized/card/webp/greek-drama/open-door-colonus-night.webp",
-      "cardHash": "2babef3cf1251faf8c7aa906b3c0cd102abe3f6b05bc23cc225b55d135da3881"
+      "cardHash": "4153625a3c226ddc38253333560deb855672772df1f662bd2e03713cff5179cd"
     },
     "assets/greek-drama/open-door-colonus.webp": {
       "sourceHash": "ce76091cd3f94db6dec9db104f6ab0d67fa81af1670089d731130a29e4625fb7",
@@ -607,7 +607,7 @@
       "stage": "assets/greek-drama/open-door-eleusis-night.webp",
       "stageHash": "683c290fab7bb78b534d3c024b01ed1f549a7f7ee18f933fc05d2e535297cd71",
       "card": "assets/optimized/card/webp/greek-drama/open-door-eleusis-night.webp",
-      "cardHash": "5c5687c29c17d1dc02af37ce5919729dba7611d81204228e53c19ece56c8c221"
+      "cardHash": "cd491ea27aa44fc4aa470fad445b5d456c71de1ac3a1de48e72b1dc13674f1e7"
     },
     "assets/greek-drama/open-door-eleusis.webp": {
       "sourceHash": "e792c1dc93672b1f39dc8db45090a35238cb135e47649caafcf1733af6e170bb",

@@ -45,6 +45,22 @@ try {
         action,
       }).world;
     }
+    // With one connected human, Boardy and his calling card stay away.
+    {
+      const alone = structuredClone(seed);
+      alone.actors.vale.place = "station";
+      const view = dispatchShared({
+        op: "view",
+        world: alone,
+        ...membership,
+        present: ["vale"],
+      });
+      assert(!view.exits.includes("boardyai-parlour"));
+      assert(
+        !view.actions.some((a) => a.item === "boardyai-calling-card"),
+        "one human sees no calling card",
+      );
+    }
     // Boardy steps out of his station door and meets Vale at the pond.
     const world = {
       ...seed,
