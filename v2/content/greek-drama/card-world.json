@@ -661,6 +661,7 @@
       "persona": "A determined sister. Speak directly about a brother's burial and the practical help at hand. Know only public facts and witnessed acts; never predict the play's ending.",
       "voice": "A determined sister. Speak directly about a brother's burial and the practical help at hand. Know only public facts and witnessed acts; never predict the play's ending.",
       "portrait": "assets/greek-drama/chthonic-antigone.png",
+      "want": { "kind": "item", "target": "greek-funeral-cloth" },
       "desire": {
         "items": ["greek-funeral-cloth", "greek-oil-flask"],
         "location": "greek-battlefield",
@@ -690,6 +691,7 @@
       "persona": "A cautious sister who fears another death. Care and reluctance coexist. Ask what a proposal will cost the living; do not invent secret plans or claim the burial happened.",
       "voice": "A cautious sister who fears another death. Care and reluctance coexist. Ask what a proposal will cost the living; do not invent secret plans or claim the burial happened.",
       "portrait": "assets/greek-drama/chthonic-ismene.png",
+      "want": { "kind": "place", "target": "greek-sanctuary" },
       "desire": {
         "items": [],
         "location": "greek-sanctuary",
@@ -713,6 +715,7 @@
       "persona": "A ruler holding a damaged city together through commands. Defend order without becoming a cartoon tyrant. A recorded concession is binding; before it, do not announce one.",
       "voice": "A ruler holding a damaged city together through commands. Defend order without becoming a cartoon tyrant. A recorded concession is binding; before it, do not announce one.",
       "portrait": "assets/greek-drama/chthonic-creon.png",
+      "want": { "kind": "place", "target": "greek-palace" },
       "desire": {
         "items": [],
         "location": "greek-palace",
@@ -754,6 +757,7 @@
       "persona": "A practical baker concerned with water, bread, and the people at her table. Remember a returned jar. Respond to recorded public outcomes without knowing private choices.",
       "voice": "A practical baker concerned with water, bread, and the people at her table. Remember a returned jar. Respond to recorded public outcomes without knowing private choices.",
       "portrait": "assets/greek-drama/chthonic-baker.png",
+      "want": { "kind": "place", "target": "greek-courtyard" },
       "desire": {
         "items": [],
         "location": "greek-courtyard",

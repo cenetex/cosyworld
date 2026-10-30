@@ -71,6 +71,7 @@
         "willows-rope": 6,
         "willows-sheet": 6
       },
+      "want": { "kind": "item", "target": "willows-paddle" },
       "desire": {
         "items": [],
         "location": null,
