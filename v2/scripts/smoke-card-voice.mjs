@@ -136,14 +136,19 @@ try {
       );
       await page.waitForSelector("#dialogue-text .speech-letter");
       assert.equal(await page.locator("#speaker").innerText(), "Vale");
-      assert.match(
+      // A new game asks the model for Vale's first line: no action, Vale alone.
+      assert.equal(
         await page.locator("#dialogue-text").textContent(),
-        /It's cold up here/,
+        reaction("arrive"),
       );
-      assert.equal(requests.length, 0);
+      assert.equal(requests.length, 1);
+      assert.equal(requests[0].turn, 0);
+      assert.equal(requests[0].action, null);
+      assert.deepEqual(requests[0].speakers, ["vale"]);
       await finish();
       await page.reload();
       await finish();
+      assert.equal(requests.length, 1, "Reload keeps the generated opening");
       const opening = await page.evaluate(
         (key) => JSON.parse(localStorage.getItem(key)),
         key,
@@ -249,6 +254,83 @@ try {
     } finally {
       await page.close();
     }
+  }
+  // When the model gives no opening line, the authored line is shown. It is
+  // marked as a fallback, so Retry still asks the model for Vale's words.
+  const page = await browser.newPage({
+    viewport: { width: 1440, height: 900 },
+  });
+  page.setDefaultTimeout(40000);
+  const key = "cosyworld.reflected-shore.v1.voice-fallback",
+    errors = [],
+    requests = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.addInitScript(() => {
+    localStorage.setItem("cosyworld.dialogue.sound", "off");
+    localStorage.setItem(
+      "cosyworld.room-music",
+      JSON.stringify({ enabled: false }),
+    );
+  });
+  let failing = true;
+  await page.route("**/card-game/text", (route) => {
+    const input = route.request().postDataJSON();
+    requests.push(input);
+    if (failing)
+      return route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "Model unavailable." }),
+      });
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        revision: input.revision,
+        model: "voice-fixture",
+        entries: input.entities.map(({ id }) => ({
+          id,
+          text: id === "vale" ? "Dust and a dark mirror. Hello?" : "Dust.",
+        })),
+      }),
+    });
+  });
+  const saved = () =>
+    page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
+  const valeLines = async () =>
+    (await saved()).log.filter(
+      (line) => line.kind === "dialogue" && line.actorId === "vale",
+    );
+  try {
+    await page.goto(
+      `http://127.0.0.1:${server.address().port}/?table=voice-fallback`,
+    );
+    await page.waitForFunction(
+      () => document.querySelector("#dialogue-text")?.textContent.length > 0,
+    );
+    await page.waitForFunction(() =>
+      /It's cold up here/.test(
+        document.querySelector("#dialogue-text").textContent,
+      ),
+    );
+    assert.ok(requests.length >= 1);
+    assert.ok(await page.locator("#story-retry").isVisible());
+    let lines = await valeLines();
+    assert.equal(lines.length, 1);
+    assert.equal(lines[0].fallback, true);
+    failing = false;
+    await page.locator("#story-retry").click();
+    await page.waitForFunction(() =>
+      /Hello\?/.test(document.querySelector("#dialogue-text").textContent),
+    );
+    lines = await valeLines();
+    assert.equal(lines.length, 1, "The model line replaces the fallback");
+    assert.equal(lines[0].text, "Dust and a dark mirror. Hello?");
+    assert.equal(lines[0].fallback, undefined);
+    assert.deepEqual(errors, []);
+    console.log(`Opening fallback and retry passed in ${type}.`);
+  } finally {
+    await page.close();
   }
 } finally {
   await browser.close();

@@ -203,8 +203,10 @@ try {
         assert.equal(await card("vale").isDisabled(), false);
         assert.match(
           await page.locator("#dialogue-text").textContent(),
-          /It's cold up here/,
+          /Vale has something to say/,
         );
+        assert.equal(request.turn, 0, "A new game asks for Vale's first line");
+        assert.equal(request.action, null);
         assert.equal(
           saved.log.filter(
             (line) => line.kind === "dialogue" && line.actorId === "vale",

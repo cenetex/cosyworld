@@ -2254,6 +2254,17 @@ mod tests {
         })).unwrap()
     }
     #[test]
+    fn new_game_opening_asks_vale_alone_with_no_action() {
+        // The browser's fresh attic context (narrativeContext at turn 0).
+        let c: Context = serde_json::from_str(r#"{"revision":0,"turn":0,"outcome":{"card":{"kind":"arrive","target":null,"item":null,"receive":null,"destination":null,"accepted":null},"avatars":[{"id":"vale","location":"attic","holding":["lamp"],"travel":null}],"items":[{"id":"lamp","holder":"vale","location":"attic"}],"observations":[{"id":"lamp-flame","value":false},{"id":"lamp-cover","value":false}]},"location":"attic","scenery":true,"focus":null,"speakers":["vale"],"resting":null,"action":null,"events":["Vale stands alone in Mirror attic, holding an unlit lamp. A tall mirror reflects a black shore."],"conversation":[],"entities":[{"id":"attic","poem":null,"facts":["A tall mirror reflects a black shore. Dust gathers along its frame. The mirror holds the room and its window.","Paths visible now: none.","At the dialogue scene: Vale. Items here: Lamp."],"desire":null,"memories":[{"seq":1,"turn":0,"kind":"event","text":"World: Vale stands alone in Mirror attic, holding an unlit lamp. A tall mirror reflects a black shore."}],"previous":null},{"id":"vale","poem":null,"facts":["What I want most now: First light. A little warmth might wake this empty room.","Holding: Lamp.","Location now: Mirror attic. Company now: alone.","Still hoped for: Lamp alight.","Already holds the wanted Lamp.","Wants to be at Mirror attic; currently at Mirror attic.","At the dialogue scene: Vale. Items here: Lamp."],"desire":{"items":["lamp"],"location":"attic","avatars":[]},"memories":[{"seq":1,"turn":0,"kind":"event","text":"World: Vale stands alone in Mirror attic, holding an unlit lamp. A tall mirror reflects a black shore."}],"previous":null,"inner_life":null,"hope":null},{"id":"lamp","poem":null,"facts":["Held by or resting at: Vale.","Has oil; unlit; uncovered.","At the dialogue scene: Vale. Items here: Lamp."],"desire":null,"memories":[{"seq":1,"turn":0,"kind":"event","text":"World: Vale stands alone in Mirror attic, holding an unlit lamp. A tall mirror reflects a black shore."}],"previous":null}]}"#).unwrap();
+        assert_eq!(c.turn, 0);
+        assert!(c.action.is_none());
+        assert_eq!(c.speakers, ["vale"]);
+        assert!(valid(&c));
+        let vale = c.entities.iter().find(|e| e.id == "vale").unwrap();
+        assert!(transcript(&c, vale, Part::Line).ends_with("\nVale:"));
+    }
+    #[test]
     fn farewell_speakers_do_not_require_a_vale_reply() {
         let mut c = context();
         c.outcome = Some(solo_departure());
