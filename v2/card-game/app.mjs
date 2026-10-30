@@ -670,6 +670,7 @@ const narrator = createNarrator({
         requestNarrative(context, signal, () => {}, "/card-game/reflections")
     : null,
   started: (context) => {
+    if (context.turn === 0) dropOpeningFallback();
     if (localRuntime()) characterSpeech.clear();
     // A speaker who left this turn speaks at the destination, not here.
     sceneSpeakers = context.speakers.filter(
@@ -706,7 +707,10 @@ const narrator = createNarrator({
   status: (value) => {
     storyStatus = value;
     if (value === "pending" && !exchange.active) exchange.begin();
-    if (value === "retry") exchange.cancel();
+    if (value === "retry") {
+      exchange.cancel();
+      showOpeningFallback();
+    }
     renderScene();
   },
 });
@@ -2404,10 +2408,53 @@ function hasCurrentWords() {
   return world.log.some(
     (entry) =>
       entry.generated &&
+      !entry.fallback &&
       entry.kind === "dialogue" &&
       entry.turn === world.turn &&
       entry.locationId === world.actors[currentActor(world)].place,
   );
+}
+function openingWordsDue() {
+  return Boolean(
+    !saveBlocked &&
+      !sharedSession &&
+      world.opening &&
+      world.turn === 0 &&
+      !hasCurrentWords(),
+  );
+}
+// The authored opening line is shown only when the model gives no first line.
+// It is marked as a fallback, so a retry or reload still asks the model.
+function dropOpeningFallback() {
+  if (!world.log.some((entry) => entry.fallback && entry.turn === world.turn))
+    return;
+  world.log = world.log.filter(
+    (entry) => !(entry.fallback && entry.turn === world.turn),
+  );
+  save();
+}
+function showOpeningFallback() {
+  if (!openingWordsDue()) return;
+  dropOpeningFallback();
+  addLog(
+    world,
+    "Vale",
+    world.opening.version === 2
+      ? "The water is dark. I'll light the lamp."
+      : "It's cold up here. I'll light the lamp.",
+    {
+      actorId: currentActor(world),
+      entityId: currentActor(world),
+      kind: "dialogue",
+      generated: true,
+      fallback: true,
+    },
+  );
+  save();
+  lineSeq = null;
+  exchange.begin();
+  render();
+  exchange.load([world.log.at(-1)]);
 }
 function resumeScene() {
   if (sharedSession) {
@@ -2415,21 +2462,15 @@ function resumeScene() {
     syncSharedLine();
     return;
   }
-  if (!saveBlocked && world.opening && world.turn === 0 && !hasCurrentWords()) {
-    addLog(
-      world,
-      "Vale",
-      world.opening.version === 2
-        ? "The water is dark. I'll light the lamp."
-        : "It's cold up here. I'll light the lamp.",
-      {
-        actorId: currentActor(world),
-        entityId: currentActor(world),
-        kind: "dialogue",
-        generated: true,
-      },
-    );
-    save();
+  if (openingWordsDue()) {
+    // A new game asks the dialogue model for Vale's first line.
+    dropOpeningFallback();
+    lineSeq = null;
+    storyStatus = "pending";
+    exchange.begin();
+    render();
+    narrator.changed();
+    return;
   }
   if (!saveBlocked && hasCurrentWords()) {
     const line = currentScene(world).line;
