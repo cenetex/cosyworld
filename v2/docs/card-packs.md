@@ -359,12 +359,15 @@ each dock's first lane. A new world's dock should join a port that still has a
 free lane, so the sea grows outward. A dock may be another pack's place: the
 Signal Jetty is Hoppy Cat's, with one lane from Piraeus Quays.
 
-Course cards show only lanes the person knows. A lane can also list
-`opensWith` conditions; while they hold, the lane opens from its `from` port
-for everyone aboard. The Piraeus–Signal Jetty lane opens with
-`pack_item_present` for a Hoppy Cat thing on deck. Myrto knows every lane and
-tells them through Talk. Hoppy Cat revision 2 saves keep a red thread they had
-already found, and anyone who had been in Hoppy Cat learns the jetty lane.
+Course cards show only lanes the person knows. A lane can instead list
+`opensWith` conditions: such a gated lane is open, both ways, only while they
+hold, for everyone aboard, and knowing it opens nothing. The Piraeus–Signal
+Jetty lane opens with `pack_item_present` while a Hoppy Cat thing is aboard.
+Myrto knows every lane; through Talk she tells a gated lane together with its
+condition. Hoppy Cat revision 2 saves keep a red thread they had already
+found, and anyone who had been in Hoppy Cat learns the jetty lane as
+knowledge. In a new game every Hoppy Cat thing starts inside Hoppy Cat, so the
+jetty waits for things scattered into other worlds.
 
 The ship place uses the existing place cards. At a dock, the ship card offers
 Board. Boarding keeps the ship at its harbour. Aboard a docked ship, the other

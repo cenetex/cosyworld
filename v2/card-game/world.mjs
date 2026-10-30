@@ -186,6 +186,7 @@ import {
   sailTransports,
   courseToward,
   berthOpen,
+  laneGated,
   canDisembark,
   transportPlace,
   transportScenery,
@@ -973,9 +974,12 @@ export function laneTalkFacts(s, actor) {
     ? [`I know ships sail from ${nameOf(near)} to ${known.join(" and ")}.`]
     : [`I know of no ship lane from ${nameOf(near)}.`];
 }
+// A gated lane is told with its condition; telling it never opens it.
 export const laneFact = (from, to) => ({
   id: `lane:${from}>${to}`,
-  text: `Ships for ${nameOf(to)} leave from ${nameOf(from)}.`,
+  text: laneGated(from, to)
+    ? `Ships for ${nameOf(to)} leave from ${nameOf(from)} only with something from there aboard.`
+    : `Ships for ${nameOf(to)} leave from ${nameOf(from)}.`,
 });
 const laneFactText = (id) => {
   const [from, to] = id.startsWith("lane:") ? id.slice(5).split(">") : [];

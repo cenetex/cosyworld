@@ -4,6 +4,7 @@ import {
   encodeSave,
   decodeSave,
   play,
+  publishKnowledgeSpeech,
 } from "../v2/card-game/world.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
@@ -79,49 +80,54 @@ describe("the Signal Jetty lane", () => {
     ]);
   });
 
-  it("shows from Piraeus only to those who know it or with a Hoppy Cat thing aboard", () => {
+  it("opens only while a Hoppy Cat thing is aboard; knowing it is not enough", () => {
     let s = setup("greek-piraeus");
     learnLane(s, "mara", "greek-piraeus", "greek-harbor");
+    // Mara knows the jetty lane too; knowledge alone leaves it closed.
+    learnLane(s, "mara", "greek-piraeus", JETTY);
+    // Vale waits ashore with a Hoppy Cat thing in hand.
+    s.items[CUP].holder = "vale";
     s = reload(s);
-    s = act(s, "vale", "move", "greek-ship");
     s = act(s, "mara", "move", "greek-ship");
-    expect(courses(s, "vale")).toEqual([]);
-    expect(courses(s, "mara")).toEqual(["greek-harbor"]);
-
-    // A thing resting on deck opens the lane for everyone aboard.
-    s.items[CUP].holder = "greek-ship";
-    s = reload(s);
     const gate = {
       kind: "pack_item_present",
       pack: "hoppycat-archive",
       place: "greek-ship",
     };
+    expect(knowsLane(s, "mara", "greek-piraeus", JETTY)).toBe(true);
+    expect(conditionMet(s, gate)).toBe(false);
+    expect(courses(s, "mara")).toEqual(["greek-harbor"]);
+
+    // Carried aboard, it opens the lane for everyone on deck.
+    s = act(s, "vale", "move", "greek-ship");
     expect(conditionMet(s, gate)).toBe(true);
     expect(courses(s, "vale")).toEqual([JETTY]);
     expect(courses(s, "mara")).toEqual(["greek-harbor", JETTY]);
 
-    // Carried by someone on deck counts too; ashore it does not.
-    s.items[CUP].holder = "vale";
+    // Resting on deck counts too.
+    s.items[CUP].holder = "greek-ship";
     s = reload(s);
-    expect(courses(s, "mara")).toEqual(["greek-harbor", JETTY]);
+    expect(courses(s, "vale")).toEqual([JETTY]);
+
+    // Carried away ashore, the lane closes, even for Mara who knows it.
     s.items[CUP].holder = "greek-piraeus";
     s = reload(s);
     expect(conditionMet(s, gate)).toBe(false);
     expect(courses(s, "vale")).toEqual([]);
+    expect(courses(s, "mara")).toEqual(["greek-harbor"]);
 
-    // Sailing it teaches it, so the way back is on the chart.
+    // With the cup aboard again, the voyage sails and Vale lands at the jetty.
     s.items[CUP].holder = "vale";
     s = reload(s);
     s = act(s, "vale", "course", JETTY);
     s = act(s, "mara", "wait");
-    expect(knowsLane(s, "mara", "greek-piraeus", JETTY)).toBe(true);
-    expect(knowsLane(s, "mara", JETTY, "greek-piraeus")).toBe(true);
+    expect(knowsLane(s, "vale", "greek-piraeus", JETTY)).toBe(true);
     expect(moves(s, "vale")).toContain(JETTY);
     s = act(s, "vale", "move", JETTY);
     expect(s.actors.vale.place).toBe(JETTY);
   });
 
-  it("Myrto tells a new player the lane at Piraeus", () => {
+  it("Myrto tells the lane and its condition at Piraeus; telling opens nothing", () => {
     let s = setup("greek-piraeus");
     learnLane(s, "vale", "greek-piraeus", "greek-harbor");
     learnLane(s, "vale", "greek-piraeus", "greek-athens-harbor");
@@ -136,8 +142,27 @@ describe("the Signal Jetty lane", () => {
     const disclosure = narrativeContext(result.state, talk).disclosures?.[0];
     expect(disclosure?.factId).toBe(`lane:greek-piraeus>${JETTY}`);
     expect(disclosure.text).toBe(
-      "Ships for Signal Jetty leave from Piraeus Quays.",
+      "Ships for Signal Jetty leave from Piraeus Quays only with something from there aboard.",
     );
+    const world = result.state;
+    world.log.push({
+      ...world.log.at(-1),
+      seq: world.eventSeq + 1,
+      kind: "dialogue",
+      generated: true,
+      actorId: "greek-shipmaster",
+      locationId: "greek-piraeus",
+      cast: ["vale", "greek-shipmaster"],
+      text: `Listen. ${disclosure.text}`,
+    });
+    world.eventSeq += 1;
+    expect(
+      publishKnowledgeSpeech(world, world.log.at(-1), [disclosure]),
+    ).toHaveLength(1);
+    expect(knowsLane(world, "vale", "greek-piraeus", JETTY)).toBe(true);
+    let s2 = reload(world);
+    s2 = act(s2, "vale", "move", "greek-ship");
+    expect(courses(s2, "vale")).not.toContain(JETTY);
   });
 });
 
@@ -195,6 +220,13 @@ describe("the retired red thread", () => {
     expect(next.crossings[THREAD].discovered).toBe(true);
     for (const who of players)
       expect(knowsLane(next, who, "greek-piraeus", JETTY)).toBe(true);
+    // The lane is learned as knowledge; it still opens only with a thing aboard.
+    const aboard = structuredClone(next);
+    aboard.actors.vale.place = "greek-piraeus";
+    summonTransport(aboard, "greek-ship", "greek-piraeus");
+    expect(
+      courses(act(reload(aboard), "vale", "move", "greek-ship"), "vale"),
+    ).not.toContain(JETTY);
     expect(next.routeKnowledge["greek-rhapsode"]).toEqual(bard);
     expect(moves(next, "vale")).toContain(pack.entry);
 

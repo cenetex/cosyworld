@@ -107,32 +107,41 @@ export function learnLane(s, actor, from, to) {
   );
   return true;
 }
-// A gated lane also opens from its first port, for everyone aboard, while its
-// authored conditions hold (a thing from that world on deck).
-const laneOpened = (s, t, from, to) =>
-  (t.lanes || []).some(
+// A gated lane is open only while its authored conditions hold (a thing from
+// that world aboard), whoever knows it. Knowing it is information only.
+const laneGate = (t, from, to) =>
+  (t.lanes || []).find(
     (lane) =>
-      lane.from === from &&
-      lane.to === to &&
       lane.opensWith &&
-      conditionsMet(s, t.packId, lane.opensWith),
-  );
+      ((lane.from === from && lane.to === to) ||
+        (!lane.oneWay && lane.from === to && lane.to === from)),
+  )?.opensWith ?? null;
+export const laneGated = (from, to) =>
+  Object.values(transports).some((t) => laneGate(t, from, to));
 const openLanes = (s, t, dock, actor = null) =>
-  lanesFrom(t, dock).filter(
-    (to) =>
-      entityActive(s, to) &&
-      (knowsLane(s, actor, dock, to) || laneOpened(s, t, dock, to)),
-  );
-
-// A ship's berth is reachable while some active port shares a lane with it.
-// Any place that is not a berth answers true.
+  lanesFrom(t, dock).filter((to) => {
+    if (!entityActive(s, to)) return false;
+    const gate = laneGate(t, dock, to);
+    return gate
+      ? conditionsMet(s, t.packId, gate)
+      : knowsLane(s, actor, dock, to);
+  });
+// A ship's berth is reachable while some active port shares an open lane
+// with it. Any place that is not a berth answers true.
 export function berthOpen(s, place) {
   const ships = Object.values(transports).filter((t) =>
     t.docks.includes(place),
   );
   return (
     !ships.length ||
-    ships.some((t) => lanesFrom(t, place).some((to) => entityActive(s, to)))
+    ships.some((t) =>
+      lanesFrom(t, place).some((to) => {
+        const gate = laneGate(t, to, place);
+        return (
+          entityActive(s, to) && (!gate || conditionsMet(s, t.packId, gate))
+        );
+      }),
+    )
   );
 }
 
