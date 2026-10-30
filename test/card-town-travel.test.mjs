@@ -203,7 +203,7 @@ describe("local town visits and road history", () => {
     );
   });
 
-  it("keeps one road out of Athens and direct visits inside each town", () => {
+  it("keeps one road between towns and direct visits inside each town", () => {
     const w = createWorld({ packScopes: { "greek-drama": "full" } });
     const roads = Object.entries(packDefinition("greek-drama").places).filter(
       ([id, p]) => p.road && entityActive(w, id),
@@ -219,8 +219,9 @@ describe("local town visits and road history", () => {
     expect(
       roads
         .filter(([, p]) => p.road.some((end) => attic.includes(end)))
-        .map(([id]) => id),
-    ).toEqual(["greek-road-athens-piraeus"]);
+        .map(([id]) => id)
+        .sort(),
+    ).toEqual(["greek-road-athens-piraeus", "greek-road-sacred-way"]);
     expect(exits(w, "greek-athens", "vale")).toEqual(
       expect.arrayContaining(["greek-road-athens-piraeus", "greek-colonus"]),
     );
@@ -229,7 +230,12 @@ describe("local town visits and road history", () => {
     );
     expect(exits(w, "greek-piraeus", "vale")).toContain("greek-eleusis");
     expect(roads.map(([id]) => id).sort()).toEqual([
+      "greek-oeta",
       "greek-road-athens-piraeus",
+      "greek-road-black-sea",
+      "greek-road-colonists",
+      "greek-road-royal",
+      "greek-road-sacred-way",
       "greek-road-thebes",
     ]);
     expect(exits(w, "greek-athens-harbor", "vale")).toContain("greek-athens");

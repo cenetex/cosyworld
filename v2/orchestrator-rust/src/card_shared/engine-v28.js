@@ -2624,8 +2624,7 @@
             name: "Aulis Anchorage",
             text: "The ships lie motionless beside the shore. Soldiers wait outside the command tents.",
             exits: [
-              "greek-gate",
-              "greek-greek-camp"
+              "greek-gate"
             ],
             backdrop: "assets/greek-drama/harbor.svg",
             persona: "The ships lie motionless beside the shore. Soldiers wait outside the command tents."
@@ -2644,7 +2643,7 @@
               "greek-festival",
               "greek-attic-farm",
               "greek-colonus",
-              "greek-delphi",
+              "greek-road-sacred-way",
               "greek-road-athens-harbor"
             ],
             backdrop: "assets/greek-drama/athens-grand-agora.webp",
@@ -2655,8 +2654,6 @@
             text: "Folded cloth, a grain basket and a low bench stand beside the mooring ropes. A host waits for the names of returning families. A road leads inland to Athens. A shore path leads to Eleusis.",
             exits: [
               "greek-road-athens-piraeus",
-              "greek-tauris",
-              "greek-sicily",
               "greek-eleusis"
             ],
             backdrop: "assets/greek-drama/piraeus-open-berth.webp",
@@ -2847,7 +2844,8 @@
             text: "A rented household opens onto the harbor road. Bundles stand ready beside the door.",
             exits: [
               "greek-argolid-road",
-              "greek-troezen"
+              "greek-troezen",
+              "greek-road-colonists"
             ],
             backdrop: "assets/greek-drama/courtyard.svg",
             persona: "A rented household opens onto the harbor road. Bundles stand ready beside the door."
@@ -2865,8 +2863,8 @@
             name: "Delphic Temple",
             text: "Travelers queue beneath Apollo's columns. An attendant sweeps leaves from the sanctuary steps.",
             exits: [
-              "greek-athens",
-              "greek-trachis"
+              "greek-road-sacred-way",
+              "greek-oeta"
             ],
             backdrop: "assets/greek-drama/palace.svg",
             persona: "Travelers queue beneath Apollo's columns. An attendant sweeps leaves from the sanctuary steps."
@@ -2875,7 +2873,6 @@
             name: "House at Trachis",
             text: "A messenger's sandals dry beside the doorway. A folded garment waits on a workbench.",
             exits: [
-              "greek-delphi",
               "greek-oeta",
               "greek-pherae"
             ],
@@ -2884,12 +2881,17 @@
           },
           "greek-oeta": {
             name: "The Oeta Road",
-            text: "A steep road climbs above the trees. Bearers have set a litter beside a level patch of stone.",
+            text: "A steep road climbs above the trees on Mount Oeta. One end leads to Delphic Temple; the other leads to House at Trachis. Bearers have set a litter beside a level patch of stone.",
             exits: [
+              "greek-delphi",
               "greek-trachis"
             ],
-            backdrop: "assets/greek-drama/grove.svg",
-            persona: "A steep road climbs above the trees. Bearers have set a litter beside a level patch of stone."
+            backdrop: "assets/greek-drama/oeta-road.svg",
+            persona: "A shared road between Delphic Temple and House at Trachis. The left end always leads to Delphic Temple. The right end always leads to House at Trachis. Bearers have set a litter beside a level patch of stone. Travelers can meet, talk, rest and carry their belongings here.",
+            road: [
+              "greek-delphi",
+              "greek-trachis"
+            ]
           },
           "greek-pherae": {
             name: "Palace of Pherae",
@@ -2917,7 +2919,7 @@
               "greek-greek-camp",
               "greek-trojan-camp",
               "greek-thrace",
-              "greek-susa"
+              "greek-road-royal"
             ],
             backdrop: "assets/greek-drama/palace.svg",
             persona: "The city road runs between battered walls. Soldiers and displaced households share the remaining wells."
@@ -2926,7 +2928,6 @@
             name: "The Greek Camp at Troy",
             text: "A speaker names the Trojan account after Ajax\u2019s death. Tents stand above the ships. Teucer carries a burial plea to the commanders.",
             exits: [
-              "greek-aulis",
               "greek-troy",
               "greek-lemnos",
               "greek-ajax-landing",
@@ -2972,7 +2973,8 @@
             name: "The Thracian Shore",
             text: "A fleet waits beyond the breakers. Captive households search among the new arrivals.",
             exits: [
-              "greek-troy"
+              "greek-troy",
+              "greek-road-black-sea"
             ],
             backdrop: "assets/greek-drama/sea.svg",
             persona: "A fleet waits beyond the breakers. Captive households search among the new arrivals."
@@ -2995,7 +2997,8 @@
             name: "The Taurian Temple",
             text: "A walled temple overlooks the landing place. An attendant counts the people brought ashore.",
             exits: [
-              "greek-piraeus"
+              "greek-road-black-sea",
+              "greek-scythian-crag"
             ],
             backdrop: "assets/greek-drama/palace.svg",
             persona: "A walled temple overlooks the landing place. An attendant counts the people brought ashore."
@@ -3004,7 +3007,7 @@
             name: "The Sicilian Cave",
             text: "Sheep crowd a stone enclosure beside the cave. Wine jars stand beyond the shepherds' reach.",
             exits: [
-              "greek-piraeus"
+              "greek-road-colonists"
             ],
             backdrop: "assets/greek-drama/grove.svg",
             persona: "Sheep crowd a stone enclosure beside the cave. Wine jars stand beyond the shepherds' reach."
@@ -3013,8 +3016,7 @@
             name: "The Court at Susa",
             text: "Officials wait beside the royal tomb. The last dispatch from the fleet lies unopened.",
             exits: [
-              "greek-troy",
-              "greek-scythian-crag"
+              "greek-road-royal"
             ],
             backdrop: "assets/greek-drama/palace.svg",
             persona: "Officials wait beside the royal tomb. The last dispatch from the fleet lies unopened."
@@ -3023,7 +3025,7 @@
             name: "The Scythian Crag",
             text: "Iron bonds fix a figure to the rock. A narrow ledge allows visitors to approach.",
             exits: [
-              "greek-susa"
+              "greek-tauris"
             ],
             backdrop: "assets/greek-drama/grove.svg",
             persona: "Iron bonds fix a figure to the rock. A narrow ledge allows visitors to approach."
@@ -3223,6 +3225,62 @@
             ],
             retired: true,
             backdrop: "assets/greek-drama/attic-road.webp"
+          },
+          "greek-road-sacred-way": {
+            name: "The Sacred Way",
+            text: "A paved pilgrim road climbs through the hills toward Mount Parnassus. One end leads to Athenian Agora; the other leads to Delphic Temple. Small shrines stand along the verge.",
+            persona: "A shared road between Athenian Agora and Delphic Temple. The left end always leads to Athenian Agora. The right end always leads to Delphic Temple. Pilgrims carry questions and gifts for Apollo along this road. Travelers can meet, talk, rest and carry their belongings here.",
+            exits: [
+              "greek-athens",
+              "greek-delphi"
+            ],
+            road: [
+              "greek-athens",
+              "greek-delphi"
+            ],
+            backdrop: "assets/greek-drama/sacred-way.svg"
+          },
+          "greek-road-royal": {
+            name: "The Royal Road",
+            text: "A long royal road runs east across dry plains. One end leads to The Trojan Walls; the other leads to The Court at Susa. A post station keeps fresh horses by the road.",
+            persona: "A shared road between The Trojan Walls and The Court at Susa. The left end always leads to The Trojan Walls. The right end always leads to The Court at Susa. Royal messengers ride this road between the sea and the Persian court. Travelers can meet, talk, rest and carry their belongings here.",
+            exits: [
+              "greek-troy",
+              "greek-susa"
+            ],
+            road: [
+              "greek-troy",
+              "greek-susa"
+            ],
+            backdrop: "assets/greek-drama/royal-road.svg"
+          },
+          "greek-road-black-sea": {
+            name: "The Black Sea Road",
+            text: "A windy coast road follows the cliffs above the Black Sea. One end leads to The Thracian Shore; the other leads to The Taurian Temple. Fishing boats lie pulled up on the stones below.",
+            persona: "A shared road between The Thracian Shore and The Taurian Temple. The left end always leads to The Thracian Shore. The right end always leads to The Taurian Temple. The road follows the cold northern coast. Travelers can meet, talk, rest and carry their belongings here.",
+            exits: [
+              "greek-thrace",
+              "greek-tauris"
+            ],
+            road: [
+              "greek-thrace",
+              "greek-tauris"
+            ],
+            backdrop: "assets/greek-drama/black-sea-road.svg"
+          },
+          "greek-road-colonists": {
+            name: "The Colonists' Road",
+            text: "A long road runs west with the settlers of Corinth. One end leads to Corinthian Courtyard; the other leads to The Sicilian Cave. Carts carry seed, tools and household pots.",
+            persona: "A shared road between Corinthian Courtyard and The Sicilian Cave. The left end always leads to Corinthian Courtyard. The right end always leads to The Sicilian Cave. Corinthian settlers took this way west when they founded Syracuse. Travelers can meet, talk, rest and carry their belongings here.",
+            exits: [
+              "greek-corinth",
+              "greek-sicily"
+            ],
+            road: [
+              "greek-corinth",
+              "greek-sicily"
+            ],
+            backdrop: "assets/greek-drama/colonists-road.svg"
           },
           "greek-ajax-landing": {
             name: "The Trojan Camp Landing",
@@ -22056,13 +22114,19 @@
         const [from, to] = edge;
         if (moved.has(from) && to === "station" || from === "station" && moved.has(to)) {
           changed = true;
-          return [[from, "pond"], ["pond", to]];
+          return [
+            [from, "pond"],
+            ["pond", to]
+          ];
         }
         return [edge];
       });
-      if (changed) s.routeKnowledge[actor] = [...new Map(
-        expanded.map((edge) => [JSON.stringify(edge), edge])
-      ).values()];
+      if (changed)
+        s.routeKnowledge[actor] = [
+          ...new Map(
+            expanded.map((edge) => [JSON.stringify(edge), edge])
+          ).values()
+        ];
     }
   }
   function upgradeBoardyStationSave(s) {
@@ -22073,15 +22137,19 @@
     if (card?.holder === "pond") card.holder = "station";
     for (const [actor, known] of Object.entries(s.routeKnowledge || {})) {
       if (!Array.isArray(known)) continue;
-      s.routeKnowledge[actor] = [...new Map(known.map((edge) => {
-        if (Array.isArray(edge) && edge.length === 2) {
-          if (edge[0] === "pond" && edge[1] === "boardyai-parlour")
-            edge = ["station", "boardyai-parlour"];
-          else if (edge[0] === "boardyai-parlour" && edge[1] === "pond")
-            edge = ["boardyai-parlour", "station"];
-        }
-        return [JSON.stringify(edge), edge];
-      })).values()];
+      s.routeKnowledge[actor] = [
+        ...new Map(
+          known.map((edge) => {
+            if (Array.isArray(edge) && edge.length === 2) {
+              if (edge[0] === "pond" && edge[1] === "boardyai-parlour")
+                edge = ["station", "boardyai-parlour"];
+              else if (edge[0] === "boardyai-parlour" && edge[1] === "pond")
+                edge = ["boardyai-parlour", "station"];
+            }
+            return [JSON.stringify(edge), edge];
+          })
+        ).values()
+      ];
     }
     saved.revision = 2;
   }
@@ -22142,6 +22210,7 @@
     const saved = s.packs?.[pack?.id];
     if (!pack || pack.revision < 8 || saved?.revision !== 7) return;
     restoreThebanRoad(s, pack);
+    joinDistantTowns(s, pack, saved);
     foldRetiredRoads(s);
     saved.revision = 8;
   }
@@ -22273,6 +22342,60 @@
     ])
       s.memories[id] ??= fresh[id];
     saved.revision = 7;
+  }
+  var GREEK_ROAD_LINKS = {
+    "greek-athens|greek-delphi": "greek-road-sacred-way",
+    "greek-delphi|greek-trachis": "greek-oeta",
+    "greek-susa|greek-troy": "greek-road-royal"
+  };
+  var GREEK_CUT_LINKS = /* @__PURE__ */ new Set([
+    "greek-piraeus|greek-tauris",
+    "greek-piraeus|greek-sicily",
+    "greek-aulis|greek-greek-camp",
+    "greek-scythian-crag|greek-susa"
+  ]);
+  var GREEK_TROJAN_SIDE = {
+    "greek-greek-camp": "greek-aulis",
+    "greek-troy": "greek-aulis",
+    "greek-trojan-camp": "greek-aulis",
+    "greek-lemnos": "greek-aulis",
+    "greek-thrace": "greek-aulis",
+    "greek-susa": "greek-aulis",
+    "greek-scythian-crag": "greek-aulis",
+    "greek-tauris": "greek-piraeus"
+  };
+  function joinDistantTowns(s, pack, saved) {
+    const fresh = newMemories();
+    for (const id of [
+      "greek-road-sacred-way",
+      "greek-road-royal",
+      "greek-road-black-sea",
+      "greek-road-colonists"
+    ])
+      if (s.memories) s.memories[id] ??= fresh[id];
+    for (const [actor, known] of Object.entries(s.routeKnowledge || {})) {
+      if (!Array.isArray(known)) continue;
+      const paths = known.flatMap((edge) => {
+        if (!Array.isArray(edge) || edge.length !== 2) return [edge];
+        const [from, to] = edge;
+        const key = [from, to].sort().join("|");
+        if (GREEK_CUT_LINKS.has(key)) return [];
+        const road = GREEK_ROAD_LINKS[key];
+        return road ? [
+          [from, road],
+          [road, to]
+        ] : [edge];
+      });
+      s.routeKnowledge[actor] = [
+        ...new Map(paths.map((edge) => [JSON.stringify(edge), edge])).values()
+      ];
+    }
+    if (!saved.flags?.["greek-ajax-open"])
+      for (const [id, actor] of Object.entries(s.actors || {})) {
+        const home = GREEK_TROJAN_SIDE[actor.place];
+        if (home && !GREEK_TROJAN_SIDE[pack.avatars[id]?.place])
+          actor.place = home;
+      }
   }
   function upgradeGreekSectionSave(s) {
     const pack = packDefinitions.find((p) => p.id === "greek-drama");
@@ -25154,6 +25277,7 @@
   group("argolid", "court", "argos-palace mycenae-palace corinth troezen");
   group("argolid", "shelter", "argive-farm");
   group("phocis", "court", "delphi");
+  group("phocis", "open", "road-sacred-way");
   group("thessaly", "shelter", "trachis");
   group("thessaly", "open", "oeta");
   group("thessaly", "court", "pherae");
@@ -25166,8 +25290,11 @@
   group("lemnos", "shelter", "lemnos");
   group("egypt", "court", "egypt-tomb");
   group("tauris", "court", "tauris");
+  group("tauris", "coast", "road-black-sea");
   group("sicily", "shelter", "sicily");
+  group("sicily", "open", "road-colonists");
   group("susa", "court", "susa");
+  group("susa", "open", "road-royal");
   group("scythia", "open", "scythian-crag");
   group("heights", "open", "divine-heights");
   group("underworld", "underground", "underworld");

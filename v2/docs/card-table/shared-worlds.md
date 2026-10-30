@@ -360,18 +360,33 @@ port already holds four human avatars. Released versions 16 and 17 keep their ex
 
 Greek pack revision 8, in shared rules version 28, joins towns by one road
 each. Inside a town places link directly; between towns there is one road or a
-sea lane. Attica keeps one road, from Athens to Piraeus. The other six Attic
-roads are marked `retired`: their IDs stay in saved history, and no exit leads
-onto them. Athens links directly to Colonus, Colonus to Marathon, and Piraeus
-to Eleusis. The Theban Harbor Road is again the only way between the Wine-Dark
-Harbor and Thebes. The revision 8 upgrade uses the same road fold as revision 6. A visitor or object on a retired road continues at its first end. A
-remembered direct harbor-to-Thebes step becomes two steps along the Theban
-road, and an open request for passage between them asks for the road. Any
-other learned step that no longer exists becomes the shortest walkable path, so
-Athens to Eleusis passes through Piraeus. Myrine's journey is her saved place
-on its path. If she was on the coast road, she and her companion continue at
-Piraeus, where she arrives. Visitors already on the Theban road in an earlier
-save stay there.
+sea lane, and every walkable road has its own painting.
+
+- Attica keeps one road, from Athens to Piraeus. The other six Attic roads are
+  marked `retired`: their IDs stay in saved history, and no exit leads onto
+  them. Athens links directly to Colonus, Colonus to Marathon, and Piraeus to
+  Eleusis.
+- The Theban Harbor Road is again the only way between the Wine-Dark Harbor and
+  Thebes.
+- The Sacred Way joins the Agora and Delphi, the Oeta Road joins Delphi and
+  Trachis, the Royal Road joins Troy and Susa, the Black Sea Road joins Thrace
+  and Tauris, and the Colonists' Road joins Corinth and Sicily. The Scythian
+  Crag is now part of Tauris. Piraeus no longer reaches Tauris or Sicily, and
+  Aulis no longer reaches the Greek camp: Troy is reached by ship at the Trojan
+  landing.
+
+One upgrade, `upgradeGreekOneRoadSave`, takes a revision 7 save to revision 8.
+A remembered direct harbor-to-Thebes step becomes two steps along the Theban
+road, and an open request for passage between them asks for the road. A known
+link that now has a road becomes two steps along it, and a cut link is
+forgotten. Without the Trojan invitation, a traveler left on the Trojan side
+goes back the way they came: to Aulis, or to Piraeus from Tauris. Then the
+revision 6 road fold runs. A visitor or object on a retired road continues at
+its first end, and any other learned step that no longer exists becomes the
+shortest walkable path, so Athens to Eleusis passes through Piraeus. Myrine's
+journey is her saved place on its path. If she was on the coast road, she and
+her companion continue at Piraeus, where she arrives. Visitors already on the
+Theban road in an earlier save stay there.
 
 ## Learning from outcomes
 

@@ -207,14 +207,18 @@ roads for every traveler in the shared world. Athens Harbor and Piraeus join
 the ship’s stops. Athens Harbor connects directly to the grand Agora through city streets.
 
 Roads separate towns, and places inside a town link directly. Between two
-towns there is one road or a sea lane. In Attica one shared road scene, the
-Athens–Piraeus Road, joins Athens and Piraeus. Colonus and Marathon are direct
-visits from the Agora; Eleusis is a direct visit from Piraeus. The Theban
-Harbor Road is the only way between the Wine-Dark Harbor and Thebes. A road
-has two fixed ends, shown by destination cards in a fixed order. Avatars come
-first in the hand, followed by the first end, the road, and the other end. Its
-entry card names the place ahead. Travelers can meet, wait and carry objects on
-the road. Myrine walks from Eleusis to Piraeus in one Accompany play.
+towns there is exactly one road or a sea lane, and every walkable road has its
+own painting. In Attica one shared road scene, the Athens–Piraeus Road, joins
+Athens and Piraeus. Colonus and Marathon are direct visits from the Agora;
+Eleusis is a direct visit from Piraeus. The Theban Harbor Road is the only way
+between the Wine-Dark Harbor and Thebes. The Sacred Way joins the Agora and
+Delphi, the Oeta Road joins Delphi and Trachis, the Royal Road joins Troy and
+Susa, the Black Sea Road joins Thrace and Tauris, and the Colonists' Road joins
+Corinth and Sicily. A road has two fixed ends, shown by destination cards in a
+fixed order. Avatars come first in the hand, followed by the first end, the
+road, and the other end. Its entry card names the place ahead. Travelers can
+meet, wait and carry objects on the road. Myrine walks from Eleusis to Piraeus
+in one Accompany play.
 
 A pack marks an old road `retired: true` to keep its ID for saved history.
 No exit leads onto a retired road. A save that stands on one continues at

@@ -276,7 +276,7 @@ fn ajax_appeal_custody_spoken_accounts_and_second_carrier_replay_from_the_journa
 }
 
 #[test]
-fn ajax_upgrade_keeps_a_released_nineteen_camp_visit_and_replays_its_exit() {
+fn ajax_upgrade_brings_an_uninvited_nineteen_camp_visitor_home_and_replays_it() {
     let released = engine::NINETEENTH_VERSION;
     for keep_checkpoint in [true, false] {
         let seed = engine::reduce_version(released, json!({"op":"create"})).unwrap();
@@ -311,24 +311,51 @@ fn ajax_upgrade_keeps_a_released_nineteen_camp_visit_and_replays_its_exit() {
         for field in ["turn", "eventSeq", "log", "knowledge"] {
             assert_eq!(current.game[field], old.game[field], "Preserve {field}");
         }
-        // Greek revision 8 sends a remembered harbor-to-Thebes step along the
-        // Theban Harbor Road, and a known step onto a retired road becomes a
+        // Greek revision 8 walks each known town link along its one road,
+        // forgets cut links, and turns a step onto a retired road into a
         // walkable path. Every other known step stays.
-        let walkable = ["greek-road-athens-piraeus", "greek-road-thebes"];
+        let walkable = [
+            "greek-road-athens-piraeus",
+            "greek-road-thebes",
+            "greek-road-sacred-way",
+            "greek-road-royal",
+            "greek-road-black-sea",
+            "greek-road-colonists",
+        ];
+        let along = |from: &str, to: &str| -> Option<&str> {
+            let mut pair = [from, to];
+            pair.sort();
+            match pair {
+                ["greek-courtyard", "greek-harbor"] => Some("greek-road-thebes"),
+                ["greek-athens", "greek-delphi"] => Some("greek-road-sacred-way"),
+                ["greek-delphi", "greek-trachis"] => Some("greek-oeta"),
+                ["greek-susa", "greek-troy"] => Some("greek-road-royal"),
+                _ => None,
+            }
+        };
+        let cut = [
+            ["greek-piraeus", "greek-tauris"],
+            ["greek-piraeus", "greek-sicily"],
+            ["greek-aulis", "greek-greek-camp"],
+            ["greek-scythian-crag", "greek-susa"],
+        ];
         let walked =
             |edges: &Value| -> Vec<Value> { edges.as_array().unwrap().iter().cloned().collect() };
         for (who, edges) in old.game["routeKnowledge"].as_object().unwrap() {
             let now_known = walked(&current.game["routeKnowledge"][who]);
             for edge in walked(edges) {
                 let (from, to) = (edge[0].as_str().unwrap(), edge[1].as_str().unwrap());
-                let expected = match (from, to) {
-                    ("greek-harbor", "greek-courtyard") | ("greek-courtyard", "greek-harbor") => {
-                        vec![json!([from, walkable[1]]), json!([walkable[1], to])]
-                    }
-                    _ if from.starts_with("greek-road-") || to.starts_with("greek-road-") => {
-                        vec![]
-                    }
-                    _ => vec![edge.clone()],
+                let mut pair = [from, to];
+                pair.sort();
+                let expected = if cut.contains(&pair) {
+                    assert!(!now_known.contains(&edge), "{who} forgets {edge}");
+                    vec![]
+                } else if let Some(road) = along(from, to) {
+                    vec![json!([from, road]), json!([road, to])]
+                } else if from.starts_with("greek-road-") || to.starts_with("greek-road-") {
+                    vec![]
+                } else {
+                    vec![edge.clone()]
                 };
                 for step in expected {
                     assert!(now_known.contains(&step), "{who} knows {step}");
@@ -362,6 +389,9 @@ fn ajax_upgrade_keeps_a_released_nineteen_camp_visit_and_replays_its_exit() {
         }
         for (id, saved) in old.game["actors"].as_object().unwrap() {
             let mut retained = current.game["actors"][id].clone();
+            if id == "vale" {
+                retained["place"] = saved["place"].clone();
+            }
             retained["trust"]
                 .as_object_mut()
                 .unwrap()
@@ -382,13 +412,15 @@ fn ajax_upgrade_keeps_a_released_nineteen_camp_visit_and_replays_its_exit() {
         ] {
             assert!(current.game["actors"].get(id).is_some());
         }
-        assert_eq!(current.game["actors"]["vale"]["place"], "greek-greek-camp");
+        // Without the Trojan invitation the ship does not call at the camp,
+        // so the visitor goes back to Aulis, the way they came.
+        assert_eq!(current.game["actors"]["vale"]["place"], "greek-aulis");
         play(
             &c,
             &id,
             &mut current,
             0,
-            &[("kind", "move"), ("target", "greek-troy")],
+            &[("kind", "move"), ("target", "greek-gate")],
         );
         let expected = current.clone();
         drop(c);
