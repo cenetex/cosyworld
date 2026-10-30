@@ -2,13 +2,14 @@ import { expect, it } from "vitest";
 import {
   createWorld,
   canTrade,
+  tradePossible,
   legalActions,
   things,
   play,
 } from "../v2/card-game/world.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
 
-it("keeps the full trade set and its order while considering nearby owned goods", () => {
+it("offers every possible trade in order and only moves the accepted ones", () => {
   let world = enableMotives(createWorld(), { questPrograms: true });
   for (const actor of ["vale", "moth", "keeper"])
     world.actors[actor].place = "station";
@@ -20,7 +21,7 @@ it("keeps the full trade set and its order while considering nearby owned goods"
     for (const actor of ["vale", "moth", "keeper"]) {
       const expected = ids.flatMap((give) =>
         ids
-          .filter((receive) => canTrade(world, actor, give, receive))
+          .filter((receive) => tradePossible(world, actor, give, receive))
           .map((receive) => [give, receive]),
       );
       const actual = legalActions(world, actor)
@@ -34,8 +35,19 @@ it("keeps the full trade set and its order while considering nearby owned goods"
       actions.find((a) => a.kind === "trade") ||
       actions.find((a) => a.kind === (turn % 2 ? "give" : "take")) ||
       actions.find((a) => a.kind === "wait");
+    const willing =
+      action.kind === "trade" &&
+      canTrade(world, action.actor, action.item, action.receive);
     const result = play(world, action);
     expect(result.ok).toBe(true);
+    if (action.kind === "trade") {
+      expect(result.state.items[action.item].holder).toBe(
+        willing ? action.target : action.actor,
+      );
+      expect(result.state.log.findLast((e) => e.verb === "trade").accepted).toBe(
+        willing,
+      );
+    }
     world = result.state;
   }
   expect(offered).toBeGreaterThan(0);

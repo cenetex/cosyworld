@@ -333,7 +333,7 @@ export function recordReaction(s, a, witnesses, accepted) {
       `${names[a.actor]} kept asking for the same belongings.`,
       "pestering",
     );
-  if (a.kind === "give") {
+  if (a.kind === "give" && accepted) {
     s.motives.grievances[a.target] = s.motives.grievances[a.target]
       .map((g) => (g.other === a.actor ? { ...g, weight: g.weight - 1 } : g))
       .filter((g) => g.weight > 0);

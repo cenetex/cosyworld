@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { setImmediate as yieldToRunner } from "node:timers/promises";
 import {
   createWorld,
+  expects,
   legalActions,
   plan,
   play,
@@ -119,7 +120,9 @@ describe("the table stays playable", () => {
         // Let the runner record progress while all 5,600 turns stay covered.
         if (i % 100 === 0) await yieldToRunner();
         x = (Math.imul(x, 1664525) + 1013904223) >>> 0;
-        const acts = legalActions(s);
+        // Loose play skips offers the other side would refuse. Those cost a
+        // turn and change nothing, so they only shift the random walk.
+        const acts = legalActions(s).filter((a) => expects(s, a));
         s = play(s, i % 2 === 0 ? plan(s).action : acts[x % acts.length]).state;
       }
       const before = progressOf(s);

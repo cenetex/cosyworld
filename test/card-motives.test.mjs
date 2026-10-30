@@ -248,7 +248,8 @@ describe("shore wants and grievances", () => {
         expect(result.ok).toBe(true);
         s = result.state;
         trades += s.log.filter(
-          (e) => e.turn === s.turn && e.verb === "trade",
+          (e) =>
+            e.turn === s.turn && e.verb === "trade" && e.accepted !== false,
         ).length;
         for (const actor of Object.values(s.actors))
           if (actor.progress.current?.generated.situation)
