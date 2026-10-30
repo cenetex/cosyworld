@@ -776,6 +776,15 @@ function keepHeldSelection(before, action = null) {
 function selectCards(cards) {
   for (const id of selected)
     if (people[id] && !cards.includes(id)) expandedHolders.delete(id);
+  // A place stays open, and raised, only while it is chosen or holds a
+  // chosen thing.
+  for (const id of expandedHolders)
+    if (
+      places[id] &&
+      !cards.includes(id) &&
+      !cards.some((card) => things[card] && rootHolder(world, card) === id)
+    )
+      expandedHolders.delete(id);
   selected = cards;
 }
 function choose(id) {
