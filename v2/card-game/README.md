@@ -786,7 +786,8 @@ know its lanes; people from the forest know the Black Pond lanes; Myrto the
 shipmaster knows every lane. Everyone aboard learns the lane they sail. At a
 port or aboard, Talk can tell a lane as a fact ("Ships for Piraeus Quays leave
 from The Wine-Dark Harbor."), and the listener learns it only when the published
-speech says it. Lanes are saved as `sea:` edges in route knowledge.
+speech says it. A story choice that is ready at the port is told first, so a
+new lane never holds up an authored scene. Lanes are saved as `sea:` edges in route knowledge.
 
 See the Greek pack README and `test/card-theban-release.test.mjs`; the scene
 journey is `v2/scripts/smoke-card-theban-scenery.mjs`. The weather journey is
